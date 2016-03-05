@@ -1008,12 +1008,9 @@ void X86_32TargetCodeGenInfo::addReturnRegisterOutputs(
 bool X86_32ABIInfo::shouldReturnTypeInRegister(QualType Ty,
                                                ASTContext &Context) const {
   uint64_t Size = Context.getTypeSize(Ty);
-#if INTEL_CUSTOMIZATION
-  // For i386, type must be register sized.
   // For the MCU ABI, it only needs to be <= 8-byte
   if ((IsMCUABI && (Size == 0 || Size > 64)) ||
       (!IsMCUABI && !isRegisterSize(Size)))
-#endif //INTEL_CUSTOMIZATION
    return false;
 
   if (Ty->isVectorType()) {

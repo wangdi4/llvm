@@ -2039,6 +2039,9 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
     if (getLangOpts().IntelCompat && !T->isIncompleteArrayType() &&
         !T->isVoidType())
       (void)RequireCompleteType(Loc, T, diag::ext_intel_array_incomplete_type);
+    // CQ380872: Arrays with incomplete (unknown) size
+    else if (getLangOpts().IntelCompat && T->isIncompleteArrayType())
+      (void)RequireCompleteType(Loc, T, diag::warn_intel_array_incomplete_size);
     else
 #endif // INTEL_CUSTOMIZATION
     if (RequireCompleteType(Loc, T,

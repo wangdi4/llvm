@@ -639,6 +639,12 @@ void Sema::DiagnoseUnknownTypeName(IdentifierInfo *&II,
       << II << DC << SS->getRange();
   else if (isDependentScopeSpecifier(*SS)) {
     unsigned DiagID = diag::err_typename_missing;
+#if INTEL_CUSTOMIZATION
+    // Fix for CQ368310: missing 'typename' prior to dependent type name.
+    if (getLangOpts().IntelCompat) {
+      DiagID = diag::ext_typename_missing;
+    } else
+#endif // INTEL_COMPATIBILITY
     if (getLangOpts().MSVCCompat && isMicrosoftMissingTypename(SS, S))
       DiagID = diag::ext_typename_missing;
 
@@ -2844,6 +2850,28 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
   QualType NewQType = Context.getCanonicalType(New->getType());
   const FunctionType *OldType = cast<FunctionType>(OldQType);
   const FunctionType *NewType = cast<FunctionType>(NewQType);
+
+#if INTEL_CUSTOMIZATION
+  // CQ#375830 - handling '__restrict' in function declaraion, see CQ#47410 for
+  // details.
+  if (getLangOpts().IntelCompat) {
+    const FunctionProtoType *OldPr = OldType->getAs<FunctionProtoType>();
+    const FunctionProtoType *NewPr = NewType->getAs<FunctionProtoType>();
+    if (OldPr && NewPr && (OldPr->isRestrict() != NewPr->isRestrict())) {
+      FunctionProtoType::ExtProtoInfo EPI = NewPr->getExtProtoInfo();
+      if (!OldPr->isRestrict() && NewPr->isRestrict()) {
+        EPI.TypeQuals &= ~Qualifiers::Restrict;
+      } else if (OldPr->isRestrict() && !NewPr->isRestrict()) {
+        EPI.TypeQuals |= Qualifiers::Restrict;
+      }
+      New->setType(Context.getFunctionType(NewPr->getReturnType(),
+                                           NewPr->getParamTypes(), EPI));
+      NewQType = Context.getCanonicalType(New->getType());
+      NewType = cast<FunctionType>(NewQType);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   FunctionType::ExtInfo OldTypeInfo = OldType->getExtInfo();
   FunctionType::ExtInfo NewTypeInfo = NewType->getExtInfo();
   bool RequiresAdjustment = false;
@@ -3728,10 +3756,18 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
   }
 
   if (haveIncompatibleLanguageLinkages(Old, New)) {
+#if INTEL_CUSTOMIZATION
+  // CQ#377628 - print warning if Intel compatibility.
+  if (getLangOpts().IntelCompat)
+    Diag(New->getLocation(), diag::warn_different_language_linkage) << New;
+  else
+#endif // INTEL_CUSTOMIZATION
+  { // INTEL
     Diag(New->getLocation(), diag::err_different_language_linkage) << New;
     Diag(OldLocation, PrevDiag);
     New->setInvalidDecl();
     return;
+  } // INTEL
   }
 
   // Merge "used" flag.
@@ -5334,6 +5370,10 @@ void Sema::DiagnoseFunctionSpecifiers(const DeclSpec &DS) {
   // confusion for constructs like "inline int a(), b;"
   if (DS.isInlineSpecified())
     Diag(DS.getInlineSpecLoc(),
+#if INTEL_CUSTOMIZATION
+         // CQ#370751: Ignore 'inline' atttribute for non functions
+         getLangOpts().IntelCompat ? diag::warn_inline_non_function :
+#endif // INTEL_CUSTOMIZATION
          diag::err_inline_non_function);
 
   if (DS.isVirtualSpecified())
@@ -6005,6 +6045,15 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       case SC_None:
         break;
       case SC_Static:
+#if INTEL_CUSTOMIZATION
+        // CQ#376357: Allow static specifier for outline method definition.
+        if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive) {
+          Diag(D.getDeclSpec().getStorageClassSpecLoc(),
+               diag::warn_static_out_of_line)
+              << FixItHint::CreateRemoval(
+                     D.getDeclSpec().getStorageClassSpecLoc());
+        } else
+#endif // INTEL_CUSTOMIZATION
         Diag(D.getDeclSpec().getStorageClassSpecLoc(),
              diag::err_static_out_of_line)
           << FixItHint::CreateRemoval(D.getDeclSpec().getStorageClassSpecLoc());
@@ -7911,9 +7960,23 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
     if (isFriend) {
       if (FunctionTemplate) {
+#if INTEL_CUSTOMIZATION
+        // CQ376358: Support -ffriend-injection option
+        if (getLangOpts().IntelCompat && getLangOpts().FriendFunctionInject)
+          FunctionTemplate->setObjectOfFriendDecl(
+              /*PerformFriendInjection=*/true);
+        else
+#endif
         FunctionTemplate->setObjectOfFriendDecl();
         FunctionTemplate->setAccess(AS_public);
       }
+#if INTEL_CUSTOMIZATION
+      // CQ376358: Support -ffriend-injection option
+      if (getLangOpts().IntelCompat && getLangOpts().FriendFunctionInject)
+        NewFD->setObjectOfFriendDecl(
+            /*PerformFriendInjection=*/true);
+      else
+#endif
       NewFD->setObjectOfFriendDecl();
       NewFD->setAccess(AS_public);
     }
@@ -7952,6 +8015,15 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
       // Complain about the 'static' specifier if it's on an out-of-line
       // member function definition.
+#if INTEL_CUSTOMIZATION
+      // CQ#376357: Allow static specifier for outline method definition.
+      if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive) {
+        Diag(D.getDeclSpec().getStorageClassSpecLoc(),
+             diag::warn_static_out_of_line)
+            << FixItHint::CreateRemoval(
+                   D.getDeclSpec().getStorageClassSpecLoc());
+      } else
+#endif // INTEL_CUSTOMIZATION
       Diag(D.getDeclSpec().getStorageClassSpecLoc(),
            diag::err_static_out_of_line)
         << FixItHint::CreateRemoval(D.getDeclSpec().getStorageClassSpecLoc());
@@ -8371,6 +8443,13 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       // C++ [temp.expl.spec]p2. We also allow these declarations as an 
       // extension for compatibility with old SWIG code which likes to 
       // generate them.
+#if INTEL_CUSTOMIZATION
+      // CQ#376357: Allow out of class declaration.
+      if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive) {
+        Diag(NewFD->getLocation(), diag::warn_out_of_line_declaration)
+          << D.getCXXScopeSpec().getRange();
+      } else
+#endif // INTEL_CUSTOMIZATION
       Diag(NewFD->getLocation(), diag::ext_out_of_line_declaration)
         << D.getCXXScopeSpec().getRange();
     }
@@ -8887,9 +8966,17 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     HasExtraParameters = false;
 
   if (HasExtraParameters) {
+#if INTEL_CUSTOMIZATION
+    //CQ#373972 - emit a warning if too many parameters.
+    if (getLangOpts().IntelCompat) {
+      Diag(FD->getLocation(), diag::warn_main_surplus_args) << nparams;
+      nparams = 3;
+    } else {
+#endif //INTEL_CUSTOMIZATION
     Diag(FD->getLocation(), diag::err_main_surplus_args) << nparams;
     FD->setInvalidDecl(true);
     nparams = 3;
+    } // INTEL
   }
 
   // FIXME: a lot of the following diagnostics would be improved
@@ -9997,6 +10084,10 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl,
       if (!Var->isInvalidDecl()) {
         if (const IncompleteArrayType *ArrayT
                                     = Context.getAsIncompleteArrayType(Type)) {
+#if INTEL_CUSTOMIZATION
+          // CQ#370357 - Arrays with incomplete element type
+          if (!getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
           if (RequireCompleteType(Var->getLocation(),
                                   ArrayT->getElementType(),
                                   diag::err_illegal_decl_array_incomplete_type))
@@ -11126,10 +11217,8 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D,
   // Builtin functions cannot be defined.
   if (unsigned BuiltinID = FD->getBuiltinID()) {
 #if INTEL_CUSTOMIZATION
-    // Fix for CQ374883: redefinition of builtin function is not allowed.
-    if (getLangOpts().IntelCompat)
-      FD->getIdentifier()->revertBuiltin();
-    else
+    // CQ#379698, CQ#374883: redefinition of builtin functions
+    if (!getLangOpts().IntelCompat)
 #endif // INTEL_CUSTOMIZATION
     if (!Context.BuiltinInfo.isPredefinedLibFunction(BuiltinID) &&
         !Context.BuiltinInfo.isPredefinedRuntimeFunction(BuiltinID)) {
@@ -12503,7 +12592,7 @@ Decl *Sema::ActOnTag(Scope *S, unsigned TagSpec, TagUseKind TUK,
           // the same scope. Emit a warning as this relaxes ISO C++ restriction.
           else if (getLangOpts().IntelCompat && TUK == TUK_Friend &&
                    TD->getDeclContext()->getRedeclContext() == SearchDC) {
-            Diag(NameLoc, diag::ext_intel_elab_befriended_type_refers_typedef);
+            Diag(NameLoc, diag::ext_intel_elaborated_type_refers_to_typedef);
             Diag(PrevDecl->getLocation(), diag::note_declared_at);
             PrevDecl = Tag;
             Previous.clear();
@@ -12948,7 +13037,10 @@ CreateNewDecl:
   // declaration so we always pass true to setObjectOfFriendDecl to make
   // the tag name visible.
   if (TUK == TUK_Friend)
-    New->setObjectOfFriendDecl(getLangOpts().MSVCCompat);
+    New->setObjectOfFriendDecl(             // INTEL
+        getLangOpts().MSVCCompat ||         // INTEL
+        (getLangOpts().IntelCompat &&       // INTEL
+         getLangOpts().FriendClassInject)); // INTEL
 
   // Set the access specifier.
   if (!Invalid && SearchDC->isRecord())

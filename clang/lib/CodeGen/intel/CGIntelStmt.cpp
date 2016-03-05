@@ -1314,7 +1314,7 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
 // early optimizations (mostly dtrans) and kfolds it out later.
 llvm::Value *CodeGenFunction::EmitIntelSizeof(QualType QTy, llvm::Value *C) {
   llvm::Type *Ty = CGM.getTypes().ConvertType(QTy);
-  if (!getLangOpts().IntelCompat || Ty == nullptr) {
+  if (!getLangOpts().IntelCompat || Ty == nullptr || Ty->isFunctionTy()) {
     return C;
   }
   // Sizeof may be represented as: (i64) gep (Ty*)null, 1

@@ -1026,6 +1026,21 @@ public:
           if (isa<TypedefDecl>(SomeDecl)) Kind = 1;
           else if (isa<TypeAliasDecl>(SomeDecl)) Kind = 2;
           else if (isa<ClassTemplateDecl>(SomeDecl)) Kind = 3;
+#if INTEL_CUSTOMIZATION
+          // CQ#374878. Allow elaborated type refer to a typedef if the
+          // underlying type is a record type in IntelCompat mode.
+          if (SemaRef.Context.getLangOpts().IntelCompat && Kind && Kind < 3) {
+            auto *TypedefD = dyn_cast<TypedefNameDecl>(SomeDecl);
+            if (TypedefD && TypedefD->getUnderlyingType()->isRecordType()) {
+              SemaRef.Diag(IdLoc,
+                           diag::ext_intel_elaborated_type_refers_to_typedef);
+              SemaRef.Diag(SomeDecl->getLocation(), diag::note_declared_at);
+              return SemaRef.Context.getElaboratedType(
+                  Keyword, QualifierLoc.getNestedNameSpecifier(),
+                  SemaRef.Context.getTypeDeclType(TypedefD));
+            }
+          }
+#endif // INTEL_CUSTOMIZATION
           SemaRef.Diag(IdLoc, diag::err_tag_reference_non_tag) << Kind;
           SemaRef.Diag(SomeDecl->getLocation(), diag::note_declared_at);
           break;

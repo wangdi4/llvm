@@ -1113,6 +1113,21 @@ static TryCastResult TryStaticCast(Sema &Self, ExprResult &SrcExpr,
         return TC_Success;
       }
     }
+#if INTEL_CUSTOMIZATION
+    // CQ374738: allow const_cast from pointer-to-const to simple pointer
+    else if (!CStyle && Self.getLangOpts().IntelCompat &&
+             SrcPointee.isConstQualified()) {
+      if (DestType->isPointerType()) {
+        QualType DestPointee = DestType->getAs<PointerType>()->getPointeeType();
+        if (Self.Context.hasSameUnqualifiedType(DestPointee, SrcPointee)) {
+            Kind = CK_BitCast;
+            Self.Diag(OpRange.getBegin(), diag::warn_bad_cxx_cast_generic)
+                << 1 << SrcType << DestType << OpRange;
+            return TC_Success;
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
   // Allow arbitray objective-c pointer conversion with static casts.
   if (SrcType->isObjCObjectPointerType() &&
@@ -1132,8 +1147,21 @@ static TryCastResult TryStaticCast(Sema &Self, ExprResult &SrcExpr,
     if (auto DestPointer = DestType->getAs<PointerType>())
       if (SrcPointer->getPointeeType()->getAs<RecordType>() &&
           DestPointer->getPointeeType()->getAs<RecordType>())
+#if INTEL_CUSTOMIZATION
+      {
+        // CQ374738: allow static_cast from 'Derived *' to 'Base *'
+        if (!CStyle && Self.getLangOpts().IntelCompat) {
+          Kind = CK_BitCast;
+          Self.Diag(OpRange.getBegin(), diag::warn_bad_cxx_cast_unrelated_class)
+              << 1 << SrcType << DestType << OpRange;
+          return TC_Success;
+        }
+#endif // INTEL_CUSTOMIZATION
        msg = diag::err_bad_cxx_cast_unrelated_class;
-  
+#if INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
+
   // We tried everything. Everything! Nothing works! :-(
   return TC_NotApplicable;
 }
@@ -1879,6 +1907,7 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
     //   type large enough to hold it. A value of std::nullptr_t can be
     //   converted to an integral type; the conversion has the same meaning
     //   and validity as a conversion of (void*)0 to the integral type.
+    if (!Self.getLangOpts().GnuPermissive) //***INTEL CQ#376357
     if (Self.Context.getTypeSize(SrcType) >
         Self.Context.getTypeSize(DestType)) {
       msg = diag::err_bad_reinterpret_cast_small_int;
@@ -1957,6 +1986,7 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
                               !DestType->isBooleanType();
     if ((Self.Context.getTypeSize(SrcType) >
          Self.Context.getTypeSize(DestType)) &&
+         !Self.getLangOpts().GnuPermissive && //***INTEL CQ#376357
          !MicrosoftException) {
       msg = diag::err_bad_reinterpret_cast_small_int;
       return TC_Failed;

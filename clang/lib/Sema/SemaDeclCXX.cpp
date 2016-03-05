@@ -420,11 +420,26 @@ void Sema::CheckExtraCXXDefaultArguments(Declarator &D) {
                              Toks->back().getLocation());
           else
             SR = UnparsedDefaultArgLocs[Param];
+#if INTEL_CUSTOMIZATION
+          // CQ375240
+          if (getLangOpts().IntelCompat)
+            Diag(Param->getLocation(),
+                 diag::warn_param_default_argument_nonfunc) << SR;
+          else
+#endif // INTEL_CUSTOMIZATION
           Diag(Param->getLocation(), diag::err_param_default_argument_nonfunc)
             << SR;
           delete Toks;
           chunk.Fun.Params[argIdx].DefaultArgTokens = nullptr;
         } else if (Param->getDefaultArg()) {
+#if INTEL_CUSTOMIZATION
+          // CQ375240
+          if (getLangOpts().IntelCompat)
+            Diag(Param->getLocation(),
+                 diag::warn_param_default_argument_nonfunc)
+              << Param->getDefaultArg()->getSourceRange();
+          else
+#endif // INTEL_CUSTOMIZATION
           Diag(Param->getLocation(), diag::err_param_default_argument_nonfunc)
             << Param->getDefaultArg()->getSourceRange();
           Param->setDefaultArg(nullptr);
@@ -525,8 +540,8 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
 #if INTEL_CUSTOMIZATION
     // Fix for CQ#373517: compilation fails with 'redefinition of default
     // argument'.
-    if (getLangOpts().IntelCompat && (OldParamHasDfl || NewParamHasDfl) &&
-        (getLangOpts().PermissiveArgs ||
+    if (getLangOpts().IntelCompat && OldParamHasDfl && NewParamHasDfl &&
+        (getLangOpts().GnuPermissive ||
          getSourceManager().isInSystemHeader(New->getLocation()))) {
       NewParam->setHasInheritedDefaultArg();
       if (OldParam) {
@@ -12850,7 +12865,9 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
   //
   // Also update the scope-based lookup if the target context's
   // lookup context is in lexical scope.
-  if (!CurContext->isDependentContext()) {
+  if (!CurContext->isDependentContext() ||                      // INTEL
+      (LangOpts.IntelCompat && LangOpts.FriendFunctionInject && // INTEL
+       !isa<FunctionTemplateDecl>(ND))) {                       // INTEL
     DC = DC->getRedeclContext();
     DC->makeDeclVisibleInContext(ND);
     if (Scope *EnclosingScope = getScopeForDeclContext(S, DC))

@@ -343,6 +343,11 @@ def warn_use_out_of_scope_declaration : Warning<
   "use of out-of-scope declaration of %0">;
 def err_inline_non_function : Error<
   "'inline' can only appear on functions">;
+// if INTEL_CUSTOMIZATION
+// CQ#370751
+def warn_inline_non_function : Warning<err_inline_non_function.Text>,
+    InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_noreturn_non_function : Error<
   "'_Noreturn' can only appear on functions">;
 def warn_qual_return_type : Warning< 
@@ -574,6 +579,11 @@ def ext_main_returns_nonint : ExtWarn<"return type of 'main' is not 'int'">,
 def note_main_change_return_type : Note<"change return type to 'int'">;
 def err_main_surplus_args : Error<"too many parameters (%0) for 'main': "
     "must be 0, 2, or 3">;
+// if INTEL_CUSTOMIZATION
+// CQ#373972
+def warn_main_surplus_args : Warning<err_main_surplus_args.Text>,
+    InGroup<Main>;
+// endif INTEL_CUSTOMIZATION
 def warn_main_one_arg : Warning<"only one parameter on 'main' declaration">,
     InGroup<Main>;
 def err_main_arg_wrong : Error<"%select{first|second|third|fourth}0 "
@@ -650,6 +660,12 @@ def note_surrounding_namespace_ends_here : Note<
   "surrounding namespace with visibility attribute ends here">;
 def err_pragma_pop_visibility_mismatch : Error<
   "#pragma visibility pop with no matching #pragma visibility push">;
+//#if INTEL_CUSTOMIZATION
+// CQ#374277
+def warn_pragma_pop_visibility_mismatch : Warning<
+  err_pragma_pop_visibility_mismatch.Text>,
+  InGroup<Pragmas>;
+//#endif // INTEL_CUSTOMIZATION
 def note_surrounding_namespace_starts_here : Note<
   "surrounding namespace with visibility attribute starts here">;
 def err_pragma_loop_invalid_argument_type : Error<
@@ -1259,6 +1275,15 @@ def ext_ms_using_declaration_inaccessible : ExtWarn<
 def err_access_ctor : Error<
   "calling a %select{private|protected}0 constructor of class %2">, 
   AccessControl;
+// if INTEL_CUSTOMIZATION
+// Fix for CQ374722: for compatibility reasons allow to call private
+// constructor from template or template instantiation in intel
+// compatibility mode. In MS compatibility mode allow to call private
+// constructor at any point.
+def warn_access_ctor : Warning<err_access_ctor.Text>,
+                       AccessControl,
+                       InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def ext_rvalue_to_reference_access_ctor : Extension<
   "C++98 requires an accessible copy constructor for class %2 when binding "
   "a reference to a temporary; was %select{private|protected}0">,
@@ -1384,6 +1409,11 @@ def err_explicit_non_ctor_or_conv_function : Error<
 def err_static_not_bitfield : Error<"static member %0 cannot be a bit-field">;
 def err_static_out_of_line : Error<
   "'static' can only be specified inside the class definition">;
+//if INTEL_CUSTOMIZATION
+// CQ#376357: Allow static specifier for outline method definition.
+def warn_static_out_of_line : Warning<
+  err_static_out_of_line.Text>, InGroup<IntelCompat>;
+// endif // INTEL_CUSTOMIZATION
 def err_storage_class_for_static_member : Error<
   "static data member definition cannot specify a storage class">;
 def err_typedef_not_bitfield : Error<"typedef member %0 cannot be a bit-field">;
@@ -2420,6 +2450,11 @@ def err_alias_not_supported_on_darwin : Error <
   "only weak aliases are supported on darwin">;
 def err_alias_to_undefined : Error<
   "alias must point to a defined variable or function">;
+// if INTEL_CUSTOMIZATION
+// CQ#368740: warning for compatibility reasons.
+def warn_alias_to_undefined : Warning<err_alias_to_undefined.Text>,
+    InGroup<IntelCompat>;
+// endif //INTEL_CUSTOMIZATION
 def warn_alias_to_weak_alias : Warning<
   "alias will always resolve to %0 even if weak definition of alias %1 is overridden">,
   InGroup<IgnoredAttributes>;
@@ -2745,6 +2780,12 @@ def warn_impcast_null_pointer_to_integer : Warning<
 def warn_impcast_floating_point_to_bool : Warning<
     "implicit conversion turns floating-point number into bool: %0 to %1">,
     InGroup<ImplicitConversionFloatingPointToBool>;
+//if INTEL_CUSTOMIZATION
+// Fix for CQ376357: -fpermissive illegal conversion.
+def warn_impcast_permissive_conversion : Warning<
+  "illegal implicit type conversion from %0 to %1 allowed in -fpermissive mode">,
+  InGroup<IntelCompat>;
+// endif //INTEL_CUSTOMIZATION
 def ext_ms_impcast_fn_obj : ExtWarn<
   "implicit conversion between pointer-to-function and pointer-to-object is a "
   "Microsoft extension">, InGroup<MicrosoftCast>;
@@ -3024,6 +3065,11 @@ def err_param_default_argument_references_this : Error<
 def err_param_default_argument_nonfunc : Error<
   "default arguments can only be specified for parameters in a function "
   "declaration">;
+// if INTEL_CUSTOMIZATION
+// CQ375240
+def warn_param_default_argument_nonfunc : Warning<
+  err_param_default_argument_nonfunc.Text>, InGroup<IntelCompat>;
+// endif //INTEL_CUSTOMIZATION
 def err_param_default_argument_template_redecl : Error<
   "default arguments cannot be added to a function template that has already "
   "been declared">;
@@ -4238,6 +4284,9 @@ def err_static_non_static : Error<
   "static declaration of %0 follows non-static declaration">;
 def err_different_language_linkage : Error<
   "declaration of %0 has a different language linkage">;
+def warn_different_language_linkage : Warning<
+  "declaration of %0 has a different language linkage">,
+  InGroup<IntelCompat>;
 def ext_retained_language_linkage : Extension<
   "friend function %0 retaining previous language linkage is an extension">,
   InGroup<DiagGroup<"retained-language-linkage">>;
@@ -4473,6 +4522,11 @@ def err_init_objc_class : Error<
   "cannot initialize Objective-C class type %0">;
 def err_implicit_empty_initializer : Error<
   "initializer for aggregate with no elements requires explicit braces">;
+// if INTEL_CUSTOMIZATION
+// cq371131
+def warn_implicit_empty_initializer : Warning<
+  err_implicit_empty_initializer.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_bitfield_has_negative_width : Error<
   "bit-field %0 has negative width (%1)">;
 def err_anon_bitfield_has_negative_width : Error<
@@ -5159,6 +5213,11 @@ def err_qualified_param_declarator : Error<
 def ext_out_of_line_declaration : ExtWarn<
   "out-of-line declaration of a member must be a definition">,
   InGroup<OutOfLineDeclaration>, DefaultError;
+// if INTEL_CUSTOMIZATION
+// CQ#376357
+def warn_out_of_line_declaration : Warning<
+  ext_out_of_line_declaration.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_member_extra_qualification : Error<
   "extra qualification on member %0">;
 def warn_member_extra_qualification : Warning<
@@ -5194,6 +5253,11 @@ def err_typecheck_pointer_arith_function_type : Error<
   "function type%select{|s}2 %1%select{| and %3}2">;
 def err_typecheck_pointer_arith_void_type : Error<
   "arithmetic on%select{ a|}0 pointer%select{|s}0 to void">;
+// if INTEL_CUSTOMIZATION
+// CQ#376357: void pointer arithmetics.
+def warn_typecheck_pointer_arith_void_type : Warning<
+  err_typecheck_pointer_arith_void_type.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_typecheck_decl_incomplete_type : Error<
   "variable has incomplete type %0">;
 def err_typecheck_decl_incomplete_type___float128 : Error<
@@ -6516,6 +6580,12 @@ def err_cast_selector_expr : Error<
 def ext_typecheck_cond_incompatible_pointers : ExtWarn<
   "pointer type mismatch%diff{ ($ and $)|}0,1">,
   InGroup<DiagGroup<"pointer-type-mismatch">>;
+// if INTEL_CUSTOMIZATION
+// CQ#375765.
+def ext_regparm_cond_mismatch : Warning<
+  "function type mismatch: different regparm attributes%diff{ ($ and $)|}0,1">,
+  InGroup<IncompatiblePointerTypes>;
+// endif // INTEL_CUSTOMIZATION
 def ext_typecheck_cond_pointer_integer_mismatch : ExtWarn<
   "pointer/integer type mismatch in conditional expression"
   "%diff{ ($ and $)|}0,1">,

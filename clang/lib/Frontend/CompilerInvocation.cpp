@@ -1504,18 +1504,38 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 #if INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
-  Opts.Float128 = Args.hasArg(OPT_extended_float_types);
+  Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);
   Opts.Restrict =
       Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);
   // Fix for CQ#373517: compilation fails with 'redefinition of default
   // argument'.
-  Opts.PermissiveArgs = Args.hasArg(OPT_fpermissive_args);
+  Opts.GnuPermissive = Args.hasArg(OPT_gnu_permissive);
   // CQ371729: Incompatible name mangling.
   Opts.GNUMangling =
       Args.hasFlag(OPT_gnu_mangling_for_simd_types,
                    OPT_no_gnu_mangling_for_simd_types, Opts.GNUMangling);
   Opts.GNUFABIVersion = getLastArgIntValue(Args, OPT_gnu_fabi_version_EQ,
                                            Opts.GNUFABIVersion, Diags);
+  // CQ380574: Ability to set various predefines based on gcc version needed.
+  Opts.GNUVersion = getLastArgIntValue(Args, OPT_gnu_version_EQ,
+#if INTEL_SPECIFIC_IL0_BACKEND
+                                       40800,
+#else
+                                       40500,
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+                                       Diags);
+  Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode &&
+                                     Opts.GNUVersion >= 40400);
+  // CQ376358: Support -ffriend-injection option.
+  // GCC < 4.01.00 supports friend function injections by default.
+  // GCC < 4.00.01 supports friend classes injections by default.
+  // This copied from EDG for better compatibility with icc/gcc.
+  Opts.FriendFunctionInject =
+      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection,
+                   Opts.GNUVersion < 40100 && !Opts.CPlusPlus11);
+  Opts.FriendClassInject =
+      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection,
+                   Opts.GNUVersion < 40001 && !Opts.CPlusPlus11);
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   StringRef OptLevel = Args.getLastArgValue(OPT_pragma_optimization_level_EQ, "Intel");
   Opts.PragmaOptimizationLevelIntel = (OptLevel == "Intel") ? 1 : 0;

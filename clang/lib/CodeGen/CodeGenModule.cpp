@@ -309,6 +309,13 @@ void CodeGenModule::checkAliases() {
       Diags.Report(AA->getLocation(), diag::err_cyclic_alias);
     } else if (GV->isDeclaration()) {
       Error = true;
+#if INTEL_CUSTOMIZATION
+      // CQ#368740: emit warning if alias points to undefined, for compatibility
+      // reasons
+      if (Context.getLangOpts().IntelCompat)
+        Diags.Report(AA->getLocation(), diag::warn_alias_to_undefined);
+      else
+#endif // INTEL_CUSTOMIZATION
       Diags.Report(AA->getLocation(), diag::err_alias_to_undefined);
     }
 
@@ -670,6 +677,13 @@ StringRef CodeGenModule::getMangledName(GlobalDecl GD) {
     IdentifierInfo *II = ND->getIdentifier();
     assert(II && "Attempt to mangle unnamed decl.");
     Str = II->getName();
+#if INTEL_CUSTOMIZATION
+    // CQ#379698, CQ#374883: redefinition of builtin functions
+    if (getLangOpts().IntelCompat)
+      if (const auto *D = dyn_cast<FunctionDecl>(GD.getDecl()))
+        if (D->getBuiltinID() && D->hasBody() && Str.startswith("__builtin_"))
+          Str = Str.drop_front(10);
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Keep the first result in the case of a mangling collision.
@@ -2814,7 +2828,6 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   auto *Fn = cast<llvm::Function>(GV);
   setFunctionLinkage(GD, Fn);
   setFunctionDLLStorageClass(GD, Fn);
-
   // FIXME: this is redundant with part of setFunctionDefinitionAttributes
   setGlobalVisibility(Fn, D);
 

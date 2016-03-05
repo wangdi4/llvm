@@ -930,6 +930,10 @@ void CXXNameMangler::mangleUnresolvedName(NestedNameSpecifier *qualifier,
     case DeclarationName::CXXConversionFunctionName:
     case DeclarationName::CXXLiteralOperatorName:
     case DeclarationName::CXXOperatorName:
+#if INTEL_CUSTOMIZATION
+      // CQ375198: Incompatible name mangling.
+      if (!getASTContext().getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
       Out << "on";
       mangleOperatorName(name, knownArity);
       break;

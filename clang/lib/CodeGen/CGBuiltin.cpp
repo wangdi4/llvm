@@ -441,6 +441,15 @@ CodeGenFunction::emitBuiltinObjectSize(const Expr *E, unsigned Type,
   return Builder.CreateCall(F, {EmitScalarExpr(E), CI});
 }
 
+#ifdef INTEL_CUSTOMIZATION
+// CQ373809: unknown '__intel_***' builtin functions
+static RValue EmitIntelCast(CodeGenFunction &CGF, const CallExpr *E,
+                            llvm::Type *DestType) {
+  Value *V = CGF.EmitScalarExpr(E->getArg(0));
+  return RValue::get(CGF.Builder.CreateBitCast(V, DestType));
+}
+#endif // INTEL_CUSTOMIZATION
+
 RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
                                         unsigned BuiltinID, const CallExpr *E,
                                         ReturnValueSlot ReturnValue) {
@@ -461,6 +470,21 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__builtin___CFStringMakeConstantString:
   case Builtin::BI__builtin___NSStringMakeConstantString:
     return RValue::get(CGM.EmitConstantExpr(E, E->getType(), nullptr));
+#ifdef INTEL_CUSTOMIZATION
+  // CQ373809: unknown '__intel_***' builtin functions
+  case Builtin::BI__intel_castu32_f32: {
+    return EmitIntelCast(*this, E, FloatTy);
+  }
+  case Builtin::BI__intel_castf32_u32: {
+    return EmitIntelCast(*this, E, Int32Ty);
+  }
+  case Builtin::BI__intel_castf64_u64: {
+    return EmitIntelCast(*this, E, Int64Ty);
+  }
+  case Builtin::BI__intel_castu64_f64: {
+    return EmitIntelCast(*this, E, DoubleTy);
+  }
+#endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_stdarg_start:
   case Builtin::BI__builtin_va_start:
   case Builtin::BI__va_start:

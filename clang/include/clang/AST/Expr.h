@@ -5102,13 +5102,13 @@ private:
   CEANKindType CEANKind;
   SourceLocation StartLoc, RParenLoc;
 
-  CEANBuiltinExpr(SourceLocation StartLoc,
-                  unsigned Rank, unsigned ArgsSize,
-                  CEANKindType Kind,
-                  QualType QTy, SourceLocation RParenLoc)
-  : Expr(CEANBuiltinExprClass, QTy, VK_RValue, OK_Ordinary,
-         false, false, false, false),
-    Rank(Rank), ArgsSize(ArgsSize), CEANKind(Kind), StartLoc(StartLoc), RParenLoc(RParenLoc) { }
+  CEANBuiltinExpr(SourceLocation StartLoc, unsigned Rank, unsigned ArgsSize,
+                  CEANKindType Kind, QualType QTy, SourceLocation RParenLoc,
+                  ExprValueKind VK)
+      : Expr(CEANBuiltinExprClass, QTy, VK, OK_Ordinary, false, false, false,
+             false),
+        Rank(Rank), ArgsSize(ArgsSize), CEANKind(Kind), StartLoc(StartLoc),
+        RParenLoc(RParenLoc) {}
 
   /// \brief Create an empty CEAN builtin expression.
   explicit CEANBuiltinExpr(unsigned Rank, unsigned ArgsSize)

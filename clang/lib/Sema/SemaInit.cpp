@@ -778,8 +778,19 @@ void InitListChecker::CheckImplicitInitList(const InitializedEntity &Entity,
   if (maxElements == 0) {
     if (!VerifyOnly)
       SemaRef.Diag(ParentIList->getInit(Index)->getLocStart(),
+#if INTEL_CUSTOMIZATION
+                   // cq371131: Print warning in case of empty records
+                   SemaRef.getLangOpts().IntelCompat &&
+                   !SemaRef.getLangOpts().IntelMSCompat ?
+                       diag::warn_implicit_empty_initializer :
+#endif // INTEL_CUSTOMIZATION
                    diag::err_implicit_empty_initializer);
     ++Index;
+#if INTEL_CUSTOMIZATION
+    // cq371131
+    if (!SemaRef.getLangOpts().IntelCompat ||
+        SemaRef.getLangOpts().IntelMSCompat)
+#endif // INTEL_CUSTOMIZATION
     hadError = true;
     return;
   }
@@ -919,7 +930,12 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
   if (Index < IList->getNumInits()) {
     // We have leftover initializers
     if (VerifyOnly) {
-      if (SemaRef.getLangOpts().CPlusPlus ||
+#if INTEL_CUSTOMIZATION
+      // CQ#376357: Allow excess initializers in permissive mode.
+      if ((SemaRef.getLangOpts().CPlusPlus &&
+          !(SemaRef.getLangOpts().IntelCompat &&
+            SemaRef.getLangOpts().GnuPermissive)) ||
+#endif // INTEL_CUSTOMIZATION
           (SemaRef.getLangOpts().OpenCL &&
            IList->getType()->isVectorType())) {
         hadError = true;
@@ -927,7 +943,7 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
       return;
     }
 
-    if (StructuredIndex == 1 &&
+    if (StructuredIndex == 1 &&  StructuredList->getNumInits() > 0 && // INTEL cq371131
         IsStringInit(StructuredList->getInit(0), T, SemaRef.Context) ==
             SIF_None) {
       unsigned DK = diag::ext_excess_initializers_in_char_array_initializer;
@@ -950,7 +966,12 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
         4;
 
       unsigned DK = diag::ext_excess_initializers;
-      if (SemaRef.getLangOpts().CPlusPlus) {
+#if INTEL_CUSTOMIZATION
+      // CQ#376357: Allow excess initializers in permissive mode.
+      if (SemaRef.getLangOpts().CPlusPlus &&
+          !(SemaRef.getLangOpts().IntelCompat &&
+            SemaRef.getLangOpts().GnuPermissive)) {
+#endif // INTEL_CUSTOMIZATION
         DK = diag::err_excess_initializers;
         hadError = true;
       }
@@ -3598,7 +3619,7 @@ static void TryReferenceListInitialization(Sema &S,
                                            InitListExpr *InitList,
                                            InitializationSequence &Sequence) {
   // First, catch C++03 where this isn't possible.
-  if (!S.getLangOpts().CPlusPlus11) {
+  if (!S.getLangOpts().CPlusPlus11 && !S.getLangOpts().IntelCompat) { //INTEL
     Sequence.SetFailed(InitializationSequence::FK_ReferenceBindingToInitList);
     return;
   }
@@ -3749,7 +3770,7 @@ static void TryListInitialization(Sema &S,
   if ((DestType->isRecordType() && !DestType->isAggregateType()) ||
       (S.getLangOpts().CPlusPlus11 &&
        S.isStdInitializerList(DestType, nullptr))) {
-    if (S.getLangOpts().CPlusPlus11) {
+    if (S.getLangOpts().CPlusPlus11 || S.getLangOpts().IntelCompat) { // INTEL
       //   - Otherwise, if the initializer list has no elements and T is a
       //     class type with a default constructor, the object is
       //     value-initialized.
@@ -4923,8 +4944,19 @@ void InitializationSequence::InitializeFrom(Sema &S,
       Initializer && isa<AddrLabelExpr>(Initializer->IgnoreParenImpCasts()) &&
       Entity.getKind() == InitializedEntity::EK_Variable &&
       cast<VarDecl>(Entity.getDecl())->isStaticLocal()) {
-    SetFailed(FK_StaticLabelAddress);
-    return;
+    // Fix for CQ380936: compiler failed with assertion "it !=
+    // OpaqueRValues.end() && no mapping for opaque value!" on pointer test.
+    // Address of the label should not be stored in static variable inside a
+    // constructor, because constructor overloading produces another one
+    // function with the same static variable.
+    DeclContext *DC = S.getFunctionLevelDeclContext();
+    while (isa<RecordDecl>(DC))
+      DC = DC->getParent();
+    if (auto *CCD = dyn_cast<CXXConstructorDecl>(DC))
+      if (CCD->getType()->getAs<FunctionProtoType>()->isVariadic()) {
+        SetFailed(FK_StaticLabelAddress);
+        return;
+      }
   }
 #endif
 
@@ -7338,13 +7370,13 @@ bool InitializationSequence::Diagnose(Sema &S,
   case FK_StaticLabelAddress:
     // Fix for CQ#374664: After promotion xmain becomes too strict on
     // initialization of static variable with label address.
-    DeclContext *DC = S.getFunctionLevelDeclContext();
-    while (isa<RecordDecl>(DC))
-      DC = DC->getParent();
-    if (auto *CCD = dyn_cast<CXXConstructorDecl>(DC))
-      if (CCD->getType()->getAs<FunctionProtoType>()->isVariadic())
-        S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
-            << Args[0]->getSourceRange();
+    // Fix for CQ380936: compiler failed with assertion "it !=
+    // OpaqueRValues.end() && no mapping for opaque value!" on pointer test.
+    // Address of the label should not be stored in static variable inside a
+    // constructor, because constructor overloading produces another one
+    // function with the same static variable.
+    S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
+        << Args[0]->getSourceRange();
     break;
 #endif // INTEL_CUSTOMIZATION
   }
@@ -7671,6 +7703,7 @@ static void DiagnoseNarrowingInInitList(Sema &S,
     break;
   case ImplicitConversionSequence::AmbiguousConversion:
   case ImplicitConversionSequence::EllipsisConversion:
+  case ImplicitConversionSequence::PermissiveConversion: // INTEL
   case ImplicitConversionSequence::BadConversion:
     return;
   }

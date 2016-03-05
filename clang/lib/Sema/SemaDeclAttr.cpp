@@ -6364,6 +6364,33 @@ void Sema::DeclApplyPragmaWeak(Scope *S, NamedDecl *ND, WeakInfo &W) {
   if (W.getAlias()) { // clone decl, impersonate __attribute(weak,alias(...))
     IdentifierInfo *NDId = ND->getIdentifier();
     NamedDecl *NewD = DeclClonePragmaWeak(ND, W.getAlias(), W.getLocation());
+#if INTEL_CUSTOMIZATION
+    //CQ#368749: put mangled name into alias attr if needed
+    if (getLangOpts().IntelCompat) {
+      std::string AliasName = "";
+      std::unique_ptr<MangleContext> MC;
+      MC.reset(Context.createMangleContext());
+
+      if (MC->shouldMangleDeclName(ND)) {
+        SmallString<256> Buffer;
+        llvm::raw_svector_ostream Out(Buffer);
+        if (const CXXConstructorDecl *CD = dyn_cast<CXXConstructorDecl>(ND))
+          MC->mangleCXXCtor(CD, Ctor_Base, Out);
+        else if (const CXXDestructorDecl *DD = dyn_cast<CXXDestructorDecl>(ND))
+          MC->mangleCXXDtor(DD, Dtor_Base, Out);
+        else
+          MC->mangleName(ND, Out);
+
+        if (!Buffer.empty() && Buffer.front() == '\01')
+          AliasName = Buffer.substr(1);
+        AliasName = Buffer.str();
+      } else {
+        AliasName = NDId->getName();
+      }
+      NewD->addAttr(
+          AliasAttr::CreateImplicit(Context, AliasName, W.getLocation()));
+    } else
+#endif // INTEL_CUSTOMIZATION
     NewD->addAttr(AliasAttr::CreateImplicit(Context, NDId->getName(),
                                             W.getLocation()));
     NewD->addAttr(WeakAttr::CreateImplicit(Context, W.getLocation()));
@@ -6371,6 +6398,12 @@ void Sema::DeclApplyPragmaWeak(Scope *S, NamedDecl *ND, WeakInfo &W) {
     // FIXME: "hideous" code from Sema::LazilyCreateBuiltin
     // to insert Decl at TU scope, sorry.
     DeclContext *SavedContext = CurContext;
+#if INTEL_CUSTOMIZATION
+    //CQ#368740: fix declaration context for pragma weak
+    if (getLangOpts().IntelCompat && NewD->getDeclContext()->isExternCContext())
+      CurContext = NewD->getDeclContext();
+    else
+#endif // INTEL_CUSTOMIZATION
     CurContext = Context.getTranslationUnitDecl();
     NewD->setDeclContext(CurContext);
     NewD->setLexicalDeclContext(CurContext);

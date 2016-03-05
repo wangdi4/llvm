@@ -1228,6 +1228,39 @@ TryUserDefinedConversion(Sema &S, Expr *From, QualType ToType,
   return ICS;
 }
 
+#if INTEL_CUSTOMIZATION
+// CQ#376357: GCC in -fpermissive mode allows weird conversions.
+static bool isPermissivePointerConversion(QualType FromType,
+                                          QualType ToType,
+                                          ASTContext &Context) {
+  // Any integral to enumeration type.
+  if (FromType->isIntegralOrEnumerationType() && ToType->isEnumeralType())
+    return true;
+
+  // Any pointer to any integral type.
+  if (FromType->isPointerType() && ToType->isIntegralOrEnumerationType())
+    return true;
+
+  // Any integral type to any pointer.
+  if (FromType->isIntegralOrEnumerationType() && ToType->isPointerType())
+    return true;
+
+  // Only pointer cases left.
+  if (!FromType->isPointerType() || !ToType->isPointerType())
+    return false;
+
+  QualType FromPointeeType = FromType->getAs<PointerType>()->getPointeeType();
+  QualType ToPointeeType = ToType->getAs<PointerType>()->getPointeeType();
+
+  // It seems that GCC only allow conversion between pointer to compatible types
+  // but ICC allows almost anything except for conversion from pointer to one
+  // struct to pointer to another struct.
+  if (!FromPointeeType->isRecordType() || !ToPointeeType->isRecordType())
+    return true;
+
+  return false;
+}
+#endif  // INTEL_CUSTOMIZATION
 /// TryImplicitConversion - Attempt to perform an implicit conversion
 /// from the given expression (Expr) to the given type (ToType). This
 /// function returns an implicit conversion sequence that can be used
@@ -1304,10 +1337,23 @@ TryImplicitConversion(Sema &S, Expr *From, QualType ToType,
     return ICS;
   }
 
-  return TryUserDefinedConversion(S, From, ToType, SuppressUserConversions,
-                                  AllowExplicit, InOverloadResolution, CStyle,
-                                  AllowObjCWritebackConversion,
-                                  AllowObjCConversionOnExplicit);
+#if INTEL_CUSTOMIZATION
+  // CQ#376357: GCC in -fpermissive mode allows weird conversions.
+  ImplicitConversionSequence Result = TryUserDefinedConversion(
+      S, From, ToType, SuppressUserConversions, AllowExplicit,
+      InOverloadResolution, CStyle, AllowObjCWritebackConversion,
+      AllowObjCConversionOnExplicit);
+  if (Result.isBad() &&
+      S.getLangOpts().IntelCompat && S.getLangOpts().GnuPermissive &&
+      isPermissivePointerConversion(FromType, ToType, S.Context)) {
+    // Permissive conversion like a standard conversion but for overloading
+    //  purpose should have the worst match (worse than ellipsis).
+    ICS.setPermissive();
+    ICS.Standard.Second = ICK_Pointer_Conversion;
+    return ICS;
+  }
+  return Result;
+#endif // INTEL_CUSTOMIZATION
 }
 
 ImplicitConversionSequence
@@ -2728,6 +2774,16 @@ bool Sema::CheckPointerConversion(Expr *From, QualType ToType,
       Diag(From->getExprLoc(), diag::warn_non_literal_null_pointer)
         << ToType << From->getSourceRange();
   }
+#if INTEL_CUSTOMIZATION
+  // CQ#376357: GCC in -fpermissive mode allows weird conversions.
+  if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive) {
+    if (FromType->isIntegralOrEnumerationType() && ToType->isAnyPointerType())
+      Kind = CK_IntegralToPointer;
+    else if (FromType->isAnyPointerType() &&
+             ToType->isIntegralOrEnumerationType())
+      Kind = CK_PointerToIntegral;
+  }
+#endif
   if (const PointerType *ToPtrType = ToType->getAs<PointerType>()) {
     if (const PointerType *FromPtrType = FromType->getAs<PointerType>()) {
       QualType FromPointeeType = FromPtrType->getPointeeType(),
@@ -5144,6 +5200,7 @@ static ExprResult CheckConvertedConstantExpression(Sema &S, Expr *From,
                           /*AllowExplicit=*/false);
   StandardConversionSequence *SCS = nullptr;
   switch (ICS.getKind()) {
+  case ImplicitConversionSequence::PermissiveConversion: // INTEL
   case ImplicitConversionSequence::StandardConversion:
     SCS = &ICS.Standard;
     break;
@@ -5295,6 +5352,7 @@ TryContextuallyConvertToObjCPointer(Sema &S, Expr *From) {
     dropPointerConversion(ICS.UserDefined.After);
     break;
 
+  case ImplicitConversionSequence::PermissiveConversion: // INTEL
   case ImplicitConversionSequence::StandardConversion:
     dropPointerConversion(ICS.Standard);
     break;
@@ -8588,6 +8646,16 @@ static bool hasBetterEnableIfAttrs(Sema &S, const FunctionDecl *Cand1,
 
   return true;
 }
+#if INTEL_CUSTOMIZATION
+// CQ#376357: GCC in -fpermissive mode allows weird conversions.
+bool hasPermissiveConversion(const OverloadCandidate &Cand) {
+  for (unsigned ArgIdx = !Cand.IgnoreObjectArgument ? 0 : 1;
+       ArgIdx < Cand.NumConversions; ++ArgIdx)
+    if (Cand.Conversions[ArgIdx].isPermissive())
+      return true;
+  return false;
+}
+#endif
 
 /// isBetterOverloadCandidate - Determines whether the first overload
 /// candidate is a better candidate than the second (C++ 13.3.3p1).
@@ -8602,6 +8670,39 @@ bool clang::isBetterOverloadCandidate(Sema &S, const OverloadCandidate &Cand1,
   else if (!Cand1.Viable)
     return false;
 
+#if INTEL_CUSTOMIZATION
+  // CQ#368740: disamiguate regular declaration/definition and weak alias
+  if (S.getLangOpts().IntelCompat)
+    if (Cand1.Function && Cand2.Function &&
+        (Cand1.Function->hasAttr<WeakAttr>() ||
+         Cand2.Function->hasAttr<WeakAttr>())) {
+      if (Cand1.Function->hasAttr<WeakAttr>()) {
+        if (Cand2.Function->isThisDeclarationADefinition()) {
+          // prefere regular definition over weak alias
+          return false;
+        } else {
+          // prefere weak alias over declaration
+          return true;
+        }
+      } else {
+        if (Cand1.Function->isThisDeclarationADefinition()) {
+          // prefere regular definition over weak alias
+          return true;
+        } else {
+          // prefere weak alias over declaration
+          return false;
+        }
+      }
+    }
+
+  // CQ#376357: GCC in -fpermissive mode allows weird conversions.
+  bool CandHasPermissiveConversion1 = hasPermissiveConversion(Cand1);
+  bool CandHasPermissiveConversion2 = hasPermissiveConversion(Cand2);
+  if (!CandHasPermissiveConversion1 && CandHasPermissiveConversion2)
+    return true;
+  else if (CandHasPermissiveConversion1 && !CandHasPermissiveConversion2)
+    return false;
+#endif
   // C++ [over.match.best]p1:
   //
   //   -- if F is a static member function, ICS1(F) is defined such

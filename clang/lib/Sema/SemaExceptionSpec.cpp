@@ -216,6 +216,22 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
     ReturnValueOnError = false;
   }
 
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ376225: allow user to define it's own 'operator new' if needed.
+  // Update implicit declaration to make it compatible with the new one.
+  if (getLangOpts().IntelCompat && IsOperatorNew && Old->isImplicit() &&
+      !New->isImplicit()) {
+    const FunctionProtoType *NewProto =
+        New->getType()->castAs<FunctionProtoType>();
+    const FunctionProtoType *OldProto =
+        Old->getType()->castAs<FunctionProtoType>();
+    Old->setType(Context.getFunctionType(OldProto->getReturnType(),
+                                         OldProto->getParamTypes(),
+                                         NewProto->getExtProtoInfo()));
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Check the types as written: they must match before any exception
   // specification adjustment is applied.
   if (!CheckEquivalentExceptionSpec(

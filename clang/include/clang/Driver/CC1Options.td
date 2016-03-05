@@ -609,9 +609,9 @@ def fno_emit_class_debug_always : Flag<["-"], "fno-emit-class-debug-always">,
 // CQ#369692 - support for '-fargument-noalias' option.
 def fargument_noalias : Flag<["-"], "fargument-noalias">,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
-// CQ#373517 - compilation fails with 'redefinition of default argument'.
-def fpermissive_args : Flag<["-"], "fpermissive-args">,
-  HelpText<"Allows to redefine default arguments">;
+// CQ#373517,CQ#376357 - GCC option -fpermissive.
+def gnu_permissive : Flag<["-"], "gnu-permissive">,
+  HelpText<"Turn on GNU -fpermissive mode">;
 // CQ371729: Incompatible name mangling.
 def gnu_mangling_for_simd_types : Flag<["--"], "gnu_mangling_for_simd_types">,
   HelpText<"Turn on GNU mangling for vector types">;
@@ -619,6 +619,14 @@ def no_gnu_mangling_for_simd_types : Flag<["--"], "no_gnu_mangling_for_simd_type
   HelpText<"Turn off GNU mangling for vector types">;
 def gnu_fabi_version_EQ : Joined<["--"], "gnu_fabi_version=">,
   HelpText<"Emulate GNU C++ABI version">;
+// CQ380574: Ability to set various predefines based on gcc version needed.
+def gnu_version_EQ : Joined<["--"], "gnu_version=">,
+  HelpText<"Emulate GNU C++ version">;
+// CQ376358: Support -ffriend-injection option.
+def friend_injection : Flag<["--"], "friend_injection">,
+  HelpText<"Inject friend functions into the enclosing namespace.">;
+def no_friend_injection : Flag<["--"], "no_friend_injection">,
+  HelpText<"Do not inject friend functions into the enclosing namespace.">;
 // endif INTEL_CUSTOMIZATION
 
 // C++ TSes.

@@ -378,7 +378,13 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
     // they only appear on the RHS of assignments later.
     ExprResult RHS;
     bool RHSIsInitList = false;
-    if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
+    if ((getLangOpts().CPlusPlus11 || getLangOpts().IntelCompat) && // INTEL
+        Tok.is(tok::l_brace)) { // INTEL
+#if INTEL_CUSTOMIZATION
+      // CQ375240
+      if (!getLangOpts().CPlusPlus11 && getLangOpts().IntelCompat)
+        Diag(Tok, diag::ext_generalized_initializer_lists);
+#endif // INTEL_CUSTOMIZATION
       RHS = ParseBraceInitializer();
       RHSIsInitList = true;
     } else if (getLangOpts().CPlusPlus && NextTokPrec <= prec::Conditional)
@@ -2781,7 +2787,14 @@ bool Parser::ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
     }
 
     ExprResult Expr;
-    if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
+    if ((getLangOpts().CPlusPlus11 ||                          // INTEL
+         getLangOpts().IntelCompat) && Tok.is(tok::l_brace)) { // INTEL
+#if INTEL_CUSTOMIZATION
+      // CQ374879
+      if (!getLangOpts().CPlusPlus11 && getLangOpts().IntelCompat)
+        Diag(Tok, diag::ext_generalized_initializer_lists);
+      else
+#endif // INTEL_CUSTOMIZATION
       Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
       Expr = ParseBraceInitializer();
     } else

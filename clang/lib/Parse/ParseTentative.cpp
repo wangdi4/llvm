@@ -838,7 +838,7 @@ Parser::TPResult Parser::TryParseDeclarator(bool mayBeAbstract,
       // '(' abstract-declarator ')'
       if (Tok.isOneOf(tok::kw___attribute, tok::kw___declspec, tok::kw___cdecl,
                       tok::kw___stdcall, tok::kw___fastcall, tok::kw___thiscall,
-                      tok::kw___regcall,  // INTEL
+                      tok::kw___regcall, tok::kw__regcall,  // INTEL
                       tok::kw___vectorcall, tok::kw___unaligned))
         return TPResult::True; // attributes indicate declaration
       TPResult TPR = TryParseDeclarator(mayBeAbstract, mayHaveIdentifier);
@@ -990,6 +990,7 @@ Parser::isExpressionOrTypeSpecifierSimple(tok::TokenKind Kind) {
   case tok::kw___direct_bases:
   // CQ#367576: __regcall calling convention support
   case tok::kw___regcall:
+  case tok::kw__regcall:
 #endif // INTEL_CUSTOMIZATION
   case tok::kw___cdecl:
   case tok::kw___stdcall:
@@ -1280,6 +1281,7 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
   case tok::kw___auto_type:
     return TPResult::True;
   case tok::kw___regcall: // INTEL
+  case tok::kw__regcall:  // INTEL
     // Microsoft
   case tok::kw___declspec:
   case tok::kw___cdecl:

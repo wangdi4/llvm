@@ -148,9 +148,13 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
 
     // Expressions that are prvalues.
 #if INTEL_SPECIFIC_CILKPLUS
+  case Expr::CEANBuiltinExprClass:
+    return cast<CEANBuiltinExpr>(E)->getReturnExpr()
+               ? ClassifyInternal(Ctx,
+                                  cast<CEANBuiltinExpr>(E)->getReturnExpr())
+               : Cl::CL_PRValue;
   case Expr::CilkSpawnExprClass:
   case Expr::CEANIndexExprClass:
-  case Expr::CEANBuiltinExprClass:
 #endif // INTEL_SPECIFIC_CILKPLUS
   case Expr::CXXBoolLiteralExprClass:
   case Expr::CXXPseudoDestructorExprClass:

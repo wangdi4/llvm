@@ -686,6 +686,7 @@ void Parser::ParseMicrosoftTypeAttributes(ParsedAttributes &attrs) {
     switch (Tok.getKind()) {
     case tok::kw___fastcall:
     case tok::kw___regcall: // INTEL
+    case tok::kw__regcall:  // INTEL
     case tok::kw___stdcall:
     case tok::kw___thiscall:
     case tok::kw___cdecl:
@@ -2218,9 +2219,16 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
 #endif // INTEL_SPECIFIC_CILKPLUS
                                    );
     }
-  } else if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace) &&
+  } else if ((getLangOpts().CPlusPlus11 ||                          // INTEL
+              getLangOpts().IntelCompat) && Tok.is(tok::l_brace) && // INTEL
              (!CurParsedObjCImpl || !D.isFunctionDeclarator())) {
     // Parse C++0x braced-init-list.
+#if INTEL_CUSTOMIZATION
+    // CQ374879
+    if (!getLangOpts().CPlusPlus11 && getLangOpts().IntelCompat)
+      Diag(Tok, diag::ext_generalized_initializer_lists);
+    else
+#endif // INTEL_CUSTOMIZATION
     Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
 
     if (D.getCXXScopeSpec().isSet()) {
@@ -3209,6 +3217,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     case tok::kw___stdcall:
     case tok::kw___fastcall:
     case tok::kw___regcall: // INTEL
+    case tok::kw__regcall:  // INTEL
     case tok::kw___thiscall:
     case tok::kw___vectorcall:
     case tok::kw___unaligned:
@@ -3453,6 +3462,12 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
           DS.getTypeSpecType() != DeclSpec::TST_unspecified &&
           DS.getStorageClassSpec() == DeclSpec::SCS_typedef) {
         PrevSpec = ""; // Not used by the diagnostic.
+#if INTEL_CUSTOMIZATION
+        // CQ#376357: Allow bool redeclaration.
+        if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive)
+          DiagID = diag::warn_bool_redeclaration;
+        else
+#endif  // INTEL_CUSTOMIZATION
         DiagID = diag::err_bool_redeclaration;
         // For better error recovery.
         Tok.setKind(tok::identifier);
@@ -3636,7 +3651,11 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     }
 
     DS.SetRangeEnd(Tok.getLocation());
-    if (DiagID != diag::err_bool_redeclaration)
+#if INTEL_CUSTOMIZATION
+    // CQ#376357: Allow bool redeclaration.
+    if (DiagID != diag::err_bool_redeclaration &&
+        DiagID != diag::warn_bool_redeclaration)
+#endif // INTEL_CUSTOMIZATION
       ConsumeToken();
 
     AttrsLastTime = false;
@@ -4508,6 +4527,7 @@ bool Parser::isTypeSpecifierQualifier() {
 #if INTEL_CUSTOMIZATION
   case tok::kw__Quad:
   case tok::kw___regcall:
+  case tok::kw__regcall:
 #endif  // INTEL_CUSTOMIZATION
   case tok::kw_bool:
   case tok::kw__Bool:
@@ -4727,6 +4747,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw___stdcall:
   case tok::kw___fastcall:
   case tok::kw___regcall: // INTEL
+  case tok::kw__regcall:  // INTEL
   case tok::kw___thiscall:
   case tok::kw___vectorcall:
   case tok::kw___w64:
@@ -4960,6 +4981,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
     case tok::kw___stdcall:
     case tok::kw___fastcall:
     case tok::kw___regcall: // INTEL
+    case tok::kw__regcall:  // INTEL
     case tok::kw___thiscall:
     case tok::kw___vectorcall:
     case tok::kw___unaligned:
