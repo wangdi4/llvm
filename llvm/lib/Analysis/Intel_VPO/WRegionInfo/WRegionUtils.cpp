@@ -28,9 +28,10 @@ using namespace vpo;
 /// a WRN node of WRegionNodeKind corresponding to the directive,
 /// and return a pointer to it. Otherwise; return nullptr.
 WRegionNode *WRegionUtils::createWRegion(
-  StringRef DirString,
+  StringRef  DirString,
   BasicBlock *EntryBB,
-  LoopInfo *LI
+  LoopInfo   *LI,
+  unsigned   NestingLevel
 )
 {
   WRegionNode *W = nullptr;
@@ -48,13 +49,16 @@ WRegionNode *WRegionUtils::createWRegion(
       W = new WRNVecLoopNode(EntryBB, LI);
       break;
   }
+  if (W)
+    W->setLevel(NestingLevel);
   return W;
 }
 
 /// \brief Similar to createWRegion, but for HIR vectorizer support
 WRegionNode *WRegionUtils::createWRegionHIR(
   StringRef        DirString,
-  loopopt::HLNode *EntryHLNode
+  loopopt::HLNode *EntryHLNode,
+  unsigned         NestingLevel
 )
 {
   WRegionNode *W = nullptr;
@@ -67,6 +71,8 @@ WRegionNode *WRegionUtils::createWRegionHIR(
       W = new WRNVecLoopNode(EntryHLNode);
       break;
   }
+  if (W)
+    W->setLevel(NestingLevel);
   return W;
 }
 
@@ -90,7 +96,8 @@ WRegionNode *WRegionUtils::updateWRGraphFromHIR (
       // needed by the vectorizer (eg: DIR.OMP.LOOP.SIMD), then
       // createWRegionHIR creates a WRN for it and returns its pointer.
       // Otherwise, the W returned is a nullptr.
-      W = WRegionUtils::createWRegionHIR(DirOrClauseStr, H);
+      // Nesting level is 0 because the WRGraph is flat at this point.
+      W = WRegionUtils::createWRegionHIR(DirOrClauseStr, H, 0);
       if (W) {
         // Current HIR doesn't have end directives, so we're not supporting 
         // hierarchically nested WRNs yet. Therefore, there is no need to 

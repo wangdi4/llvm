@@ -110,7 +110,6 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
                                                WRStack<WRegionNode *> *S) {
   // DEBUG(dbgs() << "\ndoPreOrderDomTreeVisit: processing BB:\n" << *BB);
   auto Root = DT->getNode(BB);
-
   WRegionNode *W;
 
   //
@@ -133,7 +132,7 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
         // If the intrinsic represents an intel BEGIN directive, then
         // W is a pointer to an object for the corresponding WRN.
         // Otherwise, W is nullptr.
-        W = WRegionUtils::createWRegion(DirOrClauseStr, BB, LI);
+        W = WRegionUtils::createWRegion(DirOrClauseStr, BB, LI, S->size());
         if (W) {
           // DEBUG(dbgs() << "\n Starting New WRegion{\n");
 

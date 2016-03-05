@@ -187,11 +187,12 @@ public:
   /// matches the construct type based on DirString.
   //  (eg create a WRNParRegion node if DirString is "dir.parallel")
   static WRegionNode *createWRegion(StringRef DirString, BasicBlock *EntryBB,
-                                    LoopInfo *LI);
+                                    LoopInfo *LI, unsigned NestingLevel);
 
   /// \brief Similar to createWRegion, but for HIR vectorizer support
   static WRegionNode *createWRegionHIR(StringRef DirString,
-                                       loopopt::HLNode *EntryHLNode);
+                                       loopopt::HLNode *EntryHLNode,
+                                       unsigned NestingLevel);
 
   /// \brief Update WRGraph from processing intrinsic calls extracted
   /// from HIR.  This is needed to support vectorizer in HIR.

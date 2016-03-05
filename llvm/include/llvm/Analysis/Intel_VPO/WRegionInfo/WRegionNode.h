@@ -103,6 +103,9 @@ private:
   /// Unique number associated with this WRegionNode.
   unsigned Number;
 
+  /// Nesting level of the WRN node in the WRN graph. Outermost level is 0.
+  unsigned Level;
+
   /// ID to differentitate between concrete subclasses.
   const unsigned SubClassID;
 
@@ -147,6 +150,9 @@ protected:
 
   /// \brief Destroys the object.
   void destroy();
+
+  /// \brief Sets the nesting level of this WRegionNode.
+  void setLevel(int K) { Level = K; }
 
   /// \brief Sets the entry(first) bblock of this region.
   void setEntryBBlock(BasicBlock *EntryBB) { EntryBBlock = EntryBB; }
@@ -252,6 +258,9 @@ public:
 
   /// \brief Returns the unique number associated with this WRegionNode.
   unsigned getNumber() const { return Number; }
+
+  /// \brief Returns the nesting level of this WRegionNode.
+  unsigned getLevel() const { return Level; }
 
   /// \brief Returns the flag that indicates if WRN came from HIR
   bool getIsFromHIR() const { return IsFromHIR; }
