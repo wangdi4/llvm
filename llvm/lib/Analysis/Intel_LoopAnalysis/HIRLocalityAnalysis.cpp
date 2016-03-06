@@ -307,7 +307,7 @@ void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
 
       const RegDDRef *RegDD = *Iter;
 
-      if (RegDD->isInvariantAtLevel(Loop->getNestingLevel())) {
+      if (RegDD->isStructurallyInvariantAtLevel(Loop->getNestingLevel())) {
         Iter = RefVec.erase(Iter);
         // Adding 'N-1' to temporal locality.
         LI->TempInv += (getTripCount(Loop) - 1);

@@ -394,8 +394,13 @@ public:
   /// Else returns true for cases like DDRef - 2*i and M+N.
   bool isScalarRef() const;
 
-  /// \brief Returns true if the the DDRef is invariant at \p Level
-  bool isInvariantAtLevel(unsigned Level) const;
+  /// \brief Returns true if the DDRef is structurally invariant at \p Level.
+  /// Note!: It does not check data-dependences, so there may be cases where
+  /// the  DDRef is structurally invariant, but not actually invariant. For
+  /// example, in the loop below, A[5] is structurally invariant, but not
+  /// actually invariant because of the data-dependence:
+  /// for (i=0; i<10; i++) { A[i] = A[5] + i;}
+  bool isStructurallyInvariantAtLevel(unsigned Level) const;
 
   /// \brief Adds a dimension to the DDRef. Stride can be null for a scalar.
   void addDimension(CanonExpr *Canon, CanonExpr *Stride);
