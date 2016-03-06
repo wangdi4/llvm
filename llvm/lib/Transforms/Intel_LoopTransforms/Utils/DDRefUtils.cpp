@@ -74,6 +74,18 @@ RegDDRef *DDRefUtils::createConstDDRef(ConstantDataVector *Val) {
   return NewRegDD;
 }
 
+RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
+  auto Blob = CanonExprUtils::createBlob(UndefValue::get(Ty), false);
+  unsigned BlobIndex = CanonExprUtils::findBlob(Blob);
+
+  if (BlobIndex != CanonExpr::INVALID_BLOB_INDEX) {
+    return createSelfBlobRef(BlobIndex, 0);
+  }
+  RegDDRef *Ref = createSelfBlobRef(UndefValue::get(Ty));
+  Ref->getSingleCanonExpr()->setDefinedAtLevel(0);
+  return Ref;
+}
+
 BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, int Level) {
   return new BlobDDRef(Index, Level);
 }

@@ -88,6 +88,10 @@ public:
   /// ConstantDataVector and attach it to the new RegDDRef.
   static RegDDRef *createConstDDRef(ConstantDataVector *Val);
 
+  /// \brief Returns a new RegDDRef with given type \p Ty and undefined
+  /// value.
+  static RegDDRef *createUndefDDRef(Type *Ty);
+
   /// \brief Returns a new BlobDDRef representing blob with Index. Level is the
   /// defined at level for the blob. Level of -1 means non-linear blob.
   static BlobDDRef *createBlobDDRef(unsigned Index, int Level = -1);
