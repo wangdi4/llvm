@@ -169,7 +169,7 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
 
   for (auto I = BB->getFirstInsertionPt(), E = std::prev(BB->end()); I != E;
        ++I) {
-    auto Inst = HLNodeUtils::createHLInst(I);
+    auto Inst = HLNodeUtils::createHLInst(&*I);
     HLNodeUtils::insertAfter(InsertionPos, Inst);
     InsertionPos = Inst;
   }

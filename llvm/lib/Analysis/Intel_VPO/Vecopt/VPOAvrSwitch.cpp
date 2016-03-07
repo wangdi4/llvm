@@ -82,7 +82,7 @@ AVRSwitch::case_child_rend_internal(unsigned CaseNumber) const {
 
 AVR *AVRSwitch::getCaseFirstChildInternal(unsigned CaseNumber) {
   if (hasCaseChildrenInternal(CaseNumber)) {
-    return case_child_begin_internal(CaseNumber);
+    return &*(case_child_begin_internal(CaseNumber));
   }
 
   return nullptr;
@@ -90,7 +90,7 @@ AVR *AVRSwitch::getCaseFirstChildInternal(unsigned CaseNumber) {
 
 AVR *AVRSwitch::getCaseLastChildInternal(unsigned CaseNumber) {
   if (hasCaseChildrenInternal(CaseNumber)) {
-    return std::prev(case_child_end_internal(CaseNumber));
+    return &*(std::prev(case_child_end_internal(CaseNumber)));
   }
 
   return nullptr;

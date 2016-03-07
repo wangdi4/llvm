@@ -414,7 +414,7 @@ void AVRGenerateBase::optimizeLoopControl() {
     // WRN Nodes this will not properly recursively build loops
     // and link to WRN
     for (auto I = begin(), E = end(); I != E; ++I) {
-      formAvrLoopNest(I);
+      formAvrLoopNest(&*I);
     }
   }
 }
@@ -487,7 +487,7 @@ void AVRGenerateBase::optimizeAvrBranches() {
 
       AVRBranch *AvrBranch = (*I)->getAvrBranch();
       AVRIfIR *AvrIfIR = AVRUtilsIR::createAVRIfIR(AvrBranch);
-      AVRUtils::insertAVRBefore(AvrBranch, AvrIfIR);
+      AVRUtils::insertAVRBefore(AvrItr(AvrBranch), AvrIfIR);
 
       // Then-Children
       if ((*I)->hasThenBlock()) {
@@ -496,7 +496,8 @@ void AVRGenerateBase::optimizeAvrBranches() {
         AVR *ThenEnd = (*I)->getThenEnd();
 
         assert(ThenBegin && ThenEnd && "Malformed AvrIf then-children!");
-        AVRUtils::moveAsFirstThenChildren(AvrIfIR, ThenBegin, ThenEnd);
+        AVRUtils::moveAsFirstThenChildren(AvrIfIR, AvrItr(ThenBegin),
+                                                   AvrItr(ThenEnd));
       }
 
       // Else-Children
@@ -508,13 +509,14 @@ void AVRGenerateBase::optimizeAvrBranches() {
           AVR *ElseEnd = (*I)->getElseEnd();
 
           assert(ElseEnd && ElseEnd && "Malformed AvrIf else-children!");
-          AVRUtils::moveAsFirstElseChildren(AvrIfIR, ElseBegin, ElseEnd);
+          AVRUtils::moveAsFirstElseChildren(AvrIfIR, AvrItr(ElseBegin),
+                                                     AvrItr(ElseEnd));
         } else {
 
           AVRBranch *SCSuccessor = (*I)->getShortCircuitSuccessor();
 
           assert(SCSuccessor && "AvrIf missing short-circuit successor!");
-          AVRUtils::insertFirstElseChild(AvrIfIR, SCSuccessor);
+          AVRUtils::insertFirstElseChild(AvrIfIR, AvrItr(SCSuccessor));
         }
       }
     }
@@ -666,7 +668,7 @@ bool AVRGenerate::postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const {
 
 AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos) {
 
-  assert(BB && InsertionPos && "Avr preorder traversal failed!");
+  assert(BB && &*InsertionPos && "Avr preorder traversal failed!");
 
   BasicBlock *LatchBB = nullptr;
   bool LatchIsDomChild = false;
@@ -706,13 +708,13 @@ AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos) {
             // child.
             !PDT->dominates(DomChildBB, BI->getSuccessor(1))) {
 
-          preorderTravAvrBuild(DomChildBB, AvrIfIR->getLastThenChild());
+          preorderTravAvrBuild(DomChildBB, AvrItr(AvrIfIR->getLastThenChild()));
           continue;
 
         } else if (DomChildBB == BI->getSuccessor(1) &&
                    !PDT->dominates(DomChildBB, BI->getSuccessor(0))) {
 
-          preorderTravAvrBuild(DomChildBB, AvrIfIR->getLastElseChild());
+          preorderTravAvrBuild(DomChildBB, AvrItr(AvrIfIR->getLastElseChild()));
           continue;
         }
       }
@@ -725,7 +727,7 @@ AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos) {
 
         if (DomChildBB == SI->getDefaultDest()) {
           preorderTravAvrBuild(DomChildBB,
-                               ASwitchIR->getDefaultCaseLastChild());
+                               AvrItr(ASwitchIR->getDefaultCaseLastChild()));
           continue;
         }
 
@@ -735,7 +737,7 @@ AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos) {
              ++Itr, ++Count) {
           if (DomChildBB == Itr.getCaseSuccessor()) {
             preorderTravAvrBuild(DomChildBB,
-                                 ASwitchIR->getCaseLastChild(Count));
+                                 AvrItr(ASwitchIR->getCaseLastChild(Count)));
             IsCaseChild = true;
             break;
           }
@@ -766,7 +768,7 @@ void AVRGenerate::buildAvrsForVectorCandidates() {
 
     AvrWrn = AVRUtils::createAVRWrn((*I)->getWrnNode());
 
-    preorderTravAvrBuild((*I)->getEntryBBlock(), AvrWrn);
+    preorderTravAvrBuild((*I)->getEntryBBlock(), AvrItr(AvrWrn));
     AbstractLayer.push_back(AvrWrn);
   }
 }
@@ -782,33 +784,33 @@ AvrItr AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB,
   // First BB of loop, function, split is inserted as first child
   if (isa<AVRLoop>(InsertionPos) || isa<AVRFunction>(InsertionPos) ||
       isa<AVRWrn>(InsertionPos)) {
-    AVRUtils::insertFirstChildAVR(InsertionPos, ALabel);
+    AVRUtils::insertFirstChildAVR(&*InsertionPos, AvrItr(ALabel));
   } else {
     AVRUtils::insertAVRAfter(InsertionPos, ALabel);
   }
 
-  InsertionPos = ALabel;
+  InsertionPos = AvrItr(ALabel);
 
   for (auto I = BB->begin(), E = std::prev(BB->end()); I != E; ++I) {
 
     switch (I->getOpcode()) {
     case Instruction::Call:
-      NewNode = AVRUtilsIR::createAVRCallIR(I);
+      NewNode = AVRUtilsIR::createAVRCallIR(&*I);
       break;
     case Instruction::PHI:
-      NewNode = AVRUtilsIR::createAVRPhiIR(I);
+      NewNode = AVRUtilsIR::createAVRPhiIR(&*I);
       break;
     case Instruction::Br:
       assert(0 && "Encountered a branch before block terminator!");
-      NewNode = AVRUtilsIR::createAVRBranchIR(I);
+      NewNode = AVRUtilsIR::createAVRBranchIR(&*I);
       break;
     case Instruction::Ret:
       assert(0 && "Encountered a return before block terminator!");
-      NewNode = AVRUtilsIR::createAVRReturnIR(I);
+      NewNode = AVRUtilsIR::createAVRReturnIR(&*I);
       break;
     case Instruction::ICmp:
     case Instruction::FCmp:
-      NewNode = AVRUtilsIR::createAVRCompareIR(I);
+      NewNode = AVRUtilsIR::createAVRCompareIR(&*I);
       break;
     case Instruction::Select:
     {
@@ -819,27 +821,27 @@ AvrItr AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB,
       AVR *AvrCondition = AvrInsts[CI];
       assert(AvrCondition && "Could not resolve avr condition for select!");
 
-      NewNode = AVRUtilsIR::createAVRSelectIR(I, AvrCondition);
+      NewNode = AVRUtilsIR::createAVRSelectIR(&*I, AvrCondition);
       break;
     }
     default:
-      NewNode = AVRUtilsIR::createAVRAssignIR(I);
+      NewNode = AVRUtilsIR::createAVRAssignIR(&*I);
     }
 
     DEBUG(dbgs() << "VECREPORT: Generated New AVR = ");
     DEBUG(NewNode->dump());
 
     // Add newly created avr and it's corresponding instruction to map.
-    AvrInsts[I] = NewNode;
+    AvrInsts[&*I] = NewNode;
 
     // Insert the newly created avr into the abstract layer.
     AVRUtils::insertAVRAfter(InsertionPos, NewNode);
-    InsertionPos = NewNode;
+    InsertionPos = AvrItr(NewNode);
   }
 
   // Generate terminator and set pointer in avr label node.
-  InsertionPos = generateAvrTerminator(BB, InsertionPos);
-  ALabel->setTerminator(InsertionPos);
+  InsertionPos = AvrItr(generateAvrTerminator(BB, &*InsertionPos));
+  ALabel->setTerminator(&*InsertionPos);
 
   return InsertionPos;
 }
@@ -865,7 +867,7 @@ AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos) {
         AVRUtilsIR::createAVRBranchIR(Terminator, AvrCondition);
 
     // Insert newly created branch into the abstract layer.
-    AVRUtils::insertAVRAfter(InsertionPos, ABranch);
+    AVRUtils::insertAVRAfter(AvrItr(InsertionPos), ABranch);
     InsertionPos = ABranch;
 
     // Construct the AVRIf in place. Do not generate AVRIfs for loop header or
@@ -880,7 +882,7 @@ AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos) {
       // Create an AVRIf node for terminator and insert it into the
       // abstract layer.
       AVRIfIR *AvrIf = AVRUtilsIR::createAVRIfIR(ABranch);
-      AVRUtils::insertAVRAfter(InsertionPos, AvrIf);
+      AVRUtils::insertAVRAfter(AvrItr(InsertionPos), AvrIf);
       InsertionPos = AvrIf;
 
     }
@@ -891,7 +893,7 @@ AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos) {
     // abstract layer.
     AVRSwitchIR *NewSwitch = AVRUtilsIR::createAVRSwitchIR(SI);
 
-    AVRUtils::insertAVRAfter(InsertionPos, NewSwitch);
+    AVRUtils::insertAVRAfter(AvrItr(InsertionPos), NewSwitch);
     InsertionPos = NewSwitch;
 
   } else if (ReturnInst *RI = dyn_cast<ReturnInst>(Terminator)) {
@@ -899,7 +901,7 @@ AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos) {
     // Create a return node terminator and insert it into the abstract
     // layer
     AVRReturnIR *AReturn = AVRUtilsIR::createAVRReturnIR(RI);
-    AVRUtils::insertAVRAfter(InsertionPos, AReturn);
+    AVRUtils::insertAVRAfter(AvrItr(InsertionPos), AReturn);
     InsertionPos = AReturn;
 
   } else if (UnreachableInst *UI = dyn_cast<UnreachableInst>(Terminator)) {
@@ -907,7 +909,7 @@ AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos) {
     // Create an unreachable node terminator and insert into the abstract
     // layer.
     AVRUnreachableIR *AUnreach= AVRUtilsIR::createAVRUnreachableIR(UI);
-    AVRUtils::insertAVRAfter(InsertionPos, AUnreach);
+    AVRUtils::insertAVRAfter(AvrItr(InsertionPos), AUnreach);
     InsertionPos = AUnreach;
 
   } else {
@@ -926,7 +928,7 @@ AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos) {
 void AVRGenerate::buildAvrsForFunction() {
   AvrFunction = AVRUtils::createAVRFunction(Func, LI);
 
-  preorderTravAvrBuild(AvrFunction->getEntryBBlock(), AvrFunction);
+  preorderTravAvrBuild(AvrFunction->getEntryBBlock(), AvrItr(AvrFunction));
 
   // Add generated AVRs to Abstract Layer.
   AbstractLayer.push_back(AvrFunction);
@@ -939,16 +941,16 @@ void AVRGenerate::formAvrLoopNest(AVRFunction *AvrFunction) {
 
   for (auto I = Func->begin(), E = Func->end(); I != E; ++I) {
 
-    if (!LI->isLoopHeader(I))
+    if (!LI->isLoopHeader(&*I))
       continue;
 
-    Loop *Lp = LI->getLoopFor(I);
+    Loop *Lp = LI->getLoopFor(&*I);
     assert(Lp && "Loop not found for Loop Header BB!");
 
     BasicBlock *LoopLatchBB = Lp->getLoopLatch();
     assert(LoopLatchBB && "Loop Latch BB not found!");
 
-    AVR *AvrLbl = AvrLabels[I];
+    AVR *AvrLbl = AvrLabels[&*I];
     AVRLabel *AvrTermLabel = AvrLabels[LoopLatchBB];
     AVR *AvrTerm = AvrTermLabel->getTerminator();
 
@@ -961,8 +963,8 @@ void AVRGenerate::formAvrLoopNest(AVRFunction *AvrFunction) {
       AVRLoop *AvrLoop = AVRUtils::createAVRLoop(Lp);
 
       // Hook AVR Loop into AVR Sequence
-      AVRUtils::insertAVRBefore(AvrLbl, AvrLoop);
-      AVRUtils::moveAsFirstChildren(AvrLoop, AvrLbl, AvrTerm);
+      AVRUtils::insertAVRBefore(AvrItr(AvrLbl), AvrLoop);
+      AVRUtils::moveAsFirstChildren(AvrLoop, AvrItr(AvrLbl), AvrItr(AvrTerm));
     }
   }
 }
@@ -975,7 +977,7 @@ void AVRGenerate::markLoopBottomTest(AVRLabel *LoopLatchLabel) {
 
   AvrItr BottomTest(LoopLatchLabel);
 
-  while (BottomTest) {
+  while (&*BottomTest) {
 
     if (AVRBranch *BT = dyn_cast<AVRBranch>(BottomTest)) {
       BT->setBottomTest(true);
@@ -1024,8 +1026,8 @@ void AVRGenerate::formAvrLoopNest(AVRWrn *AvrWrn) {
       AvrLoop->setWrnVecLoopNode(AvrWrn->getWrnNode());
 
       // Hook AVR Loop into AVR Sequence
-      AVRUtils::insertAVRBefore(AvrLbl, AvrLoop);
-      AVRUtils::moveAsFirstChildren(AvrLoop, AvrLbl, AvrTerm);
+      AVRUtils::insertAVRBefore(AvrItr(AvrLbl), AvrLoop);
+      AVRUtils::moveAsFirstChildren(AvrLoop, AvrItr(AvrLbl), AvrItr(AvrTerm));
     }
   }
 
@@ -1079,7 +1081,7 @@ void AVRGenerateHIR::buildAbstractLayer() {
     // Create an AVRWrn and insert AVR for contained loop as child
     AWrn = AVRUtils::createAVRWrn(WVecNode);
     Avr = AG.visit(WVecNode->getHLLoop());
-    AVRUtils::insertAVR(AWrn, nullptr, Avr, FirstChild);
+    AVRUtils::insertAVR(AWrn, AvrItr(nullptr), AvrItr(Avr), FirstChild);
 
     AbstractLayer.push_back(AWrn);
   }
@@ -1114,7 +1116,7 @@ AVR *AVRGenerateHIR::AVRGenerateVisitor::visitLoop(HLLoop *L) {
     AVR *ChildAVR;
 
     ChildAVR = visit(*It);
-    AVRUtils::insertAVR(ALoop, nullptr, ChildAVR, LastChild);
+    AVRUtils::insertAVR(ALoop, AvrItr(nullptr), AvrItr(ChildAVR), LastChild);
   }
 
 #if 0
@@ -1139,7 +1141,7 @@ AVR *AVRGenerateHIR::AVRGenerateVisitor::visitRegion(HLRegion *R) {
   for (auto It = R->child_begin(), E = R->child_end(); It != E; ++It) {
     AVR *ChildAVR;
     ChildAVR = visit(*It);
-    AVRUtils::insertAVR(AWrn, nullptr, ChildAVR, LastChild);
+    AVRUtils::insertAVR(AWrn, AvrItr(nullptr), AvrItr(ChildAVR), LastChild);
   }
 
   return (AVR *)AWrn;
@@ -1154,14 +1156,16 @@ AVR *AVRGenerateHIR::AVRGenerateVisitor::visitIf(HLIf *HIf) {
   for (auto It = HIf->then_begin(), E = HIf->then_end(); It != E; ++It) {
     AVR *ChildAVR;
     ChildAVR = visit(*It);
-    AVRUtils::insertAVR(AIf, nullptr, ChildAVR, LastChild, ThenChild);
+    AVRUtils::insertAVR(AIf, AvrItr(nullptr), AvrItr(ChildAVR),
+                        LastChild, ThenChild);
   }
 
   // Visit else children
   for (auto It = HIf->else_begin(), E = HIf->else_end(); It != E; ++It) {
     AVR *ChildAVR;
     ChildAVR = visit(*It);
-    AVRUtils::insertAVR(AIf, nullptr, ChildAVR, LastChild, ElseChild);
+    AVRUtils::insertAVR(AIf, AvrItr(nullptr), AvrItr(ChildAVR),
+                        LastChild, ElseChild);
   }
 
   return AIf;

@@ -226,7 +226,7 @@ public:
   ///
   /// This can also be used to plug a new MachineSchedStrategy into an instance
   /// of the standard ScheduleDAGMI:
-  ///   return new ScheduleDAGMI(C, make_unique<MyStrategy>(C), /* IsPostRA= */false)
+  ///   return new ScheduleDAGMI(C, make_unique<MyStrategy>(C), /*RemoveKillFlags=*/false)
   ///
   /// Return NULL to select the default (generic) machine scheduler.
   virtual ScheduleDAGInstrs *
@@ -271,6 +271,12 @@ protected:
   virtual bool addILPOpts() {
     return false;
   }
+
+#if INTEL_CUSTOMIZATION
+  /// Add passes that perform advanced pattern matching optimizations.
+  /// These passes are run while the machine code is still in SSA form.
+  virtual void addAdvancedPatternMatchingOpts() { }
+#endif // INTEL_CUSTOMIZATION
 
   /// This method may be implemented by targets that want to run passes
   /// immediately before register allocation.
@@ -645,6 +651,9 @@ namespace llvm {
   /// stackmap/patchpoint intrinsics and attaches the calculated information to
   /// the intrinsic for later emission to the StackMap.
   extern char &StackMapLivenessID;
+
+  /// LiveDebugValues pass
+  extern char &LiveDebugValuesID;
 
   /// createJumpInstrTables - This pass creates jump-instruction tables.
   ModulePass *createJumpInstrTablesPass();

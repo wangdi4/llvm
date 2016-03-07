@@ -313,7 +313,7 @@ bool AVRCodeGenHIR::processLoop() {
   HLRegion *Parent = dyn_cast<HLRegion>(OrigLoop->getParent());
 
   // Erase intrinsics at the beginning of the region
-  HLNodeUtils::erase(Parent->child_begin(), LoopX);
+  HLNodeUtils::erase(&*(Parent->child_begin()));
 
   auto Begin = LoopX->child_begin();
   auto End = LoopX->child_end();
@@ -323,7 +323,7 @@ bool AVRCodeGenHIR::processLoop() {
     AVRAssignHIR *AvrAssign;
 
     AvrAssign = cast<AVRAssignHIR>(Iter);
-    widenNode(AvrAssign->getHIRInstruction(), Begin);
+    widenNode(AvrAssign->getHIRInstruction(), &*Begin);
   }
 
   // Get rid of the scalar children

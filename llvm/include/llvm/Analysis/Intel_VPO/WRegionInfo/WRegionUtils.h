@@ -79,7 +79,7 @@ public:
 template <typename WV> bool WRNVisitor<WV>::forwardVisit(WRContainerTy *C) {
   for (auto I = C->begin(), Next = I, E = C->end(); I != E; I = Next) {
     ++Next;
-    if (visit(I, true))
+    if (visit(&*I, true))
       return true;
   }
   return false;

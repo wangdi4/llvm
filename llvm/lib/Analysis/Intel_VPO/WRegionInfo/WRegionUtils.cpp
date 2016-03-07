@@ -197,7 +197,7 @@ void WRegionUtils::insertFirstChild(
   WrnIter wrn
 ) 
 {
-  insertWRegionNode(Parent, nullptr, wrn, WRegionUtils::FirstChild);
+  insertWRegionNode(Parent, WrnIter(nullptr), wrn, WRegionUtils::FirstChild);
   return;
 }
 
@@ -206,7 +206,7 @@ void WRegionUtils::insertLastChild(
   WrnIter wrn
 ) 
 {
-  insertWRegionNode(Parent, nullptr, wrn, WRegionUtils::LastChild);
+  insertWRegionNode(Parent, WrnIter(nullptr), wrn, WRegionUtils::LastChild);
   return;
 }
 
@@ -215,8 +215,8 @@ void WRegionUtils::insertAfter(
   WRegionNode *wrn
 ) 
 {
-  assert(pos && "Insert Position is Null");
-  insertWRegionNode(pos->getParent(), pos, wrn, WRegionUtils::Append);
+  assert(&*pos && "Insert Position is Null");
+  insertWRegionNode(pos->getParent(), pos, WrnIter(wrn), WRegionUtils::Append);
 }
 
 void WRegionUtils::insertBefore(
@@ -224,8 +224,8 @@ void WRegionUtils::insertBefore(
   WRegionNode *wrn
 ) 
 {
-  assert(pos && "Insert Position is Null");
-  insertWRegionNode(pos->getParent(), pos, wrn, WRegionUtils::Prepend);
+  assert(&*pos && "Insert Position is Null");
+  insertWRegionNode(pos->getParent(), pos, WrnIter(wrn), WRegionUtils::Prepend);
 }
 
 void WRegionUtils::insertWRegionNode(
@@ -243,16 +243,16 @@ void WRegionUtils::insertWRegionNode(
 
   switch (Op) {
       case WRegionUtils::FirstChild:
-        WRContainer.insertAfter(0, W);
+        WRContainer.insertAfter(WrnIter(nullptr), &*W);
         break;
       case WRegionUtils::LastChild:
-        WRContainer.insertAfter(Parent->getLastChild(), W);
+        WRContainer.insertAfter(WrnIter(Parent->getLastChild()), &*W);
         break;
       case WRegionUtils::Append:
-        WRContainer.insertAfter(Pos, W);
+        WRContainer.insertAfter(Pos, &*W);
         break;
       case WRegionUtils::Prepend:
-        WRContainer.insert(Pos, W);
+        WRContainer.insert(Pos, &*W);
         break;
       default:
         llvm_unreachable("VPO: Unknown WRegionNode Insertion Operation Type");

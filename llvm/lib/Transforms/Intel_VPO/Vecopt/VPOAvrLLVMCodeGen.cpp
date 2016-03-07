@@ -72,7 +72,7 @@ void ReductionMngr::completeReductionPhis(
 
     // loop tail, non-optimized meanwhile
     unsigned VL = VecValue->getType()->getVectorNumElements();
-    IRBuilder<> Builder(LoopExit->getFirstInsertionPt());
+    IRBuilder<> Builder(&*(LoopExit->getFirstInsertionPt()));
 
     Value *Res = Builder.CreateExtractElement(VecValue, Builder.getInt32(0));
     for (unsigned i = 1; i < VL; ++i) {
@@ -442,7 +442,7 @@ void AVRCodeGen::vectorizeLoadInstruction(Instruction *Inst,
   assert(Intrinsic &&
          "Expected to have an intrinsic for this memory operation");
   NewLI = CallInst::Create(Intrinsic, ArrayRef<Value *>(Arguments), "",
-                           Builder.GetInsertPoint());
+                           &*(Builder.GetInsertPoint()));
   WidenMap[cast<Value>(Inst)] = cast<Value>(NewLI);
 }
 
@@ -492,7 +492,7 @@ void AVRCodeGen::vectorizeStoreInstruction(Instruction *Inst,
   assert(Intrinsic &&
          "Expected to have an intrinsic for this memory operation");
   NewSI = CallInst::Create(Intrinsic, ArrayRef<Value *>(Arguments), "",
-                           Builder.GetInsertPoint());
+                           &*(Builder.GetInsertPoint()));
 
   // Is this needed??
   WidenMap[cast<Value>(Inst)] = cast<Value>(NewSI);

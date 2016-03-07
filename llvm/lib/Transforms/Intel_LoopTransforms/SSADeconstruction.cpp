@@ -243,7 +243,7 @@ Instruction *SSADeconstruction::insertCopyAsFirstInst(Instruction *Inst,
   auto CopyInst = createCopy(Inst, Name, false);
 
   // Insert at the first insertion point of BB.
-  CopyInst->insertBefore(BB->getFirstInsertionPt());
+  CopyInst->insertBefore(&*(BB->getFirstInsertionPt()));
 
   // Indicate that we have modified the IR by inserting a copy.
   ModifiedIR = true;

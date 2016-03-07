@@ -216,12 +216,12 @@ void LoopFormation::formLoops() {
                                      BottomTestIter);
 
     // Hook loop into HIR.
-    HLNodeUtils::insertBefore(LabelIter, HLoop);
+    HLNodeUtils::insertBefore(&*LabelIter, HLoop);
 
     // Remove label and bottom test.
     // Can bottom test contain anything else??? Should probably assert on it.
-    HLNodeUtils::erase(LabelIter);
-    HLNodeUtils::erase(BottomTestIter);
+    HLNodeUtils::erase(&*LabelIter);
+    HLNodeUtils::erase(&*BottomTestIter);
 
     insertHLLoop(Lp, HLoop);
   }

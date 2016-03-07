@@ -5,6 +5,19 @@
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
 // whole or in part without explicit written authorization from the company.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file implements the VectorVariant class and corresponding utilities.
+/// VectorVariant objects are associated with a scalar function and are used
+/// to generate new functions that can be vectorized. VectorVariants are
+/// determined by inspecting the function attributes associated with the scalar
+/// function. When a mangled function name is found in the attributes (indicated
+/// as "_ZGV"), a VectorVariant object is created. The class and utilities
+/// in this file follow the standards defined in the vector function ABI.
+///
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Type.h"
@@ -13,6 +26,11 @@
 
 using namespace llvm;
 
+/// \brief Generate a vector variant by decoding the mangled string for the
+/// variant contained in the original scalar function's attributes. For
+/// example: "_ZGVxN4". The name mangling is defined in the vector function
+/// ABI. Based on this string, the parameter kinds (uniform, linear, vector),
+/// vector length, parameter alignment, and masking are determined.
 VectorVariant::VectorVariant(StringRef FuncName) {
 
   assert(isVectorVariant(FuncName) && "invalid vector variant format");
@@ -78,6 +96,9 @@ VectorVariant::VectorVariant(StringRef FuncName) {
   }
 }
 
+/// \brief Determine the vector variant's vector length based on the
+/// characteristic data type defined in the vector function ABI and target
+/// vector register width.
 unsigned int VectorVariant::calcVlen(ISAClass I,
 				     Type* CharacteristicDataType) {
   assert(CharacteristicDataType &&
@@ -90,6 +111,8 @@ unsigned int VectorVariant::calcVlen(ISAClass I,
   return VectorRegisterSize / CharacteristicDataType->getPrimitiveSizeInBits();
 }
 
+/// \brief Determine the maximum vector register width based on the ISA classes
+/// defined in the vector function ABI.
 unsigned int VectorVariant::maximumSizeofISAClassVectorRegister(ISAClass I,
                                                                 Type* Ty)
 {

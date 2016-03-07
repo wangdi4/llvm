@@ -299,7 +299,7 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
         return false;
       }
 
-      if (containsUnsupportedTy(InstIt)) {
+      if (containsUnsupportedTy(&*InstIt)) {
         DEBUG(dbgs() << "LOOPOPT_OPTREPORT: structure/function pointers "
                         "currently not supported.\n");
         return false;

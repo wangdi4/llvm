@@ -93,7 +93,7 @@ bool VPOParoptTransform::ParoptTransformer() {
   BasicBlock::iterator I = F->getEntryBlock().begin();
 
   // Setup Anchor Instuction Point
-  Instruction *AI = I;
+  Instruction *AI = &*I;
 
   //
   // Create the LOC structure. The format is based on OpenMP KMP library
@@ -423,7 +423,7 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(Function *Fn) {
   auto DI = FunctionDIs.find(Fn);
   if (DI != FunctionDIs.end()) {
     DISubprogram *SP = DI->second;
-    SP->replaceFunction(NFn);
+    //    SP->replaceFunction(NFn);
 
     // Ensure the map is updated so it can be reused on non-varargs argument
     // eliminations of the same function.

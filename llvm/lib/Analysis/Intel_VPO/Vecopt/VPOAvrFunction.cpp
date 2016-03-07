@@ -40,7 +40,7 @@ AVRFunction *AVRFunction::clone() const { return nullptr; }
 
 AVR *AVRFunction::getLastChild() {
   if (hasChildren())
-    return std::prev(child_end());
+    return &*(std::prev(child_end()));
   else
     return nullptr;
 }

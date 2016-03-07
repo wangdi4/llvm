@@ -332,6 +332,17 @@ private:
                                    HLContainerTy::iterator Last,
                                    unsigned MinNum, unsigned MaxNum);
 
+  /// \brief Implements get*LinkListNode() functionality.
+  static HLNode *getLinkListNodeImpl(HLNode *Node, bool Prev);
+
+  /// \brief Returns the previous node belonging to its parent if one exists,
+  /// else returns nullptr.
+  static HLNode *getPrevLinkListNode(HLNode *Node);
+
+  /// \brief Returns the next node belonging to its parent if one exists, else
+  /// returns nullptr.
+  static HLNode *getNextLinkListNode(HLNode *Node);
+
 public:
   /// \brief return true if non-zero
   static bool isKnownNonZero(const CanonExpr *CE,

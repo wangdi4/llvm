@@ -61,9 +61,22 @@ protected:
   MDNode *DefaultFPMathTag;
   FastMathFlags FMF;
 
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r256912
+  ArrayRef<OperandBundleDef> DefaultOperandBundles;
+#endif
+
 public:
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r256912
+  IRBuilderBase(LLVMContext &context, MDNode *FPMathTag = nullptr,
+                ArrayRef<OperandBundleDef> OpBundles = None)
+      : Context(context), DefaultFPMathTag(FPMathTag), FMF(),
+        DefaultOperandBundles(OpBundles) {
+#else  // !INTEL_CUSTOMIZATION
   IRBuilderBase(LLVMContext &context, MDNode *FPMathTag = nullptr)
     : Context(context), DefaultFPMathTag(FPMathTag), FMF() {
+#endif // !INTEL_CUSTOMIZATION
     ClearInsertionPoint();
   }
 
@@ -537,6 +550,50 @@ class IRBuilder : public IRBuilderBase, public Inserter {
   T Folder;
 
 public:
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r256912.
+  IRBuilder(LLVMContext &C, const T &F, Inserter I = Inserter(),
+            MDNode *FPMathTag = nullptr,
+            ArrayRef<OperandBundleDef> OpBundles = None)
+      : IRBuilderBase(C, FPMathTag, OpBundles), Inserter(std::move(I)),
+        Folder(F) {}
+
+  explicit IRBuilder(LLVMContext &C, MDNode *FPMathTag = nullptr,
+                     ArrayRef<OperandBundleDef> OpBundles = None)
+      : IRBuilderBase(C, FPMathTag, OpBundles), Folder() {}
+
+  explicit IRBuilder(BasicBlock *TheBB, const T &F, MDNode *FPMathTag = nullptr,
+                     ArrayRef<OperandBundleDef> OpBundles = None)
+      : IRBuilderBase(TheBB->getContext(), FPMathTag, OpBundles), Folder(F) {
+    SetInsertPoint(TheBB);
+  }
+
+  explicit IRBuilder(BasicBlock *TheBB, MDNode *FPMathTag = nullptr,
+                     ArrayRef<OperandBundleDef> OpBundles = None)
+      : IRBuilderBase(TheBB->getContext(), FPMathTag, OpBundles), Folder() {
+    SetInsertPoint(TheBB);
+  }
+
+  explicit IRBuilder(Instruction *IP, MDNode *FPMathTag = nullptr,
+                     ArrayRef<OperandBundleDef> OpBundles = None)
+      : IRBuilderBase(IP->getContext(), FPMathTag, OpBundles), Folder() {
+    SetInsertPoint(IP);
+  }
+
+  IRBuilder(BasicBlock *TheBB, BasicBlock::iterator IP, const T &F,
+            MDNode *FPMathTag = nullptr,
+            ArrayRef<OperandBundleDef> OpBundles = None)
+      : IRBuilderBase(TheBB->getContext(), FPMathTag, OpBundles), Folder(F) {
+    SetInsertPoint(TheBB, IP);
+  }
+
+  IRBuilder(BasicBlock *TheBB, BasicBlock::iterator IP,
+            MDNode *FPMathTag = nullptr,
+            ArrayRef<OperandBundleDef> OpBundles = None)
+      : IRBuilderBase(TheBB->getContext(), FPMathTag, OpBundles), Folder() {
+    SetInsertPoint(TheBB, IP);
+  }
+#else // !INTEL_CUSTOMIZATION
   IRBuilder(LLVMContext &C, const T &F, Inserter I = Inserter(),
             MDNode *FPMathTag = nullptr)
       : IRBuilderBase(C, FPMathTag), Inserter(std::move(I)), Folder(F) {}
@@ -571,6 +628,7 @@ public:
     : IRBuilderBase(TheBB->getContext(), FPMathTag), Folder() {
     SetInsertPoint(TheBB, IP);
   }
+#endif // !INTEL_CUSTOMIZATION
 
   /// \brief Get the constant folder being used.
   const T &getFolder() { return Folder; }
@@ -691,6 +749,13 @@ public:
     return Insert(InvokeInst::Create(Callee, NormalDest, UnwindDest, Args),
                   Name);
   }
+  InvokeInst *CreateInvoke(Value *Callee, BasicBlock *NormalDest,
+                           BasicBlock *UnwindDest, ArrayRef<Value *> Args,
+                           ArrayRef<OperandBundleDef> OpBundles,
+                           const Twine &Name = "") {
+    return Insert(InvokeInst::Create(Callee, NormalDest, UnwindDest, Args,
+                                     OpBundles), Name);
+  }
 
   ResumeInst *CreateResume(Value *Exn) {
     return Insert(ResumeInst::Create(Exn));
@@ -701,29 +766,22 @@ public:
     return Insert(CleanupReturnInst::Create(CleanupPad, UnwindBB));
   }
 
-  CleanupEndPadInst *CreateCleanupEndPad(CleanupPadInst *CleanupPad,
-                                         BasicBlock *UnwindBB = nullptr) {
-    return Insert(CleanupEndPadInst::Create(CleanupPad, UnwindBB));
+  CatchSwitchInst *CreateCatchSwitch(Value *ParentPad, BasicBlock *UnwindBB,
+                                     unsigned NumHandlers,
+                                     const Twine &Name = "") {
+    return Insert(CatchSwitchInst::Create(ParentPad, UnwindBB, NumHandlers),
+                  Name);
   }
 
-  CatchPadInst *CreateCatchPad(BasicBlock *NormalDest, BasicBlock *UnwindDest,
-                               ArrayRef<Value *> Args, const Twine &Name = "") {
-    return Insert(CatchPadInst::Create(NormalDest, UnwindDest, Args), Name);
+  CatchPadInst *CreateCatchPad(Value *ParentPad, ArrayRef<Value *> Args,
+                               const Twine &Name = "") {
+    return Insert(CatchPadInst::Create(ParentPad, Args), Name);
   }
 
-  CatchEndPadInst *CreateCatchEndPad(BasicBlock *UnwindBB = nullptr) {
-    return Insert(CatchEndPadInst::Create(Context, UnwindBB));
-  }
-
-  TerminatePadInst *CreateTerminatePad(BasicBlock *UnwindBB = nullptr,
-                                       ArrayRef<Value *> Args = {},
-                                       const Twine &Name = "") {
-    return Insert(TerminatePadInst::Create(Context, UnwindBB, Args), Name);
-  }
-
-  CleanupPadInst *CreateCleanupPad(ArrayRef<Value *> Args,
+  CleanupPadInst *CreateCleanupPad(Value *ParentPad,
+                                   ArrayRef<Value *> Args = None,
                                    const Twine &Name = "") {
-    return Insert(CleanupPadInst::Create(Context, Args), Name);
+    return Insert(CleanupPadInst::Create(ParentPad, Args), Name);
   }
 
   CatchReturnInst *CreateCatchRet(CatchPadInst *CatchPad, BasicBlock *BB) {
@@ -1528,18 +1586,38 @@ public:
   }
 
   CallInst *CreateCall(Value *Callee, ArrayRef<Value *> Args = None,
-                       const Twine &Name = "") {
-    return Insert(CallInst::Create(Callee, Args), Name);
+                       ArrayRef<OperandBundleDef> OpBundles = None,
+                       const Twine &Name = "", MDNode *FPMathTag = nullptr) {
+    CallInst *CI = CallInst::Create(Callee, Args, OpBundles);
+    if (isa<FPMathOperator>(CI))
+      CI = cast<CallInst>(AddFPMathAttributes(CI, FPMathTag, FMF));
+    return Insert(CI, Name);
+  }
+
+  CallInst *CreateCall(Value *Callee, ArrayRef<Value *> Args,
+                       const Twine &Name, MDNode *FPMathTag = nullptr) {
+    PointerType *PTy = cast<PointerType>(Callee->getType());
+    FunctionType *FTy = cast<FunctionType>(PTy->getElementType());
+    return CreateCall(FTy, Callee, Args, Name, FPMathTag);
   }
 
   CallInst *CreateCall(llvm::FunctionType *FTy, Value *Callee,
-                       ArrayRef<Value *> Args, const Twine &Name = "") {
-    return Insert(CallInst::Create(FTy, Callee, Args), Name);
+                       ArrayRef<Value *> Args, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+#if INTEL_CUSTOMIZATION
+    // Cherry picking r256912
+    CallInst *CI = CallInst::Create(FTy, Callee, Args, DefaultOperandBundles);
+#else // !INTEL_CUSTOMIZATION
+    CallInst *CI = CallInst::Create(FTy, Callee, Args);
+#endif // !INTEL_CUSTOMIZATION
+    if (isa<FPMathOperator>(CI))
+      CI = cast<CallInst>(AddFPMathAttributes(CI, FPMathTag, FMF));
+    return Insert(CI, Name);
   }
 
   CallInst *CreateCall(Function *Callee, ArrayRef<Value *> Args,
-                       const Twine &Name = "") {
-    return CreateCall(Callee->getFunctionType(), Callee, Args, Name);
+                       const Twine &Name = "", MDNode *FPMathTag = nullptr) {
+    return CreateCall(Callee->getFunctionType(), Callee, Args, Name, FPMathTag);
   }
 
   Value *CreateSelect(Value *C, Value *True, Value *False,

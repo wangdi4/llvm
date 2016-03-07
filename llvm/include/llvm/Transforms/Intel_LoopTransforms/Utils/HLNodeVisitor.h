@@ -248,7 +248,7 @@ private:
 
         ++Next;
 
-        if (visit<NodeTy>(I)) {
+        if (visit<NodeTy>(&(*I))) {
           return true;
         }
       }

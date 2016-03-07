@@ -126,10 +126,8 @@ namespace llvm {
       /// 1 is the number of bytes of stack to pop.
       RET_FLAG,
 
-#if INTEL_CUSTOMIZATION
       /// Return from interrupt. Operand 0 is the number of bytes to pop.
       IRET,
-#endif //INTEL_CUSTOMIZATION
 
       /// Repeat fill, corresponds to X86::REP_STOSx.
       REP_STOS,
@@ -307,6 +305,9 @@ namespace llvm {
       // Vector signed/unsigned integer to double.
       CVTDQ2PD, CVTUDQ2PD,
 
+      // Convert a vector to mask, set bits base on MSB.
+      CVT2MASK,
+
       // 128-bit vector logical left / right shift
       VSHLDQ, VSRLDQ,
 
@@ -405,10 +406,14 @@ namespace llvm {
       VREDUCE,
       // RndScale - Round FP Values To Include A Given Number Of Fraction Bits
       VRNDSCALE,
-      // VFPCLASS - Tests Types Of a FP Values
+      // VFPCLASS - Tests Types Of a FP Values for packed types.
       VFPCLASS, 
+      // VFPCLASSS - Tests Types Of a FP Values for scalar types.
+      VFPCLASSS, 
       // Broadcast scalar to vector
       VBROADCAST,
+      // Broadcast mask to vector
+      VBROADCASTM,
       // Broadcast subvector to vector
       SUBV_BROADCAST,
       // Insert/Extract vector element
@@ -605,15 +610,6 @@ namespace llvm {
     bool isCalleePop(CallingConv::ID CallingConv,
                      bool is64Bit, bool IsVarArg, bool TailCallOpt);
 
-    /// AVX512 static rounding constants.  These need to match the values in
-    /// avx512fintrin.h.
-    enum STATIC_ROUNDING {
-      TO_NEAREST_INT = 0,
-      TO_NEG_INF = 1,
-      TO_POS_INF = 2,
-      TO_ZERO = 3,
-      CUR_DIRECTION = 4
-    };
   }
 
   //===--------------------------------------------------------------------===//
@@ -701,6 +697,10 @@ namespace llvm {
     /// i16 is legal, but undesirable since i16 instruction encodings are longer
     /// and some i16 instructions are slow.
     bool IsDesirableToPromoteOp(SDValue Op, EVT &PVT) const override;
+
+    /// Return true if the MachineFunction contains a COPY which would imply
+    /// HasOpaqueSPAdjustment.
+    bool hasCopyImplyingStackAdjustment(MachineFunction *MF) const override;
 
     MachineBasicBlock *
       EmitInstrWithCustomInserter(MachineInstr *MI,
@@ -875,7 +875,7 @@ namespace llvm {
     /// register, not on the X87 floating point stack.
     bool isScalarFPTypeInSSEReg(EVT VT) const {
       return (VT == MVT::f64 && X86ScalarSSEf64) || // f64 is when SSE2
-      (VT == MVT::f32 && X86ScalarSSEf32);   // f32 is when SSE1
+             (VT == MVT::f32 && X86ScalarSSEf32);   // f32 is when SSE1
     }
 
     /// \brief Returns true if it is beneficial to convert a load of a constant
@@ -895,6 +895,16 @@ namespace llvm {
     unsigned getRegisterByName(const char* RegName, EVT VT,
                                SelectionDAG &DAG) const override;
 
+    /// If a physical register, this returns the register that receives the
+    /// exception address on entry to an EH pad.
+    unsigned
+    getExceptionPointerRegister(const Constant *PersonalityFn) const override;
+
+    /// If a physical register, this returns the register that receives the
+    /// exception typeid on entry to a landing pad.
+    unsigned
+    getExceptionSelectorRegister(const Constant *PersonalityFn) const override;
+
     /// This method returns a target specific FastISel object,
     /// or null if the target does not support "fast" ISel.
     FastISel *createFastISel(FunctionLoweringInfo &funcInfo,
@@ -909,8 +919,7 @@ namespace llvm {
     /// Return true if the target stores SafeStack pointer at a fixed offset in
     /// some non-standard address space, and populates the address space and
     /// offset as appropriate.
-    bool getSafeStackPointerLocation(unsigned &AddressSpace,
-                                     unsigned &Offset) const override;
+    Value *getSafeStackPointerLocation(IRBuilder<> &IRB) const override;
 
     SDValue BuildFILD(SDValue Op, EVT SrcVT, SDValue Chain, SDValue StackSlot,
                       SelectionDAG &DAG) const;
@@ -1020,6 +1029,7 @@ namespace llvm {
     SDValue LowerToBT(SDValue And, ISD::CondCode CC,
                       SDLoc dl, SelectionDAG &DAG) const;
     SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerSETCCE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSELECT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBRCOND(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerJumpTable(SDValue Op, SelectionDAG &DAG) const;
@@ -1097,11 +1107,11 @@ namespace llvm {
     MachineBasicBlock *EmitLoweredWinAlloca(MachineInstr *MI,
                                               MachineBasicBlock *BB) const;
 
-#if INTEL_CUSTOMIZATION
-    // Cherry picking r252266.
     MachineBasicBlock *EmitLoweredCatchRet(MachineInstr *MI,
                                            MachineBasicBlock *BB) const;
-#endif // INTEL_CUSTOMIZATION
+
+    MachineBasicBlock *EmitLoweredCatchPad(MachineInstr *MI,
+                                           MachineBasicBlock *BB) const;
 
     MachineBasicBlock *EmitLoweredSegAlloca(MachineInstr *MI,
                                             MachineBasicBlock *BB) const;

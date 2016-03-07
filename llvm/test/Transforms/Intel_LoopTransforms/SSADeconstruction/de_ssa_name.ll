@@ -4,7 +4,7 @@
 ; CHECK: %0
 ; CHECK-NEXT: hir.de.ssa.copy0.out
 ; CHECK-SAME: out.de.ssa
-; CHECK: output.1.in.1
+; CHECK: output.1.in1
 ; CHECK-SAME: in.de.ssa
 ; CHECK: live.range.de.ssa
 ; CHECK: output.1.in

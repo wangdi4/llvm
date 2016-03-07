@@ -70,7 +70,7 @@ void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
 
 HLNode *HLRegion::getFirstChild() {
   if (hasChildren()) {
-    return child_begin();
+    return &*child_begin();
   }
 
   return nullptr;
@@ -78,7 +78,7 @@ HLNode *HLRegion::getFirstChild() {
 
 HLNode *HLRegion::getLastChild() {
   if (hasChildren()) {
-    return std::prev(child_end());
+    return &*(std::prev(child_end()));
   }
 
   return nullptr;

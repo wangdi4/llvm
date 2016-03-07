@@ -116,3 +116,73 @@ define void @foo4(i16 *%dst, i16 *%src) {
   store i16 %t0, i16 *%dst, align 2
   ret void
 }
+
+; This test contains two nested loops and a byte load in the inner loop. 
+; The upper portion should be dead, so the movb load should have been changed 
+; into movzbl instead.
+; CHECK-LABEL: test_bytemov_inner_loop:
+; CHECK: movzbl
+define void @test_bytemov_inner_loop([100 x i32]* %a, [100 x i8]* %b) nounwind uwtable {
+entry:
+  br label %BB1
+
+BB1:                             ; preds = %entry, %BB4
+  %i.1 = phi i32 [ 0, %entry ], [ %inc9, %BB4 ]
+  br label %BB3
+
+BB2:                                       ; preds = %BB3
+  %cmp2 = icmp slt i64 %i.next, 100
+  br i1 %cmp2, label %BB3, label %BB4
+
+BB3:                                       ; preds = %BB1, %BB2
+  %i = phi i64 [ 0, %BB1 ], [ %i.next, %BB2 ]
+  %arrayidx1 = getelementptr inbounds [100 x i32], [100 x i32]* %a, i64 0, i64 %i
+  %arrayidx2 = getelementptr inbounds [100 x i8], [100 x i8]* %b, i64 0, i64 %i
+  %0 = load i32, i32* %arrayidx1, align 4
+  %1 = trunc i32 %0 to i8 
+  %2 = load i8, i8* %arrayidx2, align 4
+  %cmp7 = icmp sgt i8 %2, %1
+  %i.next = add nuw nsw i64 %i, 1
+  br i1 %cmp7, label %end, label %BB2
+
+BB4:                                        ; preds = %BB2
+  %inc9 = add nuw nsw i32 %i.1, 1
+  %cmp = icmp slt i32 %inc9, 100
+  br i1 %cmp, label %BB1, label %end
+
+end:                                       ; preds = %BB4
+  ret void
+}
+
+; This test contains two nested loops and a byte load in the outer loop. 
+; The movb load should not be changed into movzbl.
+; CHECK-LABEL: test_bytemov_outer_loop:
+; CHECK-NOT: movzbl
+; CHECK: movb
+; CHECK-NOT: movzbl
+define void @test_bytemov_outer_loop([100 x i32]* %a, [100 x i8]* %b) nounwind uwtable {
+entry:
+  br label %BB2
+
+BB1:                                       ; preds = %BB2
+  %i = phi i64 [ 0, %BB2 ], [ %i.next, %BB1 ]
+  %i.next = add nuw nsw i64 %i, 1
+  %cmp2 = icmp slt i64 %i.next, 100
+  br i1 %cmp2, label %BB1, label %BB2
+
+BB2:                                        ; preds = %entry
+  %i.1 = phi i64 [ 0, %entry ], [ %i.1.next, %BB1 ]
+  %arrayidx1 = getelementptr inbounds [100 x i32], [100 x i32]* %a, i64 0, i64 %i.1
+  %arrayidx2 = getelementptr inbounds [100 x i8], [100 x i8]* %b, i64 0, i64 %i.1
+  %0 = load i32, i32* %arrayidx1, align 4
+  %1 = trunc i32 %0 to i8 
+  %2 = load i8, i8* %arrayidx2, align 4
+  %cmp = icmp sgt i8 %2, %1
+  %i.1.next = add nuw nsw i64 %i.1, 1
+  br i1 %cmp, label %BB1, label %end
+
+end:                                       ; preds = %BB2
+  ret void
+}
+
+

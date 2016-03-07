@@ -184,7 +184,7 @@ bool AVRVisitor<AV>::forwardVisit(AvrItr Begin, AvrItr End, bool Recursive,
 
     ++Next;
 
-    if (visit(Itr, Recursive, RecurseInsideLoops, true))
+    if (visit(&*Itr, Recursive, RecurseInsideLoops, true))
       return true;
   }
 

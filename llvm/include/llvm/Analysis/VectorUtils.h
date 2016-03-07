@@ -15,6 +15,7 @@
 #define LLVM_TRANSFORMS_UTILS_VECTORUTILS_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
@@ -88,7 +89,7 @@ Value *findScalarElement(Value *V, unsigned EltNo);
 /// \brief Get splat value if the input is a splat vector or return nullptr.
 /// The value may be extracted from a splat constants vector or from
 /// a sequence of instructions that broadcast a single value into a vector.
-Value *getSplatValue(Value *V);
+const Value *getSplatValue(const Value *V);
 
 /// \brief Determine if the SCEV expression is invariant with respect to the
 /// loop. This function will be called recursively for SCEV expressions that
@@ -146,7 +147,7 @@ void analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
 ///
 /// If the optional TargetTransformInfo is provided, this function tries harder
 /// to do less work by only looking at illegal types.
-DenseMap<Instruction*, uint64_t>
+MapVector<Instruction*, uint64_t>
 computeMinimumValueSizes(ArrayRef<BasicBlock*> Blocks,
                          DemandedBits &DB,
                          const TargetTransformInfo *TTI=nullptr);

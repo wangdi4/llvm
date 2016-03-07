@@ -31,10 +31,10 @@ AVRIfIR::AVRIfIR(AVRBranch *ABranch)
 
   // Set NOP Then-Else first children for downstream simplified node insertion. 
   AVR *ANOP = AVRUtils::createAVRNOP();
-  AVRUtils::insertFirstThenChild(this, ANOP);
+  AVRUtils::insertFirstThenChild(this, AvrItr(ANOP));
 
   ANOP = AVRUtils::createAVRNOP();
-  AVRUtils::insertFirstElseChild(this, ANOP);
+  AVRUtils::insertFirstElseChild(this, AvrItr(ANOP));
 }
 
 AVRIfIR *AVRIfIR::clone() const { return nullptr; }

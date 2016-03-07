@@ -343,7 +343,7 @@ public:
         DEBUG(errs() << "Starting the code gen for " << RegionIdx << "\n");
         DEBUG(I->dump(true));
         DEBUG(I->dump());
-        CG.visit(I);
+        CG.visit(&*I);
         Transformed = true;
       }
     }
@@ -587,7 +587,7 @@ void HIRCodeGen::CGVisitor::processLiveOut(HLRegion *Region) {
     DEBUG(SuccBBlock->dump());
 
     BasicBlock::iterator IP = SuccBBlock->getFirstInsertionPt();
-    Builder->SetInsertPoint(IP);
+    Builder->SetInsertPoint(&*IP);
 
     AllocaInst *SymSlot =
         getNamedValue(getTempName(I->first), I->second->getType());
@@ -695,7 +695,7 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   RegionSucc[R] = RegionSuccessor;
 
   BasicBlock *EntrySecondHalf =
-      SplitBlock(EntryFirstHalf, EntryFirstHalf->begin());
+      SplitBlock(EntryFirstHalf, &*(EntryFirstHalf->begin()));
   RegionEntrySplitBlock[R] = EntrySecondHalf;
 
   Instruction *Term = EntryFirstHalf->getTerminator();

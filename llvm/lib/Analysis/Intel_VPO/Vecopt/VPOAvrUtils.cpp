@@ -89,9 +89,9 @@ void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr,
     } else {
       // It's possible that insert is called with an AvrIf parent and unknown
       // child container. Resolve children container with a quick look up.
-      if (AVRUtils::containsAvr(AIf->ThenChildren, Pos)) {
+      if (AVRUtils::containsAvr(AIf->ThenChildren, &*Pos)) {
         Children = &(AIf->ThenChildren);
-      } else if (AVRUtils::containsAvr(AIf->ElseChildren, Pos)) {
+      } else if (AVRUtils::containsAvr(AIf->ElseChildren, &*Pos)) {
         Children = &(AIf->ElseChildren);
       } else {
         llvm_unreachable("Malformed AVRIf insertion!");
@@ -157,7 +157,7 @@ void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr,
 
   // Insert new avr.
   NewAvr->setParent(Parent);
-  Children->insert(InsertionPos, NewAvr);
+  Children->insert(InsertionPos, &*NewAvr);
 
   // Because the Avr Switch node uses a single linked-list container to store 
   // all the cases of the switch, we must update internal seperators which
@@ -170,55 +170,56 @@ void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr,
 }
 
 void AVRUtils::insertFirstChildAVR(AVR *Parent, AvrItr NewAvr) {
-  insertAVR(Parent, nullptr, NewAvr, FirstChild);
+  insertAVR(Parent, AvrItr(nullptr), NewAvr, FirstChild);
 }
 
 void AVRUtils::insertFirstThenChild(AVRIf *AvrIf, AvrItr NewAvr) {
-  insertAVR(AvrIf, nullptr, NewAvr, FirstChild, ThenChild);
+  insertAVR(AvrIf, AvrItr(nullptr), NewAvr, FirstChild, ThenChild);
 }
 
 void AVRUtils::insertFirstElseChild(AVRIf *AvrIf, AvrItr NewAvr) {
-  insertAVR(AvrIf, nullptr, NewAvr, FirstChild, ElseChild);
+  insertAVR(AvrIf, AvrItr(nullptr), NewAvr, FirstChild, ElseChild);
 }
 
 void AVRUtils::insertLastChildAVR(AVR *Parent, AvrItr NewAvr) {
-  insertAVR(Parent, nullptr, NewAvr, LastChild);
+  insertAVR(Parent, AvrItr(nullptr), NewAvr, LastChild);
 }
 
 void AVRUtils::insertLastThenChild(AVRIf *AvrIf, AvrItr NewAvr) {
-  insertAVR(AvrIf, nullptr, NewAvr, LastChild, ThenChild);
+  insertAVR(AvrIf, AvrItr(nullptr), NewAvr, LastChild, ThenChild);
 }
 
 void AVRUtils::insertLastElseChild(AVRIf *AvrIf, AvrItr NewAvr) {
-  insertAVR(AvrIf, nullptr, NewAvr, LastChild, ElseChild);
+  insertAVR(AvrIf, AvrItr(nullptr), NewAvr, LastChild, ElseChild);
 }
 
 void AVRUtils::insertAVRAfter(AvrItr InsertionPos, AVR *NewAvr) {
-  assert(InsertionPos && "InsertionPos is Null");
-  insertAVR(InsertionPos->getParent(), InsertionPos, NewAvr, Append);
+  assert(&*InsertionPos && "InsertionPos is Null");
+  insertAVR(InsertionPos->getParent(), InsertionPos, AvrItr(NewAvr), Append);
 }
 
 void AVRUtils::insertAVRBefore(AvrItr InsertionPos, AVR *NewAvr) {
-  assert(InsertionPos && "InsertionPos is Null");
-  insertAVR(InsertionPos->getParent(), InsertionPos, NewAvr, Prepend);
+  assert(&*InsertionPos && "InsertionPos is Null");
+  insertAVR(InsertionPos->getParent(), InsertionPos, AvrItr(NewAvr), Prepend);
 }
 
 void AVRUtils::insertFirstDefaultChild(AVRSwitch *ASwitch, AVR *NewAvr) {
-  insertAVR(ASwitch, nullptr, NewAvr, FirstChild, None, 0);
+  insertAVR(ASwitch, AvrItr(nullptr), AvrItr(NewAvr), FirstChild, None, 0);
 }
 
 void AVRUtils::insertLastDefaultChild(AVRSwitch *ASwitch, AVR *NewAvr) {
-  insertAVR(ASwitch, nullptr, NewAvr, LastChild, None, 0);
+  insertAVR(ASwitch, AvrItr(nullptr), AvrItr(NewAvr), LastChild, None, 0);
 }
 
 void AVRUtils::insertFirstChild(AVRSwitch *ASwitch, AVR *NewAvr,
                                   unsigned CaseNum) {
-  insertAVR(ASwitch, nullptr, NewAvr, FirstChild, None, CaseNum);
+  insertAVR(ASwitch, AvrItr(nullptr), AvrItr(NewAvr),
+            FirstChild, None, CaseNum);
 }
 
 void AVRUtils::insertLastChild(AVRSwitch *ASwitch, AVR *NewAvr,
                                  unsigned CaseNum) {
-  insertAVR(ASwitch, nullptr, NewAvr, LastChild, None, CaseNum);
+  insertAVR(ASwitch, AvrItr(nullptr), AvrItr(NewAvr), LastChild, None, CaseNum);
 }
 
 void AVRUtils::insertAVRSeq(AVR *NewParent, AVRContainerTy &ToContainer,
@@ -265,7 +266,7 @@ void AVRUtils::moveAfter(AvrItr InsertionPos, AVR *Node) {
 void AVRUtils::moveAsFirstChildren(AVRLoop *ALoop, AvrItr First, AvrItr Last) {
 
   AVRContainerTy TempContainer;
-  AVR *Begin = First, *End = Last;
+  AVR *Begin = &*First, *End = &*Last;
 
   if (First->getParent() != Last->getParent()) {
 
@@ -273,7 +274,7 @@ void AVRUtils::moveAsFirstChildren(AVRLoop *ALoop, AvrItr First, AvrItr Last) {
       llvm_unreachable("Coudlnt resolve common lexical parent for avr sequence!");
   }
 
-  removeInternal(Begin, End, &TempContainer, false);
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
   insertAVRSeq(ALoop, ALoop->Children, ALoop->Children.begin(), &TempContainer,
                TempContainer.begin(), TempContainer.end(), FirstChild);
 }
@@ -283,7 +284,7 @@ void AVRUtils::moveAsFirstThenChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
   assert(AIf && "Missing AvrIf for insertion!");
 
   AVRContainerTy TempContainer;
-  AVR *Begin = First, *End = Last;
+  AVR *Begin = &*First, *End = &*Last;
 
   if (First->getParent() != Last->getParent()) {
 
@@ -291,7 +292,7 @@ void AVRUtils::moveAsFirstThenChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
       llvm_unreachable("Coudlnt resolve common lexical parent for avr sequence!");
   }
 
-  removeInternal(Begin, End, &TempContainer, false);
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
   insertAVRSeq(AIf, AIf->ThenChildren, AIf->ThenChildren.begin(),
                &TempContainer, TempContainer.begin(), TempContainer.end(),
                FirstChild);
@@ -302,7 +303,7 @@ void AVRUtils::moveAsFirstElseChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
   assert(AIf && "Missing AvrIf for insertion!");
 
   AVRContainerTy TempContainer;
-  AVR *Begin = First, *End = Last;
+  AVR *Begin = &*First, *End = &*Last;
 
   if (First->getParent() != Last->getParent()) {
 
@@ -310,7 +311,7 @@ void AVRUtils::moveAsFirstElseChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
       llvm_unreachable("Coudlnt resolve common lexical parent for avr sequence!");
   }
 
-  removeInternal(Begin, End, &TempContainer, false);
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
   insertAVRSeq(AIf, AIf->ElseChildren, AIf->ElseChildren.begin(),
                &TempContainer, TempContainer.begin(), TempContainer.end(),
                FirstChild);
@@ -325,7 +326,7 @@ AVRContainerTy *AVRUtils::removeInternal(AvrItr Begin, AvrItr End,
                                          bool Delete) {
 
   // Find the current container which holds Node.
-  AVRContainerTy *OrigContainer = AVRUtils::getAvrContainer(Begin);
+  AVRContainerTy *OrigContainer = AVRUtils::getAvrContainer(&*Begin);
   assert(OrigContainer && "Container missing for node removal!");
 
   // Removal of Avr or Avr sequence doenst require move to new location.
@@ -351,7 +352,7 @@ AVRContainerTy *AVRUtils::removeInternal(AvrItr Begin, AvrItr End,
       OrigContainer->remove(Begin);
 
       if (Delete)
-        destroy(Begin);
+        destroy(&*Begin);
 
       return nullptr;
     }
@@ -376,7 +377,7 @@ AVRContainerTy *AVRUtils::removeInternal(AvrItr Begin, AvrItr End,
 void AVRUtils::remove(AVR *Node) {
 
   assert(Node && "Missing AVR Node!");
-  removeInternal(Node, Node, nullptr, false);
+  removeInternal(AvrItr(Node), AvrItr(Node), nullptr, false);
 }
 
 // Remove sequence of AVRs

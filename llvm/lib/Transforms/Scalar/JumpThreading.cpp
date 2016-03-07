@@ -29,6 +29,7 @@
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
@@ -57,16 +58,23 @@ BBDuplicateThreshold("jump-threading-threshold",
           cl::desc("Max block size to duplicate for jump threading"),
           cl::init(6), cl::Hidden);
 
+static cl::opt<unsigned>
+ImplicationSearchThreshold(
+  "jump-threading-implication-search-threshold",
+  cl::desc("The number of predecessors to search for a stronger "
+           "condition to use to thread over a weaker condition"),
+  cl::init(3), cl::Hidden);
+
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
 JumpThreadLoopHeader("jump-thread-loop-header",
                      cl::desc("Jump thread through loop header blocks"),
-                     cl::init(true), cl::Hidden);
+                     cl::init(false), cl::Hidden);
 
 static cl::opt<bool>
 DistantJumpThreading("distant-jump-threading",
           cl::desc("Perform jump threading across larger-than-BB regions"),
-          cl::init(true), cl::Hidden);
+          cl::init(false), cl::Hidden);
 
 static cl::opt<bool>
 ConservativeJumpThreading("conservative-jump-threading",
@@ -221,6 +229,7 @@ namespace {
 
     bool ProcessBranchOnPHI(PHINode *PN);
     bool ProcessBranchOnXOR(BinaryOperator *BO);
+    bool ProcessImpliedCondition(BasicBlock *BB);
 
     bool SimplifyPartiallyRedundantLoad(LoadInst *LI);
     bool TryToUnfoldSelect(CmpInst *CondCmp, BasicBlock *BB);
@@ -353,21 +362,28 @@ static unsigned getJumpThreadDuplicationCost(
   const SmallVectorImpl<BasicBlock*> &RegionBlocks,
   const BasicBlock *RegionBottom,
   unsigned Threshold) {
-  const TerminatorInst *Term = RegionBottom->getTerminator();
-  unsigned Size = 0, TermWeight = 0;
+  const TerminatorInst *BBTerm = RegionBottom->getTerminator();
 
+  unsigned Bonus = 0;
   // Threading through a switch statement is particularly profitable.  If this
   // block ends in a switch, decrease its cost to make it more likely to happen.
-  if (isa<SwitchInst>(Term))
-    TermWeight = 6;
+  if (isa<SwitchInst>(BBTerm))
+    Bonus = 6;
 
   // The same holds for indirect branches, but slightly more so.
-  if (isa<IndirectBrInst>(Term))
-    TermWeight = 8;
+  if (isa<IndirectBrInst>(BBTerm))
+    Bonus = 8;
 
+  // Bump the threshold up so the early exit from the loop doesn't skip the
+  // terminator-based Size adjustment at the end.
+  Threshold += Bonus;
+
+  // Sum up the cost of each instruction until we get to the terminator.  Don't
+  // include the terminator because the copy won't include it.
+  unsigned Size = 0;
   for (auto BB : RegionBlocks) {
     /// Ignore PHI nodes, these will be flattened when duplication happens.
-    BasicBlock::const_iterator I = BB->getFirstNonPHI();
+    BasicBlock::const_iterator I(BB->getFirstNonPHI());
 
     // FIXME: THREADING will delete values that are just used to compute the
     // branch, so they shouldn't count against the duplication cost.
@@ -380,7 +396,7 @@ static unsigned getJumpThreadDuplicationCost(
         continue;
 
       // Stop scanning the block if we've reached the threshold.
-      if (Size > Threshold + TermWeight)
+      if (Size > Threshold)
         return Size;
 
       // Debugger intrinsics don't incur code size.
@@ -414,7 +430,8 @@ static unsigned getJumpThreadDuplicationCost(
       }
     }
   }
-  return (Size > TermWeight) ? Size - TermWeight : 0;
+
+  return Size > Bonus ? Size - Bonus : 0;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1094,9 +1111,40 @@ bool JumpThreading::ProcessBlock(BasicBlock *BB) {
       CondInst->getParent() == BB && isa<BranchInst>(BB->getTerminator()))
     return ProcessBranchOnXOR(cast<BinaryOperator>(CondInst));
 
+  // Search for a stronger dominating condition that can be used to simplify a
+  // conditional branch leaving BB.
+  if (ProcessImpliedCondition(BB))
+    return true;
 
-  // TODO: If we have: "br (X > 0)"  and we have a predecessor where we know
-  // "(X == 4)", thread through this block.
+  return false;
+}
+
+bool JumpThreading::ProcessImpliedCondition(BasicBlock *BB) {
+  auto *BI = dyn_cast<BranchInst>(BB->getTerminator());
+  if (!BI || !BI->isConditional())
+    return false;
+
+  Value *Cond = BI->getCondition();
+  BasicBlock *CurrentBB = BB;
+  BasicBlock *CurrentPred = BB->getSinglePredecessor();
+  unsigned Iter = 0;
+
+  auto &DL = BB->getModule()->getDataLayout();
+
+  while (CurrentPred && Iter++ < ImplicationSearchThreshold) {
+    auto *PBI = dyn_cast<BranchInst>(CurrentPred->getTerminator());
+    if (!PBI || !PBI->isConditional() || PBI->getSuccessor(0) != CurrentBB)
+      return false;
+
+    if (isImpliedCondition(PBI->getCondition(), Cond, DL)) {
+      BI->getSuccessor(1)->removePredecessor(BB);
+      BranchInst::Create(BI->getSuccessor(0), BI);
+      BI->eraseFromParent();
+      return true;
+    }
+    CurrentBB = CurrentPred;
+    CurrentPred = CurrentBB->getSinglePredecessor();
+  }
 
   return false;
 }
@@ -2119,27 +2167,40 @@ void JumpThreading::UpdateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
     // edge frequency.
     if (BB == RegionBottom) {
       // Collect updated outgoing edges' frequencies from BB and use them to
-      // update edge weights.
+      // update edge probabilities.
       SmallVector<uint64_t, 4> BBSuccFreq;
-      for (auto SI = succ_begin(BB), SE = succ_end(BB); SI != SE; ++SI) {
-        auto SuccFreq = BBOrigFreq * BPI->getEdgeProbability(BB, *SI);
-        if (*SI == SuccBB)
+      for (BasicBlock *Succ : successors(BB)) {
+        auto SuccFreq = BBOrigFreq * BPI->getEdgeProbability(BB, Succ);
+        if (Succ == SuccBB)
           SuccFreq -= NewBBFreq;
         BBSuccFreq.push_back(SuccFreq.getFrequency());
       }
-      // Normalize edge weights in Weights64 so that the sum of them can fit in
-      BranchProbability::normalizeEdgeWeights(BBSuccFreq.begin(),
-                                              BBSuccFreq.end());
 
-      SmallVector<uint32_t, 4> Weights;
-      for (auto Freq : BBSuccFreq)
-        Weights.push_back(static_cast<uint32_t>(Freq));
+      uint64_t MaxBBSuccFreq =
+        *std::max_element(BBSuccFreq.begin(), BBSuccFreq.end());
 
-      // Update edge weights in BPI.
-      for (int I = 0, E = Weights.size(); I < E; I++)
-        BPI->setEdgeWeight(BB, I, Weights[I]);
+      SmallVector<BranchProbability, 4> BBSuccProbs;
+      if (MaxBBSuccFreq == 0)
+        BBSuccProbs.assign(BBSuccFreq.size(),
+                           {1, static_cast<unsigned>(BBSuccFreq.size())});
+      else {
+        for (uint64_t Freq : BBSuccFreq)
+          BBSuccProbs.push_back(
+            BranchProbability::getBranchProbability(Freq, MaxBBSuccFreq));
+        // Normalize edge probabilities so that they sum up to one.
+        BranchProbability::normalizeProbabilities(BBSuccProbs.begin(),
+                                                  BBSuccProbs.end());
+      }
 
-      if (Weights.size() >= 2) {
+      // Update edge probabilities in BPI.
+      for (int I = 0, E = BBSuccProbs.size(); I < E; I++)
+        BPI->setEdgeProbability(BB, I, BBSuccProbs[I]);
+
+      if (BBSuccProbs.size() >= 2) {
+        SmallVector<uint32_t, 4> Weights;
+        for (auto Prob : BBSuccProbs)
+          Weights.push_back(Prob.getNumerator());
+
         auto TI = BB->getTerminator();
         TI->setMetadata(
           LLVMContext::MD_prof,
@@ -2153,7 +2214,8 @@ void JumpThreading::UpdateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
     for (succ_iterator SI = succ_begin(BB), SE = succ_end(BB); SI != SE;
          ++SI, ++SuccIndex) {
       // The outgoing edge weights for NewBB are copied from BB.
-      BPI->setEdgeWeight(NewBB, SuccIndex, BPI->getEdgeWeight(BB, SuccIndex));
+      BPI->setEdgeProbability(NewBB, SuccIndex,
+                              BPI->getEdgeProbability(BB, SuccIndex));
 
       // Adjust the block frequency of the successor if it's part of the region.
       if (BlockMapping.find(*SI) == BlockMapping.end())

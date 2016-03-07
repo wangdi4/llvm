@@ -117,7 +117,7 @@ BasicBlock *WRegionNode::getSuccBBlock() const {
 
 WRegionNode *WRegionNode::getFirstChild() {
   if (hasChildren()) {
-    return Children.begin();
+    return &*(Children.begin());
   }
   return nullptr;
 }

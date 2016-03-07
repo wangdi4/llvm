@@ -367,8 +367,8 @@ void SCCFormation::formRegionSCCs() {
       // Iterate through the phi nodes in the header.
       for (auto I = BB->begin(); isa<PHINode>(I); ++I) {
 
-        if (isCandidateRootNode(I)) {
-          findSCC(I);
+        if (isCandidateRootNode(&*I)) {
+          findSCC(&*I);
           assert(NodeStack.empty() && "NodeStack isn't empty!");
         }
       }

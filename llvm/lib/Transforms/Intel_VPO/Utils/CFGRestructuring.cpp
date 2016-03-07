@@ -68,7 +68,7 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
         if (Inst->getIntrinsicID() == Intrinsic::intel_directive) {
           StringRef DirString = getDirectiveMetadataString(Inst);
           if (isBeginOrEndDirective(DirString) || isListEndDirective(DirString))
-            InstructionsToSplit.insert(I);
+            InstructionsToSplit.insert(Inst);
         }
 
   // Now, go through InstructionsToSplit and do the splitting around
@@ -92,8 +92,9 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
       StringRef DirString =
           getDirectiveMetadataString(dyn_cast<IntrinsicInst>(I));
       if (isListEndDirective(DirString)) {
-        BasicBlock::iterator Inst = I;
-        SplitPoint = ++Inst;
+        //        BasicBlock::iterator Inst = I;
+        BasicBlock::iterator Inst(I);
+        SplitPoint = &*(++Inst);
       }
       BasicBlock *newBB = SplitBlock(BB, SplitPoint, DT, LI);
       newBB->setName(DirString + "." + Twine(Counter));

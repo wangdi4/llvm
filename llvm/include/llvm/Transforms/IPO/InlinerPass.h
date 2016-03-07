@@ -21,11 +21,11 @@
 #include "llvm/Transforms/IPO/InlineReport.h" // INTEL
 
 namespace llvm {
-  class CallSite;
-  class DataLayout;
-  class InlineCost;
-  template<class PtrType, unsigned SmallSize>
-  class SmallPtrSet;
+class AssumptionCacheTracker;
+class CallSite;
+class DataLayout;
+class InlineCost;
+template <class PtrType, unsigned SmallSize> class SmallPtrSet;
 
 /// Inliner - This class contains all of the helper code which is used to
 /// perform the inlining operations that do not depend on the policy.
@@ -77,7 +77,18 @@ struct Inliner : public CallGraphSCCPass {
 
 #if INTEL_CUSTOMIZATION
   InlineReport& getReport() { return Report; }
-  void addDeletableFunction(Function* F) { DeletableFunctions.push_back(F); }
+  void addDeletableFunction(Function *F) {
+    DeletableFunctions.push_back(F);
+    // If F->dropAllReferences() is not called from addDeletableFunctio, the IPO
+    // will crash in ArgPromotion because F was marked for deletion, and so is
+    // no longer in the call-graph.
+    // But according to documentation for dropAllReferences(), calling it here
+    // may break the inlining report due to calling F.getName().
+    // InlineReport should invent its own method to remove the body of the
+    // function and to keep the declaration part only only keep all required
+    // strings directly.
+    F->dropAllReferences();
+  }
   void removeDeletableFunctions(void);
 #endif // INTEL_CUSTOMIZATION
 
@@ -99,6 +110,9 @@ bool shouldInline(CallSite CS);
   // A list of Function*s that can be deleted after the inliner is done
   SmallVector<Function*, 16> DeletableFunctions;
 #endif // INTEL_CUSTOMIZATION
+
+protected:
+  AssumptionCacheTracker *ACT;
 };
 
 } // End llvm namespace

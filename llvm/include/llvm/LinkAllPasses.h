@@ -47,11 +47,11 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" //***INTEL - HIR analysis
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h" // INTEL - HIR
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/Valgrind.h"
 #include <cstdlib>
@@ -98,7 +98,10 @@ namespace {
       (void) llvm::createDomOnlyViewerPass();
       (void) llvm::createDomViewerPass();
       (void) llvm::createGCOVProfilerPass();
+      (void) llvm::createPGOInstrumentationGenPass();
+      (void) llvm::createPGOInstrumentationUsePass();
       (void) llvm::createInstrProfilingPass();
+      (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
       (void) llvm::createAlwaysInlinerPass();
       (void) llvm::createGlobalDCEPass();

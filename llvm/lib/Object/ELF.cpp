@@ -26,9 +26,7 @@ StringRef getELFRelocationTypeName(uint32_t Machine, uint32_t Type) {
     }
     break;
   case ELF::EM_386:
-#if INTEL_CUSTOMIZATION
   case ELF::EM_IAMCU:
-#endif //INTEL_CUSTOMIZATION
     switch (Type) {
 #include "llvm/Support/ELFRelocs/i386.def"
     default:

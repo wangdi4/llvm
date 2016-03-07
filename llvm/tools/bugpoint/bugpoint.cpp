@@ -131,6 +131,12 @@ int main(int argc, char **argv) {
   initializeInstrumentation(Registry);
   initializeTarget(Registry);
 
+#if INTEL_CUSTOMIZATION
+  initializeIntel_LoopAnalysis(Registry);
+  initializeIntel_LoopTransforms(Registry);
+  initializeVecClonePass(Registry);
+#endif // INTEL_CUSTOMIZATION
+
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);
 #endif

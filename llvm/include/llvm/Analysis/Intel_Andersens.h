@@ -81,6 +81,7 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   std::set<unsigned> PossibleSourceOfPointsToInfo;
 
   std::vector<CallSite> IndirectCallList;
+  std::vector<CallSite> DirectCallList;
 
   // GraphNodes - This vector is populated as part of the object
   // identification stage of the analysis, which populates this vector with a
@@ -108,6 +109,8 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // Constraints - This vector contains a list of all of the constraints
   // identified by the program.
   std::vector<Constraint> Constraints;
+
+  std::list<unsigned> NodeWorkList;
 
   // Map from graph node to maximum K value that is allowed (for functions,
   // this is equivalent to the number of arguments + CallFirstArgPos)
@@ -193,7 +196,8 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
 
   // The data structure to record the static global variable
   // which are not escaped from the current routine.
-  DenseMap<const Value *, unsigned> NonEscapeStaticVars;
+  SmallPtrSet<const Value *, 16> NonEscapeStaticVars;
+  SmallPtrSet<const Instruction *, 16> NonPointerAssignments;
 
   /// Handle to clear this analysis on deletion of values.
   struct AndersensDeletionCallbackHandle final : CallbackVH {
@@ -317,25 +321,34 @@ private:
   void IndirectCallActualsToFormals(CallSite CS, Function *F);
   void InitIndirectCallActualsToUniversalSet(CallSite CS);
   void AddEdgeInGraph(unsigned N1, unsigned N2);
+
+  bool IsLibFunction(const Function *F);
+  void CreateInOutEdgesforNodes();
+  void CreateRevPointsToGraph();
+  void CallSitesAnalysis();
+  void AddToWorkList(unsigned int NodeIdx);
+  void NewHoldingNode(unsigned int NodeIdx, unsigned int Flags);
+  void ProcessHoldingNode(unsigned int NodeIdx);
+  void NewPropNode(unsigned int NodeIdx, unsigned int Flags);
+  void ProcessPropNode(unsigned int NodeIdx);
+  void NewOpaqueNode(unsigned int NodeIdx, unsigned int Flags);
+  void ProcessOpaqueNode(unsigned int NodeIdx);
+  void InitEscAnal(Module &M);
+  void InitEscAnalForGlobals(Module &M);
+  unsigned int FindFlags(unsigned NodeIdx);
+  void AddFlags(unsigned NodeIdx, unsigned int F);
+  void PerformEscAnal(Module &M);
+  void MarkEscaped();
+  void ProcessCall(CallSite &CS);
+
   // Return true if one of the point-to targets escapes
   bool pointsToSetEscapes(Node *N);
   // Return true if the value represented by the graph node N escapes
   bool graphNodeEscapes(Node *N);
-  // Given a pointer P, if P escapes, the point-to set of P also escapes.
-  // The information will be propagated along the point-to chain.
-  void propagateEscapedPointsTo(NodeSetTy *NodeSet1, NodeSetTy *NodeSet2,
-                                NodeSetTy *NodeSet3);
-  void analyzePointsToGraph(NodeSetTy *EscapedNodeSet);
   // Analyze whether the given global escapes or not
   bool analyzeGlobalEscape(const Value *V,
-                           SmallPtrSet<const PHINode *, 16> PhiUsers,
-                           const Function **SinlgeAcessingFunction,
-                           bool *LoadFlag);
-  // Returns true if the value represented by the graph node N is
-  // likely to escape.
-  bool graphNodePossiblyEscape(Node *AltN);
-  // Updates the set NonEscapeStaticVars.
-  void updateEscapeNodes(NodeSetTy *EscapedNodeSet);
+               SmallPtrSet<const PHINode *, 16> PhiUsers,
+               const Function **SinlgeAcessingFunction);
   void PrintNonEscapes() const;
 
   void ProcessIndirectCall(CallSite CS);
@@ -375,12 +388,10 @@ private:
   void visitShuffleVectorInst(ShuffleVectorInst &AI);
   void visitLandingPadInst(LandingPadInst &AI);
   void visitAtomicCmpXchgInst(AtomicCmpXchgInst &AI);
-  void visitCatchPadInst(CatchPadInst &AI);
   void visitCleanupPadInst(CleanupPadInst &AI);
-  void visitTerminatePadInst(TerminatePadInst &AI);
+  void visitCatchPadInst(CatchPadInst &AI);
   void visitCleanupReturnInst(CleanupReturnInst &AI);
   void visitCatchReturnInst(CatchReturnInst &AI);
-  void visitCleanupEndPadInst(CleanupEndPadInst &AI);
 
   void processWinEhOperands(Instruction &AI);
  

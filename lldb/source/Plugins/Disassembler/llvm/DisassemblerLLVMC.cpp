@@ -7,8 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "DisassemblerLLVMC.h"
-
+// C Includes
+// C++ Includes
+// Project includes
 #include "llvm-c/Disassembler.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
@@ -25,6 +26,8 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ADT/SmallString.h"
 
+// Other libraries and framework includes
+#include "DisassemblerLLVMC.h"
 
 #include "lldb/Core/Address.h"
 #include "lldb/Core/DataExtractor.h"
@@ -58,13 +61,10 @@ public:
     {
     }
 
-    virtual
-    ~InstructionLLVMC ()
-    {
-    }
+    ~InstructionLLVMC() override = default;
 
-    virtual bool
-    DoesBranch ()
+    bool
+    DoesBranch() override
     {
         if (m_does_branch == eLazyBoolCalculate)
         {
@@ -100,8 +100,8 @@ public:
         return m_does_branch == eLazyBoolYes;
     }
 
-    virtual bool
-    HasDelaySlot ()
+    bool
+    HasDelaySlot() override
     {
         if (m_has_delay_slot == eLazyBoolCalculate)
         {
@@ -155,10 +155,10 @@ public:
         return llvm_disasm.m_disasm_ap.get();
     }
 
-    virtual size_t
-    Decode (const lldb_private::Disassembler &disassembler,
-            const lldb_private::DataExtractor &data,
-            lldb::offset_t data_offset)
+    size_t
+    Decode(const lldb_private::Disassembler &disassembler,
+           const lldb_private::DataExtractor &data,
+           lldb::offset_t data_offset) override
     {
         // All we have to do is read the opcode which can be easy for some
         // architectures
@@ -272,15 +272,16 @@ public:
         }
     }
 
-    virtual void
-    CalculateMnemonicOperandsAndComment (const lldb_private::ExecutionContext *exe_ctx)
+    void
+    CalculateMnemonicOperandsAndComment(const lldb_private::ExecutionContext *exe_ctx) override
     {
         DataExtractor data;
         const AddressClass address_class = GetAddressClass ();
 
         if (m_opcode.GetData(data))
         {
-            char out_string[512];
+            std::string out_string;
+            std::string comment_string;
 
             DisassemblerLLVMC &llvm_disasm = GetDisassemblerLLVMC();
 
@@ -331,7 +332,12 @@ public:
             if (inst_size > 0)
             {
                 mc_disasm_ptr->SetStyle(use_hex_immediates, hex_style);
-                mc_disasm_ptr->PrintMCInst(inst, out_string, sizeof(out_string));
+                mc_disasm_ptr->PrintMCInst(inst, out_string, comment_string);
+                
+                if (!comment_string.empty())
+                {
+                    AppendComment(comment_string);
+                }
             }
 
             llvm_disasm.Unlock();
@@ -413,10 +419,10 @@ public:
 
             RegularExpression::Match matches(3);
 
-            if (s_regex.Execute(out_string, &matches))
+            if (s_regex.Execute(out_string.c_str(), &matches))
             {
-                matches.GetMatchAtIndex(out_string, 1, m_opcode_name);
-                matches.GetMatchAtIndex(out_string, 2, m_mnemonics);
+                matches.GetMatchAtIndex(out_string.c_str(), 1, m_opcode_name);
+                matches.GetMatchAtIndex(out_string.c_str(), 2, m_mnemonics);
             }
         }
     }
@@ -451,8 +457,6 @@ protected:
     bool                    m_is_valid;
     bool                    m_using_file_addr;
 };
-
-
 
 DisassemblerLLVMC::LLVMCDisassembler::LLVMCDisassembler (const char *triple, const char *cpu, const char *features_str, unsigned flavor, DisassemblerLLVMC &owner):
     m_is_valid(true)
@@ -521,9 +525,7 @@ DisassemblerLLVMC::LLVMCDisassembler::LLVMCDisassembler (const char *triple, con
         m_is_valid = false;
 }
 
-DisassemblerLLVMC::LLVMCDisassembler::~LLVMCDisassembler()
-{
-}
+DisassemblerLLVMC::LLVMCDisassembler::~LLVMCDisassembler() = default;
 
 uint64_t
 DisassemblerLLVMC::LLVMCDisassembler::GetMCInst (const uint8_t *opcode_data,
@@ -547,21 +549,25 @@ DisassemblerLLVMC::LLVMCDisassembler::GetMCInst (const uint8_t *opcode_data,
         return 0;
 }
 
-uint64_t
+void
 DisassemblerLLVMC::LLVMCDisassembler::PrintMCInst (llvm::MCInst &mc_inst,
-                                                   char *dst,
-                                                   size_t dst_len)
+                                                   std::string &inst_string,
+                                                   std::string &comments_string)
 {
-    llvm::StringRef unused_annotations;
-    llvm::SmallString<64> inst_string;
-    llvm::raw_svector_ostream inst_stream(inst_string);
-    m_instr_printer_ap->printInst (&mc_inst, inst_stream, unused_annotations,
-                                   *m_subtarget_info_ap);
-    const size_t output_size = std::min(dst_len - 1, inst_string.size());
-    std::memcpy(dst, inst_string.data(), output_size);
-    dst[output_size] = '\0';
+    llvm::raw_string_ostream inst_stream(inst_string);
+    llvm::raw_string_ostream comments_stream(comments_string);
 
-    return output_size;
+    m_instr_printer_ap->setCommentStream(comments_stream);
+    m_instr_printer_ap->printInst (&mc_inst, inst_stream, llvm::StringRef(), *m_subtarget_info_ap);
+    m_instr_printer_ap->setCommentStream(llvm::nulls());
+    comments_stream.flush();
+    
+    static std::string g_newlines("\r\n");
+    
+    for (size_t newline_pos = 0; (newline_pos = comments_string.find_first_of(g_newlines, newline_pos)) != comments_string.npos; /**/)
+    {
+        comments_string.replace(comments_string.begin() + newline_pos, comments_string.begin() + newline_pos + 1, 1, ' ');
+    }
 }
 
 void
@@ -585,38 +591,6 @@ bool
 DisassemblerLLVMC::LLVMCDisassembler::HasDelaySlot (llvm::MCInst &mc_inst)
 {
     return m_instr_info_ap->get(mc_inst.getOpcode()).hasDelaySlot();
-}
-
-bool
-DisassemblerLLVMC::FlavorValidForArchSpec (const lldb_private::ArchSpec &arch, const char *flavor)
-{
-    llvm::Triple triple = arch.GetTriple();
-    if (flavor == NULL || strcmp (flavor, "default") == 0)
-        return true;
-
-    if (triple.getArch() == llvm::Triple::x86 || triple.getArch() == llvm::Triple::x86_64)
-    {
-        if (strcmp (flavor, "intel") == 0 || strcmp (flavor, "att") == 0)
-            return true;
-        else
-            return false;
-    }
-    else
-        return false;
-}
-
-
-Disassembler *
-DisassemblerLLVMC::CreateInstance (const ArchSpec &arch, const char *flavor)
-{
-    if (arch.GetTriple().getArch() != llvm::Triple::UnknownArch)
-    {
-        std::unique_ptr<DisassemblerLLVMC> disasm_ap (new DisassemblerLLVMC(arch, flavor));
-
-        if (disasm_ap.get() && disasm_ap->IsValid())
-            return disasm_ap.release();
-    }
-    return NULL;
 }
 
 DisassemblerLLVMC::DisassemblerLLVMC (const ArchSpec &arch, const char *flavor_string) :
@@ -782,8 +756,19 @@ DisassemblerLLVMC::DisassemblerLLVMC (const ArchSpec &arch, const char *flavor_s
     }
 }
 
-DisassemblerLLVMC::~DisassemblerLLVMC()
+DisassemblerLLVMC::~DisassemblerLLVMC() = default;
+
+Disassembler *
+DisassemblerLLVMC::CreateInstance (const ArchSpec &arch, const char *flavor)
 {
+    if (arch.GetTriple().getArch() != llvm::Triple::UnknownArch)
+    {
+        std::unique_ptr<DisassemblerLLVMC> disasm_ap (new DisassemblerLLVMC(arch, flavor));
+
+        if (disasm_ap.get() && disasm_ap->IsValid())
+            return disasm_ap.release();
+    }
+    return NULL;
 }
 
 size_t
@@ -886,6 +871,24 @@ const char *DisassemblerLLVMC::SymbolLookupCallback (void *disassembler,
                                                                        type,
                                                                        pc,
                                                                        name);
+}
+
+bool
+DisassemblerLLVMC::FlavorValidForArchSpec (const lldb_private::ArchSpec &arch, const char *flavor)
+{
+    llvm::Triple triple = arch.GetTriple();
+    if (flavor == NULL || strcmp (flavor, "default") == 0)
+        return true;
+
+    if (triple.getArch() == llvm::Triple::x86 || triple.getArch() == llvm::Triple::x86_64)
+    {
+        if (strcmp (flavor, "intel") == 0 || strcmp (flavor, "att") == 0)
+            return true;
+        else
+            return false;
+    }
+    else
+        return false;
 }
 
 int DisassemblerLLVMC::OpInfo (uint64_t PC,

@@ -28,7 +28,7 @@ AVRIf *AVRIf::clone() const { return nullptr; }
 AVR *AVRIf::getFirstElseChild() {
 
   if (hasElseChildren()) {
-    return ElseChildren.begin();
+    return &*(ElseChildren.begin());
   }
   return nullptr;
 }
@@ -36,7 +36,7 @@ AVR *AVRIf::getFirstElseChild() {
 AVR *AVRIf::getLastElseChild() {
 
   if (hasElseChildren()) {
-    return std::prev(ElseChildren.end());
+    return &*(std::prev(ElseChildren.end()));
   }
   return nullptr;
 }
@@ -44,7 +44,7 @@ AVR *AVRIf::getLastElseChild() {
 AVR *AVRIf::getFirstThenChild() {
 
   if (hasThenChildren()) {
-    return ThenChildren.begin();
+    return &*(ThenChildren.begin());
   }
   return nullptr;
 }
@@ -52,7 +52,7 @@ AVR *AVRIf::getFirstThenChild() {
 AVR *AVRIf::getLastThenChild() {
 
   if (hasThenChildren()) {
-    return std::prev(ThenChildren.end());
+    return &*(std::prev(ThenChildren.end()));
   }
   return nullptr;
 }

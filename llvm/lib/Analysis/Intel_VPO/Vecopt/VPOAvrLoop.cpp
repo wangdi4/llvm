@@ -37,7 +37,7 @@ AVRLoop *AVRLoop::clone() const { return nullptr; }
 
 AVR *AVRLoop::getLastChild() {
   if (hasChildren()) {
-    return std::prev(child_end());
+    return &*(std::prev(child_end()));
   } else {
     return nullptr;
   }

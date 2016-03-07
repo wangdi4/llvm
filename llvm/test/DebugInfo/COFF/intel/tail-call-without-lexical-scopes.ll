@@ -50,14 +50,14 @@ target datalayout = "e-m:w-p:32:32-i64:64-f80:32-n8:16:32-S32"
 target triple = "i686-pc-win32"
 
 ; Function Attrs: nounwind
-define void @"\01?spam@@YAXXZ"() #0 {
+define void @"\01?spam@@YAXXZ"() #0 !dbg !4 {
 entry:
   tail call void (i32, ...) @_ZL3bariz(i32 42), !dbg !11
   ret void, !dbg !12
 }
 
 ; Function Attrs: nounwind
-define internal void @_ZL3bariz(i32 %arg, ...) #0 {
+define internal void @_ZL3bariz(i32 %arg, ...) #0 !dbg !7 {
 entry:
   tail call void @"\01?foo@@YAXXZ"() #2, !dbg !13
   ret void, !dbg !14
@@ -73,15 +73,15 @@ attributes #2 = { nounwind }
 !llvm.module.flags = !{!8, !9}
 !llvm.ident = !{!10}
 
-!0 = !DICompileUnit(language: DW_LANG_C_plus_plus, producer: "clang version 3.5.0 ", isOptimized: true, emissionKind: 2, file: !1, enums: !2, retainedTypes: !2, subprograms: !3, globals: !2, imports: !2)
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, producer: "clang version 3.5.0 ", isOptimized: true, emissionKind: 2, file: !1, enums: !2, retainedTypes: !2, subprograms: !3, globals: !2, imports: !2)
 !1 = !DIFile(filename: "test.cpp", directory: "D:\5C")
 !2 = !{}
 !3 = !{!4, !7}
-!4 = !DISubprogram(name: "spam", line: 7, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: true, scopeLine: 7, file: !1, scope: !5, type: !6, function: void ()* @"\01?spam@@YAXXZ", variables: !2)
+!4 = distinct !DISubprogram(name: "spam", line: 7, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: true, scopeLine: 7, file: !1, scope: !5, type: !6, variables: !2)
 !5 = !DIFile(filename: "test.cpp", directory: "D:C")
 !6 = !DISubroutineType(types: !2)
-!7 = !DISubprogram(name: "bar", line: 3, isLocal: true, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: true, scopeLine: 3, file: !1, scope: !5, type: !6, function: void (i32, ...)* @_ZL3bariz, variables: !2)
-!8 = !{i32 2, !"Dwarf Version", i32 4}
+!7 = distinct !DISubprogram(name: "bar", line: 3, isLocal: true, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: true, scopeLine: 3, file: !1, scope: !5, type: !6, variables: !2)
+!8 = !{i32 2, !"CodeView", i32 1}
 !9 = !{i32 1, !"Debug Info Version", i32 3}
 !10 = !{!"clang version 3.5.0 "}
 !11 = !DILocation(line: 8, scope: !4)

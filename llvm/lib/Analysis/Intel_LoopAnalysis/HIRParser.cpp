@@ -2102,7 +2102,7 @@ bool HIRParser::runOnFunction(Function &F) {
     assert(RequiredSymbases.empty() && "RequiredSymbases is not empty!");
 
     // Start phase 1 of parsing.
-    phase1Parse(I);
+    phase1Parse(&*I);
 
     // Start phase 2 of parsing.
     phase2Parse();

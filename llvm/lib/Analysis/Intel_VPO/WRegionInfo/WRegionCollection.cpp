@@ -144,11 +144,13 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
             WRGraph->push_back(W);
           else {
             WRegionNode *Parent = S->top();
-            if (!Parent->hasChildren())
-              WRegionUtils::insertFirstChild(Parent, W);
-            else {
+            if (!Parent->hasChildren()) {
+              WRContainerTy::iterator WI(W);
+              WRegionUtils::insertFirstChild(Parent, WI);
+            } else {
               WRegionNode *C = Parent->getLastChild();
-              WRegionUtils::insertAfter(C, W);
+              WRContainerTy::iterator WI(C);
+              WRegionUtils::insertAfter(WI, W);
             }
           }
 

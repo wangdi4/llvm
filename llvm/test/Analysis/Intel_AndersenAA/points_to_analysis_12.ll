@@ -15,11 +15,11 @@ entry:
           to label %__try.cont unwind label %catch.dispatch
 
 catch.dispatch:                                   ; preds = %entry
-  %0 = catchpad [i8* bitcast (i32 (i8*, i8*)* @"\01?filt$0@0@main@@" to i8*)]
-          to label %__except.ret unwind label %catchendblock
+  %cs = catchswitch within none [label %__except.ret] unwind to caller
 
 __except.ret:                                     ; preds = %catch.dispatch
-  catchret %0 to label %__except
+  %0 = catchpad within %cs [i8* bitcast (i32 (i8*, i8*)* @"\01?filt$0@0@main@@" to i8*)]
+  catchret from %0 to label %__except
 
 __except:                                         ; preds = %__except.ret
   tail call void @"\01?bar@@YAXXZ"() 
@@ -27,9 +27,6 @@ __except:                                         ; preds = %__except.ret
 
 __try.cont:                                       ; preds = %entry, %__except
   ret i32 0
-
-catchendblock:                                    ; preds = %catch.dispatch
-  catchendpad unwind to caller
 }
 
 ; Function Attrs: nounwind readnone
@@ -43,8 +40,8 @@ entry:
   invoke void @_Z3quxv() optsize
           to label %exit unwind label %pad
 pad:
-  %cp = cleanuppad [i7 4]
-  cleanupret %cp unwind to caller
+  %cp = cleanuppad within none [i7 4]
+  cleanupret from %cp unwind to caller
 exit:
   ret void
 }

@@ -282,9 +282,8 @@ IntelOpenMPDirectivesAndClauses::ClauseStrings = {
     "QUAL.OMP.COPYIN" },
   { QUAL_OMP_COPYPRIVATE,
     "QUAL.OMP.COPYPRIVATE" },
-  { QUAL_OMP_REDUCTION,        // Not a real OpenMP qualifier; used as a begin
-    "QUAL.OMP.REDUCTION" },    // marker for reduction kind identification.
-                               // (WRegionClause.h)
+  { QUAL_OMP_REDUCTION,
+    "QUAL.OMP.REDUCTION" },
   { QUAL_OMP_REDUCTION_ADD,
     "QUAL.OMP.REDUCTION.ADD" },
   { QUAL_OMP_REDUCTION_SUB,

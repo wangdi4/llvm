@@ -80,7 +80,7 @@ bool VPOParopt::runOnModule(Module &M) {
     // TODO: need Front-End to set F->hasOpenMPDirective()
     if (F->isDeclaration()) // if(!F->hasOpenMPDirective()))
       continue;
-    FnList.push_back(F);
+    FnList.push_back(&*F);
   }
 
   // Iterate over all functions which OpenMP directives to perform Paropt

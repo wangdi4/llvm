@@ -109,7 +109,7 @@ bool VPODriverBase::runOnFunction(Function &F) {
   SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
   for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
-    AVR *Avr = I;
+    AVR *Avr = &*I;
     AVRWrn *AvrWrn;
 
     if (!(AvrWrn = dyn_cast<AVRWrn>(Avr))) {
