@@ -121,10 +121,12 @@ b4:
 }
 
 ; Check that jump threading doesn't attempt to thread the b0->b1 edge across the
-; switch statement in b2. In theory, that transform is possible but requires
-; that the b1->b1 edge not be duplicated as b1.thread->b1.thread. It must
-; instead be copied as b1.thread->b1, which complicates the transform somewhat,
-; so it is not currently supported.
+; switch statement in b2. We used to not support thread regions that contain
+; internal edges back to RegionTop. The fix for cq407644 added the necessary
+; code to transform such regions properly. But enabling them adds performance/
+; code size risk, so more experimentation is needing before removing the guard
+; that prevents threading across these regions. If/when we remove the guard
+; and allow these regions to be threaded, we'll need to change this test.
 ;
 ; CHECK-LABEL: f6
 ; CHECK-NOT: b1.thread
@@ -152,6 +154,51 @@ b4:
   ret i32 50
 }
 
+; Check that jump threading correctly threads the b0->b2 edge across the
+; switch statement in b4. The thread region includes the loop in b3, but the
+; thread is only valid when we reach b3 via b2. So in the duplicated code
+; region, the b3->b3 edge needs to become b3.thread->b3, and not
+; b3.thread->b3.thread. After successful transformation, the new threaded
+; code from b2, b3, and b4 all gets collapsed into one block, so check for
+; that here.
+;
+; CHECK-LABEL: f7
+; CHECK: b3.thread:
+; CHECK-NEXT: call void @f0
+; CHECK-NEXT: call i1 @continue
+; CHECK-NEXT: br i1 {{.*}}, label %b3, label %b6
+;
+define i32 @f7(i32 %arg1) {
+b0:
+  %cmp1 = icmp sgt i32 %arg1, 0
+  br i1 %cmp1, label %b2, label %b1
+
+b1:
+  br label %b2
+
+b2:
+  %phi1 = phi i32 [ 0, %b0 ], [ %arg1, %b1 ]
+  call void @f0()
+  br label %b3
+
+b3:
+  %phi2 = phi i32 [ %phi1, %b2 ], [ %add, %b3 ]
+  %add = add i32 %phi2, 1
+  %call = call i1 @continue()
+  br i1 %call, label %b3, label %b4
+
+b4:
+  switch i32 %phi2, label %b6 [
+    i32 42, label %b5
+    i32 85, label %b5
+  ]
+
+b5:
+  ret i32 5
+
+b6:
+  ret i32 50
+}
 
 declare void @f0()
 declare i1 @continue()
