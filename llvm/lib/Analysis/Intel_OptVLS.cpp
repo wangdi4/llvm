@@ -149,7 +149,7 @@ namespace OptVLS {
     unsigned GroupId = 1;
     for (unsigned i = 0, S = Grps.size(); i < S; i++) {
       OS << "  Group#" << GroupId++ << " ";
-      Grps[i].print(OS, 3);
+      Grps[i]->print(OS, 3);
     }
   }
   static void dumpOVLSMemrefVector(OVLSostream &OS, const OVLSMemrefVector &MemrefVec,
@@ -187,10 +187,9 @@ namespace OptVLS {
   // where memrefs in the OptVLSgroup being together do not violate any program
   // semantics nor any memory dependencies. Also, make sure the total size of
   // the memrefs does not exceed the group size.
-  static OVLSGroupVector& formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
-                                     unsigned GrpSize) {
-    OVLSGroupVector *OVLSGrps = new OVLSGroupVector();
-
+  static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
+                         OVLSGroupVector &OVLSGrps,
+                         unsigned GrpSize) {
     for (MemrefDistanceMap *AdjMemrefSet : AdjMrfSetVec) {
       assert (!AdjMemrefSet->empty() && "Adjacent memref-set cannot be empty");
       MemrefDistanceMapIt AdjMemrefSetIt = (*AdjMemrefSet).begin();
@@ -211,8 +210,8 @@ namespace OptVLS {
         uint64_t AccMask = CurrGrp->getAccessMask();
 
         if ((Dist - GrpFirstMDist + ElemSize) > GrpSize || // capacity exceeded.
-            !Memref->canMoveTo(CurrGrp->getFirstMemref())) {
-          OVLSGrps->push_back(*CurrGrp);
+            !Memref->canMoveTo(*CurrGrp->getFirstMemref())) {
+          OVLSGrps.push_back(CurrGrp);
           CurrGrp = new OVLSGroup(GrpSize, AccType);
 
           // Reset GrpFirstMDist
@@ -226,28 +225,29 @@ namespace OptVLS {
         // Set Access Mask.
         CurrGrp->setAccessMask(AccMask);
       }
-      OVLSGrps->push_back(*CurrGrp);
+      OVLSGrps.push_back(CurrGrp);
     }
 
     // dump OVLSGroups
-    OVLSDebug(OptVLS::dumpOVLSGroupVector(OVLSdbgs(), *OVLSGrps));
-    return *OVLSGrps;
+    OVLSDebug(OptVLS::dumpOVLSGroupVector(OVLSdbgs(), OVLSGrps));
+    return;
   }
 
   // Split the memref-vector into groups where memrefs in each group
   // are neighbors(adjacent), means they
   //   1) have the same access type
-  //   2) are a constant distance apart
+  //   2) have same number of vector elements
+  //   3) are a constant distance apart
   //
   // Adjacent memrefs in the group are sorted based on their distance from the first
   // memref in the group in an ascending order.
-  static MemrefDistanceMapVector* splitMrfs(const OVLSMemrefVector &Memrefs) {
+  static void splitMrfs(const OVLSMemrefVector &Memrefs,
+                        MemrefDistanceMapVector &AdjMemrefSetVec) {
     OVLSDebug(OVLSdbgs() << "\n  Split the vector memrefs into sub groups of "
                                  "adjacacent memrefs: \n");
     OVLSDebug(OVLSdbgs() << "    Distance is (in bytes) from the first memref of"
                                 " the set\n");
 
-    MemrefDistanceMapVector *AdjMemrefSetVec = new MemrefDistanceMapVector();
     for (unsigned i = 0, Size = Memrefs.size(); i < Size; ++i) {
       OVLSMemref *Memref = Memrefs[i];
 
@@ -256,12 +256,13 @@ namespace OptVLS {
 
       // TODO: Currently finding the appropriate group is done using a linear search.
       // It would be better to use a hashing algorithm for this search.
-      for (MemrefDistanceMap *AdjMemrefSet : *AdjMemrefSetVec) {
+      for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec) {
 
         MemrefDistanceMapIt I = (*AdjMemrefSet).begin();
         OVLSMemref *SetFirstMrf = I->second;
 
         if (Memref->getAccessType() == SetFirstMrf->getAccessType() && // same access type
+            Memref->haveSameNumElements(*SetFirstMrf) && // same number of vector elements
             Memref->isAConstDistanceFrom(*SetFirstMrf, &Dist)) { // are a const distance apart
           // Found a set
           AdjMrfSetFound = true;
@@ -274,13 +275,13 @@ namespace OptVLS {
         MemrefDistanceMap *AdjMemrefSet = new MemrefDistanceMap();
         // Assign 0 as a distance to the first memref in the set.
         (*AdjMemrefSet).insert(std::pair<int, OVLSMemref*>(0, Memref));
-        AdjMemrefSetVec->push_back(AdjMemrefSet);
+        AdjMemrefSetVec.push_back(AdjMemrefSet);
       }
     }
 
     // dump sorted set
-    OVLSDebug(OptVLS::dumpMemrefDistanceMapVector(OVLSdbgs(), *AdjMemrefSetVec));
-    return AdjMemrefSetVec;
+    OVLSDebug(OptVLS::dumpMemrefDistanceMapVector(OVLSdbgs(), AdjMemrefSetVec));
+    return;
   }
 } // end of namespace
 
@@ -292,17 +293,16 @@ namespace OptVLS {
 // in a way where having all the memrefs in OptVLSgroup (at one single point in
 // the program, the location of first memref in the group)does not violate
 // any program semantics nor any memory dependencies.
-OVLSGroupVector& OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
-                                            unsigned GrpSize) {
-  OVLSGroupVector *Grps =  new OVLSGroupVector();
-
+void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
+                                OVLSGroupVector &Grps,
+                                unsigned GrpSize) {
   OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n");
 
-  if (Memrefs.empty()) return *Grps;
+  if (Memrefs.empty()) return;
   if (GrpSize > MAX_GROUP_SIZE) {
     OVLSDebug(OVLSdbgs() << "!!!Group size above " << MAX_GROUP_SIZE <<
                              " bytes is not supported currently\n");
-    return *Grps;
+    return;
   }
 
   OVLSDebug(OVLSdbgs() << "  Recieved a vector of memrefs: \n");
@@ -312,20 +312,20 @@ OVLSGroupVector& OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
   // are neighbors, means they
   //   1) have the same access type
   //   2) are a constant distance apart
-  MemrefDistanceMapVector *AdjMemrefSetVec = OptVLS::splitMrfs(Memrefs);
+  MemrefDistanceMapVector AdjMemrefSetVec;
+  OptVLS::splitMrfs(Memrefs, AdjMemrefSetVec);
 
   // Form OptVLSgroups for each sub group where having all the memrefs in
   // OptVLSgroup (at one single point in the program, the location of first
   // memref in the group)does not violate any program semantics nor any memory
   // dependencies.
   // Also, make sure the total size of the memrefs does not exceed the group size.
-  *Grps = OptVLS::formGroups(*AdjMemrefSetVec, GrpSize);
+  OptVLS::formGroups(AdjMemrefSetVec, Grps, GrpSize);
 
   // Release memory
-  for (MemrefDistanceMap *AdjMemrefSet : *AdjMemrefSetVec) {
+  for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec) {
     delete AdjMemrefSet;
   }
-  delete AdjMemrefSetVec;
 
-  return *Grps;
+  return;
 }

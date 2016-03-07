@@ -35,6 +35,10 @@ PARALLEL_DIRS := opt llvm-as llvm-dis llc llvm-ar llvm-nm llvm-link \
                  llvm-cxxdump verify-uselistorder dsymutil llvm-pdbdump \
                  llvm-split sancov llvm-dwp
 
+ifeq ($(INTEL_CUSTOMIZATION), 1)
+ PARALLEL_DIRS += intelovls-test
+endif
+
 # If Intel JIT Events support is configured, build an extra tool to test it.
 ifeq ($(USE_INTEL_JITEVENTS), 1)
   PARALLEL_DIRS += llvm-jitlistener
