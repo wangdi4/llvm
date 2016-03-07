@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -triple x86_64-linux-gnu -emit-llvm -std=c++11 -fintel-compatibility    %s -o - | FileCheck -check-prefix=CHECK-LIN %s
 // RUN: %clang_cc1 -triple x86_64-windows-msvc -emit-llvm -std=c++11 -fintel-compatibility %s -o - | FileCheck -check-prefix=CHECK-WIN %s
 
-int __regcall foo (int i);
+int _regcall foo(int i);
 
 int main()
 {

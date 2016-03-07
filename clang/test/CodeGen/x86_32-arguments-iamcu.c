@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -w -triple i386-pc-elfiamcu -mfloat-abi soft -emit-llvm -o - %s | FileCheck %s
-// INTEL_CUSTOMIZATION: Test heavily modified, merge carefully
 
 // CHECK-LABEL: define void @ints(i32 %a, i32 %b, i32 %c, i32 %d)
 void ints(int a, int b, int c, int d) {}

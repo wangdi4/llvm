@@ -97,6 +97,7 @@ public:
       case UO_Real:      DISPATCH(UnaryReal,      UnaryOperator);
       case UO_Imag:      DISPATCH(UnaryImag,      UnaryOperator);
       case UO_Extension: DISPATCH(UnaryExtension, UnaryOperator);
+      case UO_Coawait:   DISPATCH(UnaryCoawait,   UnaryOperator);
       }
     }
 
@@ -161,7 +162,7 @@ public:
   UNARYOP_FALLBACK(Plus)      UNARYOP_FALLBACK(Minus)
   UNARYOP_FALLBACK(Not)       UNARYOP_FALLBACK(LNot)
   UNARYOP_FALLBACK(Real)      UNARYOP_FALLBACK(Imag)
-  UNARYOP_FALLBACK(Extension)
+  UNARYOP_FALLBACK(Extension) UNARYOP_FALLBACK(Coawait)
 #undef UNARYOP_FALLBACK
 
   // Base case, ignore it. :)

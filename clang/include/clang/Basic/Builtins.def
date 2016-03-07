@@ -356,6 +356,20 @@ BUILTIN(__builtin_ctanh, "XdXd", "Fnc")
 BUILTIN(__builtin_ctanhf, "XfXf", "Fnc")
 BUILTIN(__builtin_ctanhl, "XLdXLd", "Fnc")
 
+#if INTEL_CUSTOMIZATION
+// CQ#366852. MCU high-priority (according to D. Kreitzer) builtins.
+BUILTIN(__builtin_calloc,     "v*zz",   "Fnc")
+BUILTIN(__builtin_malloc,     "v*z",    "Fn")
+// We use here 'void *' instead of 'FILE *' due to icc/gcc compatibility.
+BUILTIN(__builtin_fwrite,     "zvC*zzv*","Fn")
+BUILTIN(__builtin_fputs,      "icC*v*", "Fn")
+BUILTIN(__builtin_fputc,      "iiv*",   "Fn")
+BUILTIN(__builtin_puts,       "icC*",   "Fn")
+BUILTIN(__builtin_exit,       "vi",     "Fnc")
+// '__builtin_constant_p' is defined further, in group titled 'Random GCC
+// builtins'
+#endif // INTEL_CUSTOMIZATION
+
 // FP Comparisons.
 BUILTIN(__builtin_isgreater     , "i.", "Fnc")
 BUILTIN(__builtin_isgreaterequal, "i.", "Fnc")
@@ -423,7 +437,10 @@ BUILTIN(__builtin_assume_aligned, "v*vC*z.", "nc")
 BUILTIN(__builtin_bcmp, "iv*v*z", "Fn")
 BUILTIN(__builtin_bcopy, "vv*v*z", "n")
 BUILTIN(__builtin_bzero, "vv*z", "nF")
-BUILTIN(__builtin_fprintf, "iP*cC*.", "Fp:1:")
+#if INTEL_CUSTOMIZATION
+// CQ#370451. Due to icc compatibility 'FILE *' -> 'void *'
+BUILTIN(__builtin_fprintf, "iv*cC*.", "Fp:1:")
+#endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_memchr, "v*vC*iz", "nF")
 BUILTIN(__builtin_memcmp, "ivC*vC*z", "nF")
 BUILTIN(__builtin_memcpy, "v*v*vC*z", "nF")
@@ -466,6 +483,17 @@ BUILTIN(__builtin_eh_return_data_regno, "iIi", "nc")
 BUILTIN(__builtin_snprintf, "ic*zcC*.", "nFp:2:")
 BUILTIN(__builtin_vsprintf, "ic*cC*a", "nFP:1:")
 BUILTIN(__builtin_vsnprintf, "ic*zcC*a", "nFP:2:")
+#if INTEL_CUSTOMIZATION
+// CQ#370451. Prinf/scanf builtin functions.
+BUILTIN(__builtin_vprintf,  "icC*a", "FP:0:")
+BUILTIN(__builtin_vfprintf, "iv*cC*a", "FP:1:")
+BUILTIN(__builtin_scanf,   "icC*.",       "Fs:0:")
+BUILTIN(__builtin_fscanf,  "iv*cC*.",   "Fs:1:")
+BUILTIN(__builtin_sscanf,  "icC*cC*.",  "Fs:1:")
+BUILTIN(__builtin_vscanf,  "icC*a",      "FS:0:")
+BUILTIN(__builtin_vfscanf, "iv*cC*a",  "FS:1:")
+BUILTIN(__builtin_vsscanf, "icC*cC*a", "FS:1:")
+#endif // INTEL_CUSTOMIZATION
 
 // GCC exception builtins
 BUILTIN(__builtin_eh_return, "vzv*", "r") // FIXME: Takes intptr_t, not size_t!
@@ -898,7 +926,10 @@ BUILTIN(__builtin_index, "c*cC*i", "Fn")
 BUILTIN(__builtin_rindex, "c*cC*i", "Fn")
 
 // Microsoft builtins.  These are only active with -fms-extensions.
-LANGBUILTIN(_alloca,          "v*z", "n", ALL_MS_LANGUAGES)
+#if INTEL_CUSTOMIZATION
+// CQ#370960: _alloca is always enabled in ICC mode.
+LANGBUILTIN(_alloca, "v*z", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+#endif // INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 // CQ#368488 - builtins fixes for iclang.
 BUILTIN(__assume,     "vb",  "n")
@@ -1432,6 +1463,9 @@ BUILTIN(__builtin_subcl, "ULiULiCULiCULiCULi*", "n")
 BUILTIN(__builtin_subcll, "ULLiULLiCULLiCULLiCULLi*", "n")
 
 // Checked Arithmetic Builtins for Security.
+BUILTIN(__builtin_add_overflow, "v.", "nt")
+BUILTIN(__builtin_sub_overflow, "v.", "nt")
+BUILTIN(__builtin_mul_overflow, "v.", "nt")
 BUILTIN(__builtin_uadd_overflow, "bUiCUiCUi*", "n")
 BUILTIN(__builtin_uaddl_overflow, "bULiCULiCULi*", "n")
 BUILTIN(__builtin_uaddll_overflow, "bULLiCULLiCULLi*", "n")
@@ -1459,6 +1493,10 @@ BUILTIN(__builtin_operator_delete, "vv*", "n")
 #if INTEL_CUSTOMIZATION
 // Builtin to support architecture features
 BUILTIN(__builtin_has_cpu_feature, "bULLi", "nc")
+BUILTIN(__intel_castf32_u32, "Uif", "nc")
+BUILTIN(__intel_castu32_f32, "fUi", "nc")
+BUILTIN(__intel_castu64_f64, "dUWi", "nc")
+BUILTIN(__intel_castf64_u64, "UWid", "nc")
 #endif  // INTEL_CUSTOMIZATION
 
 // Safestack builtins

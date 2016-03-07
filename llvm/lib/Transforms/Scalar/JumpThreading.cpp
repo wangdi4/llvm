@@ -29,6 +29,7 @@
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
@@ -56,6 +57,13 @@ static cl::opt<unsigned>
 BBDuplicateThreshold("jump-threading-threshold",
           cl::desc("Max block size to duplicate for jump threading"),
           cl::init(6), cl::Hidden);
+
+static cl::opt<unsigned>
+ImplicationSearchThreshold(
+  "jump-threading-implication-search-threshold",
+  cl::desc("The number of predecessors to search for a stronger "
+           "condition to use to thread over a weaker condition"),
+  cl::init(3), cl::Hidden);
 
 namespace {
   // These are at global scope so static functions can use them too.
@@ -151,6 +159,7 @@ namespace {
 
     bool ProcessBranchOnPHI(PHINode *PN);
     bool ProcessBranchOnXOR(BinaryOperator *BO);
+    bool ProcessImpliedCondition(BasicBlock *BB);
 
     bool SimplifyPartiallyRedundantLoad(LoadInst *LI);
     bool TryToUnfoldSelect(CmpInst *CondCmp, BasicBlock *BB);
@@ -277,6 +286,21 @@ static unsigned getJumpThreadDuplicationCost(const BasicBlock *BB,
   // FIXME: THREADING will delete values that are just used to compute the
   // branch, so they shouldn't count against the duplication cost.
 
+  unsigned Bonus = 0;
+  const TerminatorInst *BBTerm = BB->getTerminator();
+  // Threading through a switch statement is particularly profitable.  If this
+  // block ends in a switch, decrease its cost to make it more likely to happen.
+  if (isa<SwitchInst>(BBTerm))
+    Bonus = 6;
+
+  // The same holds for indirect branches, but slightly more so.
+  if (isa<IndirectBrInst>(BBTerm))
+    Bonus = 8;
+
+  // Bump the threshold up so the early exit from the loop doesn't skip the
+  // terminator-based Size adjustment at the end.
+  Threshold += Bonus;
+
   // Sum up the cost of each instruction until we get to the terminator.  Don't
   // include the terminator because the copy won't include it.
   unsigned Size = 0;
@@ -317,16 +341,7 @@ static unsigned getJumpThreadDuplicationCost(const BasicBlock *BB,
     }
   }
 
-  // Threading through a switch statement is particularly profitable.  If this
-  // block ends in a switch, decrease its cost to make it more likely to happen.
-  if (isa<SwitchInst>(I))
-    Size = Size > 6 ? Size-6 : 0;
-
-  // The same holds for indirect branches, but slightly more so.
-  if (isa<IndirectBrInst>(I))
-    Size = Size > 8 ? Size-8 : 0;
-
-  return Size;
+  return Size > Bonus ? Size - Bonus : 0;
 }
 
 /// FindLoopHeaders - We do not want jump threading to turn proper loop
@@ -868,9 +883,40 @@ bool JumpThreading::ProcessBlock(BasicBlock *BB) {
       CondInst->getParent() == BB && isa<BranchInst>(BB->getTerminator()))
     return ProcessBranchOnXOR(cast<BinaryOperator>(CondInst));
 
+  // Search for a stronger dominating condition that can be used to simplify a
+  // conditional branch leaving BB.
+  if (ProcessImpliedCondition(BB))
+    return true;
 
-  // TODO: If we have: "br (X > 0)"  and we have a predecessor where we know
-  // "(X == 4)", thread through this block.
+  return false;
+}
+
+bool JumpThreading::ProcessImpliedCondition(BasicBlock *BB) {
+  auto *BI = dyn_cast<BranchInst>(BB->getTerminator());
+  if (!BI || !BI->isConditional())
+    return false;
+
+  Value *Cond = BI->getCondition();
+  BasicBlock *CurrentBB = BB;
+  BasicBlock *CurrentPred = BB->getSinglePredecessor();
+  unsigned Iter = 0;
+
+  auto &DL = BB->getModule()->getDataLayout();
+
+  while (CurrentPred && Iter++ < ImplicationSearchThreshold) {
+    auto *PBI = dyn_cast<BranchInst>(CurrentPred->getTerminator());
+    if (!PBI || !PBI->isConditional() || PBI->getSuccessor(0) != CurrentBB)
+      return false;
+
+    if (isImpliedCondition(PBI->getCondition(), Cond, DL)) {
+      BI->getSuccessor(1)->removePredecessor(BB);
+      BranchInst::Create(BI->getSuccessor(0), BI);
+      BI->eraseFromParent();
+      return true;
+    }
+    CurrentBB = CurrentPred;
+    CurrentPred = CurrentBB->getSinglePredecessor();
+  }
 
   return false;
 }
@@ -1596,7 +1642,7 @@ void JumpThreading::UpdateBlockFreqAndEdgeWeight(BasicBlock *PredBB,
   BFI->setBlockFreq(BB, BBNewFreq.getFrequency());
 
   // Collect updated outgoing edges' frequencies from BB and use them to update
-  // edge weights.
+  // edge probabilities.
   SmallVector<uint64_t, 4> BBSuccFreq;
   for (auto I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
     auto SuccFreq = (*I == SuccBB)
@@ -1605,18 +1651,31 @@ void JumpThreading::UpdateBlockFreqAndEdgeWeight(BasicBlock *PredBB,
     BBSuccFreq.push_back(SuccFreq.getFrequency());
   }
 
-  // Normalize edge weights in Weights64 so that the sum of them can fit in
-  BranchProbability::normalizeEdgeWeights(BBSuccFreq.begin(), BBSuccFreq.end());
+  uint64_t MaxBBSuccFreq =
+      *std::max_element(BBSuccFreq.begin(), BBSuccFreq.end());
 
-  SmallVector<uint32_t, 4> Weights;
-  for (auto Freq : BBSuccFreq)
-    Weights.push_back(static_cast<uint32_t>(Freq));
+  SmallVector<BranchProbability, 4> BBSuccProbs;
+  if (MaxBBSuccFreq == 0)
+    BBSuccProbs.assign(BBSuccFreq.size(),
+                       {1, static_cast<unsigned>(BBSuccFreq.size())});
+  else {
+    for (uint64_t Freq : BBSuccFreq)
+      BBSuccProbs.push_back(
+          BranchProbability::getBranchProbability(Freq, MaxBBSuccFreq));
+    // Normalize edge probabilities so that they sum up to one.
+    BranchProbability::normalizeProbabilities(BBSuccProbs.begin(),
+                                              BBSuccProbs.end());
+  }
 
-  // Update edge weights in BPI.
-  for (int I = 0, E = Weights.size(); I < E; I++)
-    BPI->setEdgeWeight(BB, I, Weights[I]);
+  // Update edge probabilities in BPI.
+  for (int I = 0, E = BBSuccProbs.size(); I < E; I++)
+    BPI->setEdgeProbability(BB, I, BBSuccProbs[I]);
 
-  if (Weights.size() >= 2) {
+  if (BBSuccProbs.size() >= 2) {
+    SmallVector<uint32_t, 4> Weights;
+    for (auto Prob : BBSuccProbs)
+      Weights.push_back(Prob.getNumerator());
+
     auto TI = BB->getTerminator();
     TI->setMetadata(
         LLVMContext::MD_prof,

@@ -21,7 +21,6 @@
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
-#include "clang/Sema/SemaDiagnostic.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/DataLayout.h"
@@ -238,10 +237,20 @@ static Value *EmitSignBit(CodeGenFunction &CGF, Value *V) {
   llvm::Type *IntTy = llvm::IntegerType::get(C, Width);
   V = CGF.Builder.CreateBitCast(V, IntTy);
   if (Ty->isPPC_FP128Ty()) {
-    // The higher-order double comes first, and so we need to truncate the
-    // pair to extract the overall sign. The order of the pair is the same
-    // in both little- and big-Endian modes.
+    // We want the sign bit of the higher-order double. The bitcast we just
+    // did works as if the double-double was stored to memory and then
+    // read as an i128. The "store" will put the higher-order double in the
+    // lower address in both little- and big-Endian modes, but the "load"
+    // will treat those bits as a different part of the i128: the low bits in
+    // little-Endian, the high bits in big-Endian. Therefore, on big-Endian
+    // we need to shift the high bits down to the low before truncating.
     Width >>= 1;
+    if (CGF.getTarget().isBigEndian()) {
+      Value *ShiftCst = llvm::ConstantInt::get(IntTy, Width);
+      V = CGF.Builder.CreateLShr(V, ShiftCst);
+    } 
+    // We are truncating value in order to extract the higher-order 
+    // double, which we will be using to extract the sign from.
     IntTy = llvm::IntegerType::get(C, Width);
     V = CGF.Builder.CreateTrunc(V, IntTy);
   }
@@ -313,6 +322,50 @@ static llvm::Value* GetCallArgAsConstInt(CodeGenFunction &CGF,
 }
 #endif // INTEL_CUSTOMIZATION
 
+namespace {
+  struct WidthAndSignedness {
+    unsigned Width;
+    bool Signed;
+  };
+}
+
+static WidthAndSignedness
+getIntegerWidthAndSignedness(const clang::ASTContext &context,
+                             const clang::QualType Type) {
+  assert(Type->isIntegerType() && "Given type is not an integer.");
+  unsigned Width = Type->isBooleanType() ? 1 : context.getTypeInfo(Type).Width;
+  bool Signed = Type->isSignedIntegerType();
+  return {Width, Signed};
+}
+
+// Given one or more integer types, this function produces an integer type that
+// encompasses them: any value in one of the given types could be expressed in
+// the encompassing type.
+static struct WidthAndSignedness
+EncompassingIntegerType(ArrayRef<struct WidthAndSignedness> Types) {
+  assert(Types.size() > 0 && "Empty list of types.");
+
+  // If any of the given types is signed, we must return a signed type.
+  bool Signed = false;
+  for (const auto &Type : Types) {
+    Signed |= Type.Signed;
+  }
+
+  // The encompassing type must have a width greater than or equal to the width
+  // of the specified types.  Aditionally, if the encompassing type is signed,
+  // its width must be strictly greater than the width of any unsigned types
+  // given.
+  unsigned Width = 0;
+  for (const auto &Type : Types) {
+    unsigned MinWidth = Type.Width + (Signed && !Type.Signed);
+    if (Width < MinWidth) {
+      Width = MinWidth;
+    }
+  }
+
+  return {Width, Signed};
+}
+
 Value *CodeGenFunction::EmitVAStartEnd(Value *ArgValue, bool IsStart) {
   llvm::Type *DestType = Int8PtrTy;
   if (ArgValue->getType() != DestType)
@@ -323,61 +376,79 @@ Value *CodeGenFunction::EmitVAStartEnd(Value *ArgValue, bool IsStart) {
   return Builder.CreateCall(CGM.getIntrinsic(inst), ArgValue);
 }
 
-// Returns true if we have a valid set of target features.
-bool CodeGenFunction::checkBuiltinTargetFeatures(
-    const FunctionDecl *TargetDecl) {
-  // Early exit if this is an indirect call.
-  if (!TargetDecl)
-    return true;
+/// Checks if using the result of __builtin_object_size(p, @p From) in place of
+/// __builtin_object_size(p, @p To) is correct
+static bool areBOSTypesCompatible(int From, int To) {
+  // Note: Our __builtin_object_size implementation currently treats Type=0 and
+  // Type=2 identically. Encoding this implementation detail here may make
+  // improving __builtin_object_size difficult in the future, so it's omitted.
+  return From == To || (From == 0 && To == 1) || (From == 3 && To == 2);
+}
 
-  // Get the current enclosing function if it exists.
-  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(CurFuncDecl)) {
-    unsigned BuiltinID = TargetDecl->getBuiltinID();
-    const char *FeatureList =
-        CGM.getContext().BuiltinInfo.getRequiredFeatures(BuiltinID);
-    if (FeatureList && StringRef(FeatureList) != "") {
-      StringRef TargetCPU = Target.getTargetOpts().CPU;
-      llvm::StringMap<bool> FeatureMap;
+static llvm::Value *
+getDefaultBuiltinObjectSizeResult(unsigned Type, llvm::IntegerType *ResType) {
+  return ConstantInt::get(ResType, (Type & 2) ? 0 : -1, /*isSigned=*/true);
+}
 
-      if (const auto *TD = FD->getAttr<TargetAttr>()) {
-        // If we have a TargetAttr build up the feature map based on that.
-        TargetAttr::ParsedTargetAttr ParsedAttr = TD->parse();
+llvm::Value *
+CodeGenFunction::evaluateOrEmitBuiltinObjectSize(const Expr *E, unsigned Type,
+                                                 llvm::IntegerType *ResType) {
+  uint64_t ObjectSize;
+  if (!E->tryEvaluateObjectSize(ObjectSize, getContext(), Type))
+    return emitBuiltinObjectSize(E, Type, ResType);
+  return ConstantInt::get(ResType, ObjectSize, /*isSigned=*/true);
+}
 
-        // Make a copy of the features as passed on the command line into the
-        // beginning of the additional features from the function to override.
-        ParsedAttr.first.insert(
-            ParsedAttr.first.begin(),
-            Target.getTargetOpts().FeaturesAsWritten.begin(),
-            Target.getTargetOpts().FeaturesAsWritten.end());
+/// Returns a Value corresponding to the size of the given expression.
+/// This Value may be either of the following:
+///   - A llvm::Argument (if E is a param with the pass_object_size attribute on
+///     it)
+///   - A call to the @llvm.objectsize intrinsic
+llvm::Value *
+CodeGenFunction::emitBuiltinObjectSize(const Expr *E, unsigned Type,
+                                       llvm::IntegerType *ResType) {
+  // We need to reference an argument if the pointer is a parameter with the
+  // pass_object_size attribute.
+  if (auto *D = dyn_cast<DeclRefExpr>(E->IgnoreParenImpCasts())) {
+    auto *Param = dyn_cast<ParmVarDecl>(D->getDecl());
+    auto *PS = D->getDecl()->getAttr<PassObjectSizeAttr>();
+    if (Param != nullptr && PS != nullptr &&
+        areBOSTypesCompatible(PS->getType(), Type)) {
+      auto Iter = SizeArguments.find(Param);
+      assert(Iter != SizeArguments.end());
 
-        if (ParsedAttr.second != "")
-          TargetCPU = ParsedAttr.second;
+      const ImplicitParamDecl *D = Iter->second;
+      auto DIter = LocalDeclMap.find(D);
+      assert(DIter != LocalDeclMap.end());
 
-        // Now populate the feature map, first with the TargetCPU which is
-        // either
-        // the default or a new one from the target attribute string. Then we'll
-        // use the passed in features (FeaturesAsWritten) along with the new
-        // ones
-        // from the attribute.
-        Target.initFeatureMap(FeatureMap, CGM.getDiags(), TargetCPU,
-                              ParsedAttr.first);
-      } else {
-        Target.initFeatureMap(FeatureMap, CGM.getDiags(), TargetCPU,
-                              Target.getTargetOpts().Features);
-      }
-
-      // If we have at least one of the features in the feature list return
-      // true, otherwise return false.
-      SmallVector<StringRef, 1> AttrFeatures;
-      StringRef(FeatureList).split(AttrFeatures, ",");
-      for (const auto &Feature : AttrFeatures)
-        if (FeatureMap[Feature])
-	  return true;
-      return false;
+      return EmitLoadOfScalar(DIter->second, /*volatile=*/false,
+                              getContext().getSizeType(), E->getLocStart());
     }
   }
-  return true;
+
+  // LLVM can't handle Type=3 appropriately, and __builtin_object_size shouldn't
+  // evaluate E for side-effects. In either case, we shouldn't lower to
+  // @llvm.objectsize.
+  if (Type == 3 || E->HasSideEffects(getContext()))
+    return getDefaultBuiltinObjectSizeResult(Type, ResType);
+
+  // LLVM only supports 0 and 2, make sure that we pass along that
+  // as a boolean.
+  auto *CI = ConstantInt::get(Builder.getInt1Ty(), (Type & 2) >> 1);
+  // FIXME: Get right address space.
+  llvm::Type *Tys[] = {ResType, Builder.getInt8PtrTy(0)};
+  Value *F = CGM.getIntrinsic(Intrinsic::objectsize, Tys);
+  return Builder.CreateCall(F, {EmitScalarExpr(E), CI});
 }
+
+#ifdef INTEL_CUSTOMIZATION
+// CQ373809: unknown '__intel_***' builtin functions
+static RValue EmitIntelCast(CodeGenFunction &CGF, const CallExpr *E,
+                            llvm::Type *DestType) {
+  Value *V = CGF.EmitScalarExpr(E->getArg(0));
+  return RValue::get(CGF.Builder.CreateBitCast(V, DestType));
+}
+#endif // INTEL_CUSTOMIZATION
 
 RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
                                         unsigned BuiltinID, const CallExpr *E,
@@ -399,6 +470,21 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__builtin___CFStringMakeConstantString:
   case Builtin::BI__builtin___NSStringMakeConstantString:
     return RValue::get(CGM.EmitConstantExpr(E, E->getType(), nullptr));
+#ifdef INTEL_CUSTOMIZATION
+  // CQ373809: unknown '__intel_***' builtin functions
+  case Builtin::BI__intel_castu32_f32: {
+    return EmitIntelCast(*this, E, FloatTy);
+  }
+  case Builtin::BI__intel_castf32_u32: {
+    return EmitIntelCast(*this, E, Int32Ty);
+  }
+  case Builtin::BI__intel_castf64_u64: {
+    return EmitIntelCast(*this, E, Int64Ty);
+  }
+  case Builtin::BI__intel_castu64_f64: {
+    return EmitIntelCast(*this, E, DoubleTy);
+  }
+#endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_stdarg_start:
   case Builtin::BI__builtin_va_start:
   case Builtin::BI__va_start:
@@ -651,26 +737,13 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     return RValue::get(Builder.CreateCall(F, ArgValue));
   }
   case Builtin::BI__builtin_object_size: {
-    // We rely on constant folding to deal with expressions with side effects.
-    assert(!E->getArg(0)->HasSideEffects(getContext()) &&
-           "should have been constant folded");
+    unsigned Type =
+        E->getArg(1)->EvaluateKnownConstInt(getContext()).getZExtValue();
+    auto *ResType = cast<llvm::IntegerType>(ConvertType(E->getType()));
 
-    // We pass this builtin onto the optimizer so that it can
-    // figure out the object size in more complex cases.
-    llvm::Type *ResType = ConvertType(E->getType());
-
-    // LLVM only supports 0 and 2, make sure that we pass along that
-    // as a boolean.
-    Value *Ty = EmitScalarExpr(E->getArg(1));
-    ConstantInt *CI = dyn_cast<ConstantInt>(Ty);
-    assert(CI);
-    uint64_t val = CI->getZExtValue();
-    CI = ConstantInt::get(Builder.getInt1Ty(), (val & 0x2) >> 1);
-    // FIXME: Get right address space.
-    llvm::Type *Tys[] = { ResType, Builder.getInt8PtrTy(0) };
-    Value *F = CGM.getIntrinsic(Intrinsic::objectsize, Tys);
-    return RValue::get(
-        Builder.CreateCall(F, {EmitScalarExpr(E->getArg(0)), CI}));
+    // We pass this builtin onto the optimizer so that it can figure out the
+    // object size in more complex cases.
+    return RValue::get(emitBuiltinObjectSize(E->getArg(0), Type, ResType));
   }
   case Builtin::BI__builtin_prefetch: {
     Value *Locality, *RW, *Address = EmitScalarExpr(E->getArg(0));
@@ -1456,11 +1529,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
                                                RequiredArgs::All);
     llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FuncInfo);
     llvm::Constant *Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
+    return EmitCall(FuncInfo, Func, ReturnValueSlot(), Args,
 #if INTEL_SPECIFIC_CILKPLUS
-    return EmitCall(FuncInfo, Func, ReturnValueSlot(), Args, 0, 0,
-                    E->isCilkSpawnCall());
-#else
-    return EmitCall(FuncInfo, Func, ReturnValueSlot(), Args);
+                    CGCalleeInfo(), nullptr, E->isCilkSpawnCall());
 #endif // INTEL_SPECIFIC_CILKPLUS
   }
 
@@ -1820,6 +1891,88 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     Builder.CreateStore(CarryOut, CarryOutPtr);
     return RValue::get(Sum2);
   }
+
+  case Builtin::BI__builtin_add_overflow:
+  case Builtin::BI__builtin_sub_overflow:
+  case Builtin::BI__builtin_mul_overflow: {
+    const clang::Expr *LeftArg = E->getArg(0);
+    const clang::Expr *RightArg = E->getArg(1);
+    const clang::Expr *ResultArg = E->getArg(2);
+
+    clang::QualType ResultQTy =
+        ResultArg->getType()->castAs<PointerType>()->getPointeeType();
+
+    WidthAndSignedness LeftInfo =
+        getIntegerWidthAndSignedness(CGM.getContext(), LeftArg->getType());
+    WidthAndSignedness RightInfo =
+        getIntegerWidthAndSignedness(CGM.getContext(), RightArg->getType());
+    WidthAndSignedness ResultInfo =
+        getIntegerWidthAndSignedness(CGM.getContext(), ResultQTy);
+    WidthAndSignedness EncompassingInfo =
+        EncompassingIntegerType({LeftInfo, RightInfo, ResultInfo});
+
+    llvm::Type *EncompassingLLVMTy =
+        llvm::IntegerType::get(CGM.getLLVMContext(), EncompassingInfo.Width);
+
+    llvm::Type *ResultLLVMTy = CGM.getTypes().ConvertType(ResultQTy);
+
+    llvm::Intrinsic::ID IntrinsicId;
+    switch (BuiltinID) {
+    default:
+      llvm_unreachable("Unknown overflow builtin id.");
+    case Builtin::BI__builtin_add_overflow:
+      IntrinsicId = EncompassingInfo.Signed
+                        ? llvm::Intrinsic::sadd_with_overflow
+                        : llvm::Intrinsic::uadd_with_overflow;
+      break;
+    case Builtin::BI__builtin_sub_overflow:
+      IntrinsicId = EncompassingInfo.Signed
+                        ? llvm::Intrinsic::ssub_with_overflow
+                        : llvm::Intrinsic::usub_with_overflow;
+      break;
+    case Builtin::BI__builtin_mul_overflow:
+      IntrinsicId = EncompassingInfo.Signed
+                        ? llvm::Intrinsic::smul_with_overflow
+                        : llvm::Intrinsic::umul_with_overflow;
+      break;
+    }
+
+    llvm::Value *Left = EmitScalarExpr(LeftArg);
+    llvm::Value *Right = EmitScalarExpr(RightArg);
+    Address ResultPtr = EmitPointerWithAlignment(ResultArg);
+
+    // Extend each operand to the encompassing type.
+    Left = Builder.CreateIntCast(Left, EncompassingLLVMTy, LeftInfo.Signed);
+    Right = Builder.CreateIntCast(Right, EncompassingLLVMTy, RightInfo.Signed);
+
+    // Perform the operation on the extended values.
+    llvm::Value *Overflow, *Result;
+    Result = EmitOverflowIntrinsic(*this, IntrinsicId, Left, Right, Overflow);
+
+    if (EncompassingInfo.Width > ResultInfo.Width) {
+      // The encompassing type is wider than the result type, so we need to
+      // truncate it.
+      llvm::Value *ResultTrunc = Builder.CreateTrunc(Result, ResultLLVMTy);
+
+      // To see if the truncation caused an overflow, we will extend
+      // the result and then compare it to the original result.
+      llvm::Value *ResultTruncExt = Builder.CreateIntCast(
+          ResultTrunc, EncompassingLLVMTy, ResultInfo.Signed);
+      llvm::Value *TruncationOverflow =
+          Builder.CreateICmpNE(Result, ResultTruncExt);
+
+      Overflow = Builder.CreateOr(Overflow, TruncationOverflow);
+      Result = ResultTrunc;
+    }
+
+    // Finally, store the result using the pointer.
+    bool isVolatile =
+      ResultArg->getType()->getPointeeType().isVolatileQualified();
+    Builder.CreateStore(EmitToMemory(Result, ResultQTy), ResultPtr, isVolatile);
+
+    return RValue::get(Overflow);
+  }
+
   case Builtin::BI__builtin_uadd_overflow:
   case Builtin::BI__builtin_uaddl_overflow:
   case Builtin::BI__builtin_uaddll_overflow:
@@ -1849,7 +2002,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     // Decide which of the overflow intrinsics we are lowering to:
     llvm::Intrinsic::ID IntrinsicId;
     switch (BuiltinID) {
-    default: llvm_unreachable("Unknown security overflow builtin id.");
+    default: llvm_unreachable("Unknown overflow builtin id.");
     case Builtin::BI__builtin_uadd_overflow:
     case Builtin::BI__builtin_uaddl_overflow:
     case Builtin::BI__builtin_uaddll_overflow:
@@ -2085,10 +2238,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   // This is down here to avoid non-target specific builtins, however, if
   // generic builtins start to require generic target features then we
   // can move this up to the beginning of the function.
-  if (!checkBuiltinTargetFeatures(FD))
-    CGM.getDiags().Report(E->getLocStart(), diag::err_builtin_needs_feature)
-        << FD->getDeclName()
-        << CGM.getContext().BuiltinInfo.getRequiredFeatures(BuiltinID);
+  checkTargetFeatures(E, FD);
 #ifdef INTEL_CUSTOMIZATION
   } else {
     static std::map<StringRef, uint64_t> FeatureMapping = { 
@@ -2395,29 +2545,34 @@ enum {
       AddRetType | VectorizeRetType | Add1ArgType | InventFloatType
 };
 
- struct NeonIntrinsicInfo {
+namespace {
+struct NeonIntrinsicInfo {
+  const char *NameHint;
   unsigned BuiltinID;
   unsigned LLVMIntrinsic;
   unsigned AltLLVMIntrinsic;
-  const char *NameHint;
   unsigned TypeModifier;
 
   bool operator<(unsigned RHSBuiltinID) const {
     return BuiltinID < RHSBuiltinID;
   }
+  bool operator<(const NeonIntrinsicInfo &TE) const {
+    return BuiltinID < TE.BuiltinID;
+  }
 };
+} // end anonymous namespace
 
 #define NEONMAP0(NameBase) \
-  { NEON::BI__builtin_neon_ ## NameBase, 0, 0, #NameBase, 0 }
+  { #NameBase, NEON::BI__builtin_neon_ ## NameBase, 0, 0, 0 }
 
 #define NEONMAP1(NameBase, LLVMIntrinsic, TypeModifier) \
-  { NEON:: BI__builtin_neon_ ## NameBase, \
-      Intrinsic::LLVMIntrinsic, 0, #NameBase, TypeModifier }
+  { #NameBase, NEON:: BI__builtin_neon_ ## NameBase, \
+      Intrinsic::LLVMIntrinsic, 0, TypeModifier }
 
 #define NEONMAP2(NameBase, LLVMIntrinsic, AltLLVMIntrinsic, TypeModifier) \
-  { NEON:: BI__builtin_neon_ ## NameBase, \
+  { #NameBase, NEON:: BI__builtin_neon_ ## NameBase, \
       Intrinsic::LLVMIntrinsic, Intrinsic::AltLLVMIntrinsic, \
-      #NameBase, TypeModifier }
+      TypeModifier }
 
 static const NeonIntrinsicInfo ARMSIMDIntrinsicMap [] = {
   NEONMAP2(vabd_v, arm_neon_vabdu, arm_neon_vabds, Add1ArgType | UnsignedAlts),
@@ -2962,9 +3117,7 @@ findNeonIntrinsicInMap(ArrayRef<NeonIntrinsicInfo> IntrinsicMap,
 
 #ifndef NDEBUG
   if (!MapProvenSorted) {
-    // FIXME: use std::is_sorted once C++11 is allowed
-    for (unsigned i = 0; i < IntrinsicMap.size() - 1; ++i)
-      assert(IntrinsicMap[i].BuiltinID <= IntrinsicMap[i + 1].BuiltinID);
+    assert(std::is_sorted(std::begin(IntrinsicMap), std::end(IntrinsicMap)));
     MapProvenSorted = true;
   }
 #endif
@@ -7430,19 +7583,14 @@ Value *CodeGenFunction::EmitNVPTXBuiltinExpr(unsigned BuiltinID,
 Value *CodeGenFunction::EmitWebAssemblyBuiltinExpr(unsigned BuiltinID,
                                                    const CallExpr *E) {
   switch (BuiltinID) {
-  case WebAssembly::BI__builtin_wasm_page_size: {
-    llvm::Type *ResultType = ConvertType(E->getType());
-    Value *Callee = CGM.getIntrinsic(Intrinsic::wasm_page_size, ResultType);
-    return Builder.CreateCall(Callee);
-  }
   case WebAssembly::BI__builtin_wasm_memory_size: {
     llvm::Type *ResultType = ConvertType(E->getType());
     Value *Callee = CGM.getIntrinsic(Intrinsic::wasm_memory_size, ResultType);
     return Builder.CreateCall(Callee);
   }
-  case WebAssembly::BI__builtin_wasm_resize_memory: {
+  case WebAssembly::BI__builtin_wasm_grow_memory: {
     Value *X = EmitScalarExpr(E->getArg(0));
-    Value *Callee = CGM.getIntrinsic(Intrinsic::wasm_resize_memory, X->getType());
+    Value *Callee = CGM.getIntrinsic(Intrinsic::wasm_grow_memory, X->getType());
     return Builder.CreateCall(Callee, X);
   }
 

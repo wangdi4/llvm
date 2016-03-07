@@ -159,7 +159,7 @@ static unsigned ProcessCharEscape(const char *ThisTokBegin,
     // Check for overflow.
     if (Overflow && Diags)   // Too many digits to fit in
       Diag(Diags, Features, Loc, ThisTokBegin, EscapeBegin, ThisTokBuf,
-           diag::err_hex_escape_too_large);
+           diag::err_escape_too_large) << 0;
     break;
   }
   case '0': case '1': case '2': case '3':
@@ -182,7 +182,7 @@ static unsigned ProcessCharEscape(const char *ThisTokBegin,
     if (CharWidth != 32 && (ResultChar >> CharWidth) != 0) {
       if (Diags)
         Diag(Diags, Features, Loc, ThisTokBegin, EscapeBegin, ThisTokBuf,
-             diag::err_octal_escape_too_large);
+             diag::err_escape_too_large) << 1;
       ResultChar &= ~0U >> (32-CharWidth);
     }
     break;
@@ -541,7 +541,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       // Done.
     } else if (isHexDigit(*s) && !(*s == 'e' || *s == 'E')) {
       PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, s - ThisTokBegin),
-              diag::err_invalid_decimal_digit) << StringRef(s, 1);
+              diag::err_invalid_digit) << StringRef(s, 1) << 0;
       hadError = true;
       return;
     } else if (*s == '.') {
@@ -722,9 +722,8 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
 
     // Report an error if there are any.
     PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, SuffixBegin - ThisTokBegin),
-            isFPConstant ? diag::err_invalid_suffix_float_constant :
-                           diag::err_invalid_suffix_integer_constant)
-      << StringRef(SuffixBegin, ThisTokEnd-SuffixBegin);
+            diag::err_invalid_suffix_constant)
+      << StringRef(SuffixBegin, ThisTokEnd-SuffixBegin) << isFPConstant;
     hadError = true;
     return;
   }
@@ -809,7 +808,7 @@ void NumericLiteralParser::ParseNumberStartingWithZero(SourceLocation TokLoc) {
 
     if (noSignificand) {
       PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, s - ThisTokBegin),
-        diag::err_hexconstant_requires_digits);
+        diag::err_hexconstant_requires) << 1;
       hadError = true;
       return;
     }
@@ -836,7 +835,7 @@ void NumericLiteralParser::ParseNumberStartingWithZero(SourceLocation TokLoc) {
         PP.Diag(TokLoc, diag::ext_hexconstant_invalid);
     } else if (saw_period) {
       PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, s-ThisTokBegin),
-              diag::err_hexconstant_requires_exponent);
+              diag::err_hexconstant_requires) << 0;
       hadError = true;
     }
     return;
@@ -860,7 +859,7 @@ void NumericLiteralParser::ParseNumberStartingWithZero(SourceLocation TokLoc) {
       // Done.
     } else if (isHexDigit(*s)) {
       PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, s-ThisTokBegin),
-              diag::err_invalid_binary_digit) << StringRef(s, 1);
+              diag::err_invalid_digit) << StringRef(s, 1) << 2;
       hadError = true;
     }
     // Other suffixes will be diagnosed by the caller.
@@ -890,7 +889,7 @@ void NumericLiteralParser::ParseNumberStartingWithZero(SourceLocation TokLoc) {
   // the code is using an incorrect base.
   if (isHexDigit(*s) && *s != 'e' && *s != 'E') {
     PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, s-ThisTokBegin),
-            diag::err_invalid_octal_digit) << StringRef(s, 1);
+            diag::err_invalid_digit) << StringRef(s, 1) << 1;
     hadError = true;
     return;
   }

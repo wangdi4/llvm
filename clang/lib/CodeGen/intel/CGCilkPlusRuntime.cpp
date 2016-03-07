@@ -420,7 +420,7 @@ static Function *Get__cilkrts_pop_frame(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  auto SF = Address(Fn->arg_begin(),
+  auto SF = Address(&*(Fn->arg_begin()),
                     CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn);
@@ -470,7 +470,7 @@ static Function *Get__cilkrts_detach(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  auto SF = Address(Fn->arg_begin(),
+  auto SF = Address(&*(Fn->arg_begin()),
                       CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn);
@@ -566,9 +566,9 @@ static Function *GetCilkExceptingSyncFn(CodeGenFunction &CGF) {
 
   LLVMContext &Ctx = CGF.getLLVMContext();
   assert((Fn->arg_size() == 2) && "unexpected function type");
-  auto SF = Address(Fn->arg_begin(),
+  auto SF = Address(&*(Fn->arg_begin()),
                     CharUnits::fromQuantity(CGF.PointerAlignInBytes));
-  auto ExnSlot = Address(++Fn->arg_begin(),
+  auto ExnSlot = Address(&*(++Fn->arg_begin()),
                          CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn),
@@ -691,7 +691,7 @@ static Function *GetCilkSyncFn(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  auto SF = Address(Fn->arg_begin(),
+  auto SF = Address(&*(Fn->arg_begin()),
                     CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "cilk.sync.test", Fn),
@@ -808,7 +808,7 @@ static Function *GetCilkResetWorkerFn(CodeGenFunction &CGF) {
     return Fn;
 
   LLVMContext &Ctx = CGF.getLLVMContext();
-  auto SF = Address(Fn->arg_begin(),
+  auto SF = Address(&*(Fn->arg_begin()),
                     CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn);
@@ -852,7 +852,7 @@ static Function *Get__cilkrts_enter_frame_1(CodeGenFunction &CGF) {
     return Fn;
 
   LLVMContext &Ctx = CGF.getLLVMContext();
-  auto SF = Address(Fn->arg_begin(),
+  auto SF = Address(&*(Fn->arg_begin()),
                     CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "", Fn);
@@ -937,7 +937,7 @@ static Function *Get__cilkrts_enter_frame_fast_1(CodeGenFunction &CGF) {
     return Fn;
 
   LLVMContext &Ctx = CGF.getLLVMContext();
-  auto SF = Address(Fn->arg_begin(),
+  auto SF = Address(&*(Fn->arg_begin()),
                     CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "", Fn);
@@ -983,7 +983,7 @@ static Function *GetCilkParentPrologue(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  auto SF = Address(Fn->arg_begin(),
+  auto SF = Address(&*(Fn->arg_begin()),
                     CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn);
@@ -1017,7 +1017,7 @@ static Function *GetCilkParentEpilogue(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  auto SF = Address(Fn->arg_begin(),
+  auto SF = Address(&*(Fn->arg_begin()),
                     CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn),
@@ -1075,7 +1075,7 @@ static llvm::Function *GetCilkHelperPrologue(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  Value *SF = Fn->arg_begin();
+  Value *SF = &*(Fn->arg_begin());
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn);
   CGBuilderTy B(CGF, Entry);
@@ -1112,7 +1112,7 @@ static llvm::Function *GetCilkHelperEpilogue(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  auto SF = Address(Fn->arg_begin(),
+  auto SF = Address(&*(Fn->arg_begin()),
                     CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn);

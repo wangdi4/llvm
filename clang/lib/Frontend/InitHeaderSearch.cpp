@@ -15,6 +15,7 @@
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Config/config.h" // C_INCLUDE_DIRS
+#include "clang/Lex/HeaderMap.h"
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/HeaderSearchOptions.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -410,10 +411,7 @@ AddDefaultCPlusPlusIncludePaths(const llvm::Triple &triple, const HeaderSearchOp
     }
     break;
   case llvm::Triple::DragonFly:
-    if (llvm::sys::fs::exists("/usr/lib/gcc47"))
-      AddPath("/usr/include/c++/4.7", CXXSystem, false);
-    else
-      AddPath("/usr/include/c++/4.4", CXXSystem, false);
+    AddPath("/usr/include/c++/5.0", CXXSystem, false);
     break;
   case llvm::Triple::OpenBSD: {
     std::string t = triple.getTriple();
@@ -650,12 +648,14 @@ void clang::ApplyHeaderSearchOptions(HeaderSearch &HS,
   InitHeaderSearch Init(HS, HSOpts.Verbose, HSOpts.Sysroot);
 
   // Add the user defined entries.
-  StringRef IntelSystem;
+  StringRef IntelSystem; // INTEL
   for (unsigned i = 0, e = HSOpts.UserEntries.size(); i != e; ++i) {
     const HeaderSearchOptions::Entry &E = HSOpts.UserEntries[i];
+#if INTEL_CUSTOMIZATION
     if (E.Group == frontend::System && StringRef(E.Path).endswith("clang")) {
       IntelSystem = E.Path;
     }
+#endif // INTEL_CUSTOMIZATION
     if (E.IgnoreSysRoot) {
       Init.AddUnmappedPath(E.Path, E.Group, E.IsFramework);
     } else {
@@ -675,11 +675,13 @@ void clang::ApplyHeaderSearchOptions(HeaderSearch &HS,
     llvm::sys::path::append(P, "include");
     if (const DirectoryEntry *Dir = HS.getFileMgr().getDirectory(P))
       HS.getModuleMap().setBuiltinIncludeDir(Dir);
+#if INTEL_CUSTOMIZATION
     else if (!IntelSystem.empty()) {
       P = StringRef(IntelSystem);
       if (const DirectoryEntry *Dir = HS.getFileMgr().getDirectory(P.str()))
         HS.getModuleMap().setBuiltinIncludeDir(Dir);
     }
+#endif // INTEL_CUSTOMIZATION
   }
 
   Init.Realize(Lang);

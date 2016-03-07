@@ -1,4 +1,4 @@
-//===--- CompilerInvocation.cpp -------------------------------------------===//
+//===--- 
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "TestModuleFileExtension.h"
 #include "clang/Frontend/CompilerInvocation.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/Version.h"
@@ -19,12 +20,14 @@
 #include "clang/Frontend/Utils.h"
 #include "clang/Lex/HeaderSearchOptions.h"
 #include "clang/Serialization/ASTReader.h"
+#include "clang/Serialization/ModuleFileExtension.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/Linker/Linker.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
@@ -35,6 +38,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
+#include "llvm/Target/TargetOptions.h"
 #include <atomic>
 #include <memory>
 #include <sys/stat.h>
@@ -361,6 +365,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
                              const TargetOptions &TargetOpts) {
   using namespace options;
   bool Success = true;
+  llvm::Triple Triple = llvm::Triple(TargetOpts.Triple);
 
   unsigned OptimizationLevel = getOptimizationLevel(Args, IK, Diags);
   // TODO: This could be done in Driver
@@ -400,11 +405,19 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
             .Case("limited", CodeGenOptions::LimitedDebugInfo)
             .Case("standalone", CodeGenOptions::FullDebugInfo));
   }
+  if (Arg *A = Args.getLastArg(OPT_debugger_tuning_EQ)) {
+    Opts.setDebuggerTuning(
+        llvm::StringSwitch<CodeGenOptions::DebuggerKind>(A->getValue())
+            .Case("gdb", CodeGenOptions::DebuggerKindGDB)
+            .Case("lldb", CodeGenOptions::DebuggerKindLLDB)
+            .Case("sce", CodeGenOptions::DebuggerKindSCE));
+  }
   Opts.DwarfVersion = getLastArgIntValue(Args, OPT_dwarf_version_EQ, 0, Diags);
   Opts.DebugColumnInfo = Args.hasArg(OPT_dwarf_column_info);
   Opts.EmitCodeView = Args.hasArg(OPT_gcodeview);
   Opts.SplitDwarfFile = Args.getLastArgValue(OPT_split_dwarf_file);
   Opts.DebugTypeExtRefs = Args.hasArg(OPT_dwarf_ext_refs);
+  Opts.DebugExplicitImport = Triple.isPS4CPU(); 
 
   for (const auto &Arg : Args.getAllArgValues(OPT_fdebug_prefix_map_EQ))
     Opts.DebugPrefixMap.insert(StringRef(Arg).split('='));
@@ -449,10 +462,25 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.CXXCtorDtorAliases = Args.hasArg(OPT_mconstructor_aliases);
   Opts.CodeModel = getCodeModel(Args, Diags);
   Opts.DebugPass = Args.getLastArgValue(OPT_mdebug_pass);
-  Opts.DisableFPElim = Args.hasArg(OPT_mdisable_fp_elim);
+  Opts.DisableFPElim =
+      (Args.hasArg(OPT_mdisable_fp_elim) || Args.hasArg(OPT_pg));
   Opts.DisableFree = Args.hasArg(OPT_disable_free);
   Opts.DisableTailCalls = Args.hasArg(OPT_mdisable_tail_calls);
   Opts.FloatABI = Args.getLastArgValue(OPT_mfloat_abi);
+  if (Arg *A = Args.getLastArg(OPT_meabi)) {
+    StringRef Value = A->getValue();
+    llvm::EABI EABIVersion = llvm::StringSwitch<llvm::EABI>(Value)
+                                 .Case("default", llvm::EABI::Default)
+                                 .Case("4", llvm::EABI::EABI4)
+                                 .Case("5", llvm::EABI::EABI5)
+                                 .Case("gnu", llvm::EABI::GNU)
+                                 .Default(llvm::EABI::Unknown);
+    if (EABIVersion == llvm::EABI::Unknown)
+      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
+                                                << Value;
+    else
+      Opts.EABIVersion = Value;
+  }
   Opts.LessPreciseFPMAD = Args.hasArg(OPT_cl_mad_enable);
   Opts.LimitFloatPrecision = Args.getLastArgValue(OPT_mlimit_float_precision);
   Opts.NoInfsFPMath = (Args.hasArg(OPT_menable_no_infinities) ||
@@ -471,6 +499,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.FatalWarnings = Args.hasArg(OPT_massembler_fatal_warnings);
   Opts.EnableSegmentedStacks = Args.hasArg(OPT_split_stacks);
   Opts.RelaxAll = Args.hasArg(OPT_mrelax_all);
+  Opts.IncrementalLinkerCompatible =
+      Args.hasArg(OPT_mincremental_linker_compatible);
   Opts.OmitLeafFramePointer = Args.hasArg(OPT_momit_leaf_frame_pointer);
   Opts.SaveTempLabels = Args.hasArg(OPT_msave_temp_labels);
   Opts.NoDwarfDirectoryAsm = Args.hasArg(OPT_fno_dwarf_directory_asm);
@@ -502,6 +532,12 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.PrepareForLTO = Args.hasArg(OPT_flto, OPT_flto_EQ);
   const Arg *A = Args.getLastArg(OPT_flto, OPT_flto_EQ);
   Opts.EmitFunctionSummary = A && A->containsValue("thin");
+  if (Arg *A = Args.getLastArg(OPT_fthinlto_index_EQ)) {
+    if (IK != IK_LLVM_IR)
+      Diags.Report(diag::err_drv_argument_only_allowed_with)
+          << A->getAsString(Args) << "-x ir";
+    Opts.ThinLTOIndexFile = Args.getLastArgValue(OPT_fthinlto_index_EQ);
+  }
 
   Opts.MSVolatile = Args.hasArg(OPT_fms_volatile);
 
@@ -539,7 +575,13 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.EmitOpenCLArgMetadata = Args.hasArg(OPT_cl_kernel_arg_info);
   Opts.CompressDebugSections = Args.hasArg(OPT_compress_debug_sections);
   Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
-  Opts.LinkBitcodeFile = Args.getLastArgValue(OPT_mlink_bitcode_file);
+  for (auto A : Args.filtered(OPT_mlink_bitcode_file, OPT_mlink_cuda_bitcode)) {
+    unsigned LinkFlags = llvm::Linker::Flags::None;
+    if (A->getOption().matches(OPT_mlink_cuda_bitcode))
+      LinkFlags = llvm::Linker::Flags::LinkOnlyNeeded |
+                  llvm::Linker::Flags::InternalizeLinkedSymbols;
+    Opts.LinkBitcodeFiles.push_back(std::make_pair(LinkFlags, A->getValue()));
+  }
   Opts.SanitizeCoverageType =
       getLastArgIntValue(Args, OPT_fsanitize_coverage_type, 0, Diags);
   Opts.SanitizeCoverageIndirectCalls =
@@ -552,6 +594,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       getLastArgIntValue(Args, OPT_fsanitize_memory_track_origins_EQ, 0, Diags);
   Opts.SanitizeMemoryUseAfterDtor =
       Args.hasArg(OPT_fsanitize_memory_use_after_dtor);
+  Opts.SanitizeCfiCrossDso = Args.hasArg(OPT_fsanitize_cfi_cross_dso);
   Opts.SSPBufferSize =
       getLastArgIntValue(Args, OPT_stack_protector_buffer_size, 8, Diags);
   Opts.StackRealignment = Args.hasArg(OPT_mstackrealign);
@@ -851,6 +894,30 @@ static void ParseFileSystemArgs(FileSystemOptions &Opts, ArgList &Args) {
   Opts.WorkingDir = Args.getLastArgValue(OPT_working_directory);
 }
 
+/// Parse the argument to the -ftest-module-file-extension
+/// command-line argument.
+///
+/// \returns true on error, false on success.
+static bool parseTestModuleFileExtensionArg(StringRef Arg,
+                                            std::string &BlockName,
+                                            unsigned &MajorVersion,
+                                            unsigned &MinorVersion,
+                                            bool &Hashed,
+                                            std::string &UserInfo) {
+  SmallVector<StringRef, 5> Args;
+  Arg.split(Args, ':', 5);
+  if (Args.size() < 5)
+    return true;
+
+  BlockName = Args[0];
+  if (Args[1].getAsInteger(10, MajorVersion)) return true;
+  if (Args[2].getAsInteger(10, MinorVersion)) return true;
+  if (Args[3].getAsInteger(2, Hashed)) return true;
+  if (Args.size() > 4)
+    UserInfo = Args[4];
+  return false;
+}
+
 static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
                                    DiagnosticsEngine &Diags) {
   using namespace options;
@@ -943,6 +1010,26 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       if (A->getValue(0) == Opts.AddPluginActions[i])
         Opts.AddPluginArgs[i].emplace_back(A->getValue(1));
 
+  for (const std::string &Arg :
+         Args.getAllArgValues(OPT_ftest_module_file_extension_EQ)) {
+    std::string BlockName;
+    unsigned MajorVersion;
+    unsigned MinorVersion;
+    bool Hashed;
+    std::string UserInfo;
+    if (parseTestModuleFileExtensionArg(Arg, BlockName, MajorVersion,
+                                        MinorVersion, Hashed, UserInfo)) {
+      Diags.Report(diag::err_test_module_file_extension_format) << Arg;
+
+      continue;
+    }
+
+    // Add the testing module file extension.
+    Opts.ModuleFileExtensions.push_back(
+      new TestModuleFileExtension(BlockName, MajorVersion, MinorVersion,
+                                  Hashed, UserInfo));
+  }
+
   if (const Arg *A = Args.getLastArg(OPT_code_completion_at)) {
     Opts.CodeCompletionAt =
       ParsedSourceLocation::FromString(A->getValue());
@@ -976,6 +1063,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
   Opts.ModuleMapFiles = Args.getAllArgValues(OPT_fmodule_map_file);
   Opts.ModuleFiles = Args.getAllArgValues(OPT_fmodule_file);
   Opts.ModulesEmbedFiles = Args.getAllArgValues(OPT_fmodules_embed_file_EQ);
+  Opts.ModulesEmbedAllFiles = Args.hasArg(OPT_fmodules_embed_all_files);
 
   Opts.CodeCompleteOpts.IncludeMacros
     = Args.hasArg(OPT_code_completion_macros);
@@ -1416,18 +1504,38 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 #if INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
-  Opts.Float128 = Args.hasArg(OPT_extended_float_types);
+  Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);
   Opts.Restrict =
       Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);
   // Fix for CQ#373517: compilation fails with 'redefinition of default
   // argument'.
-  Opts.PermissiveArgs = Args.hasArg(OPT_fpermissive_args);
+  Opts.GnuPermissive = Args.hasArg(OPT_gnu_permissive);
   // CQ371729: Incompatible name mangling.
   Opts.GNUMangling =
       Args.hasFlag(OPT_gnu_mangling_for_simd_types,
                    OPT_no_gnu_mangling_for_simd_types, Opts.GNUMangling);
   Opts.GNUFABIVersion = getLastArgIntValue(Args, OPT_gnu_fabi_version_EQ,
                                            Opts.GNUFABIVersion, Diags);
+  // CQ380574: Ability to set various predefines based on gcc version needed.
+  Opts.GNUVersion = getLastArgIntValue(Args, OPT_gnu_version_EQ,
+#if INTEL_SPECIFIC_IL0_BACKEND
+                                       40800,
+#else
+                                       40500,
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+                                       Diags);
+  Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode &&
+                                     Opts.GNUVersion >= 40400);
+  // CQ376358: Support -ffriend-injection option.
+  // GCC < 4.01.00 supports friend function injections by default.
+  // GCC < 4.00.01 supports friend classes injections by default.
+  // This copied from EDG for better compatibility with icc/gcc.
+  Opts.FriendFunctionInject =
+      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection,
+                   Opts.GNUVersion < 40100 && !Opts.CPlusPlus11);
+  Opts.FriendClassInject =
+      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection,
+                   Opts.GNUVersion < 40001 && !Opts.CPlusPlus11);
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   StringRef OptLevel = Args.getLastArgValue(OPT_pragma_optimization_level_EQ, "Intel");
   Opts.PragmaOptimizationLevelIntel = (OptLevel == "Intel") ? 1 : 0;
@@ -1481,9 +1589,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   if (Args.hasArg(OPT_fcuda_is_device))
     Opts.CUDAIsDevice = 1;
 
-  if (Args.hasArg(OPT_fcuda_uses_libdevice))
-    Opts.CUDAUsesLibDevice = 1;
-
   if (Args.hasArg(OPT_fcuda_allow_host_calls_from_host_device))
     Opts.CUDAAllowHostCallsFromHostDevice = 1;
 
@@ -1508,12 +1613,31 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Opts.ObjCAutoRefCount = 1;
       if (!Opts.ObjCRuntime.allowsARC())
         Diags.Report(diag::err_arc_unsupported_on_runtime);
+    }
 
-      // Only set ObjCARCWeak if ARC is enabled.
-      if (Args.hasArg(OPT_fobjc_runtime_has_weak))
-        Opts.ObjCARCWeak = 1;
-      else
-        Opts.ObjCARCWeak = Opts.ObjCRuntime.allowsWeak();
+    // ObjCWeakRuntime tracks whether the runtime supports __weak, not
+    // whether the feature is actually enabled.  This is predominantly
+    // determined by -fobjc-runtime, but we allow it to be overridden
+    // from the command line for testing purposes.
+    if (Args.hasArg(OPT_fobjc_runtime_has_weak))
+      Opts.ObjCWeakRuntime = 1;
+    else
+      Opts.ObjCWeakRuntime = Opts.ObjCRuntime.allowsWeak();
+
+    // ObjCWeak determines whether __weak is actually enabled.
+    // Note that we allow -fno-objc-weak to disable this even in ARC mode.
+    if (auto weakArg = Args.getLastArg(OPT_fobjc_weak, OPT_fno_objc_weak)) {
+      if (!weakArg->getOption().matches(OPT_fobjc_weak)) {
+        assert(!Opts.ObjCWeak);
+      } else if (Opts.getGC() != LangOptions::NonGC) {
+        Diags.Report(diag::err_objc_weak_with_gc);
+      } else if (!Opts.ObjCWeakRuntime) {
+        Diags.Report(diag::err_objc_weak_unsupported);
+      } else {
+        Opts.ObjCWeak = 1;
+      }
+    } else if (Opts.ObjCAutoRefCount) {
+      Opts.ObjCWeak = Opts.ObjCWeakRuntime;
     }
 
     if (Args.hasArg(OPT_fno_objc_infer_related_result_type))
@@ -1630,8 +1754,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Args.hasArg(OPT_fmodules_decluse) || Opts.ModulesStrictDeclUse;
   Opts.ModulesLocalVisibility =
       Args.hasArg(OPT_fmodules_local_submodule_visibility);
-  Opts.ModulesHideInternalLinkage =
-      !Args.hasArg(OPT_fno_modules_hide_internal_linkage);
   Opts.ModulesSearchAll = Opts.Modules &&
     !Args.hasArg(OPT_fno_modules_search_all) &&
     Args.hasArg(OPT_fmodules_search_all);
@@ -2152,6 +2274,12 @@ std::string CompilerInvocation::getModuleHash() const {
 
   // Extend the signature with the user build path.
   code = hash_combine(code, hsOpts.ModuleUserBuildPath);
+
+  // Extend the signature with the module file extensions.
+  const FrontendOptions &frontendOpts = getFrontendOpts();
+  for (auto ext : frontendOpts.ModuleFileExtensions) {
+    code = ext->hashExtension(code);
+  }
 
   // Darwin-specific hack: if we have a sysroot, use the contents and
   // modification time of

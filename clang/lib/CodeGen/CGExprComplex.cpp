@@ -594,19 +594,25 @@ ComplexPairTy ComplexExprEmitter::EmitComplexBinOpLibCall(StringRef LibCallName,
   // We *must* use the full CG function call building logic here because the
   // complex type has special ABI handling. We also should not forget about
   // special calling convention which may be used for compiler builtins.
-  const CGFunctionInfo &FuncInfo =
-    CGF.CGM.getTypes().arrangeFreeFunctionCall(
-      Op.Ty, Args, FunctionType::ExtInfo(/* No CC here - will be added later */),
-      RequiredArgs::All);
+
+  // We create a function qualified type to state that this call does not have
+  // any exceptions.
+  FunctionProtoType::ExtProtoInfo EPI;
+  EPI = EPI.withExceptionSpec(
+      FunctionProtoType::ExceptionSpecInfo(EST_BasicNoexcept));
+  SmallVector<QualType, 4> ArgsQTys(
+      4, Op.Ty->castAs<ComplexType>()->getElementType());
+  QualType FQTy = CGF.getContext().getFunctionType(Op.Ty, ArgsQTys, EPI);
+  const CGFunctionInfo &FuncInfo = CGF.CGM.getTypes().arrangeFreeFunctionCall(
+      Args, cast<FunctionType>(FQTy.getTypePtr()), false);
+
   llvm::FunctionType *FTy = CGF.CGM.getTypes().GetFunctionType(FuncInfo);
   llvm::Constant *Func = CGF.CGM.CreateBuiltinFunction(FTy, LibCallName);
   llvm::Instruction *Call;
 
   RValue Res = CGF.EmitCall(FuncInfo, Func, ReturnValueSlot(), Args,
-                            nullptr, &Call);
+                            FQTy->getAs<FunctionProtoType>(), &Call);
   cast<llvm::CallInst>(Call)->setCallingConv(CGF.CGM.getBuiltinCC());
-  cast<llvm::CallInst>(Call)->setDoesNotThrow();
-
   return Res.getComplexVal();
 }
 
@@ -659,25 +665,6 @@ ComplexPairTy ComplexExprEmitter::EmitBinMul(const BinOpInfo &Op) {
         return EmitComplexBinOpLibCall(
             getComplexMultiplyLibCallName(Op.LHS.first->getType()), Op);
 #endif // INTEL_SPECIFIC_IL0_BACKEND
-
-      // compiler-rt library doesn't have Windows implementation of _Complex
-      // multiplication functions (muldc) at the moment. Use standard FP math.
-      // CQ#372672.
-      //
-      // FIXME: This is a temporary fix; proper one should implement muldc for
-      // Windows.
-      if (CGF.getLangOpts().MSVCCompat && CGF.getLangOpts().IntelCompat) {
-        Value *ResRl = Builder.CreateFMul(Op.LHS.first, Op.RHS.first, "mul.rl");
-        Value *ResRr =
-            Builder.CreateFMul(Op.LHS.second, Op.RHS.second, "mul.rr");
-        ResR = Builder.CreateFSub(ResRl, ResRr, "mul.r");
-        Value *ResIl =
-            Builder.CreateFMul(Op.LHS.second, Op.RHS.first, "mul.il");
-        Value *ResIr =
-            Builder.CreateFMul(Op.LHS.first, Op.RHS.second, "mul.ir");
-        ResI = Builder.CreateFAdd(ResIl, ResIr, "mul.i");
-        return ComplexPairTy(ResR, ResI);
-      }
 #endif // INTEL_CUSTOMIZATION
 
       // If both operands are complex, emit the core math directly, and then
@@ -781,34 +768,6 @@ ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
     // FIXME: We would be able to avoid the libcall in many places if we
     // supported imaginary types in addition to complex types.
     if (RHSi) {
-#if INTEL_CUSTOMIZATION
-      // compiler-rt library doesn't have Windows implementation of _Complex
-      // division functions (divdc) at the moment. Use standard FP math.
-      // CQ#372672.
-      //
-      // FIXME: This is a temporary fix; proper one should implement divdc for
-      //        Windows.
-      if (CGF.getLangOpts().MSVCCompat && CGF.getLangOpts().IntelCompat) {
-        // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
-        llvm::Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
-        llvm::Value *Tmp2 = Builder.CreateFMul(LHSi, RHSi); // b*d
-        llvm::Value *Tmp3 = Builder.CreateFAdd(Tmp1, Tmp2); // ac+bd
-
-        llvm::Value *Tmp4 = Builder.CreateFMul(RHSr, RHSr); // c*c
-        llvm::Value *Tmp5 = Builder.CreateFMul(RHSi, RHSi); // d*d
-        llvm::Value *Tmp6 = Builder.CreateFAdd(Tmp4, Tmp5); // cc+dd
-
-        llvm::Value *Tmp7 = Builder.CreateFMul(LHSi, RHSr); // b*c
-        llvm::Value *Tmp8 = Builder.CreateFMul(LHSr, RHSi); // a*d
-        llvm::Value *Tmp9 = Builder.CreateFSub(Tmp7, Tmp8); // bc-ad
-
-        DSTr = Builder.CreateFDiv(Tmp3, Tmp6);
-        DSTi = Builder.CreateFDiv(Tmp9, Tmp6);
-
-        return ComplexPairTy(DSTr, DSTi);
-      }
-#endif // INTEL_CUSTOMIZATION
-
       BinOpInfo LibCallOp = Op;
       // If LHS was a real, supply a null imaginary part.
       if (!LHSi)

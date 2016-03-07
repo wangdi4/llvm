@@ -134,6 +134,7 @@ let Flags = [CC1Option, CC1AsOption, NoDriverOption] in {
 
 def debug_info_kind_EQ : Joined<["-"], "debug-info-kind=">;
 def dwarf_version_EQ : Joined<["-"], "dwarf-version=">;
+def debugger_tuning_EQ : Joined<["-"], "debugger-tuning=">;
 def fdebug_compilation_dir : Separate<["-"], "fdebug-compilation-dir">,
   HelpText<"The compilation directory to embed in the debug info.">;
 def dwarf_debug_flags : Separate<["-"], "dwarf-debug-flags">,
@@ -240,6 +241,9 @@ def mconstructor_aliases : Flag<["-"], "mconstructor-aliases">,
   HelpText<"Emit complete constructors and destructors as aliases when possible">;
 def mlink_bitcode_file : Separate<["-"], "mlink-bitcode-file">,
   HelpText<"Link the given bitcode file before performing optimizations.">;
+def mlink_cuda_bitcode : Separate<["-"], "mlink-cuda-bitcode">,
+  HelpText<"Link and internalize needed symbols from the given bitcode file "
+           "before performing optimizations.">;
 def vectorize_loops : Flag<["-"], "vectorize-loops">,
   HelpText<"Run the Loop vectorization passes">;
 def vectorize_slp : Flag<["-"], "vectorize-slp">,
@@ -378,6 +382,9 @@ def fmodules_embed_file_EQ : Joined<["-"], "fmodules-embed-file=">,
   MetaVarName<"<file>">,
   HelpText<"Embed the contents of the specified file into the module file "
            "being compiled.">;
+def fmodules_embed_all_files : Joined<["-"], "fmodules-embed-all-files">,
+  HelpText<"Embed the contents of all files read by this compilation into "
+           "the produced module file.">;
 def fmodules_local_submodule_visibility :
   Flag<["-"], "fmodules-local-submodule-visibility">,
   HelpText<"Enforce name visibility rules across submodules of the same "
@@ -385,10 +392,10 @@ def fmodules_local_submodule_visibility :
 def fmodule_format_EQ : Joined<["-"], "fmodule-format=">,
   HelpText<"Select the container format for clang modules and PCH. "
            "Supported options are 'raw' and 'obj'.">;
-def fno_modules_hide_internal_linkage :
-  Flag<["-"], "fno-modules-hide-internal-linkage">,
-  HelpText<"Make all declarations visible to redeclaration lookup, "
-           "even if they have internal linkage.">;
+def ftest_module_file_extension_EQ :
+  Joined<["-"], "ftest-module-file-extension=">,
+  HelpText<"introduce a module file extension for testing purposes. "
+           "The argument is parsed as blockname:major:minor:hashed:user info">;
 def fconcepts_ts : Flag<["-"], "fconcepts-ts">,
   HelpText<"Enable C++ Extensions for Concepts.">;
 
@@ -585,9 +592,9 @@ def fnative_half_type: Flag<["-"], "fnative-half-type">,
   HelpText<"Use the native half type for __fp16 instead of promoting to float">;
 def fallow_half_arguments_and_returns : Flag<["-"], "fallow-half-arguments-and-returns">,
   HelpText<"Allow function arguments and returns of type half">;
+// if INTEL_CUSTOMIZATION
 def fintel_compatibility : Flag<["-"], "fintel-compatibility">,
   HelpText<"Enable full Intel C/C++ compatibility">;
-// if INTEL_CUSTOMIZATION
 def fintel_ms_compatibility : Flag<["-"], "fintel-ms-compatibility">,
   HelpText<"Enable Microsoft compatibility features that are not planned for clang/llvm trunk">;
 def restrict : Flag<["-"], "restrict">,
@@ -602,9 +609,9 @@ def fno_emit_class_debug_always : Flag<["-"], "fno-emit-class-debug-always">,
 // CQ#369692 - support for '-fargument-noalias' option.
 def fargument_noalias : Flag<["-"], "fargument-noalias">,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
-// CQ#373517 - compilation fails with 'redefinition of default argument'.
-def fpermissive_args : Flag<["-"], "fpermissive-args">,
-  HelpText<"Allows to redefine default arguments">;
+// CQ#373517,CQ#376357 - GCC option -fpermissive.
+def gnu_permissive : Flag<["-"], "gnu-permissive">,
+  HelpText<"Turn on GNU -fpermissive mode">;
 // CQ371729: Incompatible name mangling.
 def gnu_mangling_for_simd_types : Flag<["--"], "gnu_mangling_for_simd_types">,
   HelpText<"Turn on GNU mangling for vector types">;
@@ -612,6 +619,14 @@ def no_gnu_mangling_for_simd_types : Flag<["--"], "no_gnu_mangling_for_simd_type
   HelpText<"Turn off GNU mangling for vector types">;
 def gnu_fabi_version_EQ : Joined<["--"], "gnu_fabi_version=">,
   HelpText<"Emulate GNU C++ABI version">;
+// CQ380574: Ability to set various predefines based on gcc version needed.
+def gnu_version_EQ : Joined<["--"], "gnu_version=">,
+  HelpText<"Emulate GNU C++ version">;
+// CQ376358: Support -ffriend-injection option.
+def friend_injection : Flag<["--"], "friend_injection">,
+  HelpText<"Inject friend functions into the enclosing namespace.">;
+def no_friend_injection : Flag<["--"], "no_friend_injection">,
+  HelpText<"Do not inject friend functions into the enclosing namespace.">;
 // endif INTEL_CUSTOMIZATION
 
 // C++ TSes.
@@ -703,8 +718,6 @@ def fcuda_include_gpubinary : Separate<["-"], "fcuda-include-gpubinary">,
   HelpText<"Incorporate CUDA device-side binary into host object file.">;
 def fcuda_target_overloads : Flag<["-"], "fcuda-target-overloads">,
   HelpText<"Enable function overloads based on CUDA target attributes.">;
-def fcuda_uses_libdevice : Flag<["-"], "fcuda-uses-libdevice">,
-  HelpText<"Selectively link and internalize bitcode.">;
 
 } // let Flags = [CC1Option]
 

@@ -489,9 +489,9 @@ CastsAwayConstness(Sema &Self, QualType SrcType, QualType DestType,
                    QualType *TheOffendingDestType = nullptr,
                    Qualifiers *CastAwayQualifiers = nullptr) {
   // If the only checking we care about is for Objective-C lifetime qualifiers,
-  // and we're not in ARC mode, there's nothing to check.
+  // and we're not in ObjC mode, there's nothing to check.
   if (!CheckCVR && CheckObjCLifetime && 
-      !Self.Context.getLangOpts().ObjCAutoRefCount)
+      !Self.Context.getLangOpts().ObjC1)
     return false;
     
   // Casting away constness is defined in C++ 5.2.11p8 with reference to
@@ -692,7 +692,8 @@ void CastOperation::CheckDynamicCast() {
 
   // C++ 5.2.7p5
   // Upcasts are resolved statically.
-  if (DestRecord && Self.IsDerivedFrom(SrcPointee, DestPointee)) {
+  if (DestRecord &&
+      Self.IsDerivedFrom(OpRange.getBegin(), SrcPointee, DestPointee)) {
     if (Self.CheckDerivedToBaseConversion(SrcPointee, DestPointee,
                                            OpRange.getBegin(), OpRange, 
                                            &BasePath)) {
@@ -1112,6 +1113,21 @@ static TryCastResult TryStaticCast(Sema &Self, ExprResult &SrcExpr,
         return TC_Success;
       }
     }
+#if INTEL_CUSTOMIZATION
+    // CQ374738: allow const_cast from pointer-to-const to simple pointer
+    else if (!CStyle && Self.getLangOpts().IntelCompat &&
+             SrcPointee.isConstQualified()) {
+      if (DestType->isPointerType()) {
+        QualType DestPointee = DestType->getAs<PointerType>()->getPointeeType();
+        if (Self.Context.hasSameUnqualifiedType(DestPointee, SrcPointee)) {
+            Kind = CK_BitCast;
+            Self.Diag(OpRange.getBegin(), diag::warn_bad_cxx_cast_generic)
+                << 1 << SrcType << DestType << OpRange;
+            return TC_Success;
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
   // Allow arbitray objective-c pointer conversion with static casts.
   if (SrcType->isObjCObjectPointerType() &&
@@ -1131,8 +1147,21 @@ static TryCastResult TryStaticCast(Sema &Self, ExprResult &SrcExpr,
     if (auto DestPointer = DestType->getAs<PointerType>())
       if (SrcPointer->getPointeeType()->getAs<RecordType>() &&
           DestPointer->getPointeeType()->getAs<RecordType>())
+#if INTEL_CUSTOMIZATION
+      {
+        // CQ374738: allow static_cast from 'Derived *' to 'Base *'
+        if (!CStyle && Self.getLangOpts().IntelCompat) {
+          Kind = CK_BitCast;
+          Self.Diag(OpRange.getBegin(), diag::warn_bad_cxx_cast_unrelated_class)
+              << 1 << SrcType << DestType << OpRange;
+          return TC_Success;
+        }
+#endif // INTEL_CUSTOMIZATION
        msg = diag::err_bad_cxx_cast_unrelated_class;
-  
+#if INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
+
   // We tried everything. Everything! Nothing works! :-(
   return TC_NotApplicable;
 }
@@ -1180,7 +1209,8 @@ TryLValueToRValueCast(Sema &Self, Expr *SrcExpr, QualType DestType,
     Kind = CK_DerivedToBase;
     CXXBasePaths Paths(/*FindAmbiguities=*/true, /*RecordPaths=*/true,
                        /*DetectVirtual=*/true);
-    if (!Self.IsDerivedFrom(SrcExpr->getType(), R->getPointeeType(), Paths))
+    if (!Self.IsDerivedFrom(SrcExpr->getLocStart(), SrcExpr->getType(),
+                            R->getPointeeType(), Paths))
       return TC_NotApplicable;
   
     Self.BuildBasePathArray(Paths, BasePath);
@@ -1269,8 +1299,8 @@ TryStaticDowncast(Sema &Self, CanQualType SrcType, CanQualType DestType,
                   QualType OrigDestType, unsigned &msg, 
                   CastKind &Kind, CXXCastPath &BasePath) {
   // We can only work with complete types. But don't complain if it doesn't work
-  if (Self.RequireCompleteType(OpRange.getBegin(), SrcType, 0) ||
-      Self.RequireCompleteType(OpRange.getBegin(), DestType, 0))
+  if (!Self.isCompleteType(OpRange.getBegin(), SrcType) ||
+      !Self.isCompleteType(OpRange.getBegin(), DestType))
     return TC_NotApplicable;
 
   // Downcast can only happen in class hierarchies, so we need classes.
@@ -1280,7 +1310,7 @@ TryStaticDowncast(Sema &Self, CanQualType SrcType, CanQualType DestType,
 
   CXXBasePaths Paths(/*FindAmbiguities=*/true, /*RecordPaths=*/true,
                      /*DetectVirtual=*/true);
-  if (!Self.IsDerivedFrom(DestType, SrcType, Paths)) {
+  if (!Self.IsDerivedFrom(OpRange.getBegin(), DestType, SrcType, Paths)) {
     return TC_NotApplicable;
   }
 
@@ -1316,7 +1346,7 @@ TryStaticDowncast(Sema &Self, CanQualType SrcType, CanQualType DestType,
     if (!Paths.isRecordingPaths()) {
       Paths.clear();
       Paths.setRecordingPaths(true);
-      Self.IsDerivedFrom(DestType, SrcType, Paths);
+      Self.IsDerivedFrom(OpRange.getBegin(), DestType, SrcType, Paths);
     }
     std::string PathDisplayStr;
     std::set<unsigned> DisplayedPaths;
@@ -1406,8 +1436,11 @@ TryStaticMemberPointerUpcast(Sema &Self, ExprResult &SrcExpr, QualType SrcType,
     msg = diag::err_bad_static_cast_member_pointer_nonmp;
     return TC_NotApplicable;
   }
+
+  // Lock down the inheritance model right now in MS ABI, whether or not the
+  // pointee types are the same.
   if (Self.Context.getTargetInfo().getCXXABI().isMicrosoft())
-    Self.RequireCompleteType(OpRange.getBegin(), SrcType, 0);
+    (void)Self.isCompleteType(OpRange.getBegin(), SrcType);
 
   // T == T, modulo cv
   if (!Self.Context.hasSameUnqualifiedType(SrcMemPtr->getPointeeType(),
@@ -1419,16 +1452,15 @@ TryStaticMemberPointerUpcast(Sema &Self, ExprResult &SrcExpr, QualType SrcType,
   QualType DestClass(DestMemPtr->getClass(), 0);
   CXXBasePaths Paths(/*FindAmbiguities=*/true, /*RecordPaths=*/true,
                   /*DetectVirtual=*/true);
-  if (Self.RequireCompleteType(OpRange.getBegin(), SrcClass, 0) ||
-      !Self.IsDerivedFrom(SrcClass, DestClass, Paths)) {
+  if (!Self.IsDerivedFrom(OpRange.getBegin(), SrcClass, DestClass, Paths))
     return TC_NotApplicable;
-  }
 
   // B is a base of D. But is it an allowed base? If not, it's a hard error.
   if (Paths.isAmbiguous(Self.Context.getCanonicalType(DestClass))) {
     Paths.clear();
     Paths.setRecordingPaths(true);
-    bool StillOkay = Self.IsDerivedFrom(SrcClass, DestClass, Paths);
+    bool StillOkay =
+        Self.IsDerivedFrom(OpRange.getBegin(), SrcClass, DestClass, Paths);
     assert(StillOkay);
     (void)StillOkay;
     std::string PathDisplayStr = Self.getAmbiguousPathsDisplayString(Paths);
@@ -1852,8 +1884,8 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
     if (Self.Context.getTargetInfo().getCXXABI().isMicrosoft()) {
       // We need to determine the inheritance model that the class will use if
       // haven't yet.
-      Self.RequireCompleteType(OpRange.getBegin(), SrcType, 0);
-      Self.RequireCompleteType(OpRange.getBegin(), DestType, 0);
+      (void)Self.isCompleteType(OpRange.getBegin(), SrcType);
+      (void)Self.isCompleteType(OpRange.getBegin(), DestType);
     }
 
     // Don't allow casting between member pointers of different sizes.
@@ -1875,6 +1907,7 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
     //   type large enough to hold it. A value of std::nullptr_t can be
     //   converted to an integral type; the conversion has the same meaning
     //   and validity as a conversion of (void*)0 to the integral type.
+    if (!Self.getLangOpts().GnuPermissive) //***INTEL CQ#376357
     if (Self.Context.getTypeSize(SrcType) >
         Self.Context.getTypeSize(DestType)) {
       msg = diag::err_bad_reinterpret_cast_small_int;
@@ -1953,6 +1986,7 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
                               !DestType->isBooleanType();
     if ((Self.Context.getTypeSize(SrcType) >
          Self.Context.getTypeSize(DestType)) &&
+         !Self.getLangOpts().GnuPermissive && //***INTEL CQ#376357
          !MicrosoftException) {
       msg = diag::err_bad_reinterpret_cast_small_int;
       return TC_Failed;

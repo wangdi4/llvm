@@ -24,7 +24,7 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
 #include "llvm/ADT/SmallString.h"
-#include "clang/AST/StmtCXX.h"
+#include "clang/AST/StmtCXX.h" // INTEL
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -81,7 +81,7 @@ StmtResult Parser::ParseStatement(SourceLocation *TrailingElseLoc) {
 ///         while-statement
 ///         do-statement
 ///         for-statement
-///         grainsize-pragma[opt] cilk-for-statement
+///         grainsize-pragma[opt] cilk-for-statement // INTEL
 ///
 ///       expression-statement:
 ///         expression[opt] ';'
@@ -92,7 +92,7 @@ StmtResult Parser::ParseStatement(SourceLocation *TrailingElseLoc) {
 ///         'break' ';'
 ///         'return' expression[opt] ';'
 /// [GNU]   'goto' '*' expression ';'
-/// [CP]    '_Cilk_sync' ';'
+/// [CP]    '_Cilk_sync' ';' // INTEL
 ///
 /// [OBC] objc-throw-statement:
 /// [OBC]   '@' 'throw' expression ';'
@@ -503,6 +503,11 @@ Retry:
   case tok::annot_pragma_ms_pragma:
     ProhibitAttributes(Attrs);
     HandlePragmaMSPragma();
+    return StmtEmpty();
+
+  case tok::annot_pragma_ms_vtordisp:
+    ProhibitAttributes(Attrs);
+    HandlePragmaMSVtorDisp();
     return StmtEmpty();
 
   case tok::annot_pragma_loop_hint:
@@ -1060,6 +1065,9 @@ void Parser::ParseCompoundStatementLeadingPragmas() {
     case tok::annot_pragma_ms_pragma:
       HandlePragmaMSPragma();
       break;
+    case tok::annot_pragma_ms_vtordisp:
+      HandlePragmaMSVtorDisp();
+      break;
     default:
       checkForPragmas = false;
       break;
@@ -1119,16 +1127,16 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
     StmtResult R = Actions.ActOnDeclStmt(Res, LabelLoc, Tok.getLocation());
 
     ExpectAndConsumeSemi(diag::err_expected_semi_declaration);
-    if (R.isUsable()) {
+    if (R.isUsable()) { // INTEL
       Stmts.push_back(R.get());
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
       CheckIntelStmt (Stmts);
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
-    }
+    } // INTEL
   }
 
-  while (Tok.isNot(tok::r_brace) && Tok.isNot(tok::eof) &&
-         !tryParseMisplacedModuleImport()) {
+  while (!tryParseMisplacedModuleImport() && Tok.isNot(tok::r_brace) &&
+         Tok.isNot(tok::eof)) {
     if (Tok.is(tok::annot_pragma_unused)) {
       HandlePragmaUnused();
       continue;
@@ -1177,12 +1185,12 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
       }
     }
 
-    if (R.isUsable()) {
+    if (R.isUsable()) { // INTEL
       Stmts.push_back(R.get());
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
       CheckIntelStmt (Stmts);
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
-    }
+    } // INTEL
   }
 
   SourceLocation CloseLoc = Tok.getLocation();
@@ -1887,13 +1895,10 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   StmtResult ForEachStmt;
 
   if (ForRange) {
-    ForRangeStmt = Actions.ActOnCXXForRangeStmt(ForLoc, CoawaitLoc,
-                                                FirstPart.get(),
-                                                ForRangeInit.ColonLoc,
-                                                ForRangeInit.RangeExpr.get(),
-                                                T.getCloseLocation(),
-                                                Sema::BFRK_Build);
-
+    ForRangeStmt = Actions.ActOnCXXForRangeStmt(
+        getCurScope(), ForLoc, CoawaitLoc, FirstPart.get(),
+        ForRangeInit.ColonLoc, ForRangeInit.RangeExpr.get(),
+        T.getCloseLocation(), Sema::BFRK_Build);
 
   // Similarly, we need to do the semantic analysis for a for-range
   // statement immediately in order to close over temporaries correctly.
@@ -2104,6 +2109,11 @@ Decl *Parser::ParseFunctionStatementBody(Decl *Decl, ParseScope &BodyScope) {
   PrettyDeclStackTraceEntry CrashInfo(Actions, Decl, LBraceLoc,
                                       "parsing function body");
 
+  // Save and reset current vtordisp stack if we have entered a C++ method body.
+  bool IsCXXMethod =
+      getLangOpts().CPlusPlus && Decl && isa<CXXMethodDecl>(Decl);
+  Sema::VtorDispStackRAII SavedVtorDispStack(Actions, IsCXXMethod);
+
   // Do not enter a scope for the brace, as the arguments are in the same scope
   // (the function body) as the body itself.  Instead, just read the statement
   // list and put it into a CompoundStmt for safe keeping.
@@ -2142,6 +2152,11 @@ Decl *Parser::ParseFunctionTryBlock(Decl *Decl, ParseScope &BodyScope) {
     BodyScope.Exit();
     return Actions.ActOnSkippedFunctionBody(Decl);
   }
+
+  // Save and reset current vtordisp stack if we have entered a C++ method body.
+  bool IsCXXMethod =
+      getLangOpts().CPlusPlus && Decl && isa<CXXMethodDecl>(Decl);
+  Sema::VtorDispStackRAII SavedVtorDispStack(Actions, IsCXXMethod);
 
   SourceLocation LBraceLoc = Tok.getLocation();
   StmtResult FnBody(ParseCXXTryBlockCommon(TryLoc, /*FnTry*/true));
@@ -2347,12 +2362,12 @@ void Parser::ParseMicrosoftIfExistsStatement(StmtVector &Stmts) {
                                                               Result.SS,
                                                               Result.Name,
                                                               Compound.get());
-    if (DepResult.isUsable()) {
+    if (DepResult.isUsable()) { // INTEL
       Stmts.push_back(DepResult.get());
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
       CheckIntelStmt (Stmts);
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
-    }
+    } // INTEL
     return;
   }
 

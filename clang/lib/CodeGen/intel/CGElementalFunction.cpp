@@ -815,7 +815,7 @@ static void createVectorVariantWrapper(llvm::Function *ScalarFunc,
 
     llvm::Function::arg_iterator VI = VectorFunc->arg_begin();
     for (auto &I : Info) {
-      llvm::Value *Arg = VI;
+      llvm::Value *Arg = &*VI;
       switch (I.Kind) {
       case PK_Vector:
         assert(Arg->getType()->isVectorTy() && "Not a vector");
@@ -830,7 +830,7 @@ static void createVectorVariantWrapper(llvm::Function *ScalarFunc,
         unsigned Number = cast<llvm::ConstantInt>(I.Step)->getZExtValue();
         llvm::Function::arg_iterator ArgI = VectorFunc->arg_begin();
         std::advance(ArgI, Number);
-        llvm::Value *Step = ArgI;
+        llvm::Value *Step = &*ArgI;
         Arg = buildLinearArg(Builder, VLen, Arg, Step);
         Arg->setName(VI->getName() + ".linear");
       } break;
@@ -844,7 +844,7 @@ static void createVectorVariantWrapper(llvm::Function *ScalarFunc,
     }
 
     if (IsMasked)
-      Mask = buildMask(Builder, VLen, VI);
+      Mask = buildMask(Builder, VLen, &*VI);
 
     Builder.CreateBr(LoopCond);
   }

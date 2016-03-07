@@ -600,9 +600,7 @@ static bool CheckMatchedBrackets(const SmallVectorImpl<Token> &Tokens) {
       Brackets.pop_back();
     }
   }
-  if (!Brackets.empty())
-    return false;
-  return true;
+  return Brackets.empty();
 }
 
 /// GenerateNewArgTokens - Returns true if OldTokens can be converted to a new
@@ -1088,6 +1086,8 @@ static bool HasFeature(const Preprocessor &PP, const IdentifierInfo *II) {
       .Case("attribute_availability_with_message", true)
       .Case("attribute_availability_app_extension", true)
       .Case("attribute_availability_with_version_underscores", true)
+      .Case("attribute_availability_tvos", true)
+      .Case("attribute_availability_watchos", true)
       .Case("attribute_cf_returns_not_retained", true)
       .Case("attribute_cf_returns_retained", true)
       .Case("attribute_cf_returns_on_parameters", true)
@@ -1115,7 +1115,7 @@ static bool HasFeature(const Preprocessor &PP, const IdentifierInfo *II) {
       // Objective-C features
       .Case("objc_arr", LangOpts.ObjCAutoRefCount) // FIXME: REMOVE?
       .Case("objc_arc", LangOpts.ObjCAutoRefCount)
-      .Case("objc_arc_weak", LangOpts.ObjCARCWeak)
+      .Case("objc_arc_weak", LangOpts.ObjCWeak)
       .Case("objc_default_synthesize_properties", LangOpts.ObjC2)
       .Case("objc_fixed_enum", LangOpts.ObjC2)
       .Case("objc_instancetype", LangOpts.ObjC2)
@@ -1665,7 +1665,14 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
       Value = FeatureII->getTokenID() == tok::identifier;
     else if (II == Ident__has_builtin) {
       // Check for a builtin is trivial.
-      Value = FeatureII->getBuiltinID() != 0;
+      if (FeatureII->getBuiltinID() != 0) {
+        Value = true;
+      } else {
+        StringRef Feature = FeatureII->getName();
+        Value = llvm::StringSwitch<bool>(Feature)
+                    .Case("__make_integer_seq", getLangOpts().CPlusPlus)
+                    .Default(false);
+      }
     } else if (II == Ident__has_attribute)
       Value = hasAttribute(AttrSyntax::GNU, nullptr, FeatureII,
                            getTargetInfo(), getLangOpts());

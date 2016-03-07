@@ -26,7 +26,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Sema/DeclSpec.h"
-#include "clang/Sema/Lookup.h"
+#include "clang/Sema/Lookup.h" // INTEL
 #include "clang/Sema/ParsedTemplate.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
@@ -257,9 +257,9 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
     // If this token has a lower precedence than we are allowed to parse (e.g.
     // because we are called recursively, or because the token is not a binop),
     // then we are done!
-    if (NextTokPrec < MinPrec) {
+    if (NextTokPrec < MinPrec)
 #if INTEL_SPECIFIC_CILKPLUS
-      if (LHS.isUsable()) {
+    { if (LHS.isUsable()) {
         if (Actions.CheckCEANExpr(getCurScope(), LHS.get())){
           (void)Actions.CorrectDelayedTyposInExpr(LHS);
           return ExprError();
@@ -267,7 +267,9 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
       }
 #endif // INTEL_SPECIFIC_CILKPLUS
       return LHS;
+#if INTEL_SPECIFIC_CILKPLUS
     }
+#endif // INTEL_SPECIFIC_CILKPLUS
 
     // Consume the operator, saving the operator token for error reporting.
     Token OpToken = Tok;
@@ -376,7 +378,13 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
     // they only appear on the RHS of assignments later.
     ExprResult RHS;
     bool RHSIsInitList = false;
-    if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
+    if ((getLangOpts().CPlusPlus11 || getLangOpts().IntelCompat) && // INTEL
+        Tok.is(tok::l_brace)) { // INTEL
+#if INTEL_CUSTOMIZATION
+      // CQ375240
+      if (!getLangOpts().CPlusPlus11 && getLangOpts().IntelCompat)
+        Diag(Tok, diag::ext_generalized_initializer_lists);
+#endif // INTEL_CUSTOMIZATION
       RHS = ParseBraceInitializer();
       RHSIsInitList = true;
     } else if (getLangOpts().CPlusPlus && NextTokPrec <= prec::Conditional)
@@ -1066,7 +1074,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     SourceLocation CoawaitLoc = ConsumeToken();
     Res = ParseCastExpression(false);
     if (!Res.isInvalid())
-      Res = Actions.ActOnCoawaitExpr(CoawaitLoc, Res.get());
+      Res = Actions.ActOnCoawaitExpr(getCurScope(), CoawaitLoc, Res.get());
     return Res;
   }
 
@@ -2779,7 +2787,14 @@ bool Parser::ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
     }
 
     ExprResult Expr;
-    if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
+    if ((getLangOpts().CPlusPlus11 ||                          // INTEL
+         getLangOpts().IntelCompat) && Tok.is(tok::l_brace)) { // INTEL
+#if INTEL_CUSTOMIZATION
+      // CQ374879
+      if (!getLangOpts().CPlusPlus11 && getLangOpts().IntelCompat)
+        Diag(Tok, diag::ext_generalized_initializer_lists);
+      else
+#endif // INTEL_CUSTOMIZATION
       Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
       Expr = ParseBraceInitializer();
     } else

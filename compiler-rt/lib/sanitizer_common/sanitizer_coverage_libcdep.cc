@@ -53,6 +53,12 @@ static const u64 kMagic32 = 0xC0BFFFFFFFFFFF32ULL;
 static atomic_uint32_t dump_once_guard;  // Ensure that CovDump runs only once.
 
 static atomic_uintptr_t coverage_counter;
+static atomic_uintptr_t caller_callee_counter;
+
+static void ResetGlobalCounters() {
+  return atomic_store(&coverage_counter, 0, memory_order_relaxed);
+  return atomic_store(&caller_callee_counter, 0, memory_order_relaxed);
+}
 
 // pc_array is the array containing the covered PCs.
 // To make the pc_array thread- and async-signal-safe it has to be large enough.
@@ -90,7 +96,7 @@ class CoverageData {
   void DumpAll();
 
   ALWAYS_INLINE
-  void TraceBasicBlock(s32 *id);
+  void TraceBasicBlock(u32 *id);
 
   void InitializeGuardArray(s32 *guards);
   void InitializeGuards(s32 *guards, uptr n, const char *module_name,
@@ -225,7 +231,8 @@ void CoverageData::InitializeGuardArray(s32 *guards) {
   Enable();  // Make sure coverage is enabled at this point.
   s32 n = guards[0];
   for (s32 j = 1; j <= n; j++) {
-    uptr idx = atomic_fetch_add(&pc_array_index, 1, memory_order_relaxed);
+    uptr idx = atomic_load_relaxed(&pc_array_index);
+    atomic_store_relaxed(&pc_array_index, idx + 1);
     guards[j] = -static_cast<s32>(idx + 1);
   }
 }
@@ -435,7 +442,7 @@ void CoverageData::IndirCall(uptr caller, uptr callee, uptr callee_cache[],
     uptr was = 0;
     if (atomic_compare_exchange_strong(&atomic_callee_cache[i], &was, callee,
                                        memory_order_seq_cst)) {
-      atomic_fetch_add(&coverage_counter, 1, memory_order_relaxed);
+      atomic_fetch_add(&caller_callee_counter, 1, memory_order_relaxed);
       return;
     }
     if (was == callee)  // Already have this callee.
@@ -675,11 +682,11 @@ void CoverageData::DumpCallerCalleePairs() {
 // it once and then cache in the provided 'cache' storage.
 //
 // This function will eventually be inlined by the compiler.
-void CoverageData::TraceBasicBlock(s32 *id) {
+void CoverageData::TraceBasicBlock(u32 *id) {
   // Will trap here if
   //  1. coverage is not enabled at run-time.
   //  2. The array tr_event_array is full.
-  *tr_event_pointer = static_cast<u32>(*id - 1);
+  *tr_event_pointer = *id - 1;
   tr_event_pointer++;
 }
 
@@ -908,15 +915,23 @@ uptr __sanitizer_get_total_unique_coverage() {
 }
 
 SANITIZER_INTERFACE_ATTRIBUTE
-void __sanitizer_cov_trace_func_enter(s32 *id) {
+uptr __sanitizer_get_total_unique_caller_callee_pairs() {
+  return atomic_load(&caller_callee_counter, memory_order_relaxed);
+}
+
+SANITIZER_INTERFACE_ATTRIBUTE
+void __sanitizer_cov_trace_func_enter(u32 *id) {
+  __sanitizer_cov_with_check(id);
   coverage_data.TraceBasicBlock(id);
 }
 SANITIZER_INTERFACE_ATTRIBUTE
-void __sanitizer_cov_trace_basic_block(s32 *id) {
+void __sanitizer_cov_trace_basic_block(u32 *id) {
+  __sanitizer_cov_with_check(id);
   coverage_data.TraceBasicBlock(id);
 }
 SANITIZER_INTERFACE_ATTRIBUTE
 void __sanitizer_reset_coverage() {
+  ResetGlobalCounters();
   coverage_data.ReinitializeGuards();
   internal_bzero_aligned16(
       coverage_data.data(),

@@ -89,7 +89,7 @@ void CodeGenFunction::InitTempAlloca(Address Var, llvm::Value *Init) {
   auto *Store = new llvm::StoreInst(Init, Var.getPointer());
   Store->setAlignment(Var.getAlignment().getQuantity());
   llvm::BasicBlock *Block = AllocaInsertPt->getParent();
-  Block->getInstList().insertAfter(&*AllocaInsertPt, Store);
+  Block->getInstList().insertAfter(AllocaInsertPt->getIterator(), Store);
 }
 
 Address CodeGenFunction::CreateIRTemp(QualType Ty, const Twine &Name) {
@@ -205,11 +205,8 @@ pushTemporaryCleanup(CodeGenFunction &CGF, const MaterializeTemporaryExpr *M,
   //   need to perform retain/release operations on the temporary.
   //
   // FIXME: This should be looking at E, not M.
-  if (CGF.getLangOpts().ObjCAutoRefCount &&
-      M->getType()->isObjCLifetimeType()) {
-    QualType ObjCARCReferenceLifetimeType = M->getType();
-    switch (Qualifiers::ObjCLifetime Lifetime =
-                ObjCARCReferenceLifetimeType.getObjCLifetime()) {
+  if (auto Lifetime = M->getType().getObjCLifetime()) {
+    switch (Lifetime) {
     case Qualifiers::OCL_None:
     case Qualifiers::OCL_ExplicitNone:
       // Carry on to normal cleanup handling.
@@ -250,11 +247,11 @@ pushTemporaryCleanup(CodeGenFunction &CGF, const MaterializeTemporaryExpr *M,
         }
         if (Duration == SD_FullExpression)
           CGF.pushDestroy(CleanupKind, ReferenceTemporary,
-                          ObjCARCReferenceLifetimeType, *Destroy,
+                          M->getType(), *Destroy,
                           CleanupKind & EHCleanup);
         else
           CGF.pushLifetimeExtendedDestroy(CleanupKind, ReferenceTemporary,
-                                          ObjCARCReferenceLifetimeType,
+                                          M->getType(),
                                           *Destroy, CleanupKind & EHCleanup);
         return;
 
@@ -370,10 +367,9 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
 
     // FIXME: ideally this would use EmitAnyExprToMem, however, we cannot do so
     // as that will cause the lifetime adjustment to be lost for ARC
-  if (getLangOpts().ObjCAutoRefCount &&
-      M->getType()->isObjCLifetimeType() &&
-      M->getType().getObjCLifetime() != Qualifiers::OCL_None &&
-      M->getType().getObjCLifetime() != Qualifiers::OCL_ExplicitNone) {
+  auto ownership = M->getType().getObjCLifetime();
+  if (ownership != Qualifiers::OCL_None &&
+      ownership != Qualifiers::OCL_ExplicitNone) {
     Address Object = createReferenceTemporary(*this, M, E);
     if (auto *Var = dyn_cast<llvm::GlobalVariable>(Object.getPointer())) {
       Object = Address(llvm::ConstantExpr::getBitCast(Var,
@@ -964,7 +960,15 @@ LValue CodeGenFunction::EmitLValue(const Expr *E) {
   ApplyDebugLocation DL(*this, E);
   switch (E->getStmtClass()) {
   default: return EmitUnsupportedLValue(E, "l-value expression");
-
+#ifdef INTEL_CUSTOMIZATION
+  case Expr::CEANBuiltinExprClass: {
+    auto *CBE = cast<CEANBuiltinExpr>(E);
+    LocalVarsDeclGuard Guard(*this);
+    EmitCEANBuiltinExprBody(CBE);
+    assert(CBE->getBuiltinKind() != CEANBuiltinExpr::ReduceMutating);
+    return EmitLValue(CBE->getReturnExpr());
+  }
+#endif // INTEL_CUSTOMIZATION
   case Expr::ObjCPropertyRefExprClass:
     llvm_unreachable("cannot emit a property reference directly");
 
@@ -1439,6 +1443,12 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
                                                              AddrWeakObj));
   }
   if (LV.getQuals().getObjCLifetime() == Qualifiers::OCL_Weak) {
+    // In MRC mode, we do a load+autorelease.
+    if (!getLangOpts().ObjCAutoRefCount) {
+      return RValue::get(EmitARCLoadWeak(LV.getAddress()));
+    }
+
+    // In ARC mode, we load retained and then consume the value.
     llvm::Value *Object = EmitARCLoadWeakRetained(LV.getAddress());
     Object = EmitObjCConsumeObject(LV.getType(), Object);
     return RValue::get(Object);
@@ -2625,6 +2635,34 @@ void CodeGenFunction::EmitCheck(
   EmitBlock(Cont);
 }
 
+void CodeGenFunction::EmitCfiSlowPathCheck(llvm::Value *Cond,
+                                           llvm::ConstantInt *TypeId,
+                                           llvm::Value *Ptr) {
+  auto &Ctx = getLLVMContext();
+  llvm::BasicBlock *Cont = createBasicBlock("cfi.cont");
+
+  llvm::BasicBlock *CheckBB = createBasicBlock("cfi.slowpath");
+  llvm::BranchInst *BI = Builder.CreateCondBr(Cond, Cont, CheckBB);
+
+  llvm::MDBuilder MDHelper(getLLVMContext());
+  llvm::MDNode *Node = MDHelper.createBranchWeights((1U << 20) - 1, 1);
+  BI->setMetadata(llvm::LLVMContext::MD_prof, Node);
+
+  EmitBlock(CheckBB);
+
+  llvm::Constant *SlowPathFn = CGM.getModule().getOrInsertFunction(
+      "__cfi_slowpath",
+      llvm::FunctionType::get(
+          llvm::Type::getVoidTy(Ctx),
+          {llvm::Type::getInt64Ty(Ctx),
+           llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Ctx))},
+          false));
+  llvm::CallInst *CheckCall = Builder.CreateCall(SlowPathFn, {TypeId, Ptr});
+  CheckCall->setDoesNotThrow();
+
+  EmitBlock(Cont);
+}
+
 void CodeGenFunction::EmitTrapCheck(llvm::Value *Checked) {
   llvm::BasicBlock *Cont = createBasicBlock("cont");
 
@@ -2802,6 +2840,11 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
 
   AlignmentSource AlignSource;
   Address Addr = Address::invalid();
+#if INTEL_CUSTOMIZATION
+  // CQ#379144 TBAA for arrays
+  QualType  TBAABaseType;
+  uint64_t TBAAOffset = 0;
+#endif // INTEL_CUSTOMIZATION
   if (const VariableArrayType *vla =
            getContext().getAsVariableArrayType(E->getType())) {
     // The base must be a pointer, which is not an aggregate.  Emit
@@ -2873,6 +2916,15 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
                                  E->getType(),
                                  !getLangOpts().isSignedOverflowDefined());
     AlignSource = ArrayLV.getAlignmentSource();
+#if INTEL_CUSTOMIZATION
+    // CQ#379144 TBAA for arrays
+    if (getLangOpts().IntelCompat && CGM.getCodeGenOpts().StructPathTBAA) {
+      // Propagate TBAA from array to element access. Array element access
+      // in TBAA looks like access to first element in the array.
+      TBAABaseType = ArrayLV.getTBAABaseType();
+      TBAAOffset = ArrayLV.getTBAAOffset();
+    }
+#endif // INTEL_CUSTOMIZATION
   } else {
     // The base must be a pointer; emit it with an estimate of its alignment.
     Addr = EmitPointerWithAlignment(E->getBase(), &AlignSource);
@@ -2883,6 +2935,13 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
   LValue LV = MakeAddrLValue(Addr, E->getType(), AlignSource);
 
   // TODO: Preserve/extend path TBAA metadata?
+#if INTEL_CUSTOMIZATION
+    // CQ#379144 TBAA for arrays
+  if (!TBAABaseType.isNull()) {
+    LV.setTBAABaseType(TBAABaseType);
+    LV.setTBAAOffset(TBAAOffset);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (getLangOpts().ObjC1 &&
       getLangOpts().getGC() != LangOptions::NonGC) {
@@ -3627,10 +3686,7 @@ RValue CodeGenFunction::EmitCallExpr(const CallExpr *E,
   if (const auto *PseudoDtor =
           dyn_cast<CXXPseudoDestructorExpr>(E->getCallee()->IgnoreParens())) {
     QualType DestroyedType = PseudoDtor->getDestroyedType();
-    if (getLangOpts().ObjCAutoRefCount &&
-        DestroyedType->isObjCLifetimeType() &&
-        (DestroyedType.getObjCLifetime() == Qualifiers::OCL_Strong ||
-         DestroyedType.getObjCLifetime() == Qualifiers::OCL_Weak)) {
+    if (DestroyedType.hasStrongOrWeakObjCLifetime()) {
       // Automatic Reference Counting:
       //   If the pseudo-expression names a retainable object with weak or
       //   strong lifetime, the object shall be released.
@@ -3650,7 +3706,7 @@ RValue CodeGenFunction::EmitCallExpr(const CallExpr *E,
         BaseQuals = BaseTy.getQualifiers();
       }
 
-      switch (PseudoDtor->getDestroyedType().getObjCLifetime()) {
+      switch (DestroyedType.getObjCLifetime()) {
       case Qualifiers::OCL_None:
       case Qualifiers::OCL_ExplicitNone:
       case Qualifiers::OCL_Autoreleasing:
@@ -3873,11 +3929,32 @@ LValue CodeGenFunction::EmitStmtExprLValue(const StmtExpr *E) {
 
 RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
                                  const CallExpr *E, ReturnValueSlot ReturnValue,
-                                 const Decl *TargetDecl, llvm::Value *Chain) {
+                                 CGCalleeInfo CalleeInfo, llvm::Value *Chain) {
   // Get the actual function type. The callee type will always be a pointer to
   // function type or a block pointer type.
   assert(CalleeType->isFunctionPointerType() &&
          "Call must have function pointer type!");
+
+  // Preserve the non-canonical function type because things like exception
+  // specifications disappear in the canonical type. That information is useful
+  // to drive the generation of more accurate code for this call later on.
+  const FunctionProtoType *NonCanonicalFTP = CalleeType->getAs<PointerType>()
+                                                 ->getPointeeType()
+                                                 ->getAs<FunctionProtoType>();
+
+  const Decl *TargetDecl = CalleeInfo.getCalleeDecl();
+
+  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(TargetDecl))
+    // We can only guarantee that a function is called from the correct
+    // context/function based on the appropriate target attributes,
+    // so only check in the case where we have both always_inline and target
+    // since otherwise we could be making a conditional call after a check for
+    // the proper cpu features (and it won't cause code generation issues due to
+    // function based code generation).
+    if (TargetDecl->hasAttr<AlwaysInlineAttr>() &&
+        !getLangOpts().IntelCompat &&            // INTEL
+        TargetDecl->hasAttr<TargetAttr>())
+      checkTargetFeatures(E, FD);
 
   CalleeType = getContext().getCanonicalType(CalleeType);
 
@@ -3935,21 +4012,25 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
       (!TargetDecl || !isa<FunctionDecl>(TargetDecl))) {
     SanitizerScope SanScope(this);
 
-    llvm::Value *BitSetName = llvm::MetadataAsValue::get(
-        getLLVMContext(),
-        CGM.CreateMetadataIdentifierForType(QualType(FnType, 0)));
+    llvm::Metadata *MD = CGM.CreateMetadataIdentifierForType(QualType(FnType, 0));
+    llvm::Value *BitSetName = llvm::MetadataAsValue::get(getLLVMContext(), MD);
 
     llvm::Value *CastedCallee = Builder.CreateBitCast(Callee, Int8PtrTy);
     llvm::Value *BitSetTest =
         Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::bitset_test),
                            {CastedCallee, BitSetName});
 
-    llvm::Constant *StaticData[] = {
-      EmitCheckSourceLocation(E->getLocStart()),
-      EmitCheckTypeDescriptor(QualType(FnType, 0)),
-    };
-    EmitCheck(std::make_pair(BitSetTest, SanitizerKind::CFIICall),
-              "cfi_bad_icall", StaticData, CastedCallee);
+    auto TypeId = CGM.CreateCfiIdForTypeMetadata(MD);
+    if (CGM.getCodeGenOpts().SanitizeCfiCrossDso && TypeId) {
+      EmitCfiSlowPathCheck(BitSetTest, TypeId, CastedCallee);
+    } else {
+      llvm::Constant *StaticData[] = {
+          EmitCheckSourceLocation(E->getLocStart()),
+          EmitCheckTypeDescriptor(QualType(FnType, 0)),
+      };
+      EmitCheck(std::make_pair(BitSetTest, SanitizerKind::CFIICall),
+                "cfi_bad_icall", StaticData, CastedCallee);
+    }
   }
 
   CallArgList Args;
@@ -3988,7 +4069,8 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
     Callee = Builder.CreateBitCast(Callee, CalleeTy, "callee.knr.cast");
   }
 
-  return EmitCall(FnInfo, Callee, ReturnValue, Args, TargetDecl
+  return EmitCall(FnInfo, Callee, ReturnValue, Args,
+                  CGCalleeInfo(NonCanonicalFTP, TargetDecl)
 #if INTEL_SPECIFIC_CILKPLUS
                   ,
                   /*callOrInvoke=*/0, E->isCilkSpawnCall()

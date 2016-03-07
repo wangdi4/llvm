@@ -28,6 +28,7 @@
 #include "clang/Basic/AddressSpaces.h"
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/LangOptions.h"
+#include "clang/Basic/Module.h"
 #include "clang/Basic/OperatorKinds.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Basic/SanitizerBlacklist.h"
@@ -70,6 +71,7 @@ namespace clang {
   class VTableContextBase;
 
   namespace Builtin { class Context; }
+  enum BuiltinTemplateKind : int;
 
   namespace comments {
     class FullComment;
@@ -246,6 +248,9 @@ class ASTContext : public RefCountedBase<ASTContext> {
   /// The identifier 'NSCopying'.
   IdentifierInfo *NSCopyingName = nullptr;
 
+  /// The identifier '__make_integer_seq'.
+  mutable IdentifierInfo *MakeIntegerSeqName = nullptr;
+
   QualType ObjCConstantStringType;
   mutable RecordDecl *CFConstantStringTypeDecl;
   
@@ -399,6 +404,7 @@ private:
   
   TranslationUnitDecl *TUDecl;
   mutable ExternCContextDecl *ExternCContext;
+  mutable BuiltinTemplateDecl *MakeIntegerSeqDecl;
 
   /// \brief The associated SourceManager object.a
   SourceManager &SourceMgr;
@@ -451,11 +457,21 @@ public:
   /// \brief Contains parents of a node.
   typedef llvm::SmallVector<ast_type_traits::DynTypedNode, 2> ParentVector;
 
-  /// \brief Maps from a node to its parents.
+  /// \brief Maps from a node to its parents. This is used for nodes that have
+  /// pointer identity only, which are more common and we can save space by
+  /// only storing a unique pointer to them.
   typedef llvm::DenseMap<const void *,
                          llvm::PointerUnion4<const Decl *, const Stmt *,
                                              ast_type_traits::DynTypedNode *,
-                                             ParentVector *>> ParentMap;
+                                             ParentVector *>> ParentMapPointers;
+
+  /// Parent map for nodes without pointer identity. We store a full
+  /// DynTypedNode for all keys.
+  typedef llvm::DenseMap<
+      ast_type_traits::DynTypedNode,
+      llvm::PointerUnion4<const Decl *, const Stmt *,
+                          ast_type_traits::DynTypedNode *, ParentVector *>>
+      ParentMapOtherNodes;
 
   /// Container for either a single DynTypedNode or for an ArrayRef to
   /// DynTypedNode. For use with ParentMap.
@@ -858,6 +874,7 @@ public:
   TranslationUnitDecl *getTranslationUnitDecl() const { return TUDecl; }
 
   ExternCContextDecl *getExternCContextDecl() const;
+  BuiltinTemplateDecl *getMakeIntegerSeqDecl() const;
 
   // Builtin Types.
   CanQualType VoidTy;
@@ -936,6 +953,9 @@ public:
 
   void PrintStats() const;
   const SmallVectorImpl<Type *>& getTypes() const { return Types; }
+
+  BuiltinTemplateDecl *buildBuiltinTemplateDecl(BuiltinTemplateKind BTK,
+                                                const IdentifierInfo *II) const;
 
   /// \brief Create a new implicit TU-level CXXRecordDecl or RecordDecl
   /// declaration.
@@ -1293,7 +1313,7 @@ public:
 
 #endif // INTEL_CUSTOMIZATION
   /// \brief C++11 deduced auto type.
-  QualType getAutoType(QualType DeducedType, bool IsDecltypeAuto,
+  QualType getAutoType(QualType DeducedType, AutoTypeKeyword Keyword,
                        bool IsDependent) const;
 
   /// \brief C++11 deduction pattern for 'auto' type.
@@ -1445,6 +1465,12 @@ public:
     }
 
     return NSCopyingName;
+  }
+
+  IdentifierInfo *getMakeIntegerSeqName() const {
+    if (!MakeIntegerSeqName)
+      MakeIntegerSeqName = &Idents.get("__make_integer_seq");
+    return MakeIntegerSeqName;
   }
 
   /// \brief Retrieve the Objective-C "instancetype" type, if already known;
@@ -2244,9 +2270,7 @@ public:
          const FunctionProtoType *FromFunctionType,
          const FunctionProtoType *ToFunctionType);
 
-  void ResetObjCLayout(const ObjCContainerDecl *CD) {
-    ObjCLayouts[CD] = nullptr;
-  }
+  void ResetObjCLayout(const ObjCContainerDecl *CD);
 
   //===--------------------------------------------------------------------===//
   //                    Integer Predicates
@@ -2260,16 +2284,6 @@ public:
   // unsigned integer type.  This method takes a signed type, and returns the
   // corresponding unsigned integer type.
   QualType getCorrespondingUnsignedType(QualType T) const;
-
-  //===--------------------------------------------------------------------===//
-  //                    Type Iterators.
-  //===--------------------------------------------------------------------===//
-  typedef llvm::iterator_range<SmallVectorImpl<Type *>::const_iterator>
-    type_const_range;
-
-  type_const_range types() const {
-    return type_const_range(Types.begin(), Types.end());
-  }
 
   //===--------------------------------------------------------------------===//
   //                    Integer Values
@@ -2307,16 +2321,11 @@ public:
 
   /// \brief Get the duplicate declaration of a ObjCMethod in the same
   /// interface, or null if none exists.
-  const ObjCMethodDecl *getObjCMethodRedeclaration(
-                                               const ObjCMethodDecl *MD) const {
-    return ObjCMethodRedecls.lookup(MD);
-  }
+  const ObjCMethodDecl *
+  getObjCMethodRedeclaration(const ObjCMethodDecl *MD) const;
 
   void setObjCMethodRedeclaration(const ObjCMethodDecl *MD,
-                                  const ObjCMethodDecl *Redecl) {
-    assert(!getObjCMethodRedeclaration(MD) && "MD already has a redeclaration");
-    ObjCMethodRedecls[MD] = Redecl;
-  }
+                                  const ObjCMethodDecl *Redecl);
 
   /// \brief Returns the Objective-C interface that \p ND belongs to if it is
   /// an Objective-C method/property/ivar etc. that is part of an interface,
@@ -2526,9 +2535,15 @@ private:
 
   /// \brief A set of deallocations that should be performed when the
   /// ASTContext is destroyed.
-  typedef llvm::SmallDenseMap<void(*)(void*), llvm::SmallVector<void*, 16> >
-    DeallocationMap;
-  DeallocationMap Deallocations;
+  // FIXME: We really should have a better mechanism in the ASTContext to
+  // manage running destructors for types which do variable sized allocation
+  // within the AST. In some places we thread the AST bump pointer allocator
+  // into the datastructures which avoids this mess during deallocation but is
+  // wasteful of memory, and here we require a lot of error prone book keeping
+  // in order to track and run destructors while we're tearing things down.
+  typedef llvm::SmallVector<std::pair<void (*)(void *), void *>, 16>
+      DeallocationFunctionsAndArguments;
+  DeallocationFunctionsAndArguments Deallocations;
 
   // FIXME: This currently contains the set of StoredDeclMaps used
   // by DeclContext objects.  This probably should not be in ASTContext,
@@ -2540,7 +2555,8 @@ private:
   void ReleaseDeclContextMaps();
   void ReleaseParentMapEntries();
 
-  std::unique_ptr<ParentMap> AllParents;
+  std::unique_ptr<ParentMapPointers> PointerParents;
+  std::unique_ptr<ParentMapOtherNodes> OtherParents;
 
   std::unique_ptr<VTableContextBase> VTContext;
 

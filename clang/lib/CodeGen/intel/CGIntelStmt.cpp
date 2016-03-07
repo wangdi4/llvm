@@ -310,12 +310,12 @@ CodeGenFunction::CGCilkSpawnInfo::EmitBody(CodeGenFunction &CGF, const Stmt *S) 
     assert(CGF.CurFn->arg_size() >= 2);
     llvm::Function::arg_iterator A = CGF.CurFn->arg_begin();
     Info->setReceiverAddr(
-        Address(++A, CharUnits::fromQuantity(CGF.PointerAlignInBytes)));
+        Address(&*(++A), CharUnits::fromQuantity(CGF.PointerAlignInBytes)));
 
     // Similarly, save the receiver temporary address if it exists.
     if (++A != CGF.CurFn->arg_end())
       Info->setReceiverTmp(
-          Address(A, CharUnits::fromQuantity(CGF.PointerAlignInBytes)));
+          Address(&*A, CharUnits::fromQuantity(CGF.PointerAlignInBytes)));
   }
 
   CGF.CGM.getCilkPlusRuntime().EmitCilkHelperStackFrame(CGF);
@@ -1314,7 +1314,7 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
 // early optimizations (mostly dtrans) and kfolds it out later.
 llvm::Value *CodeGenFunction::EmitIntelSizeof(QualType QTy, llvm::Value *C) {
   llvm::Type *Ty = CGM.getTypes().ConvertType(QTy);
-  if (!getLangOpts().IntelCompat || Ty == nullptr) {
+  if (!getLangOpts().IntelCompat || Ty == nullptr || Ty->isFunctionTy()) {
     return C;
   }
   // Sizeof may be represented as: (i64) gep (Ty*)null, 1

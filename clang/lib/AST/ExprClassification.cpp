@@ -136,6 +136,7 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
   case Expr::ObjCIvarRefExprClass:
   case Expr::FunctionParmPackExprClass:
   case Expr::MSPropertyRefExprClass:
+  case Expr::MSPropertySubscriptExprClass:
   case Expr::OMPArraySectionExprClass:
     return Cl::CL_LValue;
 
@@ -147,9 +148,13 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
 
     // Expressions that are prvalues.
 #if INTEL_SPECIFIC_CILKPLUS
+  case Expr::CEANBuiltinExprClass:
+    return cast<CEANBuiltinExpr>(E)->getReturnExpr()
+               ? ClassifyInternal(Ctx,
+                                  cast<CEANBuiltinExpr>(E)->getReturnExpr())
+               : Cl::CL_PRValue;
   case Expr::CilkSpawnExprClass:
   case Expr::CEANIndexExprClass:
-  case Expr::CEANBuiltinExprClass:
 #endif // INTEL_SPECIFIC_CILKPLUS
   case Expr::CXXBoolLiteralExprClass:
   case Expr::CXXPseudoDestructorExprClass:
@@ -191,6 +196,7 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
   case Expr::CXXFoldExprClass:
   case Expr::NoInitExprClass:
   case Expr::DesignatedInitUpdateExprClass:
+  case Expr::CoyieldExprClass:
     return Cl::CL_PRValue;
 
     // Next come the complicated cases.
@@ -402,6 +408,9 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
     assert(cast<InitListExpr>(E)->getNumInits() == 1 &&
            "Only 1-element init lists can be glvalues.");
     return ClassifyInternal(Ctx, cast<InitListExpr>(E)->getInit(0));
+
+  case Expr::CoawaitExprClass:
+    return ClassifyInternal(Ctx, cast<CoawaitExpr>(E)->getResumeExpr());
   }
 
   llvm_unreachable("unhandled expression kind in classification");

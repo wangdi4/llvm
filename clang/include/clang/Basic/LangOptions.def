@@ -78,15 +78,21 @@ LANGOPT(IntelMSCompat     , 1, 0,
         "Enables or disables Microsoft compatibility features that are not planned for clang/llvm trunk")
 LANGOPT(Zc_forScope      , 1, 1, "Supports Microsoft C++ behavior for the For loops")
 LANGOPT(Float128, 1, 0, "128 bit float support")
+LANGOPT(IntelQuad, 1, 0, "Intel's 128 bit float support")
 LANGOPT(NoInt128, 1, 0, "Disable __int128 keyword support")
 LANGOPT(Restrict         , 1, 0,
         "Enables the 'restrict' keyword for disambiguating pointers")
-// CQ#373517: compilation fails with 'redefinition of default argument'.
-LANGOPT(PermissiveArgs   , 1, 0,
-        "Allows to redefine default arguments")
+// CQ#373517, CQ#376357: GCC -fpermissive mode.
+LANGOPT(GnuPermissive   , 1, 0, "Turns on GNU -fpermissive mode")
 // CQ371729: Incompatible name mangling.
 LANGOPT(GNUMangling       , 1, 0, "GNU mangling for vector types")
 LANGOPT(GNUFABIVersion    , 32, 0, "GNU C++ABI version")
+// Fix for CQ380574: Ability to set various predefines based on gcc version
+// needed.
+LANGOPT(GNUVersion    , 32, 0, "GNU C++ version")
+// CQ376358: Support -ffriend-injection option
+LANGOPT(FriendFunctionInject, 1, 0, "Inject friend functions into the enclosing namespace")
+LANGOPT(FriendClassInject, 1, 0, "Inject friend classes into the enclosing namespace")
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 LANGOPT(PragmaOptimizationLevelIntel      , 1, 1, 
         "Specifies whether #pragma optimization_level shoud use Intel(DEFAULT) or GCC syntax")
@@ -99,8 +105,7 @@ LANGOPT(AlignMac68k      , 1, 0,
 LANGOPT(FormatExtensions  , 1, 0, "FreeBSD format extensions")
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
-LANGOPT(MSVCCompat        , 1, 0, 
-        "Microsoft Visual C++ full compatibility mode")
+LANGOPT(MSVCCompat        , 1, 0, "Microsoft Visual C++ full compatibility mode")
 LANGOPT(MicrosoftExt      , 1, 0, "Microsoft C++ extensions")
 LANGOPT(AsmBlocks         , 1, 0, "Microsoft inline asm blocks")
 LANGOPT(Borland           , 1, 0, "Borland extensions")
@@ -165,7 +170,6 @@ COMPATIBLE_LANGOPT(ModulesStrictDeclUse, 1, 0, "require declaration of module us
 BENIGN_LANGOPT(ModulesErrorRecovery, 1, 1, "automatically import modules as needed when performing error recovery")
 BENIGN_LANGOPT(ImplicitModules, 1, 1, "build modules that are not specified via -fmodule-file")
 COMPATIBLE_LANGOPT(ModulesLocalVisibility, 1, 0, "local submodule visibility")
-COMPATIBLE_LANGOPT(ModulesHideInternalLinkage, 1, 1, "hiding non-visible internal linkage declarations from redeclaration lookup")
 COMPATIBLE_LANGOPT(Optimize          , 1, 0, "__OPTIMIZE__ predefined macro")
 COMPATIBLE_LANGOPT(OptimizeSize      , 1, 0, "__OPTIMIZE_SIZE__ predefined macro")
 LANGOPT(Static            , 1, 0, "__STATIC__ predefined macro (as opposed to __DYNAMIC__)")
@@ -202,7 +206,6 @@ LANGOPT(CUDAIsDevice      , 1, 0, "Compiling for CUDA device")
 LANGOPT(CUDAAllowHostCallsFromHostDevice, 1, 0, "Allow host device functions to call host functions")
 LANGOPT(CUDADisableTargetCallChecks, 1, 0, "Disable checks for call targets (host, device, etc.)")
 LANGOPT(CUDATargetOverloads, 1, 0, "Enable function overloads based on CUDA target attributes")
-LANGOPT(CUDAUsesLibDevice , 1, 0, "Selectively link and internalize bitcode.")
 
 LANGOPT(AssumeSaneOperatorNew , 1, 1, "implicit __attribute__((malloc)) for C++'s new operators")
 LANGOPT(SizedDeallocation , 1, 0, "enable sized deallocation functions")
@@ -225,7 +228,8 @@ LANGOPT(DefaultFPContract , 1, 0, "FP_CONTRACT")
 LANGOPT(NoBitFieldTypeAlign , 1, 0, "bit-field type alignment")
 LANGOPT(HexagonQdsp6Compat , 1, 0, "hexagon-qdsp6 backward compatibility")
 LANGOPT(ObjCAutoRefCount , 1, 0, "Objective-C automated reference counting")
-LANGOPT(ObjCARCWeak         , 1, 0, "__weak support in the ARC runtime")
+LANGOPT(ObjCWeakRuntime     , 1, 0, "__weak support in the ARC runtime")
+LANGOPT(ObjCWeak            , 1, 0, "Objective-C __weak in ARC and MRC files")
 LANGOPT(ObjCSubscriptingLegacyRuntime         , 1, 0, "Subscripting support in legacy ObjectiveC runtime")
 LANGOPT(FakeAddressSpaceMap , 1, 0, "OpenCL fake address space map")
 ENUM_LANGOPT(AddressSpaceMapMangling , AddrSpaceMapMangling, 2, ASMM_Target, "OpenCL address space map mangling mode")
