@@ -1,6 +1,6 @@
 //===--- BlobDDRef.h - Data dependency node for blobs in HIR ----*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -30,7 +30,7 @@ class HLDDNode;
 ///
 /// This DDRef is associated with a RegDDRef to expose data dependencies
 /// present due to blobs.
-class BlobDDRef : public DDRef {
+class BlobDDRef final : public DDRef {
 private:
   CanonExpr *CE;
   RegDDRef *ParentDDRef;
@@ -55,9 +55,6 @@ protected:
   /// to represent a different blob using the interface replaceBlob(). The
   /// symbase is automatically replaced.
   using DDRef::setSymbase;
-
-  /// \brief Implementation to update CE levels.
-  void updateCELevelImpl(unsigned Level);
 
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
@@ -87,9 +84,17 @@ public:
   ///   * The Parent RegDDRef needs to be set explicitly
   BlobDDRef *clone() const override;
 
-  /// \brief Method to update CE levels to non-linear.
-  /// For details, please refer to base class(DDRef.h) documentation.
-  void updateCELevel() override final;
+  /// \brief Returns the src element type associated with this DDRef.
+  Type *getSrcType() const override { return CE->getSrcType(); }
+  /// \brief Returns the dest element type associated with this DDRef.
+  Type *getDestType() const override { return CE->getDestType(); }
+
+  /// \brief Returns true if the blob DDRef represents a self-blob like (1 * %t)
+  /// which should always be true.
+  bool isSelfBlob() const override { return true; }
+
+  /// \brief Returns true if this blob DDRef represents an undef blob.
+  bool containsUndef() const override { return CE->containsUndef(); }
 
   /// \brief Used to represent a different blob by replacing the existing blob
   /// index with the new one. Symbase is automatically updated.

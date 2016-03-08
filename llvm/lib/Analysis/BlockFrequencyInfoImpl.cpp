@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/BlockFrequencyInfoImpl.h"
+#include "llvm/ADT/STLExtras.h" // INTEL_CUSTOMIZATION
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include <numeric>
@@ -604,6 +605,21 @@ template <> struct GraphTraits<IrreducibleGraph> {
   }
   static ChildIteratorType child_begin(NodeType *N) { return N->succ_begin(); }
   static ChildIteratorType child_end(NodeType *N) { return N->succ_end(); }
+#ifdef INTEL_CUSTOMIZATION
+  //Intel's variant of SCCIterator requires full implementation of GraphTraits
+  //interface. These functions were not used by others in llvm, so the missing
+  //functions were never noticed.
+  typedef std::vector<GraphT::IrrNode>::iterator nodes_iterator;
+ 
+  static nodes_iterator nodes_begin(GraphT *G) {
+    return G->Nodes.begin();
+  }
+  static nodes_iterator nodes_end(GraphT *G) {
+    return G->Nodes.end();
+  }
+  
+  static unsigned size(GraphT *G) { return G->Nodes.size(); }
+#endif //INTEL_CUSTOMIZATION
 };
 }
 

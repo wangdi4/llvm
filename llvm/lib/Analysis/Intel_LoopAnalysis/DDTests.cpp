@@ -1,6 +1,6 @@
 //===- DDTests.cpp - Data dependence testing between two DDRefs -*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -280,7 +280,7 @@ static const HLLoop *getLoop(const CanonExpr *CE, const HLLoop *parentLoop) {
     return nullptr;
   }
 
-  unsigned IVLevel;
+  unsigned IVLevel = 0;
   bool IVfound = false;
   const HLLoop *Loop;
 
@@ -354,8 +354,14 @@ static const HLLoop *getSecondLoop(const CanonExpr *CE,
 const CanonExpr *DDtest::getMinus(const CanonExpr *SrcConst,
                                   const CanonExpr *DstConst) {
 
-  // TODO: look into src/dest type mismatches. Ignoring for now.
+  if (!SrcConst || !DstConst) {
+    return nullptr;
+  }
+
   CanonExpr *CE = CanonExprUtils::cloneAndSubtract(SrcConst, DstConst, true);
+  if (!CE) {
+    return nullptr;
+  }
   push(CE);
 
   return CE;
@@ -364,24 +370,32 @@ const CanonExpr *DDtest::getMinus(const CanonExpr *SrcConst,
 const CanonExpr *DDtest::getAdd(const CanonExpr *SrcConst,
                                 const CanonExpr *DstConst) {
 
-  // TODO: look into src/dest type mismatches. Ignoring for now.
+  if (!SrcConst || !DstConst) {
+    return nullptr;
+  }
   CanonExpr *CE = CanonExprUtils::cloneAndAdd(SrcConst, DstConst, true);
+  if (!CE) {
+    return nullptr;
+  }
   push(CE);
 
   return CE;
 }
 
 bool DDtest::areCEEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                        bool IgnoreDestType) const {
+                        bool RelaxedMode) const {
 
   if (!CE1 || !CE2) {
     return false;
   }
-  return CanonExprUtils::areEqual(CE1, CE2, IgnoreDestType);
+  return CanonExprUtils::areEqual(CE1, CE2, RelaxedMode);
 }
 
 const CanonExpr *DDtest::getNegative(const CanonExpr *CE) {
 
+  if (!CE) {
+    return nullptr;
+  }
   CanonExpr *CE2 = CanonExprUtils::cloneAndNegate(CE);
 
   push(CE2);
@@ -391,7 +405,7 @@ const CanonExpr *DDtest::getNegative(const CanonExpr *CE) {
 
 const CanonExpr *DDtest::getNegativeDist(const CanonExpr *CE) {
   // when distance is undefined, it is null.
-  if (CE == nullptr) {
+  if (!CE) {
     return nullptr;
   }
   return getNegative(CE);
@@ -401,16 +415,20 @@ const CanonExpr *DDtest::getMulExpr(const CanonExpr *CE1,
                                     const CanonExpr *CE2) {
 
   // Current support in Util: one of them must be a constant
-  int64_t konst;
+  int64_t CVal = 0;
 
   CanonExpr *CE = nullptr;
 
-  if (CE2->isIntConstant(&konst)) {
+  if (!CE1 || !CE2) {
+    return nullptr;
+  }
+
+  if (CE2->isIntConstant(&CVal)) {
     CE = CE1->clone();
-    CE->multiplyByConstant(konst);
-  } else if (CE1->isIntConstant(&konst)) {
+    CE->multiplyByConstant(CVal);
+  } else if (CE1->isIntConstant(&CVal)) {
     CE = CE2->clone();
-    CE->multiplyByConstant(konst);
+    CE->multiplyByConstant(CVal);
   } else {
     return nullptr;
   }
@@ -442,19 +460,23 @@ const CanonExpr *DDtest::getUDivExpr(const CanonExpr *CE1,
   // Only  handles restricted cases when the inputs are constant
   // Caller need to check for null result
 
+  if (!CE1 || !CE2) {
+    return nullptr;
+  }
+
   if (!CanonExprUtils::isTypeEqual(CE1, CE2)) {
     return nullptr;
   }
-  int64_t konst1, konst2;
+  int64_t CVal1, CVal2;
 
-  if (!(CE1->isIntConstant(&konst1))) {
+  if (!(CE1->isIntConstant(&CVal1))) {
     return nullptr;
   }
-  if (!(CE2->isIntConstant(&konst2)) || konst2 == 0) {
+  if (!(CE2->isIntConstant(&CVal2)) || CVal2 == 0) {
     return nullptr;
   }
   const CanonExpr *CE = getConstantWithType(
-      CE1->getSrcType(), CE1->getDestType(), CE1->isSExt(), konst1 / konst2);
+      CE1->getSrcType(), CE1->getDestType(), CE1->isSExt(), CVal1 / CVal2);
 
   // Note: no need to do push_back CE here because it's already done
 
@@ -466,12 +488,16 @@ const CanonExpr *DDtest::getSMaxExpr(const CanonExpr *CE1,
   // Only handles restricted cases when the diff is a constant
   // Will extend to cases like N,  N + conatant
   // Caller need to check for null result
-  int64_t konst;
-  const CanonExpr *delta = getMinus(CE1, CE2);
+  int64_t CVal;
+  if (!CE1 || !CE2) {
+    return nullptr;
+  }
+
+  const CanonExpr *Delta = getMinus(CE1, CE2);
   // Note: getMinus already performed push_back for CE.
   // No need to do it here again
-  if (delta->isIntConstant(&konst)) {
-    return ((konst > 0) ? CE1 : CE2);
+  if (Delta && Delta->isIntConstant(&CVal)) {
+    return ((CVal > 0) ? CE1 : CE2);
   }
   return nullptr;
 }
@@ -481,12 +507,15 @@ const CanonExpr *DDtest::getSMinExpr(const CanonExpr *CE1,
   // Only handles restricted cases when the diff is a constant
   // Will extend to cases like N,  N + conatant
   // Caller need to check for null result
-  int64_t konst;
-  const CanonExpr *delta = getMinus(CE2, CE1);
+  int64_t CVal;
+  if (!CE1 || !CE2) {
+    return nullptr;
+  }
+  const CanonExpr *Delta = getMinus(CE2, CE1);
   // Note: getMinus already performed push_back for CE.
   // No need to do it here again
-  if (delta->isIntConstant(&konst)) {
-    return ((konst > 0) ? CE1 : CE2);
+  if (Delta && Delta->isIntConstant(&CVal)) {
+    return ((CVal > 0) ? CE1 : CE2);
   }
   return nullptr;
 }
@@ -966,23 +995,23 @@ void DDtest::establishNestingLevels(const DDRef *SrcDDRef,
   assert(DstHIR && "HIR not found for Dst DDRef");
   HLLoop *SrcParent = SrcHIR->getParentLoop();
   HLLoop *DstParent = DstHIR->getParentLoop();
-  HLLoop *SrcLoop;
-  HLLoop *DstLoop;
-  unsigned SrcLevel;
-  unsigned DstLevel;
+  HLLoop *SrcLoop = nullptr;
+  HLLoop *DstLoop = nullptr;
+  unsigned SrcLevel = 0;
+  unsigned DstLevel = 0;
 
   DeepestLoop = nullptr;
 
-  if (SrcParent == nullptr) {
+  if (!SrcParent) {
     CommonLevels = 0;
-    if (DstParent == nullptr) {
+    if (!DstParent) {
       MaxLevels = 0;
       return;
     }
     DstLoop = DstParent;
     DstLevel = DstLoop->getNestingLevel();
     MaxLevels = DstLevel;
-  } else if (DstParent == nullptr) {
+  } else if (!DstParent) {
     CommonLevels = 0;
     SrcLoop = SrcParent;
     SrcLevel = SrcLoop->getNestingLevel();
@@ -993,9 +1022,11 @@ void DDtest::establishNestingLevels(const DDRef *SrcDDRef,
   SrcLoop = SrcParent;
   DstLoop = DstParent;
 
-  SrcLevel = SrcLoop->getNestingLevel();
-  DstLevel = DstLoop->getNestingLevel();
+  if (SrcLoop) {
+    SrcLevel = SrcLoop->getNestingLevel();
+  }
 
+  DstLevel = DstLoop->getNestingLevel();
   DeepestLoop = (SrcLevel > DstLevel) ? SrcParent : DstParent;
 
   // TODO: Need to understand how is MaxLevels consumed
@@ -1197,6 +1228,9 @@ bool DDtest::isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
                               const CanonExpr *Y) {
 
   const CanonExpr *Delta = getMinus(X, Y);
+  if (!Delta) {
+    return false;
+  }
   switch (Pred) {
   case CmpInst::ICMP_EQ:
     return Delta->isZero();
@@ -1312,6 +1346,11 @@ bool DDtest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
   Level--;
 
   const CanonExpr *Delta = getMinus(SrcConst, DstConst);
+
+  if (!Delta) {
+    return false;
+  }
+
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
 
   // check that |Delta| < iteration count
@@ -1487,6 +1526,10 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
   Level--;
   Result.Consistent = false;
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
+  if (!Delta) {
+    return false;
+  }
+
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   NewConstraint.setLine(Coeff, Coeff, Delta, CurLoop);
   if (Delta->isZero()) {
@@ -1571,6 +1614,11 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
                             UpperBound->isSExt(), 2);
     const CanonExpr *ML =
         getMulExpr(getMulExpr(ConstCoeff, UpperBound), ConstantTwo);
+
+    if (!ML) {
+      return false;
+    }
+
     DEBUG(dbgs() << "\n    ML = "; ML->dump());
     if (isKnownPredicate(CmpInst::ICMP_SGT, Delta, ML)) {
       // Delta too big, no dependence
@@ -1738,6 +1786,10 @@ bool DDtest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   Level--;
   Result.Consistent = false;
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
+
+  if (!Delta) {
+    return false;
+  }
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   DEBUG(dbgs() << "\n");
 
@@ -1963,7 +2015,9 @@ bool DDtest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
   Level--;
   Result.Consistent = false;
   const CanonExpr *Delta = getMinus(SrcConst, DstConst);
-
+  if (!Delta) {
+    return false;
+  }
   NewConstraint.setLine(getConstantWithType(Delta->getSrcType(),
                                             Delta->getDestType(),
                                             Delta->isSExt(), 0),
@@ -2087,6 +2141,10 @@ bool DDtest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
   Level--;
   Result.Consistent = false;
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
+
+  if (!Delta) {
+    return false;
+  }
   NewConstraint.setLine(SrcCoeff, getConstantWithType(Delta->getSrcType(),
                                                       Delta->getDestType(),
                                                       Delta->isSExt(), 0),
@@ -2188,6 +2246,10 @@ bool DDtest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   ++ExactRDIVapplications;
   Result.Consistent = false;
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
+
+  if (!Delta) {
+    return false;
+  }
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
 
   int64_t deltaVal, srcCoeffVal, dstCoeffVal, ubVal;
@@ -2350,6 +2412,9 @@ bool DDtest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
     DEBUG(dbgs() << "\n    N2 = "; N2->dump());
   }
   const CanonExpr *C2_C1 = getMinus(C2, C1);
+  if (!C2_C1) {
+    return false;
+  }
   const CanonExpr *C1_C2 = getNegative(C2_C1);
 
   DEBUG(dbgs() << "\n    C2 - C1 = "; C2_C1->dump());
@@ -2437,7 +2502,7 @@ bool DDtest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
       if (N1) {
         // make sure that a1*N1 <= c2 - c1
         const CanonExpr *A1N1 = getMulExpr(A1, N1);
-        if (A1N1 == nullptr) {
+        if (!A1N1) {
           return false;
         }
 
@@ -2450,7 +2515,7 @@ bool DDtest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
       if (N2) {
         // make sure that c2 - c1 <= -a2*N2, or c1 - c2 >= a2*N2
         const CanonExpr *A2N2 = getMulExpr(A2, N2);
-        if (A2N2 == nullptr) {
+        if (!A2N2) {
           return false;
         }
 
@@ -2565,9 +2630,12 @@ bool DDtest::testRDIV(const CanonExpr *Src, const CanonExpr *Dst,
   //   3) [b] and [a*i + c*j + d]
   // We need to find what we've got and get organized
 
-  const CanonExpr *SrcConst, *DstConst;
-  const CanonExpr *SrcCoeff, *DstCoeff;
-  const HLLoop *SrcLoop, *DstLoop;
+  const CanonExpr *SrcConst = nullptr;
+  const CanonExpr *DstConst = nullptr;
+  const CanonExpr *SrcCoeff = nullptr;
+  const CanonExpr *DstCoeff = nullptr;
+  const HLLoop *SrcLoop = nullptr;
+  const HLLoop *DstLoop = nullptr;
 
   DEBUG(dbgs() << "\n    src = "; Src->dump());
   DEBUG(dbgs() << "\n    Dst = "; Dst->dump());
@@ -2742,6 +2810,10 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
   APInt ExtraGCD = APInt::getNullValue(BitWidth);
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
+  if (!Delta) {
+    return false;
+  }
+
   DEBUG(dbgs() << "    Delta = "; Delta->dump());
 
   // TODO: Will handle later when delta is a sum of products
@@ -2796,12 +2868,16 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     // based on level, get to corrs. parent loop
     const HLLoop *CurLoop = HLNodeUtils::getParentLoopwithLevel(
         CE->getLevel(CurIVPair), SrcParentLoop);
+
+    assert(CurLoop && "Expecting parent loop not null");
+
     RunningGCD = ExtraGCD;
 
     const CanonExpr *SrcCoeff =
         getConstantWithType(Src->getSrcType(), Src->getDestType(),
                             Src->isSExt(), CE->getIVConstCoeff(CurIVPair));
     const CanonExpr *DstCoeff = getMinus(SrcCoeff, SrcCoeff); // start with  0
+
     const CanonExpr *Inner = Src;
 
     CE2 = Inner;
@@ -2847,6 +2923,10 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
         RunningGCD =
             APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
       }
+    }
+
+    if (!DstCoeff) {
+      continue;
     }
 
     Delta = getMinus(SrcCoeff, DstCoeff);
@@ -2931,6 +3011,9 @@ bool DDtest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
       collectCoeffInfo(Dst, false, B0, SrcParentLoop, DstParentLoop);
   BoundInfo *Bound = new BoundInfo[MaxLevels + 1];
   const CanonExpr *Delta = getMinus(B0, A0);
+  if (!Delta) {
+    return false;
+  }
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
 
   // Compute bounds for all the * directions.
@@ -3214,11 +3297,13 @@ void DDtest::findBoundsEQ(CoefficientInfo *A, CoefficientInfo *B,
     // we won't need to know the number of iterations.
     const CanonExpr *Delta = getMinus(A[K].Coeff, B[K].Coeff);
     const CanonExpr *NegativePart = getNegativePart(Delta);
-    if (NegativePart->isZero())
+    if (NegativePart && NegativePart->isZero()) {
       Bound[K].Lower[DV::EQ] = NegativePart; // Zero
+    }
     const CanonExpr *PositivePart = getPositivePart(Delta);
-    if (PositivePart->isZero())
+    if (PositivePart && PositivePart->isZero()) {
       Bound[K].Upper[DV::EQ] = PositivePart; // Zero
+    }
   }
 }
 
@@ -3256,12 +3341,14 @@ void DDtest::findBoundsLT(CoefficientInfo *A, CoefficientInfo *B,
     // we won't need to know the number of iterations.
     const CanonExpr *NegPart =
         getNegativePart(getMinus(A[K].NegPart, B[K].Coeff));
-    if (NegPart->isZero())
+    if (NegPart && NegPart->isZero()) {
       Bound[K].Lower[DV::LT] = getNegative(B[K].Coeff);
+    }
     const CanonExpr *PosPart =
         getPositivePart(getMinus(A[K].PosPart, B[K].Coeff));
-    if (PosPart->isZero())
+    if (PosPart && PosPart->isZero()) {
       Bound[K].Upper[DV::LT] = getNegative(B[K].Coeff);
+    }
   }
 }
 
@@ -3299,23 +3386,31 @@ void DDtest::findBoundsGT(CoefficientInfo *A, CoefficientInfo *B,
     // we won't need to know the number of iterations.
     const CanonExpr *NegPart =
         getNegativePart(getMinus(A[K].Coeff, B[K].PosPart));
-    if (NegPart->isZero())
+    if (NegPart && NegPart->isZero()) {
       Bound[K].Lower[DV::GT] = A[K].Coeff;
+    }
     const CanonExpr *PosPart =
         getPositivePart(getMinus(A[K].Coeff, B[K].NegPart));
-    if (PosPart->isZero())
+    if (PosPart && PosPart->isZero()) {
       Bound[K].Upper[DV::GT] = A[K].Coeff;
+    }
   }
 }
 
 // X^+ = max(X, 0)
 const CanonExpr *DDtest::getPositivePart(const CanonExpr *X) {
+  if (!X) {
+    return nullptr;
+  }
   return getSMaxExpr(X, getConstantWithType(X->getSrcType(), X->getDestType(),
                                             X->isSExt(), 0));
 }
 
 // X^- = min(X, 0)
 const CanonExpr *DDtest::getNegativePart(const CanonExpr *X) {
+  if (!X) {
+    return nullptr;
+  }
   return getSMinExpr(X, getConstantWithType(X->getSrcType(), X->getDestType(),
                                             X->isSExt(), 0));
 }
@@ -4552,7 +4647,7 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     isTemp = true;
   } else {
     RegDDRef *RegRef = cast<RegDDRef>(SrcDDRef);
-    if (RegRef->isScalarRef()) {
+    if (RegRef->isTerminalRef()) {
       isTemp = true;
     }
   }
@@ -4583,11 +4678,15 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     HLDDNode *SrcDDNode = SrcDDRef->getHLDDNode();
     HLDDNode *DstDDNode = DstDDRef->getHLDDNode();
     HLNode *SrcHIR = SrcDDNode;
-    unsigned SrcNum = SrcHIR->getTopSortNum();
-    HLNode *DstHIR = DstDDNode;
-    unsigned DstNum = DstHIR->getTopSortNum();
-    bool IsReversed = false;
+    assert(SrcHIR && "SrcHIR not null expected");
 
+    unsigned SrcNum = SrcHIR->getTopSortNum();
+
+    HLNode *DstHIR = DstDDNode;
+    assert(DstHIR && "DstHIR not null expected");
+    unsigned DstNum = DstHIR->getTopSortNum();
+
+    bool IsReversed = false;
     DEBUG(dbgs() << " src/dst num " << SrcNum << " " << DstNum);
 
     if (RegDDRef *RegRef = dyn_cast<RegDDRef>(SrcDDRef)) {
@@ -4636,10 +4735,18 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
             forwardDV[II - 1] = DV::EQ;
           }
           // Suppress ANTI (< ) edge for now until it's really needed
+          backwardDV[0] = DV::LT;
+          for (unsigned II = 2; II <= Levels; ++II) {
+            backwardDV[II - 1] = DV::ALL;
+          }
 
         } else {
           for (unsigned II = 1; II <= Levels; ++II) {
             backwardDV[II - 1] = DV::EQ;
+          }
+          forwardDV[0] = DV::LT;
+          for (unsigned II = 2; II <= Levels; ++II) {
+            forwardDV[II - 1] = DV::ALL;
           }
           // Suppress ANTI (< ) edge for now until it's really needed
         }
@@ -4735,6 +4842,8 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     HLDDNode *DstDDNode = DstDDRef->getHLDDNode();
     HLNode *SrcHIR = dyn_cast<HLNode>(SrcDDNode);
     HLNode *DstHIR = dyn_cast<HLNode>(DstDDNode);
+    assert(SrcHIR && DstHIR && "SrcHIR & DstHIR expected");
+
     unsigned SrcNum = SrcHIR->getTopSortNum();
     unsigned DstNum = DstHIR->getTopSortNum();
     DEBUG(dbgs() << "\nTopSortNum: " << SrcNum << " " << DstNum);
@@ -4912,7 +5021,7 @@ bool llvm::loopopt::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
   *IsIndependent = false;
   RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
 
-  if (RegDDref && !(RegDDref->isScalarRef())) {
+  if (RegDDref && !(RegDDref->isTerminalRef())) {
     DDtest DA;
     DVectorTy InputDV;
     DDtest::setInputDV(InputDV, InnermostNestingLevel, OutermostNestingLevel);

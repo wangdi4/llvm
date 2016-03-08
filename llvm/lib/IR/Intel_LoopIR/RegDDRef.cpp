@@ -1,6 +1,6 @@
 //===----- RegDDRef.cpp - Implements the RegDDRef class -------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -13,15 +13,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
+#include "llvm/Support/Debug.h"
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
+
+#define DEBUG_TYPE "hir-regddref"
 
 RegDDRef::RegDDRef(unsigned SB)
     : DDRef(DDRef::RegDDRefVal, SB), GepInfo(nullptr), Node(nullptr) {}
@@ -51,15 +55,6 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
     CanonExprs.push_back(NewCE);
   }
 
-  // Loop over Strides
-  if (RegDDRefObj.hasGEPInfo()) {
-    for (auto I = RegDDRefObj.stride_begin(), E = RegDDRefObj.stride_end();
-         I != E; ++I) {
-      CanonExpr *NewCE = (*I)->clone();
-      getStrides().push_back(NewCE);
-    }
-  }
-
   // Loop over BlobDDRefs
   for (auto I = RegDDRefObj.blob_cbegin(), E = RegDDRefObj.blob_cend(); I != E;
        ++I) {
@@ -80,30 +75,66 @@ RegDDRef *RegDDRef::clone() const {
   return NewRegDDRef;
 }
 
-void RegDDRef::updateCELevel() {
+int RegDDRef::findMaxBlobLevel(
+    const SmallVectorImpl<unsigned> &BlobIndices) const {
+  int DefLevel = 0, MaxLevel = 0;
 
-  unsigned Level = getHLDDNodeLevel();
+  for (auto Index : BlobIndices) {
+    bool BlobExist = findBlobLevel(Index, &DefLevel);
+    (void)BlobExist;
+    assert(BlobExist && "Blob DDRef not found!");
 
-  // Base CE
-  if (hasGEPInfo()) {
-    getBaseCE()->updateNonLinear(Level);
-  }
-
-  // Loop over CanonExprs
-  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    (*I)->updateNonLinear(Level);
-  }
-
-  // Loop over Strides
-  if (hasGEPInfo()) {
-    for (auto I = stride_begin(), E = stride_end(); I != E; ++I) {
-      (*I)->updateNonLinear(Level);
+    if (-1 == DefLevel) {
+      return -1;
+    } else if (DefLevel > MaxLevel) {
+      MaxLevel = DefLevel;
     }
   }
 
-  // Loop over BlobDDRefs
-  for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
-    (*I)->updateCELevelImpl(Level);
+  return MaxLevel;
+}
+
+void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
+  SmallVector<unsigned, 8> BlobIndices;
+
+  CE->collectTempBlobIndices(BlobIndices);
+
+  auto MaxLevel = findMaxBlobLevel(BlobIndices);
+
+  if (CanonExprUtils::hasNonLinearSemantics(MaxLevel, NestingLevel)) {
+    CE->setNonLinear();
+  } else {
+    CE->setDefinedAtLevel(MaxLevel);
+  }
+}
+
+void RegDDRef::updateDefLevel(unsigned NestingLevelIfDetached) {
+
+  unsigned Level = getHLDDNode() ? getHLDDNodeLevel() : NestingLevelIfDetached;
+  assert((Level <= MaxLoopNestLevel) &&
+         "Nesting level not set for detached DDRef!");
+
+  // Update attached blob DDRefs' def level first.
+  for (auto It = blob_begin(), EndIt = blob_end(); It != EndIt; ++It) {
+    auto CE = (*It)->getCanonExpr();
+
+    if (CE->isNonLinear()) {
+      continue;
+    }
+
+    if (CanonExprUtils::hasNonLinearSemantics(CE->getDefinedAtLevel(), Level)) {
+      (*It)->setNonLinear();
+    }
+  }
+
+  // Update base CE.
+  if (hasGEPInfo()) {
+    updateCEDefLevel(getBaseCE(), Level);
+  }
+
+  // Update CanonExprs.
+  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
+    updateCEDefLevel(*I, Level);
   }
 }
 
@@ -121,7 +152,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   // Treat disconnected DDRefs as rvals. isLval() asserts for disconnected
   // DDRefs. Being able to print disconnected DDRefs is useful for debugging.
   if (getHLDDNode() && isLval() && !HasGEP && !Detailed) {
-    CanonExprUtils::printScalar(OS, getSymbase());
+    BlobUtils::printScalar(OS, getSymbase());
   } else {
     if (HasGEP) {
       if (isAddressOf()) {
@@ -157,6 +188,74 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 
   DDRef::print(OS, Detailed);
 }
+
+Type *RegDDRef::getTypeImpl(bool IsSrc) const {
+  const CanonExpr *CE = nullptr;
+
+  if (hasGEPInfo()) {
+    CE = getBaseCE();
+
+    PointerType *BaseTy = IsSrc ? cast<PointerType>(CE->getSrcType())
+                                : cast<PointerType>(CE->getDestType());
+
+    // Get base pointer's contained type.
+    // Assuming the base type is [7 x [101 x float]]*, this will give us [7 x
+    // [101 x float]].
+    Type *RetTy = BaseTy->getElementType();
+
+    unsigned I = 0;
+    // Subtract 1 for the pointer dereference.
+    unsigned NumDim = getNumDimensions() - 1;
+
+    // Recurse into the array type(s).
+    // Assuming NumDim is 2 and RetTy is [7 x [101 x float]], the following
+    // loop will set RetTy as float.
+    for (I = 0; I < NumDim; ++I) {
+      if (auto ArrTy = dyn_cast<ArrayType>(RetTy)) {
+        RetTy = ArrTy->getElementType();
+      } else {
+        break;
+      }
+    }
+
+    // 'I' can be less than NumDim for destination type for cases like this-
+    // %arrayidx = getelementptr [10 x float], [10 x float]* %p, i64 0, i64 %k
+    // %190 = bitcast float* %arrayidx to i32*
+    // store i32 %189, i32* %190
+    //
+    // The DDRef looks like this in HIR-
+    // *(i32*)(%ex1)[0][i1]
+    //
+    // The base canon expr is stored like this-
+    // bitcast.[1001 x float]*.i32*(%ex1)
+    // The represented cast is imprecise because the actual casting occurs
+    // from float* to i32*. The stored information is enough to generate the
+    // correct code, though. This setup needs to be rethought if the
+    // transformations want to access three different types involved here-
+    // [1001 x float]*, float* and i32*. We are currently not storing the
+    // intermediate float* type but it can be computed on the fly.
+    //
+    // TODO: Rethink the setup, if required.
+    assert((!IsSrc || (I == NumDim)) && "Malformed DDRef!");
+
+    // For DDRefs representing addresses, we need to return a pointer to
+    // RetTy.
+    if (isAddressOf()) {
+      return PointerType::get(RetTy, BaseTy->getAddressSpace());
+    } else {
+      return RetTy;
+    }
+
+  } else {
+    CE = getSingleCanonExpr();
+    assert(CE && "DDRef is empty!");
+    return IsSrc ? CE->getSrcType() : CE->getDestType();
+  }
+}
+
+Type *RegDDRef::getSrcType() const { return getTypeImpl(true); }
+
+Type *RegDDRef::getDestType() const { return getTypeImpl(false); }
 
 Type *RegDDRef::getBaseTypeImpl(bool IsSrc) const {
   if (hasGEPInfo()) {
@@ -204,7 +303,7 @@ bool RegDDRef::isFake() const {
   return HNode->isFake(this);
 }
 
-bool RegDDRef::isScalarRef() const {
+bool RegDDRef::isTerminalRef() const {
   // Check GEP and Single CanonExpr
   if (!hasGEPInfo()) {
     assert(isSingleCanonExpr() && "Scalar ref has more than one dimension!");
@@ -214,25 +313,89 @@ bool RegDDRef::isScalarRef() const {
   return false;
 }
 
-void RegDDRef::addDimension(CanonExpr *Canon, CanonExpr *Stride) {
-  assert(Canon && "Canon is null!");
-  assert((CanonExprs.empty() || Stride) && "Stride is null!");
+bool RegDDRef::isMemRef() const { return hasGEPInfo() && !isAddressOf(); }
 
-  /// First dimension may not have stride. If it does, create GEP info.
-  if (CanonExprs.empty()) {
-    if (Stride) {
-      if (!hasGEPInfo()) {
-        createGEP();
-      }
-      getStrides().push_back(Stride);
-    }
-  } else {
-    assert(hasGEPInfo() && !getStrides().empty() && "Stride is null for the "
-                                                    "first dimension!");
-    getStrides().push_back(Stride);
+bool RegDDRef::isSelfBlob() const {
+  if (!isTerminalRef()) {
+    return false;
   }
 
-  CanonExprs.push_back(Canon);
+  auto CE = getSingleCanonExpr();
+
+  if (!CE->isSelfBlob()) {
+    return false;
+  }
+
+  unsigned SB = BlobUtils::getBlobSymbase(CE->getSingleBlobIndex());
+
+  return (getSymbase() == SB);
+}
+
+CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
+  const CanonExpr *BaseCE = getBaseCE();
+  if (!BaseCE || !BaseCE->isInvariantAtLevel(Level))
+    return nullptr;
+
+  CanonExpr *StrideAtLevel = nullptr;
+
+  for (unsigned I = 1; I <= getNumDimensions(); ++I) {
+    const CanonExpr *DimCE = getDimensionIndex(I);
+    uint64_t DimStride = getDimensionStride(I);
+
+    // We want to guarantee that we return a Stride that is invariant at Level,
+    // or otherwise to bail out.
+    // IsLinearAtLevel guarantees that DimCE is defined at a lower (outer)
+    // level than where this RegDDRef is used. We also require that DimCE
+    // does not consist of any elements (blobs) that are defined at a
+    // level >= Level.
+    // Checking that DimCE->getDefinedAtLevel< Level guarantees that all the
+    // blobs of this RegDDRef are invariant in Level, which in turn means that
+    // any evolution of this RegDDRef in Level is associated with the IV of
+    // Level.
+    if (!DimCE->isLinearAtLevel() || DimCE->getDefinedAtLevel() >= Level)
+      return nullptr;
+
+    // !hasIV(Level) does not guarantee that IV at Level does
+    // not affect this access, as it may be hiding behind a blob;
+    // Therefore this check alone is not sufficient (hence the check of the
+    // DefinedAtLevel above).
+    if (!DimCE->hasIV(Level))
+      continue;
+
+    if (StrideAtLevel) {
+      if (!CanonExprUtils::mergeable(StrideAtLevel, DimCE)) {
+        CanonExprUtils::destroy(StrideAtLevel);
+        return nullptr;
+      }
+    } else { // Creating the StrideAtLevel for the first time
+      StrideAtLevel = CanonExprUtils::createExtCanonExpr(
+          DimCE->getSrcType(), DimCE->getDestType(), DimCE->isSExt());
+    }
+
+    unsigned Index = DimCE->getIVBlobCoeff(Level);
+    if (Index != INVALID_BLOB_INDEX) {
+      StrideAtLevel->addBlob(Index, DimCE->getIVConstCoeff(Level) * DimStride);
+    } else {
+      StrideAtLevel->addConstant(DimCE->getIVConstCoeff(Level) * DimStride);
+    }
+  }
+
+  // Collect the temp blobs of strideCE to potentially update the
+  // DefinedAtLevel property of StrideCE.
+  SmallVector<unsigned, 8> BlobIndices;
+  StrideAtLevel->collectTempBlobIndices(BlobIndices);
+  int MaxLevel = findMaxBlobLevel(BlobIndices);
+  assert(MaxLevel >= 0 && "Invalid level!");
+  if ((unsigned)MaxLevel > StrideAtLevel->getDefinedAtLevel())
+    StrideAtLevel->setDefinedAtLevel(MaxLevel);
+
+  assert(StrideAtLevel->isInvariantAtLevel(Level) && "Invariant Stride!");
+  return StrideAtLevel;
+}
+
+void RegDDRef::addDimension(CanonExpr *IndexCE) {
+  assert(IndexCE && "IndexCE is null!");
+  CanonExprs.push_back(IndexCE);
 }
 
 void RegDDRef::removeDimension(unsigned DimensionNum) {
@@ -240,7 +403,54 @@ void RegDDRef::removeDimension(unsigned DimensionNum) {
   assert((getNumDimensions() > 1) && "Attempt to remove the only dimension!");
 
   CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
-  getStrides().erase(getStrides().begin() + (DimensionNum - 1));
+}
+
+uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
+  assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
+  assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+
+  SmallVector<uint64_t, 9> Strides;
+  Type *BaseTy = getBaseSrcType();
+
+  assert(isa<PointerType>(BaseTy) && "DDRef base type is not a pointer type!");
+
+  BaseTy = cast<PointerType>(BaseTy)->getElementType();
+
+  // Collect number of elements in each dimension.
+  for (; ArrayType *ArrType = dyn_cast<ArrayType>(BaseTy);
+       BaseTy = ArrType->getElementType()) {
+    Strides.push_back(ArrType->getNumElements());
+  }
+
+  assert((BaseTy->isIntegerTy() || BaseTy->isFloatingPointTy() ||
+          BaseTy->isPointerTy()) &&
+         "Unexpected DDRef primary element type!");
+
+  uint64_t ElementSize = CanonExprUtils::getTypeSizeInBits(BaseTy) / 8;
+
+  // If the actual number of dimensions differ from the maximum number of
+  // dimensions we need to account for the offset. For example, suppose the base
+  // type is [10 x [10 x i32]]* which has a maximum of 3 dimensions, one for
+  // pointer and two for the arrays. If the actual number of dimensions is 3,
+  // the innermost type is i32 and its stride is 4 bytes. But if the actual
+  // number of dimensions is 2, the innermost type is [10 x i32] which has a
+  // stride of 40 bytes.
+  //
+  // Added one to include the pointer dimension.
+  unsigned Offset = (Strides.size() + 1) - getNumDimensions();
+
+  // We subtract 1 for the innermost dimension as ElementSize already represents
+  // the innermost stride.
+  unsigned Count = DimensionNum + Offset - 1;
+
+  // Multiply number of elements in each dimension by the element size.
+  // We need to do a reverse traversal from the smallest(innermost) to
+  // largest(outermost) dimension.
+  for (auto I = Strides.rbegin(); Count > 0; --Count, ++I) {
+    ElementSize *= (*I);
+  }
+
+  return ElementSize;
 }
 
 void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {
@@ -334,10 +544,6 @@ void RegDDRef::collectTempBlobIndices(
 
   if (hasGEPInfo()) {
     getBaseCE()->collectTempBlobIndices(Indices, false);
-
-    for (auto I = stride_begin(), E = stride_end(); I != E; ++I) {
-      (*I)->collectTempBlobIndices(Indices, false);
-    }
   }
 
   // Make the indices unique.
@@ -345,12 +551,51 @@ void RegDDRef::collectTempBlobIndices(
   Indices.erase(std::unique(Indices.begin(), Indices.end()), Indices.end());
 }
 
-void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
+void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
+                              unsigned NestingLevelIfDetached) {
+  SmallVector<BlobDDRef *, 8> NewBlobs;
+
+  updateBlobDDRefs(NewBlobs);
+
+  unsigned Level = getHLDDNode() ? getHLDDNodeLevel() : NestingLevelIfDetached;
+
+  // Set def level for the new blobs.
+  for (auto &BRef : NewBlobs) {
+    int DefLevel = 0;
+    bool Found = false;
+    unsigned Index = BRef->getBlobIndex();
+
+    assert(AuxRefs && "Missing auxiliary refs!");
+
+    for (auto &AuxRef : (*AuxRefs)) {
+      if (AuxRef->findBlobLevel(Index, &DefLevel)) {
+        if (CanonExprUtils::hasNonLinearSemantics(DefLevel, Level)) {
+          BRef->setNonLinear();
+        } else {
+          BRef->setDefinedAtLevel(DefLevel);
+        }
+
+        Found = true;
+        break;
+      }
+    }
+
+    (void)Found;
+    assert(Found && "Blob was not found in any auxiliary DDRef!");
+  }
+
+  updateDefLevel(NestingLevelIfDetached);
+}
+
+void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
+                                bool AssumeLvalIfDetached) {
   SmallVector<unsigned, 8> BlobIndices;
 
-  if (isScalarRef() && getSingleCanonExpr()->isSelfBlob()) {
-    unsigned SB = CanonExprUtils::getBlobSymbase(
-        getSingleCanonExpr()->getSingleBlobIndex());
+  bool IsLvalAssumed = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
+
+  if (isTerminalRef() && getSingleCanonExpr()->isSelfBlob()) {
+    unsigned SB =
+        BlobUtils::getBlobSymbase(getSingleCanonExpr()->getSingleBlobIndex());
 
     // We need to modify the symbase if this DDRef was turned into a self blob
     // as the associated blob DDRef is removed.
@@ -366,7 +611,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
     //
     // We should not update symbase of lval DDRefs as lvals represent a store
     // into that symbase. Changing it can affect correctness.
-    if (isLval()) {
+    if (IsLvalAssumed) {
       if ((getSymbase() == SB)) {
         removeAllBlobDDRefs();
         return;
@@ -379,7 +624,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
   } else if (isConstant()) {
     removeAllBlobDDRefs();
 
-    if (!isLval()) {
+    if (!IsLvalAssumed) {
       setSymbase(CONSTANT_SYMBASE);
     }
 
@@ -399,7 +644,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
 
     // Defined at level is only applicable for instruction blobs. Other types
     // (like globals, function paramaters) are always proper linear.
-    if (!CanonExprUtils::isGuaranteedProperLinear(CanonExprUtils::getBlob(I))) {
+    if (!BlobUtils::isGuaranteedProperLinear(BlobUtils::getBlob(I))) {
       NewBlobs.push_back(BRef);
     }
   }
@@ -410,7 +655,7 @@ bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
 
   unsigned Index = 0;
 
-  if (isScalarRef() && getSingleCanonExpr()->isSelfBlob()) {
+  if (isTerminalRef() && getSingleCanonExpr()->isSelfBlob()) {
     auto CE = getSingleCanonExpr();
     Index = CE->getSingleBlobIndex();
 
@@ -440,7 +685,7 @@ void RegDDRef::checkBlobDDRefsConsistency() const {
 
   collectTempBlobIndices(BlobIndices);
 
-  // Check that the DDRef constains a blob DDRef for each contained temp blob.
+  // Check that the DDRef contains a blob DDRef for each contained temp blob.
   for (auto &BI : BlobIndices) {
     bool BlobFound = false;
 
@@ -451,6 +696,7 @@ void RegDDRef::checkBlobDDRefsConsistency() const {
       }
     }
 
+    (void)BlobFound;
     assert(BlobFound && "Temp blob not found in blob DDRefs!");
   }
 
@@ -459,10 +705,22 @@ void RegDDRef::checkBlobDDRefsConsistency() const {
     unsigned Index = (*I)->getBlobIndex();
 
     auto It = std::lower_bound(BlobIndices.begin(), BlobIndices.end(), Index);
-
+    (void)It;
     assert(((It != BlobIndices.end()) && (*It == Index)) &&
            "Stale blob DDRef found!");
   }
+}
+
+bool RegDDRef::containsUndef() const {
+  auto UndefCanonPredicate = [](const CanonExpr *CE) {
+    return CE->containsUndef();
+  };
+
+  if (hasGEPInfo() && UndefCanonPredicate(getBaseCE())) {
+    return true;
+  }
+
+  return std::any_of(canon_begin(), canon_end(), UndefCanonPredicate);
 }
 
 void RegDDRef::verify() const {
@@ -473,6 +731,14 @@ void RegDDRef::verify() const {
 
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
     (*I)->verify();
+  }
+
+  if (hasGEPInfo()) {
+    auto CE = getBaseCE();
+    (void)CE;
+    assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
+    assert(isa<PointerType>(CE->getSrcType()) && "Invalid BaseCE src type!");
+    assert(isa<PointerType>(CE->getDestType()) && "Invalid BaseCE dest type!");
   }
 
   for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
@@ -498,8 +764,6 @@ void RegDDRef::verify() const {
 
   assert((!hasGEPInfo() || getBaseCE() != nullptr) &&
          "GEP DDRefs should have a base canon expression!");
-  assert((!hasGEPInfo() || getNumDimensions() == getStrides().size()) &&
-         "Stride should be present for every dimension!");
 
   // Verify symbase value if this DDRef is defined
   DDRef::verify();

@@ -1,6 +1,6 @@
 //===----------- HLNode.h - High level IR node ------------------*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -31,10 +31,14 @@ namespace llvm {
 
 namespace loopopt {
 
+class HLNode;
 class HLGoto;
 class HLLabel;
 class HLLoop;
 class HLRegion;
+
+// Typedef for a list of HLNodes.
+typedef iplist<HLNode> HLContainerTy;
 
 // Container for Goto's
 typedef SmallVector<HLGoto *, 16> GotoContainerTy;
@@ -80,7 +84,7 @@ private:
   unsigned TopSortNum;
 
   /// Maximum topological sort number of HLNode across its children.
-  unsigned LexicalLastTopSortNum;
+  unsigned MaxTopSortNum;
 
   /// \brief Sets the unique number associated with this HLNode.
   void setNextNumber();
@@ -89,11 +93,11 @@ private:
   void setTopSortNum(unsigned Num) { TopSortNum = Num; }
 
   /// \brief Sets the maximum sort number of HLNode across its children.
-  void setLexicalLastTopSortNum(unsigned Num) {
-    LexicalLastTopSortNum = Num;
+  void setMaxTopSortNum(unsigned Num) {
+    MaxTopSortNum = Num;
     if (HLNode *Parent = getParent()) {
-      if (Parent->getLexicalLastTopSortNum() < Num) {
-        Parent->setLexicalLastTopSortNum(Num);
+      if (Parent->getMaxTopSortNum() < Num) {
+        Parent->setMaxTopSortNum(Num);
       }
     }
   }
@@ -165,6 +169,9 @@ public:
   /// preheader/postexit.
   HLLoop *getLexicalParentLoop() const;
 
+  /// \brief Returns the outermost parent loop of this node, if one exists.
+  HLLoop *getOutermostParentLoop() const;
+
   /// \brief Returns the Level of HLNode.
   /// The level is computed from the node's lexical parent loop.
   unsigned getHLNodeLevel() const;
@@ -185,7 +192,7 @@ public:
   unsigned getTopSortNum() const { return TopSortNum; }
 
   /// \brief Returns the maximum topological sort number across its children.
-  unsigned getLexicalLastTopSortNum() const { return LexicalLastTopSortNum; }
+  unsigned getMaxTopSortNum() const { return MaxTopSortNum; }
 
   /// \brief An enumeration to keep track of the concrete subclasses of HLNode.
   enum HLNodeVal {
@@ -235,17 +242,6 @@ struct ilist_traits<loopopt::HLNode>
 private:
   mutable ilist_node<loopopt::HLNode> Sentinel;
 };
-/// Global definitions
-
-namespace loopopt {
-
-typedef iplist<HLNode> HLContainerTy;
-
-/// TODO: Remove this.
-/// Top level HLNodes (regions)
-extern HLContainerTy HLRegions;
-
-} // End loopopt namespace
 
 } // End llvm namespace
 

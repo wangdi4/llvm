@@ -3,13 +3,10 @@
 ; Check parsing output for the loop verifying that the load and store whose address is formed using multiple geps is parsed correctly.
 
 ; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: if (0 < %n)
-; CHECK-NEXT: {
 ; CHECK-NEXT: DO i2 = 0, %n + -1
 ; CHECK-NEXT: %0 = (@B)[0][i2][i1]
 ; CHECK-NEXT: (@A)[0][i1][i2] = %0
 ; CHECK-NEXT: END LOOP
-; CHECK-NEXT: }
 ; CHECK-NEXT: END LOOP
 
 

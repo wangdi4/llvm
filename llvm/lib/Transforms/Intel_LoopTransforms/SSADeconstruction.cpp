@@ -1,6 +1,6 @@
 //===----- SSADeconstruction.cpp - Deconstructs SSA for HIR ---------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -121,27 +121,15 @@ private:
   /// null.
   SCCFormation::SCCTy *getPhiSCC(const PHINode *Phi) const;
 
-  /// \brief Returns true is this phi would be considered linear by parser.
-  /// This allows deconstruction to skip inserting liveout copies for the phi
-  /// which results in a cleaner HIR.
-  bool isConsideredLinear(const PHINode *Phi) const;
+  /// \brief Returns true if OrigPredBB has an alternate reaching path to Phi
+  /// other than the immediate successor. This means that adding a livein copy
+  /// in PredBB may kill an SCC operand so we need to perform edge splitting.
+  bool hasAlternatePathToPhi(const PHINode *Phi, const BasicBlock *OrigPredBB,
+                             const BasicBlock *CurBB = nullptr) const;
 
-  /// \brief Returns true if any of the SCC phi operands flow through PredBB.
-  /// This means that adding a livein copy in PredBB will kill the SCC phi
-  /// operand so we need to perform edge splitting.
-  bool predKillsSCCOperand(const PHINode *Phi, const BasicBlock *PredBB,
-                           const SmallVectorImpl<unsigned> &SCCPhiOps) const;
-
-  /// \brief Collects all operands of Phi which belong to the same SCC as Phi
-  /// and are not defined in Phi's incoming bblock in SCCPhiOps. Returns true if
-  /// any such operands are found.
-  bool collectSCCPhiOperands(const PHINode *Phi,
-                             const SCCFormation::SCCNodesTy *SCCNodes,
-                             SmallVectorImpl<unsigned> &SCCPhiOps) const;
-
-  /// \brief Returns true if we need to split edge while processing phi liveins.
-  bool edgeSplittingRequired(const PHINode *Phi, const BasicBlock *PredBB,
-                             const SCCFormation::SCCNodesTy *SCCNodes) const;
+  /// \brief Returns true if we need to split edge to insert a livein copy for
+  /// this phi operand.
+  bool edgeSplittingRequired(const PHINode *Phi, const BasicBlock *PredBB) const;
 
   /// \brief Inserts copies of Phi operands livein to the SCC. If SCCNodes is
   /// null, Phi is treated as a standalone phi and all operands are considered
@@ -149,17 +137,16 @@ private:
   bool processPhiLiveins(PHINode *Phi, const SCCFormation::SCCNodesTy *SCCNodes,
                          StringRef Name);
 
+  /// \brief Returns true if we need to insert a liveout copy for this
+  /// standalone phi.
+  bool liveoutCopyRequired(const PHINode *StandAlonePhi) const;
+
   /// \brief Inserts copies of Phi if it has uses live outside the SCC and
   /// replaces the liveout uses with the copy. If SCCNodes is null, Phi is
   /// treated as a standalone phi and this is needed to handle a special case
-  /// described in the function definition. MultipleRegionLiveouts indicates
-  /// whether multiple instructions in the SCC are live outside the region.
+  /// described in the function definition.
   void processPhiLiveouts(PHINode *Phi, SCCFormation::SCCNodesTy *SCCNodes,
-                          bool MultipleRegionLiveouts, StringRef Name);
-
-  /// \brief Returns true is this SCC has multiple instructions live outside the
-  /// region.
-  bool hasMultipleRegionLiveouts(SCCFormation::SCCNodesTy &SCCNodes) const;
+                          StringRef Name);
 
   /// \brief Deconstructs phi by inserting copies.
   void deconstructPhi(PHINode *Phi);
@@ -264,48 +251,148 @@ SCCFormation::SCCTy *SSADeconstruction::getPhiSCC(const PHINode *Phi) const {
   return nullptr;
 }
 
-bool SSADeconstruction::isConsideredLinear(const PHINode *Phi) const {
+// If this phi is used in another phi in the same basic block, then we can
+// potentially have ordering issues with the insertion of livein copies
+// for the phis. This is because the use of phi operands is deemed to
+// occur on the edge of the basic block which means that the 'use' takes
+// the value from the previous execution of the bblock, not the merged
+// value in the current basic block.
+//
+// Let us consider the example below.
+//
+// for.body:              ; preds = %entry, %for.body
+//   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
+//   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
+//   ...
+//   br i1 %exitcond, label %for.end, label %for.body
+//
+// After inserting livein copies for the two phis, the basic block would
+// look like this-
+//
+// for.body:              ; preds = %entry, %for.body
+//   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
+//   !in.de.ssa
+//   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
+//   !in.de.ssa
+//   ...
+//   %b.addr.08.in = %c.addr.09 !in.de.ssa
+//   %a.addr.07.in = %b.addr.08 !in.de.ssa
+//   br i1 %exitcond, label %for.end, label %for.body
+//
+// The livein copies %a.addr.07.in and %b.addr.08.in would be
+// assigned the same symbase as %a.addr.07 and %b.addr.08, repectively.
+// This means that the value of %a.addr.07 after the execution of the
+// basic block would be the updated value of %b.addr.08 through the copy,
+// which is wrong.
+//
+// To fix this problem, we create a liveout copy of %b.addr.08 so it
+// looks like this-
+//
+// for.body:              ; preds = %entry, %for.body
+//   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
+//   !in.de.ssa
+//   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
+//   !in.de.ssa
+//   %b.addr.08.out = %b.addr.08 !out.de.ssa
+//   ...
+//   %b.addr.08.in = %c.addr.09 !in.de.ssa
+//   %a.addr.07.in = %b.addr.08.out !in.de.ssa
+//   br i1 %exitcond, label %for.end, label %for.body
+//
+// Note that reordering the livein copies which produces a cleaner HIR works in
+// some cases but cannot resolve phi cycles. In comparison, adding a liveout
+// copy always works. Looking for a cycle would take more compile time so this
+// seems like an acceptable solution. If a cleaner HIR is desired we can
+// possibly get SCCFormation to provide the cycle information.
+//
+// Here's an example of a phi cycle-
+//
+// for(i=0; i<n; i++) {
+//   A[i] = a;
+//   t = a;
+//   a = b;
+//   b = c;
+//   c = t;
+// }
+//
+// A phi can be indirectly used in another phi so we need to check the SCEV for
+// SCEVable phis.
+//
+bool SSADeconstruction::liveoutCopyRequired(
+    const PHINode *StandAlonePhi) const {
 
-  if (!SE->isSCEVable(Phi->getType())) {
+  if (SCCF->isConsideredLinear(StandAlonePhi)) {
     return false;
   }
 
-  auto SC = SE->getSCEV(const_cast<PHINode *>(Phi));
-  auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC);
+  const Value *PhiVal = StandAlonePhi;
+  bool SCEVablePhi = SE->isSCEVable(PhiVal->getType());
 
-  if (!AddRecSCEV || !AddRecSCEV->isAffine()) {
-    return false;
+  const SCEV *PhiSCEV =
+      SCEVablePhi ? SE->getUnknown(const_cast<Value *>(PhiVal)) : nullptr;
+
+  // If the 'user' phi occurs before definition phi the copies are inserted
+  // in the correct order (on the assumption that we traverse the bblock
+  // instructions in order) so we only need to check phis which occur after this
+  // one.
+  for (auto InstIt = BasicBlock::const_iterator(StandAlonePhi),
+            EndIt = StandAlonePhi->getParent()->end();
+       InstIt != EndIt; ++InstIt) {
+
+    auto UserPhi = dyn_cast<PHINode>(InstIt);
+
+    if (!UserPhi) {
+      break;
+    }
+
+    // Check usage of StandAlonePhi in UserPhi operands.
+    for (unsigned I = 0, E = UserPhi->getNumIncomingValues(); I != E; ++I) {
+      auto UserPhiOp = UserPhi->getIncomingValue(I);
+      auto UserPhiOpInst = dyn_cast<Instruction>(UserPhiOp);
+
+      if (!UserPhiOpInst || (LI->getLoopFor(UserPhiOpInst->getParent()) !=
+                             LI->getLoopFor(StandAlonePhi->getParent()))) {
+        continue;
+      }
+
+      // Compare values.
+      if (UserPhiOp == PhiVal) {
+        return true;
+      }
+
+      // Check usage in SCEV.
+      if (SCEVablePhi && SE->isSCEVable(UserPhiOp->getType())) {
+        auto SC = SE->getSCEV(UserPhiOp);
+        if (SE->hasOperand(SC, PhiSCEV)) {
+          return true;
+        }
+      }
+    }
   }
 
-  if (!Phi->getType()->isPointerTy()) {
-    return true;
-  }
-
-  // Header phis can be handled by the parser.
-  if (RI->isHeaderPhi(Phi)) {
-    return true;
-  }
-
-  // Check if there is a type mismatch in the primary element type for pointer
-  // types.
-  if (RI->getPrimaryElementType(Phi->getType()) !=
-      RI->getPrimaryElementType(SC->getType())) {
-    return false;
-  }
-
-  return true;
+  return false;
 }
 
 void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
                                            SCCFormation::SCCNodesTy *SCCNodes,
-                                           bool MultipleRegionLiveouts,
                                            StringRef Name) {
 
   Instruction *CopyInst = nullptr;
-  bool IsLinear = false;
+  bool CopyRequired = false;
+  Loop *Lp = nullptr;
 
-  if (SCCNodes) {
-    IsLinear = isConsideredLinear(Phi);
+  // For standalone header phis we need to create liveout copies in two cases-
+  // 1) If it is used in another phi in the same bblock all its uses need to be
+  // replaced by the copy.
+  // 2) The uses outside the current loop need to be replaced by the copy.
+  if (!SCCNodes) {
+    if (!RI->isHeaderPhi(Phi)) {
+      return;
+    }
+
+    if (!(CopyRequired = liveoutCopyRequired(Phi))) {
+      Lp = LI->getLoopFor(Phi->getParent());
+    }
   }
 
   for (auto UserIt = Phi->user_begin(), EndIt = Phi->user_end();
@@ -324,99 +411,11 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
         continue;
       }
 
-      if (!(*CurRegIt)->containsBBlock(UserInst->getParent())) {
-        // CG can only handle single region liveout value per symbase so we need
-        // to add a liveout copy(new symbase) to handle the case where multiple
-        // values in a SCC are live outside the region.
-        if (!MultipleRegionLiveouts) {
-          continue;
-        }
-      } else if (IsLinear) {
-        continue;
-      }
+    } else if (!CopyRequired) {
 
-    } else {
-      // If this phi is used in another phi in the same basic block, then we can
-      // potentially have ordering issues with the insertion of livein copies
-      // for the phis. This is because the use of phi operands is deemed to
-      // occur on the edge of the basic block which means that the 'use' takes
-      // the value from the previous execution of the bblock, not the merged
-      // value in the current basic block.
-      //
-      // Let us consider the example below.
-      //
-      // for.body:              ; preds = %entry, %for.body
-      //   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
-      //   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
-      //   ...
-      //   br i1 %exitcond, label %for.end, label %for.body
-      //
-      // After inserting livein copies for the two phis, the basic block would
-      // look like this-
-      //
-      // for.body:              ; preds = %entry, %for.body
-      //   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
-      //   !in.de.ssa
-      //   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
-      //   !in.de.ssa
-      //   ...
-      //   %b.addr.08.in = %c.addr.09 !in.de.ssa
-      //   %a.addr.07.in = %b.addr.08 !in.de.ssa
-      //   br i1 %exitcond, label %for.end, label %for.body
-      //
-      // The livein copies %a.addr.07.in and %b.addr.08.in would be
-      // assigned the same symbase as %a.addr.07 and %b.addr.08, repectively.
-      // This means that the value of %a.addr.07 after the execution of the
-      // basic block would be the updated value of %b.addr.08 through the copy,
-      // which is wrong.
-      //
-      // To fix this problem, we create a liveout copy of %b.addr.08 so it
-      // looks like this-
-      //
-      // for.body:              ; preds = %entry, %for.body
-      //   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
-      //   !in.de.ssa
-      //   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
-      //   !in.de.ssa
-      //   %b.addr.08.out = %b.addr.08 !out.de.ssa
-      //   ...
-      //   %b.addr.08.in = %c.addr.09 !in.de.ssa
-      //   %a.addr.07.in = %b.addr.08.out !in.de.ssa
-      //   br i1 %exitcond, label %for.end, label %for.body
-      //
-      // Note that reordering the livein copies which produces a cleaner HIR
-      // works in some cases but cannot resolve phi cycles. In comparison,
-      // adding a liveout copy always works. Looking for a cycle would take
-      // more compile time so this seems like an acceptable solution.
-      //
-      // Here's an example of a phi cycle-
-      //
-      // for(i=0; i<n; i++) {
-      //   A[i] = a;
-      //   t = a;
-      //   a = b;
-      //   b = c;
-      //   c = t;
-      // }
-
-      if (!isa<PHINode>(UserInst) ||
-          (Phi->getParent() != UserInst->getParent())) {
-        continue;
-      }
-
-      bool CopyRequired = true;
-      // If the 'user' phi occurs before definition phi the copies are inserted
-      // in the correct order (on the assumption that we traverse the bblock
-      // instructions in order).
-      for (auto InstIt = Phi->getParent()->begin(),
-                EndIt = BasicBlock::iterator(Phi);
-           InstIt != EndIt; ++InstIt) {
-        if (&(*InstIt) == UserInst) {
-          CopyRequired = false;
-        }
-      }
-
-      if (!CopyRequired) {
+      // Add a liveout copy if this phi is used outside its parent loop as these
+      // uses can cause live range violation.
+      if (Lp->contains(LI->getLoopFor(UserInst->getParent()))) {
         continue;
       }
     }
@@ -434,44 +433,46 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
   }
 }
 
-bool SSADeconstruction::predKillsSCCOperand(
-    const PHINode *Phi, const BasicBlock *PredBB,
-    const SmallVectorImpl<unsigned> &SCCPhiOps) const {
+bool SSADeconstruction::hasAlternatePathToPhi(const PHINode *Phi,
+                                              const BasicBlock *OrigPredBB,
+                                              const BasicBlock *CurBB) const {
 
-  auto Lp = LI->getLoopFor(Phi->getParent());
-  assert(Lp && "Loop containing phi not found!");
+  auto PhiBB = Phi->getParent();
+  auto PhiLp = LI->getLoopFor(PhiBB);
+  assert(PhiLp && "Loop containing phi not found!");
 
-  for (auto SuccI = succ_begin(PredBB), E = succ_end(PredBB); SuccI != E;
+  if (!CurBB) {
+    CurBB = OrigPredBB;
+  }
+
+  for (auto SuccI = succ_begin(CurBB), E = succ_end(CurBB); SuccI != E;
        ++SuccI) {
     auto SuccBB = *SuccI;
 
-    // We reached Phi, now check if any SCC phi operand flows through PredBB.
-    if (SuccBB == Phi->getParent()) {
-      for (unsigned I = 0, E = SCCPhiOps.size(); I < E; ++I) {
-        if (Phi->getIncomingBlock(SCCPhiOps[I]) == PredBB) {
-          return true;
-        }
+    // We reached Phi, return true if this is a new path.
+    if (SuccBB == PhiBB) {
+      if (CurBB != OrigPredBB) {
+        return true;
       }
-
       continue;
     }
 
     // Skip if we reach the loop header during the traversal to avoid cycling.
-    if (Lp->getHeader() == SuccBB) {
+    if (PhiLp->getHeader() == SuccBB) {
       continue;
     }
 
-    auto Lp1 = LI->getLoopFor(SuccBB);
+    auto Lp = LI->getLoopFor(SuccBB);
 
     // Skip if we are outside any loop.
-    if (!Lp1) {
+    if (!Lp) {
       continue;
     }
 
-    if (Lp != Lp1) {
+    if (Lp != PhiLp) {
       // If we reach an inner loop during traversal conservatively return true
       // as the analysis becomes difficult.
-      if (Lp->contains(Lp1)) {
+      if (PhiLp->contains(Lp)) {
         return true;
       }
       // Skip if we reach an outer loop.
@@ -479,7 +480,7 @@ bool SSADeconstruction::predKillsSCCOperand(
     }
 
     // Recurse on SuccBB.
-    if (predKillsSCCOperand(Phi, SuccBB, SCCPhiOps)) {
+    if (hasAlternatePathToPhi(Phi, OrigPredBB, SuccBB)) {
       return true;
     }
   }
@@ -487,44 +488,8 @@ bool SSADeconstruction::predKillsSCCOperand(
   return false;
 }
 
-bool SSADeconstruction::collectSCCPhiOperands(
-    const PHINode *Phi, const SCCFormation::SCCNodesTy *SCCNodes,
-    SmallVectorImpl<unsigned> &SCCPhiOps) const {
-
-  if (!SCCNodes) {
-    return false;
-  }
-
-  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
-    auto PhiOp = Phi->getIncomingValue(I);
-    auto InstPhiOp = dyn_cast<Instruction>(PhiOp);
-
-    if (!InstPhiOp) {
-      continue;
-    }
-
-    // Ignore instructions which are not part of SCC.
-    if (!SCCNodes->count(InstPhiOp)) {
-      continue;
-    }
-
-    auto PredBB = Phi->getIncomingBlock(I);
-
-    // Ignore instructions which are defined in the pred BBlock.
-    if (InstPhiOp->getParent() == PredBB) {
-      continue;
-    }
-
-    SCCPhiOps.push_back(I);
-  }
-
-  return !SCCPhiOps.empty();
-}
-
-bool SSADeconstruction::edgeSplittingRequired(
-    const PHINode *Phi, const BasicBlock *PredBB,
-    const SCCFormation::SCCNodesTy *SCCNodes) const {
-  SmallVector<unsigned, 4> SCCPhiOps;
+bool SSADeconstruction::edgeSplittingRequired(const PHINode *Phi,
+                                              const BasicBlock *PredBB) const {
 
   // Here's a IR snippet of a loop depicting a case where edge splitting is
   // required-
@@ -556,11 +521,7 @@ bool SSADeconstruction::edgeSplittingRequired(
   // resolve this we split the edge (if.then.128 -> if.end.150) and insert the
   // copy in the new bblock.
 
-  if (!collectSCCPhiOperands(Phi, SCCNodes, SCCPhiOps)) {
-    return false;
-  }
-
-  return predKillsSCCOperand(Phi, PredBB, SCCPhiOps);
+  return hasAlternatePathToPhi(Phi, PredBB);
 }
 
 bool SSADeconstruction::processPhiLiveins(
@@ -570,14 +531,6 @@ bool SSADeconstruction::processPhiLiveins(
   // Insert a copy in the predecessor bblock for each phi operand which
   // lies outside the SCC(livein values).
   for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
-    auto PhiOp = Phi->getIncomingValue(I);
-
-    // Ignore if PhiOp belongs to the same SCC.
-    if (SCCNodes && isa<Instruction>(PhiOp) &&
-        SCCNodes->count(cast<Instruction>(PhiOp))) {
-      continue;
-    }
-
     auto PredBB = Phi->getIncomingBlock(I);
 
     // Ignore if this value is region live-in.
@@ -585,15 +538,26 @@ bool SSADeconstruction::processPhiLiveins(
       continue;
     }
 
-    // Split edge first, if required.
-    if (edgeSplittingRequired(Phi, PredBB, SCCNodes)) {
-      PredBB = SplitCriticalEdge(PredBB, Phi->getParent(),
-                                 CriticalEdgeSplittingOptions(DT, LI));
-      assert(PredBB &&
-             "Could not split edge, SplitCriticalEdge() returned null!");
+    auto PhiOp = Phi->getIncomingValue(I);
 
-      // Add the new bblock to the current region.
-      (*CurRegIt)->addBBlock(PredBB);
+    if (SCCNodes) {
+      auto InstPhiOp = dyn_cast<Instruction>(PhiOp);
+
+      // Ignore if InstPhiOp belongs to the same SCC.
+      if (InstPhiOp && SCCNodes->count(InstPhiOp)) {
+        continue;
+      }
+
+      // Split edge first, if required.
+      if (edgeSplittingRequired(Phi, PredBB)) {
+        PredBB = SplitCriticalEdge(PredBB, Phi->getParent(),
+                                   CriticalEdgeSplittingOptions(DT, LI));
+        assert(PredBB &&
+               "Could not split edge, SplitCriticalEdge() returned null!");
+
+        // Add the new bblock to the current region.
+        (*CurRegIt)->addBBlock(PredBB);
+      }
     }
 
     // Insert copy.
@@ -620,30 +584,6 @@ StringRef SSADeconstruction::constructName(const Value *Val,
   return VOS.str();
 }
 
-bool SSADeconstruction::hasMultipleRegionLiveouts(
-    SCCFormation::SCCNodesTy &SCCNodes) const {
-
-  bool LiveoutFound = false;
-
-  for (auto const &Inst : SCCNodes) {
-    for (auto UI = Inst->user_begin(), E = Inst->user_end(); UI != E; ++UI) {
-      assert(isa<Instruction>(*UI) && "Use is not an instruction!");
-      auto UserInst = cast<Instruction>(*UI);
-
-      if (!(*CurRegIt)->containsBBlock(UserInst->getParent())) {
-        if (!LiveoutFound) {
-          LiveoutFound = true;
-          break;
-        } else {
-          return true;
-        }
-      }
-    }
-  }
-
-  return false;
-}
-
 void SSADeconstruction::deconstructPhi(PHINode *Phi) {
   SmallString<32> Name;
 
@@ -657,9 +597,7 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
 
     ProcessedSCCs.insert(PhiSCC);
 
-    bool IsLinear = isConsideredLinear(Phi);
     bool LiveinCopyInserted = false;
-    bool MultipleRegionLiveouts = hasMultipleRegionLiveouts(PhiSCC->Nodes);
 
     constructName(PhiSCC->Root, Name);
 
@@ -671,12 +609,13 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
                               Name.str()) ||
             LiveinCopyInserted;
 
+        // TODO: Find a test case where a non-phi instruction in an SCC is live
+        // outside the region and is not the lexically last statement of the
+        // SCC. The current code doesn't handle this case.
         processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
-                           MultipleRegionLiveouts, Name.str());
+                           Name.str());
 
-      }
-      // Linear SCCs cannot cause live range violation.
-      else if (!IsLinear) {
+      } else {
 
         // Attach live range type metadata to suppress SCEV traceback.
         attachMetadata(const_cast<Instruction *>(SCCInst), Name.str(),
@@ -718,16 +657,18 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
     // }
     //
 
+    // Single operand phis do not need to be deconstructed.
+    if (1 == Phi->getNumIncomingValues()) {
+      return;
+    }
+
     constructName(Phi, Name);
 
     // Attach metadata to Phi to connect it to its copies.
     attachMetadata(Phi, Name.str(), LiveInType);
 
     processPhiLiveins(Phi, nullptr, Name.str());
-
-    if (!isConsideredLinear(Phi)) {
-      processPhiLiveouts(Phi, nullptr, false, Name.str());
-    }
+    processPhiLiveouts(Phi, nullptr, Name.str());
   }
 }
 

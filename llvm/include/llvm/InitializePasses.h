@@ -333,14 +333,17 @@ void initializeHIRCleanupPass(PassRegistry&);
 void initializeLoopFormationPass(PassRegistry&);
 void initializeHIRParserPass(PassRegistry&);
 void initializeSymbaseAssignmentPass(PassRegistry&);
+void initializeHIRFrameworkPass(PassRegistry&);
 void initializeDDAnalysisPass(PassRegistry&);
 void initializeHIRLocalityAnalysisPass(PassRegistry&);
 void initializeSSADeconstructionPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);
 void initializeHIRLoopInterchangePass(PassRegistry&);
+void initializeHIRLoopDistributionPass(PassRegistry&);
 void initializeHIRGeneralUnrollPass(PassRegistry&);
 void initializeHIROptPredicatePass(PassRegistry&);
+void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION

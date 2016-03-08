@@ -1,8 +1,8 @@
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the innermost loop verifying that loop upper composed of non-generable outer loop IVs is parsed correctly.
-; CHECK: DO i1 = 0, (-1 + (-1 * %add) + %n)
-; CHECK-NEXT: (%A)[i1 + %add] = i1 + (zext.i32.i64(%i.045) + %add) + %j.041
+; CHECK: DO i1 = 0, -1 * %m.047 + -1 * %l.043 + %n + -3
+; CHECK-NEXT: (%A)[i1 + %m.047 + %l.043 + 2] = i1 + %m.047 + %l.043 + zext.i32.i64(%i.045) + %j.041 + 2
 ; CHECK-NEXT: END LOOP
 
 ; ModuleID = 'outer-loop-iv-upper1.c'
