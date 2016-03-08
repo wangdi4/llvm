@@ -29,18 +29,18 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/IR/LLVMContext.h"
 
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/LoopFormation.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/ScalarSymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/ScalarSymbaseAssignment.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -550,7 +550,8 @@ public:
     if (HIRP->isTempBlob(Unknown)) {
       auto Val = Unknown->getValue();
 
-      auto BaseVal = HIRP->ScalarSA->traceSingleOperandPhis(Val);
+      auto BaseVal = HIRP->ScalarSA->traceSingleOperandPhis(
+          Val, HIRP->CurRegion->getIRRegion());
       BaseVal = HIRP->ScalarSA->getBaseScalar(BaseVal);
 
       if (BaseVal != Val) {
@@ -1003,7 +1004,7 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
 }
 
 bool HIRParser::isRegionLiveOut(const Instruction *Inst) const {
-  auto Symbase = ScalarSA->getScalarSymbase(Inst);
+  auto Symbase = ScalarSA->getScalarSymbase(Inst, CurRegion->getIRRegion());
 
   if (Symbase && CurRegion->isLiveOut(Symbase)) {
     return true;
@@ -1090,7 +1091,8 @@ unsigned HIRParser::findOrInsertBlobWrapper(BlobTy Blob, unsigned *SymbasePtr) {
 
   if (isTempBlob(Blob)) {
     auto Temp = cast<SCEVUnknown>(Blob)->getValue();
-    Symbase = ScalarSA->getOrAssignScalarSymbase(Temp);
+    Symbase =
+        ScalarSA->getOrAssignScalarSymbase(Temp, CurRegion->getIRRegion());
   }
 
   if (SymbasePtr) {
@@ -1387,10 +1389,10 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
 
   // For GEP DDRefs, some of the parsed blobs can get cancelled due to index
   // merging. So we check whether there is a mismatch in collected blobs and
-  // actual blobs present in the DDRef. 
+  // actual blobs present in the DDRef.
   //
   // Here's a very simple made up example composed of multiple GEPs-
-  // 
+  //
   // %p = GEP @A, %1
   // %2 = sub 0, %1
   // %q = GEP %p, %2
@@ -1454,7 +1456,8 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
     Val = ScalarSA->getGenericLoopUpperVal();
   }
 
-  auto Symbase = ScalarSA->getOrAssignScalarSymbase(Val);
+  auto Symbase =
+      ScalarSA->getOrAssignScalarSymbase(Val, CurRegion->getIRRegion());
 
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
   auto CE = CanonExprUtils::createCanonExpr(IVType);
@@ -2076,7 +2079,8 @@ RegDDRef *HIRParser::createUndefDDRef(Type *Ty) {
   Value *UndefVal = UndefValue::get(Ty);
   BlobTy Blob = SE->getUnknown(UndefVal);
 
-  auto Symbase = ScalarSA->getOrAssignScalarSymbase(UndefVal);
+  auto Symbase =
+      ScalarSA->getOrAssignScalarSymbase(UndefVal, CurRegion->getIRRegion());
 
   RegDDRef *Ref = DDRefUtils::createRegDDRef(Symbase);
   CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty);
@@ -2096,7 +2100,8 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
 
   clearTempBlobLevelMap();
 
-  auto Symbase = ScalarSA->getOrAssignScalarSymbase(Val);
+  auto Symbase =
+      ScalarSA->getOrAssignScalarSymbase(Val, CurRegion->getIRRegion());
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
 
   // Force pointer values to be parsed as blobs. This is for handling lvals but
@@ -2219,7 +2224,8 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
 
     if (IsPhase1 && !isEssential(Inst)) {
       // Postpone the processing of this instruction to Phase2.
-      auto Symbase = ScalarSA->getOrAssignScalarSymbase(Inst);
+      auto Symbase =
+          ScalarSA->getOrAssignScalarSymbase(Inst, CurRegion->getIRRegion());
       UnclassifiedSymbaseInsts[Symbase].push_back(std::make_pair(HInst, Level));
       return;
     } else {

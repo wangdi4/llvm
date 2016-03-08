@@ -59,6 +59,8 @@ protected:
 
   friend class HLNodeUtils;
   friend class HIRCreation;
+  // Accesses getIRRegion().
+  friend class HIRParser;
 
   /// \brief Sets the entry(first) bblock of this region.
   void setEntryBBlock(BasicBlock *EntryBB) { IRReg->setEntryBBlock(EntryBB); }
@@ -70,6 +72,9 @@ protected:
   /// Do not support Region cloning.
   HLRegion *cloneImpl(GotoContainerTy *GotoList,
                       LabelMapTy *LabelMap) const override;
+
+  // Returns contained IRRegion.
+  IRRegion *getIRRegion() { return IRReg; }
 
 private:
   bool GenCode;

@@ -114,7 +114,8 @@ private:
   unsigned getTempSymbase(const Value *Temp) const;
 
   /// \brief Implements getOrAssignScalarSymbase() functionality.
-  unsigned getOrAssignScalarSymbaseImpl(const Value *Scalar, bool Assign);
+  unsigned getOrAssignScalarSymbaseImpl(const Value *Scalar,
+                                        const IRRegion *IRReg, bool Assign);
 
   /// \brief Sets current Function as a generic value to represent loop uppers.
   /// This is a hack to set a generic loop upper symbase which does not
@@ -137,8 +138,9 @@ public:
   void insertHIRLval(const Value *Lval, unsigned Symbase);
 
   /// \brief Traces back single operand phis until something else is encountered
-  /// and returns that.
-  const Value *traceSingleOperandPhis(const Value *Scalar) const;
+  /// (or we leave the current region) and returns that.
+  const Value *traceSingleOperandPhis(const Value *Scalar,
+                                      const IRRegion *IRReg) const;
 
   /// \brief Returns the scalar associated with symbase.
   const Value *getBaseScalar(unsigned Symbase) const;
@@ -157,10 +159,10 @@ public:
   bool isConstant(const Value *Scalar) const;
 
   /// \brief Returns scalar's symbase if it exists, else assigns a new symbase.
-  unsigned getOrAssignScalarSymbase(const Value *Scalar);
+  unsigned getOrAssignScalarSymbase(const Value *Scalar, const IRRegion *IRReg);
 
   /// \brief Returns scalar's symbase if it exists, else returns 0.
-  unsigned getScalarSymbase(const Value *Scalar);
+  unsigned getScalarSymbase(const Value *Scalar, const IRRegion *IRReg);
 };
 
 } // End namespace loopopt

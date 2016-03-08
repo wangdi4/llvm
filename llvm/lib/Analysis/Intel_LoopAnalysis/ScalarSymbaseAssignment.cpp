@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/Metadata.h"
 
 #include "llvm/Support/raw_ostream.h"
@@ -25,8 +25,8 @@
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/ScalarSymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/SCCFormation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/ScalarSymbaseAssignment.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -91,11 +91,47 @@ unsigned ScalarSymbaseAssignment::getOrAssignTempSymbase(const Value *Temp) {
 }
 
 const Value *
-ScalarSymbaseAssignment::traceSingleOperandPhis(const Value *Scalar) const {
-                                                   
+ScalarSymbaseAssignment::traceSingleOperandPhis(const Value *Scalar,
+                                                const IRRegion *IRReg) const {
+
   auto PhiInst = dyn_cast<PHINode>(Scalar);
 
   while (PhiInst && (1 == PhiInst->getNumIncomingValues())) {
+
+    // Do not trace back outside the region as it can lead to creation of
+    // additional live-out values for another region which cannot be handled
+    // correctly. Here's a simple example-
+    //
+    // ; Begin Region 1
+    //
+    // L1:
+    //   %t1 = phi [0, %t1']
+    //   ...
+    //   %t1' = add %t1, %t2
+    //   ...
+    //   br i1 cond %L1, %exit1
+    //
+    // ; End Region 1
+    // exit1:
+    //   %lcssa = phi [%t1']
+    //   br label %L2
+    //
+    // ; Begin Region 2
+    //
+    // L2:
+    //   %i1 = phi[%lcssa, %i1']
+    //   ...
+    //   br i1 cond %L2, %exit2
+    //
+    // ; End Region2
+    //
+    // In the above example %lcssa is livein to Region 2 but we shouldn't be
+    // tracing it back to %t1' in Region 1 because the value %t1' is invalid
+    // (converted to symbase) if we generate code for Region 1. Liveins are
+    // always initialized using existing LLVM values.
+    if (!IRReg->containsBBlock(PhiInst->getParent())) {
+      break;
+    }
 
     Scalar = PhiInst->getOperand(0);
 
@@ -195,9 +231,8 @@ ScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
   return cast<MDString>(MD);
 }
 
-unsigned
-ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
-                                                      bool Assign) {
+unsigned ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(
+    const Value *Scalar, const IRRegion *IRReg, bool Assign) {
   unsigned Symbase = INVALID_SYMBASE;
 
   // TODO: assign constant symbase to metadata types as they do not cause data
@@ -206,7 +241,7 @@ ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
     return CONSTANT_SYMBASE;
   }
 
-  Scalar = traceSingleOperandPhis(Scalar);
+  Scalar = traceSingleOperandPhis(Scalar, IRReg);
 
   if (auto Inst = dyn_cast<Instruction>(Scalar)) {
     // First check if this instruction is a copy instruction inserted by SSA
@@ -244,12 +279,14 @@ ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
 }
 
 unsigned
-ScalarSymbaseAssignment::getOrAssignScalarSymbase(const Value *Scalar) {
-  return getOrAssignScalarSymbaseImpl(Scalar, true);
+ScalarSymbaseAssignment::getOrAssignScalarSymbase(const Value *Scalar,
+                                                  const IRRegion *IRReg) {
+  return getOrAssignScalarSymbaseImpl(Scalar, IRReg, true);
 }
 
-unsigned ScalarSymbaseAssignment::getScalarSymbase(const Value *Scalar) {
-  return getOrAssignScalarSymbaseImpl(Scalar, false);
+unsigned ScalarSymbaseAssignment::getScalarSymbase(const Value *Scalar,
+                                                   const IRRegion *IRReg) {
+  return getOrAssignScalarSymbaseImpl(Scalar, IRReg, false);
 }
 
 void ScalarSymbaseAssignment::populateRegionLiveouts(
@@ -264,7 +301,7 @@ void ScalarSymbaseAssignment::populateRegionLiveouts(
          ++Inst) {
 
       if (SCCF->isRegionLiveOut(RegIt, &*Inst)) {
-        auto Symbase = getOrAssignScalarSymbase(&*Inst);
+        auto Symbase = getOrAssignScalarSymbase(&*Inst, *RegIt);
         (*RegIt)->addLiveOutTemp(&*Inst, Symbase);
       }
     }
@@ -297,7 +334,7 @@ void ScalarSymbaseAssignment::populateRegionPhiLiveins(
        SCCIt != EndIt; ++SCCIt) {
 
     bool SCCLiveInProcessed = false;
-    unsigned Symbase = getOrAssignScalarSymbase((*SCCIt)->Root);
+    unsigned Symbase = getOrAssignScalarSymbase((*SCCIt)->Root, *RegIt);
 
     // Traverse SCC instructions
     for (auto SCCInstIt = (*SCCIt)->Nodes.begin(),
@@ -331,7 +368,7 @@ void ScalarSymbaseAssignment::populateRegionPhiLiveins(
     }
 
     processRegionPhiLivein(RegIt, cast<PHINode>(InstIt),
-                           getOrAssignScalarSymbase(&*InstIt));
+                           getOrAssignScalarSymbase(&*InstIt, *RegIt));
   }
 }
 
