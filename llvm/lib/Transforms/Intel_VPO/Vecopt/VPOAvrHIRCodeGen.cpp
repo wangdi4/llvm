@@ -311,9 +311,11 @@ bool AVRCodeGenHIR::vectorize() {
 bool AVRCodeGenHIR::processLoop() {
   HLLoop *LoopX = const_cast<HLLoop *>(OrigLoop);
   HLRegion *Parent = dyn_cast<HLRegion>(OrigLoop->getParent());
+  HLContainerTy::iterator It1(Parent->child_begin());
+  HLContainerTy::iterator It2(LoopX);
 
   // Erase intrinsics at the beginning of the region
-  HLNodeUtils::erase(&*(Parent->child_begin()));
+  HLNodeUtils::erase(It1, It2);
 
   auto Begin = LoopX->child_begin();
   auto End = LoopX->child_end();
