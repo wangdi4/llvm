@@ -505,7 +505,7 @@ def parseIntegratedTestScriptCommands(source_path, keywords):
 
         # INTEL_CUSTOMIZATION
         # Strip ";INTEL" if it appears at the end of line.
-        data = re.sub(';INTEL\n', '\n', data)
+        data = re.sub(';INTEL\r?\n', '\n', data)
         # end INTEL_CUSTOMIZATION
 
         # Iterate over the matches.
