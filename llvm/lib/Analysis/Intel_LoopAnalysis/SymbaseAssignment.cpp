@@ -105,7 +105,7 @@ void SymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
 
 void SymbaseAssignmentVisitor::visit(HLDDNode *Node) {
   for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
-    if ((*I)->getBaseCE()) {
+    if ((*I)->hasGEPInfo()) {
       addToAST(*I);
     }
   }

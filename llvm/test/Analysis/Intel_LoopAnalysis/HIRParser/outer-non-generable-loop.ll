@@ -1,10 +1,10 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output of the loop verifying that the SCEVs with non-generable loop IVs are handled properly.
  
 ; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: %0 = (%A)[i1];
-; CHECK-NEXT: (%A)[i1] = 2 * i1 + %0 + ((2 + %k) * %i.04) + 3;
+; CHECK-NEXT: %0 = {al:4}(%A)[i1];
+; CHECK-NEXT: {al:4}(%A)[i1] = 2 * i1 + %0 + ((2 + %k) * %i.04) + 3;
 ; CHECK-NEXT: END LOOP
 
 ; ModuleID = 'outer_non_generable_loop.ll'

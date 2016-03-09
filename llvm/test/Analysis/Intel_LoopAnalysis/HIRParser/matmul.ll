@@ -4,15 +4,15 @@
 
 ; CHECK: DO i1 = 0, %N + -1, 1   <DO_LOOP>
 ; CHECK-NEXT: DO i2 = 0, %N + -1, 1   <DO_LOOP>
-; CHECK-NEXT: %arrayidx7.promoted = (@c)[0][i1][i2];
+; CHECK-NEXT: %arrayidx7.promoted = {al:8}(@c)[0][i1][i2];
 ; CHECK-NEXT: %0 = %arrayidx7.promoted;
 ; CHECK-NEXT: DO i3 = 0, %N + -1, 1   <DO_LOOP>
-; CHECK-NEXT: %1 = (@a)[0][i1][i3];
-; CHECK-NEXT: %2 = (@b)[0][i3][i2];
+; CHECK-NEXT: %1 = {al:8}(@a)[0][i1][i3];
+; CHECK-NEXT: %2 = {al:8}(@b)[0][i3][i2];
 ; CHECK-NEXT: %mul = %1  *  %2;
 ; CHECK-NEXT: %0 = %0  +  %mul;
 ; CHECK-NEXT: END LOOP
-; CHECK-NEXT: (@c)[0][i1][i2] = %0;
+; CHECK-NEXT: {al:8}(@c)[0][i1][i2] = %0;
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END LOOP
 

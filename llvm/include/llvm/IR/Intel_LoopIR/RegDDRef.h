@@ -40,6 +40,8 @@ public:
   typedef SmallVector<CanonExpr *, 3> CanonExprsTy;
   typedef SmallVector<BlobDDRef *, 2> BlobDDRefsTy;
   typedef CanonExprsTy SubscriptTy;
+  typedef std::pair<unsigned, MDNode *> MDPairTy;
+  typedef SmallVector<MDPairTy, 6> MDNodesTy;
 
   /// Iterators to iterate over canon exprs
   typedef CanonExprsTy::iterator canon_iterator;
@@ -62,8 +64,26 @@ private:
     // This is set if this DDRef represents an address computation (GEP) instead
     // of a load or store.
     bool AddressOf;
+    bool Volatile;
+    unsigned Alignment;
+
+    // TODO: Atomic attribute is missing. Should we even build regions with
+    // atomic load/stores since optimizing multi-threaded code might be
+    // dangerous? IRBuilder doesn't even seem to have members to create atomic
+    // load/stores.
+
+    // Stores metadata associated with load/stores in sorted order by KindID.
+    // This is the same setup as for LLVM instructions. Refer to
+    // getAllMetadata() in Instruction.h.
+    MDNodesTy MDNodes;
+
+    // Comparators to sort MDNodes.
+    struct MDKindCompareLess;
+    struct MDKindCompareEqual;
 
     GEPInfo();
+    GEPInfo(const GEPInfo &);
+
     ~GEPInfo();
   };
 
@@ -85,8 +105,11 @@ protected:
 
   friend class DDRefUtils;
 
-  /// \brief Required to access setHLDDNode().
+  // Required to access setHLDDNode().
   friend class HLDDNode;
+
+  // Accesses MDNodes.
+  friend class HIRParser;
 
   /// \brief Sets the HLDDNode of this RegDDRef
   void setHLDDNode(HLDDNode *HNode) override { Node = HNode; }
@@ -99,8 +122,15 @@ protected:
 
   /// \brief Creates GEPInfo object for the DDRef.
   void createGEP() {
-    assert(!GepInfo && "Attempt to overwrite GEP info!");
-    GepInfo = new GEPInfo;
+    if (!hasGEPInfo()) {
+      GepInfo = new GEPInfo;
+    }
+  }
+
+  /// \brief Returns contained GEPInfo. Asserts if it is not set.
+  GEPInfo *getGEPInfo() const { 
+    assert(hasGEPInfo() && "GEPInfo not present!");
+    return GepInfo; 
   }
 
   /// \brief Returns non-const iterator version of CBlobI.
@@ -170,37 +200,78 @@ public:
   void setBaseDestType(Type *DestTy);
 
   /// \brief Returns the canonical form of the subscript base.
-  CanonExpr *getBaseCE() { return hasGEPInfo() ? GepInfo->BaseCE : nullptr; }
+  CanonExpr *getBaseCE() {
+    return getGEPInfo()->BaseCE;
+  }
   const CanonExpr *getBaseCE() const {
     return const_cast<RegDDRef *>(this)->getBaseCE();
   }
+
   /// \brief Sets the canonical form of the subscript base.
   void setBaseCE(CanonExpr *BaseCE) {
-    if (!hasGEPInfo()) {
-      createGEP();
-    }
-    GepInfo->BaseCE = BaseCE;
+    createGEP();
+    getGEPInfo()->BaseCE = BaseCE;
   }
 
   /// \brief Returns true if the inbounds attribute is set for this access.
-  bool isInBounds() const { return hasGEPInfo() ? GepInfo->InBounds : false; }
-  /// Sets the inbounds attribute for this access.
-  void setInBounds(bool IsInBounds) {
-    if (!hasGEPInfo()) {
-      createGEP();
-    }
-    GepInfo->InBounds = IsInBounds;
+  bool isInBounds() const {
+    return getGEPInfo()->InBounds;
   }
 
-  /// \brief Returns true if this ia an address computation.
-  bool isAddressOf() const { return hasGEPInfo() ? GepInfo->AddressOf : false; }
-  /// Marks this ref as an address computation.
-  void setAddressOf(bool IsAddressOf) {
-    if (!hasGEPInfo()) {
-      createGEP();
-    }
-    GepInfo->AddressOf = IsAddressOf;
+  /// Sets the inbounds attribute for this access.
+  void setInBounds(bool IsInBounds) {
+    createGEP();
+    getGEPInfo()->InBounds = IsInBounds;
   }
+
+  /// \brief Returns true if this is an address computation.
+  bool isAddressOf() const {
+    return getGEPInfo()->AddressOf;
+  }
+
+  /// Sets/resets this ref as an address computation.
+  void setAddressOf(bool IsAddressOf) {
+    createGEP();
+    getGEPInfo()->AddressOf = IsAddressOf;
+  }
+
+  /// \brief Returns true if this is a volatile load/store.
+  bool isVolatile() const {
+    return getGEPInfo()->Volatile;
+  }
+
+  /// Sets/resets this ref as a volatile load/store.
+  void setVolatile(bool IsVolatile) {
+    createGEP();
+    getGEPInfo()->Volatile = IsVolatile;
+  }
+
+  /// \brief Returns alignment info for this ref.
+  unsigned getAlignment() const {
+    return getGEPInfo()->Alignment;
+  }
+
+  /// Sets alignment for this ref.
+  void setAlignment(unsigned Align) {
+    createGEP();
+    getGEPInfo()->Alignment = Align;
+  }
+
+  /// \brief Returns the metadata of given kind attached to this ref, else
+  /// returns null.
+  MDNode *getMetadata(StringRef Kind) const;
+  MDNode *getMetadata(unsigned KindID) const;
+
+  /// \brief Returns all metadata attached to this ref.
+  void getAllMetadata(MDNodesTy &MDs) const;
+
+  /// \brief Returns all metadata attached to this ref other than DebugLoc.
+  void getAllMetadataOtherThanDebugLoc(MDNodesTy &MDs) const;
+
+  /// \brief Sets the metadata of the specific kind. This updates/replaces
+  /// metadata if already present, or removes it if Node is null.
+  void setMetadata(StringRef Kind, MDNode *Node);
+  void setMetadata(unsigned KindID, MDNode *Node);
 
   /// \brief Returns true if this RegDDRef is a constant integer.
   /// Val parameter is the value associated inside the CanonExpr

@@ -21,7 +21,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 
 namespace llvm {
 
@@ -32,7 +32,7 @@ namespace loopopt {
 class HIRParser;
 
 /// \brief Contains blob related utilities.
-class BlobUtils : public HLUtils {
+class BlobUtils : public HIRUtils {
 private:
   /// \brief Do not allow instantiation.
   BlobUtils() = delete;

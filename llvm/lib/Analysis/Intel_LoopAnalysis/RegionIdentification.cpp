@@ -21,15 +21,15 @@
 
 #include "llvm/IR/IntrinsicInst.h"
 
-#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
-#include "llvm/IR/Intel_LoopIR/IRRegion.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/IR/Intel_LoopIR/IRRegion.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -331,10 +331,9 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     for (auto InstIt = (*I)->begin(), EndIt = (*I)->end(); InstIt != EndIt;
          ++InstIt) {
 
-      if (isa<FenceInst>(InstIt) || isa<AtomicCmpXchgInst>(InstIt) ||
-          isa<AtomicRMWInst>(InstIt)) {
-        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Fence/AtomicCmpXchg/AtomicRMW "
-                        "instructions are currently not supported.\n");
+      if (InstIt->isAtomic()) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Atomic instructions are currently "
+                        "not supported.\n");
         return false;
       }
 

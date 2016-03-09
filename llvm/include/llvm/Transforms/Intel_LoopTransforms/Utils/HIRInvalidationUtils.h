@@ -29,7 +29,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 
 #include <type_traits>
 
@@ -41,7 +41,7 @@ class HLLoop;
 class HLRegion;
 
 /// \brief Defines analysis invalidation utilities for HIR.
-class HIRInvalidationUtils : public HLUtils {
+class HIRInvalidationUtils : public HIRUtils {
 private:
   // The InPack type determines if T is presented in the parameter Pack.
   //

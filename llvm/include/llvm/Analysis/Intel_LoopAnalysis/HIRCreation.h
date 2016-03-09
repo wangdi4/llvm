@@ -60,9 +60,6 @@ private:
   /// Regions - HLRegions formed out of incoming LLVM IR.
   HLContainerTy Regions;
 
-  /// Func - The function we are analyzing.
-  Function *Func;
-
   /// DT - The dominator tree.
   DominatorTree *DT;
 

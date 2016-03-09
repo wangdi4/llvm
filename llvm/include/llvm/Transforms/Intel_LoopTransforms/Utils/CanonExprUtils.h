@@ -19,7 +19,7 @@
 #include <stdint.h>
 #include "llvm/Support/Compiler.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 
 #include <set>
 
@@ -43,7 +43,7 @@ class CanonExpr;
 /// For example, constant canon exprs, CE1 = 0 (srcTy = i32, dstTy = i64) and
 /// CE2 = 1 (srcTy = i64, dstTy = i64), can be added in relaxed mode. Clients
 /// can check canon expr with mergeable call.
-class CanonExprUtils : public HLUtils {
+class CanonExprUtils : public HIRUtils {
 private:
   /// \brief Do not allow instantiation.
   CanonExprUtils() = delete;

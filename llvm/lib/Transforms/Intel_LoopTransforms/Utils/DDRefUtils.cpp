@@ -165,3 +165,24 @@ RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, int Level) {
 
   return Ref;
 }
+
+void DDRefUtils::printMDNodes(formatted_raw_ostream &OS,
+                              const RegDDRef::MDNodesTy &MDNodes) {
+
+  SmallVector<StringRef, 8> MDNames;
+  auto HIRF = getHIRFramework();
+
+  if (HIRF) {
+    HIRF->getContext().getMDKindNames(MDNames);
+  }
+
+  for (auto const &I : MDNodes) {
+    OS << " ";
+    if (HIRF && I.first < MDNames.size()) {
+      OS << "!";
+      OS << MDNames[I.first] << " ";
+    }
+
+    I.second->printAsOperand(OS, HIRF ? &HIRF->getModule() : nullptr);
+  }
+}

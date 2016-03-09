@@ -58,8 +58,9 @@ bool HIRFramework::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
   SA = &getAnalysis<SymbaseAssignment>();
 
-  HLUtils::setHIRFramework(this);
+  HIRUtils::setHIRFramework(this);
 
+  HLNodeUtils::initialize();
   HLNodeUtils::initTopSortNum();
 
 #ifndef NDEBUG

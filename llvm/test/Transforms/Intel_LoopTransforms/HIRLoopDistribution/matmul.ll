@@ -4,14 +4,14 @@
 ;          BEGIN REGION { }
 ;<35>         + DO i1 = 0, 99999, 1   <DO_LOOP>
 ;<34>         |   + DO i2 = 0, 99999, 1   <DO_LOOP>
-;<5>          |   |   (@C)[0][i1][i2] = 0.000000e+00;
+;<5>          |   |   {al:4}(@C)[0][i1][i2] = 0.000000e+00;
 ;<33>         |   |   + DO i3 = 0, 99999, 1   <DO_LOOP>
-;<9>          |   |   |   %0 = (@A)[0][i1][i3];
-;<11>         |   |   |   %1 = (@B)[0][i3][i2];
+;<9>          |   |   |   %0 = {al:4}(@A)[0][i1][i3];
+;<11>         |   |   |   %1 = {al:4}(@B)[0][i3][i2];
 ;<12>         |   |   |   %mul = %0  *  %1;
-;<13>         |   |   |   %2 = (@C)[0][i1][i2];
+;<13>         |   |   |   %2 = {al:4}(@C)[0][i1][i2];
 ;<14>         |   |   |   %add = %2  +  %mul;
-;<15>         |   |   |   (@C)[0][i1][i2] = %add;
+;<15>         |   |   |   {al:4}(@C)[0][i1][i2] = %add;
 ;<33>         |   |   + END LOOP
 ;<34>         |   + END LOOP
 ;<35>         + END LOOP
@@ -21,7 +21,7 @@
 ; check first loop nest has only initialization of C[][]
 ; CHECK: DO i1 = 0, 99999, 1
 ; CHECK: DO i2 = 0, 99999, 1
-; CHECK: (@C)[0][i1][i2] = 0.000000e+00;
+; CHECK: {al:4}(@C)[0][i1][i2] = 0.000000e+00;
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END LOOP
 
@@ -29,12 +29,12 @@
 ; CHECK-NEXT: DO i1 = 0, 99999, 1
 ; CHECK-NEXT: DO i2 = 0, 99999, 1
 ; CHECK-NEXT: DO i3 = 0, 99999, 1
-; CHECK-DAG: [[A_LD:%.*]] = (@A)[0][i1][i3]
-; CHECK-DAG: [[B_LD:%.*]] = (@B)[0][i3][i2]
+; CHECK-DAG: [[A_LD:%.*]] = {al:4}(@A)[0][i1][i3]
+; CHECK-DAG: [[B_LD:%.*]] = {al:4}(@B)[0][i3][i2]
 ; CHECK-NEXT: [[MUL:%.*]] = [[A_LD]] * [[B_LD]]
-; CHECK-NEXT: [[C_LD:%.*]] = (@C)[0][i1][i2]
+; CHECK-NEXT: [[C_LD:%.*]] = {al:4}(@C)[0][i1][i2]
 ; CHECK-NEXT: [[ADD:%.*]] = [[C_LD]] + [[MUL]]
-; CHECK-NEXT: (@C)[0][i1][i2] = [[ADD]]
+; CHECK-NEXT: {al:4}(@C)[0][i1][i2] = [[ADD]]
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END LOOP

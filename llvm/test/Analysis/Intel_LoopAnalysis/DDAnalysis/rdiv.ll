@@ -5,31 +5,31 @@
 ; different loop nest. SIV applies only when loop bounds are same.
 ;;          BEGIN REGION { }
 ;<57>         + DO i1 = 0, %N + -1, 1   <DO_LOOP>
-;<3>          |   if (%N > 0)
+;<3>          |   if {al:8}(%N > 0)
 ;<3>          |   {
 ;<58>         |      + DO i2 = 0, %N + -1, 1   <DO_LOOP>
 ;<9>          |      |   %conv7 = sitofp.i32.double(i2);
-;<12>         |      |   (%A)[i2] = %conv7;
+;<12>         |      |   {al:8}(%A)[i2] = %conv7;
 ;<58>         |      + END LOOP
 ;<3>          |   }
-;<25>         |   if (%N > 0)
+;<25>         |   if {al:8}(%N > 0)
 ;<25>         |   {
 ;<59>         |      + DO i2 = 0, %N + -1, 1   <DO_LOOP>
-;<33>         |      |   %0 = (%A)[i2];
+;<33>         |      |   %0 = {al:8}(%A)[i2];
 ;<34>         |      |   %mul = %0  *  2.000000e+00;
-;<37>         |      |   (%A)[i2] = %mul;
+;<37>         |      |   {al:8}(%A)[i2] = %mul;
 ;<59>         |      + END LOOP
 ;<25>         |   }
 ;<57>         + END LOOP
 ;          END REGION
 
 ; Two self output edges
-; CHECK: (%A)[i2] --> (%A)[i2] OUTPUT
-; CHECK: (%A)[i2] --> (%A)[i2] OUTPUT
+; CHECK: {al:8}(%A)[i2] --> {al:8}(%A)[i2] OUTPUT
+; CHECK: {al:8}(%A)[i2] --> {al:8}(%A)[i2] OUTPUT
 
 ; Two crossnest output edges
-; CHECK: (%A)[i2] --> (%A)[i2] OUTPUT
-; CHECK: (%A)[i2] --> (%A)[i2] OUTPUT
+; CHECK: {al:8}(%A)[i2] --> {al:8}(%A)[i2] OUTPUT
+; CHECK: {al:8}(%A)[i2] --> {al:8}(%A)[i2] OUTPUT
 ; ModuleID = 'alt.bc'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

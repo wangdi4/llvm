@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
 ; Verify that i3 loop has a ztt.
 ; CHECK: Ztt: if (i2 < i1)
@@ -19,7 +19,6 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
 define i32 @foo(i32** nocapture readonly %A, i32** nocapture readonly %B, i64 %M) {
 entry:
   %cmp.58 = icmp sgt i64 %M, 0
@@ -78,11 +77,14 @@ for.cond.cleanup.7:                               ; preds = %for.cond.5.for.cond
 for.cond.cleanup.3:                               ; preds = %for.cond.cleanup.7
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond65 = icmp eq i64 %indvars.iv.next, %M
-  br i1 %exitcond65, label %for.cond.cleanup, label %for.cond.1.preheader
+  br i1 %exitcond65, label %for.cond.cleanup.loopexit, label %for.cond.1.preheader
 
-for.cond.cleanup:                                 ; preds = %for.cond.cleanup.3, %entry
-  %l.0.lcssa = phi i64 [ undef, %entry ], [ %l.2.lcssa, %for.cond.cleanup.3 ]
-  %l2.0.lcssa = phi i64 [ undef, %entry ], [ %l2.2.lcssa, %for.cond.cleanup.3 ]
+for.cond.cleanup.loopexit:                        ; preds = %for.cond.cleanup.3
+  br label %for.cond.cleanup
+
+for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
+  %l.0.lcssa = phi i64 [ undef, %entry ], [ %l.2.lcssa, %for.cond.cleanup.loopexit ]
+  %l2.0.lcssa = phi i64 [ undef, %entry ], [ %l2.2.lcssa, %for.cond.cleanup.loopexit ]
   %add23 = add nsw i64 %l2.0.lcssa, 3
   %add24 = add nsw i64 %l.0.lcssa, 2
   %arrayidx25 = getelementptr inbounds i32*, i32** %A, i64 %add24
@@ -91,4 +93,3 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.3,
   %5 = load i32, i32* %arrayidx26, align 4
   ret i32 %5
 }
-

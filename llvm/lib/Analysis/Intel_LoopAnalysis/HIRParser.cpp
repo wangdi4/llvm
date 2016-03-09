@@ -29,8 +29,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 
 #include "llvm/Analysis/LoopInfo.h"
@@ -1400,7 +1398,7 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
   // When parsing %q, we parse %p (@A + %1) and %2 (-1 * %1) separately and then
   // merge them. On merging %1 will cancel out.
   //
-  if (Ref->getBaseCE()) {
+  if (Ref->hasGEPInfo()) {
     Ref->collectTempBlobIndices(BlobIndices);
   }
 
@@ -2154,6 +2152,11 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   if (auto LInst = dyn_cast<LoadInst>(Inst)) {
     Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
 
+    Ref->setVolatile(LInst->isVolatile());
+    Ref->setAlignment(LInst->getAlignment());
+
+    LInst->getAllMetadataOtherThanDebugLoc(Ref->GepInfo->MDNodes);
+
   } else if (isa<GetElementPtrInst>(Inst)) {
     Ref = createGEPDDRef(Inst, Level, false);
     Ref->setAddressOf(true);
@@ -2175,6 +2178,12 @@ RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
 
   if (auto SInst = dyn_cast<StoreInst>(Inst)) {
     Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
+
+    Ref->setVolatile(SInst->isVolatile());
+    Ref->setAlignment(SInst->getAlignment());
+
+    SInst->getAllMetadataOtherThanDebugLoc(Ref->GepInfo->MDNodes);
+
   } else {
     Ref = createScalarDDRef(Inst, Level, true);
   }
@@ -2353,12 +2362,6 @@ void HIRParser::releaseMemory() {
   RequiredSymbases.clear();
   BlobTable.clear();
   BlobToIndexMap.clear();
-}
-
-LLVMContext &HIRParser::getContext() const { return Func->getContext(); }
-
-const DataLayout &HIRParser::getDataLayout() const {
-  return Func->getParent()->getDataLayout();
 }
 
 void HIRParser::print(raw_ostream &OS, const Module *M) const {

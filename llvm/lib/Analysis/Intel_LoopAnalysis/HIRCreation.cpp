@@ -335,14 +335,10 @@ void HIRCreation::create() {
 }
 
 bool HIRCreation::runOnFunction(Function &F) {
-  this->Func = &F;
-
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT = &getAnalysis<PostDominatorTree>();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   RI = &getAnalysis<RegionIdentification>();
-
-  HLNodeUtils::initialize(F);
 
   create();
 

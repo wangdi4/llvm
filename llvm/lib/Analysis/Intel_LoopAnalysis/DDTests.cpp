@@ -4035,12 +4035,12 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   if (!IsSrcBlob) {
     RegDDRef *RDef = cast<RegDDRef>(SrcDDRef);
-    SrcBaseCE = RDef->getBaseCE();
+    SrcBaseCE = RDef->hasGEPInfo() ? RDef->getBaseCE() : nullptr;
   }
 
   if (!IsDstBlob) {
     RegDDRef *RDef = cast<RegDDRef>(DstDDRef);
-    DstBaseCE = RDef->getBaseCE();
+    DstBaseCE = RDef->hasGEPInfo() ? RDef->getBaseCE() : nullptr;
   }
 
   if (numSrcDim != numDstDim || !areCEEqual(SrcBaseCE, DstBaseCE, true)) {

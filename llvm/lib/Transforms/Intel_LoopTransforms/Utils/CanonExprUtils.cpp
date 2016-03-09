@@ -31,7 +31,7 @@
 using namespace llvm;
 using namespace loopopt;
 
-HIRFramework *HLUtils::HIRF(nullptr);
+HIRFramework *HIRUtils::HIRF(nullptr);
 
 CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, unsigned Level,
                                            int64_t Const, int64_t Denom,

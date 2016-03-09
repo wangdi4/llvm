@@ -23,7 +23,7 @@
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 
 namespace llvm {
 
@@ -33,7 +33,7 @@ namespace loopopt {
 ///
 /// It contains a bunch of static member functions which manipulate DDRefs.
 /// It does not store any state.
-class DDRefUtils : public HLUtils {
+class DDRefUtils : public HIRUtils {
 private:
   /// \brief Do not allow instantiation.
   DDRefUtils() = delete;
@@ -88,6 +88,10 @@ public:
   /// of RegDDRef. This parameter is ignored in all other cases.
   static bool areEqual(const DDRef *Ref1, const DDRef *Ref2,
                        bool IgnoreDestType = false);
+
+  /// \brief Prints metadata nodes attached to RegDDRef.
+  static void printMDNodes(formatted_raw_ostream &OS,
+                           const RegDDRef::MDNodesTy &MDNodes);
 };
 
 } // End namespace loopopt

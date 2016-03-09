@@ -33,19 +33,9 @@ RegDDRef::RegDDRef(unsigned SB)
 RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
     : DDRef(RegDDRefObj), GepInfo(nullptr), Node(nullptr) {
 
-  // Copy base canon expr
-  if (auto NewCE = RegDDRefObj.getBaseCE()) {
-    setBaseCE(NewCE->clone());
-  }
-
-  // Copy inbounds attribute
-  if (RegDDRefObj.isInBounds()) {
-    setInBounds(true);
-  }
-
-  // Copy AddressOf flag.
-  if (RegDDRefObj.isAddressOf()) {
-    setAddressOf(true);
+  // Copy GEPInfo.
+  if (RegDDRefObj.hasGEPInfo()) {
+    GepInfo = new GEPInfo(*(RegDDRefObj.GepInfo));
   }
 
   // Loop over CanonExprs
@@ -64,7 +54,14 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 }
 
 RegDDRef::GEPInfo::GEPInfo()
-    : BaseCE(nullptr), InBounds(false), AddressOf(false) {}
+    : BaseCE(nullptr), InBounds(false), AddressOf(false), Volatile(false),
+      Alignment(0) {}
+
+RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
+    : BaseCE(Info.BaseCE->clone()), InBounds(Info.InBounds),
+      AddressOf(Info.AddressOf), Volatile(Info.Volatile),
+      Alignment(Info.Alignment), MDNodes(Info.MDNodes) {}
+
 RegDDRef::GEPInfo::~GEPInfo() {}
 
 RegDDRef *RegDDRef::clone() const {
@@ -75,14 +72,90 @@ RegDDRef *RegDDRef::clone() const {
   return NewRegDDRef;
 }
 
+// Used to keep MDNodes sorted by KindID.
+struct RegDDRef::GEPInfo::MDKindCompareLess {
+  bool operator()(const MDPairTy &MD1, const MDPairTy &MD2) {
+    return MD1.first < MD2.first;
+  }
+};
+
+// Used to keep MDNodes sorted by KindID.
+struct RegDDRef::GEPInfo::MDKindCompareEqual {
+  bool operator()(const MDPairTy &MD1, const MDPairTy &MD2) {
+    return MD1.first == MD2.first;
+  }
+};
+
+MDNode *RegDDRef::getMetadata(StringRef Kind) const {
+  return getMetadata(HIRUtils::getContext().getMDKindID(Kind));
+}
+
+MDNode *RegDDRef::getMetadata(unsigned KindID) const {
+  if (!hasGEPInfo()) {
+    // TODO: Handle DbgLoc.
+    return nullptr;
+  }
+
+  MDPairTy MD(KindID, nullptr);
+
+  auto Beg = GepInfo->MDNodes.begin();
+  auto End = GepInfo->MDNodes.end();
+
+  auto It = std::lower_bound(Beg, End, MD, GEPInfo::MDKindCompareLess());
+
+  if ((It != End) && GEPInfo::MDKindCompareEqual()(*It, MD)) {
+    return It->second;
+  }
+
+  return nullptr;
+}
+
+void RegDDRef::getAllMetadata(MDNodesTy &MDs) const {
+  // TODO: Include DbgLoc.
+  getAllMetadataOtherThanDebugLoc(MDs);
+}
+
+void RegDDRef::getAllMetadataOtherThanDebugLoc(MDNodesTy &MDs) const {
+  MDs.clear();
+
+  if (!hasGEPInfo()) {
+    return;
+  }
+
+  MDs = GepInfo->MDNodes;
+}
+
+void RegDDRef::setMetadata(StringRef Kind, MDNode *Node) {
+  setMetadata(HIRUtils::getContext().getMDKindID(Kind), Node);
+}
+
+void RegDDRef::setMetadata(unsigned KindID, MDNode *Node) {
+  // TODO: Handle DbgLoc.
+  createGEP();
+
+  MDPairTy MD(KindID, Node);
+
+  auto Beg = GepInfo->MDNodes.begin();
+  auto End = GepInfo->MDNodes.end();
+
+  auto It = std::lower_bound(Beg, End, MD, GEPInfo::MDKindCompareLess());
+
+  if ((It != End) && GEPInfo::MDKindCompareEqual()(*It, MD)) {
+    It->second = Node;
+
+  } else {
+    GepInfo->MDNodes.insert(It, MD);
+  }
+}
+
 int RegDDRef::findMaxBlobLevel(
     const SmallVectorImpl<unsigned> &BlobIndices) const {
   int DefLevel = 0, MaxLevel = 0;
 
   for (auto Index : BlobIndices) {
-    bool BlobExist = findBlobLevel(Index, &DefLevel);
-    (void)BlobExist;
-    assert(BlobExist && "Blob DDRef not found!");
+    bool Found = findBlobLevel(Index, &DefLevel);
+    (void)Found;
+    assert(Found && "Blob DDRef not found!");
 
     if (-1 == DefLevel) {
       return -1;
@@ -157,6 +230,15 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
     if (HasGEP) {
       if (isAddressOf()) {
         OS << "&(";
+      } else {
+        // Only print these for loads/stores.
+        if (isVolatile()) {
+          OS << "{vol}";
+        }
+
+        if (auto Alignment = getAlignment()) {
+          OS << "{al:" << Alignment << "}";
+        }
       }
 
       if (PrintBaseCast) {
@@ -181,8 +263,14 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       }
     }
 
-    if (isAddressOf()) {
-      OS << ")";
+    if (HasGEP) {
+      if (isAddressOf()) {
+        OS << ")";
+      }
+
+      if (Detailed) {
+        DDRefUtils::printMDNodes(OS, GepInfo->MDNodes);
+      }
     }
   }
 

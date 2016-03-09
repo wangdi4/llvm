@@ -1,7 +1,7 @@
 ; RUN:opt -basicaa -dda -dda-verify=Region -analyze < %s | FileCheck %s
 ; without domination its unclear wheter type is flow or anti
 ; CHECK: DD graph for function:
-; CHECK: (@A)[0][i1 + 1] --> (@A)[0][i1 + 1] {{.*\(=\)}}
+; CHECK: {al:4}(@A)[0][i1 + 1] --> {al:4}(@A)[0][i1 + 1] {{.*\(=\)}}
 ; CHECK-NOT: @A
 
 ; ModuleID = 'test.cpp'

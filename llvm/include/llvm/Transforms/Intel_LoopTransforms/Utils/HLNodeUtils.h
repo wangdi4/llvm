@@ -22,7 +22,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
@@ -43,7 +43,7 @@ class HIRFramework;
 /// It contains a bunch of static member functions which manipulate HLNodes.
 /// It does not store any state.
 ///
-class HLNodeUtils : public HLUtils {
+class HLNodeUtils : public HIRUtils {
 private:
   /// \brief Do not allow instantiation.
   HLNodeUtils() = delete;
@@ -141,7 +141,7 @@ private:
   static void setFirstAndLastDummyInst(Instruction *Inst);
 
   /// \brief Initializes static members for this function.
-  static void initialize(Function &F);
+  static void initialize();
 
   /// \brief Returns a new HLRegion. Only used by framework.
   static HLRegion *createHLRegion(IRRegion *IRReg);
@@ -186,8 +186,7 @@ private:
   /// \brief Creates a unary instruction.
   static HLInst *createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
                                    const Twine &Name, RegDDRef *LvalRef,
-                                   Type *DestTy, bool IsVolatile,
-                                   unsigned Align);
+                                   Type *DestTy);
 
   /// \brief Creates a binary instruction.
   static HLInst *createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
@@ -404,13 +403,11 @@ public:
 
   /// \brief Creates a new Load instruction.
   static HLInst *createLoad(RegDDRef *RvalRef, const Twine &Name = "load",
-                            RegDDRef *LvalRef = nullptr,
-                            bool IsVolatile = false, unsigned Align = 0);
+                            RegDDRef *LvalRef = nullptr);
 
   /// \brief Creates a new Store instruction.
   static HLInst *createStore(RegDDRef *RvalRef, const Twine &Name = "store",
-                             RegDDRef *LvalRef = nullptr,
-                             bool IsVolatile = false, unsigned Align = 0);
+                             RegDDRef *LvalRef = nullptr);
 
   /// \brief Creates a new Trunc instruction.
   static HLInst *createTrunc(Type *DestTy, RegDDRef *RvalRef,

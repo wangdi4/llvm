@@ -1,4 +1,4 @@
-//===------------ HLUtils.h - Base class for utilities -------*- C++ -*----===//
+//===----------- HIRUtils.h - Base class for utilities -------*- C++ -*----===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLUTILS_H
-#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLUTILS_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRUTILS_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRUTILS_H
 
 #include <assert.h>
 
@@ -30,17 +30,20 @@ namespace loopopt {
 class HIRFramework;
 class SymbaseAssignment;
 
-/// \brief Defines HLUtils base class for utilities
+/// \brief Defines HIRUtils base class for utilities.
 ///
-/// This class is mainly used to store static pointers
-/// for the various analysis during HIR. These pointers
-/// would be used internally by other utilities to avoid
-/// passing them for each utility call.
+/// This class is mainly used to store HIRFramework pointer which is used
+/// internally by other utilities to avoid passing them for each utility call.
+/// It also contains wrapper utilities to access underlying LLVM IR related
+/// information such as getContext().
 ///
-class HLUtils {
+class HIRUtils {
 private:
+  /// \brief Do not allow instantiation.
+  HIRUtils() = delete;
+
   /// \brief Make class uncopyable.
-  void operator=(const HLUtils &) = delete;
+  void operator=(const HIRUtils &) = delete;
 
   friend class HIRFramework;
 
@@ -54,6 +57,19 @@ private:
 
 protected:
   static HIRFramework *getHIRFramework() { return HIRF; }
+
+public:
+  /// \brief Returns Function object.
+  static Function &getFunction() { return HIRF->getFunction(); }
+
+  /// \brief Returns Module object.
+  static Module &getModule() { return HIRF->getModule(); }
+
+  /// \brief Returns LLVMContext object.
+  static LLVMContext &getContext() { return HIRF->getContext(); }
+
+  /// \brief Returns DataLayout object.
+  static const DataLayout &getDataLayout() { return HIRF->getDataLayout(); }
 };
 
 } // End namespace loopopt

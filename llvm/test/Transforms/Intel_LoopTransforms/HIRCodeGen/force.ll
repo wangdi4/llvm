@@ -1,5 +1,5 @@
 ; With forced HIRCG, we should see HIR->LLVM IR occur
-; RUN: opt -HIRCG -force-HIRCG -S < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -HIRCG -force-HIRCG -S < %s | FileCheck %s
 
 ; terminator of entry bblock should have changed
 ; CHECK: for.body:
@@ -17,6 +17,10 @@
 ; load B[] and store it into a memslot for symbase of lval temp
 ; CHECK: [[GEP:%.*]] = getelementptr {{.*}} @B
 ; CHECK-NEXT: [[GEPLOAD:%.*]] = load{{.*}} [[GEP]]
+
+; Check load attributes and metadata
+; CHECK-SAME: align 4
+; CHECK-SAME: tbaa
 ; CHECK-NEXT: store i32 [[GEPLOAD]], i32* [[TEMPSLOT:.*]]
 
 ; get addr of A[], load memslot from earlier and stored loaded 
@@ -24,6 +28,10 @@
 ; CHECK-DAG: [[GEP:%.*]] = getelementptr {{.*}} @A
 ; CHECK-DAG: [[TEMPLOAD:%t.*]] = load i32, i32* [[TEMPSLOT]]
 ; CHECK-NEXT: store i32 [[TEMPLOAD]], i32* [[GEP]]
+
+; Check store attributes and metadata
+; CHECK-SAME: align 4
+; CHECK-SAME: tbaa
 
 ; a value for iv is stored
 ; CHECK: store{{.*}} %i1

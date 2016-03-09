@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Source code-
 ; int A[10][10];
@@ -14,7 +14,7 @@
 
 ; Check parsing output for the loop verifying that the GEP of @A which has less number of indices than the maximum number possible (3), is parsed correctly.
 ; CHECK: DO i1 = 0, 4
-; CHECK-NEXT: (@B)[0][i1] = &((@A)[0][i1])
+; CHECK-NEXT: {al:8}(@B)[0][i1] = &((@A)[0][i1])
 ; CHECK-NEXT: END LOOP
 
 

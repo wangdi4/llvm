@@ -1,10 +1,10 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -HIRCG -force-HIRCG -S < %s | FileCheck %s
 
-; Check parsing output for the loop verifying that the addIV() operation for GEP is performed successfully.
-; CHECK: DO i1 = 0, %vn.0.vn.0. + -1
-; CHECK-NEXT: {vol}{al:4}(%p)[(1 + %vn.0.vn.0.) * i1] = 1
-; CHECK-NEXT: END LOOP
+; Check that CG retains volatile attribute of store.
+; CHECK: region:
 
+; CHECK: [[GEP:%.*]] = getelementptr {{.*}} %p
+; CHECK: store volatile i32 {{.*}} [[GEP]]
 
 ; Function Attrs: nounwind uwtable
 define i32 @main(i32* %vn, i32* %p)  {

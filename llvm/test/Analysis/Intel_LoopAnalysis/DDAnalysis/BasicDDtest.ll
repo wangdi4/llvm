@@ -29,8 +29,8 @@ for.end:                                          ; preds = %for.body
 ;;			p[i] = q[i] +1; }
 
 ; CHECK: 'Data Dependence Analysis' for function 'sub1'
-; CHECK-DAG: (%q)[i1] --> (%p)[i1] ANTI (*)
-; CHECK-DAG: (%p)[i1] --> (%q)[i1] FLOW (*)				
+; CHECK-DAG: {al:4}(%q)[i1] --> {al:4}(%p)[i1] ANTI (*)
+; CHECK-DAG: {al:4}(%p)[i1] --> {al:4}(%q)[i1] FLOW (*)				
 
 ; Function Attrs: nounwind
 declare void @llvm.lifetime.start(i64, i8* nocapture) #1
@@ -47,7 +47,7 @@ define void @sub2(float* nocapture %p, i64 %n) #0 {
 ;;     }
 
 ; CHECK: 'Data Dependence Analysis' for function 'sub2'
-; CHECK-DAG: (%p)[i1 + 1] --> (%p)[i1] ANTI (<)
+; CHECK-DAG: {al:4}(%p)[i1 + 1] --> {al:4}(%p)[i1] ANTI (<)
 
 entry:
   %cmp.8 = icmp sgt i64 %n, 0
@@ -78,8 +78,8 @@ define void @sub3(float* nocapture %p, i32 %n) #0 {
 ;;    }
 
 ; CHECK: 'Data Dependence Analysis' for function 'sub3'
-; CHECK-DAG: (%p)[i1 + 1] --> (%p)[i1] ANTI (<)
-; CHECK-DAG: (%p)[i1 + 1] --> (%p)[i1 + -1] ANTI (<)
+; CHECK-DAG: {al:4}(%p)[i1 + 1] --> {al:4}(%p)[i1] ANTI (<)
+; CHECK-DAG: {al:4}(%p)[i1 + 1] --> {al:4}(%p)[i1 + -1] ANTI (<)
 
 
 entry:
@@ -118,7 +118,7 @@ define void @sub4(float* nocapture %p, float* nocapture %q, i32 %n) #0 {
 ;;    }
   
 ; CHECK: 'Data Dependence Analysis' for function 'sub4'
-; CHECK-DAG: (%p)[100 * i1 + i2 + 101] --> (i32*)(%p)[100 * i1 + i2 + 100] FLOW (<= <>)
+; CHECK-DAG: {al:4}(%p)[100 * i1 + i2 + 101] --> {al:4}(i32*)(%p)[100 * i1 + i2 + 100] FLOW (<= <>)
 
 entry:
   br label %for.cond.1.preheader
@@ -163,7 +163,7 @@ define void @sub5(float* nocapture %p, float* nocapture %q, i32 %n) #0 {
 ;;            q[i] =  p[100*i - j +11] ; } }
 
 ; CHECK: 'Data Dependence Analysis' for function 'sub5'
-; CHECK-DAG: (%p)[100 * i1 + i2 + 101] --> (i32*)(%p)[100 * i1 + -1 * i2 + 110] FLOW (<= <>)
+; CHECK-DAG: {al:4}(%p)[100 * i1 + i2 + 101] --> {al:4}(i32*)(%p)[100 * i1 + -1 * i2 + 110] FLOW (<= <>)
 
 
 entry:
@@ -212,8 +212,8 @@ define void @sub6(float* nocapture %p, float* nocapture %q, i64 %n) #0 {
 ;;     }
 
 ; CHECK: 'Data Dependence Analysis' for function 'sub6'
-; CHECK-DAG: (%p)[2 * i1 + -4 * i2] --> (i32*)(%p)[6 * i1 + 8 * i2] FLOW (<= *)
-; CHECK-DAG: (i32*)(%p)[6 * i1 + 8 * i2] --> (%p)[2 * i1 + -4 * i2] ANTI (<= *)
+; CHECK-DAG: {al:4}(%p)[2 * i1 + -4 * i2] --> {al:4}(i32*)(%p)[6 * i1 + 8 * i2] FLOW (<= *)
+; CHECK-DAG: {al:4}(i32*)(%p)[6 * i1 + 8 * i2] --> {al:4}(%p)[2 * i1 + -4 * i2] ANTI (<= *)
 
 entry:
   br label %for.cond.1.preheader

@@ -27,6 +27,8 @@
 
 #include "llvm/ADT/DenseSet.h"
 
+#include "llvm/IR/Module.h"
+
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
@@ -147,7 +149,6 @@ private:
   // faster lookup.
   BlobToIndexTy BlobToIndexMap;
 
-
   // Used as comparators to sort blobs.
   struct BlobPtrCompareLess;
   struct BlobPtrCompareEqual;
@@ -242,8 +243,7 @@ private:
   /// \brief Wrapper to find/insert Blob in the blob table and assign it a
   /// symbase, if applicable. Returns blob index and Symbase.
   /// This is only used during parsing.
-  unsigned findOrInsertBlobWrapper(BlobTy Blob,
-                                   unsigned *SymbasePtr = nullptr);
+  unsigned findOrInsertBlobWrapper(BlobTy Blob, unsigned *SymbasePtr = nullptr);
 
   /// \brief Adds an entry for the temp blob in blob maps.
   void addTempBlobEntry(unsigned Index, unsigned NestingLevel,
@@ -371,8 +371,8 @@ private:
 
   /// \brief Implements find()/insert() functionality.
   /// ReturnSymbase indicates whether to return blob index or symbase.
-  unsigned findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
-                                       bool Insert, bool ReturnSymbase);
+  unsigned findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase, bool Insert,
+                                bool ReturnSymbase);
 
   /// \brief Returns the index of Blob in the blob table. Index range is [1,
   /// UINT_MAX]. Returns INVALID_BLOB_INDEX if the blob is not present in the
@@ -398,47 +398,44 @@ private:
   /// \brief Maps blobs in Blobs to their corresponding indices and inserts
   /// them in Indices.
   void mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
-                                SmallVectorImpl<unsigned> &Indices);
-
+                         SmallVectorImpl<unsigned> &Indices);
 
   /// \brief Returns a new blob created from passed in Val.
   BlobTy createBlob(Value *Val, unsigned Symbase, bool Insert,
-                               unsigned *NewBlobIndex);
+                    unsigned *NewBlobIndex);
 
   /// \brief Returns a new blob created from a constant value.
-  BlobTy createBlob(int64_t Val, Type *Ty, bool Insert,
-                               unsigned *NewBlobIndex);
+  BlobTy createBlob(int64_t Val, Type *Ty, bool Insert, unsigned *NewBlobIndex);
 
   /// \brief Returns a blob which represents (LHS + RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  BlobTy createAddBlob(BlobTy LHS, BlobTy RHS,
-                                  bool Insert, unsigned *NewBlobIndex);
+  BlobTy createAddBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                       unsigned *NewBlobIndex);
 
   /// \brief Returns a blob which represents (LHS - RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  BlobTy createMinusBlob(BlobTy LHS,
-                                    BlobTy RHS, bool Insert,
-                                    unsigned *NewBlobIndex);
+  BlobTy createMinusBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                         unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (LHS * RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  BlobTy createMulBlob(BlobTy LHS, BlobTy RHS,
-                                  bool Insert, unsigned *NewBlobIndex);
+  BlobTy createMulBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                       unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (LHS / RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  BlobTy createUDivBlob(BlobTy LHS, BlobTy RHS,
-                                   bool Insert, unsigned *NewBlobIndex);
+  BlobTy createUDivBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                        unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (trunc Blob to Ty). If Insert is
   /// true its index is returned via NewBlobIndex argument.
-  BlobTy createTruncateBlob(BlobTy Blob, Type *Ty,
-                                       bool Insert, unsigned *NewBlobIndex);
+  BlobTy createTruncateBlob(BlobTy Blob, Type *Ty, bool Insert,
+                            unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (zext Blob to Ty). If Insert is
   /// true its index is returned via NewBlobIndex argument.
-  BlobTy createZeroExtendBlob(BlobTy Blob, Type *Ty,
-                                         bool Insert, unsigned *NewBlobIndex);
+  BlobTy createZeroExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
+                              unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (sext Blob to Ty). If Insert is
   /// true its index is returned via NewBlobIndex argument.
-  BlobTy createSignExtendBlob(BlobTy Blob, Type *Ty,
-                                         bool Insert, unsigned *NewBlobIndex);
+  BlobTy createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
+                              unsigned *NewBlobIndex);
 
   // TODO handle min/max blobs.
 
@@ -446,8 +443,7 @@ private:
   bool contains(BlobTy Blob, BlobTy SubBlob) const;
 
   /// \brief Collects and returns temp blobs present inside Blob.
-  void collectTempBlobs(BlobTy Blob,
-                        SmallVectorImpl<BlobTy> &TempBlobs) const;
+  void collectTempBlobs(BlobTy Blob, SmallVectorImpl<BlobTy> &TempBlobs) const;
 
   /// \brief Returns the max symbase assigned to any temp.
   unsigned getMaxScalarSymbase() const;
@@ -478,8 +474,19 @@ private:
   /// \brief Returns true if Blob represents a constant FP value.
   bool isConstantFPBlob(BlobTy Blob) const;
 
-  LLVMContext &getContext() const;
-  const DataLayout &getDataLayout() const;
+  /// \brief Returns Function object.
+  Function &getFunction() const { return *Func; }
+
+  /// \brief Returns Module object.
+  Module &getModule() const { return *(getFunction().getParent()); }
+
+  /// \brief Returns LLVMContext object.
+  LLVMContext &getContext() const { return getFunction().getContext(); }
+
+  /// \brief Returns DataLayout object.
+  const DataLayout &getDataLayout() const {
+    return getModule().getDataLayout();
+  }
 
   /// Region iterator methods
   HIRCreation::iterator hir_begin() { return HIR->begin(); }

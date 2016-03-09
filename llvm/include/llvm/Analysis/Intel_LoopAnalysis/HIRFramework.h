@@ -98,7 +98,16 @@ public:
     return HIRP->hir_crend();
   }
 
+  /// \brief Returns Function object.
+  Function &getFunction() const { return HIRP->getFunction(); }
+  
+  /// \brief Returns Module object.
+  Module &getModule() const { return HIRP->getModule(); }
+
+  /// \brief Returns LLVMContext object.
   LLVMContext &getContext() const { return HIRP->getContext(); }
+
+  /// \brief Returns DataLayout object.
   const DataLayout &getDataLayout() const { return HIRP->getDataLayout(); }
 };
 
