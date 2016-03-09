@@ -87,6 +87,7 @@ void initializeDeduceMaxWGDimPass(llvm::PassRegistry&);
 void initializeRenderscriptVectorizerPass(llvm::PassRegistry&);
 void initializeOCLAliasAnalysisPass(llvm::PassRegistry&);
 void initializeSPIR20BlocksToObjCBlocksPass(llvm::PassRegistry&);
+void initializePrintfArgumentsPromotionPass(llvm::PassRegistry&);
 }
 
 #endif
