@@ -274,12 +274,14 @@ bool HIRParser::isConstantVectorBlob(BlobTy Blob,
       }
       return true;
     }
+
     if (auto P = dyn_cast<ConstantDataVector>(UnknownSCEV->getValue())) {
       if (Val) {
         *Val = P;
       }
       return true;
     }
+
     if (auto P = dyn_cast<ConstantAggregateZero>(UnknownSCEV->getValue())) {
       if (Val) {
         *Val = P;
