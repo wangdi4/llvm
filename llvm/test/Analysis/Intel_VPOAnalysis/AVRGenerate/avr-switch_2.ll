@@ -9,8 +9,7 @@
 ;CHECK: LOOP( IV )
 ;CHECK-NEXT: {
 ;CHECK-NEXT: %mask.parm = load (%mask.cast)[i1]
-;CHECK-NEXT: if (%mask.parm != 0)
-;CHECK-NEXT: {
+;CHECK-NEXT: if (%mask.parm != 0) {
 ;CHECK-NEXT: %0 = load (%vec.n.cast)[i1]
 ;CHECK-NEXT: switch(%0){
 ;CHECK-NEXT: case 1:
