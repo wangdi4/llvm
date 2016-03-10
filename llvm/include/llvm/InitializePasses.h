@@ -309,6 +309,8 @@ void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
 void initializeFloat2IntPass(PassRegistry&);
 #if INTEL_CUSTOMIZATION
+// Pass for indirect call conversion using points-to info
+void initializeIndirectCallConvPass(PassRegistry &);
 // Pass for register promotion for non escaped block scope global variables.
 void initializeNonLTOGlobalOptPass(PassRegistry &);
 // Pass for setting implied Targets for intrinsics.

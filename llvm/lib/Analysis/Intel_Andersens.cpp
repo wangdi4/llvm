@@ -330,6 +330,52 @@ void AndersensAAResult::CreateConstraint(Constraint::ConstraintType Ty,
   Constraints.push_back(Constraint(Ty, D, S, O));
 }
 
+// Interface routine to get possible targets of given function pointer 'FP'.
+// It computes all possible targets of 'FP' using points-to info and adds
+// valid targets to 'Targets' vector. Skips adding unknown/invalid targets
+// to 'Targets' vector and return false if there is any noticed.
+//
+bool AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
+                                      std::vector<llvm::Value*>& Targets) {
+
+  Targets.clear();
+  if (ValueNodes.size() == 0) {
+    // Return false if no points-to info is available.
+    return false;
+  }
+  Node *N1 = &GraphNodes[FindNode(getNode(const_cast<Value*>(FP)))];
+  if (N1 == &GraphNodes[UniversalSet]) {
+    // Return false if fp is represented as UniversalSet.
+    return false;
+  }
+  bool IsComplete = true;
+  for (SparseBitVector<>::iterator bi = N1->PointsTo->begin(),
+       be = N1->PointsTo->end(); bi != be; ++bi) {
+    Node *N = &GraphNodes[*bi];
+    if (N == &GraphNodes[UniversalSet]) {
+      IsComplete = false;
+      continue;
+    }
+    if (N == &GraphNodes[NullPtr] || N == &GraphNodes[NullObject]) {
+      // Ignore NullPtr if there is any.
+      // No need to go conservative here.
+      continue;
+    }
+    Value *V = N->getValue();
+  
+    // Go conservative for now when possible target is non-function or
+    // signatures of call and possible target don't match.
+    // TODO: Need to skip these targets to improve this transformation
+    // after understanding more about vararg, MS_CDECLS, NOSTATE etc.
+    if (!isa<Function>(V) || FP->getType() != V->getType()) {
+      IsComplete = false;
+      continue;
+    }
+    Targets.push_back(V);
+  }
+  return IsComplete;
+}
+
 void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   SkipAndersensAnalysis = false;
   IndirectCallList.clear();

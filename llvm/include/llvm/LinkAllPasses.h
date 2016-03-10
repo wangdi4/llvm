@@ -98,6 +98,7 @@ namespace {
       (void) llvm::createGlobalsAAWrapperPass();
       (void) llvm::createIPConstantPropagationPass();
       (void) llvm::createIPSCCPPass();
+      (void) llvm::createIndirectCallConvPass(); // INTEL
       (void) llvm::createInductiveRangeCheckEliminationPass();
       (void) llvm::createIndVarSimplifyPass();
       (void) llvm::createInstructionCombiningPass();

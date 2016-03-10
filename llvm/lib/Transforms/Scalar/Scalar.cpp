@@ -84,6 +84,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeFloat2IntPass(Registry);
   initializeLoopDistributePass(Registry);
   initializeNonLTOGlobalOptPass(Registry); // INTEL
+  initializeIndirectCallConvPass(Registry); // INTEL
 }
 
 void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {

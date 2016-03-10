@@ -295,6 +295,10 @@ public:
   static AndersensAAResult analyzeModule(Module &M, const TargetLibraryInfo &TLI,
                                        CallGraph &CG);
 
+  // Interface routine to get possible targets of function pointers
+  bool GetFuncPointerPossibleTargets(Value *FP, 
+                                     std::vector<llvm::Value*>& Targets);
+
   //------------------------------------------------
   // Implement the AliasAnalysis API
   //
