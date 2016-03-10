@@ -22,7 +22,7 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
     }
 
     add_twice(buf_out);
-    uint val2 = *((uint*) &buf_out[0]);
+    uint val2 = *((__global uint*) &buf_out[0]);
 
     buf_out[6] = 0;
 }
