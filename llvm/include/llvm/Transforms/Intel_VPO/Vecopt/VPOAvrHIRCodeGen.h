@@ -23,7 +23,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/IR/Intel_LoopIR/DDRefGatherer.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace

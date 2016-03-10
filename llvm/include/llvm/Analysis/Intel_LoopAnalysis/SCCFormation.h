@@ -1,6 +1,6 @@
 //===------- SCCFormation.h - Identifies SCC in IRRegions ------*- C++ --*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -138,9 +138,15 @@ private:
   /// \brief Sets RegIt as the current region being processed.
   void setRegion(RegionIdentification::const_iterator RegIt);
 
+  /// \brief Returns true if forming this SCC results in a cleaner HIR.
+  bool isProfitableSCC(const SCCNodesTy &Nodes) const;
+
   /// \brief Checks the validity of an SCC w.r.t assigning the same symbase to
   /// all its nodes.
-  bool isValidSCC(SCCTy *NewSCC);
+  bool isValidSCC(const SCCNodesTy &Nodes) const;
+
+  /// \brief Checks that Phi is used in another phi in the SCC.
+  bool isUsedInSCCPhi(const PHINode *Phi, const SCCNodesTy &NewSCC) const;
 
   /// \brief Runs Tarjan's algorithm on this node. Returns the lowlink for this
   /// node.
@@ -161,6 +167,13 @@ public:
   /// \brief Prints SCCs for a region.
   void print(raw_ostream &OS, RegionIdentification::const_iterator RegIt) const;
   void verifyAnalysis() const override;
+
+  /// \brief Returns true if this node is considered linear by parsing.
+  bool isConsideredLinear(const NodeTy *Node) const;
+
+  /// \brief Returns true if Inst has a user outside region pointed to by RegIt.
+  static bool isRegionLiveOut(RegionIdentification::const_iterator RegIt,
+                              const Instruction *Inst);
 
   /// SCC iterator methods
   const_iterator begin(RegionIdentification::const_iterator RegIt) const;

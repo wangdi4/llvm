@@ -1,6 +1,6 @@
 //===-- DDTests.h - Data dependence testing between two DDRefs --*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -38,7 +38,6 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Support/Debug.h"

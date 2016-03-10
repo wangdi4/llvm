@@ -1,6 +1,6 @@
 //===- RegionIdentification.cpp - Identifies HIR Regions ------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -20,8 +20,8 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Dominators.h"
 
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
@@ -46,6 +46,7 @@ STATISTIC(RegionCount, "Number of regions created");
 INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-region-identification",
                       "HIR Region Identification", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_END(RegionIdentification, "hir-region-identification",
@@ -64,6 +65,7 @@ RegionIdentification::RegionIdentification() : FunctionPass(ID) {
 void RegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<PostDominatorTree>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
 }
@@ -96,6 +98,10 @@ bool RegionIdentification::isHeaderPhi(const PHINode *Phi) const {
 
   auto Lp = LI->getLoopFor(ParentBB);
 
+  if (!Lp) {
+    return false;
+  }
+
   if (Lp->getHeader() == ParentBB) {
     assert((Phi->getNumIncomingValues() == 2) &&
            "Unexpected number of operands for header phi!");
@@ -106,15 +112,29 @@ bool RegionIdentification::isHeaderPhi(const PHINode *Phi) const {
 }
 
 bool RegionIdentification::isSupported(Type *Ty) const {
+  assert(Ty && "Type is null!");
 
   for (; SequentialType *SeqTy = dyn_cast<SequentialType>(Ty);) {
     if (SeqTy->isVectorTy()) {
+      DEBUG(dbgs()
+            << "LOOPOPT_OPTREPORT: vector types currently not supported.\n");
       return false;
     }
     Ty = SeqTy->getElementType();
   }
 
   if (Ty->isStructTy() || Ty->isFunctionTy()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: structure/function pointer types "
+                    "currently not supported.\n");
+    return false;
+  }
+
+  auto IntType = dyn_cast<IntegerType>(Ty);
+  // Integer type greater than 64 bits not supported.This is mainly to throttle
+  // 128 bit integers.
+  if (IntType && (IntType->getPrimitiveSizeInBits() > 64)) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: integer types greater than 64 bits "
+                    "currently not supported.\n");
     return false;
   }
 
@@ -212,6 +232,15 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
+  // Skip loop with vectorize/unroll pragmas for now so that tests checking for
+  // these are not affected.
+  if (Lp.getLoopID()) {
+    DEBUG(
+        dbgs()
+        << "LOOPOPT_OPTREPORT: Loops with pragmas currently not supported.\n");
+    return false;
+  }
+
   // Don't handle unknown loops for now.
   if (!SE->hasLoopInvariantBackedgeTakenCount(&Lp)) {
     DEBUG(dbgs()
@@ -219,9 +248,26 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // Check that the loop backedge is a conditional branch.
+  // SCEV doesn't seem to set type of (ptr1 - ptr2) to integer in some cases
+  // which causes issues in HIR.
+  // TODO: look into SCEV analysis logic.
+  if (SE->getBackedgeTakenCount(&Lp)->getType()->isPointerTy()) {
+    DEBUG(dbgs()
+          << "LOOPOPT_OPTREPORT: Pointer type trip count not supported.\n");
+    return false;
+  }
+
   auto LatchBB = Lp.getLoopLatch();
 
+  // We cannot build lexical links if dominator/post-dominator info is absent.
+  // This can be due to unreachable/infinite loops.
+  if (!DT->getNode(LatchBB) || !PDT->getNode(LatchBB)) {
+    DEBUG(dbgs()
+          << "LOOPOPT_OPTREPORT: Unreachable/Infinite loops not supported.\n");
+    return false;
+  }
+
+  // Check that the loop backedge is a conditional branch.
   auto Term = LatchBB->getTerminator();
   auto BrInst = dyn_cast<BranchInst>(Term);
 
@@ -251,15 +297,6 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
 
   if (!IVNode) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Could not find loop IV.\n");
-    return false;
-  }
-
-  // SCEV doesn't seem to set type of (ptr1 - ptr2) to integer in some cases
-  // which causes issues in HIR.
-  // TODO: look into SCEV analysis logic.
-  // TODO: extend HIR to handle pointer IVs.
-  if (isa<PointerType>(IVNode->getType())) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Pointer IV not supported.\n");
     return false;
   }
 
@@ -293,6 +330,14 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
 
     for (auto InstIt = (*I)->begin(), EndIt = (*I)->end(); InstIt != EndIt;
          ++InstIt) {
+
+      if (isa<FenceInst>(InstIt) || isa<AtomicCmpXchgInst>(InstIt) ||
+          isa<AtomicRMWInst>(InstIt)) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Fence/AtomicCmpXchg/AtomicRMW "
+                        "instructions are currently not supported.\n");
+        return false;
+      }
+
       if (InstIt->getType()->isVectorTy()) {
         DEBUG(dbgs()
               << "LOOPOPT_OPTREPORT: Vector types currently not supported.\n");
@@ -300,8 +345,6 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
       }
 
       if (containsUnsupportedTy(&*InstIt)) {
-        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: structure/function pointers "
-                        "currently not supported.\n");
         return false;
       }
     }
@@ -422,8 +465,13 @@ void RegionIdentification::formRegions() {
 }
 
 bool RegionIdentification::runOnFunction(Function &F) {
+  if (skipOptnoneFunction(F)) {
+    return false;
+  }
+
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  PDT = &getAnalysis<PostDominatorTree>();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
   formRegions();

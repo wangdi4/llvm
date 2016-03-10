@@ -39,6 +39,7 @@
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -132,10 +133,14 @@ static cl::opt<bool> RunMapIntrinToIml("MapIntrinToIml",
 static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
                                  cl::desc("Runs loop optimization passes"));
 
-// INTEL
 static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only", 
     cl::init(false), cl::Hidden,
     cl::desc("Enables loopopt framework without any transformation passes"));
+
+static cl::opt<bool> PrintModuleBeforeLoopopt(
+    "print-module-before-loopopt", cl::init(false), cl::Hidden,
+    cl::desc("Prints LLVM module to dbgs() before first HIR transform(HIR SSA "
+             "deconstruction)"));
 
 // register promotion for global vars at -O2 and above.
 static cl::opt<bool> EnableNonLTOGlobalVarOpt(
@@ -744,22 +749,24 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     return;
   }
 
+  // This pass "canonicalizes" loops and makes analysis easier.
+  PM.add(createLoopSimplifyPass());
+
+  if(PrintModuleBeforeLoopopt) {
+    PM.add(createPrintModulePass(dbgs(), ";Module Before HIR" ));
+  }
+
+  PM.add(createSSADeconstructionPass());
+
   if (!RunLoopOptFrameworkOnly) {
-    // This pass "canonicalizes" loops and makes analysis easier.
-    PM.add(createLoopSimplifyPass());
-
-    PM.add(createSSADeconstructionPass());
-
     PM.add(createParDirectiveInsertionPass());
-    // TODO: add VPO driver call for parallelization here.
-
     PM.add(createHIROptPredicatePass());
+    PM.add(createHIRLoopDistributionPass(false));
+    PM.add(createHIRRuntimeDDPass());
     if (!DisableUnrollLoops)
       PM.add(createHIRCompleteUnrollPass());
-
     PM.add(createVecDirectiveInsertionPass(OptLevel == 3));
     PM.add(createVPODriverHIRPass());
-
     if (!DisableUnrollLoops)
       PM.add(createHIRGeneralUnrollPass());
   }

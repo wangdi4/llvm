@@ -133,7 +133,7 @@ ReductionHIRMngr::getRecurrenceIdentityVector(ReductionItem *RedItem,
 }
 
 bool AVRCodeGenHIR::unitStrideRef(const RegDDRef *Ref) {
-  if (Ref->isScalarRef())
+  if (Ref->isTerminalRef())
     return false;
 
   if (Ref->getNumDimensions() != 1)
@@ -364,14 +364,14 @@ static HLInst * buildReductionTail(HLContainerTy& InstContainer,
   if (VL == 2) {
     HLInst *Lo =
       HLNodeUtils::CreateExtractElementInst(Inst->getLvalDDRef()->clone(),
-                                           0, nullptr, "Lo");
+                                           0, "Lo");
     HLInst *Hi =
       HLNodeUtils::CreateExtractElementInst(Inst->getLvalDDRef()->clone(),
-                                           1, nullptr, "Hi");
+                                           1, "Hi");
 
     HLInst *Combine = 
       HLNodeUtils::createBinaryHLInst(BOpcode, Lo->getLvalDDRef()->clone(),
-                                      Hi->getLvalDDRef()->clone());
+                                      Hi->getLvalDDRef()->clone(), "reduced");
     InstContainer.push_back(Lo);
     InstContainer.push_back(Hi);
     InstContainer.push_back(Combine);
@@ -385,14 +385,14 @@ static HLInst * buildReductionTail(HLContainerTy& InstContainer,
   HLInst *Lo =
     HLNodeUtils::CreateShuffleVectorInst(Inst->getLvalDDRef()->clone(),
                                          Inst->getLvalDDRef()->clone(),
-                                         LoMask, nullptr, "Lo");
+                                         LoMask, "Lo");
   HLInst *Hi =
     HLNodeUtils::CreateShuffleVectorInst(Inst->getLvalDDRef()->clone(),
                                          Inst->getLvalDDRef()->clone(),
-                                         HiMask, nullptr, "Hi");
+                                         HiMask, "Hi");
   HLInst *Result =
     HLNodeUtils::createBinaryHLInst(BOpcode, Lo->getLvalDDRef()->clone(),
-                                    Hi->getLvalDDRef()->clone());
+                                    Hi->getLvalDDRef()->clone(), "reduce");
   InstContainer.push_back(Lo);
   InstContainer.push_back(Hi);
   InstContainer.push_back(Result);
@@ -455,8 +455,7 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node, HLNode *Anchor) {
   RegDDRef *IdentityVec =
     ReductionHIRMngr::getRecurrenceIdentityVector(RI, RedOp->getDestType(), VL);
 
-  HLInst *RedOpVecInst = HLNodeUtils::createCopyInst(IdentityVec, nullptr,
-                                                     "RedOp");
+  HLInst *RedOpVecInst = HLNodeUtils::createCopyInst(IdentityVec, "RedOp");
 
   HLNodeUtils::insertBefore(const_cast<HLLoop *>(OrigLoop), RedOpVecInst);
 
@@ -465,8 +464,8 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node, HLNode *Anchor) {
     HLNodeUtils::createBinaryHLInst(BOp->getOpcode(),
                                     RedOpVecInst->getLvalDDRef()->clone(),
                                     FreeOpVec,
-                                    RedOpVecInst->getLvalDDRef()->clone(),
-                                    ""/* Name */, BOp);
+                                    ""/* Name */,
+                                    RedOpVecInst->getLvalDDRef()->clone(), BOp);
 
   // Build the tail - horizontal operation that converts vector to scalar
   HLContainerTy Tail;
@@ -481,8 +480,9 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node, HLNode *Anchor) {
   RegDDRef *InitValue = LoadInitValInst->getLvalDDRef()->clone();
 
   Tail.push_back(HLNodeUtils::createBinaryHLInst(BOp->getOpcode(),
-                                                  ScalarValue, InitValue,
-                                                  RedOp->clone()));
+                                                 ScalarValue, InitValue,
+                                                 ""/* Name */,
+                                                 RedOp->clone()));
 
   HLNodeUtils::insertAfter(OrigLoop, &Tail);
   return WideInst;
@@ -511,8 +511,8 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
       RegDDRef *Rval2 = getVectorValue(INode->getOperandDDRef(2));
       WideInst = HLNodeUtils::createBinaryHLInst(BOp->getOpcode(),
                                                  Rval1, Rval2,
-                                                 nullptr, /* LvalRef */
                                                  "",      /* Name */
+                                                 nullptr, /* LvalRef */
                                                  BOp);
     }
 
@@ -600,7 +600,7 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
     auto AddressSpace = PtrType->getAddressSpace();
 
     Lval->setBaseDestType(PointerType::get(Rval->getDestType(), AddressSpace));
-    auto WideInst = HLNodeUtils::createStore(Rval, Lval);
+    auto WideInst = HLNodeUtils::createStore(Rval, "store", Lval);
 
     HLNodeUtils::insertBefore(Anchor, WideInst);
     return;

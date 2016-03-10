@@ -1,6 +1,6 @@
 //===-------- HLInst.cpp - Implements the HLInst class --------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -402,10 +402,8 @@ void HLInst::verify() const {
   HLDDNode::verify();
 
   if (IsSelectCmpTrueFalse) {
-    const RegDDRef *R1 = getOperandDDRef(1);
-    const RegDDRef *R2 = getOperandDDRef(2);
-
-    assert(R1->containsUndef() && R2->containsUndef() &&
+    assert(getOperandDDRef(1)->containsUndef() &&
+           getOperandDDRef(2)->containsUndef() &&
            "DDRefs for Select or Cmp Instruction with "
            "True or False predicate must be undefined");
   }

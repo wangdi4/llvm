@@ -1,6 +1,6 @@
 //===--------- HIRCodeGen.cpp - Implements HIRCodeGen class ---------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -27,13 +27,13 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 #include "llvm/Support/Debug.h"
 
@@ -158,7 +158,10 @@ private:
                          const Twine &Name);
 
     // \brief Return a value for blob corresponding to BlobIdx
-    Value *getBlobValue(int BlobIdx) {
+    // We normally expect Blob type to match CE type. The only exception is
+    // ptr blobs. Ptrs are converted to int of argument type, which should be
+    // CE src type
+    Value *getBlobValue(int BlobIdx, Type *Ty) {
       // SCEVExpander instruction generator references the insertion point's
       // parent.
       // If the IP is bblock.end(), undefined behavior results because the
@@ -171,30 +174,39 @@ private:
       // Expander shouldnt create new Bblocks, new IP is end of current bblock
       Builder->SetInsertPoint(TmpIP->getParent());
       TmpIP->eraseFromParent();
+      Type *BType = Blob->getType();
+      if (BType->isPointerTy() && BType != Ty) {
+        // A version of this should be in verifier, but we want to test CG'd
+        // type
+        unsigned PtrSize =
+            F->getParent()->getDataLayout().getPointerTypeSizeInBits(BType);
+        assert(Ty->getPrimitiveSizeInBits() == PtrSize &&
+               "Pointer size and CE size mismatch");
+        Blob = Builder->CreatePtrToInt(Blob, Ty);
+      }
       return Blob;
     }
 
     // \brief TODO blobs are reprsented by scev with some caveats
     SCEV *getBlobSCEV(int BlobIdx) {
-      return const_cast<SCEV *>(CanonExprUtils::getBlob(BlobIdx));
+      return const_cast<SCEV *>(BlobUtils::getBlob(BlobIdx));
     }
 
     Value *IVCoefCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt) {
       return CoefCG(CE->getIVConstCoeff(IVIt),
-                    getBlobValue(CE->getIVBlobCoeff(IVIt)));
+                    getBlobValue(CE->getIVBlobCoeff(IVIt), CE->getSrcType()));
     }
 
     //\brief return value for blobCoeff * constCoeff * iv with IV at level
     Value *IVPairCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt, Type *Ty);
 
     // \brief retutn value for coeff*V
-    Value *CoefCG(int Coeff, Value *V);
+    Value *CoefCG(int64_t Coeff, Value *V);
 
     //\brief returns value for blobCoeff*blob in <blobidx,coeff> pair
-    Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt,
-                      Type *Ty) {
+    Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt) {
       return CoefCG(CE->getBlobCoeff(BlobIt),
-                    getBlobValue(CE->getBlobIndex(BlobIt)));
+                    getBlobValue(CE->getBlobIndex(BlobIt), CE->getSrcType()));
     }
 
     // \brief Applies cast to Val according to CE's dest type, if applicable.
@@ -233,11 +245,19 @@ private:
         if (!isa<Instruction>(V))
           return V;
 
-        // Blobs represented by an scevunknowns whose value is an instruction
+        // Blobs represented by an scevunknown whose value is an instruction
         // are represented by load and stores to a memory location corresponding
         // to the blob's symbase. Blobs are always rvals, and so loaded
-        unsigned BlobSymbase = CanonExprUtils::findBlobSymbase(S);
-        assert(BlobSymbase && "Invalid symbase");
+        unsigned BlobSymbase = BlobUtils::findBlobSymbase(S);
+
+        // SCEVExpander can create its own SCEVs as intermediates which are
+        // then expanded. One example is expandAddToGep which replaces
+        // adds of ptr types with a SCEV for a gep instead of ptrtoints
+        // and adds. These new scevunknowns have an instruction but no
+        // corresponding blob. For those, return their underlying value
+        if(BlobSymbase == INVALID_BLOB_INDEX)  {
+          return V;
+        }
 
         std::string TempName = CG.getTempName(BlobSymbase);
         AllocaInst *TempAddr = CG.getNamedValue(TempName, S->getType());
@@ -316,6 +336,10 @@ private:
     AllocaInst *getNamedValue(const Twine &Name, Type *T);
   };
 
+  // Performs the necessary HIR Level transformations before visiting
+  // CodeGen like extracting ztt.
+  void preVisitCG(HLRegion *Reg) const;
+
 public:
   static char ID;
 
@@ -329,21 +353,22 @@ public:
 
     this->F = &F;
     SE = &(getAnalysis<ScalarEvolutionWrapperPass>().getSE());
-    auto HIRP = &getAnalysis<HIRParser>();
+    auto HIRF = &getAnalysis<HIRFramework>();
 
     // generate code
     CGVisitor CG(&F, SE, this);
     bool Transformed = false;
     unsigned RegionIdx = 1;
-    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E;
+    for (auto I = HIRF->hir_begin(), E = HIRF->hir_end(); I != E;
          ++I, ++RegionIdx) {
-      if ((!HIRDebugRegion &&
-           (cast<HLRegion>(I)->shouldGenCode() || forceHIRCG)) ||
+      HLRegion *Reg = cast<HLRegion>(&*I);
+      if ((!HIRDebugRegion && (Reg->shouldGenCode() || forceHIRCG)) ||
           (RegionIdx == HIRDebugRegion)) {
-        DEBUG(errs() << "Starting the code gen for " << RegionIdx << "\n");
-        DEBUG(I->dump(true));
-        DEBUG(I->dump());
-        CG.visit(&*I);
+        DEBUG(dbgs() << "Starting the code gen for " << RegionIdx << "\n");
+        DEBUG(Reg->dump(true));
+        DEBUG(Reg->dump());
+        preVisitCG(Reg);
+        CG.visit(Reg);
         Transformed = true;
       }
     }
@@ -351,7 +376,7 @@ public:
     // Liveout must be processed after all regions have be cg'd. One region's
     // live out value may be the next regions live in.
     RegionIdx = 1;
-    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E;
+    for (auto I = HIRF->hir_begin(), E = HIRF->hir_end(); I != E;
          ++I, ++RegionIdx) {
       HLRegion *R = cast<HLRegion>(I);
       if ((!HIRDebugRegion && (R->shouldGenCode() || forceHIRCG)) ||
@@ -369,7 +394,7 @@ public:
 
     // AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<HIRParser>();
+    AU.addRequired<HIRFramework>();
   }
 
   /// \brief Erases all the dummy instructions.
@@ -382,8 +407,20 @@ FunctionPass *llvm::createHIRCodeGenPass() { return new HIRCodeGen(); }
 char HIRCodeGen::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_END(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
+
+void HIRCodeGen::preVisitCG(HLRegion *Reg) const {
+  // Gather all loops for processing.
+  SmallVector<HLLoop *, 64> Loops;
+  HLNodeUtils::gatherAllLoops(Reg, Loops);
+
+  // Extract ztt, preheader and postexit.
+  for (auto &I : Loops) {
+    I->extractZtt();
+    I->extractPreheaderAndPostexit();
+  }
+}
 
 Value *HIRCodeGen::CGVisitor::castToDestType(CanonExpr *CE, Value *Val) {
 
@@ -529,9 +566,7 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   DEBUG(Ref->dump());
   DEBUG(dbgs() << " Symbase: " << Ref->getSymbase() << " \n");
 
-  assert(!Ref->containsUndef() && "undef operands not supported");
-
-  if (Ref->isScalarRef()) {
+  if (Ref->isTerminalRef()) {
     return visitScalar(Ref);
   }
 
@@ -794,50 +829,43 @@ Value *HIRCodeGen::CGVisitor::visitIf(HLIf *HIf) {
   return nullptr;
 }
 
-Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
-  if (L->hasZtt())
-    llvm_unreachable("Unimpl CG for Loop Ztt");
-
-  // undef ref. TODO define isDoLoop
-  // if(!L->isDoLoop()) {
-  //  llvm_unreachable("Unimpl CG for non do loops");
-  //}
-
-  if (L->hasPreheader())
-    llvm_unreachable("Unimpl CG for phdr");
+Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *Lp) {
+  assert(!Lp->hasZtt() && "Ztt should have been extracted!");
+  assert((!Lp->hasPreheader() && !Lp->hasPostexit()) &&
+         "Preheader/Postexit should have been extracted!");
 
   // set up IV, I think we can reuse the IV allocation across
   // multiple loops of same depth
-  std::string IVName = getIVName(L);
-  AllocaInst *Alloca = getNamedValue(IVName, L->getIVType());
+  std::string IVName = getIVName(Lp);
+  AllocaInst *Alloca = getNamedValue(IVName, Lp->getIVType());
 
   // Keep a stack of IV values. CanonExpr CG needs to know types
   // of loop IV itself, but this information is not available from
   // CE
   CurIVValues.push_back(Alloca);
 
-  Value *StartVal = visitRegDDRef(L->getLowerDDRef());
+  Value *StartVal = visitRegDDRef(Lp->getLowerDDRef());
 
   if (!StartVal || !Alloca)
     llvm_unreachable("Failed to CG IV");
 
-  assert(StartVal->getType() == L->getIVType() &&
+  assert(StartVal->getType() == Lp->getIVType() &&
          "IVtype does not match start type");
 
   Builder->CreateStore(StartVal, Alloca);
 
   // step and upper are loop invariant, we can generate them
   //"outside" the loop
-  Value *StepVal = visitRegDDRef(L->getStrideDDRef());
+  Value *StepVal = visitRegDDRef(Lp->getStrideDDRef());
 
-  Value *Upper = visitRegDDRef(L->getUpperDDRef());
+  Value *Upper = visitRegDDRef(Lp->getUpperDDRef());
 
-  assert(StepVal->getType() == L->getIVType() &&
+  assert(StepVal->getType() == Lp->getIVType() &&
          "IVtype does not match stepval type");
-  assert(Upper->getType() == L->getIVType() &&
+  assert(Upper->getType() == Lp->getIVType() &&
          "IVtype does not match upper type");
 
-  std::string LName = "loop." + std::to_string(L->getNumber());
+  std::string LName = "loop." + std::to_string(Lp->getNumber());
   BasicBlock *LoopBB = BasicBlock::Create(F->getContext(), LName, F);
 
   // explicit fallthru to loop, terminates current bblock
@@ -845,7 +873,7 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
   Builder->SetInsertPoint(LoopBB);
 
   // CG children
-  for (auto It = L->child_begin(), E = L->child_end(); It != E; ++It) {
+  for (auto It = Lp->child_begin(), E = Lp->child_end(); It != E; ++It) {
     // a loop might not return anything. Error checking is on callee
     visit(*It);
   }
@@ -864,10 +892,6 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
 
   // new code goes after loop
   Builder->SetInsertPoint(AfterBB);
-
-  // set up postexit
-  if (L->hasPostexit())
-    llvm_unreachable("Unimpl CG for postexit");
 
   CurIVValues.pop_back();
 
@@ -1047,8 +1071,8 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
                       "hir.cmp." + std::to_string(HInst->getNumber()));
     Builder->CreateStore(CmpVal, Ops[0]);
   } else if (isa<GetElementPtrInst>(Inst)) {
-    //Gep Instructions in LLVM may have any number of operands but the HIR 
-    //representation for them is always a single rhs ddref 
+    // Gep Instructions in LLVM may have any number of operands but the HIR
+    // representation for them is always a single rhs ddref
     assert(Ops.size() == 2 && "Gep Inst have single rhs of form &val");
     Builder->CreateStore(Ops[1], Ops[0]);
   } else if (isa<AllocaInst>(Inst)) {
@@ -1079,12 +1103,11 @@ Value *HIRCodeGen::CGVisitor::sumBlobs(CanonExpr *CE) {
     return nullptr;
 
   auto CurBlobPair = CE->blob_begin();
-  Type *Ty = CE->getSrcType();
-  Value *res = BlobPairCG(CE, CurBlobPair, Ty);
+  Value *res = BlobPairCG(CE, CurBlobPair);
   CurBlobPair++;
 
   for (auto E = CE->blob_end(); CurBlobPair != E; ++CurBlobPair)
-    res = Builder->CreateAdd(res, BlobPairCG(CE, CurBlobPair, Ty));
+    res = Builder->CreateAdd(res, BlobPairCG(CE, CurBlobPair));
 
   return res;
 }
@@ -1143,7 +1166,7 @@ Value *HIRCodeGen::CGVisitor::IVPairCG(CanonExpr *CE,
     return CoefCG(CE->getIVConstCoeff(IVIt), IV);
   }
 }
-Value *HIRCodeGen::CGVisitor::CoefCG(int Coeff, Value *V) {
+Value *HIRCodeGen::CGVisitor::CoefCG(int64_t Coeff, Value *V) {
 
   // do not emit 1*iv, just emit IV
   if (Coeff == 1)

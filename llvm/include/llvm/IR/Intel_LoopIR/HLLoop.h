@@ -1,6 +1,6 @@
 //===----------- HLLoop.h - High level IR loop node -------------*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -78,8 +78,6 @@ private:
   ChildNodeTy::iterator ChildBegin;
   /// Iterator pointing to beginning of postexit nodes.
   ChildNodeTy::iterator PostexitBegin;
-  /// This flag shouldn't change during the lifetime of the loop.
-  const bool IsDoWhile;
   unsigned NumExits;
   unsigned NestingLevel;
   // This flag indicates if the loop is innermost or not. All loops are created
@@ -88,10 +86,13 @@ private:
   bool IsInnermost;
   Type *IVType;
 
+  // Temporary tag to mark loop as multiversioned.
+  unsigned MVTag = 0;
+
 protected:
-  HLLoop(const Loop *LLVMLoop, bool IsDoWh);
+  HLLoop(const Loop *LLVMLoop);
   HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
-         RegDDRef *StrideDDRef, bool IsDoWh, unsigned NumEx);
+         RegDDRef *StrideDDRef, unsigned NumEx);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to access and destroy the nodes if we don't clear them out here.
@@ -104,9 +105,13 @@ protected:
          LabelMapTy *LabelMap, bool CloneChildren);
 
   friend class HLNodeUtils;
+  friend class HIRParser; // accesses ZTT
 
   /// \brief Initializes some of the members to bring the loop in a sane state.
   void initialize();
+
+  /// \brief Returns the Ztt of the loop.
+  HLIf *getZtt() { return Ztt; }
 
   /// \brief Sets the nesting level of the loop.
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
@@ -141,9 +146,6 @@ protected:
   HLLoop *cloneImpl(GotoContainerTy *GotoList,
                     LabelMapTy *LabelMap) const override;
 
-  /// \brief Updates blob DDRefs for the passed in trip count DDRef.
-  void updateTripCountBlobDDRefs(RegDDRef *TripRef) const;
-
 public:
   /// \brief Prints HLLoop.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
@@ -163,7 +165,8 @@ public:
   /// \brief sets the Ztt for HLLoop.
   void setZtt(HLIf *ZttIf);
 
-  /// \brief Removes and returns the Ztt for HLLoop.
+  /// \brief Removes and returns the Ztt for HLLoop if it exists, else returns
+  /// nullptr.
   HLIf *removeZtt();
 
   /// \brief Removes and returns the OrigLoop
@@ -172,6 +175,10 @@ public:
   /// \brief Creates a Ztt for HLLoop. IsOverwrite flag
   /// indicates to overwrite existing Ztt or not.
   void createZtt(bool IsOverwrite = true);
+
+  /// \brief Hoists the Ztt out of the loop. It returns a handle to the Ztt or
+  /// nullptr if it doesn't exist.
+  HLIf *extractZtt();
 
   /// ZTT Predicate iterator methods
   const_ztt_pred_iterator ztt_pred_begin() const {
@@ -274,11 +281,16 @@ public:
   /// \brief Returns the CanonExpr associated with loop trip count.
   /// Returns a newly allocated CanonExpr as this information is not
   /// directly stored so use with caution.
+  /// This routine can return nullptr if the trip count cannot be computed.
   CanonExpr *getTripCountCanonExpr() const;
 
   /// \brief Returns Trip Count DDRef of this loop.
   /// Note, this will create a new DDRef in each call.
-  RegDDRef *getTripCountDDRef() const;
+  /// NestingLevel argument indicates the level at which this DDRef will be
+  /// attached to HIR. The default is: (loop nesting nevel - 1).
+  /// This routine can return nullptr if the trip count cannot be computed.
+  RegDDRef *getTripCountDDRef(unsigned NestingLevel = (MaxLoopNestLevel +
+                                                       1)) const;
 
   /// \brief Returns true if this is a constant trip count loop and sets the
   /// trip count in TripCnt parameter only if the loop is constant trip loop.
@@ -288,17 +300,14 @@ public:
   bool isDo() const {
     auto UpperDDRef = getUpperDDRef();
     assert(UpperDDRef && "UpperDDRef may not be null");
-    return (!IsDoWhile && (NumExits == 1) && !UpperDDRef->containsUndef());
+    return ((NumExits == 1) && !UpperDDRef->containsUndef());
   }
-
-  /// \brief Returns true if this is a do-while loop.
-  bool isDoWhile() const { return IsDoWhile; }
 
   /// \brief Returns true if this is a do multi-exit loop.
   bool isDoMultiExit() const {
     auto UpperDDRef = getUpperDDRef();
     assert(UpperDDRef && "UpperDDRef may not be null");
-    return (!IsDoWhile && (NumExits > 1) && !UpperDDRef->containsUndef());
+    return ((NumExits > 1) && !UpperDDRef->containsUndef());
   }
 
   /// \brief Returns true if this is an unknown loop.
@@ -339,7 +348,7 @@ public:
   reverse_pre_iterator pre_rend() { return Children.rend(); }
   const_reverse_pre_iterator pre_rend() const { return Children.rend(); }
 
-  /// Preheader acess methods
+  /// Preheader access methods
 
   /// \brief Returns the first preheader node if it exists, otherwise returns
   /// null.
@@ -360,6 +369,10 @@ public:
   }
   /// \brief Returns true if preheader is not empty.
   bool hasPreheader() const { return (pre_begin() != pre_end()); }
+
+  /// \brief Moves preheader nodes before the loop. Ztt is extracted first, if
+  /// present.
+  void extractPreheader();
 
   /// Postexit iterator methods
   post_iterator post_begin() { return PostexitBegin; }
@@ -397,6 +410,14 @@ public:
   }
   /// \brief Returns true if postexit is not empty.
   bool hasPostexit() const { return (post_begin() != post_end()); }
+
+  /// \brief Moves postexit nodes after the loop. Ztt is extracted first, if
+  /// present.
+  void extractPostexit();
+
+  /// \brief Moves preheader nodes before the loop and postexit nodes after the
+  /// loop. Ztt is extracted first, if present.
+  void extractPreheaderAndPostexit();
 
   /// Children iterator methods
   child_iterator child_begin() { return pre_end(); }
@@ -498,6 +519,10 @@ public:
 
   /// \brief Checks whether SIMD directive is attached to the loop
   bool isSIMD() const;
+
+  unsigned getMVTag() { return MVTag; }
+
+  void setMVTag(unsigned Tag) { MVTag = Tag; }
 };
 
 } // End namespace loopopt

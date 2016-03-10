@@ -1,6 +1,6 @@
 //===----------- LoopFormation.h - Creates HIR loops ----------*-- C++ --*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -30,6 +30,7 @@ namespace loopopt {
 
 class HLRegion;
 class HLLoop;
+class HLIf;
 class HIRCreation;
 class HIRCleanup;
 
@@ -58,9 +59,6 @@ private:
   /// Loops - Sorted vector of Loops to HLLoops.
   SmallVector<LoopPairTy, 32> Loops;
 
-  /// \brief Forms loops in HIR.
-  void formLoops();
-
   /// \brief Inserts (Lp, HLoop) pair in the map.
   void insertHLLoop(const Loop *Lp, HLLoop *HLoop);
 
@@ -74,6 +72,16 @@ private:
 
   /// \brief Sets the IV type for HLoop.
   void setIVType(HLLoop *HLoop) const;
+
+  /// \brief Moves children of IfParent to loop's preheader/postexit if they are
+  /// valid, else returns false.
+  static bool populatedPreheaderPostexitNodes(HLLoop *HLoop, HLIf *IfParent);
+
+  /// \brief Sets the parent if node of the loop as its ztt.
+  void setZtt(HLLoop *HLoop) const;
+
+  /// \brief Forms loops in HIR.
+  void formLoops();
 
 public:
   static char ID; // Pass identification

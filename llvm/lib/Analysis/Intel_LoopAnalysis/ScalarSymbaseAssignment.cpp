@@ -1,6 +1,6 @@
 //===- ScalarSymbaseAssignment.cpp - Assigns symbase to scalars -----------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -90,6 +90,24 @@ unsigned ScalarSymbaseAssignment::getOrAssignTempSymbase(const Value *Temp) {
   return Symbase;
 }
 
+const Value *
+ScalarSymbaseAssignment::traceSingleOperandPhis(const Value *Scalar) const {
+                                                   
+  auto PhiInst = dyn_cast<PHINode>(Scalar);
+
+  while (PhiInst && (1 == PhiInst->getNumIncomingValues())) {
+
+    Scalar = PhiInst->getOperand(0);
+
+    assert(isa<Instruction>(Scalar) &&
+           "Single phi operand is not an instruction!");
+
+    PhiInst = dyn_cast<PHINode>(Scalar);
+  }
+
+  return Scalar;
+}
+
 unsigned ScalarSymbaseAssignment::getTempSymbase(const Value *Temp) const {
 
   auto Iter = TempSymbaseMap.find(Temp);
@@ -122,6 +140,7 @@ const Value *ScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
 #endif
   }
 
+  assert(RetVal && "Unexpected null value in RetVal");
   return RetVal;
 }
 
@@ -182,13 +201,15 @@ ScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
 unsigned
 ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
                                                       bool Assign) {
-  unsigned Symbase;
+  unsigned Symbase = INVALID_SYMBASE;
 
   // TODO: assign constant symbase to metadata types as they do not cause data
   // dependencies.
   if (isConstant(Scalar)) {
     return CONSTANT_SYMBASE;
   }
+
+  Scalar = traceSingleOperandPhis(Scalar);
 
   if (auto Inst = dyn_cast<Instruction>(Scalar)) {
     // First check if this instruction is a copy instruction inserted by SSA
@@ -204,7 +225,7 @@ ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
 
         // Insert into TempSymbaseMap so that the base temp can be retrieved
         // using getBaseScalar().
-        if (Assign && !getTempSymbase(Inst)) {
+        if (Assign && (INVALID_SYMBASE == getTempSymbase(Inst))) {
           insertTempSymbase(Inst, Symbase);
         }
       } else {
@@ -234,23 +255,6 @@ unsigned ScalarSymbaseAssignment::getScalarSymbase(const Value *Scalar) {
   return getOrAssignScalarSymbaseImpl(Scalar, false);
 }
 
-bool ScalarSymbaseAssignment::isRegionLiveOut(
-    RegionIdentification::iterator RegIt, const Instruction *Inst) const {
-  // Check if the Inst is used outside the region.
-  for (auto UserIt = Inst->user_begin(), EndIt = Inst->user_end();
-       UserIt != EndIt; ++UserIt) {
-    assert(isa<Instruction>(*UserIt) && "Use is not an instruction!");
-
-    if ((*RegIt)->containsBBlock(cast<Instruction>(*UserIt)->getParent())) {
-      continue;
-    }
-
-    return true;
-  }
-
-  return false;
-}
-
 void ScalarSymbaseAssignment::populateRegionLiveouts(
     RegionIdentification::iterator RegIt) {
   // Traverse region basic blocks.
@@ -262,7 +266,7 @@ void ScalarSymbaseAssignment::populateRegionLiveouts(
     for (auto Inst = (*BBIt)->begin(), EndI = (*BBIt)->end(); Inst != EndI;
          ++Inst) {
 
-      if (isRegionLiveOut(RegIt, &*Inst)) {
+      if (SCCF->isRegionLiveOut(RegIt, &*Inst)) {
         auto Symbase = getOrAssignScalarSymbase(&*Inst);
         (*RegIt)->addLiveOutTemp(&*Inst, Symbase);
       }

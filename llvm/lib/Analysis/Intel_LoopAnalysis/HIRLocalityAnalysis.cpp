@@ -1,6 +1,6 @@
 //===---- HIRLocalityAnalysis.cpp - Computes Locality Analysis ------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -42,20 +42,22 @@
 //    should work fine, but add more test cases.
 
 #include "llvm/Pass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
+
 #include "llvm/IR/Type.h"
+
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
-#include "llvm/IR/Intel_LoopIR/DDRefGatherer.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -75,16 +77,14 @@ FunctionPass *llvm::createHIRLocalityAnalysisPass() {
 char HIRLocalityAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLocalityAnalysis, "hir-locality-analysis",
                       "HIR Locality Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(SymbaseAssignment)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_END(HIRLocalityAnalysis, "hir-locality-analysis",
                     "HIR Locality Analysis", false, true)
 
 void HIRLocalityAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
-  AU.addRequired<HIRParser>();
-  AU.addRequired<SymbaseAssignment>();
+  AU.addRequired<HIRFramework>();
 }
 
 // Performs a basic setup without actually running the locality
@@ -150,7 +150,7 @@ void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
   }
 }
 
-void HIRLocalityAnalysis::markLoopModified(const HLLoop *L) {
+void HIRLocalityAnalysis::markLoopBodyModified(const HLLoop *L) {
 
   assert(L && " Loop parameter is null.");
 
@@ -162,126 +162,6 @@ void HIRLocalityAnalysis::markLoopModified(const HLLoop *L) {
   while (CurLoop) {
     LoopModificationMap[CurLoop] = true;
     CurLoop = CurLoop->getParentLoop();
-  }
-}
-
-// Compares the CanonExpr associated with a memory reference
-// TODO: Think about moving this to CanonExprUtils and merging with areEqual.
-bool compareMemRefCE(const CanonExpr *ACanon, const CanonExpr *BCanon) {
-
-  // TODO: handle type comparison.
-  // Not sure, if this is necessary at all.
-  assert(CanonExprUtils::isTypeEqual(ACanon, BCanon) &&
-         " Handle Canon Expr type comparison.");
-
-  // Check the number of IV's.
-  if (ACanon->numIVs() != BCanon->numIVs())
-    return (ACanon->numIVs() < BCanon->numIVs());
-
-  // Check the IV's.
-  for (auto IVIt1 = ACanon->iv_begin(), IVIt2 = BCanon->iv_begin(),
-            End = ACanon->iv_end();
-       IVIt1 != End; ++IVIt1, ++IVIt2) {
-    if (IVIt1->Coeff != IVIt2->Coeff)
-      return (IVIt1->Coeff < IVIt2->Coeff);
-    if (IVIt1->Index != IVIt2->Index)
-      return (IVIt1->Index < IVIt2->Index);
-  }
-
-  // Check the number of blobs.
-  if (ACanon->numBlobs() != BCanon->numBlobs())
-    return (ACanon->numBlobs() < BCanon->numBlobs());
-
-  // Check the Blob's.
-  for (auto It1 = ACanon->blob_begin(), End = ACanon->blob_end(),
-            It2 = BCanon->blob_begin();
-       It1 != End; ++It1, ++It2) {
-
-    if (It1->Coeff != It2->Coeff)
-      return (It1->Coeff < It2->Coeff);
-    if (It1->Index != It2->Index)
-      return (It1->Index < It2->Index);
-  }
-
-  if (ACanon->getConstant() != BCanon->getConstant())
-    return (ACanon->getConstant() < BCanon->getConstant());
-
-  if (ACanon->getDenominator() != BCanon->getDenominator())
-    return (ACanon->getDenominator() < BCanon->getDenominator());
-
-  // Check division type for non-unit denominator.
-  if ((ACanon->getDenominator() != 1) &&
-      (ACanon->isSignedDiv() != BCanon->isSignedDiv())) {
-    return ACanon->isSignedDiv();
-  }
-
-  // Assert, since the two canon expr should differ atleast one case,
-  // as we have already checked for their equality.
-  assert(false && " CanonExprs should be different.");
-
-  return true;
-}
-
-// Sorting comparator operator for two DDRef.
-// This sorting compares the two ddref and orders them based on
-// the dimensions, IV's, blobs and then writes.
-// For example: A[i+5][j], A[i][0] -> Read, A[i][j], A[i+k][0],
-// A[i][0] -> Write will be sorted as
-// A[i][0] -> Write, A[i][0] -> Read, A[i+k][0], A[i][j], A[i+5][j].
-bool compareMemRef(const RegDDRef *A, const RegDDRef *B) {
-
-  if (!CanonExprUtils::areEqual(A->getBaseCE(), B->getBaseCE()))
-    return compareMemRefCE(A->getBaseCE(), B->getBaseCE());
-
-  if (A->getNumDimensions() != B->getNumDimensions()) {
-    return (A->getNumDimensions() < B->getNumDimensions());
-  }
-
-  // Check canon expr of the two ddrefs.
-  for (auto AIter = A->canon_begin(), End = A->canon_end(),
-            BIter = B->canon_begin();
-       AIter != End; ++AIter, ++BIter) {
-
-    const CanonExpr *ACanon = *AIter;
-    const CanonExpr *BCanon = *BIter;
-
-    if (!CanonExprUtils::areEqual(ACanon, BCanon)) {
-      return compareMemRefCE(ACanon, BCanon);
-    }
-  }
-
-  // Place writes first in case everything matches.
-  if (B->isLval()) {
-    return false;
-  }
-
-  return true;
-}
-
-void HIRLocalityAnalysis::sortMemRefs(SymToMemRefTy &MemRefMap) {
-
-  // Sorts the memory reference based on the comparison provided
-  // by compareMemRef.
-  for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
-       SymVecPair != Last; ++SymVecPair) {
-    SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
-    std::sort(RefVec.begin(), RefVec.end(), compareMemRef);
-  }
-}
-
-bool areEqualRef(RegDDRef *Reg1, RegDDRef *Reg2) {
-  return DDRefUtils::areEqual(Reg1, Reg2);
-}
-
-void HIRLocalityAnalysis::removeDuplicates(SymToMemRefTy &MemRefMap) {
-
-  // Removes the duplicates by comparing the Ref's in sorted order.
-  for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
-       SymVecPair != Last; ++SymVecPair) {
-    SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
-
-    RefVec.erase(std::unique(RefVec.begin(), RefVec.end(), areEqualRef),
-                 RefVec.end());
   }
 }
 
@@ -299,7 +179,7 @@ void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
   for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
        SymVecPair != Last; ++SymVecPair) {
 
-    SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
+    auto &RefVec = SymVecPair->second;
 
     // Count Invariant References and remove them from the map.
     // Note, we need to check vector end, since elements are deleted.
@@ -313,153 +193,6 @@ void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
         LI->TempInv += (getTripCount(Loop) - 1);
       } else {
         Iter++;
-      }
-    }
-  }
-}
-
-// Removes the empty Symbases from the list.
-// This is needed since the invariant DDRef will be removed from
-// the list.
-void HIRLocalityAnalysis::clearEmptySlots(SymToMemRefTy &MemRefMap) {
-
-  // Note, we need to check map end since the elements
-  // are deleted.
-  for (auto SymVecPair = MemRefMap.begin(); SymVecPair != MemRefMap.end();) {
-
-    SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
-    if (RefVec.empty()) {
-      auto EraseIt = SymVecPair;
-      SymVecPair++;
-      MemRefMap.erase(EraseIt);
-    } else {
-      SymVecPair++;
-    }
-  }
-}
-
-// This method checks if Ref2 matches Ref1 to be stored in the same array
-// reference group.
-// The check does a diff = Ref1-Ref2. If the diff is constant, and has one
-// differing subscript then we found a match. For example: A[i][j] and
-// A[i+1][j] belongs to same group, whereas A[i+1][j+1] and A[i][j] are in
-// different groups.
-bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
-                                             const RegDDRef *Ref2,
-                                             unsigned Level) {
-
-  // TODO: Think about if we can delinearize the subscripts.
-  if (Ref1->getNumDimensions() != Ref2->getNumDimensions())
-    return false;
-
-  unsigned NumConstDiff = 0;
-
-  // Compare base CE.
-  // TODO: Currently assuming it to be in different groups. Need to add
-  // support for cases such as *(ptr+i) and *(ptr+i+1).
-  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE())) {
-    assert(false && " Handle Base CE for array groups.");
-    return false;
-  }
-
-  for (auto Ref1Iter = Ref1->canon_begin(), End = Ref1->canon_end(),
-            Ref2Iter = Ref2->canon_begin();
-       Ref1Iter != End; ++Ref1Iter, ++Ref2Iter) {
-
-    // Check if both the CanonExprs have IV.
-    const CanonExpr *Ref1CE = *Ref1Iter;
-    const CanonExpr *Ref2CE = *Ref2Iter;
-
-    // For cases such as A[i+1][j+1] and A[i][j], where j+1 and j will have
-    // const diff, but need to be placed in different groups for i-loop
-    // grouping.
-    if (!Ref1CE->hasIV(Level)) {
-      // Compare 'j' and 'j+1'
-      if (!CanonExprUtils::areEqual(Ref1CE, Ref2CE)) {
-        return false;
-      } else {
-        continue;
-      }
-    }
-
-    // TODO: Handle CanonExpr types inside MemRef's.
-    // We can be very conservative and return false, but this might
-    // lead to overestimated values. Currently, adding assert.
-    assert(CanonExprUtils::isTypeEqual(Ref1CE, Ref2CE) &&
-           " CanonExpr type mismatch.");
-
-    // Diff the CanonExprs.
-    const CanonExpr *Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);
-
-    // Result should not have any IV's or blobs.
-    if (Result->hasBlob() || Result->hasIV())
-      return false;
-
-    // Difference between the two canon expr should be constant.
-    int64_t Diff = std::abs(Result->getConstant()) / Result->getDenominator();
-
-    // If Diff is greater than NumCacheLines then place it in a
-    // separate bucket.
-    if (Diff > NumCacheLines)
-      return false;
-
-    if (Diff != 0) {
-      NumConstDiff++;
-      // Multiple Const diff will be in separate groups.
-      if (NumConstDiff > 1)
-        return false;
-    }
-  }
-
-  // Both RegDDRefs are same. This shouldn't exist as we have removed
-  // duplicates.
-  assert(NumConstDiff && " Duplicate DDRef found.");
-
-  return true;
-}
-
-// Creates the RefGrouping.
-// A reference group is created at the specified level.
-// Only the IV at that level should change as specified in isGroupMemRefMatch.
-// Simple Example:
-// MemRefMap : B[J][I], B[J][I-1], B[J][I+1], B[J-1][I], B[J+1][I]
-// RefGroup created for I-Level:
-// Group 1 : B[J][I], B[J][I-1], B[J][I+1]
-// Group 2 : B[J-1][I]
-// Group 3 : B[J+1][I]
-void HIRLocalityAnalysis::createRefGroups(SymToMemRefTy &MemRefMap,
-                                          unsigned Level) {
-
-  // Incremented whenever a new group is created.
-  unsigned MaxGroupNo = 0;
-
-  for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
-       SymVecPair != Last; ++SymVecPair) {
-
-    // Keep track of the new groups to match existing DDRefs.
-    unsigned StartGroupIndex = MaxGroupNo;
-
-    SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
-    for (auto VecIt = RefVec.begin(), End = RefVec.end(); VecIt != End;
-         ++VecIt) {
-
-      bool MatchFound = false;
-
-      // Check if DDRef matches any of the groups.
-      for (unsigned GroupIndex = StartGroupIndex; GroupIndex < MaxGroupNo;
-           ++GroupIndex) {
-        SmallVectorImpl<const RegDDRef *> &GroupRefVec = RefGroups[GroupIndex];
-        assert(!GroupRefVec.empty() && " Ref Group is empty.");
-        if (isGroupMemRefMatch(GroupRefVec[0], *VecIt, Level)) {
-          MatchFound = true;
-          GroupRefVec.push_back(*VecIt);
-          break;
-        }
-      }
-
-      // Create a new group since no match was found.
-      if (!MatchFound) {
-        RefGroups[MaxGroupNo++].push_back(*VecIt);
       }
     }
   }
@@ -498,15 +231,20 @@ bool HIRLocalityAnalysis::isTemporalReuse(const RegDDRef *Ref1,
                                           unsigned IVPos) {
 
   // Compare the diff at subscript Pos.
-  CanonExpr *Ref1CE = Ref1->getDimensionIndex(IVPos);
-  CanonExpr *Ref2CE = Ref2->getDimensionIndex(IVPos);
+  const CanonExpr *Ref1CE = Ref1->getDimensionIndex(IVPos);
+  const CanonExpr *Ref2CE = Ref2->getDimensionIndex(IVPos);
 
   // Diff the CanonExprs.
-  const CanonExpr *Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);
+  const CanonExpr *Result =
+      CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE, true);
+  if (!Result) {
+    return false;
+  }
 
   // TODO: Being conservative with Denom.
-  if (Result->getDenominator() > 1)
+  if (Result->getDenominator() > 1) {
     return false;
+  }
 
   assert(Result->isIntConstant() &&
          " Result is not constant for temporal reuse.");
@@ -655,22 +393,6 @@ void HIRLocalityAnalysis::computeSpatialLocality(const HLLoop *Loop) {
   }
 }
 
-// Used primarily for debugging.
-void HIRLocalityAnalysis::printRefGroups() {
-
-  DEBUG(dbgs() << "\n Reference Groups \n");
-  for (auto SymVecPair = RefGroups.begin(), Last = RefGroups.end();
-       SymVecPair != Last; ++SymVecPair) {
-    SmallVectorImpl<const RegDDRef *> &RefVec = SymVecPair->second;
-    DEBUG(dbgs() << "Group " << SymVecPair->first << " contains: \n");
-    for (auto Ref = RefVec.begin(), E = RefVec.end(); Ref != E; ++Ref) {
-      DEBUG(dbgs() << "\t");
-      DEBUG((*Ref)->dump());
-      DEBUG(dbgs() << " -> isWrite:" << (*Ref)->isLval() << "\n");
-    }
-  }
-}
-
 void HIRLocalityAnalysis::printLocalityInfo(raw_ostream &OS,
                                             const HLLoop *L) const {
 
@@ -717,6 +439,101 @@ void HIRLocalityAnalysis::resetLocalityMap(const HLLoop *L) {
   }
 }
 
+// Removes the empty Symbases from the list.
+// This is needed since the invariant DDRef will be removed from
+// the list.
+void HIRLocalityAnalysis::clearEmptySlots(SymToMemRefTy &MemRefMap) {
+  // Note, we need to check map end since the elements
+  // are deleted.
+  for (auto SymVecPair = MemRefMap.begin(); SymVecPair != MemRefMap.end();) {
+    auto &RefVec = SymVecPair->second;
+    if (RefVec.empty()) {
+      auto EraseIt = SymVecPair;
+      SymVecPair++;
+      MemRefMap.erase(EraseIt);
+    } else {
+      SymVecPair++;
+    }
+  }
+}
+
+bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
+                                             const RegDDRef *Ref2,
+                                             unsigned Level, uint64_t MaxDiff) {
+
+  // TODO: Think about if we can delinearize the subscripts.
+  if (Ref1->getNumDimensions() != Ref2->getNumDimensions())
+    return false;
+
+  unsigned NumConstDiff = 0;
+
+  // Compare base CE.
+  // TODO: Currently assuming it to be in different groups. Need to add
+  // support for cases such as *(ptr+i) and *(ptr+i+1).
+  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE())) {
+    // assert(false && " Handle Base CE for array groups.");
+    return false;
+  }
+
+  for (auto Ref1Iter = Ref1->canon_begin(), End = Ref1->canon_end(),
+            Ref2Iter = Ref2->canon_begin();
+       Ref1Iter != End; ++Ref1Iter, ++Ref2Iter) {
+
+    // Check if both the CanonExprs have IV.
+    const CanonExpr *Ref1CE = *Ref1Iter;
+    const CanonExpr *Ref2CE = *Ref2Iter;
+
+    // For cases such as A[i+1][j+1] and A[i][j], where j+1 and j will have
+    // const diff, but need to be placed in different groups for i-loop
+    // grouping.
+    if (!Ref1CE->hasIV(Level)) {
+      // Compare 'j' and 'j+1'
+      if (!CanonExprUtils::areEqual(Ref1CE, Ref2CE)) {
+        return false;
+      } else {
+        continue;
+      }
+    }
+
+    // Diff the CanonExprs.
+    // TODO: Added RelaxedMode, but think about cases where src type also
+    // differs.
+    // sext.i32.i64(i+21) and i64(i+21) should be present in the same group.
+    const CanonExpr *Result =
+        CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE, true);
+    if (!Result) {
+      return false;
+    }
+
+    // Result should not have any IV's or blobs.
+    if (Result->hasBlob() || Result->hasIV()) {
+      return false;
+    }
+
+    // Difference between the two canon expr should be constant.
+    uint64_t Diff = std::abs(Result->getConstant()) / Result->getDenominator();
+
+    // If Diff is greater than MaxDiff then place it in a
+    // separate bucket.
+    if (Diff > MaxDiff) {
+      return false;
+    }
+
+    if (Diff != 0) {
+      NumConstDiff++;
+      // Multiple Const diff will be in separate groups.
+      if (NumConstDiff > 1)
+        return false;
+    }
+  }
+
+  // Both RegDDRefs are same. This shouldn't exist as we have removed
+  // duplicates.
+  assert(NumConstDiff && " Duplicate DDRef found.");
+
+  return true;
+}
+
 // This is a high level routine to compute different locality.
 void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
                                           bool EnableCache) {
@@ -726,22 +543,22 @@ void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
     return;
 
   // Get the Symbase to Memory References.
-  SymToMemRefTy MemRefMap;
+  MemRefGatherer::MapTy MemRefMap;
   MemRefGatherer::gather(Loop, MemRefMap);
 
   // Debugging
-  DEBUG(dumpRefMap(MemRefMap));
+  DEBUG(MemRefGatherer::dump(MemRefMap));
 
   // Sort the Memory References.
-  sortMemRefs(MemRefMap);
+  MemRefGatherer::sort(MemRefMap);
   DEBUG(dbgs() << " After sorting\n");
-  DEBUG(dumpRefMap(MemRefMap));
+  DEBUG(MemRefGatherer::dump(MemRefMap));
 
   // Remove duplicate memory references.
-  removeDuplicates(MemRefMap);
+  MemRefGatherer::makeUnique(MemRefMap);
 
   DEBUG(dbgs() << " After sorting and removing dups\n");
-  DEBUG(dumpRefMap(MemRefMap));
+  DEBUG(MemRefGatherer::dump(MemRefMap));
   DEBUG(dbgs() << " End\n");
 
   // Collect all the loops inside the loop nest.
@@ -770,11 +587,16 @@ void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
     // are erased by temp invariant locality pass.
     clearEmptySlots(LoopMemRefMap);
 
-    DEBUG(dumpRefMap(LoopMemRefMap));
+    DEBUG(MemRefGatherer::dump(LoopMemRefMap));
 
     // Create Groupings based on index.
-    createRefGroups(LoopMemRefMap, CurLoop->getNestingLevel());
-    DEBUG(printRefGroups());
+
+    DDRefGrouping::createGroups(
+        RefGroups, LoopMemRefMap,
+        std::bind(isGroupMemRefMatch, std::placeholders::_1,
+                  std::placeholders::_2, CurLoop->getNestingLevel(),
+                  NumCacheLines));
+    DEBUG(DDRefGrouping::dump(RefGroups));
 
     computeTempReuseLocality(CurLoop);
 

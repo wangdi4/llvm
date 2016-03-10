@@ -1,6 +1,6 @@
 //===- CanonExpr.h - Closed form in high level IR ---------------*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -94,13 +94,6 @@ private:
   };
 
 public:
-  typedef const SCEV *BlobTy;
-  typedef std::pair<BlobTy, unsigned> BlobSymbasePairTy;
-  typedef SmallVector<BlobSymbasePairTy, 64> BlobTableTy;
-
-  typedef std::pair<BlobTy, unsigned> BlobPtrIndexPairTy;
-  typedef SmallVector<BlobPtrIndexPairTy, 64> BlobToIndexTy;
-
   /// Each element represents blob index and coefficient associated with an IV
   /// at a particular loop level.
   typedef SmallVector<BlobIndexToCoeff, 4> IVCoeffsTy;
@@ -119,8 +112,6 @@ public:
   typedef BlobCoeffsTy::reverse_iterator reverse_blob_iterator;
   typedef BlobCoeffsTy::const_reverse_iterator const_reverse_blob_iterator;
 
-  static const unsigned INVALID_BLOB_INDEX = 0;
-
 private:
   /// \brief Copy constructor; only used for cloning.
   CanonExpr(const CanonExpr &);
@@ -132,16 +123,6 @@ private:
   static void destroyAll();
   // Keeps track of objects of this class.
   static std::set<CanonExpr *> Objs;
-
-  // BlobTable - vector containing blobs and corresponding symbases for the
-  // function.
-  // Moved here from HIRParser to allow printer to print blobs without needing
-  // the parser.
-  static BlobTableTy BlobTable;
-
-  // BlobToIndexMap - stores a mapping of blobs to corresponding indices for
-  // faster lookup.
-  static BlobToIndexTy BlobToIndexMap;
 
   // SrcTy and DestTy hide one level of casting applied on top of the
   // canonical form.
@@ -174,42 +155,8 @@ protected:
   /// \brief Destroys the object.
   void destroy();
 
-  /// \brief Internal method to check blob index range.
-  static bool isBlobIndexValid(unsigned Index);
-
   /// \brief Internal method to check level range.
   static bool isLevelValid(unsigned Level);
-
-  /// \brief Implements find()/insert() functionality.
-  /// ReturnSymbase indicates whether to return blob index or symbase.
-  static unsigned findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
-                                       bool Insert, bool ReturnSymbase);
-
-  /// \brief Returns the index of Blob in the blob table. Index range is [1,
-  /// UINT_MAX]. Returns INVALID_BLOB_INDEX if the blob is not present in the
-  /// table.
-  static unsigned findBlob(BlobTy Blob);
-
-  /// \brief Returns symbase corresponding to Blob. Returns invalid value for
-  /// non-temp or non-present blobs.
-  static unsigned findBlobSymbase(BlobTy Blob);
-
-  /// \brief Returns the index of Blob in the blob table. Blob is first
-  /// inserted, if it isn't already present in the blob table. Index range is
-  /// [1, UINT_MAX].
-  static unsigned findOrInsertBlob(BlobTy Blob, unsigned Symbase);
-
-  /// \brief Returns blob corresponding to Index.
-  static BlobTy getBlob(unsigned Index);
-
-  /// \brief Returns symbase corresponding to Index. Returns invalid value for
-  /// non-temp non-present blobs.
-  static unsigned getBlobSymbase(unsigned Index);
-
-  /// \brief Maps blobs in Blobs to their corresponding indices and inserts
-  /// them in Indices.
-  static void mapBlobsToIndices(SmallVectorImpl<BlobTy> &Blobs,
-                                SmallVectorImpl<unsigned> &Indices);
 
   /// \brief Implements hasIV()/numIV() and
   /// hasBlobIVCoeffs()/numBlobIVCoeffs() functionality.
@@ -253,6 +200,13 @@ protected:
   bool isConstInternal() const {
     return (!containsUndef() && !hasIV() && !hasBlob() &&
             (getDenominator() == 1));
+  }
+
+  /// \brief Return the mathematical coefficient to be used in cases
+  /// where mathematical addition is performed. The Coeff value in those
+  /// cases is multiplied by denominator.
+  int64_t getMathCoeff(int64_t Coeff, bool IsMathAdd) {
+    return IsMathAdd ? (getDenominator() * Coeff) : Coeff;
   }
 
 public:
@@ -303,10 +257,6 @@ public:
     assert((DefLvl <= MaxLoopNestLevel) && "DefLvl exceeds max level!");
     DefinedAtLevel = DefLvl;
   }
-
-  /// \brief Marks the CE as non-linear if the necessary, based on the
-  /// level argument.
-  void updateNonLinear(unsigned Level);
 
   /// \brief Returns true if this is linear at all levels.
   bool isProperLinear() const { return (DefinedAtLevel == 0); }
@@ -423,8 +373,11 @@ public:
   void setConstant(int64_t Val) { Const = Val; }
 
   /// \brief Adds a constant value (Val) to the existing constant additive
-  /// of the canon expr.
-  void addConstant(int64_t Val) { Const += Val; }
+  /// of the canon expr. If IsMathAdd is set to true (default is false), it
+  /// performs mathematical addition by considering denominator in addition.
+  void addConstant(int64_t Val, bool IsMathAdd = false) {
+    Const += getMathCoeff(Val, IsMathAdd);
+  }
 
   /// \brief Returns the denominator of the canon expr.
   int64_t getDenominator() const { return Denominator; }
@@ -436,7 +389,7 @@ public:
 
   /// \brief Multiplies the constant value (Val) with the existing denominator
   /// of the canon expr. The new denominator equals (Old denominator * Val).
-  void multiplyDenominator(int64_t Val, bool Simplify = false);
+  void divide(int64_t Val, bool Simplify = false);
 
   /// \brief Returns true if the division in the canon expr is a signed
   /// division.
@@ -520,10 +473,13 @@ public:
   /// b1 + C2 * b2). Index can be set to zero if only a constant needs to be
   /// added. For example if the canon expr looks like (2 * n) * i1 before
   /// change, it will be modified to (3 + 2 * n) * i1 after a call to addIV(1,
-  /// 0, 3).
-  void addIV(unsigned Lvl, unsigned Index, int64_t Coeff);
+  /// 0, 3). If IsMathAdd is set to true (default is false), it
+  /// performs mathematical addition by considering denominator in addition.
+  void addIV(unsigned Lvl, unsigned Index, int64_t Coeff,
+             bool IsMathAdd = false);
   /// \brief Iterator version of addIV().
-  void addIV(iv_iterator IVI, unsigned Index, int64_t Coeff);
+  void addIV(iv_iterator IVI, unsigned Index, int64_t Coeff,
+             bool IsMathAdd = false);
 
   /// \brief Removes IV at a particular loop level.
   void removeIV(unsigned Lvl);
@@ -564,10 +520,12 @@ public:
   /// \brief Iterator version of setBlobCoeff().
   void setBlobCoeff(blob_iterator BlobI, int64_t Coeff);
 
-  /// \brief Adds to the existing blob coefficient.
-  void addBlob(unsigned Index, int64_t Coeff);
+  /// \brief Adds to the existing blob coefficient. If IsMathAdd is set to true
+  /// (default is false), it performs mathematical addition by considering
+  /// denominator in addition.
+  void addBlob(unsigned Index, int64_t Coeff, bool IsMathAdd = false);
   /// \brief Iterator version of addBlob().
-  void addBlob(blob_iterator BlobI, int64_t Coeff);
+  void addBlob(blob_iterator BlobI, int64_t Coeff, bool IsMathAdd = false);
 
   /// \brief Removes a blob. It does not touch IV blob coefficients.
   void removeBlob(unsigned Index);
@@ -609,8 +567,7 @@ public:
   void collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices,
                               bool MakeUnique = true) const;
 
-  /// \brief Simplifies canon expr by dividing numerator and denominator by
-  /// common gcd.
+  /// \brief Simplifies canon expr by dividing numerator and denominator by gcd.
   void simplify();
 
   /// \brief Multiplies the canon expr by Val.
