@@ -2600,7 +2600,9 @@ void CXXNameMangler::mangleType(const VectorType *T, bool IsMType) { // INTEL
     else
       Out << "Dv2_i";
     return;
-  } else if (LangOpts.IntelCompat && IsMType && (LangOpts.GNUFABIVersion < 4))
+  // CQ382285: Mangle GNU vector types exactly as icc does.
+  } else if (LangOpts.IntelCompat && (IsMType || LangOpts.EmulateGNUABIBugs) &&
+             (LangOpts.GNUFABIVersion < 4))
     Out << "U8__vector";
   else
 #endif // INTEL_CUSTOMIZATION
