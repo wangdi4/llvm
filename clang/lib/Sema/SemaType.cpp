@@ -6321,6 +6321,15 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       HandleVectorSizeAttr(type, attr, state.getSema());
       attr.setUsedAsTypeAttr();
       break;
+#if INTEL_CUSTOMIZATION
+    // CQ380256: 'mode' attribute ignored when parsing type
+    case AttributeList::AT_Mode:
+      if (state.getDeclarator().getContext() == Declarator::TypeNameContext) {
+        state.getSema().HandleModeAttr(attr, &type);
+        attr.setUsedAsTypeAttr();
+      }
+      break;
+#endif // INTEL_CUSTOMIZATION
     case AttributeList::AT_ExtVectorType:
       HandleExtVectorTypeAttr(type, attr, state.getSema());
       attr.setUsedAsTypeAttr();

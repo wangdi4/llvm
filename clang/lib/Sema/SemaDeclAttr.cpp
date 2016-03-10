@@ -3905,7 +3905,8 @@ static void parseModeAttrArg(Sema &S, StringRef Str, unsigned &DestWidth,
 /// Despite what would be logical, the mode attribute is a decl attribute, not a
 /// type attribute: 'int ** __attribute((mode(HI))) *G;' tries to make 'G' be
 /// HImode, not an intermediate pointer.
-static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr,
+                           QualType *CurTy = nullptr) { // INTEL
   // This attribute isn't documented, but glibc uses it.  It changes
   // the width of an int or unsigned int to the specified size.
   if (!Attr.isArgIdent(0)) {
@@ -3914,6 +3915,8 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     return;
   }
 
+  assert(((D && !CurTy) || (CurTy && !D)) && "Invalid arguments");  // INTEL
+
   IdentifierInfo *Name = Attr.getArgAsIdent(0)->Ident;
   StringRef Str = Name->getName();
 
@@ -3921,7 +3924,7 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 
 #if INTEL_CUSTOMIZATION
   // CQ#369184 - decimal types are not supported, so handle this gracefully.
-  if (S.getLangOpts().IntelCompat && Str.size() == 2 && Str[1] == 'D') {
+  if (S.getLangOpts().IntelCompat && D && Str.size() == 2 && Str[1] == 'D') {
     S.Diag(Attr.getLoc(), diag::err_decimal_unsupported);
     return;
   }
@@ -3952,6 +3955,7 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     parseModeAttrArg(S, Str, DestWidth, IntegerMode, ComplexMode);
 
   QualType OldTy;
+  if (D) {  // INTEL
   if (TypedefNameDecl *TD = dyn_cast<TypedefNameDecl>(D))
     OldTy = TD->getUnderlyingType();
   else if (ValueDecl *VD = dyn_cast<ValueDecl>(D))
@@ -3961,6 +3965,8 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
       << Attr.getName() << Attr.getRange();
     return;
   }
+  } else            // INTEL
+    OldTy = *CurTy; // INTEL
 
   // Base type can also be a vector type (see PR17453).
   // Distinguish between base type and base element type.
@@ -3985,6 +3991,7 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   // and friends, at least with glibc.
   // FIXME: Make sure floating-point mappings are accurate
   // FIXME: Support XF and TF types
+  if (D)  // INTEL
   if (!DestWidth) {
     S.Diag(Attr.getLoc(), diag::err_machine_mode) << 0 /*Unknown*/ << Name;
     return;
@@ -3998,6 +4005,7 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   else
     NewElemTy = S.Context.getRealTypeForBitwidth(DestWidth);
 
+  if (D)  // INTEL
   if (NewElemTy.isNull()) {
     S.Diag(Attr.getLoc(), diag::err_machine_mode) << 1 /*Unsupported*/ << Name;
     return;
@@ -4013,6 +4021,7 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                                     VectorType::GenericVector);
   } else if (const VectorType *OldVT = OldTy->getAs<VectorType>()) {
     // Complex machine mode does not support base vector types.
+    if (D)  // INTEL
     if (ComplexMode) {
       S.Diag(Attr.getLoc(), diag::err_complex_mode_vector_type);
       return;
@@ -4029,6 +4038,13 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     return;
   }
 
+#if INTEL_CUSTOMIZATION
+  // CQ380256: 'mode' attribute ignored when parsing type
+  if (!D) {
+    *CurTy = NewTy;
+    return;
+  }
+#endif // INTEL CUSTOMIZATION
   // Install the new type.
   if (TypedefNameDecl *TD = dyn_cast<TypedefNameDecl>(D))
     TD->setModedTypeSourceInfo(TD->getTypeSourceInfo(), NewTy);
@@ -4039,6 +4055,14 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
              ModeAttr(Attr.getRange(), S.Context, Name,
                       Attr.getAttributeSpellingListIndex()));
 }
+
+#if INTEL_CUSTOMIZATION
+  // CQ380256: 'mode' attribute ignored when parsing type
+  // In fact this attribute could modify type, e.g. inside cast expression
+  void Sema::HandleModeAttr(const AttributeList &Attr, QualType *CurTy) {
+    handleModeAttr(*this, nullptr, Attr, CurTy);
+  }
+#endif // INTEL CUSTOMIZATION
 
 static void handleNoDebugAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (const VarDecl *VD = dyn_cast<VarDecl>(D)) {
