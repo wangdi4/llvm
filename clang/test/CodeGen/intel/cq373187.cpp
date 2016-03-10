@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -O2 -fintel-compatibility -triple x86_64-unknown-linux -emit-llvm %s -o - | FileCheck %s
 
 int foo(int k) {
   __assume(k == 3);
@@ -9,5 +9,5 @@ int foo(int k) {
 }
 
 // CHECK: llvm.assume
-// CHECK: ret i32 %4
+// CHECK-NEXT: ret i32 4
 
