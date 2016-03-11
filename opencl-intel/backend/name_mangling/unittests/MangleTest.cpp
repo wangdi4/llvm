@@ -260,7 +260,7 @@ TEST(DemangleTest, AsyncGropuCpy){
 
 
 TEST(MangleTest, clk_event){
-  const std::string s = "_Z14enqueue_kernelPK13ocl_clk_eventP13ocl_clk_event";
+  const std::string s = "_Z14enqueue_kernelPK12ocl_clkeventP12ocl_clkevent";
   FunctionDescriptor fd = demangle(s.c_str());
   ASSERT_EQ(s, mangle(fd));
 }
@@ -268,8 +268,8 @@ TEST(MangleTest, clk_event){
 TEST(DemangleTest, block){
   char const* names[] = {
     "_Z14enqueue_kernelU13block_pointerFvvE",
-    "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz",
-    "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvPU3AS3vzEjz"
+    "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS412ocl_clkeventPU3AS412ocl_clkeventU13block_pointerFvPU3AS3vzEjz",
+    "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK12ocl_clkeventP12ocl_clkeventU13block_pointerFvPU3AS3vzEjz"
   };
 
   for(char const* name : names) {

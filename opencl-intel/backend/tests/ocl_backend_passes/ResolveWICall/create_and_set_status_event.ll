@@ -8,14 +8,14 @@ define void @test_create_event_and_set_event_status() nounwind {
 entry:
   ; Calls should remain unchanged since they are in the built-in library
   ; CHECK: %event = call %opencl.clk_event_t* @_Z17create_user_eventv()
-  ; CHECK: call void @_Z21set_user_event_status13ocl_clk_eventi(%opencl.clk_event_t* %event, i32 0)
+  ; CHECK: call void @_Z21set_user_event_status12ocl_clkeventi(%opencl.clk_event_t* %event, i32 0)
   %event = call %opencl.clk_event_t* @_Z17create_user_eventv() nounwind
-  call void @_Z21set_user_event_status13ocl_clk_eventi(%opencl.clk_event_t* %event, i32 0) nounwind
+  call void @_Z21set_user_event_status12ocl_clkeventi(%opencl.clk_event_t* %event, i32 0) nounwind
   ret void
 }
 
 declare %opencl.clk_event_t* @_Z17create_user_eventv()
-declare void @_Z21set_user_event_status13ocl_clk_eventi(%opencl.clk_event_t*, i32)
+declare void @_Z21set_user_event_status12ocl_clkeventi(%opencl.clk_event_t*, i32)
 
 !opencl.compiler.options = !{!2}
 !2 = !{!"-cl-std=CL2.0"}
