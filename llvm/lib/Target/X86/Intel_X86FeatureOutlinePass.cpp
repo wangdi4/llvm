@@ -490,9 +490,9 @@ bool FeatureOutliner::runOnModule(Module &M) {
         // In this case, just blindly calling ToggleFeature may turn
         // one of them off.
         if (!Available[i]) {
-          Available = SF.ToggleFeature(Available, 
-                        FeatureStrings[i],
-                        TM->getMCSubtargetInfo()->getProcFeatures());
+          SF.ToggleFeature(Available, 
+                           FeatureStrings[i],
+                           TM->getMCSubtargetInfo()->getProcFeatures());
         }
       }
       AvailableFeatureMap[BB] = Available;
