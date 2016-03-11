@@ -578,7 +578,14 @@ void FrameworkProxy::TerminateProcess()
 
     // notify all DLLs that at_exit started 
     {
+// The following comment applicable for Windows only.
+// Locking this mutex may lead to deadlock due to any other thread
+// may acquire mutex and die(killed by OS) without freeing.
+// Anyway using mutex during process shutdown is meaningless
+// because of there is only one thread is alive.
+#ifndef _WIN32
         OclAutoMutex cs(&m_initializationMutex);
+#endif // _WIN32
         for (std::set<at_exit_dll_callback_fn>::iterator it = m_at_exit_cbs.begin(); it != m_at_exit_cbs.end(); ++it)
         {
             at_exit_dll_callback_fn cb = *it;
@@ -597,7 +604,9 @@ void FrameworkProxy::TerminateProcess()
 
     // notify all DLLs that at_exit occured 
     {
+#ifndef _WIN32
         OclAutoMutex cs(&m_initializationMutex);
+#endif // _WIN32
         for (std::set<at_exit_dll_callback_fn>::iterator it = m_at_exit_cbs.begin(); it != m_at_exit_cbs.end(); ++it)
         {
             at_exit_dll_callback_fn cb = *it;
