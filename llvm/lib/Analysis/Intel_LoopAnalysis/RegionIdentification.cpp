@@ -233,8 +233,8 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
   }
 
   // Skip loop with vectorize/unroll pragmas for now so that tests checking for
-  // these are not affected.
-  if (Lp.getLoopID()) {
+  // these are not affected. Allow SIMD loops.
+  if (!isSIMDLoop(Lp) && Lp.getLoopID()) {
     DEBUG(
         dbgs()
         << "LOOPOPT_OPTREPORT: Loops with pragmas currently not supported.\n");
