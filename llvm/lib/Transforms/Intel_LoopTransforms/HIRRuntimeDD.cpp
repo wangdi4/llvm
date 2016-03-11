@@ -275,7 +275,7 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
 }
 
 RuntimeDDResult
-IVSegment::isSegmentSupported(const HLLoop *Loop,
+IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
                               const HLLoop *InnermostLoop) const {
 
   if (getBaseCE()->isNonLinear()) {
@@ -287,47 +287,50 @@ IVSegment::isSegmentSupported(const HLLoop *Loop,
   // We will be replacing every IV inside a RegDDRef: a[i+j+k][j][k]. So we have
   // to check all canon expressions against UB of every loop in loopnest.
   // We skip loops if its IV is absent.
-  for (auto I = Lower->canon_begin(),
-            E = Lower->canon_end();
-       E != I; ++I) {
+  for (auto I = Lower->canon_begin(), E = Lower->canon_end(); E != I; ++I) {
     CanonExpr *CE = *I;
 
     if (CE->isNonLinear()) {
       return NON_LINEAR_SUBS;
     }
 
-    auto Level = Loop->getNestingLevel();
-    if (!CE->hasIV(Level)) {
-      continue;
-    }
+    for (const HLLoop *LoopI = InnermostLoop,
+                      *LoopE = OuterLoop->getParentLoop();
+         LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
 
-    const CanonExpr *UpperBoundCE = Loop->getUpperCanonExpr();
+      auto Level = LoopI->getNestingLevel();
+      if (!CE->hasIV(Level)) {
+        continue;
+      }
 
-    // Check if CE and UpperBoundCE are mergeable and check if UpperBoundCE
-    // denominator equals one as we will not be able to replace IV with such
-    // upper bound. This is because b*(x/d) != (b*x)/d.
-    if (UpperBoundCE->getDenominator() != 1 ||
-        !CanonExprUtils::mergeable(CE, UpperBoundCE, true)) {
-      return UPPER_SUB_TYPE_MISMATCH;
-    }
-    assert(CanonExprUtils::mergeable(CE, Loop->getLowerCanonExpr(), true) &&
-           "Assuming that the Lower bound is also mergeable if Upper is"
-           "mergeable");
+      const CanonExpr *UpperBoundCE = LoopI->getUpperCanonExpr();
 
-    auto IVBlobIndex = CE->getIVBlobCoeff(Level);
-    if (IVBlobIndex != INVALID_BLOB_INDEX) {
-      CanonExpr *IVBlobExpr = CanonExprUtils::createExtCanonExpr(
-          CE->getSrcType(), CE->getDestType(), CE->isSExt());
+      // Check if CE and UpperBoundCE are mergeable and check if UpperBoundCE
+      // denominator equals one as we will not be able to replace IV with such
+      // upper bound. This is because b*(x/d) != (b*x)/d.
+      if (UpperBoundCE->getDenominator() != 1 ||
+          !CanonExprUtils::mergeable(CE, UpperBoundCE, true)) {
+        return UPPER_SUB_TYPE_MISMATCH;
+      }
+      assert(CanonExprUtils::mergeable(CE, LoopI->getLowerCanonExpr(), true) &&
+             "Assuming that the Lower bound is also mergeable if Upper is"
+             "mergeable");
 
-      IVBlobExpr->addBlob(IVBlobIndex, CE->getIVConstCoeff(Level));
+      auto IVBlobIndex = CE->getIVBlobCoeff(Level);
+      if (IVBlobIndex != INVALID_BLOB_INDEX) {
+        CanonExpr *IVBlobExpr = CanonExprUtils::createExtCanonExpr(
+            CE->getSrcType(), CE->getDestType(), CE->isSExt());
 
-      bool IsKnownNonZero =
-          HLNodeUtils::isKnownPositive(IVBlobExpr, InnermostLoop) ||
-          HLNodeUtils::isKnownNegative(IVBlobExpr, InnermostLoop);
+        IVBlobExpr->addBlob(IVBlobIndex, CE->getIVConstCoeff(Level));
 
-      CanonExprUtils::destroy(IVBlobExpr);
-      if (!IsKnownNonZero) {
-        return BLOB_IV_COEFF;
+        bool IsKnownNonZero =
+            HLNodeUtils::isKnownPositive(IVBlobExpr, InnermostLoop) ||
+            HLNodeUtils::isKnownNegative(IVBlobExpr, InnermostLoop);
+
+        CanonExprUtils::destroy(IVBlobExpr);
+        if (!IsKnownNonZero) {
+          return BLOB_IV_COEFF;
+        }
       }
     }
   }
@@ -390,19 +393,18 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
 }
 #endif
 
-RuntimeDDResult
-HIRRuntimeDD::processLoopnest(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
-                SmallVectorImpl<IVSegment> &IVSegments,
-                SmallVectorImpl<RuntimeDDResult> &SegmentConditions,
-                bool &ShouldGenerateTripCount) {
+RuntimeDDResult HIRRuntimeDD::processLoopnest(
+    const HLLoop *OuterLoop, const HLLoop *InnermostLoop,
+    SmallVectorImpl<IVSegment> &IVSegments,
+    SmallVectorImpl<RuntimeDDResult> &SegmentConditions,
+    bool &ShouldGenerateTripCount) {
 
-  unsigned SegmentCount = IVSegments.size();
+  assert(InnermostLoop->isInnermost() &&
+           "InnermostLoop is not an innermost loop");
 
-  // TotalTripCount is used only to decide should we generate runtime small trip
-  // test or not.
-  bool ConstantTripCount = true;
-  uint64_t TotalTripCount = 1;
-  for (const HLLoop *LoopI = InnerLoop;; LoopI = LoopI->getParentLoop()) {
+  // Check the loopnest for applicability
+  for (const HLLoop *LoopI = InnermostLoop, *LoopE = OuterLoop->getParentLoop();
+       LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
     if (!LoopI->isDo()) {
       return NON_DO_LOOP;
     }
@@ -410,7 +412,24 @@ HIRRuntimeDD::processLoopnest(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
     if (!LoopI->getStrideCanonExpr()->isIntConstant()) {
       return NON_CONSTANT_IV_STRIDE;
     }
+  }
 
+  unsigned SegmentCount = IVSegments.size();
+
+  // Check every segment for the applicability
+  for (unsigned I = 0; I < SegmentCount; ++I) {
+    SegmentConditions.push_back(
+        IVSegments[I].isSegmentSupported(OuterLoop, InnermostLoop));
+  }
+
+  // TotalTripCount is used only to decide should we generate runtime small trip
+  // test or not.
+  bool ConstantTripCount = true;
+  uint64_t TotalTripCount = 1;
+
+  // Replace every IV in segments with upper and lower bounds
+  for (const HLLoop *LoopI = InnermostLoop, *LoopE = OuterLoop->getParentLoop();
+       LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
     // TotalTripCount is a minimal estimation of loopnest tripcount. Non-const
     // loops are treated as they execute at least once.
     int64_t TripCount;
@@ -428,18 +447,10 @@ HIRRuntimeDD::processLoopnest(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
     auto Level = LoopI->getNestingLevel();
 
     for (unsigned I = 0; I < SegmentCount; ++I) {
-      RuntimeDDResult IsSupported =
-          IVSegments[I].isSegmentSupported(LoopI, InnerLoop);
-
-      SegmentConditions.push_back(IsSupported);
-      if (IsSupported == OK) {
+      if (SegmentConditions[I] == OK) {
         IVSegments[I].updateIVWithBounds(Level, LowerBoundRef, UpperBoundRef,
-            InnerLoop);
+            InnermostLoop);
       }
-    }
-
-    if (LoopI == OuterLoop) {
-      break;
     }
   }
 
@@ -535,6 +546,10 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
   if (Res != OK)  {
     return Res;
   }
+
+  assert(IVSegments.size() == Supported.size() && "Elements of Supported array "
+                                                  "should correspond to "
+                                                  "elements in IVSegments");
 
   // Create pairs of segments to intersect and store them into
   // Candidate.SegmentList
