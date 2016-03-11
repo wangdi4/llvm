@@ -32,6 +32,7 @@ add_subdirectory(PatchCallbackArgs)
 add_subdirectory(PreLegalizeBools)
 add_subdirectory(OCLAliasAnalysis)
 add_subdirectory(SPIR20BlocksToObjCBlocks)
+add_subdirectory(PrintfArgumentsPromotion)
 
 if(APPLE)
   add_subdirectory(ClangCompatFixer)

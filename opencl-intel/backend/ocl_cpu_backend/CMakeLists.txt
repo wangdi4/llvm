@@ -390,6 +390,7 @@ set( BACKEND_PASSES
     PreLegalizeBools
     OCLAliasAnalysis
     SPIR20BlocksToObjCBlocks
+    PrintfArgumentsPromotion
 )
 
 set(UTILS_LIBS

@@ -51,6 +51,7 @@ set(OCL_BE_PASSES
     PreLegalizeBools
     OCLAliasAnalysis
     SPIR20BlocksToObjCBlocks
+    PrintfArgumentsPromotion
 )
 
 # Dependencies of the passes
