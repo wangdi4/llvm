@@ -18,8 +18,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef INTEL_LOOPANALYSIS_PVA_H
-#define INTEL_LOOPANALYSIS_PVA_H
+#ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRPARVECANALYSIS_H
+#define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRPARVECANALYSIS_H
 
 #include "llvm/Pass.h"
 #include "llvm/IR/DebugLoc.h"
@@ -266,4 +266,4 @@ public:
 } // namespace loopopt
 } // namespace llvm
 
-#endif // INTEL_LOOPANALYSIS_PVA_H
+#endif // LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRPARVECANALYSIS_H

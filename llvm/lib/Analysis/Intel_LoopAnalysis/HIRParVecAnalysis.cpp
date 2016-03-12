@@ -1,4 +1,4 @@
-//===-- ParVecAnalysis.cpp ------------------------------------------------===//
+//===-- HIRParVecAnalysis.cpp ---------------------------------------------===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -24,7 +24,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/ParVecAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParVecAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
