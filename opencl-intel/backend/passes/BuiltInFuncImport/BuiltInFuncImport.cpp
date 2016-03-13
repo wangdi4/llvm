@@ -467,7 +467,7 @@ namespace intel {
     StringRef TypeName = SrcST->getName().count('.') < DstST->getName().count('.') ?
                          SrcST->getName() :
                          SrcST->getName().rsplit('.').first;
-    assert(SrcST->getName().startswith("struct.pipe_t") || // CSSD100017148 workaround for the pipe built-ins
+    assert(SrcST->getName().startswith("struct.ocl_pipe") || // CSSD100017148 workaround for the pipe built-ins
            (SrcST->getName().startswith(TypeName) && DstST->getName().startswith(TypeName) &&
            "It is illegal to map different struct types."));
     (void)TypeName; // Avoid warnings about unused variable in the Release build.

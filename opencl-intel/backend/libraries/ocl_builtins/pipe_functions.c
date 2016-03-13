@@ -37,7 +37,7 @@
 //    Enable build of pipe_functions.c for OpenCL 1.2 by replacing "pipe int" with "__global struct pipe_t *".
 //    The workaround relies on BuiltInFuncImport pass which maps different structure types of the same arguments.
 //    Look for CSSD100017148 in src/backend/passes/BuiltInFuncImport/BuiltInFuncImport.cpp
-typedef __global struct pipe_t* PIPE_T;
+typedef __global struct ocl_pipe* PIPE_T;
 
 // There are no declarations of OpenCL 2.0 builtins in opencl_.h for named address space
 // but in the library they has to be called directly because the library
@@ -56,30 +56,17 @@ uint OVERLOADABLE atomic_fetch_add_explicit(volatile __global atomic_uint *objec
 int OVERLOADABLE atomic_fetch_sub_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
 uint OVERLOADABLE atomic_fetch_sub_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
 
-// Auxiliary macroses to build mangled names of read/write pipe built-ins
-// for different address spaces.
-#define PRIVATE P
-#define LOCAL   PU3AS3
-#define GLOBAL  PU3AS1
-#define CONCATMACROSES( BEGIN, ADDRSPACE, END )      BEGIN ## ADDRSPACE ## END
-#define ASSEMBLEMANGLEDNAME( BEGIN, ADDRSPACE, END ) CONCATMACROSES( BEGIN, ADDRSPACE, END )
-
 // The following functions are threated by clang as builtins.
-// To be SPIR conformant we have to use correctly mangled names in OCL code
-#define WRITE_PIPE_2(ADDRSPACE)            ASSEMBLEMANGLEDNAME( _Z10write_pipePU3AS110ocl_pipe_t, ADDRSPACE, vi )
-#define WRITE_PIPE_4(ADDRSPACE)            ASSEMBLEMANGLEDNAME( _Z10write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_tj, ADDRSPACE, vi )
-#define READ_PIPE_2(ADDRSPACE)             ASSEMBLEMANGLEDNAME( _Z9read_pipePU3AS110ocl_pipe_t, ADDRSPACE, vi )
-#define READ_PIPE_4(ADDRSPACE)             ASSEMBLEMANGLEDNAME( _Z9read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_tj, ADDRSPACE, vi )
-#define RESERVE_READ_PIPE                  _Z17reserve_read_pipePU3AS110ocl_pipe_tji
-#define RESERVE_WRITE_PIPE                 _Z18reserve_write_pipePU3AS110ocl_pipe_tji
-#define COMMIT_READ_PIPE                   _Z16commit_read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti
-#define COMMIT_WRITE_PIPE                  _Z17commit_write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti
-#define WORK_GROUP_RESERVE_READ_PIPE       _Z28work_group_reserve_read_pipePU3AS110ocl_pipe_tji
-#define WORK_GROUP_RESERVE_WRITE_PIPE      _Z29work_group_reserve_write_pipePU3AS110ocl_pipe_tji
-#define WORK_GROUP_COMMIT_READ_PIPE        _Z27work_group_commit_read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti
-#define WORK_GROUP_COMMIT_WRITE_PIPE       _Z28work_group_commit_write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti
-#define GET_PIPE_NUM_PACKETS               _Z20get_pipe_num_packetsPU3AS110ocl_pipe_ti
-#define GET_PIPE_MAX_PACKETS               _Z20get_pipe_max_packetsPU3AS110ocl_pipe_ti
+// To be SPIR conformant we have to use correctly mangled names in OCL code.
+// Switching these built-ins to having overloadable attribute is blocked by clang
+// that declares reserve builtins as returning 'int' instead of reserve_id_t
+// producing a conflicting type. It is not fixed in clang 3.8RC3.
+// It is not clear if it's a bug at all, since it blocks only implementing clang builtins
+// directly in the source code being compiled.
+#define RESERVE_READ_PIPE                  _Z17reserve_read_pipePU3AS18ocl_pipejjj
+#define RESERVE_WRITE_PIPE                 _Z18reserve_write_pipePU3AS18ocl_pipejjj
+#define WORK_GROUP_RESERVE_READ_PIPE       _Z28work_group_reserve_read_pipePU3AS18ocl_pipejjj
+#define WORK_GROUP_RESERVE_WRITE_PIPE      _Z29work_group_reserve_write_pipePU3AS18ocl_pipejjj
 
 // pipe_control_intel_t structure MUST BE ALIGNED with the one defined in src/cl_api/PipeCommon.h
 #define INTEL_PIPE_HEADER_RESERVED_SPACE    128
@@ -204,7 +191,7 @@ ALWAYS_INLINE static void intel_unlock_pipe_write( __global pipe_control_intel_t
 
 /////////////////////////////////////////////////////////////////////
 // Work Item Reservations
-reserve_id_t RESERVE_READ_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_packet )
+reserve_id_t RESERVE_READ_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_packet, uint alignment_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: reserve_read_pipe( num_packets = %d)\n", num_packets );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -272,7 +259,7 @@ reserve_id_t RESERVE_READ_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_pac
   return retVal;
 }
 
-reserve_id_t RESERVE_WRITE_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_packet )
+reserve_id_t RESERVE_WRITE_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_packet, uint alignment_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: reserve_write_pipe( num_packets = %d)\n", num_packets );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -338,7 +325,7 @@ reserve_id_t RESERVE_WRITE_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_pa
   return retVal;
 }
 
-void COMMIT_READ_PIPE( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet )
+void commit_read_pipe_impl( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet, uint alignment_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: commit_read_pipe( reserve_id = %08X)\n", reserve_id );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -347,7 +334,12 @@ void COMMIT_READ_PIPE( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packe
   INTEL_PIPE_DPF( "EXIT: commit_read_pipe\n" );
 }
 
-void COMMIT_WRITE_PIPE( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet )
+void OVERLOADABLE commit_read_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet, uint alignment_of_packet )
+{
+  commit_read_pipe_impl( pipe_, reserve_id, size_of_packet, alignment_of_packet );
+}
+
+void OVERLOADABLE commit_write_pipe_impl( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet, uint alignment_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: commit_write_pipe( reserve_id = %08X)\n", reserve_id );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -356,13 +348,17 @@ void COMMIT_WRITE_PIPE( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_pack
   INTEL_PIPE_DPF( "EXIT: commit_write_pipe\n" );
 }
 
+void OVERLOADABLE commit_write_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet, uint alignment_of_packet )
+{
+  commit_write_pipe_impl( pipe_, reserve_id, size_of_packet, alignment_of_packet );
+}
 
 /////////////////////////////////////////////////////////////////////
 // Reads and Writes with Reservations
 // The reservation functions lock the pipe, so we don't need to
 // re-lock here.
 
-int READ_PIPE_4(GLOBAL)( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __global const void* data, uint size_of_packet)
+int read_pipe_4_impl( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __global void* data, uint size_of_packet, uint alignment_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: read_pipe( reserve_id = %08X, index = %d)\n", reserve_id, index );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -384,7 +380,7 @@ int READ_PIPE_4(GLOBAL)( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __gl
 }
 
 // write_pipe with 4 explicit arguments
-int WRITE_PIPE_4(GLOBAL)( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __global const void* data, uint size_of_packet)
+int write_pipe_4_impl( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __global void* data, uint size_of_packet, uint alignment_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: write_pipe( reserve_id = %08X, index = %d)\n", reserve_id, index );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -407,8 +403,7 @@ int WRITE_PIPE_4(GLOBAL)( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __g
 
 /////////////////////////////////////////////////////////////////////
 // Basic Reads and Writes
-
-int READ_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_packet)
+int read_pipe_2_impl( PIPE_T pipe_, __global void* data, uint size_of_packet, uint alignment_of_packet)
 {
   __global pipe_control_intel_t* p = PTOC(pipe_);
   INTEL_PIPE_DPF( "ENTER: read_pipe\n" );
@@ -429,7 +424,7 @@ int READ_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_p
       const uint newHead = advance(p, head, 1);
       bool wrap = newHead < head;
 
-      if( !wrap && ( head <= tail && tail < newHead ) )    // Underflow
+      if( !wrap && ( head <= tail && tail < newHead ) )    /* Underflow*/
       {
         INTEL_PIPE_DPF( "\t reserve_read_pipe: Underflow!  num_packets = %d, head = %d, tail = %d\n",
                         1, head, tail );
@@ -453,7 +448,7 @@ int READ_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_p
         atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_acquire, memory_scope_all_svm_devices);
         intel_unlock_pipe_read( p );
         retVal = 0;
-        break;  // Success.
+        break;  /*Success.*/
       }
       else
       {
@@ -467,7 +462,7 @@ int READ_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_p
   return retVal;
 }
 
-int WRITE_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_packet )
+int write_pipe_2_impl(PIPE_T pipe_, __global void* data, uint size_of_packet, uint alignment_of_packet)
 {
   INTEL_PIPE_DPF( "ENTER: write_pipe\n" );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -511,7 +506,7 @@ int WRITE_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_
         atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_release, memory_scope_all_svm_devices);
         intel_unlock_pipe_write( p );
         retVal = 0;
-        break;  // Success.
+        break;  /*Success.*/
       }
       else
       {
@@ -524,7 +519,6 @@ int WRITE_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_
   return retVal;
 }
 
-// NOTE: Let the clang to mangle is_valid_reserve_id.
 bool OVERLOADABLE is_valid_reserve_id( reserve_id_t reserve_id )
 {
   return ( RTOS(reserve_id) & INTEL_PIPE_RESERVE_ID_VALID_BIT ) != 0;
@@ -532,7 +526,7 @@ bool OVERLOADABLE is_valid_reserve_id( reserve_id_t reserve_id )
 
 /////////////////////////////////////////////////////////////////////
 // Pipe Queries
-uint GET_PIPE_NUM_PACKETS( PIPE_T pipe_, uint size_of_packet )
+uint OVERLOADABLE get_pipe_num_packets( PIPE_T pipe_, uint size_of_packet, uint alignment_of_packet )
 {
   (void)size_of_packet; // Avoid warning about unused variable.
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -546,7 +540,7 @@ uint GET_PIPE_NUM_PACKETS( PIPE_T pipe_, uint size_of_packet )
                  (uint)(head <= tail) );
 }
 
-uint GET_PIPE_MAX_PACKETS( PIPE_T pipe_, uint size_of_packet )
+uint OVERLOADABLE get_pipe_max_packets( PIPE_T pipe_, uint size_of_packet, uint alignment_of_packet )
 {
   (void)size_of_packet; // Avoid warning about unused variable.
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -557,75 +551,82 @@ uint GET_PIPE_MAX_PACKETS( PIPE_T pipe_, uint size_of_packet )
 // WG functions are handled by the barrier pass so that
 // they are called once per WG.
 
-reserve_id_t WORK_GROUP_RESERVE_READ_PIPE( PIPE_T p, uint num_packets, uint size_of_packet )
+reserve_id_t WORK_GROUP_RESERVE_READ_PIPE( PIPE_T p, uint num_packets, uint size_of_packet, uint alignment_of_packet )
 {
-  return RESERVE_READ_PIPE( p, num_packets, size_of_packet );
+  return RESERVE_READ_PIPE( p, num_packets, size_of_packet, alignment_of_packet );
 }
 
-reserve_id_t WORK_GROUP_RESERVE_WRITE_PIPE( PIPE_T p, uint num_packets, uint size_of_packet )
+reserve_id_t WORK_GROUP_RESERVE_WRITE_PIPE( PIPE_T p, uint num_packets, uint size_of_packet, uint alignment_of_packet )
 {
-  return RESERVE_WRITE_PIPE( p, num_packets, size_of_packet );
+  return RESERVE_WRITE_PIPE( p, num_packets, size_of_packet, alignment_of_packet );
 }
 
-void WORK_GROUP_COMMIT_READ_PIPE( PIPE_T p, reserve_id_t reserve_id, uint size_of_packet )
+void OVERLOADABLE work_group_commit_read_pipe( PIPE_T p, reserve_id_t reserve_id, uint size_of_packet, uint alignment_of_packet )
 {
-  COMMIT_READ_PIPE( p, reserve_id, size_of_packet );
+  commit_read_pipe_impl( p, reserve_id, size_of_packet, alignment_of_packet );
 }
 
-void WORK_GROUP_COMMIT_WRITE_PIPE( PIPE_T p, reserve_id_t reserve_id, uint size_of_packet )
+void OVERLOADABLE work_group_commit_write_pipe( PIPE_T p, reserve_id_t reserve_id, uint size_of_packet, uint alignment_of_packet )
 {
-  COMMIT_WRITE_PIPE( p, reserve_id, size_of_packet );
+  commit_write_pipe_impl( p, reserve_id, size_of_packet, alignment_of_packet );
 }
 
 /////////////////////////////////////////////////////////////////////
-// Any of CPU specific proxy functions always call its __global version.
 
 // read_pipe(pipe gentype p, gentype *data);
-// private
-int READ_PIPE_2(PRIVATE)( PIPE_T p, __private const void* data, uint size_of_packet)
+int OVERLOADABLE read_pipe( PIPE_T pipe_, __global void* data, uint size_of_packet, uint alignment_of_packet)
 {
-  return READ_PIPE_2(GLOBAL)(p, (__global const void*)(const void*)data, size_of_packet);
+  return read_pipe_2_impl(pipe_, data, size_of_packet, alignment_of_packet);
 }
-// local
-int READ_PIPE_2(LOCAL)( PIPE_T p, __local const void* data, uint size_of_packet)
+int OVERLOADABLE read_pipe( PIPE_T pipe_, __local void* data, uint size_of_packet, uint alignment_of_packet)
 {
-  return READ_PIPE_2(GLOBAL)(p, (__global const void*)(const void*)data, size_of_packet);
+  return read_pipe_2_impl(pipe_, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
+}
+int OVERLOADABLE read_pipe( PIPE_T pipe_, __private void* data, uint size_of_packet, uint alignment_of_packet)
+{
+  return read_pipe_2_impl(pipe_, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
 }
 
 // read_pipe(pipe gentype p, reserve_id_t reserve_id, uint index, gentype *data);
-// private
-int READ_PIPE_4(PRIVATE)( PIPE_T p, reserve_id_t reserve_id, uint index, __private void* data, uint size_of_packet)
+int OVERLOADABLE read_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __global void* data, uint size_of_packet, uint alignment_of_packet )
 {
-  return READ_PIPE_4(GLOBAL)(p, reserve_id, index, (__global void*)(void*)data, size_of_packet);
+  return read_pipe_4_impl(pipe_, reserve_id, index, data, size_of_packet, alignment_of_packet);
 }
-// local
-int READ_PIPE_4(LOCAL)( PIPE_T p, reserve_id_t reserve_id, uint index, __local void* data, uint size_of_packet)
+int OVERLOADABLE read_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __local void* data, uint size_of_packet, uint alignment_of_packet )
 {
-  return READ_PIPE_4(GLOBAL)(p, reserve_id, index, (__global void*)(void*)data, size_of_packet);
+  return read_pipe_4_impl(pipe_, reserve_id, index, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
+}
+int OVERLOADABLE read_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __private void* data, uint size_of_packet, uint alignment_of_packet )
+{
+  return read_pipe_4_impl(pipe_, reserve_id, index, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
 }
 
 // write_pipe(pipe gentype p, gentype *data);
-// private
-int WRITE_PIPE_2(PRIVATE)( PIPE_T p, __private const void* data, uint size_of_packet)
+int OVERLOADABLE write_pipe(PIPE_T pipe_, __global void* data, uint size_of_packet, uint alignment_of_packet)
 {
-  return WRITE_PIPE_2(GLOBAL)(p, (__global const void*)(const void*)data, size_of_packet);
+  return write_pipe_2_impl(pipe_, data, size_of_packet, alignment_of_packet);
 }
-// local
-int WRITE_PIPE_2(LOCAL)( PIPE_T p, __local const void* data, uint size_of_packet)
+int OVERLOADABLE write_pipe(PIPE_T pipe_, __local void* data, uint size_of_packet, uint alignment_of_packet)
 {
-  return WRITE_PIPE_2(GLOBAL)(p, (__global const void*)(const void*)data, size_of_packet);
+  return write_pipe_2_impl(pipe_, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
+}
+int OVERLOADABLE write_pipe(PIPE_T pipe_, __private void* data, uint size_of_packet, uint alignment_of_packet)
+{
+  return write_pipe_2_impl(pipe_, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
 }
 
 // write_pipe(pipe gentype p, reserve_id_t reserve_id, uint index, gentype *data);
-// private
-int WRITE_PIPE_4(PRIVATE)( PIPE_T p, reserve_id_t reserve_id, uint index, __private const void* data, uint size_of_packet)
+int OVERLOADABLE write_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __global void* data, uint size_of_packet, uint alignment_of_packet )
 {
-  return WRITE_PIPE_4(GLOBAL)(p, reserve_id, index, (__global const void*)(const void*)data, size_of_packet);
+  return write_pipe_4_impl(pipe_, reserve_id, index, data, size_of_packet, alignment_of_packet);
 }
-// local
-int WRITE_PIPE_4(LOCAL)( PIPE_T p, reserve_id_t reserve_id, uint index, __local const void* data, uint size_of_packet)
+int OVERLOADABLE write_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __local void* data, uint size_of_packet, uint alignment_of_packet )
 {
-  return WRITE_PIPE_4(GLOBAL)(p, reserve_id, index, (__global const void*)(const void*)data, size_of_packet);
+  return write_pipe_4_impl(pipe_, reserve_id, index, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
+}
+int OVERLOADABLE write_pipe( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __private void* data, uint size_of_packet, uint alignment_of_packet )
+{
+  return write_pipe_4_impl(pipe_, reserve_id, index, (__global void*)(void*) data, size_of_packet, alignment_of_packet);
 }
 #endif // defined (__MIC__) || defined(__MIC2__)
 
