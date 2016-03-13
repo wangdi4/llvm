@@ -133,6 +133,9 @@ static cl::opt<bool> EnableNonLTOGlobalVarOpt(
 // Andersen AliasAnalysis
 static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
+// Indirect call Conv
+static cl::opt<bool> EnableIndirectCallConv("enable-ind-call-conv",
+    cl::init(false), cl::Hidden, cl::desc("Enable Indirect Call Conv"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableNonLTOGlobalsModRef(
@@ -356,6 +359,11 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_CUSTOMIZATION
 
   MPM.add(createLICMPass());
+#if INTEL_CUSTOMIZATION
+  if (EnableIndirectCallConv && EnableAndersen) {
+    MPM.add(createIndirectCallConvPass()); // Indirect Call Conv
+  }
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
   if (OptLevel >= 2 && EnableNonLTOGlobalVarOpt && EnableAndersen) {
     MPM.add(createNonLTOGlobalOptimizerPass());
@@ -614,6 +622,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   }
 #endif // INTEL_CUSTOMIZATION
   PM.add(createLICMPass());                 // Hoist loop invariants.
+#if INTEL_CUSTOMIZATION
+  if (EnableIndirectCallConv && EnableAndersen) {
+    PM.add(createIndirectCallConvPass()); // Indirect Call Conv
+  }
+#endif // INTEL_CUSTOMIZATION
   if (EnableMLSM)
     PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
   PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
