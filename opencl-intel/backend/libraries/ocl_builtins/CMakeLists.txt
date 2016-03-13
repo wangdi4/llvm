@@ -223,10 +223,10 @@ set (CLANG_CL20_COMPILER_PARAMS
   )
   
 # llvm-opt
-set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
+set (LLVM_OPT_PARAMS -verify -scalarrepl -functionattrs)
 
 # images optimization options
-set (LLVM_IMAGES_OPT_PARAMS -builtin-import -builtin-call-to-inst -O3)
+set (LLVM_IMAGES_OPT_PARAMS -verify -builtin-import -builtin-call-to-inst -verify -O3)
 # adding "-elf" postfix to the triple for Win32 to codegen ELF with llc later (to be consistent with Backend Materializer)
 if (WIN32)
   set (LLVM_IMAGES_OPT_PARAMS ${LLVM_IMAGES_OPT_PARAMS} -mtriple=${TRIPLE}-elf)
