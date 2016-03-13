@@ -1,6 +1,6 @@
 //===------------ HLUtils.h - Base class for utilities -------*- C++ -*----===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -21,13 +21,13 @@
 #include "llvm/Support/Compiler.h"
 
 // Required for accessing INVALID_SYMBASE and CONSTANT_SYMBASE.
-#include "llvm/Analysis/Intel_LoopAnalysis/ScalarSymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class HIRParser;
+class HIRFramework;
 class SymbaseAssignment;
 
 /// \brief Defines HLUtils base class for utilities
@@ -42,26 +42,18 @@ private:
   /// \brief Make class uncopyable.
   void operator=(const HLUtils &) = delete;
 
-  friend class HIRParser;
-  friend class SymbaseAssignment;
+  friend class HIRFramework;
 
-  static HIRParser *HIRPar;
-  static SymbaseAssignment *SA;
+  static HIRFramework *HIRF;
 
-  /// \brief Sets the HIRParser pointer
-  static void setHIRParser(HIRParser *HIRP) {
-    assert(HIRP && " HIR Parser pointer is null!");
-    HIRPar = HIRP;
-  }
-
-  static void setSymbaseAssignment(SymbaseAssignment *SymA) {
-    assert(SymA && "Symbase Assignment pointer is null!");
-    SA = SymA;
+  /// \brief Sets the HIRFramework pointer.
+  static void setHIRFramework(HIRFramework *Framework) {
+    assert(Framework && " HIR Framework pointer is null!");
+    HIRF = Framework;
   }
 
 protected:
-  static HIRParser *getHIRParser() { return HIRPar; }
-  static SymbaseAssignment *getSymbaseAssignment() { return SA; }
+  static HIRFramework *getHIRFramework() { return HIRF; }
 };
 
 } // End namespace loopopt

@@ -1,6 +1,6 @@
 //===------------ HLIf.cpp - Implements the HLIf class --------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -37,7 +37,8 @@ HLIf::HLIf(PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2)
   assert((!Ref1 || (Ref1->getDestType() == Ref2->getDestType())) &&
          "Ref1/Ref2 type mismatch!");
   assert((!Ref1 || ((CmpInst::isIntPredicate(FirstPred) &&
-                     Ref1->getDestType()->isIntegerTy()) ||
+                     (Ref1->getDestType()->isIntegerTy() ||
+                      Ref1->getDestType()->isPointerTy())) ||
                     (CmpInst::isFPPredicate(FirstPred) &&
                      Ref1->getDestType()->isFloatingPointTy()))) &&
          "Predicate/DDRef type mismatch!");
@@ -71,13 +72,13 @@ HLIf::HLIf(const HLIf &HLIfObj, GotoContainerTy *GotoList, LabelMapTy *LabelMap)
   /// Loop over Then children and Else children
   for (auto ThenIter = HLIfObj.then_begin(), ThenIterEnd = HLIfObj.then_end();
        ThenIter != ThenIterEnd; ++ThenIter) {
-    HLNode *NewHLNode = cloneBaseImpl(ThenIter, GotoList, LabelMap);
+    HLNode *NewHLNode = cloneBaseImpl(&*ThenIter, GotoList, LabelMap);
     HLNodeUtils::insertAsLastChild(this, NewHLNode, true);
   }
 
   for (auto ElseIter = HLIfObj.else_begin(), ElseIterEnd = HLIfObj.else_end();
        ElseIter != ElseIterEnd; ++ElseIter) {
-    HLNode *NewHLNode = cloneBaseImpl(ElseIter, GotoList, LabelMap);
+    HLNode *NewHLNode = cloneBaseImpl(&*ElseIter, GotoList, LabelMap);
     HLNodeUtils::insertAsLastChild(this, NewHLNode, false);
   }
 }
@@ -123,7 +124,7 @@ void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
     FirstPred = false;
   }
 
-  OS << ")\n";
+  OS << ")";
 }
 
 void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth) const {
@@ -139,6 +140,7 @@ void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
   printHeader(OS, Depth);
+  OS << "\n";
 
   HLDDNode::print(OS, Depth, Detailed);
 
@@ -177,7 +179,7 @@ unsigned HLIf::getNumOperands() const { return getNumOperandsInternal(); }
 
 HLNode *HLIf::getFirstThenChild() {
   if (hasThenChildren()) {
-    return then_begin();
+    return &*then_begin();
   }
 
   return nullptr;
@@ -185,7 +187,7 @@ HLNode *HLIf::getFirstThenChild() {
 
 HLNode *HLIf::getLastThenChild() {
   if (hasThenChildren()) {
-    return std::prev(then_end());
+    return &*(std::prev(then_end()));
   }
 
   return nullptr;
@@ -193,7 +195,7 @@ HLNode *HLIf::getLastThenChild() {
 
 HLNode *HLIf::getFirstElseChild() {
   if (hasElseChildren()) {
-    return else_begin();
+    return &*else_begin();
   }
 
   return nullptr;
@@ -201,7 +203,7 @@ HLNode *HLIf::getFirstElseChild() {
 
 HLNode *HLIf::getLastElseChild() {
   if (hasElseChildren()) {
-    return std::prev(else_end());
+    return &*(std::prev(else_end()));
   }
 
   return nullptr;
@@ -224,11 +226,12 @@ void HLIf::addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2) {
           (CmpInst::isFPPredicate(Pred) &&
            CmpInst::isFPPredicate(Predicates[0]))) &&
          "Predicate type mismatch!");
-  assert(
-      ((CmpInst::isIntPredicate(Pred) && Ref1->getDestType()->isIntegerTy()) ||
-       (CmpInst::isFPPredicate(Pred) &&
-        Ref1->getDestType()->isFloatingPointTy())) &&
-      "Predicate/DDRef type mismatch!");
+  assert(((CmpInst::isIntPredicate(Pred) &&
+           (Ref1->getDestType()->isIntegerTy() ||
+            Ref1->getDestType()->isPointerTy())) ||
+          (CmpInst::isFPPredicate(Pred) &&
+           Ref1->getDestType()->isFloatingPointTy())) &&
+         "Predicate/DDRef type mismatch!");
   unsigned NumOp;
 
   Predicates.push_back(Pred);

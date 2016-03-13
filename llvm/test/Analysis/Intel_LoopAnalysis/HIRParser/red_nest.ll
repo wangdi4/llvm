@@ -8,13 +8,15 @@
 ; CHECK-SAME: DO_LOOP
 ; CHECK: DO i2 = 0, zext.i32.i64((-1 + %m))
 ; CHECK-SAME: DO_LOOP
-; CHECK-NEXT: %t.034.out = %t.034
+; CHECK-NEXT: %t.034.out1 = %t.034
 ; CHECK-NEXT: %0 = (@A)[0][i2][i1]
 ; CHECK-NEXT: %1 = (@B)[0][i2][i1]
-; CHECK-NEXT: %t.034 = %0 + %t.034.out  +  %1
-; CHECK-NEXT: %call = @foo1(%0 + %t.034.out)
+; CHECK-NEXT: %t.034 = %0 + %t.034.out1  +  %1
+; CHECK-NEXT: %call = @foo1(%0 + %t.034.out1)
 ; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %r.035 = %0 + %t.034.out
+; CHECK-NEXT: %r.035 = %0 + %t.034.out1
+; CHECK: %t.034.out = %t.034
+; CHECK-NEXT: %r.035.out = %r.035
 ; CHECK: END LOOP
 
 

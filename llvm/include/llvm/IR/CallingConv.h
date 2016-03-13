@@ -72,6 +72,9 @@ namespace CallingConv {
     // Swift - Calling convention for Swift.
     Swift = 16,
 
+    // CXX_FAST_TLS - Calling convention for access functions.
+    CXX_FAST_TLS = 17,
+
     // Target - This is the start of the target-specific calling conventions,
     // e.g. fastcall and thiscall on X86.
     FirstTargetCC = 64,
@@ -156,20 +159,26 @@ namespace CallingConv {
     HHVM = 81,
 
     /// \brief HHVM calling convention for invoking C/C++ helpers.
-    HHVM_C = 82
+    HHVM_C = 82,
+
+    /// X86_INTR - x86 hardware interrupt context. Callee may take one or two
+    /// parameters, where the 1st represents a pointer to hardware context frame
+    /// and the 2nd represents hardware error code, the presence of the later
+    /// depends on the interrupt vector taken. Valid for both 32- and 64-bit
+    /// subtargets.
+    X86_INTR = 83,
+
 #ifdef INTEL_CUSTOMIZATION
     /// \brief The __regcall convention as specified in the Intel Vector
     /// Function ABI. This calling convention differs from the x86 ABI in
     /// that scalar arguments are passed in GPRs, the order of GPRs used
     /// differs from the x86-64 ABI, and all XMM/YMM registers are used for
     /// vector/FP arguments.
-    , X86_RegCall = 83,
-    /// X86_INTR - x86 hardware interrupt context. Callee may take one
-    /// parameter representing the hardware error code, the presence of which
-    /// depends on the interrupt vector taken. Valid for both 32- and 64-bit
-    /// subtargets.
-    X86_INTR = 84
+    X86_RegCall = 84,
 #endif  // INTEL_CUSTOMIZATION
+
+    /// The highest possible calling convention ID. Must be some 2^k - 1.
+    MaxID = 1023
   };
 } // End CallingConv namespace
 

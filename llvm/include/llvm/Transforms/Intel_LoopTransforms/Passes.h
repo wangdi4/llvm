@@ -1,6 +1,6 @@
 //===------ Passes.h - Constructors for HIR transformations -----*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -39,9 +39,17 @@ FunctionPass *createHIROptPredicatePass(int Threshold = -1);
 /// unrolling on small trip count HIR loops.
 FunctionPass *createHIRCompleteUnrollPass(int Threshold = -1);
 
+/// createHIRDistributionPass - This creates a pass that performs Loop
+/// Distribution for perfect nest formation or breaking memory recurrences
+FunctionPass *createHIRLoopDistributionPass(bool FormPerfectNest = true);
+
 /// createHIRInterchangePass - This creates a pass that performs Loop
 /// Interchange
 FunctionPass *createHIRLoopInterchangePass();
+
+/// createHIRDummyTransformationPass - This creates a dummy pass that is used
+/// for debugging purposes.
+FunctionPass *createHIRRuntimeDDPass();
 
 /// createHIRDummyTransformationPass - This creates a dummy pass that is used
 /// for debugging purposes.

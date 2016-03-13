@@ -1,6 +1,6 @@
 //===--- HIROptPredicate.cpp - Implements OptPredicate class --------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -48,21 +48,21 @@
 //    will only hoist them outside the innermost loop.
 // 6. Add opt report messages.
 
-#include "llvm/Pass.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "hir-opt-predicate"
@@ -96,15 +96,13 @@ public:
   bool runOnFunction(Function &F) override;
   void releaseMemory() override;
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRLocalityAnalysis>();
+    AU.addRequiredTransitive<HIRFramework>();
     AU.addRequiredTransitive<DDAnalysis>();
   }
 
 private:
-  // Locality Analysis pointer.
-  HIRLocalityAnalysis *LA;
   // DD Analysis pointer.
   DDAnalysis *DD;
   unsigned CurOptPredTripThreshold;
@@ -174,7 +172,7 @@ private:
 char HIROptPredicate::ID = 0;
 INITIALIZE_PASS_BEGIN(HIROptPredicate, "hir-opt-predicate", "HIR OptPredicate",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIROptPredicate, "hir-opt-predicate", "HIR OptPredicate",
                     false, false)
@@ -186,7 +184,6 @@ FunctionPass *llvm::createHIROptPredicatePass(int Threshold) {
 bool HIROptPredicate::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Opt Predicate for Function : " << F.getName() << "\n");
 
-  LA = &getAnalysis<HIRLocalityAnalysis>();
   DD = &getAnalysis<DDAnalysis>();
   IsOptPredTriggered = false;
 
@@ -209,10 +206,9 @@ void HIROptPredicate::processOptPredicate() {
   // Visit each candidate loop to run cost analysis.
   // Note, end is not stored as CandidateLoops gets updated for
   // nested/multiple if.
-  for (auto Iter = CandidateLoops.begin(); Iter != CandidateLoops.end();
-       ++Iter) {
+  for (unsigned Index = 0; Index != CandidateLoops.size(); ++Index) {
 
-    HLLoop *Loop = (*Iter);
+    HLLoop *Loop = CandidateLoops[Index];
     DEBUG(dbgs() << "Opt Pred Visiting Loop:\n");
     DEBUG(Loop->dump());
 
@@ -236,6 +232,7 @@ void HIROptPredicate::processOptPredicate() {
   }
 }
 
+namespace {
 // Visitor used to find a candidate If for OptPredicate.
 class IfVisitor final : public HLNodeVisitorBase {
 
@@ -274,11 +271,12 @@ private:
 
   bool isCandidate(const RegDDRef *RegDD) const;
 };
+}
 
 bool IfVisitor::isCandidate(const RegDDRef *RegDD) const {
 
   // Only handle scalar references.
-  if (!RegDD->isScalarRef()) {
+  if (!RegDD->isTerminalRef()) {
     return false;
   }
 
@@ -439,10 +437,11 @@ void HIROptPredicate::transformLoop(HLLoop *OrigLoop, HLIf *If,
   LoopPredTripMap[NewElseLoop] = NewTrip;
   LoopPredTripMap[OrigLoop] = NewTrip;
 
-  LA->markLoopModified(OrigLoop);
-  DD->markLoopBodyModified(OrigLoop);
+  // Mark loop as modified in all the analysis.
+  HIRInvalidationUtils::invalidateBody(OrigLoop);
 
   // Set the code gen for modified region
+  assert(OrigLoop->getParentRegion() && " Loop does not have a parent region.");
   OrigLoop->getParentRegion()->setGenCode();
 }
 
@@ -523,7 +522,7 @@ void HIROptPredicate::insertElseChildren(HLLoop *NewElseLoop, unsigned IfPos,
 void HIROptPredicate::updateIfRef(HLIf *If) {
   for (auto Iter = If->ddref_begin(), End = If->ddref_end(); Iter != End;
        ++Iter) {
-    (*Iter)->updateCELevel();
+    (*Iter)->updateDefLevel();
   }
 }
 

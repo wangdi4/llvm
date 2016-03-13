@@ -1,6 +1,6 @@
 //===------- DDTest.h - Provides Data Dependence Analysis -*-- C++ --*-----===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -25,10 +25,12 @@
 #include <vector>
 #include <map>
 #include <list>
+#include <iterator>
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
+#include "llvm/ADT/STLExtras.h"
 
 namespace llvm {
 namespace loopopt {
@@ -42,6 +44,20 @@ class HLNode;
 template <class GraphNode, class GraphEdge> class HIRGraph {
 
 public:
+  typedef typename std::vector<GraphEdge>::const_iterator EdgeIterator;
+  typedef std::pointer_to_unary_function<GraphEdge, GraphNode *>
+      GraphNodeDerefFun;
+  typedef mapped_iterator<EdgeIterator, GraphNodeDerefFun> children_iterator;
+  static GraphNode *SinkFun(GraphEdge E) { return E.getSink(); }
+
+  children_iterator children_begin(GraphNode *Node) {
+    return map_iterator(outgoing_edges_begin(Node), GraphNodeDerefFun(SinkFun));
+  }
+
+  children_iterator children_end(GraphNode *Node) {
+    return map_iterator(outgoing_edges_end(Node), GraphNodeDerefFun(SinkFun));
+  }
+
   // Don't let others modify edges. We can only remove or add
   // edges
   typename std::vector<GraphEdge>::const_iterator
@@ -141,6 +157,8 @@ public:
 
   // Next one is useful to loop through each element of DV
   const DVType *getDV() const { return &DV[0]; }
+  // returns dv element for loop level.
+  DVType getDVAtLevel(unsigned Level) const { return DV[Level - 1]; }
   // Next one returns pointer to an array of char
   const DVectorTy *getDirVector() const { return &DV; }
 

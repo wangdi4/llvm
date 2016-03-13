@@ -1,6 +1,6 @@
 //===---- HLSwitch.cpp - Implements the HLSwitch class --------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -57,7 +57,7 @@ HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj, GotoContainerTy *GotoList,
   for (auto It = HLSwitchObj.default_case_child_begin(),
             EndIt = HLSwitchObj.default_case_child_end();
        It != EndIt; It++) {
-    HLNode *NewHLNode = cloneBaseImpl(It, GotoList, LabelMap);
+    HLNode *NewHLNode = cloneBaseImpl(&*It, GotoList, LabelMap);
     HLNodeUtils::insertAsLastDefaultChild(this, NewHLNode);
   }
 
@@ -66,7 +66,7 @@ HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj, GotoContainerTy *GotoList,
     for (auto It = HLSwitchObj.case_child_begin(I),
               EndIt = HLSwitchObj.case_child_end(I);
          It != EndIt; It++) {
-      HLNode *NewHLNode = cloneBaseImpl(It, GotoList, LabelMap);
+      HLNode *NewHLNode = cloneBaseImpl(&*It, GotoList, LabelMap);
       HLNodeUtils::insertAsLastChild(this, NewHLNode, I);
     }
   }
@@ -203,7 +203,7 @@ HLSwitch::case_child_rend_internal(unsigned CaseNum) const {
 
 HLNode *HLSwitch::getFirstCaseChildInternal(unsigned CaseNum) {
   if (hasCaseChildrenInternal(CaseNum)) {
-    return case_child_begin_internal(CaseNum);
+    return &*case_child_begin_internal(CaseNum);
   }
 
   return nullptr;
@@ -211,7 +211,7 @@ HLNode *HLSwitch::getFirstCaseChildInternal(unsigned CaseNum) {
 
 HLNode *HLSwitch::getLastCaseChildInternal(unsigned CaseNum) {
   if (hasCaseChildrenInternal(CaseNum)) {
-    return std::prev(case_child_end_internal(CaseNum));
+    return &*(std::prev(case_child_end_internal(CaseNum)));
   }
 
   return nullptr;

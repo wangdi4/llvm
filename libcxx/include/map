@@ -704,13 +704,8 @@ public:
     typedef pair<__key_type, __mapped_type>                      value_type;
     typedef typename _TreeIterator::difference_type              difference_type;
     typedef value_type&                                          reference;
-    typedef typename __pointer_traits::template
-#ifndef _LIBCPP_HAS_NO_TEMPLATE_ALIASES
-            rebind<value_type>
-#else
-            rebind<value_type>::other
-#endif
-                                                                 pointer;
+    typedef typename __rebind_pointer<typename __pointer_traits::pointer, value_type>::type
+        pointer;
 
     _LIBCPP_INLINE_VISIBILITY
     __map_iterator() _NOEXCEPT {}
@@ -770,13 +765,8 @@ public:
     typedef pair<__key_type, __mapped_type>                      value_type;
     typedef typename _TreeIterator::difference_type              difference_type;
     typedef const value_type&                                    reference;
-    typedef typename __pointer_traits::template
-#ifndef _LIBCPP_HAS_NO_TEMPLATE_ALIASES
-            rebind<const value_type>
-#else
-            rebind<const value_type>::other
-#endif
-                                                                 pointer;
+    typedef typename __rebind_pointer<typename __pointer_traits::pointer, const value_type>::type
+        pointer;
 
     _LIBCPP_INLINE_VISIBILITY
     __map_const_iterator() _NOEXCEPT {}
@@ -839,6 +829,9 @@ public:
     typedef _Allocator                               allocator_type;
     typedef value_type&                              reference;
     typedef const value_type&                        const_reference;
+
+    static_assert((is_same<typename allocator_type::value_type, value_type>::value),
+                  "Allocator::value_type must be same type as value_type");
 
     class _LIBCPP_TYPE_VIS_ONLY value_compare
         : public binary_function<value_type, value_type, bool>
@@ -1695,6 +1688,9 @@ public:
     typedef _Allocator                               allocator_type;
     typedef value_type&                              reference;
     typedef const value_type&                        const_reference;
+
+    static_assert((is_same<typename allocator_type::value_type, value_type>::value),
+                  "Allocator::value_type must be same type as value_type");
 
     class _LIBCPP_TYPE_VIS_ONLY value_compare
         : public binary_function<value_type, value_type, bool>

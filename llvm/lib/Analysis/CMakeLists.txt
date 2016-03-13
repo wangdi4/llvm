@@ -25,6 +25,7 @@ add_llvm_library(LLVMAnalysis
   DivergenceAnalysis.cpp
   DomPrinter.cpp
   DominanceFrontier.cpp
+  EHPersonalities.cpp
   GlobalsModRef.cpp
   IVUsers.cpp
   InlineCost.cpp
@@ -32,13 +33,15 @@ add_llvm_library(LLVMAnalysis
   InstructionSimplify.cpp
 #ifdef INTEL_CUSTOMIZATION
   Intel_Andersens.cpp
+  Intel_SNode.cpp
+  Intel_OptVLS.cpp
+  Intel_VectorVariant.cpp
 #endif     // INTEL_CUSTOMIZATION
   Interval.cpp
   IntervalPartition.cpp
   IteratedDominanceFrontier.cpp
   LazyCallGraph.cpp
   LazyValueInfo.cpp
-  LibCallSemantics.cpp
   Lint.cpp
   Loads.cpp
   LoopAccessAnalysis.cpp

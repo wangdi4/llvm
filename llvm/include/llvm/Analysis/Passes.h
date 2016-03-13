@@ -52,6 +52,12 @@ namespace llvm {
   //
   FunctionPass *createDependenceAnalysisPass();
 
+  #if INTEL_CUSTOMIZATION
+  // createSNodeAnalysisPass - This creates an instance of 
+  // SNodeAnalysis pass.
+  FunctionPass *createSNodeAnalysisPass();
+  #endif // INTEL_CUSTOMIZATION
+
   //===--------------------------------------------------------------------===//
   //
   // createCostModelAnalysisPass - This creates an instance of the

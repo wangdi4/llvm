@@ -27,7 +27,14 @@ check_cxx_compiler_flag("-Werror -fno-function-sections" COMPILER_RT_HAS_FNO_FUN
 check_cxx_compiler_flag(-std=c++11           COMPILER_RT_HAS_STD_CXX11_FLAG)
 check_cxx_compiler_flag(-ftls-model=initial-exec COMPILER_RT_HAS_FTLS_MODEL_INITIAL_EXEC)
 check_cxx_compiler_flag(-fno-lto             COMPILER_RT_HAS_FNO_LTO_FLAG)
-check_cxx_compiler_flag(-msse3               COMPILER_RT_HAS_MSSE3_FLAG)
+check_cxx_compiler_flag("-Werror -msse3" COMPILER_RT_HAS_MSSE3_FLAG)
+check_cxx_compiler_flag(-std=c99             COMPILER_RT_HAS_STD_C99_FLAG)
+check_cxx_compiler_flag(--sysroot=.          COMPILER_RT_HAS_SYSROOT_FLAG)
+
+if(NOT WIN32 AND NOT CYGWIN)
+  # MinGW warns if -fvisibility-inlines-hidden is used.
+  check_cxx_compiler_flag("-fvisibility-inlines-hidden" COMPILER_RT_HAS_FVISIBILITY_INLINES_HIDDEN_FLAG)
+endif()
 
 check_cxx_compiler_flag(/GR COMPILER_RT_HAS_GR_FLAG)
 check_cxx_compiler_flag(/GS COMPILER_RT_HAS_GS_FLAG)
@@ -61,7 +68,7 @@ check_cxx_compiler_flag(/wd4800 COMPILER_RT_HAS_WD4800_FLAG)
 check_symbol_exists(__func__ "" COMPILER_RT_HAS_FUNC_SYMBOL)
 
 # Libraries.
-check_library_exists(c printf "" COMPILER_RT_HAS_LIBC)
+check_library_exists(c fopen "" COMPILER_RT_HAS_LIBC)
 check_library_exists(dl dlopen "" COMPILER_RT_HAS_LIBDL)
 check_library_exists(rt shm_open "" COMPILER_RT_HAS_LIBRT)
 check_library_exists(m pow "" COMPILER_RT_HAS_LIBM)
@@ -271,13 +278,25 @@ set(ALL_LSAN_SUPPORTED_ARCH ${X86_64} ${MIPS64} ${ARM64})
 set(ALL_MSAN_SUPPORTED_ARCH ${X86_64} ${MIPS64} ${ARM64})
 set(ALL_PROFILE_SUPPORTED_ARCH ${X86} ${X86_64} ${ARM32} ${ARM64} ${PPC64}
     ${MIPS32} ${MIPS64})
-set(ALL_TSAN_SUPPORTED_ARCH ${X86_64} ${MIPS64} ${ARM64})
+set(ALL_TSAN_SUPPORTED_ARCH ${X86_64} ${MIPS64} ${ARM64} ${PPC64})
 set(ALL_UBSAN_SUPPORTED_ARCH ${X86} ${X86_64} ${ARM32} ${ARM64}
     ${MIPS32} ${MIPS64} ${PPC64})
-set(ALL_SAFESTACK_SUPPORTED_ARCH ${X86} ${X86_64})
+set(ALL_SAFESTACK_SUPPORTED_ARCH ${X86} ${X86_64} ${ARM64})
+set(ALL_CFI_SUPPORTED_ARCH ${X86} ${X86_64})
 
 if(APPLE)
   include(CompilerRTDarwinUtils)
+
+  # On Darwin if /usr/include doesn't exist, the user probably has Xcode but not
+  # the command line tools. If this is the case, we need to find the OS X
+  # sysroot to pass to clang.
+  if(NOT EXISTS /usr/include)
+    execute_process(COMMAND xcodebuild -version -sdk macosx Path
+       OUTPUT_VARIABLE OSX_SYSROOT
+       ERROR_QUIET
+       OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set(OSX_SYSROOT_FLAG "-isysroot${OSX_SYSROOT}")
+  endif()
 
   option(COMPILER_RT_ENABLE_IOS "Enable building for iOS - Experimental" Off)
 
@@ -290,6 +309,7 @@ if(APPLE)
   set(SANITIZER_COMMON_SUPPORTED_OS osx)
   set(BUILTIN_SUPPORTED_OS osx)
   set(PROFILE_SUPPORTED_OS osx)
+  set(TSAN_SUPPORTED_OS osx)
   if(NOT SANITIZER_MIN_OSX_VERSION)
     string(REGEX MATCH "-mmacosx-version-min=([.0-9]+)"
            MACOSX_VERSION_MIN_FLAG "${CMAKE_CXX_FLAGS}")
@@ -379,6 +399,8 @@ if(APPLE)
       message(STATUS "iOS Simulator supported arches: ${DARWIN_iossim_ARCHS}")
       if(DARWIN_iossim_ARCHS)
         list(APPEND SANITIZER_COMMON_SUPPORTED_OS iossim)
+        list(APPEND BUILTIN_SUPPORTED_OS iossim)
+        list(APPEND PROFILE_SUPPORTED_OS iossim)
       endif()
       foreach(arch ${DARWIN_iossim_ARCHS})
         list(APPEND COMPILER_RT_SUPPORTED_ARCH ${arch})
@@ -407,7 +429,6 @@ if(APPLE)
         list(APPEND SANITIZER_COMMON_SUPPORTED_OS ios)
         list(APPEND BUILTIN_SUPPORTED_OS ios)
         list(APPEND PROFILE_SUPPORTED_OS ios)
-        list(APPEND BUILTIN_SUPPORTED_OS iossim)
       endif()
       foreach(arch ${DARWIN_ios_ARCHS})
         list(APPEND COMPILER_RT_SUPPORTED_ARCH ${arch})
@@ -451,6 +472,9 @@ if(APPLE)
   list_union(SAFESTACK_SUPPORTED_ARCH
     ALL_SAFESTACK_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
+  list_union(CFI_SUPPORTED_ARCH
+    ALL_CFI_SUPPORTED_ARCH
+    SANITIZER_COMMON_SUPPORTED_ARCH)
 else()
   # Architectures supported by compiler-rt libraries.
   filter_available_targets(BUILTIN_SUPPORTED_ARCH
@@ -472,6 +496,7 @@ else()
   filter_available_targets(UBSAN_SUPPORTED_ARCH ${ALL_UBSAN_SUPPORTED_ARCH})
   filter_available_targets(SAFESTACK_SUPPORTED_ARCH
     ${ALL_SAFESTACK_SUPPORTED_ARCH})
+  filter_available_targets(CFI_SUPPORTED_ARCH ${ALL_CFI_SUPPORTED_ARCH})
 endif()
 
 message(STATUS "Compiler-RT supported architectures: ${COMPILER_RT_SUPPORTED_ARCH}")
@@ -541,7 +566,7 @@ else()
 endif()
 
 if (COMPILER_RT_HAS_SANITIZER_COMMON AND TSAN_SUPPORTED_ARCH AND
-    OS_NAME MATCHES "Linux|FreeBSD")
+    OS_NAME MATCHES "Darwin|Linux|FreeBSD")
   set(COMPILER_RT_HAS_TSAN TRUE)
 else()
   set(COMPILER_RT_HAS_TSAN FALSE)
@@ -554,17 +579,16 @@ else()
   set(COMPILER_RT_HAS_UBSAN FALSE)
 endif()
 
-# -msse3 flag is not valid for Mips therefore clang gives a warning
-# message with -msse3. But check_c_compiler_flags() checks only for
-# compiler error messages. Therefore COMPILER_RT_HAS_MSSE3_FLAG turns out to be
-# true on Mips, so we make it false here.
-if("${COMPILER_RT_DEFAULT_TARGET_ARCH}" MATCHES "mips")
-  set(COMPILER_RT_HAS_MSSE3_FLAG FALSE)
-endif()
-
 if (COMPILER_RT_HAS_SANITIZER_COMMON AND SAFESTACK_SUPPORTED_ARCH AND
     OS_NAME MATCHES "Darwin|Linux|FreeBSD")
   set(COMPILER_RT_HAS_SAFESTACK TRUE)
 else()
   set(COMPILER_RT_HAS_SAFESTACK FALSE)
+endif()
+
+if (COMPILER_RT_HAS_SANITIZER_COMMON AND CFI_SUPPORTED_ARCH AND
+    OS_NAME MATCHES "Linux")
+  set(COMPILER_RT_HAS_CFI TRUE)
+else()
+  set(COMPILER_RT_HAS_CFI FALSE)
 endif()

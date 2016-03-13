@@ -37,7 +37,6 @@ namespace {
 
 /// \brief Inliner pass which only handles "always inline" functions.
 class AlwaysInliner : public Inliner {
-  InlineCostAnalysis *ICA;
 
 #if INTEL_SPECIFIC_IL0_BACKEND
   // This is used to enable/disable standard inliner pass for
@@ -48,8 +47,7 @@ class AlwaysInliner : public Inliner {
 
 public:
   // Use extremely low threshold.
-  AlwaysInliner() : Inliner(ID, -2000000000, /*InsertLifetime*/ true),
-                    ICA(nullptr) {
+  AlwaysInliner() : Inliner(ID, -2000000000, /*InsertLifetime*/ true) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
 #if INTEL_SPECIFIC_IL0_BACKEND
     Il0BackendMode = false;
@@ -57,7 +55,7 @@ public:
   }
 
   AlwaysInliner(bool InsertLifetime)
-      : Inliner(ID, -2000000000, InsertLifetime), ICA(nullptr) {
+      : Inliner(ID, -2000000000, InsertLifetime) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
 #if INTEL_SPECIFIC_IL0_BACKEND
     Il0BackendMode = false;
@@ -66,7 +64,7 @@ public:
 
 #if INTEL_SPECIFIC_IL0_BACKEND
   AlwaysInliner(bool InsertLifetime, bool Il0BackendMode)
-      : Inliner(ID, -2000000000, InsertLifetime), ICA(nullptr) {
+      : Inliner(ID, -2000000000, InsertLifetime) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
     this->Il0BackendMode = Il0BackendMode;
   }
@@ -75,9 +73,6 @@ public:
   static char ID; // Pass identification, replacement for typeid
 
   InlineCost getInlineCost(CallSite CS) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  bool runOnSCC(CallGraphSCC &SCC) override;
 
   using llvm::Pass::doFinalization;
   bool doFinalization(CallGraph &CG) override {
@@ -97,7 +92,6 @@ INITIALIZE_PASS_BEGIN(AlwaysInliner, "always-inline",
                 "Inliner for always_inline functions", false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(InlineCostAnalysis)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(AlwaysInliner, "always-inline",
                 "Inliner for always_inline functions", false, false)
@@ -140,7 +134,7 @@ InlineCost AlwaysInliner::getInlineCost(CallSite CS) {
     InlineReason Reason;
     if (Callee && !Callee->isDeclaration() &&
         Callee->hasFnAttribute("INTEL_ALWAYS_INLINE") &&
-        ICA->isInlineViable(*Callee, Reason))
+        isInlineViable(*Callee, Reason))
       return InlineCost::getAlways(InlrAlwaysInline);
     return InlineCost::getNever(NinlrNotAlwaysInline);
   }
@@ -152,18 +146,8 @@ InlineCost AlwaysInliner::getInlineCost(CallSite CS) {
   InlineReason Reason; // INTEL
   if (Callee && !Callee->isDeclaration() &&
       CS.hasFnAttr(Attribute::AlwaysInline) &&
-      ICA->isInlineViable(*Callee, Reason)) // INTEL 
+      isInlineViable(*Callee, Reason)) // INTEL 
     return InlineCost::getAlways(InlrAlwaysInline); // INTEL 
 
   return InlineCost::getNever(NinlrNotAlwaysInline); // INTEL 
-}
-
-bool AlwaysInliner::runOnSCC(CallGraphSCC &SCC) {
-  ICA = &getAnalysis<InlineCostAnalysis>();
-  return Inliner::runOnSCC(SCC);
-}
-
-void AlwaysInliner::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<InlineCostAnalysis>();
-  Inliner::getAnalysisUsage(AU);
 }

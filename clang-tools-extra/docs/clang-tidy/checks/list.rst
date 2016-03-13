@@ -1,11 +1,18 @@
-List of clang-tidy Checks
+.. title:: clang-tidy - Clang-Tidy Checks
+
+Clang-Tidy Checks
 =========================
 
-.. toctree::
-   cert-setlongjmp
-   cert-variadic-function-def
+.. toctree::   
+   cert-dcl50-cpp
+   cert-err52-cpp
+   cert-err58-cpp
+   cert-err60-cpp
+   cppcoreguidelines-pro-bounds-array-to-pointer-decay
+   cppcoreguidelines-pro-bounds-constant-array-index
    cppcoreguidelines-pro-bounds-pointer-arithmetic
    cppcoreguidelines-pro-type-const-cast
+   cppcoreguidelines-pro-type-cstyle-cast
    cppcoreguidelines-pro-type-reinterpret-cast
    cppcoreguidelines-pro-type-static-cast-downcast
    cppcoreguidelines-pro-type-union-access
@@ -43,6 +50,7 @@ List of clang-tidy Checks
    misc-non-copyable-objects
    misc-sizeof-container
    misc-static-assert
+   misc-string-integer-assignment
    misc-swapped-arguments
    misc-throw-by-value-catch-by-reference
    misc-undelegated-constructor
@@ -53,6 +61,7 @@ List of clang-tidy Checks
    modernize-loop-convert
    modernize-make-unique
    modernize-pass-by-value
+   modernize-redundant-void-arg
    modernize-replace-auto-ptr
    modernize-shrink-to-fit
    modernize-use-auto
@@ -64,6 +73,7 @@ List of clang-tidy Checks
    readability-else-after-return
    readability-function-size
    readability-identifier-naming
+   readability-implicit-bool-cast
    readability-inconsistent-declaration-parameter-name
    readability-named-parameter
    readability-redundant-smartptr-get

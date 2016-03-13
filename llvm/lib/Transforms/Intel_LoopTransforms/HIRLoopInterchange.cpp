@@ -1,6 +1,6 @@
 //===----- HIRLoopInterchange.cpp - Permutations of HIR loops -------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -46,10 +46,12 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 
 #define DEBUG_TYPE "hir-loopinterchange"
 
@@ -70,9 +72,9 @@ public:
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRParser>();
-    AU.addRequiredTransitive<HIRLocalityAnalysis>();
+    AU.addRequiredTransitive<HIRFramework>();
     AU.addRequiredTransitive<DDAnalysis>();
+    AU.addRequiredTransitive<HIRLocalityAnalysis>();
   }
 
 private:
@@ -110,7 +112,8 @@ private:
 char HIRLoopInterchange::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopInterchange, "HIRLoopInterchange",
                       "HIR Loop Interchange", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_END(HIRLoopInterchange, "HIRLoopInterchange",
                     "HIR Loop Interchange", false, false)
@@ -619,11 +622,6 @@ static void updateDDRefCE(HLDDNode *Node, unsigned InnermostNestingLevel,
       updateCE(RegRef->getBaseCE(), InnermostNestingLevel, OutmostNestingLevel,
                NewLoopLevels);
     }
-    for (auto Iter = RegRef->stride_begin(), End = RegRef->stride_end();
-         Iter != End; ++Iter) {
-      CanonExpr *CE = *Iter;
-      updateCE(CE, InnermostNestingLevel, OutmostNestingLevel, NewLoopLevels);
-    }
   }
 }
 
@@ -685,7 +683,11 @@ void HIRLoopInterchange::updateLoopBody(HLLoop *Loop) {
 
 void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
 
-  LA->markLoopModified(InnermostLoop);
+  // Invalidate all analysis for InnermostLoop.
+  // TODO: we should probably invalidate analysis for all the involved loops.
+  HIRInvalidationUtils::invalidateBounds(InnermostLoop);
+  HIRInvalidationUtils::invalidateBody(InnermostLoop);
+
   HLNodeUtils::permuteLoopNests(Loop, LoopPermutation);
   updateLoopBody(Loop);
   printOptReport(Loop);

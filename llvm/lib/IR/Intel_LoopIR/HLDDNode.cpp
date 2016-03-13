@@ -1,6 +1,6 @@
 //===--- HLDDNode.cpp - Implements the HLDDNode class ---------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -37,61 +37,17 @@ void HLDDNode::setNode(RegDDRef *Ref, HLDDNode *HNode) {
   Ref->setHLDDNode(HNode);
 }
 
-HLDDNode::ddref_iterator HLDDNode::ddref_begin() {
-  HLLoop *HLoop;
-
-  /// Skip null DDRefs for unknown loops
-  if ((HLoop = dyn_cast<HLLoop>(this)) && HLoop->isUnknown()) {
-    return RegDDRefs.end();
-  }
-  return RegDDRefs.begin();
-}
-
-HLDDNode::const_ddref_iterator HLDDNode::ddref_begin() const {
-  return const_cast<HLDDNode *>(this)->ddref_begin();
-}
-
-HLDDNode::ddref_iterator HLDDNode::ddref_end() { return RegDDRefs.end(); }
-
-HLDDNode::const_ddref_iterator HLDDNode::ddref_end() const {
-  return const_cast<HLDDNode *>(this)->ddref_end();
-}
-
-HLDDNode::reverse_ddref_iterator HLDDNode::ddref_rbegin() {
-  HLLoop *HLoop;
-
-  /// Skip null DDRefs for unknown loops
-  if ((HLoop = dyn_cast<HLLoop>(this)) && HLoop->isUnknown()) {
-    return RegDDRefs.rend();
-  }
-  return RegDDRefs.rbegin();
-}
-
-HLDDNode::const_reverse_ddref_iterator HLDDNode::ddref_rbegin() const {
-  return const_cast<HLDDNode *>(this)->ddref_rbegin();
-}
-
-HLDDNode::reverse_ddref_iterator HLDDNode::ddref_rend() {
-  return RegDDRefs.rend();
-}
-
-HLDDNode::const_reverse_ddref_iterator HLDDNode::ddref_rend() const {
-  return const_cast<HLDDNode *>(this)->ddref_rend();
-}
-
 RegDDRef *HLDDNode::getOperandDDRefImpl(unsigned OperandNum) const {
   return RegDDRefs[OperandNum];
 }
 
 void HLDDNode::setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum) {
 
-#ifndef NDEBUG
   /// Reset HLDDNode of a previous DDRef, if any. We can catch more errors
   /// this way.
   if (auto TRef = RegDDRefs[OperandNum]) {
     setNode(TRef, nullptr);
   }
-#endif
 
   if (Ref) {
     assert(!Ref->getHLDDNode() && "DDRef attached to some other node, please "
@@ -110,7 +66,7 @@ void HLDDNode::print(formatted_raw_ostream &OS, unsigned Depth,
 }
 
 void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
-  bool printed = false;
+  bool Printed = false;
   bool IsLoop = false;
 
   // DD refs attached to Loop nodes require additional
@@ -123,7 +79,7 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
     // Simply checking for isConstant() also filters out lval DDRefs whose
     // canonical represenation is a constant. We should print out lval DDRefs
     // regardless.
-    if (!PrintConstDDRefs && ((*I)->getSymbase() == CONSTANT_SYMBASE)) {
+    if ((*I) && !PrintConstDDRefs && ((*I)->getSymbase() == CONSTANT_SYMBASE)) {
       continue;
     }
 
@@ -133,35 +89,37 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
     if (IsLoop) {
       OS << "| ";
 
-      IsZttDDRef = cast<HLLoop>(this)->isZttOperandDDRef(*I);
+      IsZttDDRef = *I ? cast<HLLoop>(this)->isZttOperandDDRef(*I) : false;
     }
 
-    IsZttDDRef ? (void)(OS << "<ZTT-REG> ") : isLval(*I)
+    IsZttDDRef ? (void)(OS << "<ZTT-REG> ") : ((*I) && isLval(*I))
                                                   ? (void)(OS << "<LVAL-REG> ")
                                                   : (void)(OS << "<RVAL-REG> ");
 
-    (*I)->print(OS, true);
+    (*I) ? (*I)->print(OS, true) : (void)(OS << *I);
 
     OS << "\n";
 
-    for (auto B = (*I)->blob_cbegin(), BE = (*I)->blob_cend(); B != BE; ++B) {
-      indent(OS, Depth);
-      if (IsLoop) {
-        OS << "| ";
+    if (*I) {
+      for (auto B = (*I)->blob_cbegin(), BE = (*I)->blob_cend(); B != BE; ++B) {
+        indent(OS, Depth);
+        if (IsLoop) {
+          OS << "| ";
+        }
+
+        // Add extra indentation for blob ddrefs.
+        OS.indent(IndentWidth);
+
+        OS << "<BLOB> ";
+        (*B)->print(OS, true);
+        OS << "\n";
       }
-
-      // Add extra indentation for blob ddrefs.
-      OS.indent(IndentWidth);
-
-      OS << "<BLOB> ";
-      (*B)->print(OS, true);
-      OS << "\n";
     }
 
-    printed = true;
+    Printed = true;
   }
 
-  if (printed) {
+  if (Printed) {
     indent(OS, Depth);
     if (IsLoop) {
       OS << "| ";

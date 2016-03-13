@@ -491,6 +491,8 @@ endif
 ObjRootDir  := $(PROJ_OBJ_DIR)/$(BuildMode)
 ObjDir      := $(ObjRootDir)
 LibDir      := $(PROJ_OBJ_ROOT)/$(BuildMode)/lib
+LibexecDir  := $(PROJ_OBJ_ROOT)/$(BuildMode)/libexec
+ShareDir    := $(PROJ_OBJ_ROOT)/$(BuildMode)/share
 ToolDir     := $(PROJ_OBJ_ROOT)/$(BuildMode)/bin
 ExmplDir    := $(PROJ_OBJ_ROOT)/$(BuildMode)/examples
 LLVMLibDir  := $(LLVM_OBJ_ROOT)/$(BuildMode)/lib
@@ -871,6 +873,7 @@ $(DESTDIR)$(PROJ_bindir) $(DESTDIR)$(PROJ_libdir) $(DESTDIR)$(PROJ_includedir) $
 
 .PRECIOUS: $(LibDir)/.dir $(ToolDir)/.dir $(ExmplDir)/.dir
 .PRECIOUS: $(LLVMLibDir)/.dir $(LLVMToolDir)/.dir $(LLVMExmplDir)/.dir
+.PRECIOUS: $(LibexecDir)/.dir $(ShareDir)/.dir
 
 #---------------------------------------------------------
 # Collect the object directories (as there may be more
@@ -1734,6 +1737,12 @@ $(ObjDir)/%GenDFAPacketizer.inc.tmp : %.td $(ObjDir)/.dir $(LLVM_TBLGEN)
 	$(Echo) "Building $(<F) DFA packetizer tables with tblgen"
 	$(Verb) $(LLVMTableGen) -gen-dfa-packetizer -o $(call SYSPATH, $@) $<
 
+# INTEL_CUSTOMIZATION
+$(TARGET:%=$(ObjDir)/%GenMAPatterns.inc.tmp): %.td $(ObjDir)/.dir $(LLVM_TBLGEN)
+	$(Echo) "Building $(<F) mul/add patterns with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-ma-patterns -o $(call SYSPATH, $@) $<
+# END INTEL_CUSTOMIZATION
+
 # Dump all the records to <target>.td.expanded.  This is useful for debugging.
 $(TARGET:%=%.td.expanded): \
 %.td.expanded : %.td $(LLVM_TBLGEN) $(TDFiles)
@@ -2158,6 +2167,8 @@ printvars::
 	$(Echo) "SrcMakefiles : " '$(SrcMakefiles)'
 	$(Echo) "ObjDir       : " '$(ObjDir)'
 	$(Echo) "LibDir       : " '$(LibDir)'
+	$(Echo) "LibexecDir   : " '$(LibexecDir)'
+	$(Echo) "ShareDir     : " '$(ShareDir)'
 	$(Echo) "ToolDir      : " '$(ToolDir)'
 	$(Echo) "ExmplDir     : " '$(ExmplDir)'
 	$(Echo) "Sources      : " '$(Sources)'

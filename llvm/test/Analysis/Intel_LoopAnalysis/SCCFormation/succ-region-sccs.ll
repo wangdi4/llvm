@@ -6,7 +6,7 @@
 
 ; RUN: opt < %s -loop-simplify | opt -analyze -hir-scc-formation | FileCheck --check-prefix=SCC %s
 
-; Check formation of three SCCs in the first region and one in the second
+; Check formation of two SCCs in the first region and none in the second.
 ; SCC: Region 1
 ; SCC-NEXT: SCC1
 ; SCC-DAG: %mul
@@ -14,14 +14,6 @@
 ; SCC-NEXT: SCC2
 ; SCC-DAG: %add
 ; SCC-DAG: %a.addr.022
-; SCC-NEXT: SCC3
-; SCC-DAG: %indvars.iv.next26 
-; SCC-DAG: %indvars.iv25
-; SCC-NOT: SCC
-; SCC: Region 2
-; SCC-NEXT: SCC1
-; SCC-DAG: %indvars.iv.next
-; SCC-DAG: %indvars.iv
 ; SCC-NOT: SCC
 
 

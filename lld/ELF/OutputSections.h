@@ -27,12 +27,18 @@ class SymbolBody;
 template <class ELFT> class SymbolTable;
 template <class ELFT> class SymbolTableSection;
 template <class ELFT> class StringTableSection;
+template <class ELFT> class EHInputSection;
 template <class ELFT> class InputSection;
+template <class ELFT> class InputSectionBase;
 template <class ELFT> class MergeInputSection;
+template <class ELFT> class MipsReginfoInputSection;
 template <class ELFT> class OutputSection;
 template <class ELFT> class ObjectFile;
 template <class ELFT> class DefinedRegular;
-template <class ELFT> class ELFSymbolBody;
+
+// Flag to force GOT to be in output if we have relocations
+// that relies on its address.
+extern bool HasGotOffRel;
 
 template <class ELFT>
 static inline typename llvm::object::ELFFile<ELFT>::uintX_t
@@ -52,12 +58,10 @@ typename llvm::object::ELFFile<ELFT>::uintX_t getSymVA(const SymbolBody &S);
 template <class ELFT, bool IsRela>
 typename llvm::object::ELFFile<ELFT>::uintX_t
 getLocalRelTarget(const ObjectFile<ELFT> &File,
-                  const llvm::object::Elf_Rel_Impl<ELFT, IsRela> &Rel);
-bool canBePreempted(const SymbolBody *Body, bool NeedsGot);
-template <class ELFT> bool includeInSymtab(const SymbolBody &B);
+                  const llvm::object::Elf_Rel_Impl<ELFT, IsRela> &Rel,
+                  typename llvm::object::ELFFile<ELFT>::uintX_t Addend);
 
-bool includeInDynamicSymtab(const SymbolBody &B);
-bool includeInGnuHashTable(const SymbolBody &B);
+bool canBePreempted(const SymbolBody *Body, bool NeedsGot);
 
 template <class ELFT>
 bool shouldKeepInSymtab(
@@ -80,7 +84,8 @@ public:
   void setFileOffset(uintX_t Off) { Header.sh_offset = Off; }
   void writeHeaderTo(Elf_Shdr *SHdr);
   StringRef getName() { return Name; }
-  void setNameOffset(uintX_t Offset) { Header.sh_name = Offset; }
+
+  virtual void addSection(InputSectionBase<ELFT> *C) {}
 
   unsigned SectionIndex;
 
@@ -95,14 +100,18 @@ public:
     return std::max<uintX_t>(Header.sh_addralign, 1);
   }
   uint32_t getType() { return Header.sh_type; }
+  void updateAlign(uintX_t Align) {
+    if (Align > Header.sh_addralign)
+      Header.sh_addralign = Align;
+  }
 
   virtual void finalize() {}
   virtual void writeTo(uint8_t *Buf) = 0;
+  virtual ~OutputSectionBase() = default;
 
 protected:
   StringRef Name;
   Elf_Shdr Header;
-  ~OutputSectionBase() = default;
 };
 
 template <class ELFT> class GotSection final : public OutputSectionBase<ELFT> {
@@ -111,16 +120,31 @@ template <class ELFT> class GotSection final : public OutputSectionBase<ELFT> {
 
 public:
   GotSection();
-  void finalize() override {
-    this->Header.sh_size = Entries.size() * sizeof(uintX_t);
-  }
+  void finalize() override;
   void writeTo(uint8_t *Buf) override;
   void addEntry(SymbolBody *Sym);
+  bool addDynTlsEntry(SymbolBody *Sym);
+  bool addCurrentModuleTlsIndex();
   bool empty() const { return Entries.empty(); }
   uintX_t getEntryAddr(const SymbolBody &B) const;
+  uintX_t getGlobalDynAddr(const SymbolBody &B) const;
+  uintX_t getNumEntries() const { return Entries.size(); }
+
+  // Returns the symbol which corresponds to the first entry of the global part
+  // of GOT on MIPS platform. It is required to fill up MIPS-specific dynamic
+  // table properties.
+  // Returns nullptr if the global part is empty.
+  const SymbolBody *getMipsFirstGlobalEntry() const;
+
+  // Returns the number of entries in the local part of GOT including
+  // the number of reserved entries. This method is MIPS-specific.
+  unsigned getMipsLocalEntriesNum() const;
+
+  uint32_t getLocalTlsIndexVA() { return Base::getVA() + LocalTlsIndexOff; }
 
 private:
   std::vector<const SymbolBody *> Entries;
+  uint32_t LocalTlsIndexOff = -1;
 };
 
 template <class ELFT>
@@ -152,13 +176,13 @@ public:
   uintX_t getEntryAddr(const SymbolBody &B) const;
 
 private:
-  std::vector<const SymbolBody *> Entries;
+  std::vector<std::pair<const SymbolBody *, unsigned>> Entries;
 };
 
 template <class ELFT> struct DynamicReloc {
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Rel Elf_Rel;
-  const InputSection<ELFT> &C;
-  const Elf_Rel &RI;
+  InputSectionBase<ELFT> *C;
+  const Elf_Rel *RI;
 };
 
 template <class ELFT>
@@ -177,16 +201,8 @@ public:
   void addSymbol(SymbolBody *Body);
   StringTableSection<ELFT> &getStrTabSec() const { return StrTabSec; }
   unsigned getNumSymbols() const { return NumVisible + 1; }
-  unsigned getNumGnuHashSymbols() const { return NumGnuHashed; }
 
-  struct SymbolData {
-    SymbolData(SymbolBody *Body, bool HasGnuHash);
-    SymbolBody *Body;
-    bool HasGnuHash;
-    uint32_t GnuHash;
-  };
-  ArrayRef<SymbolData> getSymbols() const { return Symbols; }
-  ArrayRef<SymbolData> getGnuHashSymbols() const;
+  ArrayRef<SymbolBody *> getSymbols() const { return Symbols; }
 
 private:
   void writeLocalSymbols(uint8_t *&Buf);
@@ -196,10 +212,9 @@ private:
 
   SymbolTable<ELFT> &Table;
   StringTableSection<ELFT> &StrTabSec;
-  std::vector<SymbolData> Symbols;
+  std::vector<SymbolBody *> Symbols;
   unsigned NumVisible = 0;
   unsigned NumLocals = 0;
-  unsigned NumGnuHashed = 0;
 };
 
 template <class ELFT>
@@ -211,12 +226,18 @@ class RelocationSection final : public OutputSectionBase<ELFT> {
 public:
   RelocationSection(StringRef Name, bool IsRela);
   void addReloc(const DynamicReloc<ELFT> &Reloc) { Relocs.push_back(Reloc); }
+  unsigned getRelocOffset();
   void finalize() override;
   void writeTo(uint8_t *Buf) override;
   bool hasRelocs() const { return !Relocs.empty(); }
   bool isRela() const { return IsRela; }
 
+  bool Static = false;
+
 private:
+  bool applyTlsDynamicReloc(SymbolBody *Body, uint32_t Type, Elf_Rel *P,
+                            Elf_Rel *N);
+
   std::vector<DynamicReloc<ELFT>> Relocs;
   const bool IsRela;
 };
@@ -230,7 +251,7 @@ public:
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Rela Elf_Rela;
   typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
   OutputSection(StringRef Name, uint32_t sh_type, uintX_t sh_flags);
-  void addSection(InputSection<ELFT> *C);
+  void addSection(InputSectionBase<ELFT> *C) override;
   void writeTo(uint8_t *Buf) override;
 
 private:
@@ -241,24 +262,66 @@ template <class ELFT>
 class MergeOutputSection final : public OutputSectionBase<ELFT> {
   typedef typename OutputSectionBase<ELFT>::uintX_t uintX_t;
 
+  bool shouldTailMerge() const;
+
 public:
   MergeOutputSection(StringRef Name, uint32_t sh_type, uintX_t sh_flags);
-  void addSection(MergeInputSection<ELFT> *S);
+  void addSection(InputSectionBase<ELFT> *S) override;
   void writeTo(uint8_t *Buf) override;
-
-  unsigned getOffset(ArrayRef<uint8_t> Val);
+  unsigned getOffset(StringRef Val);
+  void finalize() override;
 
 private:
-  // This map is used to find if we already have an entry for a given value and,
-  // if so, at what offset it is.
-  llvm::MapVector<ArrayRef<uint8_t>, uintX_t> Offsets;
+  llvm::StringTableBuilder Builder{llvm::StringTableBuilder::RAW};
+};
+
+// FDE or CIE
+template <class ELFT> struct EHRegion {
+  typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
+  EHRegion(EHInputSection<ELFT> *S, unsigned Index);
+  StringRef data() const;
+  EHInputSection<ELFT> *S;
+  unsigned Index;
+};
+
+template <class ELFT> struct Cie : public EHRegion<ELFT> {
+  Cie(EHInputSection<ELFT> *S, unsigned Index);
+  std::vector<EHRegion<ELFT>> Fdes;
+};
+
+template <class ELFT>
+class EHOutputSection final : public OutputSectionBase<ELFT> {
+public:
+  typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
+  typedef typename llvm::object::ELFFile<ELFT>::Elf_Shdr Elf_Shdr;
+  typedef typename llvm::object::ELFFile<ELFT>::Elf_Rel Elf_Rel;
+  typedef typename llvm::object::ELFFile<ELFT>::Elf_Rela Elf_Rela;
+  EHOutputSection(StringRef Name, uint32_t sh_type, uintX_t sh_flags);
+  void writeTo(uint8_t *Buf) override;
+
+  template <bool IsRela>
+  void addSectionAux(
+      EHInputSection<ELFT> *S,
+      llvm::iterator_range<const llvm::object::Elf_Rel_Impl<ELFT, IsRela> *>
+          Rels);
+
+  void addSection(InputSectionBase<ELFT> *S) override;
+
+private:
+  uintX_t readEntryLength(ArrayRef<uint8_t> D);
+
+  std::vector<EHInputSection<ELFT> *> Sections;
+  std::vector<Cie<ELFT>> Cies;
+
+  // Maps CIE content + personality to a index in Cies.
+  llvm::DenseMap<std::pair<StringRef, StringRef>, unsigned> CieMap;
 };
 
 template <class ELFT>
 class InterpSection final : public OutputSectionBase<ELFT> {
 public:
   InterpSection();
-  void writeTo(uint8_t *Buf);
+  void writeTo(uint8_t *Buf) override;
 };
 
 template <class ELFT>
@@ -267,12 +330,12 @@ public:
   typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
   StringTableSection(StringRef Name, bool Dynamic);
   void add(StringRef S) { StrTabBuilder.add(S); }
-  size_t getFileOff(StringRef S) const { return StrTabBuilder.getOffset(S); }
+  size_t getOffset(StringRef S) const { return StrTabBuilder.getOffset(S); }
   StringRef data() const { return StrTabBuilder.data(); }
   void writeTo(uint8_t *Buf) override;
 
   void finalize() override {
-    StrTabBuilder.finalize(llvm::StringTableBuilder::ELF);
+    StrTabBuilder.finalize();
     this->Header.sh_size = StrTabBuilder.data().size();
   }
 
@@ -280,7 +343,7 @@ public:
 
 private:
   const bool Dynamic;
-  llvm::StringTableBuilder StrTabBuilder;
+  llvm::StringTableBuilder StrTabBuilder{llvm::StringTableBuilder::ELF};
 };
 
 template <class ELFT>
@@ -306,14 +369,24 @@ public:
   void finalize() override;
   void writeTo(uint8_t *Buf) override;
 
-  static unsigned calcNBuckets(unsigned NumHashed);
+  // Adds symbols to the hash table.
+  // Sorts the input to satisfy GNU hash section requirements.
+  void addSymbols(std::vector<SymbolBody *> &Symbols);
 
 private:
+  static unsigned calcNBuckets(unsigned NumHashed);
   static unsigned calcMaskWords(unsigned NumHashed);
 
   void writeHeader(uint8_t *&Buf);
   void writeBloomFilter(uint8_t *&Buf);
   void writeHashTable(uint8_t *Buf);
+
+  struct HashedSymbolData {
+    SymbolBody *Body;
+    uint32_t Hash;
+  };
+
+  std::vector<HashedSymbolData> HashedSymbols;
 
   unsigned MaskWords;
   unsigned NBuckets;
@@ -340,16 +413,31 @@ public:
 
 private:
   SymbolTable<ELFT> &SymTab;
-  const ELFSymbolBody<ELFT> *InitSym = nullptr;
-  const ELFSymbolBody<ELFT> *FiniSym = nullptr;
+  const SymbolBody *InitSym = nullptr;
+  const SymbolBody *FiniSym = nullptr;
   uint32_t DtFlags = 0;
   uint32_t DtFlags1 = 0;
+};
+
+template <class ELFT>
+class MipsReginfoOutputSection final : public OutputSectionBase<ELFT> {
+  typedef llvm::object::Elf_Mips_RegInfo<ELFT> Elf_Mips_RegInfo;
+
+public:
+  MipsReginfoOutputSection();
+  void writeTo(uint8_t *Buf) override;
+  void addSection(InputSectionBase<ELFT> *S) override;
+
+private:
+  uint32_t GeneralMask = 0;
 };
 
 // All output sections that are hadnled by the linker specially are
 // globally accessible. Writer initializes them, so don't use them
 // until Writer is initialized.
 template <class ELFT> struct Out {
+  typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
+  typedef typename llvm::object::ELFFile<ELFT>::Elf_Phdr Elf_Phdr;
   static DynamicSection<ELFT> *Dynamic;
   static GnuHashTableSection<ELFT> *GnuHashTab;
   static GotPltSection<ELFT> *GotPlt;
@@ -357,6 +445,7 @@ template <class ELFT> struct Out {
   static HashTableSection<ELFT> *HashTab;
   static InterpSection<ELFT> *Interp;
   static OutputSection<ELFT> *Bss;
+  static OutputSection<ELFT> *MipsRldMap;
   static OutputSectionBase<ELFT> *Opd;
   static uint8_t *OpdBuf;
   static PltSection<ELFT> *Plt;
@@ -367,6 +456,7 @@ template <class ELFT> struct Out {
   static StringTableSection<ELFT> *StrTab;
   static SymbolTableSection<ELFT> *DynSymTab;
   static SymbolTableSection<ELFT> *SymTab;
+  static Elf_Phdr *TlsPhdr;
 };
 
 template <class ELFT> DynamicSection<ELFT> *Out<ELFT>::Dynamic;
@@ -376,6 +466,7 @@ template <class ELFT> GotSection<ELFT> *Out<ELFT>::Got;
 template <class ELFT> HashTableSection<ELFT> *Out<ELFT>::HashTab;
 template <class ELFT> InterpSection<ELFT> *Out<ELFT>::Interp;
 template <class ELFT> OutputSection<ELFT> *Out<ELFT>::Bss;
+template <class ELFT> OutputSection<ELFT> *Out<ELFT>::MipsRldMap;
 template <class ELFT> OutputSectionBase<ELFT> *Out<ELFT>::Opd;
 template <class ELFT> uint8_t *Out<ELFT>::OpdBuf;
 template <class ELFT> PltSection<ELFT> *Out<ELFT>::Plt;
@@ -386,6 +477,9 @@ template <class ELFT> StringTableSection<ELFT> *Out<ELFT>::ShStrTab;
 template <class ELFT> StringTableSection<ELFT> *Out<ELFT>::StrTab;
 template <class ELFT> SymbolTableSection<ELFT> *Out<ELFT>::DynSymTab;
 template <class ELFT> SymbolTableSection<ELFT> *Out<ELFT>::SymTab;
-}
-}
-#endif
+template <class ELFT> typename Out<ELFT>::Elf_Phdr *Out<ELFT>::TlsPhdr;
+
+} // namespace elf2
+} // namespace lld
+
+#endif // LLD_ELF_OUTPUT_SECTIONS_H

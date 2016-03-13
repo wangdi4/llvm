@@ -1,7 +1,10 @@
 add_llvm_library(LLVMIntel_LoopUtils
+  BlobUtils.cpp
   CanonExprUtils.cpp
   DDRefUtils.cpp
   HLNodeUtils.cpp
+  DDRefGatherer.cpp
+  DDRefGrouping.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

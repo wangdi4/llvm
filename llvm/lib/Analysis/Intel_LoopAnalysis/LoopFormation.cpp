@@ -1,6 +1,6 @@
 //===------- LoopFormation.cpp - Creates HIR Loops ------------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -168,7 +168,103 @@ void LoopFormation::setIVType(HLLoop *HLoop) const {
   auto IVNode = findIVDefInHeader(Lp, cast<Instruction>(Cond));
   assert(IVNode && "Could not find loop IV!");
 
-  HLoop->setIVType(IVNode->getType());
+  auto IVType = IVNode->getType();
+
+  // Convert pointer IV type to integer type of same size.
+  if (IVType->isPointerTy()) {
+    IVType = Type::getIntNTy(
+        Func->getContext(),
+        Func->getParent()->getDataLayout().getTypeSizeInBits(IVType));
+  } else if (IVType->isFloatingPointTy()) {
+    // If found IV is floating point type use the type of loop's backedge taken
+    // count.
+    IVType = SE->getBackedgeTakenCount(Lp)->getType();
+  }
+
+  HLoop->setIVType(IVType);
+}
+
+bool LoopFormation::populatedPreheaderPostexitNodes(HLLoop *HLoop,
+                                                    HLIf *IfParent) {
+
+  auto PreBegIt = IfParent->then_begin();
+  auto PreEndIt = HLoop->getIterator();
+
+  auto PostBegIt = std::next(HLoop->getIterator());
+  auto PostEndIt = IfParent->then_end();
+
+  bool HasPreheader = (PreBegIt != PreEndIt);
+  bool HasPostexit = (PostBegIt != PostEndIt);
+
+  if ((HasPreheader &&
+       !HLNodeUtils::validPreheaderPostexitNodes(PreBegIt, PreEndIt)) ||
+      (HasPostexit &&
+       !HLNodeUtils::validPreheaderPostexitNodes(PostBegIt, PostEndIt))) {
+    return false;
+  }
+
+  if (HasPreheader) {
+    HLNodeUtils::moveAsFirstPreheaderNodes(HLoop, PreBegIt, PreEndIt);
+  }
+
+  if (HasPostexit) {
+    HLNodeUtils::moveAsFirstPostexitNodes(HLoop, PostBegIt, PostEndIt);
+  }
+
+  return true;
+}
+
+void LoopFormation::setZtt(HLLoop *HLoop) const {
+
+  auto Lp = HLoop->getLLVMLoop();
+
+  // Return if trip count is a constant.
+  if (isa<SCEVConstant>(SE->getBackedgeTakenCount(Lp))) {
+    return;
+  }
+
+  // Check whether loop has an if parent.
+  auto Parent = HLoop->getParent();
+
+  if (!Parent) {
+    return;
+  }
+
+  auto IfParent = dyn_cast<HLIf>(Parent);
+
+  if (!IfParent) {
+    return;
+  }
+
+  // The loop may be in the else case. HLIf requires predicate inversion in this
+  // case which isn't handled so we bail out for now.
+  // TODO: handle predicate inversion.
+  if (IfParent->getFirstElseChild()) {
+    return;
+  }
+
+  auto IfBB = HIR->getSrcBBlock(IfParent);
+  auto IfBrInst = cast<BranchInst>(IfBB->getTerminator());
+
+  if (!SE->isLoopZtt(Lp, IfBrInst)) {
+    return;
+  }
+
+  // This function retuns false if the condition is acting like a ztt but cannot
+  // be set as one due to presence of non-HLInst nodes so we need to bail out.
+  if (!populatedPreheaderPostexitNodes(HLoop, IfParent)) {
+    return;
+  }
+
+  // If should only contain loop now.
+  assert((IfParent->getNumThenChildren() == 1) &&
+         !IfParent->hasElseChildren() &&
+         "Something went wrong during ztt recognition!");
+
+  HLNodeUtils::moveBefore(IfParent, HLoop);
+  HLNodeUtils::remove(IfParent);
+
+  HLoop->setZtt(IfParent);
 }
 
 void LoopFormation::formLoops() {
@@ -201,28 +297,22 @@ void LoopFormation::formLoops() {
     }
 
     // Create a new loop and move its children inside.
-    // TODO: Add code to identify ztt, set IsDoWhile flag and populate
-    // preheader/postexit.
-    // Notes:
-    // - Do while loops have SCEV trip count of the form (-C + (C umax/smax n))
-    // which can be used to identify them.
-    // - Ztt predicate inversion is required if the loop is in else case.
-    // - It is possible that some inner loop's ztt has been hoisted outside the
-    // loopnest.
-    // - It is possible that ztt contains other nodes.
     HLLoop *HLoop = HLNodeUtils::createHLLoop(Lp);
     setIVType(HLoop);
     HLNodeUtils::moveAsFirstChildren(HLoop, std::next(LabelIter),
                                      BottomTestIter);
 
     // Hook loop into HIR.
-    HLNodeUtils::insertBefore(LabelIter, HLoop);
+    HLNodeUtils::insertBefore(&*LabelIter, HLoop);
 
     // Remove label and bottom test.
     // Can bottom test contain anything else??? Should probably assert on it.
-    HLNodeUtils::erase(LabelIter);
-    HLNodeUtils::erase(BottomTestIter);
+    HLNodeUtils::erase(&*LabelIter);
+    HLNodeUtils::erase(&*BottomTestIter);
 
+    setZtt(HLoop);
+
+    // Add entry for (Lp -> HLLoop) mapping.
     insertHLLoop(Lp, HLoop);
   }
 }

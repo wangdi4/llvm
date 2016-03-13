@@ -1,6 +1,6 @@
 //===----------- HIRCreation.h - Creates HIR nodes ------------*-- C++ --*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -20,6 +20,8 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
+
+#include "llvm/IR/Dominators.h"
 
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 
@@ -41,23 +43,7 @@ class HLSwitch;
 class RegionIdentification;
 
 /// \brief This analysis creates and populates HIR regions with HLNodes using
-/// the information provided by RegionIdentification pass. The overall sequence
-/// of building the HIR is as follows-
-///
-/// 1) RegionIdentification - identifies regions in IR.
-/// 2) SCCFormation - identifies SCCs in regions.
-/// 3) SSADeconstruction - deconstructs SSA for HIR by inserting copies.
-/// 4) ScalarSymbaseAssignment - Assigns symbases to livein/liveout scalar
-///    DDRefs.
-/// 5) HIRCreation - populates HIR regions with a sequence of HLNodes (without
-///    HIR loops).
-/// 6) HIRCleanup - removes redundant gotos/labels from HIR.
-/// 7) LoopFormation - Forms HIR loops within HIR regions.
-/// 8) HIRParser - Creates DDRefs and parses SCEVs into CanonExprs. Also assigns
-///    symbases to non livein/liveout scalars using ScalarSymbaseAssignment's
-///    interface.
-/// 9) SymbaseAssignment - Assigns symbases to memory DDRefs.
-/// 10) DDAnalysis - Builds DD edges between DDRefs.
+/// the information provided by RegionIdentification pass. 
 ///
 class HIRCreation : public FunctionPass {
 public:
@@ -110,8 +96,13 @@ private:
   /// \brief Creates HLNodes for the instructions in the basic block.
   HLNode *populateInstSequence(BasicBlock *BB, HLNode *InsertionPos);
 
-  /// \brief Return true if the passed in BB post dominates all switch cases.
+  /// \brief Returns true if the passed in BB post dominates all switch cases.
   bool postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const;
+
+  /// \brief Sorts the dominator children of Node using post dominator
+  /// relationship.
+  void sortDomChildren(DomTreeNode *Node,
+                       SmallVectorImpl<BasicBlock *> &SortedChildren) const;
 
   /// \brief Performs lexical (preorder) walk of the dominator tree for the
   /// region.

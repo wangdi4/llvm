@@ -59,6 +59,9 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeMemDepPrinterPass(Registry);
   initializeMemDerefPrinterPass(Registry);
   initializeMemoryDependenceAnalysisPass(Registry);
+#if INTEL_CUSTOMIZATION
+  initializeSNodeAnalysisPass(Registry);
+#endif // INTEL_CUSTOMIZATION
   initializeModuleDebugInfoPrinterPass(Registry);
   initializeObjCARCAAWrapperPassPass(Registry);
   initializePostDominatorTreePass(Registry);

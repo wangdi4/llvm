@@ -175,8 +175,11 @@ __kmp_set_system_affinity( kmp_affin_mask_t const *mask, int abort_on_error )
 {
     KMP_ASSERT2(KMP_AFFINITY_CAPABLE(),
       "Illegal set affinity operation when not capable");
-
+#if KMP_USE_HWLOC
+    int retval = hwloc_set_cpubind(__kmp_hwloc_topology, (hwloc_cpuset_t)mask, HWLOC_CPUBIND_THREAD);
+#else
     int retval = syscall( __NR_sched_setaffinity, 0, __kmp_affin_mask_size, mask );
+#endif
     if (retval >= 0) {
         return 0;
     }
@@ -198,7 +201,11 @@ __kmp_get_system_affinity( kmp_affin_mask_t *mask, int abort_on_error )
     KMP_ASSERT2(KMP_AFFINITY_CAPABLE(),
       "Illegal get affinity operation when not capable");
 
+#if KMP_USE_HWLOC
+    int retval = hwloc_get_cpubind(__kmp_hwloc_topology, (hwloc_cpuset_t)mask, HWLOC_CPUBIND_THREAD);
+#else
     int retval = syscall( __NR_sched_getaffinity, 0, __kmp_affin_mask_size, mask );
+#endif
     if (retval >= 0) {
         return 0;
     }
@@ -220,10 +227,12 @@ __kmp_affinity_bind_thread( int which )
     KMP_ASSERT2(KMP_AFFINITY_CAPABLE(),
       "Illegal set affinity operation when not capable");
 
-    kmp_affin_mask_t *mask = (kmp_affin_mask_t *)KMP_ALLOCA(__kmp_affin_mask_size);
+    kmp_affin_mask_t *mask;
+    KMP_CPU_ALLOC_ON_STACK(mask);
     KMP_CPU_ZERO(mask);
     KMP_CPU_SET(which, mask);
     __kmp_set_system_affinity(mask, TRUE);
+    KMP_CPU_FREE_FROM_STACK(mask);
 }
 
 /*
@@ -1114,6 +1123,13 @@ __kmp_create_monitor( kmp_info_t *th )
     int                 status;
     int                 auto_adj_size = FALSE;
 
+    if( __kmp_dflt_blocktime == KMP_MAX_BLOCKTIME ) {
+        // We don't need monitor thread in case of MAX_BLOCKTIME
+        KA_TRACE( 10, ("__kmp_create_monitor: skipping monitor thread because of MAX blocktime\n" ) );
+        th->th.th_info.ds.ds_tid  = 0; // this makes reap_monitor no-op
+        th->th.th_info.ds.ds_gtid = 0;
+        return;
+    }
     KA_TRACE( 10, ("__kmp_create_monitor: try to create monitor\n" ) );
 
     KMP_MB();       /* Flush all pending memory write invalidates.  */
@@ -1282,6 +1298,7 @@ __kmp_reap_monitor( kmp_info_t *th )
     // If both tid and gtid are KMP_GTID_DNE, the monitor has been shut down.
     KMP_DEBUG_ASSERT( th->th.th_info.ds.ds_tid == th->th.th_info.ds.ds_gtid );
     if ( th->th.th_info.ds.ds_gtid != KMP_GTID_MONITOR ) {
+        KA_TRACE( 10, ("__kmp_reap_monitor: monitor did not start, returning\n") );
         return;
     }; // if
 
@@ -1837,11 +1854,12 @@ static inline void __kmp_resume_template( int target_gtid, C *flag )
     status = pthread_mutex_lock( &th->th.th_suspend_mx.m_mutex );
     KMP_CHECK_SYSFAIL( "pthread_mutex_lock", status );
 
-    if (!flag) {
+    if (!flag) { // coming from __kmp_null_resume_wrapper
         flag = (C *)th->th.th_sleep_loc;
     }
 
-    if (!flag) {
+    // First, check if the flag is null or its type has changed. If so, someone else woke it up.
+    if (!flag || flag->get_type() != flag->get_ptr_type()) { // get_ptr_type simply shows what flag was cast to
         KF_TRACE( 5, ( "__kmp_resume_template: T#%d exiting, thread T#%d already awake: flag(%p)\n",
                        gtid, target_gtid, NULL ) );
         status = pthread_mutex_unlock( &th->th.th_suspend_mx.m_mutex );
@@ -2003,7 +2021,6 @@ __kmp_read_system_info( struct kmp_sys_info *info )
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
 
-
 void
 __kmp_read_system_time( double *delta )
 {
@@ -2154,7 +2171,6 @@ __kmp_runtime_initialize( void )
 
     /* Set up minimum number of threads to switch to TLS gtid */
     __kmp_tls_gtid_min = KMP_TLS_GTID_MIN;
-
 
     #ifdef BUILD_TV
         {

@@ -71,8 +71,8 @@ function(find_python_libs_windows)
   if(EXISTS "${PYTHON_INCLUDE_DIRS}/patchlevel.h")
     file(STRINGS "${PYTHON_INCLUDE_DIRS}/patchlevel.h" python_version_str
          REGEX "^#define[ \t]+PY_VERSION[ \t]+\"[^\"]+\"")
-    string(REGEX REPLACE "^#define[ \t]+PY_VERSION[ \t]+\"([^\"]+)\".*" "\\1"
-                         PYTHONLIBS_VERSION_STRING "${python_version_str}")
+    string(REGEX REPLACE "^#define[ \t]+PY_VERSION[ \t]+\"([^\"+]+)[+]?\".*" "\\1"
+         PYTHONLIBS_VERSION_STRING "${python_version_str}")
     message("-- Found Python version ${PYTHONLIBS_VERSION_STRING}")
     string(REGEX REPLACE "([0-9]+)[.]([0-9]+)[.][0-9]+" "python\\1\\2" PYTHONLIBS_BASE_NAME "${PYTHONLIBS_VERSION_STRING}")
     unset(python_version_str)
@@ -194,7 +194,11 @@ if (LLDB_DISABLE_PYTHON)
   add_definitions( -DLLDB_DISABLE_PYTHON )
 endif()
 
-include_directories(../clang/include)
+if (LLVM_EXTERNAL_CLANG_SOURCE_DIR)
+  include_directories(${LLVM_EXTERNAL_CLANG_SOURCE_DIR}/include)
+else ()
+  include_directories(${CMAKE_SOURCE_DIR}/tools/clang/include)
+endif ()
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/../clang/include")
 
 # Disable GCC warnings
@@ -208,6 +212,12 @@ check_cxx_compiler_flag("-Wno-unknown-pragmas"
                         CXX_SUPPORTS_NO_UNKNOWN_PRAGMAS)
 if (CXX_SUPPORTS_NO_UNKNOWN_PRAGMAS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
+endif ()
+
+check_cxx_compiler_flag("-Wno-strict-aliasing"
+                        CXX_SUPPORTS_NO_STRICT_ALIASING)
+if (CXX_SUPPORTS_NO_STRICT_ALIASING)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-strict-aliasing")
 endif ()
 
 # Disable Clang warnings
@@ -299,7 +309,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
   find_library(DEBUG_SYMBOLS_LIBRARY DebugSymbols PATHS "/System/Library/PrivateFrameworks")
 
   add_definitions( -DLIBXML2_DEFINED )
-  list(APPEND system_libs xml2 ncurses panel)
+  list(APPEND system_libs xml2 ${CURSES_LIBRARIES})
   list(APPEND system_libs ${CARBON_LIBRARY} ${FOUNDATION_LIBRARY}
   ${CORE_FOUNDATION_LIBRARY} ${CORE_SERVICES_LIBRARY} ${SECURITY_LIBRARY}
   ${DEBUG_SYMBOLS_LIBRARY})
@@ -371,7 +381,8 @@ endif()
 # ensure we build lldb-server when an lldb target is being built.
 if ((CMAKE_SYSTEM_NAME MATCHES "Darwin") OR
     (CMAKE_SYSTEM_NAME MATCHES "FreeBSD") OR
-    (CMAKE_SYSTEM_NAME MATCHES "Linux"))
+    (CMAKE_SYSTEM_NAME MATCHES "Linux") OR
+    (CMAKE_SYSTEM_NAME MATCHES "NetBSD"))
     set(LLDB_CAN_USE_LLDB_SERVER 1)
 else()
     set(LLDB_CAN_USE_LLDB_SERVER 0)
@@ -384,3 +395,18 @@ if ( CMAKE_SYSTEM_NAME MATCHES "Darwin" )
 else()
     set(LLDB_CAN_USE_DEBUGSERVER 0)
 endif()
+
+if (NOT LLDB_DISABLE_CURSES)
+    find_package(Curses REQUIRED)
+
+    find_library(CURSES_PANEL_LIBRARY NAMES panel DOC "The curses panel library")
+    if (NOT CURSES_PANEL_LIBRARY)
+        message(FATAL_ERROR "A required curses' panel library not found.")
+    endif ()
+
+    # Add panels to the library path
+    set (CURSES_LIBRARIES ${CURSES_LIBRARIES} ${CURSES_PANEL_LIBRARY})
+
+    list(APPEND system_libs ${CURSES_LIBRARIES})
+    include_directories(${CURSES_INCLUDE_DIR})
+endif ()

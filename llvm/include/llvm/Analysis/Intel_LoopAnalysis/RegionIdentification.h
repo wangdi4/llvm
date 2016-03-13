@@ -1,6 +1,6 @@
 //===------- RegionIdentification.h - Identifies HIR regions ---*- C++ --*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -31,6 +31,7 @@ class PHINode;
 class Loop;
 class LoopInfo;
 class DominatorTree;
+struct PostDominatorTree;
 class ScalarEvolution;
 class GetElementPtrInst;
 class GEPOperator;
@@ -63,6 +64,9 @@ private:
 
   /// DT - The dominator tree.
   DominatorTree *DT;
+
+  /// PDT - The post-dominator tree.
+  PostDominatorTree *PDT;
 
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;

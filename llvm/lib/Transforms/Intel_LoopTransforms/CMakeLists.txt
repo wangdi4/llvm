@@ -8,6 +8,8 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRGeneralUnroll.cpp
         HIRDummyTransformation.cpp
         HIRLoopInterchange.cpp
+        HIRRuntimeDD.cpp
+        HIRLoopDistribution.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

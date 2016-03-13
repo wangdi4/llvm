@@ -1,6 +1,6 @@
 //===------ SCCFormation.cpp - Identifies SCC in IRRegions ----------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -56,11 +56,52 @@ void SCCFormation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<RegionIdentification>();
 }
 
+bool SCCFormation::isConsideredLinear(const NodeTy *Node) const {
+
+  if (!SE->isSCEVable(Node->getType())) {
+    return false;
+  }
+
+  auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
+  auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC);
+
+  if (!AddRecSCEV || !AddRecSCEV->isAffine()) {
+    return false;
+  }
+
+  if (!Node->getType()->isPointerTy()) {
+    return true;
+  }
+
+  auto Phi = dyn_cast<PHINode>(Node);
+
+  // Header phis can be handled by the parser.
+  if (!Phi || RI->isHeaderPhi(Phi)) {
+    return true;
+  }
+
+  // Check if there is a type mismatch in the primary element type for pointer
+  // types.
+  if (RI->getPrimaryElementType(Phi->getType()) !=
+      RI->getPrimaryElementType(SC->getType())) {
+    return false;
+  }
+
+  return true;
+}
+
 bool SCCFormation::isCandidateRootNode(const NodeTy *Node) const {
   assert(isa<PHINode>(Node) && "Instruction is not a phi!");
 
   // Already visited?
   if (VisitedNodes.find(Node) != VisitedNodes.end()) {
+    return false;
+  }
+
+  // Do not form SCC for IVs as the live range issues caused when IV is parsed
+  // as a blob cannot be handled very cleanly. We will let the parser clean up
+  // IVs.
+  if (isConsideredLinear(Node)) {
     return false;
   }
 
@@ -90,13 +131,51 @@ bool SCCFormation::isCandidateNode(const NodeTy *Node) const {
     return false;
   }
 
-  // Phi SCCs do not have anything to do with exception handling.
-  if (isa<LandingPadInst>(Node)) {
+  // Phi SCCs do not have anything to do with calls.
+  if (isa<CallInst>(Node)) {
     return false;
   }
 
-  // Phi SCCs do not have anything to do with calls.
-  if (isa<CallInst>(Node)) {
+  // Phi SCCs do not have anything to do with exception handling.
+  if (isa<LandingPadInst>(Node) || isa<CatchPadInst>(Node) ||
+      isa<CleanupPadInst>(Node)) {
+    return false;
+  }
+
+  // Ignore linear uses.
+  if (isConsideredLinear(Node)) {
+    return false;
+  }
+
+  // In a valid phi SCC, all phis are either header phis or used in header phis.
+  auto Phi = dyn_cast<PHINode>(Node);
+
+  if (!Phi || RI->isHeaderPhi(Phi)) {
+    return true;
+  }
+
+  // Do not involve single operand phis in SCCs.
+  if (1 == Phi->getNumIncomingValues()) {
+    return false;
+  }
+
+  bool IsUsedInHeaderPhi = false;
+  for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
+    auto UserPhi = dyn_cast<PHINode>(*I);
+
+    if (!UserPhi || !RI->isHeaderPhi(UserPhi)) {
+      continue;
+    }
+
+    if (!CurLoop->contains(UserPhi->getParent())) {
+      continue;
+    }
+
+    IsUsedInHeaderPhi = true;
+    break;
+  }
+
+  if (!IsUsedInHeaderPhi) {
     return false;
   }
 
@@ -193,54 +272,128 @@ void SCCFormation::setRegion(RegionIdentification::const_iterator RegIt) {
   isNewRegion = true;
 }
 
-bool SCCFormation::isValidSCC(SCCTy *NewSCC) {
+bool SCCFormation::isUsedInSCCPhi(const PHINode *Phi,
+                                  const SCCNodesTy &Nodes) const {
+  bool UsedInPhi = false;
+
+  for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
+    auto UserPhi = dyn_cast<PHINode>(*I);
+
+    if (!UserPhi) {
+      continue;
+    }
+
+    if (Nodes.count(UserPhi)) {
+      UsedInPhi = true;
+      break;
+    }
+  }
+
+  if (!UsedInPhi) {
+    return false;
+  }
+
+  return true;
+}
+
+bool SCCFormation::isRegionLiveOut(RegionIdentification::const_iterator RegIt,
+                                   const Instruction *Inst) {
+  for (auto UserIt = Inst->user_begin(), EndIt = Inst->user_end();
+       UserIt != EndIt; ++UserIt) {
+    assert(isa<Instruction>(*UserIt) && "Use is not an instruction!");
+
+    if ((*RegIt)->containsBBlock(cast<Instruction>(*UserIt)->getParent())) {
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+bool SCCFormation::isProfitableSCC(const SCCNodesTy &Nodes) const {
+  bool LiveoutValueFound = false;
+
+  for (auto const &Inst : Nodes) {
+
+    if (isRegionLiveOut(CurRegIt, Inst)) {
+      // We skip SCC formation if multiple values are live outside the region.
+      // Technically, we can handle this case but it requires insertion of a
+      // liveout copy during SSA deconstruction for each liveout value in the
+      // SCC and it it not clear whether forming the SCC and then inserting
+      // liveout copies makes HIR any cleaner than not forming the SCC at all.
+      // Thus, this is more of a cost-model decision.
+      if (LiveoutValueFound) {
+        return false;
+      }
+
+      LiveoutValueFound = true;
+    }
+  }
+
+  return true;
+}
+
+bool SCCFormation::isValidSCC(const SCCNodesTy &Nodes) const {
   SmallPtrSet<const BasicBlock *, 12> BBlocks;
   Type *NodeTy = nullptr;
 
-  for (auto InstIt = NewSCC->Nodes.begin(), IEndIt = NewSCC->Nodes.end();
-       InstIt != IEndIt; ++InstIt) {
+  for (auto const &Inst : Nodes) {
 
     // Check whether all the nodes have the same type. There can be type
     // mismatch if we have traced through casts.
     // TODO: is it worth tracing through casts?
     if (!NodeTy) {
-      NodeTy = (*InstIt)->getType();
+      NodeTy = Inst->getType();
 
-    } else if (NodeTy != (*InstIt)->getType()) {
+    } else if (NodeTy != Inst->getType()) {
       return false;
     }
 
-    if (isa<PHINode>(*InstIt)) {
+    auto Phi = dyn_cast<PHINode>(Inst);
 
-      auto ParentBB = (*InstIt)->getParent();
+    if (!Phi) {
+      continue;
+    }
 
-      if (BBlocks.count(ParentBB)) {
-        // If any two phis in the SCC have the same bblock parent then we
-        // cannot assign the same symbase to them because they are live inside
-        // the bblock at the same time, hence we invalidate the SCC. This can
-        // happen in circular wrap cases. The following example generates a
-        // single SCC out of a, b and c.
-        //
-        // for(i=0; i<n; i++) {
-        //   A[i] = a;
-        //   t = a;
-        //   a = b;
-        //   b = c;
-        //   c = t;
-        // }
-        //
-        // IR-
-        //
-        // for.body:
-        //   %a.addr.010 = phi i32 [ %b.addr.07, %for.body ], [ %a, %entry ]
-        //   %c.addr.08 = phi i32 [ %a.addr.010, %for.body ], [ %c, %entry ]
-        //   %b.addr.07 = phi i32 [ %c.addr.08, %for.body ], [ %b, %entry ]
-        // ...
-        //
-        return false;
-      }
+    auto ParentBB = Inst->getParent();
 
-      BBlocks.insert(ParentBB);
+    if (BBlocks.count(ParentBB)) {
+      // If any two phis in the SCC have the same bblock parent then we
+      // cannot assign the same symbase to them because they are live inside
+      // the bblock at the same time, hence we invalidate the SCC. This can
+      // happen in circular wrap cases. The following example generates a
+      // single SCC out of a, b and c.
+      //
+      // for(i=0; i<n; i++) {
+      //   A[i] = a;
+      //   t = a;
+      //   a = b;
+      //   b = c;
+      //   c = t;
+      // }
+      //
+      // IR-
+      //
+      // for.body:
+      //   %a.addr.010 = phi i32 [ %b.addr.07, %for.body ], [ %a, %entry ]
+      //   %c.addr.08 = phi i32 [ %a.addr.010, %for.body ], [ %c, %entry ]
+      //   %b.addr.07 = phi i32 [ %c.addr.08, %for.body ], [ %b, %entry ]
+      // ...
+      //
+      return false;
+    }
+
+    BBlocks.insert(ParentBB);
+
+    // No further validation needed for header phi.
+    if (RI->isHeaderPhi(Phi)) {
+      continue;
+    }
+
+    if (!isUsedInSCCPhi(Phi, Nodes)) {
+      return false;
     }
   }
 
@@ -318,7 +471,7 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
       // Remove nodes not directly associated with the phi nodes.
       removeIntermediateNodes(NewSCCNodes);
 
-      if (isValidSCC(NewSCC)) {
+      if (isValidSCC(NewSCCNodes) && isProfitableSCC(NewSCCNodes)) {
         // Add new SCC to the list.
         RegionSCCs.push_back(NewSCC);
 
@@ -367,8 +520,8 @@ void SCCFormation::formRegionSCCs() {
       // Iterate through the phi nodes in the header.
       for (auto I = BB->begin(); isa<PHINode>(I); ++I) {
 
-        if (isCandidateRootNode(I)) {
-          findSCC(I);
+        if (isCandidateRootNode(&*I)) {
+          findSCC(&*I);
           assert(NodeStack.empty() && "NodeStack isn't empty!");
         }
       }

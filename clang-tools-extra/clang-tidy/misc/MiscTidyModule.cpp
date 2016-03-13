@@ -18,12 +18,14 @@
 #include "InefficientAlgorithmCheck.h"
 #include "MacroParenthesesCheck.h"
 #include "MacroRepeatedSideEffectsCheck.h"
+#include "MoveConstantArgumentCheck.h"
 #include "MoveConstructorInitCheck.h"
 #include "NewDeleteOverloadsCheck.h"
 #include "NoexceptMoveConstructorCheck.h"
 #include "NonCopyableObjects.h"
 #include "SizeofContainerCheck.h"
 #include "StaticAssertCheck.h"
+#include "StringIntegerAssignmentCheck.h"
 #include "SwappedArgumentsCheck.h"
 #include "ThrowByValueCatchByReferenceCheck.h"
 #include "UndelegatedConstructor.h"
@@ -54,6 +56,8 @@ public:
         "misc-macro-parentheses");
     CheckFactories.registerCheck<MacroRepeatedSideEffectsCheck>(
         "misc-macro-repeated-side-effects");
+    CheckFactories.registerCheck<MoveConstantArgumentCheck>(
+        "misc-move-const-arg");
     CheckFactories.registerCheck<MoveConstructorInitCheck>(
         "misc-move-constructor-init");
     CheckFactories.registerCheck<NewDeleteOverloadsCheck>(
@@ -65,6 +69,8 @@ public:
     CheckFactories.registerCheck<SizeofContainerCheck>("misc-sizeof-container");
     CheckFactories.registerCheck<StaticAssertCheck>(
         "misc-static-assert");
+    CheckFactories.registerCheck<StringIntegerAssignmentCheck>(
+        "misc-string-integer-assignment");
     CheckFactories.registerCheck<SwappedArgumentsCheck>(
         "misc-swapped-arguments");
     CheckFactories.registerCheck<ThrowByValueCatchByReferenceCheck>(

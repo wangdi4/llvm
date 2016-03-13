@@ -12,6 +12,7 @@
 #include "InputFiles.h"
 #include "Symbols.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/LTO/LTOModule.h"
 #include "llvm/Object/COFF.h"
 #include "llvm/Support/COFF.h"
@@ -67,22 +68,24 @@ void ArchiveFile::parse() {
   // Seen is a map from member files to boolean values. Initially
   // all members are mapped to false, which indicates all these files
   // are not read yet.
-  for (const Archive::Child &Child : File->children())
+  for (auto &ChildOrErr : File->children()) {
+    error(ChildOrErr, "Failed to parse static library");
+    const Archive::Child &Child = *ChildOrErr;
     Seen[Child.getChildOffset()].clear();
+  }
 }
 
 // Returns a buffer pointing to a member file containing a given symbol.
 // This function is thread-safe.
 MemoryBufferRef ArchiveFile::getMember(const Archive::Symbol *Sym) {
-  auto ItOrErr = Sym->getMember();
-  error(ItOrErr,
-        Twine("Could not get the member for symbol ") + Sym->getName());
-  Archive::child_iterator It = *ItOrErr;
+  auto COrErr = Sym->getMember();
+  error(COrErr, Twine("Could not get the member for symbol ") + Sym->getName());
+  const Archive::Child &C = *COrErr;
 
   // Return an empty buffer if we have already returned the same buffer.
-  if (Seen[It->getChildOffset()].test_and_set())
+  if (Seen[C.getChildOffset()].test_and_set())
     return MemoryBufferRef();
-  ErrorOr<MemoryBufferRef> Ret = It->getMemoryBufferRef();
+  ErrorOr<MemoryBufferRef> Ret = C.getMemoryBufferRef();
   error(Ret, Twine("Could not get the buffer for the member defining symbol ") +
                  Sym->getName());
   return *Ret;
@@ -313,12 +316,11 @@ void BitcodeFile::parse() {
   // Usually parse() is thread-safe, but bitcode file is an exception.
   std::lock_guard<std::mutex> Lock(Mu);
 
-  std::string Err;
-  M.reset(LTOModule::createFromBuffer(MB.getBufferStart(),
-                                      MB.getBufferSize(),
-                                      llvm::TargetOptions(), Err));
-  if (!Err.empty())
-    error(Err);
+  ErrorOr<std::unique_ptr<LTOModule>> ModOrErr =
+      LTOModule::createFromBuffer(llvm::getGlobalContext(), MB.getBufferStart(),
+                                  MB.getBufferSize(), llvm::TargetOptions());
+  error(ModOrErr, "Could not create lto module");
+  M = std::move(*ModOrErr);
 
   llvm::StringSaver Saver(Alloc);
   for (unsigned I = 0, E = M->getSymbolCount(); I != E; ++I) {

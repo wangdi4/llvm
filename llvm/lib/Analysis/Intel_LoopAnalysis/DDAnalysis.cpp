@@ -1,6 +1,6 @@
 //===---- DDAnalysis.cpp - Provides Data Dependence Analysis --------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -21,26 +21,22 @@
 #include "llvm/Support/CommandLine.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-
-#include "llvm/IR/Intel_LoopIR/DDRefGatherer.h"
-#include "llvm/IR/Intel_LoopIR/HIRVerifier.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 
 #include <vector>
 #include <map>
 #include <algorithm>
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "dd-analysis"
-
-typedef DefinedRefGatherer::MapTy SymToRefs;
 
 // Rebuild nests in runOnFunction for loops of level n, 0 being whole region
 // for testing.
@@ -70,26 +66,18 @@ static cl::opt<bool>
     forceDDA("force-DDA", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
-static cl::opt<bool>
-    HIRVerify("hir-verify",
-              cl::desc("Verify HIR after each transformation (default=true)"),
-              cl::init(true));
-
 FunctionPass *llvm::createDDAnalysisPass() { return new DDAnalysis(); }
 
 char DDAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(DDAnalysis, "dda", "Data Dependence Analysis", false,
                       true)
-INITIALIZE_PASS_DEPENDENCY(SymbaseAssignment)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_END(DDAnalysis, "dda", "Data Dependence Analysis", false, true)
 
 void DDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
-  AU.addRequiredTransitive<HIRParser>();
-  AU.addRequiredTransitive<SymbaseAssignment>();
-
+  AU.addRequiredTransitive<HIRFramework>();
   // scev
   // need tbaa// or just general AA?
 }
@@ -98,8 +86,7 @@ void DDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 // do any analysis
 bool DDAnalysis::runOnFunction(Function &F) {
 
-  HIRP = &getAnalysis<HIRParser>();
-  SA = &getAnalysis<SymbaseAssignment>();
+  HIRF = &getAnalysis<HIRFramework>();
 
   // If cl opts are present, build graph for requested loop levels
   for (unsigned I = 0; I != VerifyLevelList.size(); ++I) {
@@ -111,13 +98,13 @@ bool DDAnalysis::runOnFunction(Function &F) {
   return false;
 }
 
-void DDAnalysis::markLoopBodyModified(HLLoop *L) {
+void DDAnalysis::markLoopBodyModified(const HLLoop *L) {
   // TODO
 }
-void DDAnalysis::markLoopBoundsModified(HLLoop *L) {
+void DDAnalysis::markLoopBoundsModified(const HLLoop *L) {
   // TODO
 }
-void DDAnalysis::markTopLvlNonLoopNodeModified(HLRegion *R) {
+void DDAnalysis::markNonLoopRegionModified(const HLRegion *R) {
   // TODO
 }
 
@@ -134,13 +121,7 @@ void DDAnalysis::releaseMemory() {
   FunctionDDGraph.clear();
 }
 
-void DDAnalysis::verifyAnalysis() const {
-  if (HIRVerify) {
-    HIRVerifier::verifyAll();
-    DEBUG(dbgs() << "Verification of HIR done"
-                 << "\n");
-  }
-}
+void DDAnalysis::verifyAnalysis() const {}
 
 // Returns true if we must do dd testing between ref1 and ref2. We generally
 // do not need to do testing between rvals, unless we need explicitly need input
@@ -196,11 +177,11 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
   // Visits all dd refs in Node and fills in the symbase to ref vector
   // map based on symbase field of encountered dd refs. Does not assign
   // symbase, assumes symbase of ddrefs is valid
-  SymToRefs RefMap;
-  DefinedRefGatherer::gather(Node, RefMap);
+  NonConstantRefGatherer::MapTy RefMap;
+  NonConstantRefGatherer::gather(Node, RefMap);
 
   DEBUG(dbgs() << "Building graph for:\n");
-  DEBUG(dumpRefMap(RefMap));
+  DEBUG(NonConstantRefGatherer::dump(RefMap));
   DEBUG(Node->dump());
   // pairwise testing among all refs sharing a symbase
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
@@ -278,5 +259,3 @@ void DDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
     }
   }
 }
-
-unsigned DDAnalysis::getNewSymbase() { return SA->getNewSymbase(); }

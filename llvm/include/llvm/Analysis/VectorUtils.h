@@ -15,9 +15,11 @@
 #define LLVM_TRANSFORMS_UTILS_VECTORUTILS_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 
 namespace llvm {
 
@@ -85,7 +87,7 @@ Value *findScalarElement(Value *V, unsigned EltNo);
 /// \brief Get splat value if the input is a splat vector or return nullptr.
 /// The value may be extracted from a splat constants vector or from
 /// a sequence of instructions that broadcast a single value into a vector.
-Value *getSplatValue(Value *V);
+const Value *getSplatValue(const Value *V);
 
 /// \brief Compute a map of integer instructions to their minimum legal type
 /// size.
@@ -121,10 +123,33 @@ Value *getSplatValue(Value *V);
 ///
 /// If the optional TargetTransformInfo is provided, this function tries harder
 /// to do less work by only looking at illegal types.
-DenseMap<Instruction*, uint64_t>
+MapVector<Instruction*, uint64_t>
 computeMinimumValueSizes(ArrayRef<BasicBlock*> Blocks,
                          DemandedBits &DB,
                          const TargetTransformInfo *TTI=nullptr);
+
+#if INTEL_CUSTOMIZATION
+/// @brief Contains the names of the declared vector function variants
+typedef std::vector<std::string> DeclaredVariants;
+
+/// @brief Contains a mapping of a function to its vector function variants
+typedef std::map<Function*, DeclaredVariants> FunctionVariants;
+
+/// @brief Get all function attributes that specify a vector variant
+/// @param F Function to inspect
+/// @return A vector of all matching attributes
+std::vector<Attribute> getVectorVariantAttributes(Function& F);
+
+/// \brief Determine the characteristic type of the vector function as
+/// specified according to the vector function ABI.
+Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
+
+/// @brief Get all functions marked for vectorization in module.
+/// @param M Module to query
+/// @param funcVars Data structure to hold the declared vector variants
+/// (in string form) for each function.
+void getFunctionsToVectorize(Module &M, FunctionVariants& funcVars);
+#endif // INTEL_CUSTOMIZATION
     
 } // llvm namespace
 

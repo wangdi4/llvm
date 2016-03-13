@@ -28,14 +28,15 @@ using namespace lld::elf2;
 namespace {
 class LinkerScript {
 public:
-  LinkerScript(BumpPtrAllocator *A, StringRef S)
-      : Saver(*A), Tokens(tokenize(S)) {}
+  LinkerScript(BumpPtrAllocator *A, StringRef S, bool B)
+      : Saver(*A), Tokens(tokenize(S)), IsUnderSysroot(B) {}
   void run();
 
 private:
   static std::vector<StringRef> tokenize(StringRef S);
   static StringRef skipSpace(StringRef S);
   StringRef next();
+  bool skip(StringRef Tok);
   bool atEOF() { return Tokens.size() == Pos; }
   void expect(StringRef Expect);
 
@@ -50,10 +51,14 @@ private:
   void readOutputArch();
   void readOutputFormat();
   void readSearchDir();
+  void readSections();
+
+  void readOutputSectionDescription();
 
   StringSaver Saver;
   std::vector<StringRef> Tokens;
   size_t Pos = 0;
+  bool IsUnderSysroot;
 };
 }
 
@@ -78,6 +83,8 @@ void LinkerScript::run() {
       readOutputFormat();
     } else if (Tok == "SEARCH_DIR") {
       readSearchDir();
+    } else if (Tok == "SECTIONS") {
+      readSections();
     } else {
       error("unknown directive: " + Tok);
     }
@@ -133,9 +140,18 @@ StringRef LinkerScript::skipSpace(StringRef S) {
 }
 
 StringRef LinkerScript::next() {
-  if (Pos == Tokens.size())
+  if (atEOF())
     error("unexpected EOF");
   return Tokens[Pos++];
+}
+
+bool LinkerScript::skip(StringRef Tok) {
+  if (atEOF())
+    error("unexpected EOF");
+  if (Tok != Tokens[Pos])
+    return false;
+  ++Pos;
+  return true;
 }
 
 void LinkerScript::expect(StringRef Expect) {
@@ -145,6 +161,15 @@ void LinkerScript::expect(StringRef Expect) {
 }
 
 void LinkerScript::addFile(StringRef S) {
+  if (IsUnderSysroot && S.startswith("/")) {
+    SmallString<128> Path;
+    (Config->Sysroot + S).toStringRef(Path);
+    if (sys::fs::exists(Path)) {
+      Driver->addFile(Saver.save(Path.str()));
+      return;
+    }
+  }
+
   if (sys::path::is_absolute(S)) {
     Driver->addFile(S);
   } else if (S.startswith("=")) {
@@ -154,6 +179,8 @@ void LinkerScript::addFile(StringRef S) {
       Driver->addFile(Saver.save(Config->Sysroot + "/" + S.substr(1)));
   } else if (S.startswith("-l")) {
     Driver->addFile(searchLibrary(S.substr(2)));
+  } else if (sys::fs::exists(S)) {
+    Driver->addFile(S);
   } else {
     std::string Path = findFromSearchPaths(S);
     if (Path.empty())
@@ -255,7 +282,37 @@ void LinkerScript::readSearchDir() {
   expect(")");
 }
 
+void LinkerScript::readSections() {
+  expect("{");
+  while (!skip("}"))
+    readOutputSectionDescription();
+}
+
+void LinkerScript::readOutputSectionDescription() {
+  StringRef Name = next();
+  std::vector<StringRef> &InputSections = Config->OutputSections[Name];
+
+  expect(":");
+  expect("{");
+  while (!skip("}")) {
+    next(); // Skip input file name.
+    expect("(");
+    while (!skip(")"))
+      InputSections.push_back(next());
+  }
+}
+
+static bool isUnderSysroot(StringRef Path) {
+  if (Config->Sysroot == "")
+    return false;
+  for (; !Path.empty(); Path = sys::path::parent_path(Path))
+    if (sys::fs::equivalent(Config->Sysroot, Path))
+      return true;
+  return false;
+}
+
 // Entry point. The other functions or classes are private to this file.
 void lld::elf2::readLinkerScript(BumpPtrAllocator *A, MemoryBufferRef MB) {
-  LinkerScript(A, MB.getBuffer()).run();
+  StringRef Path = MB.getBufferIdentifier();
+  LinkerScript(A, MB.getBuffer(), isUnderSysroot(Path)).run();
 }

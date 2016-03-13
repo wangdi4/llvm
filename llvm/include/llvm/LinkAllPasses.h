@@ -45,6 +45,7 @@
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h" // INTEL - HIR
+#include "llvm/Transforms/Utils/Intel_VecClone.h"        // INTEL
 #include "llvm/Support/Valgrind.h"
 #include <cstdlib>
 
@@ -90,7 +91,10 @@ namespace {
       (void) llvm::createDomOnlyViewerPass();
       (void) llvm::createDomViewerPass();
       (void) llvm::createGCOVProfilerPass();
+      (void) llvm::createPGOInstrumentationGenPass();
+      (void) llvm::createPGOInstrumentationUsePass();
       (void) llvm::createInstrProfilingPass();
+      (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
       (void) llvm::createAlwaysInlinerPass();
       (void) llvm::createGlobalDCEPass();
@@ -196,15 +200,18 @@ namespace {
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
 
-  #if INTEL_CUSTOMIZATION  // HIR passes
+  #if INTEL_CUSTOMIZATION 
+      (void) llvm::createSNodeAnalysisPass();
+      // HIR passes
       (void) llvm::createRegionIdentificationPass();
       (void) llvm::createSCCFormationPass();
-      (void) llvm::createScalarSymbaseAssignmentPass();
       (void) llvm::createHIRCreationPass();
       (void) llvm::createHIRCleanupPass();
       (void) llvm::createLoopFormationPass();
+      (void) llvm::createScalarSymbaseAssignmentPass();
       (void) llvm::createHIRParserPass();
       (void) llvm::createSymbaseAssignmentPass();
+      (void) llvm::createHIRFrameworkPass();
       (void) llvm::createDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
 
@@ -212,6 +219,7 @@ namespace {
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRCompleteUnrollPass();
+      (void) llvm::createHIRLoopDistributionPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
   #endif // INTEL_CUSTOMIZATION

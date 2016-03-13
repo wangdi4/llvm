@@ -10,18 +10,16 @@ entry:
           to label %__try.cont unwind label %catch.dispatch
 
 catch.dispatch:                                   ; preds = %entry
-  %0 = catchpad [i8* null]
-          to label %__except unwind label %catchendblock
+  %cs = catchswitch within none [label %__except] unwind to caller
 
 __except:                                         ; preds = %catch.dispatch
-  catchret %0 to label %__try.cont
+  %0 = catchpad within %cs [i8* null]
+  catchret from %0 to label %__try.cont
 
 __try.cont:                                       ; preds = %entry, %__except
   %ptr.0 = phi i8* [ undef, %__except ], [ %call, %entry ]
   ret i8* %ptr.0
 
-catchendblock:                                    ; preds = %catch.dispatch
-  catchendpad unwind to caller
 }
 
 ; Function Attrs: nounwind

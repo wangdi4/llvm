@@ -657,15 +657,18 @@ ModRefInfo BasicAAResult::getArgModRefInfo(ImmutableCallSite CS,
   }
   // FIXME: Handle memset_pattern4 and memset_pattern8 also.
 
+  if (CS.paramHasAttr(ArgIdx + 1, Attribute::ReadOnly))
+    return MRI_Ref;
+
+  if (CS.paramHasAttr(ArgIdx + 1, Attribute::ReadNone))
+    return MRI_NoModRef;
+
   return AAResultBase::getArgModRefInfo(CS, ArgIdx);
 }
 
 static bool isAssumeIntrinsic(ImmutableCallSite CS) {
   const IntrinsicInst *II = dyn_cast<IntrinsicInst>(CS.getInstruction());
-  if (II && II->getIntrinsicID() == Intrinsic::assume)
-    return true;
-
-  return false;
+  return II && II->getIntrinsicID() == Intrinsic::assume;
 }
 
 #ifndef NDEBUG
@@ -1337,7 +1340,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, uint64_t PNSize,
   return Alias;
 }
 
-/// Provideis a bunch of ad-hoc rules to disambiguate in common cases, such as
+/// Provides a bunch of ad-hoc rules to disambiguate in common cases, such as
 /// array references.
 AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
                                       AAMDNodes V1AAInfo, const Value *V2,
@@ -1351,19 +1354,29 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
 
 #if INTEL_CUSTOMIZATION
   // Here the flag SameOperand is introduced to help the code in routine
-  // aliasGEP for better alias analysis given the case of V1:p->f1 and V2:p->f2.
+  // aliasGEP for better alias analysis given the case of V1 and V2.
+  // The value V1 or V2 can be GEP instruction or bitcast instruction.
   // The compiler may not know that V2 is GEP instruction in routine aliasGEP
   // since V2 is applied with stripPointerCasts. The V2 will be changed if
   // all the indices of GEP is 0.
-  const GEPOperator *GEP1 = dyn_cast<GEPOperator>(V1);
-  const GEPOperator *GEP2 = dyn_cast<GEPOperator>(V2);
-  if (GEP1 && GEP2) {
-    const Value *GEP1BaseOperand = GEP1->getPointerOperand();
-    const Value *GEP2BaseOperand = GEP2->getPointerOperand();
-    if (GEP1BaseOperand == GEP2BaseOperand) {
-      SameOperand = true;
-    }
-  }
+
+  const Value *BaseOperand1 = nullptr;
+  if (const GEPOperator *GEP1 = dyn_cast<GEPOperator>(V1))
+    BaseOperand1 = GEP1->getPointerOperand();
+  else if (Operator::getOpcode(V1) == Instruction::BitCast ||
+           Operator::getOpcode(V1) == Instruction::AddrSpaceCast)
+    BaseOperand1 = cast<Operator>(V1)->getOperand(0);
+
+  const Value *BaseOperand2 = nullptr;
+  if (const GEPOperator *GEP2 = dyn_cast<GEPOperator>(V2))
+    BaseOperand2 = GEP2->getPointerOperand();
+  else if (Operator::getOpcode(V2) == Instruction::BitCast ||
+           Operator::getOpcode(V2) == Instruction::AddrSpaceCast)
+    BaseOperand2 = cast<Operator>(V2)->getOperand(0);
+
+  if (BaseOperand1 == BaseOperand2 && BaseOperand1 != nullptr)
+    SameOperand = true;
+
 #endif // INTEL_CUSTOMIZATION
 
   // Strip off any casts if they exist.
@@ -1633,11 +1646,10 @@ bool BasicAAResult::constantOffsetHeuristic(
 
   // If we've been sext'ed then zext'd the maximum difference between Var0 and
   // Var1 is possible to calculate, but we're just interested in the absolute
-  // minumum difference between the two. The minimum distance may occur due to
+  // minimum difference between the two. The minimum distance may occur due to
   // wrapping; consider "add i3 %i, 5": if %i == 7 then 7 + 5 mod 8 == 4, and so
   // the minimum distance between %i and %i + 5 is 3.
-  APInt MinDiff = V0Offset - V1Offset,
-        Wrapped = APInt::getMaxValue(Width) - MinDiff + APInt(Width, 1);
+  APInt MinDiff = V0Offset - V1Offset, Wrapped = -MinDiff;
   MinDiff = APIntOps::umin(MinDiff, Wrapped);
   uint64_t MinDiffBytes = MinDiff.getZExtValue() * std::abs(Var0.Scale);
 
@@ -1661,6 +1673,10 @@ BasicAAResult BasicAA::run(Function &F, AnalysisManager<Function> *AM) {
                        AM->getResult<AssumptionAnalysis>(F),
                        AM->getCachedResult<DominatorTreeAnalysis>(F),
                        AM->getCachedResult<LoopAnalysis>(F));
+}
+
+BasicAAWrapperPass::BasicAAWrapperPass() : FunctionPass(ID) {
+    initializeBasicAAWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 
 char BasicAAWrapperPass::ID = 0;

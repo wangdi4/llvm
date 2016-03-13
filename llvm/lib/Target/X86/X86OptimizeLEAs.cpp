@@ -35,6 +35,10 @@ using namespace llvm;
 
 #define DEBUG_TYPE "x86-optimize-LEAs"
 
+static cl::opt<bool> EnableX86LEAOpt("enable-x86-lea-opt", cl::Hidden,
+                                     cl::desc("X86: Enable LEA optimizations."),
+                                     cl::init(false));
+
 STATISTIC(NumSubstLEAs, "Number of LEA instruction substitutions");
 STATISTIC(NumRedundantLEAs, "Number of redundant LEA instructions removed");
 
@@ -70,8 +74,10 @@ private:
   /// \brief Returns true if the instruction is LEA.
   bool isLEA(const MachineInstr &MI);
 
-  /// \brief Returns true if the \p Last LEA instruction can be replaced by
-  /// the \p First.
+  /// \brief Returns true if the \p Last LEA instruction can be replaced by the
+  /// \p First. The difference between displacements of the addresses calculated
+  /// by these LEAs is returned in \p AddrDispShift. It'll be used for proper
+  /// replacement of the \p Last LEA's uses with the \p First's def register.
   bool isReplaceable(const MachineInstr &First, const MachineInstr &Last,
                      int64_t &AddrDispShift);
 
@@ -83,15 +89,19 @@ private:
                       const MachineInstr &MI2, unsigned N2,
                       int64_t &AddrDispShift);
 
-  /// \brief Find all LEA instructions in the basic block.
+  /// \brief Find all LEA instructions in the basic block. Also, assign position
+  /// numbers to all instructions in the basic block to speed up calculation of
+  /// distance between them.
   void findLEAs(const MachineBasicBlock &MBB,
                 SmallVectorImpl<MachineInstr *> &List);
 
   /// \brief Removes redundant address calculations.
   bool removeRedundantAddrCalc(const SmallVectorImpl<MachineInstr *> &List);
 
-  /// \brief Removes LEAs which calculate similar adresses.
+  /// \brief Removes LEAs which calculate similar addresses.
   bool removeRedundantLEAs(SmallVectorImpl<MachineInstr *> &List);
+
+  DenseMap<const MachineInstr *, unsigned> InstrPos;
 
   MachineRegisterInfo *MRI;
   const X86InstrInfo *TII;
@@ -106,14 +116,15 @@ FunctionPass *llvm::createX86OptimizeLEAs() { return new OptimizeLEAPass(); }
 
 int OptimizeLEAPass::calcInstrDist(const MachineInstr &First,
                                    const MachineInstr &Last) {
-  const MachineBasicBlock *MBB = First.getParent();
-
-  // Both instructions must be in the same basic block.
-  assert(Last.getParent() == MBB &&
+  // Both instructions must be in the same basic block and they must be
+  // presented in InstrPos.
+  assert(Last.getParent() == First.getParent() &&
          "Instructions are in different basic blocks");
+  assert(InstrPos.find(&First) != InstrPos.end() &&
+         InstrPos.find(&Last) != InstrPos.end() &&
+         "Instructions' positions are undefined");
 
-  return std::distance(MBB->begin(), MachineBasicBlock::const_iterator(&Last)) -
-         std::distance(MBB->begin(), MachineBasicBlock::const_iterator(&First));
+  return InstrPos[&Last] - InstrPos[&First];
 }
 
 // Find the best LEA instruction in the List to replace address recalculation in
@@ -198,7 +209,7 @@ bool OptimizeLEAPass::isLEA(const MachineInstr &MI) {
 
 // Check that the Last LEA can be replaced by the First LEA. To be so,
 // these requirements must be met:
-// 1) Addresses calculated by LEAs deffer only by displacement.
+// 1) Addresses calculated by LEAs differ only by displacement.
 // 2) Def registers of LEAs belong to the same class.
 // 3) All uses of the Last LEA def register are replaceable, thus the
 //    register is used only as address base.
@@ -223,9 +234,6 @@ bool OptimizeLEAPass::isReplaceable(const MachineInstr &First,
   // Loop over all uses of the Last LEA to check that its def register is
   // used only as address base for memory accesses. If so, it can be
   // replaced, otherwise - no.
-  assert(First.getOperand(0).isDef() && First.getOperand(0).isReg() &&
-         Last.getOperand(0).isDef() && Last.getOperand(0).isReg() &&
-         "The first LEA operand must be def register");
   for (auto &MO : MRI->use_operands(Last.getOperand(0).getReg())) {
     MachineInstr &MI = *MO.getParent();
 
@@ -233,16 +241,20 @@ bool OptimizeLEAPass::isReplaceable(const MachineInstr &First,
     const MCInstrDesc &Desc = MI.getDesc();
     int MemOpNo = X86II::getMemoryOperandNo(Desc.TSFlags, MI.getOpcode());
 
-    // If use instruction has no memory operand - LEA is not replaceable.
+    // If the use instruction has no memory operand - the LEA is not
+    // replaceable.
     if (MemOpNo < 0)
       return false;
 
     MemOpNo += X86II::getOperandBias(Desc);
 
-    // If LEA def register is used not as address base or not only so - LEA
-    // is not replaceable.
+    // If the address base of the use instruction is not the LEA def register -
+    // the LEA is not replaceable.
     if (!isIdenticalOp(MI.getOperand(MemOpNo + X86::AddrBaseReg), MO))
       return false;
+
+    // If the LEA def register is used as any other operand of the use
+    // instruction - the LEA is not replaceable.
     for (unsigned i = 0; i < MI.getNumOperands(); i++)
       if (i != (unsigned)(MemOpNo + X86::AddrBaseReg) &&
           isIdenticalOp(MI.getOperand(i), MO))
@@ -288,7 +300,15 @@ bool OptimizeLEAPass::isSimilarMemOp(const MachineInstr &MI1, unsigned N1,
 
 void OptimizeLEAPass::findLEAs(const MachineBasicBlock &MBB,
                                SmallVectorImpl<MachineInstr *> &List) {
+  unsigned Pos = 0;
   for (auto &MI : MBB) {
+    // Assign the position number to the instruction. Note that we are going to
+    // move some instructions during the optimization however there will never
+    // be a need to move two instructions before any selected instruction. So to
+    // avoid multiple positions' updates during moves we just increase position
+    // counter by two leaving a free space for instructions which will be moved.
+    InstrPos[&MI] = Pos += 2;
+
     if (isLEA(MI))
       List.push_back(const_cast<MachineInstr *>(&MI));
   }
@@ -339,6 +359,13 @@ bool OptimizeLEAPass::removeRedundantAddrCalc(
     if (Dist < 0) {
       DefMI->removeFromParent();
       MBB->insert(MachineBasicBlock::iterator(&MI), DefMI);
+      InstrPos[DefMI] = InstrPos[&MI] - 1;
+
+      // Make sure the instructions' position numbers are sane.
+      assert(((InstrPos[DefMI] == 1 && DefMI == MBB->begin()) ||
+              InstrPos[DefMI] >
+                  InstrPos[std::prev(MachineBasicBlock::iterator(DefMI))]) &&
+             "Instruction positioning is broken");
     }
 
     // Since we can possibly extend register lifetime, clear kill flags.
@@ -413,6 +440,8 @@ OptimizeLEAPass::removeRedundantLEAs(SmallVectorImpl<MachineInstr *> &List) {
           Op->setImm(Op->getImm() + AddrDispShift);
         else if (Op->isGlobal())
           Op->setOffset(Op->getOffset() + AddrDispShift);
+        else
+          llvm_unreachable("Invalid address displacement operand");
       }
 
       // Since we can possibly extend register lifetime, clear kill flags.
@@ -423,7 +452,8 @@ OptimizeLEAPass::removeRedundantLEAs(SmallVectorImpl<MachineInstr *> &List) {
 
       // By this moment, all of the Last LEA's uses must be replaced. So we can
       // freely remove it.
-      assert(MRI->use_empty(Last.getOperand(0).getReg()));
+      assert(MRI->use_empty(Last.getOperand(0).getReg()) &&
+             "The LEA's def register must have no uses");
       Last.eraseFromParent();
 
       // Erase removed LEA from the list.
@@ -439,11 +469,9 @@ OptimizeLEAPass::removeRedundantLEAs(SmallVectorImpl<MachineInstr *> &List) {
 
 bool OptimizeLEAPass::runOnMachineFunction(MachineFunction &MF) {
   bool Changed = false;
-  bool OptSize = MF.getFunction()->optForSize();
-  bool MinSize = MF.getFunction()->optForMinSize();
 
   // Perform this optimization only if we care about code size.
-  if (!OptSize && !MinSize)
+  if (!EnableX86LEAOpt || !MF.getFunction()->optForSize())
     return false;
 
   MRI = &MF.getRegInfo();
@@ -453,6 +481,7 @@ bool OptimizeLEAPass::runOnMachineFunction(MachineFunction &MF) {
   // Process all basic blocks.
   for (auto &MBB : MF) {
     SmallVector<MachineInstr *, 16> LEAs;
+    InstrPos.clear();
 
     // Find all LEA instructions in basic block.
     findLEAs(MBB, LEAs);
@@ -463,7 +492,7 @@ bool OptimizeLEAPass::runOnMachineFunction(MachineFunction &MF) {
 
     // Remove redundant LEA instructions. The optimization may have a negative
     // effect on performance, so do it only for -Oz.
-    if (MinSize)
+    if (MF.getFunction()->optForMinSize())
       Changed |= removeRedundantLEAs(LEAs);
 
     // Remove redundant address calculations.

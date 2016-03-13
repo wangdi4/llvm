@@ -1,6 +1,6 @@
 //===-- HIRTransformPass.h - Base class for HIR transformations -*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -40,7 +40,7 @@ namespace loopopt {
 ///   pipeline).
 /// - Declare a boolean option to enable/disable the transformation.
 /// - Define pass under anonymous(preferred) or loopopt namespace.
-/// - Declare HIRParser analysis as a required pass to access HIR and blob
+/// - Declare HIRFramework analysis as a required pass to access HIR and blob
 ///   utilities  like findBlob() etc.
 /// - Declare DDAnalysis pass as required to have an access to DD information.
 /// - Always call setPreservesAll() in getAnalysisUsage().
