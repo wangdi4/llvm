@@ -97,14 +97,22 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val,
   unsigned Index = 0;
 
   BlobUtils::createBlob(Val, Symbase, true, &Index);
-  // Constant Blob needs to have Level 0.
-  int Level = Symbase == CONSTANT_SYMBASE ? 0 : -1;
-  auto CE = createSelfBlobCanonExpr(Index, Level);
+  auto CE = createSelfBlobCanonExpr(Index, -1);
 
   return CE;
 }
 
-CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index, int Level) {
+CanonExpr *CanonExprUtils::createMetadataCanonExpr(MetadataAsValue *Val) {
+  unsigned Index;
+
+  BlobUtils::createBlob(Val, CONSTANT_SYMBASE, true, &Index);
+  auto CE = createStandAloneBlobCanonExpr(Index, 0);
+
+  return CE;
+}
+
+CanonExpr *CanonExprUtils::createStandAloneBlobCanonExpr(unsigned Index,
+                                                         int Level) {
   auto Blob = BlobUtils::getBlob(Index);
 
   assert((BlobUtils::isTempBlob(Blob) || BlobUtils::isMetadataBlob(Blob) ||

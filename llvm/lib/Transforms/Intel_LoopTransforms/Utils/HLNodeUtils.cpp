@@ -157,6 +157,13 @@ HLInst *HLNodeUtils::createLvalHLInst(Instruction *Inst, RegDDRef *LvalRef) {
   return HInst;
 }
 
+HLInst *HLNodeUtils::createNonLvalHLInst(Instruction *Inst) {
+
+  setFirstAndLastDummyInst(Inst);
+
+  return createHLInst(Inst);
+}
+
 HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
                                        const Twine &Name, RegDDRef *LvalRef,
                                        Type *DestTy, bool IsVolatile,
@@ -803,14 +810,13 @@ HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   return HInst;
 }
 
-HLInst *HLNodeUtils::createCall(Function *F,
+HLInst *HLNodeUtils::createCall(Function *Func,
                                 const SmallVectorImpl<RegDDRef*> &CallArgs,
                                 const Twine &Name, RegDDRef *LvalRef) {
-  bool HasReturn = !F->getReturnType()->isVoidTy();
+  bool HasReturn = !Func->getReturnType()->isVoidTy();
   unsigned NumArgs = CallArgs.size();
-  Value *InstVal;
   HLInst *HInst;
-  SmallVector<Value *, 4> Args;
+  SmallVector<Value *, 8> Args;
   const Twine NewName(HasReturn ? Name.isTriviallyEmpty() ? "dummy"
                                                           : Name
                                 : "");
@@ -819,14 +825,15 @@ HLInst *HLNodeUtils::createCall(Function *F,
     MetadataAsValue *Val = nullptr;
     Args.push_back(CallArgs[I]->isMetadata(&Val)
                      ? Val
-                     : createOneVal(CallArgs[I]->getDestType()));
+                     : createZeroVal(CallArgs[I]->getDestType()));
   }
-  InstVal = DummyIRBuilder->CreateCall(F, Args, NewName);
+  auto InstVal = DummyIRBuilder->CreateCall(Func, Args, NewName);
   if (HasReturn) {
-    HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
+    //    HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
+    HInst = createLvalHLInst(InstVal, LvalRef);
   }
   else {
-    HInst = createHLInst(cast<Instruction>(InstVal));
+    HInst = createNonLvalHLInst(InstVal);
   }
 
   for (unsigned I=0; I<NumArgs; I++) {

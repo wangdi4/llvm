@@ -238,8 +238,7 @@ public:
   /// CONSTANT_SYMBASE. Lval DDRefs can have constant canonical expr but cannot
   /// have CONSTANT_SYMBASE.
   bool isConstant() const {
-    return (isIntConstant() || isFPConstant() || isConstantVector() ||
-            isNull() || isMetadata());
+    return isTerminalRef() && getSingleCanonExpr()->isConstant();
   }
 
   /// \brief Returns the number of dimensions of the DDRef.

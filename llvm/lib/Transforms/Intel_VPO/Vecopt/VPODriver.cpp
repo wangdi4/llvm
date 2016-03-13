@@ -131,10 +131,6 @@ bool VPODriverBase::runOnFunction(Function &F) {
     }
   }
 
-  // Remove calls to directive intrinsics since the LLVM back end does not know
-  // how to translate them.
-  VPOUtils::stripDirectives(F);
-
   return ret_val;
 }
 
@@ -157,12 +153,16 @@ bool VPODriver::runOnFunction(Function &F) {
   AV = &getAnalysis<AVRGenerate>();
   bool ret_val = VPODriverBase::runOnFunction(F);
 
+  // Remove calls to directive intrinsics since the LLVM back end does not know
+  // how to translate them.
+  VPOUtils::stripDirectives(F);
+
   // Set up a function pass manager so that we can run some cleanup transforms
   // on the LLVM IR after code gen.
   Module *M = F.getParent();
   legacy::FunctionPassManager FPM(M);
 
-  // It is possible that stripDirectives call in parent runOnFunction()
+  // It is possible that stripDirectives call
   // eliminates all instructions in a basic block except for the branch
   // instruction. Use CFG simplify to eliminate them.
   FPM.add(createCFGSimplificationPass());

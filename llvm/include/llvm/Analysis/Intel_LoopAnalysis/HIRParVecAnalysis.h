@@ -1,7 +1,7 @@
-//===------ ParVecAnalysis.h - Provides Parallel/Vector --*-- C++ --*------===//
-//                             Candidate Analysis
+//===------ HIRParVecAnalysis.h - Provides Parallel/Vector --*-- C++ --*---===//
+//                                Candidate Analysis
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -11,15 +11,15 @@
 //===----------------------------------------------------------------------===//
 // The primary purpose of this pass is to provide a lazily evaluated
 // parallelizability/vectorizability analysis for HIR. Clients
-// specify the the HLNodes (or hierarchy) for which analysis is required.
+// specify the HLNodes (or hierarchy) for which analysis is required.
 // We try to avoid recomputation whenever possible, even if the HIR has been
 // been modified. In order to do this, clients must specify how they modify HIR
 // at the region/loop level such that correct invalidation is performed.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRPARVECANALYSIS_H
-#define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRPARVECANALYSIS_H
+#ifndef INTEL_LOOPANALYSIS_PVA_H
+#define INTEL_LOOPANALYSIS_PVA_H
 
 #include "llvm/Pass.h"
 #include "llvm/IR/DebugLoc.h"
@@ -83,7 +83,7 @@ private:
   // DD Edges preventing vectorization
   SmallVector<DDEdge *, 1> VecEdges;
 
-  // If set, at least one of the inner loop is an unknown loop.
+  // If set, at least one of the inner loops is an unknown loop.
   HLLoop *InnerUnknownLoop;
 
   // If set, at least one switch-case construct exists.
@@ -108,15 +108,15 @@ private:
   void emitDiag();
 
   /// \brief Print indentation for the loop level. Helper for print().
-  void printIndent(raw_ostream &OS, bool ZeroBase);
+  void printIndent(raw_ostream &OS, bool ZeroBase) const;
 
 public:
 
   ParVecInfo(AnalysisMode Mode, HLLoop *HLoop);
 
   // Field accessors
-  LoopType getParType() { return ParType; }
-  LoopType getVecType() { return VecType; }
+  LoopType getParType() const { return ParType; }
+  LoopType getVecType() const { return VecType; }
 
   void setParType(LoopType T) {
     if (isParallelMode())
@@ -146,20 +146,19 @@ public:
 
   void addParEdge(DDEdge *Edge) { ParEdges.push_back(Edge); };
   void addVecEdge(DDEdge *Edge) { VecEdges.push_back(Edge); };
-  bool isParallelMode() { return isParallelMode(Mode); }
-  bool isVectorMode() { return isVectorMode(Mode); }
+  bool isParallelMode() const { return isParallelMode(Mode); }
+  bool isVectorMode() const { return isVectorMode(Mode); }
 
-  bool isDone() {
+  bool isDone() const {
 
     if (!isParallelMode()) {
-      return Analyzing < VecType;
+      return Analyzing != VecType;
     }
 
     if (!isVectorMode()) {
-      return Analyzing < ParType;
+      return Analyzing != ParType;
     }
-
-    return (Analyzing < VecType) && (Analyzing < ParType);
+    return (Analyzing != VecType) && (Analyzing != ParType);
   }
 
   static bool isParallelMode(AnalysisMode Mode) {
@@ -176,7 +175,7 @@ public:
   void analyze(HLLoop *Loop, DDAnalysis *DDA);
 
   /// \brief Print the analysis result.
-  void print(raw_ostream &OS, bool WithLoop = true);
+  void print(raw_ostream &OS, bool WithLoop = true) const;
 
   /// \brief Main accessor for the ParVecInfo.
   static ParVecInfo *get(AnalysisMode Mode,
@@ -218,7 +217,7 @@ public:
   }
 };
 
-class ParVecAnalysis : public FunctionPass {
+class HIRParVecAnalysis : public FunctionPass {
 
 private:
 
@@ -228,8 +227,8 @@ private:
 
 public:
 
-  ParVecAnalysis() : FunctionPass(ID), Enabled(false) {
-    initializeParVecAnalysisPass(*PassRegistry::getPassRegistry());
+  HIRParVecAnalysis() : FunctionPass(ID), Enabled(false) {
+    initializeHIRParVecAnalysisPass(*PassRegistry::getPassRegistry());
     InfoMap.clear();
   }
 
@@ -240,7 +239,7 @@ public:
   void releaseMemory() override;
 
   /// \brief Analyze (if invalid) the loop and return the info.
-  ParVecInfo *getInfo(ParVecInfo::AnalysisMode Mode, HLLoop *Loop);
+  const ParVecInfo *getInfo(ParVecInfo::AnalysisMode Mode, HLLoop *Loop);
 
   /// \brief Analyze the entire function to make all loops to have valid info.
   void analyze(ParVecInfo::AnalysisMode Mode);
@@ -266,4 +265,4 @@ public:
 } // namespace loopopt
 } // namespace llvm
 
-#endif // LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRPARVECANALYSIS_H
+#endif // INTEL_LOOPANALYSIS_PVA_H

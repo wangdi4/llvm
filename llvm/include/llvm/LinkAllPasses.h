@@ -221,14 +221,14 @@ namespace {
       (void) llvm::createHIRFrameworkPass();
       (void) llvm::createDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
-      (void) llvm::createParVecAnalysisPass();
+      (void) llvm::createHIRParVecAnalysisPass();
 
       (void) llvm::createSSADeconstructionPass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRCompleteUnrollPass();
-      (void) llvm::createParDirectiveInsertionPass();
-      (void) llvm::createVecDirectiveInsertionPass();
+      (void) llvm::createHIRParDirInsertPass();
+      (void) llvm::createHIRVecDirInsertPass();
       (void) llvm::createHIRLoopDistributionPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();

@@ -90,15 +90,3 @@ void VPOUtils::stripDirectives(Function &F) {
 
   // SimplifyCFG will remove any blocks that become empty.
 }
-
-MetadataAsValue *VPOUtils::getMetadataAsValue(Module &M, OMP_DIRECTIVES Dir) {
-  StringRef Str(IntelIntrinsicUtils::getDirectiveString(Dir));
-  return dyn_cast<MetadataAsValue>(
-    IntelIntrinsicUtils::createMetadataAsValueFromString(M, Str));
-}
-
-MetadataAsValue *VPOUtils::getMetadataAsValue(Module &M, OMP_CLAUSES Qual) {
-  StringRef Str(IntelIntrinsicUtils::getClauseString(Qual));
-  return dyn_cast<MetadataAsValue>(
-    IntelIntrinsicUtils::createMetadataAsValueFromString(M, Str));
-}

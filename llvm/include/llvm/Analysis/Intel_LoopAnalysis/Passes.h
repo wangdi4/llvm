@@ -63,7 +63,7 @@ FunctionPass *createDDAnalysisPass();
 FunctionPass *createHIRLocalityAnalysisPass();
 
 /// Creates analysis which can provide parallel/vector candidate analysis
-FunctionPass *createParVecAnalysisPass();
+FunctionPass *createHIRParVecAnalysisPass();
 }
 
 #endif

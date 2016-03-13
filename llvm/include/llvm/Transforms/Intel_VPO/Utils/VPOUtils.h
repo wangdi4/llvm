@@ -224,11 +224,6 @@ public:
 
     /////////////// End MultiVersioning Transformation ////////////////////////
     
-    /// \brief Returns Metadata as Value for a given OMP directive
-    static MetadataAsValue *getMetadataAsValue(Module &M, OMP_DIRECTIVES Dir);
-    /// \brief Returns Metadata as Value for a given OMP directive clause
-    static MetadataAsValue *getMetadataAsValue(Module &M, OMP_CLAUSES Qual);
-
     ////////// Functions for Parallel Section Transformation //////////////////
     //
     // Transforms OpenMP parallel sections to parallel do loop and work-sharing

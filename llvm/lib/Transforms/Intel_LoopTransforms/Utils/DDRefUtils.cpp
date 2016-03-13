@@ -43,10 +43,10 @@ RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
   return NewRegDD;
 }
 
-RegDDRef *DDRefUtils::createConstDDRef(MetadataAsValue *Val) {
+RegDDRef *DDRefUtils::createMetadataDDRef(MetadataAsValue *Val) {
   RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
   // Create a linear self-blob constant canon expr.
-  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, CONSTANT_SYMBASE);
+  auto CE = CanonExprUtils::createMetadataCanonExpr(Val);
   NewRegDD->setSingleCanonExpr(CE);
 
   return NewRegDD;

@@ -76,7 +76,7 @@ public:
   /// \brief Returns a new constant RegDDRef from a metadata node.
   /// This routine will automatically create a single canon expr from metadata
   /// and attach it to the new RegDDRef.
-  static RegDDRef *createConstDDRef(MetadataAsValue *Val);
+  static RegDDRef *createMetadataDDRef(MetadataAsValue *Val);
 
   /// \brief Returns a new constant RegDDRef from a constant all-zero vector
   /// node. This routine will automatically create a single canon expr from

@@ -759,13 +759,13 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   PM.add(createSSADeconstructionPass());
 
   if (!RunLoopOptFrameworkOnly) {
-    PM.add(createParDirectiveInsertionPass());
+    PM.add(createHIRParDirInsertPass());
     PM.add(createHIROptPredicatePass());
     PM.add(createHIRLoopDistributionPass(false));
     PM.add(createHIRRuntimeDDPass());
     if (!DisableUnrollLoops)
       PM.add(createHIRCompleteUnrollPass());
-    PM.add(createVecDirectiveInsertionPass(OptLevel == 3));
+    PM.add(createHIRVecDirInsertPass(OptLevel == 3));
     PM.add(createVPODriverHIRPass());
     if (!DisableUnrollLoops)
       PM.add(createHIRGeneralUnrollPass());

@@ -59,13 +59,13 @@ FunctionPass *createHIRDummyTransformationPass();
 /// unrolling for larger trip count HIR loops.
 FunctionPass *createHIRGeneralUnrollPass(int Threshold = -1, int UFactor = -1);
 
-/// createParcDirectiveInsertionPass - This creates a pass that injects
+/// createHIRParDirInsertPass - This creates a pass that injects
 /// directives for auto parallelization loops.
-FunctionPass *createParDirectiveInsertionPass();
+FunctionPass *createHIRParDirInsertPass();
 
-/// createVecDirectiveInsertionPass - This creates a pass that injects
+/// createHIRVecDirInsertPass - This creates a pass that injects
 /// directives for auto vectorization candidate loops.
-FunctionPass *createVecDirectiveInsertionPass(bool OuterVec = true);
+FunctionPass *createHIRVecDirInsertPass(bool OuterVec = true);
 }
 
 #endif

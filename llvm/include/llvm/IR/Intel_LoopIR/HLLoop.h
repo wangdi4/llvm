@@ -517,7 +517,7 @@ public:
   /// \brief Verifies HLLoop integrity.
   virtual void verify() const override;
 
-  /// \brief Checks whether SIMD directive is attached to the loop
+  /// \brief Checks whether SIMD directive is attached to the loop.
   bool isSIMD() const;
 
   unsigned getMVTag() { return MVTag; }

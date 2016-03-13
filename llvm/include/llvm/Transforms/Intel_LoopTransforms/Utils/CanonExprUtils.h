@@ -63,6 +63,14 @@ private:
   /// only created by framework.
   static CanonExpr *createSelfBlobCanonExpr(Value *Val, unsigned Symbase);
 
+  /// \brief Creates a constant blob canon expr from the passed in
+  /// MetadataAsValue. The new blob is associated with CONSTANT_SYMBASE.
+  static CanonExpr *createMetadataCanonExpr(MetadataAsValue *Val);
+
+  /// \brief Returns a standalone blob canon expr. Level is the defined
+  /// at level for the blob. Level of -1 means non-linear blob.
+  static CanonExpr *createStandAloneBlobCanonExpr(unsigned Index, int Level);
+
   /// \brief Returns true if constant canon expr type can be updated to match
   /// the source type. For any other types or non-mergeable cases, it returns
   /// false.
@@ -101,7 +109,9 @@ public:
 
   /// \brief Returns a self-blob canon expr. Level is the defined at level for
   /// the blob. Level of -1 means non-linear blob.
-  static CanonExpr *createSelfBlobCanonExpr(unsigned Index, int Level = -1);
+  static CanonExpr *createSelfBlobCanonExpr(unsigned Index, int Level = -1) {
+    return createStandAloneBlobCanonExpr(Index, Level);
+  }
 
   /// \brief Destroys the passed in CanonExpr.
   static void destroy(CanonExpr *CE);

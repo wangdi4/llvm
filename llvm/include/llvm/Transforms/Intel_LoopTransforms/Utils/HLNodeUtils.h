@@ -183,6 +183,11 @@ private:
   /// applicable.
   static HLInst *createLvalHLInst(Instruction *Inst, RegDDRef *LvalRef);
 
+  /// \brief Creates an HLInst for this Inst. Used for void function call
+  /// and other instructions that do not have Lvalue.
+  /// It also updates first dummy instruction, if applicable.
+  static HLInst *createNonLvalHLInst(Instruction *Inst);
+
   /// \brief Creates a unary instruction.
   static HLInst *createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
                                    const Twine &Name, RegDDRef *LvalRef,

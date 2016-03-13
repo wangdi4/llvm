@@ -143,13 +143,13 @@ public:
 
 } // unnamed namespace
 
-FunctionPass *llvm::createParVecAnalysisPass() { return new ParVecAnalysis(); }
-char ParVecAnalysis::ID = 0;
-INITIALIZE_PASS_BEGIN(ParVecAnalysis, "hir-parvec-analyze",
-                      "Parallel/Vector Candidate Analysis", false, true)
+FunctionPass *llvm::createHIRParVecAnalysisPass() { return new HIRParVecAnalysis(); }
+char HIRParVecAnalysis::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRParVecAnalysis, "hir-parvec-analysis",
+                      "HIR Parallel/Vector Candidate Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
-INITIALIZE_PASS_END(ParVecAnalysis, "hir-parvec-analyze",
-                    "Parallel/Vector Candidate Analysis", false, true)
+INITIALIZE_PASS_END(HIRParVecAnalysis, "hir-parvec-analysis",
+                    "HIR Parallel/Vector Candidate Analysis", false, true)
 
 void ParVecVisitor::postVisit(HLLoop *Loop) {
   // Analyze parallelizability/vectorizability if not cached.
@@ -170,14 +170,15 @@ void ParVecVisitor::visit(HLInst *Node) {
   }
 }
 
-void ParVecAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
+void HIRParVecAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DDAnalysis>();
 }
 
-bool ParVecAnalysis::runOnFunction(Function &F) {
-  if (isSIMDEnabledFunction(F))
+bool HIRParVecAnalysis::runOnFunction(Function &F) {
+  if (isSIMDEnabledFunction(F)) {
     return false;
+  }
 
   Enabled = true;
   DDA = &getAnalysis<DDAnalysis>();
@@ -193,37 +194,41 @@ bool ParVecAnalysis::runOnFunction(Function &F) {
   return false;
 }
 
-ParVecInfo *ParVecAnalysis::getInfo(ParVecInfo::AnalysisMode Mode,
-                                    HLLoop *Loop) {
-  if (!Enabled)
+const ParVecInfo *HIRParVecAnalysis::getInfo(ParVecInfo::AnalysisMode Mode,
+                                             HLLoop *Loop) {
+  if (!Enabled) {
     return nullptr;
-
+  }
   auto Info = ParVecInfo::get(Mode, InfoMap, DDA, Loop);
   return Info;
 }
 
-void ParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode) {
-  if (!Enabled)
+void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode) {
+  if (!Enabled) {
     return;
+  }
   ParVecVisitor Vis(Mode, DDA, InfoMap);
   HLNodeUtils::visitAllInnerToOuter(Vis);
 }
 
-void ParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLRegion *Region) {
-  if (!Enabled)
+void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
+                                HLRegion *Region) {
+  if (!Enabled) {
     return;
+  }
   ParVecVisitor Vis(Mode, DDA, InfoMap);
   HLNodeUtils::visitInnerToOuter(Vis, Region);
 }
 
-void ParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
-  if (!Enabled)
+void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
+  if (!Enabled) {
     return;
+  }
   ParVecVisitor Vis(Mode, DDA, InfoMap);
   HLNodeUtils::visitInnerToOuter(Vis, Loop);
 }
 
-void ParVecAnalysis::releaseMemory() {
+void HIRParVecAnalysis::releaseMemory() {
   for (auto Iter = InfoMap.begin(), End = InfoMap.end(); Iter != End; Iter++) {
     delete Iter->second;
     Iter->second = nullptr;
@@ -231,12 +236,12 @@ void ParVecAnalysis::releaseMemory() {
   InfoMap.clear();
 }
 
-void ParVecAnalysis::forget(HLRegion *Region) {
+void HIRParVecAnalysis::forget(HLRegion *Region) {
   ParVecForgetVisitor Vis(InfoMap);
   HLNodeUtils::visit(Vis, Region);
 }
 
-void ParVecAnalysis::forget(HLLoop *Loop, bool Nest) {
+void HIRParVecAnalysis::forget(HLLoop *Loop, bool Nest) {
   if (!Nest) {
     delete InfoMap[Loop];
     InfoMap[Loop] = nullptr;
@@ -246,12 +251,12 @@ void ParVecAnalysis::forget(HLLoop *Loop, bool Nest) {
   HLNodeUtils::visit(Vis, Loop);
 }
 
-void ParVecAnalysis::print(raw_ostream &OS, const Module *Mod) const {
+void HIRParVecAnalysis::print(raw_ostream &OS, const Module *M) const {
   ParVecPrintVisitor Vis(InfoMap, OS);
   HLNodeUtils::visitAll(Vis);
 }
 
-bool ParVecAnalysis::isSIMDEnabledFunction(Function &Func) {
+bool HIRParVecAnalysis::isSIMDEnabledFunction(Function &Func) {
   // TODO: ABI related stuff should become part of TargetTransformInfo.
   return Func.getName().startswith("_ZGV");
 }
@@ -362,7 +367,7 @@ void ParVecInfo::analyze(HLLoop *Loop, DDAnalysis *DDA) {
   // TODO: Continue to Parallelization profitability analysis
 }
 
-void ParVecInfo::print(raw_ostream &OS, bool WithLoop) {
+void ParVecInfo::print(raw_ostream &OS, bool WithLoop) const {
   if (WithLoop) {
     printIndent(OS, false);
     OS << "LoopNode(" << HLoop->getNumber() << ") @ ";
@@ -373,32 +378,34 @@ void ParVecInfo::print(raw_ostream &OS, bool WithLoop) {
     OS << "\n";
   }
   if (isParallelMode()) {
-    if (WithLoop)
+    if (WithLoop) {
       printIndent(OS, true);
-
-    if (ParLoc)
+    }
+    if (ParLoc) {
       ParLoc.print(OS);
-
+    }
     // TODO: Par reason strings.
     OS << " Par:[" << LoopTypeString[ParType] << "]\n";
   }
   if (isVectorMode()) {
-    if (WithLoop)
+    if (WithLoop) {
       printIndent(OS, true);
-
-    if (VecLoc)
+    }
+    if (VecLoc) {
       VecLoc.print(OS);
-
+    }
     OS << " ";
-    if (VecType <= SIMD)
+    if (VecType <= SIMD){
       OS << LoopTypeString[VecType];
-    else
+    }
+    else {
       OS << "#" << VecType << ": " << OptReportDiag::getMsg(VecType);
+    }
     OS << "\n";
   }
 }
 
-void ParVecInfo::printIndent(raw_ostream &OS, bool ZeroBase) {
+void ParVecInfo::printIndent(raw_ostream &OS, bool ZeroBase) const {
   assert(HLoop && "must be non-NULL\n");
   auto NestLevel = HLoop->getNestingLevel();
   for (unsigned Itr = ZeroBase ? 0 : 1; Itr < NestLevel; Itr++) {
@@ -408,4 +415,6 @@ void ParVecInfo::printIndent(raw_ostream &OS, bool ZeroBase) {
 
 const std::string ParVecInfo::LoopTypeString[4] = {
     "analyzing", "loop is parallelizable", "loop is vectorizable",
-    "loop has SIMD directive"};
+    "loop has SIMD directive"
+};
+

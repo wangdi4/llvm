@@ -333,18 +333,31 @@ int OptReportDiag::DiagsMax = sizeof(OptReportDiag::Diags)
 const char *OptReportDiag::getMsg(int Id){
   OptReportDiag *Diag;
   int LoopOffset = VecEnd - VecBegin;
+
+  // Sanity check
   assert(((VecBegin  <= Id && Id <= VecEnd)  ||
           (LoopBegin <= Id && Id <= LoopEnd)) && "Diag ID out of range.");
-  if (Id < VecBegin) { return nullptr; }
+
+  // Get Diag if Id is within the valid range.
+  if (Id < VecBegin) {
+    return nullptr;
+  }
   else if (Id <= VecEnd) {
     Diag = &Diags[Id - VecBegin];
   }
-  else if (Id < LoopBegin) { return nullptr; }
+  else if (Id < LoopBegin) {
+    return nullptr;
+  }
   else if (Id <= LoopEnd) {
     Diag = &Diags[Id - LoopBegin + LoopOffset];
   }
-  else { return nullptr; }  
+  else {
+    return nullptr;
+  }
+
+  // Sanity check
   assert(Diag->getMsgId() == Id && "Diag ID has to match.");
   if (Diag->getMsgId() != Id) { return nullptr; }
+
   return Diag->getMsg();
 }

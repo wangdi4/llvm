@@ -320,7 +320,7 @@ public:
   bool isConstantVector(Constant **Val = nullptr) const;
 
   /// \brief Returns true if canon expr represents a metadata.
-  /// If true, metadata is retunred in Val.
+  /// If true, metadata is returned in Val.
   bool isMetadata(MetadataAsValue **Val = nullptr) const;
 
   /// \brief Returns true if canon expr represents null pointer value.
