@@ -1,6 +1,6 @@
 //===---- HIRVerifier.cpp - Verifies internal structure of HLNodes --------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -46,14 +46,13 @@ public:
   static void verifyNode(const HLNode *N, bool Recursive = true);
   static void verifyAll();
 
-  HIRVerifierImpl() : TopSortNum(0),
-      InnermostLoop(nullptr), CurrentLoop(nullptr) {}
+  HIRVerifierImpl()
+      : TopSortNum(0), InnermostLoop(nullptr), CurrentLoop(nullptr) {}
 
   void visit(const HLNode *Node) {
     unsigned CurrentTopSortNum = Node->getTopSortNum();
     if (Node->getParent()) {
-      assert(Node->getParent()->getLexicalLastTopSortNum() >=
-                 CurrentTopSortNum &&
+      assert(Node->getParent()->getMaxTopSortNum() >= CurrentTopSortNum &&
              "Parent LexicalLastTopSortNum should "
              "be bigger than every TopSortNum");
     }

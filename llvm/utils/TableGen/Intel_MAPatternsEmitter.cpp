@@ -33,7 +33,10 @@ using namespace llvm;
 #define DEBUG_TYPE "x86-global-ma"
 #include "llvm/Support/Debug.h"
 
+#include "../../lib/Target/X86/Intel_X86FMACommon.h"
+
 namespace {
+
 
 // This enum defines known MUL/ADD-like operations that could be used by this
 // tablegen. If the target platform supports some or all of those and such

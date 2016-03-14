@@ -1,6 +1,6 @@
 //===-- HLNode.cpp - Implements the HLNode class ---------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -28,21 +28,18 @@ static cl::opt<bool> PrintTopSortNum("hir-details-topsort", cl::init(false),
                                      cl::Hidden,
                                      cl::desc("Print HLNode TopSort numbers"));
 
-HLContainerTy llvm::loopopt::HLRegions;
-
 std::set<HLNode *> HLNode::Objs;
 unsigned HLNode::GlobalNum(0);
 
 HLNode::HLNode(unsigned SCID)
-    : SubClassID(SCID), Parent(nullptr), TopSortNum(0),
-      LexicalLastTopSortNum(0) {
+    : SubClassID(SCID), Parent(nullptr), TopSortNum(0), MaxTopSortNum(0) {
   Objs.insert(this);
   setNextNumber();
 }
 
 HLNode::HLNode(const HLNode &HLNodeObj)
     : SubClassID(HLNodeObj.SubClassID), Parent(nullptr), TopSortNum(0),
-      LexicalLastTopSortNum(0) {
+      MaxTopSortNum(0) {
   Objs.insert(this);
   setNextNumber();
 }
@@ -84,7 +81,7 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
   if (!isa<HLRegion>(this)) {
     OS << "<" << Number;
     if (PrintTopSortNum) {
-      OS << ":" << TopSortNum << "(" << LexicalLastTopSortNum << ")";
+      OS << ":" << TopSortNum << "(" << MaxTopSortNum << ")";
     }
     OS << ">";
   }
@@ -93,7 +90,7 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
   auto Parent = getParent();
 
   /// Don't print loop marker "|" if the node is in preheader/postexit.
-  if (Parent && isa<HLLoop>(Parent) && isa<HLInst>(this) &&
+  if ((Depth > 0) && Parent && isa<HLLoop>(Parent) && isa<HLInst>(this) &&
       cast<HLInst>(this)->isInPreheaderOrPostexit()) {
     LoopIndentString = SpaceString + LoopIndentString;
     Depth--;
@@ -181,6 +178,18 @@ HLLoop *HLNode::getLexicalParentLoop() const {
     if (ParLoop && HInst->isInPreheaderOrPostexit()) {
       ParLoop = ParLoop->getParentLoop();
     }
+  }
+
+  return ParLoop;
+}
+
+HLLoop *HLNode::getOutermostParentLoop() const {
+  auto TempLoop = getParentLoop();
+  HLLoop *ParLoop = nullptr;
+
+  while (TempLoop) {
+    ParLoop = TempLoop;
+    TempLoop = TempLoop->getParentLoop();
   }
 
   return ParLoop;

@@ -229,6 +229,15 @@ template <> struct GraphTraits<Function*> : public GraphTraits<BasicBlock*> {
   static nodes_iterator nodes_begin(Function *F) { return F->begin(); }
   static nodes_iterator nodes_end  (Function *F) { return F->end(); }
   static size_t         size       (Function *F) { return F->size(); }
+
+#ifdef INTEL_CUSTOMIZATION
+  // Full GraphTraits implementation requires argument to nodes_begin be a 
+  // pointer to template argument type. Because this part of interface is
+  // used only by intel's variant of SCCIterator, the oversight was never 
+  // noticed.
+  static nodes_iterator nodes_begin(Function **F) { return nodes_begin(*F); }
+  static nodes_iterator nodes_end  (Function **F) { return nodes_end(*F); }
+#endif // INTEL_CUSTOMIZATION
 };
 template <> struct GraphTraits<const Function*> :
   public GraphTraits<const BasicBlock*> {
@@ -238,6 +247,14 @@ template <> struct GraphTraits<const Function*> :
   typedef Function::const_iterator nodes_iterator;
   static nodes_iterator nodes_begin(const Function *F) { return F->begin(); }
   static nodes_iterator nodes_end  (const Function *F) { return F->end(); }
+#ifdef INTEL_CUSTOMIZATION
+  // Full GraphTraits implementation requires argument to nodes_begin be a 
+  // pointer to template argument type. Because this part of interface is
+  // used only by intel's variant of SCCIterator, the oversight was never 
+  // noticed.
+  static nodes_iterator nodes_begin(const Function **F) { return nodes_begin(*F); }
+  static nodes_iterator nodes_end  (const Function **F) { return nodes_end(*F); }
+#endif // INTEL_CUSTOMIZATION
   static size_t         size       (const Function *F) { return F->size(); }
 };
 

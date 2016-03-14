@@ -1,6 +1,6 @@
 //===----------- HLDDNode.h - High level IR DD node -------------*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -16,8 +16,8 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLDDNODE_H
 #define LLVM_IR_INTEL_LOOPIR_HLDDNODE_H
 
-#include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include <iterator>
 
 namespace llvm {
@@ -68,7 +68,7 @@ protected:
   /// This function populates the GotoList with Goto branches
   /// and LabelMap with Old and New Labels.
   virtual HLDDNode *cloneImpl(GotoContainerTy *GotoList,
-                              LabelMapTy *LabelMap) const = 0;
+                              LabelMapTy *LabelMap) const override = 0;
 
 public:
   /// \brief Prints HLInst.
@@ -78,15 +78,25 @@ public:
   void printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// DDRef iterator methods
-  ddref_iterator ddref_begin();
-  const_ddref_iterator ddref_begin() const;
-  ddref_iterator ddref_end();
-  const_ddref_iterator ddref_end() const;
+  ddref_iterator ddref_begin() { return RegDDRefs.begin(); }
+  const_ddref_iterator ddref_begin() const {
+    return const_cast<HLDDNode *>(this)->ddref_begin();
+  }
 
-  reverse_ddref_iterator ddref_rbegin();
-  const_reverse_ddref_iterator ddref_rbegin() const;
-  reverse_ddref_iterator ddref_rend();
-  const_reverse_ddref_iterator ddref_rend() const;
+  ddref_iterator ddref_end() { return RegDDRefs.end(); }
+  const_ddref_iterator ddref_end() const {
+    return const_cast<HLDDNode *>(this)->ddref_end();
+  }
+
+  reverse_ddref_iterator ddref_rbegin() { return RegDDRefs.rbegin(); }
+  const_reverse_ddref_iterator ddref_rbegin() const {
+    return const_cast<HLDDNode *>(this)->ddref_rbegin();
+  }
+
+  reverse_ddref_iterator ddref_rend() { return RegDDRefs.rend(); }
+  const_reverse_ddref_iterator ddref_rend() const {
+    return const_cast<HLDDNode *>(this)->ddref_rend();
+  }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
@@ -100,7 +110,7 @@ public:
   unsigned getNumDDRefs() const { return RegDDRefs.size(); }
 
   /// \brief Virtual Clone method
-  virtual HLDDNode *clone() const = 0;
+  virtual HLDDNode *clone() const override = 0;
 
   /// \brief Returns the number of operands (and lval, if applicable) this node
   /// is supposed to have.

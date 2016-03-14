@@ -1,6 +1,6 @@
 //===--- ScalarSymbaseAssignment.h - Assigns symbase to scalars -*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -84,10 +84,6 @@ private:
   /// values created by HIR transformations as well.
   SmallDenseMap<unsigned, const Value *, 64> ScalarLvalSymbases;
 
-  /// \brief Returns true if Inst has a user outside region pointed to by RegIt.
-  bool isRegionLiveOut(RegionIdentification::iterator RegIt,
-                       const Instruction *Inst) const;
-
   /// \brief Populates liveout Values for the region pointed to by RegIt.
   void populateRegionLiveouts(RegionIdentification::iterator RegIt);
 
@@ -139,6 +135,10 @@ public:
   /// \brief Registers new lval/symbase pairs created by HIR transformations.
   /// Only used for printing.
   void insertHIRLval(const Value *Lval, unsigned Symbase);
+
+  /// \brief Traces back single operand phis until something else is encountered
+  /// and returns that.
+  const Value *traceSingleOperandPhis(const Value *Scalar) const;
 
   /// \brief Returns the scalar associated with symbase.
   const Value *getBaseScalar(unsigned Symbase) const;

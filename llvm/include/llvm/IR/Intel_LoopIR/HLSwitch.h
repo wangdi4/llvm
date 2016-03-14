@@ -1,6 +1,6 @@
 //===-------- HLSwitch.h - High level IR switch node ------------*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -114,7 +114,7 @@ public:
   ///   * The Switch has no parent
   /// This method will automatically update the goto branches with new labels
   /// inside the cloned Switch.
-  HLSwitch *clone() const;
+  HLSwitch *clone() const override;
 
   /// \brief Returns the number of operands this node is supposed to have.
   unsigned getNumOperands() const override { return getNumOperandsInternal(); }

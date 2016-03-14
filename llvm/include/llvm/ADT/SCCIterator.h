@@ -79,6 +79,11 @@ class scc_iterator
   /// node, the next child to visit, and the minimum uplink value of all child
   std::vector<StackElement> VisitStack;
 
+  /// Change of interface to store GraphT as member variable
+  /// This allows iteration over all nodes, not just ones reachable
+  /// from entry node
+  const GraphT Graph; //INTEL
+
   /// A single "visit" within the non-recursive DFS traversal.
   void DFSVisitOne(NodeType *N);
 
@@ -88,19 +93,20 @@ class scc_iterator
   /// Compute the next SCC using the DFS traversal.
   void GetNextSCC();
 
-  scc_iterator(NodeType *entryN) : visitNum(0) {
+  scc_iterator(NodeType *entryN, const GraphT &G) //INTEL
+      : visitNum(0), Graph(G) { // INTEL
     DFSVisitOne(entryN);
     GetNextSCC();
   }
 
   /// End is when the DFS stack is empty.
-  scc_iterator() {}
+  scc_iterator(const GraphT &G): Graph(G) {} //INTEL
 
 public:
   static scc_iterator begin(const GraphT &G) {
-    return scc_iterator(GT::getEntryNode(G));
+    return scc_iterator(GT::getEntryNode(G), G);  // INTEL
   }
-  static scc_iterator end(const GraphT &) { return scc_iterator(); }
+  static scc_iterator end(const GraphT &G) { return scc_iterator(G); } //INTEL
 
   /// \brief Direct loop termination test which is more efficient than
   /// comparison with \c end().
@@ -205,6 +211,27 @@ template <class GraphT, class GT> void scc_iterator<GraphT, GT>::GetNextSCC() {
     } while (CurrentSCC.back() != visitingN);
     return;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Not all nodes are reachable from entry node in intel graph's. 
+  // Look for unvisited nodes and and visit them 
+  GraphT *GraphP = &const_cast<GraphT &>(Graph);
+  for (auto CurNodeI = GT::nodes_begin(GraphP),
+            LastNodeI = GT::nodes_end(GraphP);
+       CurNodeI != LastNodeI; ++CurNodeI) {
+
+    NodeType &CurNode = *CurNodeI;
+    typename DenseMap<NodeType *, unsigned>::iterator Visited =
+        nodeVisitNumbers.find(&CurNode);
+    if (Visited == nodeVisitNumbers.end()) {
+      // this node has never been seen, so find SCC based on it
+      DFSVisitOne(&CurNode);
+      GetNextSCC();
+      return;
+    }
+  }
+
+#endif //INTEL_CUSTOMIZATON
 }
 
 template <class GraphT, class GT>

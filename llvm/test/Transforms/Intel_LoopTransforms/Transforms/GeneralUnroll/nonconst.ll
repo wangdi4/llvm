@@ -10,7 +10,7 @@
 ;    return A[2];
 ; }
 
-; REQUIRES: disable
+; REQUIRES: asserts
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
 
 ; Check the main unrolled loop.
@@ -19,12 +19,12 @@
 ; CHECK: DO i1 = 0, %[[TMP]]
 ; CHECK-NEXT: %2 = (@B)[0][8 * i1];
 ; CHECK-NEXT: %1 = %2  +  %1;
-; CHECK-NEXT: (@A)[0][8 * i1] = %2 + %1;
+; CHECK-NEXT: (@A)[0][8 * i1] = %1;
 ; CHECK: END LOOP
 
 ; Check the remainder loop.
 ; CHECK-NEXT: DO i1 = 8 * %[[TMP]]
-; CHECK: (@A)[0][i1] = %2 + %1;
+; CHECK: (@A)[0][i1] = %1;
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END REGION
 
