@@ -1,6 +1,6 @@
 //===----- SymbaseAssignment.h - Assigns symbase to ddrefs ----*-- C++ --*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -45,14 +45,14 @@ class HIRParser;
 
 class SymbaseAssignment : public FunctionPass {
 public:
+  // Accesses getNewSymbase()
+  friend class HIRFramework;
+
   SymbaseAssignment() : FunctionPass(ID) {}
   static char ID;
   bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
-
-  // Returns a new unused symbase ID
-  unsigned getNewSymbase() { return ++MaxSymbase; }
 
 private:
   Function *F;
@@ -64,6 +64,9 @@ private:
   /// \brief Initializes max symbase using the max scalar symbase returned by
   /// HIRParser.
   void initializeMaxSymbase();
+
+  // Returns a new unused symbase ID.
+  unsigned getNewSymbase() { return ++MaxSymbase; }
 };
 }
 }

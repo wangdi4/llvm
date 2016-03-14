@@ -492,6 +492,18 @@ struct GraphTraits<CallGraph *> : public GraphTraits<CallGraphNode *> {
   static nodes_iterator nodes_end(CallGraph *CG) {
     return map_iterator(CG->end(), DerefFun(CGdereference));
   }
+  
+#if INTEL_CUSTOMIZATION
+  // Full GraphTraits implementation requires argument to nodes_begin be a 
+  // pointer to template argument type. Because this part of interface is
+  // used only by intel's variant of SCCIterator, the oversight was never noticed.
+  static nodes_iterator nodes_begin(CallGraph **CG) {
+    return nodes_begin(*CG); 
+  }
+  static nodes_iterator nodes_end(CallGraph **CG) {
+    return nodes_end(*CG); 
+  }
+#endif // INTEL_CUSTOMIZATION
 
   static CallGraphNode &CGdereference(const PairTy &P) { return *P.second; }
 };
@@ -515,6 +527,19 @@ struct GraphTraits<const CallGraph *> : public GraphTraits<
   static nodes_iterator nodes_end(const CallGraph *CG) {
     return map_iterator(CG->end(), DerefFun(CGdereference));
   }
+#if INTEL_CUSTOMIZATION
+  // Full GraphTraits implementation requires argument to nodes_begin be a 
+  // pointer to template argument type. Because this part of interface is
+  // used only by intel, the oversight was never noticed.
+  static nodes_iterator nodes_begin(const CallGraph **CG) {
+    return nodes_begin(*CG); 
+  }
+  static nodes_iterator nodes_end(const CallGraph **CG) {
+    return nodes_end(*CG); 
+  }
+#endif // INTEL_CUSTOMIZATION
+
+
 
   static const CallGraphNode &CGdereference(const PairTy &P) {
     return *P.second;

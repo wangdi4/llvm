@@ -382,6 +382,27 @@ template <> struct GraphTraits<ArgumentGraphNode *> {
 };
 template <>
 struct GraphTraits<ArgumentGraph *> : public GraphTraits<ArgumentGraphNode *> {
+
+#ifdef INTEL_CUSTOMIZATION
+  //Intel's variant of SCCIterator requires full implementation of GraphTraits
+  //interface. These functions were not used by others in llvm, so the missing
+  //functions were never noticed.
+  typedef std::pointer_to_unary_function<NodeType*, NodeType &>
+      DerefFun;
+
+  // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
+  typedef mapped_iterator<ChildIteratorType, DerefFun> nodes_iterator;
+
+  //GraphTraits requires argument to this be a pointer to template argument type
+  static nodes_iterator nodes_begin(ArgumentGraph **G) {
+    return map_iterator((*G)->begin(), DerefFun(NodeDeref));
+  }
+  static nodes_iterator nodes_end(ArgumentGraph **G) {
+    return map_iterator((*G)->end(), DerefFun(NodeDeref));
+  }
+
+  static NodeType &NodeDeref(NodeType *Node) { return *Node; }
+#endif // INTEL_CUSTOMIZATION
   static NodeType *getEntryNode(ArgumentGraph *AG) {
     return AG->getEntryNode();
   }

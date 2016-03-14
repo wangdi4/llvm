@@ -1,11 +1,11 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
-; Check parsing output for the loop verifying that the zero extension linear SCEV for %idxprom15 is traced back to its value.
+; Check parsing output for the loop verifying that the zero extended IV of outer non-generable loop (%idxprom15) is parsed correctly.
 ; CHECK: DO i1 = 0, zext.i32.i64((-1 + %N))
 ; CHECK-NEXT: %0 = (%B)[%indvars.iv47][i1]
 ; CHECK-NEXT: %1 = (%C)[%indvars.iv47][i1]
 ; CHECK-NEXT: (%A)[%indvars.iv47][i1] = %0 + %1
-; CHECK-NEXT: %2 = (%A)[%idxprom15][i1]
+; CHECK-NEXT: %2 = (%A)[trunc.i64.i32((4294967295 + %indvars.iv47))][i1]
 ; CHECK-NEXT: %conv = sitofp.i32.double(%2)
 ; CHECK-NEXT: %mul = %conv  *  2.000000e+00
 ; CHECK-NEXT: %conv18 = fptosi.double.i32(%mul)

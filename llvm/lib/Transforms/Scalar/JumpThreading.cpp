@@ -1743,6 +1743,60 @@ static void collectThreadRegionBlocks(const ThreadRegionInfo &RegionInfo,
   }
 }
 
+/// \p OldBB is a block in the thread region, and \p OldSucc is one of its
+/// original successors. This routine determines whether the
+/// <tt>OldBB->OldSucc</tt> CFG edge in the new thread region needs to target
+/// OldSucc or its corresponding new BB.
+static bool shouldRemapTarget(BasicBlock *OldBB,
+                  BasicBlock *OldSucc,
+                  const ThreadRegionInfo &RegionInfo,
+                  const DenseMap<BasicBlock*, BasicBlock*> &BlockMapping) {
+  DenseMap<BasicBlock*, BasicBlock*>::const_iterator I =
+    BlockMapping.find(OldSucc);
+
+  // If OldSucc is not part of the region, then of course we don't remap it.
+  if (I == BlockMapping.end())
+    return false;
+
+  // If OldSucc is the top of a sub-region, the only edge that can target
+  // its corresponding new BB is the one from the previous sub-region.
+  bool FoundOldSucc = false;
+  for (auto SubRegion : RegionInfo) {
+    if (FoundOldSucc)
+      return SubRegion.second == OldBB;
+    if (OldSucc == SubRegion.first)
+      FoundOldSucc = true;
+  }
+
+  // If FoundOldSucc is true at this point, it means OldBB-->OldSucc is an edge
+  // from inside the region back up to the top of the region. We don't want to
+  // remap those. If FoundOldSucc is false, it means that OldSucc isn't the top
+  // of a thread region, so we should remap all its predecessors.
+  return !FoundOldSucc;
+}
+
+/// Determine whether \p OldBB is the top of a thread sub-region. If so, return
+/// its predecessor BB through which we are threading. If not, return nullptr.
+/// \p PredBB is the predecessor block for the entire thread region.
+static BasicBlock* getSubRegionPred(BasicBlock *OldBB,
+                                    BasicBlock *PredBB,
+                                    const ThreadRegionInfo &RegionInfo) {
+  bool FoundOldBB = false;
+  for (auto SubRegion : RegionInfo) {
+    if (FoundOldBB)
+      return SubRegion.second;
+    if (OldBB == SubRegion.first)
+      FoundOldBB = true;
+  }
+
+  // If FoundOldBB is true here, it means that OldBB is the top of the entire
+  // thread region.
+  if (FoundOldBB)
+    return PredBB;
+
+  return nullptr;
+}
+
 /// ThreadEdge was significantly modified to support distant jump threading.
 /// Not every line was changed, but the entire routine is under
 /// INTEL_CUSTOMIZATION, because any community changes to this routine will need
@@ -1896,16 +1950,20 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   // Remap operands to patch up intra-thread-region references.
   for (auto OldBB : RegionBlocks) {
     BasicBlock *NewBB = BlockMapping[OldBB];
+    BasicBlock *SubRegionPred = getSubRegionPred(OldBB, PredBB, RegionInfo);
 
     for (auto &New : *NewBB) {
       if (PHINode *PN = dyn_cast<PHINode>(&New)) {
-        if (OldBB == RegionTop) {
-          // For RegionTop, reduce the PHIs to a single incoming value from
-          // PredBB. It is necessary to preserve the PHI, even though it looks
-          // degenerate, so that we can run the SSAResolver separately for the
-          // PHI and its operand.
+        if (SubRegionPred) {
+          // For region tops, reduce the PHIs to a single incoming value from
+          // SubRegionPred. It is necessary to preserve the PHI, even though it
+          // looks degenerate, so that we can run the SSAResolver separately
+          // for the PHI and its operand.
           for (int i = PN->getNumIncomingValues() - 1; i >= 0; --i)
-            if (PN->getIncomingBlock(i) != PredBB) PN->removeIncomingValue(i);
+            if (PN->getIncomingBlock(i) != SubRegionPred)
+              PN->removeIncomingValue(i);
+            else if (OldBB != RegionTop)
+              PN->setIncomingBlock(i, BlockMapping[PN->getIncomingBlock(i)]);
         }
         else {
           // Update intra-region PHI nodes. Any incoming value from a block
@@ -1945,12 +2003,8 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
           }
         }
         else if (BasicBlock *DestBB = dyn_cast<BasicBlock>(New.getOperand(i))) {
-          DenseMap<BasicBlock*, BasicBlock*>::iterator I;
-          I = BlockMapping.find(DestBB);
-          if (I != BlockMapping.end()) {
-            DestBB = I->second;
-            New.setOperand(i, DestBB);
-          }
+          if (shouldRemapTarget(OldBB, DestBB, RegionInfo, BlockMapping))
+            New.setOperand(i, BlockMapping[DestBB]);
 
           // If we are threading across a loop header, we have to update the
           // LoopHeaders set. To do this precisely, we would need to re-run
@@ -1985,7 +2039,7 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       continue;
     succ_iterator SI = succ_begin(OldBB), SE = succ_end(OldBB);
     for (; SI != SE; ++SI)
-      if (BlockMapping.find(*SI) == BlockMapping.end())
+      if (!shouldRemapTarget(OldBB, *SI, RegionInfo, BlockMapping))
         AddPHINodeEntriesForMappedBlock(*SI, OldBB, BlockMapping[OldBB],
                                         ValueMapping);
   }

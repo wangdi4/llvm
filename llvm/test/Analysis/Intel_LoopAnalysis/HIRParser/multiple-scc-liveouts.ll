@@ -1,9 +1,6 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
-; Check parsing output for the loop verifying that multiple region liveout values in the SCC are handled correctly by insertion of liveout copies.
-; CHECK: SCC
-; CHECK-DAG: incdec.ptr
-; CHECK-DAG: p.addr.013
+; Check parsing output for the loop verifying that phi region liveout value(p.addr.013) is handled correctly by insertion of liveout copy.
 
 ; CHECK: LiveOuts
 ; CHECK-DAG: p.addr.013.out
@@ -12,10 +9,10 @@
 ; CHECK: DO i32 i1 = 0, %n + -1
 ; CHECK: %p.addr.013.out = &((%p)[i1])
 ; CHECK: (%p)[i1] = i1 + 5
-; CHECK: %p.addr.013 = &((%p)[i1 + 1])
+; CHECK: %incdec.ptr = &((%p)[i1 + 1])
 
 ; Verify that the pointer lval is parsed as self-blob.
-; CHECK-NEXT: NON-LINEAR i32* %p.addr.013
+; CHECK-NEXT: NON-LINEAR i32* %incdec.ptr
 ; CHECK: (%p)[i1 + 1] = i1 + 10
 ; CHECK: END LOOP
 
