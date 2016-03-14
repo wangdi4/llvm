@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -519,7 +519,7 @@ template <memory_semantics M, typename T>
 T load ( const atomic<T>& a ) { return a.template load<M>(); }
 
 template <memory_semantics M, typename T>
-void store ( atomic<T>& a, T value ) { return a.template store<M>(value); }
+void store ( atomic<T>& a, T value ) { a.template store<M>(value); }
 
 namespace interface6{
 //! Make an atomic for use in an initialization (list), as an alternative to zero-initialization or normal assignment.

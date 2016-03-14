@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -24,6 +24,8 @@
 #ifndef __TBB_flow_graph_H
 #error Do not #include this internal file directly; use public TBB headers instead.
 #endif
+
+// included in namespace tbb::flow::interface7
 
 namespace internal {
 // wrap each element of a tuple in a template, and make a tuple of the result.
@@ -156,7 +158,41 @@ namespace internal {
     };
 #endif
 
-#if TBB_PREVIEW_GRAPH_NODES
+//! type mimicking std::pair but with trailing fill to ensure each element of an array
+//* will have the correct alignment
+    template<typename T1, typename T2, size_t REM>
+    struct type_plus_align {
+        char first[sizeof(T1)];
+        T2 second;
+        char fill1[REM];
+    };
+
+    template<typename T1, typename T2>
+    struct type_plus_align<T1,T2,0> {
+        char first[sizeof(T1)];
+        T2 second;
+    };
+
+    template<class U> struct alignment_of {
+        typedef struct { char t; U    padded; } test_alignment;
+        static const size_t value = sizeof(test_alignment) - sizeof(U);
+    };
+
+    // T1, T2 are actual types stored.  The space defined for T1 in the type returned
+    // is a char array of the correct size.  Type T2 should be trivially-constructible,
+    // T1 must be explicitly managed.
+    template<typename T1, typename T2>
+    struct aligned_pair {
+        static const size_t t1_align = alignment_of<T1>::value;
+        static const size_t t2_align = alignment_of<T2>::value;
+        typedef type_plus_align<T1, T2, 0 > just_pair;
+        static const size_t max_align = t1_align < t2_align ? t2_align : t1_align;
+        static const size_t extra_bytes = sizeof(just_pair) % max_align;
+        static const size_t remainder = extra_bytes ? max_align - extra_bytes : 0;
+    public:
+        typedef type_plus_align<T1,T2,remainder> type;
+    };  // aligned_pair
+
 // support for variant type
 // type we use when we're not storing a value
 struct default_constructed { };
@@ -291,10 +327,6 @@ struct pick_max {
 };
 
 template<typename T> struct size_of { static const int value = sizeof(T); };
-template<class T> struct alignment_of {
-    typedef struct { char t; T    padded; } test_alignment;
-    static const size_t value = sizeof(test_alignment) - sizeof(T);
-};
 
 template< size_t N, class Tuple, template<class> class Selector > struct pick_tuple_max {
     typedef typename pick_tuple_max<N-1, Tuple, Selector>::type LeftMaxType;
@@ -307,20 +339,16 @@ template< class Tuple, template<class> class Selector > struct pick_tuple_max<0,
 };
 
 // is the specified type included in a tuple?
-
-template<class U, class V> struct is_same_type      { static const bool value = false; };
-template<class W>          struct is_same_type<W,W> { static const bool value = true; };
-
 template<class Q, size_t N, class Tuple>
 struct is_element_of {
     typedef typename tbb::flow::tuple_element<N-1, Tuple>::type T_i;
-    static const bool value = is_same_type<Q,T_i>::value || is_element_of<Q,N-1,Tuple>::value;
+    static const bool value = tbb::internal::is_same_type<Q,T_i>::value || is_element_of<Q,N-1,Tuple>::value;
 };
 
 template<class Q, class Tuple>
 struct is_element_of<Q,0,Tuple> {
     typedef typename tbb::flow::tuple_element<0, Tuple>::type T_i;
-    static const bool value = is_same_type<Q,T_i>::value;
+    static const bool value = tbb::internal::is_same_type<Q,T_i>::value;
 };
 
 // allow the construction of types that are listed tuple.  If a disallowed type
@@ -356,6 +384,7 @@ template<typename TagType, typename T0, typename T1=tagged_null_type, typename T
                            typename T7=tagged_null_type, typename T8=tagged_null_type, typename T9=tagged_null_type>
 class tagged_msg {
     typedef tbb::flow::tuple<T0, T1, T2, T3, T4
+                  //TODO: Should we reject lists longer than a tuple can hold?
                   #if __TBB_VARIADIC_MAX >= 6
                   , T5
                   #endif
@@ -454,13 +483,12 @@ public:
 }; //class tagged_msg
 
 // template to simplify cast and test for tagged_msg in template contexts
-template<typename T, typename V>
-const T& cast_to(V const &v) { return v.template cast_to<T>(); }
+template<typename V, typename T>
+const V& cast_to(T const &t) { return t.template cast_to<V>(); }
 
-template<typename T, typename V>
-bool is_a(V const &v) { return v.template is_a<T>(); }
+template<typename V, typename T>
+bool is_a(T const &t) { return t.template is_a<V>(); }
 
-#endif  // TBB_PREVIEW_GRAPH_NODES
 }  // namespace internal
 
 #endif  /* __TBB__flow_graph_types_impl_H */

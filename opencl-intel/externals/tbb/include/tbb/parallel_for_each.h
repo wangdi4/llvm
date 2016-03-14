@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -53,6 +53,20 @@ void parallel_for_each(InputIterator first, InputIterator last, const Function& 
     internal::parallel_for_each_body<Function, InputIterator> body(f);
     tbb::parallel_do (first, last, body, context);
 }
+
+//! Calls function f for all items from rng using user-supplied context
+/** @ingroup algorithms */
+template<typename Range, typename Function>
+void parallel_for_each(Range& rng, const Function& f, task_group_context& context) {
+    parallel_for_each(tbb::internal::first(rng), tbb::internal::last(rng), f, context);
+}
+
+//! Calls function f for all items from const rng user-supplied context
+/** @ingroup algorithms */
+template<typename Range, typename Function>
+void parallel_for_each(const Range& rng, const Function& f, task_group_context& context) {
+    parallel_for_each(tbb::internal::first(rng), tbb::internal::last(rng), f, context);
+}
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 
 //! Uses default context
@@ -60,6 +74,18 @@ template<typename InputIterator, typename Function>
 void parallel_for_each(InputIterator first, InputIterator last, const Function& f) {
     internal::parallel_for_each_body<Function, InputIterator> body(f);
     tbb::parallel_do (first, last, body);
+}
+
+//! Uses default context
+template<typename Range, typename Function>
+void parallel_for_each(Range& rng, const Function& f) {
+    parallel_for_each(tbb::internal::first(rng), tbb::internal::last(rng), f);
+}
+
+//! Uses default context
+template<typename Range, typename Function>
+void parallel_for_each(const Range& rng, const Function& f) {
+    parallel_for_each(tbb::internal::first(rng), tbb::internal::last(rng), f);
 }
 
 //@}

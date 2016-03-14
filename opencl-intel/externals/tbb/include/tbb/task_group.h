@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -163,21 +163,6 @@ public:
 class task_group : public internal::task_group_base {
 public:
     task_group () : task_group_base( task_group_context::concurrent_wait ) {}
-
-#if TBB_DEPRECATED
-    ~task_group() __TBB_TRY {
-        __TBB_ASSERT( my_root->ref_count() != 0, NULL );
-        if( my_root->ref_count() > 1 )
-            my_root->wait_for_all();
-    }
-#if TBB_USE_EXCEPTIONS
-    catch (...) {
-        // Have to destroy my_root here as the base class destructor won't be called
-        task::destroy(*my_root);
-        throw;
-    }
-#endif /* TBB_USE_EXCEPTIONS */
-#endif /* TBB_DEPRECATED */
 
 #if __SUNPRO_CC
     template<typename F>

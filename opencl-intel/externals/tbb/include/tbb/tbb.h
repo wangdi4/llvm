@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -39,12 +39,18 @@
 #include "blocked_range3d.h"
 #include "cache_aligned_allocator.h"
 #include "combinable.h"
-#include "concurrent_unordered_map.h"
 #include "concurrent_hash_map.h"
+#if TBB_PREVIEW_CONCURRENT_LRU_CACHE
+#include "concurrent_lru_cache.h"
+#endif
+#include "concurrent_priority_queue.h"
 #include "concurrent_queue.h"
+#include "concurrent_unordered_map.h"
+#include "concurrent_unordered_set.h"
 #include "concurrent_vector.h"
 #include "critical_section.h"
 #include "enumerable_thread_specific.h"
+#include "flow_graph.h"
 #include "mutex.h"
 #include "null_mutex.h"
 #include "null_rw_mutex.h"
@@ -60,11 +66,11 @@
 #include "queuing_mutex.h"
 #include "queuing_rw_mutex.h"
 #include "reader_writer_lock.h"
-#include "concurrent_priority_queue.h"
 #include "recursive_mutex.h"
 #include "spin_mutex.h"
 #include "spin_rw_mutex.h"
 #include "task.h"
+#include "task_arena.h"
 #include "task_group.h"
 #include "task_scheduler_init.h"
 #include "task_scheduler_observer.h"

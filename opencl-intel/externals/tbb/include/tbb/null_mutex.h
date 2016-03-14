@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -21,18 +21,17 @@
 #ifndef __TBB_null_mutex_H
 #define __TBB_null_mutex_H
 
+#include "tbb_stddef.h"
+
 namespace tbb {
     
 //! A mutex which does nothing
 /** A null_mutex does no operation and simulates success.
     @ingroup synchronization */
-class null_mutex {   
-    //! Deny assignment and copy construction 
-    null_mutex( const null_mutex& );   
-    void operator=( const null_mutex& );   
+class null_mutex : internal::mutex_copy_deprecated_and_disabled {
 public:   
     //! Represents acquisition of a mutex.
-    class scoped_lock {   
+    class scoped_lock : internal::no_copy {   
     public:   
         scoped_lock() {}
         scoped_lock( null_mutex& ) {}   

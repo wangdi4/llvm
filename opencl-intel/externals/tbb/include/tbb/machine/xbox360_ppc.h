@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -94,7 +94,7 @@ static inline int __TBB_XBOX360_DetectNumberOfWorkers()
             ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 2) & 1) +
             ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 3) & 1) +
             ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 4) & 1) +
-            ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 5) & 1) + 1;  // +1 accomodates for the master thread
+            ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 5) & 1) + 1;  // +1 accommodates for the master thread
 }
 
 static inline int __TBB_XBOX360_GetHardwareThreadIndex(int workerThreadIndex)

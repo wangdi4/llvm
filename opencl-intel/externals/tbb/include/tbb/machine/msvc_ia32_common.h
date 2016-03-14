@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -197,29 +197,20 @@ extern "C" {
 #else
     inline static void __TBB_machine_try_lock_elided_cancel() { _asm pause; }
 #endif
-#if __TBB_TSX_INTRINSICS_PRESENT
-#define __TBB_machine_is_in_transaction _xtest
-#else
-    __int8  __TBB_EXPORTED_FUNC __TBB_machine_is_in_transaction();
-#endif /* __TBB_TSX_INTRINSICS_PRESENT */
 
-#if TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
 #if __TBB_TSX_INTRINSICS_PRESENT
-
-#define __TBB_machine_begin_transaction _xbegin
-#define __TBB_machine_end_transaction   _xend
+    #define __TBB_machine_is_in_transaction _xtest
+    #define __TBB_machine_begin_transaction _xbegin
+    #define __TBB_machine_end_transaction   _xend
     // The value (0xFF) below comes from the
     // Intel(R) 64 and IA-32 Architectures Optimization Reference Manual 12.4.5 lock not free
-#define __TBB_machine_transaction_conflict_abort() _xabort(0xFF)
-
+    #define __TBB_machine_transaction_conflict_abort() _xabort(0xFF)
 #else
-
+    __int8           __TBB_EXPORTED_FUNC __TBB_machine_is_in_transaction();
     unsigned __int32 __TBB_EXPORTED_FUNC __TBB_machine_begin_transaction();
     void             __TBB_EXPORTED_FUNC __TBB_machine_end_transaction();
     void             __TBB_EXPORTED_FUNC __TBB_machine_transaction_conflict_abort();
-
 #endif /* __TBB_TSX_INTRINSICS_PRESENT */
-#endif  /* TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX */
 }
 
 #endif /* __TBB_machine_msvc_ia32_common_H */

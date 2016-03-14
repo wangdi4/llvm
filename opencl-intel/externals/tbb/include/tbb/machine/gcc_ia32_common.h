@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -25,10 +25,11 @@
 //uses __TBB_Log2 and contains the assert and remove the assert from here and all other
 //platform-specific headers.
 //TODO: Check if use of gcc intrinsic gives a better chance for cross call optimizations
-static inline intptr_t __TBB_machine_lg( uintptr_t x ) {
-    __TBB_ASSERT(x, "__TBB_Log2(0) undefined");
-    uintptr_t j;
-    __asm__ ("bsr %1,%0" : "=r"(j) : "r"(x));
+template <typename T>
+static inline intptr_t __TBB_machine_lg( T x ) {
+    __TBB_ASSERT(x>0, "The logarithm of a non-positive value is undefined.");
+    uintptr_t j, i = x;
+    __asm__("bsr %1,%0" : "=r"(j) : "r"(i));
     return j;
 }
 #define __TBB_Log2(V)  __TBB_machine_lg(V)

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -22,6 +22,10 @@
 #define __TBB_parallel_invoke_H
 
 #include "task.h"
+
+#if __TBB_VARIADIC_PARALLEL_INVOKE
+    #include <utility>
+#endif
 
 namespace tbb {
 
@@ -95,9 +99,40 @@ namespace internal {
         {
             set_ref_count(number_of_children + 1);
         }
+
+#if __TBB_VARIADIC_PARALLEL_INVOKE
+        void add_children() {}
+        void add_children(tbb::task_group_context&) {}
+
+        template <typename function>
+        void add_children(function&& _func)
+        {
+            internal::function_invoker<function>* invoker = new (allocate_child()) internal::function_invoker<function>(std::forward<function>(_func));
+            __TBB_ASSERT(invoker, "Child task allocation failed");
+            spawn(*invoker);
+        }
+
+        template<typename function>
+        void add_children(function&& _func, tbb::task_group_context&)
+        {
+            add_children(std::forward<function>(_func));
+        }
+
+        // Adds child(ren) task(s) and spawns them
+        template <typename function1, typename function2, typename... function>
+        void add_children(function1&& _func1, function2&& _func2, function&&... _func)
+        {
+            // The third argument is dummy, it is ignored actually.
+            parallel_invoke_noop noop;
+            typedef internal::spawner<2, function1, function2, parallel_invoke_noop> spawner_type;
+            spawner_type & sub_root = *new(allocate_child()) spawner_type(std::forward<function1>(_func1), std::forward<function2>(_func2), noop);
+            spawn(sub_root);
+            add_children(std::forward<function>(_func)...);
+        }
+#else
         // Adds child task and spawns it
         template <typename function>
-        void add_child (const function &_func)
+        void add_children (const function &_func)
         {
             internal::function_invoker<function>* invoker = new (allocate_child()) internal::function_invoker<function>(_func);
             __TBB_ASSERT(invoker, "Child task allocation failed");
@@ -121,6 +156,7 @@ namespace internal {
             internal::spawner<3, function1, function2, function3>& sub_root = *new(allocate_child())internal::spawner<3, function1, function2, function3>(_func1, _func2, _func3);
             spawn(sub_root);
         }
+#endif // __TBB_VARIADIC_PARALLEL_INVOKE
 
         // Waits for all child tasks
         template <typename F0>
@@ -148,6 +184,51 @@ namespace internal {
         }
         internal::parallel_invoke_helper& root;
     };
+
+#if __TBB_VARIADIC_PARALLEL_INVOKE
+//  Determine whether the last parameter in a pack is task_group_context
+    template<typename... T> struct impl_selector; // to workaround a GCC bug
+
+    template<typename T1, typename... T> struct impl_selector<T1, T...> {
+        typedef typename impl_selector<T...>::type type;
+    };
+
+    template<typename T> struct impl_selector<T> {
+        typedef false_type type;
+    };
+    template<> struct impl_selector<task_group_context&> {
+        typedef true_type  type;
+    };
+
+    // Select task_group_context parameter from the back of a pack
+    inline task_group_context& get_context( task_group_context& tgc ) { return tgc; }
+
+    template<typename T1, typename... T>
+    task_group_context& get_context( T1&& /*ignored*/, T&&... t )
+    { return get_context( std::forward<T>(t)... ); }
+
+    // task_group_context is known to be at the back of the parameter pack
+    template<typename F0, typename F1, typename... F>
+    void parallel_invoke_impl(true_type, F0&& f0, F1&& f1, F&&... f) {
+        __TBB_STATIC_ASSERT(sizeof...(F)>0, "Variadic parallel_invoke implementation broken?");
+        // # of child tasks: f0, f1, and a task for each two elements of the pack except the last
+        const size_t number_of_children = 2 + sizeof...(F)/2;
+        parallel_invoke_cleaner cleaner(number_of_children, get_context(std::forward<F>(f)...));
+        parallel_invoke_helper& root = cleaner.root;
+
+        root.add_children(std::forward<F>(f)...);
+        root.add_children(std::forward<F1>(f1));
+        root.run_and_finish(std::forward<F0>(f0));
+    }
+
+    // task_group_context is not in the pack, needs to be added
+    template<typename F0, typename F1, typename... F>
+    void parallel_invoke_impl(false_type, F0&& f0, F1&& f1, F&&... f) {
+        tbb::task_group_context context;
+        // Add context to the arguments, and redirect to the other overload
+        parallel_invoke_impl(true_type(), std::forward<F0>(f0), std::forward<F1>(f1), std::forward<F>(f)..., context);
+    }
+#endif
 } // namespace internal
 //! @endcond
 
@@ -157,6 +238,18 @@ namespace internal {
 //! Executes a list of tasks in parallel and waits for all tasks to complete.
 /** @ingroup algorithms */
 
+#if __TBB_VARIADIC_PARALLEL_INVOKE
+
+// parallel_invoke for two or more arguments via variadic templates
+// presence of task_group_context is defined automatically
+template<typename F0, typename F1, typename... F>
+void parallel_invoke(F0&& f0, F1&& f1, F&&... f) {
+    typedef typename internal::impl_selector<internal::false_type, F...>::type selector_type;
+    internal::parallel_invoke_impl(selector_type(), std::forward<F0>(f0), std::forward<F1>(f1), std::forward<F>(f)...);
+}
+
+#else
+
 // parallel_invoke with user-defined context
 // two arguments
 template<typename F0, typename F1 >
@@ -164,7 +257,7 @@ void parallel_invoke(const F0& f0, const F1& f1, tbb::task_group_context& contex
     internal::parallel_invoke_cleaner cleaner(2, context);
     internal::parallel_invoke_helper& root = cleaner.root;
 
-    root.add_child(f1);
+    root.add_children(f1);
 
     root.run_and_finish(f0);
 }
@@ -175,8 +268,8 @@ void parallel_invoke(const F0& f0, const F1& f1, const F2& f2, tbb::task_group_c
     internal::parallel_invoke_cleaner cleaner(3, context);
     internal::parallel_invoke_helper& root = cleaner.root;
 
-    root.add_child(f2);
-    root.add_child(f1);
+    root.add_children(f2);
+    root.add_children(f1);
 
     root.run_and_finish(f0);
 }
@@ -189,9 +282,9 @@ void parallel_invoke(const F0& f0, const F1& f1, const F2& f2, const F3& f3,
     internal::parallel_invoke_cleaner cleaner(4, context);
     internal::parallel_invoke_helper& root = cleaner.root;
 
-    root.add_child(f3);
-    root.add_child(f2);
-    root.add_child(f1);
+    root.add_children(f3);
+    root.add_children(f2);
+    root.add_children(f1);
 
     root.run_and_finish(f0);
 }
@@ -355,7 +448,7 @@ void parallel_invoke(const F0& f0, const F1& f1, const F2& f2, const F3& f3, con
     task_group_context context;
     parallel_invoke<F0, F1, F2, F3, F4, F5, F6, F7, F8, F9>(f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, context);
 }
-
+#endif // __TBB_VARIADIC_PARALLEL_INVOKE
 //@}
 
 } // namespace
