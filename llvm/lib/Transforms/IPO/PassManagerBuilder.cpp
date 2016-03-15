@@ -269,17 +269,16 @@ void PassManagerBuilder::populateModulePassManager(
     if (RunVecClone) {
       MPM.add(createVecClonePass());
     }
-    if (RunVPOParopt) {
-      MPM.add(createVPOCFGRestructuringPass());
-      MPM.add(createVPOParoptPass());
-    }
-    if (RunVPODriver) {
-      MPM.add(createVPOCFGRestructuringPass());
-      MPM.add(createVPODriverPass());
-    }
+    // Process OpenMP directives at -O0
+    addVPOPasses(MPM, true);
 #endif // INTEL_CUSTOMIZATION
     return;
   }
+  
+#if INTEL_CUSTOMIZATION
+  // Process OpenMP directives at -O1 and above
+  addVPOPasses(MPM, false);
+#endif // INTEL_CUSTOMIZATION
 
   // Add LibraryInfo if we have some.
   if (LibraryInfo)
@@ -477,6 +476,12 @@ void PassManagerBuilder::populateModulePassManager(
   // harder, so run CSE here to do some clean-up before HIR construction.
   MPM.add(createEarlyCSEPass());
   addLoopOptPasses(MPM);
+
+  // Process directives inserted by LoopOpt Autopar.
+  // Call with RunVec==true (2nd argument) to enable Vectorizer to catch
+  // any vec directives that loopopt might have missed; may change it to 
+  // false in the future when loopopt is fully implemented.
+  addVPOPasses(MPM, true);
 #endif // INTEL_CUSTOMIZATION
 
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
@@ -574,18 +579,9 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
 #if INTEL_CUSTOMIZATION
-  if (RunVPOParopt) {
-    MPM.add(createVPOCFGRestructuringPass());
-    MPM.add(createVPOParoptPass());
-  }
-  if (RunVPODriver) {
-    MPM.add(createVPOCFGRestructuringPass());
-    MPM.add(createVPODriverPass());
-  }
 /*
-  if (RunMapIntrinToIml) {
+  if (RunMapIntrinToIml)
     MPM.add(createMapIntrinToImlPass());
-  }
 */
 #endif // INTEL_CUSTOMIZATION
 }
@@ -774,6 +770,18 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   PM.add(createHIRCodeGenPass());
 
   addLoopOptCleanupPasses(PM);
+}
+
+void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
+                                            bool RunVec) const {
+  if (RunVPOParopt) {
+    PM.add(createVPOCFGRestructuringPass());
+    PM.add(createVPOParoptPass());
+  }
+  if (RunVPODriver && RunVec) {
+    PM.add(createVPOCFGRestructuringPass());
+    PM.add(createVPODriverPass());
+  }
 }
 #endif // INTEL_CUSTOMIZATION
 

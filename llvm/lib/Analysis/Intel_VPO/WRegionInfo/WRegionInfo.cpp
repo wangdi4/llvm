@@ -1,6 +1,6 @@
 //===------- WRegionInfo.cpp - Build WRegion Graph ---------*- C++ -*------===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -53,7 +53,7 @@ void WRegionInfo::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 void WRegionInfo::doFillUpWRegionInfo(WRegionCollection *R) {
-   DEBUG(dbgs() << "fill Up W-Region Info After WRegionCollection\n");
+  DEBUG(dbgs() << "fill Up W-Region Info After WRegionCollection\n");
 }
 
 bool WRegionInfo::runOnFunction(Function &F) {
@@ -65,10 +65,10 @@ bool WRegionInfo::runOnFunction(Function &F) {
   PDT    = &getAnalysis<PostDominatorTree>();
   WRC    = &getAnalysis<WRegionCollection>();
 
-#if 0
+#if 1
   DEBUG(dbgs() << "\nRC Size = " << WRC->getWRGraphSize() << "\n");
   for (auto I = WRC->begin(), E = WRC->end(); I != E; ++I)
-      I->dump();
+    DEBUG(I->dump());
 #endif
 
   doFillUpWRegionInfo(WRC);
