@@ -902,52 +902,52 @@ _mm256_storeu_si256(__m256i *p, __m256i a)
 
 /* Conditional load ops */
 static __inline __m128d __attribute__((__always_inline__, __nodebug__))
-_mm_maskload_pd(double const *p, __m128d m)
+_mm_maskload_pd(double const *p, __m128i m)
 {
-  return (__m128d)__builtin_ia32_maskloadpd((__private __v2df *)(const __v2df *)p, (__v2df)m);
+  return (__m128d)__builtin_ia32_maskloadpd((__private __v2df *)(const __v2df *)p, (__v2di)m);
 }
 
 static __inline __m256d __attribute__((__always_inline__, __nodebug__))
-_mm256_maskload_pd(double const *p, __m256d m)
+_mm256_maskload_pd(double const *p, __m256i m)
 {
-  return (__m256d)__builtin_ia32_maskloadpd256((__private __v4df *)(const __v4df *)p, (__v4df)m);
+  return (__m256d)__builtin_ia32_maskloadpd256((__private __v4df *)(const __v4df *)p, (__v4di)m);
 }
 
 static __inline __m128 __attribute__((__always_inline__, __nodebug__))
-_mm_maskload_ps(float const *p, __m128 m)
+_mm_maskload_ps(float const *p, __m128i m)
 {
-  return (__m128)__builtin_ia32_maskloadps((__private __v4sf *)(const __v4sf *)p, (__v4sf)m);
+  return (__m128)__builtin_ia32_maskloadps((__private __v4sf *)(const __v4sf *)p, (__v4si)m);
 }
 
 static __inline __m256 __attribute__((__always_inline__, __nodebug__))
-_mm256_maskload_ps(float const *p, __m256 m)
+_mm256_maskload_ps(float const *p, __m256i m)
 {
-  return (__m256)__builtin_ia32_maskloadps256((__private __v8sf *)(const __v8sf *)p, (__v8sf)m);
+  return (__m256)__builtin_ia32_maskloadps256((__private __v8sf *)(const __v8sf *)p, (__v8si)m);
 }
 
 /* Conditional store ops */
 static __inline void __attribute__((__always_inline__, __nodebug__))
-_mm256_maskstore_ps(float *p, __m256 m, __m256 a)
+_mm256_maskstore_ps(float *p, __m256i m, __m256 a)
 {
-  __builtin_ia32_maskstoreps256((__private __v8sf *)(__v8sf *)p, (__v8sf)m, (__v8sf)a);
+  __builtin_ia32_maskstoreps256((__private __v8sf *)(__v8sf *)p, (__v8si)m, (__v8sf)a);
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
-_mm_maskstore_pd(double *p, __m128d m, __m128d a)
+_mm_maskstore_pd(double *p, __m128i m, __m128d a)
 {
-  __builtin_ia32_maskstorepd((__private __v2df *)(__v2df *)p, (__v2df)m, (__v2df)a);
+  __builtin_ia32_maskstorepd((__private __v2df *)(__v2df *)p, (__v2di)m, (__v2df)a);
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
-_mm256_maskstore_pd(double *p, __m256d m, __m256d a)
+_mm256_maskstore_pd(double *p, __m256i m, __m256d a)
 {
-  __builtin_ia32_maskstorepd256((__private __v4df *)(__v4df *)p, (__v4df)m, (__v4df)a);
+  __builtin_ia32_maskstorepd256((__private __v4df *)(__v4df *)p, (__v4di)m, (__v4df)a);
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
-_mm_maskstore_ps(float *p, __m128 m, __m128 a)
+_mm_maskstore_ps(float *p, __m128i m, __m128 a)
 {
-  __builtin_ia32_maskstoreps((__private __v4sf *)(__v4sf *)p, (__v4sf)m, (__v4sf)a);
+  __builtin_ia32_maskstoreps((__private __v4sf *)(__v4sf *)p, (__v4si)m, (__v4sf)a);
 }
 
 /* Cacheability support ops */

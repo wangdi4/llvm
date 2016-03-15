@@ -3,25 +3,25 @@
 // ****************************************************************************
 OclBuiltinImpl __ocl_masked_load_char_4x4_AVX = OclBuiltinImpl<__ocl_masked_load4x4, [v4i8], 0, [{
     __private char16* tmpLoadedValues = (__private char16*)$Arg1VarName;
-    *tmpLoadedValues = as_char16(_mm_maskload_ps((float*)$Arg0VarName, (__m128)$Arg2VarName));
+    *tmpLoadedValues = as_char16(_mm_maskload_ps((float*)$Arg0VarName, (__m128i)$Arg2VarName));
   }]>;
 
 OclBuiltinImpl __ocl_masked_store_char_4x4_AVX = OclBuiltinImpl<__ocl_masked_store4x4, [v4i8], 0, [{
-    _mm_maskstore_ps((float*)$Arg0VarName, (__m128) $Arg2VarName,*((__m128*) $Arg1VarName));
+    _mm_maskstore_ps((float*)$Arg0VarName, (__m128i) $Arg2VarName,*((__m128*) $Arg1VarName));
   }]>;
 
 // ****************************************************************************
 //                                 char4x8
 // ****************************************************************************
 OclBuiltinImpl __ocl_masked_load_char_4x8_AVX = OclBuiltinImpl<__ocl_masked_load4x8, [v4i8], 0, [{
-    float8 res = as_float8(_mm256_maskload_ps((float*)$Arg0VarName, (__m256)$Arg2VarName));
+    float8 res = as_float8(_mm256_maskload_ps((float*)$Arg0VarName, (__m256i)$Arg2VarName));
     __private char16* tmpLoadedValues = (__private char16*)$Arg1VarName;
     tmpLoadedValues[0] = as_char16(res.lo);
     tmpLoadedValues[1] = as_char16(res.hi);
   }]>;
 
 OclBuiltinImpl __ocl_masked_store_char_4x8_AVX = OclBuiltinImpl<__ocl_masked_store4x8, [v4i8], 0, [{
-    _mm256_maskstore_ps((float*)$Arg0VarName, (__m256) $Arg2VarName,*((__m256*) $Arg1VarName));
+    _mm256_maskstore_ps((float*)$Arg0VarName, (__m256i) $Arg2VarName,*((__m256*) $Arg1VarName));
   }]>;
 
 // ****************************************************************************
@@ -32,7 +32,7 @@ OclBuiltinImpl __ocl_masked_load_short_4x4_AVX = OclBuiltinImpl<__ocl_masked_loa
 
     __private short16* tmpLoadAdd = (__private short16*)$Arg0VarName;
     __private short16* tmpLoadedValues = (__private short16*)$Arg1VarName;
-    *tmpLoadedValues = as_short16( _mm256_maskload_ps((float*)(tmpLoadAdd), (__m256)extendedMask) );
+    *tmpLoadedValues = as_short16( _mm256_maskload_ps((float*)(tmpLoadAdd), (__m256i)extendedMask) );
   }]>;
 
 OclBuiltinImpl __ocl_masked_store_short_4x4_AVX = OclBuiltinImpl<__ocl_masked_store4x4, [v4i16], 0, [{
@@ -40,7 +40,7 @@ OclBuiltinImpl __ocl_masked_store_short_4x4_AVX = OclBuiltinImpl<__ocl_masked_st
 
     __private short16* tmpStoreAdd = (__private short16*)$Arg0VarName;
     __private short16* tmpValuesToStore = (__private short16*)$Arg1VarName;
-    _mm256_maskstore_ps((float*)(tmpStoreAdd), (__m256)extendedMask, *((__m256*)tmpValuesToStore));
+    _mm256_maskstore_ps((float*)(tmpStoreAdd), (__m256i)extendedMask, *((__m256*)tmpValuesToStore));
   }]>;
 
 // ****************************************************************************
@@ -52,8 +52,8 @@ OclBuiltinImpl __ocl_masked_load_short_4x8_AVX = OclBuiltinImpl<__ocl_masked_loa
 
     __private short16* tmpLoadAdd = (__private short16*)$Arg0VarName;
     __private short16* tmpLoadedValues = (__private short16*)$Arg1VarName;
-    tmpLoadedValues[0] = as_short16( _mm256_maskload_ps((float*)&(tmpLoadAdd[0]), (__m256)maskLow) );
-    tmpLoadedValues[1] = as_short16( _mm256_maskload_ps((float*)&(tmpLoadAdd[1]), (__m256)maskHigh) );
+    tmpLoadedValues[0] = as_short16( _mm256_maskload_ps((float*)&(tmpLoadAdd[0]), (__m256i)maskLow) );
+    tmpLoadedValues[1] = as_short16( _mm256_maskload_ps((float*)&(tmpLoadAdd[1]), (__m256i)maskHigh) );
   }]>;
 
 OclBuiltinImpl __ocl_masked_store_short_4x8_AVX = OclBuiltinImpl<__ocl_masked_store4x8, [v4i16], 0, [{
@@ -62,8 +62,8 @@ OclBuiltinImpl __ocl_masked_store_short_4x8_AVX = OclBuiltinImpl<__ocl_masked_st
 
     __private short16* tmpStoreAdd = (__private short16*)$Arg0VarName;
     __private short16* tmpValuesToStore = (__private short16*)$Arg1VarName;
-    _mm256_maskstore_ps((float*)&(tmpStoreAdd[0]), (__m256)maskLow,  (__m256)tmpValuesToStore[0]);
-    _mm256_maskstore_ps((float*)&(tmpStoreAdd[1]), (__m256)maskHigh, (__m256)tmpValuesToStore[1]);
+    _mm256_maskstore_ps((float*)&(tmpStoreAdd[0]), (__m256i)maskLow,  (__m256)tmpValuesToStore[0]);
+    _mm256_maskstore_ps((float*)&(tmpStoreAdd[1]), (__m256i)maskHigh, (__m256)tmpValuesToStore[1]);
   }]>;
 
 // ****************************************************************************
@@ -105,30 +105,30 @@ OclBuiltinImpl __ocl_masked_store_float_4x4_AVX = OclBuiltinImpl<__ocl_masked_st
 
     __private float8* tmpStoreAdd = (__private float8*)$Arg0VarName;
     __private float8* tmpValuesToStore = (__private float8*)$Arg1VarName;
-    _mm256_maskstore_ps((float*)&(tmpStoreAdd[0]), (__m256)maskLow, (__m256)tmpValuesToStore[0]);
-    _mm256_maskstore_ps((float*)&(tmpStoreAdd[1]), (__m256)maskHigh, (__m256)tmpValuesToStore[1]);
+    _mm256_maskstore_ps((float*)&(tmpStoreAdd[0]), (__m256i)maskLow, (__m256)tmpValuesToStore[0]);
+    _mm256_maskstore_ps((float*)&(tmpStoreAdd[1]), (__m256i)maskHigh, (__m256)tmpValuesToStore[1]);
   }]>;
 
 // ****************************************************************************
 //                            int4 & float4
 // ****************************************************************************
 OclBuiltinImpl __ocl_masked_load_int4_float4_AVX = OclBuiltinImpl<__ocl_masked_load4, [v4i32, v4f32], 0, [{
-    return as_$ReturnType(_mm_maskload_ps ((float const *)$Arg0VarName, (__m128) $Arg1VarName));
+    return as_$ReturnType(_mm_maskload_ps ((float const *)$Arg0VarName, (__m128i) $Arg1VarName));
   }]>;
 
 OclBuiltinImpl __ocl_masked_store_int4_float4_AVX = OclBuiltinImpl<__ocl_masked_store4, [v4i32, v4f32], 0, [{
-    _mm_maskstore_ps((float *)$Arg0VarName, (__m128) $Arg2VarName, *((__m128*) &$Arg1VarName));
+    _mm_maskstore_ps((float *)$Arg0VarName, (__m128i) $Arg2VarName, *((__m128*) &$Arg1VarName));
   }]>;
 
 // ****************************************************************************
 //                            int8 and float8
 // ****************************************************************************
 OclBuiltinImpl __ocl_masked_load_int8_AVX = OclBuiltinImpl<__ocl_masked_load8, [v8i32, v8f32], 0, [{
-    return as_$ReturnType(_mm256_maskload_ps((float const *)$Arg0VarName, (__m256) $Arg1VarName));
+    return as_$ReturnType(_mm256_maskload_ps((float const *)$Arg0VarName, (__m256i) $Arg1VarName));
   }]>;
 
 OclBuiltinImpl __ocl_masked_store_int8_AVX = OclBuiltinImpl<__ocl_masked_store8, [v8i32, v8f32], 0, [{
-    _mm256_maskstore_ps((float *)$Arg0VarName, (__m256) $Arg2VarName, *((__m256*) &$Arg1VarName));
+    _mm256_maskstore_ps((float *)$Arg0VarName, (__m256i) $Arg2VarName, *((__m256*) &$Arg1VarName));
   }]>;
 
 // ****************************************************************************
@@ -137,13 +137,13 @@ OclBuiltinImpl __ocl_masked_store_int8_AVX = OclBuiltinImpl<__ocl_masked_store8,
 OclBuiltinImpl __ocl_masked_load_long4_double4_AVX = OclBuiltinImpl<__ocl_masked_load4, [v4i64, v4f64], 0, [{
     long4 extMask = convert_long4($Arg1VarName);
 
-    return as_$ReturnType(_mm256_maskload_pd((double *)$Arg0VarName, (__m256d) extMask));
+    return as_$ReturnType(_mm256_maskload_pd((double *)$Arg0VarName, (__m256i) extMask));
   }]>;
 
 OclBuiltinImpl __ocl_masked_store_long4_double4_AVX = OclBuiltinImpl<__ocl_masked_store4, [v4i64, v4f64], 0, [{
     long4 extMask = convert_long4($Arg2VarName);
 
-    _mm256_maskstore_pd((double *)$Arg0VarName, (__m256d) extMask, *((__m256d*) &$Arg1VarName));
+    _mm256_maskstore_pd((double *)$Arg0VarName, (__m256i) extMask, *((__m256d*) &$Arg1VarName));
   }]>;
 
 // ****************************************************************************

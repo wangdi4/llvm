@@ -21,8 +21,8 @@ def __ocl_masked_load_float_4x4_common: insert_code<"\n"#
 "    float8 maskHigh = extendedMask.s22223333;\n"#
 "    __private float8* tmpLoadAdd = (__private float8*)$Arg0VarName;\n"#
 "    __private float8* tmpLoadedValues = (__private float8*)$Arg1VarName;\n"#
-"    tmpLoadedValues[0] = as_float8(_mm256_maskload_ps((float*)&(tmpLoadAdd[0]), (__m256)maskLow));\n"#
-"    tmpLoadedValues[1] = as_float8(_mm256_maskload_ps((float*)&(tmpLoadAdd[1]), (__m256)maskHigh));\n">;
+"    tmpLoadedValues[0] = as_float8(_mm256_maskload_ps((float*)&(tmpLoadAdd[0]), (__m256i)maskLow));\n"#
+"    tmpLoadedValues[1] = as_float8(_mm256_maskload_ps((float*)&(tmpLoadAdd[1]), (__m256i)maskHigh));\n">;
 
 
 // ****************************************************************************
