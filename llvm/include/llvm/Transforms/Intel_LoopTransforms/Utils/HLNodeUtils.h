@@ -678,26 +678,25 @@ public:
   /// order. The direction is specified using Forward flag.
   template <typename HV, bool Forward = true>
   static void visitInnerToOuter(HV &Visitor, HLNode *Node) {
-    HLLoopVisitor<HV, true /* InnerToOuter */, Forward> V(Visitor);
-    V.visit<true /* RecurseInsideLoops */>(Node);
+    HLInnerToOuterLoopVisitor<HV, Forward> V(Visitor);
+    V.visitRecurseInsideLoops(Node);
   }
 
   /// \brief Visits all HLNodes in the HIR in InnerToOuter loop hierarchy
   /// order. The direction is specified using Forward flag.
   template <typename HV, bool Forward = true>
   static void visitAllInnerToOuter(HV &Visitor) {
-    HLLoopVisitor<HV, true /* InnerToOuter */, Forward> V(Visitor);
-    V.visit<true /* RecurseInsideLoops */>(getHIRFramework()->hir_begin(),
-                                           getHIRFramework()->hir_end());
+    HLInnerToOuterLoopVisitor<HV, Forward> V(Visitor);
+    V.visitRangeRecurseInsideLoops(getHIRFramework()->hir_begin(),
+                                   getHIRFramework()->hir_end());
   }
 
   /// \brief Visits all HLNodes in the HIR in OuterToInner loop hierarchy
   /// order. The direction is specified using Forward flag.
   template <typename HV, bool Forward = true>
   static void visitAllOuterToInner(HV &Visitor) {
-    HLLoopVisitor<HV, false /* InnerToOuter=false */, Forward> V(Visitor);
-    V.visit<true /* RecurseInsideLoops */>(getHIRFramework()->hir_begin(),
-                                           getHIRFramework()->hir_end());
+    HLNodeVisitor<HV, true, true, Forward> V(Visitor);
+    V.visit(getHIRFramework()->hir_begin(), getHIRFramework()->hir_end());
   }
 
   /// \brief Inserts an unlinked Node before Pos in HIR.
