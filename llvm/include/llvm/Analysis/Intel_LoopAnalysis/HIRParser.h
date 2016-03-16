@@ -330,6 +330,17 @@ private:
   /// \brief Creates a canon expr which represents the index of header phi.
   CanonExpr *createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level);
 
+  /// \brief Wrapper for merging IndexCE2 into IndexCE1.
+  static void mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2);
+
+  /// \brief Creates and adds dimensions for a phi base GEP into Ref.
+  /// LastIndexCE is merged with the highest phi dimension.
+  /// PhiDims is the number of dimensions in the phi type.
+  /// IsInBounds is set to true, if applicable.
+  void addPhiBaseGEPDimensions(const GEPOperator *GEPOp, RegDDRef *Ref,
+                               CanonExpr *LastIndexCE, unsigned Level,
+                               unsigned PhiDims, bool &IsInBounds);
+
   /// \brief Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
   RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                   const GEPOperator *GEPOp, unsigned Level);

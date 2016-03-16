@@ -1765,10 +1765,74 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
   return IndexCE;
 }
 
+void HIRParser::mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2) {
+  // The behavior we want here is somewhere between relaxed and non-relaxed
+  // mode. We only tolerate merging zero of a different type.
+  // TODO: look into directly using add() utility.
+
+  if (IndexCE2->isZero()) {
+    return;
+  }
+
+  if (IndexCE1->isZero()) {
+    IndexCE1->setSrcType(IndexCE2->getSrcType());
+    IndexCE1->setDestType(IndexCE2->getDestType());
+    IndexCE1->setExtType(IndexCE2->isSExt());
+  }
+
+  assert(CanonExprUtils::mergeable(IndexCE1, IndexCE2) &&
+         "Indices cannot be merged!");
+  CanonExprUtils::add(IndexCE1, IndexCE2);
+}
+
+void HIRParser::addPhiBaseGEPDimensions(const GEPOperator *GEPOp, RegDDRef *Ref,
+                                        CanonExpr *LastIndexCE, unsigned Level,
+                                        unsigned PhiDims, bool &IsInBounds) {
+  CanonExpr *OpIndexCE = nullptr;
+  unsigned BaseDims = getNumDimensions(Ref->getBaseCE()->getSrcType());
+
+  assert((BaseDims >= PhiDims) &&
+         "More dimensions in phi than in the actual base!");
+
+  // TODO: handle multiple GEPs.
+  if (GEPOp) {
+    // Subtract 1 for the base pointer.
+    auto NumOp = GEPOp->getNumOperands() - 1;
+
+    assert(((NumOp >= 1) && (NumOp <= PhiDims)) &&
+           "Unexpected number of GEP operands!");
+
+    for (auto I = NumOp; I > 0; --I) {
+      // Disable IsTop operations such as cast hiding and denominator parsing
+      // for the first GEP index which would be later merged.
+      OpIndexCE = parse(GEPOp->getOperand(I), Level,
+                        ((I != 1) || LastIndexCE->isZero()));
+      Ref->addDimension(OpIndexCE);
+    }
+
+    mergeIndexCE(OpIndexCE, LastIndexCE);
+    IsInBounds = GEPOp->isInBounds();
+
+  } else {
+    // Insert the dimension varying as part of phi itself.
+    Ref->addDimension(LastIndexCE);
+  }
+
+  // Add zero indices for the extra dimensions.
+  // Extra dimensions are involved when the initial value of BasePhi is computed
+  // using an array like the following-
+  // %p.07 = phi i32* [ %incdec.ptr, %for.body ], [ getelementptr inbounds ([50
+  // x i32], [50 x i32]* @A, i64 0, i64 10), %entry ]
+  for (auto I = (BaseDims - PhiDims); I > 0; --I) {
+    OpIndexCE = CanonExprUtils::createCanonExpr(LastIndexCE->getDestType());
+    Ref->addDimension(OpIndexCE);
+  }
+}
+
 RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                            const GEPOperator *GEPOp,
                                            unsigned Level) {
-  CanonExpr *BaseCE = nullptr, *LastIndexCE = nullptr, *OpIndexCE = nullptr;
+  CanonExpr *BaseCE = nullptr, *LastIndexCE = nullptr;
   auto BaseTy = BasePhi->getType();
 
   auto Ref = DDRefUtils::createRegDDRef(0);
@@ -1776,7 +1840,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   const SCEV *BaseSCEV = nullptr;
   unsigned BitElementSize = getBitElementSize(BaseTy);
   unsigned ElementSize = BitElementSize / 8;
-  unsigned NumDims = 1;
+  unsigned PhiDims = getNumDimensions(BaseTy);
   bool IsInBounds = false;
 
   // If the base is linear, we separate it into a pointer base and a linear
@@ -1801,9 +1865,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
       // bitcasts.
       if ((BaseSCEV = findPointerBlob(RecSCEV)) &&
           (RI->getPrimaryElementType(RecSCEV->getType()) ==
-           RI->getPrimaryElementType(BasePhi->getType()))) {
-        // Get number of dimensions in base type.
-        NumDims = getNumDimensions(BaseSCEV->getType());
+           RI->getPrimaryElementType(BaseTy))) {
 
         auto OffsetSCEV = SE->getMinusSCEV(RecSCEV, BaseSCEV);
 
@@ -1840,57 +1902,10 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     LastIndexCE = CanonExprUtils::createCanonExpr(OffsetType);
   }
 
-  // Here we add the other operands of GEPOperator as dimensions. LastIndexCE is
-  // merged with the highest dimension.
-  if (GEPOp) {
-    // Subtract 1 for the base pointer.
-    auto NumOp = GEPOp->getNumOperands() - 1;
-
-    assert(((NumOp >= 1) && (NumOp <= NumDims)) &&
-           "Unexpected number of GEP operands!");
-
-    // Subtract number of dimensions dereferenced in GEP.
-    NumDims -= NumOp;
-
-    for (auto I = NumOp; I > 0; --I) {
-      // Disable IsTop operations such as cast hiding and denominator parsing
-      // for the first GEP index which would be later merged.
-      OpIndexCE = parse(GEPOp->getOperand(I), Level,
-                        ((I != 1) || LastIndexCE->isZero()));
-      Ref->addDimension(OpIndexCE);
-    }
-
-    // Workaround to allow merge with zero until mergeable() is extended.
-    if (!LastIndexCE->isZero()) {
-      if (OpIndexCE->isZero()) {
-        OpIndexCE->setSrcType(LastIndexCE->getSrcType());
-        OpIndexCE->setDestType(LastIndexCE->getDestType());
-        OpIndexCE->setExtType(LastIndexCE->isSExt());
-      }
-      assert(CanonExprUtils::mergeable(OpIndexCE, LastIndexCE) &&
-             "Indices cannot be merged!");
-      CanonExprUtils::add(OpIndexCE, LastIndexCE);
-    }
-
-    IsInBounds = GEPOp->isInBounds();
-
-  } else {
-    // Insert the dimension varying as part of phi itself.
-    NumDims--;
-    Ref->addDimension(LastIndexCE);
-  }
-
   Ref->setBaseCE(BaseCE);
 
-  // Add zero indices for the extra dimensions.
-  // Extra dimensions are involved when the initial value of BasePhi is computed
-  // using an array like the following-
-  // %p.07 = phi i32* [ %incdec.ptr, %for.body ], [ getelementptr inbounds ([50
-  // x i32], [50 x i32]* @A, i64 0, i64 10), %entry ]
-  for (auto I = NumDims; I > 0; --I) {
-    OpIndexCE = CanonExprUtils::createCanonExpr(LastIndexCE->getDestType());
-    Ref->addDimension(OpIndexCE);
-  }
+  // Here we add the other operands of GEPOperator as dimensions.
+  addPhiBaseGEPDimensions(GEPOp, Ref, LastIndexCE, Level, PhiDims, IsInBounds);
 
   Ref->setInBounds(IsInBounds);
 
@@ -1965,19 +1980,9 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
           parse(TempGEPOp->getOperand(I), Level, !DisableIsTopParsing);
 
       if (OldIndexCE) {
-        // Workaround to allow merge with zero until mergeable() is extended.
-        if (!IndexCE->isZero()) {
-          if (OldIndexCE->isZero()) {
-            OldIndexCE->setSrcType(IndexCE->getSrcType());
-            OldIndexCE->setDestType(IndexCE->getDestType());
-            OldIndexCE->setExtType(IndexCE->isSExt());
-          }
-          assert(CanonExprUtils::mergeable(OldIndexCE, IndexCE) &&
-                 "Indices cannot be merged!");
-          CanonExprUtils::add(OldIndexCE, IndexCE);
-        }
-
+        mergeIndexCE(OldIndexCE, IndexCE);
         CanonExprUtils::destroy(IndexCE);
+
       } else {
         Ref->addDimension(IndexCE);
         assert((NumDims != 0) &&
