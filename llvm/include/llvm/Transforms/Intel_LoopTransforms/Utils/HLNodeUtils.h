@@ -163,12 +163,6 @@ private:
   /// \brief Destroys all HLNodes, called during framework cleanup.
   static void destroyAll();
 
-  /// \brief Creates a zero value. Used to create dummy instructions.
-  static Value *createZeroVal(Type *Ty);
-
-  /// \brief Creates a one value. Used to create dummy instructions.
-  static Value *createOneVal(Type *Ty);
-
   /// \brief Performs sanity checking on unary instruction operands.
   static void checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,
                                      Type *DestTy);

@@ -91,22 +91,6 @@ void HLNodeUtils::destroyAll() {
   delete DummyIRBuilder;
 }
 
-Value *HLNodeUtils::createZeroVal(Type *Ty) {
-  return Constant::getNullValue(Ty);
-}
-
-Value *HLNodeUtils::createOneVal(Type *Ty) {
-  if (Ty->isIntegerTy()) {
-    return ConstantInt::get(Ty, 1);
-  } else if (Ty->isFloatingPointTy()) {
-    return ConstantFP::get(Ty, 1);
-  }
-
-  llvm_unreachable("Unhandled type!");
-
-  return nullptr;
-}
-
 void HLNodeUtils::checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,
                                          Type *DestTy) {
   assert(RvalRef && "Rval is null!");
@@ -156,35 +140,32 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
   checkUnaryInstOperands(LvalRef, RvalRef, DestTy);
 
   // Create dummy val.
-  auto ZeroVal = createZeroVal(RvalRef->getDestType());
+  auto DummyVal = UndefValue::get(RvalRef->getDestType());
 
   switch (OpCode) {
   case Instruction::Load: {
-    assert(!RvalRef->isTerminalRef() &&
-           "Rval of load instruction cannot be scalar!");
+    assert(RvalRef->isMemRef() &&
+           "Rval of load instruction should be a mem ref!");
 
-    if (LvalRef) {
-      assert(LvalRef->isTerminalRef() &&
-             "Lval of load instruction is not a scalar!");
-    }
+    auto DummyPtrType =
+        PointerType::get(RvalRef->getDestType(),
+                         RvalRef->getBaseDestType()->getPointerAddressSpace());
+    auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
-    auto NullPtr = createZeroVal(RvalRef->getDestType());
-
-    InstVal = DummyIRBuilder->CreateLoad(NullPtr, false, Name);
-
+    InstVal = DummyIRBuilder->CreateLoad(DummyPtrVal, false, Name);
     break;
   }
 
   case Instruction::Store: {
-    if (LvalRef) {
-      assert(!LvalRef->isTerminalRef() &&
-             "Lval of store instruction cannot be scalar!");
-    }
+    assert(LvalRef && LvalRef->isMemRef() &&
+           "Lval of store instruction should be a non-null mem ref");
 
-    auto NullPtr = createZeroVal(RvalRef->getDestType());
+    auto DummyPtrType =
+        PointerType::get(LvalRef->getDestType(),
+                         LvalRef->getBaseDestType()->getPointerAddressSpace());
+    auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
-    InstVal = DummyIRBuilder->CreateStore(ZeroVal, NullPtr);
-
+    InstVal = DummyIRBuilder->CreateStore(DummyVal, DummyPtrVal);
     break;
   }
 
@@ -202,7 +183,7 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
   case Instruction::BitCast:
   case Instruction::AddrSpaceCast: {
 
-    InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode, ZeroVal,
+    InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode, DummyVal,
                                          DestTy, Name);
     break;
   }
@@ -228,12 +209,12 @@ HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
   checkUnaryInstOperands(LvalRef, RvalRef, nullptr);
 
   // Create dummy val.
-  auto ZeroVal = createZeroVal(RvalRef->getDestType());
+  auto DummyVal = UndefValue::get(RvalRef->getDestType());
 
   // Cannot use IRBuilder here as it returns the same value for casts with
   // identical src and dest types.
-  InstVal =
-      CastInst::Create(Instruction::BitCast, ZeroVal, ZeroVal->getType(), Name);
+  InstVal = CastInst::Create(Instruction::BitCast, DummyVal,
+                             DummyVal->getType(), Name);
   Inst = cast<Instruction>(InstVal);
   Inst->insertBefore(&*(DummyIRBuilder->GetInsertPoint()));
 
@@ -332,136 +313,140 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   checkBinaryInstOperands(LvalRef, OpRef1, OpRef2);
 
   // Create dummy val.
-  auto OneVal = createOneVal(OpRef1->getDestType());
+  auto DummyVal = UndefValue::get(OpRef1->getDestType());
 
   switch (OpCode) {
   case Instruction::Add: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal =
-        DummyIRBuilder->CreateAdd(OneVal, OneVal, Name, HasNUWOrExact, HasNSW);
+    InstVal = DummyIRBuilder->CreateAdd(DummyVal, DummyVal, Name, HasNUWOrExact,
+                                        HasNSW);
     break;
   }
 
   case Instruction::FAdd: {
     assert(OpRef1->getDestType()->isFloatingPointTy() &&
            "Operand is not a floating point type!");
-    InstVal = DummyIRBuilder->CreateFAdd(OneVal, OneVal, Name, FPMathTag);
+    InstVal = DummyIRBuilder->CreateFAdd(DummyVal, DummyVal, Name, FPMathTag);
     break;
   }
 
   case Instruction::Sub: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal =
-        DummyIRBuilder->CreateSub(OneVal, OneVal, Name, HasNUWOrExact, HasNSW);
+    InstVal = DummyIRBuilder->CreateSub(DummyVal, DummyVal, Name, HasNUWOrExact,
+                                        HasNSW);
     break;
   }
 
   case Instruction::FSub: {
     assert(OpRef1->getDestType()->isFloatingPointTy() &&
            "Operand is not a floating point type!");
-    InstVal = DummyIRBuilder->CreateFSub(OneVal, OneVal, Name, FPMathTag);
+    InstVal = DummyIRBuilder->CreateFSub(DummyVal, DummyVal, Name, FPMathTag);
     break;
   }
 
   case Instruction::Mul: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal =
-        DummyIRBuilder->CreateMul(OneVal, OneVal, Name, HasNUWOrExact, HasNSW);
+    InstVal = DummyIRBuilder->CreateMul(DummyVal, DummyVal, Name, HasNUWOrExact,
+                                        HasNSW);
     break;
   }
 
   case Instruction::FMul: {
     assert(OpRef1->getDestType()->isFloatingPointTy() &&
            "Operand is not a floating point type!");
-    InstVal = DummyIRBuilder->CreateFMul(OneVal, OneVal, Name, FPMathTag);
+    InstVal = DummyIRBuilder->CreateFMul(DummyVal, DummyVal, Name, FPMathTag);
     break;
   }
 
   case Instruction::UDiv: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateUDiv(OneVal, OneVal, Name, HasNUWOrExact);
+    InstVal =
+        DummyIRBuilder->CreateUDiv(DummyVal, DummyVal, Name, HasNUWOrExact);
     break;
   }
 
   case Instruction::SDiv: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateSDiv(OneVal, OneVal, Name, HasNUWOrExact);
+    InstVal =
+        DummyIRBuilder->CreateSDiv(DummyVal, DummyVal, Name, HasNUWOrExact);
     break;
   }
 
   case Instruction::FDiv: {
     assert(OpRef1->getDestType()->isFloatingPointTy() &&
            "Operand is not a floating point type!");
-    InstVal = DummyIRBuilder->CreateFDiv(OneVal, OneVal, Name, FPMathTag);
+    InstVal = DummyIRBuilder->CreateFDiv(DummyVal, DummyVal, Name, FPMathTag);
     break;
   }
 
   case Instruction::URem: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateURem(OneVal, OneVal, Name);
+    InstVal = DummyIRBuilder->CreateURem(DummyVal, DummyVal, Name);
     break;
   }
 
   case Instruction::SRem: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateSRem(OneVal, OneVal, Name);
+    InstVal = DummyIRBuilder->CreateSRem(DummyVal, DummyVal, Name);
     break;
   }
 
   case Instruction::FRem: {
     assert(OpRef1->getDestType()->isFloatingPointTy() &&
            "Operand is not a floating point type!");
-    InstVal = DummyIRBuilder->CreateFRem(OneVal, OneVal, Name, FPMathTag);
+    InstVal = DummyIRBuilder->CreateFRem(DummyVal, DummyVal, Name, FPMathTag);
     break;
   }
 
   case Instruction::Shl: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal =
-        DummyIRBuilder->CreateShl(OneVal, OneVal, Name, HasNUWOrExact, HasNSW);
+    InstVal = DummyIRBuilder->CreateShl(DummyVal, DummyVal, Name, HasNUWOrExact,
+                                        HasNSW);
     break;
   }
 
   case Instruction::LShr: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateLShr(OneVal, OneVal, Name, HasNUWOrExact);
+    InstVal =
+        DummyIRBuilder->CreateLShr(DummyVal, DummyVal, Name, HasNUWOrExact);
     break;
   }
 
   case Instruction::AShr: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateAShr(OneVal, OneVal, Name, HasNUWOrExact);
+    InstVal =
+        DummyIRBuilder->CreateAShr(DummyVal, DummyVal, Name, HasNUWOrExact);
     break;
   }
 
   case Instruction::And: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateAnd(OneVal, OneVal, Name);
+    InstVal = DummyIRBuilder->CreateAnd(DummyVal, DummyVal, Name);
     break;
   }
 
   case Instruction::Or: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateOr(OneVal, OneVal, Name);
+    InstVal = DummyIRBuilder->CreateOr(DummyVal, DummyVal, Name);
     break;
   }
 
   case Instruction::Xor: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateXor(OneVal, OneVal, Name);
+    InstVal = DummyIRBuilder->CreateXor(DummyVal, DummyVal, Name);
     break;
   }
 
@@ -614,15 +599,15 @@ HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
            "LvalRef has invalid type!");
   }
 
-  auto ZeroVal = createZeroVal(OpRef1->getDestType());
+  auto DummyVal = UndefValue::get(OpRef1->getDestType());
 
   if (OpRef1->getDestType()->isIntegerTy() ||
       OpRef1->getDestType()->isPointerTy()) {
     InstVal =
-        DummyIRBuilder->CreateICmp(ICmpInst::ICMP_EQ, ZeroVal, ZeroVal, Name);
+        DummyIRBuilder->CreateICmp(ICmpInst::ICMP_EQ, DummyVal, DummyVal, Name);
   } else {
-    InstVal =
-        DummyIRBuilder->CreateFCmp(FCmpInst::FCMP_TRUE, ZeroVal, ZeroVal, Name);
+    InstVal = DummyIRBuilder->CreateFCmp(FCmpInst::FCMP_TRUE, DummyVal,
+                                         DummyVal, Name);
   }
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
@@ -646,10 +631,11 @@ HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   // OpRef1 and OpRef2 should be the same type.
   checkBinaryInstOperands(nullptr, OpRef1, OpRef2);
 
-  auto CmpVal = createOneVal(Type::getInt1Ty(getHIRFramework()->getContext()));
-  auto OpVal = createZeroVal(OpRef3->getDestType());
+  auto CmpVal =
+      UndefValue::get(Type::getInt1Ty(getHIRFramework()->getContext()));
+  auto DummyVal = UndefValue::get(OpRef3->getDestType());
 
-  InstVal = DummyIRBuilder->CreateSelect(CmpVal, OpVal, OpVal, Name);
+  InstVal = DummyIRBuilder->CreateSelect(CmpVal, DummyVal, DummyVal, Name);
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
   HInst->setPredicate(Pred);
