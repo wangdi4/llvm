@@ -55,11 +55,6 @@ public:
   const char* getPassName()const;
 
   bool runOnModule(llvm::Module&);
-  
-  // @breif returns a 'maybe' string with a valid value if the given module
-  // is cross-compiled, and a 'null' value to indicate the module is compiled
-  // for the host machine.
-  static Maybe<std::string> getCrossTriple(llvm::Module&);
 };
 
 }
