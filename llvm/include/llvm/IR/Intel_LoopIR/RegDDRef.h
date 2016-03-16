@@ -16,11 +16,11 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_REGDDREF_H
 #define LLVM_IR_INTEL_LOOPIR_REGDDREF_H
 
-#include "llvm/Support/Casting.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/Casting.h"
 
-#include "llvm/IR/Intel_LoopIR/DDRef.h"
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
+#include "llvm/IR/Intel_LoopIR/DDRef.h"
 
 namespace llvm {
 
@@ -157,9 +157,8 @@ protected:
   /// \brief Implements get*Type() functionality.
   Type *getTypeImpl(bool IsSrc) const;
 
-  /// \brief Returns maximum blob level amongst the blobs in the vector. If a
-  /// non-linear blob is found, -1 is returned.
-  int findMaxBlobLevel(const SmallVectorImpl<unsigned> &BlobIndices) const;
+  /// \brief Returns maximum blob level amongst the blobs in the vector.
+  unsigned findMaxBlobLevel(const SmallVectorImpl<unsigned> &BlobIndices) const;
 
   /// \brief Updates def level of CE based on the level of the blobs present in
   /// CE. DDRef is assumed to have the passed in NestingLevel.
@@ -427,8 +426,8 @@ public:
   void addBlobDDRef(BlobDDRef *BlobRef);
 
   /// \brief Creates a blob DDRef with passed in Index and Level and adds it to
-  /// this DDRef. Level of -1 means non-linear blob.
-  void addBlobDDRef(unsigned Index, int Level = -1);
+  /// this DDRef.
+  void addBlobDDRef(unsigned Index, unsigned Level = NonLinearLevel);
 
   /// \brief Removes and returns blob DDRef corresponding to CBlobI iterator.
   BlobDDRef *removeBlobDDRef(const_blob_iterator CBlobI);
@@ -510,11 +509,11 @@ public:
                  unsigned NestingLevelIfDetached = (MaxLoopNestLevel + 1));
 
   /// \brief Returns true if the blob is present in this DDRef and returns its
-  /// defined at level via DefLevel. DefLevel is expected to be non-null. -1 is
-  /// returned for non-linear blobs. The blob is searched in the blob DDRefs
-  /// attached to this DDRef. This function can be used to update defined at
-  /// levels for blobs which were copied from this DDRef to another DDRef.
-  bool findBlobLevel(unsigned BlobIndex, int *DefLevel) const;
+  /// defined at level via DefLevel. DefLevel is expected to be non-null. The
+  /// blob is searched in the blob DDRefs attached to this DDRef. This function
+  /// can be used to update defined at levels for blobs which were copied from
+  /// this DDRef to another DDRef.
+  bool findBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const;
 
   /// \brief Verifies RegDDRef integrity.
   virtual void verify() const override;

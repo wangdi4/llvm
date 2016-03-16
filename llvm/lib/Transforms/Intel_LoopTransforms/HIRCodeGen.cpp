@@ -263,7 +263,7 @@ private:
         // adds of ptr types with a SCEV for a gep instead of ptrtoints
         // and adds. These new scevunknowns have an instruction but no
         // corresponding blob. For those, return their underlying value
-        if (BlobSymbase == INVALID_BLOB_INDEX) {
+        if(BlobSymbase == InvalidBlobIndex)  {
           return V;
         }
 

@@ -70,12 +70,14 @@ public:
   static RegDDRef *createConstDDRef(Type *Ty, int64_t Val);
 
   /// \brief Returns a new BlobDDRef representing blob with Index. Level is the
-  /// defined at level for the blob. Level of -1 means non-linear blob.
-  static BlobDDRef *createBlobDDRef(unsigned Index, int Level = -1);
+  /// defined at level for the blob.
+  static BlobDDRef *createBlobDDRef(unsigned Index,
+                                    unsigned Level = NonLinearLevel);
 
   /// \brief Returns a new RegDDRef representing blob with Index. Level is the
-  /// defined at level for the blob. Level of -1 means non-linear blob.
-  static RegDDRef *createSelfBlobRef(unsigned Index, int Level = -1);
+  /// defined at level for the blob.
+  static RegDDRef *createSelfBlobRef(unsigned Index,
+                                     unsigned Level = NonLinearLevel);
 
   /// \brief Destroys the passed in DDRef.
   static void destroy(DDRef *Ref);

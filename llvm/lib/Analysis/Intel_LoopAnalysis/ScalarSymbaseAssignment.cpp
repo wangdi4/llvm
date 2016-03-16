@@ -71,7 +71,7 @@ unsigned ScalarSymbaseAssignment::insertBaseTemp(const Value *Temp) {
 
 void ScalarSymbaseAssignment::insertTempSymbase(const Value *Temp,
                                                 unsigned Symbase) {
-  assert((Symbase > CONSTANT_SYMBASE) && (Symbase <= getMaxScalarSymbase()) &&
+  assert((Symbase > ConstantSymbase) && (Symbase <= getMaxScalarSymbase()) &&
          "Symbase is out of range!");
 
   auto Ret = TempSymbaseMap.insert(std::make_pair(Temp, Symbase));
@@ -152,16 +152,16 @@ unsigned ScalarSymbaseAssignment::getTempSymbase(const Value *Temp) const {
     return Iter->second;
   }
 
-  return INVALID_SYMBASE;
+  return InvalidSymbase;
 }
 
 const Value *ScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
   const Value *RetVal = nullptr;
 
-  assert((Symbase > CONSTANT_SYMBASE) && "Symbase is out of range!");
+  assert((Symbase > ConstantSymbase) && "Symbase is out of range!");
 
   if (Symbase <= getMaxScalarSymbase()) {
-    RetVal = BaseTemps[Symbase - CONSTANT_SYMBASE - 1];
+    RetVal = BaseTemps[Symbase - ConstantSymbase - 1];
   } else {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     // Symbase can be out of range for new temps created by HIR transformations.
@@ -191,7 +191,7 @@ const Value *ScalarSymbaseAssignment::getBaseScalar(const Value *Scalar) const {
 }
 
 unsigned ScalarSymbaseAssignment::getMaxScalarSymbase() const {
-  return BaseTemps.size() + CONSTANT_SYMBASE;
+  return BaseTemps.size() + ConstantSymbase;
 }
 
 void ScalarSymbaseAssignment::setGenericLoopUpperSymbase() {
@@ -233,12 +233,12 @@ ScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
 
 unsigned ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(
     const Value *Scalar, const IRRegion *IRReg, bool Assign) {
-  unsigned Symbase = INVALID_SYMBASE;
+  unsigned Symbase = InvalidSymbase;
 
   // TODO: assign constant symbase to metadata types as they do not cause data
   // dependencies.
   if (isConstant(Scalar)) {
-    return CONSTANT_SYMBASE;
+    return ConstantSymbase;
   }
 
   Scalar = traceSingleOperandPhis(Scalar, IRReg);
@@ -257,7 +257,7 @@ unsigned ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(
 
         // Insert into TempSymbaseMap so that the base temp can be retrieved
         // using getBaseScalar().
-        if (Assign && (INVALID_SYMBASE == getTempSymbase(Inst))) {
+        if (Assign && (InvalidSymbase == getTempSymbase(Inst))) {
           insertTempSymbase(Inst, Symbase);
         }
       } else {

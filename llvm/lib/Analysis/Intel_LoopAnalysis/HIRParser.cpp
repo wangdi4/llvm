@@ -133,7 +133,7 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
                                          bool Insert, bool ReturnSymbase) {
   assert(Blob && "Blob is null!");
 
-  BlobPtrIndexPairTy BlobPair(Blob, INVALID_BLOB_INDEX);
+  BlobPtrIndexPairTy BlobPair(Blob, InvalidBlobIndex);
 
   auto I = std::lower_bound(BlobToIndexMap.begin(), BlobToIndexMap.end(),
                             BlobPair, HIRParser::BlobPtrCompareLess());
@@ -146,7 +146,7 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
   }
 
   if (Insert) {
-    assert((!isTempBlob(Blob) || (Symbase > CONSTANT_SYMBASE)) &&
+    assert((!isTempBlob(Blob) || (Symbase > ConstantSymbase)) &&
            "Invalid Blob/Symbase combination!");
 
     BlobTable.push_back(std::make_pair(Blob, Symbase));
@@ -157,16 +157,16 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
     return BlobTable.size();
   }
 
-  return ReturnSymbase ? INVALID_SYMBASE : INVALID_BLOB_INDEX;
+  return ReturnSymbase ? InvalidSymbase : InvalidBlobIndex;
 }
 
 unsigned HIRParser::findBlob(BlobTy Blob) {
-  return findOrInsertBlobImpl(Blob, INVALID_SYMBASE, false, false);
+  return findOrInsertBlobImpl(Blob, InvalidSymbase, false, false);
   ;
 }
 
 unsigned HIRParser::findBlobSymbase(BlobTy Blob) {
-  return findOrInsertBlobImpl(Blob, INVALID_SYMBASE, false, true);
+  return findOrInsertBlobImpl(Blob, InvalidSymbase, false, true);
 }
 
 unsigned HIRParser::findOrInsertBlob(BlobTy Blob, unsigned Symbase) {
@@ -184,7 +184,7 @@ unsigned HIRParser::getBlobSymbase(unsigned Index) const {
 }
 
 bool HIRParser::isBlobIndexValid(unsigned Index) const {
-  return ((Index > INVALID_BLOB_INDEX) && (Index <= BlobTable.size()));
+  return ((Index > InvalidBlobIndex) && (Index <= BlobTable.size()));
 }
 
 void HIRParser::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
@@ -284,7 +284,7 @@ BlobTy HIRParser::createBlob(int64_t Val, Type *Ty, bool Insert,
   assert(Ty && "Type cannot be null!");
   auto Blob = SE->getConstant(Ty, Val, false);
 
-  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -295,7 +295,7 @@ BlobTy HIRParser::createAddBlob(BlobTy LHS, BlobTy RHS, bool Insert,
 
   auto Blob = SE->getAddExpr(LHS, RHS);
 
-  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -306,7 +306,7 @@ BlobTy HIRParser::createMinusBlob(BlobTy LHS, BlobTy RHS, bool Insert,
 
   auto Blob = SE->getMinusSCEV(LHS, RHS);
 
-  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -317,7 +317,7 @@ BlobTy HIRParser::createMulBlob(BlobTy LHS, BlobTy RHS, bool Insert,
 
   auto Blob = SE->getMulExpr(LHS, RHS);
 
-  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -328,7 +328,7 @@ BlobTy HIRParser::createUDivBlob(BlobTy LHS, BlobTy RHS, bool Insert,
 
   auto Blob = SE->getUDivExpr(LHS, RHS);
 
-  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -340,7 +340,7 @@ BlobTy HIRParser::createTruncateBlob(BlobTy Blob, Type *Ty, bool Insert,
 
   auto NewBlob = SE->getTruncateExpr(Blob, Ty);
 
-  insertBlobHelper(NewBlob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -352,7 +352,7 @@ BlobTy HIRParser::createZeroExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
 
   auto NewBlob = SE->getZeroExtendExpr(Blob, Ty);
 
-  insertBlobHelper(NewBlob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -364,7 +364,7 @@ BlobTy HIRParser::createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
 
   auto NewBlob = SE->getSignExtendExpr(Blob, Ty);
 
-  insertBlobHelper(NewBlob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -1065,8 +1065,7 @@ void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
   // If the CE is already non-linear, DefinedAtLevel cannot be refined any
   // further.
   if (!CE->isNonLinear()) {
-    // TODO: use CanonExprUtils::hasNonLinearSemantics()
-    if (DefLevel >= NestingLevel) {
+    if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NestingLevel)) {
       // Make non-linear instead.
       CE->setNonLinear();
     } else if (DefLevel > CE->getDefinedAtLevel()) {
@@ -1078,14 +1077,14 @@ void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
 void HIRParser::addTempBlobEntry(unsigned Index, unsigned NestingLevel,
                                  unsigned DefLevel) {
   // -1 indicates non-linear blob
-  // TODO: use CanonExprUtils::hasNonLinearSemantics()
-  int Level = (DefLevel >= NestingLevel) ? -1 : DefLevel;
-
+  unsigned Level = CanonExprUtils::hasNonLinearSemantics(DefLevel, NestingLevel)
+                  ? NonLinearLevel
+                  : DefLevel;
   CurTempBlobLevelMap.insert(std::make_pair(Index, Level));
 }
 
 unsigned HIRParser::findOrInsertBlobWrapper(BlobTy Blob, unsigned *SymbasePtr) {
-  unsigned Symbase = INVALID_SYMBASE;
+  unsigned Symbase = InvalidSymbase;
 
   if (isTempBlob(Blob)) {
     auto Temp = cast<SCEVUnknown>(Blob)->getValue();
@@ -1103,41 +1102,46 @@ unsigned HIRParser::findOrInsertBlobWrapper(BlobTy Blob, unsigned *SymbasePtr) {
 void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
                                  unsigned NestingLevel) {
   unsigned DefLevel = 0;
-  HLLoop *HLoop;
+  Loop *Lp = nullptr;
+  HLLoop *HLoop = nullptr;
+  HLLoop *ParLoop = nullptr;
+  HLLoop *LCALoop = nullptr;
 
   auto Temp = TempBlobSCEV->getValue();
   unsigned Symbase;
   auto Index = findOrInsertBlobWrapper(TempBlobSCEV, &Symbase);
 
   if (auto Inst = dyn_cast<Instruction>(Temp)) {
-    auto Lp = LI->getLoopFor(Inst->getParent());
-
     // First check whether the instruction is outisde the current region. If Lp
     // belongs to another region, the second check will pass and we will set an
     // incorrect DefLevel.
     if (!CurRegion->containsBBlock(Inst->getParent())) {
       // Add blob as a livein temp.
       CurRegion->addLiveInTemp(Symbase, Temp);
-      NestingLevel++;
-    } else if (Lp && (HLoop = LF->findHLLoop(Lp))) {
-      DefLevel = HLoop->getNestingLevel();
-    } else {
 
-      // Workaround to mark blob as linear even if the nesting level is zero.
-      // All blobs defined outside any loop are treated as linear regardless of
-      // whether the definition lies inside or outside the region. This keeps
-      // the marking scheme simple as we don't need to track the blob
-      // definition. The trade-off is a logical inconsistency where the blob is
-      // defined inside the region and its uses outside any loop are still
-      // marked as linear.
-      // TODO: remove workaround.
-      NestingLevel++;
+    } else if ((ParLoop = getCurNode()->getParentLoop()) &&
+               (Lp = LI->getLoopFor(Inst->getParent())) &&
+               (HLoop = LF->findHLLoop(Lp)) &&
+               (LCALoop =
+                    HLNodeUtils::getLowestCommonAncestorLoop(ParLoop, HLoop))) {
+      // If the current node where the blob is used and the blob definition are
+      // both in some HLLoop, the defined at level should be the lowest common
+      // ancestor loop. For example-
+      //
+      // DO i1
+      //   DO i2
+      //     t1 = ...
+      //   END DO
+      //
+      //   DO i2
+      //     A[i2] = t1; // t1 is defined at level 1 for this loop.
+      //   END DO
+      // END DO
+      //
+      DefLevel = LCALoop->getNestingLevel();
     }
-
   } else {
     // Blob is some global value. Global values are not marked livein.
-    // Workaround to mark blob as linear even if the nesting level is zero.
-    NestingLevel++;
   }
 
   setCanonExprDefLevel(CE, NestingLevel, DefLevel);
@@ -2134,7 +2138,7 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
 
   } else if (CE->isConstant()) {
     if (!IsLval) {
-      Ref->setSymbase(CONSTANT_SYMBASE);
+      Ref->setSymbase(ConstantSymbase);
     }
 
   } else {

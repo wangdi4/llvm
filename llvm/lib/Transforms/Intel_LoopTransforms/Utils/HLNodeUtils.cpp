@@ -2513,3 +2513,47 @@ void HLNodeUtils::permuteLoopNests(
     moveProperties(SrcLoop, DstLoop);
   }
 }
+
+const HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(const HLLoop *Lp1,
+                                                       const HLLoop *Lp2) {
+  assert(Lp1 && "Lp1 is null!");
+  assert(Lp2 && "Lp2 is null!");
+  assert((Lp1->getParentRegion() == Lp2->getParentRegion()) &&
+         "Lp1 and Lp2 are not in the same region!");
+
+  // Trivial case.
+  if (Lp1 == Lp2) {
+    return Lp1;
+  }
+
+  // Assuming that most loops in a region belong to the same loopnest and hence
+  // will have a common parent, we follow this logic-
+  // 1) Move up the chain for the loop with a greater nesting level.
+  // 2) Once the levels are equal, we move up the chain for both loops
+  // simultaneously until we discover the common parent.
+
+  while (Lp1 && (Lp1->getNestingLevel() > Lp2->getNestingLevel())) {
+    Lp1 = Lp1->getParentLoop();
+  }
+
+  while (Lp2 && (Lp2->getNestingLevel() > Lp1->getNestingLevel())) {
+    Lp2 = Lp2->getParentLoop();
+  }
+
+  // Both loops have the same nesting level, so move up simultaneously.
+  while (Lp1 && Lp2) {
+    if (Lp1 == Lp2) {
+      return Lp1;
+    }
+
+    Lp1 = Lp1->getParentLoop();
+    Lp2 = Lp2->getParentLoop();
+  }
+
+  return nullptr;
+}
+
+HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2) {
+  return const_cast<HLLoop *>(getLowestCommonAncestorLoop(
+      static_cast<const HLLoop *>(Lp1), static_cast<const HLLoop *>(Lp2)));
+}

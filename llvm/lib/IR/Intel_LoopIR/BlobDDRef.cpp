@@ -27,8 +27,8 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-BlobDDRef::BlobDDRef(unsigned Index, int Level)
-    : DDRef(DDRef::BlobDDRefVal, INVALID_SYMBASE), ParentDDRef(nullptr) {
+BlobDDRef::BlobDDRef(unsigned Index, unsigned Level)
+    : DDRef(DDRef::BlobDDRefVal, InvalidSymbase), ParentDDRef(nullptr) {
 
   unsigned Symbase = BlobUtils::getBlobSymbase(Index);
 

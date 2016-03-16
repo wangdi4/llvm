@@ -38,13 +38,14 @@ CanonExpr::CanonExpr(Type *SrcType, Type *DestType, bool IsSExt,
     : SrcTy(SrcType), DestTy(DestType), IsSExt(IsSExt),
       DefinedAtLevel(DefLevel), Const(ConstVal), IsSignedDiv(IsSignedDiv),
       ContainsUndef(false) {
+  assert(CanonExprUtils::isValidDefLevel(DefLevel) && "Invalid def level!");
 
   Objs.insert(this);
 
   setDenominator(Denom);
 
   /// Start with size = capcity
-  IVCoeffs.resize(IVCoeffs.capacity(), BlobIndexToCoeff(INVALID_BLOB_INDEX, 0));
+  IVCoeffs.resize(IVCoeffs.capacity(), BlobIndexToCoeff(InvalidBlobIndex, 0));
 }
 
 CanonExpr::CanonExpr(const CanonExpr &CE)
@@ -131,7 +132,7 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
       if (I->Coeff != 1) {
         OS << I->Coeff << " * ";
       }
-      if (I->Index != INVALID_BLOB_INDEX) {
+      if (I->Index != InvalidBlobIndex) {
         BlobUtils::printBlob(OS, BlobUtils::getBlob(I->Index));
         OS << " * ";
       }
@@ -180,10 +181,6 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
       OS << "{def@" << getDefinedAtLevel() << "}";
     }
   }
-}
-
-bool CanonExpr::isLevelValid(unsigned Level) {
-  return ((Level > 0) && (Level <= MaxLoopNestLevel));
 }
 
 bool CanonExpr::isSelfBlob() const {
@@ -308,11 +305,12 @@ unsigned CanonExpr::getLevel(const_iv_iterator ConstIVIter) const {
 void CanonExpr::getIVCoeff(unsigned Lvl, unsigned *Index,
                            int64_t *Coeff) const {
   assert((Index || Coeff) && "Non-null Index or Coeff ptr expected!");
-  assert(isLevelValid(Lvl) && "Level is out of bounds!");
+  assert(CanonExprUtils::isValidLinearDefLevel(Lvl) &&
+         "Level is out of bounds!");
 
   if (IVCoeffs.size() < Lvl) {
     if (Index) {
-      *Index = INVALID_BLOB_INDEX;
+      *Index = InvalidBlobIndex;
     }
     if (Coeff) {
       *Coeff = 0;
@@ -349,11 +347,11 @@ unsigned CanonExpr::getIVBlobCoeff(const_iv_iterator ConstIVIter) const {
 }
 
 bool CanonExpr::hasIVBlobCoeff(unsigned Lvl) const {
-  return getIVBlobCoeff(Lvl) != INVALID_BLOB_INDEX;
+  return getIVBlobCoeff(Lvl) != InvalidBlobIndex;
 }
 
 bool CanonExpr::hasIVBlobCoeff(const_iv_iterator ConstIVIter) const {
-  return getIVBlobCoeff(ConstIVIter) != INVALID_BLOB_INDEX;
+  return getIVBlobCoeff(ConstIVIter) != InvalidBlobIndex;
 }
 
 int64_t CanonExpr::getIVConstCoeff(unsigned Lvl) const {
@@ -376,19 +374,21 @@ bool CanonExpr::hasIVConstCoeff(const_iv_iterator ConstIVIter) const {
 }
 
 void CanonExpr::resizeIVCoeffsToMax(unsigned Lvl) {
-  assert(isLevelValid(Lvl) && "Level is out of bounds!");
+  assert(CanonExprUtils::isValidLinearDefLevel(Lvl) &&
+         "Level is out of bounds!");
 
   if (IVCoeffs.size() < Lvl) {
-    IVCoeffs.resize(MaxLoopNestLevel, BlobIndexToCoeff(INVALID_BLOB_INDEX, 0));
+    IVCoeffs.resize(MaxLoopNestLevel, BlobIndexToCoeff(InvalidBlobIndex, 0));
   }
 }
 
 void CanonExpr::setIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff,
                               bool OverwriteIndex, bool OverwriteCoeff) {
 
-  assert(isLevelValid(Lvl) && "Level is out of bounds!");
+  assert(CanonExprUtils::isValidLinearDefLevel(Lvl) &&
+         "Level is out of bounds!");
   assert(
-      ((Index == INVALID_BLOB_INDEX) || BlobUtils::isBlobIndexValid(Index)) &&
+      ((Index == InvalidBlobIndex) || BlobUtils::isBlobIndexValid(Index)) &&
       "Blob Index is invalid!");
 
   resizeIVCoeffsToMax(Lvl);
@@ -420,7 +420,7 @@ void CanonExpr::setIVBlobCoeff(iv_iterator IVI, unsigned Index) {
 }
 
 void CanonExpr::setIVConstCoeff(unsigned Lvl, int64_t Coeff) {
-  setIVInternal(Lvl, INVALID_BLOB_INDEX, Coeff, false, true);
+  setIVInternal(Lvl, InvalidBlobIndex, Coeff, false, true);
 }
 
 void CanonExpr::setIVConstCoeff(iv_iterator IVI, int64_t Coeff) {
@@ -430,9 +430,10 @@ void CanonExpr::setIVConstCoeff(iv_iterator IVI, int64_t Coeff) {
 
 void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
 
-  assert(isLevelValid(Lvl) && "Level is out of bounds!");
+  assert(CanonExprUtils::isValidLinearDefLevel(Lvl) &&
+         "Level is out of bounds!");
   assert(
-      ((Index == INVALID_BLOB_INDEX) || BlobUtils::isBlobIndexValid(Index)) &&
+      ((Index == InvalidBlobIndex) || BlobUtils::isBlobIndexValid(Index)) &&
       "Blob Index is invalid!");
 
   resizeIVCoeffsToMax(Lvl);
@@ -453,13 +454,13 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
   // At least one of the indices is non-zero here.
   if (IVCoeffs[Lvl - 1].Index != Index) {
     BlobTy AddBlob, MulBlob1 = nullptr, MulBlob2 = nullptr;
-    unsigned NewIndex = INVALID_BLOB_INDEX;
+    unsigned NewIndex = InvalidBlobIndex;
     int64_t NewCoeff = 1;
 
     // Create a mul blob from new index/coeff.
     MulBlob1 = BlobUtils::createBlob(Coeff, getSrcType(), false);
 
-    if (Index != INVALID_BLOB_INDEX) {
+    if (Index != InvalidBlobIndex) {
       MulBlob1 = BlobUtils::createMulBlob(MulBlob1, BlobUtils::getBlob(Index),
                                           true, &NewIndex);
     }
@@ -469,7 +470,7 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
       MulBlob2 =
           BlobUtils::createBlob(IVCoeffs[Lvl - 1].Coeff, getSrcType(), false);
 
-      if (IVCoeffs[Lvl - 1].Index != INVALID_BLOB_INDEX) {
+      if (IVCoeffs[Lvl - 1].Index != InvalidBlobIndex) {
         MulBlob2 = BlobUtils::createMulBlob(
             MulBlob2, BlobUtils::getBlob(IVCoeffs[Lvl - 1].Index), false);
       }
@@ -483,11 +484,11 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
       // set it as a constant coefficient.
       // For example: (%b + 2) + (-%b) = 2
       if (BlobUtils::isConstantIntBlob(AddBlob, &NewCoeff)) {
-        NewIndex = INVALID_BLOB_INDEX;
+        NewIndex = InvalidBlobIndex;
       }
     }
 
-    assert(((NewCoeff == 1) || (NewIndex == INVALID_BLOB_INDEX)) &&
+    assert(((NewCoeff == 1) || (NewIndex == InvalidBlobIndex)) &&
            "Unexpected merge condition!");
 
     // Set new index and coefficient.
@@ -499,7 +500,7 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
 
     // If coefficient becomes zero, zero out index as well.
     if (!IVCoeffs[Lvl - 1].Coeff) {
-      IVCoeffs[Lvl - 1].Index = INVALID_BLOB_INDEX;
+      IVCoeffs[Lvl - 1].Index = InvalidBlobIndex;
     }
   }
 }
@@ -516,7 +517,8 @@ void CanonExpr::addIV(iv_iterator IVI, unsigned Index, int64_t Coeff,
 
 void CanonExpr::removeIV(unsigned Lvl) {
 
-  assert(isLevelValid(Lvl) && "Level is out of bounds!");
+  assert(CanonExprUtils::isValidLinearDefLevel(Lvl) &&
+         "Level is out of bounds!");
 
   /// Nothing to do as the IV is not present.
   /// Should we assert on this?
@@ -524,18 +526,19 @@ void CanonExpr::removeIV(unsigned Lvl) {
     return;
   }
 
-  IVCoeffs[Lvl - 1].Index = INVALID_BLOB_INDEX;
+  IVCoeffs[Lvl - 1].Index = InvalidBlobIndex;
   IVCoeffs[Lvl - 1].Coeff = 0;
 }
 
 void CanonExpr::removeIV(iv_iterator IVI) {
-  IVI->Index = INVALID_BLOB_INDEX;
+  IVI->Index = InvalidBlobIndex;
   IVI->Coeff = 0;
 }
 
 void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
 
-  assert(isLevelValid(Lvl) && "Level is out of bounds!");
+  assert(CanonExprUtils::isValidLinearDefLevel(Lvl) &&
+         "Level is out of bounds!");
 
   // IV not present, nothing to do.
   if ((IVCoeffs.size() < Lvl) || !IVCoeffs[Lvl - 1].Coeff) {
@@ -550,7 +553,7 @@ void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
 
   int64_t NewVal = IVCoeffs[Lvl - 1].Coeff * Val;
 
-  if (IVCoeffs[Lvl - 1].Index != INVALID_BLOB_INDEX) {
+  if (IVCoeffs[Lvl - 1].Index != InvalidBlobIndex) {
     /// IV has a blob index coefficient.
     addBlob(IVCoeffs[Lvl - 1].Index, NewVal);
   } else {
@@ -567,7 +570,8 @@ void CanonExpr::replaceIVByConstant(iv_iterator IVI, int64_t Val) {
 
 void CanonExpr::multiplyIVByConstant(unsigned Lvl, int64_t Val) {
 
-  assert(isLevelValid(Lvl) && "Level is out of bounds!");
+  assert(CanonExprUtils::isValidLinearDefLevel(Lvl) &&
+         "Level is out of bounds!");
 
   if (IVCoeffs.size() < Lvl) {
     return;
@@ -680,7 +684,7 @@ void CanonExpr::removeBlob(blob_iterator BlobI) { BlobCoeffs.erase(BlobI); }
 
 void CanonExpr::replaceBlob(unsigned OldIndex, unsigned NewIndex) {
 
-  assert((NewIndex != INVALID_BLOB_INDEX) && "NewIndex is invalid!");
+  assert((NewIndex != InvalidBlobIndex) && "NewIndex is invalid!");
 
   int64_t Coeff = 0;
   bool found = false;
@@ -726,7 +730,7 @@ void CanonExpr::clearIVs() {
   // Assign zeros rather than clearing to keep the size same otherwise a
   // reallocation will happen on the addition of the next IV to this CanonExpr.
   // Refer to the logic in resizeIVCoeffsToMax().
-  IVCoeffs.assign(IVCoeffs.size(), BlobIndexToCoeff(INVALID_BLOB_INDEX, 0));
+  IVCoeffs.assign(IVCoeffs.size(), BlobIndexToCoeff(InvalidBlobIndex, 0));
 }
 
 void CanonExpr::shift(unsigned Lvl, int64_t Val) {
@@ -739,7 +743,7 @@ void CanonExpr::shift(unsigned Lvl, int64_t Val) {
   int64_t NewVal = IVCoeffs[Lvl - 1].Coeff * Val;
 
   /// Handle blob coefficient of IV.
-  if (IVCoeffs[Lvl - 1].Index != INVALID_BLOB_INDEX) {
+  if (IVCoeffs[Lvl - 1].Index != InvalidBlobIndex) {
     addBlob(IVCoeffs[Lvl - 1].Index, NewVal);
   }
   /// Handle constant coefficient of IV.
@@ -776,7 +780,7 @@ void CanonExpr::collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
 
   /// Push all blobs from IVCoeffs.
   for (auto &I : IVCoeffs) {
-    if (I.Index == INVALID_BLOB_INDEX) {
+    if (I.Index == InvalidBlobIndex) {
       continue;
     }
 
@@ -931,7 +935,7 @@ void CanonExpr::multiplyByBlob(unsigned Index) {
     int64_t IVConstCoeff;
     getIVCoeff(I, &IVBlobIndex, &IVConstCoeff);
 
-    if (IVBlobIndex != INVALID_BLOB_INDEX) {
+    if (IVBlobIndex != InvalidBlobIndex) {
       BlobTy IVBlob = BlobUtils::getBlob(IVBlobIndex);
       unsigned NewBlobIndex;
       BlobUtils::createMulBlob(IVBlob, MultiplierBlob, true, &NewBlobIndex);
@@ -969,8 +973,8 @@ void CanonExpr::negate() { multiplyByConstant(-1); }
 void CanonExpr::verify() const {
   assert(getDenominator() > 0 && "Denominator must be greater than zero!");
   // TODO: verify DefinedAtLevel with respect to current loop level.
-  assert(DefinedAtLevel >= -1 && DefinedAtLevel <= MaxLoopNestLevel &&
-         "DefinedAtLevel must be within range [-1, MaxLoopNestLevel]!");
+  assert(CanonExprUtils::isValidDefLevel(DefinedAtLevel) &&
+         "DefinedAtLevel is invalid!");
   assert(SrcTy && "SrcTy of CanonExpr is null!");
   assert(DestTy && "DestTy of CanonExpr is null!");
 

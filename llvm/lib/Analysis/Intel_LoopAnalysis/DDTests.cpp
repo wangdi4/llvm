@@ -439,7 +439,7 @@ const CanonExpr *DDtest::getMulExpr(const CanonExpr *CE1,
 }
 
 const CanonExpr *DDtest::getConstantfromAPInt(Type *Ty, const APInt &apint) {
-  CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, apint, 0); // level 0
+  CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, apint); 
   push(CE);
 
   return CE;

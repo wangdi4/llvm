@@ -47,10 +47,10 @@ class PHINode;
 namespace loopopt {
 
 /// Invalid symbase.
-const unsigned INVALID_SYMBASE = 0;
+const unsigned InvalidSymbase = 0;
 
 /// Symbase for constants.
-const unsigned CONSTANT_SYMBASE = 1;
+const unsigned ConstantSymbase = 1;
 
 class SCCFormation;
 
@@ -99,7 +99,7 @@ private:
   unsigned insertBaseTemp(const Value *Temp);
 
   /// \brief Inserts temp-symbase pair into the map. Symbase cannot be
-  /// INVALID_SYMBASE or CONSTANT_SYMBASE.
+  /// InvalidSymbase or ConstantSymbase.
   void insertTempSymbase(const Value *Temp, unsigned Symbase);
 
   /// \brief Returns the MDString node attached to Inst, if any, else returns
@@ -110,7 +110,7 @@ private:
   /// it exists, else assigns a new symbase.
   unsigned getOrAssignTempSymbase(const Value *Temp);
 
-  /// \brief Returns Temp's symbase if it exists, else returns INVALID_SYMBASE.
+  /// \brief Returns Temp's symbase if it exists, else returns InvalidSymbase.
   unsigned getTempSymbase(const Value *Temp) const;
 
   /// \brief Implements getOrAssignScalarSymbase() functionality.

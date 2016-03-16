@@ -65,7 +65,7 @@ class DDRef;
 class CanonExpr;
 
 typedef const SCEV *BlobTy;
-const unsigned INVALID_BLOB_INDEX = 0;
+const unsigned InvalidBlobIndex = 0;
 
 /// \brief This analysis creates DDRefs and parses SCEVs into CanonExprs for
 /// HLNodes inside HIR regions. It eliminates HLNodes useless to HIR.
@@ -138,8 +138,8 @@ private:
   // SmallSet<unsigned, 64> TempBlobSymbases;
 
   /// CurBlobLevelMap - Maps temp blob indices to nesting levels for the current
-  /// DDRef. Level of -1 denotes non-linear blobs.
-  SmallDenseMap<unsigned, int, 8> CurTempBlobLevelMap;
+  /// DDRef. 
+  SmallDenseMap<unsigned, unsigned, 8> CurTempBlobLevelMap;
 
   // BlobTable - vector containing blobs and corresponding symbases for the
   // function.
@@ -375,7 +375,7 @@ private:
                                 bool ReturnSymbase);
 
   /// \brief Returns the index of Blob in the blob table. Index range is [1,
-  /// UINT_MAX]. Returns INVALID_BLOB_INDEX if the blob is not present in the
+  /// UINT_MAX]. Returns InvalidBlobIndex if the blob is not present in the
   /// table.
   unsigned findBlob(BlobTy Blob);
 

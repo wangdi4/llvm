@@ -16,8 +16,8 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLNODEUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLNODEUTILS_H
 
-#include <set>
 #include "llvm/Support/Compiler.h"
+#include <set>
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
@@ -1002,6 +1002,12 @@ public:
   static void
   permuteLoopNests(HLLoop *Loop,
                    SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation);
+
+  /// \brief Returns the lowest common ancestor loop of Lp1 and Lp2. Returns
+  /// null if there is no such parent loop.
+  static const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
+                                                   const HLLoop *Lp2);
+  static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
 };
 
 } // End namespace loopopt

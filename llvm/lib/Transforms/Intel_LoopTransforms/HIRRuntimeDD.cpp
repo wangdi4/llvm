@@ -231,7 +231,7 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
 
     // Determine IV direction: C*B*i, get C and B signs.
     int64_t Direction = 1;
-    if (IVBlobIndex != INVALID_BLOB_INDEX) {
+    if (IVBlobIndex != InvalidBlobIndex) {
       // IVBlobExpr is a helper CE to use HLNodeUtils::isKnownNegative
       CanonExpr *IVBlobExpr = CanonExprUtils::createExtCanonExpr(
           CE->getSrcType(), CE->getDestType(), CE->isSExt());
@@ -317,7 +317,7 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
              "mergeable");
 
       auto IVBlobIndex = CE->getIVBlobCoeff(Level);
-      if (IVBlobIndex != INVALID_BLOB_INDEX) {
+      if (IVBlobIndex != InvalidBlobIndex) {
         CanonExpr *IVBlobExpr = CanonExprUtils::createExtCanonExpr(
             CE->getSrcType(), CE->getDestType(), CE->isSExt());
 

@@ -148,17 +148,17 @@ void RegDDRef::setMetadata(unsigned KindID, MDNode *Node) {
   }
 }
 
-int RegDDRef::findMaxBlobLevel(
+unsigned RegDDRef::findMaxBlobLevel(
     const SmallVectorImpl<unsigned> &BlobIndices) const {
-  int DefLevel = 0, MaxLevel = 0;
+  unsigned DefLevel = 0, MaxLevel = 0;
 
   for (auto Index : BlobIndices) {
     bool Found = findBlobLevel(Index, &DefLevel);
     (void)Found;
     assert(Found && "Blob DDRef not found!");
 
-    if (-1 == DefLevel) {
-      return -1;
+    if (DefLevel == NonLinearLevel) {
+      return NonLinearLevel;
     } else if (DefLevel > MaxLevel) {
       MaxLevel = DefLevel;
     }
@@ -184,7 +184,7 @@ void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
 void RegDDRef::updateDefLevel(unsigned NestingLevelIfDetached) {
 
   unsigned Level = getHLDDNode() ? getHLDDNodeLevel() : NestingLevelIfDetached;
-  assert((Level <= MaxLoopNestLevel) &&
+  assert(CanonExprUtils::isValidLinearDefLevel(Level) &&
          "Nesting level not set for detached DDRef!");
 
   // Update attached blob DDRefs' def level first.
@@ -461,7 +461,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
     }
 
     unsigned Index = DimCE->getIVBlobCoeff(Level);
-    if (Index != INVALID_BLOB_INDEX) {
+    if (Index != InvalidBlobIndex) {
       StrideAtLevel->addBlob(Index, DimCE->getIVConstCoeff(Level) * DimStride);
     } else {
       StrideAtLevel->addConstant(DimCE->getIVConstCoeff(Level) * DimStride);
@@ -472,10 +472,11 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   // DefinedAtLevel property of StrideCE.
   SmallVector<unsigned, 8> BlobIndices;
   StrideAtLevel->collectTempBlobIndices(BlobIndices);
-  int MaxLevel = findMaxBlobLevel(BlobIndices);
-  assert(MaxLevel >= 0 && "Invalid level!");
-  if ((unsigned)MaxLevel > StrideAtLevel->getDefinedAtLevel())
-    StrideAtLevel->setDefinedAtLevel(MaxLevel);
+
+  unsigned MaxLevel = findMaxBlobLevel(BlobIndices);
+  assert((MaxLevel != NonLinearLevel) && "Invalid level!");
+
+  StrideAtLevel->setDefinedAtLevel(MaxLevel);
 
   assert(StrideAtLevel->isInvariantAtLevel(Level) && "Invariant Stride!");
   return StrideAtLevel;
@@ -550,7 +551,7 @@ void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {
   BlobRef->setParentDDRef(this);
 }
 
-void RegDDRef::addBlobDDRef(unsigned Index, int Level) {
+void RegDDRef::addBlobDDRef(unsigned Index, unsigned Level) {
   auto BRef = DDRefUtils::createBlobDDRef(Index, Level);
   addBlobDDRef(BRef);
 }
@@ -649,7 +650,7 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
 
   // Set def level for the new blobs.
   for (auto &BRef : NewBlobs) {
-    int DefLevel = 0;
+    unsigned DefLevel = 0;
     bool Found = false;
     unsigned Index = BRef->getBlobIndex();
 
@@ -713,7 +714,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
     removeAllBlobDDRefs();
 
     if (!IsLvalAssumed) {
-      setSymbase(CONSTANT_SYMBASE);
+      setSymbase(ConstantSymbase);
     }
 
     return;
@@ -738,7 +739,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
   }
 }
 
-bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
+bool RegDDRef::findBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const {
   assert(DefLevel && "DefLevel ptr should not be null!");
 
   unsigned Index = 0;
@@ -748,7 +749,7 @@ bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
     Index = CE->getSingleBlobIndex();
 
     if (Index == BlobIndex) {
-      *DefLevel = CE->isNonLinear() ? -1 : CE->getDefinedAtLevel();
+      *DefLevel = CE->isNonLinear() ? NonLinearLevel : CE->getDefinedAtLevel();
       return true;
     }
 
@@ -760,7 +761,7 @@ bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
 
     if (Index == BlobIndex) {
       auto CE = (*I)->getCanonExpr();
-      *DefLevel = CE->isNonLinear() ? -1 : CE->getDefinedAtLevel();
+      *DefLevel = CE->isNonLinear() ? NonLinearLevel : CE->getDefinedAtLevel();
       return true;
     }
   }
@@ -843,10 +844,10 @@ void RegDDRef::verify() const {
   }
 
   if (!IsConst || isLval()) {
-    assert((getSymbase() > CONSTANT_SYMBASE) && "DDRef has invalid symbase!");
+    assert((getSymbase() > ConstantSymbase) && "DDRef has invalid symbase!");
 
   } else {
-    assert((getSymbase() == CONSTANT_SYMBASE) &&
+    assert((getSymbase() == ConstantSymbase) &&
            "Constant DDRef's symbase is incorrect!");
   }
 

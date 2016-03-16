@@ -16,8 +16,8 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_CANONEXPRUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_CANONEXPRUTILS_H
 
-#include <stdint.h>
 #include "llvm/Support/Compiler.h"
+#include <stdint.h>
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 
@@ -49,7 +49,7 @@ private:
   CanonExprUtils() = delete;
 
   friend class DDRefUtils; // accesses createSelfBlobCanonExpr()
-  friend class HIRParser; // accesses destroyAll()
+  friend class HIRParser;  // accesses destroyAll()
 
   /// \brief Destroys all CanonExprs. Called during HIR cleanup.
   static void destroyAll();
@@ -80,13 +80,13 @@ private:
 
 public:
   /// \brief Returns a new CanonExpr with identical src and dest types. All
-  /// canon exprs are created linear.
+  /// canon exprs are created linear by default.
   static CanonExpr *createCanonExpr(Type *Ty, unsigned Level = 0,
                                     int64_t Const = 0, int64_t Denom = 1,
                                     bool IsSignedDiv = false);
 
   /// \brief Returns a new CanonExpr with zero or sign extension. All canon
-  /// exprs are created linear.
+  /// exprs are created linear by default.
   /// Note: Overloading createCanonExpr() causes ambiguous calls for constant
   /// arguments.
   static CanonExpr *createExtCanonExpr(Type *SrcType, Type *DestType,
@@ -94,13 +94,13 @@ public:
                                        int64_t Const = 0, int64_t Denom = 1,
                                        bool IsSignedDiv = false);
 
-  /// \brief Returns a new CanonExpr created from APInt Value.
-  static CanonExpr *createCanonExpr(Type *Ty, const APInt &APVal,
-                                    int Level = 0);
+  /// \brief Returns a new linear CanonExpr created from APInt Value. 
+  static CanonExpr *createCanonExpr(Type *Ty, const APInt &APVal);
 
   /// \brief Returns a self-blob canon expr. Level is the defined at level for
-  /// the blob. Level of -1 means non-linear blob.
-  static CanonExpr *createSelfBlobCanonExpr(unsigned Index, int Level = -1);
+  /// the blob.
+  static CanonExpr *createSelfBlobCanonExpr(unsigned Index,
+                                            unsigned Level = NonLinearLevel);
 
   /// \brief Destroys the passed in CanonExpr.
   static void destroy(CanonExpr *CE);
@@ -157,11 +157,23 @@ public:
   /// Result = -CE
   static CanonExpr *cloneAndNegate(const CanonExpr *CE);
 
+  /// \brief Returns true if DefLevel is a valid DefinedAtLevel for any
+  /// CanonExpr.
+  static bool isValidDefLevel(unsigned DefLevel) {
+    return (DefLevel <= NonLinearLevel);
+  }
+
+  /// \brief Returns true if DefLevel is a valid DefinedAtLevel for a linear
+  /// CanonExpr.
+  static bool isValidLinearDefLevel(unsigned DefLevel) {
+    return (DefLevel <= MaxLoopNestLevel);
+  }
+
   /// \brief Returns true if this CE should be considered non-linear given
   /// DefLevel and NestingLevel. DefLevel is the definition level of a blob
   /// contained in the CE. NestingLevel is the level where the CE is attached to
   /// HIR.
-  static bool hasNonLinearSemantics(int DefLevel, unsigned NestingLevel);
+  static bool hasNonLinearSemantics(unsigned DefLevel, unsigned NestingLevel);
 
   /// \brief Replaces IV in *CE1* at a particular loop *Level* by a CanonExpr
   /// *CE2*.

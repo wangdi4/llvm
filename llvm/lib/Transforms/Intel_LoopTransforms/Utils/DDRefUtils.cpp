@@ -34,14 +34,14 @@ RegDDRef *DDRefUtils::createScalarRegDDRef(unsigned SB, CanonExpr *CE) {
 }
 
 RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
-  RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
+  RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, 0, Val);
   NewRegDD->setSingleCanonExpr(CE);
 
   return NewRegDD;
 }
 
-BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, int Level) {
+BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, unsigned Level) {
   return new BlobDDRef(Index, Level);
 }
 
@@ -156,7 +156,7 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
   return false;
 }
 
-RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, int Level) {
+RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, unsigned Level) {
   auto CE = CanonExprUtils::createSelfBlobCanonExpr(Index, Level);
   unsigned Symbase = BlobUtils::getBlobSymbase(Index);
 
