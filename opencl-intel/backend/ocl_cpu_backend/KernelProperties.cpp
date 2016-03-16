@@ -193,22 +193,16 @@ size_t KernelProperties::GetRequiredNumSubGroups() const
 
 size_t KernelProperties::GetMaxNumSubGroups() const
 {
-    std::cerr << __FUNCTION__ << " is not implemented!"
-              << __FILE__ << ":" << __LINE__ << std::endl;
     return 1;
 }
 
 size_t KernelProperties::GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const
 {
-    std::cerr << __FUNCTION__ << " is not implemented!"
-              << __FILE__ << ":" << __LINE__ << std::endl;
     return 1;
 }
 
 size_t KernelProperties::GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const
 {
-    std::cerr << __FUNCTION__ << " is not implemented!"
-              << __FILE__ << ":" << __LINE__ << std::endl;
     size_t maxSGSize = 1;
     for(size_t i = 0; i < size; ++i)
         maxSGSize *= WGSizes[i];
