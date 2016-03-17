@@ -46,50 +46,50 @@ entry:
   %call = call spir_func i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %conv = trunc i64 %call to i32
   store i32 %conv, i32* %tid, align 4
-  %0 = load i32* %tid, align 4
+  %0 = load i32, i32* %tid, align 4
   %idxprom = sext i32 %0 to i64
   %1 = load i32 addrspace(1)** %res.addr, align 8
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %1, i64 %idxprom
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %1, i64 %idxprom
   store i32 -1, i32 addrspace(1)* %arrayidx, align 4
   store i32 (i32)* bitcast ({ i8**, i32, i32, i8*, %struct.__block_descriptor.103* }* @__block_literal_global to i32 (i32)*), i32 (i32)** %b, align 8
   store i32 0, i32* %a, align 4
-  %2 = load i32 (i32)** %b, align 8
+  %2 = load i32 (i32)*, i32 (i32)** %b, align 8
   %block.literal = bitcast i32 (i32)* %2 to %struct.__block_literal_generic.104*
-  %3 = getelementptr inbounds %struct.__block_literal_generic.104* %block.literal, i32 0, i32 3
+  %3 = getelementptr inbounds %struct.__block_literal_generic.104, %struct.__block_literal_generic.104* %block.literal, i32 0, i32 3
   %4 = bitcast %struct.__block_literal_generic.104* %block.literal to i8*
-  %5 = load i32* %a, align 4
-  %6 = load i8** %3
+  %5 = load i32, i32* %a, align 4
+  %6 = load i8*, i8** %3
   %7 = bitcast i8* %6 to i32 (i8*, i32)*
   %call1 = call i32 %7(i8* %4, i32 %5)
   store i32 %call1, i32* %a, align 4
   store i32 (i32)* bitcast ({ i8**, i32, i32, i8*, %struct.__block_descriptor.103* }* @__block_literal_global2 to i32 (i32)*), i32 (i32)** %b, align 8
-  %8 = load i32 (i32)** %b, align 8
+  %8 = load i32 (i32)*, i32 (i32)** %b, align 8
   %block.literal2 = bitcast i32 (i32)* %8 to %struct.__block_literal_generic.104*
-  %9 = getelementptr inbounds %struct.__block_literal_generic.104* %block.literal2, i32 0, i32 3
+  %9 = getelementptr inbounds %struct.__block_literal_generic.104, %struct.__block_literal_generic.104* %block.literal2, i32 0, i32 3
   %10 = bitcast %struct.__block_literal_generic.104* %block.literal2 to i8*
-  %11 = load i32* %a, align 4
-  %12 = load i8** %9
+  %11 = load i32, i32* %a, align 4
+  %12 = load i8*, i8** %9
   %13 = bitcast i8* %12 to i32 (i8*, i32)*
   %call3 = call i32 %13(i8* %10, i32 %11)
   store i32 %call3, i32* %a, align 4
   store i32 (i32)* bitcast ({ i8**, i32, i32, i8*, %struct.__block_descriptor.103* }* @__block_literal_global4 to i32 (i32)*), i32 (i32)** %c, align 8
-  %14 = load i32 (i32)** %c, align 8
+  %14 = load i32 (i32)*, i32 (i32)** %c, align 8
   store i32 (i32)* %14, i32 (i32)** %b, align 8
-  %15 = load i32 (i32)** %b, align 8
+  %15 = load i32 (i32)*, i32 (i32)** %b, align 8
   %block.literal4 = bitcast i32 (i32)* %15 to %struct.__block_literal_generic.104*
-  %16 = getelementptr inbounds %struct.__block_literal_generic.104* %block.literal4, i32 0, i32 3
+  %16 = getelementptr inbounds %struct.__block_literal_generic.104, %struct.__block_literal_generic.104* %block.literal4, i32 0, i32 3
   %17 = bitcast %struct.__block_literal_generic.104* %block.literal4 to i8*
-  %18 = load i32* %a, align 4
-  %19 = load i8** %16
+  %18 = load i32, i32* %a, align 4
+  %19 = load i8*, i8** %16
   %20 = bitcast i8* %19 to i32 (i8*, i32)*
   %call5 = call i32 %20(i8* %17, i32 %18)
   store i32 %call5, i32* %a, align 4
-  %21 = load i32* %a, align 4
+  %21 = load i32, i32* %a, align 4
   %sub = sub nsw i32 %21, 6
-  %22 = load i32* %tid, align 4
+  %22 = load i32, i32* %tid, align 4
   %idxprom6 = sext i32 %22 to i64
   %23 = load i32 addrspace(1)** %res.addr, align 8
-  %arrayidx7 = getelementptr inbounds i32 addrspace(1)* %23, i64 %idxprom6
+  %arrayidx7 = getelementptr inbounds i32, i32 addrspace(1)* %23, i64 %idxprom6
   store i32 %sub, i32 addrspace(1)* %arrayidx7, align 4
   ret void
 }
@@ -101,7 +101,7 @@ entry:
   %i.addr = alloca i32, align 4
   store i32 %i, i32* %i.addr, align 4
   %block = bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor.103* }>*
-  %0 = load i32* %i.addr, align 4
+  %0 = load i32, i32* %i.addr, align 4
   %add = add nsw i32 %0, 1
   ret i32 %add
 }
@@ -111,7 +111,7 @@ entry:
   %i.addr = alloca i32, align 4
   store i32 %i, i32* %i.addr, align 4
   %block = bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor.103* }>*
-  %0 = load i32* %i.addr, align 4
+  %0 = load i32, i32* %i.addr, align 4
   %add = add nsw i32 %0, 2
   ret i32 %add
 }
@@ -121,7 +121,7 @@ entry:
   %i.addr = alloca i32, align 4
   store i32 %i, i32* %i.addr, align 4
   %block = bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor.103* }>*
-  %0 = load i32* %i.addr, align 4
+  %0 = load i32, i32* %i.addr, align 4
   %add = add nsw i32 %0, 3
   ret i32 %add
 }

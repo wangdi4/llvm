@@ -24,7 +24,7 @@ define void @func_min(float addrspace(1)* nocapture %in, <2 x float> addrspace(1
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
   %2 = tail call <4 x i16> @_Z3minU8__vector4tS_(<4 x i16> <i16 1232, i16 47, i16 0, i16 1>, <4 x i16> <i16 -30906, i16 765, i16 2, i16 9283>) nounwind ; <<4 x i16>> [#uses=1]
   %3 = bitcast <4 x i16> %2 to <2 x float>        ; <<2 x float>> [#uses=1]
-  %4 = getelementptr inbounds <2 x float> addrspace(1)* %out, i32 %1 ; <<2 x float> addrspace(1)*> [#uses=1]
+  %4 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %out, i32 %1 ; <<2 x float> addrspace(1)*> [#uses=1]
   store <2 x float> %3, <2 x float> addrspace(1)* %4
   ret void
 }

@@ -3,7 +3,7 @@
 define <2 x double> @test1(<2 x double>* nocapture %f) nounwind readonly {
 ; CHECK: test1
 ; CHECK: vmovddup
-  %t0 = load <2 x double>* %f
+  %t0 = load <2 x double>, <2 x double>* %f
   %t1 = extractelement <2 x double> %t0, i32 0
   %t2 = insertelement <2 x double> undef, double %t1, i32 0
   %t3 = insertelement <2 x double> %t2, double %t1, i32 1
@@ -13,7 +13,7 @@ define <2 x double> @test1(<2 x double>* nocapture %f) nounwind readonly {
 define <4 x double> @test2(<4 x double>* nocapture %f) nounwind readonly {
 ; CHECK: test2
 ; CHECK: vmovddup
-  %t0 = load <4 x double>* %f
+  %t0 = load <4 x double>, <4 x double>* %f
   %t1 = extractelement <4 x double> %t0, i32 0
   %t2 = extractelement <4 x double> %t0, i32 2
   %t3 = insertelement <4 x double> undef, double %t1, i32 0
@@ -27,7 +27,7 @@ define <4 x double> @test2(<4 x double>* nocapture %f) nounwind readonly {
 define <4 x double> @test3(<4 x double>* nocapture %f) nounwind readonly {
 ; CHECK: test3
 ; CHECK: vmovddup
-  %t0 = load <4 x double>* %f
+  %t0 = load <4 x double>, <4 x double>* %f
   %t1 = extractelement <4 x double> %t0, i32 0
   %t2 = extractelement <4 x double> %t0, i32 2
   %t3 = insertelement <4 x double> undef, double %t1, i32 0
@@ -39,7 +39,7 @@ define <4 x double> @test3(<4 x double>* nocapture %f) nounwind readonly {
 define <4 x i64> @test4(<4 x i64>* nocapture %f) nounwind readonly {
 ; CHECK: test4
 ; CHECK: vmovddup
-  %t0 = load <4 x i64>* %f
+  %t0 = load <4 x i64>, <4 x i64>* %f
   %t1 = extractelement <4 x i64> %t0, i32 0
   %t2 = extractelement <4 x i64> %t0, i32 2
   %t3 = insertelement <4 x i64> undef, i64 %t1, i32 0
@@ -52,7 +52,7 @@ define <4 x i64> @test4(<4 x i64>* nocapture %f) nounwind readonly {
 define <8 x float> @test5(<8 x float>* nocapture %f) nounwind readonly {
 ; CHECK: test5
 ; CHECK: vmovsldup
-  %t0 = load <8 x float>* %f
+  %t0 = load <8 x float>, <8 x float>* %f
   %t1 = extractelement <8 x float> %t0, i32 0
   %t2 = extractelement <8 x float> %t0, i32 2
   %t3 = extractelement <8 x float> %t0, i32 4
@@ -107,7 +107,7 @@ define <8 x i32> @test7(<8 x i32> %t0) nounwind readonly {
 define <8 x i32> @test8(<8 x i32>* nocapture %f) nounwind readonly {
 ; CHECK: test8
 ; CHECK: vmovsldup
-  %t0 = load <8 x i32>* %f
+  %t0 = load <8 x i32>, <8 x i32>* %f
   %t1 = extractelement <8 x i32> %t0, i32 0
   %t2 = extractelement <8 x i32> %t0, i32 2
   %t3 = extractelement <8 x i32> %t0, i32 4
@@ -165,7 +165,7 @@ define <8 x i32> @test10(<8 x i32> %t0) nounwind readonly {
 define <8 x i32> @test11(<8 x i32>* nocapture %f) nounwind readonly {
 ; CHECK: test11
 ; CHECK: vmovaps
-  %t0 = load <8 x i32>* %f
+  %t0 = load <8 x i32>, <8 x i32>* %f
   %t1 = extractelement <8 x i32> %t0, i32 0
   %t5 = insertelement <8 x i32> undef, i32 %t1, i32 0
   ret <8 x i32> %t5
@@ -174,7 +174,7 @@ define <8 x i32> @test11(<8 x i32>* nocapture %f) nounwind readonly {
 define <8 x float> @test12(<8 x float>* nocapture %f) nounwind readonly {
 ; CHECK: test12
 ; CHECK: vmovshdup
-  %t0 = load <8 x float>* %f
+  %t0 = load <8 x float>, <8 x float>* %f
   %t1 = extractelement <8 x float> %t0, i32 1
   %t2 = extractelement <8 x float> %t0, i32 3
   %t3 = extractelement <8 x float> %t0, i32 5
@@ -229,7 +229,7 @@ define <8 x i32> @test14(<8 x i32> %t0) nounwind readonly {
 define <8 x i32> @test15(<8 x i32>* nocapture %f) nounwind readonly {
 ; CHECK: test15
 ; CHECK: vmovshdup
-  %t0 = load <8 x i32>* %f
+  %t0 = load <8 x i32>, <8 x i32>* %f
   %t1 = extractelement <8 x i32> %t0, i32 1
   %t2 = extractelement <8 x i32> %t0, i32 3
   %t3 = extractelement <8 x i32> %t0, i32 5

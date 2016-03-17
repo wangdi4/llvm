@@ -31,7 +31,7 @@ for.end.preheader:                                ; preds = %for.cond3.preheader
 for.end.us:                                       ; preds = %for.body8.us
   %call16.us = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv17.us = zext i32 %call16.us to i64
-  %arrayidx20.us = getelementptr inbounds i64* %B, i64 %storemerge8.us
+  %arrayidx20.us = getelementptr inbounds i64, i64* %B, i64 %storemerge8.us
   %tmp21.us = load i64* %arrayidx20.us, align 8
   %xor22.us = xor i64 %tmp21.us, %conv17.us
   store i64 %xor22.us, i64* %arrayidx20.us, align 8
@@ -43,7 +43,7 @@ for.end.us:                                       ; preds = %for.body8.us
 
 for.body8.us:                                     ; preds = %for.body8.lr.ph.us, %for.body8.us
   %storemerge13.us = phi i64 [ 0, %for.body8.lr.ph.us ], [ %inc.us, %for.body8.us ]
-  %tmp11.us = load i64* %arrayidx.us, align 8
+  %tmp11.us = load i64, i64* %arrayidx.us, align 8
   store i64 %tmp11.us, i64* %arrayidx14.us, align 8
   %inc.us = add nsw i64 %storemerge13.us, 1
   %cmp6.us = icmp slt i64 %inc.us, %div
@@ -52,16 +52,16 @@ for.body8.us:                                     ; preds = %for.body8.lr.ph.us,
 for.body8.lr.ph.us:                               ; preds = %for.body8.lr.ph.us.preheader, %for.end.us
   %storemerge8.us = phi i64 [ %inc25.us, %for.end.us ], [ 0, %for.body8.lr.ph.us.preheader ]
   %add.us = add nsw i64 %storemerge8.us, 10
-  %arrayidx.us = getelementptr inbounds i64* %A, i64 %add.us
+  %arrayidx.us = getelementptr inbounds i64, i64* %A, i64 %add.us
   %xor.us = xor i64 %storemerge8.us, 90
-  %arrayidx14.us = getelementptr inbounds i64* %A, i64 %xor.us
+  %arrayidx14.us = getelementptr inbounds i64, i64* %A, i64 %xor.us
   br label %for.body8.us
 
 for.end:                                          ; preds = %for.end.preheader, %for.end
   %storemerge8 = phi i64 [ %inc25, %for.end ], [ 0, %for.end.preheader ]
   %call16 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv17 = zext i32 %call16 to i64
-  %arrayidx20 = getelementptr inbounds i64* %B, i64 %storemerge8
+  %arrayidx20 = getelementptr inbounds i64, i64* %B, i64 %storemerge8
   %tmp21 = load i64* %arrayidx20, align 8
   %xor22 = xor i64 %tmp21, %conv17
   store i64 %xor22, i64* %arrayidx20, align 8

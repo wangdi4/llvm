@@ -12,9 +12,9 @@
 define void @alignment_test(<4 x float>* nocapture %x) {
 entry:
   %0 = bitcast <4 x float>* %x to <4 x i32>*
-  %1 = load <4 x i32>* %0, align 16
+  %1 = load <4 x i32>, <4 x i32>* %0, align 16
   ret void
 }
 
 ; CHECK: %0 = bitcast <4 x float>* %x to <4 x i32>*
-; CHECK: %1 = load <4 x i32>* %0, align {{(1)$}}
+; CHECK: %1 = load <4 x i32>, <4 x i32>* %0, align {{(1)$}}

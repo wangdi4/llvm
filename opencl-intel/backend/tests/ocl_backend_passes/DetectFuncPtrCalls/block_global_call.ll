@@ -21,13 +21,13 @@ define void @global_scope(i32 addrspace(1)* %res) nounwind {
 entry:
   %res.addr = alloca i32 addrspace(1)*, align 8
   store i32 addrspace(1)* %res, i32 addrspace(1)** %res.addr, align 8
-  %0 = load i32 (i32)* addrspace(2)* @globalBlock, align 8
+  %0 = load i32 (i32)*, i32 (i32)* addrspace(2)* @globalBlock, align 8
   %block.literal = bitcast i32 (i32)* %0 to %struct.__block_literal_generic*
-  %1 = getelementptr inbounds %struct.__block_literal_generic* %block.literal, i32 0, i32 3
+  %1 = getelementptr inbounds %struct.__block_literal_generic, %struct.__block_literal_generic* %block.literal, i32 0, i32 3
   %2 = bitcast %struct.__block_literal_generic* %block.literal to i8*
-  %3 = load i32 addrspace(1)** %res.addr, align 8
-  %4 = load i32 addrspace(1)* %3, align 4
-  %5 = load i8** %1
+  %3 = load i32 addrspace(1)*, i32 addrspace(1)** %res.addr, align 8
+  %4 = load i32, i32 addrspace(1)* %3, align 4
+  %5 = load i8*, i8** %1
   %6 = bitcast i8* %5 to i32 (i8*, i32)*
 
 ; CHECK: Printing analysis 'Detect Function Pointer Calls'
@@ -36,7 +36,7 @@ entry:
 ; CHECK-NEXT: global_scope
 
   %call = call i32 %6(i8* %2, i32 %4)
-  %7 = load i32 addrspace(1)** %res.addr, align 8
+  %7 = load i32 addrspace(1)*, i32 addrspace(1)** %res.addr, align 8
   store i32 %call, i32 addrspace(1)* %7, align 4
   ret void
 }

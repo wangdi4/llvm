@@ -30,7 +30,7 @@ define void @func_bitselect(float addrspace(1)* nocapture %in, float addrspace(1
   %9 = shl i32 %8, 1                              ; <i32> [#uses=1]
   %10 = add nsw i32 %9, %6                        ; <i32> [#uses=1]
   %11 = sitofp i32 %10 to float                   ; <float> [#uses=1]
-  %12 = getelementptr inbounds float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
+  %12 = getelementptr inbounds float, float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
   store float %11, float addrspace(1)* %12
   ret void
 }

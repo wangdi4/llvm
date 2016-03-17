@@ -27,14 +27,14 @@ entry:
   %extract19 = extractelement <8 x i32> %3, i32 5
   %extract20 = extractelement <8 x i32> %3, i32 6
   %extract21 = extractelement <8 x i32> %3, i32 7
-  %4 = getelementptr <3 x float>* %0, i32 %extract
-  %5 = getelementptr <3 x float>* %0, i32 %extract15
-  %6 = getelementptr <3 x float>* %0, i32 %extract16
-  %7 = getelementptr <3 x float>* %0, i32 %extract17
-  %8 = getelementptr <3 x float>* %0, i32 %extract18
-  %9 = getelementptr <3 x float>* %0, i32 %extract19
-  %10 = getelementptr <3 x float>* %0, i32 %extract20
-  %11 = getelementptr <3 x float>* %0, i32 %extract21
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract15
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract16
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract17
+  %8 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract18
+  %9 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract19
+  %10 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract20
+  %11 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract21
   %12 = load <3 x float>* %4
   %13 = load <3 x float>* %5
   %14 = load <3 x float>* %6
@@ -91,14 +91,14 @@ entry:
   %temp.vect74 = insertelement <8 x float> %temp.vect73, float %41, i32 5
   %temp.vect75 = insertelement <8 x float> %temp.vect74, float %42, i32 6
   %temp.vect76 = insertelement <8 x float> %temp.vect75, float %43, i32 7
-  %44 = getelementptr <3 x float>* %1, i32 %extract
-  %45 = getelementptr <3 x float>* %1, i32 %extract15
-  %46 = getelementptr <3 x float>* %1, i32 %extract16
-  %47 = getelementptr <3 x float>* %1, i32 %extract17
-  %48 = getelementptr <3 x float>* %1, i32 %extract18
-  %49 = getelementptr <3 x float>* %1, i32 %extract19
-  %50 = getelementptr <3 x float>* %1, i32 %extract20
-  %51 = getelementptr <3 x float>* %1, i32 %extract21
+  %44 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract
+  %45 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract15
+  %46 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract16
+  %47 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract17
+  %48 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract18
+  %49 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract19
+  %50 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract20
+  %51 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract21
   %52 = load <3 x float>* %44
   %53 = load <3 x float>* %45
   %54 = load <3 x float>* %46
@@ -180,14 +180,14 @@ entry:
   %breakdown132 = shufflevector <8 x float> %shuf_transpH125, <8 x float> undef, <3 x i32> <i32 4, i32 5, i32 6>
   %breakdown133 = shufflevector <8 x float> %shuf_transpL126, <8 x float> undef, <3 x i32> <i32 4, i32 5, i32 6>
   %breakdown134 = shufflevector <8 x float> %shuf_transpH127, <8 x float> undef, <3 x i32> <i32 4, i32 5, i32 6>
-  %88 = getelementptr <3 x float>* %2, i32 %extract
-  %89 = getelementptr <3 x float>* %2, i32 %extract15
-  %90 = getelementptr <3 x float>* %2, i32 %extract16
-  %91 = getelementptr <3 x float>* %2, i32 %extract17
-  %92 = getelementptr <3 x float>* %2, i32 %extract18
-  %93 = getelementptr <3 x float>* %2, i32 %extract19
-  %94 = getelementptr <3 x float>* %2, i32 %extract20
-  %95 = getelementptr <3 x float>* %2, i32 %extract21
+  %88 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract
+  %89 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract15
+  %90 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract16
+  %91 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract17
+  %92 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract18
+  %93 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract19
+  %94 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract20
+  %95 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract21
   store <3 x float> %breakdown, <3 x float>* %88
   store <3 x float> %breakdown128, <3 x float>* %89
   store <3 x float> %breakdown129, <3 x float>* %90
@@ -222,14 +222,14 @@ entry:
   %extract25 = extractelement <8 x i32> %3, i32 5
   %extract26 = extractelement <8 x i32> %3, i32 6
   %extract27 = extractelement <8 x i32> %3, i32 7
-  %4 = getelementptr <4 x float>* %0, i32 %extract
-  %5 = getelementptr <4 x float>* %0, i32 %extract21
-  %6 = getelementptr <4 x float>* %0, i32 %extract22
-  %7 = getelementptr <4 x float>* %0, i32 %extract23
-  %8 = getelementptr <4 x float>* %0, i32 %extract24
-  %9 = getelementptr <4 x float>* %0, i32 %extract25
-  %10 = getelementptr <4 x float>* %0, i32 %extract26
-  %11 = getelementptr <4 x float>* %0, i32 %extract27
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract21
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract22
+  %7 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract23
+  %8 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract24
+  %9 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract25
+  %10 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract26
+  %11 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract27
   %12 = load <4 x float>* %4
   %13 = load <4 x float>* %5
   %14 = load <4 x float>* %6
@@ -258,14 +258,14 @@ entry:
   %Seq_64_386 = shufflevector <8 x float> %Seq_128_1, <8 x float> %Seq_128_3, <8 x i32> <i32 2, i32 3, i32 10, i32 11, i32 6, i32 7, i32 14, i32 15>
   %Seq_32_293 = shufflevector <8 x float> %Seq_64_285, <8 x float> %Seq_64_386, <8 x i32> <i32 0, i32 8, i32 2, i32 10, i32 4, i32 12, i32 6, i32 14>
   %Seq_32_3126 = shufflevector <8 x float> %Seq_64_285, <8 x float> %Seq_64_386, <8 x i32> <i32 1, i32 9, i32 3, i32 11, i32 5, i32 13, i32 7, i32 15>
-  %20 = getelementptr <4 x float>* %1, i32 %extract
-  %21 = getelementptr <4 x float>* %1, i32 %extract21
-  %22 = getelementptr <4 x float>* %1, i32 %extract22
-  %23 = getelementptr <4 x float>* %1, i32 %extract23
-  %24 = getelementptr <4 x float>* %1, i32 %extract24
-  %25 = getelementptr <4 x float>* %1, i32 %extract25
-  %26 = getelementptr <4 x float>* %1, i32 %extract26
-  %27 = getelementptr <4 x float>* %1, i32 %extract27
+  %20 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract
+  %21 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract21
+  %22 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract22
+  %23 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract23
+  %24 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract24
+  %25 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract25
+  %26 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract26
+  %27 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract27
   %28 = load <4 x float>* %20
   %29 = load <4 x float>* %21
   %30 = load <4 x float>* %22
@@ -323,14 +323,14 @@ entry:
   %breakdown308 = shufflevector <8 x float> %shuf_transpH300, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
   %breakdown309 = shufflevector <8 x float> %shuf_transpL301, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
   %breakdown310 = shufflevector <8 x float> %shuf_transpH302, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %41 = getelementptr <4 x float>* %2, i32 %extract
-  %42 = getelementptr <4 x float>* %2, i32 %extract21
-  %43 = getelementptr <4 x float>* %2, i32 %extract22
-  %44 = getelementptr <4 x float>* %2, i32 %extract23
-  %45 = getelementptr <4 x float>* %2, i32 %extract24
-  %46 = getelementptr <4 x float>* %2, i32 %extract25
-  %47 = getelementptr <4 x float>* %2, i32 %extract26
-  %48 = getelementptr <4 x float>* %2, i32 %extract27
+  %41 = getelementptr <4 x float>, <4 x float>* %2, i32 %extract
+  %42 = getelementptr <4 x float>, <4 x float>* %2, i32 %extract21
+  %43 = getelementptr <4 x float>, <4 x float>* %2, i32 %extract22
+  %44 = getelementptr <4 x float>, <4 x float>* %2, i32 %extract23
+  %45 = getelementptr <4 x float>, <4 x float>* %2, i32 %extract24
+  %46 = getelementptr <4 x float>, <4 x float>* %2, i32 %extract25
+  %47 = getelementptr <4 x float>, <4 x float>* %2, i32 %extract26
+  %48 = getelementptr <4 x float>, <4 x float>* %2, i32 %extract27
   store <4 x float> %breakdown303, <4 x float>* %41
   store <4 x float> %breakdown304, <4 x float>* %42
   store <4 x float> %breakdown305, <4 x float>* %43
@@ -352,14 +352,14 @@ entry:
 define void @_Z13fast_distanceff_test(float* nocapture, float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %3 = getelementptr float* %0, i32 %gid
+  %3 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %3 to <8 x float>*
   %load_arg8 = load <8 x float>* %ptrTypeCast, align 4
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast9 = bitcast float* %4 to <8 x float>*
-  %load_arg210 = load <8 x float>* %ptrTypeCast9, align 4
+  %load_arg210 = load <8 x float>, <8 x float>* %ptrTypeCast9, align 4
   %5 = tail call <8 x float> @_f_v.__vertical_fast_distance1f8(<8 x float> %load_arg8, <8 x float> %load_arg210)
-  %6 = getelementptr float* %2, i32 %gid
+  %6 = getelementptr float, float* %2, i32 %gid
   %ptrTypeCast11 = bitcast float* %6 to <8 x float>*
   store <8 x float> %5, <8 x float>* %ptrTypeCast11, align 4
   ret void
@@ -386,14 +386,14 @@ entry:
   %extract11 = extractelement <8 x i32> %3, i32 5
   %extract12 = extractelement <8 x i32> %3, i32 6
   %extract13 = extractelement <8 x i32> %3, i32 7
-  %4 = getelementptr <2 x float>* %0, i32 %extract
-  %5 = getelementptr <2 x float>* %0, i32 %extract7
-  %6 = getelementptr <2 x float>* %0, i32 %extract8
-  %7 = getelementptr <2 x float>* %0, i32 %extract9
-  %8 = getelementptr <2 x float>* %0, i32 %extract10
-  %9 = getelementptr <2 x float>* %0, i32 %extract11
-  %10 = getelementptr <2 x float>* %0, i32 %extract12
-  %11 = getelementptr <2 x float>* %0, i32 %extract13
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract7
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract8
+  %7 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract9
+  %8 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract10
+  %9 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract11
+  %10 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract12
+  %11 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract13
   %12 = load <2 x float>* %4
   %13 = load <2 x float>* %5
   %14 = load <2 x float>* %6
@@ -434,14 +434,14 @@ entry:
   %temp.vect49 = insertelement <8 x float> %temp.vect48, float %33, i32 5
   %temp.vect50 = insertelement <8 x float> %temp.vect49, float %34, i32 6
   %temp.vect51 = insertelement <8 x float> %temp.vect50, float %35, i32 7
-  %36 = getelementptr <2 x float>* %1, i32 %extract
-  %37 = getelementptr <2 x float>* %1, i32 %extract7
-  %38 = getelementptr <2 x float>* %1, i32 %extract8
-  %39 = getelementptr <2 x float>* %1, i32 %extract9
-  %40 = getelementptr <2 x float>* %1, i32 %extract10
-  %41 = getelementptr <2 x float>* %1, i32 %extract11
-  %42 = getelementptr <2 x float>* %1, i32 %extract12
-  %43 = getelementptr <2 x float>* %1, i32 %extract13
+  %36 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract
+  %37 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract7
+  %38 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract8
+  %39 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract9
+  %40 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract10
+  %41 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract11
+  %42 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract12
+  %43 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract13
   %44 = load <2 x float>* %36
   %45 = load <2 x float>* %37
   %46 = load <2 x float>* %38
@@ -487,7 +487,7 @@ entry:
   %store.val77 = insertvalue [2 x <8 x float>] undef, <8 x float> %temp.vect76, 0
   %store.val78 = insertvalue [2 x <8 x float>] %store.val77, <8 x float> %temp.vect68, 1
   %68 = tail call <8 x float> @_f_v.__vertical_fast_distance2f8([2 x <8 x float>] %store.val60, [2 x <8 x float>] %store.val78)
-  %69 = getelementptr float* %2, i32 %extract
+  %69 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %69 to <8 x float>*
   store <8 x float> %68, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -514,14 +514,14 @@ entry:
   %extract15 = extractelement <8 x i32> %3, i32 5
   %extract16 = extractelement <8 x i32> %3, i32 6
   %extract17 = extractelement <8 x i32> %3, i32 7
-  %4 = getelementptr <3 x float>* %0, i32 %extract
-  %5 = getelementptr <3 x float>* %0, i32 %extract11
-  %6 = getelementptr <3 x float>* %0, i32 %extract12
-  %7 = getelementptr <3 x float>* %0, i32 %extract13
-  %8 = getelementptr <3 x float>* %0, i32 %extract14
-  %9 = getelementptr <3 x float>* %0, i32 %extract15
-  %10 = getelementptr <3 x float>* %0, i32 %extract16
-  %11 = getelementptr <3 x float>* %0, i32 %extract17
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract12
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract13
+  %8 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract14
+  %9 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract15
+  %10 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract16
+  %11 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract17
   %12 = load <3 x float>* %4
   %13 = load <3 x float>* %5
   %14 = load <3 x float>* %6
@@ -578,14 +578,14 @@ entry:
   %temp.vect69 = insertelement <8 x float> %temp.vect68, float %41, i32 5
   %temp.vect70 = insertelement <8 x float> %temp.vect69, float %42, i32 6
   %temp.vect71 = insertelement <8 x float> %temp.vect70, float %43, i32 7
-  %44 = getelementptr <3 x float>* %1, i32 %extract
-  %45 = getelementptr <3 x float>* %1, i32 %extract11
-  %46 = getelementptr <3 x float>* %1, i32 %extract12
-  %47 = getelementptr <3 x float>* %1, i32 %extract13
-  %48 = getelementptr <3 x float>* %1, i32 %extract14
-  %49 = getelementptr <3 x float>* %1, i32 %extract15
-  %50 = getelementptr <3 x float>* %1, i32 %extract16
-  %51 = getelementptr <3 x float>* %1, i32 %extract17
+  %44 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract
+  %45 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract11
+  %46 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract12
+  %47 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract13
+  %48 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract14
+  %49 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract15
+  %50 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract16
+  %51 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract17
   %52 = load <3 x float>* %44
   %53 = load <3 x float>* %45
   %54 = load <3 x float>* %46
@@ -649,7 +649,7 @@ entry:
   %store.val115 = insertvalue [3 x <8 x float>] %store.val114, <8 x float> %temp.vect105, 1
   %store.val116 = insertvalue [3 x <8 x float>] %store.val115, <8 x float> %temp.vect97, 2
   %84 = tail call <8 x float> @_f_v.__vertical_fast_distance3f8([3 x <8 x float>] %store.val89, [3 x <8 x float>] %store.val116)
-  %85 = getelementptr float* %2, i32 %extract
+  %85 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %85 to <8 x float>*
   store <8 x float> %84, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -676,14 +676,14 @@ entry:
   %extract19 = extractelement <8 x i32> %3, i32 5
   %extract20 = extractelement <8 x i32> %3, i32 6
   %extract21 = extractelement <8 x i32> %3, i32 7
-  %4 = getelementptr <4 x float>* %0, i32 %extract
-  %5 = getelementptr <4 x float>* %0, i32 %extract15
-  %6 = getelementptr <4 x float>* %0, i32 %extract16
-  %7 = getelementptr <4 x float>* %0, i32 %extract17
-  %8 = getelementptr <4 x float>* %0, i32 %extract18
-  %9 = getelementptr <4 x float>* %0, i32 %extract19
-  %10 = getelementptr <4 x float>* %0, i32 %extract20
-  %11 = getelementptr <4 x float>* %0, i32 %extract21
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract15
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract16
+  %7 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract17
+  %8 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract18
+  %9 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract19
+  %10 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract20
+  %11 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract21
   %12 = load <4 x float>* %4
   %13 = load <4 x float>* %5
   %14 = load <4 x float>* %6
@@ -712,14 +712,14 @@ entry:
   %Seq_64_380 = shufflevector <8 x float> %Seq_128_1, <8 x float> %Seq_128_3, <8 x i32> <i32 2, i32 3, i32 10, i32 11, i32 6, i32 7, i32 14, i32 15>
   %Seq_32_287 = shufflevector <8 x float> %Seq_64_279, <8 x float> %Seq_64_380, <8 x i32> <i32 0, i32 8, i32 2, i32 10, i32 4, i32 12, i32 6, i32 14>
   %Seq_32_3120 = shufflevector <8 x float> %Seq_64_279, <8 x float> %Seq_64_380, <8 x i32> <i32 1, i32 9, i32 3, i32 11, i32 5, i32 13, i32 7, i32 15>
-  %20 = getelementptr <4 x float>* %1, i32 %extract
-  %21 = getelementptr <4 x float>* %1, i32 %extract15
-  %22 = getelementptr <4 x float>* %1, i32 %extract16
-  %23 = getelementptr <4 x float>* %1, i32 %extract17
-  %24 = getelementptr <4 x float>* %1, i32 %extract18
-  %25 = getelementptr <4 x float>* %1, i32 %extract19
-  %26 = getelementptr <4 x float>* %1, i32 %extract20
-  %27 = getelementptr <4 x float>* %1, i32 %extract21
+  %20 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract
+  %21 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract15
+  %22 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract16
+  %23 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract17
+  %24 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract18
+  %25 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract19
+  %26 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract20
+  %27 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract21
   %28 = load <4 x float>* %20
   %29 = load <4 x float>* %21
   %30 = load <4 x float>* %22
@@ -757,7 +757,7 @@ entry:
   %store.val287 = insertvalue [4 x <8 x float>] %store.val286, <8 x float> %Seq_32_2215, 2
   %store.val288 = insertvalue [4 x <8 x float>] %store.val287, <8 x float> %Seq_32_3248, 3
   %36 = tail call <8 x float> @_f_v.__vertical_fast_distance4f8([4 x <8 x float>] %store.val284, [4 x <8 x float>] %store.val288)
-  %37 = getelementptr float* %2, i32 %extract
+  %37 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %37 to <8 x float>*
   store <8 x float> %36, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -773,14 +773,14 @@ entry:
 define void @_Z8distanceff_test(float* nocapture, float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %3 = getelementptr float* %0, i32 %gid
+  %3 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %3 to <8 x float>*
   %load_arg8 = load <8 x float>* %ptrTypeCast, align 4
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast9 = bitcast float* %4 to <8 x float>*
-  %load_arg210 = load <8 x float>* %ptrTypeCast9, align 4
+  %load_arg210 = load <8 x float>, <8 x float>* %ptrTypeCast9, align 4
   %5 = tail call <8 x float> @_f_v.__vertical_distance1f8(<8 x float> %load_arg8, <8 x float> %load_arg210)
-  %6 = getelementptr float* %2, i32 %gid
+  %6 = getelementptr float, float* %2, i32 %gid
   %ptrTypeCast11 = bitcast float* %6 to <8 x float>*
   store <8 x float> %5, <8 x float>* %ptrTypeCast11, align 4
   ret void
@@ -796,11 +796,11 @@ entry:
 define void @_Z6lengthf_test(float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %2 = getelementptr float* %0, i32 %gid
+  %2 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %2 to <8 x float>*
-  %load_arg8 = load <8 x float>* %ptrTypeCast, align 4
+  %load_arg8 = load <8 x float>, <8 x float>* %ptrTypeCast, align 4
   %3 = tail call <8 x float> @_f_v.__vertical_length1f8(<8 x float> %load_arg8)
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast9 = bitcast float* %4 to <8 x float>*
   store <8 x float> %3, <8 x float>* %ptrTypeCast9, align 4
   ret void
@@ -827,14 +827,14 @@ entry:
   %extract11 = extractelement <8 x i32> %3, i32 5
   %extract12 = extractelement <8 x i32> %3, i32 6
   %extract13 = extractelement <8 x i32> %3, i32 7
-  %4 = getelementptr <2 x float>* %0, i32 %extract
-  %5 = getelementptr <2 x float>* %0, i32 %extract7
-  %6 = getelementptr <2 x float>* %0, i32 %extract8
-  %7 = getelementptr <2 x float>* %0, i32 %extract9
-  %8 = getelementptr <2 x float>* %0, i32 %extract10
-  %9 = getelementptr <2 x float>* %0, i32 %extract11
-  %10 = getelementptr <2 x float>* %0, i32 %extract12
-  %11 = getelementptr <2 x float>* %0, i32 %extract13
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract7
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract8
+  %7 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract9
+  %8 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract10
+  %9 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract11
+  %10 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract12
+  %11 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract13
   %12 = load <2 x float>* %4
   %13 = load <2 x float>* %5
   %14 = load <2 x float>* %6
@@ -875,14 +875,14 @@ entry:
   %temp.vect49 = insertelement <8 x float> %temp.vect48, float %33, i32 5
   %temp.vect50 = insertelement <8 x float> %temp.vect49, float %34, i32 6
   %temp.vect51 = insertelement <8 x float> %temp.vect50, float %35, i32 7
-  %36 = getelementptr <2 x float>* %1, i32 %extract
-  %37 = getelementptr <2 x float>* %1, i32 %extract7
-  %38 = getelementptr <2 x float>* %1, i32 %extract8
-  %39 = getelementptr <2 x float>* %1, i32 %extract9
-  %40 = getelementptr <2 x float>* %1, i32 %extract10
-  %41 = getelementptr <2 x float>* %1, i32 %extract11
-  %42 = getelementptr <2 x float>* %1, i32 %extract12
-  %43 = getelementptr <2 x float>* %1, i32 %extract13
+  %36 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract
+  %37 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract7
+  %38 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract8
+  %39 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract9
+  %40 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract10
+  %41 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract11
+  %42 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract12
+  %43 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract13
   %44 = load <2 x float>* %36
   %45 = load <2 x float>* %37
   %46 = load <2 x float>* %38
@@ -928,7 +928,7 @@ entry:
   %store.val77 = insertvalue [2 x <8 x float>] undef, <8 x float> %temp.vect76, 0
   %store.val78 = insertvalue [2 x <8 x float>] %store.val77, <8 x float> %temp.vect68, 1
   %68 = tail call <8 x float> @_f_v.__vertical_distance2f8([2 x <8 x float>] %store.val60, [2 x <8 x float>] %store.val78)
-  %69 = getelementptr float* %2, i32 %extract
+  %69 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %69 to <8 x float>*
   store <8 x float> %68, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -955,14 +955,14 @@ entry:
   %extract7 = extractelement <8 x i32> %2, i32 5
   %extract8 = extractelement <8 x i32> %2, i32 6
   %extract9 = extractelement <8 x i32> %2, i32 7
-  %3 = getelementptr <2 x float>* %0, i32 %extract
-  %4 = getelementptr <2 x float>* %0, i32 %extract3
-  %5 = getelementptr <2 x float>* %0, i32 %extract4
-  %6 = getelementptr <2 x float>* %0, i32 %extract5
-  %7 = getelementptr <2 x float>* %0, i32 %extract6
-  %8 = getelementptr <2 x float>* %0, i32 %extract7
-  %9 = getelementptr <2 x float>* %0, i32 %extract8
-  %10 = getelementptr <2 x float>* %0, i32 %extract9
+  %3 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract3
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract4
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract5
+  %7 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract6
+  %8 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract7
+  %9 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract8
+  %10 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract9
   %11 = load <2 x float>* %3
   %12 = load <2 x float>* %4
   %13 = load <2 x float>* %5
@@ -1006,7 +1006,7 @@ entry:
   %store.val = insertvalue [2 x <8 x float>] undef, <8 x float> %temp.vect39, 0
   %store.val40 = insertvalue [2 x <8 x float>] %store.val, <8 x float> %temp.vect31, 1
   %35 = tail call <8 x float> @_f_v.__vertical_length2f8([2 x <8 x float>] %store.val40)
-  %36 = getelementptr float* %1, i32 %extract
+  %36 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %36 to <8 x float>*
   store <8 x float> %35, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -1033,14 +1033,14 @@ entry:
   %extract15 = extractelement <8 x i32> %3, i32 5
   %extract16 = extractelement <8 x i32> %3, i32 6
   %extract17 = extractelement <8 x i32> %3, i32 7
-  %4 = getelementptr <3 x float>* %0, i32 %extract
-  %5 = getelementptr <3 x float>* %0, i32 %extract11
-  %6 = getelementptr <3 x float>* %0, i32 %extract12
-  %7 = getelementptr <3 x float>* %0, i32 %extract13
-  %8 = getelementptr <3 x float>* %0, i32 %extract14
-  %9 = getelementptr <3 x float>* %0, i32 %extract15
-  %10 = getelementptr <3 x float>* %0, i32 %extract16
-  %11 = getelementptr <3 x float>* %0, i32 %extract17
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract12
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract13
+  %8 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract14
+  %9 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract15
+  %10 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract16
+  %11 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract17
   %12 = load <3 x float>* %4
   %13 = load <3 x float>* %5
   %14 = load <3 x float>* %6
@@ -1097,14 +1097,14 @@ entry:
   %temp.vect69 = insertelement <8 x float> %temp.vect68, float %41, i32 5
   %temp.vect70 = insertelement <8 x float> %temp.vect69, float %42, i32 6
   %temp.vect71 = insertelement <8 x float> %temp.vect70, float %43, i32 7
-  %44 = getelementptr <3 x float>* %1, i32 %extract
-  %45 = getelementptr <3 x float>* %1, i32 %extract11
-  %46 = getelementptr <3 x float>* %1, i32 %extract12
-  %47 = getelementptr <3 x float>* %1, i32 %extract13
-  %48 = getelementptr <3 x float>* %1, i32 %extract14
-  %49 = getelementptr <3 x float>* %1, i32 %extract15
-  %50 = getelementptr <3 x float>* %1, i32 %extract16
-  %51 = getelementptr <3 x float>* %1, i32 %extract17
+  %44 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract
+  %45 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract11
+  %46 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract12
+  %47 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract13
+  %48 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract14
+  %49 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract15
+  %50 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract16
+  %51 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract17
   %52 = load <3 x float>* %44
   %53 = load <3 x float>* %45
   %54 = load <3 x float>* %46
@@ -1168,7 +1168,7 @@ entry:
   %store.val115 = insertvalue [3 x <8 x float>] %store.val114, <8 x float> %temp.vect105, 1
   %store.val116 = insertvalue [3 x <8 x float>] %store.val115, <8 x float> %temp.vect97, 2
   %84 = tail call <8 x float> @_f_v.__vertical_distance3f8([3 x <8 x float>] %store.val89, [3 x <8 x float>] %store.val116)
-  %85 = getelementptr float* %2, i32 %extract
+  %85 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %85 to <8 x float>*
   store <8 x float> %84, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -1195,14 +1195,14 @@ entry:
   %extract9 = extractelement <8 x i32> %2, i32 5
   %extract10 = extractelement <8 x i32> %2, i32 6
   %extract11 = extractelement <8 x i32> %2, i32 7
-  %3 = getelementptr <3 x float>* %0, i32 %extract
-  %4 = getelementptr <3 x float>* %0, i32 %extract5
-  %5 = getelementptr <3 x float>* %0, i32 %extract6
-  %6 = getelementptr <3 x float>* %0, i32 %extract7
-  %7 = getelementptr <3 x float>* %0, i32 %extract8
-  %8 = getelementptr <3 x float>* %0, i32 %extract9
-  %9 = getelementptr <3 x float>* %0, i32 %extract10
-  %10 = getelementptr <3 x float>* %0, i32 %extract11
+  %3 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract5
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract6
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract7
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract8
+  %8 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract9
+  %9 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract10
+  %10 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
   %11 = load <3 x float>* %3
   %12 = load <3 x float>* %4
   %13 = load <3 x float>* %5
@@ -1263,7 +1263,7 @@ entry:
   %store.val58 = insertvalue [3 x <8 x float>] %store.val, <8 x float> %temp.vect49, 1
   %store.val59 = insertvalue [3 x <8 x float>] %store.val58, <8 x float> %temp.vect41, 2
   %43 = tail call <8 x float> @_f_v.__vertical_length3f8([3 x <8 x float>] %store.val59)
-  %44 = getelementptr float* %1, i32 %extract
+  %44 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %44 to <8 x float>*
   store <8 x float> %43, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -1290,14 +1290,14 @@ entry:
   %extract19 = extractelement <8 x i32> %3, i32 5
   %extract20 = extractelement <8 x i32> %3, i32 6
   %extract21 = extractelement <8 x i32> %3, i32 7
-  %4 = getelementptr <4 x float>* %0, i32 %extract
-  %5 = getelementptr <4 x float>* %0, i32 %extract15
-  %6 = getelementptr <4 x float>* %0, i32 %extract16
-  %7 = getelementptr <4 x float>* %0, i32 %extract17
-  %8 = getelementptr <4 x float>* %0, i32 %extract18
-  %9 = getelementptr <4 x float>* %0, i32 %extract19
-  %10 = getelementptr <4 x float>* %0, i32 %extract20
-  %11 = getelementptr <4 x float>* %0, i32 %extract21
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract15
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract16
+  %7 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract17
+  %8 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract18
+  %9 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract19
+  %10 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract20
+  %11 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract21
   %12 = load <4 x float>* %4
   %13 = load <4 x float>* %5
   %14 = load <4 x float>* %6
@@ -1326,14 +1326,14 @@ entry:
   %Seq_64_380 = shufflevector <8 x float> %Seq_128_1, <8 x float> %Seq_128_3, <8 x i32> <i32 2, i32 3, i32 10, i32 11, i32 6, i32 7, i32 14, i32 15>
   %Seq_32_287 = shufflevector <8 x float> %Seq_64_279, <8 x float> %Seq_64_380, <8 x i32> <i32 0, i32 8, i32 2, i32 10, i32 4, i32 12, i32 6, i32 14>
   %Seq_32_3120 = shufflevector <8 x float> %Seq_64_279, <8 x float> %Seq_64_380, <8 x i32> <i32 1, i32 9, i32 3, i32 11, i32 5, i32 13, i32 7, i32 15>
-  %20 = getelementptr <4 x float>* %1, i32 %extract
-  %21 = getelementptr <4 x float>* %1, i32 %extract15
-  %22 = getelementptr <4 x float>* %1, i32 %extract16
-  %23 = getelementptr <4 x float>* %1, i32 %extract17
-  %24 = getelementptr <4 x float>* %1, i32 %extract18
-  %25 = getelementptr <4 x float>* %1, i32 %extract19
-  %26 = getelementptr <4 x float>* %1, i32 %extract20
-  %27 = getelementptr <4 x float>* %1, i32 %extract21
+  %20 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract
+  %21 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract15
+  %22 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract16
+  %23 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract17
+  %24 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract18
+  %25 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract19
+  %26 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract20
+  %27 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract21
   %28 = load <4 x float>* %20
   %29 = load <4 x float>* %21
   %30 = load <4 x float>* %22
@@ -1371,7 +1371,7 @@ entry:
   %store.val287 = insertvalue [4 x <8 x float>] %store.val286, <8 x float> %Seq_32_2215, 2
   %store.val288 = insertvalue [4 x <8 x float>] %store.val287, <8 x float> %Seq_32_3248, 3
   %36 = tail call <8 x float> @_f_v.__vertical_distance4f8([4 x <8 x float>] %store.val284, [4 x <8 x float>] %store.val288)
-  %37 = getelementptr float* %2, i32 %extract
+  %37 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %37 to <8 x float>*
   store <8 x float> %36, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -1398,14 +1398,14 @@ entry:
   %extract11 = extractelement <8 x i32> %2, i32 5
   %extract12 = extractelement <8 x i32> %2, i32 6
   %extract13 = extractelement <8 x i32> %2, i32 7
-  %3 = getelementptr <4 x float>* %0, i32 %extract
-  %4 = getelementptr <4 x float>* %0, i32 %extract7
-  %5 = getelementptr <4 x float>* %0, i32 %extract8
-  %6 = getelementptr <4 x float>* %0, i32 %extract9
-  %7 = getelementptr <4 x float>* %0, i32 %extract10
-  %8 = getelementptr <4 x float>* %0, i32 %extract11
-  %9 = getelementptr <4 x float>* %0, i32 %extract12
-  %10 = getelementptr <4 x float>* %0, i32 %extract13
+  %3 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract7
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract8
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract9
+  %7 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract10
+  %8 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract11
+  %9 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract12
+  %10 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract13
   %11 = load <4 x float>* %3
   %12 = load <4 x float>* %4
   %13 = load <4 x float>* %5
@@ -1439,7 +1439,7 @@ entry:
   %store.val131 = insertvalue [4 x <8 x float>] %store.val130, <8 x float> %Seq_32_279, 2
   %store.val132 = insertvalue [4 x <8 x float>] %store.val131, <8 x float> %Seq_32_3112, 3
   %19 = tail call <8 x float> @_f_v.__vertical_length4f8([4 x <8 x float>] %store.val132)
-  %20 = getelementptr float* %1, i32 %extract
+  %20 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %20 to <8 x float>*
   store <8 x float> %19, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -1455,14 +1455,14 @@ entry:
 define void @_Z3dotff_test(float* nocapture, float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %3 = getelementptr float* %0, i32 %gid
+  %3 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %3 to <8 x float>*
   %load_arg8 = load <8 x float>* %ptrTypeCast, align 4
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast9 = bitcast float* %4 to <8 x float>*
-  %load_arg210 = load <8 x float>* %ptrTypeCast9, align 4
+  %load_arg210 = load <8 x float>, <8 x float>* %ptrTypeCast9, align 4
   %5 = tail call <8 x float> @_f_v.__vertical_dot1f8(<8 x float> %load_arg8, <8 x float> %load_arg210)
-  %6 = getelementptr float* %2, i32 %gid
+  %6 = getelementptr float, float* %2, i32 %gid
   %ptrTypeCast11 = bitcast float* %6 to <8 x float>*
   store <8 x float> %5, <8 x float>* %ptrTypeCast11, align 4
   ret void
@@ -1489,14 +1489,14 @@ entry:
   %extract11 = extractelement <8 x i32> %3, i32 5
   %extract12 = extractelement <8 x i32> %3, i32 6
   %extract13 = extractelement <8 x i32> %3, i32 7
-  %4 = getelementptr <2 x float>* %0, i32 %extract
-  %5 = getelementptr <2 x float>* %0, i32 %extract7
-  %6 = getelementptr <2 x float>* %0, i32 %extract8
-  %7 = getelementptr <2 x float>* %0, i32 %extract9
-  %8 = getelementptr <2 x float>* %0, i32 %extract10
-  %9 = getelementptr <2 x float>* %0, i32 %extract11
-  %10 = getelementptr <2 x float>* %0, i32 %extract12
-  %11 = getelementptr <2 x float>* %0, i32 %extract13
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract7
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract8
+  %7 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract9
+  %8 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract10
+  %9 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract11
+  %10 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract12
+  %11 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract13
   %12 = load <2 x float>* %4
   %13 = load <2 x float>* %5
   %14 = load <2 x float>* %6
@@ -1537,14 +1537,14 @@ entry:
   %temp.vect49 = insertelement <8 x float> %temp.vect48, float %33, i32 5
   %temp.vect50 = insertelement <8 x float> %temp.vect49, float %34, i32 6
   %temp.vect51 = insertelement <8 x float> %temp.vect50, float %35, i32 7
-  %36 = getelementptr <2 x float>* %1, i32 %extract
-  %37 = getelementptr <2 x float>* %1, i32 %extract7
-  %38 = getelementptr <2 x float>* %1, i32 %extract8
-  %39 = getelementptr <2 x float>* %1, i32 %extract9
-  %40 = getelementptr <2 x float>* %1, i32 %extract10
-  %41 = getelementptr <2 x float>* %1, i32 %extract11
-  %42 = getelementptr <2 x float>* %1, i32 %extract12
-  %43 = getelementptr <2 x float>* %1, i32 %extract13
+  %36 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract
+  %37 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract7
+  %38 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract8
+  %39 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract9
+  %40 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract10
+  %41 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract11
+  %42 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract12
+  %43 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract13
   %44 = load <2 x float>* %36
   %45 = load <2 x float>* %37
   %46 = load <2 x float>* %38
@@ -1590,7 +1590,7 @@ entry:
   %store.val77 = insertvalue [2 x <8 x float>] undef, <8 x float> %temp.vect76, 0
   %store.val78 = insertvalue [2 x <8 x float>] %store.val77, <8 x float> %temp.vect68, 1
   %68 = tail call <8 x float> @_f_v.__vertical_dot2f8([2 x <8 x float>] %store.val60, [2 x <8 x float>] %store.val78)
-  %69 = getelementptr float* %2, i32 %extract
+  %69 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %69 to <8 x float>*
   store <8 x float> %68, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -1617,14 +1617,14 @@ entry:
   %extract15 = extractelement <8 x i32> %3, i32 5
   %extract16 = extractelement <8 x i32> %3, i32 6
   %extract17 = extractelement <8 x i32> %3, i32 7
-  %4 = getelementptr <3 x float>* %0, i32 %extract
-  %5 = getelementptr <3 x float>* %0, i32 %extract11
-  %6 = getelementptr <3 x float>* %0, i32 %extract12
-  %7 = getelementptr <3 x float>* %0, i32 %extract13
-  %8 = getelementptr <3 x float>* %0, i32 %extract14
-  %9 = getelementptr <3 x float>* %0, i32 %extract15
-  %10 = getelementptr <3 x float>* %0, i32 %extract16
-  %11 = getelementptr <3 x float>* %0, i32 %extract17
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract12
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract13
+  %8 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract14
+  %9 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract15
+  %10 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract16
+  %11 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract17
   %12 = load <3 x float>* %4
   %13 = load <3 x float>* %5
   %14 = load <3 x float>* %6
@@ -1681,14 +1681,14 @@ entry:
   %temp.vect69 = insertelement <8 x float> %temp.vect68, float %41, i32 5
   %temp.vect70 = insertelement <8 x float> %temp.vect69, float %42, i32 6
   %temp.vect71 = insertelement <8 x float> %temp.vect70, float %43, i32 7
-  %44 = getelementptr <3 x float>* %1, i32 %extract
-  %45 = getelementptr <3 x float>* %1, i32 %extract11
-  %46 = getelementptr <3 x float>* %1, i32 %extract12
-  %47 = getelementptr <3 x float>* %1, i32 %extract13
-  %48 = getelementptr <3 x float>* %1, i32 %extract14
-  %49 = getelementptr <3 x float>* %1, i32 %extract15
-  %50 = getelementptr <3 x float>* %1, i32 %extract16
-  %51 = getelementptr <3 x float>* %1, i32 %extract17
+  %44 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract
+  %45 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract11
+  %46 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract12
+  %47 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract13
+  %48 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract14
+  %49 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract15
+  %50 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract16
+  %51 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract17
   %52 = load <3 x float>* %44
   %53 = load <3 x float>* %45
   %54 = load <3 x float>* %46
@@ -1752,7 +1752,7 @@ entry:
   %store.val115 = insertvalue [3 x <8 x float>] %store.val114, <8 x float> %temp.vect105, 1
   %store.val116 = insertvalue [3 x <8 x float>] %store.val115, <8 x float> %temp.vect97, 2
   %84 = tail call <8 x float> @_f_v.__vertical_dot3f8([3 x <8 x float>] %store.val89, [3 x <8 x float>] %store.val116)
-  %85 = getelementptr float* %2, i32 %extract
+  %85 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %85 to <8 x float>*
   store <8 x float> %84, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -1779,14 +1779,14 @@ entry:
   %extract19 = extractelement <8 x i32> %3, i32 5
   %extract20 = extractelement <8 x i32> %3, i32 6
   %extract21 = extractelement <8 x i32> %3, i32 7
-  %4 = getelementptr <4 x float>* %0, i32 %extract
-  %5 = getelementptr <4 x float>* %0, i32 %extract15
-  %6 = getelementptr <4 x float>* %0, i32 %extract16
-  %7 = getelementptr <4 x float>* %0, i32 %extract17
-  %8 = getelementptr <4 x float>* %0, i32 %extract18
-  %9 = getelementptr <4 x float>* %0, i32 %extract19
-  %10 = getelementptr <4 x float>* %0, i32 %extract20
-  %11 = getelementptr <4 x float>* %0, i32 %extract21
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract15
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract16
+  %7 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract17
+  %8 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract18
+  %9 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract19
+  %10 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract20
+  %11 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract21
   %12 = load <4 x float>* %4
   %13 = load <4 x float>* %5
   %14 = load <4 x float>* %6
@@ -1815,14 +1815,14 @@ entry:
   %Seq_64_380 = shufflevector <8 x float> %Seq_128_1, <8 x float> %Seq_128_3, <8 x i32> <i32 2, i32 3, i32 10, i32 11, i32 6, i32 7, i32 14, i32 15>
   %Seq_32_287 = shufflevector <8 x float> %Seq_64_279, <8 x float> %Seq_64_380, <8 x i32> <i32 0, i32 8, i32 2, i32 10, i32 4, i32 12, i32 6, i32 14>
   %Seq_32_3120 = shufflevector <8 x float> %Seq_64_279, <8 x float> %Seq_64_380, <8 x i32> <i32 1, i32 9, i32 3, i32 11, i32 5, i32 13, i32 7, i32 15>
-  %20 = getelementptr <4 x float>* %1, i32 %extract
-  %21 = getelementptr <4 x float>* %1, i32 %extract15
-  %22 = getelementptr <4 x float>* %1, i32 %extract16
-  %23 = getelementptr <4 x float>* %1, i32 %extract17
-  %24 = getelementptr <4 x float>* %1, i32 %extract18
-  %25 = getelementptr <4 x float>* %1, i32 %extract19
-  %26 = getelementptr <4 x float>* %1, i32 %extract20
-  %27 = getelementptr <4 x float>* %1, i32 %extract21
+  %20 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract
+  %21 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract15
+  %22 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract16
+  %23 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract17
+  %24 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract18
+  %25 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract19
+  %26 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract20
+  %27 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract21
   %28 = load <4 x float>* %20
   %29 = load <4 x float>* %21
   %30 = load <4 x float>* %22
@@ -1860,7 +1860,7 @@ entry:
   %store.val287 = insertvalue [4 x <8 x float>] %store.val286, <8 x float> %Seq_32_2215, 2
   %store.val288 = insertvalue [4 x <8 x float>] %store.val287, <8 x float> %Seq_32_3248, 3
   %36 = tail call <8 x float> @_f_v.__vertical_dot4f8([4 x <8 x float>] %store.val284, [4 x <8 x float>] %store.val288)
-  %37 = getelementptr float* %2, i32 %extract
+  %37 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %37 to <8 x float>*
   store <8 x float> %36, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -1876,11 +1876,11 @@ entry:
 define void @_Z11fast_lengthf_test(float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %2 = getelementptr float* %0, i32 %gid
+  %2 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %2 to <8 x float>*
-  %load_arg8 = load <8 x float>* %ptrTypeCast, align 4
+  %load_arg8 = load <8 x float>, <8 x float>* %ptrTypeCast, align 4
   %3 = tail call <8 x float> @_f_v.__vertical_fast_length1f8(<8 x float> %load_arg8)
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast9 = bitcast float* %4 to <8 x float>*
   store <8 x float> %3, <8 x float>* %ptrTypeCast9, align 4
   ret void
@@ -1907,14 +1907,14 @@ entry:
   %extract7 = extractelement <8 x i32> %2, i32 5
   %extract8 = extractelement <8 x i32> %2, i32 6
   %extract9 = extractelement <8 x i32> %2, i32 7
-  %3 = getelementptr <2 x float>* %0, i32 %extract
-  %4 = getelementptr <2 x float>* %0, i32 %extract3
-  %5 = getelementptr <2 x float>* %0, i32 %extract4
-  %6 = getelementptr <2 x float>* %0, i32 %extract5
-  %7 = getelementptr <2 x float>* %0, i32 %extract6
-  %8 = getelementptr <2 x float>* %0, i32 %extract7
-  %9 = getelementptr <2 x float>* %0, i32 %extract8
-  %10 = getelementptr <2 x float>* %0, i32 %extract9
+  %3 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract3
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract4
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract5
+  %7 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract6
+  %8 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract7
+  %9 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract8
+  %10 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract9
   %11 = load <2 x float>* %3
   %12 = load <2 x float>* %4
   %13 = load <2 x float>* %5
@@ -1958,7 +1958,7 @@ entry:
   %store.val = insertvalue [2 x <8 x float>] undef, <8 x float> %temp.vect39, 0
   %store.val40 = insertvalue [2 x <8 x float>] %store.val, <8 x float> %temp.vect31, 1
   %35 = tail call <8 x float> @_f_v.__vertical_fast_length2f8([2 x <8 x float>] %store.val40)
-  %36 = getelementptr float* %1, i32 %extract
+  %36 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %36 to <8 x float>*
   store <8 x float> %35, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -1985,14 +1985,14 @@ entry:
   %extract9 = extractelement <8 x i32> %2, i32 5
   %extract10 = extractelement <8 x i32> %2, i32 6
   %extract11 = extractelement <8 x i32> %2, i32 7
-  %3 = getelementptr <3 x float>* %0, i32 %extract
-  %4 = getelementptr <3 x float>* %0, i32 %extract5
-  %5 = getelementptr <3 x float>* %0, i32 %extract6
-  %6 = getelementptr <3 x float>* %0, i32 %extract7
-  %7 = getelementptr <3 x float>* %0, i32 %extract8
-  %8 = getelementptr <3 x float>* %0, i32 %extract9
-  %9 = getelementptr <3 x float>* %0, i32 %extract10
-  %10 = getelementptr <3 x float>* %0, i32 %extract11
+  %3 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract5
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract6
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract7
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract8
+  %8 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract9
+  %9 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract10
+  %10 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
   %11 = load <3 x float>* %3
   %12 = load <3 x float>* %4
   %13 = load <3 x float>* %5
@@ -2053,7 +2053,7 @@ entry:
   %store.val58 = insertvalue [3 x <8 x float>] %store.val, <8 x float> %temp.vect49, 1
   %store.val59 = insertvalue [3 x <8 x float>] %store.val58, <8 x float> %temp.vect41, 2
   %43 = tail call <8 x float> @_f_v.__vertical_fast_length3f8([3 x <8 x float>] %store.val59)
-  %44 = getelementptr float* %1, i32 %extract
+  %44 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %44 to <8 x float>*
   store <8 x float> %43, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -2080,14 +2080,14 @@ entry:
   %extract11 = extractelement <8 x i32> %2, i32 5
   %extract12 = extractelement <8 x i32> %2, i32 6
   %extract13 = extractelement <8 x i32> %2, i32 7
-  %3 = getelementptr <4 x float>* %0, i32 %extract
-  %4 = getelementptr <4 x float>* %0, i32 %extract7
-  %5 = getelementptr <4 x float>* %0, i32 %extract8
-  %6 = getelementptr <4 x float>* %0, i32 %extract9
-  %7 = getelementptr <4 x float>* %0, i32 %extract10
-  %8 = getelementptr <4 x float>* %0, i32 %extract11
-  %9 = getelementptr <4 x float>* %0, i32 %extract12
-  %10 = getelementptr <4 x float>* %0, i32 %extract13
+  %3 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract7
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract8
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract9
+  %7 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract10
+  %8 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract11
+  %9 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract12
+  %10 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract13
   %11 = load <4 x float>* %3
   %12 = load <4 x float>* %4
   %13 = load <4 x float>* %5
@@ -2121,7 +2121,7 @@ entry:
   %store.val131 = insertvalue [4 x <8 x float>] %store.val130, <8 x float> %Seq_32_279, 2
   %store.val132 = insertvalue [4 x <8 x float>] %store.val131, <8 x float> %Seq_32_3112, 3
   %19 = tail call <8 x float> @_f_v.__vertical_fast_length4f8([4 x <8 x float>] %store.val132)
-  %20 = getelementptr float* %1, i32 %extract
+  %20 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %20 to <8 x float>*
   store <8 x float> %19, <8 x float>* %ptrTypeCast, align 4
   ret void
@@ -2137,11 +2137,11 @@ entry:
 define void @_Z14fast_normalizef_test(float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %2 = getelementptr float* %0, i32 %gid
+  %2 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %2 to <8 x float>*
-  %load_arg8 = load <8 x float>* %ptrTypeCast, align 4
+  %load_arg8 = load <8 x float>, <8 x float>* %ptrTypeCast, align 4
   %3 = tail call <8 x float> @_f_v.__vertical_fast_normalize1f8(<8 x float> %load_arg8)
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast9 = bitcast float* %4 to <8 x float>*
   store <8 x float> %3, <8 x float>* %ptrTypeCast9, align 4
   ret void
@@ -2168,14 +2168,14 @@ entry:
   %extract9 = extractelement <8 x i32> %2, i32 5
   %extract10 = extractelement <8 x i32> %2, i32 6
   %extract11 = extractelement <8 x i32> %2, i32 7
-  %3 = getelementptr <2 x float>* %0, i32 %extract
-  %4 = getelementptr <2 x float>* %0, i32 %extract5
-  %5 = getelementptr <2 x float>* %0, i32 %extract6
-  %6 = getelementptr <2 x float>* %0, i32 %extract7
-  %7 = getelementptr <2 x float>* %0, i32 %extract8
-  %8 = getelementptr <2 x float>* %0, i32 %extract9
-  %9 = getelementptr <2 x float>* %0, i32 %extract10
-  %10 = getelementptr <2 x float>* %0, i32 %extract11
+  %3 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract5
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract6
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract7
+  %7 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract8
+  %8 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract9
+  %9 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract10
+  %10 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract11
   %11 = load <2 x float>* %3
   %12 = load <2 x float>* %4
   %13 = load <2 x float>* %5
@@ -2231,14 +2231,14 @@ entry:
   %breakdown48 = shufflevector <8 x float> %shuf_transpH, <8 x float> undef, <2 x i32> <i32 4, i32 5>
   %breakdown49 = shufflevector <8 x float> %shuf_transpL, <8 x float> undef, <2 x i32> <i32 6, i32 7>
   %breakdown50 = shufflevector <8 x float> %shuf_transpH, <8 x float> undef, <2 x i32> <i32 6, i32 7>
-  %38 = getelementptr <2 x float>* %1, i32 %extract
-  %39 = getelementptr <2 x float>* %1, i32 %extract5
-  %40 = getelementptr <2 x float>* %1, i32 %extract6
-  %41 = getelementptr <2 x float>* %1, i32 %extract7
-  %42 = getelementptr <2 x float>* %1, i32 %extract8
-  %43 = getelementptr <2 x float>* %1, i32 %extract9
-  %44 = getelementptr <2 x float>* %1, i32 %extract10
-  %45 = getelementptr <2 x float>* %1, i32 %extract11
+  %38 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract
+  %39 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract5
+  %40 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract6
+  %41 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract7
+  %42 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract8
+  %43 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract9
+  %44 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract10
+  %45 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract11
   store <2 x float> %breakdown, <2 x float>* %38
   store <2 x float> %breakdown44, <2 x float>* %39
   store <2 x float> %breakdown45, <2 x float>* %40
@@ -2271,14 +2271,14 @@ entry:
   %extract13 = extractelement <8 x i32> %2, i32 5
   %extract14 = extractelement <8 x i32> %2, i32 6
   %extract15 = extractelement <8 x i32> %2, i32 7
-  %3 = getelementptr <3 x float>* %0, i32 %extract
-  %4 = getelementptr <3 x float>* %0, i32 %extract9
-  %5 = getelementptr <3 x float>* %0, i32 %extract10
-  %6 = getelementptr <3 x float>* %0, i32 %extract11
-  %7 = getelementptr <3 x float>* %0, i32 %extract12
-  %8 = getelementptr <3 x float>* %0, i32 %extract13
-  %9 = getelementptr <3 x float>* %0, i32 %extract14
-  %10 = getelementptr <3 x float>* %0, i32 %extract15
+  %3 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract9
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract10
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract12
+  %8 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract13
+  %9 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract14
+  %10 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract15
   %11 = load <3 x float>* %3
   %12 = load <3 x float>* %4
   %13 = load <3 x float>* %5
@@ -2357,14 +2357,14 @@ entry:
   %breakdown75 = shufflevector <8 x float> %shuf_transpH68, <8 x float> undef, <3 x i32> <i32 4, i32 5, i32 6>
   %breakdown76 = shufflevector <8 x float> %shuf_transpL69, <8 x float> undef, <3 x i32> <i32 4, i32 5, i32 6>
   %breakdown77 = shufflevector <8 x float> %shuf_transpH70, <8 x float> undef, <3 x i32> <i32 4, i32 5, i32 6>
-  %47 = getelementptr <3 x float>* %1, i32 %extract
-  %48 = getelementptr <3 x float>* %1, i32 %extract9
-  %49 = getelementptr <3 x float>* %1, i32 %extract10
-  %50 = getelementptr <3 x float>* %1, i32 %extract11
-  %51 = getelementptr <3 x float>* %1, i32 %extract12
-  %52 = getelementptr <3 x float>* %1, i32 %extract13
-  %53 = getelementptr <3 x float>* %1, i32 %extract14
-  %54 = getelementptr <3 x float>* %1, i32 %extract15
+  %47 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract
+  %48 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract9
+  %49 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract10
+  %50 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract11
+  %51 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract12
+  %52 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract13
+  %53 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract14
+  %54 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract15
   store <3 x float> %breakdown, <3 x float>* %47
   store <3 x float> %breakdown71, <3 x float>* %48
   store <3 x float> %breakdown72, <3 x float>* %49
@@ -2397,14 +2397,14 @@ entry:
   %extract17 = extractelement <8 x i32> %2, i32 5
   %extract18 = extractelement <8 x i32> %2, i32 6
   %extract19 = extractelement <8 x i32> %2, i32 7
-  %3 = getelementptr <4 x float>* %0, i32 %extract
-  %4 = getelementptr <4 x float>* %0, i32 %extract13
-  %5 = getelementptr <4 x float>* %0, i32 %extract14
-  %6 = getelementptr <4 x float>* %0, i32 %extract15
-  %7 = getelementptr <4 x float>* %0, i32 %extract16
-  %8 = getelementptr <4 x float>* %0, i32 %extract17
-  %9 = getelementptr <4 x float>* %0, i32 %extract18
-  %10 = getelementptr <4 x float>* %0, i32 %extract19
+  %3 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract13
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract14
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract15
+  %7 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract16
+  %8 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract17
+  %9 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract18
+  %10 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract19
   %11 = load <4 x float>* %3
   %12 = load <4 x float>* %4
   %13 = load <4 x float>* %5
@@ -2458,14 +2458,14 @@ entry:
   %breakdown152 = shufflevector <8 x float> %shuf_transpH144, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
   %breakdown153 = shufflevector <8 x float> %shuf_transpL145, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
   %breakdown154 = shufflevector <8 x float> %shuf_transpH146, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %24 = getelementptr <4 x float>* %1, i32 %extract
-  %25 = getelementptr <4 x float>* %1, i32 %extract13
-  %26 = getelementptr <4 x float>* %1, i32 %extract14
-  %27 = getelementptr <4 x float>* %1, i32 %extract15
-  %28 = getelementptr <4 x float>* %1, i32 %extract16
-  %29 = getelementptr <4 x float>* %1, i32 %extract17
-  %30 = getelementptr <4 x float>* %1, i32 %extract18
-  %31 = getelementptr <4 x float>* %1, i32 %extract19
+  %24 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract
+  %25 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract13
+  %26 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract14
+  %27 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract15
+  %28 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract16
+  %29 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract17
+  %30 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract18
+  %31 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract19
   store <4 x float> %breakdown147, <4 x float>* %24
   store <4 x float> %breakdown148, <4 x float>* %25
   store <4 x float> %breakdown149, <4 x float>* %26
@@ -2487,11 +2487,11 @@ entry:
 define void @_Z9normalizef_test(float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %2 = getelementptr float* %0, i32 %gid
+  %2 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %2 to <8 x float>*
-  %load_arg8 = load <8 x float>* %ptrTypeCast, align 4
+  %load_arg8 = load <8 x float>, <8 x float>* %ptrTypeCast, align 4
   %3 = tail call <8 x float> @_f_v.__vertical_normalize1f8(<8 x float> %load_arg8)
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast9 = bitcast float* %4 to <8 x float>*
   store <8 x float> %3, <8 x float>* %ptrTypeCast9, align 4
   ret void
@@ -2518,14 +2518,14 @@ entry:
   %extract9 = extractelement <8 x i32> %2, i32 5
   %extract10 = extractelement <8 x i32> %2, i32 6
   %extract11 = extractelement <8 x i32> %2, i32 7
-  %3 = getelementptr <2 x float>* %0, i32 %extract
-  %4 = getelementptr <2 x float>* %0, i32 %extract5
-  %5 = getelementptr <2 x float>* %0, i32 %extract6
-  %6 = getelementptr <2 x float>* %0, i32 %extract7
-  %7 = getelementptr <2 x float>* %0, i32 %extract8
-  %8 = getelementptr <2 x float>* %0, i32 %extract9
-  %9 = getelementptr <2 x float>* %0, i32 %extract10
-  %10 = getelementptr <2 x float>* %0, i32 %extract11
+  %3 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract5
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract6
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract7
+  %7 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract8
+  %8 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract9
+  %9 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract10
+  %10 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract11
   %11 = load <2 x float>* %3
   %12 = load <2 x float>* %4
   %13 = load <2 x float>* %5
@@ -2581,14 +2581,14 @@ entry:
   %breakdown48 = shufflevector <8 x float> %shuf_transpH, <8 x float> undef, <2 x i32> <i32 4, i32 5>
   %breakdown49 = shufflevector <8 x float> %shuf_transpL, <8 x float> undef, <2 x i32> <i32 6, i32 7>
   %breakdown50 = shufflevector <8 x float> %shuf_transpH, <8 x float> undef, <2 x i32> <i32 6, i32 7>
-  %38 = getelementptr <2 x float>* %1, i32 %extract
-  %39 = getelementptr <2 x float>* %1, i32 %extract5
-  %40 = getelementptr <2 x float>* %1, i32 %extract6
-  %41 = getelementptr <2 x float>* %1, i32 %extract7
-  %42 = getelementptr <2 x float>* %1, i32 %extract8
-  %43 = getelementptr <2 x float>* %1, i32 %extract9
-  %44 = getelementptr <2 x float>* %1, i32 %extract10
-  %45 = getelementptr <2 x float>* %1, i32 %extract11
+  %38 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract
+  %39 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract5
+  %40 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract6
+  %41 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract7
+  %42 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract8
+  %43 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract9
+  %44 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract10
+  %45 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract11
   store <2 x float> %breakdown, <2 x float>* %38
   store <2 x float> %breakdown44, <2 x float>* %39
   store <2 x float> %breakdown45, <2 x float>* %40
@@ -2621,14 +2621,14 @@ entry:
   %extract13 = extractelement <8 x i32> %2, i32 5
   %extract14 = extractelement <8 x i32> %2, i32 6
   %extract15 = extractelement <8 x i32> %2, i32 7
-  %3 = getelementptr <3 x float>* %0, i32 %extract
-  %4 = getelementptr <3 x float>* %0, i32 %extract9
-  %5 = getelementptr <3 x float>* %0, i32 %extract10
-  %6 = getelementptr <3 x float>* %0, i32 %extract11
-  %7 = getelementptr <3 x float>* %0, i32 %extract12
-  %8 = getelementptr <3 x float>* %0, i32 %extract13
-  %9 = getelementptr <3 x float>* %0, i32 %extract14
-  %10 = getelementptr <3 x float>* %0, i32 %extract15
+  %3 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract9
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract10
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract12
+  %8 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract13
+  %9 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract14
+  %10 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract15
   %11 = load <3 x float>* %3
   %12 = load <3 x float>* %4
   %13 = load <3 x float>* %5
@@ -2707,14 +2707,14 @@ entry:
   %breakdown75 = shufflevector <8 x float> %shuf_transpH68, <8 x float> undef, <3 x i32> <i32 4, i32 5, i32 6>
   %breakdown76 = shufflevector <8 x float> %shuf_transpL69, <8 x float> undef, <3 x i32> <i32 4, i32 5, i32 6>
   %breakdown77 = shufflevector <8 x float> %shuf_transpH70, <8 x float> undef, <3 x i32> <i32 4, i32 5, i32 6>
-  %47 = getelementptr <3 x float>* %1, i32 %extract
-  %48 = getelementptr <3 x float>* %1, i32 %extract9
-  %49 = getelementptr <3 x float>* %1, i32 %extract10
-  %50 = getelementptr <3 x float>* %1, i32 %extract11
-  %51 = getelementptr <3 x float>* %1, i32 %extract12
-  %52 = getelementptr <3 x float>* %1, i32 %extract13
-  %53 = getelementptr <3 x float>* %1, i32 %extract14
-  %54 = getelementptr <3 x float>* %1, i32 %extract15
+  %47 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract
+  %48 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract9
+  %49 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract10
+  %50 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract11
+  %51 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract12
+  %52 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract13
+  %53 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract14
+  %54 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract15
   store <3 x float> %breakdown, <3 x float>* %47
   store <3 x float> %breakdown71, <3 x float>* %48
   store <3 x float> %breakdown72, <3 x float>* %49
@@ -2747,14 +2747,14 @@ entry:
   %extract17 = extractelement <8 x i32> %2, i32 5
   %extract18 = extractelement <8 x i32> %2, i32 6
   %extract19 = extractelement <8 x i32> %2, i32 7
-  %3 = getelementptr <4 x float>* %0, i32 %extract
-  %4 = getelementptr <4 x float>* %0, i32 %extract13
-  %5 = getelementptr <4 x float>* %0, i32 %extract14
-  %6 = getelementptr <4 x float>* %0, i32 %extract15
-  %7 = getelementptr <4 x float>* %0, i32 %extract16
-  %8 = getelementptr <4 x float>* %0, i32 %extract17
-  %9 = getelementptr <4 x float>* %0, i32 %extract18
-  %10 = getelementptr <4 x float>* %0, i32 %extract19
+  %3 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract13
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract14
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract15
+  %7 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract16
+  %8 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract17
+  %9 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract18
+  %10 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract19
   %11 = load <4 x float>* %3
   %12 = load <4 x float>* %4
   %13 = load <4 x float>* %5
@@ -2808,14 +2808,14 @@ entry:
   %breakdown152 = shufflevector <8 x float> %shuf_transpH144, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
   %breakdown153 = shufflevector <8 x float> %shuf_transpL145, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
   %breakdown154 = shufflevector <8 x float> %shuf_transpH146, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %24 = getelementptr <4 x float>* %1, i32 %extract
-  %25 = getelementptr <4 x float>* %1, i32 %extract13
-  %26 = getelementptr <4 x float>* %1, i32 %extract14
-  %27 = getelementptr <4 x float>* %1, i32 %extract15
-  %28 = getelementptr <4 x float>* %1, i32 %extract16
-  %29 = getelementptr <4 x float>* %1, i32 %extract17
-  %30 = getelementptr <4 x float>* %1, i32 %extract18
-  %31 = getelementptr <4 x float>* %1, i32 %extract19
+  %24 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract
+  %25 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract13
+  %26 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract14
+  %27 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract15
+  %28 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract16
+  %29 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract17
+  %30 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract18
+  %31 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract19
   store <4 x float> %breakdown147, <4 x float>* %24
   store <4 x float> %breakdown148, <4 x float>* %25
   store <4 x float> %breakdown149, <4 x float>* %26
@@ -2848,14 +2848,14 @@ entry:
   %extract13 = extractelement <8 x i32> %3, i32 5
   %extract14 = extractelement <8 x i32> %3, i32 6
   %extract15 = extractelement <8 x i32> %3, i32 7
-  %4 = getelementptr <3 x float>* %0, i32 %extract
-  %5 = getelementptr <3 x float>* %0, i32 %extract9
-  %6 = getelementptr <3 x float>* %0, i32 %extract10
-  %7 = getelementptr <3 x float>* %0, i32 %extract11
-  %8 = getelementptr <3 x float>* %0, i32 %extract12
-  %9 = getelementptr <3 x float>* %0, i32 %extract13
-  %10 = getelementptr <3 x float>* %0, i32 %extract14
-  %11 = getelementptr <3 x float>* %0, i32 %extract15
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract9
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract10
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
+  %8 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract12
+  %9 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract13
+  %10 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract14
+  %11 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract15
   %12 = load <3 x float>* %4
   %13 = load <3 x float>* %5
   %14 = load <3 x float>* %6
@@ -2912,9 +2912,9 @@ entry:
   %temp.vect45 = insertelement <8 x float> %temp.vect44, float %41, i32 5
   %temp.vect46 = insertelement <8 x float> %temp.vect45, float %42, i32 6
   %temp.vect47 = insertelement <8 x float> %temp.vect46, float %43, i32 7
-  %44 = getelementptr float* %1, i32 %extract
+  %44 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %44 to <8 x float>*
-  %load_arg239 = load <8 x float>* %ptrTypeCast, align 4
+  %load_arg239 = load <8 x float>, <8 x float>* %ptrTypeCast, align 4
   %store.val = insertvalue [3 x <8 x float>] undef, <8 x float> %temp.vect63, 0
   %store.val64 = insertvalue [3 x <8 x float>] %store.val, <8 x float> %temp.vect55, 1
   %store.val65 = insertvalue [3 x <8 x float>] %store.val64, <8 x float> %temp.vect47, 2
@@ -2937,14 +2937,14 @@ entry:
   %breakdown76 = shufflevector <8 x float> %shuf_transpH69, <8 x float> undef, <3 x i32> <i32 4, i32 5, i32 6>
   %breakdown77 = shufflevector <8 x float> %shuf_transpL70, <8 x float> undef, <3 x i32> <i32 4, i32 5, i32 6>
   %breakdown78 = shufflevector <8 x float> %shuf_transpH71, <8 x float> undef, <3 x i32> <i32 4, i32 5, i32 6>
-  %49 = getelementptr <3 x float>* %2, i32 %extract
-  %50 = getelementptr <3 x float>* %2, i32 %extract9
-  %51 = getelementptr <3 x float>* %2, i32 %extract10
-  %52 = getelementptr <3 x float>* %2, i32 %extract11
-  %53 = getelementptr <3 x float>* %2, i32 %extract12
-  %54 = getelementptr <3 x float>* %2, i32 %extract13
-  %55 = getelementptr <3 x float>* %2, i32 %extract14
-  %56 = getelementptr <3 x float>* %2, i32 %extract15
+  %49 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract
+  %50 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract9
+  %51 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract10
+  %52 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract11
+  %53 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract12
+  %54 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract13
+  %55 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract14
+  %56 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract15
   store <3 x float> %breakdown, <3 x float>* %49
   store <3 x float> %breakdown72, <3 x float>* %50
   store <3 x float> %breakdown73, <3 x float>* %51

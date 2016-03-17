@@ -12,13 +12,13 @@ entry:
 
 ; CHECK: @__t1_separated_args
 ;; char arg1 -nobitcast because its already i8* -expected alignment: 1
-; CHECK: [[ARG0_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 0
+; CHECK: [[ARG0_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %pUniformArgs, i32 0
 ; CHECK-NEXT: %explicit_0 = load i8* [[ARG0_BUFF_IDX]], align 1
 ;; struct1 my_struct1 arg2 - 17 bytes noalias - expected alignment:0 - structs are passed byval
-; CHECK-NEXT: [[ARG1_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 1
+; CHECK-NEXT: [[ARG1_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %pUniformArgs, i32 1
 ; CHECK-NEXT: %explicit_1 = bitcast i8* [[ARG1_BUFF_IDX]] to %struct.struct1*, !restrict
 ;; struct2 my_struct2 arg2 - 12 bytes - expected alignment: 0
-; CHECK-NEXT: [[ARG2_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 18
+; CHECK-NEXT: [[ARG2_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %pUniformArgs, i32 18
 ; CHECK-NEXT: %explicit_2 = bitcast i8* [[ARG2_BUFF_IDX]] to %struct.struct2*
 
 

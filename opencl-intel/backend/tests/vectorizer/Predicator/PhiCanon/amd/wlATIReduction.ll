@@ -21,8 +21,8 @@ entry:
   %call1 = call i32 @get_group_id(i32 0) nounwind
   %call2 = call i32 @_Z13get_global_idj(i32 0) nounwind
   %call3 = call i32 @_Z14get_local_sizej(i32 0) nounwind
-  %arrayidx = getelementptr <4 x i32> addrspace(3)* %sdata, i32 %call
-  %arrayidx7 = getelementptr <4 x i32> addrspace(1)* %input, i32 %call2
+  %arrayidx = getelementptr <4 x i32>, <4 x i32> addrspace(3)* %sdata, i32 %call
+  %arrayidx7 = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %input, i32 %call2
   %tmp8 = load <4 x i32> addrspace(1)* %arrayidx7, align 16
   store <4 x i32> %tmp8, <4 x i32> addrspace(3)* %arrayidx, align 16
   call void @_Z7barrierm(i32 1) nounwind
@@ -39,9 +39,9 @@ for.body:                                         ; preds = %for.body.preheader,
   br i1 %cmp14, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
-  %tmp18 = load <4 x i32> addrspace(3)* %arrayidx, align 16
+  %tmp18 = load <4 x i32>, <4 x i32> addrspace(3)* %arrayidx, align 16
   %add = add i32 %storemerge3, %call
-  %arrayidx22 = getelementptr <4 x i32> addrspace(3)* %sdata, i32 %add
+  %arrayidx22 = getelementptr <4 x i32>, <4 x i32> addrspace(3)* %sdata, i32 %add
   %tmp23 = load <4 x i32> addrspace(3)* %arrayidx22, align 16
   %add24 = add <4 x i32> %tmp18, %tmp23
   store <4 x i32> %add24, <4 x i32> addrspace(3)* %arrayidx, align 16
@@ -61,7 +61,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
   br i1 %cmp27, label %if.then28, label %if.end35
 
 if.then28:                                        ; preds = %for.end
-  %arrayidx31 = getelementptr <4 x i32> addrspace(1)* %output, i32 %call1
+  %arrayidx31 = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %output, i32 %call1
   %tmp34 = load <4 x i32> addrspace(3)* %sdata, align 16
   store <4 x i32> %tmp34, <4 x i32> addrspace(1)* %arrayidx31, align 16
   br label %if.end35

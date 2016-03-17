@@ -26,12 +26,12 @@ bb2.preheader:                                    ; preds = %entry
 
 bb1:                                              ; preds = %bb1, %entry
   %n_addr.04 = phi %struct.LLIST* [ %7, %bb1 ], [ %n, %entry ] ; <%struct.LLIST*> [#uses=3]
-  %2 = getelementptr inbounds %struct.LLIST* %n_addr.04, i64 0, i32 0 ; <i32*> [#uses=1]
+  %2 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %n_addr.04, i64 0, i32 0 ; <i32*> [#uses=1]
   %3 = load i32* %2, align 8                      ; <i32> [#uses=1]
-  %4 = getelementptr inbounds %struct.LLIST* %n_addr.04, i64 0, i32 1 ; <%struct.LLIST**> [#uses=2]
+  %4 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %n_addr.04, i64 0, i32 1 ; <%struct.LLIST**> [#uses=2]
   %5 = load %struct.LLIST** %4, align 8           ; <%struct.LLIST*> [#uses=1]
   %6 = tail call i32 (i8*, ...)* @printf(i8* noalias getelementptr inbounds ([16 x i8]* @.str1, i64 0, i64 0), %struct.LLIST* %n_addr.04, %struct.LLIST* %5, i32 %3) nounwind ; <i32> [#uses=0]
-  %7 = load %struct.LLIST** %4, align 8           ; <%struct.LLIST*> [#uses=2]
+  %7 = load %struct.LLIST*, %struct.LLIST** %4, align 8           ; <%struct.LLIST*> [#uses=2]
   %8 = icmp eq %struct.LLIST* %7, null            ; <i1> [#uses=1]
   br i1 %8, label %return, label %bb1
 

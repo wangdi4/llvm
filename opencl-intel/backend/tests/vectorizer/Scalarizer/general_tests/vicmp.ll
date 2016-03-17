@@ -20,7 +20,7 @@ target triple = "i686-pc-win32"
 
 define void @vicmp(float addrspace(1)* nocapture %in, float addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
-  %2 = load float addrspace(1)* %in               ; <float> [#uses=1]
+  %2 = load float, float addrspace(1)* %in               ; <float> [#uses=1]
   %3 = fptoui float %2 to i64                     ; <i64> [#uses=2]
   %4 = insertelement <2 x i64> undef, i64 %3, i32 0 ; <<2 x i64>> [#uses=1]
   %5 = insertelement <2 x i64> %4, i64 %3, i32 1  ; <<2 x i64>> [#uses=1]
@@ -30,7 +30,7 @@ define void @vicmp(float addrspace(1)* nocapture %in, float addrspace(1)* nocapt
   %9 = extractelement <2 x i64> %7, i32 1         ; <i64> [#uses=1]
   %10 = add nsw i64 %8, %9                        ; <i64> [#uses=1]
   %11 = sitofp i64 %10 to float                   ; <float> [#uses=1]
-  %12 = getelementptr inbounds float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
+  %12 = getelementptr inbounds float, float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
   store float %11, float addrspace(1)* %12
   ret void
 }

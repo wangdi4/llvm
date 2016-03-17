@@ -101,9 +101,9 @@ entry:
   %xor70 = xor <4 x i32> %add63, %shr69
   %mul71 = mul <4 x i32> %xor70, <i32 1812433253, i32 1812433253, i32 1812433253, i32 1812433253>
   %add73 = add <4 x i32> %mul71, <i32 4, i32 4, i32 4, i32 4>
-  %arraydecay = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 0
-  %arrayidx90 = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 1
-  %arrayidx97 = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 2
+  %arraydecay = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0
+  %arrayidx90 = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 1
+  %arrayidx97 = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 2
   br label %for.body
 
 for.body:                                         ; preds = %entry, %sw.epilog
@@ -146,15 +146,15 @@ sw.bb:                                            ; preds = %LeafBlock
   br label %sw.epilog
 
 sw.bb82:                                          ; preds = %LeafBlock29
-  %tmp84 = load <4 x i32>* %arraydecay, align 16
+  %tmp84 = load <4 x i32>, <4 x i32>* %arraydecay, align 16
   br label %sw.epilog
 
 sw.bb87:                                          ; preds = %LeafBlock31
-  %tmp91 = load <4 x i32>* %arrayidx90, align 16
+  %tmp91 = load <4 x i32>, <4 x i32>* %arrayidx90, align 16
   br label %sw.epilog
 
 sw.bb94:                                          ; preds = %LeafBlock33
-  %tmp98 = load <4 x i32>* %arrayidx97, align 16
+  %tmp98 = load <4 x i32>, <4 x i32>* %arrayidx97, align 16
   br label %sw.epilog
 
 NewDefault:                                       ; preds = %LeafBlock33, %LeafBlock31, %LeafBlock29, %LeafBlock
@@ -193,7 +193,7 @@ sw.epilog:                                        ; preds = %NewDefault, %sw.bb9
   %shr35.i = lshr i32 %tmp32.i13, 24
   %shl40.i = shl i32 %tmp19.i10, 8
   %or41.i14 = or i32 %shr35.i, %shl40.i
-  %arrayidx107 = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 %storemerge28
+  %arrayidx107 = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 %storemerge28
   %tmp114 = extractelement <4 x i32> %tmp19323, i32 0
   %shr117 = lshr i32 %tmp114, 13
   %and119 = and i32 %shr117, 473087
@@ -240,7 +240,7 @@ sw.epilog:                                        ; preds = %NewDefault, %sw.bb9
   br i1 %cmp, label %for.body, label %for.end
 
 for.end:                                          ; preds = %sw.epilog
-  %tmp216 = load <4 x i32>* %arraydecay, align 16
+  %tmp216 = load <4 x i32>, <4 x i32>* %arraydecay, align 16
   %tmp217 = extractelement <4 x i32> %tmp216, i32 0
   %conv = uitofp i32 %tmp217 to float
   %0 = insertelement <4 x float> undef, float %conv, i32 0
@@ -254,7 +254,7 @@ for.end:                                          ; preds = %sw.epilog
   %conv232 = uitofp i32 %tmp231 to float
   %3 = insertelement <4 x float> %2, float %conv232, i32 3
   %div = fdiv <4 x float> %3, <float 0x41F0000000000000, float 0x41F0000000000000, float 0x41F0000000000000, float 0x41F0000000000000>
-  %tmp244 = load <4 x i32>* %arrayidx90, align 16
+  %tmp244 = load <4 x i32>, <4 x i32>* %arrayidx90, align 16
   %tmp245 = extractelement <4 x i32> %tmp244, i32 0
   %conv246 = uitofp i32 %tmp245 to float
   %4 = insertelement <4 x float> undef, float %conv246, i32 0
@@ -278,7 +278,7 @@ for.end:                                          ; preds = %sw.epilog
   %call292 = call <4 x float> @__sinf4(<4 x float> %mul283) nounwind
   %mul293 = fmul <4 x float> %call276, %call292
   store <4 x float> %mul293, <4 x float>* %gaussianRand2, align 16
-  %tmp297 = load <4 x i32>* %arrayidx97, align 16
+  %tmp297 = load <4 x i32>, <4 x i32>* %arrayidx97, align 16
   store <4 x i32> %tmp297, <4 x i32>* %nextRand, align 16
   ret void
 }
@@ -402,17 +402,17 @@ define void @calPriceVega(<4 x float> addrspace(1)* %attrib, i32 %noOfSum, i32 %
 entry:
   %temp.i = alloca [8 x <4 x i32>], align 16
   %tmp1 = load <4 x float> addrspace(1)* %attrib, align 16
-  %arrayidx4 = getelementptr <4 x float> addrspace(1)* %attrib, i32 1
+  %arrayidx4 = getelementptr <4 x float>, <4 x float> addrspace(1)* %attrib, i32 1
   %tmp5 = load <4 x float> addrspace(1)* %arrayidx4, align 16
-  %arrayidx8 = getelementptr <4 x float> addrspace(1)* %attrib, i32 2
+  %arrayidx8 = getelementptr <4 x float>, <4 x float> addrspace(1)* %attrib, i32 2
   %tmp9 = load <4 x float> addrspace(1)* %arrayidx8, align 16
-  %arrayidx12 = getelementptr <4 x float> addrspace(1)* %attrib, i32 3
+  %arrayidx12 = getelementptr <4 x float>, <4 x float> addrspace(1)* %attrib, i32 3
   %tmp13 = load <4 x float> addrspace(1)* %arrayidx12, align 16
-  %arrayidx16 = getelementptr <4 x float> addrspace(1)* %attrib, i32 4
+  %arrayidx16 = getelementptr <4 x float>, <4 x float> addrspace(1)* %attrib, i32 4
   %tmp17 = load <4 x float> addrspace(1)* %arrayidx16, align 16
-  %arrayidx20 = getelementptr <4 x float> addrspace(1)* %attrib, i32 5
+  %arrayidx20 = getelementptr <4 x float>, <4 x float> addrspace(1)* %attrib, i32 5
   %tmp21 = load <4 x float> addrspace(1)* %arrayidx20, align 16
-  %arrayidx24 = getelementptr <4 x float> addrspace(1)* %attrib, i32 6
+  %arrayidx24 = getelementptr <4 x float>, <4 x float> addrspace(1)* %attrib, i32 6
   %tmp25 = load <4 x float> addrspace(1)* %arrayidx24, align 16
   %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %call28 = call i32 @_Z13get_global_idj(i32 1) nounwind
@@ -422,12 +422,12 @@ entry:
   br i1 %cmp12, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
-  %arrayidx63 = getelementptr <4 x i32> addrspace(1)* %randArray, i32 %add
+  %arrayidx63 = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %randArray, i32 %add
   %tmp64 = load <4 x i32> addrspace(1)* %arrayidx63, align 16
   %0 = bitcast [8 x <4 x i32>]* %temp.i to i8*
-  %arraydecay.i = getelementptr [8 x <4 x i32>]* %temp.i, i32 0, i32 0
-  %arrayidx90.i = getelementptr [8 x <4 x i32>]* %temp.i, i32 0, i32 1
-  %arrayidx97.i = getelementptr [8 x <4 x i32>]* %temp.i, i32 0, i32 2
+  %arraydecay.i = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp.i, i32 0, i32 0
+  %arrayidx90.i = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp.i, i32 0, i32 1
+  %arrayidx97.i = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp.i, i32 0, i32 2
   %mul95 = fmul <4 x float> %tmp13, %tmp25
   br label %for.body
 
@@ -499,15 +499,15 @@ sw.bb.i:                                          ; preds = %LeafBlock
   br label %sw.epilog.i
 
 sw.bb82.i:                                        ; preds = %LeafBlock24
-  %tmp84.i = load <4 x i32>* %arraydecay.i, align 16
+  %tmp84.i = load <4 x i32>, <4 x i32>* %arraydecay.i, align 16
   br label %sw.epilog.i
 
 sw.bb87.i:                                        ; preds = %LeafBlock26
-  %tmp91.i = load <4 x i32>* %arrayidx90.i, align 16
+  %tmp91.i = load <4 x i32>, <4 x i32>* %arrayidx90.i, align 16
   br label %sw.epilog.i
 
 sw.bb94.i:                                        ; preds = %LeafBlock28
-  %tmp98.i = load <4 x i32>* %arrayidx97.i, align 16
+  %tmp98.i = load <4 x i32>, <4 x i32>* %arrayidx97.i, align 16
   br label %sw.epilog.i
 
 NewDefault:                                       ; preds = %LeafBlock28, %LeafBlock26, %LeafBlock24, %LeafBlock
@@ -546,7 +546,7 @@ sw.epilog.i:                                      ; preds = %NewDefault, %sw.bb9
   %shr35.i.i = lshr i32 %tmp32.i13.i, 24
   %shl40.i.i = shl i32 %tmp19.i10.i, 8
   %or41.i14.i = or i32 %shr35.i.i, %shl40.i.i
-  %arrayidx107.i = getelementptr [8 x <4 x i32>]* %temp.i, i32 0, i32 %storemerge28.i
+  %arrayidx107.i = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp.i, i32 0, i32 %storemerge28.i
   %tmp114.i = extractelement <4 x i32> %tmp19323.i, i32 0
   %shr117.i = lshr i32 %tmp114.i, 13
   %and119.i = and i32 %shr117.i, 473087
@@ -593,7 +593,7 @@ sw.epilog.i:                                      ; preds = %NewDefault, %sw.bb9
   br i1 %cmp.i, label %for.body.i, label %generateRand.exit
 
 generateRand.exit:                                ; preds = %sw.epilog.i
-  %tmp216.i = load <4 x i32>* %arraydecay.i, align 16
+  %tmp216.i = load <4 x i32>, <4 x i32>* %arraydecay.i, align 16
   %tmp217.i = extractelement <4 x i32> %tmp216.i, i32 0
   %conv.i = uitofp i32 %tmp217.i to float
   %1 = insertelement <4 x float> undef, float %conv.i, i32 0
@@ -607,7 +607,7 @@ generateRand.exit:                                ; preds = %sw.epilog.i
   %conv232.i = uitofp i32 %tmp231.i to float
   %4 = insertelement <4 x float> %3, float %conv232.i, i32 3
   %div.i = fdiv <4 x float> %4, <float 0x41F0000000000000, float 0x41F0000000000000, float 0x41F0000000000000, float 0x41F0000000000000>
-  %tmp244.i = load <4 x i32>* %arrayidx90.i, align 16
+  %tmp244.i = load <4 x i32>, <4 x i32>* %arrayidx90.i, align 16
   %tmp245.i = extractelement <4 x i32> %tmp244.i, i32 0
   %conv246.i = uitofp i32 %tmp245.i to float
   %5 = insertelement <4 x float> undef, float %conv246.i, i32 0
@@ -629,7 +629,7 @@ generateRand.exit:                                ; preds = %sw.epilog.i
   %mul288.i = fmul <4 x float> %call276.i, %call287.i
   %call292.i = call <4 x float> @__sinf4(<4 x float> %mul283.i) nounwind
   %mul293.i = fmul <4 x float> %call276.i, %call292.i
-  %tmp297.i = load <4 x i32>* %arrayidx97.i, align 16
+  %tmp297.i = load <4 x i32>, <4 x i32>* %arrayidx97.i, align 16
   call void @llvm.lifetime.end(i64 -1, i8* %0) nounwind
   %mul75 = fmul <4 x float> %tmp9, %mul288.i
   %add76 = fadd <4 x float> %tmp5, %mul75
@@ -775,14 +775,14 @@ calOutputs.exit:                                  ; preds = %if.end79.i, %if.the
   %mul.i4 = fmul <4 x float> %tmp931.i, %div139
   %mul97.i = fmul <4 x float> %tmp965.i, %div145
   %mul156 = shl i32 %add, 1
-  %arrayidx158 = getelementptr <4 x float> addrspace(1)* %priceSamples, i32 %mul156
+  %arrayidx158 = getelementptr <4 x float>, <4 x float> addrspace(1)* %priceSamples, i32 %mul156
   store <4 x float> %tmp999.i, <4 x float> addrspace(1)* %arrayidx158, align 16
   %add1661 = or i32 %mul156, 1
-  %arrayidx168 = getelementptr <4 x float> addrspace(1)* %priceSamples, i32 %add1661
+  %arrayidx168 = getelementptr <4 x float>, <4 x float> addrspace(1)* %priceSamples, i32 %add1661
   store <4 x float> %tmp10113.i, <4 x float> addrspace(1)* %arrayidx168, align 16
-  %arrayidx177 = getelementptr <4 x float> addrspace(1)* %pathDeriv, i32 %mul156
+  %arrayidx177 = getelementptr <4 x float>, <4 x float> addrspace(1)* %pathDeriv, i32 %mul156
   store <4 x float> %mul.i4, <4 x float> addrspace(1)* %arrayidx177, align 16
-  %arrayidx187 = getelementptr <4 x float> addrspace(1)* %pathDeriv, i32 %add1661
+  %arrayidx187 = getelementptr <4 x float>, <4 x float> addrspace(1)* %pathDeriv, i32 %add1661
   store <4 x float> %mul97.i, <4 x float> addrspace(1)* %arrayidx187, align 16
   ret void
 }

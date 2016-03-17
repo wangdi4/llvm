@@ -7,7 +7,7 @@ define i64 @GLS0() {
 ; CHECK:      [[GropuIDPlusOne:%[a-zA-Z0-9_]+]] = add nsw i64 [[GropuID:%[a-zA-Z0-9_]+]], 1
 ; CHECK-NEXT: [[IsLastGroup:%[a-zA-Z0-9_]+]]    = icmp eq i64 [[NumGroups:%[a-zA-Z0-9_]+]], [[GropuIDPlusOne]]
 ; CHECK-NEXT: [[LocalSizeIdx:%[a-zA-Z0-9_]+]]   = zext i1 [[IsLastGroup]] to i32
-; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 [[LocalSizeIdx]], i32 0
+; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 [[LocalSizeIdx]], i32 0
 ; CHECK:      [[LocalSize:%[a-zA-Z0-9_]+]]       = load i64* [[GEP]]
 ; CHECK:      ret i64 [[LocalSize]]
   %c = tail call i64 @_Z14get_local_sizej(i32 0) nounwind
@@ -18,7 +18,7 @@ define i64 @GLS1() {
 ; CHECK:      [[GropuIDPlusOne:%[a-zA-Z0-9_]+]] = add nsw i64 [[GropuID:%[a-zA-Z0-9_]+]], 1
 ; CHECK-NEXT: [[IsLastGroup:%[a-zA-Z0-9_]+]]    = icmp eq i64 [[NumGroups:%[a-zA-Z0-9_]+]], [[GropuIDPlusOne]]
 ; CHECK-NEXT: [[LocalSizeIdx:%[a-zA-Z0-9_]+]]   = zext i1 [[IsLastGroup]] to i32
-; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 [[LocalSizeIdx]], i32 1
+; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 [[LocalSizeIdx]], i32 1
 ; CHECK:      [[LocalSize:%[a-zA-Z0-9_]+]]       = load i64* [[GEP]]
 ; CHECK:      ret i64 [[LocalSize]]
   %c = tail call i64 @_Z14get_local_sizej(i32 1) nounwind
@@ -29,7 +29,7 @@ define i64 @GLS2() {
 ; CHECK:      [[GropuIDPlusOne:%[a-zA-Z0-9_]+]] = add nsw i64 [[GropuID:%[a-zA-Z0-9_]+]], 1
 ; CHECK-NEXT: [[IsLastGroup:%[a-zA-Z0-9_]+]]    = icmp eq i64 [[NumGroups:%[a-zA-Z0-9_]+]], [[GropuIDPlusOne]]
 ; CHECK-NEXT: [[LocalSizeIdx:%[a-zA-Z0-9_]+]]   = zext i1 [[IsLastGroup]] to i32
-; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 [[LocalSizeIdx]], i32 2
+; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 [[LocalSizeIdx]], i32 2
 ; CHECK:      [[LocalSize:%[a-zA-Z0-9_]+]]       = load i64* [[GEP]]
 ; CHECK:      ret i64 [[LocalSize]]
   %c = tail call i64 @_Z14get_local_sizej(i32 2) nounwind
@@ -40,7 +40,7 @@ define i64 @GLSX(i32 %x) {
 ; CHECK:      [[GropuIDPlusOne:%[a-zA-Z0-9_]+]] = add nsw i64 [[GropuID:%[a-zA-Z0-9_]+]], 1
 ; CHECK-NEXT: [[IsLastGroup:%[a-zA-Z0-9_]+]]    = icmp eq i64 [[NumGroups:%[a-zA-Z0-9_]+]], [[GropuIDPlusOne]]
 ; CHECK-NEXT: [[LocalSizeIdx:%[a-zA-Z0-9_]+]]   = zext i1 [[IsLastGroup]] to i32
-; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 [[LocalSizeIdx]], i32 %x 
+; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]]             = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 [[LocalSizeIdx]], i32 %x 
 ; CHECK:      [[LocalSize:%[a-zA-Z0-9_]+]]       = load i64* [[GEP]]
   %c = tail call i64 @_Z14get_local_sizej(i32 %x) nounwind
   ret i64 %c
@@ -48,7 +48,7 @@ define i64 @GLSX(i32 %x) {
 
 define i64 @GELS0() {
 ; CHECK: @GELS0
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 0
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 0
 ; CHECK: %LocalSize_0 = load i64* [[GEP]]
 ; CHECK: ret i64 %LocalSize_0
   %c = tail call i64 @_Z23get_enqueued_local_sizej(i32 0) nounwind
@@ -56,7 +56,7 @@ define i64 @GELS0() {
 }
 define i64 @GELS1() {
 ; CHECK: @GELS1
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 1
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 1
 ; CHECK: %LocalSize_1 = load i64* [[GEP]]
 ; CHECK: ret i64 %LocalSize_1
   %c = tail call i64 @_Z23get_enqueued_local_sizej(i32 1) nounwind
@@ -64,7 +64,7 @@ define i64 @GELS1() {
 }
 define i64 @GELS2() {
 ; CHECK: @GELS2
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 2
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 2
 ; CHECK: %LocalSize_2 = load i64* [[GEP]]
 ; CHECK: ret i64 %LocalSize_2
   %c = tail call i64 @_Z23get_enqueued_local_sizej(i32 2) nounwind
@@ -72,7 +72,7 @@ define i64 @GELS2() {
 }
 define i64 @GELSX(i32 %x) {
 ; CHECK: @GELSX
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 %x
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 %x
 ; CHECK: %LocalSize_var = load i64* [[GEP]]
   %c = tail call i64 @_Z23get_enqueued_local_sizej(i32 %x) nounwind
   ret i64 %c

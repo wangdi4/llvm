@@ -26,14 +26,14 @@ entry:
   br label %while.cond
 
 while.cond:                                       ; preds = %while.body, %entry
-  %tmp = load i64* %sum                           ; <i64> [#uses=1]
-  %tmp1 = load i64* %n.addr                       ; <i64> [#uses=1]
+  %tmp = load i64, i64* %sum                           ; <i64> [#uses=1]
+  %tmp1 = load i64, i64* %n.addr                       ; <i64> [#uses=1]
   %cmp = icmp slt i64 %tmp, %tmp1                 ; <i1> [#uses=1]
   br i1 %cmp, label %land.rhs, label %land.end
 
 land.rhs:                                         ; preds = %while.cond
-  %tmp3 = load i64* %i                            ; <i64> [#uses=1]
-  %tmp4 = load i64* %n.addr                       ; <i64> [#uses=1]
+  %tmp3 = load i64, i64* %i                            ; <i64> [#uses=1]
+  %tmp4 = load i64, i64* %n.addr                       ; <i64> [#uses=1]
   %cmp5 = icmp slt i64 %tmp3, %tmp4               ; <i1> [#uses=1]
   br label %land.end
 
@@ -42,11 +42,11 @@ land.end:                                         ; preds = %land.rhs, %while.co
   br i1 %0, label %while.body, label %while.end
 
 while.body:                                       ; preds = %land.end
-  %tmp7 = load i64* %i                            ; <i64> [#uses=1]
+  %tmp7 = load i64, i64* %i                            ; <i64> [#uses=1]
   %inc = add nsw i64 %tmp7, 1                     ; <i64> [#uses=2]
   store i64 %inc, i64* %i
   %tmp8 = load i64** %A.addr                      ; <i64*> [#uses=1]
-  %arrayidx = getelementptr inbounds i64* %tmp8, i64 %inc ; <i64*> [#uses=1]
+  %arrayidx = getelementptr inbounds i64, i64* %tmp8, i64 %inc ; <i64*> [#uses=1]
   %tmp9 = load i64* %arrayidx                     ; <i64> [#uses=1]
   %tmp10 = load i64* %sum                         ; <i64> [#uses=1]
   %add = add nsw i64 %tmp10, %tmp9                ; <i64> [#uses=1]
@@ -55,16 +55,16 @@ while.body:                                       ; preds = %land.end
   %conv12 = zext i32 %call11 to i64               ; <i64> [#uses=1]
   %tmp13 = load i64* %i                           ; <i64> [#uses=1]
   %tmp14 = load i64** %B.addr                     ; <i64*> [#uses=1]
-  %arrayidx15 = getelementptr inbounds i64* %tmp14, i64 %tmp13 ; <i64*> [#uses=1]
+  %arrayidx15 = getelementptr inbounds i64, i64* %tmp14, i64 %tmp13 ; <i64*> [#uses=1]
   store i64 %conv12, i64* %arrayidx15
   br label %while.cond
 
 while.end:                                        ; preds = %land.end
-  %tmp16 = load i64* %sum                         ; <i64> [#uses=1]
-  %tmp17 = load i64* %n.addr                      ; <i64> [#uses=1]
+  %tmp16 = load i64, i64* %sum                         ; <i64> [#uses=1]
+  %tmp17 = load i64, i64* %n.addr                      ; <i64> [#uses=1]
   %div = sdiv i64 %tmp17, 2                       ; <i64> [#uses=1]
   %tmp18 = load i64** %B.addr                     ; <i64*> [#uses=1]
-  %arrayidx19 = getelementptr inbounds i64* %tmp18, i64 %div ; <i64*> [#uses=1]
+  %arrayidx19 = getelementptr inbounds i64, i64* %tmp18, i64 %div ; <i64*> [#uses=1]
   store i64 %tmp16, i64* %arrayidx19
   ret void
 }

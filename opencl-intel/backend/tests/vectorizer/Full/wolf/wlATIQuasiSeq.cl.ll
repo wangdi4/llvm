@@ -32,21 +32,21 @@ entry:
   store i32 %call1, i32* %local_id
   %call2 = call i32 @get_group_id(i32 0)          ; <i32> [#uses=1]
   store i32 %call2, i32* %group_id
-  %tmp = load i32* %local_id                      ; <i32> [#uses=1]
+  %tmp = load i32, i32* %local_id                      ; <i32> [#uses=1]
   %cmp = icmp ult i32 %tmp, 32                    ; <i1> [#uses=1]
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  %tmp3 = load i32* %group_id                     ; <i32> [#uses=1]
+  %tmp3 = load i32, i32* %group_id                     ; <i32> [#uses=1]
   %mul = mul i32 %tmp3, 32                        ; <i32> [#uses=1]
-  %tmp4 = load i32* %local_id                     ; <i32> [#uses=1]
+  %tmp4 = load i32, i32* %local_id                     ; <i32> [#uses=1]
   %add = add i32 %mul, %tmp4                      ; <i32> [#uses=1]
   %tmp5 = load i32 addrspace(1)** %input.addr     ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %tmp5, i32 %add ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp5, i32 %add ; <i32 addrspace(1)*> [#uses=1]
   %tmp6 = load i32 addrspace(1)* %arrayidx        ; <i32> [#uses=1]
   %tmp7 = load i32* %local_id                     ; <i32> [#uses=1]
   %tmp8 = load i32 addrspace(3)** %shared.addr    ; <i32 addrspace(3)*> [#uses=1]
-  %arrayidx9 = getelementptr inbounds i32 addrspace(3)* %tmp8, i32 %tmp7 ; <i32 addrspace(3)*> [#uses=1]
+  %arrayidx9 = getelementptr inbounds i32, i32 addrspace(3)* %tmp8, i32 %tmp7 ; <i32 addrspace(3)*> [#uses=1]
   store i32 %tmp6, i32 addrspace(3)* %arrayidx9
   br label %if.end
 
@@ -57,51 +57,51 @@ if.end:                                           ; preds = %if.then, %entry
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %if.end
-  %tmp12 = load i32* %k                           ; <i32> [#uses=1]
+  %tmp12 = load i32, i32* %k                           ; <i32> [#uses=1]
   %cmp13 = icmp slt i32 %tmp12, 32                ; <i1> [#uses=1]
   br i1 %cmp13, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %tmp15 = load i32* %k                           ; <i32> [#uses=1]
+  %tmp15 = load i32, i32* %k                           ; <i32> [#uses=1]
   %conv = sitofp i32 %tmp15 to float              ; <float> [#uses=1]
   %call16 = call float @_Z3powff(float 2.000000e+000, float %conv) ; <float> [#uses=1]
   %conv17 = fptosi float %call16 to i32           ; <i32> [#uses=1]
   store i32 %conv17, i32* %mask
-  %tmp18 = load i32* %local_id                    ; <i32> [#uses=1]
-  %tmp19 = load i32* %mask                        ; <i32> [#uses=1]
+  %tmp18 = load i32, i32* %local_id                    ; <i32> [#uses=1]
+  %tmp19 = load i32, i32* %mask                        ; <i32> [#uses=1]
   %and = and i32 %tmp18, %tmp19                   ; <i32> [#uses=1]
-  %tmp20 = load i32* %k                           ; <i32> [#uses=1]
+  %tmp20 = load i32, i32* %k                           ; <i32> [#uses=1]
   %shr = lshr i32 %and, %tmp20                    ; <i32> [#uses=1]
   %tmp21 = load i32* %k                           ; <i32> [#uses=1]
   %tmp22 = load i32 addrspace(3)** %shared.addr   ; <i32 addrspace(3)*> [#uses=1]
-  %arrayidx23 = getelementptr inbounds i32 addrspace(3)* %tmp22, i32 %tmp21 ; <i32 addrspace(3)*> [#uses=1]
+  %arrayidx23 = getelementptr inbounds i32, i32 addrspace(3)* %tmp22, i32 %tmp21 ; <i32 addrspace(3)*> [#uses=1]
   %tmp24 = load i32 addrspace(3)* %arrayidx23     ; <i32> [#uses=1]
   %mul25 = mul i32 %shr, %tmp24                   ; <i32> [#uses=1]
-  %tmp26 = load i32* %temp                        ; <i32> [#uses=1]
+  %tmp26 = load i32, i32* %temp                        ; <i32> [#uses=1]
   %xor = xor i32 %tmp26, %mul25                   ; <i32> [#uses=1]
   store i32 %xor, i32* %temp
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %tmp27 = load i32* %k                           ; <i32> [#uses=1]
+  %tmp27 = load i32, i32* %k                           ; <i32> [#uses=1]
   %inc = add nsw i32 %tmp27, 1                    ; <i32> [#uses=1]
   store i32 %inc, i32* %k
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
-  %tmp28 = load i32* %global_id                   ; <i32> [#uses=1]
+  %tmp28 = load i32, i32* %global_id                   ; <i32> [#uses=1]
   %cmp29 = icmp eq i32 %tmp28, 0                  ; <i1> [#uses=1]
   br i1 %cmp29, label %if.then31, label %if.else
 
 if.then31:                                        ; preds = %for.end
   %tmp32 = load i32* %global_id                   ; <i32> [#uses=1]
   %tmp33 = load float addrspace(1)** %output.addr ; <float addrspace(1)*> [#uses=1]
-  %arrayidx34 = getelementptr inbounds float addrspace(1)* %tmp33, i32 %tmp32 ; <float addrspace(1)*> [#uses=1]
+  %arrayidx34 = getelementptr inbounds float, float addrspace(1)* %tmp33, i32 %tmp32 ; <float addrspace(1)*> [#uses=1]
   store float 0.000000e+000, float addrspace(1)* %arrayidx34
   br label %if.end42
 
 if.else:                                          ; preds = %for.end
-  %tmp35 = load i32* %temp                        ; <i32> [#uses=1]
+  %tmp35 = load i32, i32* %temp                        ; <i32> [#uses=1]
   %conv36 = uitofp i32 %tmp35 to float            ; <float> [#uses=1]
   %call37 = call float @_Z3powff(float 2.000000e+000, float 3.200000e+001) ; <float> [#uses=3]
   %cmp38 = fcmp oeq float 0.000000e+000, %call37  ; <i1> [#uses=1]
@@ -109,7 +109,7 @@ if.else:                                          ; preds = %for.end
   %div = fdiv float %conv36, %call37              ; <float> [#uses=1]
   %tmp39 = load i32* %global_id                   ; <i32> [#uses=1]
   %tmp40 = load float addrspace(1)** %output.addr ; <float addrspace(1)*> [#uses=1]
-  %arrayidx41 = getelementptr inbounds float addrspace(1)* %tmp40, i32 %tmp39 ; <float addrspace(1)*> [#uses=1]
+  %arrayidx41 = getelementptr inbounds float, float addrspace(1)* %tmp40, i32 %tmp39 ; <float addrspace(1)*> [#uses=1]
   store float %div, float addrspace(1)* %arrayidx41
   br label %if.end42
 

@@ -20,12 +20,12 @@ target triple = "i686-pc-win32"
 
 define void @func_vect_scan(i32 addrspace(1)* nocapture %in, <2 x i32> addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=2]
-  %2 = getelementptr inbounds i32 addrspace(1)* %in, i32 1 ; <i32 addrspace(1)*> [#uses=1]
+  %2 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 1 ; <i32 addrspace(1)*> [#uses=1]
   %3 = load i32 addrspace(1)* %2                  ; <i32> [#uses=1]
   %4 = insertelement <2 x i32> undef, i32 %3, i32 0 ; <<2 x i32>> [#uses=1]
   %5 = insertelement <2 x i32> %4, i32 %1, i32 1  ; <<2 x i32>> [#uses=1]
   %6 = add nsw <2 x i32> %5, <i32 14, i32 257>    ; <<2 x i32>> [#uses=1]
-  %7 = getelementptr inbounds <2 x i32> addrspace(1)* %out, i32 %1 ; <<2 x i32> addrspace(1)*> [#uses=1]
+  %7 = getelementptr inbounds <2 x i32>, <2 x i32> addrspace(1)* %out, i32 %1 ; <<2 x i32> addrspace(1)*> [#uses=1]
   store <2 x i32> %6, <2 x i32> addrspace(1)* %7
   ret void
 }

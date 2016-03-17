@@ -5,7 +5,7 @@
 
 define i32 @f1() {
 entry:
-	%tmp1 = load i32* @i
+	%tmp1 = load i32, i32* @i
 	ret i32 %tmp1
 }
 
@@ -37,7 +37,7 @@ entry:
 
 define i32 @f3() {
 entry:
-	%tmp1 = load i32* @i		; <i32> [#uses=1]
+	%tmp1 = load i32, i32* @i		; <i32> [#uses=1]
 	ret i32 %tmp1
 }
 

@@ -19,7 +19,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @PhiCanonCase8(i32 %arg1, i32 %arg2, float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %b) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(1)* %a, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i32 %call
   %tmp2 = load float addrspace(1)* %arrayidx, align 4
   %cmp = icmp sgt i32 %arg1, 3
   br i1 %cmp, label %if.then, label %if.end91
@@ -107,7 +107,7 @@ if.end82:                                         ; preds = %if.end82.loopexit6,
 
 if.end91:                                         ; preds = %if.end82, %if.then7, %if.then, %entry
   %temp.0 = phi float [ %div88, %if.end82 ], [ %add, %if.then7 ], [ %mul, %if.then ], [ %tmp2, %entry ]
-  %arrayidx95 = getelementptr inbounds float addrspace(1)* %b, i32 %call
+  %arrayidx95 = getelementptr inbounds float, float addrspace(1)* %b, i32 %call
   store float %temp.0, float addrspace(1)* %arrayidx95, align 4
   ret void
 }

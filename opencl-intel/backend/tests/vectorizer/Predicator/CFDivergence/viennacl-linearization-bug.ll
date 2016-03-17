@@ -29,7 +29,7 @@ for.end.us:                                       ; preds = %for.end.us, %for.co
   %i.0.in5.us = phi i64 [ %call, %for.cond2.preheader.lr.ph.split.us ], [ %add.us, %for.end.us ]
   %conv6.us = uitofp i32 %0 to float
   %idxprom7.us = and i64 %i.0.in5.us, 4294967295
-  %arrayidx8.us = getelementptr inbounds float addrspace(1)* %result, i64 %idxprom7.us
+  %arrayidx8.us = getelementptr inbounds float, float addrspace(1)* %result, i64 %idxprom7.us
   store float %conv6.us, float addrspace(1)* %arrayidx8.us, align 4
   %add.us = add i64 %call10, %idxprom7.us
   %i.0.us = trunc i64 %add.us to i32
@@ -38,7 +38,7 @@ for.end.us:                                       ; preds = %for.end.us, %for.co
 
 for.cond.for.end13_crit_edge.us-lcssa:            ; preds = %entry
   %idxprom7 = and i64 %call, 4294967295
-  %arrayidx8 = getelementptr inbounds float addrspace(1)* %result, i64 %idxprom7
+  %arrayidx8 = getelementptr inbounds float, float addrspace(1)* %result, i64 %idxprom7
   store float 0.000000e+00, float addrspace(1)* %arrayidx8, align 4
   br label %for.end13
 

@@ -14,20 +14,20 @@ entry:
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %1 = load i32* %i, align 4
+  %1 = load i32, i32* %i, align 4
   %cmp = icmp slt i32 %1, 8
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %2 = load i32* %i, align 4
+  %2 = load i32, i32* %i, align 4
   %idxprom = sext i32 %2 to i64
-  %arrayidx = getelementptr inbounds [8 x i32]* %arr, i32 0, i64 %idxprom
+  %arrayidx = getelementptr inbounds [8 x i32], [8 x i32]* %arr, i32 0, i64 %idxprom
   %3 = load i32* %arrayidx, align 4
   %call = call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* addrspacecast ([4 x i8]* @.str to i8 addrspace(2)*), i32 %3)
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %4 = load i32* %i, align 4
+  %4 = load i32, i32* %i, align 4
   %inc = add nsw i32 %4, 1
   store i32 %inc, i32* %i, align 4
   br label %for.cond

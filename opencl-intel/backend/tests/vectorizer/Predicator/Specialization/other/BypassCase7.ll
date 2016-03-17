@@ -14,7 +14,7 @@ define void @BypassCase7(i32 %arg1, i32 %arg2, float addrspace(1)* nocapture %a,
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %0 = sext i32 %call to i64
-  %arrayidx = getelementptr inbounds float addrspace(1)* %a, i64 %0
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i64 %0
   %tmp2 = load float addrspace(1)* %arrayidx, align 4
   %cmp = fcmp ogt float %tmp2, 3.000000e+000
   br i1 %cmp, label %if.then, label %if.then3
@@ -40,7 +40,7 @@ for.body:                                         ; preds = %for.header
   br label %for.header
 
 if.loopexit:                                     ; preds = %for.header
-  %arrayidx22 = getelementptr inbounds float addrspace(1)* %b, i64 %0
+  %arrayidx22 = getelementptr inbounds float, float addrspace(1)* %b, i64 %0
   store float %temp, float addrspace(1)* %arrayidx22, align 4
   ret void
 }

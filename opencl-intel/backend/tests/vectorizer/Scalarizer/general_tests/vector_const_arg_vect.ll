@@ -26,7 +26,7 @@ define void @mul(<2 x float> addrspace(1)* nocapture %in, float addrspace(1)* no
   %4 = sext i8 %3 to i32                          ; <i32> [#uses=1]
   %5 = add nsw i32 %4, 1                          ; <i32> [#uses=1]
   %6 = sitofp i32 %5 to float                     ; <float> [#uses=1]
-  %7 = getelementptr inbounds float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
+  %7 = getelementptr inbounds float, float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
   store float %6, float addrspace(1)* %7
   ret void
 }

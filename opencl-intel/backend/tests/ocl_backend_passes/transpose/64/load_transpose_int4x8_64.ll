@@ -17,10 +17,10 @@ entry:
    %zOut = alloca  <8 x i32>
    %wOut = alloca  <8 x i32>
    call void @__ocl_load_transpose_int_4x8(<4 x i32>* nocapture %pLoadAdd, <8 x i32>* nocapture %xOut, <8 x i32>* nocapture %yOut, <8 x i32>* nocapture %zOut, <8 x i32>* nocapture %wOut) nounwind
-   %temp1 = load <8 x i32>* %xOut
-   %temp2 = load <8 x i32>* %yOut
-   %temp3 = load <8 x i32>* %zOut
-   %temp4 = load <8 x i32>* %wOut
+   %temp1 = load <8 x i32>, <8 x i32>* %xOut
+   %temp2 = load <8 x i32>, <8 x i32>* %yOut
+   %temp3 = load <8 x i32>, <8 x i32>* %zOut
+   %temp4 = load <8 x i32>, <8 x i32>* %wOut
    %re0 = add <8 x i32> %temp1, %temp2
    %re1 = add <8 x i32> %temp3, %temp4
    %ret0 = add <8 x i32> %re0, %re1

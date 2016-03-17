@@ -47,14 +47,14 @@ scalar_kernel_entry:                              ; preds = %helperFunction.exit
   %dim_0_tid = phi i64 [ %3, %dim_0_pre_head ], [ %dim_0_inc_tid, %helperFunction.exit ]
   store float 0x3FB99999A0000000, float addrspace(1)* @testKernel.val, align 4
   store volatile float addrspace(4)* addrspacecast (float addrspace(1)* @testKernel.val to float addrspace(4)*), float addrspace(4)** %ptr, align 8
-  %5 = load volatile float addrspace(4)** %ptr, align 8
+  %5 = load volatile float addrspace(4)*, float addrspace(4)** %ptr, align 8
   %6 = bitcast float addrspace(4)* %5 to i8 addrspace(4)*
   %switch.i.i = icmp ult i32 2, 4
   br i1 %switch.i.i, label %if.end.i, label %helperFunction.exit
 
 if.end.i:                                         ; preds = %scalar_kernel_entry
-  %7 = load float addrspace(1)* @testKernel.val, align 4
-  %8 = load float addrspace(4)* %5, align 4
+  %7 = load float, float addrspace(1)* @testKernel.val, align 4
+  %8 = load float, float addrspace(4)* %5, align 4
   %not.cmp.i = fcmp oeq float %8, %7
   br label %helperFunction.exit
 
@@ -62,7 +62,7 @@ helperFunction.exit:                              ; preds = %scalar_kernel_entry
   %retval.0.i = phi i1 [ false, %scalar_kernel_entry ], [ %not.cmp.i, %if.end.i ]
   %conv2 = zext i1 %retval.0.i to i32
   %idxprom = and i64 %dim_0_tid, 4294967295
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %results, i64 %idxprom
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %results, i64 %idxprom
   store i32 %conv2, i32 addrspace(1)* %arrayidx, align 4
   %dim_0_inc_ind_var = add nuw nsw i64 %dim_0_ind_var, 1
   %dim_0_cmp.to.max = icmp eq i64 %dim_0_inc_ind_var, %4

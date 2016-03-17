@@ -23,7 +23,7 @@ define void @func_vect_scal(float addrspace(1)* nocapture %in, <8 x float> addrs
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=2]
   %2 = sitofp i32 %1 to float                     ; <float> [#uses=1]
   %3 = insertelement <8 x float> undef, float %2, i32 0 ; <<8 x float>> [#uses=1]
-  %4 = load float addrspace(1)* %in               ; <float> [#uses=1]
+  %4 = load float, float addrspace(1)* %in               ; <float> [#uses=1]
   %5 = insertelement <8 x float> %3, float %4, i32 1 ; <<8 x float>> [#uses=1]
   %6 = insertelement <8 x float> %5, float 0xC024C7AE20000000, i32 2 ; <<8 x float>> [#uses=1]
   %7 = insertelement <8 x float> %6, float 0x4021B33340000000, i32 3 ; <<8 x float>> [#uses=1]
@@ -33,7 +33,7 @@ define void @func_vect_scal(float addrspace(1)* nocapture %in, <8 x float> addrs
   %11 = insertelement <8 x float> %10, float 0x3EF4F8B580000000, i32 7 ; <<8 x float>> [#uses=1]
   %12 = fadd <8 x float> %11, <float -7.600000e+001, float 0xC0308DE6A0000000, float 0xC024C7AE20000000, float 0x4021B33340000000, float 0x4022B460A0000000, float 2.323000e+003, float 0x40B0DD6EE0000000, float 0x3EF4F8B580000000> ; <<8 x float>> [#uses=1]
   %13 = fmul <8 x float> %12, <float -7.600000e+001, float 0xC0308DE6A0000000, float 0xC024C7AE20000000, float 0x4021B33340000000, float 0x4022B460A0000000, float 2.323000e+003, float 0x40B0DD6EE0000000, float 0x3EF4F8B580000000> ; <<8 x float>> [#uses=1]
-  %14 = getelementptr inbounds <8 x float> addrspace(1)* %out, i32 %1 ; <<8 x float> addrspace(1)*> [#uses=1]
+  %14 = getelementptr inbounds <8 x float>, <8 x float> addrspace(1)* %out, i32 %1 ; <<8 x float> addrspace(1)*> [#uses=1]
   store <8 x float> %13, <8 x float> addrspace(1)* %14
   ret void
 }

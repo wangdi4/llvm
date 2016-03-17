@@ -16,14 +16,14 @@ entry:
   %call = call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %conv = trunc i64 %call to i32
   %idx.ext = sext i32 %conv to i64
-  %add.ptr = getelementptr inbounds float addrspace(1)* %A, i64 %idx.ext
+  %add.ptr = getelementptr inbounds float, float addrspace(1)* %A, i64 %idx.ext
   call void @_Z8prefetchPKU3AS1fm(float addrspace(1)* %add.ptr, i64 1) nounwind
   %idxprom = sext i32 %conv to i64
-  %arrayidx = getelementptr inbounds float addrspace(1)* %A, i64 %idxprom
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %A, i64 %idxprom
   %0 = load float addrspace(1)* %arrayidx, align 4
   %mul = fmul float %0, 2.000000e+00
   %idxprom1 = sext i32 %conv to i64
-  %arrayidx2 = getelementptr inbounds float addrspace(1)* %B, i64 %idxprom1
+  %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %B, i64 %idxprom1
   store float %mul, float addrspace(1)* %arrayidx2, align 4
   ret void
 }
@@ -42,17 +42,17 @@ entry:
 
 if.then:                                          ; preds = %entry
   %idx.ext = sext i32 %conv to i64
-  %add.ptr = getelementptr inbounds float addrspace(1)* %A, i64 %idx.ext
+  %add.ptr = getelementptr inbounds float, float addrspace(1)* %A, i64 %idx.ext
   call void @_Z8prefetchPKU3AS1fm(float addrspace(1)* %add.ptr, i64 1) nounwind
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
   %idxprom = sext i32 %conv to i64
-  %arrayidx = getelementptr inbounds float addrspace(1)* %A, i64 %idxprom
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %A, i64 %idxprom
   %0 = load float addrspace(1)* %arrayidx, align 4
   %mul = fmul float %0, 2.000000e+00
   %idxprom2 = sext i32 %conv to i64
-  %arrayidx3 = getelementptr inbounds float addrspace(1)* %B, i64 %idxprom2
+  %arrayidx3 = getelementptr inbounds float, float addrspace(1)* %B, i64 %idxprom2
   store float %mul, float addrspace(1)* %arrayidx3, align 4
   ret void
 }
@@ -64,11 +64,11 @@ define void @test_uniform(float addrspace(1)* noalias %A, float addrspace(1)* no
 entry:
   %call = call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   call void @_Z8prefetchPKU3AS1fm(float addrspace(1)* %A, i64 1) nounwind
-  %0 = load float addrspace(1)* %A, align 4
+  %0 = load float, float addrspace(1)* %A, align 4
   %mul = fmul float %0, 2.000000e+00
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx1 = getelementptr inbounds float addrspace(1)* %B, i64 %idxprom
+  %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %B, i64 %idxprom
   store float %mul, float addrspace(1)* %arrayidx1, align 4
   ret void
 }
@@ -88,10 +88,10 @@ if.then:                                          ; preds = %entry
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
-  %0 = load float addrspace(1)* %A, align 4
+  %0 = load float, float addrspace(1)* %A, align 4
   %mul = fmul float %0, 2.000000e+00
   %idxprom = sext i32 %conv to i64
-  %arrayidx2 = getelementptr inbounds float addrspace(1)* %B, i64 %idxprom
+  %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %B, i64 %idxprom
   store float %mul, float addrspace(1)* %arrayidx2, align 4
   ret void
 }

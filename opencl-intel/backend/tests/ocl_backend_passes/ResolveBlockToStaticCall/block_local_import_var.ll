@@ -35,17 +35,17 @@ entry:
   %tid = alloca i32, align 4
   store i32 addrspace(1)* %res, i32 addrspace(1)** %res.addr, align 8
   store i32 3, i32* %multiplier, align 4
-  %block.isa = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 0
+  %block.isa = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 0
   store i8* bitcast (i8** @_NSConcreteStackBlock to i8*), i8** %block.isa
-  %block.flags = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 1
+  %block.flags = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 1
   store i32 1073741824, i32* %block.flags
-  %block.reserved = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 2
+  %block.reserved = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 2
   store i32 0, i32* %block.reserved
-  %block.invoke = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 3
+  %block.invoke = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 3
   store i8* bitcast (i32 (i8*, i32)* @__kernel_scope_block_invoke to i8*), i8** %block.invoke
-  %block.descriptor = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 4
+  %block.descriptor = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 4
   store %struct.__block_descriptor* bitcast ({ i64, i64, i8*, i8* }* @__block_descriptor_tmp to %struct.__block_descriptor*), %struct.__block_descriptor** %block.descriptor
-  %block.captured = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 5
+  %block.captured = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 5
   %0 = load i32* %multiplier, align 4
   store i32 %0, i32* %block.captured, align 4
   %1 = bitcast <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block to i32 (i32)*
@@ -53,26 +53,26 @@ entry:
   %call = call i64 @get_global_id(i32 0) nounwind readnone
   %conv = trunc i64 %call to i32
   store i32 %conv, i32* %tid, align 4
-  %2 = load i32* %tid, align 4
+  %2 = load i32, i32* %tid, align 4
   %idxprom = sext i32 %2 to i64
   %3 = load i32 addrspace(1)** %res.addr, align 8
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %3, i64 %idxprom
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %3, i64 %idxprom
   store i32 -1, i32 addrspace(1)* %arrayidx, align 4
   store i32 8, i32* %multiplier, align 4
-  %4 = load i32 (i32)** %kernelBlock, align 8
+  %4 = load i32 (i32)*, i32 (i32)** %kernelBlock, align 8
   %block.literal = bitcast i32 (i32)* %4 to %struct.__block_literal_generic*
-  %5 = getelementptr inbounds %struct.__block_literal_generic* %block.literal, i32 0, i32 3
+  %5 = getelementptr inbounds %struct.__block_literal_generic, %struct.__block_literal_generic* %block.literal, i32 0, i32 3
   %6 = bitcast %struct.__block_literal_generic* %block.literal to i8*
-  %7 = load i8** %5
+  %7 = load i8*, i8** %5
   %8 = bitcast i8* %7 to i32 (i8*, i32)*
 ; CHECK: call i32 @__kernel_scope_block_invoke
 ; CHECK-NOT: call i32 %
   %call1 = call i32 %8(i8* %6, i32 7)
   %sub = sub nsw i32 %call1, 21
-  %9 = load i32* %tid, align 4
+  %9 = load i32, i32* %tid, align 4
   %idxprom2 = sext i32 %9 to i64
   %10 = load i32 addrspace(1)** %res.addr, align 8
-  %arrayidx3 = getelementptr inbounds i32 addrspace(1)* %10, i64 %idxprom2
+  %arrayidx3 = getelementptr inbounds i32, i32 addrspace(1)* %10, i64 %idxprom2
   store i32 %sub, i32 addrspace(1)* %arrayidx3, align 4
   ret void
 }
@@ -83,7 +83,7 @@ entry:
   store i32 %num, i32* %num.addr, align 4
   %block = bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>*
   %0 = load i32* %num.addr, align 4
-  %block.capture.addr = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 5
+  %block.capture.addr = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i32 }>* %block, i32 0, i32 5
   %1 = load i32* %block.capture.addr, align 4
   %mul = mul nsw i32 %0, %1
   ret i32 %mul

@@ -37,7 +37,7 @@ define spir_kernel void @multiple_bind_block(i32 addrspace(1)* %res) #0 {
 entry:
   %captured = alloca <{ i32 addrspace(1)* }>, align 8
   %ndrange = alloca %struct.ndrange_t, align 8
-  %block.captured = getelementptr inbounds <{ i32 addrspace(1)* }>* %captured, i64 0, i32 0
+  %block.captured = getelementptr inbounds <{ i32 addrspace(1)* }>, <{ i32 addrspace(1)* }>* %captured, i64 0, i32 0
   store i32 addrspace(1)* %res, i32 addrspace(1)** %block.captured, align 8, !tbaa !14
   %0 = bitcast <{ i32 addrspace(1)* }>* %captured to i8*
   %1 = call %opencl.block* @spir_block_bind(i8* bitcast (void (i8*)* @__multiple_bind_block_block_invoke to i8*), i32 8, i32 8, i8* %0) #2
@@ -61,7 +61,7 @@ entry:
 define internal spir_func void @__multiple_bind_block_block_invoke(i8* nocapture readonly %.block_descriptor) #0 {
 entry:
   %block = bitcast i8* %.block_descriptor to <{ i32 addrspace(1)* }>*
-  %block.capture.addr = getelementptr inbounds <{ i32 addrspace(1)* }>* %block, i32 0, i32 0
+  %block.capture.addr = getelementptr inbounds <{ i32 addrspace(1)* }>, <{ i32 addrspace(1)* }>* %block, i32 0, i32 0
   %0 = load i32 addrspace(1)** %block.capture.addr, align 8, !tbaa !14
   store i32 2, i32 addrspace(1)* %0, align 4, !tbaa !10
   ret void

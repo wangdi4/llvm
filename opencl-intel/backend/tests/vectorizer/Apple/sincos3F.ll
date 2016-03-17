@@ -50,17 +50,17 @@
      
      ; <label>:5                                       ; preds = %0
      %6 = mul i64 %1, 3
-     %7 = getelementptr inbounds float addrspace(1)* %in, i64 %6
+     %7 = getelementptr inbounds float, float addrspace(1)* %in, i64 %6
      %8 = call <4 x float> @_Z6vload3mPKU3AS1f(i64 0, float addrspace(1)* %7) nounwind
      %9 = bitcast <3 x float>* %iout to <4 x float>*
      store <4 x float> <float 0x7FF8000000000000, float 0x7FF8000000000000, float 0x7FF8000000000000, float undef>, <4 x float>* %9, align 16, !tbaa !4
      %10 = bitcast <4 x float> %8 to <2 x double>
      %11 = call <4 x float> @_Z6sincosDv3_fPS_(<2 x double> %10, <3 x float>* %iout) nounwind
-     %12 = getelementptr inbounds float addrspace(1)* %out, i64 %6
+     %12 = getelementptr inbounds float, float addrspace(1)* %out, i64 %6
      %13 = bitcast <4 x float> %11 to <2 x double>
      call void @_Z7vstore3Dv3_fmPU3AS1f(<2 x double> %13, i64 0, float addrspace(1)* %12) nounwind
      %14 = load <4 x float>* %9, align 16
-     %15 = getelementptr inbounds float addrspace(1)* %out2, i64 %6
+     %15 = getelementptr inbounds float, float addrspace(1)* %out2, i64 %6
      %16 = bitcast <4 x float> %14 to <2 x double>
      call void @_Z7vstore3Dv3_fmPU3AS1f(<2 x double> %16, i64 0, float addrspace(1)* %15) nounwind
      br label %56
@@ -85,7 +85,7 @@
      
      .thread3:                                         ; preds = %LeafBlock1
      %20 = mul i64 %1, 3
-     %21 = getelementptr inbounds float addrspace(1)* %in, i64 %20
+     %21 = getelementptr inbounds float, float addrspace(1)* %in, i64 %20
      %22 = load float addrspace(1)* %21, align 4, !tbaa !6
      %23 = insertelement <3 x float> undef, float %22, i32 0
      %24 = insertelement <3 x float> %23, float 0x7FF8000000000000, i32 1
@@ -93,16 +93,16 @@
      %26 = shufflevector <3 x float> %25, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
      %27 = bitcast <4 x float> %26 to <2 x double>
      %28 = call <4 x float> @_Z6sincosDv3_fPS_(<2 x double> %27, <3 x float>* %iout1) nounwind
-     %.pre = load <3 x float>* %iout1, align 16
+     %.pre = load <3 x float>, <3 x float>* %iout1, align 16
      br label %48
      
      .thread:                                          ; preds = %LeafBlock
      %29 = mul i64 %1, 3
-     %30 = getelementptr inbounds float addrspace(1)* %in, i64 %29
+     %30 = getelementptr inbounds float, float addrspace(1)* %in, i64 %29
      %31 = load float addrspace(1)* %30, align 4, !tbaa !6
      %32 = insertelement <3 x float> undef, float %31, i32 0
      %33 = add i64 %29, 1
-     %34 = getelementptr inbounds float addrspace(1)* %in, i64 %33
+     %34 = getelementptr inbounds float, float addrspace(1)* %in, i64 %33
      %35 = load float addrspace(1)* %34, align 4, !tbaa !6
      %36 = insertelement <3 x float> %32, float %35, i32 1
      %37 = insertelement <3 x float> %36, float 0x7FF8000000000000, i32 2
@@ -110,11 +110,11 @@
      %39 = bitcast <4 x float> %38 to <2 x double>
      %40 = call <4 x float> @_Z6sincosDv3_fPS_(<2 x double> %39, <3 x float>* %iout1) nounwind
      %41 = extractelement <4 x float> %40, i32 1
-     %42 = getelementptr inbounds float addrspace(1)* %out, i64 %33
+     %42 = getelementptr inbounds float, float addrspace(1)* %out, i64 %33
      store float %41, float addrspace(1)* %42, align 4, !tbaa !6
-     %43 = load <3 x float>* %iout1, align 16
+     %43 = load <3 x float>, <3 x float>* %iout1, align 16
      %44 = extractelement <3 x float> %43, i32 1
-     %45 = getelementptr inbounds float addrspace(1)* %out2, i64 %33
+     %45 = getelementptr inbounds float, float addrspace(1)* %out2, i64 %33
      store float %44, float addrspace(1)* %45, align 4, !tbaa !6
      br label %48
      
@@ -130,10 +130,10 @@
      %50 = phi <4 x float> [ %40, %.thread ], [ %28, %.thread3 ]
      %51 = extractelement <4 x float> %50, i32 0
      %52 = mul i64 %1, 3
-     %53 = getelementptr inbounds float addrspace(1)* %out, i64 %52
+     %53 = getelementptr inbounds float, float addrspace(1)* %out, i64 %52
      store float %51, float addrspace(1)* %53, align 4, !tbaa !6
      %54 = extractelement <3 x float> %49, i32 0
-     %55 = getelementptr inbounds float addrspace(1)* %out2, i64 %52
+     %55 = getelementptr inbounds float, float addrspace(1)* %out2, i64 %52
      store float %54, float addrspace(1)* %55, align 4, !tbaa !6
      br label %56
      

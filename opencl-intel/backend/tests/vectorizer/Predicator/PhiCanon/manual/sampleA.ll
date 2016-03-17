@@ -36,9 +36,9 @@ for.body.preheader:                               ; preds = %for.cond.preheader
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i64* %B, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i64, i64* %B, i64 %indvars.iv
   %tmp5 = load i64* %arrayidx, align 8
-  %arrayidx9 = getelementptr inbounds i64* %A, i64 %indvars.iv
+  %arrayidx9 = getelementptr inbounds i64, i64* %A, i64 %indvars.iv
   store i64 %tmp5, i64* %arrayidx9, align 8
   %indvars.iv.next = add i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %n
@@ -46,9 +46,9 @@ for.body:                                         ; preds = %for.body.preheader,
 
 for.body19:                                       ; preds = %for.body19.preheader, %for.body19
   %indvars.iv10 = phi i64 [ %indvars.iv.next11, %for.body19 ], [ 0, %for.body19.preheader ]
-  %arrayidx23 = getelementptr inbounds i64* %A, i64 %indvars.iv10
+  %arrayidx23 = getelementptr inbounds i64, i64* %A, i64 %indvars.iv10
   %tmp24 = load i64* %arrayidx23, align 8
-  %arrayidx28 = getelementptr inbounds i64* %B, i64 %indvars.iv10
+  %arrayidx28 = getelementptr inbounds i64, i64* %B, i64 %indvars.iv10
   store i64 %tmp24, i64* %arrayidx28, align 8
   %indvars.iv.next11 = add i64 %indvars.iv10, 1
   %exitcond12 = icmp eq i64 %indvars.iv.next11, %add

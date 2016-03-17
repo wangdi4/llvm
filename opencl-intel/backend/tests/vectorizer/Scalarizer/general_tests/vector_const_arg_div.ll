@@ -38,7 +38,7 @@ define void @mul(<2 x float> addrspace(1)* nocapture %in, float addrspace(1)* no
   %16 = fpext float %15 to double                 ; <double> [#uses=1]
   %17 = fadd double %13, %16                      ; <double> [#uses=1]
   %18 = fptrunc double %17 to float               ; <float> [#uses=1]
-  %19 = getelementptr inbounds float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
+  %19 = getelementptr inbounds float, float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
   store float %18, float addrspace(1)* %19
   ret void
 }

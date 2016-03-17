@@ -14,7 +14,7 @@ entry:
   store i32 %buffer_size, i32* %buffer_size.addr, align 4
   %call = call i32 @_Z13get_global_idj(i32 0)
   store i32 %call, i32* %tid, align 4
-  %tmp = load i32* %tid, align 4
+  %tmp = load i32, i32* %tid, align 4
   %as_typen = bitcast i32 %tmp to float
   store float %as_typen, float* %f, align 4
   ret void

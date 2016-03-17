@@ -19,12 +19,12 @@ entry:
   br i1 %0, label %return, label %bb
 
 bb:                                               ; preds = %entry
-  %1 = load %struct.LLIST** %p, align 8           ; <%struct.LLIST*> [#uses=3]
+  %1 = load %struct.LLIST*, %struct.LLIST** %p, align 8           ; <%struct.LLIST*> [#uses=3]
   %2 = icmp eq %struct.LLIST* %1, null            ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb1
 
 bb1:                                              ; preds = %bb
-  %3 = getelementptr inbounds %struct.LLIST* %1, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
+  %3 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %1, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
   %4 = load %struct.LLIST** %3, align 8           ; <%struct.LLIST*> [#uses=1]
   store %struct.LLIST* %4, %struct.LLIST** %p, align 8
   %5 = bitcast %struct.LLIST* %1 to i8*           ; <i8*> [#uses=1]

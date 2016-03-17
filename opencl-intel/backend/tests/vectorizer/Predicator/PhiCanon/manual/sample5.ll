@@ -28,7 +28,7 @@ for.inc20.us:                                     ; preds = %for.body12.us
 for.body12.us:                                    ; preds = %for.body12.lr.ph.us, %for.body12.us
   %storemerge16.us = phi i64 [ 0, %for.body12.lr.ph.us ], [ %inc.us, %for.body12.us ]
   %tmp2435.us = phi i64 [ %add.us, %for.body12.lr.ph.us ], [ %add18.us, %for.body12.us ]
-  %arrayidx15.us = getelementptr inbounds i64* %A, i64 %storemerge16.us
+  %arrayidx15.us = getelementptr inbounds i64, i64* %A, i64 %storemerge16.us
   %tmp16.us = load i64* %arrayidx15.us, align 8
   %add18.us = add nsw i64 %tmp16.us, %tmp2435.us
   %inc.us = add nsw i64 %storemerge16.us, 1
@@ -38,7 +38,7 @@ for.body12.us:                                    ; preds = %for.body12.lr.ph.us
 for.body12.lr.ph.us:                              ; preds = %for.body12.lr.ph.us.preheader, %for.inc20.us
   %storemerge9.us = phi i64 [ %inc22.us, %for.inc20.us ], [ 0, %for.body12.lr.ph.us.preheader ]
   %tmp2428.us = phi i64 [ %add18.us, %for.inc20.us ], [ 0, %for.body12.lr.ph.us.preheader ]
-  %arrayidx.us = getelementptr inbounds i64* %B, i64 %storemerge9.us
+  %arrayidx.us = getelementptr inbounds i64, i64* %B, i64 %storemerge9.us
   %tmp4.us = load i64* %arrayidx.us, align 8
   %add.us = add nsw i64 %tmp4.us, %tmp2428.us
   br label %for.body12.us
@@ -48,7 +48,7 @@ for.end23.loopexit:                               ; preds = %for.inc20.us
 
 for.end23:                                        ; preds = %for.end23.loopexit, %entry
   %tmp242.lcssa = phi i64 [ 0, %entry ], [ %add18.us, %for.end23.loopexit ]
-  %arrayidx26 = getelementptr inbounds i64* %A, i64 5
+  %arrayidx26 = getelementptr inbounds i64, i64* %A, i64 5
   store i64 %tmp242.lcssa, i64* %arrayidx26, align 8
   ret void
 }

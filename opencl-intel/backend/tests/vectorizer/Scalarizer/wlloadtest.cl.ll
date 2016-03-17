@@ -32,31 +32,31 @@ entry:
   store i32 %call, i32* %i
   %tmp = load i32* %i                             ; <i32> [#uses=1]
   %tmp1 = load i32 addrspace(1)** %input.addr     ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %tmp1, i32 %tmp ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp1, i32 %tmp ; <i32 addrspace(1)*> [#uses=1]
   %tmp2 = load i32 addrspace(1)* %arrayidx        ; <i32> [#uses=1]
   store i32 %tmp2, i32* %in
   %tmp4 = load i32* %i                            ; <i32> [#uses=1]
   %tmp5 = load i32 addrspace(1)** %output.addr    ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx6 = getelementptr inbounds i32 addrspace(1)* %tmp5, i32 %tmp4 ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx6 = getelementptr inbounds i32, i32 addrspace(1)* %tmp5, i32 %tmp4 ; <i32 addrspace(1)*> [#uses=1]
   %tmp7 = load i32 addrspace(1)* %arrayidx6       ; <i32> [#uses=1]
   store i32 %tmp7, i32* %out
   store i32 0, i32* %j
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %tmp9 = load i32* %j                            ; <i32> [#uses=1]
+  %tmp9 = load i32, i32* %j                            ; <i32> [#uses=1]
   %cmp = icmp slt i32 %tmp9, 20000                ; <i1> [#uses=1]
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %tmp10 = load i32* %a                           ; <i32> [#uses=1]
-  %tmp11 = load i32* %a                           ; <i32> [#uses=1]
+  %tmp10 = load i32, i32* %a                           ; <i32> [#uses=1]
+  %tmp11 = load i32, i32* %a                           ; <i32> [#uses=1]
   %add = add nsw i32 %tmp11, %tmp10               ; <i32> [#uses=1]
   store i32 %add, i32* %a
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %tmp12 = load i32* %j                           ; <i32> [#uses=1]
+  %tmp12 = load i32, i32* %j                           ; <i32> [#uses=1]
   %inc = add nsw i32 %tmp12, 1                    ; <i32> [#uses=1]
   store i32 %inc, i32* %j
   br label %for.cond
@@ -65,17 +65,17 @@ for.end:                                          ; preds = %for.cond
   %tmp13 = load i32* %a                           ; <i32> [#uses=1]
   %tmp14 = load i32* %i                           ; <i32> [#uses=1]
   %tmp15 = load i32 addrspace(1)** %input.addr    ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx16 = getelementptr inbounds i32 addrspace(1)* %tmp15, i32 %tmp14 ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx16 = getelementptr inbounds i32, i32 addrspace(1)* %tmp15, i32 %tmp14 ; <i32 addrspace(1)*> [#uses=1]
   %tmp17 = load i32 addrspace(1)* %arrayidx16     ; <i32> [#uses=1]
   %mul = mul i32 %tmp13, %tmp17                   ; <i32> [#uses=1]
   %tmp18 = load i32* %i                           ; <i32> [#uses=1]
   %tmp19 = load i32 addrspace(1)** %output.addr   ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx20 = getelementptr inbounds i32 addrspace(1)* %tmp19, i32 %tmp18 ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx20 = getelementptr inbounds i32, i32 addrspace(1)* %tmp19, i32 %tmp18 ; <i32 addrspace(1)*> [#uses=1]
   %tmp21 = load i32 addrspace(1)* %arrayidx20     ; <i32> [#uses=1]
   %add22 = add nsw i32 %mul, %tmp21               ; <i32> [#uses=1]
   %tmp23 = load i32* %i                           ; <i32> [#uses=1]
   %tmp24 = load i32 addrspace(1)** %output.addr   ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx25 = getelementptr inbounds i32 addrspace(1)* %tmp24, i32 %tmp23 ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx25 = getelementptr inbounds i32, i32 addrspace(1)* %tmp24, i32 %tmp23 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %add22, i32 addrspace(1)* %arrayidx25
   ret void
 }
@@ -101,31 +101,31 @@ entry:
   store i32 %call, i32* %i
   %tmp = load i32* %i                             ; <i32> [#uses=1]
   %tmp1 = load i32 addrspace(1)** %input.addr     ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %tmp1, i32 %tmp ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp1, i32 %tmp ; <i32 addrspace(1)*> [#uses=1]
   %tmp2 = load i32 addrspace(1)* %arrayidx        ; <i32> [#uses=1]
   store i32 %tmp2, i32* %in
   %tmp4 = load i32* %i                            ; <i32> [#uses=1]
   %tmp5 = load i32 addrspace(1)** %output.addr    ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx6 = getelementptr inbounds i32 addrspace(1)* %tmp5, i32 %tmp4 ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx6 = getelementptr inbounds i32, i32 addrspace(1)* %tmp5, i32 %tmp4 ; <i32 addrspace(1)*> [#uses=1]
   %tmp7 = load i32 addrspace(1)* %arrayidx6       ; <i32> [#uses=1]
   store i32 %tmp7, i32* %out
   store i32 0, i32* %j
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %tmp9 = load i32* %j                            ; <i32> [#uses=1]
+  %tmp9 = load i32, i32* %j                            ; <i32> [#uses=1]
   %cmp = icmp slt i32 %tmp9, 20000                ; <i1> [#uses=1]
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %tmp10 = load i32* %a                           ; <i32> [#uses=1]
-  %tmp11 = load i32* %a                           ; <i32> [#uses=1]
+  %tmp10 = load i32, i32* %a                           ; <i32> [#uses=1]
+  %tmp11 = load i32, i32* %a                           ; <i32> [#uses=1]
   %add = add nsw i32 %tmp11, %tmp10               ; <i32> [#uses=1]
   store i32 %add, i32* %a
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %tmp12 = load i32* %j                           ; <i32> [#uses=1]
+  %tmp12 = load i32, i32* %j                           ; <i32> [#uses=1]
   %inc = add nsw i32 %tmp12, 1                    ; <i32> [#uses=1]
   store i32 %inc, i32* %j
   br label %for.cond
@@ -134,17 +134,17 @@ for.end:                                          ; preds = %for.cond
   %tmp13 = load i32* %a                           ; <i32> [#uses=1]
   %tmp14 = load i32* %i                           ; <i32> [#uses=1]
   %tmp15 = load i32 addrspace(1)** %input.addr    ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx16 = getelementptr inbounds i32 addrspace(1)* %tmp15, i32 %tmp14 ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx16 = getelementptr inbounds i32, i32 addrspace(1)* %tmp15, i32 %tmp14 ; <i32 addrspace(1)*> [#uses=1]
   %tmp17 = load i32 addrspace(1)* %arrayidx16     ; <i32> [#uses=1]
   %mul = mul i32 %tmp13, %tmp17                   ; <i32> [#uses=1]
   %tmp18 = load i32* %i                           ; <i32> [#uses=1]
   %tmp19 = load i32 addrspace(1)** %output.addr   ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx20 = getelementptr inbounds i32 addrspace(1)* %tmp19, i32 %tmp18 ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx20 = getelementptr inbounds i32, i32 addrspace(1)* %tmp19, i32 %tmp18 ; <i32 addrspace(1)*> [#uses=1]
   %tmp21 = load i32 addrspace(1)* %arrayidx20     ; <i32> [#uses=1]
   %add22 = add nsw i32 %mul, %tmp21               ; <i32> [#uses=1]
   %tmp23 = load i32* %i                           ; <i32> [#uses=1]
   %tmp24 = load i32 addrspace(1)** %output.addr   ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx25 = getelementptr inbounds i32 addrspace(1)* %tmp24, i32 %tmp23 ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx25 = getelementptr inbounds i32, i32 addrspace(1)* %tmp24, i32 %tmp23 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %add22, i32 addrspace(1)* %arrayidx25
   ret void
 }

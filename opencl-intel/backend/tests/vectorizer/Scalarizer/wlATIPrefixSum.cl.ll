@@ -34,55 +34,55 @@ entry:
   %call = call i32 @_Z12get_local_idj(i32 0)           ; <i32> [#uses=1]
   store i32 %call, i32* %tid
   store i32 1, i32* %offset
-  %tmp = load i32* %tid                           ; <i32> [#uses=1]
+  %tmp = load i32, i32* %tid                           ; <i32> [#uses=1]
   %mul = mul i32 2, %tmp                          ; <i32> [#uses=1]
   %tmp1 = load float addrspace(1)** %input.addr   ; <float addrspace(1)*> [#uses=1]
-  %arrayidx = getelementptr inbounds float addrspace(1)* %tmp1, i32 %mul ; <float addrspace(1)*> [#uses=1]
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %tmp1, i32 %mul ; <float addrspace(1)*> [#uses=1]
   %tmp2 = load float addrspace(1)* %arrayidx      ; <float> [#uses=1]
   %tmp3 = load i32* %tid                          ; <i32> [#uses=1]
   %mul4 = mul i32 2, %tmp3                        ; <i32> [#uses=1]
   %tmp5 = load float addrspace(3)** %block.addr   ; <float addrspace(3)*> [#uses=1]
-  %arrayidx6 = getelementptr inbounds float addrspace(3)* %tmp5, i32 %mul4 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx6 = getelementptr inbounds float, float addrspace(3)* %tmp5, i32 %mul4 ; <float addrspace(3)*> [#uses=1]
   store float %tmp2, float addrspace(3)* %arrayidx6
-  %tmp7 = load i32* %tid                          ; <i32> [#uses=1]
+  %tmp7 = load i32, i32* %tid                          ; <i32> [#uses=1]
   %mul8 = mul i32 2, %tmp7                        ; <i32> [#uses=1]
   %add = add nsw i32 %mul8, 1                     ; <i32> [#uses=1]
   %tmp9 = load float addrspace(1)** %input.addr   ; <float addrspace(1)*> [#uses=1]
-  %arrayidx10 = getelementptr inbounds float addrspace(1)* %tmp9, i32 %add ; <float addrspace(1)*> [#uses=1]
+  %arrayidx10 = getelementptr inbounds float, float addrspace(1)* %tmp9, i32 %add ; <float addrspace(1)*> [#uses=1]
   %tmp11 = load float addrspace(1)* %arrayidx10   ; <float> [#uses=1]
   %tmp12 = load i32* %tid                         ; <i32> [#uses=1]
   %mul13 = mul i32 2, %tmp12                      ; <i32> [#uses=1]
   %add14 = add nsw i32 %mul13, 1                  ; <i32> [#uses=1]
   %tmp15 = load float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
-  %arrayidx16 = getelementptr inbounds float addrspace(3)* %tmp15, i32 %add14 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx16 = getelementptr inbounds float, float addrspace(3)* %tmp15, i32 %add14 ; <float addrspace(3)*> [#uses=1]
   store float %tmp11, float addrspace(3)* %arrayidx16
-  %tmp18 = load i32* %length.addr                 ; <i32> [#uses=1]
+  %tmp18 = load i32, i32* %length.addr                 ; <i32> [#uses=1]
   %shr = lshr i32 %tmp18, 1                       ; <i32> [#uses=1]
   store i32 %shr, i32* %d
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %tmp19 = load i32* %d                           ; <i32> [#uses=1]
+  %tmp19 = load i32, i32* %d                           ; <i32> [#uses=1]
   %cmp = icmp sgt i32 %tmp19, 0                   ; <i1> [#uses=1]
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
   call void @_Z7barrierm(i32 1)
-  %tmp20 = load i32* %tid                         ; <i32> [#uses=1]
-  %tmp21 = load i32* %d                           ; <i32> [#uses=1]
+  %tmp20 = load i32, i32* %tid                         ; <i32> [#uses=1]
+  %tmp21 = load i32, i32* %d                           ; <i32> [#uses=1]
   %cmp22 = icmp slt i32 %tmp20, %tmp21            ; <i1> [#uses=1]
   br i1 %cmp22, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
-  %tmp24 = load i32* %offset                      ; <i32> [#uses=1]
-  %tmp25 = load i32* %tid                         ; <i32> [#uses=1]
+  %tmp24 = load i32, i32* %offset                      ; <i32> [#uses=1]
+  %tmp25 = load i32, i32* %tid                         ; <i32> [#uses=1]
   %mul26 = mul i32 2, %tmp25                      ; <i32> [#uses=1]
   %add27 = add nsw i32 %mul26, 1                  ; <i32> [#uses=1]
   %mul28 = mul i32 %tmp24, %add27                 ; <i32> [#uses=1]
   %sub = sub i32 %mul28, 1                        ; <i32> [#uses=1]
   store i32 %sub, i32* %ai
-  %tmp30 = load i32* %offset                      ; <i32> [#uses=1]
-  %tmp31 = load i32* %tid                         ; <i32> [#uses=1]
+  %tmp30 = load i32, i32* %offset                      ; <i32> [#uses=1]
+  %tmp31 = load i32, i32* %tid                         ; <i32> [#uses=1]
   %mul32 = mul i32 2, %tmp31                      ; <i32> [#uses=1]
   %add33 = add nsw i32 %mul32, 2                  ; <i32> [#uses=1]
   %mul34 = mul i32 %tmp30, %add33                 ; <i32> [#uses=1]
@@ -90,38 +90,38 @@ if.then:                                          ; preds = %for.body
   store i32 %sub35, i32* %bi
   %tmp36 = load i32* %ai                          ; <i32> [#uses=1]
   %tmp37 = load float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
-  %arrayidx38 = getelementptr inbounds float addrspace(3)* %tmp37, i32 %tmp36 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx38 = getelementptr inbounds float, float addrspace(3)* %tmp37, i32 %tmp36 ; <float addrspace(3)*> [#uses=1]
   %tmp39 = load float addrspace(3)* %arrayidx38   ; <float> [#uses=1]
   %tmp40 = load i32* %bi                          ; <i32> [#uses=1]
   %tmp41 = load float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
-  %arrayidx42 = getelementptr inbounds float addrspace(3)* %tmp41, i32 %tmp40 ; <float addrspace(3)*> [#uses=2]
+  %arrayidx42 = getelementptr inbounds float, float addrspace(3)* %tmp41, i32 %tmp40 ; <float addrspace(3)*> [#uses=2]
   %tmp43 = load float addrspace(3)* %arrayidx42   ; <float> [#uses=1]
   %add44 = fadd float %tmp43, %tmp39              ; <float> [#uses=1]
   store float %add44, float addrspace(3)* %arrayidx42
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body
-  %tmp45 = load i32* %offset                      ; <i32> [#uses=1]
+  %tmp45 = load i32, i32* %offset                      ; <i32> [#uses=1]
   %mul46 = mul i32 %tmp45, 2                      ; <i32> [#uses=1]
   store i32 %mul46, i32* %offset
   br label %for.inc
 
 for.inc:                                          ; preds = %if.end
-  %tmp47 = load i32* %d                           ; <i32> [#uses=1]
+  %tmp47 = load i32, i32* %d                           ; <i32> [#uses=1]
   %shr48 = ashr i32 %tmp47, 1                     ; <i32> [#uses=1]
   store i32 %shr48, i32* %d
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
-  %tmp49 = load i32* %tid                         ; <i32> [#uses=1]
+  %tmp49 = load i32, i32* %tid                         ; <i32> [#uses=1]
   %cmp50 = icmp eq i32 %tmp49, 0                  ; <i1> [#uses=1]
   br i1 %cmp50, label %if.then51, label %if.end56
 
 if.then51:                                        ; preds = %for.end
-  %tmp52 = load i32* %length.addr                 ; <i32> [#uses=1]
+  %tmp52 = load i32, i32* %length.addr                 ; <i32> [#uses=1]
   %sub53 = sub i32 %tmp52, 1                      ; <i32> [#uses=1]
   %tmp54 = load float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
-  %arrayidx55 = getelementptr inbounds float addrspace(3)* %tmp54, i32 %sub53 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx55 = getelementptr inbounds float, float addrspace(3)* %tmp54, i32 %sub53 ; <float addrspace(3)*> [#uses=1]
   store float 0.000000e+000, float addrspace(3)* %arrayidx55
   br label %if.end56
 
@@ -130,31 +130,31 @@ if.end56:                                         ; preds = %if.then51, %for.end
   br label %for.cond59
 
 for.cond59:                                       ; preds = %for.inc105, %if.end56
-  %tmp60 = load i32* %d58                         ; <i32> [#uses=1]
-  %tmp61 = load i32* %length.addr                 ; <i32> [#uses=1]
+  %tmp60 = load i32, i32* %d58                         ; <i32> [#uses=1]
+  %tmp61 = load i32, i32* %length.addr                 ; <i32> [#uses=1]
   %cmp62 = icmp ult i32 %tmp60, %tmp61            ; <i1> [#uses=1]
   br i1 %cmp62, label %for.body63, label %for.end108
 
 for.body63:                                       ; preds = %for.cond59
-  %tmp64 = load i32* %offset                      ; <i32> [#uses=1]
+  %tmp64 = load i32, i32* %offset                      ; <i32> [#uses=1]
   %shr65 = ashr i32 %tmp64, 1                     ; <i32> [#uses=1]
   store i32 %shr65, i32* %offset
   call void @_Z7barrierm(i32 1)
-  %tmp66 = load i32* %tid                         ; <i32> [#uses=1]
-  %tmp67 = load i32* %d58                         ; <i32> [#uses=1]
+  %tmp66 = load i32, i32* %tid                         ; <i32> [#uses=1]
+  %tmp67 = load i32, i32* %d58                         ; <i32> [#uses=1]
   %cmp68 = icmp slt i32 %tmp66, %tmp67            ; <i1> [#uses=1]
   br i1 %cmp68, label %if.then69, label %if.end104
 
 if.then69:                                        ; preds = %for.body63
-  %tmp72 = load i32* %offset                      ; <i32> [#uses=1]
-  %tmp73 = load i32* %tid                         ; <i32> [#uses=1]
+  %tmp72 = load i32, i32* %offset                      ; <i32> [#uses=1]
+  %tmp73 = load i32, i32* %tid                         ; <i32> [#uses=1]
   %mul74 = mul i32 2, %tmp73                      ; <i32> [#uses=1]
   %add75 = add nsw i32 %mul74, 1                  ; <i32> [#uses=1]
   %mul76 = mul i32 %tmp72, %add75                 ; <i32> [#uses=1]
   %sub77 = sub i32 %mul76, 1                      ; <i32> [#uses=1]
   store i32 %sub77, i32* %ai71
-  %tmp80 = load i32* %offset                      ; <i32> [#uses=1]
-  %tmp81 = load i32* %tid                         ; <i32> [#uses=1]
+  %tmp80 = load i32, i32* %offset                      ; <i32> [#uses=1]
+  %tmp81 = load i32, i32* %tid                         ; <i32> [#uses=1]
   %mul82 = mul i32 2, %tmp81                      ; <i32> [#uses=1]
   %add83 = add nsw i32 %mul82, 2                  ; <i32> [#uses=1]
   %mul84 = mul i32 %tmp80, %add83                 ; <i32> [#uses=1]
@@ -162,21 +162,21 @@ if.then69:                                        ; preds = %for.body63
   store i32 %sub85, i32* %bi79
   %tmp87 = load i32* %ai71                        ; <i32> [#uses=1]
   %tmp88 = load float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
-  %arrayidx89 = getelementptr inbounds float addrspace(3)* %tmp88, i32 %tmp87 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx89 = getelementptr inbounds float, float addrspace(3)* %tmp88, i32 %tmp87 ; <float addrspace(3)*> [#uses=1]
   %tmp90 = load float addrspace(3)* %arrayidx89   ; <float> [#uses=1]
   store float %tmp90, float* %t
   %tmp91 = load i32* %bi79                        ; <i32> [#uses=1]
   %tmp92 = load float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
-  %arrayidx93 = getelementptr inbounds float addrspace(3)* %tmp92, i32 %tmp91 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx93 = getelementptr inbounds float, float addrspace(3)* %tmp92, i32 %tmp91 ; <float addrspace(3)*> [#uses=1]
   %tmp94 = load float addrspace(3)* %arrayidx93   ; <float> [#uses=1]
   %tmp95 = load i32* %ai71                        ; <i32> [#uses=1]
   %tmp96 = load float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
-  %arrayidx97 = getelementptr inbounds float addrspace(3)* %tmp96, i32 %tmp95 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx97 = getelementptr inbounds float, float addrspace(3)* %tmp96, i32 %tmp95 ; <float addrspace(3)*> [#uses=1]
   store float %tmp94, float addrspace(3)* %arrayidx97
   %tmp98 = load float* %t                         ; <float> [#uses=1]
   %tmp99 = load i32* %bi79                        ; <i32> [#uses=1]
   %tmp100 = load float addrspace(3)** %block.addr ; <float addrspace(3)*> [#uses=1]
-  %arrayidx101 = getelementptr inbounds float addrspace(3)* %tmp100, i32 %tmp99 ; <float addrspace(3)*> [#uses=2]
+  %arrayidx101 = getelementptr inbounds float, float addrspace(3)* %tmp100, i32 %tmp99 ; <float addrspace(3)*> [#uses=2]
   %tmp102 = load float addrspace(3)* %arrayidx101 ; <float> [#uses=1]
   %add103 = fadd float %tmp102, %tmp98            ; <float> [#uses=1]
   store float %add103, float addrspace(3)* %arrayidx101
@@ -186,34 +186,34 @@ if.end104:                                        ; preds = %if.then69, %for.bod
   br label %for.inc105
 
 for.inc105:                                       ; preds = %if.end104
-  %tmp106 = load i32* %d58                        ; <i32> [#uses=1]
+  %tmp106 = load i32, i32* %d58                        ; <i32> [#uses=1]
   %mul107 = mul i32 %tmp106, 2                    ; <i32> [#uses=1]
   store i32 %mul107, i32* %d58
   br label %for.cond59
 
 for.end108:                                       ; preds = %for.cond59
   call void @_Z7barrierm(i32 1)
-  %tmp109 = load i32* %tid                        ; <i32> [#uses=1]
+  %tmp109 = load i32, i32* %tid                        ; <i32> [#uses=1]
   %mul110 = mul i32 2, %tmp109                    ; <i32> [#uses=1]
   %tmp111 = load float addrspace(3)** %block.addr ; <float addrspace(3)*> [#uses=1]
-  %arrayidx112 = getelementptr inbounds float addrspace(3)* %tmp111, i32 %mul110 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx112 = getelementptr inbounds float, float addrspace(3)* %tmp111, i32 %mul110 ; <float addrspace(3)*> [#uses=1]
   %tmp113 = load float addrspace(3)* %arrayidx112 ; <float> [#uses=1]
   %tmp114 = load i32* %tid                        ; <i32> [#uses=1]
   %mul115 = mul i32 2, %tmp114                    ; <i32> [#uses=1]
   %tmp116 = load float addrspace(1)** %output.addr ; <float addrspace(1)*> [#uses=1]
-  %arrayidx117 = getelementptr inbounds float addrspace(1)* %tmp116, i32 %mul115 ; <float addrspace(1)*> [#uses=1]
+  %arrayidx117 = getelementptr inbounds float, float addrspace(1)* %tmp116, i32 %mul115 ; <float addrspace(1)*> [#uses=1]
   store float %tmp113, float addrspace(1)* %arrayidx117
-  %tmp118 = load i32* %tid                        ; <i32> [#uses=1]
+  %tmp118 = load i32, i32* %tid                        ; <i32> [#uses=1]
   %mul119 = mul i32 2, %tmp118                    ; <i32> [#uses=1]
   %add120 = add nsw i32 %mul119, 1                ; <i32> [#uses=1]
   %tmp121 = load float addrspace(3)** %block.addr ; <float addrspace(3)*> [#uses=1]
-  %arrayidx122 = getelementptr inbounds float addrspace(3)* %tmp121, i32 %add120 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx122 = getelementptr inbounds float, float addrspace(3)* %tmp121, i32 %add120 ; <float addrspace(3)*> [#uses=1]
   %tmp123 = load float addrspace(3)* %arrayidx122 ; <float> [#uses=1]
   %tmp124 = load i32* %tid                        ; <i32> [#uses=1]
   %mul125 = mul i32 2, %tmp124                    ; <i32> [#uses=1]
   %add126 = add nsw i32 %mul125, 1                ; <i32> [#uses=1]
   %tmp127 = load float addrspace(1)** %output.addr ; <float addrspace(1)*> [#uses=1]
-  %arrayidx128 = getelementptr inbounds float addrspace(1)* %tmp127, i32 %add126 ; <float addrspace(1)*> [#uses=1]
+  %arrayidx128 = getelementptr inbounds float, float addrspace(1)* %tmp127, i32 %add126 ; <float addrspace(1)*> [#uses=1]
   store float %tmp123, float addrspace(1)* %arrayidx128
   ret void
 }

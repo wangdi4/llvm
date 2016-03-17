@@ -95,13 +95,13 @@ bb.nph:                                           ; preds = %._crit_edge, %bb.np
   %sumFX.02 = phi float [ %sumFX.14, %bb.nph ], [ %37, %32 ]
   %tmp47 = mul i32 %2, %indvar14
   %tmp64 = add i32 %tmp63, %tmp47
-  %scevgep43 = getelementptr i32 addrspace(1)* %input, i32 %tmp64
+  %scevgep43 = getelementptr i32, i32 addrspace(1)* %input, i32 %tmp64
   %tmp66 = mul i32 %8, %indvar14
   %tmp72 = add i32 %tmp71, %tmp66
-  %scevgep = getelementptr float addrspace(1)* %mask, i32 %tmp72
+  %scevgep = getelementptr float, float addrspace(1)* %mask, i32 %tmp72
   %33 = load i32 addrspace(1)* %scevgep43, align 4
   %34 = uitofp i32 %33 to float
-  %35 = load float addrspace(1)* %scevgep, align 4
+  %35 = load float, float addrspace(1)* %scevgep, align 4
   %36 = fmul float %34, %35
   %37 = fadd float %sumFX.02, %36
   %tmp46 = add i32 %tmp45, %indvar14
@@ -123,7 +123,7 @@ bb.nph:                                           ; preds = %._crit_edge, %bb.np
 ._crit_edge7:                                     ; preds = %._crit_edge7.loopexit77, %._crit_edge7.loopexit, %0
   %sumFX.1.lcssa = phi float [ 0.000000e+000, %0 ], [ %37, %._crit_edge7.loopexit ], [ 0.000000e+000, %._crit_edge7.loopexit77 ]
   %40 = fadd float %sumFX.1.lcssa, 5.000000e-001
-  %41 = getelementptr inbounds float addrspace(1)* %output, i32 %1
+  %41 = getelementptr inbounds float, float addrspace(1)* %output, i32 %1
   store float %40, float addrspace(1)* %41, align 4
 ; CHECK: ret
   ret void

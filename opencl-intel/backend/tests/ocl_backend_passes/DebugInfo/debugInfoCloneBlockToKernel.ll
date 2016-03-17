@@ -57,7 +57,7 @@ define internal spir_func void @__ker_block_invoke(i8* %.block_descriptor) #0 {
   %2 = alloca <{ i8*, i32, i32, i8*, %struct.__block_descriptor* }>*, align 8
   %id = alloca i64, align 8
   store i8* %.block_descriptor, i8** %1, align 8
-  %3 = load i8** %1
+  %3 = load i8*, i8** %1
   call void @llvm.dbg.value(metadata i8* %3, i64 0, metadata !27, metadata !44), !dbg !45
   call void @llvm.dbg.declare(metadata i8* %.block_descriptor, metadata !27, metadata !44), !dbg !45
   %4 = bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor* }>*, !dbg !45

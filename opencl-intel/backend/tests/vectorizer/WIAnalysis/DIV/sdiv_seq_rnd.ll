@@ -9,7 +9,7 @@ target triple = "i686-pc-win32"
 define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = add nsw i32 %1, 100
-  %3 = getelementptr inbounds i32 addrspace(1)* %in, i32 %1
+  %3 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %1
   %4 = load i32 addrspace(1)* %3, align 4
   %5 = mul nsw i32 %4, 7
   %6 = add nsw i32 %5, 12
@@ -20,7 +20,7 @@ define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* noca
   %11 = or i1 %7, %10
   %12 = select i1 %11, i32 1, i32 %6
   %13 = sdiv i32 %2, %12
-  %14 = getelementptr inbounds i32 addrspace(1)* %out, i32 %1
+  %14 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %1
   store i32 %13, i32 addrspace(1)* %14, align 4
   %15 = icmp eq i32 %2, 0
   %16 = icmp eq i32 %6, -2147483648
@@ -30,7 +30,7 @@ define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* noca
   %20 = select i1 %19, i32 1, i32 %2
   %21 = sdiv i32 %6, %20
   %22 = add nsw i32 %1, 10
-  %23 = getelementptr inbounds i32 addrspace(1)* %out, i32 %22
+  %23 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %22
   store i32 %21, i32 addrspace(1)* %23, align 4
   ret void
 }

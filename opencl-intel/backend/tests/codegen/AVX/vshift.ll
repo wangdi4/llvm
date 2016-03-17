@@ -154,7 +154,7 @@ entry:
 ; Check for missing codegen patterns #1
 define <8 x i16> @sll_missing_patterns1(<8 x i16>* %Ap) nounwind {
 entry: 
-  %A = load <8 x i16>* %Ap
+  %A = load <8 x i16>, <8 x i16>* %Ap
   %B = shl <8 x i16> %A,  < i16 0, i16 2, i16 3, i16 6, i16 2, i16 2, i16 2, i16 2>
   %C = shl <8 x i16> %B,  < i16 9, i16 7, i16 5, i16 1, i16 4, i16 1, i16 1, i16 1>
   %D = shl <8 x i16> %C,  < i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>

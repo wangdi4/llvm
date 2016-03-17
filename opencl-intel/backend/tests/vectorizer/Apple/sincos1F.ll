@@ -35,11 +35,11 @@
      %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
      %sext = shl i64 %1, 32
      %2 = ashr exact i64 %sext, 32
-     %3 = getelementptr inbounds float addrspace(1)* %in, i64 %2
+     %3 = getelementptr inbounds float, float addrspace(1)* %in, i64 %2
      %4 = load float addrspace(1)* %3, align 4, !tbaa !4
-     %5 = getelementptr inbounds float addrspace(1)* %out2, i64 %2
+     %5 = getelementptr inbounds float, float addrspace(1)* %out2, i64 %2
      %6 = tail call float @_Z6sincosfPU3AS1f(float %4, float addrspace(1)* %5) nounwind
-     %7 = getelementptr inbounds float addrspace(1)* %out, i64 %2
+     %7 = getelementptr inbounds float, float addrspace(1)* %out, i64 %2
      store float %6, float addrspace(1)* %7, align 4, !tbaa !4
      ret void
  }

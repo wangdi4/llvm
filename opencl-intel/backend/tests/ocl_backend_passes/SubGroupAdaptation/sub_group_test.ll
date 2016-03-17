@@ -31,8 +31,8 @@ entry:
   store i32 %call, i32* %sgsize, align 4
   %call1 = call spir_func i32 @_Z22get_max_sub_group_sizev()
   store i32 %call1, i32* %msgsize, align 4
-  %0 = load i32* %sgsize, align 4
-  %1 = load i32* %msgsize, align 4
+  %0 = load i32, i32* %sgsize, align 4
+  %1 = load i32, i32* %msgsize, align 4
   %cmp = icmp eq i32 %0, %1
   br i1 %cmp, label %if.then, label %if.end6
 
@@ -41,13 +41,13 @@ if.then:                                          ; preds = %entry
   store i32 %call2, i32* %nsg, align 4
   %call3 = call spir_func i32 @_Z27get_enqueued_num_sub_groupsv()
   store i32 %call3, i32* %ensg, align 4
-  %2 = load i32* %nsg, align 4
-  %3 = load i32* %ensg, align 4
+  %2 = load i32, i32* %nsg, align 4
+  %3 = load i32, i32* %ensg, align 4
   %cmp4 = icmp eq i32 %2, %3
   br i1 %cmp4, label %if.then5, label %if.end
 
 if.then5:                                         ; preds = %if.then
-  %4 = load i32* %nsg, align 4
+  %4 = load i32, i32* %nsg, align 4
   store i32 %4, i32* %res.addr, align 4
   br label %if.end
 

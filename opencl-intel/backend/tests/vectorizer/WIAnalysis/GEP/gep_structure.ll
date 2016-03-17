@@ -53,11 +53,11 @@ declare i64 @get_base_global_id.(i32)
 define void @__Vectorized_.create_linked_lists(%struct.Node addrspace(1)* %pNodes, i32 addrspace(1)* %allocation_index, i32 %list_length) #0 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #3
-  %arrayidx = getelementptr inbounds %struct.Node addrspace(1)* %pNodes, i64 %call
+  %arrayidx = getelementptr inbounds %struct.Node, %struct.Node addrspace(1)* %pNodes, i64 %call
   %conv = trunc i64 %call to i32
-  %global_id = getelementptr inbounds %struct.Node addrspace(1)* %arrayidx, i64 0, i32 0
+  %global_id = getelementptr inbounds %struct.Node, %struct.Node addrspace(1)* %arrayidx, i64 0, i32 0
   store i32 %conv, i32 addrspace(1)* %global_id, align 4
-  %position_in_list = getelementptr inbounds %struct.Node addrspace(1)* %pNodes, i64 %call, i32 1
+  %position_in_list = getelementptr inbounds %struct.Node, %struct.Node addrspace(1)* %pNodes, i64 %call, i32 1
   store i32 0, i32 addrspace(1)* %position_in_list, align 4
   %cmp1 = icmp sgt i32 %list_length, 1
   br i1 %cmp1, label %for.body.preheader, label %for.end
@@ -70,12 +70,12 @@ for.body:                                         ; preds = %for.body.preheader,
   %pNode.02 = phi %struct.Node addrspace(1)* [ %arrayidx3, %for.body ], [ %arrayidx, %for.body.preheader ]
   %call2 = tail call i32 @_Z10atomic_incPVU3AS1i(i32 addrspace(1)* %allocation_index) #4
   %idxprom = sext i32 %call2 to i64
-  %arrayidx3 = getelementptr inbounds %struct.Node addrspace(1)* %pNodes, i64 %idxprom
-  %global_id5 = getelementptr inbounds %struct.Node addrspace(1)* %arrayidx3, i64 0, i32 0
+  %arrayidx3 = getelementptr inbounds %struct.Node, %struct.Node addrspace(1)* %pNodes, i64 %idxprom
+  %global_id5 = getelementptr inbounds %struct.Node, %struct.Node addrspace(1)* %arrayidx3, i64 0, i32 0
   store i32 %conv, i32 addrspace(1)* %global_id5, align 4
-  %position_in_list6 = getelementptr inbounds %struct.Node addrspace(1)* %pNodes, i64 %idxprom, i32 1
+  %position_in_list6 = getelementptr inbounds %struct.Node, %struct.Node addrspace(1)* %pNodes, i64 %idxprom, i32 1
   store i32 %j.03, i32 addrspace(1)* %position_in_list6, align 4
-  %pNext = getelementptr inbounds %struct.Node addrspace(1)* %pNode.02, i64 0, i32 2
+  %pNext = getelementptr inbounds %struct.Node, %struct.Node addrspace(1)* %pNode.02, i64 0, i32 2
   store %struct.Node addrspace(1)* %arrayidx3, %struct.Node addrspace(1)* addrspace(1)* %pNext, align 8
   %inc = add nsw i32 %j.03, 1
   %exitcond = icmp eq i32 %inc, %list_length

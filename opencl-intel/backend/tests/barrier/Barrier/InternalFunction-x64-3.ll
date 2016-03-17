@@ -43,21 +43,21 @@ L4:
 ;;;; TODO: add regular expression for the below values.
 
 ; CHECK: SyncBB2:                                          ; preds = %Dispatch, %L3
-; CHECK: %SBIndex = load i64* %pCurrSBIndex
+; CHECK: %SBIndex = load i64, i64* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset = add nuw i64 %SBIndex, 8
-; CHECK: %7 = getelementptr inbounds i8* %pSB, i64 %SB_LocalId_Offset
+; CHECK: %7 = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset
 ; CHECK: %pSB_LocalId = bitcast i8* %7 to i64*
-; CHECK: %loadedValue = load i64* %pSB_LocalId
-; CHECK: %SBIndex1 = load i64* %pCurrSBIndex
+; CHECK: %loadedValue = load i64, i64* %pSB_LocalId
+; CHECK: %SBIndex1 = load i64, i64* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset2 = add nuw i64 %SBIndex1, 0
-; CHECK: %8 = getelementptr inbounds i8* %pSB, i64 %SB_LocalId_Offset2
+; CHECK: %8 = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset2
 ; CHECK: %pSB_LocalId3 = bitcast i8* %8 to i64*
 ; CHECK: store i64 %loadedValue, i64* %pSB_LocalId3
-; CHECK: %SBIndex4 = load i64* %pCurrSBIndex
+; CHECK: %SBIndex4 = load i64, i64* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset5 = add nuw i64 %SBIndex4, 0
-; CHECK: %9 = getelementptr inbounds i8* %pSB, i64 %SB_LocalId_Offset5
+; CHECK: %9 = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset5
 ; CHECK: %pSB_LocalId6 = bitcast i8* %9 to i64*
-; CHECK: %loadedValue7 = load i64* %pSB_LocalId6
+; CHECK: %loadedValue7 = load i64, i64* %pSB_LocalId6
 ; CHECK: %w = and i64 %loadedValue7, %loadedValue7
 ; CHECK: br label %L4
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -78,12 +78,12 @@ L2:
 ; CHECK-NOT: @_Z7barrierj
 ;;;; TODO: add regular expression for the below values.
 ; CHECK: LoopBB:
-; CHECK: %SBIndex1 = load i64* %pCurrSBIndex
+; CHECK: %SBIndex1 = load i64, i64* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset = add nuw i64 %SBIndex1, 8
-; CHECK: %7 = getelementptr inbounds i8* %pSB, i64 %SB_LocalId_Offset
+; CHECK: %7 = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset
 ; CHECK: %pSB_LocalId = bitcast i8* %7 to i64*
 ; CHECK: store i64 %x, i64* %pSB_LocalId
-; CHECK: %LocalId_0 = load i64* %pLocalId_0
+; CHECK: %LocalId_0 = load i64, i64* %pLocalId_0
 ; CHECK: %8 = add nuw i64 %LocalId_0, 1
 ; CHECK: store i64 %8, i64* %pLocalId_0
 ; CHECK: %9 = icmp ult i64 %8, %LocalSize_0

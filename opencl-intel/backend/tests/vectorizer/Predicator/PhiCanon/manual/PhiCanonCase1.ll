@@ -17,7 +17,7 @@ define void @PhiCanonCase1(i32 %arg1, i32 %arg2, float addrspace(1)* nocapture %
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %0 = sext i32 %call to i64
-  %arrayidx = getelementptr inbounds float addrspace(1)* %a, i64 %0
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i64 %0
   %tmp2 = load float addrspace(1)* %arrayidx, align 4
   %cmp = icmp sgt i32 %arg1, 3
   br i1 %cmp, label %if.then, label %if.end18
@@ -39,7 +39,7 @@ if.then14:                                        ; preds = %if.then7
 
 if.end18:                                         ; preds = %if.then14, %if.then7, %if.then, %entry
   %temp.0 = phi float [ %div, %if.then14 ], [ %add, %if.then7 ], [ %mul, %if.then ], [ %tmp2, %entry ]
-  %arrayidx22 = getelementptr inbounds float addrspace(1)* %b, i64 %0
+  %arrayidx22 = getelementptr inbounds float, float addrspace(1)* %b, i64 %0
   store float %temp.0, float addrspace(1)* %arrayidx22, align 4
   ret void
 }

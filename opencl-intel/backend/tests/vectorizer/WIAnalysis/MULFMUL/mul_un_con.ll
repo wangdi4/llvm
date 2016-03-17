@@ -23,11 +23,11 @@ bb.nph:
 
 ._crit_edge:                                      ; preds = %1
   %6 = mul nsw i32 %.x.1, %0
-  %7 = getelementptr inbounds i32 addrspace(1)* %out, i32 %0
+  %7 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %0
   store i32 %6, i32 addrspace(1)* %7, align 4
   %8 = mul nsw i32 %6, 100
   %9 = add nsw i32 %0, 10
-  %10 = getelementptr inbounds i32 addrspace(1)* %out, i32 %9
+  %10 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %9
   store i32 %8, i32 addrspace(1)* %10, align 4
   ret void
 }

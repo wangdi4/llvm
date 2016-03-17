@@ -19,11 +19,11 @@ target triple = "i686-pc-win32"
 
 define void @mul_vector(<4 x float> addrspace(1)* nocapture %in, <4 x float> addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=2]
-  %2 = getelementptr inbounds <4 x float> addrspace(1)* %in, i32 %1 ; <<4 x float> addrspace(1)*> [#uses=1]
+  %2 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %in, i32 %1 ; <<4 x float> addrspace(1)*> [#uses=1]
   %3 = load <4 x float> addrspace(1)* %2          ; <<4 x float>> [#uses=1]
   %4 = fmul <4 x float> %3, <float undef, float undef, float undef, float undef> ; <<4 x float>> [#uses=1]
   %5 = fmul <4 x float> %4, <float 3.000000e+000, float 3.000000e+000, float 3.000000e+000, float 3.000000e+000> ; <<4 x float>> [#uses=1]
-  %6 = getelementptr inbounds <4 x float> addrspace(1)* %out, i32 %1 ; <<4 x float> addrspace(1)*> [#uses=1]
+  %6 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %out, i32 %1 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %5, <4 x float> addrspace(1)* %6
   ret void
 }

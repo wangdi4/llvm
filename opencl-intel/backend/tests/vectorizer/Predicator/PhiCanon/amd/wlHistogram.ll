@@ -70,9 +70,9 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %storemerge2 = phi i32 [ %inc10, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr i32 addrspace(1)* %puiInputMatrix, i32 %storemerge2
+  %arrayidx = getelementptr i32, i32 addrspace(1)* %puiInputMatrix, i32 %storemerge2
   %tmp5 = load i32 addrspace(1)* %arrayidx, align 4
-  %arrayidx7 = getelementptr i32 addrspace(1)* %puiOutputArray, i32 %tmp5
+  %arrayidx7 = getelementptr i32, i32 addrspace(1)* %puiOutputArray, i32 %tmp5
   %tmp8 = load i32 addrspace(1)* %arrayidx7, align 4
   %inc = add i32 %tmp8, 1
   store i32 %inc, i32 addrspace(1)* %arrayidx7, align 4
@@ -106,10 +106,10 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %storemerge29 = phi i32 [ %inc25, %for.body ], [ %mul15, %for.body.preheader ]
-  %arrayidx = getelementptr i32 addrspace(1)* %puiInputMatrix, i32 %storemerge29
+  %arrayidx = getelementptr i32, i32 addrspace(1)* %puiInputMatrix, i32 %storemerge29
   %tmp20 = load i32 addrspace(1)* %arrayidx, align 4
   %add.ptr.sum = add i32 %tmp20, %mul
-  %arrayidx22 = getelementptr i32 addrspace(1)* %puiTmpArray, i32 %add.ptr.sum
+  %arrayidx22 = getelementptr i32, i32 addrspace(1)* %puiTmpArray, i32 %add.ptr.sum
   %tmp23 = load i32 addrspace(1)* %arrayidx22, align 4
   %inc = add i32 %tmp23, 1
   store i32 %inc, i32 addrspace(1)* %arrayidx22, align 4
@@ -148,10 +148,10 @@ for.inc80.us:                                     ; preds = %for.body66.us
 for.body66.us:                                    ; preds = %for.body66.lr.ph.us, %for.body66.us
   %storemerge15.us = phi i32 [ %mul61, %for.body66.lr.ph.us ], [ %inc78.us, %for.body66.us ]
   %add.ptr45.sum.us = add i32 %storemerge15.us, %mul44
-  %arrayidx69.us = getelementptr i32 addrspace(1)* %puiGroupOutputArray, i32 %add.ptr45.sum.us
+  %arrayidx69.us = getelementptr i32, i32 addrspace(1)* %puiGroupOutputArray, i32 %add.ptr45.sum.us
   %tmp70.us = load i32 addrspace(1)* %arrayidx69.us, align 4
   %add.ptr56.sum.us = add i32 %storemerge15.us, %add.ptr38.sum.us
-  %arrayidx73.us = getelementptr i32 addrspace(1)* %puiTmpArray, i32 %add.ptr56.sum.us
+  %arrayidx73.us = getelementptr i32, i32 addrspace(1)* %puiTmpArray, i32 %add.ptr56.sum.us
   %tmp74.us = load i32 addrspace(1)* %arrayidx73.us, align 4
   %add75.us = add i32 %tmp74.us, %tmp70.us
   store i32 %add75.us, i32 addrspace(1)* %arrayidx69.us, align 4
@@ -194,10 +194,10 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %storemerge2 = phi i32 [ %inc24, %for.body ], [ %mul14, %for.body.preheader ]
-  %arrayidx = getelementptr i32 addrspace(1)* %puiInputMatrix, i32 %storemerge2
+  %arrayidx = getelementptr i32, i32 addrspace(1)* %puiInputMatrix, i32 %storemerge2
   %tmp19 = load i32 addrspace(1)* %arrayidx, align 4
   %add.ptr.sum = add i32 %tmp19, %mul
-  %arrayidx21 = getelementptr i32 addrspace(1)* %puiTmpArray, i32 %add.ptr.sum
+  %arrayidx21 = getelementptr i32, i32 addrspace(1)* %puiTmpArray, i32 %add.ptr.sum
   %tmp22 = load i32 addrspace(1)* %arrayidx21, align 4
   %inc = add i32 %tmp22, 1
   store i32 %inc, i32 addrspace(1)* %arrayidx21, align 4
@@ -235,10 +235,10 @@ for.inc28.us:                                     ; preds = %for.body18.us
 
 for.body18.us:                                    ; preds = %for.body18.lr.ph.us, %for.body18.us
   %storemerge13.us = phi i32 [ %mul13, %for.body18.lr.ph.us ], [ %inc.us, %for.body18.us ]
-  %arrayidx.us = getelementptr i32 addrspace(1)* %puiOutputArray, i32 %storemerge13.us
+  %arrayidx.us = getelementptr i32, i32 addrspace(1)* %puiOutputArray, i32 %storemerge13.us
   %tmp21.us = load i32 addrspace(1)* %arrayidx.us, align 4
   %add.ptr.sum.us = add i32 %storemerge13.us, %mul9.us
-  %arrayidx24.us = getelementptr i32 addrspace(1)* %puiTmpArray, i32 %add.ptr.sum.us
+  %arrayidx24.us = getelementptr i32, i32 addrspace(1)* %puiTmpArray, i32 %add.ptr.sum.us
   %tmp25.us = load i32 addrspace(1)* %arrayidx24.us, align 4
   %add26.us = add i32 %tmp25.us, %tmp21.us
   store i32 %add26.us, i32 addrspace(1)* %arrayidx.us, align 4
@@ -281,10 +281,10 @@ for.inc28.us:                                     ; preds = %for.body18.us
 
 for.body18.us:                                    ; preds = %for.body18.lr.ph.us, %for.body18.us
   %storemerge13.us = phi i32 [ %mul13, %for.body18.lr.ph.us ], [ %inc.us, %for.body18.us ]
-  %arrayidx.us = getelementptr <2 x i32> addrspace(1)* %puiOutputArray, i32 %storemerge13.us
+  %arrayidx.us = getelementptr <2 x i32>, <2 x i32> addrspace(1)* %puiOutputArray, i32 %storemerge13.us
   %tmp21.us = load <2 x i32> addrspace(1)* %arrayidx.us, align 8
   %add.ptr.sum.us = add i32 %storemerge13.us, %mul9.us
-  %arrayidx24.us = getelementptr <2 x i32> addrspace(1)* %puiTmpArray, i32 %add.ptr.sum.us
+  %arrayidx24.us = getelementptr <2 x i32>, <2 x i32> addrspace(1)* %puiTmpArray, i32 %add.ptr.sum.us
   %tmp25.us = load <2 x i32> addrspace(1)* %arrayidx24.us, align 8
   %add26.us = add <2 x i32> %tmp21.us, %tmp25.us
   store <2 x i32> %add26.us, <2 x i32> addrspace(1)* %arrayidx.us, align 8
@@ -327,10 +327,10 @@ for.inc28.us:                                     ; preds = %for.body18.us
 
 for.body18.us:                                    ; preds = %for.body18.lr.ph.us, %for.body18.us
   %storemerge13.us = phi i32 [ %mul13, %for.body18.lr.ph.us ], [ %inc.us, %for.body18.us ]
-  %arrayidx.us = getelementptr <4 x i32> addrspace(1)* %puiOutputArray, i32 %storemerge13.us
+  %arrayidx.us = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %puiOutputArray, i32 %storemerge13.us
   %tmp21.us = load <4 x i32> addrspace(1)* %arrayidx.us, align 16
   %add.ptr.sum.us = add i32 %storemerge13.us, %mul9.us
-  %arrayidx24.us = getelementptr <4 x i32> addrspace(1)* %puiTmpArray, i32 %add.ptr.sum.us
+  %arrayidx24.us = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %puiTmpArray, i32 %add.ptr.sum.us
   %tmp25.us = load <4 x i32> addrspace(1)* %arrayidx24.us, align 16
   %add26.us = add <4 x i32> %tmp21.us, %tmp25.us
   store <4 x i32> %add26.us, <4 x i32> addrspace(1)* %arrayidx.us, align 16
@@ -373,10 +373,10 @@ for.inc28.us:                                     ; preds = %for.body18.us
 
 for.body18.us:                                    ; preds = %for.body18.lr.ph.us, %for.body18.us
   %storemerge13.us = phi i32 [ %mul13, %for.body18.lr.ph.us ], [ %inc.us, %for.body18.us ]
-  %arrayidx.us = getelementptr <8 x i32> addrspace(1)* %puiOutputArray, i32 %storemerge13.us
+  %arrayidx.us = getelementptr <8 x i32>, <8 x i32> addrspace(1)* %puiOutputArray, i32 %storemerge13.us
   %tmp21.us = load <8 x i32> addrspace(1)* %arrayidx.us, align 32
   %add.ptr.sum.us = add i32 %storemerge13.us, %mul9.us
-  %arrayidx24.us = getelementptr <8 x i32> addrspace(1)* %puiTmpArray, i32 %add.ptr.sum.us
+  %arrayidx24.us = getelementptr <8 x i32>, <8 x i32> addrspace(1)* %puiTmpArray, i32 %add.ptr.sum.us
   %tmp25.us = load <8 x i32> addrspace(1)* %arrayidx24.us, align 32
   %add26.us = add <8 x i32> %tmp21.us, %tmp25.us
   store <8 x i32> %add26.us, <8 x i32> addrspace(1)* %arrayidx.us, align 32
@@ -419,10 +419,10 @@ for.inc28.us:                                     ; preds = %for.body18.us
 
 for.body18.us:                                    ; preds = %for.body18.lr.ph.us, %for.body18.us
   %storemerge13.us = phi i32 [ %mul13, %for.body18.lr.ph.us ], [ %inc.us, %for.body18.us ]
-  %arrayidx.us = getelementptr <16 x i32> addrspace(1)* %puiOutputArray, i32 %storemerge13.us
+  %arrayidx.us = getelementptr <16 x i32>, <16 x i32> addrspace(1)* %puiOutputArray, i32 %storemerge13.us
   %tmp21.us = load <16 x i32> addrspace(1)* %arrayidx.us, align 64
   %add.ptr.sum.us = add i32 %storemerge13.us, %mul9.us
-  %arrayidx24.us = getelementptr <16 x i32> addrspace(1)* %puiTmpArray, i32 %add.ptr.sum.us
+  %arrayidx24.us = getelementptr <16 x i32>, <16 x i32> addrspace(1)* %puiTmpArray, i32 %add.ptr.sum.us
   %tmp25.us = load <16 x i32> addrspace(1)* %arrayidx24.us, align 64
   %add26.us = add <16 x i32> %tmp21.us, %tmp25.us
   store <16 x i32> %add26.us, <16 x i32> addrspace(1)* %arrayidx.us, align 64

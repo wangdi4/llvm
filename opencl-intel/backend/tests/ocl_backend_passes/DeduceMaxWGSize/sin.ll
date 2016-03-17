@@ -5,11 +5,11 @@ target triple = "x86_64-pc-linux"
 define void @D(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) nounwind {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %B, i64 %call
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %call
   %0 = load i32 addrspace(1)* %arrayidx, align 1
   %conv = sitofp i32 %0 to float
   %call1 = tail call float @_Z3sinf(float %conv) nounwind readnone
-  %arrayidx2 = getelementptr inbounds i32 addrspace(1)* %A, i64 %call
+  %arrayidx2 = getelementptr inbounds i32, i32 addrspace(1)* %A, i64 %call
   %1 = load i32 addrspace(1)* %arrayidx2, align 1
   %conv3 = sitofp i32 %1 to float
   %add = fadd float %call1, %conv3
@@ -25,14 +25,14 @@ declare float @_Z3sinf(float) nounwind readnone
 define void @__Vectorized_.D(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) nounwind {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
-  %0 = getelementptr inbounds i32 addrspace(1)* %B, i64 %call
+  %0 = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %call
   %ptrTypeCast = bitcast i32 addrspace(1)* %0 to <8 x i32> addrspace(1)*
-  %1 = load <8 x i32> addrspace(1)* %ptrTypeCast, align 1
+  %1 = load <8 x i32>, <8 x i32> addrspace(1)* %ptrTypeCast, align 1
   %conv8 = sitofp <8 x i32> %1 to <8 x float>
   %2 = call <8 x float> @_Z3sinDv8_f(<8 x float> %conv8)
-  %3 = getelementptr inbounds i32 addrspace(1)* %A, i64 %call
+  %3 = getelementptr inbounds i32, i32 addrspace(1)* %A, i64 %call
   %ptrTypeCast9 = bitcast i32 addrspace(1)* %3 to <8 x i32> addrspace(1)*
-  %4 = load <8 x i32> addrspace(1)* %ptrTypeCast9, align 1
+  %4 = load <8 x i32>, <8 x i32> addrspace(1)* %ptrTypeCast9, align 1
   %conv310 = sitofp <8 x i32> %4 to <8 x float>
   %add11 = fadd <8 x float> %2, %conv310
   %conv412 = fptosi <8 x float> %add11 to <8 x i32>

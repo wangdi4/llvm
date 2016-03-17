@@ -32,7 +32,7 @@ entry:
   %tmp.i.i = alloca i32, align 4                  ; <i32*> [#uses=2]
   %0 = bitcast i32* %tmp.i.i to i8*               ; <i8*> [#uses=1]
   call void @llvm.x86.sse.stmxcsr(i8* %0) nounwind
-  %stmxcsr.i.i = load i32* %tmp.i.i               ; <i32> [#uses=2]
+  %stmxcsr.i.i = load i32, i32* %tmp.i.i               ; <i32> [#uses=2]
   %and = and i32 %stmxcsr.i.i, -24577             ; <i32> [#uses=1]
   %or = or i32 %and, 16384                        ; <i32> [#uses=1]
   store i32 %or, i32* %tmp1.i.i9
@@ -66,15 +66,15 @@ entry:
   %tmp1.i.i9.i = alloca i32, align 4              ; <i32*> [#uses=2]
   %tmp1.i.i.i = alloca i32, align 4               ; <i32*> [#uses=2]
   %tmp.i.i.i = alloca i32, align 4                ; <i32*> [#uses=2]
-  %0 = getelementptr %struct.LocalId* %LocalIds, i64 0, i32 0, i64 0 ; <i64*> [#uses=1]
+  %0 = getelementptr %struct.LocalId, %struct.LocalId* %LocalIds, i64 0, i32 0, i64 0 ; <i64*> [#uses=1]
   %1 = load i64* %0                               ; <i64> [#uses=1]
   %2 = load i64* %pBaseGlbId                      ; <i64> [#uses=1]
   %3 = add i64 %1, %2                             ; <i64> [#uses=2]
-  %arrayidx = getelementptr inbounds <2 x double> addrspace(1)* %src, i64 %3 ; <<2 x double> addrspace(1)*> [#uses=1]
+  %arrayidx = getelementptr inbounds <2 x double>, <2 x double> addrspace(1)* %src, i64 %3 ; <<2 x double> addrspace(1)*> [#uses=1]
   %tmp2 = load <2 x double> addrspace(1)* %arrayidx ; <<2 x double>> [#uses=1]
   %4 = bitcast i32* %tmp.i.i.i to i8*             ; <i8*> [#uses=1]
   call void @llvm.x86.sse.stmxcsr(i8* %4) nounwind
-  %stmxcsr.i.i.i = load i32* %tmp.i.i.i           ; <i32> [#uses=2]
+  %stmxcsr.i.i.i = load i32, i32* %tmp.i.i.i           ; <i32> [#uses=2]
   %and.i = and i32 %stmxcsr.i.i.i, -24577         ; <i32> [#uses=1]
   %or.i = or i32 %and.i, 16384                    ; <i32> [#uses=1]
   store i32 %or.i, i32* %tmp1.i.i9.i
@@ -88,7 +88,7 @@ entry:
   %tmp8.i = bitcast <2 x float> %tmp6.i to <1 x double> ; <<1 x double>> [#uses=1]
   %tmp7.i = extractelement <1 x double> %tmp8.i, i32 0 ; <double> [#uses=1]
   %tmp1 = bitcast double %tmp7.i to <2 x float>   ; <<2 x float>> [#uses=1]
-  %arrayidx7 = getelementptr inbounds <2 x float> addrspace(1)* %dest, i64 %3 ;<<2 x float> addrspace(1)*> [#uses=1]
+  %arrayidx7 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %dest, i64 %3 ;<<2 x float> addrspace(1)*> [#uses=1]
   store <2 x float> %tmp1, <2 x float> addrspace(1)* %arrayidx7
   ret void
 

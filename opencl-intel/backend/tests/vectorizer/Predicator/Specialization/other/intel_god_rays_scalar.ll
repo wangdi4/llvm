@@ -603,14 +603,14 @@ bb.nph57:                                         ; preds = %335, %269
 ; <label>:349                                     ; preds = %._crit_edge, %bb.nph57
   %ch.056 = phi i32 [ 0, %bb.nph57 ], [ %398, %._crit_edge ]
   %tmp41 = add i32 %tmp40, %ch.056
-  %scevgep = getelementptr float addrspace(1)* %inputImage, i32 %tmp41
+  %scevgep = getelementptr float, float addrspace(1)* %inputImage, i32 %tmp41
   %350 = load float addrspace(1)* %scevgep, align 4
   %351 = fmul float %350, 0x3FF1C71C80000000
   %352 = fmul float %351, %339
   br i1 %brmerge, label %353, label %.preheader
 
 ; <label>:353                                     ; preds = %349
-  %scevgep67 = getelementptr float addrspace(1)* %output, i32 %tmp41
+  %scevgep67 = getelementptr float, float addrspace(1)* %output, i32 %tmp41
   %354 = fmul float %352, 3.000000e+000
   %355 = fadd float %354, %351
   store float %355, float addrspace(1)* %scevgep67, align 4
@@ -698,7 +698,7 @@ bb.nph:                                           ; preds = %bb.nph.preheader, %
   %tmp35 = add i32 %x.5, %tmp34
   %tmp36 = shl i32 %tmp35, 2
   %tmp37 = add i32 %ch.056, %tmp36
-  %380 = getelementptr inbounds float addrspace(1)* %inputImage, i32 %tmp37
+  %380 = getelementptr inbounds float, float addrspace(1)* %inputImage, i32 %tmp37
   %381 = load float addrspace(1)* %380, align 4
   %382 = fmul float %summ.054, %FixedDecay.0
   %383 = fmul float %381, 0x3FF1C71C80000000
@@ -717,12 +717,12 @@ bb.nph:                                           ; preds = %bb.nph.preheader, %
 
 ; <label>:391                                     ; preds = %389
   %392 = fadd float %390, %381
-  %393 = getelementptr inbounds float addrspace(1)* %output, i32 %tmp37
+  %393 = getelementptr inbounds float, float addrspace(1)* %output, i32 %tmp37
   store float %392, float addrspace(1)* %393, align 4
   br label %396
 
 ; <label>:394                                     ; preds = %389
-  %395 = getelementptr inbounds float addrspace(1)* %output, i32 %tmp37
+  %395 = getelementptr inbounds float, float addrspace(1)* %output, i32 %tmp37
   store float %390, float addrspace(1)* %395, align 4
   br label %396
 
@@ -1319,24 +1319,24 @@ bb.nph57.i:                                       ; preds = %334, %268
   %brmerge.i = or i1 %or.cond32.not.i, %or.cond35.i
   %tmp35 = mul i32 %y.1.i, %width
   %tmp36 = add i32 %x.1.i, %tmp35
-  %scevgep = getelementptr <4 x float> addrspace(1)* %output, i32 %tmp36
+  %scevgep = getelementptr <4 x float>, <4 x float> addrspace(1)* %output, i32 %tmp36
   %scevgep37 = bitcast <4 x float> addrspace(1)* %scevgep to i8 addrspace(1)*
-  %scevgep40 = getelementptr <4 x float> addrspace(1)* %inputImage, i32 %tmp36
+  %scevgep40 = getelementptr <4 x float>, <4 x float> addrspace(1)* %inputImage, i32 %tmp36
   %scevgep4041 = bitcast <4 x float> addrspace(1)* %scevgep40 to i8 addrspace(1)*
   br label %348
 
 ; <label>:348                                     ; preds = %._crit_edge.i, %bb.nph57.i
   %ch.056.i = phi i32 [ 0, %bb.nph57.i ], [ %397, %._crit_edge.i ]
   %tmp38 = shl i32 %ch.056.i, 2
-  %uglygep42 = getelementptr i8 addrspace(1)* %scevgep4041, i32 %tmp38
+  %uglygep42 = getelementptr i8, i8 addrspace(1)* %scevgep4041, i32 %tmp38
   %scevgep.i = bitcast i8 addrspace(1)* %uglygep42 to float addrspace(1)*
-  %349 = load float addrspace(1)* %scevgep.i, align 4
+  %349 = load float, float addrspace(1)* %scevgep.i, align 4
   %350 = fmul float %349, 0x3FF1C71C80000000
   %351 = fmul float %350, %338
   br i1 %brmerge.i, label %352, label %.preheader.i
 
 ; <label>:352                                     ; preds = %348
-  %uglygep = getelementptr i8 addrspace(1)* %scevgep37, i32 %tmp38
+  %uglygep = getelementptr i8, i8 addrspace(1)* %scevgep37, i32 %tmp38
   %scevgep67.i = bitcast i8 addrspace(1)* %uglygep to float addrspace(1)*
   %353 = fmul float %351, 3.000000e+000
   %354 = fadd float %353, %350
@@ -1425,7 +1425,7 @@ bb.nph.i:                                         ; preds = %bb.nph.i.preheader,
   %tmp32 = add i32 %x.5.i, %tmp31
   %tmp33 = shl i32 %tmp32, 2
   %tmp34 = add i32 %ch.056.i, %tmp33
-  %379 = getelementptr inbounds <4 x float> addrspace(1)* %inputImage, i32 0, i32 %tmp34
+  %379 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %inputImage, i32 0, i32 %tmp34
   %380 = load float addrspace(1)* %379, align 4
   %381 = fmul float %summ.054.i, %FixedDecay.0.i
   %382 = fmul float %380, 0x3FF1C71C80000000
@@ -1444,12 +1444,12 @@ bb.nph.i:                                         ; preds = %bb.nph.i.preheader,
 
 ; <label>:390                                     ; preds = %388
   %391 = fadd float %389, %380
-  %392 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 0, i32 %tmp34
+  %392 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %output, i32 0, i32 %tmp34
   store float %391, float addrspace(1)* %392, align 4
   br label %395
 
 ; <label>:393                                     ; preds = %388
-  %394 = getelementptr inbounds <4 x float> addrspace(1)* %output, i32 0, i32 %tmp34
+  %394 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %output, i32 0, i32 %tmp34
   store float %389, float addrspace(1)* %394, align 4
   br label %395
 

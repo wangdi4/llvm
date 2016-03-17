@@ -138,7 +138,7 @@ entry:
 define <8 x i16> @sll_8xi16_nosplat(<8 x i16>* %Ap) nounwind {
 entry: 
 ; CHECK:  vpsllvd
-  %A = load <8 x i16>* %Ap
+  %A = load <8 x i16>, <8 x i16>* %Ap
   %B = shl <8 x i16> %A,  < i16 0, i16 2, i16 3, i16 6, i16 2, i16 2, i16 2, i16 2>
   %C = xor <8 x i16> %A, %B
   ret <8 x i16> %C

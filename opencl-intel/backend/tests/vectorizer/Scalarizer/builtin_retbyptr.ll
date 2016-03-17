@@ -16,14 +16,14 @@ entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds double addrspace(1)* %in, i64 %idxprom
+  %arrayidx = getelementptr inbounds double, double addrspace(1)* %in, i64 %idxprom
   %0 = load double addrspace(1)* %arrayidx, align 128
-  %add.ptr = getelementptr inbounds double addrspace(1)* %out2, i64 %idxprom
+  %add.ptr = getelementptr inbounds double, double addrspace(1)* %out2, i64 %idxprom
   %1 = call <2 x double> @_Z20__retbyvector_sincosd(double %0) nounwind readnone
   %_Z20__retbyvector_sincosd_extract. = extractelement <2 x double> %1, i32 0
   %_Z20__retbyvector_sincosd_extract.1 = extractelement <2 x double> %1, i32 1
   store double %_Z20__retbyvector_sincosd_extract.1, double addrspace(1)* %add.ptr
-  %arrayidx3 = getelementptr inbounds double addrspace(1)* %out, i64 %idxprom
+  %arrayidx3 = getelementptr inbounds double, double addrspace(1)* %out, i64 %idxprom
   store double %_Z20__retbyvector_sincosd_extract., double addrspace(1)* %arrayidx3, align 128
   ret void
 }
@@ -55,14 +55,14 @@ entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds <4 x double> addrspace(1)* %in, i64 %idxprom
+  %arrayidx = getelementptr inbounds <4 x double>, <4 x double> addrspace(1)* %in, i64 %idxprom
   %0 = load <4 x double> addrspace(1)* %arrayidx, align 128
-  %add.ptr = getelementptr inbounds <4 x double> addrspace(1)* %out2, i64 %idxprom
+  %add.ptr = getelementptr inbounds <4 x double>, <4 x double> addrspace(1)* %out2, i64 %idxprom
   %1 = call [2 x <4 x double>] @_Z19__retbyarray_sincosDv4_d(<4 x double> %0)
   %_Z19__retbyarray_sincosDv4_d_extract. = extractvalue [2 x <4 x double>] %1, 0
   %_Z19__retbyarray_sincosDv4_d_extract.1 = extractvalue [2 x <4 x double>] %1, 1
   store <4 x double> %_Z19__retbyarray_sincosDv4_d_extract.1, <4 x double> addrspace(1)* %add.ptr
-  %arrayidx3 = getelementptr inbounds <4 x double> addrspace(1)* %out, i64 %idxprom
+  %arrayidx3 = getelementptr inbounds <4 x double>, <4 x double> addrspace(1)* %out, i64 %idxprom
   store <4 x double> %_Z19__retbyarray_sincosDv4_d_extract., <4 x double> addrspace(1)* %arrayidx3, align 128
   ret void
 }
@@ -78,14 +78,14 @@ entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds double addrspace(1)* %in, i64 %idxprom
+  %arrayidx = getelementptr inbounds double, double addrspace(1)* %in, i64 %idxprom
   %0 = load double addrspace(1)* %arrayidx, align 128
-  %add.ptr = getelementptr inbounds double addrspace(1)* %out2, i64 %idxprom
+  %add.ptr = getelementptr inbounds double, double addrspace(1)* %out2, i64 %idxprom
   %1 = call <2 x double> @_Z27__retbyvector_native_sincosd(double %0) nounwind readnone
   %_Z27__retbyvector_native_sincosd_extract. = extractelement <2 x double> %1, i32 0
   %_Z27__retbyvector_native_sincosd_extract.1 = extractelement <2 x double> %1, i32 1
   store double %_Z27__retbyvector_native_sincosd_extract.1, double addrspace(1)* %add.ptr
-  %arrayidx3 = getelementptr inbounds double addrspace(1)* %out, i64 %idxprom
+  %arrayidx3 = getelementptr inbounds double, double addrspace(1)* %out, i64 %idxprom
   store double %_Z27__retbyvector_native_sincosd_extract., double addrspace(1)* %arrayidx3, align 128
   ret void
 }
@@ -117,14 +117,14 @@ entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds <4 x double> addrspace(1)* %in, i64 %idxprom
+  %arrayidx = getelementptr inbounds <4 x double>, <4 x double> addrspace(1)* %in, i64 %idxprom
   %0 = load <4 x double> addrspace(1)* %arrayidx, align 128
-  %add.ptr = getelementptr inbounds <4 x double> addrspace(1)* %out2, i64 %idxprom
+  %add.ptr = getelementptr inbounds <4 x double>, <4 x double> addrspace(1)* %out2, i64 %idxprom
   %1 = call [2 x <4 x double>] @_Z26__retbyarray_native_sincosDv4_d(<4 x double> %0)
   %_Z26__retbyarray_native_sincosDv4_d_extract. = extractvalue [2 x <4 x double>] %1, 0
   %_Z26__retbyarray_native_sincosDv4_d_extract.1 = extractvalue [2 x <4 x double>] %1, 1
   store <4 x double> %_Z26__retbyarray_native_sincosDv4_d_extract.1, <4 x double> addrspace(1)* %add.ptr
-  %arrayidx3 = getelementptr inbounds <4 x double> addrspace(1)* %out, i64 %idxprom
+  %arrayidx3 = getelementptr inbounds <4 x double>, <4 x double> addrspace(1)* %out, i64 %idxprom
   store <4 x double> %_Z26__retbyarray_native_sincosDv4_d_extract., <4 x double> addrspace(1)* %arrayidx3, align 128
   ret void
 }

@@ -29,8 +29,8 @@ define spir_func i32 @func(i32 addrspace(4)* %pInt) #0 {
   %1 = alloca i32 addrspace(4)*, align 4
   store i32 addrspace(4)* %pInt, i32 addrspace(4)** %1, align 4
   call void @llvm.dbg.declare(metadata i32 addrspace(4)** %1, metadata !25, metadata !26), !dbg !27
-  %2 = load i32 addrspace(4)** %1, align 4, !dbg !28
-  %3 = load i32 addrspace(4)* %2, align 4, !dbg !28
+  %2 = load i32 addrspace(4)*, i32 addrspace(4)** %1, align 4, !dbg !28
+  %3 = load i32, i32 addrspace(4)* %2, align 4, !dbg !28
   ret i32 %3, !dbg !28
 }
 

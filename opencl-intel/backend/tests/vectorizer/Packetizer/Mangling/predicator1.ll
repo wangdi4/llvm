@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @no_mask_ptr_conseq(i32* nocapture %A) nounwind {
   %1 = tail call i32 (...)* @_Z13get_global_idj(i32 0) nounwind
   %2 = sext i32 %1 to i64
-  %3 = getelementptr inbounds i32* %A, i64 %2
+  %3 = getelementptr inbounds i32, i32* %A, i64 %2
   %4 = load i32* %3, align 4, !tbaa !0
   %5 = add nsw i32 %4, 3
   store i32 %5, i32* %3, align 4, !tbaa !0

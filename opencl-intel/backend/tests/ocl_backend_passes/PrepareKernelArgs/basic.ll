@@ -7,34 +7,34 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a,
 }
 
 ; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle) {
-; CHECK:     %0 = getelementptr i8* %pUniformArgs, i32 0
+; CHECK:     %0 = getelementptr i8, i8* %pUniformArgs, i32 0
 ; CHECK:     %1 = bitcast i8* %0 to i32 addrspace(1)**
 ; CHECK:     %explicit_0 = load i32 addrspace(1)** %1, align 8
-; CHECK:     %2 = getelementptr i8* %pUniformArgs, i32 8
+; CHECK:     %2 = getelementptr i8, i8* %pUniformArgs, i32 8
 ; CHECK:     %3 = bitcast i8* %2 to i32 addrspace(1)**
 ; CHECK:     %explicit_1 = load i32 addrspace(1)** %3, align 8
-; CHECK:     %4 = getelementptr i8* %pUniformArgs, i32 16
+; CHECK:     %4 = getelementptr i8, i8* %pUniformArgs, i32 16
 ; CHECK:     %5 = bitcast i8* %4 to i32*
 ; CHECK:     %explicit_2 = load i32* %5, align 4
-; CHECK:     %6 = getelementptr i8* %pUniformArgs, i32 24
+; CHECK:     %6 = getelementptr i8, i8* %pUniformArgs, i32 24
 ; CHECK:     %pWorkDim = bitcast i8* %6 to { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*
-; CHECK:     %7 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 0
+; CHECK:     %7 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 0
 ; CHECK:     %LocalSize_0 = load i64* %7
-; CHECK:     %8 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 1
+; CHECK:     %8 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 1
 ; CHECK:     %LocalSize_1 = load i64* %8
-; CHECK:     %9 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 2
+; CHECK:     %9 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 2
 ; CHECK:     %LocalSize_2 = load i64* %9
-; CHECK:     %10 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 0
+; CHECK:     %10 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 0
 ; CHECK:     %GlobalOffset_0 = load i64* %10
-; CHECK:     %11 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 1
+; CHECK:     %11 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 1
 ; CHECK:     %GlobalOffset_1 = load i64* %11
-; CHECK:     %12 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 2
+; CHECK:     %12 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 2
 ; CHECK:     %GlobalOffset_2 = load i64* %12
-; CHECK:     %13 = getelementptr i64* %pWGId, i32 0
+; CHECK:     %13 = getelementptr i64, i64* %pWGId, i32 0
 ; CHECK:     %GroupID_0 = load i64* %13
-; CHECK:     %14 = getelementptr i64* %pWGId, i32 1
+; CHECK:     %14 = getelementptr i64, i64* %pWGId, i32 1
 ; CHECK:     %GroupID_1 = load i64* %14
-; CHECK:     %15 = getelementptr i64* %pWGId, i32 2
+; CHECK:     %15 = getelementptr i64, i64* %pWGId, i32 2
 ; CHECK:     %GroupID_2 = load i64* %15
 ; CHECK:     %16 = mul i64 %LocalSize_0, %GroupID_0
 ; CHECK:     %17 = add i64 %16, %GlobalOffset_0

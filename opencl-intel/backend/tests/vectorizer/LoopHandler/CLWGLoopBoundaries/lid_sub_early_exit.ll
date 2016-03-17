@@ -28,7 +28,7 @@ entry:
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  %arrayidx = getelementptr inbounds float addrspace(1)* %a, i64 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i64 %call
   store float 3.000000e+00, float addrspace(1)* %arrayidx, align 4
   br label %if.end
 

@@ -9,14 +9,14 @@ k_sincos.exit.i:
   %.sum963 = or <4 x i32> undef, %A0
   %.sum74 = zext <4 x i32> %.sum963 to <4 x i64>
   %A2 = zext i32 undef to i64
-  %A3 = getelementptr inbounds float addrspace(1)* %greal, i64 %A2
+  %A3 = getelementptr inbounds float, float addrspace(1)* %greal, i64 %A2
   %A7 = bitcast float addrspace(1)* %A3 to <4 x float> addrspace(1)*
   store <4 x float> addrspace(1)* %A7, <4 x float> addrspace(1)** undef, align 8
   %A8 = bitcast float addrspace(1)* undef to <4 x float> addrspace(1)*
   store <4 x float> addrspace(1)* %A8, <4 x float> addrspace(1)** undef, align 8
   %.sum269270121 = or <4 x i64> %.sum74, <i64 768, i64 768, i64 768, i64 768>
   %extract123 = extractelement <4 x i64> %.sum269270121, i32 1
-  %A9 = getelementptr inbounds float addrspace(1)* %gimag, i64 %extract123
+  %A9 = getelementptr inbounds float, float addrspace(1)* %gimag, i64 %extract123
   %A10 = bitcast float addrspace(1)* %A9 to <4 x float> addrspace(1)*
   store <4 x float> addrspace(1)* %A10, <4 x float> addrspace(1)** undef, align 8
   unreachable

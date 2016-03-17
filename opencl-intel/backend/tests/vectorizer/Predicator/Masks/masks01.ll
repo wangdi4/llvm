@@ -23,7 +23,7 @@ declare void @testout2(i32 %x) nounwind
 ; CHECK: ret void
 define void @test1(i32 addrspace(1)* nocapture %pOutputs) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
-  %2 = getelementptr inbounds i32 addrspace(1)* %pOutputs, i32 %1
+  %2 = getelementptr inbounds i32, i32 addrspace(1)* %pOutputs, i32 %1
   %3 = load i32 addrspace(1)* %2, align 4
   %4 = icmp ugt i32 %1, 10
   br i1 %4, label %5, label %6
@@ -45,7 +45,7 @@ define void @test1(i32 addrspace(1)* nocapture %pOutputs) nounwind {
 ; CHECK: ret void
 define void @test2(i32 addrspace(1)* nocapture %pOutputs) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
-  %2 = getelementptr inbounds i32 addrspace(1)* %pOutputs, i32 %1
+  %2 = getelementptr inbounds i32, i32 addrspace(1)* %pOutputs, i32 %1
   %3 = load i32 addrspace(1)* %2, align 4
   %4 = icmp ugt i32 %1, 10
   br i1 %4, label %5, label %.thread
@@ -76,7 +76,7 @@ define void @test2(i32 addrspace(1)* nocapture %pOutputs) nounwind {
 define void @testloop(i32 addrspace(1)* nocapture %pOutputs) nounwind {
 ; <label>:0
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
-  %2 = getelementptr inbounds i32 addrspace(1)* %pOutputs, i32 %1
+  %2 = getelementptr inbounds i32, i32 addrspace(1)* %pOutputs, i32 %1
   %3 = load i32 addrspace(1)* %2, align 4
   %tmp = icmp ugt i32 %1, 1
   %umax = select i1 %tmp, i32 %1, i32 1

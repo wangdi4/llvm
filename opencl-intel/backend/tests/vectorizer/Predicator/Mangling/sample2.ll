@@ -24,15 +24,15 @@ entry:
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %tmp = load i64* %i                             ; <i64> [#uses=1]
-  %tmp1 = load i64* %n.addr                       ; <i64> [#uses=1]
+  %tmp = load i64, i64* %i                             ; <i64> [#uses=1]
+  %tmp1 = load i64, i64* %n.addr                       ; <i64> [#uses=1]
   %cmp = icmp slt i64 %tmp, %tmp1                 ; <i1> [#uses=1]
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
   %tmp2 = load i64* %i                            ; <i64> [#uses=1]
   %tmp3 = load i64** %A.addr                      ; <i64*> [#uses=1]
-  %arrayidx = getelementptr inbounds i64* %tmp3, i64 %tmp2 ; <i64*> [#uses=1]
+  %arrayidx = getelementptr inbounds i64, i64* %tmp3, i64 %tmp2 ; <i64*> [#uses=1]
   %tmp4 = load i64* %arrayidx                     ; <i64> [#uses=1]
   %tmp5 = load i64* %sum                          ; <i64> [#uses=1]
   %add = add nsw i64 %tmp5, %tmp4                 ; <i64> [#uses=1]
@@ -40,7 +40,7 @@ for.body:                                         ; preds = %for.cond
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %tmp6 = load i64* %i                            ; <i64> [#uses=1]
+  %tmp6 = load i64, i64* %i                            ; <i64> [#uses=1]
   %inc = add nsw i64 %tmp6, 1                     ; <i64> [#uses=1]
   store i64 %inc, i64* %i
   br label %for.cond
@@ -48,7 +48,7 @@ for.inc:                                          ; preds = %for.body
 for.end:                                          ; preds = %for.cond
   %tmp7 = load i64* %sum                          ; <i64> [#uses=1]
   %tmp8 = load i64** %A.addr                      ; <i64*> [#uses=1]
-  %arrayidx9 = getelementptr inbounds i64* %tmp8, i64 0 ; <i64*> [#uses=1]
+  %arrayidx9 = getelementptr inbounds i64, i64* %tmp8, i64 0 ; <i64*> [#uses=1]
   store i64 %tmp7, i64* %arrayidx9
   ret void
 }

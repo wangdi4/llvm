@@ -30,7 +30,7 @@ entry:
   store i32 addrspace(1)* %a, i32 addrspace(1)** %a.addr, align 8
   %call = call spir_func i64 @_Z13get_global_idj(i32 0) #3
   %0 = load i32 addrspace(1)** %a.addr, align 8
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %0, i64 %call
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %0, i64 %call
   %1 = load i32 addrspace(1)* %arrayidx, align 4
   %call1 = call spir_func i32 @_Z13sub_group_anyi(i32 %1)
   store i32 %call1, i32* %b, align 4
@@ -38,7 +38,7 @@ entry:
   br label %while.cond
 
 while.cond:                                       ; preds = %while.body, %entry
-  %2 = load i32* %done, align 4
+  %2 = load i32, i32* %done, align 4
   %call2 = call spir_func i32 @_Z13sub_group_alli(i32 %2)
   %tobool = icmp ne i32 %call2, 0
   %lnot = xor i1 %tobool, true

@@ -26,32 +26,32 @@ entry:
   store <2 x i32> %curCord, <2 x i32>* %curCord.addr
   store float %scaling, float* %scaling.addr
   store i32 1, i32* %samplerNearest
-  %tmp = load %struct._image2d_t** %inputImage.addr ; <%struct._image2d_t*> [#uses=1]
-  %tmp1 = load <2 x i32>* %curCord.addr           ; <<2 x i32>> [#uses=1]
+  %tmp = load %struct._image2d_t*, %struct._image2d_t** %inputImage.addr ; <%struct._image2d_t*> [#uses=1]
+  %tmp1 = load <2 x i32>, <2 x i32>* %curCord.addr           ; <<2 x i32>> [#uses=1]
   %call = call <4 x float> @_Z11read_imagefP10_image2d_tjDv2_i(%struct._image2d_t* %tmp, i32 1, <2 x i32> %tmp1) ; <<4 x float>> [#uses=1]
   store <4 x float> %call, <4 x float>* %outputColor
-  %tmp3 = load <4 x float>* %outputColor          ; <<4 x float>> [#uses=1]
+  %tmp3 = load <4 x float>, <4 x float>* %outputColor          ; <<4 x float>> [#uses=1]
   %tmp4 = extractelement <4 x float> %tmp3, i32 0 ; <float> [#uses=1]
-  %tmp5 = load float* %scaling.addr               ; <float> [#uses=1]
+  %tmp5 = load float, float* %scaling.addr               ; <float> [#uses=1]
   %mul = fmul float %tmp4, %tmp5                  ; <float> [#uses=1]
-  %tmp6 = load <4 x float>* %outputColor          ; <<4 x float>> [#uses=1]
+  %tmp6 = load <4 x float>, <4 x float>* %outputColor          ; <<4 x float>> [#uses=1]
   %tmp7 = extractelement <4 x float> %tmp6, i32 1 ; <float> [#uses=1]
-  %tmp8 = load float* %scaling.addr               ; <float> [#uses=1]
+  %tmp8 = load float, float* %scaling.addr               ; <float> [#uses=1]
   %mul9 = fmul float %tmp7, %tmp8                 ; <float> [#uses=1]
   %add = fadd float %mul, %mul9                   ; <float> [#uses=1]
-  %tmp10 = load <4 x float>* %outputColor         ; <<4 x float>> [#uses=1]
+  %tmp10 = load <4 x float>, <4 x float>* %outputColor         ; <<4 x float>> [#uses=1]
   %tmp11 = extractelement <4 x float> %tmp10, i32 2 ; <float> [#uses=1]
-  %tmp12 = load float* %scaling.addr              ; <float> [#uses=1]
+  %tmp12 = load float, float* %scaling.addr              ; <float> [#uses=1]
   %mul13 = fmul float %tmp11, %tmp12              ; <float> [#uses=1]
   %add14 = fadd float %add, %mul13                ; <float> [#uses=1]
   %conv = fpext float %add14 to double            ; <double> [#uses=1]
-  %tmp15 = load <4 x float>* %outputColor         ; <<4 x float>> [#uses=1]
+  %tmp15 = load <4 x float>, <4 x float>* %outputColor         ; <<4 x float>> [#uses=1]
   %tmp16 = extractelement <4 x float> %tmp15, i32 1 ; <float> [#uses=1]
   %conv17 = fpext float %tmp16 to double          ; <double> [#uses=1]
-  %tmp18 = load <4 x float>* %outputColor         ; <<4 x float>> [#uses=1]
+  %tmp18 = load <4 x float>, <4 x float>* %outputColor         ; <<4 x float>> [#uses=1]
   %tmp19 = extractelement <4 x float> %tmp18, i32 2 ; <float> [#uses=1]
   %conv20 = fpext float %tmp19 to double          ; <double> [#uses=1]
-  %tmp21 = load <4 x float>* %outputColor         ; <<4 x float>> [#uses=1]
+  %tmp21 = load <4 x float>, <4 x float>* %outputColor         ; <<4 x float>> [#uses=1]
   %tmp22 = extractelement <4 x float> %tmp21, i32 3 ; <float> [#uses=1]
   %conv23 = fpext float %tmp22 to double          ; <double> [#uses=1]
   %call24 = call i32 (...)* @make_float4(double %conv, double %conv17, double %conv20, double %conv23) ; <i32> [#uses=1]
@@ -59,9 +59,9 @@ entry:
   %tmp26 = insertelement <4 x float> undef, float %conv25, i32 0 ; <<4 x float>> [#uses=2]
   %splat = shufflevector <4 x float> %tmp26, <4 x float> %tmp26, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
   store <4 x float> %splat, <4 x float>* %processedColor
-  %tmp27 = load <4 x float>* %processedColor      ; <<4 x float>> [#uses=1]
+  %tmp27 = load <4 x float>, <4 x float>* %processedColor      ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp27, <4 x float>* %retval
-  %0 = load <4 x float>* %retval                  ; <<4 x float>> [#uses=1]
+  %0 = load <4 x float>, <4 x float>* %retval                  ; <<4 x float>> [#uses=1]
   ret <4 x float> %0
 }
 
@@ -88,14 +88,14 @@ entry:
   %tmp = insertelement <2 x i32> undef, i32 %call2, i32 0 ; <<2 x i32>> [#uses=2]
   %splat = shufflevector <2 x i32> %tmp, <2 x i32> %tmp, <2 x i32> zeroinitializer ; <<2 x i32>> [#uses=1]
   store <2 x i32> %splat, <2 x i32>* %curCrd
-  %tmp4 = load %struct._image2d_t** %inputImage.addr ; <%struct._image2d_t*> [#uses=1]
-  %tmp5 = load <2 x i32>* %curCrd                 ; <<2 x i32>> [#uses=1]
-  %tmp6 = load float* %scaling.addr               ; <float> [#uses=1]
+  %tmp4 = load %struct._image2d_t*, %struct._image2d_t** %inputImage.addr ; <%struct._image2d_t*> [#uses=1]
+  %tmp5 = load <2 x i32>, <2 x i32>* %curCrd                 ; <<2 x i32>> [#uses=1]
+  %tmp6 = load float, float* %scaling.addr               ; <float> [#uses=1]
   %call7 = call <4 x float> @processPixel(%struct._image2d_t* %tmp4, <2 x i32> %tmp5, float %tmp6) ; <<4 x float>> [#uses=1]
   store <4 x float> %call7, <4 x float>* %color
-  %tmp8 = load %struct._image2d_t** %outputImage.addr ; <%struct._image2d_t*> [#uses=1]
-  %tmp9 = load <2 x i32>* %curCrd                 ; <<2 x i32>> [#uses=1]
-  %tmp10 = load <4 x float>* %color               ; <<4 x float>> [#uses=1]
+  %tmp8 = load %struct._image2d_t*, %struct._image2d_t** %outputImage.addr ; <%struct._image2d_t*> [#uses=1]
+  %tmp9 = load <2 x i32>, <2 x i32>* %curCrd                 ; <<2 x i32>> [#uses=1]
+  %tmp10 = load <4 x float>, <4 x float>* %color               ; <<4 x float>> [#uses=1]
   call void @_Z12write_imagefP10_image2d_tDv2_iDv4_f(%struct._image2d_t* %tmp8, <2 x i32> %tmp9, <4 x float> %tmp10)
   ret void
 }

@@ -29,7 +29,7 @@ define void @dist(<2 x float> addrspace(1)* nocapture %in, float addrspace(1)* n
   %8 = bitcast <4 x i32> %6 to <4 x float>        ; <<4 x float>> [#uses=1]
   %9 = bitcast <4 x i32> %7 to <4 x float>        ; <<4 x float>> [#uses=1]
   %10 = tail call float @_Z8distanceU8__vector4fS_(<4 x float> %8, <4 x float> %9) nounwind ; <float> [#uses=1]
-  %11 = getelementptr inbounds float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
+  %11 = getelementptr inbounds float, float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
   store float %10, float addrspace(1)* %11
   ret void
 }

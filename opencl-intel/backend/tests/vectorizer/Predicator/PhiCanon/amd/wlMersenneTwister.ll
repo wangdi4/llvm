@@ -89,7 +89,7 @@ entry:
   %call1 = call i32 @_Z13get_global_idj(i32 1) nounwind
   %mul = mul i32 %call1, %width
   %add = add i32 %mul, %call
-  %arrayidx = getelementptr <4 x i32> addrspace(1)* %seedArray, i32 %add
+  %arrayidx = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %seedArray, i32 %add
   %tmp5 = load <4 x i32> addrspace(1)* %arrayidx, align 16
   %shr = lshr <4 x i32> %tmp5, <i32 30, i32 30, i32 30, i32 30>
   %xor = xor <4 x i32> %tmp5, %shr
@@ -111,13 +111,13 @@ entry:
   br i1 %cmp27, label %for.end328, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %entry
-  %arraydecay = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 0
-  %arrayidx99 = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 1
-  %arrayidx106 = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 2
-  %arrayidx113 = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 3
-  %arrayidx120 = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 4
-  %arrayidx131 = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 5
-  %arrayidx142 = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 6
+  %arraydecay = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0
+  %arrayidx99 = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 1
+  %arrayidx106 = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 2
+  %arrayidx113 = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 3
+  %arrayidx120 = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 4
+  %arrayidx131 = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 5
+  %arrayidx142 = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 6
   br label %for.body
 
 for.body:                                         ; preds = %for.body.lr.ph, %sw.epilog
@@ -192,37 +192,37 @@ sw.bb:                                            ; preds = %LeafBlock
   br label %sw.epilog
 
 sw.bb90:                                          ; preds = %LeafBlock37
-  %tmp93 = load <4 x i32>* %arraydecay, align 16
+  %tmp93 = load <4 x i32>, <4 x i32>* %arraydecay, align 16
   br label %sw.epilog
 
 sw.bb96:                                          ; preds = %LeafBlock39
-  %tmp100 = load <4 x i32>* %arrayidx99, align 16
+  %tmp100 = load <4 x i32>, <4 x i32>* %arrayidx99, align 16
   br label %sw.epilog
 
 sw.bb103:                                         ; preds = %LeafBlock41
-  %tmp107 = load <4 x i32>* %arrayidx106, align 16
+  %tmp107 = load <4 x i32>, <4 x i32>* %arrayidx106, align 16
   br label %sw.epilog
 
 sw.bb110:                                         ; preds = %LeafBlock47
-  %tmp114 = load <4 x i32>* %arrayidx113, align 16
+  %tmp114 = load <4 x i32>, <4 x i32>* %arrayidx113, align 16
   br label %sw.epilog
 
 sw.bb117:                                         ; preds = %LeafBlock49
-  %tmp121 = load <4 x i32>* %arrayidx120, align 16
-  %tmp124 = load <4 x i32>* %arraydecay, align 16
-  %tmp127 = load <4 x i32>* %arrayidx106, align 16
+  %tmp121 = load <4 x i32>, <4 x i32>* %arrayidx120, align 16
+  %tmp124 = load <4 x i32>, <4 x i32>* %arraydecay, align 16
+  %tmp127 = load <4 x i32>, <4 x i32>* %arrayidx106, align 16
   br label %sw.epilog
 
 sw.bb128:                                         ; preds = %LeafBlock53
-  %tmp132 = load <4 x i32>* %arrayidx131, align 16
-  %tmp135 = load <4 x i32>* %arrayidx99, align 16
-  %tmp138 = load <4 x i32>* %arrayidx113, align 16
+  %tmp132 = load <4 x i32>, <4 x i32>* %arrayidx131, align 16
+  %tmp135 = load <4 x i32>, <4 x i32>* %arrayidx99, align 16
+  %tmp138 = load <4 x i32>, <4 x i32>* %arrayidx113, align 16
   br label %sw.epilog
 
 sw.bb139:                                         ; preds = %LeafBlock55
-  %tmp143 = load <4 x i32>* %arrayidx142, align 16
-  %tmp146 = load <4 x i32>* %arrayidx106, align 16
-  %tmp149 = load <4 x i32>* %arrayidx120, align 16
+  %tmp143 = load <4 x i32>, <4 x i32>* %arrayidx142, align 16
+  %tmp146 = load <4 x i32>, <4 x i32>* %arrayidx106, align 16
+  %tmp149 = load <4 x i32>, <4 x i32>* %arrayidx120, align 16
   br label %sw.epilog
 
 NewDefault:                                       ; preds = %LeafBlock55, %LeafBlock53, %LeafBlock49, %LeafBlock47, %LeafBlock41, %LeafBlock39, %LeafBlock37, %LeafBlock
@@ -261,7 +261,7 @@ sw.epilog:                                        ; preds = %NewDefault, %sw.bb1
   %shr35.i = lshr i32 %tmp32.i14, 24
   %shl40.i = shl i32 %tmp19.i11, 8
   %or41.i15 = or i32 %shr35.i, %shl40.i
-  %arrayidx156 = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 %storemerge132
+  %arrayidx156 = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 %storemerge132
   %tmp163 = extractelement <4 x i32> %tmp24224, i32 0
   %shr166 = lshr i32 %tmp163, 13
   %and168 = and i32 %shr166, 473087
@@ -314,7 +314,7 @@ for.end:                                          ; preds = %sw.epilog
   br i1 %cmp27225, label %for.end328, label %for.body273.lr.ph
 
 for.body273.lr.ph:                                ; preds = %for.end
-  %arrayidx276.phi.trans.insert = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 0
+  %arrayidx276.phi.trans.insert = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0
   %tmp277.pre = load <4 x i32>* %arrayidx276.phi.trans.insert, align 16
   br label %for.body273
 
@@ -324,7 +324,7 @@ for.body273:                                      ; preds = %for.body273, %for.b
   %call278 = call <4 x float> @__convert_float4_uint4(<4 x i32> %tmp277) nounwind
   %div282 = fdiv <4 x float> %call278, <float 0x41F0000000000000, float 0x41F0000000000000, float 0x41F0000000000000, float 0x41F0000000000000>
   %add284 = add i32 %storemerge26, 1
-  %arrayidx286 = getelementptr [8 x <4 x i32>]* %temp, i32 0, i32 %add284
+  %arrayidx286 = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 %add284
   %tmp287 = load <4 x i32>* %arrayidx286, align 16
   %call288 = call <4 x float> @__convert_float4_uint4(<4 x i32> %tmp287) nounwind
   %div292 = fdiv <4 x float> %call288, <float 0x41F0000000000000, float 0x41F0000000000000, float 0x41F0000000000000, float 0x41F0000000000000>
@@ -334,12 +334,12 @@ for.body273:                                      ; preds = %for.body273, %for.b
   %mul302 = fmul <4 x float> %div292, <float 0x401921FB60000000, float 0x401921FB60000000, float 0x401921FB60000000, float 0x401921FB60000000>
   %mul305 = shl i32 %storemerge26, 1
   %add307 = add i32 %mul305, %mul268
-  %arrayidx309 = getelementptr <4 x float> addrspace(1)* %gaussianRand, i32 %add307
+  %arrayidx309 = getelementptr <4 x float>, <4 x float> addrspace(1)* %gaussianRand, i32 %add307
   %call312 = call <4 x float> @__cosf4(<4 x float> %mul302) nounwind
   %mul313 = fmul <4 x float> %call297, %call312
   store <4 x float> %mul313, <4 x float> addrspace(1)* %arrayidx309, align 16
   %add318 = add i32 %add307, 1
-  %arrayidx320 = getelementptr <4 x float> addrspace(1)* %gaussianRand, i32 %add318
+  %arrayidx320 = getelementptr <4 x float>, <4 x float> addrspace(1)* %gaussianRand, i32 %add318
   %call323 = call <4 x float> @__sinf4(<4 x float> %mul302) nounwind
   %mul324 = fmul <4 x float> %call297, %call323
   store <4 x float> %mul324, <4 x float> addrspace(1)* %arrayidx320, align 16

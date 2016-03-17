@@ -16,10 +16,10 @@ entry:
    %zOut = alloca  <8 x float>
    %wOut = alloca  <8 x float>
    call void @__ocl_load_transpose_float_4x8(<4 x float>* nocapture %pLoadAdd, <8 x float>* nocapture %xOut, <8 x float>* nocapture %yOut, <8 x float>* nocapture %zOut, <8 x float>* nocapture %wOut) nounwind
-   %temp1 = load <8 x float>* %xOut
-   %temp2 = load <8 x float>* %yOut
-   %temp3 = load <8 x float>* %zOut
-   %temp4 = load <8 x float>* %wOut
+   %temp1 = load <8 x float>, <8 x float>* %xOut
+   %temp2 = load <8 x float>, <8 x float>* %yOut
+   %temp3 = load <8 x float>, <8 x float>* %zOut
+   %temp4 = load <8 x float>, <8 x float>* %wOut
    %re0 = fadd <8 x float> %temp1, %temp2
    %re1 = fadd <8 x float> %temp3, %temp4
    %ret0 = fadd <8 x float> %re0, %re1

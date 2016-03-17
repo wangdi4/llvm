@@ -23,23 +23,23 @@ for.body:                                         ; preds = %for.body.preheader,
   %storemerge8 = phi i64 [ %inc38, %for.inc36 ], [ 0, %for.body.preheader ]
   %rem1 = and i64 %storemerge8, 1
   %tobool = icmp eq i64 %rem1, 0
-  %arrayidx26 = getelementptr inbounds i64* %A, i64 %storemerge8
+  %arrayidx26 = getelementptr inbounds i64, i64* %A, i64 %storemerge8
   br i1 %tobool, label %for.cond19.preheader, label %for.cond5.preheader
 
 for.cond19.preheader:                             ; preds = %for.body
-  %arrayidx31 = getelementptr inbounds i64* %B, i64 %storemerge8
+  %arrayidx31 = getelementptr inbounds i64, i64* %B, i64 %storemerge8
   br label %for.body23
 
 for.cond5.preheader:                              ; preds = %for.body
   %call = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv = zext i32 %call to i64
-  %tmp14 = load i64* %arrayidx26, align 8
+  %tmp14 = load i64, i64* %arrayidx26, align 8
   %add11 = add i64 %tmp14, %n
   %add15 = add i64 %add11, %conv
   store i64 %add15, i64* %arrayidx26, align 8
   %call.1 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv.1 = zext i32 %call.1 to i64
-  %tmp14.1 = load i64* %arrayidx26, align 8
+  %tmp14.1 = load i64, i64* %arrayidx26, align 8
   %add11.1 = add i64 %tmp14.1, %n
   %add15.1 = add i64 %add11.1, %conv.1
   store i64 %add15.1, i64* %arrayidx26, align 8
@@ -47,7 +47,7 @@ for.cond5.preheader:                              ; preds = %for.body
 
 for.body23:                                       ; preds = %for.cond19.preheader, %for.body23
   %storemerge26 = phi i64 [ 0, %for.cond19.preheader ], [ %add34, %for.body23 ]
-  %tmp27 = load i64* %arrayidx26, align 8
+  %tmp27 = load i64, i64* %arrayidx26, align 8
   %add28 = add nsw i64 %tmp27, 1
   store i64 %add28, i64* %arrayidx31, align 8
   %add34 = add nsw i64 %storemerge26, 2

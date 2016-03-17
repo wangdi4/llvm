@@ -113,7 +113,7 @@ if.then6:                                         ; preds = %if.end
 
 if.end8:                                          ; preds = %if.then6, %if.end
   %21 = addrspacecast i32 addrspace(1)* %pGlobal to float addrspace(4)*
-  %add.ptr = getelementptr inbounds float addrspace(4)* %21, i32 10
+  %add.ptr = getelementptr inbounds float, float addrspace(4)* %21, i32 10
   %call9 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr)
   ret void
 }

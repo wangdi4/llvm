@@ -22,10 +22,10 @@ entry:
   %extract15 = extractelement <4 x i32> %3, i32 1
   %extract16 = extractelement <4 x i32> %3, i32 2
   %extract17 = extractelement <4 x i32> %3, i32 3
-  %4 = getelementptr <3 x float>* %0, i32 %extract
-  %5 = getelementptr <3 x float>* %0, i32 %extract15
-  %6 = getelementptr <3 x float>* %0, i32 %extract16
-  %7 = getelementptr <3 x float>* %0, i32 %extract17
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract15
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract16
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract17
   %8 = load <3 x float>* %4
   %9 = load <3 x float>* %5
   %10 = load <3 x float>* %6
@@ -41,10 +41,10 @@ entry:
   %shuffle032 = shufflevector <4 x float> %extend_vec, <4 x float> %extend_vec18, <4 x i32> <i32 2, i32 undef, i32 6, i32 undef>
   %shuffle133 = shufflevector <4 x float> %extend_vec19, <4 x float> %extend_vec20, <4 x i32> <i32 2, i32 undef, i32 6, i32 undef>
   %shuffleMerge34 = shufflevector <4 x float> %shuffle032, <4 x float> %shuffle133, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
-  %12 = getelementptr <3 x float>* %1, i32 %extract
-  %13 = getelementptr <3 x float>* %1, i32 %extract15
-  %14 = getelementptr <3 x float>* %1, i32 %extract16
-  %15 = getelementptr <3 x float>* %1, i32 %extract17
+  %12 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract
+  %13 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract15
+  %14 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract16
+  %15 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract17
   %16 = load <3 x float>* %12
   %17 = load <3 x float>* %13
   %18 = load <3 x float>* %14
@@ -81,10 +81,10 @@ entry:
   %breakdown91 = shufflevector <4 x float> %shuf_transpH87, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   %breakdown92 = shufflevector <4 x float> %shuf_transpL88, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   %breakdown93 = shufflevector <4 x float> %shuf_transpH89, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
-  %24 = getelementptr <3 x float>* %2, i32 %extract
-  %25 = getelementptr <3 x float>* %2, i32 %extract15
-  %26 = getelementptr <3 x float>* %2, i32 %extract16
-  %27 = getelementptr <3 x float>* %2, i32 %extract17
+  %24 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract
+  %25 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract15
+  %26 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract16
+  %27 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract17
   store <3 x float> %breakdown90, <3 x float>* %24
   store <3 x float> %breakdown91, <3 x float>* %25
   store <3 x float> %breakdown92, <3 x float>* %26
@@ -110,10 +110,10 @@ entry:
   %extract21 = extractelement <4 x i32> %3, i32 1
   %extract22 = extractelement <4 x i32> %3, i32 2
   %extract23 = extractelement <4 x i32> %3, i32 3
-  %4 = getelementptr <4 x float>* %0, i32 %extract
-  %5 = getelementptr <4 x float>* %0, i32 %extract21
-  %6 = getelementptr <4 x float>* %0, i32 %extract22
-  %7 = getelementptr <4 x float>* %0, i32 %extract23
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract21
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract22
+  %7 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract23
   %8 = load <4 x float>* %4
   %9 = load <4 x float>* %5
   %10 = load <4 x float>* %6
@@ -126,10 +126,10 @@ entry:
   %shuffle128 = shufflevector <4 x float> %10, <4 x float> %11, <4 x i32> <i32 2, i32 3, i32 6, i32 7>
   %shuffleMerge29 = shufflevector <4 x float> %shuffle027, <4 x float> %shuffle128, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
   %shuffleMerge32 = shufflevector <4 x float> %shuffle027, <4 x float> %shuffle128, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
-  %12 = getelementptr <4 x float>* %1, i32 %extract
-  %13 = getelementptr <4 x float>* %1, i32 %extract21
-  %14 = getelementptr <4 x float>* %1, i32 %extract22
-  %15 = getelementptr <4 x float>* %1, i32 %extract23
+  %12 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract
+  %13 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract21
+  %14 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract22
+  %15 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract23
   %16 = load <4 x float>* %12
   %17 = load <4 x float>* %13
   %18 = load <4 x float>* %14
@@ -163,10 +163,10 @@ entry:
   %shuf_transpH71 = shufflevector <4 x float> %shuf_transpL66, <4 x float> %shuf_transpL67, <4 x i32> <i32 1, i32 5, i32 3, i32 7>
   %shuf_transpL72 = shufflevector <4 x float> %shuf_transpH68, <4 x float> %shuf_transpH69, <4 x i32> <i32 0, i32 4, i32 2, i32 6>
   %shuf_transpH73 = shufflevector <4 x float> %shuf_transpH68, <4 x float> %shuf_transpH69, <4 x i32> <i32 1, i32 5, i32 3, i32 7>
-  %25 = getelementptr <4 x float>* %2, i32 %extract
-  %26 = getelementptr <4 x float>* %2, i32 %extract21
-  %27 = getelementptr <4 x float>* %2, i32 %extract22
-  %28 = getelementptr <4 x float>* %2, i32 %extract23
+  %25 = getelementptr <4 x float>, <4 x float>* %2, i32 %extract
+  %26 = getelementptr <4 x float>, <4 x float>* %2, i32 %extract21
+  %27 = getelementptr <4 x float>, <4 x float>* %2, i32 %extract22
+  %28 = getelementptr <4 x float>, <4 x float>* %2, i32 %extract23
   store <4 x float> %shuf_transpL70, <4 x float>* %25
   store <4 x float> %shuf_transpH71, <4 x float>* %26
   store <4 x float> %shuf_transpL72, <4 x float>* %27
@@ -183,14 +183,14 @@ entry:
 define void @_Z13fast_distanceff_test(float* nocapture, float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %3 = getelementptr float* %0, i32 %gid
+  %3 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %3 to <4 x float>*
   %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast5 = bitcast float* %4 to <4 x float>*
-  %load_arg26 = load <4 x float>* %ptrTypeCast5, align 4
+  %load_arg26 = load <4 x float>, <4 x float>* %ptrTypeCast5, align 4
   %5 = tail call <4 x float> @_f_v.__vertical_fast_distance1f4(<4 x float> %load_arg4, <4 x float> %load_arg26)
-  %6 = getelementptr float* %2, i32 %gid
+  %6 = getelementptr float, float* %2, i32 %gid
   %ptrTypeCast7 = bitcast float* %6 to <4 x float>*
   store <4 x float> %5, <4 x float>* %ptrTypeCast7, align 4
   ret void
@@ -212,10 +212,10 @@ entry:
   %extract7 = extractelement <4 x i32> %3, i32 1
   %extract8 = extractelement <4 x i32> %3, i32 2
   %extract9 = extractelement <4 x i32> %3, i32 3
-  %4 = getelementptr <2 x float>* %0, i32 %extract
-  %5 = getelementptr <2 x float>* %0, i32 %extract7
-  %6 = getelementptr <2 x float>* %0, i32 %extract8
-  %7 = getelementptr <2 x float>* %0, i32 %extract9
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract7
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract8
+  %7 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract9
   %8 = load <2 x float>* %4
   %9 = load <2 x float>* %5
   %10 = load <2 x float>* %6
@@ -228,10 +228,10 @@ entry:
   %shuffle1 = shufflevector <4 x float> %extend_vec11, <4 x float> %extend_vec12, <4 x i32> <i32 0, i32 1, i32 4, i32 5>
   %shuffleMerge = shufflevector <4 x float> %shuffle0, <4 x float> %shuffle1, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
   %shuffleMerge19 = shufflevector <4 x float> %shuffle0, <4 x float> %shuffle1, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
-  %12 = getelementptr <2 x float>* %1, i32 %extract
-  %13 = getelementptr <2 x float>* %1, i32 %extract7
-  %14 = getelementptr <2 x float>* %1, i32 %extract8
-  %15 = getelementptr <2 x float>* %1, i32 %extract9
+  %12 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract
+  %13 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract7
+  %14 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract8
+  %15 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract9
   %16 = load <2 x float>* %12
   %17 = load <2 x float>* %13
   %18 = load <2 x float>* %14
@@ -249,7 +249,7 @@ entry:
   %store.val44 = insertvalue [2 x <4 x float>] undef, <4 x float> %shuffleMerge26, 0
   %store.val45 = insertvalue [2 x <4 x float>] %store.val44, <4 x float> %shuffleMerge33, 1
   %20 = tail call <4 x float> @_f_v.__vertical_fast_distance2f4([2 x <4 x float>] %store.val43, [2 x <4 x float>] %store.val45)
-  %21 = getelementptr float* %2, i32 %extract
+  %21 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %21 to <4 x float>*
   store <4 x float> %20, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -271,10 +271,10 @@ entry:
   %extract11 = extractelement <4 x i32> %3, i32 1
   %extract12 = extractelement <4 x i32> %3, i32 2
   %extract13 = extractelement <4 x i32> %3, i32 3
-  %4 = getelementptr <3 x float>* %0, i32 %extract
-  %5 = getelementptr <3 x float>* %0, i32 %extract11
-  %6 = getelementptr <3 x float>* %0, i32 %extract12
-  %7 = getelementptr <3 x float>* %0, i32 %extract13
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract12
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract13
   %8 = load <3 x float>* %4
   %9 = load <3 x float>* %5
   %10 = load <3 x float>* %6
@@ -290,10 +290,10 @@ entry:
   %shuffle028 = shufflevector <4 x float> %extend_vec, <4 x float> %extend_vec14, <4 x i32> <i32 2, i32 undef, i32 6, i32 undef>
   %shuffle129 = shufflevector <4 x float> %extend_vec15, <4 x float> %extend_vec16, <4 x i32> <i32 2, i32 undef, i32 6, i32 undef>
   %shuffleMerge30 = shufflevector <4 x float> %shuffle028, <4 x float> %shuffle129, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
-  %12 = getelementptr <3 x float>* %1, i32 %extract
-  %13 = getelementptr <3 x float>* %1, i32 %extract11
-  %14 = getelementptr <3 x float>* %1, i32 %extract12
-  %15 = getelementptr <3 x float>* %1, i32 %extract13
+  %12 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract
+  %13 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract11
+  %14 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract12
+  %15 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract13
   %16 = load <3 x float>* %12
   %17 = load <3 x float>* %13
   %18 = load <3 x float>* %14
@@ -316,7 +316,7 @@ entry:
   %store.val76 = insertvalue [3 x <4 x float>] %store.val75, <4 x float> %shuffleMerge44, 1
   %store.val77 = insertvalue [3 x <4 x float>] %store.val76, <4 x float> %shuffleMerge51, 2
   %20 = tail call <4 x float> @_f_v.__vertical_fast_distance3f4([3 x <4 x float>] %store.val74, [3 x <4 x float>] %store.val77)
-  %21 = getelementptr float* %2, i32 %extract
+  %21 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %21 to <4 x float>*
   store <4 x float> %20, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -338,10 +338,10 @@ entry:
   %extract15 = extractelement <4 x i32> %3, i32 1
   %extract16 = extractelement <4 x i32> %3, i32 2
   %extract17 = extractelement <4 x i32> %3, i32 3
-  %4 = getelementptr <4 x float>* %0, i32 %extract
-  %5 = getelementptr <4 x float>* %0, i32 %extract15
-  %6 = getelementptr <4 x float>* %0, i32 %extract16
-  %7 = getelementptr <4 x float>* %0, i32 %extract17
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract15
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract16
+  %7 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract17
   %8 = load <4 x float>* %4
   %9 = load <4 x float>* %5
   %10 = load <4 x float>* %6
@@ -354,10 +354,10 @@ entry:
   %shuffle122 = shufflevector <4 x float> %10, <4 x float> %11, <4 x i32> <i32 2, i32 3, i32 6, i32 7>
   %shuffleMerge23 = shufflevector <4 x float> %shuffle021, <4 x float> %shuffle122, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
   %shuffleMerge26 = shufflevector <4 x float> %shuffle021, <4 x float> %shuffle122, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
-  %12 = getelementptr <4 x float>* %1, i32 %extract
-  %13 = getelementptr <4 x float>* %1, i32 %extract15
-  %14 = getelementptr <4 x float>* %1, i32 %extract16
-  %15 = getelementptr <4 x float>* %1, i32 %extract17
+  %12 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract
+  %13 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract15
+  %14 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract16
+  %15 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract17
   %16 = load <4 x float>* %12
   %17 = load <4 x float>* %13
   %18 = load <4 x float>* %14
@@ -379,7 +379,7 @@ entry:
   %store.val58 = insertvalue [4 x <4 x float>] %store.val57, <4 x float> %shuffleMerge35, 2
   %store.val59 = insertvalue [4 x <4 x float>] %store.val58, <4 x float> %shuffleMerge38, 3
   %20 = tail call <4 x float> @_f_v.__vertical_fast_distance4f4([4 x <4 x float>] %store.val55, [4 x <4 x float>] %store.val59)
-  %21 = getelementptr float* %2, i32 %extract
+  %21 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %21 to <4 x float>*
   store <4 x float> %20, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -394,14 +394,14 @@ entry:
 define void @_Z8distanceff_test(float* nocapture, float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %3 = getelementptr float* %0, i32 %gid
+  %3 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %3 to <4 x float>*
   %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast5 = bitcast float* %4 to <4 x float>*
-  %load_arg26 = load <4 x float>* %ptrTypeCast5, align 4
+  %load_arg26 = load <4 x float>, <4 x float>* %ptrTypeCast5, align 4
   %5 = tail call <4 x float> @_f_v.__vertical_distance1f4(<4 x float> %load_arg4, <4 x float> %load_arg26)
-  %6 = getelementptr float* %2, i32 %gid
+  %6 = getelementptr float, float* %2, i32 %gid
   %ptrTypeCast7 = bitcast float* %6 to <4 x float>*
   store <4 x float> %5, <4 x float>* %ptrTypeCast7, align 4
   ret void
@@ -416,11 +416,11 @@ entry:
 define void @_Z6lengthf_test(float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %2 = getelementptr float* %0, i32 %gid
+  %2 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %2 to <4 x float>*
-  %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
+  %load_arg4 = load <4 x float>, <4 x float>* %ptrTypeCast, align 4
   %3 = tail call <4 x float> @_f_v.__vertical_length1f4(<4 x float> %load_arg4)
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast5 = bitcast float* %4 to <4 x float>*
   store <4 x float> %3, <4 x float>* %ptrTypeCast5, align 4
   ret void
@@ -442,10 +442,10 @@ entry:
   %extract7 = extractelement <4 x i32> %3, i32 1
   %extract8 = extractelement <4 x i32> %3, i32 2
   %extract9 = extractelement <4 x i32> %3, i32 3
-  %4 = getelementptr <2 x float>* %0, i32 %extract
-  %5 = getelementptr <2 x float>* %0, i32 %extract7
-  %6 = getelementptr <2 x float>* %0, i32 %extract8
-  %7 = getelementptr <2 x float>* %0, i32 %extract9
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract7
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract8
+  %7 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract9
   %8 = load <2 x float>* %4
   %9 = load <2 x float>* %5
   %10 = load <2 x float>* %6
@@ -458,10 +458,10 @@ entry:
   %shuffle1 = shufflevector <4 x float> %extend_vec11, <4 x float> %extend_vec12, <4 x i32> <i32 0, i32 1, i32 4, i32 5>
   %shuffleMerge = shufflevector <4 x float> %shuffle0, <4 x float> %shuffle1, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
   %shuffleMerge19 = shufflevector <4 x float> %shuffle0, <4 x float> %shuffle1, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
-  %12 = getelementptr <2 x float>* %1, i32 %extract
-  %13 = getelementptr <2 x float>* %1, i32 %extract7
-  %14 = getelementptr <2 x float>* %1, i32 %extract8
-  %15 = getelementptr <2 x float>* %1, i32 %extract9
+  %12 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract
+  %13 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract7
+  %14 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract8
+  %15 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract9
   %16 = load <2 x float>* %12
   %17 = load <2 x float>* %13
   %18 = load <2 x float>* %14
@@ -479,7 +479,7 @@ entry:
   %store.val44 = insertvalue [2 x <4 x float>] undef, <4 x float> %shuffleMerge26, 0
   %store.val45 = insertvalue [2 x <4 x float>] %store.val44, <4 x float> %shuffleMerge33, 1
   %20 = tail call <4 x float> @_f_v.__vertical_distance2f4([2 x <4 x float>] %store.val43, [2 x <4 x float>] %store.val45)
-  %21 = getelementptr float* %2, i32 %extract
+  %21 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %21 to <4 x float>*
   store <4 x float> %20, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -501,10 +501,10 @@ entry:
   %extract3 = extractelement <4 x i32> %2, i32 1
   %extract4 = extractelement <4 x i32> %2, i32 2
   %extract5 = extractelement <4 x i32> %2, i32 3
-  %3 = getelementptr <2 x float>* %0, i32 %extract
-  %4 = getelementptr <2 x float>* %0, i32 %extract3
-  %5 = getelementptr <2 x float>* %0, i32 %extract4
-  %6 = getelementptr <2 x float>* %0, i32 %extract5
+  %3 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract3
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract4
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract5
   %7 = load <2 x float>* %3
   %8 = load <2 x float>* %4
   %9 = load <2 x float>* %5
@@ -520,7 +520,7 @@ entry:
   %store.val = insertvalue [2 x <4 x float>] undef, <4 x float> %shuffleMerge, 0
   %store.val19 = insertvalue [2 x <4 x float>] %store.val, <4 x float> %shuffleMerge15, 1
   %11 = tail call <4 x float> @_f_v.__vertical_length2f4([2 x <4 x float>] %store.val19)
-  %12 = getelementptr float* %1, i32 %extract
+  %12 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %12 to <4 x float>*
   store <4 x float> %11, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -542,10 +542,10 @@ entry:
   %extract11 = extractelement <4 x i32> %3, i32 1
   %extract12 = extractelement <4 x i32> %3, i32 2
   %extract13 = extractelement <4 x i32> %3, i32 3
-  %4 = getelementptr <3 x float>* %0, i32 %extract
-  %5 = getelementptr <3 x float>* %0, i32 %extract11
-  %6 = getelementptr <3 x float>* %0, i32 %extract12
-  %7 = getelementptr <3 x float>* %0, i32 %extract13
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract12
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract13
   %8 = load <3 x float>* %4
   %9 = load <3 x float>* %5
   %10 = load <3 x float>* %6
@@ -561,10 +561,10 @@ entry:
   %shuffle028 = shufflevector <4 x float> %extend_vec, <4 x float> %extend_vec14, <4 x i32> <i32 2, i32 undef, i32 6, i32 undef>
   %shuffle129 = shufflevector <4 x float> %extend_vec15, <4 x float> %extend_vec16, <4 x i32> <i32 2, i32 undef, i32 6, i32 undef>
   %shuffleMerge30 = shufflevector <4 x float> %shuffle028, <4 x float> %shuffle129, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
-  %12 = getelementptr <3 x float>* %1, i32 %extract
-  %13 = getelementptr <3 x float>* %1, i32 %extract11
-  %14 = getelementptr <3 x float>* %1, i32 %extract12
-  %15 = getelementptr <3 x float>* %1, i32 %extract13
+  %12 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract
+  %13 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract11
+  %14 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract12
+  %15 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract13
   %16 = load <3 x float>* %12
   %17 = load <3 x float>* %13
   %18 = load <3 x float>* %14
@@ -587,7 +587,7 @@ entry:
   %store.val76 = insertvalue [3 x <4 x float>] %store.val75, <4 x float> %shuffleMerge44, 1
   %store.val77 = insertvalue [3 x <4 x float>] %store.val76, <4 x float> %shuffleMerge51, 2
   %20 = tail call <4 x float> @_f_v.__vertical_distance3f4([3 x <4 x float>] %store.val74, [3 x <4 x float>] %store.val77)
-  %21 = getelementptr float* %2, i32 %extract
+  %21 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %21 to <4 x float>*
   store <4 x float> %20, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -609,10 +609,10 @@ entry:
   %extract5 = extractelement <4 x i32> %2, i32 1
   %extract6 = extractelement <4 x i32> %2, i32 2
   %extract7 = extractelement <4 x i32> %2, i32 3
-  %3 = getelementptr <3 x float>* %0, i32 %extract
-  %4 = getelementptr <3 x float>* %0, i32 %extract5
-  %5 = getelementptr <3 x float>* %0, i32 %extract6
-  %6 = getelementptr <3 x float>* %0, i32 %extract7
+  %3 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract5
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract6
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract7
   %7 = load <3 x float>* %3
   %8 = load <3 x float>* %4
   %9 = load <3 x float>* %5
@@ -632,7 +632,7 @@ entry:
   %store.val34 = insertvalue [3 x <4 x float>] %store.val, <4 x float> %shuffleMerge17, 1
   %store.val35 = insertvalue [3 x <4 x float>] %store.val34, <4 x float> %shuffleMerge24, 2
   %11 = tail call <4 x float> @_f_v.__vertical_length3f4([3 x <4 x float>] %store.val35)
-  %12 = getelementptr float* %1, i32 %extract
+  %12 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %12 to <4 x float>*
   store <4 x float> %11, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -654,10 +654,10 @@ entry:
   %extract15 = extractelement <4 x i32> %3, i32 1
   %extract16 = extractelement <4 x i32> %3, i32 2
   %extract17 = extractelement <4 x i32> %3, i32 3
-  %4 = getelementptr <4 x float>* %0, i32 %extract
-  %5 = getelementptr <4 x float>* %0, i32 %extract15
-  %6 = getelementptr <4 x float>* %0, i32 %extract16
-  %7 = getelementptr <4 x float>* %0, i32 %extract17
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract15
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract16
+  %7 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract17
   %8 = load <4 x float>* %4
   %9 = load <4 x float>* %5
   %10 = load <4 x float>* %6
@@ -670,10 +670,10 @@ entry:
   %shuffle122 = shufflevector <4 x float> %10, <4 x float> %11, <4 x i32> <i32 2, i32 3, i32 6, i32 7>
   %shuffleMerge23 = shufflevector <4 x float> %shuffle021, <4 x float> %shuffle122, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
   %shuffleMerge26 = shufflevector <4 x float> %shuffle021, <4 x float> %shuffle122, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
-  %12 = getelementptr <4 x float>* %1, i32 %extract
-  %13 = getelementptr <4 x float>* %1, i32 %extract15
-  %14 = getelementptr <4 x float>* %1, i32 %extract16
-  %15 = getelementptr <4 x float>* %1, i32 %extract17
+  %12 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract
+  %13 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract15
+  %14 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract16
+  %15 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract17
   %16 = load <4 x float>* %12
   %17 = load <4 x float>* %13
   %18 = load <4 x float>* %14
@@ -695,7 +695,7 @@ entry:
   %store.val58 = insertvalue [4 x <4 x float>] %store.val57, <4 x float> %shuffleMerge35, 2
   %store.val59 = insertvalue [4 x <4 x float>] %store.val58, <4 x float> %shuffleMerge38, 3
   %20 = tail call <4 x float> @_f_v.__vertical_distance4f4([4 x <4 x float>] %store.val55, [4 x <4 x float>] %store.val59)
-  %21 = getelementptr float* %2, i32 %extract
+  %21 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %21 to <4 x float>*
   store <4 x float> %20, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -717,10 +717,10 @@ entry:
   %extract7 = extractelement <4 x i32> %2, i32 1
   %extract8 = extractelement <4 x i32> %2, i32 2
   %extract9 = extractelement <4 x i32> %2, i32 3
-  %3 = getelementptr <4 x float>* %0, i32 %extract
-  %4 = getelementptr <4 x float>* %0, i32 %extract7
-  %5 = getelementptr <4 x float>* %0, i32 %extract8
-  %6 = getelementptr <4 x float>* %0, i32 %extract9
+  %3 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract7
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract8
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract9
   %7 = load <4 x float>* %3
   %8 = load <4 x float>* %4
   %9 = load <4 x float>* %5
@@ -738,7 +738,7 @@ entry:
   %store.val26 = insertvalue [4 x <4 x float>] %store.val25, <4 x float> %shuffleMerge15, 2
   %store.val27 = insertvalue [4 x <4 x float>] %store.val26, <4 x float> %shuffleMerge18, 3
   %11 = tail call <4 x float> @_f_v.__vertical_length4f4([4 x <4 x float>] %store.val27)
-  %12 = getelementptr float* %1, i32 %extract
+  %12 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %12 to <4 x float>*
   store <4 x float> %11, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -753,14 +753,14 @@ entry:
 define void @_Z3dotff_test(float* nocapture, float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %3 = getelementptr float* %0, i32 %gid
+  %3 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %3 to <4 x float>*
   %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast5 = bitcast float* %4 to <4 x float>*
-  %load_arg26 = load <4 x float>* %ptrTypeCast5, align 4
+  %load_arg26 = load <4 x float>, <4 x float>* %ptrTypeCast5, align 4
   %5 = tail call <4 x float> @_f_v.__vertical_dot1f4(<4 x float> %load_arg4, <4 x float> %load_arg26)
-  %6 = getelementptr float* %2, i32 %gid
+  %6 = getelementptr float, float* %2, i32 %gid
   %ptrTypeCast7 = bitcast float* %6 to <4 x float>*
   store <4 x float> %5, <4 x float>* %ptrTypeCast7, align 4
   ret void
@@ -782,10 +782,10 @@ entry:
   %extract7 = extractelement <4 x i32> %3, i32 1
   %extract8 = extractelement <4 x i32> %3, i32 2
   %extract9 = extractelement <4 x i32> %3, i32 3
-  %4 = getelementptr <2 x float>* %0, i32 %extract
-  %5 = getelementptr <2 x float>* %0, i32 %extract7
-  %6 = getelementptr <2 x float>* %0, i32 %extract8
-  %7 = getelementptr <2 x float>* %0, i32 %extract9
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract7
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract8
+  %7 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract9
   %8 = load <2 x float>* %4
   %9 = load <2 x float>* %5
   %10 = load <2 x float>* %6
@@ -798,10 +798,10 @@ entry:
   %shuffle1 = shufflevector <4 x float> %extend_vec11, <4 x float> %extend_vec12, <4 x i32> <i32 0, i32 1, i32 4, i32 5>
   %shuffleMerge = shufflevector <4 x float> %shuffle0, <4 x float> %shuffle1, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
   %shuffleMerge19 = shufflevector <4 x float> %shuffle0, <4 x float> %shuffle1, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
-  %12 = getelementptr <2 x float>* %1, i32 %extract
-  %13 = getelementptr <2 x float>* %1, i32 %extract7
-  %14 = getelementptr <2 x float>* %1, i32 %extract8
-  %15 = getelementptr <2 x float>* %1, i32 %extract9
+  %12 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract
+  %13 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract7
+  %14 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract8
+  %15 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract9
   %16 = load <2 x float>* %12
   %17 = load <2 x float>* %13
   %18 = load <2 x float>* %14
@@ -819,7 +819,7 @@ entry:
   %store.val44 = insertvalue [2 x <4 x float>] undef, <4 x float> %shuffleMerge26, 0
   %store.val45 = insertvalue [2 x <4 x float>] %store.val44, <4 x float> %shuffleMerge33, 1
   %20 = tail call <4 x float> @_f_v.__vertical_dot2f4([2 x <4 x float>] %store.val43, [2 x <4 x float>] %store.val45)
-  %21 = getelementptr float* %2, i32 %extract
+  %21 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %21 to <4 x float>*
   store <4 x float> %20, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -841,10 +841,10 @@ entry:
   %extract11 = extractelement <4 x i32> %3, i32 1
   %extract12 = extractelement <4 x i32> %3, i32 2
   %extract13 = extractelement <4 x i32> %3, i32 3
-  %4 = getelementptr <3 x float>* %0, i32 %extract
-  %5 = getelementptr <3 x float>* %0, i32 %extract11
-  %6 = getelementptr <3 x float>* %0, i32 %extract12
-  %7 = getelementptr <3 x float>* %0, i32 %extract13
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract12
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract13
   %8 = load <3 x float>* %4
   %9 = load <3 x float>* %5
   %10 = load <3 x float>* %6
@@ -860,10 +860,10 @@ entry:
   %shuffle028 = shufflevector <4 x float> %extend_vec, <4 x float> %extend_vec14, <4 x i32> <i32 2, i32 undef, i32 6, i32 undef>
   %shuffle129 = shufflevector <4 x float> %extend_vec15, <4 x float> %extend_vec16, <4 x i32> <i32 2, i32 undef, i32 6, i32 undef>
   %shuffleMerge30 = shufflevector <4 x float> %shuffle028, <4 x float> %shuffle129, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
-  %12 = getelementptr <3 x float>* %1, i32 %extract
-  %13 = getelementptr <3 x float>* %1, i32 %extract11
-  %14 = getelementptr <3 x float>* %1, i32 %extract12
-  %15 = getelementptr <3 x float>* %1, i32 %extract13
+  %12 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract
+  %13 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract11
+  %14 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract12
+  %15 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract13
   %16 = load <3 x float>* %12
   %17 = load <3 x float>* %13
   %18 = load <3 x float>* %14
@@ -886,7 +886,7 @@ entry:
   %store.val76 = insertvalue [3 x <4 x float>] %store.val75, <4 x float> %shuffleMerge44, 1
   %store.val77 = insertvalue [3 x <4 x float>] %store.val76, <4 x float> %shuffleMerge51, 2
   %20 = tail call <4 x float> @_f_v.__vertical_dot3f4([3 x <4 x float>] %store.val74, [3 x <4 x float>] %store.val77)
-  %21 = getelementptr float* %2, i32 %extract
+  %21 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %21 to <4 x float>*
   store <4 x float> %20, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -908,10 +908,10 @@ entry:
   %extract15 = extractelement <4 x i32> %3, i32 1
   %extract16 = extractelement <4 x i32> %3, i32 2
   %extract17 = extractelement <4 x i32> %3, i32 3
-  %4 = getelementptr <4 x float>* %0, i32 %extract
-  %5 = getelementptr <4 x float>* %0, i32 %extract15
-  %6 = getelementptr <4 x float>* %0, i32 %extract16
-  %7 = getelementptr <4 x float>* %0, i32 %extract17
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract15
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract16
+  %7 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract17
   %8 = load <4 x float>* %4
   %9 = load <4 x float>* %5
   %10 = load <4 x float>* %6
@@ -924,10 +924,10 @@ entry:
   %shuffle122 = shufflevector <4 x float> %10, <4 x float> %11, <4 x i32> <i32 2, i32 3, i32 6, i32 7>
   %shuffleMerge23 = shufflevector <4 x float> %shuffle021, <4 x float> %shuffle122, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
   %shuffleMerge26 = shufflevector <4 x float> %shuffle021, <4 x float> %shuffle122, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
-  %12 = getelementptr <4 x float>* %1, i32 %extract
-  %13 = getelementptr <4 x float>* %1, i32 %extract15
-  %14 = getelementptr <4 x float>* %1, i32 %extract16
-  %15 = getelementptr <4 x float>* %1, i32 %extract17
+  %12 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract
+  %13 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract15
+  %14 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract16
+  %15 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract17
   %16 = load <4 x float>* %12
   %17 = load <4 x float>* %13
   %18 = load <4 x float>* %14
@@ -949,7 +949,7 @@ entry:
   %store.val58 = insertvalue [4 x <4 x float>] %store.val57, <4 x float> %shuffleMerge35, 2
   %store.val59 = insertvalue [4 x <4 x float>] %store.val58, <4 x float> %shuffleMerge38, 3
   %20 = tail call <4 x float> @_f_v.__vertical_dot4f4([4 x <4 x float>] %store.val55, [4 x <4 x float>] %store.val59)
-  %21 = getelementptr float* %2, i32 %extract
+  %21 = getelementptr float, float* %2, i32 %extract
   %ptrTypeCast = bitcast float* %21 to <4 x float>*
   store <4 x float> %20, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -964,11 +964,11 @@ entry:
 define void @_Z11fast_lengthf_test(float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %2 = getelementptr float* %0, i32 %gid
+  %2 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %2 to <4 x float>*
-  %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
+  %load_arg4 = load <4 x float>, <4 x float>* %ptrTypeCast, align 4
   %3 = tail call <4 x float> @_f_v.__vertical_fast_length1f4(<4 x float> %load_arg4)
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast5 = bitcast float* %4 to <4 x float>*
   store <4 x float> %3, <4 x float>* %ptrTypeCast5, align 4
   ret void
@@ -990,10 +990,10 @@ entry:
   %extract3 = extractelement <4 x i32> %2, i32 1
   %extract4 = extractelement <4 x i32> %2, i32 2
   %extract5 = extractelement <4 x i32> %2, i32 3
-  %3 = getelementptr <2 x float>* %0, i32 %extract
-  %4 = getelementptr <2 x float>* %0, i32 %extract3
-  %5 = getelementptr <2 x float>* %0, i32 %extract4
-  %6 = getelementptr <2 x float>* %0, i32 %extract5
+  %3 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract3
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract4
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract5
   %7 = load <2 x float>* %3
   %8 = load <2 x float>* %4
   %9 = load <2 x float>* %5
@@ -1009,7 +1009,7 @@ entry:
   %store.val = insertvalue [2 x <4 x float>] undef, <4 x float> %shuffleMerge, 0
   %store.val19 = insertvalue [2 x <4 x float>] %store.val, <4 x float> %shuffleMerge15, 1
   %11 = tail call <4 x float> @_f_v.__vertical_fast_length2f4([2 x <4 x float>] %store.val19)
-  %12 = getelementptr float* %1, i32 %extract
+  %12 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %12 to <4 x float>*
   store <4 x float> %11, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -1031,10 +1031,10 @@ entry:
   %extract5 = extractelement <4 x i32> %2, i32 1
   %extract6 = extractelement <4 x i32> %2, i32 2
   %extract7 = extractelement <4 x i32> %2, i32 3
-  %3 = getelementptr <3 x float>* %0, i32 %extract
-  %4 = getelementptr <3 x float>* %0, i32 %extract5
-  %5 = getelementptr <3 x float>* %0, i32 %extract6
-  %6 = getelementptr <3 x float>* %0, i32 %extract7
+  %3 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract5
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract6
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract7
   %7 = load <3 x float>* %3
   %8 = load <3 x float>* %4
   %9 = load <3 x float>* %5
@@ -1054,7 +1054,7 @@ entry:
   %store.val34 = insertvalue [3 x <4 x float>] %store.val, <4 x float> %shuffleMerge17, 1
   %store.val35 = insertvalue [3 x <4 x float>] %store.val34, <4 x float> %shuffleMerge24, 2
   %11 = tail call <4 x float> @_f_v.__vertical_fast_length3f4([3 x <4 x float>] %store.val35)
-  %12 = getelementptr float* %1, i32 %extract
+  %12 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %12 to <4 x float>*
   store <4 x float> %11, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -1076,10 +1076,10 @@ entry:
   %extract7 = extractelement <4 x i32> %2, i32 1
   %extract8 = extractelement <4 x i32> %2, i32 2
   %extract9 = extractelement <4 x i32> %2, i32 3
-  %3 = getelementptr <4 x float>* %0, i32 %extract
-  %4 = getelementptr <4 x float>* %0, i32 %extract7
-  %5 = getelementptr <4 x float>* %0, i32 %extract8
-  %6 = getelementptr <4 x float>* %0, i32 %extract9
+  %3 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract7
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract8
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract9
   %7 = load <4 x float>* %3
   %8 = load <4 x float>* %4
   %9 = load <4 x float>* %5
@@ -1097,7 +1097,7 @@ entry:
   %store.val26 = insertvalue [4 x <4 x float>] %store.val25, <4 x float> %shuffleMerge15, 2
   %store.val27 = insertvalue [4 x <4 x float>] %store.val26, <4 x float> %shuffleMerge18, 3
   %11 = tail call <4 x float> @_f_v.__vertical_fast_length4f4([4 x <4 x float>] %store.val27)
-  %12 = getelementptr float* %1, i32 %extract
+  %12 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %12 to <4 x float>*
   store <4 x float> %11, <4 x float>* %ptrTypeCast, align 4
   ret void
@@ -1112,11 +1112,11 @@ entry:
 define void @_Z14fast_normalizef_test(float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %2 = getelementptr float* %0, i32 %gid
+  %2 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %2 to <4 x float>*
-  %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
+  %load_arg4 = load <4 x float>, <4 x float>* %ptrTypeCast, align 4
   %3 = tail call <4 x float> @_f_v.__vertical_fast_normalize1f4(<4 x float> %load_arg4)
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast5 = bitcast float* %4 to <4 x float>*
   store <4 x float> %3, <4 x float>* %ptrTypeCast5, align 4
   ret void
@@ -1138,10 +1138,10 @@ entry:
   %extract5 = extractelement <4 x i32> %2, i32 1
   %extract6 = extractelement <4 x i32> %2, i32 2
   %extract7 = extractelement <4 x i32> %2, i32 3
-  %3 = getelementptr <2 x float>* %0, i32 %extract
-  %4 = getelementptr <2 x float>* %0, i32 %extract5
-  %5 = getelementptr <2 x float>* %0, i32 %extract6
-  %6 = getelementptr <2 x float>* %0, i32 %extract7
+  %3 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract5
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract6
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract7
   %7 = load <2 x float>* %3
   %8 = load <2 x float>* %4
   %9 = load <2 x float>* %5
@@ -1165,10 +1165,10 @@ entry:
   %breakdown25 = shufflevector <4 x float> %shuf_transpH23, <4 x float> undef, <2 x i32> <i32 0, i32 1>
   %breakdown26 = shufflevector <4 x float> %shuf_transpL22, <4 x float> undef, <2 x i32> <i32 2, i32 3>
   %breakdown27 = shufflevector <4 x float> %shuf_transpH23, <4 x float> undef, <2 x i32> <i32 2, i32 3>
-  %14 = getelementptr <2 x float>* %1, i32 %extract
-  %15 = getelementptr <2 x float>* %1, i32 %extract5
-  %16 = getelementptr <2 x float>* %1, i32 %extract6
-  %17 = getelementptr <2 x float>* %1, i32 %extract7
+  %14 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract
+  %15 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract5
+  %16 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract6
+  %17 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract7
   store <2 x float> %breakdown24, <2 x float>* %14
   store <2 x float> %breakdown25, <2 x float>* %15
   store <2 x float> %breakdown26, <2 x float>* %16
@@ -1192,10 +1192,10 @@ entry:
   %extract9 = extractelement <4 x i32> %2, i32 1
   %extract10 = extractelement <4 x i32> %2, i32 2
   %extract11 = extractelement <4 x i32> %2, i32 3
-  %3 = getelementptr <3 x float>* %0, i32 %extract
-  %4 = getelementptr <3 x float>* %0, i32 %extract9
-  %5 = getelementptr <3 x float>* %0, i32 %extract10
-  %6 = getelementptr <3 x float>* %0, i32 %extract11
+  %3 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract9
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract10
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
   %7 = load <3 x float>* %3
   %8 = load <3 x float>* %4
   %9 = load <3 x float>* %5
@@ -1229,10 +1229,10 @@ entry:
   %breakdown49 = shufflevector <4 x float> %shuf_transpH45, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   %breakdown50 = shufflevector <4 x float> %shuf_transpL46, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   %breakdown51 = shufflevector <4 x float> %shuf_transpH47, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
-  %15 = getelementptr <3 x float>* %1, i32 %extract
-  %16 = getelementptr <3 x float>* %1, i32 %extract9
-  %17 = getelementptr <3 x float>* %1, i32 %extract10
-  %18 = getelementptr <3 x float>* %1, i32 %extract11
+  %15 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract
+  %16 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract9
+  %17 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract10
+  %18 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract11
   store <3 x float> %breakdown48, <3 x float>* %15
   store <3 x float> %breakdown49, <3 x float>* %16
   store <3 x float> %breakdown50, <3 x float>* %17
@@ -1256,10 +1256,10 @@ entry:
   %extract13 = extractelement <4 x i32> %2, i32 1
   %extract14 = extractelement <4 x i32> %2, i32 2
   %extract15 = extractelement <4 x i32> %2, i32 3
-  %3 = getelementptr <4 x float>* %0, i32 %extract
-  %4 = getelementptr <4 x float>* %0, i32 %extract13
-  %5 = getelementptr <4 x float>* %0, i32 %extract14
-  %6 = getelementptr <4 x float>* %0, i32 %extract15
+  %3 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract13
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract14
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract15
   %7 = load <4 x float>* %3
   %8 = load <4 x float>* %4
   %9 = load <4 x float>* %5
@@ -1289,10 +1289,10 @@ entry:
   %shuf_transpH39 = shufflevector <4 x float> %shuf_transpL34, <4 x float> %shuf_transpL35, <4 x i32> <i32 1, i32 5, i32 3, i32 7>
   %shuf_transpL40 = shufflevector <4 x float> %shuf_transpH36, <4 x float> %shuf_transpH37, <4 x i32> <i32 0, i32 4, i32 2, i32 6>
   %shuf_transpH41 = shufflevector <4 x float> %shuf_transpH36, <4 x float> %shuf_transpH37, <4 x i32> <i32 1, i32 5, i32 3, i32 7>
-  %16 = getelementptr <4 x float>* %1, i32 %extract
-  %17 = getelementptr <4 x float>* %1, i32 %extract13
-  %18 = getelementptr <4 x float>* %1, i32 %extract14
-  %19 = getelementptr <4 x float>* %1, i32 %extract15
+  %16 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract
+  %17 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract13
+  %18 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract14
+  %19 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract15
   store <4 x float> %shuf_transpL38, <4 x float>* %16
   store <4 x float> %shuf_transpH39, <4 x float>* %17
   store <4 x float> %shuf_transpL40, <4 x float>* %18
@@ -1309,11 +1309,11 @@ entry:
 define void @_Z9normalizef_test(float* nocapture, float* nocapture) {
 entry:
   %gid = tail call i32 @_Z13get_global_idj(i32 0)
-  %2 = getelementptr float* %0, i32 %gid
+  %2 = getelementptr float, float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %2 to <4 x float>*
-  %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
+  %load_arg4 = load <4 x float>, <4 x float>* %ptrTypeCast, align 4
   %3 = tail call <4 x float> @_f_v.__vertical_normalize1f4(<4 x float> %load_arg4)
-  %4 = getelementptr float* %1, i32 %gid
+  %4 = getelementptr float, float* %1, i32 %gid
   %ptrTypeCast5 = bitcast float* %4 to <4 x float>*
   store <4 x float> %3, <4 x float>* %ptrTypeCast5, align 4
   ret void
@@ -1335,10 +1335,10 @@ entry:
   %extract5 = extractelement <4 x i32> %2, i32 1
   %extract6 = extractelement <4 x i32> %2, i32 2
   %extract7 = extractelement <4 x i32> %2, i32 3
-  %3 = getelementptr <2 x float>* %0, i32 %extract
-  %4 = getelementptr <2 x float>* %0, i32 %extract5
-  %5 = getelementptr <2 x float>* %0, i32 %extract6
-  %6 = getelementptr <2 x float>* %0, i32 %extract7
+  %3 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract
+  %4 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract5
+  %5 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract6
+  %6 = getelementptr <2 x float>, <2 x float>* %0, i32 %extract7
   %7 = load <2 x float>* %3
   %8 = load <2 x float>* %4
   %9 = load <2 x float>* %5
@@ -1362,10 +1362,10 @@ entry:
   %breakdown25 = shufflevector <4 x float> %shuf_transpH23, <4 x float> undef, <2 x i32> <i32 0, i32 1>
   %breakdown26 = shufflevector <4 x float> %shuf_transpL22, <4 x float> undef, <2 x i32> <i32 2, i32 3>
   %breakdown27 = shufflevector <4 x float> %shuf_transpH23, <4 x float> undef, <2 x i32> <i32 2, i32 3>
-  %14 = getelementptr <2 x float>* %1, i32 %extract
-  %15 = getelementptr <2 x float>* %1, i32 %extract5
-  %16 = getelementptr <2 x float>* %1, i32 %extract6
-  %17 = getelementptr <2 x float>* %1, i32 %extract7
+  %14 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract
+  %15 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract5
+  %16 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract6
+  %17 = getelementptr <2 x float>, <2 x float>* %1, i32 %extract7
   store <2 x float> %breakdown24, <2 x float>* %14
   store <2 x float> %breakdown25, <2 x float>* %15
   store <2 x float> %breakdown26, <2 x float>* %16
@@ -1389,10 +1389,10 @@ entry:
   %extract9 = extractelement <4 x i32> %2, i32 1
   %extract10 = extractelement <4 x i32> %2, i32 2
   %extract11 = extractelement <4 x i32> %2, i32 3
-  %3 = getelementptr <3 x float>* %0, i32 %extract
-  %4 = getelementptr <3 x float>* %0, i32 %extract9
-  %5 = getelementptr <3 x float>* %0, i32 %extract10
-  %6 = getelementptr <3 x float>* %0, i32 %extract11
+  %3 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract9
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract10
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
   %7 = load <3 x float>* %3
   %8 = load <3 x float>* %4
   %9 = load <3 x float>* %5
@@ -1426,10 +1426,10 @@ entry:
   %breakdown49 = shufflevector <4 x float> %shuf_transpH45, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   %breakdown50 = shufflevector <4 x float> %shuf_transpL46, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   %breakdown51 = shufflevector <4 x float> %shuf_transpH47, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
-  %15 = getelementptr <3 x float>* %1, i32 %extract
-  %16 = getelementptr <3 x float>* %1, i32 %extract9
-  %17 = getelementptr <3 x float>* %1, i32 %extract10
-  %18 = getelementptr <3 x float>* %1, i32 %extract11
+  %15 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract
+  %16 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract9
+  %17 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract10
+  %18 = getelementptr <3 x float>, <3 x float>* %1, i32 %extract11
   store <3 x float> %breakdown48, <3 x float>* %15
   store <3 x float> %breakdown49, <3 x float>* %16
   store <3 x float> %breakdown50, <3 x float>* %17
@@ -1453,10 +1453,10 @@ entry:
   %extract13 = extractelement <4 x i32> %2, i32 1
   %extract14 = extractelement <4 x i32> %2, i32 2
   %extract15 = extractelement <4 x i32> %2, i32 3
-  %3 = getelementptr <4 x float>* %0, i32 %extract
-  %4 = getelementptr <4 x float>* %0, i32 %extract13
-  %5 = getelementptr <4 x float>* %0, i32 %extract14
-  %6 = getelementptr <4 x float>* %0, i32 %extract15
+  %3 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract
+  %4 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract13
+  %5 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract14
+  %6 = getelementptr <4 x float>, <4 x float>* %0, i32 %extract15
   %7 = load <4 x float>* %3
   %8 = load <4 x float>* %4
   %9 = load <4 x float>* %5
@@ -1486,10 +1486,10 @@ entry:
   %shuf_transpH39 = shufflevector <4 x float> %shuf_transpL34, <4 x float> %shuf_transpL35, <4 x i32> <i32 1, i32 5, i32 3, i32 7>
   %shuf_transpL40 = shufflevector <4 x float> %shuf_transpH36, <4 x float> %shuf_transpH37, <4 x i32> <i32 0, i32 4, i32 2, i32 6>
   %shuf_transpH41 = shufflevector <4 x float> %shuf_transpH36, <4 x float> %shuf_transpH37, <4 x i32> <i32 1, i32 5, i32 3, i32 7>
-  %16 = getelementptr <4 x float>* %1, i32 %extract
-  %17 = getelementptr <4 x float>* %1, i32 %extract13
-  %18 = getelementptr <4 x float>* %1, i32 %extract14
-  %19 = getelementptr <4 x float>* %1, i32 %extract15
+  %16 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract
+  %17 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract13
+  %18 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract14
+  %19 = getelementptr <4 x float>, <4 x float>* %1, i32 %extract15
   store <4 x float> %shuf_transpL38, <4 x float>* %16
   store <4 x float> %shuf_transpH39, <4 x float>* %17
   store <4 x float> %shuf_transpL40, <4 x float>* %18
@@ -1513,10 +1513,10 @@ entry:
   %extract9 = extractelement <4 x i32> %3, i32 1
   %extract10 = extractelement <4 x i32> %3, i32 2
   %extract11 = extractelement <4 x i32> %3, i32 3
-  %4 = getelementptr <3 x float>* %0, i32 %extract
-  %5 = getelementptr <3 x float>* %0, i32 %extract9
-  %6 = getelementptr <3 x float>* %0, i32 %extract10
-  %7 = getelementptr <3 x float>* %0, i32 %extract11
+  %4 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract
+  %5 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract9
+  %6 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract10
+  %7 = getelementptr <3 x float>, <3 x float>* %0, i32 %extract11
   %8 = load <3 x float>* %4
   %9 = load <3 x float>* %5
   %10 = load <3 x float>* %6
@@ -1532,9 +1532,9 @@ entry:
   %shuffle026 = shufflevector <4 x float> %extend_vec, <4 x float> %extend_vec12, <4 x i32> <i32 2, i32 undef, i32 6, i32 undef>
   %shuffle127 = shufflevector <4 x float> %extend_vec13, <4 x float> %extend_vec14, <4 x i32> <i32 2, i32 undef, i32 6, i32 undef>
   %shuffleMerge28 = shufflevector <4 x float> %shuffle026, <4 x float> %shuffle127, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
-  %12 = getelementptr float* %1, i32 %extract
+  %12 = getelementptr float, float* %1, i32 %extract
   %ptrTypeCast = bitcast float* %12 to <4 x float>*
-  %load_arg229 = load <4 x float>* %ptrTypeCast, align 4
+  %load_arg229 = load <4 x float>, <4 x float>* %ptrTypeCast, align 4
   %store.val = insertvalue [3 x <4 x float>] undef, <4 x float> %shuffleMerge, 0
   %store.val39 = insertvalue [3 x <4 x float>] %store.val, <4 x float> %shuffleMerge21, 1
   %store.val40 = insertvalue [3 x <4 x float>] %store.val39, <4 x float> %shuffleMerge28, 2
@@ -1553,10 +1553,10 @@ entry:
   %breakdown50 = shufflevector <4 x float> %shuf_transpH46, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   %breakdown51 = shufflevector <4 x float> %shuf_transpL47, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   %breakdown52 = shufflevector <4 x float> %shuf_transpH48, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
-  %17 = getelementptr <3 x float>* %2, i32 %extract
-  %18 = getelementptr <3 x float>* %2, i32 %extract9
-  %19 = getelementptr <3 x float>* %2, i32 %extract10
-  %20 = getelementptr <3 x float>* %2, i32 %extract11
+  %17 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract
+  %18 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract9
+  %19 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract10
+  %20 = getelementptr <3 x float>, <3 x float>* %2, i32 %extract11
   store <3 x float> %breakdown49, <3 x float>* %17
   store <3 x float> %breakdown50, <3 x float>* %18
   store <3 x float> %breakdown51, <3 x float>* %19

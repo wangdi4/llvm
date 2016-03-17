@@ -25,7 +25,7 @@ define void @func_bitselect(float addrspace(1)* nocapture %in, float addrspace(1
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
   %2 = tail call i64 @_Z9bitselectmmm(i64 -574589, i64 98534473, i64 8931) nounwind ; <i64> [#uses=1]
   %3 = uitofp i64 %2 to float                     ; <float> [#uses=1]
-  %4 = getelementptr inbounds float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
+  %4 = getelementptr inbounds float, float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
   store float %3, float addrspace(1)* %4
   ret void
 }

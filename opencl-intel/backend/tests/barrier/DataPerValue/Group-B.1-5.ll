@@ -26,7 +26,7 @@ target triple = "i686-pc-win32"
 ; CHECK: @main
 define void @main(i32 %arg) nounwind {
   %a = alloca [4 x float], align 4
-  %p = getelementptr [4 x float]* %a, i32 0, i32 0
+  %p = getelementptr [4 x float], [4 x float]* %a, i32 0, i32 0
   %x = load float* %p, align 4
   br label %L1
 L1:
@@ -34,7 +34,7 @@ L1:
   %y = fadd float %x, 1.0
   ret void
 ; CHECK: %a = alloca [4 x float], align 4
-; CHECK: %p = getelementptr [4 x float]* %a, i32 0, i32 0
+; CHECK: %p = getelementptr [4 x float], [4 x float]* %a, i32 0, i32 0
 ; CHECK: %x = load float* %p, align 4
 ; CHECK: br label %L1
 ; CHECK: L1:

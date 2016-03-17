@@ -15,10 +15,10 @@ entry:
   %res = alloca <3 x i16>, align 8
   %0 = bitcast i16 addrspace(1)* %ptr to i8*
   %mul2 = mul i64 %offset, 6
-  %add.ptr = getelementptr inbounds i8* %0, i64 %mul2
+  %add.ptr = getelementptr inbounds i8, i8* %0, i64 %mul2
   %1 = bitcast <3 x i16>* %res to i8*
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %1, i8* %add.ptr, i64 6, i32 1, i1 false)
-  %tmp5 = load <3 x i16>* %res, align 8
+  %tmp5 = load <3 x i16>, <3 x i16>* %res, align 8
   %tmp7 = bitcast <3 x i16> %tmp5 to i48
   %tmp8 = zext i48 %tmp7 to i64
   %tmp6 = bitcast i64 %tmp8 to double
@@ -55,42 +55,42 @@ define  void @test_fn(i16 addrspace(1)* %src, i32 addrspace(1)* nocapture %offse
 
 SyncBB4:                                          ; preds = %0, %thenBB
   %currWI.0 = phi i64 [ %"CurrWI++", %thenBB ], [ 0, %0 ]
-  %1 = getelementptr %struct.PaddedDimId* %pLocalIds, i64 %currWI.0, i32 0, i64 0
+  %1 = getelementptr %struct.PaddedDimId, %struct.PaddedDimId* %pLocalIds, i64 %currWI.0, i32 0, i64 0
   %2 = load i64* %1, align 8
-  %3 = getelementptr %struct.PaddedDimId* %BaseGlbId, i64 0, i32 0, i64 0
+  %3 = getelementptr %struct.PaddedDimId, %struct.PaddedDimId* %BaseGlbId, i64 0, i32 0, i64 0
   %4 = load i64* %3, align 8
   %5 = add i64 %2, %4
   %6 = trunc i64 %5 to i32
   %7 = sext i32 %6 to i64
-  %8 = getelementptr inbounds i32 addrspace(1)* %offsets, i64 %7
+  %8 = getelementptr inbounds i32, i32 addrspace(1)* %offsets, i64 %7
   %9 = load i32 addrspace(1)* %8, align 4
   %10 = zext i32 %9 to i64
-  %11 = getelementptr inbounds i32 addrspace(1)* %alignmentOffsets, i64 %7
+  %11 = getelementptr inbounds i32, i32 addrspace(1)* %alignmentOffsets, i64 %7
   %12 = load i32 addrspace(1)* %11, align 4
   %13 = zext i32 %12 to i64
-  %14 = getelementptr inbounds i16 addrspace(1)* %src, i64 %13
+  %14 = getelementptr inbounds i16, i16 addrspace(1)* %src, i64 %13
   %15 = bitcast i16 addrspace(1)* %14 to i8*
   %mul2.i = mul i64 %10, 6
-  %add.ptr.i = getelementptr inbounds i8* %15, i64 %mul2.i
+  %add.ptr.i = getelementptr inbounds i8, i8* %15, i64 %mul2.i
   %16 = bitcast <3 x i16>* %res.i to i8*
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %16, i8* %add.ptr.i, i64 6, i32 1, i1 false) nounwind
-  %tmp5.i = load <3 x i16>* %res.i, align 8
+  %tmp5.i = load <3 x i16>, <3 x i16>* %res.i, align 8
   %tmp7.i = bitcast <3 x i16> %tmp5.i to i48
   %tmp2 = bitcast i48 %tmp7.i to <3 x i16>
   %17 = extractelement <3 x i16> %tmp2, i32 0
   %18 = mul nsw i32 %6, 3
   %19 = sext i32 %18 to i64
-  %20 = getelementptr inbounds i16 addrspace(1)* %results, i64 %19
+  %20 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %19
   store i16 %17, i16 addrspace(1)* %20, align 2
   %21 = extractelement <3 x i16> %tmp2, i32 1
   %22 = add nsw i32 %18, 1
   %23 = sext i32 %22 to i64
-  %24 = getelementptr inbounds i16 addrspace(1)* %results, i64 %23
+  %24 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %23
   store i16 %21, i16 addrspace(1)* %24, align 2
   %25 = extractelement <3 x i16> %tmp2, i32 2
   %26 = add nsw i32 %18, 2
   %27 = sext i32 %26 to i64
-  %28 = getelementptr inbounds i16 addrspace(1)* %results, i64 %27
+  %28 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %27
   store i16 %25, i16 addrspace(1)* %28, align 2
   %check.WI.iter = icmp ult i64 %currWI.0, %iterCount
   br i1 %check.WI.iter, label %thenBB, label %SyncBB
@@ -113,9 +113,9 @@ define  void @__Vectorized_.test_fn(i16 addrspace(1)* %src, i32 addrspace(1)* no
 
 SyncBB65:                                         ; preds = %0, %thenBB
   %currWI.0 = phi i64 [ %"CurrWI++", %thenBB ], [ 0, %0 ]
-  %1 = getelementptr %struct.PaddedDimId* %pLocalIds, i64 %currWI.0, i32 0, i64 0
+  %1 = getelementptr %struct.PaddedDimId, %struct.PaddedDimId* %pLocalIds, i64 %currWI.0, i32 0, i64 0
   %2 = load i64* %1, align 8
-  %3 = getelementptr %struct.PaddedDimId* %BaseGlbId, i64 0, i32 0, i64 0
+  %3 = getelementptr %struct.PaddedDimId, %struct.PaddedDimId* %BaseGlbId, i64 0, i32 0, i64 0
   %4 = load i64* %3, align 8
   %5 = add i64 %2, %4
   %broadcast1 = insertelement <4 x i64> undef, i64 %5, i32 0
@@ -124,9 +124,9 @@ SyncBB65:                                         ; preds = %0, %thenBB
   %7 = trunc <4 x i64> %6 to <4 x i32>
   %8 = extractelement <4 x i32> %7, i32 0
   %9 = sext i32 %8 to i64
-  %10 = getelementptr inbounds i32 addrspace(1)* %offsets, i64 %9
+  %10 = getelementptr inbounds i32, i32 addrspace(1)* %offsets, i64 %9
   %ptrTypeCast = bitcast i32 addrspace(1)* %10 to <4 x i32> addrspace(1)*
-  %11 = load <4 x i32> addrspace(1)* %ptrTypeCast, align 4
+  %11 = load <4 x i32>, <4 x i32> addrspace(1)* %ptrTypeCast, align 4
   %12 = zext <4 x i32> %11 to <4 x i64>
   %extract11 = extractelement <4 x i64> %12, i32 0
   %extract12 = extractelement <4 x i64> %12, i32 1
@@ -134,54 +134,54 @@ SyncBB65:                                         ; preds = %0, %thenBB
   %extract14 = extractelement <4 x i64> %12, i32 3
   %13 = extractelement <4 x i32> %7, i32 0
   %14 = sext i32 %13 to i64
-  %15 = getelementptr inbounds i32 addrspace(1)* %alignmentOffsets, i64 %14
+  %15 = getelementptr inbounds i32, i32 addrspace(1)* %alignmentOffsets, i64 %14
   %ptrTypeCast6 = bitcast i32 addrspace(1)* %15 to <4 x i32> addrspace(1)*
-  %16 = load <4 x i32> addrspace(1)* %ptrTypeCast6, align 4
+  %16 = load <4 x i32>, <4 x i32> addrspace(1)* %ptrTypeCast6, align 4
   %17 = extractelement <4 x i32> %16, i32 0
   %18 = zext i32 %17 to i64
-  %19 = getelementptr inbounds i16 addrspace(1)* %src, i64 %18
+  %19 = getelementptr inbounds i16, i16 addrspace(1)* %src, i64 %18
   %20 = extractelement <4 x i32> %16, i32 1
   %21 = zext i32 %20 to i64
-  %22 = getelementptr inbounds i16 addrspace(1)* %src, i64 %21
+  %22 = getelementptr inbounds i16, i16 addrspace(1)* %src, i64 %21
   %23 = extractelement <4 x i32> %16, i32 2
   %24 = zext i32 %23 to i64
-  %25 = getelementptr inbounds i16 addrspace(1)* %src, i64 %24
+  %25 = getelementptr inbounds i16, i16 addrspace(1)* %src, i64 %24
   %26 = extractelement <4 x i32> %16, i32 3
   %27 = zext i32 %26 to i64
-  %28 = getelementptr inbounds i16 addrspace(1)* %src, i64 %27
+  %28 = getelementptr inbounds i16, i16 addrspace(1)* %src, i64 %27
   %29 = bitcast i16 addrspace(1)* %19 to i8*
   %mul2.i = mul i64 %extract11, 6
-  %add.ptr.i = getelementptr inbounds i8* %29, i64 %mul2.i
+  %add.ptr.i = getelementptr inbounds i8, i8* %29, i64 %mul2.i
   %30 = bitcast <3 x i16>* %res.i to i8*
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %30, i8* %add.ptr.i, i64 6, i32 1, i1 false) nounwind
-  %tmp5.i = load <3 x i16>* %res.i, align 8
+  %tmp5.i = load <3 x i16>, <3 x i16>* %res.i, align 8
   %tmp7.i = bitcast <3 x i16> %tmp5.i to i48
   %tmp8.i = zext i48 %tmp7.i to i64
   %tmp6.i = bitcast i64 %tmp8.i to double
   %31 = bitcast i16 addrspace(1)* %22 to i8*
   %mul2.i3 = mul i64 %extract12, 6
-  %add.ptr.i4 = getelementptr inbounds i8* %31, i64 %mul2.i3
+  %add.ptr.i4 = getelementptr inbounds i8, i8* %31, i64 %mul2.i3
   %32 = bitcast <3 x i16>* %res.i2 to i8*
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %32, i8* %add.ptr.i4, i64 6, i32 1, i1 false) nounwind
-  %tmp5.i5 = load <3 x i16>* %res.i2, align 8
+  %tmp5.i5 = load <3 x i16>, <3 x i16>* %res.i2, align 8
   %tmp7.i6 = bitcast <3 x i16> %tmp5.i5 to i48
   %tmp8.i7 = zext i48 %tmp7.i6 to i64
   %tmp6.i8 = bitcast i64 %tmp8.i7 to double
   %33 = bitcast i16 addrspace(1)* %25 to i8*
   %mul2.i10 = mul i64 %extract13, 6
-  %add.ptr.i11 = getelementptr inbounds i8* %33, i64 %mul2.i10
+  %add.ptr.i11 = getelementptr inbounds i8, i8* %33, i64 %mul2.i10
   %34 = bitcast <3 x i16>* %res.i9 to i8*
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %34, i8* %add.ptr.i11, i64 6, i32 1, i1 false) nounwind
-  %tmp5.i12 = load <3 x i16>* %res.i9, align 8
+  %tmp5.i12 = load <3 x i16>, <3 x i16>* %res.i9, align 8
   %tmp7.i13 = bitcast <3 x i16> %tmp5.i12 to i48
   %tmp8.i14 = zext i48 %tmp7.i13 to i64
   %tmp6.i15 = bitcast i64 %tmp8.i14 to double
   %35 = bitcast i16 addrspace(1)* %28 to i8*
   %mul2.i17 = mul i64 %extract14, 6
-  %add.ptr.i18 = getelementptr inbounds i8* %35, i64 %mul2.i17
+  %add.ptr.i18 = getelementptr inbounds i8, i8* %35, i64 %mul2.i17
   %36 = bitcast <3 x i16>* %res.i16 to i8*
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %36, i8* %add.ptr.i18, i64 6, i32 1, i1 false) nounwind
-  %tmp5.i19 = load <3 x i16>* %res.i16, align 8
+  %tmp5.i19 = load <3 x i16>, <3 x i16>* %res.i16, align 8
   %tmp7.i20 = bitcast <3 x i16> %tmp5.i19 to i48
   %tmp8.i21 = zext i48 %tmp7.i20 to i64
   %tmp6.i22 = bitcast i64 %tmp8.i21 to double
@@ -214,16 +214,16 @@ SyncBB65:                                         ; preds = %0, %thenBB
   %41 = mul nsw <4 x i32> %7, <i32 3, i32 3, i32 3, i32 3>
   %42 = extractelement <4 x i32> %41, i32 0
   %43 = sext i32 %42 to i64
-  %44 = getelementptr inbounds i16 addrspace(1)* %results, i64 %43
+  %44 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %43
   %45 = extractelement <4 x i32> %41, i32 1
   %46 = sext i32 %45 to i64
-  %47 = getelementptr inbounds i16 addrspace(1)* %results, i64 %46
+  %47 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %46
   %48 = extractelement <4 x i32> %41, i32 2
   %49 = sext i32 %48 to i64
-  %50 = getelementptr inbounds i16 addrspace(1)* %results, i64 %49
+  %50 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %49
   %51 = extractelement <4 x i32> %41, i32 3
   %52 = sext i32 %51 to i64
-  %53 = getelementptr inbounds i16 addrspace(1)* %results, i64 %52
+  %53 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %52
   store i16 %extract45, i16 addrspace(1)* %44, align 2
   store i16 %extract46, i16 addrspace(1)* %47, align 2
   store i16 %extract47, i16 addrspace(1)* %50, align 2
@@ -231,16 +231,16 @@ SyncBB65:                                         ; preds = %0, %thenBB
   %54 = add nsw <4 x i32> %41, <i32 1, i32 1, i32 1, i32 1>
   %55 = extractelement <4 x i32> %54, i32 0
   %56 = sext i32 %55 to i64
-  %57 = getelementptr inbounds i16 addrspace(1)* %results, i64 %56
+  %57 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %56
   %58 = extractelement <4 x i32> %54, i32 1
   %59 = sext i32 %58 to i64
-  %60 = getelementptr inbounds i16 addrspace(1)* %results, i64 %59
+  %60 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %59
   %61 = extractelement <4 x i32> %54, i32 2
   %62 = sext i32 %61 to i64
-  %63 = getelementptr inbounds i16 addrspace(1)* %results, i64 %62
+  %63 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %62
   %64 = extractelement <4 x i32> %54, i32 3
   %65 = sext i32 %64 to i64
-  %66 = getelementptr inbounds i16 addrspace(1)* %results, i64 %65
+  %66 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %65
   store i16 %extract53, i16 addrspace(1)* %57, align 2
   store i16 %extract54, i16 addrspace(1)* %60, align 2
   store i16 %extract55, i16 addrspace(1)* %63, align 2
@@ -248,16 +248,16 @@ SyncBB65:                                         ; preds = %0, %thenBB
   %67 = add nsw <4 x i32> %41, <i32 2, i32 2, i32 2, i32 2>
   %68 = extractelement <4 x i32> %67, i32 0
   %69 = sext i32 %68 to i64
-  %70 = getelementptr inbounds i16 addrspace(1)* %results, i64 %69
+  %70 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %69
   %71 = extractelement <4 x i32> %67, i32 1
   %72 = sext i32 %71 to i64
-  %73 = getelementptr inbounds i16 addrspace(1)* %results, i64 %72
+  %73 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %72
   %74 = extractelement <4 x i32> %67, i32 2
   %75 = sext i32 %74 to i64
-  %76 = getelementptr inbounds i16 addrspace(1)* %results, i64 %75
+  %76 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %75
   %77 = extractelement <4 x i32> %67, i32 3
   %78 = sext i32 %77 to i64
-  %79 = getelementptr inbounds i16 addrspace(1)* %results, i64 %78
+  %79 = getelementptr inbounds i16, i16 addrspace(1)* %results, i64 %78
   store i16 %extract61, i16 addrspace(1)* %70, align 2
   store i16 %extract62, i16 addrspace(1)* %73, align 2
   store i16 %extract63, i16 addrspace(1)* %76, align 2

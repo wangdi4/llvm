@@ -39,13 +39,13 @@ for.cond3.preheader:                              ; preds = %for.cond3.preheader
   br i1 %cmp65, label %for.inc16, label %for.body8.lr.ph
 
 for.body8.lr.ph:                                  ; preds = %for.cond3.preheader
-  %arrayidx = getelementptr inbounds i64* %B, i64 %storemerge18
+  %arrayidx = getelementptr inbounds i64, i64* %B, i64 %storemerge18
   br label %for.body8
 
 for.body8:                                        ; preds = %for.body8.lr.ph, %for.body8
   %storemerge26 = phi i64 [ 0, %for.body8.lr.ph ], [ %inc, %for.body8 ]
   %tmp11 = load i64* %arrayidx, align 8
-  %arrayidx14 = getelementptr inbounds i64* %A, i64 %storemerge26
+  %arrayidx14 = getelementptr inbounds i64, i64* %A, i64 %storemerge26
   store i64 %tmp11, i64* %arrayidx14, align 8
   %inc = add nsw i64 %storemerge26, 1
   %call5 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
@@ -63,9 +63,9 @@ for.inc16:                                        ; preds = %for.inc16.loopexit,
 
 for.body28:                                       ; preds = %for.body28.preheader, %for.body28
   %storemerge11 = phi i64 [ %inc38, %for.body28 ], [ 0, %for.body28.preheader ]
-  %arrayidx31 = getelementptr inbounds i64* %B, i64 %storemerge11
+  %arrayidx31 = getelementptr inbounds i64, i64* %B, i64 %storemerge11
   %tmp32 = load i64* %arrayidx31, align 8
-  %arrayidx35 = getelementptr inbounds i64* %A, i64 %storemerge11
+  %arrayidx35 = getelementptr inbounds i64, i64* %A, i64 %storemerge11
   store i64 %tmp32, i64* %arrayidx35, align 8
   %inc38 = add nsw i64 %storemerge11, 1
   %cmp26 = icmp slt i64 %inc38, %div25

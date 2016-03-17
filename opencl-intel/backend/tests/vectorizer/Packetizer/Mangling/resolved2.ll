@@ -7,10 +7,10 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 ;CHECK: mask_ptr_conseq
-;CHECK: load i32*
-;CHECK: load i32*
-;CHECK: load i32*
-;CHECK: load i32*
+;CHECK: load i32, i32*
+;CHECK: load i32, i32*
+;CHECK: load i32, i32*
+;CHECK: load i32, i32*
 
 ;CHECK: store i32
 ;CHECK: store i32
@@ -29,7 +29,7 @@ define void @mask_ptr_conseq(i32* nocapture %A) nounwind {
 
 ; <label>:3                                       ; preds = %0
   %4 = zext i32 %1 to i64
-  %5 = getelementptr inbounds i32* %A, i64 %4
+  %5 = getelementptr inbounds i32, i32* %A, i64 %4
   %6 = load i32* %5, align 4, !tbaa !0
   %7 = add nsw i32 %6, 3
   store i32 %7, i32* %5, align 4, !tbaa !0

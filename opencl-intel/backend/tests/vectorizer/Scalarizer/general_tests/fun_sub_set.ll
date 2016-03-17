@@ -20,7 +20,7 @@ define void @func_sub_sat(float addrspace(1)* nocapture %in, float addrspace(1)*
   %2 = tail call <2 x i64> @_Z7sub_satDv2_mS_(<2 x i64> <i64 -21145345543, i64 14535365159567>, <2 x i64> <i64 -21145345543, i64 14535365159567>) nounwind ; <<2 x i64>> [#uses=1]
   %3 = extractelement <2 x i64> %2, i32 0         ; <i64> [#uses=1]
   %4 = uitofp i64 %3 to float                     ; <float> [#uses=1]
-  %5 = getelementptr inbounds float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
+  %5 = getelementptr inbounds float, float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
   store float %4, float addrspace(1)* %5
   ret void
 }

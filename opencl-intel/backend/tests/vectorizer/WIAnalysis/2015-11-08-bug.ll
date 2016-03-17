@@ -19,24 +19,24 @@ entry:
   %call2 = tail call i64 @_Z15get_global_sizej(i32 0) #2
   %mul = mul i64 %call2, %call1
   %add = add i64 %mul, %call
-  %arrayidx = getelementptr i32 addrspace(1)* %early_exit, i64 %add
+  %arrayidx = getelementptr i32, i32 addrspace(1)* %early_exit, i64 %add
   %0 = load i32 addrspace(1)* %arrayidx, align 4
   %cmp = icmp eq i32 %0, 2147483647
   br i1 %cmp, label %if.else, label %if.then
 
 if.then:                                          ; preds = %entry
-  %arrayidx4 = getelementptr float addrspace(1)* %in_select_arg1, i64 %add
+  %arrayidx4 = getelementptr float, float addrspace(1)* %in_select_arg1, i64 %add
   %1 = load float addrspace(1)* %arrayidx4, align 4
-  %arrayidx5 = getelementptr float addrspace(1)* %in_select_arg2, i64 %add
+  %arrayidx5 = getelementptr float, float addrspace(1)* %in_select_arg2, i64 %add
   %2 = load float addrspace(1)* %arrayidx5, align 4
   %call7 = tail call float @_Z6selectffi(float %1, float %2, i32 1) #2
   %mul8 = fmul float %call7, %call7
-  %arrayidx9 = getelementptr float addrspace(1)* %out_dets, i64 %add
+  %arrayidx9 = getelementptr float, float addrspace(1)* %out_dets, i64 %add
   store float %mul8, float addrspace(1)* %arrayidx9, align 4
   br label %if.end
 
 if.else:                                          ; preds = %entry
-  %arrayidx10 = getelementptr float addrspace(1)* %out_dets, i64 %add
+  %arrayidx10 = getelementptr float, float addrspace(1)* %out_dets, i64 %add
   store float 0.000000e+00, float addrspace(1)* %arrayidx10, align 4
   br label %if.end
 

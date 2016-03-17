@@ -23,11 +23,11 @@ entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #2
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %zz = getelementptr inbounds %struct._TEST_STRUCT_PACKED addrspace(1)* %a, i64 %idxprom, i32 3
+  %zz = getelementptr inbounds %struct._TEST_STRUCT_PACKED, %struct._TEST_STRUCT_PACKED addrspace(1)* %a, i64 %idxprom, i32 3
   %0 = load i16 addrspace(1)* %zz, align 1
   %conv1 = sext i16 %0 to i32
   %mul = mul nsw i32 %conv1, 3
-  %arrayidx3 = getelementptr inbounds i32 addrspace(1)* %out, i64 %idxprom
+  %arrayidx3 = getelementptr inbounds i32, i32 addrspace(1)* %out, i64 %idxprom
   store i32 %mul, i32 addrspace(1)* %arrayidx3, align 4
   ret void
 }
@@ -41,10 +41,10 @@ entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #2
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %yy = getelementptr inbounds %struct._TEST_STRUCT_PACKED addrspace(1)* %a, i64 %idxprom, i32 1
+  %yy = getelementptr inbounds %struct._TEST_STRUCT_PACKED, %struct._TEST_STRUCT_PACKED addrspace(1)* %a, i64 %idxprom, i32 1
   %0 = load i32 addrspace(1)* %yy, align 1
   %mul = mul nsw i32 %0, 3
-  %arrayidx2 = getelementptr inbounds i32 addrspace(1)* %out, i64 %idxprom
+  %arrayidx2 = getelementptr inbounds i32, i32 addrspace(1)* %out, i64 %idxprom
   store i32 %mul, i32 addrspace(1)* %arrayidx2, align 4
   ret void
 }

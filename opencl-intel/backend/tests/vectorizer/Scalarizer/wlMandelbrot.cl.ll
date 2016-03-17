@@ -35,64 +35,64 @@ entry:
   store i32 %width, i32* %width.addr
   %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %tid
-  %tmp = load i32* %tid                           ; <i32> [#uses=1]
-  %tmp1 = load i32* %width.addr                   ; <i32> [#uses=2]
+  %tmp = load i32, i32* %tid                           ; <i32> [#uses=1]
+  %tmp1 = load i32, i32* %width.addr                   ; <i32> [#uses=2]
   %cmp = icmp eq i32 0, %tmp1                     ; <i1> [#uses=1]
   %sel = select i1 %cmp, i32 1, i32 %tmp1         ; <i32> [#uses=1]
   %rem = srem i32 %tmp, %sel                      ; <i32> [#uses=1]
   store i32 %rem, i32* %i
-  %tmp3 = load i32* %tid                          ; <i32> [#uses=1]
-  %tmp4 = load i32* %width.addr                   ; <i32> [#uses=2]
+  %tmp3 = load i32, i32* %tid                          ; <i32> [#uses=1]
+  %tmp4 = load i32, i32* %width.addr                   ; <i32> [#uses=2]
   %cmp5 = icmp eq i32 0, %tmp4                    ; <i1> [#uses=1]
   %sel6 = select i1 %cmp5, i32 1, i32 %tmp4       ; <i32> [#uses=1]
   %div = sdiv i32 %tmp3, %sel6                    ; <i32> [#uses=1]
   store i32 %div, i32* %j
-  %tmp8 = load i32* %i                            ; <i32> [#uses=1]
+  %tmp8 = load i32, i32* %i                            ; <i32> [#uses=1]
   %conv = sitofp i32 %tmp8 to float               ; <float> [#uses=1]
-  %tmp9 = load float* %scale.addr                 ; <float> [#uses=1]
+  %tmp9 = load float, float* %scale.addr                 ; <float> [#uses=1]
   %mul = fmul float %conv, %tmp9                  ; <float> [#uses=1]
-  %tmp10 = load float* %scale.addr                ; <float> [#uses=1]
+  %tmp10 = load float, float* %scale.addr                ; <float> [#uses=1]
   %div11 = fdiv float %tmp10, 2.000000e+000       ; <float> [#uses=1]
-  %tmp12 = load i32* %width.addr                  ; <i32> [#uses=1]
+  %tmp12 = load i32, i32* %width.addr                  ; <i32> [#uses=1]
   %conv13 = sitofp i32 %tmp12 to float            ; <float> [#uses=1]
   %mul14 = fmul float %div11, %conv13             ; <float> [#uses=1]
   %sub = fsub float %mul, %mul14                  ; <float> [#uses=1]
-  %tmp15 = load i32* %width.addr                  ; <i32> [#uses=1]
+  %tmp15 = load i32, i32* %width.addr                  ; <i32> [#uses=1]
   %conv16 = sitofp i32 %tmp15 to float            ; <float> [#uses=3]
   %cmp17 = fcmp oeq float 0.000000e+000, %conv16  ; <i1> [#uses=1]
   %sel18 = select i1 %cmp17, float 1.000000e+000, float %conv16 ; <float> [#uses=0]
   %div19 = fdiv float %sub, %conv16               ; <float> [#uses=1]
   store float %div19, float* %x0
-  %tmp21 = load i32* %j                           ; <i32> [#uses=1]
+  %tmp21 = load i32, i32* %j                           ; <i32> [#uses=1]
   %conv22 = sitofp i32 %tmp21 to float            ; <float> [#uses=1]
-  %tmp23 = load float* %scale.addr                ; <float> [#uses=1]
+  %tmp23 = load float, float* %scale.addr                ; <float> [#uses=1]
   %mul24 = fmul float %conv22, %tmp23             ; <float> [#uses=1]
-  %tmp25 = load float* %scale.addr                ; <float> [#uses=1]
+  %tmp25 = load float, float* %scale.addr                ; <float> [#uses=1]
   %div26 = fdiv float %tmp25, 2.000000e+000       ; <float> [#uses=1]
-  %tmp27 = load i32* %width.addr                  ; <i32> [#uses=1]
+  %tmp27 = load i32, i32* %width.addr                  ; <i32> [#uses=1]
   %conv28 = sitofp i32 %tmp27 to float            ; <float> [#uses=1]
   %mul29 = fmul float %div26, %conv28             ; <float> [#uses=1]
   %sub30 = fsub float %mul24, %mul29              ; <float> [#uses=1]
-  %tmp31 = load i32* %width.addr                  ; <i32> [#uses=1]
+  %tmp31 = load i32, i32* %width.addr                  ; <i32> [#uses=1]
   %conv32 = sitofp i32 %tmp31 to float            ; <float> [#uses=3]
   %cmp33 = fcmp oeq float 0.000000e+000, %conv32  ; <i1> [#uses=1]
   %sel34 = select i1 %cmp33, float 1.000000e+000, float %conv32 ; <float> [#uses=0]
   %div35 = fdiv float %sub30, %conv32             ; <float> [#uses=1]
   store float %div35, float* %y0
-  %tmp37 = load float* %x0                        ; <float> [#uses=1]
+  %tmp37 = load float, float* %x0                        ; <float> [#uses=1]
   store float %tmp37, float* %x
-  %tmp39 = load float* %y0                        ; <float> [#uses=1]
+  %tmp39 = load float, float* %y0                        ; <float> [#uses=1]
   store float %tmp39, float* %y
-  %tmp41 = load float* %x                         ; <float> [#uses=1]
-  %tmp42 = load float* %x                         ; <float> [#uses=1]
+  %tmp41 = load float, float* %x                         ; <float> [#uses=1]
+  %tmp42 = load float, float* %x                         ; <float> [#uses=1]
   %mul43 = fmul float %tmp41, %tmp42              ; <float> [#uses=1]
   store float %mul43, float* %x2
-  %tmp45 = load float* %y                         ; <float> [#uses=1]
-  %tmp46 = load float* %y                         ; <float> [#uses=1]
+  %tmp45 = load float, float* %y                         ; <float> [#uses=1]
+  %tmp46 = load float, float* %y                         ; <float> [#uses=1]
   %mul47 = fmul float %tmp45, %tmp46              ; <float> [#uses=1]
   store float %mul47, float* %y2
-  %tmp49 = load float* %scale.addr                ; <float> [#uses=1]
-  %tmp50 = load float* %scale.addr                ; <float> [#uses=1]
+  %tmp49 = load float, float* %scale.addr                ; <float> [#uses=1]
+  %tmp50 = load float, float* %scale.addr                ; <float> [#uses=1]
   %mul51 = fmul float %tmp49, %tmp50              ; <float> [#uses=1]
   store float %mul51, float* %scaleSquare
   store i32 0, i32* %iter
@@ -100,16 +100,16 @@ entry:
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %tmp53 = load float* %x2                        ; <float> [#uses=1]
-  %tmp54 = load float* %y2                        ; <float> [#uses=1]
+  %tmp53 = load float, float* %x2                        ; <float> [#uses=1]
+  %tmp54 = load float, float* %y2                        ; <float> [#uses=1]
   %add = fadd float %tmp53, %tmp54                ; <float> [#uses=1]
-  %tmp55 = load float* %scaleSquare               ; <float> [#uses=1]
+  %tmp55 = load float, float* %scaleSquare               ; <float> [#uses=1]
   %cmp56 = fcmp ole float %add, %tmp55            ; <i1> [#uses=1]
   br i1 %cmp56, label %land.rhs, label %land.end
 
 land.rhs:                                         ; preds = %for.cond
-  %tmp58 = load i32* %iter                        ; <i32> [#uses=1]
-  %tmp59 = load i32* %maxIterations.addr          ; <i32> [#uses=1]
+  %tmp58 = load i32, i32* %iter                        ; <i32> [#uses=1]
+  %tmp59 = load i32, i32* %maxIterations.addr          ; <i32> [#uses=1]
   %cmp60 = icmp ult i32 %tmp58, %tmp59            ; <i1> [#uses=1]
   br label %land.end
 
@@ -118,45 +118,45 @@ land.end:                                         ; preds = %land.rhs, %for.cond
   br i1 %0, label %for.body, label %for.end
 
 for.body:                                         ; preds = %land.end
-  %tmp62 = load float* %x                         ; <float> [#uses=1]
+  %tmp62 = load float, float* %x                         ; <float> [#uses=1]
   %mul63 = fmul float 2.000000e+000, %tmp62       ; <float> [#uses=1]
-  %tmp64 = load float* %y                         ; <float> [#uses=1]
+  %tmp64 = load float, float* %y                         ; <float> [#uses=1]
   %mul65 = fmul float %mul63, %tmp64              ; <float> [#uses=1]
-  %tmp66 = load float* %y0                        ; <float> [#uses=1]
+  %tmp66 = load float, float* %y0                        ; <float> [#uses=1]
   %add67 = fadd float %mul65, %tmp66              ; <float> [#uses=1]
   store float %add67, float* %y
-  %tmp68 = load float* %x2                        ; <float> [#uses=1]
-  %tmp69 = load float* %y2                        ; <float> [#uses=1]
+  %tmp68 = load float, float* %x2                        ; <float> [#uses=1]
+  %tmp69 = load float, float* %y2                        ; <float> [#uses=1]
   %sub70 = fsub float %tmp68, %tmp69              ; <float> [#uses=1]
-  %tmp71 = load float* %x0                        ; <float> [#uses=1]
+  %tmp71 = load float, float* %x0                        ; <float> [#uses=1]
   %add72 = fadd float %sub70, %tmp71              ; <float> [#uses=1]
   store float %add72, float* %x
-  %tmp73 = load float* %x                         ; <float> [#uses=1]
-  %tmp74 = load float* %x                         ; <float> [#uses=1]
+  %tmp73 = load float, float* %x                         ; <float> [#uses=1]
+  %tmp74 = load float, float* %x                         ; <float> [#uses=1]
   %mul75 = fmul float %tmp73, %tmp74              ; <float> [#uses=1]
   store float %mul75, float* %x2
-  %tmp76 = load float* %y                         ; <float> [#uses=1]
-  %tmp77 = load float* %y                         ; <float> [#uses=1]
+  %tmp76 = load float, float* %y                         ; <float> [#uses=1]
+  %tmp77 = load float, float* %y                         ; <float> [#uses=1]
   %mul78 = fmul float %tmp76, %tmp77              ; <float> [#uses=1]
   store float %mul78, float* %y2
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %tmp79 = load i32* %iter                        ; <i32> [#uses=1]
+  %tmp79 = load i32, i32* %iter                        ; <i32> [#uses=1]
   %inc = add i32 %tmp79, 1                        ; <i32> [#uses=1]
   store i32 %inc, i32* %iter
   br label %for.cond
 
 for.end:                                          ; preds = %land.end
-  %tmp80 = load i32* %iter                        ; <i32> [#uses=1]
+  %tmp80 = load i32, i32* %iter                        ; <i32> [#uses=1]
   %mul81 = mul i32 255, %tmp80                    ; <i32> [#uses=1]
-  %tmp82 = load i32* %maxIterations.addr          ; <i32> [#uses=2]
+  %tmp82 = load i32, i32* %maxIterations.addr          ; <i32> [#uses=2]
   %cmp83 = icmp eq i32 0, %tmp82                  ; <i1> [#uses=1]
   %sel84 = select i1 %cmp83, i32 1, i32 %tmp82    ; <i32> [#uses=1]
   %div85 = udiv i32 %mul81, %sel84                ; <i32> [#uses=1]
   %tmp86 = load i32* %tid                         ; <i32> [#uses=1]
   %tmp87 = load i32 addrspace(1)** %mandelbrotImage.addr ; <i32 addrspace(1)*> [#uses=1]
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %tmp87, i32 %tmp86 ; <i32 addrspace(1)*> [#uses=1]
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp87, i32 %tmp86 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %div85, i32 addrspace(1)* %arrayidx
   ret void
 }

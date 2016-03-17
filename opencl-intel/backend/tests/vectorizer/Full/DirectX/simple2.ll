@@ -47,7 +47,7 @@ ifblock:                                          ; preds = %entry
 br label %endif
 
 else:                                             ; preds = %entry
-%2 = load <4 x float>* %r1
+%2 = load <4 x float>, <4 x float>* %r1
 %bitcastindex = bitcast <4 x float> %2 to <4 x i32>
 %3 = extractelement <4 x i32> %bitcastindex, i32 2
 %4 = add i32 %3, 0
@@ -60,7 +60,7 @@ else:                                             ; preds = %entry
 %bitcast12 = bitcast <4 x float> %7 to <4 x i32>
 %8 = icmp ne <4 x i32> %bitcast11, %bitcast12
 %9 = sext <4 x i1> %8 to <4 x i32>
-%10 = load <4 x float>* %r1
+%10 = load <4 x float>, <4 x float>* %r1
 %bitcastindex13 = bitcast <4 x float> %10 to <4 x i32>
 %11 = extractelement <4 x i32> %bitcastindex13, i32 2
 %12 = add i32 %11, 0
@@ -68,13 +68,13 @@ else:                                             ; preds = %entry
 %load_call14 = call <4 x float> @dx_soa_load_output_nonuniform_indirect_1_float4_vs(i8* %gc, i32 0, i32 %13)
 %bitcast15 = bitcast <4 x i32> %9 to <4 x float>
 %14 = shufflevector <4 x float> %load_call14, <4 x float> %bitcast15, <4 x i32> <i32 4, i32 1, i32 2, i32 3>
-%15 = load <4 x float>* %r1
+%15 = load <4 x float>, <4 x float>* %r1
 %bitcastindex16 = bitcast <4 x float> %15 to <4 x i32>
 %16 = extractelement <4 x i32> %bitcastindex16, i32 2
 %17 = add i32 %16, 0
 %18 = and i32 31, %17
 call void @dx_soa_store_output_nonuniform_indirect_1_float4_vs(i8* %gc, i32 0, i32 %18, <4 x float> %14)
-%19 = load <4 x float>* %r1
+%19 = load <4 x float>, <4 x float>* %r1
 %bitcastindex17 = bitcast <4 x float> %19 to <4 x i32>
 %20 = extractelement <4 x i32> %bitcastindex17, i32 1
 %21 = add i32 %20, 0
@@ -90,7 +90,7 @@ br label %endif
 
 ifblock21:                                        ; preds = %else
 %load_call22 = call <4 x float> @dx_soa_load_input_uniform_indirect_1_float4_vs(i8* %gc, i32 0, i32 0)
-%25 = load <4 x float>* %r5
+%25 = load <4 x float>, <4 x float>* %r5
 %bitcastindex23 = bitcast <4 x float> %25 to <4 x i32>
 %26 = extractelement <4 x i32> %bitcastindex23, i32 1
 %27 = add i32 %26, 5

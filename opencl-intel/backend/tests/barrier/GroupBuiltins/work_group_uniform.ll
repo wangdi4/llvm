@@ -31,9 +31,9 @@ target triple = "i686-pc-win32"
 define void @wg_test_uniform(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %b) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %a, i32 %call
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i32 %call
   %0 = load i32 addrspace(1)* %arrayidx, align 1
-  %arrayidx1 = getelementptr inbounds i32 addrspace(1)* %b, i32 %call
+  %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %b, i32 %call
   %1 = load i32 addrspace(1)* %arrayidx1, align 1
   %cmp = icmp sgt i32 %0, %1
   %conv = zext i1 %cmp to i32
@@ -65,7 +65,7 @@ declare i32 @_Z14work_group_alli(i32) nounwind readnone
 ; CHECK-NOT: call <4 x i32> @_Z14work_group_allDv4_i(<4 x i32> %conv10)
 ; CHECK:  %CallWGForItem = call <4 x i32> @_Z14work_group_allDv4_iPS_(<4 x i32> %conv10, <4 x i32>* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
-; CHECK-NEXT: %LoadWGFinalResult = load <4 x i32>* %AllocaWGResult
+; CHECK-NEXT: %LoadWGFinalResult = load <4 x i32>, <4 x i32>* %AllocaWGResult
 ; CHECK-NEXT: %CallFinalizeWG = call <4 x i32> @_Z25__finalize_work_group_allDv4_i(<4 x i32> %LoadWGFinalResult)
 ; CHECK-NEXT: store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %AllocaWGResult
 ; CHECK-NEXT: call void @dummybarrier.()
@@ -75,12 +75,12 @@ declare i32 @_Z14work_group_alli(i32) nounwind readnone
 define void @__Vectorized_.wg_test_uniform(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %b) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %0 = getelementptr inbounds i32 addrspace(1)* %a, i32 %call
+  %0 = getelementptr inbounds i32, i32 addrspace(1)* %a, i32 %call
   %ptrTypeCast = bitcast i32 addrspace(1)* %0 to <4 x i32> addrspace(1)*
   %1 = load <4 x i32> addrspace(1)* %ptrTypeCast, align 1
-  %2 = getelementptr inbounds i32 addrspace(1)* %b, i32 %call
+  %2 = getelementptr inbounds i32, i32 addrspace(1)* %b, i32 %call
   %ptrTypeCast9 = bitcast i32 addrspace(1)* %2 to <4 x i32> addrspace(1)*
-  %3 = load <4 x i32> addrspace(1)* %ptrTypeCast9, align 1
+  %3 = load <4 x i32>, <4 x i32> addrspace(1)* %ptrTypeCast9, align 1
   %cmp = icmp sgt <4 x i32> %1, %3
   %conv10 = zext <4 x i1> %cmp to <4 x i32>
   %4 = call <4 x i32> @_Z14work_group_allDv4_i(<4 x i32> %conv10)

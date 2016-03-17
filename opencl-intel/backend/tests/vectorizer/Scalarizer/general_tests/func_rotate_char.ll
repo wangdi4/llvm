@@ -28,7 +28,7 @@ define void @func_rotate(float addrspace(1)* nocapture %in, float addrspace(1)* 
   %6 = zext i8 %2 to i32                          ; <i32> [#uses=1]
   %7 = add nsw i32 %5, %6                         ; <i32> [#uses=1]
   %8 = sitofp i32 %7 to float                     ; <float> [#uses=1]
-  %9 = getelementptr inbounds float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
+  %9 = getelementptr inbounds float, float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
   store float %8, float addrspace(1)* %9
   ret void
 }

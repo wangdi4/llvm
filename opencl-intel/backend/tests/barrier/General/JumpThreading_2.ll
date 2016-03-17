@@ -52,7 +52,7 @@ if.then:                                          ; preds = %for.body
   %mul = mul nsw i32 %d.0, %n
   %conv12 = sext i32 %mul to i64
   %add14 = add i64 %conv12, %call
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %isums, i64 %add14
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %isums, i64 %add14
   %1 = load i32 addrspace(1)* %arrayidx, align 4
   br label %if.end
 
@@ -62,12 +62,12 @@ if.end:                                           ; preds = %if.then, %for.body
   br i1 %cmp, label %if.then20, label %if.end27
 
 if.then20:                                        ; preds = %if.end
-  %2 = load i32 addrspace(3)* @top_scan.s_seed, align 4
+  %2 = load i32, i32 addrspace(3)* @top_scan.s_seed, align 4
   %add21 = add i32 %call15, %2
   %mul22 = mul nsw i32 %d.0, %n
   %conv23 = sext i32 %mul22 to i64
   %add25 = add i64 %conv23, %call
-  %arrayidx26 = getelementptr inbounds i32 addrspace(1)* %isums, i64 %add25
+  %arrayidx26 = getelementptr inbounds i32, i32 addrspace(1)* %isums, i64 %add25
   store i32 %add21, i32 addrspace(1)* %arrayidx26, align 4
   br label %if.end27
 
@@ -76,7 +76,7 @@ if.end27:                                         ; preds = %if.then20, %if.end
 
 if.then28:                                        ; preds = %if.end27
   %add29 = add i32 %call15, %val.0
-  %3 = load i32 addrspace(3)* @top_scan.s_seed, align 4
+  %3 = load i32, i32 addrspace(3)* @top_scan.s_seed, align 4
   %add30 = add i32 %3, %add29
   store i32 %add30, i32 addrspace(3)* @top_scan.s_seed, align 4
   br label %if.end31

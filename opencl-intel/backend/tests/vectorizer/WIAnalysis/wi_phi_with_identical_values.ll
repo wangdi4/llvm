@@ -25,7 +25,7 @@ phi-split-bb:                                     ; preds = %entry, %if.then
 
 for.body:                                         ; preds = %phi-split-bb, %for.body
   %i.01 = phi i32 [ %inc3, %for.body ], [ %new_phi, %phi-split-bb ]
-  %arrayidx = getelementptr inbounds float addrspace(1)* %a, i32 %i.01
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i32 %i.01
   %0 = load float addrspace(1)* %arrayidx, align 4
   %inc = fadd float %0, 1.000000e+00
   store float %inc, float addrspace(1)* %arrayidx, align 4

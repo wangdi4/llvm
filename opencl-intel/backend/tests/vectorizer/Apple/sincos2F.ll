@@ -36,13 +36,13 @@
      %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
      %sext = shl i64 %1, 32
      %2 = ashr exact i64 %sext, 32
-     %3 = getelementptr inbounds <2 x float> addrspace(1)* %in, i64 %2
+     %3 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %in, i64 %2
      %4 = load <2 x float> addrspace(1)* %3, align 8, !tbaa !4
-     %5 = getelementptr inbounds <2 x float> addrspace(1)* %out2, i64 %2
+     %5 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %out2, i64 %2
      %6 = bitcast <2 x float> %4 to double
      %7 = tail call <4 x float> @_Z6sincosDv2_fPU3AS1S_(double %6, <2 x float> addrspace(1)* %5) nounwind
      %8 = shufflevector <4 x float> %7, <4 x float> undef, <2 x i32> <i32 0, i32 1>
-     %9 = getelementptr inbounds <2 x float> addrspace(1)* %out, i64 %2
+     %9 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %out, i64 %2
      store <2 x float> %8, <2 x float> addrspace(1)* %9, align 8, !tbaa !4
      ret void
  }

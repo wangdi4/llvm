@@ -14,9 +14,9 @@ target triple = "i686-pc-win32"
 define void @kern(float %Shading, float %T, i32* nocapture %raystart, i32* nocapture %raylen, i128* nocapture %raytemplate, i32* nocapture %visible, float* nocapture %opacity, float* nocapture %color) nounwind {
 ; <label>:0
   %1 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
-  %2 = getelementptr inbounds i32* %raystart, i32 %1
+  %2 = getelementptr inbounds i32, i32* %raystart, i32 %1
   %3 = load i32* %2
-  %4 = getelementptr inbounds i32* %raylen, i32 %1
+  %4 = getelementptr inbounds i32, i32* %raylen, i32 %1
   %5 = load i32* %4
   br label %.outer
 
@@ -35,10 +35,10 @@ define void @kern(float %Shading, float %T, i32* nocapture %raystart, i32* nocap
   br i1 %7, label %8, label %.loopexit
 
 ; <label>:8                                       ; preds = %6
-  %scevgep = getelementptr i128* %raytemplate, i32 %raypos.0
+  %scevgep = getelementptr i128, i128* %raytemplate, i32 %raypos.0
   %9 = load i128* %scevgep
   %10 = trunc i128 %9 to i32
-  %11 = getelementptr inbounds i32* %visible, i32 %10
+  %11 = getelementptr inbounds i32, i32* %visible, i32 %10
   %12 = load i32* %11
   %13 = icmp eq i32 %12, 0
   br i1 %13, label %.backedge, label %14
@@ -48,7 +48,7 @@ define void @kern(float %Shading, float %T, i32* nocapture %raystart, i32* nocap
   br label %6
 
 ; <label>:14                                      ; preds = %8
-  %15 = getelementptr inbounds float* %opacity, i32 %10
+  %15 = getelementptr inbounds float, float* %opacity, i32 %10
   %16 = load float* %15
   %17 = fcmp oeq float %16, 0.000000e+000
   br i1 %17, label %.backedge, label %18
@@ -64,7 +64,7 @@ define void @kern(float %Shading, float %T, i32* nocapture %raystart, i32* nocap
 
 .loopexit:                                        ; preds = %18, %6
   %Color.1 = phi float [ %Color.0.ph, %6 ], [ %21, %18 ]
-  %25 = getelementptr inbounds float* %color, i32 %1
+  %25 = getelementptr inbounds float, float* %color, i32 %1
   store float %Color.1, float* %25
   ret void
 }

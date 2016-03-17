@@ -20,7 +20,7 @@ define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* noca
   %10 = or i1 %6, %9
   %11 = select i1 %10, i32 1, i32 %5
   %12 = sdiv i32 %3, %11
-  %13 = getelementptr inbounds i32 addrspace(1)* %out, i32 %1
+  %13 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %1
   store i32 %12, i32 addrspace(1)* %13, align 4
   %14 = icmp eq i32 %3, 0
   %15 = icmp eq i32 %5, -2147483648
@@ -30,7 +30,7 @@ define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* noca
   %19 = select i1 %18, i32 1, i32 %3
   %20 = sdiv i32 %5, %19
   %21 = add nsw i32 %1, 10
-  %22 = getelementptr inbounds i32 addrspace(1)* %out, i32 %21
+  %22 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %21
   store i32 %20, i32 addrspace(1)* %22, align 4
   ret void
 }

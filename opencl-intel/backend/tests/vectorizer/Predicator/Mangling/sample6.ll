@@ -27,27 +27,27 @@ if.then:                                          ; preds = %entry
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %if.then
-  %tmp = load i64* %i                             ; <i64> [#uses=1]
+  %tmp = load i64, i64* %i                             ; <i64> [#uses=1]
   %cmp1 = icmp slt i64 %tmp, 100                  ; <i1> [#uses=1]
   br i1 %cmp1, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
   %tmp2 = load i64* %i                            ; <i64> [#uses=1]
   %tmp3 = load i64** %B.addr                      ; <i64*> [#uses=1]
-  %arrayidx = getelementptr inbounds i64* %tmp3, i64 %tmp2 ; <i64*> [#uses=1]
+  %arrayidx = getelementptr inbounds i64, i64* %tmp3, i64 %tmp2 ; <i64*> [#uses=1]
   %tmp4 = load i64* %arrayidx                     ; <i64> [#uses=1]
   %tmp5 = load i64* %n.addr                       ; <i64> [#uses=1]
   %mul = mul i64 %tmp4, %tmp5                     ; <i64> [#uses=1]
   %tmp6 = load i64* %i                            ; <i64> [#uses=1]
   %tmp7 = load i64** %A.addr                      ; <i64*> [#uses=1]
-  %arrayidx8 = getelementptr inbounds i64* %tmp7, i64 %tmp6 ; <i64*> [#uses=2]
+  %arrayidx8 = getelementptr inbounds i64, i64* %tmp7, i64 %tmp6 ; <i64*> [#uses=2]
   %tmp9 = load i64* %arrayidx8                    ; <i64> [#uses=1]
   %add = add nsw i64 %tmp9, %mul                  ; <i64> [#uses=1]
   store i64 %add, i64* %arrayidx8
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %tmp10 = load i64* %i                           ; <i64> [#uses=1]
+  %tmp10 = load i64, i64* %i                           ; <i64> [#uses=1]
   %inc = add nsw i64 %tmp10, 1                    ; <i64> [#uses=1]
   store i64 %inc, i64* %i
   br label %for.cond

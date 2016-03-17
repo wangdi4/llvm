@@ -23,7 +23,7 @@ define void @test(float addrspace(1)* %a, i64 %uniform1, i64 %uniform2) #0 {
   br i1 %3, label %4, label %6
 
 ; <label>:4                                       ; preds = %0
-  %5 = getelementptr inbounds float addrspace(1)* %a, i64 %1
+  %5 = getelementptr inbounds float, float addrspace(1)* %a, i64 %1
   store float 3.000000e+00, float addrspace(1)* %5, align 4
   br label %6
 

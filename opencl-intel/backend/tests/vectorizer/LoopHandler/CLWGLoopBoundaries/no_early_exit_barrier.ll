@@ -20,7 +20,7 @@ define void @program(i32 addrspace(1)* %out, <4 x i32> %dim, i32 %uni) nounwind 
   br i1 %and_cond, label %body, label %ret
   
 body:
-  %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
+  %outptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
   tail call void @_Z7barrierj(i32 0)
   store i32 0, i32 addrspace(1)* %outptr
   br label %ret

@@ -11,7 +11,7 @@ entry:
   %events = alloca [3 x %opencl.clk_event_t*], align 16
   %pqueue = alloca %opencl.queue_t* , align 16
   %queue = load %opencl.queue_t** %pqueue
-  %arraydecay = getelementptr inbounds [3 x %opencl.clk_event_t*]* %events, i64 0, i64 0
+  %arraydecay = getelementptr inbounds [3 x %opencl.clk_event_t*], [3 x %opencl.clk_event_t*]* %events, i64 0, i64 0
 ; Call should remain unchanged since it is in the built-in library
 ; CHECK: %call1 = call i32 @_Z14enqueue_marker9ocl_queuejPK12ocl_clkeventP12ocl_clkevent(%opencl.queue_t* %queue, i32 2, %opencl.clk_event_t** %arraydecay, %opencl.clk_event_t** %marker_event)
   %call1 = call i32 @_Z14enqueue_marker9ocl_queuejPK12ocl_clkeventP12ocl_clkevent(%opencl.queue_t* %queue, i32 2, %opencl.clk_event_t** %arraydecay, %opencl.clk_event_t** %marker_event) nounwind

@@ -20,7 +20,7 @@ target triple = "i386-pc-linux"
 
 define i32 @GLS0() {
 ; CHECK-LABEL: @GLS0
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 0
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 0
 ; CHECK: %LocalSize_0 = load i32* [[GEP]]
 ; CHECK: ret i32 %LocalSize_0
   %c = tail call i32 @_Z14get_local_sizej(i32 0) nounwind
@@ -28,7 +28,7 @@ define i32 @GLS0() {
 }
 define i32 @GLS1() {
 ; CHECK-LABEL: @GLS1
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 1
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 1
 ; CHECK: %LocalSize_1 = load i32* [[GEP]]
 ; CHECK: ret i32 %LocalSize_1
   %c = tail call i32 @_Z14get_local_sizej(i32 1) nounwind
@@ -36,7 +36,7 @@ define i32 @GLS1() {
 }
 define i32 @GLS2() {
 ; CHECK-LABEL: @GLS2
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 2
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 2
 ; CHECK: %LocalSize_2 = load i32* [[GEP]]
 ; CHECK: ret i32 %LocalSize_2
   %c = tail call i32 @_Z14get_local_sizej(i32 2) nounwind
@@ -44,7 +44,7 @@ define i32 @GLS2() {
 }
 define i32 @GLSX(i32 %x) {
 ; CHECK-LABEL: @GLSX
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 %x
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 %x
 ; CHECK: %LocalSize_var = load i32* [[GEP]]
   %c = tail call i32 @_Z14get_local_sizej(i32 %x) nounwind
   ret i32 %c
@@ -93,7 +93,7 @@ define i32 @GBGIX(i32 %x) {
 
 define i32 @GWD() {
 ; CHECK-LABEL: @GWD
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 0
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 0
 ; CHECK: %WorkDim = load i32* [[GEP]]
 ; CHECK: ret i32 %WorkDim
   %c = tail call i32 @_Z12get_work_dimj() nounwind
@@ -102,7 +102,7 @@ define i32 @GWD() {
 
 define i32 @GGS0() {
 ; CHECK-LABEL: @GGS0
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 2, i32 0
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 2, i32 0
 ; CHECK: %GlobalSize_0 = load i32* [[GEP]]
 ; CHECK: ret i32 %GlobalSize_0
   %c = tail call i32 @_Z15get_global_sizej(i32 0) nounwind
@@ -110,7 +110,7 @@ define i32 @GGS0() {
 }
 define i32 @GGS1() {
 ; CHECK-LABEL: @GGS1
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 2, i32 1
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 2, i32 1
 ; CHECK: %GlobalSize_1 = load i32* [[GEP]]
 ; CHECK: ret i32 %GlobalSize_1
   %c = tail call i32 @_Z15get_global_sizej(i32 1) nounwind
@@ -118,7 +118,7 @@ define i32 @GGS1() {
 }
 define i32 @GGS2() {
 ; CHECK-LABEL: @GGS2
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 2, i32 2
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 2, i32 2
 ; CHECK: %GlobalSize_2 = load i32* [[GEP]]
 ; CHECK: ret i32 %GlobalSize_2
   %c = tail call i32 @_Z15get_global_sizej(i32 2) nounwind
@@ -132,7 +132,7 @@ define i32 @GGSX(i32 %x) {
 
 define i32 @GNG0() {
 ; CHECK-LABEL: @GNG0
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 4, i32 0
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 4, i32 0
 ; CHECK: %NumGroups_0 = load i32* [[GEP]]
 ; CHECK: ret i32 %NumGroups_0
   %c = tail call i32 @_Z14get_num_groupsj(i32 0) nounwind
@@ -140,7 +140,7 @@ define i32 @GNG0() {
 }
 define i32 @GNG1() {
 ; CHECK-LABEL: @GNG1
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 4, i32 1
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 4, i32 1
 ; CHECK: %NumGroups_1 = load i32* [[GEP]]
 ; CHECK: ret i32 %NumGroups_1
   %c = tail call i32 @_Z14get_num_groupsj(i32 1) nounwind
@@ -148,7 +148,7 @@ define i32 @GNG1() {
 }
 define i32 @GNG2() {
 ; CHECK-LABEL: @GNG2
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 4, i32 2
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 4, i32 2
 ; CHECK: %NumGroups_2 = load i32* [[GEP]]
 ; CHECK: ret i32 %NumGroups_2
   %c = tail call i32 @_Z14get_num_groupsj(i32 2) nounwind
@@ -162,7 +162,7 @@ define i32 @GNGX(i32 %x) {
 
 define i32 @GGI0() {
 ; CHECK-LABEL: @GGI0
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr i32* %pWGId, i32 0
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr i32, i32* %pWGId, i32 0
 ; CHECK: %GroupID_0 = load i32* [[GEP]]
 ; CHECK: ret i32 %GroupID_0
   %c = tail call i32 @_Z12get_group_idj(i32 0) nounwind
@@ -170,7 +170,7 @@ define i32 @GGI0() {
 }
 define i32 @GGI1() {
 ; CHECK-LABEL: @GGI1
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr i32* %pWGId, i32 1
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr i32, i32* %pWGId, i32 1
 ; CHECK: %GroupID_1 = load i32* [[GEP]]
 ; CHECK: ret i32 %GroupID_1
   %c = tail call i32 @_Z12get_group_idj(i32 1) nounwind
@@ -178,7 +178,7 @@ define i32 @GGI1() {
 }
 define i32 @GGI2() {
 ; CHECK-LABEL: @GGI2
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr i32* %pWGId, i32 2
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr i32, i32* %pWGId, i32 2
 ; CHECK: %GroupID_2 = load i32* [[GEP]]
 ; CHECK: ret i32 %GroupID_2
   %c = tail call i32 @_Z12get_group_idj(i32 2) nounwind
@@ -192,7 +192,7 @@ define i32 @GGIX(i32 %x) {
 
 define i32 @GGO0() {
 ; CHECK-LABEL: @GGO0
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 0
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 0
 ; CHECK: %GlobalOffset_0 = load i32* [[GEP]]
 ; CHECK: ret i32 %GlobalOffset_0
   %c = tail call i32 @_Z17get_global_offsetj(i32 0) nounwind
@@ -200,7 +200,7 @@ define i32 @GGO0() {
 }
 define i32 @GGO1() {
 ; CHECK-LABEL: @GGO1
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 1
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 1
 ; CHECK: %GlobalOffset_1 = load i32* [[GEP]]
 ; CHECK: ret i32 %GlobalOffset_1
   %c = tail call i32 @_Z17get_global_offsetj(i32 1) nounwind
@@ -208,7 +208,7 @@ define i32 @GGO1() {
 }
 define i32 @GGO2() {
 ; CHECK-LABEL: @GGO2
-; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 2
+; CHECK: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 2
 ; CHECK: %GlobalOffset_2 = load i32* [[GEP]]
 ; CHECK: ret i32 %GlobalOffset_2
   %c = tail call i32 @_Z17get_global_offsetj(i32 2) nounwind

@@ -21,7 +21,7 @@ target triple = "i686-pc-win32"
 define void @func_abs_diff(double addrspace(1)* nocapture %in, <4 x i64> addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
   %2 = tail call <4 x i64> @_Z6selectU8__vector4lS_S_(<4 x i64> <i64 123, i64 58, i64 96, i64 -12>, <4 x i64> <i64 123, i64 58, i64 96, i64 -12>, <4 x i64> <i64 123, i64 58, i64 96, i64 -12>) nounwind ; <<4 x i64>> [#uses=1]
-  %3 = getelementptr inbounds <4 x i64> addrspace(1)* %out, i32 %1 ; <<4 x i64> addrspace(1)*> [#uses=1]
+  %3 = getelementptr inbounds <4 x i64>, <4 x i64> addrspace(1)* %out, i32 %1 ; <<4 x i64> addrspace(1)*> [#uses=1]
   store <4 x i64> %2, <4 x i64> addrspace(1)* %3
   ret void
 }

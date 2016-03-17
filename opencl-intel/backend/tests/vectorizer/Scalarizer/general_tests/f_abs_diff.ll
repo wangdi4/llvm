@@ -26,7 +26,7 @@ define void @func_abs_diff(float addrspace(1)* nocapture %in, float addrspace(1)
   %5 = extractelement <2 x i64> %4, i32 1         ; <i64> [#uses=1]
   %6 = mul i64 %5, %3                             ; <i64> [#uses=1]
   %7 = uitofp i64 %6 to float                     ; <float> [#uses=1]
-  %8 = getelementptr inbounds float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
+  %8 = getelementptr inbounds float, float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
   store float %7, float addrspace(1)* %8
   ret void
 }

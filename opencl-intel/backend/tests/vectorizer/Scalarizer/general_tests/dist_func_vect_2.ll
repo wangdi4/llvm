@@ -22,7 +22,7 @@ target triple = "i686-pc-win32"
 
 define void @func_vect_distance(i64 addrspace(1)* nocapture %in, float addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=3]
-  %2 = getelementptr inbounds i64 addrspace(1)* %in, i32 3 ; <i64 addrspace(1)*> [#uses=1]
+  %2 = getelementptr inbounds i64, i64 addrspace(1)* %in, i32 3 ; <i64 addrspace(1)*> [#uses=1]
   %3 = load i64 addrspace(1)* %2                  ; <i64> [#uses=2]
   %4 = sitofp i64 %3 to double                    ; <double> [#uses=2]
   %5 = insertelement <4 x double> undef, double %4, i32 0 ; <<4 x double>> [#uses=1]
@@ -31,7 +31,7 @@ define void @func_vect_distance(i64 addrspace(1)* nocapture %in, float addrspace
   %8 = shufflevector <8 x double> %7, <8 x double> undef, <8 x i32> zeroinitializer ; <<8 x double>> [#uses=2]
   %9 = fmul <8 x double> %8, %8                   ; <<8 x double>> [#uses=1]
   %10 = shufflevector <8 x double> %9, <8 x double> undef, <2 x i32> <i32 0, i32 1> ; <<2 x double>> [#uses=2]
-  %11 = load i64 addrspace(1)* %in                ; <i64> [#uses=1]
+  %11 = load i64, i64 addrspace(1)* %in                ; <i64> [#uses=1]
   %12 = sext i32 %1 to i64                        ; <i64> [#uses=2]
   %13 = mul i64 %11, %12                          ; <i64> [#uses=1]
   %14 = sitofp i64 %13 to double                  ; <double> [#uses=1]
@@ -39,7 +39,7 @@ define void @func_vect_distance(i64 addrspace(1)* nocapture %in, float addrspace
   %16 = add nsw i64 %3, %12                       ; <i64> [#uses=1]
   %17 = sitofp i64 %16 to double                  ; <double> [#uses=1]
   %18 = insertelement <4 x double> %15, double %17, i32 1 ; <<4 x double>> [#uses=1]
-  %19 = getelementptr inbounds i64 addrspace(1)* %in, i32 2 ; <i64 addrspace(1)*> [#uses=1]
+  %19 = getelementptr inbounds i64, i64 addrspace(1)* %in, i32 2 ; <i64 addrspace(1)*> [#uses=1]
   %20 = load i64 addrspace(1)* %19                ; <i64> [#uses=1]
   %21 = sitofp i64 %20 to double                  ; <double> [#uses=1]
   %22 = insertelement <4 x double> %18, double %21, i32 2 ; <<4 x double>> [#uses=1]
@@ -51,7 +51,7 @@ define void @func_vect_distance(i64 addrspace(1)* nocapture %in, float addrspace
   %28 = tail call double @_Z8distanceU8__vector2dS_(<2 x double> %10, <2 x double> %10) nounwind ; <double> [#uses=1]
   %29 = fptrunc double %28 to float               ; <float> [#uses=1]
   %30 = fadd float %27, %29                       ; <float> [#uses=1]
-  %31 = getelementptr inbounds float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
+  %31 = getelementptr inbounds float, float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
   store float %30, float addrspace(1)* %31
   ret void
 }

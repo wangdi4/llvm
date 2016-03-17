@@ -10,10 +10,10 @@ target triple = "x86_64-pc-linux"
 
 ;CHECK: define void @test_escape
 ;CHECK: store i32 333
-;CHECK: %1 = load i32 addrspace(3)* %arrayidx3, align 4
+;CHECK: %1 = load i32, i32 addrspace(3)* %arrayidx3, align 4
 ;CHECK: store i32 %sub, i32* %add.ptr, align 4
-;CHECK: %3 = load i32 addrspace(3)* %arrayidx3, align 4
-;CHECK: %4 = load i32 addrspace(1)* %arrayidx, align 4
+;CHECK: %3 = load i32, i32 addrspace(3)* %arrayidx3, align 4
+;CHECK: %4 = load i32, i32 addrspace(1)* %arrayidx, align 4
 ;CHECK: store i32 %add, i32 addrspace(1)* %arrayidx, align 4
 ;CHECK: ret void
 
@@ -27,17 +27,17 @@ entry:
   %conv1 = ashr exact i64 %sext, 32
   %sext8 = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext8, 32
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %out, i64 %idxprom
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %out, i64 %idxprom
   store i32 333, i32 addrspace(1)* %arrayidx, align 4
-  %arrayidx3 = getelementptr inbounds i32 addrspace(3)* %in, i64 %idxprom
+  %arrayidx3 = getelementptr inbounds i32, i32 addrspace(3)* %in, i64 %idxprom
   %1 = load i32 addrspace(3)* %arrayidx3, align 4
   %sub = add nsw i32 %1, -333
   %2 = inttoptr i64 %conv1 to i32*
-  %add.ptr = getelementptr inbounds i32* %2, i64 2
+  %add.ptr = getelementptr inbounds i32, i32* %2, i64 2
   store i32 %sub, i32* %add.ptr, align 4
-  %3 = load i32 addrspace(3)* %arrayidx3, align 4
+  %3 = load i32, i32 addrspace(3)* %arrayidx3, align 4
   %mul = mul nsw i32 %3, 7
-  %4 = load i32 addrspace(1)* %arrayidx, align 4
+  %4 = load i32, i32 addrspace(1)* %arrayidx, align 4
   %add = add nsw i32 %4, %mul
   store i32 %add, i32 addrspace(1)* %arrayidx, align 4
   ret void

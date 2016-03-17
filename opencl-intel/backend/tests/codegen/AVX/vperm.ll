@@ -21,8 +21,8 @@ define <8 x float> @test_f32_1(<8 x float> %v1, <8 x float> %v2) nounwind readon
 define <8 x float> @test_f32_2(<8 x float>* nocapture %v1, <8 x float>* nocapture %v2) nounwind readonly {
 ; CHECK: test_f32_2
 ; CHECK; vmovaps
-  %t1 = load <8 x float>* %v1
-  %t2 = load <8 x float>* %v2
+  %t1 = load <8 x float>, <8 x float>* %v1
+  %t2 = load <8 x float>, <8 x float>* %v2
   %t3 = shufflevector <8 x float> %t1, <8 x float> %t2, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
   ret <8 x float> %t3
 }
@@ -139,8 +139,8 @@ define <8 x i32> @test_i32_1(<8 x i32> %v1, <8 x i32> %v2) nounwind readonly {
 define <8 x i32> @test_i32_2(<8 x i32>* nocapture %v1, <8 x i32>* nocapture %v2) nounwind readonly {
 ; CHECK: test_i32_2
 ; CHECK; vmovaps
-  %t1 = load <8 x i32>* %v1
-  %t2 = load <8 x i32>* %v2
+  %t1 = load <8 x i32>, <8 x i32>* %v1
+  %t2 = load <8 x i32>, <8 x i32>* %v2
   %t3 = shufflevector <8 x i32> %t1, <8 x i32> %t2, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
   ret <8 x i32> %t3
 }

@@ -77,7 +77,7 @@ declare void @_Z18work_group_barrierj(i32) #1
 ; CHECK-NOT: call <4 x i32> @_Z14work_group_allDv4_i
 ; CHECK:  %[[CallWGForItem3:[A-Za-z0-9]+]] = call <4 x i32> @_Z14work_group_allDv4_iPS_(<4 x i32> zeroinitializer, <4 x i32>* %[[AllocaWGResult3]])
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
-; CHECK-NEXT: %[[LoadWGFinalResult3:[A-Za-z0-9]+]] = load <4 x i32>* %[[AllocaWGResult3]]
+; CHECK-NEXT: %[[LoadWGFinalResult3:[A-Za-z0-9]+]] = load <4 x i32>, <4 x i32>* %[[AllocaWGResult3]]
 ; CHECK-NEXT: %[[CallFinalizeWG3:[A-Za-z0-9]+]] = call <4 x i32> @_Z25__finalize_work_group_allDv4_i(<4 x i32> %[[LoadWGFinalResult3]])
 ; CHECK-NEXT: store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %[[AllocaWGResult3]]
 ; CHECK-NEXT: call void @dummybarrier.()
@@ -86,7 +86,7 @@ declare void @_Z18work_group_barrierj(i32) #1
 ; CHECK-NOT: call <4 x i32> @_Z14work_group_allDv4_i
 ; CHECK:  %[[CallWGForItem4:[A-Za-z0-9]+]] = call <4 x i32> @_Z14work_group_allDv4_iPS_(<4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %[[AllocaWGResult4]])
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
-; CHECK-NEXT: %[[LoadWGFinalResult4:[A-Za-z0-9]+]] = load <4 x i32>* %[[AllocaWGResult4]]
+; CHECK-NEXT: %[[LoadWGFinalResult4:[A-Za-z0-9]+]] = load <4 x i32>, <4 x i32>* %[[AllocaWGResult4]]
 ; CHECK-NEXT: %[[CallFinalizeWG4:[A-Za-z0-9]+]] = call <4 x i32> @_Z25__finalize_work_group_allDv4_i(<4 x i32> %[[LoadWGFinalResult4]])
 ; CHECK-NEXT: store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %[[AllocaWGResult4]]
 ; CHECK-NEXT: call void @dummybarrier.()

@@ -27,12 +27,12 @@ while.body:                                       ; preds = %while.body.preheade
   %tmp1617 = phi i64 [ %add, %while.body ], [ %conv, %while.body.preheader ]
   %tmp1326 = phi i64 [ %inc, %while.body ], [ 0, %while.body.preheader ]
   %inc = add nsw i64 %tmp1326, 1
-  %arrayidx = getelementptr inbounds i64* %A, i64 %inc
+  %arrayidx = getelementptr inbounds i64, i64* %A, i64 %inc
   %tmp9 = load i64* %arrayidx, align 8
   %add = add nsw i64 %tmp9, %tmp1617
   %call11 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv12 = zext i32 %call11 to i64
-  %arrayidx15 = getelementptr inbounds i64* %B, i64 %inc
+  %arrayidx15 = getelementptr inbounds i64, i64* %B, i64 %inc
   store i64 %conv12, i64* %arrayidx15, align 8
   %cmp = icmp slt i64 %add, %n
   %cmp5 = icmp slt i64 %inc, %n
@@ -45,7 +45,7 @@ while.end.loopexit:                               ; preds = %while.body
 while.end:                                        ; preds = %while.end.loopexit, %entry
   %tmp161.lcssa = phi i64 [ %conv, %entry ], [ %add, %while.end.loopexit ]
   %div = sdiv i64 %n, 2
-  %arrayidx19 = getelementptr inbounds i64* %B, i64 %div
+  %arrayidx19 = getelementptr inbounds i64, i64* %B, i64 %div
   store i64 %tmp161.lcssa, i64* %arrayidx19, align 8
   ret void
 }

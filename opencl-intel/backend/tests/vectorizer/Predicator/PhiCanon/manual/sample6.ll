@@ -22,10 +22,10 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %storemerge1 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i64* %B, i64 %storemerge1
+  %arrayidx = getelementptr inbounds i64, i64* %B, i64 %storemerge1
   %tmp4 = load i64* %arrayidx, align 8
   %mul = mul i64 %tmp4, %n
-  %arrayidx8 = getelementptr inbounds i64* %A, i64 %storemerge1
+  %arrayidx8 = getelementptr inbounds i64, i64* %A, i64 %storemerge1
   %tmp9 = load i64* %arrayidx8, align 8
   %add = add nsw i64 %tmp9, %mul
   store i64 %add, i64* %arrayidx8, align 8

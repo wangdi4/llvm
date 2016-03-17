@@ -75,7 +75,7 @@ for.cond.for.end_crit_edge:                       ; preds = %for.body
 
 for.end:                                          ; preds = %for.cond.for.end_crit_edge, %entry
   %storemerge.lcssa = phi i32 [ %phitmp, %for.cond.for.end_crit_edge ], [ 0, %entry ]
-  %arrayidx = getelementptr i32 addrspace(1)* %mandelbrotImage, i32 %call
+  %arrayidx = getelementptr i32, i32 addrspace(1)* %mandelbrotImage, i32 %call
   %nonzero83 = select i1 %cmp577, i32 %maxIterations, i32 1
   %div84 = udiv i32 %storemerge.lcssa, %nonzero83
   store i32 %div84, i32 addrspace(1)* %arrayidx, align 4

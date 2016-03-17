@@ -20,7 +20,7 @@ target triple = "i686-pc-win32"
 
 define void @encountered_not_scal_variable(<4 x float>* nocapture %in, float addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=2]
-  %2 = getelementptr inbounds <4 x float>* %in, i32 4 ; <<4 x float>*> [#uses=1]
+  %2 = getelementptr inbounds <4 x float>, <4 x float>* %in, i32 4 ; <<4 x float>*> [#uses=1]
   %3 = load <4 x float>* %2                       ; <<4 x float>> [#uses=2]
   %4 = sitofp i32 %1 to float                     ; <float> [#uses=1]
   %5 = insertelement <4 x float> undef, float %4, i32 0 ; <<4 x float>> [#uses=1]
@@ -33,7 +33,7 @@ define void @encountered_not_scal_variable(<4 x float>* nocapture %in, float add
   %12 = extractelement <4 x float> %11, i32 2     ; <float> [#uses=1]
   %13 = fmul float %12, %9                        ; <float> [#uses=1]
   %14 = fsub float %13, %10                       ; <float> [#uses=1]
-  %15 = getelementptr inbounds float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
+  %15 = getelementptr inbounds float, float addrspace(1)* %out, i32 %1 ; <float addrspace(1)*> [#uses=1]
   store float %14, float addrspace(1)* %15
   ret void
 }

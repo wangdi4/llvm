@@ -34,8 +34,8 @@ entry:
   store i32 %wgRowSize, i32* %wgRowSize.addr
   %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %wgNum
-  %tmp = load i32* %wgRowSize.addr                ; <i32> [#uses=1]
-  %tmp1 = load i32* %wgNum                        ; <i32> [#uses=1]
+  %tmp = load i32, i32* %wgRowSize.addr                ; <i32> [#uses=1]
+  %tmp1 = load i32, i32* %wgNum                        ; <i32> [#uses=1]
   %mul = mul i32 %tmp, %tmp1                      ; <i32> [#uses=1]
   store i32 %mul, i32* %wgRowOffset
   %call3 = call i32 @get_global_size(i32 0)       ; <i32> [#uses=1]
@@ -48,8 +48,8 @@ entry:
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc76, %entry
-  %tmp10 = load i32* %irow                        ; <i32> [#uses=1]
-  %tmp11 = load i32* %wgRowSize.addr              ; <i32> [#uses=1]
+  %tmp10 = load i32, i32* %irow                        ; <i32> [#uses=1]
+  %tmp11 = load i32, i32* %wgRowSize.addr              ; <i32> [#uses=1]
   %cmp = icmp ult i32 %tmp10, %tmp11              ; <i1> [#uses=1]
   br i1 %cmp, label %for.body, label %for.end79
 
@@ -58,8 +58,8 @@ for.body:                                         ; preds = %for.cond
   br label %for.cond13
 
 for.cond13:                                       ; preds = %for.inc72, %for.body
-  %tmp14 = load i32* %icol                        ; <i32> [#uses=1]
-  %tmp15 = load i32* %imagePixelWidth             ; <i32> [#uses=1]
+  %tmp14 = load i32, i32* %icol                        ; <i32> [#uses=1]
+  %tmp15 = load i32, i32* %imagePixelWidth             ; <i32> [#uses=1]
   %cmp16 = icmp slt i32 %tmp14, %tmp15            ; <i1> [#uses=1]
   br i1 %cmp16, label %for.body17, label %for.end75
 
@@ -68,8 +68,8 @@ for.body17:                                       ; preds = %for.cond13
   br label %for.cond19
 
 for.cond19:                                       ; preds = %for.inc68, %for.body17
-  %tmp20 = load i32* %iOutpixcomp                 ; <i32> [#uses=1]
-  %tmp21 = load i32* %pixelComponentNum           ; <i32> [#uses=1]
+  %tmp20 = load i32, i32* %iOutpixcomp                 ; <i32> [#uses=1]
+  %tmp21 = load i32, i32* %pixelComponentNum           ; <i32> [#uses=1]
   %cmp22 = icmp ult i32 %tmp20, %tmp21            ; <i1> [#uses=1]
   br i1 %cmp22, label %for.body23, label %for.end71
 
@@ -79,68 +79,68 @@ for.body23:                                       ; preds = %for.cond19
   br label %for.cond25
 
 for.cond25:                                       ; preds = %for.inc, %for.body23
-  %tmp26 = load i32* %iInpixcomp                  ; <i32> [#uses=1]
-  %tmp27 = load i32* %pixelComponentNum           ; <i32> [#uses=1]
+  %tmp26 = load i32, i32* %iInpixcomp                  ; <i32> [#uses=1]
+  %tmp27 = load i32, i32* %pixelComponentNum           ; <i32> [#uses=1]
   %cmp28 = icmp ult i32 %tmp26, %tmp27            ; <i1> [#uses=1]
   br i1 %cmp28, label %for.body29, label %for.end
 
 for.body29:                                       ; preds = %for.cond25
   %tmp30 = load i32* %iInpixcomp                  ; <i32> [#uses=1]
   %tmp31 = load i32* %iOutpixcomp                 ; <i32> [#uses=1]
-  %arraydecay = getelementptr inbounds [4 x [4 x float]]* %transMat, i32 0, i32 0 ; <[4 x float]*> [#uses=1]
-  %arrayidx = getelementptr inbounds [4 x float]* %arraydecay, i32 %tmp31 ; <[4 x float]*> [#uses=1]
-  %arraydecay32 = getelementptr inbounds [4 x float]* %arrayidx, i32 0, i32 0 ; <float*> [#uses=1]
-  %arrayidx33 = getelementptr inbounds float* %arraydecay32, i32 %tmp30 ; <float*> [#uses=1]
+  %arraydecay = getelementptr inbounds [4 x [4 x float]], [4 x [4 x float]]* %transMat, i32 0, i32 0 ; <[4 x float]*> [#uses=1]
+  %arrayidx = getelementptr inbounds [4 x float], [4 x float]* %arraydecay, i32 %tmp31 ; <[4 x float]*> [#uses=1]
+  %arraydecay32 = getelementptr inbounds [4 x float], [4 x float]* %arrayidx, i32 0, i32 0 ; <float*> [#uses=1]
+  %arrayidx33 = getelementptr inbounds float, float* %arraydecay32, i32 %tmp30 ; <float*> [#uses=1]
   %tmp34 = load float* %arrayidx33                ; <float> [#uses=1]
   %tmp35 = load i32* %wgRowOffset                 ; <i32> [#uses=1]
   %tmp36 = load i32* %irow                        ; <i32> [#uses=1]
   %add = add i32 %tmp35, %tmp36                   ; <i32> [#uses=1]
-  %tmp37 = load i32* %imagePixelWidth             ; <i32> [#uses=1]
+  %tmp37 = load i32, i32* %imagePixelWidth             ; <i32> [#uses=1]
   %mul38 = mul i32 %add, %tmp37                   ; <i32> [#uses=1]
-  %tmp39 = load i32* %icol                        ; <i32> [#uses=1]
+  %tmp39 = load i32, i32* %icol                        ; <i32> [#uses=1]
   %add40 = add i32 %mul38, %tmp39                 ; <i32> [#uses=1]
-  %tmp41 = load i32* %pixelComponentNum           ; <i32> [#uses=1]
+  %tmp41 = load i32, i32* %pixelComponentNum           ; <i32> [#uses=1]
   %mul42 = mul i32 %add40, %tmp41                 ; <i32> [#uses=1]
-  %tmp43 = load i32* %iInpixcomp                  ; <i32> [#uses=1]
+  %tmp43 = load i32, i32* %iInpixcomp                  ; <i32> [#uses=1]
   %add44 = add i32 %mul42, %tmp43                 ; <i32> [#uses=1]
   %tmp45 = load float addrspace(2)** %inputImage.addr ; <float addrspace(2)*> [#uses=1]
-  %arrayidx46 = getelementptr inbounds float addrspace(2)* %tmp45, i32 %add44 ; <float addrspace(2)*> [#uses=1]
+  %arrayidx46 = getelementptr inbounds float, float addrspace(2)* %tmp45, i32 %add44 ; <float addrspace(2)*> [#uses=1]
   %tmp47 = load float addrspace(2)* %arrayidx46   ; <float> [#uses=1]
   %mul48 = fmul float %tmp34, %tmp47              ; <float> [#uses=1]
-  %tmp49 = load float* %dotTmp                    ; <float> [#uses=1]
+  %tmp49 = load float, float* %dotTmp                    ; <float> [#uses=1]
   %add50 = fadd float %tmp49, %mul48              ; <float> [#uses=1]
   store float %add50, float* %dotTmp
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body29
-  %tmp51 = load i32* %iInpixcomp                  ; <i32> [#uses=1]
+  %tmp51 = load i32, i32* %iInpixcomp                  ; <i32> [#uses=1]
   %inc = add nsw i32 %tmp51, 1                    ; <i32> [#uses=1]
   store i32 %inc, i32* %iInpixcomp
   br label %for.cond25
 
 for.end:                                          ; preds = %for.cond25
-  %tmp52 = load float* %dotTmp                    ; <float> [#uses=1]
+  %tmp52 = load float, float* %dotTmp                    ; <float> [#uses=1]
   %cmp53 = fcmp olt float %tmp52, 1.000000e+000   ; <i1> [#uses=1]
-  %tmp54 = load float* %dotTmp                    ; <float> [#uses=1]
+  %tmp54 = load float, float* %dotTmp                    ; <float> [#uses=1]
   %cond = select i1 %cmp53, float %tmp54, float 1.000000e+000 ; <float> [#uses=1]
-  %tmp55 = load i32* %wgRowOffset                 ; <i32> [#uses=1]
-  %tmp56 = load i32* %irow                        ; <i32> [#uses=1]
+  %tmp55 = load i32, i32* %wgRowOffset                 ; <i32> [#uses=1]
+  %tmp56 = load i32, i32* %irow                        ; <i32> [#uses=1]
   %add57 = add i32 %tmp55, %tmp56                 ; <i32> [#uses=1]
-  %tmp58 = load i32* %imagePixelWidth             ; <i32> [#uses=1]
+  %tmp58 = load i32, i32* %imagePixelWidth             ; <i32> [#uses=1]
   %mul59 = mul i32 %add57, %tmp58                 ; <i32> [#uses=1]
-  %tmp60 = load i32* %icol                        ; <i32> [#uses=1]
+  %tmp60 = load i32, i32* %icol                        ; <i32> [#uses=1]
   %add61 = add i32 %mul59, %tmp60                 ; <i32> [#uses=1]
-  %tmp62 = load i32* %pixelComponentNum           ; <i32> [#uses=1]
+  %tmp62 = load i32, i32* %pixelComponentNum           ; <i32> [#uses=1]
   %mul63 = mul i32 %add61, %tmp62                 ; <i32> [#uses=1]
-  %tmp64 = load i32* %iOutpixcomp                 ; <i32> [#uses=1]
+  %tmp64 = load i32, i32* %iOutpixcomp                 ; <i32> [#uses=1]
   %add65 = add i32 %mul63, %tmp64                 ; <i32> [#uses=1]
   %tmp66 = load float addrspace(1)** %outputImage.addr ; <float addrspace(1)*> [#uses=1]
-  %arrayidx67 = getelementptr inbounds float addrspace(1)* %tmp66, i32 %add65 ; <float addrspace(1)*> [#uses=1]
+  %arrayidx67 = getelementptr inbounds float, float addrspace(1)* %tmp66, i32 %add65 ; <float addrspace(1)*> [#uses=1]
   store float %cond, float addrspace(1)* %arrayidx67
   br label %for.inc68
 
 for.inc68:                                        ; preds = %for.end
-  %tmp69 = load i32* %iOutpixcomp                 ; <i32> [#uses=1]
+  %tmp69 = load i32, i32* %iOutpixcomp                 ; <i32> [#uses=1]
   %inc70 = add nsw i32 %tmp69, 1                  ; <i32> [#uses=1]
   store i32 %inc70, i32* %iOutpixcomp
   br label %for.cond19
@@ -149,7 +149,7 @@ for.end71:                                        ; preds = %for.cond19
   br label %for.inc72
 
 for.inc72:                                        ; preds = %for.end71
-  %tmp73 = load i32* %icol                        ; <i32> [#uses=1]
+  %tmp73 = load i32, i32* %icol                        ; <i32> [#uses=1]
   %inc74 = add nsw i32 %tmp73, 1                  ; <i32> [#uses=1]
   store i32 %inc74, i32* %icol
   br label %for.cond13
@@ -158,7 +158,7 @@ for.end75:                                        ; preds = %for.cond13
   br label %for.inc76
 
 for.inc76:                                        ; preds = %for.end75
-  %tmp77 = load i32* %irow                        ; <i32> [#uses=1]
+  %tmp77 = load i32, i32* %irow                        ; <i32> [#uses=1]
   %inc78 = add nsw i32 %tmp77, 1                  ; <i32> [#uses=1]
   store i32 %inc78, i32* %irow
   br label %for.cond

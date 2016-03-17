@@ -49,13 +49,13 @@ define i32 @list_reset(i32 %x) #0 {
 ; Function Attrs: alwaysinline nounwind
 define i32 @list_create(<4 x float> %in, i32 %x) #1 {
   %1 = extractelement <4 x float> %in, i32 0
-  %2 = load float* @particleRadius, align 4, !tbaa !18
+  %2 = load float, float* @particleRadius, align 4, !tbaa !18
   %3 = fmul float %2, 2.000000e+00
   %4 = fdiv float %1, %3
   %5 = fptosi float %4 to i32
   %6 = icmp sgt i32 %5, 0
   %7 = select i1 %6, i32 %5, i32 0
-  %8 = load i32* @gridSize, align 4, !tbaa !21
+  %8 = load i32, i32* @gridSize, align 4, !tbaa !21
   %9 = add nsw i32 %8, -1
   %10 = icmp slt i32 %7, %9
   %11 = select i1 %10, i32 %7, i32 %9
@@ -78,7 +78,7 @@ define i32 @list_create(<4 x float> %in, i32 %x) #1 {
   %28 = mul i32 %27, %8
   %29 = add nsw i32 %28, %11
   %30 = load i32** @pHList, align 4, !tbaa !22
-  %31 = getelementptr inbounds i32* %30, i32 %29
+  %31 = getelementptr inbounds i32, i32* %30, i32 %29
   %32 = load i32* %31, align 4, !tbaa !21
   br label %33
 
@@ -116,7 +116,7 @@ init:
 define void @list_reset.wrapper.indexed(i32*, i32 %x) {
 init:
   %1 = call i32 @get.id()
-  %outElement = getelementptr inbounds i32* %0, i32 %1
+  %outElement = getelementptr inbounds i32, i32* %0, i32 %1
   store i32 -1, i32* %outElement
   ret void
 }
@@ -124,15 +124,15 @@ init:
 ; Function Attrs: alwaysinline
 define void @list_create.wrapper(<4 x float>* %pin, i32*, i32 %x) #3 {
 init:
-  %Input = load <4 x float>* %pin
+  %Input = load <4 x float>, <4 x float>* %pin
   %1 = extractelement <4 x float> %Input, i32 0
-  %2 = load float* @particleRadius, align 4, !tbaa !18
+  %2 = load float, float* @particleRadius, align 4, !tbaa !18
   %3 = fmul float %2, 2.000000e+00
   %4 = fdiv float %1, %3
   %5 = fptosi float %4 to i32
   %6 = icmp sgt i32 %5, 0
   %7 = select i1 %6, i32 %5, i32 0
-  %8 = load i32* @gridSize, align 4, !tbaa !21
+  %8 = load i32, i32* @gridSize, align 4, !tbaa !21
   %9 = add nsw i32 %8, -1
   %10 = icmp slt i32 %7, %9
   %11 = select i1 %10, i32 %7, i32 %9
@@ -155,7 +155,7 @@ init:
   %28 = mul i32 %27, %8
   %29 = add nsw i32 %28, %11
   %30 = load i32** @pHList, align 4, !tbaa !22
-  %31 = getelementptr inbounds i32* %30, i32 %29
+  %31 = getelementptr inbounds i32, i32* %30, i32 %29
   %32 = load i32* %31, align 4, !tbaa !21
   br label %33
 
@@ -174,18 +174,18 @@ list_create.exit:                                 ; preds = %33
 define void @list_create.wrapper.indexed(<4 x float>* %pin, i32*, i32 %x) {
 init:
   %1 = call i32 @get.id()
-  %inElement = getelementptr inbounds <4 x float>* %pin, i32 %1
-  %outElement = getelementptr inbounds i32* %0, i32 %1
+  %inElement = getelementptr inbounds <4 x float>, <4 x float>* %pin, i32 %1
+  %outElement = getelementptr inbounds i32, i32* %0, i32 %1
   %currentX = add i32 %x, %1
-  %Input.i = load <4 x float>* %inElement
+  %Input.i = load <4 x float>, <4 x float>* %inElement
   %2 = extractelement <4 x float> %Input.i, i32 0
-  %3 = load float* @particleRadius, align 4, !tbaa !18
+  %3 = load float, float* @particleRadius, align 4, !tbaa !18
   %4 = fmul float %3, 2.000000e+00
   %5 = fdiv float %2, %4
   %6 = fptosi float %5 to i32
   %7 = icmp sgt i32 %6, 0
   %8 = select i1 %7, i32 %6, i32 0
-  %9 = load i32* @gridSize, align 4, !tbaa !21
+  %9 = load i32, i32* @gridSize, align 4, !tbaa !21
   %10 = add nsw i32 %9, -1
   %11 = icmp slt i32 %8, %10
   %12 = select i1 %11, i32 %8, i32 %10
@@ -208,7 +208,7 @@ init:
   %29 = mul i32 %28, %9
   %30 = add nsw i32 %29, %12
   %31 = load i32** @pHList, align 4, !tbaa !22
-  %32 = getelementptr inbounds i32* %31, i32 %30
+  %32 = getelementptr inbounds i32, i32* %31, i32 %30
   %33 = load i32* %32, align 4, !tbaa !21
   br label %34
 
@@ -228,7 +228,7 @@ list_create.wrapper.exit:                         ; preds = %34
 define i32 @_Z19rsAllocationGetDimX13rs_allocation([1 x i32] %a.coerce) #4 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
   %4 = load i32* %3, align 4, !tbaa !21
   ret i32 %4
 }
@@ -237,7 +237,7 @@ define i32 @_Z19rsAllocationGetDimX13rs_allocation([1 x i32] %a.coerce) #4 {
 define i32 @_Z19rsAllocationGetDimY13rs_allocation([1 x i32] %a.coerce) #4 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %4 = load i32* %3, align 4, !tbaa !21
   ret i32 %4
 }
@@ -246,7 +246,7 @@ define i32 @_Z19rsAllocationGetDimY13rs_allocation([1 x i32] %a.coerce) #4 {
 define i32 @_Z19rsAllocationGetDimZ13rs_allocation([1 x i32] %a.coerce) #4 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 4
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 4
   %4 = load i32* %3, align 4, !tbaa !21
   ret i32 %4
 }
@@ -255,7 +255,7 @@ define i32 @_Z19rsAllocationGetDimZ13rs_allocation([1 x i32] %a.coerce) #4 {
 define i32 @_Z21rsAllocationGetDimLOD13rs_allocation([1 x i32] %a.coerce) #4 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 5
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 5
   %4 = load i8* %3, align 1, !tbaa !23, !range !24
   %5 = zext i8 %4 to i32
   ret i32 %5
@@ -265,7 +265,7 @@ define i32 @_Z21rsAllocationGetDimLOD13rs_allocation([1 x i32] %a.coerce) #4 {
 define i32 @_Z23rsAllocationGetDimFaces13rs_allocation([1 x i32] %a.coerce) #4 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 6
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 6
   %4 = load i8* %3, align 1, !tbaa !23, !range !24
   %5 = zext i8 %4 to i32
   ret i32 %5
@@ -279,11 +279,11 @@ define i32 @_Z22rsAllocationGetElement13rs_allocation([1 x i32] %a.coerce) #4 {
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Allocation*
-  %5 = getelementptr inbounds %struct.Allocation* %4, i32 0, i32 1, i32 1, i32 0
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %4, i32 0, i32 1, i32 1, i32 0
   %6 = load i8** %5, align 4, !tbaa !22
-  %7 = getelementptr inbounds i8* %6, i32 36
+  %7 = getelementptr inbounds i8, i8* %6, i32 36
   %8 = bitcast i8* %7 to i8**
-  %9 = load i8** %8, align 4, !tbaa !22
+  %9 = load i8*, i8** %8, align 4, !tbaa !22
   %phitmp = ptrtoint i8* %9 to i32
   br label %10
 
@@ -296,18 +296,18 @@ define i32 @_Z22rsAllocationGetElement13rs_allocation([1 x i32] %a.coerce) #4 {
 define i8* @rsOffset([1 x i32] %a.coerce, i32 %sizeOf, i32 %x, i32 %y, i32 %z) #4 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, %sizeOf
   %10 = mul i32 %8, %z
   %tmp = add i32 %10, %y
   %tmp1 = mul i32 %tmp, %6
   %11 = add i32 %tmp1, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   ret i8* %12
 }
 
@@ -315,12 +315,12 @@ define i8* @rsOffset([1 x i32] %a.coerce, i32 %sizeOf, i32 %x, i32 %y, i32 %z) #
 define i8* @_Z14rsGetElementAt13rs_allocationj([1 x i32] %a.coerce, i32 %x) #4 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 4
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 4
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %6, %x
-  %8 = getelementptr inbounds i8* %4, i32 %7
+  %8 = getelementptr inbounds i8, i8* %4, i32 %7
   ret i8* %8
 }
 
@@ -328,16 +328,16 @@ define i8* @_Z14rsGetElementAt13rs_allocationj([1 x i32] %a.coerce, i32 %x) #4 {
 define i8* @_Z14rsGetElementAt13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #4 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 4
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 4
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %6, %x
   %10 = mul i32 %8, %y
   %11 = add i32 %10, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   ret i8* %12
 }
 
@@ -345,20 +345,20 @@ define i8* @_Z14rsGetElementAt13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32
 define i8* @_Z14rsGetElementAt13rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #4 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 4
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 4
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %8 = load i32* %7, align 4, !tbaa !21
-  %9 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %9 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %10 = load i32* %9, align 4, !tbaa !21
   %11 = mul i32 %6, %x
   %12 = mul i32 %10, %z
   %tmp = add i32 %12, %y
   %tmp1 = mul i32 %tmp, %8
   %13 = add i32 %tmp1, %11
-  %14 = getelementptr inbounds i8* %4, i32 %13
+  %14 = getelementptr inbounds i8, i8* %4, i32 %13
   ret i8* %14
 }
 
@@ -366,12 +366,12 @@ define i8* @_Z14rsGetElementAt13rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i3
 define void @_Z14rsSetElementAt13rs_allocationPvj([1 x i32] %a.coerce, i8* %ptr, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 4
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 4
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %6, %x
-  %8 = getelementptr inbounds i8* %4, i32 %7
+  %8 = getelementptr inbounds i8, i8* %4, i32 %7
   %9 = icmp eq i32 %6, 0
   br i1 %9, label %memcpy.exit, label %.lr.ph.i
 
@@ -383,24 +383,24 @@ define void @_Z14rsSetElementAt13rs_allocationPvj([1 x i32] %a.coerce, i8* %ptr,
   br i1 %cmp.zero.i, label %middle.block.i, label %vector.memcheck.i
 
 vector.memcheck.i:                                ; preds = %.lr.ph.i
-  %scevgep4.i = getelementptr i8* %ptr, i32 %10
+  %scevgep4.i = getelementptr i8, i8* %ptr, i32 %10
   %.sum = add i32 %7, %10
-  %scevgep.i = getelementptr i8* %4, i32 %.sum
+  %scevgep.i = getelementptr i8, i8* %4, i32 %.sum
   %bound1.i = icmp uge i8* %scevgep.i, %ptr
   %bound0.i = icmp uge i8* %scevgep4.i, %8
   %found.conflict.i = and i1 %bound0.i, %bound1.i
-  %ptr.ind.end.i = getelementptr i8* %ptr, i32 %n.vec.i
+  %ptr.ind.end.i = getelementptr i8, i8* %ptr, i32 %n.vec.i
   %.sum1 = add i32 %n.vec.i, %7
-  %ptr.ind.end6.i = getelementptr i8* %4, i32 %.sum1
+  %ptr.ind.end6.i = getelementptr i8, i8* %4, i32 %.sum1
   br i1 %found.conflict.i, label %middle.block.i, label %vector.body.i
 
 vector.body.i:                                    ; preds = %vector.body.i, %vector.memcheck.i
   %index.i = phi i32 [ %index.next.i, %vector.body.i ], [ 0, %vector.memcheck.i ]
-  %next.gep.i = getelementptr i8* %ptr, i32 %index.i
+  %next.gep.i = getelementptr i8, i8* %ptr, i32 %index.i
   %.sum2 = add i32 %index.i, %7
-  %next.gep55.i = getelementptr i8* %4, i32 %.sum2
+  %next.gep55.i = getelementptr i8, i8* %4, i32 %.sum2
   %11 = bitcast i8* %next.gep.i to <16 x i8>*
-  %wide.load.i = load <16 x i8>* %11, align 1
+  %wide.load.i = load <16 x i8>, <16 x i8>* %11, align 1
   %12 = bitcast i8* %next.gep55.i to <16 x i8>*
   store <16 x i8> %wide.load.i, <16 x i8>* %12, align 1
   %index.next.i = add i32 %index.i, 16
@@ -419,9 +419,9 @@ scalar.ph.i:                                      ; preds = %scalar.ph.i, %middl
   %src_c.03.i = phi i8* [ %14, %scalar.ph.i ], [ %resume.val.i, %middle.block.i ]
   %dst_c.02.i = phi i8* [ %16, %scalar.ph.i ], [ %resume.val5.i, %middle.block.i ]
   %.01.i = phi i32 [ %17, %scalar.ph.i ], [ %resume.val7.i, %middle.block.i ]
-  %14 = getelementptr inbounds i8* %src_c.03.i, i32 1
+  %14 = getelementptr inbounds i8, i8* %src_c.03.i, i32 1
   %15 = load i8* %src_c.03.i, align 1, !tbaa !19
-  %16 = getelementptr inbounds i8* %dst_c.02.i, i32 1
+  %16 = getelementptr inbounds i8, i8* %dst_c.02.i, i32 1
   store i8 %15, i8* %dst_c.02.i, align 1, !tbaa !19
   %17 = add i32 %.01.i, -1
   %18 = icmp eq i32 %17, 0
@@ -435,16 +435,16 @@ memcpy.exit:                                      ; preds = %scalar.ph.i, %middl
 define void @_Z14rsSetElementAt13rs_allocationPvjj([1 x i32] %a.coerce, i8* %ptr, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 4
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 4
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %6, %x
   %10 = mul i32 %8, %y
   %11 = add i32 %10, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = icmp eq i32 %6, 0
   br i1 %13, label %memcpy.exit, label %.lr.ph.i
 
@@ -456,24 +456,24 @@ define void @_Z14rsSetElementAt13rs_allocationPvjj([1 x i32] %a.coerce, i8* %ptr
   br i1 %cmp.zero.i, label %middle.block.i, label %vector.memcheck.i
 
 vector.memcheck.i:                                ; preds = %.lr.ph.i
-  %scevgep4.i = getelementptr i8* %ptr, i32 %14
+  %scevgep4.i = getelementptr i8, i8* %ptr, i32 %14
   %.sum = add i32 %11, %14
-  %scevgep.i = getelementptr i8* %4, i32 %.sum
+  %scevgep.i = getelementptr i8, i8* %4, i32 %.sum
   %bound1.i = icmp uge i8* %scevgep.i, %ptr
   %bound0.i = icmp uge i8* %scevgep4.i, %12
   %found.conflict.i = and i1 %bound0.i, %bound1.i
-  %ptr.ind.end.i = getelementptr i8* %ptr, i32 %n.vec.i
+  %ptr.ind.end.i = getelementptr i8, i8* %ptr, i32 %n.vec.i
   %.sum1 = add i32 %11, %n.vec.i
-  %ptr.ind.end6.i = getelementptr i8* %4, i32 %.sum1
+  %ptr.ind.end6.i = getelementptr i8, i8* %4, i32 %.sum1
   br i1 %found.conflict.i, label %middle.block.i, label %vector.body.i
 
 vector.body.i:                                    ; preds = %vector.body.i, %vector.memcheck.i
   %index.i = phi i32 [ %index.next.i, %vector.body.i ], [ 0, %vector.memcheck.i ]
-  %next.gep.i = getelementptr i8* %ptr, i32 %index.i
+  %next.gep.i = getelementptr i8, i8* %ptr, i32 %index.i
   %.sum2 = add i32 %index.i, %11
-  %next.gep55.i = getelementptr i8* %4, i32 %.sum2
+  %next.gep55.i = getelementptr i8, i8* %4, i32 %.sum2
   %15 = bitcast i8* %next.gep.i to <16 x i8>*
-  %wide.load.i = load <16 x i8>* %15, align 1
+  %wide.load.i = load <16 x i8>, <16 x i8>* %15, align 1
   %16 = bitcast i8* %next.gep55.i to <16 x i8>*
   store <16 x i8> %wide.load.i, <16 x i8>* %16, align 1
   %index.next.i = add i32 %index.i, 16
@@ -492,9 +492,9 @@ scalar.ph.i:                                      ; preds = %scalar.ph.i, %middl
   %src_c.03.i = phi i8* [ %18, %scalar.ph.i ], [ %resume.val.i, %middle.block.i ]
   %dst_c.02.i = phi i8* [ %20, %scalar.ph.i ], [ %resume.val5.i, %middle.block.i ]
   %.01.i = phi i32 [ %21, %scalar.ph.i ], [ %resume.val7.i, %middle.block.i ]
-  %18 = getelementptr inbounds i8* %src_c.03.i, i32 1
+  %18 = getelementptr inbounds i8, i8* %src_c.03.i, i32 1
   %19 = load i8* %src_c.03.i, align 1, !tbaa !19
-  %20 = getelementptr inbounds i8* %dst_c.02.i, i32 1
+  %20 = getelementptr inbounds i8, i8* %dst_c.02.i, i32 1
   store i8 %19, i8* %dst_c.02.i, align 1, !tbaa !19
   %21 = add i32 %.01.i, -1
   %22 = icmp eq i32 %21, 0
@@ -508,20 +508,20 @@ memcpy.exit:                                      ; preds = %scalar.ph.i, %middl
 define void @_Z14rsSetElementAt13rs_allocationPvjjj([1 x i32] %a.coerce, i8* %ptr, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 4
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 1, i32 4
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %8 = load i32* %7, align 4, !tbaa !21
-  %9 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %9 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %10 = load i32* %9, align 4, !tbaa !21
   %11 = mul i32 %6, %x
   %12 = mul i32 %10, %z
   %tmp = add i32 %12, %y
   %tmp3 = mul i32 %tmp, %8
   %13 = add i32 %tmp3, %11
-  %14 = getelementptr inbounds i8* %4, i32 %13
+  %14 = getelementptr inbounds i8, i8* %4, i32 %13
   %15 = icmp eq i32 %6, 0
   br i1 %15, label %memcpy.exit, label %.lr.ph.i
 
@@ -533,24 +533,24 @@ define void @_Z14rsSetElementAt13rs_allocationPvjjj([1 x i32] %a.coerce, i8* %pt
   br i1 %cmp.zero.i, label %middle.block.i, label %vector.memcheck.i
 
 vector.memcheck.i:                                ; preds = %.lr.ph.i
-  %scevgep4.i = getelementptr i8* %ptr, i32 %16
+  %scevgep4.i = getelementptr i8, i8* %ptr, i32 %16
   %.sum = add i32 %13, %16
-  %scevgep.i = getelementptr i8* %4, i32 %.sum
+  %scevgep.i = getelementptr i8, i8* %4, i32 %.sum
   %bound1.i = icmp uge i8* %scevgep.i, %ptr
   %bound0.i = icmp uge i8* %scevgep4.i, %14
   %found.conflict.i = and i1 %bound0.i, %bound1.i
-  %ptr.ind.end.i = getelementptr i8* %ptr, i32 %n.vec.i
+  %ptr.ind.end.i = getelementptr i8, i8* %ptr, i32 %n.vec.i
   %.sum1 = add i32 %13, %n.vec.i
-  %ptr.ind.end6.i = getelementptr i8* %4, i32 %.sum1
+  %ptr.ind.end6.i = getelementptr i8, i8* %4, i32 %.sum1
   br i1 %found.conflict.i, label %middle.block.i, label %vector.body.i
 
 vector.body.i:                                    ; preds = %vector.body.i, %vector.memcheck.i
   %index.i = phi i32 [ %index.next.i, %vector.body.i ], [ 0, %vector.memcheck.i ]
-  %next.gep.i = getelementptr i8* %ptr, i32 %index.i
+  %next.gep.i = getelementptr i8, i8* %ptr, i32 %index.i
   %.sum2 = add i32 %index.i, %13
-  %next.gep55.i = getelementptr i8* %4, i32 %.sum2
+  %next.gep55.i = getelementptr i8, i8* %4, i32 %.sum2
   %17 = bitcast i8* %next.gep.i to <16 x i8>*
-  %wide.load.i = load <16 x i8>* %17, align 1
+  %wide.load.i = load <16 x i8>, <16 x i8>* %17, align 1
   %18 = bitcast i8* %next.gep55.i to <16 x i8>*
   store <16 x i8> %wide.load.i, <16 x i8>* %18, align 1
   %index.next.i = add i32 %index.i, 16
@@ -569,9 +569,9 @@ scalar.ph.i:                                      ; preds = %scalar.ph.i, %middl
   %src_c.03.i = phi i8* [ %20, %scalar.ph.i ], [ %resume.val.i, %middle.block.i ]
   %dst_c.02.i = phi i8* [ %22, %scalar.ph.i ], [ %resume.val5.i, %middle.block.i ]
   %.01.i = phi i32 [ %23, %scalar.ph.i ], [ %resume.val7.i, %middle.block.i ]
-  %20 = getelementptr inbounds i8* %src_c.03.i, i32 1
+  %20 = getelementptr inbounds i8, i8* %src_c.03.i, i32 1
   %21 = load i8* %src_c.03.i, align 1, !tbaa !19
-  %22 = getelementptr inbounds i8* %dst_c.02.i, i32 1
+  %22 = getelementptr inbounds i8, i8* %dst_c.02.i, i32 1
   store i8 %21, i8* %dst_c.02.i, align 1, !tbaa !19
   %23 = add i32 %.01.i, -1
   %24 = icmp eq i32 %23, 0
@@ -585,9 +585,9 @@ memcpy.exit:                                      ; preds = %scalar.ph.i, %middl
 define void @_Z19rsSetElementAt_char13rs_allocationcj([1 x i32] %a.coerce, i8 signext %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds i8* %4, i32 %x
+  %5 = getelementptr inbounds i8, i8* %4, i32 %x
   store i8 %val, i8* %5, align 1, !tbaa !27
   ret void
 }
@@ -596,13 +596,13 @@ define void @_Z19rsSetElementAt_char13rs_allocationcj([1 x i32] %a.coerce, i8 si
 define void @_Z19rsSetElementAt_char13rs_allocationcjj([1 x i32] %a.coerce, i8 signext %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %tmp1.i.i = mul i32 %y, %6
   %7 = add i32 %tmp1.i.i, %x
-  %8 = getelementptr inbounds i8* %4, i32 %7
+  %8 = getelementptr inbounds i8, i8* %4, i32 %7
   store i8 %val, i8* %8, align 1, !tbaa !27
   ret void
 }
@@ -611,17 +611,17 @@ define void @_Z19rsSetElementAt_char13rs_allocationcjj([1 x i32] %a.coerce, i8 s
 define void @_Z19rsSetElementAt_char13rs_allocationcjjj([1 x i32] %a.coerce, i8 signext %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %8, %z
   %tmp.i.i = add i32 %9, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %10 = add i32 %tmp1.i.i, %x
-  %11 = getelementptr inbounds i8* %4, i32 %10
+  %11 = getelementptr inbounds i8, i8* %4, i32 %10
   store i8 %val, i8* %11, align 1, !tbaa !27
   ret void
 }
@@ -630,9 +630,9 @@ define void @_Z19rsSetElementAt_char13rs_allocationcjjj([1 x i32] %a.coerce, i8 
 define signext i8 @_Z19rsGetElementAt_char13rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds i8* %4, i32 %x
+  %5 = getelementptr inbounds i8, i8* %4, i32 %x
   %6 = load i8* %5, align 1, !tbaa !27
   ret i8 %6
 }
@@ -641,13 +641,13 @@ define signext i8 @_Z19rsGetElementAt_char13rs_allocationj([1 x i32] %a.coerce, 
 define signext i8 @_Z19rsGetElementAt_char13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %tmp1.i.i = mul i32 %y, %6
   %7 = add i32 %tmp1.i.i, %x
-  %8 = getelementptr inbounds i8* %4, i32 %7
+  %8 = getelementptr inbounds i8, i8* %4, i32 %7
   %9 = load i8* %8, align 1, !tbaa !27
   ret i8 %9
 }
@@ -656,17 +656,17 @@ define signext i8 @_Z19rsGetElementAt_char13rs_allocationjj([1 x i32] %a.coerce,
 define signext i8 @_Z19rsGetElementAt_char13rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %8, %z
   %tmp.i.i = add i32 %9, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %10 = add i32 %tmp1.i.i, %x
-  %11 = getelementptr inbounds i8* %4, i32 %10
+  %11 = getelementptr inbounds i8, i8* %4, i32 %10
   %12 = load i8* %11, align 1, !tbaa !27
   ret i8 %12
 }
@@ -675,10 +675,10 @@ define signext i8 @_Z19rsGetElementAt_char13rs_allocationjjj([1 x i32] %a.coerce
 define void @_Z20rsSetElementAt_char213rs_allocationDv2_cj([1 x i32] %a.coerce, <2 x i8> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 2
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i8>*
   store <2 x i8> %val, <2 x i8>* %7, align 2, !tbaa !30
   ret void
@@ -688,14 +688,14 @@ define void @_Z20rsSetElementAt_char213rs_allocationDv2_cj([1 x i32] %a.coerce, 
 define void @_Z20rsSetElementAt_char213rs_allocationDv2_cjj([1 x i32] %a.coerce, <2 x i8> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 2
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i8>*
   store <2 x i8> %val, <2 x i8>* %10, align 2, !tbaa !30
   ret void
@@ -705,18 +705,18 @@ define void @_Z20rsSetElementAt_char213rs_allocationDv2_cjj([1 x i32] %a.coerce,
 define void @_Z20rsSetElementAt_char213rs_allocationDv2_cjjj([1 x i32] %a.coerce, <2 x i8> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i8>*
   store <2 x i8> %val, <2 x i8>* %13, align 2, !tbaa !30
   ret void
@@ -726,12 +726,12 @@ define void @_Z20rsSetElementAt_char213rs_allocationDv2_cjjj([1 x i32] %a.coerce
 define <2 x i8> @_Z20rsGetElementAt_char213rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 2
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i8>*
-  %8 = load <2 x i8>* %7, align 2, !tbaa !30
+  %8 = load <2 x i8>, <2 x i8>* %7, align 2, !tbaa !30
   ret <2 x i8> %8
 }
 
@@ -739,16 +739,16 @@ define <2 x i8> @_Z20rsGetElementAt_char213rs_allocationj([1 x i32] %a.coerce, i
 define <2 x i8> @_Z20rsGetElementAt_char213rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 2
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i8>*
-  %11 = load <2 x i8>* %10, align 2, !tbaa !30
+  %11 = load <2 x i8>, <2 x i8>* %10, align 2, !tbaa !30
   ret <2 x i8> %11
 }
 
@@ -756,20 +756,20 @@ define <2 x i8> @_Z20rsGetElementAt_char213rs_allocationjj([1 x i32] %a.coerce, 
 define <2 x i8> @_Z20rsGetElementAt_char213rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i8>*
-  %14 = load <2 x i8>* %13, align 2, !tbaa !30
+  %14 = load <2 x i8>, <2 x i8>* %13, align 2, !tbaa !30
   ret <2 x i8> %14
 }
 
@@ -777,10 +777,10 @@ define <2 x i8> @_Z20rsGetElementAt_char213rs_allocationjjj([1 x i32] %a.coerce,
 define void @_Z20rsSetElementAt_char313rs_allocationDv3_cj([1 x i32] %a.coerce, <3 x i8> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = shufflevector <3 x i8> %val, <3 x i8> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %8 = bitcast i8* %6 to <4 x i8>*
   store <4 x i8> %7, <4 x i8>* %8, align 4, !tbaa !31
@@ -791,14 +791,14 @@ define void @_Z20rsSetElementAt_char313rs_allocationDv3_cj([1 x i32] %a.coerce, 
 define void @_Z20rsSetElementAt_char313rs_allocationDv3_cjj([1 x i32] %a.coerce, <3 x i8> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = shufflevector <3 x i8> %val, <3 x i8> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %11 = bitcast i8* %9 to <4 x i8>*
   store <4 x i8> %10, <4 x i8>* %11, align 4, !tbaa !31
@@ -809,18 +809,18 @@ define void @_Z20rsSetElementAt_char313rs_allocationDv3_cjj([1 x i32] %a.coerce,
 define void @_Z20rsSetElementAt_char313rs_allocationDv3_cjjj([1 x i32] %a.coerce, <3 x i8> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i8> %val, <3 x i8> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i8>*
   store <4 x i8> %13, <4 x i8>* %14, align 4, !tbaa !31
@@ -831,12 +831,12 @@ define void @_Z20rsSetElementAt_char313rs_allocationDv3_cjjj([1 x i32] %a.coerce
 define <3 x i8> @_Z20rsGetElementAt_char313rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i8>*
-  %8 = load <4 x i8>* %7, align 4, !tbaa !31
+  %8 = load <4 x i8>, <4 x i8>* %7, align 4, !tbaa !31
   %9 = shufflevector <4 x i8> %8, <4 x i8> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i8> %9
 }
@@ -845,16 +845,16 @@ define <3 x i8> @_Z20rsGetElementAt_char313rs_allocationj([1 x i32] %a.coerce, i
 define <3 x i8> @_Z20rsGetElementAt_char313rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i8>*
-  %11 = load <4 x i8>* %10, align 4, !tbaa !31
+  %11 = load <4 x i8>, <4 x i8>* %10, align 4, !tbaa !31
   %12 = shufflevector <4 x i8> %11, <4 x i8> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i8> %12
 }
@@ -863,20 +863,20 @@ define <3 x i8> @_Z20rsGetElementAt_char313rs_allocationjj([1 x i32] %a.coerce, 
 define <3 x i8> @_Z20rsGetElementAt_char313rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i8>*
-  %14 = load <4 x i8>* %13, align 4, !tbaa !31
+  %14 = load <4 x i8>, <4 x i8>* %13, align 4, !tbaa !31
   %15 = shufflevector <4 x i8> %14, <4 x i8> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i8> %15
 }
@@ -885,10 +885,10 @@ define <3 x i8> @_Z20rsGetElementAt_char313rs_allocationjjj([1 x i32] %a.coerce,
 define void @_Z20rsSetElementAt_char413rs_allocationDv4_cj([1 x i32] %a.coerce, <4 x i8> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i8>*
   store <4 x i8> %val, <4 x i8>* %7, align 4, !tbaa !32
   ret void
@@ -898,14 +898,14 @@ define void @_Z20rsSetElementAt_char413rs_allocationDv4_cj([1 x i32] %a.coerce, 
 define void @_Z20rsSetElementAt_char413rs_allocationDv4_cjj([1 x i32] %a.coerce, <4 x i8> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i8>*
   store <4 x i8> %val, <4 x i8>* %10, align 4, !tbaa !32
   ret void
@@ -915,18 +915,18 @@ define void @_Z20rsSetElementAt_char413rs_allocationDv4_cjj([1 x i32] %a.coerce,
 define void @_Z20rsSetElementAt_char413rs_allocationDv4_cjjj([1 x i32] %a.coerce, <4 x i8> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i8>*
   store <4 x i8> %val, <4 x i8>* %13, align 4, !tbaa !32
   ret void
@@ -936,12 +936,12 @@ define void @_Z20rsSetElementAt_char413rs_allocationDv4_cjjj([1 x i32] %a.coerce
 define <4 x i8> @_Z20rsGetElementAt_char413rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i8>*
-  %8 = load <4 x i8>* %7, align 4, !tbaa !32
+  %8 = load <4 x i8>, <4 x i8>* %7, align 4, !tbaa !32
   ret <4 x i8> %8
 }
 
@@ -949,16 +949,16 @@ define <4 x i8> @_Z20rsGetElementAt_char413rs_allocationj([1 x i32] %a.coerce, i
 define <4 x i8> @_Z20rsGetElementAt_char413rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i8>*
-  %11 = load <4 x i8>* %10, align 4, !tbaa !32
+  %11 = load <4 x i8>, <4 x i8>* %10, align 4, !tbaa !32
   ret <4 x i8> %11
 }
 
@@ -966,20 +966,20 @@ define <4 x i8> @_Z20rsGetElementAt_char413rs_allocationjj([1 x i32] %a.coerce, 
 define <4 x i8> @_Z20rsGetElementAt_char413rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i8>*
-  %14 = load <4 x i8>* %13, align 4, !tbaa !32
+  %14 = load <4 x i8>, <4 x i8>* %13, align 4, !tbaa !32
   ret <4 x i8> %14
 }
 
@@ -987,9 +987,9 @@ define <4 x i8> @_Z20rsGetElementAt_char413rs_allocationjjj([1 x i32] %a.coerce,
 define void @_Z20rsSetElementAt_uchar13rs_allocationhj([1 x i32] %a.coerce, i8 zeroext %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds i8* %4, i32 %x
+  %5 = getelementptr inbounds i8, i8* %4, i32 %x
   store i8 %val, i8* %5, align 1, !tbaa !33
   ret void
 }
@@ -998,13 +998,13 @@ define void @_Z20rsSetElementAt_uchar13rs_allocationhj([1 x i32] %a.coerce, i8 z
 define void @_Z20rsSetElementAt_uchar13rs_allocationhjj([1 x i32] %a.coerce, i8 zeroext %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %tmp1.i.i = mul i32 %y, %6
   %7 = add i32 %tmp1.i.i, %x
-  %8 = getelementptr inbounds i8* %4, i32 %7
+  %8 = getelementptr inbounds i8, i8* %4, i32 %7
   store i8 %val, i8* %8, align 1, !tbaa !33
   ret void
 }
@@ -1013,17 +1013,17 @@ define void @_Z20rsSetElementAt_uchar13rs_allocationhjj([1 x i32] %a.coerce, i8 
 define void @_Z20rsSetElementAt_uchar13rs_allocationhjjj([1 x i32] %a.coerce, i8 zeroext %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %8, %z
   %tmp.i.i = add i32 %9, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %10 = add i32 %tmp1.i.i, %x
-  %11 = getelementptr inbounds i8* %4, i32 %10
+  %11 = getelementptr inbounds i8, i8* %4, i32 %10
   store i8 %val, i8* %11, align 1, !tbaa !33
   ret void
 }
@@ -1032,9 +1032,9 @@ define void @_Z20rsSetElementAt_uchar13rs_allocationhjjj([1 x i32] %a.coerce, i8
 define zeroext i8 @_Z20rsGetElementAt_uchar13rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds i8* %4, i32 %x
+  %5 = getelementptr inbounds i8, i8* %4, i32 %x
   %6 = load i8* %5, align 1, !tbaa !33
   ret i8 %6
 }
@@ -1043,13 +1043,13 @@ define zeroext i8 @_Z20rsGetElementAt_uchar13rs_allocationj([1 x i32] %a.coerce,
 define zeroext i8 @_Z20rsGetElementAt_uchar13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %tmp1.i.i = mul i32 %y, %6
   %7 = add i32 %tmp1.i.i, %x
-  %8 = getelementptr inbounds i8* %4, i32 %7
+  %8 = getelementptr inbounds i8, i8* %4, i32 %7
   %9 = load i8* %8, align 1, !tbaa !33
   ret i8 %9
 }
@@ -1058,17 +1058,17 @@ define zeroext i8 @_Z20rsGetElementAt_uchar13rs_allocationjj([1 x i32] %a.coerce
 define zeroext i8 @_Z20rsGetElementAt_uchar13rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %8, %z
   %tmp.i.i = add i32 %9, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %10 = add i32 %tmp1.i.i, %x
-  %11 = getelementptr inbounds i8* %4, i32 %10
+  %11 = getelementptr inbounds i8, i8* %4, i32 %10
   %12 = load i8* %11, align 1, !tbaa !33
   ret i8 %12
 }
@@ -1077,10 +1077,10 @@ define zeroext i8 @_Z20rsGetElementAt_uchar13rs_allocationjjj([1 x i32] %a.coerc
 define void @_Z21rsSetElementAt_uchar213rs_allocationDv2_hj([1 x i32] %a.coerce, <2 x i8> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 2
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i8>*
   store <2 x i8> %val, <2 x i8>* %7, align 2, !tbaa !34
   ret void
@@ -1090,14 +1090,14 @@ define void @_Z21rsSetElementAt_uchar213rs_allocationDv2_hj([1 x i32] %a.coerce,
 define void @_Z21rsSetElementAt_uchar213rs_allocationDv2_hjj([1 x i32] %a.coerce, <2 x i8> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 2
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i8>*
   store <2 x i8> %val, <2 x i8>* %10, align 2, !tbaa !34
   ret void
@@ -1107,18 +1107,18 @@ define void @_Z21rsSetElementAt_uchar213rs_allocationDv2_hjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_uchar213rs_allocationDv2_hjjj([1 x i32] %a.coerce, <2 x i8> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i8>*
   store <2 x i8> %val, <2 x i8>* %13, align 2, !tbaa !34
   ret void
@@ -1128,12 +1128,12 @@ define void @_Z21rsSetElementAt_uchar213rs_allocationDv2_hjjj([1 x i32] %a.coerc
 define <2 x i8> @_Z21rsGetElementAt_uchar213rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 2
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i8>*
-  %8 = load <2 x i8>* %7, align 2, !tbaa !34
+  %8 = load <2 x i8>, <2 x i8>* %7, align 2, !tbaa !34
   ret <2 x i8> %8
 }
 
@@ -1141,16 +1141,16 @@ define <2 x i8> @_Z21rsGetElementAt_uchar213rs_allocationj([1 x i32] %a.coerce, 
 define <2 x i8> @_Z21rsGetElementAt_uchar213rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 2
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i8>*
-  %11 = load <2 x i8>* %10, align 2, !tbaa !34
+  %11 = load <2 x i8>, <2 x i8>* %10, align 2, !tbaa !34
   ret <2 x i8> %11
 }
 
@@ -1158,20 +1158,20 @@ define <2 x i8> @_Z21rsGetElementAt_uchar213rs_allocationjj([1 x i32] %a.coerce,
 define <2 x i8> @_Z21rsGetElementAt_uchar213rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i8>*
-  %14 = load <2 x i8>* %13, align 2, !tbaa !34
+  %14 = load <2 x i8>, <2 x i8>* %13, align 2, !tbaa !34
   ret <2 x i8> %14
 }
 
@@ -1179,10 +1179,10 @@ define <2 x i8> @_Z21rsGetElementAt_uchar213rs_allocationjjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_uchar313rs_allocationDv3_hj([1 x i32] %a.coerce, <3 x i8> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = shufflevector <3 x i8> %val, <3 x i8> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %8 = bitcast i8* %6 to <4 x i8>*
   store <4 x i8> %7, <4 x i8>* %8, align 4, !tbaa !35
@@ -1193,14 +1193,14 @@ define void @_Z21rsSetElementAt_uchar313rs_allocationDv3_hj([1 x i32] %a.coerce,
 define void @_Z21rsSetElementAt_uchar313rs_allocationDv3_hjj([1 x i32] %a.coerce, <3 x i8> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = shufflevector <3 x i8> %val, <3 x i8> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %11 = bitcast i8* %9 to <4 x i8>*
   store <4 x i8> %10, <4 x i8>* %11, align 4, !tbaa !35
@@ -1211,18 +1211,18 @@ define void @_Z21rsSetElementAt_uchar313rs_allocationDv3_hjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_uchar313rs_allocationDv3_hjjj([1 x i32] %a.coerce, <3 x i8> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i8> %val, <3 x i8> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i8>*
   store <4 x i8> %13, <4 x i8>* %14, align 4, !tbaa !35
@@ -1233,12 +1233,12 @@ define void @_Z21rsSetElementAt_uchar313rs_allocationDv3_hjjj([1 x i32] %a.coerc
 define <3 x i8> @_Z21rsGetElementAt_uchar313rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i8>*
-  %8 = load <4 x i8>* %7, align 4, !tbaa !35
+  %8 = load <4 x i8>, <4 x i8>* %7, align 4, !tbaa !35
   %9 = shufflevector <4 x i8> %8, <4 x i8> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i8> %9
 }
@@ -1247,16 +1247,16 @@ define <3 x i8> @_Z21rsGetElementAt_uchar313rs_allocationj([1 x i32] %a.coerce, 
 define <3 x i8> @_Z21rsGetElementAt_uchar313rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i8>*
-  %11 = load <4 x i8>* %10, align 4, !tbaa !35
+  %11 = load <4 x i8>, <4 x i8>* %10, align 4, !tbaa !35
   %12 = shufflevector <4 x i8> %11, <4 x i8> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i8> %12
 }
@@ -1265,20 +1265,20 @@ define <3 x i8> @_Z21rsGetElementAt_uchar313rs_allocationjj([1 x i32] %a.coerce,
 define <3 x i8> @_Z21rsGetElementAt_uchar313rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i8>*
-  %14 = load <4 x i8>* %13, align 4, !tbaa !35
+  %14 = load <4 x i8>, <4 x i8>* %13, align 4, !tbaa !35
   %15 = shufflevector <4 x i8> %14, <4 x i8> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i8> %15
 }
@@ -1287,10 +1287,10 @@ define <3 x i8> @_Z21rsGetElementAt_uchar313rs_allocationjjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_uchar413rs_allocationDv4_hj([1 x i32] %a.coerce, <4 x i8> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i8>*
   store <4 x i8> %val, <4 x i8>* %7, align 4, !tbaa !36
   ret void
@@ -1300,14 +1300,14 @@ define void @_Z21rsSetElementAt_uchar413rs_allocationDv4_hj([1 x i32] %a.coerce,
 define void @_Z21rsSetElementAt_uchar413rs_allocationDv4_hjj([1 x i32] %a.coerce, <4 x i8> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i8>*
   store <4 x i8> %val, <4 x i8>* %10, align 4, !tbaa !36
   ret void
@@ -1317,18 +1317,18 @@ define void @_Z21rsSetElementAt_uchar413rs_allocationDv4_hjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_uchar413rs_allocationDv4_hjjj([1 x i32] %a.coerce, <4 x i8> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i8>*
   store <4 x i8> %val, <4 x i8>* %13, align 4, !tbaa !36
   ret void
@@ -1338,12 +1338,12 @@ define void @_Z21rsSetElementAt_uchar413rs_allocationDv4_hjjj([1 x i32] %a.coerc
 define <4 x i8> @_Z21rsGetElementAt_uchar413rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i8>*
-  %8 = load <4 x i8>* %7, align 4, !tbaa !36
+  %8 = load <4 x i8>, <4 x i8>* %7, align 4, !tbaa !36
   ret <4 x i8> %8
 }
 
@@ -1351,16 +1351,16 @@ define <4 x i8> @_Z21rsGetElementAt_uchar413rs_allocationj([1 x i32] %a.coerce, 
 define <4 x i8> @_Z21rsGetElementAt_uchar413rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i8>*
-  %11 = load <4 x i8>* %10, align 4, !tbaa !36
+  %11 = load <4 x i8>, <4 x i8>* %10, align 4, !tbaa !36
   ret <4 x i8> %11
 }
 
@@ -1368,20 +1368,20 @@ define <4 x i8> @_Z21rsGetElementAt_uchar413rs_allocationjj([1 x i32] %a.coerce,
 define <4 x i8> @_Z21rsGetElementAt_uchar413rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i8>*
-  %14 = load <4 x i8>* %13, align 4, !tbaa !36
+  %14 = load <4 x i8>, <4 x i8>* %13, align 4, !tbaa !36
   ret <4 x i8> %14
 }
 
@@ -1389,10 +1389,10 @@ define <4 x i8> @_Z21rsGetElementAt_uchar413rs_allocationjjj([1 x i32] %a.coerce
 define void @_Z20rsSetElementAt_short13rs_allocationsj([1 x i32] %a.coerce, i16 signext %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 2
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to i16*
   store i16 %val, i16* %7, align 2, !tbaa !37
   ret void
@@ -1402,14 +1402,14 @@ define void @_Z20rsSetElementAt_short13rs_allocationsj([1 x i32] %a.coerce, i16 
 define void @_Z20rsSetElementAt_short13rs_allocationsjj([1 x i32] %a.coerce, i16 signext %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 2
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to i16*
   store i16 %val, i16* %10, align 2, !tbaa !37
   ret void
@@ -1419,18 +1419,18 @@ define void @_Z20rsSetElementAt_short13rs_allocationsjj([1 x i32] %a.coerce, i16
 define void @_Z20rsSetElementAt_short13rs_allocationsjjj([1 x i32] %a.coerce, i16 signext %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i16*
   store i16 %val, i16* %13, align 2, !tbaa !37
   ret void
@@ -1440,12 +1440,12 @@ define void @_Z20rsSetElementAt_short13rs_allocationsjjj([1 x i32] %a.coerce, i1
 define signext i16 @_Z20rsGetElementAt_short13rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 2
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to i16*
-  %8 = load i16* %7, align 2, !tbaa !37
+  %8 = load i16, i16* %7, align 2, !tbaa !37
   ret i16 %8
 }
 
@@ -1453,16 +1453,16 @@ define signext i16 @_Z20rsGetElementAt_short13rs_allocationj([1 x i32] %a.coerce
 define signext i16 @_Z20rsGetElementAt_short13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 2
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to i16*
-  %11 = load i16* %10, align 2, !tbaa !37
+  %11 = load i16, i16* %10, align 2, !tbaa !37
   ret i16 %11
 }
 
@@ -1470,20 +1470,20 @@ define signext i16 @_Z20rsGetElementAt_short13rs_allocationjj([1 x i32] %a.coerc
 define signext i16 @_Z20rsGetElementAt_short13rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i16*
-  %14 = load i16* %13, align 2, !tbaa !37
+  %14 = load i16, i16* %13, align 2, !tbaa !37
   ret i16 %14
 }
 
@@ -1491,10 +1491,10 @@ define signext i16 @_Z20rsGetElementAt_short13rs_allocationjjj([1 x i32] %a.coer
 define void @_Z21rsSetElementAt_short213rs_allocationDv2_sj([1 x i32] %a.coerce, <2 x i16> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i16>*
   store <2 x i16> %val, <2 x i16>* %7, align 4, !tbaa !38
   ret void
@@ -1504,14 +1504,14 @@ define void @_Z21rsSetElementAt_short213rs_allocationDv2_sj([1 x i32] %a.coerce,
 define void @_Z21rsSetElementAt_short213rs_allocationDv2_sjj([1 x i32] %a.coerce, <2 x i16> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i16>*
   store <2 x i16> %val, <2 x i16>* %10, align 4, !tbaa !38
   ret void
@@ -1521,18 +1521,18 @@ define void @_Z21rsSetElementAt_short213rs_allocationDv2_sjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_short213rs_allocationDv2_sjjj([1 x i32] %a.coerce, <2 x i16> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i16>*
   store <2 x i16> %val, <2 x i16>* %13, align 4, !tbaa !38
   ret void
@@ -1542,12 +1542,12 @@ define void @_Z21rsSetElementAt_short213rs_allocationDv2_sjjj([1 x i32] %a.coerc
 define <2 x i16> @_Z21rsGetElementAt_short213rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i16>*
-  %8 = load <2 x i16>* %7, align 4, !tbaa !38
+  %8 = load <2 x i16>, <2 x i16>* %7, align 4, !tbaa !38
   ret <2 x i16> %8
 }
 
@@ -1555,16 +1555,16 @@ define <2 x i16> @_Z21rsGetElementAt_short213rs_allocationj([1 x i32] %a.coerce,
 define <2 x i16> @_Z21rsGetElementAt_short213rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i16>*
-  %11 = load <2 x i16>* %10, align 4, !tbaa !38
+  %11 = load <2 x i16>, <2 x i16>* %10, align 4, !tbaa !38
   ret <2 x i16> %11
 }
 
@@ -1572,20 +1572,20 @@ define <2 x i16> @_Z21rsGetElementAt_short213rs_allocationjj([1 x i32] %a.coerce
 define <2 x i16> @_Z21rsGetElementAt_short213rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i16>*
-  %14 = load <2 x i16>* %13, align 4, !tbaa !38
+  %14 = load <2 x i16>, <2 x i16>* %13, align 4, !tbaa !38
   ret <2 x i16> %14
 }
 
@@ -1593,10 +1593,10 @@ define <2 x i16> @_Z21rsGetElementAt_short213rs_allocationjjj([1 x i32] %a.coerc
 define void @_Z21rsSetElementAt_short313rs_allocationDv3_sj([1 x i32] %a.coerce, <3 x i16> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = shufflevector <3 x i16> %val, <3 x i16> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %8 = bitcast i8* %6 to <4 x i16>*
   store <4 x i16> %7, <4 x i16>* %8, align 8, !tbaa !39
@@ -1607,14 +1607,14 @@ define void @_Z21rsSetElementAt_short313rs_allocationDv3_sj([1 x i32] %a.coerce,
 define void @_Z21rsSetElementAt_short313rs_allocationDv3_sjj([1 x i32] %a.coerce, <3 x i16> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = shufflevector <3 x i16> %val, <3 x i16> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %11 = bitcast i8* %9 to <4 x i16>*
   store <4 x i16> %10, <4 x i16>* %11, align 8, !tbaa !39
@@ -1625,18 +1625,18 @@ define void @_Z21rsSetElementAt_short313rs_allocationDv3_sjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_short313rs_allocationDv3_sjjj([1 x i32] %a.coerce, <3 x i16> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i16> %val, <3 x i16> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i16>*
   store <4 x i16> %13, <4 x i16>* %14, align 8, !tbaa !39
@@ -1647,12 +1647,12 @@ define void @_Z21rsSetElementAt_short313rs_allocationDv3_sjjj([1 x i32] %a.coerc
 define <3 x i16> @_Z21rsGetElementAt_short313rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i16>*
-  %8 = load <4 x i16>* %7, align 8, !tbaa !39
+  %8 = load <4 x i16>, <4 x i16>* %7, align 8, !tbaa !39
   %9 = shufflevector <4 x i16> %8, <4 x i16> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i16> %9
 }
@@ -1661,16 +1661,16 @@ define <3 x i16> @_Z21rsGetElementAt_short313rs_allocationj([1 x i32] %a.coerce,
 define <3 x i16> @_Z21rsGetElementAt_short313rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i16>*
-  %11 = load <4 x i16>* %10, align 8, !tbaa !39
+  %11 = load <4 x i16>, <4 x i16>* %10, align 8, !tbaa !39
   %12 = shufflevector <4 x i16> %11, <4 x i16> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i16> %12
 }
@@ -1679,20 +1679,20 @@ define <3 x i16> @_Z21rsGetElementAt_short313rs_allocationjj([1 x i32] %a.coerce
 define <3 x i16> @_Z21rsGetElementAt_short313rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i16>*
-  %14 = load <4 x i16>* %13, align 8, !tbaa !39
+  %14 = load <4 x i16>, <4 x i16>* %13, align 8, !tbaa !39
   %15 = shufflevector <4 x i16> %14, <4 x i16> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i16> %15
 }
@@ -1701,10 +1701,10 @@ define <3 x i16> @_Z21rsGetElementAt_short313rs_allocationjjj([1 x i32] %a.coerc
 define void @_Z21rsSetElementAt_short413rs_allocationDv4_sj([1 x i32] %a.coerce, <4 x i16> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i16>*
   store <4 x i16> %val, <4 x i16>* %7, align 8, !tbaa !40
   ret void
@@ -1714,14 +1714,14 @@ define void @_Z21rsSetElementAt_short413rs_allocationDv4_sj([1 x i32] %a.coerce,
 define void @_Z21rsSetElementAt_short413rs_allocationDv4_sjj([1 x i32] %a.coerce, <4 x i16> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i16>*
   store <4 x i16> %val, <4 x i16>* %10, align 8, !tbaa !40
   ret void
@@ -1731,18 +1731,18 @@ define void @_Z21rsSetElementAt_short413rs_allocationDv4_sjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_short413rs_allocationDv4_sjjj([1 x i32] %a.coerce, <4 x i16> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i16>*
   store <4 x i16> %val, <4 x i16>* %13, align 8, !tbaa !40
   ret void
@@ -1752,12 +1752,12 @@ define void @_Z21rsSetElementAt_short413rs_allocationDv4_sjjj([1 x i32] %a.coerc
 define <4 x i16> @_Z21rsGetElementAt_short413rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i16>*
-  %8 = load <4 x i16>* %7, align 8, !tbaa !40
+  %8 = load <4 x i16>, <4 x i16>* %7, align 8, !tbaa !40
   ret <4 x i16> %8
 }
 
@@ -1765,16 +1765,16 @@ define <4 x i16> @_Z21rsGetElementAt_short413rs_allocationj([1 x i32] %a.coerce,
 define <4 x i16> @_Z21rsGetElementAt_short413rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i16>*
-  %11 = load <4 x i16>* %10, align 8, !tbaa !40
+  %11 = load <4 x i16>, <4 x i16>* %10, align 8, !tbaa !40
   ret <4 x i16> %11
 }
 
@@ -1782,20 +1782,20 @@ define <4 x i16> @_Z21rsGetElementAt_short413rs_allocationjj([1 x i32] %a.coerce
 define <4 x i16> @_Z21rsGetElementAt_short413rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i16>*
-  %14 = load <4 x i16>* %13, align 8, !tbaa !40
+  %14 = load <4 x i16>, <4 x i16>* %13, align 8, !tbaa !40
   ret <4 x i16> %14
 }
 
@@ -1803,10 +1803,10 @@ define <4 x i16> @_Z21rsGetElementAt_short413rs_allocationjjj([1 x i32] %a.coerc
 define void @_Z21rsSetElementAt_ushort13rs_allocationtj([1 x i32] %a.coerce, i16 zeroext %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 2
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to i16*
   store i16 %val, i16* %7, align 2, !tbaa !41
   ret void
@@ -1816,14 +1816,14 @@ define void @_Z21rsSetElementAt_ushort13rs_allocationtj([1 x i32] %a.coerce, i16
 define void @_Z21rsSetElementAt_ushort13rs_allocationtjj([1 x i32] %a.coerce, i16 zeroext %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 2
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to i16*
   store i16 %val, i16* %10, align 2, !tbaa !41
   ret void
@@ -1833,18 +1833,18 @@ define void @_Z21rsSetElementAt_ushort13rs_allocationtjj([1 x i32] %a.coerce, i1
 define void @_Z21rsSetElementAt_ushort13rs_allocationtjjj([1 x i32] %a.coerce, i16 zeroext %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i16*
   store i16 %val, i16* %13, align 2, !tbaa !41
   ret void
@@ -1854,12 +1854,12 @@ define void @_Z21rsSetElementAt_ushort13rs_allocationtjjj([1 x i32] %a.coerce, i
 define zeroext i16 @_Z21rsGetElementAt_ushort13rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 2
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to i16*
-  %8 = load i16* %7, align 2, !tbaa !41
+  %8 = load i16, i16* %7, align 2, !tbaa !41
   ret i16 %8
 }
 
@@ -1867,16 +1867,16 @@ define zeroext i16 @_Z21rsGetElementAt_ushort13rs_allocationj([1 x i32] %a.coerc
 define zeroext i16 @_Z21rsGetElementAt_ushort13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 2
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to i16*
-  %11 = load i16* %10, align 2, !tbaa !41
+  %11 = load i16, i16* %10, align 2, !tbaa !41
   ret i16 %11
 }
 
@@ -1884,20 +1884,20 @@ define zeroext i16 @_Z21rsGetElementAt_ushort13rs_allocationjj([1 x i32] %a.coer
 define zeroext i16 @_Z21rsGetElementAt_ushort13rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i16*
-  %14 = load i16* %13, align 2, !tbaa !41
+  %14 = load i16, i16* %13, align 2, !tbaa !41
   ret i16 %14
 }
 
@@ -1905,10 +1905,10 @@ define zeroext i16 @_Z21rsGetElementAt_ushort13rs_allocationjjj([1 x i32] %a.coe
 define void @_Z22rsSetElementAt_ushort213rs_allocationDv2_tj([1 x i32] %a.coerce, <2 x i16> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i16>*
   store <2 x i16> %val, <2 x i16>* %7, align 4, !tbaa !42
   ret void
@@ -1918,14 +1918,14 @@ define void @_Z22rsSetElementAt_ushort213rs_allocationDv2_tj([1 x i32] %a.coerce
 define void @_Z22rsSetElementAt_ushort213rs_allocationDv2_tjj([1 x i32] %a.coerce, <2 x i16> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i16>*
   store <2 x i16> %val, <2 x i16>* %10, align 4, !tbaa !42
   ret void
@@ -1935,18 +1935,18 @@ define void @_Z22rsSetElementAt_ushort213rs_allocationDv2_tjj([1 x i32] %a.coerc
 define void @_Z22rsSetElementAt_ushort213rs_allocationDv2_tjjj([1 x i32] %a.coerce, <2 x i16> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i16>*
   store <2 x i16> %val, <2 x i16>* %13, align 4, !tbaa !42
   ret void
@@ -1956,12 +1956,12 @@ define void @_Z22rsSetElementAt_ushort213rs_allocationDv2_tjjj([1 x i32] %a.coer
 define <2 x i16> @_Z22rsGetElementAt_ushort213rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i16>*
-  %8 = load <2 x i16>* %7, align 4, !tbaa !42
+  %8 = load <2 x i16>, <2 x i16>* %7, align 4, !tbaa !42
   ret <2 x i16> %8
 }
 
@@ -1969,16 +1969,16 @@ define <2 x i16> @_Z22rsGetElementAt_ushort213rs_allocationj([1 x i32] %a.coerce
 define <2 x i16> @_Z22rsGetElementAt_ushort213rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i16>*
-  %11 = load <2 x i16>* %10, align 4, !tbaa !42
+  %11 = load <2 x i16>, <2 x i16>* %10, align 4, !tbaa !42
   ret <2 x i16> %11
 }
 
@@ -1986,20 +1986,20 @@ define <2 x i16> @_Z22rsGetElementAt_ushort213rs_allocationjj([1 x i32] %a.coerc
 define <2 x i16> @_Z22rsGetElementAt_ushort213rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i16>*
-  %14 = load <2 x i16>* %13, align 4, !tbaa !42
+  %14 = load <2 x i16>, <2 x i16>* %13, align 4, !tbaa !42
   ret <2 x i16> %14
 }
 
@@ -2007,10 +2007,10 @@ define <2 x i16> @_Z22rsGetElementAt_ushort213rs_allocationjjj([1 x i32] %a.coer
 define void @_Z22rsSetElementAt_ushort313rs_allocationDv3_tj([1 x i32] %a.coerce, <3 x i16> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = shufflevector <3 x i16> %val, <3 x i16> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %8 = bitcast i8* %6 to <4 x i16>*
   store <4 x i16> %7, <4 x i16>* %8, align 8, !tbaa !43
@@ -2021,14 +2021,14 @@ define void @_Z22rsSetElementAt_ushort313rs_allocationDv3_tj([1 x i32] %a.coerce
 define void @_Z22rsSetElementAt_ushort313rs_allocationDv3_tjj([1 x i32] %a.coerce, <3 x i16> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = shufflevector <3 x i16> %val, <3 x i16> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %11 = bitcast i8* %9 to <4 x i16>*
   store <4 x i16> %10, <4 x i16>* %11, align 8, !tbaa !43
@@ -2039,18 +2039,18 @@ define void @_Z22rsSetElementAt_ushort313rs_allocationDv3_tjj([1 x i32] %a.coerc
 define void @_Z22rsSetElementAt_ushort313rs_allocationDv3_tjjj([1 x i32] %a.coerce, <3 x i16> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i16> %val, <3 x i16> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i16>*
   store <4 x i16> %13, <4 x i16>* %14, align 8, !tbaa !43
@@ -2061,12 +2061,12 @@ define void @_Z22rsSetElementAt_ushort313rs_allocationDv3_tjjj([1 x i32] %a.coer
 define <3 x i16> @_Z22rsGetElementAt_ushort313rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i16>*
-  %8 = load <4 x i16>* %7, align 8, !tbaa !43
+  %8 = load <4 x i16>, <4 x i16>* %7, align 8, !tbaa !43
   %9 = shufflevector <4 x i16> %8, <4 x i16> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i16> %9
 }
@@ -2075,16 +2075,16 @@ define <3 x i16> @_Z22rsGetElementAt_ushort313rs_allocationj([1 x i32] %a.coerce
 define <3 x i16> @_Z22rsGetElementAt_ushort313rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i16>*
-  %11 = load <4 x i16>* %10, align 8, !tbaa !43
+  %11 = load <4 x i16>, <4 x i16>* %10, align 8, !tbaa !43
   %12 = shufflevector <4 x i16> %11, <4 x i16> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i16> %12
 }
@@ -2093,20 +2093,20 @@ define <3 x i16> @_Z22rsGetElementAt_ushort313rs_allocationjj([1 x i32] %a.coerc
 define <3 x i16> @_Z22rsGetElementAt_ushort313rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i16>*
-  %14 = load <4 x i16>* %13, align 8, !tbaa !43
+  %14 = load <4 x i16>, <4 x i16>* %13, align 8, !tbaa !43
   %15 = shufflevector <4 x i16> %14, <4 x i16> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i16> %15
 }
@@ -2115,10 +2115,10 @@ define <3 x i16> @_Z22rsGetElementAt_ushort313rs_allocationjjj([1 x i32] %a.coer
 define void @_Z22rsSetElementAt_ushort413rs_allocationDv4_tj([1 x i32] %a.coerce, <4 x i16> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i16>*
   store <4 x i16> %val, <4 x i16>* %7, align 8, !tbaa !44
   ret void
@@ -2128,14 +2128,14 @@ define void @_Z22rsSetElementAt_ushort413rs_allocationDv4_tj([1 x i32] %a.coerce
 define void @_Z22rsSetElementAt_ushort413rs_allocationDv4_tjj([1 x i32] %a.coerce, <4 x i16> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i16>*
   store <4 x i16> %val, <4 x i16>* %10, align 8, !tbaa !44
   ret void
@@ -2145,18 +2145,18 @@ define void @_Z22rsSetElementAt_ushort413rs_allocationDv4_tjj([1 x i32] %a.coerc
 define void @_Z22rsSetElementAt_ushort413rs_allocationDv4_tjjj([1 x i32] %a.coerce, <4 x i16> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i16>*
   store <4 x i16> %val, <4 x i16>* %13, align 8, !tbaa !44
   ret void
@@ -2166,12 +2166,12 @@ define void @_Z22rsSetElementAt_ushort413rs_allocationDv4_tjjj([1 x i32] %a.coer
 define <4 x i16> @_Z22rsGetElementAt_ushort413rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i16>*
-  %8 = load <4 x i16>* %7, align 8, !tbaa !44
+  %8 = load <4 x i16>, <4 x i16>* %7, align 8, !tbaa !44
   ret <4 x i16> %8
 }
 
@@ -2179,16 +2179,16 @@ define <4 x i16> @_Z22rsGetElementAt_ushort413rs_allocationj([1 x i32] %a.coerce
 define <4 x i16> @_Z22rsGetElementAt_ushort413rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i16>*
-  %11 = load <4 x i16>* %10, align 8, !tbaa !44
+  %11 = load <4 x i16>, <4 x i16>* %10, align 8, !tbaa !44
   ret <4 x i16> %11
 }
 
@@ -2196,20 +2196,20 @@ define <4 x i16> @_Z22rsGetElementAt_ushort413rs_allocationjj([1 x i32] %a.coerc
 define <4 x i16> @_Z22rsGetElementAt_ushort413rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i16>*
-  %14 = load <4 x i16>* %13, align 8, !tbaa !44
+  %14 = load <4 x i16>, <4 x i16>* %13, align 8, !tbaa !44
   ret <4 x i16> %14
 }
 
@@ -2217,10 +2217,10 @@ define <4 x i16> @_Z22rsGetElementAt_ushort413rs_allocationjjj([1 x i32] %a.coer
 define void @_Z18rsSetElementAt_int13rs_allocationij([1 x i32] %a.coerce, i32 %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to i32*
   store i32 %val, i32* %7, align 4, !tbaa !45
   ret void
@@ -2230,14 +2230,14 @@ define void @_Z18rsSetElementAt_int13rs_allocationij([1 x i32] %a.coerce, i32 %v
 define void @_Z18rsSetElementAt_int13rs_allocationijj([1 x i32] %a.coerce, i32 %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to i32*
   store i32 %val, i32* %10, align 4, !tbaa !45
   ret void
@@ -2247,18 +2247,18 @@ define void @_Z18rsSetElementAt_int13rs_allocationijj([1 x i32] %a.coerce, i32 %
 define void @_Z18rsSetElementAt_int13rs_allocationijjj([1 x i32] %a.coerce, i32 %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i32*
   store i32 %val, i32* %13, align 4, !tbaa !45
   ret void
@@ -2268,12 +2268,12 @@ define void @_Z18rsSetElementAt_int13rs_allocationijjj([1 x i32] %a.coerce, i32 
 define i32 @_Z18rsGetElementAt_int13rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to i32*
-  %8 = load i32* %7, align 4, !tbaa !45
+  %8 = load i32, i32* %7, align 4, !tbaa !45
   ret i32 %8
 }
 
@@ -2281,16 +2281,16 @@ define i32 @_Z18rsGetElementAt_int13rs_allocationj([1 x i32] %a.coerce, i32 %x) 
 define i32 @_Z18rsGetElementAt_int13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to i32*
-  %11 = load i32* %10, align 4, !tbaa !45
+  %11 = load i32, i32* %10, align 4, !tbaa !45
   ret i32 %11
 }
 
@@ -2298,20 +2298,20 @@ define i32 @_Z18rsGetElementAt_int13rs_allocationjj([1 x i32] %a.coerce, i32 %x,
 define i32 @_Z18rsGetElementAt_int13rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i32*
-  %14 = load i32* %13, align 4, !tbaa !45
+  %14 = load i32, i32* %13, align 4, !tbaa !45
   ret i32 %14
 }
 
@@ -2319,10 +2319,10 @@ define i32 @_Z18rsGetElementAt_int13rs_allocationjjj([1 x i32] %a.coerce, i32 %x
 define void @_Z19rsSetElementAt_int213rs_allocationDv2_ij([1 x i32] %a.coerce, <2 x i32> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i32>*
   store <2 x i32> %val, <2 x i32>* %7, align 8, !tbaa !46
   ret void
@@ -2332,14 +2332,14 @@ define void @_Z19rsSetElementAt_int213rs_allocationDv2_ij([1 x i32] %a.coerce, <
 define void @_Z19rsSetElementAt_int213rs_allocationDv2_ijj([1 x i32] %a.coerce, <2 x i32> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i32>*
   store <2 x i32> %val, <2 x i32>* %10, align 8, !tbaa !46
   ret void
@@ -2349,18 +2349,18 @@ define void @_Z19rsSetElementAt_int213rs_allocationDv2_ijj([1 x i32] %a.coerce, 
 define void @_Z19rsSetElementAt_int213rs_allocationDv2_ijjj([1 x i32] %a.coerce, <2 x i32> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i32>*
   store <2 x i32> %val, <2 x i32>* %13, align 8, !tbaa !46
   ret void
@@ -2370,12 +2370,12 @@ define void @_Z19rsSetElementAt_int213rs_allocationDv2_ijjj([1 x i32] %a.coerce,
 define <2 x i32> @_Z19rsGetElementAt_int213rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i32>*
-  %8 = load <2 x i32>* %7, align 8, !tbaa !46
+  %8 = load <2 x i32>, <2 x i32>* %7, align 8, !tbaa !46
   ret <2 x i32> %8
 }
 
@@ -2383,16 +2383,16 @@ define <2 x i32> @_Z19rsGetElementAt_int213rs_allocationj([1 x i32] %a.coerce, i
 define <2 x i32> @_Z19rsGetElementAt_int213rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i32>*
-  %11 = load <2 x i32>* %10, align 8, !tbaa !46
+  %11 = load <2 x i32>, <2 x i32>* %10, align 8, !tbaa !46
   ret <2 x i32> %11
 }
 
@@ -2400,20 +2400,20 @@ define <2 x i32> @_Z19rsGetElementAt_int213rs_allocationjj([1 x i32] %a.coerce, 
 define <2 x i32> @_Z19rsGetElementAt_int213rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i32>*
-  %14 = load <2 x i32>* %13, align 8, !tbaa !46
+  %14 = load <2 x i32>, <2 x i32>* %13, align 8, !tbaa !46
   ret <2 x i32> %14
 }
 
@@ -2421,10 +2421,10 @@ define <2 x i32> @_Z19rsGetElementAt_int213rs_allocationjjj([1 x i32] %a.coerce,
 define void @_Z19rsSetElementAt_int313rs_allocationDv3_ij([1 x i32] %a.coerce, <3 x i32> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = shufflevector <3 x i32> %val, <3 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %8 = bitcast i8* %6 to <4 x i32>*
   store <4 x i32> %7, <4 x i32>* %8, align 16, !tbaa !47
@@ -2435,14 +2435,14 @@ define void @_Z19rsSetElementAt_int313rs_allocationDv3_ij([1 x i32] %a.coerce, <
 define void @_Z19rsSetElementAt_int313rs_allocationDv3_ijj([1 x i32] %a.coerce, <3 x i32> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = shufflevector <3 x i32> %val, <3 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %11 = bitcast i8* %9 to <4 x i32>*
   store <4 x i32> %10, <4 x i32>* %11, align 16, !tbaa !47
@@ -2453,18 +2453,18 @@ define void @_Z19rsSetElementAt_int313rs_allocationDv3_ijj([1 x i32] %a.coerce, 
 define void @_Z19rsSetElementAt_int313rs_allocationDv3_ijjj([1 x i32] %a.coerce, <3 x i32> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i32> %val, <3 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i32>*
   store <4 x i32> %13, <4 x i32>* %14, align 16, !tbaa !47
@@ -2475,12 +2475,12 @@ define void @_Z19rsSetElementAt_int313rs_allocationDv3_ijjj([1 x i32] %a.coerce,
 define <3 x i32> @_Z19rsGetElementAt_int313rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i32>*
-  %8 = load <4 x i32>* %7, align 8, !tbaa !47
+  %8 = load <4 x i32>, <4 x i32>* %7, align 8, !tbaa !47
   %9 = shufflevector <4 x i32> %8, <4 x i32> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i32> %9
 }
@@ -2489,16 +2489,16 @@ define <3 x i32> @_Z19rsGetElementAt_int313rs_allocationj([1 x i32] %a.coerce, i
 define <3 x i32> @_Z19rsGetElementAt_int313rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i32>*
-  %11 = load <4 x i32>* %10, align 8, !tbaa !47
+  %11 = load <4 x i32>, <4 x i32>* %10, align 8, !tbaa !47
   %12 = shufflevector <4 x i32> %11, <4 x i32> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i32> %12
 }
@@ -2507,20 +2507,20 @@ define <3 x i32> @_Z19rsGetElementAt_int313rs_allocationjj([1 x i32] %a.coerce, 
 define <3 x i32> @_Z19rsGetElementAt_int313rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i32>*
-  %14 = load <4 x i32>* %13, align 8, !tbaa !47
+  %14 = load <4 x i32>, <4 x i32>* %13, align 8, !tbaa !47
   %15 = shufflevector <4 x i32> %14, <4 x i32> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i32> %15
 }
@@ -2529,10 +2529,10 @@ define <3 x i32> @_Z19rsGetElementAt_int313rs_allocationjjj([1 x i32] %a.coerce,
 define void @_Z19rsSetElementAt_int413rs_allocationDv4_ij([1 x i32] %a.coerce, <4 x i32> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i32>*
   store <4 x i32> %val, <4 x i32>* %7, align 16, !tbaa !48
   ret void
@@ -2542,14 +2542,14 @@ define void @_Z19rsSetElementAt_int413rs_allocationDv4_ij([1 x i32] %a.coerce, <
 define void @_Z19rsSetElementAt_int413rs_allocationDv4_ijj([1 x i32] %a.coerce, <4 x i32> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i32>*
   store <4 x i32> %val, <4 x i32>* %10, align 16, !tbaa !48
   ret void
@@ -2559,18 +2559,18 @@ define void @_Z19rsSetElementAt_int413rs_allocationDv4_ijj([1 x i32] %a.coerce, 
 define void @_Z19rsSetElementAt_int413rs_allocationDv4_ijjj([1 x i32] %a.coerce, <4 x i32> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i32>*
   store <4 x i32> %val, <4 x i32>* %13, align 16, !tbaa !48
   ret void
@@ -2580,12 +2580,12 @@ define void @_Z19rsSetElementAt_int413rs_allocationDv4_ijjj([1 x i32] %a.coerce,
 define <4 x i32> @_Z19rsGetElementAt_int413rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i32>*
-  %8 = load <4 x i32>* %7, align 16, !tbaa !48
+  %8 = load <4 x i32>, <4 x i32>* %7, align 16, !tbaa !48
   ret <4 x i32> %8
 }
 
@@ -2593,16 +2593,16 @@ define <4 x i32> @_Z19rsGetElementAt_int413rs_allocationj([1 x i32] %a.coerce, i
 define <4 x i32> @_Z19rsGetElementAt_int413rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i32>*
-  %11 = load <4 x i32>* %10, align 16, !tbaa !48
+  %11 = load <4 x i32>, <4 x i32>* %10, align 16, !tbaa !48
   ret <4 x i32> %11
 }
 
@@ -2610,20 +2610,20 @@ define <4 x i32> @_Z19rsGetElementAt_int413rs_allocationjj([1 x i32] %a.coerce, 
 define <4 x i32> @_Z19rsGetElementAt_int413rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i32>*
-  %14 = load <4 x i32>* %13, align 16, !tbaa !48
+  %14 = load <4 x i32>, <4 x i32>* %13, align 16, !tbaa !48
   ret <4 x i32> %14
 }
 
@@ -2631,10 +2631,10 @@ define <4 x i32> @_Z19rsGetElementAt_int413rs_allocationjjj([1 x i32] %a.coerce,
 define void @_Z19rsSetElementAt_uint13rs_allocationjj([1 x i32] %a.coerce, i32 %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to i32*
   store i32 %val, i32* %7, align 4, !tbaa !49
   ret void
@@ -2644,14 +2644,14 @@ define void @_Z19rsSetElementAt_uint13rs_allocationjj([1 x i32] %a.coerce, i32 %
 define void @_Z19rsSetElementAt_uint13rs_allocationjjj([1 x i32] %a.coerce, i32 %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to i32*
   store i32 %val, i32* %10, align 4, !tbaa !49
   ret void
@@ -2661,18 +2661,18 @@ define void @_Z19rsSetElementAt_uint13rs_allocationjjj([1 x i32] %a.coerce, i32 
 define void @_Z19rsSetElementAt_uint13rs_allocationjjjj([1 x i32] %a.coerce, i32 %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i32*
   store i32 %val, i32* %13, align 4, !tbaa !49
   ret void
@@ -2682,12 +2682,12 @@ define void @_Z19rsSetElementAt_uint13rs_allocationjjjj([1 x i32] %a.coerce, i32
 define i32 @_Z19rsGetElementAt_uint13rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to i32*
-  %8 = load i32* %7, align 4, !tbaa !49
+  %8 = load i32, i32* %7, align 4, !tbaa !49
   ret i32 %8
 }
 
@@ -2695,16 +2695,16 @@ define i32 @_Z19rsGetElementAt_uint13rs_allocationj([1 x i32] %a.coerce, i32 %x)
 define i32 @_Z19rsGetElementAt_uint13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to i32*
-  %11 = load i32* %10, align 4, !tbaa !49
+  %11 = load i32, i32* %10, align 4, !tbaa !49
   ret i32 %11
 }
 
@@ -2712,20 +2712,20 @@ define i32 @_Z19rsGetElementAt_uint13rs_allocationjj([1 x i32] %a.coerce, i32 %x
 define i32 @_Z19rsGetElementAt_uint13rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i32*
-  %14 = load i32* %13, align 4, !tbaa !49
+  %14 = load i32, i32* %13, align 4, !tbaa !49
   ret i32 %14
 }
 
@@ -2733,10 +2733,10 @@ define i32 @_Z19rsGetElementAt_uint13rs_allocationjjj([1 x i32] %a.coerce, i32 %
 define void @_Z20rsSetElementAt_uint213rs_allocationDv2_jj([1 x i32] %a.coerce, <2 x i32> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i32>*
   store <2 x i32> %val, <2 x i32>* %7, align 8, !tbaa !50
   ret void
@@ -2746,14 +2746,14 @@ define void @_Z20rsSetElementAt_uint213rs_allocationDv2_jj([1 x i32] %a.coerce, 
 define void @_Z20rsSetElementAt_uint213rs_allocationDv2_jjj([1 x i32] %a.coerce, <2 x i32> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i32>*
   store <2 x i32> %val, <2 x i32>* %10, align 8, !tbaa !50
   ret void
@@ -2763,18 +2763,18 @@ define void @_Z20rsSetElementAt_uint213rs_allocationDv2_jjj([1 x i32] %a.coerce,
 define void @_Z20rsSetElementAt_uint213rs_allocationDv2_jjjj([1 x i32] %a.coerce, <2 x i32> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i32>*
   store <2 x i32> %val, <2 x i32>* %13, align 8, !tbaa !50
   ret void
@@ -2784,12 +2784,12 @@ define void @_Z20rsSetElementAt_uint213rs_allocationDv2_jjjj([1 x i32] %a.coerce
 define <2 x i32> @_Z20rsGetElementAt_uint213rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i32>*
-  %8 = load <2 x i32>* %7, align 8, !tbaa !50
+  %8 = load <2 x i32>, <2 x i32>* %7, align 8, !tbaa !50
   ret <2 x i32> %8
 }
 
@@ -2797,16 +2797,16 @@ define <2 x i32> @_Z20rsGetElementAt_uint213rs_allocationj([1 x i32] %a.coerce, 
 define <2 x i32> @_Z20rsGetElementAt_uint213rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i32>*
-  %11 = load <2 x i32>* %10, align 8, !tbaa !50
+  %11 = load <2 x i32>, <2 x i32>* %10, align 8, !tbaa !50
   ret <2 x i32> %11
 }
 
@@ -2814,20 +2814,20 @@ define <2 x i32> @_Z20rsGetElementAt_uint213rs_allocationjj([1 x i32] %a.coerce,
 define <2 x i32> @_Z20rsGetElementAt_uint213rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i32>*
-  %14 = load <2 x i32>* %13, align 8, !tbaa !50
+  %14 = load <2 x i32>, <2 x i32>* %13, align 8, !tbaa !50
   ret <2 x i32> %14
 }
 
@@ -2835,10 +2835,10 @@ define <2 x i32> @_Z20rsGetElementAt_uint213rs_allocationjjj([1 x i32] %a.coerce
 define void @_Z20rsSetElementAt_uint313rs_allocationDv3_jj([1 x i32] %a.coerce, <3 x i32> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = shufflevector <3 x i32> %val, <3 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %8 = bitcast i8* %6 to <4 x i32>*
   store <4 x i32> %7, <4 x i32>* %8, align 16, !tbaa !51
@@ -2849,14 +2849,14 @@ define void @_Z20rsSetElementAt_uint313rs_allocationDv3_jj([1 x i32] %a.coerce, 
 define void @_Z20rsSetElementAt_uint313rs_allocationDv3_jjj([1 x i32] %a.coerce, <3 x i32> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = shufflevector <3 x i32> %val, <3 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %11 = bitcast i8* %9 to <4 x i32>*
   store <4 x i32> %10, <4 x i32>* %11, align 16, !tbaa !51
@@ -2867,18 +2867,18 @@ define void @_Z20rsSetElementAt_uint313rs_allocationDv3_jjj([1 x i32] %a.coerce,
 define void @_Z20rsSetElementAt_uint313rs_allocationDv3_jjjj([1 x i32] %a.coerce, <3 x i32> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i32> %val, <3 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i32>*
   store <4 x i32> %13, <4 x i32>* %14, align 16, !tbaa !51
@@ -2889,12 +2889,12 @@ define void @_Z20rsSetElementAt_uint313rs_allocationDv3_jjjj([1 x i32] %a.coerce
 define <3 x i32> @_Z20rsGetElementAt_uint313rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i32>*
-  %8 = load <4 x i32>* %7, align 8, !tbaa !51
+  %8 = load <4 x i32>, <4 x i32>* %7, align 8, !tbaa !51
   %9 = shufflevector <4 x i32> %8, <4 x i32> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i32> %9
 }
@@ -2903,16 +2903,16 @@ define <3 x i32> @_Z20rsGetElementAt_uint313rs_allocationj([1 x i32] %a.coerce, 
 define <3 x i32> @_Z20rsGetElementAt_uint313rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i32>*
-  %11 = load <4 x i32>* %10, align 8, !tbaa !51
+  %11 = load <4 x i32>, <4 x i32>* %10, align 8, !tbaa !51
   %12 = shufflevector <4 x i32> %11, <4 x i32> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i32> %12
 }
@@ -2921,20 +2921,20 @@ define <3 x i32> @_Z20rsGetElementAt_uint313rs_allocationjj([1 x i32] %a.coerce,
 define <3 x i32> @_Z20rsGetElementAt_uint313rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i32>*
-  %14 = load <4 x i32>* %13, align 8, !tbaa !51
+  %14 = load <4 x i32>, <4 x i32>* %13, align 8, !tbaa !51
   %15 = shufflevector <4 x i32> %14, <4 x i32> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i32> %15
 }
@@ -2943,10 +2943,10 @@ define <3 x i32> @_Z20rsGetElementAt_uint313rs_allocationjjj([1 x i32] %a.coerce
 define void @_Z20rsSetElementAt_uint413rs_allocationDv4_jj([1 x i32] %a.coerce, <4 x i32> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i32>*
   store <4 x i32> %val, <4 x i32>* %7, align 16, !tbaa !52
   ret void
@@ -2956,14 +2956,14 @@ define void @_Z20rsSetElementAt_uint413rs_allocationDv4_jj([1 x i32] %a.coerce, 
 define void @_Z20rsSetElementAt_uint413rs_allocationDv4_jjj([1 x i32] %a.coerce, <4 x i32> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i32>*
   store <4 x i32> %val, <4 x i32>* %10, align 16, !tbaa !52
   ret void
@@ -2973,18 +2973,18 @@ define void @_Z20rsSetElementAt_uint413rs_allocationDv4_jjj([1 x i32] %a.coerce,
 define void @_Z20rsSetElementAt_uint413rs_allocationDv4_jjjj([1 x i32] %a.coerce, <4 x i32> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i32>*
   store <4 x i32> %val, <4 x i32>* %13, align 16, !tbaa !52
   ret void
@@ -2994,12 +2994,12 @@ define void @_Z20rsSetElementAt_uint413rs_allocationDv4_jjjj([1 x i32] %a.coerce
 define <4 x i32> @_Z20rsGetElementAt_uint413rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i32>*
-  %8 = load <4 x i32>* %7, align 16, !tbaa !52
+  %8 = load <4 x i32>, <4 x i32>* %7, align 16, !tbaa !52
   ret <4 x i32> %8
 }
 
@@ -3007,16 +3007,16 @@ define <4 x i32> @_Z20rsGetElementAt_uint413rs_allocationj([1 x i32] %a.coerce, 
 define <4 x i32> @_Z20rsGetElementAt_uint413rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i32>*
-  %11 = load <4 x i32>* %10, align 16, !tbaa !52
+  %11 = load <4 x i32>, <4 x i32>* %10, align 16, !tbaa !52
   ret <4 x i32> %11
 }
 
@@ -3024,20 +3024,20 @@ define <4 x i32> @_Z20rsGetElementAt_uint413rs_allocationjj([1 x i32] %a.coerce,
 define <4 x i32> @_Z20rsGetElementAt_uint413rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i32>*
-  %14 = load <4 x i32>* %13, align 16, !tbaa !52
+  %14 = load <4 x i32>, <4 x i32>* %13, align 16, !tbaa !52
   ret <4 x i32> %14
 }
 
@@ -3045,10 +3045,10 @@ define <4 x i32> @_Z20rsGetElementAt_uint413rs_allocationjjj([1 x i32] %a.coerce
 define void @_Z19rsSetElementAt_long13rs_allocationlj([1 x i32] %a.coerce, i64 %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to i64*
   store i64 %val, i64* %7, align 8, !tbaa !53
   ret void
@@ -3058,14 +3058,14 @@ define void @_Z19rsSetElementAt_long13rs_allocationlj([1 x i32] %a.coerce, i64 %
 define void @_Z19rsSetElementAt_long13rs_allocationljj([1 x i32] %a.coerce, i64 %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to i64*
   store i64 %val, i64* %10, align 8, !tbaa !53
   ret void
@@ -3075,18 +3075,18 @@ define void @_Z19rsSetElementAt_long13rs_allocationljj([1 x i32] %a.coerce, i64 
 define void @_Z19rsSetElementAt_long13rs_allocationljjj([1 x i32] %a.coerce, i64 %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i64*
   store i64 %val, i64* %13, align 8, !tbaa !53
   ret void
@@ -3096,12 +3096,12 @@ define void @_Z19rsSetElementAt_long13rs_allocationljjj([1 x i32] %a.coerce, i64
 define i64 @_Z19rsGetElementAt_long13rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to i64*
-  %8 = load i64* %7, align 8, !tbaa !53
+  %8 = load i64, i64* %7, align 8, !tbaa !53
   ret i64 %8
 }
 
@@ -3109,16 +3109,16 @@ define i64 @_Z19rsGetElementAt_long13rs_allocationj([1 x i32] %a.coerce, i32 %x)
 define i64 @_Z19rsGetElementAt_long13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to i64*
-  %11 = load i64* %10, align 8, !tbaa !53
+  %11 = load i64, i64* %10, align 8, !tbaa !53
   ret i64 %11
 }
 
@@ -3126,20 +3126,20 @@ define i64 @_Z19rsGetElementAt_long13rs_allocationjj([1 x i32] %a.coerce, i32 %x
 define i64 @_Z19rsGetElementAt_long13rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i64*
-  %14 = load i64* %13, align 8, !tbaa !53
+  %14 = load i64, i64* %13, align 8, !tbaa !53
   ret i64 %14
 }
 
@@ -3147,10 +3147,10 @@ define i64 @_Z19rsGetElementAt_long13rs_allocationjjj([1 x i32] %a.coerce, i32 %
 define void @_Z20rsSetElementAt_long213rs_allocationDv2_lj([1 x i32] %a.coerce, <2 x i64> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i64>*
   store <2 x i64> %val, <2 x i64>* %7, align 16, !tbaa !54
   ret void
@@ -3160,14 +3160,14 @@ define void @_Z20rsSetElementAt_long213rs_allocationDv2_lj([1 x i32] %a.coerce, 
 define void @_Z20rsSetElementAt_long213rs_allocationDv2_ljj([1 x i32] %a.coerce, <2 x i64> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i64>*
   store <2 x i64> %val, <2 x i64>* %10, align 16, !tbaa !54
   ret void
@@ -3177,18 +3177,18 @@ define void @_Z20rsSetElementAt_long213rs_allocationDv2_ljj([1 x i32] %a.coerce,
 define void @_Z20rsSetElementAt_long213rs_allocationDv2_ljjj([1 x i32] %a.coerce, <2 x i64> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i64>*
   store <2 x i64> %val, <2 x i64>* %13, align 16, !tbaa !54
   ret void
@@ -3198,12 +3198,12 @@ define void @_Z20rsSetElementAt_long213rs_allocationDv2_ljjj([1 x i32] %a.coerce
 define <2 x i64> @_Z20rsGetElementAt_long213rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i64>*
-  %8 = load <2 x i64>* %7, align 16, !tbaa !54
+  %8 = load <2 x i64>, <2 x i64>* %7, align 16, !tbaa !54
   ret <2 x i64> %8
 }
 
@@ -3211,16 +3211,16 @@ define <2 x i64> @_Z20rsGetElementAt_long213rs_allocationj([1 x i32] %a.coerce, 
 define <2 x i64> @_Z20rsGetElementAt_long213rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i64>*
-  %11 = load <2 x i64>* %10, align 16, !tbaa !54
+  %11 = load <2 x i64>, <2 x i64>* %10, align 16, !tbaa !54
   ret <2 x i64> %11
 }
 
@@ -3228,20 +3228,20 @@ define <2 x i64> @_Z20rsGetElementAt_long213rs_allocationjj([1 x i32] %a.coerce,
 define <2 x i64> @_Z20rsGetElementAt_long213rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i64>*
-  %14 = load <2 x i64>* %13, align 16, !tbaa !54
+  %14 = load <2 x i64>, <2 x i64>* %13, align 16, !tbaa !54
   ret <2 x i64> %14
 }
 
@@ -3249,10 +3249,10 @@ define <2 x i64> @_Z20rsGetElementAt_long213rs_allocationjjj([1 x i32] %a.coerce
 define void @_Z20rsSetElementAt_long313rs_allocationDv3_lj([1 x i32] %a.coerce, <3 x i64> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 32
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = shufflevector <3 x i64> %val, <3 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %8 = bitcast i8* %6 to <4 x i64>*
   store <4 x i64> %7, <4 x i64>* %8, align 32, !tbaa !55
@@ -3263,14 +3263,14 @@ define void @_Z20rsSetElementAt_long313rs_allocationDv3_lj([1 x i32] %a.coerce, 
 define void @_Z20rsSetElementAt_long313rs_allocationDv3_ljj([1 x i32] %a.coerce, <3 x i64> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 32
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = shufflevector <3 x i64> %val, <3 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %11 = bitcast i8* %9 to <4 x i64>*
   store <4 x i64> %10, <4 x i64>* %11, align 32, !tbaa !55
@@ -3281,18 +3281,18 @@ define void @_Z20rsSetElementAt_long313rs_allocationDv3_ljj([1 x i32] %a.coerce,
 define void @_Z20rsSetElementAt_long313rs_allocationDv3_ljjj([1 x i32] %a.coerce, <3 x i64> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i64> %val, <3 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i64>*
   store <4 x i64> %13, <4 x i64>* %14, align 32, !tbaa !55
@@ -3304,16 +3304,16 @@ define void @_Z20rsGetElementAt_long313rs_allocationj(<3 x i64>* noalias nocaptu
   %1 = alloca <3 x i64>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
   %6 = mul i32 %x, 32
-  %7 = getelementptr inbounds i8* %5, i32 %6
+  %7 = getelementptr inbounds i8, i8* %5, i32 %6
   %8 = bitcast i8* %7 to <4 x i64>*
-  %9 = load <4 x i64>* %8, align 32
+  %9 = load <4 x i64>, <4 x i64>* %8, align 32
   %10 = bitcast <3 x i64>* %1 to <4 x i64>*
   store <4 x i64> %9, <4 x i64>* %10, align 32, !tbaa !55
   %11 = bitcast <3 x i64>* %1 to <4 x i64>*
-  %12 = load <4 x i64>* %11, align 32
+  %12 = load <4 x i64>, <4 x i64>* %11, align 32
   %13 = bitcast <3 x i64>* %agg.result to <4 x i64>*
   store <4 x i64> %12, <4 x i64>* %13, align 32, !tbaa !19
   ret void
@@ -3324,20 +3324,20 @@ define void @_Z20rsGetElementAt_long313rs_allocationjj(<3 x i64>* noalias nocapt
   %1 = alloca <3 x i64>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
-  %6 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %7 = load i32* %6, align 4, !tbaa !21
   %8 = mul i32 %x, 32
   %tmp1.i.i = mul i32 %y, %7
   %9 = add i32 %tmp1.i.i, %8
-  %10 = getelementptr inbounds i8* %5, i32 %9
+  %10 = getelementptr inbounds i8, i8* %5, i32 %9
   %11 = bitcast i8* %10 to <4 x i64>*
-  %12 = load <4 x i64>* %11, align 32
+  %12 = load <4 x i64>, <4 x i64>* %11, align 32
   %13 = bitcast <3 x i64>* %1 to <4 x i64>*
   store <4 x i64> %12, <4 x i64>* %13, align 32, !tbaa !55
   %14 = bitcast <3 x i64>* %1 to <4 x i64>*
-  %15 = load <4 x i64>* %14, align 32
+  %15 = load <4 x i64>, <4 x i64>* %14, align 32
   %16 = bitcast <3 x i64>* %agg.result to <4 x i64>*
   store <4 x i64> %15, <4 x i64>* %16, align 32, !tbaa !19
   ret void
@@ -3348,24 +3348,24 @@ define void @_Z20rsGetElementAt_long313rs_allocationjjj(<3 x i64>* noalias nocap
   %1 = alloca <3 x i64>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
-  %6 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %7 = load i32* %6, align 4, !tbaa !21
-  %8 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %8 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %9 = load i32* %8, align 4, !tbaa !21
   %10 = mul i32 %x, 32
   %11 = mul i32 %9, %z
   %tmp.i.i = add i32 %11, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %7
   %12 = add i32 %tmp1.i.i, %10
-  %13 = getelementptr inbounds i8* %5, i32 %12
+  %13 = getelementptr inbounds i8, i8* %5, i32 %12
   %14 = bitcast i8* %13 to <4 x i64>*
-  %15 = load <4 x i64>* %14, align 32
+  %15 = load <4 x i64>, <4 x i64>* %14, align 32
   %16 = bitcast <3 x i64>* %1 to <4 x i64>*
   store <4 x i64> %15, <4 x i64>* %16, align 32, !tbaa !55
   %17 = bitcast <3 x i64>* %1 to <4 x i64>*
-  %18 = load <4 x i64>* %17, align 32
+  %18 = load <4 x i64>, <4 x i64>* %17, align 32
   %19 = bitcast <3 x i64>* %agg.result to <4 x i64>*
   store <4 x i64> %18, <4 x i64>* %19, align 32, !tbaa !19
   ret void
@@ -3375,10 +3375,10 @@ define void @_Z20rsGetElementAt_long313rs_allocationjjj(<3 x i64>* noalias nocap
 define void @_Z20rsSetElementAt_long413rs_allocationDv4_lj([1 x i32] %a.coerce, <4 x i64> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 32
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i64>*
   store <4 x i64> %val, <4 x i64>* %7, align 32, !tbaa !56
   ret void
@@ -3388,14 +3388,14 @@ define void @_Z20rsSetElementAt_long413rs_allocationDv4_lj([1 x i32] %a.coerce, 
 define void @_Z20rsSetElementAt_long413rs_allocationDv4_ljj([1 x i32] %a.coerce, <4 x i64> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 32
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i64>*
   store <4 x i64> %val, <4 x i64>* %10, align 32, !tbaa !56
   ret void
@@ -3405,18 +3405,18 @@ define void @_Z20rsSetElementAt_long413rs_allocationDv4_ljj([1 x i32] %a.coerce,
 define void @_Z20rsSetElementAt_long413rs_allocationDv4_ljjj([1 x i32] %a.coerce, <4 x i64> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i64>*
   store <4 x i64> %val, <4 x i64>* %13, align 32, !tbaa !56
   ret void
@@ -3427,14 +3427,14 @@ define void @_Z20rsGetElementAt_long413rs_allocationj(<4 x i64>* noalias nocaptu
   %1 = alloca <4 x i64>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
   %6 = mul i32 %x, 32
-  %7 = getelementptr inbounds i8* %5, i32 %6
+  %7 = getelementptr inbounds i8, i8* %5, i32 %6
   %8 = bitcast i8* %7 to <4 x i64>*
-  %9 = load <4 x i64>* %8, align 32, !tbaa !28
+  %9 = load <4 x i64>, <4 x i64>* %8, align 32, !tbaa !28
   store <4 x i64> %9, <4 x i64>* %1, align 32, !tbaa !56
-  %10 = load <4 x i64>* %1, align 32, !tbaa !19
+  %10 = load <4 x i64>, <4 x i64>* %1, align 32, !tbaa !19
   store <4 x i64> %10, <4 x i64>* %agg.result, align 32, !tbaa !19
   ret void
 }
@@ -3444,18 +3444,18 @@ define void @_Z20rsGetElementAt_long413rs_allocationjj(<4 x i64>* noalias nocapt
   %1 = alloca <4 x i64>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
-  %6 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %7 = load i32* %6, align 4, !tbaa !21
   %8 = mul i32 %x, 32
   %tmp1.i.i = mul i32 %y, %7
   %9 = add i32 %tmp1.i.i, %8
-  %10 = getelementptr inbounds i8* %5, i32 %9
+  %10 = getelementptr inbounds i8, i8* %5, i32 %9
   %11 = bitcast i8* %10 to <4 x i64>*
-  %12 = load <4 x i64>* %11, align 32, !tbaa !28
+  %12 = load <4 x i64>, <4 x i64>* %11, align 32, !tbaa !28
   store <4 x i64> %12, <4 x i64>* %1, align 32, !tbaa !56
-  %13 = load <4 x i64>* %1, align 32, !tbaa !19
+  %13 = load <4 x i64>, <4 x i64>* %1, align 32, !tbaa !19
   store <4 x i64> %13, <4 x i64>* %agg.result, align 32, !tbaa !19
   ret void
 }
@@ -3465,22 +3465,22 @@ define void @_Z20rsGetElementAt_long413rs_allocationjjj(<4 x i64>* noalias nocap
   %1 = alloca <4 x i64>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
-  %6 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %7 = load i32* %6, align 4, !tbaa !21
-  %8 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %8 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %9 = load i32* %8, align 4, !tbaa !21
   %10 = mul i32 %x, 32
   %11 = mul i32 %9, %z
   %tmp.i.i = add i32 %11, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %7
   %12 = add i32 %tmp1.i.i, %10
-  %13 = getelementptr inbounds i8* %5, i32 %12
+  %13 = getelementptr inbounds i8, i8* %5, i32 %12
   %14 = bitcast i8* %13 to <4 x i64>*
-  %15 = load <4 x i64>* %14, align 32, !tbaa !28
+  %15 = load <4 x i64>, <4 x i64>* %14, align 32, !tbaa !28
   store <4 x i64> %15, <4 x i64>* %1, align 32, !tbaa !56
-  %16 = load <4 x i64>* %1, align 32, !tbaa !19
+  %16 = load <4 x i64>, <4 x i64>* %1, align 32, !tbaa !19
   store <4 x i64> %16, <4 x i64>* %agg.result, align 32, !tbaa !19
   ret void
 }
@@ -3489,10 +3489,10 @@ define void @_Z20rsGetElementAt_long413rs_allocationjjj(<4 x i64>* noalias nocap
 define void @_Z20rsSetElementAt_ulong13rs_allocationyj([1 x i32] %a.coerce, i64 %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to i64*
   store i64 %val, i64* %7, align 8, !tbaa !57
   ret void
@@ -3502,14 +3502,14 @@ define void @_Z20rsSetElementAt_ulong13rs_allocationyj([1 x i32] %a.coerce, i64 
 define void @_Z20rsSetElementAt_ulong13rs_allocationyjj([1 x i32] %a.coerce, i64 %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to i64*
   store i64 %val, i64* %10, align 8, !tbaa !57
   ret void
@@ -3519,18 +3519,18 @@ define void @_Z20rsSetElementAt_ulong13rs_allocationyjj([1 x i32] %a.coerce, i64
 define void @_Z20rsSetElementAt_ulong13rs_allocationyjjj([1 x i32] %a.coerce, i64 %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i64*
   store i64 %val, i64* %13, align 8, !tbaa !57
   ret void
@@ -3540,12 +3540,12 @@ define void @_Z20rsSetElementAt_ulong13rs_allocationyjjj([1 x i32] %a.coerce, i6
 define i64 @_Z20rsGetElementAt_ulong13rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to i64*
-  %8 = load i64* %7, align 8, !tbaa !57
+  %8 = load i64, i64* %7, align 8, !tbaa !57
   ret i64 %8
 }
 
@@ -3553,16 +3553,16 @@ define i64 @_Z20rsGetElementAt_ulong13rs_allocationj([1 x i32] %a.coerce, i32 %x
 define i64 @_Z20rsGetElementAt_ulong13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to i64*
-  %11 = load i64* %10, align 8, !tbaa !57
+  %11 = load i64, i64* %10, align 8, !tbaa !57
   ret i64 %11
 }
 
@@ -3570,20 +3570,20 @@ define i64 @_Z20rsGetElementAt_ulong13rs_allocationjj([1 x i32] %a.coerce, i32 %
 define i64 @_Z20rsGetElementAt_ulong13rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i64*
-  %14 = load i64* %13, align 8, !tbaa !57
+  %14 = load i64, i64* %13, align 8, !tbaa !57
   ret i64 %14
 }
 
@@ -3591,10 +3591,10 @@ define i64 @_Z20rsGetElementAt_ulong13rs_allocationjjj([1 x i32] %a.coerce, i32 
 define void @_Z21rsSetElementAt_ulong213rs_allocationDv2_yj([1 x i32] %a.coerce, <2 x i64> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i64>*
   store <2 x i64> %val, <2 x i64>* %7, align 16, !tbaa !58
   ret void
@@ -3604,14 +3604,14 @@ define void @_Z21rsSetElementAt_ulong213rs_allocationDv2_yj([1 x i32] %a.coerce,
 define void @_Z21rsSetElementAt_ulong213rs_allocationDv2_yjj([1 x i32] %a.coerce, <2 x i64> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i64>*
   store <2 x i64> %val, <2 x i64>* %10, align 16, !tbaa !58
   ret void
@@ -3621,18 +3621,18 @@ define void @_Z21rsSetElementAt_ulong213rs_allocationDv2_yjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_ulong213rs_allocationDv2_yjjj([1 x i32] %a.coerce, <2 x i64> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i64>*
   store <2 x i64> %val, <2 x i64>* %13, align 16, !tbaa !58
   ret void
@@ -3642,12 +3642,12 @@ define void @_Z21rsSetElementAt_ulong213rs_allocationDv2_yjjj([1 x i32] %a.coerc
 define <2 x i64> @_Z21rsGetElementAt_ulong213rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x i64>*
-  %8 = load <2 x i64>* %7, align 16, !tbaa !58
+  %8 = load <2 x i64>, <2 x i64>* %7, align 16, !tbaa !58
   ret <2 x i64> %8
 }
 
@@ -3655,16 +3655,16 @@ define <2 x i64> @_Z21rsGetElementAt_ulong213rs_allocationj([1 x i32] %a.coerce,
 define <2 x i64> @_Z21rsGetElementAt_ulong213rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x i64>*
-  %11 = load <2 x i64>* %10, align 16, !tbaa !58
+  %11 = load <2 x i64>, <2 x i64>* %10, align 16, !tbaa !58
   ret <2 x i64> %11
 }
 
@@ -3672,20 +3672,20 @@ define <2 x i64> @_Z21rsGetElementAt_ulong213rs_allocationjj([1 x i32] %a.coerce
 define <2 x i64> @_Z21rsGetElementAt_ulong213rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i64>*
-  %14 = load <2 x i64>* %13, align 16, !tbaa !58
+  %14 = load <2 x i64>, <2 x i64>* %13, align 16, !tbaa !58
   ret <2 x i64> %14
 }
 
@@ -3693,10 +3693,10 @@ define <2 x i64> @_Z21rsGetElementAt_ulong213rs_allocationjjj([1 x i32] %a.coerc
 define void @_Z21rsSetElementAt_ulong313rs_allocationDv3_yj([1 x i32] %a.coerce, <3 x i64> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 32
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = shufflevector <3 x i64> %val, <3 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %8 = bitcast i8* %6 to <4 x i64>*
   store <4 x i64> %7, <4 x i64>* %8, align 32, !tbaa !59
@@ -3707,14 +3707,14 @@ define void @_Z21rsSetElementAt_ulong313rs_allocationDv3_yj([1 x i32] %a.coerce,
 define void @_Z21rsSetElementAt_ulong313rs_allocationDv3_yjj([1 x i32] %a.coerce, <3 x i64> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 32
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = shufflevector <3 x i64> %val, <3 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %11 = bitcast i8* %9 to <4 x i64>*
   store <4 x i64> %10, <4 x i64>* %11, align 32, !tbaa !59
@@ -3725,18 +3725,18 @@ define void @_Z21rsSetElementAt_ulong313rs_allocationDv3_yjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_ulong313rs_allocationDv3_yjjj([1 x i32] %a.coerce, <3 x i64> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i64> %val, <3 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i64>*
   store <4 x i64> %13, <4 x i64>* %14, align 32, !tbaa !59
@@ -3748,16 +3748,16 @@ define void @_Z21rsGetElementAt_ulong313rs_allocationj(<3 x i64>* noalias nocapt
   %1 = alloca <3 x i64>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
   %6 = mul i32 %x, 32
-  %7 = getelementptr inbounds i8* %5, i32 %6
+  %7 = getelementptr inbounds i8, i8* %5, i32 %6
   %8 = bitcast i8* %7 to <4 x i64>*
-  %9 = load <4 x i64>* %8, align 32
+  %9 = load <4 x i64>, <4 x i64>* %8, align 32
   %10 = bitcast <3 x i64>* %1 to <4 x i64>*
   store <4 x i64> %9, <4 x i64>* %10, align 32, !tbaa !59
   %11 = bitcast <3 x i64>* %1 to <4 x i64>*
-  %12 = load <4 x i64>* %11, align 32
+  %12 = load <4 x i64>, <4 x i64>* %11, align 32
   %13 = bitcast <3 x i64>* %agg.result to <4 x i64>*
   store <4 x i64> %12, <4 x i64>* %13, align 32, !tbaa !19
   ret void
@@ -3768,20 +3768,20 @@ define void @_Z21rsGetElementAt_ulong313rs_allocationjj(<3 x i64>* noalias nocap
   %1 = alloca <3 x i64>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
-  %6 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %7 = load i32* %6, align 4, !tbaa !21
   %8 = mul i32 %x, 32
   %tmp1.i.i = mul i32 %y, %7
   %9 = add i32 %tmp1.i.i, %8
-  %10 = getelementptr inbounds i8* %5, i32 %9
+  %10 = getelementptr inbounds i8, i8* %5, i32 %9
   %11 = bitcast i8* %10 to <4 x i64>*
-  %12 = load <4 x i64>* %11, align 32
+  %12 = load <4 x i64>, <4 x i64>* %11, align 32
   %13 = bitcast <3 x i64>* %1 to <4 x i64>*
   store <4 x i64> %12, <4 x i64>* %13, align 32, !tbaa !59
   %14 = bitcast <3 x i64>* %1 to <4 x i64>*
-  %15 = load <4 x i64>* %14, align 32
+  %15 = load <4 x i64>, <4 x i64>* %14, align 32
   %16 = bitcast <3 x i64>* %agg.result to <4 x i64>*
   store <4 x i64> %15, <4 x i64>* %16, align 32, !tbaa !19
   ret void
@@ -3792,24 +3792,24 @@ define void @_Z21rsGetElementAt_ulong313rs_allocationjjj(<3 x i64>* noalias noca
   %1 = alloca <3 x i64>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
-  %6 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %7 = load i32* %6, align 4, !tbaa !21
-  %8 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %8 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %9 = load i32* %8, align 4, !tbaa !21
   %10 = mul i32 %x, 32
   %11 = mul i32 %9, %z
   %tmp.i.i = add i32 %11, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %7
   %12 = add i32 %tmp1.i.i, %10
-  %13 = getelementptr inbounds i8* %5, i32 %12
+  %13 = getelementptr inbounds i8, i8* %5, i32 %12
   %14 = bitcast i8* %13 to <4 x i64>*
-  %15 = load <4 x i64>* %14, align 32
+  %15 = load <4 x i64>, <4 x i64>* %14, align 32
   %16 = bitcast <3 x i64>* %1 to <4 x i64>*
   store <4 x i64> %15, <4 x i64>* %16, align 32, !tbaa !59
   %17 = bitcast <3 x i64>* %1 to <4 x i64>*
-  %18 = load <4 x i64>* %17, align 32
+  %18 = load <4 x i64>, <4 x i64>* %17, align 32
   %19 = bitcast <3 x i64>* %agg.result to <4 x i64>*
   store <4 x i64> %18, <4 x i64>* %19, align 32, !tbaa !19
   ret void
@@ -3819,10 +3819,10 @@ define void @_Z21rsGetElementAt_ulong313rs_allocationjjj(<3 x i64>* noalias noca
 define void @_Z21rsSetElementAt_ulong413rs_allocationDv4_yj([1 x i32] %a.coerce, <4 x i64> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 32
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x i64>*
   store <4 x i64> %val, <4 x i64>* %7, align 32, !tbaa !60
   ret void
@@ -3832,14 +3832,14 @@ define void @_Z21rsSetElementAt_ulong413rs_allocationDv4_yj([1 x i32] %a.coerce,
 define void @_Z21rsSetElementAt_ulong413rs_allocationDv4_yjj([1 x i32] %a.coerce, <4 x i64> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 32
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x i64>*
   store <4 x i64> %val, <4 x i64>* %10, align 32, !tbaa !60
   ret void
@@ -3849,18 +3849,18 @@ define void @_Z21rsSetElementAt_ulong413rs_allocationDv4_yjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_ulong413rs_allocationDv4_yjjj([1 x i32] %a.coerce, <4 x i64> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i64>*
   store <4 x i64> %val, <4 x i64>* %13, align 32, !tbaa !60
   ret void
@@ -3871,14 +3871,14 @@ define void @_Z21rsGetElementAt_ulong413rs_allocationj(<4 x i64>* noalias nocapt
   %1 = alloca <4 x i64>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
   %6 = mul i32 %x, 32
-  %7 = getelementptr inbounds i8* %5, i32 %6
+  %7 = getelementptr inbounds i8, i8* %5, i32 %6
   %8 = bitcast i8* %7 to <4 x i64>*
-  %9 = load <4 x i64>* %8, align 32, !tbaa !28
+  %9 = load <4 x i64>, <4 x i64>* %8, align 32, !tbaa !28
   store <4 x i64> %9, <4 x i64>* %1, align 32, !tbaa !60
-  %10 = load <4 x i64>* %1, align 32, !tbaa !19
+  %10 = load <4 x i64>, <4 x i64>* %1, align 32, !tbaa !19
   store <4 x i64> %10, <4 x i64>* %agg.result, align 32, !tbaa !19
   ret void
 }
@@ -3888,18 +3888,18 @@ define void @_Z21rsGetElementAt_ulong413rs_allocationjj(<4 x i64>* noalias nocap
   %1 = alloca <4 x i64>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
-  %6 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %7 = load i32* %6, align 4, !tbaa !21
   %8 = mul i32 %x, 32
   %tmp1.i.i = mul i32 %y, %7
   %9 = add i32 %tmp1.i.i, %8
-  %10 = getelementptr inbounds i8* %5, i32 %9
+  %10 = getelementptr inbounds i8, i8* %5, i32 %9
   %11 = bitcast i8* %10 to <4 x i64>*
-  %12 = load <4 x i64>* %11, align 32, !tbaa !28
+  %12 = load <4 x i64>, <4 x i64>* %11, align 32, !tbaa !28
   store <4 x i64> %12, <4 x i64>* %1, align 32, !tbaa !60
-  %13 = load <4 x i64>* %1, align 32, !tbaa !19
+  %13 = load <4 x i64>, <4 x i64>* %1, align 32, !tbaa !19
   store <4 x i64> %13, <4 x i64>* %agg.result, align 32, !tbaa !19
   ret void
 }
@@ -3909,22 +3909,22 @@ define void @_Z21rsGetElementAt_ulong413rs_allocationjjj(<4 x i64>* noalias noca
   %1 = alloca <4 x i64>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
-  %6 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %7 = load i32* %6, align 4, !tbaa !21
-  %8 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %8 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %9 = load i32* %8, align 4, !tbaa !21
   %10 = mul i32 %x, 32
   %11 = mul i32 %9, %z
   %tmp.i.i = add i32 %11, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %7
   %12 = add i32 %tmp1.i.i, %10
-  %13 = getelementptr inbounds i8* %5, i32 %12
+  %13 = getelementptr inbounds i8, i8* %5, i32 %12
   %14 = bitcast i8* %13 to <4 x i64>*
-  %15 = load <4 x i64>* %14, align 32, !tbaa !28
+  %15 = load <4 x i64>, <4 x i64>* %14, align 32, !tbaa !28
   store <4 x i64> %15, <4 x i64>* %1, align 32, !tbaa !60
-  %16 = load <4 x i64>* %1, align 32, !tbaa !19
+  %16 = load <4 x i64>, <4 x i64>* %1, align 32, !tbaa !19
   store <4 x i64> %16, <4 x i64>* %agg.result, align 32, !tbaa !19
   ret void
 }
@@ -3933,10 +3933,10 @@ define void @_Z21rsGetElementAt_ulong413rs_allocationjjj(<4 x i64>* noalias noca
 define void @_Z20rsSetElementAt_float13rs_allocationfj([1 x i32] %a.coerce, float %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to float*
   store float %val, float* %7, align 4, !tbaa !61
   ret void
@@ -3946,14 +3946,14 @@ define void @_Z20rsSetElementAt_float13rs_allocationfj([1 x i32] %a.coerce, floa
 define void @_Z20rsSetElementAt_float13rs_allocationfjj([1 x i32] %a.coerce, float %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to float*
   store float %val, float* %10, align 4, !tbaa !61
   ret void
@@ -3963,18 +3963,18 @@ define void @_Z20rsSetElementAt_float13rs_allocationfjj([1 x i32] %a.coerce, flo
 define void @_Z20rsSetElementAt_float13rs_allocationfjjj([1 x i32] %a.coerce, float %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to float*
   store float %val, float* %13, align 4, !tbaa !61
   ret void
@@ -3984,12 +3984,12 @@ define void @_Z20rsSetElementAt_float13rs_allocationfjjj([1 x i32] %a.coerce, fl
 define float @_Z20rsGetElementAt_float13rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 4
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to float*
-  %8 = load float* %7, align 4, !tbaa !61
+  %8 = load float, float* %7, align 4, !tbaa !61
   ret float %8
 }
 
@@ -3997,16 +3997,16 @@ define float @_Z20rsGetElementAt_float13rs_allocationj([1 x i32] %a.coerce, i32 
 define float @_Z20rsGetElementAt_float13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 4
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to float*
-  %11 = load float* %10, align 4, !tbaa !61
+  %11 = load float, float* %10, align 4, !tbaa !61
   ret float %11
 }
 
@@ -4014,20 +4014,20 @@ define float @_Z20rsGetElementAt_float13rs_allocationjj([1 x i32] %a.coerce, i32
 define float @_Z20rsGetElementAt_float13rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to float*
-  %14 = load float* %13, align 4, !tbaa !61
+  %14 = load float, float* %13, align 4, !tbaa !61
   ret float %14
 }
 
@@ -4035,10 +4035,10 @@ define float @_Z20rsGetElementAt_float13rs_allocationjjj([1 x i32] %a.coerce, i3
 define void @_Z21rsSetElementAt_float213rs_allocationDv2_fj([1 x i32] %a.coerce, <2 x float> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x float>*
   store <2 x float> %val, <2 x float>* %7, align 8, !tbaa !62
   ret void
@@ -4048,14 +4048,14 @@ define void @_Z21rsSetElementAt_float213rs_allocationDv2_fj([1 x i32] %a.coerce,
 define void @_Z21rsSetElementAt_float213rs_allocationDv2_fjj([1 x i32] %a.coerce, <2 x float> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x float>*
   store <2 x float> %val, <2 x float>* %10, align 8, !tbaa !62
   ret void
@@ -4065,18 +4065,18 @@ define void @_Z21rsSetElementAt_float213rs_allocationDv2_fjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_float213rs_allocationDv2_fjjj([1 x i32] %a.coerce, <2 x float> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x float>*
   store <2 x float> %val, <2 x float>* %13, align 8, !tbaa !62
   ret void
@@ -4086,12 +4086,12 @@ define void @_Z21rsSetElementAt_float213rs_allocationDv2_fjjj([1 x i32] %a.coerc
 define <2 x float> @_Z21rsGetElementAt_float213rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x float>*
-  %8 = load <2 x float>* %7, align 8, !tbaa !62
+  %8 = load <2 x float>, <2 x float>* %7, align 8, !tbaa !62
   ret <2 x float> %8
 }
 
@@ -4099,16 +4099,16 @@ define <2 x float> @_Z21rsGetElementAt_float213rs_allocationj([1 x i32] %a.coerc
 define <2 x float> @_Z21rsGetElementAt_float213rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x float>*
-  %11 = load <2 x float>* %10, align 8, !tbaa !62
+  %11 = load <2 x float>, <2 x float>* %10, align 8, !tbaa !62
   ret <2 x float> %11
 }
 
@@ -4116,20 +4116,20 @@ define <2 x float> @_Z21rsGetElementAt_float213rs_allocationjj([1 x i32] %a.coer
 define <2 x float> @_Z21rsGetElementAt_float213rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x float>*
-  %14 = load <2 x float>* %13, align 8, !tbaa !62
+  %14 = load <2 x float>, <2 x float>* %13, align 8, !tbaa !62
   ret <2 x float> %14
 }
 
@@ -4137,10 +4137,10 @@ define <2 x float> @_Z21rsGetElementAt_float213rs_allocationjjj([1 x i32] %a.coe
 define void @_Z21rsSetElementAt_float313rs_allocationDv3_fj([1 x i32] %a.coerce, <3 x float> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = shufflevector <3 x float> %val, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %8 = bitcast i8* %6 to <4 x float>*
   store <4 x float> %7, <4 x float>* %8, align 16, !tbaa !63
@@ -4151,14 +4151,14 @@ define void @_Z21rsSetElementAt_float313rs_allocationDv3_fj([1 x i32] %a.coerce,
 define void @_Z21rsSetElementAt_float313rs_allocationDv3_fjj([1 x i32] %a.coerce, <3 x float> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = shufflevector <3 x float> %val, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %11 = bitcast i8* %9 to <4 x float>*
   store <4 x float> %10, <4 x float>* %11, align 16, !tbaa !63
@@ -4169,18 +4169,18 @@ define void @_Z21rsSetElementAt_float313rs_allocationDv3_fjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_float313rs_allocationDv3_fjjj([1 x i32] %a.coerce, <3 x float> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x float> %val, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x float>*
   store <4 x float> %13, <4 x float>* %14, align 16, !tbaa !63
@@ -4191,12 +4191,12 @@ define void @_Z21rsSetElementAt_float313rs_allocationDv3_fjjj([1 x i32] %a.coerc
 define <3 x float> @_Z21rsGetElementAt_float313rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x float>*
-  %8 = load <4 x float>* %7, align 8, !tbaa !63
+  %8 = load <4 x float>, <4 x float>* %7, align 8, !tbaa !63
   %9 = shufflevector <4 x float> %8, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x float> %9
 }
@@ -4205,16 +4205,16 @@ define <3 x float> @_Z21rsGetElementAt_float313rs_allocationj([1 x i32] %a.coerc
 define <3 x float> @_Z21rsGetElementAt_float313rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x float>*
-  %11 = load <4 x float>* %10, align 8, !tbaa !63
+  %11 = load <4 x float>, <4 x float>* %10, align 8, !tbaa !63
   %12 = shufflevector <4 x float> %11, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x float> %12
 }
@@ -4223,20 +4223,20 @@ define <3 x float> @_Z21rsGetElementAt_float313rs_allocationjj([1 x i32] %a.coer
 define <3 x float> @_Z21rsGetElementAt_float313rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x float>*
-  %14 = load <4 x float>* %13, align 8, !tbaa !63
+  %14 = load <4 x float>, <4 x float>* %13, align 8, !tbaa !63
   %15 = shufflevector <4 x float> %14, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x float> %15
 }
@@ -4245,10 +4245,10 @@ define <3 x float> @_Z21rsGetElementAt_float313rs_allocationjjj([1 x i32] %a.coe
 define void @_Z21rsSetElementAt_float413rs_allocationDv4_fj([1 x i32] %a.coerce, <4 x float> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x float>*
   store <4 x float> %val, <4 x float>* %7, align 16, !tbaa !64
   ret void
@@ -4258,14 +4258,14 @@ define void @_Z21rsSetElementAt_float413rs_allocationDv4_fj([1 x i32] %a.coerce,
 define void @_Z21rsSetElementAt_float413rs_allocationDv4_fjj([1 x i32] %a.coerce, <4 x float> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x float>*
   store <4 x float> %val, <4 x float>* %10, align 16, !tbaa !64
   ret void
@@ -4275,18 +4275,18 @@ define void @_Z21rsSetElementAt_float413rs_allocationDv4_fjj([1 x i32] %a.coerce
 define void @_Z21rsSetElementAt_float413rs_allocationDv4_fjjj([1 x i32] %a.coerce, <4 x float> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x float>*
   store <4 x float> %val, <4 x float>* %13, align 16, !tbaa !64
   ret void
@@ -4296,12 +4296,12 @@ define void @_Z21rsSetElementAt_float413rs_allocationDv4_fjjj([1 x i32] %a.coerc
 define <4 x float> @_Z21rsGetElementAt_float413rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x float>*
-  %8 = load <4 x float>* %7, align 16, !tbaa !64
+  %8 = load <4 x float>, <4 x float>* %7, align 16, !tbaa !64
   ret <4 x float> %8
 }
 
@@ -4309,16 +4309,16 @@ define <4 x float> @_Z21rsGetElementAt_float413rs_allocationj([1 x i32] %a.coerc
 define <4 x float> @_Z21rsGetElementAt_float413rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x float>*
-  %11 = load <4 x float>* %10, align 16, !tbaa !64
+  %11 = load <4 x float>, <4 x float>* %10, align 16, !tbaa !64
   ret <4 x float> %11
 }
 
@@ -4326,20 +4326,20 @@ define <4 x float> @_Z21rsGetElementAt_float413rs_allocationjj([1 x i32] %a.coer
 define <4 x float> @_Z21rsGetElementAt_float413rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x float>*
-  %14 = load <4 x float>* %13, align 16, !tbaa !64
+  %14 = load <4 x float>, <4 x float>* %13, align 16, !tbaa !64
   ret <4 x float> %14
 }
 
@@ -4347,10 +4347,10 @@ define <4 x float> @_Z21rsGetElementAt_float413rs_allocationjjj([1 x i32] %a.coe
 define void @_Z21rsSetElementAt_double13rs_allocationdj([1 x i32] %a.coerce, double %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to double*
   store double %val, double* %7, align 8, !tbaa !65
   ret void
@@ -4360,14 +4360,14 @@ define void @_Z21rsSetElementAt_double13rs_allocationdj([1 x i32] %a.coerce, dou
 define void @_Z21rsSetElementAt_double13rs_allocationdjj([1 x i32] %a.coerce, double %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to double*
   store double %val, double* %10, align 8, !tbaa !65
   ret void
@@ -4377,18 +4377,18 @@ define void @_Z21rsSetElementAt_double13rs_allocationdjj([1 x i32] %a.coerce, do
 define void @_Z21rsSetElementAt_double13rs_allocationdjjj([1 x i32] %a.coerce, double %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to double*
   store double %val, double* %13, align 8, !tbaa !65
   ret void
@@ -4398,12 +4398,12 @@ define void @_Z21rsSetElementAt_double13rs_allocationdjjj([1 x i32] %a.coerce, d
 define double @_Z21rsGetElementAt_double13rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 8
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to double*
-  %8 = load double* %7, align 8, !tbaa !65
+  %8 = load double, double* %7, align 8, !tbaa !65
   ret double %8
 }
 
@@ -4411,16 +4411,16 @@ define double @_Z21rsGetElementAt_double13rs_allocationj([1 x i32] %a.coerce, i3
 define double @_Z21rsGetElementAt_double13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 8
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to double*
-  %11 = load double* %10, align 8, !tbaa !65
+  %11 = load double, double* %10, align 8, !tbaa !65
   ret double %11
 }
 
@@ -4428,20 +4428,20 @@ define double @_Z21rsGetElementAt_double13rs_allocationjj([1 x i32] %a.coerce, i
 define double @_Z21rsGetElementAt_double13rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to double*
-  %14 = load double* %13, align 8, !tbaa !65
+  %14 = load double, double* %13, align 8, !tbaa !65
   ret double %14
 }
 
@@ -4449,10 +4449,10 @@ define double @_Z21rsGetElementAt_double13rs_allocationjjj([1 x i32] %a.coerce, 
 define void @_Z22rsSetElementAt_double213rs_allocationDv2_dj([1 x i32] %a.coerce, <2 x double> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x double>*
   store <2 x double> %val, <2 x double>* %7, align 16, !tbaa !66
   ret void
@@ -4462,14 +4462,14 @@ define void @_Z22rsSetElementAt_double213rs_allocationDv2_dj([1 x i32] %a.coerce
 define void @_Z22rsSetElementAt_double213rs_allocationDv2_djj([1 x i32] %a.coerce, <2 x double> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x double>*
   store <2 x double> %val, <2 x double>* %10, align 16, !tbaa !66
   ret void
@@ -4479,18 +4479,18 @@ define void @_Z22rsSetElementAt_double213rs_allocationDv2_djj([1 x i32] %a.coerc
 define void @_Z22rsSetElementAt_double213rs_allocationDv2_djjj([1 x i32] %a.coerce, <2 x double> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x double>*
   store <2 x double> %val, <2 x double>* %13, align 16, !tbaa !66
   ret void
@@ -4500,12 +4500,12 @@ define void @_Z22rsSetElementAt_double213rs_allocationDv2_djjj([1 x i32] %a.coer
 define <2 x double> @_Z22rsGetElementAt_double213rs_allocationj([1 x i32] %a.coerce, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 16
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <2 x double>*
-  %8 = load <2 x double>* %7, align 16, !tbaa !66
+  %8 = load <2 x double>, <2 x double>* %7, align 16, !tbaa !66
   ret <2 x double> %8
 }
 
@@ -4513,16 +4513,16 @@ define <2 x double> @_Z22rsGetElementAt_double213rs_allocationj([1 x i32] %a.coe
 define <2 x double> @_Z22rsGetElementAt_double213rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 16
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <2 x double>*
-  %11 = load <2 x double>* %10, align 16, !tbaa !66
+  %11 = load <2 x double>, <2 x double>* %10, align 16, !tbaa !66
   ret <2 x double> %11
 }
 
@@ -4530,20 +4530,20 @@ define <2 x double> @_Z22rsGetElementAt_double213rs_allocationjj([1 x i32] %a.co
 define <2 x double> @_Z22rsGetElementAt_double213rs_allocationjjj([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x double>*
-  %14 = load <2 x double>* %13, align 16, !tbaa !66
+  %14 = load <2 x double>, <2 x double>* %13, align 16, !tbaa !66
   ret <2 x double> %14
 }
 
@@ -4551,10 +4551,10 @@ define <2 x double> @_Z22rsGetElementAt_double213rs_allocationjjj([1 x i32] %a.c
 define void @_Z22rsSetElementAt_double313rs_allocationDv3_dj([1 x i32] %a.coerce, <3 x double> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 32
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = shufflevector <3 x double> %val, <3 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %8 = bitcast i8* %6 to <4 x double>*
   store <4 x double> %7, <4 x double>* %8, align 32, !tbaa !67
@@ -4565,14 +4565,14 @@ define void @_Z22rsSetElementAt_double313rs_allocationDv3_dj([1 x i32] %a.coerce
 define void @_Z22rsSetElementAt_double313rs_allocationDv3_djj([1 x i32] %a.coerce, <3 x double> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 32
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = shufflevector <3 x double> %val, <3 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %11 = bitcast i8* %9 to <4 x double>*
   store <4 x double> %10, <4 x double>* %11, align 32, !tbaa !67
@@ -4583,18 +4583,18 @@ define void @_Z22rsSetElementAt_double313rs_allocationDv3_djj([1 x i32] %a.coerc
 define void @_Z22rsSetElementAt_double313rs_allocationDv3_djjj([1 x i32] %a.coerce, <3 x double> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x double> %val, <3 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x double>*
   store <4 x double> %13, <4 x double>* %14, align 32, !tbaa !67
@@ -4606,16 +4606,16 @@ define void @_Z22rsGetElementAt_double313rs_allocationj(<3 x double>* noalias no
   %1 = alloca <3 x double>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
   %6 = mul i32 %x, 32
-  %7 = getelementptr inbounds i8* %5, i32 %6
+  %7 = getelementptr inbounds i8, i8* %5, i32 %6
   %8 = bitcast i8* %7 to <4 x double>*
-  %9 = load <4 x double>* %8, align 32
+  %9 = load <4 x double>, <4 x double>* %8, align 32
   %10 = bitcast <3 x double>* %1 to <4 x double>*
   store <4 x double> %9, <4 x double>* %10, align 32, !tbaa !67
   %11 = bitcast <3 x double>* %1 to <4 x double>*
-  %12 = load <4 x double>* %11, align 32
+  %12 = load <4 x double>, <4 x double>* %11, align 32
   %13 = bitcast <3 x double>* %agg.result to <4 x double>*
   store <4 x double> %12, <4 x double>* %13, align 32, !tbaa !19
   ret void
@@ -4626,20 +4626,20 @@ define void @_Z22rsGetElementAt_double313rs_allocationjj(<3 x double>* noalias n
   %1 = alloca <3 x double>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
-  %6 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %7 = load i32* %6, align 4, !tbaa !21
   %8 = mul i32 %x, 32
   %tmp1.i.i = mul i32 %y, %7
   %9 = add i32 %tmp1.i.i, %8
-  %10 = getelementptr inbounds i8* %5, i32 %9
+  %10 = getelementptr inbounds i8, i8* %5, i32 %9
   %11 = bitcast i8* %10 to <4 x double>*
-  %12 = load <4 x double>* %11, align 32
+  %12 = load <4 x double>, <4 x double>* %11, align 32
   %13 = bitcast <3 x double>* %1 to <4 x double>*
   store <4 x double> %12, <4 x double>* %13, align 32, !tbaa !67
   %14 = bitcast <3 x double>* %1 to <4 x double>*
-  %15 = load <4 x double>* %14, align 32
+  %15 = load <4 x double>, <4 x double>* %14, align 32
   %16 = bitcast <3 x double>* %agg.result to <4 x double>*
   store <4 x double> %15, <4 x double>* %16, align 32, !tbaa !19
   ret void
@@ -4650,24 +4650,24 @@ define void @_Z22rsGetElementAt_double313rs_allocationjjj(<3 x double>* noalias 
   %1 = alloca <3 x double>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
-  %6 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %7 = load i32* %6, align 4, !tbaa !21
-  %8 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %8 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %9 = load i32* %8, align 4, !tbaa !21
   %10 = mul i32 %x, 32
   %11 = mul i32 %9, %z
   %tmp.i.i = add i32 %11, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %7
   %12 = add i32 %tmp1.i.i, %10
-  %13 = getelementptr inbounds i8* %5, i32 %12
+  %13 = getelementptr inbounds i8, i8* %5, i32 %12
   %14 = bitcast i8* %13 to <4 x double>*
-  %15 = load <4 x double>* %14, align 32
+  %15 = load <4 x double>, <4 x double>* %14, align 32
   %16 = bitcast <3 x double>* %1 to <4 x double>*
   store <4 x double> %15, <4 x double>* %16, align 32, !tbaa !67
   %17 = bitcast <3 x double>* %1 to <4 x double>*
-  %18 = load <4 x double>* %17, align 32
+  %18 = load <4 x double>, <4 x double>* %17, align 32
   %19 = bitcast <3 x double>* %agg.result to <4 x double>*
   store <4 x double> %18, <4 x double>* %19, align 32, !tbaa !19
   ret void
@@ -4677,10 +4677,10 @@ define void @_Z22rsGetElementAt_double313rs_allocationjjj(<3 x double>* noalias 
 define void @_Z22rsSetElementAt_double413rs_allocationDv4_dj([1 x i32] %a.coerce, <4 x double> %val, i32 %x) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
   %5 = mul i32 %x, 32
-  %6 = getelementptr inbounds i8* %4, i32 %5
+  %6 = getelementptr inbounds i8, i8* %4, i32 %5
   %7 = bitcast i8* %6 to <4 x double>*
   store <4 x double> %val, <4 x double>* %7, align 32, !tbaa !68
   ret void
@@ -4690,14 +4690,14 @@ define void @_Z22rsSetElementAt_double413rs_allocationDv4_dj([1 x i32] %a.coerce
 define void @_Z22rsSetElementAt_double413rs_allocationDv4_djj([1 x i32] %a.coerce, <4 x double> %val, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = mul i32 %x, 32
   %tmp1.i.i = mul i32 %y, %6
   %8 = add i32 %tmp1.i.i, %7
-  %9 = getelementptr inbounds i8* %4, i32 %8
+  %9 = getelementptr inbounds i8, i8* %4, i32 %8
   %10 = bitcast i8* %9 to <4 x double>*
   store <4 x double> %val, <4 x double>* %10, align 32, !tbaa !68
   ret void
@@ -4707,18 +4707,18 @@ define void @_Z22rsSetElementAt_double413rs_allocationDv4_djj([1 x i32] %a.coerc
 define void @_Z22rsSetElementAt_double413rs_allocationDv4_djjj([1 x i32] %a.coerce, <4 x double> %val, i32 %x, i32 %y, i32 %z) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i.i = add i32 %10, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %6
   %11 = add i32 %tmp1.i.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x double>*
   store <4 x double> %val, <4 x double>* %13, align 32, !tbaa !68
   ret void
@@ -4729,14 +4729,14 @@ define void @_Z22rsGetElementAt_double413rs_allocationj(<4 x double>* noalias no
   %1 = alloca <4 x double>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
   %6 = mul i32 %x, 32
-  %7 = getelementptr inbounds i8* %5, i32 %6
+  %7 = getelementptr inbounds i8, i8* %5, i32 %6
   %8 = bitcast i8* %7 to <4 x double>*
-  %9 = load <4 x double>* %8, align 32, !tbaa !28
+  %9 = load <4 x double>, <4 x double>* %8, align 32, !tbaa !28
   store <4 x double> %9, <4 x double>* %1, align 32, !tbaa !68
-  %10 = load <4 x double>* %1, align 32, !tbaa !19
+  %10 = load <4 x double>, <4 x double>* %1, align 32, !tbaa !19
   store <4 x double> %10, <4 x double>* %agg.result, align 32, !tbaa !19
   ret void
 }
@@ -4746,18 +4746,18 @@ define void @_Z22rsGetElementAt_double413rs_allocationjj(<4 x double>* noalias n
   %1 = alloca <4 x double>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
-  %6 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %7 = load i32* %6, align 4, !tbaa !21
   %8 = mul i32 %x, 32
   %tmp1.i.i = mul i32 %y, %7
   %9 = add i32 %tmp1.i.i, %8
-  %10 = getelementptr inbounds i8* %5, i32 %9
+  %10 = getelementptr inbounds i8, i8* %5, i32 %9
   %11 = bitcast i8* %10 to <4 x double>*
-  %12 = load <4 x double>* %11, align 32, !tbaa !28
+  %12 = load <4 x double>, <4 x double>* %11, align 32, !tbaa !28
   store <4 x double> %12, <4 x double>* %1, align 32, !tbaa !68
-  %13 = load <4 x double>* %1, align 32, !tbaa !19
+  %13 = load <4 x double>, <4 x double>* %1, align 32, !tbaa !19
   store <4 x double> %13, <4 x double>* %agg.result, align 32, !tbaa !19
   ret void
 }
@@ -4767,22 +4767,22 @@ define void @_Z22rsGetElementAt_double413rs_allocationjjj(<4 x double>* noalias 
   %1 = alloca <4 x double>, align 32
   %2 = extractvalue [1 x i32] %a.coerce, 0
   %3 = inttoptr i32 %2 to %struct.Allocation*
-  %4 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %5 = load i8** %4, align 4, !tbaa !22
-  %6 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %7 = load i32* %6, align 4, !tbaa !21
-  %8 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %8 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %9 = load i32* %8, align 4, !tbaa !21
   %10 = mul i32 %x, 32
   %11 = mul i32 %9, %z
   %tmp.i.i = add i32 %11, %y
   %tmp1.i.i = mul i32 %tmp.i.i, %7
   %12 = add i32 %tmp1.i.i, %10
-  %13 = getelementptr inbounds i8* %5, i32 %12
+  %13 = getelementptr inbounds i8, i8* %5, i32 %12
   %14 = bitcast i8* %13 to <4 x double>*
-  %15 = load <4 x double>* %14, align 32, !tbaa !28
+  %15 = load <4 x double>, <4 x double>* %14, align 32, !tbaa !28
   store <4 x double> %15, <4 x double>* %1, align 32, !tbaa !68
-  %16 = load <4 x double>* %1, align 32, !tbaa !19
+  %16 = load <4 x double>, <4 x double>* %1, align 32, !tbaa !19
   store <4 x double> %16, <4 x double>* %agg.result, align 32, !tbaa !19
   ret void
 }
@@ -4791,13 +4791,13 @@ define void @_Z22rsGetElementAt_double413rs_allocationjjj(<4 x double>* noalias 
 define zeroext i8 @_Z25rsGetElementAtYuv_uchar_Y13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #5 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %tmp1.i.i = mul i32 %y, %6
   %7 = add i32 %tmp1.i.i, %x
-  %8 = getelementptr inbounds i8* %4, i32 %7
+  %8 = getelementptr inbounds i8, i8* %4, i32 %7
   %9 = load i8* %8, align 1, !tbaa !33
   ret i8 %9
 }
@@ -4806,20 +4806,20 @@ define zeroext i8 @_Z25rsGetElementAtYuv_uchar_Y13rs_allocationjj([1 x i32] %a.c
 define zeroext i8 @_Z25rsGetElementAtYuv_uchar_U13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #4 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 4, i32 1
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 4, i32 1
   %4 = load i32* %3, align 4, !tbaa !21
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 4, i32 0
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 4, i32 0
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 1, i32 1
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 1, i32 1
   %8 = load i32* %7, align 4, !tbaa !21
-  %9 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 1, i32 0
+  %9 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 1, i32 0
   %10 = load i8** %9, align 4, !tbaa !22
   %11 = lshr i32 %x, %6
   %12 = mul i32 %11, %4
   %13 = lshr i32 %y, %6
   %14 = mul i32 %13, %8
   %15 = add i32 %12, %14
-  %16 = getelementptr inbounds i8* %10, i32 %15
+  %16 = getelementptr inbounds i8, i8* %10, i32 %15
   %17 = load i8* %16, align 1, !tbaa !19
   ret i8 %17
 }
@@ -4828,20 +4828,20 @@ define zeroext i8 @_Z25rsGetElementAtYuv_uchar_U13rs_allocationjj([1 x i32] %a.c
 define zeroext i8 @_Z25rsGetElementAtYuv_uchar_V13rs_allocationjj([1 x i32] %a.coerce, i32 %x, i32 %y) #4 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 4, i32 1
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 4, i32 1
   %4 = load i32* %3, align 4, !tbaa !21
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 4, i32 0
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 4, i32 0
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 2, i32 1
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 2, i32 1
   %8 = load i32* %7, align 4, !tbaa !21
-  %9 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 2, i32 0
+  %9 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 2, i32 0
   %10 = load i8** %9, align 4, !tbaa !22
   %11 = lshr i32 %x, %6
   %12 = mul i32 %11, %4
   %13 = lshr i32 %y, %6
   %14 = mul i32 %13, %8
   %15 = add i32 %12, %14
-  %16 = getelementptr inbounds i8* %10, i32 %15
+  %16 = getelementptr inbounds i8, i8* %10, i32 %15
   %17 = load i8* %16, align 1, !tbaa !19
   ret i8 %17
 }
@@ -6371,16 +6371,16 @@ define <4 x float> @_Z5fractDv4_fPS_(<4 x float> %v1, <4 x float>* nocapture %v2
 define <2 x float> @_Z5frexpDv2_fPDv2_i(<2 x float> %v1, <2 x i32>* nocapture %v2) #5 {
   %t = alloca [2 x i32], align 4
   %1 = extractelement <2 x float> %v1, i32 0
-  %2 = getelementptr inbounds [2 x i32]* %t, i32 0, i32 0
+  %2 = getelementptr inbounds [2 x i32], [2 x i32]* %t, i32 0, i32 0
   %3 = call float @_Z5frexpfPi(float %1, i32* %2) #12
   %4 = insertelement <2 x float> undef, float %3, i32 0
   %5 = extractelement <2 x float> %v1, i32 1
-  %6 = getelementptr inbounds [2 x i32]* %t, i32 0, i32 1
+  %6 = getelementptr inbounds [2 x i32], [2 x i32]* %t, i32 0, i32 1
   %7 = call float @_Z5frexpfPi(float %5, i32* %6) #12
   %8 = insertelement <2 x float> %4, float %7, i32 1
-  %9 = load i32* %2, align 4, !tbaa !21
+  %9 = load i32, i32* %2, align 4, !tbaa !21
   %10 = insertelement <2 x i32> undef, i32 %9, i32 0
-  %11 = load i32* %6, align 4, !tbaa !21
+  %11 = load i32, i32* %6, align 4, !tbaa !21
   %12 = insertelement <2 x i32> %10, i32 %11, i32 1
   store <2 x i32> %12, <2 x i32>* %v2, align 8
   ret <2 x float> %8
@@ -6392,22 +6392,22 @@ declare float @_Z5frexpfPi(float, i32*) #6
 define <3 x float> @_Z5frexpDv3_fPDv3_i(<3 x float> %v1, <3 x i32>* nocapture %v2) #5 {
   %t = alloca [3 x i32], align 4
   %1 = extractelement <3 x float> %v1, i32 0
-  %2 = getelementptr inbounds [3 x i32]* %t, i32 0, i32 0
+  %2 = getelementptr inbounds [3 x i32], [3 x i32]* %t, i32 0, i32 0
   %3 = call float @_Z5frexpfPi(float %1, i32* %2) #12
   %4 = insertelement <3 x float> undef, float %3, i32 0
   %5 = extractelement <3 x float> %v1, i32 1
-  %6 = getelementptr inbounds [3 x i32]* %t, i32 0, i32 1
+  %6 = getelementptr inbounds [3 x i32], [3 x i32]* %t, i32 0, i32 1
   %7 = call float @_Z5frexpfPi(float %5, i32* %6) #12
   %8 = insertelement <3 x float> %4, float %7, i32 1
   %9 = extractelement <3 x float> %v1, i32 2
-  %10 = getelementptr inbounds [3 x i32]* %t, i32 0, i32 2
+  %10 = getelementptr inbounds [3 x i32], [3 x i32]* %t, i32 0, i32 2
   %11 = call float @_Z5frexpfPi(float %9, i32* %10) #12
   %12 = insertelement <3 x float> %8, float %11, i32 2
-  %13 = load i32* %2, align 4, !tbaa !21
+  %13 = load i32, i32* %2, align 4, !tbaa !21
   %14 = insertelement <3 x i32> undef, i32 %13, i32 0
-  %15 = load i32* %6, align 4, !tbaa !21
+  %15 = load i32, i32* %6, align 4, !tbaa !21
   %16 = insertelement <3 x i32> %14, i32 %15, i32 1
-  %17 = load i32* %10, align 4, !tbaa !21
+  %17 = load i32, i32* %10, align 4, !tbaa !21
   %18 = insertelement <3 x i32> %16, i32 %17, i32 2
   store <3 x i32> %18, <3 x i32>* %v2, align 16
   ret <3 x float> %12
@@ -6417,28 +6417,28 @@ define <3 x float> @_Z5frexpDv3_fPDv3_i(<3 x float> %v1, <3 x i32>* nocapture %v
 define <4 x float> @_Z5frexpDv4_fPDv4_i(<4 x float> %v1, <4 x i32>* nocapture %v2) #5 {
   %t = alloca [4 x i32], align 4
   %1 = extractelement <4 x float> %v1, i32 0
-  %2 = getelementptr inbounds [4 x i32]* %t, i32 0, i32 0
+  %2 = getelementptr inbounds [4 x i32], [4 x i32]* %t, i32 0, i32 0
   %3 = call float @_Z5frexpfPi(float %1, i32* %2) #12
   %4 = insertelement <4 x float> undef, float %3, i32 0
   %5 = extractelement <4 x float> %v1, i32 1
-  %6 = getelementptr inbounds [4 x i32]* %t, i32 0, i32 1
+  %6 = getelementptr inbounds [4 x i32], [4 x i32]* %t, i32 0, i32 1
   %7 = call float @_Z5frexpfPi(float %5, i32* %6) #12
   %8 = insertelement <4 x float> %4, float %7, i32 1
   %9 = extractelement <4 x float> %v1, i32 2
-  %10 = getelementptr inbounds [4 x i32]* %t, i32 0, i32 2
+  %10 = getelementptr inbounds [4 x i32], [4 x i32]* %t, i32 0, i32 2
   %11 = call float @_Z5frexpfPi(float %9, i32* %10) #12
   %12 = insertelement <4 x float> %8, float %11, i32 2
   %13 = extractelement <4 x float> %v1, i32 3
-  %14 = getelementptr inbounds [4 x i32]* %t, i32 0, i32 3
+  %14 = getelementptr inbounds [4 x i32], [4 x i32]* %t, i32 0, i32 3
   %15 = call float @_Z5frexpfPi(float %13, i32* %14) #12
   %16 = insertelement <4 x float> %12, float %15, i32 3
-  %17 = load i32* %2, align 4, !tbaa !21
+  %17 = load i32, i32* %2, align 4, !tbaa !21
   %18 = insertelement <4 x i32> undef, i32 %17, i32 0
-  %19 = load i32* %6, align 4, !tbaa !21
+  %19 = load i32, i32* %6, align 4, !tbaa !21
   %20 = insertelement <4 x i32> %18, i32 %19, i32 1
-  %21 = load i32* %10, align 4, !tbaa !21
+  %21 = load i32, i32* %10, align 4, !tbaa !21
   %22 = insertelement <4 x i32> %20, i32 %21, i32 2
-  %23 = load i32* %14, align 4, !tbaa !21
+  %23 = load i32, i32* %14, align 4, !tbaa !21
   %24 = insertelement <4 x i32> %22, i32 %23, i32 3
   store <4 x i32> %24, <4 x i32>* %v2, align 8
   ret <4 x float> %16
@@ -6684,16 +6684,16 @@ define <4 x float> @_Z6lgammaDv4_f(<4 x float> %v) #5 {
 define <2 x float> @_Z6lgammaDv2_fPDv2_i(<2 x float> %v1, <2 x i32>* nocapture %v2) #5 {
   %t = alloca [2 x i32], align 4
   %1 = extractelement <2 x float> %v1, i32 0
-  %2 = getelementptr inbounds [2 x i32]* %t, i32 0, i32 0
+  %2 = getelementptr inbounds [2 x i32], [2 x i32]* %t, i32 0, i32 0
   %3 = call float @_Z6lgammafPi(float %1, i32* %2) #12
   %4 = insertelement <2 x float> undef, float %3, i32 0
   %5 = extractelement <2 x float> %v1, i32 1
-  %6 = getelementptr inbounds [2 x i32]* %t, i32 0, i32 1
+  %6 = getelementptr inbounds [2 x i32], [2 x i32]* %t, i32 0, i32 1
   %7 = call float @_Z6lgammafPi(float %5, i32* %6) #12
   %8 = insertelement <2 x float> %4, float %7, i32 1
-  %9 = load i32* %2, align 4, !tbaa !21
+  %9 = load i32, i32* %2, align 4, !tbaa !21
   %10 = insertelement <2 x i32> undef, i32 %9, i32 0
-  %11 = load i32* %6, align 4, !tbaa !21
+  %11 = load i32, i32* %6, align 4, !tbaa !21
   %12 = insertelement <2 x i32> %10, i32 %11, i32 1
   store <2 x i32> %12, <2 x i32>* %v2, align 8
   ret <2 x float> %8
@@ -6705,22 +6705,22 @@ declare float @_Z6lgammafPi(float, i32*) #6
 define <3 x float> @_Z6lgammaDv3_fPDv3_i(<3 x float> %v1, <3 x i32>* nocapture %v2) #5 {
   %t = alloca [3 x i32], align 4
   %1 = extractelement <3 x float> %v1, i32 0
-  %2 = getelementptr inbounds [3 x i32]* %t, i32 0, i32 0
+  %2 = getelementptr inbounds [3 x i32], [3 x i32]* %t, i32 0, i32 0
   %3 = call float @_Z6lgammafPi(float %1, i32* %2) #12
   %4 = insertelement <3 x float> undef, float %3, i32 0
   %5 = extractelement <3 x float> %v1, i32 1
-  %6 = getelementptr inbounds [3 x i32]* %t, i32 0, i32 1
+  %6 = getelementptr inbounds [3 x i32], [3 x i32]* %t, i32 0, i32 1
   %7 = call float @_Z6lgammafPi(float %5, i32* %6) #12
   %8 = insertelement <3 x float> %4, float %7, i32 1
   %9 = extractelement <3 x float> %v1, i32 2
-  %10 = getelementptr inbounds [3 x i32]* %t, i32 0, i32 2
+  %10 = getelementptr inbounds [3 x i32], [3 x i32]* %t, i32 0, i32 2
   %11 = call float @_Z6lgammafPi(float %9, i32* %10) #12
   %12 = insertelement <3 x float> %8, float %11, i32 2
-  %13 = load i32* %2, align 4, !tbaa !21
+  %13 = load i32, i32* %2, align 4, !tbaa !21
   %14 = insertelement <3 x i32> undef, i32 %13, i32 0
-  %15 = load i32* %6, align 4, !tbaa !21
+  %15 = load i32, i32* %6, align 4, !tbaa !21
   %16 = insertelement <3 x i32> %14, i32 %15, i32 1
-  %17 = load i32* %10, align 4, !tbaa !21
+  %17 = load i32, i32* %10, align 4, !tbaa !21
   %18 = insertelement <3 x i32> %16, i32 %17, i32 2
   store <3 x i32> %18, <3 x i32>* %v2, align 16
   ret <3 x float> %12
@@ -6730,28 +6730,28 @@ define <3 x float> @_Z6lgammaDv3_fPDv3_i(<3 x float> %v1, <3 x i32>* nocapture %
 define <4 x float> @_Z6lgammaDv4_fPDv4_i(<4 x float> %v1, <4 x i32>* nocapture %v2) #5 {
   %t = alloca [4 x i32], align 4
   %1 = extractelement <4 x float> %v1, i32 0
-  %2 = getelementptr inbounds [4 x i32]* %t, i32 0, i32 0
+  %2 = getelementptr inbounds [4 x i32], [4 x i32]* %t, i32 0, i32 0
   %3 = call float @_Z6lgammafPi(float %1, i32* %2) #12
   %4 = insertelement <4 x float> undef, float %3, i32 0
   %5 = extractelement <4 x float> %v1, i32 1
-  %6 = getelementptr inbounds [4 x i32]* %t, i32 0, i32 1
+  %6 = getelementptr inbounds [4 x i32], [4 x i32]* %t, i32 0, i32 1
   %7 = call float @_Z6lgammafPi(float %5, i32* %6) #12
   %8 = insertelement <4 x float> %4, float %7, i32 1
   %9 = extractelement <4 x float> %v1, i32 2
-  %10 = getelementptr inbounds [4 x i32]* %t, i32 0, i32 2
+  %10 = getelementptr inbounds [4 x i32], [4 x i32]* %t, i32 0, i32 2
   %11 = call float @_Z6lgammafPi(float %9, i32* %10) #12
   %12 = insertelement <4 x float> %8, float %11, i32 2
   %13 = extractelement <4 x float> %v1, i32 3
-  %14 = getelementptr inbounds [4 x i32]* %t, i32 0, i32 3
+  %14 = getelementptr inbounds [4 x i32], [4 x i32]* %t, i32 0, i32 3
   %15 = call float @_Z6lgammafPi(float %13, i32* %14) #12
   %16 = insertelement <4 x float> %12, float %15, i32 3
-  %17 = load i32* %2, align 4, !tbaa !21
+  %17 = load i32, i32* %2, align 4, !tbaa !21
   %18 = insertelement <4 x i32> undef, i32 %17, i32 0
-  %19 = load i32* %6, align 4, !tbaa !21
+  %19 = load i32, i32* %6, align 4, !tbaa !21
   %20 = insertelement <4 x i32> %18, i32 %19, i32 1
-  %21 = load i32* %10, align 4, !tbaa !21
+  %21 = load i32, i32* %10, align 4, !tbaa !21
   %22 = insertelement <4 x i32> %20, i32 %21, i32 2
-  %23 = load i32* %14, align 4, !tbaa !21
+  %23 = load i32, i32* %14, align 4, !tbaa !21
   %24 = insertelement <4 x i32> %22, i32 %23, i32 3
   store <4 x i32> %24, <4 x i32>* %v2, align 8
   ret <4 x float> %16
@@ -7023,16 +7023,16 @@ define <4 x float> @_Z3madDv4_fS_S_(<4 x float> %a, <4 x float> %b, <4 x float> 
 define <2 x float> @_Z4modfDv2_fPS_(<2 x float> %v1, <2 x float>* nocapture %v2) #5 {
   %t = alloca [2 x float], align 4
   %1 = extractelement <2 x float> %v1, i32 0
-  %2 = getelementptr inbounds [2 x float]* %t, i32 0, i32 0
+  %2 = getelementptr inbounds [2 x float], [2 x float]* %t, i32 0, i32 0
   %3 = call float @_Z4modffPf(float %1, float* %2) #12
   %4 = insertelement <2 x float> undef, float %3, i32 0
   %5 = extractelement <2 x float> %v1, i32 1
-  %6 = getelementptr inbounds [2 x float]* %t, i32 0, i32 1
+  %6 = getelementptr inbounds [2 x float], [2 x float]* %t, i32 0, i32 1
   %7 = call float @_Z4modffPf(float %5, float* %6) #12
   %8 = insertelement <2 x float> %4, float %7, i32 1
-  %9 = load float* %2, align 4, !tbaa !18
+  %9 = load float, float* %2, align 4, !tbaa !18
   %10 = insertelement <2 x float> undef, float %9, i32 0
-  %11 = load float* %6, align 4, !tbaa !18
+  %11 = load float, float* %6, align 4, !tbaa !18
   %12 = insertelement <2 x float> %10, float %11, i32 1
   store <2 x float> %12, <2 x float>* %v2, align 8
   ret <2 x float> %8
@@ -7044,22 +7044,22 @@ declare float @_Z4modffPf(float, float*) #6
 define <3 x float> @_Z4modfDv3_fPS_(<3 x float> %v1, <3 x float>* nocapture %v2) #5 {
   %t = alloca [3 x float], align 4
   %1 = extractelement <3 x float> %v1, i32 0
-  %2 = getelementptr inbounds [3 x float]* %t, i32 0, i32 0
+  %2 = getelementptr inbounds [3 x float], [3 x float]* %t, i32 0, i32 0
   %3 = call float @_Z4modffPf(float %1, float* %2) #12
   %4 = insertelement <3 x float> undef, float %3, i32 0
   %5 = extractelement <3 x float> %v1, i32 1
-  %6 = getelementptr inbounds [3 x float]* %t, i32 0, i32 1
+  %6 = getelementptr inbounds [3 x float], [3 x float]* %t, i32 0, i32 1
   %7 = call float @_Z4modffPf(float %5, float* %6) #12
   %8 = insertelement <3 x float> %4, float %7, i32 1
   %9 = extractelement <3 x float> %v1, i32 2
-  %10 = getelementptr inbounds [3 x float]* %t, i32 0, i32 2
+  %10 = getelementptr inbounds [3 x float], [3 x float]* %t, i32 0, i32 2
   %11 = call float @_Z4modffPf(float %9, float* %10) #12
   %12 = insertelement <3 x float> %8, float %11, i32 2
-  %13 = load float* %2, align 4, !tbaa !18
+  %13 = load float, float* %2, align 4, !tbaa !18
   %14 = insertelement <3 x float> undef, float %13, i32 0
-  %15 = load float* %6, align 4, !tbaa !18
+  %15 = load float, float* %6, align 4, !tbaa !18
   %16 = insertelement <3 x float> %14, float %15, i32 1
-  %17 = load float* %10, align 4, !tbaa !18
+  %17 = load float, float* %10, align 4, !tbaa !18
   %18 = insertelement <3 x float> %16, float %17, i32 2
   store <3 x float> %18, <3 x float>* %v2, align 16
   ret <3 x float> %12
@@ -7069,28 +7069,28 @@ define <3 x float> @_Z4modfDv3_fPS_(<3 x float> %v1, <3 x float>* nocapture %v2)
 define <4 x float> @_Z4modfDv4_fPS_(<4 x float> %v1, <4 x float>* nocapture %v2) #5 {
   %t = alloca [4 x float], align 4
   %1 = extractelement <4 x float> %v1, i32 0
-  %2 = getelementptr inbounds [4 x float]* %t, i32 0, i32 0
+  %2 = getelementptr inbounds [4 x float], [4 x float]* %t, i32 0, i32 0
   %3 = call float @_Z4modffPf(float %1, float* %2) #12
   %4 = insertelement <4 x float> undef, float %3, i32 0
   %5 = extractelement <4 x float> %v1, i32 1
-  %6 = getelementptr inbounds [4 x float]* %t, i32 0, i32 1
+  %6 = getelementptr inbounds [4 x float], [4 x float]* %t, i32 0, i32 1
   %7 = call float @_Z4modffPf(float %5, float* %6) #12
   %8 = insertelement <4 x float> %4, float %7, i32 1
   %9 = extractelement <4 x float> %v1, i32 2
-  %10 = getelementptr inbounds [4 x float]* %t, i32 0, i32 2
+  %10 = getelementptr inbounds [4 x float], [4 x float]* %t, i32 0, i32 2
   %11 = call float @_Z4modffPf(float %9, float* %10) #12
   %12 = insertelement <4 x float> %8, float %11, i32 2
   %13 = extractelement <4 x float> %v1, i32 3
-  %14 = getelementptr inbounds [4 x float]* %t, i32 0, i32 3
+  %14 = getelementptr inbounds [4 x float], [4 x float]* %t, i32 0, i32 3
   %15 = call float @_Z4modffPf(float %13, float* %14) #12
   %16 = insertelement <4 x float> %12, float %15, i32 3
-  %17 = load float* %2, align 4, !tbaa !18
+  %17 = load float, float* %2, align 4, !tbaa !18
   %18 = insertelement <4 x float> undef, float %17, i32 0
-  %19 = load float* %6, align 4, !tbaa !18
+  %19 = load float, float* %6, align 4, !tbaa !18
   %20 = insertelement <4 x float> %18, float %19, i32 1
-  %21 = load float* %10, align 4, !tbaa !18
+  %21 = load float, float* %10, align 4, !tbaa !18
   %22 = insertelement <4 x float> %20, float %21, i32 2
-  %23 = load float* %14, align 4, !tbaa !18
+  %23 = load float, float* %14, align 4, !tbaa !18
   %24 = insertelement <4 x float> %22, float %23, i32 3
   store <4 x float> %24, <4 x float>* %v2, align 8
   ret <4 x float> %16
@@ -7385,17 +7385,17 @@ define <2 x float> @_Z6remquoDv2_fS_PDv2_i(<2 x float> %v1, <2 x float> %v2, <2 
   %t = alloca [2 x i32], align 4
   %1 = extractelement <2 x float> %v1, i32 0
   %2 = extractelement <2 x float> %v2, i32 0
-  %3 = getelementptr inbounds [2 x i32]* %t, i32 0, i32 0
+  %3 = getelementptr inbounds [2 x i32], [2 x i32]* %t, i32 0, i32 0
   %4 = call float @_Z6remquoffPi(float %1, float %2, i32* %3) #12
   %5 = insertelement <2 x float> undef, float %4, i32 0
   %6 = extractelement <2 x float> %v1, i32 1
   %7 = extractelement <2 x float> %v2, i32 1
-  %8 = getelementptr inbounds [2 x i32]* %t, i32 0, i32 1
+  %8 = getelementptr inbounds [2 x i32], [2 x i32]* %t, i32 0, i32 1
   %9 = call float @_Z6remquoffPi(float %6, float %7, i32* %8) #12
   %10 = insertelement <2 x float> %5, float %9, i32 1
-  %11 = load i32* %3, align 4, !tbaa !21
+  %11 = load i32, i32* %3, align 4, !tbaa !21
   %12 = insertelement <2 x i32> undef, i32 %11, i32 0
-  %13 = load i32* %8, align 4, !tbaa !21
+  %13 = load i32, i32* %8, align 4, !tbaa !21
   %14 = insertelement <2 x i32> %12, i32 %13, i32 1
   store <2 x i32> %14, <2 x i32>* %v3, align 8
   ret <2 x float> %10
@@ -7408,24 +7408,24 @@ define <3 x float> @_Z6remquoDv3_fS_PDv3_i(<3 x float> %v1, <3 x float> %v2, <3 
   %t = alloca [3 x i32], align 4
   %1 = extractelement <3 x float> %v1, i32 0
   %2 = extractelement <3 x float> %v2, i32 0
-  %3 = getelementptr inbounds [3 x i32]* %t, i32 0, i32 0
+  %3 = getelementptr inbounds [3 x i32], [3 x i32]* %t, i32 0, i32 0
   %4 = call float @_Z6remquoffPi(float %1, float %2, i32* %3) #12
   %5 = insertelement <3 x float> undef, float %4, i32 0
   %6 = extractelement <3 x float> %v1, i32 1
   %7 = extractelement <3 x float> %v2, i32 1
-  %8 = getelementptr inbounds [3 x i32]* %t, i32 0, i32 1
+  %8 = getelementptr inbounds [3 x i32], [3 x i32]* %t, i32 0, i32 1
   %9 = call float @_Z6remquoffPi(float %6, float %7, i32* %8) #12
   %10 = insertelement <3 x float> %5, float %9, i32 1
   %11 = extractelement <3 x float> %v1, i32 2
   %12 = extractelement <3 x float> %v2, i32 2
-  %13 = getelementptr inbounds [3 x i32]* %t, i32 0, i32 2
+  %13 = getelementptr inbounds [3 x i32], [3 x i32]* %t, i32 0, i32 2
   %14 = call float @_Z6remquoffPi(float %11, float %12, i32* %13) #12
   %15 = insertelement <3 x float> %10, float %14, i32 2
-  %16 = load i32* %3, align 4, !tbaa !21
+  %16 = load i32, i32* %3, align 4, !tbaa !21
   %17 = insertelement <3 x i32> undef, i32 %16, i32 0
-  %18 = load i32* %8, align 4, !tbaa !21
+  %18 = load i32, i32* %8, align 4, !tbaa !21
   %19 = insertelement <3 x i32> %17, i32 %18, i32 1
-  %20 = load i32* %13, align 4, !tbaa !21
+  %20 = load i32, i32* %13, align 4, !tbaa !21
   %21 = insertelement <3 x i32> %19, i32 %20, i32 2
   store <3 x i32> %21, <3 x i32>* %v3, align 16
   ret <3 x float> %15
@@ -7436,31 +7436,31 @@ define <4 x float> @_Z6remquoDv4_fS_PDv4_i(<4 x float> %v1, <4 x float> %v2, <4 
   %t = alloca [4 x i32], align 4
   %1 = extractelement <4 x float> %v1, i32 0
   %2 = extractelement <4 x float> %v2, i32 0
-  %3 = getelementptr inbounds [4 x i32]* %t, i32 0, i32 0
+  %3 = getelementptr inbounds [4 x i32], [4 x i32]* %t, i32 0, i32 0
   %4 = call float @_Z6remquoffPi(float %1, float %2, i32* %3) #12
   %5 = insertelement <4 x float> undef, float %4, i32 0
   %6 = extractelement <4 x float> %v1, i32 1
   %7 = extractelement <4 x float> %v2, i32 1
-  %8 = getelementptr inbounds [4 x i32]* %t, i32 0, i32 1
+  %8 = getelementptr inbounds [4 x i32], [4 x i32]* %t, i32 0, i32 1
   %9 = call float @_Z6remquoffPi(float %6, float %7, i32* %8) #12
   %10 = insertelement <4 x float> %5, float %9, i32 1
   %11 = extractelement <4 x float> %v1, i32 2
   %12 = extractelement <4 x float> %v2, i32 2
-  %13 = getelementptr inbounds [4 x i32]* %t, i32 0, i32 2
+  %13 = getelementptr inbounds [4 x i32], [4 x i32]* %t, i32 0, i32 2
   %14 = call float @_Z6remquoffPi(float %11, float %12, i32* %13) #12
   %15 = insertelement <4 x float> %10, float %14, i32 2
   %16 = extractelement <4 x float> %v1, i32 3
   %17 = extractelement <4 x float> %v2, i32 3
-  %18 = getelementptr inbounds [4 x i32]* %t, i32 0, i32 3
+  %18 = getelementptr inbounds [4 x i32], [4 x i32]* %t, i32 0, i32 3
   %19 = call float @_Z6remquoffPi(float %16, float %17, i32* %18) #12
   %20 = insertelement <4 x float> %15, float %19, i32 3
-  %21 = load i32* %3, align 4, !tbaa !21
+  %21 = load i32, i32* %3, align 4, !tbaa !21
   %22 = insertelement <4 x i32> undef, i32 %21, i32 0
-  %23 = load i32* %8, align 4, !tbaa !21
+  %23 = load i32, i32* %8, align 4, !tbaa !21
   %24 = insertelement <4 x i32> %22, i32 %23, i32 1
-  %25 = load i32* %13, align 4, !tbaa !21
+  %25 = load i32, i32* %13, align 4, !tbaa !21
   %26 = insertelement <4 x i32> %24, i32 %25, i32 2
-  %27 = load i32* %18, align 4, !tbaa !21
+  %27 = load i32, i32* %18, align 4, !tbaa !21
   %28 = insertelement <4 x i32> %26, i32 %27, i32 3
   store <4 x i32> %28, <4 x i32>* %v3, align 8
   ret <4 x float> %20
@@ -11457,7 +11457,7 @@ define i32 @_Z11rsAtomicMinPVjj(i32* %ptr, i32 %value) #5 {
   br label %1
 
 ; <label>:1                                       ; preds = %1, %0
-  %2 = load volatile i32* %ptr, align 4, !tbaa !21
+  %2 = load volatile i32, i32* %ptr, align 4, !tbaa !21
   %3 = icmp ult i32 %value, %2
   %4 = select i1 %3, i32 %value, i32 %2
   %val = cmpxchg i32* %ptr, i32 %2, i32 %4 seq_cst seq_cst
@@ -11474,7 +11474,7 @@ define i32 @_Z11rsAtomicMinPVii(i32* %ptr, i32 %value) #5 {
   br label %1
 
 ; <label>:1                                       ; preds = %1, %0
-  %2 = load volatile i32* %ptr, align 4, !tbaa !21
+  %2 = load volatile i32, i32* %ptr, align 4, !tbaa !21
   %3 = icmp slt i32 %value, %2
   %4 = select i1 %3, i32 %value, i32 %2
   %val = cmpxchg i32* %ptr, i32 %2, i32 %4 seq_cst seq_cst
@@ -11491,7 +11491,7 @@ define i32 @_Z11rsAtomicMaxPVjj(i32* %ptr, i32 %value) #5 {
   br label %1
 
 ; <label>:1                                       ; preds = %1, %0
-  %2 = load volatile i32* %ptr, align 4, !tbaa !21
+  %2 = load volatile i32, i32* %ptr, align 4, !tbaa !21
   %3 = icmp ugt i32 %value, %2
   %4 = select i1 %3, i32 %value, i32 %2
   %val = cmpxchg i32* %ptr, i32 %2, i32 %4 seq_cst seq_cst
@@ -11508,7 +11508,7 @@ define i32 @_Z11rsAtomicMaxPVii(i32* %ptr, i32 %value) #5 {
   br label %1
 
 ; <label>:1                                       ; preds = %1, %0
-  %2 = load volatile i32* %ptr, align 4, !tbaa !21
+  %2 = load volatile i32, i32* %ptr, align 4, !tbaa !21
   %3 = icmp sgt i32 %value, %2
   %4 = select i1 %3, i32 %value, i32 %2
   %val = cmpxchg i32* %ptr, i32 %2, i32 %4 seq_cst seq_cst
@@ -11873,7 +11873,7 @@ define i32 @_Z27rsElementGetSubElementCount10rs_element([1 x i32] %e.coerce) #4 
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Element*
-  %5 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 9
+  %5 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 9
   %6 = load i32* %5, align 4, !tbaa !21
   br label %7
 
@@ -11890,15 +11890,15 @@ define i32 @_Z22rsElementGetSubElement10rs_elementj([1 x i32] %e.coerce, i32 %in
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Element*
-  %5 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 9
+  %5 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 9
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = icmp ugt i32 %6, %index
   br i1 %7, label %8, label %13
 
 ; <label>:8                                       ; preds = %3
-  %9 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 4
+  %9 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 4
   %10 = load i8*** %9, align 4, !tbaa !22
-  %11 = getelementptr inbounds i8** %10, i32 %index
+  %11 = getelementptr inbounds i8*, i8** %10, i32 %index
   %12 = load i8** %11, align 4, !tbaa !22
   %phitmp = ptrtoint i8* %12 to i32
   br label %13
@@ -11916,15 +11916,15 @@ define i32 @_Z32rsElementGetSubElementNameLength10rs_elementj([1 x i32] %e.coerc
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Element*
-  %5 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 9
+  %5 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 9
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = icmp ugt i32 %6, %index
   br i1 %7, label %8, label %13
 
 ; <label>:8                                       ; preds = %3
-  %9 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 7
+  %9 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 7
   %10 = load i32** %9, align 4, !tbaa !22
-  %11 = getelementptr inbounds i32* %10, i32 %index
+  %11 = getelementptr inbounds i32, i32* %10, i32 %index
   %12 = load i32* %11, align 4, !tbaa !21
   br label %13
 
@@ -11941,7 +11941,7 @@ define i32 @_Z26rsElementGetSubElementName10rs_elementjPcj([1 x i32] %e.coerce, 
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Element*
-  %5 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 9
+  %5 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 9
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = icmp ule i32 %6, %index
   %8 = icmp eq i32 %nameLength, 0
@@ -11951,18 +11951,18 @@ define i32 @_Z26rsElementGetSubElementName10rs_elementjPcj([1 x i32] %e.coerce, 
   br i1 %or.cond1, label %.loopexit, label %10
 
 ; <label>:10                                      ; preds = %3
-  %11 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 7
+  %11 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 7
   %12 = load i32** %11, align 4, !tbaa !22
-  %13 = getelementptr inbounds i32* %12, i32 %index
+  %13 = getelementptr inbounds i32, i32* %12, i32 %index
   %14 = load i32* %13, align 4, !tbaa !21
   %15 = icmp ugt i32 %14, %nameLength
   %nameLength. = select i1 %15, i32 %nameLength, i32 %14
   %16 = add i32 %nameLength., -1
-  %17 = getelementptr inbounds i8* %name, i32 %16
+  %17 = getelementptr inbounds i8, i8* %name, i32 %16
   store i8 0, i8* %17, align 1, !tbaa !19
-  %18 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 6
+  %18 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 6
   %19 = load i8*** %18, align 4, !tbaa !22
-  %20 = getelementptr inbounds i8** %19, i32 %index
+  %20 = getelementptr inbounds i8*, i8** %19, i32 %index
   %21 = load i8** %20, align 4, !tbaa !22
   %22 = icmp eq i32 %16, 0
   br i1 %22, label %.loopexit, label %.lr.ph
@@ -11979,8 +11979,8 @@ define i32 @_Z26rsElementGetSubElementName10rs_elementjPcj([1 x i32] %e.coerce, 
   br i1 %cmp.zero, label %middle.block, label %vector.memcheck
 
 vector.memcheck:                                  ; preds = %.lr.ph
-  %scevgep6 = getelementptr i8* %21, i32 %27
-  %scevgep = getelementptr i8* %name, i32 %27
+  %scevgep6 = getelementptr i8, i8* %21, i32 %27
+  %scevgep = getelementptr i8, i8* %name, i32 %27
   %bound1 = icmp ule i8* %21, %scevgep
   %bound0 = icmp uge i8* %scevgep6, %name
   %found.conflict = and i1 %bound0, %bound1
@@ -11988,10 +11988,10 @@ vector.memcheck:                                  ; preds = %.lr.ph
 
 vector.body:                                      ; preds = %vector.body, %vector.memcheck
   %index4 = phi i32 [ %index.next, %vector.body ], [ 0, %vector.memcheck ]
-  %28 = getelementptr inbounds i8* %21, i32 %index4
+  %28 = getelementptr inbounds i8, i8* %21, i32 %index4
   %29 = bitcast i8* %28 to <16 x i8>*
   %wide.load = load <16 x i8>* %29, align 1
-  %30 = getelementptr inbounds i8* %name, i32 %index4
+  %30 = getelementptr inbounds i8, i8* %name, i32 %index4
   %31 = bitcast i8* %30 to <16 x i8>*
   store <16 x i8> %wide.load, <16 x i8>* %31, align 1
   %index.next = add i32 %index4, 16
@@ -12005,9 +12005,9 @@ middle.block:                                     ; preds = %vector.body, %vecto
 
 scalar.ph:                                        ; preds = %scalar.ph, %middle.block
   %i.02 = phi i32 [ %36, %scalar.ph ], [ %resume.val, %middle.block ]
-  %33 = getelementptr inbounds i8* %21, i32 %i.02
+  %33 = getelementptr inbounds i8, i8* %21, i32 %i.02
   %34 = load i8* %33, align 1, !tbaa !19
-  %35 = getelementptr inbounds i8* %name, i32 %i.02
+  %35 = getelementptr inbounds i8, i8* %name, i32 %i.02
   store i8 %34, i8* %35, align 1, !tbaa !19
   %36 = add i32 %i.02, 1
   %exitcond = icmp eq i32 %36, %26
@@ -12026,15 +12026,15 @@ define i32 @_Z31rsElementGetSubElementArraySize10rs_elementj([1 x i32] %e.coerce
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Element*
-  %5 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 9
+  %5 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 9
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = icmp ugt i32 %6, %index
   br i1 %7, label %8, label %13
 
 ; <label>:8                                       ; preds = %3
-  %9 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 5
+  %9 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 5
   %10 = load i32** %9, align 4, !tbaa !22
-  %11 = getelementptr inbounds i32* %10, i32 %index
+  %11 = getelementptr inbounds i32, i32* %10, i32 %index
   %12 = load i32* %11, align 4, !tbaa !21
   br label %13
 
@@ -12051,15 +12051,15 @@ define i32 @_Z33rsElementGetSubElementOffsetBytes10rs_elementj([1 x i32] %e.coer
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Element*
-  %5 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 9
+  %5 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 9
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = icmp ugt i32 %6, %index
   br i1 %7, label %8, label %13
 
 ; <label>:8                                       ; preds = %3
-  %9 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 8
+  %9 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 8
   %10 = load i32** %9, align 4, !tbaa !22
-  %11 = getelementptr inbounds i32* %10, i32 %index
+  %11 = getelementptr inbounds i32, i32* %10, i32 %index
   %12 = load i32* %11, align 4, !tbaa !21
   br label %13
 
@@ -12076,7 +12076,7 @@ define i32 @_Z21rsElementGetBytesSize10rs_element([1 x i32] %e.coerce) #4 {
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Element*
-  %5 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 3
+  %5 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 3
   %6 = load i32* %5, align 4, !tbaa !21
   br label %7
 
@@ -12093,7 +12093,7 @@ define i32 @_Z20rsElementGetDataType10rs_element([1 x i32] %e.coerce) #4 {
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Element*
-  %5 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 0
+  %5 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 0
   %6 = load i32* %5, align 4, !tbaa !19
   br label %7
 
@@ -12110,7 +12110,7 @@ define i32 @_Z20rsElementGetDataKind10rs_element([1 x i32] %e.coerce) #4 {
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Element*
-  %5 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 1
+  %5 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 1
   %6 = load i32* %5, align 4, !tbaa !19
   br label %7
 
@@ -12127,7 +12127,7 @@ define i32 @_Z22rsElementGetVectorSize10rs_element([1 x i32] %e.coerce) #4 {
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Element*
-  %5 = getelementptr inbounds %struct.Element* %4, i32 0, i32 1, i32 1, i32 2
+  %5 = getelementptr inbounds %struct.Element, %struct.Element* %4, i32 0, i32 1, i32 1, i32 2
   %6 = load i32* %5, align 4, !tbaa !21
   br label %7
 
@@ -12144,7 +12144,7 @@ define i32 @_Z31rsgMeshGetVertexAllocationCount7rs_mesh([1 x i32] %m.coerce) #4 
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Mesh*
-  %5 = getelementptr inbounds %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 1
+  %5 = getelementptr inbounds %struct.Mesh, %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   br label %7
 
@@ -12161,7 +12161,7 @@ define i32 @_Z24rsgMeshGetPrimitiveCount7rs_mesh([1 x i32] %m.coerce) #4 {
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Mesh*
-  %5 = getelementptr inbounds %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 5
+  %5 = getelementptr inbounds %struct.Mesh, %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 5
   %6 = load i32* %5, align 4, !tbaa !21
   br label %7
 
@@ -12178,15 +12178,15 @@ define i32 @_Z26rsgMeshGetVertexAllocation7rs_meshj([1 x i32] %m.coerce, i32 %in
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Mesh*
-  %5 = getelementptr inbounds %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 1
+  %5 = getelementptr inbounds %struct.Mesh, %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = icmp ugt i32 %6, %index
   br i1 %7, label %8, label %13
 
 ; <label>:8                                       ; preds = %3
-  %9 = getelementptr inbounds %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 0
+  %9 = getelementptr inbounds %struct.Mesh, %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 0
   %10 = load i8*** %9, align 4, !tbaa !22
-  %11 = getelementptr inbounds i8** %10, i32 %index
+  %11 = getelementptr inbounds i8*, i8** %10, i32 %index
   %12 = load i8** %11, align 4, !tbaa !22
   %phitmp = ptrtoint i8* %12 to i32
   br label %13
@@ -12204,15 +12204,15 @@ define i32 @_Z25rsgMeshGetIndexAllocation7rs_meshj([1 x i32] %m.coerce, i32 %ind
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Mesh*
-  %5 = getelementptr inbounds %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 5
+  %5 = getelementptr inbounds %struct.Mesh, %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 5
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = icmp ugt i32 %6, %index
   br i1 %7, label %8, label %13
 
 ; <label>:8                                       ; preds = %3
-  %9 = getelementptr inbounds %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 2
+  %9 = getelementptr inbounds %struct.Mesh, %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 2
   %10 = load i8*** %9, align 4, !tbaa !22
-  %11 = getelementptr inbounds i8** %10, i32 %index
+  %11 = getelementptr inbounds i8*, i8** %10, i32 %index
   %12 = load i8** %11, align 4, !tbaa !22
   %phitmp = ptrtoint i8* %12 to i32
   br label %13
@@ -12230,15 +12230,15 @@ define i32 @_Z19rsgMeshGetPrimitive7rs_meshj([1 x i32] %m.coerce, i32 %index) #4
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Mesh*
-  %5 = getelementptr inbounds %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 5
+  %5 = getelementptr inbounds %struct.Mesh, %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 5
   %6 = load i32* %5, align 4, !tbaa !21
   %7 = icmp ugt i32 %6, %index
   br i1 %7, label %8, label %13
 
 ; <label>:8                                       ; preds = %3
-  %9 = getelementptr inbounds %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 4
+  %9 = getelementptr inbounds %struct.Mesh, %struct.Mesh* %4, i32 0, i32 1, i32 1, i32 4
   %10 = load i32** %9, align 4, !tbaa !22
-  %11 = getelementptr inbounds i32* %10, i32 %index
+  %11 = getelementptr inbounds i32, i32* %10, i32 %index
   %12 = load i32* %11, align 4, !tbaa !19
   br label %13
 
@@ -12249,73 +12249,73 @@ define i32 @_Z19rsgMeshGetPrimitive7rs_meshj([1 x i32] %m.coerce, i32 %index) #4
 
 ; Function Attrs: nounwind
 define void @_Z20rsMatrixLoadIdentityP12rs_matrix4x4(%struct.rs_matrix4x4* nocapture %m) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   store float 1.000000e+00, float* %1, align 4, !tbaa !18
-  %2 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
+  %2 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
   store float 0.000000e+00, float* %2, align 4, !tbaa !18
-  %3 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
+  %3 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
   store float 0.000000e+00, float* %3, align 4, !tbaa !18
-  %4 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
+  %4 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
   store float 0.000000e+00, float* %4, align 4, !tbaa !18
-  %5 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %5 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   store float 0.000000e+00, float* %5, align 4, !tbaa !18
-  %6 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
+  %6 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
   store float 1.000000e+00, float* %6, align 4, !tbaa !18
-  %7 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
+  %7 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
   store float 0.000000e+00, float* %7, align 4, !tbaa !18
-  %8 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
+  %8 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
   store float 0.000000e+00, float* %8, align 4, !tbaa !18
-  %9 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
+  %9 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
   store float 0.000000e+00, float* %9, align 4, !tbaa !18
-  %10 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
+  %10 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
   store float 0.000000e+00, float* %10, align 4, !tbaa !18
-  %11 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
+  %11 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
   store float 1.000000e+00, float* %11, align 4, !tbaa !18
-  %12 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
+  %12 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
   store float 0.000000e+00, float* %12, align 4, !tbaa !18
-  %13 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %13 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   store float 0.000000e+00, float* %13, align 4, !tbaa !18
-  %14 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
+  %14 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
   store float 0.000000e+00, float* %14, align 4, !tbaa !18
-  %15 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
+  %15 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
   store float 0.000000e+00, float* %15, align 4, !tbaa !18
-  %16 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
+  %16 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
   store float 1.000000e+00, float* %16, align 4, !tbaa !18
   ret void
 }
 
 ; Function Attrs: nounwind
 define void @_Z20rsMatrixLoadIdentityP12rs_matrix3x3(%struct.rs_matrix3x3* nocapture %m) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
   store float 1.000000e+00, float* %1, align 4, !tbaa !18
-  %2 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
+  %2 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
   store float 0.000000e+00, float* %2, align 4, !tbaa !18
-  %3 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
+  %3 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
   store float 0.000000e+00, float* %3, align 4, !tbaa !18
-  %4 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
+  %4 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
   store float 0.000000e+00, float* %4, align 4, !tbaa !18
-  %5 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
+  %5 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
   store float 1.000000e+00, float* %5, align 4, !tbaa !18
-  %6 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
+  %6 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
   store float 0.000000e+00, float* %6, align 4, !tbaa !18
-  %7 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 6
+  %7 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 6
   store float 0.000000e+00, float* %7, align 4, !tbaa !18
-  %8 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 7
+  %8 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 7
   store float 0.000000e+00, float* %8, align 4, !tbaa !18
-  %9 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 8
+  %9 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 8
   store float 1.000000e+00, float* %9, align 4, !tbaa !18
   ret void
 }
 
 ; Function Attrs: nounwind
 define void @_Z20rsMatrixLoadIdentityP12rs_matrix2x2(%struct.rs_matrix2x2* nocapture %m) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 0
   store float 1.000000e+00, float* %1, align 4, !tbaa !18
-  %2 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 1
+  %2 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 1
   store float 0.000000e+00, float* %2, align 4, !tbaa !18
-  %3 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 2
+  %3 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 2
   store float 0.000000e+00, float* %3, align 4, !tbaa !18
-  %4 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 3
+  %4 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 3
   store float 1.000000e+00, float* %4, align 4, !tbaa !18
   ret void
 }
@@ -12323,67 +12323,67 @@ define void @_Z20rsMatrixLoadIdentityP12rs_matrix2x2(%struct.rs_matrix2x2* nocap
 ; Function Attrs: nounwind
 define void @_Z12rsMatrixLoadP12rs_matrix4x4PKf(%struct.rs_matrix4x4* nocapture %m, float* nocapture %f) #5 {
   %1 = load float* %f, align 4, !tbaa !18
-  %2 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %2 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   store float %1, float* %2, align 4, !tbaa !18
-  %3 = getelementptr inbounds float* %f, i32 1
+  %3 = getelementptr inbounds float, float* %f, i32 1
   %4 = load float* %3, align 4, !tbaa !18
-  %5 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
   store float %4, float* %5, align 4, !tbaa !18
-  %6 = getelementptr inbounds float* %f, i32 2
+  %6 = getelementptr inbounds float, float* %f, i32 2
   %7 = load float* %6, align 4, !tbaa !18
-  %8 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
+  %8 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
   store float %7, float* %8, align 4, !tbaa !18
-  %9 = getelementptr inbounds float* %f, i32 3
+  %9 = getelementptr inbounds float, float* %f, i32 3
   %10 = load float* %9, align 4, !tbaa !18
-  %11 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
+  %11 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
   store float %10, float* %11, align 4, !tbaa !18
-  %12 = getelementptr inbounds float* %f, i32 4
+  %12 = getelementptr inbounds float, float* %f, i32 4
   %13 = load float* %12, align 4, !tbaa !18
-  %14 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %14 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   store float %13, float* %14, align 4, !tbaa !18
-  %15 = getelementptr inbounds float* %f, i32 5
+  %15 = getelementptr inbounds float, float* %f, i32 5
   %16 = load float* %15, align 4, !tbaa !18
-  %17 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
+  %17 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
   store float %16, float* %17, align 4, !tbaa !18
-  %18 = getelementptr inbounds float* %f, i32 6
+  %18 = getelementptr inbounds float, float* %f, i32 6
   %19 = load float* %18, align 4, !tbaa !18
-  %20 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
+  %20 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
   store float %19, float* %20, align 4, !tbaa !18
-  %21 = getelementptr inbounds float* %f, i32 7
+  %21 = getelementptr inbounds float, float* %f, i32 7
   %22 = load float* %21, align 4, !tbaa !18
-  %23 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
+  %23 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
   store float %22, float* %23, align 4, !tbaa !18
-  %24 = getelementptr inbounds float* %f, i32 8
+  %24 = getelementptr inbounds float, float* %f, i32 8
   %25 = load float* %24, align 4, !tbaa !18
-  %26 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
+  %26 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
   store float %25, float* %26, align 4, !tbaa !18
-  %27 = getelementptr inbounds float* %f, i32 9
+  %27 = getelementptr inbounds float, float* %f, i32 9
   %28 = load float* %27, align 4, !tbaa !18
-  %29 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
+  %29 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
   store float %28, float* %29, align 4, !tbaa !18
-  %30 = getelementptr inbounds float* %f, i32 10
+  %30 = getelementptr inbounds float, float* %f, i32 10
   %31 = load float* %30, align 4, !tbaa !18
-  %32 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
+  %32 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
   store float %31, float* %32, align 4, !tbaa !18
-  %33 = getelementptr inbounds float* %f, i32 11
+  %33 = getelementptr inbounds float, float* %f, i32 11
   %34 = load float* %33, align 4, !tbaa !18
-  %35 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
+  %35 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
   store float %34, float* %35, align 4, !tbaa !18
-  %36 = getelementptr inbounds float* %f, i32 12
+  %36 = getelementptr inbounds float, float* %f, i32 12
   %37 = load float* %36, align 4, !tbaa !18
-  %38 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %38 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   store float %37, float* %38, align 4, !tbaa !18
-  %39 = getelementptr inbounds float* %f, i32 13
+  %39 = getelementptr inbounds float, float* %f, i32 13
   %40 = load float* %39, align 4, !tbaa !18
-  %41 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
+  %41 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
   store float %40, float* %41, align 4, !tbaa !18
-  %42 = getelementptr inbounds float* %f, i32 14
+  %42 = getelementptr inbounds float, float* %f, i32 14
   %43 = load float* %42, align 4, !tbaa !18
-  %44 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
+  %44 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
   store float %43, float* %44, align 4, !tbaa !18
-  %45 = getelementptr inbounds float* %f, i32 15
+  %45 = getelementptr inbounds float, float* %f, i32 15
   %46 = load float* %45, align 4, !tbaa !18
-  %47 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
+  %47 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
   store float %46, float* %47, align 4, !tbaa !18
   ret void
 }
@@ -12391,39 +12391,39 @@ define void @_Z12rsMatrixLoadP12rs_matrix4x4PKf(%struct.rs_matrix4x4* nocapture 
 ; Function Attrs: nounwind
 define void @_Z12rsMatrixLoadP12rs_matrix3x3PKf(%struct.rs_matrix3x3* nocapture %m, float* nocapture %f) #5 {
   %1 = load float* %f, align 4, !tbaa !18
-  %2 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
+  %2 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
   store float %1, float* %2, align 4, !tbaa !18
-  %3 = getelementptr inbounds float* %f, i32 1
+  %3 = getelementptr inbounds float, float* %f, i32 1
   %4 = load float* %3, align 4, !tbaa !18
-  %5 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
   store float %4, float* %5, align 4, !tbaa !18
-  %6 = getelementptr inbounds float* %f, i32 2
+  %6 = getelementptr inbounds float, float* %f, i32 2
   %7 = load float* %6, align 4, !tbaa !18
-  %8 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
+  %8 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
   store float %7, float* %8, align 4, !tbaa !18
-  %9 = getelementptr inbounds float* %f, i32 3
+  %9 = getelementptr inbounds float, float* %f, i32 3
   %10 = load float* %9, align 4, !tbaa !18
-  %11 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
+  %11 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
   store float %10, float* %11, align 4, !tbaa !18
-  %12 = getelementptr inbounds float* %f, i32 4
+  %12 = getelementptr inbounds float, float* %f, i32 4
   %13 = load float* %12, align 4, !tbaa !18
-  %14 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
+  %14 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
   store float %13, float* %14, align 4, !tbaa !18
-  %15 = getelementptr inbounds float* %f, i32 5
+  %15 = getelementptr inbounds float, float* %f, i32 5
   %16 = load float* %15, align 4, !tbaa !18
-  %17 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
+  %17 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
   store float %16, float* %17, align 4, !tbaa !18
-  %18 = getelementptr inbounds float* %f, i32 6
+  %18 = getelementptr inbounds float, float* %f, i32 6
   %19 = load float* %18, align 4, !tbaa !18
-  %20 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 6
+  %20 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 6
   store float %19, float* %20, align 4, !tbaa !18
-  %21 = getelementptr inbounds float* %f, i32 7
+  %21 = getelementptr inbounds float, float* %f, i32 7
   %22 = load float* %21, align 4, !tbaa !18
-  %23 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 7
+  %23 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 7
   store float %22, float* %23, align 4, !tbaa !18
-  %24 = getelementptr inbounds float* %f, i32 8
+  %24 = getelementptr inbounds float, float* %f, i32 8
   %25 = load float* %24, align 4, !tbaa !18
-  %26 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 8
+  %26 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 8
   store float %25, float* %26, align 4, !tbaa !18
   ret void
 }
@@ -12431,250 +12431,250 @@ define void @_Z12rsMatrixLoadP12rs_matrix3x3PKf(%struct.rs_matrix3x3* nocapture 
 ; Function Attrs: nounwind
 define void @_Z12rsMatrixLoadP12rs_matrix2x2PKf(%struct.rs_matrix2x2* nocapture %m, float* nocapture %f) #5 {
   %1 = load float* %f, align 4, !tbaa !18
-  %2 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 0
+  %2 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 0
   store float %1, float* %2, align 4, !tbaa !18
-  %3 = getelementptr inbounds float* %f, i32 1
+  %3 = getelementptr inbounds float, float* %f, i32 1
   %4 = load float* %3, align 4, !tbaa !18
-  %5 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 1
   store float %4, float* %5, align 4, !tbaa !18
-  %6 = getelementptr inbounds float* %f, i32 2
+  %6 = getelementptr inbounds float, float* %f, i32 2
   %7 = load float* %6, align 4, !tbaa !18
-  %8 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 2
+  %8 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 2
   store float %7, float* %8, align 4, !tbaa !18
-  %9 = getelementptr inbounds float* %f, i32 3
+  %9 = getelementptr inbounds float, float* %f, i32 3
   %10 = load float* %9, align 4, !tbaa !18
-  %11 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 3
+  %11 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 3
   store float %10, float* %11, align 4, !tbaa !18
   ret void
 }
 
 ; Function Attrs: nounwind
 define void @_Z12rsMatrixLoadP12rs_matrix4x4PKS_(%struct.rs_matrix4x4* nocapture %m, %struct.rs_matrix4x4* nocapture %s) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
-  %3 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   store float %2, float* %3, align 4, !tbaa !18
-  %4 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 1
+  %4 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 1
   %5 = load float* %4, align 4, !tbaa !18
-  %6 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
   store float %5, float* %6, align 4, !tbaa !18
-  %7 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 2
+  %7 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 2
   %8 = load float* %7, align 4, !tbaa !18
-  %9 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
+  %9 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
   store float %8, float* %9, align 4, !tbaa !18
-  %10 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 3
+  %10 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 3
   %11 = load float* %10, align 4, !tbaa !18
-  %12 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
+  %12 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
   store float %11, float* %12, align 4, !tbaa !18
-  %13 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 4
+  %13 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 4
   %14 = load float* %13, align 4, !tbaa !18
-  %15 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %15 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   store float %14, float* %15, align 4, !tbaa !18
-  %16 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 5
+  %16 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 5
   %17 = load float* %16, align 4, !tbaa !18
-  %18 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
+  %18 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
   store float %17, float* %18, align 4, !tbaa !18
-  %19 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 6
+  %19 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 6
   %20 = load float* %19, align 4, !tbaa !18
-  %21 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
+  %21 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
   store float %20, float* %21, align 4, !tbaa !18
-  %22 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 7
+  %22 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 7
   %23 = load float* %22, align 4, !tbaa !18
-  %24 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
+  %24 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
   store float %23, float* %24, align 4, !tbaa !18
-  %25 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 8
+  %25 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 8
   %26 = load float* %25, align 4, !tbaa !18
-  %27 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
+  %27 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
   store float %26, float* %27, align 4, !tbaa !18
-  %28 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 9
+  %28 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 9
   %29 = load float* %28, align 4, !tbaa !18
-  %30 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
+  %30 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
   store float %29, float* %30, align 4, !tbaa !18
-  %31 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 10
+  %31 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 10
   %32 = load float* %31, align 4, !tbaa !18
-  %33 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
+  %33 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
   store float %32, float* %33, align 4, !tbaa !18
-  %34 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 11
+  %34 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 11
   %35 = load float* %34, align 4, !tbaa !18
-  %36 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
+  %36 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
   store float %35, float* %36, align 4, !tbaa !18
-  %37 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 12
+  %37 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 12
   %38 = load float* %37, align 4, !tbaa !18
-  %39 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %39 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   store float %38, float* %39, align 4, !tbaa !18
-  %40 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 13
+  %40 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 13
   %41 = load float* %40, align 4, !tbaa !18
-  %42 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
+  %42 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
   store float %41, float* %42, align 4, !tbaa !18
-  %43 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 14
+  %43 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 14
   %44 = load float* %43, align 4, !tbaa !18
-  %45 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
+  %45 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
   store float %44, float* %45, align 4, !tbaa !18
-  %46 = getelementptr inbounds %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 15
+  %46 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %s, i32 0, i32 0, i32 15
   %47 = load float* %46, align 4, !tbaa !18
-  %48 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
+  %48 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
   store float %47, float* %48, align 4, !tbaa !18
   ret void
 }
 
 ; Function Attrs: nounwind
 define void @_Z12rsMatrixLoadP12rs_matrix4x4PK12rs_matrix3x3(%struct.rs_matrix4x4* nocapture %m, %struct.rs_matrix3x3* nocapture %v) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
-  %3 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   store float %2, float* %3, align 4, !tbaa !18
-  %4 = getelementptr inbounds %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 1
+  %4 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 1
   %5 = load float* %4, align 4, !tbaa !18
-  %6 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
   store float %5, float* %6, align 4, !tbaa !18
-  %7 = getelementptr inbounds %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 2
+  %7 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 2
   %8 = load float* %7, align 4, !tbaa !18
-  %9 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
+  %9 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
   store float %8, float* %9, align 4, !tbaa !18
-  %10 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
+  %10 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
   store float 0.000000e+00, float* %10, align 4, !tbaa !18
-  %11 = getelementptr inbounds %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 3
+  %11 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 3
   %12 = load float* %11, align 4, !tbaa !18
-  %13 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %13 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   store float %12, float* %13, align 4, !tbaa !18
-  %14 = getelementptr inbounds %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 4
+  %14 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 4
   %15 = load float* %14, align 4, !tbaa !18
-  %16 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
+  %16 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
   store float %15, float* %16, align 4, !tbaa !18
-  %17 = getelementptr inbounds %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 5
+  %17 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 5
   %18 = load float* %17, align 4, !tbaa !18
-  %19 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
+  %19 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
   store float %18, float* %19, align 4, !tbaa !18
-  %20 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
+  %20 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
   store float 0.000000e+00, float* %20, align 4, !tbaa !18
-  %21 = getelementptr inbounds %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 6
+  %21 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 6
   %22 = load float* %21, align 4, !tbaa !18
-  %23 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
+  %23 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
   store float %22, float* %23, align 4, !tbaa !18
-  %24 = getelementptr inbounds %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 7
+  %24 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 7
   %25 = load float* %24, align 4, !tbaa !18
-  %26 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
+  %26 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
   store float %25, float* %26, align 4, !tbaa !18
-  %27 = getelementptr inbounds %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 8
+  %27 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %v, i32 0, i32 0, i32 8
   %28 = load float* %27, align 4, !tbaa !18
-  %29 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
+  %29 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
   store float %28, float* %29, align 4, !tbaa !18
-  %30 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
+  %30 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
   store float 0.000000e+00, float* %30, align 4, !tbaa !18
-  %31 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %31 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   store float 0.000000e+00, float* %31, align 4, !tbaa !18
-  %32 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
+  %32 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
   store float 0.000000e+00, float* %32, align 4, !tbaa !18
-  %33 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
+  %33 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
   store float 0.000000e+00, float* %33, align 4, !tbaa !18
-  %34 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
+  %34 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
   store float 1.000000e+00, float* %34, align 4, !tbaa !18
   ret void
 }
 
 ; Function Attrs: nounwind
 define void @_Z12rsMatrixLoadP12rs_matrix4x4PK12rs_matrix2x2(%struct.rs_matrix4x4* nocapture %m, %struct.rs_matrix2x2* nocapture %v) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix2x2* %v, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %v, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
-  %3 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   store float %2, float* %3, align 4, !tbaa !18
-  %4 = getelementptr inbounds %struct.rs_matrix2x2* %v, i32 0, i32 0, i32 1
+  %4 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %v, i32 0, i32 0, i32 1
   %5 = load float* %4, align 4, !tbaa !18
-  %6 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
   store float %5, float* %6, align 4, !tbaa !18
-  %7 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
+  %7 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
   store float 0.000000e+00, float* %7, align 4, !tbaa !18
-  %8 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
+  %8 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
   store float 0.000000e+00, float* %8, align 4, !tbaa !18
-  %9 = getelementptr inbounds %struct.rs_matrix2x2* %v, i32 0, i32 0, i32 2
+  %9 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %v, i32 0, i32 0, i32 2
   %10 = load float* %9, align 4, !tbaa !18
-  %11 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %11 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   store float %10, float* %11, align 4, !tbaa !18
-  %12 = getelementptr inbounds %struct.rs_matrix2x2* %v, i32 0, i32 0, i32 3
+  %12 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %v, i32 0, i32 0, i32 3
   %13 = load float* %12, align 4, !tbaa !18
-  %14 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
+  %14 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
   store float %13, float* %14, align 4, !tbaa !18
-  %15 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
+  %15 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
   store float 0.000000e+00, float* %15, align 4, !tbaa !18
-  %16 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
+  %16 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
   store float 0.000000e+00, float* %16, align 4, !tbaa !18
-  %17 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
+  %17 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
   store float 0.000000e+00, float* %17, align 4, !tbaa !18
-  %18 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
+  %18 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
   store float 0.000000e+00, float* %18, align 4, !tbaa !18
-  %19 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
+  %19 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
   store float 1.000000e+00, float* %19, align 4, !tbaa !18
-  %20 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
+  %20 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
   store float 0.000000e+00, float* %20, align 4, !tbaa !18
-  %21 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %21 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   store float 0.000000e+00, float* %21, align 4, !tbaa !18
-  %22 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
+  %22 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
   store float 0.000000e+00, float* %22, align 4, !tbaa !18
-  %23 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
+  %23 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
   store float 0.000000e+00, float* %23, align 4, !tbaa !18
-  %24 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
+  %24 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
   store float 1.000000e+00, float* %24, align 4, !tbaa !18
   ret void
 }
 
 ; Function Attrs: nounwind
 define void @_Z12rsMatrixLoadP12rs_matrix3x3PKS_(%struct.rs_matrix3x3* nocapture %m, %struct.rs_matrix3x3* nocapture %s) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
-  %3 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
   store float %2, float* %3, align 4, !tbaa !18
-  %4 = getelementptr inbounds %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 1
+  %4 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 1
   %5 = load float* %4, align 4, !tbaa !18
-  %6 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
   store float %5, float* %6, align 4, !tbaa !18
-  %7 = getelementptr inbounds %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 2
+  %7 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 2
   %8 = load float* %7, align 4, !tbaa !18
-  %9 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
+  %9 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
   store float %8, float* %9, align 4, !tbaa !18
-  %10 = getelementptr inbounds %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 3
+  %10 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 3
   %11 = load float* %10, align 4, !tbaa !18
-  %12 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
+  %12 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
   store float %11, float* %12, align 4, !tbaa !18
-  %13 = getelementptr inbounds %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 4
+  %13 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 4
   %14 = load float* %13, align 4, !tbaa !18
-  %15 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
+  %15 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
   store float %14, float* %15, align 4, !tbaa !18
-  %16 = getelementptr inbounds %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 5
+  %16 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 5
   %17 = load float* %16, align 4, !tbaa !18
-  %18 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
+  %18 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
   store float %17, float* %18, align 4, !tbaa !18
-  %19 = getelementptr inbounds %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 6
+  %19 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 6
   %20 = load float* %19, align 4, !tbaa !18
-  %21 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 6
+  %21 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 6
   store float %20, float* %21, align 4, !tbaa !18
-  %22 = getelementptr inbounds %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 7
+  %22 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 7
   %23 = load float* %22, align 4, !tbaa !18
-  %24 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 7
+  %24 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 7
   store float %23, float* %24, align 4, !tbaa !18
-  %25 = getelementptr inbounds %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 8
+  %25 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %s, i32 0, i32 0, i32 8
   %26 = load float* %25, align 4, !tbaa !18
-  %27 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 8
+  %27 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 8
   store float %26, float* %27, align 4, !tbaa !18
   ret void
 }
 
 ; Function Attrs: nounwind
 define void @_Z12rsMatrixLoadP12rs_matrix2x2PKS_(%struct.rs_matrix2x2* nocapture %m, %struct.rs_matrix2x2* nocapture %s) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix2x2* %s, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %s, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
-  %3 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 0
   store float %2, float* %3, align 4, !tbaa !18
-  %4 = getelementptr inbounds %struct.rs_matrix2x2* %s, i32 0, i32 0, i32 1
+  %4 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %s, i32 0, i32 0, i32 1
   %5 = load float* %4, align 4, !tbaa !18
-  %6 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 1
   store float %5, float* %6, align 4, !tbaa !18
-  %7 = getelementptr inbounds %struct.rs_matrix2x2* %s, i32 0, i32 0, i32 2
+  %7 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %s, i32 0, i32 0, i32 2
   %8 = load float* %7, align 4, !tbaa !18
-  %9 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 2
+  %9 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 2
   store float %8, float* %9, align 4, !tbaa !18
-  %10 = getelementptr inbounds %struct.rs_matrix2x2* %s, i32 0, i32 0, i32 3
+  %10 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %s, i32 0, i32 0, i32 3
   %11 = load float* %10, align 4, !tbaa !18
-  %12 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 3
+  %12 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 3
   store float %11, float* %12, align 4, !tbaa !18
   ret void
 }
@@ -12683,7 +12683,7 @@ define void @_Z12rsMatrixLoadP12rs_matrix2x2PKS_(%struct.rs_matrix2x2* nocapture
 define void @_Z11rsMatrixSetP12rs_matrix4x4jjf(%struct.rs_matrix4x4* nocapture %m, i32 %row, i32 %col, float %v) #5 {
   %1 = shl i32 %row, 2
   %2 = add i32 %1, %col
-  %3 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 %2
+  %3 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 %2
   store float %v, float* %3, align 4, !tbaa !18
   ret void
 }
@@ -12692,7 +12692,7 @@ define void @_Z11rsMatrixSetP12rs_matrix4x4jjf(%struct.rs_matrix4x4* nocapture %
 define float @_Z11rsMatrixGetPK12rs_matrix4x4jj(%struct.rs_matrix4x4* nocapture %m, i32 %row, i32 %col) #4 {
   %1 = shl i32 %row, 2
   %2 = add i32 %1, %col
-  %3 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 %2
+  %3 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 %2
   %4 = load float* %3, align 4, !tbaa !18
   ret float %4
 }
@@ -12701,7 +12701,7 @@ define float @_Z11rsMatrixGetPK12rs_matrix4x4jj(%struct.rs_matrix4x4* nocapture 
 define void @_Z11rsMatrixSetP12rs_matrix3x3jjf(%struct.rs_matrix3x3* nocapture %m, i32 %row, i32 %col, float %v) #5 {
   %1 = mul i32 %row, 3
   %2 = add i32 %1, %col
-  %3 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 %2
+  %3 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 %2
   store float %v, float* %3, align 4, !tbaa !18
   ret void
 }
@@ -12710,7 +12710,7 @@ define void @_Z11rsMatrixSetP12rs_matrix3x3jjf(%struct.rs_matrix3x3* nocapture %
 define float @_Z11rsMatrixGetPK12rs_matrix3x3jj(%struct.rs_matrix3x3* nocapture %m, i32 %row, i32 %col) #4 {
   %1 = mul i32 %row, 3
   %2 = add i32 %1, %col
-  %3 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 %2
+  %3 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 %2
   %4 = load float* %3, align 4, !tbaa !18
   ret float %4
 }
@@ -12719,7 +12719,7 @@ define float @_Z11rsMatrixGetPK12rs_matrix3x3jj(%struct.rs_matrix3x3* nocapture 
 define void @_Z11rsMatrixSetP12rs_matrix2x2jjf(%struct.rs_matrix2x2* nocapture %m, i32 %row, i32 %col, float %v) #5 {
   %1 = shl i32 %row, 1
   %2 = add i32 %1, %col
-  %3 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 %2
+  %3 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 %2
   store float %v, float* %3, align 4, !tbaa !18
   ret void
 }
@@ -12728,27 +12728,27 @@ define void @_Z11rsMatrixSetP12rs_matrix2x2jjf(%struct.rs_matrix2x2* nocapture %
 define float @_Z11rsMatrixGetPK12rs_matrix2x2jj(%struct.rs_matrix2x2* nocapture %m, i32 %row, i32 %col) #4 {
   %1 = shl i32 %row, 1
   %2 = add i32 %1, %col
-  %3 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 %2
+  %3 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 %2
   %4 = load float* %3, align 4, !tbaa !18
   ret float %4
 }
 
 ; Function Attrs: nounwind readonly
 define <2 x float> @_Z16rsMatrixMultiplyPK12rs_matrix2x2Dv2_f(%struct.rs_matrix2x2* nocapture %m, <2 x float> %in) #4 {
-  %1 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
   %3 = extractelement <2 x float> %in, i32 0
   %4 = fmul float %3, %2
-  %5 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 2
+  %5 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 2
   %6 = load float* %5, align 4, !tbaa !18
   %7 = extractelement <2 x float> %in, i32 1
   %8 = fmul float %7, %6
   %9 = fadd float %4, %8
   %10 = insertelement <2 x float> undef, float %9, i32 0
-  %11 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 1
+  %11 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 1
   %12 = load float* %11, align 4, !tbaa !18
   %13 = fmul float %3, %12
-  %14 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 3
+  %14 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 3
   %15 = load float* %14, align 4, !tbaa !18
   %16 = fmul float %7, %15
   %17 = fadd float %13, %16
@@ -12758,20 +12758,20 @@ define <2 x float> @_Z16rsMatrixMultiplyPK12rs_matrix2x2Dv2_f(%struct.rs_matrix2
 
 ; Function Attrs: nounwind readonly
 define <2 x float> @_Z16rsMatrixMultiplyP12rs_matrix2x2Dv2_f(%struct.rs_matrix2x2* nocapture %m, <2 x float> %in) #4 {
-  %1 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
   %3 = extractelement <2 x float> %in, i32 0
   %4 = fmul float %3, %2
-  %5 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 2
+  %5 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 2
   %6 = load float* %5, align 4, !tbaa !18
   %7 = extractelement <2 x float> %in, i32 1
   %8 = fmul float %7, %6
   %9 = fadd float %4, %8
   %10 = insertelement <2 x float> undef, float %9, i32 0
-  %11 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 1
+  %11 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 1
   %12 = load float* %11, align 4, !tbaa !18
   %13 = fmul float %3, %12
-  %14 = getelementptr inbounds %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 3
+  %14 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %m, i32 0, i32 0, i32 3
   %15 = load float* %14, align 4, !tbaa !18
   %16 = fmul float %7, %15
   %17 = fadd float %13, %16
@@ -12781,70 +12781,70 @@ define <2 x float> @_Z16rsMatrixMultiplyP12rs_matrix2x2Dv2_f(%struct.rs_matrix2x
 
 ; Function Attrs: nounwind
 define <4 x float> @_Z16rsMatrixMultiplyP12rs_matrix4x4Dv4_f(%struct.rs_matrix4x4* %m, <4 x float> %in) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
   %3 = extractelement <4 x float> %in, i32 0
   %4 = fmul float %3, %2
-  %5 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %5 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   %6 = load float* %5, align 4, !tbaa !18
   %7 = extractelement <4 x float> %in, i32 1
   %8 = fmul float %7, %6
   %9 = fadd float %4, %8
-  %10 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
+  %10 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
   %11 = load float* %10, align 4, !tbaa !18
   %12 = extractelement <4 x float> %in, i32 2
   %13 = fmul float %12, %11
   %14 = fadd float %9, %13
-  %15 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %15 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   %16 = load float* %15, align 4, !tbaa !18
   %17 = extractelement <4 x float> %in, i32 3
   %18 = fmul float %17, %16
   %19 = fadd float %14, %18
   %20 = insertelement <4 x float> undef, float %19, i32 0
-  %21 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
+  %21 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
   %22 = load float* %21, align 4, !tbaa !18
   %23 = fmul float %3, %22
-  %24 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
+  %24 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
   %25 = load float* %24, align 4, !tbaa !18
   %26 = fmul float %7, %25
   %27 = fadd float %23, %26
-  %28 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
+  %28 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
   %29 = load float* %28, align 4, !tbaa !18
   %30 = fmul float %12, %29
   %31 = fadd float %27, %30
-  %32 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
+  %32 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
   %33 = load float* %32, align 4, !tbaa !18
   %34 = fmul float %17, %33
   %35 = fadd float %31, %34
   %36 = insertelement <4 x float> %20, float %35, i32 1
-  %37 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
+  %37 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
   %38 = load float* %37, align 4, !tbaa !18
   %39 = fmul float %3, %38
-  %40 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
+  %40 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
   %41 = load float* %40, align 4, !tbaa !18
   %42 = fmul float %7, %41
   %43 = fadd float %39, %42
-  %44 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
+  %44 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
   %45 = load float* %44, align 4, !tbaa !18
   %46 = fmul float %12, %45
   %47 = fadd float %43, %46
-  %48 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
+  %48 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
   %49 = load float* %48, align 4, !tbaa !18
   %50 = fmul float %17, %49
   %51 = fadd float %47, %50
   %52 = insertelement <4 x float> %36, float %51, i32 2
-  %53 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
+  %53 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
   %54 = load float* %53, align 4, !tbaa !18
   %55 = fmul float %3, %54
-  %56 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
+  %56 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
   %57 = load float* %56, align 4, !tbaa !18
   %58 = fmul float %7, %57
   %59 = fadd float %55, %58
-  %60 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
+  %60 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
   %61 = load float* %60, align 4, !tbaa !18
   %62 = fmul float %12, %61
   %63 = fadd float %59, %62
-  %64 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
+  %64 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
   %65 = load float* %64, align 4, !tbaa !18
   %66 = fmul float %17, %65
   %67 = fadd float %63, %66
@@ -12854,66 +12854,66 @@ define <4 x float> @_Z16rsMatrixMultiplyP12rs_matrix4x4Dv4_f(%struct.rs_matrix4x
 
 ; Function Attrs: nounwind
 define <4 x float> @_Z16rsMatrixMultiplyP12rs_matrix4x4Dv3_f(%struct.rs_matrix4x4* %m, <3 x float> %in) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
   %3 = extractelement <3 x float> %in, i32 0
   %4 = fmul float %3, %2
-  %5 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %5 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   %6 = load float* %5, align 4, !tbaa !18
   %7 = extractelement <3 x float> %in, i32 1
   %8 = fmul float %7, %6
   %9 = fadd float %4, %8
-  %10 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
+  %10 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
   %11 = load float* %10, align 4, !tbaa !18
   %12 = extractelement <3 x float> %in, i32 2
   %13 = fmul float %12, %11
   %14 = fadd float %9, %13
-  %15 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %15 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   %16 = load float* %15, align 4, !tbaa !18
   %17 = fadd float %16, %14
   %18 = insertelement <4 x float> undef, float %17, i32 0
-  %19 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
+  %19 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
   %20 = load float* %19, align 4, !tbaa !18
   %21 = fmul float %3, %20
-  %22 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
+  %22 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
   %23 = load float* %22, align 4, !tbaa !18
   %24 = fmul float %7, %23
   %25 = fadd float %21, %24
-  %26 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
+  %26 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
   %27 = load float* %26, align 4, !tbaa !18
   %28 = fmul float %12, %27
   %29 = fadd float %25, %28
-  %30 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
+  %30 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
   %31 = load float* %30, align 4, !tbaa !18
   %32 = fadd float %31, %29
   %33 = insertelement <4 x float> %18, float %32, i32 1
-  %34 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
+  %34 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
   %35 = load float* %34, align 4, !tbaa !18
   %36 = fmul float %3, %35
-  %37 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
+  %37 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
   %38 = load float* %37, align 4, !tbaa !18
   %39 = fmul float %7, %38
   %40 = fadd float %36, %39
-  %41 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
+  %41 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
   %42 = load float* %41, align 4, !tbaa !18
   %43 = fmul float %12, %42
   %44 = fadd float %40, %43
-  %45 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
+  %45 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
   %46 = load float* %45, align 4, !tbaa !18
   %47 = fadd float %46, %44
   %48 = insertelement <4 x float> %33, float %47, i32 2
-  %49 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
+  %49 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
   %50 = load float* %49, align 4, !tbaa !18
   %51 = fmul float %3, %50
-  %52 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
+  %52 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
   %53 = load float* %52, align 4, !tbaa !18
   %54 = fmul float %7, %53
   %55 = fadd float %51, %54
-  %56 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
+  %56 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
   %57 = load float* %56, align 4, !tbaa !18
   %58 = fmul float %12, %57
   %59 = fadd float %55, %58
-  %60 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
+  %60 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
   %61 = load float* %60, align 4, !tbaa !18
   %62 = fadd float %61, %59
   %63 = insertelement <4 x float> %48, float %62, i32 3
@@ -12922,49 +12922,49 @@ define <4 x float> @_Z16rsMatrixMultiplyP12rs_matrix4x4Dv3_f(%struct.rs_matrix4x
 
 ; Function Attrs: nounwind
 define <4 x float> @_Z16rsMatrixMultiplyP12rs_matrix4x4Dv2_f(%struct.rs_matrix4x4* %m, <2 x float> %in) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
   %3 = extractelement <2 x float> %in, i32 0
   %4 = fmul float %3, %2
-  %5 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %5 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   %6 = load float* %5, align 4, !tbaa !18
   %7 = extractelement <2 x float> %in, i32 1
   %8 = fmul float %7, %6
   %9 = fadd float %4, %8
-  %10 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %10 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   %11 = load float* %10, align 4, !tbaa !18
   %12 = fadd float %11, %9
   %13 = insertelement <4 x float> undef, float %12, i32 0
-  %14 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
+  %14 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
   %15 = load float* %14, align 4, !tbaa !18
   %16 = fmul float %3, %15
-  %17 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
+  %17 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
   %18 = load float* %17, align 4, !tbaa !18
   %19 = fmul float %7, %18
   %20 = fadd float %16, %19
-  %21 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
+  %21 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
   %22 = load float* %21, align 4, !tbaa !18
   %23 = fadd float %22, %20
   %24 = insertelement <4 x float> %13, float %23, i32 1
-  %25 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
+  %25 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
   %26 = load float* %25, align 4, !tbaa !18
   %27 = fmul float %3, %26
-  %28 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
+  %28 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
   %29 = load float* %28, align 4, !tbaa !18
   %30 = fmul float %7, %29
   %31 = fadd float %27, %30
-  %32 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
+  %32 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
   %33 = load float* %32, align 4, !tbaa !18
   %34 = fadd float %33, %31
   %35 = insertelement <4 x float> %24, float %34, i32 2
-  %36 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
+  %36 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
   %37 = load float* %36, align 4, !tbaa !18
   %38 = fmul float %3, %37
-  %39 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
+  %39 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
   %40 = load float* %39, align 4, !tbaa !18
   %41 = fmul float %7, %40
   %42 = fadd float %38, %41
-  %43 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
+  %43 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
   %44 = load float* %43, align 4, !tbaa !18
   %45 = fadd float %44, %42
   %46 = insertelement <4 x float> %35, float %45, i32 3
@@ -12973,41 +12973,41 @@ define <4 x float> @_Z16rsMatrixMultiplyP12rs_matrix4x4Dv2_f(%struct.rs_matrix4x
 
 ; Function Attrs: nounwind
 define <3 x float> @_Z16rsMatrixMultiplyP12rs_matrix3x3Dv3_f(%struct.rs_matrix3x3* %m, <3 x float> %in) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
   %3 = extractelement <3 x float> %in, i32 0
   %4 = fmul float %3, %2
-  %5 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
+  %5 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
   %6 = load float* %5, align 4, !tbaa !18
   %7 = extractelement <3 x float> %in, i32 1
   %8 = fmul float %7, %6
   %9 = fadd float %4, %8
-  %10 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 6
+  %10 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 6
   %11 = load float* %10, align 4, !tbaa !18
   %12 = extractelement <3 x float> %in, i32 2
   %13 = fmul float %12, %11
   %14 = fadd float %9, %13
   %15 = insertelement <3 x float> undef, float %14, i32 0
-  %16 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
+  %16 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
   %17 = load float* %16, align 4, !tbaa !18
   %18 = fmul float %3, %17
-  %19 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
+  %19 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
   %20 = load float* %19, align 4, !tbaa !18
   %21 = fmul float %7, %20
   %22 = fadd float %18, %21
-  %23 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 7
+  %23 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 7
   %24 = load float* %23, align 4, !tbaa !18
   %25 = fmul float %12, %24
   %26 = fadd float %22, %25
   %27 = insertelement <3 x float> %15, float %26, i32 1
-  %28 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
+  %28 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
   %29 = load float* %28, align 4, !tbaa !18
   %30 = fmul float %3, %29
-  %31 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
+  %31 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
   %32 = load float* %31, align 4, !tbaa !18
   %33 = fmul float %7, %32
   %34 = fadd float %30, %33
-  %35 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 8
+  %35 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 8
   %36 = load float* %35, align 4, !tbaa !18
   %37 = fmul float %12, %36
   %38 = fadd float %34, %37
@@ -13017,28 +13017,28 @@ define <3 x float> @_Z16rsMatrixMultiplyP12rs_matrix3x3Dv3_f(%struct.rs_matrix3x
 
 ; Function Attrs: nounwind
 define <3 x float> @_Z16rsMatrixMultiplyP12rs_matrix3x3Dv2_f(%struct.rs_matrix3x3* %m, <2 x float> %in) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
   %3 = extractelement <2 x float> %in, i32 0
   %4 = fmul float %3, %2
-  %5 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
+  %5 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
   %6 = load float* %5, align 4, !tbaa !18
   %7 = extractelement <2 x float> %in, i32 1
   %8 = fmul float %7, %6
   %9 = fadd float %4, %8
   %10 = insertelement <3 x float> undef, float %9, i32 0
-  %11 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
+  %11 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
   %12 = load float* %11, align 4, !tbaa !18
   %13 = fmul float %3, %12
-  %14 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
+  %14 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
   %15 = load float* %14, align 4, !tbaa !18
   %16 = fmul float %7, %15
   %17 = fadd float %13, %16
   %18 = insertelement <3 x float> %10, float %17, i32 1
-  %19 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
+  %19 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
   %20 = load float* %19, align 4, !tbaa !18
   %21 = fmul float %3, %20
-  %22 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
+  %22 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
   %23 = load float* %22, align 4, !tbaa !18
   %24 = fmul float %7, %23
   %25 = fadd float %21, %24
@@ -13053,10 +13053,10 @@ define void @_Z20rsMatrixLoadMultiplyP12rs_matrix4x4PKS_S2_(%struct.rs_matrix4x4
 .preheader:                                       ; preds = %.preheader, %0
   %i.06 = phi i32 [ 0, %0 ], [ %50, %.preheader ]
   %1 = shl i32 %i.06, 2
-  %2 = getelementptr inbounds %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %1
+  %2 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %1
   %3 = load float* %2, align 4, !tbaa !18
   %4 = bitcast %struct.rs_matrix4x4* %lhs to <4 x float>*
-  %5 = load <4 x float>* %4, align 4
+  %5 = load <4 x float>, <4 x float>* %4, align 4
   %6 = insertelement <4 x float> undef, float %3, i32 0
   %7 = insertelement <4 x float> %6, float %3, i32 1
   %8 = insertelement <4 x float> %7, float %3, i32 2
@@ -13064,11 +13064,11 @@ define void @_Z20rsMatrixLoadMultiplyP12rs_matrix4x4PKS_S2_(%struct.rs_matrix4x4
   %10 = fmul <4 x float> %9, %5
   %11 = fadd <4 x float> %10, zeroinitializer
   %12 = or i32 %1, 1
-  %13 = getelementptr inbounds %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %12
+  %13 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %12
   %14 = load float* %13, align 4, !tbaa !18
-  %15 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 4
+  %15 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 4
   %16 = bitcast float* %15 to <4 x float>*
-  %17 = load <4 x float>* %16, align 4
+  %17 = load <4 x float>, <4 x float>* %16, align 4
   %18 = insertelement <4 x float> undef, float %14, i32 0
   %19 = insertelement <4 x float> %18, float %14, i32 1
   %20 = insertelement <4 x float> %19, float %14, i32 2
@@ -13076,11 +13076,11 @@ define void @_Z20rsMatrixLoadMultiplyP12rs_matrix4x4PKS_S2_(%struct.rs_matrix4x4
   %22 = fmul <4 x float> %21, %17
   %23 = fadd <4 x float> %11, %22
   %24 = or i32 %1, 2
-  %25 = getelementptr inbounds %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %24
+  %25 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %24
   %26 = load float* %25, align 4, !tbaa !18
-  %27 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 8
+  %27 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 8
   %28 = bitcast float* %27 to <4 x float>*
-  %29 = load <4 x float>* %28, align 4
+  %29 = load <4 x float>, <4 x float>* %28, align 4
   %30 = insertelement <4 x float> undef, float %26, i32 0
   %31 = insertelement <4 x float> %30, float %26, i32 1
   %32 = insertelement <4 x float> %31, float %26, i32 2
@@ -13088,18 +13088,18 @@ define void @_Z20rsMatrixLoadMultiplyP12rs_matrix4x4PKS_S2_(%struct.rs_matrix4x4
   %34 = fmul <4 x float> %33, %29
   %35 = fadd <4 x float> %23, %34
   %36 = or i32 %1, 3
-  %37 = getelementptr inbounds %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %36
+  %37 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %36
   %38 = load float* %37, align 4, !tbaa !18
-  %39 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 12
+  %39 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 12
   %40 = bitcast float* %39 to <4 x float>*
-  %41 = load <4 x float>* %40, align 4
+  %41 = load <4 x float>, <4 x float>* %40, align 4
   %42 = insertelement <4 x float> undef, float %38, i32 0
   %43 = insertelement <4 x float> %42, float %38, i32 1
   %44 = insertelement <4 x float> %43, float %38, i32 2
   %45 = insertelement <4 x float> %44, float %38, i32 3
   %46 = fmul <4 x float> %45, %41
   %47 = fadd <4 x float> %35, %46
-  %48 = getelementptr inbounds %struct.rs_matrix4x4* %ret, i32 0, i32 0, i32 %1
+  %48 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %ret, i32 0, i32 0, i32 %1
   %49 = bitcast float* %48 to <4 x float>*
   store <4 x float> %47, <4 x float>* %49, align 4
   %50 = add nsw i32 %i.06, 1
@@ -13117,21 +13117,21 @@ define void @_Z16rsMatrixMultiplyP12rs_matrix4x4PKS_(%struct.rs_matrix4x4* nocap
   call void @llvm.lifetime.start(i64 64, i8* %1) #2
   %2 = bitcast %struct.rs_matrix4x4* %lhs to <4 x float>*
   %3 = load <4 x float>* %2, align 4
-  %4 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 4
+  %4 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 4
   %5 = bitcast float* %4 to <4 x float>*
   %6 = load <4 x float>* %5, align 4
-  %7 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 8
+  %7 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 8
   %8 = bitcast float* %7 to <4 x float>*
   %9 = load <4 x float>* %8, align 4
-  %10 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 12
+  %10 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 12
   %11 = bitcast float* %10 to <4 x float>*
-  %12 = load <4 x float>* %11, align 4
+  %12 = load <4 x float>, <4 x float>* %11, align 4
   br label %.preheader.i
 
 .preheader.i:                                     ; preds = %.preheader.i, %0
   %i.06.i = phi i32 [ 0, %0 ], [ %51, %.preheader.i ]
   %13 = shl i32 %i.06.i, 2
-  %14 = getelementptr inbounds %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %13
+  %14 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %13
   %15 = load float* %14, align 4, !tbaa !18
   %16 = insertelement <4 x float> undef, float %15, i32 0
   %17 = insertelement <4 x float> %16, float %15, i32 1
@@ -13140,7 +13140,7 @@ define void @_Z16rsMatrixMultiplyP12rs_matrix4x4PKS_(%struct.rs_matrix4x4* nocap
   %20 = fmul <4 x float> %3, %19
   %21 = fadd <4 x float> %20, zeroinitializer
   %22 = or i32 %13, 1
-  %23 = getelementptr inbounds %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %22
+  %23 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %22
   %24 = load float* %23, align 4, !tbaa !18
   %25 = insertelement <4 x float> undef, float %24, i32 0
   %26 = insertelement <4 x float> %25, float %24, i32 1
@@ -13149,7 +13149,7 @@ define void @_Z16rsMatrixMultiplyP12rs_matrix4x4PKS_(%struct.rs_matrix4x4* nocap
   %29 = fmul <4 x float> %6, %28
   %30 = fadd <4 x float> %21, %29
   %31 = or i32 %13, 2
-  %32 = getelementptr inbounds %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %31
+  %32 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %31
   %33 = load float* %32, align 4, !tbaa !18
   %34 = insertelement <4 x float> undef, float %33, i32 0
   %35 = insertelement <4 x float> %34, float %33, i32 1
@@ -13158,7 +13158,7 @@ define void @_Z16rsMatrixMultiplyP12rs_matrix4x4PKS_(%struct.rs_matrix4x4* nocap
   %38 = fmul <4 x float> %9, %37
   %39 = fadd <4 x float> %30, %38
   %40 = or i32 %13, 3
-  %41 = getelementptr inbounds %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %40
+  %41 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %rhs, i32 0, i32 0, i32 %40
   %42 = load float* %41, align 4, !tbaa !18
   %43 = insertelement <4 x float> undef, float %42, i32 0
   %44 = insertelement <4 x float> %43, float %42, i32 1
@@ -13166,7 +13166,7 @@ define void @_Z16rsMatrixMultiplyP12rs_matrix4x4PKS_(%struct.rs_matrix4x4* nocap
   %46 = insertelement <4 x float> %45, float %42, i32 3
   %47 = fmul <4 x float> %12, %46
   %48 = fadd <4 x float> %39, %47
-  %49 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 %13
+  %49 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 %13
   %50 = bitcast float* %49 to <4 x float>*
   store <4 x float> %48, <4 x float>* %50, align 4
   %51 = add nsw i32 %i.06.i, 1
@@ -13174,66 +13174,66 @@ define void @_Z16rsMatrixMultiplyP12rs_matrix4x4PKS_(%struct.rs_matrix4x4* nocap
   br i1 %exitcond10.i, label %_Z20rsMatrixLoadMultiplyP12rs_matrix4x4PKS_S2_.exit, label %.preheader.i
 
 _Z20rsMatrixLoadMultiplyP12rs_matrix4x4PKS_S2_.exit: ; preds = %.preheader.i
-  %52 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 0
+  %52 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 0
   %53 = load float* %52, align 4, !tbaa !18
-  %54 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 0
+  %54 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 0
   store float %53, float* %54, align 4, !tbaa !18
-  %55 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 1
+  %55 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 1
   %56 = load float* %55, align 4, !tbaa !18
-  %57 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 1
+  %57 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 1
   store float %56, float* %57, align 4, !tbaa !18
-  %58 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 2
+  %58 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 2
   %59 = load float* %58, align 4, !tbaa !18
-  %60 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 2
+  %60 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 2
   store float %59, float* %60, align 4, !tbaa !18
-  %61 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 3
+  %61 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 3
   %62 = load float* %61, align 4, !tbaa !18
-  %63 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 3
+  %63 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 3
   store float %62, float* %63, align 4, !tbaa !18
-  %64 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 4
+  %64 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 4
   %65 = load float* %64, align 4, !tbaa !18
   store float %65, float* %4, align 4, !tbaa !18
-  %66 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 5
+  %66 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 5
   %67 = load float* %66, align 4, !tbaa !18
-  %68 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 5
+  %68 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 5
   store float %67, float* %68, align 4, !tbaa !18
-  %69 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 6
+  %69 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 6
   %70 = load float* %69, align 4, !tbaa !18
-  %71 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 6
+  %71 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 6
   store float %70, float* %71, align 4, !tbaa !18
-  %72 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 7
+  %72 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 7
   %73 = load float* %72, align 4, !tbaa !18
-  %74 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 7
+  %74 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 7
   store float %73, float* %74, align 4, !tbaa !18
-  %75 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 8
+  %75 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 8
   %76 = load float* %75, align 4, !tbaa !18
   store float %76, float* %7, align 4, !tbaa !18
-  %77 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 9
+  %77 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 9
   %78 = load float* %77, align 4, !tbaa !18
-  %79 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 9
+  %79 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 9
   store float %78, float* %79, align 4, !tbaa !18
-  %80 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 10
+  %80 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 10
   %81 = load float* %80, align 4, !tbaa !18
-  %82 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 10
+  %82 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 10
   store float %81, float* %82, align 4, !tbaa !18
-  %83 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 11
+  %83 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 11
   %84 = load float* %83, align 4, !tbaa !18
-  %85 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 11
+  %85 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 11
   store float %84, float* %85, align 4, !tbaa !18
-  %86 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 12
+  %86 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 12
   %87 = load float* %86, align 4, !tbaa !18
   store float %87, float* %10, align 4, !tbaa !18
-  %88 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 13
+  %88 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 13
   %89 = load float* %88, align 4, !tbaa !18
-  %90 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 13
+  %90 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 13
   store float %89, float* %90, align 4, !tbaa !18
-  %91 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 14
+  %91 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 14
   %92 = load float* %91, align 4, !tbaa !18
-  %93 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 14
+  %93 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 14
   store float %92, float* %93, align 4, !tbaa !18
-  %94 = getelementptr inbounds %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 15
+  %94 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %r, i32 0, i32 0, i32 15
   %95 = load float* %94, align 4, !tbaa !18
-  %96 = getelementptr inbounds %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 15
+  %96 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %lhs, i32 0, i32 0, i32 15
   store float %95, float* %96, align 4, !tbaa !18
   call void @llvm.lifetime.end(i64 64, i8* %1) #2
   ret void
@@ -13248,131 +13248,131 @@ declare void @llvm.lifetime.end(i64, i8* nocapture) #2
 ; Function Attrs: nounwind
 define void @_Z20rsMatrixLoadMultiplyP12rs_matrix3x3PKS_S2_(%struct.rs_matrix3x3* nocapture %ret, %struct.rs_matrix3x3* nocapture %lhs, %struct.rs_matrix3x3* nocapture %rhs) #5 {
 .preheader:
-  %0 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 0
+  %0 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 0
   %1 = load float* %0, align 4, !tbaa !18
-  %2 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 0
+  %2 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 0
   %3 = load float* %2, align 4, !tbaa !18
   %4 = fmul float %1, %3
   %5 = fadd float %4, 0.000000e+00
-  %6 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 1
   %7 = load float* %6, align 4, !tbaa !18
   %8 = fmul float %1, %7
   %9 = fadd float %8, 0.000000e+00
-  %10 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 2
+  %10 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 2
   %11 = load float* %10, align 4, !tbaa !18
   %12 = fmul float %1, %11
   %13 = fadd float %12, 0.000000e+00
-  %14 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 1
+  %14 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 1
   %15 = load float* %14, align 4, !tbaa !18
-  %16 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 3
+  %16 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 3
   %17 = load float* %16, align 4, !tbaa !18
   %18 = fmul float %15, %17
   %19 = fadd float %5, %18
-  %20 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 4
+  %20 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 4
   %21 = load float* %20, align 4, !tbaa !18
   %22 = fmul float %15, %21
   %23 = fadd float %9, %22
-  %24 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 5
+  %24 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 5
   %25 = load float* %24, align 4, !tbaa !18
   %26 = fmul float %15, %25
   %27 = fadd float %13, %26
-  %28 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 2
+  %28 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 2
   %29 = load float* %28, align 4, !tbaa !18
-  %30 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 6
+  %30 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 6
   %31 = load float* %30, align 4, !tbaa !18
   %32 = fmul float %29, %31
   %33 = fadd float %19, %32
-  %34 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 7
+  %34 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 7
   %35 = load float* %34, align 4, !tbaa !18
   %36 = fmul float %29, %35
   %37 = fadd float %23, %36
-  %38 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 8
+  %38 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 8
   %39 = load float* %38, align 4, !tbaa !18
   %40 = fmul float %29, %39
   %41 = fadd float %27, %40
-  %42 = getelementptr inbounds %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 0
+  %42 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 0
   store float %33, float* %42, align 4, !tbaa !18
-  %43 = getelementptr inbounds %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 1
+  %43 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 1
   store float %37, float* %43, align 4, !tbaa !18
-  %44 = getelementptr inbounds %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 2
+  %44 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 2
   store float %41, float* %44, align 4, !tbaa !18
-  %45 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 3
+  %45 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 3
   %46 = load float* %45, align 4, !tbaa !18
   %47 = load float* %2, align 4, !tbaa !18
   %48 = fmul float %46, %47
   %49 = fadd float %48, 0.000000e+00
-  %50 = load float* %6, align 4, !tbaa !18
+  %50 = load float, float* %6, align 4, !tbaa !18
   %51 = fmul float %46, %50
   %52 = fadd float %51, 0.000000e+00
-  %53 = load float* %10, align 4, !tbaa !18
+  %53 = load float, float* %10, align 4, !tbaa !18
   %54 = fmul float %46, %53
   %55 = fadd float %54, 0.000000e+00
-  %56 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 4
+  %56 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 4
   %57 = load float* %56, align 4, !tbaa !18
   %58 = load float* %16, align 4, !tbaa !18
   %59 = fmul float %57, %58
   %60 = fadd float %49, %59
-  %61 = load float* %20, align 4, !tbaa !18
+  %61 = load float, float* %20, align 4, !tbaa !18
   %62 = fmul float %57, %61
   %63 = fadd float %52, %62
-  %64 = load float* %24, align 4, !tbaa !18
+  %64 = load float, float* %24, align 4, !tbaa !18
   %65 = fmul float %57, %64
   %66 = fadd float %55, %65
-  %67 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 5
+  %67 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 5
   %68 = load float* %67, align 4, !tbaa !18
   %69 = load float* %30, align 4, !tbaa !18
   %70 = fmul float %68, %69
   %71 = fadd float %60, %70
-  %72 = load float* %34, align 4, !tbaa !18
+  %72 = load float, float* %34, align 4, !tbaa !18
   %73 = fmul float %68, %72
   %74 = fadd float %63, %73
-  %75 = load float* %38, align 4, !tbaa !18
+  %75 = load float, float* %38, align 4, !tbaa !18
   %76 = fmul float %68, %75
   %77 = fadd float %66, %76
-  %78 = getelementptr inbounds %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 3
+  %78 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 3
   store float %71, float* %78, align 4, !tbaa !18
-  %79 = getelementptr inbounds %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 4
+  %79 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 4
   store float %74, float* %79, align 4, !tbaa !18
-  %80 = getelementptr inbounds %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 5
+  %80 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 5
   store float %77, float* %80, align 4, !tbaa !18
-  %81 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 6
+  %81 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 6
   %82 = load float* %81, align 4, !tbaa !18
   %83 = load float* %2, align 4, !tbaa !18
   %84 = fmul float %82, %83
   %85 = fadd float %84, 0.000000e+00
-  %86 = load float* %6, align 4, !tbaa !18
+  %86 = load float, float* %6, align 4, !tbaa !18
   %87 = fmul float %82, %86
   %88 = fadd float %87, 0.000000e+00
-  %89 = load float* %10, align 4, !tbaa !18
+  %89 = load float, float* %10, align 4, !tbaa !18
   %90 = fmul float %82, %89
   %91 = fadd float %90, 0.000000e+00
-  %92 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 7
+  %92 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 7
   %93 = load float* %92, align 4, !tbaa !18
   %94 = load float* %16, align 4, !tbaa !18
   %95 = fmul float %93, %94
   %96 = fadd float %85, %95
-  %97 = load float* %20, align 4, !tbaa !18
+  %97 = load float, float* %20, align 4, !tbaa !18
   %98 = fmul float %93, %97
   %99 = fadd float %88, %98
-  %100 = load float* %24, align 4, !tbaa !18
+  %100 = load float, float* %24, align 4, !tbaa !18
   %101 = fmul float %93, %100
   %102 = fadd float %91, %101
-  %103 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 8
+  %103 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 8
   %104 = load float* %103, align 4, !tbaa !18
   %105 = load float* %30, align 4, !tbaa !18
   %106 = fmul float %104, %105
   %107 = fadd float %96, %106
-  %108 = load float* %34, align 4, !tbaa !18
+  %108 = load float, float* %34, align 4, !tbaa !18
   %109 = fmul float %104, %108
   %110 = fadd float %99, %109
-  %111 = load float* %38, align 4, !tbaa !18
+  %111 = load float, float* %38, align 4, !tbaa !18
   %112 = fmul float %104, %111
   %113 = fadd float %102, %112
-  %114 = getelementptr inbounds %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 6
+  %114 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 6
   store float %107, float* %114, align 4, !tbaa !18
-  %115 = getelementptr inbounds %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 7
+  %115 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 7
   store float %110, float* %115, align 4, !tbaa !18
-  %116 = getelementptr inbounds %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 8
+  %116 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %ret, i32 0, i32 0, i32 8
   store float %113, float* %116, align 4, !tbaa !18
   ret void
 }
@@ -13382,167 +13382,167 @@ define void @_Z16rsMatrixMultiplyP12rs_matrix3x3PKS_(%struct.rs_matrix3x3* nocap
   %r = alloca %struct.rs_matrix3x3, align 4
   %1 = bitcast %struct.rs_matrix3x3* %r to i8*
   call void @llvm.lifetime.start(i64 36, i8* %1) #2
-  %2 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 0
+  %2 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 0
   %3 = load float* %2, align 4, !tbaa !18
-  %4 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 0
+  %4 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 0
   %5 = load float* %4, align 4, !tbaa !18
   %6 = fmul float %3, %5
   %7 = fadd float %6, 0.000000e+00
-  %8 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 1
+  %8 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 1
   %9 = load float* %8, align 4, !tbaa !18
   %10 = fmul float %3, %9
   %11 = fadd float %10, 0.000000e+00
-  %12 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 2
+  %12 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 2
   %13 = load float* %12, align 4, !tbaa !18
   %14 = fmul float %3, %13
   %15 = fadd float %14, 0.000000e+00
-  %16 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 1
+  %16 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 1
   %17 = load float* %16, align 4, !tbaa !18
-  %18 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 3
+  %18 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 3
   %19 = load float* %18, align 4, !tbaa !18
   %20 = fmul float %17, %19
   %21 = fadd float %7, %20
-  %22 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 4
+  %22 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 4
   %23 = load float* %22, align 4, !tbaa !18
   %24 = fmul float %17, %23
   %25 = fadd float %11, %24
-  %26 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 5
+  %26 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 5
   %27 = load float* %26, align 4, !tbaa !18
   %28 = fmul float %17, %27
   %29 = fadd float %15, %28
-  %30 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 2
+  %30 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 2
   %31 = load float* %30, align 4, !tbaa !18
-  %32 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 6
+  %32 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 6
   %33 = load float* %32, align 4, !tbaa !18
   %34 = fmul float %31, %33
   %35 = fadd float %21, %34
-  %36 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 7
+  %36 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 7
   %37 = load float* %36, align 4, !tbaa !18
   %38 = fmul float %31, %37
   %39 = fadd float %25, %38
-  %40 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 8
+  %40 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 8
   %41 = load float* %40, align 4, !tbaa !18
   %42 = fmul float %31, %41
   %43 = fadd float %29, %42
-  %44 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 0
+  %44 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 0
   store float %35, float* %44, align 4, !tbaa !18
-  %45 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 1
+  %45 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 1
   store float %39, float* %45, align 4, !tbaa !18
-  %46 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 2
+  %46 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 2
   store float %43, float* %46, align 4, !tbaa !18
-  %47 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 3
+  %47 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 3
   %48 = load float* %47, align 4, !tbaa !18
   %49 = load float* %4, align 4, !tbaa !18
   %50 = fmul float %48, %49
   %51 = fadd float %50, 0.000000e+00
-  %52 = load float* %8, align 4, !tbaa !18
+  %52 = load float, float* %8, align 4, !tbaa !18
   %53 = fmul float %48, %52
   %54 = fadd float %53, 0.000000e+00
-  %55 = load float* %12, align 4, !tbaa !18
+  %55 = load float, float* %12, align 4, !tbaa !18
   %56 = fmul float %48, %55
   %57 = fadd float %56, 0.000000e+00
-  %58 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 4
+  %58 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 4
   %59 = load float* %58, align 4, !tbaa !18
   %60 = load float* %18, align 4, !tbaa !18
   %61 = fmul float %59, %60
   %62 = fadd float %51, %61
-  %63 = load float* %22, align 4, !tbaa !18
+  %63 = load float, float* %22, align 4, !tbaa !18
   %64 = fmul float %59, %63
   %65 = fadd float %54, %64
-  %66 = load float* %26, align 4, !tbaa !18
+  %66 = load float, float* %26, align 4, !tbaa !18
   %67 = fmul float %59, %66
   %68 = fadd float %57, %67
-  %69 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 5
+  %69 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 5
   %70 = load float* %69, align 4, !tbaa !18
   %71 = load float* %32, align 4, !tbaa !18
   %72 = fmul float %70, %71
   %73 = fadd float %62, %72
-  %74 = load float* %36, align 4, !tbaa !18
+  %74 = load float, float* %36, align 4, !tbaa !18
   %75 = fmul float %70, %74
   %76 = fadd float %65, %75
-  %77 = load float* %40, align 4, !tbaa !18
+  %77 = load float, float* %40, align 4, !tbaa !18
   %78 = fmul float %70, %77
   %79 = fadd float %68, %78
-  %80 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 3
+  %80 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 3
   store float %73, float* %80, align 4, !tbaa !18
-  %81 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 4
+  %81 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 4
   store float %76, float* %81, align 4, !tbaa !18
-  %82 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 5
+  %82 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 5
   store float %79, float* %82, align 4, !tbaa !18
-  %83 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 6
+  %83 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 6
   %84 = load float* %83, align 4, !tbaa !18
   %85 = load float* %4, align 4, !tbaa !18
   %86 = fmul float %84, %85
   %87 = fadd float %86, 0.000000e+00
-  %88 = load float* %8, align 4, !tbaa !18
+  %88 = load float, float* %8, align 4, !tbaa !18
   %89 = fmul float %84, %88
   %90 = fadd float %89, 0.000000e+00
-  %91 = load float* %12, align 4, !tbaa !18
+  %91 = load float, float* %12, align 4, !tbaa !18
   %92 = fmul float %84, %91
   %93 = fadd float %92, 0.000000e+00
-  %94 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 7
+  %94 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 7
   %95 = load float* %94, align 4, !tbaa !18
   %96 = load float* %18, align 4, !tbaa !18
   %97 = fmul float %95, %96
   %98 = fadd float %87, %97
-  %99 = load float* %22, align 4, !tbaa !18
+  %99 = load float, float* %22, align 4, !tbaa !18
   %100 = fmul float %95, %99
   %101 = fadd float %90, %100
-  %102 = load float* %26, align 4, !tbaa !18
+  %102 = load float, float* %26, align 4, !tbaa !18
   %103 = fmul float %95, %102
   %104 = fadd float %93, %103
-  %105 = getelementptr inbounds %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 8
+  %105 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %rhs, i32 0, i32 0, i32 8
   %106 = load float* %105, align 4, !tbaa !18
   %107 = load float* %32, align 4, !tbaa !18
   %108 = fmul float %106, %107
   %109 = fadd float %98, %108
-  %110 = load float* %36, align 4, !tbaa !18
+  %110 = load float, float* %36, align 4, !tbaa !18
   %111 = fmul float %106, %110
   %112 = fadd float %101, %111
-  %113 = load float* %40, align 4, !tbaa !18
+  %113 = load float, float* %40, align 4, !tbaa !18
   %114 = fmul float %106, %113
   %115 = fadd float %104, %114
-  %116 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 6
+  %116 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 6
   store float %109, float* %116, align 4, !tbaa !18
-  %117 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 7
+  %117 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 7
   store float %112, float* %117, align 4, !tbaa !18
-  %118 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 8
+  %118 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 8
   store float %115, float* %118, align 4, !tbaa !18
-  %119 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 0
+  %119 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 0
   %120 = load float* %119, align 4, !tbaa !18
-  %121 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 0
+  %121 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 0
   store float %120, float* %121, align 4, !tbaa !18
-  %122 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 1
+  %122 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 1
   %123 = load float* %122, align 4, !tbaa !18
-  %124 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 1
+  %124 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 1
   store float %123, float* %124, align 4, !tbaa !18
-  %125 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 2
+  %125 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 2
   %126 = load float* %125, align 4, !tbaa !18
-  %127 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 2
+  %127 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 2
   store float %126, float* %127, align 4, !tbaa !18
-  %128 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 3
+  %128 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 3
   %129 = load float* %128, align 4, !tbaa !18
-  %130 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 3
+  %130 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 3
   store float %129, float* %130, align 4, !tbaa !18
-  %131 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 4
+  %131 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 4
   %132 = load float* %131, align 4, !tbaa !18
-  %133 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 4
+  %133 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 4
   store float %132, float* %133, align 4, !tbaa !18
-  %134 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 5
+  %134 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 5
   %135 = load float* %134, align 4, !tbaa !18
-  %136 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 5
+  %136 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 5
   store float %135, float* %136, align 4, !tbaa !18
-  %137 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 6
+  %137 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 6
   %138 = load float* %137, align 4, !tbaa !18
-  %139 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 6
+  %139 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 6
   store float %138, float* %139, align 4, !tbaa !18
-  %140 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 7
+  %140 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 7
   %141 = load float* %140, align 4, !tbaa !18
-  %142 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 7
+  %142 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 7
   store float %141, float* %142, align 4, !tbaa !18
-  %143 = getelementptr inbounds %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 8
+  %143 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %r, i32 0, i32 0, i32 8
   %144 = load float* %143, align 4, !tbaa !18
-  %145 = getelementptr inbounds %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 8
+  %145 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %lhs, i32 0, i32 0, i32 8
   store float %144, float* %145, align 4, !tbaa !18
   call void @llvm.lifetime.end(i64 36, i8* %1) #2
   ret void
@@ -13551,68 +13551,68 @@ define void @_Z16rsMatrixMultiplyP12rs_matrix3x3PKS_(%struct.rs_matrix3x3* nocap
 ; Function Attrs: nounwind
 define void @_Z20rsMatrixLoadMultiplyP12rs_matrix2x2PKS_S2_(%struct.rs_matrix2x2* nocapture %ret, %struct.rs_matrix2x2* nocapture %lhs, %struct.rs_matrix2x2* nocapture %rhs) #5 {
 .preheader:
-  %0 = getelementptr inbounds %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 0
+  %0 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 0
   %1 = load float* %0, align 4, !tbaa !18
-  %2 = getelementptr inbounds %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 0
+  %2 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 0
   %3 = load float* %2, align 4, !tbaa !18
   %4 = fmul float %1, %3
   %5 = fadd float %4, 0.000000e+00
-  %6 = getelementptr inbounds %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 1
+  %6 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 1
   %7 = load float* %6, align 4, !tbaa !18
   %8 = fmul float %1, %7
   %9 = fadd float %8, 0.000000e+00
-  %10 = getelementptr inbounds %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 1
+  %10 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 1
   %11 = load float* %10, align 4, !tbaa !18
-  %12 = getelementptr inbounds %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 2
+  %12 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 2
   %13 = load float* %12, align 4, !tbaa !18
   %14 = fmul float %11, %13
   %15 = fadd float %5, %14
-  %16 = getelementptr inbounds %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 3
+  %16 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 3
   %17 = load float* %16, align 4, !tbaa !18
   %18 = fmul float %11, %17
   %19 = fadd float %9, %18
-  %20 = getelementptr inbounds %struct.rs_matrix2x2* %ret, i32 0, i32 0, i32 0
+  %20 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %ret, i32 0, i32 0, i32 0
   store float %15, float* %20, align 4, !tbaa !18
-  %21 = getelementptr inbounds %struct.rs_matrix2x2* %ret, i32 0, i32 0, i32 1
+  %21 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %ret, i32 0, i32 0, i32 1
   store float %19, float* %21, align 4, !tbaa !18
-  %22 = getelementptr inbounds %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 2
+  %22 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 2
   %23 = load float* %22, align 4, !tbaa !18
   %24 = load float* %2, align 4, !tbaa !18
   %25 = fmul float %23, %24
   %26 = fadd float %25, 0.000000e+00
-  %27 = load float* %6, align 4, !tbaa !18
+  %27 = load float, float* %6, align 4, !tbaa !18
   %28 = fmul float %23, %27
   %29 = fadd float %28, 0.000000e+00
-  %30 = getelementptr inbounds %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 3
+  %30 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 3
   %31 = load float* %30, align 4, !tbaa !18
   %32 = load float* %12, align 4, !tbaa !18
   %33 = fmul float %31, %32
   %34 = fadd float %26, %33
-  %35 = load float* %16, align 4, !tbaa !18
+  %35 = load float, float* %16, align 4, !tbaa !18
   %36 = fmul float %31, %35
   %37 = fadd float %29, %36
-  %38 = getelementptr inbounds %struct.rs_matrix2x2* %ret, i32 0, i32 0, i32 2
+  %38 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %ret, i32 0, i32 0, i32 2
   store float %34, float* %38, align 4, !tbaa !18
-  %39 = getelementptr inbounds %struct.rs_matrix2x2* %ret, i32 0, i32 0, i32 3
+  %39 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %ret, i32 0, i32 0, i32 3
   store float %37, float* %39, align 4, !tbaa !18
   ret void
 }
 
 ; Function Attrs: nounwind
 define void @_Z16rsMatrixMultiplyP12rs_matrix2x2PKS_(%struct.rs_matrix2x2* nocapture %lhs, %struct.rs_matrix2x2* nocapture %rhs) #5 {
-  %1 = getelementptr inbounds %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
-  %3 = getelementptr inbounds %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 0
   %4 = load float* %3, align 4, !tbaa !18
-  %5 = getelementptr inbounds %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 1
   %6 = load float* %5, align 4, !tbaa !18
-  %7 = getelementptr inbounds %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 1
+  %7 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 1
   %8 = load float* %7, align 4, !tbaa !18
-  %9 = getelementptr inbounds %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 2
+  %9 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 2
   %10 = load float* %9, align 4, !tbaa !18
-  %11 = getelementptr inbounds %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 3
+  %11 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %lhs, i32 0, i32 0, i32 3
   %12 = load float* %11, align 4, !tbaa !18
-  %13 = getelementptr inbounds %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 2
+  %13 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 2
   %14 = load float* %13, align 4, !tbaa !18
   %15 = insertelement <4 x float> undef, float %2, i32 0
   %16 = insertelement <4 x float> %15, float %2, i32 1
@@ -13624,7 +13624,7 @@ define void @_Z16rsMatrixMultiplyP12rs_matrix2x2PKS_(%struct.rs_matrix2x2* nocap
   %22 = insertelement <4 x float> %21, float %14, i32 3
   %23 = fmul <4 x float> %18, %22
   %24 = fadd <4 x float> %23, zeroinitializer
-  %25 = getelementptr inbounds %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 3
+  %25 = getelementptr inbounds %struct.rs_matrix2x2, %struct.rs_matrix2x2* %rhs, i32 0, i32 0, i32 3
   %26 = load float* %25, align 4, !tbaa !18
   %27 = insertelement <4 x float> undef, float %8, i32 0
   %28 = insertelement <4 x float> %27, float %8, i32 1
@@ -13649,7 +13649,7 @@ define i32 @_Z27rsgProgramStoreGetDepthFunc16rs_program_store([1 x i32] %ps.coer
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.ProgramStore*
-  %5 = getelementptr inbounds %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 8
+  %5 = getelementptr inbounds %struct.ProgramStore, %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 8
   %6 = load i32* %5, align 4, !tbaa !19
   br label %7
 
@@ -13666,7 +13666,7 @@ define zeroext i1 @_Z33rsgProgramStoreIsDepthMaskEnabled16rs_program_store([1 x 
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.ProgramStore*
-  %5 = getelementptr inbounds %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 7
+  %5 = getelementptr inbounds %struct.ProgramStore, %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 7
   %6 = load i8* %5, align 1, !tbaa !23, !range !24
   %7 = icmp ne i8 %6, 0
   br label %8
@@ -13684,7 +13684,7 @@ define zeroext i1 @_Z36rsgProgramStoreIsColorMaskRedEnabled16rs_program_store([1
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.ProgramStore*
-  %5 = getelementptr inbounds %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.ProgramStore, %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 1
   %6 = load i8* %5, align 1, !tbaa !23, !range !24
   %7 = icmp ne i8 %6, 0
   br label %8
@@ -13702,7 +13702,7 @@ define zeroext i1 @_Z38rsgProgramStoreIsColorMaskGreenEnabled16rs_program_store(
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.ProgramStore*
-  %5 = getelementptr inbounds %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 2
+  %5 = getelementptr inbounds %struct.ProgramStore, %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 2
   %6 = load i8* %5, align 1, !tbaa !23, !range !24
   %7 = icmp ne i8 %6, 0
   br label %8
@@ -13720,7 +13720,7 @@ define zeroext i1 @_Z37rsgProgramStoreIsColorMaskBlueEnabled16rs_program_store([
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.ProgramStore*
-  %5 = getelementptr inbounds %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 3
+  %5 = getelementptr inbounds %struct.ProgramStore, %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 3
   %6 = load i8* %5, align 1, !tbaa !23, !range !24
   %7 = icmp ne i8 %6, 0
   br label %8
@@ -13738,7 +13738,7 @@ define zeroext i1 @_Z38rsgProgramStoreIsColorMaskAlphaEnabled16rs_program_store(
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.ProgramStore*
-  %5 = getelementptr inbounds %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 4
+  %5 = getelementptr inbounds %struct.ProgramStore, %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 4
   %6 = load i8* %5, align 1, !tbaa !23, !range !24
   %7 = icmp ne i8 %6, 0
   br label %8
@@ -13756,7 +13756,7 @@ define i32 @_Z30rsgProgramStoreGetBlendSrcFunc16rs_program_store([1 x i32] %ps.c
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.ProgramStore*
-  %5 = getelementptr inbounds %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 5
+  %5 = getelementptr inbounds %struct.ProgramStore, %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 5
   %6 = load i32* %5, align 4, !tbaa !19
   br label %7
 
@@ -13773,7 +13773,7 @@ define i32 @_Z30rsgProgramStoreGetBlendDstFunc16rs_program_store([1 x i32] %ps.c
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.ProgramStore*
-  %5 = getelementptr inbounds %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 6
+  %5 = getelementptr inbounds %struct.ProgramStore, %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 6
   %6 = load i32* %5, align 4, !tbaa !19
   br label %7
 
@@ -13790,7 +13790,7 @@ define zeroext i1 @_Z30rsgProgramStoreIsDitherEnabled16rs_program_store([1 x i32
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.ProgramStore*
-  %5 = getelementptr inbounds %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 0
+  %5 = getelementptr inbounds %struct.ProgramStore, %struct.ProgramStore* %4, i32 0, i32 1, i32 0, i32 0
   %6 = load i8* %5, align 1, !tbaa !23, !range !24
   %7 = icmp ne i8 %6, 0
   br label %8
@@ -13808,7 +13808,7 @@ define zeroext i1 @_Z36rsgProgramRasterIsPointSpriteEnabled17rs_program_raster([
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.ProgramRaster*
-  %5 = getelementptr inbounds %struct.ProgramRaster* %4, i32 0, i32 1, i32 1, i32 0
+  %5 = getelementptr inbounds %struct.ProgramRaster, %struct.ProgramRaster* %4, i32 0, i32 1, i32 1, i32 0
   %6 = load i8* %5, align 1, !tbaa !23, !range !24
   %7 = icmp ne i8 %6, 0
   br label %8
@@ -13826,7 +13826,7 @@ define i32 @_Z27rsgProgramRasterGetCullMode17rs_program_raster([1 x i32] %pr.coe
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.ProgramRaster*
-  %5 = getelementptr inbounds %struct.ProgramRaster* %4, i32 0, i32 1, i32 1, i32 1
+  %5 = getelementptr inbounds %struct.ProgramRaster, %struct.ProgramRaster* %4, i32 0, i32 1, i32 1, i32 1
   %6 = load i32* %5, align 4, !tbaa !19
   br label %7
 
@@ -13841,24 +13841,24 @@ define <4 x float> @_Z8rsSample13rs_allocation10rs_samplerff([1 x i32] %a.coerce
   %2 = extractvalue [1 x i32] %s.coerce, 0
   %3 = inttoptr i32 %1 to %struct.Allocation*
   %4 = inttoptr i32 %2 to %struct.Sampler*
-  %5 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 0
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 0
   %6 = load i8** %5, align 4, !tbaa !22
-  %7 = getelementptr inbounds i8* %6, i32 36
+  %7 = getelementptr inbounds i8, i8* %6, i32 36
   %8 = bitcast i8* %7 to i8**
   %9 = load i8** %8, align 4, !tbaa !22
-  %10 = getelementptr inbounds i8* %9, i32 36
-  %11 = getelementptr inbounds i8* %9, i32 40
+  %10 = getelementptr inbounds i8, i8* %9, i32 36
+  %11 = getelementptr inbounds i8, i8* %9, i32 40
   %12 = bitcast i8* %11 to i32*
-  %13 = load i32* %12, align 4, !tbaa !19
+  %13 = load i32, i32* %12, align 4, !tbaa !19
   %14 = bitcast i8* %10 to i32*
   %15 = load i32* %14, align 4, !tbaa !19
-  %16 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 1
+  %16 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 1
   %17 = load i32* %16, align 4, !tbaa !19
-  %18 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 0
+  %18 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 0
   %19 = load i32* %18, align 4, !tbaa !19
-  %20 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 2
+  %20 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 2
   %21 = load i32* %20, align 4, !tbaa !19
-  %22 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 1
+  %22 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 1
   %23 = load i32* %22, align 4, !tbaa !21
   %24 = and i32 %23, 2
   %25 = icmp eq i32 %24, 0
@@ -13873,7 +13873,7 @@ define <4 x float> @_Z8rsSample13rs_allocation10rs_samplerff([1 x i32] %a.coerce
   br i1 %29, label %30, label %127
 
 ; <label>:30                                      ; preds = %28
-  %31 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
+  %31 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
   %32 = load i32* %31, align 4, !tbaa !21
   %33 = sitofp i32 %32 to float
   %34 = fmul float %33, %uv
@@ -13908,7 +13908,7 @@ wrapI.exit.i:                                     ; preds = %39, %.thread.i.i, %
   %48 = select i1 %47, i32 %.2.i.i, i32 %46
   %49 = icmp sgt i32 0, %48
   %50 = select i1 %49, i32 0, i32 %48
-  %alloc.idx.i = getelementptr %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %alloc.idx.i = getelementptr %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %alloc.idx.val.i = load i8** %alloc.idx.i, align 4, !tbaa !22
   switch i32 %13, label %_ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit [
     i32 11, label %51
@@ -13920,14 +13920,14 @@ wrapI.exit.i:                                     ; preds = %39, %.thread.i.i, %
 
 ; <label>:51                                      ; preds = %wrapI.exit.i
   %52 = shl nsw i32 %50, 2
-  %53 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %52
+  %53 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %52
   %54 = bitcast i8* %53 to <4 x i8>*
-  %55 = load <4 x i8>* %54, align 4, !tbaa !19
+  %55 = load <4 x i8>, <4 x i8>* %54, align 4, !tbaa !19
   %56 = uitofp <4 x i8> %55 to <4 x float>
   br label %_ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit
 
 ; <label>:57                                      ; preds = %wrapI.exit.i
-  %58 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %50
+  %58 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %50
   %59 = load i8* %58, align 1, !tbaa !19
   %60 = uitofp i8 %59 to float
   %61 = insertelement <4 x float> <float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float undef>, float %60, i32 3
@@ -13935,12 +13935,12 @@ wrapI.exit.i:                                     ; preds = %39, %.thread.i.i, %
 
 ; <label>:62                                      ; preds = %wrapI.exit.i
   %63 = shl nsw i32 %50, 1
-  %64 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %63
+  %64 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %63
   %65 = load i8* %64, align 1, !tbaa !19
   %66 = uitofp i8 %65 to float
   %67 = insertelement <2 x float> undef, float %66, i32 0
   %68 = or i32 %63, 1
-  %69 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %68
+  %69 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %68
   %70 = load i8* %69, align 1, !tbaa !19
   %71 = uitofp i8 %70 to float
   %72 = insertelement <2 x float> %67, float %71, i32 1
@@ -13955,7 +13955,7 @@ wrapI.exit.i:                                     ; preds = %39, %.thread.i.i, %
 
 ; <label>:78                                      ; preds = %76
   %79 = bitcast i8* %alloc.idx.val.i to i16*
-  %80 = load i16* %79, align 2, !tbaa !70
+  %80 = load i16, i16* %79, align 2, !tbaa !70
   %81 = zext i16 %80 to i32
   %82 = lshr i32 %81, 11
   %83 = shl nuw nsw i32 %82, 3
@@ -13981,17 +13981,17 @@ wrapI.exit.i:                                     ; preds = %39, %.thread.i.i, %
 
 ; <label>:102                                     ; preds = %76
   %103 = shl nsw i32 %50, 2
-  %104 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %103
+  %104 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %103
   %105 = load i8* %104, align 1, !tbaa !19
   %106 = uitofp i8 %105 to float
   %107 = insertelement <4 x float> undef, float %106, i32 0
   %108 = or i32 %103, 1
-  %109 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %108
+  %109 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %108
   %110 = load i8* %109, align 1, !tbaa !19
   %111 = uitofp i8 %110 to float
   %112 = insertelement <4 x float> %107, float %111, i32 1
   %113 = or i32 %103, 2
-  %114 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %113
+  %114 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %113
   %115 = load i8* %114, align 1, !tbaa !19
   %116 = uitofp i8 %115 to float
   %117 = insertelement <4 x float> %112, float %116, i32 2
@@ -13999,7 +13999,7 @@ wrapI.exit.i:                                     ; preds = %39, %.thread.i.i, %
   br label %_ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit
 
 ; <label>:119                                     ; preds = %wrapI.exit.i
-  %120 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %50
+  %120 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %50
   %121 = load i8* %120, align 1, !tbaa !19
   %122 = uitofp i8 %121 to float
   %123 = insertelement <3 x float> undef, float %122, i32 0
@@ -14013,7 +14013,7 @@ _ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampl
   br label %1143
 
 ; <label>:127                                     ; preds = %28
-  %128 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
+  %128 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
   %129 = load i32* %128, align 4, !tbaa !21
   %130 = sitofp i32 %129 to float
   %131 = fmul float %130, %uv
@@ -14099,7 +14099,7 @@ wrapI.exit6.i57:                                  ; preds = %wrapI.exit.i55, %wr
   %181 = select i1 %180, i32 %.2.i5.i56, i32 %179
   %182 = icmp sgt i32 0, %181
   %183 = select i1 %182, i32 0, i32 %181
-  %184 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %184 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %185 = load i8** %184, align 4, !tbaa !22
   switch i32 %13, label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit59 [
     i32 11, label %186
@@ -14111,14 +14111,14 @@ wrapI.exit6.i57:                                  ; preds = %wrapI.exit.i55, %wr
 
 ; <label>:186                                     ; preds = %wrapI.exit6.i57
   %187 = shl nsw i32 %183, 2
-  %188 = getelementptr inbounds i8* %185, i32 %187
+  %188 = getelementptr inbounds i8, i8* %185, i32 %187
   %189 = bitcast i8* %188 to <4 x i8>*
-  %190 = load <4 x i8>* %189, align 4, !tbaa !19
+  %190 = load <4 x i8>, <4 x i8>* %189, align 4, !tbaa !19
   %191 = uitofp <4 x i8> %190 to <4 x float>
   %192 = shl nsw i32 %178, 2
-  %193 = getelementptr inbounds i8* %185, i32 %192
+  %193 = getelementptr inbounds i8, i8* %185, i32 %192
   %194 = bitcast i8* %193 to <4 x i8>*
-  %195 = load <4 x i8>* %194, align 4, !tbaa !19
+  %195 = load <4 x i8>, <4 x i8>* %194, align 4, !tbaa !19
   %196 = uitofp <4 x i8> %195 to <4 x float>
   %197 = insertelement <4 x float> undef, float %142, i32 0
   %198 = shufflevector <4 x float> %197, <4 x float> undef, <4 x i32> zeroinitializer
@@ -14131,10 +14131,10 @@ wrapI.exit6.i57:                                  ; preds = %wrapI.exit.i55, %wr
   br label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit59
 
 ; <label>:205                                     ; preds = %wrapI.exit6.i57
-  %206 = getelementptr inbounds i8* %185, i32 %183
+  %206 = getelementptr inbounds i8, i8* %185, i32 %183
   %207 = load i8* %206, align 1, !tbaa !19
   %208 = uitofp i8 %207 to float
-  %209 = getelementptr inbounds i8* %185, i32 %178
+  %209 = getelementptr inbounds i8, i8* %185, i32 %178
   %210 = load i8* %209, align 1, !tbaa !19
   %211 = uitofp i8 %210 to float
   %212 = fmul float %142, %208
@@ -14150,7 +14150,7 @@ wrapI.exit6.i57:                                  ; preds = %wrapI.exit.i55, %wr
 
 ; <label>:219                                     ; preds = %217
   %220 = bitcast i8* %185 to i16*
-  %221 = load i16* %220, align 2, !tbaa !70
+  %221 = load i16, i16* %220, align 2, !tbaa !70
   %222 = zext i16 %221 to i32
   %223 = lshr i32 %222, 11
   %224 = shl nuw nsw i32 %223, 3
@@ -14189,32 +14189,32 @@ wrapI.exit6.i57:                                  ; preds = %wrapI.exit.i55, %wr
 
 ; <label>:256                                     ; preds = %217
   %257 = shl nsw i32 %183, 2
-  %258 = getelementptr inbounds i8* %185, i32 %257
+  %258 = getelementptr inbounds i8, i8* %185, i32 %257
   %259 = load i8* %258, align 1, !tbaa !19
   %260 = uitofp i8 %259 to float
   %261 = insertelement <3 x float> undef, float %260, i32 0
   %262 = or i32 %257, 1
-  %263 = getelementptr inbounds i8* %185, i32 %262
+  %263 = getelementptr inbounds i8, i8* %185, i32 %262
   %264 = load i8* %263, align 1, !tbaa !19
   %265 = uitofp i8 %264 to float
   %266 = insertelement <3 x float> %261, float %265, i32 1
   %267 = or i32 %257, 2
-  %268 = getelementptr inbounds i8* %185, i32 %267
+  %268 = getelementptr inbounds i8, i8* %185, i32 %267
   %269 = load i8* %268, align 1, !tbaa !19
   %270 = uitofp i8 %269 to float
   %271 = insertelement <3 x float> %266, float %270, i32 2
   %272 = shl nsw i32 %178, 2
-  %273 = getelementptr inbounds i8* %185, i32 %272
+  %273 = getelementptr inbounds i8, i8* %185, i32 %272
   %274 = load i8* %273, align 1, !tbaa !19
   %275 = uitofp i8 %274 to float
   %276 = insertelement <3 x float> undef, float %275, i32 0
   %277 = or i32 %272, 1
-  %278 = getelementptr inbounds i8* %185, i32 %277
+  %278 = getelementptr inbounds i8, i8* %185, i32 %277
   %279 = load i8* %278, align 1, !tbaa !19
   %280 = uitofp i8 %279 to float
   %281 = insertelement <3 x float> %276, float %280, i32 1
   %282 = or i32 %272, 2
-  %283 = getelementptr inbounds i8* %185, i32 %282
+  %283 = getelementptr inbounds i8, i8* %185, i32 %282
   %284 = load i8* %283, align 1, !tbaa !19
   %285 = uitofp i8 %284 to float
   %286 = insertelement <3 x float> %281, float %285, i32 2
@@ -14235,10 +14235,10 @@ wrapI.exit6.i57:                                  ; preds = %wrapI.exit.i55, %wr
   br label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit59
 
 ; <label>:301                                     ; preds = %wrapI.exit6.i57
-  %302 = getelementptr inbounds i8* %185, i32 %183
+  %302 = getelementptr inbounds i8, i8* %185, i32 %183
   %303 = load i8* %302, align 1, !tbaa !19
   %304 = uitofp i8 %303 to float
-  %305 = getelementptr inbounds i8* %185, i32 %178
+  %305 = getelementptr inbounds i8, i8* %185, i32 %178
   %306 = load i8* %305, align 1, !tbaa !19
   %307 = uitofp i8 %306 to float
   %308 = fmul float %142, %304
@@ -14253,22 +14253,22 @@ wrapI.exit6.i57:                                  ; preds = %wrapI.exit.i55, %wr
 
 ; <label>:316                                     ; preds = %wrapI.exit6.i57
   %317 = shl nsw i32 %183, 1
-  %318 = getelementptr inbounds i8* %185, i32 %317
+  %318 = getelementptr inbounds i8, i8* %185, i32 %317
   %319 = load i8* %318, align 1, !tbaa !19
   %320 = uitofp i8 %319 to float
   %321 = insertelement <2 x float> undef, float %320, i32 0
   %322 = or i32 %317, 1
-  %323 = getelementptr inbounds i8* %185, i32 %322
+  %323 = getelementptr inbounds i8, i8* %185, i32 %322
   %324 = load i8* %323, align 1, !tbaa !19
   %325 = uitofp i8 %324 to float
   %326 = insertelement <2 x float> %321, float %325, i32 1
   %327 = shl nsw i32 %178, 1
-  %328 = getelementptr inbounds i8* %185, i32 %327
+  %328 = getelementptr inbounds i8, i8* %185, i32 %327
   %329 = load i8* %328, align 1, !tbaa !19
   %330 = uitofp i8 %329 to float
   %331 = insertelement <2 x float> undef, float %330, i32 0
   %332 = or i32 %327, 1
-  %333 = getelementptr inbounds i8* %185, i32 %332
+  %333 = getelementptr inbounds i8, i8* %185, i32 %332
   %334 = load i8* %333, align 1, !tbaa !19
   %335 = uitofp i8 %334 to float
   %336 = insertelement <2 x float> %331, float %335, i32 1
@@ -14297,16 +14297,16 @@ _ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sample
   ]
 
 ; <label>:350                                     ; preds = %349
-  %351 = getelementptr inbounds i8* %6, i32 68
+  %351 = getelementptr inbounds i8, i8* %6, i32 68
   %352 = bitcast i8* %351 to i32*
-  %353 = load i32* %352, align 4, !tbaa !21
+  %353 = load i32, i32* %352, align 4, !tbaa !21
   %354 = add i32 %353, -1
   %355 = uitofp i32 %354 to float
   %356 = fcmp olt float %lod, %355
   %357 = select i1 %356, float %lod, float %355
   %358 = tail call float @_Z5roundf(float %357) #14
   %359 = fptoui float %358 to i32
-  %360 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %359, i32 2
+  %360 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %359, i32 2
   %361 = load i32* %360, align 4, !tbaa !21
   %362 = sitofp i32 %361 to float
   %363 = fmul float %362, %uv
@@ -14392,7 +14392,7 @@ wrapI.exit6.i42:                                  ; preds = %wrapI.exit.i40, %wr
   %413 = select i1 %412, i32 %.2.i5.i41, i32 %411
   %414 = icmp sgt i32 0, %413
   %415 = select i1 %414, i32 0, i32 %413
-  %416 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %359, i32 0
+  %416 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %359, i32 0
   %417 = load i8** %416, align 4, !tbaa !22
   switch i32 %13, label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit44 [
     i32 11, label %418
@@ -14404,14 +14404,14 @@ wrapI.exit6.i42:                                  ; preds = %wrapI.exit.i40, %wr
 
 ; <label>:418                                     ; preds = %wrapI.exit6.i42
   %419 = shl nsw i32 %415, 2
-  %420 = getelementptr inbounds i8* %417, i32 %419
+  %420 = getelementptr inbounds i8, i8* %417, i32 %419
   %421 = bitcast i8* %420 to <4 x i8>*
-  %422 = load <4 x i8>* %421, align 4, !tbaa !19
+  %422 = load <4 x i8>, <4 x i8>* %421, align 4, !tbaa !19
   %423 = uitofp <4 x i8> %422 to <4 x float>
   %424 = shl nsw i32 %410, 2
-  %425 = getelementptr inbounds i8* %417, i32 %424
+  %425 = getelementptr inbounds i8, i8* %417, i32 %424
   %426 = bitcast i8* %425 to <4 x i8>*
-  %427 = load <4 x i8>* %426, align 4, !tbaa !19
+  %427 = load <4 x i8>, <4 x i8>* %426, align 4, !tbaa !19
   %428 = uitofp <4 x i8> %427 to <4 x float>
   %429 = insertelement <4 x float> undef, float %374, i32 0
   %430 = shufflevector <4 x float> %429, <4 x float> undef, <4 x i32> zeroinitializer
@@ -14424,10 +14424,10 @@ wrapI.exit6.i42:                                  ; preds = %wrapI.exit.i40, %wr
   br label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit44
 
 ; <label>:437                                     ; preds = %wrapI.exit6.i42
-  %438 = getelementptr inbounds i8* %417, i32 %415
+  %438 = getelementptr inbounds i8, i8* %417, i32 %415
   %439 = load i8* %438, align 1, !tbaa !19
   %440 = uitofp i8 %439 to float
-  %441 = getelementptr inbounds i8* %417, i32 %410
+  %441 = getelementptr inbounds i8, i8* %417, i32 %410
   %442 = load i8* %441, align 1, !tbaa !19
   %443 = uitofp i8 %442 to float
   %444 = fmul float %374, %440
@@ -14443,7 +14443,7 @@ wrapI.exit6.i42:                                  ; preds = %wrapI.exit.i40, %wr
 
 ; <label>:451                                     ; preds = %449
   %452 = bitcast i8* %417 to i16*
-  %453 = load i16* %452, align 2, !tbaa !70
+  %453 = load i16, i16* %452, align 2, !tbaa !70
   %454 = zext i16 %453 to i32
   %455 = lshr i32 %454, 11
   %456 = shl nuw nsw i32 %455, 3
@@ -14482,32 +14482,32 @@ wrapI.exit6.i42:                                  ; preds = %wrapI.exit.i40, %wr
 
 ; <label>:488                                     ; preds = %449
   %489 = shl nsw i32 %415, 2
-  %490 = getelementptr inbounds i8* %417, i32 %489
+  %490 = getelementptr inbounds i8, i8* %417, i32 %489
   %491 = load i8* %490, align 1, !tbaa !19
   %492 = uitofp i8 %491 to float
   %493 = insertelement <3 x float> undef, float %492, i32 0
   %494 = or i32 %489, 1
-  %495 = getelementptr inbounds i8* %417, i32 %494
+  %495 = getelementptr inbounds i8, i8* %417, i32 %494
   %496 = load i8* %495, align 1, !tbaa !19
   %497 = uitofp i8 %496 to float
   %498 = insertelement <3 x float> %493, float %497, i32 1
   %499 = or i32 %489, 2
-  %500 = getelementptr inbounds i8* %417, i32 %499
+  %500 = getelementptr inbounds i8, i8* %417, i32 %499
   %501 = load i8* %500, align 1, !tbaa !19
   %502 = uitofp i8 %501 to float
   %503 = insertelement <3 x float> %498, float %502, i32 2
   %504 = shl nsw i32 %410, 2
-  %505 = getelementptr inbounds i8* %417, i32 %504
+  %505 = getelementptr inbounds i8, i8* %417, i32 %504
   %506 = load i8* %505, align 1, !tbaa !19
   %507 = uitofp i8 %506 to float
   %508 = insertelement <3 x float> undef, float %507, i32 0
   %509 = or i32 %504, 1
-  %510 = getelementptr inbounds i8* %417, i32 %509
+  %510 = getelementptr inbounds i8, i8* %417, i32 %509
   %511 = load i8* %510, align 1, !tbaa !19
   %512 = uitofp i8 %511 to float
   %513 = insertelement <3 x float> %508, float %512, i32 1
   %514 = or i32 %504, 2
-  %515 = getelementptr inbounds i8* %417, i32 %514
+  %515 = getelementptr inbounds i8, i8* %417, i32 %514
   %516 = load i8* %515, align 1, !tbaa !19
   %517 = uitofp i8 %516 to float
   %518 = insertelement <3 x float> %513, float %517, i32 2
@@ -14528,10 +14528,10 @@ wrapI.exit6.i42:                                  ; preds = %wrapI.exit.i40, %wr
   br label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit44
 
 ; <label>:533                                     ; preds = %wrapI.exit6.i42
-  %534 = getelementptr inbounds i8* %417, i32 %415
+  %534 = getelementptr inbounds i8, i8* %417, i32 %415
   %535 = load i8* %534, align 1, !tbaa !19
   %536 = uitofp i8 %535 to float
-  %537 = getelementptr inbounds i8* %417, i32 %410
+  %537 = getelementptr inbounds i8, i8* %417, i32 %410
   %538 = load i8* %537, align 1, !tbaa !19
   %539 = uitofp i8 %538 to float
   %540 = fmul float %374, %536
@@ -14546,22 +14546,22 @@ wrapI.exit6.i42:                                  ; preds = %wrapI.exit.i40, %wr
 
 ; <label>:548                                     ; preds = %wrapI.exit6.i42
   %549 = shl nsw i32 %415, 1
-  %550 = getelementptr inbounds i8* %417, i32 %549
+  %550 = getelementptr inbounds i8, i8* %417, i32 %549
   %551 = load i8* %550, align 1, !tbaa !19
   %552 = uitofp i8 %551 to float
   %553 = insertelement <2 x float> undef, float %552, i32 0
   %554 = or i32 %549, 1
-  %555 = getelementptr inbounds i8* %417, i32 %554
+  %555 = getelementptr inbounds i8, i8* %417, i32 %554
   %556 = load i8* %555, align 1, !tbaa !19
   %557 = uitofp i8 %556 to float
   %558 = insertelement <2 x float> %553, float %557, i32 1
   %559 = shl nsw i32 %410, 1
-  %560 = getelementptr inbounds i8* %417, i32 %559
+  %560 = getelementptr inbounds i8, i8* %417, i32 %559
   %561 = load i8* %560, align 1, !tbaa !19
   %562 = uitofp i8 %561 to float
   %563 = insertelement <2 x float> undef, float %562, i32 0
   %564 = or i32 %559, 1
-  %565 = getelementptr inbounds i8* %417, i32 %564
+  %565 = getelementptr inbounds i8, i8* %417, i32 %564
   %566 = load i8* %565, align 1, !tbaa !19
   %567 = uitofp i8 %566 to float
   %568 = insertelement <2 x float> %563, float %567, i32 1
@@ -14588,15 +14588,15 @@ _ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sample
   %583 = fptoui float %582 to i32
   %584 = tail call float @_Z4ceilf(float %lod) #14
   %585 = fptoui float %584 to i32
-  %586 = getelementptr inbounds i8* %6, i32 68
+  %586 = getelementptr inbounds i8, i8* %6, i32 68
   %587 = bitcast i8* %586 to i32*
-  %588 = load i32* %587, align 4, !tbaa !21
+  %588 = load i32, i32* %587, align 4, !tbaa !21
   %589 = add i32 %588, -1
   %590 = icmp ult i32 %583, %589
   %591 = select i1 %590, i32 %583, i32 %589
   %592 = icmp ult i32 %585, %589
   %593 = select i1 %592, i32 %585, i32 %589
-  %594 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %591, i32 2
+  %594 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %591, i32 2
   %595 = load i32* %594, align 4, !tbaa !21
   %596 = sitofp i32 %595 to float
   %597 = fmul float %596, %uv
@@ -14682,7 +14682,7 @@ wrapI.exit6.i27:                                  ; preds = %wrapI.exit.i25, %wr
   %647 = select i1 %646, i32 %.2.i5.i26, i32 %645
   %648 = icmp sgt i32 0, %647
   %649 = select i1 %648, i32 0, i32 %647
-  %650 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %591, i32 0
+  %650 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %591, i32 0
   %651 = load i8** %650, align 4, !tbaa !22
   switch i32 %13, label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit29 [
     i32 11, label %652
@@ -14694,14 +14694,14 @@ wrapI.exit6.i27:                                  ; preds = %wrapI.exit.i25, %wr
 
 ; <label>:652                                     ; preds = %wrapI.exit6.i27
   %653 = shl nsw i32 %649, 2
-  %654 = getelementptr inbounds i8* %651, i32 %653
+  %654 = getelementptr inbounds i8, i8* %651, i32 %653
   %655 = bitcast i8* %654 to <4 x i8>*
-  %656 = load <4 x i8>* %655, align 4, !tbaa !19
+  %656 = load <4 x i8>, <4 x i8>* %655, align 4, !tbaa !19
   %657 = uitofp <4 x i8> %656 to <4 x float>
   %658 = shl nsw i32 %644, 2
-  %659 = getelementptr inbounds i8* %651, i32 %658
+  %659 = getelementptr inbounds i8, i8* %651, i32 %658
   %660 = bitcast i8* %659 to <4 x i8>*
-  %661 = load <4 x i8>* %660, align 4, !tbaa !19
+  %661 = load <4 x i8>, <4 x i8>* %660, align 4, !tbaa !19
   %662 = uitofp <4 x i8> %661 to <4 x float>
   %663 = insertelement <4 x float> undef, float %608, i32 0
   %664 = shufflevector <4 x float> %663, <4 x float> undef, <4 x i32> zeroinitializer
@@ -14714,10 +14714,10 @@ wrapI.exit6.i27:                                  ; preds = %wrapI.exit.i25, %wr
   br label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit29
 
 ; <label>:671                                     ; preds = %wrapI.exit6.i27
-  %672 = getelementptr inbounds i8* %651, i32 %649
+  %672 = getelementptr inbounds i8, i8* %651, i32 %649
   %673 = load i8* %672, align 1, !tbaa !19
   %674 = uitofp i8 %673 to float
-  %675 = getelementptr inbounds i8* %651, i32 %644
+  %675 = getelementptr inbounds i8, i8* %651, i32 %644
   %676 = load i8* %675, align 1, !tbaa !19
   %677 = uitofp i8 %676 to float
   %678 = fmul float %608, %674
@@ -14733,7 +14733,7 @@ wrapI.exit6.i27:                                  ; preds = %wrapI.exit.i25, %wr
 
 ; <label>:685                                     ; preds = %683
   %686 = bitcast i8* %651 to i16*
-  %687 = load i16* %686, align 2, !tbaa !70
+  %687 = load i16, i16* %686, align 2, !tbaa !70
   %688 = zext i16 %687 to i32
   %689 = lshr i32 %688, 11
   %690 = shl nuw nsw i32 %689, 3
@@ -14772,32 +14772,32 @@ wrapI.exit6.i27:                                  ; preds = %wrapI.exit.i25, %wr
 
 ; <label>:722                                     ; preds = %683
   %723 = shl nsw i32 %649, 2
-  %724 = getelementptr inbounds i8* %651, i32 %723
+  %724 = getelementptr inbounds i8, i8* %651, i32 %723
   %725 = load i8* %724, align 1, !tbaa !19
   %726 = uitofp i8 %725 to float
   %727 = insertelement <3 x float> undef, float %726, i32 0
   %728 = or i32 %723, 1
-  %729 = getelementptr inbounds i8* %651, i32 %728
+  %729 = getelementptr inbounds i8, i8* %651, i32 %728
   %730 = load i8* %729, align 1, !tbaa !19
   %731 = uitofp i8 %730 to float
   %732 = insertelement <3 x float> %727, float %731, i32 1
   %733 = or i32 %723, 2
-  %734 = getelementptr inbounds i8* %651, i32 %733
+  %734 = getelementptr inbounds i8, i8* %651, i32 %733
   %735 = load i8* %734, align 1, !tbaa !19
   %736 = uitofp i8 %735 to float
   %737 = insertelement <3 x float> %732, float %736, i32 2
   %738 = shl nsw i32 %644, 2
-  %739 = getelementptr inbounds i8* %651, i32 %738
+  %739 = getelementptr inbounds i8, i8* %651, i32 %738
   %740 = load i8* %739, align 1, !tbaa !19
   %741 = uitofp i8 %740 to float
   %742 = insertelement <3 x float> undef, float %741, i32 0
   %743 = or i32 %738, 1
-  %744 = getelementptr inbounds i8* %651, i32 %743
+  %744 = getelementptr inbounds i8, i8* %651, i32 %743
   %745 = load i8* %744, align 1, !tbaa !19
   %746 = uitofp i8 %745 to float
   %747 = insertelement <3 x float> %742, float %746, i32 1
   %748 = or i32 %738, 2
-  %749 = getelementptr inbounds i8* %651, i32 %748
+  %749 = getelementptr inbounds i8, i8* %651, i32 %748
   %750 = load i8* %749, align 1, !tbaa !19
   %751 = uitofp i8 %750 to float
   %752 = insertelement <3 x float> %747, float %751, i32 2
@@ -14818,10 +14818,10 @@ wrapI.exit6.i27:                                  ; preds = %wrapI.exit.i25, %wr
   br label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit29
 
 ; <label>:767                                     ; preds = %wrapI.exit6.i27
-  %768 = getelementptr inbounds i8* %651, i32 %649
+  %768 = getelementptr inbounds i8, i8* %651, i32 %649
   %769 = load i8* %768, align 1, !tbaa !19
   %770 = uitofp i8 %769 to float
-  %771 = getelementptr inbounds i8* %651, i32 %644
+  %771 = getelementptr inbounds i8, i8* %651, i32 %644
   %772 = load i8* %771, align 1, !tbaa !19
   %773 = uitofp i8 %772 to float
   %774 = fmul float %608, %770
@@ -14836,22 +14836,22 @@ wrapI.exit6.i27:                                  ; preds = %wrapI.exit.i25, %wr
 
 ; <label>:782                                     ; preds = %wrapI.exit6.i27
   %783 = shl nsw i32 %649, 1
-  %784 = getelementptr inbounds i8* %651, i32 %783
+  %784 = getelementptr inbounds i8, i8* %651, i32 %783
   %785 = load i8* %784, align 1, !tbaa !19
   %786 = uitofp i8 %785 to float
   %787 = insertelement <2 x float> undef, float %786, i32 0
   %788 = or i32 %783, 1
-  %789 = getelementptr inbounds i8* %651, i32 %788
+  %789 = getelementptr inbounds i8, i8* %651, i32 %788
   %790 = load i8* %789, align 1, !tbaa !19
   %791 = uitofp i8 %790 to float
   %792 = insertelement <2 x float> %787, float %791, i32 1
   %793 = shl nsw i32 %644, 1
-  %794 = getelementptr inbounds i8* %651, i32 %793
+  %794 = getelementptr inbounds i8, i8* %651, i32 %793
   %795 = load i8* %794, align 1, !tbaa !19
   %796 = uitofp i8 %795 to float
   %797 = insertelement <2 x float> undef, float %796, i32 0
   %798 = or i32 %793, 1
-  %799 = getelementptr inbounds i8* %651, i32 %798
+  %799 = getelementptr inbounds i8, i8* %651, i32 %798
   %800 = load i8* %799, align 1, !tbaa !19
   %801 = uitofp i8 %800 to float
   %802 = insertelement <2 x float> %797, float %801, i32 1
@@ -14871,7 +14871,7 @@ wrapI.exit6.i27:                                  ; preds = %wrapI.exit.i25, %wr
 
 _ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit29: ; preds = %wrapI.exit6.i27, %652, %671, %685, %722, %767, %782
   %.0.i.i28 = phi <4 x float> [ %814, %782 ], [ %781, %767 ], [ %721, %685 ], [ %766, %722 ], [ %682, %671 ], [ %670, %652 ], [ zeroinitializer, %wrapI.exit6.i27 ]
-  %815 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %593, i32 2
+  %815 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %593, i32 2
   %816 = load i32* %815, align 4, !tbaa !21
   %817 = sitofp i32 %816 to float
   %818 = fmul float %817, %uv
@@ -14957,7 +14957,7 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i14, %wr
   %868 = select i1 %867, i32 %.2.i5.i, i32 %866
   %869 = icmp sgt i32 0, %868
   %870 = select i1 %869, i32 0, i32 %868
-  %871 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %593, i32 0
+  %871 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %593, i32 0
   %872 = load i8** %871, align 4, !tbaa !22
   switch i32 %13, label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit [
     i32 11, label %873
@@ -14969,14 +14969,14 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i14, %wr
 
 ; <label>:873                                     ; preds = %wrapI.exit6.i
   %874 = shl nsw i32 %870, 2
-  %875 = getelementptr inbounds i8* %872, i32 %874
+  %875 = getelementptr inbounds i8, i8* %872, i32 %874
   %876 = bitcast i8* %875 to <4 x i8>*
-  %877 = load <4 x i8>* %876, align 4, !tbaa !19
+  %877 = load <4 x i8>, <4 x i8>* %876, align 4, !tbaa !19
   %878 = uitofp <4 x i8> %877 to <4 x float>
   %879 = shl nsw i32 %865, 2
-  %880 = getelementptr inbounds i8* %872, i32 %879
+  %880 = getelementptr inbounds i8, i8* %872, i32 %879
   %881 = bitcast i8* %880 to <4 x i8>*
-  %882 = load <4 x i8>* %881, align 4, !tbaa !19
+  %882 = load <4 x i8>, <4 x i8>* %881, align 4, !tbaa !19
   %883 = uitofp <4 x i8> %882 to <4 x float>
   %884 = insertelement <4 x float> undef, float %829, i32 0
   %885 = shufflevector <4 x float> %884, <4 x float> undef, <4 x i32> zeroinitializer
@@ -14989,10 +14989,10 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i14, %wr
   br label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit
 
 ; <label>:892                                     ; preds = %wrapI.exit6.i
-  %893 = getelementptr inbounds i8* %872, i32 %870
+  %893 = getelementptr inbounds i8, i8* %872, i32 %870
   %894 = load i8* %893, align 1, !tbaa !19
   %895 = uitofp i8 %894 to float
-  %896 = getelementptr inbounds i8* %872, i32 %865
+  %896 = getelementptr inbounds i8, i8* %872, i32 %865
   %897 = load i8* %896, align 1, !tbaa !19
   %898 = uitofp i8 %897 to float
   %899 = fmul float %829, %895
@@ -15008,7 +15008,7 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i14, %wr
 
 ; <label>:906                                     ; preds = %904
   %907 = bitcast i8* %872 to i16*
-  %908 = load i16* %907, align 2, !tbaa !70
+  %908 = load i16, i16* %907, align 2, !tbaa !70
   %909 = zext i16 %908 to i32
   %910 = lshr i32 %909, 11
   %911 = shl nuw nsw i32 %910, 3
@@ -15047,32 +15047,32 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i14, %wr
 
 ; <label>:943                                     ; preds = %904
   %944 = shl nsw i32 %870, 2
-  %945 = getelementptr inbounds i8* %872, i32 %944
+  %945 = getelementptr inbounds i8, i8* %872, i32 %944
   %946 = load i8* %945, align 1, !tbaa !19
   %947 = uitofp i8 %946 to float
   %948 = insertelement <3 x float> undef, float %947, i32 0
   %949 = or i32 %944, 1
-  %950 = getelementptr inbounds i8* %872, i32 %949
+  %950 = getelementptr inbounds i8, i8* %872, i32 %949
   %951 = load i8* %950, align 1, !tbaa !19
   %952 = uitofp i8 %951 to float
   %953 = insertelement <3 x float> %948, float %952, i32 1
   %954 = or i32 %944, 2
-  %955 = getelementptr inbounds i8* %872, i32 %954
+  %955 = getelementptr inbounds i8, i8* %872, i32 %954
   %956 = load i8* %955, align 1, !tbaa !19
   %957 = uitofp i8 %956 to float
   %958 = insertelement <3 x float> %953, float %957, i32 2
   %959 = shl nsw i32 %865, 2
-  %960 = getelementptr inbounds i8* %872, i32 %959
+  %960 = getelementptr inbounds i8, i8* %872, i32 %959
   %961 = load i8* %960, align 1, !tbaa !19
   %962 = uitofp i8 %961 to float
   %963 = insertelement <3 x float> undef, float %962, i32 0
   %964 = or i32 %959, 1
-  %965 = getelementptr inbounds i8* %872, i32 %964
+  %965 = getelementptr inbounds i8, i8* %872, i32 %964
   %966 = load i8* %965, align 1, !tbaa !19
   %967 = uitofp i8 %966 to float
   %968 = insertelement <3 x float> %963, float %967, i32 1
   %969 = or i32 %959, 2
-  %970 = getelementptr inbounds i8* %872, i32 %969
+  %970 = getelementptr inbounds i8, i8* %872, i32 %969
   %971 = load i8* %970, align 1, !tbaa !19
   %972 = uitofp i8 %971 to float
   %973 = insertelement <3 x float> %968, float %972, i32 2
@@ -15093,10 +15093,10 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i14, %wr
   br label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit
 
 ; <label>:988                                     ; preds = %wrapI.exit6.i
-  %989 = getelementptr inbounds i8* %872, i32 %870
+  %989 = getelementptr inbounds i8, i8* %872, i32 %870
   %990 = load i8* %989, align 1, !tbaa !19
   %991 = uitofp i8 %990 to float
-  %992 = getelementptr inbounds i8* %872, i32 %865
+  %992 = getelementptr inbounds i8, i8* %872, i32 %865
   %993 = load i8* %992, align 1, !tbaa !19
   %994 = uitofp i8 %993 to float
   %995 = fmul float %829, %991
@@ -15111,22 +15111,22 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i14, %wr
 
 ; <label>:1003                                    ; preds = %wrapI.exit6.i
   %1004 = shl nsw i32 %870, 1
-  %1005 = getelementptr inbounds i8* %872, i32 %1004
+  %1005 = getelementptr inbounds i8, i8* %872, i32 %1004
   %1006 = load i8* %1005, align 1, !tbaa !19
   %1007 = uitofp i8 %1006 to float
   %1008 = insertelement <2 x float> undef, float %1007, i32 0
   %1009 = or i32 %1004, 1
-  %1010 = getelementptr inbounds i8* %872, i32 %1009
+  %1010 = getelementptr inbounds i8, i8* %872, i32 %1009
   %1011 = load i8* %1010, align 1, !tbaa !19
   %1012 = uitofp i8 %1011 to float
   %1013 = insertelement <2 x float> %1008, float %1012, i32 1
   %1014 = shl nsw i32 %865, 1
-  %1015 = getelementptr inbounds i8* %872, i32 %1014
+  %1015 = getelementptr inbounds i8, i8* %872, i32 %1014
   %1016 = load i8* %1015, align 1, !tbaa !19
   %1017 = uitofp i8 %1016 to float
   %1018 = insertelement <2 x float> undef, float %1017, i32 0
   %1019 = or i32 %1014, 1
-  %1020 = getelementptr inbounds i8* %872, i32 %1019
+  %1020 = getelementptr inbounds i8, i8* %872, i32 %1019
   %1021 = load i8* %1020, align 1, !tbaa !19
   %1022 = uitofp i8 %1021 to float
   %1023 = insertelement <2 x float> %1018, float %1022, i32 1
@@ -15159,7 +15159,7 @@ _ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sample
   br label %1143
 
 ; <label>:1046                                    ; preds = %349
-  %1047 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
+  %1047 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
   %1048 = load i32* %1047, align 4, !tbaa !21
   %1049 = sitofp i32 %1048 to float
   %1050 = fmul float %1049, %uv
@@ -15194,7 +15194,7 @@ wrapI.exit.i8:                                    ; preds = %1055, %.thread.i.i2
   %1064 = select i1 %1063, i32 %.2.i.i5, i32 %1062
   %1065 = icmp sgt i32 0, %1064
   %1066 = select i1 %1065, i32 0, i32 %1064
-  %alloc.idx.i6 = getelementptr %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %alloc.idx.i6 = getelementptr %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %alloc.idx.val.i7 = load i8** %alloc.idx.i6, align 4, !tbaa !22
   switch i32 %13, label %_ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit10 [
     i32 11, label %1067
@@ -15206,14 +15206,14 @@ wrapI.exit.i8:                                    ; preds = %1055, %.thread.i.i2
 
 ; <label>:1067                                    ; preds = %wrapI.exit.i8
   %1068 = shl nsw i32 %1066, 2
-  %1069 = getelementptr inbounds i8* %alloc.idx.val.i7, i32 %1068
+  %1069 = getelementptr inbounds i8, i8* %alloc.idx.val.i7, i32 %1068
   %1070 = bitcast i8* %1069 to <4 x i8>*
-  %1071 = load <4 x i8>* %1070, align 4, !tbaa !19
+  %1071 = load <4 x i8>, <4 x i8>* %1070, align 4, !tbaa !19
   %1072 = uitofp <4 x i8> %1071 to <4 x float>
   br label %_ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit10
 
 ; <label>:1073                                    ; preds = %wrapI.exit.i8
-  %1074 = getelementptr inbounds i8* %alloc.idx.val.i7, i32 %1066
+  %1074 = getelementptr inbounds i8, i8* %alloc.idx.val.i7, i32 %1066
   %1075 = load i8* %1074, align 1, !tbaa !19
   %1076 = uitofp i8 %1075 to float
   %1077 = insertelement <4 x float> <float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float undef>, float %1076, i32 3
@@ -15221,12 +15221,12 @@ wrapI.exit.i8:                                    ; preds = %1055, %.thread.i.i2
 
 ; <label>:1078                                    ; preds = %wrapI.exit.i8
   %1079 = shl nsw i32 %1066, 1
-  %1080 = getelementptr inbounds i8* %alloc.idx.val.i7, i32 %1079
+  %1080 = getelementptr inbounds i8, i8* %alloc.idx.val.i7, i32 %1079
   %1081 = load i8* %1080, align 1, !tbaa !19
   %1082 = uitofp i8 %1081 to float
   %1083 = insertelement <2 x float> undef, float %1082, i32 0
   %1084 = or i32 %1079, 1
-  %1085 = getelementptr inbounds i8* %alloc.idx.val.i7, i32 %1084
+  %1085 = getelementptr inbounds i8, i8* %alloc.idx.val.i7, i32 %1084
   %1086 = load i8* %1085, align 1, !tbaa !19
   %1087 = uitofp i8 %1086 to float
   %1088 = insertelement <2 x float> %1083, float %1087, i32 1
@@ -15241,7 +15241,7 @@ wrapI.exit.i8:                                    ; preds = %1055, %.thread.i.i2
 
 ; <label>:1094                                    ; preds = %1092
   %1095 = bitcast i8* %alloc.idx.val.i7 to i16*
-  %1096 = load i16* %1095, align 2, !tbaa !70
+  %1096 = load i16, i16* %1095, align 2, !tbaa !70
   %1097 = zext i16 %1096 to i32
   %1098 = lshr i32 %1097, 11
   %1099 = shl nuw nsw i32 %1098, 3
@@ -15267,17 +15267,17 @@ wrapI.exit.i8:                                    ; preds = %1055, %.thread.i.i2
 
 ; <label>:1118                                    ; preds = %1092
   %1119 = shl nsw i32 %1066, 2
-  %1120 = getelementptr inbounds i8* %alloc.idx.val.i7, i32 %1119
+  %1120 = getelementptr inbounds i8, i8* %alloc.idx.val.i7, i32 %1119
   %1121 = load i8* %1120, align 1, !tbaa !19
   %1122 = uitofp i8 %1121 to float
   %1123 = insertelement <4 x float> undef, float %1122, i32 0
   %1124 = or i32 %1119, 1
-  %1125 = getelementptr inbounds i8* %alloc.idx.val.i7, i32 %1124
+  %1125 = getelementptr inbounds i8, i8* %alloc.idx.val.i7, i32 %1124
   %1126 = load i8* %1125, align 1, !tbaa !19
   %1127 = uitofp i8 %1126 to float
   %1128 = insertelement <4 x float> %1123, float %1127, i32 1
   %1129 = or i32 %1119, 2
-  %1130 = getelementptr inbounds i8* %alloc.idx.val.i7, i32 %1129
+  %1130 = getelementptr inbounds i8, i8* %alloc.idx.val.i7, i32 %1129
   %1131 = load i8* %1130, align 1, !tbaa !19
   %1132 = uitofp i8 %1131 to float
   %1133 = insertelement <4 x float> %1128, float %1132, i32 2
@@ -15285,7 +15285,7 @@ wrapI.exit.i8:                                    ; preds = %1055, %.thread.i.i2
   br label %_ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit10
 
 ; <label>:1135                                    ; preds = %wrapI.exit.i8
-  %1136 = getelementptr inbounds i8* %alloc.idx.val.i7, i32 %1066
+  %1136 = getelementptr inbounds i8, i8* %alloc.idx.val.i7, i32 %1066
   %1137 = load i8* %1136, align 1, !tbaa !19
   %1138 = uitofp i8 %1137 to float
   %1139 = insertelement <3 x float> undef, float %1138, i32 0
@@ -15309,33 +15309,33 @@ define <4 x float> @_Z8rsSample13rs_allocation10rs_samplerf([1 x i32] %a.coerce,
   %2 = extractvalue [1 x i32] %s.coerce, 0
   %3 = inttoptr i32 %1 to %struct.Allocation*
   %4 = inttoptr i32 %2 to %struct.Sampler*
-  %5 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 0
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 0
   %6 = load i8** %5, align 4, !tbaa !22
-  %7 = getelementptr inbounds i8* %6, i32 36
+  %7 = getelementptr inbounds i8, i8* %6, i32 36
   %8 = bitcast i8* %7 to i8**
   %9 = load i8** %8, align 4, !tbaa !22
-  %10 = getelementptr inbounds i8* %9, i32 36
-  %11 = getelementptr inbounds i8* %9, i32 40
+  %10 = getelementptr inbounds i8, i8* %9, i32 36
+  %11 = getelementptr inbounds i8, i8* %9, i32 40
   %12 = bitcast i8* %11 to i32*
-  %13 = load i32* %12, align 4, !tbaa !19
+  %13 = load i32, i32* %12, align 4, !tbaa !19
   %14 = bitcast i8* %10 to i32*
   %15 = load i32* %14, align 4, !tbaa !19
-  %16 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 2
+  %16 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 2
   %17 = load i32* %16, align 4, !tbaa !19
-  %18 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 1
+  %18 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 1
   %19 = load i32* %18, align 4, !tbaa !21
   %20 = and i32 %19, 2
   %21 = icmp eq i32 %20, 0
   br i1 %21, label %_Z8rsSample13rs_allocation10rs_samplerff.exit, label %22
 
 ; <label>:22                                      ; preds = %0
-  %23 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 0
+  %23 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 0
   %24 = load i32* %23, align 4, !tbaa !19
   %25 = icmp eq i32 %24, 0
   br i1 %25, label %26, label %123
 
 ; <label>:26                                      ; preds = %22
-  %27 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
+  %27 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
   %28 = load i32* %27, align 4, !tbaa !21
   %29 = sitofp i32 %28 to float
   %30 = fmul float %29, %location
@@ -15370,7 +15370,7 @@ wrapI.exit.i:                                     ; preds = %35, %.thread.i.i, %
   %44 = select i1 %43, i32 %.2.i.i, i32 %42
   %45 = icmp sgt i32 0, %44
   %46 = select i1 %45, i32 0, i32 %44
-  %alloc.idx.i = getelementptr %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %alloc.idx.i = getelementptr %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %alloc.idx.val.i = load i8** %alloc.idx.i, align 4, !tbaa !22
   switch i32 %13, label %_ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit [
     i32 11, label %47
@@ -15382,14 +15382,14 @@ wrapI.exit.i:                                     ; preds = %35, %.thread.i.i, %
 
 ; <label>:47                                      ; preds = %wrapI.exit.i
   %48 = shl nsw i32 %46, 2
-  %49 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %48
+  %49 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %48
   %50 = bitcast i8* %49 to <4 x i8>*
-  %51 = load <4 x i8>* %50, align 4, !tbaa !19
+  %51 = load <4 x i8>, <4 x i8>* %50, align 4, !tbaa !19
   %52 = uitofp <4 x i8> %51 to <4 x float>
   br label %_ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit
 
 ; <label>:53                                      ; preds = %wrapI.exit.i
-  %54 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %46
+  %54 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %46
   %55 = load i8* %54, align 1, !tbaa !19
   %56 = uitofp i8 %55 to float
   %57 = insertelement <4 x float> <float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float undef>, float %56, i32 3
@@ -15397,12 +15397,12 @@ wrapI.exit.i:                                     ; preds = %35, %.thread.i.i, %
 
 ; <label>:58                                      ; preds = %wrapI.exit.i
   %59 = shl nsw i32 %46, 1
-  %60 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %59
+  %60 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %59
   %61 = load i8* %60, align 1, !tbaa !19
   %62 = uitofp i8 %61 to float
   %63 = insertelement <2 x float> undef, float %62, i32 0
   %64 = or i32 %59, 1
-  %65 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %64
+  %65 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %64
   %66 = load i8* %65, align 1, !tbaa !19
   %67 = uitofp i8 %66 to float
   %68 = insertelement <2 x float> %63, float %67, i32 1
@@ -15417,7 +15417,7 @@ wrapI.exit.i:                                     ; preds = %35, %.thread.i.i, %
 
 ; <label>:74                                      ; preds = %72
   %75 = bitcast i8* %alloc.idx.val.i to i16*
-  %76 = load i16* %75, align 2, !tbaa !70
+  %76 = load i16, i16* %75, align 2, !tbaa !70
   %77 = zext i16 %76 to i32
   %78 = lshr i32 %77, 11
   %79 = shl nuw nsw i32 %78, 3
@@ -15443,17 +15443,17 @@ wrapI.exit.i:                                     ; preds = %35, %.thread.i.i, %
 
 ; <label>:98                                      ; preds = %72
   %99 = shl nsw i32 %46, 2
-  %100 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %99
+  %100 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %99
   %101 = load i8* %100, align 1, !tbaa !19
   %102 = uitofp i8 %101 to float
   %103 = insertelement <4 x float> undef, float %102, i32 0
   %104 = or i32 %99, 1
-  %105 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %104
+  %105 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %104
   %106 = load i8* %105, align 1, !tbaa !19
   %107 = uitofp i8 %106 to float
   %108 = insertelement <4 x float> %103, float %107, i32 1
   %109 = or i32 %99, 2
-  %110 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %109
+  %110 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %109
   %111 = load i8* %110, align 1, !tbaa !19
   %112 = uitofp i8 %111 to float
   %113 = insertelement <4 x float> %108, float %112, i32 2
@@ -15461,7 +15461,7 @@ wrapI.exit.i:                                     ; preds = %35, %.thread.i.i, %
   br label %_ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit
 
 ; <label>:115                                     ; preds = %wrapI.exit.i
-  %116 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %46
+  %116 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %46
   %117 = load i8* %116, align 1, !tbaa !19
   %118 = uitofp i8 %117 to float
   %119 = insertelement <3 x float> undef, float %118, i32 0
@@ -15475,7 +15475,7 @@ _ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampl
   br label %_Z8rsSample13rs_allocation10rs_samplerff.exit
 
 ; <label>:123                                     ; preds = %22
-  %124 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
+  %124 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
   %125 = load i32* %124, align 4, !tbaa !21
   %126 = sitofp i32 %125 to float
   %127 = fmul float %126, %location
@@ -15561,7 +15561,7 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i4, %wra
   %177 = select i1 %176, i32 %.2.i5.i, i32 %175
   %178 = icmp sgt i32 0, %177
   %179 = select i1 %178, i32 0, i32 %177
-  %180 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %180 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %181 = load i8** %180, align 4, !tbaa !22
   switch i32 %13, label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit [
     i32 11, label %182
@@ -15573,14 +15573,14 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i4, %wra
 
 ; <label>:182                                     ; preds = %wrapI.exit6.i
   %183 = shl nsw i32 %179, 2
-  %184 = getelementptr inbounds i8* %181, i32 %183
+  %184 = getelementptr inbounds i8, i8* %181, i32 %183
   %185 = bitcast i8* %184 to <4 x i8>*
-  %186 = load <4 x i8>* %185, align 4, !tbaa !19
+  %186 = load <4 x i8>, <4 x i8>* %185, align 4, !tbaa !19
   %187 = uitofp <4 x i8> %186 to <4 x float>
   %188 = shl nsw i32 %174, 2
-  %189 = getelementptr inbounds i8* %181, i32 %188
+  %189 = getelementptr inbounds i8, i8* %181, i32 %188
   %190 = bitcast i8* %189 to <4 x i8>*
-  %191 = load <4 x i8>* %190, align 4, !tbaa !19
+  %191 = load <4 x i8>, <4 x i8>* %190, align 4, !tbaa !19
   %192 = uitofp <4 x i8> %191 to <4 x float>
   %193 = insertelement <4 x float> undef, float %138, i32 0
   %194 = shufflevector <4 x float> %193, <4 x float> undef, <4 x i32> zeroinitializer
@@ -15593,10 +15593,10 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i4, %wra
   br label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit
 
 ; <label>:201                                     ; preds = %wrapI.exit6.i
-  %202 = getelementptr inbounds i8* %181, i32 %179
+  %202 = getelementptr inbounds i8, i8* %181, i32 %179
   %203 = load i8* %202, align 1, !tbaa !19
   %204 = uitofp i8 %203 to float
-  %205 = getelementptr inbounds i8* %181, i32 %174
+  %205 = getelementptr inbounds i8, i8* %181, i32 %174
   %206 = load i8* %205, align 1, !tbaa !19
   %207 = uitofp i8 %206 to float
   %208 = fmul float %138, %204
@@ -15612,7 +15612,7 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i4, %wra
 
 ; <label>:215                                     ; preds = %213
   %216 = bitcast i8* %181 to i16*
-  %217 = load i16* %216, align 2, !tbaa !70
+  %217 = load i16, i16* %216, align 2, !tbaa !70
   %218 = zext i16 %217 to i32
   %219 = lshr i32 %218, 11
   %220 = shl nuw nsw i32 %219, 3
@@ -15651,32 +15651,32 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i4, %wra
 
 ; <label>:252                                     ; preds = %213
   %253 = shl nsw i32 %179, 2
-  %254 = getelementptr inbounds i8* %181, i32 %253
+  %254 = getelementptr inbounds i8, i8* %181, i32 %253
   %255 = load i8* %254, align 1, !tbaa !19
   %256 = uitofp i8 %255 to float
   %257 = insertelement <3 x float> undef, float %256, i32 0
   %258 = or i32 %253, 1
-  %259 = getelementptr inbounds i8* %181, i32 %258
+  %259 = getelementptr inbounds i8, i8* %181, i32 %258
   %260 = load i8* %259, align 1, !tbaa !19
   %261 = uitofp i8 %260 to float
   %262 = insertelement <3 x float> %257, float %261, i32 1
   %263 = or i32 %253, 2
-  %264 = getelementptr inbounds i8* %181, i32 %263
+  %264 = getelementptr inbounds i8, i8* %181, i32 %263
   %265 = load i8* %264, align 1, !tbaa !19
   %266 = uitofp i8 %265 to float
   %267 = insertelement <3 x float> %262, float %266, i32 2
   %268 = shl nsw i32 %174, 2
-  %269 = getelementptr inbounds i8* %181, i32 %268
+  %269 = getelementptr inbounds i8, i8* %181, i32 %268
   %270 = load i8* %269, align 1, !tbaa !19
   %271 = uitofp i8 %270 to float
   %272 = insertelement <3 x float> undef, float %271, i32 0
   %273 = or i32 %268, 1
-  %274 = getelementptr inbounds i8* %181, i32 %273
+  %274 = getelementptr inbounds i8, i8* %181, i32 %273
   %275 = load i8* %274, align 1, !tbaa !19
   %276 = uitofp i8 %275 to float
   %277 = insertelement <3 x float> %272, float %276, i32 1
   %278 = or i32 %268, 2
-  %279 = getelementptr inbounds i8* %181, i32 %278
+  %279 = getelementptr inbounds i8, i8* %181, i32 %278
   %280 = load i8* %279, align 1, !tbaa !19
   %281 = uitofp i8 %280 to float
   %282 = insertelement <3 x float> %277, float %281, i32 2
@@ -15697,10 +15697,10 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i4, %wra
   br label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valuefj.exit
 
 ; <label>:297                                     ; preds = %wrapI.exit6.i
-  %298 = getelementptr inbounds i8* %181, i32 %179
+  %298 = getelementptr inbounds i8, i8* %181, i32 %179
   %299 = load i8* %298, align 1, !tbaa !19
   %300 = uitofp i8 %299 to float
-  %301 = getelementptr inbounds i8* %181, i32 %174
+  %301 = getelementptr inbounds i8, i8* %181, i32 %174
   %302 = load i8* %301, align 1, !tbaa !19
   %303 = uitofp i8 %302 to float
   %304 = fmul float %138, %300
@@ -15715,22 +15715,22 @@ wrapI.exit6.i:                                    ; preds = %wrapI.exit.i4, %wra
 
 ; <label>:312                                     ; preds = %wrapI.exit6.i
   %313 = shl nsw i32 %179, 1
-  %314 = getelementptr inbounds i8* %181, i32 %313
+  %314 = getelementptr inbounds i8, i8* %181, i32 %313
   %315 = load i8* %314, align 1, !tbaa !19
   %316 = uitofp i8 %315 to float
   %317 = insertelement <2 x float> undef, float %316, i32 0
   %318 = or i32 %313, 1
-  %319 = getelementptr inbounds i8* %181, i32 %318
+  %319 = getelementptr inbounds i8, i8* %181, i32 %318
   %320 = load i8* %319, align 1, !tbaa !19
   %321 = uitofp i8 %320 to float
   %322 = insertelement <2 x float> %317, float %321, i32 1
   %323 = shl nsw i32 %174, 1
-  %324 = getelementptr inbounds i8* %181, i32 %323
+  %324 = getelementptr inbounds i8, i8* %181, i32 %323
   %325 = load i8* %324, align 1, !tbaa !19
   %326 = uitofp i8 %325 to float
   %327 = insertelement <2 x float> undef, float %326, i32 0
   %328 = or i32 %323, 1
-  %329 = getelementptr inbounds i8* %181, i32 %328
+  %329 = getelementptr inbounds i8, i8* %181, i32 %328
   %330 = load i8* %329, align 1, !tbaa !19
   %331 = uitofp i8 %330 to float
   %332 = insertelement <2 x float> %327, float %331, i32 1
@@ -15763,26 +15763,26 @@ define <4 x float> @_Z8rsSample13rs_allocation10rs_samplerDv2_ff([1 x i32] %a.co
   %2 = extractvalue [1 x i32] %s.coerce, 0
   %3 = inttoptr i32 %1 to %struct.Allocation*
   %4 = inttoptr i32 %2 to %struct.Sampler*
-  %5 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 0
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 0
   %6 = load i8** %5, align 4, !tbaa !22
-  %7 = getelementptr inbounds i8* %6, i32 36
+  %7 = getelementptr inbounds i8, i8* %6, i32 36
   %8 = bitcast i8* %7 to i8**
   %9 = load i8** %8, align 4, !tbaa !22
-  %10 = getelementptr inbounds i8* %9, i32 36
-  %11 = getelementptr inbounds i8* %9, i32 40
+  %10 = getelementptr inbounds i8, i8* %9, i32 36
+  %11 = getelementptr inbounds i8, i8* %9, i32 40
   %12 = bitcast i8* %11 to i32*
-  %13 = load i32* %12, align 4, !tbaa !19
+  %13 = load i32, i32* %12, align 4, !tbaa !19
   %14 = bitcast i8* %10 to i32*
   %15 = load i32* %14, align 4, !tbaa !19
-  %16 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 1
+  %16 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 1
   %17 = load i32* %16, align 4, !tbaa !19
-  %18 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 0
+  %18 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 0
   %19 = load i32* %18, align 4, !tbaa !19
-  %20 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 2
+  %20 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 2
   %21 = load i32* %20, align 4, !tbaa !19
-  %22 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 3
+  %22 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 3
   %23 = load i32* %22, align 4, !tbaa !19
-  %24 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 1
+  %24 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 1
   %25 = load i32* %24, align 4, !tbaa !21
   %26 = and i32 %25, 2
   %27 = icmp eq i32 %26, 0
@@ -15797,9 +15797,9 @@ define <4 x float> @_Z8rsSample13rs_allocation10rs_samplerDv2_ff([1 x i32] %a.co
   br i1 %31, label %32, label %164
 
 ; <label>:32                                      ; preds = %30
-  %33 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
+  %33 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
   %34 = load i32* %33, align 4, !tbaa !21
-  %35 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %35 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %36 = load i32* %35, align 4, !tbaa !21
   %37 = sitofp i32 %34 to float
   %38 = insertelement <2 x float> undef, float %37, i32 0
@@ -15869,9 +15869,9 @@ wrapI.exit7.i:                                    ; preds = %63, %.thread.i3.i, 
   %72 = select i1 %71, i32 %.2.i6.i, i32 %70
   %73 = icmp sgt i32 0, %72
   %74 = select i1 %73, i32 0, i32 %72
-  %alloc.idx.i = getelementptr %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %alloc.idx.i = getelementptr %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %alloc.idx.val.i = load i8** %alloc.idx.i, align 4, !tbaa !22
-  %alloc.idx1.i = getelementptr %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %alloc.idx1.i = getelementptr %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %alloc.idx1.val.i = load i32* %alloc.idx1.i, align 4, !tbaa !21
   switch i32 %13, label %_ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valueS4_Dv2_fj.exit [
     i32 11, label %75
@@ -15884,25 +15884,25 @@ wrapI.exit7.i:                                    ; preds = %63, %.thread.i3.i, 
   %76 = mul i32 %alloc.idx1.val.i, %74
   %77 = shl nsw i32 %58, 2
   %.sum.i.i.i = add i32 %76, %77
-  %78 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum.i.i.i
+  %78 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum.i.i.i
   %79 = load i8* %78, align 1, !tbaa !19
   %80 = uitofp i8 %79 to float
   %81 = insertelement <4 x float> undef, float %80, i32 0
   %82 = or i32 %77, 1
   %.sum1.i.i.i = add i32 %76, %82
-  %83 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum1.i.i.i
+  %83 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum1.i.i.i
   %84 = load i8* %83, align 1, !tbaa !19
   %85 = uitofp i8 %84 to float
   %86 = insertelement <4 x float> %81, float %85, i32 1
   %87 = or i32 %77, 2
   %.sum2.i.i.i = add i32 %76, %87
-  %88 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum2.i.i.i
+  %88 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum2.i.i.i
   %89 = load i8* %88, align 1, !tbaa !19
   %90 = uitofp i8 %89 to float
   %91 = insertelement <4 x float> %86, float %90, i32 2
   %92 = or i32 %77, 3
   %.sum3.i.i.i = add i32 %76, %92
-  %93 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum3.i.i.i
+  %93 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum3.i.i.i
   %94 = load i8* %93, align 1, !tbaa !19
   %95 = uitofp i8 %94 to float
   %96 = insertelement <4 x float> %91, float %95, i32 3
@@ -15911,7 +15911,7 @@ wrapI.exit7.i:                                    ; preds = %63, %.thread.i3.i, 
 ; <label>:97                                      ; preds = %wrapI.exit7.i
   %98 = mul i32 %alloc.idx1.val.i, %74
   %.sum.i6.i.i = add i32 %98, %58
-  %99 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum.i6.i.i
+  %99 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum.i6.i.i
   %100 = load i8* %99, align 1, !tbaa !19
   %101 = uitofp i8 %100 to float
   %102 = insertelement <4 x float> <float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float undef>, float %101, i32 3
@@ -15921,13 +15921,13 @@ wrapI.exit7.i:                                    ; preds = %63, %.thread.i3.i, 
   %104 = mul i32 %alloc.idx1.val.i, %74
   %105 = shl nsw i32 %58, 1
   %.sum.i4.i.i = add i32 %104, %105
-  %106 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum.i4.i.i
+  %106 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum.i4.i.i
   %107 = load i8* %106, align 1, !tbaa !19
   %108 = uitofp i8 %107 to float
   %109 = insertelement <2 x float> undef, float %108, i32 0
   %110 = or i32 %105, 1
   %.sum1.i5.i.i = add i32 %104, %110
-  %111 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum1.i5.i.i
+  %111 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum1.i5.i.i
   %112 = load i8* %111, align 1, !tbaa !19
   %113 = uitofp i8 %112 to float
   %114 = insertelement <2 x float> %109, float %113, i32 1
@@ -15942,9 +15942,9 @@ wrapI.exit7.i:                                    ; preds = %63, %.thread.i3.i, 
   br i1 %119, label %121, label %146
 
 ; <label>:121                                     ; preds = %118
-  %122 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %120
+  %122 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %120
   %123 = bitcast i8* %122 to i16*
-  %124 = load i16* %123, align 2, !tbaa !70
+  %124 = load i16, i16* %123, align 2, !tbaa !70
   %125 = zext i16 %124 to i32
   %126 = lshr i32 %125, 11
   %127 = shl nuw nsw i32 %126, 3
@@ -15971,19 +15971,19 @@ wrapI.exit7.i:                                    ; preds = %63, %.thread.i3.i, 
 ; <label>:146                                     ; preds = %118
   %147 = shl nsw i32 %58, 2
   %.sum.i1.i.i = add i32 %120, %147
-  %148 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum.i1.i.i
+  %148 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum.i1.i.i
   %149 = load i8* %148, align 1, !tbaa !19
   %150 = uitofp i8 %149 to float
   %151 = insertelement <4 x float> undef, float %150, i32 0
   %152 = or i32 %147, 1
   %.sum1.i2.i.i = add i32 %120, %152
-  %153 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum1.i2.i.i
+  %153 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum1.i2.i.i
   %154 = load i8* %153, align 1, !tbaa !19
   %155 = uitofp i8 %154 to float
   %156 = insertelement <4 x float> %151, float %155, i32 1
   %157 = or i32 %147, 2
   %.sum2.i3.i.i = add i32 %120, %157
-  %158 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum2.i3.i.i
+  %158 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum2.i3.i.i
   %159 = load i8* %158, align 1, !tbaa !19
   %160 = uitofp i8 %159 to float
   %161 = insertelement <4 x float> %156, float %160, i32 2
@@ -15996,9 +15996,9 @@ _ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampl
   br label %2207
 
 ; <label>:164                                     ; preds = %30
-  %165 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
+  %165 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
   %166 = load i32* %165, align 4, !tbaa !21
-  %167 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %167 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %168 = load i32* %167, align 4, !tbaa !21
   %169 = extractelement <2 x float> %uv, i32 0
   %170 = sitofp i32 %166 to float
@@ -16168,9 +16168,9 @@ wrapI.exit18.i218:                                ; preds = %250, %.thread.i14.i
   %258 = select i1 %257, i32 %.2.i17.i217, i32 %228
   %259 = icmp sgt i32 0, %258
   %260 = select i1 %259, i32 0, i32 %258
-  %261 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %261 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %262 = load i8** %261, align 4, !tbaa !22
-  %263 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %263 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %264 = load i32* %263, align 4, !tbaa !21
   switch i32 %13, label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valueS4_Dv2_fj.exit268 [
     i32 11, label %265
@@ -16184,90 +16184,90 @@ wrapI.exit18.i218:                                ; preds = %250, %.thread.i14.i
   %266 = mul i32 %264, %260
   %267 = shl nsw i32 %246, 2
   %.sum.i.i.i.i219 = add i32 %266, %267
-  %268 = getelementptr inbounds i8* %262, i32 %.sum.i.i.i.i219
+  %268 = getelementptr inbounds i8, i8* %262, i32 %.sum.i.i.i.i219
   %269 = load i8* %268, align 1, !tbaa !19
   %270 = uitofp i8 %269 to float
   %271 = insertelement <4 x float> undef, float %270, i32 0
   %272 = or i32 %267, 1
   %.sum1.i.i.i.i220 = add i32 %266, %272
-  %273 = getelementptr inbounds i8* %262, i32 %.sum1.i.i.i.i220
+  %273 = getelementptr inbounds i8, i8* %262, i32 %.sum1.i.i.i.i220
   %274 = load i8* %273, align 1, !tbaa !19
   %275 = uitofp i8 %274 to float
   %276 = insertelement <4 x float> %271, float %275, i32 1
   %277 = or i32 %267, 2
   %.sum2.i.i.i.i221 = add i32 %266, %277
-  %278 = getelementptr inbounds i8* %262, i32 %.sum2.i.i.i.i221
+  %278 = getelementptr inbounds i8, i8* %262, i32 %.sum2.i.i.i.i221
   %279 = load i8* %278, align 1, !tbaa !19
   %280 = uitofp i8 %279 to float
   %281 = insertelement <4 x float> %276, float %280, i32 2
   %282 = or i32 %267, 3
   %.sum3.i.i.i.i222 = add i32 %266, %282
-  %283 = getelementptr inbounds i8* %262, i32 %.sum3.i.i.i.i222
+  %283 = getelementptr inbounds i8, i8* %262, i32 %.sum3.i.i.i.i222
   %284 = load i8* %283, align 1, !tbaa !19
   %285 = uitofp i8 %284 to float
   %286 = insertelement <4 x float> %281, float %285, i32 3
   %287 = shl nsw i32 %216, 2
   %.sum.i9.i.i.i223 = add i32 %266, %287
-  %288 = getelementptr inbounds i8* %262, i32 %.sum.i9.i.i.i223
+  %288 = getelementptr inbounds i8, i8* %262, i32 %.sum.i9.i.i.i223
   %289 = load i8* %288, align 1, !tbaa !19
   %290 = uitofp i8 %289 to float
   %291 = insertelement <4 x float> undef, float %290, i32 0
   %292 = or i32 %287, 1
   %.sum1.i10.i.i.i224 = add i32 %266, %292
-  %293 = getelementptr inbounds i8* %262, i32 %.sum1.i10.i.i.i224
+  %293 = getelementptr inbounds i8, i8* %262, i32 %.sum1.i10.i.i.i224
   %294 = load i8* %293, align 1, !tbaa !19
   %295 = uitofp i8 %294 to float
   %296 = insertelement <4 x float> %291, float %295, i32 1
   %297 = or i32 %287, 2
   %.sum2.i11.i.i.i225 = add i32 %266, %297
-  %298 = getelementptr inbounds i8* %262, i32 %.sum2.i11.i.i.i225
+  %298 = getelementptr inbounds i8, i8* %262, i32 %.sum2.i11.i.i.i225
   %299 = load i8* %298, align 1, !tbaa !19
   %300 = uitofp i8 %299 to float
   %301 = insertelement <4 x float> %296, float %300, i32 2
   %302 = or i32 %287, 3
   %.sum3.i12.i.i.i226 = add i32 %266, %302
-  %303 = getelementptr inbounds i8* %262, i32 %.sum3.i12.i.i.i226
+  %303 = getelementptr inbounds i8, i8* %262, i32 %.sum3.i12.i.i.i226
   %304 = load i8* %303, align 1, !tbaa !19
   %305 = uitofp i8 %304 to float
   %306 = insertelement <4 x float> %301, float %305, i32 3
   %307 = mul i32 %264, %232
   %.sum.i5.i.i.i227 = add i32 %307, %267
-  %308 = getelementptr inbounds i8* %262, i32 %.sum.i5.i.i.i227
+  %308 = getelementptr inbounds i8, i8* %262, i32 %.sum.i5.i.i.i227
   %309 = load i8* %308, align 1, !tbaa !19
   %310 = uitofp i8 %309 to float
   %311 = insertelement <4 x float> undef, float %310, i32 0
   %.sum1.i6.i.i.i228 = add i32 %307, %272
-  %312 = getelementptr inbounds i8* %262, i32 %.sum1.i6.i.i.i228
+  %312 = getelementptr inbounds i8, i8* %262, i32 %.sum1.i6.i.i.i228
   %313 = load i8* %312, align 1, !tbaa !19
   %314 = uitofp i8 %313 to float
   %315 = insertelement <4 x float> %311, float %314, i32 1
   %.sum2.i7.i.i.i229 = add i32 %307, %277
-  %316 = getelementptr inbounds i8* %262, i32 %.sum2.i7.i.i.i229
+  %316 = getelementptr inbounds i8, i8* %262, i32 %.sum2.i7.i.i.i229
   %317 = load i8* %316, align 1, !tbaa !19
   %318 = uitofp i8 %317 to float
   %319 = insertelement <4 x float> %315, float %318, i32 2
   %.sum3.i8.i.i.i230 = add i32 %307, %282
-  %320 = getelementptr inbounds i8* %262, i32 %.sum3.i8.i.i.i230
+  %320 = getelementptr inbounds i8, i8* %262, i32 %.sum3.i8.i.i.i230
   %321 = load i8* %320, align 1, !tbaa !19
   %322 = uitofp i8 %321 to float
   %323 = insertelement <4 x float> %319, float %322, i32 3
   %.sum.i1.i.i.i231 = add i32 %307, %287
-  %324 = getelementptr inbounds i8* %262, i32 %.sum.i1.i.i.i231
+  %324 = getelementptr inbounds i8, i8* %262, i32 %.sum.i1.i.i.i231
   %325 = load i8* %324, align 1, !tbaa !19
   %326 = uitofp i8 %325 to float
   %327 = insertelement <4 x float> undef, float %326, i32 0
   %.sum1.i2.i.i.i232 = add i32 %307, %292
-  %328 = getelementptr inbounds i8* %262, i32 %.sum1.i2.i.i.i232
+  %328 = getelementptr inbounds i8, i8* %262, i32 %.sum1.i2.i.i.i232
   %329 = load i8* %328, align 1, !tbaa !19
   %330 = uitofp i8 %329 to float
   %331 = insertelement <4 x float> %327, float %330, i32 1
   %.sum2.i3.i.i.i233 = add i32 %307, %297
-  %332 = getelementptr inbounds i8* %262, i32 %.sum2.i3.i.i.i233
+  %332 = getelementptr inbounds i8, i8* %262, i32 %.sum2.i3.i.i.i233
   %333 = load i8* %332, align 1, !tbaa !19
   %334 = uitofp i8 %333 to float
   %335 = insertelement <4 x float> %331, float %334, i32 2
   %.sum3.i4.i.i.i234 = add i32 %307, %302
-  %336 = getelementptr inbounds i8* %262, i32 %.sum3.i4.i.i.i234
+  %336 = getelementptr inbounds i8, i8* %262, i32 %.sum3.i4.i.i.i234
   %337 = load i8* %336, align 1, !tbaa !19
   %338 = uitofp i8 %337 to float
   %339 = insertelement <4 x float> %335, float %338, i32 3
@@ -16292,20 +16292,20 @@ wrapI.exit18.i218:                                ; preds = %250, %.thread.i14.i
 ; <label>:356                                     ; preds = %wrapI.exit18.i218
   %357 = mul i32 %264, %260
   %.sum.i.i26.i.i235 = add i32 %357, %246
-  %358 = getelementptr inbounds i8* %262, i32 %.sum.i.i26.i.i235
+  %358 = getelementptr inbounds i8, i8* %262, i32 %.sum.i.i26.i.i235
   %359 = load i8* %358, align 1, !tbaa !19
   %360 = uitofp i8 %359 to float
   %.sum.i3.i27.i.i236 = add i32 %357, %216
-  %361 = getelementptr inbounds i8* %262, i32 %.sum.i3.i27.i.i236
+  %361 = getelementptr inbounds i8, i8* %262, i32 %.sum.i3.i27.i.i236
   %362 = load i8* %361, align 1, !tbaa !19
   %363 = uitofp i8 %362 to float
   %364 = mul i32 %264, %232
   %.sum.i2.i28.i.i237 = add i32 %364, %246
-  %365 = getelementptr inbounds i8* %262, i32 %.sum.i2.i28.i.i237
+  %365 = getelementptr inbounds i8, i8* %262, i32 %.sum.i2.i28.i.i237
   %366 = load i8* %365, align 1, !tbaa !19
   %367 = uitofp i8 %366 to float
   %.sum.i1.i29.i.i238 = add i32 %364, %216
-  %368 = getelementptr inbounds i8* %262, i32 %.sum.i1.i29.i.i238
+  %368 = getelementptr inbounds i8, i8* %262, i32 %.sum.i1.i29.i.i238
   %369 = load i8* %368, align 1, !tbaa !19
   %370 = uitofp i8 %369 to float
   %371 = fmul float %197, %360
@@ -16323,46 +16323,46 @@ wrapI.exit18.i218:                                ; preds = %250, %.thread.i14.i
   %381 = mul i32 %264, %260
   %382 = shl nsw i32 %246, 1
   %.sum.i.i19.i.i239 = add i32 %381, %382
-  %383 = getelementptr inbounds i8* %262, i32 %.sum.i.i19.i.i239
+  %383 = getelementptr inbounds i8, i8* %262, i32 %.sum.i.i19.i.i239
   %384 = load i8* %383, align 1, !tbaa !19
   %385 = uitofp i8 %384 to float
   %386 = insertelement <2 x float> undef, float %385, i32 0
   %387 = or i32 %382, 1
   %.sum1.i.i20.i.i240 = add i32 %381, %387
-  %388 = getelementptr inbounds i8* %262, i32 %.sum1.i.i20.i.i240
+  %388 = getelementptr inbounds i8, i8* %262, i32 %.sum1.i.i20.i.i240
   %389 = load i8* %388, align 1, !tbaa !19
   %390 = uitofp i8 %389 to float
   %391 = insertelement <2 x float> %386, float %390, i32 1
   %392 = shl nsw i32 %216, 1
   %.sum.i5.i21.i.i241 = add i32 %381, %392
-  %393 = getelementptr inbounds i8* %262, i32 %.sum.i5.i21.i.i241
+  %393 = getelementptr inbounds i8, i8* %262, i32 %.sum.i5.i21.i.i241
   %394 = load i8* %393, align 1, !tbaa !19
   %395 = uitofp i8 %394 to float
   %396 = insertelement <2 x float> undef, float %395, i32 0
   %397 = or i32 %392, 1
   %.sum1.i6.i22.i.i242 = add i32 %381, %397
-  %398 = getelementptr inbounds i8* %262, i32 %.sum1.i6.i22.i.i242
+  %398 = getelementptr inbounds i8, i8* %262, i32 %.sum1.i6.i22.i.i242
   %399 = load i8* %398, align 1, !tbaa !19
   %400 = uitofp i8 %399 to float
   %401 = insertelement <2 x float> %396, float %400, i32 1
   %402 = mul i32 %264, %232
   %.sum.i3.i23.i.i243 = add i32 %402, %382
-  %403 = getelementptr inbounds i8* %262, i32 %.sum.i3.i23.i.i243
+  %403 = getelementptr inbounds i8, i8* %262, i32 %.sum.i3.i23.i.i243
   %404 = load i8* %403, align 1, !tbaa !19
   %405 = uitofp i8 %404 to float
   %406 = insertelement <2 x float> undef, float %405, i32 0
   %.sum1.i4.i.i.i244 = add i32 %402, %387
-  %407 = getelementptr inbounds i8* %262, i32 %.sum1.i4.i.i.i244
+  %407 = getelementptr inbounds i8, i8* %262, i32 %.sum1.i4.i.i.i244
   %408 = load i8* %407, align 1, !tbaa !19
   %409 = uitofp i8 %408 to float
   %410 = insertelement <2 x float> %406, float %409, i32 1
   %.sum.i1.i24.i.i245 = add i32 %402, %392
-  %411 = getelementptr inbounds i8* %262, i32 %.sum.i1.i24.i.i245
+  %411 = getelementptr inbounds i8, i8* %262, i32 %.sum.i1.i24.i.i245
   %412 = load i8* %411, align 1, !tbaa !19
   %413 = uitofp i8 %412 to float
   %414 = insertelement <2 x float> undef, float %413, i32 0
   %.sum1.i2.i25.i.i246 = add i32 %402, %397
-  %415 = getelementptr inbounds i8* %262, i32 %.sum1.i2.i25.i.i246
+  %415 = getelementptr inbounds i8, i8* %262, i32 %.sum1.i2.i25.i.i246
   %416 = load i8* %415, align 1, !tbaa !19
   %417 = uitofp i8 %416 to float
   %418 = insertelement <2 x float> %414, float %417, i32 1
@@ -16396,9 +16396,9 @@ wrapI.exit18.i218:                                ; preds = %250, %.thread.i14.i
   br i1 %442, label %444, label %510
 
 ; <label>:444                                     ; preds = %441
-  %445 = getelementptr inbounds i8* %262, i32 %443
+  %445 = getelementptr inbounds i8, i8* %262, i32 %443
   %446 = bitcast i8* %445 to i16*
-  %447 = load i16* %446, align 2, !tbaa !70
+  %447 = load i16, i16* %446, align 2, !tbaa !70
   %448 = zext i16 %447 to i32
   %449 = lshr i32 %448, 11
   %450 = shl nuw nsw i32 %449, 3
@@ -16420,9 +16420,9 @@ wrapI.exit18.i218:                                ; preds = %250, %.thread.i14.i
   %466 = uitofp i32 %465 to float
   %467 = insertelement <3 x float> %461, float %466, i32 2
   %468 = mul i32 %264, %232
-  %469 = getelementptr inbounds i8* %262, i32 %468
+  %469 = getelementptr inbounds i8, i8* %262, i32 %468
   %470 = bitcast i8* %469 to i16*
-  %471 = load i16* %470, align 2, !tbaa !70
+  %471 = load i16, i16* %470, align 2, !tbaa !70
   %472 = zext i16 %471 to i32
   %473 = lshr i32 %472, 11
   %474 = shl nuw nsw i32 %473, 3
@@ -16466,90 +16466,90 @@ wrapI.exit18.i218:                                ; preds = %250, %.thread.i14.i
 ; <label>:510                                     ; preds = %441
   %511 = shl nsw i32 %246, 2
   %.sum.i.i3.i.i247 = add i32 %443, %511
-  %512 = getelementptr inbounds i8* %262, i32 %.sum.i.i3.i.i247
+  %512 = getelementptr inbounds i8, i8* %262, i32 %.sum.i.i3.i.i247
   %513 = load i8* %512, align 1, !tbaa !19
   %514 = uitofp i8 %513 to float
   %515 = insertelement <4 x float> undef, float %514, i32 0
   %516 = or i32 %511, 1
   %.sum1.i.i4.i.i248 = add i32 %443, %516
-  %517 = getelementptr inbounds i8* %262, i32 %.sum1.i.i4.i.i248
+  %517 = getelementptr inbounds i8, i8* %262, i32 %.sum1.i.i4.i.i248
   %518 = load i8* %517, align 1, !tbaa !19
   %519 = uitofp i8 %518 to float
   %520 = insertelement <4 x float> %515, float %519, i32 1
   %521 = or i32 %511, 2
   %.sum2.i.i5.i.i249 = add i32 %443, %521
-  %522 = getelementptr inbounds i8* %262, i32 %.sum2.i.i5.i.i249
+  %522 = getelementptr inbounds i8, i8* %262, i32 %.sum2.i.i5.i.i249
   %523 = load i8* %522, align 1, !tbaa !19
   %524 = uitofp i8 %523 to float
   %525 = insertelement <4 x float> %520, float %524, i32 2
   %526 = or i32 %511, 3
   %.sum3.i.i6.i.i250 = add i32 %443, %526
-  %527 = getelementptr inbounds i8* %262, i32 %.sum3.i.i6.i.i250
+  %527 = getelementptr inbounds i8, i8* %262, i32 %.sum3.i.i6.i.i250
   %528 = load i8* %527, align 1, !tbaa !19
   %529 = uitofp i8 %528 to float
   %530 = insertelement <4 x float> %525, float %529, i32 3
   %531 = shl nsw i32 %216, 2
   %.sum.i9.i7.i.i251 = add i32 %443, %531
-  %532 = getelementptr inbounds i8* %262, i32 %.sum.i9.i7.i.i251
+  %532 = getelementptr inbounds i8, i8* %262, i32 %.sum.i9.i7.i.i251
   %533 = load i8* %532, align 1, !tbaa !19
   %534 = uitofp i8 %533 to float
   %535 = insertelement <4 x float> undef, float %534, i32 0
   %536 = or i32 %531, 1
   %.sum1.i10.i8.i.i252 = add i32 %443, %536
-  %537 = getelementptr inbounds i8* %262, i32 %.sum1.i10.i8.i.i252
+  %537 = getelementptr inbounds i8, i8* %262, i32 %.sum1.i10.i8.i.i252
   %538 = load i8* %537, align 1, !tbaa !19
   %539 = uitofp i8 %538 to float
   %540 = insertelement <4 x float> %535, float %539, i32 1
   %541 = or i32 %531, 2
   %.sum2.i11.i9.i.i253 = add i32 %443, %541
-  %542 = getelementptr inbounds i8* %262, i32 %.sum2.i11.i9.i.i253
+  %542 = getelementptr inbounds i8, i8* %262, i32 %.sum2.i11.i9.i.i253
   %543 = load i8* %542, align 1, !tbaa !19
   %544 = uitofp i8 %543 to float
   %545 = insertelement <4 x float> %540, float %544, i32 2
   %546 = or i32 %531, 3
   %.sum3.i12.i10.i.i254 = add i32 %443, %546
-  %547 = getelementptr inbounds i8* %262, i32 %.sum3.i12.i10.i.i254
+  %547 = getelementptr inbounds i8, i8* %262, i32 %.sum3.i12.i10.i.i254
   %548 = load i8* %547, align 1, !tbaa !19
   %549 = uitofp i8 %548 to float
   %550 = insertelement <4 x float> %545, float %549, i32 3
   %551 = mul i32 %264, %232
   %.sum.i5.i11.i.i255 = add i32 %551, %511
-  %552 = getelementptr inbounds i8* %262, i32 %.sum.i5.i11.i.i255
+  %552 = getelementptr inbounds i8, i8* %262, i32 %.sum.i5.i11.i.i255
   %553 = load i8* %552, align 1, !tbaa !19
   %554 = uitofp i8 %553 to float
   %555 = insertelement <4 x float> undef, float %554, i32 0
   %.sum1.i6.i12.i.i256 = add i32 %551, %516
-  %556 = getelementptr inbounds i8* %262, i32 %.sum1.i6.i12.i.i256
+  %556 = getelementptr inbounds i8, i8* %262, i32 %.sum1.i6.i12.i.i256
   %557 = load i8* %556, align 1, !tbaa !19
   %558 = uitofp i8 %557 to float
   %559 = insertelement <4 x float> %555, float %558, i32 1
   %.sum2.i7.i13.i.i257 = add i32 %551, %521
-  %560 = getelementptr inbounds i8* %262, i32 %.sum2.i7.i13.i.i257
+  %560 = getelementptr inbounds i8, i8* %262, i32 %.sum2.i7.i13.i.i257
   %561 = load i8* %560, align 1, !tbaa !19
   %562 = uitofp i8 %561 to float
   %563 = insertelement <4 x float> %559, float %562, i32 2
   %.sum3.i8.i14.i.i258 = add i32 %551, %526
-  %564 = getelementptr inbounds i8* %262, i32 %.sum3.i8.i14.i.i258
+  %564 = getelementptr inbounds i8, i8* %262, i32 %.sum3.i8.i14.i.i258
   %565 = load i8* %564, align 1, !tbaa !19
   %566 = uitofp i8 %565 to float
   %567 = insertelement <4 x float> %563, float %566, i32 3
   %.sum.i1.i15.i.i259 = add i32 %551, %531
-  %568 = getelementptr inbounds i8* %262, i32 %.sum.i1.i15.i.i259
+  %568 = getelementptr inbounds i8, i8* %262, i32 %.sum.i1.i15.i.i259
   %569 = load i8* %568, align 1, !tbaa !19
   %570 = uitofp i8 %569 to float
   %571 = insertelement <4 x float> undef, float %570, i32 0
   %.sum1.i2.i16.i.i260 = add i32 %551, %536
-  %572 = getelementptr inbounds i8* %262, i32 %.sum1.i2.i16.i.i260
+  %572 = getelementptr inbounds i8, i8* %262, i32 %.sum1.i2.i16.i.i260
   %573 = load i8* %572, align 1, !tbaa !19
   %574 = uitofp i8 %573 to float
   %575 = insertelement <4 x float> %571, float %574, i32 1
   %.sum2.i3.i17.i.i261 = add i32 %551, %541
-  %576 = getelementptr inbounds i8* %262, i32 %.sum2.i3.i17.i.i261
+  %576 = getelementptr inbounds i8, i8* %262, i32 %.sum2.i3.i17.i.i261
   %577 = load i8* %576, align 1, !tbaa !19
   %578 = uitofp i8 %577 to float
   %579 = insertelement <4 x float> %575, float %578, i32 2
   %.sum3.i4.i18.i.i262 = add i32 %551, %546
-  %580 = getelementptr inbounds i8* %262, i32 %.sum3.i4.i18.i.i262
+  %580 = getelementptr inbounds i8, i8* %262, i32 %.sum3.i4.i18.i.i262
   %581 = load i8* %580, align 1, !tbaa !19
   %582 = uitofp i8 %581 to float
   %583 = insertelement <4 x float> %579, float %582, i32 3
@@ -16581,20 +16581,20 @@ wrapI.exit18.i218:                                ; preds = %250, %.thread.i14.i
 ; <label>:607                                     ; preds = %wrapI.exit18.i218
   %608 = mul i32 %264, %260
   %.sum.i.i1.i.i263 = add i32 %608, %246
-  %609 = getelementptr inbounds i8* %262, i32 %.sum.i.i1.i.i263
+  %609 = getelementptr inbounds i8, i8* %262, i32 %.sum.i.i1.i.i263
   %610 = load i8* %609, align 1, !tbaa !19
   %611 = uitofp i8 %610 to float
   %.sum.i3.i.i.i264 = add i32 %608, %216
-  %612 = getelementptr inbounds i8* %262, i32 %.sum.i3.i.i.i264
+  %612 = getelementptr inbounds i8, i8* %262, i32 %.sum.i3.i.i.i264
   %613 = load i8* %612, align 1, !tbaa !19
   %614 = uitofp i8 %613 to float
   %615 = mul i32 %264, %232
   %.sum.i2.i.i.i265 = add i32 %615, %246
-  %616 = getelementptr inbounds i8* %262, i32 %.sum.i2.i.i.i265
+  %616 = getelementptr inbounds i8, i8* %262, i32 %.sum.i2.i.i.i265
   %617 = load i8* %616, align 1, !tbaa !19
   %618 = uitofp i8 %617 to float
   %.sum.i1.i2.i.i266 = add i32 %615, %216
-  %619 = getelementptr inbounds i8* %262, i32 %.sum.i1.i2.i.i266
+  %619 = getelementptr inbounds i8, i8* %262, i32 %.sum.i1.i2.i.i266
   %620 = load i8* %619, align 1, !tbaa !19
   %621 = uitofp i8 %620 to float
   %622 = fmul float %197, %611
@@ -16622,18 +16622,18 @@ _ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sample
   ]
 
 ; <label>:635                                     ; preds = %634
-  %636 = getelementptr inbounds i8* %6, i32 68
+  %636 = getelementptr inbounds i8, i8* %6, i32 68
   %637 = bitcast i8* %636 to i32*
-  %638 = load i32* %637, align 4, !tbaa !21
+  %638 = load i32, i32* %637, align 4, !tbaa !21
   %639 = add i32 %638, -1
   %640 = uitofp i32 %639 to float
   %641 = fcmp olt float %lod, %640
   %642 = select i1 %641, float %lod, float %640
   %643 = tail call float @_Z5roundf(float %642) #14
   %644 = fptoui float %643 to i32
-  %645 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %644, i32 2
+  %645 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %644, i32 2
   %646 = load i32* %645, align 4, !tbaa !21
-  %647 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %644, i32 3
+  %647 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %644, i32 3
   %648 = load i32* %647, align 4, !tbaa !21
   %649 = extractelement <2 x float> %uv, i32 0
   %650 = sitofp i32 %646 to float
@@ -16803,9 +16803,9 @@ wrapI.exit18.i140:                                ; preds = %730, %.thread.i14.i
   %738 = select i1 %737, i32 %.2.i17.i139, i32 %708
   %739 = icmp sgt i32 0, %738
   %740 = select i1 %739, i32 0, i32 %738
-  %741 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %644, i32 0
+  %741 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %644, i32 0
   %742 = load i8** %741, align 4, !tbaa !22
-  %743 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %644, i32 1
+  %743 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %644, i32 1
   %744 = load i32* %743, align 4, !tbaa !21
   switch i32 %13, label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valueS4_Dv2_fj.exit190 [
     i32 11, label %745
@@ -16819,90 +16819,90 @@ wrapI.exit18.i140:                                ; preds = %730, %.thread.i14.i
   %746 = mul i32 %744, %740
   %747 = shl nsw i32 %726, 2
   %.sum.i.i.i.i141 = add i32 %746, %747
-  %748 = getelementptr inbounds i8* %742, i32 %.sum.i.i.i.i141
+  %748 = getelementptr inbounds i8, i8* %742, i32 %.sum.i.i.i.i141
   %749 = load i8* %748, align 1, !tbaa !19
   %750 = uitofp i8 %749 to float
   %751 = insertelement <4 x float> undef, float %750, i32 0
   %752 = or i32 %747, 1
   %.sum1.i.i.i.i142 = add i32 %746, %752
-  %753 = getelementptr inbounds i8* %742, i32 %.sum1.i.i.i.i142
+  %753 = getelementptr inbounds i8, i8* %742, i32 %.sum1.i.i.i.i142
   %754 = load i8* %753, align 1, !tbaa !19
   %755 = uitofp i8 %754 to float
   %756 = insertelement <4 x float> %751, float %755, i32 1
   %757 = or i32 %747, 2
   %.sum2.i.i.i.i143 = add i32 %746, %757
-  %758 = getelementptr inbounds i8* %742, i32 %.sum2.i.i.i.i143
+  %758 = getelementptr inbounds i8, i8* %742, i32 %.sum2.i.i.i.i143
   %759 = load i8* %758, align 1, !tbaa !19
   %760 = uitofp i8 %759 to float
   %761 = insertelement <4 x float> %756, float %760, i32 2
   %762 = or i32 %747, 3
   %.sum3.i.i.i.i144 = add i32 %746, %762
-  %763 = getelementptr inbounds i8* %742, i32 %.sum3.i.i.i.i144
+  %763 = getelementptr inbounds i8, i8* %742, i32 %.sum3.i.i.i.i144
   %764 = load i8* %763, align 1, !tbaa !19
   %765 = uitofp i8 %764 to float
   %766 = insertelement <4 x float> %761, float %765, i32 3
   %767 = shl nsw i32 %696, 2
   %.sum.i9.i.i.i145 = add i32 %746, %767
-  %768 = getelementptr inbounds i8* %742, i32 %.sum.i9.i.i.i145
+  %768 = getelementptr inbounds i8, i8* %742, i32 %.sum.i9.i.i.i145
   %769 = load i8* %768, align 1, !tbaa !19
   %770 = uitofp i8 %769 to float
   %771 = insertelement <4 x float> undef, float %770, i32 0
   %772 = or i32 %767, 1
   %.sum1.i10.i.i.i146 = add i32 %746, %772
-  %773 = getelementptr inbounds i8* %742, i32 %.sum1.i10.i.i.i146
+  %773 = getelementptr inbounds i8, i8* %742, i32 %.sum1.i10.i.i.i146
   %774 = load i8* %773, align 1, !tbaa !19
   %775 = uitofp i8 %774 to float
   %776 = insertelement <4 x float> %771, float %775, i32 1
   %777 = or i32 %767, 2
   %.sum2.i11.i.i.i147 = add i32 %746, %777
-  %778 = getelementptr inbounds i8* %742, i32 %.sum2.i11.i.i.i147
+  %778 = getelementptr inbounds i8, i8* %742, i32 %.sum2.i11.i.i.i147
   %779 = load i8* %778, align 1, !tbaa !19
   %780 = uitofp i8 %779 to float
   %781 = insertelement <4 x float> %776, float %780, i32 2
   %782 = or i32 %767, 3
   %.sum3.i12.i.i.i148 = add i32 %746, %782
-  %783 = getelementptr inbounds i8* %742, i32 %.sum3.i12.i.i.i148
+  %783 = getelementptr inbounds i8, i8* %742, i32 %.sum3.i12.i.i.i148
   %784 = load i8* %783, align 1, !tbaa !19
   %785 = uitofp i8 %784 to float
   %786 = insertelement <4 x float> %781, float %785, i32 3
   %787 = mul i32 %744, %712
   %.sum.i5.i.i.i149 = add i32 %787, %747
-  %788 = getelementptr inbounds i8* %742, i32 %.sum.i5.i.i.i149
+  %788 = getelementptr inbounds i8, i8* %742, i32 %.sum.i5.i.i.i149
   %789 = load i8* %788, align 1, !tbaa !19
   %790 = uitofp i8 %789 to float
   %791 = insertelement <4 x float> undef, float %790, i32 0
   %.sum1.i6.i.i.i150 = add i32 %787, %752
-  %792 = getelementptr inbounds i8* %742, i32 %.sum1.i6.i.i.i150
+  %792 = getelementptr inbounds i8, i8* %742, i32 %.sum1.i6.i.i.i150
   %793 = load i8* %792, align 1, !tbaa !19
   %794 = uitofp i8 %793 to float
   %795 = insertelement <4 x float> %791, float %794, i32 1
   %.sum2.i7.i.i.i151 = add i32 %787, %757
-  %796 = getelementptr inbounds i8* %742, i32 %.sum2.i7.i.i.i151
+  %796 = getelementptr inbounds i8, i8* %742, i32 %.sum2.i7.i.i.i151
   %797 = load i8* %796, align 1, !tbaa !19
   %798 = uitofp i8 %797 to float
   %799 = insertelement <4 x float> %795, float %798, i32 2
   %.sum3.i8.i.i.i152 = add i32 %787, %762
-  %800 = getelementptr inbounds i8* %742, i32 %.sum3.i8.i.i.i152
+  %800 = getelementptr inbounds i8, i8* %742, i32 %.sum3.i8.i.i.i152
   %801 = load i8* %800, align 1, !tbaa !19
   %802 = uitofp i8 %801 to float
   %803 = insertelement <4 x float> %799, float %802, i32 3
   %.sum.i1.i.i.i153 = add i32 %787, %767
-  %804 = getelementptr inbounds i8* %742, i32 %.sum.i1.i.i.i153
+  %804 = getelementptr inbounds i8, i8* %742, i32 %.sum.i1.i.i.i153
   %805 = load i8* %804, align 1, !tbaa !19
   %806 = uitofp i8 %805 to float
   %807 = insertelement <4 x float> undef, float %806, i32 0
   %.sum1.i2.i.i.i154 = add i32 %787, %772
-  %808 = getelementptr inbounds i8* %742, i32 %.sum1.i2.i.i.i154
+  %808 = getelementptr inbounds i8, i8* %742, i32 %.sum1.i2.i.i.i154
   %809 = load i8* %808, align 1, !tbaa !19
   %810 = uitofp i8 %809 to float
   %811 = insertelement <4 x float> %807, float %810, i32 1
   %.sum2.i3.i.i.i155 = add i32 %787, %777
-  %812 = getelementptr inbounds i8* %742, i32 %.sum2.i3.i.i.i155
+  %812 = getelementptr inbounds i8, i8* %742, i32 %.sum2.i3.i.i.i155
   %813 = load i8* %812, align 1, !tbaa !19
   %814 = uitofp i8 %813 to float
   %815 = insertelement <4 x float> %811, float %814, i32 2
   %.sum3.i4.i.i.i156 = add i32 %787, %782
-  %816 = getelementptr inbounds i8* %742, i32 %.sum3.i4.i.i.i156
+  %816 = getelementptr inbounds i8, i8* %742, i32 %.sum3.i4.i.i.i156
   %817 = load i8* %816, align 1, !tbaa !19
   %818 = uitofp i8 %817 to float
   %819 = insertelement <4 x float> %815, float %818, i32 3
@@ -16927,20 +16927,20 @@ wrapI.exit18.i140:                                ; preds = %730, %.thread.i14.i
 ; <label>:836                                     ; preds = %wrapI.exit18.i140
   %837 = mul i32 %744, %740
   %.sum.i.i26.i.i157 = add i32 %837, %726
-  %838 = getelementptr inbounds i8* %742, i32 %.sum.i.i26.i.i157
+  %838 = getelementptr inbounds i8, i8* %742, i32 %.sum.i.i26.i.i157
   %839 = load i8* %838, align 1, !tbaa !19
   %840 = uitofp i8 %839 to float
   %.sum.i3.i27.i.i158 = add i32 %837, %696
-  %841 = getelementptr inbounds i8* %742, i32 %.sum.i3.i27.i.i158
+  %841 = getelementptr inbounds i8, i8* %742, i32 %.sum.i3.i27.i.i158
   %842 = load i8* %841, align 1, !tbaa !19
   %843 = uitofp i8 %842 to float
   %844 = mul i32 %744, %712
   %.sum.i2.i28.i.i159 = add i32 %844, %726
-  %845 = getelementptr inbounds i8* %742, i32 %.sum.i2.i28.i.i159
+  %845 = getelementptr inbounds i8, i8* %742, i32 %.sum.i2.i28.i.i159
   %846 = load i8* %845, align 1, !tbaa !19
   %847 = uitofp i8 %846 to float
   %.sum.i1.i29.i.i160 = add i32 %844, %696
-  %848 = getelementptr inbounds i8* %742, i32 %.sum.i1.i29.i.i160
+  %848 = getelementptr inbounds i8, i8* %742, i32 %.sum.i1.i29.i.i160
   %849 = load i8* %848, align 1, !tbaa !19
   %850 = uitofp i8 %849 to float
   %851 = fmul float %677, %840
@@ -16958,46 +16958,46 @@ wrapI.exit18.i140:                                ; preds = %730, %.thread.i14.i
   %861 = mul i32 %744, %740
   %862 = shl nsw i32 %726, 1
   %.sum.i.i19.i.i161 = add i32 %861, %862
-  %863 = getelementptr inbounds i8* %742, i32 %.sum.i.i19.i.i161
+  %863 = getelementptr inbounds i8, i8* %742, i32 %.sum.i.i19.i.i161
   %864 = load i8* %863, align 1, !tbaa !19
   %865 = uitofp i8 %864 to float
   %866 = insertelement <2 x float> undef, float %865, i32 0
   %867 = or i32 %862, 1
   %.sum1.i.i20.i.i162 = add i32 %861, %867
-  %868 = getelementptr inbounds i8* %742, i32 %.sum1.i.i20.i.i162
+  %868 = getelementptr inbounds i8, i8* %742, i32 %.sum1.i.i20.i.i162
   %869 = load i8* %868, align 1, !tbaa !19
   %870 = uitofp i8 %869 to float
   %871 = insertelement <2 x float> %866, float %870, i32 1
   %872 = shl nsw i32 %696, 1
   %.sum.i5.i21.i.i163 = add i32 %861, %872
-  %873 = getelementptr inbounds i8* %742, i32 %.sum.i5.i21.i.i163
+  %873 = getelementptr inbounds i8, i8* %742, i32 %.sum.i5.i21.i.i163
   %874 = load i8* %873, align 1, !tbaa !19
   %875 = uitofp i8 %874 to float
   %876 = insertelement <2 x float> undef, float %875, i32 0
   %877 = or i32 %872, 1
   %.sum1.i6.i22.i.i164 = add i32 %861, %877
-  %878 = getelementptr inbounds i8* %742, i32 %.sum1.i6.i22.i.i164
+  %878 = getelementptr inbounds i8, i8* %742, i32 %.sum1.i6.i22.i.i164
   %879 = load i8* %878, align 1, !tbaa !19
   %880 = uitofp i8 %879 to float
   %881 = insertelement <2 x float> %876, float %880, i32 1
   %882 = mul i32 %744, %712
   %.sum.i3.i23.i.i165 = add i32 %882, %862
-  %883 = getelementptr inbounds i8* %742, i32 %.sum.i3.i23.i.i165
+  %883 = getelementptr inbounds i8, i8* %742, i32 %.sum.i3.i23.i.i165
   %884 = load i8* %883, align 1, !tbaa !19
   %885 = uitofp i8 %884 to float
   %886 = insertelement <2 x float> undef, float %885, i32 0
   %.sum1.i4.i.i.i166 = add i32 %882, %867
-  %887 = getelementptr inbounds i8* %742, i32 %.sum1.i4.i.i.i166
+  %887 = getelementptr inbounds i8, i8* %742, i32 %.sum1.i4.i.i.i166
   %888 = load i8* %887, align 1, !tbaa !19
   %889 = uitofp i8 %888 to float
   %890 = insertelement <2 x float> %886, float %889, i32 1
   %.sum.i1.i24.i.i167 = add i32 %882, %872
-  %891 = getelementptr inbounds i8* %742, i32 %.sum.i1.i24.i.i167
+  %891 = getelementptr inbounds i8, i8* %742, i32 %.sum.i1.i24.i.i167
   %892 = load i8* %891, align 1, !tbaa !19
   %893 = uitofp i8 %892 to float
   %894 = insertelement <2 x float> undef, float %893, i32 0
   %.sum1.i2.i25.i.i168 = add i32 %882, %877
-  %895 = getelementptr inbounds i8* %742, i32 %.sum1.i2.i25.i.i168
+  %895 = getelementptr inbounds i8, i8* %742, i32 %.sum1.i2.i25.i.i168
   %896 = load i8* %895, align 1, !tbaa !19
   %897 = uitofp i8 %896 to float
   %898 = insertelement <2 x float> %894, float %897, i32 1
@@ -17031,9 +17031,9 @@ wrapI.exit18.i140:                                ; preds = %730, %.thread.i14.i
   br i1 %922, label %924, label %990
 
 ; <label>:924                                     ; preds = %921
-  %925 = getelementptr inbounds i8* %742, i32 %923
+  %925 = getelementptr inbounds i8, i8* %742, i32 %923
   %926 = bitcast i8* %925 to i16*
-  %927 = load i16* %926, align 2, !tbaa !70
+  %927 = load i16, i16* %926, align 2, !tbaa !70
   %928 = zext i16 %927 to i32
   %929 = lshr i32 %928, 11
   %930 = shl nuw nsw i32 %929, 3
@@ -17055,9 +17055,9 @@ wrapI.exit18.i140:                                ; preds = %730, %.thread.i14.i
   %946 = uitofp i32 %945 to float
   %947 = insertelement <3 x float> %941, float %946, i32 2
   %948 = mul i32 %744, %712
-  %949 = getelementptr inbounds i8* %742, i32 %948
+  %949 = getelementptr inbounds i8, i8* %742, i32 %948
   %950 = bitcast i8* %949 to i16*
-  %951 = load i16* %950, align 2, !tbaa !70
+  %951 = load i16, i16* %950, align 2, !tbaa !70
   %952 = zext i16 %951 to i32
   %953 = lshr i32 %952, 11
   %954 = shl nuw nsw i32 %953, 3
@@ -17101,90 +17101,90 @@ wrapI.exit18.i140:                                ; preds = %730, %.thread.i14.i
 ; <label>:990                                     ; preds = %921
   %991 = shl nsw i32 %726, 2
   %.sum.i.i3.i.i169 = add i32 %923, %991
-  %992 = getelementptr inbounds i8* %742, i32 %.sum.i.i3.i.i169
+  %992 = getelementptr inbounds i8, i8* %742, i32 %.sum.i.i3.i.i169
   %993 = load i8* %992, align 1, !tbaa !19
   %994 = uitofp i8 %993 to float
   %995 = insertelement <4 x float> undef, float %994, i32 0
   %996 = or i32 %991, 1
   %.sum1.i.i4.i.i170 = add i32 %923, %996
-  %997 = getelementptr inbounds i8* %742, i32 %.sum1.i.i4.i.i170
+  %997 = getelementptr inbounds i8, i8* %742, i32 %.sum1.i.i4.i.i170
   %998 = load i8* %997, align 1, !tbaa !19
   %999 = uitofp i8 %998 to float
   %1000 = insertelement <4 x float> %995, float %999, i32 1
   %1001 = or i32 %991, 2
   %.sum2.i.i5.i.i171 = add i32 %923, %1001
-  %1002 = getelementptr inbounds i8* %742, i32 %.sum2.i.i5.i.i171
+  %1002 = getelementptr inbounds i8, i8* %742, i32 %.sum2.i.i5.i.i171
   %1003 = load i8* %1002, align 1, !tbaa !19
   %1004 = uitofp i8 %1003 to float
   %1005 = insertelement <4 x float> %1000, float %1004, i32 2
   %1006 = or i32 %991, 3
   %.sum3.i.i6.i.i172 = add i32 %923, %1006
-  %1007 = getelementptr inbounds i8* %742, i32 %.sum3.i.i6.i.i172
+  %1007 = getelementptr inbounds i8, i8* %742, i32 %.sum3.i.i6.i.i172
   %1008 = load i8* %1007, align 1, !tbaa !19
   %1009 = uitofp i8 %1008 to float
   %1010 = insertelement <4 x float> %1005, float %1009, i32 3
   %1011 = shl nsw i32 %696, 2
   %.sum.i9.i7.i.i173 = add i32 %923, %1011
-  %1012 = getelementptr inbounds i8* %742, i32 %.sum.i9.i7.i.i173
+  %1012 = getelementptr inbounds i8, i8* %742, i32 %.sum.i9.i7.i.i173
   %1013 = load i8* %1012, align 1, !tbaa !19
   %1014 = uitofp i8 %1013 to float
   %1015 = insertelement <4 x float> undef, float %1014, i32 0
   %1016 = or i32 %1011, 1
   %.sum1.i10.i8.i.i174 = add i32 %923, %1016
-  %1017 = getelementptr inbounds i8* %742, i32 %.sum1.i10.i8.i.i174
+  %1017 = getelementptr inbounds i8, i8* %742, i32 %.sum1.i10.i8.i.i174
   %1018 = load i8* %1017, align 1, !tbaa !19
   %1019 = uitofp i8 %1018 to float
   %1020 = insertelement <4 x float> %1015, float %1019, i32 1
   %1021 = or i32 %1011, 2
   %.sum2.i11.i9.i.i175 = add i32 %923, %1021
-  %1022 = getelementptr inbounds i8* %742, i32 %.sum2.i11.i9.i.i175
+  %1022 = getelementptr inbounds i8, i8* %742, i32 %.sum2.i11.i9.i.i175
   %1023 = load i8* %1022, align 1, !tbaa !19
   %1024 = uitofp i8 %1023 to float
   %1025 = insertelement <4 x float> %1020, float %1024, i32 2
   %1026 = or i32 %1011, 3
   %.sum3.i12.i10.i.i176 = add i32 %923, %1026
-  %1027 = getelementptr inbounds i8* %742, i32 %.sum3.i12.i10.i.i176
+  %1027 = getelementptr inbounds i8, i8* %742, i32 %.sum3.i12.i10.i.i176
   %1028 = load i8* %1027, align 1, !tbaa !19
   %1029 = uitofp i8 %1028 to float
   %1030 = insertelement <4 x float> %1025, float %1029, i32 3
   %1031 = mul i32 %744, %712
   %.sum.i5.i11.i.i177 = add i32 %1031, %991
-  %1032 = getelementptr inbounds i8* %742, i32 %.sum.i5.i11.i.i177
+  %1032 = getelementptr inbounds i8, i8* %742, i32 %.sum.i5.i11.i.i177
   %1033 = load i8* %1032, align 1, !tbaa !19
   %1034 = uitofp i8 %1033 to float
   %1035 = insertelement <4 x float> undef, float %1034, i32 0
   %.sum1.i6.i12.i.i178 = add i32 %1031, %996
-  %1036 = getelementptr inbounds i8* %742, i32 %.sum1.i6.i12.i.i178
+  %1036 = getelementptr inbounds i8, i8* %742, i32 %.sum1.i6.i12.i.i178
   %1037 = load i8* %1036, align 1, !tbaa !19
   %1038 = uitofp i8 %1037 to float
   %1039 = insertelement <4 x float> %1035, float %1038, i32 1
   %.sum2.i7.i13.i.i179 = add i32 %1031, %1001
-  %1040 = getelementptr inbounds i8* %742, i32 %.sum2.i7.i13.i.i179
+  %1040 = getelementptr inbounds i8, i8* %742, i32 %.sum2.i7.i13.i.i179
   %1041 = load i8* %1040, align 1, !tbaa !19
   %1042 = uitofp i8 %1041 to float
   %1043 = insertelement <4 x float> %1039, float %1042, i32 2
   %.sum3.i8.i14.i.i180 = add i32 %1031, %1006
-  %1044 = getelementptr inbounds i8* %742, i32 %.sum3.i8.i14.i.i180
+  %1044 = getelementptr inbounds i8, i8* %742, i32 %.sum3.i8.i14.i.i180
   %1045 = load i8* %1044, align 1, !tbaa !19
   %1046 = uitofp i8 %1045 to float
   %1047 = insertelement <4 x float> %1043, float %1046, i32 3
   %.sum.i1.i15.i.i181 = add i32 %1031, %1011
-  %1048 = getelementptr inbounds i8* %742, i32 %.sum.i1.i15.i.i181
+  %1048 = getelementptr inbounds i8, i8* %742, i32 %.sum.i1.i15.i.i181
   %1049 = load i8* %1048, align 1, !tbaa !19
   %1050 = uitofp i8 %1049 to float
   %1051 = insertelement <4 x float> undef, float %1050, i32 0
   %.sum1.i2.i16.i.i182 = add i32 %1031, %1016
-  %1052 = getelementptr inbounds i8* %742, i32 %.sum1.i2.i16.i.i182
+  %1052 = getelementptr inbounds i8, i8* %742, i32 %.sum1.i2.i16.i.i182
   %1053 = load i8* %1052, align 1, !tbaa !19
   %1054 = uitofp i8 %1053 to float
   %1055 = insertelement <4 x float> %1051, float %1054, i32 1
   %.sum2.i3.i17.i.i183 = add i32 %1031, %1021
-  %1056 = getelementptr inbounds i8* %742, i32 %.sum2.i3.i17.i.i183
+  %1056 = getelementptr inbounds i8, i8* %742, i32 %.sum2.i3.i17.i.i183
   %1057 = load i8* %1056, align 1, !tbaa !19
   %1058 = uitofp i8 %1057 to float
   %1059 = insertelement <4 x float> %1055, float %1058, i32 2
   %.sum3.i4.i18.i.i184 = add i32 %1031, %1026
-  %1060 = getelementptr inbounds i8* %742, i32 %.sum3.i4.i18.i.i184
+  %1060 = getelementptr inbounds i8, i8* %742, i32 %.sum3.i4.i18.i.i184
   %1061 = load i8* %1060, align 1, !tbaa !19
   %1062 = uitofp i8 %1061 to float
   %1063 = insertelement <4 x float> %1059, float %1062, i32 3
@@ -17216,20 +17216,20 @@ wrapI.exit18.i140:                                ; preds = %730, %.thread.i14.i
 ; <label>:1087                                    ; preds = %wrapI.exit18.i140
   %1088 = mul i32 %744, %740
   %.sum.i.i1.i.i185 = add i32 %1088, %726
-  %1089 = getelementptr inbounds i8* %742, i32 %.sum.i.i1.i.i185
+  %1089 = getelementptr inbounds i8, i8* %742, i32 %.sum.i.i1.i.i185
   %1090 = load i8* %1089, align 1, !tbaa !19
   %1091 = uitofp i8 %1090 to float
   %.sum.i3.i.i.i186 = add i32 %1088, %696
-  %1092 = getelementptr inbounds i8* %742, i32 %.sum.i3.i.i.i186
+  %1092 = getelementptr inbounds i8, i8* %742, i32 %.sum.i3.i.i.i186
   %1093 = load i8* %1092, align 1, !tbaa !19
   %1094 = uitofp i8 %1093 to float
   %1095 = mul i32 %744, %712
   %.sum.i2.i.i.i187 = add i32 %1095, %726
-  %1096 = getelementptr inbounds i8* %742, i32 %.sum.i2.i.i.i187
+  %1096 = getelementptr inbounds i8, i8* %742, i32 %.sum.i2.i.i.i187
   %1097 = load i8* %1096, align 1, !tbaa !19
   %1098 = uitofp i8 %1097 to float
   %.sum.i1.i2.i.i188 = add i32 %1095, %696
-  %1099 = getelementptr inbounds i8* %742, i32 %.sum.i1.i2.i.i188
+  %1099 = getelementptr inbounds i8, i8* %742, i32 %.sum.i1.i2.i.i188
   %1100 = load i8* %1099, align 1, !tbaa !19
   %1101 = uitofp i8 %1100 to float
   %1102 = fmul float %677, %1091
@@ -17255,17 +17255,17 @@ _ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sample
   %1116 = fptoui float %1115 to i32
   %1117 = tail call float @_Z4ceilf(float %lod) #14
   %1118 = fptoui float %1117 to i32
-  %1119 = getelementptr inbounds i8* %6, i32 68
+  %1119 = getelementptr inbounds i8, i8* %6, i32 68
   %1120 = bitcast i8* %1119 to i32*
-  %1121 = load i32* %1120, align 4, !tbaa !21
+  %1121 = load i32, i32* %1120, align 4, !tbaa !21
   %1122 = add i32 %1121, -1
   %1123 = icmp ult i32 %1116, %1122
   %1124 = select i1 %1123, i32 %1116, i32 %1122
   %1125 = icmp ult i32 %1118, %1122
   %1126 = select i1 %1125, i32 %1118, i32 %1122
-  %1127 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1124, i32 2
+  %1127 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1124, i32 2
   %1128 = load i32* %1127, align 4, !tbaa !21
-  %1129 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1124, i32 3
+  %1129 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1124, i32 3
   %1130 = load i32* %1129, align 4, !tbaa !21
   %1131 = extractelement <2 x float> %uv, i32 0
   %1132 = sitofp i32 %1128 to float
@@ -17435,9 +17435,9 @@ wrapI.exit18.i62:                                 ; preds = %1212, %.thread.i14.
   %1220 = select i1 %1219, i32 %.2.i17.i61, i32 %1190
   %1221 = icmp sgt i32 0, %1220
   %1222 = select i1 %1221, i32 0, i32 %1220
-  %1223 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1124, i32 0
+  %1223 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1124, i32 0
   %1224 = load i8** %1223, align 4, !tbaa !22
-  %1225 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1124, i32 1
+  %1225 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1124, i32 1
   %1226 = load i32* %1225, align 4, !tbaa !21
   switch i32 %13, label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valueS4_Dv2_fj.exit112 [
     i32 11, label %1227
@@ -17451,90 +17451,90 @@ wrapI.exit18.i62:                                 ; preds = %1212, %.thread.i14.
   %1228 = mul i32 %1226, %1222
   %1229 = shl nsw i32 %1208, 2
   %.sum.i.i.i.i63 = add i32 %1228, %1229
-  %1230 = getelementptr inbounds i8* %1224, i32 %.sum.i.i.i.i63
+  %1230 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i.i.i.i63
   %1231 = load i8* %1230, align 1, !tbaa !19
   %1232 = uitofp i8 %1231 to float
   %1233 = insertelement <4 x float> undef, float %1232, i32 0
   %1234 = or i32 %1229, 1
   %.sum1.i.i.i.i64 = add i32 %1228, %1234
-  %1235 = getelementptr inbounds i8* %1224, i32 %.sum1.i.i.i.i64
+  %1235 = getelementptr inbounds i8, i8* %1224, i32 %.sum1.i.i.i.i64
   %1236 = load i8* %1235, align 1, !tbaa !19
   %1237 = uitofp i8 %1236 to float
   %1238 = insertelement <4 x float> %1233, float %1237, i32 1
   %1239 = or i32 %1229, 2
   %.sum2.i.i.i.i65 = add i32 %1228, %1239
-  %1240 = getelementptr inbounds i8* %1224, i32 %.sum2.i.i.i.i65
+  %1240 = getelementptr inbounds i8, i8* %1224, i32 %.sum2.i.i.i.i65
   %1241 = load i8* %1240, align 1, !tbaa !19
   %1242 = uitofp i8 %1241 to float
   %1243 = insertelement <4 x float> %1238, float %1242, i32 2
   %1244 = or i32 %1229, 3
   %.sum3.i.i.i.i66 = add i32 %1228, %1244
-  %1245 = getelementptr inbounds i8* %1224, i32 %.sum3.i.i.i.i66
+  %1245 = getelementptr inbounds i8, i8* %1224, i32 %.sum3.i.i.i.i66
   %1246 = load i8* %1245, align 1, !tbaa !19
   %1247 = uitofp i8 %1246 to float
   %1248 = insertelement <4 x float> %1243, float %1247, i32 3
   %1249 = shl nsw i32 %1178, 2
   %.sum.i9.i.i.i67 = add i32 %1228, %1249
-  %1250 = getelementptr inbounds i8* %1224, i32 %.sum.i9.i.i.i67
+  %1250 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i9.i.i.i67
   %1251 = load i8* %1250, align 1, !tbaa !19
   %1252 = uitofp i8 %1251 to float
   %1253 = insertelement <4 x float> undef, float %1252, i32 0
   %1254 = or i32 %1249, 1
   %.sum1.i10.i.i.i68 = add i32 %1228, %1254
-  %1255 = getelementptr inbounds i8* %1224, i32 %.sum1.i10.i.i.i68
+  %1255 = getelementptr inbounds i8, i8* %1224, i32 %.sum1.i10.i.i.i68
   %1256 = load i8* %1255, align 1, !tbaa !19
   %1257 = uitofp i8 %1256 to float
   %1258 = insertelement <4 x float> %1253, float %1257, i32 1
   %1259 = or i32 %1249, 2
   %.sum2.i11.i.i.i69 = add i32 %1228, %1259
-  %1260 = getelementptr inbounds i8* %1224, i32 %.sum2.i11.i.i.i69
+  %1260 = getelementptr inbounds i8, i8* %1224, i32 %.sum2.i11.i.i.i69
   %1261 = load i8* %1260, align 1, !tbaa !19
   %1262 = uitofp i8 %1261 to float
   %1263 = insertelement <4 x float> %1258, float %1262, i32 2
   %1264 = or i32 %1249, 3
   %.sum3.i12.i.i.i70 = add i32 %1228, %1264
-  %1265 = getelementptr inbounds i8* %1224, i32 %.sum3.i12.i.i.i70
+  %1265 = getelementptr inbounds i8, i8* %1224, i32 %.sum3.i12.i.i.i70
   %1266 = load i8* %1265, align 1, !tbaa !19
   %1267 = uitofp i8 %1266 to float
   %1268 = insertelement <4 x float> %1263, float %1267, i32 3
   %1269 = mul i32 %1226, %1194
   %.sum.i5.i.i.i71 = add i32 %1269, %1229
-  %1270 = getelementptr inbounds i8* %1224, i32 %.sum.i5.i.i.i71
+  %1270 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i5.i.i.i71
   %1271 = load i8* %1270, align 1, !tbaa !19
   %1272 = uitofp i8 %1271 to float
   %1273 = insertelement <4 x float> undef, float %1272, i32 0
   %.sum1.i6.i.i.i72 = add i32 %1269, %1234
-  %1274 = getelementptr inbounds i8* %1224, i32 %.sum1.i6.i.i.i72
+  %1274 = getelementptr inbounds i8, i8* %1224, i32 %.sum1.i6.i.i.i72
   %1275 = load i8* %1274, align 1, !tbaa !19
   %1276 = uitofp i8 %1275 to float
   %1277 = insertelement <4 x float> %1273, float %1276, i32 1
   %.sum2.i7.i.i.i73 = add i32 %1269, %1239
-  %1278 = getelementptr inbounds i8* %1224, i32 %.sum2.i7.i.i.i73
+  %1278 = getelementptr inbounds i8, i8* %1224, i32 %.sum2.i7.i.i.i73
   %1279 = load i8* %1278, align 1, !tbaa !19
   %1280 = uitofp i8 %1279 to float
   %1281 = insertelement <4 x float> %1277, float %1280, i32 2
   %.sum3.i8.i.i.i74 = add i32 %1269, %1244
-  %1282 = getelementptr inbounds i8* %1224, i32 %.sum3.i8.i.i.i74
+  %1282 = getelementptr inbounds i8, i8* %1224, i32 %.sum3.i8.i.i.i74
   %1283 = load i8* %1282, align 1, !tbaa !19
   %1284 = uitofp i8 %1283 to float
   %1285 = insertelement <4 x float> %1281, float %1284, i32 3
   %.sum.i1.i.i.i75 = add i32 %1269, %1249
-  %1286 = getelementptr inbounds i8* %1224, i32 %.sum.i1.i.i.i75
+  %1286 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i1.i.i.i75
   %1287 = load i8* %1286, align 1, !tbaa !19
   %1288 = uitofp i8 %1287 to float
   %1289 = insertelement <4 x float> undef, float %1288, i32 0
   %.sum1.i2.i.i.i76 = add i32 %1269, %1254
-  %1290 = getelementptr inbounds i8* %1224, i32 %.sum1.i2.i.i.i76
+  %1290 = getelementptr inbounds i8, i8* %1224, i32 %.sum1.i2.i.i.i76
   %1291 = load i8* %1290, align 1, !tbaa !19
   %1292 = uitofp i8 %1291 to float
   %1293 = insertelement <4 x float> %1289, float %1292, i32 1
   %.sum2.i3.i.i.i77 = add i32 %1269, %1259
-  %1294 = getelementptr inbounds i8* %1224, i32 %.sum2.i3.i.i.i77
+  %1294 = getelementptr inbounds i8, i8* %1224, i32 %.sum2.i3.i.i.i77
   %1295 = load i8* %1294, align 1, !tbaa !19
   %1296 = uitofp i8 %1295 to float
   %1297 = insertelement <4 x float> %1293, float %1296, i32 2
   %.sum3.i4.i.i.i78 = add i32 %1269, %1264
-  %1298 = getelementptr inbounds i8* %1224, i32 %.sum3.i4.i.i.i78
+  %1298 = getelementptr inbounds i8, i8* %1224, i32 %.sum3.i4.i.i.i78
   %1299 = load i8* %1298, align 1, !tbaa !19
   %1300 = uitofp i8 %1299 to float
   %1301 = insertelement <4 x float> %1297, float %1300, i32 3
@@ -17559,20 +17559,20 @@ wrapI.exit18.i62:                                 ; preds = %1212, %.thread.i14.
 ; <label>:1318                                    ; preds = %wrapI.exit18.i62
   %1319 = mul i32 %1226, %1222
   %.sum.i.i26.i.i79 = add i32 %1319, %1208
-  %1320 = getelementptr inbounds i8* %1224, i32 %.sum.i.i26.i.i79
+  %1320 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i.i26.i.i79
   %1321 = load i8* %1320, align 1, !tbaa !19
   %1322 = uitofp i8 %1321 to float
   %.sum.i3.i27.i.i80 = add i32 %1319, %1178
-  %1323 = getelementptr inbounds i8* %1224, i32 %.sum.i3.i27.i.i80
+  %1323 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i3.i27.i.i80
   %1324 = load i8* %1323, align 1, !tbaa !19
   %1325 = uitofp i8 %1324 to float
   %1326 = mul i32 %1226, %1194
   %.sum.i2.i28.i.i81 = add i32 %1326, %1208
-  %1327 = getelementptr inbounds i8* %1224, i32 %.sum.i2.i28.i.i81
+  %1327 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i2.i28.i.i81
   %1328 = load i8* %1327, align 1, !tbaa !19
   %1329 = uitofp i8 %1328 to float
   %.sum.i1.i29.i.i82 = add i32 %1326, %1178
-  %1330 = getelementptr inbounds i8* %1224, i32 %.sum.i1.i29.i.i82
+  %1330 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i1.i29.i.i82
   %1331 = load i8* %1330, align 1, !tbaa !19
   %1332 = uitofp i8 %1331 to float
   %1333 = fmul float %1159, %1322
@@ -17590,46 +17590,46 @@ wrapI.exit18.i62:                                 ; preds = %1212, %.thread.i14.
   %1343 = mul i32 %1226, %1222
   %1344 = shl nsw i32 %1208, 1
   %.sum.i.i19.i.i83 = add i32 %1343, %1344
-  %1345 = getelementptr inbounds i8* %1224, i32 %.sum.i.i19.i.i83
+  %1345 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i.i19.i.i83
   %1346 = load i8* %1345, align 1, !tbaa !19
   %1347 = uitofp i8 %1346 to float
   %1348 = insertelement <2 x float> undef, float %1347, i32 0
   %1349 = or i32 %1344, 1
   %.sum1.i.i20.i.i84 = add i32 %1343, %1349
-  %1350 = getelementptr inbounds i8* %1224, i32 %.sum1.i.i20.i.i84
+  %1350 = getelementptr inbounds i8, i8* %1224, i32 %.sum1.i.i20.i.i84
   %1351 = load i8* %1350, align 1, !tbaa !19
   %1352 = uitofp i8 %1351 to float
   %1353 = insertelement <2 x float> %1348, float %1352, i32 1
   %1354 = shl nsw i32 %1178, 1
   %.sum.i5.i21.i.i85 = add i32 %1343, %1354
-  %1355 = getelementptr inbounds i8* %1224, i32 %.sum.i5.i21.i.i85
+  %1355 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i5.i21.i.i85
   %1356 = load i8* %1355, align 1, !tbaa !19
   %1357 = uitofp i8 %1356 to float
   %1358 = insertelement <2 x float> undef, float %1357, i32 0
   %1359 = or i32 %1354, 1
   %.sum1.i6.i22.i.i86 = add i32 %1343, %1359
-  %1360 = getelementptr inbounds i8* %1224, i32 %.sum1.i6.i22.i.i86
+  %1360 = getelementptr inbounds i8, i8* %1224, i32 %.sum1.i6.i22.i.i86
   %1361 = load i8* %1360, align 1, !tbaa !19
   %1362 = uitofp i8 %1361 to float
   %1363 = insertelement <2 x float> %1358, float %1362, i32 1
   %1364 = mul i32 %1226, %1194
   %.sum.i3.i23.i.i87 = add i32 %1364, %1344
-  %1365 = getelementptr inbounds i8* %1224, i32 %.sum.i3.i23.i.i87
+  %1365 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i3.i23.i.i87
   %1366 = load i8* %1365, align 1, !tbaa !19
   %1367 = uitofp i8 %1366 to float
   %1368 = insertelement <2 x float> undef, float %1367, i32 0
   %.sum1.i4.i.i.i88 = add i32 %1364, %1349
-  %1369 = getelementptr inbounds i8* %1224, i32 %.sum1.i4.i.i.i88
+  %1369 = getelementptr inbounds i8, i8* %1224, i32 %.sum1.i4.i.i.i88
   %1370 = load i8* %1369, align 1, !tbaa !19
   %1371 = uitofp i8 %1370 to float
   %1372 = insertelement <2 x float> %1368, float %1371, i32 1
   %.sum.i1.i24.i.i89 = add i32 %1364, %1354
-  %1373 = getelementptr inbounds i8* %1224, i32 %.sum.i1.i24.i.i89
+  %1373 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i1.i24.i.i89
   %1374 = load i8* %1373, align 1, !tbaa !19
   %1375 = uitofp i8 %1374 to float
   %1376 = insertelement <2 x float> undef, float %1375, i32 0
   %.sum1.i2.i25.i.i90 = add i32 %1364, %1359
-  %1377 = getelementptr inbounds i8* %1224, i32 %.sum1.i2.i25.i.i90
+  %1377 = getelementptr inbounds i8, i8* %1224, i32 %.sum1.i2.i25.i.i90
   %1378 = load i8* %1377, align 1, !tbaa !19
   %1379 = uitofp i8 %1378 to float
   %1380 = insertelement <2 x float> %1376, float %1379, i32 1
@@ -17663,9 +17663,9 @@ wrapI.exit18.i62:                                 ; preds = %1212, %.thread.i14.
   br i1 %1404, label %1406, label %1472
 
 ; <label>:1406                                    ; preds = %1403
-  %1407 = getelementptr inbounds i8* %1224, i32 %1405
+  %1407 = getelementptr inbounds i8, i8* %1224, i32 %1405
   %1408 = bitcast i8* %1407 to i16*
-  %1409 = load i16* %1408, align 2, !tbaa !70
+  %1409 = load i16, i16* %1408, align 2, !tbaa !70
   %1410 = zext i16 %1409 to i32
   %1411 = lshr i32 %1410, 11
   %1412 = shl nuw nsw i32 %1411, 3
@@ -17687,9 +17687,9 @@ wrapI.exit18.i62:                                 ; preds = %1212, %.thread.i14.
   %1428 = uitofp i32 %1427 to float
   %1429 = insertelement <3 x float> %1423, float %1428, i32 2
   %1430 = mul i32 %1226, %1194
-  %1431 = getelementptr inbounds i8* %1224, i32 %1430
+  %1431 = getelementptr inbounds i8, i8* %1224, i32 %1430
   %1432 = bitcast i8* %1431 to i16*
-  %1433 = load i16* %1432, align 2, !tbaa !70
+  %1433 = load i16, i16* %1432, align 2, !tbaa !70
   %1434 = zext i16 %1433 to i32
   %1435 = lshr i32 %1434, 11
   %1436 = shl nuw nsw i32 %1435, 3
@@ -17733,90 +17733,90 @@ wrapI.exit18.i62:                                 ; preds = %1212, %.thread.i14.
 ; <label>:1472                                    ; preds = %1403
   %1473 = shl nsw i32 %1208, 2
   %.sum.i.i3.i.i91 = add i32 %1405, %1473
-  %1474 = getelementptr inbounds i8* %1224, i32 %.sum.i.i3.i.i91
+  %1474 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i.i3.i.i91
   %1475 = load i8* %1474, align 1, !tbaa !19
   %1476 = uitofp i8 %1475 to float
   %1477 = insertelement <4 x float> undef, float %1476, i32 0
   %1478 = or i32 %1473, 1
   %.sum1.i.i4.i.i92 = add i32 %1405, %1478
-  %1479 = getelementptr inbounds i8* %1224, i32 %.sum1.i.i4.i.i92
+  %1479 = getelementptr inbounds i8, i8* %1224, i32 %.sum1.i.i4.i.i92
   %1480 = load i8* %1479, align 1, !tbaa !19
   %1481 = uitofp i8 %1480 to float
   %1482 = insertelement <4 x float> %1477, float %1481, i32 1
   %1483 = or i32 %1473, 2
   %.sum2.i.i5.i.i93 = add i32 %1405, %1483
-  %1484 = getelementptr inbounds i8* %1224, i32 %.sum2.i.i5.i.i93
+  %1484 = getelementptr inbounds i8, i8* %1224, i32 %.sum2.i.i5.i.i93
   %1485 = load i8* %1484, align 1, !tbaa !19
   %1486 = uitofp i8 %1485 to float
   %1487 = insertelement <4 x float> %1482, float %1486, i32 2
   %1488 = or i32 %1473, 3
   %.sum3.i.i6.i.i94 = add i32 %1405, %1488
-  %1489 = getelementptr inbounds i8* %1224, i32 %.sum3.i.i6.i.i94
+  %1489 = getelementptr inbounds i8, i8* %1224, i32 %.sum3.i.i6.i.i94
   %1490 = load i8* %1489, align 1, !tbaa !19
   %1491 = uitofp i8 %1490 to float
   %1492 = insertelement <4 x float> %1487, float %1491, i32 3
   %1493 = shl nsw i32 %1178, 2
   %.sum.i9.i7.i.i95 = add i32 %1405, %1493
-  %1494 = getelementptr inbounds i8* %1224, i32 %.sum.i9.i7.i.i95
+  %1494 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i9.i7.i.i95
   %1495 = load i8* %1494, align 1, !tbaa !19
   %1496 = uitofp i8 %1495 to float
   %1497 = insertelement <4 x float> undef, float %1496, i32 0
   %1498 = or i32 %1493, 1
   %.sum1.i10.i8.i.i96 = add i32 %1405, %1498
-  %1499 = getelementptr inbounds i8* %1224, i32 %.sum1.i10.i8.i.i96
+  %1499 = getelementptr inbounds i8, i8* %1224, i32 %.sum1.i10.i8.i.i96
   %1500 = load i8* %1499, align 1, !tbaa !19
   %1501 = uitofp i8 %1500 to float
   %1502 = insertelement <4 x float> %1497, float %1501, i32 1
   %1503 = or i32 %1493, 2
   %.sum2.i11.i9.i.i97 = add i32 %1405, %1503
-  %1504 = getelementptr inbounds i8* %1224, i32 %.sum2.i11.i9.i.i97
+  %1504 = getelementptr inbounds i8, i8* %1224, i32 %.sum2.i11.i9.i.i97
   %1505 = load i8* %1504, align 1, !tbaa !19
   %1506 = uitofp i8 %1505 to float
   %1507 = insertelement <4 x float> %1502, float %1506, i32 2
   %1508 = or i32 %1493, 3
   %.sum3.i12.i10.i.i98 = add i32 %1405, %1508
-  %1509 = getelementptr inbounds i8* %1224, i32 %.sum3.i12.i10.i.i98
+  %1509 = getelementptr inbounds i8, i8* %1224, i32 %.sum3.i12.i10.i.i98
   %1510 = load i8* %1509, align 1, !tbaa !19
   %1511 = uitofp i8 %1510 to float
   %1512 = insertelement <4 x float> %1507, float %1511, i32 3
   %1513 = mul i32 %1226, %1194
   %.sum.i5.i11.i.i99 = add i32 %1513, %1473
-  %1514 = getelementptr inbounds i8* %1224, i32 %.sum.i5.i11.i.i99
+  %1514 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i5.i11.i.i99
   %1515 = load i8* %1514, align 1, !tbaa !19
   %1516 = uitofp i8 %1515 to float
   %1517 = insertelement <4 x float> undef, float %1516, i32 0
   %.sum1.i6.i12.i.i100 = add i32 %1513, %1478
-  %1518 = getelementptr inbounds i8* %1224, i32 %.sum1.i6.i12.i.i100
+  %1518 = getelementptr inbounds i8, i8* %1224, i32 %.sum1.i6.i12.i.i100
   %1519 = load i8* %1518, align 1, !tbaa !19
   %1520 = uitofp i8 %1519 to float
   %1521 = insertelement <4 x float> %1517, float %1520, i32 1
   %.sum2.i7.i13.i.i101 = add i32 %1513, %1483
-  %1522 = getelementptr inbounds i8* %1224, i32 %.sum2.i7.i13.i.i101
+  %1522 = getelementptr inbounds i8, i8* %1224, i32 %.sum2.i7.i13.i.i101
   %1523 = load i8* %1522, align 1, !tbaa !19
   %1524 = uitofp i8 %1523 to float
   %1525 = insertelement <4 x float> %1521, float %1524, i32 2
   %.sum3.i8.i14.i.i102 = add i32 %1513, %1488
-  %1526 = getelementptr inbounds i8* %1224, i32 %.sum3.i8.i14.i.i102
+  %1526 = getelementptr inbounds i8, i8* %1224, i32 %.sum3.i8.i14.i.i102
   %1527 = load i8* %1526, align 1, !tbaa !19
   %1528 = uitofp i8 %1527 to float
   %1529 = insertelement <4 x float> %1525, float %1528, i32 3
   %.sum.i1.i15.i.i103 = add i32 %1513, %1493
-  %1530 = getelementptr inbounds i8* %1224, i32 %.sum.i1.i15.i.i103
+  %1530 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i1.i15.i.i103
   %1531 = load i8* %1530, align 1, !tbaa !19
   %1532 = uitofp i8 %1531 to float
   %1533 = insertelement <4 x float> undef, float %1532, i32 0
   %.sum1.i2.i16.i.i104 = add i32 %1513, %1498
-  %1534 = getelementptr inbounds i8* %1224, i32 %.sum1.i2.i16.i.i104
+  %1534 = getelementptr inbounds i8, i8* %1224, i32 %.sum1.i2.i16.i.i104
   %1535 = load i8* %1534, align 1, !tbaa !19
   %1536 = uitofp i8 %1535 to float
   %1537 = insertelement <4 x float> %1533, float %1536, i32 1
   %.sum2.i3.i17.i.i105 = add i32 %1513, %1503
-  %1538 = getelementptr inbounds i8* %1224, i32 %.sum2.i3.i17.i.i105
+  %1538 = getelementptr inbounds i8, i8* %1224, i32 %.sum2.i3.i17.i.i105
   %1539 = load i8* %1538, align 1, !tbaa !19
   %1540 = uitofp i8 %1539 to float
   %1541 = insertelement <4 x float> %1537, float %1540, i32 2
   %.sum3.i4.i18.i.i106 = add i32 %1513, %1508
-  %1542 = getelementptr inbounds i8* %1224, i32 %.sum3.i4.i18.i.i106
+  %1542 = getelementptr inbounds i8, i8* %1224, i32 %.sum3.i4.i18.i.i106
   %1543 = load i8* %1542, align 1, !tbaa !19
   %1544 = uitofp i8 %1543 to float
   %1545 = insertelement <4 x float> %1541, float %1544, i32 3
@@ -17848,20 +17848,20 @@ wrapI.exit18.i62:                                 ; preds = %1212, %.thread.i14.
 ; <label>:1569                                    ; preds = %wrapI.exit18.i62
   %1570 = mul i32 %1226, %1222
   %.sum.i.i1.i.i107 = add i32 %1570, %1208
-  %1571 = getelementptr inbounds i8* %1224, i32 %.sum.i.i1.i.i107
+  %1571 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i.i1.i.i107
   %1572 = load i8* %1571, align 1, !tbaa !19
   %1573 = uitofp i8 %1572 to float
   %.sum.i3.i.i.i108 = add i32 %1570, %1178
-  %1574 = getelementptr inbounds i8* %1224, i32 %.sum.i3.i.i.i108
+  %1574 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i3.i.i.i108
   %1575 = load i8* %1574, align 1, !tbaa !19
   %1576 = uitofp i8 %1575 to float
   %1577 = mul i32 %1226, %1194
   %.sum.i2.i.i.i109 = add i32 %1577, %1208
-  %1578 = getelementptr inbounds i8* %1224, i32 %.sum.i2.i.i.i109
+  %1578 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i2.i.i.i109
   %1579 = load i8* %1578, align 1, !tbaa !19
   %1580 = uitofp i8 %1579 to float
   %.sum.i1.i2.i.i110 = add i32 %1577, %1178
-  %1581 = getelementptr inbounds i8* %1224, i32 %.sum.i1.i2.i.i110
+  %1581 = getelementptr inbounds i8, i8* %1224, i32 %.sum.i1.i2.i.i110
   %1582 = load i8* %1581, align 1, !tbaa !19
   %1583 = uitofp i8 %1582 to float
   %1584 = fmul float %1159, %1573
@@ -17880,9 +17880,9 @@ wrapI.exit18.i62:                                 ; preds = %1212, %.thread.i14.
 
 _ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valueS4_Dv2_fj.exit112: ; preds = %wrapI.exit18.i62, %1227, %1318, %1342, %1406, %1472, %1569
   %.0.i.i111 = phi <4 x float> [ %1595, %1569 ], [ %1471, %1406 ], [ %1568, %1472 ], [ %1402, %1342 ], [ %1341, %1318 ], [ %1317, %1227 ], [ zeroinitializer, %wrapI.exit18.i62 ]
-  %1596 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1126, i32 2
+  %1596 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1126, i32 2
   %1597 = load i32* %1596, align 4, !tbaa !21
-  %1598 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1126, i32 3
+  %1598 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1126, i32 3
   %1599 = load i32* %1598, align 4, !tbaa !21
   %1600 = extractelement <2 x float> %uv, i32 0
   %1601 = sitofp i32 %1597 to float
@@ -18052,9 +18052,9 @@ wrapI.exit18.i:                                   ; preds = %1681, %.thread.i14.
   %1689 = select i1 %1688, i32 %.2.i17.i, i32 %1659
   %1690 = icmp sgt i32 0, %1689
   %1691 = select i1 %1690, i32 0, i32 %1689
-  %1692 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1126, i32 0
+  %1692 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1126, i32 0
   %1693 = load i8** %1692, align 4, !tbaa !22
-  %1694 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1126, i32 1
+  %1694 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 %1126, i32 1
   %1695 = load i32* %1694, align 4, !tbaa !21
   switch i32 %13, label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valueS4_Dv2_fj.exit [
     i32 11, label %1696
@@ -18068,90 +18068,90 @@ wrapI.exit18.i:                                   ; preds = %1681, %.thread.i14.
   %1697 = mul i32 %1695, %1691
   %1698 = shl nsw i32 %1677, 2
   %.sum.i.i.i.i = add i32 %1697, %1698
-  %1699 = getelementptr inbounds i8* %1693, i32 %.sum.i.i.i.i
+  %1699 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i.i.i.i
   %1700 = load i8* %1699, align 1, !tbaa !19
   %1701 = uitofp i8 %1700 to float
   %1702 = insertelement <4 x float> undef, float %1701, i32 0
   %1703 = or i32 %1698, 1
   %.sum1.i.i.i.i = add i32 %1697, %1703
-  %1704 = getelementptr inbounds i8* %1693, i32 %.sum1.i.i.i.i
+  %1704 = getelementptr inbounds i8, i8* %1693, i32 %.sum1.i.i.i.i
   %1705 = load i8* %1704, align 1, !tbaa !19
   %1706 = uitofp i8 %1705 to float
   %1707 = insertelement <4 x float> %1702, float %1706, i32 1
   %1708 = or i32 %1698, 2
   %.sum2.i.i.i.i = add i32 %1697, %1708
-  %1709 = getelementptr inbounds i8* %1693, i32 %.sum2.i.i.i.i
+  %1709 = getelementptr inbounds i8, i8* %1693, i32 %.sum2.i.i.i.i
   %1710 = load i8* %1709, align 1, !tbaa !19
   %1711 = uitofp i8 %1710 to float
   %1712 = insertelement <4 x float> %1707, float %1711, i32 2
   %1713 = or i32 %1698, 3
   %.sum3.i.i.i.i = add i32 %1697, %1713
-  %1714 = getelementptr inbounds i8* %1693, i32 %.sum3.i.i.i.i
+  %1714 = getelementptr inbounds i8, i8* %1693, i32 %.sum3.i.i.i.i
   %1715 = load i8* %1714, align 1, !tbaa !19
   %1716 = uitofp i8 %1715 to float
   %1717 = insertelement <4 x float> %1712, float %1716, i32 3
   %1718 = shl nsw i32 %1647, 2
   %.sum.i9.i.i.i = add i32 %1697, %1718
-  %1719 = getelementptr inbounds i8* %1693, i32 %.sum.i9.i.i.i
+  %1719 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i9.i.i.i
   %1720 = load i8* %1719, align 1, !tbaa !19
   %1721 = uitofp i8 %1720 to float
   %1722 = insertelement <4 x float> undef, float %1721, i32 0
   %1723 = or i32 %1718, 1
   %.sum1.i10.i.i.i = add i32 %1697, %1723
-  %1724 = getelementptr inbounds i8* %1693, i32 %.sum1.i10.i.i.i
+  %1724 = getelementptr inbounds i8, i8* %1693, i32 %.sum1.i10.i.i.i
   %1725 = load i8* %1724, align 1, !tbaa !19
   %1726 = uitofp i8 %1725 to float
   %1727 = insertelement <4 x float> %1722, float %1726, i32 1
   %1728 = or i32 %1718, 2
   %.sum2.i11.i.i.i = add i32 %1697, %1728
-  %1729 = getelementptr inbounds i8* %1693, i32 %.sum2.i11.i.i.i
+  %1729 = getelementptr inbounds i8, i8* %1693, i32 %.sum2.i11.i.i.i
   %1730 = load i8* %1729, align 1, !tbaa !19
   %1731 = uitofp i8 %1730 to float
   %1732 = insertelement <4 x float> %1727, float %1731, i32 2
   %1733 = or i32 %1718, 3
   %.sum3.i12.i.i.i = add i32 %1697, %1733
-  %1734 = getelementptr inbounds i8* %1693, i32 %.sum3.i12.i.i.i
+  %1734 = getelementptr inbounds i8, i8* %1693, i32 %.sum3.i12.i.i.i
   %1735 = load i8* %1734, align 1, !tbaa !19
   %1736 = uitofp i8 %1735 to float
   %1737 = insertelement <4 x float> %1732, float %1736, i32 3
   %1738 = mul i32 %1695, %1663
   %.sum.i5.i.i.i = add i32 %1738, %1698
-  %1739 = getelementptr inbounds i8* %1693, i32 %.sum.i5.i.i.i
+  %1739 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i5.i.i.i
   %1740 = load i8* %1739, align 1, !tbaa !19
   %1741 = uitofp i8 %1740 to float
   %1742 = insertelement <4 x float> undef, float %1741, i32 0
   %.sum1.i6.i.i.i = add i32 %1738, %1703
-  %1743 = getelementptr inbounds i8* %1693, i32 %.sum1.i6.i.i.i
+  %1743 = getelementptr inbounds i8, i8* %1693, i32 %.sum1.i6.i.i.i
   %1744 = load i8* %1743, align 1, !tbaa !19
   %1745 = uitofp i8 %1744 to float
   %1746 = insertelement <4 x float> %1742, float %1745, i32 1
   %.sum2.i7.i.i.i = add i32 %1738, %1708
-  %1747 = getelementptr inbounds i8* %1693, i32 %.sum2.i7.i.i.i
+  %1747 = getelementptr inbounds i8, i8* %1693, i32 %.sum2.i7.i.i.i
   %1748 = load i8* %1747, align 1, !tbaa !19
   %1749 = uitofp i8 %1748 to float
   %1750 = insertelement <4 x float> %1746, float %1749, i32 2
   %.sum3.i8.i.i.i = add i32 %1738, %1713
-  %1751 = getelementptr inbounds i8* %1693, i32 %.sum3.i8.i.i.i
+  %1751 = getelementptr inbounds i8, i8* %1693, i32 %.sum3.i8.i.i.i
   %1752 = load i8* %1751, align 1, !tbaa !19
   %1753 = uitofp i8 %1752 to float
   %1754 = insertelement <4 x float> %1750, float %1753, i32 3
   %.sum.i1.i.i.i = add i32 %1738, %1718
-  %1755 = getelementptr inbounds i8* %1693, i32 %.sum.i1.i.i.i
+  %1755 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i1.i.i.i
   %1756 = load i8* %1755, align 1, !tbaa !19
   %1757 = uitofp i8 %1756 to float
   %1758 = insertelement <4 x float> undef, float %1757, i32 0
   %.sum1.i2.i.i.i = add i32 %1738, %1723
-  %1759 = getelementptr inbounds i8* %1693, i32 %.sum1.i2.i.i.i
+  %1759 = getelementptr inbounds i8, i8* %1693, i32 %.sum1.i2.i.i.i
   %1760 = load i8* %1759, align 1, !tbaa !19
   %1761 = uitofp i8 %1760 to float
   %1762 = insertelement <4 x float> %1758, float %1761, i32 1
   %.sum2.i3.i.i.i = add i32 %1738, %1728
-  %1763 = getelementptr inbounds i8* %1693, i32 %.sum2.i3.i.i.i
+  %1763 = getelementptr inbounds i8, i8* %1693, i32 %.sum2.i3.i.i.i
   %1764 = load i8* %1763, align 1, !tbaa !19
   %1765 = uitofp i8 %1764 to float
   %1766 = insertelement <4 x float> %1762, float %1765, i32 2
   %.sum3.i4.i.i.i = add i32 %1738, %1733
-  %1767 = getelementptr inbounds i8* %1693, i32 %.sum3.i4.i.i.i
+  %1767 = getelementptr inbounds i8, i8* %1693, i32 %.sum3.i4.i.i.i
   %1768 = load i8* %1767, align 1, !tbaa !19
   %1769 = uitofp i8 %1768 to float
   %1770 = insertelement <4 x float> %1766, float %1769, i32 3
@@ -18176,20 +18176,20 @@ wrapI.exit18.i:                                   ; preds = %1681, %.thread.i14.
 ; <label>:1787                                    ; preds = %wrapI.exit18.i
   %1788 = mul i32 %1695, %1691
   %.sum.i.i26.i.i = add i32 %1788, %1677
-  %1789 = getelementptr inbounds i8* %1693, i32 %.sum.i.i26.i.i
+  %1789 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i.i26.i.i
   %1790 = load i8* %1789, align 1, !tbaa !19
   %1791 = uitofp i8 %1790 to float
   %.sum.i3.i27.i.i = add i32 %1788, %1647
-  %1792 = getelementptr inbounds i8* %1693, i32 %.sum.i3.i27.i.i
+  %1792 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i3.i27.i.i
   %1793 = load i8* %1792, align 1, !tbaa !19
   %1794 = uitofp i8 %1793 to float
   %1795 = mul i32 %1695, %1663
   %.sum.i2.i28.i.i = add i32 %1795, %1677
-  %1796 = getelementptr inbounds i8* %1693, i32 %.sum.i2.i28.i.i
+  %1796 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i2.i28.i.i
   %1797 = load i8* %1796, align 1, !tbaa !19
   %1798 = uitofp i8 %1797 to float
   %.sum.i1.i29.i.i = add i32 %1795, %1647
-  %1799 = getelementptr inbounds i8* %1693, i32 %.sum.i1.i29.i.i
+  %1799 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i1.i29.i.i
   %1800 = load i8* %1799, align 1, !tbaa !19
   %1801 = uitofp i8 %1800 to float
   %1802 = fmul float %1628, %1791
@@ -18207,46 +18207,46 @@ wrapI.exit18.i:                                   ; preds = %1681, %.thread.i14.
   %1812 = mul i32 %1695, %1691
   %1813 = shl nsw i32 %1677, 1
   %.sum.i.i19.i.i = add i32 %1812, %1813
-  %1814 = getelementptr inbounds i8* %1693, i32 %.sum.i.i19.i.i
+  %1814 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i.i19.i.i
   %1815 = load i8* %1814, align 1, !tbaa !19
   %1816 = uitofp i8 %1815 to float
   %1817 = insertelement <2 x float> undef, float %1816, i32 0
   %1818 = or i32 %1813, 1
   %.sum1.i.i20.i.i = add i32 %1812, %1818
-  %1819 = getelementptr inbounds i8* %1693, i32 %.sum1.i.i20.i.i
+  %1819 = getelementptr inbounds i8, i8* %1693, i32 %.sum1.i.i20.i.i
   %1820 = load i8* %1819, align 1, !tbaa !19
   %1821 = uitofp i8 %1820 to float
   %1822 = insertelement <2 x float> %1817, float %1821, i32 1
   %1823 = shl nsw i32 %1647, 1
   %.sum.i5.i21.i.i = add i32 %1812, %1823
-  %1824 = getelementptr inbounds i8* %1693, i32 %.sum.i5.i21.i.i
+  %1824 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i5.i21.i.i
   %1825 = load i8* %1824, align 1, !tbaa !19
   %1826 = uitofp i8 %1825 to float
   %1827 = insertelement <2 x float> undef, float %1826, i32 0
   %1828 = or i32 %1823, 1
   %.sum1.i6.i22.i.i = add i32 %1812, %1828
-  %1829 = getelementptr inbounds i8* %1693, i32 %.sum1.i6.i22.i.i
+  %1829 = getelementptr inbounds i8, i8* %1693, i32 %.sum1.i6.i22.i.i
   %1830 = load i8* %1829, align 1, !tbaa !19
   %1831 = uitofp i8 %1830 to float
   %1832 = insertelement <2 x float> %1827, float %1831, i32 1
   %1833 = mul i32 %1695, %1663
   %.sum.i3.i23.i.i = add i32 %1833, %1813
-  %1834 = getelementptr inbounds i8* %1693, i32 %.sum.i3.i23.i.i
+  %1834 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i3.i23.i.i
   %1835 = load i8* %1834, align 1, !tbaa !19
   %1836 = uitofp i8 %1835 to float
   %1837 = insertelement <2 x float> undef, float %1836, i32 0
   %.sum1.i4.i.i.i = add i32 %1833, %1818
-  %1838 = getelementptr inbounds i8* %1693, i32 %.sum1.i4.i.i.i
+  %1838 = getelementptr inbounds i8, i8* %1693, i32 %.sum1.i4.i.i.i
   %1839 = load i8* %1838, align 1, !tbaa !19
   %1840 = uitofp i8 %1839 to float
   %1841 = insertelement <2 x float> %1837, float %1840, i32 1
   %.sum.i1.i24.i.i = add i32 %1833, %1823
-  %1842 = getelementptr inbounds i8* %1693, i32 %.sum.i1.i24.i.i
+  %1842 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i1.i24.i.i
   %1843 = load i8* %1842, align 1, !tbaa !19
   %1844 = uitofp i8 %1843 to float
   %1845 = insertelement <2 x float> undef, float %1844, i32 0
   %.sum1.i2.i25.i.i = add i32 %1833, %1828
-  %1846 = getelementptr inbounds i8* %1693, i32 %.sum1.i2.i25.i.i
+  %1846 = getelementptr inbounds i8, i8* %1693, i32 %.sum1.i2.i25.i.i
   %1847 = load i8* %1846, align 1, !tbaa !19
   %1848 = uitofp i8 %1847 to float
   %1849 = insertelement <2 x float> %1845, float %1848, i32 1
@@ -18280,9 +18280,9 @@ wrapI.exit18.i:                                   ; preds = %1681, %.thread.i14.
   br i1 %1873, label %1875, label %1941
 
 ; <label>:1875                                    ; preds = %1872
-  %1876 = getelementptr inbounds i8* %1693, i32 %1874
+  %1876 = getelementptr inbounds i8, i8* %1693, i32 %1874
   %1877 = bitcast i8* %1876 to i16*
-  %1878 = load i16* %1877, align 2, !tbaa !70
+  %1878 = load i16, i16* %1877, align 2, !tbaa !70
   %1879 = zext i16 %1878 to i32
   %1880 = lshr i32 %1879, 11
   %1881 = shl nuw nsw i32 %1880, 3
@@ -18304,9 +18304,9 @@ wrapI.exit18.i:                                   ; preds = %1681, %.thread.i14.
   %1897 = uitofp i32 %1896 to float
   %1898 = insertelement <3 x float> %1892, float %1897, i32 2
   %1899 = mul i32 %1695, %1663
-  %1900 = getelementptr inbounds i8* %1693, i32 %1899
+  %1900 = getelementptr inbounds i8, i8* %1693, i32 %1899
   %1901 = bitcast i8* %1900 to i16*
-  %1902 = load i16* %1901, align 2, !tbaa !70
+  %1902 = load i16, i16* %1901, align 2, !tbaa !70
   %1903 = zext i16 %1902 to i32
   %1904 = lshr i32 %1903, 11
   %1905 = shl nuw nsw i32 %1904, 3
@@ -18350,90 +18350,90 @@ wrapI.exit18.i:                                   ; preds = %1681, %.thread.i14.
 ; <label>:1941                                    ; preds = %1872
   %1942 = shl nsw i32 %1677, 2
   %.sum.i.i3.i.i = add i32 %1874, %1942
-  %1943 = getelementptr inbounds i8* %1693, i32 %.sum.i.i3.i.i
+  %1943 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i.i3.i.i
   %1944 = load i8* %1943, align 1, !tbaa !19
   %1945 = uitofp i8 %1944 to float
   %1946 = insertelement <4 x float> undef, float %1945, i32 0
   %1947 = or i32 %1942, 1
   %.sum1.i.i4.i.i = add i32 %1874, %1947
-  %1948 = getelementptr inbounds i8* %1693, i32 %.sum1.i.i4.i.i
+  %1948 = getelementptr inbounds i8, i8* %1693, i32 %.sum1.i.i4.i.i
   %1949 = load i8* %1948, align 1, !tbaa !19
   %1950 = uitofp i8 %1949 to float
   %1951 = insertelement <4 x float> %1946, float %1950, i32 1
   %1952 = or i32 %1942, 2
   %.sum2.i.i5.i.i = add i32 %1874, %1952
-  %1953 = getelementptr inbounds i8* %1693, i32 %.sum2.i.i5.i.i
+  %1953 = getelementptr inbounds i8, i8* %1693, i32 %.sum2.i.i5.i.i
   %1954 = load i8* %1953, align 1, !tbaa !19
   %1955 = uitofp i8 %1954 to float
   %1956 = insertelement <4 x float> %1951, float %1955, i32 2
   %1957 = or i32 %1942, 3
   %.sum3.i.i6.i.i = add i32 %1874, %1957
-  %1958 = getelementptr inbounds i8* %1693, i32 %.sum3.i.i6.i.i
+  %1958 = getelementptr inbounds i8, i8* %1693, i32 %.sum3.i.i6.i.i
   %1959 = load i8* %1958, align 1, !tbaa !19
   %1960 = uitofp i8 %1959 to float
   %1961 = insertelement <4 x float> %1956, float %1960, i32 3
   %1962 = shl nsw i32 %1647, 2
   %.sum.i9.i7.i.i = add i32 %1874, %1962
-  %1963 = getelementptr inbounds i8* %1693, i32 %.sum.i9.i7.i.i
+  %1963 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i9.i7.i.i
   %1964 = load i8* %1963, align 1, !tbaa !19
   %1965 = uitofp i8 %1964 to float
   %1966 = insertelement <4 x float> undef, float %1965, i32 0
   %1967 = or i32 %1962, 1
   %.sum1.i10.i8.i.i = add i32 %1874, %1967
-  %1968 = getelementptr inbounds i8* %1693, i32 %.sum1.i10.i8.i.i
+  %1968 = getelementptr inbounds i8, i8* %1693, i32 %.sum1.i10.i8.i.i
   %1969 = load i8* %1968, align 1, !tbaa !19
   %1970 = uitofp i8 %1969 to float
   %1971 = insertelement <4 x float> %1966, float %1970, i32 1
   %1972 = or i32 %1962, 2
   %.sum2.i11.i9.i.i = add i32 %1874, %1972
-  %1973 = getelementptr inbounds i8* %1693, i32 %.sum2.i11.i9.i.i
+  %1973 = getelementptr inbounds i8, i8* %1693, i32 %.sum2.i11.i9.i.i
   %1974 = load i8* %1973, align 1, !tbaa !19
   %1975 = uitofp i8 %1974 to float
   %1976 = insertelement <4 x float> %1971, float %1975, i32 2
   %1977 = or i32 %1962, 3
   %.sum3.i12.i10.i.i = add i32 %1874, %1977
-  %1978 = getelementptr inbounds i8* %1693, i32 %.sum3.i12.i10.i.i
+  %1978 = getelementptr inbounds i8, i8* %1693, i32 %.sum3.i12.i10.i.i
   %1979 = load i8* %1978, align 1, !tbaa !19
   %1980 = uitofp i8 %1979 to float
   %1981 = insertelement <4 x float> %1976, float %1980, i32 3
   %1982 = mul i32 %1695, %1663
   %.sum.i5.i11.i.i = add i32 %1982, %1942
-  %1983 = getelementptr inbounds i8* %1693, i32 %.sum.i5.i11.i.i
+  %1983 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i5.i11.i.i
   %1984 = load i8* %1983, align 1, !tbaa !19
   %1985 = uitofp i8 %1984 to float
   %1986 = insertelement <4 x float> undef, float %1985, i32 0
   %.sum1.i6.i12.i.i = add i32 %1982, %1947
-  %1987 = getelementptr inbounds i8* %1693, i32 %.sum1.i6.i12.i.i
+  %1987 = getelementptr inbounds i8, i8* %1693, i32 %.sum1.i6.i12.i.i
   %1988 = load i8* %1987, align 1, !tbaa !19
   %1989 = uitofp i8 %1988 to float
   %1990 = insertelement <4 x float> %1986, float %1989, i32 1
   %.sum2.i7.i13.i.i = add i32 %1982, %1952
-  %1991 = getelementptr inbounds i8* %1693, i32 %.sum2.i7.i13.i.i
+  %1991 = getelementptr inbounds i8, i8* %1693, i32 %.sum2.i7.i13.i.i
   %1992 = load i8* %1991, align 1, !tbaa !19
   %1993 = uitofp i8 %1992 to float
   %1994 = insertelement <4 x float> %1990, float %1993, i32 2
   %.sum3.i8.i14.i.i = add i32 %1982, %1957
-  %1995 = getelementptr inbounds i8* %1693, i32 %.sum3.i8.i14.i.i
+  %1995 = getelementptr inbounds i8, i8* %1693, i32 %.sum3.i8.i14.i.i
   %1996 = load i8* %1995, align 1, !tbaa !19
   %1997 = uitofp i8 %1996 to float
   %1998 = insertelement <4 x float> %1994, float %1997, i32 3
   %.sum.i1.i15.i.i = add i32 %1982, %1962
-  %1999 = getelementptr inbounds i8* %1693, i32 %.sum.i1.i15.i.i
+  %1999 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i1.i15.i.i
   %2000 = load i8* %1999, align 1, !tbaa !19
   %2001 = uitofp i8 %2000 to float
   %2002 = insertelement <4 x float> undef, float %2001, i32 0
   %.sum1.i2.i16.i.i = add i32 %1982, %1967
-  %2003 = getelementptr inbounds i8* %1693, i32 %.sum1.i2.i16.i.i
+  %2003 = getelementptr inbounds i8, i8* %1693, i32 %.sum1.i2.i16.i.i
   %2004 = load i8* %2003, align 1, !tbaa !19
   %2005 = uitofp i8 %2004 to float
   %2006 = insertelement <4 x float> %2002, float %2005, i32 1
   %.sum2.i3.i17.i.i = add i32 %1982, %1972
-  %2007 = getelementptr inbounds i8* %1693, i32 %.sum2.i3.i17.i.i
+  %2007 = getelementptr inbounds i8, i8* %1693, i32 %.sum2.i3.i17.i.i
   %2008 = load i8* %2007, align 1, !tbaa !19
   %2009 = uitofp i8 %2008 to float
   %2010 = insertelement <4 x float> %2006, float %2009, i32 2
   %.sum3.i4.i18.i.i = add i32 %1982, %1977
-  %2011 = getelementptr inbounds i8* %1693, i32 %.sum3.i4.i18.i.i
+  %2011 = getelementptr inbounds i8, i8* %1693, i32 %.sum3.i4.i18.i.i
   %2012 = load i8* %2011, align 1, !tbaa !19
   %2013 = uitofp i8 %2012 to float
   %2014 = insertelement <4 x float> %2010, float %2013, i32 3
@@ -18465,20 +18465,20 @@ wrapI.exit18.i:                                   ; preds = %1681, %.thread.i14.
 ; <label>:2038                                    ; preds = %wrapI.exit18.i
   %2039 = mul i32 %1695, %1691
   %.sum.i.i1.i.i = add i32 %2039, %1677
-  %2040 = getelementptr inbounds i8* %1693, i32 %.sum.i.i1.i.i
+  %2040 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i.i1.i.i
   %2041 = load i8* %2040, align 1, !tbaa !19
   %2042 = uitofp i8 %2041 to float
   %.sum.i3.i.i.i = add i32 %2039, %1647
-  %2043 = getelementptr inbounds i8* %1693, i32 %.sum.i3.i.i.i
+  %2043 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i3.i.i.i
   %2044 = load i8* %2043, align 1, !tbaa !19
   %2045 = uitofp i8 %2044 to float
   %2046 = mul i32 %1695, %1663
   %.sum.i2.i.i.i = add i32 %2046, %1677
-  %2047 = getelementptr inbounds i8* %1693, i32 %.sum.i2.i.i.i
+  %2047 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i2.i.i.i
   %2048 = load i8* %2047, align 1, !tbaa !19
   %2049 = uitofp i8 %2048 to float
   %.sum.i1.i2.i.i = add i32 %2046, %1647
-  %2050 = getelementptr inbounds i8* %1693, i32 %.sum.i1.i2.i.i
+  %2050 = getelementptr inbounds i8, i8* %1693, i32 %.sum.i1.i2.i.i
   %2051 = load i8* %2050, align 1, !tbaa !19
   %2052 = uitofp i8 %2051 to float
   %2053 = fmul float %1628, %2042
@@ -18510,9 +18510,9 @@ _ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sample
   br label %2207
 
 ; <label>:2075                                    ; preds = %634
-  %2076 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
+  %2076 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
   %2077 = load i32* %2076, align 4, !tbaa !21
-  %2078 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %2078 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %2079 = load i32* %2078, align 4, !tbaa !21
   %2080 = sitofp i32 %2077 to float
   %2081 = insertelement <2 x float> undef, float %2080, i32 0
@@ -18582,9 +18582,9 @@ wrapI.exit7.i16:                                  ; preds = %2106, %.thread.i3.i
   %2115 = select i1 %2114, i32 %.2.i6.i11, i32 %2113
   %2116 = icmp sgt i32 0, %2115
   %2117 = select i1 %2116, i32 0, i32 %2115
-  %alloc.idx.i12 = getelementptr %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %alloc.idx.i12 = getelementptr %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %alloc.idx.val.i13 = load i8** %alloc.idx.i12, align 4, !tbaa !22
-  %alloc.idx1.i14 = getelementptr %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %alloc.idx1.i14 = getelementptr %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %alloc.idx1.val.i15 = load i32* %alloc.idx1.i14, align 4, !tbaa !21
   switch i32 %13, label %_ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valueS4_Dv2_fj.exit28 [
     i32 11, label %2118
@@ -18597,25 +18597,25 @@ wrapI.exit7.i16:                                  ; preds = %2106, %.thread.i3.i
   %2119 = mul i32 %alloc.idx1.val.i15, %2117
   %2120 = shl nsw i32 %2101, 2
   %.sum.i.i.i17 = add i32 %2119, %2120
-  %2121 = getelementptr inbounds i8* %alloc.idx.val.i13, i32 %.sum.i.i.i17
+  %2121 = getelementptr inbounds i8, i8* %alloc.idx.val.i13, i32 %.sum.i.i.i17
   %2122 = load i8* %2121, align 1, !tbaa !19
   %2123 = uitofp i8 %2122 to float
   %2124 = insertelement <4 x float> undef, float %2123, i32 0
   %2125 = or i32 %2120, 1
   %.sum1.i.i.i18 = add i32 %2119, %2125
-  %2126 = getelementptr inbounds i8* %alloc.idx.val.i13, i32 %.sum1.i.i.i18
+  %2126 = getelementptr inbounds i8, i8* %alloc.idx.val.i13, i32 %.sum1.i.i.i18
   %2127 = load i8* %2126, align 1, !tbaa !19
   %2128 = uitofp i8 %2127 to float
   %2129 = insertelement <4 x float> %2124, float %2128, i32 1
   %2130 = or i32 %2120, 2
   %.sum2.i.i.i19 = add i32 %2119, %2130
-  %2131 = getelementptr inbounds i8* %alloc.idx.val.i13, i32 %.sum2.i.i.i19
+  %2131 = getelementptr inbounds i8, i8* %alloc.idx.val.i13, i32 %.sum2.i.i.i19
   %2132 = load i8* %2131, align 1, !tbaa !19
   %2133 = uitofp i8 %2132 to float
   %2134 = insertelement <4 x float> %2129, float %2133, i32 2
   %2135 = or i32 %2120, 3
   %.sum3.i.i.i20 = add i32 %2119, %2135
-  %2136 = getelementptr inbounds i8* %alloc.idx.val.i13, i32 %.sum3.i.i.i20
+  %2136 = getelementptr inbounds i8, i8* %alloc.idx.val.i13, i32 %.sum3.i.i.i20
   %2137 = load i8* %2136, align 1, !tbaa !19
   %2138 = uitofp i8 %2137 to float
   %2139 = insertelement <4 x float> %2134, float %2138, i32 3
@@ -18624,7 +18624,7 @@ wrapI.exit7.i16:                                  ; preds = %2106, %.thread.i3.i
 ; <label>:2140                                    ; preds = %wrapI.exit7.i16
   %2141 = mul i32 %alloc.idx1.val.i15, %2117
   %.sum.i6.i.i21 = add i32 %2141, %2101
-  %2142 = getelementptr inbounds i8* %alloc.idx.val.i13, i32 %.sum.i6.i.i21
+  %2142 = getelementptr inbounds i8, i8* %alloc.idx.val.i13, i32 %.sum.i6.i.i21
   %2143 = load i8* %2142, align 1, !tbaa !19
   %2144 = uitofp i8 %2143 to float
   %2145 = insertelement <4 x float> <float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float undef>, float %2144, i32 3
@@ -18634,13 +18634,13 @@ wrapI.exit7.i16:                                  ; preds = %2106, %.thread.i3.i
   %2147 = mul i32 %alloc.idx1.val.i15, %2117
   %2148 = shl nsw i32 %2101, 1
   %.sum.i4.i.i22 = add i32 %2147, %2148
-  %2149 = getelementptr inbounds i8* %alloc.idx.val.i13, i32 %.sum.i4.i.i22
+  %2149 = getelementptr inbounds i8, i8* %alloc.idx.val.i13, i32 %.sum.i4.i.i22
   %2150 = load i8* %2149, align 1, !tbaa !19
   %2151 = uitofp i8 %2150 to float
   %2152 = insertelement <2 x float> undef, float %2151, i32 0
   %2153 = or i32 %2148, 1
   %.sum1.i5.i.i23 = add i32 %2147, %2153
-  %2154 = getelementptr inbounds i8* %alloc.idx.val.i13, i32 %.sum1.i5.i.i23
+  %2154 = getelementptr inbounds i8, i8* %alloc.idx.val.i13, i32 %.sum1.i5.i.i23
   %2155 = load i8* %2154, align 1, !tbaa !19
   %2156 = uitofp i8 %2155 to float
   %2157 = insertelement <2 x float> %2152, float %2156, i32 1
@@ -18655,9 +18655,9 @@ wrapI.exit7.i16:                                  ; preds = %2106, %.thread.i3.i
   br i1 %2162, label %2164, label %2189
 
 ; <label>:2164                                    ; preds = %2161
-  %2165 = getelementptr inbounds i8* %alloc.idx.val.i13, i32 %2163
+  %2165 = getelementptr inbounds i8, i8* %alloc.idx.val.i13, i32 %2163
   %2166 = bitcast i8* %2165 to i16*
-  %2167 = load i16* %2166, align 2, !tbaa !70
+  %2167 = load i16, i16* %2166, align 2, !tbaa !70
   %2168 = zext i16 %2167 to i32
   %2169 = lshr i32 %2168, 11
   %2170 = shl nuw nsw i32 %2169, 3
@@ -18684,19 +18684,19 @@ wrapI.exit7.i16:                                  ; preds = %2106, %.thread.i3.i
 ; <label>:2189                                    ; preds = %2161
   %2190 = shl nsw i32 %2101, 2
   %.sum.i1.i.i24 = add i32 %2163, %2190
-  %2191 = getelementptr inbounds i8* %alloc.idx.val.i13, i32 %.sum.i1.i.i24
+  %2191 = getelementptr inbounds i8, i8* %alloc.idx.val.i13, i32 %.sum.i1.i.i24
   %2192 = load i8* %2191, align 1, !tbaa !19
   %2193 = uitofp i8 %2192 to float
   %2194 = insertelement <4 x float> undef, float %2193, i32 0
   %2195 = or i32 %2190, 1
   %.sum1.i2.i.i25 = add i32 %2163, %2195
-  %2196 = getelementptr inbounds i8* %alloc.idx.val.i13, i32 %.sum1.i2.i.i25
+  %2196 = getelementptr inbounds i8, i8* %alloc.idx.val.i13, i32 %.sum1.i2.i.i25
   %2197 = load i8* %2196, align 1, !tbaa !19
   %2198 = uitofp i8 %2197 to float
   %2199 = insertelement <4 x float> %2194, float %2198, i32 1
   %2200 = or i32 %2190, 2
   %.sum2.i3.i.i26 = add i32 %2163, %2200
-  %2201 = getelementptr inbounds i8* %alloc.idx.val.i13, i32 %.sum2.i3.i.i26
+  %2201 = getelementptr inbounds i8, i8* %alloc.idx.val.i13, i32 %.sum2.i3.i.i26
   %2202 = load i8* %2201, align 1, !tbaa !19
   %2203 = uitofp i8 %2202 to float
   %2204 = insertelement <4 x float> %2199, float %2203, i32 2
@@ -18719,37 +18719,37 @@ define <4 x float> @_Z8rsSample13rs_allocation10rs_samplerDv2_f([1 x i32] %a.coe
   %2 = extractvalue [1 x i32] %s.coerce, 0
   %3 = inttoptr i32 %1 to %struct.Allocation*
   %4 = inttoptr i32 %2 to %struct.Sampler*
-  %5 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 0
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 0
   %6 = load i8** %5, align 4, !tbaa !22
-  %7 = getelementptr inbounds i8* %6, i32 36
+  %7 = getelementptr inbounds i8, i8* %6, i32 36
   %8 = bitcast i8* %7 to i8**
   %9 = load i8** %8, align 4, !tbaa !22
-  %10 = getelementptr inbounds i8* %9, i32 36
-  %11 = getelementptr inbounds i8* %9, i32 40
+  %10 = getelementptr inbounds i8, i8* %9, i32 36
+  %11 = getelementptr inbounds i8, i8* %9, i32 40
   %12 = bitcast i8* %11 to i32*
-  %13 = load i32* %12, align 4, !tbaa !19
+  %13 = load i32, i32* %12, align 4, !tbaa !19
   %14 = bitcast i8* %10 to i32*
   %15 = load i32* %14, align 4, !tbaa !19
-  %16 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 2
+  %16 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 2
   %17 = load i32* %16, align 4, !tbaa !19
-  %18 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 3
+  %18 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 3
   %19 = load i32* %18, align 4, !tbaa !19
-  %20 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 1
+  %20 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 1, i32 1
   %21 = load i32* %20, align 4, !tbaa !21
   %22 = and i32 %21, 2
   %23 = icmp eq i32 %22, 0
   br i1 %23, label %630, label %24
 
 ; <label>:24                                      ; preds = %0
-  %25 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 0
+  %25 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 0
   %26 = load i32* %25, align 4, !tbaa !19
   %27 = icmp eq i32 %26, 0
   br i1 %27, label %28, label %160
 
 ; <label>:28                                      ; preds = %24
-  %29 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
+  %29 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
   %30 = load i32* %29, align 4, !tbaa !21
-  %31 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %31 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %32 = load i32* %31, align 4, !tbaa !21
   %33 = sitofp i32 %30 to float
   %34 = insertelement <2 x float> undef, float %33, i32 0
@@ -18819,9 +18819,9 @@ wrapI.exit7.i:                                    ; preds = %59, %.thread.i3.i, 
   %68 = select i1 %67, i32 %.2.i6.i, i32 %66
   %69 = icmp sgt i32 0, %68
   %70 = select i1 %69, i32 0, i32 %68
-  %alloc.idx.i = getelementptr %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %alloc.idx.i = getelementptr %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %alloc.idx.val.i = load i8** %alloc.idx.i, align 4, !tbaa !22
-  %alloc.idx1.i = getelementptr %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %alloc.idx1.i = getelementptr %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %alloc.idx1.val.i = load i32* %alloc.idx1.i, align 4, !tbaa !21
   switch i32 %13, label %_ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valueS4_Dv2_fj.exit [
     i32 11, label %71
@@ -18834,25 +18834,25 @@ wrapI.exit7.i:                                    ; preds = %59, %.thread.i3.i, 
   %72 = mul i32 %alloc.idx1.val.i, %70
   %73 = shl nsw i32 %54, 2
   %.sum.i.i.i = add i32 %72, %73
-  %74 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum.i.i.i
+  %74 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum.i.i.i
   %75 = load i8* %74, align 1, !tbaa !19
   %76 = uitofp i8 %75 to float
   %77 = insertelement <4 x float> undef, float %76, i32 0
   %78 = or i32 %73, 1
   %.sum1.i.i.i = add i32 %72, %78
-  %79 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum1.i.i.i
+  %79 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum1.i.i.i
   %80 = load i8* %79, align 1, !tbaa !19
   %81 = uitofp i8 %80 to float
   %82 = insertelement <4 x float> %77, float %81, i32 1
   %83 = or i32 %73, 2
   %.sum2.i.i.i = add i32 %72, %83
-  %84 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum2.i.i.i
+  %84 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum2.i.i.i
   %85 = load i8* %84, align 1, !tbaa !19
   %86 = uitofp i8 %85 to float
   %87 = insertelement <4 x float> %82, float %86, i32 2
   %88 = or i32 %73, 3
   %.sum3.i.i.i = add i32 %72, %88
-  %89 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum3.i.i.i
+  %89 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum3.i.i.i
   %90 = load i8* %89, align 1, !tbaa !19
   %91 = uitofp i8 %90 to float
   %92 = insertelement <4 x float> %87, float %91, i32 3
@@ -18861,7 +18861,7 @@ wrapI.exit7.i:                                    ; preds = %59, %.thread.i3.i, 
 ; <label>:93                                      ; preds = %wrapI.exit7.i
   %94 = mul i32 %alloc.idx1.val.i, %70
   %.sum.i6.i.i = add i32 %94, %54
-  %95 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum.i6.i.i
+  %95 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum.i6.i.i
   %96 = load i8* %95, align 1, !tbaa !19
   %97 = uitofp i8 %96 to float
   %98 = insertelement <4 x float> <float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float undef>, float %97, i32 3
@@ -18871,13 +18871,13 @@ wrapI.exit7.i:                                    ; preds = %59, %.thread.i3.i, 
   %100 = mul i32 %alloc.idx1.val.i, %70
   %101 = shl nsw i32 %54, 1
   %.sum.i4.i.i = add i32 %100, %101
-  %102 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum.i4.i.i
+  %102 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum.i4.i.i
   %103 = load i8* %102, align 1, !tbaa !19
   %104 = uitofp i8 %103 to float
   %105 = insertelement <2 x float> undef, float %104, i32 0
   %106 = or i32 %101, 1
   %.sum1.i5.i.i = add i32 %100, %106
-  %107 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum1.i5.i.i
+  %107 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum1.i5.i.i
   %108 = load i8* %107, align 1, !tbaa !19
   %109 = uitofp i8 %108 to float
   %110 = insertelement <2 x float> %105, float %109, i32 1
@@ -18892,9 +18892,9 @@ wrapI.exit7.i:                                    ; preds = %59, %.thread.i3.i, 
   br i1 %115, label %117, label %142
 
 ; <label>:117                                     ; preds = %114
-  %118 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %116
+  %118 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %116
   %119 = bitcast i8* %118 to i16*
-  %120 = load i16* %119, align 2, !tbaa !70
+  %120 = load i16, i16* %119, align 2, !tbaa !70
   %121 = zext i16 %120 to i32
   %122 = lshr i32 %121, 11
   %123 = shl nuw nsw i32 %122, 3
@@ -18921,19 +18921,19 @@ wrapI.exit7.i:                                    ; preds = %59, %.thread.i3.i, 
 ; <label>:142                                     ; preds = %114
   %143 = shl nsw i32 %54, 2
   %.sum.i1.i.i = add i32 %116, %143
-  %144 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum.i1.i.i
+  %144 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum.i1.i.i
   %145 = load i8* %144, align 1, !tbaa !19
   %146 = uitofp i8 %145 to float
   %147 = insertelement <4 x float> undef, float %146, i32 0
   %148 = or i32 %143, 1
   %.sum1.i2.i.i = add i32 %116, %148
-  %149 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum1.i2.i.i
+  %149 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum1.i2.i.i
   %150 = load i8* %149, align 1, !tbaa !19
   %151 = uitofp i8 %150 to float
   %152 = insertelement <4 x float> %147, float %151, i32 1
   %153 = or i32 %143, 2
   %.sum2.i3.i.i = add i32 %116, %153
-  %154 = getelementptr inbounds i8* %alloc.idx.val.i, i32 %.sum2.i3.i.i
+  %154 = getelementptr inbounds i8, i8* %alloc.idx.val.i, i32 %.sum2.i3.i.i
   %155 = load i8* %154, align 1, !tbaa !19
   %156 = uitofp i8 %155 to float
   %157 = insertelement <4 x float> %152, float %156, i32 2
@@ -18946,9 +18946,9 @@ _ZL23sample_LOD_NearestPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampl
   br label %630
 
 ; <label>:160                                     ; preds = %24
-  %161 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
+  %161 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 2
   %162 = load i32* %161, align 4, !tbaa !21
-  %163 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %163 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %164 = load i32* %163, align 4, !tbaa !21
   %165 = extractelement <2 x float> %uv, i32 0
   %166 = sitofp i32 %162 to float
@@ -19118,9 +19118,9 @@ wrapI.exit18.i:                                   ; preds = %246, %.thread.i14.i
   %254 = select i1 %253, i32 %.2.i17.i, i32 %224
   %255 = icmp sgt i32 0, %254
   %256 = select i1 %255, i32 0, i32 %254
-  %257 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %257 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %258 = load i8** %257, align 4, !tbaa !22
-  %259 = getelementptr inbounds %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %259 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %3, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %260 = load i32* %259, align 4, !tbaa !21
   switch i32 %13, label %_ZL22sample_LOD_LinearPixelPK10Allocation12rs_data_kind12rs_data_type16rs_sampler_valueS4_Dv2_fj.exit [
     i32 11, label %261
@@ -19134,90 +19134,90 @@ wrapI.exit18.i:                                   ; preds = %246, %.thread.i14.i
   %262 = mul i32 %260, %256
   %263 = shl nsw i32 %242, 2
   %.sum.i.i.i.i = add i32 %262, %263
-  %264 = getelementptr inbounds i8* %258, i32 %.sum.i.i.i.i
+  %264 = getelementptr inbounds i8, i8* %258, i32 %.sum.i.i.i.i
   %265 = load i8* %264, align 1, !tbaa !19
   %266 = uitofp i8 %265 to float
   %267 = insertelement <4 x float> undef, float %266, i32 0
   %268 = or i32 %263, 1
   %.sum1.i.i.i.i = add i32 %262, %268
-  %269 = getelementptr inbounds i8* %258, i32 %.sum1.i.i.i.i
+  %269 = getelementptr inbounds i8, i8* %258, i32 %.sum1.i.i.i.i
   %270 = load i8* %269, align 1, !tbaa !19
   %271 = uitofp i8 %270 to float
   %272 = insertelement <4 x float> %267, float %271, i32 1
   %273 = or i32 %263, 2
   %.sum2.i.i.i.i = add i32 %262, %273
-  %274 = getelementptr inbounds i8* %258, i32 %.sum2.i.i.i.i
+  %274 = getelementptr inbounds i8, i8* %258, i32 %.sum2.i.i.i.i
   %275 = load i8* %274, align 1, !tbaa !19
   %276 = uitofp i8 %275 to float
   %277 = insertelement <4 x float> %272, float %276, i32 2
   %278 = or i32 %263, 3
   %.sum3.i.i.i.i = add i32 %262, %278
-  %279 = getelementptr inbounds i8* %258, i32 %.sum3.i.i.i.i
+  %279 = getelementptr inbounds i8, i8* %258, i32 %.sum3.i.i.i.i
   %280 = load i8* %279, align 1, !tbaa !19
   %281 = uitofp i8 %280 to float
   %282 = insertelement <4 x float> %277, float %281, i32 3
   %283 = shl nsw i32 %212, 2
   %.sum.i9.i.i.i = add i32 %262, %283
-  %284 = getelementptr inbounds i8* %258, i32 %.sum.i9.i.i.i
+  %284 = getelementptr inbounds i8, i8* %258, i32 %.sum.i9.i.i.i
   %285 = load i8* %284, align 1, !tbaa !19
   %286 = uitofp i8 %285 to float
   %287 = insertelement <4 x float> undef, float %286, i32 0
   %288 = or i32 %283, 1
   %.sum1.i10.i.i.i = add i32 %262, %288
-  %289 = getelementptr inbounds i8* %258, i32 %.sum1.i10.i.i.i
+  %289 = getelementptr inbounds i8, i8* %258, i32 %.sum1.i10.i.i.i
   %290 = load i8* %289, align 1, !tbaa !19
   %291 = uitofp i8 %290 to float
   %292 = insertelement <4 x float> %287, float %291, i32 1
   %293 = or i32 %283, 2
   %.sum2.i11.i.i.i = add i32 %262, %293
-  %294 = getelementptr inbounds i8* %258, i32 %.sum2.i11.i.i.i
+  %294 = getelementptr inbounds i8, i8* %258, i32 %.sum2.i11.i.i.i
   %295 = load i8* %294, align 1, !tbaa !19
   %296 = uitofp i8 %295 to float
   %297 = insertelement <4 x float> %292, float %296, i32 2
   %298 = or i32 %283, 3
   %.sum3.i12.i.i.i = add i32 %262, %298
-  %299 = getelementptr inbounds i8* %258, i32 %.sum3.i12.i.i.i
+  %299 = getelementptr inbounds i8, i8* %258, i32 %.sum3.i12.i.i.i
   %300 = load i8* %299, align 1, !tbaa !19
   %301 = uitofp i8 %300 to float
   %302 = insertelement <4 x float> %297, float %301, i32 3
   %303 = mul i32 %260, %228
   %.sum.i5.i.i.i = add i32 %303, %263
-  %304 = getelementptr inbounds i8* %258, i32 %.sum.i5.i.i.i
+  %304 = getelementptr inbounds i8, i8* %258, i32 %.sum.i5.i.i.i
   %305 = load i8* %304, align 1, !tbaa !19
   %306 = uitofp i8 %305 to float
   %307 = insertelement <4 x float> undef, float %306, i32 0
   %.sum1.i6.i.i.i = add i32 %303, %268
-  %308 = getelementptr inbounds i8* %258, i32 %.sum1.i6.i.i.i
+  %308 = getelementptr inbounds i8, i8* %258, i32 %.sum1.i6.i.i.i
   %309 = load i8* %308, align 1, !tbaa !19
   %310 = uitofp i8 %309 to float
   %311 = insertelement <4 x float> %307, float %310, i32 1
   %.sum2.i7.i.i.i = add i32 %303, %273
-  %312 = getelementptr inbounds i8* %258, i32 %.sum2.i7.i.i.i
+  %312 = getelementptr inbounds i8, i8* %258, i32 %.sum2.i7.i.i.i
   %313 = load i8* %312, align 1, !tbaa !19
   %314 = uitofp i8 %313 to float
   %315 = insertelement <4 x float> %311, float %314, i32 2
   %.sum3.i8.i.i.i = add i32 %303, %278
-  %316 = getelementptr inbounds i8* %258, i32 %.sum3.i8.i.i.i
+  %316 = getelementptr inbounds i8, i8* %258, i32 %.sum3.i8.i.i.i
   %317 = load i8* %316, align 1, !tbaa !19
   %318 = uitofp i8 %317 to float
   %319 = insertelement <4 x float> %315, float %318, i32 3
   %.sum.i1.i.i.i = add i32 %303, %283
-  %320 = getelementptr inbounds i8* %258, i32 %.sum.i1.i.i.i
+  %320 = getelementptr inbounds i8, i8* %258, i32 %.sum.i1.i.i.i
   %321 = load i8* %320, align 1, !tbaa !19
   %322 = uitofp i8 %321 to float
   %323 = insertelement <4 x float> undef, float %322, i32 0
   %.sum1.i2.i.i.i = add i32 %303, %288
-  %324 = getelementptr inbounds i8* %258, i32 %.sum1.i2.i.i.i
+  %324 = getelementptr inbounds i8, i8* %258, i32 %.sum1.i2.i.i.i
   %325 = load i8* %324, align 1, !tbaa !19
   %326 = uitofp i8 %325 to float
   %327 = insertelement <4 x float> %323, float %326, i32 1
   %.sum2.i3.i.i.i = add i32 %303, %293
-  %328 = getelementptr inbounds i8* %258, i32 %.sum2.i3.i.i.i
+  %328 = getelementptr inbounds i8, i8* %258, i32 %.sum2.i3.i.i.i
   %329 = load i8* %328, align 1, !tbaa !19
   %330 = uitofp i8 %329 to float
   %331 = insertelement <4 x float> %327, float %330, i32 2
   %.sum3.i4.i.i.i = add i32 %303, %298
-  %332 = getelementptr inbounds i8* %258, i32 %.sum3.i4.i.i.i
+  %332 = getelementptr inbounds i8, i8* %258, i32 %.sum3.i4.i.i.i
   %333 = load i8* %332, align 1, !tbaa !19
   %334 = uitofp i8 %333 to float
   %335 = insertelement <4 x float> %331, float %334, i32 3
@@ -19242,20 +19242,20 @@ wrapI.exit18.i:                                   ; preds = %246, %.thread.i14.i
 ; <label>:352                                     ; preds = %wrapI.exit18.i
   %353 = mul i32 %260, %256
   %.sum.i.i26.i.i = add i32 %353, %242
-  %354 = getelementptr inbounds i8* %258, i32 %.sum.i.i26.i.i
+  %354 = getelementptr inbounds i8, i8* %258, i32 %.sum.i.i26.i.i
   %355 = load i8* %354, align 1, !tbaa !19
   %356 = uitofp i8 %355 to float
   %.sum.i3.i27.i.i = add i32 %353, %212
-  %357 = getelementptr inbounds i8* %258, i32 %.sum.i3.i27.i.i
+  %357 = getelementptr inbounds i8, i8* %258, i32 %.sum.i3.i27.i.i
   %358 = load i8* %357, align 1, !tbaa !19
   %359 = uitofp i8 %358 to float
   %360 = mul i32 %260, %228
   %.sum.i2.i28.i.i = add i32 %360, %242
-  %361 = getelementptr inbounds i8* %258, i32 %.sum.i2.i28.i.i
+  %361 = getelementptr inbounds i8, i8* %258, i32 %.sum.i2.i28.i.i
   %362 = load i8* %361, align 1, !tbaa !19
   %363 = uitofp i8 %362 to float
   %.sum.i1.i29.i.i = add i32 %360, %212
-  %364 = getelementptr inbounds i8* %258, i32 %.sum.i1.i29.i.i
+  %364 = getelementptr inbounds i8, i8* %258, i32 %.sum.i1.i29.i.i
   %365 = load i8* %364, align 1, !tbaa !19
   %366 = uitofp i8 %365 to float
   %367 = fmul float %193, %356
@@ -19273,46 +19273,46 @@ wrapI.exit18.i:                                   ; preds = %246, %.thread.i14.i
   %377 = mul i32 %260, %256
   %378 = shl nsw i32 %242, 1
   %.sum.i.i19.i.i = add i32 %377, %378
-  %379 = getelementptr inbounds i8* %258, i32 %.sum.i.i19.i.i
+  %379 = getelementptr inbounds i8, i8* %258, i32 %.sum.i.i19.i.i
   %380 = load i8* %379, align 1, !tbaa !19
   %381 = uitofp i8 %380 to float
   %382 = insertelement <2 x float> undef, float %381, i32 0
   %383 = or i32 %378, 1
   %.sum1.i.i20.i.i = add i32 %377, %383
-  %384 = getelementptr inbounds i8* %258, i32 %.sum1.i.i20.i.i
+  %384 = getelementptr inbounds i8, i8* %258, i32 %.sum1.i.i20.i.i
   %385 = load i8* %384, align 1, !tbaa !19
   %386 = uitofp i8 %385 to float
   %387 = insertelement <2 x float> %382, float %386, i32 1
   %388 = shl nsw i32 %212, 1
   %.sum.i5.i21.i.i = add i32 %377, %388
-  %389 = getelementptr inbounds i8* %258, i32 %.sum.i5.i21.i.i
+  %389 = getelementptr inbounds i8, i8* %258, i32 %.sum.i5.i21.i.i
   %390 = load i8* %389, align 1, !tbaa !19
   %391 = uitofp i8 %390 to float
   %392 = insertelement <2 x float> undef, float %391, i32 0
   %393 = or i32 %388, 1
   %.sum1.i6.i22.i.i = add i32 %377, %393
-  %394 = getelementptr inbounds i8* %258, i32 %.sum1.i6.i22.i.i
+  %394 = getelementptr inbounds i8, i8* %258, i32 %.sum1.i6.i22.i.i
   %395 = load i8* %394, align 1, !tbaa !19
   %396 = uitofp i8 %395 to float
   %397 = insertelement <2 x float> %392, float %396, i32 1
   %398 = mul i32 %260, %228
   %.sum.i3.i23.i.i = add i32 %398, %378
-  %399 = getelementptr inbounds i8* %258, i32 %.sum.i3.i23.i.i
+  %399 = getelementptr inbounds i8, i8* %258, i32 %.sum.i3.i23.i.i
   %400 = load i8* %399, align 1, !tbaa !19
   %401 = uitofp i8 %400 to float
   %402 = insertelement <2 x float> undef, float %401, i32 0
   %.sum1.i4.i.i.i = add i32 %398, %383
-  %403 = getelementptr inbounds i8* %258, i32 %.sum1.i4.i.i.i
+  %403 = getelementptr inbounds i8, i8* %258, i32 %.sum1.i4.i.i.i
   %404 = load i8* %403, align 1, !tbaa !19
   %405 = uitofp i8 %404 to float
   %406 = insertelement <2 x float> %402, float %405, i32 1
   %.sum.i1.i24.i.i = add i32 %398, %388
-  %407 = getelementptr inbounds i8* %258, i32 %.sum.i1.i24.i.i
+  %407 = getelementptr inbounds i8, i8* %258, i32 %.sum.i1.i24.i.i
   %408 = load i8* %407, align 1, !tbaa !19
   %409 = uitofp i8 %408 to float
   %410 = insertelement <2 x float> undef, float %409, i32 0
   %.sum1.i2.i25.i.i = add i32 %398, %393
-  %411 = getelementptr inbounds i8* %258, i32 %.sum1.i2.i25.i.i
+  %411 = getelementptr inbounds i8, i8* %258, i32 %.sum1.i2.i25.i.i
   %412 = load i8* %411, align 1, !tbaa !19
   %413 = uitofp i8 %412 to float
   %414 = insertelement <2 x float> %410, float %413, i32 1
@@ -19346,9 +19346,9 @@ wrapI.exit18.i:                                   ; preds = %246, %.thread.i14.i
   br i1 %438, label %440, label %506
 
 ; <label>:440                                     ; preds = %437
-  %441 = getelementptr inbounds i8* %258, i32 %439
+  %441 = getelementptr inbounds i8, i8* %258, i32 %439
   %442 = bitcast i8* %441 to i16*
-  %443 = load i16* %442, align 2, !tbaa !70
+  %443 = load i16, i16* %442, align 2, !tbaa !70
   %444 = zext i16 %443 to i32
   %445 = lshr i32 %444, 11
   %446 = shl nuw nsw i32 %445, 3
@@ -19370,9 +19370,9 @@ wrapI.exit18.i:                                   ; preds = %246, %.thread.i14.i
   %462 = uitofp i32 %461 to float
   %463 = insertelement <3 x float> %457, float %462, i32 2
   %464 = mul i32 %260, %228
-  %465 = getelementptr inbounds i8* %258, i32 %464
+  %465 = getelementptr inbounds i8, i8* %258, i32 %464
   %466 = bitcast i8* %465 to i16*
-  %467 = load i16* %466, align 2, !tbaa !70
+  %467 = load i16, i16* %466, align 2, !tbaa !70
   %468 = zext i16 %467 to i32
   %469 = lshr i32 %468, 11
   %470 = shl nuw nsw i32 %469, 3
@@ -19416,90 +19416,90 @@ wrapI.exit18.i:                                   ; preds = %246, %.thread.i14.i
 ; <label>:506                                     ; preds = %437
   %507 = shl nsw i32 %242, 2
   %.sum.i.i3.i.i = add i32 %439, %507
-  %508 = getelementptr inbounds i8* %258, i32 %.sum.i.i3.i.i
+  %508 = getelementptr inbounds i8, i8* %258, i32 %.sum.i.i3.i.i
   %509 = load i8* %508, align 1, !tbaa !19
   %510 = uitofp i8 %509 to float
   %511 = insertelement <4 x float> undef, float %510, i32 0
   %512 = or i32 %507, 1
   %.sum1.i.i4.i.i = add i32 %439, %512
-  %513 = getelementptr inbounds i8* %258, i32 %.sum1.i.i4.i.i
+  %513 = getelementptr inbounds i8, i8* %258, i32 %.sum1.i.i4.i.i
   %514 = load i8* %513, align 1, !tbaa !19
   %515 = uitofp i8 %514 to float
   %516 = insertelement <4 x float> %511, float %515, i32 1
   %517 = or i32 %507, 2
   %.sum2.i.i5.i.i = add i32 %439, %517
-  %518 = getelementptr inbounds i8* %258, i32 %.sum2.i.i5.i.i
+  %518 = getelementptr inbounds i8, i8* %258, i32 %.sum2.i.i5.i.i
   %519 = load i8* %518, align 1, !tbaa !19
   %520 = uitofp i8 %519 to float
   %521 = insertelement <4 x float> %516, float %520, i32 2
   %522 = or i32 %507, 3
   %.sum3.i.i6.i.i = add i32 %439, %522
-  %523 = getelementptr inbounds i8* %258, i32 %.sum3.i.i6.i.i
+  %523 = getelementptr inbounds i8, i8* %258, i32 %.sum3.i.i6.i.i
   %524 = load i8* %523, align 1, !tbaa !19
   %525 = uitofp i8 %524 to float
   %526 = insertelement <4 x float> %521, float %525, i32 3
   %527 = shl nsw i32 %212, 2
   %.sum.i9.i7.i.i = add i32 %439, %527
-  %528 = getelementptr inbounds i8* %258, i32 %.sum.i9.i7.i.i
+  %528 = getelementptr inbounds i8, i8* %258, i32 %.sum.i9.i7.i.i
   %529 = load i8* %528, align 1, !tbaa !19
   %530 = uitofp i8 %529 to float
   %531 = insertelement <4 x float> undef, float %530, i32 0
   %532 = or i32 %527, 1
   %.sum1.i10.i8.i.i = add i32 %439, %532
-  %533 = getelementptr inbounds i8* %258, i32 %.sum1.i10.i8.i.i
+  %533 = getelementptr inbounds i8, i8* %258, i32 %.sum1.i10.i8.i.i
   %534 = load i8* %533, align 1, !tbaa !19
   %535 = uitofp i8 %534 to float
   %536 = insertelement <4 x float> %531, float %535, i32 1
   %537 = or i32 %527, 2
   %.sum2.i11.i9.i.i = add i32 %439, %537
-  %538 = getelementptr inbounds i8* %258, i32 %.sum2.i11.i9.i.i
+  %538 = getelementptr inbounds i8, i8* %258, i32 %.sum2.i11.i9.i.i
   %539 = load i8* %538, align 1, !tbaa !19
   %540 = uitofp i8 %539 to float
   %541 = insertelement <4 x float> %536, float %540, i32 2
   %542 = or i32 %527, 3
   %.sum3.i12.i10.i.i = add i32 %439, %542
-  %543 = getelementptr inbounds i8* %258, i32 %.sum3.i12.i10.i.i
+  %543 = getelementptr inbounds i8, i8* %258, i32 %.sum3.i12.i10.i.i
   %544 = load i8* %543, align 1, !tbaa !19
   %545 = uitofp i8 %544 to float
   %546 = insertelement <4 x float> %541, float %545, i32 3
   %547 = mul i32 %260, %228
   %.sum.i5.i11.i.i = add i32 %547, %507
-  %548 = getelementptr inbounds i8* %258, i32 %.sum.i5.i11.i.i
+  %548 = getelementptr inbounds i8, i8* %258, i32 %.sum.i5.i11.i.i
   %549 = load i8* %548, align 1, !tbaa !19
   %550 = uitofp i8 %549 to float
   %551 = insertelement <4 x float> undef, float %550, i32 0
   %.sum1.i6.i12.i.i = add i32 %547, %512
-  %552 = getelementptr inbounds i8* %258, i32 %.sum1.i6.i12.i.i
+  %552 = getelementptr inbounds i8, i8* %258, i32 %.sum1.i6.i12.i.i
   %553 = load i8* %552, align 1, !tbaa !19
   %554 = uitofp i8 %553 to float
   %555 = insertelement <4 x float> %551, float %554, i32 1
   %.sum2.i7.i13.i.i = add i32 %547, %517
-  %556 = getelementptr inbounds i8* %258, i32 %.sum2.i7.i13.i.i
+  %556 = getelementptr inbounds i8, i8* %258, i32 %.sum2.i7.i13.i.i
   %557 = load i8* %556, align 1, !tbaa !19
   %558 = uitofp i8 %557 to float
   %559 = insertelement <4 x float> %555, float %558, i32 2
   %.sum3.i8.i14.i.i = add i32 %547, %522
-  %560 = getelementptr inbounds i8* %258, i32 %.sum3.i8.i14.i.i
+  %560 = getelementptr inbounds i8, i8* %258, i32 %.sum3.i8.i14.i.i
   %561 = load i8* %560, align 1, !tbaa !19
   %562 = uitofp i8 %561 to float
   %563 = insertelement <4 x float> %559, float %562, i32 3
   %.sum.i1.i15.i.i = add i32 %547, %527
-  %564 = getelementptr inbounds i8* %258, i32 %.sum.i1.i15.i.i
+  %564 = getelementptr inbounds i8, i8* %258, i32 %.sum.i1.i15.i.i
   %565 = load i8* %564, align 1, !tbaa !19
   %566 = uitofp i8 %565 to float
   %567 = insertelement <4 x float> undef, float %566, i32 0
   %.sum1.i2.i16.i.i = add i32 %547, %532
-  %568 = getelementptr inbounds i8* %258, i32 %.sum1.i2.i16.i.i
+  %568 = getelementptr inbounds i8, i8* %258, i32 %.sum1.i2.i16.i.i
   %569 = load i8* %568, align 1, !tbaa !19
   %570 = uitofp i8 %569 to float
   %571 = insertelement <4 x float> %567, float %570, i32 1
   %.sum2.i3.i17.i.i = add i32 %547, %537
-  %572 = getelementptr inbounds i8* %258, i32 %.sum2.i3.i17.i.i
+  %572 = getelementptr inbounds i8, i8* %258, i32 %.sum2.i3.i17.i.i
   %573 = load i8* %572, align 1, !tbaa !19
   %574 = uitofp i8 %573 to float
   %575 = insertelement <4 x float> %571, float %574, i32 2
   %.sum3.i4.i18.i.i = add i32 %547, %542
-  %576 = getelementptr inbounds i8* %258, i32 %.sum3.i4.i18.i.i
+  %576 = getelementptr inbounds i8, i8* %258, i32 %.sum3.i4.i18.i.i
   %577 = load i8* %576, align 1, !tbaa !19
   %578 = uitofp i8 %577 to float
   %579 = insertelement <4 x float> %575, float %578, i32 3
@@ -19531,20 +19531,20 @@ wrapI.exit18.i:                                   ; preds = %246, %.thread.i14.i
 ; <label>:603                                     ; preds = %wrapI.exit18.i
   %604 = mul i32 %260, %256
   %.sum.i.i1.i.i = add i32 %604, %242
-  %605 = getelementptr inbounds i8* %258, i32 %.sum.i.i1.i.i
+  %605 = getelementptr inbounds i8, i8* %258, i32 %.sum.i.i1.i.i
   %606 = load i8* %605, align 1, !tbaa !19
   %607 = uitofp i8 %606 to float
   %.sum.i3.i.i.i = add i32 %604, %212
-  %608 = getelementptr inbounds i8* %258, i32 %.sum.i3.i.i.i
+  %608 = getelementptr inbounds i8, i8* %258, i32 %.sum.i3.i.i.i
   %609 = load i8* %608, align 1, !tbaa !19
   %610 = uitofp i8 %609 to float
   %611 = mul i32 %260, %228
   %.sum.i2.i.i.i = add i32 %611, %242
-  %612 = getelementptr inbounds i8* %258, i32 %.sum.i2.i.i.i
+  %612 = getelementptr inbounds i8, i8* %258, i32 %.sum.i2.i.i.i
   %613 = load i8* %612, align 1, !tbaa !19
   %614 = uitofp i8 %613 to float
   %.sum.i1.i2.i.i = add i32 %611, %212
-  %615 = getelementptr inbounds i8* %258, i32 %.sum.i1.i2.i.i
+  %615 = getelementptr inbounds i8, i8* %258, i32 %.sum.i1.i2.i.i
   %616 = load i8* %615, align 1, !tbaa !19
   %617 = uitofp i8 %616 to float
   %618 = fmul float %193, %607
@@ -19578,7 +19578,7 @@ define i32 @_Z24rsSamplerGetMinification10rs_sampler([1 x i32] %s.coerce) #4 {
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Sampler*
-  %5 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 1
+  %5 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 1
   %6 = load i32* %5, align 4, !tbaa !19
   br label %7
 
@@ -19595,7 +19595,7 @@ define i32 @_Z25rsSamplerGetMagnification10rs_sampler([1 x i32] %s.coerce) #4 {
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Sampler*
-  %5 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 0
+  %5 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 0
   %6 = load i32* %5, align 4, !tbaa !19
   br label %7
 
@@ -19612,7 +19612,7 @@ define i32 @_Z17rsSamplerGetWrapS10rs_sampler([1 x i32] %s.coerce) #4 {
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Sampler*
-  %5 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 2
+  %5 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 2
   %6 = load i32* %5, align 4, !tbaa !19
   br label %7
 
@@ -19629,7 +19629,7 @@ define i32 @_Z17rsSamplerGetWrapT10rs_sampler([1 x i32] %s.coerce) #4 {
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Sampler*
-  %5 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 3
+  %5 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 3
   %6 = load i32* %5, align 4, !tbaa !19
   br label %7
 
@@ -19646,7 +19646,7 @@ define float @_Z22rsSamplerGetAnisotropy10rs_sampler([1 x i32] %s.coerce) #4 {
 
 ; <label>:3                                       ; preds = %0
   %4 = inttoptr i32 %1 to %struct.Sampler*
-  %5 = getelementptr inbounds %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 5
+  %5 = getelementptr inbounds %struct.Sampler, %struct.Sampler* %4, i32 0, i32 1, i32 1, i32 5
   %6 = load float* %5, align 4, !tbaa !18
   br label %7
 
@@ -23860,70 +23860,70 @@ define <4 x float> @_Z10half_rsqrtDv4_f(<4 x float> %v) #5 {
 
 ; Function Attrs: nounwind readonly
 define <4 x float> @_Z16rsMatrixMultiplyPK12rs_matrix4x4Dv4_f(%struct.rs_matrix4x4* nocapture %m, <4 x float> %in) #4 {
-  %1 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
   %3 = extractelement <4 x float> %in, i32 0
   %4 = fmul float %3, %2
-  %5 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %5 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   %6 = load float* %5, align 4, !tbaa !18
   %7 = extractelement <4 x float> %in, i32 1
   %8 = fmul float %7, %6
   %9 = fadd float %4, %8
-  %10 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
+  %10 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
   %11 = load float* %10, align 4, !tbaa !18
   %12 = extractelement <4 x float> %in, i32 2
   %13 = fmul float %12, %11
   %14 = fadd float %9, %13
-  %15 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %15 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   %16 = load float* %15, align 4, !tbaa !18
   %17 = extractelement <4 x float> %in, i32 3
   %18 = fmul float %17, %16
   %19 = fadd float %14, %18
   %20 = insertelement <4 x float> undef, float %19, i32 0
-  %21 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
+  %21 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
   %22 = load float* %21, align 4, !tbaa !18
   %23 = fmul float %3, %22
-  %24 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
+  %24 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
   %25 = load float* %24, align 4, !tbaa !18
   %26 = fmul float %7, %25
   %27 = fadd float %23, %26
-  %28 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
+  %28 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
   %29 = load float* %28, align 4, !tbaa !18
   %30 = fmul float %12, %29
   %31 = fadd float %27, %30
-  %32 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
+  %32 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
   %33 = load float* %32, align 4, !tbaa !18
   %34 = fmul float %17, %33
   %35 = fadd float %31, %34
   %36 = insertelement <4 x float> %20, float %35, i32 1
-  %37 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
+  %37 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
   %38 = load float* %37, align 4, !tbaa !18
   %39 = fmul float %3, %38
-  %40 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
+  %40 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
   %41 = load float* %40, align 4, !tbaa !18
   %42 = fmul float %7, %41
   %43 = fadd float %39, %42
-  %44 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
+  %44 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
   %45 = load float* %44, align 4, !tbaa !18
   %46 = fmul float %12, %45
   %47 = fadd float %43, %46
-  %48 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
+  %48 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
   %49 = load float* %48, align 4, !tbaa !18
   %50 = fmul float %17, %49
   %51 = fadd float %47, %50
   %52 = insertelement <4 x float> %36, float %51, i32 2
-  %53 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
+  %53 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
   %54 = load float* %53, align 4, !tbaa !18
   %55 = fmul float %3, %54
-  %56 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
+  %56 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
   %57 = load float* %56, align 4, !tbaa !18
   %58 = fmul float %7, %57
   %59 = fadd float %55, %58
-  %60 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
+  %60 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
   %61 = load float* %60, align 4, !tbaa !18
   %62 = fmul float %12, %61
   %63 = fadd float %59, %62
-  %64 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
+  %64 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
   %65 = load float* %64, align 4, !tbaa !18
   %66 = fmul float %17, %65
   %67 = fadd float %63, %66
@@ -23933,66 +23933,66 @@ define <4 x float> @_Z16rsMatrixMultiplyPK12rs_matrix4x4Dv4_f(%struct.rs_matrix4
 
 ; Function Attrs: nounwind readonly
 define <4 x float> @_Z16rsMatrixMultiplyPK12rs_matrix4x4Dv3_f(%struct.rs_matrix4x4* nocapture %m, <3 x float> %in) #4 {
-  %1 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
   %3 = extractelement <3 x float> %in, i32 0
   %4 = fmul float %3, %2
-  %5 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %5 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   %6 = load float* %5, align 4, !tbaa !18
   %7 = extractelement <3 x float> %in, i32 1
   %8 = fmul float %7, %6
   %9 = fadd float %4, %8
-  %10 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
+  %10 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
   %11 = load float* %10, align 4, !tbaa !18
   %12 = extractelement <3 x float> %in, i32 2
   %13 = fmul float %12, %11
   %14 = fadd float %9, %13
-  %15 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %15 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   %16 = load float* %15, align 4, !tbaa !18
   %17 = fadd float %16, %14
   %18 = insertelement <4 x float> undef, float %17, i32 0
-  %19 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
+  %19 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
   %20 = load float* %19, align 4, !tbaa !18
   %21 = fmul float %3, %20
-  %22 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
+  %22 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
   %23 = load float* %22, align 4, !tbaa !18
   %24 = fmul float %7, %23
   %25 = fadd float %21, %24
-  %26 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
+  %26 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 9
   %27 = load float* %26, align 4, !tbaa !18
   %28 = fmul float %12, %27
   %29 = fadd float %25, %28
-  %30 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
+  %30 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
   %31 = load float* %30, align 4, !tbaa !18
   %32 = fadd float %31, %29
   %33 = insertelement <4 x float> %18, float %32, i32 1
-  %34 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
+  %34 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
   %35 = load float* %34, align 4, !tbaa !18
   %36 = fmul float %3, %35
-  %37 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
+  %37 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
   %38 = load float* %37, align 4, !tbaa !18
   %39 = fmul float %7, %38
   %40 = fadd float %36, %39
-  %41 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
+  %41 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 10
   %42 = load float* %41, align 4, !tbaa !18
   %43 = fmul float %12, %42
   %44 = fadd float %40, %43
-  %45 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
+  %45 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
   %46 = load float* %45, align 4, !tbaa !18
   %47 = fadd float %46, %44
   %48 = insertelement <4 x float> %33, float %47, i32 2
-  %49 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
+  %49 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
   %50 = load float* %49, align 4, !tbaa !18
   %51 = fmul float %3, %50
-  %52 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
+  %52 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
   %53 = load float* %52, align 4, !tbaa !18
   %54 = fmul float %7, %53
   %55 = fadd float %51, %54
-  %56 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
+  %56 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 11
   %57 = load float* %56, align 4, !tbaa !18
   %58 = fmul float %12, %57
   %59 = fadd float %55, %58
-  %60 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
+  %60 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
   %61 = load float* %60, align 4, !tbaa !18
   %62 = fadd float %61, %59
   %63 = insertelement <4 x float> %48, float %62, i32 3
@@ -24001,49 +24001,49 @@ define <4 x float> @_Z16rsMatrixMultiplyPK12rs_matrix4x4Dv3_f(%struct.rs_matrix4
 
 ; Function Attrs: nounwind readonly
 define <4 x float> @_Z16rsMatrixMultiplyPK12rs_matrix4x4Dv2_f(%struct.rs_matrix4x4* nocapture %m, <2 x float> %in) #4 {
-  %1 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
   %3 = extractelement <2 x float> %in, i32 0
   %4 = fmul float %3, %2
-  %5 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %5 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   %6 = load float* %5, align 4, !tbaa !18
   %7 = extractelement <2 x float> %in, i32 1
   %8 = fmul float %7, %6
   %9 = fadd float %4, %8
-  %10 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %10 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   %11 = load float* %10, align 4, !tbaa !18
   %12 = fadd float %11, %9
   %13 = insertelement <4 x float> undef, float %12, i32 0
-  %14 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
+  %14 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 1
   %15 = load float* %14, align 4, !tbaa !18
   %16 = fmul float %3, %15
-  %17 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
+  %17 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 5
   %18 = load float* %17, align 4, !tbaa !18
   %19 = fmul float %7, %18
   %20 = fadd float %16, %19
-  %21 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
+  %21 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 13
   %22 = load float* %21, align 4, !tbaa !18
   %23 = fadd float %22, %20
   %24 = insertelement <4 x float> %13, float %23, i32 1
-  %25 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
+  %25 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 2
   %26 = load float* %25, align 4, !tbaa !18
   %27 = fmul float %3, %26
-  %28 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
+  %28 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 6
   %29 = load float* %28, align 4, !tbaa !18
   %30 = fmul float %7, %29
   %31 = fadd float %27, %30
-  %32 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
+  %32 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 14
   %33 = load float* %32, align 4, !tbaa !18
   %34 = fadd float %33, %31
   %35 = insertelement <4 x float> %24, float %34, i32 2
-  %36 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
+  %36 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 3
   %37 = load float* %36, align 4, !tbaa !18
   %38 = fmul float %3, %37
-  %39 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
+  %39 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 7
   %40 = load float* %39, align 4, !tbaa !18
   %41 = fmul float %7, %40
   %42 = fadd float %38, %41
-  %43 = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
+  %43 = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 15
   %44 = load float* %43, align 4, !tbaa !18
   %45 = fadd float %44, %42
   %46 = insertelement <4 x float> %35, float %45, i32 3
@@ -24052,41 +24052,41 @@ define <4 x float> @_Z16rsMatrixMultiplyPK12rs_matrix4x4Dv2_f(%struct.rs_matrix4
 
 ; Function Attrs: nounwind readonly
 define <3 x float> @_Z16rsMatrixMultiplyPK12rs_matrix3x3Dv3_f(%struct.rs_matrix3x3* nocapture %m, <3 x float> %in) #4 {
-  %1 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
   %3 = extractelement <3 x float> %in, i32 0
   %4 = fmul float %3, %2
-  %5 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
+  %5 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
   %6 = load float* %5, align 4, !tbaa !18
   %7 = extractelement <3 x float> %in, i32 1
   %8 = fmul float %7, %6
   %9 = fadd float %4, %8
-  %10 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 6
+  %10 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 6
   %11 = load float* %10, align 4, !tbaa !18
   %12 = extractelement <3 x float> %in, i32 2
   %13 = fmul float %12, %11
   %14 = fadd float %9, %13
   %15 = insertelement <3 x float> undef, float %14, i32 0
-  %16 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
+  %16 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
   %17 = load float* %16, align 4, !tbaa !18
   %18 = fmul float %3, %17
-  %19 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
+  %19 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
   %20 = load float* %19, align 4, !tbaa !18
   %21 = fmul float %7, %20
   %22 = fadd float %18, %21
-  %23 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 7
+  %23 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 7
   %24 = load float* %23, align 4, !tbaa !18
   %25 = fmul float %12, %24
   %26 = fadd float %22, %25
   %27 = insertelement <3 x float> %15, float %26, i32 1
-  %28 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
+  %28 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
   %29 = load float* %28, align 4, !tbaa !18
   %30 = fmul float %3, %29
-  %31 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
+  %31 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
   %32 = load float* %31, align 4, !tbaa !18
   %33 = fmul float %7, %32
   %34 = fadd float %30, %33
-  %35 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 8
+  %35 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 8
   %36 = load float* %35, align 4, !tbaa !18
   %37 = fmul float %12, %36
   %38 = fadd float %34, %37
@@ -24096,28 +24096,28 @@ define <3 x float> @_Z16rsMatrixMultiplyPK12rs_matrix3x3Dv3_f(%struct.rs_matrix3
 
 ; Function Attrs: nounwind readonly
 define <3 x float> @_Z16rsMatrixMultiplyPK12rs_matrix3x3Dv2_f(%struct.rs_matrix3x3* nocapture %m, <2 x float> %in) #4 {
-  %1 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
+  %1 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
   %2 = load float* %1, align 4, !tbaa !18
   %3 = extractelement <2 x float> %in, i32 0
   %4 = fmul float %3, %2
-  %5 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
+  %5 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
   %6 = load float* %5, align 4, !tbaa !18
   %7 = extractelement <2 x float> %in, i32 1
   %8 = fmul float %7, %6
   %9 = fadd float %4, %8
   %10 = insertelement <3 x float> undef, float %9, i32 0
-  %11 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
+  %11 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 1
   %12 = load float* %11, align 4, !tbaa !18
   %13 = fmul float %3, %12
-  %14 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
+  %14 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 4
   %15 = load float* %14, align 4, !tbaa !18
   %16 = fmul float %7, %15
   %17 = fadd float %13, %16
   %18 = insertelement <3 x float> %10, float %17, i32 1
-  %19 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
+  %19 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 2
   %20 = load float* %19, align 4, !tbaa !18
   %21 = fmul float %3, %20
-  %22 = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
+  %22 = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
   %23 = load float* %22, align 4, !tbaa !18
   %24 = fmul float %7, %23
   %25 = fadd float %21, %24
@@ -25056,17 +25056,17 @@ define <2 x i32> @_Z13convert_uint2Dv2_i(<2 x i32> %in) #0 {
 define void @rsSetElementAtImpl_char([1 x i32] %a.coerce, i8 signext %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %8, %z
   %tmp.i = add i32 %9, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %10 = add i32 %tmp1.i, %x
-  %11 = getelementptr inbounds i8* %4, i32 %10
+  %11 = getelementptr inbounds i8, i8* %4, i32 %10
   store i8 %val, i8* %11, align 1, !tbaa !27
   ret void
 }
@@ -25075,17 +25075,17 @@ define void @rsSetElementAtImpl_char([1 x i32] %a.coerce, i8 signext %val, i32 %
 define signext i8 @rsGetElementAtImpl_char([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %8, %z
   %tmp.i = add i32 %9, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %10 = add i32 %tmp1.i, %x
-  %11 = getelementptr inbounds i8* %4, i32 %10
+  %11 = getelementptr inbounds i8, i8* %4, i32 %10
   %12 = load i8* %11, align 1, !tbaa !27
   ret i8 %12
 }
@@ -25094,18 +25094,18 @@ define signext i8 @rsGetElementAtImpl_char([1 x i32] %a.coerce, i32 %x, i32 %y, 
 define void @rsSetElementAtImpl_char2([1 x i32] %a.coerce, <2 x i8> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i8>*
   store <2 x i8> %val, <2 x i8>* %13, align 2, !tbaa !30
   ret void
@@ -25115,20 +25115,20 @@ define void @rsSetElementAtImpl_char2([1 x i32] %a.coerce, <2 x i8> %val, i32 %x
 define <2 x i8> @rsGetElementAtImpl_char2([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i8>*
-  %14 = load <2 x i8>* %13, align 2, !tbaa !30
+  %14 = load <2 x i8>, <2 x i8>* %13, align 2, !tbaa !30
   ret <2 x i8> %14
 }
 
@@ -25136,18 +25136,18 @@ define <2 x i8> @rsGetElementAtImpl_char2([1 x i32] %a.coerce, i32 %x, i32 %y, i
 define void @rsSetElementAtImpl_char3([1 x i32] %a.coerce, <3 x i8> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i8> %val, <3 x i8> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i8>*
   store <4 x i8> %13, <4 x i8>* %14, align 4, !tbaa !31
@@ -25158,20 +25158,20 @@ define void @rsSetElementAtImpl_char3([1 x i32] %a.coerce, <3 x i8> %val, i32 %x
 define <3 x i8> @rsGetElementAtImpl_char3([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i8>*
-  %14 = load <4 x i8>* %13, align 4, !tbaa !31
+  %14 = load <4 x i8>, <4 x i8>* %13, align 4, !tbaa !31
   %15 = shufflevector <4 x i8> %14, <4 x i8> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i8> %15
 }
@@ -25180,18 +25180,18 @@ define <3 x i8> @rsGetElementAtImpl_char3([1 x i32] %a.coerce, i32 %x, i32 %y, i
 define void @rsSetElementAtImpl_char4([1 x i32] %a.coerce, <4 x i8> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i8>*
   store <4 x i8> %val, <4 x i8>* %13, align 4, !tbaa !32
   ret void
@@ -25201,20 +25201,20 @@ define void @rsSetElementAtImpl_char4([1 x i32] %a.coerce, <4 x i8> %val, i32 %x
 define <4 x i8> @rsGetElementAtImpl_char4([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i8>*
-  %14 = load <4 x i8>* %13, align 4, !tbaa !32
+  %14 = load <4 x i8>, <4 x i8>* %13, align 4, !tbaa !32
   ret <4 x i8> %14
 }
 
@@ -25222,17 +25222,17 @@ define <4 x i8> @rsGetElementAtImpl_char4([1 x i32] %a.coerce, i32 %x, i32 %y, i
 define void @rsSetElementAtImpl_uchar([1 x i32] %a.coerce, i8 zeroext %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %8, %z
   %tmp.i = add i32 %9, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %10 = add i32 %tmp1.i, %x
-  %11 = getelementptr inbounds i8* %4, i32 %10
+  %11 = getelementptr inbounds i8, i8* %4, i32 %10
   store i8 %val, i8* %11, align 1, !tbaa !33
   ret void
 }
@@ -25241,17 +25241,17 @@ define void @rsSetElementAtImpl_uchar([1 x i32] %a.coerce, i8 zeroext %val, i32 
 define zeroext i8 @rsGetElementAtImpl_uchar([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %8, %z
   %tmp.i = add i32 %9, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %10 = add i32 %tmp1.i, %x
-  %11 = getelementptr inbounds i8* %4, i32 %10
+  %11 = getelementptr inbounds i8, i8* %4, i32 %10
   %12 = load i8* %11, align 1, !tbaa !33
   ret i8 %12
 }
@@ -25260,18 +25260,18 @@ define zeroext i8 @rsGetElementAtImpl_uchar([1 x i32] %a.coerce, i32 %x, i32 %y,
 define void @rsSetElementAtImpl_uchar2([1 x i32] %a.coerce, <2 x i8> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i8>*
   store <2 x i8> %val, <2 x i8>* %13, align 2, !tbaa !34
   ret void
@@ -25281,20 +25281,20 @@ define void @rsSetElementAtImpl_uchar2([1 x i32] %a.coerce, <2 x i8> %val, i32 %
 define <2 x i8> @rsGetElementAtImpl_uchar2([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i8>*
-  %14 = load <2 x i8>* %13, align 2, !tbaa !34
+  %14 = load <2 x i8>, <2 x i8>* %13, align 2, !tbaa !34
   ret <2 x i8> %14
 }
 
@@ -25302,18 +25302,18 @@ define <2 x i8> @rsGetElementAtImpl_uchar2([1 x i32] %a.coerce, i32 %x, i32 %y, 
 define void @rsSetElementAtImpl_uchar3([1 x i32] %a.coerce, <3 x i8> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i8> %val, <3 x i8> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i8>*
   store <4 x i8> %13, <4 x i8>* %14, align 4, !tbaa !35
@@ -25324,20 +25324,20 @@ define void @rsSetElementAtImpl_uchar3([1 x i32] %a.coerce, <3 x i8> %val, i32 %
 define <3 x i8> @rsGetElementAtImpl_uchar3([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i8>*
-  %14 = load <4 x i8>* %13, align 4, !tbaa !35
+  %14 = load <4 x i8>, <4 x i8>* %13, align 4, !tbaa !35
   %15 = shufflevector <4 x i8> %14, <4 x i8> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i8> %15
 }
@@ -25346,18 +25346,18 @@ define <3 x i8> @rsGetElementAtImpl_uchar3([1 x i32] %a.coerce, i32 %x, i32 %y, 
 define void @rsSetElementAtImpl_uchar4([1 x i32] %a.coerce, <4 x i8> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i8>*
   store <4 x i8> %val, <4 x i8>* %13, align 4, !tbaa !36
   ret void
@@ -25367,20 +25367,20 @@ define void @rsSetElementAtImpl_uchar4([1 x i32] %a.coerce, <4 x i8> %val, i32 %
 define <4 x i8> @rsGetElementAtImpl_uchar4([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i8>*
-  %14 = load <4 x i8>* %13, align 4, !tbaa !36
+  %14 = load <4 x i8>, <4 x i8>* %13, align 4, !tbaa !36
   ret <4 x i8> %14
 }
 
@@ -25388,18 +25388,18 @@ define <4 x i8> @rsGetElementAtImpl_uchar4([1 x i32] %a.coerce, i32 %x, i32 %y, 
 define void @rsSetElementAtImpl_short([1 x i32] %a.coerce, i16 signext %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i16*
   store i16 %val, i16* %13, align 2, !tbaa !37
   ret void
@@ -25409,20 +25409,20 @@ define void @rsSetElementAtImpl_short([1 x i32] %a.coerce, i16 signext %val, i32
 define signext i16 @rsGetElementAtImpl_short([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i16*
-  %14 = load i16* %13, align 2, !tbaa !37
+  %14 = load i16, i16* %13, align 2, !tbaa !37
   ret i16 %14
 }
 
@@ -25430,18 +25430,18 @@ define signext i16 @rsGetElementAtImpl_short([1 x i32] %a.coerce, i32 %x, i32 %y
 define void @rsSetElementAtImpl_short2([1 x i32] %a.coerce, <2 x i16> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i16>*
   store <2 x i16> %val, <2 x i16>* %13, align 4, !tbaa !38
   ret void
@@ -25451,20 +25451,20 @@ define void @rsSetElementAtImpl_short2([1 x i32] %a.coerce, <2 x i16> %val, i32 
 define <2 x i16> @rsGetElementAtImpl_short2([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i16>*
-  %14 = load <2 x i16>* %13, align 4, !tbaa !38
+  %14 = load <2 x i16>, <2 x i16>* %13, align 4, !tbaa !38
   ret <2 x i16> %14
 }
 
@@ -25472,18 +25472,18 @@ define <2 x i16> @rsGetElementAtImpl_short2([1 x i32] %a.coerce, i32 %x, i32 %y,
 define void @rsSetElementAtImpl_short3([1 x i32] %a.coerce, <3 x i16> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i16> %val, <3 x i16> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i16>*
   store <4 x i16> %13, <4 x i16>* %14, align 8, !tbaa !39
@@ -25494,20 +25494,20 @@ define void @rsSetElementAtImpl_short3([1 x i32] %a.coerce, <3 x i16> %val, i32 
 define <3 x i16> @rsGetElementAtImpl_short3([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i16>*
-  %14 = load <4 x i16>* %13, align 8, !tbaa !39
+  %14 = load <4 x i16>, <4 x i16>* %13, align 8, !tbaa !39
   %15 = shufflevector <4 x i16> %14, <4 x i16> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i16> %15
 }
@@ -25516,18 +25516,18 @@ define <3 x i16> @rsGetElementAtImpl_short3([1 x i32] %a.coerce, i32 %x, i32 %y,
 define void @rsSetElementAtImpl_short4([1 x i32] %a.coerce, <4 x i16> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i16>*
   store <4 x i16> %val, <4 x i16>* %13, align 8, !tbaa !40
   ret void
@@ -25537,20 +25537,20 @@ define void @rsSetElementAtImpl_short4([1 x i32] %a.coerce, <4 x i16> %val, i32 
 define <4 x i16> @rsGetElementAtImpl_short4([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i16>*
-  %14 = load <4 x i16>* %13, align 8, !tbaa !40
+  %14 = load <4 x i16>, <4 x i16>* %13, align 8, !tbaa !40
   ret <4 x i16> %14
 }
 
@@ -25558,18 +25558,18 @@ define <4 x i16> @rsGetElementAtImpl_short4([1 x i32] %a.coerce, i32 %x, i32 %y,
 define void @rsSetElementAtImpl_ushort([1 x i32] %a.coerce, i16 zeroext %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i16*
   store i16 %val, i16* %13, align 2, !tbaa !41
   ret void
@@ -25579,20 +25579,20 @@ define void @rsSetElementAtImpl_ushort([1 x i32] %a.coerce, i16 zeroext %val, i3
 define zeroext i16 @rsGetElementAtImpl_ushort([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 2
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i16*
-  %14 = load i16* %13, align 2, !tbaa !41
+  %14 = load i16, i16* %13, align 2, !tbaa !41
   ret i16 %14
 }
 
@@ -25600,18 +25600,18 @@ define zeroext i16 @rsGetElementAtImpl_ushort([1 x i32] %a.coerce, i32 %x, i32 %
 define void @rsSetElementAtImpl_ushort2([1 x i32] %a.coerce, <2 x i16> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i16>*
   store <2 x i16> %val, <2 x i16>* %13, align 4, !tbaa !42
   ret void
@@ -25621,20 +25621,20 @@ define void @rsSetElementAtImpl_ushort2([1 x i32] %a.coerce, <2 x i16> %val, i32
 define <2 x i16> @rsGetElementAtImpl_ushort2([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i16>*
-  %14 = load <2 x i16>* %13, align 4, !tbaa !42
+  %14 = load <2 x i16>, <2 x i16>* %13, align 4, !tbaa !42
   ret <2 x i16> %14
 }
 
@@ -25642,18 +25642,18 @@ define <2 x i16> @rsGetElementAtImpl_ushort2([1 x i32] %a.coerce, i32 %x, i32 %y
 define void @rsSetElementAtImpl_ushort3([1 x i32] %a.coerce, <3 x i16> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i16> %val, <3 x i16> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i16>*
   store <4 x i16> %13, <4 x i16>* %14, align 8, !tbaa !43
@@ -25664,20 +25664,20 @@ define void @rsSetElementAtImpl_ushort3([1 x i32] %a.coerce, <3 x i16> %val, i32
 define <3 x i16> @rsGetElementAtImpl_ushort3([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i16>*
-  %14 = load <4 x i16>* %13, align 8, !tbaa !43
+  %14 = load <4 x i16>, <4 x i16>* %13, align 8, !tbaa !43
   %15 = shufflevector <4 x i16> %14, <4 x i16> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i16> %15
 }
@@ -25686,18 +25686,18 @@ define <3 x i16> @rsGetElementAtImpl_ushort3([1 x i32] %a.coerce, i32 %x, i32 %y
 define void @rsSetElementAtImpl_ushort4([1 x i32] %a.coerce, <4 x i16> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i16>*
   store <4 x i16> %val, <4 x i16>* %13, align 8, !tbaa !44
   ret void
@@ -25707,20 +25707,20 @@ define void @rsSetElementAtImpl_ushort4([1 x i32] %a.coerce, <4 x i16> %val, i32
 define <4 x i16> @rsGetElementAtImpl_ushort4([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i16>*
-  %14 = load <4 x i16>* %13, align 8, !tbaa !44
+  %14 = load <4 x i16>, <4 x i16>* %13, align 8, !tbaa !44
   ret <4 x i16> %14
 }
 
@@ -25728,18 +25728,18 @@ define <4 x i16> @rsGetElementAtImpl_ushort4([1 x i32] %a.coerce, i32 %x, i32 %y
 define void @rsSetElementAtImpl_int([1 x i32] %a.coerce, i32 %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i32*
   store i32 %val, i32* %13, align 4, !tbaa !45
   ret void
@@ -25749,20 +25749,20 @@ define void @rsSetElementAtImpl_int([1 x i32] %a.coerce, i32 %val, i32 %x, i32 %
 define i32 @rsGetElementAtImpl_int([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i32*
-  %14 = load i32* %13, align 4, !tbaa !45
+  %14 = load i32, i32* %13, align 4, !tbaa !45
   ret i32 %14
 }
 
@@ -25770,18 +25770,18 @@ define i32 @rsGetElementAtImpl_int([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) 
 define void @rsSetElementAtImpl_int2([1 x i32] %a.coerce, <2 x i32> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i32>*
   store <2 x i32> %val, <2 x i32>* %13, align 8, !tbaa !46
   ret void
@@ -25791,20 +25791,20 @@ define void @rsSetElementAtImpl_int2([1 x i32] %a.coerce, <2 x i32> %val, i32 %x
 define <2 x i32> @rsGetElementAtImpl_int2([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i32>*
-  %14 = load <2 x i32>* %13, align 8, !tbaa !46
+  %14 = load <2 x i32>, <2 x i32>* %13, align 8, !tbaa !46
   ret <2 x i32> %14
 }
 
@@ -25812,18 +25812,18 @@ define <2 x i32> @rsGetElementAtImpl_int2([1 x i32] %a.coerce, i32 %x, i32 %y, i
 define void @rsSetElementAtImpl_int3([1 x i32] %a.coerce, <3 x i32> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i32> %val, <3 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i32>*
   store <4 x i32> %13, <4 x i32>* %14, align 16, !tbaa !47
@@ -25834,20 +25834,20 @@ define void @rsSetElementAtImpl_int3([1 x i32] %a.coerce, <3 x i32> %val, i32 %x
 define <3 x i32> @rsGetElementAtImpl_int3([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i32>*
-  %14 = load <4 x i32>* %13, align 8, !tbaa !47
+  %14 = load <4 x i32>, <4 x i32>* %13, align 8, !tbaa !47
   %15 = shufflevector <4 x i32> %14, <4 x i32> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i32> %15
 }
@@ -25856,18 +25856,18 @@ define <3 x i32> @rsGetElementAtImpl_int3([1 x i32] %a.coerce, i32 %x, i32 %y, i
 define void @rsSetElementAtImpl_int4([1 x i32] %a.coerce, <4 x i32> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i32>*
   store <4 x i32> %val, <4 x i32>* %13, align 16, !tbaa !48
   ret void
@@ -25877,20 +25877,20 @@ define void @rsSetElementAtImpl_int4([1 x i32] %a.coerce, <4 x i32> %val, i32 %x
 define <4 x i32> @rsGetElementAtImpl_int4([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i32>*
-  %14 = load <4 x i32>* %13, align 16, !tbaa !48
+  %14 = load <4 x i32>, <4 x i32>* %13, align 16, !tbaa !48
   ret <4 x i32> %14
 }
 
@@ -25898,18 +25898,18 @@ define <4 x i32> @rsGetElementAtImpl_int4([1 x i32] %a.coerce, i32 %x, i32 %y, i
 define void @rsSetElementAtImpl_uint([1 x i32] %a.coerce, i32 %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i32*
   store i32 %val, i32* %13, align 4, !tbaa !49
   ret void
@@ -25919,20 +25919,20 @@ define void @rsSetElementAtImpl_uint([1 x i32] %a.coerce, i32 %val, i32 %x, i32 
 define i32 @rsGetElementAtImpl_uint([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i32*
-  %14 = load i32* %13, align 4, !tbaa !49
+  %14 = load i32, i32* %13, align 4, !tbaa !49
   ret i32 %14
 }
 
@@ -25940,18 +25940,18 @@ define i32 @rsGetElementAtImpl_uint([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z)
 define void @rsSetElementAtImpl_uint2([1 x i32] %a.coerce, <2 x i32> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i32>*
   store <2 x i32> %val, <2 x i32>* %13, align 8, !tbaa !50
   ret void
@@ -25961,20 +25961,20 @@ define void @rsSetElementAtImpl_uint2([1 x i32] %a.coerce, <2 x i32> %val, i32 %
 define <2 x i32> @rsGetElementAtImpl_uint2([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i32>*
-  %14 = load <2 x i32>* %13, align 8, !tbaa !50
+  %14 = load <2 x i32>, <2 x i32>* %13, align 8, !tbaa !50
   ret <2 x i32> %14
 }
 
@@ -25982,18 +25982,18 @@ define <2 x i32> @rsGetElementAtImpl_uint2([1 x i32] %a.coerce, i32 %x, i32 %y, 
 define void @rsSetElementAtImpl_uint3([1 x i32] %a.coerce, <3 x i32> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i32> %val, <3 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i32>*
   store <4 x i32> %13, <4 x i32>* %14, align 16, !tbaa !51
@@ -26004,20 +26004,20 @@ define void @rsSetElementAtImpl_uint3([1 x i32] %a.coerce, <3 x i32> %val, i32 %
 define <3 x i32> @rsGetElementAtImpl_uint3([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i32>*
-  %14 = load <4 x i32>* %13, align 8, !tbaa !51
+  %14 = load <4 x i32>, <4 x i32>* %13, align 8, !tbaa !51
   %15 = shufflevector <4 x i32> %14, <4 x i32> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x i32> %15
 }
@@ -26026,18 +26026,18 @@ define <3 x i32> @rsGetElementAtImpl_uint3([1 x i32] %a.coerce, i32 %x, i32 %y, 
 define void @rsSetElementAtImpl_uint4([1 x i32] %a.coerce, <4 x i32> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i32>*
   store <4 x i32> %val, <4 x i32>* %13, align 16, !tbaa !52
   ret void
@@ -26047,20 +26047,20 @@ define void @rsSetElementAtImpl_uint4([1 x i32] %a.coerce, <4 x i32> %val, i32 %
 define <4 x i32> @rsGetElementAtImpl_uint4([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i32>*
-  %14 = load <4 x i32>* %13, align 16, !tbaa !52
+  %14 = load <4 x i32>, <4 x i32>* %13, align 16, !tbaa !52
   ret <4 x i32> %14
 }
 
@@ -26068,18 +26068,18 @@ define <4 x i32> @rsGetElementAtImpl_uint4([1 x i32] %a.coerce, i32 %x, i32 %y, 
 define void @rsSetElementAtImpl_long([1 x i32] %a.coerce, i64 %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i64*
   store i64 %val, i64* %13, align 8, !tbaa !53
   ret void
@@ -26089,20 +26089,20 @@ define void @rsSetElementAtImpl_long([1 x i32] %a.coerce, i64 %val, i32 %x, i32 
 define i64 @rsGetElementAtImpl_long([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i64*
-  %14 = load i64* %13, align 8, !tbaa !53
+  %14 = load i64, i64* %13, align 8, !tbaa !53
   ret i64 %14
 }
 
@@ -26110,18 +26110,18 @@ define i64 @rsGetElementAtImpl_long([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z)
 define void @rsSetElementAtImpl_long2([1 x i32] %a.coerce, <2 x i64> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i64>*
   store <2 x i64> %val, <2 x i64>* %13, align 16, !tbaa !54
   ret void
@@ -26131,20 +26131,20 @@ define void @rsSetElementAtImpl_long2([1 x i32] %a.coerce, <2 x i64> %val, i32 %
 define <2 x i64> @rsGetElementAtImpl_long2([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i64>*
-  %14 = load <2 x i64>* %13, align 16, !tbaa !54
+  %14 = load <2 x i64>, <2 x i64>* %13, align 16, !tbaa !54
   ret <2 x i64> %14
 }
 
@@ -26152,18 +26152,18 @@ define <2 x i64> @rsGetElementAtImpl_long2([1 x i32] %a.coerce, i32 %x, i32 %y, 
 define void @rsSetElementAtImpl_long3([1 x i32] %a.coerce, <3 x i64> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i64> %val, <3 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i64>*
   store <4 x i64> %13, <4 x i64>* %14, align 32, !tbaa !55
@@ -26174,20 +26174,20 @@ define void @rsSetElementAtImpl_long3([1 x i32] %a.coerce, <3 x i64> %val, i32 %
 define void @rsGetElementAtImpl_long3(<3 x i64>* noalias nocapture sret %agg.result, [1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i64>*
-  %14 = load <4 x i64>* %13, align 32
+  %14 = load <4 x i64>, <4 x i64>* %13, align 32
   %15 = bitcast <3 x i64>* %agg.result to <4 x i64>*
   store <4 x i64> %14, <4 x i64>* %15, align 32, !tbaa !55
   ret void
@@ -26197,18 +26197,18 @@ define void @rsGetElementAtImpl_long3(<3 x i64>* noalias nocapture sret %agg.res
 define void @rsSetElementAtImpl_long4([1 x i32] %a.coerce, <4 x i64> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i64>*
   store <4 x i64> %val, <4 x i64>* %13, align 32, !tbaa !56
   ret void
@@ -26218,20 +26218,20 @@ define void @rsSetElementAtImpl_long4([1 x i32] %a.coerce, <4 x i64> %val, i32 %
 define void @rsGetElementAtImpl_long4(<4 x i64>* noalias nocapture sret %agg.result, [1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i64>*
-  %14 = load <4 x i64>* %13, align 32, !tbaa !28
+  %14 = load <4 x i64>, <4 x i64>* %13, align 32, !tbaa !28
   store <4 x i64> %14, <4 x i64>* %agg.result, align 32, !tbaa !56
   ret void
 }
@@ -26240,18 +26240,18 @@ define void @rsGetElementAtImpl_long4(<4 x i64>* noalias nocapture sret %agg.res
 define void @rsSetElementAtImpl_ulong([1 x i32] %a.coerce, i64 %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i64*
   store i64 %val, i64* %13, align 8, !tbaa !57
   ret void
@@ -26261,20 +26261,20 @@ define void @rsSetElementAtImpl_ulong([1 x i32] %a.coerce, i64 %val, i32 %x, i32
 define i64 @rsGetElementAtImpl_ulong([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to i64*
-  %14 = load i64* %13, align 8, !tbaa !57
+  %14 = load i64, i64* %13, align 8, !tbaa !57
   ret i64 %14
 }
 
@@ -26282,18 +26282,18 @@ define i64 @rsGetElementAtImpl_ulong([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z
 define void @rsSetElementAtImpl_ulong2([1 x i32] %a.coerce, <2 x i64> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i64>*
   store <2 x i64> %val, <2 x i64>* %13, align 16, !tbaa !58
   ret void
@@ -26303,20 +26303,20 @@ define void @rsSetElementAtImpl_ulong2([1 x i32] %a.coerce, <2 x i64> %val, i32 
 define <2 x i64> @rsGetElementAtImpl_ulong2([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x i64>*
-  %14 = load <2 x i64>* %13, align 16, !tbaa !58
+  %14 = load <2 x i64>, <2 x i64>* %13, align 16, !tbaa !58
   ret <2 x i64> %14
 }
 
@@ -26324,18 +26324,18 @@ define <2 x i64> @rsGetElementAtImpl_ulong2([1 x i32] %a.coerce, i32 %x, i32 %y,
 define void @rsSetElementAtImpl_ulong3([1 x i32] %a.coerce, <3 x i64> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x i64> %val, <3 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x i64>*
   store <4 x i64> %13, <4 x i64>* %14, align 32, !tbaa !59
@@ -26346,20 +26346,20 @@ define void @rsSetElementAtImpl_ulong3([1 x i32] %a.coerce, <3 x i64> %val, i32 
 define void @rsGetElementAtImpl_ulong3(<3 x i64>* noalias nocapture sret %agg.result, [1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i64>*
-  %14 = load <4 x i64>* %13, align 32
+  %14 = load <4 x i64>, <4 x i64>* %13, align 32
   %15 = bitcast <3 x i64>* %agg.result to <4 x i64>*
   store <4 x i64> %14, <4 x i64>* %15, align 32, !tbaa !59
   ret void
@@ -26369,18 +26369,18 @@ define void @rsGetElementAtImpl_ulong3(<3 x i64>* noalias nocapture sret %agg.re
 define void @rsSetElementAtImpl_ulong4([1 x i32] %a.coerce, <4 x i64> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i64>*
   store <4 x i64> %val, <4 x i64>* %13, align 32, !tbaa !60
   ret void
@@ -26390,20 +26390,20 @@ define void @rsSetElementAtImpl_ulong4([1 x i32] %a.coerce, <4 x i64> %val, i32 
 define void @rsGetElementAtImpl_ulong4(<4 x i64>* noalias nocapture sret %agg.result, [1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x i64>*
-  %14 = load <4 x i64>* %13, align 32, !tbaa !28
+  %14 = load <4 x i64>, <4 x i64>* %13, align 32, !tbaa !28
   store <4 x i64> %14, <4 x i64>* %agg.result, align 32, !tbaa !60
   ret void
 }
@@ -26412,18 +26412,18 @@ define void @rsGetElementAtImpl_ulong4(<4 x i64>* noalias nocapture sret %agg.re
 define void @rsSetElementAtImpl_float([1 x i32] %a.coerce, float %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to float*
   store float %val, float* %13, align 4, !tbaa !61
   ret void
@@ -26433,20 +26433,20 @@ define void @rsSetElementAtImpl_float([1 x i32] %a.coerce, float %val, i32 %x, i
 define float @rsGetElementAtImpl_float([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 4
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to float*
-  %14 = load float* %13, align 4, !tbaa !61
+  %14 = load float, float* %13, align 4, !tbaa !61
   ret float %14
 }
 
@@ -26454,18 +26454,18 @@ define float @rsGetElementAtImpl_float([1 x i32] %a.coerce, i32 %x, i32 %y, i32 
 define void @rsSetElementAtImpl_float2([1 x i32] %a.coerce, <2 x float> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x float>*
   store <2 x float> %val, <2 x float>* %13, align 8, !tbaa !62
   ret void
@@ -26475,20 +26475,20 @@ define void @rsSetElementAtImpl_float2([1 x i32] %a.coerce, <2 x float> %val, i3
 define <2 x float> @rsGetElementAtImpl_float2([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x float>*
-  %14 = load <2 x float>* %13, align 8, !tbaa !62
+  %14 = load <2 x float>, <2 x float>* %13, align 8, !tbaa !62
   ret <2 x float> %14
 }
 
@@ -26496,18 +26496,18 @@ define <2 x float> @rsGetElementAtImpl_float2([1 x i32] %a.coerce, i32 %x, i32 %
 define void @rsSetElementAtImpl_float3([1 x i32] %a.coerce, <3 x float> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x float> %val, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x float>*
   store <4 x float> %13, <4 x float>* %14, align 16, !tbaa !63
@@ -26518,20 +26518,20 @@ define void @rsSetElementAtImpl_float3([1 x i32] %a.coerce, <3 x float> %val, i3
 define <3 x float> @rsGetElementAtImpl_float3([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x float>*
-  %14 = load <4 x float>* %13, align 8, !tbaa !63
+  %14 = load <4 x float>, <4 x float>* %13, align 8, !tbaa !63
   %15 = shufflevector <4 x float> %14, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2>
   ret <3 x float> %15
 }
@@ -26540,18 +26540,18 @@ define <3 x float> @rsGetElementAtImpl_float3([1 x i32] %a.coerce, i32 %x, i32 %
 define void @rsSetElementAtImpl_float4([1 x i32] %a.coerce, <4 x float> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x float>*
   store <4 x float> %val, <4 x float>* %13, align 16, !tbaa !64
   ret void
@@ -26561,20 +26561,20 @@ define void @rsSetElementAtImpl_float4([1 x i32] %a.coerce, <4 x float> %val, i3
 define <4 x float> @rsGetElementAtImpl_float4([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x float>*
-  %14 = load <4 x float>* %13, align 16, !tbaa !64
+  %14 = load <4 x float>, <4 x float>* %13, align 16, !tbaa !64
   ret <4 x float> %14
 }
 
@@ -26582,18 +26582,18 @@ define <4 x float> @rsGetElementAtImpl_float4([1 x i32] %a.coerce, i32 %x, i32 %
 define void @rsSetElementAtImpl_double([1 x i32] %a.coerce, double %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to double*
   store double %val, double* %13, align 8, !tbaa !65
   ret void
@@ -26603,20 +26603,20 @@ define void @rsSetElementAtImpl_double([1 x i32] %a.coerce, double %val, i32 %x,
 define double @rsGetElementAtImpl_double([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 8
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to double*
-  %14 = load double* %13, align 8, !tbaa !65
+  %14 = load double, double* %13, align 8, !tbaa !65
   ret double %14
 }
 
@@ -26624,18 +26624,18 @@ define double @rsGetElementAtImpl_double([1 x i32] %a.coerce, i32 %x, i32 %y, i3
 define void @rsSetElementAtImpl_double2([1 x i32] %a.coerce, <2 x double> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x double>*
   store <2 x double> %val, <2 x double>* %13, align 16, !tbaa !66
   ret void
@@ -26645,20 +26645,20 @@ define void @rsSetElementAtImpl_double2([1 x i32] %a.coerce, <2 x double> %val, 
 define <2 x double> @rsGetElementAtImpl_double2([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #10 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 16
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <2 x double>*
-  %14 = load <2 x double>* %13, align 16, !tbaa !66
+  %14 = load <2 x double>, <2 x double>* %13, align 16, !tbaa !66
   ret <2 x double> %14
 }
 
@@ -26666,18 +26666,18 @@ define <2 x double> @rsGetElementAtImpl_double2([1 x i32] %a.coerce, i32 %x, i32
 define void @rsSetElementAtImpl_double3([1 x i32] %a.coerce, <3 x double> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = shufflevector <3 x double> %val, <3 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %14 = bitcast i8* %12 to <4 x double>*
   store <4 x double> %13, <4 x double>* %14, align 32, !tbaa !67
@@ -26688,20 +26688,20 @@ define void @rsSetElementAtImpl_double3([1 x i32] %a.coerce, <3 x double> %val, 
 define void @rsGetElementAtImpl_double3(<3 x double>* noalias nocapture sret %agg.result, [1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x double>*
-  %14 = load <4 x double>* %13, align 32
+  %14 = load <4 x double>, <4 x double>* %13, align 32
   %15 = bitcast <3 x double>* %agg.result to <4 x double>*
   store <4 x double> %14, <4 x double>* %15, align 32, !tbaa !67
   ret void
@@ -26711,18 +26711,18 @@ define void @rsGetElementAtImpl_double3(<3 x double>* noalias nocapture sret %ag
 define void @rsSetElementAtImpl_double4([1 x i32] %a.coerce, <4 x double> %val, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x double>*
   store <4 x double> %val, <4 x double>* %13, align 32, !tbaa !68
   ret void
@@ -26732,20 +26732,20 @@ define void @rsSetElementAtImpl_double4([1 x i32] %a.coerce, <4 x double> %val, 
 define void @rsGetElementAtImpl_double4(<4 x double>* noalias nocapture sret %agg.result, [1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #9 {
   %1 = extractvalue [1 x i32] %a.coerce, 0
   %2 = inttoptr i32 %1 to %struct.Allocation*
-  %3 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
+  %3 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 0
   %4 = load i8** %3, align 4, !tbaa !22
-  %5 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
+  %5 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 1
   %6 = load i32* %5, align 4, !tbaa !21
-  %7 = getelementptr inbounds %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
+  %7 = getelementptr inbounds %struct.Allocation, %struct.Allocation* %2, i32 0, i32 1, i32 2, i32 0, i32 0, i32 3
   %8 = load i32* %7, align 4, !tbaa !21
   %9 = mul i32 %x, 32
   %10 = mul i32 %8, %z
   %tmp.i = add i32 %10, %y
   %tmp1.i = mul i32 %tmp.i, %6
   %11 = add i32 %tmp1.i, %9
-  %12 = getelementptr inbounds i8* %4, i32 %11
+  %12 = getelementptr inbounds i8, i8* %4, i32 %11
   %13 = bitcast i8* %12 to <4 x double>*
-  %14 = load <4 x double>* %13, align 32, !tbaa !28
+  %14 = load <4 x double>, <4 x double>* %13, align 32, !tbaa !28
   store <4 x double> %14, <4 x double>* %agg.result, align 32, !tbaa !68
   ret void
 }
@@ -27113,7 +27113,7 @@ entry:
 define void @_Z8vstore16Dv16_cjPc(<16 x i8> %data, i32 %offset, i8* nocapture %p) #2 {
 entry:
   %mul = shl i32 %offset, 4
-  %add.ptr = getelementptr i8* %p, i32 %mul
+  %add.ptr = getelementptr i8, i8* %p, i32 %mul
   %data.addr.0.add.ptr.cast = bitcast i8* %add.ptr to <16 x i8>*
   store <16 x i8> %data, <16 x i8>* %data.addr.0.add.ptr.cast, align 1
   ret void
@@ -27123,18 +27123,18 @@ entry:
 define <16 x i8> @_Z7vload16jPKc(i32 %offset, i8* nocapture %p) #11 {
 entry:
   %mul = shl i32 %offset, 4
-  %add.ptr = getelementptr i8* %p, i32 %mul
+  %add.ptr = getelementptr i8, i8* %p, i32 %mul
   %res.0.add.ptr.cast = bitcast i8* %add.ptr to <16 x i8>*
-  %res.0.copyload = load <16 x i8>* %res.0.add.ptr.cast, align 1
+  %res.0.copyload = load <16 x i8>, <16 x i8>* %res.0.add.ptr.cast, align 1
   ret <16 x i8> %res.0.copyload
 }
 
 ; Function Attrs: alwaysinline nounwind
 define void @__ocl_load_transpose_char4x4(<4 x i8>* %pLoadAdd, <4 x i8>* nocapture %xOut, <4 x i8>* nocapture %yOut, <4 x i8>* nocapture %zOut, <4 x i8>* nocapture %wOut) #1 {
 entry:
-  %0 = getelementptr inbounds <4 x i8>* %pLoadAdd, i32 0, i32 0
+  %0 = getelementptr inbounds <4 x i8>, <4 x i8>* %pLoadAdd, i32 0, i32 0
   %res.0.add.ptr.cast.i = bitcast i8* %0 to <16 x i8>*
-  %res.0.copyload.i = load <16 x i8>* %res.0.add.ptr.cast.i, align 1
+  %res.0.copyload.i = load <16 x i8>, <16 x i8>* %res.0.add.ptr.cast.i, align 1
   %1 = shufflevector <16 x i8> %res.0.copyload.i, <16 x i8> undef, <4 x i32> <i32 0, i32 4, i32 8, i32 12>
   store <4 x i8> %1, <4 x i8>* %xOut, align 4, !tbaa !19
   %2 = bitcast <16 x i8> %res.0.copyload.i to <2 x i64>
@@ -27181,7 +27181,7 @@ entry:
   %astype5.i.i9.i = bitcast <16 x i8> %15 to <8 x i16>
   %16 = select <8 x i1> <i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false>, <8 x i16> %astype5.i.i.i, <8 x i16> %astype5.i.i9.i
   %astype4.i = bitcast <8 x i16> %16 to <16 x i8>
-  %17 = getelementptr inbounds <4 x i8>* %pStoreAdd, i32 0, i32 0
+  %17 = getelementptr inbounds <4 x i8>, <4 x i8>* %pStoreAdd, i32 0, i32 0
   %data.addr.0.add.ptr.cast.i = bitcast i8* %17 to <16 x i8>*
   store <16 x i8> %astype4.i, <16 x i8>* %data.addr.0.add.ptr.cast.i, align 1
   ret void
@@ -27233,12 +27233,12 @@ entry:
 ; Function Attrs: alwaysinline nounwind
 define void @__ocl_load_transpose_char4x8(<4 x i8>* %pLoadAdd, <8 x i8>* nocapture %xOut, <8 x i8>* nocapture %yOut, <8 x i8>* nocapture %zOut, <8 x i8>* nocapture %wOut) #1 {
 entry:
-  %0 = getelementptr inbounds <4 x i8>* %pLoadAdd, i32 0, i32 0
+  %0 = getelementptr inbounds <4 x i8>, <4 x i8>* %pLoadAdd, i32 0, i32 0
   %res.0.add.ptr.cast.i = bitcast i8* %0 to <16 x i8>*
   %res.0.copyload.i = load <16 x i8>* %res.0.add.ptr.cast.i, align 1
-  %add.ptr.i = getelementptr i8* %0, i32 16
+  %add.ptr.i = getelementptr i8, i8* %0, i32 16
   %res.0.add.ptr.cast.i6 = bitcast i8* %add.ptr.i to <16 x i8>*
-  %res.0.copyload.i7 = load <16 x i8>* %res.0.add.ptr.cast.i6, align 1
+  %res.0.copyload.i7 = load <16 x i8>, <16 x i8>* %res.0.add.ptr.cast.i6, align 1
   %1 = shufflevector <16 x i8> %res.0.copyload.i, <16 x i8> undef, <16 x i32> <i32 0, i32 4, i32 8, i32 12, i32 1, i32 5, i32 9, i32 13, i32 2, i32 6, i32 10, i32 14, i32 3, i32 7, i32 11, i32 15>
   %2 = shufflevector <16 x i8> %res.0.copyload.i7, <16 x i8> undef, <16 x i32> <i32 0, i32 4, i32 8, i32 12, i32 1, i32 5, i32 9, i32 13, i32 2, i32 6, i32 10, i32 14, i32 3, i32 7, i32 11, i32 15>
   %astype.i.i = bitcast <16 x i8> %1 to <4 x i32>
@@ -27321,10 +27321,10 @@ entry:
   %astype5.i.i9.i = bitcast <16 x i8> %22 to <8 x i16>
   %23 = select <8 x i1> <i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false>, <8 x i16> %astype5.i.i.i, <8 x i16> %astype5.i.i9.i
   %astype6.i.i = bitcast <8 x i16> %23 to <16 x i8>
-  %24 = getelementptr inbounds <4 x i8>* %pStoreAdd, i32 0, i32 0
+  %24 = getelementptr inbounds <4 x i8>, <4 x i8>* %pStoreAdd, i32 0, i32 0
   %data.addr.0.add.ptr.cast.i1 = bitcast i8* %24 to <16 x i8>*
   store <16 x i8> %astype4.i.i, <16 x i8>* %data.addr.0.add.ptr.cast.i1, align 1
-  %add.ptr.i = getelementptr i8* %24, i32 16
+  %add.ptr.i = getelementptr i8, i8* %24, i32 16
   %data.addr.0.add.ptr.cast.i = bitcast i8* %add.ptr.i to <16 x i8>*
   store <16 x i8> %astype6.i.i, <16 x i8>* %data.addr.0.add.ptr.cast.i, align 1
   ret void
@@ -27402,11 +27402,11 @@ entry:
 define void @__ocl_load_transpose_int4x4(<4 x i32>* nocapture %pLoadAdd, <4 x i32>* nocapture %xOut, <4 x i32>* nocapture %yOut, <4 x i32>* nocapture %zOut, <4 x i32>* nocapture %wOut) #1 {
 entry:
   %0 = load <4 x i32>* %pLoadAdd, align 16, !tbaa !19
-  %arrayidx1.i = getelementptr <4 x i32>* %pLoadAdd, i32 1
+  %arrayidx1.i = getelementptr <4 x i32>, <4 x i32>* %pLoadAdd, i32 1
   %1 = load <4 x i32>* %arrayidx1.i, align 16, !tbaa !19
-  %arrayidx2.i = getelementptr <4 x i32>* %pLoadAdd, i32 2
+  %arrayidx2.i = getelementptr <4 x i32>, <4 x i32>* %pLoadAdd, i32 2
   %2 = load <4 x i32>* %arrayidx2.i, align 16, !tbaa !19
-  %arrayidx3.i = getelementptr <4 x i32>* %pLoadAdd, i32 3
+  %arrayidx3.i = getelementptr <4 x i32>, <4 x i32>* %pLoadAdd, i32 3
   %3 = load <4 x i32>* %arrayidx3.i, align 16, !tbaa !19
   %4 = tail call <16 x i8> @llvm.x86.ssse3.pshuf.b.128(<16 x i8> bitcast (<4 x i32> <i32 0, i32 0, i32 1, i32 1> to <16 x i8>), <16 x i8> <i8 0, i8 0, i8 0, i8 0, i8 4, i8 4, i8 4, i8 4, i8 8, i8 8, i8 8, i8 8, i8 12, i8 12, i8 12, i8 12>) #2
   %astype1.i.i.i = bitcast <16 x i8> %4 to <8 x i16>
@@ -27514,9 +27514,9 @@ entry:
 ; Function Attrs: alwaysinline nounwind
 define void @__ocl_transpose_store_int4x4(<4 x i32>* nocapture %pStoreAdd, <4 x i32> %xIn, <4 x i32> %yIn, <4 x i32> %zIn, <4 x i32> %wIn) #1 {
 entry:
-  %arrayidx1.i = getelementptr <4 x i32>* %pStoreAdd, i32 1
-  %arrayidx2.i = getelementptr <4 x i32>* %pStoreAdd, i32 2
-  %arrayidx3.i = getelementptr <4 x i32>* %pStoreAdd, i32 3
+  %arrayidx1.i = getelementptr <4 x i32>, <4 x i32>* %pStoreAdd, i32 1
+  %arrayidx2.i = getelementptr <4 x i32>, <4 x i32>* %pStoreAdd, i32 2
+  %arrayidx3.i = getelementptr <4 x i32>, <4 x i32>* %pStoreAdd, i32 3
   %0 = tail call <16 x i8> @llvm.x86.ssse3.pshuf.b.128(<16 x i8> bitcast (<4 x i32> <i32 0, i32 0, i32 1, i32 1> to <16 x i8>), <16 x i8> <i8 0, i8 0, i8 0, i8 0, i8 4, i8 4, i8 4, i8 4, i8 8, i8 8, i8 8, i8 8, i8 12, i8 12, i8 12, i8 12>) #2
   %astype1.i.i.i = bitcast <16 x i8> %0 to <8 x i16>
   %shl.i.i.i = shl <8 x i16> %astype1.i.i.i, <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
@@ -27623,10 +27623,10 @@ entry:
 ; Function Attrs: alwaysinline nounwind
 define void @__ocl_gather_transpose_int4x4(<4 x i32>* nocapture %pLoadAdd0, <4 x i32>* nocapture %pLoadAdd1, <4 x i32>* nocapture %pLoadAdd2, <4 x i32>* nocapture %pLoadAdd3, <4 x i32>* nocapture %xOut, <4 x i32>* nocapture %yOut, <4 x i32>* nocapture %zOut, <4 x i32>* nocapture %wOut) #1 {
 entry:
-  %0 = load <4 x i32>* %pLoadAdd0, align 16, !tbaa !19
-  %1 = load <4 x i32>* %pLoadAdd1, align 16, !tbaa !19
-  %2 = load <4 x i32>* %pLoadAdd2, align 16, !tbaa !19
-  %3 = load <4 x i32>* %pLoadAdd3, align 16, !tbaa !19
+  %0 = load <4 x i32>, <4 x i32>* %pLoadAdd0, align 16, !tbaa !19
+  %1 = load <4 x i32>, <4 x i32>* %pLoadAdd1, align 16, !tbaa !19
+  %2 = load <4 x i32>, <4 x i32>* %pLoadAdd2, align 16, !tbaa !19
+  %3 = load <4 x i32>, <4 x i32>* %pLoadAdd3, align 16, !tbaa !19
   %4 = tail call <16 x i8> @llvm.x86.ssse3.pshuf.b.128(<16 x i8> bitcast (<4 x i32> <i32 0, i32 0, i32 1, i32 1> to <16 x i8>), <16 x i8> <i8 0, i8 0, i8 0, i8 0, i8 4, i8 4, i8 4, i8 4, i8 8, i8 8, i8 8, i8 8, i8 12, i8 12, i8 12, i8 12>) #2
   %astype1.i.i.i = bitcast <16 x i8> %4 to <8 x i16>
   %shl.i.i.i = shl <8 x i16> %astype1.i.i.i, <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
@@ -27840,11 +27840,11 @@ entry:
 define void @__ocl_load_transpose_float4x4(<4 x float>* nocapture %pLoadAdd, <4 x float>* nocapture %xOut, <4 x float>* nocapture %yOut, <4 x float>* nocapture %zOut, <4 x float>* nocapture %wOut) #1 {
 entry:
   %0 = load <4 x float>* %pLoadAdd, align 16, !tbaa !19
-  %arrayidx1.i = getelementptr <4 x float>* %pLoadAdd, i32 1
+  %arrayidx1.i = getelementptr <4 x float>, <4 x float>* %pLoadAdd, i32 1
   %1 = load <4 x float>* %arrayidx1.i, align 16, !tbaa !19
-  %arrayidx2.i = getelementptr <4 x float>* %pLoadAdd, i32 2
+  %arrayidx2.i = getelementptr <4 x float>, <4 x float>* %pLoadAdd, i32 2
   %2 = load <4 x float>* %arrayidx2.i, align 16, !tbaa !19
-  %arrayidx3.i = getelementptr <4 x float>* %pLoadAdd, i32 3
+  %arrayidx3.i = getelementptr <4 x float>, <4 x float>* %pLoadAdd, i32 3
   %3 = load <4 x float>* %arrayidx3.i, align 16, !tbaa !19
   %4 = tail call <16 x i8> @llvm.x86.ssse3.pshuf.b.128(<16 x i8> bitcast (<4 x i32> <i32 0, i32 0, i32 1, i32 1> to <16 x i8>), <16 x i8> <i8 0, i8 0, i8 0, i8 0, i8 4, i8 4, i8 4, i8 4, i8 8, i8 8, i8 8, i8 8, i8 12, i8 12, i8 12, i8 12>) #2
   %astype1.i.i.i = bitcast <16 x i8> %4 to <8 x i16>
@@ -27952,9 +27952,9 @@ entry:
 ; Function Attrs: alwaysinline nounwind
 define void @__ocl_transpose_store_float4x4(<4 x float>* nocapture %pStoreAdd, <4 x float> %xIn, <4 x float> %yIn, <4 x float> %zIn, <4 x float> %wIn) #1 {
 entry:
-  %arrayidx1.i = getelementptr <4 x float>* %pStoreAdd, i32 1
-  %arrayidx2.i = getelementptr <4 x float>* %pStoreAdd, i32 2
-  %arrayidx3.i = getelementptr <4 x float>* %pStoreAdd, i32 3
+  %arrayidx1.i = getelementptr <4 x float>, <4 x float>* %pStoreAdd, i32 1
+  %arrayidx2.i = getelementptr <4 x float>, <4 x float>* %pStoreAdd, i32 2
+  %arrayidx3.i = getelementptr <4 x float>, <4 x float>* %pStoreAdd, i32 3
   %0 = tail call <16 x i8> @llvm.x86.ssse3.pshuf.b.128(<16 x i8> bitcast (<4 x i32> <i32 0, i32 0, i32 1, i32 1> to <16 x i8>), <16 x i8> <i8 0, i8 0, i8 0, i8 0, i8 4, i8 4, i8 4, i8 4, i8 8, i8 8, i8 8, i8 8, i8 12, i8 12, i8 12, i8 12>) #2
   %astype1.i.i.i = bitcast <16 x i8> %0 to <8 x i16>
   %shl.i.i.i = shl <8 x i16> %astype1.i.i.i, <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
@@ -28061,10 +28061,10 @@ entry:
 ; Function Attrs: alwaysinline nounwind
 define void @__ocl_gather_transpose_float4x4(<4 x float>* nocapture %pLoadAdd0, <4 x float>* nocapture %pLoadAdd1, <4 x float>* nocapture %pLoadAdd2, <4 x float>* nocapture %pLoadAdd3, <4 x float>* nocapture %xOut, <4 x float>* nocapture %yOut, <4 x float>* nocapture %zOut, <4 x float>* nocapture %wOut) #1 {
 entry:
-  %0 = load <4 x float>* %pLoadAdd0, align 16, !tbaa !19
-  %1 = load <4 x float>* %pLoadAdd1, align 16, !tbaa !19
-  %2 = load <4 x float>* %pLoadAdd2, align 16, !tbaa !19
-  %3 = load <4 x float>* %pLoadAdd3, align 16, !tbaa !19
+  %0 = load <4 x float>, <4 x float>* %pLoadAdd0, align 16, !tbaa !19
+  %1 = load <4 x float>, <4 x float>* %pLoadAdd1, align 16, !tbaa !19
+  %2 = load <4 x float>, <4 x float>* %pLoadAdd2, align 16, !tbaa !19
+  %3 = load <4 x float>, <4 x float>* %pLoadAdd3, align 16, !tbaa !19
   %4 = tail call <16 x i8> @llvm.x86.ssse3.pshuf.b.128(<16 x i8> bitcast (<4 x i32> <i32 0, i32 0, i32 1, i32 1> to <16 x i8>), <16 x i8> <i8 0, i8 0, i8 0, i8 0, i8 4, i8 4, i8 4, i8 4, i8 8, i8 8, i8 8, i8 8, i8 12, i8 12, i8 12, i8 12>) #2
   %astype1.i.i.i = bitcast <16 x i8> %4 to <8 x i16>
   %shl.i.i.i = shl <8 x i16> %astype1.i.i.i, <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
@@ -28645,31 +28645,31 @@ declare <4 x float> @llvm.x86.sse41.blendps(<4 x float>, <4 x float>, i32) #8
 ; Function Attrs: alwaysinline nounwind
 define void @__ocl_gather_transpose_char4x8(<4 x i8>* nocapture %pLoadAdd0, <4 x i8>* nocapture %pLoadAdd1, <4 x i8>* nocapture %pLoadAdd2, <4 x i8>* nocapture %pLoadAdd3, <4 x i8>* nocapture %pLoadAdd4, <4 x i8>* nocapture %pLoadAdd5, <4 x i8>* nocapture %pLoadAdd6, <4 x i8>* nocapture %pLoadAdd7, <8 x i8>* nocapture %xOut, <8 x i8>* nocapture %yOut, <8 x i8>* nocapture %zOut, <8 x i8>* nocapture %wOut) #1 {
 entry:
-  %0 = load <4 x i8>* %pLoadAdd1, align 4
+  %0 = load <4 x i8>, <4 x i8>* %pLoadAdd1, align 4
   %1 = bitcast <4 x i8> %0 to i32
   %2 = insertelement <4 x i32> undef, i32 %1, i32 0
   %splat.i = shufflevector <4 x i32> %2, <4 x i32> undef, <4 x i32> zeroinitializer
-  %3 = load <4 x i8>* %pLoadAdd2, align 4
+  %3 = load <4 x i8>, <4 x i8>* %pLoadAdd2, align 4
   %4 = bitcast <4 x i8> %3 to i32
   %5 = insertelement <4 x i32> undef, i32 %4, i32 0
   %splat1.i = shufflevector <4 x i32> %5, <4 x i32> undef, <4 x i32> zeroinitializer
-  %6 = load <4 x i8>* %pLoadAdd3, align 4
+  %6 = load <4 x i8>, <4 x i8>* %pLoadAdd3, align 4
   %7 = bitcast <4 x i8> %6 to i32
   %8 = insertelement <4 x i32> undef, i32 %7, i32 0
   %splat2.i = shufflevector <4 x i32> %8, <4 x i32> undef, <4 x i32> zeroinitializer
-  %9 = load <4 x i8>* %pLoadAdd5, align 4
+  %9 = load <4 x i8>, <4 x i8>* %pLoadAdd5, align 4
   %10 = bitcast <4 x i8> %9 to i32
   %11 = insertelement <4 x i32> undef, i32 %10, i32 0
   %splat3.i = shufflevector <4 x i32> %11, <4 x i32> undef, <4 x i32> zeroinitializer
-  %12 = load <4 x i8>* %pLoadAdd6, align 4
+  %12 = load <4 x i8>, <4 x i8>* %pLoadAdd6, align 4
   %13 = bitcast <4 x i8> %12 to i32
   %14 = insertelement <4 x i32> undef, i32 %13, i32 0
   %splat4.i = shufflevector <4 x i32> %14, <4 x i32> undef, <4 x i32> zeroinitializer
-  %15 = load <4 x i8>* %pLoadAdd7, align 4
+  %15 = load <4 x i8>, <4 x i8>* %pLoadAdd7, align 4
   %16 = bitcast <4 x i8> %15 to i32
   %17 = insertelement <4 x i32> undef, i32 %16, i32 0
   %splat5.i = shufflevector <4 x i32> %17, <4 x i32> undef, <4 x i32> zeroinitializer
-  %18 = load <4 x i8>* %pLoadAdd0, align 4
+  %18 = load <4 x i8>, <4 x i8>* %pLoadAdd0, align 4
   %19 = bitcast <4 x i8> %18 to i32
   %20 = insertelement <4 x i32> undef, i32 %19, i32 0
   %21 = bitcast <4 x i32> %20 to <4 x float>
@@ -28679,7 +28679,7 @@ entry:
   %25 = tail call <4 x float> @llvm.x86.sse41.blendps(<4 x float> %23, <4 x float> %24, i32 4) #2
   %26 = bitcast <4 x i32> %splat2.i to <4 x float>
   %27 = tail call <4 x float> @llvm.x86.sse41.blendps(<4 x float> %25, <4 x float> %26, i32 8) #2
-  %28 = load <4 x i8>* %pLoadAdd4, align 4
+  %28 = load <4 x i8>, <4 x i8>* %pLoadAdd4, align 4
   %29 = bitcast <4 x i8> %28 to i32
   %30 = insertelement <4 x i32> undef, i32 %29, i32 0
   %31 = bitcast <4 x i32> %30 to <4 x float>
@@ -28735,19 +28735,19 @@ entry:
 ; Function Attrs: alwaysinline nounwind
 define void @__ocl_gather_transpose_char4x4(<4 x i8>* nocapture %pLoadAdd0, <4 x i8>* nocapture %pLoadAdd1, <4 x i8>* nocapture %pLoadAdd2, <4 x i8>* nocapture %pLoadAdd3, <4 x i8>* nocapture %xOut, <4 x i8>* nocapture %yOut, <4 x i8>* nocapture %zOut, <4 x i8>* nocapture %wOut) #1 {
 entry:
-  %0 = load <4 x i8>* %pLoadAdd1, align 4
+  %0 = load <4 x i8>, <4 x i8>* %pLoadAdd1, align 4
   %1 = bitcast <4 x i8> %0 to i32
   %2 = insertelement <4 x i32> undef, i32 %1, i32 0
   %splat = shufflevector <4 x i32> %2, <4 x i32> undef, <4 x i32> zeroinitializer
-  %3 = load <4 x i8>* %pLoadAdd2, align 4
+  %3 = load <4 x i8>, <4 x i8>* %pLoadAdd2, align 4
   %4 = bitcast <4 x i8> %3 to i32
   %5 = insertelement <4 x i32> undef, i32 %4, i32 0
   %splat1 = shufflevector <4 x i32> %5, <4 x i32> undef, <4 x i32> zeroinitializer
-  %6 = load <4 x i8>* %pLoadAdd3, align 4
+  %6 = load <4 x i8>, <4 x i8>* %pLoadAdd3, align 4
   %7 = bitcast <4 x i8> %6 to i32
   %8 = insertelement <4 x i32> undef, i32 %7, i32 0
   %splat2 = shufflevector <4 x i32> %8, <4 x i32> undef, <4 x i32> zeroinitializer
-  %9 = load <4 x i8>* %pLoadAdd0, align 4
+  %9 = load <4 x i8>, <4 x i8>* %pLoadAdd0, align 4
   %10 = bitcast <4 x i8> %9 to i32
   %11 = insertelement <4 x i32> undef, i32 %10, i32 0
   %12 = bitcast <4 x i32> %11 to <4 x float>

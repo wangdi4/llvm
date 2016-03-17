@@ -30,30 +30,30 @@ entry:
   store <2 x float> %checkerSize, <2 x float>* %checkerSize.addr
   store <4 x float> %color1, <4 x float>* %color1.addr
   store <4 x float> %color2, <4 x float>* %color2.addr
-  %tmp = load <2 x float>* %outCrd.addr           ; <<2 x float>> [#uses=1]
-  %tmp1 = load <2 x float>* %checkerSize.addr     ; <<2 x float>> [#uses=3]
+  %tmp = load <2 x float>, <2 x float>* %outCrd.addr           ; <<2 x float>> [#uses=1]
+  %tmp1 = load <2 x float>, <2 x float>* %checkerSize.addr     ; <<2 x float>> [#uses=3]
   %cmp = fcmp oeq <2 x float> zeroinitializer, %tmp1 ; <<2 x i1>> [#uses=1]
   %sel = select <2 x i1> %cmp, <2 x float> <float 1.000000e+000, float 1.000000e+000>, <2 x float> %tmp1 ; <<2 x float>> [#uses=0]
   %div = fdiv <2 x float> %tmp, %tmp1             ; <<2 x float>> [#uses=1]
   %call = call <2 x float> @_Z5floorU8__vector2f(<2 x float> %div) ; <<2 x float>> [#uses=1]
   store <2 x float> %call, <2 x float>* %checkerLocation
   store <2 x float> <float 2.000000e+000, float 2.000000e+000>, <2 x float>* %f2_2
-  %tmp4 = load <2 x float>* %checkerLocation      ; <<2 x float>> [#uses=1]
-  %tmp5 = load <2 x float>* %f2_2                 ; <<2 x float>> [#uses=1]
+  %tmp4 = load <2 x float>, <2 x float>* %checkerLocation      ; <<2 x float>> [#uses=1]
+  %tmp5 = load <2 x float>, <2 x float>* %f2_2                 ; <<2 x float>> [#uses=1]
   %call6 = call <2 x float> @_Z4fmodU8__vector2fS_(<2 x float> %tmp4, <2 x float> %tmp5) ; <<2 x float>> [#uses=1]
   store <2 x float> %call6, <2 x float>* %modLocation
   store <2 x float> zeroinitializer, <2 x float>* %f0_0
   store <2 x float> <float 1.000000e+000, float 1.000000e+000>, <2 x float>* %f1_1
-  %tmp10 = load <2 x float>* %modLocation         ; <<2 x float>> [#uses=1]
-  %tmp11 = load <2 x float>* %f0_0                ; <<2 x float>> [#uses=1]
+  %tmp10 = load <2 x float>, <2 x float>* %modLocation         ; <<2 x float>> [#uses=1]
+  %tmp11 = load <2 x float>, <2 x float>* %f0_0                ; <<2 x float>> [#uses=1]
   %call12 = call <2 x i32> @_Z7isequalU8__vector2fS_(<2 x float> %tmp10, <2 x float> %tmp11) ; <<2 x i32>> [#uses=1]
   %call13 = call i32 @_Z3allU8__vector2i(<2 x i32> %call12) ; <i32> [#uses=1]
   %tobool = icmp ne i32 %call13, 0                ; <i1> [#uses=1]
   br i1 %tobool, label %lor.end, label %lor.rhs
 
 lor.rhs:                                          ; preds = %entry
-  %tmp14 = load <2 x float>* %modLocation         ; <<2 x float>> [#uses=1]
-  %tmp15 = load <2 x float>* %f1_1                ; <<2 x float>> [#uses=1]
+  %tmp14 = load <2 x float>, <2 x float>* %modLocation         ; <<2 x float>> [#uses=1]
+  %tmp15 = load <2 x float>, <2 x float>* %f1_1                ; <<2 x float>> [#uses=1]
   %call16 = call <2 x i32> @_Z7isequalU8__vector2fS_(<2 x float> %tmp14, <2 x float> %tmp15) ; <<2 x i32>> [#uses=1]
   %call17 = call i32 @_Z3allU8__vector2i(<2 x i32> %call16) ; <i32> [#uses=1]
   %tobool18 = icmp ne i32 %call17, 0              ; <i1> [#uses=1]
@@ -63,24 +63,24 @@ lor.end:                                          ; preds = %lor.rhs, %entry
   %0 = phi i1 [ true, %entry ], [ %tobool18, %lor.rhs ] ; <i1> [#uses=1]
   %lor.ext = zext i1 %0 to i32                    ; <i32> [#uses=1]
   store i32 %lor.ext, i32* %setColor1
-  %tmp20 = load i32* %setColor1                   ; <i32> [#uses=1]
+  %tmp20 = load i32, i32* %setColor1                   ; <i32> [#uses=1]
   %tobool21 = icmp ne i32 %tmp20, 0               ; <i1> [#uses=1]
   br i1 %tobool21, label %cond.true, label %cond.false
 
 cond.true:                                        ; preds = %lor.end
-  %tmp22 = load <4 x float>* %color1.addr         ; <<4 x float>> [#uses=1]
+  %tmp22 = load <4 x float>, <4 x float>* %color1.addr         ; <<4 x float>> [#uses=1]
   br label %cond.end
 
 cond.false:                                       ; preds = %lor.end
-  %tmp23 = load <4 x float>* %color2.addr         ; <<4 x float>> [#uses=1]
+  %tmp23 = load <4 x float>, <4 x float>* %color2.addr         ; <<4 x float>> [#uses=1]
   br label %cond.end
 
 cond.end:                                         ; preds = %cond.false, %cond.true
   %cond = phi <4 x float> [ %tmp22, %cond.true ], [ %tmp23, %cond.false ] ; <<4 x float>> [#uses=1]
   store <4 x float> %cond, <4 x float>* %dst
-  %tmp24 = load <4 x float>* %dst                 ; <<4 x float>> [#uses=1]
+  %tmp24 = load <4 x float>, <4 x float>* %dst                 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp24, <4 x float>* %retval
-  %1 = load <4 x float>* %retval                  ; <<4 x float>> [#uses=1]
+  %1 = load <4 x float>, <4 x float>* %retval                  ; <<4 x float>> [#uses=1]
   ret <4 x float> %1
 }
 
@@ -114,27 +114,27 @@ entry:
   store i32 %call1, i32* %gid1_row
   %call2 = call i32 @get_global_size(i32 0)       ; <i32> [#uses=1]
   store i32 %call2, i32* %imgWidth
-  %tmp = load i32* %gid1_row                      ; <i32> [#uses=1]
-  %tmp3 = load i32* %imgWidth                     ; <i32> [#uses=1]
+  %tmp = load i32, i32* %gid1_row                      ; <i32> [#uses=1]
+  %tmp3 = load i32, i32* %imgWidth                     ; <i32> [#uses=1]
   %mul = mul i32 %tmp, %tmp3                      ; <i32> [#uses=1]
-  %tmp4 = load i32* %gid0_col                     ; <i32> [#uses=1]
+  %tmp4 = load i32, i32* %gid0_col                     ; <i32> [#uses=1]
   %add = add nsw i32 %mul, %tmp4                  ; <i32> [#uses=1]
   store i32 %add, i32* %index
-  %tmp6 = load i32* %gid0_col                     ; <i32> [#uses=1]
+  %tmp6 = load i32, i32* %gid0_col                     ; <i32> [#uses=1]
   %conv = sitofp i32 %tmp6 to float               ; <float> [#uses=1]
   %vecinit = insertelement <2 x float> undef, float %conv, i32 0 ; <<2 x float>> [#uses=1]
-  %tmp7 = load i32* %gid1_row                     ; <i32> [#uses=1]
+  %tmp7 = load i32, i32* %gid1_row                     ; <i32> [#uses=1]
   %conv8 = sitofp i32 %tmp7 to float              ; <float> [#uses=1]
   %vecinit9 = insertelement <2 x float> %vecinit, float %conv8, i32 1 ; <<2 x float>> [#uses=1]
   store <2 x float> %vecinit9, <2 x float>* %curCrd
-  %tmp10 = load <2 x float>* %curCrd              ; <<2 x float>> [#uses=1]
-  %tmp11 = load <2 x float>* %checkerSize.addr    ; <<2 x float>> [#uses=1]
-  %tmp12 = load <4 x float>* %color1.addr         ; <<4 x float>> [#uses=1]
-  %tmp13 = load <4 x float>* %color2.addr         ; <<4 x float>> [#uses=1]
+  %tmp10 = load <2 x float>, <2 x float>* %curCrd              ; <<2 x float>> [#uses=1]
+  %tmp11 = load <2 x float>, <2 x float>* %checkerSize.addr    ; <<2 x float>> [#uses=1]
+  %tmp12 = load <4 x float>, <4 x float>* %color1.addr         ; <<4 x float>> [#uses=1]
+  %tmp13 = load <4 x float>, <4 x float>* %color2.addr         ; <<4 x float>> [#uses=1]
   %call14 = call <4 x float> @evaluatePixel(<2 x float> %tmp10, <2 x float> %tmp11, <4 x float> %tmp12, <4 x float> %tmp13) ; <<4 x float>> [#uses=1]
   %tmp15 = load i32* %index                       ; <i32> [#uses=1]
   %tmp16 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
-  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %tmp16, i32 %tmp15 ; <<4 x float> addrspace(1)*> [#uses=1]
+  %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp16, i32 %tmp15 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call14, <4 x float> addrspace(1)* %arrayidx
   ret void
 }

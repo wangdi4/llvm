@@ -23,7 +23,7 @@ define void @func_isfinite(float addrspace(1)* nocapture %in, <16 x float> addrs
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
   %2 = tail call <16 x i32> @_Z8isfiniteU8__vector16f(<16 x float> <float 0xC0D6DD6960000000, float 0x40810AB860000000, float 0x40080624E0000000, float 0x407A763680000000, float 0.000000e+000, float 0xC021CCCCC0000000, float -8.000000e+000, float 0x40A17CDE80000000, float 0x40E5047F60000000, float 0xBFD99999A0000000, float 0.000000e+000, float 4.000000e+000, float 0x410C8D6FE0000000, float 0x4074063D80000000, float 0x3F80624DE0000000, float 0x40622FAE20000000>) nounwind ; <<16 x i32>> [#uses=1]
   %3 = tail call <16 x float> @_Z15convert_float16U8__vector16i(<16 x i32> %2) nounwind ; <<16 x float>> [#uses=1]
-  %4 = getelementptr inbounds <16 x float> addrspace(1)* %out, i32 %1 ; <<16 x float> addrspace(1)*> [#uses=1]
+  %4 = getelementptr inbounds <16 x float>, <16 x float> addrspace(1)* %out, i32 %1 ; <<16 x float> addrspace(1)*> [#uses=1]
   store <16 x float> %3, <16 x float> addrspace(1)* %4
   ret void
 }

@@ -19,13 +19,13 @@ define void @prefixSum(float addrspace(1)* %output, float addrspace(1)* %input, 
 entry:
   %call = call i32 @_Z12get_local_idj(i32 0) nounwind
   %mul = shl i32 %call, 1
-  %arrayidx = getelementptr float addrspace(3)* %block, i32 %mul
-  %arrayidx5 = getelementptr float addrspace(1)* %input, i32 %mul
+  %arrayidx = getelementptr float, float addrspace(3)* %block, i32 %mul
+  %arrayidx5 = getelementptr float, float addrspace(1)* %input, i32 %mul
   %tmp6 = load float addrspace(1)* %arrayidx5, align 4
   store float %tmp6, float addrspace(3)* %arrayidx, align 4
   %add1 = or i32 %mul, 1
-  %arrayidx10 = getelementptr float addrspace(3)* %block, i32 %add1
-  %arrayidx15 = getelementptr float addrspace(1)* %input, i32 %add1
+  %arrayidx10 = getelementptr float, float addrspace(3)* %block, i32 %add1
+  %arrayidx15 = getelementptr float, float addrspace(1)* %input, i32 %add1
   %tmp16 = load float addrspace(1)* %arrayidx15, align 4
   store float %tmp16, float addrspace(3)* %arrayidx10, align 4
   %shr = lshr i32 %length, 1
@@ -48,9 +48,9 @@ if.then:                                          ; preds = %for.body
   %sub = add i32 %mul28, -1
   %mul34 = mul i32 %tmp80914, %add33
   %sub35 = add i32 %mul34, -1
-  %arrayidx38 = getelementptr float addrspace(3)* %block, i32 %sub35
+  %arrayidx38 = getelementptr float, float addrspace(3)* %block, i32 %sub35
   %tmp39 = load float addrspace(3)* %arrayidx38, align 4
-  %arrayidx42 = getelementptr float addrspace(3)* %block, i32 %sub
+  %arrayidx42 = getelementptr float, float addrspace(3)* %block, i32 %sub
   %tmp43 = load float addrspace(3)* %arrayidx42, align 4
   %add44 = fadd float %tmp39, %tmp43
   store float %add44, float addrspace(3)* %arrayidx38, align 4
@@ -72,7 +72,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 
 if.then51:                                        ; preds = %for.end
   %sub53 = add i32 %length, -1
-  %arrayidx55 = getelementptr float addrspace(3)* %block, i32 %sub53
+  %arrayidx55 = getelementptr float, float addrspace(3)* %block, i32 %sub53
   store float 0.000000e+00, float addrspace(3)* %arrayidx55, align 4
   br label %for.cond59.preheader
 
@@ -97,12 +97,12 @@ if.then69:                                        ; preds = %for.body63
   %sub77 = add i32 %mul76, -1
   %mul84 = mul i32 %shr65, %add83
   %sub85 = add i32 %mul84, -1
-  %arrayidx89 = getelementptr float addrspace(3)* %block, i32 %sub77
+  %arrayidx89 = getelementptr float, float addrspace(3)* %block, i32 %sub77
   %tmp90 = load float addrspace(3)* %arrayidx89, align 4
-  %arrayidx96 = getelementptr float addrspace(3)* %block, i32 %sub85
+  %arrayidx96 = getelementptr float, float addrspace(3)* %block, i32 %sub85
   %tmp97 = load float addrspace(3)* %arrayidx96, align 4
   store float %tmp97, float addrspace(3)* %arrayidx89, align 4
-  %tmp101 = load float addrspace(3)* %arrayidx96, align 4
+  %tmp101 = load float, float addrspace(3)* %arrayidx96, align 4
   %add103 = fadd float %tmp101, %tmp90
   store float %add103, float addrspace(3)* %arrayidx96, align 4
   br label %for.inc105
@@ -117,10 +117,10 @@ for.end108.loopexit:                              ; preds = %for.inc105
 
 for.end108:                                       ; preds = %for.end108.loopexit, %for.cond59.preheader
   call void @_Z7barrierm(i32 1) nounwind
-  %arrayidx112 = getelementptr float addrspace(1)* %output, i32 %mul
+  %arrayidx112 = getelementptr float, float addrspace(1)* %output, i32 %mul
   %tmp117 = load float addrspace(3)* %arrayidx, align 4
   store float %tmp117, float addrspace(1)* %arrayidx112, align 4
-  %arrayidx122 = getelementptr float addrspace(1)* %output, i32 %add1
+  %arrayidx122 = getelementptr float, float addrspace(1)* %output, i32 %add1
   %tmp128 = load float addrspace(3)* %arrayidx10, align 4
   store float %tmp128, float addrspace(1)* %arrayidx122, align 4
   ret void

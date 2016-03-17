@@ -36,15 +36,15 @@ L3:
 ; CHECK: xor
 ;;;; TODO: add regular expression for the below values.
 ; CHECK: L2:
-; CHECK: %SBIndex = load i64* %pCurrSBIndex
+; CHECK: %SBIndex = load i64, i64* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset = add nuw i64 %SBIndex, 8
-; CHECK: %1 = getelementptr inbounds i8* %pSB, i64 %SB_LocalId_Offset
+; CHECK: %1 = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset
 ; CHECK: %pSB_LocalId = bitcast i8* %1 to i64*
-; CHECK: %SBIndex4 = load i64* %pCurrSBIndex
+; CHECK: %SBIndex4 = load i64, i64* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset5 = add nuw i64 %SBIndex4, 0
-; CHECK: %2 = getelementptr inbounds i8* %pSB, i64 %SB_LocalId_Offset5
+; CHECK: %2 = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset5
 ; CHECK: %pSB_LocalId6 = bitcast i8* %2 to i64*
-; CHECK: %loadedValue = load i64* %pSB_LocalId6
+; CHECK: %loadedValue = load i64, i64* %pSB_LocalId6
 ; CHECK: store i64 %loadedValue, i64* %pSB_LocalId
 ; CHECK: br label %CallBB
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -68,11 +68,11 @@ L2:
 ; CHECK-NOT: @_Z7barrierj
 ;;;; TODO: add regular expression for the below values.
 ; CHECK: SyncBB1:
-; CHECK: %SBIndex1 = load i64* %pCurrSBIndex
+; CHECK: %SBIndex1 = load i64, i64* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset2 = add nuw i64 %SBIndex1, 8
-; CHECK: %0 = getelementptr inbounds i8* %pSB, i64 %SB_LocalId_Offset2
+; CHECK: %0 = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset2
 ; CHECK: %pSB_LocalId3 = bitcast i8* %0 to i64*
-; CHECK: %loadedValue4 = load i64* %pSB_LocalId3
+; CHECK: %loadedValue4 = load i64, i64* %pSB_LocalId3
 ; CHECK: %y = xor i64 %loadedValue4, %loadedValue4
 ; CHECK: br label %L2
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -80,11 +80,11 @@ L2:
 ; CHECK-NOT: @_Z7barrierj
 ;;;; TODO: add regular expression for the below values.
 ; CHECK: SyncBB0:                                          ; preds = %LoopEnd_2
-; CHECK: %SBIndex = load i64* %pCurrSBIndex
+; CHECK: %SBIndex = load i64, i64* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset = add nuw i64 %SBIndex, 8
-; CHECK: %8 = getelementptr inbounds i8* %pSB, i64 %SB_LocalId_Offset
+; CHECK: %8 = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset
 ; CHECK: %pSB_LocalId = bitcast i8* %8 to i64*
-; CHECK: %loadedValue = load i64* %pSB_LocalId
+; CHECK: %loadedValue = load i64, i64* %pSB_LocalId
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj

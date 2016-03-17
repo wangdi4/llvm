@@ -11,7 +11,7 @@ target triple = "i686-pc-win32"
 define void @simpleBranch(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocapture %out, i32 %un1, i32 %un2) nounwind {
   %id = tail call i32 @_Z13get_global_idj(i32 0) nounwind
 
-  %in1 = getelementptr inbounds i32 addrspace(1)* %in, i32 %id
+  %in1 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %id
   %in2 = load i32 addrspace(1)* %in1, align 4
 
   %cmp = icmp slt i32 %id, %in2 
@@ -32,7 +32,7 @@ false:
   br label %end
 end:
   %x = phi i32 [ %x3, %next1 ], [ %x1, %false ]
-  %out1 = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
+  %out1 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
   store i32 %x, i32 addrspace(1)* %out1, align 4
   ret void
 }

@@ -22,7 +22,7 @@ define void @max_kernel(<4 x i8> addrspace(1)* nocapture %dst, i32 %width, i32 %
   %max1 = tail call i32 @_Z3maxjj(i32 %id1, i32 1) nounwind readnone
   %mul = mul nsw i32 %max1, %width
   %ind = add nsw i32 %mul, %max0
-  %ptr = getelementptr inbounds <4 x i8> addrspace(1)* %dst, i32 %ind
+  %ptr = getelementptr inbounds <4 x i8>, <4 x i8> addrspace(1)* %dst, i32 %ind
   store <4 x i8> <i8 100, i8 100, i8 100, i8 100>, <4 x i8> addrspace(1)* %ptr, align 4
   ret void
 }

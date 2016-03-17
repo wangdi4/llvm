@@ -29,13 +29,13 @@ declare double @_Z3cosd(double) nounwind readnone
 define void @test_async_copy(float addrspace(1)* %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* %memC, float %s) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
+  %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
   %1 = load float addrspace(1)* %arrayidx1, align 4
   %mul = fmul float %1, %s
   %add = fadd float %0, %mul
-  %arrayidx2 = getelementptr inbounds float addrspace(3)* %memC, i32 %call
+  %arrayidx2 = getelementptr inbounds float, float addrspace(3)* %memC, i32 %call
   store float %add, float addrspace(3)* %arrayidx2, align 4
   %call3 = tail call i32 @async_work_group_copy(float addrspace(3)* %memC, float addrspace(1)* %memA, i32 1, i32 0) nounwind
   tail call void @_Z17wait_group_eventsiPj(i32 1, i32* null) nounwind
@@ -50,13 +50,13 @@ entry:
 define void @test_async_global2local(float addrspace(1)* %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* %memC, float %s) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
+  %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
   %1 = load float addrspace(1)* %arrayidx1, align 4
   %mul = fmul float %1, %s
   %add = fadd float %0, %mul
-  %arrayidx2 = getelementptr inbounds float addrspace(3)* %memC, i32 %call
+  %arrayidx2 = getelementptr inbounds float, float addrspace(3)* %memC, i32 %call
   store float %add, float addrspace(3)* %arrayidx2, align 4
   %call3 = tail call i32 @_Z21async_work_group_copyPU3AS3fPKU3AS1fjj(float addrspace(3)* %memC, float addrspace(1)* %memA, i32 1, i32 0) nounwind
   tail call void @_Z17wait_group_eventsiPj(i32 1, i32* null) nounwind
@@ -71,13 +71,13 @@ entry:
 define void @test_async_local2global(float addrspace(3)* %memA, float addrspace(1)* nocapture %memB, float addrspace(1)* %memC, float %s) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(3)* %memA, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(3)* %memA, i32 %call
   %0 = load float addrspace(3)* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
+  %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
   %1 = load float addrspace(1)* %arrayidx1, align 4
   %mul = fmul float %1, %s
   %add = fadd float %0, %mul
-  %arrayidx2 = getelementptr inbounds float addrspace(1)* %memC, i32 %call
+  %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %memC, i32 %call
   store float %add, float addrspace(1)* %arrayidx2, align 4
   %call3 = tail call i32 @_Z21async_work_group_copyPU3AS1fPKU3AS3fjj(float addrspace(1)* %memC, float addrspace(3)* %memA, i32 1, i32 0) nounwind
   tail call void @_Z17wait_group_eventsiPj(i32 1, i32* null) nounwind
@@ -92,13 +92,13 @@ entry:
 define void @test_async_strided_copy(float addrspace(1)* %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* %memC, float %s) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
+  %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
   %1 = load float addrspace(1)* %arrayidx1, align 4
   %mul = fmul float %1, %s
   %add = fadd float %0, %mul
-  %arrayidx2 = getelementptr inbounds float addrspace(3)* %memC, i32 %call
+  %arrayidx2 = getelementptr inbounds float, float addrspace(3)* %memC, i32 %call
   store float %add, float addrspace(3)* %arrayidx2, align 4
   @_Z29async_work_group_strided_copyPU3AS3fPKU3AS1fjj9ocl_event(float addrspace(3)* %memC, float addrspace(1)* %memA, i32 1, i32 1, i32 0) nounwind
   tail call void @_Z17wait_group_eventsiPj(i32 1, i32* null) nounwind
@@ -108,13 +108,13 @@ entry:
 define void @test_async_strided_global2local(float addrspace(1)* %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* %memC, float %s) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
+  %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
   %1 = load float addrspace(1)* %arrayidx1, align 4
   %mul = fmul float %1, %s
   %add = fadd float %0, %mul
-  %arrayidx2 = getelementptr inbounds float addrspace(3)* %memC, i32 %call
+  %arrayidx2 = getelementptr inbounds float, float addrspace(3)* %memC, i32 %call
   store float %add, float addrspace(3)* %arrayidx2, align 4
   %call3 = tail call i32 @_Z29async_work_group_strided_copyPU3AS3fPKU3AS1fjjj(float addrspace(3)* %memC, float addrspace(1)* %memA, i32 1, i32 1, i32 0) nounwind
   tail call void @_Z17wait_group_eventsiPj(i32 1, i32* null) nounwind
@@ -129,13 +129,13 @@ entry:
 define void @test_async_strided_local2global(float addrspace(3)* %memA, float addrspace(1)* nocapture %memB, float addrspace(1)* %memC, float %s) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(3)* %memA, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(3)* %memA, i32 %call
   %0 = load float addrspace(3)* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
+  %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
   %1 = load float addrspace(1)* %arrayidx1, align 4
   %mul = fmul float %1, %s
   %add = fadd float %0, %mul
-  %arrayidx2 = getelementptr inbounds float addrspace(1)* %memC, i32 %call
+  %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %memC, i32 %call
   store float %add, float addrspace(1)* %arrayidx2, align 4
   %call3 = tail call i32 @_Z29async_work_group_strided_copyPU3AS1fPKU3AS3fjjj(float addrspace(1)* %memC, float addrspace(3)* %memA, i32 1, i32 1, i32 0) nounwind
   tail call void @_Z17wait_group_eventsiPj(i32 1, i32* null) nounwind
@@ -149,13 +149,13 @@ entry:
 define void @test_mem_fence(float addrspace(1)* nocapture %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* nocapture %memC, float %s) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
+  %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
   %1 = load float addrspace(1)* %arrayidx1, align 4
   %mul = fmul float %1, %s
   %add = fadd float %0, %mul
-  %arrayidx2 = getelementptr inbounds float addrspace(3)* %memC, i32 %call
+  %arrayidx2 = getelementptr inbounds float, float addrspace(3)* %memC, i32 %call
   store float %add, float addrspace(3)* %arrayidx2, align 4
   tail call void @mem_fence(i32 1) nounwind
   ret void
@@ -168,13 +168,13 @@ entry:
 define void @test_read_mem_fence(float addrspace(1)* nocapture %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* nocapture %memC, float %s) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
+  %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
   %1 = load float addrspace(1)* %arrayidx1, align 4
   %mul = fmul float %1, %s
   %add = fadd float %0, %mul
-  %arrayidx2 = getelementptr inbounds float addrspace(3)* %memC, i32 %call
+  %arrayidx2 = getelementptr inbounds float, float addrspace(3)* %memC, i32 %call
   store float %add, float addrspace(3)* %arrayidx2, align 4
   tail call void @read_mem_fence(i32 1) nounwind
   ret void
@@ -187,13 +187,13 @@ entry:
 define void @test_write_mem_fence(float addrspace(1)* nocapture %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* nocapture %memC, float %s) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
+  %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
   %1 = load float addrspace(1)* %arrayidx1, align 4
   %mul = fmul float %1, %s
   %add = fadd float %0, %mul
-  %arrayidx2 = getelementptr inbounds float addrspace(3)* %memC, i32 %call
+  %arrayidx2 = getelementptr inbounds float, float addrspace(3)* %memC, i32 %call
   store float %add, float addrspace(3)* %arrayidx2, align 4
   tail call void @write_mem_fence(i32 1) nounwind
   ret void
@@ -208,14 +208,14 @@ define void @test_get_global_offset(float addrspace(1)* nocapture %memA, float a
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %call1 = tail call i32 @get_global_offset(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
   %conv = sitofp i32 %call1 to float
-  %arrayidx2 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
+  %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
   %1 = load float addrspace(1)* %arrayidx2, align 4
   %mul = fmul float %conv, %1
   %add = fadd float %0, %mul
-  %arrayidx3 = getelementptr inbounds float addrspace(3)* %memC, i32 %call
+  %arrayidx3 = getelementptr inbounds float, float addrspace(3)* %memC, i32 %call
   store float %add, float addrspace(3)* %arrayidx3, align 4
   ret void
 }
@@ -228,10 +228,10 @@ entry:
 define void @test_cosD(double addrspace(1)* nocapture %memA, double addrspace(1)* nocapture %memB) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds double addrspace(1)* %memA, i32 %call
+  %arrayidx = getelementptr inbounds double, double addrspace(1)* %memA, i32 %call
   %0 = load double addrspace(1)* %arrayidx, align 8
   %call1 = tail call double @_Z3cosd(double %0) nounwind readnone
-  %arrayidx2 = getelementptr inbounds double addrspace(1)* %memB, i32 %call
+  %arrayidx2 = getelementptr inbounds double, double addrspace(1)* %memB, i32 %call
   store double %call1, double addrspace(1)* %arrayidx2, align 8
   ret void
 }
@@ -252,10 +252,10 @@ define void @uniform(%struct._image2d_t* %inputImage, <2 x float> %outCrd, <4 x 
 ; CHECK: [[E1:%[a-zA-Z0-9_]+]] = extractelement <4 x i32> [[A0]], i32 1
 ; CHECK: [[E2:%[a-zA-Z0-9_]+]] = extractelement <4 x i32> [[A0]], i32 2
 ; CHECK: [[E3:%[a-zA-Z0-9_]+]] = extractelement <4 x i32> [[A0]], i32 3
-; CHECK: [[G0:%[a-zA-Z0-9_]+]] = getelementptr inbounds <4 x float> addrspace(1)* %dst, i32 [[E0]]
-; CHECK: [[G1:%[a-zA-Z0-9_]+]] = getelementptr inbounds <4 x float> addrspace(1)* %dst, i32 [[E1]]
-; CHECK: [[G2:%[a-zA-Z0-9_]+]] = getelementptr inbounds <4 x float> addrspace(1)* %dst, i32 [[E2]]
-; CHECK: [[G3:%[a-zA-Z0-9_]+]] = getelementptr inbounds <4 x float> addrspace(1)* %dst, i32 [[E3]]
+; CHECK: [[G0:%[a-zA-Z0-9_]+]] = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %dst, i32 [[E0]]
+; CHECK: [[G1:%[a-zA-Z0-9_]+]] = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %dst, i32 [[E1]]
+; CHECK: [[G2:%[a-zA-Z0-9_]+]] = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %dst, i32 [[E2]]
+; CHECK: [[G3:%[a-zA-Z0-9_]+]] = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %dst, i32 [[E3]]
 ; CHECK: store <4 x float> [[C0]], <4 x float> addrspace(1)* [[G0]], align 16
 ; CHECK: store <4 x float> [[C0]], <4 x float> addrspace(1)* [[G1]], align 16
 ; CHECK: store <4 x float> [[C0]], <4 x float> addrspace(1)* [[G2]], align 16
@@ -264,7 +264,7 @@ define void @uniform(%struct._image2d_t* %inputImage, <2 x float> %outCrd, <4 x 
 entry:
   %call = tail call <4 x float> @_Z11read_imagefP10_image2d_tjDv2_f(%struct._image2d_t* %inputImage, i32 17, <2 x float> %outCrd) nounwind readnone
   %call1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %dst, i32 %call1
+  %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %dst, i32 %call1
   store <4 x float> %call, <4 x float> addrspace(1)* %arrayidx, align 16
   ret void
 }

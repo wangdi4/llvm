@@ -19,7 +19,7 @@ target triple = "spir64-unknown-unknown"
 
 ; Function Attrs: nounwind
 define spir_func void @device_kernel(float addrspace(1)* %inout) #0 {
-  %1 = load float addrspace(1)* %inout, align 4
+  %1 = load float, float addrspace(1)* %inout, align 4
   %2 = call spir_func float @_Z3cosf(float %1)
   store float %2, float addrspace(1)* %inout, align 4
   ret void
@@ -52,7 +52,7 @@ declare spir_func float @_Z3cosf(float) #1
 ; Function Attrs: nounwind
 define spir_func void @host_kernel(float addrspace(1)* %inout) #0 {
   %captured = alloca <{ float addrspace(1)* }>, align 8
-  %captured.gep = getelementptr inbounds <{ float addrspace(1)* }>* %captured, i32 0, i32 0
+  %captured.gep = getelementptr inbounds <{ float addrspace(1)* }>, <{ float addrspace(1)* }>* %captured, i32 0, i32 0
   store float addrspace(1)* %inout, float addrspace(1)** %captured.gep
   %1 = alloca %struct.ndrange_t, align 8
   %2 = call spir_func %opencl.queue_t* @get_default_queue()
@@ -75,12 +75,12 @@ declare spir_func void @_Z10ndrange_1Dm(%struct.ndrange_t* sret, i64) #1
 ; CHECK: define internal spir_func void @__host_kernel_block_invoke(i8* [[INVKARG:.*]])
 ; CHECK: [[TOOBJCBLOCK:.*]] = bitcast i8* [[INVKARG]] to [[BLOCKPTRTY]]
 ; CHECK: [[CAPTURED:.*]] = getelementptr [[BLOCKPTRTY]][[TOOBJCBLOCK]], i32 0, i32 5
-; CHECK: load float addrspace(1)**[[CAPTURED]]
+; CHECK: load float addrspace(1)*, float addrspace(1)**[[CAPTURED]]
 
 ; Function Attrs: nounwind
 define internal spir_func void @__host_kernel_block_invoke(i8* %.block_descriptor) #0 {
   %1 = bitcast i8* %.block_descriptor to <{ float addrspace(1)* }>*
-  %2 = getelementptr inbounds <{ float addrspace(1)* }>* %1, i32 0, i32 0
+  %2 = getelementptr inbounds <{ float addrspace(1)* }>, <{ float addrspace(1)* }>* %1, i32 0, i32 0
   %3 = load float addrspace(1)** %2, align 8
   call spir_func void @device_kernel(float addrspace(1)* %3)
   ret void

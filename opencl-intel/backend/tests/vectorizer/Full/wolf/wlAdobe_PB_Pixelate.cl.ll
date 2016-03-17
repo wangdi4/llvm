@@ -23,13 +23,13 @@ entry:
   store %struct._image2d_t* %inputImage, %struct._image2d_t** %inputImage.addr
   store <2 x float> %curCord, <2 x float>* %curCord.addr
   store i32 1, i32* %samplerNearest
-  %tmp = load %struct._image2d_t** %inputImage.addr ; <%struct._image2d_t*> [#uses=1]
-  %tmp1 = load <2 x float>* %curCord.addr         ; <<2 x float>> [#uses=1]
+  %tmp = load %struct._image2d_t*, %struct._image2d_t** %inputImage.addr ; <%struct._image2d_t*> [#uses=1]
+  %tmp1 = load <2 x float>, <2 x float>* %curCord.addr         ; <<2 x float>> [#uses=1]
   %call = call <4 x float> @_Z11read_imagefP10_image2d_tjU8__vector2f(%struct._image2d_t* %tmp, i32 1, <2 x float> %tmp1) ; <<4 x float>> [#uses=1]
   store <4 x float> %call, <4 x float>* %outputColor
-  %tmp2 = load <4 x float>* %outputColor          ; <<4 x float>> [#uses=1]
+  %tmp2 = load <4 x float>, <4 x float>* %outputColor          ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp2, <4 x float>* %retval
-  %0 = load <4 x float>* %retval                  ; <<4 x float>> [#uses=1]
+  %0 = load <4 x float>, <4 x float>* %retval                  ; <<4 x float>> [#uses=1]
   ret <4 x float> %0
 }
 
@@ -56,31 +56,31 @@ entry:
   %call1 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   %vecinit2 = insertelement <2 x i32> %vecinit, i32 %call1, i32 1 ; <<2 x i32>> [#uses=1]
   store <2 x i32> %vecinit2, <2 x i32>* %curCrd
-  %tmp = load float* %passed_dimension.addr       ; <float> [#uses=1]
+  %tmp = load float, float* %passed_dimension.addr       ; <float> [#uses=1]
   %tmp3 = insertelement <2 x float> undef, float %tmp, i32 0 ; <<2 x float>> [#uses=2]
   %splat = shufflevector <2 x float> %tmp3, <2 x float> %tmp3, <2 x i32> zeroinitializer ; <<2 x float>> [#uses=1]
   store <2 x float> %splat, <2 x float>* %dimension
-  %tmp5 = load <2 x i32>* %curCrd                 ; <<2 x i32>> [#uses=1]
+  %tmp5 = load <2 x i32>, <2 x i32>* %curCrd                 ; <<2 x i32>> [#uses=1]
   %call6 = call <2 x float> @_Z14convert_float2U8__vector2i(<2 x i32> %tmp5) ; <<2 x float>> [#uses=1]
   store <2 x float> %call6, <2 x float>* %coord
-  %tmp8 = load <2 x float>* %coord                ; <<2 x float>> [#uses=1]
-  %tmp9 = load <2 x float>* %dimension            ; <<2 x float>> [#uses=3]
+  %tmp8 = load <2 x float>, <2 x float>* %coord                ; <<2 x float>> [#uses=1]
+  %tmp9 = load <2 x float>, <2 x float>* %dimension            ; <<2 x float>> [#uses=3]
   %cmp = fcmp oeq <2 x float> zeroinitializer, %tmp9 ; <<2 x i1>> [#uses=1]
   %sel = select <2 x i1> %cmp, <2 x float> <float 1.000000e+000, float 1.000000e+000>, <2 x float> %tmp9 ; <<2 x float>> [#uses=0]
   %div = fdiv <2 x float> %tmp8, %tmp9            ; <<2 x float>> [#uses=1]
   %call10 = call <2 x float> @_Z5floorU8__vector2f(<2 x float> %div) ; <<2 x float>> [#uses=1]
   store <2 x float> %call10, <2 x float>* %sc
-  %tmp11 = load <2 x float>* %dimension           ; <<2 x float>> [#uses=1]
-  %tmp12 = load <2 x float>* %sc                  ; <<2 x float>> [#uses=1]
+  %tmp11 = load <2 x float>, <2 x float>* %dimension           ; <<2 x float>> [#uses=1]
+  %tmp12 = load <2 x float>, <2 x float>* %sc                  ; <<2 x float>> [#uses=1]
   %mul = fmul <2 x float> %tmp12, %tmp11          ; <<2 x float>> [#uses=1]
   store <2 x float> %mul, <2 x float>* %sc
-  %tmp14 = load %struct._image2d_t** %inputImage.addr ; <%struct._image2d_t*> [#uses=1]
-  %tmp15 = load <2 x float>* %sc                  ; <<2 x float>> [#uses=1]
+  %tmp14 = load %struct._image2d_t*, %struct._image2d_t** %inputImage.addr ; <%struct._image2d_t*> [#uses=1]
+  %tmp15 = load <2 x float>, <2 x float>* %sc                  ; <<2 x float>> [#uses=1]
   %call16 = call <4 x float> @processPixel(%struct._image2d_t* %tmp14, <2 x float> %tmp15) ; <<4 x float>> [#uses=1]
   store <4 x float> %call16, <4 x float>* %color
-  %tmp17 = load %struct._image2d_t** %outputImage.addr ; <%struct._image2d_t*> [#uses=1]
-  %tmp18 = load <2 x i32>* %curCrd                ; <<2 x i32>> [#uses=1]
-  %tmp19 = load <4 x float>* %color               ; <<4 x float>> [#uses=1]
+  %tmp17 = load %struct._image2d_t*, %struct._image2d_t** %outputImage.addr ; <%struct._image2d_t*> [#uses=1]
+  %tmp18 = load <2 x i32>, <2 x i32>* %curCrd                ; <<2 x i32>> [#uses=1]
+  %tmp19 = load <4 x float>, <4 x float>* %color               ; <<4 x float>> [#uses=1]
   call void @_Z12write_imagefP10_image2d_tU8__vector2iU8__vector4f(%struct._image2d_t* %tmp17, <2 x i32> %tmp18, <4 x float> %tmp19)
   ret void
 }

@@ -18,10 +18,10 @@ declare i64 @_Z13get_global_idj(i32)
 define void @__Vectorized_wlacosh(float addrspace(1)* nocapture %input, float addrspace(1)* nocapture %output, i32 %buffer_size) nounwind {
   %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
   %2 = and i64 %1, 4294967295
-  %3 = getelementptr inbounds float addrspace(1)* %input, i64 %2
+  %3 = getelementptr inbounds float, float addrspace(1)* %input, i64 %2
   %4 = load float addrspace(1)* %3, align 4
   %5 = tail call float @_Z5acoshf(float %4) nounwind
-  %6 = getelementptr inbounds float addrspace(1)* %output, i64 %2
+  %6 = getelementptr inbounds float, float addrspace(1)* %output, i64 %2
   store float %5, float addrspace(1)* %6, align 4
   ret void
 }
@@ -35,10 +35,10 @@ define void @__Vectorized_wlacosh(float addrspace(1)* nocapture %input, float ad
 define void @__Vectorized_wlacosh2(float addrspace(1)* nocapture %input, float addrspace(1)* nocapture %output, i32 %buffer_size) nounwind {
   %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
   %2 = and i64 %1, 4294967000  ; <--------notice the constant change
-  %3 = getelementptr inbounds float addrspace(1)* %input, i64 %2
+  %3 = getelementptr inbounds float, float addrspace(1)* %input, i64 %2
   %4 = load float addrspace(1)* %3, align 4
   %5 = tail call float @_Z5acoshf(float %4) nounwind
-  %6 = getelementptr inbounds float addrspace(1)* %output, i64 %2
+  %6 = getelementptr inbounds float, float addrspace(1)* %output, i64 %2
   store float %5, float addrspace(1)* %6, align 4
   ret void
 }
@@ -52,10 +52,10 @@ define void @__Vectorized_wlacosh2(float addrspace(1)* nocapture %input, float a
 define void @__Vectorized_wlacosh3(float addrspace(1)* nocapture %input, float addrspace(1)* nocapture %output, i32 %buffer_size) nounwind {
   %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
   %2 = and i64 %1, 123415  ; <--------notice the constant change
-  %3 = getelementptr inbounds float addrspace(1)* %input, i64 %2
+  %3 = getelementptr inbounds float, float addrspace(1)* %input, i64 %2
   %4 = load float addrspace(1)* %3, align 4
   %5 = tail call float @_Z5acoshf(float %4) nounwind
-  %6 = getelementptr inbounds float addrspace(1)* %output, i64 %2
+  %6 = getelementptr inbounds float, float addrspace(1)* %output, i64 %2
   store float %5, float addrspace(1)* %6, align 4
   ret void
 }

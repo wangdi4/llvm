@@ -29,7 +29,7 @@ entry:
   store i32 %call, i32* %sglid, align 4
   %0 = load i32* %sglid, align 4
   %1 = load i32 addrspace(1)** %b.addr, align 4
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %1, i32 %0
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %1, i32 %0
   %2 = load i32 addrspace(1)* %arrayidx, align 4
   %3 = load i32* %id.addr, align 4
   %call1 = call spir_func i32 @_Z19sub_group_broadcastij(i32 %2, i32 %3)
@@ -38,7 +38,7 @@ entry:
   store i32 %call2, i32* %sgid, align 4
   %4 = load i32* %sgid, align 4
   %5 = load i32 addrspace(1)** %b.addr, align 4
-  %arrayidx3 = getelementptr inbounds i32 addrspace(1)* %5, i32 %4
+  %arrayidx3 = getelementptr inbounds i32, i32 addrspace(1)* %5, i32 %4
   %6 = load i32 addrspace(1)* %arrayidx3, align 4
   %7 = load i32* %id.addr, align 4
   %call4 = call spir_func i32 @_Z19sub_group_broadcastij(i32 %6, i32 %7)

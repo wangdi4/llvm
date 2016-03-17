@@ -22,12 +22,12 @@ target triple = "i686-pc-win32"
 define void @test(float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %b) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(1)* %b, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %b, i32 %call
   br label %while.cond.outer
 
 while.cond.outer:                                 ; preds = %if.then, %entry
   %k.0.ph = phi i32 [ 3, %entry ], [ %add, %if.then ]
-  %.pre = load float addrspace(1)* %arrayidx, align 4
+  %.pre = load float, float addrspace(1)* %arrayidx, align 4
   br label %while.cond
 
 while.cond:                                       ; preds = %while.cond.outer, %while.body
@@ -81,12 +81,12 @@ declare i32 @get_base_global_id.(i32)
 define void @__Vectorized_.test(float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %b) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds float addrspace(1)* %b, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %b, i32 %call
   br label %while.cond.outer
 
 while.cond.outer:                                 ; preds = %if.then, %entry
   %k.0.ph = phi i32 [ 3, %entry ], [ %add, %if.then ]
-  %.pre = load float addrspace(1)* %arrayidx, align 4
+  %.pre = load float, float addrspace(1)* %arrayidx, align 4
   br label %while.cond
 
 while.cond:                                       ; preds = %while.body, %while.cond.outer

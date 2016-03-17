@@ -79,10 +79,10 @@ for.body85:                                       ; preds = %for.body85.lr.ph, %
   %add98 = add i32 %sub97, %mul
   %mul102 = mul i32 %storemerge38, %tmp1
   %add104 = add i32 %mul102, %storemerge11
-  %arrayidx = getelementptr i32 addrspace(1)* %input, i32 %add104
+  %arrayidx = getelementptr i32, i32 addrspace(1)* %input, i32 %add104
   %tmp108 = load i32 addrspace(1)* %arrayidx, align 4
   %conv = uitofp i32 %tmp108 to float
-  %arrayidx111 = getelementptr float addrspace(1)* %mask, i32 %add98
+  %arrayidx111 = getelementptr float, float addrspace(1)* %mask, i32 %add98
   %tmp112 = load float addrspace(1)* %arrayidx111, align 4
   %mul113 = fmul float %conv, %tmp112
   %add114 = fadd float %add12147, %mul113
@@ -104,7 +104,7 @@ for.end119.loopexit13:                            ; preds = %for.inc116.us
 for.end119:                                       ; preds = %for.end119.loopexit13, %for.end119.loopexit, %entry
   %add1215.lcssa = phi float [ 0.000000e+00, %entry ], [ %add114, %for.end119.loopexit ], [ 0.000000e+00, %for.end119.loopexit13 ]
   %add121 = fadd float %add1215.lcssa, 5.000000e-01
-  %arrayidx124 = getelementptr float addrspace(1)* %output, i32 %call
+  %arrayidx124 = getelementptr float, float addrspace(1)* %output, i32 %call
   store float %add121, float addrspace(1)* %arrayidx124, align 4
   ret void
 }

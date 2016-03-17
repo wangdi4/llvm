@@ -9,7 +9,7 @@ define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* noca
   %2 = mul nsw i32 %1, 12
   %3 = add nsw i32 %1, 123
   %4 = add nsw i32 %3, %2
-  %5 = getelementptr inbounds i32 addrspace(1)* %out, i32 %1
+  %5 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %1
   store i32 %4, i32 addrspace(1)* %5, align 4
   ret void
 }

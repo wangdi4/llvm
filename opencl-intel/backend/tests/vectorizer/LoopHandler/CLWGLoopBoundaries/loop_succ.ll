@@ -21,7 +21,7 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %i.02 = phi i32 [ %inc, %for.body ], [ 0, %entry ]
   %add = add nsw i32 %i.02, %call
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %dst, i32 %i.02
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %dst, i32 %i.02
   store i32 %add, i32 addrspace(1)* %arrayidx, align 4
   %inc = add nsw i32 %i.02, 1
   %exitcond = icmp eq i32 %inc, %count

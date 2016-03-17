@@ -12,10 +12,10 @@ define void @vector_prefetch_test(<4 x i32> addrspace(1)* noalias %A, <4 x i32> 
   %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %1, 32
   %2 = ashr exact i64 %sext, 32
-  %3 = getelementptr inbounds <4 x i32> addrspace(1)* %A, i64 %2
+  %3 = getelementptr inbounds <4 x i32>, <4 x i32> addrspace(1)* %A, i64 %2
   tail call void @_Z8prefetchPKU3AS1Dv4_im(<4 x i32> addrspace(1)* %3, i64 1) nounwind
   %4 = load <4 x i32> addrspace(1)* %3, align 16
-  %5 = getelementptr inbounds <4 x i32> addrspace(1)* %B, i64 %2
+  %5 = getelementptr inbounds <4 x i32>, <4 x i32> addrspace(1)* %B, i64 %2
   store <4 x i32> %4, <4 x i32> addrspace(1)* %5, align 16
   ret void
 }

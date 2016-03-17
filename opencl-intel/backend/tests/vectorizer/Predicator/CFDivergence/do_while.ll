@@ -19,24 +19,24 @@ declare i32 @_Z13get_global_idj(i32)
 define void @root.wrapper.indexed(<4 x i8>* nocapture %out, i32 %x, i32 %y) {
 init:
   %0 = tail call i32 @_Z13get_global_idj(i32 0)
-  %outElement = getelementptr inbounds <4 x i8>* %out, i32 %0
+  %outElement = getelementptr inbounds <4 x i8>, <4 x i8>* %out, i32 %0
   %currentX = add i32 %0, %x
-  %1 = load float* @lowerBoundX, align 4
+  %1 = load float, float* @lowerBoundX, align 4
   %2 = uitofp i32 %currentX to float
-  %3 = load i32* @gDimX, align 4
+  %3 = load i32, i32* @gDimX, align 4
   %4 = uitofp i32 %3 to float
   %5 = fdiv float %2, %4
-  %6 = load float* @scaleFactor, align 4
+  %6 = load float, float* @scaleFactor, align 4
   %7 = fmul float %5, %6
   %8 = fadd float %1, %7
-  %9 = load float* @lowerBoundY, align 4
+  %9 = load float, float* @lowerBoundY, align 4
   %10 = uitofp i32 %y to float
-  %11 = load i32* @gDimY, align 4
+  %11 = load i32, i32* @gDimY, align 4
   %12 = uitofp i32 %11 to float
   %13 = fdiv float %10, %12
   %14 = fmul float %6, %13
   %15 = fadd float %9, %14
-  %16 = load i32* @gMaxIteration, align 4
+  %16 = load i32, i32* @gMaxIteration, align 4
   %17 = icmp eq i32 %16, 0
   br i1 %17, label %root.wrapper.exit, label %.lr.ph.i.i.preheader
 

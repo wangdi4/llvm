@@ -9,14 +9,14 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 ;CHECK: kernel
-;CHECK: [[NAME1:%[0-9]*]] = load float* [[NAME2:%GEP_s[0-9]*]]
-;CHECK: [[NAME3:%[0-9]*]] = load float* [[NAME4:%GEP_s[0-9]*]]
-;CHECK: [[NAME5:%[0-9]*]] = load float* [[NAME6:%GEP_s[0-9]*]]
-;CHECK: [[NAME7:%[0-9]*]] = load float* [[NAME8:%GEP_s[0-9]*]]
-;CHECK: [[NAME9:%[0-9]*]] = load float* [[NAME10:%GEP_s[0-9]*]]
-;CHECK: [[NAME11:%[0-9]*]] = load float* [[NAME12:%GEP_s[0-9]*]]
-;CHECK: [[NAME13:%[0-9]*]] = load float* [[NAME14:%GEP_s[0-9]*]]
-;CHECK: [[NAME15:%[0-9]*]] = load float* [[NAME16:%GEP_s[0-9]*]]
+;CHECK: [[NAME1:%[0-9]*]] = load float, float* [[NAME2:%GEP_s[0-9]*]]
+;CHECK: [[NAME3:%[0-9]*]] = load float, float* [[NAME4:%GEP_s[0-9]*]]
+;CHECK: [[NAME5:%[0-9]*]] = load float, float* [[NAME6:%GEP_s[0-9]*]]
+;CHECK: [[NAME7:%[0-9]*]] = load float, float* [[NAME8:%GEP_s[0-9]*]]
+;CHECK: [[NAME9:%[0-9]*]] = load float, float* [[NAME10:%GEP_s[0-9]*]]
+;CHECK: [[NAME11:%[0-9]*]] = load float, float* [[NAME12:%GEP_s[0-9]*]]
+;CHECK: [[NAME13:%[0-9]*]] = load float, float* [[NAME14:%GEP_s[0-9]*]]
+;CHECK: [[NAME15:%[0-9]*]] = load float, float* [[NAME16:%GEP_s[0-9]*]]
 ;CHECK: store float [[NAME17:%[0-9]*]], float* [[NAME18:%GEP_s[0-9]*]]
 ;CHECK: store float [[NAME19:%[0-9]*]], float* [[NAME20:%GEP_s[0-9]*]]
 ;CHECK: store float [[NAME21:%[0-9]*]], float* [[NAME22:%GEP_s[0-9]*]]
@@ -35,7 +35,7 @@ define void @kernel(<8 x float>* nocapture %A) nounwind {
 ; <label>:3                                       ; preds = %0
   %4 = mul nsw i32 %1, 7
   %5 = sext i32 %4 to i64
-  %6 = getelementptr inbounds <8 x float>* %A, i64 %5
+  %6 = getelementptr inbounds <8 x float>, <8 x float>* %A, i64 %5
   %7 = load <8 x float>* %6, align 4, !tbaa !0
   %8 = fadd <8 x float> %7, <float 3.0, float 3.0, float 3.0, float 3.0, float 3.0, float 3.0, float 3.0, float 3.0>
   store <8 x float> %8, <8 x float>* %6, align 4, !tbaa !0

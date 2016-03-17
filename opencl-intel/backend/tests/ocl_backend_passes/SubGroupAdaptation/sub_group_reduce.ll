@@ -25,35 +25,35 @@ entry:
   %call = tail call spir_func i64 @_Z13get_global_idj(i32 0) #3
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %bIn, i64 %idxprom
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %bIn, i64 %idxprom
   %0 = load i32 addrspace(1)* %arrayidx, align 4, !tbaa !11
   %call1 = tail call spir_func i32 @_Z20sub_group_reduce_addi(i32 %0) #4
-  %arrayidx3 = getelementptr inbounds i32 addrspace(1)* %bOut, i64 %idxprom
+  %arrayidx3 = getelementptr inbounds i32, i32 addrspace(1)* %bOut, i64 %idxprom
   store i32 %call1, i32 addrspace(1)* %arrayidx3, align 4, !tbaa !11
-  %arrayidx5 = getelementptr inbounds i32 addrspace(1)* %cIn, i64 %idxprom
+  %arrayidx5 = getelementptr inbounds i32, i32 addrspace(1)* %cIn, i64 %idxprom
   %1 = load i32 addrspace(1)* %arrayidx5, align 4, !tbaa !11
   %call6 = tail call spir_func i32 @_Z20sub_group_reduce_minj(i32 %1) #4
-  %arrayidx8 = getelementptr inbounds i32 addrspace(1)* %cOut, i64 %idxprom
+  %arrayidx8 = getelementptr inbounds i32, i32 addrspace(1)* %cOut, i64 %idxprom
   store i32 %call6, i32 addrspace(1)* %arrayidx8, align 4, !tbaa !11
-  %arrayidx10 = getelementptr inbounds i64 addrspace(1)* %dIn, i64 %idxprom
+  %arrayidx10 = getelementptr inbounds i64, i64 addrspace(1)* %dIn, i64 %idxprom
   %2 = load i64 addrspace(1)* %arrayidx10, align 8, !tbaa !15
   %call11 = tail call spir_func i64 @_Z20sub_group_reduce_maxl(i64 %2) #4
-  %arrayidx13 = getelementptr inbounds i64 addrspace(1)* %dOut, i64 %idxprom
+  %arrayidx13 = getelementptr inbounds i64, i64 addrspace(1)* %dOut, i64 %idxprom
   store i64 %call11, i64 addrspace(1)* %arrayidx13, align 8, !tbaa !15
-  %arrayidx15 = getelementptr inbounds i64 addrspace(1)* %iIn, i64 %idxprom
+  %arrayidx15 = getelementptr inbounds i64, i64 addrspace(1)* %iIn, i64 %idxprom
   %3 = load i64 addrspace(1)* %arrayidx15, align 8, !tbaa !15
   %call16 = tail call spir_func i64 @_Z20sub_group_reduce_addm(i64 %3) #4
-  %arrayidx18 = getelementptr inbounds i64 addrspace(1)* %iOut, i64 %idxprom
+  %arrayidx18 = getelementptr inbounds i64, i64 addrspace(1)* %iOut, i64 %idxprom
   store i64 %call16, i64 addrspace(1)* %arrayidx18, align 8, !tbaa !15
-  %arrayidx20 = getelementptr inbounds float addrspace(1)* %fIn, i64 %idxprom
+  %arrayidx20 = getelementptr inbounds float, float addrspace(1)* %fIn, i64 %idxprom
   %4 = load float addrspace(1)* %arrayidx20, align 4, !tbaa !17
   %call21 = tail call spir_func float @_Z20sub_group_reduce_minf(float %4) #4
-  %arrayidx23 = getelementptr inbounds float addrspace(1)* %fOut, i64 %idxprom
+  %arrayidx23 = getelementptr inbounds float, float addrspace(1)* %fOut, i64 %idxprom
   store float %call21, float addrspace(1)* %arrayidx23, align 4, !tbaa !17
-  %arrayidx25 = getelementptr inbounds double addrspace(1)* %gIn, i64 %idxprom
+  %arrayidx25 = getelementptr inbounds double, double addrspace(1)* %gIn, i64 %idxprom
   %5 = load double addrspace(1)* %arrayidx25, align 8, !tbaa !19
   %call26 = tail call spir_func double @_Z20sub_group_reduce_maxd(double %5) #4
-  %arrayidx28 = getelementptr inbounds double addrspace(1)* %gOut, i64 %idxprom
+  %arrayidx28 = getelementptr inbounds double, double addrspace(1)* %gOut, i64 %idxprom
   store double %call26, double addrspace(1)* %arrayidx28, align 8, !tbaa !19
   ret void
 }

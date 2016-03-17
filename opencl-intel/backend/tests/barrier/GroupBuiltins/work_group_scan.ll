@@ -25,10 +25,10 @@ target triple = "i686-pc-win32"
 define void @wg_test_scan(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %b) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds i32 addrspace(1)* %a, i32 %call
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i32 %call
   %0 = load i32 addrspace(1)* %arrayidx, align 1
   %call1 = tail call i32 @_Z29work_group_scan_exclusive_maxi(i32 %0) nounwind
-  %arrayidx2 = getelementptr inbounds i32 addrspace(1)* %b, i32 %call
+  %arrayidx2 = getelementptr inbounds i32, i32 addrspace(1)* %b, i32 %call
   store i32 %call1, i32 addrspace(1)* %arrayidx2, align 1
   ret void
 }
@@ -50,11 +50,11 @@ declare i32 @_Z29work_group_scan_exclusive_maxi(i32)
 define void @__Vectorized_.wg_test_scan(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %b) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %0 = getelementptr inbounds i32 addrspace(1)* %a, i32 %call
+  %0 = getelementptr inbounds i32, i32 addrspace(1)* %a, i32 %call
   %ptrTypeCast = bitcast i32 addrspace(1)* %0 to <4 x i32> addrspace(1)*
-  %1 = load <4 x i32> addrspace(1)* %ptrTypeCast, align 1
+  %1 = load <4 x i32>, <4 x i32> addrspace(1)* %ptrTypeCast, align 1
   %2 = call <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_i(<4 x i32> %1)
-  %3 = getelementptr inbounds i32 addrspace(1)* %b, i32 %call
+  %3 = getelementptr inbounds i32, i32 addrspace(1)* %b, i32 %call
   %ptrTypeCast4 = bitcast i32 addrspace(1)* %3 to <4 x i32> addrspace(1)*
   store <4 x i32> %2, <4 x i32> addrspace(1)* %ptrTypeCast4, align 1
   ret void

@@ -41,7 +41,7 @@ entry:
   br i1 %cmp13, label %for.end.thread, label %for.body.lr.ph
 
 for.end.thread:                                   ; preds = %entry
-  %arrayidx4417 = getelementptr float addrspace(1)* %inter, i32 %add
+  %arrayidx4417 = getelementptr float, float addrspace(1)* %inter, i32 %add
   store float 0.000000e+00, float addrspace(1)* %arrayidx4417, align 4
   call void @_Z7barrierm(i32 1) nounwind
   br label %for.end92
@@ -68,9 +68,9 @@ cond.end.us:                                      ; preds = %cond.end.us.prehead
   %add8.i.us = add i32 %storemerge115.us, %mul6.i
   %mul11.i.us = mul i32 %add8.i.us, %width
   %add13.i.us = add i32 %add.i, %mul11.i.us
-  %arrayidx.us = getelementptr float addrspace(1)* %dct, i32 %add22.us
+  %arrayidx.us = getelementptr float, float addrspace(1)* %dct, i32 %add22.us
   %tmp34.us = load float addrspace(1)* %arrayidx.us, align 4
-  %arrayidx37.us = getelementptr float addrspace(1)* %input, i32 %add13.i.us
+  %arrayidx37.us = getelementptr float, float addrspace(1)* %input, i32 %add13.i.us
   %tmp38.us = load float addrspace(1)* %arrayidx37.us, align 4
   %mul39.us = fmul float %tmp34.us, %tmp38.us
   %add40.us = fadd float %tmp96914.us, %mul39.us
@@ -85,9 +85,9 @@ cond.end:                                         ; preds = %cond.end.preheader,
   %add8.i = add i32 %storemerge115, %mul6.i
   %mul11.i = mul i32 %add8.i, %width
   %add13.i = add i32 %add.i, %mul11.i
-  %arrayidx = getelementptr float addrspace(1)* %dct, i32 %add17
+  %arrayidx = getelementptr float, float addrspace(1)* %dct, i32 %add17
   %tmp34 = load float addrspace(1)* %arrayidx, align 4
-  %arrayidx37 = getelementptr float addrspace(1)* %input, i32 %add13.i
+  %arrayidx37 = getelementptr float, float addrspace(1)* %input, i32 %add13.i
   %tmp38 = load float addrspace(1)* %arrayidx37, align 4
   %mul39 = fmul float %tmp34, %tmp38
   %add40 = fadd float %tmp96914, %mul39
@@ -103,7 +103,7 @@ for.end.loopexit19:                               ; preds = %cond.end.us
 
 for.end:                                          ; preds = %for.end.loopexit19, %for.end.loopexit
   %tmp969.lcssa = phi float [ %add40, %for.end.loopexit ], [ %add40.us, %for.end.loopexit19 ]
-  %arrayidx44 = getelementptr float addrspace(1)* %inter, i32 %add
+  %arrayidx44 = getelementptr float, float addrspace(1)* %inter, i32 %add
   store float %tmp969.lcssa, float addrspace(1)* %arrayidx44, align 4
   call void @_Z7barrierm(i32 1) nounwind
   br i1 %cmp13, label %for.end92, label %for.body50.lr.ph
@@ -130,9 +130,9 @@ cond.end76.us:                                    ; preds = %cond.end76.us.prehe
   %add13.i7.us = add i32 %add.i6, %storemerge12.us
   %mul73.us = mul i32 %storemerge12.us, %blockWidth
   %add75.us = add i32 %mul73.us, %call5
-  %arrayidx81.us = getelementptr float addrspace(1)* %inter, i32 %add13.i7.us
+  %arrayidx81.us = getelementptr float, float addrspace(1)* %inter, i32 %add13.i7.us
   %tmp82.us = load float addrspace(1)* %arrayidx81.us, align 4
-  %arrayidx85.us = getelementptr float addrspace(1)* %dct, i32 %add75.us
+  %arrayidx85.us = getelementptr float, float addrspace(1)* %dct, i32 %add75.us
   %tmp86.us = load float addrspace(1)* %arrayidx85.us, align 4
   %mul87.us = fmul float %tmp82.us, %tmp86.us
   %add88.us = fadd float %tmp96811.us, %mul87.us
@@ -145,9 +145,9 @@ cond.end76:                                       ; preds = %cond.end76.preheade
   %tmp96811 = phi float [ %add88, %cond.end76 ], [ 0.000000e+00, %cond.end76.preheader ]
   %add13.i7 = add i32 %add.i6, %storemerge12
   %add69 = add i32 %storemerge12, %mul67
-  %arrayidx81 = getelementptr float addrspace(1)* %inter, i32 %add13.i7
+  %arrayidx81 = getelementptr float, float addrspace(1)* %inter, i32 %add13.i7
   %tmp82 = load float addrspace(1)* %arrayidx81, align 4
-  %arrayidx85 = getelementptr float addrspace(1)* %dct, i32 %add69
+  %arrayidx85 = getelementptr float, float addrspace(1)* %dct, i32 %add69
   %tmp86 = load float addrspace(1)* %arrayidx85, align 4
   %mul87 = fmul float %tmp82, %tmp86
   %add88 = fadd float %tmp96811, %mul87
@@ -163,7 +163,7 @@ for.end92.loopexit18:                             ; preds = %cond.end76.us
 
 for.end92:                                        ; preds = %for.end92.loopexit18, %for.end92.loopexit, %for.end.thread, %for.end
   %tmp968.lcssa = phi float [ 0.000000e+00, %for.end ], [ 0.000000e+00, %for.end.thread ], [ %add88, %for.end92.loopexit ], [ %add88.us, %for.end92.loopexit18 ]
-  %arrayidx95 = getelementptr float addrspace(1)* %output, i32 %add
+  %arrayidx95 = getelementptr float, float addrspace(1)* %output, i32 %add
   store float %tmp968.lcssa, float addrspace(1)* %arrayidx95, align 4
   ret void
 }

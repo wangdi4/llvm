@@ -15,9 +15,9 @@ define void @math_kernel2(<2 x float> addrspace(1)* nocapture %out, <2 x float> 
   %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
   %sext = shl i64 %1, 32
   %2 = ashr i64 %sext, 32
-  %3 = getelementptr inbounds <2 x float> addrspace(1)* %in1, i64 %2
+  %3 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %in1, i64 %2
   %4 = load <2 x float> addrspace(1)* %3, align 8
-  %5 = getelementptr inbounds <2 x i32> addrspace(1)* %in2, i64 %2
+  %5 = getelementptr inbounds <2 x i32>, <2 x i32> addrspace(1)* %in2, i64 %2
   %6 = load <2 x i32> addrspace(1)* %5, align 8
   %tmp8 = bitcast <2 x float> %4 to <1 x double>
   %tmp7 = extractelement <1 x double> %tmp8, i32 0
@@ -26,7 +26,7 @@ define void @math_kernel2(<2 x float> addrspace(1)* nocapture %out, <2 x float> 
   %7 = tail call double @_Z5ldexpDv2_fDv2_i(double %tmp7, double %tmp4) nounwind
   %tmp2 = bitcast double %7 to i64
   %tmp1 = bitcast i64 %tmp2 to <2 x float>
-  %8 = getelementptr inbounds <2 x float> addrspace(1)* %out, i64 %2
+  %8 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %out, i64 %2
   store <2 x float> %tmp1, <2 x float> addrspace(1)* %8, align 8
   ret void
 }

@@ -10,9 +10,9 @@ entry:
 
 ;; new func
 ;; double16 arg1 - expected alignment: 128
-; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 0
+; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %pUniformArgs, i32 0
 ; CHECK-NEXT: [[ARG0_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG0_BUFF_INDEX]] to <16 x double>*
-; CHECK-NEXT: %explicit_0 = load <16 x double>* [[ARG0_TYPECAST]], align 128
+; CHECK-NEXT: %explicit_0 = load <16 x double>, <16 x double>* [[ARG0_TYPECAST]], align 128
 ;;implicit args
 ;; call original func
 ; CHECK: call void @__t1_separated_args(<16 x double> %explicit_0, [[IMPLICIT_ARGS:[a-zA-Z0-9]+]]

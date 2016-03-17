@@ -21,13 +21,13 @@ target triple = "i686-pc-win32"
 
 define void @fmul(float addrspace(1)* nocapture %in, <2 x float> addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=2]
-  %2 = getelementptr inbounds float addrspace(1)* %in, i32 1 ; <float addrspace(1)*> [#uses=1]
+  %2 = getelementptr inbounds float, float addrspace(1)* %in, i32 1 ; <float addrspace(1)*> [#uses=1]
   %3 = load float addrspace(1)* %2                ; <float> [#uses=1]
   %4 = fmul float %3, 3.500000e+000               ; <float> [#uses=1]
   %5 = sitofp i32 %1 to float                     ; <float> [#uses=2]
   %6 = fmul float %4, %5                          ; <float> [#uses=1]
   %7 = insertelement <2 x float> undef, float %6, i32 0 ; <<2 x float>> [#uses=1]
-  %8 = getelementptr inbounds float addrspace(1)* %in, i32 2 ; <float addrspace(1)*> [#uses=1]
+  %8 = getelementptr inbounds float, float addrspace(1)* %in, i32 2 ; <float addrspace(1)*> [#uses=1]
   %9 = load float addrspace(1)* %8                ; <float> [#uses=2]
   %10 = fmul float %9, 3.500000e+000              ; <float> [#uses=2]
   %11 = insertelement <2 x float> %7, float %10, i32 1 ; <<2 x float>> [#uses=1]
@@ -36,7 +36,7 @@ define void @fmul(float addrspace(1)* nocapture %in, <2 x float> addrspace(1)* n
   %14 = insertelement <2 x float> undef, float %13, i32 0 ; <<2 x float>> [#uses=1]
   %15 = insertelement <2 x float> %14, float %10, i32 1 ; <<2 x float>> [#uses=1]
   %16 = fmul <2 x float> %11, %15                 ; <<2 x float>> [#uses=1]
-  %17 = getelementptr inbounds <2 x float> addrspace(1)* %out, i32 %1 ; <<2 x float> addrspace(1)*> [#uses=1]
+  %17 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %out, i32 %1 ; <<2 x float> addrspace(1)*> [#uses=1]
   store <2 x float> %16, <2 x float> addrspace(1)* %17
   ret void
 }

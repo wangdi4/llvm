@@ -16,10 +16,10 @@ entry:
    %zOut = alloca  <8 x i8>
    %wOut = alloca  <8 x i8>
    call void @__ocl_load_transpose_char_4x8(<4 x i8>* %pLoadAdd, <8 x i8>* nocapture %xOut, <8 x i8>* nocapture %yOut, <8 x i8>* nocapture %zOut, <8 x i8>* nocapture %wOut) nounwind
-   %temp1 = load <8 x i8>* %xOut
-   %temp2 = load <8 x i8>* %yOut
-   %temp3 = load <8 x i8>* %zOut
-   %temp4 = load <8 x i8>* %wOut
+   %temp1 = load <8 x i8>, <8 x i8>* %xOut
+   %temp2 = load <8 x i8>, <8 x i8>* %yOut
+   %temp3 = load <8 x i8>, <8 x i8>* %zOut
+   %temp4 = load <8 x i8>, <8 x i8>* %wOut
    %re0 = add <8 x i8> %temp1, %temp2
    %re1 = add <8 x i8> %temp3, %temp4
    %ret0 = add <8 x i8> %re0, %re1

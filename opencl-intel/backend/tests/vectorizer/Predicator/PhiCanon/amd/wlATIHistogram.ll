@@ -30,7 +30,7 @@ for.end.thread:                                   ; preds = %entry
 
 for.body16.lr.ph:                                 ; preds = %entry
   %mul = mul i32 %call, %BIN_SIZE
-  %scevgep = getelementptr i8 addrspace(3)* %sharedArray, i32 %mul
+  %scevgep = getelementptr i8, i8 addrspace(3)* %sharedArray, i32 %mul
   call void @llvm.memset.p3i8.i32(i8 addrspace(3)* %scevgep, i8 0, i32 %BIN_SIZE, i32 1, i1 false)
   call void @_Z7barrierm(i32 1) nounwind
   %mul20 = mul i32 %call1, %BIN_SIZE
@@ -40,10 +40,10 @@ for.body16.lr.ph:                                 ; preds = %entry
 for.body16:                                       ; preds = %for.body16.lr.ph, %for.body16
   %storemerge211 = phi i32 [ 0, %for.body16.lr.ph ], [ %inc37, %for.body16 ]
   %add22 = add i32 %storemerge211, %mul20
-  %arrayidx24 = getelementptr i32 addrspace(1)* %data, i32 %add22
+  %arrayidx24 = getelementptr i32, i32 addrspace(1)* %data, i32 %add22
   %tmp25 = load i32 addrspace(1)* %arrayidx24, align 4
   %add30 = add i32 %tmp25, %mul28
-  %arrayidx32 = getelementptr i8 addrspace(3)* %sharedArray, i32 %add30
+  %arrayidx32 = getelementptr i8, i8 addrspace(3)* %sharedArray, i32 %add30
   %tmp33 = load i8 addrspace(3)* %arrayidx32, align 1
   %inc34 = add i8 %tmp33, 1
   store i8 %inc34, i8 addrspace(3)* %arrayidx32, align 1
@@ -76,7 +76,7 @@ for.body54.lr.ph.us.preheader:                    ; preds = %for.cond50.preheade
 
 for.end72.us:                                     ; preds = %for.body54.us
   %add81.us = add i32 %add79, %mul61.us
-  %arrayidx83.us = getelementptr i32 addrspace(1)* %binResult, i32 %add81.us
+  %arrayidx83.us = getelementptr i32, i32 addrspace(1)* %binResult, i32 %add81.us
   store i32 %add68.us, i32 addrspace(1)* %arrayidx83.us, align 4
   %inc87.us = add i32 %storemerge9.us, 1
   %cmp46.us = icmp ult i32 %inc87.us, %div
@@ -87,7 +87,7 @@ for.body54.us:                                    ; preds = %for.body54.lr.ph.us
   %tmp8446.us = phi i32 [ 0, %for.body54.lr.ph.us ], [ %add68.us, %for.body54.us ]
   %mul58.us = mul i32 %storemerge17.us, %BIN_SIZE
   %add64.us = add i32 %add62.us, %mul58.us
-  %arrayidx66.us = getelementptr i8 addrspace(3)* %sharedArray, i32 %add64.us
+  %arrayidx66.us = getelementptr i8, i8 addrspace(3)* %sharedArray, i32 %add64.us
   %tmp67.us = load i8 addrspace(3)* %arrayidx66.us, align 1
   %conv.us = zext i8 %tmp67.us to i32
   %add68.us = add i32 %conv.us, %tmp8446.us
@@ -103,7 +103,7 @@ for.body54.lr.ph.us:                              ; preds = %for.body54.lr.ph.us
 
 for.end72:                                        ; preds = %for.end72.preheader, %for.end72
   %storemerge9 = phi i32 [ %inc87, %for.end72 ], [ 0, %for.end72.preheader ]
-  %arrayidx83 = getelementptr i32 addrspace(1)* %binResult, i32 %add79
+  %arrayidx83 = getelementptr i32, i32 addrspace(1)* %binResult, i32 %add79
   store i32 0, i32 addrspace(1)* %arrayidx83, align 4
   %inc87 = add i32 %storemerge9, 1
   %cmp46 = icmp ult i32 %inc87, %div

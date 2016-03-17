@@ -43,10 +43,10 @@ entry:
   %extract5 = extractelement <4 x i64> %6, i32 1
   %extract6 = extractelement <4 x i64> %6, i32 2
   %extract7 = extractelement <4 x i64> %6, i32 3
-  %7 = getelementptr inbounds <3 x float> addrspace(1)* %dst, i64 %extract
-  %8 = getelementptr inbounds <3 x float> addrspace(1)* %dst, i64 %extract5
-  %9 = getelementptr inbounds <3 x float> addrspace(1)* %dst, i64 %extract6
-  %10 = getelementptr inbounds <3 x float> addrspace(1)* %dst, i64 %extract7
+  %7 = getelementptr inbounds <3 x float>, <3 x float> addrspace(1)* %dst, i64 %extract
+  %8 = getelementptr inbounds <3 x float>, <3 x float> addrspace(1)* %dst, i64 %extract5
+  %9 = getelementptr inbounds <3 x float>, <3 x float> addrspace(1)* %dst, i64 %extract6
+  %10 = getelementptr inbounds <3 x float>, <3 x float> addrspace(1)* %dst, i64 %extract7
   store <3 x float> %assembled.vect4, <3 x float> addrspace(1)* %7, align 16
   store <3 x float> %assembled.vect4, <3 x float> addrspace(1)* %8, align 16
   store <3 x float> %assembled.vect4, <3 x float> addrspace(1)* %9, align 16

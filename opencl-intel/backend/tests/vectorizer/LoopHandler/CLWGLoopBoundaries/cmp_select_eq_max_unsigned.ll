@@ -27,7 +27,7 @@ define void @cmp_select_max_kernel(<4 x i8> addrspace(1)* nocapture %dst, i32 %w
   %select1 = select i1 %cmp1, i32 %id1, i32 1
   %mul = mul nsw i32 %select1, %width
   %ind = add nsw i32 %mul, %select0
-  %ptr = getelementptr inbounds <4 x i8> addrspace(1)* %dst, i32 %ind
+  %ptr = getelementptr inbounds <4 x i8>, <4 x i8> addrspace(1)* %dst, i32 %ind
   store <4 x i8> <i8 100, i8 100, i8 100, i8 100>, <4 x i8> addrspace(1)* %ptr, align 4
   ret void
 }

@@ -50,7 +50,7 @@ for.body7.us:                                     ; preds = %for.body7.lr.ph.us,
   %mul.us = mul nsw i32 %3, %iEvalN
   %add.us = add nsw i32 %mul.us, %19
   %idxprom.us = sext i32 %add.us to i64
-  %arrayidx.us = getelementptr inbounds i32 addrspace(1)* %gpiReduceN, i64 %idxprom.us
+  %arrayidx.us = getelementptr inbounds i32, i32 addrspace(1)* %gpiReduceN, i64 %idxprom.us
   %4 = load i32 addrspace(1)* %arrayidx.us, align 4
   %5 = bitcast [4 x float]* %c.i to i8*
   %6 = bitcast [4 x float]* %d.i to i8*
@@ -89,7 +89,7 @@ for.body.i.i:                                     ; preds = %for.body.i.i.prehea
 
 for.body.i.i.for.body.i.i_crit_edge:              ; preds = %for.body.i.i
   %dif.1.i.i = select i1 %cmp1.i.i, float %call.i.i, float %dif.011.i.i
-  %arrayidx.i.i.phi.trans.insert = getelementptr inbounds [4 x float]* %afAbsc.i, i64 0, i64 %indvars.iv.next17.i.i
+  %arrayidx.i.i.phi.trans.insert = getelementptr inbounds [4 x float], [4 x float]* %afAbsc.i, i64 0, i64 %indvars.iv.next17.i.i
   %.pre = load float* %arrayidx.i.i.phi.trans.insert, align 4
   br label %for.body.i.i
 
@@ -100,18 +100,18 @@ for.end29.i.i:                                    ; preds = %for.body.i.i
 
 cond.true.i.i:                                    ; preds = %for.end29.i.i
   %idxprom32.i.i = sext i32 %ns.1.i.i to i64
-  %arrayidx33.i.i = getelementptr inbounds [4 x float]* %c.i, i64 0, i64 %idxprom32.i.i
+  %arrayidx33.i.i = getelementptr inbounds [4 x float], [4 x float]* %c.i, i64 0, i64 %idxprom32.i.i
   br label %ocl_Func1.exit.i
 
 cond.false.i.i:                                   ; preds = %for.end29.i.i
   %dec.i.i = add nsw i32 %ns.1.i.i, -1
   %idxprom35.i.i = sext i32 %dec.i.i to i64
-  %arrayidx36.i.i = getelementptr inbounds [4 x float]* %d.i, i64 0, i64 %idxprom35.i.i
+  %arrayidx36.i.i = getelementptr inbounds [4 x float], [4 x float]* %d.i, i64 0, i64 %idxprom35.i.i
   br label %ocl_Func1.exit.i
 
 ocl_Func1.exit.i:                                 ; preds = %cond.false.i.i, %cond.true.i.i
   %cond.in.i.i = phi float* [ %arrayidx33.i.i, %cond.true.i.i ], [ %arrayidx36.i.i, %cond.false.i.i ]
-  %cond.i.i = load float* %cond.in.i.i, align 4
+  %cond.i.i = load float, float* %cond.in.i.i, align 4
   %add37.i.i = fadd float %cond.i.i, 0.000000e+00
   br label %phi-split-bb1
 
@@ -132,7 +132,7 @@ for.body.i14.i:                                   ; preds = %for.body.i14.i.preh
 
 for.body.i14.i.for.body.i14.i_crit_edge:          ; preds = %for.body.i14.i
   %dif.1.i10.i = select i1 %cmp1.i8.i, float %call.i7.i, float %dif.011.i3.i
-  %arrayidx.i5.i.phi.trans.insert = getelementptr inbounds [4 x float]* %afAbsc.i, i64 0, i64 %indvars.iv.next17.i11.i
+  %arrayidx.i5.i.phi.trans.insert = getelementptr inbounds [4 x float], [4 x float]* %afAbsc.i, i64 0, i64 %indvars.iv.next17.i11.i
   %.pre10 = load float* %arrayidx.i5.i.phi.trans.insert, align 4
   br label %for.body.i14.i
 
@@ -153,19 +153,19 @@ for.body8.i26.i.preheader:                        ; preds = %for.cond5.preheader
 
 for.body8.i26.i:                                  ; preds = %for.body8.i26.i.preheader, %if.end22.i31.i
   %indvars.iv.i21.i = phi i64 [ %indvars.iv.next.i29.i, %if.end22.i31.i ], [ 0, %for.body8.i26.i.preheader ]
-  %arrayidx10.i22.i = getelementptr inbounds [4 x float]* %afAbsc.i, i64 0, i64 %indvars.iv.i21.i
+  %arrayidx10.i22.i = getelementptr inbounds [4 x float], [4 x float]* %afAbsc.i, i64 0, i64 %indvars.iv.i21.i
   %14 = load float* %arrayidx10.i22.i, align 4
   %15 = add nsw i64 %indvars.iv.i21.i, %indvars.iv14.i15.i
-  %arrayidx12.i23.i = getelementptr inbounds [4 x float]* %afAbsc.i, i64 0, i64 %15
+  %arrayidx12.i23.i = getelementptr inbounds [4 x float], [4 x float]* %afAbsc.i, i64 0, i64 %15
   %16 = load float* %arrayidx12.i23.i, align 4
   %sub19.i24.i = fsub float %14, %16
   %cmp20.i25.i = fcmp oeq float %sub19.i24.i, 0.000000e+00
   br i1 %cmp20.i25.i, label %phi-split-bb, label %if.end22.i31.i
 
 if.end22.i31.i:                                   ; preds = %for.body8.i26.i
-  %arrayidx24.i27.i = getelementptr inbounds [4 x float]* %d.i, i64 0, i64 %indvars.iv.i21.i
+  %arrayidx24.i27.i = getelementptr inbounds [4 x float], [4 x float]* %d.i, i64 0, i64 %indvars.iv.i21.i
   store float %16, float* %arrayidx24.i27.i, align 4
-  %arrayidx26.i28.i = getelementptr inbounds [4 x float]* %c.i, i64 0, i64 %indvars.iv.i21.i
+  %arrayidx26.i28.i = getelementptr inbounds [4 x float], [4 x float]* %c.i, i64 0, i64 %indvars.iv.i21.i
   store float %14, float* %arrayidx26.i28.i, align 4
   %indvars.iv.next.i29.i = add i64 %indvars.iv.i21.i, 1
   %17 = trunc i64 %indvars.iv.next.i29.i to i32
@@ -182,19 +182,19 @@ for.end29.i34.i:                                  ; preds = %phi-split-bb, %for.
 
 cond.true.i37.i:                                  ; preds = %for.end29.i34.i
   %idxprom32.i35.i = sext i32 %ns.25.i17.i to i64
-  %arrayidx33.i36.i = getelementptr inbounds [4 x float]* %c.i, i64 0, i64 %idxprom32.i35.i
+  %arrayidx33.i36.i = getelementptr inbounds [4 x float], [4 x float]* %c.i, i64 0, i64 %idxprom32.i35.i
   br label %cond.end.i49.i
 
 cond.false.i41.i:                                 ; preds = %for.end29.i34.i
   %dec.i38.i = add nsw i32 %ns.25.i17.i, -1
   %idxprom35.i39.i = sext i32 %dec.i38.i to i64
-  %arrayidx36.i40.i = getelementptr inbounds [4 x float]* %d.i, i64 0, i64 %idxprom35.i39.i
+  %arrayidx36.i40.i = getelementptr inbounds [4 x float], [4 x float]* %d.i, i64 0, i64 %idxprom35.i39.i
   br label %cond.end.i49.i
 
 cond.end.i49.i:                                   ; preds = %cond.false.i41.i, %cond.true.i37.i
   %ns.3.i42.i = phi i32 [ %ns.25.i17.i, %cond.true.i37.i ], [ %dec.i38.i, %cond.false.i41.i ]
   %cond.in.i43.i = phi float* [ %arrayidx33.i36.i, %cond.true.i37.i ], [ %arrayidx36.i40.i, %cond.false.i41.i ]
-  %cond.i44.i = load float* %cond.in.i43.i, align 4
+  %cond.i44.i = load float, float* %cond.in.i43.i, align 4
   %add37.i45.i = fadd float %y.06.i16.i, %cond.i44.i
   %indvars.iv.next15.i46.i = add i64 %indvars.iv14.i15.i, 1
   %lftr.wideiv.i47.i = trunc i64 %indvars.iv.next15.i46.i to i32
@@ -211,7 +211,7 @@ phi-split-bb1:                                    ; preds = %phi-split-bb1.loope
 ocl_Func2.exit:                                   ; preds = %phi-split-bb1, %for.body7.us
   %fValue.0.i = phi float [ 0.000000e+00, %for.body7.us ], [ %new_phi, %phi-split-bb1 ]
   %18 = add nsw i64 %indvars.iv, %20
-  %arrayidx12.us = getelementptr inbounds float addrspace(1)* %gpfResults, i64 %18
+  %arrayidx12.us = getelementptr inbounds float, float addrspace(1)* %gpfResults, i64 %18
   store float %fValue.0.i, float addrspace(1)* %arrayidx12.us, align 4
   %indvars.iv.next = add i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32

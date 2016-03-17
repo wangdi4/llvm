@@ -25,17 +25,17 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %if.end
   %storemerge5 = phi i64 [ %inc, %if.end ], [ 0, %for.body.preheader ]
   %tmp2514 = phi <4 x float> [ %tmp252, %if.end ], [ zeroinitializer, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds <4 x float>* %1, i64 %storemerge5
+  %arrayidx = getelementptr inbounds <4 x float>, <4 x float>* %1, i64 %storemerge5
   %tmp8 = load <4 x float>* %arrayidx, align 16
   %tmp9 = extractelement <4 x float> %tmp8, i32 0
-  %tmp12 = load <4 x float>* %0, align 16
+  %tmp12 = load <4 x float>, <4 x float>* %0, align 16
   %tmp13 = extractelement <4 x float> %tmp12, i32 0
   %cmp14 = fcmp oeq float %tmp9, %tmp13
-  %arrayidx17 = getelementptr inbounds <4 x float>* %0, i64 %storemerge5
+  %arrayidx17 = getelementptr inbounds <4 x float>, <4 x float>* %0, i64 %storemerge5
   br i1 %cmp14, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
-  %tmp18 = load <4 x float>* %arrayidx17, align 16
+  %tmp18 = load <4 x float>, <4 x float>* %arrayidx17, align 16
   %add = fadd <4 x float> %tmp18, %tmp8
   %add24 = fadd <4 x float> %tmp2514, %add
   br label %if.end

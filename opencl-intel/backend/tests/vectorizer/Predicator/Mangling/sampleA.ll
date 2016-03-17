@@ -29,27 +29,27 @@ if.then:                                          ; preds = %entry
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %if.then
-  %tmp = load i32* %i                             ; <i32> [#uses=1]
+  %tmp = load i32, i32* %i                             ; <i32> [#uses=1]
   %conv = sext i32 %tmp to i64                    ; <i64> [#uses=1]
-  %tmp1 = load i64* %n.addr                       ; <i64> [#uses=1]
+  %tmp1 = load i64, i64* %n.addr                       ; <i64> [#uses=1]
   %cmp = icmp slt i64 %conv, %tmp1                ; <i1> [#uses=1]
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %tmp3 = load i32* %i                            ; <i32> [#uses=1]
-  %tmp4 = load i64** %B.addr                      ; <i64*> [#uses=1]
+  %tmp3 = load i32, i32* %i                            ; <i32> [#uses=1]
+  %tmp4 = load i64*, i64** %B.addr                      ; <i64*> [#uses=1]
   %idxprom = sext i32 %tmp3 to i64                ; <i64> [#uses=1]
-  %arrayidx = getelementptr inbounds i64* %tmp4, i64 %idxprom ; <i64*> [#uses=1]
+  %arrayidx = getelementptr inbounds i64, i64* %tmp4, i64 %idxprom ; <i64*> [#uses=1]
   %tmp5 = load i64* %arrayidx                     ; <i64> [#uses=1]
   %tmp6 = load i32* %i                            ; <i32> [#uses=1]
   %tmp7 = load i64** %A.addr                      ; <i64*> [#uses=1]
   %idxprom8 = sext i32 %tmp6 to i64               ; <i64> [#uses=1]
-  %arrayidx9 = getelementptr inbounds i64* %tmp7, i64 %idxprom8 ; <i64*> [#uses=1]
+  %arrayidx9 = getelementptr inbounds i64, i64* %tmp7, i64 %idxprom8 ; <i64*> [#uses=1]
   store i64 %tmp5, i64* %arrayidx9
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %tmp10 = load i32* %i                           ; <i32> [#uses=1]
+  %tmp10 = load i32, i32* %i                           ; <i32> [#uses=1]
   %inc = add nsw i32 %tmp10, 1                    ; <i32> [#uses=1]
   store i32 %inc, i32* %i
   br label %for.cond
@@ -62,28 +62,28 @@ if.else:                                          ; preds = %entry
   br label %for.cond13
 
 for.cond13:                                       ; preds = %for.inc29, %if.else
-  %tmp14 = load i32* %i12                         ; <i32> [#uses=1]
+  %tmp14 = load i32, i32* %i12                         ; <i32> [#uses=1]
   %conv15 = sext i32 %tmp14 to i64                ; <i64> [#uses=1]
-  %tmp16 = load i64* %n.addr                      ; <i64> [#uses=1]
+  %tmp16 = load i64, i64* %n.addr                      ; <i64> [#uses=1]
   %add = add nsw i64 %tmp16, 4                    ; <i64> [#uses=1]
   %cmp17 = icmp slt i64 %conv15, %add             ; <i1> [#uses=1]
   br i1 %cmp17, label %for.body19, label %for.end32
 
 for.body19:                                       ; preds = %for.cond13
-  %tmp20 = load i32* %i12                         ; <i32> [#uses=1]
-  %tmp21 = load i64** %A.addr                     ; <i64*> [#uses=1]
+  %tmp20 = load i32, i32* %i12                         ; <i32> [#uses=1]
+  %tmp21 = load i64*, i64** %A.addr                     ; <i64*> [#uses=1]
   %idxprom22 = sext i32 %tmp20 to i64             ; <i64> [#uses=1]
-  %arrayidx23 = getelementptr inbounds i64* %tmp21, i64 %idxprom22 ; <i64*> [#uses=1]
+  %arrayidx23 = getelementptr inbounds i64, i64* %tmp21, i64 %idxprom22 ; <i64*> [#uses=1]
   %tmp24 = load i64* %arrayidx23                  ; <i64> [#uses=1]
   %tmp25 = load i32* %i12                         ; <i32> [#uses=1]
   %tmp26 = load i64** %B.addr                     ; <i64*> [#uses=1]
   %idxprom27 = sext i32 %tmp25 to i64             ; <i64> [#uses=1]
-  %arrayidx28 = getelementptr inbounds i64* %tmp26, i64 %idxprom27 ; <i64*> [#uses=1]
+  %arrayidx28 = getelementptr inbounds i64, i64* %tmp26, i64 %idxprom27 ; <i64*> [#uses=1]
   store i64 %tmp24, i64* %arrayidx28
   br label %for.inc29
 
 for.inc29:                                        ; preds = %for.body19
-  %tmp30 = load i32* %i12                         ; <i32> [#uses=1]
+  %tmp30 = load i32, i32* %i12                         ; <i32> [#uses=1]
   %inc31 = add nsw i32 %tmp30, 1                  ; <i32> [#uses=1]
   store i32 %inc31, i32* %i12
   br label %for.cond13
@@ -95,7 +95,7 @@ if.end:                                           ; preds = %for.end32, %for.end
   %call33 = call i32 @_Z13get_global_idj(i32 0)        ; <i32> [#uses=1]
   %conv34 = zext i32 %call33 to i64               ; <i64> [#uses=1]
   %tmp35 = load i64** %B.addr                     ; <i64*> [#uses=1]
-  %arrayidx36 = getelementptr inbounds i64* %tmp35, i64 0 ; <i64*> [#uses=1]
+  %arrayidx36 = getelementptr inbounds i64, i64* %tmp35, i64 0 ; <i64*> [#uses=1]
   store i64 %conv34, i64* %arrayidx36
   ret void
 }

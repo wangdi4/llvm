@@ -33,7 +33,7 @@ for.body.lr.ph.split.us:                          ; preds = %for.body.lr.ph
 if.end40.us.us:                                   ; preds = %for.body.lr.ph.split.us, %if.end40.us.us
   %indvars.iv52 = phi i64 [ %indvars.iv.next53, %if.end40.us.us ], [ %0, %for.body.lr.ph.split.us ]
   %call27.us.us = tail call float @_Z3maxff(float 0.000000e+00, float fdiv (float fsub (float 5.000000e-01, float undef), float fsub (float 1.000000e+00, float undef))) nounwind readnone
-  %arrayidx42.us.us = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv52
+  %arrayidx42.us.us = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv52
   store float %call27.us.us, float addrspace(1)* %arrayidx42.us.us, align 4
   %indvars.iv.next53 = add i64 %indvars.iv52, %1
   %2 = trunc i64 %indvars.iv.next53 to i32
@@ -51,7 +51,7 @@ if.then33.us:                                     ; preds = %if.else28.us
 
 if.end40.us:                                      ; preds = %if.then33.us, %if.else28.us
   %fAbove.0.us = phi float [ %sub37.us, %if.then33.us ], [ 5.000000e-01, %if.else28.us ]
-  %arrayidx42.us = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv46
+  %arrayidx42.us = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv46
   store float %fAbove.0.us, float addrspace(1)* %arrayidx42.us, align 4
   %indvars.iv.next47 = add i64 %indvars.iv46, %1
   %3 = trunc i64 %indvars.iv.next47 to i32
@@ -63,7 +63,7 @@ for.body.lr.ph.split:                             ; preds = %for.body.lr.ph
 
 if.then.us8:                                      ; preds = %for.body.lr.ph.split, %if.end40.us20
   %indvars.iv48 = phi i64 [ %indvars.iv.next49, %if.end40.us20 ], [ %0, %for.body.lr.ph.split ]
-  %arrayidx.us7 = getelementptr inbounds float addrspace(1)* %gpfAsset, i64 %indvars.iv48
+  %arrayidx.us7 = getelementptr inbounds float, float addrspace(1)* %gpfAsset, i64 %indvars.iv48
   %4 = load float addrspace(1)* %arrayidx.us7, align 4
   %cmp12.us9 = fcmp ogt float %4, 0.000000e+00
   br i1 %cmp12.us9, label %if.end40.us20, label %if.else.us10
@@ -75,7 +75,7 @@ if.else.us10:                                     ; preds = %if.then.us8
 
 if.end40.us20:                                    ; preds = %if.else.us10, %if.then.us8
   %fAbove.0.us21 = phi float [ 1.000000e+00, %if.then.us8 ], [ %..us12, %if.else.us10 ]
-  %arrayidx42.us22 = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv48
+  %arrayidx42.us22 = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv48
   store float %fAbove.0.us21, float addrspace(1)* %arrayidx42.us22, align 4
   %indvars.iv.next49 = add i64 %indvars.iv48, %1
   %5 = trunc i64 %indvars.iv.next49 to i32
@@ -87,7 +87,7 @@ for.body.lr.ph.split.split:                       ; preds = %for.body.lr.ph.spli
 
 if.then.us29:                                     ; preds = %for.body.lr.ph.split.split, %if.end40.us41
   %indvars.iv50 = phi i64 [ %indvars.iv.next51, %if.end40.us41 ], [ %0, %for.body.lr.ph.split.split ]
-  %arrayidx.us28 = getelementptr inbounds float addrspace(1)* %gpfAsset, i64 %indvars.iv50
+  %arrayidx.us28 = getelementptr inbounds float, float addrspace(1)* %gpfAsset, i64 %indvars.iv50
   %6 = load float addrspace(1)* %arrayidx.us28, align 4
   %cmp12.us30 = fcmp ogt float %6, 0.000000e+00
   br i1 %cmp12.us30, label %if.end40.us41, label %if.else.us31
@@ -99,7 +99,7 @@ if.else.us31:                                     ; preds = %if.then.us29
 
 if.end40.us41:                                    ; preds = %if.else.us31, %if.then.us29
   %fAbove.0.us42 = phi float [ 1.000000e+00, %if.then.us29 ], [ %..us33, %if.else.us31 ]
-  %arrayidx42.us43 = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv50
+  %arrayidx42.us43 = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv50
   store float %fAbove.0.us42, float addrspace(1)* %arrayidx42.us43, align 4
   %indvars.iv.next51 = add i64 %indvars.iv50, %1
   %7 = trunc i64 %indvars.iv.next51 to i32
@@ -108,7 +108,7 @@ if.end40.us41:                                    ; preds = %if.else.us31, %if.t
 
 if.then:                                          ; preds = %for.body.lr.ph.split.split, %if.end40
   %indvars.iv = phi i64 [ %indvars.iv.next, %if.end40 ], [ %0, %for.body.lr.ph.split.split ]
-  %arrayidx = getelementptr inbounds float addrspace(1)* %gpfAsset, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %gpfAsset, i64 %indvars.iv
   %8 = load float addrspace(1)* %arrayidx, align 4
   %cmp12 = fcmp ogt float %8, 0.000000e+00
   br i1 %cmp12, label %if.end40, label %if.else
@@ -120,7 +120,7 @@ if.else:                                          ; preds = %if.then
 
 if.end40:                                         ; preds = %if.else, %if.then
   %fAbove.0 = phi float [ 1.000000e+00, %if.then ], [ %., %if.else ]
-  %arrayidx42 = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv
+  %arrayidx42 = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv
   store float %fAbove.0, float addrspace(1)* %arrayidx42, align 4
   %indvars.iv.next = add i64 %indvars.iv, %1
   %9 = trunc i64 %indvars.iv.next to i32
@@ -169,16 +169,16 @@ for.body.lr.ph:                                   ; preds = %cond.end
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.inc
   %indvars.iv = phi i64 [ %0, %for.body.lr.ph ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds float addrspace(1)* %gpfAsset, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %gpfAsset, i64 %indvars.iv
   %2 = load float addrspace(1)* %arrayidx, align 4
-  %arrayidx8 = getelementptr inbounds float addrspace(1)* %gpfBarrier, i64 %indvars.iv
+  %arrayidx8 = getelementptr inbounds float, float addrspace(1)* %gpfBarrier, i64 %indvars.iv
   %3 = load float addrspace(1)* %arrayidx8, align 4
   %add = fadd float %cond14, %3
   %sub = fsub float %3, %cond20
   br i1 %tobool, label %if.else.thread, label %if.then
 
 if.else.thread:                                   ; preds = %for.body
-  %arrayidx5117 = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv
+  %arrayidx5117 = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv
   br label %if.else52
 
 if.then:                                          ; preds = %for.body
@@ -213,14 +213,14 @@ if.end:                                           ; preds = %cond.true33, %cond.
   br i1 %or.cond, label %if.then42, label %if.else
 
 if.then42:                                        ; preds = %if.end
-  %arrayidx44 = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv
+  %arrayidx44 = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv
   store float 1.000000e+00, float addrspace(1)* %arrayidx44, align 4
   br label %for.inc
 
 if.else:                                          ; preds = %if.end
   %cmp47 = fcmp olt float %2, %cond29
   %or.cond1 = and i1 %tobool39, %cmp47
-  %arrayidx51 = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv
+  %arrayidx51 = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv
   br i1 %or.cond1, label %if.then49, label %if.else52
 
 if.then49:                                        ; preds = %if.else
@@ -276,16 +276,16 @@ for.body.lr.ph.i:                                 ; preds = %cond.end.i
 
 for.body.i:                                       ; preds = %for.inc.i, %for.body.lr.ph.i
   %indvars.iv.i = phi i64 [ %0, %for.body.lr.ph.i ], [ %indvars.iv.next.i, %for.inc.i ]
-  %arrayidx.i = getelementptr inbounds float addrspace(1)* %gpfAsset, i64 %indvars.iv.i
+  %arrayidx.i = getelementptr inbounds float, float addrspace(1)* %gpfAsset, i64 %indvars.iv.i
   %2 = load float addrspace(1)* %arrayidx.i, align 4
-  %arrayidx8.i = getelementptr inbounds float addrspace(1)* %gpfBarrier, i64 %indvars.iv.i
+  %arrayidx8.i = getelementptr inbounds float, float addrspace(1)* %gpfBarrier, i64 %indvars.iv.i
   %3 = load float addrspace(1)* %arrayidx8.i, align 4
   %add.i = fadd float %cond14.i, %3
   %sub.i = fsub float %3, %cond20.i
   br i1 %tobool.i, label %if.else.thread.i, label %if.then.i
 
 if.else.thread.i:                                 ; preds = %for.body.i
-  %arrayidx5117.i = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv.i
+  %arrayidx5117.i = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv.i
   br label %if.else52.i
 
 if.then.i:                                        ; preds = %for.body.i
@@ -320,14 +320,14 @@ if.end.i:                                         ; preds = %cond.false35.i, %co
   br i1 %or.cond.i, label %if.then42.i, label %if.else.i
 
 if.then42.i:                                      ; preds = %if.end.i
-  %arrayidx44.i = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv.i
+  %arrayidx44.i = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv.i
   store float 1.000000e+00, float addrspace(1)* %arrayidx44.i, align 4
   br label %for.inc.i
 
 if.else.i:                                        ; preds = %if.end.i
   %cmp47.i = fcmp olt float %2, %cond29.i
   %or.cond1.i = and i1 %tobool39.i, %cmp47.i
-  %arrayidx51.i = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv.i
+  %arrayidx51.i = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv.i
   br i1 %or.cond1.i, label %if.then49.i, label %if.else52.i
 
 if.then49.i:                                      ; preds = %if.else.i
@@ -401,16 +401,16 @@ for.body.lr.ph.i:                                 ; preds = %cond.end.i
 
 for.body.i:                                       ; preds = %for.inc.i, %for.body.lr.ph.i
   %indvars.iv.i = phi i64 [ %0, %for.body.lr.ph.i ], [ %indvars.iv.next.i, %for.inc.i ]
-  %arrayidx.i = getelementptr inbounds float addrspace(1)* %gpfAsset, i64 %indvars.iv.i
+  %arrayidx.i = getelementptr inbounds float, float addrspace(1)* %gpfAsset, i64 %indvars.iv.i
   %2 = load float addrspace(1)* %arrayidx.i, align 4
-  %arrayidx8.i = getelementptr inbounds float addrspace(1)* %gpfBarrier, i64 %indvars.iv.i
+  %arrayidx8.i = getelementptr inbounds float, float addrspace(1)* %gpfBarrier, i64 %indvars.iv.i
   %3 = load float addrspace(1)* %arrayidx8.i, align 4
   %add.i = fadd float %cond14.i, %3
   %sub.i = fsub float %3, %cond20.i
   br i1 %tobool.i, label %if.else.thread.i, label %if.then.i
 
 if.else.thread.i:                                 ; preds = %for.body.i
-  %arrayidx5117.i = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv.i
+  %arrayidx5117.i = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv.i
   br label %if.else52.i
 
 if.then.i:                                        ; preds = %for.body.i
@@ -445,14 +445,14 @@ if.end.i:                                         ; preds = %cond.false35.i, %co
   br i1 %or.cond.i, label %if.then42.i, label %if.else.i
 
 if.then42.i:                                      ; preds = %if.end.i
-  %arrayidx44.i = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv.i
+  %arrayidx44.i = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv.i
   store float 1.000000e+00, float addrspace(1)* %arrayidx44.i, align 4
   br label %phi-split-bb
 
 if.else.i:                                        ; preds = %if.end.i
   %cmp47.i = fcmp olt float %2, %cond29.i
   %or.cond1.i = and i1 %tobool39.i, %cmp47.i
-  %arrayidx51.i = getelementptr inbounds float addrspace(1)* %gpfAbove, i64 %indvars.iv.i
+  %arrayidx51.i = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv.i
   br i1 %or.cond1.i, label %if.then49.i, label %if.else52.i
 
 if.then49.i:                                      ; preds = %if.else.i

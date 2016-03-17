@@ -34,7 +34,7 @@ define void @encountered_not_scal_variable(float* nocapture %in1, <4 x i8>* noca
   %6 = fmul float %5, %3                          ; <float> [#uses=1]
   %7 = fadd float %4, %6                          ; <float> [#uses=1]
   %8 = fptoui float %7 to i8                      ; <i8> [#uses=1]
-  %9 = getelementptr inbounds i8 addrspace(1)* %out, i32 %1; <i8 addrspace(1)*> [#uses=1]
+  %9 = getelementptr inbounds i8, i8 addrspace(1)* %out, i32 %1; <i8 addrspace(1)*> [#uses=1]
   store i8 %8, i8 addrspace(1)* %9
   ret void
 }

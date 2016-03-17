@@ -7,7 +7,7 @@ target triple = "x86_64-pc-win32"
 
 define fastcc void @aos_shader() nounwind {
 entry:
-  %0 = load <4 x float>* undef
+  %0 = load <4 x float>, <4 x float>* undef
   %bitcast = bitcast <4 x float> %0 to <4 x i32>
   %1 = uitofp <4 x i32> %bitcast to <4 x float>
   %2 = shufflevector <4 x float> undef, <4 x float> %1, <4 x i32> <i32 0, i32 1, i32 6, i32 3>

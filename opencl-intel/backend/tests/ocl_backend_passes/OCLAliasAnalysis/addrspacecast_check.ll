@@ -21,15 +21,15 @@ entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #2
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds i32 addrspace(3)* %in, i64 %idxprom
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(3)* %in, i64 %idxprom
   %0 = load i32 addrspace(3)* %arrayidx, align 4
   %cmp3 = icmp sgt i32 %0, 0
   br i1 %cmp3, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
-  %arrayidx5 = getelementptr inbounds i32 addrspace(1)* %out, i64 %idxprom
+  %arrayidx5 = getelementptr inbounds i32, i32 addrspace(1)* %out, i64 %idxprom
   %.casted = addrspacecast i32 addrspace(1)* %arrayidx5 to i32*
-  %.pre = load i32* %.casted, align 4
+  %.pre = load i32, i32* %.casted, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.body
@@ -40,7 +40,7 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %add = add nsw i32 %1, %mul
   store i32 %add, i32 addrspace(1)* %arrayidx5, align 4
   %inc = add nsw i32 %i.04, 1
-  %3 = load i32 addrspace(3)* %arrayidx, align 4
+  %3 = load i32, i32 addrspace(3)* %arrayidx, align 4
   %cmp = icmp slt i32 %inc, %3
   br i1 %cmp, label %for.body, label %for.end
 

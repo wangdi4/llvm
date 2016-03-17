@@ -20,7 +20,7 @@ define void @kernel(i32* nocapture %A, i64 %k) nounwind {
 ; <label>:3                                       ; preds = %0
   %4 = shl i64 %1, 1
   %5 = add i64 %4, %k
-  %6 = getelementptr inbounds i32* %A, i64 %5
+  %6 = getelementptr inbounds i32, i32* %A, i64 %5
   %7 = load i32* %6, align 1, !tbaa !0
   %8 = add i32 %7, 3
   store i32 %8, i32* %6, align 1, !tbaa !0

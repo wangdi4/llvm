@@ -19,13 +19,13 @@ define void @internalDivBranch(i32 addrspace(1)* nocapture %a, i32 addrspace(1)*
   %2 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %2, 32
   %3 = ashr exact i64 %sext, 32
-  %4 = getelementptr inbounds i32 addrspace(1)* %res, i64 %3
+  %4 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %3
   br label %5
 
 ; <label>:5                                       ; preds = %12, %.lr.ph
   %indvars.iv = phi i64 [ 0, %.lr.ph ], [ %indvars.iv.next, %12 ]
   %6 = add nsw i64 %indvars.iv, %3
-  %7 = getelementptr inbounds i32 addrspace(1)* %a, i64 %6
+  %7 = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %6
   %8 = load i32 addrspace(1)* %7, align 4, !tbaa !11
   %9 = trunc i64 %6 to i32
   %10 = icmp eq i32 %9, %8
@@ -57,13 +57,13 @@ define void @externalDivBranch(i32 addrspace(1)* nocapture %a, i32 addrspace(1)*
   %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = sext i32 %2 to i64
-  %4 = getelementptr inbounds i32 addrspace(1)* %a, i64 %3
+  %4 = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %3
   %5 = load i32 addrspace(1)* %4, align 4, !tbaa !11
   %6 = icmp eq i32 %2, %5
   br i1 %6, label %7, label %.preheader
 
 ; <label>:7                                       ; preds = %0
-  %8 = getelementptr inbounds i32 addrspace(1)* %res, i64 %3
+  %8 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %3
   store i32 8, i32 addrspace(1)* %8, align 4, !tbaa !11
   br label %.preheader
 
@@ -72,7 +72,7 @@ define void @externalDivBranch(i32 addrspace(1)* nocapture %a, i32 addrspace(1)*
   br i1 %9, label %.lr.ph, label %13
 
 .lr.ph:                                           ; preds = %.preheader
-  %10 = getelementptr inbounds i32 addrspace(1)* %res, i64 %3
+  %10 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %3
   %.promoted = load i32 addrspace(1)* %10, align 4
   %11 = mul i32 %num, 7
   %12 = add i32 %.promoted, %11
@@ -93,13 +93,13 @@ define void @externalDivBranchNestedUnLoops(i32 addrspace(1)* nocapture %a, i32 
   %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = sext i32 %2 to i64
-  %4 = getelementptr inbounds i32 addrspace(1)* %a, i64 %3
+  %4 = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %3
   %5 = load i32 addrspace(1)* %4, align 4, !tbaa !11
   %6 = icmp eq i32 %2, %5
   br i1 %6, label %7, label %.preheader2
 
 ; <label>:7                                       ; preds = %0
-  %8 = getelementptr inbounds i32 addrspace(1)* %res, i64 %3
+  %8 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %3
   store i32 8, i32 addrspace(1)* %8, align 4, !tbaa !11
   br label %.preheader2
 
@@ -110,7 +110,7 @@ define void @externalDivBranchNestedUnLoops(i32 addrspace(1)* nocapture %a, i32 
 .preheader.lr.ph:                                 ; preds = %.preheader2
   %10 = add nsw i32 %num, 3
   %11 = icmp sgt i32 %10, 0
-  %12 = getelementptr inbounds i32 addrspace(1)* %res, i64 %3
+  %12 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %3
   %13 = mul i32 %num, 7
   %14 = add i32 %13, 21
   br label %.preheader
@@ -120,7 +120,7 @@ define void @externalDivBranchNestedUnLoops(i32 addrspace(1)* nocapture %a, i32 
   br i1 %11, label %.lr.ph, label %16
 
 .lr.ph:                                           ; preds = %.preheader
-  %.promoted = load i32 addrspace(1)* %12, align 4
+  %.promoted = load i32, i32 addrspace(1)* %12, align 4
   %15 = add i32 %14, %.promoted
   store i32 %15, i32 addrspace(1)* %12, align 4
   br label %16
@@ -148,13 +148,13 @@ define void @externalDivBranchNestedLoops(i32 addrspace(1)* nocapture %a, i32 ad
   %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = sext i32 %2 to i64
-  %4 = getelementptr inbounds i32 addrspace(1)* %a, i64 %3
+  %4 = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %3
   %5 = load i32 addrspace(1)* %4, align 4, !tbaa !11
   %6 = icmp eq i32 %2, %5
   br i1 %6, label %7, label %.preheader2
 
 ; <label>:7                                       ; preds = %0
-  %8 = getelementptr inbounds i32 addrspace(1)* %res, i64 %3
+  %8 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %3
   store i32 8, i32 addrspace(1)* %8, align 4, !tbaa !11
   br label %.preheader2
 
@@ -165,7 +165,7 @@ define void @externalDivBranchNestedLoops(i32 addrspace(1)* nocapture %a, i32 ad
 .preheader.lr.ph:                                 ; preds = %.preheader2
   %10 = add nsw i32 %2, 3
   %11 = icmp sgt i32 %10, 0
-  %12 = getelementptr inbounds i32 addrspace(1)* %res, i64 %3
+  %12 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %3
   %13 = mul i32 %2, 7
   %14 = add i32 %13, 21
   br label %.preheader
@@ -175,7 +175,7 @@ define void @externalDivBranchNestedLoops(i32 addrspace(1)* nocapture %a, i32 ad
   br i1 %11, label %.lr.ph, label %16
 
 .lr.ph:                                           ; preds = %.preheader
-  %.promoted = load i32 addrspace(1)* %12, align 4
+  %.promoted = load i32, i32 addrspace(1)* %12, align 4
   %15 = add i32 %14, %.promoted
   store i32 %15, i32 addrspace(1)* %12, align 4
   br label %16
@@ -205,8 +205,8 @@ define void @internalDivBranchNestedUnLoops(i32 addrspace(1)* nocapture %a, i32 
   %4 = add nsw i32 %num, 3
   %5 = icmp sgt i32 %4, 0
   %6 = sext i32 %2 to i64
-  %7 = getelementptr inbounds i32 addrspace(1)* %a, i64 %6
-  %8 = getelementptr inbounds i32 addrspace(1)* %res, i64 %6
+  %7 = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %6
+  %8 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %6
   br label %.preheader
 
 .preheader:                                       ; preds = %._crit_edge, %.preheader.lr.ph
@@ -215,12 +215,12 @@ define void @internalDivBranchNestedUnLoops(i32 addrspace(1)* nocapture %a, i32 
 
 .lr.ph:                                           ; preds = %.preheader, %._crit_edge5
   %j.01 = phi i32 [ %phitmp, %._crit_edge5 ], [ 1, %.preheader ]
-  %9 = load i32 addrspace(1)* %7, align 4, !tbaa !11
+  %9 = load i32, i32 addrspace(1)* %7, align 4, !tbaa !11
   %10 = icmp eq i32 %2, %9
   br i1 %10, label %11, label %14
 
 ; <label>:11                                      ; preds = %.lr.ph
-  %12 = load i32 addrspace(1)* %8, align 4, !tbaa !11
+  %12 = load i32, i32 addrspace(1)* %8, align 4, !tbaa !11
   %13 = add nsw i32 %12, 8
   store i32 %13, i32 addrspace(1)* %8, align 4, !tbaa !11
   br label %14
@@ -262,8 +262,8 @@ define void @internalDivBranchNestedLoops(i32 addrspace(1)* nocapture %a, i32 ad
   %4 = add nsw i32 %2, 3
   %5 = icmp sgt i32 %4, 0
   %6 = sext i32 %2 to i64
-  %7 = getelementptr inbounds i32 addrspace(1)* %a, i64 %6
-  %8 = getelementptr inbounds i32 addrspace(1)* %res, i64 %6
+  %7 = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %6
+  %8 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %6
   br label %.preheader
 
 .preheader:                                       ; preds = %._crit_edge, %.preheader.lr.ph
@@ -272,12 +272,12 @@ define void @internalDivBranchNestedLoops(i32 addrspace(1)* nocapture %a, i32 ad
 
 .lr.ph:                                           ; preds = %.preheader, %._crit_edge5
   %j.01 = phi i32 [ %phitmp, %._crit_edge5 ], [ 1, %.preheader ]
-  %9 = load i32 addrspace(1)* %7, align 4, !tbaa !11
+  %9 = load i32, i32 addrspace(1)* %7, align 4, !tbaa !11
   %10 = icmp eq i32 %2, %9
   br i1 %10, label %11, label %14
 
 ; <label>:11                                      ; preds = %.lr.ph
-  %12 = load i32 addrspace(1)* %8, align 4, !tbaa !11
+  %12 = load i32, i32 addrspace(1)* %8, align 4, !tbaa !11
   %13 = add nsw i32 %12, 8
   store i32 %13, i32 addrspace(1)* %8, align 4, !tbaa !11
   br label %14
@@ -317,8 +317,8 @@ define void @internalDivBranchThreeNestedUnLoops(i32 addrspace(1)* nocapture %a,
   %6 = add nsw i32 %num, 7
   %7 = icmp sgt i32 %6, 0
   %8 = sext i32 %2 to i64
-  %9 = getelementptr inbounds i32 addrspace(1)* %a, i64 %8
-  %10 = getelementptr inbounds i32 addrspace(1)* %res, i64 %8
+  %9 = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %8
+  %10 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %8
   br label %.preheader2
 
 .preheader2:                                      ; preds = %._crit_edge4, %.preheader2.lr.ph
@@ -331,12 +331,12 @@ define void @internalDivBranchThreeNestedUnLoops(i32 addrspace(1)* nocapture %a,
 
 .lr.ph:                                           ; preds = %.preheader, %._crit_edge9
   %k.01 = phi i32 [ %phitmp, %._crit_edge9 ], [ 1, %.preheader ]
-  %11 = load i32 addrspace(1)* %9, align 4, !tbaa !11
+  %11 = load i32, i32 addrspace(1)* %9, align 4, !tbaa !11
   %12 = icmp eq i32 %2, %11
   br i1 %12, label %13, label %16
 
 ; <label>:13                                      ; preds = %.lr.ph
-  %14 = load i32 addrspace(1)* %10, align 4, !tbaa !11
+  %14 = load i32, i32 addrspace(1)* %10, align 4, !tbaa !11
   %15 = add nsw i32 %14, 8
   store i32 %15, i32 addrspace(1)* %10, align 4, !tbaa !11
   br label %16
@@ -379,7 +379,7 @@ define void @internalUnBranchDivLoop(i32 addrspace(1)* nocapture %a, i32 addrspa
 .lr.ph:                                           ; preds = %0
   %4 = icmp eq i32 %num, 7
   %5 = sext i32 %2 to i64
-  %6 = getelementptr inbounds i32 addrspace(1)* %res, i64 %5
+  %6 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %5
   br label %7
 
 ; <label>:7                                       ; preds = %11, %.lr.ph
@@ -387,7 +387,7 @@ define void @internalUnBranchDivLoop(i32 addrspace(1)* nocapture %a, i32 addrspa
   br i1 %4, label %8, label %11
 
 ; <label>:8                                       ; preds = %7
-  %9 = load i32 addrspace(1)* %6, align 4, !tbaa !11
+  %9 = load i32, i32 addrspace(1)* %6, align 4, !tbaa !11
   %10 = add nsw i32 %9, 8
   store i32 %10, i32 addrspace(1)* %6, align 4, !tbaa !11
   br label %11
@@ -416,7 +416,7 @@ define void @externalUnBranchDivLoop(i32 addrspace(1)* nocapture %a, i32 addrspa
 
 ; <label>:4                                       ; preds = %0
   %5 = sext i32 %2 to i64
-  %6 = getelementptr inbounds i32 addrspace(1)* %res, i64 %5
+  %6 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %5
   %7 = load i32 addrspace(1)* %6, align 4, !tbaa !11
   %8 = add nsw i32 %7, 8
   store i32 %8, i32 addrspace(1)* %6, align 4, !tbaa !11
@@ -428,7 +428,7 @@ define void @externalUnBranchDivLoop(i32 addrspace(1)* nocapture %a, i32 addrspa
 
 .lr.ph:                                           ; preds = %.preheader
   %10 = sext i32 %2 to i64
-  %11 = getelementptr inbounds i32 addrspace(1)* %res, i64 %10
+  %11 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %10
   %.promoted = load i32 addrspace(1)* %11, align 4
   %12 = mul i32 %2, 6
   %13 = add i32 %.promoted, %12

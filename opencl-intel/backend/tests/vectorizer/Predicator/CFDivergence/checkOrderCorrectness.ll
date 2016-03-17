@@ -26,18 +26,18 @@ entry:
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  %0 = load i16 addrspace(3)** %a.addr, align 8
+  %0 = load i16 addrspace(3)*, i16 addrspace(3)** %a.addr, align 8
   store i16 50, i16 addrspace(3)* %0, align 2
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
   call void @_Z7barrierj(i32 1)
-  %1 = load i16 addrspace(3)** %a.addr, align 8
-  %2 = load i16 addrspace(3)* %1, align 2
+  %1 = load i16 addrspace(3)*, i16 addrspace(3)** %a.addr, align 8
+  %2 = load i16, i16 addrspace(3)* %1, align 2
   %conv = sext i16 %2 to i32
   %div = sdiv i32 %conv, 32
   store i32 %div, i32* %c, align 4
-  %3 = load i32* %c, align 4
+  %3 = load i32, i32* %c, align 4
   %cmp1 = icmp sgt i32 %3, 0
   br i1 %cmp1, label %if.then3, label %if.else
 
@@ -47,7 +47,7 @@ if.then3:                                         ; preds = %if.end
   br i1 %cmp5, label %if.then7, label %if.end8
 
 if.then7:                                         ; preds = %if.then3
-  %4 = load i32 addrspace(3)** %b.addr, align 8
+  %4 = load i32 addrspace(3)*, i32 addrspace(3)** %b.addr, align 8
   store i32 0, i32 addrspace(3)* %4, align 4
   br label %if.end8
 
@@ -55,7 +55,7 @@ if.end8:                                          ; preds = %if.then7, %if.then3
   br label %if.end10
 
 if.else:                                          ; preds = %if.end
-  %5 = load i32* %c, align 4
+  %5 = load i32, i32* %c, align 4
   %call9 = call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* addrspacecast ([13 x i8]* @.str to i8 addrspace(2)*), i32 %5)
   br label %if.end10
 

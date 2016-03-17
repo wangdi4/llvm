@@ -10,7 +10,7 @@ define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* noca
 bb.nph:
   %0 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %1 = mul nsw i32 %0, 7
-  %2 = getelementptr inbounds i32 addrspace(1)* %in, i32 %1
+  %2 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %1
   %3 = load i32 addrspace(1)* %2, align 4
   %4 = add nsw i32 %3, 12
   br label %5
@@ -37,7 +37,7 @@ bb.nph:
   %13 = or i1 %9, %12
   %14 = select i1 %13, i32 1, i32 %tmp
   %15 = sdiv i32 %x.0, %14
-  %16 = getelementptr inbounds i32 addrspace(1)* %out, i32 %0
+  %16 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %0
   store i32 %15, i32 addrspace(1)* %16, align 4
   %17 = icmp eq i32 %x.0, 0
   %18 = icmp eq i32 %tmp, -2147483648
@@ -47,7 +47,7 @@ bb.nph:
   %22 = select i1 %21, i32 1, i32 %x.0
   %23 = sdiv i32 %tmp, %22
   %24 = add nsw i32 %0, 10
-  %25 = getelementptr inbounds i32 addrspace(1)* %out, i32 %24
+  %25 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %24
   store i32 %23, i32 addrspace(1)* %25, align 4
   ret void
 }

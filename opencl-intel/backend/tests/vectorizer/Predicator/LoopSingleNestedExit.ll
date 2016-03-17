@@ -19,8 +19,8 @@ target triple = "i686-pc-win32"
 define void @test(float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %b) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx1 = getelementptr inbounds float addrspace(1)* %b, i32 %call
-  %arrayidx = getelementptr inbounds float addrspace(1)* %a, i32 %call
+  %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %b, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i32 %call
   %.pre = load float addrspace(1)* %arrayidx, align 4
   br label %while.cond
 
@@ -30,13 +30,13 @@ while.cond:                                       ; preds = %while.body, %entry
   br i1 %cmp, label %while.body, label %lor.rhs
 
 lor.rhs:                                          ; preds = %while.cond
-  %1 = load float addrspace(1)* %arrayidx1, align 4
+  %1 = load float, float addrspace(1)* %arrayidx1, align 4
   %cmp2 = fcmp ogt float %1, 1.000000e+02
   br i1 %cmp2, label %while.body, label %while.end
 
 while.body:                                       ; preds = %while.cond, %lor.rhs
   %call3 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* addrspacecast ([4 x i8]* @.str to i8 addrspace(2)*), i32 %call) nounwind
-  %2 = load float addrspace(1)* %arrayidx, align 4
+  %2 = load float, float addrspace(1)* %arrayidx, align 4
   %dec = fadd float %2, -1.000000e+00
   store float %dec, float addrspace(1)* %arrayidx, align 4
   br label %while.cond
@@ -74,8 +74,8 @@ declare i32 @get_base_global_id.(i32)
 define void @__Vectorized_.test(float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %b) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx1 = getelementptr inbounds float addrspace(1)* %b, i32 %call
-  %arrayidx = getelementptr inbounds float addrspace(1)* %a, i32 %call
+  %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %b, i32 %call
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i32 %call
   %.pre = load float addrspace(1)* %arrayidx, align 4
   br label %while.cond
 
@@ -85,13 +85,13 @@ while.cond:                                       ; preds = %while.body, %entry
   br i1 %cmp, label %while.body, label %lor.rhs
 
 lor.rhs:                                          ; preds = %while.cond
-  %1 = load float addrspace(1)* %arrayidx1, align 4
+  %1 = load float, float addrspace(1)* %arrayidx1, align 4
   %cmp2 = fcmp ogt float %1, 1.000000e+02
   br i1 %cmp2, label %while.body, label %while.end
 
 while.body:                                       ; preds = %lor.rhs, %while.cond
   %call3 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* addrspacecast ([4 x i8]* @.str to i8 addrspace(2)*), i32 %call) nounwind
-  %2 = load float addrspace(1)* %arrayidx, align 4
+  %2 = load float, float addrspace(1)* %arrayidx, align 4
   %dec = fadd float %2, -1.000000e+00
   store float %dec, float addrspace(1)* %arrayidx, align 4
   br label %while.cond

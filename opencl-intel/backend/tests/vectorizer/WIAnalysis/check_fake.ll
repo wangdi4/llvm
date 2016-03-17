@@ -20,29 +20,29 @@ define spir_kernel void @check_fake(i32 addrspace(1)* %in, i32 addrspace(1)* %ou
   %5 = call spir_func i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %6 = trunc i64 %5 to i32
   store i32 %6, i32* %gid, align 4
-  %7 = load i32* %3, align 4
-  %8 = load i32* %4, align 4
+  %7 = load i32, i32* %3, align 4
+  %8 = load i32, i32* %4, align 4
   %9 = call spir_func i32 @_Z6selectiii(i32 0, i32 %7, i32 %8) nounwind readnone
-  %10 = load i32 addrspace(1)** %1, align 8
+  %10 = load i32 addrspace(1)*, i32 addrspace(1)** %1, align 8
   %11 = sext i32 %9 to i64
-  %12 = getelementptr inbounds i32 addrspace(1)* %10, i64 %11
+  %12 = getelementptr inbounds i32, i32 addrspace(1)* %10, i64 %11
   store i32 addrspace(1)* %12, i32 addrspace(1)** %1, align 8
-  %13 = load i32* %3, align 4
-  %14 = load i32* %4, align 4
+  %13 = load i32, i32* %3, align 4
+  %14 = load i32, i32* %4, align 4
   %15 = call spir_func i32 @_Z6selectiii(i32 0, i32 %13, i32 %14) nounwind readnone
-  %16 = load i32 addrspace(1)** %2, align 8
+  %16 = load i32 addrspace(1)*, i32 addrspace(1)** %2, align 8
   %17 = sext i32 %15 to i64
-  %18 = getelementptr inbounds i32 addrspace(1)* %16, i64 %17
+  %18 = getelementptr inbounds i32, i32 addrspace(1)* %16, i64 %17
   store i32 addrspace(1)* %18, i32 addrspace(1)** %2, align 8
-  %19 = load i32* %gid, align 4
+  %19 = load i32, i32* %gid, align 4
   %20 = sext i32 %19 to i64
   %21 = load i32 addrspace(1)** %1, align 8
-  %22 = getelementptr inbounds i32 addrspace(1)* %21, i64 %20
+  %22 = getelementptr inbounds i32, i32 addrspace(1)* %21, i64 %20
   %23 = load i32 addrspace(1)* %22, align 4
   %24 = load i32* %gid, align 4
   %25 = sext i32 %24 to i64
   %26 = load i32 addrspace(1)** %2, align 8
-  %27 = getelementptr inbounds i32 addrspace(1)* %26, i64 %25
+  %27 = getelementptr inbounds i32, i32 addrspace(1)* %26, i64 %25
   store i32 %23, i32 addrspace(1)* %27, align 4
   ret void
 }

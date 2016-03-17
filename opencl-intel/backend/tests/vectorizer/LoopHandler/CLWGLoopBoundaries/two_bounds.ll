@@ -32,7 +32,7 @@ define void @test(float addrspace(1)* %a) #0 {
   br i1 %2, label %5, label %3
 
 ; <label>:3                                       ; preds = %0
-  %4 = getelementptr inbounds float addrspace(1)* %a, i64 %1
+  %4 = getelementptr inbounds float, float addrspace(1)* %a, i64 %1
   store float 3.000000e+00, float addrspace(1)* %4, align 4
   br label %5
 

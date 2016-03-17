@@ -31,19 +31,19 @@ entry:
   %res_rwp = alloca %opencl.reserve_id_t*, align 8
   store %opencl.pipe_t addrspace(1)* %num_packets, %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
   store i32 %pipes, i32* %pipes.addr, align 4
-  %0 = load %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
-  %1 = load i32* %pipes.addr, align 4
+  %0 = load %opencl.pipe_t addrspace(1)*, %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
+  %1 = load i32, i32* %pipes.addr, align 4
   %2 = call %opencl.reserve_id_t* @_Z27sub_group_reserve_read_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)* %0, i32 %1, i32 16)
   store %opencl.reserve_id_t* %2, %opencl.reserve_id_t** %res_rrp, align 8
-  %3 = load %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
-  %4 = load i32* %pipes.addr, align 4
+  %3 = load %opencl.pipe_t addrspace(1)*, %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
+  %4 = load i32, i32* %pipes.addr, align 4
   %5 = call %opencl.reserve_id_t* @_Z28sub_group_reserve_write_pipePU3AS110ocl_pipe_tji(%opencl.pipe_t addrspace(1)* %3, i32 %4, i32 16)
   store %opencl.reserve_id_t* %5, %opencl.reserve_id_t** %res_rwp, align 8
-  %6 = load %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
-  %7 = load %opencl.reserve_id_t** %res_rrp, align 8
+  %6 = load %opencl.pipe_t addrspace(1)*, %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
+  %7 = load %opencl.reserve_id_t*, %opencl.reserve_id_t** %res_rrp, align 8
   call void @_Z26sub_group_commit_read_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)* %6, %opencl.reserve_id_t* %7, i32 16)
-  %8 = load %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
-  %9 = load %opencl.reserve_id_t** %res_rwp, align 8
+  %8 = load %opencl.pipe_t addrspace(1)*, %opencl.pipe_t addrspace(1)** %num_packets.addr, align 16
+  %9 = load %opencl.reserve_id_t*, %opencl.reserve_id_t** %res_rwp, align 8
   call void @_Z27sub_group_commit_write_pipePU3AS110ocl_pipe_t16ocl_reserve_id_ti(%opencl.pipe_t addrspace(1)* %8, %opencl.reserve_id_t* %9, i32 16)
   ret void
 }

@@ -15,7 +15,7 @@ entry:
   %0 = mul i64 %call, 7
   %mul = add i64 %0, 56
   %idxprom = and i64 %mul, 4294967295
-  %arrayidx = getelementptr inbounds i8 addrspace(1)* %src, i64 %idxprom
+  %arrayidx = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %idxprom
   store i8 zeroinitializer, i8 addrspace(1)* %arrayidx, align 4
   ret void
 }
@@ -30,7 +30,7 @@ entry:
   %0 = mul i64 %call, 7
   %mul = add i64 %0, 56
   %idxprom = and i64 %mul, 12345
-  %arrayidx = getelementptr inbounds i8 addrspace(1)* %src, i64 %idxprom
+  %arrayidx = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %idxprom
   store i8 zeroinitializer, i8 addrspace(1)* %arrayidx, align 4
   ret void
 }
@@ -45,7 +45,7 @@ entry:
   %mul = mul i64 %call, 30064771072
   %sext = add i64 %mul, 240518168576
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds i8 addrspace(1)* %src, i64 %idxprom
+  %arrayidx = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %idxprom
   store i8 zeroinitializer, i8 addrspace(1)* %arrayidx, align 4
   ret void
 }

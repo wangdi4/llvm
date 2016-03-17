@@ -25,7 +25,7 @@ bb1:                                              ; preds = %entry
 bb3:                                              ; preds = %bb1
   %3 = bitcast i8* %1 to %struct.LLIST*           ; <%struct.LLIST*> [#uses=2]
   %4 = load %struct.LLIST** %p, align 8           ; <%struct.LLIST*> [#uses=1]
-  %5 = getelementptr inbounds i8* %1, i64 8       ; <i8*> [#uses=1]
+  %5 = getelementptr inbounds i8, i8* %1, i64 8       ; <i8*> [#uses=1]
   %6 = bitcast i8* %5 to %struct.LLIST**          ; <%struct.LLIST**> [#uses=1]
   store %struct.LLIST* %4, %struct.LLIST** %6, align 8
   store %struct.LLIST* %3, %struct.LLIST** %p, align 8
@@ -43,18 +43,18 @@ entry:
   br i1 %0, label %bb6, label %bb4
 
 bb1:                                              ; preds = %bb4
-  %1 = getelementptr inbounds %struct.LLIST* %5, i64 0, i32 0 ; <i32*> [#uses=1]
+  %1 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %5, i64 0, i32 0 ; <i32*> [#uses=1]
   %2 = load i32* %1, align 8                      ; <i32> [#uses=1]
   %3 = icmp eq i32 %2, %i                         ; <i1> [#uses=1]
   br i1 %3, label %bb6, label %bb3
 
 bb3:                                              ; preds = %bb1
-  %4 = getelementptr inbounds %struct.LLIST* %5, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
+  %4 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %5, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
   br label %bb4
 
 bb4:                                              ; preds = %bb3, %entry
   %n_addr.0 = phi %struct.LLIST** [ %4, %bb3 ], [ %n, %entry ] ; <%struct.LLIST**> [#uses=2]
-  %5 = load %struct.LLIST** %n_addr.0, align 8    ; <%struct.LLIST*> [#uses=3]
+  %5 = load %struct.LLIST*, %struct.LLIST** %n_addr.0, align 8    ; <%struct.LLIST*> [#uses=3]
   %6 = icmp eq %struct.LLIST* %5, null            ; <i1> [#uses=1]
   br i1 %6, label %bb6, label %bb1
 
@@ -74,12 +74,12 @@ bb2.preheader:                                    ; preds = %entry
 
 bb1:                                              ; preds = %bb1, %entry
   %n_addr.04 = phi %struct.LLIST* [ %7, %bb1 ], [ %n, %entry ] ; <%struct.LLIST*> [#uses=3]
-  %2 = getelementptr inbounds %struct.LLIST* %n_addr.04, i64 0, i32 0 ; <i32*> [#uses=1]
+  %2 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %n_addr.04, i64 0, i32 0 ; <i32*> [#uses=1]
   %3 = load i32* %2, align 8                      ; <i32> [#uses=1]
-  %4 = getelementptr inbounds %struct.LLIST* %n_addr.04, i64 0, i32 1 ; <%struct.LLIST**> [#uses=2]
+  %4 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %n_addr.04, i64 0, i32 1 ; <%struct.LLIST**> [#uses=2]
   %5 = load %struct.LLIST** %4, align 8           ; <%struct.LLIST*> [#uses=1]
   %6 = tail call i32 (i8*, ...)* @printf(i8* noalias getelementptr inbounds ([16 x i8]* @.str1, i64 0, i64 0), %struct.LLIST* %n_addr.04, %struct.LLIST* %5, i32 %3) nounwind ; <i32> [#uses=0]
-  %7 = load %struct.LLIST** %4, align 8           ; <%struct.LLIST*> [#uses=2]
+  %7 = load %struct.LLIST*, %struct.LLIST** %4, align 8           ; <%struct.LLIST*> [#uses=2]
   %8 = icmp eq %struct.LLIST* %7, null            ; <i1> [#uses=1]
   br i1 %8, label %return, label %bb1
 
@@ -97,12 +97,12 @@ entry:
   br i1 %0, label %return, label %bb
 
 bb:                                               ; preds = %entry
-  %1 = load %struct.LLIST** %p, align 8           ; <%struct.LLIST*> [#uses=3]
+  %1 = load %struct.LLIST*, %struct.LLIST** %p, align 8           ; <%struct.LLIST*> [#uses=3]
   %2 = icmp eq %struct.LLIST* %1, null            ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb1
 
 bb1:                                              ; preds = %bb
-  %3 = getelementptr inbounds %struct.LLIST* %1, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
+  %3 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %1, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
   %4 = load %struct.LLIST** %3, align 8           ; <%struct.LLIST*> [#uses=1]
   store %struct.LLIST* %4, %struct.LLIST** %p, align 8
   %5 = bitcast %struct.LLIST* %1 to i8*           ; <i8*> [#uses=1]
@@ -127,7 +127,7 @@ bb1.i:
 
 bb3.i:                                            ; preds = %bb1.i
   %2 = bitcast i8* %0 to %struct.LLIST*           ; <%struct.LLIST*> [#uses=2]
-  %3 = getelementptr inbounds i8* %0, i64 8       ; <i8*> [#uses=1]
+  %3 = getelementptr inbounds i8, i8* %0, i64 8       ; <i8*> [#uses=1]
   %4 = bitcast i8* %3 to %struct.LLIST**          ; <%struct.LLIST**> [#uses=1]
   store %struct.LLIST* null, %struct.LLIST** %4, align 8
   store %struct.LLIST* %2, %struct.LLIST** %n, align 8
@@ -143,7 +143,7 @@ bb1.i41:                                          ; preds = %bb3.i, %bb1.i
 
 bb3.i42:                                          ; preds = %bb1.i41
   %9 = bitcast i8* %7 to %struct.LLIST*           ; <%struct.LLIST*> [#uses=2]
-  %10 = getelementptr inbounds i8* %7, i64 8      ; <i8*> [#uses=1]
+  %10 = getelementptr inbounds i8, i8* %7, i64 8      ; <i8*> [#uses=1]
   %11 = bitcast i8* %10 to %struct.LLIST**        ; <%struct.LLIST**> [#uses=1]
   store %struct.LLIST* %6, %struct.LLIST** %11, align 8
   store %struct.LLIST* %9, %struct.LLIST** %n, align 8
@@ -159,7 +159,7 @@ bb1.i37:                                          ; preds = %bb3.i42, %bb1.i41
 
 bb3.i38:                                          ; preds = %bb1.i37
   %16 = bitcast i8* %14 to %struct.LLIST*         ; <%struct.LLIST*> [#uses=2]
-  %17 = getelementptr inbounds i8* %14, i64 8     ; <i8*> [#uses=1]
+  %17 = getelementptr inbounds i8, i8* %14, i64 8     ; <i8*> [#uses=1]
   %18 = bitcast i8* %17 to %struct.LLIST**        ; <%struct.LLIST**> [#uses=1]
   store %struct.LLIST* %13, %struct.LLIST** %18, align 8
   store %struct.LLIST* %16, %struct.LLIST** %n, align 8
@@ -175,7 +175,7 @@ bb1.i33:                                          ; preds = %bb3.i38, %bb1.i37
 
 bb3.i34:                                          ; preds = %bb1.i33
   %23 = bitcast i8* %21 to %struct.LLIST*         ; <%struct.LLIST*> [#uses=2]
-  %24 = getelementptr inbounds i8* %21, i64 8     ; <i8*> [#uses=1]
+  %24 = getelementptr inbounds i8, i8* %21, i64 8     ; <i8*> [#uses=1]
   %25 = bitcast i8* %24 to %struct.LLIST**        ; <%struct.LLIST**> [#uses=1]
   store %struct.LLIST* %20, %struct.LLIST** %25, align 8
   store %struct.LLIST* %23, %struct.LLIST** %n, align 8
@@ -191,7 +191,7 @@ bb1.i29:                                          ; preds = %bb3.i34, %bb1.i33
 
 bb3.i30:                                          ; preds = %bb1.i29
   %30 = bitcast i8* %28 to %struct.LLIST*         ; <%struct.LLIST*> [#uses=2]
-  %31 = getelementptr inbounds i8* %28, i64 8     ; <i8*> [#uses=1]
+  %31 = getelementptr inbounds i8, i8* %28, i64 8     ; <i8*> [#uses=1]
   %32 = bitcast i8* %31 to %struct.LLIST**        ; <%struct.LLIST**> [#uses=1]
   store %struct.LLIST* %27, %struct.LLIST** %32, align 8
   store %struct.LLIST* %30, %struct.LLIST** %n, align 8
@@ -210,42 +210,42 @@ bb2.preheader.i24:                                ; preds = %list_add.exit32
 
 bb1.i26:                                          ; preds = %bb1.i26, %list_add.exit32
   %n_addr.04.i25 = phi %struct.LLIST* [ %42, %bb1.i26 ], [ %34, %list_add.exit32 ] ; <%struct.LLIST*> [#uses=3]
-  %37 = getelementptr inbounds %struct.LLIST* %n_addr.04.i25, i64 0, i32 0 ; <i32*> [#uses=1]
+  %37 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %n_addr.04.i25, i64 0, i32 0 ; <i32*> [#uses=1]
   %38 = load i32* %37, align 8                    ; <i32> [#uses=1]
-  %39 = getelementptr inbounds %struct.LLIST* %n_addr.04.i25, i64 0, i32 1 ; <%struct.LLIST**> [#uses=2]
+  %39 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %n_addr.04.i25, i64 0, i32 1 ; <%struct.LLIST**> [#uses=2]
   %40 = load %struct.LLIST** %39, align 8         ; <%struct.LLIST*> [#uses=1]
   %41 = call i32 (i8*, ...)* @printf(i8* noalias getelementptr inbounds ([16 x i8]* @.str1, i64 0, i64 0), %struct.LLIST* %n_addr.04.i25, %struct.LLIST* %40, i32 %38) nounwind ; <i32> [#uses=0]
-  %42 = load %struct.LLIST** %39, align 8         ; <%struct.LLIST*> [#uses=2]
+  %42 = load %struct.LLIST*, %struct.LLIST** %39, align 8         ; <%struct.LLIST*> [#uses=2]
   %43 = icmp eq %struct.LLIST* %42, null          ; <i1> [#uses=1]
   br i1 %43, label %bb.i20, label %bb1.i26
 
 bb.i20:                                           ; preds = %bb1.i26, %bb2.preheader.i24
-  %44 = load %struct.LLIST** %n, align 8          ; <%struct.LLIST*> [#uses=4]
+  %44 = load %struct.LLIST*, %struct.LLIST** %n, align 8          ; <%struct.LLIST*> [#uses=4]
   %45 = icmp eq %struct.LLIST* %44, null          ; <i1> [#uses=1]
   br i1 %45, label %list_remove.exit23, label %bb1.i21
 
 bb1.i21:                                          ; preds = %bb.i20
-  %46 = getelementptr inbounds %struct.LLIST* %44, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
+  %46 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %44, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
   %47 = load %struct.LLIST** %46, align 8         ; <%struct.LLIST*> [#uses=1]
   store %struct.LLIST* %47, %struct.LLIST** %n, align 8
   %48 = bitcast %struct.LLIST* %44 to i8*         ; <i8*> [#uses=1]
   call void @free(i8* %48) nounwind
-  %.pre = load %struct.LLIST** %n, align 8        ; <%struct.LLIST*> [#uses=1]
+  %.pre = load %struct.LLIST*, %struct.LLIST** %n, align 8        ; <%struct.LLIST*> [#uses=1]
   br label %list_remove.exit23
 
 list_remove.exit23:                               ; preds = %bb1.i21, %bb.i20
   %49 = phi %struct.LLIST* [ %44, %bb.i20 ], [ %.pre, %bb1.i21 ] ; <%struct.LLIST*> [#uses=1]
-  %50 = getelementptr inbounds %struct.LLIST* %49, i64 0, i32 1 ; <%struct.LLIST**> [#uses=3]
+  %50 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %49, i64 0, i32 1 ; <%struct.LLIST**> [#uses=3]
   %51 = icmp eq %struct.LLIST** %50, null         ; <i1> [#uses=1]
   br i1 %51, label %bb4.i15, label %bb.i16
 
 bb.i16:                                           ; preds = %list_remove.exit23
-  %52 = load %struct.LLIST** %50, align 8         ; <%struct.LLIST*> [#uses=3]
+  %52 = load %struct.LLIST*, %struct.LLIST** %50, align 8         ; <%struct.LLIST*> [#uses=3]
   %53 = icmp eq %struct.LLIST* %52, null          ; <i1> [#uses=1]
   br i1 %53, label %bb4.i15, label %bb1.i17
 
 bb1.i17:                                          ; preds = %bb.i16
-  %54 = getelementptr inbounds %struct.LLIST* %52, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
+  %54 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %52, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
   %55 = load %struct.LLIST** %54, align 8         ; <%struct.LLIST*> [#uses=1]
   store %struct.LLIST* %55, %struct.LLIST** %50, align 8
   %56 = bitcast %struct.LLIST* %52 to i8*         ; <i8*> [#uses=1]
@@ -253,18 +253,18 @@ bb1.i17:                                          ; preds = %bb.i16
   br label %bb4.i15
 
 bb1.i13:                                          ; preds = %bb4.i15
-  %57 = getelementptr inbounds %struct.LLIST* %61, i64 0, i32 0 ; <i32*> [#uses=1]
+  %57 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %61, i64 0, i32 0 ; <i32*> [#uses=1]
   %58 = load i32* %57, align 8                    ; <i32> [#uses=1]
   %59 = icmp eq i32 %58, 1                        ; <i1> [#uses=1]
   br i1 %59, label %list_search.exit, label %bb3.i14
 
 bb3.i14:                                          ; preds = %bb1.i13
-  %60 = getelementptr inbounds %struct.LLIST* %61, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
+  %60 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %61, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
   br label %bb4.i15
 
 bb4.i15:                                          ; preds = %bb3.i14, %bb1.i17, %bb.i16, %list_remove.exit23
   %n_addr.0.i = phi %struct.LLIST** [ %60, %bb3.i14 ], [ %n, %list_remove.exit23 ], [ %n, %bb.i16 ], [ %n, %bb1.i17 ] ; <%struct.LLIST**> [#uses=3]
-  %61 = load %struct.LLIST** %n_addr.0.i, align 8 ; <%struct.LLIST*> [#uses=5]
+  %61 = load %struct.LLIST*, %struct.LLIST** %n_addr.0.i, align 8 ; <%struct.LLIST*> [#uses=5]
   %62 = icmp eq %struct.LLIST* %61, null          ; <i1> [#uses=1]
   br i1 %62, label %list_remove.exit12, label %bb1.i13
 
@@ -273,7 +273,7 @@ list_search.exit:                                 ; preds = %bb1.i13
   br i1 %63, label %list_remove.exit12, label %bb1.i10
 
 bb1.i10:                                          ; preds = %list_search.exit
-  %64 = getelementptr inbounds %struct.LLIST* %61, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
+  %64 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %61, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
   %65 = load %struct.LLIST** %64, align 8         ; <%struct.LLIST*> [#uses=1]
   store %struct.LLIST* %65, %struct.LLIST** %n_addr.0.i, align 8
   %66 = bitcast %struct.LLIST* %61 to i8*         ; <i8*> [#uses=1]
@@ -282,22 +282,22 @@ bb1.i10:                                          ; preds = %list_search.exit
 
 list_remove.exit12:                               ; preds = %bb1.i10, %list_search.exit, %bb4.i15
   %67 = load %struct.LLIST** %n, align 8          ; <%struct.LLIST*> [#uses=3]
-  %68 = getelementptr inbounds %struct.LLIST* %67, i64 0, i32 1 ; <%struct.LLIST**> [#uses=3]
+  %68 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %67, i64 0, i32 1 ; <%struct.LLIST**> [#uses=3]
   %69 = icmp eq %struct.LLIST** %68, null         ; <i1> [#uses=1]
   br i1 %69, label %bb.i, label %bb.i5
 
 bb.i5:                                            ; preds = %list_remove.exit12
-  %70 = load %struct.LLIST** %68, align 8         ; <%struct.LLIST*> [#uses=3]
+  %70 = load %struct.LLIST*, %struct.LLIST** %68, align 8         ; <%struct.LLIST*> [#uses=3]
   %71 = icmp eq %struct.LLIST* %70, null          ; <i1> [#uses=1]
   br i1 %71, label %bb.i, label %bb1.i6
 
 bb1.i6:                                           ; preds = %bb.i5
-  %72 = getelementptr inbounds %struct.LLIST* %70, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
+  %72 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %70, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
   %73 = load %struct.LLIST** %72, align 8         ; <%struct.LLIST*> [#uses=1]
   store %struct.LLIST* %73, %struct.LLIST** %68, align 8
   %74 = bitcast %struct.LLIST* %70 to i8*         ; <i8*> [#uses=1]
   call void @free(i8* %74) nounwind
-  %.pr.pre = load %struct.LLIST** %n, align 8     ; <%struct.LLIST*> [#uses=1]
+  %.pr.pre = load %struct.LLIST*, %struct.LLIST** %n, align 8     ; <%struct.LLIST*> [#uses=1]
   br label %bb.i
 
 bb.i:                                             ; preds = %bb1.i6, %bb.i5, %list_remove.exit12
@@ -306,12 +306,12 @@ bb.i:                                             ; preds = %bb1.i6, %bb.i5, %li
   br i1 %76, label %list_remove.exit, label %bb1.i3
 
 bb1.i3:                                           ; preds = %bb.i
-  %77 = getelementptr inbounds %struct.LLIST* %75, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
+  %77 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %75, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
   %78 = load %struct.LLIST** %77, align 8         ; <%struct.LLIST*> [#uses=1]
   store %struct.LLIST* %78, %struct.LLIST** %n, align 8
   %79 = bitcast %struct.LLIST* %75 to i8*         ; <i8*> [#uses=1]
   call void @free(i8* %79) nounwind
-  %.pre47 = load %struct.LLIST** %n, align 8      ; <%struct.LLIST*> [#uses=1]
+  %.pre47 = load %struct.LLIST*, %struct.LLIST** %n, align 8      ; <%struct.LLIST*> [#uses=1]
   br label %list_remove.exit
 
 list_remove.exit:                                 ; preds = %bb1.i3, %bb.i
@@ -325,12 +325,12 @@ bb2.preheader.i:                                  ; preds = %list_remove.exit
 
 bb1.i2:                                           ; preds = %bb1.i2, %list_remove.exit
   %n_addr.04.i = phi %struct.LLIST* [ %88, %bb1.i2 ], [ %80, %list_remove.exit ] ; <%struct.LLIST*> [#uses=3]
-  %83 = getelementptr inbounds %struct.LLIST* %n_addr.04.i, i64 0, i32 0 ; <i32*> [#uses=1]
+  %83 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %n_addr.04.i, i64 0, i32 0 ; <i32*> [#uses=1]
   %84 = load i32* %83, align 8                    ; <i32> [#uses=1]
-  %85 = getelementptr inbounds %struct.LLIST* %n_addr.04.i, i64 0, i32 1 ; <%struct.LLIST**> [#uses=2]
+  %85 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %n_addr.04.i, i64 0, i32 1 ; <%struct.LLIST**> [#uses=2]
   %86 = load %struct.LLIST** %85, align 8         ; <%struct.LLIST*> [#uses=1]
   %87 = call i32 (i8*, ...)* @printf(i8* noalias getelementptr inbounds ([16 x i8]* @.str1, i64 0, i64 0), %struct.LLIST* %n_addr.04.i, %struct.LLIST* %86, i32 %84) nounwind ; <i32> [#uses=0]
-  %88 = load %struct.LLIST** %85, align 8         ; <%struct.LLIST*> [#uses=2]
+  %88 = load %struct.LLIST*, %struct.LLIST** %85, align 8         ; <%struct.LLIST*> [#uses=2]
   %89 = icmp eq %struct.LLIST* %88, null          ; <i1> [#uses=1]
   br i1 %89, label %list_print.exit, label %bb1.i2
 

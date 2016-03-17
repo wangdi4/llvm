@@ -29,13 +29,13 @@ define void @divBranchNestedUnLoop(i32 addrspace(1)* nocapture %res, i32 %num) n
 
 .lr.ph:                                           ; preds = %.preheader
   %6 = sext i32 %2 to i64
-  %7 = getelementptr inbounds i32 addrspace(1)* %res, i64 %6
+  %7 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %6
   store i32 7, i32 addrspace(1)* %7, align 4
   br label %.loopexit
 
 ; <label>:8                                       ; preds = %0
   %9 = sext i32 %2 to i64
-  %10 = getelementptr inbounds i32 addrspace(1)* %res, i64 %9
+  %10 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %9
   store i32 8, i32 addrspace(1)* %10, align 4, !tbaa !7
   br label %.loopexit
 
@@ -70,13 +70,13 @@ define void @divBranchNestedUnBranch(i32 addrspace(1)* nocapture %res, i32 %num)
 
 ; <label>:7                                       ; preds = %5
   %8 = sext i32 %2 to i64
-  %9 = getelementptr inbounds i32 addrspace(1)* %res, i64 %8
+  %9 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %8
   store i32 7, i32 addrspace(1)* %9, align 4, !tbaa !7
   br label %13
 
 ; <label>:10                                      ; preds = %0
   %11 = sext i32 %2 to i64
-  %12 = getelementptr inbounds i32 addrspace(1)* %res, i64 %11
+  %12 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %11
   store i32 8, i32 addrspace(1)* %12, align 4, !tbaa !7
   br label %13
 
@@ -109,7 +109,7 @@ define void @divBranchNestedUnBranchI(i32 addrspace(1)* nocapture %res, i32 %num
 ; <label>:5                                       ; preds = %0
   %6 = icmp sgt i32 %num, 10
   %7 = sext i32 %2 to i64
-  %8 = getelementptr inbounds i32 addrspace(1)* %res, i64 %7
+  %8 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %7
   br i1 %6, label %9, label %10
 
 ; <label>:9                                       ; preds = %5
@@ -122,7 +122,7 @@ define void @divBranchNestedUnBranchI(i32 addrspace(1)* nocapture %res, i32 %num
 
 ; <label>:11                                      ; preds = %0
   %12 = sext i32 %2 to i64
-  %13 = getelementptr inbounds i32 addrspace(1)* %res, i64 %12
+  %13 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %12
   store i32 8, i32 addrspace(1)* %13, align 4, !tbaa !7
   br label %14
 
@@ -147,7 +147,7 @@ define void @divBranchedUnBranch(i32 addrspace(1)* nocapture %res, i32 %num) nou
 
 ; <label>:5                                       ; preds = %0
   %6 = sext i32 %2 to i64
-  %7 = getelementptr inbounds i32 addrspace(1)* %res, i64 %6
+  %7 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %6
   store i32 8, i32 addrspace(1)* %7, align 4, !tbaa !7
   br label %8
 
@@ -158,7 +158,7 @@ define void @divBranchedUnBranch(i32 addrspace(1)* nocapture %res, i32 %num) nou
 
 ; <label>:11                                      ; preds = %8
   %12 = sext i32 %2 to i64
-  %13 = getelementptr inbounds i32 addrspace(1)* %res, i64 %12
+  %13 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %12
   store i32 7, i32 addrspace(1)* %13, align 4, !tbaa !7
   br label %14
 
@@ -189,7 +189,7 @@ define void @nestedUnBranchedUnBranchDivBranch(i32 addrspace(1)* nocapture %res,
 
 ; <label>:9                                       ; preds = %6
   %10 = sext i32 %2 to i64
-  %11 = getelementptr inbounds i32 addrspace(1)* %res, i64 %10
+  %11 = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %10
   store i32 8, i32 addrspace(1)* %11, align 4, !tbaa !7
   br label %12
 

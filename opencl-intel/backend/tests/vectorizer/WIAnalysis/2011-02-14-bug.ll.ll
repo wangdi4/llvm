@@ -13,13 +13,13 @@ target triple = "i686-pc-win32"
 declare i32 @_Z13get_global_idj(i32)
 define i32 @func(float* nocapture %A) nounwind {
 entry:
-  %0 = getelementptr inbounds float* %A, i64 5    ; <float*> [#uses=1]
+  %0 = getelementptr inbounds float, float* %A, i64 5    ; <float*> [#uses=1]
   %1 = load float* %0, align 4                    ; <float> [#uses=1]
   %2 = fcmp ogt float %1, 3.000000e+00            ; <i1> [#uses=1]
   br i1 %2, label %bb, label %return
 
 bb:                                               ; preds = %entry
-  %3 = getelementptr inbounds float* %A, i64 6    ; <float*> [#uses=1]
+  %3 = getelementptr inbounds float, float* %A, i64 6    ; <float*> [#uses=1]
   store float 8.000000e+00, float* %3, align 4
   ret i32 undef
 
@@ -41,7 +41,7 @@ entry:
   br i1 %1, label %bb, label %return
 
 bb:                                               ; preds = %entry
-  %2 = getelementptr inbounds float* %A, i64 6    ; <float*> [#uses=1]
+  %2 = getelementptr inbounds float, float* %A, i64 6    ; <float*> [#uses=1]
   store float 8.000000e+00, float* %2, align 4
   ret i32 undef
 

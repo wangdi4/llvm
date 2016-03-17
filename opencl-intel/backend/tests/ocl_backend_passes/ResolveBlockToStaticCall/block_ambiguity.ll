@@ -40,34 +40,34 @@ entry:
   store i32 addrspace(1)* %res, i32 addrspace(1)** %res.addr, align 8
   store i32 (i32)* bitcast ({ i8**, i32, i32, i8*, %struct.__block_descriptor* }* @__block_literal_global to i32 (i32)*), i32 (i32)** %globalBlock1, align 8
   store i32 (i32)* bitcast ({ i8**, i32, i32, i8*, %struct.__block_descriptor* }* @__block_literal_global2 to i32 (i32)*), i32 (i32)** %globalBlock2, align 8
-  %0 = load i32 addrspace(1)** %res.addr, align 8
-  %1 = load i32 addrspace(1)* %0, align 4
+  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %res.addr, align 8
+  %1 = load i32, i32 addrspace(1)* %0, align 4
   %tobool = icmp ne i32 %1, 0
   br i1 %tobool, label %cond.true, label %cond.false
 
 cond.true:                                        ; preds = %entry
-  %2 = load i32 (i32)** %globalBlock1, align 8
+  %2 = load i32 (i32)*, i32 (i32)** %globalBlock1, align 8
   br label %cond.end
 
 cond.false:                                       ; preds = %entry
-  %3 = load i32 (i32)** %globalBlock2, align 8
+  %3 = load i32 (i32)*, i32 (i32)** %globalBlock2, align 8
   br label %cond.end
 
 cond.end:                                         ; preds = %cond.false, %cond.true
   %cond = phi i32 (i32)* [ %2, %cond.true ], [ %3, %cond.false ]
   store i32 (i32)* %cond, i32 (i32)** %globalBlock, align 8
-  %4 = load i32 (i32)** %globalBlock, align 8
+  %4 = load i32 (i32)*, i32 (i32)** %globalBlock, align 8
   %block.literal = bitcast i32 (i32)* %4 to %struct.__block_literal_generic*
-  %5 = getelementptr inbounds %struct.__block_literal_generic* %block.literal, i32 0, i32 3
+  %5 = getelementptr inbounds %struct.__block_literal_generic, %struct.__block_literal_generic* %block.literal, i32 0, i32 3
   %6 = bitcast %struct.__block_literal_generic* %block.literal to i8*
-  %7 = load i32 addrspace(1)** %res.addr, align 8
-  %8 = load i32 addrspace(1)* %7, align 4
-  %9 = load i8** %5
+  %7 = load i32 addrspace(1)*, i32 addrspace(1)** %res.addr, align 8
+  %8 = load i32, i32 addrspace(1)* %7, align 4
+  %9 = load i8*, i8** %5
   %10 = bitcast i8* %9 to i32 (i8*, i32)*
 ; check call is left indirect
 ; CHECK: call i32 %
   %call = call i32 %10(i8* %6, i32 %8)
-  %11 = load i32 addrspace(1)** %res.addr, align 8
+  %11 = load i32 addrspace(1)*, i32 addrspace(1)** %res.addr, align 8
   store i32 %call, i32 addrspace(1)* %11, align 4
   ret void
 }
