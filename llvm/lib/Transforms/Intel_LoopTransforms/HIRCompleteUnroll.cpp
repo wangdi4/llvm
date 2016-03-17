@@ -55,25 +55,31 @@
 //     compile time. Experiment if unrolling HLIf's increases/decreases
 //     performance.
 
-#include "llvm/Pass.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+
+#include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "hir-complete-unroll"
 
 using namespace llvm;
 using namespace llvm::loopopt;
+
+// This stat maintains the number of hir loops completely unrolled.
+STATISTIC(LoopsCompletelyUnrolled, "Number of HIR loops completely unrolled");
+// This stat maintains the number of candidates for complete unrolling, but
+// were turned down due to cost model.
+STATISTIC(LoopsAnalyzed, "Number of HIR loops analyzed for complete unrolling");
 
 static cl::opt<unsigned> CompleteUnrollTripThreshold(
     "completeunroll-trip-threshold", cl::init(20), cl::Hidden,
@@ -293,10 +299,13 @@ bool HIRCompleteUnroll::processLoop(HLLoop *Loop, int64_t *TotalTripCnt) {
     return false;
   }
 
+  LoopsAnalyzed++;
+
   // Add the loop for transformation if profitable.
   LoopData *LD;
   if (isProfitable(Loop, &LD, TotalTripCnt)) {
     TransformLoops.push_back(std::make_pair(Loop, LD));
+    LoopsCompletelyUnrolled++;
     return true;
   }
 

@@ -36,16 +36,16 @@
 #define LLVM_ANALYSIS_DDTEST_H
 
 #include "llvm/ADT/SmallBitVector.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -811,7 +811,7 @@ private:
 
   /// return true if 2 CE are equal
   bool areCEEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                  bool IgnoreDestType = false) const;
+                  bool RelaxedMode = true) const;
 
   /// return negation of CE
   const CanonExpr *getNegative(const CanonExpr *CE);

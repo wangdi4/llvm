@@ -56,9 +56,13 @@
 //                                                                            //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Operator.h"
@@ -67,13 +71,9 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -2543,6 +2543,7 @@ bool DDtest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
                      Constraint &NewConstraint, const CanonExpr *&SplitIter,
                      const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop) {
 
+  DEBUG(dbgs() << "\n Test SIV \n");
   DEBUG(dbgs() << "\n   src = "; Src->dump());
   DEBUG(dbgs() << "\n");
   DEBUG(dbgs() << "   dst = "; Dst->dump());
@@ -2559,20 +2560,20 @@ bool DDtest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
     const HLLoop *CurLoop = SrcLoop;
     assert(SrcLoop == DstLoop && "both loops in SIV should be same");
     Level = mapSrcLoop(CurLoop);
-    bool disproven;
+    bool Disproven;
 
     if (areCEEqual(SrcCoeff, DstCoeff)) {
-      disproven = strongSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop, Level,
+      Disproven = strongSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop, Level,
                                 Result, NewConstraint);
     } else if (areCEEqual(SrcCoeff, getNegative(DstCoeff))) {
-      disproven = weakCrossingSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop,
+      Disproven = weakCrossingSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop,
                                       Level, Result, NewConstraint, SplitIter);
     } else {
-      disproven = exactSIVtest(SrcCoeff, DstCoeff, SrcConst, DstConst, CurLoop,
+      Disproven = exactSIVtest(SrcCoeff, DstCoeff, SrcConst, DstConst, CurLoop,
                                Level, Result, NewConstraint);
     }
 
-    return disproven ||
+    return Disproven ||
            gcdMIVtest(Src, Dst, SrcParentLoop, DstParentLoop, Result) ||
            symbolicRDIVtest(SrcCoeff, DstCoeff, SrcConst, DstConst, CurLoop,
                             CurLoop);
@@ -4043,7 +4044,7 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     DstBaseCE = RDef->hasGEPInfo() ? RDef->getBaseCE() : nullptr;
   }
 
-  if (numSrcDim != numDstDim || !areCEEqual(SrcBaseCE, DstBaseCE, true)) {
+  if (numSrcDim != numDstDim || !areCEEqual(SrcBaseCE, DstBaseCE)) {
     //  Number of dimemsion are different or
     //  different base: need to bail out
     DEBUG(dbgs() << "\nDiff dim or base\n");
