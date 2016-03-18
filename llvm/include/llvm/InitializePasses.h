@@ -369,6 +369,7 @@ void initializeIdentifyVectorCandidatesPass(PassRegistry&);
 void initializeVecClonePass(PassRegistry&);
 void initializeVPODriverPass(PassRegistry&);
 void initializeVPODriverHIRPass(PassRegistry&);
+void initializeVPODirectiveCleanupPass(PassRegistry&);
 // Scalar/Vector math lib mapping Pass
 //void initializeMapIntrinToImlPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION

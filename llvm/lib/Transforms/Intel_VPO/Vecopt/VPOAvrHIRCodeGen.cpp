@@ -140,7 +140,7 @@ bool AVRCodeGenHIR::unitStrideRef(const RegDDRef *Ref) {
     return false;
 
   auto CE = Ref->getSingleCanonExpr();
-  if (CE->getDefinedAtLevel() != 0)
+  if (CE->isNonLinear() || CE->getDefinedAtLevel() != 0)
     return false;
 
   if (CE->getIVConstCoeff(OrigLoop->getNestingLevel()) != 1)

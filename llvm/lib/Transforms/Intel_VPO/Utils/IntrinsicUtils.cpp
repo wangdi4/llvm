@@ -70,7 +70,7 @@ StringRef VPOUtils::getDirectiveMetadataString(IntrinsicInst *Call) {
   return DirectiveStr;
 }
 
-void VPOUtils::stripDirectives(Function &F) {
+bool VPOUtils::stripDirectives(Function &F) {
   SmallVector<IntrinsicInst *, 4> IntrinsicsToRemove;
 
   for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
@@ -84,9 +84,13 @@ void VPOUtils::stripDirectives(Function &F) {
   }
 
   // Remove the directive intrinsics.
-  for (unsigned Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
+  unsigned Idx = 0;
+  for (Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
     IntrinsicsToRemove[Idx]->eraseFromParent();
   }
 
   // SimplifyCFG will remove any blocks that become empty.
+
+  // Returns true if any elimination happens.
+  return Idx > 0;
 }

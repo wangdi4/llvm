@@ -86,13 +86,16 @@ class DDWalk final : public HLNodeVisitorBase {
   /// Info - Par vec analysis info.
   ParVecInfo *Info;
 
+  /// \brief Analyze one DDEdge for the source node.
+  void analyze(const DDEdge *Edge);
+  /// \brief Analyze whether the src/sink DDRefs represents privatizable
+  /// terminals.
+  bool isSimplePrivateTerminal(const RegDDRef *SrcRef, const RegDDRef *SinkRef);
 public:
   DDWalk(DDGraph DDG, HLLoop *CandidateLoop, ParVecInfo *Info)
       : DDG(DDG), CandidateLoop(CandidateLoop), Info(Info) {}
   /// \brief Visit all outgoing DDEdges for the given node.
   void visit(HLDDNode *Node);
-  /// \brief Analyze one DDEdge for the source node.
-  void analyze(const DDEdge *Edge);
 
   /// \brief catch-all visit().
   void visit(HLNode *Node) {}
@@ -261,6 +264,34 @@ bool HIRParVecAnalysis::isSIMDEnabledFunction(Function &Func) {
   return Func.getName().startswith("_ZGV");
 }
 
+bool DDWalk::isSimplePrivateTerminal(const RegDDRef *SrcRef,
+                                     const RegDDRef *SinkRef) {
+  // This function deals with terminals.
+  if (!(SrcRef && SinkRef && SrcRef->isTerminalRef())) {
+    return false;
+  }
+
+  HLNode *WriteNode     = SrcRef->isLval() ? SrcRef->getHLDDNode()
+                                           : SinkRef->getHLDDNode();
+  HLNode *TheOtherNode  = SrcRef->isLval() ? SinkRef->getHLDDNode()
+                                           : SrcRef->getHLDDNode();
+
+  if (SrcRef->isLval() && SinkRef->isLval()) {
+    // Terminal output dependence is fine, as long as it is not live out
+    // (possible dead code) or last value can be correctly computed.
+    // If there is a use of the value inside the loop, FLOW or ANTI dependence
+    // should exist and it would prevent vectorization/parallelization if
+    // not privatizable in that context.
+    return true;
+  }
+  else if (HLNodeUtils::strictlyDominates(WriteNode, TheOtherNode)) {
+    // Def strictly dominates Use. Privatizable.
+    return true;
+  }
+
+  return false;
+}
+
 void DDWalk::analyze(const DDEdge *Edge) {
   DEBUG(Edge->dump());
 
@@ -286,6 +317,12 @@ void DDWalk::analyze(const DDEdge *Edge) {
     }
   }
 
+  if (isSimplePrivateTerminal(dyn_cast<RegDDRef>(Edge->getSrc()),
+                              dyn_cast<RegDDRef>(DDref))){
+    DEBUG(dbgs() << "\tis safe to vectorize/parallelize (private)\n");
+    return;
+  }
+
   // Is this really useful if refineDV() doesn't recompute?
   if (Edge->isRefinableDepAtLevel(NestLevel)) {
     DVectorTy DV;
@@ -297,8 +334,13 @@ void DDWalk::analyze(const DDEdge *Edge) {
       // TODO: Set Type/Loc. Call emitDiag().
       DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize");
     }
-    DEBUG(dbgs() << " @ Level " << NestLevel);
+    DEBUG(dbgs() << " @ Level " << NestLevel << "\n");
   }
+  else {
+    DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize\n");
+  }
+  Info->setVecType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);
+  Info->setParType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);
 }
 
 void DDWalk::visit(HLDDNode *Node) {
@@ -352,18 +394,28 @@ void ParVecInfo::analyze(HLLoop *Loop, DDAnalysis *DDA) {
     auto DDG = DDA->getGraph(Loop, false);
     cleanEdges();
     DDWalk DDW(DDG, Loop, this);   // Legality checker.
-    HLNodeUtils::visit(DDW, Loop); // This can trigger isDone().
+    HLNodeUtils::visit(DDW, Loop); // This can change isDone() status.
   }
-  if (!isDone()) {
-    if (isParallelMode() && ParType == Analyzing)
-      setParType(ParOkay);
-    if (isVectorMode() && VecType == Analyzing)
-      setVecType(VecOkay);
+  if (isDone()) {
+    // Necessary analysis is all complete.
+    emitDiag();
+    return;
   }
+
+  // DDG check is finished. If not bailing out prior to this point,
+  // loop is legal to vectorize, parallelize, or both.
+  if (isParallelMode() && ParType == Analyzing) {
+    setParType(ParOkay);
+  }
+  if (isVectorMode() && VecType == Analyzing) {
+    setVecType(VecOkay);
+  }
+
+  // For non-parallelization, analysis is all done. Returning.
   if (!(Mode == ParallelForThreadizer && ParType == ParOkay)) {
-    // For non-parallelization, analysis is all done. Returning.
     return; // emitDiag() should be already called.
   }
+
   // TODO: Continue to Parallelization profitability analysis
 }
 

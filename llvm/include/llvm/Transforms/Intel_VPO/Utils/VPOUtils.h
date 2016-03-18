@@ -144,7 +144,7 @@ public:
     static int getClauseID(StringRef ClauseFullName);
 
     /// \brief Removes calls to directive intrinsics.
-    static void stripDirectives(Function &F);
+    static bool stripDirectives(Function &F);
 
     /// Utilities to handle directives & clauses 
 

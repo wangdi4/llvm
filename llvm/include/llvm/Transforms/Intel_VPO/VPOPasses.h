@@ -21,10 +21,10 @@ namespace llvm {
 class FunctionPass;
 class ModulePass;
 
-// Create VPO Driver pass
 FunctionPass *createVPODriverPass();
-//FunctionPass *createMapIntrinToImlPass();
 FunctionPass *createVPODriverHIRPass();
+FunctionPass *createVPODirectiveCleanupPass();
+//FunctionPass *createMapIntrinToImlPass();
 FunctionPass *createVPOCFGRestructuringPass();
 ModulePass   *createVPOParoptPass();
 }

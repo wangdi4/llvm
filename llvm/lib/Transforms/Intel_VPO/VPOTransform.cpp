@@ -20,6 +20,7 @@ using namespace llvm;
 void llvm::initializeIntel_VPOTransforms(PassRegistry &Registry) {
   initializeVPODriverPass(Registry);
   initializeVPODriverHIRPass(Registry);
+  initializeVPODirectiveCleanupPass(Registry);
 
   initializeVPOParoptPass(Registry);
 

@@ -243,6 +243,7 @@ namespace {
       (void) llvm::createAVRGenerateHIRPass();
       (void) llvm::createVPODriverPass();
       (void) llvm::createVPODriverHIRPass();
+      (void) llvm::createVPODirectiveCleanupPass();
       (void) llvm::createVecClonePass();
 
       // VPO Parallelizer Passes

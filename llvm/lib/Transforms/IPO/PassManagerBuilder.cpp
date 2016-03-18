@@ -470,11 +470,11 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
   if (RunVecClone) {
     MPM.add(createVecClonePass());
+    // VecClonePass can generate redundant geps/loads for vector parameters when
+    // accessing elem[i] within the inserted simd loop. This makes DD testing
+    // harder, so run CSE here to do some clean-up before HIR construction.
+    MPM.add(createEarlyCSEPass());
   }
-  // VecClonePass can generate redundant geps/loads for vector parameters when
-  // accessing elem[i] within the inserted simd loop. This makes DD testing
-  // harder, so run CSE here to do some clean-up before HIR construction.
-  MPM.add(createEarlyCSEPass());
   addLoopOptPasses(MPM);
 
   // Process directives inserted by LoopOpt Autopar.
@@ -482,6 +482,13 @@ void PassManagerBuilder::populateModulePassManager(
   // any vec directives that loopopt might have missed; may change it to 
   // false in the future when loopopt is fully implemented.
   addVPOPasses(MPM, true);
+
+  // VPO directives are no longer useful after this point. Clean up so that
+  // code gen process won't be confused.
+  //
+  // TODO: Issue a warning for any unprocessed directives. Change to
+  // assetion failure as the feature matures.
+  MPM.add(createVPODirectiveCleanupPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
@@ -759,12 +766,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIROptPredicatePass());
     PM.add(createHIRLoopDistributionPass(false));
     PM.add(createHIRRuntimeDDPass());
-    if (!DisableUnrollLoops)
-      PM.add(createHIRCompleteUnrollPass());
+    PM.add(createHIRCompleteUnrollPass());
     PM.add(createHIRVecDirInsertPass(OptLevel == 3));
     PM.add(createVPODriverHIRPass());
-    if (!DisableUnrollLoops)
-      PM.add(createHIRGeneralUnrollPass());
+    PM.add(createHIRGeneralUnrollPass());
   }
 
   PM.add(createHIRCodeGenPass());
