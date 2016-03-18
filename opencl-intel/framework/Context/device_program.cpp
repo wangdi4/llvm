@@ -293,6 +293,7 @@ cl_build_status DeviceProgram::GetBuildStatus() const
     case DEVICE_PROGRAM_SOURCE:
     case DEVICE_PROGRAM_LOADED_IR:
     case DEVICE_PROGRAM_CUSTOM_BINARY:
+    case DEVICE_PROGRAM_SPIRV:
         return CL_BUILD_NONE;
 
     case DEVICE_PROGRAM_FE_COMPILING:
