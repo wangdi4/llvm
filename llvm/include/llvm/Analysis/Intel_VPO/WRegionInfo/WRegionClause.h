@@ -1,6 +1,6 @@
 //===----------------- WRegionClause.h - Clauses ----------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -172,8 +172,6 @@ class ReductionItem : public Item
 public:
   typedef enum WRNReductionKind {
     WRNReductionError = 0,
-    // The order of these reduction operations must match the same order as
-    // in the enum OMP_CLAUSES, starting with QUAL_OMP_REDUCTION_ADD.
     WRNReductionSum,
     WRNReductionSub,
     WRNReductionMult,
@@ -182,12 +180,11 @@ public:
     WRNReductionBxor,
     WRNReductionBand,
     WRNReductionBor,
-    // TBD: add these Fortran reduction operations later
-    // WRNReductionEqv,
-    // WRNReductionNeqv,
-    // WRNReductionMax,
-    // WRNReductionMin,
-    WRNReductionUdr   //user-defined reduction
+    WRNReductionEqv,  // Fortran; currently unsupported 
+    WRNReductionNeqv, // Fortran; currently unsupported 
+    WRNReductionMax,  // Fortran; currently unsupported 
+    WRNReductionMin,  // Fortran; currently unsupported 
+    WRNReductionUdr   // user-defined reduction
   } WRNReductionKind;
 
   private:
@@ -200,10 +197,53 @@ public:
       Item(Orig), Ty(Op), Combiner(nullptr), Initializer(nullptr) {}
 
     static WRNReductionKind getKindFromClauseId(int Id) {
-      return (WRNReductionKind)(Id - QUAL_OMP_REDUCTION_ADD + 1);
+      switch(Id) {
+        case QUAL_OMP_REDUCTION_ADD:
+          return WRNReductionSum;
+        case QUAL_OMP_REDUCTION_SUB:
+          return WRNReductionSub;
+        case QUAL_OMP_REDUCTION_MUL:
+          return WRNReductionMult;
+        case QUAL_OMP_REDUCTION_AND:
+          return WRNReductionAnd;
+        case QUAL_OMP_REDUCTION_OR:
+          return WRNReductionOr;
+        case QUAL_OMP_REDUCTION_XOR:
+          return WRNReductionBxor;
+        case QUAL_OMP_REDUCTION_BAND:
+          return WRNReductionBand;
+        case QUAL_OMP_REDUCTION_BOR:
+          return WRNReductionBor;
+        case QUAL_OMP_REDUCTION_UDR:
+          return WRNReductionUdr;
+        default: 
+          llvm_unreachable("Unsupported Reduction Clause ID");
+      }
     };
+
     static int getClauseIdFromKind(WRNReductionKind Kind) {
-      return QUAL_OMP_REDUCTION_ADD + (int)Kind -1;
+      switch(Kind) {
+        case WRNReductionSum:
+          return QUAL_OMP_REDUCTION_ADD;
+        case WRNReductionSub:
+          return QUAL_OMP_REDUCTION_SUB;
+        case WRNReductionMult:
+          return QUAL_OMP_REDUCTION_MUL;
+        case WRNReductionAnd:
+          return QUAL_OMP_REDUCTION_AND;
+        case WRNReductionOr:
+          return QUAL_OMP_REDUCTION_OR;
+        case WRNReductionBxor:
+          return QUAL_OMP_REDUCTION_XOR;
+        case WRNReductionBand:
+          return QUAL_OMP_REDUCTION_BAND;
+        case WRNReductionBor:
+          return QUAL_OMP_REDUCTION_BOR;
+        case WRNReductionUdr:
+          return QUAL_OMP_REDUCTION_UDR;
+        default: 
+          llvm_unreachable("Unsupported Reduction Kind ");
+      }
     };
 
     void setType(WRNReductionKind Op) { Ty = Op;          }
