@@ -57,8 +57,6 @@ namespace intel {
     Constant *pInitVal = NULL;
     Type *pInt32Type = Type::getInt32Ty(*m_pLLVMContext);
     Type *pInt64Type = Type::getInt64Ty(*m_pLLVMContext);
-    Type *pFloatType = Type::getFloatTy(*m_pLLVMContext);
-    Type *pDoubleType = Type::getDoubleTy(*m_pLLVMContext);
     // Act according to the function's logic
     if (CompilationUtils::isWorkGroupAll(funcName)) {
       // Initial value for work_group_all: 0x1
@@ -85,15 +83,14 @@ namespace intel {
         case reflection::PRIMITIVE_ULONG:
           pInitVal = ConstantInt::get(pInt64Type, 0);
           break;
+        case reflection::PRIMITIVE_HALF:
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEhalf, true));
+          break;
         case reflection::PRIMITIVE_FLOAT:
-          //pInitVal = ConstantFP::get(pFloatType, CL_FLT_MIN);
-          // Workaround: to pass compilation on non-windows OS
-          pInitVal = ConstantFP::get(pFloatType, 1.175494350822287507969e-38f);
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEsingle, true));
           break;
         case reflection::PRIMITIVE_DOUBLE:
-          //pInitVal = ConstantFP::get(pDoubleType, CL_DBL_MIN);
-          // Workaround: to pass compilation on non-windows OS
-          pInitVal = ConstantFP::get(pDoubleType, 2.225073858507201383090e-308);
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEdouble, true));
           break;
         default:
           assert(0 && "Unsupported WG argument type");
@@ -114,15 +111,14 @@ namespace intel {
         case reflection::PRIMITIVE_ULONG:
           pInitVal = ConstantInt::get(pInt64Type, CL_ULONG_MAX);
           break;
+        case reflection::PRIMITIVE_HALF:
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEhalf, false));
+          break;
         case reflection::PRIMITIVE_FLOAT:
-          //pInitVal = ConstantFP::get(pFloatType, CL_FLT_MAX);
-          // Workaround: to pass compilation on non-windows OS
-          pInitVal = ConstantFP::get(pFloatType, 340282346638528859811704183484516925440.0f);
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEsingle, false));
           break;
         case reflection::PRIMITIVE_DOUBLE:
-          //pInitVal = ConstantFP::get(pDoubleType, CL_DBL_MAX);
-          // Workaround: to pass compilation on non-windows OS
-          pInitVal = ConstantFP::get(pDoubleType, 1.7976931348623157e+308);
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEdouble, false));
           break;
         default:
           assert(0 && "Unsupported WG argument type");
@@ -139,11 +135,14 @@ namespace intel {
         case reflection::PRIMITIVE_ULONG:
           pInitVal = ConstantInt::get(pInt64Type, 0);
           break;
+        case reflection::PRIMITIVE_HALF:
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getZero(APFloat::IEEEhalf));
+          break;
         case reflection::PRIMITIVE_FLOAT:
-          pInitVal = ConstantFP::get(pFloatType, 0.0);
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getZero(APFloat::IEEEsingle));
           break;
         case reflection::PRIMITIVE_DOUBLE:
-          pInitVal = ConstantFP::get(pDoubleType, 0.0);
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getZero(APFloat::IEEEdouble));
           break;
         default:
           assert(0 && "Unsupported WG argument type");
