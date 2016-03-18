@@ -1,7 +1,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -HIRCG -force-HIRCG -S | FileCheck %s
 
 ; Check that the i2 loop with ztt, preheader and postexit is CG'd correctly.
+; CHECK: dummy check to prevent lit testing hangs on windows.
 ; XFAIL: *
+
 
 ; ModuleID = 'livein-copy1.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
