@@ -56,10 +56,10 @@
 //                                                                            //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -439,7 +439,7 @@ const CanonExpr *DDtest::getMulExpr(const CanonExpr *CE1,
 }
 
 const CanonExpr *DDtest::getConstantfromAPInt(Type *Ty, const APInt &apint) {
-  CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, apint); 
+  CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, apint);
   push(CE);
 
   return CE;
@@ -4580,7 +4580,7 @@ void DDtest::getDVForBackwardEdge(const DVectorTy &InputDV, DVectorTy &outputDV,
 
 bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
                              const DVectorTy &InputDV, DVectorTy &forwardDV,
-                             DVectorTy &backwardDV) {
+                             DVectorTy &backwardDV, bool *IsLoopIndepDepTemp) {
 
   // This interface is created to facilitate the building of DDG when forward or
   // backward  edges are needed.
@@ -4600,12 +4600,18 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  like scalar vars).
   //  New code added here for temps with more precision  in DV
 
+  //  IsLoopIndepDepTemp, is returned as true for temps with
+  //  Loop independent dependence
+  //    t1 =
+  //       = t1
+
   bool isTemp = false;
 
   initDV(forwardDV);
   initDV(backwardDV);
 
   auto Result = depends(SrcDDRef, DstDDRef, InputDV);
+  *IsLoopIndepDepTemp = false;
 
   if (Result == nullptr) {
     DEBUG(dbgs() << "\nIs Independent!\n");
@@ -4735,22 +4741,26 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
           for (unsigned II = 1; II <= Levels; ++II) {
             forwardDV[II - 1] = DV::EQ;
           }
-          // Suppress ANTI (< ) edge for now until it's really needed
-          backwardDV[0] = DV::LT;
-          for (unsigned II = 2; II <= Levels; ++II) {
-            backwardDV[II - 1] = DV::ALL;
-          }
-
+          // Suppress ANTI (< ) edge to save Compile time
+          // Instead, set a flag as below
+          // Most Transformations would have to scan and drop this kind
+          // of Anti Dep
+          // backwardDV[0] = DV::LT;
+          // for (unsigned II = 2; II <= Levels; ++II) {
+          //  backwardDV[II - 1] = DV::ALL;
+          // }
         } else {
           for (unsigned II = 1; II <= Levels; ++II) {
             backwardDV[II - 1] = DV::EQ;
           }
-          forwardDV[0] = DV::LT;
-          for (unsigned II = 2; II <= Levels; ++II) {
-            forwardDV[II - 1] = DV::ALL;
-          }
           // Suppress ANTI (< ) edge for now until it's really needed
+          // forwardDV[0] = DV::LT;
+          // for (unsigned II = 2; II <= Levels; ++II) {
+          //  forwardDV[II - 1] = DV::ALL;
+          // }
         }
+        *IsLoopIndepDepTemp = true;
+
       } else if (IsAnti) {
         // b)    = x ;
         //     x =  ;

@@ -197,12 +197,13 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
           DVectorTy inputDV;
           DVectorTy OutputDVForward;
           DVectorTy OutputDVBackward;
+          bool IsLoopIndepDepTemp = false;
           // TODO this is incorrect, we need a direction vector of
           //= = * for 3rd level inermost loops
           DA.setInputDV(inputDV, 1, 9);
 
           DA.findDependences(*Ref1, *Ref2, inputDV, OutputDVForward,
-                             OutputDVBackward);
+                             OutputDVBackward, &IsLoopIndepDepTemp);
           //  Sample code to check output:
           //  first check IsDependent
           //  else  check outputDVforward[0] != Dependences::DVEntry::NONE;
@@ -213,7 +214,8 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
           // innermost loop graph. If refinement is not possible, we should
           // keep the previous result cached somewhere.
           if (OutputDVForward[0] != DV::NONE) {
-            DDEdge Edge = DDEdge(*Ref1, *Ref2, OutputDVForward);
+            DDEdge Edge = DDEdge(*Ref1, *Ref2, OutputDVForward, IsLoopIndepDepTemp);
+           
             // DEBUG(dbgs() << "Got edge of :");
             // DEBUG(Edge.dump());
             FunctionDDGraph.addEdge(Edge);

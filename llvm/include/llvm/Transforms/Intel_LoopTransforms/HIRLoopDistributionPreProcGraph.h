@@ -303,8 +303,24 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     // Create DistPPEdges, which cannot be modifed after addition to graph.
     for (auto PairI = EdgeMap.begin(), EndI = EdgeMap.end(); PairI != EndI;
          ++PairI) {
+
       DistG->addEdge(DistPPEdge(SrcDistPPNode, PairI->first, PairI->second));
       EdgeCount++;
+
+      SmallVectorImpl<const DDEdge *> &EdgeList = PairI->second;
+
+      for (auto *Edge : EdgeList) {
+        if (Edge->isLoopIndependentDepTemp()) {
+          // Add a revsere edge because
+          // for t1 =
+          //        = t1
+          // DD only produce the flow (=) edge
+          DistG->addEdge(
+              DistPPEdge(PairI->first, SrcDistPPNode, PairI->second));
+          EdgeCount++;
+          break;
+        }
+      }
       // TODO early bailout should be here, even if reporting cant be done here
     }
   }

@@ -292,7 +292,7 @@ public:
 
   bool findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
                        const DVectorTy &InputDV, DVectorTy &ForwardDV,
-                       DVectorTy &BackwardDV);
+                       DVectorTy &BackwardDV, bool *IsLoopIndepDepTemp);
 
   /// getSplitIteration - Give a dependence that's splittable at some
   /// particular level, return the iteration that should be used to split
