@@ -81,6 +81,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtCost, "Callee is single basic block with test",
   // InlrEmptyFunction,
   InlPrtCost, "Callee is empty", 
+  // InlrDoubleLocalCall,
+  InlPrtCost, "Callee has double callsite and local linkage",
   // InlrVectorBonus,
   InlPrtCost, "Callee has vector instructions", 
   // InlrProfitable,
@@ -714,6 +716,7 @@ void InlineReport::makeCurrent(Module* M, Function* F) {
         continue; 
       } 
       InlineReportCallSite* IRCS = addCallSite(F, &CS, M); 
+      assert(IRCS != nullptr); 
       IRCS->setReason(NinlrNewlyCreated); 
     } 
   } 
