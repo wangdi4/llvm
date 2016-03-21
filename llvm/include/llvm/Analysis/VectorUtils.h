@@ -30,8 +30,8 @@ class ScalarEvolution;
 class TargetTransformInfo;
 class Type;
 class Value;
-class SCEV;
-class Attribute;
+class SCEV;      // INTEL
+class Attribute; // INTEL
 
 /// \brief Identify if the intrinsic is trivially vectorizable.
 /// This method returns true if the intrinsic's argument types are all
@@ -91,6 +91,7 @@ Value *findScalarElement(Value *V, unsigned EltNo);
 /// a sequence of instructions that broadcast a single value into a vector.
 const Value *getSplatValue(const Value *V);
 
+#if INTEL_CUSTOMIZATION
 /// \brief Determine if the SCEV expression is invariant with respect to the
 /// loop. This function will be called recursively for SCEV expressions that
 /// consist of SCEVUnknown and SCEVAddExpr to determine if those subexpressions
@@ -152,7 +153,6 @@ computeMinimumValueSizes(ArrayRef<BasicBlock*> Blocks,
                          DemandedBits &DB,
                          const TargetTransformInfo *TTI=nullptr);
 
-#if INTEL_CUSTOMIZATION
 /// @brief Contains the names of the declared vector function variants
 typedef std::vector<std::string> DeclaredVariants;
 

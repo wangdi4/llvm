@@ -16,8 +16,7 @@
 ;===------------------------------------------------------------------------===;
 
 [common]
-#subdirectories = IPO InstCombine Instrumentation Scalar Utils Vectorize ObjCARC Intel_LoopTransforms Intel_VPO Intel_MapIntrinToIml ; INTEL_CUSTOMIZATION
-subdirectories = IPO InstCombine Instrumentation Scalar Utils Vectorize ObjCARC Intel_LoopTransforms Intel_VPO ; INTEL_CUSTOMIZATION
+subdirectories = IPO InstCombine Instrumentation Scalar Utils Vectorize ObjCARC Intel_LoopTransforms Intel_MapIntrinToIml Intel_VPO ; INTEL_CUSTOMIZATION
 
 [component_0]
 type = Group

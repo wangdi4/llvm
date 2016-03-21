@@ -329,6 +329,8 @@ void initializeSNodeAnalysisPass(PassRegistry &);
 void initializeNonLTOGlobalOptPass(PassRegistry &);
 // Pass for setting implied Targets for intrinsics.
 void initializeFeatureOutlinerPass(PassRegistry&);
+// Pass for math call optimization.
+void initializeMapIntrinToImlPass(PassRegistry&);
 // HIR Passes
 void initializeRegionIdentificationPass(PassRegistry&);
 void initializeSCCFormationPass(PassRegistry&);
@@ -370,8 +372,6 @@ void initializeVecClonePass(PassRegistry&);
 void initializeVPODriverPass(PassRegistry&);
 void initializeVPODriverHIRPass(PassRegistry&);
 void initializeVPODirectiveCleanupPass(PassRegistry&);
-// Scalar/Vector math lib mapping Pass
-//void initializeMapIntrinToImlPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeLoopDistributePass(PassRegistry&);
 void initializeSjLjEHPreparePass(PassRegistry&);

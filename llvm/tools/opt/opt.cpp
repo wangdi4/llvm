@@ -336,7 +336,7 @@ int main(int argc, char **argv) {
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);
-  //initializeMapIntrinToImlPass(Registry);
+  initializeMapIntrinToImlPass(Registry);
   initializeIntel_VPOAnalysis(Registry);
   initializeIntel_VPOTransforms(Registry);
 #endif  // INTEL_CUSTOMIZATION

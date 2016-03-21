@@ -1,6 +1,4 @@
-//===--- iml_accuracy_interface.h -------------------------------*- C++ -*-===//
-//
-//      Copyright (C) 2015-2016 Intel Corporation.
+//      Copyright  (C) 2009-2016 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -10,10 +8,9 @@
 // and may not be copied or disclosed except in accordance
 // with the terms of that agreement.
 //
-// cvs_id[] = "$Id: iml_accuracy_interface.h 1817 2016-01-12 23:26:13Z mmasten
-// $"
+// cvs_id[] = "$Id$"
 //
-//===----------------------------------------------------------------------===//
+
 //++
 //  Compiler-library interface that is supposed to pass queries to the
 //  library and return functions names appropriate for the query.
@@ -26,7 +23,8 @@
 //      22-Apr-2011, Added may_i_use_inline_implementation interface extenstion
 //                   for inlining. NA
 //
-//===----------------------------------------------------------------------===//
+//--
+
 
 #ifndef LIBIML_ATTR_IML_ACCURACY_INTERFACE_H_INCLUDED
 #define LIBIML_ATTR_IML_ACCURACY_INTERFACE_H_INCLUDED
@@ -35,14 +33,15 @@
 extern "C" {
 #endif // __cplusplus
 
+
 // String pair which defines name and value for a single attribute. The
 // first string in a pair contains the attribute name. The second defines
 // the attribute value. There is also a pointer to the next attribute
 // structure.
 typedef struct ImfAttr {
-  const char *name;
-  const char *value;
-  struct ImfAttr *next;
+    const char*     name;
+    const char*     value;
+    struct ImfAttr* next;
 } ImfAttr;
 
 // This function returns the name of the library function to call
@@ -54,8 +53,8 @@ typedef struct ImfAttr {
 // attributes
 //    define desired constrains for the function. Attributes array is
 //    terminated by an attribute with NULL next pointer.
-extern const char *get_library_function_name(const char *base_name,
-                                             const ImfAttr *attributes);
+extern const char* get_library_function_name(const char* base_name,
+                                             const ImfAttr* attributes);
 
 // This function returns 1 or 0 meaning "yes" or "no". It answers the question:
 // whether the compiler may use an instructions sequence with certain
@@ -74,11 +73,12 @@ extern const char *get_library_function_name(const char *base_name,
 //    the compiler). Attributes array is terminated by a pair with the NULL
 //    attribute name.
 int may_i_use_inline_implementation(
-    const char *function_name, const ImfAttr *user_specified_attributes,
-    const ImfAttr *inline_implementation_attributes);
+                            const char* function_name,
+                            const ImfAttr* user_specified_attributes,
+                            const ImfAttr* inline_implementation_attributes);
 
 #if defined __cplusplus
 }
 #endif // __cplusplus
 
-#endif // LIBIML_ATTR_IML_ACCURACY_INTERFACE_H_INCLUDED
+#endif// LIBIML_ATTR_IML_ACCURACY_INTERFACE_H_INCLUDED

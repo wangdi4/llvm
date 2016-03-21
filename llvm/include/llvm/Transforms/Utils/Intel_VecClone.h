@@ -32,6 +32,20 @@ namespace llvm {
 
 class ModulePass;
 
+/// \brief Represents the mapping of a vector parameter to its corresponding
+/// vector to scalar type cast instruction. This done so that the scalar loop
+/// inserted by this pass contains instructions that are in scalar form so that
+/// the loop can later be vectorized.
+struct ParmRef {
+  // Represents the parameter in one of two forms:
+  // 1) A vector alloca instruction if the parameter has not been registerized.
+  // 2) The parameter as the Value* passed in via the function call.
+  Value *VectorParm;
+
+  // Represents the vector parameter cast from a vector type to scalar type.
+  Instruction *VectorParmCast;
+};
+
 class VecClone : public ModulePass {
 
   private:
@@ -80,7 +94,7 @@ class VecClone : public ModulePass {
         BasicBlock *EntryBlock,
         BasicBlock *LoopBlock,
         BasicBlock *ReturnBlock,
-        SmallDenseMap<Value*, Instruction*>& ParmMap);
+        std::vector<ParmRef*>& ParmMap);
 
     /// \brief Expand the function parameters to vector types. This function
     /// returns the instruction corresponding to the mask.
@@ -88,12 +102,12 @@ class VecClone : public ModulePass {
         Function *Clone,
         VectorVariant &V,
         BasicBlock *EntryBlock,
-        SmallDenseMap<Value*, Instruction*>& ParmMap);
+        std::vector<ParmRef*>& ParmMap);
 
     /// \brief Expand the function's return value to a vector type.
     Instruction* expandReturn(Function *Clone, BasicBlock *EntryBlock,
                              BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
-                             SmallDenseMap<Value*, Instruction*>& ParmMap);
+                             std::vector<ParmRef*>& ParmMap);
 
     /// \brief Update the old parameter references to with the new vector
     /// references.
@@ -103,7 +117,7 @@ class VecClone : public ModulePass {
         BasicBlock *EntryBlock,
         BasicBlock *ReturnBlock,
         PHINode *Phi,
-        SmallDenseMap<Value*, Instruction*>& ParmMap);
+        std::vector<ParmRef*>& ParmMap);
         
     /// \brief Update the values of linear parameters by adding the stride
     /// before the use.
@@ -173,7 +187,7 @@ class VecClone : public ModulePass {
     /// \brief Removes the original scalar alloca instructions that correspond
     /// to a vector parameter before widening.
     void removeScalarAllocasForVectorParams(
-        SmallDenseMap<Value*, Instruction*> &VectorParmMap);
+      std::vector<ParmRef*> &VectorParmMap);
 
     /// \brief Adds metadata to the conditional branch of the simd loop latch to
     /// prevent loop unrolling.

@@ -135,20 +135,14 @@ int main(int argc, char **argv) {
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);
+  initializeMapIntrinToImlPass(Registry);
+  initializeIntel_VPOAnalysis(Registry);
+  initializeIntel_VPOTransforms(Registry);
 #endif // INTEL_CUSTOMIZATION
 
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);
 #endif
-
-#if INTEL_CUSTOMIZATION
-  initializeVecClonePass(Registry);
-  //initializeMapIntrinToImlPass(Registry);
-  initializeIntel_LoopAnalysis(Registry);
-  initializeIntel_LoopTransforms(Registry);
-  initializeIntel_VPOAnalysis(Registry);
-  initializeIntel_VPOTransforms(Registry);
-#endif // INTEL_CUSTOMIZATION
 
   cl::ParseCommandLineOptions(argc, argv,
                               "LLVM automatic testcase reducer. See\nhttp://"

@@ -24,7 +24,6 @@ class ModulePass;
 FunctionPass *createVPODriverPass();
 FunctionPass *createVPODriverHIRPass();
 FunctionPass *createVPODirectiveCleanupPass();
-//FunctionPass *createMapIntrinToImlPass();
 FunctionPass *createVPOCFGRestructuringPass();
 ModulePass   *createVPOParoptPass();
 }

@@ -50,6 +50,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #endif // INTEL_CUSTOMIZATION
@@ -233,6 +234,9 @@ namespace {
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
 
+      // Optimize math calls
+      (void) llvm::createMapIntrinToImlPass();
+
       // VPO WRegion Passes
       (void) llvm::createWRegionCollectionPass();
       (void) llvm::createWRegionInfoPass();
@@ -248,9 +252,6 @@ namespace {
 
       // VPO Parallelizer Passes
       (void) llvm::createVPOParoptPass();
-
-      // Scalar/Vector math lib mapping Pass
-      //(void) llvm::createMapIntrinToImlPass();
   #endif // INTEL_CUSTOMIZATION
     }
   } ForcePassLinking; // Force link by creating a global definition.

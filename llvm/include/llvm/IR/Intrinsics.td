@@ -397,6 +397,7 @@ let Properties = [IntrNoMem] in {
                                    [IntrNoMem]>;
 }
 
+// if INTEL_CUSTOMIZATION
 // NOTE: The design decision here is to let the vectorizer expand args 2 and 3
 // to a vector of pointers. Unfortunately, without further analysis, this
 // implies scatter semantics. Thus, we will do SCEV analysis on the original
@@ -415,6 +416,7 @@ def int_sincos       : Intrinsic<[],
                                   llvm_any_ty,
                                   llvm_any_ty],
                                  [IntrReadWriteArgMem]>;
+// endif INTEL_CUSTOMIZATION
 
 // NOTE: these are internal interfaces.
 def int_setjmp     : Intrinsic<[llvm_i32_ty],  [llvm_ptr_ty]>;

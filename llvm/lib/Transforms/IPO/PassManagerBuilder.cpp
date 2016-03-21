@@ -41,6 +41,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -123,12 +124,6 @@ static cl::opt<bool> RunVecClone("enable-vec-clone",
   cl::init(false), cl::Hidden,
   cl::desc("Run Vector Function Cloning"));
 
-/*
-static cl::opt<bool> RunMapIntrinToIml("MapIntrinToIml",
-  cl::init(false), cl::Hidden,
-  cl::desc("Map vectorized math intrinsic calls to svml/libm."));
-*/
-
 // INTEL - HIR passes
 static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
                                  cl::desc("Runs loop optimization passes"));
@@ -146,9 +141,14 @@ static cl::opt<bool> PrintModuleBeforeLoopopt(
 static cl::opt<bool> EnableNonLTOGlobalVarOpt(
     "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
     cl::desc("Enable register promotion for global vars outside of the LTO."));
+
 // Andersen AliasAnalysis
 static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
+
+static cl::opt<bool> RunMapIntrinToIml("enable-iml-trans",
+  cl::init(false), cl::Hidden,
+  cl::desc("Map vectorized math intrinsic calls to svml/libm."));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableNonLTOGlobalsModRef(
@@ -586,10 +586,9 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
 #if INTEL_CUSTOMIZATION
-/*
+  // This pass translates vector math intrinsics to svml/libm calls.
   if (RunMapIntrinToIml)
     MPM.add(createMapIntrinToImlPass());
-*/
 #endif // INTEL_CUSTOMIZATION
 }
 

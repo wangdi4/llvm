@@ -1,0 +1,24 @@
+;      Copyright  (C) 2009-2010 Intel Corporation.
+;      All rights reserved.
+;
+;        INTEL CORPORATION PROPRIETARY INFORMATION
+;
+; This software is supplied under the terms of a license
+; agreement or nondisclosure agreement with Intel Corp.
+; and may not be copied or disclosed except in accordance
+; with the terms of that agreement.
+;
+; cvs_id[] = "$Id: libiml_attr.def 205179 2011-06-09 05:25:42Z agilev $"
+;
+;  Purpose: definition file for dll
+;  Author : Nikita Astafiev
+;
+;  MODIFICATION HISTORY:
+;      22-Apr-2011, Added may_i_use_inline_implementation interface extenstion
+;                   for inlining. NA
+;
+LIBRARY
+EXPORTS
+
+get_library_function_name
+may_i_use_inline_implementation

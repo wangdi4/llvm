@@ -3902,6 +3902,19 @@ void InnerLoopVectorizer::vectorizeBlockInLoop(BasicBlock *BB, PhiVector *PV) {
       unsigned CallCost = getVectorCallCost(CI, VF, *TTI, TLI, NeedToScalarize);
       bool UseVectorIntrinsic =
           ID && getVectorIntrinsicCost(CI, VF, *TTI, TLI) <= CallCost;
+
+#if INTEL_CUSTOMIZATION
+      // For now, turn off sincos vectorization because svml translation is
+      // turned off by default. Otherwise, we'll assert in the back end.
+      // TODO: add scalarization support in the back end for sincos in case
+      // svml translation fails or is turned off. This goes for any other math
+      // intrinsics that are not currently supported via scalarization. As of
+      // now, sincos is the only additional function added to Intrinsics.td
+      // that will cause this problem.
+      if (ID == Intrinsic::sincos)
+        UseVectorIntrinsic = false;
+#endif // INTEL_CUSTOMIZATION
+
       if (!UseVectorIntrinsic && NeedToScalarize) {
         scalarizeInstruction(&*it);
         break;
@@ -3921,8 +3934,10 @@ void InnerLoopVectorizer::vectorizeBlockInLoop(BasicBlock *BB, PhiVector *PV) {
         }
 
         Function *VectorF;
+
+#if INTEL_CUSTOMIZATION
+        // Use vector version of the intrinsic.
         if (UseVectorIntrinsic) {
-          // Use vector version of the intrinsic.
           SmallVector<Type*, 4> TysForDecl;
           TysForDecl.push_back(CI->getType());
           if (VF > 1) {
@@ -3974,6 +3989,13 @@ void InnerLoopVectorizer::vectorizeBlockInLoop(BasicBlock *BB, PhiVector *PV) {
               ArgIdx++;
             }
           }
+#else // INTEL_CUSTOMIZATION
+        // Use vector version of the intrinsic.
+        if (UseVectorIntrinsic) {
+          Type *TysForDecl[] = {CI->getType()};
+          if (VF > 1)
+            TysForDecl[0] = VectorType::get(CI->getType()->getScalarType(), VF);
+#endif // INTEL_CUSTOMIZATION
           VectorF = Intrinsic::getDeclaration(M, ID, TysForDecl);
         } else {
           // Use vector version of the library call.
@@ -3990,9 +4012,10 @@ void InnerLoopVectorizer::vectorizeBlockInLoop(BasicBlock *BB, PhiVector *PV) {
         }
         assert(VectorF && "Can't create vector function.");
         Entry[Part] = Builder.CreateCall(VectorF, Args);
-
-        analyzeCallArgMemoryReferences(CI, dyn_cast<CallInst>(Entry[Part]),
-                                       TLI, PSE.getSE(), OrigLoop);
+#if INTEL_CUSTOMIZATION
+        analyzeCallArgMemoryReferences(CI, cast<CallInst>(Entry[Part]), TLI,
+                                       PSE.getSE(), OrigLoop);
+#endif // INTEL_CUSTOMIZATION
       }
 
       propagateMetadata(Entry, &*it);
