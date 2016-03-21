@@ -82,6 +82,9 @@ extern bool EnableDebugBuffering;
 /// like: dbgs() << "foo" << "bar";
 raw_ostream &dbgs();
 
+#ifndef DEBUG // INTEL: Intel specific IL0 backend defines another DEBUG.
+              // INTEL: If we already have it, then we are included from
+              // INTEL: llvm_fe and thus do not need to redefine.
 // DEBUG macro - This macro should be used by passes to emit debug information.
 // In the '-debug' option is specified on the commandline, and if this is a
 // debug build, then the code specified as the option to the macro will be
@@ -90,6 +93,8 @@ raw_ostream &dbgs();
 // DEBUG(dbgs() << "Bitset contains: " << Bitset << "\n");
 //
 #define DEBUG(X) DEBUG_WITH_TYPE(DEBUG_TYPE, X)
+
+#endif // INTEL
 
 } // End llvm namespace
 
