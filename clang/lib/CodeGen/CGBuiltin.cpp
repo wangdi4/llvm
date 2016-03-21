@@ -48,6 +48,13 @@ llvm::Value *CodeGenModule::getBuiltinLibFunction(const FunctionDecl *FD,
   if (FD->hasAttr<AsmLabelAttr>())
     Name = getMangledName(D);
   else
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+    if (getLangOpts().IntelCompat) {
+      // ICLANG mode: do not skip the __builtin_ prefix.
+      Name = Context.BuiltinInfo.getName(BuiltinID);
+    }
+    else
+#endif // INTEL_SPECIFIC_IL0_BACKEND
     Name = Context.BuiltinInfo.getName(BuiltinID) + 10;
 
   llvm::FunctionType *Ty =
