@@ -162,6 +162,22 @@ public:
   // Next one returns pointer to an array of char
   const DVectorTy *getDirVector() const { return &DV; }
 
+  bool isForwardDep() const {
+
+    auto SrcTopSortNum = getSrc()->getHLDDNode()->getTopSortNum();
+    auto SinkTopSortNum = getSink()->getHLDDNode()->getTopSortNum();
+
+    //Handle the case A[I] = A[I] + B[I]
+    //Case 1: The flow edge (from Lval to Rval) is backward.
+    //Case 2: The anti edge (from Rval to Lval) is forward.
+    if (SrcTopSortNum == SinkTopSortNum) {
+      RegDDRef *SrcRef = dyn_cast<RegDDRef>(Src);
+      bool SrcIsLval = (SrcRef && SrcRef->isLval());
+      return !SrcIsLval; 
+    }
+    return (SrcTopSortNum < SinkTopSortNum);
+  }
+
   bool isOUTPUTdep() const { return getEdgeType() == DepType::OUTPUT; }
   bool isFLOWdep() const { return getEdgeType() == DepType::FLOW; }
   bool isANTIdep() const { return getEdgeType() == DepType::ANTI; }

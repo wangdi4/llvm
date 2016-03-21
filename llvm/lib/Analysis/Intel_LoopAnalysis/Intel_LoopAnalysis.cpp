@@ -26,4 +26,5 @@ void llvm::initializeIntel_LoopAnalysis(PassRegistry &Registry) {
   initializeHIRFrameworkPass(Registry);
   initializeDDAnalysisPass(Registry);
   initializeHIRLocalityAnalysisPass(Registry);
+  initializeHIRVectVLSAnalysisPass(Registry);
 }

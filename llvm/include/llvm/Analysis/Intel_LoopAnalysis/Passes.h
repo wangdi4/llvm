@@ -61,6 +61,10 @@ FunctionPass *createDDAnalysisPass();
 /// Computes the locality cost for HLLoops which are used during
 /// transformations.
 FunctionPass *createHIRLocalityAnalysisPass();
+
+/// Computes the cost of VLS Groups for HLLoops which are used during
+/// Vectorization.
+FunctionPass *createHIRVectVLSAnalysisPass();
 }
 
 #endif

@@ -338,6 +338,7 @@ void initializeSymbaseAssignmentPass(PassRegistry&);
 void initializeHIRFrameworkPass(PassRegistry&);
 void initializeDDAnalysisPass(PassRegistry&);
 void initializeHIRLocalityAnalysisPass(PassRegistry&);
+void initializeHIRVectVLSAnalysisPass(PassRegistry&);
 void initializeSSADeconstructionPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);

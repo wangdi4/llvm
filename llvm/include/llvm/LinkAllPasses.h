@@ -214,6 +214,7 @@ namespace {
       (void) llvm::createHIRFrameworkPass();
       (void) llvm::createDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
+      (void) llvm::createHIRVectVLSAnalysisPass();
 
       (void) llvm::createSSADeconstructionPass();
       (void) llvm::createHIROptPredicatePass();

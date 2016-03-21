@@ -56,6 +56,7 @@ public:
   enum HIRAnalysisVal {
     DDAnalysisVal,
     HIRLocalityAnalysisVal,
+    HIRVectVLSAnalysisVal,
     // Should be kept last
     PassCountVal
   };

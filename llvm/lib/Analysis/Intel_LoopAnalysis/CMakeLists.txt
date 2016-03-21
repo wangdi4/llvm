@@ -6,6 +6,8 @@ add_llvm_library(LLVMIntel_LoopAnalysis
   HIRCreation.cpp
   HIRCleanup.cpp
   LoopFormation.cpp
+  HIRVLSClient.cpp
+  HIRVectVLSAnalysis.cpp
   HIRParser.cpp
   SymbaseAssignment.cpp
   HIRFramework.cpp
