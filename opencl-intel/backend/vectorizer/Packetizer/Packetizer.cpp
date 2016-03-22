@@ -724,6 +724,11 @@ void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
 
   // Replace operands in duplicates
   unsigned numOperands = I->getNumOperands();
+  // for CallInst getNumOperands returns number of args including destination,
+  // but we care about actual arguments here.
+  if (isa<CallInst>(I)) {
+    numOperands = cast<CallInst>(I)->getNumArgOperands();
+  }
 
   // Iterate over all operands and replace them
   for (unsigned op = 0; op < numOperands; op++) {
