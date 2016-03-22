@@ -326,6 +326,8 @@ void initializeSNodeAnalysisPass(PassRegistry &);
 void initializeNonLTOGlobalOptPass(PassRegistry &);
 // Pass for setting implied Targets for intrinsics.
 void initializeFeatureOutlinerPass(PassRegistry&);
+// Pass for math call optimization.
+void initializeMapIntrinToImlPass(PassRegistry&);
 // HIR Passes
 void initializeRegionIdentificationPass(PassRegistry&);
 void initializeSCCFormationPass(PassRegistry&);

@@ -467,7 +467,7 @@ Instruction* VecClone::expandVectorParameters(
     Function *Clone,
     VectorVariant &V,
     BasicBlock *EntryBlock,
-    SmallDenseMap<Value*, Instruction*>& VectorParmMap)
+    std::vector<ParmRef*>& VectorParmMap)
 {
   // For vector parameters, expand the existing alloca to a vector. Then,
   // bitcast the vector and store this instruction in a map. The map is later
@@ -528,6 +528,7 @@ Instruction* VecClone::expandVectorParameters(
 
         StoreInst *StoreUser = dyn_cast<StoreInst>(*UserIt);
         AllocaInst *Alloca = NULL;
+        ParmRef *PRef = new ParmRef();
 
         if (StoreUser) {
 
@@ -536,7 +537,7 @@ Instruction* VecClone::expandVectorParameters(
           // created above so that we can update the old scalar references.
 
           Alloca = dyn_cast<AllocaInst>(UserIt->getOperand(1));
-          VectorParmMap[Alloca] = VecParmCast;
+          PRef->VectorParm = Alloca;
         } else {
           // Since Mem2Reg has run, there is no existing scalar store for
           // the parameter, but we must still pack (store) the expanded vector
@@ -551,8 +552,11 @@ Instruction* VecClone::expandVectorParameters(
           Value *ArgValue = dyn_cast<Value>(ArgIt);
           StoreInst *Store = new StoreInst(ArgValue, VecAlloca);
           StoresToInsert.push_back(Store);
-          VectorParmMap[ArgValue] = VecParmCast;
+          PRef->VectorParm = ArgValue;
         }
+
+        PRef->VectorParmCast = VecParmCast;
+        VectorParmMap.push_back(PRef);
       }
     }
   }
@@ -589,12 +593,10 @@ Instruction* VecClone::createExpandedReturn(Function *Clone,
   return VecCast;
 }
 
-Instruction* VecClone::expandReturn(
-    Function *Clone,
-    BasicBlock *EntryBlock,
-    BasicBlock *LoopBlock,
-    BasicBlock *ReturnBlock,
-    SmallDenseMap<Value*, Instruction*>& VectorParmMap)
+Instruction* VecClone::expandReturn(Function *Clone, BasicBlock *EntryBlock,
+                                    BasicBlock *LoopBlock,
+                                    BasicBlock *ReturnBlock,
+                                    std::vector<ParmRef*>& VectorParmMap)
 {
   // Determine how the return is currently handled, since this will determine
   // if a new vector alloca is required for it. For simple functions, an alloca
@@ -708,16 +710,28 @@ Instruction* VecClone::expandReturn(
     // Case 2
 
     AllocaInst *Alloca = dyn_cast<AllocaInst>(LoadFromAlloca->getOperand(0));
-    if (VectorParmMap.find(Alloca) != VectorParmMap.end()) {
+    bool AllocaFound = false;
+    unsigned ParmIdx = 0;
+
+    for (; ParmIdx < VectorParmMap.size(); ParmIdx++) {
+      Value *ParmVal = VectorParmMap[ParmIdx]->VectorParm;
+      if (ParmVal == Alloca)
+        AllocaFound = true;
+    }
+
+    if (AllocaFound) {
       // There's already a vector alloca created for the return, which is the
       // same one used for the parameter. E.g., we're returning the updated
       // parameter.
-      VecReturn = VectorParmMap[Alloca];
+      VecReturn = VectorParmMap[ParmIdx]->VectorParmCast;
     } else {
       // A new return vector is needed because we do not load the return value
       // from an alloca.
       VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType);
-      VectorParmMap[Alloca] = VecReturn;
+      ParmRef *PRef = new ParmRef();
+      PRef->VectorParm = Alloca;
+      PRef->VectorParmCast = VecReturn;
+      VectorParmMap.push_back(PRef);
     }
   }
 
@@ -731,7 +745,7 @@ Instruction* VecClone::expandVectorParametersAndReturn(
     BasicBlock *EntryBlock,
     BasicBlock *LoopBlock,
     BasicBlock *ReturnBlock,
-    SmallDenseMap<Value*, Instruction*>& VectorParmMap)
+    std::vector<ParmRef*>& VectorParmMap)
 {
   // If there are no parameters, then this function will do nothing and this
   // is the expected behavior.
@@ -751,9 +765,9 @@ Instruction* VecClone::expandVectorParametersAndReturn(
   // to ensure that any initial stores of vector parameters have been done
   // before the cast.
 
-  SmallDenseMap<Value*, Instruction*>::iterator MapIt;
+  std::vector<ParmRef*>::iterator MapIt;
   for (auto MapIt : VectorParmMap) {
-    Instruction *ExpandedCast = MapIt.second;
+    Instruction *ExpandedCast = MapIt->VectorParmCast;
     if (!ExpandedCast->getParent()) {
       insertInstruction(ExpandedCast, EntryBlock);
     }
@@ -866,7 +880,7 @@ void VecClone::updateScalarMemRefsWithVector(
     BasicBlock *EntryBlock,
     BasicBlock *ReturnBlock,
     PHINode *Phi,
-    SmallDenseMap<Value*, Instruction*>& VectorParmMap)
+    std::vector<ParmRef*>& VectorParmMap)
 {
   // This function replaces the old scalar uses of a parameter with a reference
   // to the new vector one. A gep is inserted using the vector bitcast created
@@ -874,13 +888,13 @@ void VecClone::updateScalarMemRefsWithVector(
   // gep. The only users that will not be updated are those in the entry block
   // that do the initial store to the vector alloca of the parameter.
 
-  SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapIt;
+  std::vector<ParmRef*>::iterator VectorParmMapIt;
 
   for (auto VectorParmMapIt : VectorParmMap) {
 
     SmallVector<Instruction*, 4> InstsToUpdate;
-    Value *Parm = VectorParmMapIt.first;
-    Instruction *Cast = VectorParmMapIt.second;
+    Value *Parm = VectorParmMapIt->VectorParm;
+    Instruction *Cast = VectorParmMapIt->VectorParmCast;
 
     for (User *U : Parm->users()) {
       InstsToUpdate.push_back(dyn_cast<Instruction>(U));
@@ -1480,12 +1494,12 @@ void VecClone::insertSplitForMaskedVariant(Function *Clone,
 }
 
 void VecClone::removeScalarAllocasForVectorParams(
-    SmallDenseMap<Value*, Instruction*> &VectorParmMap)
+    std::vector<ParmRef*> &VectorParmMap)
 {
-  SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapIt;
+  std::vector<ParmRef*>::iterator VectorParmMapIt;
 
   for (auto VectorParmMapIt : VectorParmMap) {
-    Value *Parm = VectorParmMapIt.first;
+    Value *Parm = VectorParmMapIt->VectorParm;
     if (AllocaInst *ScalarAlloca = dyn_cast<AllocaInst>(Parm)) {
       ScalarAlloca->eraseFromParent();
     }
@@ -1588,8 +1602,12 @@ bool VecClone::runOnModule(Module &M) {
       // Later, users of the parameter, either directly or through the alloca,
       // are replaced with a gep using the bitcast of the vector alloca for the
       // parameter and the current loop induction variable value.
+      //
+      // IMPORTANT NOTE: std::vector was used here because later we emit LLVM
+      // instructions using the members of ParmRef, and these instructions
+      // should be ordered consistently for easier testability.
 
-      SmallDenseMap<Value*, Instruction*> VectorParmMap;
+      std::vector<ParmRef*> VectorParmMap;
 
       // Create a new vector alloca instruction for all vector parameters and
       // return. For parameters, replace the initial store to the old alloca

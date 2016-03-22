@@ -14,7 +14,8 @@ set(LLVM_LINK_COMPONENTS
   Target
   TransformUtils
   Vectorize
-  Intel_LoopTransforms
+  Intel_LoopTransforms #***INTEL
+  Intel_MapIntrinToIml #***INTEL
   )
 
 # Support plugins.

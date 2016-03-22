@@ -44,8 +44,9 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h" // INTEL - HIR
-#include "llvm/Transforms/Utils/Intel_VecClone.h"        // INTEL
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
+#include "llvm/Transforms/Utils/Intel_VecClone.h"                // INTEL
 #include "llvm/Support/Valgrind.h"
 #include <cstdlib>
 
@@ -223,6 +224,9 @@ namespace {
       (void) llvm::createHIRLoopDistributionPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
+
+      // Optimize math calls
+      (void) llvm::createMapIntrinToImlPass();
   #endif // INTEL_CUSTOMIZATION
     }
   } ForcePassLinking; // Force link by creating a global definition.
