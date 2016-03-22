@@ -36,7 +36,7 @@ namespace llvm { extern raw_ostream *CreateInfoOutputFile(); }
 static cl::opt<int>
 ConvertControlPass("lpu-cvt-ctrl-pass", cl::Hidden,
 		   cl::desc("LPU Specific: Convert control flow pass"),
-		   cl::init(100));
+		   cl::init(0));
 
 #define DEBUG_TYPE "lpu-convert-control"
 
