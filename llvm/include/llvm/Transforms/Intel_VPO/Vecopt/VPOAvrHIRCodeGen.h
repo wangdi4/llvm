@@ -20,7 +20,6 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
@@ -114,7 +113,10 @@ private:
   RegDDRef *getVectorValue(const RegDDRef *Op);
   HLInst *widenReductionNode(const HLNode *Node, HLNode *Anchor);
   bool processLoop();
-  bool unitStrideRef(const RegDDRef *Ref);
+  bool isConstStrideRef(const RegDDRef *Ref, int64_t *CoeffPtr = nullptr);
+
+  RegDDRef *widenRef(const RegDDRef *Ref);
+
 };
 
 } // End VPO Vectorizer Namespace

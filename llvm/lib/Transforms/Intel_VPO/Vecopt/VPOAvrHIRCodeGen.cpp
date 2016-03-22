@@ -19,6 +19,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Intel_LoopIR/HIRVerifier.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 
 #define DEBUG_TYPE "VPODriver"
 
@@ -132,24 +134,116 @@ ReductionHIRMngr::getRecurrenceIdentityVector(ReductionItem *RedItem,
   return getConstantSplatDDRef(Iden, VL);
 }
 
-bool AVRCodeGenHIR::unitStrideRef(const RegDDRef *Ref) {
+// TBD - once we update to the latest loopopt sources, make use of
+// getStrideAtLevel utility
+bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, int64_t *CoeffPtr) {
+  unsigned NestingLevel = OrigLoop->getNestingLevel();
+
   if (Ref->isTerminalRef())
     return false;
 
-  if (Ref->getNumDimensions() != 1)
+  const CanonExpr *FirstCE = nullptr;
+
+  // Check that canon exprs for dimensions other than the first are
+  // invariant.
+  for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
+    if (!FirstCE) {
+      FirstCE = *I;
+      continue;
+    }
+
+    if (!(*I)->isInvariantAtLevel(NestingLevel))
+      return false;
+  }
+
+  if (FirstCE->isNonLinear() ||
+      FirstCE->getDefinedAtLevel() >= NestingLevel)
     return false;
 
-  auto CE = Ref->getSingleCanonExpr();
-  if (CE->isNonLinear() || CE->getDefinedAtLevel() != 0)
+  if (FirstCE->hasIVBlobCoeff(NestingLevel))
     return false;
 
-  if (CE->getIVConstCoeff(OrigLoop->getNestingLevel()) != 1)
+  auto IVConstCoeff = FirstCE->getIVConstCoeff(NestingLevel);
+  if (IVConstCoeff == 0)
     return false;
 
-  if (CE->hasIVBlobCoeff(OrigLoop->getNestingLevel()))
-    return false;
+  if (CoeffPtr)
+    *CoeffPtr = IVConstCoeff;
 
   return true;
+}
+
+namespace {
+class HandledCheck final : public HLNodeVisitorBase {
+private:
+  bool IsHandled;
+  unsigned LoopLevel;
+
+  void visitRegDDRef(RegDDRef *RegDD);
+  void visitCanonExpr(CanonExpr *CExpr);
+
+public:
+  HandledCheck(unsigned Level) : IsHandled(true), LoopLevel(Level) {}
+
+  void visit(HLDDNode *Node);
+
+  void visit(HLNode *Node) { IsHandled = false; }
+
+  void postVisit(HLNode *Node) {}
+
+  bool isDone() const override { return (!IsHandled); }
+  bool isHandled() { return IsHandled; }
+};
+} // End anonymous namespace
+
+void HandledCheck::visit(HLDDNode *Node) {
+
+  if (!isa<HLInst>(Node)) {
+    IsHandled = false;
+    return;
+  }
+
+  auto Inst = cast<HLInst>(Node);
+
+  // Calls are not supported for now
+  if (Inst->isCallInst()) {
+    IsHandled = false;
+    return;
+  }
+
+  for (auto Iter = Node->ddref_begin(), End = Node->ddref_end(); Iter != End;
+       ++Iter) {
+    visitRegDDRef(*Iter);
+  }
+}
+
+// visitRegDDRef - Visits RegDDRef to visit the Canon Exprs
+// present inside it.
+void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
+  // Visit CanonExprs inside the RegDDRefs
+  for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
+       ++Iter) {
+    visitCanonExpr(*Iter);
+  }
+
+  // Visit GEP Base
+  if (RegDD->hasGEPInfo()) {
+    auto BaseCE = RegDD->getBaseCE();
+
+    if (!BaseCE->isInvariantAtLevel(LoopLevel)) {
+      IsHandled = false;
+      return;
+    }
+
+    visitCanonExpr(RegDD->getBaseCE());
+  }
+}
+
+// Checks Canon Expr to see if we support it. Currently, we do not
+// support blob IV coefficients
+void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
+  if (CExpr->hasIVBlobCoeff(LoopLevel))
+    IsHandled = false;
 }
 
 bool AVRCodeGenHIR::loopIsHandled() {
@@ -185,50 +279,16 @@ bool AVRCodeGenHIR::loopIsHandled() {
   assert(Loop && "Null HLLoop.");
   setOrigLoop(Loop);
 
-  // Currently we only handle AVRAssignHIR, give up if we see any
-  // other AVRs
   for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
        ++Itr) {
     if (!isa<AVRAssignHIR>(Itr))
       return false;
 
-    // TBD: For now we only handle unit stride load/stores and instructions
-    // whose operands are defined earlier in the loop. Are these checks
-    // sufficient?
-    const HLInst *INode = dyn_cast<const HLInst>(
-        dyn_cast<AVRAssignHIR>(Itr)->getHIRInstruction());
-    auto CurInst = INode->getLLVMInstruction();
+    HandledCheck NodeCheck(OrigLoop->getNestingLevel());
+    HLDDNode *INode = cast<AVRAssignHIR>(Itr)->getHIRInstruction();
 
-    if (isa<BinaryOperator>(CurInst)) {
-      // Check for form of %x = %y BOp %z
-      for (unsigned OpIndex = 0, LastIndex = INode->getNumOperands();
-           OpIndex < LastIndex; ++OpIndex) {
-        const RegDDRef *OpDDRef = INode->getOperandDDRef(OpIndex);
-        if (!OpDDRef->isIntConstant() && !OpDDRef->isFPConstant() &&
-            !OpDDRef->isSelfBlob())
-          return false;
-      }
-    } else if (isa<StoreInst>(CurInst)) {
-      // Check for a[i] = %x
-      auto Rval = INode->getRvalDDRef();
-      auto Lval = INode->getLvalDDRef();
-
-      if (!Rval->isSelfBlob())
-        return false;
-
-      if (!unitStrideRef(Lval))
-        return false;
-    } else if (isa<LoadInst>(CurInst)) {
-      // Check for %x = a[i]
-      auto Rval = INode->getRvalDDRef();
-      auto Lval = INode->getLvalDDRef();
-
-      if (!Lval->isSelfBlob())
-        return false;
-
-      if (!unitStrideRef(Rval))
-        return false;
-    } else
+    HLNodeUtils::visit(NodeCheck, INode);
+    if (!NodeCheck.isHandled())
       return false;
   }
 
@@ -289,20 +349,25 @@ bool AVRCodeGenHIR::loopIsHandled() {
   setTripCount(TripCount);
   setVL(VL);
 
-  DEBUG(errs() << "Legal loop\n");
+  DEBUG(errs() << "Handled loop\n");
   return true;
 }
 
 bool AVRCodeGenHIR::vectorize() {
-  bool RetVal;
+  bool RetVal, LoopHandled;
 
-  if (!loopIsHandled())
+  LoopHandled = loopIsHandled();
+  if (!LoopHandled)
     return false;
+
+  DEBUG(errs() << "Handled loop before vec codegen: \n");
+  DEBUG(OrigLoop->dump(true));
 
   RHM.mapHLNodes(cast<HLRegion>(OrigLoop->getParent()));
 
   RetVal = processLoop();
 
+  DEBUG(errs() << "\n\n\nHandled loop after: \n");
   DEBUG(OrigLoop->dump(true));
 
   return RetVal;
@@ -335,6 +400,103 @@ bool AVRCodeGenHIR::processLoop() {
   LoopX->getParentRegion()->setGenCode();
   LoopX->getStrideDDRef()->getSingleCanonExpr()->setConstant((int64_t)VL);
   return true;
+}
+
+RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
+  RegDDRef *WideRef;
+  int64_t IVConstCoeff;
+  auto RefDestTy = Ref->getDestType();
+  auto VecRefDestTy = VectorType::get(RefDestTy, VL);
+  auto RefSrcTy = Ref->getSrcType();
+  auto VecRefSrcTy = VectorType::get(RefSrcTy, VL);
+  
+  // If the DDREF has a widened counterpart, return the same after setting
+  // SrcType/DestType appropriately.
+  if (Ref->isTerminalRef()) {
+    if (WidenMap.find(Ref->getSymbase()) != WidenMap.end()) {
+      auto WInst = WidenMap[Ref->getSymbase()];
+      
+      WideRef = WInst->getLvalDDRef()->clone();
+      WideRef->getSingleCanonExpr()->setDestType(VecRefDestTy);
+      WideRef->getSingleCanonExpr()->setSrcType(VecRefSrcTy);
+      return WideRef;
+    }
+  }
+
+  WideRef = Ref->clone();
+
+  // Set VectorType on WideRef base pointer - BaseDestType is set to pointer
+  // type of VL-wide vector of Ref's DestType.
+  if (WideRef->hasGEPInfo()) {
+    PointerType *PtrType = cast<PointerType>(Ref->getBaseDestType());
+    auto AddressSpace = PtrType->getAddressSpace();
+
+    WideRef->setBaseDestType(PointerType::get(VecRefDestTy, AddressSpace));
+  }
+
+  // For unit stride ref, nothing else to do
+  if (isConstStrideRef(Ref, &IVConstCoeff) && IVConstCoeff == 1)
+    return WideRef;
+
+  // For cases other than unit stride refs, we need to widen the induction
+  // variable and replace blobs in Canon Expr with widened equivalents.
+  for (auto B = WideRef->blob_cbegin(), BE = WideRef->blob_cend(); B != BE;
+       ++B) {
+    if (WidenMap.find((*B)->getSymbase()) != WidenMap.end()) {
+      auto WInst1 = WidenMap[(*B)->getSymbase()];
+      auto WideBlobRef = WInst1->getLvalDDRef()->clone();
+
+      (*B)->replaceBlob(
+          WideBlobRef->getSingleCanonExpr()->getSingleBlobIndex());
+    }
+  }
+
+  for (auto I = WideRef->canon_begin(), E = WideRef->canon_end(); I != E; ++I) {
+    auto CE = *I;
+    bool AnyChange = true;
+
+    if (CE->hasIV(OrigLoop->getNestingLevel())) {
+      SmallVector<Constant *, 4> CA;
+      Type *Int64Ty = CE->getSrcType();
+
+      CE->getIVCoeff(OrigLoop->getNestingLevel(), nullptr, &IVConstCoeff);
+
+      for (int i = 0; i < VL; ++i) {
+        CA.push_back(ConstantInt::getSigned(Int64Ty, IVConstCoeff * i));
+      }
+      ArrayRef<Constant *> AR(CA);
+      auto CV = ConstantVector::get(AR);
+
+      unsigned Idx = 0;
+      BlobUtils::createBlob(CV, true, &Idx);
+      CE->addBlob(Idx, 1);
+      AnyChange = true;
+    }
+
+    SmallVector<unsigned, 8> BlobIndices;
+    CE->collectTempBlobIndices(BlobIndices, false);
+
+    for (auto &BI : BlobIndices) {
+      auto OldSymbase = BlobUtils::getBlobSymbase(BI);
+      
+      if (WidenMap.find(OldSymbase) != WidenMap.end()) {
+        auto WInst1 = WidenMap[OldSymbase];
+        auto WRef = WInst1->getLvalDDRef()->clone();
+        CE->replaceBlob(BI, WRef->getSingleCanonExpr()->getSingleBlobIndex());
+        AnyChange = true;
+      }
+    }
+
+    if (AnyChange) {
+      auto VecCEDestTy = VectorType::get(CE->getDestType(), VL);
+      auto VecCESrcTy = VectorType::get(CE->getSrcType(), VL);
+      
+      CE->setDestType(VecCEDestTy);
+      CE->setSrcType(VecCESrcTy);
+    }
+  }
+
+  return WideRef;
 }
 
 RegDDRef *AVRCodeGenHIR::getVectorValue(const RegDDRef *Op) {
@@ -446,7 +608,7 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node, HLNode *Anchor) {
     FreeOp = Op1;
   }
   // The free (non-reduction) operand should be widened in a regular way
-  RegDDRef *FreeOpVec = getVectorValue(FreeOp);
+  RegDDRef *FreeOpVec = widenRef(FreeOp);
 
   // Build Identity vector. It depends of recurrence kind and the type of the
   // operand. 
@@ -491,118 +653,81 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node, HLNode *Anchor) {
 void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
   const HLInst *INode;
   INode = dyn_cast<HLInst>(Node);
+  auto CurInst = INode->getLLVMInstruction();
+  SmallVector<RegDDRef *, 6> WideOps;
+
+#if DEBUG
+  HIRVerifier::verifyAll();
+#endif
 
   DEBUG(errs() << "DDRef ");
   DEBUG(INode->dump());
   for (auto Iter = INode->op_ddref_begin(), End = INode->op_ddref_end();
        Iter != End; ++Iter) {
-    DEBUG(errs() << *Iter << "\n");
+    RegDDRef *WideRef, *Ref;
+
+    Ref = *Iter;
+
+    // Lval SelfBlob refs get the widened ref duing the HLInst creation
+    // later.
+    if (Ref->isLval() && Ref->isSelfBlob())
+      WideOps.push_back(nullptr);
+    else {
+      WideRef = widenRef(Ref);
+      WideOps.push_back(WideRef);
+      
+      DEBUG(errs() << "Orig Ref: " << Ref << "\n");
+      DEBUG(errs() << "Wide Ref: " << WideRef << "\n");
+    }
   }
 
   DEBUG(Node->dump(true));
-  auto CurInst = INode->getLLVMInstruction();
+
+  HLInst *WideInst = nullptr;
+  bool InsertInMap = true;
 
   if (auto BOp = dyn_cast<BinaryOperator>(CurInst)) {
-    HLInst *WideInst;
     if (RHM.isReductionVariable(CurInst))
       WideInst = widenReductionNode(Node, Anchor);
-    else {
-      RegDDRef *Rval1 = getVectorValue(INode->getOperandDDRef(1));
-      RegDDRef *Rval2 = getVectorValue(INode->getOperandDDRef(2));
-      WideInst = HLNodeUtils::createBinaryHLInst(BOp->getOpcode(),
-                                                 Rval1, Rval2,
-                                                 "",      /* Name */
-                                                 nullptr, /* LvalRef */
-                                                 BOp);
-    }
+    else
+      WideInst = HLNodeUtils::createBinaryHLInst(
+        BOp->getOpcode(), WideOps[1], WideOps[2],
+        CurInst->getName() + ".vec",  WideOps[0], BOp);
+  } else if (auto LI = dyn_cast<LoadInst>(CurInst)) {
+    WideInst = HLNodeUtils::createLoad(WideOps[1],
+                                       CurInst->getName() + ".vec",
+                                       WideOps[0],
+                                       LI->isVolatile(), LI->getAlignment());
 
-    // Add to WidenMap
+  } else if (auto SI = dyn_cast<StoreInst>(CurInst)) {
+    WideInst = HLNodeUtils::createStore(WideOps[1],
+                                        CurInst->getName() + ".vec",
+                                        WideOps[0],
+                                        SI->isVolatile(), SI->getAlignment());
+
+    InsertInMap = false;
+  } else if (isa<CastInst>(CurInst)) {
+    assert(WideOps.size() == 2 && "invalid cast");
+
+    WideInst =
+        HLNodeUtils::createCastHLInst(VectorType::get(CurInst->getType(), VL),
+                                      CurInst->getOpcode(), WideOps[1],
+                                      CurInst->getName() + ".vec", WideOps[0]);
+  } else if (isa<SelectInst>(CurInst)) {
+    WideInst = HLNodeUtils::createSelect(
+        INode->getPredicate(), WideOps[1], WideOps[2], WideOps[3], WideOps[4],
+        CurInst->getName() + ".vec", WideOps[0]);
+  } else if (isa<CmpInst>(CurInst)) {
+    WideInst =
+        HLNodeUtils::createCmp(INode->getPredicate(), WideOps[1], WideOps[2],
+                               CurInst->getName() + ".vec", WideOps[0]);
+  } else {
+    llvm_unreachable("Unimplemented widening for inst");
+  }
+
+  // Add to WidenMap
+  if (InsertInMap)
     WidenMap[INode->getLvalDDRef()->getSymbase()] = WideInst;
 
-    HLNodeUtils::insertBefore(Anchor, WideInst);
-    return;
-  }
-
-#if 0
-  // The widening of cast instruction assumes RVAL is the loop induction var
-  if (isa<CastInst>(CurInst)) {
-    auto Rval = dyn_cast<HLInst>(Node)->getRvalDDRef()->clone();
-    auto RvalDestTy = Rval->getDestType();
-    auto RvalSrcTy = Rval->getSrcType();
-
-    Constant *CA[4];
-    for (int i = 0; i < 4; ++i) {
-      CA[i] = ConstantInt::getSigned(RvalDestTy, i);
-    }
-    ArrayRef<Constant *> AR(CA, 4);
-    auto CV = ConstantVector::get(AR);
-
-    unsigned Idx = 0;
-    CanonExprUtils::createBlob(CV, true, &Idx);
-
-    Rval->getSingleCanonExpr()->addBlob(Idx, 1);
-
-    auto VecTyDestS = VectorType::get(RvalDestTy, VL);
-    auto VecTySrcS = VectorType::get(RvalSrcTy, VL);
-
-    // Set VectorType to Rval.
-    Rval->getSingleCanonExpr()->setDestType(VecTyDestS);
-    Rval->getSingleCanonExpr()->setSrcType(VecTySrcS);
-
-    auto VecTyD = VectorType::get(CurInst->getType(), VL);
-    auto WideInst = HLNodeUtils::createSIToFP(VecTyD, Rval);
-
-    DEBUG(WideInst->dump(true));
-
-    // Add to WidenMap
-    WidenMap[INode->getLvalDDRef()->getSymbase()] = WideInst;
-
-    HLNodeUtils::insertBefore(Anchor, WideInst);
-    return;
-  }
-#endif
-
-  if (isa<LoadInst>(CurInst)) {
-    DEBUG(errs() << "Load inst: ");
-    DEBUG(Node->dump(true));
-
-    auto Rval = INode->getRvalDDRef()->clone();
-    auto RvalDestTy = Rval->getDestType();
-    auto VecTyDestS = VectorType::get(RvalDestTy, VL);
-    PointerType *PtrType = cast<PointerType>(Rval->getBaseDestType());
-    auto AddressSpace = PtrType->getAddressSpace();
-
-    // Set VectorType on Rval.
-    Rval->setBaseDestType(PointerType::get(VecTyDestS, AddressSpace));
-
-    auto WideInst = HLNodeUtils::createLoad(Rval);
-
-    // Store in widen map
-    WidenMap[INode->getLvalDDRef()->getSymbase()] = WideInst;
-
-    HLNodeUtils::insertBefore(Anchor, WideInst);
-    return;
-  }
-
-  if (isa<StoreInst>(CurInst)) {
-    HLInst *WInst;
-
-    assert(WidenMap.find(INode->getRvalDDRef()->getSymbase()) !=
-               WidenMap.end() &&
-           "Value being stored is expected to be widened already");
-
-    WInst = WidenMap[INode->getRvalDDRef()->getSymbase()];
-
-    auto Lval = dyn_cast<HLInst>(Node)->getLvalDDRef()->clone();
-    auto Rval = WInst->getLvalDDRef()->clone();
-
-    PointerType *PtrType = cast<PointerType>(Lval->getBaseDestType());
-    auto AddressSpace = PtrType->getAddressSpace();
-
-    Lval->setBaseDestType(PointerType::get(Rval->getDestType(), AddressSpace));
-    auto WideInst = HLNodeUtils::createStore(Rval, "store", Lval);
-
-    HLNodeUtils::insertBefore(Anchor, WideInst);
-    return;
-  }
+  HLNodeUtils::insertBefore(Anchor, WideInst);
 }

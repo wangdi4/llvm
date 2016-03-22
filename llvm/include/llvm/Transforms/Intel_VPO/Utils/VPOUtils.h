@@ -22,6 +22,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Intel_OpenMPDirectivesAndClauses.h"
@@ -264,6 +265,28 @@ public:
     static void printParSectTree(ParSectNode *Node);
 
     ///////////////// End Parallel Section Transformation /////////////////
+  
+    //////////////// Functions for vector code generation /////////////////
+    /// \brief Return a call to the llvm.masked.gather intrinsic. A null Mask
+    /// defaults to an unmasked gather. A null PassThru value uses undef value
+    /// for pass through value.
+    static CallInst* createMaskedGatherCall(Module *M,
+                                            Value *VecPtr,
+                                            IRBuilder<> *Builder,
+                                            unsigned Alignment = 0,
+                                            Value *Mask = nullptr,
+                                            Value *PassThru = nullptr);
+
+    /// \brief Return a call to the llvm.masked.scatter intrinsic. A null Mask
+    /// defaults to an unmasked scatter. 
+    static CallInst* createMaskedScatterCall(Module *M,
+                                             Value *VecPtr,
+                                             Value *VecData,
+                                             IRBuilder<> *Builder,
+                                             unsigned Alignment = 0,
+                                             Value *Mask = nullptr);
+
+    ///////////////////// End vector code generation  /////////////////////
 };
 
 } // End vpo namespace

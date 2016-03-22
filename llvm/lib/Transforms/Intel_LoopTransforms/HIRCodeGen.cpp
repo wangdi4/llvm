@@ -29,6 +29,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -50,6 +51,7 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+using namespace llvm::vpo;
 
 static cl::opt<bool> forceHIRCG("force-HIRCG", cl::init(false), cl::Hidden,
                                 cl::desc("forces CodeGen on all HIR regions"));
@@ -205,8 +207,18 @@ private:
 
     //\brief returns value for blobCoeff*blob in <blobidx,coeff> pair
     Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt) {
-      return CoefCG(CE->getBlobCoeff(BlobIt),
-                    getBlobValue(CE->getBlobIndex(BlobIt), CE->getSrcType()));
+      auto BlobVal = CoefCG(CE->getBlobCoeff(BlobIt),
+                            getBlobValue(CE->getBlobIndex(BlobIt),
+                                         CE->getSrcType()));
+      auto CEDestTy = CE->getDestType();
+
+      if (CEDestTy->isVectorTy() &&
+          !BlobVal->getType()->isVectorTy()) {
+        BlobVal = Builder->CreateVectorSplat(CEDestTy->getVectorNumElements(),
+                                             BlobVal);
+      }
+
+      return BlobVal;
     }
 
     // \brief Applies cast to Val according to CE's dest type, if applicable.
@@ -426,6 +438,13 @@ Value *HIRCodeGen::CGVisitor::castToDestType(CanonExpr *CE, Value *Val) {
 
   auto DestTy = CE->getDestType();
 
+  // If the value is a scalar type and dest type is a vector, we need
+  // to do a broadcast before applying the cast.
+  if (DestTy->isVectorTy() &&
+      !Val->getType()->isVectorTy()) {
+    Val = Builder->CreateVectorSplat(DestTy->getVectorNumElements(), Val);
+  }
+
   if (CE->isSExt()) {
     Val = Builder->CreateSExt(Val, DestTy);
   } else if (CE->isZExt()) {
@@ -441,11 +460,14 @@ Value *HIRCodeGen::CGVisitor::createCmpInst(CmpInst::Predicate P, Value *LHS,
                                             Value *RHS, const Twine &Name) {
   Value *CmpInst = nullptr;
 
+  // Account for vector type
+  auto LType = LHS->getType()->getScalarType();
+
   assert(P != UNDEFINED_PREDICATE && "invalid predicate for cmp/sel in HIRCG");
 
-  if (LHS->getType()->isIntegerTy() || LHS->getType()->isPointerTy()) {
+  if (LType->isIntegerTy() || LType->isPointerTy()) {
     CmpInst = Builder->CreateICmp(P, LHS, RHS, Name);
-  } else if (LHS->getType()->isFloatingPointTy()) {
+  } else if (LType->isFloatingPointTy()) {
     CmpInst = Builder->CreateFCmp(P, LHS, RHS, Name);
   } else {
     llvm_unreachable("unknown predicate type in HIRCG");
@@ -589,8 +611,10 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
 
   // Base CE could have different src and dest types in which case we need a
   // bitcast. Can occur from llvm's canonicalization of store/load of float
-  // to int by bitcast
-  if (Ref->getBaseSrcType() != Ref->getBaseDestType()) {
+  // to int by bitcast. When GEPVal is a vector of pointers, we do not need
+  // a bitcast.
+  if (!GEPVal->getType()->isVectorTy() &&
+      (Ref->getBaseSrcType() != Ref->getBaseDestType())) {
     GEPVal = Builder->CreateBitCast(GEPVal, Ref->getBaseDestType());
   }
 
@@ -602,7 +626,26 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   // value of A[i], ie a load. For lval, we will store into &A[i], so we
   // want the address, the gep
   if (Ref->isRval()) {
-    return Builder->CreateLoad(GEPVal, "gepload");
+    unsigned Align = 0;
+    auto DDNode = Ref->getHLDDNode();
+    
+    if (auto HInst = dyn_cast<HLInst>(DDNode)) {
+      auto Inst = HInst->getLLVMInstruction();
+
+      if (auto LI = dyn_cast<LoadInst>(Inst)) {
+        Align = LI->getAlignment();
+      }
+    }
+
+    // If we have a vector of pointers do the load using the masked gather
+    // intrinsic.
+    if (GEPVal->getType()->isVectorTy()) {
+      return VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal,
+                                              Builder);
+    }
+    else {
+      return Builder->CreateAlignedLoad(GEPVal, Align, "gepload");
+    }
   }
 
   return GEPVal;
@@ -1001,7 +1044,20 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
   SmallVector<Value *, 6> Ops;
   for (auto R = HInst->op_ddref_begin(), E = HInst->op_ddref_end(); R != E;
        ++R) {
-    Ops.push_back(visitRegDDRef(*R));
+    auto DestTy = (*R)->getDestType();
+    auto OpVal = visitRegDDRef(*R);
+
+    // Do a broadcast of instruction operands if needed.
+    if ((*R)->isRval() && DestTy->isVectorTy() &&
+        !(OpVal->getType()->isVectorTy())) {
+      OpVal->dump();
+
+      OpVal = Builder->CreateVectorSplat(DestTy->getVectorNumElements(),
+                                         OpVal);
+      OpVal->dump();
+    }
+
+    Ops.push_back(OpVal);
   }
 
   // create the inst
@@ -1010,7 +1066,24 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     // We could be loading rhs and storing it into a lhs tmp or mem location
     // or directly storing rhs into lhs tmp/mem location
     // TODO change twine?
-    Builder->CreateStore(Ops[1], Ops[0]);
+    unsigned Align;
+
+    if (auto SI = dyn_cast<StoreInst>(Inst)) {
+      Align = SI->getAlignment();
+    }
+    else {
+      auto LI = cast<LoadInst>(Inst);
+      Align = LI->getAlignment();
+    }
+
+    if (Ops[0]->getType()->isVectorTy()) {
+      VPOUtils::createMaskedScatterCall(F->getParent(), Ops[0], Ops[1],
+                                        Builder);
+    }
+    else {
+      Builder->CreateAlignedStore(Ops[1], Ops[0], Align);
+    }
+
   } else if (BinaryOperator *BOp = dyn_cast<BinaryOperator>(Inst)) {
     Value *Res = Builder->CreateBinOp(BOp->getOpcode(), Ops[1], Ops[2]);
     Builder->CreateStore(Res, Ops[0]);
