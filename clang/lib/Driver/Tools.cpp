@@ -2107,7 +2107,7 @@ static bool DecodeAArch64Mcpu(const Driver &D, StringRef Mcpu, StringRef &CPU,
   std::pair<StringRef, StringRef> Split = Mcpu.split("+");
   CPU = Split.first;
   if (CPU == "cyclone" || CPU == "cortex-a53" || CPU == "cortex-a57" ||
-      CPU == "cortex-a72" || CPU == "cortex-a35") {
+      CPU == "cortex-a72" || CPU == "cortex-a35" || CPU == "exynos-m1") {
     Features.push_back("+neon");
     Features.push_back("+crc");
     Features.push_back("+crypto");
@@ -9472,6 +9472,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     // or -L. Render it, even if MSVC doesn't understand it.
     A.renderAsInput(Args, CmdArgs);
   }
+
+  TC.addProfileRTLibs(Args, CmdArgs);
 
   // We need to special case some linker paths.  In the case of lld, we need to
   // translate 'lld' into 'lld-link', and in the case of the regular msvc

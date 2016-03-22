@@ -2338,6 +2338,44 @@ bool HLNodeUtils::strictlyPostDominates(const HLNode *Node1,
   return dominatesImpl(Node1, Node2, true, true);
 }
 
+bool HLNodeUtils::canAccessTogether(const HLNode *Node1, const HLNode *Node2) {
+  // The dominance checks can return true for nodes under different parent
+  // loops when the references are under constant bound loops. For the example
+  // below these checks might incorrectly deduce that both references can be
+  // accessed together whereas it is incorrect to hoist r2 due to different
+  // loop bounds. We therefore limit the checks to the same parent loop for now.
+  //
+  // DO i1
+  // DO i2 = 0, 5
+  //  A[i2]  // r1
+  // END DO
+  //
+  // DO i2 = 0, 100
+  //  A[i2+1]  // r2
+  // END DO
+  // END DO
+  HLLoop *ParentLoop1 = Node1->getParentLoop();
+  HLLoop *ParentLoop2 = Node2->getParentLoop();
+  if (!ParentLoop1 || !ParentLoop2 || ParentLoop1 != ParentLoop2) {
+    return false;
+  }
+
+  // Try to save some dominance checks: if both references have the same
+  // parent loop but not the same getParent(), we return early. This will catch
+  // cases where the Nodes are under different HLIfs or only one of them is
+  // under an HLIf.
+  if (Node1->getParent() != Node2->getParent()) {
+    return false;
+  }
+
+  if (!(dominates(Node2, Node1) && postDominates(Node1, Node2)) &&
+      !(dominates(Node1, Node2) && postDominates(Node2, Node1))) {
+    return false;
+  }
+
+  return true;
+}
+
 bool HLNodeUtils::contains(const HLNode *Parent, const HLNode *Node,
                            bool IncludePrePostHdr) {
   assert(Parent && "Parent is null!");

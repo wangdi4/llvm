@@ -3025,7 +3025,7 @@ static bool prepareICWorklistFromFunction(Function &F, const DataLayout &DL,
       Instruction *Inst = &*--EndInst->getIterator();
       if (!Inst->use_empty() && !Inst->getType()->isTokenTy())
         Inst->replaceAllUsesWith(UndefValue::get(Inst->getType()));
-      if (Inst->isEHPad()) {
+      if (Inst->isEHPad() || Inst->getType()->isTokenTy()) {
         EndInst = Inst;
         continue;
       }
@@ -3033,8 +3033,7 @@ static bool prepareICWorklistFromFunction(Function &F, const DataLayout &DL,
         ++NumDeadInst;
         MadeIRChange = true;
       }
-      if (!Inst->getType()->isTokenTy())
-        Inst->eraseFromParent();
+      Inst->eraseFromParent();
     }
   }
 

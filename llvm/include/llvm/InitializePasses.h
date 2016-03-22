@@ -323,6 +323,8 @@ void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
 void initializeFloat2IntPass(PassRegistry&);
 #if INTEL_CUSTOMIZATION
+// Pass for indirect call conversion using points-to info
+void initializeIndirectCallConvPass(PassRegistry &);
 // Pass for SnodeInfo analysis
 void initializeSNodeAnalysisPass(PassRegistry &);
 // Pass for register promotion for non escaped block scope global variables.
@@ -346,6 +348,7 @@ void initializeHIRLocalityAnalysisPass(PassRegistry&);
 void initializeHIRParVecAnalysisPass(PassRegistry&);
 void initializeHIRParDirInsertPass(PassRegistry&);
 void initializeHIRVecDirInsertPass(PassRegistry&);
+void initializeHIRVectVLSAnalysisPass(PassRegistry&);
 void initializeSSADeconstructionPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);

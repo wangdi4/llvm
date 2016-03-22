@@ -32,14 +32,16 @@ namespace InlineConstants {
   const int IndirectCallThreshold = 100;
   const int CallPenalty = 25;
   const int LastCallToStaticBonus = -15000;
+  const int SecondToLastCallToStaticBonus = -410; // INTEL
   const int ColdccPenalty = 2000;
   const int NoreturnPenalty = 10000;
   /// Do not inline functions which allocate this many bytes on the stack
   /// when the caller is recursive.
   const unsigned TotalAllocaSizeRecursiveCaller = 1024;
+  const unsigned BasicBlockSuccRatio = 210; // INTEL 
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 namespace InlineReportTypes { 
 
 /// \brief Inlining and non-inlining reasons
@@ -62,6 +64,7 @@ typedef enum {
    InlrSingleBasicBlock,
    InlrAlmostSingleBasicBlock,
    InlrEmptyFunction,
+   InlrDoubleLocalCall, 
    InlrVectorBonus,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
@@ -145,7 +148,7 @@ public:
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
     return InlineCost(Cost, Threshold);
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   static InlineCost get(int Cost, int Threshold, 
     InlineReportTypes::InlineReason Reason) {
     assert(Cost > AlwaysInlineCost && "Cost crosses sentinel value");
@@ -159,7 +162,7 @@ public:
   static InlineCost getNever() {
     return InlineCost(NeverInlineCost, 0);
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   static InlineCost getAlways(InlineReportTypes::InlineReason Reason) {
     return InlineCost(AlwaysInlineCost, 0, Reason);
   }
@@ -189,7 +192,7 @@ public:
   /// value if the cost is too high to inline.
   int getCostDelta() const { return Threshold - getCost(); }
 
-#ifdef INTEL_CUSTOMIZATION 
+#if INTEL_CUSTOMIZATION 
   InlineReportTypes::InlineReason getInlineReason() const 
     { return Reason; }
   void setInlineReason(InlineReportTypes::InlineReason MyReason) 

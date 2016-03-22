@@ -197,6 +197,59 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
   return false;
 }
 
+bool DDRefUtils::getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                                  int64_t *Distance) {
+  // Dealing with memrefs only
+  if (!Ref1->hasGEPInfo() || !Ref2->hasGEPInfo()) {
+    return false;
+  }
+
+  // TODO: Compare bases instead of expecting them to be equal?
+  const CanonExpr *BaseCE1 = Ref1->getBaseCE();
+  const CanonExpr *BaseCE2 = Ref2->getBaseCE();
+  if (!CanonExprUtils::areEqual(BaseCE1, BaseCE2))
+    return false;
+
+  // TODO: Extend to support different # of dimensions?
+  if (Ref1->getNumDimensions() != Ref2->getNumDimensions())
+    return false;
+
+  int64_t Delta = 0;
+
+  // Compare the subscripts
+  for (unsigned I = 1; I <= Ref1->getNumDimensions(); ++I) {
+    const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
+    const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
+
+    // The BaseCE and getNumDimestions() match so we know that 
+    // getDimensionStride is the same in both.
+    uint64_t DimStride = Ref1->getDimensionStride(I);
+
+    // Diff the CanonExprs.
+    CanonExpr *Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);
+
+    // TODO: Being conservative with Denom.
+    if (Result->getDenominator() > 1) {
+      CanonExprUtils::destroy(Result);
+      return false;
+    }
+
+    // DEBUG(dbgs() << "\n    Delta for Dim = "; Result->dump());
+
+    if (!Result->isIntConstant()) {
+      CanonExprUtils::destroy(Result);
+      return false;
+    }
+
+    int64_t Diff = Result->getConstant();
+    Delta += Diff * DimStride;
+    CanonExprUtils::destroy(Result);
+  }
+
+  *Distance = Delta;
+  return true;
+}
+
 RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, int Level) {
   auto CE = CanonExprUtils::createSelfBlobCanonExpr(Index, Level);
   unsigned Symbase = BlobUtils::getBlobSymbase(Index);

@@ -972,6 +972,16 @@ public:
   /// Node2, in which case it return false.
   static bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2);
 
+  /// \brief Checks if \p Node1 and \p Node2 are "equivalent" in terms of CFG:
+  /// namely if \p Node1 is reached/accessed anytime \p Node2 is
+  /// reached/Accessed and vice versa. This allows placing/accessing the nodes
+  /// together in the same location.
+  /// Returns false if there may exist a scenario/path in which Node1 is
+  /// reached/accessed and Node2 isn't, or the other way around.
+  /// Note: In the presence of complicated unstructured code (containing 
+  /// gotos/labels) this function will conservatively return false.
+  static bool canAccessTogether(const HLNode *Node1, const HLNode *Node2);
+
   /// \brief Returns true if Parent contains Node. IncludePrePostHdr indicates
   /// whether loop should be considered to contain preheader/postexit nodes.
   static bool contains(const HLNode *Parent, const HLNode *Node,

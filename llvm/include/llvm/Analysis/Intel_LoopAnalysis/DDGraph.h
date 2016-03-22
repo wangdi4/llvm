@@ -164,10 +164,21 @@ public:
 
   // Returns true if the edge is a Forward dependence
   bool isForwardDep() const {
+
     auto SrcTopSortNum = getSrc()->getHLDDNode()->getTopSortNum();
     auto SinkTopSortNum = getSink()->getHLDDNode()->getTopSortNum();
+
+    //Handle the case A[I] = A[I] + B[I]
+    //Case 1: The flow edge (from Lval to Rval) is backward.
+    //Case 2: The anti edge (from Rval to Lval) is forward.
+    if (SrcTopSortNum == SinkTopSortNum) {
+      RegDDRef *SrcRef = dyn_cast<RegDDRef>(Src);
+      bool SrcIsLval = (SrcRef && SrcRef->isLval());
+      return !SrcIsLval; 
+    }
     return (SrcTopSortNum < SinkTopSortNum);
   }
+
   // Returns true if the edge prevents parallelization of Loop at Level
   // Note that this function only performs a quick check. It doesn't
   // perform the same level of analysis as ParVec analysis.
@@ -189,6 +200,7 @@ public:
   bool isRefinableDepAtLevel(unsigned Level) const {
     return isDVRefinableAtLevel(getDV(), Level);
   }
+
   bool isOUTPUTdep() const { return getEdgeType() == DepType::OUTPUT; }
   bool isFLOWdep() const { return getEdgeType() == DepType::FLOW; }
   bool isANTIdep() const { return getEdgeType() == DepType::ANTI; }

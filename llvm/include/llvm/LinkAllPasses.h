@@ -110,6 +110,7 @@ namespace {
       (void) llvm::createGlobalsAAWrapperPass();
       (void) llvm::createIPConstantPropagationPass();
       (void) llvm::createIPSCCPPass();
+      (void) llvm::createIndirectCallConvPass(); // INTEL
       (void) llvm::createInductiveRangeCheckEliminationPass();
       (void) llvm::createIndVarSimplifyPass();
       (void) llvm::createInstructionCombiningPass();
@@ -223,6 +224,7 @@ namespace {
       (void) llvm::createDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
       (void) llvm::createHIRParVecAnalysisPass();
+      (void) llvm::createHIRVectVLSAnalysisPass();
 
       (void) llvm::createSSADeconstructionPass();
       (void) llvm::createHIROptPredicatePass();
