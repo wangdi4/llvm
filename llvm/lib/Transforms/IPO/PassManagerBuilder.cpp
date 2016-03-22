@@ -40,9 +40,9 @@
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/IR/IRPrintingPasses.h"
-#include "llvm/Transforms/Utils/Intel_VecClone.h"
+#include "llvm/Transforms/Utils/Intel_VecClone.h" 
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
-#endif // INTEL_CUSTOMIZATION
+#endif //INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -146,13 +146,13 @@ static cl::opt<bool> EnableNonLTOGlobalVarOpt(
 static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
 
-// Indirect call Conv
-static cl::opt<bool> EnableIndirectCallConv("enable-ind-call-conv",
-    cl::init(false), cl::Hidden, cl::desc("Enable Indirect Call Conv"));
-
 static cl::opt<bool> RunMapIntrinToIml("enable-iml-trans",
   cl::init(false), cl::Hidden,
   cl::desc("Map vectorized math intrinsic calls to svml/libm."));
+
+// Indirect call Conv
+static cl::opt<bool> EnableIndirectCallConv("enable-ind-call-conv",
+    cl::init(false), cl::Hidden, cl::desc("Enable Indirect Call Conv"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableNonLTOGlobalsModRef(
@@ -594,10 +594,12 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createMergeFunctionsPass());
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
+
 #if INTEL_CUSTOMIZATION
   // This pass translates vector math intrinsics to svml/libm calls.
-  if (RunMapIntrinToIml)
+  if (RunMapIntrinToIml) {
     MPM.add(createMapIntrinToImlPass());
+  }
 #endif // INTEL_CUSTOMIZATION
 }
 

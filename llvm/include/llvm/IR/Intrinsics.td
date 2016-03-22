@@ -408,9 +408,7 @@ let Properties = [IntrNoMem] in {
 // lib/Analysis/VectorUtils.cpp enforce correct typing for the intrinsic.
 // This intrinsic is marked as ReadWriteArgMem because it returns void and we
 // want to prevent the call from being eliminated as dead code before the
-// translation to SVML. In fact, even though the intrinsic technically only
-// writes to vector registers, the results must be stored to memory, so
-// marking the intrinsic as such seems reasonable.
+// translation to SVML.
 def int_sincos       : Intrinsic<[],
                                  [llvm_anyfloat_ty,
                                   llvm_any_ty,

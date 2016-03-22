@@ -30,7 +30,7 @@ class ScalarEvolution;
 class TargetTransformInfo;
 class Type;
 class Value;
-class SCEV;      // INTEL
+class SCEV; // INTEL
 class Attribute; // INTEL
 
 /// \brief Identify if the intrinsic is trivially vectorizable.
@@ -152,6 +152,33 @@ MapVector<Instruction*, uint64_t>
 computeMinimumValueSizes(ArrayRef<BasicBlock*> Blocks,
                          DemandedBits &DB,
                          const TargetTransformInfo *TTI=nullptr);
+
+/// \brief Determine if the SCEV expression is invariant with respect to the
+/// loop. This function will be called recursively for SCEV expressions that
+/// consist of SCEVUnknown and SCEVAddExpr to determine if those subexpressions
+/// are also loop invariant.
+bool referenceIsLoopInvariant(const SCEV *Scev, ScalarEvolution *SE,
+                              Loop *OrigLoop);
+
+/// \brief This function returns the stride of a memory reference expression.
+/// Geps that represent each dimension of an array are analyzed to see if
+/// they are invariant with respect to the loop being vectorized, with the
+/// exception of the gep corresponding to the innermost loop level for which
+/// we will obtain a stride. So essentially, the function is looking for an
+/// address calculation of the form: base + c1 + c2, where we find the stride
+/// for base and c1, c2, ..., cn are constants. This information is useful
+/// for determining the types of vector loads/stores to generate. If this
+/// address form is not found, the stride is set to Undef.
+Value* getExprStride(const SCEV *Scev, ScalarEvolution *SE, Loop *OrigLoop);
+
+/// \brief This function marks the CallInst VecCall with the appropriate stride
+/// information determined by getExprStride(), which is used later in LLVM IR
+/// generation for loads/stores. Initial use of this information is used during
+/// SVML translation for sincos vectorization, but could be applicable to any
+/// situation where we need to analyze memory references.
+void analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
+                                    const TargetLibraryInfo *TLI,
+                                    ScalarEvolution *SE, Loop *OrigLoop);
 
 /// @brief Contains the names of the declared vector function variants
 typedef std::vector<std::string> DeclaredVariants;

@@ -14,8 +14,8 @@ set(LLVM_LINK_COMPONENTS
   Target
   TransformUtils
   Vectorize
-  Intel_MapIntrinToIml #***INTEL
   Intel_LoopTransforms #***INTEL
+  Intel_MapIntrinToIml #***INTEL
   Intel_VPOTransforms  #***INTEL
   )
 
