@@ -26,7 +26,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
@@ -79,7 +79,7 @@ private:
   template <typename... Analysis>
   struct AnalysisSet {
 
-    static_assert(sizeof...(Analysis) == HIRAnalysisPass::PassCountVal,
+    static_assert(sizeof...(Analysis) == HIRAnalysisPass::HIRPassCountVal,
         "One or more HIR Analysis pass is missing!");
 
     template <typename F, typename... ArgsTy>
@@ -100,7 +100,7 @@ private:
   };
 
   // There should be all available analysis
-  typedef AnalysisSet<DDAnalysis, HIRLocalityAnalysis> ForEachAnalysis;
+  typedef AnalysisSet<HIRDDAnalysis, HIRLocalityAnalysis> ForEachAnalysis;
 
   /// \brief Do not allow instantiation.
   HIRInvalidationUtils() = delete;

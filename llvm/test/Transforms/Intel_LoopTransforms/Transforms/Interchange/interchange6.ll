@@ -8,7 +8,7 @@
 ;                        A[i5][i4][i3][i2+n][i1+n] =
 ;                            A[i5][i4][i3][i2][i1] + 1 ;
 ;
-; RUN: opt -loop-simplify -hir-ssa-deconstruction  -HIRLoopInterchange -HIRCG < %s 2>&1 | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction  -HIRLoopInterchange < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged
 
 ; ModuleID = 'interchange6.c'

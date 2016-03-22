@@ -49,8 +49,8 @@ class Loop;
 
 namespace loopopt {
 
-class ScalarSymbaseAssignment;
-class LoopFormation;
+class HIRScalarSymbaseAssignment;
+class HIRLoopFormation;
 class HLNode;
 class HLDDNode;
 class HLRegion;
@@ -77,7 +77,7 @@ private:
   // HIRParser like createBlob() etc.
   friend class BlobUtils;
   // Needs to access getMaxScalarSymbase().
-  friend class SymbaseAssignment;
+  friend class HIRSymbaseAssignment;
   // Provides access to hir_begin() to HIR transformations.
   friend class HIRFramework;
 
@@ -97,16 +97,16 @@ private:
   ScalarEvolution *SE;
 
   /// RI - The region identification pass.
-  const RegionIdentification *RI;
+  const HIRRegionIdentification *RI;
 
   /// HIR - HIR for the function.
   HIRCreation *HIR;
 
   /// LF - Loop formation analysis of HIR.
-  LoopFormation *LF;
+  HIRLoopFormation *LF;
 
   /// ScalarSA - Scalar Symbase Assignment Analysis.
-  ScalarSymbaseAssignment *ScalarSA;
+  HIRScalarSymbaseAssignment *ScalarSA;
 
   /// Func - The function we are operating on.
   Function *Func;

@@ -4,7 +4,7 @@
 ;        for (j=1; j <= 96; j++) {
 ;            A[j][i] = A[j+m][i+n] + 1; 
 ;  
-; RUN: opt -loop-simplify -hir-ssa-deconstruction  -HIRLoopInterchange -HIRCG < %s 2>&1 | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction  -HIRLoopInterchange < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged:
 ;
 ; ModuleID = 'interchange2.c'

@@ -1,5 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
-; RUN: opt < %s -hir-ssa-deconstruction -HIRCG -force-HIRCG -S | FileCheck -check-prefix=CHECK-CG %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck -check-prefix=CHECK-CG %s
 
 ; Check parsing output for the loop verifying that the switch is parsed correctly.
 ; CHECK: DO i1 = 0, %n + -1

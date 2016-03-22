@@ -1,4 +1,4 @@
-; RUN: opt -HIRCG -force-HIRCG -S < %s | FileCheck %s
+; RUN: opt -hir-cg -force-hir-cg -S < %s | FileCheck %s
 ; This text verifies that UB is correctly sext and is calculated
 ; only once, before loop
 ; Also verifies loop nest is correctly nested, i1 then i2

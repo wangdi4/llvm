@@ -94,7 +94,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
@@ -353,7 +353,7 @@ void IVSegment::updateIVWithBounds(unsigned Level, const RegDDRef *LowerBound,
 char HIRRuntimeDD::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
 
 FunctionPass *llvm::createHIRRuntimeDDPass() { return new HIRRuntimeDD(); }
@@ -684,7 +684,7 @@ void HIRRuntimeDD::generateDDTest(LoopCandidate &Candidate) const {
   unsigned MVTag = Candidate.Loop->getNumber();
   Candidate.Loop->setMVTag(MVTag);
   MVLoop->setMVTag(MVTag);
-  // TODO: Mark MVLoop ddrefs to say DDAnalysis that they do not intersect.
+  // TODO: Mark MVLoop ddrefs to say HIRDDAnalysis that they do not intersect.
 
   HLNodeUtils::insertBefore(EscapeGoto, MVLoop);
 

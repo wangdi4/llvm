@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -HIRCG -force-HIRCG -S | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
 
 ; Check that the i2 loop with ztt, preheader and postexit is CG'd correctly.
 ; CHECK: dummy check to prevent lit testing hangs on windows.

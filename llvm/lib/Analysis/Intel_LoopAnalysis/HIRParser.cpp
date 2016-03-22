@@ -35,10 +35,10 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/LoopFormation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/ScalarSymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRRegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRScalarSymbaseAssignment.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -53,10 +53,10 @@ using namespace llvm::loopopt;
 INITIALIZE_PASS_BEGIN(HIRParser, "hir-parser", "HIR Parser", false, true)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
+INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(HIRCreation)
-INITIALIZE_PASS_DEPENDENCY(LoopFormation)
-INITIALIZE_PASS_DEPENDENCY(ScalarSymbaseAssignment)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopFormation)
+INITIALIZE_PASS_DEPENDENCY(HIRScalarSymbaseAssignment)
 INITIALIZE_PASS_END(HIRParser, "hir-parser", "HIR Parser", false, true)
 
 char HIRParser::ID = 0;
@@ -73,10 +73,10 @@ void HIRParser::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
-  AU.addRequiredTransitive<RegionIdentification>();
+  AU.addRequiredTransitive<HIRRegionIdentification>();
   AU.addRequiredTransitive<HIRCreation>();
-  AU.addRequiredTransitive<LoopFormation>();
-  AU.addRequiredTransitive<ScalarSymbaseAssignment>();
+  AU.addRequiredTransitive<HIRLoopFormation>();
+  AU.addRequiredTransitive<HIRScalarSymbaseAssignment>();
 }
 
 const Instruction *HIRParser::getCurInst() const {
@@ -2338,10 +2338,10 @@ bool HIRParser::runOnFunction(Function &F) {
   Func = &F;
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  RI = &getAnalysis<RegionIdentification>();
+  RI = &getAnalysis<HIRRegionIdentification>();
   HIR = &getAnalysis<HIRCreation>();
-  LF = &getAnalysis<LoopFormation>();
-  ScalarSA = &getAnalysis<ScalarSymbaseAssignment>();
+  LF = &getAnalysis<HIRLoopFormation>();
+  ScalarSA = &getAnalysis<HIRScalarSymbaseAssignment>();
 
   BlobUtils::setHIRParser(this);
 

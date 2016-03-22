@@ -1,4 +1,4 @@
-; RUN: opt -HIRCG -force-HIRCG -S < %s | FileCheck %s
+; RUN: opt -hir-cg -force-hir-cg -S < %s | FileCheck %s
 ; Verifies basic nesting structure for a doubly nested loop nest
 ; Verifies nesting order is correct, and that correct ivs are 
 ; incremented in each loop

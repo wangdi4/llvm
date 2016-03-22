@@ -40,10 +40,10 @@ class HLLabel;
 class HLGoto;
 class HLIf;
 class HLSwitch;
-class RegionIdentification;
+class HIRRegionIdentification;
 
 /// \brief This analysis creates and populates HIR regions with HLNodes using
-/// the information provided by RegionIdentification pass. 
+/// the information provided by HIRRegionIdentification pass. 
 ///
 class HIRCreation : public FunctionPass {
 public:
@@ -70,7 +70,7 @@ private:
   LoopInfo *LI;
 
   /// RI - The region identification pass.
-  const RegionIdentification *RI;
+  const HIRRegionIdentification *RI;
 
   /// CurRegion - Points to the region being processed.
   HLRegion *CurRegion;

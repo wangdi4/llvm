@@ -19,7 +19,6 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
 #include <set>
 #include <iterator>
 

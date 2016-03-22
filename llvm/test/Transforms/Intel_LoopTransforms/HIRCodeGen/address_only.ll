@@ -1,4 +1,4 @@
-;RUN: opt -HIRCG -force-HIRCG -S %s | FileCheck %s
+;RUN: opt -hir-cg -force-hir-cg -S %s | FileCheck %s
 ;CHECK: loop.11
 ;verify first argument of this hir stmt was correctly cg'd
 ;%call = @printf(&((@.str)[0]),  %0);

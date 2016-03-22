@@ -703,7 +703,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createPrintModulePass(dbgs(), ";Module Before HIR" ));
   }
 
-  PM.add(createSSADeconstructionPass());
+  PM.add(createHIRSSADeconstructionPass());
 
   if (!RunLoopOptFrameworkOnly) {
     PM.add(createHIROptPredicatePass());

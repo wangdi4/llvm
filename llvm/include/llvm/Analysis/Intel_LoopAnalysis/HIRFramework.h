@@ -20,9 +20,9 @@
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRSymbaseAssignment.h"
 // Required for making INVALID_SYMBASE and CONSTANT_SYMBASE available.
-#include "llvm/Analysis/Intel_LoopAnalysis/ScalarSymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRScalarSymbaseAssignment.h"
 
 namespace llvm {
 
@@ -32,18 +32,18 @@ namespace loopopt {
 ///
 /// The overall sequence of building the HIR is as follows-
 ///
-/// 1) RegionIdentification - identifies regions in IR.
-/// 2) SCCFormation - identifies SCCs in regions.
-/// 3) SSADeconstruction - deconstructs SSA for HIR by inserting copies.
+/// 1) HIRRegionIdentification - identifies regions in IR.
+/// 2) HIRSCCFormation - identifies SCCs in regions.
+/// 3) HIRSSADeconstruction - deconstructs SSA for HIR by inserting copies.
 /// 4) HIRCreation - populates HIR regions with a sequence of HLNodes (without
 ///    HIR loops).
 /// 5) HIRCleanup - removes redundant gotos/labels from HIR.
-/// 6) LoopFormation - Forms HIR loops within HIR regions.
-/// 7) ScalarSymbaseAssignment - Assigns symbases to livein/liveout values.
+/// 6) HIRLoopFormation - Forms HIR loops within HIR regions.
+/// 7) HIRScalarSymbaseAssignment - Assigns symbases to livein/liveout values.
 /// 8) HIRParser - Creates DDRefs and parses SCEVs into CanonExprs. Also assigns
 ///    symbases to non livein/liveout scalars using ScalarSymbaseAssignment's
 ///    interface.
-/// 9) SymbaseAssignment - Assigns symbases to memory DDRefs.
+/// 9) HIRSymbaseAssignment - Assigns symbases to memory DDRefs.
 ///
 class HIRFramework : public FunctionPass {
 public:
@@ -62,7 +62,7 @@ private:
   HIRParser *HIRP;
 
   /// SA - symbase assignment for the function.
-  SymbaseAssignment *SA;
+  HIRSymbaseAssignment *SA;
 
 
   /// \brief Registers new lval/symbase pairs created by HIR transformations.

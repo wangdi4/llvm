@@ -73,13 +73,13 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFramework>();
-    AU.addRequiredTransitive<DDAnalysis>();
+    AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.addRequiredTransitive<HIRLocalityAnalysis>();
   }
 
 private:
   Function *F;
-  DDAnalysis *DDA;
+  HIRDDAnalysis *DDA;
   HIRLocalityAnalysis *LA;
   unsigned OutmostNestingLevel;
   unsigned InnermostNestingLevel;
@@ -113,7 +113,7 @@ char HIRLoopInterchange::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopInterchange, "HIRLoopInterchange",
                       "HIR Loop Interchange", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_END(HIRLoopInterchange, "HIRLoopInterchange",
                     "HIR Loop Interchange", false, false)
@@ -155,7 +155,7 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Loop Interchange for Function : " << F.getName() << "\n");
 
   this->F = &F;
-  DDA = &getAnalysis<DDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysis>();
   LA = &getAnalysis<HIRLocalityAnalysis>();
 
   // 1) Walk all loops, look for outer loops that are perfectly nested

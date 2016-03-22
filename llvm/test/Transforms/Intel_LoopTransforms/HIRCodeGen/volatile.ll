@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -HIRCG -force-HIRCG -S < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S < %s | FileCheck %s
 
 ; Check that CG retains volatile attribute of store.
 ; CHECK: region:

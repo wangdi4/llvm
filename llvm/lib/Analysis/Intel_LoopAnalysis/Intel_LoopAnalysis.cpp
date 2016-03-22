@@ -15,15 +15,15 @@
 using namespace llvm;
 
 void llvm::initializeIntel_LoopAnalysis(PassRegistry &Registry) {
-  initializeRegionIdentificationPass(Registry);
-  initializeSCCFormationPass(Registry);
-  initializeScalarSymbaseAssignmentPass(Registry);
+  initializeHIRRegionIdentificationPass(Registry);
+  initializeHIRSCCFormationPass(Registry);
+  initializeHIRScalarSymbaseAssignmentPass(Registry);
   initializeHIRCreationPass(Registry);
   initializeHIRCleanupPass(Registry);
-  initializeLoopFormationPass(Registry);
+  initializeHIRLoopFormationPass(Registry);
   initializeHIRParserPass(Registry);
-  initializeSymbaseAssignmentPass(Registry);
+  initializeHIRSymbaseAssignmentPass(Registry);
   initializeHIRFrameworkPass(Registry);
-  initializeDDAnalysisPass(Registry);
+  initializeHIRDDAnalysisPass(Registry);
   initializeHIRLocalityAnalysisPass(Registry);
 }

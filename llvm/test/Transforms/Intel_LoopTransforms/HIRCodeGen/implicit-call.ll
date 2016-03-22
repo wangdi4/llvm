@@ -1,4 +1,4 @@
-; RUN: opt -loop-simplify -HIRCG -force-HIRCG -S < %s | FileCheck %s
+; RUN: opt -loop-simplify -hir-cg -force-hir-cg -S < %s | FileCheck %s
 
 ; Verify that CG is able to code generate the implicit call correctly. There is no explicit declaration of bar() in the test case-
 

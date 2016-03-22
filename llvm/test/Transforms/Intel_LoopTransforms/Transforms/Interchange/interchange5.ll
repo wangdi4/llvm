@@ -7,7 +7,7 @@
 ;                        A[i5][i4][i3][i1+n][i2] =
 ;                            A[i5][i4][i3][i1+m][i2] + 1 ;
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction  -HIRLoopInterchange -HIRCG < %s 2>&1 | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction  -HIRLoopInterchange < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 3 4 5 2 )  
 

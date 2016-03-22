@@ -51,7 +51,7 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-static cl::opt<bool> forceHIRCG("force-HIRCG", cl::init(false), cl::Hidden,
+static cl::opt<bool> forceHIRCG("force-hir-cg", cl::init(false), cl::Hidden,
                                 cl::desc("forces CodeGen on all HIR regions"));
 
 static cl::opt<unsigned> HIRDebugRegion(
@@ -413,10 +413,10 @@ public:
 FunctionPass *llvm::createHIRCodeGenPass() { return new HIRCodeGen(); }
 
 char HIRCodeGen::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
+INITIALIZE_PASS_BEGIN(HIRCodeGen, "hir-cg", "HIR Code Generation", false, false)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_END(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
+INITIALIZE_PASS_END(HIRCodeGen, "hir-cg", "HIR Code Generation", false, false)
 
 void HIRCodeGen::preVisitCG(HLRegion *Reg) const {
   // Gather all loops for processing.

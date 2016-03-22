@@ -61,7 +61,7 @@ private:
 
   friend class HIRCreation;
   friend class HIRCleanup;
-  friend class LoopFormation;
+  friend class HIRLoopFormation;
   friend class HIRFramework;
 
   /// \brief Visitor for clone sequence.

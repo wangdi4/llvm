@@ -1,5 +1,5 @@
 
-;RUN: opt -hir-ssa-deconstruction -HIRCG -force-HIRCG -S %s | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S %s | FileCheck %s
 ;In this test, the goto is lexically backward, the label will be encountered
 ;before the goto
 

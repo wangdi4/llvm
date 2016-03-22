@@ -72,7 +72,11 @@
 // it would have already been done. This forces clients to analyze loops
 // innermost to outermost if considering all distribution possibilities
 
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#ifndef INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_PREPROC_GRAPH
+#define INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_PREPROC_GRAPH
+
+
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
 
@@ -161,7 +165,7 @@ public:
 
   DenseMap<HLNode *, DistPPNode *> &getNodeMap() { return HLToDistPPNodeMap; }
 
-  DistPPGraph(HLLoop *Loop, DDAnalysis *DDA);
+  DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA);
 
   // TODO destruction needs to be handled carefully if we want
   // to reuse graph from inner loop dist in outer loop distribution
@@ -329,7 +333,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
   void postVisit(const HLNode *Node) {}
 };
 
-DistPPGraph::DistPPGraph(HLLoop *Loop, DDAnalysis *DDA) {
+DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
   createNodes(Loop);
   if (!isGraphValid()) {
     return;
@@ -398,3 +402,6 @@ template <> struct GraphTraits<DistPPGraph *> {
   static unsigned size(DistPPGraph *G) { return G->getNodeCount(); }
 };
 } // llvm
+
+#endif
+

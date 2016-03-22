@@ -21,9 +21,9 @@ namespace llvm {
 
 class FunctionPass;
 
-/// createSSADeconstructionPass - This creates a pass which desconstructs SSA
+/// createHIRSSADeconstructionPass - This creates a pass which desconstructs SSA
 /// for HIR creation.
-FunctionPass *createSSADeconstructionPass();
+FunctionPass *createHIRSSADeconstructionPass();
 
 /// createHIRPrinterPass - This creates a pass that prints HIR.
 FunctionPass *createHIRPrinterPass(raw_ostream &OS, const std::string &Banner);

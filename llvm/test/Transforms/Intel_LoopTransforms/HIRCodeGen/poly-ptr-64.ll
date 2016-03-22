@@ -1,4 +1,4 @@
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -HIRCG -force-HIRCG -S %s | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-cg -force-hir-cg -S %s | FileCheck %s
 ;Instruction on <4> is an HInst with an underlying GetElementPtrInst
 ;Check it is CG'd correctly
 

@@ -9,7 +9,7 @@
 ;							for (i5=1; i5 <= 95; i5++) {
 ;								A[i5+n][i4][i3][i2][i1] += 2;
 ;
-; RUN: opt -loop-simplify -hir-ssa-deconstruction  -HIRLoopInterchange -HIRCG < %s 2>&1 | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction  -HIRLoopInterchange < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 2 3 4 5 1 )  
 ; 

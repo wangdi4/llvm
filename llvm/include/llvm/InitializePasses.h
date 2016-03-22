@@ -325,18 +325,18 @@ void initializeNonLTOGlobalOptPass(PassRegistry &);
 // Pass for setting implied Targets for intrinsics.
 void initializeFeatureOutlinerPass(PassRegistry&);
 // HIR Passes
-void initializeRegionIdentificationPass(PassRegistry&);
-void initializeSCCFormationPass(PassRegistry&);
-void initializeScalarSymbaseAssignmentPass(PassRegistry&);
+void initializeHIRRegionIdentificationPass(PassRegistry&);
+void initializeHIRSCCFormationPass(PassRegistry&);
+void initializeHIRScalarSymbaseAssignmentPass(PassRegistry&);
 void initializeHIRCreationPass(PassRegistry&);
 void initializeHIRCleanupPass(PassRegistry&);
-void initializeLoopFormationPass(PassRegistry&);
+void initializeHIRLoopFormationPass(PassRegistry&);
 void initializeHIRParserPass(PassRegistry&);
-void initializeSymbaseAssignmentPass(PassRegistry&);
+void initializeHIRSymbaseAssignmentPass(PassRegistry&);
 void initializeHIRFrameworkPass(PassRegistry&);
-void initializeDDAnalysisPass(PassRegistry&);
+void initializeHIRDDAnalysisPass(PassRegistry&);
 void initializeHIRLocalityAnalysisPass(PassRegistry&);
-void initializeSSADeconstructionPass(PassRegistry&);
+void initializeHIRSSADeconstructionPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);
 void initializeHIRLoopInterchangePass(PassRegistry&);

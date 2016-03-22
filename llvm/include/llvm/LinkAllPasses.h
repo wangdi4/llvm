@@ -202,19 +202,19 @@ namespace {
   #if INTEL_CUSTOMIZATION 
       (void) llvm::createSNodeAnalysisPass();
       // HIR passes
-      (void) llvm::createRegionIdentificationPass();
-      (void) llvm::createSCCFormationPass();
+      (void) llvm::createHIRRegionIdentificationPass();
+      (void) llvm::createHIRSCCFormationPass();
       (void) llvm::createHIRCreationPass();
       (void) llvm::createHIRCleanupPass();
-      (void) llvm::createLoopFormationPass();
-      (void) llvm::createScalarSymbaseAssignmentPass();
+      (void) llvm::createHIRLoopFormationPass();
+      (void) llvm::createHIRScalarSymbaseAssignmentPass();
       (void) llvm::createHIRParserPass();
-      (void) llvm::createSymbaseAssignmentPass();
+      (void) llvm::createHIRSymbaseAssignmentPass();
       (void) llvm::createHIRFrameworkPass();
-      (void) llvm::createDDAnalysisPass();
+      (void) llvm::createHIRDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
 
-      (void) llvm::createSSADeconstructionPass();
+      (void) llvm::createHIRSSADeconstructionPass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRCompleteUnrollPass();

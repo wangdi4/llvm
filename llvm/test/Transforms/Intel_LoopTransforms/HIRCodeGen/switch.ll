@@ -1,5 +1,5 @@
-;Simple HIRCG for switch
-;RUN:  opt -HIRCG -S -force-HIRCG %s | FileCheck %s
+;Simple CG for switch
+;RUN:  opt -hir-cg -S -force-hir-cg %s | FileCheck %s
 
 
 ;          BEGIN REGION { }

@@ -42,7 +42,8 @@ class HLLoop;
 /// - Define pass under loopopt namespace.
 /// - Declare HIRFramework pass as required to access HIR.
 /// - Always call setPreservesAll() in getAnalysisUsage().
-/// - Add a new value for the pass to HIRAnalysisVal enum before PassCountVal.
+/// - Add a new value for the pass to HIRAnalysisVal enum before 
+///   HIRPassCountVal.
 /// Pass this value in the constructor.
 /// - Add a static classof() member for supporting LLVM's RTTI.
 /// - Add function calls for the pass to
@@ -54,10 +55,10 @@ class HIRAnalysisPass : public FunctionPass {
 public:
   /// \brief An enumeration to keep track of the subclasses.
   enum HIRAnalysisVal {
-    DDAnalysisVal,
+    HIRDDAnalysisVal,
     HIRLocalityAnalysisVal,
     // Should be kept last
-    PassCountVal
+    HIRPassCountVal
   };
 
 private:

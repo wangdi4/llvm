@@ -11,7 +11,7 @@
 ; *** Run1: Disable Complete Unrolling with -disable-hir-complete-unroll flag ***
 ; ===-----------------------------------===
 ; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -disable-hir-complete-unroll	\
-; RUN: -print-after=hir-complete-unroll -HIRCG -S < %s  2>&1 | FileCheck %s -check-prefix=NOUNROLL 
+; RUN: -print-after=hir-complete-unroll -hir-cg -S < %s  2>&1 | FileCheck %s -check-prefix=NOUNROLL 
 ;
 ; 
 ; ===---------------------------------------------===

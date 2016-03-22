@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -HIRCG -force-HIRCG -S | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
 
 ;          BEGIN REGION { }
 ;<11>         + DO i1 = 0, (-1 * %p + %q + -4)/u4, 1   <DO_LOOP>

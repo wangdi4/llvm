@@ -20,6 +20,8 @@
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
@@ -147,7 +149,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequiredTransitive<HIRFramework>();
-    AU.addRequiredTransitive<DDAnalysis>();
+    AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.setPreservesAll();
   }
 
