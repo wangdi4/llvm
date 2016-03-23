@@ -100,6 +100,8 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     setOperationAction(ISD::UMUL_LOHI,        VT,    Expand);
     setOperationAction(ISD::MULHS,            VT,    Expand);
     setOperationAction(ISD::MULHU,            VT,    Expand);
+    setOperationAction(ISD::UREM,             VT,    Expand);
+    setOperationAction(ISD::SREM,             VT,    Expand);
     setOperationAction(ISD::UDIVREM,          VT,    Expand);
     setOperationAction(ISD::SDIVREM,          VT,    Expand);
 
@@ -110,6 +112,8 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     // Bit manipulation
     setOperationAction(ISD::ROTL,             VT,    Expand);
     setOperationAction(ISD::ROTR,             VT,    Expand);
+    setOperationAction(ISD::BSWAP,            VT,    Expand);
+
     // Implement these?
     LegalizeAction action = (isTypeSupported && ST.hasBitOp()) ? Legal : Expand;
     setOperationAction(ISD::CTPOP,            VT,    action);
