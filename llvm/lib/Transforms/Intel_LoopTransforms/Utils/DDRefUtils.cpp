@@ -57,7 +57,7 @@ RegDDRef *DDRefUtils::createConstDDRef(ConstantAggregateZero *Val) {
   // Create a linear self-blob constant canon expr.
   auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, CONSTANT_SYMBASE);
   NewRegDD->setSingleCanonExpr(CE);
-
+  CE->setDefinedAtLevel(0);
   return NewRegDD;
 }
 
@@ -66,7 +66,7 @@ RegDDRef *DDRefUtils::createConstDDRef(ConstantDataVector *Val) {
   // Create a linear self-blob constant canon expr.
   auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, CONSTANT_SYMBASE);
   NewRegDD->setSingleCanonExpr(CE);
-
+  CE->setDefinedAtLevel(0);
   return NewRegDD;
 }
 
