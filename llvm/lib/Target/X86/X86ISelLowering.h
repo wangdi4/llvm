@@ -223,7 +223,6 @@ namespace llvm {
       // Integer add/sub with unsigned saturation.
       ADDUS,
       SUBUS,
-
       // Integer add/sub with signed saturation.
       ADDS,
       SUBS,

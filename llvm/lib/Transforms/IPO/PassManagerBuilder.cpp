@@ -112,11 +112,11 @@ static cl::opt<bool> EnableLoopDistribute(
     cl::desc("Enable the new, experimental LoopDistribution Pass"));
 
 #if INTEL_CUSTOMIZATION
-static cl::opt<bool> RunVPODriver("VPO-Driver",
+static cl::opt<bool> RunVPOVecopt("vecopt",
   cl::init(false), cl::Hidden,
-  cl::desc("Run VPO vectorization driver"));
+  cl::desc("Run VPO Vecopt Pass"));
 
-static cl::opt<int> RunVPOParopt("llvm-vpo-paropt",
+static cl::opt<int> RunVPOParopt("paropt",
   cl::init(0x00000000), cl::Hidden,
   cl::desc("Run VPO Paropt Pass"));
 
@@ -798,7 +798,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass());
   }
-  if (RunVPODriver && RunVec) {
+  if (RunVPOVecopt && RunVec) {
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPODriverPass());
   }

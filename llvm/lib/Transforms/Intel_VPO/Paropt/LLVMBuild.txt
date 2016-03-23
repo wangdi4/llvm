@@ -1,5 +1,0 @@
-[component_0]
-type = Library
-name = VPOParopt
-parent = VPO
-required_libraries = Analysis Core Scalar Support TransformUtils WRegionInfoAnalysis
