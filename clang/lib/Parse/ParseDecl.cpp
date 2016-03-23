@@ -2219,6 +2219,15 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
 #endif // INTEL_SPECIFIC_CILKPLUS
                                    );
     }
+#if INTEL_CUSTOMIZATION
+// Fix for CQ376508: attributes must be ignored after parenthesized initializer.
+    if (getLangOpts().IntelCompat && !getLangOpts().IntelMSCompat &&
+        Tok.is(tok::kw___attribute)) {
+      ParsedAttributes Attrs(AttrFactory);
+      ParseGNUAttributes(Attrs);
+      Diag(Tok.getLocation(), diag::warn_attributes_ignored_after_init);
+    }
+#endif // INTEL_CUSTOMIZATION
   } else if ((getLangOpts().CPlusPlus11 ||                          // INTEL
               getLangOpts().IntelCompat) && Tok.is(tok::l_brace) && // INTEL
              (!CurParsedObjCImpl || !D.isFunctionDeclarator())) {
