@@ -20,6 +20,8 @@
 
 namespace llvm {
 
+class FMAExprSPCommon;
+
 // This class defines structures and methods for holding and maintaining
 // expression trees (DAGs). Each node of the DAG describes one FMA-like
 // operation having 1 MUL and 1 ADD sub-operations, and having '+' or '-' signs
@@ -54,6 +56,10 @@ class FMADagCommon {
     // Define two special terms for 0.0 and 1.0 FP values.
     static const uint8_t TermZERO = MaxNumOfUniqueTermsInDAG;
     static const uint8_t TermONE = TermZERO + 1;
+
+    // Define the maximum possible index that can be used for a regular or
+    // a special term;
+    static const uint8_t MaxTermIndex = TermONE;
 
   protected:
     // The following 64-bit value encodes a DAG the way it is stored in
@@ -420,6 +426,508 @@ class FMADagCommon {
       }
       OS << "\n";
     }
+};
+
+// This class represents an FMA expression in canonized form which is called
+// here Sum Of Products. Each of the products has a sign applied to it.
+// Here is an example of Sum Of Products having 3 products:
+//   -t0*t1*t2 + t0*t1 + t2
+//
+// This representation makes it possible to transform various DAGs to this
+// form, check if those DAGs are equivalent, and replace one DAG with another.
+class FMAExprSPCommon {
+  private:
+    // This const defines the maxumim number of terms that can be used in one
+    // product. This limit is set to some "reasonable" value such a way that
+    // sum of products does not use too much memory. It always can be easily
+    // fixed if necessary.
+    // It is easy to reach the maximum in 16 terms per one product even with
+    // a 4 nodes DAG: F0=F1*F1+0;F1=F2*F2+0;F2=F3+F3+0;F3=a*b+0.
+    // For 7 nodes DAG it is possible to have maximally 128 terms.
+    // Well, we still define it to 16 as due to some heuristics TableGen does
+    // not generate more than 16 terms in 1 product.
+    static const unsigned MaxNumOfTermsInProduct = 16;
+
+    // The number of unique regular terms and the special terms 0.0 and 1.0
+    // must be unfied with the class FMADagCommon as the classes FMADagCommon
+    // and FMAExprSPCommon are often just different representations of the
+    // same expression and after conversion from/to each other they use the
+    // exactly the same indices for regular and special terms used in them.
+    // So, the sum of products representation should be able to use only
+    // MaxNumOfUniqueTermsInDAG different regular terms.
+    static const unsigned MaxNumOfUniqueTermsInSP =
+                            FMADagCommon::MaxNumOfUniqueTermsInDAG;
+
+  public:
+    // Define two special terms for 0.0 and 1.0 FP values the same way as
+    // they are defined in the class FMADagCommon.
+    static const uint8_t TermZERO = FMADagCommon::TermZERO;
+    static const uint8_t TermONE = FMADagCommon::TermONE;
+
+  private:
+
+    // Represent one product of terms. For example, (-t0*t1*t2*...*tN).
+    // This is used as a building block for Sum Of Products representation.
+    struct FMAExprProduct {
+      bool     Sign;
+      uint8_t  NumTerms;
+      uint8_t  Terms[MaxNumOfTermsInProduct];
+
+      // Returns true iff the product consists of only one term TermZERO.
+      bool isZero() const { return NumTerms == 1 && Terms[0] == TermZERO; }
+
+      // Returns true iff the product consists of only one term TermONE.
+      bool isOne() const { return NumTerms == 1 && Terms[0] == TermONE; }
+
+      // Prints the product to the given output stream \p OS.
+      void print(raw_ostream &OS) const {
+        OS << (Sign ? '-' : '+');
+        for (unsigned i = 0; i < NumTerms; i++) {
+          uint8_t Term = Terms[i];
+          if (Term == TermZERO)
+            OS << "0";
+          else if (Term == TermONE)
+            OS << "1";
+          else
+            OS << (char)('a' + Term);
+        }
+      }
+
+      // Utility function that is needed to sort the terms in the product,
+      // used as a working functions for qsort().
+      static int compareTermsInFMAProduct(const void *T1, const void *T2) {
+        uint8_t C1 = *(const uint8_t *)T1;
+        uint8_t C2 = *(const uint8_t *)T2;
+        return (int)C1 - (int)C2;
+      }
+
+      // Sorts the terms in the product, e.g. (+cadb) --> (+abcd).
+      void sortTerms() {
+        qsort(Terms, NumTerms, sizeof(uint8_t), compareTermsInFMAProduct);
+      }
+
+      // This functions compares two products. It is used in std::stable_sort()
+      // which is called to canonize sum of products.
+      // This method must return true the same way as 'operator<(P1, P2) would
+      // return.
+      // The product with greater number of terms or which terms' indices
+      // are greater should go first.
+      static bool compareProducts(const FMAExprProduct &P1,
+                                  const FMAExprProduct &P2) {
+        // 1. Compare by lengths.
+        int Diff = (int)P1.NumTerms - (int)P2.NumTerms;
+        if (Diff > 0) // P1.NumTerms > P2.NumTerms ==> P1 must go first.
+          return true;
+        if (Diff < 0) // P1.NumTerms < P2.NumTerms ==> P1 must NOT go first.
+          return false;
+
+        // 2. Compare the products lexicographically.
+        for (unsigned i = 0; i < P1.NumTerms; i++) {
+          Diff = (int)P1.Terms[i] - (int)P2.Terms[i];
+          if (Diff < 0)
+            return true;
+          if (Diff > 0)
+            return false;
+        }
+
+        // 3. If one product has '+' sign and another has '-', then
+        // we want the product with '+' sign to go first.
+        // The reason why it may matter is that we want to be able to
+        // do something with sums of products like: +abc+bd-bd.
+        //
+        // FIXME: The result of 2 identical products having opposit signs is
+        // zero. Such products could be just removed in the method canonize().
+        // Before fixing it we need to ensure that it cannot make the patterns
+        // recognition any worse.
+        if (!P1.Sign && P2.Sign)
+          return true;
+
+        // P1 == P2, in this case, std::stable_sort requires the compare
+        // function to return false.
+        return false;
+      }
+    };
+
+  protected:
+    // Number of products in the sum of products.
+    unsigned NumProducts;
+
+    // Products composing the sum of products.
+    FMAExprProduct *Products;
+
+  public:
+    // This is a very simplified form giving a quick snippet of the sum of the
+    // products. It has 1 set bit per term in a product and 1 unset bit
+    // separating products, e.g.:
+    //   SP:    +aaabbbcc+ddd+1
+    //   Shape:  11111111011101 (binary form)
+    uint64_t Shape;
+
+    // A reference to a DAG that can be lowered/flattened to the current sum
+    // of products.
+    FMADagCommon *Dag;
+
+  protected:
+    // This constructor creates a copy of the given \p SP using the given
+    // terms mapping \p TermsMapping.
+    // It is called by the patterns matching algorithm, which may have some
+    // proposed version of TermsMapping array telling how the regular terms
+    // must be renamed.
+    // For example:
+    //   SP:             +abc+bc+1
+    //   TermsMapping:   a->c, b->b, c->a
+    //   Constructed SP: +cba+ba+1
+    FMAExprSPCommon(const FMAExprSPCommon &SP, unsigned TermsMapping[]) {
+      NumProducts = SP.NumProducts;
+      Products = new FMAExprProduct[SP.NumProducts];
+      Shape = SP.Shape;
+      Dag = nullptr;
+
+      for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
+        unsigned ProdNumTerms = SP.Products[ProdInd].NumTerms;
+        Products[ProdInd].NumTerms = ProdNumTerms;
+        Products[ProdInd].Sign = SP.Products[ProdInd].Sign;
+
+        for (unsigned TermInd = 0; TermInd < ProdNumTerms; TermInd++) {
+          unsigned Term = SP.Products[ProdInd].Terms[TermInd];
+          if (Term != TermZERO && Term != TermONE)
+            Term = TermsMapping[Term];
+          Products[ProdInd].Terms[TermInd] = Term;
+        }
+      }
+    }
+
+  public:
+    // Default constructor which creates an empty sum of products.
+    FMAExprSPCommon() {
+      NumProducts = 0;
+      Products = nullptr;
+      Shape = 0;
+      Dag = nullptr;
+    };
+
+    // Creates a sum of product for just one given term \p Term.
+    FMAExprSPCommon(unsigned Term) {
+      NumProducts = 1;
+      Products = new FMAExprProduct[1];
+      Shape = 1;
+      Dag = nullptr;
+      Products[0].NumTerms = 1;
+      Products[0].Sign = false;
+      Products[0].Terms[0] = Term;
+    };
+
+    virtual ~FMAExprSPCommon() { delete Dag; delete[] Products; }
+
+    // Returns the number of products in the sum of products.
+    unsigned getNumProducts() const { return NumProducts; }
+
+
+    // Returns true if one of products consists of only the value 1.0.
+    // Otherwise, returns false.
+    // For example, this method returns true for SP: +ab+1.
+    bool hasTermOne() const {
+      for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
+        if (Products[ProdInd].NumTerms == 1 &&
+            Products[ProdInd].Terms[0] == TermONE)
+          return true;
+      }
+      return false;
+    }
+
+    // Returns true iff the given \p SP has the same number of products and
+    // all corresponding products have the same signs.
+    // Otherwise, returns false.
+    bool hasEqualProductSigns(const FMAExprSPCommon &SP) const {
+      if (NumProducts != SP.getNumProducts())
+        return false;
+
+      for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
+        if (Products[ProdInd].Sign != SP.Products[ProdInd].Sign)
+          return false;
+      }
+      return true;
+    }
+
+    // Initialize the sum of products as the result of a MUL operation of two
+    // given sums of products \p A and \p B.
+    //   A:      +abc-d
+    //   B:      +ab+e
+    //   Result: +abcab+abce-dab-de
+    //
+    // The returned value is true if the initialization passed successfully.
+    // Otherwise, false is returned, which is possible when the result of
+    // A and B multiplication is too big (i.e. has too many products, too big
+    // products, or has too many terms).
+    bool initForMul(const FMAExprSPCommon &A, const FMAExprSPCommon &B) {
+      unsigned NewSPNumTerms = 0;
+      unsigned NewSPProdInd = 0;
+
+      assert(Products == nullptr &&
+             "initForMul() must be used only for empty SP.");
+
+      // Handle this special case to simplify the code below.
+      if (A.isZero() || B.isZero()) {
+        NumProducts = 1;
+        Products = new FMAExprProduct[1];
+        Products[0].NumTerms = 1;
+        Products[0].Terms[0] = TermZERO;
+        return true;
+      }
+
+      // If A has M products and B has N products then A*B has M*N products.
+      NumProducts = A.getNumProducts() * B.getNumProducts();
+      Products = new FMAExprProduct[NumProducts];
+
+      for (unsigned AProd = 0; AProd < A.NumProducts; AProd++) {
+        for (unsigned BProd = 0; BProd < B.NumProducts; BProd++) {
+          unsigned NewProdNumTerms = 0;
+
+          // Step1.
+          // Copy the terms of the current product from 'A' to the new product,
+          // i.e. start defining the new result product.
+          // Skip this step if the current product from A has only one term
+          // TermONE.
+          bool AIsOne = A.Products[AProd].isOne();
+          if (!AIsOne) {
+            for (unsigned i = 0; i < A.Products[AProd].NumTerms; i++) {
+              if (NewProdNumTerms >= MaxNumOfTermsInProduct)
+                return false;
+
+              Products[NewSPProdInd].Terms[NewProdNumTerms] =
+                A.Products[AProd].Terms[i];
+              NewProdNumTerms++;
+            }
+          }
+
+          // Step2.
+          // Copy the terms of the current product from 'B' to the new product
+          // and finalize the result product.
+          // If AIsOne is true then this step cannot be skipped.
+          // Otherwise, this step must be skipped when the current product
+          // from B has only one term TermONE.
+          if (AIsOne || !B.Products[BProd].isOne()) {
+            for (unsigned i = 0; i < B.Products[BProd].NumTerms; i++) {
+              if (NewProdNumTerms >= MaxNumOfTermsInProduct)
+                return false;
+
+              Products[NewSPProdInd].Terms[NewProdNumTerms] =
+                B.Products[BProd].Terms[i];
+              NewProdNumTerms++;
+            }
+          }
+
+          // Step3.
+          // The product is ready, finalize it now.
+          NewSPNumTerms += NewProdNumTerms;
+          Products[NewSPProdInd].NumTerms = NewProdNumTerms;
+          Products[NewSPProdInd].Sign =
+            A.Products[AProd].Sign != B.Products[BProd].Sign;
+          NewSPProdInd++;
+        } // end for (unsigned BProd = 0; BProd < B.NumProducts; BProd++)
+      } // end for (unsigned AProd = 0; AProd < A.NumProducts; AProd++)
+
+      assert(NumProducts == NewSPProdInd &&
+             "The number of initialized products is incorrect.");
+      return fitsInShape(NumProducts, NewSPNumTerms);
+    }
+
+    // Initialize the sum of products as the result of an ADD operation of two
+    // given sums of products \p A and \p B.
+    //   A:      +abc-d
+    //   B:      +ab+e
+    //   Result: +abc-d+ab+e
+    // The parameters \p ASign and \BSign may be passed to invert the sign
+    // of the passed sums of products. So, \p BSign set to true, means that
+    // the newly initialized sum of products is the result of subtract
+    // operation: (A - B).
+    //
+    // The returned value is true if the initialization passed successfully.
+    // Otherwise, false is returned, which is possible when the sum of A and B
+    // produces either too many products, too big products, or too many terms.
+    bool initForAdd(const FMAExprSPCommon &A, const FMAExprSPCommon &B,
+                    bool ASign, bool BSign) {
+      assert(Products == nullptr &&
+             "initForAdd() must be used only for empty SP.");
+
+      bool AIsZero = A.isZero();
+      bool BIsZero = B.isZero();
+      NumProducts = (AIsZero ? 0 : A.getNumProducts()) +
+                    (BIsZero ? 0 : B.getNumProducts());
+      if (NumProducts == 0)
+        NumProducts++;
+      Products = new FMAExprProduct[NumProducts];
+
+      unsigned NewSPNumTerms = 0;
+      unsigned NewSPProdInd = 0;
+      if (!AIsZero) {
+        // Copy all products of A to the result.
+        for (unsigned AProd = 0; AProd < A.NumProducts; AProd++) {
+          Products[NewSPProdInd] = A.Products[AProd];
+          if (ASign)
+            Products[NewSPProdInd].Sign = !Products[NewSPProdInd].Sign;
+          NewSPProdInd++;
+          NewSPNumTerms += A.Products[AProd].NumTerms;
+        }
+      }
+
+      if (!BIsZero || AIsZero) {
+        // Copy all products of B to the result.
+        for (unsigned BProd = 0; BProd < B.NumProducts; BProd++) {
+          Products[NewSPProdInd] = B.Products[BProd];
+          if (BSign)
+            Products[NewSPProdInd].Sign = !Products[NewSPProdInd].Sign;
+          NewSPProdInd++;
+          NewSPNumTerms += B.Products[BProd].NumTerms;
+        }
+      }
+
+      assert(NumProducts == NewSPProdInd &&
+             "The number of initialized products is incorrect.");
+      return fitsInShape(NumProducts, NewSPNumTerms);
+    }
+
+    // Initializes the current sum of products using the given DAG \p D.
+    bool initForDag(const FMADagCommon &D) {
+      FMAExprSPCommon *OpndSP[3];
+      bool IsOk = false;
+      unsigned NumNodes = D.getNumNodes();
+
+      // This array keeps the sums of products computed for the FMA Dag nodes
+      // with indices (1, 2, ..., NumNodes-1).
+      FMAExprSPCommon *NodeSPs = new FMAExprSPCommon[NumNodes - 1];
+      // This array of pointers keeps the references to SPs created for regular
+      // and special terms;
+      FMAExprSPCommon *TermSPs[FMADagCommon::MaxTermIndex + 1] = {};
+
+      // The FMA DAGs (Directed Acyclic Graphs) have the following constraint:
+      // if some operand of an FMA node with index 'i' is another FMA, then
+      // that operand refers to an FMA node with greater than 'i' index.
+      // So, the bottom-up iterative walk through the DAG can be used to
+      // compute the sum of products for it.
+      for (unsigned NodeInd = NumNodes - 1; (int)NodeInd >= 0; NodeInd--) {
+
+        // 1. Compute Sum Of Products for 3 operands of the current FMA node.
+        for (unsigned OpndInd = 0; OpndInd < 3; OpndInd++) {
+          bool IsTerm;
+          unsigned Opnd = D.getOperand(NodeInd, OpndInd, &IsTerm);
+          if (!IsTerm)
+            OpndSP[OpndInd] = &NodeSPs[Opnd - 1];
+          else if (TermSPs[Opnd] != nullptr)
+            OpndSP[OpndInd] = TermSPs[Opnd];
+          else {
+            OpndSP[OpndInd] = new FMAExprSPCommon(Opnd);
+            TermSPs[Opnd] = OpndSP[OpndInd];
+          }
+        }
+
+        // 2. Compute Sum Of Products for MUL part of the FMA node.
+        //
+        // TODO: If MUL operation for the operands 0 and 1 was computed some
+        // time ago, then it may be a good idea to re-use that SP here.
+        // It would require saving/hashing MUL SPs somewhere.
+        // Similar could be done for ADD operation, but MULL is more expensive
+        // than ADD, so SPs generated for MULs are more important.
+        FMAExprSPCommon Mul;
+        IsOk = Mul.initForMul(*OpndSP[0], *OpndSP[1]);
+        if (!IsOk)
+          break;
+
+        // 3. Compute Sum of Products for ADD part of the FMA node.
+        FMAExprSPCommon *AddSP = NodeInd == 0 ? this : &NodeSPs[NodeInd - 1];
+        IsOk = AddSP->initForAdd(Mul, *OpndSP[2], D.getMulSign(NodeInd),
+                                                  D.getAddSign(NodeInd));
+        if (!IsOk)
+          break;
+      }
+
+      for (auto I : TermSPs)
+        delete I;
+
+      return IsOk;
+    }
+
+    // Computes the SHAPE representation and initializes the correspondng
+    // 'Shape' field.
+    // SHAPE is a very simplified representation of the sum of products.
+    // It uses 1 set bit per 1 term in product and 1 unset bit per + or -
+    // operation applyed to the products.
+    // For example:
+    //   SP: +  abcd+abc+e-f
+    //   SHAPE: 111101110101 // binary form
+    void computeShape() {
+      Shape = 0;
+      for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
+        unsigned ProdNumTerms = Products[ProdInd].NumTerms;
+        uint64_t ProdMask = (1ULL << ProdNumTerms) - 1;
+        if (ProdInd) {
+          // Shift left the previous product and set the least significant bit
+          // to zero to indicate a + or - operation.
+          Shape <<= 1;
+        }
+        Shape = (Shape << ProdNumTerms) | ProdMask;
+      }
+    }
+
+    // Canonizes the sum of products. Here that means that the terms in each
+    // of the products and the products itself must be lexicographically
+    // ordered.
+    void canonize() {
+      unsigned ProdIndex;
+
+      // 1. Sort terms in each of products.
+      for (ProdIndex = 0; ProdIndex < NumProducts; ProdIndex++) {
+        Products[ProdIndex].sortTerms();
+      }
+
+      // 2. Sort products.
+      // std::stable_sort was intentionally used here to avoid situations
+      // when the output code depends on the compiler host. That is a very
+      // uncommon situation, but that might happen.
+      std::vector<FMAExprProduct> ProductVector;
+      ProductVector.assign(Products, Products + NumProducts);
+      std::stable_sort(ProductVector.begin(), ProductVector.end(),
+                       FMAExprProduct::compareProducts);
+      ProdIndex = 0;
+      for (const FMAExprProduct Prod : ProductVector) {
+        Products[ProdIndex] = Prod;
+        ProdIndex++;
+      }
+    }
+
+    // Prints the sum of product to the given output stream \p OS.
+    void print(raw_ostream &OS) const {
+      for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++)
+        Products[ProdInd].print(OS);
+      OS << ";\n";
+    }
+
+  private:
+    // Deletes the sums of products referenced in the passed array of pointers
+    // \p SPToDelete. The parameter \p ElemNum specifies the number of elements
+    // in the array of pointers.
+    static void freeSPs(FMAExprSPCommon *SPToDelete[], unsigned ElemNum) {
+      for (unsigned i = 0; i < ElemNum; i++)
+        delete SPToDelete[i];
+    }
+
+    // Returns true iff the current sum of products consists of only one
+    // product containing only one term TermZERO.
+    bool isZero() const { return NumProducts == 1 && Products[0].isZero(); }
+
+    // Returns true iff the current sum of products consists of only one
+    // product containing only one term TermONE.
+    bool isOne() const { return NumProducts == 1 && Products[0].isOne(); }
+
+    // Returns true iff 'Shape' can be computed for a sum of products with
+    // \p NumProducts and \p NumTerms.
+    // The number of bits required to build 'Shape' is equal to the number of
+    // required unset bits (unset bits are used to separate products) plus
+    // the number of set bits (1 set bit per 1 term in a product).
+    static bool fitsInShape(unsigned NumProducts, unsigned NumTerms) {
+      return (NumProducts - 1 + NumTerms <= sizeof(uint64_t) * 8);
+    }
+
 };
 
 } // End llvm namespace
