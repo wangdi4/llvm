@@ -970,9 +970,9 @@ void CanonExpr::multiplyByBlob(unsigned Index) {
 
 void CanonExpr::negate() { multiplyByConstant(-1); }
 
-void CanonExpr::verify() const {
+void CanonExpr::verify(unsigned NestingLevel) const {
   assert(getDenominator() > 0 && "Denominator must be greater than zero!");
-  // TODO: verify DefinedAtLevel with respect to current loop level.
+
   assert(CanonExprUtils::isValidDefLevel(DefinedAtLevel) &&
          "DefinedAtLevel is invalid!");
   assert(SrcTy && "SrcTy of CanonExpr is null!");
@@ -1004,5 +1004,15 @@ void CanonExpr::verify() const {
   if (isConstant()) {
     assert(isProperLinear() &&
            " Defined at Level should be 0 for constant canonexpr!");
+  }
+
+  assert((!isLinearAtLevel() ||
+          (getDefinedAtLevel() < NestingLevel || isProperLinear())) &&
+         "CE is undefined at the attached level or should be non-linear.");
+
+  // Verify that there are no undefined IVs.
+  for (auto I = iv_begin(), E = iv_end(); I != E; ++I) {
+    assert((!(getLevel(I) > NestingLevel) || !hasIVConstCoeff(I)) &&
+           "The RegDDRef with IV is attached outside of the loop");
   }
 }

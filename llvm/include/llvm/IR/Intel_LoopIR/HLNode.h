@@ -174,7 +174,7 @@ public:
 
   /// \brief Returns the Level of HLNode.
   /// The level is computed from the node's lexical parent loop.
-  unsigned getHLNodeLevel() const;
+  unsigned getNodeLevel() const;
 
   /// \brief Returns the parent region of this node, if one exists.
   HLRegion *getParentRegion() const;

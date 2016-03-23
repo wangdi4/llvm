@@ -215,8 +215,6 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
                                       const RegDDRef *MaxRef,
                                       const RegDDRef *MinRef,
                                       const HLLoop *InnerLoop) {
-  bool HasChanged = false;
-
   for (auto CEI = Ref->canon_begin(), CEE = Ref->canon_end(); CEI != CEE;
        ++CEI) {
     CanonExpr *CE = *CEI;
@@ -264,13 +262,6 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
            "Assuming replace will always succeed as we already checked if both "
            "are mergeable.");
     (void)Ret;
-
-    HasChanged = true;
-  }
-
-  if (HasChanged) {
-    SmallVector<const RegDDRef *, 2> Aux { MaxRef, MinRef };
-    Ref->makeConsistent(&Aux, Level);
   }
 }
 
@@ -336,6 +327,12 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
   }
 
   return OK;
+}
+
+void IVSegment::makeConsistent(const SmallVectorImpl<const RegDDRef *> &AuxRefs,
+                               unsigned Level) {
+  Lower->makeConsistent(&AuxRefs, Level);
+  Upper->makeConsistent(&AuxRefs, Level);
 }
 
 // The method will replace IV @ Level inside segment bounds, depending on
@@ -427,6 +424,8 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
   bool ConstantTripCount = true;
   uint64_t TotalTripCount = 1;
 
+  SmallVector<const RegDDRef *, 6> AuxRefs;
+
   // Replace every IV in segments with upper and lower bounds
   for (const HLLoop *LoopI = InnermostLoop, *LoopE = OuterLoop->getParentLoop();
        LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
@@ -444,6 +443,9 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
 
     auto LowerBoundRef = LoopI->getLowerDDRef();
     auto UpperBoundRef = LoopI->getUpperDDRef();
+    AuxRefs.push_back(LowerBoundRef);
+    AuxRefs.push_back(UpperBoundRef);
+
     auto Level = LoopI->getNestingLevel();
 
     for (unsigned I = 0; I < SegmentCount; ++I) {
@@ -456,6 +458,12 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
 
   if (ConstantTripCount && TotalTripCount < SmallTripCountTest) {
     return SMALL_TRIPCOUNT;
+  }
+
+  for (unsigned I = 0; I < SegmentCount; ++I) {
+    if (SegmentConditions[I] == OK) {
+      IVSegments[I].makeConsistent(AuxRefs, OuterLoop->getNestingLevel() - 1);
+    }
   }
 
   return OK;

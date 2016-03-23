@@ -82,7 +82,7 @@ void BlobDDRef::replaceBlob(unsigned NewIndex) {
 void BlobDDRef::verify() const {
   assert(CE != nullptr && "Canon Expr for BlobDDRefObj cannot be NULL");
 
-  CE->verify();
+  CE->verify(getNodeLevel());
 
   assert(CE->isSelfBlob() && "BlobDDRefs should represent a self blob");
 

@@ -81,7 +81,7 @@ public:
   virtual HLDDNode *getHLDDNode() const = 0;
 
   /// \brief Returns the Level of parent HLDDNode Level.
-  unsigned getHLDDNodeLevel() const;
+  unsigned getNodeLevel() const;
 
   /// \brief Returns the src element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose src base type is [7 x

@@ -563,7 +563,7 @@ public:
   void negate();
 
   /// \brief Verifies canon expression
-  void verify() const;
+  void verify(unsigned NestingLevel) const;
 };
 
 } // End loopopt namespace

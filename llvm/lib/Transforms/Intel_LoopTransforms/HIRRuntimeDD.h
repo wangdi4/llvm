@@ -101,6 +101,9 @@ public:
   void updateIVWithBounds(unsigned Level, const RegDDRef *LowerBound,
                           const RegDDRef *UpperBound, const HLLoop *InnerLoop);
 
+  void makeConsistent(const SmallVectorImpl<const RegDDRef *> &AuxRefs,
+                      unsigned Level);
+
   Segment genSegment() const;
 
   bool isWrite() const { return IsWrite; }

@@ -183,7 +183,7 @@ void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
 
 void RegDDRef::updateDefLevel(unsigned NestingLevelIfDetached) {
 
-  unsigned Level = getHLDDNode() ? getHLDDNodeLevel() : NestingLevelIfDetached;
+  unsigned Level = getHLDDNode() ? getNodeLevel() : NestingLevelIfDetached;
   assert(CanonExprUtils::isValidLinearDefLevel(Level) &&
          "Nesting level not set for detached DDRef!");
 
@@ -646,7 +646,7 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
 
   updateBlobDDRefs(NewBlobs);
 
-  unsigned Level = getHLDDNode() ? getHLDDNodeLevel() : NestingLevelIfDetached;
+  unsigned Level = getHLDDNode() ? getNodeLevel() : NestingLevelIfDetached;
 
   // Set def level for the new blobs.
   for (auto &BRef : NewBlobs) {
@@ -818,8 +818,9 @@ void RegDDRef::verify() const {
   assert(getNumDimensions() > 0 &&
          "RegDDRef should contain at least one CanonExpr!");
 
+  auto NodeLevel = getNodeLevel();
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    (*I)->verify();
+    (*I)->verify(NodeLevel);
   }
 
   if (hasGEPInfo()) {
