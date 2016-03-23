@@ -60,6 +60,8 @@ public:
 
 private:
   MachineFunction *thisMF;
+  MachineBasicBlock *loopBackedgeBB;
+  MachineBasicBlock *loopPreheader;
 
   void addLoop(std::vector<MachineLoop *> &loopList, MachineLoop *ML);
   bool candidateLoopForDF(MachineLoop *currLoop);
@@ -67,14 +69,12 @@ private:
   bool processLoopForDF(MachineLoop *currLoop, raw_ostream *OS);
 
   bool genDFInstructions(MachineInstr *MI, MachineBasicBlock *BB, 
-                         MachineBasicBlock::iterator lastPhiInst, 
-                         const MachineBasicBlock *backedgeBB);
+                         MachineBasicBlock::iterator lastPhiInst); 
 
   bool analyzePhiOperands(MachineInstr *MI, MachineBasicBlock *BB, 
                           unsigned int *srcReg1, unsigned int *predReg1,
                           unsigned int *predReg2, MachineBasicBlock **predBB1,
-                          MachineBasicBlock **predBB2, 
-                          const MachineBasicBlock *backedgeBB); 
+                          MachineBasicBlock **predBB2); 
 
 };
 }
@@ -117,8 +117,7 @@ LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
                                           unsigned int *predReg1, 
                                           unsigned int *predReg2,
                                           MachineBasicBlock **predBB1,
-                                          MachineBasicBlock **predBB2, 
-                                          const MachineBasicBlock *backedgeBB) {
+                                          MachineBasicBlock **predBB2) { 
 
   const TargetInstrInfo &TII = *thisMF->getSubtarget().getInstrInfo();
   
@@ -128,30 +127,56 @@ LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
     MachineOperand &currOperand = MI->getOperand(i);
     if (currOperand.readsReg()) { // src operand
       MachineBasicBlock &predBB = *MI->getOperand(i+1).getMBB();
+
+      MachineBasicBlock *branchBB = &predBB;
+
+      if (&predBB == loopPreheader) { // preheader has no terminating branch
+	if (predBB.pred_size() != 1) {
+          DEBUG(errs() << "loopPreHeader doesn't have a single predecessor \n");
+	  return false;
+ 	}
+	MachineBasicBlock::pred_iterator PI = predBB.pred_begin();
+        branchBB = *PI;
+	if (!branchBB) {
+          DEBUG(errs() << "loopPreHeader predecessor is null\n");
+	  return false;
+	}
+      }
+
       SmallVector<MachineOperand, 4> predCond;
       MachineBasicBlock *predTBB = nullptr, *predFBB = nullptr;
-      if (TII.AnalyzeBranch(predBB, predTBB, predFBB, predCond, true)) {
+      if (TII.AnalyzeBranch(*branchBB, predTBB, predFBB, predCond, true)) {
         DEBUG(errs() << "Phi predBB branch not analyzable \n");
         return false;
       }
 
-      if (predCond.empty()) {
+      if (predCond.empty() || predCond.size() != 2) {
         DEBUG(errs() << "Phi predCond is empty \n");
         return false;	
       }
+
+      LPU::CondCode branchCC = (LPU::CondCode)predCond[0].getImm();
 		
       // is the loop back branch predicate set to true?
-      if (&predBB == backedgeBB) {
+      if (&predBB == loopBackedgeBB) {
         if (predTBB != BB) {
+          DEBUG(errs() << "Loop back branch predicate is set to false \n");
+          return false;	
+        }
+        if (branchCC != LPU::COND_T) {
           DEBUG(errs() << "Loop back branch predicate is set to false \n");
           return false;	
         }
       }
 
       // is the loop entry fall through predicate set to false?
-      if (&predBB != backedgeBB) {
-        if (predFBB && predFBB != BB) {
-          DEBUG(errs() << "Loop entry fall through predicate is set to true \n");
+      if (&predBB != loopBackedgeBB) {
+        if (predFBB && (predFBB != BB || predFBB != loopPreheader)) {
+          DEBUG(errs() << "Loop entry fallthrough predicate is set to true \n");
+          return false;	
+        }
+        if (!predFBB && (branchCC != LPU::COND_T)) {
+          DEBUG(errs() << "Loop entry fallthrough predicate is set to true \n");
           return false;	
         }
       }
@@ -181,8 +206,7 @@ bool
 LPUConvertControlPass::genDFInstructions(MachineInstr *MI, 
                                          MachineBasicBlock *BB, 
                                          MachineBasicBlock::iterator 
-                                           lastPhiInst, 
-                                         const MachineBasicBlock *backedgeBB) {
+                                           lastPhiInst) { 
 
   const TargetMachine &TM = thisMF->getTarget();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>
@@ -200,7 +224,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
 
 
     if (!analyzePhiOperands(MI, BB, &srcReg1, &predReg1, &predReg2, &predBB1, 
-                            &predBB2, backedgeBB)) {
+                            &predBB2)) {
       DEBUG(errs() << "Phi operands analysis returned false\n");
       return false;
     }
@@ -303,13 +327,15 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
   return genDFInst;
 }
 
-bool LPUConvertControlPass::processLoopForDF(MachineLoop *currLoop, raw_ostream *OS) {
+bool LPUConvertControlPass::processLoopForDF(MachineLoop *currLoop, 
+                                             raw_ostream *OS) {
 
   const TargetMachine &TM = thisMF->getTarget();
   bool loopModified = false;
 
-  const MachineBasicBlock *backedgeBB = currLoop->getLoopLatch();
-  assert(backedgeBB && "backedge BB is null!");
+  loopBackedgeBB = currLoop->getLoopLatch();
+  loopPreheader = currLoop->getLoopPreheader();
+  assert(loopBackedgeBB && "backedge BB is null!");
 
   for (MachineLoop::block_iterator BI = currLoop->block_begin(), 
        E = currLoop->block_end(); BI != E; ++BI) { 
@@ -338,7 +364,7 @@ bool LPUConvertControlPass::processLoopForDF(MachineLoop *currLoop, raw_ostream 
       // TODO: do we need to process all insts? 
       // what about picks/switches/cmps/brs?
 
-      if (genDFInstructions(MI, BB, lastPhiInst, backedgeBB)) {
+      if (genDFInstructions(MI, BB, lastPhiInst)) {
         DEBUG(errs() << "modified graph - gen DF insts\n");
         loopModified = true;
       }
@@ -383,6 +409,7 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
       DEBUG(MI->print(*OS, &TM));  
     }
   }
+  OS->flush();
 #endif
 
   // for now only well formed innermost loop regions are processed in this pass
@@ -424,6 +451,7 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
     }
 
 #ifndef NDEBUG
+    OS->flush();
     assert(ConvertControlPass > 0 && "ConvertControlPass has invalid value!");
     if (loopModified) loopProcessedCnt++;
     if (loopProcessedCnt == ConvertControlPass) return Modified;    
@@ -440,6 +468,7 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
       DEBUG(MI->print(*OS, &TM));  
     }
   }
+  OS->flush();
 #endif
 
   return Modified;
