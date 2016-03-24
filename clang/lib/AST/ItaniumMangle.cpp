@@ -2249,6 +2249,14 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
 // <function-type> ::= [<CV-qualifiers>] F [Y]
 //                      <bare-function-type> [<ref-qualifier>] E
 void CXXNameMangler::mangleType(const FunctionProtoType *T) {
+#if INTEL_CUSTOMIZATION
+  // CQ371738: 'volatile' qualifier should be added to the mangled name
+  // if there is noreturn attribute in the prototype
+  if (getASTContext().getLangOpts().IntelCompat &&
+      (getASTContext().getLangOpts().GNUFABIVersion < 5) &&
+      T->castAs<clang::FunctionType>()->getNoReturnAttr())
+    Out << 'V';
+#endif // INTEL_CUSTOMIZATION
   // Mangle CV-qualifiers, if present.  These are 'this' qualifiers,
   // e.g. "const" in "int (A::*)() const".
   mangleQualifiers(Qualifiers::fromCVRMask(T->getTypeQuals()));
