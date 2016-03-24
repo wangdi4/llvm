@@ -33,7 +33,7 @@ PARALLEL_DIRS := opt llvm-as llvm-dis llc llvm-ar llvm-nm llvm-link \
                  llvm-dwarfdump llvm-cov llvm-size llvm-stress llvm-mcmarkup \
                  llvm-profdata llvm-symbolizer obj2yaml yaml2obj llvm-c-test \
                  llvm-cxxdump verify-uselistorder dsymutil llvm-pdbdump \
-                 llvm-split sancov llvm-dwp
+                 llvm-split sancov sanstats llvm-dwp
 
 ifeq ($(INTEL_CUSTOMIZATION), 1)
  PARALLEL_DIRS += intelovls-test

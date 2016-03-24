@@ -50,7 +50,8 @@ struct AtomInfo {
 
 struct SectionInfo {
   SectionInfo(StringRef seg, StringRef sect, SectionType type,
-              const MachOLinkingContext &ctxt, uint32_t attr=0);
+              const MachOLinkingContext &ctxt, uint32_t attr,
+              bool relocsToDefinedCanBeImplicit);
 
   StringRef                 segmentName;
   StringRef                 sectionName;
@@ -59,15 +60,25 @@ struct SectionInfo {
   uint64_t                  address;
   uint64_t                  size;
   uint16_t                  alignment;
+
+  /// If this is set, the any relocs in this section which point to defined
+  /// addresses can be implicitly generated.  This is the case for the
+  /// __eh_frame section where references to the function can be implicit if the
+  /// function is defined.
+  bool                      relocsToDefinedCanBeImplicit;
+
+
   std::vector<AtomInfo>     atomsAndOffsets;
   uint32_t                  normalizedSectionIndex;
   uint32_t                  finalSectionIndex;
 };
 
 SectionInfo::SectionInfo(StringRef sg, StringRef sct, SectionType t,
-                         const MachOLinkingContext &ctxt, uint32_t attrs)
+                         const MachOLinkingContext &ctxt, uint32_t attrs,
+                         bool relocsToDefinedCanBeImplicit)
  : segmentName(sg), sectionName(sct), type(t), attributes(attrs),
                  address(0), size(0), alignment(1),
+                 relocsToDefinedCanBeImplicit(relocsToDefinedCanBeImplicit),
                  normalizedSectionIndex(0), finalSectionIndex(0) {
   uint16_t align = 1;
   if (ctxt.sectionAligned(segmentName, sectionName, align)) {
@@ -94,10 +105,12 @@ class Util {
 public:
   Util(const MachOLinkingContext &ctxt)
       : _ctx(ctxt), _archHandler(ctxt.archHandler()), _entryAtom(nullptr),
-        _hasTLVDescriptors(false) {}
+        _hasTLVDescriptors(false), _subsectionsViaSymbols(true) {}
   ~Util();
 
-  void      assignAtomsToSections(const lld::File &atomFile);
+  void      processDefinedAtoms(const lld::File &atomFile);
+  void      processAtomAttributes(const DefinedAtom *atom);
+  void      assignAtomToSection(const DefinedAtom *atom);
   void      organizeSections();
   void      assignAddressesToSections(const NormalizedFile &file);
   uint32_t  fileFlags();
@@ -169,6 +182,7 @@ private:
   AtomToIndex                   _atomToSymbolIndex;
   std::vector<const Atom *>     _machHeaderAliasAtoms;
   bool                          _hasTLVDescriptors;
+  bool                          _subsectionsViaSymbols;
 };
 
 Util::~Util() {
@@ -193,10 +207,12 @@ SectionInfo *Util::getRelocatableSection(DefinedAtom::ContentType type) {
   StringRef sectionName;
   SectionType sectionType;
   SectionAttr sectionAttrs;
+  bool relocsToDefinedCanBeImplicit;
 
   // Use same table used by when parsing .o files.
   relocatableSectionInfoForContentType(type, segmentName, sectionName,
-                                       sectionType, sectionAttrs);
+                                       sectionType, sectionAttrs,
+                                       relocsToDefinedCanBeImplicit);
   // If we already have a SectionInfo with this name, re-use it.
   // This can happen if two ContentType map to the same mach-o section.
   for (auto sect : _sectionMap) {
@@ -207,7 +223,8 @@ SectionInfo *Util::getRelocatableSection(DefinedAtom::ContentType type) {
   }
   // Otherwise allocate new SectionInfo object.
   auto *sect = new (_allocator)
-      SectionInfo(segmentName, sectionName, sectionType, _ctx, sectionAttrs);
+      SectionInfo(segmentName, sectionName, sectionType, _ctx, sectionAttrs,
+                  relocsToDefinedCanBeImplicit);
   _sectionInfos.push_back(sect);
   _sectionMap[type] = sect;
   return sect;
@@ -287,7 +304,8 @@ SectionInfo *Util::getFinalSection(DefinedAtom::ContentType atomType) {
     }
     // Otherwise allocate new SectionInfo object.
     auto *sect = new (_allocator) SectionInfo(
-        p.segmentName, p.sectionName, p.sectionType, _ctx, sectionAttrs);
+        p.segmentName, p.sectionName, p.sectionType, _ctx, sectionAttrs,
+        /* relocsToDefinedCanBeImplicit */ false);
     _sectionInfos.push_back(sect);
     _sectionMap[atomType] = sect;
     return sect;
@@ -320,7 +338,8 @@ SectionInfo *Util::sectionForAtom(const DefinedAtom *atom) {
     StringRef segName = customName.slice(0, seperatorIndex);
     StringRef sectName = customName.drop_front(seperatorIndex + 1);
     auto *sect =
-        new (_allocator) SectionInfo(segName, sectName, S_REGULAR, _ctx);
+        new (_allocator) SectionInfo(segName, sectName, S_REGULAR, _ctx,
+                                     0, /* relocsToDefinedCanBeImplicit */ false);
     _customSections.push_back(sect);
     _sectionInfos.push_back(sect);
     return sect;
@@ -350,13 +369,26 @@ void Util::appendAtom(SectionInfo *sect, const DefinedAtom *atom) {
   sect->size = offset + atom->size();
 }
 
-void Util::assignAtomsToSections(const lld::File &atomFile) {
+void Util::processDefinedAtoms(const lld::File &atomFile) {
   for (const DefinedAtom *atom : atomFile.defined()) {
-    if (atom->contentType() == DefinedAtom::typeMachHeader)
-      _machHeaderAliasAtoms.push_back(atom);
-    else
-      appendAtom(sectionForAtom(atom), atom);
+    processAtomAttributes(atom);
+    assignAtomToSection(atom);
   }
+}
+
+void Util::processAtomAttributes(const DefinedAtom *atom) {
+  auto *machoFile = static_cast<const mach_o::MachOFile *>(&atom->file());
+  // If the file doesn't use subsections via symbols, then make sure we don't
+  // add that flag to the final output file if we have a relocatable file.
+  if (!machoFile->subsectionsViaSymbols())
+    _subsectionsViaSymbols = false;
+}
+
+void Util::assignAtomToSection(const DefinedAtom *atom) {
+  if (atom->contentType() == DefinedAtom::typeMachHeader)
+    _machHeaderAliasAtoms.push_back(atom);
+  else
+    appendAtom(sectionForAtom(atom), atom);
 }
 
 SegmentInfo *Util::segmentForName(StringRef segName) {
@@ -449,10 +481,10 @@ void Util::organizeSections() {
 void Util::layoutSectionsInSegment(SegmentInfo *seg, uint64_t &addr) {
   seg->address = addr;
   for (SectionInfo *sect : seg->sections) {
-    sect->address = llvm::RoundUpToAlignment(addr, sect->alignment);
+    sect->address = llvm::alignTo(addr, sect->alignment);
     addr = sect->address + sect->size;
   }
-  seg->size = llvm::RoundUpToAlignment(addr - seg->address, _ctx.pageSize());
+  seg->size = llvm::alignTo(addr - seg->address, _ctx.pageSize());
 }
 
 // __TEXT segment lays out backwards so padding is at front after load commands.
@@ -472,10 +504,10 @@ void Util::layoutSectionsInTextSegment(size_t hlcSize, SegmentInfo *seg,
   // Start assigning section address starting at padded offset.
   addr += (padding + hlcSize);
   for (SectionInfo *sect : seg->sections) {
-    sect->address = llvm::RoundUpToAlignment(addr, sect->alignment);
+    sect->address = llvm::alignTo(addr, sect->alignment);
     addr = sect->address + sect->size;
   }
-  seg->size = llvm::RoundUpToAlignment(addr - seg->address, _ctx.pageSize());
+  seg->size = llvm::alignTo(addr - seg->address, _ctx.pageSize());
 }
 
 void Util::assignAddressesToSections(const NormalizedFile &file) {
@@ -495,7 +527,7 @@ void Util::assignAddressesToSections(const NormalizedFile &file) {
     } else
       layoutSectionsInSegment(seg, address);
 
-    address = llvm::RoundUpToAlignment(address, _ctx.pageSize());
+    address = llvm::alignTo(address, _ctx.pageSize());
   }
   DEBUG_WITH_TYPE("WriterMachO-norm",
     llvm::dbgs() << "assignAddressesToSections()\n";
@@ -1024,6 +1056,11 @@ void Util::addSectionRelocs(const lld::File &, NormalizedFile &file) {
     for (const AtomInfo &info : si->atomsAndOffsets) {
       const DefinedAtom *atom = info.atom;
       for (const Reference *ref : *atom) {
+        // Skip emitting relocs for sections which are always able to be
+        // implicitly regenerated and where the relocation targets an address
+        // which is defined.
+        if (si->relocsToDefinedCanBeImplicit && isa<DefinedAtom>(ref->target()))
+          continue;
         _archHandler.appendSectionRelocations(*atom, info.offsetInSection, *ref,
                                               symIndexForAtom,
                                               sectIndexForAtom,
@@ -1162,7 +1199,7 @@ void Util::addExportInfo(const lld::File &atomFile, NormalizedFile &nFile) {
 uint32_t Util::fileFlags() {
   // FIXME: these need to determined at runtime.
   if (_ctx.outputMachOType() == MH_OBJECT) {
-    return MH_SUBSECTIONS_VIA_SYMBOLS;
+    return _subsectionsViaSymbols ? MH_SUBSECTIONS_VIA_SYMBOLS : 0;
   } else {
     uint32_t flags = MH_DYLDLINK;
     if (!_ctx.useFlatNamespace())
@@ -1187,7 +1224,7 @@ normalizedFromAtoms(const lld::File &atomFile,
                                            const MachOLinkingContext &context) {
   // The util object buffers info until the normalized file can be made.
   Util util(context);
-  util.assignAtomsToSections(atomFile);
+  util.processDefinedAtoms(atomFile);
   util.organizeSections();
 
   std::unique_ptr<NormalizedFile> f(new NormalizedFile());

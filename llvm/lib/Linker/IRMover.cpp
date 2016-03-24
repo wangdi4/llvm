@@ -499,7 +499,7 @@ class IRLinker {
   /// from the source module that we don't need to link into the dest module,
   /// because the functions were not imported directly or via an inlined body
   /// in an imported function.
-  void findNeededSubprograms(ValueToValueMapTy &ValueMap);
+  void findNeededSubprograms();
 
   /// The value mapper leaves nulls in the list of subprograms for any
   /// in the UnneededSubprograms map. Strip those out after metadata linking.
@@ -719,7 +719,7 @@ GlobalVariable *IRLinker::copyGlobalVariableProto(const GlobalVariable *SGVar) {
   // identical version of the symbol over in the dest module... the
   // initializer will be filled in later by LinkGlobalInits.
   GlobalVariable *NewDGV =
-      new GlobalVariable(DstM, TypeMap.get(SGVar->getType()->getElementType()),
+      new GlobalVariable(DstM, TypeMap.get(SGVar->getValueType()),
                          SGVar->isConstant(), GlobalValue::ExternalLinkage,
                          /*init*/ nullptr, SGVar->getName(),
                          /*insertbefore*/ nullptr, SGVar->getThreadLocalMode(),
@@ -759,7 +759,7 @@ GlobalValue *IRLinker::copyGlobalValueProto(const GlobalValue *SGV,
       NewGV = copyGlobalAliasProto(cast<GlobalAlias>(SGV));
     else
       NewGV = new GlobalVariable(
-          DstM, TypeMap.get(SGV->getType()->getElementType()),
+          DstM, TypeMap.get(SGV->getValueType()),
           /*isConstant*/ false, GlobalValue::ExternalLinkage,
           /*init*/ nullptr, SGV->getName(),
           /*insertbefore*/ nullptr, SGV->getThreadLocalMode(),
@@ -773,6 +773,16 @@ GlobalValue *IRLinker::copyGlobalValueProto(const GlobalValue *SGV,
     NewGV->setLinkage(GlobalValue::ExternalWeakLinkage);
 
   NewGV->copyAttributesFrom(SGV);
+
+  // Remove these copied constants in case this stays a declaration, since
+  // they point to the source module. If the def is linked the values will
+  // be mapped in during linkFunctionBody.
+  if (auto *NewF = dyn_cast<Function>(NewGV)) {
+    NewF->setPersonalityFn(nullptr);
+    NewF->setPrefixData(nullptr);
+    NewF->setPrologueData(nullptr);
+  }
+
   return NewGV;
 }
 
@@ -792,8 +802,8 @@ void IRLinker::computeTypeMapping() {
     }
 
     // Unify the element type of appending arrays.
-    ArrayType *DAT = cast<ArrayType>(DGV->getType()->getElementType());
-    ArrayType *SAT = cast<ArrayType>(SGV.getType()->getElementType());
+    ArrayType *DAT = cast<ArrayType>(DGV->getValueType());
+    ArrayType *SAT = cast<ArrayType>(SGV.getValueType());
     TypeMap.addTypeMapping(DAT->getElementType(), SAT->getElementType());
   }
 
@@ -864,7 +874,7 @@ static void getArrayElements(const Constant *C,
 /// Return true on error.
 Constant *IRLinker::linkAppendingVarProto(GlobalVariable *DstGV,
                                           const GlobalVariable *SrcGV) {
-  Type *EltTy = cast<ArrayType>(TypeMap.get(SrcGV->getType()->getElementType()))
+  Type *EltTy = cast<ArrayType>(TypeMap.get(SrcGV->getValueType()))
                     ->getElementType();
 
   StringRef Name = SrcGV->getName();
@@ -885,7 +895,7 @@ Constant *IRLinker::linkAppendingVarProto(GlobalVariable *DstGV,
   }
 
   if (DstGV) {
-    ArrayType *DstTy = cast<ArrayType>(DstGV->getType()->getElementType());
+    ArrayType *DstTy = cast<ArrayType>(DstGV->getValueType());
 
     if (!SrcGV->hasAppendingLinkage() || !DstGV->hasAppendingLinkage()) {
       emitError(
@@ -995,23 +1005,6 @@ Constant *IRLinker::linkAppendingVarProto(GlobalVariable *DstGV,
   return Ret;
 }
 
-static bool useExistingDest(GlobalValue &SGV, GlobalValue *DGV,
-                            bool ShouldLink) {
-  if (!DGV)
-    return false;
-
-  if (SGV.isDeclaration())
-    return true;
-
-  if (DGV->isDeclarationForLinker() && !SGV.isDeclarationForLinker())
-    return false;
-
-  if (ShouldLink)
-    return false;
-
-  return true;
-}
-
 bool IRLinker::shouldLink(GlobalValue *DGV, GlobalValue &SGV) {
   // Already imported all the values. Just map to the Dest value
   // in case it is referenced in the metadata.
@@ -1027,7 +1020,7 @@ bool IRLinker::shouldLink(GlobalValue *DGV, GlobalValue &SGV) {
   if (SGV.hasLocalLinkage())
     return true;
 
-  if (DGV && !DGV->isDeclaration())
+  if (DGV && !DGV->isDeclarationForLinker())
     return false;
 
   if (SGV.hasAvailableExternallyLinkage())
@@ -1067,7 +1060,7 @@ Constant *IRLinker::linkGlobalValueProto(GlobalValue *SGV, bool ForAlias) {
                                  cast<GlobalVariable>(SGV));
 
   GlobalValue *NewGV;
-  if (useExistingDest(*SGV, DGV, ShouldLink)) {
+  if (DGV && !ShouldLink) {
     NewGV = DGV;
   } else {
     // If we are done linking global value bodies (i.e. we are performing
@@ -1077,7 +1070,7 @@ Constant *IRLinker::linkGlobalValueProto(GlobalValue *SGV, bool ForAlias) {
       return nullptr;
 
     NewGV = copyGlobalValueProto(SGV, ShouldLink);
-    if (!ForAlias)
+    if (ShouldLink || !ForAlias)
       forceRenaming(NewGV, SGV->getName());
   }
   if (ShouldLink || ForAlias) {
@@ -1202,7 +1195,7 @@ bool IRLinker::linkGlobalValueBody(GlobalValue &Dst, GlobalValue &Src) {
   return false;
 }
 
-void IRLinker::findNeededSubprograms(ValueToValueMapTy &ValueMap) {
+void IRLinker::findNeededSubprograms() {
   // Track unneeded nodes to make it simpler to handle the case
   // where we are checking if an already-mapped SP is needed.
   NamedMDNode *CompileUnits = SrcM.getNamedMetadata("llvm.dbg.cu");
@@ -1211,6 +1204,18 @@ void IRLinker::findNeededSubprograms(ValueToValueMapTy &ValueMap) {
   for (unsigned I = 0, E = CompileUnits->getNumOperands(); I != E; ++I) {
     auto *CU = cast<DICompileUnit>(CompileUnits->getOperand(I));
     assert(CU && "Expected valid compile unit");
+    // Ensure that we don't remove subprograms referenced by DIImportedEntity.
+    // It is not legal to have a DIImportedEntity with a null entity or scope.
+    // FIXME: The DISubprogram for functions not linked in but kept due to
+    // being referenced by a DIImportedEntity should also get their
+    // IsDefinition flag is unset.
+    SmallPtrSet<DISubprogram *, 8> ImportedEntitySPs;
+    for (auto *IE : CU->getImportedEntities()) {
+      if (auto *SP = dyn_cast<DISubprogram>(IE->getEntity()))
+        ImportedEntitySPs.insert(SP);
+      if (auto *SP = dyn_cast<DISubprogram>(IE->getScope()))
+        ImportedEntitySPs.insert(SP);
+    }
     for (auto *Op : CU->getSubprograms()) {
       // Unless we were doing function importing and deferred metadata linking,
       // any needed SPs should have been mapped as they would be reached
@@ -1218,7 +1223,7 @@ void IRLinker::findNeededSubprograms(ValueToValueMapTy &ValueMap) {
       // function bodies, or from DILocation on inlined instructions).
       assert(!(ValueMap.MD()[Op] && IsMetadataLinkingPostpass) &&
              "DISubprogram shouldn't be mapped yet");
-      if (!ValueMap.MD()[Op])
+      if (!ValueMap.MD()[Op] && !ImportedEntitySPs.count(Op))
         UnneededSubprograms.insert(Op);
     }
   }
@@ -1265,7 +1270,7 @@ void IRLinker::stripNullSubprograms() {
 
 /// Insert all of the named MDNodes in Src into the Dest module.
 void IRLinker::linkNamedMDNodes() {
-  findNeededSubprograms(ValueMap);
+  findNeededSubprograms();
   const NamedMDNode *SrcModFlags = SrcM.getModuleFlagsMetadata();
   for (const NamedMDNode &NMD : SrcM.named_metadata()) {
     // Don't link module flags here. Do them separately.

@@ -104,23 +104,6 @@ static bool hasUnaryFloatFn(const TargetLibraryInfo *TLI, Type *Ty,
   }
 }
 
-/// \brief Check whether we can use unsafe floating point math for
-/// the function passed as input.
-static bool canUseUnsafeFPMath(Function *F) {
-
-  // FIXME: For finer-grain optimization, we need intrinsics to have the same
-  // fast-math flag decorations that are applied to FP instructions. For now,
-  // we have to rely on the function-level unsafe-fp-math attribute to do this
-  // optimization because there's no other way to express that the call can be
-  // relaxed.
-  if (F->hasFnAttribute("unsafe-fp-math")) {
-    Attribute Attr = F->getFnAttribute("unsafe-fp-math");
-    if (Attr.getValueAsString() == "true")
-      return true;
-  }
-  return false;
-}
-
 /// \brief Returns whether \p F matches the signature expected for the
 /// string/memory copying library function \p Func.
 /// Acceptable functions are st[rp][n]?cpy, memove, memcpy, and memset.
@@ -220,7 +203,7 @@ Value *LibCallSimplifier::emitStrLenMemCpy(Value *Src, Value *Dst, uint64_t Len,
                                            IRBuilder<> &B) {
   // We need to find the end of the destination string.  That's where the
   // memory is to be moved to. We just generate a call to strlen.
-  Value *DstLen = EmitStrLen(Dst, B, DL, TLI);
+  Value *DstLen = emitStrLen(Dst, B, DL, TLI);
   if (!DstLen)
     return nullptr;
 
@@ -298,7 +281,7 @@ Value *LibCallSimplifier::optimizeStrChr(CallInst *CI, IRBuilder<> &B) {
     if (Len == 0 || !FT->getParamType(1)->isIntegerTy(32)) // memchr needs i32.
       return nullptr;
 
-    return EmitMemChr(SrcStr, CI->getArgOperand(1), // include nul.
+    return emitMemChr(SrcStr, CI->getArgOperand(1), // include nul.
                       ConstantInt::get(DL.getIntPtrType(CI->getContext()), Len),
                       B, DL, TLI);
   }
@@ -308,7 +291,7 @@ Value *LibCallSimplifier::optimizeStrChr(CallInst *CI, IRBuilder<> &B) {
   StringRef Str;
   if (!getConstantStringInfo(SrcStr, Str)) {
     if (CharC->isZero()) // strchr(p, 0) -> p + strlen(p)
-      return B.CreateGEP(B.getInt8Ty(), SrcStr, EmitStrLen(SrcStr, B, DL, TLI),
+      return B.CreateGEP(B.getInt8Ty(), SrcStr, emitStrLen(SrcStr, B, DL, TLI),
                          "strchr");
     return nullptr;
   }
@@ -345,7 +328,7 @@ Value *LibCallSimplifier::optimizeStrRChr(CallInst *CI, IRBuilder<> &B) {
   if (!getConstantStringInfo(SrcStr, Str)) {
     // strrchr(s, 0) -> strchr(s, 0)
     if (CharC->isZero())
-      return EmitStrChr(SrcStr, '\0', B, TLI);
+      return emitStrChr(SrcStr, '\0', B, TLI);
     return nullptr;
   }
 
@@ -392,7 +375,7 @@ Value *LibCallSimplifier::optimizeStrCmp(CallInst *CI, IRBuilder<> &B) {
   uint64_t Len1 = GetStringLength(Str1P);
   uint64_t Len2 = GetStringLength(Str2P);
   if (Len1 && Len2) {
-    return EmitMemCmp(Str1P, Str2P,
+    return emitMemCmp(Str1P, Str2P,
                       ConstantInt::get(DL.getIntPtrType(CI->getContext()),
                                        std::min(Len1, Len2)),
                       B, DL, TLI);
@@ -426,7 +409,7 @@ Value *LibCallSimplifier::optimizeStrNCmp(CallInst *CI, IRBuilder<> &B) {
     return ConstantInt::get(CI->getType(), 0);
 
   if (Length == 1) // strncmp(x,y,1) -> memcmp(x,y,1)
-    return EmitMemCmp(Str1P, Str2P, CI->getArgOperand(2), B, DL, TLI);
+    return emitMemCmp(Str1P, Str2P, CI->getArgOperand(2), B, DL, TLI);
 
   StringRef Str1, Str2;
   bool HasStr1 = getConstantStringInfo(Str1P, Str1);
@@ -478,7 +461,7 @@ Value *LibCallSimplifier::optimizeStpCpy(CallInst *CI, IRBuilder<> &B) {
 
   Value *Dst = CI->getArgOperand(0), *Src = CI->getArgOperand(1);
   if (Dst == Src) { // stpcpy(x,x)  -> x+strlen(x)
-    Value *StrLen = EmitStrLen(Src, B, DL, TLI);
+    Value *StrLen = emitStrLen(Src, B, DL, TLI);
     return StrLen ? B.CreateInBoundsGEP(B.getInt8Ty(), Dst, StrLen) : nullptr;
   }
 
@@ -604,7 +587,7 @@ Value *LibCallSimplifier::optimizeStrPBrk(CallInst *CI, IRBuilder<> &B) {
 
   // strpbrk(s, "a") -> strchr(s, 'a')
   if (HasS2 && S2.size() == 1)
-    return EmitStrChr(CI->getArgOperand(0), S2[0], B, TLI);
+    return emitStrChr(CI->getArgOperand(0), S2[0], B, TLI);
 
   return nullptr;
 }
@@ -681,7 +664,7 @@ Value *LibCallSimplifier::optimizeStrCSpn(CallInst *CI, IRBuilder<> &B) {
 
   // strcspn(s, "") -> strlen(s)
   if (HasS2 && S2.empty())
-    return EmitStrLen(CI->getArgOperand(0), B, DL, TLI);
+    return emitStrLen(CI->getArgOperand(0), B, DL, TLI);
 
   return nullptr;
 }
@@ -700,10 +683,10 @@ Value *LibCallSimplifier::optimizeStrStr(CallInst *CI, IRBuilder<> &B) {
 
   // fold strstr(a, b) == a -> strncmp(a, b, strlen(b)) == 0
   if (isOnlyUsedInEqualityComparison(CI, CI->getArgOperand(0))) {
-    Value *StrLen = EmitStrLen(CI->getArgOperand(1), B, DL, TLI);
+    Value *StrLen = emitStrLen(CI->getArgOperand(1), B, DL, TLI);
     if (!StrLen)
       return nullptr;
-    Value *StrNCmp = EmitStrNCmp(CI->getArgOperand(0), CI->getArgOperand(1),
+    Value *StrNCmp = emitStrNCmp(CI->getArgOperand(0), CI->getArgOperand(1),
                                  StrLen, B, DL, TLI);
     if (!StrNCmp)
       return nullptr;
@@ -734,14 +717,14 @@ Value *LibCallSimplifier::optimizeStrStr(CallInst *CI, IRBuilder<> &B) {
       return Constant::getNullValue(CI->getType());
 
     // strstr("abcd", "bc") -> gep((char*)"abcd", 1)
-    Value *Result = CastToCStr(CI->getArgOperand(0), B);
+    Value *Result = castToCStr(CI->getArgOperand(0), B);
     Result = B.CreateConstInBoundsGEP1_64(Result, Offset, "strstr");
     return B.CreateBitCast(Result, CI->getType());
   }
 
   // fold strstr(x, "y") -> strchr(x, 'y').
   if (HasStr2 && ToFindStr.size() == 1) {
-    Value *StrChr = EmitStrChr(CI->getArgOperand(0), ToFindStr[0], B, TLI);
+    Value *StrChr = emitStrChr(CI->getArgOperand(0), ToFindStr[0], B, TLI);
     return StrChr ? B.CreateBitCast(StrChr, CI->getType()) : nullptr;
   }
   return nullptr;
@@ -857,9 +840,9 @@ Value *LibCallSimplifier::optimizeMemCmp(CallInst *CI, IRBuilder<> &B) {
 
   // memcmp(S1,S2,1) -> *(unsigned char*)LHS - *(unsigned char*)RHS
   if (Len == 1) {
-    Value *LHSV = B.CreateZExt(B.CreateLoad(CastToCStr(LHS, B), "lhsc"),
+    Value *LHSV = B.CreateZExt(B.CreateLoad(castToCStr(LHS, B), "lhsc"),
                                CI->getType(), "lhsv");
-    Value *RHSV = B.CreateZExt(B.CreateLoad(CastToCStr(RHS, B), "rhsc"),
+    Value *RHSV = B.CreateZExt(B.CreateLoad(castToCStr(RHS, B), "rhsc"),
                                CI->getType(), "rhsv");
     return B.CreateSub(LHSV, RHSV, "chardiff");
   }
@@ -997,7 +980,7 @@ Value *LibCallSimplifier::optimizeUnaryDoubleFP(CallInst *CI, IRBuilder<> &B,
   
   // Propagate fast-math flags from the existing call to the new call.
   IRBuilder<>::FastMathFlagGuard Guard(B);
-  B.SetFastMathFlags(CI->getFastMathFlags());
+  B.setFastMathFlags(CI->getFastMathFlags());
 
   // floor((double)floatval) -> (double)floorf(floatval)
   if (Callee->isIntrinsic()) {
@@ -1007,7 +990,7 @@ Value *LibCallSimplifier::optimizeUnaryDoubleFP(CallInst *CI, IRBuilder<> &B,
     V = B.CreateCall(F, V);
   } else {
     // The call is a library call rather than an intrinsic.
-    V = EmitUnaryFloatFnCall(V, Callee->getName(), B, Callee->getAttributes());
+    V = emitUnaryFloatFnCall(V, Callee->getName(), B, Callee->getAttributes());
   }
 
   return B.CreateFPExt(V, B.getDoubleTy());
@@ -1035,12 +1018,12 @@ Value *LibCallSimplifier::optimizeBinaryDoubleFP(CallInst *CI, IRBuilder<> &B) {
 
   // Propagate fast-math flags from the existing call to the new call.
   IRBuilder<>::FastMathFlagGuard Guard(B);
-  B.SetFastMathFlags(CI->getFastMathFlags());
+  B.setFastMathFlags(CI->getFastMathFlags());
 
   // fmin((double)floatval1, (double)floatval2)
   //                      -> (double)fminf(floatval1, floatval2)
   // TODO: Handle intrinsics in the same way as in optimizeUnaryDoubleFP().
-  Value *V = EmitBinaryFloatFnCall(V1, V2, Callee->getName(), B,
+  Value *V = emitBinaryFloatFnCall(V1, V2, Callee->getName(), B,
                                    Callee->getAttributes());
   return B.CreateFPExt(V, B.getDoubleTy());
 }
@@ -1117,39 +1100,33 @@ Value *LibCallSimplifier::optimizePow(CallInst *CI, IRBuilder<> &B) {
     if (Op1C->isExactlyValue(2.0) &&
         hasUnaryFloatFn(TLI, Op1->getType(), LibFunc::exp2, LibFunc::exp2f,
                         LibFunc::exp2l))
-      return EmitUnaryFloatFnCall(Op2, TLI->getName(LibFunc::exp2), B,
+      return emitUnaryFloatFnCall(Op2, TLI->getName(LibFunc::exp2), B,
                                   Callee->getAttributes());
     // pow(10.0, x) -> exp10(x)
     if (Op1C->isExactlyValue(10.0) &&
         hasUnaryFloatFn(TLI, Op1->getType(), LibFunc::exp10, LibFunc::exp10f,
                         LibFunc::exp10l))
-      return EmitUnaryFloatFnCall(Op2, TLI->getName(LibFunc::exp10), B,
+      return emitUnaryFloatFnCall(Op2, TLI->getName(LibFunc::exp10), B,
                                   Callee->getAttributes());
   }
 
-  bool UnsafeFPMath = canUseUnsafeFPMath(CI->getParent()->getParent());
-
-  // pow(exp(x), y) -> exp(x*y)
+  // pow(exp(x), y) -> exp(x * y)
   // pow(exp2(x), y) -> exp2(x * y)
-  // We enable these only under fast-math. Besides rounding
-  // differences the transformation changes overflow and
-  // underflow behavior quite dramatically.
+  // We enable these only with fast-math. Besides rounding differences, the
+  // transformation changes overflow and underflow behavior quite dramatically.
   // Example: x = 1000, y = 0.001.
   // pow(exp(x), y) = pow(inf, 0.001) = inf, whereas exp(x*y) = exp(1).
-  if (UnsafeFPMath) {
-    if (auto *OpC = dyn_cast<CallInst>(Op1)) {
+  auto *OpC = dyn_cast<CallInst>(Op1);
+  if (OpC && OpC->hasUnsafeAlgebra() && CI->hasUnsafeAlgebra()) {
+    LibFunc::Func Func;
+    Function *OpCCallee = OpC->getCalledFunction();
+    if (OpCCallee && TLI->getLibFunc(OpCCallee->getName(), Func) &&
+        TLI->has(Func) && (Func == LibFunc::exp || Func == LibFunc::exp2)) {
       IRBuilder<>::FastMathFlagGuard Guard(B);
-      FastMathFlags FMF;
-      FMF.setUnsafeAlgebra();
-      B.SetFastMathFlags(FMF);
-
-      LibFunc::Func Func;
-      Function *OpCCallee = OpC->getCalledFunction();
-      if (OpCCallee && TLI->getLibFunc(OpCCallee->getName(), Func) &&
-          TLI->has(Func) && (Func == LibFunc::exp || Func == LibFunc::exp2))
-        return EmitUnaryFloatFnCall(
-            B.CreateFMul(OpC->getArgOperand(0), Op2, "mul"),
-            OpCCallee->getName(), B, OpCCallee->getAttributes());
+      B.setFastMathFlags(CI->getFastMathFlags());
+      Value *FMul = B.CreateFMul(OpC->getArgOperand(0), Op2, "mul");
+      return emitUnaryFloatFnCall(FMul, OpCCallee->getName(), B,
+                                  OpCCallee->getAttributes());
     }
   }
 
@@ -1167,9 +1144,12 @@ Value *LibCallSimplifier::optimizePow(CallInst *CI, IRBuilder<> &B) {
                       LibFunc::fabsl)) {
 
     // In -ffast-math, pow(x, 0.5) -> sqrt(x).
-    if (UnsafeFPMath)
-      return EmitUnaryFloatFnCall(Op1, TLI->getName(LibFunc::sqrt), B,
+    if (CI->hasUnsafeAlgebra()) {
+      IRBuilder<>::FastMathFlagGuard Guard(B);
+      B.setFastMathFlags(CI->getFastMathFlags());
+      return emitUnaryFloatFnCall(Op1, TLI->getName(LibFunc::sqrt), B,
                                   Callee->getAttributes());
+    }
 
     // Expand pow(x, 0.5) to (x == -infinity ? +infinity : fabs(sqrt(x))).
     // This is faster than calling pow, and still handles negative zero
@@ -1177,9 +1157,9 @@ Value *LibCallSimplifier::optimizePow(CallInst *CI, IRBuilder<> &B) {
     // TODO: In finite-only mode, this could be just fabs(sqrt(x)).
     Value *Inf = ConstantFP::getInfinity(CI->getType());
     Value *NegInf = ConstantFP::getInfinity(CI->getType(), true);
-    Value *Sqrt = EmitUnaryFloatFnCall(Op1, "sqrt", B, Callee->getAttributes());
+    Value *Sqrt = emitUnaryFloatFnCall(Op1, "sqrt", B, Callee->getAttributes());
     Value *FAbs =
-        EmitUnaryFloatFnCall(Sqrt, "fabs", B, Callee->getAttributes());
+        emitUnaryFloatFnCall(Sqrt, "fabs", B, Callee->getAttributes());
     Value *FCmp = B.CreateFCmpOEQ(Op1, NegInf);
     Value *Sel = B.CreateSelect(FCmp, Inf, FAbs);
     return Sel;
@@ -1193,7 +1173,7 @@ Value *LibCallSimplifier::optimizePow(CallInst *CI, IRBuilder<> &B) {
     return B.CreateFDiv(ConstantFP::get(CI->getType(), 1.0), Op1, "powrecip");
 
   // In -ffast-math, generate repeated fmul instead of generating pow(x, n).
-  if (UnsafeFPMath) {
+  if (CI->hasUnsafeAlgebra()) {
     APFloat V = abs(Op2C->getValueAPF());
     // We limit to a max of 7 fmul(s). Thus max exponent is 32.
     // This transformation applies to integer exponents only.
@@ -1210,6 +1190,8 @@ Value *LibCallSimplifier::optimizePow(CallInst *CI, IRBuilder<> &B) {
     // So we first convert V to something which could be converted to double.
     bool ignored;
     V.convert(APFloat::IEEEdouble, APFloat::rmTowardZero, &ignored);
+    
+    // TODO: Should the new instructions propagate the 'fast' flag of the pow()?
     Value *FMul = getPow(InnerChain, V.convertToDouble(), B);
     // For negative exponents simply compute the reciprocal.
     if (Op2C->isNegative())
@@ -1328,7 +1310,7 @@ Value *LibCallSimplifier::optimizeFMinFMax(CallInst *CI, IRBuilder<> &B) {
     FMF.setNoSignedZeros();
     FMF.setNoNaNs();
   }
-  B.SetFastMathFlags(FMF);
+  B.setFastMathFlags(FMF);
 
   // We have a relaxed floating-point environment. We can ignore NaN-handling
   // and transform to a compare and select. We do not have to consider errno or
@@ -1354,11 +1336,13 @@ Value *LibCallSimplifier::optimizeLog(CallInst *CI, IRBuilder<> &B) {
       !FT->getParamType(0)->isFloatingPointTy())
     return Ret;
 
-  if (!canUseUnsafeFPMath(CI->getParent()->getParent()))
+  if (!CI->hasUnsafeAlgebra())
     return Ret;
   Value *Op1 = CI->getArgOperand(0);
   auto *OpC = dyn_cast<CallInst>(Op1);
-  if (!OpC)
+
+  // The earlier call must also be unsafe in order to do these transforms.
+  if (!OpC || !OpC->hasUnsafeAlgebra())
     return Ret;
 
   // log(pow(x,y)) -> y*log(x)
@@ -1369,14 +1353,14 @@ Value *LibCallSimplifier::optimizeLog(CallInst *CI, IRBuilder<> &B) {
   IRBuilder<>::FastMathFlagGuard Guard(B);
   FastMathFlags FMF;
   FMF.setUnsafeAlgebra();
-  B.SetFastMathFlags(FMF);
+  B.setFastMathFlags(FMF);
 
   LibFunc::Func Func;
   Function *F = OpC->getCalledFunction();
   if (F && ((TLI->getLibFunc(F->getName(), Func) && TLI->has(Func) &&
       Func == LibFunc::pow) || F->getIntrinsicID() == Intrinsic::pow))
     return B.CreateFMul(OpC->getArgOperand(1),
-      EmitUnaryFloatFnCall(OpC->getOperand(0), Callee->getName(), B,
+      emitUnaryFloatFnCall(OpC->getOperand(0), Callee->getName(), B,
                            Callee->getAttributes()), "mul");
 
   // log(exp2(y)) -> y*log(2)
@@ -1384,7 +1368,7 @@ Value *LibCallSimplifier::optimizeLog(CallInst *CI, IRBuilder<> &B) {
       TLI->has(Func) && Func == LibFunc::exp2)
     return B.CreateFMul(
         OpC->getArgOperand(0),
-        EmitUnaryFloatFnCall(ConstantFP::get(CI->getType(), 2.0),
+        emitUnaryFloatFnCall(ConstantFP::get(CI->getType(), 2.0),
                              Callee->getName(), B, Callee->getAttributes()),
         "logmul");
   return Ret;
@@ -1392,71 +1376,81 @@ Value *LibCallSimplifier::optimizeLog(CallInst *CI, IRBuilder<> &B) {
 
 Value *LibCallSimplifier::optimizeSqrt(CallInst *CI, IRBuilder<> &B) {
   Function *Callee = CI->getCalledFunction();
-  
+
   Value *Ret = nullptr;
   if (TLI->has(LibFunc::sqrtf) && (Callee->getName() == "sqrt" ||
                                    Callee->getIntrinsicID() == Intrinsic::sqrt))
     Ret = optimizeUnaryDoubleFP(CI, B, true);
-  if (!canUseUnsafeFPMath(CI->getParent()->getParent()))
+
+  // FIXME: Refactor - this check is repeated all over this file and even in the
+  // preceding call to shrink double -> float.
+
+  // Make sure this has 1 argument of FP type, which matches the result type.
+  FunctionType *FT = Callee->getFunctionType();
+  if (FT->getNumParams() != 1 || FT->getReturnType() != FT->getParamType(0) ||
+      !FT->getParamType(0)->isFloatingPointTy())
     return Ret;
 
-  Value *Op = CI->getArgOperand(0);
-  if (Instruction *I = dyn_cast<Instruction>(Op)) {
-    if (I->getOpcode() == Instruction::FMul && I->hasUnsafeAlgebra()) {
-      // We're looking for a repeated factor in a multiplication tree,
-      // so we can do this fold: sqrt(x * x) -> fabs(x);
-      // or this fold: sqrt(x * x * y) -> fabs(x) * sqrt(y).
-      Value *Op0 = I->getOperand(0);
-      Value *Op1 = I->getOperand(1);
-      Value *RepeatOp = nullptr;
-      Value *OtherOp = nullptr;
-      if (Op0 == Op1) {
-        // Simple match: the operands of the multiply are identical.
-        RepeatOp = Op0;
-      } else {
-        // Look for a more complicated pattern: one of the operands is itself
-        // a multiply, so search for a common factor in that multiply.
-        // Note: We don't bother looking any deeper than this first level or for
-        // variations of this pattern because instcombine's visitFMUL and/or the
-        // reassociation pass should give us this form.
-        Value *OtherMul0, *OtherMul1;
-        if (match(Op0, m_FMul(m_Value(OtherMul0), m_Value(OtherMul1)))) {
-          // Pattern: sqrt((x * y) * z)
-          if (OtherMul0 == OtherMul1) {
-            // Matched: sqrt((x * x) * z)
-            RepeatOp = OtherMul0;
-            OtherOp = Op1;
-          }
-        }
-      }
-      if (RepeatOp) {
-        // Fast math flags for any created instructions should match the sqrt
-        // and multiply.
-        // FIXME: We're not checking the sqrt because it doesn't have
-        // fast-math-flags (see earlier comment).
-        IRBuilder<>::FastMathFlagGuard Guard(B);
-        B.SetFastMathFlags(I->getFastMathFlags());
-        // If we found a repeated factor, hoist it out of the square root and
-        // replace it with the fabs of that factor.
-        Module *M = Callee->getParent();
-        Type *ArgType = Op->getType();
-        Value *Fabs = Intrinsic::getDeclaration(M, Intrinsic::fabs, ArgType);
-        Value *FabsCall = B.CreateCall(Fabs, RepeatOp, "fabs");
-        if (OtherOp) {
-          // If we found a non-repeated factor, we still need to get its square
-          // root. We then multiply that by the value that was simplified out
-          // of the square root calculation.
-          Value *Sqrt = Intrinsic::getDeclaration(M, Intrinsic::sqrt, ArgType);
-          Value *SqrtCall = B.CreateCall(Sqrt, OtherOp, "sqrt");
-          return B.CreateFMul(FabsCall, SqrtCall);
-        }
-        return FabsCall;
+  if (!CI->hasUnsafeAlgebra())
+    return Ret;
+
+  Instruction *I = dyn_cast<Instruction>(CI->getArgOperand(0));
+  if (!I || I->getOpcode() != Instruction::FMul || !I->hasUnsafeAlgebra())
+    return Ret;
+
+  // We're looking for a repeated factor in a multiplication tree,
+  // so we can do this fold: sqrt(x * x) -> fabs(x);
+  // or this fold: sqrt((x * x) * y) -> fabs(x) * sqrt(y).
+  Value *Op0 = I->getOperand(0);
+  Value *Op1 = I->getOperand(1);
+  Value *RepeatOp = nullptr;
+  Value *OtherOp = nullptr;
+  if (Op0 == Op1) {
+    // Simple match: the operands of the multiply are identical.
+    RepeatOp = Op0;
+  } else {
+    // Look for a more complicated pattern: one of the operands is itself
+    // a multiply, so search for a common factor in that multiply.
+    // Note: We don't bother looking any deeper than this first level or for
+    // variations of this pattern because instcombine's visitFMUL and/or the
+    // reassociation pass should give us this form.
+    Value *OtherMul0, *OtherMul1;
+    if (match(Op0, m_FMul(m_Value(OtherMul0), m_Value(OtherMul1)))) {
+      // Pattern: sqrt((x * y) * z)
+      if (OtherMul0 == OtherMul1 &&
+          cast<Instruction>(Op0)->hasUnsafeAlgebra()) {
+        // Matched: sqrt((x * x) * z)
+        RepeatOp = OtherMul0;
+        OtherOp = Op1;
       }
     }
   }
-  return Ret;
+  if (!RepeatOp)
+    return Ret;
+
+  // Fast math flags for any created instructions should match the sqrt
+  // and multiply.
+  IRBuilder<>::FastMathFlagGuard Guard(B);
+  B.setFastMathFlags(I->getFastMathFlags());
+
+  // If we found a repeated factor, hoist it out of the square root and
+  // replace it with the fabs of that factor.
+  Module *M = Callee->getParent();
+  Type *ArgType = I->getType();
+  Value *Fabs = Intrinsic::getDeclaration(M, Intrinsic::fabs, ArgType);
+  Value *FabsCall = B.CreateCall(Fabs, RepeatOp, "fabs");
+  if (OtherOp) {
+    // If we found a non-repeated factor, we still need to get its square
+    // root. We then multiply that by the value that was simplified out
+    // of the square root calculation.
+    Value *Sqrt = Intrinsic::getDeclaration(M, Intrinsic::sqrt, ArgType);
+    Value *SqrtCall = B.CreateCall(Sqrt, OtherOp, "sqrt");
+    return B.CreateFMul(FabsCall, SqrtCall);
+  }
+  return FabsCall;
 }
 
+// TODO: Generalize to handle any trig function and its inverse.
 Value *LibCallSimplifier::optimizeTan(CallInst *CI, IRBuilder<> &B) {
   Function *Callee = CI->getCalledFunction();
   Value *Ret = nullptr;
@@ -1471,11 +1465,13 @@ Value *LibCallSimplifier::optimizeTan(CallInst *CI, IRBuilder<> &B) {
       !FT->getParamType(0)->isFloatingPointTy())
     return Ret;
 
-  if (!canUseUnsafeFPMath(CI->getParent()->getParent()))
-    return Ret;
   Value *Op1 = CI->getArgOperand(0);
   auto *OpC = dyn_cast<CallInst>(Op1);
   if (!OpC)
+    return Ret;
+
+  // Both calls must allow unsafe optimizations in order to remove them.
+  if (!CI->hasUnsafeAlgebra() || !OpC->hasUnsafeAlgebra())
     return Ret;
 
   // tan(atan(x)) -> x
@@ -1782,7 +1778,7 @@ Value *LibCallSimplifier::optimizePrintFString(CallInst *CI, IRBuilder<> &B) {
 
   // printf("x") -> putchar('x'), even for '%'.
   if (FormatStr.size() == 1) {
-    Value *Res = EmitPutChar(B.getInt32(FormatStr[0]), B, TLI);
+    Value *Res = emitPutChar(B.getInt32(FormatStr[0]), B, TLI);
     if (CI->use_empty() || !Res)
       return Res;
     return B.CreateIntCast(Res, CI->getType(), true);
@@ -1795,7 +1791,7 @@ Value *LibCallSimplifier::optimizePrintFString(CallInst *CI, IRBuilder<> &B) {
     // pass to be run after this pass, to merge duplicate strings.
     FormatStr = FormatStr.drop_back();
     Value *GV = B.CreateGlobalString(FormatStr, "str");
-    Value *NewCI = EmitPutS(GV, B, TLI);
+    Value *NewCI = emitPutS(GV, B, TLI);
     return (CI->use_empty() || !NewCI)
                ? NewCI
                : ConstantInt::get(CI->getType(), FormatStr.size() + 1);
@@ -1805,7 +1801,7 @@ Value *LibCallSimplifier::optimizePrintFString(CallInst *CI, IRBuilder<> &B) {
   // printf("%c", chr) --> putchar(chr)
   if (FormatStr == "%c" && CI->getNumArgOperands() > 1 &&
       CI->getArgOperand(1)->getType()->isIntegerTy()) {
-    Value *Res = EmitPutChar(CI->getArgOperand(1), B, TLI);
+    Value *Res = emitPutChar(CI->getArgOperand(1), B, TLI);
 
     if (CI->use_empty() || !Res)
       return Res;
@@ -1815,7 +1811,7 @@ Value *LibCallSimplifier::optimizePrintFString(CallInst *CI, IRBuilder<> &B) {
   // printf("%s\n", str) --> puts(str)
   if (FormatStr == "%s\n" && CI->getNumArgOperands() > 1 &&
       CI->getArgOperand(1)->getType()->isPointerTy()) {
-    return EmitPutS(CI->getArgOperand(1), B, TLI);
+    return emitPutS(CI->getArgOperand(1), B, TLI);
   }
   return nullptr;
 }
@@ -1881,7 +1877,7 @@ Value *LibCallSimplifier::optimizeSPrintFString(CallInst *CI, IRBuilder<> &B) {
     if (!CI->getArgOperand(2)->getType()->isIntegerTy())
       return nullptr;
     Value *V = B.CreateTrunc(CI->getArgOperand(2), B.getInt8Ty(), "char");
-    Value *Ptr = CastToCStr(CI->getArgOperand(0), B);
+    Value *Ptr = castToCStr(CI->getArgOperand(0), B);
     B.CreateStore(V, Ptr);
     Ptr = B.CreateGEP(B.getInt8Ty(), Ptr, B.getInt32(1), "nul");
     B.CreateStore(B.getInt8(0), Ptr);
@@ -1894,7 +1890,7 @@ Value *LibCallSimplifier::optimizeSPrintFString(CallInst *CI, IRBuilder<> &B) {
     if (!CI->getArgOperand(2)->getType()->isPointerTy())
       return nullptr;
 
-    Value *Len = EmitStrLen(CI->getArgOperand(2), B, DL, TLI);
+    Value *Len = emitStrLen(CI->getArgOperand(2), B, DL, TLI);
     if (!Len)
       return nullptr;
     Value *IncLen =
@@ -1954,7 +1950,7 @@ Value *LibCallSimplifier::optimizeFPrintFString(CallInst *CI, IRBuilder<> &B) {
       if (FormatStr[i] == '%') // Could handle %% -> % if we cared.
         return nullptr;        // We found a format specifier.
 
-    return EmitFWrite(
+    return emitFWrite(
         CI->getArgOperand(1),
         ConstantInt::get(DL.getIntPtrType(CI->getContext()), FormatStr.size()),
         CI->getArgOperand(0), B, DL, TLI);
@@ -1971,14 +1967,14 @@ Value *LibCallSimplifier::optimizeFPrintFString(CallInst *CI, IRBuilder<> &B) {
     // fprintf(F, "%c", chr) --> fputc(chr, F)
     if (!CI->getArgOperand(2)->getType()->isIntegerTy())
       return nullptr;
-    return EmitFPutC(CI->getArgOperand(2), CI->getArgOperand(0), B, TLI);
+    return emitFPutC(CI->getArgOperand(2), CI->getArgOperand(0), B, TLI);
   }
 
   if (FormatStr[1] == 's') {
     // fprintf(F, "%s", str) --> fputs(str, F)
     if (!CI->getArgOperand(2)->getType()->isPointerTy())
       return nullptr;
-    return EmitFPutS(CI->getArgOperand(2), CI->getArgOperand(0), B, TLI);
+    return emitFPutS(CI->getArgOperand(2), CI->getArgOperand(0), B, TLI);
   }
   return nullptr;
 }
@@ -2037,8 +2033,8 @@ Value *LibCallSimplifier::optimizeFWrite(CallInst *CI, IRBuilder<> &B) {
   // If this is writing one byte, turn it into fputc.
   // This optimisation is only valid, if the return value is unused.
   if (Bytes == 1 && CI->use_empty()) { // fwrite(S,1,1,F) -> fputc(S[0],F)
-    Value *Char = B.CreateLoad(CastToCStr(CI->getArgOperand(0), B), "char");
-    Value *NewCI = EmitFPutC(Char, CI->getArgOperand(3), B, TLI);
+    Value *Char = B.CreateLoad(castToCStr(CI->getArgOperand(0), B), "char");
+    Value *NewCI = emitFPutC(Char, CI->getArgOperand(3), B, TLI);
     return NewCI ? ConstantInt::get(CI->getType(), 1) : nullptr;
   }
 
@@ -2062,7 +2058,7 @@ Value *LibCallSimplifier::optimizeFPuts(CallInst *CI, IRBuilder<> &B) {
     return nullptr;
 
   // Known to have no uses (see above).
-  return EmitFWrite(
+  return emitFWrite(
       CI->getArgOperand(0),
       ConstantInt::get(DL.getIntPtrType(CI->getContext()), Len - 1),
       CI->getArgOperand(1), B, DL, TLI);
@@ -2083,7 +2079,7 @@ Value *LibCallSimplifier::optimizePuts(CallInst *CI, IRBuilder<> &B) {
 
   if (Str.empty() && CI->use_empty()) {
     // puts("") -> putchar('\n')
-    Value *Res = EmitPutChar(B.getInt32('\n'), B, TLI);
+    Value *Res = emitPutChar(B.getInt32('\n'), B, TLI);
     if (CI->use_empty() || !Res)
       return Res;
     return B.CreateIntCast(Res, CI->getType(), true);
@@ -2174,20 +2170,16 @@ Value *LibCallSimplifier::optimizeCall(CallInst *CI) {
   LibFunc::Func Func;
   Function *Callee = CI->getCalledFunction();
   StringRef FuncName = Callee->getName();
-#if INTEL_CUSTOMIZATION
-  // Cherry picking r256912
+
   SmallVector<OperandBundleDef, 2> OpBundles;
   CI->getOperandBundlesAsDefs(OpBundles);
   IRBuilder<> Builder(CI, /*FPMathTag=*/nullptr, OpBundles);
-#else // !INTEL_CUSTOMIZATION
-  IRBuilder<> Builder(CI);
-#endif
   bool isCallingConvC = CI->getCallingConv() == llvm::CallingConv::C;
 
-  // Command-line parameter overrides function attribute.
+  // Command-line parameter overrides instruction attribute.
   if (EnableUnsafeFPShrink.getNumOccurrences() > 0)
     UnsafeFPShrink = EnableUnsafeFPShrink;
-  else if (canUseUnsafeFPMath(Callee))
+  else if (isa<FPMathOperator>(CI) && CI->hasUnsafeAlgebra())
     UnsafeFPShrink = true;
 
   // First, check for intrinsics.
@@ -2491,7 +2483,7 @@ Value *FortifiedLibCallSimplifier::optimizeStrpCpyChk(CallInst *CI,
 
   // __stpcpy_chk(x,x,...)  -> x+strlen(x)
   if (Func == LibFunc::stpcpy_chk && !OnlyLowerUnknownSize && Dst == Src) {
-    Value *StrLen = EmitStrLen(Src, B, DL, TLI);
+    Value *StrLen = emitStrLen(Src, B, DL, TLI);
     return StrLen ? B.CreateInBoundsGEP(B.getInt8Ty(), Dst, StrLen) : nullptr;
   }
 
@@ -2501,7 +2493,7 @@ Value *FortifiedLibCallSimplifier::optimizeStrpCpyChk(CallInst *CI,
   // TODO: It might be nice to get a maximum length out of the possible
   // string lengths for varying.
   if (isFortifiedCallFoldable(CI, 2, 1, true))
-    return EmitStrCpy(Dst, Src, B, TLI, Name.substr(2, 6));
+    return emitStrCpy(Dst, Src, B, TLI, Name.substr(2, 6));
 
   if (OnlyLowerUnknownSize)
     return nullptr;
@@ -2513,7 +2505,7 @@ Value *FortifiedLibCallSimplifier::optimizeStrpCpyChk(CallInst *CI,
 
   Type *SizeTTy = DL.getIntPtrType(CI->getContext());
   Value *LenV = ConstantInt::get(SizeTTy, Len);
-  Value *Ret = EmitMemCpyChk(Dst, Src, LenV, ObjSize, B, DL, TLI);
+  Value *Ret = emitMemCpyChk(Dst, Src, LenV, ObjSize, B, DL, TLI);
   // If the function was an __stpcpy_chk, and we were able to fold it into
   // a __memcpy_chk, we still need to return the correct end pointer.
   if (Ret && Func == LibFunc::stpcpy_chk)
@@ -2530,7 +2522,7 @@ Value *FortifiedLibCallSimplifier::optimizeStrpNCpyChk(CallInst *CI,
   if (!checkStringCopyLibFuncSignature(Callee, Func))
     return nullptr;
   if (isFortifiedCallFoldable(CI, 3, 2, false)) {
-    Value *Ret = EmitStrNCpy(CI->getArgOperand(0), CI->getArgOperand(1),
+    Value *Ret = emitStrNCpy(CI->getArgOperand(0), CI->getArgOperand(1),
                              CI->getArgOperand(2), B, TLI, Name.substr(2, 7));
     return Ret;
   }
@@ -2554,14 +2546,10 @@ Value *FortifiedLibCallSimplifier::optimizeCall(CallInst *CI) {
   LibFunc::Func Func;
   Function *Callee = CI->getCalledFunction();
   StringRef FuncName = Callee->getName();
-#if INTEL_CUSTOMIZATION
-  // Cherry picking r256912
+
   SmallVector<OperandBundleDef, 2> OpBundles;
   CI->getOperandBundlesAsDefs(OpBundles);
   IRBuilder<> Builder(CI, /*FPMathTag=*/nullptr, OpBundles);
-#else // !INTEL_CUSTOMIZATION
-  IRBuilder<> Builder(CI);
-#endif
   bool isCallingConvC = CI->getCallingConv() == llvm::CallingConv::C;
 
   // First, check that this is a known library functions.
