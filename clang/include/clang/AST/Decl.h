@@ -1954,6 +1954,7 @@ public:
   unsigned getMinRequiredArguments() const;
 
   QualType getReturnType() const {
+    assert(getType()->getAs<FunctionType>() && "Expected a FunctionType!");
     return getType()->getAs<FunctionType>()->getReturnType();
   }
 
@@ -1964,6 +1965,7 @@ public:
 
   /// \brief Determine the type of an expression that calls this function.
   QualType getCallResultType() const {
+    assert(getType()->getAs<FunctionType>() && "Expected a FunctionType!");
     return getType()->getAs<FunctionType>()->getCallResultType(getASTContext());
   }
 
@@ -2440,10 +2442,9 @@ class IndirectFieldDecl : public ValueDecl,
   NamedDecl **Chaining;
   unsigned ChainingSize;
 
-  IndirectFieldDecl(DeclContext *DC, SourceLocation L,
+  IndirectFieldDecl(ASTContext &C, DeclContext *DC, SourceLocation L,
                     DeclarationName N, QualType T,
-                    NamedDecl **CH, unsigned CHS)
-    : ValueDecl(IndirectField, DC, L, N, T), Chaining(CH), ChainingSize(CHS) {}
+                    NamedDecl **CH, unsigned CHS);
 
 public:
   static IndirectFieldDecl *Create(ASTContext &C, DeclContext *DC,

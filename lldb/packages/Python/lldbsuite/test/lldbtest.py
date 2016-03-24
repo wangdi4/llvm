@@ -593,6 +593,8 @@ def not_remote_testsuite_ready(func):
 
 def expectedFailure(expected_fn, bugnumber=None):
     def expectedFailure_impl(func):
+        if isinstance(func, type) and issubclass(func, unittest2.TestCase):
+            raise Exception("Decorator can only be used to decorate a test method")
         @wraps(func)
         def wrapper(*args, **kwargs):
             from unittest2 import case
@@ -696,10 +698,11 @@ def expectedFailurei386(bugnumber=None):
 def expectedFailurex86_64(bugnumber=None):
     return expectedFailureArch('x86_64', bugnumber)
 
-def expectedFailureOS(oslist, bugnumber=None, compilers=None, debug_info=None):
+def expectedFailureOS(oslist, bugnumber=None, compilers=None, debug_info=None, archs=None):
     def fn(self):
         return (self.getPlatform() in oslist and
                 self.expectedCompiler(compilers) and
+                (archs is None or self.getArchitecture() in archs) and
                 (debug_info is None or self.debug_info in debug_info))
     return expectedFailure(fn, bugnumber)
 
@@ -716,8 +719,8 @@ def expectedFailureDarwin(bugnumber=None, compilers=None, debug_info=None):
 def expectedFailureFreeBSD(bugnumber=None, compilers=None, debug_info=None):
     return expectedFailureOS(['freebsd'], bugnumber, compilers, debug_info=debug_info)
 
-def expectedFailureLinux(bugnumber=None, compilers=None, debug_info=None):
-    return expectedFailureOS(['linux'], bugnumber, compilers, debug_info=debug_info)
+def expectedFailureLinux(bugnumber=None, compilers=None, debug_info=None, archs=None):
+    return expectedFailureOS(['linux'], bugnumber, compilers, debug_info=debug_info, archs=archs)
 
 def expectedFailureNetBSD(bugnumber=None, compilers=None, debug_info=None):
     return expectedFailureOS(['netbsd'], bugnumber, compilers, debug_info=debug_info)
@@ -1052,24 +1055,6 @@ def skipUnlessPlatform(oslist):
     """Decorate the item to skip tests unless running on one of the listed platforms."""
     return unittest2.skipUnless(getPlatform() in oslist,
                                 "requires on of %s" % (", ".join(oslist)))
-
-def skipIfLinuxClang(func):
-    """Decorate the item to skip tests that should be skipped if building on 
-       Linux with clang.
-    """
-    if isinstance(func, type) and issubclass(func, unittest2.TestCase):
-        raise Exception("@skipIfLinuxClang can only be used to decorate a test method")
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        from unittest2 import case
-        self = args[0]
-        compiler = self.getCompiler()
-        platform = self.getPlatform()
-        if "clang" in compiler and platform == "linux":
-            self.skipTest("skipping because Clang is used on Linux")
-        else:
-            func(*args, **kwargs)
-    return wrapper
 
 # provide a function to skip on defined oslist, compiler version, and archs
 # if none is specified for any argument, that argument won't be checked and thus means for all
@@ -1646,7 +1631,7 @@ class Base(unittest2.TestCase):
                 print("Executing tearDown hook:", getsource_if_available(hook), file=sbuf)
             import inspect
             hook_argc = len(inspect.getargspec(hook).args)
-            if hook_argc == 0 or getattr(hook,'im_self',None):
+            if hook_argc == 0 or (getattr(hook,'im_self',None) is not None) or (hasattr(hook, '__self__')):
                 hook()
             elif hook_argc == 1:
                 hook(self)

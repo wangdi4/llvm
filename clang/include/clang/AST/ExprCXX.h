@@ -66,8 +66,7 @@ public:
   CXXOperatorCallExpr(ASTContext& C, OverloadedOperatorKind Op, Expr *fn,
                       ArrayRef<Expr*> args, QualType t, ExprValueKind VK,
                       SourceLocation operatorloc, bool fpContractable)
-    : CallExpr(C, CXXOperatorCallExprClass, fn, 0, args, t, VK,
-               operatorloc),
+    : CallExpr(C, CXXOperatorCallExprClass, fn, args, t, VK, operatorloc),
       Operator(Op), FPContractable(fpContractable) {
     Range = getSourceRangeImpl();
   }
@@ -125,7 +124,7 @@ class CXXMemberCallExpr : public CallExpr {
 public:
   CXXMemberCallExpr(ASTContext &C, Expr *fn, ArrayRef<Expr*> args,
                     QualType t, ExprValueKind VK, SourceLocation RP)
-    : CallExpr(C, CXXMemberCallExprClass, fn, 0, args, t, VK, RP) {}
+    : CallExpr(C, CXXMemberCallExprClass, fn, args, t, VK, RP) {}
 
   CXXMemberCallExpr(ASTContext &C, EmptyShell Empty)
     : CallExpr(C, CXXMemberCallExprClass, Empty) { }
@@ -160,9 +159,7 @@ public:
   CUDAKernelCallExpr(ASTContext &C, Expr *fn, CallExpr *Config,
                      ArrayRef<Expr*> args, QualType t, ExprValueKind VK,
                      SourceLocation RP)
-    : CallExpr(C, CUDAKernelCallExprClass, fn, END_PREARG, args, t, VK, RP) {
-    setConfig(Config);
-  }
+      : CallExpr(C, CUDAKernelCallExprClass, fn, Config, args, t, VK, RP) {}
 
   CUDAKernelCallExpr(ASTContext &C, EmptyShell Empty)
     : CallExpr(C, CUDAKernelCallExprClass, END_PREARG, Empty) { }
@@ -171,7 +168,20 @@ public:
     return cast_or_null<CallExpr>(getPreArg(CONFIG));
   }
   CallExpr *getConfig() { return cast_or_null<CallExpr>(getPreArg(CONFIG)); }
-  void setConfig(CallExpr *E) { setPreArg(CONFIG, E); }
+
+  /// \brief Sets the kernel configuration expression.
+  ///
+  /// Note that this method cannot be called if config has already been set to a
+  /// non-null value.
+  void setConfig(CallExpr *E) {
+    assert(!getConfig() &&
+           "Cannot call setConfig if config is not null");
+    setPreArg(CONFIG, E);
+    setInstantiationDependent(isInstantiationDependent() ||
+                              E->isInstantiationDependent());
+    setContainsUnexpandedParameterPack(containsUnexpandedParameterPack() ||
+                                       E->containsUnexpandedParameterPack());
+  }
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == CUDAKernelCallExprClass;
@@ -398,7 +408,7 @@ public:
   UserDefinedLiteral(const ASTContext &C, Expr *Fn, ArrayRef<Expr*> Args,
                      QualType T, ExprValueKind VK, SourceLocation LitEndLoc,
                      SourceLocation SuffixLoc)
-    : CallExpr(C, UserDefinedLiteralClass, Fn, 0, Args, T, VK, LitEndLoc),
+    : CallExpr(C, UserDefinedLiteralClass, Fn, Args, T, VK, LitEndLoc),
       UDSuffixLoc(SuffixLoc) {}
   explicit UserDefinedLiteral(const ASTContext &C, EmptyShell Empty)
     : CallExpr(C, UserDefinedLiteralClass, Empty) {}
@@ -951,15 +961,9 @@ public:
 /// This wraps up a function call argument that was created from the
 /// corresponding parameter's default argument, when the call did not
 /// explicitly supply arguments for all of the parameters.
-class CXXDefaultArgExpr final
-    : public Expr,
-      private llvm::TrailingObjects<CXXDefaultArgExpr, Expr *> {
+class CXXDefaultArgExpr final : public Expr {
   /// \brief The parameter whose default is being used.
-  ///
-  /// When the bit is set, the subexpression is stored after the
-  /// CXXDefaultArgExpr itself. When the bit is clear, the parameter's
-  /// actual default expression is the subexpression.
-  llvm::PointerIntPair<ParmVarDecl *, 1, bool> Param;
+  ParmVarDecl *Param;
 
   /// \brief The location where the default argument expression was used.
   SourceLocation Loc;
@@ -971,16 +975,7 @@ class CXXDefaultArgExpr final
              : param->getDefaultArg()->getType(),
            param->getDefaultArg()->getValueKind(),
            param->getDefaultArg()->getObjectKind(), false, false, false, false),
-      Param(param, false), Loc(Loc) { }
-
-  CXXDefaultArgExpr(StmtClass SC, SourceLocation Loc, ParmVarDecl *param,
-                    Expr *SubExpr)
-    : Expr(SC, SubExpr->getType(),
-           SubExpr->getValueKind(), SubExpr->getObjectKind(),
-           false, false, false, false),
-      Param(param, true), Loc(Loc) {
-    *getTrailingObjects<Expr *>() = SubExpr;
-  }
+      Param(param), Loc(Loc) { }
 
 public:
   CXXDefaultArgExpr(EmptyShell Empty) : Expr(CXXDefaultArgExprClass, Empty) {}
@@ -992,24 +987,15 @@ public:
     return new (C) CXXDefaultArgExpr(CXXDefaultArgExprClass, Loc, Param);
   }
 
-  // \p Param is the parameter whose default argument is used by this
-  // expression, and \p SubExpr is the expression that will actually be used.
-  static CXXDefaultArgExpr *Create(const ASTContext &C, SourceLocation Loc,
-                                   ParmVarDecl *Param, Expr *SubExpr);
-
   // Retrieve the parameter that the argument was created from.
-  const ParmVarDecl *getParam() const { return Param.getPointer(); }
-  ParmVarDecl *getParam() { return Param.getPointer(); }
+  const ParmVarDecl *getParam() const { return Param; }
+  ParmVarDecl *getParam() { return Param; }
 
   // Retrieve the actual argument to the function call.
   const Expr *getExpr() const {
-    if (Param.getInt())
-      return *getTrailingObjects<Expr *>();
     return getParam()->getDefaultArg();
   }
   Expr *getExpr() {
-    if (Param.getInt())
-      return *getTrailingObjects<Expr *>();
     return getParam()->getDefaultArg();
   }
 
@@ -1033,7 +1019,6 @@ public:
     return child_range(child_iterator(), child_iterator());
   }
 
-  friend TrailingObjects;
   friend class ASTStmtReader;
   friend class ASTStmtWriter;
 };

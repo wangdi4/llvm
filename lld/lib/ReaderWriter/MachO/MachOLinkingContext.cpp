@@ -35,6 +35,7 @@
 #endif
 
 using lld::mach_o::ArchHandler;
+using lld::mach_o::MachOFile;
 using lld::mach_o::MachODylibFile;
 using namespace llvm::MachO;
 
@@ -144,10 +145,10 @@ MachOLinkingContext::MachOLinkingContext()
       _doNothing(false), _pie(false), _arch(arch_unknown), _os(OS::macOSX),
       _osMinVersion(0), _pageZeroSize(0), _pageSize(4096), _baseAddress(0),
       _stackSize(0), _compatibilityVersion(0), _currentVersion(0),
-      _flatNamespace(false), _undefinedMode(UndefinedMode::error),
-      _deadStrippableDylib(false), _printAtoms(false), _testingFileUsage(false),
-      _keepPrivateExterns(false), _demangle(false), _archHandler(nullptr),
-      _exportMode(ExportMode::globals),
+      _objcConstraint(objc_unknown), _swiftVersion(0), _flatNamespace(false),
+      _undefinedMode(UndefinedMode::error), _deadStrippableDylib(false),
+      _printAtoms(false), _testingFileUsage(false), _keepPrivateExterns(false),
+      _demangle(false), _archHandler(nullptr), _exportMode(ExportMode::globals),
       _debugInfoMode(DebugInfoMode::addDebugMap), _orderFileEntries(0),
       _flatNamespaceFile(nullptr) {}
 
@@ -323,6 +324,11 @@ bool MachOLinkingContext::needsCompactUnwindPass() const {
   default:
     return false;
   }
+}
+
+bool MachOLinkingContext::needsObjCPass() const {
+  // ObjC pass is only needed if any of the inputs were ObjC.
+  return _objcConstraint != objc_unknown;
 }
 
 bool MachOLinkingContext::needsShimPass() const {
@@ -589,6 +595,10 @@ bool MachOLinkingContext::validateImpl(raw_ostream &diagnostics) {
 }
 
 void MachOLinkingContext::addPasses(PassManager &pm) {
+  // objc pass should be before layout pass.  Otherwise test cases may contain
+  // no atoms which confuses the layout pass.
+  if (needsObjCPass())
+    mach_o::addObjCPass(pm, *this);
   mach_o::addLayoutPass(pm, *this);
   if (needsStubsPass())
     mach_o::addStubsPass(pm, *this);
@@ -988,6 +998,79 @@ void MachOLinkingContext::finalizeInputFiles() {
                    });
   size_t numLibs = std::count_if(elements.begin(), elements.end(), isLibrary);
   elements.push_back(llvm::make_unique<GroupEnd>(numLibs));
+}
+
+std::error_code MachOLinkingContext::handleLoadedFile(File &file) {
+  auto *machoFile = dyn_cast<MachOFile>(&file);
+  if (!machoFile)
+    return std::error_code();
+
+  // Check that the arch of the context matches that of the file.
+  // Also set the arch of the context if it didn't have one.
+  if (_arch == arch_unknown) {
+    _arch = machoFile->arch();
+  } else if (machoFile->arch() != arch_unknown && machoFile->arch() != _arch) {
+    // Archs are different.
+    return make_dynamic_error_code(file.path() +
+                  Twine(" cannot be linked due to incompatible architecture"));
+  }
+
+  // Check that the OS of the context matches that of the file.
+  // Also set the OS of the context if it didn't have one.
+  if (_os == OS::unknown) {
+    _os = machoFile->OS();
+  } else if (machoFile->OS() != OS::unknown && machoFile->OS() != _os) {
+    // OSes are different.
+    return make_dynamic_error_code(file.path() +
+              Twine(" cannot be linked due to incompatible operating systems"));
+  }
+
+  // Check that if the objc info exists, that it is compatible with the target
+  // OS.
+  switch (machoFile->objcConstraint()) {
+    case objc_unknown:
+      // The file is not compiled with objc, so skip the checks.
+      break;
+    case objc_gc_only:
+    case objc_supports_gc:
+      llvm_unreachable("GC support should already have thrown an error");
+    case objc_retainReleaseForSimulator:
+      // The file is built with simulator objc, so make sure that the context
+      // is also building with simulator support.
+      if (_os != OS::iOS_simulator)
+        return make_dynamic_error_code(file.path() +
+          Twine(" cannot be linked.  It contains ObjC built for the simulator"
+                " while we are linking a non-simulator target"));
+      assert((_objcConstraint == objc_unknown ||
+              _objcConstraint == objc_retainReleaseForSimulator) &&
+             "Must be linking with retain/release for the simulator");
+      _objcConstraint = objc_retainReleaseForSimulator;
+      break;
+    case objc_retainRelease:
+      // The file is built without simulator objc, so make sure that the
+      // context is also building without simulator support.
+      if (_os == OS::iOS_simulator)
+        return make_dynamic_error_code(file.path() +
+          Twine(" cannot be linked.  It contains ObjC built for a non-simulator"
+                " target while we are linking a simulator target"));
+      assert((_objcConstraint == objc_unknown ||
+              _objcConstraint == objc_retainRelease) &&
+             "Must be linking with retain/release for a non-simulator target");
+      _objcConstraint = objc_retainRelease;
+      break;
+  }
+
+  // Check that the swift version of the context matches that of the file.
+  // Also set the swift version of the context if it didn't have one.
+  if (!_swiftVersion) {
+    _swiftVersion = machoFile->swiftVersion();
+  } else if (machoFile->swiftVersion() &&
+             machoFile->swiftVersion() != _swiftVersion) {
+    // Swift versions are different.
+    return make_dynamic_error_code("different swift versions");
+  }
+
+  return std::error_code();
 }
 
 } // end namespace lld
