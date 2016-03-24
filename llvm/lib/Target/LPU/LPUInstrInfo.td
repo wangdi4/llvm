@@ -279,12 +279,12 @@ multiclass CmpOpC<string opStr, PatFrag opNode, RegisterClass RC,
       (outs I1:$dst),
       (ins RC:$op1, RC:$op2),
       !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set I1:$dst, (opNode RC:$op1, RC:$op2))]>;
+      [(set I1:$dst, (opNode opType:$op1, opType:$op2))]>;
     def i : FMTGEN<
       (outs I1:$dst),
       (ins RC:$op1, Operand<opType>:$imm),
       !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set I1:$dst, (opNode RC:$op1, (opType imm:$imm)))]>;
+      [(set I1:$dst, (opNode opType:$op1, (opType imm:$imm)))]>;
   }
 }
 
@@ -295,17 +295,17 @@ multiclass CmpOpNC<string opStr, PatFrag opNode, RegisterClass RC,
       (outs I1:$dst),
       (ins RC:$op1, RC:$op2),
       !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set I1:$dst, (opNode RC:$op1, RC:$op2))]>;
+      [(set I1:$dst, (opNode opType:$op1, opType:$op2))]>;
     def i : FMTGEN<
       (outs I1:$dst),
       (ins RC:$op1, Operand<opType>:$imm),
       !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set I1:$dst, (opNode RC:$op1, (opType imm:$imm)))]>;
+      [(set I1:$dst, (opNode opType:$op1, (opType imm:$imm)))]>;
     def i1 : FMTGEN<
       (outs I1:$dst),
       (ins Operand<opType>:$imm, RC:$op2),
       !strconcat(opStr, "\t$dst, $imm, $op2"),
-      [(set I1:$dst, (opNode (opType imm:$imm), RC:$op2))]>;
+      [(set I1:$dst, (opNode (opType imm:$imm), opType:$op2))]>;
   }
 }
 
@@ -318,32 +318,32 @@ multiclass FCmpOp<string opStr, PatFrag opNodeOrd, PatFrag opNodeUnord,
       (outs I1:$dst),
       (ins RC:$op1, RC:$op2),
       !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set i1:$dst, (opNodeOrd RC:$op1, RC:$op2))]>;
+      [(set i1:$dst, (opNodeOrd opType:$op1, opType:$op2))]>;
     def u : FMTGEN<
       (outs I1:$dst),
       (ins RC:$op1, RC:$op2),
       !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set i1:$dst, (opNodeUnord RC:$op1, RC:$op2))]>;
+      [(set i1:$dst, (opNodeUnord opType:$op1, opType:$op2))]>;
     def i : FMTGEN<
       (outs I1:$dst),
       (ins RC:$op1, Operand<opType>:$imm),
       !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set i1:$dst, (opNodeOrd RC:$op1, (opType fpimm:$imm)))]>;
+      [(set i1:$dst, (opNodeOrd opType:$op1, (opType fpimm:$imm)))]>;
     def ui : FMTGEN<
       (outs I1:$dst),
       (ins RC:$op1, Operand<opType>:$imm),
       !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set i1:$dst, (opNodeUnord RC:$op1, (opType fpimm:$imm)))]>;
+      [(set i1:$dst, (opNodeUnord opType:$op1, (opType fpimm:$imm)))]>;
   }
 }
 
-multiclass LdOp<string opStr, RegisterClass RC> {
+multiclass LdOp<string opStr, RegisterClass RC, ValueType opType> {
   let Predicates = [HasIndex] in {
     def X : FMTGEN< // indexed reg+reg
       (outs RC:$dst),
       (ins ADDR_RX:$addr),
       !strconcat(opStr, "x\t$dst, $addr"),
-      [(set RC:$dst, (load ADDR_RX:$addr))]>;
+      [(set opType:$dst, (load ADDR_RX:$addr))]>;
   }
 
   let Predicates = [HasDispl] in {
@@ -351,40 +351,41 @@ multiclass LdOp<string opStr, RegisterClass RC> {
       (outs RC:$dst),
       (ins ADDR_RI:$addr),
       !strconcat(opStr, "d\t$dst, $addr"),
-      [(set RC:$dst, (load ADDR_RI:$addr))]>;
+      [(set opType:$dst, (load ADDR_RI:$addr))]>;
     def R : FMTGEN< // non-indexed reg+reg
       (outs RC:$dst),
       (ins ADDR_RR:$addr),
       !strconcat(opStr, "d\t$dst, $addr"),
-      [(set RC:$dst, (load ADDR_RR:$addr))]>;
+      [(set opType:$dst, (load ADDR_RR:$addr))]>;
   }
 
   def I : FMTGEN<  // e.g. ld of literal address - ld rx,sym
     (outs RC:$dst),
     (ins ADDR_I:$addr),
     !strconcat(opStr, "\t$dst, $addr"),
-    [(set RC:$dst, (load ADDR_I:$addr))]>;
+    [(set opType:$dst, (load ADDR_I:$addr))]>;
   def "" : FMTGEN< // normal basereg form
     (outs RC:$dst),
     (ins ADDR_R:$addr),
     !strconcat(opStr, "\t$dst, $addr"),
-    [(set RC:$dst, (load ADDR_R:$addr))]>;
+    [(set opType:$dst, (load ADDR_R:$addr))]>;
 }
 
 // Ugly combinatorial issue between literal store data and addressing modes
 // TODO: How to handle store output flag?
-multiclass StOp<string opStr, RegisterClass RC, ValueType opType> {
+multiclass StOp<string opStr, RegisterClass RC, ValueType opType,
+           SDNode immNode> {
   let Predicates = [HasIndex] in {
     def Xi : FMTGEN<
       (outs),
       (ins ADDR_RX:$addr, Operand<opType>:$data),
       !strconcat(opStr, "x\t%ign, $addr, $data"),
-      [(store (opType imm:$data), ADDR_RX:$addr)]>;
+      [(store (opType immNode:$data), ADDR_RX:$addr)]>;
     def X : FMTGEN<
       (outs),
       (ins ADDR_RX:$addr, RC:$data),
       !strconcat(opStr, "x\t%ign, $addr, $data"),
-      [(store RC:$data, ADDR_RX:$addr)]>;
+      [(store opType:$data, ADDR_RX:$addr)]>;
   }
 
   let Predicates = [HasDispl] in {
@@ -392,61 +393,34 @@ multiclass StOp<string opStr, RegisterClass RC, ValueType opType> {
       (outs),
       (ins ADDR_RI:$addr, Operand<opType>:$data),
       !strconcat(opStr, "d\t%ign, $addr, $data"),
-      [(store (opType imm:$data), ADDR_RI:$addr)]>;
+      [(store (opType immNode:$data), ADDR_RI:$addr)]>;
     def D : FMTGEN<
       (outs),
       (ins ADDR_RI:$addr, RC:$data),
       !strconcat(opStr, "d\t%ign, $addr, $data"),
-      [(store RC:$data, ADDR_RI:$addr)]>;
+      [(store opType:$data, ADDR_RI:$addr)]>;
     def Ri : FMTGEN<
       (outs),
       (ins ADDR_RR:$addr, Operand<opType>:$data),
       !strconcat(opStr, "d\t%ign, $addr, $data"),
-      [(store (opType imm:$data), ADDR_RR:$addr)]>;
+      [(store (opType immNode:$data), ADDR_RR:$addr)]>;
     def R : FMTGEN<
       (outs),
       (ins ADDR_RR:$addr, RC:$data),
       !strconcat(opStr, "d\t%ign, $addr, $data"),
-      [(store RC:$data, ADDR_RR:$addr)]>;
+      [(store opType:$data, ADDR_RR:$addr)]>;
   }
 
   def i : FMTGEN<
     (outs),
     (ins ADDR_R:$addr, Operand<opType>:$data),
     !strconcat(opStr, "\t%ign, $addr, $data"),
-    [(store (opType imm:$data), ADDR_R:$addr)]>;
+    [(store (opType immNode:$data), ADDR_R:$addr)]>;
   def "" : FMTGEN<
     (outs),
     (ins ADDR_R:$addr, RC:$data),
     !strconcat(opStr, "\t%ign, $addr, $data"),
-    [(store RC:$data, ADDR_R:$addr)]>;
-}
-
-multiclass FStOp<string opStr, RegisterClass RC, ValueType opType> {
-  let Predicates = [HasIndex] in {
-    def X : FMTGEN<
-      (outs),
-      (ins ADDR_RX:$addr, RC:$data),
-      !strconcat(opStr, "x\t%ign, $addr, $data"),
-      [(store RC:$data, ADDR_RX:$addr)]>;
-  }
-  let Predicates = [HasDispl] in {
-    def D : FMTGEN<
-      (outs),
-      (ins ADDR_RI:$addr, RC:$data),
-      !strconcat(opStr, "d\t%ign, $addr, $data"),
-      [(store RC:$data, ADDR_RI:$addr)]>;
-    def R : FMTGEN<
-      (outs),
-      (ins ADDR_RR:$addr, RC:$data),
-      !strconcat(opStr, "d\t%ign, $addr, $data"),
-      [(store RC:$data, ADDR_RR:$addr)]>;
-  }
-  def "" : FMTGEN<
-    (outs),
-    (ins ADDR_R:$addr, RC:$data),
-    !strconcat(opStr, "\t%ign, $addr, $data"),
-    [(store RC:$data, ADDR_R:$addr)]>;
+    [(store opType:$data, ADDR_R:$addr)]>;
 }
 
 let isBranch=1, isTerminator=1 in {
@@ -546,11 +520,8 @@ def : Pat<(LPUTailCall I64:$dst),
 defm MOV1      : MovOp<"mov1",  I1,  i1,  [HasI1]>;
 defm MOV8      : MovOp<"mov8",  I8,  i8,  [HasI8]>;
 defm MOV16     : MovOp<"mov16", I16, i16, [HasI16]>;
-defm MOV16f    : MovOp<"mov16", F16, f16, [HasF16]>;
 defm MOV32     : MovOp<"mov32", I32, i32, [HasI32]>;
-defm MOV32f    : MovOp<"mov32", F32, f32, [HasF32]>;
 defm MOV64     : MovOp<"mov64", I64, i64, [HasI64]>;
-defm MOV64f    : MovOp<"mov64", F64, f64, [HasF64]>;
 
 // GlobalAddress, ExternalSymbol
 
@@ -567,59 +538,59 @@ defm NEG8      : NegOp  <"neg8",             I8,  [HasI8]>;
 defm NEG16     : NegOp  <"neg16",            I16, [HasI16]>;
 defm NEG32     : NegOp  <"neg32",            I32, [HasI32]>;
 defm NEG64     : NegOp  <"neg64",            I64, [HasI64]>;
-defm NEGF16    : UnaryOp<"negf16",    fneg,  F16, [HasF16]>;
-defm NEGF32    : UnaryOp<"negf32",    fneg,  F32, [HasF32]>;
-defm NEGF64    : UnaryOp<"negf64",    fneg,  F64, [HasF64]>;
-defm ABSF16    : UnaryOp<"absf16",    fabs,  F16, [HasF16]>;
-defm ABSF32    : UnaryOp<"absf32",    fabs,  F32, [HasF32]>;
-defm ABSF64    : UnaryOp<"absf64",    fabs,  F64, [HasF64]>;
-defm SQRTF16   : UnaryOp<"sqrtf16",   fsqrt, F16, [HasF16,HasSqrt]>;
-defm SQRTF32   : UnaryOp<"sqrtf32",   fsqrt, F32, [HasF32,HasSqrt]>;
-defm SQRTF64   : UnaryOp<"sqrtf64",   fsqrt, F64, [HasF64,HasSqrt]>;
-defm EXP2F16   : UnaryOp<"exp2f16",   fexp2, F16, [HasF16,HasMath0]>;
-defm EXP2F32   : UnaryOp<"exp2f32",   fexp2, F32, [HasF32,HasMath0]>;
-defm EXP2F64   : UnaryOp<"exp2f64",   fexp2, F64, [HasF64,HasMath0]>;
-defm LOG2F16   : UnaryOp<"log2f16",   flog2, F16, [HasF16,HasMath0]>;
-defm LOG2F32   : UnaryOp<"log2f32",   flog2, F32, [HasF32,HasMath0]>;
-defm LOG2F64   : UnaryOp<"log2f64",   flog2, F64, [HasF64,HasMath0]>;
-defm EXPF16    : UnaryOp<"expf16",    fexp,  F16, [HasF16,HasMath0]>;
-defm EXPF32    : UnaryOp<"expf32",    fexp,  F32, [HasF32,HasMath0]>;
-defm EXPF64    : UnaryOp<"expf64",    fexp,  F64, [HasF64,HasMath0]>;
-defm LOGF16    : UnaryOp<"logf16",    flog,  F16, [HasF16,HasMath0]>;
-defm LOGF32    : UnaryOp<"logf32",    flog,  F32, [HasF32,HasMath0]>;
-defm LOGF64    : UnaryOp<"logf64",    flog,  F64, [HasF64,HasMath0]>;
-defm SINF16    : UnaryOp<"sinf16",    fsin,  F16, [HasF16,HasMath0]>;
-defm SINF32    : UnaryOp<"sinf32",    fsin,  F32, [HasF32,HasMath0]>;
-defm SINF64    : UnaryOp<"sinf64",    fsin,  F64, [HasF64,HasMath0]>;
-defm COSF16    : UnaryOp<"cosf16",    fcos,  F16, [HasF16,HasMath0]>;
-defm COSF32    : UnaryOp<"cosf32",    fcos,  F32, [HasF32,HasMath0]>;
-defm COSF64    : UnaryOp<"cosf64",    fcos,  F64, [HasF64,HasMath0]>;
-//defm SINCOSF16 : UnaryOp<"sincosf16", fsincos, F16, [HasF16,HasMath0]>;
-//defm SINCOSF32 : UnaryOp<"sincosf32", fsincos, F32, [HasF32,HasMath0]>;
-//defm SINCOSF64 : UnaryOp<"sincosf64", fsincos, F64, [HasF64,HasMath0]>;
+defm NEGF16    : UnaryOp<"negf16",    fneg,  I16, [HasF16]>;
+defm NEGF32    : UnaryOp<"negf32",    fneg,  I32, [HasF32]>;
+defm NEGF64    : UnaryOp<"negf64",    fneg,  I64, [HasF64]>;
+defm ABSF16    : UnaryOp<"absf16",    fabs,  I16, [HasF16]>;
+defm ABSF32    : UnaryOp<"absf32",    fabs,  I32, [HasF32]>;
+defm ABSF64    : UnaryOp<"absf64",    fabs,  I64, [HasF64]>;
+defm SQRTF16   : UnaryOp<"sqrtf16",   fsqrt, I16, [HasF16,HasSqrt]>;
+defm SQRTF32   : UnaryOp<"sqrtf32",   fsqrt, I32, [HasF32,HasSqrt]>;
+defm SQRTF64   : UnaryOp<"sqrtf64",   fsqrt, I64, [HasF64,HasSqrt]>;
+defm EXP2F16   : UnaryOp<"exp2f16",   fexp2, I16, [HasF16,HasMath0]>;
+defm EXP2F32   : UnaryOp<"exp2f32",   fexp2, I32, [HasF32,HasMath0]>;
+defm EXP2F64   : UnaryOp<"exp2f64",   fexp2, I64, [HasF64,HasMath0]>;
+defm LOG2F16   : UnaryOp<"log2f16",   flog2, I16, [HasF16,HasMath0]>;
+defm LOG2F32   : UnaryOp<"log2f32",   flog2, I32, [HasF32,HasMath0]>;
+defm LOG2F64   : UnaryOp<"log2f64",   flog2, I64, [HasF64,HasMath0]>;
+defm EXPF16    : UnaryOp<"expf16",    fexp,  I16, [HasF16,HasMath0]>;
+defm EXPF32    : UnaryOp<"expf32",    fexp,  I32, [HasF32,HasMath0]>;
+defm EXPF64    : UnaryOp<"expf64",    fexp,  I64, [HasF64,HasMath0]>;
+defm LOGF16    : UnaryOp<"logf16",    flog,  I16, [HasF16,HasMath0]>;
+defm LOGF32    : UnaryOp<"logf32",    flog,  I32, [HasF32,HasMath0]>;
+defm LOGF64    : UnaryOp<"logf64",    flog,  I64, [HasF64,HasMath0]>;
+defm SINF16    : UnaryOp<"sinf16",    fsin,  I16, [HasF16,HasMath0]>;
+defm SINF32    : UnaryOp<"sinf32",    fsin,  I32, [HasF32,HasMath0]>;
+defm SINF64    : UnaryOp<"sinf64",    fsin,  I64, [HasF64,HasMath0]>;
+defm COSF16    : UnaryOp<"cosf16",    fcos,  I16, [HasF16,HasMath0]>;
+defm COSF32    : UnaryOp<"cosf32",    fcos,  I32, [HasF32,HasMath0]>;
+defm COSF64    : UnaryOp<"cosf64",    fcos,  I64, [HasF64,HasMath0]>;
+//defm SINCOSF16 : UnaryOp<"sincosf16", fsincos, I16, [HasF16,HasMath0]>;
+//defm SINCOSF32 : UnaryOp<"sincosf32", fsincos, I32, [HasF32,HasMath0]>;
+//defm SINCOSF64 : UnaryOp<"sincosf64", fsincos, I64, [HasF64,HasMath0]>;
 
 // todo: int<=>float Conversions
 // first type in convert name is result, second is source type
-defm CVTS32F32 : CvtOp<"cvts32f32", fp_to_sint, I32, F32, [HasI32,HasF32]>;
-defm CVTS32F64 : CvtOp<"cvts32f64", fp_to_sint, I32, F64, [HasI32,HasF64]>;
-defm CVTU32F32 : CvtOp<"cvtu32f32", fp_to_uint, I32, F32, [HasI32,HasF32]>;
-defm CVTU32F64 : CvtOp<"cvtu32f64", fp_to_uint, I32, F64, [HasI32,HasF64]>;
-defm CVTS64F32 : CvtOp<"cvts64f32", fp_to_sint, I64, F32, [HasI64,HasF32]>;
-defm CVTS64F64 : CvtOp<"cvts64f64", fp_to_sint, I64, F64, [HasI64,HasF64]>;
-defm CVTU64F32 : CvtOp<"cvtu64f32", fp_to_uint, I64, F32, [HasI64,HasF32]>;
-defm CVTU64F64 : CvtOp<"cvtu64f64", fp_to_uint, I64, F64, [HasI64,HasF64]>;
+defm CVTS32F32 : CvtOp<"cvts32f32", fp_to_sint, I32, I32, [HasI32,HasF32]>;
+defm CVTS32F64 : CvtOp<"cvts32f64", fp_to_sint, I32, I64, [HasI32,HasF64]>;
+defm CVTU32F32 : CvtOp<"cvtu32f32", fp_to_uint, I32, I32, [HasI32,HasF32]>;
+defm CVTU32F64 : CvtOp<"cvtu32f64", fp_to_uint, I32, I64, [HasI32,HasF64]>;
+defm CVTS64F32 : CvtOp<"cvts64f32", fp_to_sint, I64, I32, [HasI64,HasF32]>;
+defm CVTS64F64 : CvtOp<"cvts64f64", fp_to_sint, I64, I64, [HasI64,HasF64]>;
+defm CVTU64F32 : CvtOp<"cvtu64f32", fp_to_uint, I64, I32, [HasI64,HasF32]>;
+defm CVTU64F64 : CvtOp<"cvtu64f64", fp_to_uint, I64, I64, [HasI64,HasF64]>;
 
-defm CVTF32S32 : CvtOp<"cvtf32s32", sint_to_fp, F32, I32, [HasF32,HasI32]>;
-defm CVTF32S64 : CvtOp<"cvtf32s64", sint_to_fp, F32, I64, [HasF32,HasI64]>;
-defm CVTF32U32 : CvtOp<"cvtf32u32", uint_to_fp, F32, I32, [HasF32,HasI32]>;
-defm CVTF32U64 : CvtOp<"cvtf32u64", uint_to_fp, F32, I64, [HasF32,HasI64]>;
-defm CVTF64S32 : CvtOp<"cvtf64s32", sint_to_fp, F64, I32, [HasF64,HasI32]>;
-defm CVTF64S64 : CvtOp<"cvtf64s64", sint_to_fp, F64, I64, [HasF64,HasI64]>;
-defm CVTF64U32 : CvtOp<"cvtf64u32", uint_to_fp, F64, I32, [HasF64,HasI32]>;
-defm CVTF64U64 : CvtOp<"cvtf64u64", uint_to_fp, F64, I64, [HasF64,HasI64]>;
+defm CVTF32S32 : CvtOp<"cvtf32s32", sint_to_fp, I32, I32, [HasF32,HasI32]>;
+defm CVTF32S64 : CvtOp<"cvtf32s64", sint_to_fp, I32, I64, [HasF32,HasI64]>;
+defm CVTF32U32 : CvtOp<"cvtf32u32", uint_to_fp, I32, I32, [HasF32,HasI32]>;
+defm CVTF32U64 : CvtOp<"cvtf32u64", uint_to_fp, I32, I64, [HasF32,HasI64]>;
+defm CVTF64S32 : CvtOp<"cvtf64s32", sint_to_fp, I64, I32, [HasF64,HasI32]>;
+defm CVTF64S64 : CvtOp<"cvtf64s64", sint_to_fp, I64, I64, [HasF64,HasI64]>;
+defm CVTF64U32 : CvtOp<"cvtf64u32", uint_to_fp, I64, I32, [HasF64,HasI32]>;
+defm CVTF64U64 : CvtOp<"cvtf64u64", uint_to_fp, I64, I64, [HasF64,HasI64]>;
 
-defm CVTF32F64 : CvtOp<"cvtf32f64", fround,   F32, F64, [HasF32,HasF64]>;
-defm CVTF64F32 : CvtOp<"cvtf64f32", fextend,  F64, F32, [HasF32,HasF64]>;
+defm CVTF32F64 : CvtOp<"cvtf32f64", fround,   I32, I64, [HasF32,HasF64]>;
+defm CVTF64F32 : CvtOp<"cvtf64f32", fextend,  I64, I32, [HasF32,HasF64]>;
 
 defm SEXT8     : SExtOp<"sext8",  I8,  I8,  [HasI8]>;
 defm SEXT16_8  : SExtOp<"sext16", I16, I8,  [HasI16]>;
@@ -670,27 +641,27 @@ defm ADD16     : BinOpC< "add16",  add,  I16, i16, imm,   [HasI16]>;
 defm ADD32     : BinOpC< "add32",  add,  I32, i32, imm,   [HasI32]>;
 defm ADD64     : BinOpC< "add64",  add,  I64, i64, imm,   [HasI64]>;
 
-defm ADDF16    : BinOpC< "addf16", fadd, F16, f16, fpimm, [HasF16]>;
-defm ADDF32    : BinOpC< "addf32", fadd, F32, f32, fpimm, [HasF32]>;
-defm ADDF64    : BinOpC< "addf64", fadd, F64, f64, fpimm, [HasF64]>;
+defm ADDF16    : BinOpC< "addf16", fadd, I16, f16, fpimm, [HasF16]>;
+defm ADDF32    : BinOpC< "addf32", fadd, I32, f32, fpimm, [HasF32]>;
+defm ADDF64    : BinOpC< "addf64", fadd, I64, f64, fpimm, [HasF64]>;
 
 defm SUB8      : BinOpNC<"sub8",   sub,  I8,  i8,  imm,   [HasI8]>;
 defm SUB16     : BinOpNC<"sub16",  sub,  I16, i16, imm,   [HasI16]>;
 defm SUB32     : BinOpNC<"sub32",  sub,  I32, i32, imm,   [HasI32]>;
 defm SUB64     : BinOpNC<"sub64",  sub,  I64, i64, imm,   [HasI64]>;
 
-defm SUBF16    : BinOpNC<"subf16", fsub, F16, f16, fpimm, [HasF16]>;
-defm SUBF32    : BinOpNC<"subf32", fsub, F32, f32, fpimm, [HasF32]>;
-defm SUBF64    : BinOpNC<"subf64", fsub, F64, f64, fpimm, [HasF64]>;
+defm SUBF16    : BinOpNC<"subf16", fsub, I16, f16, fpimm, [HasF16]>;
+defm SUBF32    : BinOpNC<"subf32", fsub, I32, f32, fpimm, [HasF32]>;
+defm SUBF64    : BinOpNC<"subf64", fsub, I64, f64, fpimm, [HasF64]>;
 
 defm MUL8      : BinOpC< "mul8",   mul,  I8,  i8,  imm,   [HasI8]>;
 defm MUL16     : BinOpC< "mul16",  mul,  I16, i16, imm,   [HasI16]>;
 defm MUL32     : BinOpC< "mul32",  mul,  I32, i32, imm,   [HasI32]>;
 defm MUL64     : BinOpC< "mul64",  mul,  I64, i64, imm,   [HasI64]>;
 
-defm MULF16    : BinOpC<"mulf16",  fmul, F16, f16, fpimm, [HasF16]>;
-defm MULF32    : BinOpC<"mulf32",  fmul, F32, f32, fpimm, [HasF32]>;
-defm MULF64    : BinOpC<"mulf64",  fmul, F64, f64, fpimm, [HasF64]>;
+defm MULF16    : BinOpC<"mulf16",  fmul, I16, f16, fpimm, [HasF16]>;
+defm MULF32    : BinOpC<"mulf32",  fmul, I32, f32, fpimm, [HasF32]>;
+defm MULF64    : BinOpC<"mulf64",  fmul, I64, f64, fpimm, [HasF64]>;
 
 defm DIVS8     : BinOpNC<"divs8",  sdiv, I8,  i8,  imm,   [HasI8,HasIDiv]>;
 defm DIVS16    : BinOpNC<"divs16", sdiv, I16, i16, imm,   [HasI16,HasIDiv]>;
@@ -702,12 +673,12 @@ defm DIVU16    : BinOpNC<"divu16", udiv, I16, i16, imm,   [HasI16,HasIDiv]>;
 defm DIVU32    : BinOpNC<"divu32", udiv, I32, i32, imm,   [HasI32,HasIDiv]>;
 defm DIVU64    : BinOpNC<"divu64", udiv, I64, i64, imm,   [HasI64,HasIDiv]>;
 
-defm DIVF16    : BinOpNC<"divf16", fdiv, F16, f16, fpimm, [HasF16,HasFDiv]>;
-defm DIVF32    : BinOpNC<"divf32", fdiv, F32, f32, fpimm, [HasF32,HasFDiv]>;
-defm DIVF64    : BinOpNC<"divf64", fdiv, F64, f64, fpimm, [HasF64,HasFDiv]>;
+defm DIVF16    : BinOpNC<"divf16", fdiv, I16, f16, fpimm, [HasF16,HasFDiv]>;
+defm DIVF32    : BinOpNC<"divf32", fdiv, I32, f32, fpimm, [HasF32,HasFDiv]>;
+defm DIVF64    : BinOpNC<"divf64", fdiv, I64, f64, fpimm, [HasF64,HasFDiv]>;
 
-defm POWF32    : BinOpNC<"powf32",   fpow,  F32, f32, fpimm, [HasF32,HasMath0]>;
-defm POWF64    : BinOpNC<"powf64",   fpow,  F64, f64, fpimm, [HasF64,HasMath0]>;
+defm POWF32    : BinOpNC<"powf32",   fpow,  I32, f32, fpimm, [HasF32,HasMath0]>;
+defm POWF64    : BinOpNC<"powf64",   fpow,  I64, f64, fpimm, [HasF64,HasMath0]>;
 
 defm CMPLTS8  : CmpOpNC<"cmplts8", setlt,  I8,  i8,  [HasI8]>;
 defm CMPLTS16 : CmpOpNC<"cmplts16",setlt,  I16, i16, [HasI16]>;
@@ -764,29 +735,29 @@ defm CMPNE16  : CmpOpC<"cmpne16",  setne,  I16, i16, [HasI16]>;
 defm CMPNE32  : CmpOpC<"cmpne32",  setne,  I32, i32, [HasI32]>;
 defm CMPNE64  : CmpOpC<"cmpne64",  setne,  I64, i64, [HasI64]>;
 
-defm CMPLTF16 : FCmpOp<"cmpltf16", setolt, setult, F16, f16, 0, [HasF16]>;
-defm CMPLTF32 : FCmpOp<"cmpltf32", setolt, setult, F32, f32, 0, [HasF32]>;
-defm CMPLTF64 : FCmpOp<"cmpltf64", setolt, setult, F64, f64, 0, [HasF64]>;
+defm CMPLTF16 : FCmpOp<"cmpltf16", setolt, setult, I16, f16, 0, [HasF16]>;
+defm CMPLTF32 : FCmpOp<"cmpltf32", setolt, setult, I32, f32, 0, [HasF32]>;
+defm CMPLTF64 : FCmpOp<"cmpltf64", setolt, setult, I64, f64, 0, [HasF64]>;
 
-defm CMPLEF16 : FCmpOp<"cmplef16", setole, setule, F16, f16, 0, [HasF16]>;
-defm CMPLEF32 : FCmpOp<"cmplef32", setole, setule, F32, f32, 0, [HasF32]>;
-defm CMPLEF64 : FCmpOp<"cmplef64", setole, setule, F64, f64, 0, [HasF64]>;
+defm CMPLEF16 : FCmpOp<"cmplef16", setole, setule, I16, f16, 0, [HasF16]>;
+defm CMPLEF32 : FCmpOp<"cmplef32", setole, setule, I32, f32, 0, [HasF32]>;
+defm CMPLEF64 : FCmpOp<"cmplef64", setole, setule, I64, f64, 0, [HasF64]>;
 
-defm CMPEQF16 : FCmpOp<"cmpeqf16", setoeq, setueq, F16, f16, 1, [HasF16]>;
-defm CMPEQF32 : FCmpOp<"cmpeqf32", setoeq, setueq, F32, f32, 1, [HasF32]>;
-defm CMPEQF64 : FCmpOp<"cmpeqf64", setoeq, setueq, F64, f64, 1, [HasF64]>;
+defm CMPEQF16 : FCmpOp<"cmpeqf16", setoeq, setueq, I16, f16, 1, [HasF16]>;
+defm CMPEQF32 : FCmpOp<"cmpeqf32", setoeq, setueq, I32, f32, 1, [HasF32]>;
+defm CMPEQF64 : FCmpOp<"cmpeqf64", setoeq, setueq, I64, f64, 1, [HasF64]>;
 
-defm CMPGTF16 : FCmpOp<"cmpgtf16", setogt, setugt, F16, f16, 0, [HasF16]>;
-defm CMPGTF32 : FCmpOp<"cmpgtf32", setogt, setugt, F32, f32, 0, [HasF32]>;
-defm CMPGTF64 : FCmpOp<"cmpgtf64", setogt, setugt, F64, f64, 0, [HasF64]>;
+defm CMPGTF16 : FCmpOp<"cmpgtf16", setogt, setugt, I16, f16, 0, [HasF16]>;
+defm CMPGTF32 : FCmpOp<"cmpgtf32", setogt, setugt, I32, f32, 0, [HasF32]>;
+defm CMPGTF64 : FCmpOp<"cmpgtf64", setogt, setugt, I64, f64, 0, [HasF64]>;
 
-defm CMPGEF16 : FCmpOp<"cmpgef16", setoge, setuge, F16, f16, 0, [HasF16]>;
-defm CMPGEF32 : FCmpOp<"cmpgef32", setoge, setuge, F32, f32, 0, [HasF32]>;
-defm CMPGEF64 : FCmpOp<"cmpgef64", setoge, setuge, F64, f64, 0, [HasF64]>;
+defm CMPGEF16 : FCmpOp<"cmpgef16", setoge, setuge, I16, f16, 0, [HasF16]>;
+defm CMPGEF32 : FCmpOp<"cmpgef32", setoge, setuge, I32, f32, 0, [HasF32]>;
+defm CMPGEF64 : FCmpOp<"cmpgef64", setoge, setuge, I64, f64, 0, [HasF64]>;
 
-defm CMPNEF16 : FCmpOp<"cmpnef16", setone, setune, F16, f16, 1, [HasF16]>;
-defm CMPNEF32 : FCmpOp<"cmpnef32", setone, setune, F32, f32, 1, [HasF32]>;
-defm CMPNEF64 : FCmpOp<"cmpnef64", setone, setune, F64, f64, 1, [HasF64]>;
+defm CMPNEF16 : FCmpOp<"cmpnef16", setone, setune, I16, f16, 1, [HasF16]>;
+defm CMPNEF32 : FCmpOp<"cmpnef32", setone, setune, I32, f32, 1, [HasF32]>;
+defm CMPNEF64 : FCmpOp<"cmpnef64", setone, setune, I64, f64, 1, [HasF64]>;
 
 // Drop?
 // todo: def BSEL8
@@ -800,43 +771,43 @@ def LAND1 : FMTGEN<
   "land1\t$dst, $op1, $op2, $op3, $op4",
   []>;
 
-defm FMAF16  : FusedOp1<"fmaf16",  fmul, fadd, F16, f16, [HasF16,HasFMA]>;
+defm FMAF16  : FusedOp1<"fmaf16",  fmul, fadd, I16, f16, [HasF16,HasFMA]>;
 // crude handling of commutative
-defm FMAF16x : FusedOp2<"fmaf16",  fmul, fadd, F16, f16, [HasF16,HasFMA]>;
-defm FMSF16  : FusedOp1<"fmsf16",  fmul, fsub, F16, f16, [HasF16,HasFMA]>;
-defm FMRSF16 : FusedOp2<"fmrsf16", fmul, fsub, F16, f16, [HasF16,HasFMA]>;
+defm FMAF16x : FusedOp2<"fmaf16",  fmul, fadd, I16, f16, [HasF16,HasFMA]>;
+defm FMSF16  : FusedOp1<"fmsf16",  fmul, fsub, I16, f16, [HasF16,HasFMA]>;
+defm FMRSF16 : FusedOp2<"fmrsf16", fmul, fsub, I16, f16, [HasF16,HasFMA]>;
 
-defm FMAF32  : FusedOp1<"fmaf32",  fmul, fadd, F32, f32, [HasF32,HasFMA]>;
+defm FMAF32  : FusedOp1<"fmaf32",  fmul, fadd, I32, f32, [HasF32,HasFMA]>;
 // crude handling of commutative
-defm FMAF32x : FusedOp2<"fmaf32",  fmul, fadd, F32, f32, [HasF32,HasFMA]>;
-defm FMSF32  : FusedOp1<"fmsf32",  fmul, fsub, F32, f32, [HasF32,HasFMA]>;
-defm FMRSF32 : FusedOp2<"fmrsf32", fmul, fsub, F32, f32, [HasF32,HasFMA]>;
+defm FMAF32x : FusedOp2<"fmaf32",  fmul, fadd, I32, f32, [HasF32,HasFMA]>;
+defm FMSF32  : FusedOp1<"fmsf32",  fmul, fsub, I32, f32, [HasF32,HasFMA]>;
+defm FMRSF32 : FusedOp2<"fmrsf32", fmul, fsub, I32, f32, [HasF32,HasFMA]>;
 
-defm FMAF64  : FusedOp1<"fmaf64",  fmul, fadd, F64, f64, [HasF64,HasFMA]>;
+defm FMAF64  : FusedOp1<"fmaf64",  fmul, fadd, I64, f64, [HasF64,HasFMA]>;
 // crude handling of commutative
-defm FMAF64x : FusedOp2<"fmaf64",  fmul, fadd, F64, f64, [HasF64,HasFMA]>;
-defm FMSF64  : FusedOp1<"fmsf64",  fmul, fsub, F64, f64, [HasF64,HasFMA]>;
-defm FMRSF64 : FusedOp2<"fmrsf64", fmul, fsub, F64, f64, [HasF64,HasFMA]>;
+defm FMAF64x : FusedOp2<"fmaf64",  fmul, fadd, I64, f64, [HasF64,HasFMA]>;
+defm FMSF64  : FusedOp1<"fmsf64",  fmul, fsub, I64, f64, [HasF64,HasFMA]>;
+defm FMRSF64 : FusedOp2<"fmrsf64", fmul, fsub, I64, f64, [HasF64,HasFMA]>;
 
 // Should we do these, or drop and assume sext-at-consumer?
 // todo: LDS8
 // todo: LDS16
 // todo: LDS32
-defm LD8   : LdOp<"ld8",  I8>;
-defm LD16  : LdOp<"ld16", I16>;
-defm LD16f : LdOp<"ld16", F16>;
-defm LD32  : LdOp<"ld32", I32>;
-defm LD32f : LdOp<"ld32", F32>;
-defm LD64  : LdOp<"ld64", I64>;
-defm LD64f : LdOp<"ld64", F64>;
+defm LD8   : LdOp<"ld8",   I8,  i8>;
+defm LD16  : LdOp<"ld16",  I16, i16>;
+defm LD16f : LdOp<"ld16",  I16, f16>;
+defm LD32  : LdOp<"ld32",  I32, i32>;
+defm LD32f : LdOp<"ld32",  I32, f32>;
+defm LD64  : LdOp<"ld64",  I64, i64>;
+defm LD64f : LdOp<"ld64",  I64, f64>;
 
-defm ST8   : StOp<  "st8",   I8,  i8>;
-defm ST16  : StOp<  "st16",  I16, i16>;
-defm ST16f : FStOp< "st16",  F16, f16>;
-defm ST32  : StOp<  "st32",  I32, i32>;
-defm ST32f : FStOp< "st32",  F32, f32>;
-defm ST64  : StOp<  "st64",  I64, i64>;
-defm ST64f : FStOp< "st64",  F64, f64>;
+defm ST8   : StOp<"st8",   I8,  i8,  imm>;
+defm ST16  : StOp<"st16",  I16, i16, imm>;
+defm ST16f : StOp<"st16",  I16, f16, fpimm>;
+defm ST32  : StOp<"st32",  I32, i32, imm>;
+defm ST32f : StOp<"st32",  I32, f32, fpimm>;
+defm ST64  : StOp<"st64",  I64, i64, imm>;
+defm ST64f : StOp<"st64",  I64, f64, fpimm>;
 
 multiclass CopyOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
@@ -849,11 +820,8 @@ defm COPY0   : CopyOp<"copy0",  I1>;
 defm COPY1   : CopyOp<"copy1",  I1>;
 defm COPY8   : CopyOp<"copy8",  I8>;
 defm COPY16  : CopyOp<"copy16", I16>;
-defm COPY16f : CopyOp<"copy16", F16>;
 defm COPY32  : CopyOp<"copy32", I32>;
-defm COPY32f : CopyOp<"copy32", F32>;
 defm COPY64  : CopyOp<"copy64", I64>;
-defm COPY64f : CopyOp<"copy64", F64>;
 
 multiclass MergeOp<string opStr, RegisterClass RC, ValueType opType,
                    SDNode immNode> {
@@ -861,27 +829,27 @@ multiclass MergeOp<string opStr, RegisterClass RC, ValueType opType,
     (outs RC:$dst),
     (ins I1:$sel, RC:$v0, RC:$v1),
     !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
-    [(set RC:$dst, (select I1:$sel, RC:$v1, RC:$v0))]>;
+    [(set opType:$dst, (select I1:$sel, opType:$v1, opType:$v0))]>;
   def i : FMTGEN<
     (outs RC:$dst),
     (ins I1:$sel, RC:$v0, Operand<opType>:$imm),
     !strconcat(opStr, "\t$dst, $sel, $v0, $imm"),
-    [(set RC:$dst, (select I1:$sel, (opType immNode:$imm), RC:$v0))]>;
+    [(set opType:$dst, (select I1:$sel, (opType immNode:$imm), opType:$v0))]>;
   // allow literal operation for the 1st of the 2 selected operands
   def i1 : FMTGEN<
     (outs RC:$dst),
     (ins I1:$sel, Operand<opType>:$imm, RC:$v1),
     !strconcat(opStr, "\t$dst, $sel, $imm, $v1"),
-    [(set RC:$dst, (select I1:$sel, RC:$v1, (opType immNode:$imm)))]>;
+    [(set opType:$dst, (select I1:$sel, opType:$v1, (opType immNode:$imm)))]>;
 }
 defm MERGE1   : MergeOp<"merge1",  I1,  i1,  imm>;
 defm MERGE8   : MergeOp<"merge8",  I8,  i8,  imm>;
 defm MERGE16  : MergeOp<"merge16", I16, i16, imm>;
-defm MERGE16f : MergeOp<"merge16", F16, f16, fpimm>;
+defm MERGE16f : MergeOp<"merge16", I16, f16, fpimm>;
 defm MERGE32  : MergeOp<"merge32", I32, i32, imm>;
-defm MERGE32f : MergeOp<"merge32", F32, f32, fpimm>;
+defm MERGE32f : MergeOp<"merge32", I32, f32, fpimm>;
 defm MERGE64  : MergeOp<"merge64", I64, i64, imm>;
-defm MERGE64f : MergeOp<"merge64", F64, f64, fpimm>;
+defm MERGE64f : MergeOp<"merge64", I64, f64, fpimm>;
 
 multiclass SwitchOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
@@ -893,11 +861,8 @@ multiclass SwitchOp<string opStr, RegisterClass RC> {
 defm SWITCH1   : SwitchOp<"switch1",  I1>;
 defm SWITCH8   : SwitchOp<"switch8",  I8>;
 defm SWITCH16  : SwitchOp<"switch16", I16>;
-defm SWITCH16f : SwitchOp<"switch16", F16>;
 defm SWITCH32  : SwitchOp<"switch32", I32>;
-defm SWITCH32f : SwitchOp<"switch32", F32>;
 defm SWITCH64  : SwitchOp<"switch64", I64>;
-defm SWITCH64f : SwitchOp<"switch64", F64>;
 
 multiclass SwitchAnyOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
@@ -922,11 +887,8 @@ multiclass PickOp<string opStr, RegisterClass RC> {
 defm PICK1   : PickOp<"pick1",  I1>;
 defm PICK8   : PickOp<"pick8",  I8>;
 defm PICK16  : PickOp<"pick16", I16>;
-defm PICK16f : PickOp<"pick16", F16>;
 defm PICK32  : PickOp<"pick32", I32>;
-defm PICK32f : PickOp<"pick32", F32>;
 defm PICK64  : PickOp<"pick64", I64>;
-defm PICK64f : PickOp<"pick64", F64>;
 
 multiclass PickAnyOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
@@ -938,11 +900,8 @@ multiclass PickAnyOp<string opStr, RegisterClass RC> {
 defm PICKANY1   : PickAnyOp<"pickany1",  I1>;
 defm PICKANY8   : PickAnyOp<"pickany8",  I8>;
 defm PICKANY16  : PickAnyOp<"pickany16", I16>;
-defm PICKANY16f : PickAnyOp<"pickany16", F16>;
 defm PICKANY32  : PickAnyOp<"pickany32", I32>;
-defm PICKANY32f : PickAnyOp<"pickany32", F32>;
 defm PICKANY64  : PickAnyOp<"pickany64", I64>;
-defm PICKANY64f : PickAnyOp<"pickany64", F64>;
 
 def ANY0 : FMTGEN<
   (outs I64:$dst),
@@ -988,11 +947,11 @@ def REPEAT64 : FMTGEN<  // TODO: something to reflect state
 def: Pat<(i1 imm:$imm),  (MOV1 imm:$imm)>;
 def: Pat<(i8 imm:$imm),  (MOV8 imm:$imm)>;
 def: Pat<(i16 imm:$imm), (MOV16 imm:$imm)>;
-def: Pat<(f16 fpimm:$imm), (MOV16f fpimm:$imm)>;
+def: Pat<(f16 fpimm:$imm), (MOV16 fpimm:$imm)>;
 def: Pat<(i32 imm:$imm), (MOV32 imm:$imm)>;
-def: Pat<(f32 fpimm:$imm), (MOV32f fpimm:$imm)>;
+def: Pat<(f32 fpimm:$imm), (MOV32 fpimm:$imm)>;
 def: Pat<(i64 imm:$imm), (MOV64 imm:$imm)>;
-def: Pat<(f64 fpimm:$imm), (MOV64f fpimm:$imm)>;
+def: Pat<(f64 fpimm:$imm), (MOV64 fpimm:$imm)>;
 
 // sext/zext
 def : Pat<(i64 (sext i32:$op1)),
@@ -1121,17 +1080,17 @@ def : Pat<(i1 (trunc i8:$op1)),
 def : Pat<(i64 (bitconvert f64:$op1)),
     (COPY_TO_REGCLASS $op1, I64)>;
 def : Pat<(f64 (bitconvert i64:$op1)),
-    (COPY_TO_REGCLASS $op1, F64)>;
+    (COPY_TO_REGCLASS $op1, I64)>;
 
 def : Pat<(i32 (bitconvert f32:$op1)),
     (COPY_TO_REGCLASS $op1, I32)>;
 def : Pat<(f32 (bitconvert i32:$op1)),
-    (COPY_TO_REGCLASS $op1, F32)>;
+    (COPY_TO_REGCLASS $op1, I32)>;
 
 def : Pat<(i16 (bitconvert f16:$op1)),
     (COPY_TO_REGCLASS $op1, I16)>;
 def : Pat<(f16 (bitconvert i16:$op1)),
-    (COPY_TO_REGCLASS $op1, F16)>;
+    (COPY_TO_REGCLASS $op1, I16)>;
 
 // Eventually
 //include "LPUIntrinsics.td"

@@ -57,9 +57,9 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   addRegisterClass(MVT::i16,  &LPU::I16RegClass);
   addRegisterClass(MVT::i32,  &LPU::I32RegClass);
   addRegisterClass(MVT::i64,  &LPU::I64RegClass);
-  addRegisterClass(MVT::f16,  &LPU::F16RegClass);
-  addRegisterClass(MVT::f32,  &LPU::F32RegClass);
-  addRegisterClass(MVT::f64,  &LPU::F64RegClass);
+  addRegisterClass(MVT::f16,  &LPU::I16RegClass);
+  addRegisterClass(MVT::f32,  &LPU::I32RegClass);
+  addRegisterClass(MVT::f64,  &LPU::I64RegClass);
 
   setBooleanContents(ZeroOrOneBooleanContent);
   setBooleanVectorContents(ZeroOrOneBooleanContent); // FIXME: Is this correct?
@@ -724,11 +724,11 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
       } else if(tVT == MVT::i1) {
         tClass = &LPU::RI1RegClass;
       } else if(tVT == MVT::f64) {
-        tClass = &LPU::RF64RegClass;
+        tClass = &LPU::RI64RegClass;
       } else if(tVT == MVT::f32) {
-        tClass = &LPU::RF32RegClass;
+        tClass = &LPU::RI32RegClass;
       } else if(tVT == MVT::f16) {
-        tClass = &LPU::RF16RegClass;
+        tClass = &LPU::RI16RegClass;
       } else {
         llvm_unreachable("WTC!!");
       }
