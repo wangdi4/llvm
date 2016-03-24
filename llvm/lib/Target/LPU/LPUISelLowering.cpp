@@ -130,6 +130,8 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     setOperationAction(ISD::SELECT_CC,        VT,    Expand);
   }
 
+  setOperationAction(ISD::BR_JT,              MVT::Other, Expand);
+  
   // Loads
   for (MVT VT : MVT::integer_valuetypes()) {
     setLoadExtAction(ISD::EXTLOAD,  VT, MVT::i1,  Promote);

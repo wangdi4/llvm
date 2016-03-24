@@ -479,6 +479,12 @@ def RET : FMTGEN<
     "ret\t%ra",         // implicit use of RA
     [(LPURet)]>;
 
+let isBranch=1, isTerminator=1, isBarrier=1 in
+def JMP : FMTGEN<
+  (outs),
+  (ins I64:$target),
+  "jmp\t$target",
+  [(brind I64:$target)]>;
 
 let isCall=1,
     Defs = [
@@ -555,6 +561,7 @@ defm MOV64     : MovOp<"mov64", I64, i64, [HasI64]>;
 def : Pat<(i64 (LPUWrapper tglobaladdr:$src)),   (MOV64i tglobaladdr:$src)>;
 def : Pat<(i64 (LPUWrapper texternalsym:$src)),  (MOV64i texternalsym:$src)>;
 def : Pat<(i64 (LPUWrapper tblockaddress:$src)), (MOV64i tblockaddress:$src)>;
+def : Pat<(i64 (LPUWrapper tjumptable:$src)),    (MOV64i tjumptable:$src)>;
 
 defm NOT1      : UnaryOpP<"not1",     not,   I1,  [HasI1]>;
 defm NOT8      : UnaryOpP<"not8",     not,   I8,  [HasI8]>;

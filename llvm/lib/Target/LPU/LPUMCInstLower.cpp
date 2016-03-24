@@ -49,7 +49,7 @@ GetExternalSymbolSymbol(const MachineOperand &MO) const {
 
   return Printer.GetExternalSymbolSymbol(MO.getSymbolName());
 }
-/*
+
 MCSymbol *LPUMCInstLower::
 GetJumpTableSymbol(const MachineOperand &MO) const {
   const DataLayout *DL = Printer.TM.getSubtargetImpl()->getDataLayout();
@@ -66,7 +66,7 @@ GetJumpTableSymbol(const MachineOperand &MO) const {
   // Create a symbol for the name.
   return Ctx.GetOrCreateSymbol(Name.str());
 }
-
+/*
 MCSymbol *LPUMCInstLower::
 GetConstantPoolIndexSymbol(const MachineOperand &MO) const {
   const DataLayout *DL = Printer.TM.getSubtargetImpl()->getDataLayout();
@@ -165,10 +165,10 @@ void LPUMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
     case MachineOperand::MO_BlockAddress:
       MCOp = LowerSymbolOperand(MO, GetBlockAddressSymbol(MO));
       break;
-      /*
     case MachineOperand::MO_JumpTableIndex:
       MCOp = LowerSymbolOperand(MO, GetJumpTableSymbol(MO));
       break;
+      /*
     case MachineOperand::MO_ConstantPoolIndex:
       MCOp = LowerSymbolOperand(MO, GetConstantPoolIndexSymbol(MO));
       break;
