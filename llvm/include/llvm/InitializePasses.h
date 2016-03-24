@@ -59,7 +59,7 @@ void initializeCodeGen(PassRegistry&);
 /// initializeCodeGen - Initialize all passes linked into the CodeGen library.
 void initializeTarget(PassRegistry&);
 
-#if INTEL_CUSTOMIZATION // HIR passes
+#if INTEL_CUSTOMIZATION
 /// initializeIntel_LoopAnalysis - Initialize all passes linked into the
 /// Intel_LoopAnalysis library.
 void initializeIntel_LoopAnalysis(PassRegistry&);
@@ -68,8 +68,13 @@ void initializeIntel_LoopAnalysis(PassRegistry&);
 /// Intel_LoopTransforms library.
 void initializeIntel_LoopTransforms(PassRegistry&);
 
-/// VPO Vectorizer Passes
-void initializeVecClonePass(PassRegistry&);
+// initializeIntel_VPOAnaylsis - Initialize all passes linked into the 
+// Intel_VPOAnalysis library
+void initializeIntel_VPOAnalysis(PassRegistry&);
+
+// initializeIntel_VPOTransforms - Initialize all passes linked into the
+// Intel_VPOTransforms library
+void initializeIntel_VPOTransforms(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 void initializeAAEvalPass(PassRegistry&);
@@ -340,6 +345,9 @@ void initializeSymbaseAssignmentPass(PassRegistry&);
 void initializeHIRFrameworkPass(PassRegistry&);
 void initializeDDAnalysisPass(PassRegistry&);
 void initializeHIRLocalityAnalysisPass(PassRegistry&);
+void initializeHIRParVecAnalysisPass(PassRegistry&);
+void initializeHIRParDirInsertPass(PassRegistry&);
+void initializeHIRVecDirInsertPass(PassRegistry&);
 void initializeHIRVectVLSAnalysisPass(PassRegistry&);
 void initializeSSADeconstructionPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
@@ -351,6 +359,22 @@ void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
+// VPO WRegion Passes
+void initializeWRegionCollectionPass(PassRegistry&);
+void initializeWRegionInfoPass(PassRegistry&);
+void initializeWRegionInfoAnalysisPass(PassRegistry&);
+// VPO Utility Pass
+void initializeVPOCFGRestructuringPass(PassRegistry&);
+// VPO Parallelizer Pass
+void initializeVPOParoptPass(PassRegistry&);
+// VPO Vectorizer Passes
+void initializeAVRGeneratePass(PassRegistry&);
+void initializeAVRGenerateHIRPass(PassRegistry&);
+void initializeIdentifyVectorCandidatesPass(PassRegistry&);
+void initializeVecClonePass(PassRegistry&);
+void initializeVPODriverPass(PassRegistry&);
+void initializeVPODriverHIRPass(PassRegistry&);
+void initializeVPODirectiveCleanupPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeLoopDistributePass(PassRegistry&);
 void initializeSjLjEHPreparePass(PassRegistry&);

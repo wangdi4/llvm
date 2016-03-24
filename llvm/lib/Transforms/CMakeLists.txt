@@ -9,4 +9,6 @@ add_subdirectory(ObjCARC)
 if (INTEL_CUSTOMIZATION)
 add_subdirectory(Intel_LoopTransforms)
 add_subdirectory(Intel_MapIntrinToIml)
+add_subdirectory(Intel_VPO)
 endif()
+

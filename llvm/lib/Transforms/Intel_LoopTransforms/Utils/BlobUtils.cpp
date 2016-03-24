@@ -78,8 +78,16 @@ bool BlobUtils::isUndefBlob(BlobTy Blob) {
   return getHIRParser()->isUndefBlob(Blob);
 }
 
-bool BlobUtils::isConstantFPBlob(BlobTy Blob) {
-  return getHIRParser()->isConstantFPBlob(Blob);
+bool BlobUtils::isConstantFPBlob(BlobTy Blob, ConstantFP **Val) {
+  return getHIRParser()->isConstantFPBlob(Blob, Val);
+}
+
+bool BlobUtils::isConstantVectorBlob(BlobTy Blob, Constant **Val) {
+  return getHIRParser()->isConstantVectorBlob(Blob, Val);
+}
+
+bool BlobUtils::isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) {
+  return getHIRParser()->isMetadataBlob(Blob, Val);
 }
 
 BlobTy BlobUtils::createBlob(Value *TempVal, unsigned Symbase, bool Insert,

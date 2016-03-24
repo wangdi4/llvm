@@ -1,0 +1,6 @@
+[component_0]
+type = Library
+name = Vecopt
+parent = VPO
+library_name = VPOVecopt_Transform
+required_libraries = Analysis Core Scalar Support TransformUtils ;Vecopt_Analysis  

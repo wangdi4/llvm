@@ -32,6 +32,8 @@
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" // INTEL - HIR
+#include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"   // INTEL
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h" // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/CodeGen/Passes.h"
@@ -47,6 +49,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
 #include "llvm/Transforms/Utils/Intel_VecClone.h"                // INTEL
+#include "llvm/Transforms/Intel_VPO/VPOPasses.h"                 // INTEL
+#include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"       // INTEL
 #include "llvm/Support/Valgrind.h"
 #include <cstdlib>
 
@@ -66,7 +70,7 @@ namespace {
       (void) llvm::createArgumentPromotionPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
       (void) llvm::createAndersensAAWrapperPass(); // INTEL
-      (void)llvm::createNonLTOGlobalOptimizerPass(); // INTEL
+      (void) llvm::createNonLTOGlobalOptimizerPass(); // INTEL
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
       (void) llvm::createTypeBasedAAWrapperPass();
@@ -215,18 +219,37 @@ namespace {
       (void) llvm::createHIRFrameworkPass();
       (void) llvm::createDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
+      (void) llvm::createHIRParVecAnalysisPass();
       (void) llvm::createHIRVectVLSAnalysisPass();
 
       (void) llvm::createSSADeconstructionPass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRCompleteUnrollPass();
+      (void) llvm::createHIRParDirInsertPass();
+      (void) llvm::createHIRVecDirInsertPass();
       (void) llvm::createHIRLoopDistributionPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();
+
+      // VPO WRegion Passes
+      (void) llvm::createWRegionCollectionPass();
+      (void) llvm::createWRegionInfoPass();
+
+      // VPO Vectorizer Passes
+      (void) llvm::createIdentifyVectorCandidatesPass();
+      (void) llvm::createAVRGeneratePass();
+      (void) llvm::createAVRGenerateHIRPass();
+      (void) llvm::createVPODriverPass();
+      (void) llvm::createVPODriverHIRPass();
+      (void) llvm::createVPODirectiveCleanupPass();
+      (void) llvm::createVecClonePass();
+
+      // VPO Parallelizer Passes
+      (void) llvm::createVPOParoptPass();
   #endif // INTEL_CUSTOMIZATION
     }
   } ForcePassLinking; // Force link by creating a global definition.

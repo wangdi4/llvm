@@ -31,6 +31,7 @@ class TargetTransformInfo;
 class Type;
 class Value;
 class SCEV; // INTEL
+class Attribute; // INTEL
 
 /// \brief Identify if the intrinsic is trivially vectorizable.
 /// This method returns true if the intrinsic's argument types are all
@@ -90,6 +91,29 @@ Value *findScalarElement(Value *V, unsigned EltNo);
 /// a sequence of instructions that broadcast a single value into a vector.
 const Value *getSplatValue(const Value *V);
 
+#if INTEL_CUSTOMIZATION
+/// \brief Determine if the SCEV expression is invariant with respect to the
+/// loop. This function will be called recursively for SCEV expressions that
+/// consist of SCEVUnknown and SCEVAddExpr to determine if those subexpressions
+/// are also loop invariant.
+bool referenceIsLoopInvariant(const SCEV *Scev, ScalarEvolution *SE,
+                              Loop *OrigLoop);
+
+// \brief This function returns the stride of a memory reference expression.
+// If it is determined that all SCEVs analyzed in the trace back are loop
+// invariant, then the stride from the initial add recurrence is returned.
+// Otherwise, the stride is set to Undef.
+Value* getExprStride(const SCEV *Scev, ScalarEvolution *SE, Loop *OrigLoop);
+
+// \brief This function marks the CallInst VecCall with the appropriate stride
+// information determined by getExprStride(), which is used later in LLVM IR
+// generation for loads/stores. Initial use of this information is used during
+// SVML translation for sincos vectorization, but could be applicable to any
+// situation where we need to analyze memory references.
+void analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
+                                    const TargetLibraryInfo *TLI,
+                                    ScalarEvolution *SE, Loop *OrigLoop);
+
 /// \brief Compute a map of integer instructions to their minimum legal type
 /// size.
 ///
@@ -129,7 +153,6 @@ computeMinimumValueSizes(ArrayRef<BasicBlock*> Blocks,
                          DemandedBits &DB,
                          const TargetTransformInfo *TTI=nullptr);
 
-#if INTEL_CUSTOMIZATION
 /// \brief Determine if the SCEV expression is invariant with respect to the
 /// loop. This function will be called recursively for SCEV expressions that
 /// consist of SCEVUnknown and SCEVAddExpr to determine if those subexpressions

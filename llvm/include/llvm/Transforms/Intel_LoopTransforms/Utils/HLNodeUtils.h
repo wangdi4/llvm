@@ -183,6 +183,11 @@ private:
   /// applicable.
   static HLInst *createLvalHLInst(Instruction *Inst, RegDDRef *LvalRef);
 
+  /// \brief Creates an HLInst for this Inst. Used for void function call
+  /// and other instructions that do not have Lvalue.
+  /// It also updates first dummy instruction, if applicable.
+  static HLInst *createNonLvalHLInst(Instruction *Inst);
+
   /// \brief Creates a unary instruction.
   static HLInst *createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
                                    const Twine &Name, RegDDRef *LvalRef,
@@ -190,10 +195,10 @@ private:
                                    unsigned Align);
 
   /// \brief Creates a binary instruction.
-  static HLInst *createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
-                                    RegDDRef *OpRef2, const Twine &Name,
-                                    RegDDRef *LvalRef, bool HasNUWOrExact,
-                                    bool HasNSW, MDNode *FPMathTag);
+  static HLInst *createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
+                                        RegDDRef *OpRef2, const Twine &Name,
+                                        RegDDRef *LvalRef, bool HasNUWOrExact,
+                                        bool HasNSW, MDNode *FPMathTag);
 
   /// \brief Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
@@ -476,6 +481,19 @@ public:
                                      const Twine &Name = "cast",
                                      RegDDRef *LvalRef = nullptr);
 
+  /// \brief Creates a new BinaryOperator with specified opcode. If
+  /// OrigBinOp is not null, copy IR flags from OrigBinOp to the newly
+  /// create instruction.
+  static HLInst *createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
+                                    RegDDRef *OpRef2,
+                                    const Twine &Name = "",
+                                    RegDDRef *LvalRef = nullptr,
+                                    const BinaryOperator *OrigBinOp = nullptr);
+
+  /// \brief Creates a new Cast instruction with specified opcode.
+  static HLInst *createCastHLInst(Type *DestTy, unsigned OpCode,
+                                  RegDDRef *OpRef, const Twine &Name = "",
+                                  RegDDRef *LvalRef = nullptr);
   /// \brief Creates a new Add instruction.
   static HLInst *createAdd(RegDDRef *OpRef1, RegDDRef *OpRef2,
                            const Twine &Name = "add",
@@ -585,6 +603,22 @@ public:
                               RegDDRef *OpRef2, RegDDRef *OpRef3,
                               RegDDRef *OpRef4, const Twine &Name = "select",
                               RegDDRef *LvalRef = nullptr);
+  /// \brief Creates a new Call instruction.
+  static HLInst *createCall(Function *F,
+                            const SmallVectorImpl<RegDDRef*> &CallArgs,
+                            const Twine &Name = "call",
+                            RegDDRef *LvalRef = nullptr);
+
+  /// \brief Creates a new ShuffleVector instruction
+  static HLInst *CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                         ArrayRef<int> Mask,
+                                         const Twine &Name = "shuffle",
+                                         RegDDRef *LvalRef = nullptr);
+
+  /// \brief Creates a new ExtractElement instruction
+  static HLInst *CreateExtractElementInst(RegDDRef *OpRef, unsigned Idx,
+                                          const Twine &Name = "extract",
+                                          RegDDRef *LvalRef = nullptr);
 
   /// \brief Creates a clones sequence from Node1 to Node2, including both
   /// the nodes and all the nodes in between them. If Node2 is null or Node1
@@ -638,6 +672,31 @@ public:
   static void visitAll(HV &Visitor) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
     V.visitRange(getHIRFramework()->hir_begin(), getHIRFramework()->hir_end());
+  }
+
+  /// \brief Visits HLNodes in the HIR in InnerToOuter loop hierarchy
+  /// order. The direction is specified using Forward flag.
+  template <typename HV, bool Forward = true>
+  static void visitInnerToOuter(HV &Visitor, HLNode *Node) {
+    HLInnerToOuterLoopVisitor<HV, Forward> V(Visitor);
+    V.visitRecurseInsideLoops(Node);
+  }
+
+  /// \brief Visits all HLNodes in the HIR in InnerToOuter loop hierarchy
+  /// order. The direction is specified using Forward flag.
+  template <typename HV, bool Forward = true>
+  static void visitAllInnerToOuter(HV &Visitor) {
+    HLInnerToOuterLoopVisitor<HV, Forward> V(Visitor);
+    V.visitRangeRecurseInsideLoops(getHIRFramework()->hir_begin(),
+                                   getHIRFramework()->hir_end());
+  }
+
+  /// \brief Visits all HLNodes in the HIR in OuterToInner loop hierarchy
+  /// order. The direction is specified using Forward flag.
+  template <typename HV, bool Forward = true>
+  static void visitAllOuterToInner(HV &Visitor) {
+    HLNodeVisitor<HV, true, true, Forward> V(Visitor);
+    V.visit(getHIRFramework()->hir_begin(), getHIRFramework()->hir_end());
   }
 
   /// \brief Inserts an unlinked Node before Pos in HIR.

@@ -62,6 +62,9 @@ FunctionPass *createDDAnalysisPass();
 /// transformations.
 FunctionPass *createHIRLocalityAnalysisPass();
 
+/// Creates analysis which can provide parallel/vector candidate analysis
+FunctionPass *createHIRParVecAnalysisPass();
+
 /// Computes the cost of VLS Groups for HLLoops which are used during
 /// Vectorization.
 FunctionPass *createHIRVectVLSAnalysisPass();

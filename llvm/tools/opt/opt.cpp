@@ -337,6 +337,8 @@ int main(int argc, char **argv) {
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);
   initializeMapIntrinToImlPass(Registry);
+  initializeIntel_VPOAnalysis(Registry);
+  initializeIntel_VPOTransforms(Registry);
 #endif  // INTEL_CUSTOMIZATION
 
 #ifdef LINK_POLLY_INTO_TOOLS

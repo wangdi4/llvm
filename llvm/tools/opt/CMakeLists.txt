@@ -18,6 +18,8 @@ set(LLVM_LINK_COMPONENTS
   Passes
   Intel_LoopTransforms #***INTEL
   Intel_MapIntrinToIml #***INTEL
+  Intel_VPOAnalysis    #***INTEL
+  Intel_VPOTransforms  #***INTEL
   )
 
 # Support plugins.

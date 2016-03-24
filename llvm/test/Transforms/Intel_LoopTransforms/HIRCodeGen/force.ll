@@ -17,7 +17,7 @@
 ; load B[] and store it into a memslot for symbase of lval temp
 ; CHECK: [[GEP:%.*]] = getelementptr {{.*}} @B
 ; CHECK-NEXT: [[GEPLOAD:%.*]] = load{{.*}} [[GEP]]
-; CHECK-NEXT: store i32 [[GEPLOAD]], i32* [[TEMPSLOT:.*]]
+; CHECK-NEXT: store i32 [[GEPLOAD]], i32* [[TEMPSLOT:.*]],
 
 ; get addr of A[], load memslot from earlier and stored loaded 
 ; value at that addr

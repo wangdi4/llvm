@@ -27,6 +27,10 @@
 
 namespace llvm {
 
+class MetadataAsValue;
+class ConstantAggregateZero;
+class ConstantDataVector;
+
 namespace loopopt {
 
 /// \brief Defines utilities for DDRef class
@@ -68,6 +72,25 @@ public:
   /// This routine will automatically create a single canon expr from the val
   /// and attach it to the new RegDDRef.
   static RegDDRef *createConstDDRef(Type *Ty, int64_t Val);
+
+  /// \brief Returns a new constant RegDDRef from a metadata node.
+  /// This routine will automatically create a single canon expr from metadata
+  /// and attach it to the new RegDDRef.
+  static RegDDRef *createMetadataDDRef(MetadataAsValue *Val);
+
+  /// \brief Returns a new constant RegDDRef from a constant all-zero vector
+  /// node. This routine will automatically create a single canon expr from
+  /// ConstantAggregateZero and attach it to the new RegDDRef.
+  static RegDDRef *createConstDDRef(ConstantAggregateZero *Val);
+
+  /// \brief Returns a new constant RegDDRef from a constant data vector
+  /// node. This routine will automatically create a single canon expr from
+  /// ConstantDataVector and attach it to the new RegDDRef.
+  static RegDDRef *createConstDDRef(ConstantDataVector *Val);
+
+  /// \brief Returns a new RegDDRef with given type \p Ty and undefined
+  /// value.
+  static RegDDRef *createUndefDDRef(Type *Ty);
 
   /// \brief Returns a new BlobDDRef representing blob with Index. Level is the
   /// defined at level for the blob. Level of -1 means non-linear blob.

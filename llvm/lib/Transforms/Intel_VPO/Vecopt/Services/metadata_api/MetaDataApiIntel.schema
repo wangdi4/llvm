@@ -1,0 +1,540 @@
+{
+    "root":     {
+                    "elements": [
+                        {
+                            "name":     "Kernels",
+                            "key":      "opencl.kernels",
+                            "metatype": "Kernels"
+                        },
+                        {
+                            "name":     "SpirVersion",
+                            "key":      "opencl.spir.version",
+                            "metatype": "SpirVersion"
+                        },
+                        {
+                            "name":     "OpenCLVersion",
+                            "key":      "opencl.ocl.version",
+                            "metatype": "OpenCLVersion"
+                        },
+                        {
+                            "name":     "UsedExtentions",
+                            "key":      "opencl.used.extensions",
+                            "metatype": "UsedExtentions"
+                        },
+                        {
+                            "name":     "CoreFeatures",
+                            "key":      "opencl.used.optional.core.features",
+                            "metatype": "CoreFeatures"
+                        },
+                        {
+                            "name":     "CompilerOptions",
+                            "key":      "opencl.compiler.options",
+                            "metatype": "CompilerOptions"
+                        },
+                        {
+                            "name":     "KernelsInfo",
+                            "key":      "opencl.kernel_info",
+                            "metatype": "KernelsInfo"
+                        },
+                        {
+                            "name":     "ModuleInfoList",
+                            "key":      "opencl.module_info_list",
+                            "metatype": "ModuleInfoList"
+                        },
+                        {
+                            "name":     "FunctionsInfo",
+                            "key":      "llvm.functions_info",
+                            "metatype": "FunctionsInfo"
+                        },
+                        {
+                            "name":     "FunctionsStats",
+                            "key":      "opencl.functions_stats",
+                            "metatype": "FunctionsStats"
+                        },
+                        {
+                            "name":     "StatDescriptions",
+                            "key":      "opencl.stat_descriptions",
+                            "metatype": "StatDescriptions"
+                        },
+                        {
+                            "name":     "ModuleStatInfoC",
+                            "key":      "opencl.module_stat_info",
+                            "metatype": "ModuleStatInfoC"
+                        }
+                    ]
+                },
+    "SpirVersion": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "int32_item"
+    },
+    "OpenCLVersion": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "int32_item"
+    },
+    "UsedExtentions": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "int32_item"
+    },
+    "CoreFeatures": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "str_item"
+    },
+    "CompilerOptions": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "StrWrapper"
+    },
+    "Kernels" : {
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "Kernel"
+                },
+    "KernelsInfo" : {
+                    "is_container":     true,
+                    "container_type":   "map",
+                    "key_type":         "function",
+                    "item_type":        "KernelInfo"
+                },
+    "Kernel" :  {
+                    "is_container":     true,
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index":    "0",
+                            "name":     "Function",
+                            "metatype": "function",
+                            "optional": false
+                        },
+                        {
+                            "location": "named",
+                            "key":      "vec_type_hint",
+                            "name":     "VecTypeHint",
+                            "metatype": "vec_type_hint",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "work_group_size_hint",
+                            "name":     "WorkGroupSizeHint",
+                            "metatype": "WorkGroupSize",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "reqd_work_group_size",
+                            "name":     "ReqdWorkGroupSize",
+                            "metatype": "WorkGroupSize",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_arg_addr_space",
+                            "name":     "AddressSpace",
+                            "metatype": "int_list",
+                            "optional": false
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_arg_access_qual",
+                            "name":     "ArgAccessQualifier",
+                            "metatype": "str_list",
+                            "optional": false
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_arg_type",
+                            "name":     "ArgTypes",
+                            "metatype": "str_list",
+                            "optional": false
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_arg_type_qual",
+                            "name":     "ArgTypeQualifier",
+                            "metatype": "str_list",
+                            "optional": false
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_arg_name",
+                            "name":     "ArgName",
+                            "metatype": "str_list",
+                            "optional": true
+                        }
+                    ]
+                },
+    "StrWrapper":  {
+                    "is_container":     true,
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index":    "0",
+                            "name":     "value",
+                            "metatype": "str_item",
+                            "optional": true
+                        }
+                    ]
+    },
+    "KernelInfo" :  {
+                    "is_container":     true,
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "named",
+                            "key":      "local_buffer_size",
+                            "name":     "LocalBufferSize",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "barrier_buffer_size",
+                            "name":     "BarrierBufferSize",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_execution_length",
+                            "name":     "KernelExecutionLength",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "max_wg_dimensions",
+                            "name":     "MaxWGDimensions",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_has_barrier",
+                            "name":     "KernelHasBarrier",
+                            "metatype": "bool_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_has_global_sync",
+                            "name":     "KernelHasGlobalSync",
+                            "metatype": "bool_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "no_barrier_path",
+                            "name":     "NoBarrierPath",
+                            "metatype": "bool_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "vectorized_kernel",
+                            "name":     "VectorizedKernel",
+                            "metatype": "function",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "vectorized_width",
+                            "name":     "VectorizedWidth",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_wrapper",
+                            "name":     "KernelWrapper",
+                            "metatype": "function",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "scalarized_kernel",
+                            "name":     "ScalarizedKernel",
+                            "metatype": "function",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "block_literal_size",
+                            "name":     "BlockLiteralSize",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "private_memory_size",
+                            "name":     "PrivateMemorySize",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "vectorization_dimension",
+                            "name":     "VectorizationDimension",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "can_unite_workgroups",
+                            "name":     "CanUniteWorkgroups",
+                            "metatype": "bool_item",
+                            "optional": true
+                        }
+                    ]
+                },
+    "WorkGroupSize":{
+                    "is_container":     true,
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index":    "0",
+                            "name":     "XDim",
+                            "metatype": "int32_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "1",
+                            "name":     "YDim",
+                            "metatype": "int32_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "2",
+                            "name":     "ZDim",
+                            "metatype": "int32_item",
+                            "optional": false
+                        }
+                    ]
+                    
+                },
+    "ModuleInfoList":{
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "ModuleInfo"
+                },
+    "ModuleInfo":{
+                    "is_container":     true,
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "named",
+                            "key":      "global_variable_total_size",
+                            "name":     "GlobalVariableTotalSize",
+                            "metatype": "int64_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "gen_addr_space_pointer_counter",
+                            "name":     "GAScounter",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "gen_addr_space_pointer_warnings",
+                            "name":     "GASwarnings",
+                            "metatype": "int_list",
+                            "optional": true
+                        }
+                    ]
+                },
+    "kernel_arg_addr_space":{
+                "is_container":         true,
+                "container_type":       "list",
+                "item_type":            "int32_item"
+    },
+    "vec_type_hint":{
+                    "is_container":     false,
+                    "type":             "llvm::UndefValue"
+                },
+    "int_list":  {
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "int32_item"
+                },
+    "int32_item": {
+                    "is_container":     false,
+                    "type":             "int32_t"
+                },
+    "int64_item": {
+                    "is_container":     false,
+                    "type":             "int64_t"
+                },
+    "bool_item": {
+                    "is_container":     false,
+                    "type":             "bool"
+                },
+    "str_list":  {
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "str_item"
+                },
+    "str_item": {
+                    "is_container":     false,
+                    "type":             "std::string"
+                },
+    "argument_access_qualifier":  {
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "std::string"
+                },
+    "function": {
+                    "is_container":     false,
+                    "type":             "llvm::Function"
+                },
+    "arglist":  {
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "argitem"
+                },
+    "argitem": {
+                    "is_container":     false,
+                    "type":             "std::string"
+                },
+    "FunctionsStats" : {
+                    "is_container":     true,
+                    "container_type":   "map",
+                    "key_type":         "function",
+                    "item_type":        "StatValueListContainer"
+              },
+    "StatValueListContainer": {
+                    "is_container":     true,
+                    "type":             "std::string",
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index"   : "0",
+                            "name":     "StatValueList",
+                            "metatype": "StatValueList",
+                            "optional": false
+                        }
+                    ]
+                },
+    "StatValueList" : {
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "StatValueItem"
+              },
+    "StatValueItem": {
+                    "is_container":     true,
+                    "type":             "std::string",
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index"   : "0",
+                            "name":     "Name",
+                            "metatype": "str_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index"   : "1",
+                            "name":     "Value",
+                            "metatype": "int32_item",
+                            "optional": false
+                        }
+                    ]
+                },
+    "ModuleStatInfoC": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "ModuleStatInfo"
+    },
+    "ModuleStatInfo":  {
+                    "is_container":     true,
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index":    "0",
+                            "name":     "RunTimeVersion",
+                            "metatype": "str_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "1",
+                            "name":     "WorkloadName",
+                            "metatype": "str_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "2",
+                            "name":     "ModuleName",
+                            "metatype": "str_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "3",
+                            "name":     "ExecTime",
+                            "metatype": "str_item",
+                            "optional": false
+                        }
+                    ]
+    },
+    "StatDescriptions" : {
+                    "is_container":     true,
+                    "container_type":   "map",
+                    "key_type":         "str_item",
+                    "item_type":        "StrC"
+              },
+    "StrC": {
+                    "is_container":     true,
+                    "type":             "std::string",
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index":    "0",
+                            "name":     "str",
+                            "metatype": "str_item",
+                            "optional": false
+                        }
+                    ]
+    },
+    "FunctionsInfo" : {
+                    "is_container":     true,
+                    "container_type":   "map",
+                    "key_type":         "function",
+                    "item_type":        "FunctionInfo"
+              },
+    "FunctionInfo": {
+                    "is_container":     true,
+                    "type":             "std::string",
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "named",
+                            "key":      "func_ptr_call",
+                            "name":     "FuncPtrCall",
+                            "metatype": "bool_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "detect_recursion",
+                            "name":     "HasRecursion",
+                            "metatype": "bool_item",
+                            "optional": true
+                        }
+                    ]
+                }
+}

@@ -1715,6 +1715,11 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool& ModifiedDT) {
       return true;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (TTI->adjustCallArgs(CI))
+    return true;
+#endif // INTEL_CUSTOMIZATION
+
   // Align the pointer arguments to this call if the target thinks it's a good
   // idea
   unsigned MinSize, PrefAlign;

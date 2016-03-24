@@ -55,6 +55,17 @@ public:
   /// \brief Returns strings corresponding to OpenMP clauses.
   static StringRef getClauseString(int Id);
 
+  /// \brief Returns MetadataAsValue corresponding to OpenMP directives.
+  static MetadataAsValue *createDirectiveMetadataAsValue(Module &M, int Id) {
+    StringRef Str(getDirectiveString(Id));
+    return cast<MetadataAsValue>(createMetadataAsValueFromString(M, Str));
+  }
+
+  /// \brief Returns MetadataAsValue corresponding to OpenMP clauses.
+  static MetadataAsValue *createClauseMetadataAsValue(Module &M, int Id) {
+    StringRef Str(getClauseString(Id));
+    return cast<MetadataAsValue>(createMetadataAsValueFromString(M, Str));
+  }
 };
 
 } // end llvm namespace

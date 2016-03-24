@@ -17,7 +17,6 @@
 #define LLVM_IR_INTEL_LOOPIR_CANONEXPR_H
 
 #include "llvm/ADT/SmallVector.h"
-
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/FormattedStream.h"
 
@@ -31,6 +30,9 @@ namespace llvm {
 
 class Type;
 class SCEV;
+class MetadataAsValue;
+class ConstantFP;
+class Constant;
 
 namespace loopopt {
 
@@ -301,7 +303,8 @@ public:
 
   /// \brief Returns true if canon expr represents any kind of constant.
   bool isConstant() const {
-    return (isIntConstant() || isFPConstant() || isNull());
+    return (isIntConstant() || isFPConstant() || isNull() || isMetadata() ||
+            isConstantVector());
   }
 
   /// \brief Returns true if canon expr is a constant integer. Integer value
@@ -309,7 +312,16 @@ public:
   bool isIntConstant(int64_t *Val = nullptr) const;
 
   /// \brief Returns true if canon expr represents a floating point constant.
-  bool isFPConstant() const;
+  /// If yes, returns the underlying LLVM Value in \pVal
+  bool isFPConstant(ConstantFP **Val = nullptr) const;
+
+  /// \brief Returns true if canon expr is a vector of constants.
+  /// If yes, returns the underlying LLVM Value in \pVal
+  bool isConstantVector(Constant **Val = nullptr) const;
+
+  /// \brief Returns true if canon expr represents a metadata.
+  /// If true, metadata is returned in Val.
+  bool isMetadata(MetadataAsValue **Val = nullptr) const;
 
   /// \brief Returns true if canon expr represents null pointer value.
   bool isNull() const;

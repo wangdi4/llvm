@@ -18,6 +18,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
+#include "llvm/IR/Constants.h" // needed for UndefValue class
 
 using namespace llvm;
 using namespace loopopt;
@@ -39,6 +41,47 @@ RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
   NewRegDD->setSingleCanonExpr(CE);
 
   return NewRegDD;
+}
+
+RegDDRef *DDRefUtils::createMetadataDDRef(MetadataAsValue *Val) {
+  RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
+  // Create a linear self-blob constant canon expr.
+  auto CE = CanonExprUtils::createMetadataCanonExpr(Val);
+  NewRegDD->setSingleCanonExpr(CE);
+
+  return NewRegDD;
+}
+
+RegDDRef *DDRefUtils::createConstDDRef(ConstantAggregateZero *Val) {
+  RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
+  // Create a linear self-blob constant canon expr.
+  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, CONSTANT_SYMBASE);
+  NewRegDD->setSingleCanonExpr(CE);
+  CE->setDefinedAtLevel(0);
+
+  return NewRegDD;
+}
+
+RegDDRef *DDRefUtils::createConstDDRef(ConstantDataVector *Val) {
+  RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
+  // Create a linear self-blob constant canon expr.
+  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, CONSTANT_SYMBASE);
+  NewRegDD->setSingleCanonExpr(CE);
+  CE->setDefinedAtLevel(0);
+
+  return NewRegDD;
+}
+
+RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
+  auto Blob = BlobUtils::createBlob(UndefValue::get(Ty), false);
+  unsigned BlobIndex = BlobUtils::findBlob(Blob);
+
+  if (BlobIndex != INVALID_BLOB_INDEX) {
+    return createSelfBlobRef(BlobIndex, 0);
+  }
+  RegDDRef *Ref = createSelfBlobRef(UndefValue::get(Ty));
+  Ref->getSingleCanonExpr()->setDefinedAtLevel(0);
+  return Ref;
 }
 
 BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, int Level) {
