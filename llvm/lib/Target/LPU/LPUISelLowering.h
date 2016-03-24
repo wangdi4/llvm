@@ -43,7 +43,9 @@ namespace llvm {
     // given the EVT of that operand. Since the LPU supports
     // all types save i1, that is what we return.
     // (Copied from FFWD)
-    virtual MVT getScalarShiftAmountTy(EVT LHSTy) const override {
+    MVT getScalarShiftAmountTy(EVT LHSTy) const override {
+      return MVT::i8;
+      /*
       switch(LHSTy.getSimpleVT().SimpleTy) {
         case MVT::i1:
           return MVT::i8;
@@ -52,6 +54,7 @@ namespace llvm {
         default:
           llvm_unreachable("Unknown shift type");
       }
+      */
     }
 
     /// LowerOperation - Provide custom lowering hooks for some operations.

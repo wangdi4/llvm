@@ -227,6 +227,33 @@ multiclass BinOpNC<string opStr, SDNode opNode, RegisterClass RC,
   }
 }
 
+
+multiclass ShiftOp<string opStr, SDNode opNode, RegisterClass RC,
+           ValueType opType, SDNode immNode, list<Predicate> preds> {
+  let isCommutable = 0, Predicates = preds in {
+    def "" : FMTGEN<
+      (outs RC:$dst),
+      (ins RC:$op1, I8:$op2), 
+      !strconcat(opStr, "\t$dst, $op1, $op2"),
+      [(set RC:$dst, (opNode RC:$op1, I8:$op2))]>;
+    def i : FMTGEN<
+      (outs RC:$dst),
+      (ins RC:$op1, Operand<opType>:$imm),
+      !strconcat(opStr, "\t$dst, $op1, $imm"),
+      [(set RC:$dst, (opNode RC:$op1, (opType immNode:$imm)))]>;
+    // Only difference with BinOpC is this additional pattern, allowing
+    // literal operation for the 1st of the 2 binary operands
+    def i1 : FMTGEN<
+      (outs RC:$dst),
+      (ins Operand<opType>:$imm, I8:$op2),
+      !strconcat(opStr, "\t$dst, $imm, $op2"),
+      [(set RC:$dst, (opNode (opType immNode:$imm), I8:$op2))]>;
+  }
+}
+
+
+
+
 multiclass FusedOp1<string opStr, SDNode inner, SDNode outer, RegisterClass RC,
            ValueType opType, list<Predicate> preds> {
   let Predicates = preds in {
@@ -621,20 +648,20 @@ defm XOR16     : BinOpC< "xor16",  xor,  I16, i16, imm,   [HasI16]>;
 defm XOR32     : BinOpC< "xor32",  xor,  I32, i32, imm,   [HasI32]>;
 defm XOR64     : BinOpC< "xor64",  xor,  I64, i64, imm,   [HasI64]>;
 
-defm SLL8      : BinOpNC<"sll8",   shl,  I8,  i8,  imm,   [HasI8]>;
-defm SLL16     : BinOpNC<"sll16",  shl,  I16, i16, imm,   [HasI16]>;
-defm SLL32     : BinOpNC<"sll32",  shl,  I32, i32, imm,   [HasI32]>;
-defm SLL64     : BinOpNC<"sll64",  shl,  I64, i64, imm,   [HasI64]>;
+defm SLL8      : ShiftOp<"sll8",   shl,  I8,  i8,  imm,   [HasI8]>;
+defm SLL16     : ShiftOp<"sll16",  shl,  I16, i16, imm,   [HasI16]>;
+defm SLL32     : ShiftOp<"sll32",  shl,  I32, i32, imm,   [HasI32]>;
+defm SLL64     : ShiftOp<"sll64",  shl,  I64, i64, imm,   [HasI64]>;
 
-defm SRL8      : BinOpNC<"srl8",   srl,  I8,  i8,  imm,   [HasI8]>;
-defm SRL16     : BinOpNC<"srl16",  srl,  I16, i16, imm,   [HasI16]>;
-defm SRL32     : BinOpNC<"srl32",  srl,  I32, i32, imm,   [HasI32]>;
-defm SRL64     : BinOpNC<"srl64",  srl,  I64, i64, imm,   [HasI64]>;
+defm SRL8      : ShiftOp<"srl8",   srl,  I8,  i8,  imm,   [HasI8]>;
+defm SRL16     : ShiftOp<"srl16",  srl,  I16, i16, imm,   [HasI16]>;
+defm SRL32     : ShiftOp<"srl32",  srl,  I32, i32, imm,   [HasI32]>;
+defm SRL64     : ShiftOp<"srl64",  srl,  I64, i64, imm,   [HasI64]>;
 
-defm SRA8      : BinOpNC<"sra8",   sra,  I8,  i8,  imm,   [HasI8]>;
-defm SRA16     : BinOpNC<"sra16",  sra,  I16, i16, imm,   [HasI16]>;
-defm SRA32     : BinOpNC<"sra32",  sra,  I32, i32, imm,   [HasI32]>;
-defm SRA64     : BinOpNC<"sra64",  sra,  I64, i64, imm,   [HasI64]>;
+defm SRA8      : ShiftOp<"sra8",   sra,  I8,  i8,  imm,   [HasI8]>;
+defm SRA16     : ShiftOp<"sra16",  sra,  I16, i16, imm,   [HasI16]>;
+defm SRA32     : ShiftOp<"sra32",  sra,  I32, i32, imm,   [HasI32]>;
+defm SRA64     : ShiftOp<"sra64",  sra,  I64, i64, imm,   [HasI64]>;
 
 defm ADD8      : BinOpC< "add8",   add,  I8,  i8,  imm,   [HasI8]>;
 defm ADD16     : BinOpC< "add16",  add,  I16, i16, imm,   [HasI16]>;
