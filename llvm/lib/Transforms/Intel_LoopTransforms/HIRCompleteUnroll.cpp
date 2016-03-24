@@ -222,6 +222,10 @@ private:
   /// ChildTripCnt denotes the trip count of the children.
   bool processLoop(HLLoop *Loop, int64_t *ChildTripCnt);
 
+  /// \brief Drives the profitability analysis when visiting a loop during
+  /// transformation.
+  bool processProfitablity(HLLoop *Loop, int64_t *ChildTripCnt);
+
   /// \brief Routine to drive the transformation of candidate loops.
   void transformLoops();
 };
@@ -280,35 +284,43 @@ void HIRCompleteUnroll::processCompleteUnroll() {
 
 bool HIRCompleteUnroll::processLoop(HLLoop *Loop, int64_t *TotalTripCnt) {
 
-  // 1. Gather Loops starting from the outer-most level, put into ChildLoops
-  SmallVector<HLLoop *, 8> ChildLoops;
-  HLNodeUtils::gatherLoopswithLevel(Loop, ChildLoops,
-                                    Loop->getNestingLevel() + 1);
+  // Visit children, only if it not the innermost, else
+  // perform profitability analysis.
+  if (!Loop->isInnermost()) {
+    // 1. Gather Loops starting from the outer-most level
+    SmallVector<HLLoop *, 8> ChildLoops;
+    HLNodeUtils::gatherLoopsWithLevel(Loop, ChildLoops,
+                                      Loop->getNestingLevel() + 1);
 
-  // 2.Process each Loop for Complete Unrolling
-  bool ChildValid = true;
-  // Recurse through the children.
-  for (auto Iter = ChildLoops.begin(), E = ChildLoops.end(); Iter != E;
-       ++Iter) {
-    int64_t TripCnt = 0;
-    ChildValid &= processLoop(*Iter, &TripCnt);
-    (*TotalTripCnt) += TripCnt;
+    // 2.Process each Loop for Complete Unrolling
+    bool ChildValid = true;
+    // Recurse through the children.
+    for (auto Iter = ChildLoops.begin(), E = ChildLoops.end(); Iter != E;
+         ++Iter) {
+      int64_t TripCnt = 0;
+      ChildValid &= processLoop(*Iter, &TripCnt);
+      (*TotalTripCnt) += TripCnt;
+    }
+
+    if (!ChildValid) {
+      return false;
+    }
   }
 
-  if (!ChildValid) {
-    return false;
-  }
+  return processProfitablity(Loop, TotalTripCnt);
+}
+
+bool HIRCompleteUnroll::processProfitablity(HLLoop *Loop,
+                                            int64_t *ChildTripCnt) {
 
   LoopsAnalyzed++;
 
-  // Add the loop for transformation if profitable.
   LoopData *LD;
-  if (isProfitable(Loop, &LD, TotalTripCnt)) {
+  if (isProfitable(Loop, &LD, ChildTripCnt)) {
     TransformLoops.push_back(std::make_pair(Loop, LD));
     LoopsCompletelyUnrolled++;
     return true;
   }
-
   return false;
 }
 

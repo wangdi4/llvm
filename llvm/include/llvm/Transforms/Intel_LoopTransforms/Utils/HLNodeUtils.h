@@ -121,6 +121,8 @@ private:
         if (Loop->getNestingLevel() == Level) {
           LoopContainer.push_back(Loop);
           SkipNode = Loop;
+        } else if (Loop->isInnermost()) {
+          SkipNode = Loop;
         }
         break;
       default:
@@ -934,21 +936,25 @@ public:
   /// \brief Gathers loops inside the Node with specified Level and stores them
   /// in the Loops vector.
   template <typename T>
-  static void gatherLoopswithLevel(HLNode *Node, SmallVectorImpl<T> &Loops,
+  static void gatherLoopsWithLevel(HLNode *Node, SmallVectorImpl<T> &Loops,
                                    unsigned Level) {
     assert(Node && " Node is null.");
+    HLLoop *Loop = dyn_cast<HLLoop>(Node);
+    (void)Loop;
+    assert((!Loop || !Loop->isInnermost()) &&
+           " Gathering loops inside innermost loop.");
     assert(isLoopLevelValid(Level) && " Level is out of range.");
     LoopLevelVisitor<T, VisitKind::Level> LoopVisit(Loops, Level);
     HLNodeUtils::visit(LoopVisit, Node);
   }
 
-  /// \brief Constant Node version of gatherLoopswithLevel.
+  /// \brief Constant Node version of gatherLoopsWithLevel.
   template <typename T>
-  static void gatherLoopswithLevel(const HLNode *Node,
+  static void gatherLoopsWithLevel(const HLNode *Node,
                                    SmallVectorImpl<T> &Loops, unsigned Level) {
     static_assert(std::is_const<typename std::remove_pointer<T>::type>::value,
                   "Type of SmallVector parameter should be const HLLoop *.");
-    gatherLoopswithLevel(const_cast<HLNode *>(Node), Loops, Level);
+    gatherLoopsWithLevel(const_cast<HLNode *>(Node), Loops, Level);
   }
 
   /// \brief Gathers all the loops across regions and stores them in the
