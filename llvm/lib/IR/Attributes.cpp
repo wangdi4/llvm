@@ -1416,9 +1416,7 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
   // We want to be able to zero/sign extend vector parameters/return for
   // vector functions.
   if (!Ty->isIntOrIntVectorTy())
-#else // INTEL_CUSTOMIZATION
-  if (!Ty->isIntegerTy())
-#endif
+#endif // INTEL_CUSTOMIZATION
     // Attribute that only apply to integers.
     Incompatible.addAttribute(Attribute::SExt)
       .addAttribute(Attribute::ZExt);
@@ -1427,9 +1425,7 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
   // We want to be able to apply the same pointer attributes for vectors of
   // pointers for vector functions.
   if (!Ty->isPtrOrPtrVectorTy())
-#else // INTEL_CUSTOMIZATION
-  if (!Ty->isPointerTy())
-#endif
+#endif // INTEL_CUSTOMIZATION
     // Attribute that only apply to pointers.
     Incompatible.addAttribute(Attribute::ByVal)
       .addAttribute(Attribute::Nest)

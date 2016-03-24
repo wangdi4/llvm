@@ -306,7 +306,7 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::Intel_OCL_BI:  Out << "intel_ocl_bicc"; break;
 #if INTEL_CUSTOMIZATION
   case CallingConv::SVML:          Out << "svml_cc"; break;
-#endif
+#endif // INTEL_CUSTOMIZATION
   case CallingConv::ARM_APCS:      Out << "arm_apcscc"; break;
   case CallingConv::ARM_AAPCS:     Out << "arm_aapcscc"; break;
   case CallingConv::ARM_AAPCS_VFP: Out << "arm_aapcs_vfpcc"; break;

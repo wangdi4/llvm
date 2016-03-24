@@ -381,7 +381,9 @@ def RetCC_X86 : CallingConv<[
 
   // Check if this is the Intel OpenCL built-ins calling convention
   CCIfCC<"CallingConv::Intel_OCL_BI", CCDelegateTo<RetCC_Intel_OCL_BI>>,
+// if INTEL_CUSTOMIZATION
   CCIfCC<"CallingConv::SVML", CCDelegateTo<RetCC_SVML>>,
+// endif INTEL_CUSTOMIZATION
   CCIfSubtarget<"is64Bit()", CCDelegateTo<RetCC_X86_64>>,
   CCDelegateTo<RetCC_X86_32>
 ]>;
@@ -853,6 +855,7 @@ def CC_X86_32_HiPE : CallingConv<[
   CCIfType<[i32, f32], CCAssignToStack<4, 4>>
 ]>;
 
+// if INTEL_CUSTOMIZATION
 def CC_SVML : CallingConv<[
 
   CCIfType<[f32, f64, v4i32, v2i64, v4f32, v2f64],
@@ -867,6 +870,7 @@ def CC_SVML : CallingConv<[
   CCIfType<[v8i1, v16i1],
            CCAssignToReg<[K1]>>
 ]>;
+// endif INTEL_CUSTOMIZATION
 
 // X86-64 Intel OpenCL built-ins calling convention.
 def CC_Intel_OCL_BI : CallingConv<[

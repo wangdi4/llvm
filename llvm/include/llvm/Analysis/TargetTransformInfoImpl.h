@@ -139,7 +139,7 @@ public:
 
 #ifdef INTEL_CUSTOMIZATION
     case Intrinsic::intel_pragma:
-#endif
+#endif // INTEL_CUSTOMIZATION
     case Intrinsic::annotation:
     case Intrinsic::assume:
     case Intrinsic::dbg_declare:

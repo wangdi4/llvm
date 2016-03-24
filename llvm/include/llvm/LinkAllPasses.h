@@ -202,7 +202,6 @@ namespace {
       ((llvm::RegionPass*)nullptr)->runOnRegion((llvm::Region*)nullptr, RGM);
       llvm::AliasSetTracker X(*(llvm::AliasAnalysis*)nullptr);
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
-
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
 

@@ -634,12 +634,14 @@ public:
         Type *Ty = Tys[i];
         if (Ty->isVectorTy()) {
           ScalarizationCost += getScalarizationOverhead(Ty, false, true);
+#if INTEL_CUSTOMIZATION
           // void functions can still be vectorized (e.g., sincos()). Don't
           // attempt getVectorNumElements() on void types since this will
           // result in assertion.
           if (RetTy->isVectorTy()) {
             ScalarCalls = std::max(ScalarCalls, RetTy->getVectorNumElements());
           }
+#endif // INTEL_CUSTOMIZATION
           Ty = Ty->getScalarType();
         }
         ScalarTys.push_back(Ty);

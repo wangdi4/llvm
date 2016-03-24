@@ -375,7 +375,7 @@ Value *TargetTransformInfo::getOrCreateResultFromMemIntrinsic(
 bool TargetTransformInfo::adjustCallArgs(CallInst *CI) const {
   return TTIImpl->adjustCallArgs(CI);
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 bool TargetTransformInfo::areInlineCompatible(const Function *Caller,
                                               const Function *Callee) const {
