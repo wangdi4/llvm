@@ -122,7 +122,6 @@ private:
 class X86_64TargetInfo final : public TargetInfo {
 public:
   X86_64TargetInfo();
-  unsigned getPltRefReloc(unsigned Type) const override;
   bool isTlsDynReloc(unsigned Type, const SymbolBody &S) const override;
   void writeGotPltHeaderEntries(uint8_t *Buf) const override;
   void writeGotPltEntry(uint8_t *Buf, uint64_t Plt) const override;
@@ -139,7 +138,7 @@ public:
                    uint8_t *PairedLoc = nullptr) const override;
   bool isRelRelative(uint32_t Type) const override;
   bool isTlsOptimized(unsigned Type, const SymbolBody *S) const override;
-  bool isSizeDynReloc(uint32_t Type, const SymbolBody &S) const override;
+  bool isSizeReloc(uint32_t Type) const override;
   unsigned relocateTlsOptimize(uint8_t *Loc, uint8_t *BufEnd, uint32_t Type,
                                uint64_t P, uint64_t SA,
                                const SymbolBody &S) const override;
@@ -153,6 +152,23 @@ private:
                          uint64_t SA) const;
   void relocateTlsIeToLe(uint8_t *Loc, uint8_t *BufEnd, uint64_t P,
                          uint64_t SA) const;
+};
+
+class PPCTargetInfo final : public TargetInfo {
+public:
+  PPCTargetInfo();
+  void writeGotPltEntry(uint8_t *Buf, uint64_t Plt) const override;
+  void writePltZeroEntry(uint8_t *Buf, uint64_t GotEntryAddr,
+                         uint64_t PltEntryAddr) const override;
+  void writePltEntry(uint8_t *Buf, uint64_t GotAddr, uint64_t GotEntryAddr,
+                     uint64_t PltEntryAddr, int32_t Index,
+                     unsigned RelOff) const override;
+  bool relocNeedsGot(uint32_t Type, const SymbolBody &S) const override;
+  bool relocNeedsPlt(uint32_t Type, const SymbolBody &S) const override;
+  void relocateOne(uint8_t *Loc, uint8_t *BufEnd, uint32_t Type, uint64_t P,
+                   uint64_t SA, uint64_t ZA = 0,
+                   uint8_t *PairedLoc = nullptr) const override;
+  bool isRelRelative(uint32_t Type) const override;
 };
 
 class PPC64TargetInfo final : public TargetInfo {
@@ -176,14 +192,31 @@ class AArch64TargetInfo final : public TargetInfo {
 public:
   AArch64TargetInfo();
   unsigned getDynReloc(unsigned Type) const override;
-  unsigned getPltRefReloc(unsigned Type) const override;
   void writeGotPltEntry(uint8_t *Buf, uint64_t Plt) const override;
   void writePltZeroEntry(uint8_t *Buf, uint64_t GotEntryAddr,
                          uint64_t PltEntryAddr) const override;
   void writePltEntry(uint8_t *Buf, uint64_t GotAddr, uint64_t GotEntryAddr,
                      uint64_t PltEntryAddr, int32_t Index,
                      unsigned RelOff) const override;
+  unsigned getTlsGotReloc(unsigned Type = -1) const override;
+  bool isTlsDynReloc(unsigned Type, const SymbolBody &S) const override;
   bool needsCopyRel(uint32_t Type, const SymbolBody &S) const override;
+  bool relocNeedsGot(uint32_t Type, const SymbolBody &S) const override;
+  bool relocNeedsPlt(uint32_t Type, const SymbolBody &S) const override;
+  void relocateOne(uint8_t *Loc, uint8_t *BufEnd, uint32_t Type, uint64_t P,
+                   uint64_t SA, uint64_t ZA = 0,
+                   uint8_t *PairedLoc = nullptr) const override;
+};
+
+class AMDGPUTargetInfo final : public TargetInfo {
+public:
+  AMDGPUTargetInfo();
+  void writeGotPltEntry(uint8_t *Buf, uint64_t Plt) const override;
+  void writePltZeroEntry(uint8_t *Buf, uint64_t GotEntryAddr,
+                         uint64_t PltEntryAddr) const override;
+  void writePltEntry(uint8_t *Buf, uint64_t GotAddr, uint64_t GotEntryAddr,
+                     uint64_t PltEntryAddr, int32_t Index,
+                     unsigned RelOff) const override;
   bool relocNeedsGot(uint32_t Type, const SymbolBody &S) const override;
   bool relocNeedsPlt(uint32_t Type, const SymbolBody &S) const override;
   void relocateOne(uint8_t *Loc, uint8_t *BufEnd, uint32_t Type, uint64_t P,
@@ -194,6 +227,7 @@ public:
 template <class ELFT> class MipsTargetInfo final : public TargetInfo {
 public:
   MipsTargetInfo();
+  unsigned getDynReloc(unsigned Type) const override;
   void writeGotHeaderEntries(uint8_t *Buf) const override;
   void writeGotPltEntry(uint8_t *Buf, uint64_t Plt) const override;
   void writePltZeroEntry(uint8_t *Buf, uint64_t GotEntryAddr,
@@ -206,6 +240,7 @@ public:
   void relocateOne(uint8_t *Loc, uint8_t *BufEnd, uint32_t Type, uint64_t P,
                    uint64_t SA, uint64_t ZA = 0,
                    uint8_t *PairedLoc = nullptr) const override;
+  bool isHintReloc(uint32_t Type) const override;
   bool isRelRelative(uint32_t Type) const override;
 };
 } // anonymous namespace
@@ -216,6 +251,8 @@ TargetInfo *createTarget() {
     return new X86TargetInfo();
   case EM_AARCH64:
     return new AArch64TargetInfo();
+  case EM_AMDGPU:
+    return new AMDGPUTargetInfo();
   case EM_MIPS:
     switch (Config->EKind) {
     case ELF32LEKind:
@@ -225,6 +262,8 @@ TargetInfo *createTarget() {
     default:
       error("Unsupported MIPS target");
     }
+  case EM_PPC:
+    return new PPCTargetInfo();
   case EM_PPC64:
     return new PPC64TargetInfo();
   case EM_X86_64:
@@ -247,13 +286,11 @@ bool TargetInfo::needsCopyRel(uint32_t Type, const SymbolBody &S) const {
 
 bool TargetInfo::isGotRelative(uint32_t Type) const { return false; }
 
-unsigned TargetInfo::getPltRefReloc(unsigned Type) const { return PCRelReloc; }
+bool TargetInfo::isHintReloc(uint32_t Type) const { return false; }
 
 bool TargetInfo::isRelRelative(uint32_t Type) const { return true; }
 
-bool TargetInfo::isSizeDynReloc(uint32_t Type, const SymbolBody &S) const {
-  return false;
-}
+bool TargetInfo::isSizeReloc(uint32_t Type) const { return false; }
 
 unsigned TargetInfo::relocateTlsOptimize(uint8_t *Loc, uint8_t *BufEnd,
                                          uint32_t Type, uint64_t P, uint64_t SA,
@@ -389,7 +426,13 @@ void X86TargetInfo::relocateOne(uint8_t *Loc, uint8_t *BufEnd, uint32_t Type,
   case R_386_32:
     add32le(Loc, SA);
     break;
-  case R_386_GOT32:
+  case R_386_GOT32: {
+    uint64_t V = SA - Out<ELF32LE>::Got->getVA() -
+                 Out<ELF32LE>::Got->getNumEntries() * 4;
+    checkInt<32>(V, Type);
+    add32le(Loc, V);
+    break;
+  }
   case R_386_GOTOFF:
     add32le(Loc, SA - Out<ELF32LE>::Got->getVA());
     break;
@@ -639,12 +682,6 @@ bool X86_64TargetInfo::isTlsDynReloc(unsigned Type, const SymbolBody &S) const {
   return Type == R_X86_64_GOTTPOFF || Type == R_X86_64_TLSGD;
 }
 
-unsigned X86_64TargetInfo::getPltRefReloc(unsigned Type) const {
-  if (Type == R_X86_64_PLT32)
-    return R_X86_64_PC32;
-  return Type;
-}
-
 bool X86_64TargetInfo::relocNeedsPlt(uint32_t Type, const SymbolBody &S) const {
   if (needsCopyRel(Type, S))
     return false;
@@ -698,16 +735,12 @@ bool X86_64TargetInfo::isRelRelative(uint32_t Type) const {
   case R_X86_64_PC32:
   case R_X86_64_PC64:
   case R_X86_64_PLT32:
-  case R_X86_64_SIZE32:
-  case R_X86_64_SIZE64:
     return true;
   }
 }
 
-bool X86_64TargetInfo::isSizeDynReloc(uint32_t Type,
-                                      const SymbolBody &S) const {
-  return (Type == R_X86_64_SIZE32 || Type == R_X86_64_SIZE64) &&
-         canBePreempted(&S, false);
+bool X86_64TargetInfo::isSizeReloc(uint32_t Type) const {
+  return Type == R_X86_64_SIZE32 || Type == R_X86_64_SIZE64;
 }
 
 bool X86_64TargetInfo::isTlsOptimized(unsigned Type,
@@ -908,6 +941,37 @@ static uint16_t applyPPCHigher(uint64_t V) { return V >> 32; }
 static uint16_t applyPPCHighera(uint64_t V) { return (V + 0x8000) >> 32; }
 static uint16_t applyPPCHighest(uint64_t V) { return V >> 48; }
 static uint16_t applyPPCHighesta(uint64_t V) { return (V + 0x8000) >> 48; }
+
+PPCTargetInfo::PPCTargetInfo() {}
+void PPCTargetInfo::writeGotPltEntry(uint8_t *Buf, uint64_t Plt) const {}
+void PPCTargetInfo::writePltZeroEntry(uint8_t *Buf, uint64_t GotEntryAddr,
+                                        uint64_t PltEntryAddr) const {}
+void PPCTargetInfo::writePltEntry(uint8_t *Buf, uint64_t GotAddr,
+                                  uint64_t GotEntryAddr,
+                                  uint64_t PltEntryAddr, int32_t Index,
+                                  unsigned RelOff) const {}
+bool PPCTargetInfo::relocNeedsGot(uint32_t Type, const SymbolBody &S) const {
+  return false;
+}
+bool PPCTargetInfo::relocNeedsPlt(uint32_t Type, const SymbolBody &S) const {
+  return false;
+}
+bool PPCTargetInfo::isRelRelative(uint32_t Type) const { return false; }
+
+void PPCTargetInfo::relocateOne(uint8_t *Loc, uint8_t *BufEnd, uint32_t Type,
+                                uint64_t P, uint64_t SA, uint64_t ZA,
+                                uint8_t *PairedLoc) const {
+  switch (Type) {
+  case R_PPC_ADDR16_HA:
+    write16be(Loc, applyPPCHa(SA));
+    break;
+  case R_PPC_ADDR16_LO:
+    write16be(Loc, applyPPCLo(SA));
+    break;
+  default:
+    error("unrecognized reloc " + Twine(Type));
+  }
+}
 
 PPC64TargetInfo::PPC64TargetInfo() {
   PCRelReloc = R_PPC64_REL24;
@@ -1124,8 +1188,10 @@ void PPC64TargetInfo::relocateOne(uint8_t *Loc, uint8_t *BufEnd, uint32_t Type,
 
 AArch64TargetInfo::AArch64TargetInfo() {
   CopyReloc = R_AARCH64_COPY;
+  IRelativeReloc = R_AARCH64_IRELATIVE;
   GotReloc = R_AARCH64_GLOB_DAT;
   PltReloc = R_AARCH64_JUMP_SLOT;
+  TlsGotReloc = R_AARCH64_TLS_TPREL64;
   LazyRelocations = true;
   PltEntrySize = 16;
   PltZeroEntrySize = 32;
@@ -1138,8 +1204,6 @@ unsigned AArch64TargetInfo::getDynReloc(unsigned Type) const {
   error("Relocation " + S + " cannot be used when making a shared object; "
                             "recompile with -fPIC.");
 }
-
-unsigned AArch64TargetInfo::getPltRefReloc(unsigned Type) const { return Type; }
 
 void AArch64TargetInfo::writeGotPltEntry(uint8_t *Buf, uint64_t Plt) const {
   write64le(Buf, Out<ELF64LE>::Plt->getVA());
@@ -1187,6 +1251,19 @@ void AArch64TargetInfo::writePltEntry(uint8_t *Buf, uint64_t GotAddr,
               GotEntryAddr);
 }
 
+unsigned AArch64TargetInfo::getTlsGotReloc(unsigned Type) const {
+  if (Type == R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21 ||
+      Type == R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC)
+    return Type;
+  return TlsGotReloc;
+}
+
+bool AArch64TargetInfo::isTlsDynReloc(unsigned Type,
+                                      const SymbolBody &S) const {
+  return Type == R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21 ||
+         Type == R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC;
+}
+
 bool AArch64TargetInfo::needsCopyRel(uint32_t Type, const SymbolBody &S) const {
   if (Config->Shared)
     return false;
@@ -1200,8 +1277,10 @@ bool AArch64TargetInfo::needsCopyRel(uint32_t Type, const SymbolBody &S) const {
   case R_AARCH64_ADR_PREL_LO21:
   case R_AARCH64_ADR_PREL_PG_HI21:
   case R_AARCH64_LDST8_ABS_LO12_NC:
+  case R_AARCH64_LDST16_ABS_LO12_NC:
   case R_AARCH64_LDST32_ABS_LO12_NC:
   case R_AARCH64_LDST64_ABS_LO12_NC:
+  case R_AARCH64_LDST128_ABS_LO12_NC:
     if (auto *SS = dyn_cast<SharedSymbol<ELF64LE>>(&S))
       return SS->Sym.getType() == STT_OBJECT;
     return false;
@@ -1210,17 +1289,28 @@ bool AArch64TargetInfo::needsCopyRel(uint32_t Type, const SymbolBody &S) const {
 
 bool AArch64TargetInfo::relocNeedsGot(uint32_t Type,
                                       const SymbolBody &S) const {
-  return Type == R_AARCH64_ADR_GOT_PAGE || Type == R_AARCH64_LD64_GOT_LO12_NC ||
-         relocNeedsPlt(Type, S);
+  switch (Type) {
+  case R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
+  case R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21:
+  case R_AARCH64_ADR_GOT_PAGE:
+  case R_AARCH64_LD64_GOT_LO12_NC:
+    return true;
+  default:
+    return relocNeedsPlt(Type, S);
+  }
 }
 
 bool AArch64TargetInfo::relocNeedsPlt(uint32_t Type,
                                       const SymbolBody &S) const {
+  if (isGnuIFunc<ELF64LE>(S))
+    return true;
   switch (Type) {
   default:
     return false;
   case R_AARCH64_CALL26:
+  case R_AARCH64_CONDBR19:
   case R_AARCH64_JUMP26:
+  case R_AARCH64_TSTBR14:
     return canBePreempted(&S, true);
   }
 }
@@ -1273,7 +1363,8 @@ void AArch64TargetInfo::relocateOne(uint8_t *Loc, uint8_t *BufEnd,
     updateAArch64Adr(Loc, X & 0x1FFFFF);
     break;
   }
-  case R_AARCH64_ADR_PREL_PG_HI21: {
+  case R_AARCH64_ADR_PREL_PG_HI21:
+  case R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21: {
     uint64_t X = getAArch64Page(SA) - getAArch64Page(P);
     checkInt<33>(X, Type);
     updateAArch64Adr(Loc, (X >> 12) & 0x1FFFFF); // X[32:12]
@@ -1286,9 +1377,22 @@ void AArch64TargetInfo::relocateOne(uint8_t *Loc, uint8_t *BufEnd,
     or32le(Loc, (X & 0x0FFFFFFC) >> 2);
     break;
   }
+  case R_AARCH64_CONDBR19: {
+    uint64_t X = SA - P;
+    checkInt<21>(X, Type);
+    or32le(Loc, (X & 0x1FFFFC) << 3);
+    break;
+  }
   case R_AARCH64_LD64_GOT_LO12_NC:
+  case R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
     checkAlignment<8>(SA, Type);
     or32le(Loc, (SA & 0xFF8) << 7);
+    break;
+  case R_AARCH64_LDST128_ABS_LO12_NC:
+    or32le(Loc, (SA & 0x0FF8) << 6);
+    break;
+  case R_AARCH64_LDST16_ABS_LO12_NC:
+    or32le(Loc, (SA & 0x0FFC) << 9);
     break;
   case R_AARCH64_LDST8_ABS_LO12_NC:
     or32le(Loc, (SA & 0xFFF) << 10);
@@ -1310,14 +1414,66 @@ void AArch64TargetInfo::relocateOne(uint8_t *Loc, uint8_t *BufEnd,
   case R_AARCH64_PREL64:
     write64le(Loc, SA - P);
     break;
+  case R_AARCH64_TSTBR14: {
+    uint64_t X = SA - P;
+    checkInt<16>(X, Type);
+    or32le(Loc, (X & 0xFFFC) << 3);
+    break;
+  }
   default:
     error("unrecognized reloc " + Twine(Type));
   }
 }
 
+AMDGPUTargetInfo::AMDGPUTargetInfo() {}
+
+void AMDGPUTargetInfo::writeGotPltEntry(uint8_t *Buf, uint64_t Plt) const {
+  llvm_unreachable("not implemented");
+}
+
+void AMDGPUTargetInfo::writePltZeroEntry(uint8_t *Buf, uint64_t GotEntryAddr,
+                                         uint64_t PltEntryAddr) const {
+  llvm_unreachable("not implemented");
+}
+
+void AMDGPUTargetInfo::writePltEntry(uint8_t *Buf, uint64_t GotAddr,
+                                     uint64_t GotEntryAddr,
+                                     uint64_t PltEntryAddr, int32_t Index,
+                                     unsigned RelOff) const {
+  llvm_unreachable("not implemented");
+}
+
+bool AMDGPUTargetInfo::relocNeedsGot(uint32_t Type, const SymbolBody &S) const {
+  return false;
+}
+
+bool AMDGPUTargetInfo::relocNeedsPlt(uint32_t Type, const SymbolBody &S) const {
+  return false;
+}
+
+// Implementing relocations for AMDGPU is low priority since most
+// programs don't use relocations now. Thus, this function is not
+// actually called (relocateOne is called for each relocation).
+// That's why the AMDGPU port works without implementing this function.
+void AMDGPUTargetInfo::relocateOne(uint8_t *Loc, uint8_t *BufEnd, uint32_t Type,
+                                   uint64_t P, uint64_t SA, uint64_t ZA,
+                                   uint8_t *PairedLoc) const {
+  llvm_unreachable("not implemented");
+}
+
 template <class ELFT> MipsTargetInfo<ELFT>::MipsTargetInfo() {
   PageSize = 65536;
   GotHeaderEntriesNum = 2;
+  RelativeReloc = R_MIPS_REL32;
+}
+
+template <class ELFT>
+unsigned MipsTargetInfo<ELFT>::getDynReloc(unsigned Type) const {
+  if (Type == R_MIPS_32 || Type == R_MIPS_64)
+    return R_MIPS_REL32;
+  StringRef S = getELFRelocationTypeName(EM_MIPS, Type);
+  error("Relocation " + S + " cannot be used when making a shared object; "
+                            "recompile with -fPIC.");
 }
 
 template <class ELFT>
@@ -1449,6 +1605,11 @@ void MipsTargetInfo<ELFT>::relocateOne(uint8_t *Loc, uint8_t *BufEnd,
 }
 
 template <class ELFT>
+bool MipsTargetInfo<ELFT>::isHintReloc(uint32_t Type) const {
+  return Type == R_MIPS_JALR;
+}
+
+template <class ELFT>
 bool MipsTargetInfo<ELFT>::isRelRelative(uint32_t Type) const {
   switch (Type) {
   default:
@@ -1471,6 +1632,20 @@ template <class ELFT> typename ELFFile<ELFT>::uintX_t getMipsGpAddr() {
   if (uint64_t V = Out<ELFT>::Got->getVA())
     return V + GPOffset;
   return 0;
+}
+
+bool needsMipsLocalGot(uint32_t Type, SymbolBody *Body) {
+  // The R_MIPS_GOT16 relocation requires creation of entry in the local part
+  // of GOT if its target is a local symbol or non-local symbol with 'local'
+  // visibility.
+  if (Type != R_MIPS_GOT16)
+    return false;
+  if (!Body)
+    return true;
+  uint8_t V = Body->getVisibility();
+  if (V != STV_DEFAULT && V != STV_PROTECTED)
+    return true;
+  return !Config->Shared;
 }
 
 template uint32_t getMipsGpAddr<ELF32LE>();

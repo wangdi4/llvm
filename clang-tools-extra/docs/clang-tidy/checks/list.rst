@@ -4,10 +4,16 @@ Clang-Tidy Checks
 =========================
 
 .. toctree::   
+   cert-dcl03-c (redirects to misc-static-assert) <cert-dcl03-c>
    cert-dcl50-cpp
+   cert-dcl54-cpp (redirects to misc-new-delete-overloads) <cert-dcl54-cpp>
+   cert-dcl59-cpp (redirects to google-build-namespaces) <cert-dcl59-cpp>
    cert-err52-cpp
    cert-err58-cpp
    cert-err60-cpp
+   cert-err61-cpp (redirects to misc-throw-by-value-catch-by-reference) <cert-err61-cpp>
+   cert-fio38-c (redirects to misc-non-copyable-objects) <cert-fio38-c>
+   cert-oop11-cpp (redirects to misc-move-constructor-init) <cert-oop11-cpp>
    cppcoreguidelines-pro-bounds-array-to-pointer-decay
    cppcoreguidelines-pro-bounds-constant-array-index
    cppcoreguidelines-pro-bounds-pointer-arithmetic
@@ -40,6 +46,7 @@ Clang-Tidy Checks
    misc-assert-side-effect
    misc-assign-operator-signature
    misc-bool-pointer-implicit-conversion
+   misc-definitions-in-headers
    misc-inaccurate-erase
    misc-inefficient-algorithm
    misc-macro-parentheses
@@ -58,6 +65,7 @@ Clang-Tidy Checks
    misc-unused-alias-decls
    misc-unused-parameters
    misc-unused-raii
+   misc-virtual-near-miss
    modernize-loop-convert
    modernize-make-unique
    modernize-pass-by-value

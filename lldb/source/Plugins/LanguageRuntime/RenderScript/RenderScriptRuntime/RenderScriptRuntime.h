@@ -36,6 +36,7 @@ struct RSKernelDescriptor;
 typedef std::shared_ptr<RSModuleDescriptor> RSModuleDescriptorSP;
 typedef std::shared_ptr<RSGlobalDescriptor> RSGlobalDescriptorSP;
 typedef std::shared_ptr<RSKernelDescriptor> RSKernelDescriptorSP;
+typedef std::array<uint32_t, 3> RSCoordinate;
 
 // Breakpoint Resolvers decide where a breakpoint is placed,
 // so having our own allows us to limit the search scope to RS kernel modules.
@@ -207,10 +208,6 @@ public:
 
     void Status(Stream &strm) const;
 
-    size_t GetAlternateManglings(const ConstString &mangled, std::vector<ConstString> &alternates) override {
-        return static_cast<size_t>(0);
-    }
-
     void ModulesDidLoad(const ModuleList &module_list) override;
 
     bool LoadAllocation(Stream &strm, const uint32_t alloc_id, const char* filename, StackFrame* frame_ptr);
@@ -227,6 +224,9 @@ public:
     lldb_private::ConstString GetPluginName() override;
 
     uint32_t GetPluginVersion() override;
+
+    static bool
+    GetKernelCoordinate(lldb_renderscript::RSCoordinate &coord, Thread *thread_ptr);
 
 protected:
     struct ScriptDetails;
@@ -283,7 +283,7 @@ protected:
 
     std::map<lldb::addr_t, lldb_renderscript::RSModuleDescriptorSP> m_scriptMappings;
     std::map<lldb::addr_t, RuntimeHookSP> m_runtimeHooks;
-    std::map<lldb::user_id_t, std::shared_ptr<int>> m_conditional_breaks;
+    std::map<lldb::user_id_t, std::shared_ptr<uint32_t>> m_conditional_breaks;
 
     lldb::SearchFilterSP m_filtersp; // Needed to create breakpoints through Target API
 
@@ -292,26 +292,10 @@ protected:
     bool m_breakAllKernels;
     static const HookDefn s_runtimeHookDefns[];
     static const size_t s_runtimeHookCount;
+    static const std::string s_runtimeExpandSuffix;
+    static const std::array<const char *, 3> s_runtimeCoordVars;
 
 private:
-    // Used to index expression format strings
-    enum ExpressionStrings
-    {
-       eExprGetOffsetPtr = 0,
-       eExprAllocGetType,
-       eExprTypeDimX,
-       eExprTypeDimY,
-       eExprTypeDimZ,
-       eExprTypeElemPtr,
-       eExprElementType,
-       eExprElementKind,
-       eExprElementVec,
-       eExprElementFieldCount,
-       eExprSubelementsId,
-       eExprSubelementsName,
-       eExprSubelementsArrSize
-    };
-
     RenderScriptRuntime(Process *process); // Call CreateInstance instead.
     
     static bool HookCallback(void *baton, StoppointCallbackContext *ctx, lldb::user_id_t break_id,
@@ -328,6 +312,7 @@ private:
     void CaptureAllocationInit1(RuntimeHook* hook_info, ExecutionContext& context);
     void CaptureAllocationDestroy(RuntimeHook* hook_info, ExecutionContext& context);
     void CaptureSetGlobalVar1(RuntimeHook* hook_info, ExecutionContext& context);
+    void CaptureScriptInvokeForEachMulti(RuntimeHook* hook_info, ExecutionContext& context);
 
     AllocationDetails* FindAllocByID(Stream &strm, const uint32_t alloc_id);
     std::shared_ptr<uint8_t> GetAllocationData(AllocationDetails* allocation, StackFrame* frame_ptr);
@@ -335,11 +320,12 @@ private:
     static bool GetFrameVarAsUnsigned(const lldb::StackFrameSP, const char* var_name, uint64_t& val);
     void FindStructTypeName(Element& elem, StackFrame* frame_ptr);
 
+    size_t PopulateElementHeaders(const std::shared_ptr<uint8_t> header_buffer, size_t offset, const Element& elem);
+    size_t CalculateElementHeaderSize(const Element& elem);
+
     //
     // Helper functions for jitting the runtime
     //
-    const char* JITTemplate(ExpressionStrings e);
-
     bool JITDataPointer(AllocationDetails* allocation, StackFrame* frame_ptr,
                         unsigned int x = 0, unsigned int y = 0, unsigned int z = 0);
 

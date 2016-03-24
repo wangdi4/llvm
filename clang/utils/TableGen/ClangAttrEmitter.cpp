@@ -1152,9 +1152,9 @@ createArgument(const Record &Arg, StringRef Attr,
 
   if (!Ptr) {
     // Search in reverse order so that the most-derived type is handled first.
-    ArrayRef<Record*> Bases = Search->getSuperClasses();
-    for (const auto *Base : llvm::make_range(Bases.rbegin(), Bases.rend())) {
-      if ((Ptr = createArgument(Arg, Attr, Base)))
+    ArrayRef<std::pair<Record*, SMRange>> Bases = Search->getSuperClasses();
+    for (const auto &Base : llvm::make_range(Bases.rbegin(), Bases.rend())) {
+      if ((Ptr = createArgument(Arg, Attr, Base.first)))
         break;
     }
   }
@@ -1475,7 +1475,7 @@ static void emitClangAttrTypeArgList(RecordKeeper &Records, raw_ostream &OS) {
     if (Args.empty())
       continue;
 
-    if (Args[0]->getSuperClasses().back()->getName() != "TypeArgument")
+    if (Args[0]->getSuperClasses().back().first->getName() != "TypeArgument")
       continue;
 
     // All these spellings take a single type argument.
@@ -1513,7 +1513,7 @@ static void emitClangAttrArgContextList(RecordKeeper &Records, raw_ostream &OS) 
 
 static bool isIdentifierArgument(Record *Arg) {
   return !Arg->getSuperClasses().empty() &&
-    llvm::StringSwitch<bool>(Arg->getSuperClasses().back()->getName())
+    llvm::StringSwitch<bool>(Arg->getSuperClasses().back().first->getName())
     .Case("IdentifierArgument", true)
     .Case("EnumArgument", true)
     .Case("VariadicEnumArgument", true)
@@ -1579,13 +1579,13 @@ void EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
     if (!R.getValueAsBit("ASTNode"))
       continue;
     
-    ArrayRef<Record *> Supers = R.getSuperClasses();
+    ArrayRef<std::pair<Record *, SMRange>> Supers = R.getSuperClasses();
     assert(!Supers.empty() && "Forgot to specify a superclass for the attr");
     std::string SuperName;
-    for (const auto *Super : llvm::make_range(Supers.rbegin(), Supers.rend())) {
-      const Record &R = *Super;
-      if (R.getName() != "TargetSpecificAttr" && SuperName.empty())
-        SuperName = R.getName();
+    for (const auto &Super : llvm::make_range(Supers.rbegin(), Supers.rend())) {
+      const Record *R = Super.first;
+      if (R->getName() != "TargetSpecificAttr" && SuperName.empty())
+        SuperName = R->getName();
     }
 
 #if INTEL_CUSTOMIZATION

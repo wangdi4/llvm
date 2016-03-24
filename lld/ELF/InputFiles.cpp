@@ -92,7 +92,9 @@ typename ObjectFile<ELFT>::Elf_Sym_Range ObjectFile<ELFT>::getLocalSymbols() {
 }
 
 template <class ELFT> uint32_t ObjectFile<ELFT>::getMipsGp0() const {
-  return MipsReginfo ? MipsReginfo->getGp0() : 0;
+  if (MipsReginfo)
+    return MipsReginfo->Reginfo->ri_gp_value;
+  return 0;
 }
 
 template <class ELFT>
@@ -106,9 +108,9 @@ ObjectFile<ELFT>::getLocalSymbol(uintX_t SymIndex) {
 }
 
 template <class ELFT>
-void ObjectFile<ELFT>::parse(DenseSet<StringRef> &Comdats) {
+void ObjectFile<ELFT>::parse(DenseSet<StringRef> &ComdatGroups) {
   // Read section and symbol tables.
-  initializeSections(Comdats);
+  initializeSections(ComdatGroups);
   initializeSymbols();
 }
 
@@ -132,13 +134,13 @@ StringRef ObjectFile<ELFT>::getShtGroupSignature(const Elf_Shdr &Sec) {
 }
 
 template <class ELFT>
-ArrayRef<typename ObjectFile<ELFT>::GroupEntryType>
+ArrayRef<typename ObjectFile<ELFT>::uint32_X>
 ObjectFile<ELFT>::getShtGroupEntries(const Elf_Shdr &Sec) {
   const ELFFile<ELFT> &Obj = this->ELFObj;
-  ErrorOr<ArrayRef<GroupEntryType>> EntriesOrErr =
-      Obj.template getSectionContentsAsArray<GroupEntryType>(&Sec);
+  ErrorOr<ArrayRef<uint32_X>> EntriesOrErr =
+      Obj.template getSectionContentsAsArray<uint32_X>(&Sec);
   error(EntriesOrErr);
-  ArrayRef<GroupEntryType> Entries = *EntriesOrErr;
+  ArrayRef<uint32_X> Entries = *EntriesOrErr;
   if (Entries.empty() || Entries[0] != GRP_COMDAT)
     error("Unsupported SHT_GROUP format");
   return Entries.slice(1);
@@ -172,7 +174,7 @@ static bool shouldMerge(const typename ELFFile<ELFT>::Elf_Shdr &Sec) {
 }
 
 template <class ELFT>
-void ObjectFile<ELFT>::initializeSections(DenseSet<StringRef> &Comdats) {
+void ObjectFile<ELFT>::initializeSections(DenseSet<StringRef> &ComdatGroups) {
   uint64_t Size = this->ELFObj.getNumSections();
   Sections.resize(Size);
   unsigned I = -1;
@@ -185,10 +187,9 @@ void ObjectFile<ELFT>::initializeSections(DenseSet<StringRef> &Comdats) {
     switch (Sec.sh_type) {
     case SHT_GROUP:
       Sections[I] = &InputSection<ELFT>::Discarded;
-      if (Comdats.insert(getShtGroupSignature(Sec)).second)
+      if (ComdatGroups.insert(getShtGroupSignature(Sec)).second)
         continue;
-      for (GroupEntryType E : getShtGroupEntries(Sec)) {
-        uint32_t SecIndex = E;
+      for (uint32_t SecIndex : getShtGroupEntries(Sec)) {
         if (SecIndex >= Size)
           error("Invalid section index in group");
         Sections[SecIndex] = &InputSection<ELFT>::Discarded;
@@ -265,7 +266,7 @@ template <class ELFT> void ObjectFile<ELFT>::initializeSymbols() {
   uint32_t NumSymbols = std::distance(Syms.begin(), Syms.end());
   SymbolBodies.reserve(NumSymbols);
   for (const Elf_Sym &Sym : Syms)
-    SymbolBodies.push_back(createSymbolBody(this->StringTable, &Sym));
+    SymbolBodies.push_back(createSymbolBody(&Sym));
 }
 
 template <class ELFT>
@@ -280,9 +281,8 @@ ObjectFile<ELFT>::getSection(const Elf_Sym &Sym) const {
 }
 
 template <class ELFT>
-SymbolBody *ObjectFile<ELFT>::createSymbolBody(StringRef StringTable,
-                                                     const Elf_Sym *Sym) {
-  ErrorOr<StringRef> NameOrErr = Sym->getName(StringTable);
+SymbolBody *ObjectFile<ELFT>::createSymbolBody(const Elf_Sym *Sym) {
+  ErrorOr<StringRef> NameOrErr = Sym->getName(this->StringTable);
   error(NameOrErr);
   StringRef Name = *NameOrErr;
 
@@ -354,6 +354,8 @@ SharedFile<ELFT>::getSection(const Elf_Sym &Sym) const {
   return *Ret;
 }
 
+// Partially parse the shared object file so that we can call
+// getSoName on this object.
 template <class ELFT> void SharedFile<ELFT>::parseSoName() {
   typedef typename ELFFile<ELFT>::Elf_Dyn Elf_Dyn;
   typedef typename ELFFile<ELFT>::uintX_t uintX_t;
@@ -399,7 +401,8 @@ template <class ELFT> void SharedFile<ELFT>::parseSoName() {
   }
 }
 
-template <class ELFT> void SharedFile<ELFT>::parse() {
+// Fully parse the shared object file. This must be called after parseSoName().
+template <class ELFT> void SharedFile<ELFT>::parseRest() {
   Elf_Sym_Range Syms = this->getNonLocalSymbols();
   uint32_t NumSymbols = std::distance(Syms.begin(), Syms.end());
   SymbolBodies.reserve(NumSymbols);
