@@ -40,6 +40,7 @@
 #include "cl_autoptr_ex.h"
 #include <cl_local_array.h>
 #include "program_with_il.h"
+#include <cl_synch_objects.h>
 
 #include <string>
 
@@ -430,12 +431,11 @@ DeviceBuildTask::~DeviceBuildTask()
 {
 }
 
-#include <mutex>
-
-std::mutex device_build_mtx;
+// Mutex that provide exclusive access to BE due to BE build works always in the same LLVMContext.
+Intel::OpenCL::Utils::OclMutex device_build_mtx;
 bool DeviceBuildTask::Execute()
 {
-    std::lock_guard<std::mutex> lck(device_build_mtx);
+    OclAutoMutex lockBuild(&device_build_mtx);
 
     const char*         pBinary         = NULL;
     size_t              uiBinarySize    = 0;
