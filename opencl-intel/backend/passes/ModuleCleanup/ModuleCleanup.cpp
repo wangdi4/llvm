@@ -83,18 +83,9 @@ namespace intel{
       // if (!GVar->user_empty()) continue;
       // TODO: Check why not all uses were dropped when all calls were inlined.
       // Meanwhile we check that all functions that uses our global variable are used by some kernel.
-      bool isNeeded = false;
-      for (Value::user_iterator U = GVar->user_begin(), UE = GVar->user_end(); U != UE; ++U) {
-        if (ConstantExpr* CE = dyn_cast<ConstantExpr>(*U)) {
-          if (CE->user_empty()) {
-            continue;
-          }
-        }
-        isNeeded = true;
-        break;
-      }
-      if (isNeeded) continue;
-      toDelete.push_back(GVar);
+      GVar->removeDeadConstantUsers();
+      if(GVar->user_empty())
+          toDelete.push_back(GVar);
     }
     for (std::vector<GlobalVariable*>::iterator i = toDelete.begin(), ie = toDelete.end(); i != ie; ++i) {
       (*i)->eraseFromParent();
