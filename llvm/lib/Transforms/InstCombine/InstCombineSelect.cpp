@@ -1392,7 +1392,7 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
       if (FCI->hasOneUse() && FCmpInst::isUnordered(FCI->getPredicate())) {
         FCmpInst::Predicate InvPred = FCI->getInversePredicate();
         IRBuilder<>::FastMathFlagGuard FMFG(*Builder);
-        Builder->SetFastMathFlags(FCI->getFastMathFlags());
+        Builder->setFastMathFlags(FCI->getFastMathFlags());
         Value *NewCond = Builder->CreateFCmp(InvPred, TrueVal, FalseVal,
                                              FCI->getName() + ".inv");
 
@@ -1435,7 +1435,7 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
       if (FCI->hasOneUse() && FCmpInst::isUnordered(FCI->getPredicate())) {
         FCmpInst::Predicate InvPred = FCI->getInversePredicate();
         IRBuilder<>::FastMathFlagGuard FMFG(*Builder);
-        Builder->SetFastMathFlags(FCI->getFastMathFlags());
+        Builder->setFastMathFlags(FCI->getFastMathFlags());
         Value *NewCond = Builder->CreateFCmp(InvPred, FalseVal, TrueVal,
                                              FCI->getName() + ".inv");
 
@@ -1548,7 +1548,7 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
         } else {
           IRBuilder<>::FastMathFlagGuard FMFG(*Builder);
           auto FMF = cast<FPMathOperator>(SI.getCondition())->getFastMathFlags();
-          Builder->SetFastMathFlags(FMF);
+          Builder->setFastMathFlags(FMF);
           Cmp = Builder->CreateFCmp(Pred, LHS, RHS);
         }
 

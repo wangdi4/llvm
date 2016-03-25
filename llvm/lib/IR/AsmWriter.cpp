@@ -2420,7 +2420,7 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
     Out << "addrspace(" << AddressSpace << ") ";
   if (GV->isExternallyInitialized()) Out << "externally_initialized ";
   Out << (GV->isConstant() ? "constant " : "global ");
-  TypePrinter.print(GV->getType()->getElementType(), Out);
+  TypePrinter.print(GV->getValueType(), Out);
 
   if (GV->hasInitializer()) {
     Out << ' ';
@@ -3125,7 +3125,7 @@ void AssemblyWriter::printMetadataAttachments(
     return;
 
   if (MDNames.empty())
-    TheModule->getMDKindNames(MDNames);
+    MDs[0].second->getContext().getMDKindNames(MDNames);
 
   for (const auto &I : MDs) {
     unsigned Kind = I.first;

@@ -123,10 +123,13 @@ public:
   void finalize() override;
   void writeTo(uint8_t *Buf) override;
   void addEntry(SymbolBody *Sym);
+  void addMipsLocalEntry();
   bool addDynTlsEntry(SymbolBody *Sym);
   bool addCurrentModuleTlsIndex();
-  bool empty() const { return Entries.empty(); }
+  bool empty() const { return MipsLocalEntries == 0 && Entries.empty(); }
   uintX_t getEntryAddr(const SymbolBody &B) const;
+  uintX_t getMipsLocalFullAddr(const SymbolBody &B);
+  uintX_t getMipsLocalPageAddr(uintX_t Addr);
   uintX_t getGlobalDynAddr(const SymbolBody &B) const;
   uintX_t getNumEntries() const { return Entries.size(); }
 
@@ -145,6 +148,10 @@ public:
 private:
   std::vector<const SymbolBody *> Entries;
   uint32_t LocalTlsIndexOff = -1;
+  uint32_t MipsLocalEntries = 0;
+  llvm::DenseMap<uintX_t, size_t> MipsLocalGotPos;
+
+  uintX_t getMipsLocalEntryAddr(uintX_t EntryValue);
 };
 
 template <class ELFT>
@@ -287,6 +294,7 @@ template <class ELFT> struct EHRegion {
 template <class ELFT> struct Cie : public EHRegion<ELFT> {
   Cie(EHInputSection<ELFT> *S, unsigned Index);
   std::vector<EHRegion<ELFT>> Fdes;
+  uint8_t FdeEncoding;
 };
 
 template <class ELFT>
@@ -308,6 +316,7 @@ public:
   void addSection(InputSectionBase<ELFT> *S) override;
 
 private:
+  uint8_t getFdeEncoding(ArrayRef<uint8_t> D);
   uintX_t readEntryLength(ArrayRef<uint8_t> D);
 
   std::vector<EHInputSection<ELFT> *> Sections;
@@ -329,21 +338,18 @@ class StringTableSection final : public OutputSectionBase<ELFT> {
 public:
   typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
   StringTableSection(StringRef Name, bool Dynamic);
-  void add(StringRef S) { StrTabBuilder.add(S); }
-  size_t getOffset(StringRef S) const { return StrTabBuilder.getOffset(S); }
-  StringRef data() const { return StrTabBuilder.data(); }
+  void reserve(StringRef S);
+  size_t addString(StringRef S);
   void writeTo(uint8_t *Buf) override;
-
-  void finalize() override {
-    StrTabBuilder.finalize();
-    this->Header.sh_size = StrTabBuilder.data().size();
-  }
-
+  size_t getSize() const { return Used + Reserved; }
+  void finalize() override { this->Header.sh_size = getSize(); }
   bool isDynamic() const { return Dynamic; }
 
 private:
   const bool Dynamic;
-  llvm::StringTableBuilder StrTabBuilder{llvm::StringTableBuilder::ELF};
+  std::vector<StringRef> Strings;
+  size_t Used = 1; // ELF string tables start with a NUL byte, so 1.
+  size_t Reserved = 0;
 };
 
 template <class ELFT>
@@ -429,7 +435,43 @@ public:
   void addSection(InputSectionBase<ELFT> *S) override;
 
 private:
-  uint32_t GeneralMask = 0;
+  uint32_t GprMask = 0;
+};
+
+// --eh-frame-hdr option tells linker to construct a header for all the
+// .eh_frame sections. This header is placed to a section named .eh_frame_hdr
+// and also to a PT_GNU_EH_FRAME segment.
+// At runtime the unwinder then can find all the PT_GNU_EH_FRAME segments by
+// calling dl_iterate_phdr.
+// This section contains a lookup table for quick binary search of FDEs.
+// Detailed info about internals can be found in Ian Lance Taylor's blog:
+// http://www.airs.com/blog/archives/460 (".eh_frame")
+// http://www.airs.com/blog/archives/462 (".eh_frame_hdr")
+template <class ELFT>
+class EhFrameHeader final : public OutputSectionBase<ELFT> {
+  typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
+
+public:
+  EhFrameHeader();
+  void writeTo(uint8_t *Buf) override;
+
+  void addFde(uint8_t Enc, size_t Off, uint8_t *PCRel);
+  void assignEhFrame(EHOutputSection<ELFT> *Sec);
+  void reserveFde();
+
+  bool Live = false;
+
+private:
+  struct FdeData {
+    uint8_t Enc;
+    size_t Off;
+    uint8_t *PCRel;
+  };
+
+  uintX_t getFdePc(uintX_t EhVA, const FdeData &F);
+
+  EHOutputSection<ELFT> *Sec = nullptr;
+  std::vector<FdeData> FdeList;
 };
 
 // All output sections that are hadnled by the linker specially are
@@ -439,6 +481,7 @@ template <class ELFT> struct Out {
   typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Phdr Elf_Phdr;
   static DynamicSection<ELFT> *Dynamic;
+  static EhFrameHeader<ELFT> *EhFrameHdr;
   static GnuHashTableSection<ELFT> *GnuHashTab;
   static GotPltSection<ELFT> *GotPlt;
   static GotSection<ELFT> *Got;
@@ -460,6 +503,7 @@ template <class ELFT> struct Out {
 };
 
 template <class ELFT> DynamicSection<ELFT> *Out<ELFT>::Dynamic;
+template <class ELFT> EhFrameHeader<ELFT> *Out<ELFT>::EhFrameHdr;
 template <class ELFT> GnuHashTableSection<ELFT> *Out<ELFT>::GnuHashTab;
 template <class ELFT> GotPltSection<ELFT> *Out<ELFT>::GotPlt;
 template <class ELFT> GotSection<ELFT> *Out<ELFT>::Got;
