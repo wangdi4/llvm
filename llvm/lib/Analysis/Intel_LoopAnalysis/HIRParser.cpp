@@ -1208,6 +1208,15 @@ void HIRParser::parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
   LevelSetter.visitAll(Blob);
 }
 
+const SCEV *HIRParser::getSCEVAtScope(const SCEV *SC) const {
+  auto ParHLoop = CurNode->getLexicalParentLoop();
+  const Loop *ParLoop = ParHLoop ? ParHLoop->getLLVMLoop() : nullptr;
+
+  SC = SE->getSCEVAtScope(SC, ParLoop);
+
+  return SC;
+}
+
 void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
                                bool IsTop, bool UnderCast) {
   if (auto ConstSCEV = dyn_cast<SCEVConstant>(SC)) {
@@ -1230,7 +1239,7 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
         assert(HLoop && "Could not find HIR loop!");
 
         if (!HLNodeUtils::contains(HLoop, CurNode, false)) {
-          parseBlob(CastSCEV, CE, Level);
+          parseBlob(getSCEVAtScope(CastSCEV), CE, Level);
           return;
         }
       }
@@ -1275,6 +1284,8 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
     auto Lp = RecSCEV->getLoop();
     auto HLoop = LF->findHLLoop(Lp);
+    bool ComputeAtScope = false;
+
     assert(HLoop && "Could not find HIR loop!");
 
     auto BaseSCEV = RecSCEV->getOperand(0);
@@ -1300,7 +1311,12 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     // {0, +, {0,+,1}<i1> }<i2>
     if (!RecSCEV->isAffine() || (BaseAddRec && !BaseAddRec->isAffine()) ||
         (StepAddRec && !StepAddRec->isAffine()) ||
-        !HLNodeUtils::contains(HLoop, CurNode, false)) {
+        (ComputeAtScope = !HLNodeUtils::contains(HLoop, CurNode, false))) {
+
+      if (ComputeAtScope) {
+        SC = getSCEVAtScope(SC);
+      }
+
       parseBlob(SC, CE, Level);
 
     } else {

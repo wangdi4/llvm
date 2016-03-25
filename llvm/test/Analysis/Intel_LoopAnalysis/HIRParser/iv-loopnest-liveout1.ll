@@ -6,9 +6,8 @@
 ; CHECK-NEXT: %j.0.lcssa.in2 = 0
 ; CHECK-NEXT: DO i2 = 0, %n + -1
 ; CHECK-NEXT: {al:4}(%A)[i1] = i2
-; CHECK-NEXT: %inc = i2  +  1
 ; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %j.0.lcssa.in2 = %inc
+; CHECK-NEXT: %j.0.lcssa.in2 = %n
 ; CHECK: %ret.05 = %ret.05  +  %j.0.lcssa.in2
 ; CHECK-NEXT: END LOOP
 

@@ -264,6 +264,9 @@ private:
   void parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
                  unsigned IVLevel = 0);
 
+  /// \brief Calls SE->getSCEVAtScope() based on the location of CurNode. 
+  const SCEV *getSCEVAtScope(const SCEV *SC) const;
+
   /// \brief Recursively parses SCEV tree into CanonExpr. IsTop is true when we
   /// are at the top of the tree and UnderCast is true if we are under a cast
   /// type SCEV.
