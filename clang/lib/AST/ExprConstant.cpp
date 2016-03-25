@@ -9537,6 +9537,21 @@ bool Expr::isPotentialConstantExpr(const FunctionDecl *FD,
   const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD);
   const CXXRecordDecl *RD = MD ? MD->getParent()->getCanonicalDecl() : nullptr;
 
+#if INTEL_CUSTOMIZATION
+  // CQ375050: skip const expr check if function is a method of the template
+  // class or template instantiation. For compatibility reasons.
+  if (FD->getASTContext().getLangOpts().IntelCompat && RD) {
+    if (RD->isDependentContext())
+      return true;
+    for (const auto &I : RD->bases()) {
+      const CXXRecordDecl *BD = I.getType()->getAsCXXRecordDecl();
+      TemplateSpecializationKind TSK = BD->getTemplateSpecializationKind();
+      if (isTemplateInstantiation(TSK))
+        return true;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Fabricate an arbitrary expression on the stack and pretend that it
   // is a temporary being used as the 'this' pointer.
   LValue This;
