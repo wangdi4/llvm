@@ -96,6 +96,7 @@ unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 	size_t buffLen = strlen(buffer);
 	long long mul = 0;
 	double freqDouble = 0;
+	assert(buffLen >= 3 && "Insufficient length of a buffer");
 	if ((buffer[buffLen-1] == 'z') && (buffer[buffLen-2] == 'H') && ((buffer[buffLen-3] == 'M') || (buffer[buffLen-3] == 'G') || (buffer[buffLen-3] == 'T')))
 	{
 		switch (buffer[buffLen-3])

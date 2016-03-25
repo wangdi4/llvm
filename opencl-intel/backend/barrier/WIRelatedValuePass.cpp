@@ -455,9 +455,9 @@ namespace intel {
 
     //Run on all WI related values
     OS << "\nWI related Values\n";
-    for ( Module::const_iterator fi = M->begin(), fe = M->end(); fi != fe; ++fi ) {
-      for ( const_inst_iterator it = inst_begin(fi), e = inst_end(fi); it != e; ++it ) {
-        const Instruction* pInst = dyn_cast<Instruction>(&*it);
+    for ( const auto &F : *M) {
+      for ( const_inst_iterator it = inst_begin(F), e = inst_end(F); it != e; ++it ) {
+        const Instruction* pInst = &*it;
         //Store and Return instructions has no value (i.e. no name) don't print them!
         if ( isa<StoreInst>(pInst) || isa<ReturnInst>(pInst) ) continue;
         Value* pVal = (Value*)pInst;

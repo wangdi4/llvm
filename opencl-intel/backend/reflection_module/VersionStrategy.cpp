@@ -137,7 +137,7 @@ FunctionDescriptor
 SoaDescriptorStrategy::scalarReturnTranspose(const PairSW& sw)const{
   const FunctionDescriptor& orig = demangle(sw.first.c_str());
   width::V transposeWidth = sw.second;
-  FunctionDescriptor fd;
+  FunctionDescriptor fd = FunctionDescriptor::null();
   if(orig.parameters.size() > 0) {
     std::stringstream nameBuilder;
     const VectorType* pVec = reflection::dyn_cast<VectorType>(orig.parameters[0]);
@@ -162,6 +162,7 @@ SoaDescriptorStrategy::scalarReturnTranspose(const PairSW& sw)const{
       fd.parameters.push_back(transposedParam);
     }
   }
+  fd.width = width::V::NONE;
   return fd;
 }
 

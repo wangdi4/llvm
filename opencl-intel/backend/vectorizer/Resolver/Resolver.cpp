@@ -371,6 +371,7 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
   Value *Mask = caller->getArgOperand(0);
   Value *Ptr = caller->getArgOperand(1);
   PointerType* ptrType = dyn_cast<PointerType>(Ptr->getType());
+  V_ASSERT(ptrType && "Type is not a pointer type");
   VectorType* vecType = dyn_cast<VectorType>(ptrType->getElementType());
   V_ASSERT(vecType && "Pointer must be of vector type");
   // check availability of masked store BI
@@ -489,6 +490,7 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
   Value *Data = caller->getArgOperand(1);
   Value *Ptr = caller->getArgOperand(2);
   PointerType* ptrType = dyn_cast<PointerType>(Ptr->getType());
+  V_ASSERT(ptrType && "Type is not a PointerType");
   VectorType* vecType = dyn_cast<VectorType>(ptrType->getElementType());
   V_ASSERT(vecType && "Pointer must be of vector type");
   // check availability of masked store BI

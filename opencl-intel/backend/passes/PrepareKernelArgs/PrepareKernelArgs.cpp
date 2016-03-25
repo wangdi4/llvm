@@ -193,6 +193,7 @@ namespace intel{
     // Believe it or not, the conformance has a test kernel with 0 args...
     size_t currOffset = 0;
     if (!arguments.empty()) {
+      assert(m_DL && "m_DL is nullptr!");
       currOffset = arguments.back().offset_in_bytes +
                    TypeAlignment::getSize(arguments.back());
       currOffset = ImplicitArgsUtils::getAdjustedAlignment(

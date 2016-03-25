@@ -769,7 +769,7 @@ void PacketizeFunction::cloneNonPacketizableInst(Instruction *I, Instruction **d
     // from scalar pointer type, thus need to create new instruction
     if(GetElementPtrInst *pGEP = dyn_cast<GetElementPtrInst>(I)) {
       SmallVector<Value*, 8> Idx;
-      Value * multiPtrOperand[MAX_PACKET_WIDTH];
+      Value * multiPtrOperand[MAX_PACKET_WIDTH] = {nullptr};
       for (unsigned int i = 0; i < pGEP->getNumOperands(); ++i) {
         if (i == pGEP->getPointerOperandIndex()) {
           obtainMultiScalarValues(multiPtrOperand, pGEP->getOperand(i), pGEP);
@@ -1105,6 +1105,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
   // Remove address space from pointer type
   PointerType *BaseTy = dyn_cast<PointerType>(MO.Base->getType());
+  V_ASSERT(BaseTy && "Base is not a pointer!");
   PointerType *StrippedBaseTy = PointerType::get(BaseTy->getElementType(),0);
   MO.Base = CastInst::CreatePointerCast(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
 
@@ -2657,6 +2658,7 @@ Type* PacketizeFunction::getMaskTypeForTranpose(Function* TransFunc) {
   // Basically, the mask is assumed to be the last parameter
   // An alternative would be to assume it has a known scalar type, but
   // this seems slightly better.
+  V_ASSERT(TransFunc && "input parameter is null");
   FunctionType* TransType = TransFunc->getFunctionType();
   int LastParam = TransType->getNumParams() - 1;
   return TransType->getParamType(LastParam);
@@ -2888,7 +2890,7 @@ void PacketizeFunction::packetizeInstruction(BranchInst *BI)
   if (BI->isConditional())
   {
     // Obtain the post-packetization conditional, and put instead of existing condition
-    Value * nonVectorizedCondition[MAX_PACKET_WIDTH];
+    Value * nonVectorizedCondition[MAX_PACKET_WIDTH] = {nullptr};
     obtainMultiScalarValues(nonVectorizedCondition, BI->getCondition() , BI);
     BI->setCondition(nonVectorizedCondition[0]);
   }

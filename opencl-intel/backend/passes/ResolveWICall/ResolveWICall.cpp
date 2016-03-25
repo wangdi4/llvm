@@ -106,6 +106,7 @@ namespace intel {
         ExtExecArgs.clear();
 
         CallInst *pCall = dyn_cast<CallInst>(*ii);
+        assert(pCall && "Expected a CallInst");
         std::string calledFuncName = pCall->getCalledFunction()->getName().str();
         TInternalCallType calledFuncType = getCallFunctionType(calledFuncName);
 
