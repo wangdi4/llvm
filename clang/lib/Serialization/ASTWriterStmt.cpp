@@ -1447,15 +1447,8 @@ void ASTStmtWriter::VisitCXXThrowExpr(CXXThrowExpr *E) {
 
 void ASTStmtWriter::VisitCXXDefaultArgExpr(CXXDefaultArgExpr *E) {
   VisitExpr(E);
-
-  bool HasOtherExprStored = E->Param.getInt();
-  // Store these first, the reader reads them before creation.
-  Record.push_back(HasOtherExprStored);
-  if (HasOtherExprStored)
-    Writer.AddStmt(E->getExpr());
   Writer.AddDeclRef(E->getParam(), Record);
   Writer.AddSourceLocation(E->getUsedLocation(), Record);
-
   Code = serialization::EXPR_CXX_DEFAULT_ARG;
 }
 
@@ -2155,6 +2148,15 @@ void OMPClauseWriter::VisitOMPHintClause(OMPHintClause *C) {
   Writer->Writer.AddSourceLocation(C->getLParenLoc(), Record);
 }
 
+void OMPClauseWriter::VisitOMPDistScheduleClause(OMPDistScheduleClause *C) {
+  Record.push_back(C->getDistScheduleKind());
+  Writer->Writer.AddStmt(C->getChunkSize());
+  Writer->Writer.AddStmt(C->getHelperChunkSize());
+  Writer->Writer.AddSourceLocation(C->getLParenLoc(), Record);
+  Writer->Writer.AddSourceLocation(C->getDistScheduleKindLoc(), Record);
+  Writer->Writer.AddSourceLocation(C->getCommaLoc(), Record);
+}
+
 //===----------------------------------------------------------------------===//
 // OpenMP Directives.
 //===----------------------------------------------------------------------===//
@@ -2321,6 +2323,22 @@ void ASTStmtWriter::VisitOMPTargetDataDirective(OMPTargetDataDirective *D) {
   Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_TARGET_DATA_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPTargetEnterDataDirective(
+    OMPTargetEnterDataDirective *D) {
+  VisitStmt(D);
+  Record.push_back(D->getNumClauses());
+  VisitOMPExecutableDirective(D);
+  Code = serialization::STMT_OMP_TARGET_ENTER_DATA_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPTargetExitDataDirective(
+    OMPTargetExitDataDirective *D) {
+  VisitStmt(D);
+  Record.push_back(D->getNumClauses());
+  VisitOMPExecutableDirective(D);
+  Code = serialization::STMT_OMP_TARGET_EXIT_DATA_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPTaskyieldDirective(OMPTaskyieldDirective *D) {

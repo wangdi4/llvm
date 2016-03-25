@@ -88,6 +88,7 @@ const MachORelocatableSectionToAtomType sectsToAtomType[] = {
   ENTRY("__DATA", "__thread_data", S_THREAD_LOCAL_REGULAR, typeTLVInitialData),
   ENTRY("__DATA", "__thread_bss",     S_THREAD_LOCAL_ZEROFILL,
                                                         typeTLVInitialZeroFill),
+  ENTRY("__DATA", "__objc_imageinfo", S_REGULAR,          typeObjCImageInfo),
   ENTRY("",       "",                 S_INTERPOSING,      typeInterposingTuples),
   ENTRY("__LD",   "__compact_unwind", S_REGULAR,
                                                          typeCompactUnwindInfo),
@@ -867,6 +868,48 @@ std::error_code addEHFrameReferences(const NormalizedFile &normalizedFile,
   return ehFrameErr;
 }
 
+std::error_code parseObjCImageInfo(const Section &sect,
+                                   const NormalizedFile &normalizedFile,
+                                   MachOFile &file) {
+
+  //	struct objc_image_info  {
+  //		uint32_t	version;	// initially 0
+  //		uint32_t	flags;
+  //	};
+
+  ArrayRef<uint8_t> content = sect.content;
+  if (content.size() != 8)
+    return make_dynamic_error_code(sect.segmentName + "/" +
+                                   sect.sectionName +
+                                   " in file " + file.path() +
+                                   " should be 8 bytes in size");
+
+  const bool isBig = MachOLinkingContext::isBigEndian(normalizedFile.arch);
+  uint32_t version = read32(content.data(), isBig);
+  if (version)
+    return make_dynamic_error_code(sect.segmentName + "/" +
+                                   sect.sectionName +
+                                   " in file " + file.path() +
+                                   " should have version=0");
+
+  uint32_t flags = read32(content.data() + 4, isBig);
+  if (flags & (MachOLinkingContext::objc_supports_gc |
+               MachOLinkingContext::objc_gc_only))
+    return make_dynamic_error_code(sect.segmentName + "/" +
+                                   sect.sectionName +
+                                   " in file " + file.path() +
+                                   " uses GC.  This is not supported");
+
+  if (flags & MachOLinkingContext::objc_retainReleaseForSimulator)
+    file.setObjcConstraint(MachOLinkingContext::objc_retainReleaseForSimulator);
+  else
+    file.setObjcConstraint(MachOLinkingContext::objc_retainRelease);
+
+  file.setSwiftVersion((flags >> 8) & 0xFF);
+
+  return std::error_code();
+}
+
 
 /// Converts normalized mach-o file into an lld::File and lld::Atoms.
 ErrorOr<std::unique_ptr<lld::File>>
@@ -892,6 +935,11 @@ dylibToAtoms(const NormalizedFile &normalizedFile, StringRef path,
 
 namespace normalized {
 
+static bool isObjCImageInfo(const Section &sect) {
+  return (sect.segmentName == "__OBJC" && sect.sectionName == "__image_info") ||
+    (sect.segmentName == "__DATA" && sect.sectionName == "__objc_imageinfo");
+}
+
 std::error_code
 normalizedObjectToAtoms(MachOFile *file,
                         const NormalizedFile &normalizedFile,
@@ -905,6 +953,18 @@ normalizedObjectToAtoms(MachOFile *file,
     DEBUG(llvm::dbgs() << "Creating atoms: "; sect.dump());
     if (isDebugInfoSection(sect))
       continue;
+
+
+    // If the file contains an objc_image_info struct, then we should parse the
+    // ObjC flags and Swift version.
+    if (isObjCImageInfo(sect)) {
+      if (std::error_code ec = parseObjCImageInfo(sect, normalizedFile, *file))
+        return ec;
+      // We then skip adding atoms for this section as we use the ObjCPass to
+      // re-emit this data after it has been aggregated for all files.
+      continue;
+    }
+
     bool customSectionName;
     DefinedAtom::ContentType atomType = atomTypeFromSection(sect,
                                                             customSectionName);
@@ -992,6 +1052,11 @@ normalizedObjectToAtoms(MachOFile *file,
                        handler->kindArch());
   }
 
+  // Cache some attributes on the file for use later.
+  file->setFlags(normalizedFile.flags);
+  file->setArch(normalizedFile.arch);
+  file->setOS(normalizedFile.os);
+
   // Sort references in each atom to their canonical order.
   for (const DefinedAtom* defAtom : file->defined()) {
     reinterpret_cast<const SimpleDefinedAtom*>(defAtom)->sortReferences();
@@ -1034,7 +1099,8 @@ void relocatableSectionInfoForContentType(DefinedAtom::ContentType atomType,
                                           StringRef &segmentName,
                                           StringRef &sectionName,
                                           SectionType &sectionType,
-                                          SectionAttr &sectionAttrs) {
+                                          SectionAttr &sectionAttrs,
+                                          bool &relocsToDefinedCanBeImplicit) {
 
   for (const MachORelocatableSectionToAtomType *p = sectsToAtomType ;
                                  p->atomType != DefinedAtom::typeUnknown; ++p) {
@@ -1047,8 +1113,11 @@ void relocatableSectionInfoForContentType(DefinedAtom::ContentType atomType,
     sectionName = p->sectionName;
     sectionType = p->sectionType;
     sectionAttrs = 0;
+    relocsToDefinedCanBeImplicit = false;
     if (atomType == DefinedAtom::typeCode)
       sectionAttrs = S_ATTR_PURE_INSTRUCTIONS;
+    if (atomType == DefinedAtom::typeCFI)
+      relocsToDefinedCanBeImplicit = true;
     return;
   }
   llvm_unreachable("content type not yet supported");

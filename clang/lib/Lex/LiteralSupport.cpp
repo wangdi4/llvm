@@ -1025,6 +1025,7 @@ NumericLiteralParser::GetFloatValue(llvm::APFloat &Result) {
 ///         u' c-char-sequence '
 ///         U' c-char-sequence '
 ///         L' c-char-sequence '
+///         u8' c-char-sequence ' [C++1z lex.ccon]
 ///       c-char-sequence:
 ///         c-char
 ///         c-char-sequence c-char
