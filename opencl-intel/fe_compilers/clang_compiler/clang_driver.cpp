@@ -37,6 +37,7 @@
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Verifier.h>
 #include <llvm/Bitcode/ReaderWriter.h>
 #include <llvm/Support/SPIRV.h>
 #include <llvm/Support/raw_ostream.h>
@@ -340,6 +341,8 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult
             OCLCompOptsMD->addOperand(llvm::MDNode::get(*context, OCLBuildOptions));
         }
     }
+
+    assert(!verifyModule(*pModule) && "SPIR-V consumer returned a broken module!");
 
     // setting the result in both sucessful an uncussessful cases
     // to pass the error log.
