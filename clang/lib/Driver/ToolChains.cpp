@@ -1404,6 +1404,7 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
     }
     break;
   case llvm::Triple::x86_64:
+  case llvm::Triple::lpu:
     LibDirs.append(begin(X86_64LibDirs), end(X86_64LibDirs));
     TripleAliases.append(begin(X86_64Triples), end(X86_64Triples));
     // x32 is always available when x86_64 is available, so adding it as

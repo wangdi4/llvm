@@ -480,90 +480,6 @@ public:
   }
 };
 
-// LPU Target
-namespace {
-class LPUTargetInfo : public TargetInfo {
-  static const Builtin::Info BuiltinInfo[];
-
-  enum LPUKind {
-    LPU_NONE,
-    LPU_ORDERED,
-    LPU_AUTOUNIT,
-    LPU_AUTOMIN,
-    LPU_CONFIG0,
-    LPU_CONFIG1
-  } LPU;
-
-public:
-  LPUTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
-    LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
-    LongDoubleWidth = 128;
-    LongDoubleAlign = 128;
-    LargeArrayMinWidth = 128;
-    LargeArrayAlign = 128;
-    SuitableAlign = 128;
-    SizeType    = UnsignedLong;
-    PtrDiffType = SignedLong;
-    IntPtrType  = SignedLong;
-    IntMaxType  = SignedLong;
-    Int64Type   = SignedLong;
-
-    // Match lib/Target/LPU/LPUSubtarget.cpp
-    // Issue - does it need to match x86-64?
-    DescriptionString =
-      "e-m:e-i64:64-n32:64";
-  }
-  void getTargetBuiltins(const Builtin::Info *&Records,
-                         unsigned &NumRecords) const override {
-    Records = BuiltinInfo;
-    NumRecords = clang::LPU::LastTSBuiltin-Builtin::FirstTSBuiltin;
-  }
-  BuiltinVaListKind getBuiltinVaListKind() const override {
-    return TargetInfo::VoidPtrBuiltinVaList;
-  }
-  void getTargetDefines(const LangOptions &Opts,
-                        MacroBuilder &Builder) const override {
-    Builder.defineMacro("__LPU__");
-  }
-  const char *getClobbers() const override {
-    return "";
-  }
-  void getGCCRegNames(const char * const *&Names,
-                      unsigned &NumNames) const override {
-    static const char * const GCCRegNames[] = { "dummy" };
-    Names = GCCRegNames;
-    NumNames = llvm::array_lengthof(GCCRegNames);
-  }
-  void getGCCRegAliases(const GCCRegAlias *&Aliases,
-                        unsigned &NumAliases) const override {
-    Aliases = nullptr;
-    NumAliases = 0;
-  }
-  bool validateAsmConstraint(const char *&Name,
-                             TargetInfo::ConstraintInfo &Info) const override {
-    return false;
-  }
-  bool setCPU(const std::string &Name) override {
-    LPU = llvm::StringSwitch<LPUKind>(Name)
-        .Case("ordered", LPU_ORDERED)
-        .Case("autounit",LPU_AUTOUNIT)
-        .Case("automin", LPU_AUTOMIN)
-        .Case("config0", LPU_CONFIG0)
-        .Case("config1", LPU_CONFIG1)
-        .Default(LPU_NONE);
-    return LPU != LPU_NONE;
-  }
-};
-
-const Builtin::Info LPUTargetInfo::BuiltinInfo[] = {
-#define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
-#define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
-                                              ALL_LANGUAGES },
-#include "clang/Basic/BuiltinsLPU.def"
-};
-
-} // end anonymous namespace.
-
 // PSP Target
 template<typename Target>
 class PSPTargetInfo : public OSTargetInfo<Target> {
@@ -5528,6 +5444,102 @@ validateAsmConstraint(const char *&Name,
 }
 }
 
+
+// LPU Target
+namespace {
+class LPUTargetInfo : public TargetInfo {
+  static const Builtin::Info BuiltinInfo[];
+
+  enum LPUKind {
+    LPU_NONE,
+    LPU_ORDERED,
+    LPU_AUTOUNIT,
+    LPU_AUTOMIN,
+    LPU_CONFIG0,
+    LPU_CONFIG1
+  } LPU;
+
+public:
+  LPUTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
+    LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
+    LongDoubleWidth = 128;
+    LongDoubleAlign = 128;
+    LargeArrayMinWidth = 128;
+    LargeArrayAlign = 128;
+    SuitableAlign = 128;
+    SizeType    = UnsignedLong;
+    PtrDiffType = SignedLong;
+    IntPtrType  = SignedLong;
+    IntMaxType  = SignedLong;
+    Int64Type   = SignedLong;
+
+    // Match lib/Target/LPU/LPUSubtarget.cpp
+    // Issue - does it need to match x86-64?
+    DescriptionString =
+      "e-m:e-i64:64-n32:64";
+  }
+
+  void getTargetDefines(const LangOptions &Opts,
+                        MacroBuilder &Builder) const override {
+    // LPU builds on X86.  We should really define everything for
+    // the current x86 target, but this should get past initial include
+    // file issues.
+    Builder.defineMacro("__amd64__");
+    Builder.defineMacro("__amd64");
+    Builder.defineMacro("__x86_64");
+    Builder.defineMacro("__x86_64__");
+
+    Builder.defineMacro("__LPU__");
+  }
+  void getTargetBuiltins(const Builtin::Info *&Records,
+                         unsigned &NumRecords) const override {
+    Records = BuiltinInfo;
+    NumRecords = clang::LPU::LastTSBuiltin-Builtin::FirstTSBuiltin;
+  }
+  void getGCCRegNames(const char * const *&Names,
+                      unsigned &NumNames) const override {
+    static const char * const GCCRegNames[] = { "dummy" };
+    Names = GCCRegNames;
+    NumNames = llvm::array_lengthof(GCCRegNames);
+  }
+  void getGCCRegAliases(const GCCRegAlias *&Aliases,
+                        unsigned &NumAliases) const override {
+    Aliases = nullptr;
+    NumAliases = 0;
+  }
+  bool validateAsmConstraint(const char *&Name,
+                             TargetInfo::ConstraintInfo &Info) const override {
+    return false;
+  }
+
+  const char *getClobbers() const override {
+    return "";
+  }
+  BuiltinVaListKind getBuiltinVaListKind() const override {
+    return TargetInfo::VoidPtrBuiltinVaList;
+  }
+  bool setCPU(const std::string &Name) override {
+    LPU = llvm::StringSwitch<LPUKind>(Name)
+        .Case("ordered", LPU_ORDERED)
+        .Case("autounit",LPU_AUTOUNIT)
+        .Case("automin", LPU_AUTOMIN)
+        .Case("config0", LPU_CONFIG0)
+        .Case("config1", LPU_CONFIG1)
+        .Default(LPU_NONE);
+    return LPU != LPU_NONE;
+  }
+};
+
+const Builtin::Info LPUTargetInfo::BuiltinInfo[] = {
+#define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
+#define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
+                                              ALL_LANGUAGES },
+#include "clang/Basic/BuiltinsLPU.def"
+};
+} // end anonymous namespace
+
+
+
 namespace {
   class MSP430TargetInfo : public TargetInfo {
     static const char * const GCCRegNames[];
@@ -6623,7 +6635,7 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
     }
 
   case llvm::Triple::lpu:
-    return new LPUTargetInfo(Triple);
+    return new LinuxTargetInfo<LPUTargetInfo>(Triple);
 
   case llvm::Triple::msp430:
     return new MSP430TargetInfo(Triple);
