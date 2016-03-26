@@ -396,6 +396,25 @@ let Properties = [IntrNoMem] in {
                                    [IntrNoMem]>;
 }
 
+// if INTEL_CUSTOMIZATION
+// NOTE: The design decision here is to let the vectorizer expand args 2 and 3
+// to a vector of pointers. Unfortunately, without further analysis, this
+// implies scatter semantics. Thus, we will do SCEV analysis on the original
+// scalar args to determine the type of stores to generate after the intrinsic
+// call. Args 2 and 3 are specified as llvm_any_ty because there is no way to
+// represent a combination of any type of pointer and any type of float
+// simultaneously. Let the signature checking function in
+// lib/Analysis/VectorUtils.cpp enforce correct typing for the intrinsic.
+// This intrinsic is marked as ReadWriteArgMem because it returns void and we
+// want to prevent the call from being eliminated as dead code before the
+// translation to SVML.
+def int_sincos       : Intrinsic<[],
+                                 [llvm_anyfloat_ty,
+                                  llvm_any_ty,
+                                  llvm_any_ty],
+                                 [IntrReadWriteArgMem]>;
+// endif INTEL_CUSTOMIZATION
+
 // NOTE: these are internal interfaces.
 def int_setjmp     : Intrinsic<[llvm_i32_ty],  [llvm_ptr_ty]>;
 def int_longjmp    : Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty], [IntrNoReturn]>;

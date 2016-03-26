@@ -175,6 +175,9 @@ namespace CallingConv {
     /// differs from the x86-64 ABI, and all XMM/YMM registers are used for
     /// vector/FP arguments.
     X86_RegCall = 84,
+
+    /// \brief SVML for intel compiler
+    SVML = 85,
 #endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.

@@ -275,6 +275,14 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
                CSR_Lin64_RegCall_SaveList:
              CSR_32_RegCall_SaveList;
   }
+  case CallingConv::SVML:
+    if (!Is64Bit)
+      return CSR_32_SVML_SaveList;
+    if (IsWin64)
+      return CSR_Win64_SVML_SaveList;
+    if (HasAVX512)
+      return CSR_Lin64_SVML_AVX512_SaveList;
+    return CSR_Lin64_SVML_SaveList;
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::Cold:
     if (Is64Bit)
@@ -363,6 +371,14 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
                CSR_Lin64_RegCall_RegMask:
              CSR_32_RegCall_RegMask;
   }
+  case CallingConv::SVML:
+    if (!Is64Bit)
+      return CSR_32_SVML_RegMask;
+    if (IsWin64)
+      return CSR_Win64_SVML_RegMask;
+    if (HasAVX512)
+      return CSR_Lin64_SVML_AVX512_RegMask;
+    return CSR_Lin64_SVML_RegMask;
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::Cold:
     if (Is64Bit)

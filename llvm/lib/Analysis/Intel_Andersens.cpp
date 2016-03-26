@@ -119,6 +119,28 @@ static cl::opt<bool> UseIntelModRef("use-intel-mod-ref", cl::init(true), cl::Rea
 // This option is used to find any new Instructions are added after
 // community pulldown.
 static cl::opt<bool> SkipAndersUnreachableAsserts("skip-anders-unreachable-asserts", cl::init(true), cl::ReallyHidden);
+// Option to control ignoring NullPtr during collection of constraints
+static cl::opt<bool> IgnoreNullPtr("anders-ignore-nullptr", cl::init(true), cl::ReallyHidden);
+// Limit number of indirect calls processed during propagation. No limit check
+// if it is set to -1. If number of indirect calls exceeds this limit, treat
+// all indirect calls conservatively.
+static cl::opt<int>
+AndersIndirectCallsLimit("anders-indirect-calls-limit", cl::ReallyHidden, cl::init(2500));
+
+// Both optimization of constraints and points-to propagation are disabled
+// if number of constraints exceeds this limit (i.e no points-to info 
+// available). This check is done after collecting constraints. 
+// No limit check if it is set to -1.
+static cl::opt<int>
+AndersNumConstraintsBeforeOptLimit("anders-num-constraints-before-opt-limit", 
+                             cl::ReallyHidden, cl::init(550000));
+// Points-to propagation is disabled if number of constraints after
+// optimization exceeds this limit (i.e no points-to info available).
+// This check is done after optimizing constraints.
+// No limit check if it is set to -1.
+static cl::opt<int>
+AndersNumConstraintsAfterOptLimit("anders-num-constraints-after-opt-limit",
+                            cl::ReallyHidden, cl::init(140000));
 
 static const unsigned SelfRep = (unsigned)-1;
 static const unsigned Unvisited = (unsigned)-1;
@@ -155,51 +177,6 @@ struct AndersensAAResult::BitmapKeyInfo {
   }
 
   static bool isPod() { return true; }
-};
-
-// struct Node;
-
-// Constraint - Objects of this structure are used to represent the various
-// constraints identified by the algorithm.  The constraints are 'copy',
-// for statements like "A = B", 'load' for statements like "A = *B",
-// 'store' for statements like "*A = B", and AddressOf for statements like
-// A = alloca;  The Offset is applied as *(A + K) = B for stores,
-// A = *(B + K) for loads, and A = B + K for copies.  It is
-// illegal on addressof constraints (because it is statically
-// resolvable to A = &C where C = B + K)
-
-struct AndersensAAResult::Constraint {
-  enum ConstraintType { Copy, Load, Store, AddressOf } Type;
-  unsigned Dest;
-  unsigned Src;
-  unsigned Offset;
-
-  Constraint(ConstraintType Ty, unsigned D, unsigned S, unsigned O = 0)
-    : Type(Ty), Dest(D), Src(S), Offset(O) {
-    assert((Offset == 0 || Ty != AddressOf) &&
-           "Offset is illegal on addressof constraints");
-  }
-
-  bool operator==(const Constraint &RHS) const {
-    return RHS.Type == Type
-      && RHS.Dest == Dest
-      && RHS.Src == Src
-      && RHS.Offset == Offset;
-  }
-
-  bool operator!=(const Constraint &RHS) const {
-    return !(*this == RHS);
-  }
-
-  bool operator<(const Constraint &RHS) const {
-    if (RHS.Type != Type)
-      return RHS.Type < Type;
-    else if (RHS.Dest != Dest)
-      return RHS.Dest < Dest;
-    else if (RHS.Src != Src)
-      return RHS.Src < Src;
-    return RHS.Offset < Offset;
-  }
 };
 
 // Information DenseSet requires implemented in order to be able to do
@@ -378,6 +355,61 @@ bool AndersensAAResult::WorkList::empty() {
   return Q.empty();
 }
 
+// If IgnoreNullPtr is true, skip creating constraint when “S” is NullPtr
+void AndersensAAResult::CreateConstraint(Constraint::ConstraintType Ty, 
+                              unsigned D, unsigned S, unsigned O = 0) {
+  if (IgnoreNullPtr && S == NullPtr) {
+    return;
+  }
+  Constraints.push_back(Constraint(Ty, D, S, O));
+}
+
+// Interface routine to get possible targets of given function pointer 'FP'.
+// It computes all possible targets of 'FP' using points-to info and adds
+// valid targets to 'Targets' vector. Skips adding unknown/invalid targets
+// to 'Targets' vector and return false if there is any noticed.
+//
+bool AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
+                                      std::vector<llvm::Value*>& Targets) {
+
+  Targets.clear();
+  if (ValueNodes.size() == 0) {
+    // Return false if no points-to info is available.
+    return false;
+  }
+  Node *N1 = &GraphNodes[FindNode(getNode(const_cast<Value*>(FP)))];
+  if (N1 == &GraphNodes[UniversalSet]) {
+    // Return false if fp is represented as UniversalSet.
+    return false;
+  }
+  bool IsComplete = true;
+  for (SparseBitVector<>::iterator bi = N1->PointsTo->begin(),
+       be = N1->PointsTo->end(); bi != be; ++bi) {
+    Node *N = &GraphNodes[*bi];
+    if (N == &GraphNodes[UniversalSet]) {
+      IsComplete = false;
+      continue;
+    }
+    if (N == &GraphNodes[NullPtr] || N == &GraphNodes[NullObject]) {
+      // Ignore NullPtr if there is any.
+      // No need to go conservative here.
+      continue;
+    }
+    Value *V = N->getValue();
+  
+    // Go conservative for now when possible target is non-function or
+    // signatures of call and possible target don't match.
+    // TODO: Need to skip these targets to improve this transformation
+    // after understanding more about vararg, MS_CDECLS, NOSTATE etc.
+    if (!isa<Function>(V) || FP->getType() != V->getType()) {
+      IsComplete = false;
+      continue;
+    }
+    Targets.push_back(V);
+  }
+  return IsComplete;
+}
+
 void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   SkipAndersensAnalysis = false;
   IndirectCallList.clear();
@@ -394,6 +426,20 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
     return;
   }
 
+  // check if it exceeds AndersNumConstraintsBeforeOptLimit.
+  // Ex: 483.xlanc (595K constraints ), 403.gcc (503K constraints)
+  // and 400.perlbench (149K constraints)
+  if (AndersNumConstraintsBeforeOptLimit != -1 &&
+      (Constraints.size() > (unsigned)std::numeric_limits<int>::max() ||
+       (int)Constraints.size() > AndersNumConstraintsBeforeOptLimit)) {
+    // Clear ValueNodes so that AA queries go conservative. 
+    ValueNodes.clear(); 
+    if (PrintAndersConstraints || PrintAndersPointsTo) {
+      errs() << "\nAnders disabled...exceeded NumConstraintsBeforeOptLimit\n";
+    }
+    return;
+  }
+
   if (PrintAndersConstraints) {
       errs() << " Constraints Dump " << "\n";
       PrintConstraints();
@@ -404,6 +450,28 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   DEBUG(PrintConstraints());
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa"
+
+  OptimizeConstraints();
+#undef DEBUG_TYPE
+#define DEBUG_TYPE "anders-aa-constraints"
+      DEBUG(PrintConstraints());
+#undef DEBUG_TYPE
+#define DEBUG_TYPE "anders-aa"
+
+  // check if it exceeds AndersNumConstraintsAfterOptLimit.
+  // Ex: 483.xlanc (174K constraints), 403.gcc (77K constraints) and
+  // 400.perlbench (28K constraints)
+  if (AndersNumConstraintsAfterOptLimit != -1 &&
+      (Constraints.size() > (unsigned)std::numeric_limits<int>::max() ||
+       (int)Constraints.size() > AndersNumConstraintsAfterOptLimit)) {
+    // Clear ValueNodes so that AA queries go conservative. 
+    ValueNodes.clear(); 
+    if (PrintAndersConstraints || PrintAndersPointsTo) {
+      errs() << "\nAnders disabled...exceeded NumConstraintsAfterOptLimit\n";
+    }
+    return;
+  }
+
   SolveConstraints();
   DEBUG(PrintPointsToGraph());
   if (PrintAndersPointsTo) {
@@ -1100,11 +1168,10 @@ void AndersensAAResult::AddGlobalInitializerConstraints(unsigned NodeIndex,
                                                 Constant *C) {
   if (C->getType()->isSingleValueType()) {
     if (isa<PointerType>(C->getType()))
-      Constraints.push_back(Constraint(Constraint::Copy, NodeIndex,
-                                       getNodeForConstantPointer(C)));
+      CreateConstraint(Constraint::Copy, NodeIndex,
+                                       getNodeForConstantPointer(C));
   } else if (C->isNullValue()) {
-    Constraints.push_back(Constraint(Constraint::Copy, NodeIndex,
-                                     NullObject));
+    CreateConstraint(Constraint::Copy, NodeIndex, NullObject);
     return;
   } else if (!isa<UndefValue>(C)) {
     // If this is an array or struct, include constraints for each element.
@@ -1124,8 +1191,7 @@ void AndersensAAResult::AddConstraintsForNonInternalLinkage(Function *F) {
     if (isPointsToType(I->getType()))
       // If this is an argument of an externally accessible function, the
       // incoming pointer might point to anything.
-      Constraints.push_back(Constraint(Constraint::Copy, getNode(&(*I)),
-                                       UniversalSet));
+      CreateConstraint(Constraint::Copy, getNode(&(*I)), UniversalSet);
    }
 }
 
@@ -1200,13 +1266,10 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
       unsigned SecondArg = getNode(CS.getArgument(1));
       unsigned TempArg = GraphNodes.size();
       GraphNodes.push_back(Node());
-      Constraints.push_back(Constraint(Constraint::Store,
-                                       FirstArg, TempArg));
-      Constraints.push_back(Constraint(Constraint::Load,
-                                       TempArg, SecondArg));
+      CreateConstraint(Constraint::Store, FirstArg, TempArg);
+      CreateConstraint(Constraint::Load, TempArg, SecondArg);
       // In addition, Dest = Src
-      Constraints.push_back(Constraint(Constraint::Copy,
-                                       FirstArg, SecondArg));
+      CreateConstraint(Constraint::Copy, FirstArg, SecondArg);
       return true;
     }
   }
@@ -1218,9 +1281,8 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
     const FunctionType *FTy = F->getFunctionType();
     if (FTy->getNumParams() > 0 && 
         isPointsToType(FTy->getParamType(0))) {
-      Constraints.push_back(Constraint(Constraint::Copy,
-                                       getNode(CS.getInstruction()),
-                                       getNode(CS.getArgument(0))));
+      CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()),
+                       getNode(CS.getArgument(0)));
       return true;
     }
   }
@@ -1234,14 +1296,11 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
 ///
 void AndersensAAResult::CollectConstraints(Module &M) {
   // First, the universal set points to itself.
-  Constraints.push_back(Constraint(Constraint::AddressOf, UniversalSet,
-                                   UniversalSet));
-  Constraints.push_back(Constraint(Constraint::Store, UniversalSet,
-                                   UniversalSet));
+  CreateConstraint(Constraint::AddressOf, UniversalSet, UniversalSet);
+  CreateConstraint(Constraint::Store, UniversalSet, UniversalSet);
 
   // Next, the null pointer points to the null object.
-  Constraints.push_back(Constraint(Constraint::AddressOf, NullPtr, 
-                                   NullObject));
+  CreateConstraint(Constraint::AddressOf, NullPtr, NullObject);
 
   // Next, add any constraints on global variables and their initializers.
   for (Module::global_iterator I = M.global_begin(), E = M.global_end();
@@ -1251,20 +1310,17 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     unsigned ObjectIndex = getObject(&(*I));
     Node *Object = &GraphNodes[ObjectIndex];
     Object->setValue(&(*I));
-    Constraints.push_back(Constraint(Constraint::AddressOf, getNodeValue(*I),
-                                     ObjectIndex));
+    CreateConstraint(Constraint::AddressOf, getNodeValue(*I), ObjectIndex);
 
     if (I->hasDefinitiveInitializer()) {
       AddGlobalInitializerConstraints(ObjectIndex, I->getInitializer());
       if (!I->hasLocalLinkage()) {
-        Constraints.push_back(Constraint(Constraint::Copy, ObjectIndex,
-                                           UniversalSet));
+        CreateConstraint(Constraint::Copy, ObjectIndex, UniversalSet);
       }
     } else {
       // If it doesn't have an initializer (i.e. it's defined in another
       // translation unit), it points to the universal set.
-      Constraints.push_back(Constraint(Constraint::Copy, ObjectIndex,
-                                       UniversalSet));
+      CreateConstraint(Constraint::Copy, ObjectIndex, UniversalSet);
     }
   }
 
@@ -1272,11 +1328,12 @@ void AndersensAAResult::CollectConstraints(Module &M) {
 
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
     // Set function address
-    GraphNodes[ValueNodes[&(*F)]].setValue(&(*F));
-    Constraints.push_back(Constraint(Constraint::AddressOf, ValueNodes[&(*F)],
-                                     ValueNodes[&(*F)]));
-    Constraints.push_back(Constraint(Constraint::Store, ValueNodes[&(*F)],
-                                     ValueNodes[&(*F)]));
+    if ((&(*F))->hasAddressTaken()) {
+      GraphNodes[ValueNodes[&(*F)]].setValue(&(*F));
+      CreateConstraint(Constraint::AddressOf, ValueNodes[&(*F)], ValueNodes[&(*F)]);
+      CreateConstraint(Constraint::Store, ValueNodes[&(*F)], ValueNodes[&(*F)]);
+    }
+
     // Set up the return value node.
     if (isPointsToType(F->getFunctionType()->getReturnType()))
       GraphNodes[getReturnNode(&(*F))].setValue(&(*F));
@@ -1304,9 +1361,7 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     } else {
       // External functions that return pointers return the universal set.
       if (isPointsToType(F->getFunctionType()->getReturnType()))
-        Constraints.push_back(Constraint(Constraint::Copy,
-                                         getReturnNode(&(*F)),
-                                         UniversalSet));
+        CreateConstraint(Constraint::Copy, getReturnNode(&(*F)), UniversalSet);
 
       // Any pointers that are passed into the function have the universal set
       // stored into them.
@@ -1315,26 +1370,32 @@ void AndersensAAResult::CollectConstraints(Module &M) {
         if (isPointsToType(I->getType())) {
           // Pointers passed into external functions could have anything stored
           // through them.
-          Constraints.push_back(Constraint(Constraint::Store, getNode(&(*I)),
-                                           UniversalSet));
+          CreateConstraint(Constraint::Store, getNode(&(*I)), UniversalSet);
           // Memory objects passed into external function calls can have the
           // universal set point to them.
 #if FULL_UNIVERSAL
-          Constraints.push_back(Constraint(Constraint::Copy,
-                                           UniversalSet,
-                                           getNode(&(*I))));
+          CreateConstraint(Constraint::Copy, UniversalSet, getNode(&(*I)));
 #else
-          Constraints.push_back(Constraint(Constraint::Copy,
-                                           getNode(&(*I)),
-                                           UniversalSet));
+          CreateConstraint(Constraint::Copy, getNode(&(*I)), UniversalSet);
 #endif
         }
 
       // If this is an external varargs function, it can also store pointers
       // into any pointers passed through the varargs section.
       if (F->getFunctionType()->isVarArg())
-        Constraints.push_back(Constraint(Constraint::Store, getVarargNode(&(*F)),
-                                         UniversalSet));
+        CreateConstraint(Constraint::Store, getVarargNode(&(*F)), UniversalSet);
+    }
+  }
+  // Treat Indirect calls conservatively if number of indirect calls exceeds
+  // AndersIndirectCallsLimit
+  bool DoIndirectCallProcess = ((AndersIndirectCallsLimit == -1) || 
+       (IndirectCallList.size() <= (unsigned)std::numeric_limits<int>::max() &&
+        (int)IndirectCallList.size() <= AndersIndirectCallsLimit));
+  if (!DoIndirectCallProcess) {
+    std::vector<CallSite>::const_iterator calllist_itr;
+
+    for (unsigned i = 0, e = IndirectCallList.size(); i != e; ++i) {
+      AddConstraintsForInitActualsToUniversalSet(IndirectCallList[i]);
     }
   }
   NumConstraints += Constraints.size();
@@ -1376,8 +1437,7 @@ void AndersensAAResult::processWinEhOperands(Instruction &AI) {
   for (unsigned Op = 0, NumOps = AI.getNumOperands(); Op < NumOps; ++Op) {
     Value* v1 = AI.getOperand(Op);
     if (v1->getType()->isPointerTy()) {
-      Constraints.push_back(Constraint(Constraint::Store, getNode(v1),
-                                       UniversalSet));
+      CreateConstraint(Constraint::Store, getNode(v1), UniversalSet);
     }
   }
 }
@@ -1395,14 +1455,12 @@ void AndersensAAResult::visitCatchReturnInst(CatchReturnInst &AI) {
 //
 void AndersensAAResult::visitCatchPadInst(CatchPadInst &AI) {
   if (AI.getType()->isPointerTy()) {
-    Constraints.push_back(Constraint(Constraint::Copy, 
-                          getNodeValue(AI), UniversalSet));
+    CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
   }
   for (unsigned Op = 0, NumOps = AI.getNumArgOperands(); Op < NumOps; ++Op) {
     Value* v1 = AI.getArgOperand(Op);
     if (v1->getType()->isPointerTy()) {
-      Constraints.push_back(Constraint(Constraint::Store, getNode(v1),
-                                       UniversalSet));
+      CreateConstraint(Constraint::Store, getNode(v1), UniversalSet);
     }
   }
 }
@@ -1412,8 +1470,7 @@ void AndersensAAResult::visitCatchPadInst(CatchPadInst &AI) {
 //
 void AndersensAAResult::visitCleanupPadInst(CleanupPadInst &AI) {
   if (AI.getType()->isPointerTy()) {
-    Constraints.push_back(Constraint(Constraint::Copy, 
-                          getNodeValue(AI), UniversalSet));
+    CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
   }
   processWinEhOperands(AI);
 }
@@ -1431,30 +1488,27 @@ void AndersensAAResult::visitInsertValueInst(InsertValueInst &AI) {
         return;
     }
     unsigned AN = getNodeValue(AI);
-    Constraints.push_back(Constraint(Constraint::Copy, AN,
-                                     getNode(AI.getOperand(0)))); 
+    CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(0))); 
     if (!isPointsToType(AI.getOperand(1)->getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Store, AN,
-                                     getNode(AI.getOperand(1)))); 
+    CreateConstraint(Constraint::Store, AN, getNode(AI.getOperand(1))); 
 }
 
 void AndersensAAResult::visitExtractValueInst(ExtractValueInst &AI) {
     if (!isPointsToType(AI.getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Load, getNodeValue(AI),
-                                     getNode(AI.getAggregateOperand()))); 
+    CreateConstraint(Constraint::Load, getNodeValue(AI),
+                     getNode(AI.getAggregateOperand())); 
 }
 
 void AndersensAAResult::visitAtomicRMWInst(AtomicRMWInst &AI) {
     if (!isPointsToType(AI.getValOperand()->getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Store,
-                                     getNode(AI.getPointerOperand()),
-                                     getNode(AI.getValOperand())));
+    CreateConstraint(Constraint::Store, getNode(AI.getPointerOperand()),
+                     getNode(AI.getValOperand()));
 }
 
 void AndersensAAResult::visitBinaryOperator(BinaryOperator &AI) {
@@ -1462,28 +1516,25 @@ void AndersensAAResult::visitBinaryOperator(BinaryOperator &AI) {
         return;
     }
     unsigned AN = getNodeValue(AI);
-    Constraints.push_back(Constraint(Constraint::Copy, AN,
-                                     getNode(AI.getOperand(0))));
-    Constraints.push_back(Constraint(Constraint::Copy, AN,
-                                     getNode(AI.getOperand(1))));
+    CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(0)));
+    CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(1)));
 }
 
 void AndersensAAResult::visitPtrToIntInst(PtrToIntInst &AI) {
-    Constraints.push_back(Constraint(Constraint::Copy, 
-                   getNode(AI.getOperand(0)), UniversalSet));
+    CreateConstraint(Constraint::Copy, getNode(AI.getOperand(0)), 
+                     UniversalSet);
 }
 
 void AndersensAAResult::visitIntToPtrInst(IntToPtrInst &AI) {
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI), 
-                   UniversalSet));
+    CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
 }
 
 void AndersensAAResult::visitExtractElementInst(ExtractElementInst &AI) {
   if (!isPointsToType(AI.getType())) {
       return;
   }
-  Constraints.push_back(Constraint(Constraint::Load, getNodeValue(AI),
-                                   getNode(AI.getVectorOperand()))); 
+  CreateConstraint(Constraint::Load, getNodeValue(AI),
+                   getNode(AI.getVectorOperand())); 
 }
 
 void AndersensAAResult::visitInsertElementInst(InsertElementInst &AI) {
@@ -1491,15 +1542,13 @@ void AndersensAAResult::visitInsertElementInst(InsertElementInst &AI) {
         return;
     }
     unsigned AN = getNodeValue(AI);
-    Constraints.push_back(Constraint(Constraint::Copy, AN,
-                                     getNode(AI.getOperand(0)))); 
+    CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(0))); 
    
     
     if (!isPointsToType(AI.getOperand(1)->getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Store, AN,
-                                     getNode(AI.getOperand(1)))); 
+    CreateConstraint(Constraint::Store, AN, getNode(AI.getOperand(1))); 
 }
 
 void AndersensAAResult::visitShuffleVectorInst(ShuffleVectorInst &AI) {
@@ -1508,12 +1557,10 @@ void AndersensAAResult::visitShuffleVectorInst(ShuffleVectorInst &AI) {
     }
     unsigned AN = getNodeValue(AI);
     if (isPointsToType(AI.getOperand(0)->getType())) {
-      Constraints.push_back(Constraint(Constraint::Copy, AN,
-                                       getNode(AI.getOperand(0)))); 
+      CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(0))); 
     }
     if (isPointsToType(AI.getOperand(1)->getType())) {
-      Constraints.push_back(Constraint(Constraint::Copy, AN,
-                                       getNode(AI.getOperand(1)))); 
+      CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(1))); 
     }
 }
 
@@ -1521,8 +1568,7 @@ void AndersensAAResult::visitLandingPadInst(LandingPadInst &AI) {
   if (!isPointsToType(AI.getType())) {
       return;
   }
-  Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
-                                UniversalSet));
+  CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
 
 }
 
@@ -1530,32 +1576,30 @@ void AndersensAAResult::visitAtomicCmpXchgInst(AtomicCmpXchgInst &AI) {
     if (!isPointsToType(AI.getNewValOperand()->getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Store,
-                                     getNode(AI.getPointerOperand()),
-                                     getNode(AI.getNewValOperand())));
+    CreateConstraint(Constraint::Store, getNode(AI.getPointerOperand()),
+                     getNode(AI.getNewValOperand()));
 }
 
 void AndersensAAResult::visitAllocaInst(AllocaInst &AI) {
   unsigned ObjectIndex = getObject(&AI);
   GraphNodes[ObjectIndex].setValue(&AI);
-  Constraints.push_back(Constraint(Constraint::AddressOf, getNodeValue(AI),
-                                   ObjectIndex));
+  CreateConstraint(Constraint::AddressOf, getNodeValue(AI), ObjectIndex);
 }
 
 void AndersensAAResult::visitReturnInst(ReturnInst &RI) {
   if (RI.getNumOperands() && isPointsToType(RI.getOperand(0)->getType()))
     // return V   -->   <Copy/retval{F}/v>
-    Constraints.push_back(Constraint(Constraint::Copy,
-                                     getReturnNode(RI.getParent()->getParent()),
-                                     getNode(RI.getOperand(0))));
+    CreateConstraint(Constraint::Copy,
+                     getReturnNode(RI.getParent()->getParent()),
+                     getNode(RI.getOperand(0)));
 }
 
 void AndersensAAResult::visitLoadInst(LoadInst &LI) {
   if (isPointsToType(LI.getType()) ||
       NonPointerAssignments.count(&LI))
   // P1 = load P2  -->  <Load/P1/P2>
-    Constraints.push_back(Constraint(Constraint::Load, getNodeValue(LI),
-                                     getNode(LI.getOperand(0))));
+    CreateConstraint(Constraint::Load, getNodeValue(LI),
+                     getNode(LI.getOperand(0)));
 }
 
 void AndersensAAResult::visitStoreInst(StoreInst &SI) {
@@ -1584,16 +1628,13 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
         (CE->getOpcode() == Instruction::Select)) {
       // Store (Select C1, C2), P2  -- <Store/P2/C1> and <Store/P2/C2> 
       unsigned SIN = getNode(SI.getOperand(1));
-      Constraints.push_back(Constraint(Constraint::Store, SIN,
-                                       getNode(CE->getOperand(1))));
-      Constraints.push_back(Constraint(Constraint::Store, SIN,
-                                       getNode(CE->getOperand(2))));
+      CreateConstraint(Constraint::Store, SIN, getNode(CE->getOperand(1)));
+      CreateConstraint(Constraint::Store, SIN, getNode(CE->getOperand(2)));
     }
     else {
       // store P1, P2  -->  <Store/P2/P1>
-      Constraints.push_back(Constraint(Constraint::Store,
-                                       getNode(SI.getOperand(1)),
-                                       getNode(SI.getOperand(0))));
+      CreateConstraint(Constraint::Store, getNode(SI.getOperand(1)),
+                       getNode(SI.getOperand(0)));
     }
   }
 }
@@ -1601,8 +1642,8 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
 void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   // P1 = getelementptr P2, ... --> <Copy/P1/P2>
   //errs() << "GetElementPtr: " << GEP << "\n";
-  Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(GEP),
-                                   getNode(GEP.getOperand(0))));
+  CreateConstraint(Constraint::Copy, getNodeValue(GEP),
+                   getNode(GEP.getOperand(0)));
 }
 
 void AndersensAAResult::visitPHINode(PHINode &PN) {
@@ -1618,8 +1659,7 @@ void AndersensAAResult::visitPHINode(PHINode &PN) {
             dyn_cast<ConstantExpr>(C) == nullptr || !isa<BlockAddress>(C)))
           continue;
       }
-      Constraints.push_back(
-        Constraint(Constraint::Copy, PNN, getNode(PN.getIncomingValue(i))));
+      CreateConstraint(Constraint::Copy, PNN, getNode(PN.getIncomingValue(i)));
     }
   }
 }
@@ -1629,8 +1669,8 @@ void AndersensAAResult::visitCastInst(CastInst &CI) {
   if (isPointsToType(CI.getType())) {
     if (isPointsToType(Op->getType())) {
       // P1 = cast P2  --> <Copy/P1/P2>
-      Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(CI),
-                                       getNode(CI.getOperand(0))));
+      CreateConstraint(Constraint::Copy, getNodeValue(CI),
+                       getNode(CI.getOperand(0)));
     } else {
     // IntToPtr and PtrToInt instructions are handled separately in 
     // visitPtrToIntInst and visitIntToPtrInst. This code is not 
@@ -1639,8 +1679,7 @@ void AndersensAAResult::visitCastInst(CastInst &CI) {
     // not required anymore
       // P1 = cast int --> <Copy/P1/Univ>
 #if 0
-      Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(CI),
-                                       UniversalSet));
+      CreateConstraint(Constraint::Copy, getNodeValue(CI), UniversalSet));
 #else
       getNodeValue(CI);
 #endif
@@ -1648,9 +1687,8 @@ void AndersensAAResult::visitCastInst(CastInst &CI) {
   } else if (isPointsToType(Op->getType())) {
     // int = cast P1 --> <Copy/Univ/P1>
 #if 0
-    Constraints.push_back(Constraint(Constraint::Copy,
-                                     UniversalSet,
-                                     getNode(CI.getOperand(0))));
+    CreateConstraint(Constraint::Copy, UniversalSet,
+                     getNode(CI.getOperand(0))));
 #else
     getNode(CI.getOperand(0));
 #endif
@@ -1661,17 +1699,15 @@ void AndersensAAResult::visitSelectInst(SelectInst &SI) {
   if (isPointsToType(SI.getType())) {
     unsigned SIN = getNodeValue(SI);
     // P1 = select C, P2, P3   ---> <Copy/P1/P2>, <Copy/P1/P3>
-    Constraints.push_back(Constraint(Constraint::Copy, SIN,
-                                     getNode(SI.getOperand(1))));
-    Constraints.push_back(Constraint(Constraint::Copy, SIN,
-                                     getNode(SI.getOperand(2))));
+    CreateConstraint(Constraint::Copy, SIN, getNode(SI.getOperand(1)));
+    CreateConstraint(Constraint::Copy, SIN, getNode(SI.getOperand(2)));
   }
 }
 
 void AndersensAAResult::visitVAArg(VAArgInst &I) {
   llvm_unreachable("vaarg not handled yet!");
-  //Constraints.push_back(Constraint(Constraint::Copy, getNode(I),
-  //                             getVarargNode(I->getParent()->getParent())));
+  //CreateConstraint(Constraint::Copy, getNode(I),
+  //                 getVarargNode(I->getParent()->getParent()));
 }
 
 // Create Constraints for direct calls
@@ -1685,9 +1721,8 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
   Function::arg_iterator last_formal = F->arg_end();
 
   if (isPointsToType(CS.getType())) {
-    Constraints.push_back(Constraint(Constraint::Copy, 
-                          getNode(CS.getInstruction()), 
-                          getReturnNode(F)));
+    CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()), 
+                     getReturnNode(F));
   }
 
   for (; formal_itr != formal_end;) {
@@ -1695,12 +1730,11 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
     Value* actual = *arg_itr;
     if (isPointsToType(formal->getType())) {
       if (isPointsToType(actual->getType())) {
-        Constraints.push_back(Constraint(Constraint::Copy, 
-                              getNode(&(*formal_itr)), getNode(actual)));
+        CreateConstraint(Constraint::Copy, getNode(&(*formal_itr)), 
+                         getNode(actual));
       }
       else {
-        Constraints.push_back(Constraint(Constraint::Copy, 
-                              getNode(&(*formal_itr)), UniversalSet));
+        CreateConstraint(Constraint::Copy, getNode(&(*formal_itr)), UniversalSet);
       }     
     }
     last_formal = formal_itr;
@@ -1718,8 +1752,8 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
     for (; arg_itr != arg_end && last_formal != formal_end; ++arg_itr) {
       Value* actual = *arg_itr;
       if (isPointsToType(actual->getType())) {
-        Constraints.push_back(Constraint(Constraint::Copy, 
-                              getNode(&(*last_formal)), getNode(actual)));
+        CreateConstraint(Constraint::Copy, getNode(&(*last_formal)),
+                         getNode(actual));
       }
     } 
   }
@@ -1733,15 +1767,14 @@ void AndersensAAResult::AddConstraintsForInitActualsToUniversalSet(CallSite CS) 
   CallSite::arg_iterator arg_end = CS.arg_end();
 
   if (isPointsToType(CS.getType())) {
-    Constraints.push_back(Constraint(Constraint::Copy, 
-                          getNode(CS.getInstruction()), UniversalSet));
+    CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()), 
+                     UniversalSet);
   }
 
   for (; arg_itr != arg_end; ++arg_itr) {
     Value* actual = *arg_itr;
     if (isPointsToType(actual->getType())) {
-      Constraints.push_back(Constraint(Constraint::Store, getNode(actual),
-                                       UniversalSet));
+      CreateConstraint(Constraint::Store, getNode(actual), UniversalSet);
     }
   }
 }
@@ -1804,8 +1837,8 @@ void AndersensAAResult::visitCallSite(CallSite CS) {
       // Instruction* inst = CS.getInstruction();
       unsigned ObjectIndex = getObject(CS.getInstruction());
       GraphNodes[ObjectIndex].setValue(CS.getInstruction());
-      Constraints.push_back(Constraint(Constraint::AddressOf, 
-                            getNodeValue(*CS.getInstruction()), ObjectIndex));
+      CreateConstraint(Constraint::AddressOf, 
+                       getNodeValue(*CS.getInstruction()), ObjectIndex);
       return;
   }
   if (isPointsToType(CS.getType()))
@@ -2697,13 +2730,13 @@ void AndersensAAResult::OptimizeConstraints() {
     VSSCCRep[i] = i;
     N->PointerEquivLabel = 0;
   }
-  //HU();
+  HU();
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-labels"
   DEBUG(PrintLabels());
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa"
-  //RewriteConstraints();
+  RewriteConstraints();
   for (unsigned i = 0; i < GraphNodes.size(); ++i) {
     if (FindNode(i) == i) {
       Node *N = &GraphNodes[i];
@@ -2997,12 +3030,9 @@ void AndersensAAResult::SolveConstraints() {
   CurrWL = &w1;
   NextWL = &w2;
 
-  OptimizeConstraints();
-#undef DEBUG_TYPE
-#define DEBUG_TYPE "anders-aa-constraints"
-      DEBUG(PrintConstraints());
-#undef DEBUG_TYPE
-#define DEBUG_TYPE "anders-aa"
+  bool DoIndirectCallProcess = ((AndersIndirectCallsLimit == -1) || 
+       (IndirectCallList.size() <= (unsigned)std::numeric_limits<int>::max() &&
+        (int)IndirectCallList.size() <= AndersIndirectCallsLimit));
 
 
   for (unsigned i = 0; i < GraphNodes.size(); ++i) {
@@ -3274,7 +3304,9 @@ void AndersensAAResult::SolveConstraints() {
 
     // Process Indirect calls here for now. 
     // TODO: Need to find correct placement for this call later.
-    ProcessIndirectCalls();
+    if (DoIndirectCallProcess) {
+      ProcessIndirectCalls();
+    }
 
     // Switch to other work list.
     WorkList* t = CurrWL; CurrWL = NextWL; NextWL = t;
@@ -3315,13 +3347,27 @@ unsigned AndersensAAResult::UniteNodes(unsigned First, unsigned Second,
     int RankFirst  = (int) FirstNode ->NodeRep;
     int RankSecond = (int) SecondNode->NodeRep;
 
-    // Rank starts at -1 and gets decremented as it increases.
-    // Translation: higher rank, lower NodeRep value, which is always negative.
-    if (RankFirst > RankSecond) {
-      unsigned t = First; First = Second; Second = t;
-      Node* tp = FirstNode; FirstNode = SecondNode; SecondNode = tp;
-    } else if (RankFirst == RankSecond) {
-      FirstNode->NodeRep = (unsigned) (RankFirst - 1);
+    // CQ380767: Avoid swapping First (Rep) and Second nodes when Rep
+    // node is a special node (i.e universal node ) even though rank
+    // of second node is higher to avoid deleting parts of Universal
+    // node. Return Universal node as unified node but fix rank of it.
+    if (First < NumberSpecialNodes) {
+      if (RankFirst > RankSecond) {
+        FirstNode->NodeRep = RankSecond;
+      } else if (RankFirst == RankSecond) {
+        FirstNode->NodeRep = (unsigned) (RankFirst - 1);
+      }
+    }
+    else {
+      // Rank starts at -1 and gets decremented as it increases.
+      // Translation: higher rank, lower NodeRep value, which is always
+      // negative.
+      if (RankFirst > RankSecond) {
+        unsigned t = First; First = Second; Second = t;
+        Node* tp = FirstNode; FirstNode = SecondNode; SecondNode = tp;
+      } else if (RankFirst == RankSecond) {
+        FirstNode->NodeRep = (unsigned) (RankFirst - 1);
+      }
     }
   }
 
@@ -4209,11 +4255,14 @@ void IntelModRefImpl::collectInstruction(Instruction *I, ModRefMap *DirectModRef
     }
     else if (BitCastInst *BC = dyn_cast<BitCastInst>(I)) {
         Value *ValOperand = BC->getOperand(0);
-        bool Changed = DirectModRef->addRef(ValOperand);
-        if (Changed) {
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                "MODREF: " << *ValOperand << "\n\n");
+        // CQ380767: Skip non-pointer operand in BitCast Inst
+        if (isInterestingPointer(ValOperand)) {
+            bool Changed = DirectModRef->addRef(ValOperand);
+            if (Changed) {
+                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                    "REF: " << *ValOperand << "\n\n");
+            }
         }
     }
     else if (AtomicCmpXchgInst *ACX = dyn_cast<AtomicCmpXchgInst>(I)) {
@@ -4510,7 +4559,7 @@ void IntelModRefImpl::propagate(Module &M)
                 for (auto E = SCC.end(); I != E; ++I) {
                     Function* CurF = (*I)->getFunction();
                     FunctionRecord *CurFR = getFunctionInfo(CurF);
-                    if (FR) {
+                    if (CurFR) {
                         changed = fuseModRefSets(PrevFR, CurFR);
                         PrevFR = CurFR;
                     }

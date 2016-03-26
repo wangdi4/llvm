@@ -5009,9 +5009,10 @@ bool llvm::loopopt::isDVIndepFromLevel(const DVType *DV, unsigned FromLevel) {
     }
     switch (Direction) {
     case DV::LT:
-    case DV::LE:
+      //    case DV::LE:
     case DV::GT:
-    case DV::GE:
+      //    case DV::GE:
+    case DV::NE:
       return true;
     default:
       break;

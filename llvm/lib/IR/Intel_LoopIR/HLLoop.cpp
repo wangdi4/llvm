@@ -19,6 +19,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -754,3 +755,26 @@ void HLLoop::verify() const {
   assert((getParentLoop() || getNestingLevel() == 1) &&
          "Top level loops should have 1st nesting level");
 }
+
+bool HLLoop::isSIMD() const {
+  HLContainerTy::const_iterator Iter(*this);
+  auto First = HLNodeUtils::getFirstLexicalChild(getParent(), this); 
+  HLContainerTy::const_iterator FIter(*First);
+
+  while (Iter != FIter) {
+    --Iter;
+    const HLInst *I = dyn_cast<HLInst>(Iter);
+    if (!I)
+      return false; // Loop, IF, Switch, etc.
+    Intrinsic::ID IntrinID;
+    if (!I->isIntrinCall(IntrinID) ||
+        !vpo::VPOUtils::isIntelDirectiveOrClause(IntrinID))
+      return false; // Expecting just directives and clauses between SIMD
+                    // and Loop.
+    if (I->isSIMDDirective())
+      return true;
+  }
+  
+  return false;
+}
+

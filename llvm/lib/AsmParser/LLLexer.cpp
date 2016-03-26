@@ -584,6 +584,9 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(spir_kernel);
   KEYWORD(spir_func);
   KEYWORD(intel_ocl_bicc);
+#if INTEL_CUSTOMIZATION
+  KEYWORD(svml_cc);
+#endif // INTEL_CUSTOMIZATION
   KEYWORD(x86_64_sysvcc);
   KEYWORD(x86_64_win64cc);
   KEYWORD(x86_regcallcc); // INTEL

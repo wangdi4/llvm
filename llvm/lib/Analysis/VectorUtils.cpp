@@ -59,6 +59,9 @@ bool llvm::isTriviallyVectorizable(Intrinsic::ID ID) {
   case Intrinsic::ctlz:
   case Intrinsic::cttz:
   case Intrinsic::powi:
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::sincos:
+#endif // INTEL_CUSTOMIZATION
     return true;
   default:
     return false;
@@ -118,6 +121,35 @@ llvm::checkBinaryFloatSignature(const CallInst &I,
 
   return ValidIntrinsicID;
 }
+
+#if INTEL_CUSTOMIZATION
+/// \brief Check call has the following signature:
+/// a) call should have 3 arguments.
+/// b) argument 1 should be floating point.
+/// c) arguments 2 and 3 should be pointers to floating point.
+/// d) does not matter that call arguments match return.
+/// If all these conditions are met then return ValidIntrinsicID
+/// else return not_intrinsic.
+Intrinsic::ID
+checkFloatBinaryFloatPtrSignature(const CallInst &I,
+                                  Intrinsic::ID ValidIntrinsicID)
+{
+  Type *ArgOneType   = I.getArgOperand(0)->getType();
+  Type *ArgTwoType   = I.getArgOperand(1)->getType();
+  Type *ArgThreeType = I.getArgOperand(2)->getType();
+
+  if (I.getNumArgOperands() != 3 ||
+      !ArgOneType->isFPOrFPVectorTy() ||
+      !ArgTwoType->isPtrOrPtrVectorTy() ||
+      !ArgTwoType->getPointerElementType()->isFPOrFPVectorTy() ||
+      !ArgThreeType->isPtrOrPtrVectorTy() ||
+      !ArgThreeType->getPointerElementType()->isFPOrFPVectorTy()) {
+    return Intrinsic::not_intrinsic;
+  }
+
+  return ValidIntrinsicID;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Returns intrinsic ID for call.
 /// For the input call instruction it finds mapping intrinsic and returns
@@ -221,6 +253,11 @@ Intrinsic::ID llvm::getIntrinsicIDForCall(CallInst *CI,
   case LibFunc::powf:
   case LibFunc::powl:
     return checkBinaryFloatSignature(*CI, Intrinsic::pow);
+#if INTEL_CUSTOMIZATION
+  case LibFunc::sincos:
+  case LibFunc::sincosf:
+    return checkFloatBinaryFloatPtrSignature(*CI, Intrinsic::sincos);
+#endif // INTEL_CUSTOMIZATION
   }
 
   return Intrinsic::not_intrinsic;
@@ -568,6 +605,209 @@ llvm::computeMinimumValueSizes(ArrayRef<BasicBlock *> Blocks, DemandedBits &DB,
 }
 
 #if INTEL_CUSTOMIZATION
+// The purpose of this function is to trace back to all GEPs involved in an
+// address calculation (e.g., array subscripts) and determine if each, other
+// than the level being vectorized (assuming innermost loop vectorization), is
+// loop invariant. If so, this corresponds to a base + constant offset
+// expression, where we can then use the stride from the SCEV of the base to
+// determine the actual stride needed for vectorization.
+//
+// As an example (trace IR from bottom to top), the LLVM IR
+// corresponding to an expression of the form A[i][j][k], where k is being
+// vectorized is something like:
+//
+// for.cond.1.preheader:           ; preds = %for.inc.26, %entry
+//   %indvars.iv119 = phi i64 [ 0, %entry ],
+//                            [ %indvars.iv.next120, %for.inc.26 ]
+//   ... some arbitrary IR here ...
+//   %arrayidx14 = getelementptr inbounds double**, double*** %array2,
+//                                                  i64 %indvars.iv119, !dbg !8
+//   ... some arbitrary IR here ...
+//   br label %for.cond.4.preheader, !dbg !10
+//
+// for.cond.4.preheader:           ; preds = %for.inc.23, %for.cond.1.preheader
+//   %indvars.iv116 = phi i64 [ 0, %for.cond.1.preheader ],
+//                            [ %indvars.iv.next117, %for.inc.23 ]
+//   br label %for.body.6, !dbg !11
+//
+// for.body.6:                     ; preds = %for.body.6, %for.cond.4.preheader
+//   %indvars.iv113 = phi i64 [ 0, %for.cond.4.preheader ],
+//                            [ %indvars.iv.next114, %for.body.6 ]
+//   ... some arbitrary IR here ...
+//   %4 = load double**, double*** %arrayidx14, align 8, !dbg !8, !tbaa !12
+//
+//   %arrayidx15 = getelementptr inbounds double*, double** %4,
+//                                                 i64 %indvars.iv116, !dbg !8
+//
+//   %5 = load double*, double** %arrayidx15, align 8, !dbg !8, !tbaa !12
+//
+//   %arrayidx16 = getelementptr inbounds double, double* %5,
+//                                                i64 %indvars.iv113, !dbg !8
+//   ... some arbitrary IR here ...
+//
+//   tail call void @sincos(double %3, double* %arrayidx16,
+//                                     double* %arrayidx22) #1, !dbg !18
+//
+//
+// The traceback begins with %arrayidx16, which is a gep using an IV from the
+// loop being vectorized. All other geps involved with the address computation
+// for A[i][j] involve geps that use IVs that are invariant to the loop being
+// vectorized. So,
+//
+// the SCEV of %arrayidx16 = ({0,+,8}<nuw><nsw><%for.body.6> + %162)<nsw>
+// The SCEV expression involves an unknown value of %162 for which we must trace
+// back to determine loop invariance. The first operand is an add recurrence for
+// the innermost loop, which of course, is not loop invariant. However, this is
+// ok because this corresponds to the last subscript for which we are
+// vectorizing and we can use the stride of this SCEV to determine what type of
+// load/store to generate as long as all sub-expressions of %162 are loop
+// invariant with respect to the innermost loop.
+//
+// There is no SCEV for load instructions, so we must trace back using operand 0
+// of the load, which should be another gep. In this case, the gep for
+// %arrayidx15 = ({0,+,8}<nuw><nsw><%for.cond.4.preheader> + %161)<nsw>. This
+// time, the add recurrence part of the SCEV is related to outside the loop we
+// are vectorizing (%for.cond.4.preheader), so this is invariant and we must
+// then check %161.
+//
+// %161 is a load done outside of the innermost loop (not shown in the IR above)
+// which traces back to %arrayidx14 (a gep). The SCEV for %arrayidx14 =
+// {%array2,+,8}<nsw><%for.cond.1.preheader>, which is also innermost loop
+// invariant.
+//
+// Thus, essentially, we have an expression of the form:
+//
+// base + offset1 + offset2,
+//
+// where offsets 1 and 2 are constants. So, we can take the stride of the add
+// recurrence for base (the incoming SCEV to the getStrideExpr() function below
+// to determine what type of load/store to generate. i.e., get the stride from
+// SCEV {0,+,8}<nuw><nsw><%for.body.6>, which is 8 bytes. If the innermost loop
+// were incremented as k+=2, then the SCEV would look like
+// {0,+,16}<nuw><nsw><%for.body.6>.
+
+bool llvm::referenceIsLoopInvariant(const SCEV *Scev, ScalarEvolution *SE,
+                                    Loop *OrigLoop)
+{
+  bool IsLoopInvariant = false;
+
+  if (const SCEVAddRecExpr *AddRecExpr = dyn_cast<SCEVAddRecExpr>(Scev)) {
+    if (SE->isLoopInvariant(AddRecExpr, OrigLoop)) {
+      IsLoopInvariant = true;
+    }
+  } else if (const SCEVAddExpr *ScevAddExpr = dyn_cast<SCEVAddExpr>(Scev)) {
+    for (unsigned I = 0; I < ScevAddExpr->getNumOperands(); ++I) {
+      const SCEV *ScevOp = ScevAddExpr->getOperand(I);
+      IsLoopInvariant = referenceIsLoopInvariant(ScevOp, SE, OrigLoop);
+    }
+  } else if (const SCEVUnknown *Unknown = dyn_cast<SCEVUnknown>(Scev)) {
+    // No SCEV for load instructions, so get the SCEV for the gep from which it
+    // is loading.
+    Value *UnknownVal = Unknown->getValue();
+    LoadInst *Load = dyn_cast<LoadInst>(UnknownVal);
+    assert(Load && "Expected unknown SCEV to be a load instruction");
+    Value *LoadOp = Load->getOperand(0);
+    const SCEV *LoadOpScev = SE->getSCEV(LoadOp);
+    IsLoopInvariant = referenceIsLoopInvariant(LoadOpScev, SE, OrigLoop);
+  }
+
+  return IsLoopInvariant;
+}
+
+// This function returns the stride of a memory reference expression. If it is
+// determined that all SCEVs analyzed in the trace back are loop invariant, then
+// the stride from the initial add recurrence is returned. Otherwise, the stride
+// is set to Undef.
+Value* llvm::getExprStride(const SCEV *Scev, ScalarEvolution *SE,
+                           Loop *OrigLoop)
+{
+  // UndefValue indicates non constant stride, which will lead to
+  // gather/scatter.
+  Value *Stride = UndefValue::get(IntegerType::getInt32Ty(SE->getContext()));
+  const SCEVAddRecExpr *MemRef;
+  bool SubExprIsInvariant = false;
+
+  if (const SCEVAddRecExpr *AddRecExpr = dyn_cast<SCEVAddRecExpr>(Scev)) {
+    MemRef = AddRecExpr;
+    SubExprIsInvariant = true;
+  } else if (const SCEVAddExpr *AddExpr = dyn_cast<SCEVAddExpr>(Scev)) {
+    MemRef = dyn_cast<SCEVAddRecExpr>(AddExpr->getOperand(0));
+    assert(MemRef && "Stride can only be computed from an add recurrence SCEV");
+
+    // Check to make sure all offsets to the add recurrence are loop invariant.
+    // If not, then return non-linear stride.
+    SubExprIsInvariant = referenceIsLoopInvariant(AddExpr->getOperand(1), SE,
+                                                  OrigLoop);
+  }
+
+  if (SubExprIsInvariant) {
+    const SCEV *ScevStride = MemRef->getStepRecurrence(*SE);
+    const SCEVConstant *ScevConst = dyn_cast<SCEVConstant>(ScevStride);
+    Stride = ScevConst->getValue();
+  }
+
+  return Stride;
+}
+
+// This function marks the CallInst CI with the appropriate stride information
+// determined by getExprStride(), which is used later in LLVM IR generation for
+// loads/stores. Initial use of this information is used during SVML translation
+// for sincos vectorization, but could be applicable to any situation where we
+// need to analyze memory references.
+void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
+                                          const TargetLibraryInfo *TLI,
+                                          ScalarEvolution *SE, Loop *OrigLoop)
+{
+  for (unsigned I = 0; I < CI->getNumArgOperands(); ++I) {
+
+    Value *CallArg = CI->getArgOperand(I);
+    GetElementPtrInst *ArgGep = dyn_cast<GetElementPtrInst>(CallArg);
+
+    if (ArgGep) {
+
+      const SCEV *ArgScev = SE->getSCEV(ArgGep);
+      Value *Stride = getExprStride(ArgScev, SE, OrigLoop);
+      AttrBuilder AttrList;
+
+      if (!isa<UndefValue>(Stride)) {
+
+        // 2nd and 3rd args to sincos should always be pointers, but assert just
+        // in case.
+        PointerType *PtrArgType = dyn_cast<PointerType>(CallArg->getType());
+
+        if (PtrArgType) {
+
+          Type *ElemType = PtrArgType->getElementType();
+
+          ConstantInt *StrideConst = dyn_cast<ConstantInt>(Stride);
+          if (StrideConst) {
+
+            int64_t ElemTypeSize = ElemType->getScalarSizeInBits() / 8;
+            int64_t StrideVal = StrideConst->getSExtValue();
+
+            // Mark the call argument with the stride value in number of
+            // elements.
+            unsigned ElemStride = StrideVal / ElemTypeSize;
+            AttrList.addAttribute("stride",
+                                  APInt(32, ElemStride).toString(10, false));
+          }
+        }
+      } else {
+        // Undef stride means that we must treat the memory reference as
+        // gather/scatter or resort to store scalarization.
+        AttrList.addAttribute("stride", "indirect");
+      }
+
+      if (AttrList.hasAttributes()) {
+        VecCall->setAttributes(
+            VecCall->getAttributes().addAttributes(
+                VecCall->getContext(), I + 1,
+                AttributeSet::get(VecCall->getContext(), I + 1, AttrList)));
+      }
+    }
+  }
+}
+
 std::vector<Attribute> llvm::getVectorVariantAttributes(Function& F) {
   std::vector<Attribute> RetVal;
   AttributeSet Attributes = F.getAttributes().getFnAttributes();

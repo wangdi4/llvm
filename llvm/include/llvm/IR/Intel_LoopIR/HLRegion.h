@@ -136,6 +136,11 @@ public:
   }
   const_live_out_iterator live_out_end() const { return IRReg->live_out_end(); }
 
+  iterator_range<const_live_out_iterator> live_out() const {
+    return iterator_range<const_live_out_iterator>(live_out_begin(),
+                                                   live_out_end());
+  }
+
   /// \brief Returns true if we need to generate code for this region.
   bool shouldGenCode() const { return GenCode; }
   void setGenCode(bool GC = true) { GenCode = GC; }

@@ -61,7 +61,7 @@ typedef class OVLSMemref OVLSMemref;
 typedef OVLSVector<OVLSMemref*> OVLSMemrefVector;
 
 typedef class OVLSGroup OVLSGroup;
-typedef OVLSVector<OVLSGroup> OVLSGroupVector;
+typedef OVLSVector<OVLSGroup*> OVLSGroupVector;
 
 // AccessType: {Strided|Indexed}{Load|Store}
 class OVLSAccessType {
@@ -122,10 +122,13 @@ class OVLSMemref {
 public:
   explicit OVLSMemref(unsigned ElementSize,
                       unsigned NumElements, const OVLSAccessType& AccType);
+  virtual ~OVLSMemref() {}
 
   unsigned getNumElements() const { return NumElements; }
+  void setNumElements(unsigned nelems) { NumElements = nelems; }
   unsigned getElementSize() const { return ElementSize; }
   OVLSAccessType getAccessType() const { return AccType; }
+  void setAccessType(const OVLSAccessType& Type) { AccType = Type; }
 
   unsigned getId() const { return Id; }
 
@@ -137,17 +140,20 @@ public:
   void dump() const;
 #endif
 
-  // Returns true if this->Memref and Memref are (neighbors) a constant
+  // Returns true if this and Memref are (neighbors) a constant
   // distance apart (for each ith element), distance is computed in bytes.
   // Otherwise, returns false;
   virtual bool isAConstDistanceFrom(const OVLSMemref& Memref, int *Dist) = 0;
+
+  // Returns true if this and Memref have the same number of elements.
+  virtual bool haveSameNumElements(const OVLSMemref& Memref) = 0;
 
   // Returns true if this can move to the location of Memref. This means it
   // does not violate any program/control flow semantics nor any memory dependencies.
   // I.e., this is still alive at the location of Memref and there are no
   // loads/stores of this in between the location of this and the location of
   // Memref.
-  virtual bool canMoveTo(OVLSMemref *Memref) = 0;
+  virtual bool canMoveTo(const OVLSMemref& Memref) = 0;
 
 private:
   unsigned Id;          // A unique Id, helps debugging.
@@ -216,15 +222,16 @@ private:
 // OptVLS public Interface class that operates on OptVLS Abstract types.
 class OptVLSInterface {
 public:
-  // getGroups() takes a vector of OVLSMemrefs and a group size in bytes
-  // (which is the the maximum length of the underlying vector register
-  // or any other desired size that clients want to consider, maximum size
-  // can be 64), and returs a vector of OVLSGroups. Each group contains one or more
-  // OVLSMemrefs, and each OVLSMemref is contained by 1 (and only 1) OVLSGroup
-  // such that being together these memrefs in a group do not violate any program
-  // semantics or memory dependencies.
-  static OVLSGroupVector& getGroups(const OVLSMemrefVector &Memrefs,
-                                    unsigned GroupSize);
+  // getGroups() takes a vector of OVLSMemrefs, a vector of OVLSGroups for containing
+  // the return group-vector and a group size in bytes (which is the the maximum length
+  // of the underlying vector register or any other desired size that clients want to
+  // consider, maximum size can be 64). Each group contains one or more OVLSMemrefs,
+  // and each OVLSMemref is contained by 1 (and only 1) OVLSGroup such that being
+  // together these memrefs in a group do not violate any program semantics or memory
+  // dependencies.
+  static void getGroups(const OVLSMemrefVector &Memrefs,
+                        OVLSGroupVector &Grps,
+                        unsigned GroupSize);
 };
 
 }

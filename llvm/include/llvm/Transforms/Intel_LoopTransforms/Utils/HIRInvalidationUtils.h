@@ -28,6 +28,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRVectVLSAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 
@@ -100,7 +101,7 @@ private:
   };
 
   // There should be all available analysis
-  typedef AnalysisSet<HIRDDAnalysis, HIRLocalityAnalysis> ForEachAnalysis;
+  typedef AnalysisSet<HIRDDAnalysis, HIRLocalityAnalysis, HIRVectVLSAnalysis> ForEachAnalysis;
 
   /// \brief Do not allow instantiation.
   HIRInvalidationUtils() = delete;

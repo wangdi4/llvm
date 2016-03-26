@@ -111,7 +111,15 @@ public:
   static bool isUndefBlob(BlobTy Blob);
 
   /// \brief Returns true if Blob represents a FP constant.
-  static bool isConstantFPBlob(BlobTy Blob);
+  static bool isConstantFPBlob(BlobTy Blob, ConstantFP **Val = nullptr);
+
+  /// \brief Returns true if Blob represents a vector of constants.
+  /// If yes, returns the underlying LLVM Value in Val
+  static bool isConstantVectorBlob(BlobTy Blob, Constant **Val = nullptr);
+
+  /// \brief Returns true if Blob represents a metadata.
+  /// If blob is metadata, sets the return value in Val.
+  static bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val = nullptr);
 
   /// \brief Returns a new blob created from passed in Val.
   static BlobTy createBlob(Value *Val, bool Insert = true,

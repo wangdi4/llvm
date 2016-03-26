@@ -21,10 +21,12 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/LoopInfo.h" // INTEL 
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Dominators.h" // INTEL 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/InstVisitor.h"
@@ -1143,6 +1145,56 @@ static bool forgivableCondition(TerminatorInst* TI) {
   countGlobalsAndConstants(RHS, GlobalCount, ConstantCount);
   return ConstantCount == 1 && GlobalCount == 1; 
 } 
+
+//
+// Return 'true' if this is a double callsite worth inlining. The criteria
+// are: 
+//  (1) Must have exactly two calls to the function in the caller 
+//  (2) The callee must have a single outer loop 
+//  (3) That loop's basic blocks must have a relatively large successor count
+//
+static bool worthyDoubleCallSite(CallSite &CS) {
+   Function *Caller = CS.getCaller(); 
+   Function *Callee = CS.getCalledFunction(); 
+   // Look for 2 calls of the callee in the caller. 
+   unsigned count = 0; 
+   for (Use &U : Callee->uses()) { 
+      if (auto CS = ImmutableCallSite(U.getUser())) { 
+        if (CS.getCaller() == Caller) { 
+          if (++count > 2) { 
+            return false; 
+          } 
+        } 
+      } 
+   }   
+   if (count != 2) { 
+      return false; 
+   } 
+   // Look for a single top level loop in the callee.
+   DominatorTree DT = DominatorTree(*Callee);
+   LoopInfo LI = LoopInfo(DT); 
+   count = 0; 
+   const Loop *L = nullptr; 
+   for (auto LB = LI.begin(), LE = LI.end(); LB != LE; ++LB) { 
+      L = *LB; 
+      if (++count > 1) { 
+        return false; 
+      } 
+   }
+   if (L == nullptr) { 
+     return false; 
+   } 
+   // Look through the loop for a high relative successor count. 
+   unsigned BBCount = std::distance(L->block_begin(), L->block_end()); 
+   // Each loop must have at least one basic block.
+   assert(BBCount > 0); 
+   unsigned SuccCount = 0; 
+   for (auto BB : L->blocks()) { 
+     SuccCount += std::distance(succ_begin(BB), succ_end(BB)); 
+   } 
+   return (100 * SuccCount / BBCount) > InlineConstants::BasicBlockSuccRatio;
+} 
+
 #endif // INTEL_CUSTOMIZATION
 
 /// \brief Analyze a call site for potential inlining.
@@ -1236,6 +1288,18 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     Cost += InlineConstants::LastCallToStaticBonus;
     YesReasonVector.push_back(InlrSingleLocalCall); // INTEL 
   } // INTEL 
+
+#if INTEL_CUSTOMIZATION
+  // If there are two calls of the function, and it has internal linkage,
+  // the cost of inlining it drops less dramatically.
+  bool TwoCallsAndLocalLinkage
+    = (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) &&
+    (&F == CS.getCalledFunction()) && worthyDoubleCallSite(CS);
+  if (TwoCallsAndLocalLinkage) {
+    Cost += InlineConstants::SecondToLastCallToStaticBonus;
+    YesReasonVector.push_back(InlrDoubleLocalCall);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If the instruction after the call, or if the normal destination of the
   // invoke is an unreachable instruction, the function is noreturn. As such,

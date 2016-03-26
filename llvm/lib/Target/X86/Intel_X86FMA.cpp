@@ -29,6 +29,7 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "Intel_X86FMACommon.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "x86-global-fma"
@@ -49,10 +50,10 @@ static cl::opt<bool> DebugFMAOpt("debug-x86-global-fma",
 // with desired level of details. DEBUG_WITH_TYPE() macro does not let to do
 // it as it is exclusive, i.e. you can specify only 1 level of detailization,
 // while this optimization may want to have several levels of dump details.
-// 
 raw_ostream &fmadbgs() {
   return (!DebugFMAOpt) ? nulls() : dbgs();
 }
+
 
 // This class holds all pre-computed/efficient FMA patterns.
 class FMAPatterns {

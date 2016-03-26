@@ -156,6 +156,7 @@ private:
 #if INTEL_CUSTOMIZATION // HIR passes
   void addLoopOptPasses(legacy::PassManagerBase &PM) const;
   void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
+  void addVPOPasses(legacy::PassManagerBase &PM, bool RunVec) const;
 #endif // INTEL_CUSTOMIZATION
 
 public:

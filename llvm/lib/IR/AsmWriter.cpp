@@ -304,6 +304,9 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::X86_RegCall:   Out << "x86_regcallcc"; break; // INTEL
   case CallingConv::X86_VectorCall:Out << "x86_vectorcallcc"; break;
   case CallingConv::Intel_OCL_BI:  Out << "intel_ocl_bicc"; break;
+#if INTEL_CUSTOMIZATION
+  case CallingConv::SVML:          Out << "svml_cc"; break;
+#endif // INTEL_CUSTOMIZATION
   case CallingConv::ARM_APCS:      Out << "arm_apcscc"; break;
   case CallingConv::ARM_AAPCS:     Out << "arm_aapcscc"; break;
   case CallingConv::ARM_AAPCS_VFP: Out << "arm_aapcs_vfpcc"; break;
@@ -2061,7 +2064,7 @@ private:
 
   // printGCRelocateComment - print comment after call to the gc.relocate
   // intrinsic indicating base and derived pointer names.
-  void printGCRelocateComment(const Value &V);
+  void printGCRelocateComment(const GCRelocateInst &Relocate);
 };
 } // namespace
 
@@ -2723,14 +2726,11 @@ void AssemblyWriter::printInstructionLine(const Instruction &I) {
 
 /// printGCRelocateComment - print comment after call to the gc.relocate
 /// intrinsic indicating base and derived pointer names.
-void AssemblyWriter::printGCRelocateComment(const Value &V) {
-  assert(isGCRelocate(&V));
-  GCRelocateOperands GCOps(cast<Instruction>(&V));
-
+void AssemblyWriter::printGCRelocateComment(const GCRelocateInst &Relocate) {
   Out << " ; (";
-  writeOperand(GCOps.getBasePtr(), false);
+  writeOperand(Relocate.getBasePtr(), false);
   Out << ", ";
-  writeOperand(GCOps.getDerivedPtr(), false);
+  writeOperand(Relocate.getDerivedPtr(), false);
   Out << ")";
 }
 
@@ -2738,8 +2738,8 @@ void AssemblyWriter::printGCRelocateComment(const Value &V) {
 /// which slot it occupies.
 ///
 void AssemblyWriter::printInfoComment(const Value &V) {
-  if (isGCRelocate(&V))
-    printGCRelocateComment(V);
+  if (const auto *Relocate = dyn_cast<GCRelocateInst>(&V))
+    printGCRelocateComment(*Relocate);
 
   if (AnnotationWriter)
     AnnotationWriter->printInfoComment(V, Out);

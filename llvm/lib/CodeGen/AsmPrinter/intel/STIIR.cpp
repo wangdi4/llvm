@@ -11,6 +11,29 @@
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
+// toObjectKindString(kind)
+//
+// Returns a string description of the specified STI object kind.  This string
+// is to be used for debugging purposes only.
+//
+//===----------------------------------------------------------------------===//
+
+const char* toObjectKindString(STIObjectKind kind) {
+  const char* string;
+
+  switch (kind) {
+#define X(KIND, VALUE) case (KIND): string = #KIND; break;
+    STI_OBJECT_KIND_LIST
+#undef  X
+  default:
+    string = "[unrecognized object kind]";
+    break;
+  }
+
+  return string;
+}
+
+//===----------------------------------------------------------------------===//
 // STIObject
 //===----------------------------------------------------------------------===//
 
@@ -554,6 +577,13 @@ STISymbolFrameProc *STISymbolProcedure::getFrame() const { return _frame; }
 
 void STISymbolProcedure::setFrame(STISymbolFrameProc *frame) { _frame = frame; }
 
+Function *STISymbolProcedure::getFunction() const {
+  return getLineSlice()->getFunction();
+}
+
+void STISymbolProcedure::setFunction(Function *function) {
+  getLineSlice()->setFunction(function);
+}
 
 //===----------------------------------------------------------------------===//
 // STISymbolThunk
@@ -561,19 +591,28 @@ void STISymbolProcedure::setFrame(STISymbolFrameProc *frame) { _frame = frame; }
 
 STISymbolThunk::STISymbolThunk()
     : STISymbolProcedure(STI_OBJECT_KIND_SYMBOL_THUNK, S_THUNK32),
-      _adjustor(0), _targetName() {}
+      _ordinal(STI_THUNK_NOTYPE), _adjustor(0), _target(), _pcode(nullptr) {}
 
 STISymbolThunk::~STISymbolThunk() {}
 
 STISymbolThunk *STISymbolThunk::create() { return new STISymbolThunk(); }
 
+STISymbolThunk::Ordinal STISymbolThunk::getOrdinal() const { return _ordinal; }
+
+void STISymbolThunk::setOrdinal(Ordinal ordinal) { _ordinal = ordinal; }
+
 int STISymbolThunk::getAdjustor() const { return _adjustor; }
 
 void STISymbolThunk::setAdjustor(int adjustor) { _adjustor = adjustor; }
 
-StringRef STISymbolThunk::getTargetName() const { return _targetName; }
+StringRef STISymbolThunk::getTarget() const { return _target; }
 
-void STISymbolThunk::setTargetName(StringRef name) { _targetName = name; }
+void STISymbolThunk::setTarget(StringRef target) { _target = target; }
+
+MCSymbol *STISymbolThunk::getPCODE() const { return _pcode; }
+
+void STISymbolThunk::setPCODE(MCSymbol *pcode) { _pcode = pcode; }
+
 
 //===----------------------------------------------------------------------===//
 // STISymbolFrameProc
@@ -712,9 +751,9 @@ STIType::STIType(STIObjectKind kind)
 
 STIType::~STIType() {}
 
-STITypeIndex STIType::getIndex() const { return _index; }
+STIType::Index STIType::getIndex() const { return _index; }
 
-void STIType::setIndex(STITypeIndex index) { _index = index; }
+void STIType::setIndex(STIType::Index index) { _index = index; }
 
 uint32_t STIType::getSizeInBits() const { return _sizeInBits; }
 
@@ -736,6 +775,17 @@ STITypeBasic::Primitive STITypeBasic::getPrimitive() const {
 }
 
 void STITypeBasic::setPrimitive(Primitive primitive) { _primitive = primitive; }
+
+//===----------------------------------------------------------------------===//
+// STITypeIndex
+//===----------------------------------------------------------------------===//
+
+STITypeIndex::STITypeIndex()
+    : STITypeFieldListItem(STI_OBJECT_KIND_TYPE_INDEX), _type(nullptr) {}
+
+STITypeIndex::~STITypeIndex() {}
+
+STITypeIndex *STITypeIndex::create() { return new STITypeIndex(); }
 
 //===----------------------------------------------------------------------===//
 // STITypeModifier
@@ -894,10 +944,11 @@ void STITypeBitfield::setSize(uint32_t size) { _size = size; }
 //===----------------------------------------------------------------------===//
 
 STITypeMember::STITypeMember() :
-    _attribute  (0),
-    _type       (nullptr),
-    _offset     (nullptr),
-    _isStatic   (false) {
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_MEMBER),
+    _attribute           (0),
+    _type                (nullptr),
+    _offset              (nullptr),
+    _isStatic            (false) {
 }
 
 STITypeMember::~STITypeMember() {
@@ -996,7 +1047,10 @@ STITypeMethodList::STIMethodTypeList &STITypeMethodList::getList() {
 // STITypeMethod
 //===----------------------------------------------------------------------===//
 
-STITypeMethod::STITypeMethod() : _count(0), _methodList(nullptr) {}
+STITypeMethod::STITypeMethod() :
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_METHOD),
+    _count               (0),
+    _methodList          (nullptr) {}
 
 STITypeMethod::~STITypeMethod() {}
 
@@ -1018,8 +1072,12 @@ void STITypeMethod::setName(StringRef name) { _name = name; }
 // STITypeOneMethod
 //===----------------------------------------------------------------------===//
 
-STITypeOneMethod::STITypeOneMethod()
-    : _attribute(0), _type(nullptr), _virtuality(0), _virtualIndex(0) {}
+STITypeOneMethod::STITypeOneMethod() :
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_ONEMETHOD),
+    _attribute           (0),
+    _type                (nullptr),
+    _virtuality          (0),
+    _virtualIndex        (0) {}
 
 STITypeOneMethod::~STITypeOneMethod() {}
 
@@ -1054,8 +1112,9 @@ void STITypeOneMethod::setName(StringRef name) { _name = name; }
 //===----------------------------------------------------------------------===//
 
 STITypeEnumerator::STITypeEnumerator() :
-    _attribute  (0),
-    _value      (nullptr) {
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_ENUMERATOR),
+    _attribute           (0),
+    _value               (nullptr) {
 }
 
 STITypeEnumerator::~STITypeEnumerator() {
@@ -1087,9 +1146,10 @@ void STITypeEnumerator::setName(StringRef name) { _name = name; }
 //===----------------------------------------------------------------------===//
 
 STITypeBaseClass::STITypeBaseClass() :
-    _attribute  (0),
-    _type       (nullptr),
-    _offset     (nullptr) {
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_BASECLASS),
+    _attribute           (0),
+    _type                (nullptr),
+    _offset              (nullptr) {
 }
 
 STITypeBaseClass::~STITypeBaseClass() {
@@ -1119,13 +1179,13 @@ void STITypeBaseClass::setOffset(const STINumeric *offset) {
 //===----------------------------------------------------------------------===//
 
 STITypeVBaseClass::STITypeVBaseClass(bool indirect) :
-    _attribute  (0),
-    _type       (nullptr),
-    _vbpType    (nullptr),
-    _vbpOffset  (nullptr),
-    _vbIndex    (nullptr) {
-  _symbolID = indirect ? LF_IVBCLASS : LF_VBCLASS;
-}
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_VBASECLASS),
+    _attribute           (0),
+    _type                (nullptr),
+    _vbpType             (nullptr),
+    _vbpOffset           (nullptr),
+    _vbIndex             (nullptr),
+    _symbolID            (indirect ? LF_IVBCLASS : LF_VBCLASS) {}
 
 STITypeVBaseClass::~STITypeVBaseClass() {
   delete _vbpOffset;
@@ -1170,7 +1230,9 @@ void STITypeVBaseClass::setVbIndex(const STINumeric *index) {
 // STITypeVFuncTab
 //===----------------------------------------------------------------------===//
 
-STITypeVFuncTab::STITypeVFuncTab() : _type(nullptr) {}
+STITypeVFuncTab::STITypeVFuncTab() :
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_VFUNCTAB),
+    _type                (nullptr) {}
 
 STITypeVFuncTab::~STITypeVFuncTab() {}
 
@@ -1181,103 +1243,36 @@ STIType *STITypeVFuncTab::getType() const { return _type; }
 void STITypeVFuncTab::setType(STIType *type) { _type = type; }
 
 //===----------------------------------------------------------------------===//
+// STITypeFieldListItem
+//===----------------------------------------------------------------------===//
+
+STITypeFieldListItem::STITypeFieldListItem(STIObjectKind kind)
+    : STIType (kind) {}
+
+STITypeFieldListItem::~STITypeFieldListItem() {}
+
+//===----------------------------------------------------------------------===//
 // STITypeFieldList
 //===----------------------------------------------------------------------===//
 
 STITypeFieldList::STITypeFieldList()
-    : STIType(STI_OBJECT_KIND_TYPE_FIELD_LIST), _vFuncTab(nullptr) {}
+    : STIType(STI_OBJECT_KIND_TYPE_FIELD_LIST) {}
 
 STITypeFieldList::~STITypeFieldList() {
-  for (STITypeBaseClass *baseClass : getBaseClasses()) {
-    delete baseClass;
+  for (STIType *field : _fields) {
+    delete field;
   }
-
-  for (STITypeVBaseClass *vBaseClass : getVBaseClasses()) {
-    delete vBaseClass;
-  }
-
-  const STITypeVFuncTab *vFuncTab = getVFuncTab();
-  delete vFuncTab;
-
-  for (STITypeMember *member : getMembers()) {
-    delete member;
-  }
-
-  for (STITypeMethod *method : getMethods()) {
-    delete method;
-  }
-
-  for (STITypeOneMethod *method : getOneMethods()) {
-    delete method;
-  }
-
-  for (STITypeEnumerator *enumerator : getEnumerators()) {
-    delete enumerator;
-  }
+  _fields.clear();
 }
 
 STITypeFieldList *STITypeFieldList::create() { return new STITypeFieldList(); }
 
-STITypeFieldList::STITypeBaseClassList &STITypeFieldList::getBaseClasses() {
-  return _baseClasses;
+const STITypeFieldList::Fields &STITypeFieldList::getFields() const {
+  return _fields;
 }
 
-const STITypeFieldList::STITypeBaseClassList &
-STITypeFieldList::getBaseClasses() const {
-  return _baseClasses;
-}
-
-STITypeFieldList::STITypeVBaseClassList &STITypeFieldList::getVBaseClasses() {
-  return _vBaseClasses;
-}
-
-const STITypeFieldList::STITypeVBaseClassList &
-STITypeFieldList::getVBaseClasses() const {
-  return _vBaseClasses;
-}
-
-const STITypeVFuncTab *STITypeFieldList::getVFuncTab() const {
-  return _vFuncTab;
-}
-
-void STITypeFieldList::setVFuncTab(STITypeVFuncTab *vFuncTab) {
-  _vFuncTab = vFuncTab;
-}
-
-STITypeFieldList::STITypeMemberList &STITypeFieldList::getMembers() {
-  return _members;
-}
-
-const STITypeFieldList::STITypeMemberList &
-STITypeFieldList::getMembers() const {
-  return _members;
-}
-
-STITypeFieldList::STITypeMethodsList &STITypeFieldList::getMethods() {
-  return _methods;
-}
-
-const STITypeFieldList::STITypeMethodsList &
-STITypeFieldList::getMethods() const {
-  return _methods;
-}
-
-STITypeFieldList::STITypeOneMethodList &STITypeFieldList::getOneMethods() {
-  return _oneMethods;
-}
-
-const STITypeFieldList::STITypeOneMethodList &
-STITypeFieldList::getOneMethods() const {
-  return _oneMethods;
-}
-
-STITypeFieldList::STITypeEnumeratorList &STITypeFieldList::getEnumerators() {
-  return _enumerators;
-}
-
-const STITypeFieldList::STITypeEnumeratorList &
-STITypeFieldList::getEnumerators() const {
-  return _enumerators;
+void STITypeFieldList::append(STITypeFieldListItem *field) {
+  _fields.push_back(field);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1288,7 +1283,7 @@ STITypeStructure::STITypeStructure() :
     STIType     (STI_OBJECT_KIND_TYPE_STRUCTURE),
     _leaf       (0),
     _count      (0),
-    _property   (0),
+    _properties (),
     _fieldType  (nullptr),
     _derivedType(nullptr),
     _vshapeType (nullptr),
@@ -1309,9 +1304,17 @@ uint16_t STITypeStructure::getCount() const { return _count; }
 
 void STITypeStructure::setCount(uint16_t count) { _count = count; }
 
-uint16_t STITypeStructure::getProperty() const { return _property; }
+STITypeStructure::Properties STITypeStructure::getProperties() const {
+  return _properties;
+}
 
-void STITypeStructure::setProperty(uint16_t prop) { _property = prop; }
+void STITypeStructure::setProperties(Properties properties) {
+  _properties = properties;
+}
+
+void STITypeStructure::setProperty(STICompositeProperty property) {
+  _properties.set(property);
+}
 
 STIType *STITypeStructure::getFieldType() const { return _fieldType; }
 
@@ -1347,9 +1350,13 @@ void STITypeStructure::setName(StringRef name) { _name = name; }
 // STITypeEnumeration
 //===----------------------------------------------------------------------===//
 
-STITypeEnumeration::STITypeEnumeration()
-    : STIType(STI_OBJECT_KIND_TYPE_ENUMERATION), _count(0), _property(0),
-      _elementType(nullptr), _fieldType(nullptr) {}
+STITypeEnumeration::STITypeEnumeration() :
+    STIType     (STI_OBJECT_KIND_TYPE_ENUMERATION),
+    _count      (0),
+    _properties (),
+    _elementType(nullptr),
+    _fieldType  (nullptr) {
+}
 
 STITypeEnumeration::~STITypeEnumeration() {}
 
@@ -1361,9 +1368,17 @@ uint16_t STITypeEnumeration::getCount() const { return _count; }
 
 void STITypeEnumeration::setCount(uint16_t count) { _count = count; }
 
-uint16_t STITypeEnumeration::getProperty() const { return _property; }
+STITypeEnumeration::Properties STITypeEnumeration::getProperties() const {
+  return _properties;
+}
 
-void STITypeEnumeration::setProperty(uint16_t prop) { _property = prop; }
+void STITypeEnumeration::setProperties(Properties properties) {
+  _properties = properties;
+}
+
+void STITypeEnumeration::setProperty(STICompositeProperty property) {
+  _properties.set(property);
+}
 
 STIType *STITypeEnumeration::getElementType() const { return _elementType; }
 
@@ -1437,9 +1452,18 @@ void STITypeFunctionID::setName(StringRef name) { _name = name; }
 //===----------------------------------------------------------------------===//
 
 STITypeProcedure::STITypeProcedure()
-    : STIType(STI_OBJECT_KIND_TYPE_PROCEDURE), _returnType(nullptr),
-      _classType(nullptr), _thisType(nullptr), _callingConvention(0),
-      _paramCount(0), _argumentList(nullptr), _thisAdjust(0) {}
+    : STIType               (STI_OBJECT_KIND_TYPE_PROCEDURE),
+      _returnType           (nullptr),
+      _argumentList         (nullptr),
+      _callingConvention    (0),
+      _paramCount           (0) {}
+
+STITypeProcedure::STITypeProcedure(STIObjectKind kind)
+    : STIType               (kind),
+      _returnType           (nullptr),
+      _argumentList         (nullptr),
+      _callingConvention    (0),
+      _paramCount           (0) {}
 
 STITypeProcedure::~STITypeProcedure() {}
 
@@ -1450,16 +1474,6 @@ STIType *STITypeProcedure::getReturnType() const { return _returnType; }
 void STITypeProcedure::setReturnType(STIType *returnType) {
   _returnType = returnType;
 }
-
-STIType *STITypeProcedure::getClassType() const { return _classType; }
-
-void STITypeProcedure::setClassType(STIType *classType) {
-  _classType = classType;
-}
-
-STIType *STITypeProcedure::getThisType() const { return _thisType; }
-
-void STITypeProcedure::setThisType(STIType *thisType) { _thisType = thisType; }
 
 int STITypeProcedure::getCallingConvention() const {
   return _callingConvention;
@@ -1481,9 +1495,37 @@ void STITypeProcedure::setArgumentList(STIType *argumentList) {
   _argumentList = argumentList;
 }
 
-int STITypeProcedure::getThisAdjust() const { return _thisAdjust; }
+//===----------------------------------------------------------------------===//
+// STITypeMemberFunction
+//===----------------------------------------------------------------------===//
 
-void STITypeProcedure::setThisAdjust(int thisAdjust) {
+STITypeMemberFunction::STITypeMemberFunction()
+    : STITypeProcedure(STI_OBJECT_KIND_TYPE_MEMBER_FUNCTION),
+      _classType  (nullptr),
+      _thisType   (nullptr),
+      _thisAdjust (0) {}
+
+STITypeMemberFunction::~STITypeMemberFunction() {}
+
+STITypeMemberFunction *STITypeMemberFunction::create() {
+  return new STITypeMemberFunction();
+}
+
+STIType *STITypeMemberFunction::getClassType() const { return _classType; }
+
+void STITypeMemberFunction::setClassType(STIType *classType) {
+  _classType = classType;
+}
+
+STIType *STITypeMemberFunction::getThisType() const { return _thisType; }
+
+void STITypeMemberFunction::setThisType(STIType *thisType) {
+  _thisType = thisType;
+}
+
+int STITypeMemberFunction::getThisAdjust() const { return _thisAdjust; }
+
+void STITypeMemberFunction::setThisAdjust(int thisAdjust) {
   _thisAdjust = thisAdjust;
 }
 
@@ -1492,7 +1534,8 @@ void STITypeProcedure::setThisAdjust(int thisAdjust) {
 //===----------------------------------------------------------------------===//
 
 STITypeArgumentList::STITypeArgumentList()
-    : STIType(STI_OBJECT_KIND_TYPE_ARGUMENT_LIST), _argumentList() {}
+    : STIType       (STI_OBJECT_KIND_TYPE_ARGUMENT_LIST),
+      _argumentList () {}
 
 STITypeArgumentList::~STITypeArgumentList() {}
 
@@ -1511,6 +1554,10 @@ STITypeArgumentList::getArgumentList() const {
 
 STITypeArgumentList::STIArgTypeList *STITypeArgumentList::getArgumentList() {
   return &_argumentList;
+}
+
+void STITypeArgumentList::append(STIType *argument) {
+  _argumentList.push_back(argument);
 }
 
 //===----------------------------------------------------------------------===//

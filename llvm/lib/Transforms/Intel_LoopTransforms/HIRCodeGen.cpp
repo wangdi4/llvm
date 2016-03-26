@@ -29,6 +29,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -50,6 +51,7 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+using namespace llvm::vpo;
 
 static cl::opt<bool> forceHIRCG("force-hir-cg", cl::init(false), cl::Hidden,
                                 cl::desc("forces CodeGen on all HIR regions"));
@@ -213,8 +215,18 @@ private:
 
     //\brief returns value for blobCoeff*blob in <blobidx,coeff> pair
     Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt) {
-      return CoefCG(CE->getBlobCoeff(BlobIt),
-                    getBlobValue(CE->getBlobIndex(BlobIt), CE->getSrcType()));
+      auto BlobVal = CoefCG(CE->getBlobCoeff(BlobIt),
+                            getBlobValue(CE->getBlobIndex(BlobIt),
+                                         CE->getSrcType()));
+      auto CEDestTy = CE->getDestType();
+
+      if (CEDestTy->isVectorTy() &&
+          !BlobVal->getType()->isVectorTy()) {
+        BlobVal = Builder->CreateVectorSplat(CEDestTy->getVectorNumElements(),
+                                             BlobVal);
+      }
+
+      return BlobVal;
     }
 
     // \brief Applies cast to Val according to CE's dest type, if applicable.
@@ -434,6 +446,13 @@ Value *HIRCodeGen::CGVisitor::castToDestType(CanonExpr *CE, Value *Val) {
 
   auto DestTy = CE->getDestType();
 
+  // If the value is a scalar type and dest type is a vector, we need
+  // to do a broadcast before applying the cast.
+  if (DestTy->isVectorTy() &&
+      !Val->getType()->isVectorTy()) {
+    Val = Builder->CreateVectorSplat(DestTy->getVectorNumElements(), Val);
+  }
+
   if (CE->isSExt()) {
     Val = Builder->CreateSExt(Val, DestTy);
   } else if (CE->isZExt()) {
@@ -449,11 +468,14 @@ Value *HIRCodeGen::CGVisitor::createCmpInst(CmpInst::Predicate P, Value *LHS,
                                             Value *RHS, const Twine &Name) {
   Value *CmpInst = nullptr;
 
+  // Account for vector type
+  auto LType = LHS->getType()->getScalarType();
+
   assert(P != UNDEFINED_PREDICATE && "invalid predicate for cmp/sel in HIRCG");
 
-  if (LHS->getType()->isIntegerTy() || LHS->getType()->isPointerTy()) {
+  if (LType->isIntegerTy() || LType->isPointerTy()) {
     CmpInst = Builder->CreateICmp(P, LHS, RHS, Name);
-  } else if (LHS->getType()->isFloatingPointTy()) {
+  } else if (LType->isFloatingPointTy()) {
     CmpInst = Builder->CreateFCmp(P, LHS, RHS, Name);
   } else {
     llvm_unreachable("unknown predicate type in HIRCG");
@@ -495,6 +517,19 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   // combine the blob, const, and ivs into one value
   Value *Res = nullptr;
   if (BlobSum && IVSum) {
+    auto BlobTy = BlobSum->getType();
+    auto IVTy   = IVSum->getType();
+    
+    // Broadcast scalar value
+    if (BlobTy->isVectorTy() && !IVTy->isVectorTy()) {
+      IVSum = Builder->CreateVectorSplat(BlobTy->getVectorNumElements(),
+                                         IVSum);
+    }
+    else if (!BlobTy->isVectorTy() && IVTy->isVectorTy()) {
+      BlobSum = Builder->CreateVectorSplat(IVTy->getVectorNumElements(),
+                                           BlobSum);
+    }
+
     Res = Builder->CreateAdd(BlobSum, IVSum);
   } else {
     Res = IVSum ? IVSum : BlobSum;
@@ -584,8 +619,10 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
 
   // Base CE could have different src and dest types in which case we need a
   // bitcast. Can occur from llvm's canonicalization of store/load of float
-  // to int by bitcast
-  if (Ref->getBaseSrcType() != Ref->getBaseDestType()) {
+  // to int by bitcast. When GEPVal is a vector of pointers, we do not need
+  // a bitcast.
+  if (!GEPVal->getType()->isVectorTy() &&
+      (Ref->getBaseSrcType() != Ref->getBaseDestType())) {
     GEPVal = Builder->CreateBitCast(GEPVal, Ref->getBaseDestType());
   }
 
@@ -598,9 +635,16 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   // want the address, the gep
   if (Ref->isRval()) {
     RegDDRef::MDNodesTy MDs;
+    Instruction *LInst;
 
-    auto LInst = Builder->CreateAlignedLoad(GEPVal, Ref->getAlignment(),
-                                            Ref->isVolatile(), "gepload");
+    if (GEPVal->getType()->isVectorTy()) {
+      LInst = VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal,
+                                               Builder);
+    }
+    else {
+      LInst = Builder->CreateAlignedLoad(GEPVal, Ref->getAlignment(),
+                                         Ref->isVolatile(), "gepload");
+    }
 
     Ref->getAllMetadata(MDs);
     setMetadata(LInst, MDs);
@@ -720,6 +764,15 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
 
   // Save entry and succ fields, these get invalidated once block is split
   BasicBlock *EntryFirstHalf = R->getEntryBBlock();
+
+  // Split the block if the region entry is the same as function entry
+  // TODO - As mentioned in discussions with Pankaj, the framework should
+  // handle this splitting as splitting here can cause problems.
+  if (&(F->getEntryBlock()) == EntryFirstHalf) {
+    EntryFirstHalf = EntryFirstHalf->splitBasicBlock(EntryFirstHalf->getTerminator(),
+                                                     "entry.split");
+  }
+
   BasicBlock *RegionSuccessor = R->getSuccBBlock();
   RegionSucc[R] = RegionSuccessor;
 
@@ -1009,8 +1062,15 @@ void HIRCodeGen::CGVisitor::generateLvalStore(const HLInst *HInst,
 
   if (LvalRef->hasGEPInfo()) {
     RegDDRef::MDNodesTy MDs;
-    auto ResInst = Builder->CreateAlignedStore(
+    Instruction *ResInst;
+    if (StorePtr->getType()->isVectorTy()) {
+      ResInst = VPOUtils::createMaskedScatterCall(F->getParent(), StorePtr,
+                                                  StoreVal, Builder);
+    }
+    else {
+      ResInst = Builder->CreateAlignedStore(
         StoreVal, StorePtr, LvalRef->getAlignment(), LvalRef->isVolatile());
+    }
 
     LvalRef->getAllMetadataOtherThanDebugLoc(MDs);
     setMetadata(ResInst, MDs);
@@ -1026,7 +1086,20 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
   SmallVector<Value *, 6> Ops;
   for (auto R = HInst->op_ddref_begin(), E = HInst->op_ddref_end(); R != E;
        ++R) {
-    Ops.push_back(visitRegDDRef(*R));
+    auto DestTy = (*R)->getDestType();
+    auto OpVal = visitRegDDRef(*R);
+
+    // Do a broadcast of instruction operands if needed.
+    if ((*R)->isRval() && DestTy->isVectorTy() &&
+        !(OpVal->getType()->isVectorTy())) {
+      OpVal->dump();
+
+      OpVal = Builder->CreateVectorSplat(DestTy->getVectorNumElements(),
+                                         OpVal);
+      OpVal->dump();
+    }
+
+    Ops.push_back(OpVal);
   }
 
   // Operands for the eventual store that needs to be generated for a lval
@@ -1109,6 +1182,13 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
                                      "hir.alloca." +
                                          std::to_string(HInst->getNumber()));
 
+
+  } else if (isa<ExtractElementInst>(Inst)) {
+    Value *Res = Builder->CreateExtractElement(Ops[1], Ops[2], Inst->getName());
+    Builder->CreateStore(Res, Ops[0]);
+  } else if (isa<ShuffleVectorInst>(Inst)) {
+    Value *Res = Builder->CreateShuffleVector(Ops[1], Ops[2], Ops[3], Inst->getName());
+    Builder->CreateStore(Res, Ops[0]);
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }
@@ -1147,6 +1227,9 @@ Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {
     llvm_unreachable("No iv in CE");
 
   Type *Ty = CE->getSrcType();
+  if (Ty->isVectorTy()){
+    Ty = Ty->getVectorElementType();
+  }
 
   Value *res = IVPairCG(CE, CurIVPair, Ty);
   CurIVPair++;

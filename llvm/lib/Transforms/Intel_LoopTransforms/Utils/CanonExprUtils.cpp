@@ -91,21 +91,32 @@ int64_t CanonExprUtils::lcm(int64_t A, int64_t B) {
   return ((A * B) / gcd(A, B));
 }
 
-CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Temp,
+CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val,
                                                    unsigned Symbase) {
   unsigned Index = 0;
 
-  BlobUtils::createBlob(Temp, Symbase, true, &Index);
+  BlobUtils::createBlob(Val, Symbase, true, &Index);
   auto CE = createSelfBlobCanonExpr(Index, NonLinearLevel);
 
   return CE;
 }
 
-CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index,
-                                                   unsigned Level) {
+CanonExpr *CanonExprUtils::createMetadataCanonExpr(MetadataAsValue *Val) {
+  unsigned Index;
+
+  BlobUtils::createBlob(Val, ConstantSymbase, true, &Index);
+  auto CE = createStandAloneBlobCanonExpr(Index, 0);
+
+  return CE;
+}
+
+CanonExpr *CanonExprUtils::createStandAloneBlobCanonExpr(unsigned Index,
+                                                         unsigned Level) {
   auto Blob = BlobUtils::getBlob(Index);
 
-  assert(BlobUtils::isTempBlob(Blob) && "Unexpected temp blob!");
+  assert((BlobUtils::isTempBlob(Blob) || BlobUtils::isMetadataBlob(Blob) ||
+          BlobUtils::isConstantVectorBlob(Blob)) &&
+         "Unexpected temp blob!");
   assert(isValidDefLevel(Level) && "Invalid level!");
 
   auto CE = createCanonExpr(Blob->getType());

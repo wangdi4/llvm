@@ -36,9 +36,12 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h" 
+#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
+#include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h" 
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #endif //INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -109,6 +112,14 @@ static cl::opt<bool> EnableLoopDistribute(
     cl::desc("Enable the new, experimental LoopDistribution Pass"));
 
 #if INTEL_CUSTOMIZATION
+static cl::opt<bool> RunVPOVecopt("vecopt",
+  cl::init(false), cl::Hidden,
+  cl::desc("Run VPO Vecopt Pass"));
+
+static cl::opt<int> RunVPOParopt("paropt",
+  cl::init(0x00000000), cl::Hidden,
+  cl::desc("Run VPO Paropt Pass"));
+
 static cl::opt<bool> RunVecClone("enable-vec-clone",
   cl::init(false), cl::Hidden,
   cl::desc("Run Vector Function Cloning"));
@@ -130,9 +141,18 @@ static cl::opt<bool> PrintModuleBeforeLoopopt(
 static cl::opt<bool> EnableNonLTOGlobalVarOpt(
     "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
     cl::desc("Enable register promotion for global vars outside of the LTO."));
+
 // Andersen AliasAnalysis
 static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
+
+static cl::opt<bool> RunMapIntrinToIml("enable-iml-trans",
+  cl::init(false), cl::Hidden,
+  cl::desc("Map vectorized math intrinsic calls to svml/libm."));
+
+// Indirect call Conv
+static cl::opt<bool> EnableIndirectCallConv("enable-ind-call-conv",
+    cl::init(false), cl::Hidden, cl::desc("Enable Indirect Call Conv"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableNonLTOGlobalsModRef(
@@ -249,8 +269,20 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createBarrierNoopPass());
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
+#if INTEL_CUSTOMIZATION
+    if (RunVecClone) {
+      MPM.add(createVecClonePass());
+    }
+    // Process OpenMP directives at -O0
+    addVPOPasses(MPM, true);
+#endif // INTEL_CUSTOMIZATION
     return;
   }
+  
+#if INTEL_CUSTOMIZATION
+  // Process OpenMP directives at -O1 and above
+  addVPOPasses(MPM, false);
+#endif // INTEL_CUSTOMIZATION
 
   // Add LibraryInfo if we have some.
   if (LibraryInfo)
@@ -357,6 +389,11 @@ void PassManagerBuilder::populateModulePassManager(
 
   MPM.add(createLICMPass());
 #if INTEL_CUSTOMIZATION
+  if (EnableIndirectCallConv && EnableAndersen) {
+    MPM.add(createIndirectCallConvPass()); // Indirect Call Conv
+  }
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   if (OptLevel >= 2 && EnableNonLTOGlobalVarOpt && EnableAndersen) {
     MPM.add(createNonLTOGlobalOptimizerPass());
   }
@@ -439,7 +476,29 @@ void PassManagerBuilder::populateModulePassManager(
   // on the rotated form. Disable header duplication at -Oz.
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
 
-  addLoopOptPasses(MPM); // INTEL - HIR passes
+#if INTEL_CUSTOMIZATION
+  if (RunVecClone) {
+    MPM.add(createVecClonePass());
+    // VecClonePass can generate redundant geps/loads for vector parameters when
+    // accessing elem[i] within the inserted simd loop. This makes DD testing
+    // harder, so run CSE here to do some clean-up before HIR construction.
+    MPM.add(createEarlyCSEPass());
+  }
+  addLoopOptPasses(MPM);
+
+  // Process directives inserted by LoopOpt Autopar.
+  // Call with RunVec==true (2nd argument) to enable Vectorizer to catch
+  // any vec directives that loopopt might have missed; may change it to 
+  // false in the future when loopopt is fully implemented.
+  addVPOPasses(MPM, true);
+
+  // VPO directives are no longer useful after this point. Clean up so that
+  // code gen process won't be confused.
+  //
+  // TODO: Issue a warning for any unprocessed directives. Change to
+  // assetion failure as the feature matures.
+  MPM.add(createVPODirectiveCleanupPass());
+#endif // INTEL_CUSTOMIZATION
 
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
   // into separate loop that would otherwise inhibit vectorization.
@@ -535,6 +594,13 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createMergeFunctionsPass());
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
+
+#if INTEL_CUSTOMIZATION
+  // This pass translates vector math intrinsics to svml/libm calls.
+  if (RunMapIntrinToIml) {
+    MPM.add(createMapIntrinToImlPass());
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
@@ -614,6 +680,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   }
 #endif // INTEL_CUSTOMIZATION
   PM.add(createLICMPass());                 // Hoist loop invariants.
+#if INTEL_CUSTOMIZATION
+  if (EnableIndirectCallConv && EnableAndersen) {
+    PM.add(createIndirectCallConvPass()); // Indirect Call Conv
+  }
+#endif // INTEL_CUSTOMIZATION
   if (EnableMLSM)
     PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
   PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
@@ -706,16 +777,31 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   PM.add(createHIRSSADeconstructionPass());
 
   if (!RunLoopOptFrameworkOnly) {
+    PM.add(createHIRParDirInsertPass());
     PM.add(createHIROptPredicatePass());
     PM.add(createHIRLoopDistributionPass(false));
     PM.add(createHIRRuntimeDDPass());
     PM.add(createHIRCompleteUnrollPass());
+    PM.add(createHIRVecDirInsertPass(OptLevel == 3));
+    PM.add(createVPODriverHIRPass());
     PM.add(createHIRGeneralUnrollPass());
   }
 
   PM.add(createHIRCodeGenPass());
 
   addLoopOptCleanupPasses(PM);
+}
+
+void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
+                                            bool RunVec) const {
+  if (RunVPOParopt) {
+    PM.add(createVPOCFGRestructuringPass());
+    PM.add(createVPOParoptPass());
+  }
+  if (RunVPOVecopt && RunVec) {
+    PM.add(createVPOCFGRestructuringPass());
+    PM.add(createVPODriverPass());
+  }
 }
 #endif // INTEL_CUSTOMIZATION
 

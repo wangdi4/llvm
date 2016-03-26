@@ -280,8 +280,21 @@ public:
   }
 
   /// \brief Returns true if this RegDDRef represents an FP constant.
-  bool isFPConstant() const {
-    return isTerminalRef() && getSingleCanonExpr()->isFPConstant();
+  /// Put the underlying LLVM Value in Val
+  bool isFPConstant(ConstantFP **Val = nullptr) const {
+    return isTerminalRef() && getSingleCanonExpr()->isFPConstant(Val);
+  }
+
+  /// \brief Returns true if this RegDDRef represents a vector of constants.
+  /// Put the underlying LLVM Value in Val
+  bool isConstantVector(Constant **Val = nullptr) const {
+    return isTerminalRef() && getSingleCanonExpr()->isConstantVector(Val);
+  }
+
+  /// \brief Returns true if this RegDDRef represents a metadata.
+  /// If true, metadata is returned in Val.
+  bool isMetadata(MetadataAsValue **Val = nullptr) const {
+    return isTerminalRef() && getSingleCanonExpr()->isMetadata(Val);
   }
 
   /// \brief Returns true if this RegDDRef represents null pointer.
@@ -295,7 +308,7 @@ public:
   /// CONSTANT_SYMBASE. Lval DDRefs can have constant canonical expr but cannot
   /// have CONSTANT_SYMBASE.
   bool isConstant() const {
-    return (isIntConstant() || isFPConstant() || isNull());
+    return isTerminalRef() && getSingleCanonExpr()->isConstant();
   }
 
   /// \brief Returns the number of dimensions of the DDRef.
@@ -375,6 +388,17 @@ public:
   ///      RegDDRef is a Pointer Reference - *p
   /// Else returns true for cases like DDRef - 2*i and M+N.
   bool isTerminalRef() const;
+
+  /// \brief Returns true if the DDRef is structurally invariant at \p Level.
+  /// Note!: It does not check data-dependences, so there may be cases where
+  /// the  DDRef is structurally invariant, but not actually invariant. For
+  /// example, in the loop below, A[5] is structurally invariant, but not
+  /// actually invariant because of the data-dependence:
+  /// for (i=0; i<10; i++) { A[i] = A[5] + i;}
+  bool isStructurallyInvariantAtLevel(unsigned Level) const;
+
+  /// \brief Adds a dimension to the DDRef. Stride can be null for a scalar.
+  void addDimension(CanonExpr *Canon, CanonExpr *Stride);
 
   /// \brief Returns true if the DDRef is a memory reference
   bool isMemRef() const;

@@ -1,0 +1,21 @@
+;
+;    Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+;
+;    The information and source code contained herein is the exclusive
+;    property of Intel Corporation. and may not be disclosed, examined
+;    or reproduced in whole or in part without explicit written authorization
+;    from the company.
+;
+;    Source file: LLVMBuild.txt
+;    ------------
+;    Configures build properties and library dependencies.
+;
+
+[component_0]
+type = Library
+name = Intel_VPOAnalysis
+parent = Libraries
+required_libraries = Analysis Core Scalar Support TransformUtils
+
+; TransformUtils needed for Intel_GeneralUtils.cpp
+

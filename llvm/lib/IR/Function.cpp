@@ -490,7 +490,27 @@ static std::string getMangledTypeStr(Type* Ty) {
     Result += "v" + utostr(Ty->getVectorNumElements()) +
       getMangledTypeStr(Ty->getVectorElementType());
   else if (Ty)
-    Result += EVT::getEVT(Ty).getEVTString();
+#if INTEL_CUSTOMIZATION
+    {
+      VectorType *VTyp = dyn_cast<VectorType>(Ty);
+      PointerType *PTyp = NULL;
+      if (VTyp) {
+        PTyp = dyn_cast<PointerType>(VTyp->getVectorElementType());
+      }
+
+      if (PTyp) {
+        // The underlying MVT class is not capable of giving us back
+        // types that involve vector of pointers, so you must avoid
+        // passing things like "<2 x double*>" to EVT::getEVT().
+        unsigned numElems = VTyp->getVectorNumElements();
+        Result += "p" + llvm::utostr(PTyp->getAddressSpace()) +
+                  "v" + llvm::utostr(numElems) +
+                  getMangledTypeStr(PTyp->getElementType());
+      } else {
+        Result += EVT::getEVT(Ty).getEVTString();
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   return Result;
 }
 

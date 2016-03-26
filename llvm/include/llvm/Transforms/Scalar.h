@@ -253,6 +253,10 @@ FunctionPass *createJumpThreadingPass(int Threshold = -1,
 // NonLTOGlobalOptimizerPass is a pass which pormotes the non escaped block
 // scope global variables into the registers.
 FunctionPass *createNonLTOGlobalOptimizerPass();
+
+// IndirectCallConv - Converts indirect calls to direct calls using
+// points-to info if possible 
+FunctionPass *createIndirectCallConvPass();
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
