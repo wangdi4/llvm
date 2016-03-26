@@ -66,7 +66,7 @@
 ; X86-NEXT: .long   1
 ; X86-NEXT: .long [[FILE_SEGMENT_END:.*]]-[[FILE_SEGMENT_START]]
 ; X86-NEXT: .long [[CALL_LINE_1]]-_f
-; X86-NEXT: .long   1
+; X86-NEXT: .long   -2147483647
 ; X86-NEXT: .short  0
 ; X86-NEXT: .short  0
 ; X86-NEXT: [[FILE_SEGMENT_END]]:
@@ -76,7 +76,7 @@
 ; X86-NEXT: .long   1
 ; X86-NEXT: .long [[FILE_SEGMENT_END:.*]]-[[FILE_SEGMENT_START]]
 ; X86-NEXT: .long [[CALL_LINE_2]]-_f
-; X86-NEXT: .long   2
+; X86-NEXT: .long   -2147483646
 ; X86-NEXT: .short  0
 ; X86-NEXT: .short  0
 ; X86-NEXT: [[FILE_SEGMENT_END]]:
@@ -86,9 +86,9 @@
 ; X86-NEXT: .long   2
 ; X86-NEXT: .long [[FILE_SEGMENT_END:.*]]-[[FILE_SEGMENT_START]]
 ; X86-NEXT: .long [[CALL_LINE_3]]-_f
-; X86-NEXT: .long   7
+; X86-NEXT: .long   -2147483641
 ; X86-NEXT: .long [[RETURN_STMT]]-_f
-; X86-NEXT: .long   8
+; X86-NEXT: .long   -2147483640
 ; X86-NEXT: .short  0
 ; X86-NEXT: .short  0
 ; X86-NEXT: .short  0
@@ -123,13 +123,13 @@
 ; OBJ32-NEXT:   0x48 IMAGE_REL_I386_SECTION _f
 ; OBJ32-NEXT: ]
 ; OBJ32:      Subsection [
-; OBJ32-NEXT:   Type: 0xF1
+; OBJ32-NEXT:   SubSectionType: Symbols (0xF1)
 ; OBJ32-NOT:    ]
 ; OBJ32:        ProcStart {
-; OBJ32-NEXT:     DisplayName: f
-; OBJ32-NEXT:     Section: _f
-; OBJ32-NEXT:     CodeSize: 0x10
-; OBJ32-NEXT:   }
+; OBJ32:          CodeSize: 0x10
+; OBJ32:          DisplayName: f
+; OBJ32:          LinkageName: _f
+; OBJ32:        }
 ; OBJ32-NEXT:   ProcEnd
 ; OBJ32-NEXT: ]
 ; OBJ32:      FunctionLineTable [
@@ -138,24 +138,40 @@
 ; OBJ32-NEXT:   CodeSize: 0x10
 ; OBJ32-NEXT:   FilenameSegment [
 ; OBJ32-NEXT:     Filename: D:\one.c
-; OBJ32-NEXT:     +0x0: 1
-; OBJ32-NEXT:     ColStart: 0
-; OBJ32-NEXT:     ColEnd: 0
+; OBJ32-NEXT:     +0x0 [
+; OBJ32-NEXT:       LineNumberStart: 1
+; OBJ32-NEXT:       LineNumberEndDelta: 0
+; OBJ32-NEXT:       IsStatement: Yes
+; OBJ32-NEXT:       ColStart: 0
+; OBJ32-NEXT:       ColEnd: 0
+; OBJ32-NEXT:     ]
 ; OBJ32-NEXT:   ]
 ; OBJ32-NEXT:   FilenameSegment [
 ; OBJ32-NEXT:     Filename: D:\two.c
-; OBJ32-NEXT:     +0x5: 2
-; OBJ32-NEXT:     ColStart: 0
-; OBJ32-NEXT:     ColEnd: 0
+; OBJ32-NEXT:     +0x5 [
+; OBJ32-NEXT:       LineNumberStart: 2
+; OBJ32-NEXT:       LineNumberEndDelta: 0
+; OBJ32-NEXT:       IsStatement: Yes
+; OBJ32-NEXT:       ColStart: 0
+; OBJ32-NEXT:       ColEnd: 0
+; OBJ32-NEXT:     ]
 ; OBJ32-NEXT:   ]
 ; OBJ32-NEXT:   FilenameSegment [
 ; OBJ32-NEXT:     Filename: D:\one.c
-; OBJ32-NEXT:     +0xA: 7
-; OBJ32-NEXT:     +0xF: 8
-; OBJ32-NEXT:     ColStart: 0
-; OBJ32-NEXT:     ColEnd: 0
-; OBJ32-NEXT:     ColStart: 0
-; OBJ32-NEXT:     ColEnd: 0
+; OBJ32-NEXT:     +0xA [
+; OBJ32-NEXT:       LineNumberStart: 7
+; OBJ32-NEXT:       LineNumberEndDelta: 0
+; OBJ32-NEXT:       IsStatement: Yes
+; OBJ32-NEXT:       ColStart: 0
+; OBJ32-NEXT:       ColEnd: 0
+; OBJ32-NEXT:     ]
+; OBJ32-NEXT:     +0xF [
+; OBJ32-NEXT:       LineNumberStart: 8
+; OBJ32-NEXT:       LineNumberEndDelta: 0
+; OBJ32-NEXT:       IsStatement: Yes
+; OBJ32-NEXT:       ColStart: 0
+; OBJ32-NEXT:       ColEnd: 0
+; OBJ32-NEXT:     ]
 ; OBJ32-NEXT:   ]
 ; OBJ32-NEXT: ]
 
@@ -212,7 +228,7 @@
 ; X64-NEXT: .long   1
 ; X64-NEXT: .long [[FILE_SEGMENT_END:.*]]-[[FILE_SEGMENT_START]]
 ; X64-NEXT: .long [[START]]-f
-; X64-NEXT: .long   3
+; X64-NEXT: .long   -2147483645
 ; X64-NEXT: .short  0
 ; X64-NEXT: .short  0
 ; X64-NEXT: [[FILE_SEGMENT_END]]:
@@ -222,7 +238,7 @@
 ; X64-NEXT: .long   1
 ; X64-NEXT: .long [[FILE_SEGMENT_END:.*]]-[[FILE_SEGMENT_START]]
 ; X64-NEXT: .long [[CALL_LINE_1]]-f
-; X64-NEXT: .long   1
+; X64-NEXT: .long   -2147483647
 ; X64-NEXT: .short  0
 ; X64-NEXT: .short  0
 ; X64-NEXT: [[FILE_SEGMENT_END]]:
@@ -232,7 +248,7 @@
 ; X64-NEXT: .long   1
 ; X64-NEXT: .long [[FILE_SEGMENT_END:.*]]-[[FILE_SEGMENT_START]]
 ; X64-NEXT: .long [[CALL_LINE_2]]-f
-; X64-NEXT: .long   2
+; X64-NEXT: .long   -2147483646
 ; X64-NEXT: .short  0
 ; X64-NEXT: .short  0
 ; X64-NEXT: [[FILE_SEGMENT_END]]:
@@ -242,9 +258,9 @@
 ; X64-NEXT: .long   2
 ; X64-NEXT: .long [[FILE_SEGMENT_END:.*]]-[[FILE_SEGMENT_START]]
 ; X64-NEXT: .long [[CALL_LINE_3]]-f
-; X64-NEXT: .long   7
+; X64-NEXT: .long   -2147483641
 ; X64-NEXT: .long [[EPILOG_AND_RET]]-f
-; X64-NEXT: .long   8
+; X64-NEXT: .long   -2147483640
 ; X64-NEXT: .short  0
 ; X64-NEXT: .short  0
 ; X64-NEXT: .short  0
@@ -283,14 +299,14 @@
 ; OBJ64-NEXT:   0x48 IMAGE_REL_AMD64_SECTION f
 ; OBJ64-NEXT: ]
 ; OBJ64:      Subsection [
-; OBJ64-NEXT:   Type: 0xF1
+; OBJ64-NEXT:   SubSectionType: Symbols (0xF1)
 ; OBJ64-NOT:    ]
 ; OBJ64:        ProcStart {
-; OBJ64-NEXT:     DisplayName: f
-; OBJ64-NEXT:     Section: f
-; OBJ64-NEXT:     CodeSize: 0x18
-; OBJ64-NEXT:   }
-; OBJ64-NEXT:   ProcEnd
+; OBJ64:          CodeSize: 0x18
+; OBJ64:          DisplayName: f
+; OBJ64:          LinkageName: f
+; OBJ64:        }
+; OBJ64:        ProcEnd
 ; OBJ64-NEXT: ]
 ; OBJ64:      FunctionLineTable [
 ; OBJ64-NEXT:   Name: f
@@ -298,30 +314,50 @@
 ; OBJ64-NEXT:   CodeSize: 0x18
 ; OBJ64-NEXT:   FilenameSegment [
 ; OBJ64-NEXT:     Filename: D:\input.c
-; OBJ64-NEXT:     +0x0: 3
-; OBJ64-NEXT:     ColStart: 0
-; OBJ64-NEXT:     ColEnd: 0
+; OBJ64-NEXT:     +0x0 [
+; OBJ64-NEXT:       LineNumberStart: 3
+; OBJ64-NEXT:       LineNumberEndDelta: 0
+; OBJ64-NEXT:       IsStatement: Yes
+; OBJ64-NEXT:       ColStart: 0
+; OBJ64-NEXT:       ColEnd: 0
+; OBJ64-NEXT:     ]
 ; OBJ64-NEXT:   ]
 ; OBJ64-NEXT:   FilenameSegment [
 ; OBJ64-NEXT:     Filename: D:\one.c
-; OBJ64-NEXT:     +0x4: 1
-; OBJ64-NEXT:     ColStart: 0
-; OBJ64-NEXT:     ColEnd: 0
+; OBJ64-NEXT:     +0x4 [
+; OBJ64-NEXT:       LineNumberStart: 1
+; OBJ64-NEXT:       LineNumberEndDelta: 0
+; OBJ64-NEXT:       IsStatement: Yes
+; OBJ64-NEXT:       ColStart: 0
+; OBJ64-NEXT:       ColEnd: 0
+; OBJ64-NEXT:     ]
 ; OBJ64-NEXT:   ]
 ; OBJ64-NEXT:   FilenameSegment [
 ; OBJ64-NEXT:     Filename: D:\two.c
-; OBJ64-NEXT:     +0x9: 2
-; OBJ64-NEXT:     ColStart: 0
-; OBJ64-NEXT:     ColEnd: 0
+; OBJ64-NEXT:     +0x9 [
+; OBJ64-NEXT:       LineNumberStart: 2
+; OBJ64-NEXT:       LineNumberEndDelta: 0
+; OBJ64-NEXT:       IsStatement: Yes
+; OBJ64-NEXT:       ColStart: 0
+; OBJ64-NEXT:       ColEnd: 0
+; OBJ64-NEXT:     ]
 ; OBJ64-NEXT:   ]
 ; OBJ64-NEXT:   FilenameSegment [
 ; OBJ64-NEXT:     Filename: D:\one.c
-; OBJ64-NEXT:     +0xE: 7
-; OBJ64-NEXT:     +0x13: 8
-; OBJ64-NEXT:     ColStart: 0
-; OBJ64-NEXT:     ColEnd: 0
-; OBJ64-NEXT:     ColStart: 0
-; OBJ64-NEXT:     ColEnd: 0
+; OBJ64-NEXT:     +0xE [
+; OBJ64-NEXT:       LineNumberStart: 7
+; OBJ64-NEXT:       LineNumberEndDelta: 0
+; OBJ64-NEXT:       IsStatement: Yes
+; OBJ64-NEXT:       ColStart: 0
+; OBJ64-NEXT:       ColEnd: 0
+; OBJ64-NEXT:     ]
+; OBJ64-NEXT:     +0x13 [
+; OBJ64-NEXT:       LineNumberStart: 8
+; OBJ64-NEXT:       LineNumberEndDelta: 0
+; OBJ64-NEXT:       IsStatement: Yes
+; OBJ64-NEXT:       ColStart: 0
+; OBJ64-NEXT:       ColEnd: 0
+; OBJ64-NEXT:     ]
 ; OBJ64-NEXT:   ]
 ; OBJ64-NEXT: ]
 

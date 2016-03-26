@@ -357,6 +357,12 @@ Value *TargetTransformInfo::getOrCreateResultFromMemIntrinsic(
   return TTIImpl->getOrCreateResultFromMemIntrinsic(Inst, ExpectedType);
 }
 
+#if INTEL_CUSTOMIZATION
+bool TargetTransformInfo::adjustCallArgs(CallInst *CI) const {
+  return TTIImpl->adjustCallArgs(CI);
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool TargetTransformInfo::areInlineCompatible(const Function *Caller,
                                               const Function *Callee) const {
   return TTIImpl->areInlineCompatible(Caller, Callee);

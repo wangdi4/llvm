@@ -16,7 +16,7 @@
 ;===------------------------------------------------------------------------===;
 
 [common]
-subdirectories = Intel_LoopAnalysis
+subdirectories = Intel_LoopAnalysis Intel_VPO
 
 [component_0]
 type = Library

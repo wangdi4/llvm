@@ -1,0 +1,22 @@
+digraph shortcircuit {
+
+  node [shape=box]
+
+  ENTRY      [label="ENTRY"]
+  EXIT       [label="EXIT"]
+  AVREXPR1   [label="%a \> 7"]
+  AVREXPR2   [label="%b \> 3"]
+  AVRASSIGN1 [label="%div = %a / 7"]
+  AVRASSIGN2 [label="%sum.02 = %sum.02 + %div"]
+  AVRASSIGN3 [label="%sum.02 = %sum.02 + ((-3 + %b) * %a);"]
+
+  ENTRY -> AVREXPR1 [style="dashed"]
+  AVREXPR1 -> AVREXPR2
+  AVREXPR1 -> AVRASSIGN3
+  AVRASSIGN3 -> EXIT [style="dashed"]
+  AVREXPR2 -> AVRASSIGN3
+  AVREXPR2 -> AVRASSIGN1
+  AVRASSIGN1 -> AVRASSIGN2
+  AVRASSIGN2 -> EXIT [style="dashed"]
+
+}

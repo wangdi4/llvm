@@ -32,7 +32,7 @@ template <class PtrType, unsigned SmallSize> class SmallPtrSet;
 ///
 struct Inliner : public CallGraphSCCPass {
   explicit Inliner(char &ID);
-  explicit Inliner(char &ID, int Threshold, bool InsertLifetime);
+  explicit Inliner(char &ID, bool InsertLifetime);
 
   /// getAnalysisUsage - For this class, we declare that we require and preserve
   /// the call graph.  If the derived class implements this method, it should
@@ -47,18 +47,6 @@ struct Inliner : public CallGraphSCCPass {
   // doFinalization - Remove now-dead linkonce functions at the end of
   // processing to avoid breaking the SCC traversal.
   bool doFinalization(CallGraph &CG) override;
-
-  /// This method returns the value specified by the -inline-threshold value,
-  /// specified on the command line.  This is typically not directly needed.
-  ///
-  unsigned getInlineThreshold() const { return InlineThreshold; }
-
-  /// Calculate the inline threshold for given Caller. This threshold is lower
-  /// if the caller is marked with OptimizeForSize and -inline-threshold is not
-  /// given on the comand line. It is higher if the callee is marked with the
-  /// inlinehint attribute.
-  ///
-  unsigned getInlineThreshold(CallSite CS) const;
 
   /// getInlineCost - This method must be implemented by the subclass to
   /// determine the cost of inlining the specified call site.  If the cost
@@ -93,9 +81,6 @@ struct Inliner : public CallGraphSCCPass {
 #endif // INTEL_CUSTOMIZATION
 
 private:
-  // InlineThreshold - Cache the value here for easy access.
-  unsigned InlineThreshold;
-
   // InsertLifetime - Insert @llvm.lifetime intrinsics.
   bool InsertLifetime;
 

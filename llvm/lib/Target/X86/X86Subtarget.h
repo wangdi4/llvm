@@ -139,6 +139,9 @@ protected:
   /// Processor has BMI2 instructions.
   bool HasBMI2;
 
+  /// Processor has VBMI instructions.
+  bool HasVBMI;
+
   /// Processor has RTM instructions.
   bool HasRTM;
 
@@ -380,6 +383,7 @@ public:
   bool hasLZCNT() const { return HasLZCNT; }
   bool hasBMI() const { return HasBMI; }
   bool hasBMI2() const { return HasBMI2; }
+  bool hasVBMI() const { return HasVBMI; }
   bool hasRTM() const { return HasRTM; }
   bool hasHLE() const { return HasHLE; }
   bool hasADX() const { return HasADX; }

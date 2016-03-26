@@ -169,9 +169,6 @@ private:
   /// the locality computation.
   void initConstTripCache(SmallVectorImpl<const HLLoop *> *Loops);
 
-  /// \brief Returns true if RegDD is invariant of Loop.
-  bool isLoopInvariant(const RegDDRef *RegDD, const HLLoop *Loop);
-
   /// \brief Returns true if this Loop was modified or doesn't exist.
   bool isLoopModified(const HLLoop *Loop);
 

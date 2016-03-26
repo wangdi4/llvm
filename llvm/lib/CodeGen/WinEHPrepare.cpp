@@ -144,10 +144,11 @@ static void addTryBlockMapEntry(WinEHFuncInfo &FuncInfo, int TryLow,
       HT.TypeDescriptor = cast<GlobalVariable>(TypeInfo->stripPointerCasts());
     HT.Adjectives = cast<ConstantInt>(CPI->getArgOperand(1))->getZExtValue();
     HT.Handler = CPI->getParent();
-    if (isa<ConstantPointerNull>(CPI->getArgOperand(2)))
-      HT.CatchObj.Alloca = nullptr;
+    if (auto *AI =
+            dyn_cast<AllocaInst>(CPI->getArgOperand(2)->stripPointerCasts()))
+      HT.CatchObj.Alloca = AI;
     else
-      HT.CatchObj.Alloca = cast<AllocaInst>(CPI->getArgOperand(2));
+      HT.CatchObj.Alloca = nullptr;
     TBME.HandlerArray.push_back(HT);
   }
   FuncInfo.TryBlockMap.push_back(TBME);
@@ -675,24 +676,6 @@ void WinEHPrepare::colorFunclets(Function &F) {
   }
 }
 
-void llvm::calculateCatchReturnSuccessorColors(const Function *Fn,
-                                               WinEHFuncInfo &FuncInfo) {
-  for (const BasicBlock &BB : *Fn) {
-    const auto *CatchRet = dyn_cast<CatchReturnInst>(BB.getTerminator());
-    if (!CatchRet)
-      continue;
-    // A 'catchret' returns to the outer scope's color.
-    Value *ParentPad = CatchRet->getParentPad();
-    const BasicBlock *Color;
-    if (isa<ConstantTokenNone>(ParentPad))
-      Color = &Fn->getEntryBlock();
-    else
-      Color = cast<Instruction>(ParentPad)->getParent();
-    // Record the catchret successor's funclet membership.
-    FuncInfo.CatchRetSuccessorColorMap[CatchRet] = Color;
-  }
-}
-
 void WinEHPrepare::demotePHIsOnFunclets(Function &F) {
   // Strip PHI nodes off of EH pads.
   SmallVector<PHINode *, 16> PHINodes;
@@ -815,7 +798,7 @@ void WinEHPrepare::cloneCommonBlocks(Function &F) {
       FixupCatchrets.clear();
       for (BasicBlock *Pred : predecessors(OldBlock))
         if (auto *CatchRet = dyn_cast<CatchReturnInst>(Pred->getTerminator()))
-          if (CatchRet->getParentPad() == FuncletToken)
+          if (CatchRet->getCatchSwitchParentPad() == FuncletToken)
             FixupCatchrets.push_back(CatchRet);
 
       for (CatchReturnInst *CatchRet : FixupCatchrets)
@@ -830,7 +813,7 @@ void WinEHPrepare::cloneCommonBlocks(Function &F) {
         bool EdgeTargetsFunclet;
         if (auto *CRI =
                 dyn_cast<CatchReturnInst>(IncomingBlock->getTerminator())) {
-          EdgeTargetsFunclet = (CRI->getParentPad() == FuncletToken);
+          EdgeTargetsFunclet = (CRI->getCatchSwitchParentPad() == FuncletToken);
         } else {
           ColorVector &IncomingColors = BlockColors[IncomingBlock];
           assert(!IncomingColors.empty() && "Block not colored!");

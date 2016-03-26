@@ -168,13 +168,26 @@ namespace CallingConv {
     /// subtargets.
     X86_INTR = 83,
 
+    /// Used for AVR interrupt routines.
+    AVR_INTR = 84,
+
+    /// Calling convention used for AVR signal routines.
+    AVR_SIGNAL = 85,
+
+    /// Calling convention used for special AVR rtlib functions
+    /// which have an "optimized" convention to preserve registers.
+    AVR_BUILTIN = 86,
+
 #ifdef INTEL_CUSTOMIZATION
     /// \brief The __regcall convention as specified in the Intel Vector
     /// Function ABI. This calling convention differs from the x86 ABI in
     /// that scalar arguments are passed in GPRs, the order of GPRs used
     /// differs from the x86-64 ABI, and all XMM/YMM registers are used for
     /// vector/FP arguments.
-    X86_RegCall = 84,
+    X86_RegCall = 87,
+
+    /// \brief SVML for intel compiler
+    SVML = 85,
 #endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.

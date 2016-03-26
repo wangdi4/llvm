@@ -94,6 +94,9 @@ public:
   bool isLegalMaskedStore(Type *DataType);
   bool isLegalMaskedGather(Type *DataType);
   bool isLegalMaskedScatter(Type *DataType);
+#if INTEL_CUSTOMIZATION
+  bool adjustCallArgs(CallInst* CI);
+#endif // INTEL_CUSTOMIZATION
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;
 private:

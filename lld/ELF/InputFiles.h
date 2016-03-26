@@ -91,10 +91,13 @@ template <class ELFT> class ObjectFile : public ELFFileBase<ELFT> {
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Word Elf_Word;
   typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
 
+  // uint32 in ELFT's byte order
   typedef llvm::support::detail::packed_endian_specific_integral<
-      uint32_t, ELFT::TargetEndianness, 2> GroupEntryType;
+      uint32_t, ELFT::TargetEndianness, 2>
+      uint32_X;
+
   StringRef getShtGroupSignature(const Elf_Shdr &Sec);
-  ArrayRef<GroupEntryType> getShtGroupEntries(const Elf_Shdr &Sec);
+  ArrayRef<uint32_X> getShtGroupEntries(const Elf_Shdr &Sec);
 
 public:
   static bool classof(const InputFile *F) {
@@ -131,7 +134,7 @@ private:
   void initializeSymbols();
   InputSectionBase<ELFT> *createInputSection(const Elf_Shdr &Sec);
 
-  SymbolBody *createSymbolBody(StringRef StringTable, const Elf_Sym *Sym);
+  SymbolBody *createSymbolBody(const Elf_Sym *Sym);
 
   // List of all sections defined by this file.
   std::vector<InputSectionBase<ELFT> *> Sections;

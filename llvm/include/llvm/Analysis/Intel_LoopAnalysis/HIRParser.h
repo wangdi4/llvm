@@ -43,6 +43,7 @@ class SCEVUnknown;
 class GEPOperator;
 class Value;
 class LoopInfo;
+class ConstantFP;
 class Loop;
 
 namespace loopopt {
@@ -476,7 +477,16 @@ private:
   bool isUndefBlob(BlobTy Blob) const;
 
   /// \brief Returns true if Blob represents a constant FP value.
-  bool isConstantFPBlob(BlobTy Blob) const;
+  /// If blob is FP constant, returns the underlying LLVM Value in Val
+  bool isConstantFPBlob(BlobTy Blob, ConstantFP **Val = nullptr) const;
+
+  /// \brief Returns true if Blob represents a vector of constant values.
+  /// If yes, returns the underlying LLVM Value in Val
+  bool isConstantVectorBlob(BlobTy Blob, Constant **Val = nullptr) const;
+
+  /// \brief Returns true if Blob represents a metadata value.
+  /// If blob is metadata, sets the return value in Val.
+  bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) const;
 
   LLVMContext &getContext() const;
   const DataLayout &getDataLayout() const;

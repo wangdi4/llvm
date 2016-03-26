@@ -219,7 +219,8 @@ bool HIRParser::isTempBlob(BlobTy Blob) const {
 
     if (!UnknownSCEV->isSizeOf(Ty) && !UnknownSCEV->isAlignOf(Ty) &&
         !UnknownSCEV->isOffsetOf(Ty, FieldNo) &&
-        !ScalarSA->isConstant(UnknownSCEV->getValue())) {
+        !ScalarSA->isConstant(UnknownSCEV->getValue()) &&
+        !isMetadataBlob(Blob, nullptr)) {
       return true;
     }
   }
@@ -250,9 +251,57 @@ bool HIRParser::isUndefBlob(BlobTy Blob) const {
   return isa<UndefValue>(V);
 }
 
-bool HIRParser::isConstantFPBlob(BlobTy Blob) const {
+bool HIRParser::isConstantFPBlob(BlobTy Blob,
+                                 ConstantFP **Val) const {
   if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    return isa<ConstantFP>(UnknownSCEV->getValue());
+    if (auto P = dyn_cast<ConstantFP>(UnknownSCEV->getValue())) {
+      if (Val) {
+        *Val = P;
+      }
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool HIRParser::isConstantVectorBlob(BlobTy Blob,
+                                     Constant **Val) const {
+  if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
+    if (auto P = dyn_cast<ConstantVector>(UnknownSCEV->getValue())) {
+      if (Val) {
+        *Val = P;
+      }
+      return true;
+    }
+
+    if (auto P = dyn_cast<ConstantDataVector>(UnknownSCEV->getValue())) {
+      if (Val) {
+        *Val = P;
+      }
+      return true;
+    }
+
+    if (auto P = dyn_cast<ConstantAggregateZero>(UnknownSCEV->getValue())) {
+      if (Val) {
+        *Val = P;
+      }
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool HIRParser::isMetadataBlob(BlobTy Blob,
+                               MetadataAsValue **Val) const {
+  if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
+    if (auto *p = dyn_cast<MetadataAsValue>(UnknownSCEV->getValue())) {
+      if (Val) {
+        *Val = p;
+      }
+      return true;
+    }
   }
 
   return false;
