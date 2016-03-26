@@ -235,16 +235,28 @@ struct RenderScriptRuntime::AllocationDetails
         }
     };
 
-    // Header for reading and writing allocation contents
-    // to a binary file.
+    // The FileHeader struct specifies the header we use for writing allocations to a binary file.
+    // Our format begins with the ASCII characters "RSAD", identifying the file as an allocation dump.
+    // Member variables dims and hdr_size are then written consecutively, immediately followed by an instance of
+    // the ElementHeader struct. Because Elements can contain subelements, there may be more than one instance
+    // of the ElementHeader struct. With this first instance being the root element, and the other instances being
+    // the root's descendants. To identify which instances are an ElementHeader's children, each struct
+    // is immediately followed by a sequence of consecutive offsets to the start of its child structs.
+    // These offsets are 4 bytes in size, and the 0 offset signifies no more children.
     struct FileHeader
     {
         uint8_t ident[4];      // ASCII 'RSAD' identifying the file
-        uint16_t hdr_size;     // Header size in bytes, for backwards compatability
-        uint16_t type;         // DataType enum
-        uint32_t kind;         // DataKind enum
         uint32_t dims[3];      // Dimensions
-        uint32_t element_size; // Size of a single element, including padding
+        uint16_t hdr_size;     // Header size in bytes, including all element headers
+    };
+
+    struct ElementHeader
+    {
+        uint16_t type;          // DataType enum
+        uint32_t kind;          // DataKind enum
+        uint32_t element_size;  // Size of a single element, including padding
+        uint16_t vector_size;   // Vector width
+        uint32_t array_size;    // Number of elements in array
     };
 
     // Monotonically increasing from 1
@@ -285,7 +297,6 @@ struct RenderScriptRuntime::AllocationDetails
         return !valid_ptrs || !dimension.isValid() || !size.isValid() || element.shouldRefresh();
     }
 };
-
 
 const ConstString &
 RenderScriptRuntime::Element::GetFallbackStructName()
@@ -379,6 +390,8 @@ const unsigned int RenderScriptRuntime::AllocationDetails::RSTypeToFormat[][3] =
     {eFormatVectorOfFloat32, eFormatVectorOfFloat32, sizeof(float) * 4} // RS_TYPE_MATRIX_2X2
 };
 
+const std::string RenderScriptRuntime::s_runtimeExpandSuffix(".expand");
+const std::array<const char *, 3> RenderScriptRuntime::s_runtimeCoordVars{{"rsIndex", "p->current.y", "p->current.z"}};
 //------------------------------------------------------------------
 // Static Functions
 //------------------------------------------------------------------
@@ -452,7 +465,7 @@ RenderScriptRuntime::GetPluginNameStatic()
     return g_name;
 }
 
-RenderScriptRuntime::ModuleKind 
+RenderScriptRuntime::ModuleKind
 RenderScriptRuntime::GetModuleKind(const lldb::ModuleSP &module_sp)
 {
     if (module_sp)
@@ -493,7 +506,7 @@ RenderScriptRuntime::IsRenderScriptModule(const lldb::ModuleSP &module_sp)
     return GetModuleKind(module_sp) != eModuleKindIgnored;
 }
 
-void 
+void
 RenderScriptRuntime::ModulesDidLoad(const ModuleList &module_list )
 {
     Mutex::Locker locker (module_list.GetMutex ());
@@ -570,28 +583,12 @@ const RenderScriptRuntime::HookDefn RenderScriptRuntime::s_runtimeHookDefns[] =
         &lldb_private::RenderScriptRuntime::CaptureScriptInit1 // handler
     },
     {
-        "rsdScriptInvokeForEach", // name
-        "_Z22rsdScriptInvokeForEachPKN7android12renderscript7ContextEPNS0_6ScriptEjPKNS0_10AllocationEPS6_PKvjPK12RsScriptCall", // symbol name 32bit
-        "_Z22rsdScriptInvokeForEachPKN7android12renderscript7ContextEPNS0_6ScriptEjPKNS0_10AllocationEPS6_PKvmPK12RsScriptCall", // symbol name 64bit
-        0, // version
-        RenderScriptRuntime::eModuleKindDriver, // type
-        nullptr // handler
-    },
-    {
         "rsdScriptInvokeForEachMulti", // name
         "_Z27rsdScriptInvokeForEachMultiPKN7android12renderscript7ContextEPNS0_6ScriptEjPPKNS0_10AllocationEjPS6_PKvjPK12RsScriptCall", // symbol name 32bit
         "_Z27rsdScriptInvokeForEachMultiPKN7android12renderscript7ContextEPNS0_6ScriptEjPPKNS0_10AllocationEmPS6_PKvmPK12RsScriptCall", // symbol name 64bit
         0, // version
         RenderScriptRuntime::eModuleKindDriver, // type
-        nullptr // handler
-    },
-    {
-        "rsdScriptInvokeFunction", // name
-        "_Z23rsdScriptInvokeFunctionPKN7android12renderscript7ContextEPNS0_6ScriptEjPKvj", // symbol name 32bit
-        "_Z23rsdScriptInvokeFunctionPKN7android12renderscript7ContextEPNS0_6ScriptEjPKvm", // symbol name 64bit
-        0, // version
-        RenderScriptRuntime::eModuleKindDriver, // type
-        nullptr // handler
+        &lldb_private::RenderScriptRuntime::CaptureScriptInvokeForEachMulti // handler
     },
     {
         "rsdScriptSetGlobalVar", // name
@@ -640,11 +637,11 @@ RenderScriptRuntime::HookCallback(void *baton, StoppointCallbackContext *ctx, ll
     RenderScriptRuntime *lang_rt = (RenderScriptRuntime *)context.GetProcessPtr()->GetLanguageRuntime(eLanguageTypeExtRenderScript);
 
     lang_rt->HookCallback(hook_info, context);
-    
+
     return false;
 }
 
-void 
+void
 RenderScriptRuntime::HookCallback(RuntimeHook* hook_info, ExecutionContext& context)
 {
     Log* log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_LANGUAGE));
@@ -652,7 +649,7 @@ RenderScriptRuntime::HookCallback(RuntimeHook* hook_info, ExecutionContext& cont
     if (log)
         log->Printf ("RenderScriptRuntime::HookCallback - '%s' .", hook_info->defn->name);
 
-    if (hook_info->defn->grabber) 
+    if (hook_info->defn->grabber)
     {
         (this->*(hook_info->defn->grabber))(hook_info, context);
     }
@@ -706,7 +703,6 @@ RenderScriptRuntime::GetArgSimple(ExecutionContext &context, uint32_t arg, uint6
                 *data = result;
                 success = true;
             }
-
             break;
         }
         case llvm::Triple::ArchType::x86_64:
@@ -741,6 +737,7 @@ RenderScriptRuntime::GetArgSimple(ExecutionContext &context, uint32_t arg, uint6
         case llvm::Triple::ArchType::arm:
         {
             // arm 32 bit
+            // first 4 arguments are passed via registers
             if (arg < 4)
             {
                 const RegisterInfo* rArg = reg_ctx->GetRegisterInfoAtIndex(arg);
@@ -760,18 +757,19 @@ RenderScriptRuntime::GetArgSimple(ExecutionContext &context, uint32_t arg, uint6
             {
                 uint64_t sp = reg_ctx->GetSP();
                 uint32_t offset = (arg-4) * sizeof(uint32_t);
-                process->ReadMemory(sp + offset, &data, sizeof(uint32_t), error);
-                if (error.Fail())
+                uint32_t value = 0;
+                size_t bytes_read = process->ReadMemory(sp + offset, &value, sizeof(value), error);
+                if (error.Fail() || bytes_read != sizeof(value))
                 {
                     if (log)
                         log->Printf("RenderScriptRuntime::GetArgSimple - error reading ARM stack: %s.", error.AsCString());
                 }
                 else
                 {
+                    *data = value;
                     success = true;
                 }
             }
-
             break;
         }
         case llvm::Triple::ArchType::aarch64:
@@ -803,8 +801,8 @@ RenderScriptRuntime::GetArgSimple(ExecutionContext &context, uint32_t arg, uint6
         }
         case llvm::Triple::ArchType::mipsel:
         {
-
             // read from the registers
+            // first 4 arguments are passed in registers
             if (arg < 4){
                 const RegisterInfo* rArg = reg_ctx->GetRegisterInfoAtIndex(arg + 4);
                 RegisterValue rVal;
@@ -818,26 +816,25 @@ RenderScriptRuntime::GetArgSimple(ExecutionContext &context, uint32_t arg, uint6
                     if (log)
                         log->Printf("RenderScriptRuntime::GetArgSimple() - Mips - Error while reading the argument #%d", arg);
                 }
-
             }
-
-            // read from the stack
+            // arguments > 4 are read from the stack
             else
             {
                 uint64_t sp = reg_ctx->GetSP();
                 uint32_t offset = arg * sizeof(uint32_t);
-                process->ReadMemory(sp + offset, &data, sizeof(uint32_t), error);
-                if (error.Fail())
+                uint32_t value = 0;
+                size_t bytes_read = process->ReadMemory(sp + offset, &value, sizeof(value), error);
+                if (error.Fail() || bytes_read != sizeof(value))
                 {
                     if (log)
                         log->Printf("RenderScriptRuntime::GetArgSimple - error reading Mips stack: %s.", error.AsCString());
                 }
                 else
                 {
+                    *data = value;
                     success = true;
                 }
             }
-
             break;
         }
         case llvm::Triple::ArchType::mips64el:
@@ -858,24 +855,24 @@ RenderScriptRuntime::GetArgSimple(ExecutionContext &context, uint32_t arg, uint6
                         log->Printf("RenderScriptRuntime::GetArgSimple - Mips64 - Error reading the argument #%d", arg);
                 }
             }
-
-            // read from the stack
+            // arguments > 8 are read from the stack
             else
             {
                 uint64_t sp = reg_ctx->GetSP();
                 uint32_t offset = (arg - 8) * sizeof(uint64_t);
-                process->ReadMemory(sp + offset, &data, sizeof(uint64_t), error);
-                if (error.Fail())
+                uint64_t value = 0;
+                size_t bytes_read = process->ReadMemory(sp + offset, &value, sizeof(value), error);
+                if (error.Fail() || bytes_read != sizeof(value))
                 {
                     if (log)
                         log->Printf("RenderScriptRuntime::GetArgSimple - Mips64 - Error reading Mips64 stack: %s.", error.AsCString());
                 }
                 else
                 {
+                    *data = value;
                     success = true;
                 }
             }
-
             break;
         }
         default:
@@ -883,7 +880,6 @@ RenderScriptRuntime::GetArgSimple(ExecutionContext &context, uint32_t arg, uint6
             // invalid architecture
             if (log)
                 log->Printf("RenderScriptRuntime::GetArgSimple - Architecture not supported");
-
         }
     }
 
@@ -895,11 +891,124 @@ RenderScriptRuntime::GetArgSimple(ExecutionContext &context, uint32_t arg, uint6
     return success;
 }
 
-void 
+void
+RenderScriptRuntime::CaptureScriptInvokeForEachMulti(RuntimeHook* hook_info,
+                                                     ExecutionContext& context)
+{
+    Log* log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_LANGUAGE));
+
+    struct args_t
+    {
+        uint64_t context;   // const Context       *rsc
+        uint64_t script;    // Script              *s
+        uint64_t slot;      // uint32_t             slot
+        uint64_t aIns;      // const Allocation   **aIns
+        uint64_t inLen;     // size_t               inLen
+        uint64_t aOut;      // Allocation          *aout
+        uint64_t usr;       // const void          *usr
+        uint64_t usrLen;    // size_t               usrLen
+        uint64_t sc;        // const RsScriptCall  *sc
+    }
+    args;
+
+    bool success =
+        GetArgSimple(context, 0, &args.context) &&
+        GetArgSimple(context, 1, &args.script) &&
+        GetArgSimple(context, 2, &args.slot) &&
+        GetArgSimple(context, 3, &args.aIns) &&
+        GetArgSimple(context, 4, &args.inLen) &&
+        GetArgSimple(context, 5, &args.aOut) &&
+        GetArgSimple(context, 6, &args.usr) &&
+        GetArgSimple(context, 7, &args.usrLen) &&
+        GetArgSimple(context, 8, &args.sc);
+
+    if (!success)
+    {
+        if (log)
+            log->Printf("RenderScriptRuntime::CaptureScriptInvokeForEachMulti()"
+                        " - Error while reading the function parameters");
+        return;
+    }
+
+    const uint32_t target_ptr_size = m_process->GetAddressByteSize();
+    Error error;
+    std::vector<uint64_t> allocs;
+
+    // traverse allocation list
+    for (uint64_t i = 0; i < args.inLen; ++i)
+    {
+        // calculate offest to allocation pointer
+        const lldb::addr_t addr = args.aIns + i * target_ptr_size;
+
+        // Note: due to little endian layout, reading 32bits or 64bits into res64 will
+        //       give the correct results.
+
+        uint64_t res64 = 0;
+        size_t read = m_process->ReadMemory(addr, &res64, target_ptr_size, error);
+        if (read != target_ptr_size || !error.Success())
+        {
+            if (log)
+                log->Printf("RenderScriptRuntime::CaptureScriptInvokeForEachMulti()"
+                            " - Error while reading allocation list argument %" PRId64, i);
+        }
+        else
+        {
+            allocs.push_back(res64);
+        }
+    }
+
+    // if there is an output allocation track it
+    if (args.aOut)
+    {
+        allocs.push_back(args.aOut);
+    }
+
+    // for all allocations we have found
+    for (const uint64_t alloc_addr : allocs)
+    {
+        AllocationDetails* alloc = LookUpAllocation(alloc_addr, true);
+        if (alloc)
+        {
+            // save the allocation address
+            if (alloc->address.isValid())
+            {
+                // check the allocation address we already have matches
+                assert(*alloc->address.get() == alloc_addr);
+            }
+            else
+            {
+                alloc->address = alloc_addr;
+            }
+
+            // save the context
+            if (log)
+            {
+                if (alloc->context.isValid() && *alloc->context.get() != args.context)
+                    log->Printf("RenderScriptRuntime::CaptureScriptInvokeForEachMulti"
+                                " - Allocation used by multiple contexts");
+            }
+            alloc->context = args.context;
+        }
+    }
+
+    // make sure we track this script object
+    if (lldb_private::RenderScriptRuntime::ScriptDetails * script = LookUpScript(args.script, true))
+    {
+        if (log)
+        {
+            if (script->context.isValid() && *script->context.get() != args.context)
+                log->Printf("RenderScriptRuntime::CaptureScriptInvokeForEachMulti"
+                            " - Script used by multiple contexts");
+        }
+        script->context = args.context;
+    }
+}
+
+void
 RenderScriptRuntime::CaptureSetGlobalVar1(RuntimeHook* hook_info, ExecutionContext& context)
 {
     Log* log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_LANGUAGE));
-    
+
     //Context, Script, int, data, length
 
     uint64_t rs_context_u64 = 0U;
@@ -921,7 +1030,7 @@ RenderScriptRuntime::CaptureSetGlobalVar1(RuntimeHook* hook_info, ExecutionConte
             log->Printf("RenderScriptRuntime::CaptureSetGlobalVar1 - Error while reading the function parameters");
         return;
     }
-    
+
     if (log)
     {
         log->Printf ("RenderScriptRuntime::CaptureSetGlobalVar1 - 0x%" PRIx64 ",0x%" PRIx64 " slot %" PRIu64 " = 0x%" PRIx64 ":%" PRIu64 "bytes.",
@@ -934,18 +1043,18 @@ RenderScriptRuntime::CaptureSetGlobalVar1(RuntimeHook* hook_info, ExecutionConte
             if (rs_id_u64 < rsm->m_globals.size())
             {
                 auto rsg = rsm->m_globals[rs_id_u64];
-                log->Printf ("RenderScriptRuntime::CaptureSetGlobalVar1 - Setting of '%s' within '%s' inferred", rsg.m_name.AsCString(), 
+                log->Printf ("RenderScriptRuntime::CaptureSetGlobalVar1 - Setting of '%s' within '%s' inferred", rsg.m_name.AsCString(),
                                 rsm->m_module->GetFileSpec().GetFilename().AsCString());
             }
         }
     }
 }
 
-void 
+void
 RenderScriptRuntime::CaptureAllocationInit1(RuntimeHook* hook_info, ExecutionContext& context)
 {
     Log* log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_LANGUAGE));
-    
+
     //Context, Alloc, bool
 
     uint64_t rs_context_u64 = 0U;
@@ -1009,7 +1118,7 @@ RenderScriptRuntime::CaptureAllocationDestroy(RuntimeHook* hook_info, ExecutionC
         log->Printf("RenderScriptRuntime::CaptureAllocationDestroy - Couldn't find destroyed allocation");
 }
 
-void 
+void
 RenderScriptRuntime::CaptureScriptInit1(RuntimeHook* hook_info, ExecutionContext& context)
 {
     Log* log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_LANGUAGE));
@@ -1045,16 +1154,16 @@ RenderScriptRuntime::CaptureScriptInit1(RuntimeHook* hook_info, ExecutionContext
     {
         if (log)
             log->Printf ("RenderScriptRuntime::CaptureScriptInit1 - error reading resname: %s.", error.AsCString());
-                   
+
     }
 
     process->ReadCStringFromMemory((lldb::addr_t)rs_cachedirptr_u64, cachedir, error);
     if (error.Fail())
     {
         if (log)
-            log->Printf ("RenderScriptRuntime::CaptureScriptInit1 - error reading cachedir: %s.", error.AsCString());     
+            log->Printf ("RenderScriptRuntime::CaptureScriptInit1 - error reading cachedir: %s.", error.AsCString());
     }
-    
+
     if (log)
         log->Printf ("RenderScriptRuntime::CaptureScriptInit1 - 0x%" PRIx64 ",0x%" PRIx64 " => '%s' at '%s' .",
                      rs_context_u64, rs_script_u64, resname.c_str(), cachedir.c_str());
@@ -1077,7 +1186,7 @@ RenderScriptRuntime::CaptureScriptInit1(RuntimeHook* hook_info, ExecutionContext
         if (log)
             log->Printf ("RenderScriptRuntime::CaptureScriptInit1 - '%s' tagged with context 0x%" PRIx64 " and script 0x%" PRIx64 ".",
                          strm.GetData(), rs_context_u64, rs_script_u64);
-    } 
+    }
     else if (log)
     {
         log->Printf ("RenderScriptRuntime::CaptureScriptInit1 - resource name invalid, Script not tagged");
@@ -1134,7 +1243,7 @@ RenderScriptRuntime::LoadRuntimeHooks(lldb::ModuleSP module, ModuleKind kind)
         if (addr == LLDB_INVALID_ADDRESS)
         {
             if (log)
-                log->Printf ("RenderScriptRuntime::LoadRuntimeHooks - Unable to resolve the address of hook function '%s' with symbol '%s'.", 
+                log->Printf ("RenderScriptRuntime::LoadRuntimeHooks - Unable to resolve the address of hook function '%s' with symbol '%s'.",
                              hook_defn->name, symbol_name);
             continue;
         }
@@ -1152,7 +1261,7 @@ RenderScriptRuntime::LoadRuntimeHooks(lldb::ModuleSP module, ModuleKind kind)
         m_runtimeHooks[addr] = hook;
         if (log)
         {
-            log->Printf ("RenderScriptRuntime::LoadRuntimeHooks - Successfully hooked '%s' in '%s' version %" PRIu64 " at 0x%" PRIx64 ".", 
+            log->Printf ("RenderScriptRuntime::LoadRuntimeHooks - Successfully hooked '%s' in '%s' version %" PRIu64 " at 0x%" PRIx64 ".",
                 hook_defn->name, module->GetFileSpec().GetFilename().AsCString(), (uint64_t)hook_defn->version, (uint64_t)addr);
         }
     }
@@ -1267,136 +1376,61 @@ RenderScriptRuntime::EvalRSExpression(const char* expression, StackFrame* frame_
     return true;
 }
 
-namespace // anonymous
+// Used to index expression format strings
+enum ExpressionStrings
 {
-    // max length of an expanded expression
-    const int jit_max_expr_size = 768;
+   eExprGetOffsetPtr = 0,
+   eExprAllocGetType,
+   eExprTypeDimX,
+   eExprTypeDimY,
+   eExprTypeDimZ,
+   eExprTypeElemPtr,
+   eExprElementType,
+   eExprElementKind,
+   eExprElementVec,
+   eExprElementFieldCount,
+   eExprSubelementsId,
+   eExprSubelementsName,
+   eExprSubelementsArrSize
+};
 
-    // Format strings containing the expressions we may need to evaluate.
-    const char runtimeExpressions[][256] =
-    {
-     // Mangled GetOffsetPointer(Allocation*, xoff, yoff, zoff, lod, cubemap)
-     "(int*)_Z12GetOffsetPtrPKN7android12renderscript10AllocationEjjjj23RsAllocationCubemapFace(0x%lx, %u, %u, %u, 0, 0)",
-
-     // Type* rsaAllocationGetType(Context*, Allocation*)
-     "(void*)rsaAllocationGetType(0x%lx, 0x%lx)",
-
-     // rsaTypeGetNativeData(Context*, Type*, void* typeData, size)
-     // Pack the data in the following way mHal.state.dimX; mHal.state.dimY; mHal.state.dimZ;
-     // mHal.state.lodCount; mHal.state.faces; mElement; into typeData
-     // Need to specify 32 or 64 bit for uint_t since this differs between devices
-     "uint%u_t data[6]; (void*)rsaTypeGetNativeData(0x%lx, 0x%lx, data, 6); data[0]", // X dim
-     "uint%u_t data[6]; (void*)rsaTypeGetNativeData(0x%lx, 0x%lx, data, 6); data[1]", // Y dim
-     "uint%u_t data[6]; (void*)rsaTypeGetNativeData(0x%lx, 0x%lx, data, 6); data[2]", // Z dim
-     "uint%u_t data[6]; (void*)rsaTypeGetNativeData(0x%lx, 0x%lx, data, 6); data[5]", // Element ptr
-
-     // rsaElementGetNativeData(Context*, Element*, uint32_t* elemData,size)
-     // Pack mType; mKind; mNormalized; mVectorSize; NumSubElements into elemData
-     "uint32_t data[5]; (void*)rsaElementGetNativeData(0x%lx, 0x%lx, data, 5); data[0]", // Type
-     "uint32_t data[5]; (void*)rsaElementGetNativeData(0x%lx, 0x%lx, data, 5); data[1]", // Kind
-     "uint32_t data[5]; (void*)rsaElementGetNativeData(0x%lx, 0x%lx, data, 5); data[3]", // Vector Size
-     "uint32_t data[5]; (void*)rsaElementGetNativeData(0x%lx, 0x%lx, data, 5); data[4]", // Field Count
-
-      // rsaElementGetSubElements(RsContext con, RsElement elem, uintptr_t *ids, const char **names,
-      // size_t *arraySizes, uint32_t dataSize)
-      // Needed for Allocations of structs to gather details about fields/Subelements
-     "void* ids[%u]; const char* names[%u]; size_t arr_size[%u];"
-     "(void*)rsaElementGetSubElements(0x%lx, 0x%lx, ids, names, arr_size, %u); ids[%u]",     // Element* of field
-
-     "void* ids[%u]; const char* names[%u]; size_t arr_size[%u];"
-     "(void*)rsaElementGetSubElements(0x%lx, 0x%lx, ids, names, arr_size, %u); names[%u]",   // Name of field
-
-     "void* ids[%u]; const char* names[%u]; size_t arr_size[%u];"
-     "(void*)rsaElementGetSubElements(0x%lx, 0x%lx, ids, names, arr_size, %u); arr_size[%u]" // Array size of field
-    };
-
-
-    // Temporary workaround for MIPS, until the compiler emits the JAL instruction when invoking directly the function.
-    // At the moment, when evaluating an expression involving a function call, the LLVM codegen for Mips  emits a JAL
-    // instruction, which is able to jump in the range +/- 128MB with respect to the current program counter ($pc). If
-    // the requested function happens to reside outside the above region, the function address will be truncated and the
-    // function invocation will fail. This is a problem in the RS plugin as we rely on the RS API to probe the number and
-    // the nature of allocations. A proper solution in the MIPS compiler is currently being investigated. As temporary
-    // work around for this context, we'll invoke the RS API through function pointers, which cause the compiler to emit a
-    // register based JALR instruction.
-    const char runtimeExpressions_mips[][512] =
-    {
-    // Mangled GetOffsetPointer(Allocation*, xoff, yoff, zoff, lod, cubemap)
-    "int* (*f) (void*, int, int, int, int, int) = (int* (*) (void*, int, int, int, int, int)) "
-        "_Z12GetOffsetPtrPKN7android12renderscript10AllocationEjjjj23RsAllocationCubemapFace; "
-        "(int*) f((void*) 0x%lx, %u, %u, %u, 0, 0)",
-
-    // Type* rsaAllocationGetType(Context*, Allocation*)
-    "void* (*f) (void*, void*) = (void* (*) (void*, void*)) rsaAllocationGetType; (void*) f((void*) 0x%lx, (void*) 0x%lx)",
-
-    // rsaTypeGetNativeData(Context*, Type*, void* typeData, size)
-    // Pack the data in the following way mHal.state.dimX; mHal.state.dimY; mHal.state.dimZ;
-    // mHal.state.lodCount; mHal.state.faces; mElement; into typeData
-    // Need to specify 32 or 64 bit for uint_t since this differs between devices
-    "uint%u_t data[6]; void* (*f)(void*, void*, uintptr_t*, uint32_t) = (void* (*)(void*, void*, uintptr_t*, uint32_t)) "
-        "rsaTypeGetNativeData; (void*) f((void*) 0x%lx, (void*) 0x%lx, data, 6); data[0]",
-    "uint%u_t data[6]; void* (*f)(void*, void*, uintptr_t*, uint32_t) = (void* (*)(void*, void*, uintptr_t*, uint32_t)) "
-        "rsaTypeGetNativeData; (void*) f((void*) 0x%lx, (void*) 0x%lx, data, 6); data[1]",
-    "uint%u_t data[6]; void* (*f)(void*, void*, uintptr_t*, uint32_t) = (void* (*)(void*, void*, uintptr_t*, uint32_t)) "
-        "rsaTypeGetNativeData; (void*) f((void*) 0x%lx, (void*) 0x%lx, data, 6); data[2]",
-    "uint%u_t data[6]; void* (*f)(void*, void*, uintptr_t*, uint32_t) = (void* (*)(void*, void*, uintptr_t*, uint32_t)) "
-        "rsaTypeGetNativeData; (void*) f((void*) 0x%lx, (void*) 0x%lx, data, 6); data[5]",
-
-    // rsaElementGetNativeData(Context*, Element*, uint32_t* elemData,size)
-    // Pack mType; mKind; mNormalized; mVectorSize; NumSubElements into elemData
-    "uint32_t data[5]; void* (*f)(void*, void*, uint32_t*, uint32_t) = (void* (*)(void*, void*, uint32_t*, uint32_t)) "
-        "rsaElementGetNativeData; (void*) f((void*) 0x%lx, (void*) 0x%lx, data, 5); data[0]", // Type
-    "uint32_t data[5]; void* (*f)(void*, void*, uint32_t*, uint32_t) = (void* (*)(void*, void*, uint32_t*, uint32_t)) "
-        "rsaElementGetNativeData; (void*) f((void*) 0x%lx, (void*) 0x%lx, data, 5); data[1]", // Kind
-    "uint32_t data[5]; void* (*f)(void*, void*, uint32_t*, uint32_t) = (void* (*)(void*, void*, uint32_t*, uint32_t)) "
-        "rsaElementGetNativeData; (void*) f((void*) 0x%lx, (void*) 0x%lx, data, 5); data[3]", // Vector size
-    "uint32_t data[5]; void* (*f)(void*, void*, uint32_t*, uint32_t) = (void* (*)(void*, void*, uint32_t*, uint32_t)) "
-        "rsaElementGetNativeData; (void*) f((void*) 0x%lx, (void*) 0x%lx, data, 5); data[4]", // Field count
-
-    // rsaElementGetSubElements(RsContext con, RsElement elem, uintptr_t *ids, const char **names,
-    // size_t *arraySizes, uint32_t dataSize)
-    // Needed for Allocations of structs to gather details about fields/Subelements
-   "void* ids[%u]; const char* names[%u]; size_t arr_size[%u];"
-        "void* (*f) (void*, void*, uintptr_t*, const char**, size_t*, uint32_t) = "
-        "(void* (*) (void*, void*, uintptr_t*, const char**, size_t*, uint32_t)) rsaElementGetSubElements;"
-        "(void*) f((void*) 0x%lx, (void*) 0x%lx, (uintptr_t*) ids, names, arr_size, (uint32_t) %u);"
-        "ids[%u]", // Element* of field
-   "void* ids[%u]; const char* names[%u]; size_t arr_size[%u];"
-        "void* (*f) (void*, void*, uintptr_t*, const char**, size_t*, uint32_t) = "
-        "(void* (*) (void*, void*, uintptr_t*, const char**, size_t*, uint32_t)) rsaElementGetSubElements;"
-        "(void*) f((void*) 0x%lx, (void*) 0x%lx, (uintptr_t*) ids, names, arr_size, (uint32_t) %u);"
-        "names[%u]", // Name of field
-   "void* ids[%u]; const char* names[%u]; size_t arr_size[%u];"
-        "void* (*f) (void*, void*, uintptr_t*, const char**, size_t*, uint32_t) = "
-        "(void* (*) (void*, void*, uintptr_t*, const char**, size_t*, uint32_t)) rsaElementGetSubElements;"
-        "(void*) f((void*) 0x%lx, (void*) 0x%lx, (uintptr_t*) ids, names, arr_size, (uint32_t) %u);"
-        "arr_size[%u]" // Array size of field
-    };
-
-} // end of the anonymous namespace
-
-
-// Retrieve the string to JIT for the given expression
-const char*
-RenderScriptRuntime::JITTemplate(ExpressionStrings e)
+// Format strings containing the expressions we may need to evaluate.
+const char runtimeExpressions[][256] =
 {
-    // be nice to your Mips friend when adding new expression strings
-    static_assert(sizeof(runtimeExpressions)/sizeof(runtimeExpressions[0]) ==
-            sizeof(runtimeExpressions_mips)/sizeof(runtimeExpressions_mips[0]),
-            "#runtimeExpressions != #runtimeExpressions_mips");
+ // Mangled GetOffsetPointer(Allocation*, xoff, yoff, zoff, lod, cubemap)
+ "(int*)_Z12GetOffsetPtrPKN7android12renderscript10AllocationEjjjj23RsAllocationCubemapFace(0x%lx, %u, %u, %u, 0, 0)",
 
-    assert((e >= eExprGetOffsetPtr && e <= eExprSubelementsArrSize) &&
-           "Expression string out of bounds");
+ // Type* rsaAllocationGetType(Context*, Allocation*)
+ "(void*)rsaAllocationGetType(0x%lx, 0x%lx)",
 
-    llvm::Triple::ArchType arch = GetTargetRef().GetArchitecture().GetMachine();
+ // rsaTypeGetNativeData(Context*, Type*, void* typeData, size)
+ // Pack the data in the following way mHal.state.dimX; mHal.state.dimY; mHal.state.dimZ;
+ // mHal.state.lodCount; mHal.state.faces; mElement; into typeData
+ // Need to specify 32 or 64 bit for uint_t since this differs between devices
+ "uint%u_t data[6]; (void*)rsaTypeGetNativeData(0x%lx, 0x%lx, data, 6); data[0]", // X dim
+ "uint%u_t data[6]; (void*)rsaTypeGetNativeData(0x%lx, 0x%lx, data, 6); data[1]", // Y dim
+ "uint%u_t data[6]; (void*)rsaTypeGetNativeData(0x%lx, 0x%lx, data, 6); data[2]", // Z dim
+ "uint%u_t data[6]; (void*)rsaTypeGetNativeData(0x%lx, 0x%lx, data, 6); data[5]", // Element ptr
 
-    // mips JAL workaround
-    if(arch == llvm::Triple::ArchType::mips64el || arch == llvm::Triple::ArchType::mipsel)
-        return runtimeExpressions_mips[e];
-    else
-        return runtimeExpressions[e];
-}
+ // rsaElementGetNativeData(Context*, Element*, uint32_t* elemData,size)
+ // Pack mType; mKind; mNormalized; mVectorSize; NumSubElements into elemData
+ "uint32_t data[5]; (void*)rsaElementGetNativeData(0x%lx, 0x%lx, data, 5); data[0]", // Type
+ "uint32_t data[5]; (void*)rsaElementGetNativeData(0x%lx, 0x%lx, data, 5); data[1]", // Kind
+ "uint32_t data[5]; (void*)rsaElementGetNativeData(0x%lx, 0x%lx, data, 5); data[3]", // Vector Size
+ "uint32_t data[5]; (void*)rsaElementGetNativeData(0x%lx, 0x%lx, data, 5); data[4]", // Field Count
 
+  // rsaElementGetSubElements(RsContext con, RsElement elem, uintptr_t *ids, const char **names,
+  // size_t *arraySizes, uint32_t dataSize)
+  // Needed for Allocations of structs to gather details about fields/Subelements
+ "void* ids[%u]; const char* names[%u]; size_t arr_size[%u];"
+ "(void*)rsaElementGetSubElements(0x%lx, 0x%lx, ids, names, arr_size, %u); ids[%u]",     // Element* of field
+
+ "void* ids[%u]; const char* names[%u]; size_t arr_size[%u];"
+ "(void*)rsaElementGetSubElements(0x%lx, 0x%lx, ids, names, arr_size, %u); names[%u]",   // Name of field
+
+ "void* ids[%u]; const char* names[%u]; size_t arr_size[%u];"
+ "(void*)rsaElementGetSubElements(0x%lx, 0x%lx, ids, names, arr_size, %u); arr_size[%u]" // Array size of field
+};
 
 // JITs the RS runtime for the internal data pointer of an allocation.
 // Is passed x,y,z coordinates for the pointer to a specific element.
@@ -1415,17 +1449,18 @@ RenderScriptRuntime::JITDataPointer(AllocationDetails* allocation, StackFrame* f
         return false;
     }
 
-    const char* expr_cstr = JITTemplate(eExprGetOffsetPtr);
-    char buffer[jit_max_expr_size];
+    const char* expr_cstr = runtimeExpressions[eExprGetOffsetPtr];
+    const int max_expr_size = 512; // Max expression size
+    char buffer[max_expr_size];
 
-    int chars_written = snprintf(buffer, jit_max_expr_size, expr_cstr, *allocation->address.get(), x, y, z);
+    int chars_written = snprintf(buffer, max_expr_size, expr_cstr, *allocation->address.get(), x, y, z);
     if (chars_written < 0)
     {
         if (log)
             log->Printf("RenderScriptRuntime::JITDataPointer - Encoding error in snprintf()");
         return false;
     }
-    else if (chars_written >= jit_max_expr_size)
+    else if (chars_written >= max_expr_size)
     {
         if (log)
             log->Printf("RenderScriptRuntime::JITDataPointer - Expression too long");
@@ -1457,17 +1492,18 @@ RenderScriptRuntime::JITTypePointer(AllocationDetails* allocation, StackFrame* f
         return false;
     }
 
-    const char* expr_cstr = JITTemplate(eExprAllocGetType);
-    char buffer[jit_max_expr_size];
+    const char* expr_cstr = runtimeExpressions[eExprAllocGetType];
+    const int max_expr_size = 512; // Max expression size
+    char buffer[max_expr_size];
 
-    int chars_written = snprintf(buffer, jit_max_expr_size, expr_cstr, *allocation->context.get(), *allocation->address.get());
+    int chars_written = snprintf(buffer, max_expr_size, expr_cstr, *allocation->context.get(), *allocation->address.get());
     if (chars_written < 0)
     {
         if (log)
             log->Printf("RenderScriptRuntime::JITDataPointer - Encoding error in snprintf()");
         return false;
     }
-    else if (chars_written >= jit_max_expr_size)
+    else if (chars_written >= max_expr_size)
     {
         if (log)
             log->Printf("RenderScriptRuntime::JITTypePointer - Expression too long");
@@ -1507,13 +1543,13 @@ RenderScriptRuntime::JITTypePacked(AllocationDetails* allocation, StackFrame* fr
     const unsigned int num_exprs = 4;
     assert(num_exprs == (eExprTypeElemPtr - eExprTypeDimX + 1) && "Invalid number of expressions");
 
-    char buffer[num_exprs][jit_max_expr_size];
+    const int max_expr_size = 512; // Max expression size
+    char buffer[num_exprs][max_expr_size];
     uint64_t results[num_exprs];
 
     for (unsigned int i = 0; i < num_exprs; ++i)
     {
-        const char* expr_cstr = JITTemplate((ExpressionStrings) (eExprTypeDimX + i));
-        int chars_written = snprintf(buffer[i], jit_max_expr_size, expr_cstr, bits,
+        int chars_written = snprintf(buffer[i], max_expr_size, runtimeExpressions[eExprTypeDimX + i], bits,
                                      *allocation->context.get(), *allocation->type_ptr.get());
         if (chars_written < 0)
         {
@@ -1521,7 +1557,7 @@ RenderScriptRuntime::JITTypePacked(AllocationDetails* allocation, StackFrame* fr
                 log->Printf("RenderScriptRuntime::JITDataPointer - Encoding error in snprintf()");
             return false;
         }
-        else if (chars_written >= jit_max_expr_size)
+        else if (chars_written >= max_expr_size)
         {
             if (log)
                 log->Printf("RenderScriptRuntime::JITTypePacked - Expression too long");
@@ -1569,20 +1605,20 @@ RenderScriptRuntime::JITElementPacked(Element& elem, const lldb::addr_t context,
     const unsigned int num_exprs = 4;
     assert(num_exprs == (eExprElementFieldCount - eExprElementType + 1) && "Invalid number of expressions");
 
-    char buffer[num_exprs][jit_max_expr_size];
+    const int max_expr_size = 512; // Max expression size
+    char buffer[num_exprs][max_expr_size];
     uint64_t results[num_exprs];
 
     for (unsigned int i = 0; i < num_exprs; i++)
     {
-        const char* expr_cstr = JITTemplate((ExpressionStrings) (eExprElementType + i));
-        int chars_written = snprintf(buffer[i], jit_max_expr_size, expr_cstr, context, *elem.element_ptr.get());
+        int chars_written = snprintf(buffer[i], max_expr_size, runtimeExpressions[eExprElementType + i], context, *elem.element_ptr.get());
         if (chars_written < 0)
         {
             if (log)
                 log->Printf("RenderScriptRuntime::JITElementPacked - Encoding error in snprintf()");
             return false;
         }
-        else if (chars_written >= jit_max_expr_size)
+        else if (chars_written >= max_expr_size)
         {
             if (log)
                 log->Printf("RenderScriptRuntime::JITElementPacked - Expression too long");
@@ -1629,7 +1665,8 @@ RenderScriptRuntime::JITSubelements(Element& elem, const lldb::addr_t context, S
     const short num_exprs = 3;
     assert(num_exprs == (eExprSubelementsArrSize - eExprSubelementsId + 1) && "Invalid number of expressions");
 
-    char expr_buffer[jit_max_expr_size];
+    const int max_expr_size = 512; // Max expression size
+    char expr_buffer[max_expr_size];
     uint64_t results;
 
     // Iterate over struct fields.
@@ -1639,8 +1676,7 @@ RenderScriptRuntime::JITSubelements(Element& elem, const lldb::addr_t context, S
         Element child;
         for (unsigned int expr_index = 0; expr_index < num_exprs; ++expr_index)
         {
-            const char* expr_cstr = JITTemplate((ExpressionStrings) (eExprSubelementsId + expr_index));
-            int chars_written = snprintf(expr_buffer, jit_max_expr_size, expr_cstr,
+            int chars_written = snprintf(expr_buffer, max_expr_size, runtimeExpressions[eExprSubelementsId + expr_index],
                                          field_count, field_count, field_count,
                                          context, *elem.element_ptr.get(), field_count, field_index);
             if (chars_written < 0)
@@ -1649,7 +1685,7 @@ RenderScriptRuntime::JITSubelements(Element& elem, const lldb::addr_t context, S
                     log->Printf("RenderScriptRuntime::JITSubelements - Encoding error in snprintf()");
                 return false;
             }
-            else if (chars_written >= jit_max_expr_size)
+            else if (chars_written >= max_expr_size)
             {
                 if (log)
                     log->Printf("RenderScriptRuntime::JITSubelements - Expression too long");
@@ -1741,15 +1777,16 @@ RenderScriptRuntime::JITAllocationSize(AllocationDetails* allocation, StackFrame
         return true;
     }
 
-    const char* expr_cstr = JITTemplate(eExprGetOffsetPtr);
-    char buffer[jit_max_expr_size];
+    const char* expr_cstr = runtimeExpressions[eExprGetOffsetPtr];
+    const int max_expr_size = 512;
+    char buffer[max_expr_size];
 
     // Calculate last element
     dim_x = dim_x == 0 ? 0 : dim_x - 1;
     dim_y = dim_y == 0 ? 0 : dim_y - 1;
     dim_z = dim_z == 0 ? 0 : dim_z - 1;
 
-    int chars_written = snprintf(buffer, jit_max_expr_size, expr_cstr, *allocation->address.get(),
+    int chars_written = snprintf(buffer, max_expr_size, expr_cstr, *allocation->address.get(),
                                  dim_x, dim_y, dim_z);
     if (chars_written < 0)
     {
@@ -1757,7 +1794,7 @@ RenderScriptRuntime::JITAllocationSize(AllocationDetails* allocation, StackFrame
             log->Printf("RenderScriptRuntime::JITAllocationSize - Encoding error in snprintf()");
         return false;
     }
-    else if (chars_written >= jit_max_expr_size)
+    else if (chars_written >= max_expr_size)
     {
         if (log)
             log->Printf("RenderScriptRuntime::JITAllocationSize - Expression too long");
@@ -1790,10 +1827,11 @@ RenderScriptRuntime::JITAllocationStride(AllocationDetails* allocation, StackFra
         return false;
     }
 
-    const char* expr_cstr = JITTemplate(eExprGetOffsetPtr);
-    char buffer[jit_max_expr_size];
+    const char* expr_cstr = runtimeExpressions[eExprGetOffsetPtr];
+    const int max_expr_size = 512; // Max expression size
+    char buffer[max_expr_size];
 
-    int chars_written = snprintf(buffer, jit_max_expr_size, expr_cstr, *allocation->address.get(),
+    int chars_written = snprintf(buffer, max_expr_size, expr_cstr, *allocation->address.get(),
                                  0, 1, 0);
     if (chars_written < 0)
     {
@@ -1801,7 +1839,7 @@ RenderScriptRuntime::JITAllocationStride(AllocationDetails* allocation, StackFra
             log->Printf("RenderScriptRuntime::JITAllocationStride - Encoding error in snprintf()");
         return false;
     }
-    else if (chars_written >= jit_max_expr_size)
+    else if (chars_written >= max_expr_size)
     {
         if (log)
             log->Printf("RenderScriptRuntime::JITAllocationStride - Expression too long");
@@ -2085,37 +2123,62 @@ RenderScriptRuntime::LoadAllocation(Stream &strm, const uint32_t alloc_id, const
 
     // Cast start of buffer to FileHeader and use pointer to read metadata
     void* file_buffer = data_sp->GetBytes();
-    const AllocationDetails::FileHeader* head = static_cast<AllocationDetails::FileHeader*>(file_buffer);
+    if (file_buffer == NULL || data_sp->GetByteSize() <
+        (sizeof(AllocationDetails::FileHeader) + sizeof(AllocationDetails::ElementHeader)))
+    {
+        strm.Printf("Error: File %s does not contain enough data for header", filename);
+        strm.EOL();
+        return false;
+    }
+    const AllocationDetails::FileHeader* file_header = static_cast<AllocationDetails::FileHeader*>(file_buffer);
 
-    // Advance buffer past header
-    file_buffer = static_cast<uint8_t*>(file_buffer) + head->hdr_size;
+    // Check file starts with ascii characters "RSAD"
+    if (file_header->ident[0] != 'R' || file_header->ident[1] != 'S' || file_header->ident[2] != 'A'
+        || file_header->ident[3] != 'D')
+    {
+        strm.Printf("Error: File doesn't contain identifier for an RS allocation dump. Are you sure this is the correct file?");
+        strm.EOL();
+        return false;
+    }
+
+    // Look at the type of the root element in the header
+    AllocationDetails::ElementHeader root_element_header;
+    memcpy(&root_element_header, static_cast<uint8_t*>(file_buffer) + sizeof(AllocationDetails::FileHeader),
+           sizeof(AllocationDetails::ElementHeader));
 
     if (log)
         log->Printf("RenderScriptRuntime::LoadAllocation - header type %u, element size %u",
-                    head->type, head->element_size);
+                    root_element_header.type, root_element_header.element_size);
 
     // Check if the target allocation and file both have the same number of bytes for an Element
-    if (*alloc->element.datum_size.get() != head->element_size)
+    if (*alloc->element.datum_size.get() != root_element_header.element_size)
     {
         strm.Printf("Warning: Mismatched Element sizes - file %u bytes, allocation %u bytes",
-                    head->element_size, *alloc->element.datum_size.get());
+                    root_element_header.element_size, *alloc->element.datum_size.get());
         strm.EOL();
     }
 
-    // Check if the target allocation and file both have the same integral type
-    const unsigned int type = static_cast<unsigned int>(*alloc->element.type.get());
-    if (type != head->type)
+    // Check if the target allocation and file both have the same type
+    const unsigned int alloc_type = static_cast<unsigned int>(*alloc->element.type.get());
+    const unsigned int file_type = root_element_header.type;
+
+    if (file_type > Element::RS_TYPE_FONT)
+    {
+        strm.Printf("Warning: File has unknown allocation type");
+        strm.EOL();
+    }
+    else if (alloc_type != file_type)
     {
         // Enum value isn't monotonous, so doesn't always index RsDataTypeToString array
-        unsigned int printable_target_type_index = type;
-        unsigned int printable_head_type_index = head->type;
-        if (type >= Element::RS_TYPE_ELEMENT && type <= Element::RS_TYPE_FONT)
+        unsigned int printable_target_type_index = alloc_type;
+        unsigned int printable_head_type_index = file_type;
+        if (alloc_type >= Element::RS_TYPE_ELEMENT && alloc_type <= Element::RS_TYPE_FONT)
             printable_target_type_index = static_cast<Element::DataType>(
-                                         (type - Element::RS_TYPE_ELEMENT) + Element::RS_TYPE_MATRIX_2X2 + 1);
+                                         (alloc_type - Element::RS_TYPE_ELEMENT) + Element::RS_TYPE_MATRIX_2X2 + 1);
 
-        if (head->type >= Element::RS_TYPE_ELEMENT && head->type <= Element::RS_TYPE_FONT)
+        if (file_type >= Element::RS_TYPE_ELEMENT && file_type <= Element::RS_TYPE_FONT)
             printable_head_type_index = static_cast<Element::DataType>(
-                                        (head->type - Element::RS_TYPE_ELEMENT) + Element::RS_TYPE_MATRIX_2X2 + 1);
+                                        (file_type - Element::RS_TYPE_ELEMENT) + Element::RS_TYPE_MATRIX_2X2 + 1);
 
         const char* file_type_cstr = AllocationDetails::RsDataTypeToString[printable_head_type_index][0];
         const char* target_type_cstr = AllocationDetails::RsDataTypeToString[printable_target_type_index][0];
@@ -2125,8 +2188,11 @@ RenderScriptRuntime::LoadAllocation(Stream &strm, const uint32_t alloc_id, const
         strm.EOL();
     }
 
+    // Advance buffer past header
+    file_buffer = static_cast<uint8_t*>(file_buffer) + file_header->hdr_size;
+
     // Calculate size of allocation data in file
-    size_t length = data_sp->GetByteSize() - head->hdr_size;
+    size_t length = data_sp->GetByteSize() - file_header->hdr_size;
 
     // Check if the target allocation and file both have the same total data size.
     const unsigned int alloc_size = *alloc->size.get();
@@ -2153,6 +2219,62 @@ RenderScriptRuntime::LoadAllocation(Stream &strm, const uint32_t alloc_id, const
     strm.EOL();
 
     return true;
+}
+
+// Function takes as parameters a byte buffer, which will eventually be written to file as the element header,
+// an offset into that buffer, and an Element that will be saved into the buffer at the parametrised offset.
+// Return value is the new offset after writing the element into the buffer.
+// Elements are saved to the file as the ElementHeader struct followed by offsets to the structs of all the element's children.
+size_t
+RenderScriptRuntime::PopulateElementHeaders(const std::shared_ptr<uint8_t> header_buffer, size_t offset, const Element& elem)
+{
+    // File struct for an element header with all the relevant details copied from elem.
+    // We assume members are valid already.
+    AllocationDetails::ElementHeader elem_header;
+    elem_header.type = *elem.type.get();
+    elem_header.kind = *elem.type_kind.get();
+    elem_header.element_size = *elem.datum_size.get();
+    elem_header.vector_size = *elem.type_vec_size.get();
+    elem_header.array_size = elem.array_size.isValid() ? *elem.array_size.get() : 0;
+    const size_t elem_header_size = sizeof(AllocationDetails::ElementHeader);
+
+    // Copy struct into buffer and advance offset
+    // We assume that header_buffer has been checked for NULL before this method is called
+    memcpy(header_buffer.get() + offset, &elem_header, elem_header_size);
+    offset += elem_header_size;
+
+    // Starting offset of child ElementHeader struct
+    size_t child_offset = offset + ((elem.children.size() + 1) * sizeof(uint32_t));
+    for (const RenderScriptRuntime::Element& child : elem.children)
+    {
+        // Recursively populate the buffer with the element header structs of children.
+        // Then save the offsets where they were set after the parent element header.
+        memcpy(header_buffer.get() + offset, &child_offset, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+
+        child_offset = PopulateElementHeaders(header_buffer, child_offset, child);
+    }
+
+    // Zero indicates no more children
+    memset(header_buffer.get() + offset, 0, sizeof(uint32_t));
+
+    return child_offset;
+}
+
+// Given an Element object this function returns the total size needed in the file header to store the element's details.
+// Taking into account the size of the element header struct, plus the offsets to all the element's children.
+// Function is recursive so that the size of all ancestors is taken into account.
+size_t
+RenderScriptRuntime::CalculateElementHeaderSize(const Element& elem)
+{
+    size_t size = (elem.children.size() + 1) * sizeof(uint32_t); // Offsets to children plus zero terminator
+    size += sizeof(AllocationDetails::ElementHeader); // Size of header struct with type details
+
+    // Calculate recursively for all descendants
+    for (const Element& child : elem.children)
+        size += CalculateElementHeaderSize(child);
+
+    return size;
 }
 
 // Function copies allocation contents into a binary file.
@@ -2210,17 +2332,44 @@ RenderScriptRuntime::SaveAllocation(Stream &strm, const uint32_t alloc_id, const
     // Create the file header
     AllocationDetails::FileHeader head;
     head.ident[0] = 'R'; head.ident[1] = 'S'; head.ident[2] = 'A'; head.ident[3] = 'D';
-    head.hdr_size = static_cast<uint16_t>(sizeof(AllocationDetails::FileHeader));
-    head.type = static_cast<uint16_t>(*alloc->element.type.get());
-    head.kind = static_cast<uint32_t>(*alloc->element.type_kind.get());
     head.dims[0] = static_cast<uint32_t>(alloc->dimension.get()->dim_1);
     head.dims[1] = static_cast<uint32_t>(alloc->dimension.get()->dim_2);
     head.dims[2] = static_cast<uint32_t>(alloc->dimension.get()->dim_3);
-    head.element_size = static_cast<uint32_t>(*alloc->element.datum_size.get());
+
+    const size_t element_header_size = CalculateElementHeaderSize(alloc->element);
+    assert((sizeof(AllocationDetails::FileHeader) + element_header_size) < UINT16_MAX && "Element header too large");
+    head.hdr_size = static_cast<uint16_t>(sizeof(AllocationDetails::FileHeader) + element_header_size);
 
     // Write the file header
     size_t num_bytes = sizeof(AllocationDetails::FileHeader);
-    Error err = file.Write(static_cast<const void*>(&head), num_bytes);
+    if (log)
+        log->Printf("RenderScriptRuntime::SaveAllocation - Writing File Header, 0x%zX bytes", num_bytes);
+
+    Error err = file.Write(&head, num_bytes);
+    if (!err.Success())
+    {
+        strm.Printf("Error: '%s' when writing to file '%s'", err.AsCString(), filename);
+        strm.EOL();
+        return false;
+    }
+
+    // Create the headers describing the element type of the allocation.
+    std::shared_ptr<uint8_t> element_header_buffer(new uint8_t[element_header_size]);
+    if (element_header_buffer == nullptr)
+    {
+        strm.Printf("Internal Error: Couldn't allocate %zu bytes on the heap", element_header_size);
+        strm.EOL();
+        return false;
+    }
+
+    PopulateElementHeaders(element_header_buffer, 0, alloc->element);
+
+    // Write headers for allocation element type to file
+    num_bytes = element_header_size;
+    if (log)
+        log->Printf("RenderScriptRuntime::SaveAllocation - Writing Element Headers, 0x%zX bytes", num_bytes);
+
+    err = file.Write(element_header_buffer.get(), num_bytes);
     if (!err.Success())
     {
         strm.Printf("Error: '%s' when writing to file '%s'", err.AsCString(), filename);
@@ -2231,7 +2380,7 @@ RenderScriptRuntime::SaveAllocation(Stream &strm, const uint32_t alloc_id, const
     // Write allocation data to file
     num_bytes = static_cast<size_t>(*alloc->size.get());
     if (log)
-        log->Printf("RenderScriptRuntime::SaveAllocation - Writing 0x%" PRIx64 " bytes from %p", (uint64_t) num_bytes, (void*) buffer.get());
+        log->Printf("RenderScriptRuntime::SaveAllocation - Writing 0x%zX bytes", num_bytes);
 
     err = file.Write(buffer.get(), num_bytes);
     if (!err.Success())
@@ -2299,7 +2448,7 @@ RenderScriptRuntime::LoadModule(const lldb::ModuleSP &module_sp)
             }
             case eModuleKindLibRS:
             {
-                if (!m_libRS) 
+                if (!m_libRS)
                 {
                     m_libRS = module_sp;
                     static ConstString gDbgPresentStr("gDebuggerPresent");
@@ -2334,7 +2483,7 @@ RenderScriptRuntime::LoadModule(const lldb::ModuleSP &module_sp)
                 break;
         }
         if (module_loaded)
-            Update();  
+            Update();
         return module_loaded;
     }
     return false;
@@ -2408,7 +2557,7 @@ RSModuleDescriptor::ParseRSInfo()
                         m_kernels.push_back(RSKernelDescriptor(this, name, slot));
                     }
                 }
-            } 
+            }
             else if (sscanf(line.c_str(), "pragmaCount: %u", &numDefns) == 1)
             {
                 char name[MAXLINE];
@@ -2417,7 +2566,7 @@ RSModuleDescriptor::ParseRSInfo()
                 {
                     name[0] = '\0';
                     value[0] = '\0';
-                    if (sscanf(info_lines[++offset].c_str(), "%s - %s", &name[0], &value[0]) != 0 
+                    if (sscanf(info_lines[++offset].c_str(), "%s - %s", &name[0], &value[0]) != 0
                         && (name[0] != '\0'))
                     {
                         m_pragmas[std::string(name)] = value;
@@ -2466,7 +2615,7 @@ RenderScriptRuntime::Status(Stream &strm) const
         strm.Printf("CPU Reference Implementation discovered.");
         strm.EOL();
     }
-    
+
     if (m_runtimeHooks.size())
     {
         strm.Printf("Runtime functions hooked:");
@@ -2476,7 +2625,7 @@ RenderScriptRuntime::Status(Stream &strm) const
             strm.Indent(b.second->defn->name);
             strm.EOL();
         }
-    } 
+    }
     else
     {
         strm.Printf("Runtime is not hooked.");
@@ -2484,7 +2633,7 @@ RenderScriptRuntime::Status(Stream &strm) const
     }
 }
 
-void 
+void
 RenderScriptRuntime::DumpContexts(Stream &strm) const
 {
     strm.Printf("Inferred RenderScript Contexts:");
@@ -2519,7 +2668,7 @@ RenderScriptRuntime::DumpContexts(Stream &strm) const
     strm.IndentLess();
 }
 
-void 
+void
 RenderScriptRuntime::DumpKernels(Stream &strm) const
 {
     strm.Printf("RenderScript Kernels:");
@@ -2689,11 +2838,12 @@ RenderScriptRuntime::DumpAllocation(Stream &strm, StackFrame* frame_ptr, const u
                     expr_options.SetHideName(true);
 
                     // Setup expression as derefrencing a pointer cast to element address.
-                    char expr_char_buffer[jit_max_expr_size];
-                    int chars_written = snprintf(expr_char_buffer, jit_max_expr_size, "*(%s*) 0x%" PRIx64,
+                    const int max_expr_size = 512;
+                    char expr_char_buffer[max_expr_size];
+                    int chars_written = snprintf(expr_char_buffer, max_expr_size, "*(%s*) 0x%" PRIx64,
                                         alloc->element.type_name.AsCString(), *alloc->data_ptr.get() + offset);
 
-                    if (chars_written < 0 || chars_written >= jit_max_expr_size)
+                    if (chars_written < 0 || chars_written >= max_expr_size)
                     {
                         if (log)
                             log->Printf("RenderScriptRuntime::DumpAllocation- Error in snprintf()");
@@ -2923,6 +3073,79 @@ RenderScriptRuntime::GetFrameVarAsUnsigned(const StackFrameSP frame_sp, const ch
     return true;
 }
 
+// Function attempts to find the current coordinate of a kernel invocation by investigating the
+// values of frame variables in the .expand function. These coordinates are returned via the coord
+// array reference parameter. Returns true if the coordinates could be found, and false otherwise.
+bool
+RenderScriptRuntime::GetKernelCoordinate(RSCoordinate &coord, Thread *thread_ptr)
+{
+    Log *log(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_LANGUAGE));
+
+    if (!thread_ptr)
+    {
+        if (log)
+            log->Printf("%s - Error, No thread pointer", __FUNCTION__);
+
+        return false;
+    }
+
+    // Walk the call stack looking for a function whose name has the suffix '.expand'
+    // and contains the variables we're looking for.
+    for (uint32_t i = 0; i < thread_ptr->GetStackFrameCount(); ++i)
+    {
+        if (!thread_ptr->SetSelectedFrameByIndex(i))
+            continue;
+
+        StackFrameSP frame_sp = thread_ptr->GetSelectedFrame();
+        if (!frame_sp)
+            continue;
+
+        // Find the function name
+        const SymbolContext sym_ctx = frame_sp->GetSymbolContext(false);
+        const char *func_name_cstr = sym_ctx.GetFunctionName().AsCString();
+        if (!func_name_cstr)
+            continue;
+
+        if (log)
+            log->Printf("%s - Inspecting function '%s'", __FUNCTION__, func_name_cstr);
+
+        // Check if function name has .expand suffix
+        std::string func_name(func_name_cstr);
+        const int length_difference = func_name.length() - RenderScriptRuntime::s_runtimeExpandSuffix.length();
+        if (length_difference <= 0)
+            continue;
+
+        const int32_t has_expand_suffix = func_name.compare(length_difference,
+                                                            RenderScriptRuntime::s_runtimeExpandSuffix.length(),
+                                                            RenderScriptRuntime::s_runtimeExpandSuffix);
+
+        if (has_expand_suffix != 0)
+            continue;
+
+        if (log)
+            log->Printf("%s - Found .expand function '%s'", __FUNCTION__, func_name_cstr);
+
+        // Get values for variables in .expand frame that tell us the current kernel invocation
+        bool found_coord_variables = true;
+        assert(RenderScriptRuntime::s_runtimeCoordVars.size() == coord.size());
+
+        for (uint32_t i = 0; i < coord.size(); ++i)
+        {
+            uint64_t value = 0;
+            if (!GetFrameVarAsUnsigned(frame_sp, RenderScriptRuntime::s_runtimeCoordVars[i], value))
+            {
+                found_coord_variables = false;
+                break;
+            }
+            coord[i] = value;
+        }
+
+        if (found_coord_variables)
+            return true;
+    }
+    return false;
+}
+
 // Callback when a kernel breakpoint hits and we're looking for a specific coordinate.
 // Baton parameter contains a pointer to the target coordinate we want to break on.
 // Function then checks the .expand frame for the current coordinate and breaks to user if it matches.
@@ -2938,53 +3161,38 @@ RenderScriptRuntime::KernelBreakpointHit(void *baton, StoppointCallbackContext *
     assert(baton && "Error: null baton in conditional kernel breakpoint callback");
 
     // Coordinate we want to stop on
-    const int* target_coord = static_cast<const int*>(baton);
+    const uint32_t *target_coord = static_cast<const uint32_t *>(baton);
 
     if (log)
-        log->Printf("RenderScriptRuntime::KernelBreakpointHit - Break ID %" PRIu64 ", target coord (%d, %d, %d)",
-                    break_id, target_coord[0], target_coord[1], target_coord[2]);
+        log->Printf("%s - Break ID %" PRIu64 ", (%" PRIu32 ", %" PRIu32 ", %" PRIu32 ")", __FUNCTION__, break_id,
+                    target_coord[0], target_coord[1], target_coord[2]);
 
-    // Go up one stack frame to .expand kernel
+    // Select current thread
     ExecutionContext context(ctx->exe_ctx_ref);
-    ThreadSP thread_sp = context.GetThreadSP();
-    if (!thread_sp->SetSelectedFrameByIndex(1))
+    Thread *thread_ptr = context.GetThreadPtr();
+    assert(thread_ptr && "Null thread pointer");
+
+    // Find current kernel invocation from .expand frame variables
+    RSCoordinate current_coord{}; // Zero initialise array
+    if (!GetKernelCoordinate(current_coord, thread_ptr))
     {
         if (log)
-            log->Printf("RenderScriptRuntime::KernelBreakpointHit - Error, couldn't go up stack frame");
-
-       return false;
-    }
-
-    StackFrameSP frame_sp = thread_sp->GetSelectedFrame();
-    if (!frame_sp)
-    {
-        if (log)
-            log->Printf("RenderScriptRuntime::KernelBreakpointHit - Error, couldn't select .expand stack frame");
+            log->Printf("%s - Error, couldn't select .expand stack frame", __FUNCTION__);
 
         return false;
     }
 
-    // Get values for variables in .expand frame that tell us the current kernel invocation
-    const char* coord_expressions[] = {"rsIndex", "p->current.y", "p->current.z"};
-    uint64_t current_coord[3] = {0, 0, 0};
-
-    for(int i = 0; i < 3; ++i)
-    {
-        if (!GetFrameVarAsUnsigned(frame_sp, coord_expressions[i], current_coord[i]))
-            return false;
-
-        if (log)
-            log->Printf("RenderScriptRuntime::KernelBreakpointHit, %s = %" PRIu64, coord_expressions[i], current_coord[i]);
-    }
+    if (log)
+        log->Printf("%s - (%" PRIu32 ",%" PRIu32 ",%" PRIu32 ")", __FUNCTION__, current_coord[0], current_coord[1],
+                    current_coord[2]);
 
     // Check if the current kernel invocation coordinate matches our target coordinate
-    if (current_coord[0] == static_cast<uint64_t>(target_coord[0]) &&
-        current_coord[1] == static_cast<uint64_t>(target_coord[1]) &&
-        current_coord[2] == static_cast<uint64_t>(target_coord[2]))
+    if (current_coord[0] == target_coord[0] && current_coord[1] == target_coord[1] &&
+        current_coord[2] == target_coord[2])
     {
         if (log)
-             log->Printf("RenderScriptRuntime::KernelBreakpointHit, BREAKING %" PRIu64 ", %" PRIu64 ", %" PRIu64,
-                         current_coord[0], current_coord[1], current_coord[2]);
+            log->Printf("%s, BREAKING (%" PRIu32 ",%" PRIu32 ",%" PRIu32 ")", __FUNCTION__, current_coord[0],
+                        current_coord[1], current_coord[2]);
 
         BreakpointSP breakpoint_sp = context.GetTargetPtr()->GetBreakpointByID(break_id);
         assert(breakpoint_sp != nullptr && "Error: Couldn't find breakpoint matching break id for callback");
@@ -3021,7 +3229,7 @@ RenderScriptRuntime::PlaceBreakpointOnKernel(Stream &strm, const char* name, con
         strm.EOL();
 
         // Allocate memory for the baton, and copy over coordinate
-        int* baton = new int[3];
+        uint32_t *baton = new uint32_t[coords.size()];
         baton[0] = coords[0]; baton[1] = coords[1]; baton[2] = coords[2];
 
         // Create a callback that will be invoked everytime the breakpoint is hit.
@@ -3029,7 +3237,7 @@ RenderScriptRuntime::PlaceBreakpointOnKernel(Stream &strm, const char* name, con
         bp->SetCallback(KernelBreakpointHit, baton, true);
 
         // Store a shared pointer to the baton, so the memory will eventually be cleaned up after destruction
-        m_conditional_breaks[bp->GetID()] = std::shared_ptr<int>(baton);
+        m_conditional_breaks[bp->GetID()] = std::shared_ptr<uint32_t>(baton);
     }
 
     if (bp)
@@ -3458,6 +3666,42 @@ public:
     }
 };
 
+class CommandObjectRenderScriptRuntimeKernelCoordinate : public CommandObjectParsed
+{
+public:
+    CommandObjectRenderScriptRuntimeKernelCoordinate(CommandInterpreter &interpreter)
+        : CommandObjectParsed(interpreter, "renderscript kernel coordinate",
+                              "Shows the (x,y,z) coordinate of the current kernel invocation.",
+                              "renderscript kernel coordinate",
+                              eCommandRequiresProcess | eCommandProcessMustBeLaunched | eCommandProcessMustBePaused)
+    {
+    }
+
+    ~CommandObjectRenderScriptRuntimeKernelCoordinate() override = default;
+
+    bool
+    DoExecute(Args &command, CommandReturnObject &result) override
+    {
+        RSCoordinate coord{}; // Zero initialize array
+        bool success = RenderScriptRuntime::GetKernelCoordinate(coord, m_exe_ctx.GetThreadPtr());
+        Stream &stream = result.GetOutputStream();
+
+        if (success)
+        {
+            stream.Printf("Coordinate: (%" PRIu32 ", %" PRIu32 ", %" PRIu32 ")", coord[0], coord[1], coord[2]);
+            stream.EOL();
+            result.SetStatus(eReturnStatusSuccessFinishResult);
+        }
+        else
+        {
+            stream.Printf("Error: Coordinate could not be found.");
+            stream.EOL();
+            result.SetStatus(eReturnStatusFailed);
+        }
+        return true;
+    }
+};
+
 class CommandObjectRenderScriptRuntimeKernelBreakpoint : public CommandObjectMultiword
 {
 public:
@@ -3481,6 +3725,7 @@ public:
     {
         LoadSubCommand("list", CommandObjectSP(new CommandObjectRenderScriptRuntimeKernelList(interpreter)));
         LoadSubCommand("breakpoint", CommandObjectSP(new CommandObjectRenderScriptRuntimeKernelBreakpoint(interpreter)));
+        LoadSubCommand("coordinate", CommandObjectSP(new CommandObjectRenderScriptRuntimeKernelCoordinate(interpreter)));
     }
 
     ~CommandObjectRenderScriptRuntimeKernel() override = default;

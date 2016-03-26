@@ -638,6 +638,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     }
     break;
   }
+  case Type::Pipe: {
+    ResultType = CGM.getOpenCLRuntime().getPipeType();
+    break;
+  }
   }
   
   assert(ResultType && "Didn't convert a type?");

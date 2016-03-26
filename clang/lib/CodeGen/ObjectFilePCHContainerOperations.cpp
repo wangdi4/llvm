@@ -75,6 +75,13 @@ class PCHContainerGenerator : public ASTConsumer {
     }
 
     bool VisitTypeDecl(TypeDecl *D) {
+      // TagDecls may be deferred until after all decls have been merged and we
+      // know the complete type. Pure forward declarations will be skipped, but
+      // they don't need to be emitted into the module anyway.
+      if (auto *TD = dyn_cast<TagDecl>(D))
+        if (!TD->isCompleteDefinition())
+          return true;
+
       QualType QualTy = Ctx.getTypeDeclType(D);
       if (!QualTy.isNull() && CanRepresent(QualTy.getTypePtr()))
         DI.getOrCreateStandaloneType(QualTy, D->getLocation());
@@ -179,6 +186,15 @@ public:
     if (Diags.hasErrorOccurred())
       return;
 
+    if (D->isFromASTFile())
+      return;
+
+    // Anonymous tag decls are deferred until we are building their declcontext.
+    if (D->getName().empty())
+      return;
+
+    DebugTypeVisitor DTV(*Builder->getModuleDebugInfo(), *Ctx);
+    DTV.TraverseDecl(D);
     Builder->UpdateCompletedType(D);
   }
 

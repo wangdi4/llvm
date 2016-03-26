@@ -293,6 +293,8 @@ void MemoryAccess::updateDimensionality() {
     Map = isl_map_equate(Map, isl_dim_in, i - DimsMissing, isl_dim_out, i);
 
   AccessRelation = isl_map_apply_range(AccessRelation, Map);
+
+  assumeNoOutOfBound();
 }
 
 const std::string
@@ -492,7 +494,7 @@ MemoryAccess::createBasicAccessMap(ScopStmt *Statement) {
 void MemoryAccess::assumeNoOutOfBound() {
   isl_space *Space = isl_space_range(getOriginalAccessRelationSpace());
   isl_set *Outside = isl_set_empty(isl_space_copy(Space));
-  for (int i = 1, Size = Subscripts.size(); i < Size; ++i) {
+  for (int i = 1, Size = isl_space_dim(Space, isl_dim_set); i < Size; ++i) {
     isl_local_space *LS = isl_local_space_from_space(isl_space_copy(Space));
     isl_pw_aff *Var =
         isl_pw_aff_var_on_domain(isl_local_space_copy(LS), isl_dim_set, i);
@@ -501,10 +503,7 @@ void MemoryAccess::assumeNoOutOfBound() {
     isl_set *DimOutside;
 
     DimOutside = isl_pw_aff_lt_set(isl_pw_aff_copy(Var), Zero);
-    isl_pw_aff *SizeE = Statement->getPwAff(Sizes[i - 1]);
-
-    SizeE = isl_pw_aff_drop_dims(SizeE, isl_dim_in, 0,
-                                 Statement->getNumIterators());
+    isl_pw_aff *SizeE = getScopArrayInfo()->getDimensionSizePw(i);
     SizeE = isl_pw_aff_add_dims(SizeE, isl_dim_in,
                                 isl_space_dim(Space, isl_dim_set));
     SizeE = isl_pw_aff_set_tuple_id(SizeE, isl_dim_in,
@@ -696,7 +695,6 @@ void MemoryAccess::buildAccessRelation(const ScopArrayInfo *SAI) {
   AccessRelation =
       isl_map_set_tuple_id(AccessRelation, isl_dim_out, BaseAddrId);
 
-  assumeNoOutOfBound();
   AccessRelation = isl_map_gist_domain(AccessRelation, Statement->getDomain());
   isl_space_free(Space);
 }
@@ -1230,6 +1228,7 @@ void ScopStmt::deriveAssumptionsFromGEP(GetElementPtrInst *GEP) {
     isl_set *InBoundIfExecuted =
         isl_set_union(isl_set_complement(Executed), InBound);
 
+    InBoundIfExecuted = isl_set_coalesce(InBoundIfExecuted);
     Parent.addAssumption(INBOUNDS, InBoundIfExecuted, GEP->getDebugLoc());
   }
 
@@ -2676,11 +2675,7 @@ void Scop::init(AliasAnalysis &AA, AssumptionCache &AC) {
   for (ScopStmt &Stmt : Stmts)
     Stmt.init();
 
-  DenseMap<Loop *, std::pair<isl_schedule *, unsigned>> LoopSchedules;
-  Loop *L = getLoopSurroundingRegion(R, LI);
-  LoopSchedules[L];
-  buildSchedule(&R, LoopSchedules);
-  Schedule = LoopSchedules[L].first;
+  buildSchedule();
 
   if (isl_set_is_empty(AssumedContext))
     return;
@@ -3411,6 +3406,8 @@ mapToDimension(__isl_take isl_union_set *USet, int N) {
 
   auto Res = isl_union_set_foreach_set(USet, &mapToDimension_AddSet, &Data);
 
+  (void)Res;
+
   assert(Res == isl_stat_ok);
 
   isl_union_set_free(USet);
@@ -3431,79 +3428,72 @@ void Scop::addScopStmt(BasicBlock *BB, Region *R) {
   }
 }
 
+void Scop::buildSchedule() {
+  DenseMap<Loop *, std::pair<isl_schedule *, unsigned>> LoopSchedules;
+  Loop *L = getLoopSurroundingRegion(getRegion(), LI);
+  LoopSchedules[L];
+  buildSchedule(getRegion().getNode(), LoopSchedules);
+  Schedule = LoopSchedules[L].first;
+}
+
 void Scop::buildSchedule(
-    Region *R,
+    RegionNode *RN,
     DenseMap<Loop *, std::pair<isl_schedule *, unsigned>> &LoopSchedules) {
 
-  if (SD.isNonAffineSubRegion(R, &getRegion())) {
-    Loop *L = getLoopSurroundingRegion(*R, LI);
-    auto &LSchedulePair = LoopSchedules[L];
-    ScopStmt *Stmt = getStmtForBasicBlock(R->getEntry());
-    isl_set *Domain = Stmt->getDomain();
-    auto *UDomain = isl_union_set_from_set(Domain);
-    auto *StmtSchedule = isl_schedule_from_domain(UDomain);
-    LSchedulePair.first = StmtSchedule;
-    return;
+  if (RN->isSubRegion()) {
+    auto *LocalRegion = RN->getNodeAs<Region>();
+    if (!SD.isNonAffineSubRegion(LocalRegion, &getRegion())) {
+      ReversePostOrderTraversal<Region *> RTraversal(LocalRegion);
+      for (auto *Child : RTraversal)
+        buildSchedule(Child, LoopSchedules);
+      return;
+    }
   }
 
-  ReversePostOrderTraversal<Region *> RTraversal(R);
-  for (auto *RN : RTraversal) {
+  Loop *L = getRegionNodeLoop(RN, LI);
+  if (!getRegion().contains(L))
+    L = getLoopSurroundingRegion(getRegion(), LI);
 
-    if (RN->isSubRegion()) {
-      Region *SubRegion = RN->getNodeAs<Region>();
-      if (!SD.isNonAffineSubRegion(SubRegion, &getRegion())) {
-        buildSchedule(SubRegion, LoopSchedules);
-        continue;
-      }
+  int LD = getRelativeLoopDepth(L);
+  auto &LSchedulePair = LoopSchedules[L];
+  LSchedulePair.second += getNumBlocksInRegionNode(RN);
+
+  ScopStmt *Stmt = getStmtForRegionNode(RN);
+  if (Stmt) {
+    auto *UDomain = isl_union_set_from_set(Stmt->getDomain());
+    auto *StmtSchedule = isl_schedule_from_domain(UDomain);
+    LSchedulePair.first = combineInSequence(LSchedulePair.first, StmtSchedule);
+  }
+
+  isl_schedule *LSchedule = LSchedulePair.first;
+  unsigned NumVisited = LSchedulePair.second;
+  while (L && NumVisited == L->getNumBlocks()) {
+    auto *PL = L->getParentLoop();
+
+    // Either we have a proper loop and we also build a schedule for the
+    // parent loop or we have a infinite loop that does not have a proper
+    // parent loop. In the former case this conditional will be skipped, in
+    // the latter case however we will break here as we do not build a domain
+    // nor a schedule for a infinite loop.
+    assert(LoopSchedules.count(PL) || LSchedule == nullptr);
+    if (!LoopSchedules.count(PL))
+      break;
+
+    auto &PSchedulePair = LoopSchedules[PL];
+
+    if (LSchedule) {
+      auto *LDomain = isl_schedule_get_domain(LSchedule);
+      auto *MUPA = mapToDimension(LDomain, LD + 1);
+      LSchedule = isl_schedule_insert_partial_schedule(LSchedule, MUPA);
+      PSchedulePair.first = combineInSequence(PSchedulePair.first, LSchedule);
     }
 
-    Loop *L = getRegionNodeLoop(RN, LI);
-    if (!getRegion().contains(L))
-      L = getLoopSurroundingRegion(getRegion(), LI);
+    PSchedulePair.second += NumVisited;
 
-    int LD = getRelativeLoopDepth(L);
-    auto &LSchedulePair = LoopSchedules[L];
-    LSchedulePair.second += getNumBlocksInRegionNode(RN);
-
-    BasicBlock *BB = getRegionNodeBasicBlock(RN);
-    ScopStmt *Stmt = getStmtForBasicBlock(BB);
-    if (Stmt) {
-      auto *UDomain = isl_union_set_from_set(Stmt->getDomain());
-      auto *StmtSchedule = isl_schedule_from_domain(UDomain);
-      LSchedulePair.first =
-          combineInSequence(LSchedulePair.first, StmtSchedule);
-    }
-
-    isl_schedule *LSchedule = LSchedulePair.first;
-    unsigned NumVisited = LSchedulePair.second;
-    while (L && NumVisited == L->getNumBlocks()) {
-      auto *PL = L->getParentLoop();
-
-      // Either we have a proper loop and we also build a schedule for the
-      // parent loop or we have a infinite loop that does not have a proper
-      // parent loop. In the former case this conditional will be skipped, in
-      // the latter case however we will break here as we do not build a domain
-      // nor a schedule for a infinite loop.
-      assert(LoopSchedules.count(PL) || LSchedule == nullptr);
-      if (!LoopSchedules.count(PL))
-        break;
-
-      auto &PSchedulePair = LoopSchedules[PL];
-
-      if (LSchedule) {
-        auto *LDomain = isl_schedule_get_domain(LSchedule);
-        auto *MUPA = mapToDimension(LDomain, LD + 1);
-        LSchedule = isl_schedule_insert_partial_schedule(LSchedule, MUPA);
-        PSchedulePair.first = combineInSequence(PSchedulePair.first, LSchedule);
-      }
-
-      PSchedulePair.second += NumVisited;
-
-      L = PL;
-      LD--;
-      NumVisited = PSchedulePair.second;
-      LSchedule = PSchedulePair.first;
-    }
+    L = PL;
+    LD--;
+    NumVisited = PSchedulePair.second;
+    LSchedule = PSchedulePair.first;
   }
 }
 
