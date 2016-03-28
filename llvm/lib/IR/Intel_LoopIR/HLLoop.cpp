@@ -13,12 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/Debug.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 using namespace llvm;
@@ -91,7 +91,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
 
     auto ZttRefIt = HLLoopObj.ztt_ddref_begin();
 
-    for(auto ZIt = ztt_pred_begin(), EZIt = ztt_pred_end(); ZIt != EZIt; ++ZIt) {
+    for (auto ZIt = ztt_pred_begin(), EZIt = ztt_pred_end(); ZIt != EZIt;
+         ++ZIt) {
       setZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt, true);
       ++ZttRefIt;
       setZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt, false);
@@ -480,8 +481,8 @@ CanonExpr *HLLoop::getLoopCanonExpr(RegDDRef *Ref) {
 }
 
 const CanonExpr *HLLoop::getLoopCanonExpr(const RegDDRef *Ref) const {
-  return const_cast<HLLoop *>(this)
-      ->getLoopCanonExpr(const_cast<RegDDRef *>(Ref));
+  return const_cast<HLLoop *>(this)->getLoopCanonExpr(
+      const_cast<RegDDRef *>(Ref));
 }
 
 CanonExpr *HLLoop::getLowerCanonExpr() {
@@ -668,7 +669,7 @@ void HLLoop::createZtt(bool IsOverwrite) {
 
   assert((!hasZtt() || IsOverwrite) && "Overwriting existing Ztt.");
   // Don't generate Ztt for Const trip loops.
-  RegDDRef *TripRef = getTripCountDDRef();
+  RegDDRef *TripRef = getTripCountDDRef(getNestingLevel());
   assert(TripRef && " Trip Count DDRef is null.");
   if (TripRef->getSingleCanonExpr()->isIntConstant()) {
     DDRefUtils::destroy(TripRef);
@@ -691,6 +692,9 @@ HLIf *HLLoop::extractZtt() {
 
   HLNodeUtils::insertBefore(this, Ztt);
   HLNodeUtils::moveAsFirstChild(Ztt, this, true);
+
+  std::for_each(Ztt->ddref_begin(), Ztt->ddref_end(),
+                [](RegDDRef *Ref) { Ref->updateDefLevel(); });
 
   return Ztt;
 }
@@ -758,7 +762,7 @@ void HLLoop::verify() const {
 
 bool HLLoop::isSIMD() const {
   HLContainerTy::const_iterator Iter(*this);
-  auto First = HLNodeUtils::getFirstLexicalChild(getParent(), this); 
+  auto First = HLNodeUtils::getFirstLexicalChild(getParent(), this);
   HLContainerTy::const_iterator FIter(*First);
 
   while (Iter != FIter) {
@@ -774,7 +778,6 @@ bool HLLoop::isSIMD() const {
     if (I->isSIMDDirective())
       return true;
   }
-  
+
   return false;
 }
-
