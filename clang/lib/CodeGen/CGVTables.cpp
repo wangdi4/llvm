@@ -237,6 +237,11 @@ void CodeGenFunction::StartThunk(llvm::Function *Fn, GlobalDecl GD,
   StartFunction(GlobalDecl(), ResultType, Fn, FnInfo, FunctionArgs,
                 MD->getLocation(), MD->getLocation());
 
+#if INTEL_CUSTOMIZATION
+  if (CGDebugInfo *DI = CGM.getModuleDebugInfo())
+    DI->setIsThunk(Fn);
+#endif // INTEL_CUSTOMIZATION
+
   // Since we didn't pass a GlobalDecl to StartFunction, do this ourselves.
   CGM.getCXXABI().EmitInstanceFunctionProlog(*this);
   CXXThisValue = CXXABIThisValue;
@@ -378,8 +383,8 @@ void CodeGenFunction::EmitMustTailThunk(const CXXMethodDecl *MD,
   // Apply the standard set of call attributes.
   unsigned CallingConv;
   CodeGen::AttributeListType AttributeList;
-  CGM.ConstructAttributeList(*CurFnInfo, MD, AttributeList, CallingConv,
-                             /*AttrOnCallSite=*/true);
+  CGM.ConstructAttributeList(Callee->getName(), *CurFnInfo, MD, AttributeList,
+                             CallingConv, /*AttrOnCallSite=*/true);
   llvm::AttributeSet Attrs =
       llvm::AttributeSet::get(getLLVMContext(), AttributeList);
   Call->setAttributes(Attrs);

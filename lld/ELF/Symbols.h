@@ -44,6 +44,11 @@ template <class ELFT> class SharedFile;
 // Called at the beginning of main().
 void initSymbols();
 
+// Returns a demangled C++ symbol name. If Name is not a mangled
+// name or the system does not provide __cxa_demangle function,
+// it returns the unmodified string.
+std::string demangle(StringRef Name);
+
 // A real symbol object, SymbolBody, is usually accessed indirectly
 // through a Symbol. There's always one Symbol for each symbol name.
 // The resolver updates SymbolBody pointers as it resolves symbols.
@@ -105,6 +110,7 @@ public:
   // you can access P->Backref->Body to get the resolver's result.
   void setBackref(Symbol *P) { Backref = P; }
   SymbolBody *repl() { return Backref ? Backref->Body : this; }
+  Symbol *getSymbol() { return Backref; }
 
   // Decides which symbol should "win" in the symbol table, this or
   // the Other. Returns 1 if this wins, -1 if the Other wins, or 0 if
@@ -298,9 +304,9 @@ private:
 template <class ELFT> struct ElfSym {
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym Elf_Sym;
 
-  // Used to represent an undefined symbol which we don't want
-  // to add to the output file's symbol table.
-  static Elf_Sym IgnoreUndef;
+  // Used to represent an undefined symbol which we don't want to add to the
+  // output file's symbol table. It has weak binding and can be substituted.
+  static Elf_Sym Ignored;
 
   // The content for _end and end symbols.
   static Elf_Sym End;
@@ -314,7 +320,7 @@ template <class ELFT> struct ElfSym {
   static Elf_Sym RelaIpltEnd;
 };
 
-template <class ELFT> typename ElfSym<ELFT>::Elf_Sym ElfSym<ELFT>::IgnoreUndef;
+template <class ELFT> typename ElfSym<ELFT>::Elf_Sym ElfSym<ELFT>::Ignored;
 template <class ELFT> typename ElfSym<ELFT>::Elf_Sym ElfSym<ELFT>::End;
 template <class ELFT> typename ElfSym<ELFT>::Elf_Sym ElfSym<ELFT>::MipsGp;
 template <class ELFT>

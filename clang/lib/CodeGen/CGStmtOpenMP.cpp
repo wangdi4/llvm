@@ -1786,7 +1786,11 @@ CodeGenFunction::EmitSections(const OMPExecutableDirective &S) {
     CGF.EmitOMPPrivateClause(S, SingleScope);
     (void)SingleScope.Privatize();
 
+    auto Exit = CGF.getJumpDestInCurrentScope("omp.sections.exit");
+    CGF.BreakContinueStack.push_back(BreakContinue(Exit, Exit));
     CGF.EmitStmt(Stmt);
+    CGF.EmitBlock(Exit.getBlock());
+    CGF.BreakContinueStack.pop_back();
   };
   CGM.getOpenMPRuntime().emitSingleRegion(*this, CodeGen, S.getLocStart(),
                                           llvm::None, llvm::None, llvm::None,
@@ -2163,17 +2167,17 @@ static void emitSimpleAtomicStore(CodeGenFunction &CGF, bool IsSeqCst,
   }
 }
 
-static void emitSimpleStore(CodeGenFunction &CGF, LValue LVal, RValue RVal,
-                            QualType RValTy, SourceLocation Loc) {
-  switch (CGF.getEvaluationKind(LVal.getType())) {
+void CodeGenFunction::emitOMPSimpleStore(LValue LVal, RValue RVal,
+                                         QualType RValTy, SourceLocation Loc) {
+  switch (getEvaluationKind(LVal.getType())) {
   case TEK_Scalar:
-    CGF.EmitStoreThroughLValue(RValue::get(convertToScalarValue(
-                                   CGF, RVal, RValTy, LVal.getType(), Loc)),
-                               LVal);
+    EmitStoreThroughLValue(RValue::get(convertToScalarValue(
+                               *this, RVal, RValTy, LVal.getType(), Loc)),
+                           LVal);
     break;
   case TEK_Complex:
-    CGF.EmitStoreOfComplex(
-        convertToComplexValue(CGF, RVal, RValTy, LVal.getType(), Loc), LVal,
+    EmitStoreOfComplex(
+        convertToComplexValue(*this, RVal, RValTy, LVal.getType(), Loc), LVal,
         /*isInit=*/false);
     break;
   case TEK_Aggregate:
@@ -2201,7 +2205,7 @@ static void EmitOMPAtomicReadExpr(CodeGenFunction &CGF, bool IsSeqCst,
   // list.
   if (IsSeqCst)
     CGF.CGM.getOpenMPRuntime().emitFlush(CGF, llvm::None, Loc);
-  emitSimpleStore(CGF, VLValue, Res, X->getType().getNonReferenceType(), Loc);
+  CGF.emitOMPSimpleStore(VLValue, Res, X->getType().getNonReferenceType(), Loc);
 }
 
 static void EmitOMPAtomicWriteExpr(CodeGenFunction &CGF, bool IsSeqCst,
@@ -2459,7 +2463,7 @@ static void EmitOMPAtomicCaptureExpr(CodeGenFunction &CGF, bool IsSeqCst,
     }
   }
   // Emit post-update store to 'v' of old/new 'x' value.
-  emitSimpleStore(CGF, VLValue, NewVVal, NewVValType, Loc);
+  CGF.emitOMPSimpleStore(VLValue, NewVVal, NewVValType, Loc);
   // OpenMP, 2.12.6, atomic Construct
   // Any atomic construct with a seq_cst clause forces the atomically
   // performed operation to include an implicit flush operation without a
@@ -2525,6 +2529,7 @@ static void EmitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_nogroup:
   case OMPC_num_tasks:
   case OMPC_hint:
+  case OMPC_dist_schedule:
     llvm_unreachable("Clause is not allowed in 'omp atomic'.");
   }
 }
@@ -2571,14 +2576,8 @@ void CodeGenFunction::EmitOMPTargetDirective(const OMPTargetDirective &S) {
   llvm::SmallVector<llvm::Value *, 16> CapturedVars;
   GenerateOpenMPCapturedVars(CS, CapturedVars);
 
-  // Emit target region as a standalone region.
-  auto &&CodeGen = [&CS](CodeGenFunction &CGF) {
-    CGF.EmitStmt(CS.getCapturedStmt());
-  };
-
-  // Obtain the target region outlined function.
-  llvm::Value *Fn =
-      CGM.getOpenMPRuntime().emitTargetOutlinedFunction(S, CodeGen);
+  llvm::Function *Fn = nullptr;
+  llvm::Constant *FnID = nullptr;
 
   // Check if we have any if clause associated with the directive.
   const Expr *IfCond = nullptr;
@@ -2593,7 +2592,34 @@ void CodeGenFunction::EmitOMPTargetDirective(const OMPTargetDirective &S) {
     Device = C->getDevice();
   }
 
-  CGM.getOpenMPRuntime().emitTargetCall(*this, S, Fn, IfCond, Device,
+  // Check if we have an if clause whose conditional always evaluates to false
+  // or if we do not have any targets specified. If so the target region is not
+  // an offload entry point.
+  bool IsOffloadEntry = true;
+  if (IfCond) {
+    bool Val;
+    if (ConstantFoldsToSimpleInteger(IfCond, Val) && !Val)
+      IsOffloadEntry = false;
+  }
+  if (CGM.getLangOpts().OMPTargetTriples.empty())
+    IsOffloadEntry = false;
+
+  assert(CurFuncDecl && "No parent declaration for target region!");
+  StringRef ParentName;
+  // In case we have Ctors/Dtors we use the complete type variant to produce
+  // the mangling of the device outlined kernel.
+  if (auto *D = dyn_cast<CXXConstructorDecl>(CurFuncDecl))
+    ParentName = CGM.getMangledName(GlobalDecl(D, Ctor_Complete));
+  else if (auto *D = dyn_cast<CXXDestructorDecl>(CurFuncDecl))
+    ParentName = CGM.getMangledName(GlobalDecl(D, Dtor_Complete));
+  else
+    ParentName =
+        CGM.getMangledName(GlobalDecl(cast<FunctionDecl>(CurFuncDecl)));
+
+  CGM.getOpenMPRuntime().emitTargetOutlinedFunction(S, ParentName, Fn, FnID,
+                                                    IsOffloadEntry);
+
+  CGM.getOpenMPRuntime().emitTargetCall(*this, S, Fn, FnID, IfCond, Device,
                                         CapturedVars);
 }
 
@@ -2625,7 +2651,8 @@ CodeGenFunction::getOMPCancelDestination(OpenMPDirectiveKind Kind) {
   if (Kind == OMPD_parallel || Kind == OMPD_task)
     return ReturnBlock;
   assert(Kind == OMPD_for || Kind == OMPD_section || Kind == OMPD_sections ||
-         Kind == OMPD_parallel_sections || Kind == OMPD_parallel_for);
+         Kind == OMPD_parallel_sections || Kind == OMPD_parallel_for ||
+         Kind == OMPD_single);
   return BreakContinueStack.back().BreakBlock;
 }
 
@@ -2637,6 +2664,16 @@ void CodeGenFunction::EmitOMPTargetDataDirective(
   CGM.getOpenMPRuntime().emitInlinedDirective(
       *this, OMPD_target_data,
       [&CS](CodeGenFunction &CGF) { CGF.EmitStmt(CS->getCapturedStmt()); });
+}
+
+void CodeGenFunction::EmitOMPTargetEnterDataDirective(
+    const OMPTargetEnterDataDirective &S) {
+  // TODO: codegen for target enter data.
+}
+
+void CodeGenFunction::EmitOMPTargetExitDataDirective(
+    const OMPTargetExitDataDirective &S) {
+  // TODO: codegen for target exit data.
 }
 
 void CodeGenFunction::EmitOMPTaskLoopDirective(const OMPTaskLoopDirective &S) {
