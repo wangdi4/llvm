@@ -579,6 +579,8 @@ void FunctionSpecializer::addNewToRegion(BasicBlock* old, BasicBlock* fresh) {
 BasicBlock* FunctionSpecializer::createIntermediateBlock(
   BasicBlock* before, BasicBlock* after, const std::string& name) {
 
+  V_ASSERT(before && after);
+
   // new block
   BasicBlock* new_block = BasicBlock::Create(before->getContext(), name, after->getParent(), after);
   // fix before

@@ -1032,6 +1032,8 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
     // One and only one single instance of OclBuiltins is defined.
     assert(Rs.size() < 2 && "More than 1 Generic are defined!");
 
+    assert(Rec && "Rec is nullptr");
+
     // Target
     m_Target = Rec->getValueAsString("Target");
 

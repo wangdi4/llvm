@@ -71,6 +71,7 @@ namespace intel {
       if (ptr_it != m_GASEstimate.end()) {
         // Check whether we have to induce bitcast to GAS pointer
         if (IS_ADDR_SPACE_GENERIC(ptr_it->second)) {
+          assert(pNewInstr && "pNewInstr is nullptr");
           const PointerType *pSrcType = cast<PointerType>(pNewInstr->getType());
           // Induce conversion from named type to generic one
           CastInst *pInducedBitcast = CastInst::CreatePointerCast(pNewInstr,

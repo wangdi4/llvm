@@ -614,6 +614,7 @@ private:
         for(meta_iterator i(m_pNode,0), e(m_pNode); i != e; ++i )
         {
             llvm::MDNode *node = i.get();
+            assert(node && "MetaDataMap node is null!");
             assert(node->getNumOperands() == 2 && "MetaDataMap node assumed to have exactly two operands");
             key_type key = KeyTraits::load(node->getOperand(0));
             item_type val = ValTraits::load(node->getOperand(1));

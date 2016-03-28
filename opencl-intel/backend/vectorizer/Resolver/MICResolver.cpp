@@ -198,6 +198,7 @@ Instruction* MICResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Va
   const bool isMasked = !(isUniformMask && isa<Constant>(Mask) && cast<Constant>(Mask)->isAllOnesValue());
 
   // Get Gather/Scatter function name
+  V_ASSERT(dataTy && "dataTy is nullptr");
   std::string name = Mangler::getGatherScatterName(isMasked, type, dataTy);
 
   if(isMasked && isUniformMask) {

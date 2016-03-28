@@ -509,6 +509,7 @@ void Predicator::linearizeFunction(Function* F,
 Value* Predicator::getPhiCond(PHINode* phi, bool& switchValuesOrder) {
   BasicBlock* BB = phi->getParent();
   DomTreeNode* node = m_DT->getNode(BB);
+  V_ASSERT(node && "DomTreeNode is nullptr");
   DomTreeNode* idom = node->getIDom();
   if (!idom) {
     V_ASSERT(false && "cannot find immediate dominator");
@@ -1235,6 +1236,8 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
 
   L = LI->getLoopFor(BB);
 
+  V_ASSERT(L && "Loop L is nullptr");
+
   // If there is more than on exit block or
   // the branch is not uniform or
   // the branch is nested
@@ -1502,6 +1505,7 @@ void Predicator::collectUCFRegions(Function* F, LoopInfo * LI,
       if(!br || br->isUnconditional() || m_WIA->whichDepend(br) != WIAnalysis::UNIFORM) continue;
 
       DomTreeNode * postDomNode = PDT->getNode(entryBB);
+      V_ASSERT(postDomNode && "postDomNode is nullptr");
       DomTreeNode * iPostDom = postDomNode->getIDom();
       // Skip infinite loops and return BBs
       if(!iPostDom) continue;
@@ -2186,6 +2190,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
     for (BasicBlock::iterator ii = ucfOrigBB->begin(), ei = ucfOrigBB->end(); ii != ei; ++ii) {
       for(Value::user_iterator useIt = ii->user_begin(); useIt != ii->user_end(); ++useIt) {
         Instruction * userInst = dyn_cast<Instruction>(*useIt);
+        V_ASSERT(userInst && "userInst is not an Instruction");
         BasicBlock * userBB = userInst->getParent();
         if(userInst &&
            (userBB == allOnesEndBB  || userBB == allOnesBeginBB || getUCFEntry(userBB) != ucfEntryBB)) {

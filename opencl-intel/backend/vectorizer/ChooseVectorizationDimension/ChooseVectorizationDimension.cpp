@@ -246,7 +246,7 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
     return true;
   }
 
-  WIAnalysis* wi[MAX_WORK_DIM]; // WI for each dimension.
+  WIAnalysis* wi[MAX_WORK_DIM] = {nullptr}; // WI for each dimension.
   bool dimExist[MAX_WORK_DIM];  // whether the dimension exists.
   bool dimValid[MAX_WORK_DIM]; // whether the dimension is a valid possibility.
   int goodLoadStores[MAX_WORK_DIM]; // will be used to store number of good store/load per dimension.

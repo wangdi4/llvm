@@ -585,7 +585,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
         uint64_t int_val;
         double float_val;
         char charbuf[2] LLVM_BACKEND_UNUSED = {0};
-        void* voidptr;
+        void* voidptr = nullptr;
 
         // Parse the conversion specifier and perform the actual conversion.
         // Note that some of the conversions manually manipulate the "args"

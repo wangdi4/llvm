@@ -197,6 +197,7 @@ namespace intel {
     for (inst_iterator it = inst_begin(F), e = inst_end(F); it != e; ++it) {
       if(CallInst * pCall = dyn_cast<CallInst>(&*it)) {
         Function * pFunc = pCall->getCalledFunction();
+        assert(pFunc && "pFunc is nullptr!");
         // Replace calls to __ocl_allOne, __ocl_allZero functions
         // TODO: By now the Mangler utility is false positive w\ the following kind of names:
         //       "anything__ocl_allOne". Use it once it is fixed.
@@ -222,6 +223,7 @@ namespace intel {
 
       // Make a new call
       // Obtain a new function
+      assert(pOldFunc && "pOldFunc is nullptr");
       std::string i32Name = Twine(pOldFunc->getName() + "_i32").str();
       Function * pNewFunc = pOldFunc->getParent()->getFunction(i32Name);
       if(!pNewFunc) {

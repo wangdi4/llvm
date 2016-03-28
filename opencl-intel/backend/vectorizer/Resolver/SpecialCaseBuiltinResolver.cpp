@@ -175,6 +175,7 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
         LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes());
     resolvedFunc = dyn_cast<Function>(resolvedFunctionConst);
   }
+  V_ASSERT(resolvedFunc && "resolvedFunc is nullptr");
   const FunctionType *resolvedFuncType = resolvedFunc->getFunctionType();
 
   // creating ret in the just to be used as insrtion point for argumnet casting

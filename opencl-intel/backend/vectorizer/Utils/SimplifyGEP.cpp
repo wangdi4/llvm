@@ -67,9 +67,8 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     std::vector< std::pair<PHINode *, unsigned int> > worklist;
 
     // Iterate over all instructions and search PhiNode instructions
-    for(Function::iterator bi = F.begin(), be = F.end(); bi != be; ++bi) {
-      BasicBlock *pBB = dyn_cast<BasicBlock>(bi);
-      for (BasicBlock::iterator ii = pBB->begin(), ie = pBB->getFirstNonPHI(); ii != ie; ++ii) {
+    for(auto &BB : F) {
+      for (BasicBlock::iterator ii = BB.begin(), ie = BB.getFirstNonPHI(); ii != ie; ++ii) {
         // searching only PhiNode instruction (inside loops) with GEP entries.
         PHINode *pPhiNode = dyn_cast<PHINode>(&*ii);
         V_ASSERT(pPhiNode && "Reached non PHINode, should exit the for before this happens!");

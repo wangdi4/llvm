@@ -194,6 +194,9 @@ CompilerBuildOptions::CompilerBuildOptions( llvm::Module* pModule):
     {
         MDString* flagName = dyn_cast<MDString>(flag->getOperand(i));
 
+        assert(flagName &&
+            "opencl.compiler.options is expected to have a node inside!");
+
         if(flagName->getString() == "-g")
             m_debugInfo = true;
         if(flagName->getString() == "-profiling")

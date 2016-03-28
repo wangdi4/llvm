@@ -1131,7 +1131,7 @@ void WIAnalysis::print(raw_ostream &OS, const Module *M) const {
     if (fi->isDeclaration()) continue;
     OS << fi->getName().str() << ":\n";
     for ( const_inst_iterator it = inst_begin(fi), e = inst_end(fi); it != e; ++it ) {
-      const Instruction* pInst = dyn_cast<Instruction>(&*it);
+      const Instruction* pInst = &*it;
       //void type instructions has no value (i.e. no name) don't print them!
       if ( pInst->getType()->isVoidTy() ) continue;
       DenseMap<const Value*, WIDependancy>::const_iterator itDep = m_deps.find(pInst);

@@ -27,10 +27,10 @@ File Name:  CPUJITContainer.cpp
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 CPUJITContainer::CPUJITContainer():
-    m_pFuncCode(NULL),
-    m_pFunction(NULL),
-    m_pModule(NULL),
-    m_pProps(NULL) 
+    m_pFuncCode(nullptr),
+    m_pFunction(nullptr),
+    m_pModule(nullptr),
+    m_pProps(nullptr)
 {}
 
 CPUJITContainer::CPUJITContainer(const void* pFuncCode,
@@ -52,14 +52,14 @@ void CPUJITContainer::Serialize(IOutputStream& ost, SerializationStatus* stats) 
 {
     Serializer::SerialPointerHint((const void**)&m_pFuncCode, ost);
     Serializer::SerialPointerHint((const void**)&m_pFunction, ost);
-    if(NULL != m_pFunction)
+    if(m_pFunction)
     {
         std::string name = m_pFunction->getName();
         Serializer::SerialString(name, ost);
     }
     Serializer::SerialPointerHint((const void**)&m_pModule, ost);
     Serializer::SerialPointerHint((const void**)&m_pProps, ost);
-    if(NULL != m_pProps)
+    if(m_pProps)
     {
         m_pProps->Serialize(ost, stats);
     }
@@ -70,29 +70,29 @@ void CPUJITContainer::Deserialize(IInputStream& ist, SerializationStatus* stats)
     std::string name;
     Serializer::DeserialPointerHint((void**)&m_pFuncCode, ist);
     Serializer::DeserialPointerHint((void**)&m_pFunction, ist);
-    if(NULL != m_pFunction)
+    if(m_pFunction)
     {
         Serializer::DeserialString(name, ist);
     }
     Serializer::DeserialPointerHint((void**)&m_pModule, ist);
     Serializer::DeserialPointerHint((void**)&m_pProps, ist);
-    if(NULL != m_pProps)
+    if(m_pProps)
     {
         m_pProps = stats->GetBackendFactory()->CreateKernelJITProperties();
         m_pProps->Deserialize(ist, stats);
     }
     
-    if(NULL != m_pModule)
+    if(m_pModule)
     {
         m_pModule = (llvm::Module*)stats->GetPointerMark("pModule");
-        if(NULL != m_pModule && NULL != m_pFunction)
+        if(m_pModule && m_pFunction)
         {
             m_pFunction = m_pModule->getFunction(name.c_str());
         }
     }
     
     CPUProgram* pProgram = (CPUProgram*)stats->GetPointerMark("pProgram");
-    if(NULL != pProgram && NULL != m_pFuncCode)
+    if(pProgram && m_pFuncCode && m_pFunction)
     {
         m_pFuncCode = reinterpret_cast<const void*>(
             pProgram->GetExecutionEngine()->getFunctionAddress(m_pFunction->getName().str()));
@@ -100,4 +100,3 @@ void CPUJITContainer::Deserialize(IInputStream& ist, SerializationStatus* stats)
 }
 
 }}} // namespace
-

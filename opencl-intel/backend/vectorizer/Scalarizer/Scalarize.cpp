@@ -555,7 +555,7 @@ void ScalarizeFunction::scalarizeInstruction(ExtractElementInst *EI)
   if(!isa<ConstantInt>(scalarIndexVal)) return recoverNonScalarizableInst(EI);
 
   // Obtain the scalarized operands
-  Value *operand[MAX_INPUT_VECTOR_WIDTH];
+  Value *operand[MAX_INPUT_VECTOR_WIDTH] = {nullptr};
   obtainScalarizedValues(operand, NULL, vectorValue, EI);
 
   // Connect the "extracted" value to all its consumers
@@ -1139,6 +1139,7 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
 
   bool isSoaAlloca = m_soaAllocaAnalysis->isSoaAllocaVectorRelated(origValue);
 
+  V_ASSERT(origValue && "origValue is nullptr");
   VectorType *origType = dyn_cast<VectorType>(origValue->getType());
   V_ASSERT((origType || isSoaAlloca) && "All non SoaAlloca derived values must have a vector type!");
   unsigned width = isSoaAlloca ?

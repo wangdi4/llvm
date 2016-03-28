@@ -82,6 +82,7 @@ namespace intel{
       m_fixupCalls.erase(m_fixupCalls.begin());
 
       Function *pCallee = pCall->getCalledFunction();
+      assert(pCallee && "Indirect function call is not expected!");
 
       // Create new call instruction with extended parameters
       SmallVector<Value*, 16> params;
