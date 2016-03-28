@@ -21,10 +21,12 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/LoopInfo.h" // INTEL 
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Dominators.h" // INTEL 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/InstVisitor.h"
@@ -49,6 +51,36 @@ extern bool llvm::IsNotInlinedReason(InlineReason Reason) {
   return Reason > NinlrFirst && Reason < NinlrLast;
 }
 #endif // INTEL_CUSTOMIZATION
+
+// Threshold to use when optsize is specified (and there is no -inline-limit).
+#if INTEL_CUSTOMIZATION
+// CQ370998: Reduce the threshold from 75 to 15 to reduce code size.
+   static cl::opt<int>
+OptSizeThreshold("inlineoptsize-threshold", cl::Hidden, cl::init(15),
+              cl::desc("Threshold for inlining functions with -Os"));
+#endif // INTEL_CUSTOMIZATION
+
+// Threshold to use when -Oz is specified (and there is no -inline-threshold).
+const int OptMinSizeThreshold = 25;
+
+// Threshold to use when -O[34] is specified (and there is no
+// -inline-threshold).
+const int OptAggressiveThreshold = 275;
+
+static cl::opt<int> DefaultInlineThreshold(
+    "inline-threshold", cl::Hidden, cl::init(225), cl::ZeroOrMore,
+    cl::desc("Control the amount of inlining to perform (default = 225)"));
+
+static cl::opt<int> HintThreshold(
+    "inlinehint-threshold", cl::Hidden, cl::init(325),
+    cl::desc("Threshold for inlining functions with inline hint"));
+
+// We introduce this threshold to help performance of instrumentation based
+// PGO before we actually hook up inliner with analysis passes such as BPI and
+// BFI.
+static cl::opt<int> ColdThreshold(
+    "inlinecold-threshold", cl::Hidden, cl::init(225),
+    cl::desc("Threshold for inlining functions with cold attribute"));
 
 namespace {
 
@@ -132,6 +164,12 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   /// Return true if the given value is known non null within the callee if
   /// inlined through this particular callsite.
   bool isKnownNonNullInCallee(Value *V);
+
+  /// Update Threshold based on callsite properties such as callee
+  /// attributes and callee hotness for PGO builds. The Callee is explicitly
+  /// passed to support analyzing indirect calls whose target is inferred by
+  /// analysis.
+  void updateThreshold(CallSite CS, Function &Callee);
 
   // Custom analysis routines.
   bool analyzeBlock(BasicBlock *BB, SmallPtrSetImpl<const Value *> &EphValues);
@@ -512,8 +550,7 @@ bool CallAnalyzer::visitUnaryInstruction(UnaryInstruction &I) {
     COp = SimplifiedValues.lookup(Operand);
   if (COp) {
     const DataLayout &DL = F.getParent()->getDataLayout();
-    if (Constant *C = ConstantFoldInstOperands(I.getOpcode(), I.getType(),
-                                               COp, DL)) {
+    if (Constant *C = ConstantFoldInstOperands(&I, COp, DL)) {
       SimplifiedValues[&I] = C;
       return true;
     }
@@ -550,6 +587,56 @@ bool CallAnalyzer::isKnownNonNullInCallee(Value *V) {
     return true;
   
   return false;
+}
+
+void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee) {
+  // If -inline-threshold is not given, listen to the optsize attribute when it
+  // would decrease the threshold.
+  Function *Caller = CS.getCaller();
+
+  // FIXME: Use Function::optForSize()
+  bool OptSize = Caller->hasFnAttribute(Attribute::OptimizeForSize);
+
+  if (!(DefaultInlineThreshold.getNumOccurrences() > 0) && OptSize &&
+      OptSizeThreshold < Threshold)
+    Threshold = OptSizeThreshold;
+
+  // If profile information is available, use that to adjust threshold of hot
+  // and cold functions.
+  // FIXME: The heuristic used below for determining hotness and coldness are
+  // based on preliminary SPEC tuning and may not be optimal. Replace this with
+  // a well-tuned heuristic based on *callsite* hotness and not callee hotness.
+  uint64_t FunctionCount = 0, MaxFunctionCount = 0;
+  bool HasPGOCounts = false;
+  if (Callee.getEntryCount() && Callee.getParent()->getMaximumFunctionCount()) {
+    HasPGOCounts = true;
+    FunctionCount = Callee.getEntryCount().getValue();
+    MaxFunctionCount = Callee.getParent()->getMaximumFunctionCount().getValue();
+  }
+
+  // Listen to the inlinehint attribute or profile based hotness information
+  // when it would increase the threshold and the caller does not need to
+  // minimize its size.
+  bool InlineHint =
+      Callee.hasFnAttribute(Attribute::InlineHint) ||
+      (HasPGOCounts &&
+       FunctionCount >= (uint64_t)(0.3 * (double)MaxFunctionCount));
+  if (InlineHint && HintThreshold > Threshold && !Caller->optForMinSize())
+    Threshold = HintThreshold;
+
+  // Listen to the cold attribute or profile based coldness information
+  // when it would decrease the threshold.
+  bool ColdCallee =
+      Callee.hasFnAttribute(Attribute::Cold) ||
+      (HasPGOCounts &&
+       FunctionCount <= (uint64_t)(0.01 * (double)MaxFunctionCount));
+  // Command line argument for DefaultInlineThreshold will override the default
+  // ColdThreshold. If we have -inline-threshold but no -inlinecold-threshold,
+  // do not use the default cold threshold even if it is smaller.
+  if ((DefaultInlineThreshold.getNumOccurrences() == 0 ||
+       ColdThreshold.getNumOccurrences() > 0) &&
+      ColdCallee && ColdThreshold < Threshold)
+    Threshold = ColdThreshold;
 }
 
 bool CallAnalyzer::visitCmpInst(CmpInst &I) {
@@ -1143,6 +1230,56 @@ static bool forgivableCondition(TerminatorInst* TI) {
   countGlobalsAndConstants(RHS, GlobalCount, ConstantCount);
   return ConstantCount == 1 && GlobalCount == 1; 
 } 
+
+//
+// Return 'true' if this is a double callsite worth inlining. The criteria
+// are: 
+//  (1) Must have exactly two calls to the function in the caller 
+//  (2) The callee must have a single outer loop 
+//  (3) That loop's basic blocks must have a relatively large successor count
+//
+static bool worthyDoubleCallSite(CallSite &CS) {
+   Function *Caller = CS.getCaller(); 
+   Function *Callee = CS.getCalledFunction(); 
+   // Look for 2 calls of the callee in the caller. 
+   unsigned count = 0; 
+   for (Use &U : Callee->uses()) { 
+      if (auto CS = ImmutableCallSite(U.getUser())) { 
+        if (CS.getCaller() == Caller) { 
+          if (++count > 2) { 
+            return false; 
+          } 
+        } 
+      } 
+   }   
+   if (count != 2) { 
+      return false; 
+   } 
+   // Look for a single top level loop in the callee.
+   DominatorTree DT = DominatorTree(*Callee);
+   LoopInfo LI = LoopInfo(DT); 
+   count = 0; 
+   const Loop *L = nullptr; 
+   for (auto LB = LI.begin(), LE = LI.end(); LB != LE; ++LB) { 
+      L = *LB; 
+      if (++count > 1) { 
+        return false; 
+      } 
+   }
+   if (L == nullptr) { 
+     return false; 
+   } 
+   // Look through the loop for a high relative successor count. 
+   unsigned BBCount = std::distance(L->block_begin(), L->block_end()); 
+   // Each loop must have at least one basic block.
+   assert(BBCount > 0); 
+   unsigned SuccCount = 0; 
+   for (auto BB : L->blocks()) { 
+     SuccCount += std::distance(succ_begin(BB), succ_end(BB)); 
+   } 
+   return (100 * SuccCount / BBCount) > InlineConstants::BasicBlockSuccRatio;
+} 
+
 #endif // INTEL_CUSTOMIZATION
 
 /// \brief Analyze a call site for potential inlining.
@@ -1176,6 +1313,10 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   // nice to base the bonus values on something more scientific.
   assert(NumInstructions == 0);
   assert(NumVectorInstructions == 0);
+
+  // Update the threshold based on callsite properties
+  updateThreshold(CS, F);
+
   FiftyPercentVectorBonus = 3 * Threshold / 2;
   TenPercentVectorBonus = 3 * Threshold / 4;
   const DataLayout &DL = F.getParent()->getDataLayout();
@@ -1236,6 +1377,18 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     Cost += InlineConstants::LastCallToStaticBonus;
     YesReasonVector.push_back(InlrSingleLocalCall); // INTEL 
   } // INTEL 
+
+#if INTEL_CUSTOMIZATION
+  // If there are two calls of the function, and it has internal linkage,
+  // the cost of inlining it drops less dramatically.
+  bool TwoCallsAndLocalLinkage
+    = (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) &&
+    (&F == CS.getCalledFunction()) && worthyDoubleCallSite(CS);
+  if (TwoCallsAndLocalLinkage) {
+    Cost += InlineConstants::SecondToLastCallToStaticBonus;
+    YesReasonVector.push_back(InlrDoubleLocalCall);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If the instruction after the call, or if the normal destination of the
   // invoke is an unreachable instruction, the function is noreturn. As such,
@@ -1511,15 +1664,41 @@ static bool functionsHaveCompatibleAttributes(Function *Caller,
          AttributeFuncs::areInlineCompatible(*Caller, *Callee);
 }
 
-InlineCost llvm::getInlineCost(CallSite CS, int Threshold,
+InlineCost llvm::getInlineCost(CallSite CS, int DefaultThreshold,
                                TargetTransformInfo &CalleeTTI,
                                AssumptionCacheTracker *ACT) {
-  return getInlineCost(CS, CS.getCalledFunction(), Threshold, CalleeTTI, ACT);
+  return getInlineCost(CS, CS.getCalledFunction(), DefaultThreshold, CalleeTTI,
+                       ACT);
 }
 
-InlineCost llvm::getInlineCost(CallSite CS, Function *Callee, int Threshold,
+int llvm::computeThresholdFromOptLevels(unsigned OptLevel,
+                                        unsigned SizeOptLevel) {
+  if (OptLevel > 2)
+    return OptAggressiveThreshold;
+  if (SizeOptLevel == 1) // -Os
+    return OptSizeThreshold;
+  if (SizeOptLevel == 2) // -Oz
+    return OptMinSizeThreshold;
+  return DefaultInlineThreshold;
+}
+
+int llvm::getDefaultInlineThreshold() { return DefaultInlineThreshold; }
+
+#if INTEL_CUSTOMIZATION 
+
+int llvm::getHintThreshold() { return HintThreshold; } 
+
+int llvm::getOptSizeThreshold() { return OptSizeThreshold; }
+
+int llvm::getColdThreshold() { return ColdThreshold; }
+
+#endif // INTEL_CUSTOMIZATION
+
+InlineCost llvm::getInlineCost(CallSite CS, Function *Callee,
+                               int DefaultThreshold,
                                TargetTransformInfo &CalleeTTI,
                                AssumptionCacheTracker *ACT) {
+
   // Cannot inline indirect calls.
   if (!Callee)
     return llvm::InlineCost::getNever(NinlrIndirect); // INTEL 
@@ -1567,7 +1746,7 @@ InlineCost llvm::getInlineCost(CallSite CS, Function *Callee, int Threshold,
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
         << "...\n");
 
-  CallAnalyzer CA(CalleeTTI, ACT, *Callee, Threshold, CS);
+  CallAnalyzer CA(CalleeTTI, ACT, *Callee, DefaultThreshold, CS);
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   bool ShouldInline = CA.analyzeCall(CS, &Reason);

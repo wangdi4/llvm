@@ -1,0 +1,85 @@
+digraph examples {
+
+  esep=0.1
+  node [shape=box]
+
+  subgraph cluster_ex1 {
+    label="(I)\n&delta; &rarr; &alpha; &rarr; &beta; &rarr; &gamma;"
+    color=black
+    ex1_entry  [label="ENTRY"; rank=source]
+    ex1_exit   [label="EXIT"; rank=sink]
+    subgraph cluster_ex1_ir {
+      label=""
+      color=red
+      ex1_header [label=""]
+      ex1_def    [label="x = ..."]
+      ex1_latch  [label=""; color="red3"]
+    }
+    ex1_use    [label="... = x"; fontcolor="red3"]
+
+    ex1_entry -> ex1_header [style="dashed"]
+    ex1_header -> ex1_def [label="&alpha;"]
+    ex1_def -> ex1_latch [label="&beta;"]
+    ex1_latch -> ex1_use [label="&gamma;"]
+    ex1_latch -> ex1_header [label="&delta;"]
+
+    ex1_use -> ex1_exit [style="dashed"]
+  }
+
+  subgraph cluster_ex2 {
+    label="(II)" +
+          "\n&beta; &rarr; &theta; &rarr; &alpha; &rarr; &gamma; &rarr;" +
+          "\n&rarr; &theta; &rarr; &alpha; &rarr; &delta;"
+    color=black
+    ex2_entry  [label="ENTRY"; rank=source]
+    ex2_exit   [label="EXIT"; rank=sink]
+    subgraph cluster_ex2_ir {
+      label=""
+      color=red
+      ex2_header [label=""; color="red3"]
+      ex2_def    [label="x = ..."]
+      ex2_latch  [label=""]
+      ex2_use    [label="... = x"; fontcolor="red3"]
+    }
+    ex2_pdom   [label=""]
+
+    ex2_entry -> ex2_header [style="dashed"]
+    ex2_header -> ex2_def [label="&alpha;"]
+    ex2_header -> ex2_latch [label="&beta;"]
+    ex2_def -> ex2_latch [label="&gamma;"]
+    ex2_def -> ex2_use [label="&delta;"]
+    ex2_use -> ex2_pdom
+    ex2_latch -> ex2_header [label="&theta;"]
+    ex2_latch -> ex2_pdom
+
+    ex2_pdom -> ex2_exit [style="dashed"]
+  }
+
+  subgraph cluster_ex3 {
+    label="(III)\n&not;&exist;(&beta; &#8605; Def &#8605; &alpha; &#8605; Use)"
+    color=black
+    ex3_entry  [label="ENTRY"; rank=source]
+    ex3_exit   [label="EXIT"; rank=sink]
+    subgraph cluster_ex2_ir {
+      label=""
+      color=red
+      ex3_header [label=""]
+      ex3_def    [label="x = ..."]
+      ex3_latch  [label=""; color="red3"]
+      ex3_use    [label="... = x"]
+    }
+    ex3_pdom   [label=""]
+
+    ex3_entry -> ex3_header [style="dashed"]
+    ex3_header -> ex3_def
+    ex3_header -> ex3_latch
+    ex3_def -> ex3_latch
+    ex3_def -> ex3_use
+    ex3_use -> ex3_pdom
+    ex3_latch -> ex3_header [label="&alpha;"]
+    ex3_latch -> ex3_pdom [label="&beta;"]
+
+    ex3_pdom -> ex3_exit [style="dashed"]
+  }
+
+}

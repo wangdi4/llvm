@@ -59,7 +59,7 @@ void initializeCodeGen(PassRegistry&);
 /// initializeCodeGen - Initialize all passes linked into the CodeGen library.
 void initializeTarget(PassRegistry&);
 
-#if INTEL_CUSTOMIZATION // HIR passes
+#if INTEL_CUSTOMIZATION
 /// initializeIntel_LoopAnalysis - Initialize all passes linked into the
 /// Intel_LoopAnalysis library.
 void initializeIntel_LoopAnalysis(PassRegistry&);
@@ -68,8 +68,13 @@ void initializeIntel_LoopAnalysis(PassRegistry&);
 /// Intel_LoopTransforms library.
 void initializeIntel_LoopTransforms(PassRegistry&);
 
-/// VPO Vectorizer Passes
-void initializeVecClonePass(PassRegistry&);
+// initializeIntel_VPOAnaylsis - Initialize all passes linked into the 
+// Intel_VPOAnalysis library
+void initializeIntel_VPOAnalysis(PassRegistry&);
+
+// initializeIntel_VPOTransforms - Initialize all passes linked into the
+// Intel_VPOTransforms library
+void initializeIntel_VPOTransforms(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 void initializeAAEvalPass(PassRegistry&);
@@ -146,7 +151,6 @@ void initializeEarlyCSELegacyPassPass(PassRegistry &);
 void initializeEliminateAvailableExternallyPass(PassRegistry&);
 void initializeExpandISelPseudosPass(PassRegistry&);
 void initializeForceFunctionAttrsLegacyPassPass(PassRegistry&);
-void initializeFunctionAttrsPass(PassRegistry&);
 void initializeGCMachineCodeAnalysisPass(PassRegistry&);
 void initializeGCModuleInfoPass(PassRegistry&);
 void initializeGVNPass(PassRegistry&);
@@ -197,6 +201,7 @@ void initializeLowerExpectIntrinsicPass(PassRegistry&);
 void initializeLowerIntrinsicsPass(PassRegistry&);
 void initializeLowerInvokePass(PassRegistry&);
 void initializeLowerSwitchPass(PassRegistry&);
+void initializeLowerEmuTLSPass(PassRegistry&);
 void initializeMachineBlockFrequencyInfoPass(PassRegistry&);
 void initializeMachineBlockPlacementPass(PassRegistry&);
 void initializeMachineBlockPlacementStatsPass(PassRegistry&);
@@ -241,6 +246,7 @@ void initializePostDomOnlyViewerPass(PassRegistry&);
 void initializePostDomPrinterPass(PassRegistry&);
 void initializePostDomViewerPass(PassRegistry&);
 void initializePostDominatorTreePass(PassRegistry&);
+void initializePostOrderFunctionAttrsPass(PassRegistry&);
 void initializePostRASchedulerPass(PassRegistry&);
 void initializePostMachineSchedulerPass(PassRegistry&);
 void initializePrintFunctionPassWrapperPass(PassRegistry&);
@@ -256,6 +262,7 @@ void initializeRegionOnlyPrinterPass(PassRegistry&);
 void initializeRegionOnlyViewerPass(PassRegistry&);
 void initializeRegionPrinterPass(PassRegistry&);
 void initializeRegionViewerPass(PassRegistry&);
+void initializeReversePostOrderFunctionAttrsPass(PassRegistry&);
 void initializeRewriteStatepointsForGCPass(PassRegistry&);
 void initializeSafeStackPass(PassRegistry&);
 void initializeSCCPPass(PassRegistry&);
@@ -318,12 +325,16 @@ void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
 void initializeFloat2IntPass(PassRegistry&);
 #if INTEL_CUSTOMIZATION
+// Pass for indirect call conversion using points-to info
+void initializeIndirectCallConvPass(PassRegistry &);
 // Pass for SnodeInfo analysis
 void initializeSNodeAnalysisPass(PassRegistry &);
 // Pass for register promotion for non escaped block scope global variables.
 void initializeNonLTOGlobalOptPass(PassRegistry &);
 // Pass for setting implied Targets for intrinsics.
 void initializeFeatureOutlinerPass(PassRegistry&);
+// Pass for math call optimization.
+void initializeMapIntrinToImlPass(PassRegistry&);
 // HIR Passes
 void initializeRegionIdentificationPass(PassRegistry&);
 void initializeSCCFormationPass(PassRegistry&);
@@ -336,6 +347,10 @@ void initializeSymbaseAssignmentPass(PassRegistry&);
 void initializeHIRFrameworkPass(PassRegistry&);
 void initializeDDAnalysisPass(PassRegistry&);
 void initializeHIRLocalityAnalysisPass(PassRegistry&);
+void initializeHIRParVecAnalysisPass(PassRegistry&);
+void initializeHIRParDirInsertPass(PassRegistry&);
+void initializeHIRVecDirInsertPass(PassRegistry&);
+void initializeHIRVectVLSAnalysisPass(PassRegistry&);
 void initializeSSADeconstructionPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);
@@ -346,6 +361,22 @@ void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
+// VPO WRegion Passes
+void initializeWRegionCollectionPass(PassRegistry&);
+void initializeWRegionInfoPass(PassRegistry&);
+void initializeWRegionInfoAnalysisPass(PassRegistry&);
+// VPO Utility Pass
+void initializeVPOCFGRestructuringPass(PassRegistry&);
+// VPO Parallelizer Pass
+void initializeVPOParoptPass(PassRegistry&);
+// VPO Vectorizer Passes
+void initializeAVRGeneratePass(PassRegistry&);
+void initializeAVRGenerateHIRPass(PassRegistry&);
+void initializeIdentifyVectorCandidatesPass(PassRegistry&);
+void initializeVecClonePass(PassRegistry&);
+void initializeVPODriverPass(PassRegistry&);
+void initializeVPODriverHIRPass(PassRegistry&);
+void initializeVPODirectiveCleanupPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeLoopDistributePass(PassRegistry&);
 void initializeSjLjEHPreparePass(PassRegistry&);

@@ -250,7 +250,8 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
     return CSR_64_RT_AllRegs_SaveList;
   case CallingConv::CXX_FAST_TLS:
     if (Is64Bit)
-      return CSR_64_TLS_Darwin_SaveList;
+      return MF->getInfo<X86MachineFunctionInfo>()->isSplitCSR() ?
+             CSR_64_CXX_TLS_Darwin_PE_SaveList : CSR_64_TLS_Darwin_SaveList;
     break;
   case CallingConv::Intel_OCL_BI: {
     if (HasAVX512 && IsWin64)
@@ -275,6 +276,14 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
                CSR_Lin64_RegCall_SaveList:
              CSR_32_RegCall_SaveList;
   }
+  case CallingConv::SVML:
+    if (!Is64Bit)
+      return CSR_32_SVML_SaveList;
+    if (IsWin64)
+      return CSR_Win64_SVML_SaveList;
+    if (HasAVX512)
+      return CSR_Lin64_SVML_AVX512_SaveList;
+    return CSR_Lin64_SVML_SaveList;
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::Cold:
     if (Is64Bit)
@@ -312,6 +321,15 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   if (CallsEHReturn)
     return CSR_32EHRet_SaveList;
   return CSR_32_SaveList;
+}
+
+const MCPhysReg *X86RegisterInfo::getCalleeSavedRegsViaCopy(
+    const MachineFunction *MF) const {
+  assert(MF && "Invalid MachineFunction pointer.");
+  if (MF->getFunction()->getCallingConv() == CallingConv::CXX_FAST_TLS &&
+      MF->getInfo<X86MachineFunctionInfo>()->isSplitCSR())
+    return CSR_64_CXX_TLS_Darwin_ViaCopy_SaveList;
+  return nullptr;
 }
 
 const uint32_t *
@@ -363,6 +381,14 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
                CSR_Lin64_RegCall_RegMask:
              CSR_32_RegCall_RegMask;
   }
+  case CallingConv::SVML:
+    if (!Is64Bit)
+      return CSR_32_SVML_RegMask;
+    if (IsWin64)
+      return CSR_Win64_SVML_RegMask;
+    if (HasAVX512)
+      return CSR_Lin64_SVML_AVX512_RegMask;
+    return CSR_Lin64_SVML_RegMask;
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::Cold:
     if (Is64Bit)

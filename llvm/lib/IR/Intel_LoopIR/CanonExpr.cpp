@@ -212,15 +212,20 @@ void CanonExpr::divide(int64_t Val, bool Simplify) {
 }
 
 bool CanonExpr::isExtImpl(bool IsSigned, bool IsTrunc) const {
-  if (SrcTy == DestTy) {
+  // Account for vector Src/Dest types.
+  auto ScalSrcTy = SrcTy->getScalarType();
+  auto ScalDestTy = DestTy->getScalarType();
+
+  if (ScalSrcTy == ScalDestTy) {
     return false;
   }
 
-  if (!SrcTy->isIntegerTy()) {
+  if (!ScalSrcTy->isIntegerTy()) {
     return false;
   }
 
-  if (SrcTy->getPrimitiveSizeInBits() > DestTy->getPrimitiveSizeInBits()) {
+  if (ScalSrcTy->getPrimitiveSizeInBits() > 
+      ScalDestTy->getPrimitiveSizeInBits()) {
     if (IsTrunc) {
       return true;
     }
@@ -242,8 +247,11 @@ bool CanonExpr::isPtrToPtrCast() const {
 }
 
 bool CanonExpr::isIntConstant(int64_t *Val) const {
+  // Vectorizer can set Src/Dest types to a vector type leaving the value
+  // as a scalar. Account for such cases.
+  auto ScalSrcTy = getSrcType()->getScalarType();
 
-  if (!getSrcType()->isIntegerTy() || !isConstInternal()) {
+  if (!ScalSrcTy->isIntegerTy() || !isConstInternal()) {
     return false;
   }
 
@@ -254,12 +262,31 @@ bool CanonExpr::isIntConstant(int64_t *Val) const {
   return true;
 }
 
-bool CanonExpr::isFPConstant() const {
+bool CanonExpr::isFPConstant(ConstantFP **Val) const {
   if (!isStandAloneBlob()) {
     return false;
   }
 
-  return BlobUtils::isConstantFPBlob(BlobUtils::getBlob(getSingleBlobIndex()));
+  return BlobUtils::isConstantFPBlob(BlobUtils::getBlob(getSingleBlobIndex()),
+                                     Val);
+}
+
+bool CanonExpr::isMetadata(MetadataAsValue **Val) const {
+  if (!isStandAloneBlob()) {
+    return false;
+  }
+
+  return BlobUtils::isMetadataBlob(BlobUtils::getBlob(getSingleBlobIndex()),
+                                   Val);
+}
+
+bool CanonExpr::isConstantVector(Constant **Val) const {
+  if (!isStandAloneBlob()) {
+    return false;
+  }
+
+  return BlobUtils::isConstantVectorBlob(
+                        BlobUtils::getBlob(getSingleBlobIndex()), Val);
 }
 
 bool CanonExpr::isNull() const {
@@ -974,23 +1001,29 @@ void CanonExpr::verify() const {
   assert(SrcTy && "SrcTy of CanonExpr is null!");
   assert(DestTy && "DestTy of CanonExpr is null!");
 
-  if (SrcTy != DestTy) {
-    assert(((SrcTy->isIntegerTy() && DestTy->isIntegerTy()) ||
-            (SrcTy->isPointerTy() && DestTy->isPointerTy())) &&
+  // Account for vector types.
+  auto ScalSrcTy = SrcTy->getScalarType();
+  auto ScalDestTy = DestTy->getScalarType();
+
+  if (ScalSrcTy != ScalDestTy) {
+    assert(((ScalSrcTy->isIntegerTy() && ScalDestTy->isIntegerTy()) ||
+            (ScalSrcTy->isPointerTy() && ScalDestTy->isPointerTy())) &&
            "CanonExpr has invalid type!");
   }
 
   for (auto I = BlobCoeffs.begin(), E = BlobCoeffs.end(); I != E; ++I) {
     BlobTy B = BlobUtils::getBlob(I->Index);
     (void)B;
+    auto BScalTy = B->getType()->getScalarType();
+    (void)BScalTy;
 
     // Allow pointer/integer type mismatch as an integral canon expr can look
     // like (ptr1 - ptr2).
-    assert(((B->getType() == SrcTy) ||
-            (B->getType()->isPointerTy() && SrcTy->isIntegerTy() &&
-             (CanonExprUtils::getTypeSizeInBits(B->getType()) ==
-              CanonExprUtils::getTypeSizeInBits(SrcTy)))) &&
-           "Types of all blobs should match canon expr type!");
+    assert(((BScalTy == ScalSrcTy) ||
+            (BScalTy->isPointerTy() && ScalSrcTy->isIntegerTy() &&
+             (CanonExprUtils::getTypeSizeInBits(BScalTy) ==
+              CanonExprUtils::getTypeSizeInBits(ScalSrcTy)))) &&
+           "Scalar type of all blobs should match canon expr scalar type!");
   }
 
   if (!hasBlob() && !hasBlobIVCoeffs()) {

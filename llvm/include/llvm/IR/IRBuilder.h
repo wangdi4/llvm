@@ -61,22 +61,13 @@ protected:
   MDNode *DefaultFPMathTag;
   FastMathFlags FMF;
 
-#if INTEL_CUSTOMIZATION
-  // Cherry picking r256912
   ArrayRef<OperandBundleDef> DefaultOperandBundles;
-#endif
 
 public:
-#if INTEL_CUSTOMIZATION
-  // Cherry picking r256912
   IRBuilderBase(LLVMContext &context, MDNode *FPMathTag = nullptr,
                 ArrayRef<OperandBundleDef> OpBundles = None)
       : Context(context), DefaultFPMathTag(FPMathTag), FMF(),
         DefaultOperandBundles(OpBundles) {
-#else  // !INTEL_CUSTOMIZATION
-  IRBuilderBase(LLVMContext &context, MDNode *FPMathTag = nullptr)
-    : Context(context), DefaultFPMathTag(FPMathTag), FMF() {
-#endif // !INTEL_CUSTOMIZATION
     ClearInsertionPoint();
   }
 
@@ -187,10 +178,10 @@ public:
   void clearFastMathFlags() { FMF.clear(); }
 
   /// \brief Set the floating point math metadata to be used.
-  void SetDefaultFPMathTag(MDNode *FPMathTag) { DefaultFPMathTag = FPMathTag; }
+  void setDefaultFPMathTag(MDNode *FPMathTag) { DefaultFPMathTag = FPMathTag; }
 
   /// \brief Set the fast-math flags to be used with generated fp-math operators
-  void SetFastMathFlags(FastMathFlags NewFMF) { FMF = NewFMF; }
+  void setFastMathFlags(FastMathFlags NewFMF) { FMF = NewFMF; }
 
   //===--------------------------------------------------------------------===//
   // RAII helpers.
@@ -550,8 +541,6 @@ class IRBuilder : public IRBuilderBase, public Inserter {
   T Folder;
 
 public:
-#if INTEL_CUSTOMIZATION
-  // Cherry picking r256912.
   IRBuilder(LLVMContext &C, const T &F, Inserter I = Inserter(),
             MDNode *FPMathTag = nullptr,
             ArrayRef<OperandBundleDef> OpBundles = None)
@@ -593,42 +582,6 @@ public:
       : IRBuilderBase(TheBB->getContext(), FPMathTag, OpBundles), Folder() {
     SetInsertPoint(TheBB, IP);
   }
-#else // !INTEL_CUSTOMIZATION
-  IRBuilder(LLVMContext &C, const T &F, Inserter I = Inserter(),
-            MDNode *FPMathTag = nullptr)
-      : IRBuilderBase(C, FPMathTag), Inserter(std::move(I)), Folder(F) {}
-
-  explicit IRBuilder(LLVMContext &C, MDNode *FPMathTag = nullptr)
-    : IRBuilderBase(C, FPMathTag), Folder() {
-  }
-
-  explicit IRBuilder(BasicBlock *TheBB, const T &F, MDNode *FPMathTag = nullptr)
-    : IRBuilderBase(TheBB->getContext(), FPMathTag), Folder(F) {
-    SetInsertPoint(TheBB);
-  }
-
-  explicit IRBuilder(BasicBlock *TheBB, MDNode *FPMathTag = nullptr)
-    : IRBuilderBase(TheBB->getContext(), FPMathTag), Folder() {
-    SetInsertPoint(TheBB);
-  }
-
-  explicit IRBuilder(Instruction *IP, MDNode *FPMathTag = nullptr)
-    : IRBuilderBase(IP->getContext(), FPMathTag), Folder() {
-    SetInsertPoint(IP);
-  }
-
-  IRBuilder(BasicBlock *TheBB, BasicBlock::iterator IP, const T& F,
-            MDNode *FPMathTag = nullptr)
-    : IRBuilderBase(TheBB->getContext(), FPMathTag), Folder(F) {
-    SetInsertPoint(TheBB, IP);
-  }
-
-  IRBuilder(BasicBlock *TheBB, BasicBlock::iterator IP,
-            MDNode *FPMathTag = nullptr)
-    : IRBuilderBase(TheBB->getContext(), FPMathTag), Folder() {
-    SetInsertPoint(TheBB, IP);
-  }
-#endif // !INTEL_CUSTOMIZATION
 
   /// \brief Get the constant folder being used.
   const T &getFolder() { return Folder; }
@@ -1604,12 +1557,7 @@ public:
   CallInst *CreateCall(llvm::FunctionType *FTy, Value *Callee,
                        ArrayRef<Value *> Args, const Twine &Name = "",
                        MDNode *FPMathTag = nullptr) {
-#if INTEL_CUSTOMIZATION
-    // Cherry picking r256912
     CallInst *CI = CallInst::Create(FTy, Callee, Args, DefaultOperandBundles);
-#else // !INTEL_CUSTOMIZATION
-    CallInst *CI = CallInst::Create(FTy, Callee, Args);
-#endif // !INTEL_CUSTOMIZATION
     if (isa<FPMathOperator>(CI))
       CI = cast<CallInst>(AddFPMathAttributes(CI, FPMathTag, FMF));
     return Insert(CI, Name);

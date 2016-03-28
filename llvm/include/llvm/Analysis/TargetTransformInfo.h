@@ -542,6 +542,9 @@ public:
   Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                            Type *ExpectedType) const;
 
+#if INTEL_CUSTOMIZATION
+  bool adjustCallArgs(CallInst *) const;
+#endif // INTEL_CUSTOMIZATION
   /// \returns True if the two functions have compatible attributes for inlining
   /// purposes.
   bool areInlineCompatible(const Function *Caller,
@@ -655,6 +658,9 @@ public:
                                   MemIntrinsicInfo &Info) = 0;
   virtual Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                                    Type *ExpectedType) = 0;
+#if INTEL_CUSTOMIZATION
+  virtual bool adjustCallArgs(CallInst *) = 0;
+#endif // INTEL_CUSTOMIZATION
   virtual bool areInlineCompatible(const Function *Caller,
                                    const Function *Callee) const = 0;
 };
@@ -862,6 +868,11 @@ public:
                                            Type *ExpectedType) override {
     return Impl.getOrCreateResultFromMemIntrinsic(Inst, ExpectedType);
   }
+#if INTEL_CUSTOMIZATION
+  bool adjustCallArgs(CallInst *CI) override {
+    return Impl.adjustCallArgs(CI);
+  }
+#endif // INTEL_CUSTOMIZATION
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const override {
     return Impl.areInlineCompatible(Caller, Callee);

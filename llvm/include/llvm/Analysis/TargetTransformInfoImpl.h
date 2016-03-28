@@ -139,7 +139,7 @@ public:
 
 #ifdef INTEL_CUSTOMIZATION
     case Intrinsic::intel_pragma:
-#endif
+#endif // INTEL_CUSTOMIZATION
     case Intrinsic::annotation:
     case Intrinsic::assume:
     case Intrinsic::dbg_declare:
@@ -349,6 +349,10 @@ public:
                                            Type *ExpectedType) {
     return nullptr;
   }
+
+#if INTEL_CUSTOMIZATION
+  bool adjustCallArgs(CallInst *CI) { return false; }
+#endif
 
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const {

@@ -253,6 +253,10 @@ FunctionPass *createJumpThreadingPass(int Threshold = -1,
 // NonLTOGlobalOptimizerPass is a pass which pormotes the non escaped block
 // scope global variables into the registers.
 FunctionPass *createNonLTOGlobalOptimizerPass();
+
+// IndirectCallConv - Converts indirect calls to direct calls using
+// points-to info if possible 
+FunctionPass *createIndirectCallConvPass();
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -391,6 +395,13 @@ FunctionPass *createSinkingPass();
 // LowerAtomic - Lower atomic intrinsics to non-atomic form
 //
 Pass *createLowerAtomicPass();
+
+//===----------------------------------------------------------------------===//
+//
+// LowerEmuTLS - This pass generates __emutls_[vt].xyz variables for all
+// TLS variables for the emulated TLS model.
+//
+ModulePass *createLowerEmuTLSPass(const TargetMachine *TM);
 
 //===----------------------------------------------------------------------===//
 //

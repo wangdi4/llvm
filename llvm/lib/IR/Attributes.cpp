@@ -1412,12 +1412,20 @@ AttrBuilder &AttrBuilder::addRawValue(uint64_t Val) {
 AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
   AttrBuilder Incompatible;
 
-  if (!Ty->isIntegerTy())
+#ifdef INTEL_CUSTOMIZATION
+  // We want to be able to zero/sign extend vector parameters/return for
+  // vector functions.
+  if (!Ty->isIntOrIntVectorTy())
+#endif // INTEL_CUSTOMIZATION
     // Attribute that only apply to integers.
     Incompatible.addAttribute(Attribute::SExt)
       .addAttribute(Attribute::ZExt);
 
-  if (!Ty->isPointerTy())
+#ifdef INTEL_CUSTOMIZATION
+  // We want to be able to apply the same pointer attributes for vectors of
+  // pointers for vector functions.
+  if (!Ty->isPtrOrPtrVectorTy())
+#endif // INTEL_CUSTOMIZATION
     // Attribute that only apply to pointers.
     Incompatible.addAttribute(Attribute::ByVal)
       .addAttribute(Attribute::Nest)

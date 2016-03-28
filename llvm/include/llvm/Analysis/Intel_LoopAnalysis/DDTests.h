@@ -92,6 +92,23 @@ bool isDValEQ(const DVType *DV);
 
 bool isDVIndepFromLevel(const DVType *DV, unsigned FromLevel);
 
+/// Returns true if DV shows cross iter dependence at Level.
+inline bool isDVCrossIterDepAtLevel(const DVType *DV, unsigned Level) {
+  return !(DV[Level-1] == DV::EQ || isDVIndepFromLevel(DV, Level)); 
+}
+
+/// Returns true if DV refinement for Level makes sense.
+/// Be sure to also call isDVIndepFromLevel() before attempting to refine.
+inline bool isDVRefinableAtLevel(const DVType *DV, unsigned Level) {
+  for (unsigned L = 1; L < Level-1; L++){
+    // DV::NE would result in indep after refinement. Should be
+    // handled by isDVIndepFromLevel() instead.
+    if (DV[L-1] == DV::GE || DV[L-1] == DV::LE || DV[L-1] == DV::ALL)
+      return true;
+  }
+  return false; 
+} 
+
 /// Refine DV by calling demand driven DD. Return true when RefineDV[] is set
 
 bool refineDV(DDRef *SrcDDRef, DDRef *DstDDRef, unsigned InnermostNestingLevel,

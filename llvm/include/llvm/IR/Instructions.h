@@ -4161,7 +4161,9 @@ public:
   }
   unsigned getNumSuccessors() const { return 1; }
 
-  Value *getParentPad() const {
+  /// Get the parentPad of this catchret's catchpad's catchswitch.
+  /// The successor block is implicitly a member of this funclet.
+  Value *getCatchSwitchParentPad() const {
     return getCatchPad()->getCatchSwitch()->getParentPad();
   }
 

@@ -371,6 +371,12 @@ bool DISubprogram::describes(const Function *F) const {
   return F->getName() == Name;
 }
 
+#if INTEL_CUSTOMIZATION
+void DISubprogram::setIsThunk(bool value) {
+  Flags = value ? Flags | FlagThunk : Flags & ~FlagThunk;
+}
+#endif // INTEL_CUSTOMIZATION
+
 DILexicalBlock *DILexicalBlock::getImpl(LLVMContext &Context, Metadata *Scope,
                                         Metadata *File, unsigned Line,
                                         unsigned Column, StorageType Storage,

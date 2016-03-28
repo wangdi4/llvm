@@ -15,8 +15,10 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IntrinsicInst.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -406,3 +408,22 @@ void HLInst::verify() const {
            "True or False predicate must be undefined");
   }
 }
+
+bool HLInst::isIntrinCall(Intrinsic::ID &IntrinID) const {
+  auto Call = dyn_cast<IntrinsicInst>(getLLVMInstruction());
+  if (!Call) {
+    return false;
+  }
+  IntrinID = Call->getIntrinsicID();
+  return true;
+}
+
+bool HLInst::isSIMDDirective() const {
+  Intrinsic::ID IntrinID;
+  if (!isIntrinCall(IntrinID) || !vpo::VPOUtils::isIntelDirective(IntrinID)) {
+    return false;
+  }
+  // TODO: check metadata
+  return true;
+}
+

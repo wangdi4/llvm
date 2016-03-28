@@ -84,7 +84,7 @@ public:
 
 protected:
   CGOpenMPRegionKind RegionKind;
-  const RegionCodeGenTy &CodeGen;
+  RegionCodeGenTy CodeGen;
   OpenMPDirectiveKind Kind;
   bool HasCancel;
 };
@@ -2349,29 +2349,28 @@ void CGOpenMPRuntime::loadOffloadInfoMetadata() {
 
   for (auto I : MD->operands()) {
     llvm::MDNode *MN = cast<llvm::MDNode>(I);
-    unsigned Idx = 0;
 
-    auto getMDInt = [&]() {
+    auto getMDInt = [&](unsigned Idx) {
       llvm::ConstantAsMetadata *V =
-          cast<llvm::ConstantAsMetadata>(MN->getOperand(Idx++));
+          cast<llvm::ConstantAsMetadata>(MN->getOperand(Idx));
       return cast<llvm::ConstantInt>(V->getValue())->getZExtValue();
     };
 
-    auto getMDString = [&]() {
-      llvm::MDString *V = cast<llvm::MDString>(MN->getOperand(Idx++));
+    auto getMDString = [&](unsigned Idx) {
+      llvm::MDString *V = cast<llvm::MDString>(MN->getOperand(Idx));
       return V->getString();
     };
 
-    switch (getMDInt()) {
+    switch (getMDInt(0)) {
     default:
       llvm_unreachable("Unexpected metadata!");
       break;
     case OffloadEntriesInfoManagerTy::OffloadEntryInfo::
         OFFLOAD_ENTRY_INFO_TARGET_REGION:
       OffloadEntriesInfoManager.initializeTargetRegionEntryInfo(
-          /*DeviceID=*/getMDInt(), /*FileID=*/getMDInt(),
-          /*ParentName=*/getMDString(), /*Line=*/getMDInt(),
-          /*Column=*/getMDInt(), /*Order=*/getMDInt());
+          /*DeviceID=*/getMDInt(1), /*FileID=*/getMDInt(2),
+          /*ParentName=*/getMDString(3), /*Line=*/getMDInt(4),
+          /*Column=*/getMDInt(5), /*Order=*/getMDInt(6));
       break;
     }
   }
@@ -3549,14 +3548,16 @@ void CGOpenMPRuntime::emitReduction(CodeGenFunction &CGF, SourceLocation Loc,
               E = CGF.EmitAnyExpr(EExpr);
             CGF.EmitOMPAtomicSimpleUpdateExpr(
                 X, E, BO, /*IsXLHSInRHSPart=*/true, llvm::Monotonic, Loc,
-                [&CGF, UpExpr, VD, IPriv](RValue XRValue) {
+                [&CGF, UpExpr, VD, IPriv, Loc](RValue XRValue) {
                   CodeGenFunction::OMPPrivateScope PrivateScope(CGF);
-                  PrivateScope.addPrivate(VD, [&CGF, VD, XRValue]() -> Address {
-                    Address LHSTemp = CGF.CreateMemTemp(VD->getType());
-                    CGF.EmitStoreThroughLValue(
-                        XRValue, CGF.MakeAddrLValue(LHSTemp, VD->getType()));
-                    return LHSTemp;
-                  });
+                  PrivateScope.addPrivate(
+                      VD, [&CGF, VD, XRValue, Loc]() -> Address {
+                        Address LHSTemp = CGF.CreateMemTemp(VD->getType());
+                        CGF.emitOMPSimpleStore(
+                            CGF.MakeAddrLValue(LHSTemp, VD->getType()), XRValue,
+                            VD->getType().getNonReferenceType(), Loc);
+                        return LHSTemp;
+                      });
                   (void)PrivateScope.Privatize();
                   return CGF.EmitAnyExpr(UpExpr);
                 });
@@ -3686,8 +3687,6 @@ void CGOpenMPRuntime::emitCancelCall(CodeGenFunction &CGF, SourceLocation Loc,
   // kmp_int32 cncl_kind);
   if (auto *OMPRegionInfo =
           dyn_cast_or_null<CGOpenMPRegionInfo>(CGF.CapturedStmtInfo)) {
-    if (OMPRegionInfo->getDirectiveKind() == OMPD_single)
-      return;
     auto &&ThenGen = [this, Loc, CancelRegion,
                       OMPRegionInfo](CodeGenFunction &CGF) {
       llvm::Value *Args[] = {
@@ -3783,8 +3782,8 @@ void CGOpenMPRuntime::emitTargetOutlinedFunction(
   SmallString<64> EntryFnName;
   {
     llvm::raw_svector_ostream OS(EntryFnName);
-    OS << ".omp_offloading" << llvm::format(".%llx", DeviceID)
-       << llvm::format(".%llx.", FileID) << ParentName << ".l" << Line << ".c"
+    OS << ".omp_offloading" << llvm::format(".%x", DeviceID)
+       << llvm::format(".%x.", FileID) << ParentName << ".l" << Line << ".c"
        << Column;
   }
 

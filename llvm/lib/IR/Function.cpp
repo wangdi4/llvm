@@ -224,7 +224,9 @@ LLVMContext &Function::getContext() const {
   return getType()->getContext();
 }
 
-FunctionType *Function::getFunctionType() const { return Ty; }
+FunctionType *Function::getFunctionType() const {
+  return cast<FunctionType>(getValueType());
+}
 
 bool Function::isVarArg() const {
   return getFunctionType()->isVarArg();
@@ -249,8 +251,7 @@ void Function::eraseFromParent() {
 Function::Function(FunctionType *Ty, LinkageTypes Linkage, const Twine &name,
                    Module *ParentModule)
     : GlobalObject(Ty, Value::FunctionVal,
-                   OperandTraits<Function>::op_begin(this), 0, Linkage, name),
-      Ty(Ty) {
+                   OperandTraits<Function>::op_begin(this), 0, Linkage, name) {
   assert(FunctionType::isValidReturnType(getReturnType()) &&
          "invalid return type");
   setGlobalObjectSubClassData(0);
@@ -366,47 +367,21 @@ void Function::addDereferenceableOrNullAttr(unsigned i, uint64_t Bytes) {
   setAttributes(PAL);
 }
 
-// Maintain the GC name for each function in an on-the-side table. This saves
-// allocating an additional word in Function for programs which do not use GC
-// (i.e., most programs) at the cost of increased overhead for clients which do
-// use GC.
-static DenseMap<const Function*,PooledStringPtr> *GCNames;
-static StringPool *GCNamePool;
-static ManagedStatic<sys::SmartRWMutex<true> > GCLock;
-
-bool Function::hasGC() const {
-  sys::SmartScopedReader<true> Reader(*GCLock);
-  return GCNames && GCNames->count(this);
-}
-
-const char *Function::getGC() const {
+const std::string &Function::getGC() const {
   assert(hasGC() && "Function has no collector");
-  sys::SmartScopedReader<true> Reader(*GCLock);
-  return *(*GCNames)[this];
+  return getContext().getGC(*this);
 }
 
-void Function::setGC(const char *Str) {
-  sys::SmartScopedWriter<true> Writer(*GCLock);
-  if (!GCNamePool)
-    GCNamePool = new StringPool();
-  if (!GCNames)
-    GCNames = new DenseMap<const Function*,PooledStringPtr>();
-  (*GCNames)[this] = GCNamePool->intern(Str);
+void Function::setGC(const std::string Str) {
+  setValueSubclassDataBit(14, !Str.empty());
+  getContext().setGC(*this, std::move(Str));
 }
 
 void Function::clearGC() {
-  sys::SmartScopedWriter<true> Writer(*GCLock);
-  if (GCNames) {
-    GCNames->erase(this);
-    if (GCNames->empty()) {
-      delete GCNames;
-      GCNames = nullptr;
-      if (GCNamePool->empty()) {
-        delete GCNamePool;
-        GCNamePool = nullptr;
-      }
-    }
-  }
+  if (!hasGC())
+    return;
+  getContext().deleteGC(*this);
+  setValueSubclassDataBit(14, false);
 }
 
 /// Copy all additional attributes (those not needed to create a Function) from
@@ -490,7 +465,27 @@ static std::string getMangledTypeStr(Type* Ty) {
     Result += "v" + utostr(Ty->getVectorNumElements()) +
       getMangledTypeStr(Ty->getVectorElementType());
   else if (Ty)
-    Result += EVT::getEVT(Ty).getEVTString();
+#if INTEL_CUSTOMIZATION
+    {
+      VectorType *VTyp = dyn_cast<VectorType>(Ty);
+      PointerType *PTyp = NULL;
+      if (VTyp) {
+        PTyp = dyn_cast<PointerType>(VTyp->getVectorElementType());
+      }
+
+      if (PTyp) {
+        // The underlying MVT class is not capable of giving us back
+        // types that involve vector of pointers, so you must avoid
+        // passing things like "<2 x double*>" to EVT::getEVT().
+        unsigned numElems = VTyp->getVectorNumElements();
+        Result += "p" + llvm::utostr(PTyp->getAddressSpace()) +
+                  "v" + llvm::utostr(numElems) +
+                  getMangledTypeStr(PTyp->getElementType());
+      } else {
+        Result += EVT::getEVT(Ty).getEVTString();
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   return Result;
 }
 

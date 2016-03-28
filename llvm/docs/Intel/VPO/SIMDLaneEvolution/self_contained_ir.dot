@@ -1,0 +1,72 @@
+digraph examples {
+
+  node [shape=box]
+
+  subgraph cluster_ex1 {
+    label="(I) multi-exit loop"
+    color=black
+
+    ex1_entry [label="ENTRY"; rank=source]
+    ex1_exit  [label="EXIT"; rank=sink]
+
+    subgraph cluster_ex1_ir {
+      label=""
+      color=red
+      ex1_head   [label=""]
+      ex1_cond   [label=""]
+      ex1_dlatch [label=""; color="red3"]
+      ex1_dexit  [label=""]
+      ex1_ulatch [label=""]
+      ex1_uexit  [label=""]
+    }
+
+    ex1_pdom [label=""]
+
+    ex1_entry  -> ex1_head [style=dashed]
+    ex1_head   -> ex1_cond
+    ex1_cond   -> ex1_dlatch
+    ex1_cond   -> ex1_ulatch
+    ex1_dlatch -> ex1_dexit
+    ex1_dlatch -> ex1_head
+    ex1_dexit  -> ex1_pdom
+    ex1_ulatch -> ex1_uexit
+    ex1_ulatch -> ex1_head
+    ex1_uexit   -> ex1_pdom
+    ex1_pdom   -> ex1_exit [style=dashed]
+  }
+
+  subgraph cluster_ex2 {
+    label="(II) irreducible loop"
+    color=black
+
+    ex2_entry [label="ENTRY"; rank=source]
+    ex2_exit  [label="EXIT"; rank=sink]
+
+    subgraph cluster_ex2_ir {
+      label=""
+      color=red
+      ex2_lhead  [label=""]
+      ex2_rhead  [label=""]
+      ex2_cond   [label=""; color="red3"]
+      ex2_llatch [label=""]
+      ex2_rlatch [label=""]
+
+      {rank=same ex2_lhead ex2_rhead}
+    }
+
+    ex2_pdom [label=""]
+
+    ex2_entry  -> ex2_lhead [style=dashed]
+    ex2_entry  -> ex2_rhead [style=dashed]
+    ex2_lhead  -> ex2_cond
+    ex2_rhead  -> ex2_cond
+    ex2_cond   -> ex2_llatch
+    ex2_cond   -> ex2_rlatch
+    ex2_llatch -> ex2_lhead
+    ex2_llatch -> ex2_pdom
+    ex2_rlatch -> ex2_rhead
+    ex2_rlatch -> ex2_pdom
+    ex2_pdom   -> ex2_exit [style=dashed]
+  }
+
+}

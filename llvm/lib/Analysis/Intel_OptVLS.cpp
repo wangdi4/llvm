@@ -209,8 +209,9 @@ namespace OptVLS {
 
         uint64_t AccMask = CurrGrp->getAccessMask();
 
-        if ((Dist - GrpFirstMDist + ElemSize) > GrpSize || // capacity exceeded.
-            !Memref->canMoveTo(*CurrGrp->getFirstMemref())) {
+        if (!CurrGrp->empty() &&
+            ((Dist - GrpFirstMDist + ElemSize) > GrpSize || // capacity exceeded.
+            !Memref->canMoveTo(*CurrGrp->getFirstMemref()))) {
           OVLSGrps.push_back(CurrGrp);
           CurrGrp = new OVLSGroup(GrpSize, AccType);
 

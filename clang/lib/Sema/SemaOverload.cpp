@@ -258,6 +258,7 @@ static const Expr *IgnoreNarrowingConversion(const Expr *Converted) {
     case CK_IntegralCast:
     case CK_IntegralToBoolean:
     case CK_IntegralToFloating:
+    case CK_BooleanToSignedIntegral:
     case CK_FloatingToIntegral:
     case CK_FloatingToBoolean:
     case CK_FloatingCast:
@@ -2686,15 +2687,16 @@ bool Sema::FunctionParamTypesAreEqual(const FunctionProtoType *OldType,
 bool Sema::CheckPointerConversion(Expr *From, QualType ToType,
                                   CastKind &Kind,
                                   CXXCastPath& BasePath,
-                                  bool IgnoreBaseAccess) {
+                                  bool IgnoreBaseAccess,
+                                  bool Diagnose) {
   QualType FromType = From->getType();
   bool IsCStyleOrFunctionalCast = IgnoreBaseAccess;
 
   Kind = CK_BitCast;
 
-  if (!IsCStyleOrFunctionalCast && !FromType->isAnyPointerType() &&
+  if (Diagnose && !IsCStyleOrFunctionalCast && !FromType->isAnyPointerType() &&
       From->isNullPointerConstant(Context, Expr::NPC_ValueDependentIsNotNull) ==
-      Expr::NPCK_ZeroExpression) {
+          Expr::NPCK_ZeroExpression) {
     if (Context.hasSameUnqualifiedType(From->getType(), Context.BoolTy))
       DiagRuntimeBehavior(From->getExprLoc(), From,
                           PDiag(diag::warn_impcast_bool_to_null_pointer)
@@ -2712,18 +2714,24 @@ bool Sema::CheckPointerConversion(Expr *From, QualType ToType,
           !Context.hasSameUnqualifiedType(FromPointeeType, ToPointeeType)) {
         // We must have a derived-to-base conversion. Check an
         // ambiguous or inaccessible conversion.
-        if (CheckDerivedToBaseConversion(FromPointeeType, ToPointeeType,
-                                         From->getExprLoc(),
-                                         From->getSourceRange(), &BasePath,
-                                         IgnoreBaseAccess))
+        unsigned InaccessibleID = 0;
+        unsigned AmbigiousID = 0;
+        if (Diagnose) {
+          InaccessibleID = diag::err_upcast_to_inaccessible_base;
+          AmbigiousID = diag::err_ambiguous_derived_to_base_conv;
+        }
+        if (CheckDerivedToBaseConversion(
+                FromPointeeType, ToPointeeType, InaccessibleID, AmbigiousID,
+                From->getExprLoc(), From->getSourceRange(), DeclarationName(),
+                &BasePath, IgnoreBaseAccess))
           return true;
 
         // The conversion was successful.
         Kind = CK_DerivedToBase;
       }
 
-      if (!IsCStyleOrFunctionalCast && FromPointeeType->isFunctionType() &&
-          ToPointeeType->isVoidType()) {
+      if (Diagnose && !IsCStyleOrFunctionalCast &&
+          FromPointeeType->isFunctionType() && ToPointeeType->isVoidType()) {
         assert(getLangOpts().MSVCCompat &&
                "this should only be possible with MSVCCompat!");
         Diag(From->getExprLoc(), diag::ext_ms_impcast_fn_obj)
@@ -9643,6 +9651,13 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
 
   case ovl_fail_enable_if:
     return DiagnoseFailedEnableIfAttr(S, Cand);
+
+  case ovl_fail_addr_not_available: {
+    bool Available = checkAddressOfCandidateIsAvailable(S, Cand->Function);
+    (void)Available;
+    assert(!Available);
+    break;
+  }
   }
 }
 
@@ -11245,6 +11260,17 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
   return ExprError();
 }
 
+static void markUnaddressableCandidatesUnviable(Sema &S,
+                                                OverloadCandidateSet &CS) {
+  for (auto I = CS.begin(), E = CS.end(); I != E; ++I) {
+    if (I->Viable &&
+        !S.checkAddressOfFunctionIsAvailable(I->Function, /*Complain=*/false)) {
+      I->Viable = false;
+      I->FailureKind = ovl_fail_addr_not_available;
+    }
+  }
+}
+
 /// BuildOverloadedCallExpr - Given the call expression that calls Fn
 /// (which eventually refers to the declaration Func) and the call
 /// arguments Args/NumArgs, attempt to resolve the function call down
@@ -11257,7 +11283,8 @@ ExprResult Sema::BuildOverloadedCallExpr(Scope *S, Expr *Fn,
                                          MultiExprArg Args,
                                          SourceLocation RParenLoc,
                                          Expr *ExecConfig,
-                                         bool AllowTypoCorrection) {
+                                         bool AllowTypoCorrection,
+                                         bool CalleesAddressIsTaken) {
   OverloadCandidateSet CandidateSet(Fn->getExprLoc(),
                                     OverloadCandidateSet::CSK_Normal);
   ExprResult result;
@@ -11265,6 +11292,11 @@ ExprResult Sema::BuildOverloadedCallExpr(Scope *S, Expr *Fn,
   if (buildOverloadedCallSet(S, Fn, ULE, Args, LParenLoc, &CandidateSet,
                              &result))
     return result;
+
+  // If the user handed us something like `(&Foo)(Bar)`, we need to ensure that
+  // functions that aren't addressible are considered unviable.
+  if (CalleesAddressIsTaken)
+    markUnaddressableCandidatesUnviable(*this, CandidateSet);
 
   OverloadCandidateSet::iterator Best;
   OverloadingResult OverloadResult =
@@ -12204,6 +12236,17 @@ Sema::BuildCallToMemberFunction(Scope *S, Expr *MemExprE,
              << MD->getDeclName();
     }
   }
+
+  if (CXXDestructorDecl *DD =
+          dyn_cast<CXXDestructorDecl>(TheCall->getMethodDecl())) {
+    // a->A::f() doesn't go through the vtable, except in AppleKext mode.
+    bool CallCanBeVirtual = !cast<MemberExpr>(NakedMemExpr)->hasQualifier() ||
+                            getLangOpts().AppleKext;
+    CheckVirtualDtorCall(DD, MemExpr->getLocStart(), /*IsDelete=*/false,
+                         CallCanBeVirtual, /*WarnOnNonAbstractTypes=*/true,
+                         MemExpr->getMemberLoc());
+  }
+
   return MaybeBindToTemporary(TheCall);
 }
 

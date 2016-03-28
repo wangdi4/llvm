@@ -81,6 +81,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtCost, "Callee is single basic block with test",
   // InlrEmptyFunction,
   InlPrtCost, "Callee is empty", 
+  // InlrDoubleLocalCall,
+  InlPrtCost, "Callee has double callsite and local linkage",
   // InlrVectorBonus,
   InlPrtCost, "Callee has vector instructions", 
   // InlrProfitable,
@@ -568,10 +570,14 @@ void InlineReport::setReasonNotInlined(const CallSite& CS,
 
 void InlineReport::printOptionValues(void) const {
   llvm::errs() << "Option Values:\n"; 
-  llvm::errs() << "  inline-threshold: " << InlineLimit << "\n";    
-  llvm::errs() << "  inlinehint-threshold: " << HintThreshold << "\n";    
-  llvm::errs() << "  inlinecold-threshold: " << ColdThreshold << "\n";    
-  llvm::errs() << "  inlineoptsize-threshold: " << OptSizeThreshold << "\n";    
+  llvm::errs() << "  inline-threshold: " 
+    << llvm::getDefaultInlineThreshold() << "\n";    
+  llvm::errs() << "  inlinehint-threshold: " 
+    << llvm::getHintThreshold() << "\n";
+  llvm::errs() << "  inlinecold-threshold: " 
+    << llvm::getColdThreshold() << "\n";
+  llvm::errs() << "  inlineoptsize-threshold: " 
+    << llvm::getOptSizeThreshold() << "\n";   
   llvm::errs() << "\n"; 
 } 
 
@@ -714,6 +720,7 @@ void InlineReport::makeCurrent(Module* M, Function* F) {
         continue; 
       } 
       InlineReportCallSite* IRCS = addCallSite(F, &CS, M); 
+      assert(IRCS != nullptr); 
       IRCS->setReason(NinlrNewlyCreated); 
     } 
   } 
