@@ -79,7 +79,7 @@ public:
 
   /// getSize - Return the size of the register in bytes, which is also the size
   /// of a stack slot allocated to hold a spilled copy of this register.
-  unsigned getSize() const { return RegSize; }
+  unsigned getSize() const { return (RegSize > 0) ? RegSize : 1; }
 
   /// getAlignment - Return the minimum required alignment for a register of
   /// this class.
