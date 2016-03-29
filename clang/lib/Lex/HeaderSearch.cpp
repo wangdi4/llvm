@@ -594,6 +594,13 @@ const FileEntry *HeaderSearch::LookupFile(
   const FileEntry *MSFE = nullptr;
   ModuleMap::KnownHeader MSSuggestedModule;
 
+#if INTEL_CUSTOMIZATION
+  // CQ#366531 - if the last processed include was quoted, reset CurDir.
+  // Reset CurDir, this is especially important for ""-variant because
+  // include_next should start from the very beginning of the list.
+  CurDir = nullptr;
+#endif // INTEL_CUSTOMIZATION
+
   // Unless disabled, check to see if the file is in the #includer's
   // directory.  This cannot be based on CurDir, because each includer could be
   // a #include of a subdirectory (#include "foo/bar.h") and a subsequent
@@ -673,8 +680,6 @@ const FileEntry *HeaderSearch::LookupFile(
       First = false;
     }
   }
-
-  CurDir = nullptr;
 
   // If this is a system #include, ignore the user #include locs.
   unsigned i = isAngled ? AngledDirIdx : 0;

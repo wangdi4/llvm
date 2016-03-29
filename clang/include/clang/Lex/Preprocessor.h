@@ -356,11 +356,6 @@ class Preprocessor : public RefCountedBase<Preprocessor> {
   };
   std::vector<IncludeStackInfo> IncludeMacroStack;
 
-#if INTEL_CUSTOMIZATION
-  /// \brief True if the last processed include was quoted.
-  bool LastIncludeWasQuoted;
-#endif // INTEL_CUSTOMIZATION
-
   /// \brief Actions invoked when some preprocessor activity is
   /// encountered (e.g. a file is \#included, etc).
   std::unique_ptr<PPCallbacks> Callbacks;
