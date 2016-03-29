@@ -248,15 +248,6 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // SCEV doesn't seem to set type of (ptr1 - ptr2) to integer in some cases
-  // which causes issues in HIR.
-  // TODO: look into SCEV analysis logic.
-  if (SE->getBackedgeTakenCount(&Lp)->getType()->isPointerTy()) {
-    DEBUG(dbgs()
-          << "LOOPOPT_OPTREPORT: Pointer type trip count not supported.\n");
-    return false;
-  }
-
   auto LatchBB = Lp.getLoopLatch();
 
   // We cannot build lexical links if dominator/post-dominator info is absent.

@@ -34,11 +34,11 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopFormation.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRScalarSymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -1127,8 +1127,8 @@ void HIRParser::addTempBlobEntry(unsigned Index, unsigned NestingLevel,
                                  unsigned DefLevel) {
   // -1 indicates non-linear blob
   unsigned Level = CanonExprUtils::hasNonLinearSemantics(DefLevel, NestingLevel)
-                  ? NonLinearLevel
-                  : DefLevel;
+                       ? NonLinearLevel
+                       : DefLevel;
   CurTempBlobLevelMap.insert(std::make_pair(Index, Level));
 }
 
@@ -1530,8 +1530,14 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
   auto CE = CanonExprUtils::createCanonExpr(IVType);
   auto BETCType = BETC->getType();
 
+  assert((!BETCType->isPointerTy() ||
+          (getDataLayout().getTypeSizeInBits(BETCType) ==
+           IVType->getPrimitiveSizeInBits())) &&
+         "Loop with pointer type BETC does not have pointer sized IV!");
+
   // If there is a type mismatch, make upper the same type as IVType.
-  if (BETCType != IVType) {
+  if (!BETCType->isPointerTy() && (BETCType != IVType)) {
+
     if (IVType->getPrimitiveSizeInBits() > BETCType->getPrimitiveSizeInBits()) {
       BETC = SE->getZeroExtendExpr(BETC, IVType);
     } else {
