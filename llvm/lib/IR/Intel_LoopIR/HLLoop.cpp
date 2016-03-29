@@ -39,7 +39,7 @@ void HLLoop::initialize() {
 // IsInnermost flag is initialized to true, please refer to the header file.
 HLLoop::HLLoop(const Loop *LLVMLoop)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true) {
+      NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   SmallVector<BasicBlock *, 8> Exits;
@@ -53,7 +53,7 @@ HLLoop::HLLoop(const Loop *LLVMLoop)
 HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
                RegDDRef *StrideDDRef, unsigned NumEx)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true) {
+      NestingLevel(0), IsInnermost(true), IsNSW(false) {
   initialize();
   setNumExits(NumEx);
 
@@ -66,6 +66,8 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
   setLowerDDRef(LowerDDRef);
   setUpperDDRef(UpperDDRef);
   setStrideDDRef(StrideDDRef);
+
+  setIVType(LowerDDRef->getDestType());
 
   assert(
       ((!getLowerDDRef()->containsUndef() &&
@@ -81,7 +83,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
                LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
-      IVType(HLLoopObj.IVType) {
+      IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW) {
 
   initialize();
 
@@ -170,6 +172,27 @@ HLLoop *HLLoop::cloneCompleteEmptyLoop() const {
   return NewHLLoop;
 }
 
+void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth) const {
+
+  indent(OS, Depth);
+  OS << "+ Ztt: ";
+  if (hasZtt()) {
+    Ztt->printZttHeader(OS, this);
+  } else {
+    OS << "No";
+  }
+  OS << "\n";
+
+  indent(OS, Depth);
+  OS << "+ NumExits: " << getNumExits() << "\n";
+
+  indent(OS, Depth);
+  OS << "+ Innermost: " << (isInnermost() ? "Yes\n" : "No\n");
+
+  indent(OS, Depth);
+  OS << "+ NSW: " << (isNSW() ? "Yes\n" : "No\n");
+}
+
 void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
                    bool Detailed) const {
   const RegDDRef *Ref;
@@ -186,26 +209,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   if (Detailed) {
-    {
-      indent(OS, Depth);
-      OS << "+ NumExits: " << getNumExits() << "\n";
-    }
-
-    {
-      indent(OS, Depth);
-      OS << "+ Ztt: ";
-      if (hasZtt()) {
-        Ztt->printZttHeader(OS, this);
-      } else {
-        OS << "No";
-      }
-      OS << "\n";
-    }
-
-    {
-      indent(OS, Depth);
-      OS << "+ Innermost: " << isInnermost() << "\n";
-    }
+    printDetails(OS, Depth);
   }
 
   indent(OS, Depth);

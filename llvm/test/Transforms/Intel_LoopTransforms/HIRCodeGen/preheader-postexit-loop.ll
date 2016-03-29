@@ -1,8 +1,60 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
 
+; DO i1 = 0, 4, 1   <DO_LOOP>
+;
+;      %0 = {al:8}(%A)[i1];
+;      %1 = {al:8}(%B)[0];
+;   + DO i2 = 0, -1 * i1 + %indvars.iv + -1, 1   <DO_LOOP>
+;   |   %2 = {al:8}(%B)[i1 + i2];
+;   |   %3 = {al:4}(%2)[i1];
+;   |   {al:4}(%0)[i1 + i2 + %M] = %3;
+;   |   {al:4}(%1)[2 * i1 + i2] = 5;
+;   + END LOOP
+;      %l.155 = %M + 5;
+;      %l2.154 = %indvars.iv * i1;
+;
+;   %l2.154.out = %l2.154;
+;   %l.155.out = %l.155;
+; END LOOP
+
+
 ; Check that the i2 loop with ztt, preheader and postexit is CG'd correctly.
-; CHECK: dummy check to prevent lit testing hangs on windows.
-; XFAIL: *
+; CHECK: region:
+
+; Check outer loop begin
+; CHECK: store i64 0, i64* %i1.i64
+; CHECK: loop.{{[0-9]+}}:
+
+; Check ztt
+; CHECK: [[I1LOAD:%.*]] = load i64, i64* %i1.i64
+; CHECK: [[ZTTCMP:%.*]] = icmp slt i64 [[I1LOAD]], [[INDVARS:%.*]]
+; CHECK: br i1 [[ZTTCMP]], label %[[TRUEZTT:then.[0-9]]]
+
+; Check preheader stmts
+; CHECK: [[TRUEZTT]]:
+; CHECK: [[I1LOAD1:%.*]] = load i64, i64* %i1.i64
+; CHECK-NEXT: [[AGEP:%.*]] = getelementptr inbounds i32*, i32** %A, i64 [[I1LOAD1]]
+; CHECK-NEXT: [[ALOAD:%.*]] = load i32*, i32** [[AGEP]]
+; CHECK-NEXT: store i32* [[ALOAD]], i32** [[STORE0:%.*]]
+; CHECK: [[BGEP1:%.*]] = getelementptr inbounds i32*, i32** %B, i64 0
+; CHECK-NEXT: [[BLOAD:%.*]] = load i32*, i32** [[BGEP1]]
+; CHECK-NEXT: store i32* [[BLOAD]], i32** [[STORE1:%.*]]
+; CHECK: br label %[[I2LOOP:.*]]
+
+; Check some stmts in i2 loop body
+; CHECK: [[I2LOOP]]:
+; CHECK: [[BGEP:%.*]] = getelementptr inbounds i32*, i32** %B
+; CHECK-NEXT: load i32*, i32** [[BGEP]]
+; CHECK: getelementptr inbounds i32, i32* [[STORE0]]
+; CHECK: getelementptr inbounds i32, i32* [[STORE1]]
+; CHECK: br i1 {{%.*}}, label %[[I2LOOP]], label %[[POSTEXIT:.*]]
+
+; Check postexit stmts
+; CHECK: [[POSTEXIT]]:
+; CHECK: add i64 %M, 5
+; CHECK: [[I1LOAD2:%.*]] = load i64, i64* %i1.i64
+; CHECK: mul i64 [[INDVARS]]{{[0-9]+}}, [[I1LOAD2]]
+
 
 
 ; ModuleID = 'livein-copy1.c'

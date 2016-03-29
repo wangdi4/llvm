@@ -279,7 +279,8 @@ HLInst *HLNodeUtils::createSIToFP(Type *DestTy, RegDDRef *RvalRef,
 
 HLInst *HLNodeUtils::createFPTrunc(Type *DestTy, RegDDRef *RvalRef,
                                    const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::FPTrunc, RvalRef, Name, LvalRef, DestTy);
+  return createUnaryHLInst(Instruction::FPTrunc, RvalRef, Name, LvalRef,
+                           DestTy);
 }
 
 HLInst *HLNodeUtils::createFPExt(Type *DestTy, RegDDRef *RvalRef,
@@ -328,7 +329,8 @@ HLInst *HLNodeUtils::createIntToPtr(Type *DestTy, RegDDRef *RvalRef,
 
 HLInst *HLNodeUtils::createBitCast(Type *DestTy, RegDDRef *RvalRef,
                                    const Twine &Name, RegDDRef *LvalRef) {
-  return createUnaryHLInst(Instruction::BitCast, RvalRef, Name, LvalRef, DestTy);
+  return createUnaryHLInst(Instruction::BitCast, RvalRef, Name, LvalRef,
+                           DestTy);
 }
 
 HLInst *HLNodeUtils::createAddrSpaceCast(Type *DestTy, RegDDRef *RvalRef,
@@ -970,6 +972,15 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
                              HLContainerTy::iterator Last, bool UpdateSeparator,
                              bool PostExitSeparator, int CaseNum) {
 
+  // 'First' can be invalid if this function is called using empty 
+  // OrigContainer's begin(). We should bail out early in this case otherwise
+  // 'First' may be dereferenced incorrectly.
+  // NOTE: We cannot compare First and Last here as insertBefore()/insertAfter()
+  //       set them to the same node.
+  if (OrigContainer && OrigContainer->empty()) {
+    return;
+  }
+
   assert(!isa<HLRegion>(First) && "Transformations should not add/reorder "
                                   "regions!");
 
@@ -1275,6 +1286,12 @@ void HLNodeUtils::removeInternal(HLContainerTy &Container,
 void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
                              HLContainerTy::iterator Last,
                              HLContainerTy *MoveContainer, bool Erase) {
+
+  // Empty range should be handled before we decide to dereference 'First' as it
+  // might be invalid.
+  if (First == Last) { 
+    return;
+  }
 
   // Even if the region becomes empty, we should not remove it. Instead, HIRCG
   // should short-circult entry/exit bblocks to remove the dead basic blocks.

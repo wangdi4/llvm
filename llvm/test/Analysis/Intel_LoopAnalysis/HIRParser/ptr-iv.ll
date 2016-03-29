@@ -5,6 +5,9 @@
 ; CHECK-NEXT: {al:4}(%p)[2 * i1] = i1;
 ; CHECK-NEXT:  END LOOP
 
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck -check-prefix=DETAIL %s
+; Verify that we are able to detect no signed wrap for pointer IV loops.
+; DETAIL: NSW: Yes
 
 ; ModuleID = 'ptr-iv.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

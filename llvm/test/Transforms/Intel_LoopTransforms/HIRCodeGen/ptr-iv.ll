@@ -23,8 +23,13 @@
 ; CHECK: [[PTR_MINUS_4:%.*]] = add i64 [[P_PLUS_Q]], -4
 ; CHECK: [[UB:%.*]] = udiv i64 [[PTR_MINUS_4]], 4
 
-; ensure UB is used in loop cmp
-; CHECK: icmp sle i64 %nextivloop{{.*}}, [[UB]]
+; Check wrap flags on IV
+; CHECK: [[IV_UPDATE:%.*]] = add nuw nsw i64 {{%.*}}, 1
+
+; Ensure UB is used in loop cmp
+; CHECK: icmp sle i64 [[IV_UPDATE]], [[UB]]
+
+
 ; ModuleID = 'ptr-iv.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

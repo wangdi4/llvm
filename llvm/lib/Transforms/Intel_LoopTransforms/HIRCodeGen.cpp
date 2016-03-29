@@ -927,10 +927,13 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *Lp) {
 
   // increment IV
   Value *CurVar = Builder->CreateLoad(Alloca);
-  Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "nextiv" + LName);
+  Value *NextVar =
+      Builder->CreateAdd(CurVar, StepVal, "nextiv" + LName, true, Lp->isNSW());
   Builder->CreateStore(NextVar, Alloca);
 
-  Value *EndCond = Builder->CreateICmpSLE(NextVar, Upper, "cond" + LName);
+  Value *EndCond =
+      Builder->CreateICmp(Lp->isNSW() ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,
+                          NextVar, Upper, "cond" + LName);
 
   BasicBlock *AfterBB = BasicBlock::Create(F->getContext(), "after" + LName, F);
 
@@ -1077,7 +1080,6 @@ void HIRCodeGen::CGVisitor::generateLvalStore(const HLInst *HInst,
   } else {
     Builder->CreateStore(StoreVal, StorePtr);
   }
-
 }
 
 Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {

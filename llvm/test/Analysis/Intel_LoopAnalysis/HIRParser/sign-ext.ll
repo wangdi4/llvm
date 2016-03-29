@@ -1,5 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
+; CHECK: NSW: Yes
+
 ; Check parsing output for the loop verifying that the subscript is parsed as a sign extended version.
 ; CHECK: DO i32 i1 = 0, 24
 ; CHECK-NEXT: {al:4}(%A)[i1 + 7] = i1 + 7

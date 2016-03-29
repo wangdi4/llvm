@@ -13,6 +13,10 @@
 
 ; Check that every instance of %0 is parsed as a non-linear self blob.
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck -check-prefix=DETAIL %s
+
+; DETAIL: NSW: Yes
+; DETAIL: NSW: Yes
+
 ; DETAIL: %0 = %0  +  %1
 ; DETAIL: NON-LINEAR i32 %0
 ; DETAIL: NON-LINEAR i32 %0

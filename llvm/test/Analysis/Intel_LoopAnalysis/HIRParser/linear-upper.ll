@@ -1,5 +1,8 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
+; CHECK: NSW: Yes
+; CHECK: NSW: Yes
+
 ; Check that the upper for i2 loop is parsed as linear defined at level 1.
 ; CHECK: DO i64 i2 = 0, zext.i32.i64((-1 + %0))
 ; CHECK-NEXT: <RVAL-REG> LINEAR i64 zext.i32.i64((-1 + %0)){def@1}

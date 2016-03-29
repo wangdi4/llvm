@@ -1,5 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
+; CHECK: NSW: Yes
+
 ; Check parsing output for the temp blobs
 ; CHECK: DO i64 i1 = 0, zext.i32.i64((-1 + %n))
 ; CHECK: <BLOB> LINEAR i32 %n

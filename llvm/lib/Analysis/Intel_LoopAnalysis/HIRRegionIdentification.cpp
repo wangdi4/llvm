@@ -291,6 +291,17 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
+  if (IVNode->getType()->getPrimitiveSizeInBits() == 1) {
+    // The following loop with i1 type IV has a trip count of 2 which is outside
+    // its range. This is a quirk of SSA. CG will generate an infinite loop for
+    // this case if we let it through.
+    // for.i:
+    // %i.08.i = phi i1 [ true, %entry ], [ false, %for.i ]
+    // br i1 %i.08.i, label %for.i, label %exit
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: i1 type IV currently not handled.\n");
+    return false;
+  }
+
   // Check instructions inside the loop.
   for (auto I = Lp.block_begin(), E = Lp.block_end(); I != E; ++I) {
 

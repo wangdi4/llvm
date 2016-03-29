@@ -16,8 +16,8 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_LOOPFORMATION_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_LOOPFORMATION_H
 
-#include "llvm/Pass.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Pass.h"
 
 namespace llvm {
 
@@ -69,6 +69,12 @@ private:
   /// Inst.
   const PHINode *findIVDefInHeader(const Loop *Lp,
                                    const Instruction *Inst) const;
+
+  /// \brief Returns true if Inst represents a non-negative NSW SCEVAddRecExpr.
+  bool isNonNegativeNSWIV(const Instruction *Inst) const;
+
+  /// \brief Returns true if normalized loop IV has NSW semantics.
+  bool hasNSWSemantics(const Loop *Lp, const PHINode *IVPhi) const;
 
   /// \brief Sets the IV type for HLoop.
   void setIVType(HLLoop *HLoop) const;

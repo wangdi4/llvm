@@ -7,6 +7,8 @@
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
+; CHECK: NSW: Yes
+
 ; CHECK: (undef)[undef][{{.*}}undef{{.*}}]
 ; CHECK-NEXT: <LVAL-REG>{{.*}}{undefined}
 ; CHECK-NEXT: <BLOB>{{.*}}{undefined}

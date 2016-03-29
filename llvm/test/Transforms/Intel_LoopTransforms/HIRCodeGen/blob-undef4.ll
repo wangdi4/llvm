@@ -19,6 +19,11 @@
 ;CHECK: [[IV_BLOB_SUM:%.*]] = add i32 undef, [[IV_MUL]]
 ;CHECK: add i32 [[IV_BLOB_SUM]], 1
 
+;Check wrap flags on IV
+;CHECK: [[IV_LOAD1:%.*]] = load i32, i32* %i1.i32
+;CHECK: [[IV_UPDATE:%.*]] = add nuw nsw i32 [[IV_LOAD1]], 1
+;CHECK: icmp sle i32 [[IV_UPDATE]]
+
 ; ModuleID = 'blob-undef4.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -146,6 +146,68 @@ HIRLoopFormation::findIVDefInHeader(const Loop *Lp,
   return nullptr;
 }
 
+bool HIRLoopFormation::isNonNegativeNSWIV(const Instruction *Inst) const {
+  auto SC = SE->getSCEV(const_cast<Instruction *>(Inst));
+
+  auto AddRec = dyn_cast<SCEVAddRecExpr>(SC);
+
+  if (!AddRec) {
+    return false;
+  }
+
+  if (AddRec->getNoWrapFlags(SCEV::FlagNSW) &&
+      SE->isKnownNonNegative(AddRec->getStart())) {
+    return true;
+  }
+
+  return false;
+}
+
+bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp,
+                                    const PHINode *IVPhi) const {
+
+  auto IVType = IVPhi->getType();
+
+  if (IVType->isIntegerTy()) {
+    if (isNonNegativeNSWIV(IVPhi)) {
+      return true;
+    }
+
+  } else if (IVType->isPointerTy()) {
+
+    // Set NSW if there is a non-negative integer IV in the loop header (less
+    // than or equal to the size of the pointer IV) which has NSW flag set.
+    // For example-
+    //
+    // %p.addr.07 = phi i32* [ %incdec.ptr, %for.body ], [ %p, %entry ] <<
+    // pointer IV
+    // %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ] <<
+    // NSW IV of same size as pointer
+    auto PtrSize = Func->getParent()->getDataLayout().getTypeSizeInBits(IVType);
+    auto HeaderBB = Lp->getHeader();
+
+    for (auto &PhiInst : (*HeaderBB)) {
+      if (!isa<PHINode>(PhiInst)) {
+        break;
+      }
+
+      auto PhiTy = PhiInst.getType();
+
+      if (!PhiTy->isIntegerTy() ||
+          (PhiTy->getPrimitiveSizeInBits() > PtrSize)) {
+        continue;
+      }
+
+      if (isNonNegativeNSWIV(&PhiInst)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+
 void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
   Value *Cond;
   auto Lp = HLoop->getLLVMLoop();
@@ -159,10 +221,8 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
     assert(BottomTest->isConditional() &&
            "Loop bottom test is not a conditional branch!");
     Cond = BottomTest->getCondition();
-  } else if (auto BottomTest = dyn_cast<SwitchInst>(Term)) {
-    Cond = BottomTest->getCondition();
   } else {
-    assert(false && "Cannot handle loop bottom test!");
+    llvm_unreachable("Cannot handle loop bottom test!");
   }
 
   assert(isa<Instruction>(Cond) &&
@@ -185,6 +245,10 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
   }
 
   HLoop->setIVType(IVType);
+
+  // Set NSW flag, if applicable.
+  auto IsNSW = hasNSWSemantics(Lp, IVNode);
+  HLoop->setNSW(IsNSW);
 }
 
 bool HIRLoopFormation::populatedPreheaderPostexitNodes(HLLoop *HLoop,
