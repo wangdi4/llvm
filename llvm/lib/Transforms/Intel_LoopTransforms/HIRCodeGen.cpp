@@ -212,6 +212,11 @@ private:
                                          CE->getSrcType()));
       auto CEDestTy = CE->getDestType();
 
+      // We can have a CanonExpr with blobs where some of the blobs have
+      // been replaced by vectorized values while others simply need a
+      // broadcast of the loop invariant blob value. Handle these cases
+      // here. Example CE: i1 + %N + %.vec + <i32 0, i32 1, i32 2, i32 3>
+      // %N is a blob that needs a broadcast.
       if (CEDestTy->isVectorTy() &&
           !BlobVal->getType()->isVectorTy()) {
         BlobVal = Builder->CreateVectorSplat(CEDestTy->getVectorNumElements(),
@@ -1050,11 +1055,8 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     // Do a broadcast of instruction operands if needed.
     if ((*R)->isRval() && DestTy->isVectorTy() &&
         !(OpVal->getType()->isVectorTy())) {
-      OpVal->dump();
-
       OpVal = Builder->CreateVectorSplat(DestTy->getVectorNumElements(),
                                          OpVal);
-      OpVal->dump();
     }
 
     Ops.push_back(OpVal);

@@ -228,6 +228,12 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
   // Visit GEP Base
   if (RegDD->hasGEPInfo()) {
+    // Addressof computation not supported for now.
+    if (RegDD->isAddressOf()) {
+      IsHandled = false;
+      return;
+    }
+
     auto BaseCE = RegDD->getBaseCE();
 
     if (!BaseCE->isInvariantAtLevel(LoopLevel)) {
