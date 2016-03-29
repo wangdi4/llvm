@@ -79,6 +79,9 @@ public:
 
   /// getSize - Return the size of the register in bytes, which is also the size
   /// of a stack slot allocated to hold a spilled copy of this register.
+  // LPU edit: For register classes that appear to have 0 size, return 1.
+  // This applies to 1 bit register/channel classes, for example.
+  // Ideally, this might be fixed elsewhere - e.g. computing the size of type i1.
   unsigned getSize() const { return (RegSize > 0) ? RegSize : 1; }
 
   /// getAlignment - Return the minimum required alignment for a register of
