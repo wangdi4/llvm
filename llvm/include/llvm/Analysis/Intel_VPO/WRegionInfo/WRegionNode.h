@@ -241,6 +241,7 @@ protected:
   /// Only these classes are allowed to create/modify/delete WRegionNode.
   friend class WRegionUtils;
   friend class WRegionCollection;  //temporary
+  friend class VPOParoptTransform;
 
 public:
   

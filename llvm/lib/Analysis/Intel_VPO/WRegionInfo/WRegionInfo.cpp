@@ -41,7 +41,7 @@ char WRegionInfo::ID = 0;
 FunctionPass *llvm::createWRegionInfoPass() { return new WRegionInfo(); }
 
 WRegionInfo::WRegionInfo() : FunctionPass(ID) {
-  DEBUG(dbgs() << "\nStart W-Region Information Collection Pass\n\n");
+  // DEBUG(dbgs() << "\nStart W-Region Information Collection Pass\n\n");
   initializeWRegionInfoPass(*PassRegistry::getPassRegistry());
 }
 
@@ -59,7 +59,7 @@ void WRegionInfo::doFillUpWRegionInfo(WRegionCollection *R) {
 bool WRegionInfo::runOnFunction(Function &F) {
   this->Func = &F;
 
-  DEBUG(dbgs() << "W-Region Information Collection Start\n");
+  DEBUG(dbgs() << "\nW-Region Information Collection Start\n");
 
   DT     = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT    = &getAnalysis<PostDominatorTree>();
