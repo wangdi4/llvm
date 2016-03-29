@@ -33,8 +33,8 @@ if ( WIN32 AND ( DEFINED ENV{DXSDK_DIR} ) )
 endif()
 
 set(FILES_TO_COPY
-		${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
-		)
+        ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        )
 
 if (WIN32)
     set( CONFIG_FILES register_vendor32.reg register_vendor64.reg unregister_vendor32.reg unregister_vendor64.reg)
@@ -66,3 +66,14 @@ set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER common_runtime )
 if (NOT WIN32)
     set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS -Wl,-Bsymbolic )
 endif (NOT WIN32)
+
+if (WIN32)
+    file(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/intelopencl${ADDR}.pdb PDB_NAME)
+    set_target_properties(${TARGET_NAME} PROPERTIES
+        LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDB:${PDB_NAME}"
+        LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /DEBUG /PDB:${PDB_NAME}"
+    )
+    if (INSTALL_PDBS)
+        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/intelopencl${ADDR}.pdb DESTINATION bin)
+    endif(INSTALL_PDBS)
+endif(WIN32)
