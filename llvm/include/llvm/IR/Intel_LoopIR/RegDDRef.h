@@ -225,6 +225,12 @@ public:
 
   /// \brief Returns true if this is an address computation.
   bool isAddressOf() const {
+    // getGEPInfo() asserts that RegDDRef has GEPInfo. Clients of isAddressOf
+    // should not be forced to check for hasGEPInfo() before calling
+    // isAddressOf().
+    if (!hasGEPInfo()) {
+      return false;
+    }
     return getGEPInfo()->AddressOf;
   }
 

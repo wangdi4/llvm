@@ -1186,11 +1186,10 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
 
 
   } else if (isa<ExtractElementInst>(Inst)) {
-    Value *Res = Builder->CreateExtractElement(Ops[1], Ops[2], Inst->getName());
-    Builder->CreateStore(Res, Ops[0]);
+    StoreVal = Builder->CreateExtractElement(Ops[1], Ops[2], Inst->getName());
   } else if (isa<ShuffleVectorInst>(Inst)) {
-    Value *Res = Builder->CreateShuffleVector(Ops[1], Ops[2], Ops[3], Inst->getName());
-    Builder->CreateStore(Res, Ops[0]);
+    StoreVal = Builder->CreateShuffleVector(Ops[1], Ops[2], Ops[3],
+                                            Inst->getName());
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }

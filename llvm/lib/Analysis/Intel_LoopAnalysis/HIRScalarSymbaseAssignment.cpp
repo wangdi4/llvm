@@ -204,10 +204,11 @@ const Value *HIRScalarSymbaseAssignment::getGenericLoopUpperVal() const {
   return Func;
 }
 
-bool HIRScalarSymbaseAssignment::isConstant(const Value *Scalar) const {
+bool HIRScalarSymbaseAssignment::isConstant(const Value *Val) const {
   // TODO: add other types
-  if (isa<ConstantInt>(Scalar) || isa<ConstantFP>(Scalar) ||
-      isa<ConstantPointerNull>(Scalar)) {
+  if (isa<ConstantInt>(Val) || isa<ConstantFP>(Val) ||
+      isa<ConstantVector>(Val) || isa<ConstantDataVector>(Val) ||
+      isa<ConstantAggregateZero>(Val) || isa<ConstantPointerNull>(Val)) {
     return true;
   }
 
