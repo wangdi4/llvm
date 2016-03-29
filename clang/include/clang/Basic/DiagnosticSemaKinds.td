@@ -4438,6 +4438,14 @@ def err_typecheck_invalid_restrict_not_pointer : Error<
   "restrict requires a pointer or reference (%0 is invalid)">;
 def err_typecheck_invalid_restrict_not_pointer_noarg : Error<
   "restrict requires a pointer or reference">;
+// if INTEL_CUSTOMIZATION
+def warn_typecheck_invalid_restrict_not_pointer : Warning<
+  err_typecheck_invalid_restrict_not_pointer.Text>,
+  InGroup<C99>;
+def warn_typecheck_invalid_restrict_not_pointer_noarg : Warning<
+  err_typecheck_invalid_restrict_not_pointer_noarg.Text>,
+  InGroup<C99>;
+// endif // INTEL_CUSTOMIZATION 
 def err_typecheck_invalid_restrict_invalid_pointee : Error<
   "pointer to function type %0 may not be 'restrict' qualified">;
 def ext_typecheck_zero_array_size : Extension<

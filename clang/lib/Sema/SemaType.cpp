@@ -1710,6 +1710,12 @@ QualType Sema::BuildQualifiedType(QualType T, SourceLocation Loc,
         ProblemTy = EltTy;
       }
     } else if (!T->isDependentType()) {
+#if INTEL_CUSTOMIZATION
+      // CQ#374182: Ignore restict
+      if (getLangOpts().IntelCompat)
+        DiagID = diag::warn_typecheck_invalid_restrict_not_pointer;
+      else
+#endif // INTEL_CUSTOMIZATION
       DiagID = diag::err_typecheck_invalid_restrict_not_pointer;
       ProblemTy = T;
     }

@@ -3932,8 +3932,14 @@ Decl *Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS,
     // or incomplete types shall not be restrict-qualified."
     if (TypeQuals & DeclSpec::TQ_restrict)
       Diag(DS.getRestrictSpecLoc(),
-           diag::err_typecheck_invalid_restrict_not_pointer_noarg)
-           << DS.getSourceRange();
+#if INTEL_CUSTOMIZATION
+           // CQ#374182: Ignore restict
+           getLangOpts().IntelCompat
+               ? diag::warn_typecheck_invalid_restrict_not_pointer_noarg
+               :
+#endif // INTEL_CUSTOMIZATION
+          diag::err_typecheck_invalid_restrict_not_pointer_noarg)
+          << DS.getSourceRange();
   }
 
   if (DS.isConstexprSpecified()) {
