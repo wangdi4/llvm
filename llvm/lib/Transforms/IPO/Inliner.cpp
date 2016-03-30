@@ -60,6 +60,7 @@ STATISTIC(NumCallerCallersAnalyzed, "Number of caller-callers analyzed");
 ///    4: Put the inlining reasons on the same line as the call sites 
 ///    8: Print the line and column info for each call site if available 
 ///   16: Print the file for each call site
+///   32: Print linkage info for each function and call site
 ///
 static cl::opt<unsigned>
 IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0), 
@@ -716,22 +717,11 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
 /// processing to avoid breaking the SCC traversal.
 bool Inliner::doFinalization(CallGraph &CG) {
 #if INTEL_CUSTOMIZATION
-  bool ReturnValue = removeDeadFunctions(CG); 
-  getReport().print(); 
-  removeDeletableFunctions(); 
-  return ReturnValue; 
+  bool ReturnValue = removeDeadFunctions(CG);
+  getReport().print();
+  return ReturnValue;
 #endif // INTEL_CUSTOMIZATION
 }
-
-#if INTEL_CUSTOMIZATION
-void Inliner::removeDeletableFunctions(void)
-{
-  for (unsigned I = 0, E = DeletableFunctions.size(); I < E; ++I) { 
-    delete DeletableFunctions[I];
-  } 
-  DeletableFunctions.clear(); 
-}
-#endif // INTEL_CUSTOMIZATION
 
 /// Remove dead functions that are not included in DNR (Do Not Remove) list.
 bool Inliner::removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly) {

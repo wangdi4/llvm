@@ -623,8 +623,10 @@ void InlineReport::print(void) const {
   llvm::errs() << "---- Begin Inlining Report ----\n"; 
   printOptionValues();  
   for (unsigned I = 0, E = IRDeadFunctionVector.size(); I < E; ++I) { 
-    InlineReportFunction* IRF = IRDeadFunctionVector[I]; 
-    llvm::errs() << "DEAD STATIC FUNC: " << IRF->getName() << "\n\n";
+    InlineReportFunction* IRF = IRDeadFunctionVector[I];
+    llvm::errs() << "DEAD STATIC FUNC: ";
+    printFunctionLinkage(Level, IRF);
+    llvm::errs() << IRF->getName() << "\n\n";
   } 
   InlineReportFunctionMap::const_iterator Mit, E; 
   for (Mit = IRFunctionMap.begin(), E = IRFunctionMap.end(); Mit != E; ++Mit) { 
