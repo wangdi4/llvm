@@ -173,6 +173,8 @@ typedef enum OMP_CLAUSES {
       QUAL_OMP_TO,
       QUAL_OMP_FROM,
       QUAL_OMP_LINEAR,
+      QUAL_OMP_UNIFORM,         // not yet supported in OpenMP, but needed for
+                                // vector function to simd loop transform.
       QUAL_OMP_ALIGNED,
       QUAL_OMP_FLUSH,
       QUAL_OMP_THREADPRIVATE,

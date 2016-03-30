@@ -960,11 +960,11 @@ void AVRGenerate::formAvrLoopNest(AVRFunction *AvrFunction) {
       markLoopBottomTest(AvrTermLabel);
 
       // Create AvrLoop
-      AVRLoop *AvrLoop = AVRUtils::createAVRLoop(Lp);
+      AVRLoopIR *AvrLoopIR = AVRUtilsIR::createAVRLoopIR(Lp);
 
       // Hook AVR Loop into AVR Sequence
-      AVRUtils::insertAVRBefore(AvrItr(AvrLbl), AvrLoop);
-      AVRUtils::moveAsFirstChildren(AvrLoop, AvrItr(AvrLbl), AvrItr(AvrTerm));
+      AVRUtils::insertAVRBefore(AvrItr(AvrLbl), AvrLoopIR);
+      AVRUtils::moveAsFirstChildren(AvrLoopIR, AvrItr(AvrLbl), AvrItr(AvrTerm));
     }
   }
 }
@@ -1019,15 +1019,15 @@ void AVRGenerate::formAvrLoopNest(AVRWrn *AvrWrn) {
       markLoopBottomTest(AvrTermLabel);
 
       // Create AvrLoop
-      AVRLoop *AvrLoop = AVRUtils::createAVRLoop(Lp);
+      AVRLoopIR *AvrLoopIR = AVRUtilsIR::createAVRLoopIR(Lp);
 
       // TODO: For nested WRN, this needs to only be set for
       // top-level loop of WRN.
-      AvrLoop->setWrnVecLoopNode(AvrWrn->getWrnNode());
+      AvrLoopIR->setWrnVecLoopNode(AvrWrn->getWrnNode());
 
       // Hook AVR Loop into AVR Sequence
-      AVRUtils::insertAVRBefore(AvrItr(AvrLbl), AvrLoop);
-      AVRUtils::moveAsFirstChildren(AvrLoop, AvrItr(AvrLbl), AvrItr(AvrTerm));
+      AVRUtils::insertAVRBefore(AvrItr(AvrLbl), AvrLoopIR);
+      AVRUtils::moveAsFirstChildren(AvrLoopIR, AvrItr(AvrLbl), AvrItr(AvrTerm));
     }
   }
 
@@ -1107,9 +1107,9 @@ AVR *AVRGenerateHIR::AVRGenerateVisitor::visitGoto(HLGoto *G) {
 }
 
 AVR *AVRGenerateHIR::AVRGenerateVisitor::visitLoop(HLLoop *L) {
-  AVRLoop *ALoop;
+  AVRLoopHIR *ALoop;
 
-  ALoop = AVRUtils::createAVRLoop((const Loop *)nullptr);
+  ALoop = AVRUtilsHIR::createAVRLoopHIR((HLLoop *)nullptr);
 
   // Visit loop children
   for (auto It = L->child_begin(), E = L->child_end(); It != E; ++It) {

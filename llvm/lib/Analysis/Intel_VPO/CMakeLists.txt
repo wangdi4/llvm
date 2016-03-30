@@ -25,6 +25,8 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   Vecopt/VPOAvr.cpp
   Vecopt/VPOAvrFunction.cpp
   Vecopt/VPOAvrLoop.cpp
+  Vecopt/VPOAvrLoopIR.cpp
+  Vecopt/VPOAvrLoopHIR.cpp
   Vecopt/VPOAvrStmt.cpp
   Vecopt/VPOAvrStmtIR.cpp
   Vecopt/VPOAvrStmtHIR.cpp

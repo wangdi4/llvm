@@ -308,6 +308,8 @@ IntelOpenMPDirectivesAndClauses::ClauseStrings = {
     "QUAL.OMP.FROM" },
   { QUAL_OMP_LINEAR,
     "QUAL.OMP.LINEAR" },
+  { QUAL_OMP_UNIFORM,
+    "QUAL.OMP.UNIFORM" },
   { QUAL_OMP_ALIGNED,
     "QUAL.OMP.ALIGNED" },
   { QUAL_OMP_FLUSH,

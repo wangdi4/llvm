@@ -214,6 +214,9 @@ protected:
   virtual void setLinear(LinearClause *L)    {errorClause(QUAL_OMP_LINEAR);   }
   virtual LinearClause *getLinear()    const {errorClause(QUAL_OMP_LINEAR);
                                               return nullptr;                 }
+  virtual void setUniform(UniformClause *U)  {errorClause(QUAL_OMP_UNIFORM);  }
+  virtual UniformClause *getUniform()  const {errorClause(QUAL_OMP_UNIFORM);
+                                              return nullptr;                 }
   virtual void setNumThreads(EXPR E)       {errorClause(QUAL_OMP_NUM_THREADS);}
   virtual EXPR getNumThreads()       const {errorClause(QUAL_OMP_NUM_THREADS);
                                             return nullptr;                   }

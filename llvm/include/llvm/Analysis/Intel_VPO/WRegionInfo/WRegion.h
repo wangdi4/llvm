@@ -237,6 +237,7 @@ private:
   LastprivateClause *Lpriv;   // qualOpndList
   ReductionClause *Reduction; // qualOpndList
   LinearClause *Linear;       // qualOpndList
+  UniformClause *Uniform;     // qualOpndList
   AlignedClause *Aligned;     // qualOpndList
   int Simdlen;                // qualOpnd
   int Safelen;                // qualOpnd
@@ -253,6 +254,7 @@ public:
   void setLpriv(LastprivateClause *L) { Lpriv = L; }
   void setRed(ReductionClause *R) { Reduction = R; }
   void setLinear(LinearClause *L) { Linear = L; }
+  void setUniform(UniformClause *L) { Uniform = L; }
   void setAligned(AlignedClause *A) { Aligned = A; }
   void setSimdlen(int N) { Simdlen = N; }
   void setSafelen(int N) { Safelen = N; }
@@ -273,6 +275,7 @@ public:
   LastprivateClause *getLpriv() const { return Lpriv; }
   ReductionClause *getRed() const { return Reduction; }
   LinearClause *getLinear() const { return Linear; }
+  UniformClause *getUniform() const { return Uniform; }
   AlignedClause *getAligned() const { return Aligned; }
 
   int getSimdlen() const { return Simdlen; }
