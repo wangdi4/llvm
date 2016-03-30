@@ -235,10 +235,6 @@ bool WRegionCollection::runOnFunction(Function &F) {
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
 #if 0
-  // Initialize maps from Directive/Clause strings to IDs
-  // This has to be done before clients such as CFGRestructuring calls it
-  VPOUtils::initDirectiveAndClauseStringMap();
-
   // Run -vpo-cfg-restructuring transformation pass before this analysis.
   // Analysis passes can't modify LLVM IR.
 

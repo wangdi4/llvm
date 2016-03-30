@@ -85,7 +85,7 @@
 #include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
-#include "llvm/Transforms/Utils/Intel_OpenMPDirectivesAndClauses.h"
+#include "llvm/Analysis/Intel_Directives.h"
 #include <map>
 #include <set>
 

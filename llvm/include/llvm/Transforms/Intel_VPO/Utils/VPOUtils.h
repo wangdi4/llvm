@@ -25,7 +25,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/Intel_OpenMPDirectivesAndClauses.h"
+#include "llvm/Analysis/Intel_Directives.h"
 #include <unordered_map>
 
 // Used for Parallel Section Transformations

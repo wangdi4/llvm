@@ -21,4 +21,4 @@ add_llvm_library(LLVMIntel_LoopIR
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR/Intel_LoopIR
   )
 
-add_dependencies(LLVMIntel_LoopIR intrinsics_gen)
+add_dependencies(LLVMIntel_LoopIR intrinsics_gen intel_directives_gen)

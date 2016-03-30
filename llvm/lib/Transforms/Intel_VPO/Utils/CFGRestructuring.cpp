@@ -131,10 +131,6 @@ bool VPOCFGRestructuring::runOnFunction(Function &F) {
   auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
-  // Initialize maps from Directive/Clause strings to IDs
-  // This has to be done before clients such as CFGRestructuring calls it
-  VPOUtils::initDirectiveAndClauseStringMap();
-
   VPOUtils::CFGRestructuring(F, DT, LI);
 
   return true;
