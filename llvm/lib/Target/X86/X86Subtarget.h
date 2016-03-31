@@ -416,7 +416,7 @@ public:
 
   bool isAtom() const { return X86ProcFamily == IntelAtom; }
   bool isSLM() const { return X86ProcFamily == IntelSLM; }
-  bool useSoftFloat() const { return UseSoftFloat || !hasX87(); }
+  bool useSoftFloat() const { return UseSoftFloat; }
 
   const Triple &getTargetTriple() const { return TargetTriple; }
 
