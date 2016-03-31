@@ -48,7 +48,7 @@ if (DEFINED UBUNTU64_BUILD)
 endif()
 
 # Linker switches
-set (INIT_LINKER_FLAGS          "-Wl,--enable-new-dtags -z noexecstack -z relro -z now" ) # --enable-new-dtags sets RUNPATH to the same value as RPATH
+set (INIT_LINKER_FLAGS          "-Wl,--disable-new-dtags -z noexecstack -z relro -z now" )
 
 # embed RPATH and RUNPATH to the binaries that assumes that everything is installed in the same directory
 #
