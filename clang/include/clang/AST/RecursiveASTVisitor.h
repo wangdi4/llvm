@@ -812,6 +812,11 @@ bool RecursiveASTVisitor<Derived>::TraverseConstructorInitializer(
 
   if (Init->isWritten() || getDerived().shouldVisitImplicitCode())
     TRY_TO(TraverseStmt(Init->getInit()));
+
+  if (Init->getNumArrayIndices() && getDerived().shouldVisitImplicitCode())
+    for (VarDecl *VD : Init->getArrayIndexes()) {
+      TRY_TO(TraverseDecl(VD));
+    }
   return true;
 }
 
@@ -1433,6 +1438,8 @@ DEF_TRAVERSE_DECL(OMPThreadPrivateDecl, {
     TRY_TO(TraverseStmt(I));
   }
 })
+
+DEF_TRAVERSE_DECL(OMPCapturedExprDecl, { TRY_TO(TraverseVarHelper(D)); })
 
 // A helper method for TemplateDecl's children.
 template <typename Derived>
@@ -2460,6 +2467,12 @@ DEF_TRAVERSE_STMT(OMPTargetEnterDataDirective,
 DEF_TRAVERSE_STMT(OMPTargetExitDataDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
+DEF_TRAVERSE_STMT(OMPTargetParallelDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPTargetParallelForDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
 DEF_TRAVERSE_STMT(OMPTeamsDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
@@ -2813,6 +2826,12 @@ bool RecursiveASTVisitor<Derived>::VisitOMPDistScheduleClause(
     OMPDistScheduleClause *C) {
   TRY_TO(TraverseStmt(C->getChunkSize()));
   TRY_TO(TraverseStmt(C->getHelperChunkSize()));
+  return true;
+}
+
+template <typename Derived>
+bool
+RecursiveASTVisitor<Derived>::VisitOMPDefaultmapClause(OMPDefaultmapClause *C) {
   return true;
 }
 

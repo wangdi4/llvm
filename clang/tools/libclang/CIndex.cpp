@@ -24,6 +24,7 @@
 #include "clang/AST/Attr.h"
 #include "clang/AST/Mangle.h"
 #include "clang/AST/StmtVisitor.h"
+#include "clang/AST/VTableBuilder.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticCategories.h"
 #include "clang/Basic/DiagnosticIDs.h"
@@ -1089,7 +1090,8 @@ bool CursorVisitor::VisitObjCPropertyDecl(ObjCPropertyDecl *PD) {
 
   IdentifierInfo *PropertyId = PD->getIdentifier();
   ObjCPropertyDecl *prevDecl =
-    ObjCPropertyDecl::findPropertyDecl(cast<DeclContext>(ID), PropertyId);
+    ObjCPropertyDecl::findPropertyDecl(cast<DeclContext>(ID), PropertyId,
+                                       PD->getQueryKind());
 
   if (!prevDecl)
     return false;
@@ -1967,6 +1969,9 @@ public:
   void VisitOMPTargetDataDirective(const OMPTargetDataDirective *D);
   void VisitOMPTargetEnterDataDirective(const OMPTargetEnterDataDirective *D);
   void VisitOMPTargetExitDataDirective(const OMPTargetExitDataDirective *D);
+  void VisitOMPTargetParallelDirective(const OMPTargetParallelDirective *D);
+  void
+  VisitOMPTargetParallelForDirective(const OMPTargetParallelForDirective *D);
   void VisitOMPTeamsDirective(const OMPTeamsDirective *D);
   void VisitOMPTaskLoopDirective(const OMPTaskLoopDirective *D);
   void VisitOMPTaskLoopSimdDirective(const OMPTaskLoopSimdDirective *D);
@@ -2240,6 +2245,8 @@ void OMPClauseEnqueue::VisitOMPDistScheduleClause(
     const OMPDistScheduleClause *C) {
   Visitor->AddStmt(C->getChunkSize());
   Visitor->AddStmt(C->getHelperChunkSize());
+}
+void OMPClauseEnqueue::VisitOMPDefaultmapClause(const OMPDefaultmapClause *C) {
 }
 }
 
@@ -2655,6 +2662,16 @@ void EnqueueVisitor::VisitOMPTargetEnterDataDirective(
 void EnqueueVisitor::VisitOMPTargetExitDataDirective(
     const OMPTargetExitDataDirective *D) {
   VisitOMPExecutableDirective(D);
+}
+
+void EnqueueVisitor::VisitOMPTargetParallelDirective(
+    const OMPTargetParallelDirective *D) {
+  VisitOMPExecutableDirective(D);
+}
+
+void EnqueueVisitor::VisitOMPTargetParallelForDirective(
+    const OMPTargetParallelForDirective *D) {
+  VisitOMPLoopDirective(D);
 }
 
 void EnqueueVisitor::VisitOMPTeamsDirective(const OMPTeamsDirective *D) {
@@ -3991,6 +4008,39 @@ static std::string getMangledStructor(std::unique_ptr<MangleContext> &M,
   return BOS.str();
 }
 
+static std::string getMangledName(std::unique_ptr<MangleContext> &M,
+                                  std::unique_ptr<llvm::DataLayout> &DL,
+                                  const NamedDecl *ND) {
+  std::string FrontendBuf;
+  llvm::raw_string_ostream FOS(FrontendBuf);
+
+  M->mangleName(ND, FOS);
+
+  std::string BackendBuf;
+  llvm::raw_string_ostream BOS(BackendBuf);
+
+  llvm::Mangler::getNameWithPrefix(BOS, llvm::Twine(FOS.str()), *DL);
+
+  return BOS.str();
+}
+
+static std::string getMangledThunk(std::unique_ptr<MangleContext> &M,
+                                   std::unique_ptr<llvm::DataLayout> &DL,
+                                   const CXXMethodDecl *MD,
+                                   const ThunkInfo &T) {
+  std::string FrontendBuf;
+  llvm::raw_string_ostream FOS(FrontendBuf);
+
+  M->mangleThunk(MD, T, FOS);
+
+  std::string BackendBuf;
+  llvm::raw_string_ostream BOS(BackendBuf);
+
+  llvm::Mangler::getNameWithPrefix(BOS, llvm::Twine(FOS.str()), *DL);
+
+  return BOS.str();
+}
+
 extern "C" {
 
 unsigned clang_visitChildren(CXCursor parent,
@@ -4407,6 +4457,12 @@ CXStringSet *clang_Cursor_getCXXManglings(CXCursor C) {
       if (DD->isVirtual())
         Manglings.emplace_back(getMangledStructor(M, DL, DD, Dtor_Deleting));
     }
+  } else if (const auto *MD = dyn_cast_or_null<CXXMethodDecl>(ND)) {
+    Manglings.emplace_back(getMangledName(M, DL, ND));
+    if (MD->isVirtual())
+      if (const auto *TIV = Ctx.getVTableContext()->getThunkInfo(MD))
+        for (const auto &T : *TIV)
+          Manglings.emplace_back(getMangledThunk(M, DL, MD, T));
   }
 
   return cxstring::createSet(Manglings);
@@ -4872,6 +4928,10 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("OMPTargetEnterDataDirective");
   case CXCursor_OMPTargetExitDataDirective:
     return cxstring::createRef("OMPTargetExitDataDirective");
+  case CXCursor_OMPTargetParallelDirective:
+    return cxstring::createRef("OMPTargetParallelDirective");
+  case CXCursor_OMPTargetParallelForDirective:
+    return cxstring::createRef("OMPTargetParallelForDirective");
   case CXCursor_OMPTeamsDirective:
     return cxstring::createRef("OMPTeamsDirective");
   case CXCursor_OMPCancellationPointDirective:
@@ -5634,6 +5694,7 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::StaticAssert:
   case Decl::Block:
   case Decl::Captured:
+  case Decl::OMPCapturedExpr:
 #if INTEL_SPECIFIC_CILKPLUS
   case Decl::CilkSpawn:
 #endif               // INTEL_SPECIFIC_CILKPLUS

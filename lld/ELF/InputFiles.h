@@ -38,6 +38,11 @@ public:
 
   StringRef getName() const { return MB.getBufferIdentifier(); }
 
+  // Filename of .a which contained this file. If this file was
+  // not in an archive file, it is the empty string. We use this
+  // string for creating error messages.
+  StringRef ArchiveName;
+
 protected:
   InputFile(Kind K, MemoryBufferRef M) : MB(M), FileKind(K) {}
   MemoryBufferRef MB;
@@ -129,6 +134,10 @@ public:
   // R_MIPS_GPREL16 / R_MIPS_GPREL32 relocations.
   uint32_t getMipsGp0() const;
 
+  // The number is the offset in the string table. It will be used as the
+  // st_name of the symbol.
+  std::vector<std::pair<const Elf_Sym *, unsigned>> KeptLocalSyms;
+
 private:
   void initializeSections(llvm::DenseSet<StringRef> &ComdatGroups);
   void initializeSymbols();
@@ -204,7 +213,8 @@ public:
   bool isNeeded() const { return !AsNeeded || IsUsed; }
 };
 
-std::unique_ptr<InputFile> createObjectFile(MemoryBufferRef MB);
+std::unique_ptr<InputFile> createObjectFile(MemoryBufferRef MB,
+                                            StringRef ArchiveName = "");
 std::unique_ptr<InputFile> createSharedFile(MemoryBufferRef MB);
 
 } // namespace elf2
