@@ -263,6 +263,7 @@ void X86Subtarget::initializeEnvironment() {
   HasBMI = false;
   HasBMI2 = false;
   HasVBMI = false;
+  HasIFMA = false;
   HasRTM = false;
   HasHLE = false;
   HasERI = false;

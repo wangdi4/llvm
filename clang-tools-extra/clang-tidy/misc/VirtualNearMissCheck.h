@@ -34,7 +34,7 @@ public:
 
 private:
   /// Check if the given method is possible to be overridden by some other
-  /// method.
+  /// method. Operators and destructors are excluded.
   ///
   /// Results are memoized in PossibleMap.
   bool isPossibleToBeOverridden(const CXXMethodDecl *BaseMD);
@@ -48,12 +48,13 @@ private:
 
   /// key: the unique ID of a method;
   /// value: whether the method is possible to be overridden.
-  std::map<std::string, bool> PossibleMap;
+  std::map<const CXXMethodDecl *, bool> PossibleMap;
 
   /// key: <unique ID of base method, name of derived class>
   /// value: whether the base method is overridden by some method in the derived
   /// class.
-  std::map<std::pair<std::string, std::string>, bool> OverriddenMap;
+  std::map<std::pair<const CXXMethodDecl *, const CXXRecordDecl *>, bool>
+      OverriddenMap;
 
   const unsigned EditDistanceThreshold = 1;
 };

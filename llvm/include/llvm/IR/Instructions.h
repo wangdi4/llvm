@@ -2512,14 +2512,13 @@ public:
     return block_begin() + getNumOperands();
   }
 
-#if INTEL_CUSTOMIZATION
-  // Cherry picked from r259702
   iterator_range<block_iterator> blocks() {
-    return make_range(block_begin(), block_end());  }
+    return make_range(block_begin(), block_end());
+  }
 
   iterator_range<const_block_iterator> blocks() const {
-    return make_range(block_begin(), block_end());  }
-#endif // INTEL_CUSTOMIZATION
+    return make_range(block_begin(), block_end());
+  }
 
   op_range incoming_values() { return operands(); }
 

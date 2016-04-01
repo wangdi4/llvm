@@ -920,10 +920,10 @@ Instruction *InstCombiner::FoldOpIntoPhi(Instruction &I) {
   for (auto UI = PN->user_begin(), E = PN->user_end(); UI != E;) {
     Instruction *User = cast<Instruction>(*UI++);
     if (User == &I) continue;
-    ReplaceInstUsesWith(*User, NewPN);
-    EraseInstFromFunction(*User);
+    replaceInstUsesWith(*User, NewPN);
+    eraseInstFromFunction(*User);
   }
-  return ReplaceInstUsesWith(I, NewPN);
+  return replaceInstUsesWith(I, NewPN);
 }
 
 /// Given a pointer type and a constant offset, determine whether or not there
@@ -1336,7 +1336,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   SmallVector<Value*, 8> Ops(GEP.op_begin(), GEP.op_end());
 
   if (Value *V = SimplifyGEPInst(GEP.getSourceElementType(), Ops, DL, TLI, DT, AC))
-    return ReplaceInstUsesWith(GEP, V);
+    return replaceInstUsesWith(GEP, V);
 
   Value *PtrOp = GEP.getOperand(0);
 
@@ -1822,7 +1822,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
             if (I != BCI) {
               I->takeName(BCI);
               BCI->getParent()->getInstList().insert(BCI->getIterator(), I);
-              ReplaceInstUsesWith(*BCI, I);
+              replaceInstUsesWith(*BCI, I);
             }
             return &GEP;
           }
@@ -1844,7 +1844,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
                 : Builder->CreateGEP(nullptr, Operand, NewIndices);
 
         if (NGEP->getType() == GEP.getType())
-          return ReplaceInstUsesWith(GEP, NGEP);
+          return replaceInstUsesWith(GEP, NGEP);
         NGEP->takeName(&GEP);
 
         if (NGEP->getType()->getPointerAddressSpace() != GEP.getAddressSpace())
@@ -1945,19 +1945,19 @@ Instruction *InstCombiner::visitAllocSite(Instruction &MI) {
       if (!I) continue;
 
       if (ICmpInst *C = dyn_cast<ICmpInst>(I)) {
-        ReplaceInstUsesWith(*C,
+        replaceInstUsesWith(*C,
                             ConstantInt::get(Type::getInt1Ty(C->getContext()),
                                              C->isFalseWhenEqual()));
       } else if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I)) {
-        ReplaceInstUsesWith(*I, UndefValue::get(I->getType()));
+        replaceInstUsesWith(*I, UndefValue::get(I->getType()));
       } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
         if (II->getIntrinsicID() == Intrinsic::objectsize) {
           ConstantInt *CI = cast<ConstantInt>(II->getArgOperand(1));
           uint64_t DontKnow = CI->isZero() ? -1ULL : 0;
-          ReplaceInstUsesWith(*I, ConstantInt::get(I->getType(), DontKnow));
+          replaceInstUsesWith(*I, ConstantInt::get(I->getType(), DontKnow));
         }
       }
-      EraseInstFromFunction(*I);
+      eraseInstFromFunction(*I);
     }
 
     if (InvokeInst *II = dyn_cast<InvokeInst>(&MI)) {
@@ -1967,7 +1967,7 @@ Instruction *InstCombiner::visitAllocSite(Instruction &MI) {
       InvokeInst::Create(F, II->getNormalDest(), II->getUnwindDest(),
                          None, "", II->getParent());
     }
-    return EraseInstFromFunction(MI);
+    return eraseInstFromFunction(MI);
   }
   return nullptr;
 }
@@ -2038,13 +2038,13 @@ Instruction *InstCombiner::visitFree(CallInst &FI) {
     // Insert a new store to null because we cannot modify the CFG here.
     Builder->CreateStore(ConstantInt::getTrue(FI.getContext()),
                          UndefValue::get(Type::getInt1PtrTy(FI.getContext())));
-    return EraseInstFromFunction(FI);
+    return eraseInstFromFunction(FI);
   }
 
   // If we have 'free null' delete the instruction.  This can happen in stl code
   // when lots of inlining happens.
   if (isa<ConstantPointerNull>(Op))
-    return EraseInstFromFunction(FI);
+    return eraseInstFromFunction(FI);
 
   // If we optimize for code size, try to move the call to free before the null
   // test so that simplify cfg can remove the empty block and dead code
@@ -2203,11 +2203,11 @@ Instruction *InstCombiner::visitExtractValueInst(ExtractValueInst &EV) {
   Value *Agg = EV.getAggregateOperand();
 
   if (!EV.hasIndices())
-    return ReplaceInstUsesWith(EV, Agg);
+    return replaceInstUsesWith(EV, Agg);
 
   if (Value *V =
           SimplifyExtractValueInst(Agg, EV.getIndices(), DL, TLI, DT, AC))
-    return ReplaceInstUsesWith(EV, V);
+    return replaceInstUsesWith(EV, V);
 
   if (InsertValueInst *IV = dyn_cast<InsertValueInst>(Agg)) {
     // We're extracting from an insertvalue instruction, compare the indices
@@ -2233,7 +2233,7 @@ Instruction *InstCombiner::visitExtractValueInst(ExtractValueInst &EV) {
       // %B = insertvalue { i32, { i32 } } %A, i32 42, 1, 0
       // %C = extractvalue { i32, { i32 } } %B, 1, 0
       // with "i32 42"
-      return ReplaceInstUsesWith(EV, IV->getInsertedValueOperand());
+      return replaceInstUsesWith(EV, IV->getInsertedValueOperand());
     if (exti == exte) {
       // The extract list is a prefix of the insert list. i.e. replace
       // %I = insertvalue { i32, { i32 } } %A, i32 42, 1, 0
@@ -2273,8 +2273,8 @@ Instruction *InstCombiner::visitExtractValueInst(ExtractValueInst &EV) {
       case Intrinsic::sadd_with_overflow:
         if (*EV.idx_begin() == 0) {  // Normal result.
           Value *LHS = II->getArgOperand(0), *RHS = II->getArgOperand(1);
-          ReplaceInstUsesWith(*II, UndefValue::get(II->getType()));
-          EraseInstFromFunction(*II);
+          replaceInstUsesWith(*II, UndefValue::get(II->getType()));
+          eraseInstFromFunction(*II);
           return BinaryOperator::CreateAdd(LHS, RHS);
         }
 
@@ -2290,8 +2290,8 @@ Instruction *InstCombiner::visitExtractValueInst(ExtractValueInst &EV) {
       case Intrinsic::ssub_with_overflow:
         if (*EV.idx_begin() == 0) {  // Normal result.
           Value *LHS = II->getArgOperand(0), *RHS = II->getArgOperand(1);
-          ReplaceInstUsesWith(*II, UndefValue::get(II->getType()));
-          EraseInstFromFunction(*II);
+          replaceInstUsesWith(*II, UndefValue::get(II->getType()));
+          eraseInstFromFunction(*II);
           return BinaryOperator::CreateSub(LHS, RHS);
         }
         break;
@@ -2299,8 +2299,8 @@ Instruction *InstCombiner::visitExtractValueInst(ExtractValueInst &EV) {
       case Intrinsic::smul_with_overflow:
         if (*EV.idx_begin() == 0) {  // Normal result.
           Value *LHS = II->getArgOperand(0), *RHS = II->getArgOperand(1);
-          ReplaceInstUsesWith(*II, UndefValue::get(II->getType()));
-          EraseInstFromFunction(*II);
+          replaceInstUsesWith(*II, UndefValue::get(II->getType()));
+          eraseInstFromFunction(*II);
           return BinaryOperator::CreateMul(LHS, RHS);
         }
         break;
@@ -2330,8 +2330,8 @@ Instruction *InstCombiner::visitExtractValueInst(ExtractValueInst &EV) {
       Value *GEP = Builder->CreateInBoundsGEP(L->getType(),
                                               L->getPointerOperand(), Indices);
       // Returning the load directly will cause the main loop to insert it in
-      // the wrong spot, so use ReplaceInstUsesWith().
-      return ReplaceInstUsesWith(EV, Builder->CreateLoad(GEP));
+      // the wrong spot, so use replaceInstUsesWith().
+      return replaceInstUsesWith(EV, Builder->CreateLoad(GEP));
     }
   // We could simplify extracts from other values. Note that nested extracts may
   // already be simplified implicitly by the above: extract (extract (insert) )
@@ -2731,7 +2731,7 @@ bool InstCombiner::run() {
     // Check to see if we can DCE the instruction.
     if (isInstructionTriviallyDead(I, TLI)) {
       DEBUG(dbgs() << "IC: DCE: " << *I << '\n');
-      EraseInstFromFunction(*I);
+      eraseInstFromFunction(*I);
       ++NumDeadInst;
       MadeIRChange = true;
       continue;
@@ -2744,9 +2744,9 @@ bool InstCombiner::run() {
         DEBUG(dbgs() << "IC: ConstFold to: " << *C << " from: " << *I << '\n');
 
         // Add operands to the worklist.
-        ReplaceInstUsesWith(*I, C);
+        replaceInstUsesWith(*I, C);
         ++NumConstProp;
-        EraseInstFromFunction(*I);
+        eraseInstFromFunction(*I);
         MadeIRChange = true;
         continue;
       }
@@ -2765,9 +2765,9 @@ bool InstCombiner::run() {
                         " from: " << *I << '\n');
 
         // Add operands to the worklist.
-        ReplaceInstUsesWith(*I, C);
+        replaceInstUsesWith(*I, C);
         ++NumConstProp;
-        EraseInstFromFunction(*I);
+        eraseInstFromFunction(*I);
         MadeIRChange = true;
         continue;
       }
@@ -2852,7 +2852,7 @@ bool InstCombiner::run() {
 
         InstParent->getInstList().insert(InsertPos, Result);
 
-        EraseInstFromFunction(*I);
+        eraseInstFromFunction(*I);
       } else {
 #ifndef NDEBUG
         DEBUG(dbgs() << "IC: Mod = " << OrigI << '\n'
@@ -2862,7 +2862,7 @@ bool InstCombiner::run() {
         // If the instruction was modified, it's possible that it is now dead.
         // if so, remove it.
         if (isInstructionTriviallyDead(I, TLI)) {
-          EraseInstFromFunction(*I);
+          eraseInstFromFunction(*I);
         } else {
           Worklist.Add(I);
           Worklist.AddUsersToWorkList(*I);
@@ -3002,7 +3002,7 @@ static bool prepareICWorklistFromFunction(Function &F, const DataLayout &DL,
   // Do a depth-first traversal of the function, populate the worklist with
   // the reachable instructions.  Ignore blocks that are not reachable.  Keep
   // track of which blocks we visit.
-  SmallPtrSet<BasicBlock *, 64> Visited;
+  SmallPtrSet<BasicBlock *, 32> Visited;
   MadeIRChange |=
       AddReachableCodeToWorklist(&F.front(), DL, Visited, ICWorklist, TLI);
 
@@ -3013,24 +3013,9 @@ static bool prepareICWorklistFromFunction(Function &F, const DataLayout &DL,
     if (Visited.count(&*BB))
       continue;
 
-    // Delete the instructions backwards, as it has a reduced likelihood of
-    // having to update as many def-use and use-def chains.
-    Instruction *EndInst = BB->getTerminator(); // Last not to be deleted.
-    while (EndInst != BB->begin()) {
-      // Delete the next to last instruction.
-      Instruction *Inst = &*--EndInst->getIterator();
-      if (!Inst->use_empty() && !Inst->getType()->isTokenTy())
-        Inst->replaceAllUsesWith(UndefValue::get(Inst->getType()));
-      if (Inst->isEHPad() || Inst->getType()->isTokenTy()) {
-        EndInst = Inst;
-        continue;
-      }
-      if (!isa<DbgInfoIntrinsic>(Inst)) {
-        ++NumDeadInst;
-        MadeIRChange = true;
-      }
-      Inst->eraseFromParent();
-    }
+    unsigned NumDeadInstInBB = removeAllNonTerminatorAndEHPadInstructions(&*BB);
+    MadeIRChange |= NumDeadInstInBB > 0;
+    NumDeadInst += NumDeadInstInBB;
   }
 
   return MadeIRChange;
@@ -3059,14 +3044,11 @@ combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
     DEBUG(dbgs() << "\n\nINSTCOMBINE ITERATION #" << Iteration << " on "
                  << F.getName() << "\n");
 
-    bool Changed = false;
-    if (prepareICWorklistFromFunction(F, DL, &TLI, Worklist))
-      Changed = true;
+    bool Changed = prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
-    InstCombiner IC(Worklist, &Builder, F.optForMinSize(),
-                    AA, &AC, &TLI, &DT, DL, LI);
-    if (IC.run())
-      Changed = true;
+    InstCombiner IC(Worklist, &Builder, F.optForMinSize(), AA, &AC, &TLI, &DT,
+                    DL, LI);
+    Changed |= IC.run();
 
     if (!Changed)
       break;

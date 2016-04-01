@@ -748,8 +748,6 @@ void LiveRange::flushSegmentSet() {
   verify();
 }
 
-#if INTEL_CUSTOMIZATION
-// Cherry picked from r260164
 bool LiveRange::isLiveAtIndexes(ArrayRef<SlotIndex> Slots) const {
   ArrayRef<SlotIndex>::iterator SlotI = Slots.begin();
   ArrayRef<SlotIndex>::iterator SlotE = Slots.end();
@@ -783,8 +781,6 @@ bool LiveRange::isLiveAtIndexes(ArrayRef<SlotIndex> Slots) const {
   // We didn't find a segment containing any of the slots.
   return false;
 }
-#endif // INTEL_CUSTOMIZATION
-
 
 void LiveInterval::freeSubRange(SubRange *S) {
   S->~SubRange();
@@ -1063,7 +1059,7 @@ raw_ostream& llvm::operator<<(raw_ostream& os, const LiveRange::Segment &S) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void LiveRange::Segment::dump() const {
+LLVM_DUMP_METHOD void LiveRange::Segment::dump() const {
   dbgs() << *this << "\n";
 }
 #endif
@@ -1108,11 +1104,11 @@ void LiveInterval::print(raw_ostream &OS) const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void LiveRange::dump() const {
+LLVM_DUMP_METHOD void LiveRange::dump() const {
   dbgs() << *this << "\n";
 }
 
-void LiveInterval::dump() const {
+LLVM_DUMP_METHOD void LiveInterval::dump() const {
   dbgs() << *this << "\n";
 }
 #endif
@@ -1210,8 +1206,7 @@ void LiveRangeUpdater::print(raw_ostream &OS) const {
   OS << '\n';
 }
 
-void LiveRangeUpdater::dump() const
-{
+LLVM_DUMP_METHOD void LiveRangeUpdater::dump() const {
   print(errs());
 }
 

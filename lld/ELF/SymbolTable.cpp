@@ -30,25 +30,26 @@ using namespace lld::elf2;
 // All input object files must be for the same architecture
 // (e.g. it does not make sense to link x86 object files with
 // MIPS object files.) This function checks for that error.
-template <class ELFT>
-static void checkCompatibility(InputFile *FileP) {
+template <class ELFT> static bool isCompatible(InputFile *FileP) {
   auto *F = dyn_cast<ELFFileBase<ELFT>>(FileP);
   if (!F)
-    return;
+    return true;
   if (F->getELFKind() == Config->EKind && F->getEMachine() == Config->EMachine)
-    return;
+    return true;
   StringRef A = F->getName();
   StringRef B = Config->Emulation;
   if (B.empty())
     B = Config->FirstElf->getName();
   error(A + " is incompatible with " + B);
+  return false;
 }
 
 // Add symbols in File to the symbol table.
 template <class ELFT>
 void SymbolTable<ELFT>::addFile(std::unique_ptr<InputFile> File) {
   InputFile *FileP = File.get();
-  checkCompatibility<ELFT>(FileP);
+  if (!isCompatible<ELFT>(FileP))
+    return;
 
   // .a file
   if (auto *F = dyn_cast<ArchiveFile>(FileP)) {
@@ -148,17 +149,23 @@ ELFFileBase<ELFT> *SymbolTable<ELFT>::findFile(SymbolBody *B) {
   return nullptr;
 }
 
+// Returns "(internal)", "foo.a(bar.o)" or "baz.o".
+template <class ELFT> static std::string getFilename(ELFFileBase<ELFT> *F) {
+  if (!F)
+    return "(internal)";
+  if (!F->ArchiveName.empty())
+    return (F->ArchiveName + "(" + F->getName() + ")").str();
+  return F->getName();
+}
+
 // Construct a string in the form of "Sym in File1 and File2".
 // Used to construct an error message.
 template <class ELFT>
 std::string SymbolTable<ELFT>::conflictMsg(SymbolBody *Old, SymbolBody *New) {
-  ELFFileBase<ELFT> *OldFile = findFile(Old);
-  ELFFileBase<ELFT> *NewFile = findFile(New);
-
+  ELFFileBase<ELFT> *F1 = findFile(Old);
+  ELFFileBase<ELFT> *F2 = findFile(New);
   StringRef Sym = Old->getName();
-  StringRef F1 = OldFile ? OldFile->getName() : "(internal)";
-  StringRef F2 = NewFile ? NewFile->getName() : "(internal)";
-  return (demangle(Sym) + " in " + F1 + " and " + F2).str();
+  return demangle(Sym) + " in " + getFilename(F1) + " and " + getFilename(F2);
 }
 
 // This function resolves conflicts if there's an existing symbol with
@@ -181,17 +188,20 @@ template <class ELFT> void SymbolTable<ELFT>::resolve(SymbolBody *New) {
     return;
   }
 
-  if (New->isTls() != Existing->isTls())
+  if (New->isTls() != Existing->isTls()) {
     error("TLS attribute mismatch for symbol: " + conflictMsg(Existing, New));
+    return;
+  }
 
   // compare() returns -1, 0, or 1 if the lhs symbol is less preferable,
   // equivalent (conflicting), or more preferable, respectively.
   int Comp = Existing->compare<ELFT>(New);
   if (Comp == 0) {
     std::string S = "duplicate symbol: " + conflictMsg(Existing, New);
-    if (!Config->AllowMultipleDefinition)
+    if (Config->AllowMultipleDefinition)
+      warning(S);
+    else
       error(S);
-    warning(S);
     return;
   }
   if (Comp < 0)
@@ -258,7 +268,7 @@ template <class ELFT> void SymbolTable<ELFT>::scanShlibUndefined() {
     for (StringRef U : File->getUndefinedSymbols())
       if (SymbolBody *Sym = find(U))
         if (Sym->isDefined())
-          Sym->setUsedInDynamicReloc();
+          Sym->MustBeInDynSym = true;
 }
 
 template class elf2::SymbolTable<ELF32LE>;
