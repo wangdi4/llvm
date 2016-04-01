@@ -653,7 +653,7 @@ typedef DenseMap<const MachineInstr *, MCSymbol *> LabelMap;
 //===----------------------------------------------------------------------===//
 
 struct ClassInfo {
-  typedef std::vector<const MDNode *> BaseClassList;
+  typedef std::vector<const DIDerivedType *> BaseClassList;
   struct VBaseClassInfo {
     const MDNode *llvmInheritance;
     unsigned vbIndex;
@@ -3260,8 +3260,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
   // Create base classes
   ClassInfo::BaseClassList &baseClasses = info.baseClasses;
   for (unsigned i = 0, e = baseClasses.size(); i != e; ++i) {
-    const DIDerivedType *inheritance =
-        dyn_cast<DIDerivedType>(baseClasses[i]);
+    const DIDerivedType *inheritance = baseClasses[i];
 
     STITypeBaseClass *bClass = STITypeBaseClass::create();
     bClass->setAttribute(getTypeAttribute(inheritance, llvmType));
@@ -3965,6 +3964,7 @@ STIType *STIDebugImpl::lowerType(const DIType *llvmType) {
 
   default:
     assert(tag != tag); // unhandled type tag!
+    type = nullptr;
     break;
   }
 
@@ -5313,6 +5313,7 @@ STIDebugImpl::emitSymbolThunk(const STISymbolThunk *thunk) const {
 
   default:
     assert(!"Invalid ordinal kind!");
+    ordinalSize = 0;
     break;
   }
 
