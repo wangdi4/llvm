@@ -300,7 +300,7 @@ multiclass FusedOp2<string opStr, SDNode inner, SDNode outer, RegisterClass RC,
 // CmpOp[N]C are identical to BinOp, except opNode is a PatFrag rather than
 // an SDNode...
 multiclass CmpOpC<string opStr, PatFrag opNode, RegisterClass RC,
-           ValueType opType, list<Predicate> preds> {
+           ValueType opType, SDNode immNode, list<Predicate> preds> {
   let isCommutable = 1, Predicates = preds in {
     def "" : FMTGEN<
       (outs I1:$dst),
@@ -311,12 +311,12 @@ multiclass CmpOpC<string opStr, PatFrag opNode, RegisterClass RC,
       (outs I1:$dst),
       (ins RC:$op1, Operand<opType>:$imm),
       !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set I1:$dst, (opNode opType:$op1, (opType imm:$imm)))]>;
+      [(set I1:$dst, (opNode opType:$op1, (opType immNode:$imm)))]>;
   }
 }
 
 multiclass CmpOpNC<string opStr, PatFrag opNode, RegisterClass RC,
-           ValueType opType, list<Predicate> preds> {
+           ValueType opType, SDNode immNode, list<Predicate> preds> {
   let isCommutable = 0, Predicates = preds in {
     def "" : FMTGEN<
       (outs I1:$dst),
@@ -327,40 +327,12 @@ multiclass CmpOpNC<string opStr, PatFrag opNode, RegisterClass RC,
       (outs I1:$dst),
       (ins RC:$op1, Operand<opType>:$imm),
       !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set I1:$dst, (opNode opType:$op1, (opType imm:$imm)))]>;
+      [(set I1:$dst, (opNode opType:$op1, (opType immNode:$imm)))]>;
     def i1 : FMTGEN<
       (outs I1:$dst),
       (ins Operand<opType>:$imm, RC:$op2),
       !strconcat(opStr, "\t$dst, $imm, $op2"),
-      [(set I1:$dst, (opNode (opType imm:$imm), opType:$op2))]>;
-  }
-}
-
-// FCmpOp generates both ordered and unordered forms
-multiclass FCmpOp<string opStr, PatFrag opNodeOrd, PatFrag opNodeUnord,
-           RegisterClass RC, ValueType opType, bit commutable,
-           list<Predicate> preds> {
-  let isCommutable = commutable, Predicates = preds in {
-    def "" : FMTGEN<
-      (outs I1:$dst),
-      (ins RC:$op1, RC:$op2),
-      !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set i1:$dst, (opNodeOrd opType:$op1, opType:$op2))]>;
-    def u : FMTGEN<
-      (outs I1:$dst),
-      (ins RC:$op1, RC:$op2),
-      !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set i1:$dst, (opNodeUnord opType:$op1, opType:$op2))]>;
-    def i : FMTGEN<
-      (outs I1:$dst),
-      (ins RC:$op1, Operand<opType>:$imm),
-      !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set i1:$dst, (opNodeOrd opType:$op1, (opType fpimm:$imm)))]>;
-    def ui : FMTGEN<
-      (outs I1:$dst),
-      (ins RC:$op1, Operand<opType>:$imm),
-      !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set i1:$dst, (opNodeUnord opType:$op1, (opType fpimm:$imm)))]>;
+      [(set I1:$dst, (opNode (opType immNode:$imm), opType:$op2))]>;
   }
 }
 
@@ -714,84 +686,110 @@ defm DIVF64    : BinOpNC<"divf64", fdiv, I64, f64, fpimm, [HasF64,HasFDiv]>;
 defm POWF32    : BinOpNC<"powf32",   fpow,  I32, f32, fpimm, [HasF32,HasMath0]>;
 defm POWF64    : BinOpNC<"powf64",   fpow,  I64, f64, fpimm, [HasF64,HasMath0]>;
 
-defm CMPLTS8  : CmpOpNC<"cmplts8", setlt,  I8,  i8,  [HasI8]>;
-defm CMPLTS16 : CmpOpNC<"cmplts16",setlt,  I16, i16, [HasI16]>;
-defm CMPLTS32 : CmpOpNC<"cmplts32",setlt,  I32, i32, [HasI32]>;
-defm CMPLTS64 : CmpOpNC<"cmplts64",setlt,  I64, i64, [HasI64]>;
+defm CMPLTS8  : CmpOpNC<"cmplts8", setlt,  I8,  i8,  imm,   [HasI8]>;
+defm CMPLTS16 : CmpOpNC<"cmplts16",setlt,  I16, i16, imm,   [HasI16]>;
+defm CMPLTS32 : CmpOpNC<"cmplts32",setlt,  I32, i32, imm,   [HasI32]>;
+defm CMPLTS64 : CmpOpNC<"cmplts64",setlt,  I64, i64, imm,   [HasI64]>;
 
-defm CMPLTU8  : CmpOpNC<"cmpltu8", setult, I8,  i8,  [HasI8]>;
-defm CMPLTU16 : CmpOpNC<"cmpltu16",setult, I16, i16, [HasI16]>;
-defm CMPLTU32 : CmpOpNC<"cmpltu32",setult, I32, i32, [HasI32]>;
-defm CMPLTU64 : CmpOpNC<"cmpltu64",setult, I64, i64, [HasI64]>;
+defm CMPLTU8  : CmpOpNC<"cmpltu8", setult, I8,  i8,  imm,   [HasI8]>;
+defm CMPLTU16 : CmpOpNC<"cmpltu16",setult, I16, i16, imm,   [HasI16]>;
+defm CMPLTU32 : CmpOpNC<"cmpltu32",setult, I32, i32, imm,   [HasI32]>;
+defm CMPLTU64 : CmpOpNC<"cmpltu64",setult, I64, i64, imm,   [HasI64]>;
 
-defm CMPLES8  : CmpOpNC<"cmples8", setle,  I8,  i8,  [HasI8]>;
-defm CMPLES16 : CmpOpNC<"cmples16",setle,  I16, i16, [HasI16]>;
-defm CMPLES32 : CmpOpNC<"cmples32",setle,  I32, i32, [HasI32]>;
-defm CMPLES64 : CmpOpNC<"cmples64",setle,  I64, i64, [HasI64]>;
+defm CMPLES8  : CmpOpNC<"cmples8", setle,  I8,  i8,  imm,   [HasI8]>;
+defm CMPLES16 : CmpOpNC<"cmples16",setle,  I16, i16, imm,   [HasI16]>;
+defm CMPLES32 : CmpOpNC<"cmples32",setle,  I32, i32, imm,   [HasI32]>;
+defm CMPLES64 : CmpOpNC<"cmples64",setle,  I64, i64, imm,   [HasI64]>;
 
-defm CMPLEU8  : CmpOpNC<"cmpleu8", setule, I8,  i8,  [HasI8]>;
-defm CMPLEU16 : CmpOpNC<"cmpleu16",setule, I16, i16, [HasI16]>;
-defm CMPLEU32 : CmpOpNC<"cmpleu32",setule, I32, i32, [HasI32]>;
-defm CMPLEU64 : CmpOpNC<"cmpleu64",setule, I64, i64, [HasI64]>;
+defm CMPLEU8  : CmpOpNC<"cmpleu8", setule, I8,  i8,  imm,   [HasI8]>;
+defm CMPLEU16 : CmpOpNC<"cmpleu16",setule, I16, i16, imm,   [HasI16]>;
+defm CMPLEU32 : CmpOpNC<"cmpleu32",setule, I32, i32, imm,   [HasI32]>;
+defm CMPLEU64 : CmpOpNC<"cmpleu64",setule, I64, i64, imm,   [HasI64]>;
 
 // Note - there is no cmpeq1.  As long as operands are clean, cmpeq8
 // suffices
-defm CMPEQ1   : CmpOpC<"cmpeq8",   seteq,  I1,  i1,  [HasI1]>;
-defm CMPEQ8   : CmpOpC<"cmpeq8",   seteq,  I8,  i8,  [HasI8]>;
-defm CMPEQ16  : CmpOpC<"cmpeq16",  seteq,  I16, i16, [HasI16]>;
-defm CMPEQ32  : CmpOpC<"cmpeq32",  seteq,  I32, i32, [HasI32]>;
-defm CMPEQ64  : CmpOpC<"cmpeq64",  seteq,  I64, i64, [HasI64]>;
+defm CMPEQ1   : CmpOpC<"cmpeq8",   seteq,  I1,  i1,  imm,   [HasI1]>;
+defm CMPEQ8   : CmpOpC<"cmpeq8",   seteq,  I8,  i8,  imm,   [HasI8]>;
+defm CMPEQ16  : CmpOpC<"cmpeq16",  seteq,  I16, i16, imm,   [HasI16]>;
+defm CMPEQ32  : CmpOpC<"cmpeq32",  seteq,  I32, i32, imm,   [HasI32]>;
+defm CMPEQ64  : CmpOpC<"cmpeq64",  seteq,  I64, i64, imm,   [HasI64]>;
 
-defm CMPGTS8  : CmpOpNC<"cmpgts8", setgt,  I8,  i8,  [HasI8]>;
-defm CMPGTS16 : CmpOpNC<"cmpgts16",setgt,  I16, i16, [HasI16]>;
-defm CMPGTS32 : CmpOpNC<"cmpgts32",setgt,  I32, i32, [HasI32]>;
-defm CMPGTS64 : CmpOpNC<"cmpgts64",setgt,  I64, i64, [HasI64]>;
+defm CMPGTS8  : CmpOpNC<"cmpgts8", setgt,  I8,  i8,  imm,   [HasI8]>;
+defm CMPGTS16 : CmpOpNC<"cmpgts16",setgt,  I16, i16, imm,   [HasI16]>;
+defm CMPGTS32 : CmpOpNC<"cmpgts32",setgt,  I32, i32, imm,   [HasI32]>;
+defm CMPGTS64 : CmpOpNC<"cmpgts64",setgt,  I64, i64, imm,   [HasI64]>;
 
-defm CMPGTU8  : CmpOpNC<"cmpgtu8", setugt, I8,  i8,  [HasI8]>;
-defm CMPGTU16 : CmpOpNC<"cmpgtu16",setugt, I16, i16, [HasI16]>;
-defm CMPGTU32 : CmpOpNC<"cmpgtu32",setugt, I32, i32, [HasI32]>;
-defm CMPGTU64 : CmpOpNC<"cmpgtu64",setugt, I64, i64, [HasI64]>;
+defm CMPGTU8  : CmpOpNC<"cmpgtu8", setugt, I8,  i8,  imm,   [HasI8]>;
+defm CMPGTU16 : CmpOpNC<"cmpgtu16",setugt, I16, i16, imm,   [HasI16]>;
+defm CMPGTU32 : CmpOpNC<"cmpgtu32",setugt, I32, i32, imm,   [HasI32]>;
+defm CMPGTU64 : CmpOpNC<"cmpgtu64",setugt, I64, i64, imm,   [HasI64]>;
 
-defm CMPGES8  : CmpOpNC<"cmpges8", setge,  I8,  i8,  [HasI8]>;
-defm CMPGES16 : CmpOpNC<"cmpges16",setge,  I16, i16, [HasI16]>;
-defm CMPGES32 : CmpOpNC<"cmpges32",setge,  I32, i32, [HasI32]>;
-defm CMPGES64 : CmpOpNC<"cmpges64",setge,  I64, i64, [HasI64]>;
+defm CMPGES8  : CmpOpNC<"cmpges8", setge,  I8,  i8,  imm,   [HasI8]>;
+defm CMPGES16 : CmpOpNC<"cmpges16",setge,  I16, i16, imm,   [HasI16]>;
+defm CMPGES32 : CmpOpNC<"cmpges32",setge,  I32, i32, imm,   [HasI32]>;
+defm CMPGES64 : CmpOpNC<"cmpges64",setge,  I64, i64, imm,   [HasI64]>;
 
-defm CMPGEU8  : CmpOpNC<"cmpgeu8", setuge, I8,  i8,  [HasI8]>;
-defm CMPGEU16 : CmpOpNC<"cmpgeu16",setuge, I16, i16, [HasI16]>;
-defm CMPGEU32 : CmpOpNC<"cmpgeu32",setuge, I32, i32, [HasI32]>;
-defm CMPGEU64 : CmpOpNC<"cmpgeu64",setuge, I64, i64, [HasI64]>;
+defm CMPGEU8  : CmpOpNC<"cmpgeu8", setuge, I8,  i8,  imm,   [HasI8]>;
+defm CMPGEU16 : CmpOpNC<"cmpgeu16",setuge, I16, i16, imm,   [HasI16]>;
+defm CMPGEU32 : CmpOpNC<"cmpgeu32",setuge, I32, i32, imm,   [HasI32]>;
+defm CMPGEU64 : CmpOpNC<"cmpgeu64",setuge, I64, i64, imm,   [HasI64]>;
 
 def : Pat<(i1 (setne i1:$op1, i1:$op2)), (XOR1 $op1,$op2)>;
 def : Pat<(i1 (setne i1:$op1, (i1 imm:$imm))), (XOR1i $op1,$imm)>;
-defm CMPNE8   : CmpOpC<"cmpne8",   setne,  I8,  i8,  [HasI8]>;
-defm CMPNE16  : CmpOpC<"cmpne16",  setne,  I16, i16, [HasI16]>;
-defm CMPNE32  : CmpOpC<"cmpne32",  setne,  I32, i32, [HasI32]>;
-defm CMPNE64  : CmpOpC<"cmpne64",  setne,  I64, i64, [HasI64]>;
+defm CMPNE8   : CmpOpC<"cmpne8",   setne,  I8,  i8,  imm,   [HasI8]>;
+defm CMPNE16  : CmpOpC<"cmpne16",  setne,  I16, i16, imm,   [HasI16]>;
+defm CMPNE32  : CmpOpC<"cmpne32",  setne,  I32, i32, imm,   [HasI32]>;
+defm CMPNE64  : CmpOpC<"cmpne64",  setne,  I64, i64, imm,   [HasI64]>;
 
-defm CMPLTF16 : FCmpOp<"cmpltf16", setolt, setult, I16, f16, 0, [HasF16]>;
-defm CMPLTF32 : FCmpOp<"cmpltf32", setolt, setult, I32, f32, 0, [HasF32]>;
-defm CMPLTF64 : FCmpOp<"cmpltf64", setolt, setult, I64, f64, 0, [HasF64]>;
+defm CMPOLTF16: CmpOpNC<"cmpltf16",setolt, I16, f16, fpimm, [HasF16]>;
+defm CMPOLTF32: CmpOpNC<"cmpltf32",setolt, I32, f32, fpimm, [HasF32]>;
+defm CMPOLTF64: CmpOpNC<"cmpltf64",setolt, I64, f64, fpimm, [HasF64]>;
+defm CMPULTF16: CmpOpNC<"cmpltf16",setult, I16, f16, fpimm, [HasF16]>;
+defm CMPULTF32: CmpOpNC<"cmpltf32",setult, I32, f32, fpimm, [HasF32]>;
+defm CMPULTF64: CmpOpNC<"cmpltf64",setult, I64, f64, fpimm, [HasF64]>;
 
-defm CMPLEF16 : FCmpOp<"cmplef16", setole, setule, I16, f16, 0, [HasF16]>;
-defm CMPLEF32 : FCmpOp<"cmplef32", setole, setule, I32, f32, 0, [HasF32]>;
-defm CMPLEF64 : FCmpOp<"cmplef64", setole, setule, I64, f64, 0, [HasF64]>;
+defm CMPOLEF16: CmpOpNC<"cmplef16",setole, I16, f16, fpimm, [HasF16]>;
+defm CMPOLEF32: CmpOpNC<"cmplef32",setole, I32, f32, fpimm, [HasF32]>;
+defm CMPOLEF64: CmpOpNC<"cmplef64",setole, I64, f64, fpimm, [HasF64]>;
+defm CMPULEF16: CmpOpNC<"cmplef16",setule, I16, f16, fpimm, [HasF16]>;
+defm CMPULEF32: CmpOpNC<"cmplef32",setule, I32, f32, fpimm, [HasF32]>;
+defm CMPULEF64: CmpOpNC<"cmplef64",setule, I64, f64, fpimm, [HasF64]>;
 
-defm CMPEQF16 : FCmpOp<"cmpeqf16", setoeq, setueq, I16, f16, 1, [HasF16]>;
-defm CMPEQF32 : FCmpOp<"cmpeqf32", setoeq, setueq, I32, f32, 1, [HasF32]>;
-defm CMPEQF64 : FCmpOp<"cmpeqf64", setoeq, setueq, I64, f64, 1, [HasF64]>;
+defm CMPOEQF16: CmpOpC<"cmpeqf16", setoeq, I16, f16, fpimm, [HasF16]>;
+defm CMPOEQF32: CmpOpC<"cmpeqf32", setoeq, I32, f32, fpimm, [HasF32]>;
+defm CMPOEQF64: CmpOpC<"cmpeqf64", setoeq, I64, f64, fpimm, [HasF64]>;
+defm CMPUEQF16: CmpOpC<"cmpeqf16", setueq, I16, f16, fpimm, [HasF16]>;
+defm CMPUEQF32: CmpOpC<"cmpeqf32", setueq, I32, f32, fpimm, [HasF32]>;
+defm CMPUEQF64: CmpOpC<"cmpeqf64", setueq, I64, f64, fpimm, [HasF64]>;
 
-defm CMPGTF16 : FCmpOp<"cmpgtf16", setogt, setugt, I16, f16, 0, [HasF16]>;
-defm CMPGTF32 : FCmpOp<"cmpgtf32", setogt, setugt, I32, f32, 0, [HasF32]>;
-defm CMPGTF64 : FCmpOp<"cmpgtf64", setogt, setugt, I64, f64, 0, [HasF64]>;
+defm CMPOGTF16: CmpOpNC<"cmpgtf16",setogt, I16, f16, fpimm, [HasF16]>;
+defm CMPOGTF32: CmpOpNC<"cmpgtf32",setogt, I32, f32, fpimm, [HasF32]>;
+defm CMPOGTF64: CmpOpNC<"cmpgtf64",setogt, I64, f64, fpimm, [HasF64]>;
+defm CMPUGTF16: CmpOpNC<"cmpgtf16",setugt, I16, f16, fpimm, [HasF16]>;
+defm CMPUGTF32: CmpOpNC<"cmpgtf32",setugt, I32, f32, fpimm, [HasF32]>;
+defm CMPUGTF64: CmpOpNC<"cmpgtf64",setugt, I64, f64, fpimm, [HasF64]>;
 
-defm CMPGEF16 : FCmpOp<"cmpgef16", setoge, setuge, I16, f16, 0, [HasF16]>;
-defm CMPGEF32 : FCmpOp<"cmpgef32", setoge, setuge, I32, f32, 0, [HasF32]>;
-defm CMPGEF64 : FCmpOp<"cmpgef64", setoge, setuge, I64, f64, 0, [HasF64]>;
+defm CMPOGEF16: CmpOpNC<"cmpgef16",setoge, I16, f16, fpimm, [HasF16]>;
+defm CMPOGEF32: CmpOpNC<"cmpgef32",setoge, I32, f32, fpimm, [HasF32]>;
+defm CMPOGEF64: CmpOpNC<"cmpgef64",setoge, I64, f64, fpimm, [HasF64]>;
+defm CMPUGEF16: CmpOpNC<"cmpgef16",setuge, I16, f16, fpimm, [HasF16]>;
+defm CMPUGEF32: CmpOpNC<"cmpgef32",setuge, I32, f32, fpimm, [HasF32]>;
+defm CMPUGEF64: CmpOpNC<"cmpgef64",setuge, I64, f64, fpimm, [HasF64]>;
 
-defm CMPNEF16 : FCmpOp<"cmpnef16", setone, setune, I16, f16, 1, [HasF16]>;
-defm CMPNEF32 : FCmpOp<"cmpnef32", setone, setune, I32, f32, 1, [HasF32]>;
-defm CMPNEF64 : FCmpOp<"cmpnef64", setone, setune, I64, f64, 1, [HasF64]>;
+defm CMPONEF16: CmpOpC<"cmpnef16", setone, I16, f16, fpimm, [HasF16]>;
+defm CMPONEF32: CmpOpC<"cmpnef32", setone, I32, f32, fpimm, [HasF32]>;
+defm CMPONEF64: CmpOpC<"cmpnef64", setone, I64, f64, fpimm, [HasF64]>;
+defm CMPUNEF16: CmpOpC<"cmpnef16", setune, I16, f16, fpimm, [HasF16]>;
+defm CMPUNEF32: CmpOpC<"cmpnef32", setune, I32, f32, fpimm, [HasF32]>;
+defm CMPUNEF64: CmpOpC<"cmpnef64", setune, I64, f64, fpimm, [HasF64]>;
+
+defm CMPOF16  : CmpOpC<"cmpof16",  seto,   I16, f16, fpimm, [HasF16]>;
+defm CMPOF32  : CmpOpC<"cmpof32",  seto,   I32, f32, fpimm, [HasF32]>;
+defm CMPOF64  : CmpOpC<"cmpof64",  seto,   I64, f64, fpimm, [HasF64]>;
+defm CMPUOF16 : CmpOpC<"cmpuof16", setuo,  I16, f16, fpimm, [HasF16]>;
+defm CMPUOF32 : CmpOpC<"cmpuof32", setuo,  I32, f32, fpimm, [HasF32]>;
+defm CMPUOF64 : CmpOpC<"cmpuof64", setuo,  I64, f64, fpimm, [HasF64]>;
+
 
 // Drop?
 // todo: def BSEL8
