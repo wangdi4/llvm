@@ -44,7 +44,11 @@ typedef int crt_err_code;
 
 #define MAX_STRLEN                  (1024)
 #define INTEL_PLATFORM_PROFILE      "FULL_PROFILE"
+#ifdef BUILD_EXPERIMENTAL_21
+#define INTEL_PLATFORM_NAME         "Experimental OpenCL 2.1 CPU Only Platform"
+#else //BUILD_EXPERIMENTAL_21
 #define INTEL_PLATFORM_NAME         "Intel(R) OpenCL"
+#endif //BUILD_EXPERIMENTAL_21
 #define INTEL_PLATFORM_VENDOR       "Intel(R) Corporation"
 #define INTEL_ICD_EXTENSIONS_STRING "INTEL"
 

@@ -383,9 +383,6 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     {
         return s_ver;
     }    
-#ifdef BUILD_2_0_RT
-    return OPENCL_VERSION_2_0;
-#else
     // first look in environment variable or configuration file
     string ver = m_pConfigFile->Read("ForceOCLCPUVersion", string(""));   // we are using this name to be aligned with GEN
     if ("1.2" == ver)
@@ -427,10 +424,18 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
             return OPENCL_VERSION_2_1;
         }
     default:
+#ifdef BUILD_EXPERIMENTAL_21
+        return OPENCL_VERSION_2_1;
+#endif // BUILD_EXPERIMENTAL_21
+
+#if !defined (__ANDROID__)
         s_ver = GetOpenclVerByCpuModel();
         return s_ver;
+#else
+        s_ver = OPENCL_VERSION_1_2;
+        return OPENCL_VERSION_1_2;
+#endif // !defined (__ANDROID__)
     }
-#endif
 }
 
 

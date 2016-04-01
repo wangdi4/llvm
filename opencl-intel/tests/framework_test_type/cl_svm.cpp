@@ -380,11 +380,7 @@ bool clSvmTest()
         cl_device_svm_capabilities svmCaps;
         iRet = clGetDeviceInfo(device, CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, NULL);
         CheckException(L"clGetDeviceInfo", CL_SUCCESS, iRet);
-#ifdef BUILD_2_0_RT // emulator
-        CheckException(L"clGetDeviceInfo", (cl_device_svm_capabilities)(CL_DEVICE_SVM_COARSE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_ATOMICS), svmCaps);
-#else
         CheckException(L"clGetDeviceInfo", (cl_device_svm_capabilities)(CL_DEVICE_SVM_COARSE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS), svmCaps);
-#endif
 	}
 	catch (const std::exception&)
     {

@@ -387,9 +387,17 @@ bool TBBTaskExecutor::LoadTBBLibrary()
     Intel::OpenCL::Utils::GetModuleDirectory(tbbPath, MAX_PATH);
 
 #ifdef _DEBUG
+#ifdef BUILD_EXPERIMENTAL_21
+        STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_debug_2_1.dll");
+#else // BUILD_EXPERIMENTAL_21
         STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_debug.dll");
+#endif // BUILD_EXPERIMENTAL_21
 #else
+#ifdef BUILD_EXPERIMENTAL_21
+        STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_2_1.dll");
+#else // BUILD_EXPERIMENTAL_21
         STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb.dll");
+#endif // BUILD_EXPERIMENTAL_21
 #endif
 
     bLoadRes = m_dllTBBLib.Load(tbbPath);

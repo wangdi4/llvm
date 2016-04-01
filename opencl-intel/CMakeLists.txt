@@ -539,6 +539,12 @@ set( TOOLS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/Tools )
 set( FRONTEND_FOLDER_NAME       Frontend )
 set( EXTERNAL_FOLDER_NAME       External )
 
+if( BUILD_EXPERIMENTAL_21 )
+    add_definitions( -DBUILD_EXPERIMENTAL_21 )
+    set( EXPERIMENTAL_POSTFIX "_2_1" )
+endif( BUILD_EXPERIMENTAL_21 )
+
+
 
 if (APPLE)
     include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
