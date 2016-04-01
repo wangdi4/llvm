@@ -22,7 +22,7 @@
 ;CHECK-NEXT: %index = phi i32 [ 0, %DIR.QUAL.LIST.END.{{[0-9]}} ], [ %indvar, %simd.loop.exit ]
 ;CHECK: br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
 
-;CHECK-NEXT: simd.loop.then:
+;CHECK: simd.loop.then:
 ;CHECK-NEXT: %vec.n.cast.gep = %vec.n.cast getelementptr %index
 ;CHECK-NEXT: %0 = load %vec.n.cast.gep
 ;CHECK-NEXT: switch(%0){
