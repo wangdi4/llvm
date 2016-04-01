@@ -1,8 +1,14 @@
 // RUN: %check_clang_tidy %s misc-virtual-near-miss %t
 
+class NoDefinedClass1;
+class NoDefinedClass2;
+
 struct Base {
   virtual void func();
   virtual void gunk();
+  virtual ~Base();
+  virtual Base &operator=(const Base &);
+  virtual NoDefinedClass1 *f();
 };
 
 struct Derived : Base {
@@ -20,7 +26,13 @@ struct Derived : Base {
 
   void fun();
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: method 'Derived::fun' has {{.*}} 'Base::func'
+
+  Derived &operator==(const Base &); // Should not warn: operators are ignored.
+
+  virtual NoDefinedClass2 *f1(); // Should not crash: non-defined class return type is ignored.
 };
+
+typedef Derived derived_type;
 
 class Father {
 public:
@@ -28,6 +40,7 @@ public:
   virtual void func();
   virtual Father *create(int i);
   virtual Base &&generate();
+  virtual Base *canonical(Derived D);
 };
 
 class Mother {
@@ -36,6 +49,7 @@ public:
   static void method();
   virtual int method(int argc, const char **argv);
   virtual int method(int argc) const;
+  virtual int decay(const char *str);
 };
 
 class Child : private Father, private Mother {
@@ -47,7 +61,8 @@ public:
 
   int methoe(int x, char **strs); // Should not warn: parameter types don't match.
 
-  int methoe(int x); // Should not warn: method is not const.
+  int methoe(int x);
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: method 'Child::methoe' has {{.*}} 'Mother::method'
 
   void methof(int x, const char **strs); // Should not warn: return types don't match.
 
@@ -60,6 +75,15 @@ public:
   virtual Derived &&generat();
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: method 'Child::generat' has {{.*}} 'Father::generate'
 
+  int decaz(const char str[]);
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: method 'Child::decaz' has {{.*}} 'Mother::decay'
+
+  operator bool();
+
+  derived_type *canonica(derived_type D);
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: method 'Child::canonica' has {{.*}} 'Father::canonical'
+
 private:
-  void funk(); // Should not warn: access qualifers don't match.
+  void funk();
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: method 'Child::funk' has {{.*}} 'Father::func'
 };

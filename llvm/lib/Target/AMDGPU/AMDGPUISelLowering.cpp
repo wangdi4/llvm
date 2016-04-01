@@ -15,7 +15,6 @@
 
 #include "AMDGPUISelLowering.h"
 #include "AMDGPU.h"
-#include "AMDGPUDiagnosticInfoUnsupported.h"
 #include "AMDGPUFrameLowering.h"
 #include "AMDGPUIntrinsicInfo.h"
 #include "AMDGPURegisterInfo.h"
@@ -28,6 +27,7 @@
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "SIInstrInfo.h"
 using namespace llvm;
 
@@ -397,7 +397,7 @@ AMDGPUTargetLowering::AMDGPUTargetLowering(TargetMachine &TM,
   // SI at least has hardware support for floating point exceptions, but no way
   // of using or handling them is implemented. They are also optional in OpenCL
   // (Section 7.3)
-  setHasFloatingPointExceptions(false);
+  setHasFloatingPointExceptions(Subtarget->hasFPExceptions());
 
   setSelectIsExpensive(false);
   PredictableSelectIsExpensive = false;
@@ -609,7 +609,8 @@ SDValue AMDGPUTargetLowering::LowerCall(CallLoweringInfo &CLI,
   else if (const GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(Callee))
     FuncName = G->getGlobal()->getName();
 
-  DiagnosticInfoUnsupported NoCalls(Fn, "call to function " + FuncName);
+  DiagnosticInfoUnsupported NoCalls(
+      Fn, "unsupported call to function " + FuncName, CLI.DL.getDebugLoc());
   DAG.getContext()->diagnose(NoCalls);
   return SDValue();
 }
@@ -618,7 +619,8 @@ SDValue AMDGPUTargetLowering::LowerDYNAMIC_STACKALLOC(SDValue Op,
                                                       SelectionDAG &DAG) const {
   const Function &Fn = *DAG.getMachineFunction().getFunction();
 
-  DiagnosticInfoUnsupported NoDynamicAlloca(Fn, "dynamic alloca");
+  DiagnosticInfoUnsupported NoDynamicAlloca(Fn, "unsupported dynamic alloca",
+                                            SDLoc(Op).getDebugLoc());
   DAG.getContext()->diagnose(NoDynamicAlloca);
   return SDValue();
 }
@@ -669,21 +671,8 @@ void AMDGPUTargetLowering::ReplaceNodeResults(SDNode *N,
     // ReplaceNodeResults to sext_in_reg to an illegal type, so we'll just do
     // nothing here and let the illegal result integer be handled normally.
     return;
-  case ISD::LOAD: {
-    SDNode *Node = LowerLOAD(SDValue(N, 0), DAG).getNode();
-    if (!Node)
-      return;
-
-    Results.push_back(SDValue(Node, 0));
-    Results.push_back(SDValue(Node, 1));
-    // XXX: LLVM seems not to replace Chain Value inside CustomWidenLowerNode
-    // function
-    DAG.ReplaceAllUsesOfValueWith(SDValue(N,1), SDValue(Node, 1));
-    return;
-  }
   case ISD::STORE: {
-    SDValue Lowered = LowerSTORE(SDValue(N, 0), DAG);
-    if (Lowered.getNode())
+    if (SDValue Lowered = LowerSTORE(SDValue(N, 0), DAG))
       Results.push_back(Lowered);
     return;
   }
@@ -811,11 +800,16 @@ SDValue AMDGPUTargetLowering::LowerGlobalAddress(AMDGPUMachineFunction* MFI,
 
     unsigned Offset;
     if (MFI->LocalMemoryObjects.count(GV) == 0) {
-      uint64_t Size = DL.getTypeAllocSize(GV->getValueType());
-      Offset = MFI->LDSSize;
+      unsigned Align = GV->getAlignment();
+      if (Align == 0)
+        Align = DL.getABITypeAlignment(GV->getValueType());
+
+      /// TODO: We should sort these to minimize wasted space due to alignment
+      /// padding. Currently the padding is decided by the first encountered use
+      /// during lowering.
+      Offset = MFI->LDSSize = alignTo(MFI->LDSSize, Align);
       MFI->LocalMemoryObjects[GV] = Offset;
-      // XXX: Account for alignment?
-      MFI->LDSSize += Size;
+      MFI->LDSSize += DL.getTypeAllocSize(GV->getValueType());
     } else {
       Offset = MFI->LocalMemoryObjects[GV];
     }
@@ -865,8 +859,8 @@ SDValue AMDGPUTargetLowering::LowerGlobalAddress(AMDGPUMachineFunction* MFI,
   }
 
   const Function &Fn = *DAG.getMachineFunction().getFunction();
-  DiagnosticInfoUnsupported BadInit(Fn,
-                                    "initializer for address space");
+  DiagnosticInfoUnsupported BadInit(
+      Fn, "unsupported initializer for address space", SDLoc(Op).getDebugLoc());
   DAG.getContext()->diagnose(BadInit);
   return SDValue();
 }
@@ -917,120 +911,14 @@ SDValue AMDGPUTargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
 
   switch (IntrinsicID) {
     default: return Op;
-    case AMDGPUIntrinsic::AMDGPU_abs:
-    case AMDGPUIntrinsic::AMDIL_abs: // Legacy name.
-      return LowerIntrinsicIABS(Op, DAG);
-    case AMDGPUIntrinsic::AMDGPU_lrp:
-      return LowerIntrinsicLRP(Op, DAG);
-
     case AMDGPUIntrinsic::AMDGPU_clamp:
     case AMDGPUIntrinsic::AMDIL_clamp: // Legacy name.
       return DAG.getNode(AMDGPUISD::CLAMP, DL, VT,
                          Op.getOperand(1), Op.getOperand(2), Op.getOperand(3));
 
-    case Intrinsic::AMDGPU_div_scale: {
-      // 3rd parameter required to be a constant.
-      const ConstantSDNode *Param = dyn_cast<ConstantSDNode>(Op.getOperand(3));
-      if (!Param)
-        return DAG.getUNDEF(VT);
-
-      // Translate to the operands expected by the machine instruction. The
-      // first parameter must be the same as the first instruction.
-      SDValue Numerator = Op.getOperand(1);
-      SDValue Denominator = Op.getOperand(2);
-
-      // Note this order is opposite of the machine instruction's operations,
-      // which is s0.f = Quotient, s1.f = Denominator, s2.f = Numerator. The
-      // intrinsic has the numerator as the first operand to match a normal
-      // division operation.
-
-      SDValue Src0 = Param->isAllOnesValue() ? Numerator : Denominator;
-
-      return DAG.getNode(AMDGPUISD::DIV_SCALE, DL, Op->getVTList(), Src0,
-                         Denominator, Numerator);
-    }
-
-    case Intrinsic::AMDGPU_div_fmas:
-      return DAG.getNode(AMDGPUISD::DIV_FMAS, DL, VT,
-                         Op.getOperand(1), Op.getOperand(2), Op.getOperand(3),
-                         Op.getOperand(4));
-
-    case Intrinsic::AMDGPU_div_fixup:
-      return DAG.getNode(AMDGPUISD::DIV_FIXUP, DL, VT,
-                         Op.getOperand(1), Op.getOperand(2), Op.getOperand(3));
-
-    case Intrinsic::AMDGPU_trig_preop:
-      return DAG.getNode(AMDGPUISD::TRIG_PREOP, DL, VT,
-                         Op.getOperand(1), Op.getOperand(2));
-
-    case Intrinsic::AMDGPU_rcp:
-      return DAG.getNode(AMDGPUISD::RCP, DL, VT, Op.getOperand(1));
-
-    case Intrinsic::AMDGPU_rsq:
-      return DAG.getNode(AMDGPUISD::RSQ, DL, VT, Op.getOperand(1));
-
-    case AMDGPUIntrinsic::AMDGPU_legacy_rsq:
-      return DAG.getNode(AMDGPUISD::RSQ_LEGACY, DL, VT, Op.getOperand(1));
-
-    case Intrinsic::AMDGPU_rsq_clamped:
-      if (Subtarget->getGeneration() >= AMDGPUSubtarget::VOLCANIC_ISLANDS) {
-        Type *Type = VT.getTypeForEVT(*DAG.getContext());
-        APFloat Max = APFloat::getLargest(Type->getFltSemantics());
-        APFloat Min = APFloat::getLargest(Type->getFltSemantics(), true);
-
-        SDValue Rsq = DAG.getNode(AMDGPUISD::RSQ, DL, VT, Op.getOperand(1));
-        SDValue Tmp = DAG.getNode(ISD::FMINNUM, DL, VT, Rsq,
-                                  DAG.getConstantFP(Max, DL, VT));
-        return DAG.getNode(ISD::FMAXNUM, DL, VT, Tmp,
-                           DAG.getConstantFP(Min, DL, VT));
-      } else {
-        return DAG.getNode(AMDGPUISD::RSQ_CLAMPED, DL, VT, Op.getOperand(1));
-      }
-
-    case Intrinsic::AMDGPU_ldexp:
+    case Intrinsic::AMDGPU_ldexp: // Legacy name
       return DAG.getNode(AMDGPUISD::LDEXP, DL, VT, Op.getOperand(1),
                                                    Op.getOperand(2));
-
-    case AMDGPUIntrinsic::AMDGPU_imax:
-      return DAG.getNode(ISD::SMAX, DL, VT, Op.getOperand(1),
-                                            Op.getOperand(2));
-    case AMDGPUIntrinsic::AMDGPU_umax:
-      return DAG.getNode(ISD::UMAX, DL, VT, Op.getOperand(1),
-                                            Op.getOperand(2));
-    case AMDGPUIntrinsic::AMDGPU_imin:
-      return DAG.getNode(ISD::SMIN, DL, VT, Op.getOperand(1),
-                                            Op.getOperand(2));
-    case AMDGPUIntrinsic::AMDGPU_umin:
-      return DAG.getNode(ISD::UMIN, DL, VT, Op.getOperand(1),
-                                            Op.getOperand(2));
-
-    case AMDGPUIntrinsic::AMDGPU_umul24:
-      return DAG.getNode(AMDGPUISD::MUL_U24, DL, VT,
-                         Op.getOperand(1), Op.getOperand(2));
-
-    case AMDGPUIntrinsic::AMDGPU_imul24:
-      return DAG.getNode(AMDGPUISD::MUL_I24, DL, VT,
-                         Op.getOperand(1), Op.getOperand(2));
-
-    case AMDGPUIntrinsic::AMDGPU_umad24:
-      return DAG.getNode(AMDGPUISD::MAD_U24, DL, VT,
-                         Op.getOperand(1), Op.getOperand(2), Op.getOperand(3));
-
-    case AMDGPUIntrinsic::AMDGPU_imad24:
-      return DAG.getNode(AMDGPUISD::MAD_I24, DL, VT,
-                         Op.getOperand(1), Op.getOperand(2), Op.getOperand(3));
-
-    case AMDGPUIntrinsic::AMDGPU_cvt_f32_ubyte0:
-      return DAG.getNode(AMDGPUISD::CVT_F32_UBYTE0, DL, VT, Op.getOperand(1));
-
-    case AMDGPUIntrinsic::AMDGPU_cvt_f32_ubyte1:
-      return DAG.getNode(AMDGPUISD::CVT_F32_UBYTE1, DL, VT, Op.getOperand(1));
-
-    case AMDGPUIntrinsic::AMDGPU_cvt_f32_ubyte2:
-      return DAG.getNode(AMDGPUISD::CVT_F32_UBYTE2, DL, VT, Op.getOperand(1));
-
-    case AMDGPUIntrinsic::AMDGPU_cvt_f32_ubyte3:
-      return DAG.getNode(AMDGPUISD::CVT_F32_UBYTE3, DL, VT, Op.getOperand(1));
 
     case AMDGPUIntrinsic::AMDGPU_bfe_i32:
       return DAG.getNode(AMDGPUISD::BFE_I32, DL, VT,
@@ -1044,59 +932,12 @@ SDValue AMDGPUTargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
                          Op.getOperand(2),
                          Op.getOperand(3));
 
-    case AMDGPUIntrinsic::AMDGPU_bfi:
-      return DAG.getNode(AMDGPUISD::BFI, DL, VT,
-                         Op.getOperand(1),
-                         Op.getOperand(2),
-                         Op.getOperand(3));
-
-    case AMDGPUIntrinsic::AMDGPU_bfm:
-      return DAG.getNode(AMDGPUISD::BFM, DL, VT,
-                         Op.getOperand(1),
-                         Op.getOperand(2));
-
-  case Intrinsic::AMDGPU_class:
-    return DAG.getNode(AMDGPUISD::FP_CLASS, DL, VT,
-                       Op.getOperand(1), Op.getOperand(2));
-
     case AMDGPUIntrinsic::AMDIL_exp: // Legacy name.
       return DAG.getNode(ISD::FEXP2, DL, VT, Op.getOperand(1));
 
-    case AMDGPUIntrinsic::AMDIL_round_nearest: // Legacy name.
-      return DAG.getNode(ISD::FRINT, DL, VT, Op.getOperand(1));
-    case AMDGPUIntrinsic::AMDGPU_trunc: // Legacy name.
-      return DAG.getNode(ISD::FTRUNC, DL, VT, Op.getOperand(1));
     case AMDGPUIntrinsic::AMDGPU_brev: // Legacy name
       return DAG.getNode(ISD::BITREVERSE, DL, VT, Op.getOperand(1));
   }
-}
-
-///IABS(a) = SMAX(sub(0, a), a)
-SDValue AMDGPUTargetLowering::LowerIntrinsicIABS(SDValue Op,
-                                                 SelectionDAG &DAG) const {
-  SDLoc DL(Op);
-  EVT VT = Op.getValueType();
-  SDValue Neg = DAG.getNode(ISD::SUB, DL, VT, DAG.getConstant(0, DL, VT),
-                            Op.getOperand(1));
-
-  return DAG.getNode(ISD::SMAX, DL, VT, Neg, Op.getOperand(1));
-}
-
-/// Linear Interpolation
-/// LRP(a, b, c) = muladd(a,  b, (1 - a) * c)
-SDValue AMDGPUTargetLowering::LowerIntrinsicLRP(SDValue Op,
-                                                SelectionDAG &DAG) const {
-  SDLoc DL(Op);
-  EVT VT = Op.getValueType();
-  // TODO: Should this propagate fast-math-flags?
-  SDValue OneSubA = DAG.getNode(ISD::FSUB, DL, VT,
-                                DAG.getConstantFP(1.0f, DL, MVT::f32),
-                                Op.getOperand(1));
-  SDValue OneSubAC = DAG.getNode(ISD::FMUL, DL, VT, OneSubA,
-                                                    Op.getOperand(3));
-  return DAG.getNode(ISD::FADD, DL, VT,
-      DAG.getNode(ISD::FMUL, DL, VT, Op.getOperand(1), Op.getOperand(2)),
-      OneSubAC);
 }
 
 /// \brief Generate Min/Max node
@@ -1449,93 +1290,10 @@ SDValue AMDGPUTargetLowering::SplitVectorStore(SDValue Op,
   return DAG.getNode(ISD::TokenFactor, SL, MVT::Other, LoStore, HiStore);
 }
 
-
-SDValue AMDGPUTargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const {
-  SDLoc DL(Op);
-  LoadSDNode *Load = cast<LoadSDNode>(Op);
-  ISD::LoadExtType ExtType = Load->getExtensionType();
-  EVT VT = Op.getValueType();
-  EVT MemVT = Load->getMemoryVT();
-
-  if (ExtType == ISD::NON_EXTLOAD && VT.getSizeInBits() < 32) {
-    assert(VT == MVT::i1 && "Only i1 non-extloads expected");
-    // FIXME: Copied from PPC
-    // First, load into 32 bits, then truncate to 1 bit.
-
-    SDValue Chain = Load->getChain();
-    SDValue BasePtr = Load->getBasePtr();
-    MachineMemOperand *MMO = Load->getMemOperand();
-
-    SDValue NewLD = DAG.getExtLoad(ISD::EXTLOAD, DL, MVT::i32, Chain,
-                                   BasePtr, MVT::i8, MMO);
-
-    SDValue Ops[] = {
-      DAG.getNode(ISD::TRUNCATE, DL, VT, NewLD),
-      NewLD.getValue(1)
-    };
-
-    return DAG.getMergeValues(Ops, DL);
-  }
-
-  if (Subtarget->getGeneration() >= AMDGPUSubtarget::SOUTHERN_ISLANDS ||
-      Load->getAddressSpace() != AMDGPUAS::PRIVATE_ADDRESS ||
-      ExtType == ISD::NON_EXTLOAD || Load->getMemoryVT().bitsGE(MVT::i32))
-    return SDValue();
-
-  // <SI && AS=PRIVATE && EXTLOAD && size < 32bit,
-  // register (2-)byte extract.
-
-  // Get Register holding the target.
-  SDValue Ptr = DAG.getNode(ISD::SRL, DL, MVT::i32, Load->getBasePtr(),
-                            DAG.getConstant(2, DL, MVT::i32));
-  // Load the Register.
-  SDValue Ret = DAG.getNode(AMDGPUISD::REGISTER_LOAD, DL, Op.getValueType(),
-                            Load->getChain(), Ptr,
-                            DAG.getTargetConstant(0, DL, MVT::i32),
-                            Op.getOperand(2));
-
-  // Get offset within the register.
-  SDValue ByteIdx = DAG.getNode(ISD::AND, DL, MVT::i32,
-                                Load->getBasePtr(),
-                                DAG.getConstant(0x3, DL, MVT::i32));
-
-  // Bit offset of target byte (byteIdx * 8).
-  SDValue ShiftAmt = DAG.getNode(ISD::SHL, DL, MVT::i32, ByteIdx,
-                                 DAG.getConstant(3, DL, MVT::i32));
-
-  // Shift to the right.
-  Ret = DAG.getNode(ISD::SRL, DL, MVT::i32, Ret, ShiftAmt);
-
-  // Eliminate the upper bits by setting them to ...
-  EVT MemEltVT = MemVT.getScalarType();
-
-  // ... ones.
-  if (ExtType == ISD::SEXTLOAD) {
-    SDValue MemEltVTNode = DAG.getValueType(MemEltVT);
-
-    SDValue Ops[] = {
-      DAG.getNode(ISD::SIGN_EXTEND_INREG, DL, MVT::i32, Ret, MemEltVTNode),
-      Load->getChain()
-    };
-
-    return DAG.getMergeValues(Ops, DL);
-  }
-
-  // ... or zeros.
-  SDValue Ops[] = {
-    DAG.getZeroExtendInReg(Ret, DL, MemEltVT),
-    Load->getChain()
-  };
-
-  return DAG.getMergeValues(Ops, DL);
-}
-
 SDValue AMDGPUTargetLowering::LowerSTORE(SDValue Op, SelectionDAG &DAG) const {
   SDLoc DL(Op);
-  SDValue Result = AMDGPUTargetLowering::MergeVectorStore(Op, DAG);
-  if (Result.getNode()) {
+  if (SDValue Result = AMDGPUTargetLowering::MergeVectorStore(Op, DAG))
     return Result;
-  }
 
   StoreSDNode *Store = cast<StoreSDNode>(Op);
   SDValue Chain = Store->getChain();
@@ -2831,8 +2589,13 @@ SDValue AMDGPUTargetLowering::performSelectCombine(SDNode *N,
   SDValue True = N->getOperand(1);
   SDValue False = N->getOperand(2);
 
-  if (VT == MVT::f32 && Cond.hasOneUse())
-    return CombineFMinMaxLegacy(SDLoc(N), VT, LHS, RHS, True, False, CC, DCI);
+  if (VT == MVT::f32 && Cond.hasOneUse()) {
+    SDValue MinMax
+      = CombineFMinMaxLegacy(SDLoc(N), VT, LHS, RHS, True, False, CC, DCI);
+    // Revisit this node so we can catch min3/max3/med3 patterns.
+    //DCI.AddToWorklist(MinMax.getNode());
+    return MinMax;
+  }
 
   // There's no reason to not do this if the condition has other uses.
   return performCtlzCombine(SDLoc(N), Cond, True, False, DCI);
@@ -3075,6 +2838,9 @@ const char* AMDGPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(FMIN3)
   NODE_NAME_CASE(SMIN3)
   NODE_NAME_CASE(UMIN3)
+  NODE_NAME_CASE(FMED3)
+  NODE_NAME_CASE(SMED3)
+  NODE_NAME_CASE(UMED3)
   NODE_NAME_CASE(URECIP)
   NODE_NAME_CASE(DIV_SCALE)
   NODE_NAME_CASE(DIV_FMAS)
@@ -3167,21 +2933,6 @@ SDValue AMDGPUTargetLowering::getRecipEstimate(SDValue Operand,
   return SDValue();
 }
 
-static void computeKnownBitsForMinMax(const SDValue Op0,
-                                      const SDValue Op1,
-                                      APInt &KnownZero,
-                                      APInt &KnownOne,
-                                      const SelectionDAG &DAG,
-                                      unsigned Depth) {
-  APInt Op0Zero, Op0One;
-  APInt Op1Zero, Op1One;
-  DAG.computeKnownBits(Op0, Op0Zero, Op0One, Depth);
-  DAG.computeKnownBits(Op1, Op1Zero, Op1One, Depth);
-
-  KnownZero = Op0Zero & Op1Zero;
-  KnownOne = Op0One & Op1One;
-}
-
 void AMDGPUTargetLowering::computeKnownBitsForTargetNode(
   const SDValue Op,
   APInt &KnownZero,
@@ -3198,22 +2949,6 @@ void AMDGPUTargetLowering::computeKnownBitsForTargetNode(
   switch (Opc) {
   default:
     break;
-  case ISD::INTRINSIC_WO_CHAIN: {
-    // FIXME: The intrinsic should just use the node.
-    switch (cast<ConstantSDNode>(Op.getOperand(0))->getZExtValue()) {
-    case AMDGPUIntrinsic::AMDGPU_imax:
-    case AMDGPUIntrinsic::AMDGPU_umax:
-    case AMDGPUIntrinsic::AMDGPU_imin:
-    case AMDGPUIntrinsic::AMDGPU_umin:
-      computeKnownBitsForMinMax(Op.getOperand(1), Op.getOperand(2),
-                                KnownZero, KnownOne, DAG, Depth);
-      break;
-    default:
-      break;
-    }
-
-    break;
-  }
   case AMDGPUISD::CARRY:
   case AMDGPUISD::BORROW: {
     KnownZero = APInt::getHighBitsSet(32, 31);

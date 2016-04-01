@@ -198,6 +198,13 @@ private:
   AliasAnalysis *AA;
   //@}
 
+  /// @brief Enum for coloring BBs in Region.
+  ///
+  /// WHITE - Unvisited BB in DFS walk.
+  /// GREY - BBs which are currently on the DFS stack for processing.
+  /// BLACK - Visited and completely processed BB.
+  enum Color { WHITE, GREY, BLACK };
+
   /// @brief Map to remember detection contexts for valid regions.
   using DetectionContextMapTy = DenseMap<const Region *, DetectionContext>;
   mutable DetectionContextMapTy DetectionContextMap;
@@ -350,7 +357,7 @@ private:
   /// @param Context The context of scop detection.
   ///
   /// @return True if the memory access is valid, false otherwise.
-  bool isValidMemoryAccess(Instruction &Inst, DetectionContext &Context) const;
+  bool isValidMemoryAccess(MemAccInst Inst, DetectionContext &Context) const;
 
   /// @brief Check if an instruction has any non trivial scalar dependencies
   ///        as part of a Scop.
@@ -451,6 +458,15 @@ private:
 
   /// @brief Print the locations of all detected scops.
   void printLocations(llvm::Function &F);
+
+  /// @brief Check if a region is reducible or not.
+  ///
+  /// @param Region The region to check.
+  /// @param DbgLoc Parameter to save the location of instruction that
+  ///               causes irregular control flow if the region is irreducible.
+  ///
+  /// @return True if R is reducible, false otherwise.
+  bool isReducibleRegion(Region &R, DebugLoc &DbgLoc) const;
 
   /// @brief Track diagnostics for invalid scops.
   ///

@@ -71,26 +71,25 @@ public:
     OpenMPDirectiveKind DKind;
     OpenMPClauseKind CKind;
     Expr *RefExpr;
+    DeclRefExpr *PrivateCopy;
     SourceLocation ImplicitDSALoc;
     DSAVarData()
         : DKind(OMPD_unknown), CKind(OMPC_unknown), RefExpr(nullptr),
-          ImplicitDSALoc() {}
-  };
-
-public:
-  struct MapInfo {
-    Expr *RefExpr;
+          PrivateCopy(nullptr), ImplicitDSALoc() {}
   };
 
 private:
+  typedef SmallVector<Expr *, 4> MapInfo;
+
   struct DSAInfo {
     OpenMPClauseKind Attributes;
     Expr *RefExpr;
+    DeclRefExpr *PrivateCopy;
   };
-  typedef llvm::SmallDenseMap<ValueDecl *, DSAInfo, 64> DeclSAMapTy;
-  typedef llvm::SmallDenseMap<ValueDecl *, Expr *, 64> AlignedMapTy;
+  typedef llvm::DenseMap<ValueDecl *, DSAInfo> DeclSAMapTy;
+  typedef llvm::DenseMap<ValueDecl *, Expr *> AlignedMapTy;
   typedef llvm::DenseMap<ValueDecl *, unsigned> LoopControlVariablesMapTy;
-  typedef llvm::SmallDenseMap<ValueDecl *, MapInfo, 64> MappedDeclsTy;
+  typedef llvm::DenseMap<ValueDecl *, MapInfo> MappedDeclsTy;
   typedef llvm::StringMap<std::pair<OMPCriticalDirective *, llvm::APSInt>>
       CriticalsWithHintsTy;
 
@@ -126,7 +125,7 @@ private:
           CancelRegion(false), AssociatedLoops(1), InnerTeamsRegionLoc() {}
   };
 
-  typedef SmallVector<SharingMapTy, 64> StackTy;
+  typedef SmallVector<SharingMapTy, 4> StackTy;
 
   /// \brief Stack of used declaration and their data-sharing attributes.
   StackTy Stack;
@@ -198,7 +197,8 @@ public:
   ValueDecl *getParentLoopControlVariable(unsigned I);
 
   /// \brief Adds explicit data sharing attribute to the specified declaration.
-  void addDSA(ValueDecl *D, Expr *E, OpenMPClauseKind A);
+  void addDSA(ValueDecl *D, Expr *E, OpenMPClauseKind A,
+              DeclRefExpr *PrivateCopy = nullptr);
 
   /// \brief Returns data sharing attributes from top of the stack for the
   /// specified declaration.
@@ -337,30 +337,39 @@ public:
   Scope *getCurScope() { return Stack.back().CurScope; }
   SourceLocation getConstructLoc() { return Stack.back().ConstructLoc; }
 
-  MapInfo getMapInfoForVar(ValueDecl *VD) {
-    MapInfo VarMI = {0};
-    for (auto Cnt = Stack.size() - 1; Cnt > 0; --Cnt) {
-      if (Stack[Cnt].MappedDecls.count(VD)) {
-        VarMI = Stack[Cnt].MappedDecls[VD];
-        break;
+  // Do the check specified in MapInfoCheck and return true if any issue is
+  // found.
+  template <class MapInfoCheck>
+  bool checkMapInfoForVar(ValueDecl *VD, bool CurrentRegionOnly,
+                          MapInfoCheck Check) {
+    auto SI = Stack.rbegin();
+    auto SE = Stack.rend();
+
+    if (SI == SE)
+      return false;
+
+    if (CurrentRegionOnly) {
+      SE = std::next(SI);
+    } else {
+      ++SI;
+    }
+
+    for (; SI != SE; ++SI) {
+      auto MI = SI->MappedDecls.find(VD);
+      if (MI != SI->MappedDecls.end()) {
+        for (Expr *E : MI->second) {
+          if (Check(E))
+            return true;
+        }
       }
     }
-    return VarMI;
+    return false;
   }
 
-  void addMapInfoForVar(ValueDecl *VD, MapInfo MI) {
+  void addExprToVarMapInfo(ValueDecl *VD, Expr *E) {
     if (Stack.size() > 1) {
-      Stack.back().MappedDecls[VD] = MI;
+      Stack.back().MappedDecls[VD].push_back(E);
     }
-  }
-
-  MapInfo IsMappedInCurrentRegion(ValueDecl *VD) {
-    assert(Stack.size() > 1 && "Target level is 0");
-    MapInfo VarMI = {0};
-    if (Stack.size() > 1 && Stack.back().MappedDecls.count(VD)) {
-      VarMI = Stack.back().MappedDecls[VD];
-    }
-    return VarMI;
   }
 };
 bool isParallelOrTaskRegion(OpenMPDirectiveKind DKind) {
@@ -428,6 +437,7 @@ DSAStackTy::DSAVarData DSAStackTy::getDSA(StackTy::reverse_iterator Iter,
   // attributes.
   if (Iter->SharingMap.count(D)) {
     DVar.RefExpr = Iter->SharingMap[D].RefExpr;
+    DVar.PrivateCopy = Iter->SharingMap[D].PrivateCopy;
     DVar.CKind = Iter->SharingMap[D].Attributes;
     DVar.ImplicitDSALoc = Iter->DefaultAttrLoc;
     return DVar;
@@ -541,15 +551,20 @@ ValueDecl *DSAStackTy::getParentLoopControlVariable(unsigned I) {
   return nullptr;
 }
 
-void DSAStackTy::addDSA(ValueDecl *D, Expr *E, OpenMPClauseKind A) {
+void DSAStackTy::addDSA(ValueDecl *D, Expr *E, OpenMPClauseKind A,
+                        DeclRefExpr *PrivateCopy) {
   D = getCanonicalDecl(D);
   if (A == OMPC_threadprivate) {
     Stack[0].SharingMap[D].Attributes = A;
     Stack[0].SharingMap[D].RefExpr = E;
+    Stack[0].SharingMap[D].PrivateCopy = nullptr;
   } else {
     assert(Stack.size() > 1 && "Data-sharing attributes stack is empty");
     Stack.back().SharingMap[D].Attributes = A;
     Stack.back().SharingMap[D].RefExpr = E;
+    Stack.back().SharingMap[D].PrivateCopy = PrivateCopy;
+    if (PrivateCopy)
+      addDSA(PrivateCopy->getDecl(), PrivateCopy, A);
   }
 }
 
@@ -654,7 +669,8 @@ DSAStackTy::DSAVarData DSAStackTy::getTopDSA(ValueDecl *D, bool FromParent) {
     if (auto *CTD = CTSD->getSpecializedTemplate())
       RD = CTD->getTemplatedDecl();
   if (IsConstant &&
-      !(SemaRef.getLangOpts().CPlusPlus && RD && RD->hasMutableFields())) {
+      !(SemaRef.getLangOpts().CPlusPlus && RD && RD->hasDefinition() &&
+        RD->hasMutableFields())) {
     // Variables with const-qualified type having no mutable member may be
     // listed in a firstprivate clause, even if they are static data members.
     DSAVarData DVarTemp = hasDSA(D, MatchesAnyClause(OMPC_firstprivate),
@@ -676,6 +692,7 @@ DSAStackTy::DSAVarData DSAStackTy::getTopDSA(ValueDecl *D, bool FromParent) {
   auto I = std::prev(StartI);
   if (I->SharingMap.count(D)) {
     DVar.RefExpr = I->SharingMap[D].RefExpr;
+    DVar.PrivateCopy = I->SharingMap[D].PrivateCopy;
     DVar.CKind = I->SharingMap[D].Attributes;
     DVar.ImplicitDSALoc = I->DefaultAttrLoc;
   }
@@ -803,7 +820,7 @@ bool Sema::IsOpenMPCapturedByRef(ValueDecl *D,
   auto DKind = DSAStack->getDirectiveForScope(RSI->TheScope);
   auto Ty = D->getType();
 
-  if (isOpenMPTargetDirective(DKind)) {
+  if (isOpenMPTargetExecutionDirective(DKind)) {
     // This table summarizes how a given variable should be passed to the device
     // given its type and the clauses where it appears. This table is based on
     // the description in OpenMP 4.5 [2.10.4, target Construct] and
@@ -880,7 +897,7 @@ bool Sema::IsOpenMPCapturedByRef(ValueDecl *D,
   return IsByRef;
 }
 
-bool Sema::IsOpenMPCapturedDecl(ValueDecl *D) {
+VarDecl *Sema::IsOpenMPCapturedDecl(ValueDecl *D) {
   assert(LangOpts.OpenMP && "OpenMP is not allowed");
   D = getCanonicalDecl(D);
 
@@ -894,18 +911,16 @@ bool Sema::IsOpenMPCapturedDecl(ValueDecl *D) {
   auto *VD = dyn_cast<VarDecl>(D);
   if (VD && !VD->hasLocalStorage()) {
     if (DSAStack->getCurrentDirective() == OMPD_target &&
-        !DSAStack->isClauseParsingMode()) {
-      return true;
-    }
+        !DSAStack->isClauseParsingMode())
+      return VD;
     if (DSAStack->getCurScope() &&
         DSAStack->hasDirective(
             [](OpenMPDirectiveKind K, const DeclarationNameInfo &DNI,
                SourceLocation Loc) -> bool {
-              return isOpenMPTargetDirective(K);
+              return isOpenMPTargetExecutionDirective(K);
             },
-            false)) {
-      return true;
-    }
+            false))
+      return VD;
   }
 
   if (DSAStack->getCurrentDirective() != OMPD_unknown &&
@@ -915,15 +930,16 @@ bool Sema::IsOpenMPCapturedDecl(ValueDecl *D) {
         (VD && VD->hasLocalStorage() &&
          isParallelOrTaskRegion(DSAStack->getCurrentDirective())) ||
         (VD && DSAStack->isForceVarCapturing()))
-      return true;
+      return VD;
     auto DVarPrivate = DSAStack->getTopDSA(D, DSAStack->isClauseParsingMode());
     if (DVarPrivate.CKind != OMPC_unknown && isOpenMPPrivate(DVarPrivate.CKind))
-      return true;
+      return VD ? VD : cast<VarDecl>(DVarPrivate.PrivateCopy->getDecl());
     DVarPrivate = DSAStack->hasDSA(D, isOpenMPPrivate, MatchesAlways(),
                                    DSAStack->isClauseParsingMode());
-    return DVarPrivate.CKind != OMPC_unknown;
+    if (DVarPrivate.CKind != OMPC_unknown)
+      return VD ? VD : cast<VarDecl>(DVarPrivate.PrivateCopy->getDecl());
   }
-  return false;
+  return nullptr;
 }
 
 bool Sema::isOpenMPPrivateDecl(ValueDecl *D, unsigned Level) {
@@ -938,7 +954,8 @@ bool Sema::isOpenMPTargetCapturedDecl(ValueDecl *D, unsigned Level) {
 
   auto *VD = dyn_cast<VarDecl>(D);
   return VD && !VD->hasLocalStorage() &&
-         DSAStack->hasExplicitDirective(isOpenMPTargetDirective, Level);
+         DSAStack->hasExplicitDirective(isOpenMPTargetExecutionDirective,
+                                        Level);
 }
 
 void Sema::DestroyDataSharingAttributesStack() { delete DSAStack; }
@@ -1163,8 +1180,10 @@ ExprResult Sema::ActOnOpenMPIdExpression(Scope *CurScope,
   }
 
   QualType ExprType = VD->getType().getNonReferenceType();
-  ExprResult DE = buildDeclRefExpr(*this, VD, ExprType, Id.getLoc());
-  return DE;
+  return DeclRefExpr::Create(Context, NestedNameSpecifierLoc(),
+                             SourceLocation(), VD,
+                             /*RefersToEnclosingVariableOrCapture=*/false,
+                             Id.getLoc(), ExprType, VK_LValue);
 }
 
 Sema::DeclGroupPtrTy
@@ -1213,6 +1232,10 @@ Sema::CheckOMPThreadPrivateDecl(SourceLocation Loc, ArrayRef<Expr *> VarList) {
     DeclRefExpr *DE = cast<DeclRefExpr>(RefExpr);
     VarDecl *VD = cast<VarDecl>(DE->getDecl());
     SourceLocation ILoc = DE->getExprLoc();
+
+    // Mark variable as used.
+    VD->setReferenced();
+    VD->markUsed(Context);
 
     QualType QType = VD->getType();
     if (QType->isDependentType() || QType->isInstantiationDependentType()) {
@@ -1409,8 +1432,7 @@ public:
         // OpenMP [2.9.3.6, Restrictions, p.2]
         //  A list item that appears in a reduction clause of the innermost
         //  enclosing worksharing or parallel construct may not be accessed in
-        //  an
-        //  explicit task.
+        //  an  explicit task.
         DVar =
             Stack->hasInnermostDSA(FD, MatchesAnyClause(OMPC_reduction),
                                    [](OpenMPDirectiveKind K) -> bool {
@@ -1622,7 +1644,9 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
     break;
   }
   case OMPD_target_data:
-  case OMPD_target: {
+  case OMPD_target:
+  case OMPD_target_parallel:
+  case OMPD_target_parallel_for: {
     Sema::CapturedParamNameType Params[] = {
         std::make_pair(StringRef(), QualType()) // __context with shared vars
     };
@@ -1798,6 +1822,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | parallel         | ordered         | +                                  |
   // | parallel         | atomic          | *                                  |
   // | parallel         | target          | *                                  |
+  // | parallel         | target parallel | *                                  |
+  // | parallel         | target parallel | *                                  |
+  // |                  | for             |                                    |
   // | parallel         | target enter    | *                                  |
   // |                  | data            |                                    |
   // | parallel         | target exit     | *                                  |
@@ -1831,6 +1858,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | for              | ordered         | * (if construct is ordered)        |
   // | for              | atomic          | *                                  |
   // | for              | target          | *                                  |
+  // | for              | target parallel | *                                  |
+  // | for              | target parallel | *                                  |
+  // |                  | for             |                                    |
   // | for              | target enter    | *                                  |
   // |                  | data            |                                    |
   // | for              | target exit     | *                                  |
@@ -1864,6 +1894,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | master           | ordered         | +                                  |
   // | master           | atomic          | *                                  |
   // | master           | target          | *                                  |
+  // | master           | target parallel | *                                  |
+  // | master           | target parallel | *                                  |
+  // |                  | for             |                                    |
   // | master           | target enter    | *                                  |
   // |                  | data            |                                    |
   // | master           | target exit     | *                                  |
@@ -1896,6 +1929,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | critical         | ordered         | +                                  |
   // | critical         | atomic          | *                                  |
   // | critical         | target          | *                                  |
+  // | critical         | target parallel | *                                  |
+  // | critical         | target parallel | *                                  |
+  // |                  | for             |                                    |
   // | critical         | target enter    | *                                  |
   // |                  | data            |                                    |
   // | critical         | target exit     | *                                  |
@@ -1913,7 +1949,7 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | simd             | for simd        |                                    |
   // | simd             | master          |                                    |
   // | simd             | critical        |                                    |
-  // | simd             | simd            |                                    |
+  // | simd             | simd            | *                                  |
   // | simd             | sections        |                                    |
   // | simd             | section         |                                    |
   // | simd             | single          |                                    |
@@ -1929,6 +1965,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | simd             | ordered         | + (with simd clause)               |
   // | simd             | atomic          |                                    |
   // | simd             | target          |                                    |
+  // | simd             | target parallel |                                    |
+  // | simd             | target parallel |                                    |
+  // |                  | for             |                                    |
   // | simd             | target enter    |                                    |
   // |                  | data            |                                    |
   // | simd             | target exit     |                                    |
@@ -1946,7 +1985,7 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | for simd         | for simd        |                                    |
   // | for simd         | master          |                                    |
   // | for simd         | critical        |                                    |
-  // | for simd         | simd            |                                    |
+  // | for simd         | simd            | *                                  |
   // | for simd         | sections        |                                    |
   // | for simd         | section         |                                    |
   // | for simd         | single          |                                    |
@@ -1962,6 +2001,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | for simd         | ordered         | + (with simd clause)               |
   // | for simd         | atomic          |                                    |
   // | for simd         | target          |                                    |
+  // | for simd         | target parallel |                                    |
+  // | for simd         | target parallel |                                    |
+  // |                  | for             |                                    |
   // | for simd         | target enter    |                                    |
   // |                  | data            |                                    |
   // | for simd         | target exit     |                                    |
@@ -1979,7 +2021,7 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | parallel for simd| for simd        |                                    |
   // | parallel for simd| master          |                                    |
   // | parallel for simd| critical        |                                    |
-  // | parallel for simd| simd            |                                    |
+  // | parallel for simd| simd            | *                                  |
   // | parallel for simd| sections        |                                    |
   // | parallel for simd| section         |                                    |
   // | parallel for simd| single          |                                    |
@@ -1995,6 +2037,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | parallel for simd| ordered         | + (with simd clause)               |
   // | parallel for simd| atomic          |                                    |
   // | parallel for simd| target          |                                    |
+  // | parallel for simd| target parallel |                                    |
+  // | parallel for simd| target parallel |                                    |
+  // |                  | for             |                                    |
   // | parallel for simd| target enter    |                                    |
   // |                  | data            |                                    |
   // | parallel for simd| target exit     |                                    |
@@ -2028,6 +2073,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | sections         | ordered         | +                                  |
   // | sections         | atomic          | *                                  |
   // | sections         | target          | *                                  |
+  // | sections         | target parallel | *                                  |
+  // | sections         | target parallel | *                                  |
+  // |                  | for             |                                    |
   // | sections         | target enter    | *                                  |
   // |                  | data            |                                    |
   // | sections         | target exit     | *                                  |
@@ -2061,6 +2109,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | section          | ordered         | +                                  |
   // | section          | atomic          | *                                  |
   // | section          | target          | *                                  |
+  // | section          | target parallel | *                                  |
+  // | section          | target parallel | *                                  |
+  // |                  | for             |                                    |
   // | section          | target enter    | *                                  |
   // |                  | data            |                                    |
   // | section          | target exit     | *                                  |
@@ -2094,6 +2145,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | single           | ordered         | +                                  |
   // | single           | atomic          | *                                  |
   // | single           | target          | *                                  |
+  // | single           | target parallel | *                                  |
+  // | single           | target parallel | *                                  |
+  // |                  | for             |                                    |
   // | single           | target enter    | *                                  |
   // |                  | data            |                                    |
   // | single           | target exit     | *                                  |
@@ -2127,6 +2181,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | parallel for     | ordered         | * (if construct is ordered)        |
   // | parallel for     | atomic          | *                                  |
   // | parallel for     | target          | *                                  |
+  // | parallel for     | target parallel | *                                  |
+  // | parallel for     | target parallel | *                                  |
+  // |                  | for             |                                    |
   // | parallel for     | target enter    | *                                  |
   // |                  | data            |                                    |
   // | parallel for     | target exit     | *                                  |
@@ -2160,6 +2217,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | parallel sections| ordered         | +                                  |
   // | parallel sections| atomic          | *                                  |
   // | parallel sections| target          | *                                  |
+  // | parallel sections| target parallel | *                                  |
+  // | parallel sections| target parallel | *                                  |
+  // |                  | for             |                                    |
   // | parallel sections| target enter    | *                                  |
   // |                  | data            |                                    |
   // | parallel sections| target exit     | *                                  |
@@ -2193,6 +2253,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | task             | ordered         | +                                  |
   // | task             | atomic          | *                                  |
   // | task             | target          | *                                  |
+  // | task             | target parallel | *                                  |
+  // | task             | target parallel | *                                  |
+  // |                  | for             |                                    |
   // | task             | target enter    | *                                  |
   // |                  | data            |                                    |
   // | task             | target exit     | *                                  |
@@ -2226,6 +2289,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | ordered          | ordered         | +                                  |
   // | ordered          | atomic          | *                                  |
   // | ordered          | target          | *                                  |
+  // | ordered          | target parallel | *                                  |
+  // | ordered          | target parallel | *                                  |
+  // |                  | for             |                                    |
   // | ordered          | target enter    | *                                  |
   // |                  | data            |                                    |
   // | ordered          | target exit     | *                                  |
@@ -2259,6 +2325,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | atomic           | ordered         |                                    |
   // | atomic           | atomic          |                                    |
   // | atomic           | target          |                                    |
+  // | atomic           | target parallel |                                    |
+  // | atomic           | target parallel |                                    |
+  // |                  | for             |                                    |
   // | atomic           | target enter    |                                    |
   // |                  | data            |                                    |
   // | atomic           | target exit     |                                    |
@@ -2291,10 +2360,13 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | target           | flush           | *                                  |
   // | target           | ordered         | *                                  |
   // | target           | atomic          | *                                  |
-  // | target           | target          | *                                  |
-  // | target           | target enter    | *                                  |
+  // | target           | target          |                                    |
+  // | target           | target parallel |                                    |
+  // | target           | target parallel |                                    |
+  // |                  | for             |                                    |
+  // | target           | target enter    |                                    |
   // |                  | data            |                                    |
-  // | target           | target exit     | *                                  |
+  // | target           | target exit     |                                    |
   // |                  | data            |                                    |
   // | target           | teams           | *                                  |
   // | target           | cancellation    |                                    |
@@ -2303,6 +2375,105 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | target           | taskloop        | *                                  |
   // | target           | taskloop simd   | *                                  |
   // | target           | distribute      |                                    |
+  // +------------------+-----------------+------------------------------------+
+  // | target parallel  | parallel        | *                                  |
+  // | target parallel  | for             | *                                  |
+  // | target parallel  | for simd        | *                                  |
+  // | target parallel  | master          | *                                  |
+  // | target parallel  | critical        | *                                  |
+  // | target parallel  | simd            | *                                  |
+  // | target parallel  | sections        | *                                  |
+  // | target parallel  | section         | *                                  |
+  // | target parallel  | single          | *                                  |
+  // | target parallel  | parallel for    | *                                  |
+  // | target parallel  |parallel for simd| *                                  |
+  // | target parallel  |parallel sections| *                                  |
+  // | target parallel  | task            | *                                  |
+  // | target parallel  | taskyield       | *                                  |
+  // | target parallel  | barrier         | *                                  |
+  // | target parallel  | taskwait        | *                                  |
+  // | target parallel  | taskgroup       | *                                  |
+  // | target parallel  | flush           | *                                  |
+  // | target parallel  | ordered         | *                                  |
+  // | target parallel  | atomic          | *                                  |
+  // | target parallel  | target          |                                    |
+  // | target parallel  | target parallel |                                    |
+  // | target parallel  | target parallel |                                    |
+  // |                  | for             |                                    |
+  // | target parallel  | target enter    |                                    |
+  // |                  | data            |                                    |
+  // | target parallel  | target exit     |                                    |
+  // |                  | data            |                                    |
+  // | target parallel  | teams           |                                    |
+  // | target parallel  | cancellation    |                                    |
+  // |                  | point           | !                                  |
+  // | target parallel  | cancel          | !                                  |
+  // | target parallel  | taskloop        | *                                  |
+  // | target parallel  | taskloop simd   | *                                  |
+  // | target parallel  | distribute      |                                    |
+  // +------------------+-----------------+------------------------------------+
+  // | target parallel  | parallel        | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | for             | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | for simd        | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | master          | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | critical        | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | simd            | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | sections        | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | section         | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | single          | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | parallel for    | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  |parallel for simd| *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  |parallel sections| *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | task            | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | taskyield       | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | barrier         | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | taskwait        | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | taskgroup       | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | flush           | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | ordered         | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | atomic          | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | target          |                                    |
+  // | for              |                 |                                    |
+  // | target parallel  | target parallel |                                    |
+  // | for              |                 |                                    |
+  // | target parallel  | target parallel |                                    |
+  // | for              | for             |                                    |
+  // | target parallel  | target enter    |                                    |
+  // | for              | data            |                                    |
+  // | target parallel  | target exit     |                                    |
+  // | for              | data            |                                    |
+  // | target parallel  | teams           |                                    |
+  // | for              |                 |                                    |
+  // | target parallel  | cancellation    |                                    |
+  // | for              | point           | !                                  |
+  // | target parallel  | cancel          | !                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | taskloop        | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | taskloop simd   | *                                  |
+  // | for              |                 |                                    |
+  // | target parallel  | distribute      |                                    |
+  // | for              |                 |                                    |
   // +------------------+-----------------+------------------------------------+
   // | teams            | parallel        | *                                  |
   // | teams            | for             | +                                  |
@@ -2325,6 +2496,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | teams            | ordered         | +                                  |
   // | teams            | atomic          | +                                  |
   // | teams            | target          | +                                  |
+  // | teams            | target parallel | +                                  |
+  // | teams            | target parallel | +                                  |
+  // |                  | for             |                                    |
   // | teams            | target enter    | +                                  |
   // |                  | data            |                                    |
   // | teams            | target exit     | +                                  |
@@ -2358,6 +2532,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | taskloop         | ordered         | +                                  |
   // | taskloop         | atomic          | *                                  |
   // | taskloop         | target          | *                                  |
+  // | taskloop         | target parallel | *                                  |
+  // | taskloop         | target parallel | *                                  |
+  // |                  | for             |                                    |
   // | taskloop         | target enter    | *                                  |
   // |                  | data            |                                    |
   // | taskloop         | target exit     | *                                  |
@@ -2374,7 +2551,7 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | taskloop simd    | for simd        |                                    |
   // | taskloop simd    | master          |                                    |
   // | taskloop simd    | critical        |                                    |
-  // | taskloop simd    | simd            |                                    |
+  // | taskloop simd    | simd            | *                                  |
   // | taskloop simd    | sections        |                                    |
   // | taskloop simd    | section         |                                    |
   // | taskloop simd    | single          |                                    |
@@ -2390,6 +2567,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | taskloop simd    | ordered         | + (with simd clause)               |
   // | taskloop simd    | atomic          |                                    |
   // | taskloop simd    | target          |                                    |
+  // | taskloop simd    | target parallel |                                    |
+  // | taskloop simd    | target parallel |                                    |
+  // |                  | for             |                                    |
   // | taskloop simd    | target enter    |                                    |
   // |                  | data            |                                    |
   // | taskloop simd    | target exit     |                                    |
@@ -2423,6 +2603,9 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // | distribute       | ordered         | +                                  |
   // | distribute       | atomic          | *                                  |
   // | distribute       | target          |                                    |
+  // | distribute       | target parallel |                                    |
+  // | distribute       | target parallel |                                    |
+  // |                  | for             |                                    |
   // | distribute       | target enter    |                                    |
   // |                  | data            |                                    |
   // | distribute       | target exit     |                                    |
@@ -2437,6 +2620,7 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
   // +------------------+-----------------+------------------------------------+
   if (Stack->getCurScope()) {
     auto ParentRegion = Stack->getParentDirective();
+    auto OffendingRegion = ParentRegion;
     bool NestingProhibited = false;
     bool CloseNesting = true;
     enum {
@@ -2446,7 +2630,8 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
       ShouldBeInTargetRegion,
       ShouldBeInTeamsRegion
     } Recommend = NoRecommend;
-    if (isOpenMPSimdDirective(ParentRegion) && CurrentRegion != OMPD_ordered) {
+    if (isOpenMPSimdDirective(ParentRegion) && CurrentRegion != OMPD_ordered &&
+        CurrentRegion != OMPD_simd) {
       // OpenMP [2.16, Nesting of Regions]
       // OpenMP constructs may not be nested inside a simd region.
       // OpenMP [2.8.1,simd Construct, Restrictions]
@@ -2493,9 +2678,12 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
       // OpenMP construct that matches the type specified in
       // construct-type-clause.
       NestingProhibited =
-          !((CancelRegion == OMPD_parallel && ParentRegion == OMPD_parallel) ||
+          !((CancelRegion == OMPD_parallel &&
+             (ParentRegion == OMPD_parallel ||
+              ParentRegion == OMPD_target_parallel)) ||
             (CancelRegion == OMPD_for &&
-             (ParentRegion == OMPD_for || ParentRegion == OMPD_parallel_for)) ||
+             (ParentRegion == OMPD_for || ParentRegion == OMPD_parallel_for ||
+              ParentRegion == OMPD_target_parallel_for)) ||
             (CancelRegion == OMPD_taskgroup && ParentRegion == OMPD_task) ||
             (CancelRegion == OMPD_sections &&
              (ParentRegion == OMPD_section || ParentRegion == OMPD_sections ||
@@ -2595,10 +2783,30 @@ static bool CheckNestingOfRegions(Sema &SemaRef, DSAStackTy *Stack,
       NestingProhibited = !isOpenMPTeamsDirective(ParentRegion);
       Recommend = ShouldBeInTeamsRegion;
     }
+    if (!NestingProhibited &&
+        (isOpenMPTargetExecutionDirective(CurrentRegion) ||
+         isOpenMPTargetDataManagementDirective(CurrentRegion))) {
+      // OpenMP 4.5 [2.17 Nesting of Regions]
+      // If a target, target update, target data, target enter data, or
+      // target exit data construct is encountered during execution of a
+      // target region, the behavior is unspecified.
+      NestingProhibited = Stack->hasDirective(
+          [&OffendingRegion](OpenMPDirectiveKind K,
+                             const DeclarationNameInfo &DNI,
+                             SourceLocation Loc) -> bool {
+            if (isOpenMPTargetExecutionDirective(K)) {
+              OffendingRegion = K;
+              return true;
+            } else
+              return false;
+          },
+          false /* don't skip top directive */);
+      CloseNesting = false;
+    }
     if (NestingProhibited) {
       SemaRef.Diag(StartLoc, diag::err_omp_prohibited_region)
-          << CloseNesting << getOpenMPDirectiveName(ParentRegion) << Recommend
-          << getOpenMPDirectiveName(CurrentRegion);
+          << CloseNesting << getOpenMPDirectiveName(OffendingRegion)
+          << Recommend << getOpenMPDirectiveName(CurrentRegion);
       return true;
     }
   }
@@ -2831,6 +3039,18 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPTargetDirective(ClausesWithImplicit, AStmt, StartLoc,
                                      EndLoc);
     AllowedNameModifiers.push_back(OMPD_target);
+    break;
+  case OMPD_target_parallel:
+    Res = ActOnOpenMPTargetParallelDirective(ClausesWithImplicit, AStmt,
+                                             StartLoc, EndLoc);
+    AllowedNameModifiers.push_back(OMPD_target);
+    AllowedNameModifiers.push_back(OMPD_parallel);
+    break;
+  case OMPD_target_parallel_for:
+    Res = ActOnOpenMPTargetParallelForDirective(
+        ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
+    AllowedNameModifiers.push_back(OMPD_target);
+    AllowedNameModifiers.push_back(OMPD_parallel);
     break;
   case OMPD_cancellation_point:
     assert(ClausesWithImplicit.empty() &&
@@ -5597,6 +5817,71 @@ StmtResult Sema::ActOnOpenMPTargetDirective(ArrayRef<OMPClause *> Clauses,
   return OMPTargetDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt);
 }
 
+StmtResult
+Sema::ActOnOpenMPTargetParallelDirective(ArrayRef<OMPClause *> Clauses,
+                                         Stmt *AStmt, SourceLocation StartLoc,
+                                         SourceLocation EndLoc) {
+  if (!AStmt)
+    return StmtError();
+
+  CapturedStmt *CS = cast<CapturedStmt>(AStmt);
+  // 1.2.2 OpenMP Language Terminology
+  // Structured block - An executable statement with a single entry at the
+  // top and a single exit at the bottom.
+  // The point of exit cannot be a branch out of the structured block.
+  // longjmp() and throw() must not violate the entry/exit criteria.
+  CS->getCapturedDecl()->setNothrow();
+
+  getCurFunction()->setHasBranchProtectedScope();
+
+  return OMPTargetParallelDirective::Create(Context, StartLoc, EndLoc, Clauses,
+                                            AStmt);
+}
+
+StmtResult Sema::ActOnOpenMPTargetParallelForDirective(
+    ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
+    SourceLocation EndLoc,
+    llvm::DenseMap<ValueDecl *, Expr *> &VarsWithImplicitDSA) {
+  if (!AStmt)
+    return StmtError();
+
+  CapturedStmt *CS = cast<CapturedStmt>(AStmt);
+  // 1.2.2 OpenMP Language Terminology
+  // Structured block - An executable statement with a single entry at the
+  // top and a single exit at the bottom.
+  // The point of exit cannot be a branch out of the structured block.
+  // longjmp() and throw() must not violate the entry/exit criteria.
+  CS->getCapturedDecl()->setNothrow();
+
+  OMPLoopDirective::HelperExprs B;
+  // In presence of clause 'collapse' or 'ordered' with number of loops, it will
+  // define the nested loops number.
+  unsigned NestedLoopCount =
+      CheckOpenMPLoop(OMPD_target_parallel_for, getCollapseNumberExpr(Clauses),
+                      getOrderedNumberExpr(Clauses), AStmt, *this, *DSAStack,
+                      VarsWithImplicitDSA, B);
+  if (NestedLoopCount == 0)
+    return StmtError();
+
+  assert((CurContext->isDependentContext() || B.builtAll()) &&
+         "omp target parallel for loop exprs were not built");
+
+  if (!CurContext->isDependentContext()) {
+    // Finalize the clauses that need pre-built expressions for CodeGen.
+    for (auto C : Clauses) {
+      if (auto LC = dyn_cast<OMPLinearClause>(C))
+        if (FinishOpenMPLinearClause(*LC, cast<DeclRefExpr>(B.IterationVarRef),
+                                     B.NumIterations, *this, CurScope))
+          return StmtError();
+    }
+  }
+
+  getCurFunction()->setHasBranchProtectedScope();
+  return OMPTargetParallelForDirective::Create(Context, StartLoc, EndLoc,
+                                               NestedLoopCount, Clauses, AStmt,
+                                               B, DSAStack->isCancelRegion());
+}
+
 /// \brief Check for existence of a map clause in the list of clauses.
 static bool HasMapClause(ArrayRef<OMPClause *> Clauses) {
   for (ArrayRef<OMPClause *>::iterator I = Clauses.begin(), E = Clauses.end();
@@ -5617,6 +5902,14 @@ StmtResult Sema::ActOnOpenMPTargetDataDirective(ArrayRef<OMPClause *> Clauses,
     return StmtError();
 
   assert(isa<CapturedStmt>(AStmt) && "Captured statement expected");
+
+  // OpenMP [2.10.1, Restrictions, p. 97]
+  // At least one map clause must appear on the directive.
+  if (!HasMapClause(Clauses)) {
+    Diag(StartLoc, diag::err_omp_no_map_for_directive) <<
+        getOpenMPDirectiveName(OMPD_target_data);
+    return StmtError();
+  }
 
   getCurFunction()->setHasBranchProtectedScope();
 
@@ -5907,6 +6200,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_map:
   case OMPC_nogroup:
   case OMPC_dist_schedule:
+  case OMPC_defaultmap:
   case OMPC_unknown:
     llvm_unreachable("Clause is not allowed.");
   }
@@ -6191,6 +6485,7 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_num_tasks:
   case OMPC_hint:
   case OMPC_dist_schedule:
+  case OMPC_defaultmap:
   case OMPC_unknown:
     llvm_unreachable("Clause is not allowed.");
   }
@@ -6293,6 +6588,14 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
     Res = ActOnOpenMPDistScheduleClause(
         static_cast<OpenMPDistScheduleClauseKind>(Argument.back()), Expr,
         StartLoc, LParenLoc, ArgumentLoc.back(), DelimLoc, EndLoc);
+    break;
+  case OMPC_defaultmap:
+    enum { Modifier, DefaultmapKind };
+    Res = ActOnOpenMPDefaultmapClause(
+        static_cast<OpenMPDefaultmapClauseModifier>(Argument[Modifier]),
+        static_cast<OpenMPDefaultmapClauseKind>(Argument[DefaultmapKind]),
+        StartLoc, LParenLoc, ArgumentLoc[Modifier],
+        ArgumentLoc[DefaultmapKind], EndLoc);
     break;
   case OMPC_final:
   case OMPC_num_threads:
@@ -6518,6 +6821,7 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_num_tasks:
   case OMPC_hint:
   case OMPC_dist_schedule:
+  case OMPC_defaultmap:
   case OMPC_unknown:
     llvm_unreachable("Clause is not allowed.");
   }
@@ -6662,10 +6966,81 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_num_tasks:
   case OMPC_hint:
   case OMPC_dist_schedule:
+  case OMPC_defaultmap:
   case OMPC_unknown:
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
+}
+
+static DeclRefExpr *buildCapture(Sema &S, IdentifierInfo *Id,
+                                 Expr *CaptureExpr) {
+  ASTContext &C = S.getASTContext();
+  Expr *Init = CaptureExpr->IgnoreImpCasts();
+  QualType Ty = Init->getType();
+  if (CaptureExpr->getObjectKind() == OK_Ordinary) {
+    if (S.getLangOpts().CPlusPlus)
+      Ty = C.getLValueReferenceType(Ty);
+    else {
+      Ty = C.getPointerType(Ty);
+      ExprResult Res =
+          S.CreateBuiltinUnaryOp(CaptureExpr->getExprLoc(), UO_AddrOf, Init);
+      if (!Res.isUsable())
+        return nullptr;
+      Init = Res.get();
+    }
+  }
+  auto *CFD = OMPCapturedFieldDecl::Create(C, S.CurContext, Id, Ty);
+  S.CurContext->addHiddenDecl(CFD);
+  S.AddInitializerToDecl(CFD, Init, /*DirectInit=*/false,
+                         /*TypeMayContainAuto=*/true);
+  return buildDeclRefExpr(S, CFD, Ty.getNonReferenceType(), SourceLocation());
+}
+
+ExprResult Sema::getOpenMPCapturedExpr(VarDecl *Capture, ExprValueKind VK,
+                                       ExprObjectKind OK) {
+  SourceLocation Loc = Capture->getInit()->getExprLoc();
+  ExprResult Res = BuildDeclRefExpr(
+      Capture, Capture->getType().getNonReferenceType(), VK_LValue, Loc);
+  if (!Res.isUsable())
+    return ExprError();
+  if (OK == OK_Ordinary && !getLangOpts().CPlusPlus) {
+    Res = CreateBuiltinUnaryOp(Loc, UO_Deref, Res.get());
+    if (!Res.isUsable())
+      return ExprError();
+  }
+  if (VK != VK_LValue && Res.get()->isGLValue()) {
+    Res = DefaultLvalueConversion(Res.get());
+    if (!Res.isUsable())
+      return ExprError();
+  }
+  return Res;
+}
+
+static std::pair<ValueDecl *, bool> getPrivateItem(Sema &S, Expr *RefExpr) {
+  if (RefExpr->isTypeDependent() || RefExpr->isValueDependent() ||
+      RefExpr->containsUnexpandedParameterPack())
+    return std::make_pair(nullptr, true);
+
+  SourceLocation ELoc = RefExpr->getExprLoc();
+  SourceRange SR = RefExpr->getSourceRange();
+  // OpenMP [3.1, C/C++]
+  //  A list item is a variable name.
+  // OpenMP  [2.9.3.3, Restrictions, p.1]
+  //  A variable that is part of another variable (as an array or
+  //  structure element) cannot appear in a private clause.
+  RefExpr = RefExpr->IgnoreParens();
+  auto *DE = dyn_cast_or_null<DeclRefExpr>(RefExpr);
+  auto *ME = dyn_cast_or_null<MemberExpr>(RefExpr);
+  if ((!DE || !isa<VarDecl>(DE->getDecl())) &&
+      (S.getCurrentThisType().isNull() || !ME ||
+       !isa<CXXThisExpr>(ME->getBase()->IgnoreParenImpCasts()) ||
+       !isa<FieldDecl>(ME->getMemberDecl()))) {
+    S.Diag(ELoc, diag::err_omp_expected_var_name_member_expr)
+        << (S.getCurrentThisType().isNull() ? 0 : 1) << SR;
+    return std::make_pair(nullptr, false);
+  }
+  return std::make_pair(DE ? DE->getDecl() : ME->getMemberDecl(), false);
 }
 
 OMPClause *Sema::ActOnOpenMPPrivateClause(ArrayRef<Expr *> VarList,
@@ -6676,32 +7051,17 @@ OMPClause *Sema::ActOnOpenMPPrivateClause(ArrayRef<Expr *> VarList,
   SmallVector<Expr *, 8> PrivateCopies;
   for (auto &RefExpr : VarList) {
     assert(RefExpr && "NULL expr in OpenMP private clause.");
-    if (RefExpr->isTypeDependent() || RefExpr->isValueDependent() ||
-        RefExpr->containsUnexpandedParameterPack()) {
+    auto Res = getPrivateItem(*this, RefExpr);
+    if (Res.second) {
       // It will be analyzed later.
       Vars.push_back(RefExpr);
       PrivateCopies.push_back(nullptr);
-      continue;
     }
+    ValueDecl *D = Res.first;
+    if (!D)
+      continue;
 
     SourceLocation ELoc = RefExpr->getExprLoc();
-    // OpenMP [3.1, C/C++]
-    //  A list item is a variable name.
-    // OpenMP  [2.9.3.3, Restrictions, p.1]
-    //  A variable that is part of another variable (as an array or
-    //  structure element) cannot appear in a private clause.
-    auto *DE = dyn_cast_or_null<DeclRefExpr>(RefExpr->IgnoreParens());
-    auto *ME = dyn_cast_or_null<MemberExpr>(RefExpr->IgnoreParens());
-    if ((!DE || !isa<VarDecl>(DE->getDecl())) &&
-        (getCurrentThisType().isNull() || !ME ||
-         !isa<CXXThisExpr>(ME->getBase()->IgnoreParenImpCasts()) ||
-         !isa<FieldDecl>(ME->getMemberDecl()))) {
-      Diag(ELoc, diag::err_omp_expected_var_name_member_expr)
-          << (getCurrentThisType().isNull() ? 0 : 1)
-          << RefExpr->getSourceRange();
-      continue;
-    }
-    ValueDecl *D = DE ? DE->getDecl() : ME->getMemberDecl();
     QualType Type = D->getType();
     auto *VD = dyn_cast<VarDecl>(D);
 
@@ -6760,8 +7120,11 @@ OMPClause *Sema::ActOnOpenMPPrivateClause(ArrayRef<Expr *> VarList,
     auto VDPrivateRefExpr = buildDeclRefExpr(
         *this, VDPrivate, RefExpr->getType().getUnqualifiedType(), ELoc);
 
-    DSAStack->addDSA(D, RefExpr->IgnoreParens(), OMPC_private);
-    Vars.push_back(RefExpr->IgnoreParens());
+    DeclRefExpr *Ref = nullptr;
+    if (!VD)
+      Ref = buildCapture(*this, D->getIdentifier(), RefExpr);
+    DSAStack->addDSA(D, RefExpr->IgnoreParens(), OMPC_private, Ref);
+    Vars.push_back(VD ? RefExpr->IgnoreParens() : Ref);
     PrivateCopies.push_back(VDPrivateRefExpr);
   }
 
@@ -6808,46 +7171,28 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
 
   for (auto &RefExpr : VarList) {
     assert(RefExpr && "NULL expr in OpenMP firstprivate clause.");
-    if (isa<DependentScopeDeclRefExpr>(RefExpr)) {
+    auto Res = getPrivateItem(*this, RefExpr);
+    if (Res.second) {
       // It will be analyzed later.
       Vars.push_back(RefExpr);
       PrivateCopies.push_back(nullptr);
       Inits.push_back(nullptr);
-      continue;
     }
+    ValueDecl *D = Res.first;
+    if (!D)
+      continue;
 
     SourceLocation ELoc =
         IsImplicitClause ? ImplicitClauseLoc : RefExpr->getExprLoc();
-    // OpenMP [2.1, C/C++]
-    //  A list item is a variable name.
-    // OpenMP  [2.9.3.3, Restrictions, p.1]
-    //  A variable that is part of another variable (as an array or
-    //  structure element) cannot appear in a private clause.
-    DeclRefExpr *DE = dyn_cast_or_null<DeclRefExpr>(RefExpr);
-    if (!DE || !isa<VarDecl>(DE->getDecl())) {
-      Diag(ELoc, diag::err_omp_expected_var_name_member_expr)
-          << 0 << RefExpr->getSourceRange();
-      continue;
-    }
-    Decl *D = DE->getDecl();
-    VarDecl *VD = cast<VarDecl>(D);
-
-    QualType Type = VD->getType();
-    if (Type->isDependentType() || Type->isInstantiationDependentType()) {
-      // It will be analyzed later.
-      Vars.push_back(DE);
-      PrivateCopies.push_back(nullptr);
-      Inits.push_back(nullptr);
-      continue;
-    }
+    QualType Type = D->getType();
+    auto *VD = dyn_cast<VarDecl>(D);
 
     // OpenMP [2.9.3.3, Restrictions, C/C++, p.3]
     //  A variable that appears in a private clause must not have an incomplete
     //  type or a reference type.
     if (RequireCompleteType(ELoc, Type,
-                            diag::err_omp_firstprivate_incomplete_type)) {
+                            diag::err_omp_firstprivate_incomplete_type))
       continue;
-    }
     Type = Type.getNonReferenceType();
 
     // OpenMP [2.9.3.4, Restrictions, C/C++, p.1]
@@ -6858,7 +7203,7 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
 
     // If an implicit firstprivate variable found it was checked already.
     if (!IsImplicitClause) {
-      DSAStackTy::DSAVarData DVar = DSAStack->getTopDSA(VD, false);
+      DSAStackTy::DSAVarData DVar = DSAStack->getTopDSA(D, false);
       bool IsConstant = ElemType.isConstant(Context);
       // OpenMP [2.4.13, Data-sharing Attribute Clauses]
       //  A list item that specifies a given variable may not appear in more
@@ -6869,7 +7214,7 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
         Diag(ELoc, diag::err_omp_wrong_dsa)
             << getOpenMPClauseName(DVar.CKind)
             << getOpenMPClauseName(OMPC_firstprivate);
-        ReportOriginalDSA(*this, DSAStack, VD, DVar);
+        ReportOriginalDSA(*this, DSAStack, D, DVar);
         continue;
       }
 
@@ -6884,12 +7229,12 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
       // in a Construct, C/C++, p.2]
       //  Variables with const-qualified type having no mutable member may be
       //  listed in a firstprivate clause, even if they are static data members.
-      if (!(IsConstant || VD->isStaticDataMember()) && !DVar.RefExpr &&
+      if (!(IsConstant || (VD && VD->isStaticDataMember())) && !DVar.RefExpr &&
           DVar.CKind != OMPC_unknown && DVar.CKind != OMPC_shared) {
         Diag(ELoc, diag::err_omp_wrong_dsa)
             << getOpenMPClauseName(DVar.CKind)
             << getOpenMPClauseName(OMPC_firstprivate);
-        ReportOriginalDSA(*this, DSAStack, VD, DVar);
+        ReportOriginalDSA(*this, DSAStack, D, DVar);
         continue;
       }
 
@@ -6901,14 +7246,14 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
       //  to any of the parallel regions arising from the parallel construct.
       if (isOpenMPWorksharingDirective(CurrDir) &&
           !isOpenMPParallelDirective(CurrDir)) {
-        DVar = DSAStack->getImplicitDSA(VD, true);
+        DVar = DSAStack->getImplicitDSA(D, true);
         if (DVar.CKind != OMPC_shared &&
             (isOpenMPParallelDirective(DVar.DKind) ||
              DVar.DKind == OMPD_unknown)) {
           Diag(ELoc, diag::err_omp_required_access)
               << getOpenMPClauseName(OMPC_firstprivate)
               << getOpenMPClauseName(OMPC_shared);
-          ReportOriginalDSA(*this, DSAStack, VD, DVar);
+          ReportOriginalDSA(*this, DSAStack, D, DVar);
           continue;
         }
       }
@@ -6925,7 +7270,7 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
       //  from the worksharing construct.
       if (CurrDir == OMPD_task) {
         DVar =
-            DSAStack->hasInnermostDSA(VD, MatchesAnyClause(OMPC_reduction),
+            DSAStack->hasInnermostDSA(D, MatchesAnyClause(OMPC_reduction),
                                       [](OpenMPDirectiveKind K) -> bool {
                                         return isOpenMPParallelDirective(K) ||
                                                isOpenMPWorksharingDirective(K);
@@ -6936,7 +7281,7 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
              isOpenMPWorksharingDirective(DVar.DKind))) {
           Diag(ELoc, diag::err_omp_parallel_reduction_in_task_firstprivate)
               << getOpenMPDirectiveName(DVar.DKind);
-          ReportOriginalDSA(*this, DSAStack, VD, DVar);
+          ReportOriginalDSA(*this, DSAStack, D, DVar);
           continue;
         }
       }
@@ -6955,17 +7300,17 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
       // A list item may appear in a firstprivate or lastprivate clause but not
       // both.
       if (CurrDir == OMPD_distribute) {
-        DVar = DSAStack->hasInnermostDSA(VD, MatchesAnyClause(OMPC_private),
+        DVar = DSAStack->hasInnermostDSA(D, MatchesAnyClause(OMPC_private),
                                          [](OpenMPDirectiveKind K) -> bool {
                                            return isOpenMPTeamsDirective(K);
                                          },
                                          false);
         if (DVar.CKind == OMPC_private && isOpenMPTeamsDirective(DVar.DKind)) {
           Diag(ELoc, diag::err_omp_firstprivate_distribute_private_teams);
-          ReportOriginalDSA(*this, DSAStack, VD, DVar);
+          ReportOriginalDSA(*this, DSAStack, D, DVar);
           continue;
         }
-        DVar = DSAStack->hasInnermostDSA(VD, MatchesAnyClause(OMPC_reduction),
+        DVar = DSAStack->hasInnermostDSA(D, MatchesAnyClause(OMPC_reduction),
                                          [](OpenMPDirectiveKind K) -> bool {
                                            return isOpenMPTeamsDirective(K);
                                          },
@@ -6973,13 +7318,13 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
         if (DVar.CKind == OMPC_reduction &&
             isOpenMPTeamsDirective(DVar.DKind)) {
           Diag(ELoc, diag::err_omp_firstprivate_distribute_in_teams_reduction);
-          ReportOriginalDSA(*this, DSAStack, VD, DVar);
+          ReportOriginalDSA(*this, DSAStack, D, DVar);
           continue;
         }
-        DVar = DSAStack->getTopDSA(VD, false);
+        DVar = DSAStack->getTopDSA(D, false);
         if (DVar.CKind == OMPC_lastprivate) {
           Diag(ELoc, diag::err_omp_firstprivate_and_lastprivate_in_distribute);
-          ReportOriginalDSA(*this, DSAStack, VD, DVar);
+          ReportOriginalDSA(*this, DSAStack, D, DVar);
           continue;
         }
       }
@@ -6992,16 +7337,17 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
           << getOpenMPClauseName(OMPC_firstprivate) << Type
           << getOpenMPDirectiveName(DSAStack->getCurrentDirective());
       bool IsDecl =
+          !VD ||
           VD->isThisDeclarationADefinition(Context) == VarDecl::DeclarationOnly;
-      Diag(VD->getLocation(),
+      Diag(D->getLocation(),
            IsDecl ? diag::note_previous_decl : diag::note_defined_here)
-          << VD;
+          << D;
       continue;
     }
 
     Type = Type.getUnqualifiedType();
-    auto VDPrivate = buildVarDecl(*this, ELoc, Type, VD->getName(),
-                                  VD->hasAttrs() ? &VD->getAttrs() : nullptr);
+    auto VDPrivate = buildVarDecl(*this, ELoc, Type, D->getName(),
+                                  D->hasAttrs() ? &D->getAttrs() : nullptr);
     // Generate helper private variable and initialize it with the value of the
     // original variable. The address of the original variable is replaced by
     // the address of the new private variable in the CodeGen. This new variable
@@ -7012,11 +7358,11 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
     // original array element in CodeGen.
     if (Type->isArrayType()) {
       auto VDInit =
-          buildVarDecl(*this, DE->getExprLoc(), ElemType, VD->getName());
+          buildVarDecl(*this, RefExpr->getExprLoc(), ElemType, D->getName());
       VDInitRefExpr = buildDeclRefExpr(*this, VDInit, ElemType, ELoc);
       auto Init = DefaultLvalueConversion(VDInitRefExpr).get();
       ElemType = ElemType.getUnqualifiedType();
-      auto *VDInitTemp = buildVarDecl(*this, DE->getLocStart(), ElemType,
+      auto *VDInitTemp = buildVarDecl(*this, RefExpr->getExprLoc(), ElemType,
                                       ".firstprivate.temp");
       InitializedEntity Entity =
           InitializedEntity::InitializeVariable(VDInitTemp);
@@ -7031,26 +7377,30 @@ OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
       // Remove temp variable declaration.
       Context.Deallocate(VDInitTemp);
     } else {
-      auto *VDInit =
-          buildVarDecl(*this, DE->getLocStart(), Type, ".firstprivate.temp");
-      VDInitRefExpr =
-          buildDeclRefExpr(*this, VDInit, DE->getType(), DE->getExprLoc());
+      auto *VDInit = buildVarDecl(*this, RefExpr->getExprLoc(), Type,
+                                  ".firstprivate.temp");
+      VDInitRefExpr = buildDeclRefExpr(*this, VDInit, RefExpr->getType(),
+                                       RefExpr->getExprLoc());
       AddInitializerToDecl(VDPrivate,
                            DefaultLvalueConversion(VDInitRefExpr).get(),
                            /*DirectInit=*/false, /*TypeMayContainAuto=*/false);
     }
     if (VDPrivate->isInvalidDecl()) {
       if (IsImplicitClause) {
-        Diag(DE->getExprLoc(),
+        Diag(RefExpr->getExprLoc(),
              diag::note_omp_task_predetermined_firstprivate_here);
       }
       continue;
     }
     CurContext->addDecl(VDPrivate);
     auto VDPrivateRefExpr = buildDeclRefExpr(
-        *this, VDPrivate, DE->getType().getUnqualifiedType(), DE->getExprLoc());
-    DSAStack->addDSA(VD, DE, OMPC_firstprivate);
-    Vars.push_back(DE);
+        *this, VDPrivate, RefExpr->getType().getUnqualifiedType(),
+        RefExpr->getExprLoc());
+    DeclRefExpr *Ref = nullptr;
+    if (!VD)
+      Ref = buildCapture(*this, D->getIdentifier(), RefExpr);
+    DSAStack->addDSA(D, RefExpr->IgnoreParens(), OMPC_firstprivate, Ref);
+    Vars.push_back(VD ? RefExpr->IgnoreParens() : Ref);
     PrivateCopies.push_back(VDPrivateRefExpr);
     Inits.push_back(VDInitRefExpr);
   }
@@ -7455,9 +7805,9 @@ OMPClause *Sema::ActOnOpenMPReductionClause(
     if (DE) {
       auto D = DE->getDecl();
       VD = cast<VarDecl>(D);
-      Type = VD->getType();
+      Type = Context.getBaseElementType(VD->getType().getNonReferenceType());
     } else if (ASE) {
-      Type = ASE->getType();
+      Type = ASE->getType().getNonReferenceType();
       auto *Base = ASE->getBase()->IgnoreParenImpCasts();
       while (auto *TempASE = dyn_cast<ArraySubscriptExpr>(Base))
         Base = TempASE->getBase()->IgnoreParenImpCasts();
@@ -7475,6 +7825,7 @@ OMPClause *Sema::ActOnOpenMPReductionClause(
         Type = ATy->getElementType();
       else
         Type = BaseType->getPointeeType();
+      Type = Type.getNonReferenceType();
       auto *Base = OASE->getBase()->IgnoreParenImpCasts();
       while (auto *TempOASE = dyn_cast<OMPArraySectionExpr>(Base))
         Base = TempOASE->getBase()->IgnoreParenImpCasts();
@@ -7497,19 +7848,6 @@ OMPClause *Sema::ActOnOpenMPReductionClause(
                             diag::err_omp_reduction_incomplete_type))
       continue;
     // OpenMP [2.14.3.6, reduction clause, Restrictions]
-    // Arrays may not appear in a reduction clause.
-    if (Type.getNonReferenceType()->isArrayType()) {
-      Diag(ELoc, diag::err_omp_reduction_type_array) << Type << ERange;
-      if (!ASE && !OASE) {
-        bool IsDecl = VD->isThisDeclarationADefinition(Context) ==
-                      VarDecl::DeclarationOnly;
-        Diag(VD->getLocation(),
-             IsDecl ? diag::note_previous_decl : diag::note_defined_here)
-            << VD;
-      }
-      continue;
-    }
-    // OpenMP [2.14.3.6, reduction clause, Restrictions]
     // A list item that appears in a reduction clause must not be
     // const-qualified.
     if (Type.getNonReferenceType().isConstant(Context)) {
@@ -7529,7 +7867,7 @@ OMPClause *Sema::ActOnOpenMPReductionClause(
     //  for all threads of the team.
     if (!ASE && !OASE) {
       VarDecl *VDDef = VD->getDefinition();
-      if (Type->isReferenceType() && VDDef) {
+      if (VD->getType()->isReferenceType() && VDDef) {
         DSARefChecker Check(DSAStack);
         if (Check.Visit(VDDef->getInit())) {
           Diag(ELoc, diag::err_omp_reduction_ref_type_arg) << ERange;
@@ -7622,8 +7960,9 @@ OMPClause *Sema::ActOnOpenMPReductionClause(
     auto *RHSVD = buildVarDecl(*this, ELoc, Type, VD->getName(),
                                VD->hasAttrs() ? &VD->getAttrs() : nullptr);
     auto PrivateTy = Type;
-    if (OASE) {
-      // For array sections only:
+    if (OASE ||
+        (DE && VD->getType().getNonReferenceType()->isVariablyModifiedType())) {
+      // For arays/array sections only:
       // Create pseudo array type for private copy. The size for this array will
       // be generated during codegen.
       // For array subscripts or single variables Private Ty is the same as Type
@@ -7632,7 +7971,9 @@ OMPClause *Sema::ActOnOpenMPReductionClause(
           Type, new (Context) OpaqueValueExpr(SourceLocation(),
                                               Context.getSizeType(), VK_RValue),
           ArrayType::Normal, /*IndexTypeQuals=*/0, SourceRange());
-    }
+    } else if (DE &&
+               Context.getAsArrayType(VD->getType().getNonReferenceType()))
+      PrivateTy = VD->getType().getNonReferenceType();
     // Private copy.
     auto *PrivateVD = buildVarDecl(*this, ELoc, PrivateTy, VD->getName(),
                                    VD->hasAttrs() ? &VD->getAttrs() : nullptr);
@@ -8457,8 +8798,12 @@ Sema::ActOnOpenMPDependClause(OpenMPDependClauseKind DepKind,
         auto *OASE = dyn_cast<OMPArraySectionExpr>(SimpleExpr);
         if (!RefExpr->IgnoreParenImpCasts()->isLValue() ||
             (!ASE && !DE && !OASE) || (DE && !isa<VarDecl>(DE->getDecl())) ||
-            (ASE && !ASE->getBase()->getType()->isAnyPointerType() &&
-             !ASE->getBase()->getType()->isArrayType())) {
+            (ASE &&
+             !ASE->getBase()
+                  ->getType()
+                  .getNonReferenceType()
+                  ->isPointerType() &&
+             !ASE->getBase()->getType().getNonReferenceType()->isArrayType())) {
           Diag(ELoc, diag::err_omp_expected_var_name_member_expr_or_array_item)
               << 0 << RefExpr->getSourceRange();
           continue;
@@ -8555,6 +8900,387 @@ static bool CheckTypeMappable(SourceLocation SL, SourceRange SR, Sema &SemaRef,
   return true;
 }
 
+// Return the expression of the base of the map clause or null if it cannot
+// be determined and do all the necessary checks to see if the expression is
+// valid as a standalone map clause expression.
+static Expr *CheckMapClauseExpressionBase(Sema &SemaRef, Expr *E) {
+  SourceLocation ELoc = E->getExprLoc();
+  SourceRange ERange = E->getSourceRange();
+
+  // The base of elements of list in a map clause have to be either:
+  //  - a reference to variable or field.
+  //  - a member expression.
+  //  - an array expression.
+  //
+  // E.g. if we have the expression 'r.S.Arr[:12]', we want to retrieve the
+  // reference to 'r'.
+  //
+  // If we have:
+  //
+  // struct SS {
+  //   Bla S;
+  //   foo() {
+  //     #pragma omp target map (S.Arr[:12]);
+  //   }
+  // }
+  //
+  // We want to retrieve the member expression 'this->S';
+
+  Expr *RelevantExpr = nullptr;
+
+  // Flags to help capture some memory
+
+  // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, p.2]
+  //  If a list item is an array section, it must specify contiguous storage.
+  //
+  // For this restriction it is sufficient that we make sure only references
+  // to variables or fields and array expressions, and that no array sections
+  // exist except in the rightmost expression. E.g. these would be invalid:
+  //
+  //   r.ArrS[3:5].Arr[6:7]
+  //
+  //   r.ArrS[3:5].x
+  //
+  // but these would be valid:
+  //   r.ArrS[3].Arr[6:7]
+  //
+  //   r.ArrS[3].x
+
+  bool IsRightMostExpression = true;
+
+  while (!RelevantExpr) {
+    auto AllowArraySection = IsRightMostExpression;
+    IsRightMostExpression = false;
+
+    E = E->IgnoreParenImpCasts();
+
+    if (auto *CurE = dyn_cast<DeclRefExpr>(E)) {
+      if (!isa<VarDecl>(CurE->getDecl()))
+        break;
+
+      RelevantExpr = CurE;
+      continue;
+    }
+
+    if (auto *CurE = dyn_cast<MemberExpr>(E)) {
+      auto *BaseE = CurE->getBase()->IgnoreParenImpCasts();
+
+      if (isa<CXXThisExpr>(BaseE))
+        // We found a base expression: this->Val.
+        RelevantExpr = CurE;
+      else
+        E = BaseE;
+
+      if (!isa<FieldDecl>(CurE->getMemberDecl())) {
+        SemaRef.Diag(ELoc, diag::err_omp_expected_access_to_data_field)
+            << CurE->getSourceRange();
+        break;
+      }
+
+      auto *FD = cast<FieldDecl>(CurE->getMemberDecl());
+
+      // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, C/C++, p.3]
+      //  A bit-field cannot appear in a map clause.
+      //
+      if (FD->isBitField()) {
+        SemaRef.Diag(ELoc, diag::err_omp_bit_fields_forbidden_in_map_clause)
+            << CurE->getSourceRange();
+        break;
+      }
+
+      // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, C++, p.1]
+      //  If the type of a list item is a reference to a type T then the type
+      //  will be considered to be T for all purposes of this clause.
+      QualType CurType = BaseE->getType();
+      if (CurType->isReferenceType())
+        CurType = CurType->getPointeeType();
+
+      // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, C/C++, p.2]
+      //  A list item cannot be a variable that is a member of a structure with
+      //  a union type.
+      //
+      if (auto *RT = CurType->getAs<RecordType>())
+        if (RT->isUnionType()) {
+          SemaRef.Diag(ELoc, diag::err_omp_union_type_not_allowed)
+              << CurE->getSourceRange();
+          break;
+        }
+
+      continue;
+    }
+
+    if (auto *CurE = dyn_cast<ArraySubscriptExpr>(E)) {
+      E = CurE->getBase()->IgnoreParenImpCasts();
+
+      if (!E->getType()->isAnyPointerType() && !E->getType()->isArrayType()) {
+        SemaRef.Diag(ELoc, diag::err_omp_expected_base_var_name)
+            << 0 << CurE->getSourceRange();
+        break;
+      }
+      continue;
+    }
+
+    if (auto *CurE = dyn_cast<OMPArraySectionExpr>(E)) {
+      // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, p.7]
+      //  If a list item is an element of a structure, only the rightmost symbol
+      //  of the variable reference can be an array section.
+      //
+      if (!AllowArraySection) {
+        SemaRef.Diag(ELoc, diag::err_omp_array_section_in_rightmost_expression)
+            << CurE->getSourceRange();
+        break;
+      }
+
+      E = CurE->getBase()->IgnoreParenImpCasts();
+
+      // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, C++, p.1]
+      //  If the type of a list item is a reference to a type T then the type
+      //  will be considered to be T for all purposes of this clause.
+      QualType CurType = E->getType();
+      if (CurType->isReferenceType())
+        CurType = CurType->getPointeeType();
+
+      if (!CurType->isAnyPointerType() && !CurType->isArrayType()) {
+        SemaRef.Diag(ELoc, diag::err_omp_expected_base_var_name)
+            << 0 << CurE->getSourceRange();
+        break;
+      }
+
+      continue;
+    }
+
+    // If nothing else worked, this is not a valid map clause expression.
+    SemaRef.Diag(ELoc,
+                 diag::err_omp_expected_named_var_member_or_array_expression)
+        << ERange;
+    break;
+  }
+
+  return RelevantExpr;
+}
+
+// Return true if expression E associated with value VD has conflicts with other
+// map information.
+static bool CheckMapConflicts(Sema &SemaRef, DSAStackTy *DSAS, ValueDecl *VD,
+                              Expr *E, bool CurrentRegionOnly) {
+  assert(VD && E);
+
+  // Types used to organize the components of a valid map clause.
+  typedef std::pair<Expr *, ValueDecl *> MapExpressionComponent;
+  typedef SmallVector<MapExpressionComponent, 4> MapExpressionComponents;
+
+  // Helper to extract the components in the map clause expression E and store
+  // them into MEC. This assumes that E is a valid map clause expression, i.e.
+  // it has already passed the single clause checks.
+  auto ExtractMapExpressionComponents = [](Expr *TE,
+                                           MapExpressionComponents &MEC) {
+    while (true) {
+      TE = TE->IgnoreParenImpCasts();
+
+      if (auto *CurE = dyn_cast<DeclRefExpr>(TE)) {
+        MEC.push_back(
+            MapExpressionComponent(CurE, cast<VarDecl>(CurE->getDecl())));
+        break;
+      }
+
+      if (auto *CurE = dyn_cast<MemberExpr>(TE)) {
+        auto *BaseE = CurE->getBase()->IgnoreParenImpCasts();
+
+        MEC.push_back(MapExpressionComponent(
+            CurE, cast<FieldDecl>(CurE->getMemberDecl())));
+        if (isa<CXXThisExpr>(BaseE))
+          break;
+
+        TE = BaseE;
+        continue;
+      }
+
+      if (auto *CurE = dyn_cast<ArraySubscriptExpr>(TE)) {
+        MEC.push_back(MapExpressionComponent(CurE, nullptr));
+        TE = CurE->getBase()->IgnoreParenImpCasts();
+        continue;
+      }
+
+      if (auto *CurE = dyn_cast<OMPArraySectionExpr>(TE)) {
+        MEC.push_back(MapExpressionComponent(CurE, nullptr));
+        TE = CurE->getBase()->IgnoreParenImpCasts();
+        continue;
+      }
+
+      llvm_unreachable(
+          "Expecting only valid map clause expressions at this point!");
+    }
+  };
+
+  SourceLocation ELoc = E->getExprLoc();
+  SourceRange ERange = E->getSourceRange();
+
+  // In order to easily check the conflicts we need to match each component of
+  // the expression under test with the components of the expressions that are
+  // already in the stack.
+
+  MapExpressionComponents CurComponents;
+  ExtractMapExpressionComponents(E, CurComponents);
+
+  assert(!CurComponents.empty() && "Map clause expression with no components!");
+  assert(CurComponents.back().second == VD &&
+         "Map clause expression with unexpected base!");
+
+  // Variables to help detecting enclosing problems in data environment nests.
+  bool IsEnclosedByDataEnvironmentExpr = false;
+  Expr *EnclosingExpr = nullptr;
+
+  bool FoundError =
+      DSAS->checkMapInfoForVar(VD, CurrentRegionOnly, [&](Expr *RE) -> bool {
+        MapExpressionComponents StackComponents;
+        ExtractMapExpressionComponents(RE, StackComponents);
+        assert(!StackComponents.empty() &&
+               "Map clause expression with no components!");
+        assert(StackComponents.back().second == VD &&
+               "Map clause expression with unexpected base!");
+
+        // Expressions must start from the same base. Here we detect at which
+        // point both expressions diverge from each other and see if we can
+        // detect if the memory referred to both expressions is contiguous and
+        // do not overlap.
+        auto CI = CurComponents.rbegin();
+        auto CE = CurComponents.rend();
+        auto SI = StackComponents.rbegin();
+        auto SE = StackComponents.rend();
+        for (; CI != CE && SI != SE; ++CI, ++SI) {
+
+          // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, p.3]
+          //  At most one list item can be an array item derived from a given
+          //  variable in map clauses of the same construct.
+          if (CurrentRegionOnly && (isa<ArraySubscriptExpr>(CI->first) ||
+                                    isa<OMPArraySectionExpr>(CI->first)) &&
+              (isa<ArraySubscriptExpr>(SI->first) ||
+               isa<OMPArraySectionExpr>(SI->first))) {
+            SemaRef.Diag(CI->first->getExprLoc(),
+                         diag::err_omp_multiple_array_items_in_map_clause)
+                << CI->first->getSourceRange();
+            ;
+            SemaRef.Diag(SI->first->getExprLoc(), diag::note_used_here)
+                << SI->first->getSourceRange();
+            return true;
+          }
+
+          // Do both expressions have the same kind?
+          if (CI->first->getStmtClass() != SI->first->getStmtClass())
+            break;
+
+          // Are we dealing with different variables/fields?
+          if (CI->second != SI->second)
+            break;
+        }
+
+        // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, p.4]
+        //  List items of map clauses in the same construct must not share
+        //  original storage.
+        //
+        // If the expressions are exactly the same or one is a subset of the
+        // other, it means they are sharing storage.
+        if (CI == CE && SI == SE) {
+          if (CurrentRegionOnly) {
+            SemaRef.Diag(ELoc, diag::err_omp_map_shared_storage) << ERange;
+            SemaRef.Diag(RE->getExprLoc(), diag::note_used_here)
+                << RE->getSourceRange();
+            return true;
+          } else {
+            // If we find the same expression in the enclosing data environment,
+            // that is legal.
+            IsEnclosedByDataEnvironmentExpr = true;
+            return false;
+          }
+        }
+
+        QualType DerivedType = std::prev(CI)->first->getType();
+        SourceLocation DerivedLoc = std::prev(CI)->first->getExprLoc();
+
+        // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, C++, p.1]
+        //  If the type of a list item is a reference to a type T then the type
+        //  will be considered to be T for all purposes of this clause.
+        if (DerivedType->isReferenceType())
+          DerivedType = DerivedType->getPointeeType();
+
+        // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, C/C++, p.1]
+        //  A variable for which the type is pointer and an array section
+        //  derived from that variable must not appear as list items of map
+        //  clauses of the same construct.
+        //
+        // Also, cover one of the cases in:
+        // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, p.5]
+        //  If any part of the original storage of a list item has corresponding
+        //  storage in the device data environment, all of the original storage
+        //  must have corresponding storage in the device data environment.
+        //
+        if (DerivedType->isAnyPointerType()) {
+          if (CI == CE || SI == SE) {
+            SemaRef.Diag(
+                DerivedLoc,
+                diag::err_omp_pointer_mapped_along_with_derived_section)
+                << DerivedLoc;
+          } else {
+            assert(CI != CE && SI != SE);
+            SemaRef.Diag(DerivedLoc, diag::err_omp_same_pointer_derreferenced)
+                << DerivedLoc;
+          }
+          SemaRef.Diag(RE->getExprLoc(), diag::note_used_here)
+              << RE->getSourceRange();
+          return true;
+        }
+
+        // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, p.4]
+        //  List items of map clauses in the same construct must not share
+        //  original storage.
+        //
+        // An expression is a subset of the other.
+        if (CurrentRegionOnly && (CI == CE || SI == SE)) {
+          SemaRef.Diag(ELoc, diag::err_omp_map_shared_storage) << ERange;
+          SemaRef.Diag(RE->getExprLoc(), diag::note_used_here)
+              << RE->getSourceRange();
+          return true;
+        }
+
+        // The current expression uses the same base as other expression in the
+        // data environment but does not contain it completelly.
+        if (!CurrentRegionOnly && SI != SE)
+          EnclosingExpr = RE;
+
+        // The current expression is a subset of the expression in the data
+        // environment.
+        IsEnclosedByDataEnvironmentExpr |=
+            (!CurrentRegionOnly && CI != CE && SI == SE);
+
+        return false;
+      });
+
+  if (CurrentRegionOnly)
+    return FoundError;
+
+  // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, p.5]
+  //  If any part of the original storage of a list item has corresponding
+  //  storage in the device data environment, all of the original storage must
+  //  have corresponding storage in the device data environment.
+  // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, p.6]
+  //  If a list item is an element of a structure, and a different element of
+  //  the structure has a corresponding list item in the device data environment
+  //  prior to a task encountering the construct associated with the map clause,
+  //  then the list item must also have a correspnding list item in the device
+  //  data environment prior to the task encountering the construct.
+  //
+  if (EnclosingExpr && !IsEnclosedByDataEnvironmentExpr) {
+    SemaRef.Diag(ELoc,
+                 diag::err_omp_original_storage_is_shared_and_does_not_contain)
+        << ERange;
+    SemaRef.Diag(EnclosingExpr->getExprLoc(), diag::note_used_here)
+        << EnclosingExpr->getSourceRange();
+    return true;
+  }
+
+  return FoundError;
+}
+
 OMPClause *
 Sema::ActOnOpenMPMapClause(OpenMPMapClauseKind MapTypeModifier,
                            OpenMPMapClauseKind MapType, bool IsMapTypeImplicit,
@@ -8572,96 +9298,83 @@ Sema::ActOnOpenMPMapClause(OpenMPMapClauseKind MapTypeModifier,
     }
     SourceLocation ELoc = RE->getExprLoc();
 
-    // OpenMP [2.14.5, Restrictions]
-    //  A variable that is part of another variable (such as field of a
-    //  structure) but is not an array element or an array section cannot appear
-    //  in a map clause.
     auto *VE = RE->IgnoreParenLValueCasts();
 
     if (VE->isValueDependent() || VE->isTypeDependent() ||
         VE->isInstantiationDependent() ||
         VE->containsUnexpandedParameterPack()) {
-      // It will be analyzed later.
+      // We can only analyze this information once the missing information is
+      // resolved.
       Vars.push_back(RE);
       continue;
     }
 
     auto *SimpleExpr = RE->IgnoreParenCasts();
-    auto *DE = dyn_cast<DeclRefExpr>(SimpleExpr);
-    auto *ASE = dyn_cast<ArraySubscriptExpr>(SimpleExpr);
-    auto *OASE = dyn_cast<OMPArraySectionExpr>(SimpleExpr);
 
-    if (!RE->IgnoreParenImpCasts()->isLValue() ||
-        (!OASE && !ASE && !DE) ||
-        (DE && !isa<VarDecl>(DE->getDecl())) ||
-        (ASE && !ASE->getBase()->getType()->isAnyPointerType() &&
-         !ASE->getBase()->getType()->isArrayType())) {
-      Diag(ELoc, diag::err_omp_expected_var_name_member_expr_or_array_item)
-          << 0 << RE->getSourceRange();
+    if (!RE->IgnoreParenImpCasts()->isLValue()) {
+      Diag(ELoc, diag::err_omp_expected_named_var_member_or_array_expression)
+          << RE->getSourceRange();
       continue;
     }
 
-    Decl *D = nullptr;
-    if (DE) {
-      D = DE->getDecl();
-    } else if (ASE) {
-      auto *B = ASE->getBase()->IgnoreParenCasts();
-      D = dyn_cast<DeclRefExpr>(B)->getDecl();
-    } else if (OASE) {
-      auto *B = OASE->getBase();
-      D = dyn_cast<DeclRefExpr>(B)->getDecl();
+    // Obtain the array or member expression bases if required.
+    auto *BE = CheckMapClauseExpressionBase(*this, SimpleExpr);
+    if (!BE)
+      continue;
+
+    // If the base is a reference to a variable, we rely on that variable for
+    // the following checks. If it is a 'this' expression we rely on the field.
+    ValueDecl *D = nullptr;
+    if (auto *DRE = dyn_cast<DeclRefExpr>(BE)) {
+      D = DRE->getDecl();
+    } else {
+      auto *ME = cast<MemberExpr>(BE);
+      assert(isa<CXXThisExpr>(ME->getBase()) && "Unexpected expression!");
+      D = ME->getMemberDecl();
     }
     assert(D && "Null decl on map clause.");
-    auto *VD = cast<VarDecl>(D);
 
-    // OpenMP [2.14.5, Restrictions, p.8]
-    // threadprivate variables cannot appear in a map clause.
-    if (DSAStack->isThreadPrivate(VD)) {
+    auto *VD = dyn_cast<VarDecl>(D);
+    auto *FD = dyn_cast<FieldDecl>(D);
+
+    assert((VD || FD) && "Only variables or fields are expected here!");
+    (void)FD;
+
+    // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, p.10]
+    //  threadprivate variables cannot appear in a map clause.
+    if (VD && DSAStack->isThreadPrivate(VD)) {
       auto DVar = DSAStack->getTopDSA(VD, false);
       Diag(ELoc, diag::err_omp_threadprivate_in_map);
       ReportOriginalDSA(*this, DSAStack, VD, DVar);
       continue;
     }
 
-    // OpenMP [2.14.5, Restrictions, p.2]
-    //  At most one list item can be an array item derived from a given variable
-    //  in map clauses of the same construct.
-    // OpenMP [2.14.5, Restrictions, p.3]
-    //  List items of map clauses in the same construct must not share original
-    //  storage.
-    // OpenMP [2.14.5, Restrictions, C/C++, p.2]
-    //  A variable for which the type is pointer, reference to array, or
-    //  reference to pointer and an array section derived from that variable
-    //  must not appear as list items of map clauses of the same construct.
-    DSAStackTy::MapInfo MI = DSAStack->IsMappedInCurrentRegion(VD);
-    if (MI.RefExpr) {
-      Diag(ELoc, diag::err_omp_map_shared_storage) << ELoc;
-      Diag(MI.RefExpr->getExprLoc(), diag::note_used_here)
-          << MI.RefExpr->getSourceRange();
-      continue;
-    }
+    // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, p.9]
+    //  A list item cannot appear in both a map clause and a data-sharing
+    //  attribute clause on the same construct.
+    //
+    // TODO: Implement this check - it cannot currently be tested because of
+    // missing implementation of the other data sharing clauses in target
+    // directives.
 
-    // OpenMP [2.14.5, Restrictions, C/C++, p.3,4]
-    //  A variable for which the type is pointer, reference to array, or
-    //  reference to pointer must not appear as a list item if the enclosing
-    //  device data environment already contains an array section derived from
-    //  that variable.
-    //  An array section derived from a variable for which the type is pointer,
-    //  reference to array, or reference to pointer must not appear as a list
-    //  item if the enclosing device data environment already contains that
-    //  variable.
-    QualType Type = VD->getType();
-    MI = DSAStack->getMapInfoForVar(VD);
-    if (MI.RefExpr && (isa<DeclRefExpr>(MI.RefExpr->IgnoreParenLValueCasts()) !=
-                       isa<DeclRefExpr>(VE)) &&
-        (Type->isPointerType() || Type->isReferenceType())) {
-      Diag(ELoc, diag::err_omp_map_shared_storage) << ELoc;
-      Diag(MI.RefExpr->getExprLoc(), diag::note_used_here)
-          << MI.RefExpr->getSourceRange();
-      continue;
-    }
+    // Check conflicts with other map clause expressions. We check the conflicts
+    // with the current construct separately from the enclosing data
+    // environment, because the restrictions are different.
+    if (CheckMapConflicts(*this, DSAStack, D, SimpleExpr,
+                          /*CurrentRegionOnly=*/true))
+      break;
+    if (CheckMapConflicts(*this, DSAStack, D, SimpleExpr,
+                          /*CurrentRegionOnly=*/false))
+      break;
 
-    // OpenMP [2.14.5, Restrictions, C/C++, p.7]
+    // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, C++, p.1]
+    //  If the type of a list item is a reference to a type T then the type will
+    //  be considered to be T for all purposes of this clause.
+    QualType Type = D->getType();
+    if (Type->isReferenceType())
+      Type = Type->getPointeeType();
+
+    // OpenMP 4.5 [2.15.5.1, map Clause, Restrictions, p.9]
     //  A list item must have a mappable type.
     if (!CheckTypeMappable(VE->getExprLoc(), VE->getSourceRange(), *this,
                            DSAStack, Type))
@@ -8678,8 +9391,7 @@ Sema::ActOnOpenMPMapClause(OpenMPMapClauseKind MapTypeModifier,
           << (IsMapTypeImplicit ? 1 : 0)
           << getOpenMPSimpleClauseTypeName(OMPC_map, MapType)
           << getOpenMPDirectiveName(DKind);
-      // Proceed to add the variable in a map clause anyway, to prevent
-      // further spurious messages
+      continue;
     }
 
     // target exit_data
@@ -8694,17 +9406,15 @@ Sema::ActOnOpenMPMapClause(OpenMPMapClauseKind MapTypeModifier,
           << (IsMapTypeImplicit ? 1 : 0)
           << getOpenMPSimpleClauseTypeName(OMPC_map, MapType)
           << getOpenMPDirectiveName(DKind);
-      // Proceed to add the variable in a map clause anyway, to prevent
-      // further spurious messages
+      continue;
     }
 
     Vars.push_back(RE);
-    MI.RefExpr = RE;
-    DSAStack->addMapInfoForVar(VD, MI);
+    DSAStack->addExprToVarMapInfo(D, RE);
   }
-  if (Vars.empty())
-    return nullptr;
 
+  // We need to produce a map clause even if we don't have variables so that
+  // other diagnostics related with non-existing map clauses are accurate.
   return OMPMapClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars,
                               MapTypeModifier, MapType, IsMapTypeImplicit,
                               MapLoc);
@@ -8852,4 +9562,33 @@ OMPClause *Sema::ActOnOpenMPDistScheduleClause(
   return new (Context)
       OMPDistScheduleClause(StartLoc, LParenLoc, KindLoc, CommaLoc, EndLoc,
                             Kind, ValExpr, HelperValExpr);
+}
+
+OMPClause *Sema::ActOnOpenMPDefaultmapClause(
+    OpenMPDefaultmapClauseModifier M, OpenMPDefaultmapClauseKind Kind,
+    SourceLocation StartLoc, SourceLocation LParenLoc, SourceLocation MLoc,
+    SourceLocation KindLoc, SourceLocation EndLoc) {
+  // OpenMP 4.5 only supports 'defaultmap(tofrom: scalar)'
+  if (M != OMPC_DEFAULTMAP_MODIFIER_tofrom ||
+      Kind != OMPC_DEFAULTMAP_scalar) {
+    std::string Value;
+    SourceLocation Loc;
+    Value += "'";
+    if (M != OMPC_DEFAULTMAP_MODIFIER_tofrom) {
+      Value += getOpenMPSimpleClauseTypeName(OMPC_defaultmap,
+                 OMPC_DEFAULTMAP_MODIFIER_tofrom);
+      Loc = MLoc;
+    } else {
+      Value += getOpenMPSimpleClauseTypeName(OMPC_defaultmap,
+                 OMPC_DEFAULTMAP_scalar);
+      Loc = KindLoc;
+    }
+    Value += "'";
+    Diag(Loc, diag::err_omp_unexpected_clause_value)
+        << Value << getOpenMPClauseName(OMPC_defaultmap);
+    return nullptr;
+  }
+
+  return new (Context)
+      OMPDefaultmapClause(StartLoc, LParenLoc, MLoc, KindLoc, EndLoc, Kind, M);
 }

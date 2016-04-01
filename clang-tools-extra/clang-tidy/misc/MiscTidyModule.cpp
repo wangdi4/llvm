@@ -16,9 +16,11 @@
 #include "BoolPointerImplicitConversionCheck.h"
 #include "DefinitionsInHeadersCheck.h"
 #include "InaccurateEraseCheck.h"
+#include "IncorrectRoundings.h"
 #include "InefficientAlgorithmCheck.h"
 #include "MacroParenthesesCheck.h"
 #include "MacroRepeatedSideEffectsCheck.h"
+#include "MisplacedWideningCastCheck.h"
 #include "MoveConstantArgumentCheck.h"
 #include "MoveConstructorInitCheck.h"
 #include "NewDeleteOverloadsCheck.h"
@@ -54,12 +56,16 @@ public:
         "misc-definitions-in-headers");
     CheckFactories.registerCheck<InaccurateEraseCheck>(
         "misc-inaccurate-erase");
+    CheckFactories.registerCheck<IncorrectRoundings>(
+        "misc-incorrect-roundings");
     CheckFactories.registerCheck<InefficientAlgorithmCheck>(
         "misc-inefficient-algorithm");
     CheckFactories.registerCheck<MacroParenthesesCheck>(
         "misc-macro-parentheses");
     CheckFactories.registerCheck<MacroRepeatedSideEffectsCheck>(
         "misc-macro-repeated-side-effects");
+    CheckFactories.registerCheck<MisplacedWideningCastCheck>(
+        "misc-misplaced-widening-cast");
     CheckFactories.registerCheck<MoveConstantArgumentCheck>(
         "misc-move-const-arg");
     CheckFactories.registerCheck<MoveConstructorInitCheck>(
