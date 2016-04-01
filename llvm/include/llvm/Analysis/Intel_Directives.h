@@ -23,8 +23,6 @@
 #include "llvm/ADT/StringMap.h"
 #include <unordered_map>
 
-#define DEBUG_TYPE "Intel_Directives"
-
 using namespace llvm;
 
 namespace llvm {
