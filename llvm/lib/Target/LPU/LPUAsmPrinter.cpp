@@ -323,10 +323,15 @@ void LPUAsmPrinter::emitReturnVal(const Function *F) {
 }
 
 void LPUAsmPrinter::EmitStartOfAsmFile(Module &) {
+  /* Disabled 2016/3/31.  Long term, we should only put this out if it
+   * is not autounit.  The theory is if the compiler has done tailoring
+   * for a specific target, that should be reflected in the file.
+   */
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  O << "\t.processor ";
+  O << "\t# .processor ";  // note - commented out...
   O << TM.getSubtarget<LPUSubtarget>().lpuName();
+
   OutStreamer.EmitRawText(O.str());
   OutStreamer.EmitRawText("\t.version 0,5,0");
   OutStreamer.EmitRawText("\t.unit sxu,0");

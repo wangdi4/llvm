@@ -26,7 +26,7 @@ using namespace llvm;
 void LPUSubtarget::anchor() { }
 
 LPUSubtarget &LPUSubtarget::initializeSubtargetDependencies(StringRef CPU, StringRef FS) {
-  ParseSubtargetFeatures(CPU.empty() ? "ordered" : CPU, FS);
+  ParseSubtargetFeatures(CPU.empty() ? "autounit" : CPU, FS);
   return *this;
 }
 
@@ -37,5 +37,5 @@ LPUSubtarget::LPUSubtarget(const std::string &TT, const std::string &CPU,
       FrameLowering(),
       InstrInfo(initializeSubtargetDependencies(CPU, FS)), TLInfo(TM),
       TSInfo(DL),
-      LPUName(CPU.empty() ? "ordered" : CPU)
+      LPUName(CPU.empty() ? "autounit" : CPU)
   {}
