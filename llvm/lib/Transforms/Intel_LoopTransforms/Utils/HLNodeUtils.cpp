@@ -709,15 +709,16 @@ HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   checkBinaryInstOperands(nullptr, OpRef1, OpRef2);
 
   if (LvalRef) {
-    assert((LvalRef->getDestType()->isIntegerTy() &&
-            (LvalRef->getDestType()->getIntegerBitWidth() == 1)) &&
+    auto LType = LvalRef->getDestType()->getScalarType();
+    assert((LType->isIntegerTy() &&
+            (LType->getIntegerBitWidth() == 1)) &&
            "LvalRef has invalid type!");
   }
 
   auto DummyVal = UndefValue::get(OpRef1->getDestType());
 
-  if (OpRef1->getDestType()->isIntegerTy() ||
-      OpRef1->getDestType()->isPointerTy()) {
+  if (OpRef1->getDestType()->isIntOrIntVectorTy() ||
+      OpRef1->getDestType()->isPtrOrPtrVectorTy()) {
     InstVal =
         DummyIRBuilder->CreateICmp(ICmpInst::ICMP_EQ, DummyVal, DummyVal, Name);
   } else {

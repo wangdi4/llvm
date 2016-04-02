@@ -5040,6 +5040,7 @@ bool llvm::loopopt::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
     auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
     if (Result == nullptr) {
       *IsIndependent = true;
+      return true;
     }
     for (unsigned I = 1; I <= Result->getLevels(); ++I) {
       RefinedDV[I - 1] = Result->getDirection(I);
