@@ -395,6 +395,10 @@ class FMADagCommon {
       return OpndDepth + 1;
     }
 
+    // Returns the DAG in unsigned 64-bit form that does not include
+    // information about regular terms, i.e. all regular terms are anonymous.
+    uint64_t getEncodedDag() { return EncodedDag; }
+
     // Prints the DAG to the given output stream \p OS.
     void print(raw_ostream &OS) const {
       unsigned NumNodes = getNumNodes();
@@ -622,6 +626,28 @@ class FMAExprSPCommon {
     // Returns the number of products in the sum of products.
     unsigned getNumProducts() const { return NumProducts; }
 
+    // Returns the number of unique regular terms used in the sum of products.
+    // The special terms 0.0 and 1.0 are not included into the returned number.
+    unsigned getNumUniqueTerms() const {
+      unsigned TermUsedBitVector = 0;
+      unsigned NumUniqueTerms = 0;
+
+      for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
+        unsigned NumTerms = Products[ProdInd].NumTerms;
+        for (unsigned TermInd = 0; TermInd < NumTerms; TermInd++) {
+          unsigned Term = Products[ProdInd].Terms[TermInd];
+          if (Term == TermZERO || Term == TermONE)
+            continue;
+
+          unsigned Mask = 1U << Term;
+          if ((TermUsedBitVector & Mask) == 0) {
+            TermUsedBitVector |= Mask;
+            NumUniqueTerms++;
+          }
+        }
+      }
+      return NumUniqueTerms;
+    }
 
     // Returns true if one of products consists of only the value 1.0.
     // Otherwise, returns false.

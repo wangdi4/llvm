@@ -58,8 +58,6 @@ public:
   };
 
 private:
-  std::string DevName;
-  bool Is64bit;
   bool DumpCode;
   bool R600ALUInst;
   bool HasVertexCache;
@@ -68,6 +66,7 @@ private:
   bool FP64;
   bool FP64Denormals;
   bool FP32Denormals;
+  bool FPExceptions;
   bool FastFMAF32;
   bool HalfRate64Ops;
   bool CaymanISA;
@@ -124,10 +123,6 @@ public:
 
   void ParseSubtargetFeatures(StringRef CPU, StringRef FS);
 
-  bool is64bit() const {
-    return Is64bit;
-  }
-
   bool hasVertexCache() const {
     return HasVertexCache;
   }
@@ -154,6 +149,10 @@ public:
 
   bool hasFP64Denormals() const {
     return FP64Denormals;
+  }
+
+  bool hasFPExceptions() const {
+    return FPExceptions;
   }
 
   bool hasFastFMAF32() const {
@@ -277,10 +276,6 @@ public:
   // Helper functions to simplify if statements
   bool isTargetELF() const {
     return false;
-  }
-
-  StringRef getDeviceName() const {
-    return DevName;
   }
 
   bool enableHugeScratchBuffer() const {
