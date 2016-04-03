@@ -74,7 +74,8 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   if (LangOpts.IntelCompat && (BuiltinInfo.Langs & ICC_LANG))
     return true;
 #endif // INTEL_CUSTOMIZATION
-  return !BuiltinsUnsupported && !MathBuiltinsUnsupported &&
+  bool OclCUnsupported = !LangOpts.OpenCL && BuiltinInfo.Langs == OCLC_LANG;
+  return !BuiltinsUnsupported && !MathBuiltinsUnsupported && !OclCUnsupported &&
          !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported;
 }
 

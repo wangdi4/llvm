@@ -1820,6 +1820,9 @@ NamedDecl *Sema::LazilyCreateBuiltin(IdentifierInfo *II, unsigned ID,
           << Context.BuiltinInfo.getName(ID);
   }
 
+  if (R.isNull())
+    return nullptr;
+
   DeclContext *Parent = Context.getTranslationUnitDecl();
   if (getLangOpts().CPlusPlus) {
     LinkageSpecDecl *CLinkageDecl =
@@ -2352,6 +2355,8 @@ static bool mergeDeclAttribute(Sema &S, NamedDecl *D,
   if (NewAttr) {
     NewAttr->setInherited(true);
     D->addAttr(NewAttr);
+    if (isa<MSInheritanceAttr>(NewAttr))
+      S.Consumer.AssignInheritanceModel(cast<CXXRecordDecl>(D));
     return true;
   }
 
@@ -3787,9 +3792,11 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
 
 /// ParsedFreeStandingDeclSpec - This method is invoked when a declspec with
 /// no declarator (e.g. "struct foo;") is parsed.
-Decl *Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS,
-                                       DeclSpec &DS) {
-  return ParsedFreeStandingDeclSpec(S, AS, DS, MultiTemplateParamsArg());
+Decl *
+Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS, DeclSpec &DS,
+                                 RecordDecl *&AnonRecord) {
+  return ParsedFreeStandingDeclSpec(S, AS, DS, MultiTemplateParamsArg(), false,
+                                    AnonRecord);
 }
 
 // The MS ABI changed between VS2013 and VS2015 with regard to numbers used to
@@ -3895,10 +3902,11 @@ static unsigned GetDiagnosticTypeSpecifierID(DeclSpec::TST T) {
 /// ParsedFreeStandingDeclSpec - This method is invoked when a declspec with
 /// no declarator (e.g. "struct foo;") is parsed. It also accepts template
 /// parameters to cope with template friend declarations.
-Decl *Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS,
-                                       DeclSpec &DS,
-                                       MultiTemplateParamsArg TemplateParams,
-                                       bool IsExplicitInstantiation) {
+Decl *
+Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS, DeclSpec &DS,
+                                 MultiTemplateParamsArg TemplateParams,
+                                 bool IsExplicitInstantiation,
+                                 RecordDecl *&AnonRecord) {
   Decl *TagD = nullptr;
   TagDecl *Tag = nullptr;
   if (DS.getTypeSpecType() == DeclSpec::TST_class ||
@@ -4009,9 +4017,19 @@ Decl *Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS,
     if (!Record->getDeclName() && Record->isCompleteDefinition() &&
         DS.getStorageClassSpec() != DeclSpec::SCS_typedef) {
       if (getLangOpts().CPlusPlus ||
-          Record->getDeclContext()->isRecord())
+          Record->getDeclContext()->isRecord()) {
+        // If CurContext is a DeclContext that can contain statements,
+        // RecursiveASTVisitor won't visit the decls that
+        // BuildAnonymousStructOrUnion() will put into CurContext.
+        // Also store them here so that they can be part of the
+        // DeclStmt that gets created in this case.
+        // FIXME: Also return the IndirectFieldDecls created by
+        // BuildAnonymousStructOr union, for the same reason?
+        if (CurContext->isFunctionOrMethod())
+          AnonRecord = Record;
         return BuildAnonymousStructOrUnion(S, DS, AS, Record,
                                            Context.getPrintingPolicy());
+      }
 
       DeclaresAnything = false;
     }
@@ -4205,12 +4223,10 @@ static bool CheckAnonMemberRedeclaration(Sema &SemaRef,
 ///
 /// This routine is recursive, injecting the names of nested anonymous
 /// structs/unions into the owning context and scope as well.
-static bool InjectAnonymousStructOrUnionMembers(Sema &SemaRef, Scope *S,
-                                         DeclContext *Owner,
-                                         RecordDecl *AnonRecord,
-                                         AccessSpecifier AS,
-                                         SmallVectorImpl<NamedDecl *> &Chaining,
-                                         bool MSAnonStruct) {
+static bool
+InjectAnonymousStructOrUnionMembers(Sema &SemaRef, Scope *S, DeclContext *Owner,
+                                    RecordDecl *AnonRecord, AccessSpecifier AS,
+                                    SmallVectorImpl<NamedDecl *> &Chaining) {
   bool Invalid = false;
 
   // Look every FieldDecl and IndirectFieldDecl with a name.
@@ -4553,8 +4569,7 @@ Decl *Sema::BuildAnonymousStructOrUnion(Scope *S, DeclSpec &DS,
   SmallVector<NamedDecl*, 2> Chain;
   Chain.push_back(Anon);
 
-  if (InjectAnonymousStructOrUnionMembers(*this, S, Owner, Record, AS,
-                                          Chain, false))
+  if (InjectAnonymousStructOrUnionMembers(*this, S, Owner, Record, AS, Chain))
     Invalid = true;
 
   if (VarDecl *NewVD = dyn_cast<VarDecl>(Anon)) {
@@ -4626,7 +4641,7 @@ Decl *Sema::BuildMicrosoftCAnonymousStruct(Scope *S, DeclSpec &DS,
   if (RequireCompleteType(Anon->getLocation(), RecTy,
                           diag::err_field_incomplete) ||
       InjectAnonymousStructOrUnionMembers(*this, S, CurContext, RecordDef,
-                                          AS_none, Chain, true)) {
+                                          AS_none, Chain)) {
     Anon->setInvalidDecl();
     ParentDecl->setInvalidDecl();
   }
@@ -6199,7 +6214,8 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       NewVD->setConstexpr(true);
 
     if (D.getDeclSpec().isConceptSpecified()) {
-      NewVD->setConcept(true);
+      if (VarTemplateDecl *VTD = NewVD->getDescribedVarTemplate())
+        VTD->setConcept();
 
       // C++ Concepts TS [dcl.spec.concept]p2: A concept definition shall not
       // be declared with the thread_local, inline, friend, or constexpr
@@ -6215,6 +6231,24 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         Diag(D.getDeclSpec().getConstexprSpecLoc(),
              diag::err_concept_decl_invalid_specifiers)
             << 0 << 3;
+        NewVD->setInvalidDecl(true);
+      }
+
+      // C++ Concepts TS [dcl.spec.concept]p1: The concept specifier shall be
+      // applied only to the definition of a function template or variable
+      // template, declared in namespace scope.
+      if (IsVariableTemplateSpecialization) {
+        Diag(D.getDeclSpec().getConceptSpecLoc(),
+             diag::err_concept_specified_specialization)
+            << (IsPartialSpecialization ? 2 : 1);
+      }
+
+      // C++ Concepts TS [dcl.spec.concept]p6: A variable concept has the
+      // following restrictions:
+      // - The declared type shall have the type bool.
+      if (!Context.hasSameType(NewVD->getType(), Context.BoolTy) &&
+          !NewVD->isInvalidDecl()) {
+        Diag(D.getIdentifierLoc(), diag::err_variable_concept_bool_decl);
         NewVD->setInvalidDecl(true);
       }
     }
@@ -7888,6 +7922,10 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     }
 
     if (isConcept) {
+      // This is a function concept.
+      if (FunctionTemplateDecl *FTD = NewFD->getDescribedFunctionTemplate())
+        FTD->setConcept();
+
       // C++ Concepts TS [dcl.spec.concept]p1: The concept specifier shall be
       // applied only to the definition of a function template [...]
       if (!D.isFunctionDefinition()) {
@@ -7909,6 +7947,14 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
           NewFD->setInvalidDecl();
         } else {
           Context.adjustExceptionSpec(NewFD, EST_BasicNoexcept);
+        }
+
+        // C++ Concepts TS [dcl.spec.concept]p5: A function concept has the
+        // following restrictions:
+        // - The declared return type shall have the type bool.
+        if (!Context.hasSameType(FPT->getReturnType(), Context.BoolTy)) {
+          Diag(D.getIdentifierLoc(), diag::err_function_concept_bool_ret);
+          NewFD->setInvalidDecl();
         }
 
         // C++ Concepts TS [dcl.spec.concept]p5: A function concept has the
@@ -7945,6 +7991,14 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
              diag::err_concept_decl_invalid_specifiers)
             << 1 << 3;
         NewFD->setInvalidDecl(true);
+      }
+
+      // C++ Concepts TS [dcl.spec.concept]p1: The concept specifier shall be
+      // applied only to the definition of a function template or variable
+      // template, declared in namespace scope.
+      if (isFunctionTemplateSpecialization) {
+        Diag(D.getDeclSpec().getConceptSpecLoc(),
+             diag::err_concept_specified_specialization) << 1;
       }
     }
 
@@ -8235,9 +8289,9 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
                                          TemplateId->NumArgs);
       translateTemplateArguments(TemplateArgsPtr,
                                  TemplateArgs);
-    
+
       HasExplicitTemplateArgs = true;
-    
+
       if (NewFD->isInvalidDecl()) {
         HasExplicitTemplateArgs = false;
       } else if (FunctionTemplate) {
@@ -8574,18 +8628,28 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
   MarkUnusedFileScopedDecl(NewFD);
 
-  if (getLangOpts().CUDA)
-    if (IdentifierInfo *II = NewFD->getIdentifier())
-      if (!NewFD->isInvalidDecl() &&
-          NewFD->getDeclContext()->getRedeclContext()->isTranslationUnit()) {
-        if (II->isStr("cudaConfigureCall")) {
-          if (!R->getAs<FunctionType>()->getReturnType()->isScalarType())
-            Diag(NewFD->getLocation(), diag::err_config_scalar_return);
+  if (getLangOpts().CUDA) {
+    IdentifierInfo *II = NewFD->getIdentifier();
+    if (II && II->isStr("cudaConfigureCall") && !NewFD->isInvalidDecl() &&
+        NewFD->getDeclContext()->getRedeclContext()->isTranslationUnit()) {
+      if (!R->getAs<FunctionType>()->getReturnType()->isScalarType())
+        Diag(NewFD->getLocation(), diag::err_config_scalar_return);
 
-          Context.setcudaConfigureCallDecl(NewFD);
-        }
-      }
-  
+      Context.setcudaConfigureCallDecl(NewFD);
+    }
+
+    // Variadic functions, other than a *declaration* of printf, are not allowed
+    // in device-side CUDA code, unless someone passed
+    // -fcuda-allow-variadic-functions.
+    if (!getLangOpts().CUDAAllowVariadicFunctions && NewFD->isVariadic() &&
+        (NewFD->hasAttr<CUDADeviceAttr>() ||
+         NewFD->hasAttr<CUDAGlobalAttr>()) &&
+        !(II && II->isStr("printf") && NewFD->isExternC() &&
+          !D.isFunctionDefinition())) {
+      Diag(NewFD->getLocation(), diag::err_variadic_device_fn);
+    }
+  }
+
   // Here we have an function template explicit specialization at class scope.
   // The actually specialization will be postponed to template instatiation
   // time via the ClassScopeFunctionSpecializationDecl node.
@@ -10044,10 +10108,12 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl,
     // C++ Concepts TS [dcl.spec.concept]p1: [...]  A variable template
     // definition having the concept specifier is called a variable concept. A
     // concept definition refers to [...] a variable concept and its initializer.
-    if (Var->isConcept()) {
-      Diag(Var->getLocation(), diag::err_var_concept_not_initialized);
-      Var->setInvalidDecl();
-      return;
+    if (VarTemplateDecl *VTD = Var->getDescribedVarTemplate()) {
+      if (VTD->isConcept()) {
+        Diag(Var->getLocation(), diag::err_var_concept_not_initialized);
+        Var->setInvalidDecl();
+        return;
+      }
     }
 
     // OpenCL v1.1 s6.5.3: variables declared in the constant address space must
@@ -10237,6 +10303,10 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl,
 }
 
 void Sema::ActOnCXXForRangeDecl(Decl *D) {
+  // If there is no declaration, there was an error parsing it. Ignore it.
+  if (!D)
+    return;
+
   VarDecl *VD = dyn_cast<VarDecl>(D);
   if (!VD) {
     Diag(D->getLocation(), diag::err_for_range_decl_must_be_var);
@@ -10524,6 +10594,38 @@ Sema::FinalizeDeclaration(Decl *ThisDecl) {
         auto *NewAttr = cast<InheritableAttr>(A->clone(getASTContext()));
         NewAttr->setInherited(true);
         VD->addAttr(NewAttr);
+      }
+    }
+  }
+
+  // Perform check for initializers of device-side global variables.
+  // CUDA allows empty constructors as initializers (see E.2.3.1, CUDA
+  // 7.5). CUDA also allows constant initializers for __constant__ and
+  // __device__ variables.
+  if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice) {
+    const Expr *Init = VD->getInit();
+    const bool IsGlobal = VD->hasGlobalStorage() && !VD->isStaticLocal();
+    if (Init && IsGlobal &&
+        (VD->hasAttr<CUDADeviceAttr>() || VD->hasAttr<CUDAConstantAttr>() ||
+         VD->hasAttr<CUDASharedAttr>())) {
+      bool AllowedInit = false;
+      if (const CXXConstructExpr *CE = dyn_cast<CXXConstructExpr>(Init))
+        AllowedInit =
+            isEmptyCudaConstructor(VD->getLocation(), CE->getConstructor());
+      // We'll allow constant initializers even if it's a non-empty
+      // constructor according to CUDA rules. This deviates from NVCC,
+      // but allows us to handle things like constexpr constructors.
+      if (!AllowedInit &&
+          (VD->hasAttr<CUDADeviceAttr>() || VD->hasAttr<CUDAConstantAttr>()))
+        AllowedInit = VD->getInit()->isConstantInitializer(
+            Context, VD->getType()->isReferenceType());
+
+      if (!AllowedInit) {
+        Diag(VD->getLocation(), VD->hasAttr<CUDASharedAttr>()
+                                    ? diag::err_shared_var_init
+                                    : diag::err_dynamic_var_init)
+            << Init->getSourceRange();
+        VD->setInvalidDecl();
       }
     }
   }
@@ -11448,22 +11550,26 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
   if (FD) {
     FD->setBody(Body);
 
-    if (getLangOpts().CPlusPlus14 && !FD->isInvalidDecl() && Body &&
-        !FD->isDependentContext() && FD->getReturnType()->isUndeducedType()) {
-      // If the function has a deduced result type but contains no 'return'
-      // statements, the result type as written must be exactly 'auto', and
-      // the deduced result type is 'void'.
-      if (!FD->getReturnType()->getAs<AutoType>()) {
-        Diag(dcl->getLocation(), diag::err_auto_fn_no_return_but_not_auto)
-            << FD->getReturnType();
-        FD->setInvalidDecl();
-      } else {
-        // Substitute 'void' for the 'auto' in the type.
-        TypeLoc ResultType = getReturnTypeLoc(FD);
-        Context.adjustDeducedFunctionResultType(
-            FD, SubstAutoType(ResultType.getType(), Context.VoidTy));
+    if (getLangOpts().CPlusPlus14) {
+      if (!FD->isInvalidDecl() && Body && !FD->isDependentContext() &&
+          FD->getReturnType()->isUndeducedType()) {
+        // If the function has a deduced result type but contains no 'return'
+        // statements, the result type as written must be exactly 'auto', and
+        // the deduced result type is 'void'.
+        if (!FD->getReturnType()->getAs<AutoType>()) {
+          Diag(dcl->getLocation(), diag::err_auto_fn_no_return_but_not_auto)
+              << FD->getReturnType();
+          FD->setInvalidDecl();
+        } else {
+          // Substitute 'void' for the 'auto' in the type.
+          TypeLoc ResultType = getReturnTypeLoc(FD);
+          Context.adjustDeducedFunctionResultType(
+              FD, SubstAutoType(ResultType.getType(), Context.VoidTy));
+        }
       }
     } else if (getLangOpts().CPlusPlus11 && isLambdaCallOperator(FD)) {
+      // In C++11, we don't use 'auto' deduction rules for lambda call
+      // operators because we don't support return type deduction.
       auto *LSI = getCurLambda();
       if (LSI->HasImplicitReturnType) {
         deduceClosureReturnType(*LSI);
@@ -15150,9 +15256,15 @@ void Sema::ActOnModuleInclude(SourceLocation DirectiveLoc, Module *Mod) {
       TUKind == TU_Module &&
       getSourceManager().isWrittenInMainFile(DirectiveLoc);
 
+  // Similarly, if this module is specified by -fmodule-implementation-of
+  // don't actually synthesize an illegal module import.
+  bool ShouldAddImport = !IsInModuleIncludes &&
+    (getLangOpts().ImplementationOfModule.empty() ||
+     getLangOpts().ImplementationOfModule != Mod->getTopLevelModuleName());
+
   // If this module import was due to an inclusion directive, create an 
   // implicit import declaration to capture it in the AST.
-  if (!IsInModuleIncludes) {
+  if (ShouldAddImport) {
     TranslationUnitDecl *TU = getASTContext().getTranslationUnitDecl();
     ImportDecl *ImportD = ImportDecl::CreateImplicit(getASTContext(), TU,
                                                      DirectiveLoc, Mod,

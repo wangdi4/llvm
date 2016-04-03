@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaInternal.h"
+#include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/CXXInheritance.h"
 #include "clang/AST/DeclCXX.h"
@@ -1556,6 +1557,9 @@ static void handleAliasAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (S.Context.getTargetInfo().getTriple().isOSDarwin()) {
     S.Diag(Attr.getLoc(), diag::err_alias_not_supported_on_darwin);
     return;
+  }
+  if (S.Context.getTargetInfo().getTriple().isNVPTX()) {
+    S.Diag(Attr.getLoc(), diag::err_alias_not_supported_on_nvptx);
   }
 
   // Aliases should be on declarations, not definitions.
@@ -3868,6 +3872,8 @@ bool Sema::checkMSInheritanceAttrOnDefinition(
 /// attribute.
 static void parseModeAttrArg(Sema &S, StringRef Str, unsigned &DestWidth,
                              bool &IntegerMode, bool &ComplexMode) {
+  IntegerMode = true;
+  ComplexMode = false;
   switch (Str.size()) {
   case 2:
     switch (Str[0]) {
@@ -3903,7 +3909,7 @@ static void parseModeAttrArg(Sema &S, StringRef Str, unsigned &DestWidth,
     // FIXME: glibc uses 'word' to define register_t; this is narrower than a
     // pointer on PIC16 and other embedded platforms.
     if (Str == "word")
-      DestWidth = S.Context.getTargetInfo().getPointerWidth(0);
+      DestWidth = S.Context.getTargetInfo().getRegisterWidth();
     else if (Str == "byte")
       DestWidth = S.Context.getTargetInfo().getCharWidth();
     break;
@@ -3937,14 +3943,23 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr,
   assert(((D && !CurTy) || (CurTy && !D)) && "Invalid arguments");  // INTEL
 
   IdentifierInfo *Name = Attr.getArgAsIdent(0)->Ident;
-  StringRef Str = Name->getName();
 
+  S.AddModeAttr(Attr.getRange(), D, Name,                            // INTEL
+                Attr.getAttributeSpellingListIndex(), false, CurTy); // INTEL
+}
+
+void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
+                       unsigned SpellingListIndex,
+                       bool InInstantiation,                  // INTEL
+                       QualType *CurTy) {                     // INTEL
+  StringRef Str = Name->getName();
   normalizeName(Str);
+  SourceLocation AttrLoc = AttrRange.getBegin();
 
 #if INTEL_CUSTOMIZATION
   // CQ#369184 - decimal types are not supported, so handle this gracefully.
-  if (S.getLangOpts().IntelCompat && D && Str.size() == 2 && Str[1] == 'D') {
-    S.Diag(Attr.getLoc(), diag::err_decimal_unsupported);
+  if (getLangOpts().IntelCompat && D && Str.size() == 2 && Str[1] == 'D') {
+    Diag(AttrLoc, diag::err_decimal_unsupported);
     return;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -3962,25 +3977,49 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr,
     if (VectorStringLength &&
         !Str.substr(1, VectorStringLength).getAsInteger(10, VectorSize) &&
         VectorSize.isPowerOf2()) {
-      parseModeAttrArg(S, Str.substr(VectorStringLength + 1), DestWidth,
+      parseModeAttrArg(*this, Str.substr(VectorStringLength + 1), DestWidth,
                        IntegerMode, ComplexMode);
-      S.Diag(Attr.getLoc(), diag::warn_vector_mode_deprecated);
+      // Avoid duplicate warning from template instantiation.
+      if (!InInstantiation)
+        Diag(AttrLoc, diag::warn_vector_mode_deprecated);
     } else {
       VectorSize = 0;
     }
   }
 
   if (!VectorSize)
-    parseModeAttrArg(S, Str, DestWidth, IntegerMode, ComplexMode);
+    parseModeAttrArg(*this, Str, DestWidth, IntegerMode, ComplexMode);
+
+  // FIXME: Sync this with InitializePredefinedMacros; we need to match int8_t
+  // and friends, at least with glibc.
+  // FIXME: Make sure floating-point mappings are accurate
+  // FIXME: Support XF and TF types
+  if (!DestWidth) {
+    Diag(AttrLoc, diag::err_machine_mode) << 0 /*Unknown*/ << Name;
+    return;
+  }
 
   QualType OldTy;
   if (D) {  // INTEL
   if (TypedefNameDecl *TD = dyn_cast<TypedefNameDecl>(D))
     OldTy = TD->getUnderlyingType();
-  else
+  else if (EnumDecl *ED = dyn_cast<EnumDecl>(D)) {
+    // Something like 'typedef enum { X } __attribute__((mode(XX))) T;'.
+    // Try to get type from enum declaration, default to int.
+    OldTy = ED->getIntegerType();
+    if (OldTy.isNull())
+      OldTy = Context.IntTy;
+  } else
     OldTy = cast<ValueDecl>(D)->getType();
   } else            // INTEL
     OldTy = *CurTy; // INTEL
+
+  if (D)  // INTEL
+  if (OldTy->isDependentType()) {
+    D->addAttr(::new (Context)
+               ModeAttr(AttrRange, Context, Name, SpellingListIndex));
+    return;
+  }
 
   // Base type can also be a vector type (see PR17453).
   // Distinguish between base type and base element type.
@@ -3988,67 +4027,69 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr,
   if (const VectorType *VT = OldTy->getAs<VectorType>())
     OldElemTy = VT->getElementType();
 
-  if (!OldElemTy->getAs<BuiltinType>() && !OldElemTy->isComplexType())
-    S.Diag(Attr.getLoc(), diag::err_mode_not_primitive);
+  // GCC allows 'mode' attribute on enumeration types (even incomplete), except
+  // for vector modes. So, 'enum X __attribute__((mode(QI)));' forms a complete
+  // type, 'enum { A } __attribute__((mode(V4SI)))' is rejected.
+  if (((D && isa<EnumDecl>(D)) || OldElemTy->getAs<EnumType>()) && // INTEL
+      VectorSize.getBoolValue()) {
+    Diag(AttrLoc, diag::err_enum_mode_vector_type) << Name << AttrRange;
+    return;
+  }
+  bool IntegralOrAnyEnumType =
+      OldElemTy->isIntegralOrEnumerationType() || OldElemTy->getAs<EnumType>();
+
+  if (!OldElemTy->getAs<BuiltinType>() && !OldElemTy->isComplexType() &&
+      !IntegralOrAnyEnumType)
+    Diag(AttrLoc, diag::err_mode_not_primitive);
   else if (IntegerMode) {
-    if (!OldElemTy->isIntegralOrEnumerationType())
-      S.Diag(Attr.getLoc(), diag::err_mode_wrong_type);
+    if (!IntegralOrAnyEnumType)
+      Diag(AttrLoc, diag::err_mode_wrong_type);
   } else if (ComplexMode) {
     if (!OldElemTy->isComplexType())
-      S.Diag(Attr.getLoc(), diag::err_mode_wrong_type);
+      Diag(AttrLoc, diag::err_mode_wrong_type);
   } else {
     if (!OldElemTy->isFloatingType())
-      S.Diag(Attr.getLoc(), diag::err_mode_wrong_type);
-  }
-
-  // FIXME: Sync this with InitializePredefinedMacros; we need to match int8_t
-  // and friends, at least with glibc.
-  // FIXME: Make sure floating-point mappings are accurate
-  // FIXME: Support XF and TF types
-  if (D)  // INTEL
-  if (!DestWidth) {
-    S.Diag(Attr.getLoc(), diag::err_machine_mode) << 0 /*Unknown*/ << Name;
-    return;
+      Diag(AttrLoc, diag::err_mode_wrong_type);
   }
 
   QualType NewElemTy;
 
   if (IntegerMode)
-    NewElemTy = S.Context.getIntTypeForBitwidth(
-        DestWidth, OldElemTy->isSignedIntegerType());
+    NewElemTy = Context.getIntTypeForBitwidth(DestWidth,
+                                              OldElemTy->isSignedIntegerType());
   else
-    NewElemTy = S.Context.getRealTypeForBitwidth(DestWidth);
+    NewElemTy = Context.getRealTypeForBitwidth(DestWidth);
 
   if (D)  // INTEL
   if (NewElemTy.isNull()) {
-    S.Diag(Attr.getLoc(), diag::err_machine_mode) << 1 /*Unsupported*/ << Name;
+    Diag(AttrLoc, diag::err_machine_mode) << 1 /*Unsupported*/ << Name;
     return;
   }
 
   if (ComplexMode) {
-    NewElemTy = S.Context.getComplexType(NewElemTy);
+    NewElemTy = Context.getComplexType(NewElemTy);
   }
 
   QualType NewTy = NewElemTy;
   if (VectorSize.getBoolValue()) {
-    NewTy = S.Context.getVectorType(NewTy, VectorSize.getZExtValue(),
-                                    VectorType::GenericVector);
+    NewTy = Context.getVectorType(NewTy, VectorSize.getZExtValue(),
+                                  VectorType::GenericVector);
   } else if (const VectorType *OldVT = OldTy->getAs<VectorType>()) {
     // Complex machine mode does not support base vector types.
     if (D)  // INTEL
     if (ComplexMode) {
-      S.Diag(Attr.getLoc(), diag::err_complex_mode_vector_type);
+      Diag(AttrLoc, diag::err_complex_mode_vector_type);
       return;
     }
-    unsigned NumElements = S.Context.getTypeSize(OldElemTy) *
+    unsigned NumElements = Context.getTypeSize(OldElemTy) *
                            OldVT->getNumElements() /
-                           S.Context.getTypeSize(NewElemTy);
+                           Context.getTypeSize(NewElemTy);
     NewTy =
-        S.Context.getVectorType(NewElemTy, NumElements, OldVT->getVectorKind());
+        Context.getVectorType(NewElemTy, NumElements, OldVT->getVectorKind());
   }
 
   if (NewTy.isNull()) {
-    S.Diag(Attr.getLoc(), diag::err_mode_wrong_type);
+    Diag(AttrLoc, diag::err_mode_wrong_type);
     return;
   }
 
@@ -4062,12 +4103,13 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr,
   // Install the new type.
   if (TypedefNameDecl *TD = dyn_cast<TypedefNameDecl>(D))
     TD->setModedTypeSourceInfo(TD->getTypeSourceInfo(), NewTy);
+  else if (EnumDecl *ED = dyn_cast<EnumDecl>(D))
+    ED->setIntegerType(NewTy);
   else
     cast<ValueDecl>(D)->setType(NewTy);
 
-  D->addAttr(::new (S.Context)
-             ModeAttr(Attr.getRange(), S.Context, Name,
-                      Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (Context)
+             ModeAttr(AttrRange, Context, Name, SpellingListIndex));
 }
 
 #if INTEL_CUSTOMIZATION
@@ -5042,8 +5084,10 @@ static void handleMSInheritanceAttr(Sema &S, Decl *D, const AttributeList &Attr)
       D, Attr.getRange(), /*BestCase=*/true,
       Attr.getAttributeSpellingListIndex(),
       (MSInheritanceAttr::Spelling)Attr.getSemanticSpelling());
-  if (IA)
+  if (IA) {
     D->addAttr(IA);
+    S.Consumer.AssignInheritanceModel(cast<CXXRecordDecl>(D));
+  }
 }
 
 static void handleDeclspecThreadAttr(Sema &S, Decl *D,

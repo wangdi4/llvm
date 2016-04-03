@@ -6,8 +6,9 @@ from __future__ import print_function
 
 import os, time, sys
 import lldb
-import lldbsuite.test.lldbutil as lldbutil
+from lldbsuite.test.decorators import *
 from lldbsuite.test.lldbtest import *
+from lldbsuite.test import lldbutil
 
 class TestInlineStepping(TestBase):
 
@@ -15,7 +16,7 @@ class TestInlineStepping(TestBase):
 
     @add_test_categories(['pyapi'])
     @expectedFailureFreeBSD('llvm.org/pr17214')
-    @expectedFailureIcc # Not really a bug.  ICC combines two inlined functions.
+    @expectedFailureAll(compiler="icc", bugnumber="# Not really a bug.  ICC combines two inlined functions.")
     def test_with_python_api(self):
         """Test stepping over and into inlined functions."""
         self.build()

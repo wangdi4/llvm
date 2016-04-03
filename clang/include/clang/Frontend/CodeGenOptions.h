@@ -14,8 +14,10 @@
 #ifndef LLVM_CLANG_FRONTEND_CODEGENOPTIONS_H
 #define LLVM_CLANG_FRONTEND_CODEGENOPTIONS_H
 
+#include "clang/Basic/DebugInfoOptions.h"
 #include "clang/Basic/Sanitizers.h"
 #include "llvm/Support/Regex.h"
+#include "llvm/Target/TargetOptions.h"
 #include <map>
 #include <memory>
 #include <string>
@@ -58,30 +60,6 @@ public:
     Mixed = 2
   };
 
-  enum DebugInfoKind {
-    NoDebugInfo,          /// Don't generate debug info.
-
-    LocTrackingOnly,      /// Emit location information but do not generate
-                          /// debug info in the output. This is useful in
-                          /// cases where the backend wants to track source
-                          /// locations for instructions without actually
-                          /// emitting debug info for them (e.g., when -Rpass
-                          /// is used).
-
-    DebugLineTablesOnly,  /// Emit only debug info necessary for generating
-                          /// line number tables (-gline-tables-only).
-
-    LimitedDebugInfo,     /// Limit generated debug info to reduce size
-                          /// (-fno-standalone-debug). This emits
-                          /// forward decls for types that could be
-                          /// replaced with forward decls in the source
-                          /// code. For dynamic C++ classes type info
-                          /// is only emitted int the module that
-                          /// contains the classe's vtable.
-
-    FullDebugInfo         /// Generate complete debug info.
-  };
-
 #if INTEL_CUSTOMIZATION
   // CQ#368119 - support for '/Z7' and '/Zi' options.
   enum MSDebugInfoFileKind {
@@ -90,13 +68,6 @@ public:
     MSDebugInfoObjFile    /// Generate MS debug info in a COFF file.
   };
 #endif //INTEL_CUSTOMIZATION
-
-  enum DebuggerKind {
-    DebuggerKindDefault,
-    DebuggerKindGDB,
-    DebuggerKindLLDB,
-    DebuggerKindSCE
-  };
 
   enum TLSModel {
     GeneralDynamicTLSModel,
@@ -115,6 +86,12 @@ public:
     SRCK_Default,  // No special option was passed.
     SRCK_OnStack,  // Small structs on the stack (-fpcc-struct-return).
     SRCK_InRegs    // Small structs in registers (-freg-struct-return).
+  };
+
+  enum ProfileInstrKind {
+    ProfileNoInstr,    // No instrumentation.
+    ProfileClangInstr  // Clang instrumentation to generate execution counts
+                       // to use with PGO.
   };
 
   /// The code model to use (-mcmodel).
@@ -257,6 +234,11 @@ public:
 
   const std::vector<std::string> &getNoBuiltinFuncs() const {
     return NoBuiltinFuncs;
+  }
+
+  /// \brief Check if Clang profile instrumenation is on.
+  bool hasProfileClangInstr() const {
+    return getProfileInstr() == ProfileClangInstr;
   }
 };
 

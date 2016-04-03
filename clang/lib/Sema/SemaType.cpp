@@ -240,7 +240,7 @@ namespace {
       savedAttrs.back()->setNext(nullptr);
     }
   };
-}
+} // end anonymous namespace
 
 static void spliceAttrIntoList(AttributeList &attr, AttributeList *&head) {
   attr.setNext(head);
@@ -1858,7 +1858,7 @@ namespace {
 ///
 /// The values of this enum are used in diagnostics.
 enum QualifiedFunctionKind { QFK_BlockPointer, QFK_Pointer, QFK_Reference };
-}
+} // end anonymous namespace
 
 /// Check whether the type T is a qualified function type, and if it is,
 /// diagnose that it cannot be contained within the given kind of declarator.
@@ -2007,7 +2007,6 @@ static bool isArraySizeVLA(Sema &S, Expr *ArraySize, llvm::APSInt &SizeVal) {
   return S.VerifyIntegerConstantExpression(ArraySize, &SizeVal, Diagnoser,
                                            S.LangOpts.GNUMode).isInvalid();
 }
-
 
 /// \brief Build an array type.
 ///
@@ -2231,10 +2230,16 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
 /// Run the required checks for the extended vector type.
 QualType Sema::BuildExtVectorType(QualType T, Expr *ArraySize,
                                   SourceLocation AttrLoc) {
-  // unlike gcc's vector_size attribute, we do not allow vectors to be defined
+  // Unlike gcc's vector_size attribute, we do not allow vectors to be defined
   // in conjunction with complex types (pointers, arrays, functions, etc.).
-  if (!T->isDependentType() &&
-      !T->isIntegerType() && !T->isRealFloatingType()) {
+  //
+  // Additionally, OpenCL prohibits vectors of booleans (they're considered a
+  // reserved data type under OpenCL v2.0 s6.1.4), we don't support selects
+  // on bitvectors, and we have no well-defined ABI for bitvectors, so vectors
+  // of bool aren't allowed.
+  if ((!T->isDependentType() && !T->isIntegerType() &&
+       !T->isRealFloatingType()) ||
+      T->isBooleanType()) {
     Diag(AttrLoc, diag::err_attribute_invalid_vector_type) << T;
     return QualType();
   }
@@ -2248,7 +2253,7 @@ QualType Sema::BuildExtVectorType(QualType T, Expr *ArraySize,
       return QualType();
     }
 
-    // unlike gcc's vector_size attribute, the size is specified as the
+    // Unlike gcc's vector_size attribute, the size is specified as the
     // number of elements, not the number of bytes.
     unsigned vectorSize = static_cast<unsigned>(vecSize.getZExtValue());
 
@@ -3051,7 +3056,7 @@ namespace {
     BlockPointer,
     MemberPointer,
   };
-}
+} // end anonymous namespace
 
 IdentifierInfo *Sema::getNullabilityKeyword(NullabilityKind nullability) {
   switch (nullability) {
@@ -3111,7 +3116,7 @@ namespace {
     // NSError**
     NSErrorPointerPointer,
   };
-}
+} // end anonymous namespace
 
 /// Classify the given declarator, whose type-specified is \c type, based on
 /// what kind of pointer it refers to.
@@ -3238,7 +3243,6 @@ static PointerDeclaratorKind classifyPointerDeclarator(Sema &S,
 
     break;
   } while (true);
-
 
   switch (numNormalPointers) {
   case 0:
@@ -3688,7 +3692,6 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       T = S.BuildPointerType(T, DeclType.Loc, Name);
       if (DeclType.Ptr.TypeQuals)
         T = S.BuildQualifiedType(T, DeclType.Loc, DeclType.Ptr.TypeQuals);
-
       break;
     case DeclaratorChunk::Reference: {
       // Verify that we're not building a reference to pointer to function with
@@ -4124,7 +4127,6 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
 
         T = Context.getFunctionType(T, ParamTys, EPI);
       }
-
       break;
     }
     case DeclaratorChunk::MemberPointer: {
@@ -4793,7 +4795,7 @@ namespace {
     void VisitPipeTypeLoc(PipeTypeLoc TL) {
       TL.setKWLoc(DS.getTypeSpecTypeLoc());
 
-      TypeSourceInfo *TInfo = 0;
+      TypeSourceInfo *TInfo = nullptr;
       Sema::GetTypeFromParser(DS.getRepAsType(), &TInfo);
       TL.getValueLoc().initializeFullCopy(TInfo->getTypeLoc());
     }
@@ -4927,7 +4929,7 @@ namespace {
       llvm_unreachable("unsupported TypeLoc kind in declarator!");
     }
   };
-}
+} // end anonymous namespace
 
 static void fillAtomicQualLoc(AtomicTypeLoc ATL, const DeclaratorChunk &Chunk) {
   SourceLocation Loc;
@@ -5062,7 +5064,6 @@ ParsedType Sema::ActOnObjCInstanceType(SourceLocation Loc) {
   TypeSourceInfo *TInfo = Context.getTrivialTypeSourceInfo(T, Loc);
   return CreateParsedType(T, TInfo);
 }
-
 
 //===----------------------------------------------------------------------===//
 // Type Attribute Processing
@@ -5437,6 +5438,7 @@ namespace {
   struct FunctionTypeUnwrapper {
     enum WrapKind {
       Desugar,
+      Attributed,
       Parens,
       Pointer,
       BlockPointer,
@@ -5469,6 +5471,9 @@ namespace {
         } else if (isa<ReferenceType>(Ty)) {
           T = cast<ReferenceType>(Ty)->getPointeeType();
           Stack.push_back(Reference);
+        } else if (isa<AttributedType>(Ty)) {
+          T = cast<AttributedType>(Ty)->getEquivalentType();
+          Stack.push_back(Attributed);
         } else {
           const Type *DTy = Ty->getUnqualifiedDesugaredType();
           if (Ty == DTy) {
@@ -5517,6 +5522,9 @@ namespace {
         // information.
         return wrap(C, Old->getUnqualifiedDesugaredType(), I);
 
+      case Attributed:
+        return wrap(C, cast<AttributedType>(Old)->getEquivalentType(), I);
+
       case Parens: {
         QualType New = wrap(C, cast<ParenType>(Old)->getInnerType(), I);
         return C.getParenType(New);
@@ -5551,7 +5559,7 @@ namespace {
       llvm_unreachable("unknown wrapping kind");
     }
   };
-}
+} // end anonymous namespace
 
 static bool handleMSPointerTypeQualifierAttr(TypeProcessingState &State,
                                              AttributeList &Attr,
@@ -6708,6 +6716,7 @@ static void assignInheritanceModel(Sema &S, CXXRecordDecl *RD) {
         S.ImplicitMSInheritanceAttrLoc.isValid()
             ? S.ImplicitMSInheritanceAttrLoc
             : RD->getSourceRange()));
+    S.Consumer.AssignInheritanceModel(RD);
   }
 }
 

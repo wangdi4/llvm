@@ -182,8 +182,10 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(forStmt);
   REGISTER_MATCHER(friendDecl);
   REGISTER_MATCHER(functionDecl);
+  REGISTER_MATCHER(functionProtoType);
   REGISTER_MATCHER(functionTemplateDecl);
   REGISTER_MATCHER(functionType);
+  REGISTER_MATCHER(gnuNullExpr);
   REGISTER_MATCHER(gotoStmt);
   REGISTER_MATCHER(has);
   REGISTER_MATCHER(hasAncestor);
@@ -291,6 +293,7 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(isInTemplateInstantiation);
   REGISTER_MATCHER(isListInitialization);
   REGISTER_MATCHER(isMemberInitializer);
+  REGISTER_MATCHER(isMoveAssignmentOperator);
   REGISTER_MATCHER(isMoveConstructor);
   REGISTER_MATCHER(isNoThrow);
   REGISTER_MATCHER(isOverride);
@@ -303,6 +306,7 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(isUnion);
   REGISTER_MATCHER(isVariadic);
   REGISTER_MATCHER(isVirtual);
+  REGISTER_MATCHER(isVirtualAsWritten);
   REGISTER_MATCHER(isVolatileQualified);
   REGISTER_MATCHER(isWritten);
   REGISTER_MATCHER(labelStmt);
