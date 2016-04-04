@@ -23,6 +23,7 @@ add_llvm_target(LPUCodeGen
   LPUSelectionDAGInfo.cpp
   LPUAsmPrinter.cpp
   LPUMCInstLower.cpp
+  LPUIfConversion.cpp
 #-  LPUTargetTransformInfo.cpp
   )
 

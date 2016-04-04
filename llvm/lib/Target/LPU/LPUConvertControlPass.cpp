@@ -17,10 +17,12 @@
 #include "InstPrinter/LPUInstPrinter.h"
 #include "LPUInstrInfo.h"
 #include "LPUTargetMachine.h"
+#include "LPUIfConversion.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
+#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Pass.h"
@@ -40,6 +42,17 @@ ConvertControlPass("lpu-cvt-ctrl-pass", cl::Hidden,
 
 #define DEBUG_TYPE "lpu-convert-control"
 
+typedef LPUIfConversion::IfcvtToken IfcvtToken;
+typedef LPUIfConversion::IfcvtKind IfcvtKind;
+typedef LPUIfConversion::BBInfo BBInfo;
+#define ICSimpleFalse LPUIfConversion::ICSimpleFalse
+#define ICSimple LPUIfConversion::ICSimple
+#define ICTriangleFRev LPUIfConversion::ICTriangleFRev
+#define ICTriangleRev LPUIfConversion::ICTriangleRev
+#define ICTriangleFalse LPUIfConversion::ICTriangleFalse
+#define ICTriangle LPUIfConversion::ICTriangle
+#define ICDiamond LPUIfConversion::ICDiamond
+
 namespace {
 class LPUConvertControlPass : public MachineFunctionPass {
 public:
@@ -55,6 +68,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<MachineLoopInfo>();
     //AU.addRequired<LiveVariables>();
+    AU.addRequired<MachineDominatorTree>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
@@ -63,18 +77,48 @@ private:
   MachineBasicBlock *loopBackedgeBB;
   MachineBasicBlock *loopPreheader;
 
+  raw_ostream *thisOS;
+
+  MachineDominatorTree *DT;
+
+  LPUIfConversion *myIfConverter;
+
   void addLoop(std::vector<MachineLoop *> &loopList, MachineLoop *ML);
+
+  void prepareIfConverter() {
+    myIfConverter = new LPUIfConversion();
+    thisMF->RenumberBlocks();
+    myIfConverter->BBAnalysis.resize(thisMF->getNumBlockIDs());
+    myIfConverter->TII = thisMF->getSubtarget().getInstrInfo();
+    const TargetSubtargetInfo &ST = 
+      thisMF->getTarget().getSubtarget<TargetSubtargetInfo>();
+    myIfConverter->SchedModel.init(ST.getSchedModel(),&ST,myIfConverter->TII);
+  }
+
+  bool candidateForIfConversion(MachineLoop *loop, std::vector<IfcvtToken*> &Tokens);
+
   bool candidateLoopForDF(MachineLoop *currLoop);
 
-  bool processLoopForDF(MachineLoop *currLoop, raw_ostream *OS);
+  bool processLoopRegion(MachineLoop *currLoop);
 
+  // generate picks/switches for loop CF
   bool genDFInstructions(MachineInstr *MI, MachineBasicBlock *BB, 
-                         MachineBasicBlock::iterator lastPhiInst); 
+                         MachineBasicBlock::iterator LastPhiInst); 
 
   bool analyzePhiOperands(MachineInstr *MI, MachineBasicBlock *BB, 
                           unsigned int *srcReg1, unsigned int *predReg1,
                           unsigned int *predReg2, MachineBasicBlock **predBB1,
                           MachineBasicBlock **predBB2); 
+
+  bool processIfConversionRegion(std::vector<IfcvtToken*> &Tokens);
+                                 
+
+  bool processIfConversionToken(IfcvtToken *Token);
+
+  // generate picks/switches for straightline CF
+  bool genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
+                         MachineBasicBlock::iterator LastPhiInst,
+			 std::set<unsigned> UseRegsSet);
 
 };
 }
@@ -84,6 +128,33 @@ MachineFunctionPass *llvm::createLPUConvertControlPass() {
 }
 
 char LPUConvertControlPass::ID = 0;
+
+bool 
+LPUConvertControlPass::
+candidateForIfConversion(MachineLoop *loop, std::vector<IfcvtToken*> &Tokens) {
+
+  // assumption is that this is a single entry loop
+
+  assert(Tokens.empty() && "IfCvt tokens not empty!");
+
+  // TODO: iterate until no change to handle nesting
+  for (MachineLoop::block_iterator BI = loop->block_begin(), 
+       E = loop->block_end(); BI != E; ++BI) { 
+    // starting with each block in loop body analyze it
+    MachineBasicBlock *BB = *BI;
+
+    myIfConverter->AnalyzeBlock(BB, Tokens); 
+  }
+
+  if (!Tokens.empty()) {
+    // this sorting is inherited from the llvm ifConverter and not understood
+    std::stable_sort(Tokens.begin(), Tokens.end(), 
+                     LPUIfConversion::IfcvtTokenCmp);
+    return true;
+  }
+
+  return false;
+}
 
 bool LPUConvertControlPass::candidateLoopForDF(MachineLoop *currLoop) {
 
@@ -95,8 +166,25 @@ bool LPUConvertControlPass::candidateLoopForDF(MachineLoop *currLoop) {
     }
     // ignore loops with multiple blocks
     if (currLoop->getNumBlocks() > 1) {
-      DEBUG(errs() << "\nignoring loop with multiple blocks\n");
-      return false;
+      std::vector<IfcvtToken*> Tokens;
+
+      if (!candidateForIfConversion(currLoop,Tokens)) {
+        DEBUG(errs() << "\nloop is not candidate for if-conversion\n");
+        DEBUG(errs() << "\nignoring loop with multiple blocks\n");
+        return false;
+      }
+
+      DEBUG(errs() << "\nloop is candidate for if-conversion\n");
+
+      if (!processIfConversionRegion(Tokens)) {
+        DEBUG(errs() << "ifcvt failed: ignoring loop with multiple blocks\n"); 
+        return false;
+      }
+     
+      if (currLoop->getNumBlocks() > 1) { 
+        DEBUG(errs() << "\nignoring loop with multiple blocks\n");
+        return false;
+      }
     }
     // ignore loops with multiple backedges
     if (currLoop->getNumBackEdges() != 1) {
@@ -206,7 +294,7 @@ bool
 LPUConvertControlPass::genDFInstructions(MachineInstr *MI, 
                                          MachineBasicBlock *BB, 
                                          MachineBasicBlock::iterator 
-                                           lastPhiInst) { 
+                                           LastPhiInst) { 
 
   const TargetMachine &TM = thisMF->getTarget();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>
@@ -246,7 +334,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
             addReg(predReg1).addMBB(predBB1).addReg(predReg2).addMBB(predBB2);
 
     pickInst->removeFromParent();
-    BB->insertAfter(lastPhiInst,pickInst);
+    BB->insertAfter(LastPhiInst,pickInst);
 
     // replace all uses of dst with newDst
     MI->substituteRegister(dst, newDst, 0, TRI);
@@ -327,8 +415,375 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
   return genDFInst;
 }
 
-bool LPUConvertControlPass::processLoopForDF(MachineLoop *currLoop, 
-                                             raw_ostream *OS) {
+bool 
+LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
+                                         MachineBasicBlock::iterator 
+						LastPhiInst,
+					 std::set<unsigned> UseRegsSet) {
+
+  IfcvtKind Kind = Token->Kind;
+
+  assert(((Kind == ICTriangle) || (Kind == ICTriangleRev) ||
+          (Kind == ICTriangleFalse) || (Kind == ICTriangleFRev)) && 
+          "LPUIfConversion: genDFInstructions - unexpected Token Kind");
+
+  const TargetMachine &TM = thisMF->getTarget();
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>
+                            (thisMF->getSubtarget().getInstrInfo());
+  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  bool genDFInst = false;
+
+  BBInfo &BBI = Token->BBI;
+  MachineBasicBlock *domBB = BBI.BB;
+  BBInfo &TrueBBI = myIfConverter->BBAnalysis[BBI.TrueBB->getNumber()];
+  BBInfo &FalseBBI = myIfConverter->BBAnalysis[BBI.FalseBB->getNumber()];
+  MachineBasicBlock *currBB = TrueBBI.BB;
+  MachineBasicBlock *postDomBB = FalseBBI.BB;
+
+  
+  if (Kind == ICTriangleFalse || Kind == ICTriangleFRev) {
+    std::swap(currBB, postDomBB);
+  }
+
+  assert((currBB == MI->getParent()) && "LPUIfConversion: BB insanity");
+
+  SmallVector<MachineOperand, 4> brCond;
+  MachineBasicBlock *currTBB = nullptr, *currFBB = nullptr;
+  if (TII.AnalyzeBranch(*domBB, currTBB, currFBB, brCond, true)) {
+    DEBUG(errs() << "LPUIfConversion: domBB branch not analyzable \n");
+    return false;
+  }
+
+  if (brCond.empty()) {
+    DEBUG(errs() << "LPUIfConversion: brCond is empty \n");
+    return false;	
+  }
+
+  LPU::CondCode branchCC = (LPU::CondCode)brCond[0].getImm();
+  bool swapPickSwitchRegs = false;
+  if (branchCC == LPU::COND_F) {
+    swapPickSwitchRegs = true;
+  }
+
+  for (MIOperands MO(MI); MO.isValid(); ++MO) {
+    if (!MO->isReg()) continue;
+    unsigned Reg = MO->getReg();
+
+    // process uses
+    if (MO->isUse()) {
+      MachineInstr *DefMI = MRI->getVRegDef(Reg);
+      if (DefMI && (DefMI->getParent() != currBB)) { // live into MI BB
+
+	if (UseRegsSet.count(Reg) != 0) { // skip uses already processed
+          continue;
+ 	}
+        else {
+	  UseRegsSet.insert(Reg);
+	}
+
+        DEBUG(errs() << "LPUIfConversion: found live in Reg" << 
+                     PrintReg(Reg) << "\n");
+
+        // generate and insert SWITCH in dominating block
+        const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+        unsigned predFalseReg = MRI->createVirtualRegister(TRC);
+        unsigned predTrueReg = MRI->createVirtualRegister(TRC);
+
+  	if (swapPickSwitchRegs) {
+	  // swap the SWITCH dst regs since the branch condition is inverted
+	  unsigned tmp = predFalseReg;
+	  predFalseReg = predTrueReg;
+	  predTrueReg = tmp;
+	}
+
+        MachineBasicBlock::iterator domBranch = domBB->getFirstTerminator(); 
+
+        // generate switch op
+        const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false 
+                                                              /*not pick op*/);
+        MachineInstr *switchInst = BuildMI(*domBB, domBB->end(), 
+                                           DebugLoc(), 
+                                           TII.get(switchOpcode), 
+                                           predFalseReg).addReg(predTrueReg,
+                                           RegState::Define).
+                                           addReg(brCond[1].getReg()).
+                                           addReg(Reg);
+
+        switchInst->removeFromParent();
+        domBB->insert(domBranch,switchInst);
+
+  	if (swapPickSwitchRegs) {
+	  // swap the regs back for uses within currBB & postDomBB as
+	  // the BBs were already swapped earlier
+	  unsigned tmp = predFalseReg;
+	  predFalseReg = predTrueReg;
+	  predTrueReg = tmp;
+	}
+
+        // update SSA
+        MI->substituteRegister(Reg, predFalseReg, 0, TRI);
+        for (MachineInstr &useMI : MRI->use_instructions(Reg)) { 
+
+          if (useMI.getParent() == domBB) // ignore uses in domBB
+	     continue;
+
+          // for each use of this def
+	  // replace uses of Reg in currBB with predFalseReg and 
+          // other BBs with predTrueReg
+	  if (useMI.getParent() == currBB) { 
+	    useMI.substituteRegister(Reg, predFalseReg, 0, TRI);
+          } else if (!DT->dominates(useMI.getParent(), currBB)) {
+	    useMI.substituteRegister(Reg, predTrueReg, 0, TRI);
+   	  }
+
+        } // process each use 
+
+        genDFInst =  true;
+
+      }
+    }
+
+    // process defs
+    if (MO->isDef()) {
+      bool liveOut = false;
+      for (MachineInstr &useMI : MRI->use_instructions(Reg)) { 
+        //for each use of this def
+        // is there any use outside this BB i.e. live out of conversion block?
+        if (useMI.getParent() != currBB) { 
+	  assert(useMI.isPHI() && 
+                 "use of live out conditional def. is not in a Phi");
+
+          DEBUG(errs() << "LPUIfConversion: found live out Reg#  " 
+                << PrintReg(Reg) << "\n");
+
+          // generate and insert PICK in post dominating block
+          unsigned dst = useMI.getOperand(0).getReg(); // get dst reg of Phi
+
+          const TargetRegisterClass *TRC = MRI->getRegClass(dst);
+          unsigned newDst = MRI->createVirtualRegister(TRC);// new dst for Phi
+
+          unsigned srcReg1 = useMI.getOperand(1).getReg();
+	  if (useMI.getOperand(2).getMBB() == currBB) {
+	    assert(useMI.getOperand(4).getMBB() == domBB && 
+		   "genDFInstructions: cannot generate PICK for live out reg");
+            srcReg1 = useMI.getOperand(3).getReg();
+ 	  }
+	  else {
+	    assert(useMI.getOperand(4).getMBB() == currBB && 
+		   "genDFInstructions: cannot generate PICK for live out reg");
+	    assert(useMI.getOperand(2).getMBB() == domBB && 
+		   "genDFInstructions: cannot generate PICK for live out reg");
+	  }
+
+  	  if (swapPickSwitchRegs) {
+	    // swap the PICK src regs since the branch condition is inverted
+	    unsigned tmp = srcReg1;
+	    srcReg1 = newDst;
+	    newDst = tmp;
+	  }
+
+          const unsigned pickOpcode = 
+        	TII.getPickSwitchOpcode(TRC, true /*pick op*/);
+          MachineInstr *pickInst = BuildMI(*postDomBB, &useMI, 
+                                           useMI.getDebugLoc(), 
+                                           TII.get(pickOpcode), dst).
+                                           addReg(brCond[1].getReg()).
+                                           addReg(newDst).
+                                           addReg(srcReg1);
+	 
+    	  pickInst->removeFromParent();
+          postDomBB->insertAfter(LastPhiInst,pickInst);
+
+  	  if (swapPickSwitchRegs) {
+	    // swap the regs back for the SSA (Phi) update
+	    unsigned tmp = srcReg1;
+	    srcReg1 = newDst;
+	    newDst = tmp;
+	  }
+
+          // update SSA
+    	  // replace dst reg in Phi with newDst
+    	  useMI.substituteRegister(dst, newDst, 0, TRI);
+
+    	  genDFInst = true;
+        
+        } // end if live out use
+      } // end for each use instruction of Reg
+    } // end if this operand is a def
+
+  }// end for each operand in this instruction
+  
+  return genDFInst;
+}
+
+bool LPUConvertControlPass::processIfConversionToken(IfcvtToken *Token) {
+
+  bool genDFInst = false;
+
+  IfcvtKind Kind = Token->Kind;
+  switch(Kind) {
+      case ICTriangle:
+      case ICTriangleRev:
+      case ICTriangleFalse:
+      case ICTriangleFRev: break;
+      default: return genDFInst;
+  }
+  
+  BBInfo &BBI = Token->BBI;
+  BBInfo &TrueBBI = myIfConverter->BBAnalysis[BBI.TrueBB->getNumber()];
+  BBInfo &FalseBBI = myIfConverter->BBAnalysis[BBI.FalseBB->getNumber()];
+  BBInfo *CvtBBI = &TrueBBI;
+  BBInfo *NextBBI = &FalseBBI;
+
+  if (Kind == ICTriangleFalse || Kind == ICTriangleFRev)
+    std::swap(CvtBBI, NextBBI);
+
+  MachineBasicBlock *BB = CvtBBI->BB;
+
+  DEBUG(errs() << "\nbegin BB# - " << BB->getNumber() << "\n");
+
+  // ignore empty blocks
+  if (BB->empty()) {
+    return genDFInst;
+  }
+
+  MachineBasicBlock::iterator LastPhiInst =
+      std::prev(NextBBI->BB->SkipPHIsAndLabels(NextBBI->BB->begin())); 
+
+
+  std::set<unsigned> UseRegsSet;
+
+  // process each instruction in BB
+  for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
+    MachineInstr *MI = I;
+
+    //DEBUG(errs() << "processing inst: ");  
+    //DEBUG(MI->print(*thisOS, &TM));  
+
+    // TODO: do we need to process all insts? 
+    // what about picks/switches/cmps/brs?
+
+    if (genDFInstructions(MI, Token, LastPhiInst, UseRegsSet)) {
+      DEBUG(errs() << "modified graph - gen DF insts\n");
+      genDFInst = true;
+    }
+
+  } // for each instruction in BB
+  DEBUG(errs() << "end BB# - " <<  BB->getNumber() << "\n");
+
+#ifndef NDEBUG
+  thisOS->flush();
+#endif
+
+  return genDFInst;
+}
+
+bool LPUConvertControlPass::
+processIfConversionRegion(std::vector<IfcvtToken*> &Tokens) {
+
+    bool Change = false;
+   
+    while (!Tokens.empty()) {
+      IfcvtToken *Token = Tokens.back();
+      Tokens.pop_back();
+      BBInfo &BBI = Token->BBI;
+      IfcvtKind Kind = Token->Kind;
+      unsigned NumDups = Token->NumDups;
+      unsigned NumDups2 = Token->NumDups2;
+
+
+      // If the block has been evicted out of the queue or it has already been
+      // marked dead (due to it being predicated), then skip it.
+      if (BBI.IsDone)
+        BBI.IsEnqueued = false;
+      if (!BBI.IsEnqueued) {
+        delete Token;
+        continue;
+      }
+
+      BBI.IsEnqueued = false;
+
+      Change |= processIfConversionToken(Token);
+      delete Token;
+
+      bool RetVal = false;
+      switch (Kind) {
+      default: llvm_unreachable("Unexpected!");
+      case ICSimple:
+      case ICSimpleFalse: {
+        bool isFalse = Kind == ICSimpleFalse;
+        //if ((isFalse && DisableSimpleF) || (!isFalse && DisableSimple)) break;
+        DEBUG(dbgs() << "Ifcvt (Simple" << (Kind == ICSimpleFalse ?
+                                            " false" : "")
+                     << "): BB#" << BBI.BB->getNumber() << " ("
+                     << ((Kind == ICSimpleFalse)
+                         ? BBI.FalseBB->getNumber()
+                         : BBI.TrueBB->getNumber()) << ") ");
+        RetVal = myIfConverter->IfConvertSimple(BBI, Kind);
+        DEBUG(dbgs() << (RetVal ? "succeeded!" : "failed!") << "\n");
+        if (RetVal) {
+          if (isFalse) ++NumSimpleFalse;
+          else         ++NumSimple;
+        }
+       break;
+      }
+      case ICTriangle:
+      case ICTriangleRev:
+      case ICTriangleFalse:
+      case ICTriangleFRev: {
+        bool isFalse = Kind == ICTriangleFalse;
+        bool isRev   = (Kind == ICTriangleRev || Kind == ICTriangleFRev);
+        //if (DisableTriangle && !isFalse && !isRev) break;
+        //if (DisableTriangleR && !isFalse && isRev) break;
+        //if (DisableTriangleF && isFalse && !isRev) break;
+        //if (DisableTriangleFR && isFalse && isRev) break;
+        DEBUG(dbgs() << "Ifcvt (Triangle");
+        if (isFalse)
+          DEBUG(dbgs() << " false");
+        if (isRev)
+          DEBUG(dbgs() << " rev");
+        DEBUG(dbgs() << "): BB#" << BBI.BB->getNumber() << " (T:"
+                     << BBI.TrueBB->getNumber() << ",F:"
+                     << BBI.FalseBB->getNumber() << ") ");
+        RetVal = myIfConverter->IfConvertTriangle(BBI, Kind);
+        DEBUG(dbgs() << (RetVal ? "succeeded!" : "failed!") << "\n");
+        if (RetVal) {
+          if (isFalse) {
+            if (isRev) ++NumTriangleFRev;
+            else       ++NumTriangleFalse;
+          } else {
+            if (isRev) ++NumTriangleRev;
+            else       ++NumTriangle;
+          }
+        }
+        break;
+      }
+      case ICDiamond: {
+        //if (DisableDiamond) break;
+        DEBUG(dbgs() << "Ifcvt (Diamond): BB#" << BBI.BB->getNumber() << " (T:"
+                     << BBI.TrueBB->getNumber() << ",F:"
+                     << BBI.FalseBB->getNumber() << ") ");
+        RetVal = myIfConverter->IfConvertDiamond(BBI, Kind, NumDups, NumDups2);
+        DEBUG(dbgs() << (RetVal ? "succeeded!" : "failed!") << "\n");
+        if (RetVal) ++NumDiamonds;
+        break;
+      }
+      }
+
+      Change |= RetVal;
+
+      //NumIfCvts = NumSimple + NumSimpleFalse + NumTriangle + NumTriangleRev +
+      //  NumTriangleFalse + NumTriangleFRev + NumDiamonds;
+     // if (IfCvtLimit != -1 && (int)NumIfCvts >= IfCvtLimit)
+     //   break;
+    }
+
+    return Change;
+
+}
+
+bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
 
   const TargetMachine &TM = thisMF->getTarget();
   bool loopModified = false;
@@ -351,7 +806,7 @@ bool LPUConvertControlPass::processLoopForDF(MachineLoop *currLoop,
 
     // TODO: ignore BB/pred/succ with un-analyzeable brs  - 
     // check this early & quickly
-    MachineBasicBlock::iterator lastPhiInst =
+    MachineBasicBlock::iterator LastPhiInst =
       std::prev(BB->SkipPHIsAndLabels(BB->begin())); 
 
     // process each instruction in BB
@@ -359,12 +814,12 @@ bool LPUConvertControlPass::processLoopForDF(MachineLoop *currLoop,
       MachineInstr *MI = I;
 
       DEBUG(errs() << "processing inst: ");  
-      DEBUG(MI->print(*OS, &TM));  
+      DEBUG(MI->print(*thisOS, &TM));  
 
       // TODO: do we need to process all insts? 
       // what about picks/switches/cmps/brs?
 
-      if (genDFInstructions(MI, BB, lastPhiInst)) {
+      if (genDFInstructions(MI, BB, LastPhiInst)) {
         DEBUG(errs() << "modified graph - gen DF insts\n");
         loopModified = true;
       }
@@ -397,19 +852,22 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
   thisMF = &MF;
   const TargetMachine &TM = MF.getTarget();
   
-  raw_ostream *OS = CreateInfoOutputFile();
+  thisOS = CreateInfoOutputFile();
+
+  DT = &getAnalysis<MachineDominatorTree>();
+
   bool Modified = false;
 
 #ifndef NDEBUG
-  DEBUG(errs() << "\ngraph before ConvertControlPass\n");
+  //DEBUG(errs() << "\nGraph before ConvertControlPass\n");
 
-  for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB) {
+  /*for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
       MachineInstr *MI = I;
-      DEBUG(MI->print(*OS, &TM));  
+      DEBUG(MI->print(*thisOS, &TM));  
     }
   }
-  OS->flush();
+  thisOS->flush();*/
 #endif
 
   // for now only well formed innermost loop regions are processed in this pass
@@ -431,6 +889,8 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
     addLoop(cfgOrderLoops, ML); 
   }
 
+  prepareIfConverter();
+
   // for each (loop) region in cfg order 
   int loopProcessedCnt = 0;
   for (std::vector<MachineLoop *>::reverse_iterator lpIter = 
@@ -445,13 +905,13 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
 
     //Process this loop to generate dataflow ops
     bool loopModified = false;
-    if (processLoopForDF(currLoop, OS)) {
+    if (processLoopRegion(currLoop)) {
       loopModified = true;
       Modified = true;
     }
 
 #ifndef NDEBUG
-    OS->flush();
+    thisOS->flush();
     assert(ConvertControlPass > 0 && "ConvertControlPass has invalid value!");
     if (loopModified) loopProcessedCnt++;
     if (loopProcessedCnt == ConvertControlPass) return Modified;    
@@ -460,15 +920,15 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
 
 
 #ifndef NDEBUG
-  DEBUG(errs() << "\ngraph after ConvertControlPass\n");
+  //DEBUG(errs() << "\ngraph after ConvertControlPass\n");
 
-  for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB) {
+  /*for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
       MachineInstr *MI = I;
-      DEBUG(MI->print(*OS, &TM));  
+      DEBUG(MI->print(*thisOS, &TM));  
     }
   }
-  OS->flush();
+  thisOS->flush();*/
 #endif
 
   return Modified;

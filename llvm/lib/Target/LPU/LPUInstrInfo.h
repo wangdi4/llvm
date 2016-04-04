@@ -64,6 +64,35 @@ public:
   /*
   unsigned GetInstSizeInBytes(const MachineInstr *MI) const;
   */
+
+  // ifConversion 
+  bool isPredicable(MachineInstr *MI) const override {
+    return true;
+  }
+
+  bool isProfitableToIfCvt(MachineBasicBlock &MBB,
+                          unsigned NumCycles, unsigned ExtraPredCycles,
+                          const BranchProbability &Probability) const override {
+    return true;
+  }
+
+  bool isProfitableToIfCvt(MachineBasicBlock &TMBB,
+                           unsigned NumT, unsigned ExtraT,
+                           MachineBasicBlock &FMBB,
+                           unsigned NumF, unsigned ExtraF,
+                           const BranchProbability &Probability)
+                           const override {
+    return true;
+  }
+
+  bool isProfitableToDupForIfCvt(MachineBasicBlock &MBB,
+                                 unsigned NumCycles,
+                                 const BranchProbability
+                                 &Probability) const override {
+    return true;
+  }
+
+
   // Branch folding goodness
   bool
   ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
