@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-cost-model-throttling=0 -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-cost-model-throttling=0 | FileCheck %s
 
 ; Check parsing output for the loop verifying that we create a GEP DDRef for @bar's argument which is a bitcast of a gep instruction.
 ; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))

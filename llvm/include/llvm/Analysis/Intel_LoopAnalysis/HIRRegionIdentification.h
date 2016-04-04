@@ -17,8 +17,8 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_REGIONIDENTIFICATION_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_REGIONIDENTIFICATION_H
 
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallVector.h"
 
 #include "llvm/Pass.h"
 
@@ -71,11 +71,19 @@ private:
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
 
+  /// CostModelAnalyzer - Used to determine whether creating HIR for a loop
+  /// would be profitable.
+  class CostModelAnalyzer;
+
   /// \brief Returns the base(earliest) GEP operator in case of multiple GEPs
   /// associated with a load/store.
   /// This is used for temporarily suppressing struct GEPs until we can handle
   /// them in HIR.
   const GEPOperator *getBaseGEPOp(const GEPOperator *GEPOp) const;
+
+  /// \brief Returns true if this loop should be throttled based on cost model
+  /// analysis.
+  bool shouldThrottleLoop(const Loop &Lp) const;
 
   /// \brief Returns true if Lp appears to be generable without looking at the
   /// sub loops.

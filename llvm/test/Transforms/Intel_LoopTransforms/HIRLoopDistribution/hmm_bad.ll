@@ -1,5 +1,5 @@
 
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute -print-after=hir-loop-distribute -hir-loop-distribute-heuristics=mem-rec  < %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute -print-after=hir-loop-distribute -hir-loop-distribute-heuristics=mem-rec -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
 ; We cannot reason about calls without mod-ref/sideeffects analysis
 
 ;CHECK-NOT: BEGIN REGION {{.*}} modified

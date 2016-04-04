@@ -1,4 +1,6 @@
-; RUN: opt < %s -analyze -hir-creation | FileCheck %s
+; REQUIRES: asserts
+
+; RUN: opt < %s -analyze -hir-creation -hir-cost-model-throttling=0 | FileCheck %s
 
 ; Check that the lexical links are correctly built for the big loop (if.end.1422). Loop latch should be the lexically last bblock.
 ; CHECK: BEGIN REGION
@@ -7,6 +9,9 @@
 ; CHECK: goto for.end.2364.loopexit
 ; CHECK-NOT: goto
 ; CHECK: END REGION
+
+; RUN: opt < %s -analyze -hir-creation -debug 2>&1 | FileCheck -check-prefix=COST-MODEL %s
+; COST-MODEL: Loop throttled due to presence of too many nested ifs
 
 
 ; ModuleID = 'bugpoint-reduced-function.bc'

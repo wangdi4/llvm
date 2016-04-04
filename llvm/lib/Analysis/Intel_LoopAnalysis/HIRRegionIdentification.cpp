@@ -19,6 +19,7 @@
 
 #include "llvm/Support/Debug.h"
 
+#include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 
 #include "llvm/Analysis/LoopInfo.h"
@@ -28,8 +29,8 @@
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRRegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -40,6 +41,10 @@ static cl::opt<unsigned> RegionNumThreshold(
     "hir-region-number-threshold", cl::init(0), cl::Hidden,
     cl::desc("Threshold for number of regions to create HIR for, 0 means no"
              " threshold"));
+
+static cl::opt<bool> CostModelThrottling(
+    "hir-cost-model-throttling", cl::init(true), cl::Hidden,
+    cl::desc("Throttles loops deemed non-profitable by the cost model"));
 
 STATISTIC(RegionCount, "Number of regions created");
 
@@ -181,7 +186,7 @@ bool HIRRegionIdentification::containsUnsupportedTy(
 
 const PHINode *
 HIRRegionIdentification::findIVDefInHeader(const Loop &Lp,
-                                        const Instruction *Inst) const {
+                                           const Instruction *Inst) const {
 
   // Is this a phi node in the loop header?
   if (Inst->getParent() == Lp.getHeader()) {
@@ -208,8 +213,173 @@ HIRRegionIdentification::findIVDefInHeader(const Loop &Lp,
   return nullptr;
 }
 
+class HIRRegionIdentification::CostModelAnalyzer
+    : public InstVisitor<CostModelAnalyzer, bool> {
+  const HIRRegionIdentification &RI;
+  const Loop &Lp;
+  DomTreeNode *HeaderDomNode;
+  bool IsProfitable;
+  unsigned InstCount;             // Approximates number of instructions in HIR.
+  unsigned UnstructuredJumpCount; // Approximates goto/label counts in HIR.
+  unsigned IfCount;               // Approximates number of ifs in HIR.
+
+  // TODO: use different values for O2/O3.
+  const unsigned MaxInstThreshold = 200;
+  const unsigned MaxIfThreshold = 7;
+  const unsigned MaxIfNestThreshold = 2;
+
+public:
+  CostModelAnalyzer(const HIRRegionIdentification &RI, const Loop &Lp)
+      : RI(RI), Lp(Lp), IsProfitable(true), InstCount(0),
+        UnstructuredJumpCount(0), IfCount(0) {
+    HeaderDomNode = RI.DT->getNode(Lp.getHeader());
+  }
+
+  bool isProfitable() const { return IsProfitable; }
+
+  void analyze() {
+    for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
+      if (!visitBasicBlock(**BB)) {
+        IsProfitable = false;
+        break;
+      }
+    }
+  }
+
+  bool visitBasicBlock(const BasicBlock &BB);
+  bool visitInstruction(const Instruction &Inst);
+  bool visitCallInst(const CallInst &CI);
+  bool visitBranchInst(const BranchInst &BI);
+};
+
+bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
+    const BasicBlock &BB) {
+  for (auto &Inst : BB) {
+    if (!visit(const_cast<Instruction &>(Inst))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
+    const Instruction &Inst) {
+  // Compares are most likely eliminated in HIR.
+  if (!isa<CmpInst>(Inst)) {
+
+    // The following checks are to ignore linear instructions.
+    if (RI.SE->isSCEVable(Inst.getType())) {
+      auto SC = RI.SE->getSCEV(const_cast<Instruction *>(&Inst));
+      auto AddRec = dyn_cast<SCEVAddRecExpr>(SC);
+
+      if (!AddRec || !AddRec->isAffine()) {
+        auto Phi = dyn_cast<PHINode>(&Inst);
+
+        if (Phi) {
+          // Non-linear phis will be deconstructed using copy stmts for each
+          // operand.
+          InstCount += Phi->getNumIncomingValues();
+        } else {
+          ++InstCount;
+        }
+      }
+    } else {
+      ++InstCount;
+    }
+  }
+
+  bool Ret = (InstCount <= MaxInstThreshold);
+
+  if (!Ret) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
+                    "many statements.\n");
+  }
+
+  return Ret;
+}
+
+bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
+    const CallInst &CI) {
+  if (!isa<IntrinsicInst>(CI)) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of user "
+                    "calls.\n");
+    return false;
+  }
+
+  return visitInstruction(static_cast<const Instruction &>(CI));
+}
+
+bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
+    const BranchInst &BI) {
+  if (BI.isUnconditional()) {
+    return visitInstruction(static_cast<const Instruction &>(BI));
+  }
+
+  if (++IfCount > MaxIfThreshold) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
+                    "many ifs.\n");
+    return false;
+  }
+
+  unsigned IfNestCount = 0;
+  auto ParentBB = BI.getParent();
+  auto DomNode = RI.DT->getNode(const_cast<BasicBlock *>(ParentBB));
+
+  while (DomNode != HeaderDomNode) {
+    assert(DomNode && "Dominator tree node of a loop bblock is null!");
+    ++IfNestCount;
+    DomNode = DomNode->getIDom();
+  }
+
+  if (IfNestCount > MaxIfNestThreshold) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
+                    "many nested ifs.\n");
+    return false;
+  }
+
+  // Complex CFG checks do not apply to headers/latches.
+  if ((ParentBB == Lp.getHeader()) || (ParentBB == Lp.getLoopLatch())) {
+    return true;
+  }
+
+  auto Succ0 = BI.getSuccessor(0);
+  auto Succ1 = BI.getSuccessor(1);
+
+  // Within the same loop, conditional branches not dominating its successor and
+  // the successor not post-dominating the branch indicates presence of a goto
+  // in HLLoop.
+  if (((RI.LI->getLoopFor(Succ0) == &Lp) && !RI.DT->dominates(ParentBB, Succ0) &&
+       !RI.PDT->dominates(Succ0, ParentBB)) ||
+      ((RI.LI->getLoopFor(Succ1) == &Lp) && !RI.DT->dominates(ParentBB, Succ1) &&
+       !RI.PDT->dominates(Succ1, ParentBB))) {
+    DEBUG(dbgs()
+          << "LOOPOPT_OPTREPORT: Loop throttled due to presence of goto.\n");
+    return false;
+  }
+
+  return true;
+}
+
+bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp) const {
+
+  if (!CostModelThrottling) {
+    return false;
+  }
+
+  // Restrict checks to innermost loops for now. This can be expanded later.
+  if (!Lp.empty()) {
+    return false;
+  }
+
+  CostModelAnalyzer CMA(*this, Lp);
+  CMA.analyze();
+
+  return !CMA.isProfitable();
+}
+
 bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
-                                           unsigned LoopnestDepth) const {
+                                              unsigned LoopnestDepth) const {
 
   // At least one of this loop's subloops reach MaxLoopNestLevel so we cannot
   // generate this loop.
@@ -302,6 +472,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
+  // TODO: move into a separate function.
   // Check instructions inside the loop.
   for (auto I = Lp.block_begin(), E = Lp.block_end(); I != E; ++I) {
 
@@ -349,6 +520,10 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
         return false;
       }
     }
+  }
+
+  if (shouldThrottleLoop(Lp)) {
+    return false;
   }
 
   return true;
@@ -414,7 +589,7 @@ void HIRRegionIdentification::createRegion(const Loop &Lp) {
 }
 
 bool HIRRegionIdentification::formRegionForLoop(const Loop &Lp,
-                                             unsigned *LoopnestDepth) {
+                                                unsigned *LoopnestDepth) {
   SmallVector<Loop *, 8> GenerableLoops;
   bool Generable = true;
 

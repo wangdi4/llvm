@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-region-identification | FileCheck %s
+; RUN: opt < %s -analyze -hir-region-identification | FileCheck %s
 
 ; Check output of hir-regions
 ; CHECK: Region 1
@@ -15,7 +15,6 @@ target triple = "x86_64-unknown-linux-gnu"
 @B = common global [10 x i32] zeroinitializer, align 16
 @A = common global [10 x i32] zeroinitializer, align 16
 
-; Function Attrs: nounwind uwtable
 define void @foo() {
 entry:
   br label %for.body
@@ -33,4 +32,3 @@ for.body:                                         ; preds = %for.body, %entry
 for.end:                                          ; preds = %for.body
   ret void
 }
-

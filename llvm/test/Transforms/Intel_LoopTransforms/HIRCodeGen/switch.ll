@@ -1,5 +1,5 @@
 ;Simple CG for switch
-;RUN:  opt -hir-cg -S -force-hir-cg %s | FileCheck %s
+;RUN:  opt -hir-cg -S -force-hir-cg -hir-cost-model-throttling=0 %s | FileCheck %s
 
 
 ;          BEGIN REGION { }
