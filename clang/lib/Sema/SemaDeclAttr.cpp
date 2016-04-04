@@ -3930,7 +3930,8 @@ static void parseModeAttrArg(Sema &S, StringRef Str, unsigned &DestWidth,
 /// Despite what would be logical, the mode attribute is a decl attribute, not a
 /// type attribute: 'int ** __attribute((mode(HI))) *G;' tries to make 'G' be
 /// HImode, not an intermediate pointer.
-static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr,
+                           QualType *CurTy = nullptr) { // INTEL
   // This attribute isn't documented, but glibc uses it.  It changes
   // the width of an int or unsigned int to the specified size.
   if (!Attr.isArgIdent(0)) {
@@ -3939,20 +3940,25 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     return;
   }
 
+  assert(((D && !CurTy) || (CurTy && !D)) && "Invalid arguments");  // INTEL
+
   IdentifierInfo *Name = Attr.getArgAsIdent(0)->Ident;
 
-  S.AddModeAttr(Attr.getRange(), D, Name, Attr.getAttributeSpellingListIndex());
+  S.AddModeAttr(Attr.getRange(), D, Name,                            // INTEL
+                Attr.getAttributeSpellingListIndex(), false, CurTy); // INTEL
 }
 
 void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
-                       unsigned SpellingListIndex, bool InInstantiation) {
+                       unsigned SpellingListIndex,
+                       bool InInstantiation,                  // INTEL
+                       QualType *CurTy) {                     // INTEL
   StringRef Str = Name->getName();
   normalizeName(Str);
   SourceLocation AttrLoc = AttrRange.getBegin();
 
 #if INTEL_CUSTOMIZATION
   // CQ#369184 - decimal types are not supported, so handle this gracefully.
-  if (getLangOpts().IntelCompat && Str.size() == 2 && Str[1] == 'D') {
+  if (getLangOpts().IntelCompat && D && Str.size() == 2 && Str[1] == 'D') {
     Diag(AttrLoc, diag::err_decimal_unsupported);
     return;
   }
@@ -3994,6 +4000,7 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
   }
 
   QualType OldTy;
+  if (D) {  // INTEL
   if (TypedefNameDecl *TD = dyn_cast<TypedefNameDecl>(D))
     OldTy = TD->getUnderlyingType();
   else if (EnumDecl *ED = dyn_cast<EnumDecl>(D)) {
@@ -4004,7 +4011,10 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
       OldTy = Context.IntTy;
   } else
     OldTy = cast<ValueDecl>(D)->getType();
+  } else            // INTEL
+    OldTy = *CurTy; // INTEL
 
+  if (D)  // INTEL
   if (OldTy->isDependentType()) {
     D->addAttr(::new (Context)
                ModeAttr(AttrRange, Context, Name, SpellingListIndex));
@@ -4020,7 +4030,7 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
   // GCC allows 'mode' attribute on enumeration types (even incomplete), except
   // for vector modes. So, 'enum X __attribute__((mode(QI)));' forms a complete
   // type, 'enum { A } __attribute__((mode(V4SI)))' is rejected.
-  if ((isa<EnumDecl>(D) || OldElemTy->getAs<EnumType>()) &&
+  if (((D && isa<EnumDecl>(D)) || OldElemTy->getAs<EnumType>()) && // INTEL
       VectorSize.getBoolValue()) {
     Diag(AttrLoc, diag::err_enum_mode_vector_type) << Name << AttrRange;
     return;
@@ -4050,6 +4060,7 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
   else
     NewElemTy = Context.getRealTypeForBitwidth(DestWidth);
 
+  if (D)  // INTEL
   if (NewElemTy.isNull()) {
     Diag(AttrLoc, diag::err_machine_mode) << 1 /*Unsupported*/ << Name;
     return;
@@ -4065,6 +4076,7 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
                                   VectorType::GenericVector);
   } else if (const VectorType *OldVT = OldTy->getAs<VectorType>()) {
     // Complex machine mode does not support base vector types.
+    if (D)  // INTEL
     if (ComplexMode) {
       Diag(AttrLoc, diag::err_complex_mode_vector_type);
       return;
@@ -4081,6 +4093,13 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
     return;
   }
 
+#if INTEL_CUSTOMIZATION
+  // CQ380256: 'mode' attribute ignored when parsing type
+  if (!D) {
+    *CurTy = NewTy;
+    return;
+  }
+#endif // INTEL CUSTOMIZATION
   // Install the new type.
   if (TypedefNameDecl *TD = dyn_cast<TypedefNameDecl>(D))
     TD->setModedTypeSourceInfo(TD->getTypeSourceInfo(), NewTy);
@@ -4092,6 +4111,14 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
   D->addAttr(::new (Context)
              ModeAttr(AttrRange, Context, Name, SpellingListIndex));
 }
+
+#if INTEL_CUSTOMIZATION
+  // CQ380256: 'mode' attribute ignored when parsing type
+  // In fact this attribute could modify type, e.g. inside cast expression
+  void Sema::HandleModeAttr(const AttributeList &Attr, QualType *CurTy) {
+    handleModeAttr(*this, nullptr, Attr, CurTy);
+  }
+#endif // INTEL CUSTOMIZATION
 
 static void handleNoDebugAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (const VarDecl *VD = dyn_cast<VarDecl>(D)) {
@@ -5065,6 +5092,18 @@ static void handleMSInheritanceAttr(Sema &S, Decl *D, const AttributeList &Attr)
 
 static void handleDeclspecThreadAttr(Sema &S, Decl *D,
                                      const AttributeList &Attr) {
+
+#if INTEL_CUSTOMIZATION
+  if (!S.getLangOpts().MicrosoftExt && !S.getLangOpts().IntelCompat) {
+  // CQ375205: xmain should allow thread attribute on linux in intel
+  // compatibility mode. The check has been moved here from
+  // include/clang/Basic/Attr.td
+    S.Diag(Attr.getRange().getBegin(), diag::warn_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   VarDecl *VD = cast<VarDecl>(D);
   if (!S.Context.getTargetInfo().isTLSSupported()) {
     S.Diag(Attr.getLoc(), diag::err_thread_unsupported);

@@ -3040,9 +3040,12 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     AlignSource = ArrayLV.getAlignmentSource();
 #if INTEL_CUSTOMIZATION
     // CQ#379144 TBAA for arrays
-    if (getLangOpts().IntelCompat && CGM.getCodeGenOpts().StructPathTBAA) {
+    if (getLangOpts().IntelCompat && CGM.getCodeGenOpts().StructPathTBAA &&
+        ArrayLV.getTBAAInfo() != CGM.getTBAAInfo(getContext().CharTy)) {
       // Propagate TBAA from array to element access. Array element access
-      // in TBAA looks like access to first element in the array.
+      // in TBAA looks like access to first element in the array. Except for
+      // the case when TBAA for the array type is omnipotent char in this case
+      // element access information is more precise.
       TBAABaseType = ArrayLV.getTBAABaseType();
       TBAAOffset = ArrayLV.getTBAAOffset();
     }

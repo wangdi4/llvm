@@ -10124,6 +10124,13 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
       }
 
       OverloadExpr *Ovl = cast<OverloadExpr>(E);
+#if INTEL_CUSTOMIZATION
+      // CQ374728: cannot create a pointer to static member function
+      if (getLangOpts().IntelCompat && !Ovl->hasExplicitTemplateArgs())
+        if (auto *UME = dyn_cast<UnresolvedMemberExpr>(Ovl))
+          if (!UME->isImplicitAccess())
+            return Context.OverloadTy; // static member function access
+#endif                                 // INTEL_CUSTOMIZATION
       if (isa<UnresolvedMemberExpr>(Ovl))
         if (!ResolveSingleFunctionTemplateSpecialization(Ovl)) {
           Diag(OpLoc, diag::err_invalid_form_pointer_member_function)

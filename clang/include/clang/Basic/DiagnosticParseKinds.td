@@ -185,6 +185,10 @@ def err_expected_statement : Error<"expected statement">;
 // CQ#370084
 def warn_expected_statement :
   Warning<err_expected_statement.Text>, InGroup<IntelCompat>;
+def warn_attributes_ignored_after_init
+    : Warning<"variable attributes appearing after a parenthesized initializer "
+              "are ignored">,
+      InGroup<IgnoredAttributes>;
 // endif INTEL_CUSTOMIZATION
 def err_expected_lparen_after : Error<"expected '(' after '%0'">;
 def err_expected_rparen_after : Error<"expected ')' after '%0'">;

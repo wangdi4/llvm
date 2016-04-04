@@ -86,7 +86,8 @@ LANGOPT(Restrict         , 1, 0,
 LANGOPT(GnuPermissive   , 1, 0, "Turns on GNU -fpermissive mode")
 // CQ371729: Incompatible name mangling.
 LANGOPT(GNUMangling       , 1, 0, "GNU mangling for vector types")
-LANGOPT(GNUFABIVersion    , 32, 0, "GNU C++ABI version")
+LANGOPT(GNUFABIVersion    , 32, 2, "GNU C++ABI version")
+LANGOPT(EmulateGNUABIBugs , 1, 1, "Emulation of GNU ABI bugs")
 // Fix for CQ380574: Ability to set various predefines based on gcc version
 // needed.
 LANGOPT(GNUVersion    , 32, 0, "GNU C++ version")

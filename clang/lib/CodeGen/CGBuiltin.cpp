@@ -48,6 +48,13 @@ llvm::Value *CodeGenModule::getBuiltinLibFunction(const FunctionDecl *FD,
   if (FD->hasAttr<AsmLabelAttr>())
     Name = getMangledName(D);
   else
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+    if (getLangOpts().IntelCompat) {
+      // ICLANG mode: do not skip the __builtin_ prefix.
+      Name = Context.BuiltinInfo.getName(BuiltinID);
+    }
+    else
+#endif // INTEL_SPECIFIC_IL0_BACKEND
     Name = Context.BuiltinInfo.getName(BuiltinID) + 10;
 
   llvm::FunctionType *Ty =
@@ -1021,6 +1028,11 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   }
   case Builtin::BImemcpy:
   case Builtin::BI__builtin_memcpy: {
+#if INTEL_SPECIFIC_IL0_BACKEND
+    // Let IL0 intrinsic table handle this.
+    if (getLangOpts().IntelCompat)
+        break;
+#endif // INTEL_SPECIFIC_IL0_BACKEND
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
     Address Src = EmitPointerWithAlignment(E->getArg(1));
     Value *SizeVal = EmitScalarExpr(E->getArg(2));
@@ -1073,6 +1085,11 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
 
   case Builtin::BImemmove:
   case Builtin::BI__builtin_memmove: {
+#if INTEL_SPECIFIC_IL0_BACKEND
+    // Let IL0 intrinsic table handle this.
+    if (getLangOpts().IntelCompat)
+        break;
+#endif // INTEL_SPECIFIC_IL0_BACKEND
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
     Address Src = EmitPointerWithAlignment(E->getArg(1));
     Value *SizeVal = EmitScalarExpr(E->getArg(2));
@@ -1085,6 +1102,11 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   }
   case Builtin::BImemset:
   case Builtin::BI__builtin_memset: {
+#if INTEL_SPECIFIC_IL0_BACKEND
+    // Let IL0 intrinsic table handle this.
+    if (getLangOpts().IntelCompat)
+        break;
+#endif // INTEL_SPECIFIC_IL0_BACKEND
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
     Value *ByteVal = Builder.CreateTrunc(EmitScalarExpr(E->getArg(1)),
                                          Builder.getInt8Ty());
