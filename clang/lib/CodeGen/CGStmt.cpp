@@ -79,12 +79,6 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   // Generate a stoppoint if we are emitting debug info.
   EmitStopPoint(S);
 
-#if INTEL_SPECIFIC_OPENMP
-  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP)
-    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
-      return EmitIntelOpenMPDirective(*Dir);
-#endif // INTEL_SPECIFIC_OPENMP
-
   switch (S->getStmtClass()) {
 #if INTEL_CUSTOMIZATION
   case Stmt::PragmaStmtClass:

@@ -638,10 +638,6 @@ def friend_injection : Flag<["--"], "friend_injection">,
 def no_friend_injection : Flag<["--"], "no_friend_injection">,
   HelpText<"Do not inject friend functions into the enclosing namespace.">;
 // endif INTEL_CUSTOMIZATION
-// if INTEL_SPECIFIC_OPENMP
-def fintel_openmp : Flag<["-"], "fintel-openmp">,
-  HelpText<"Enable emitting of Intel specific OpenMP code">;
-// endif INTEL_SPECIFIC_OPENMP
 
 // C++ TSes.
 def fcoroutines : Flag<["-"], "fcoroutines">,

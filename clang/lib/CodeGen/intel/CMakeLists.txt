@@ -19,7 +19,6 @@ add_clang_library(clangCodeGenIntel
   CGBuiltin_getBuiltinIntelLibFunction.cpp
   CGIntelEmit.cpp
   CGIntelStmt.cpp
-  CGIntelStmtOpenMP.cpp
 
   DEPENDS
   ${codegen_deps}
