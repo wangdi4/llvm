@@ -37,7 +37,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 // General configuration strings:
 #define CL_CONFIG_LOG_FILE                      "CL_CONFIG_LOG_FILE"                    // string
+#ifndef NDEBUG
 #define CL_CONFIG_USE_LOGGER                    "CL_CONFIG_USE_LOGGER"                  // bool
+#endif
 #define CL_CONFIG_DEVICES                       "CL_CONFIG_DEVICES"                     // string (use tokenize to get substrings)
 
 #define CL_CONFIG_USE_ITT_API                   "CL_CONFIG_USE_ITT_API"                 // bool

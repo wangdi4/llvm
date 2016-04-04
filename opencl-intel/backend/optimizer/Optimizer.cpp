@@ -282,8 +282,11 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
                              pConfig->GetDumpIRDir()));
   }
-  if (!pConfig->GetLibraryModule() &&
-      (getenv("DISMPF") != NULL || intel::Statistic::isEnabled()))
+  if (!pConfig->GetLibraryModule() && (
+#ifndef NDEBUG
+      getenv("DISMPF") != NULL || 
+#endif
+      intel::Statistic::isEnabled()))
     PM.add(createRemovePrefetchPass());
 #endif //#ifndef __APPLE__
   PM.add(createBuiltinCallToInstPass());

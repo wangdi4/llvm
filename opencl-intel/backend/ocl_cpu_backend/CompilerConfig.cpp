@@ -57,6 +57,7 @@ static bool parseBool(const char *val) {
 
 void GlobalCompilerConfig::LoadConfig()
 {
+#ifndef NDEBUG
     if (const char *pEnv = getenv("VOLCANO_ENABLE_TIMING"))
     {
         m_enableTiming = !strcmp(pEnv, "TRUE");
@@ -83,6 +84,7 @@ void GlobalCompilerConfig::LoadConfig()
         }
     }
 #endif // OCLT
+#endif // NDEBUG
 }
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
@@ -112,7 +114,7 @@ void CompilerConfig::LoadConfig()
     {
         m_cpuArch = pEnv;
     }
-
+#ifndef NDEBUG
     if (const char *pEnv = getenv("VOLCANO_TRANSPOSE_SIZE"))
     {
         unsigned int size;
@@ -129,7 +131,6 @@ void CompilerConfig::LoadConfig()
         m_cpuFeatures = pEnv;
     }
 
-#ifndef NDEBUG
     if (getenv("VOLCANO_DEBUG"))
     {
       llvm::DebugFlag = true;
@@ -138,7 +139,6 @@ void CompilerConfig::LoadConfig()
     {
       llvm::setCurrentDebugType(pEnv);
     }
-#endif
 
 #ifdef OCLT
     if (const char *pEnv = getenv("VOLCANO_IR_FILE_BASE_NAME"))
@@ -147,6 +147,7 @@ void CompilerConfig::LoadConfig()
         m_statFileBaseName = pEnv;
     }
 #endif // OCLT
+#endif // NDEBUG
 }
 
 void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)

@@ -209,33 +209,18 @@ PrefetchStats::PrefetchStats(Statistic::ActiveStatsT &statList) :
 
 
 void Prefetch::init() {
-  const char *val;
-  int ival;
-
-  if ((val = getenv("PFL1DIST")) != NULL) {
-    std::istringstream(std::string(val)) >> ival;
-    PFL1Distance = ival;
-  }
-  if ((val = getenv("PFL2DIST")) != NULL) {
-    std::istringstream(std::string(val)) >> ival;
-    PFL2Distance = ival;
-  }
-  if ((val = getenv("PFL1TYPE")) != NULL) {
-    std::istringstream(std::string(val)) >> ival;
-    PFL1Type = ival;
-  }
-  if ((val = getenv("PFL2TYPE")) != NULL) {
-    std::istringstream(std::string(val)) >> ival;
-    PFL2Type = ival;
-  }
 
   m_disableAPF = false;
+  m_disableAPFGS = false;
+  m_disableAPFGSTune = false;
+  m_calcFactor = true;
+  m_prefetchScalarCode = false;
+
+#ifndef NDEBUG
   if (getenv("DISAPF")) {
     m_disableAPF = true;
   }
 
-  m_disableAPFGS = false;
-  m_disableAPFGSTune = false;
   if (getenv("DISAPFGS")) {
     m_disableAPFGS = true;
     // if stats are disabled for this module disable stat collection
@@ -244,8 +229,14 @@ void Prefetch::init() {
       m_disableAPFGSTune = true;
   }
 
-  m_calcFactor = getenv("APFDISSMALL") == NULL;
-  m_prefetchScalarCode = getenv("APFSCALAR") != NULL;
+  if (getenv("APFDISSMALL")) {
+    m_calcFactor = false;
+  }
+
+  if (getenv("APFSCALAR")) {
+    m_prefetchScalarCode = true;
+  }
+#endif
 }
 
 // getConstStep - calculate loop step.

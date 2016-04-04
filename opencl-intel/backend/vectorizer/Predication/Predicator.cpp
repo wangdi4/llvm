@@ -3056,10 +3056,12 @@ bool Predicator::blockHasLoadStore(BasicBlock* BB) {
 }
 
 void Predicator::calculateHeuristic(Function* F) {
+#ifndef NDEBUG
   // if desired, turn off allones by not marking any blocks to be bypassed.
   if (getenv("all-ones-off") || getenv("all_ones_off")) {
-    return;
+      return;
   }
+#endif
   // the heuristics is a simple check if a divergent block has loads / stores.
   // this proved to be better than several more sophisticated alternatives.
   for (Function::iterator it = F->begin(), e = F->end(); it != e; ++it) {

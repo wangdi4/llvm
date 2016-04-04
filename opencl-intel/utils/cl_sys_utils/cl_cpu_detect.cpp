@@ -205,12 +205,14 @@ CPUDetect * CPUDetect::GetInstance()
 
 bool CPUDetect::ShouldBypassCPUCheck()
 {
+#ifndef NDEBUG
 	string strVal;
 	cl_err_code err = GetEnvVar(strVal, "OCL_CFG_BYPASS_CPU_DETECT");
 	if (CL_SUCCEEDED(err))
 	{
 		return true;
 	}
+#endif
 	return false;
 }
 

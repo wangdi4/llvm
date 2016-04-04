@@ -34,10 +34,11 @@ void PrintfAdder::getConditionalGIDs(Function *F) {
   }
     
   assert(numDim < 4 && "bad dimensions");
+#ifndef NDEBUG
   if (numDim>0) m_ngids.push_back(getIntEnvVarVal("VECT_DEBUG_GID0", 0));
   if (numDim>1) m_ngids.push_back(getIntEnvVarVal("VECT_DEBUG_GID1", 0));
   if (numDim>2) m_ngids.push_back(getIntEnvVarVal("VECT_DEBUG_GID2", 0));
-  
+#endif
   BasicBlock &entry = F->getEntryBlock();
   Instruction *loc = entry.getFirstNonPHI();
   Module *M = F->getParent();
