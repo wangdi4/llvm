@@ -11,7 +11,7 @@
 ;  5 }
 
 ; CHECK:        ProcStart {
-; CHECK:     DisplayName: foo::bar
+; CHECK:     DisplayName: bar
 ; CHECK-NEXT:     LinkageName: ?bar@foo@@YAHH@Z
 
 ; Function Attrs: nounwind uwtable

@@ -61,15 +61,10 @@ static const char *const DWARFGroupName = "DWARF Emission";
 static const char *const DbgTimerName = "Debug Info Emission";
 static const char *const EHTimerName = "DWARF Exception Writer";
 static const char *const CodeViewLineTablesGroupName = "CodeView Line Tables";
-//***INTEL
-static const char *const STIDebugGroupName = "STI Debug Info Emission";
 
-//***INTEL
-static cl::opt<bool> EmitWinCodeViewLineTables(
-        "debug-emit-wincodeviewlinetables",
-        cl::Hidden,
-        cl::desc("Emit WinCodeViewLineTables instead of STI debug information"),
-        cl::init(false));
+#if INTEL_CUSTOMIZATION
+static const char *const STIDebugGroupName = "STI Debug Info Emission";
+#endif // INTEL_CUSTOMIZATION
 
 STATISTIC(EmittedInsts, "Number of machine instrs printed");
 
@@ -259,7 +254,7 @@ bool AsmPrinter::doInitialization(Module &M) {
     bool EmitCodeView = MMI->getModule()->getCodeViewFlag();
     if (EmitCodeView && TM.getTargetTriple().isKnownWindowsMSVCEnvironment()) {
 #if INTEL_CUSTOMIZATION
-      if (!EmitWinCodeViewLineTables) {
+      if (MMI->getModule()->getModuleFlag("Intel STI") != nullptr) {
         Handlers.push_back(HandlerInfo(STIDebug::create(this),
                                        DbgTimerName,
                                        STIDebugGroupName));

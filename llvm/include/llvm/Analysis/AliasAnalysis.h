@@ -453,11 +453,11 @@ public:
   ModRefInfo getModRefInfo(const Instruction *I) {
     if (auto CS = ImmutableCallSite(I)) {
       auto MRB = getModRefBehavior(CS);
-      if (MRB & MRI_ModRef)
+      if ((MRB & MRI_ModRef) == MRI_ModRef)
         return MRI_ModRef;
-      else if (MRB & MRI_Ref)
+      if (MRB & MRI_Ref)
         return MRI_Ref;
-      else if (MRB & MRI_Mod)
+      if (MRB & MRI_Mod)
         return MRI_Mod;
       return MRI_NoModRef;
     }
@@ -851,9 +851,7 @@ ModRefInfo AAResultBase<DerivedT>::getModRefInfo(ImmutableCallSite CS,
     bool DoesAlias = false;
     ModRefInfo AllArgsMask = MRI_NoModRef;
     if (AAResults::doesAccessArgPointees(MRB)) {
-      for (ImmutableCallSite::arg_iterator AI = CS.arg_begin(),
-                                           AE = CS.arg_end();
-           AI != AE; ++AI) {
+      for (auto AI = CS.arg_begin(), AE = CS.arg_end(); AI != AE; ++AI) {
         const Value *Arg = *AI;
         if (!Arg->getType()->isPointerTy())
           continue;
@@ -915,9 +913,7 @@ ModRefInfo AAResultBase<DerivedT>::getModRefInfo(ImmutableCallSite CS1,
   if (AAResults::onlyAccessesArgPointees(CS2B)) {
     ModRefInfo R = MRI_NoModRef;
     if (AAResults::doesAccessArgPointees(CS2B)) {
-      for (ImmutableCallSite::arg_iterator I = CS2.arg_begin(),
-                                           E = CS2.arg_end();
-           I != E; ++I) {
+      for (auto I = CS2.arg_begin(), E = CS2.arg_end(); I != E; ++I) {
         const Value *Arg = *I;
         if (!Arg->getType()->isPointerTy())
           continue;
@@ -949,9 +945,7 @@ ModRefInfo AAResultBase<DerivedT>::getModRefInfo(ImmutableCallSite CS1,
   if (AAResults::onlyAccessesArgPointees(CS1B)) {
     ModRefInfo R = MRI_NoModRef;
     if (AAResults::doesAccessArgPointees(CS1B)) {
-      for (ImmutableCallSite::arg_iterator I = CS1.arg_begin(),
-                                           E = CS1.arg_end();
-           I != E; ++I) {
+      for (auto I = CS1.arg_begin(), E = CS1.arg_end(); I != E; ++I) {
         const Value *Arg = *I;
         if (!Arg->getType()->isPointerTy())
           continue;
@@ -1091,7 +1085,15 @@ ImmutablePass *createExternalAAWrapperPass(
 /// A helper for the legacy pass manager to create a \c AAResults
 /// object populated to the best of our ability for a particular function when
 /// inside of a \c ModulePass or a \c CallGraphSCCPass.
+///
+/// If a \c ModulePass or a \c CallGraphSCCPass calls \p
+/// createLegacyPMAAResults, it also needs to call \p addUsedAAAnalyses in \p
+/// getAnalysisUsage.
 AAResults createLegacyPMAAResults(Pass &P, Function &F, BasicAAResult &BAR);
+
+/// A helper for the legacy pass manager to populate \p AU to add uses to make
+/// sure the analyses required by \p createLegacyPMAAResults are available.
+void addUsedAAAnalyses(AnalysisUsage &AU);
 
 } // End llvm namespace
 
