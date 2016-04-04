@@ -2736,6 +2736,9 @@ private:
   /// \brief Emit code for sections directive.
   OpenMPDirectiveKind EmitSections(const OMPExecutableDirective &S);
 
+#if INTEL_SPECIFIC_OPENMP
+  void EmitIntelOpenMPDirective(const OMPExecutableDirective &S);
+#endif // INTEL_SPECIFIC_OPENMP
 public:
 
   //===--------------------------------------------------------------------===//

@@ -1558,6 +1558,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
   Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);
+#if INTEL_SPECIFIC_OPENMP
+  Opts.IntelOpenMP = Args.hasArg(OPT_fintel_openmp);
+#endif // INTEL_SPECIFIC_OPENMP
   Opts.Restrict =
       Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);
   // Fix for CQ#373517: compilation fails with 'redefinition of default
