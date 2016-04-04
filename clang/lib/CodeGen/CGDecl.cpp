@@ -32,9 +32,9 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
+
 using namespace clang;
 using namespace CodeGen;
-
 
 void CodeGenFunction::EmitDecl(const Decl &D) {
   switch (D.getKind()) {
@@ -105,6 +105,7 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
   case Decl::Label:        // __label__ x;
   case Decl::Import:
   case Decl::OMPThreadPrivate:
+  case Decl::OMPCapturedExpr:
   case Decl::Empty:
     // None of these decls require codegen support.
     return;
@@ -410,7 +411,7 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
   // Emit global variable debug descriptor for static vars.
   CGDebugInfo *DI = getDebugInfo();
   if (DI &&
-      CGM.getCodeGenOpts().getDebugInfo() >= CodeGenOptions::LimitedDebugInfo) {
+      CGM.getCodeGenOpts().getDebugInfo() >= codegenoptions::LimitedDebugInfo) {
     DI->setLocation(D.getLocation());
     DI->EmitGlobalVariable(var, &D);
   }
@@ -548,7 +549,7 @@ namespace {
       CGF.EmitLifetimeEnd(Size, Addr);
     }
   };
-}
+} // end anonymous namespace
 
 /// EmitAutoVarWithLifetime - Does the setup required for an automatic
 /// variable with lifetime.
@@ -666,7 +667,6 @@ static bool tryEmitARCCopyWeakInit(CodeGenFunction &CGF,
     }
 
     init = castExpr->getSubExpr();
-    continue;
   }
   return false;
 }
@@ -737,8 +737,7 @@ void CodeGenFunction::EmitScalarInit(const Expr *init, const ValueDecl *D,
     llvm_unreachable("present but none");
 
   case Qualifiers::OCL_ExplicitNone:
-    // nothing to do
-    value = EmitScalarExpr(init);
+    value = EmitARCUnsafeUnretainedScalarExpr(init);
     break;
 
   case Qualifiers::OCL_Strong: {
@@ -898,7 +897,6 @@ static void emitStoresForInitAfterMemset(llvm::Constant *Init, llvm::Value *Loc,
           isVolatile, Builder);
   }
 }
-
 
 /// shouldUseMemSetPlusStoresToInitialize - Decide whether we should use memset
 /// plus some stores to initialize a local variable instead of using a memcpy
@@ -1164,8 +1162,8 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
   // Emit debug info for local var declaration.
   if (HaveInsertPoint())
     if (CGDebugInfo *DI = getDebugInfo()) {
-      if (CGM.getCodeGenOpts().getDebugInfo()
-            >= CodeGenOptions::LimitedDebugInfo) {
+      if (CGM.getCodeGenOpts().getDebugInfo() >=
+          codegenoptions::LimitedDebugInfo) {
         DI->setLocation(D.getLocation());
         DI->EmitDeclareOfAutoVariable(&D, address.getPointer(), Builder);
       }
@@ -1241,6 +1239,7 @@ bool CodeGenFunction::isTrivialInitializer(const Expr *Init) {
 
   return false;
 }
+
 void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
   assert(emission.Variable && "emission was not valid!");
 
@@ -1740,7 +1739,7 @@ namespace {
                               ElementType, ElementAlign, Destroyer);
     }
   };
-}
+} // end anonymous namespace
 
 /// pushIrregularPartialArrayCleanup - Push an EH cleanup to destroy
 /// already-constructed elements of the given array.  The cleanup
@@ -1809,7 +1808,7 @@ namespace {
       CGF.EmitARCRelease(Param, Precise);
     }
   };
-}
+} // end anonymous namespace
 
 /// Emit an alloca (or GlobalValue depending on target)
 /// for the specified parameter and set up LocalDeclMap.
@@ -1930,8 +1929,8 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
 
   // Emit debug info for param declaration.
   if (CGDebugInfo *DI = getDebugInfo()) {
-    if (CGM.getCodeGenOpts().getDebugInfo()
-          >= CodeGenOptions::LimitedDebugInfo) {
+    if (CGM.getCodeGenOpts().getDebugInfo() >=
+        codegenoptions::LimitedDebugInfo) {
       DI->EmitDeclareOfArgVariable(&D, DeclPtr.getPointer(), ArgNo, Builder);
     }
   }

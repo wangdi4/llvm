@@ -2460,10 +2460,15 @@ Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
     if (DS.isFriendSpecified())
       ProhibitAttributes(FnAttrs);
 
-    Decl *TheDecl =
-      Actions.ParsedFreeStandingDeclSpec(getCurScope(), AS, DS, TemplateParams);
+    RecordDecl *AnonRecord = nullptr;
+    Decl *TheDecl = Actions.ParsedFreeStandingDeclSpec(
+        getCurScope(), AS, DS, TemplateParams, false, AnonRecord);
     DS.complete(TheDecl);
-    return DeclGroupPtrTy::make(DeclGroupRef(TheDecl));
+    if (AnonRecord) {
+      Decl* decls[] = {AnonRecord, TheDecl};
+      return Actions.BuildDeclaratorGroup(decls, /*TypeMayContainAuto=*/false);
+    }
+    return Actions.ConvertDeclToDeclGroup(TheDecl);
   }
 
   ParsingDeclarator DeclaratorInfo(*this, DS, Declarator::MemberContext);

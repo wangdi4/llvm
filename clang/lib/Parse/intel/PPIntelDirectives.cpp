@@ -23,13 +23,14 @@ static void EnterAnnotationToken(Preprocessor &PP, SourceLocation Begin,
                                  void *AnnotationVal) {
   // FIXME: Produce this as the current token directly, rather than
   // allocating a new token for it.
-  Token *Tok = new Token[1];
-  Tok[0].startToken();
-  Tok[0].setKind(Kind);
-  Tok[0].setLocation(Begin);
-  Tok[0].setAnnotationEndLoc(End);
-  Tok[0].setAnnotationValue(AnnotationVal);
-  PP.EnterTokenStream(Tok, 1, true, true);
+  Token Tok;
+  Token *T = &Tok;
+  Tok.startToken();
+  Tok.setKind(Kind);
+  Tok.setLocation(Begin);
+  Tok.setAnnotationEndLoc(End);
+  Tok.setAnnotationValue(AnnotationVal);
+  PP.EnterTokenStream(ArrayRef<Token>(T, 1), true);
 }
 
 /// \brief Produce a diagnostic informing the user that a #include or similar

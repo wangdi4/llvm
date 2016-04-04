@@ -14,7 +14,18 @@ namespace {
 #include "intel/ParsePragma.h"
 }
 
+template<unsigned N>
+static void EnterTokenS(Preprocessor &PP, SmallVector<Token, N> Tokens,
+                 bool  DisableMacroExpansion){
+  auto Size = Tokens.size();
+  auto Toks = std::unique_ptr<Token[]>(new Token[Size]);
+  for (unsigned i=0; i < Size; i++)
+    Toks[i] = Tokens [i];
+  PP.EnterTokenStream(std::move(Toks), Size, DisableMacroExpansion);
+}
+
 #if INTEL_SPECIFIC_CILKPLUS
+
 // #pragma simd
 void PragmaSIMDHandler::HandlePragma(Preprocessor &PP,
                                      PragmaIntroducerKind Introducer,
@@ -24,7 +35,7 @@ void PragmaSIMDHandler::HandlePragma(Preprocessor &PP,
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_simd);
   Tok.setLocation(FirstTok.getLocation());
-        
+
   while (Tok.isNot(tok::eod)) {
     Pragma.push_back(Tok);
     PP.Lex(Tok);
@@ -34,10 +45,8 @@ void PragmaSIMDHandler::HandlePragma(Preprocessor &PP,
   Tok.setKind(tok::annot_pragma_simd_end);
   Tok.setLocation(EodLoc);
   Pragma.push_back(Tok);
-  Token *Toks = new Token[Pragma.size()];
-  std::copy(Pragma.begin(), Pragma.end(), Toks);
-  PP.EnterTokenStream(Toks, Pragma.size(),
-                      /*DisableMacroExpansion=*/true, /*OwnsTokens=*/true);
+
+  EnterTokenS(PP, Pragma, /*DisableMacroExpansion=*/true);
 }
 
 /// \brief Handle Cilk Plus grainsize pragma.
@@ -98,12 +107,23 @@ void PragmaCilkGrainsizeHandler::HandlePragma(Preprocessor &PP,
   for (unsigned i = 0; i < Size; ++i)
     Toks[i + 1] = CachedToks[i];
 
-  PP.EnterTokenStream(Toks, Size + 2, /*DisableMacroExpansion=*/true,
-                      /*OwnsTokens=*/false);
+  PP.EnterTokenStream(ArrayRef<Token> (Toks, Size + 2), /*DisableMacroExpansion=*/true);
 }
 #endif // INTEL_SPECIFIC_CILKPLUS
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
+
+static void EnterOneTokenS(Preprocessor &PP, Token &FirstTok, tok::TokenKind K) {
+  Token T;
+  T.startToken();
+  T.setKind(K);
+  T.setLocation(FirstTok.getLocation());
+  T.setAnnotationValue(static_cast<void*>(0));
+  Token *Tp = &T;
+
+  PP.EnterTokenStream(ArrayRef<Token> (Tp, 1), false);
+}
+
 void Parser::DiscardBeforeEndOfDirective() {
   while (Tok.isNot(tok::annot_pragma_end)) {
     PP.Lex(Tok);
@@ -168,11 +188,8 @@ void PragmaIvdepHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Int
   Tok.setKind(tok::annot_pragma_end);
   Tok.setLocation(IvdepLoc);
   Tokens.push_back(Tok);
-  
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-  
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma novector
@@ -191,18 +208,9 @@ void Parser::HandlePragmaNoVectorDecl() {
 }
 
 void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  SourceLocation NoVectorLoc = FirstTok.getLocation();
-  
   // ignore everything till the end of line
   PP.DiscardUntilEndOfDirective();
-  
-  Token* Toks = new Token[1];
-  Toks[0].startToken();
-  Toks[0].setKind(tok::annot_pragma_novector);
-  Toks[0].setLocation(NoVectorLoc);
-  Toks[0].setAnnotationValue(static_cast<void*>(0));
-
-  PP.EnterTokenStream(Toks, 1, /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+  EnterOneTokenS(PP, FirstTok, tok::annot_pragma_novector);
 }
 
 // #pragma distribute_point
@@ -216,29 +224,18 @@ StmtResult Parser::HandlePragmaDistribute() {
 void Parser::HandlePragmaDistributeDecl() {
   assert(Tok.is(tok::annot_pragma_distribute_point));
   SourceLocation DistributeLoc = ConsumeToken();
-
   Diag(DistributeLoc, diag::x_error_intel_pragma_statement_precede)<<DistributeLoc;
 }
 
 void PragmaDistributeHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  SourceLocation DistributeLoc = FirstTok.getLocation();
-  
   // ignore everything till the end of line
   PP.DiscardUntilEndOfDirective();
-  
-  Token* Toks = new Token[1];
-  Toks[0].startToken();
-  Toks[0].setKind(tok::annot_pragma_distribute_point);
-  Toks[0].setLocation(DistributeLoc);
-  Toks[0].setAnnotationValue(static_cast<void*>(0));
-
-  PP.EnterTokenStream(Toks, 1, /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+  EnterOneTokenS(PP, FirstTok, tok::annot_pragma_distribute_point);
 }
 
 void PragmaDistributeHandler1::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
   Token Tok;
-  SourceLocation DistributeLoc = FirstTok.getLocation();
-  
+
   // ignore everything till the end of line
   PP.Lex(Tok);
   if (Tok.isAnyIdentifier()) {
@@ -251,13 +248,7 @@ void PragmaDistributeHandler1::HandlePragma(Preprocessor &PP, PragmaIntroducerKi
     PP.Lex(Tok);
   }
 
-  Token* Toks = new Token[1];
-  Toks[0].startToken();
-  Toks[0].setKind(tok::annot_pragma_distribute_point);
-  Toks[0].setLocation(DistributeLoc);
-  Toks[0].setAnnotationValue(static_cast<void*>(0));
-
-  PP.EnterTokenStream(Toks, 1, /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+  EnterOneTokenS(PP, FirstTok, tok::annot_pragma_distribute_point);
 }
 
 // #pragma inline [recursive]
@@ -271,7 +262,7 @@ StmtResult Parser::HandlePragmaInline() {
     static_cast<Sema::IntelPragmaInlineKind *>(Tok.getAnnotationValue());
   const Sema::IntelPragmaInlineKind Kind = *KindPtr;
   SourceLocation InlineLoc = ConsumeToken();
-  
+
   if (Tok.isNot(tok::annot_pragma_end) && Kind != Sema::IntelPragmaNoInline) {
     const IdentifierInfo *II = Tok.getIdentifierInfo();
     if(II && II->isStr("recursive")) {
@@ -295,7 +286,7 @@ void Parser::HandlePragmaInlineDecl() {
   const Sema::IntelPragmaInlineKind *KindPtr = 
     static_cast<Sema::IntelPragmaInlineKind *>(Tok.getAnnotationValue());
   SourceLocation InlineLoc = ConsumeToken();
-  
+
   delete KindPtr;
   DiscardUntilEndOfDirective();
 
@@ -307,7 +298,7 @@ void PragmaInlineHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind In
   SmallVector<Token, 4> Tokens;
   SourceLocation InlineLoc = FirstTok.getLocation();
   Sema::IntelPragmaInlineKind *KindPtr = new Sema::IntelPragmaInlineKind;
-  
+
   *KindPtr = Sema::IntelPragmaSimpleInline;
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_inline);
@@ -325,11 +316,8 @@ void PragmaInlineHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind In
   Tok.setKind(tok::annot_pragma_end);
   Tok.setLocation(InlineLoc);
   Tokens.push_back(Tok);
-  
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-  
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 void PragmaForceInlineHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
@@ -337,7 +325,7 @@ void PragmaForceInlineHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKi
   SmallVector<Token, 4> Tokens;
   SourceLocation InlineLoc = FirstTok.getLocation();
   Sema::IntelPragmaInlineKind *KindPtr = new Sema::IntelPragmaInlineKind;
-  
+
   *KindPtr = Sema::IntelPragmaForceInline;
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_inline);
@@ -355,11 +343,8 @@ void PragmaForceInlineHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKi
   Tok.setKind(tok::annot_pragma_end);
   Tok.setLocation(InlineLoc);
   Tokens.push_back(Tok);
-  
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-  
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 void PragmaNoInlineHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
@@ -367,7 +352,7 @@ void PragmaNoInlineHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind 
   SmallVector<Token, 4> Tokens;
   SourceLocation InlineLoc = FirstTok.getLocation();
   Sema::IntelPragmaInlineKind *KindPtr = new Sema::IntelPragmaInlineKind;
-  
+
   *KindPtr = Sema::IntelPragmaNoInline;
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_inline);
@@ -385,11 +370,8 @@ void PragmaNoInlineHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind 
   Tok.setKind(tok::annot_pragma_end);
   Tok.setLocation(InlineLoc);
   Tokens.push_back(Tok);
-  
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-  
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma loop_count (n)
@@ -526,10 +508,7 @@ void PragmaLoopCountHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind
   Tok.setLocation(LoopCountLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 void PragmaLoopCountHandler1::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
@@ -564,10 +543,7 @@ void PragmaLoopCountHandler1::HandlePragma(Preprocessor &PP, PragmaIntroducerKin
   Tok.setLocation(LoopCountLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma optimize ("string", on|off)
@@ -623,7 +599,7 @@ StmtResult Parser::HandlePragmaOptimize() {
 void Parser::HandlePragmaOptimizeDecl() {
   assert(Tok.is(tok::annot_pragma_optimize));
   StmtResult Res = HandlePragmaOptimize();
-  
+
   if (Res.get() && !(static_cast<PragmaStmt *>(Res.get()))->isNullOp())
     Actions.ActOnPragmaOptionsOptimize(static_cast<PragmaStmt *>(Res.get()));
 }
@@ -650,10 +626,7 @@ void PragmaIntelOptimizeHandler::HandlePragma(Preprocessor &PP, PragmaIntroducer
   Tok.setLocation(OptimizeLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma [GCC|intel] optimization_level 0-3|reset
@@ -661,7 +634,7 @@ void PragmaIntelOptimizeHandler::HandlePragma(Preprocessor &PP, PragmaIntroducer
 void Parser::HandlePragmaOptimizationLevel() {
   assert(Tok.is(tok::annot_pragma_optimization_level));
   SourceLocation OptLevelLoc = ConsumeToken();
-  
+
   DiscardUntilEndOfDirective();
 
   Diag(OptLevelLoc, diag::x_error_intel_pragma_declaration_precede)<<OptLevelLoc;
@@ -714,7 +687,7 @@ void PragmaOptimizationLevelHandler::HandlePragma(Preprocessor &PP, PragmaIntrod
   // Annotation is 0 if Intel pragma and !0 if GCC
   Tok.setAnnotationValue(static_cast<void*>(IsIntelPragma ? 0 : this));
   Tokens.push_back(Tok);
-  
+
   PP.Lex(Tok);
   while (Tok.isNot(tok::eod)) {
     Tokens.push_back(Tok);
@@ -726,10 +699,7 @@ void PragmaOptimizationLevelHandler::HandlePragma(Preprocessor &PP, PragmaIntrod
   Tok.setLocation(OptLevelLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma noparallel
@@ -748,18 +718,9 @@ void Parser::HandlePragmaNoParallelDecl() {
 }
 
 void PragmaNoParallelHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  SourceLocation NoParallelLoc = FirstTok.getLocation();
-  
   // ignore everything till the end of line
   PP.DiscardUntilEndOfDirective();
-  
-  Token* Toks = new Token[1];
-  Toks[0].startToken();
-  Toks[0].setKind(tok::annot_pragma_noparallel);
-  Toks[0].setLocation(NoParallelLoc);
-  Toks[0].setAnnotationValue(static_cast<void*>(0));
-
-  PP.EnterTokenStream(Toks, 1, /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+  EnterOneTokenS(PP, FirstTok, tok::annot_pragma_noparallel);
 }
 
 // #pragma nounroll
@@ -772,7 +733,7 @@ StmtResult Parser::HandlePragmaUnroll() {
   const Sema::IntelPragmaUnrollKind Kind = *KindPtr;
   SourceLocation UnrollLoc = ConsumeToken();
   ExprResult Opt;
-  
+
   // Lex the left '('
   if (Kind == Sema::IntelPragmaSimpleUnroll && Tok.isNot(tok::annot_pragma_end)) {
     if (Tok.isNot(tok::l_paren)) {
@@ -806,7 +767,7 @@ void Parser::HandlePragmaUnrollDecl() {
   const Sema::IntelPragmaUnrollKind *KindPtr = 
     static_cast<Sema::IntelPragmaUnrollKind *>(Tok.getAnnotationValue());
   SourceLocation UnrollLoc = ConsumeToken();
-  
+
   delete KindPtr;
   DiscardUntilEndOfDirective();
 
@@ -818,7 +779,7 @@ void PragmaUnrollHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind In
   SmallVector<Token, 4> Tokens;
   SourceLocation UnrollLoc = FirstTok.getLocation();
   Sema::IntelPragmaUnrollKind *KindPtr = new Sema::IntelPragmaUnrollKind;
-  
+
   *KindPtr = Sema::IntelPragmaSimpleUnroll;
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_unroll);
@@ -836,11 +797,8 @@ void PragmaUnrollHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind In
   Tok.setKind(tok::annot_pragma_end);
   Tok.setLocation(UnrollLoc);
   Tokens.push_back(Tok);
-  
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-  
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 void PragmaNoUnrollHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
@@ -848,7 +806,7 @@ void PragmaNoUnrollHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind 
   SmallVector<Token, 4> Tokens;
   SourceLocation UnrollLoc = FirstTok.getLocation();
   Sema::IntelPragmaUnrollKind *KindPtr = new Sema::IntelPragmaUnrollKind;
-  
+
   *KindPtr = Sema::IntelPragmaNoUnroll;
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_unroll);
@@ -866,11 +824,8 @@ void PragmaNoUnrollHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind 
   Tok.setKind(tok::annot_pragma_end);
   Tok.setLocation(UnrollLoc);
   Tokens.push_back(Tok);
-  
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-  
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma nounroll_and_jam
@@ -883,7 +838,7 @@ StmtResult Parser::HandlePragmaUnrollAndJam() {
   const Sema::IntelPragmaUnrollAndJamKind Kind = *KindPtr;
   SourceLocation UnrollAndJamLoc = ConsumeToken();
   ExprResult Opt;
-  
+
   // Lex the left '('
   if (Kind == Sema::IntelPragmaSimpleUnrollAndJam && Tok.isNot(tok::annot_pragma_end)) {
     if (Tok.isNot(tok::l_paren)) {
@@ -917,7 +872,7 @@ void Parser::HandlePragmaUnrollAndJamDecl() {
   const Sema::IntelPragmaUnrollAndJamKind *KindPtr = 
     static_cast<Sema::IntelPragmaUnrollAndJamKind *>(Tok.getAnnotationValue());
   SourceLocation UnrollAndJamLoc = ConsumeToken();
-  
+
   delete KindPtr;
   DiscardUntilEndOfDirective();
 
@@ -929,7 +884,7 @@ void PragmaUnrollAndJamHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerK
   SmallVector<Token, 4> Tokens;
   SourceLocation UnrollAndJamLoc = FirstTok.getLocation();
   Sema::IntelPragmaUnrollAndJamKind *KindPtr = new Sema::IntelPragmaUnrollAndJamKind;
-  
+
   *KindPtr = Sema::IntelPragmaSimpleUnrollAndJam;
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_unroll_and_jam);
@@ -947,11 +902,8 @@ void PragmaUnrollAndJamHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerK
   Tok.setKind(tok::annot_pragma_end);
   Tok.setLocation(UnrollAndJamLoc);
   Tokens.push_back(Tok);
-  
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-  
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 void PragmaNoUnrollAndJamHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
@@ -977,11 +929,8 @@ void PragmaNoUnrollAndJamHandler::HandlePragma(Preprocessor &PP, PragmaIntroduce
   Tok.setKind(tok::annot_pragma_end);
   Tok.setLocation(UnrollAndJamLoc);
   Tokens.push_back(Tok);
-  
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-  
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma nofusion
@@ -1000,18 +949,9 @@ void Parser::HandlePragmaNoFusionDecl() {
 }
 
 void PragmaNoFusionHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  SourceLocation NoFusionLoc = FirstTok.getLocation();
-  
   // ignore everything till the end of line
   PP.DiscardUntilEndOfDirective();
-  
-  Token* Toks = new Token[1];
-  Toks[0].startToken();
-  Toks[0].setKind(tok::annot_pragma_nofusion);
-  Toks[0].setLocation(NoFusionLoc);
-  Toks[0].setAnnotationValue(static_cast<void*>(0));
-
-  PP.EnterTokenStream(Toks, 1, /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+  EnterOneTokenS(PP, FirstTok, tok::annot_pragma_nofusion);
 }
 
 // #pragma ident
@@ -1215,10 +1155,7 @@ void PragmaVectorHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind In
   Tok.setLocation(VectorLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma intel optimization_parameter target_arch=<CPU>
@@ -1226,7 +1163,7 @@ void PragmaVectorHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind In
 void Parser::HandlePragmaOptimizationParameter() {
   assert(Tok.is(tok::annot_pragma_optimization_parameter));
   SourceLocation OptParamLoc = ConsumeToken();
-  
+
   DiscardUntilEndOfDirective();
 
   Diag(OptParamLoc, diag::x_error_intel_pragma_declaration_precede)<<OptParamLoc;
@@ -1266,7 +1203,7 @@ void PragmaOptimizationParameterHandler::HandlePragma(Preprocessor &PP, PragmaIn
   Tok.setLocation(OptParamLoc);
   Tok.setAnnotationValue(static_cast<void*>(0));
   Tokens.push_back(Tok);
-  
+
   PP.Lex(Tok);
   while (Tok.isNot(tok::eod)) {
     Tokens.push_back(Tok);
@@ -1278,10 +1215,7 @@ void PragmaOptimizationParameterHandler::HandlePragma(Preprocessor &PP, PragmaIn
   Tok.setLocation(OptParamLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma parallel
@@ -1451,10 +1385,7 @@ void PragmaParallelHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind 
   Tok.setLocation(ParallelLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/true);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma alloc_section (var1, var2, ..., "string")
@@ -1588,10 +1519,7 @@ void PragmaAllocSectionHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerK
   Tok.setLocation(AllocSectionLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma section ("string", attribute1, attribute2, ...)
@@ -1686,10 +1614,7 @@ void PragmaSectionHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind I
   Tok.setLocation(SectionLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma alloc_text ("string", function1, function2, ...)
@@ -1827,10 +1752,7 @@ void PragmaAllocTextHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind
   Tok.setLocation(AllocTextLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma auto_inline ([on|off])
@@ -1898,10 +1820,7 @@ void PragmaAutoInlineHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKin
   Tok.setLocation(AutoInlineLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // Pragmas {bss_seg|code_seg|const_seg|data_seg} ([[{push|pop}, ] [identifier ,]]["segment-name"[, "segment-class"])
@@ -2002,7 +1921,7 @@ StmtResult Parser::HandlePragmaSeg() {
 void Parser::HandlePragmaSegDecl() {
   assert(Tok.is(tok::annot_pragma_seg));
   StmtResult Res = HandlePragmaSeg();
-  
+
   if (Res.get() && !(static_cast<PragmaStmt *>(Res.get()))->isNullOp())
     Actions.ActOnPragmaOptionsSeg(static_cast<PragmaStmt *>(Res.get()));
 }
@@ -2012,7 +1931,7 @@ void PragmaBssSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind In
   SmallVector<Token, 4> Tokens;
   SourceLocation SegLoc = FirstTok.getLocation();
   Sema::IntelPragmaSegKind *KindPtr = new Sema::IntelPragmaSegKind;
-  
+
   *KindPtr = Sema::IntelPragmaBssSeg;
 
   Tok.startToken();
@@ -2032,10 +1951,7 @@ void PragmaBssSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind In
   Tok.setLocation(SegLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 void PragmaCodeSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
@@ -2043,7 +1959,7 @@ void PragmaCodeSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind I
   SmallVector<Token, 4> Tokens;
   SourceLocation SegLoc = FirstTok.getLocation();
   Sema::IntelPragmaSegKind *KindPtr = new Sema::IntelPragmaSegKind;
-  
+
   *KindPtr = Sema::IntelPragmaCodeSeg;
 
   Tok.startToken();
@@ -2063,10 +1979,7 @@ void PragmaCodeSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind I
   Tok.setLocation(SegLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 void PragmaConstSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
@@ -2074,7 +1987,7 @@ void PragmaConstSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind 
   SmallVector<Token, 4> Tokens;
   SourceLocation SegLoc = FirstTok.getLocation();
   Sema::IntelPragmaSegKind *KindPtr = new Sema::IntelPragmaSegKind;
-  
+
   *KindPtr = Sema::IntelPragmaConstSeg;
 
   Tok.startToken();
@@ -2094,10 +2007,7 @@ void PragmaConstSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind 
   Tok.setLocation(SegLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 void PragmaDataSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
@@ -2105,7 +2015,7 @@ void PragmaDataSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind I
   SmallVector<Token, 4> Tokens;
   SourceLocation SegLoc = FirstTok.getLocation();
   Sema::IntelPragmaSegKind *KindPtr = new Sema::IntelPragmaSegKind;
-  
+
   *KindPtr = Sema::IntelPragmaDataSeg;
 
   Tok.startToken();
@@ -2125,10 +2035,7 @@ void PragmaDataSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind I
   Tok.setLocation(SegLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma check_stack([on|off|+|-])
@@ -2205,10 +2112,7 @@ void PragmaCheckStackHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKin
   Tok.setLocation(CheckStackLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma component
@@ -2547,7 +2451,7 @@ void PragmaIntelFPContractHandler::HandlePragma(Preprocessor &PP, PragmaIntroduc
   Token Tok;
   SmallVector<Token, 4> Tokens;
   SourceLocation Loc = FirstTok.getLocation();
-  
+
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_intel_fp_contract);
   Tok.setLocation(Loc);
@@ -2564,17 +2468,14 @@ void PragmaIntelFPContractHandler::HandlePragma(Preprocessor &PP, PragmaIntroduc
   Tok.setLocation(Loc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 void PragmaIntelFenvAccessHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
   Token Tok;
   SmallVector<Token, 4> Tokens;
   SourceLocation Loc = FirstTok.getLocation();
-  
+
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_fenv_access);
   Tok.setLocation(Loc);
@@ -2591,10 +2492,7 @@ void PragmaIntelFenvAccessHandler::HandlePragma(Preprocessor &PP, PragmaIntroduc
   Tok.setLocation(Loc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // Pragmas init_seg (compiler|lib|user|"segment-class")
@@ -2650,7 +2548,7 @@ StmtResult Parser::HandlePragmaInitSeg() {
 void Parser::HandlePragmaInitSegDecl() {
   assert(Tok.is(tok::annot_pragma_init_seg));
   StmtResult Res = HandlePragmaInitSeg();
-  
+
   if (Res.get() && !(static_cast<PragmaStmt *>(Res.get()))->isNullOp())
     Actions.ActOnPragmaOptionsInitSeg(static_cast<PragmaStmt *>(Res.get()));
 }
@@ -2659,7 +2557,7 @@ void PragmaInitSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind I
   Token Tok;
   SmallVector<Token, 4> Tokens;
   SourceLocation SegLoc = FirstTok.getLocation();
-  
+
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_init_seg);
   Tok.setLocation(SegLoc);
@@ -2676,10 +2574,7 @@ void PragmaInitSegHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind I
   Tok.setLocation(SegLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma float_control (push | pop)
@@ -2883,10 +2778,7 @@ void PragmaFloatControlHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerK
   Tok.setLocation(FloatControlLoc);
   Tokens.push_back(Tok);
 
-  Token* Toks = new Token[Tokens.size()];
-  std::copy(Tokens.begin(), Tokens.end(), Toks);
-
-  PP.EnterTokenStream(Toks, Tokens.size(), /*DisableMacroExpansion=*/false, /*OwnsTokens=*/false);
+  EnterTokenS(PP, Tokens, /*DisableMacroExpansion=*/false);
 }
 
 // #pragma region

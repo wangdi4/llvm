@@ -6814,6 +6814,14 @@ public:
 
   ExprResult TransformBlockExpr(BlockExpr *E) { return Owned(E); }
 
+  ExprResult TransformObjCPropertyRefExpr(ObjCPropertyRefExpr *E) {
+    return Owned(E);
+  }
+
+  ExprResult TransformObjCIvarRefExpr(ObjCIvarRefExpr *E) {
+    return Owned(E);
+  }
+
   ExprResult Transform(Expr *E) {
     ExprResult Res;
     while (true) {

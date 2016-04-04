@@ -2282,11 +2282,17 @@ enum CXCursorKind {
    */
   CXCursor_OMPTargetExitDataDirective    = 262,
 
+  /** \brief OpenMP target parallel directive.
+   */
+  CXCursor_OMPTargetParallelDirective    = 263,
+
+  /** \brief OpenMP target parallel for directive.
+   */
+  CXCursor_OMPTargetParallelForDirective = 264,
+
 #ifdef INTEL_CUSTOMIZATION
-  CXCursor_CilkRankedStmt                = 263,
+  CXCursor_CilkRankedStmt                = 265,
   CXCursor_LastStmt                      = CXCursor_CilkRankedStmt,
-#else
-  CXCursor_LastStmt                      = CXCursor_OMPTargetExitDataDirective,
 #endif /* INTEL_CUSTOMIZATION */
 
   /**
@@ -3659,8 +3665,8 @@ typedef enum CXChildVisitResult
  * Visits the children of a cursor using the specified block.  Behaves
  * identically to clang_visitChildren() in all other respects.
  */
-unsigned clang_visitChildrenWithBlock(CXCursor parent,
-                                      CXCursorVisitorBlock block);
+CINDEX_LINKAGE unsigned clang_visitChildrenWithBlock(CXCursor parent,
+                                                    CXCursorVisitorBlock block);
 #  endif
 #endif
 

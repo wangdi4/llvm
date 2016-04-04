@@ -275,7 +275,7 @@ set(WASM64 wasm64)
 
 if(APPLE)
   set(ARM64 arm64)
-  set(ARM32 armv7 armv7s)
+  set(ARM32 armv7 armv7s armv7k)
   set(X86_64 x86_64 x86_64h)
 endif()
 
@@ -310,7 +310,7 @@ if(APPLE)
     set(OSX_SYSROOT_FLAG "-isysroot${OSX_SYSROOT}")
   endif()
 
-  option(COMPILER_RT_ENABLE_IOS "Enable building for iOS - Experimental" Off)
+  option(COMPILER_RT_ENABLE_IOS "Enable building for iOS" Off)
   option(COMPILER_RT_ENABLE_WATCHOS "Enable building for watchOS - Experimental" Off)
   option(COMPILER_RT_ENABLE_TVOS "Enable building for tvOS - Experimental" Off)
 
@@ -488,42 +488,42 @@ if(APPLE)
     endforeach()
   endif()
 
-  # for list_union
+  # for list_intersect
   include(CompilerRTUtils)
 
-  list_union(BUILTIN_SUPPORTED_ARCH ALL_BUILTIN_SUPPORTED_ARCH toolchain_arches)
+  list_intersect(BUILTIN_SUPPORTED_ARCH ALL_BUILTIN_SUPPORTED_ARCH toolchain_arches)
 
-  list_union(SANITIZER_COMMON_SUPPORTED_ARCH
+  list_intersect(SANITIZER_COMMON_SUPPORTED_ARCH
     ALL_SANITIZER_COMMON_SUPPORTED_ARCH
     COMPILER_RT_SUPPORTED_ARCH
     )
   set(LSAN_COMMON_SUPPORTED_ARCH ${SANITIZER_COMMON_SUPPORTED_ARCH})
   set(UBSAN_COMMON_SUPPORTED_ARCH ${SANITIZER_COMMON_SUPPORTED_ARCH})
-  list_union(ASAN_SUPPORTED_ARCH
+  list_intersect(ASAN_SUPPORTED_ARCH
     ALL_ASAN_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
-  list_union(DFSAN_SUPPORTED_ARCH
+  list_intersect(DFSAN_SUPPORTED_ARCH
     ALL_DFSAN_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
-  list_union(LSAN_SUPPORTED_ARCH
+  list_intersect(LSAN_SUPPORTED_ARCH
     ALL_LSAN_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
-  list_union(MSAN_SUPPORTED_ARCH
+  list_intersect(MSAN_SUPPORTED_ARCH
     ALL_MSAN_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
-  list_union(PROFILE_SUPPORTED_ARCH
+  list_intersect(PROFILE_SUPPORTED_ARCH
     ALL_PROFILE_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
-  list_union(TSAN_SUPPORTED_ARCH
+  list_intersect(TSAN_SUPPORTED_ARCH
     ALL_TSAN_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
-  list_union(UBSAN_SUPPORTED_ARCH
+  list_intersect(UBSAN_SUPPORTED_ARCH
     ALL_UBSAN_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
-  list_union(SAFESTACK_SUPPORTED_ARCH
+  list_intersect(SAFESTACK_SUPPORTED_ARCH
     ALL_SAFESTACK_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
-  list_union(CFI_SUPPORTED_ARCH
+  list_intersect(CFI_SUPPORTED_ARCH
     ALL_CFI_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
 else()
@@ -548,6 +548,18 @@ else()
   filter_available_targets(SAFESTACK_SUPPORTED_ARCH
     ${ALL_SAFESTACK_SUPPORTED_ARCH})
   filter_available_targets(CFI_SUPPORTED_ARCH ${ALL_CFI_SUPPORTED_ARCH})
+endif()
+
+if (MSVC)
+  # See if the DIA SDK is available and usable.
+  set(MSVC_DIA_SDK_DIR "$ENV{VSINSTALLDIR}DIA SDK")
+  if (IS_DIRECTORY ${MSVC_DIA_SDK_DIR})
+    set(CAN_SYMBOLIZE 1)
+  else()
+    set(CAN_SYMBOLIZE 0)
+  endif()
+else()
+  set(CAN_SYMBOLIZE 1)
 endif()
 
 message(STATUS "Compiler-RT supported architectures: ${COMPILER_RT_SUPPORTED_ARCH}")

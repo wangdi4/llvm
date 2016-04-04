@@ -13154,30 +13154,20 @@ bool Sema::CheckOverridingFunctionReturnType(const CXXMethodDecl *New,
     return true;
   }
 
-  // C++ [class.virtual]p6:
-  //   If the return type of D::f differs from the return type of B::f, the 
-  //   class type in the return type of D::f shall be complete at the point of
-  //   declaration of D::f or shall be the class type D.
-#if INTEL_CUSTOMIZATION
-  // CQ#374721 - different type of overriding virtual function.
-  // If unqualified types are the same, don't check the completeness of type.
-  bool SameUnqualifiedTypes =
-      Context.hasSameUnqualifiedType(NewClassTy, OldClassTy);
+  if (!Context.hasSameUnqualifiedType(NewClassTy, OldClassTy)) {
+    // C++14 [class.virtual]p8:
+    //   If the class type in the covariant return type of D::f differs from
+    //   that of B::f, the class type in the return type of D::f shall be
+    //   complete at the point of declaration of D::f or shall be the class
+    //   type D.
+    if (const RecordType *RT = NewClassTy->getAs<RecordType>()) {
+      if (!RT->isBeingDefined() &&
+          RequireCompleteType(New->getLocation(), NewClassTy,
+                              diag::err_covariant_return_incomplete,
+                              New->getDeclName()))
+        return true;
+    }
 
-  if (!getLangOpts().IntelCompat || !SameUnqualifiedTypes)
-#endif // INTEL_CUSTOMIZATION
-  if (const RecordType *RT = NewClassTy->getAs<RecordType>()) {
-    if (!RT->isBeingDefined() &&
-        RequireCompleteType(New->getLocation(), NewClassTy, 
-                            diag::err_covariant_return_incomplete,
-                            New->getDeclName()))
-    return true;
-  }
-
-#if INTEL_CUSTOMIZATION
-  // CQ#374721 - different type of overriding virtual function.
-  if (!SameUnqualifiedTypes) {
-#endif // INTEL_CUSTOMIZATION
     // Check if the new class derives from the old class.
     if (!IsDerivedFrom(New->getLocation(), NewClassTy, OldClassTy)) {
       Diag(New->getLocation(), diag::err_covariant_return_not_derived)
@@ -13214,7 +13204,7 @@ bool Sema::CheckOverridingFunctionReturnType(const CXXMethodDecl *New,
     Diag(Old->getLocation(), diag::note_overridden_virtual_function)
         << Old->getReturnTypeSourceRange();
     return true;
-  };
+  }
 
 
   // The new class type must have the same or less qualifiers as the old type.
@@ -13226,7 +13216,7 @@ bool Sema::CheckOverridingFunctionReturnType(const CXXMethodDecl *New,
     Diag(Old->getLocation(), diag::note_overridden_virtual_function)
         << Old->getReturnTypeSourceRange();
     return true;
-  };
+  }
 
   return false;
 }
