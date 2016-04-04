@@ -196,7 +196,7 @@ namespace intel {
     static const int CHEAP_SHUFFLE_WEIGHT = 2;
     static const int EXPENSIVE_EXTRACT_WEIGHT = 2;
     static const int CHEAP_EXTRACT_WEIGHT = DEFAULT_WEIGHT;
-    static const int INSERT_WEIGHT = 3;
+    static const int INSERT_WEIGHT = 2;
 
     // Memops are complicated.
     static const int MEM_OP_WEIGHT = 6;
