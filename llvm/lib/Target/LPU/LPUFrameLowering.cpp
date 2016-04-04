@@ -48,7 +48,7 @@ void LPUFrameLowering::emitPrologue(MachineFunction &MF) const {
   // Note that CallFrameSize is not initially a multiple of 8 because
   // for varargs, we allow slots to be of size 4 for example and overflow
   // arguments (not in registers after 8) can be of any size
-  CallFrameSize = (CallFrameSize + 15) & (-16);
+  CallFrameSize = (CallFrameSize + 7) & (-8);
 
   // If this is a dynamic frame, the outbound arguments are allocated
   // below the dynamic portion, and do not figure into the offsets
@@ -126,7 +126,7 @@ void LPUFrameLowering::emitEpilogue(MachineFunction &MF,
   unsigned StackSize     = MFI->getStackSize();
   unsigned CallFrameSize = MFI->getMaxCallFrameSize();
 
-  CallFrameSize = (CallFrameSize + 15) & (-16);
+  CallFrameSize = (CallFrameSize + 7) & (-8);
 
   // If this is a dynamic frame, the outbound arguments are allocated
   // below the dynamic portion, and do not figure into the offsets
@@ -205,7 +205,7 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
 
     if (Amount) {
       // Keep the stack 16 byte aligned
-      Amount = (Amount + 0xf) & ~0xf;
+      Amount = (Amount + 7) & (-8);
 
       DebugLoc DL = I != MBB.end() ? I->getDebugLoc() : DebugLoc();
 
