@@ -3,3 +3,9 @@
 
 __unaligned int *b;
 
+struct UnalignedS {
+  void foo(double) __unaligned { ; }
+};
+
+void bar(void (UnalignedS::*pf)(double)__unaligned);
+

@@ -1814,7 +1814,11 @@ Parser::TPResult Parser::TryParseFunctionDeclarator() {
     return TPResult::Error;
 
   // cv-qualifier-seq
-  while (Tok.isOneOf(tok::kw_const, tok::kw_volatile, tok::kw_restrict))
+#if INTEL_CUSTOMIZATION
+  while (Tok.isOneOf(tok::kw_const, tok::kw_volatile, tok::kw_restrict) ||
+         // CQ367651: allow '__unalinged' (MS Extention) on Linux as well
+         (getLangOpts().IntelCompat && (Tok.getKind() == tok::kw___unaligned)))
+#endif // INTEL_CUSTOMIZATION
     ConsumeToken();
 
   // ref-qualifier[opt]
