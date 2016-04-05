@@ -243,12 +243,15 @@ bool CanonExpr::isPtrToPtrCast() const {
   return ((SrcTy != DestTy) && SrcTy->isPointerTy());
 }
 
-bool CanonExpr::isIntConstant(int64_t *Val) const {
-  // Vectorizer can set Src/Dest types to a vector type leaving the value
-  // as a scalar. Account for such cases.
-  auto ScalSrcTy = getSrcType()->getScalarType();
+bool CanonExpr::isIntConstantImpl(int64_t *Val, bool HandleSplat) const {
+  auto TSrcTy = getSrcType();
 
-  if (!ScalSrcTy->isIntegerTy() || !isConstInternal()) {
+  if (HandleSplat) {
+    assert(TSrcTy->isVectorTy() && "Vector type expected!");
+    TSrcTy = TSrcTy->getScalarType();
+  }
+
+  if (!TSrcTy->isIntegerTy() || !isConstInternal()) {
     return false;
   }
 
@@ -259,13 +262,42 @@ bool CanonExpr::isIntConstant(int64_t *Val) const {
   return true;
 }
 
-bool CanonExpr::isFPConstant(ConstantFP **Val) const {
+bool CanonExpr::isIntConstant(int64_t *Val) const {
+  return isIntConstantImpl(Val, false);
+}
+
+bool CanonExpr::isIntConstantSplat(int64_t *Val) const {
+  if (!getSrcType()->isVectorTy()) {
+    return false;
+  }
+
+  return isIntConstantImpl(Val, true);
+}
+
+bool CanonExpr::isFPConstantImpl(ConstantFP **Val, bool HandleSplat) const {
+  // When HandleSplat is true, we expect CanonExpr to have vector type
+  if (HandleSplat) {
+    assert(getSrcType()->isVectorTy() && "Vector type expected!");
+  }
+
   if (!isStandAloneBlob()) {
     return false;
   }
 
   return BlobUtils::isConstantFPBlob(BlobUtils::getBlob(getSingleBlobIndex()),
                                      Val);
+}
+
+bool CanonExpr::isFPConstant(ConstantFP **Val) const {
+  return isFPConstantImpl(Val, false);
+}
+
+bool CanonExpr::isFPConstantSplat(ConstantFP **Val) const {
+  if (!getSrcType()->isVectorTy()) {
+    return false;
+  }
+
+  return isFPConstantImpl(Val, true);
 }
 
 bool CanonExpr::isMetadata(MetadataAsValue **Val) const {
@@ -277,13 +309,60 @@ bool CanonExpr::isMetadata(MetadataAsValue **Val) const {
                                    Val);
 }
 
-bool CanonExpr::isConstantVector(Constant **Val) const {
+bool CanonExpr::isConstantVectorImpl(Constant **Val) const {
   if (!isStandAloneBlob()) {
     return false;
   }
 
   return BlobUtils::isConstantVectorBlob(
                         BlobUtils::getBlob(getSingleBlobIndex()), Val);
+}
+
+bool CanonExpr::isIntVectorConstant(Constant **Val) const {
+  if (!getSrcType()->isVectorTy() ||
+      !getSrcType()->getScalarType()->isIntegerTy()) {
+    return false;
+  }
+
+  // Handle the case of a scalar constant broadcast
+  int64_t ConstIntVal;
+  if (isIntConstantSplat(&ConstIntVal)) {
+    if (Val) {
+      Constant *ConstVal;
+      
+      ConstVal = ConstantInt::get(getDestType()->getScalarType(),
+                                  ConstIntVal);
+      *Val = ConstantVector::getSplat(getDestType()->getVectorNumElements(),
+                                        ConstVal);
+    }
+    
+    return true;
+  }
+
+  return isConstantVectorImpl(Val);
+}
+
+bool CanonExpr::isFPVectorConstant(Constant **Val) const {
+  if (!getSrcType()->isVectorTy() ||
+      !getSrcType()->getScalarType()->isFloatingPointTy()) {
+    return false;
+  }
+
+  // Handle the case of a scalar constant broadcast
+  ConstantFP *ConstFPVal;
+  if (isFPConstantSplat(&ConstFPVal)) {
+    if (Val) {
+      Constant *ConstVal;
+      
+      ConstVal = ConstFPVal;
+      *Val = ConstantVector::getSplat(getDestType()->getVectorNumElements(),
+                                      ConstVal);
+    }
+
+    return true;
+  }
+
+  return isConstantVectorImpl(Val);
 }
 
 bool CanonExpr::isNull() const {

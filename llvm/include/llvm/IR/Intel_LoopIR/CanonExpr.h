@@ -201,6 +201,28 @@ protected:
             (getDenominator() == 1));
   }
 
+  /// \brief Returns true if canon expr is a constant integer. Integer value
+  /// is returned in \pVal. If \pHandleSplat is true, handle a constant Int
+  /// value cast to a vector type.
+  bool isIntConstantImpl(int64_t *Val, bool HandleSplat) const;
+
+  /// \brief Returns true if canon expr represents a floating point constant.
+  /// If yes, returns the underlying LLVM Value in \pVal. If \pHandleSplat is
+  /// true, handle a constant FP value cast to a vector type.
+  bool isFPConstantImpl(ConstantFP **Val, bool HandleSplat) const;
+
+  /// \brief Returns true if canon expr is a constant integer splat. The constant
+  //  integer splat value is returned in \pVal.
+  bool isIntConstantSplat(int64_t *Val = nullptr) const;
+
+  /// \brief Returns true if canon expr represents a floating point constant
+  /// splat. If yes, returns the underlying LLVM splat Value in \pVal.
+  bool isFPConstantSplat(ConstantFP **Val = nullptr) const;
+
+  /// \brief Returns true if canon expr is a vector of constants.
+  /// If yes, returns the underlying LLVM Value in \pVal
+  bool isConstantVectorImpl(Constant **Val = nullptr) const;
+
   /// \brief Return the mathematical coefficient to be used in cases
   /// where mathematical addition is performed. The Coeff value in those
   /// cases is multiplied by denominator.
@@ -306,16 +328,26 @@ public:
   }
 
   /// \brief Returns true if canon expr is a constant integer. Integer value
-  /// is returned in Val.
+  /// is returned in \pVal.
   bool isIntConstant(int64_t *Val = nullptr) const;
 
   /// \brief Returns true if canon expr represents a floating point constant.
   /// If yes, returns the underlying LLVM Value in \pVal
   bool isFPConstant(ConstantFP **Val = nullptr) const;
 
+  /// \brief Returns true if canon expr is a vector of constant Ints.
+  /// If yes, returns the underlying LLVM Value in \pVal
+  bool isIntVectorConstant(Constant **Val = nullptr) const;
+
+  /// \brief Returns true if canon expr is a vector of constant FP values.
+  /// If yes, returns the underlying LLVM Value in \pVal
+  bool isFPVectorConstant(Constant **Val = nullptr) const;
+
   /// \brief Returns true if canon expr is a vector of constants.
   /// If yes, returns the underlying LLVM Value in \pVal
-  bool isConstantVector(Constant **Val = nullptr) const;
+  bool isConstantVector(Constant **Val = nullptr) const {
+    return (isIntVectorConstant(Val) || isFPVectorConstant(Val));
+  }
 
   /// \brief Returns true if canon expr represents a metadata.
   /// If true, metadata is returned in Val.
