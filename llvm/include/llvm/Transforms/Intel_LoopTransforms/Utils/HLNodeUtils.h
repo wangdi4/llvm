@@ -1058,19 +1058,43 @@ public:
   // unrolling.
   static bool hasSwitchOrCall(const HLNode *NodeStart, const HLNode *NodeEnd,
                               bool RecurseInsideLoops = true);
+  /// \brief Updates Loop properties (Bounds, etc) based on input Permutations
+  ///   Used by Interchange now. Could be used later for blocking
+  static void
+  permuteLoopNests(HLLoop *Loop,
+                   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation);
 
   /// \brief Returns true if Loop is a perfect Loop nest
   /// and the innermost loop
   static bool isPerfectLoopNest(const HLLoop *Loop,
                                 const HLLoop **InnermostLoop,
                                 bool AllowPrePostHdr = false,
-                                bool AllowTriangularLoop = false);
+                                bool AllowTriangularLoop = false,
+                                bool AllowNearPerfect = false,
+                                bool *IsNearPerfect = nullptr);
 
-  /// \brief Updates Loop properties (Bounds, etc) based on input Permutations
-  ///   Used by Interchange now. Could be used later for blocking
-  static void
-  permuteLoopNests(HLLoop *Loop,
-                   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation);
+  /// \breif Check if Loop has perfect/near-perfect loop properties
+  ///  set  innermost loop in *Lp if it is hit
+  ///  Return true if it has perfect/near-perfect loop properties
+  static bool hasPerfectLoopProperties(const HLNode *Node, const HLLoop **Lp,
+                                       bool AllowNearPerfect,
+                                       bool *IsNearPerfectLoop);
+
+  ///  \brief Any memref with non-unit stride?
+  ///   Will take innermost loop for now
+  ///   used mostly for blocking / interchange
+  static bool hasNonUnitStrideRefs(const HLLoop *Loop);
+		
+  /// \brief Find node receiving the load
+  /// e.g.   t0 = a[i] ;
+  ///         ...
+  ///        t1 = t0
+  ///  returns t1 = t0
+  static HLInst *
+  findForwardSubInst(const DDRef *LRef,
+                     SmallVectorImpl<HLInst *> &ForwardSubInsts);
+
+
 
   /// \brief Returns the lowest common ancestor loop of Lp1 and Lp2. Returns
   /// null if there is no such parent loop.

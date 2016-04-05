@@ -3,7 +3,7 @@
 ;        for (j=1; j <= 96; j++) {
 ;            A[j][i] = A[j][i+n] + 1; 
 ;
-; RUN: opt -loop-simplify -hir-ssa-deconstruction  -HIRLoopInterchange < %s 2>&1 | FileCheck %s
+; RUN: opt -O2  -loopopt -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 2 1 )  
 ; 

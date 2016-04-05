@@ -200,6 +200,20 @@ public:
   std::vector<DDEdge>::const_iterator outgoing_edges_end(DDRef *Ref) {
     return G->outgoing_edges_end(Ref);
   }
+  /// \brief single edge going out of this DDRef
+  bool singleEdgeGoingOut(const DDRef *LRef) {
+
+    unsigned NumEdge = 0;
+    DDRef *Ref = const_cast<DDRef *>(LRef);
+
+    for (auto I1 = outgoing_edges_begin(Ref), E1 = outgoing_edges_end(Ref);
+         I1 != E1; ++I1) {
+      if (NumEdge++ > 1) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   void print(raw_ostream &OS) const { G->print(OS); }
   // todo visit all refs in CurNode, printing outgoing edges whose sink is

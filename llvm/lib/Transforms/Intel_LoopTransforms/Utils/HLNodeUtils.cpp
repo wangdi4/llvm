@@ -13,11 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-
-#include "llvm/Support/Debug.h"
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
+#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "hlnode-utils"
 using namespace llvm;
@@ -291,7 +290,7 @@ HLInst *HLNodeUtils::createFPExt(Type *DestTy, RegDDRef *RvalRef,
 HLInst *HLNodeUtils::createCastHLInst(Type *DestTy, unsigned Opcode,
                                       RegDDRef *Op, const Twine &Name,
                                       RegDDRef *LvalRef) {
-  switch(Opcode) {
+  switch (Opcode) {
   case Instruction::FPToSI:
     return createFPToSI(DestTy, Op, Name, LvalRef);
   case Instruction::FPToUI:
@@ -342,8 +341,8 @@ HLInst *HLNodeUtils::createAddrSpaceCast(Type *DestTy, RegDDRef *RvalRef,
 HLInst *HLNodeUtils::createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
                                             RegDDRef *OpRef2, const Twine &Name,
                                             RegDDRef *LvalRef,
-                                            bool HasNUWOrExact,
-                                            bool HasNSW, MDNode *FPMathTag) {
+                                            bool HasNUWOrExact, bool HasNSW,
+                                            MDNode *FPMathTag) {
   Value *InstVal;
   Instruction *Inst;
   HLInst *HInst;
@@ -512,9 +511,9 @@ HLInst *HLNodeUtils::CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
 
   auto OneVal = UndefValue::get(OpRef1->getDestType());
 
-  Value *InstVal = DummyIRBuilder->CreateShuffleVector(OneVal, OneVal, Mask,
-                                                       Name);
-  Instruction  *Inst = cast<Instruction>(InstVal);
+  Value *InstVal =
+      DummyIRBuilder->CreateShuffleVector(OneVal, OneVal, Mask, Name);
+  Instruction *Inst = cast<Instruction>(InstVal);
 
   assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
          "Incompatible type of LvalRef");
@@ -527,18 +526,17 @@ HLInst *HLNodeUtils::CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
   RegDDRef *MaskVecDDRef;
   if (isa<ConstantAggregateZero>(MaskVecValue))
     MaskVecDDRef =
-      DDRefUtils::createConstDDRef(cast<ConstantAggregateZero>(MaskVecValue));
+        DDRefUtils::createConstDDRef(cast<ConstantAggregateZero>(MaskVecValue));
   else if (isa<ConstantDataVector>(MaskVecValue))
     MaskVecDDRef =
-      DDRefUtils::createConstDDRef(cast<ConstantDataVector>(MaskVecValue));
+        DDRefUtils::createConstDDRef(cast<ConstantDataVector>(MaskVecValue));
   else
     llvm_unreachable("Unexpected Mask vector type");
   HInst->setOperandDDRef(MaskVecDDRef, 3);
   return HInst;
 }
 
-HLInst *HLNodeUtils::CreateExtractElementInst(RegDDRef *OpRef, 
-                                              unsigned Idx,
+HLInst *HLNodeUtils::CreateExtractElementInst(RegDDRef *OpRef, unsigned Idx,
                                               const Twine &Name,
                                               RegDDRef *LvalRef) {
 
@@ -547,7 +545,7 @@ HLInst *HLNodeUtils::CreateExtractElementInst(RegDDRef *OpRef,
 
   auto OneVal = UndefValue::get(OpRef->getDestType());
   Value *InstVal = DummyIRBuilder->CreateExtractElement(OneVal, Idx, Name);
-  Instruction  *Inst = cast<Instruction>(InstVal);
+  Instruction *Inst = cast<Instruction>(InstVal);
   assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
          "Incompatible type of LvalRef");
 
@@ -556,7 +554,7 @@ HLInst *HLNodeUtils::CreateExtractElementInst(RegDDRef *OpRef,
   HInst->setOperandDDRef(OpRef, 1);
 
   RegDDRef *IdxDDref =
-    DDRefUtils::createConstDDRef(Inst->getOperand(1)->getType(), Idx);
+      DDRefUtils::createConstDDRef(Inst->getOperand(1)->getType(), Idx);
   HInst->setOperandDDRef(IdxDDref, 2);
 
   return HInst;
@@ -568,11 +566,11 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
                                         const BinaryOperator *OrigBinOp) {
   HLInst *HInst;
 
-  HInst = createBinaryHLInstImpl(OpCode, OpRef1, OpRef2, Name,
-                                 LvalRef, false, false, nullptr);
+  HInst = createBinaryHLInstImpl(OpCode, OpRef1, OpRef2, Name, LvalRef, false,
+                                 false, nullptr);
   if (OrigBinOp) {
-    auto NewBinOp = cast<BinaryOperator>(const_cast<Instruction *>
-                                         (HInst->getLLVMInstruction()));
+    auto NewBinOp = cast<BinaryOperator>(
+        const_cast<Instruction *>(HInst->getLLVMInstruction()));
     NewBinOp->copyIRFlags(OrigBinOp);
   }
 
@@ -710,8 +708,7 @@ HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
 
   if (LvalRef) {
     auto LType = LvalRef->getDestType()->getScalarType();
-    assert((LType->isIntegerTy() &&
-            (LType->getIntegerBitWidth() == 1)) &&
+    assert((LType->isIntegerTy() && (LType->getIntegerBitWidth() == 1)) &&
            "LvalRef has invalid type!");
   }
 
@@ -765,32 +762,30 @@ HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
 }
 
 HLInst *HLNodeUtils::createCall(Function *Func,
-                                const SmallVectorImpl<RegDDRef*> &CallArgs,
+                                const SmallVectorImpl<RegDDRef *> &CallArgs,
                                 const Twine &Name, RegDDRef *LvalRef) {
   bool HasReturn = !Func->getReturnType()->isVoidTy();
   unsigned NumArgs = CallArgs.size();
   HLInst *HInst;
   SmallVector<Value *, 8> Args;
-  const Twine NewName(HasReturn ? Name.isTriviallyEmpty() ? "dummy"
-                                                          : Name
+  const Twine NewName(HasReturn ? Name.isTriviallyEmpty() ? "dummy" : Name
                                 : "");
 
-  for (unsigned I=0; I<NumArgs; I++) {
+  for (unsigned I = 0; I < NumArgs; I++) {
     MetadataAsValue *Val = nullptr;
     Args.push_back(CallArgs[I]->isMetadata(&Val)
-                     ? cast<Value>(Val)
-                     : UndefValue::get(CallArgs[I]->getDestType()));
+                       ? cast<Value>(Val)
+                       : UndefValue::get(CallArgs[I]->getDestType()));
   }
   auto InstVal = DummyIRBuilder->CreateCall(Func, Args, NewName);
   if (HasReturn) {
     //    HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
     HInst = createLvalHLInst(InstVal, LvalRef);
-  }
-  else {
+  } else {
     HInst = createNonLvalHLInst(InstVal);
   }
 
-  for (unsigned I=0; I<NumArgs; I++) {
+  for (unsigned I = 0; I < NumArgs; I++) {
     HInst->setOperandDDRef(CallArgs[I], I);
   }
   return HInst;
@@ -973,7 +968,7 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
                              HLContainerTy::iterator Last, bool UpdateSeparator,
                              bool PostExitSeparator, int CaseNum) {
 
-  // 'First' can be invalid if this function is called using empty 
+  // 'First' can be invalid if this function is called using empty
   // OrigContainer's begin(). We should bail out early in this case otherwise
   // 'First' may be dereferenced incorrectly.
   // NOTE: We cannot compare First and Last here as insertBefore()/insertAfter()
@@ -1290,7 +1285,7 @@ void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
 
   // Empty range should be handled before we decide to dereference 'First' as it
   // might be invalid.
-  if (First == Last) { 
+  if (First == Last) {
     return;
   }
 
@@ -2602,23 +2597,108 @@ bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
   return false;
 }
 
+///  Check if Loop has perfect/near-perfect loop properties
+///  Set InnermostLoop in *Lp
+///
+bool HLNodeUtils::hasPerfectLoopProperties(const HLNode *Node,
+                                           const HLLoop **Lp,
+                                           bool AllowNearPerfect,
+                                           bool *IsNearPerfectLoop) {
+  unsigned NumLoop = 0;
+
+  *Lp = dyn_cast<HLLoop>(Node);
+  const HLLoop *Loop = *Lp;
+
+  if (!Loop) {
+    // Caller will handle further
+    return true;
+  }
+  unsigned NumChild = Loop->getNumChildren();
+
+  if (Loop->isInnermost() || NumChild == 1) {
+    // Caller will handle further
+    return true;
+  }
+  if ((!AllowNearPerfect && NumChild > 1) || NumChild > 7) {
+    // For known benchmarks and compile time consideration,
+    // just process up to 6 now
+    return false;
+  }
+
+  // Code below handles non-perfect loops
+  const HLLoop *InnermostLoop = nullptr;
+  // More than 1 innermost loop is not allowed
+
+  for (auto I = Loop->child_begin(), E = Loop->child_end(); I != E; ++I) {
+    const HLLoop *Lp2 = dyn_cast<HLLoop>(I);
+    if (Lp2) {
+      if (++NumLoop > 1) {
+        return false;
+      }
+      InnermostLoop = Lp2;
+    }
+  }
+
+  // Loop enclosed inside if or not innermost loop
+  if (!InnermostLoop || !InnermostLoop->isInnermost()) {
+    return false;
+  }
+
+  *Lp = InnermostLoop;
+  if (IsNearPerfectLoop) {
+    *IsNearPerfectLoop = true;
+  }
+
+  return true;
+}
+
 ///  Check if Loop has perfect loop nests
 ///  Default to allow pre and post header is false
 ///  Default to allow Triangular loop is false with  exceptions
-///  made for first iteration
+///  made for first iteration.
+///  Default for AllowNearPerfect is false
+///  If AllowNearPerfect is true, this function will return true for
+///     near-perfect loop of this form:
+///     (stmts found  before or after the innermost loop)
+///
+///     do i1
+///       do i3
+///         do i3
+///           s1
+///           do i4
+///           end do
+///           s2
+///
+///     s1, s2 are siblings of the innermost loop.
+///     This form may further be transformed to perfect loopnest.
+///     Will not make it too general because of compile time considerations
+///     In addition, if this bool is on, it will indicate if Near Perfect Lp is
+///     found
+///  endif
 ///  Does not consider innermost loops as perfect loops
-bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
-                                    const HLLoop **InnermostLoop,
-                                    bool AllowPrePostHdr,
-                                    bool AllowTriangularLoop) {
+///
+///
+bool HLNodeUtils::isPerfectLoopNest(
+    const HLLoop *Loop, const HLLoop **InnermostLoop, bool AllowPrePostHdr,
+    bool AllowTriangularLoop, bool AllowNearPerfect, bool *IsNearPerfectLoop) {
+
   bool FirstIter = true;
   *InnermostLoop = nullptr;
+  if (IsNearPerfectLoop) {
+    *IsNearPerfectLoop = false;
+  }
 
   assert(Loop && "Loop must not be nullptr");
 
-  for (const HLLoop *Lp = Loop; Lp != nullptr;
-       Lp = dyn_cast<HLLoop>(Lp->getFirstChild())) {
-    const CanonExpr *UpperBound;
+  const HLLoop *Lp;
+  const HLNode *Node = Loop;
+
+  while (Node) {
+    if (!hasPerfectLoopProperties(Node, &Lp, AllowNearPerfect,
+                                  IsNearPerfectLoop)) {
+      return false;
+    }
+
     if (!Lp || !Lp->isDo()) {
       break;
     }
@@ -2627,13 +2707,11 @@ bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
       break;
     }
 
-    UpperBound = Lp->getUpperCanonExpr();
-
+    const CanonExpr *UpperBound = Lp->getUpperCanonExpr();
     if (!AllowTriangularLoop && !FirstIter && UpperBound->hasIV()) {
       //  okay for outermost loop UB to have iv
       break;
     }
-
     if (Lp->isInnermost()) {
       if (FirstIter) {
         return false;
@@ -2642,14 +2720,86 @@ bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
       return true;
     }
 
-    if (Lp->getNumChildren() != 1) {
-      break;
-    }
-
     FirstIter = false;
+    Node = Lp->getFirstChild();
   }
 
   return false;
+}
+
+class NonUnitStrideMemRefs final : public HLNodeVisitorBase {
+private:
+  unsigned NumNonLinearLRefs;
+  unsigned LoopLevel;
+
+public:
+  bool HasNonUnitStride;
+  NonUnitStrideMemRefs(const HLLoop *Loop)
+      : NumNonLinearLRefs(0), LoopLevel(Loop->getNestingLevel()),
+        HasNonUnitStride(false) {}
+  void visit(const HLNode *Node) {}
+  void visit(const HLDDNode *Node);
+  void postVisit(const HLNode *Node) {}
+  void postVisit(const HLDDNode *Node) {}
+  bool isDone() const override { return (NumNonLinearLRefs > 0); }
+};
+
+///  Make a quick pass here to save compile time:
+///  If all memory references are in unit stride, there is no need to
+///  proceed further
+void NonUnitStrideMemRefs::visit(const HLDDNode *Node) {
+
+  for (auto I = Node->ddref_begin(), E1 = Node->ddref_end(); I != E1; ++I) {
+    if ((*I)->isTerminalRef()) {
+      continue;
+    }
+
+    RegDDRef *RegDDRef = *I;
+    const CanonExpr *FirstCE = nullptr;
+    bool NonLinearLval = RegDDRef->isLval() && !RegDDRef->isTerminalRef();
+
+    for (auto Iter = RegDDRef->canon_begin(), E2 = RegDDRef->canon_end();
+         Iter != E2; ++Iter) {
+      const CanonExpr *CE = *Iter;
+      // Give up on Non-linear memref because it prevents Linear Trans
+      if (NonLinearLval && CE->isNonLinear()) {
+        NumNonLinearLRefs++;
+        return;
+      }
+      if (!FirstCE) {
+        FirstCE = CE;
+      }
+    }
+    assert(FirstCE && "Not expecting First CE to be null");
+    if (!FirstCE->hasIV()) {
+      continue;
+    }
+
+    for (auto CurIVPair = FirstCE->iv_begin(), E3 = FirstCE->iv_end();
+         CurIVPair != E3; ++CurIVPair) {
+      if (FirstCE->getIVConstCoeff(CurIVPair) &&
+          FirstCE->getLevel(CurIVPair) != LoopLevel) {
+        // Note: var coeff will have non-zero coeff so checking for
+        // const coeff is sufficient.
+        // Continue to visit until hitting non-linear lval memref
+        HasNonUnitStride = true;
+      }
+    }
+  }
+}
+
+///   Any memref with non-unit stride?
+///   Will take innermost loop for now
+///   used mostly for blocking / interchange
+
+bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop) {
+
+  assert(Loop && "InnermostLoop must not be nullptr");
+  assert(Loop->isInnermost() && "Loop must be innermost Loop");
+
+  NonUnitStrideMemRefs NUS(Loop);
+  HLNodeUtils::visit(NUS, Loop);
+  return NUS.HasNonUnitStride;
 }
 
 ///  Move Ztt, Bounds DDRRef, OrigLoop, IvType
@@ -2662,7 +2812,7 @@ void HLNodeUtils::moveProperties(HLLoop *SrcLoop, HLLoop *DstLoop) {
     DstLoop->setZtt(SrcLoop->removeZtt());
   }
 
-  // setLower etc. requires input DDRef not be attached to anything
+  // setLower, etc. require input DDRef not be attached to anything
   DstLoop->setLowerDDRef(SrcLoop->removeLowerDDRef());
   DstLoop->setUpperDDRef(SrcLoop->removeUpperDDRef());
   DstLoop->setStrideDDRef(SrcLoop->removeStrideDDRef());
@@ -2670,7 +2820,7 @@ void HLNodeUtils::moveProperties(HLLoop *SrcLoop, HLLoop *DstLoop) {
 }
 
 /// Update Loop properties based on Input Permutations
-/// Used by Loop Interchange now. Might be useful for loop blocking later
+/// Used by Loop Interchange now. Will be useful for loop blocking later
 void HLNodeUtils::permuteLoopNests(
     HLLoop *Loop, SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation) {
 
@@ -2699,6 +2849,23 @@ void HLNodeUtils::permuteLoopNests(
     assert(DstLoop != SrcLoop && "Dst, Src loop cannot be equal");
     moveProperties(SrcLoop, DstLoop);
   }
+}
+
+/// t0 = a[i1];     LRef =
+///  ...
+/// t1  = t0        Node
+/// Looking for Node (assuming  forward sub is not done)
+HLInst *
+HLNodeUtils::findForwardSubInst(const DDRef *LRef,
+                                SmallVectorImpl<HLInst *> &ForwardSubInsts) {
+
+  for (auto &Inst : ForwardSubInsts) {
+    const RegDDRef *RRef = Inst->getRvalDDRef();
+    if (RRef->getSymbase() == LRef->getSymbase()) {
+      return Inst;
+    }
+  }
+  return nullptr;
 }
 
 const HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(const HLLoop *Lp1,

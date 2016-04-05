@@ -119,6 +119,20 @@ public:
 
   /// \brief Verifies DDRef integrity.
   virtual void verify() const;
+
+  /// \brief Returns true if DDRef temp is live out of Region
+  ///  Note: This is different from Live out of Loop
+  bool isLiveOutOfRegion() const {
+    return getHLDDNode()->isLiveOutOfRegion(Symbase);
+  }
+
+  /// \brief  Returns ParentLoop of DDRef
+  HLLoop *getParentLoop() {
+    HLDDNode *DDNode = getHLDDNode();
+    HLNode *HIR = dyn_cast<HLNode>(DDNode);
+    HLLoop *ParentLoop = HIR->getParentLoop();
+    return ParentLoop;
+  }
 };
 
 } // End loopopt namespace
