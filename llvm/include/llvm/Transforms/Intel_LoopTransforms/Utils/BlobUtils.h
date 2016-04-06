@@ -104,6 +104,9 @@ public:
   /// \brief Returns true if Blob is a temp.
   static bool isTempBlob(BlobTy Blob);
 
+  /// \brief Returns true if this is a nested blob(SCEV tree with > 1 node).
+  static bool isNestedBlob(BlobTy Blob);
+
   /// \brief Returns true if TempBlob always has a defined at level of zero.
   static bool isGuaranteedProperLinear(BlobTy TempBlob);
 

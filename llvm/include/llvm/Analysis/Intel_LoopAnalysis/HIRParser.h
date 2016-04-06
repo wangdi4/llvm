@@ -163,6 +163,9 @@ private:
   /// TempBlobCollector - Collects temp blobs within a blob.
   class TempBlobCollector;
 
+  /// NestedBlobChecker - Check to see if we have a nested blob
+  class NestedBlobChecker;
+
   /// BlobLevelSetter - Used to set blob levels in the canon expr.
   class BlobLevelSetter;
 
@@ -479,6 +482,9 @@ private:
 
   /// \brief Returns true if this is a temp blob.
   bool isTempBlob(BlobTy Blob) const;
+
+  /// \brief Returns true if this is a nested blob(SCEV tree with > 1 node).
+  bool isNestedBlob(BlobTy Blob) const;
 
   /// \brief Returns true if TempBlob always has a defined at level of zero.
   bool isGuaranteedProperLinear(BlobTy TempBlob) const;

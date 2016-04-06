@@ -248,8 +248,29 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 // Checks Canon Expr to see if we support it. Currently, we do not
 // support blob IV coefficients
 void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
-  if (CExpr->hasIVBlobCoeff(LoopLevel))
+  if (CExpr->hasIVBlobCoeff(LoopLevel)) {
     IsHandled = false;
+    return;
+  }
+  
+  SmallVector<unsigned, 8> BlobIndices;
+  CExpr->collectBlobIndices(BlobIndices, false);
+
+  // Workaround for now until we have a way to handle nested blobs
+  DEBUG(errs() << "Top blobs: \n");
+  for (auto &BI : BlobIndices) {
+    auto TopBlob = BlobUtils::getBlob(BI);
+
+    DEBUG(TopBlob->dump());
+
+    if (BlobUtils::isNestedBlob(TopBlob)) {
+      DEBUG(errs() << "Nested blob: ");
+      DEBUG(TopBlob->dump());
+
+      IsHandled = false;
+      return;
+    }
+  }
 }
 
 bool AVRCodeGenHIR::loopIsHandled() {
@@ -421,14 +442,19 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
   if (Ref->isTerminalRef()) {
     if (WidenMap.find(Ref->getSymbase()) != WidenMap.end()) {
       auto WInst = WidenMap[Ref->getSymbase()];
-      
+      // TODO - look into reusing instead of cloning (Pankaj's suggestion)
       WideRef = WInst->getLvalDDRef()->clone();
-      WideRef->getSingleCanonExpr()->setDestType(VecRefDestTy);
-      WideRef->getSingleCanonExpr()->setSrcType(VecRefSrcTy);
+
+      auto CE = WideRef->getSingleCanonExpr();
+      CE->setDestType(VecRefDestTy);
+      CE->setSrcType(VecRefSrcTy);
+      CE->setExtType(Ref->getSingleCanonExpr()->isSExt());
+
       return WideRef;
     }
   }
 
+  // TODO - look into reusing instead of cloning (Pankaj's suggestion)
   WideRef = Ref->clone();
 
   // Set VectorType on WideRef base pointer - BaseDestType is set to pointer
