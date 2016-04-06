@@ -372,7 +372,6 @@ void initializeVPOParoptPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
-void initializeIdentifyVectorCandidatesPass(PassRegistry&);
 void initializeVecClonePass(PassRegistry&);
 void initializeVPODriverPass(PassRegistry&);
 void initializeVPODriverHIRPass(PassRegistry&);

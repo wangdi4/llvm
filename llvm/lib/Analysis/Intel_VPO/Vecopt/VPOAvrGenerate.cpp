@@ -15,10 +15,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecCandIdentify.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -32,10 +32,10 @@ using namespace llvm::vpo;
 using namespace llvm::loopopt;
 
 INITIALIZE_PASS_BEGIN(AVRGenerate, "avr-generate", "AVR Generate", false, true)
-INITIALIZE_PASS_DEPENDENCY(IdentifyVectorCandidates)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WRegionInfo);
 INITIALIZE_PASS_END(AVRGenerate, "avr-generate", "AVR Generate", false, true)
 
 char AVRGenerate::ID = 0;
@@ -624,14 +624,15 @@ AVRGenerate::AVRGenerate() : AVRGenerateBase(ID) {
 
 void AVRGenerate::getAnalysisUsage(AnalysisUsage &AU) const {
   AVRGenerateBase::getAnalysisUsage(AU);
-  AU.addRequired<IdentifyVectorCandidates>();
+  AU.addRequired<WRegionInfo>();
 }
 
 bool AVRGenerate::runOnFunction(Function &F) {
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
+  DT  = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT = &getAnalysis<PostDominatorTree>();
-  VC = &getAnalysis<IdentifyVectorCandidates>();
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  LI  = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  WR  = &getAnalysis<WRegionInfo>();
 
   return AVRGenerateBase::runOnFunction(F);
 }
@@ -773,18 +774,76 @@ AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos) {
   return InsertionPos;
 }
 
-void AVRGenerate::buildAvrsForVectorCandidates() {
-  // Temporary implemtation uses vector of Vector Candidate objects to
-  // build AVRs.  Will move away from usage of this object and use
-  // visitor for WRN graph when available.
 
-  for (auto I = VC->begin(), E = VC->end(); I != E; ++I) {
+#if 0
+/// \brief This visitor class traverses the WRN graph and inserts
+/// AVRWRN nodes into the abstract layer for nested WRN nodes. 
+/// For vectorization, this WRN graph insertion will happen for:
+///
+/// #pragma simd
+/// for () {             WRN #1
+///   ...                 |
+///   #pragma simd        |
+///   for() {             | -> WRN #2
+///     ...
+///   }
+/// }
+///
+/// This nested WRN graph is produced when nested simd
+/// is specified or similarily for nested auto vectorization 
+/// pragmas emitted by par vec analysis.
+/// (This is currently disabled until support in front-end
+/// or parvec is enabled for nested pragmas)
+///
+class AvrWrnInsertVisitor {
+public:
+  /// AL - Abstract Layer to insert WRN nodes into.
+  AVRGenerateBase *AL; 
 
-    AvrWrn = AVRUtils::createAVRWrn((*I)->getWrnNode());
+  /// Visitor constructor
+  AvrWrnInsertVisitor(AVRGenerateBase *Layer) :AL(Layer) {}
 
-    preorderTravAvrBuild((*I)->getEntryBBlock(), AvrItr(AvrWrn));
-    AbstractLayer.push_back(AvrWrn);
+  bool quitVisit(WRegionNode* W) { return false; }
+  void preVisit(WRegionNode* W)  {} 
+  void postVisit(WRegionNode* W) { 
+    if (WRNVecLoopNode *WRN = dyn_cast<WRNVecLoopNode>(W)) {
+
+      // 1. Check if WRN is a child node of a top-level parent WRN.
+      // 2. Create a new AVRWrn node and insert into abstract layer.
+      // 3. Move the respective AVR nodes of this WRN loop nest 
+      //    into the children container of newly created WRN avr. 
+    }
   }
+
+};
+#endif
+
+void AVRGenerate::buildAvrsForVectorCandidates() {
+
+  // Traverse the top level WRN nodes and recursively build avrs for
+  // each of the loop nests these top level nodes represent. If there
+  // exist WRN nodes which have children WRN nodes, these will be 
+  // added to the Abstract Layer after the preorder build is completed.
+  for (auto Itr = WR->begin(), End = WR->end(); Itr != End; ++Itr) {
+
+    if (WRNVecLoopNode *WRNVecNode = dyn_cast<WRNVecLoopNode>(Itr)) {
+
+      AvrWrn = AVRUtils::createAVRWrn(WRNVecNode);
+      preorderTravAvrBuild(WRNVecNode->getEntryBBlock(), AvrItr(AvrWrn));
+      AbstractLayer.push_back(AvrWrn);
+
+    }
+  }
+
+  // Traverse the WRN graph, and update the Abstract Layer with any
+  // children (nested) WRN nodes which are present.
+  // (Need front-end support for nested simd and parvec support
+  // for nested autovect pragma) 
+#if 0
+  AvrWrnInsertVisitor WrnChildInsertion(this);
+  WRegionUtils::forwardVisit(WrnChildInsertion, WR->getWRGraph());
+#endif
+
 }
 
 AvrItr AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB,

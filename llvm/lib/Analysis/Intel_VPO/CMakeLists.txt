@@ -39,10 +39,6 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   Vecopt/VPOAvrUtils.cpp
   Vecopt/VPOAvrUtilsIR.cpp
   Vecopt/VPOAvrUtilsHIR.cpp
-
-  # These two files are to be deleted.
-  Vecopt/VPOVecCandIdentify.cpp
-  Vecopt/VPOVectorCandidate.cpp
 )
 
 add_dependencies(LLVMIntel_VPOAnalysis intrinsics_gen)

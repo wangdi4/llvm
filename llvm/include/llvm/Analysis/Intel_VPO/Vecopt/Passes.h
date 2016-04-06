@@ -27,10 +27,6 @@ FunctionPass *createAVRGeneratePass();
 /// createAVRGeneratePass - This creates a pass that generates AVRs needed
 /// for vectorization from HIR.
 FunctionPass *createAVRGenerateHIRPass();
-
-/// createIdentifyVectCandidatesPass - This creates a pass that idenitifies
-/// candidate loops for vectorization.
-FunctionPass *createIdentifyVectorCandidatesPass();
 }
 
 #endif // LLVM_ANALYSIS_VPO_PASSES_H

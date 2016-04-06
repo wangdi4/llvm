@@ -52,6 +52,7 @@ enum NodeChange { Removal, Insertion, Modification };
 
 // Forward Declarations
 class ALChange;
+class WRegionInfo;
 class IdentifyVectorCandidates;
 class CandidateIf;
 
@@ -252,6 +253,9 @@ private:
 
   /// LI - Loop Info for this function.
   const LoopInfo *LI;
+
+  /// WR - WorkRegionInfo Pass
+  WRegionInfo *WR;
 
   /// \brief Sets the Loop Info for this function.
   void setLoopInfo(const LoopInfo *LpIn) { LI = LpIn; }

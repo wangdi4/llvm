@@ -243,7 +243,6 @@ namespace {
       (void) llvm::createWRegionInfoPass();
 
       // VPO Vectorizer Passes
-      (void) llvm::createIdentifyVectorCandidatesPass();
       (void) llvm::createAVRGeneratePass();
       (void) llvm::createAVRGenerateHIRPass();
       (void) llvm::createVPODriverPass();
