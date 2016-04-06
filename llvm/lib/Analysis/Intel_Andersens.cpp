@@ -2384,14 +2384,16 @@ void AndersensAAResult::HUValNum(unsigned NodeIndex) {
 
   // Eliminate dereferences of non-pointers for those non-pointers we have
   // already identified.  These are ref nodes whose non-ref node:
-  // 1. Has already been visited determined to point to nothing (and thus, a
-  // dereference of it must point to nothing)
+  // 1. Direct node (CQ408486) has already been visited and determined
+  // to point to nothing (and thus, a  dereference of it must 
+  // point to nothing)
   // 2. Any direct node with no predecessor edges in our graph and with no
   // points-to set (since it can't point to anything either, being that it
   // receives no points-to sets and has none).
   if (NodeIndex >= FirstRefNode) {
     unsigned j = VSSCCRep[FindNode(NodeIndex - FirstRefNode)];
-    if ((Node2Visited[j] && !GraphNodes[j].PointerEquivLabel)
+    if ((GraphNodes[j].Direct && Node2Visited[j]
+         && !GraphNodes[j].PointerEquivLabel)
         || (GraphNodes[j].Direct && !GraphNodes[j].PredEdges
             && GraphNodes[j].PointsTo->empty())){
       return;
