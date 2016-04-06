@@ -181,9 +181,9 @@ static unsigned getTypeAttribute(const DIDerivedType *llvmType,
   unsigned attribute = 0;
 
   if (llvmType->isProtected())
-    attribute = attribute | STI_ACCESS_PRIVATE;
-  else if (llvmType->isPrivate())
     attribute = attribute | STI_ACCESS_PROTECT;
+  else if (llvmType->isPrivate())
+    attribute = attribute | STI_ACCESS_PRIVATE;
   else if (llvmType->isPublic())
     attribute = attribute | STI_ACCESS_PUBLIC;
   // Otherwise C++ member and base classes are considered public.
@@ -2242,6 +2242,44 @@ void STIDebugImpl::collectMemberInfo(ClassInfo &info,
   //(void)lowerType(Ty);
 }
 
+//===----------------------------------------------------------------------===//
+// stripScopesFromName(name)
+//
+// Subprogram names used to contain only the name, now they are fully
+// qualified.  We need to strip off the qualification to get the bare name.
+//
+// FIXME: The names should be fixed in CLANG and then this can be removed.
+//
+//===----------------------------------------------------------------------===//
+
+static StringRef stripScopesFromName(StringRef name) {
+  StringRef::size_type pos;
+  unsigned int         template_level;
+
+  if (name.empty())
+    return name;
+  
+  for (pos = name.size() - 1, template_level = 0; pos > 1; --pos) {
+    switch (name[pos]) {
+    case '>':
+      template_level++;
+      break;
+    case '<':
+      if (template_level > 0)
+        template_level--;
+      break;
+    case ':':
+      if (template_level == 0 && name[pos - 1] == ':')
+        return name.substr(pos + 1);
+      break;
+    default:
+      break;
+    }
+  }
+
+  return name;
+}
+
 ClassInfo &STIDebugImpl::collectClassInfo(const DICompositeType *llvmType) {
   auto *CIM = getClassInfoMap();
   auto itr = CIM->find(llvmType);
@@ -2266,7 +2304,7 @@ ClassInfo &STIDebugImpl::collectClassInfo(const DICompositeType *llvmType) {
     if (const DISubprogram *subprogram = dyn_cast<DISubprogram>(Element)) {
       // FIXME: implement this case
       // getOrCreateSubprogramDIE(Element);
-      StringRef methodName = subprogram->getName();
+      StringRef methodName = stripScopesFromName(subprogram->getName());
       info.methods[methodName].push_back(
           std::make_pair(subprogram, true /*introduced*/));
 
@@ -4180,8 +4218,13 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
 
   STISymbolFrameProc *frame = STISymbolFrameProc::create();
 
-  std::string name =
-          getScopeFullName(resolve(SP->getScope()), SP->getName(), true);
+  // The subprogram name is now encoded as a fully qualified name, but it
+  // isn't formatted the way we like (spaces are missing between template
+  // parameters).  So strip the scopes off the name, rebuild them, and
+  // then truncate to the maximum allowable size.
+  //
+  std::string name = stripScopesFromName(SP->getName()).str();
+  name = getScopeFullName(resolve(SP->getScope()), name, true);
   truncateName(name);
 
   STISymbolProcedure *procedure;
