@@ -90,11 +90,16 @@ class HIRVLSClientMemref : public OVLSMemref {
 public:
   /// Base class is initialized with NumElements=0
   HIRVLSClientMemref(RegDDRef *Ref, VectVLSContext *Cntxt)
-      : OVLSMemref(CanonExprUtils::getTypeSizeInBits(Ref->getSrcType()), 0,
-                   OVLSAccessType::getUnknownTy()),
+    : OVLSMemref(VLSK_HIRVLSClientMemref,
+                 CanonExprUtils::getTypeSizeInBits(Ref->getSrcType()), 0,
+                 OVLSAccessType::getUnknownTy()),
         Ref(Ref), VectContext(Cntxt), Stride(nullptr), ConstStride(0) {}
 
   ~HIRVLSClientMemref(){};
+
+  static bool classof(const OVLSMemref *Mrf) {
+    return Mrf->getKind() == VLSK_HIRVLSClientMemref;
+  }
 
   const RegDDRef *getRef() const { return Ref; }
 
@@ -124,8 +129,7 @@ public:
   /// This time it is a constant, and therefore 5*ElemSize and true
   /// will be returned by getConstStride and hasConstStride, respectively.
   /// @{
-  // FIXME: Change to int64_t
-  int getConstStride() const { return (int)ConstStride; }
+  int64_t getConstStride() const { return ConstStride; }
   bool hasConstStride() const { return (ConstStride != 0); }
   /// @}
 
@@ -140,8 +144,7 @@ public:
   /// the same type (client type). Normally no usage scenario will mix \p Mrfs
   /// from two different clients. This is why this method has to accept the
   /// base type pointer, but always expects to get an HIRVLSClientMemref.
-  // FIXME: Add RTTI mechanism to Intel_OptVLS.h.
-  bool isAConstDistanceFrom(const OVLSMemref &Mrf, int *Distance) {
+  bool isAConstDistanceFrom(const OVLSMemref &Mrf, int64_t *Distance) {
     // FIXME: change to dynamic_cast or RTTI
     const HIRVLSClientMemref *CLMrf = (const HIRVLSClientMemref *)(&Mrf);
     assert(CLMrf != NULL);
@@ -192,6 +195,12 @@ public:
     assert(Ref2);
     assert(CLMrf->sameVectContext(VectContext));
     return canAccessWith(Ref, Ref2, VectContext);
+  }
+
+  // FIXME: Support Stride
+  bool hasAConstStride(int64_t *Stride) {
+    // Temporary implementation
+    return false;
   }
 
   /// \brief Checks if \p Ref can be moved to the location of \p AtRef.
