@@ -6,7 +6,7 @@
 #include <vector>
 #include <memory>
 
-// Various methods of OclSocket throw OclSocketError in case of errors with the 
+// Various methods of OclSocket throw OclSocketError in case of errors with the
 // socket APIs (where the low-level OS APIs return error codes).
 //
 class OclSocketError : public std::runtime_error
@@ -19,16 +19,16 @@ public:
 
 
 // Low level TCP/IP socket class.
-// 
+//
 // For servers:
 // * create OclSocket -> bind -> listen -> accept()
 // * send/recv on new sockets returned by accept()
 //
 // For clients:
 // * create OclSocket -> connect() to server
-// * send/recv 
+// * send/recv
 //
-// Notes: 
+// Notes:
 // * All network operations are blocking.
 // * Only IPv4 addresses are supported
 //
@@ -40,7 +40,7 @@ public:
 
     // Server socket initialization
     //
-    void bind(unsigned short port);
+    void bind(char const* IPv4Addr, unsigned short port);
     void listen(int backlog = 5);
 
     // Close the socket manually.
@@ -51,7 +51,7 @@ public:
     // Accept a new connection on a listening socket. Return a pointer to a new
     // OclSocket, initialized and ready to communicate.
     // The caller should delete the new object when it's no longer needed.
-    // 
+    //
     OclSocket* accept();
 
     // Client socket initialization
@@ -65,7 +65,7 @@ public:
 
     // Receive data and return it. To set the amount of data you ask
     // to receive, call set_recv_buf_size(). The default amount is 1024 bytes.
-    // The actual amount received may be less than requested. 
+    // The actual amount received may be less than requested.
     // An empty vector is returned if the peer has shut down the connection.
     //
     std::vector<char> recv();
@@ -94,4 +94,3 @@ private:
 
 
 #endif // OCLSOCKET_H
-
