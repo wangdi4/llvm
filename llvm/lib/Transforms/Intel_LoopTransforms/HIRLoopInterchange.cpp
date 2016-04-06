@@ -551,7 +551,7 @@ bool HIRLoopInterchange::isLegalToShiftLoop(unsigned SrcLevel,
     DVType *WorkDV = II;
     // (1)
     for (unsigned KK = OutmostNestingLevel; KK < SmallerLevel; ++KK) {
-      if (WorkDV[KK - 1] & DV::LT) {
+      if (WorkDV[KK - 1] == DV::LT) {
         Ok = true;
         break;
       }
@@ -612,8 +612,8 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
   // We plan to avoid demand driven DD refining DV.
 
   HLLoop *Loop2 = const_cast<HLLoop *>(Loop);
-  DEBUG(dbgs() << "\n\tStart, End level\n" << OutmostNestingLevel << " "
-               << InnermostNestingLevel);
+  DEBUG(dbgs() << "\n\tStart, End level\n"
+               << OutmostNestingLevel << " " << InnermostNestingLevel);
   DDGraph DDG = DDA->getGraph(Loop2, false);
 
   //  Set refineDV as false for now (last argument) until we see kernels
