@@ -224,12 +224,15 @@ void BasicTTI::getUnrollingPreferences(const Function *F, Loop *L,
   // estimating the branch count. As a result, we'll ignore the branch limits
   // until someone finds a case where it matters in practice.
 
-  unsigned MaxOps;
+  unsigned MaxOps = 0;
   const TargetSubtargetInfo *ST = &TM->getSubtarget<TargetSubtargetInfo>(F);
   if (PartialUnrollingThreshold.getNumOccurrences() > 0)
     MaxOps = PartialUnrollingThreshold;
   else if (ST->getSchedModel().LoopMicroOpBufferSize > 0)
     MaxOps = ST->getSchedModel().LoopMicroOpBufferSize;
+  //LPU edit: set up runtime unroll threshold for LPU target to UINT32_MAX
+  else if (ST->getTargetTriple().substr(0, 3) == "lpu")
+	MaxOps = ((uint32_t)-1); 
   else
     return;
 
