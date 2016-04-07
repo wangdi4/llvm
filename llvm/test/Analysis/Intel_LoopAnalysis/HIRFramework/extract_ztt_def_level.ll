@@ -1,4 +1,6 @@
 ; Check that after ztt extraction the CE definition levels are fine. The HIR verifier would assert on this.
+; REQUIRES: asserts
+
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -hir-details 2>&1 | FileCheck %s 
 
 ; CHECK: BEGIN REGION { modified }
