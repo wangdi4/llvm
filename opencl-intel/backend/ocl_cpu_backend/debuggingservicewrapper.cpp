@@ -28,10 +28,13 @@ using namespace std;
 
 
 #if defined(_WIN32)
-// This change was added in order to support the 15.33 GFX driver
-// CPU runtime (version 3.0) installation with the new SDK
-// TODO - undo this when OclCpuDebugging.dll is added to the driver
-const char* DEBUGGER_DLL_NAME = "OclCpuDebugging2.dll";
+// Compatibility of OclCpuDebugging library with older revisions of OCL CPU RT libraries
+// could be broken at some point, e.g. due to LLVM upgrade. To overcome this issue it was
+// decided to versionize the debugging library and once its version is changed notify
+// SDK about the OCL RT version it is compatible with.
+// Actually it is unknown why the debugging library isn't delivered with the GEN driver.
+// This would solve the problem described above. For the reference see task CORC-1070.
+const char* DEBUGGER_DLL_NAME = "OclCpuDebugging3.dll";
 #else
 const char* DEBUGGER_DLL_NAME = "libOclCpuDebugging.so";
 #endif
