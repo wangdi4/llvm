@@ -622,13 +622,37 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
     GEPVal = Builder->CreateGEP(BaseV, IndexV, "arrayIdx");
   }
 
-  // Base CE could have different src and dest types in which case we need a
-  // bitcast. Can occur from llvm's canonicalization of store/load of float
-  // to int by bitcast. When GEPVal is a vector of pointers, we do not need
-  // a bitcast.
-  if (!GEPVal->getType()->isVectorTy() &&
-      (Ref->getBaseSrcType() != Ref->getBaseDestType())) {
-    GEPVal = Builder->CreateBitCast(GEPVal, Ref->getBaseDestType());
+  if (GEPVal->getType()->isVectorTy()) {
+    // When we have a vector of pointers and base src and dest types do not
+    // match, we need to bitcast from vector of pointers of src type to vector
+    // of pointers of dest type. Example case, Src type is int * and Dest type
+    // is <4 x float>*, we will have pointer vector <4 x int*>. This vector
+    // needs to be bitcast to <4 x float*> so that the gather/scatter
+    // loads/stores <4 x float>.
+    auto BaseDestTy = Ref->getBaseDestType();               // <4 x float>*
+    auto PtrBaseDestTy = cast<PointerType>(BaseDestTy);     // <4 x float>*
+    auto BaseDestElTy = PtrBaseDestTy->getElementType();    // <4 x float> 
+    auto BaseDestScTy = BaseDestElTy->getScalarType();      // float
+    auto BaseDestScPtrTy = PointerType::get(BaseDestScTy,   // float *
+                                            PtrBaseDestTy->getAddressSpace());
+    
+    if (Ref->getBaseSrcType() != BaseDestScPtrTy) {
+      auto VL = BaseDestElTy->getVectorNumElements();
+      
+      // We have a vector of pointers of BaseSrcType. We need to convert it to
+      // vector of pointers of BaseDestScType.
+      GEPVal = Builder->CreateBitCast(GEPVal,
+                                      VectorType::get(BaseDestScPtrTy, VL));
+    }
+  }
+  else {
+    // Base CE could have different src and dest types in which case we need a
+    // bitcast. Can occur from llvm's canonicalization of store/load of float
+    // to int by bitcast. Note that bitcast of  something like int * to
+    // <4 x int>* is also handled here.
+    if (Ref->getBaseSrcType() != Ref->getBaseDestType()) {
+      GEPVal = Builder->CreateBitCast(GEPVal, Ref->getBaseDestType());
+    }
   }
 
   if (Ref->isAddressOf()) {
