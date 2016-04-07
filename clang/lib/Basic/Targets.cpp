@@ -2587,7 +2587,7 @@ bool X86TargetInfo::initFeatureMap(
   if (getTriple().getArch() == llvm::Triple::x86_64)
     setFeatureEnabledImpl(Features, "sse2", true);
 
-  CPUKind Kind = getCPUKind(CPU);
+  const CPUKind Kind = getCPUKind(CPU);
 
   // Enable X87 for all X86 processors but Lakemont.
   if (Kind != CK_Lakemont)
