@@ -450,11 +450,39 @@ public:
   bool isDone() const { return false; }
 };
 
+class HIRParser::NestedBlobChecker {
+private:
+  const HIRParser &HIRP;
+  unsigned NumSubBlobs;
+
+public:
+  NestedBlobChecker(const HIRParser &HIRP)
+      : HIRP(HIRP), NumSubBlobs(0) {}
+
+  ~NestedBlobChecker() {}
+
+  bool follow(const SCEV *SC) {
+    NumSubBlobs++;
+    return !isDone();
+  }
+
+  bool isDone() const { return isNestedBlob(); }
+  bool isNestedBlob() const { return NumSubBlobs > 1; }
+};
+
 void HIRParser::collectTempBlobs(BlobTy Blob,
                                  SmallVectorImpl<BlobTy> &TempBlobs) const {
   TempBlobCollector TBC(*this, TempBlobs);
   SCEVTraversal<TempBlobCollector> Collector(TBC);
   Collector.visitAll(Blob);
+}
+
+bool HIRParser::isNestedBlob(BlobTy Blob) const {
+  NestedBlobChecker NBC(*this);
+  SCEVTraversal<NestedBlobChecker> Collector(NBC);
+  Collector.visitAll(Blob);
+  
+  return NBC.isNestedBlob();
 }
 
 unsigned HIRParser::getMaxScalarSymbase() const {
