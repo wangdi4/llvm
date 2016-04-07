@@ -84,7 +84,7 @@ static string get_last_socket_error()
 }
 
 
-enum OclSocketState 
+enum OclSocketState
 {
     OCLSOCKET_INVALID,
     OCLSOCKET_CREATED,
@@ -122,7 +122,7 @@ struct OclSocket::OSSocketDescriptor
 {
     OSSocketDescriptor(SOCKET_T sock_fd_)
         : sock_fd(sock_fd_)
-    {    
+    {
     }
 
     SOCKET_T sock_fd;
@@ -166,13 +166,21 @@ void OclSocket::close()
 }
 
 
-void OclSocket::bind(unsigned short port)
+void OclSocket::bind(char const* IPv4Addr, unsigned short port)
 {
     d->sock_addr.sin_family = AF_INET;
-    d->sock_addr.sin_addr.s_addr = INADDR_ANY;
     d->sock_addr.sin_port = htons(port);
-
-    if (::bind(d->sock, (struct sockaddr*) &d->sock_addr, sizeof(d->sock_addr)) != 0) 
+    // inet_addr function is available under NIX and Win OSes but has a flaw. It returns
+    // INADDR_NONE which is usually equals to -1 (255.255.255.255) which in turn
+    // means accept connections from all local interfaces for some historical reasons.
+    // Our implementation won't accespt INADDR_NONE as a valid address so 255.255.255.255
+    // cannot be used to bound to all local interfaces. INADDR_ANY is to be used for this.
+    d->sock_addr.sin_addr.s_addr = inet_addr(IPv4Addr);
+    if(d->sock_addr.sin_addr.s_addr == INADDR_NONE) {
+        d->system_error("unacceptable IPv4 address");
+        return;
+    }
+    if (::bind(d->sock, (struct sockaddr*) &d->sock_addr, sizeof(d->sock_addr)) != 0)
         d->system_error("failed bind()");
 }
 
@@ -277,7 +285,7 @@ void OclSocket::set_recv_buf_size(size_t bufsize)
 }
 
 
-// Takes care of the initialization and cleanup of the OS network module on 
+// Takes care of the initialization and cleanup of the OS network module on
 // Windows.
 //
 #ifdef _WIN32
