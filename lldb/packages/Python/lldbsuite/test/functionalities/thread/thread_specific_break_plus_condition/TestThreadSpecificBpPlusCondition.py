@@ -10,8 +10,9 @@ from __future__ import print_function
 import os, time
 import re
 import lldb
-import lldbsuite.test.lldbutil as lldbutil
+from lldbsuite.test.decorators import *
 from lldbsuite.test.lldbtest import *
+from lldbsuite.test import lldbutil
 
 class ThreadSpecificBreakPlusConditionTestCase(TestBase):
 
@@ -20,7 +21,6 @@ class ThreadSpecificBreakPlusConditionTestCase(TestBase):
     @skipIfFreeBSD # test frequently times out or hangs
     @expectedFailureFreeBSD('llvm.org/pr18522') # hits break in another thread in testrun
     @add_test_categories(['pyapi'])
-    @expectedFailureWindows # Thread specific breakpoints cause the inferior to crash.
     @expectedFlakeyLinux # this test fails 6/100 dosep runs
     def test_python(self):
         """Test that we obey thread conditioned breakpoints."""

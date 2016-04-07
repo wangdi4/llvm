@@ -14,26 +14,26 @@
 #include "lld/Core/LLVM.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace lld {
 namespace elf2 {
 
 extern class LinkerDriver *Driver;
 
-// Entry point of the ELF linker.
-void link(ArrayRef<const char *> Args);
+// Entry point of the ELF linker. Returns true on success.
+bool link(ArrayRef<const char *> Args, llvm::raw_ostream &Error = llvm::errs());
 
 class LinkerDriver {
 public:
   void main(ArrayRef<const char *> Args);
-  void createFiles(llvm::opt::InputArgList &Args);
-  template <class ELFT> void link(llvm::opt::InputArgList &Args);
-
   void addFile(StringRef Path);
+  void addLibrary(StringRef Name);
 
 private:
-  template <template <class> class T>
-  std::unique_ptr<InputFile> createELFInputFile(MemoryBufferRef MB);
+  void readConfigs(llvm::opt::InputArgList &Args);
+  void createFiles(llvm::opt::InputArgList &Args);
+  template <class ELFT> void link(llvm::opt::InputArgList &Args);
 
   llvm::BumpPtrAllocator Alloc;
   bool WholeArchive = false;

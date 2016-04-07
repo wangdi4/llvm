@@ -37,7 +37,7 @@ class MachineFunction;
 class MDNode;
 class SDDbgValue;
 class TargetLowering;
-class TargetSelectionDAGInfo;
+class SelectionDAGTargetInfo;
 
 class SDVTListNode : public FoldingSetNode {
   friend struct FoldingSetTrait<SDVTListNode>;
@@ -178,7 +178,7 @@ void checkForCycles(const SelectionDAG *DAG, bool force = false);
 ///
 class SelectionDAG {
   const TargetMachine &TM;
-  const TargetSelectionDAGInfo *TSI;
+  const SelectionDAGTargetInfo *TSI;
   const TargetLowering *TLI;
 
 #if INTEL_CUSTOMIZATION
@@ -296,7 +296,7 @@ public:
   const TargetMachine &getTarget() const { return TM; }
   const TargetSubtargetInfo &getSubtarget() const { return MF->getSubtarget(); }
   const TargetLowering &getTargetLoweringInfo() const { return *TLI; }
-  const TargetSelectionDAGInfo &getSelectionDAGInfo() const { return *TSI; }
+  const SelectionDAGTargetInfo &getSelectionDAGInfo() const { return *TSI; }
   LLVMContext *getContext() const {return Context; }
 
   /// Pop up a GraphViz/gv window with the DAG rendered using 'dot'.
@@ -881,7 +881,10 @@ public:
   SDValue getTruncStore(SDValue Chain, SDLoc dl, SDValue Val, SDValue Ptr,
                         EVT TVT, MachineMemOperand *MMO);
   SDValue getIndexedStore(SDValue OrigStoe, SDLoc dl, SDValue Base,
-                           SDValue Offset, ISD::MemIndexedMode AM);
+                          SDValue Offset, ISD::MemIndexedMode AM);
+
+  /// Returns sum of the base pointer and offset.
+  SDValue getMemBasePlusOffset(SDValue Base, unsigned Offset, SDLoc DL);
 
   SDValue getMaskedLoad(EVT VT, SDLoc dl, SDValue Chain, SDValue Ptr,
                         SDValue Mask, SDValue Src0, EVT MemVT,
@@ -1165,6 +1168,10 @@ public:
   /// either of the specified value types.
   SDValue CreateStackTemporary(EVT VT1, EVT VT2);
 
+  SDValue FoldSymbolOffset(unsigned Opcode, EVT VT,
+                           const GlobalAddressSDNode *GA,
+                           const SDNode *N2);
+
   SDValue FoldConstantArithmetic(unsigned Opcode, SDLoc DL, EVT VT,
                                  SDNode *Cst1, SDNode *Cst2);
 
@@ -1275,6 +1282,9 @@ public:
                              unsigned Start = 0, unsigned Count = 0);
 
   unsigned getEVTAlignment(EVT MemoryVT) const;
+
+  /// Test whether the given value is a constant int or similar node.
+  SDNode *isConstantIntBuildVectorOrConstantInt(SDValue N);
 
 private:
   void InsertNode(SDNode *N);

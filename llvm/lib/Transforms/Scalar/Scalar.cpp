@@ -56,6 +56,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopRerollPass(Registry);
   initializeLoopUnrollPass(Registry);
   initializeLoopUnswitchPass(Registry);
+  initializeLoopVersioningLICMPass(Registry);
   initializeLoopIdiomRecognizePass(Registry);
   initializeLowerAtomicPass(Registry);
   initializeLowerExpectIntrinsicPass(Registry);
@@ -86,6 +87,8 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeNonLTOGlobalOptPass(Registry); // INTEL
   initializeIndirectCallConvPass(Registry); // INTEL
   initializeLoopLoadEliminationPass(Registry);
+  initializeLoopSimplifyCFGPass(Registry);
+  initializeLoopVersioningPassPass(Registry);
 }
 
 void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
@@ -154,6 +157,10 @@ void LLVMAddLoopRotatePass(LLVMPassManagerRef PM) {
 
 void LLVMAddLoopRerollPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLoopRerollPass());
+}
+
+void LLVMAddLoopSimplifyCFGPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createLoopSimplifyCFGPass());
 }
 
 void LLVMAddLoopUnrollPass(LLVMPassManagerRef PM) {

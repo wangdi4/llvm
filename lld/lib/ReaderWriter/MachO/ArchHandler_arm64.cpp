@@ -120,6 +120,10 @@ public:
     return unwindInfoToEhFrame;
   }
 
+  Reference::KindValue pointerKind() override {
+    return pointer64;
+  }
+
   uint32_t dwarfCompactUnwindType() override {
     return 0x03000000;
   }
@@ -279,8 +283,13 @@ const ArchHandler::StubInfo ArchHandler_arm64::_sStubInfo = {
   { Reference::KindArch::AArch64, lazyImmediateLocation, 8, 0 },
   { Reference::KindArch::AArch64, branch26, 4, 0 },
 
+  // Stub helper image cache content type
+  DefinedAtom::typeGOT,
+
   // Stub Helper-Common size and code
   24,
+  // Stub helper alignment
+  2,
   { 0x11, 0x00, 0x00, 0x90,   //  ADRP  X17, dyld_ImageLoaderCache@page
     0x31, 0x02, 0x00, 0x91,   //  ADD   X17, X17, dyld_ImageLoaderCache@pageoff
     0xF0, 0x47, 0xBF, 0xA9,   //  STP   X16/X17, [SP, #-16]!
@@ -687,17 +696,28 @@ void ArchHandler_arm64::applyFixupRelocatable(const Reference &ref,
   case delta64:
     *loc64 = ref.addend() + inAtomAddress - fixupAddress;
     return;
+  case unwindFDEToFunction:
+    // We don't emit unwindFDEToFunction in -r mode as they are implicitly
+    // generated from the data in the __eh_frame section.  So here we need
+    // to use the targetAddress so that we can generate the full relocation
+    // when we parse again later.
+    *loc64 = targetAddress - fixupAddress;
+    return;
   case delta32:
     *loc32 = ref.addend() + inAtomAddress - fixupAddress;
     return;
   case negDelta32:
+    // We don't emit negDelta32 in -r mode as they are implicitly
+    // generated from the data in the __eh_frame section.  So here we need
+    // to use the targetAddress so that we can generate the full relocation
+    // when we parse again later.
     *loc32 = fixupAddress - targetAddress + ref.addend();
     return;
   case pointer64ToGOT:
     *loc64 = 0;
     return;
   case delta32ToGOT:
-    *loc32 = -fixupAddress;
+    *loc32 = inAtomAddress - fixupAddress;
     return;
   case addOffset12:
     llvm_unreachable("lazy reference kind implies GOT pass was run");
@@ -708,9 +728,6 @@ void ArchHandler_arm64::applyFixupRelocatable(const Reference &ref,
   case imageOffsetGot:
   case unwindInfoToEhFrame:
     llvm_unreachable("fixup implies __unwind_info");
-    return;
-  case unwindFDEToFunction:
-    // Do nothing for now
     return;
   case invalid:
     // Fall into llvm_unreachable().

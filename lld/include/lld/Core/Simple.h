@@ -29,7 +29,8 @@ namespace lld {
 
 class SimpleFile : public File {
 public:
-  SimpleFile(StringRef path) : File(path, kindObject) {}
+  SimpleFile(StringRef path, File::Kind kind)
+    : File(path, kind) {}
 
   void addAtom(const DefinedAtom &a) { _defined.push_back(&a); }
   void addAtom(const UndefinedAtom &a) { _undefined.push_back(&a); }
@@ -256,9 +257,10 @@ public:
     it = reinterpret_cast<const void*>(next);
   }
 
-  void addReference(Reference::KindNamespace ns, Reference::KindArch arch,
+  void addReference(Reference::KindNamespace ns,
+                    Reference::KindArch arch,
                     Reference::KindValue kindValue, uint64_t off,
-                    const Atom *target, Reference::Addend a) {
+                    const Atom *target, Reference::Addend a) override {
     assert(target && "trying to create reference to nothing");
     auto node = new (_file.allocator())
         SimpleReference(ns, arch, kindValue, off, target, a);

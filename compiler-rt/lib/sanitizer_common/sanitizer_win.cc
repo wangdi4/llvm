@@ -242,7 +242,7 @@ void DumpProcessMap() {
   for (size_t i = 0; i < num_modules; ++i) {
     module_infos[i].filepath = modules[i].full_name();
     module_infos[i].base_address = modules[i].base_address();
-    module_infos[i].end_address = modules[i].ranges().next()->end;
+    module_infos[i].end_address = modules[i].ranges().front()->end;
   }
   qsort(module_infos.data(), num_modules, sizeof(ModuleInfo),
         CompareModulesBase);
@@ -700,7 +700,7 @@ void InstallDeadlySignalHandlers(SignalHandlerType handler) {
   // FIXME: Decide what to do on Windows.
 }
 
-bool IsDeadlySignal(int signum) {
+bool IsHandledDeadlySignal(int signum) {
   // FIXME: Decide what to do on Windows.
   return false;
 }
@@ -731,8 +731,8 @@ bool IsAccessibleMemoryRange(uptr beg, uptr size) {
 }
 
 SignalContext SignalContext::Create(void *siginfo, void *context) {
-  EXCEPTION_RECORD *exception_record = (EXCEPTION_RECORD*)siginfo;
-  CONTEXT *context_record = (CONTEXT*)context;
+  EXCEPTION_RECORD *exception_record = (EXCEPTION_RECORD *)siginfo;
+  CONTEXT *context_record = (CONTEXT *)context;
 
   uptr pc = (uptr)exception_record->ExceptionAddress;
 #ifdef _WIN64
@@ -744,7 +744,10 @@ SignalContext SignalContext::Create(void *siginfo, void *context) {
 #endif
   uptr access_addr = exception_record->ExceptionInformation[1];
 
-  return SignalContext(context, access_addr, pc, sp, bp);
+  WriteFlag write_flag = SignalContext::UNKNOWN;  // FIXME: compute this.
+  bool is_memory_access = false;                  // FIXME: compute this.
+  return SignalContext(context, access_addr, pc, sp, bp, is_memory_access,
+                       write_flag);
 }
 
 uptr ReadBinaryName(/*out*/char *buf, uptr buf_len) {
@@ -769,6 +772,27 @@ void DisableReexec() {
 void MaybeReexec() {
   // No need to re-exec on Windows.
 }
+
+char **GetArgv() {
+  // FIXME: Actually implement this function.
+  return 0;
+}
+
+pid_t StartSubprocess(const char *program, const char *const argv[],
+                      fd_t stdin_fd, fd_t stdout_fd, fd_t stderr_fd) {
+  // FIXME: implement on this platform
+  // Should be implemented based on
+  // SymbolizerProcess::StarAtSymbolizerSubprocess
+  // from lib/sanitizer_common/sanitizer_symbolizer_win.cc.
+  return -1;
+}
+
+bool IsProcessRunning(pid_t pid) {
+  // FIXME: implement on this platform.
+  return false;
+}
+
+int WaitForProcess(pid_t pid) { return -1; }
 
 }  // namespace __sanitizer
 

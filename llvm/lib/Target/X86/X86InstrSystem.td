@@ -339,9 +339,11 @@ def POPGS64 : I<0xa9, RawFrm, (outs), (ins),
 
 
 def LDS16rm : I<0xc5, MRMSrcMem, (outs GR16:$dst), (ins opaque32mem:$src),
-                "lds{w}\t{$src, $dst|$dst, $src}", [], IIC_LXS>, OpSize16;
+                "lds{w}\t{$src, $dst|$dst, $src}", [], IIC_LXS>, OpSize16,
+                Requires<[Not64BitMode]>;
 def LDS32rm : I<0xc5, MRMSrcMem, (outs GR32:$dst), (ins opaque48mem:$src),
-                "lds{l}\t{$src, $dst|$dst, $src}", [], IIC_LXS>, OpSize32;
+                "lds{l}\t{$src, $dst|$dst, $src}", [], IIC_LXS>, OpSize32,
+                Requires<[Not64BitMode]>;
 
 def LSS16rm : I<0xb2, MRMSrcMem, (outs GR16:$dst), (ins opaque32mem:$src),
                 "lss{w}\t{$src, $dst|$dst, $src}", [], IIC_LXS>, TB, OpSize16;
@@ -351,9 +353,11 @@ def LSS64rm : RI<0xb2, MRMSrcMem, (outs GR64:$dst), (ins opaque80mem:$src),
                  "lss{q}\t{$src, $dst|$dst, $src}", [], IIC_LXS>, TB;
 
 def LES16rm : I<0xc4, MRMSrcMem, (outs GR16:$dst), (ins opaque32mem:$src),
-                "les{w}\t{$src, $dst|$dst, $src}", [], IIC_LXS>, OpSize16;
+                "les{w}\t{$src, $dst|$dst, $src}", [], IIC_LXS>, OpSize16,
+                Requires<[Not64BitMode]>;
 def LES32rm : I<0xc4, MRMSrcMem, (outs GR32:$dst), (ins opaque48mem:$src),
-                "les{l}\t{$src, $dst|$dst, $src}", [], IIC_LXS>, OpSize32;
+                "les{l}\t{$src, $dst|$dst, $src}", [], IIC_LXS>, OpSize32,
+                Requires<[Not64BitMode]>;
 
 def LFS16rm : I<0xb4, MRMSrcMem, (outs GR16:$dst), (ins opaque32mem:$src),
                 "lfs{w}\t{$src, $dst|$dst, $src}", [], IIC_LXS>, TB, OpSize16;
@@ -498,10 +502,10 @@ let Predicates = [HasXSAVE] in {
 let Predicates = [HasXSAVEOPT] in {
   def XSAVEOPT : I<0xAE, MRM6m, (outs), (ins opaque512mem:$dst),
                    "xsaveopt\t$dst",
-                   [(int_x86_xsaveopt addr:$dst, EDX, EAX)]>, TB;
+                   [(int_x86_xsaveopt addr:$dst, EDX, EAX)]>, PS;
   def XSAVEOPT64 : RI<0xAE, MRM6m, (outs), (ins opaque512mem:$dst),
                       "xsaveopt64\t$dst",
-                      [(int_x86_xsaveopt64 addr:$dst, EDX, EAX)]>, TB, Requires<[In64BitMode]>;
+                      [(int_x86_xsaveopt64 addr:$dst, EDX, EAX)]>, PS, Requires<[In64BitMode]>;
 }
 let Predicates = [HasXSAVEC] in {
   def XSAVEC : I<0xC7, MRM4m, (outs), (ins opaque512mem:$dst),

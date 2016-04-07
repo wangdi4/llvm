@@ -72,11 +72,16 @@ static cl::opt<bool, true> ClobberNonLiveOverride("rs4gc-clobber-non-live",
                                                   cl::location(ClobberNonLive),
                                                   cl::Hidden);
 
-static cl::opt<bool> UseDeoptBundles("rs4gc-use-deopt-bundles", cl::Hidden,
-                                     cl::init(false));
 static cl::opt<bool>
     AllowStatepointWithNoDeoptInfo("rs4gc-allow-statepoint-with-no-deopt-info",
                                    cl::Hidden, cl::init(true));
+
+/// Should we split vectors of pointers into their individual elements?  This
+/// is known to be buggy, but the alternate implementation isn't yet ready.
+/// This is purely to provide a debugging and dianostic hook until the vector
+/// split is replaced with vector relocations.
+static cl::opt<bool> UseVectorSplit("rs4gc-split-vector-values", cl::Hidden,
+                                    cl::init(false));
 
 namespace {
 struct RewriteStatepointsForGC : public ModulePass {
@@ -192,9 +197,8 @@ struct PartiallyConstructedSafepointRecord {
 }
 
 static ArrayRef<Use> GetDeoptBundleOperands(ImmutableCallSite CS) {
-  assert(UseDeoptBundles && "Should not be called otherwise!");
-
-  Optional<OperandBundleUse> DeoptBundle = CS.getOperandBundle("deopt");
+  Optional<OperandBundleUse> DeoptBundle =
+      CS.getOperandBundle(LLVMContext::OB_deopt);
 
   if (!DeoptBundle.hasValue()) {
     assert(AllowStatepointWithNoDeoptInfo &&
@@ -357,10 +361,6 @@ static BaseDefiningValueResult findBaseDefiningValue(Value *I);
 /// particular element in 'I'.  
 static BaseDefiningValueResult
 findBaseDefiningValueOfVector(Value *I) {
-  assert(I->getType()->isVectorTy() &&
-         cast<VectorType>(I->getType())->getElementType()->isPointerTy() &&
-         "Illegal to ask for the base pointer of a non-pointer type");
-
   // Each case parallels findBaseDefiningValue below, see that code for
   // detailed motivation.
 
@@ -368,26 +368,10 @@ findBaseDefiningValueOfVector(Value *I) {
     // An incoming argument to the function is a base pointer
     return BaseDefiningValueResult(I, true);
 
-  // We shouldn't see the address of a global as a vector value?
-  assert(!isa<GlobalVariable>(I) &&
-         "unexpected global variable found in base of vector");
-
-  // inlining could possibly introduce phi node that contains
-  // undef if callee has multiple returns
-  if (isa<UndefValue>(I))
-    // utterly meaningless, but useful for dealing with partially optimized
-    // code.
+  if (isa<Constant>(I))
+    // Constant vectors consist only of constant pointers.
     return BaseDefiningValueResult(I, true);
 
-  // Due to inheritance, this must be _after_ the global variable and undef
-  // checks
-  if (Constant *Con = dyn_cast<Constant>(I)) {
-    assert(!isa<GlobalVariable>(I) && !isa<UndefValue>(I) &&
-           "order of checks wrong!");
-    assert(Con->isNullValue() && "null is the only case which makes sense");
-    return BaseDefiningValueResult(Con, true);
-  }
-  
   if (isa<LoadInst>(I))
     return BaseDefiningValueResult(I, true);
 
@@ -417,11 +401,11 @@ findBaseDefiningValueOfVector(Value *I) {
 /// (i.e. a PHI or Select of two derived pointers), or c) involves a change
 /// from pointer to vector type or back.
 static BaseDefiningValueResult findBaseDefiningValue(Value *I) {
+  assert(I->getType()->isPtrOrPtrVectorTy() &&
+         "Illegal to ask for the base pointer of a non-pointer type");
+
   if (I->getType()->isVectorTy())
     return findBaseDefiningValueOfVector(I);
-  
-  assert(I->getType()->isPointerTy() &&
-         "Illegal to ask for the base pointer of a non-pointer type");
 
   if (isa<Argument>(I))
     // An incoming argument to the function is a base pointer
@@ -1310,24 +1294,40 @@ static void CreateGCRelocates(ArrayRef<Value *> LiveVariables,
     assert(Index < LiveVec.size() && "Bug in std::find?");
     return Index;
   };
-
-  // All gc_relocate are set to i8 addrspace(1)* type. We originally generated
-  // unique declarations for each pointer type, but this proved problematic
-  // because the intrinsic mangling code is incomplete and fragile.  Since
-  // we're moving towards a single unified pointer type anyways, we can just
-  // cast everything to an i8* of the right address space.  A bitcast is added
-  // later to convert gc_relocate to the actual value's type. 
   Module *M = StatepointToken->getModule();
-  auto AS = cast<PointerType>(LiveVariables[0]->getType())->getAddressSpace();
-  Type *Types[] = {Type::getInt8PtrTy(M->getContext(), AS)};
-  Value *GCRelocateDecl =
-    Intrinsic::getDeclaration(M, Intrinsic::experimental_gc_relocate, Types);
+  
+  // All gc_relocate are generated as i8 addrspace(1)* (or a vector type whose
+  // element type is i8 addrspace(1)*). We originally generated unique
+  // declarations for each pointer type, but this proved problematic because
+  // the intrinsic mangling code is incomplete and fragile.  Since we're moving
+  // towards a single unified pointer type anyways, we can just cast everything
+  // to an i8* of the right address space.  A bitcast is added later to convert
+  // gc_relocate to the actual value's type.  
+  auto getGCRelocateDecl = [&] (Type *Ty) {
+    assert(isHandledGCPointerType(Ty));
+    auto AS = Ty->getScalarType()->getPointerAddressSpace();
+    Type *NewTy = Type::getInt8PtrTy(M->getContext(), AS);
+    if (auto *VT = dyn_cast<VectorType>(Ty))
+      NewTy = VectorType::get(NewTy, VT->getNumElements());
+    return Intrinsic::getDeclaration(M, Intrinsic::experimental_gc_relocate,
+                                     {NewTy});
+  };
+
+  // Lazily populated map from input types to the canonicalized form mentioned
+  // in the comment above.  This should probably be cached somewhere more
+  // broadly.
+  DenseMap<Type*, Value*> TypeToDeclMap;
 
   for (unsigned i = 0; i < LiveVariables.size(); i++) {
     // Generate the gc.relocate call and save the result
     Value *BaseIdx =
       Builder.getInt32(LiveStart + FindIndex(LiveVariables, BasePtrs[i]));
     Value *LiveIdx = Builder.getInt32(LiveStart + i);
+
+    Type *Ty = LiveVariables[i]->getType();
+    if (!TypeToDeclMap.count(Ty))
+      TypeToDeclMap[Ty] = getGCRelocateDecl(Ty);
+    Value *GCRelocateDecl = TypeToDeclMap[Ty];
 
     // only specify a debug name if we can give a useful one
     CallInst *Reloc = Builder.CreateCall(
@@ -1377,8 +1377,6 @@ makeStatepointExplicitImpl(const CallSite CS, /* to replace */
                            PartiallyConstructedSafepointRecord &Result,
                            std::vector<DeferredReplacement> &Replacements) {
   assert(BasePtrs.size() == LiveVariables.size());
-  assert((UseDeoptBundles || isStatepoint(CS)) &&
-         "This method expects to be rewriting a statepoint");
 
   // Then go ahead and use the builder do actually do the inserts.  We insert
   // immediately before the previous instruction under the assumption that all
@@ -1392,44 +1390,26 @@ makeStatepointExplicitImpl(const CallSite CS, /* to replace */
   uint32_t NumPatchBytes = 0;
   uint32_t Flags = uint32_t(StatepointFlags::None);
 
-  ArrayRef<Use> CallArgs;
-  ArrayRef<Use> DeoptArgs;
+  ArrayRef<Use> CallArgs(CS.arg_begin(), CS.arg_end());
+  ArrayRef<Use> DeoptArgs = GetDeoptBundleOperands(CS);
   ArrayRef<Use> TransitionArgs;
-
-  Value *CallTarget = nullptr;
-
-  if (UseDeoptBundles) {
-    CallArgs = {CS.arg_begin(), CS.arg_end()};
-    DeoptArgs = GetDeoptBundleOperands(CS);
-    // TODO: we don't fill in TransitionArgs or Flags in this branch, but we
-    // could have an operand bundle for that too.
-    AttributeSet OriginalAttrs = CS.getAttributes();
-
-    Attribute AttrID = OriginalAttrs.getAttribute(AttributeSet::FunctionIndex,
-                                                  "statepoint-id");
-    if (AttrID.isStringAttribute())
-      AttrID.getValueAsString().getAsInteger(10, StatepointID);
-
-    Attribute AttrNumPatchBytes = OriginalAttrs.getAttribute(
-        AttributeSet::FunctionIndex, "statepoint-num-patch-bytes");
-    if (AttrNumPatchBytes.isStringAttribute())
-      AttrNumPatchBytes.getValueAsString().getAsInteger(10, NumPatchBytes);
-
-    CallTarget = CS.getCalledValue();
-  } else {
-    // This branch will be gone soon, and we will soon only support the
-    // UseDeoptBundles == true configuration.
-    Statepoint OldSP(CS);
-    StatepointID = OldSP.getID();
-    NumPatchBytes = OldSP.getNumPatchBytes();
-    Flags = OldSP.getFlags();
-
-    CallArgs = {OldSP.arg_begin(), OldSP.arg_end()};
-    DeoptArgs = {OldSP.vm_state_begin(), OldSP.vm_state_end()};
-    TransitionArgs = {OldSP.gc_transition_args_begin(),
-                      OldSP.gc_transition_args_end()};
-    CallTarget = OldSP.getCalledValue();
+  if (auto TransitionBundle =
+      CS.getOperandBundle(LLVMContext::OB_gc_transition)) {
+    Flags |= uint32_t(StatepointFlags::GCTransition);
+    TransitionArgs = TransitionBundle->Inputs;
   }
+
+  Value *CallTarget = CS.getCalledValue();
+  AttributeSet OriginalAttrs = CS.getAttributes();
+  Attribute AttrID = OriginalAttrs.getAttribute(AttributeSet::FunctionIndex,
+                                                "statepoint-id");
+  if (AttrID.isStringAttribute())
+    AttrID.getValueAsString().getAsInteger(10, StatepointID);
+
+  Attribute AttrNumPatchBytes = OriginalAttrs.getAttribute(
+    AttributeSet::FunctionIndex, "statepoint-num-patch-bytes");
+  if (AttrNumPatchBytes.isStringAttribute())
+    AttrNumPatchBytes.getValueAsString().getAsInteger(10, NumPatchBytes);
 
   // Create the statepoint given all the arguments
   Instruction *Token = nullptr;
@@ -1511,38 +1491,22 @@ makeStatepointExplicitImpl(const CallSite CS, /* to replace */
   }
   assert(Token && "Should be set in one of the above branches!");
 
-  if (UseDeoptBundles) {
-    Token->setName("statepoint_token");
-    if (!CS.getType()->isVoidTy() && !CS.getInstruction()->use_empty()) {
-      StringRef Name =
-          CS.getInstruction()->hasName() ? CS.getInstruction()->getName() : "";
-      CallInst *GCResult = Builder.CreateGCResult(Token, CS.getType(), Name);
-      GCResult->setAttributes(CS.getAttributes().getRetAttributes());
+  Token->setName("statepoint_token");
+  if (!CS.getType()->isVoidTy() && !CS.getInstruction()->use_empty()) {
+    StringRef Name =
+      CS.getInstruction()->hasName() ? CS.getInstruction()->getName() : "";
+    CallInst *GCResult = Builder.CreateGCResult(Token, CS.getType(), Name);
+    GCResult->setAttributes(CS.getAttributes().getRetAttributes());
 
-      // We cannot RAUW or delete CS.getInstruction() because it could be in the
-      // live set of some other safepoint, in which case that safepoint's
-      // PartiallyConstructedSafepointRecord will hold a raw pointer to this
-      // llvm::Instruction.  Instead, we defer the replacement and deletion to
-      // after the live sets have been made explicit in the IR, and we no longer
-      // have raw pointers to worry about.
-      Replacements.emplace_back(CS.getInstruction(), GCResult);
-    } else {
-      Replacements.emplace_back(CS.getInstruction(), nullptr);
-    }
+    // We cannot RAUW or delete CS.getInstruction() because it could be in the
+    // live set of some other safepoint, in which case that safepoint's
+    // PartiallyConstructedSafepointRecord will hold a raw pointer to this
+    // llvm::Instruction.  Instead, we defer the replacement and deletion to
+    // after the live sets have been made explicit in the IR, and we no longer
+    // have raw pointers to worry about.
+    Replacements.emplace_back(CS.getInstruction(), GCResult);
   } else {
-    assert(!CS.getInstruction()->hasNUsesOrMore(2) &&
-           "only valid use before rewrite is gc.result");
-    assert(!CS.getInstruction()->hasOneUse() ||
-           isGCResult(cast<Instruction>(*CS.getInstruction()->user_begin())));
-
-    // Take the name of the original statepoint token if there was one.
-    Token->takeName(CS.getInstruction());
-
-    // Update the gc.result of the original statepoint (if any) to use the newly
-    // inserted statepoint.  This is safe to do here since the token can't be
-    // considered a live reference.
-    CS.getInstruction()->replaceAllUsesWith(Token);
-    CS.getInstruction()->eraseFromParent();
+    Replacements.emplace_back(CS.getInstruction(), nullptr);
   }
 
   Result.StatepointToken = Token;
@@ -1552,33 +1516,29 @@ makeStatepointExplicitImpl(const CallSite CS, /* to replace */
   CreateGCRelocates(LiveVariables, LiveStartIdx, BasePtrs, Token, Builder);
 }
 
-namespace {
-struct NameOrdering {
-  Value *Base;
-  Value *Derived;
-
-  bool operator()(NameOrdering const &a, NameOrdering const &b) {
-    return -1 == a.Derived->getName().compare(b.Derived->getName());
-  }
-};
-}
-
 static void StabilizeOrder(SmallVectorImpl<Value *> &BaseVec,
                            SmallVectorImpl<Value *> &LiveVec) {
   assert(BaseVec.size() == LiveVec.size());
 
-  SmallVector<NameOrdering, 64> Temp;
-  for (size_t i = 0; i < BaseVec.size(); i++) {
-    NameOrdering v;
-    v.Base = BaseVec[i];
-    v.Derived = LiveVec[i];
-    Temp.push_back(v);
-  }
+  struct BaseDerivedPair {
+    Value *Base;
+    Value *Derived;
+  };
 
-  std::sort(Temp.begin(), Temp.end(), NameOrdering());
+  SmallVector<BaseDerivedPair, 64> NameOrdering;
+  NameOrdering.reserve(BaseVec.size());
+
+  for (size_t i = 0, e = BaseVec.size(); i < e; i++)
+    NameOrdering.push_back({BaseVec[i], LiveVec[i]});
+
+  std::sort(NameOrdering.begin(), NameOrdering.end(),
+            [](const BaseDerivedPair &L, const BaseDerivedPair &R) {
+              return L.Derived->getName() < R.Derived->getName();
+            });
+
   for (size_t i = 0; i < BaseVec.size(); i++) {
-    BaseVec[i] = Temp[i].Base;
-    LiveVec[i] = Temp[i].Derived;
+    BaseVec[i] = NameOrdering[i].Base;
+    LiveVec[i] = NameOrdering[i].Derived;
   }
 }
 
@@ -1631,7 +1591,7 @@ insertRelocationStores(iterator_range<Value::user_iterator> GCRelocs,
     if (!Relocate)
       continue;
 
-    Value *OriginalValue = const_cast<Value *>(Relocate->getDerivedPtr());
+    Value *OriginalValue = Relocate->getDerivedPtr();
     assert(AllocaMap.count(OriginalValue));
     Value *Alloca = AllocaMap[OriginalValue];
 
@@ -1657,11 +1617,10 @@ insertRelocationStores(iterator_range<Value::user_iterator> GCRelocs,
 
 // Helper function for the "relocationViaAlloca". Similar to the
 // "insertRelocationStores" but works for rematerialized values.
-static void
-insertRematerializationStores(
-  RematerializedValueMapTy RematerializedValues,
-  DenseMap<Value *, Value *> &AllocaMap,
-  DenseSet<Value *> &VisitedLiveValues) {
+static void insertRematerializationStores(
+    const RematerializedValueMapTy &RematerializedValues,
+    DenseMap<Value *, Value *> &AllocaMap,
+    DenseSet<Value *> &VisitedLiveValues) {
 
   for (auto RematerializedValuePair: RematerializedValues) {
     Instruction *RematerializedValue = RematerializedValuePair.first;
@@ -1774,8 +1733,7 @@ static void relocationViaAlloca(
 
       auto InsertClobbersAt = [&](Instruction *IP) {
         for (auto *AI : ToClobber) {
-          auto AIType = cast<PointerType>(AI->getType());
-          auto PT = cast<PointerType>(AIType->getElementType());
+          auto PT = cast<PointerType>(AI->getAllocatedType());
           Constant *CPN = ConstantPointerNull::get(PT);
           StoreInst *Store = new StoreInst(CPN, AI);
           Store->insertBefore(IP);
@@ -2106,7 +2064,7 @@ chainToBasePointerCost(SmallVectorImpl<Instruction*> &Chain,
 
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Instr)) {
       // Cost of the address calculation
-      Type *ValTy = GEP->getPointerOperandType()->getPointerElementType();
+      Type *ValTy = GEP->getSourceElementType();
       Cost += TTI.getAddressComputationCost(ValTy);
 
       // And cost of the GEP itself
@@ -2254,11 +2212,8 @@ static bool insertParsePoints(Function &F, DominatorTree &DT,
   Uniqued.insert(ToUpdate.begin(), ToUpdate.end());
   assert(Uniqued.size() == ToUpdate.size() && "no duplicates please!");
 
-  for (CallSite CS : ToUpdate) {
-    assert(CS.getInstruction()->getParent()->getParent() == &F);
-    assert((UseDeoptBundles || isStatepoint(CS)) &&
-           "expected to already be a deopt statepoint");
-  }
+  for (CallSite CS : ToUpdate)
+    assert(CS.getInstruction()->getFunction() == &F);
 #endif
 
   // When inserting gc.relocates for invokes, we need to be able to insert at
@@ -2284,12 +2239,7 @@ static bool insertParsePoints(Function &F, DominatorTree &DT,
   for (CallSite CS : ToUpdate) {
     SmallVector<Value *, 64> DeoptValues;
 
-    iterator_range<const Use *> DeoptStateRange =
-        UseDeoptBundles
-            ? iterator_range<const Use *>(GetDeoptBundleOperands(CS))
-            : iterator_range<const Use *>(Statepoint(CS).vm_state_args());
-
-    for (Value *Arg : DeoptStateRange) {
+    for (Value *Arg : GetDeoptBundleOperands(CS)) {
       assert(!isUnhandledGCPointerType(Arg->getType()) &&
              "support for FCA unimplemented");
       if (isHandledGCPointerType(Arg->getType()))
@@ -2380,15 +2330,19 @@ static bool insertParsePoints(Function &F, DominatorTree &DT,
 
   // Do a limited scalarization of any live at safepoint vector values which
   // contain pointers.  This enables this pass to run after vectorization at
-  // the cost of some possible performance loss.  TODO: it would be nice to
-  // natively support vectors all the way through the backend so we don't need
-  // to scalarize here.
-  for (size_t i = 0; i < Records.size(); i++) {
-    PartiallyConstructedSafepointRecord &Info = Records[i];
-    Instruction *Statepoint = ToUpdate[i].getInstruction();
-    splitVectorValues(cast<Instruction>(Statepoint), Info.LiveSet,
-                      Info.PointerToBase, DT);
-  }
+  // the cost of some possible performance loss.  Note: This is known to not
+  // handle updating of the side tables correctly which can lead to relocation
+  // bugs when the same vector is live at multiple statepoints.  We're in the
+  // process of implementing the alternate lowering - relocating the
+  // vector-of-pointers as first class item and updating the backend to
+  // understand that - but that's not yet complete.  
+  if (UseVectorSplit)
+    for (size_t i = 0; i < Records.size(); i++) {
+      PartiallyConstructedSafepointRecord &Info = Records[i];
+      Instruction *Statepoint = ToUpdate[i].getInstruction();
+      splitVectorValues(cast<Instruction>(Statepoint), Info.LiveSet,
+                        Info.PointerToBase, DT);
+    }
 
   // In order to reduce live set of statepoint we might choose to rematerialize
   // some values instead of relocating them. This is purely an optimization and
@@ -2467,7 +2421,8 @@ static bool insertParsePoints(Function &F, DominatorTree &DT,
 #ifndef NDEBUG
   // sanity check
   for (auto *Ptr : Live)
-    assert(isGCPointerType(Ptr->getType()) && "must be a gc pointer type");
+    assert(isHandledGCPointerType(Ptr->getType()) &&
+           "must be a gc pointer type");
 #endif
 
   relocationViaAlloca(F, DT, Live, Records);
@@ -2547,7 +2502,7 @@ void RewriteStatepointsForGC::stripNonValidAttributesFromBody(Function &F) {
 static bool shouldRewriteStatepointsIn(Function &F) {
   // TODO: This should check the GCStrategy
   if (F.hasGC()) {
-    const char *FunctionGCName = F.getGC();
+    const auto &FunctionGCName = F.getGC();
     const StringRef StatepointExampleName("statepoint-example");
     const StringRef CoreCLRName("coreclr");
     return (StatepointExampleName == FunctionGCName) ||
@@ -2584,13 +2539,9 @@ bool RewriteStatepointsForGC::runOnFunction(Function &F) {
       getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
 
   auto NeedsRewrite = [](Instruction &I) {
-    if (UseDeoptBundles) {
-      if (ImmutableCallSite CS = ImmutableCallSite(&I))
-        return !callsGCLeafFunction(CS);
-      return false;
-    }
-
-    return isStatepoint(I);
+    if (ImmutableCallSite CS = ImmutableCallSite(&I))
+      return !callsGCLeafFunction(CS);
+    return false;
   };
 
   // Gather all the statepoints which need rewritten.  Be careful to only
@@ -2766,7 +2717,7 @@ static void checkBasicSSA(DominatorTree &DT, GCPtrLivenessData &Data,
 static void computeLiveInValues(DominatorTree &DT, Function &F,
                                 GCPtrLivenessData &Data) {
 
-  SmallSetVector<BasicBlock *, 200> Worklist;
+  SmallSetVector<BasicBlock *, 32> Worklist;
   auto AddPredsToWorklist = [&](BasicBlock *BB) {
     // We use a SetVector so that we don't have duplicates in the worklist.
     Worklist.insert(pred_begin(BB), pred_end(BB));

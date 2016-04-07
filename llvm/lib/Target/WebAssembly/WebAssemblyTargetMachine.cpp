@@ -45,8 +45,9 @@ WebAssemblyTargetMachine::WebAssemblyTargetMachine(
     const Target &T, const Triple &TT, StringRef CPU, StringRef FS,
     const TargetOptions &Options, Reloc::Model RM, CodeModel::Model CM,
     CodeGenOpt::Level OL)
-    : LLVMTargetMachine(T, TT.isArch64Bit() ? "e-p:64:64-i64:64-n32:64-S128"
-                                            : "e-p:32:32-i64:64-n32:64-S128",
+    : LLVMTargetMachine(T,
+                        TT.isArch64Bit() ? "e-m:e-p:64:64-i64:64-n32:64-S128"
+                                         : "e-m:e-p:32:32-i64:64-n32:64-S128",
                         TT, CPU, FS, Options, RM, CM, OL),
       TLOF(make_unique<WebAssemblyTargetObjectFile>()) {
   // WebAssembly type-checks expressions, but a noreturn function with a return
@@ -139,7 +140,8 @@ void WebAssemblyPassConfig::addIRPasses() {
     addPass(createAtomicExpandPass(TM));
 
   // Optimize "returned" function attributes.
-  addPass(createWebAssemblyOptimizeReturned());
+  if (getOptLevel() != CodeGenOpt::None)
+    addPass(createWebAssemblyOptimizeReturned());
 
   TargetPassConfig::addIRPasses();
 }
@@ -152,6 +154,10 @@ bool WebAssemblyPassConfig::addInstSelector() {
   // so that we can fix up the ARGUMENT instructions before anything else
   // sees them in the wrong place.
   addPass(createWebAssemblyArgumentMove());
+  // Set the p2align operands. This information is present during ISel, however
+  // it's inconvenient to collect. Collect it now, and update the immediate
+  // operands.
+  addPass(createWebAssemblySetP2AlignOperands());
   return false;
 }
 
@@ -164,7 +170,8 @@ void WebAssemblyPassConfig::addPreRegAlloc() {
   TargetPassConfig::addPreRegAlloc();
 
   // Prepare store instructions for register stackifying.
-  addPass(createWebAssemblyStoreResults());
+  if (getOptLevel() != CodeGenOpt::None)
+    addPass(createWebAssemblyStoreResults());
 }
 
 void WebAssemblyPassConfig::addPostRegAlloc() {
@@ -205,5 +212,6 @@ void WebAssemblyPassConfig::addPreEmitPass() {
   addPass(createWebAssemblyRegNumbering());
 
   // Perform the very last peephole optimizations on the code.
-  addPass(createWebAssemblyPeephole());
+  if (getOptLevel() != CodeGenOpt::None)
+    addPass(createWebAssemblyPeephole());
 }

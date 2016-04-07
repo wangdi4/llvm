@@ -30,6 +30,7 @@
 #include "lldb/Core/Communication.h"
 #include "lldb/Core/Error.h"
 #include "lldb/Core/Event.h"
+#include "lldb/Core/LoadedModuleInfoList.h"
 #include "lldb/Core/ThreadSafeValue.h"
 #include "lldb/Core/PluginInterface.h"
 #include "lldb/Core/StructuredData.h"
@@ -1150,6 +1151,12 @@ public:
     LoadModules ()
     {
         return 0;
+    }
+
+    virtual size_t
+    LoadModules (LoadedModuleInfoList &)
+    {
+       return 0;
     }
 
 protected:
@@ -3149,6 +3156,34 @@ public:
     void
     ResetImageToken(size_t token);
 
+    //------------------------------------------------------------------
+    /// Find the next branch instruction to set a breakpoint on
+    ///
+    /// When instruction stepping through a source line, instead of 
+    /// stepping through each instruction, we can put a breakpoint on
+    /// the next branch instruction (within the range of instructions
+    /// we are stepping through) and continue the process to there,
+    /// yielding significant performance benefits over instruction
+    /// stepping.  
+    ///
+    /// @param[in] default_stop_addr
+    ///     The address of the instruction where lldb would put a 
+    ///     breakpoint normally.
+    ///
+    /// @param[in] range_bounds
+    ///     The range which the breakpoint must be contained within.
+    ///     Typically a source line.
+    ///
+    /// @return
+    ///     The address of the next branch instruction, or the end of
+    ///     the range provided in range_bounds.  If there are any
+    ///     problems with the disassembly or getting the instructions,
+    ///     the original default_stop_addr will be returned.
+    //------------------------------------------------------------------
+    Address
+    AdvanceAddressToNextBranchInstruction (Address default_stop_addr, 
+                                           AddressRange range_bounds);
+
 protected:
     void
     SetState (lldb::EventSP &event_sp);
@@ -3398,12 +3433,15 @@ protected:
     void
     ResumePrivateStateThread ();
 
+private:
     struct PrivateStateThreadArgs
     {
+        PrivateStateThreadArgs(Process *p, bool s) : process(p), is_secondary_thread(s) {};
         Process *process;
         bool is_secondary_thread;
     };
-
+    
+    // arg is a pointer to a new'ed PrivateStateThreadArgs structure.  PrivateStateThread will free it for you.
     static lldb::thread_result_t
     PrivateStateThread (void *arg);
 
@@ -3415,6 +3453,7 @@ protected:
     lldb::thread_result_t
     RunPrivateStateThread (bool is_secondary_thread);
 
+protected:
     void
     HandlePrivateEvent (lldb::EventSP &event_sp);
 

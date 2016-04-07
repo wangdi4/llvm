@@ -3,6 +3,9 @@ include "llvm/Option/OptParser.td"
 def Bsymbolic: Flag<["-"], "Bsymbolic">,
   HelpText<"Bind defined symbols locally">;
 
+def Bsymbolic_functions: Flag<["-"], "Bsymbolic-functions">,
+  HelpText<"Bind defined function symbols locally">;
+
 def Bdynamic: Flag<["-"], "Bdynamic">,
   HelpText<"Link against shared libraries">;
 
@@ -36,6 +39,9 @@ def discard_none : Flag<["-"], "discard-none">,
 def dynamic_linker : Separate<["--", "-"], "dynamic-linker">,
   HelpText<"Which dynamic linker to use">;
 
+def eh_frame_hdr : Flag<["--"], "eh-frame-hdr">,
+  HelpText<"Request creation of .eh_frame_hdr section and PT_GNU_EH_FRAME segment header">;
+
 def enable_new_dtags : Flag<["--"], "enable-new-dtags">,
   HelpText<"Enable new dynamic tags">;
 
@@ -66,6 +72,9 @@ def m : JoinedOrSeparate<["-"], "m">,
 def no_allow_shlib_undefined : Flag<["--"], "no-allow-shlib-undefined">;
 
 def no_as_needed : Flag<["--"], "no-as-needed">;
+
+def no_demangle: Flag<["--"], "no-demangle">,
+  HelpText<"Demangle symbol names">;
 
 def no_whole_archive : Flag<["--", "-"], "no-whole-archive">,
   HelpText<"Restores the default behavior of loading archive members">;
@@ -109,6 +118,9 @@ def verbose : Flag<["--"], "verbose">;
 def whole_archive : Flag<["--", "-"], "whole-archive">,
   HelpText<"Force load of all members in a static library">;
 
+def wrap : Separate<["--", "-"], "wrap">, MetaVarName<"<symbol>">,
+  HelpText<"Use wrapper functions for symbol">;
+
 def z : JoinedOrSeparate<["-"], "z">, MetaVarName<"<option>">,
   HelpText<"Linker option extensions">;
 
@@ -136,6 +148,7 @@ def alias_soname_soname : Separate<["-"], "soname">, Alias<soname>;
 def alias_script_T : Separate<["-"], "T">, Alias<script>;
 def alias_strip_all: Flag<["-"], "s">, Alias<strip_all>;
 def alias_undefined_u : Separate<["-"], "u">, Alias<undefined>;
+def alias_wrap_wrap : Joined<["--", "-"], "wrap=">, Alias<wrap>;
 
 // Our symbol resolution algorithm handles symbols in archive files differently
 // than traditional linkers, so we don't need --start-group and --end-group.
@@ -147,7 +160,6 @@ def start_group_paren: Flag<["-"], "(">;
 
 // Options listed below are silently ignored for now for compatibility.
 def build_id : Flag<["--"], "build-id">;
-def eh_frame_hdr : Flag<["--"], "eh-frame-hdr">;
 def fatal_warnings : Flag<["--"], "fatal-warnings">;
 def no_add_needed : Flag<["--"], "no-add-needed">;
 def no_fatal_warnings : Flag<["--"], "no-fatal-warnings">;

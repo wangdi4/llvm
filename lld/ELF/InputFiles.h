@@ -38,6 +38,11 @@ public:
 
   StringRef getName() const { return MB.getBufferIdentifier(); }
 
+  // Filename of .a which contained this file. If this file was
+  // not in an archive file, it is the empty string. We use this
+  // string for creating error messages.
+  StringRef ArchiveName;
+
 protected:
   InputFile(Kind K, MemoryBufferRef M) : MB(M), FileKind(K) {}
   MemoryBufferRef MB;
@@ -91,10 +96,13 @@ template <class ELFT> class ObjectFile : public ELFFileBase<ELFT> {
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Word Elf_Word;
   typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
 
+  // uint32 in ELFT's byte order
   typedef llvm::support::detail::packed_endian_specific_integral<
-      uint32_t, ELFT::TargetEndianness, 2> GroupEntryType;
+      uint32_t, ELFT::TargetEndianness, 2>
+      uint32_X;
+
   StringRef getShtGroupSignature(const Elf_Shdr &Sec);
-  ArrayRef<GroupEntryType> getShtGroupEntries(const Elf_Shdr &Sec);
+  ArrayRef<uint32_X> getShtGroupEntries(const Elf_Shdr &Sec);
 
 public:
   static bool classof(const InputFile *F) {
@@ -126,12 +134,16 @@ public:
   // R_MIPS_GPREL16 / R_MIPS_GPREL32 relocations.
   uint32_t getMipsGp0() const;
 
+  // The number is the offset in the string table. It will be used as the
+  // st_name of the symbol.
+  std::vector<std::pair<const Elf_Sym *, unsigned>> KeptLocalSyms;
+
 private:
   void initializeSections(llvm::DenseSet<StringRef> &ComdatGroups);
   void initializeSymbols();
   InputSectionBase<ELFT> *createInputSection(const Elf_Shdr &Sec);
 
-  SymbolBody *createSymbolBody(StringRef StringTable, const Elf_Sym *Sym);
+  SymbolBody *createSymbolBody(const Elf_Sym *Sym);
 
   // List of all sections defined by this file.
   std::vector<InputSectionBase<ELFT> *> Sections;
@@ -201,7 +213,8 @@ public:
   bool isNeeded() const { return !AsNeeded || IsUsed; }
 };
 
-std::unique_ptr<InputFile> createObjectFile(MemoryBufferRef MB);
+std::unique_ptr<InputFile> createObjectFile(MemoryBufferRef MB,
+                                            StringRef ArchiveName = "");
 std::unique_ptr<InputFile> createSharedFile(MemoryBufferRef MB);
 
 } // namespace elf2

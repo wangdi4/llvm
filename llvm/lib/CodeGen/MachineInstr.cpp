@@ -372,10 +372,16 @@ void MachineOperand::print(raw_ostream &OS, ModuleSlotTracker &MST,
     getCImm()->getValue().print(OS, false);
     break;
   case MachineOperand::MO_FPImmediate:
-    if (getFPImm()->getType()->isFloatTy())
+    if (getFPImm()->getType()->isFloatTy()) {
       OS << getFPImm()->getValueAPF().convertToFloat();
-    else
+    } else if (getFPImm()->getType()->isHalfTy()) {
+      APFloat APF = getFPImm()->getValueAPF();
+      bool Unused;
+      APF.convert(APFloat::IEEEsingle, APFloat::rmNearestTiesToEven, &Unused);
+      OS << "half " << APF.convertToFloat();
+    } else {
       OS << getFPImm()->getValueAPF().convertToDouble();
+    }
     break;
   case MachineOperand::MO_MachineBasicBlock:
     OS << "<BB#" << getMBB()->getNumber() << ">";
@@ -864,6 +870,57 @@ void MachineInstr::addMemOperand(MachineFunction &MF,
   std::copy(OldMemRefs, OldMemRefs + OldNumMemRefs, NewMemRefs);
   NewMemRefs[NewNum - 1] = MO;
   setMemRefs(NewMemRefs, NewMemRefs + NewNum);
+}
+
+/// Check to see if the MMOs pointed to by the two MemRefs arrays are
+/// identical. 
+static bool hasIdenticalMMOs(const MachineInstr &MI1, const MachineInstr &MI2) {
+  auto I1 = MI1.memoperands_begin(), E1 = MI1.memoperands_end();
+  auto I2 = MI2.memoperands_begin(), E2 = MI2.memoperands_end();
+  if ((E1 - I1) != (E2 - I2))
+    return false;
+  for (; I1 != E1; ++I1, ++I2) {
+    if (**I1 != **I2)
+      return false;
+  }
+  return true;
+}
+
+std::pair<MachineInstr::mmo_iterator, unsigned>
+MachineInstr::mergeMemRefsWith(const MachineInstr& Other) {
+
+  // If either of the incoming memrefs are empty, we must be conservative and
+  // treat this as if we've exhausted our space for memrefs and dropped them.
+  if (memoperands_empty() || Other.memoperands_empty())
+    return std::make_pair(nullptr, 0);
+
+  // If both instructions have identical memrefs, we don't need to merge them.
+  // Since many instructions have a single memref, and we tend to merge things
+  // like pairs of loads from the same location, this catches a large number of
+  // cases in practice.
+  if (hasIdenticalMMOs(*this, Other))
+    return std::make_pair(MemRefs, NumMemRefs);
+  
+  // TODO: consider uniquing elements within the operand lists to reduce
+  // space usage and fall back to conservative information less often.
+  size_t CombinedNumMemRefs = NumMemRefs + Other.NumMemRefs;
+
+  // If we don't have enough room to store this many memrefs, be conservative
+  // and drop them.  Otherwise, we'd fail asserts when trying to add them to
+  // the new instruction.
+  if (CombinedNumMemRefs != uint8_t(CombinedNumMemRefs))
+    return std::make_pair(nullptr, 0);
+
+  MachineFunction *MF = getParent()->getParent();
+  mmo_iterator MemBegin = MF->allocateMemRefsArray(CombinedNumMemRefs);
+  mmo_iterator MemEnd = std::copy(memoperands_begin(), memoperands_end(),
+                                  MemBegin);
+  MemEnd = std::copy(Other.memoperands_begin(), Other.memoperands_end(),
+                     MemEnd);
+  assert(MemEnd - MemBegin == (ptrdiff_t)CombinedNumMemRefs &&
+         "missing memrefs");
+  
+  return std::make_pair(MemBegin, CombinedNumMemRefs);
 }
 
 bool MachineInstr::hasPropertyInBundle(unsigned Mask, QueryType Type) const {
@@ -1556,7 +1613,7 @@ void MachineInstr::copyImplicitOps(MachineFunction &MF,
   }
 }
 
-void MachineInstr::dump() const {
+LLVM_DUMP_METHOD void MachineInstr::dump() const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   dbgs() << "  " << *this;
 #endif
@@ -1600,8 +1657,15 @@ void MachineInstr::print(raw_ostream &OS, ModuleSlotTracker &MST,
     if (StartOp != 0) OS << ", ";
     getOperand(StartOp).print(OS, MST, TRI);
     unsigned Reg = getOperand(StartOp).getReg();
-    if (TargetRegisterInfo::isVirtualRegister(Reg))
+    if (TargetRegisterInfo::isVirtualRegister(Reg)) {
       VirtRegs.push_back(Reg);
+#ifdef LLVM_BUILD_GLOBAL_ISEL
+      unsigned Size;
+      if (MRI && (Size = MRI->getSize(Reg))) {
+        OS << '(' << Size << ')';
+      }
+#endif
+    }
   }
 
   if (StartOp != 0)
@@ -1774,6 +1838,11 @@ void MachineInstr::print(raw_ostream &OS, ModuleSlotTracker &MST,
     }
     for (unsigned i = 0; i != VirtRegs.size(); ++i) {
       const TargetRegisterClass *RC = MRI->getRegClass(VirtRegs[i]);
+#ifdef LLVM_BUILD_GLOBAL_ISEL
+      // Generic virtual registers do not have register classes.
+      if (!RC)
+        continue;
+#endif
       OS << " " << TRI->getRegClassName(RC)
          << ':' << PrintReg(VirtRegs[i]);
       for (unsigned j = i+1; j != VirtRegs.size();) {

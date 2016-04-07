@@ -169,7 +169,7 @@ void HIRVectVLSAnalysis::computeVLSGroups(const OVLSMemrefVector &Memrefs,
                                           VectVLSContext *VectContext,
                                           OVLSGroupVector &Grps) {
 
-  unsigned GroupSize = MAX_GROUP_SIZE; // CHECKME
+  unsigned GroupSize = MAX_VECTOR_LENGTH; // CHECKME
   unsigned Level = VectContext->getLoopLevel();
   unsigned VF = VectContext->getVectFactor();
   DEBUG(dbgs() << "\nVLS: Examining level " << Level);

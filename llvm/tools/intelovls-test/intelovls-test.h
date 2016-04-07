@@ -32,21 +32,26 @@ public:
   ClientMemref(char MemrefId, int Distance,
                Type *ElemType, unsigned NumElements, // VectorType
                OVLSAccessType AType, char IdxId, VectorType *IdxType) :
-    OVLSMemref(ElemType->getPrimitiveSizeInBits(), NumElements, AType) {
+    OVLSMemref(VLSK_ClientMemref, ElemType->getPrimitiveSizeInBits(),
+               NumElements, AType) {
     MId = MemrefId;
     Dist = Distance;
     IndexId = IdxId;
     IndexType = IdxType;
     DataType = VectorType::get(ElemType, NumElements);
+    ConstVStride = false;
+    VecStride = 0;
   }
   // Constructor for Strided Accesses with unknown strides.
   ClientMemref(char MemrefId, int Distance,
                Type *ElemType, unsigned NumElements, // VectorType
                OVLSAccessType AType, bool CVStride, char VectorStrideId) :
-    OVLSMemref(ElemType->getPrimitiveSizeInBits(), NumElements, AType) {
+    OVLSMemref(VLSK_ClientMemref, ElemType->getPrimitiveSizeInBits(), NumElements,
+               AType) {
     MId = MemrefId;
     Dist = Distance;
     ConstVStride = CVStride;
+    VecStride = 0;
     VsId = VectorStrideId;
     DataType = VectorType::get(ElemType, NumElements);
   }
@@ -54,13 +59,18 @@ public:
   ClientMemref(char MemrefId, int Distance,
                Type *ElemType, unsigned NumElements, // VectorType
                OVLSAccessType AType, bool CVStride, int VStride) :
-    OVLSMemref(ElemType->getPrimitiveSizeInBits(), NumElements, AType) {
+    OVLSMemref(VLSK_ClientMemref, ElemType->getPrimitiveSizeInBits(), NumElements,
+               AType) {
     MId = MemrefId;
     Dist = Distance;
     ConstVStride = CVStride;
     VecStride = VStride;
     VsId = '\0';
     DataType = VectorType::get(ElemType, NumElements);
+  }
+
+  static bool classof(const OVLSMemref *Mrf) {
+    return Mrf->getKind() == VLSK_ClientMemref;
   }
 
   int getDistance() const { return Dist; }
@@ -79,11 +89,19 @@ public:
 
   bool haveSameVectorStride(const ClientMemref& Mrf);
 
-  bool isAConstDistanceFrom(const OVLSMemref& Mrf, int *Distance);
+  bool isAConstDistanceFrom(const OVLSMemref& Mrf, int64_t *Distance);
 
   bool canMoveTo(const OVLSMemref& MemRef) {
     return true;
   }
+  bool hasAConstStride(int64_t *Stride) {
+    if (ConstVStride) {
+      *Stride = VecStride;
+      return true;
+    }
+    return false;
+  }
+
   // Checks whether Mrf and this have the same number of vector elements
   bool haveSameNumElements(const OVLSMemref& Mrf) {
     const ClientMemref *CLMrf = (const ClientMemref*)&Mrf;
@@ -93,7 +111,7 @@ public:
 private:
   char MId;
   VectorType *DataType;   // Data type for the memref
-  int Dist;           // Distance between two memrefs in bytes.
+  int64_t Dist;           // Distance between two memrefs in bytes.
   char IndexId;
   int IndexDist;
 

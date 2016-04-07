@@ -36,6 +36,7 @@
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Symbol/SymbolContext.h"
+#include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Symbol/SymbolVendor.h"
 #include "lldb/Symbol/Type.h"
 #include "lldb/Symbol/TypeList.h"
@@ -55,6 +56,11 @@
 using namespace lldb;
 using namespace lldb_private;
 using namespace clang;
+
+namespace
+{
+    const char *g_lldb_local_vars_namespace_cstr = "$__lldb_local_vars";
+} // anonymous namespace
 
 ClangExpressionDeclMap::ClangExpressionDeclMap (bool keep_result_in_memory,
                                                 Materializer::PersistentVariableDelegate *result_delegate,
@@ -570,6 +576,63 @@ FindCodeSymbolInContext
     }
 }
 
+ConstString
+FindBestAlternateMangledName
+(
+    const ConstString &demangled,
+    const LanguageType &lang_type,
+    SymbolContext &sym_ctx
+)
+{
+    CPlusPlusLanguage::MethodName cpp_name(demangled);
+    std::string scope_qualified_name = cpp_name.GetScopeQualifiedName();
+
+    if (!scope_qualified_name.size())
+        return ConstString();
+
+    if (!sym_ctx.module_sp)
+        return ConstString();
+
+    SymbolVendor *sym_vendor = sym_ctx.module_sp->GetSymbolVendor();
+    if (!sym_vendor)
+        return ConstString();
+
+    lldb_private::SymbolFile *sym_file = sym_vendor->GetSymbolFile();
+    if (!sym_file)
+        return ConstString();
+
+    std::vector<ConstString> alternates;
+    sym_file->GetMangledNamesForFunction(scope_qualified_name, alternates);
+
+    std::vector<ConstString> param_and_qual_matches;
+    std::vector<ConstString> param_matches;
+    for (size_t i = 0; i < alternates.size(); i++)
+    {
+        ConstString alternate_mangled_name = alternates[i];
+        Mangled mangled(alternate_mangled_name, true);
+        ConstString demangled = mangled.GetDemangledName(lang_type);
+
+        CPlusPlusLanguage::MethodName alternate_cpp_name(demangled);
+        if (!cpp_name.IsValid())
+            continue;
+
+        if (alternate_cpp_name.GetArguments() == cpp_name.GetArguments())
+        {
+            if (alternate_cpp_name.GetQualifiers() == cpp_name.GetQualifiers())
+                param_and_qual_matches.push_back(alternate_mangled_name);
+            else
+                param_matches.push_back(alternate_mangled_name);
+        }
+    }
+
+    if (param_and_qual_matches.size())
+        return param_and_qual_matches[0]; // It is assumed that there will be only one!
+    else if (param_matches.size())
+        return param_matches[0]; // Return one of them as a best match
+    else
+        return ConstString();
+}
+
 bool
 ClangExpressionDeclMap::GetFunctionAddress
 (
@@ -603,15 +666,25 @@ ClangExpressionDeclMap::GetFunctionAddress
             if (Language::LanguageIsCPlusPlus(lang_type) &&
                 CPlusPlusLanguage::IsCPPMangledName(name.AsCString()))
             {
-                // 1. Demangle the name
                 Mangled mangled(name, true);
                 ConstString demangled = mangled.GetDemangledName(lang_type);
 
                 if (demangled)
                 {
-                    FindCodeSymbolInContext(
-                        demangled, m_parser_vars->m_sym_ctx, eFunctionNameTypeFull, sc_list);
-                    sc_list_size = sc_list.GetSize();
+                    ConstString best_alternate_mangled_name = FindBestAlternateMangledName(demangled, lang_type, sc);
+                    if (best_alternate_mangled_name)
+                    {
+                        FindCodeSymbolInContext(
+                            best_alternate_mangled_name, m_parser_vars->m_sym_ctx, eFunctionNameTypeAuto, sc_list);
+                        sc_list_size = sc_list.GetSize();
+                    }
+
+                    if (sc_list_size == 0)
+                    {
+                        FindCodeSymbolInContext(
+                            demangled, m_parser_vars->m_sym_ctx, eFunctionNameTypeFull, sc_list);
+                        sc_list_size = sc_list.GetSize();
+                    }
                 }
             }
         }
@@ -936,6 +1009,24 @@ ClangExpressionDeclMap::FindGlobalVariable
     return VariableSP();
 }
 
+ClangASTContext *
+ClangExpressionDeclMap::GetClangASTContext ()
+{
+    StackFrame *frame = m_parser_vars->m_exe_ctx.GetFramePtr();
+    if (frame == nullptr)
+        return nullptr;
+
+    SymbolContext sym_ctx = frame->GetSymbolContext(lldb::eSymbolContextFunction|lldb::eSymbolContextBlock);
+    if (sym_ctx.block == nullptr)
+        return nullptr;
+
+    CompilerDeclContext frame_decl_context = sym_ctx.block->GetDeclContext();
+    if (!frame_decl_context)
+        return nullptr;
+
+    return llvm::dyn_cast_or_null<ClangASTContext>(frame_decl_context.GetTypeSystem());
+}
+
 // Interface for ClangASTSource
 
 void
@@ -971,6 +1062,13 @@ ClangExpressionDeclMap::FindExternalVisibleDecls (NameSearchContext &context)
 
     if (const NamespaceDecl *namespace_context = dyn_cast<NamespaceDecl>(context.m_decl_context))
     {
+        if (namespace_context->getName().str() == std::string(g_lldb_local_vars_namespace_cstr))
+        {
+            CompilerDeclContext compiler_decl_ctx(GetClangASTContext(), (void*)context.m_decl_context);
+            FindExternalVisibleDecls(context, lldb::ModuleSP(), compiler_decl_ctx, current_id);
+            return;
+        }
+
         ClangASTImporter::NamespaceMapSP namespace_map = m_ast_importer_sp->GetNamespaceMap(namespace_context);
 
         if (log && log->GetVerbose())
@@ -1267,6 +1365,32 @@ ClangExpressionDeclMap::FindExternalVisibleDecls (NameSearchContext &context,
             return;
         }
 
+        if (name == ConstString(g_lldb_local_vars_namespace_cstr))
+        {
+            CompilerDeclContext frame_decl_context = sym_ctx.block != nullptr ?
+                                                     sym_ctx.block->GetDeclContext() :
+                                                     CompilerDeclContext();
+
+            if (frame_decl_context)
+            {
+                ClangASTContext *ast = llvm::dyn_cast_or_null<ClangASTContext>(frame_decl_context.GetTypeSystem());
+
+                if (ast)
+                {
+                    clang::NamespaceDecl *namespace_decl = ClangASTContext::GetUniqueNamespaceDeclaration(
+                        m_ast_context, name_unique_cstr, nullptr);
+                    if (namespace_decl)
+                    {
+                        context.AddNamedDecl(namespace_decl);
+                        clang::DeclContext *clang_decl_ctx = clang::Decl::castToDeclContext(namespace_decl);
+                        clang_decl_ctx->setHasExternalVisibleStorage(true);
+                    }
+                }
+            }
+
+            return;
+        }
+
         // any other $__lldb names should be weeded out now
         if (!::strncmp(name_unique_cstr, "$__lldb", sizeof("$__lldb") - 1))
             return;
@@ -1335,19 +1459,23 @@ ClangExpressionDeclMap::FindExternalVisibleDecls (NameSearchContext &context,
         ValueObjectSP valobj;
         VariableSP var;
 
-        if (frame && !namespace_decl)
+        bool local_var_lookup = !namespace_decl ||
+                                (namespace_decl.GetName() == ConstString(g_lldb_local_vars_namespace_cstr));
+        if (frame && local_var_lookup)
         {
             CompilerDeclContext compiler_decl_context = sym_ctx.block != nullptr ? sym_ctx.block->GetDeclContext() : CompilerDeclContext();
 
             if (compiler_decl_context)
             {
-                // Make sure that the variables are parsed so that we have the declarations
+                // Make sure that the variables are parsed so that we have the declarations.
                 VariableListSP vars = frame->GetInScopeVariableList(true);
                 for (size_t i = 0; i < vars->GetSize(); i++)
                     vars->GetVariableAtIndex(i)->GetDecl();
 
-                // Search for declarations matching the name
-                std::vector<CompilerDecl> found_decls = compiler_decl_context.FindDeclByName(name);
+                // Search for declarations matching the name. Do not include imported decls
+                // in the search if we are looking for decls in the artificial namespace
+                // $__lldb_local_vars.
+                std::vector<CompilerDecl> found_decls = compiler_decl_context.FindDeclByName(name, namespace_decl.IsValid());
                 
                 bool variable_found = false;
                 for (CompilerDecl decl : found_decls)

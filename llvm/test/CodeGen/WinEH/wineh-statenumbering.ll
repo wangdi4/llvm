@@ -44,7 +44,7 @@ catch:                                            ; preds = %catch.dispatch
   ; CHECK: catch:
   ; CHECK:   store i32 2
   ; CHECK:   invoke void @_CxxThrowException(
-  invoke void @_CxxThrowException(i8* null, %eh.ThrowInfo* null) #1
+  invoke void @_CxxThrowException(i8* null, %eh.ThrowInfo* null) [ "funclet"(token %1) ]
           to label %unreachable unwind label %catch.dispatch.1
 
 catch.dispatch.1:                                 ; preds = %catch
@@ -120,7 +120,6 @@ try.cont4:                                        ; preds = %try.cont
 ehcleanup:                                        ; preds = %catch.dispatch1
   %4 = cleanuppad within %1 []
   ; CHECK: ehcleanup:
-  ; CHECK:   store i32 -1
   ; CHECK:   call void @dtor()
   call void @dtor() #3 [ "funclet"(token %4) ]
   cleanupret from %4 unwind to caller

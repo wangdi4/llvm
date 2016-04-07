@@ -125,7 +125,7 @@ static Optional<int> findPreviousSpillSlot(const Value *Val,
                                            int LookUpDepth) {
   // Can not look any further - give up now
   if (LookUpDepth <= 0)
-    return Optional<int>();
+    return None;
 
   // Spill location is known for gc relocates
   if (const auto *Relocate = dyn_cast<GCRelocateInst>(Val)) {
@@ -134,7 +134,7 @@ static Optional<int> findPreviousSpillSlot(const Value *Val,
 
     auto It = SpillMap.find(Relocate->getDerivedPtr());
     if (It == SpillMap.end())
-      return Optional<int>();
+      return None;
 
     return It->second;
   }
@@ -154,10 +154,10 @@ static Optional<int> findPreviousSpillSlot(const Value *Val,
       Optional<int> SpillSlot =
           findPreviousSpillSlot(IncomingValue, Builder, LookUpDepth - 1);
       if (!SpillSlot.hasValue())
-        return Optional<int>();
+        return None;
 
       if (MergedResult.hasValue() && *MergedResult != *SpillSlot)
-        return Optional<int>();
+        return None;
 
       MergedResult = SpillSlot;
     }
@@ -192,7 +192,7 @@ static Optional<int> findPreviousSpillSlot(const Value *Val,
   // which we visit values is unspecified.
 
   // Don't know any information about this instruction
-  return Optional<int>();
+  return None;
 }
 
 /// Try to find existing copies of the incoming values in stack slots used for
@@ -258,7 +258,7 @@ static void removeDuplicatesGCPtrs(SmallVectorImpl<const Value *> &Bases,
                                    SelectionDAGBuilder &Builder) {
 
   // This is horribly inefficient, but I don't care right now
-  SmallSet<SDValue, 64> Seen;
+  SmallSet<SDValue, 32> Seen;
 
   SmallVector<const Value *, 64> NewBases, NewPtrs, NewRelocs;
   for (size_t i = 0; i < Ptrs.size(); i++) {
@@ -461,7 +461,9 @@ static void lowerIncomingStatepointValue(SDValue Incoming,
     // If the original value was a constant, make sure it gets recorded as
     // such in the stackmap.  This is required so that the consumer can
     // parse any internal format to the deopt state.  It also handles null
-    // pointers and other constant pointers in GC states
+    // pointers and other constant pointers in GC states.  Note the constant
+    // vectors do not appear to actually hit this path and that anything larger
+    // than an i64 value (not type!) will fail asserts here.
     pushStackMapConstant(Ops, Builder, C->getSExtValue());
   } else if (FrameIndexSDNode *FI = dyn_cast<FrameIndexSDNode>(Incoming)) {
     // This handles allocas as arguments to the statepoint (this is only
@@ -505,27 +507,27 @@ static void lowerStatepointMetaArgs(SmallVectorImpl<SDValue> &Ops,
 
 #ifndef NDEBUG
   // Check that each of the gc pointer and bases we've gotten out of the
-  // safepoint is something the strategy thinks might be a pointer into the GC
-  // heap.  This is basically just here to help catch errors during statepoint
-  // insertion. TODO: This should actually be in the Verifier, but we can't get
-  // to the GCStrategy from there (yet).
+  // safepoint is something the strategy thinks might be a pointer (or vector
+  // of pointers) into the GC heap.  This is basically just here to help catch
+  // errors during statepoint insertion. TODO: This should actually be in the
+  // Verifier, but we can't get to the GCStrategy from there (yet).
   GCStrategy &S = Builder.GFI->getStrategy();
   for (const Value *V : Bases) {
-    auto Opt = S.isGCManagedPointer(V->getType());
+    auto Opt = S.isGCManagedPointer(V->getType()->getScalarType());
     if (Opt.hasValue()) {
       assert(Opt.getValue() &&
              "non gc managed base pointer found in statepoint");
     }
   }
   for (const Value *V : Ptrs) {
-    auto Opt = S.isGCManagedPointer(V->getType());
+    auto Opt = S.isGCManagedPointer(V->getType()->getScalarType());
     if (Opt.hasValue()) {
       assert(Opt.getValue() &&
              "non gc managed derived pointer found in statepoint");
     }
   }
   for (const Value *V : Relocations) {
-    auto Opt = S.isGCManagedPointer(V->getType());
+    auto Opt = S.isGCManagedPointer(V->getType()->getScalarType());
     if (Opt.hasValue()) {
       assert(Opt.getValue() && "non gc managed pointer relocated");
     }

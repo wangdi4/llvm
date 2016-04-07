@@ -809,6 +809,11 @@ bool RecursiveASTVisitor<Derived>::TraverseConstructorInitializer(
 
   if (Init->isWritten() || getDerived().shouldVisitImplicitCode())
     TRY_TO(TraverseStmt(Init->getInit()));
+
+  if (Init->getNumArrayIndices() && getDerived().shouldVisitImplicitCode())
+    for (VarDecl *VD : Init->getArrayIndexes()) {
+      TRY_TO(TraverseDecl(VD));
+    }
   return true;
 }
 
@@ -977,6 +982,8 @@ DEF_TRAVERSE_TYPE(ObjCObjectPointerType,
                   { TRY_TO(TraverseType(T->getPointeeType())); })
 
 DEF_TRAVERSE_TYPE(AtomicType, { TRY_TO(TraverseType(T->getValueType())); })
+
+DEF_TRAVERSE_TYPE(PipeType, { TRY_TO(TraverseType(T->getElementType())); })
 
 #undef DEF_TRAVERSE_TYPE
 
@@ -1206,6 +1213,8 @@ DEF_TRAVERSE_TYPELOC(ObjCObjectPointerType,
 
 DEF_TRAVERSE_TYPELOC(AtomicType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
 
+DEF_TRAVERSE_TYPELOC(PipeType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
+
 #undef DEF_TRAVERSE_TYPELOC
 
 // ----------------- Decl traversal -----------------
@@ -1424,6 +1433,8 @@ DEF_TRAVERSE_DECL(OMPThreadPrivateDecl, {
     TRY_TO(TraverseStmt(I));
   }
 })
+
+DEF_TRAVERSE_DECL(OMPCapturedExprDecl, { TRY_TO(TraverseVarHelper(D)); })
 
 // A helper method for TemplateDecl's children.
 template <typename Derived>
@@ -2429,6 +2440,18 @@ DEF_TRAVERSE_STMT(OMPTargetDirective,
 DEF_TRAVERSE_STMT(OMPTargetDataDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
+DEF_TRAVERSE_STMT(OMPTargetEnterDataDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPTargetExitDataDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPTargetParallelDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPTargetParallelForDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
 DEF_TRAVERSE_STMT(OMPTeamsDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
@@ -2774,6 +2797,20 @@ bool RecursiveASTVisitor<Derived>::VisitOMPNumTasksClause(
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPHintClause(OMPHintClause *C) {
   TRY_TO(TraverseStmt(C->getHint()));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPDistScheduleClause(
+    OMPDistScheduleClause *C) {
+  TRY_TO(TraverseStmt(C->getChunkSize()));
+  TRY_TO(TraverseStmt(C->getHelperChunkSize()));
+  return true;
+}
+
+template <typename Derived>
+bool
+RecursiveASTVisitor<Derived>::VisitOMPDefaultmapClause(OMPDefaultmapClause *C) {
   return true;
 }
 

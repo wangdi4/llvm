@@ -612,7 +612,8 @@ simplifyRelocatesOffABase(GCRelocateInst *RelocatedBase,
       continue;
 
     // Create a Builder and replace the target callsite with a gep
-    assert(RelocatedBase->getNextNode() && "Should always have one since it's not a terminator");
+    assert(RelocatedBase->getNextNode() &&
+           "Should always have one since it's not a terminator");
 
     // Insert after RelocatedBase
     IRBuilder<> Builder(RelocatedBase->getNextNode());
@@ -1108,7 +1109,7 @@ static bool OptimizeExtractBits(BinaryOperator *ShiftI, ConstantInt *CI,
 //                               <16 x i1> %mask, <16 x i32> %passthru)
 // to a chain of basic blocks, with loading element one-by-one if
 // the appropriate mask bit is set
-// 
+//
 //  %1 = bitcast i8* %addr to i32*
 //  %2 = extractelement <16 x i1> %mask, i32 0
 //  %3 = icmp eq i1 %2, true
@@ -1138,7 +1139,7 @@ static bool OptimizeExtractBits(BinaryOperator *ShiftI, ConstantInt *CI,
 //  %13 = icmp eq i1 %12, true
 //  br i1 %13, label %cond.load4, label %else5
 //
-static void ScalarizeMaskedLoad(CallInst *CI) {
+static void scalarizeMaskedLoad(CallInst *CI) {
   Value *Ptr  = CI->getArgOperand(0);
   Value *Alignment = CI->getArgOperand(1);
   Value *Mask = CI->getArgOperand(2);
@@ -1272,19 +1273,19 @@ static void ScalarizeMaskedLoad(CallInst *CI) {
 //   %5 = getelementptr i32* %1, i32 0
 //   store i32 %4, i32* %5
 //   br label %else
-// 
+//
 // else:                                             ; preds = %0, %cond.store
 //   %6 = extractelement <16 x i1> %mask, i32 1
 //   %7 = icmp eq i1 %6, true
 //   br i1 %7, label %cond.store1, label %else2
-// 
+//
 // cond.store1:                                      ; preds = %else
 //   %8 = extractelement <16 x i32> %val, i32 1
 //   %9 = getelementptr i32* %1, i32 1
 //   store i32 %8, i32* %9
 //   br label %else2
 //   . . .
-static void ScalarizeMaskedStore(CallInst *CI) {
+static void scalarizeMaskedStore(CallInst *CI) {
   Value *Src = CI->getArgOperand(0);
   Value *Ptr  = CI->getArgOperand(1);
   Value *Alignment = CI->getArgOperand(2);
@@ -1377,24 +1378,24 @@ static void ScalarizeMaskedStore(CallInst *CI) {
 //                               <16 x i1> %Mask, <16 x i32> %Src)
 // to a chain of basic blocks, with loading element one-by-one if
 // the appropriate mask bit is set
-// 
+//
 // % Ptrs = getelementptr i32, i32* %base, <16 x i64> %ind
 // % Mask0 = extractelement <16 x i1> %Mask, i32 0
 // % ToLoad0 = icmp eq i1 % Mask0, true
 // br i1 % ToLoad0, label %cond.load, label %else
-// 
+//
 // cond.load:
 // % Ptr0 = extractelement <16 x i32*> %Ptrs, i32 0
 // % Load0 = load i32, i32* % Ptr0, align 4
 // % Res0 = insertelement <16 x i32> undef, i32 % Load0, i32 0
 // br label %else
-// 
+//
 // else:
 // %res.phi.else = phi <16 x i32>[% Res0, %cond.load], [undef, % 0]
 // % Mask1 = extractelement <16 x i1> %Mask, i32 1
 // % ToLoad1 = icmp eq i1 % Mask1, true
 // br i1 % ToLoad1, label %cond.load1, label %else2
-// 
+//
 // cond.load1:
 // % Ptr1 = extractelement <16 x i32*> %Ptrs, i32 1
 // % Load1 = load i32, i32* % Ptr1, align 4
@@ -1403,7 +1404,7 @@ static void ScalarizeMaskedStore(CallInst *CI) {
 // . . .
 // % Result = select <16 x i1> %Mask, <16 x i32> %res.phi.select, <16 x i32> %Src
 // ret <16 x i32> %Result
-static void ScalarizeMaskedGather(CallInst *CI) {
+static void scalarizeMaskedGather(CallInst *CI) {
   Value *Ptrs = CI->getArgOperand(0);
   Value *Alignment = CI->getArgOperand(1);
   Value *Mask = CI->getArgOperand(2);
@@ -1526,7 +1527,7 @@ static void ScalarizeMaskedGather(CallInst *CI) {
 // % Ptr0 = extractelement <16 x i32*> %Ptrs, i32 0
 // store i32 %Elt0, i32* % Ptr0, align 4
 // br label %else
-// 
+//
 // else:
 // % Mask1 = extractelement <16 x i1> % Mask, i32 1
 // % ToStore1 = icmp eq i1 % Mask1, true
@@ -1538,7 +1539,7 @@ static void ScalarizeMaskedGather(CallInst *CI) {
 // store i32 % Elt1, i32* % Ptr1, align 4
 // br label %else2
 //   . . .
-static void ScalarizeMaskedScatter(CallInst *CI) {
+static void scalarizeMaskedScatter(CallInst *CI) {
   Value *Src = CI->getArgOperand(0);
   Value *Ptrs = CI->getArgOperand(1);
   Value *Alignment = CI->getArgOperand(2);
@@ -1747,9 +1748,9 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool& ModifiedDT) {
       // over-aligning global variables that have an explicit section is
       // forbidden.
       GlobalVariable *GV;
-      if ((GV = dyn_cast<GlobalVariable>(Val)) && GV->hasUniqueInitializer() &&
-          !GV->hasSection() && GV->getAlignment() < PrefAlign &&
-          DL->getTypeAllocSize(GV->getType()->getElementType()) >=
+      if ((GV = dyn_cast<GlobalVariable>(Val)) && GV->canIncreaseAlignment() &&
+          GV->getAlignment() < PrefAlign &&
+          DL->getTypeAllocSize(GV->getValueType()) >=
               MinSize + Offset2)
         GV->setAlignment(PrefAlign);
     }
@@ -1779,8 +1780,7 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool& ModifiedDT) {
       // happens.
       WeakVH IterHandle(&*CurInstIterator);
 
-      replaceAndRecursivelySimplify(CI, RetVal,
-                                    TLInfo, nullptr);
+      replaceAndRecursivelySimplify(CI, RetVal, TLInfo, nullptr);
 
       // If the iterator instruction was recursively deleted, start over at the
       // start of the block.
@@ -1793,7 +1793,7 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool& ModifiedDT) {
     case Intrinsic::masked_load: {
       // Scalarize unsupported vector masked load
       if (!TTI->isLegalMaskedLoad(CI->getType())) {
-        ScalarizeMaskedLoad(CI);
+        scalarizeMaskedLoad(CI);
         ModifiedDT = true;
         return true;
       }
@@ -1801,7 +1801,7 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool& ModifiedDT) {
     }
     case Intrinsic::masked_store: {
       if (!TTI->isLegalMaskedStore(CI->getArgOperand(0)->getType())) {
-        ScalarizeMaskedStore(CI);
+        scalarizeMaskedStore(CI);
         ModifiedDT = true;
         return true;
       }
@@ -1809,7 +1809,7 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool& ModifiedDT) {
     }
     case Intrinsic::masked_gather: {
       if (!TTI->isLegalMaskedGather(CI->getType())) {
-        ScalarizeMaskedGather(CI);
+        scalarizeMaskedGather(CI);
         ModifiedDT = true;
         return true;
       }
@@ -1817,7 +1817,7 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool& ModifiedDT) {
     }
     case Intrinsic::masked_scatter: {
       if (!TTI->isLegalMaskedScatter(CI->getArgOperand(0)->getType())) {
-        ScalarizeMaskedScatter(CI);
+        scalarizeMaskedScatter(CI);
         ModifiedDT = true;
         return true;
       }
@@ -2081,7 +2081,7 @@ void ExtAddrMode::print(raw_ostream &OS) const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void ExtAddrMode::dump() const {
+LLVM_DUMP_METHOD void ExtAddrMode::dump() const {
   print(dbgs());
   dbgs() << '\n';
 }
@@ -5216,6 +5216,24 @@ bool CodeGenPrepare::optimizeInst(Instruction *I, bool& ModifiedDT) {
   return false;
 }
 
+/// Given an OR instruction, check to see if this is a bitreverse
+/// idiom. If so, insert the new intrinsic and return true.
+static bool makeBitReverse(Instruction &I, const DataLayout &DL,
+                           const TargetLowering &TLI) {
+  if (!I.getType()->isIntegerTy() ||
+      !TLI.isOperationLegalOrCustom(ISD::BITREVERSE,
+                                    TLI.getValueType(DL, I.getType(), true)))
+    return false;
+
+  SmallVector<Instruction*, 4> Insts;
+  if (!recognizeBitReverseOrBSwapIdiom(&I, false, true, Insts))
+    return false;
+  Instruction *LastInst = Insts.back();
+  I.replaceAllUsesWith(LastInst);
+  RecursivelyDeleteTriviallyDeadInstructions(&I);
+  return true;
+}
+
 // In this pass we look for GEP and cast instructions that are used
 // across basic blocks and rewrite them to improve basic-block-at-a-time
 // selection.
@@ -5228,6 +5246,17 @@ bool CodeGenPrepare::optimizeBlock(BasicBlock &BB, bool& ModifiedDT) {
     MadeChange |= optimizeInst(&*CurInstIterator++, ModifiedDT);
     if (ModifiedDT)
       return true;
+  }
+
+  bool MadeBitReverse = true;
+  while (TLI && MadeBitReverse) {
+    MadeBitReverse = false;
+    for (auto &I : reverse(BB)) {
+      if (makeBitReverse(I, *DL, *TLI)) {
+        MadeBitReverse = MadeChange = true;
+        break;
+      }
+    }
   }
   MadeChange |= dupRetToEnableTailCallOpts(&BB);
 

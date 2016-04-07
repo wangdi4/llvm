@@ -183,7 +183,7 @@ PreservedAnalyses SimplifyCFGPass::run(Function &F,
   auto &TTI = AM->getResult<TargetIRAnalysis>(F);
   auto &AC = AM->getResult<AssumptionAnalysis>(F);
 
-  if (!simplifyFunctionCFG(F, TTI, &AC, BonusInstThreshold))
+  if (simplifyFunctionCFG(F, TTI, &AC, BonusInstThreshold))
     return PreservedAnalyses::none();
 
   return PreservedAnalyses::all();
@@ -238,4 +238,3 @@ llvm::createCFGSimplificationPass(int Threshold,
                                   std::function<bool(const Function &)> Ftor) {
   return new CFGSimplifyPass(Threshold, Ftor);
 }
-
