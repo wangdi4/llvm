@@ -24,7 +24,7 @@ endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
 
 set(OCL_CPU_DEBUGGING_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-set(OCL_CPU_DEBUGGING_IMPORT_DIRS 
+set(OCL_CPU_DEBUGGING_IMPORT_DIRS
   ${BACKEND_ROOT_DIR}/../cl_api
   ${OCL_CPU_DEBUGGING_DIR}/protobuf/include
   ${BACKEND_ROOT_DIR}/../utils/cl_hw_utils/export
@@ -36,12 +36,6 @@ set(OCL_CPU_DEBUGGING_EXPORT_DIR  ${OCL_CPU_DEBUGGING_DIR}/export)
 # Settings for Linux compilation
 #
 if (NOT WIN32)
-
-    # configure immediate dependencies search path at run time for non-standard libs
-    SET(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
-    SET(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
-    SET(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
-    SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
 
     # Warning level
     set (WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
@@ -59,7 +53,7 @@ if (NOT WIN32)
     add_definitions( ${WARNING_LEVEL} )
 
     # Linker switches
-    set (INIT_LINKER_FLAGS        "-pie -Wl,--enable-new-dtags") # --enable-new-dtags sets RUNPATH to the same value as RPATH
+    set (INIT_LINKER_FLAGS        )
     set (ADD_LINKER_FLAGS_DEBUG   )
     set (ADD_LINKER_FLAGS_RELEASE )
 
@@ -86,31 +80,6 @@ if (NOT WIN32)
     set (CMAKE_SHARED_LINKER_FLAGS_DEBUG   "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
     set (CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
 
-    # embed RPATH and RUNPATH to the binaries that assumes that everything is installed in the same directory
-    #
-    # Description:
-    #   RPATH is used to locate dynamically load shared libraries/objects (DLLs) for the non-standard OS
-    #   locations without need of relinking DLLs during installation. The algorithm is the following:
-    #
-    #     1. If RPATH is present in the EXE/DLL and RUNPATH is NOT present, search through it.
-    #     2. If LD_LIBRARY_PATH env variable is present, search through it
-    #     3. If RUNPATH is present in the EXE/DLL, search through it
-    #     4. Search through locations, configured by system admin and cached in /etc/ld.so.cache
-    #     5. Search through /lib and /usr/lib
-    #
-    #   RUNPATH influences only the immediate dependencies, while RPATH influences the whole subtree of dependencies
-    #   RPATH is concidered deprecated in favor of RUNPATH, but RUNPATH does not supported by some Linux systems.
-    #   If RUNPATH is not supported, system loader may report error - remove "-Wl,--enable-new-dtags" above to
-    #   disable RUNPATH generation.
-    #
-    #   If RPATH or RUNPATH contains string $ORIGIN it is substituted by the full path to the containing EXE/DLL.
-    #   Security issue 1: if EXE/DLL is marked as set-uid or set-gid, $ORIGIN is ignored.
-    #   Security issue 2: if RPATH/RUNPATH references relative subdirs, intruder may fool it by using softlinks
-    #
-    SET(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
-    SET(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
-    SET(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
-    SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
 endif (NOT WIN32)
 
 #
@@ -169,7 +138,7 @@ link_directories (
 )
 
 # Create DLL
-add_library (${TARGET_NAME} SHARED 
+add_library (${TARGET_NAME} SHARED
     ${OCL_CPU_DEBUGGING_INCLUDE_FILES}
     ${OCL_CPU_DEBUGGING_SOURCE_FILES}
     ${OCL_CPU_DEBUGGING_RC_FILES}
