@@ -2255,6 +2255,12 @@ void AndersensAAResult::HU() {
       }
     } else {
       // Dest = Src edge and *Dest = *Src edg
+      auto I = PossibleSourceOfPointsToInfo.find(C.Src);
+      if (I != PossibleSourceOfPointsToInfo.end()) {
+        // Mark C.Src as Indirect so that a new PointerEquivLabel
+        // is created for the node to avoid treating it as non-pointer.
+        GraphNodes[C.Src].Direct = false;
+      }
       if (!GraphNodes[C.Dest].PredEdges)
         GraphNodes[C.Dest].PredEdges = new SparseBitVector<>;
       GraphNodes[C.Dest].PredEdges->set(C.Src);
