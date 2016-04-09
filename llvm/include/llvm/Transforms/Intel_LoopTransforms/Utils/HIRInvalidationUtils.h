@@ -125,6 +125,19 @@ public:
           &HIRAnalysisPass::markNonLoopRegionModified, Region);
   }
 
+  /// \brief Invalidates all the available HIR analysis dependent on
+  /// the parent node except the preserved ones explicitly specified by
+  /// template arguments.
+  template <typename... Except>
+  static void invalidateParentLoopBodyOrRegion(const HLNode *Node) {
+    if (auto Loop = Node->getParentLoop()) {
+      invalidateBody<Except...>(Loop);
+    }
+    else if (auto Region = Node->getParentRegion()) {
+      invalidateNonLoopRegion<Except...>(Region);
+    } 
+  }
+
   /// \brief Invalidates all the available HIR analysis dependent on the loop
   /// bounds except the preserved ones explicitly specified by
   /// template arguments.

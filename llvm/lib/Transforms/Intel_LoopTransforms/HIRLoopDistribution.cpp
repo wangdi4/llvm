@@ -29,6 +29,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 
 #define DEBUG_TYPE "hir-loop-distribute"
 
@@ -163,9 +164,6 @@ void HIRLoopDistribution::distributeLoop(
            << " way distributed\n";
   }
 
-  DDA->markLoopBodyModified(Loop);
-  Loop->getParentRegion()->setGenCode();
-
   for (PiBlockList &PList : DistPoints) {
     // Each PiBlockList forms a new loop
     HLLoop *NewLoop = Loop->cloneEmptyLoop();
@@ -178,6 +176,10 @@ void HIRLoopDistribution::distributeLoop(
       }
     }
   }
+
+  Loop->getParentRegion()->setGenCode();
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
+  HIRInvalidationUtils::invalidateBody(Loop);
 
   // The loop is now empty, all its children moved into new loops
   assert(!Loop->hasChildren() &&

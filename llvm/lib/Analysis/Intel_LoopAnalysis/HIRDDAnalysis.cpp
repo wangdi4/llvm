@@ -102,13 +102,16 @@ bool HIRDDAnalysis::runOnFunction(Function &F) {
 }
 
 void HIRDDAnalysis::markLoopBodyModified(const HLLoop *L) {
-  // TODO
+  // TODO: properly handle loop body modification
+  FunctionDDGraph.clear();
 }
 void HIRDDAnalysis::markLoopBoundsModified(const HLLoop *L) {
-  // TODO
+  // TODO: properly handle loop bounds modification
+  FunctionDDGraph.clear();
 }
 void HIRDDAnalysis::markNonLoopRegionModified(const HLRegion *R) {
-  // TODO
+  // TODO: properly handle region modification
+  FunctionDDGraph.clear();
 }
 
 DDGraph HIRDDAnalysis::getGraph(HLNode *Node, bool InputEdgesReq) {
