@@ -90,9 +90,9 @@ void LPUInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
   if (MI != MBB.end()) DL = MI->getDebugLoc();
   unsigned opc;
 
-  if        (RC == &LPU::I1RegClass  || RC == &LPU::RI1RegClass  || RC == &LPU::CI1RegClass) {
-    opc = LPU::ST8D;
-  } else if (RC == &LPU::I8RegClass  || RC == &LPU::RI8RegClass  || RC == &LPU::CI8RegClass) {
+  if        (RC == &LPU::I0RegClass  || RC == &LPU::RI0RegClass  || RC == &LPU::CI0RegClass ||
+             RC == &LPU::I1RegClass  || RC == &LPU::RI1RegClass  || RC == &LPU::CI1RegClass ||
+             RC == &LPU::I8RegClass  || RC == &LPU::RI8RegClass  || RC == &LPU::CI8RegClass) {
     opc = LPU::ST8D;
   } else if (RC == &LPU::I16RegClass || RC == &LPU::RI16RegClass || RC == &LPU::CI16RegClass) {
     opc = LPU::ST16D;
@@ -118,9 +118,9 @@ void LPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   if (MI != MBB.end()) DL = MI->getDebugLoc();
   unsigned opc;
 
-  if        (RC == &LPU::I1RegClass  || RC == &LPU::RI1RegClass  || RC == &LPU::CI1RegClass) {
-    opc = LPU::LD8D;
-  } else if (RC == &LPU::I8RegClass  || RC == &LPU::RI8RegClass  || RC == &LPU::CI8RegClass) {
+  if        (RC == &LPU::I0RegClass  || RC == &LPU::RI0RegClass  || RC == &LPU::CI0RegClass ||
+             RC == &LPU::I1RegClass  || RC == &LPU::RI1RegClass  || RC == &LPU::CI1RegClass ||
+             RC == &LPU::I8RegClass  || RC == &LPU::RI8RegClass  || RC == &LPU::CI8RegClass) {
     opc = LPU::LD8D;
   } else if (RC == &LPU::I16RegClass || RC == &LPU::RI16RegClass || RC == &LPU::CI16RegClass) {
     opc = LPU::LD16D;

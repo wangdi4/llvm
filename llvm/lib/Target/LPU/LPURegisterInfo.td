@@ -31,11 +31,11 @@ foreach i = 0-7 in { def CI16_#i : LPUReg<"%ci16_"#i>; }
 foreach i = 0-7 in { def CI32_#i : LPUReg<"%ci32_"#i>; }
 foreach i = 0-7 in { def CI64_#i : LPUReg<"%ci64_"#i>; }
 
-def CI0  : RegisterClass<"LPU", [i1],      64, (add (sequence "CI0_%u", 0, 7))>;
-def CI1  : RegisterClass<"LPU", [i1],      64, (add (sequence "CI1_%u", 0, 7))>;
-def CI8  : RegisterClass<"LPU", [i8],      64, (add (sequence "CI8_%u", 0, 7))>;
-def CI16 : RegisterClass<"LPU", [i16,f16], 64, (add (sequence "CI16_%u", 0, 7))>;
-def CI32 : RegisterClass<"LPU", [i32,f32], 64, (add (sequence "CI32_%u", 0, 7))>;
+def CI0  : RegisterClass<"LPU", [i1],       8, (add (sequence "CI0_%u", 0, 7))>;
+def CI1  : RegisterClass<"LPU", [i1],       8, (add (sequence "CI1_%u", 0, 7))>;
+def CI8  : RegisterClass<"LPU", [i8],       8, (add (sequence "CI8_%u", 0, 7))>;
+def CI16 : RegisterClass<"LPU", [i16,f16], 16, (add (sequence "CI16_%u", 0, 7))>;
+def CI32 : RegisterClass<"LPU", [i32,f32], 32, (add (sequence "CI32_%u", 0, 7))>;
 def CI64 : RegisterClass<"LPU", [i64,f64], 64, (add (sequence "CI64_%u", 0, 7))>;
 
 //// Registers in main sequential unit
