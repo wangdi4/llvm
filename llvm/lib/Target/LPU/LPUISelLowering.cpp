@@ -80,8 +80,7 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   for (MVT VT : MVT::integer_valuetypes()) {
     // If this type is generally supported
     bool isTypeSupported =
-      ( (VT == MVT::i1 && ST.hasI1()) ||
-        (VT == MVT::i8 && ST.hasI8()) ||
+      ( (VT == MVT::i8 && ST.hasI8()) ||
         (VT == MVT::i16 && ST.hasI16()) ||
         (VT == MVT::i32 && ST.hasI32()) ||
         (VT == MVT::i64 && ST.hasI64()) );
@@ -132,45 +131,39 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
 
   setOperationAction(ISD::BR_JT,              MVT::Other, Expand);
   
-  // Loads
+  // Loads & stores
   for (MVT VT : MVT::integer_valuetypes()) {
+    //  i1 used to be promote, now expand...
     setLoadExtAction(ISD::EXTLOAD,  VT, MVT::i1,  Promote);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i1,  Promote);
     setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i1,  Promote);
 
     // for now (likely revisit)
-    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i8,  Expand);
+    setLoadExtAction(ISD::EXTLOAD , VT, MVT::i8,  Expand);
     setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i8,  Expand);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i8,  Expand);
-    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i16, Expand);
+    setLoadExtAction(ISD::EXTLOAD,  VT, MVT::i16, Expand);
     setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i16, Expand);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i16, Expand);
-    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i32, Expand);
+    setLoadExtAction(ISD::EXTLOAD,  VT, MVT::i32, Expand);
     setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i32, Expand);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i32, Expand);
+
+    // We don't accept any truncstore of integer registers.
+    setTruncStoreAction(VT, MVT::i32, Expand);
+    setTruncStoreAction(VT, MVT::i16, Expand);
+    setTruncStoreAction(VT, MVT::i8 , Expand);
+    setTruncStoreAction(VT, MVT::i1,  Expand);
   }
 
   setLoadExtAction(ISD::EXTLOAD, MVT::f32, MVT::f16, Expand);
   setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f16, Expand);
   setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f32, Expand);
 
-  // We don't accept any truncstore of integer registers.
-  setTruncStoreAction(MVT::i64, MVT::i32, Expand);
-  setTruncStoreAction(MVT::i64, MVT::i16, Expand);
-  setTruncStoreAction(MVT::i64, MVT::i8 , Expand);
-  setTruncStoreAction(MVT::i32, MVT::i16, Expand);
-  setTruncStoreAction(MVT::i32, MVT::i8 , Expand);
-  setTruncStoreAction(MVT::i16, MVT::i8,  Expand);
-
-  setTruncStoreAction(MVT::i64, MVT::i1,  Promote);
-  setTruncStoreAction(MVT::i32, MVT::i1,  Promote);
-  setTruncStoreAction(MVT::i16, MVT::i1,  Promote);
-  setTruncStoreAction(MVT::i8,  MVT::i1,  Promote);
-
   setTruncStoreAction(MVT::f64, MVT::f32, Expand);
   setTruncStoreAction(MVT::f64, MVT::f16, Expand);
   setTruncStoreAction(MVT::f32, MVT::f16, Expand);
-
+  
   // SETOEQ and SETUNE require checking two conditions.
   /*
   setCondCodeAction(ISD::SETOEQ, MVT::f32, Expand);

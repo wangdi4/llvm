@@ -598,12 +598,16 @@ defm CVTF64U64 : CvtOp<"cvtf64u64", uint_to_fp, I64, I64, [HasF64,HasI64]>;
 defm CVTF32F64 : CvtOp<"cvtf32f64", fround,   I32, I64, [HasF32,HasF64]>;
 defm CVTF64F32 : CvtOp<"cvtf64f32", fextend,  I64, I32, [HasF32,HasF64]>;
 
+defm SEXT8_1   : SExtOp<"sext8",  I8,  I1,  [HasI8]>;
 defm SEXT8     : SExtOp<"sext8",  I8,  I8,  [HasI8]>;
+defm SEXT16_1  : SExtOp<"sext16", I16, I1,  [HasI16]>;
 defm SEXT16_8  : SExtOp<"sext16", I16, I8,  [HasI16]>;
 defm SEXT16    : SExtOp<"sext16", I16, I16, [HasI16]>;
+defm SEXT32_1  : SExtOp<"sext32", I32, I1,  [HasI32]>;
 defm SEXT32_8  : SExtOp<"sext32", I32, I8,  [HasI32]>;
 defm SEXT32_16 : SExtOp<"sext32", I32, I16, [HasI32]>;
 defm SEXT32    : SExtOp<"sext32", I32, I32, [HasI32]>;
+defm SEXT64_1  : SExtOp<"sext64", I64, I1,  [HasI64]>;
 defm SEXT64_8  : SExtOp<"sext64", I64, I8,  [HasI64]>;
 defm SEXT64_16 : SExtOp<"sext64", I64, I16, [HasI64]>;
 defm SEXT64_32 : SExtOp<"sext64", I64, I32, [HasI64]>;
@@ -642,6 +646,8 @@ defm SRA16     : ShiftOp<"sra16",  sra,  I16, i16, imm,   [HasI16]>;
 defm SRA32     : ShiftOp<"sra32",  sra,  I32, i32, imm,   [HasI32]>;
 defm SRA64     : ShiftOp<"sra64",  sra,  I64, i64, imm,   [HasI64]>;
 
+def : Pat<(i1 (add i1:$op1, i1:$op2)),       (XOR1 $op1,$op2)>;
+def : Pat<(i1 (add i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
 defm ADD8      : BinOpC< "add8",   add,  I8,  i8,  imm,   [HasI8]>;
 defm ADD16     : BinOpC< "add16",  add,  I16, i16, imm,   [HasI16]>;
 defm ADD32     : BinOpC< "add32",  add,  I32, i32, imm,   [HasI32]>;
@@ -651,6 +657,8 @@ defm ADDF16    : BinOpC< "addf16", fadd, I16, f16, fpimm, [HasF16]>;
 defm ADDF32    : BinOpC< "addf32", fadd, I32, f32, fpimm, [HasF32]>;
 defm ADDF64    : BinOpC< "addf64", fadd, I64, f64, fpimm, [HasF64]>;
 
+def : Pat<(i1 (sub i1:$op1, i1:$op2)),       (XOR1 $op1,$op2)>;
+def : Pat<(i1 (sub i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
 defm SUB8      : BinOpNC<"sub8",   sub,  I8,  i8,  imm,   [HasI8]>;
 defm SUB16     : BinOpNC<"sub16",  sub,  I16, i16, imm,   [HasI16]>;
 defm SUB32     : BinOpNC<"sub32",  sub,  I32, i32, imm,   [HasI32]>;
@@ -825,6 +833,7 @@ defm FMRSF64 : FusedOp2<"fmrsf64", fmul, fsub, I64, f64, [HasF64,HasFMA]>;
 // todo: LDS8
 // todo: LDS16
 // todo: LDS32
+defm LD1   : LdOp<"ld8",   I1,  i1>;
 defm LD8   : LdOp<"ld8",   I8,  i8>;
 defm LD16  : LdOp<"ld16",  I16, i16>;
 defm LD16f : LdOp<"ld16",  I16, f16>;
@@ -833,6 +842,7 @@ defm LD32f : LdOp<"ld32",  I32, f32>;
 defm LD64  : LdOp<"ld64",  I64, i64>;
 defm LD64f : LdOp<"ld64",  I64, f64>;
 
+defm ST1   : StOp<"st8",   I1,  i1,  imm>;
 defm ST8   : StOp<"st8",   I8,  i8,  imm>;
 defm ST16  : StOp<"st16",  I16, i16, imm>;
 defm ST16f : StOp<"st16",  I16, f16, fpimm>;
@@ -992,14 +1002,23 @@ def : Pat<(i64 (sext i16:$op1)),
   (SEXT64_16 (i16 $op1), 16)>;
 def : Pat<(i64 (sext i8:$op1)),
   (SEXT64_8  (i8 $op1),  8)>;
+def : Pat<(i64 (sext i1:$op1)),
+  (SEXT64_1  (i1 $op1),  1)>;
 
 def : Pat<(i32 (sext i16:$op1)),
   (SEXT32_16 (i16 $op1), 16)>;
 def : Pat<(i32 (sext i8:$op1)),
   (SEXT32_8 (i8 $op1), 8)>;
+def : Pat<(i32 (sext i1:$op1)),
+  (SEXT32_1 (i1 $op1), 1)>;
 
 def : Pat<(i16 (sext i8:$op1)),
   (SEXT16_8 (i8 $op1), 8)>;
+def : Pat<(i16 (sext i1:$op1)),
+  (SEXT16_1 (i1 $op1), 1)>;
+
+def : Pat<(i8 (sext i1:$op1)),
+  (SEXT8_1 (i1 $op1), 1)>;
 
 // sext_inreg are the same
 def : Pat<(i64 (sext_inreg i64:$op1, i32)),
@@ -1008,14 +1027,23 @@ def : Pat<(i64 (sext_inreg i64:$op1, i16)),
   (SEXT64 $op1, 16)>;
 def : Pat<(i64 (sext_inreg i64:$op1, i8)),
   (SEXT64 $op1, 8)>;
+def : Pat<(i64 (sext_inreg i64:$op1, i1)),
+  (SEXT64 $op1, 1)>;
 
 def : Pat<(i32 (sext_inreg i32:$op1, i16)),
   (SEXT32 $op1, 16)>;
 def : Pat<(i32 (sext_inreg i32:$op1, i8)),
   (SEXT32 $op1, 8)>;
+def : Pat<(i32 (sext_inreg i32:$op1, i1)),
+  (SEXT32 $op1, 1)>;
 
 def : Pat<(i16 (sext_inreg i16:$op1, i8)),
   (SEXT16 $op1, 8)>;
+def : Pat<(i16 (sext_inreg i16:$op1, i1)),
+  (SEXT16 $op1, 1)>;
+
+def : Pat<(i8 (sext_inreg i8:$op1, i1)),
+  (SEXT8 $op1, 1)>;
 
 // zext patterns
 // (Is the copy even necessary?  Or can we just return the value?)
