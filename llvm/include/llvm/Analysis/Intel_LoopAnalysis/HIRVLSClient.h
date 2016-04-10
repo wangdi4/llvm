@@ -29,7 +29,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Pass.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
 
 namespace llvm {

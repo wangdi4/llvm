@@ -1,11 +1,11 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loopnest verifying that the truncated IV of outer loop is reverse engineered correctly as a blob in inner loop upper.
 ; CHECK: DO i1 = 0, 3
 ; CHECK-NEXT: DO i2 = 0, zext.i32.i64((-2 + trunc.i64.i32(%indvars.iv)))
-; CHECK-NEXT: %1 = (%A)[i1 + -1 * i2 + 1]
-; CHECK-NEXT: %2 = (%A)[i1 + -1 * i2]
-; CHECK-NEXT: (%A)[i1 + -1 * i2] = -1 * %1 + %2
+; CHECK-NEXT: %1 = {al:4}(%A)[i1 + -1 * i2 + 1]
+; CHECK-NEXT: %2 = {al:4}(%A)[i1 + -1 * i2]
+; CHECK-NEXT: {al:4}(%A)[i1 + -1 * i2] = -1 * %1 + %2
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: %indvars.iv = i1  +  1
 ; CHECK-NEXT: END LOOP

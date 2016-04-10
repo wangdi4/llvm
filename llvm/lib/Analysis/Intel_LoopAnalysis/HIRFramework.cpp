@@ -20,7 +20,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRSymbaseAssignment.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
@@ -37,7 +37,7 @@ static cl::opt<bool>
 INITIALIZE_PASS_BEGIN(HIRFramework, "hir-framework", "HIR Framework", false,
                       true)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
-INITIALIZE_PASS_DEPENDENCY(SymbaseAssignment)
+INITIALIZE_PASS_DEPENDENCY(HIRSymbaseAssignment)
 INITIALIZE_PASS_END(HIRFramework, "hir-framework", "HIR Framework", false, true)
 
 char HIRFramework::ID = 0;
@@ -51,15 +51,16 @@ HIRFramework::HIRFramework() : FunctionPass(ID) {
 void HIRFramework::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<HIRParser>();
-  AU.addRequiredTransitive<SymbaseAssignment>();
+  AU.addRequiredTransitive<HIRSymbaseAssignment>();
 }
 
 bool HIRFramework::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
-  SA = &getAnalysis<SymbaseAssignment>();
+  SA = &getAnalysis<HIRSymbaseAssignment>();
 
-  HLUtils::setHIRFramework(this);
+  HIRUtils::setHIRFramework(this);
 
+  HLNodeUtils::initialize();
   HLNodeUtils::initTopSortNum();
 
 #ifndef NDEBUG

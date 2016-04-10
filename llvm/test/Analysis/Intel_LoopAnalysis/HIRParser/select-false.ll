@@ -2,6 +2,8 @@
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details -hir-details-constants | FileCheck %s
 
+; CHECK: NSW: Yes
+
 ; CHECK: DO i32 i1 = 0, 4
 ; CHECK: (%A)[0][i1] = 1;
 ; CHECK: <RVAL-REG> i32 1 {sb:1}

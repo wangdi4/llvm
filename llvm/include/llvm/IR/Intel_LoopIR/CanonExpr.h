@@ -37,7 +37,9 @@ class Constant;
 namespace loopopt {
 
 /// \brief The maximum loopnest level allowed in HIR.
-const int MaxLoopNestLevel = 9;
+const unsigned MaxLoopNestLevel = 9;
+/// \brief Value to represent non-linear level.
+const unsigned NonLinearLevel = MaxLoopNestLevel + 1;
 
 /// \brief Canonical form in high level IR
 ///
@@ -133,7 +135,7 @@ private:
   Type *DestTy;
   // Capture whether we are hiding signed or zero extension.
   bool IsSExt;
-  int DefinedAtLevel;
+  unsigned DefinedAtLevel;
   IVCoeffsTy IVCoeffs;
   BlobCoeffsTy BlobCoeffs;
   int64_t Const;
@@ -154,9 +156,6 @@ protected:
 
   /// \brief Destroys the object.
   void destroy();
-
-  /// \brief Internal method to check level range.
-  static bool isLevelValid(unsigned Level);
 
   /// \brief Implements hasIV()/numIV() and
   /// hasBlobIVCoeffs()/numBlobIVCoeffs() functionality.
@@ -201,6 +200,28 @@ protected:
     return (!containsUndef() && !hasIV() && !hasBlob() &&
             (getDenominator() == 1));
   }
+
+  /// \brief Returns true if canon expr is a constant integer. Integer value
+  /// is returned in \pVal. If \pHandleSplat is true, handle a constant Int
+  /// value cast to a vector type.
+  bool isIntConstantImpl(int64_t *Val, bool HandleSplat) const;
+
+  /// \brief Returns true if canon expr represents a floating point constant.
+  /// If yes, returns the underlying LLVM Value in \pVal. If \pHandleSplat is
+  /// true, handle a constant FP value cast to a vector type.
+  bool isFPConstantImpl(ConstantFP **Val, bool HandleSplat) const;
+
+  /// \brief Returns true if canon expr is a constant integer splat. The constant
+  //  integer splat value is returned in \pVal.
+  bool isIntConstantSplat(int64_t *Val = nullptr) const;
+
+  /// \brief Returns true if canon expr represents a floating point constant
+  /// splat. If yes, returns the underlying LLVM splat Value in \pVal.
+  bool isFPConstantSplat(ConstantFP **Val = nullptr) const;
+
+  /// \brief Returns true if canon expr is a vector of constants.
+  /// If yes, returns the underlying LLVM Value in \pVal
+  bool isConstantVectorImpl(Constant **Val = nullptr) const;
 
   /// \brief Return the mathematical coefficient to be used in cases
   /// where mathematical addition is performed. The Coeff value in those
@@ -258,25 +279,24 @@ public:
     DefinedAtLevel = DefLvl;
   }
 
+  /// \brief Returns true if some blob in the canon expr is defined in
+  /// the current loop level.
+  bool isNonLinear() const { return (DefinedAtLevel == NonLinearLevel); }
+
+  /// \brief Mark this canon expr as non-linear.
+  void setNonLinear() { DefinedAtLevel = NonLinearLevel; }
+
   /// \brief Returns true if this is linear at all levels.
   bool isProperLinear() const { return (DefinedAtLevel == 0); }
 
   /// \brief Returns true if this is linear at some levels (greater than
   /// DefinedAtLevel) in the current loopnest.
-  bool isLinearAtLevel() const { return (DefinedAtLevel >= 0); }
-
-  /// \brief Returns true if some blob in the canon expr is defined in
-  /// the current loop level.
-  bool isNonLinear() const { return (DefinedAtLevel == -1); }
-
-  /// \brief Mark this canon expr as non-linear.
-  void setNonLinear() { DefinedAtLevel = -1; }
+  bool isLinearAtLevel() const { return !isNonLinear(); }
 
   /// \brief Returns true if the canon expr is linear at level and does not
   /// have IV at given level.
   bool isInvariantAtLevel(unsigned Level) const {
-    return (isLinearAtLevel() && (DefinedAtLevel < (int)(Level)) &&
-            !hasIV(Level));
+    return (isLinearAtLevel() && (DefinedAtLevel < Level) && !hasIV(Level));
   }
 
   /// IV iterator methods
@@ -308,16 +328,26 @@ public:
   }
 
   /// \brief Returns true if canon expr is a constant integer. Integer value
-  /// is returned in Val.
+  /// is returned in \pVal.
   bool isIntConstant(int64_t *Val = nullptr) const;
 
   /// \brief Returns true if canon expr represents a floating point constant.
   /// If yes, returns the underlying LLVM Value in \pVal
   bool isFPConstant(ConstantFP **Val = nullptr) const;
 
+  /// \brief Returns true if canon expr is a vector of constant Ints.
+  /// If yes, returns the underlying LLVM Value in \pVal
+  bool isIntVectorConstant(Constant **Val = nullptr) const;
+
+  /// \brief Returns true if canon expr is a vector of constant FP values.
+  /// If yes, returns the underlying LLVM Value in \pVal
+  bool isFPVectorConstant(Constant **Val = nullptr) const;
+
   /// \brief Returns true if canon expr is a vector of constants.
   /// If yes, returns the underlying LLVM Value in \pVal
-  bool isConstantVector(Constant **Val = nullptr) const;
+  bool isConstantVector(Constant **Val = nullptr) const {
+    return (isIntVectorConstant(Val) || isFPVectorConstant(Val));
+  }
 
   /// \brief Returns true if canon expr represents a metadata.
   /// If true, metadata is returned in Val.
@@ -577,7 +607,7 @@ public:
   void negate();
 
   /// \brief Verifies canon expression
-  void verify() const;
+  void verify(unsigned NestingLevel) const;
 };
 
 } // End loopopt namespace

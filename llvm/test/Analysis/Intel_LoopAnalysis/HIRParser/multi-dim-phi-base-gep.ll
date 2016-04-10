@@ -2,7 +2,7 @@
 
 ; Check parsing output for the loop verifying that the phi base (%ref.06) whose higher dimension is inductive in the loop is handled correctly.
 ; CHECK: DO i1 = 0, 99
-; CHECK-NEXT: %0 = (%inp)[i1][0];
+; CHECK-NEXT: %0 = {al:4}(%inp)[i1][0];
 ; CHECK-NEXT: %x.07 = %0  +  %x.07;
 ; CHECK-NEXT: END LOOP
 

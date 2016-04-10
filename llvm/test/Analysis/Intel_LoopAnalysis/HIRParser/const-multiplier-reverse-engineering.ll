@@ -6,7 +6,7 @@
 ; CHECK-NEXT: {
 ; CHECK-NEXT: %1 = trunc.i64.i32(undef * i1);
 ; CHECK-NEXT: DO i2 = 0, zext.i32.i64((-1 + %size_x)), 1   <DO_LOOP>
-; CHECK-NEXT: %tmp16.0.copyload = (i16*)(%buf)[2 * i2 + sext.i32.i64((2 * %1))];
+; CHECK-NEXT: %tmp16.0.copyload = {al:1}(i16*)(%buf)[2 * i2 + sext.i32.i64((2 * %1))];
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: }
 ; CHECK-NEXT: END LOOP

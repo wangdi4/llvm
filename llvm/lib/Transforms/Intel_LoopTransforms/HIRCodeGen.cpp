@@ -22,28 +22,28 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
-#include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpander.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/Support/Debug.h"
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "llvm/ADT/DenseMap.h"
 
 #include "llvm/IR/Intel_LoopIR/HIRVisitor.h"
 // TODO audit includes
@@ -53,7 +53,7 @@ using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::vpo;
 
-static cl::opt<bool> forceHIRCG("force-HIRCG", cl::init(false), cl::Hidden,
+static cl::opt<bool> forceHIRCG("force-hir-cg", cl::init(false), cl::Hidden,
                                 cl::desc("forces CodeGen on all HIR regions"));
 
 static cl::opt<unsigned> HIRDebugRegion(
@@ -124,6 +124,14 @@ private:
     Value *visitHLNode(HLNode *Node) {
       llvm_unreachable("Unknown HIR type in CG");
     }
+
+    // Set the metadata for the instruction using the passed in MDNodes.
+    static void setMetadata(Instruction *Inst, const RegDDRef::MDNodesTy &MDs);
+
+    // Generates eventual store for an lval HLInst once all the operands have
+    // been CG'd.
+    void generateLvalStore(const HLInst *HInst, Value *StorePtr,
+                           Value *StoreVal);
 
     CGVisitor(Function *CurFunc, ScalarEvolution *SE, Pass *CurPass)
         : F(CurFunc), HIRCG(CurPass) {
@@ -212,6 +220,11 @@ private:
                                          CE->getSrcType()));
       auto CEDestTy = CE->getDestType();
 
+      // We can have a CanonExpr with blobs where some of the blobs have
+      // been replaced by vectorized values while others simply need a
+      // broadcast of the loop invariant blob value. Handle these cases
+      // here. Example CE: i1 + %N + %.vec + <i32 0, i32 1, i32 2, i32 3>
+      // %N is a blob that needs a broadcast.
       if (CEDestTy->isVectorTy() &&
           !BlobVal->getType()->isVectorTy()) {
         BlobVal = Builder->CreateVectorSplat(CEDestTy->getVectorNumElements(),
@@ -267,7 +280,7 @@ private:
         // adds of ptr types with a SCEV for a gep instead of ptrtoints
         // and adds. These new scevunknowns have an instruction but no
         // corresponding blob. For those, return their underlying value
-        if(BlobSymbase == INVALID_BLOB_INDEX)  {
+        if(BlobSymbase == InvalidBlobIndex)  {
           return V;
         }
 
@@ -417,10 +430,10 @@ public:
 FunctionPass *llvm::createHIRCodeGenPass() { return new HIRCodeGen(); }
 
 char HIRCodeGen::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
+INITIALIZE_PASS_BEGIN(HIRCodeGen, "hir-cg", "HIR Code Generation", false, false)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_END(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
+INITIALIZE_PASS_END(HIRCodeGen, "hir-cg", "HIR Code Generation", false, false)
 
 void HIRCodeGen::preVisitCG(HLRegion *Reg) const {
   // Gather all loops for processing.
@@ -609,13 +622,37 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
     GEPVal = Builder->CreateGEP(BaseV, IndexV, "arrayIdx");
   }
 
-  // Base CE could have different src and dest types in which case we need a
-  // bitcast. Can occur from llvm's canonicalization of store/load of float
-  // to int by bitcast. When GEPVal is a vector of pointers, we do not need
-  // a bitcast.
-  if (!GEPVal->getType()->isVectorTy() &&
-      (Ref->getBaseSrcType() != Ref->getBaseDestType())) {
-    GEPVal = Builder->CreateBitCast(GEPVal, Ref->getBaseDestType());
+  if (GEPVal->getType()->isVectorTy()) {
+    // When we have a vector of pointers and base src and dest types do not
+    // match, we need to bitcast from vector of pointers of src type to vector
+    // of pointers of dest type. Example case, Src type is int * and Dest type
+    // is <4 x float>*, we will have pointer vector <4 x int*>. This vector
+    // needs to be bitcast to <4 x float*> so that the gather/scatter
+    // loads/stores <4 x float>.
+    auto BaseDestTy = Ref->getBaseDestType();               // <4 x float>*
+    auto PtrBaseDestTy = cast<PointerType>(BaseDestTy);     // <4 x float>*
+    auto BaseDestElTy = PtrBaseDestTy->getElementType();    // <4 x float> 
+    auto BaseDestScTy = BaseDestElTy->getScalarType();      // float
+    auto BaseDestScPtrTy = PointerType::get(BaseDestScTy,   // float *
+                                            PtrBaseDestTy->getAddressSpace());
+    
+    if (Ref->getBaseSrcType() != BaseDestScPtrTy) {
+      auto VL = BaseDestElTy->getVectorNumElements();
+      
+      // We have a vector of pointers of BaseSrcType. We need to convert it to
+      // vector of pointers of BaseDestScType.
+      GEPVal = Builder->CreateBitCast(GEPVal,
+                                      VectorType::get(BaseDestScPtrTy, VL));
+    }
+  }
+  else {
+    // Base CE could have different src and dest types in which case we need a
+    // bitcast. Can occur from llvm's canonicalization of store/load of float
+    // to int by bitcast. Note that bitcast of  something like int * to
+    // <4 x int>* is also handled here.
+    if (Ref->getBaseSrcType() != Ref->getBaseDestType()) {
+      GEPVal = Builder->CreateBitCast(GEPVal, Ref->getBaseDestType());
+    }
   }
 
   if (Ref->isAddressOf()) {
@@ -626,26 +663,22 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   // value of A[i], ie a load. For lval, we will store into &A[i], so we
   // want the address, the gep
   if (Ref->isRval()) {
-    unsigned Align = 0;
-    auto DDNode = Ref->getHLDDNode();
-    
-    if (auto HInst = dyn_cast<HLInst>(DDNode)) {
-      auto Inst = HInst->getLLVMInstruction();
+    RegDDRef::MDNodesTy MDs;
+    Instruction *LInst;
 
-      if (auto LI = dyn_cast<LoadInst>(Inst)) {
-        Align = LI->getAlignment();
-      }
-    }
-
-    // If we have a vector of pointers do the load using the masked gather
-    // intrinsic.
     if (GEPVal->getType()->isVectorTy()) {
-      return VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal,
-                                              Builder);
+      LInst = VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal,
+                                               Builder);
     }
     else {
-      return Builder->CreateAlignedLoad(GEPVal, Align, "gepload");
+      LInst = Builder->CreateAlignedLoad(GEPVal, Ref->getAlignment(),
+                                         Ref->isVolatile(), "gepload");
     }
+
+    Ref->getAllMetadata(MDs);
+    setMetadata(LInst, MDs);
+
+    return LInst;
   }
 
   return GEPVal;
@@ -923,10 +956,13 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *Lp) {
 
   // increment IV
   Value *CurVar = Builder->CreateLoad(Alloca);
-  Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "nextiv" + LName);
+  Value *NextVar =
+      Builder->CreateAdd(CurVar, StepVal, "nextiv" + LName, true, Lp->isNSW());
   Builder->CreateStore(NextVar, Alloca);
 
-  Value *EndCond = Builder->CreateICmpSLE(NextVar, Upper, "cond" + LName);
+  Value *EndCond =
+      Builder->CreateICmp(Lp->isNSW() ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,
+                          NextVar, Upper, "cond" + LName);
 
   BasicBlock *AfterBB = BasicBlock::Create(F->getContext(), "after" + LName, F);
 
@@ -1039,7 +1075,44 @@ Value *HIRCodeGen::CGVisitor::visitSwitch(HLSwitch *S) {
   return nullptr;
 }
 
+void HIRCodeGen::CGVisitor::setMetadata(Instruction *Inst,
+                                        const RegDDRef::MDNodesTy &MDs) {
+  for (auto const &I : MDs) {
+    Inst->setMetadata(I.first, I.second);
+  }
+}
+
+void HIRCodeGen::CGVisitor::generateLvalStore(const HLInst *HInst,
+                                              Value *StorePtr,
+                                              Value *StoreVal) {
+
+  if (!HInst->hasLval()) {
+    return;
+  }
+
+  auto LvalRef = HInst->getLvalDDRef();
+
+  if (LvalRef->hasGEPInfo()) {
+    RegDDRef::MDNodesTy MDs;
+    Instruction *ResInst;
+    if (StorePtr->getType()->isVectorTy()) {
+      ResInst = VPOUtils::createMaskedScatterCall(F->getParent(), StorePtr,
+                                                  StoreVal, Builder);
+    }
+    else {
+      ResInst = Builder->CreateAlignedStore(
+        StoreVal, StorePtr, LvalRef->getAlignment(), LvalRef->isVolatile());
+    }
+
+    LvalRef->getAllMetadataOtherThanDebugLoc(MDs);
+    setMetadata(ResInst, MDs);
+  } else {
+    Builder->CreateStore(StoreVal, StorePtr);
+  }
+}
+
 Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
+
   // CG the operands
   SmallVector<Value *, 6> Ops;
   for (auto R = HInst->op_ddref_begin(), E = HInst->op_ddref_end(); R != E;
@@ -1050,82 +1123,61 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     // Do a broadcast of instruction operands if needed.
     if ((*R)->isRval() && DestTy->isVectorTy() &&
         !(OpVal->getType()->isVectorTy())) {
-      OpVal->dump();
-
       OpVal = Builder->CreateVectorSplat(DestTy->getVectorNumElements(),
                                          OpVal);
-      OpVal->dump();
     }
 
     Ops.push_back(OpVal);
   }
 
+  // Operands for the eventual store that needs to be generated for a lval
+  // HLInst.
+  Value *StorePtr = !Ops.empty() ? Ops[0] : nullptr;
+  Value *StoreVal = nullptr;
+
   // create the inst
-  Instruction *Inst = const_cast<Instruction *>(HInst->getLLVMInstruction());
-  if (isa<StoreInst>(Inst) || isa<LoadInst>(Inst)) {
-    // We could be loading rhs and storing it into a lhs tmp or mem location
-    // or directly storing rhs into lhs tmp/mem location
-    // TODO change twine?
-    unsigned Align;
+  auto Inst = HInst->getLLVMInstruction();
 
-    if (auto SI = dyn_cast<StoreInst>(Inst)) {
-      Align = SI->getAlignment();
-    }
-    else {
-      auto LI = cast<LoadInst>(Inst);
-      Align = LI->getAlignment();
-    }
+  // Any LLVM instruction which semantically has a terminal lval/rval can
+  // alternatively contain a memref operand in HIR.
+  // For example, add instruction can look like this- A[i] = B[i] + C[i].
+  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
+    StoreVal = Ops[1];
 
-    if (Ops[0]->getType()->isVectorTy()) {
-      VPOUtils::createMaskedScatterCall(F->getParent(), Ops[0], Ops[1],
-                                        Builder);
-    }
-    else {
-      Builder->CreateAlignedStore(Ops[1], Ops[0], Align);
-    }
+  } else if (auto BOp = dyn_cast<BinaryOperator>(Inst)) {
+    StoreVal = Builder->CreateBinOp(BOp->getOpcode(), Ops[1], Ops[2]);
 
-  } else if (BinaryOperator *BOp = dyn_cast<BinaryOperator>(Inst)) {
-    Value *Res = Builder->CreateBinOp(BOp->getOpcode(), Ops[1], Ops[2]);
-    Builder->CreateStore(Res, Ops[0]);
-  } else if (CallInst *Call = dyn_cast<CallInst>(Inst)) {
-    Value *LVal = nullptr;
-    SmallVector<std::pair<unsigned, MDNode *>, 6> MDs;
-
-    // TODO: copy 'tail' marker.
+  } else if (auto Call = dyn_cast<CallInst>(Inst)) {
+    RegDDRef::MDNodesTy CallMDs;
 
     if (HInst->hasLval()) {
       // Turns Operands vector into function args vector by removing lval
       // TODO: Separate this logic from framework's implementation of putting
       // lval as the first operand.
-      LVal = Ops[0];
       Ops.erase(Ops.begin());
     }
 
     // TODO twine for call?
-    CallInst *ResCall = Builder->CreateCall(Call->getCalledValue(), Ops);
+    CallInst *ResCall =
+        Builder->CreateCall(const_cast<Value *>(Call->getCalledValue()), Ops);
 
     // TODO: Copy parameter attributes as well.
     ResCall->setCallingConv(Call->getCallingConv());
     ResCall->setAttributes(Call->getAttributes());
     ResCall->setTailCallKind(Call->getTailCallKind());
 
-    // Copy all metadata over to new call instruction.
-    // TODO: Investigate whether this is an ok thing to do in general.
-    Call->getAllMetadata(MDs);
-    for (auto I = MDs.begin(), E = MDs.end(); I != E; ++I) {
-      ResCall->setMetadata(I->first, I->second);
-    }
+    // TODO: Copy metadata from HLInst instead.
+    Call->getAllMetadata(CallMDs);
+    setMetadata(ResCall, CallMDs);
 
-    if (HInst->hasLval()) {
-      Builder->CreateStore(ResCall, LVal);
-    }
-  } else if (CastInst *Cast = dyn_cast<CastInst>(Inst)) {
+    StoreVal = ResCall;
+
+  } else if (auto Cast = dyn_cast<CastInst>(Inst)) {
     assert(Ops.size() == 2 && "invalid cast");
 
-    Value *Res = Builder->CreateCast(
-        Cast->getOpcode(), Ops[1], Ops[0]->getType()->getPointerElementType());
+    StoreVal = Builder->CreateCast(Cast->getOpcode(), Ops[1],
+                                   Ops[0]->getType()->getPointerElementType());
 
-    Builder->CreateStore(Res, Ops[0]);
   } else if (isa<SelectInst>(Inst)) {
     Value *CmpLHS = Ops[1];
     Value *CmpRHS = Ops[2];
@@ -1135,38 +1187,40 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     Value *Pred =
         createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS,
                       "hir.selcmp." + std::to_string(HInst->getNumber()));
-    Value *NewSel = Builder->CreateSelect(Pred, TVal, FVal);
-    Builder->CreateStore(NewSel, Ops[0]);
+    StoreVal = Builder->CreateSelect(Pred, TVal, FVal);
+
   } else if (isa<CmpInst>(Inst)) {
 
-    Value *CmpVal =
-        createCmpInst(HInst->getPredicate(), Ops[1], Ops[2],
-                      "hir.cmp." + std::to_string(HInst->getNumber()));
-    Builder->CreateStore(CmpVal, Ops[0]);
+    StoreVal = createCmpInst(HInst->getPredicate(), Ops[1], Ops[2],
+                             "hir.cmp." + std::to_string(HInst->getNumber()));
+
   } else if (isa<GetElementPtrInst>(Inst)) {
     // Gep Instructions in LLVM may have any number of operands but the HIR
     // representation for them is always a single rhs ddref
     assert(Ops.size() == 2 && "Gep Inst have single rhs of form &val");
-    Builder->CreateStore(Ops[1], Ops[0]);
+    StoreVal = Ops[1];
+
   } else if (isa<AllocaInst>(Inst)) {
     // Lval type is a pointer to type returned by alloca inst. We need to
     // dereference twice to get to element type
     Type *ElementType =
         Ops[0]->getType()->getPointerElementType()->getPointerElementType();
-    Value *Alloca = Builder->CreateAlloca(
-        ElementType, Ops[1],
-        "hir.alloca." + std::to_string(HInst->getNumber()));
-    Builder->CreateStore(Alloca, Ops[0]);
+
+    StoreVal = Builder->CreateAlloca(ElementType, Ops[1],
+                                     "hir.alloca." +
+                                         std::to_string(HInst->getNumber()));
+
 
   } else if (isa<ExtractElementInst>(Inst)) {
-    Value *Res = Builder->CreateExtractElement(Ops[1], Ops[2], Inst->getName());
-    Builder->CreateStore(Res, Ops[0]);
+    StoreVal = Builder->CreateExtractElement(Ops[1], Ops[2], Inst->getName());
   } else if (isa<ShuffleVectorInst>(Inst)) {
-    Value *Res = Builder->CreateShuffleVector(Ops[1], Ops[2], Ops[3], Inst->getName());
-    Builder->CreateStore(Res, Ops[0]);
+    StoreVal = Builder->CreateShuffleVector(Ops[1], Ops[2], Ops[3],
+                                            Inst->getName());
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }
+
+  generateLvalStore(HInst, StorePtr, StoreVal);
 
   return nullptr;
 }

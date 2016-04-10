@@ -2,7 +2,7 @@
 
 ; Check parsing output for the loop verifying that GEP's phi base which is inductive in the outer loop as well is parsed correctly.
 ; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: %1 = (%0)[i1 + %storemerge.3205 + 1]
+; CHECK-NEXT: %1 = {al:2}(%0)[i1 + %storemerge.3205 + 1]
 ; CHECK-NEXT: END LOOP
 
 

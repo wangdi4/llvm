@@ -18,14 +18,14 @@
 ; CHECK: REGION { modified }
 ; CHECK: %[[TMP:[a-zA-Z0-9.]+]] = {{.*}}/u8
 ; CHECK-NEXT: DO i2 = 0, %[[TMP]]
-; CHECK: %1 = (@A)[0][8 * i2 + 8];
-; CHECK: %2 = (@B)[0][8 * i2 + 7];
-; CHECK: (@A)[0][8 * i2 + 7] = %1 + %2;
+; CHECK: %1 = {al:4}(@A)[0][8 * i2 + 8];
+; CHECK: %2 = {al:4}(@B)[0][8 * i2 + 7];
+; CHECK: {al:4}(@A)[0][8 * i2 + 7] = %1 + %2;
 ; CHECK: END LOOP
 
 ; Check the remainder loop.
 ; CHECK-NEXT: DO i2 = 8 * %[[TMP]]
-; CHECK-NEXT: %1 = (@A)[0][i2 + 1];
+; CHECK-NEXT: %1 = {al:4}(@A)[0][i2 + 1];
 ; CHECK: END LOOP
 
 

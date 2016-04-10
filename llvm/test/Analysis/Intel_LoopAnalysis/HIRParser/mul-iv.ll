@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the outer loop IV is parsed as a blob in the inner loop and therefore we keep the IV update instruction explicitly in HIR. It is also marked livein to the region.
 ; CHECK: LiveIns
@@ -6,7 +6,7 @@
 
 ; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
 ; CHECK-NEXT: DO i2 = 0, zext.i32.i64((-1 + %n))
-; CHECK-NEXT: (%A)[%indvars.iv22 * i2] = i1 + i2
+; CHECK-NEXT: {al:4}(%A)[%indvars.iv22 * i2] = i1 + i2
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: %indvars.iv22 = i1  +  1
 ; CHECK-NEXT: END LOOP
@@ -16,14 +16,16 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
 define void @foo(i32* nocapture %A, i32 %n) {
 entry:
   %cmp.17 = icmp sgt i32 %n, 0
-  br i1 %cmp.17, label %for.body.3.lr.ph, label %for.end.6
+  br i1 %cmp.17, label %for.body.3.lr.ph.preheader, label %for.end.6
 
-for.body.3.lr.ph:                                 ; preds = %entry, %for.inc.4
-  %indvars.iv22 = phi i64 [ %indvars.iv.next23, %for.inc.4 ], [ 0, %entry ]
+for.body.3.lr.ph.preheader:                       ; preds = %entry
+  br label %for.body.3.lr.ph
+
+for.body.3.lr.ph:                                 ; preds = %for.body.3.lr.ph.preheader, %for.inc.4
+  %indvars.iv22 = phi i64 [ %indvars.iv.next23, %for.inc.4 ], [ 0, %for.body.3.lr.ph.preheader ]
   br label %for.body.3
 
 for.body.3:                                       ; preds = %for.body.3, %for.body.3.lr.ph
@@ -42,9 +44,11 @@ for.inc.4:                                        ; preds = %for.body.3
   %indvars.iv.next23 = add nuw nsw i64 %indvars.iv22, 1
   %lftr.wideiv24 = trunc i64 %indvars.iv.next23 to i32
   %exitcond25 = icmp eq i32 %lftr.wideiv24, %n
-  br i1 %exitcond25, label %for.end.6, label %for.body.3.lr.ph
+  br i1 %exitcond25, label %for.end.6.loopexit, label %for.body.3.lr.ph
 
-for.end.6:                                        ; preds = %for.inc.4, %entry
+for.end.6.loopexit:                               ; preds = %for.inc.4
+  br label %for.end.6
+
+for.end.6:                                        ; preds = %for.end.6.loopexit, %entry
   ret void
 }
-

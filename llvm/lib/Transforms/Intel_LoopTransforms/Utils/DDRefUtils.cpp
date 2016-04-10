@@ -36,7 +36,7 @@ RegDDRef *DDRefUtils::createScalarRegDDRef(unsigned SB, CanonExpr *CE) {
 }
 
 RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
-  RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
+  RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, 0, Val);
   NewRegDD->setSingleCanonExpr(CE);
 
@@ -44,7 +44,7 @@ RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
 }
 
 RegDDRef *DDRefUtils::createMetadataDDRef(MetadataAsValue *Val) {
-  RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
+  RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   // Create a linear self-blob constant canon expr.
   auto CE = CanonExprUtils::createMetadataCanonExpr(Val);
   NewRegDD->setSingleCanonExpr(CE);
@@ -53,9 +53,9 @@ RegDDRef *DDRefUtils::createMetadataDDRef(MetadataAsValue *Val) {
 }
 
 RegDDRef *DDRefUtils::createConstDDRef(ConstantAggregateZero *Val) {
-  RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
+  RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   // Create a linear self-blob constant canon expr.
-  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, CONSTANT_SYMBASE);
+  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, ConstantSymbase);
   NewRegDD->setSingleCanonExpr(CE);
   CE->setDefinedAtLevel(0);
 
@@ -63,9 +63,9 @@ RegDDRef *DDRefUtils::createConstDDRef(ConstantAggregateZero *Val) {
 }
 
 RegDDRef *DDRefUtils::createConstDDRef(ConstantDataVector *Val) {
-  RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
+  RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   // Create a linear self-blob constant canon expr.
-  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, CONSTANT_SYMBASE);
+  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, ConstantSymbase);
   NewRegDD->setSingleCanonExpr(CE);
   CE->setDefinedAtLevel(0);
 
@@ -76,7 +76,7 @@ RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
   auto Blob = BlobUtils::createBlob(UndefValue::get(Ty), false);
   unsigned BlobIndex = BlobUtils::findBlob(Blob);
 
-  if (BlobIndex != INVALID_BLOB_INDEX) {
+  if (BlobIndex != InvalidBlobIndex) {
     return createSelfBlobRef(BlobIndex, 0);
   }
   RegDDRef *Ref = createSelfBlobRef(UndefValue::get(Ty));
@@ -84,7 +84,7 @@ RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
   return Ref;
 }
 
-BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, int Level) {
+BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, unsigned Level) {
   return new BlobDDRef(Index, Level);
 }
 
@@ -252,7 +252,7 @@ bool DDRefUtils::getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
   return true;
 }
 
-RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, int Level) {
+RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, unsigned Level) {
   auto CE = CanonExprUtils::createSelfBlobCanonExpr(Index, Level);
   unsigned Symbase = BlobUtils::getBlobSymbase(Index);
 
@@ -260,4 +260,25 @@ RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, int Level) {
   Ref->setSingleCanonExpr(CE);
 
   return Ref;
+}
+
+void DDRefUtils::printMDNodes(formatted_raw_ostream &OS,
+                              const RegDDRef::MDNodesTy &MDNodes) {
+
+  SmallVector<StringRef, 8> MDNames;
+  auto HIRF = getHIRFramework();
+
+  if (HIRF) {
+    HIRF->getContext().getMDKindNames(MDNames);
+  }
+
+  for (auto const &I : MDNodes) {
+    OS << " ";
+    if (HIRF && I.first < MDNames.size()) {
+      OS << "!";
+      OS << MDNames[I.first] << " ";
+    }
+
+    I.second->printAsOperand(OS, HIRF ? &HIRF->getModule() : nullptr);
+  }
 }

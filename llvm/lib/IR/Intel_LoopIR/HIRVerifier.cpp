@@ -64,40 +64,40 @@ public:
     Node->verify();
   }
 
-  void visit(const HLRegion *R) {
+  void visit(const HLRegion *Region) {
     TopSortNum = 0;
-    visit(static_cast<const HLNode *>(R));
+    visit(static_cast<const HLNode *>(Region));
   }
 
   void postVisit(const HLNode *Node) {}
 
-  void visit(const HLLoop *L) {
+  void visit(const HLLoop *Loop) {
     // Innermost flag verification begin
-    CurrentLoop = L;
+    CurrentLoop = Loop;
 
     assert(InnermostLoop == nullptr && "Found a loop inside innermost loop");
-    if (L->isInnermost()) {
-      InnermostLoop = L;
+    if (Loop->isInnermost()) {
+      InnermostLoop = Loop;
     }
     // Innermost flag verification end
 
-    visit(static_cast<const HLNode *>(L));
+    visit(static_cast<const HLNode *>(Loop));
   }
 
-  void postVisit(const HLLoop *L) {
+  void postVisit(const HLLoop *Loop) {
     // Innermost flag verification begin
     if (InnermostLoop) {
-      assert(L == InnermostLoop && "Unexpected HLLoop");
+      assert(Loop == InnermostLoop && "Unexpected HLLoop");
       InnermostLoop = nullptr;
     }
     // Check if the node is leaf HLLoop. Only for the leaf HLLoop visit(HLLoop*)
     // and postVisit(HLLoop*) would be called subsequently.
-    if (L == CurrentLoop) {
-      assert(L->isInnermost() && "No innermost loop found");
+    if (Loop == CurrentLoop) {
+      assert(Loop->isInnermost() && "No innermost loop found");
     }
     // Innermost flag verification end
 
-    postVisit(static_cast<const HLNode *>(L));
+    postVisit(static_cast<const HLNode *>(Loop));
   }
 };
 }

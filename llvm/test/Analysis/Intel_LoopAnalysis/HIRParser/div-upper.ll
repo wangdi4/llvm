@@ -1,7 +1,7 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; This command checks that -hir-ssa-deconstruction invalidates SCEV so that the parser doesn't pick up the cached version. HIR output should be the same as for the above command.
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -hir-complete-unroll -print-before=hir-complete-unroll 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-complete-unroll -print-before=hir-complete-unroll 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop with division in upper
 ; CHECK: DO i1 = 0, 6, 1
@@ -12,10 +12,10 @@
 ; CHECK-NEXT: if (%ipntp.0.out + 1 < %ipntp.0)
 ; CHECK-NEXT: {
 ; CHECK-NEXT: DO i2 = 0, %ipntp.0.out + -1 * %ipntp.0 + ((-2 + %ii.0.out) /u 2) + %ii.0.out, 1
-; CHECK-NEXT: %4 = (%A)[2 * i2 + %ipntp.0.out + 1]
-; CHECK-NEXT: %5 = (%A)[2 * i2 + %ipntp.0.out];
-; CHECK-NEXT: %6 = (%A)[2 * i2 + %ipntp.0.out + 2]
-; CHECK-NEXT: (%A)[i2 + %ipntp.0 + 1] = ((1 + (-1 * %5)) * %4) + -1 * (%6 * %6)
+; CHECK-NEXT: %4 = {al:4}(%A)[2 * i2 + %ipntp.0.out + 1]
+; CHECK-NEXT: %5 = {al:4}(%A)[2 * i2 + %ipntp.0.out];
+; CHECK-NEXT: %6 = {al:4}(%A)[2 * i2 + %ipntp.0.out + 2]
+; CHECK-NEXT: {al:4}(%A)[i2 + %ipntp.0 + 1] = ((1 + (-1 * %5)) * %4) + -1 * (%6 * %6)
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: }
 ; CHECK-NEXT: END LOOP
@@ -26,7 +26,6 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
 define void @foo(i32* nocapture %A) {
 entry:
   br label %do.body
@@ -67,13 +66,15 @@ for.body:                                         ; preds = %for.body, %for.body
   store i32 %sub10, i32* %arrayidx11, align 4
   %add12 = add nsw i64 %k.038, 2
   %exitcond = icmp eq i64 %inc, %3
-  br i1 %exitcond, label %do.cond, label %for.body
+  br i1 %exitcond, label %do.cond.loopexit, label %for.body
 
-do.cond:                                          ; preds = %for.body, %do.body
+do.cond.loopexit:                                 ; preds = %for.body
+  br label %do.cond
+
+do.cond:                                          ; preds = %do.cond.loopexit, %do.body
   %cmp13 = icmp sgt i64 %ii.0, 1
   br i1 %cmp13, label %do.body, label %do.end
 
 do.end:                                           ; preds = %do.cond
   ret void
 }
-

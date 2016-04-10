@@ -1,4 +1,6 @@
-; RUN: opt < %s -analyze -hir-creation | FileCheck %s
+; REQUIRES: asserts
+
+; RUN: opt < %s -analyze -hir-creation -hir-cost-model-throttling=0 | FileCheck %s
 
 ; Check that the lexical links for the loop are created correctly when the loop header directly dominates loop latch block. Loop latch should be the lexically last bblock.
 ; CHECK: for.body.12:
@@ -9,6 +11,10 @@
 ; CHECK: if.then.46:
 ; CHECK: if.end:
 ; CHECK: for.inc.51:
+
+; RUN: opt < %s -analyze -hir-creation -debug 2>&1 | FileCheck -check-prefix=COST-MODEL %s
+; COST-MODEL: Loop throttled due to presence of goto
+
 
 ; ModuleID = 'bugpoint-reduced-simplified.bc'
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"

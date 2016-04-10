@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Verify that the loop is parsed correctly. This is a condition where the non-phi root (%or) of the SCC (%res.0 -> %or -> %shl) is removed as an intermediate node. The checking is to ensure the root node of the SCC is updated to %res.0.
 

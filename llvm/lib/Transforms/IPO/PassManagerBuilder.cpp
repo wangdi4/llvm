@@ -836,12 +836,13 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createPrintModulePass(dbgs(), ";Module Before HIR" ));
   }
 
-  PM.add(createSSADeconstructionPass());
+  PM.add(createHIRSSADeconstructionPass());
 
   if (!RunLoopOptFrameworkOnly) {
     PM.add(createHIRParDirInsertPass());
     PM.add(createHIROptPredicatePass());
     PM.add(createHIRLoopDistributionPass(false));
+    PM.add(createHIRLoopInterchangePass());
     PM.add(createHIRRuntimeDDPass());
     PM.add(createHIRCompleteUnrollPass());
     PM.add(createHIRVecDirInsertPass(OptLevel == 3));

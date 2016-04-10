@@ -16,12 +16,12 @@
 ;                        A[i5][i4][i3][i2+n][i1] =
 ;                            A[i5][i4][i3][i2+m][i1] + 1 ;
 ;
-; RUN: opt -loop-simplify -hir-ssa-deconstruction  -HIRLoopInterchange -HIRCG < %s 2>&1 | FileCheck %s
+; RUN: opt -O2 -loopopt  -hir-loop-interchange   < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 2 3 4 5 1 )  
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 3 4 5 2 )  
-;XFAIL: *
+;
 
 ; ModuleID = 'interchange4.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -21,7 +21,7 @@
 
 
 ; REQUIRES: asserts
-; RUN: opt < %s -basicaa -mem2reg -loop-rotate -loop-simplify -hir-ssa-deconstruction | opt -analyze -basicaa -symbase -hir-locality-analysis -hir-debug-locality | FileCheck %s
+; RUN: opt < %s -basicaa -mem2reg -loop-rotate -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-locality-analysis -hir-debug-locality | FileCheck %s
 ;
 ; Verify loops in sorted order j(L2)-i(L1)
 ; CHECK: Loop level: 2

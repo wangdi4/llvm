@@ -6,7 +6,7 @@
 ; CHECK-DAG: [[LABEL2]]:
 
 ; Check goto CG
-; RUN: opt < %s -mem2reg -HIRCG -force-HIRCG -S | FileCheck -check-prefix=CHECK-CG %s
+; RUN: opt < %s -mem2reg -hir-cg -force-hir-cg -S | FileCheck -check-prefix=CHECK-CG %s
 ;          BEGIN REGION { }
 ;<54>         + DO i1 = 0, 1, 1   <DO_LOOP>
 ;<4>          |   (@A)[0][i1] = i1;

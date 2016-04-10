@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check for parsing of complex predicates in HLIf
 
@@ -12,12 +12,12 @@
 
 ; CHECK: if (%or.cond != 0)
 
-; ModuleID = 'comapre.c'
+
+; ModuleID = 'compare.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
-define float @foo(float* nocapture %p, float* nocapture %q, i32 %M1, i32 %M2, i64 %n) #0 {
+define float @foo(float* nocapture %p, float* nocapture %q, i32 %M1, i32 %M2, i64 %n) {
 entry:
   %cmp.24 = icmp sgt i64 %n, 0
   br i1 %cmp.24, label %for.body.lr.ph, label %for.end
@@ -50,9 +50,11 @@ if.end:                                           ; preds = %if.then, %for.body
   store float %add13, float* %arrayidx, align 4
   %inc = add nuw nsw i64 %i.025, 1
   %exitcond = icmp eq i64 %inc, %n
-  br i1 %exitcond, label %for.end, label %for.body
+  br i1 %exitcond, label %for.end.loopexit, label %for.body
 
-for.end:                                          ; preds = %if.end, %entry
+for.end.loopexit:                                 ; preds = %if.end
+  br label %for.end
+
+for.end:                                          ; preds = %for.end.loopexit, %entry
   ret float undef
 }
-

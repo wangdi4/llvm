@@ -11,7 +11,7 @@
 ; *** Run1: Disable Complete Unrolling with -disable-hir-complete-unroll flag ***
 ; ===-----------------------------------===
 ; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -disable-hir-complete-unroll	\
-; RUN: -print-after=hir-complete-unroll -HIRCG -S < %s  2>&1 | FileCheck %s -check-prefix=NOUNROLL 
+; RUN: -print-after=hir-complete-unroll -hir-cg -S < %s  2>&1 | FileCheck %s -check-prefix=NOUNROLL 
 ;
 ; 
 ; ===---------------------------------------------===
@@ -20,14 +20,14 @@
 ;Check the loop is fully unrolled;
 ;
 ; UNROLL: BEGIN REGION { modified }
-; UNROLL:   %0 = (@B)[0][1];
-; UNROLL:   (@A)[0][1] = %0;
-; UNROLL:   %0 = (@B)[0][2];
-; UNROLL:   (@A)[0][2] = %0;
-; UNROLL:   %0 = (@B)[0][3];
-; UNROLL:   (@A)[0][3] = %0;
-; UNROLL:   %0 = (@B)[0][4];
-; UNROLL:   (@A)[0][4] = %0;
+; UNROLL:   %0 = {al:4}(@B)[0][1];
+; UNROLL:   {al:4}(@A)[0][1] = %0;
+; UNROLL:   %0 = {al:4}(@B)[0][2];
+; UNROLL:   {al:4}(@A)[0][2] = %0;
+; UNROLL:   %0 = {al:4}(@B)[0][3];
+; UNROLL:   {al:4}(@A)[0][3] = %0;
+; UNROLL:   %0 = {al:4}(@B)[0][4];
+; UNROLL:   {al:4}(@A)[0][4] = %0;
 ; UNROLL:  END REGION
 ;
 ; 
@@ -38,8 +38,8 @@
 ;
 ; NOUNROLL: BEGIN REGION { }
 ; NOUNROLL:  DO i1 = 0, 3, 1   <DO_LOOP>
-; NOUNROLL:   %0 = (@B)[0][i1 + 1];
-; NOUNROLL:   (@A)[0][i1 + 1] = %0;
+; NOUNROLL:   %0 = {al:4}(@B)[0][i1 + 1];
+; NOUNROLL:   {al:4}(@A)[0][i1 + 1] = %0;
 ; NOUNROLL:  END LOOP
 ; NOUNROLL: END REGION
 ;

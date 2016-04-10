@@ -21,10 +21,10 @@
 ; 
 ; UNROLL: BEGIN REGION { modified }
 ; UNROLL: DO i1 = 0, 34, 1
-; UNROLL: (@a)[0][8 * {{.*}}(%n) * i1 + 7 * {{.*}}(%n)]
+; UNROLL: {al:4}(@a)[0][8 * {{.*}}(%n) * i1 + 7 * {{.*}}(%n)]
 ; UNROLL: END LOOP
 ; UNROLL-NEXT: DO i1 = 280, 283, 1
-; UNROLL: (@a)[0][i1]
+; UNROLL: {al:4}(@a)[0][i1]
 ; UNROLL-NEXT: END LOOP
 ;
 ;
@@ -34,8 +34,8 @@
 ;
 ; NOUNROLL: BEGIN REGION { }
 ; NOUNROLL: DO i1 = 0, 283, 1   <DO_LOOP>
-; NOUNROLL: %2 = (@a)[0][sext.i32.i64(%n) * i1];
-; NOUNROLL:  (@a)[0][i1] = %2;
+; NOUNROLL: %2 = {al:4}(@a)[0][sext.i32.i64(%n) * i1];
+; NOUNROLL:  {al:4}(@a)[0][i1] = %2;
 ; NOUNROLL: END LOOP
 ; NOUNROLL: END REGION
 ;
