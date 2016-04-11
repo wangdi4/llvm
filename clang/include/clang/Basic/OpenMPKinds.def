@@ -155,6 +155,7 @@ OPENMP_DIRECTIVE_EXT(parallel_for_simd, "parallel for simd")
 OPENMP_DIRECTIVE_EXT(parallel_sections, "parallel sections")
 OPENMP_DIRECTIVE_EXT(for_simd, "for simd")
 OPENMP_DIRECTIVE_EXT(cancellation_point, "cancellation point")
+OPENMP_DIRECTIVE_EXT(declare_reduction, "declare reduction")
 OPENMP_DIRECTIVE(taskloop)
 OPENMP_DIRECTIVE_EXT(taskloop_simd, "taskloop simd")
 OPENMP_DIRECTIVE(distribute)
@@ -379,6 +380,7 @@ OPENMP_TARGET_CLAUSE(private)
 OPENMP_TARGET_CLAUSE(nowait)
 OPENMP_TARGET_CLAUSE(depend)
 OPENMP_TARGET_CLAUSE(defaultmap)
+OPENMP_TARGET_CLAUSE(firstprivate)
 
 // Clauses allowed for OpenMP directive 'target data'.
 // TODO More clauses for 'target data' directive.

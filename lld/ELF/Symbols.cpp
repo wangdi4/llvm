@@ -26,7 +26,7 @@ using namespace llvm::object;
 using namespace llvm::ELF;
 
 using namespace lld;
-using namespace lld::elf2;
+using namespace lld::elf;
 
 template <class ELFT>
 typename ELFFile<ELFT>::uintX_t SymbolBody::getVA() const {
@@ -42,11 +42,14 @@ typename ELFFile<ELFT>::uintX_t SymbolBody::getVA() const {
     // This is an absolute symbol.
     if (!SC)
       return D->Sym.st_value;
+    assert(SC->Live);
 
-    // Symbol offsets for AMDGPU need to be the offset in bytes of the symbol
-    // from the beginning of the section.
+    // Symbol offsets for AMDGPU are the offsets in bytes of the symbols
+    // from the beginning of the section. Note that this part of AMDGPU's
+    // ELF spec is odd and not in line with the standard ELF.
     if (Config->EMachine == EM_AMDGPU)
       return SC->getOffset(D->Sym);
+
     if (D->Sym.getType() == STT_TLS)
       return SC->OutSec->getVA() + SC->getOffset(D->Sym) -
              Out<ELFT>::TlsPhdr->p_vaddr;
@@ -69,6 +72,8 @@ typename ELFFile<ELFT>::uintX_t SymbolBody::getVA() const {
   case LazyKind:
     assert(isUsedInRegularObj() && "Lazy symbol reached writer");
     return 0;
+  case DefinedBitcodeKind:
+    llvm_unreachable("Should have been replaced");
   }
   llvm_unreachable("Invalid symbol kind");
 }
@@ -159,6 +164,13 @@ Defined::Defined(Kind K, StringRef Name, bool IsWeak, uint8_t Visibility,
                  bool IsTls, bool IsFunction)
     : SymbolBody(K, Name, IsWeak, Visibility, IsTls, IsFunction) {}
 
+DefinedBitcode::DefinedBitcode(StringRef Name, bool IsWeak)
+    : Defined(DefinedBitcodeKind, Name, IsWeak, STV_DEFAULT, false, false) {}
+
+bool DefinedBitcode::classof(const SymbolBody *S) {
+  return S->kind() == DefinedBitcodeKind;
+}
+
 Undefined::Undefined(SymbolBody::Kind K, StringRef N, bool IsWeak,
                      uint8_t Visibility, bool IsTls)
     : SymbolBody(K, N, IsWeak, Visibility, IsTls, /*IsFunction*/ false),
@@ -180,8 +192,9 @@ UndefinedElf<ELFT>::UndefinedElf(StringRef N, const Elf_Sym &Sym)
 
 template <typename ELFT>
 DefinedSynthetic<ELFT>::DefinedSynthetic(StringRef N, uintX_t Value,
-                                         OutputSectionBase<ELFT> &Section)
-    : Defined(SymbolBody::DefinedSyntheticKind, N, false, STV_DEFAULT,
+                                         OutputSectionBase<ELFT> &Section,
+                                         uint8_t Visibility)
+    : Defined(SymbolBody::DefinedSyntheticKind, N, false, Visibility,
               /*IsTls*/ false, /*IsFunction*/ false),
       Value(Value), Section(Section) {}
 
@@ -204,12 +217,14 @@ std::unique_ptr<InputFile> Lazy::getMember() {
 }
 
 template <class ELFT> static void doInitSymbols() {
+  ElfSym<ELFT>::Etext.setBinding(STB_GLOBAL);
+  ElfSym<ELFT>::Edata.setBinding(STB_GLOBAL);
   ElfSym<ELFT>::End.setBinding(STB_GLOBAL);
   ElfSym<ELFT>::Ignored.setBinding(STB_WEAK);
   ElfSym<ELFT>::Ignored.setVisibility(STV_HIDDEN);
 }
 
-void elf2::initSymbols() {
+void elf::initSymbols() {
   doInitSymbols<ELF32LE>();
   doInitSymbols<ELF32BE>();
   doInitSymbols<ELF64LE>();
@@ -217,7 +232,7 @@ void elf2::initSymbols() {
 }
 
 // Returns the demangled C++ symbol name for Name.
-std::string elf2::demangle(StringRef Name) {
+std::string elf::demangle(StringRef Name) {
 #if !defined(HAVE_CXXABI_H)
   return Name;
 #else
@@ -272,12 +287,12 @@ template int SymbolBody::compare<ELF32BE>(SymbolBody *Other);
 template int SymbolBody::compare<ELF64LE>(SymbolBody *Other);
 template int SymbolBody::compare<ELF64BE>(SymbolBody *Other);
 
-template class elf2::UndefinedElf<ELF32LE>;
-template class elf2::UndefinedElf<ELF32BE>;
-template class elf2::UndefinedElf<ELF64LE>;
-template class elf2::UndefinedElf<ELF64BE>;
+template class elf::UndefinedElf<ELF32LE>;
+template class elf::UndefinedElf<ELF32BE>;
+template class elf::UndefinedElf<ELF64LE>;
+template class elf::UndefinedElf<ELF64BE>;
 
-template class elf2::DefinedSynthetic<ELF32LE>;
-template class elf2::DefinedSynthetic<ELF32BE>;
-template class elf2::DefinedSynthetic<ELF64LE>;
-template class elf2::DefinedSynthetic<ELF64BE>;
+template class elf::DefinedSynthetic<ELF32LE>;
+template class elf::DefinedSynthetic<ELF32BE>;
+template class elf::DefinedSynthetic<ELF64LE>;
+template class elf::DefinedSynthetic<ELF64BE>;

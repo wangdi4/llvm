@@ -189,6 +189,7 @@ static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
   Opts.TraceBB = CGOpts.SanitizeCoverageTraceBB;
   Opts.TraceCmp = CGOpts.SanitizeCoverageTraceCmp;
   Opts.Use8bitCounters = CGOpts.SanitizeCoverage8bitCounters;
+  Opts.TracePC = CGOpts.SanitizeCoverageTracePC;
   PM.add(createSanitizerCoverageModulePass(Opts));
 }
 
@@ -324,6 +325,7 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;
   PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
   PMBuilder.MergeFunctions = CodeGenOpts.MergeFunctions;
+  PMBuilder.PrepareForThinLTO = CodeGenOpts.EmitFunctionSummary;
   PMBuilder.PrepareForLTO = CodeGenOpts.PrepareForLTO;
   PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
 
@@ -333,7 +335,7 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
   // pipeline and pass down the in-memory function index.
   if (FunctionIndex) {
     PMBuilder.FunctionIndex = FunctionIndex;
-    PMBuilder.populateLTOPassManager(*MPM);
+    PMBuilder.populateThinLTOPassManager(*MPM);
     return;
   }
 
@@ -435,6 +437,14 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
     Options.InstrProfileOutput = CodeGenOpts.InstrProfileOutput;
     MPM->add(createInstrProfilingPass(Options));
   }
+  if (CodeGenOpts.hasProfileIRInstr()) {
+    if (!CodeGenOpts.InstrProfileOutput.empty())
+      PMBuilder.PGOInstrGen = CodeGenOpts.InstrProfileOutput;
+    else
+      PMBuilder.PGOInstrGen = "default.profraw";
+  }
+  if (CodeGenOpts.hasProfileIRUse())
+    PMBuilder.PGOInstrUse = CodeGenOpts.ProfileInstrumentUsePath;
 
   if (!CodeGenOpts.SampleProfileFile.empty())
     MPM->add(createSampleProfileLoaderPass(CodeGenOpts.SampleProfileFile));

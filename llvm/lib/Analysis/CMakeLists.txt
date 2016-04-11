@@ -48,6 +48,7 @@ add_llvm_library(LLVMAnalysis
   LoopUnrollAnalyzer.cpp
   LoopInfo.cpp
   LoopPass.cpp
+  LoopPassManager.cpp
   MemDepPrinter.cpp
   MemDerefPrinter.cpp
   MemoryBuiltins.cpp

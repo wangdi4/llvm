@@ -514,6 +514,12 @@ Pass *createLoopSimplifyCFGPass();
 //
 FunctionPass *createLoopVersioningPass();
 
+//===----------------------------------------------------------------------===//
+//
+// LoopDataPrefetch - Perform data prefetching in loops.
+//
+FunctionPass *createLoopDataPrefetchPass();
+
 } // End llvm namespace
 
 #endif

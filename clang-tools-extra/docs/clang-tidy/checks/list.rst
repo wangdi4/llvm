@@ -8,17 +8,20 @@ Clang-Tidy Checks
    cert-dcl50-cpp
    cert-dcl54-cpp (redirects to misc-new-delete-overloads) <cert-dcl54-cpp>
    cert-dcl59-cpp (redirects to google-build-namespaces) <cert-dcl59-cpp>
+   cert-env33-c
    cert-err52-cpp
    cert-err58-cpp
    cert-err60-cpp
    cert-err61-cpp (redirects to misc-throw-by-value-catch-by-reference) <cert-err61-cpp>
    cert-fio38-c (redirects to misc-non-copyable-objects) <cert-fio38-c>
+   cert-flp30-c
    cert-oop11-cpp (redirects to misc-move-constructor-init) <cert-oop11-cpp>
    cppcoreguidelines-pro-bounds-array-to-pointer-decay
    cppcoreguidelines-pro-bounds-constant-array-index
    cppcoreguidelines-pro-bounds-pointer-arithmetic
    cppcoreguidelines-pro-type-const-cast
    cppcoreguidelines-pro-type-cstyle-cast
+   cppcoreguidelines-pro-type-member-init
    cppcoreguidelines-pro-type-reinterpret-cast
    cppcoreguidelines-pro-type-static-cast-downcast
    cppcoreguidelines-pro-type-union-access
@@ -48,6 +51,7 @@ Clang-Tidy Checks
    misc-assign-operator-signature
    misc-bool-pointer-implicit-conversion
    misc-definitions-in-headers
+   misc-forward-declaration-namespace
    misc-inaccurate-erase
    misc-incorrect-roundings
    misc-inefficient-algorithm
@@ -70,6 +74,7 @@ Clang-Tidy Checks
    misc-unused-parameters
    misc-unused-raii
    misc-virtual-near-miss
+   modernize-deprecated-headers
    modernize-loop-convert
    modernize-make-unique
    modernize-pass-by-value
@@ -80,6 +85,7 @@ Clang-Tidy Checks
    modernize-use-default
    modernize-use-nullptr
    modernize-use-override
+   performance-faster-string-find
    performance-for-range-copy
    performance-implicit-cast-in-loop
    readability-braces-around-statements
@@ -93,5 +99,6 @@ Clang-Tidy Checks
    readability-redundant-control-flow
    readability-redundant-smartptr-get
    readability-redundant-string-cstr
+   readability-redundant-string-init
    readability-simplify-boolean-expr
    readability-uniqueptr-delete-release

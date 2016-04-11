@@ -51,7 +51,7 @@ STATISTIC(RegionCount, "Number of regions created");
 INITIALIZE_PASS_BEGIN(HIRRegionIdentification, "hir-region-identification",
                       "HIR Region Identification", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_END(HIRRegionIdentification, "hir-region-identification",
@@ -70,7 +70,7 @@ HIRRegionIdentification::HIRRegionIdentification() : FunctionPass(ID) {
 void HIRRegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<PostDominatorTree>();
+  AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
 }
@@ -647,7 +647,7 @@ bool HIRRegionIdentification::runOnFunction(Function &F) {
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  PDT = &getAnalysis<PostDominatorTree>();
+  PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
   formRegions();

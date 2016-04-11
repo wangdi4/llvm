@@ -1754,6 +1754,8 @@ public:
   void Visit##Class(Class *S);
 #include "clang/Basic/OpenMPKinds.def"
   void writeClause(OMPClause *C);
+  void VisitOMPClauseWithPreInit(OMPClauseWithPreInit *C);
+  void VisitOMPClauseWithPostUpdate(OMPClauseWithPostUpdate *C);
 };
 }
 
@@ -1762,6 +1764,14 @@ void OMPClauseWriter::writeClause(OMPClause *C) {
   Visit(C);
   Writer->Writer.AddSourceLocation(C->getLocStart(), Record);
   Writer->Writer.AddSourceLocation(C->getLocEnd(), Record);
+}
+
+void OMPClauseWriter::VisitOMPClauseWithPreInit(OMPClauseWithPreInit *C) {
+  Writer->Writer.AddStmt(C->getPreInitStmt());
+}
+
+void OMPClauseWriter::VisitOMPClauseWithPostUpdate(OMPClauseWithPostUpdate *C) {
+  Writer->Writer.AddStmt(C->getPostUpdateExpr());
 }
 
 void OMPClauseWriter::VisitOMPIfClause(OMPIfClause *C) {
@@ -1810,11 +1820,11 @@ void OMPClauseWriter::VisitOMPProcBindClause(OMPProcBindClause *C) {
 }
 
 void OMPClauseWriter::VisitOMPScheduleClause(OMPScheduleClause *C) {
+  VisitOMPClauseWithPreInit(C);
   Record.push_back(C->getScheduleKind());
   Record.push_back(C->getFirstScheduleModifier());
   Record.push_back(C->getSecondScheduleModifier());
   Writer->Writer.AddStmt(C->getChunkSize());
-  Writer->Writer.AddStmt(C->getHelperChunkSize());
   Writer->Writer.AddSourceLocation(C->getLParenLoc(), Record);
   Writer->Writer.AddSourceLocation(C->getFirstScheduleModifierLoc(), Record);
   Writer->Writer.AddSourceLocation(C->getSecondScheduleModifierLoc(), Record);
@@ -1862,6 +1872,7 @@ void OMPClauseWriter::VisitOMPPrivateClause(OMPPrivateClause *C) {
 
 void OMPClauseWriter::VisitOMPFirstprivateClause(OMPFirstprivateClause *C) {
   Record.push_back(C->varlist_size());
+  VisitOMPClauseWithPreInit(C);
   Writer->Writer.AddSourceLocation(C->getLParenLoc(), Record);
   for (auto *VE : C->varlists()) {
     Writer->Writer.AddStmt(VE);
@@ -1876,6 +1887,8 @@ void OMPClauseWriter::VisitOMPFirstprivateClause(OMPFirstprivateClause *C) {
 
 void OMPClauseWriter::VisitOMPLastprivateClause(OMPLastprivateClause *C) {
   Record.push_back(C->varlist_size());
+  VisitOMPClauseWithPreInit(C);
+  VisitOMPClauseWithPostUpdate(C);
   Writer->Writer.AddSourceLocation(C->getLParenLoc(), Record);
   for (auto *VE : C->varlists())
     Writer->Writer.AddStmt(VE);
@@ -1898,6 +1911,8 @@ void OMPClauseWriter::VisitOMPSharedClause(OMPSharedClause *C) {
 
 void OMPClauseWriter::VisitOMPReductionClause(OMPReductionClause *C) {
   Record.push_back(C->varlist_size());
+  VisitOMPClauseWithPreInit(C);
+  VisitOMPClauseWithPostUpdate(C);
   Writer->Writer.AddSourceLocation(C->getLParenLoc(), Record);
   Writer->Writer.AddSourceLocation(C->getColonLoc(), Record);
   Writer->Writer.AddNestedNameSpecifierLoc(C->getQualifierLoc(), Record);
@@ -2038,9 +2053,9 @@ void OMPClauseWriter::VisitOMPHintClause(OMPHintClause *C) {
 }
 
 void OMPClauseWriter::VisitOMPDistScheduleClause(OMPDistScheduleClause *C) {
+  VisitOMPClauseWithPreInit(C);
   Record.push_back(C->getDistScheduleKind());
   Writer->Writer.AddStmt(C->getChunkSize());
-  Writer->Writer.AddStmt(C->getHelperChunkSize());
   Writer->Writer.AddSourceLocation(C->getLParenLoc(), Record);
   Writer->Writer.AddSourceLocation(C->getDistScheduleKindLoc(), Record);
   Writer->Writer.AddSourceLocation(C->getCommaLoc(), Record);
@@ -2080,7 +2095,8 @@ void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
   Writer.AddStmt(D->getCond());
   Writer.AddStmt(D->getInit());
   Writer.AddStmt(D->getInc());
-  if (isOpenMPWorksharingDirective(D->getDirectiveKind())) {
+  if (isOpenMPWorksharingDirective(D->getDirectiveKind()) ||
+      isOpenMPTaskLoopDirective(D->getDirectiveKind())) {
     Writer.AddStmt(D->getIsLastIterVariable());
     Writer.AddStmt(D->getLowerBoundVariable());
     Writer.AddStmt(D->getUpperBoundVariable());

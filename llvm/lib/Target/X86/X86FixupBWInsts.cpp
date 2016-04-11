@@ -68,7 +68,7 @@ using namespace llvm;
 static cl::opt<bool>
     FixupBWInsts("fixup-byte-word-insts",
                  cl::desc("Change byte and word instructions to larger sizes"),
-                 cl::init(true), cl::Hidden);   // INTEL
+                 cl::init(true), cl::Hidden);
 
 namespace {
 class FixupBWInstPass : public MachineFunctionPass {

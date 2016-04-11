@@ -1479,6 +1479,14 @@ TEST(IsInteger, ReportsNoFalsePositives) {
                           to(varDecl(hasType(isInteger()))))))));
 }
 
+TEST(IsAnyPointer, MatchesPointers) {
+  EXPECT_TRUE(matches("int* i = nullptr;", varDecl(hasType(isAnyPointer()))));
+}
+
+TEST(IsAnyPointer, ReportsNoFalsePositives) {
+  EXPECT_TRUE(notMatches("int i = 0;", varDecl(hasType(isAnyPointer()))));
+}
+
 TEST(IsAnyCharacter, MatchesCharacters) {
   EXPECT_TRUE(matches("char i = 0;", varDecl(hasType(isAnyCharacter()))));
 }
@@ -2871,6 +2879,19 @@ TEST(Matcher, HasNameSupportsFunctionScope) {
   EXPECT_TRUE(matches(code, fieldDecl(hasName("F(int)::S::m"))));
   EXPECT_TRUE(matches(code, fieldDecl(hasName("a::F(int)::S::m"))));
   EXPECT_TRUE(matches(code, fieldDecl(hasName("::a::F(int)::S::m"))));
+}
+
+TEST(Matcher, HasAnyName) {
+  const std::string Code = "namespace a { namespace b { class C; } }";
+
+  EXPECT_TRUE(matches(Code, recordDecl(hasAnyName("XX", "a::b::C"))));
+  EXPECT_TRUE(matches(Code, recordDecl(hasAnyName("a::b::C", "XX"))));
+  EXPECT_TRUE(matches(Code, recordDecl(hasAnyName("XX::C", "a::b::C"))));
+  EXPECT_TRUE(matches(Code, recordDecl(hasAnyName("XX", "C"))));
+
+  EXPECT_TRUE(notMatches(Code, recordDecl(hasAnyName("::C", "::b::C"))));
+  EXPECT_TRUE(
+      matches(Code, recordDecl(hasAnyName("::C", "::b::C", "::a::b::C"))));
 }
 
 TEST(Matcher, IsDefinition) {
@@ -4407,6 +4428,15 @@ TEST(TypeMatching, MatchesVoid) {
                       cxxMethodDecl(returns(voidType()))));
 }
 
+TEST(TypeMatching, MatchesRealFloats) {
+  EXPECT_TRUE(matches("struct S { float func(); };",
+                      cxxMethodDecl(returns(realFloatingPointType()))));
+  EXPECT_TRUE(notMatches("struct S { int func(); };",
+                         cxxMethodDecl(returns(realFloatingPointType()))));
+  EXPECT_TRUE(matches("struct S { long double func(); };",
+                      cxxMethodDecl(returns(realFloatingPointType()))));
+}
+
 TEST(TypeMatching, MatchesArrayTypes) {
   EXPECT_TRUE(matches("int a[] = {2,3};", arrayType()));
   EXPECT_TRUE(matches("int a[42];", arrayType()));
@@ -5338,6 +5368,16 @@ TEST(ObjCMessageExprMatcher, SimpleExprs) {
       objcMessageExpr(matchesSelector("uppercase*"),
                       argumentCountIs(0)
                       )));
+}
+
+TEST(NullPointerConstants, Basic) {
+  EXPECT_TRUE(matches("#define NULL ((void *)0)\n"
+                      "void *v1 = NULL;", expr(nullPointerConstant())));
+  EXPECT_TRUE(matches("void *v2 = nullptr;", expr(nullPointerConstant())));
+  EXPECT_TRUE(matches("void *v3 = __null;", expr(nullPointerConstant())));
+  EXPECT_TRUE(matches("char *cp = (char *)0;", expr(nullPointerConstant())));
+  EXPECT_TRUE(matches("int *ip = 0;", expr(nullPointerConstant())));
+  EXPECT_TRUE(notMatches("int i = 0;", expr(nullPointerConstant())));
 }
 
 } // end namespace ast_matchers
