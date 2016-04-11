@@ -3034,13 +3034,18 @@ ASTContext::getDependentSizedExtVectorType(QualType vecType,
   return QualType(New, 0);
 }
 
+/// \brief Determine whether \p T is canonical as the result type of a function.
+static bool isCanonicalResultType(QualType T) {
+  return T.isCanonical() &&
+         (T.getObjCLifetime() == Qualifiers::OCL_None ||
+          T.getObjCLifetime() == Qualifiers::OCL_ExplicitNone);
+}
+
 /// getFunctionNoProtoType - Return a K&R style C function type like 'int()'.
 ///
 QualType
 ASTContext::getFunctionNoProtoType(QualType ResultTy,
                                    const FunctionType::ExtInfo &Info) const {
-  const CallingConv CallConv = Info.getCC();
-
   // Unique functions, to guarantee there is only one function of a particular
   // structure.
   llvm::FoldingSetNodeID ID;
@@ -3052,8 +3057,9 @@ ASTContext::getFunctionNoProtoType(QualType ResultTy,
     return QualType(FT, 0);
 
   QualType Canonical;
-  if (!ResultTy.isCanonical()) {
-    Canonical = getFunctionNoProtoType(getCanonicalType(ResultTy), Info);
+  if (!isCanonicalResultType(ResultTy)) {
+    Canonical =
+      getFunctionNoProtoType(getCanonicalFunctionResultType(ResultTy), Info);
 
     // Get the new insert position for the node we care about.
     FunctionNoProtoType *NewIP =
@@ -3061,19 +3067,11 @@ ASTContext::getFunctionNoProtoType(QualType ResultTy,
     assert(!NewIP && "Shouldn't be in the map!"); (void)NewIP;
   }
 
-  FunctionProtoType::ExtInfo newInfo = Info.withCallingConv(CallConv);
   FunctionNoProtoType *New = new (*this, TypeAlignment)
-    FunctionNoProtoType(ResultTy, Canonical, newInfo);
+    FunctionNoProtoType(ResultTy, Canonical, Info);
   Types.push_back(New);
   FunctionNoProtoTypes.InsertNode(New, InsertPos);
   return QualType(New, 0);
-}
-
-/// \brief Determine whether \p T is canonical as the result type of a function.
-static bool isCanonicalResultType(QualType T) {
-  return T.isCanonical() &&
-         (T.getObjCLifetime() == Qualifiers::OCL_None ||
-          T.getObjCLifetime() == Qualifiers::OCL_ExplicitNone);
 }
 
 CanQualType
@@ -3142,12 +3140,13 @@ ASTContext::getFunctionType(QualType ResultTy, ArrayRef<QualType> ArgArray,
   // them for three variable size arrays at the end:
   //  - parameter types
   //  - exception types
-  //  - consumed-arguments flags
+  //  - extended parameter information
   // Instead of the exception types, there could be a noexcept
   // expression, or information used to resolve the exception
   // specification.
   size_t Size = sizeof(FunctionProtoType) +
                 NumArgs * sizeof(QualType);
+
   if (EPI.ExceptionSpec.Type == EST_Dynamic) {
     Size += EPI.ExceptionSpec.Exceptions.size() * sizeof(QualType);
   } else if (EPI.ExceptionSpec.Type == EST_ComputedNoexcept) {
@@ -3157,8 +3156,16 @@ ASTContext::getFunctionType(QualType ResultTy, ArrayRef<QualType> ArgArray,
   } else if (EPI.ExceptionSpec.Type == EST_Unevaluated) {
     Size += sizeof(FunctionDecl*);
   }
-  if (EPI.ConsumedParameters)
-    Size += NumArgs * sizeof(bool);
+
+  // Put the ExtParameterInfos last.  If all were equal, it would make
+  // more sense to put these before the exception specification, because
+  // it's much easier to skip past them compared to the elaborate switch
+  // required to skip the exception specification.  However, all is not
+  // equal; ExtParameterInfos are used to model very uncommon features,
+  // and it's better not to burden the more common paths.
+  if (EPI.ExtParameterInfos) {
+    Size += NumArgs * sizeof(FunctionProtoType::ExtParameterInfo);
+  }
 
   FunctionProtoType *FTP = (FunctionProtoType*) Allocate(Size, TypeAlignment);
   FunctionProtoType::ExtProtoInfo newEPI = EPI;
@@ -4944,21 +4951,27 @@ TypedefDecl *ASTContext::getCFConstantStringDecl() const {
     CFConstantStringTagDecl->startDefinition();
 
     QualType FieldTypes[4];
+    const char *FieldNames[4];
 
     // const int *isa;
     FieldTypes[0] = getPointerType(IntTy.withConst());
+    FieldNames[0] = "isa";
     // int flags;
     FieldTypes[1] = IntTy;
+    FieldNames[1] = "flags";
     // const char *str;
     FieldTypes[2] = getPointerType(CharTy.withConst());
+    FieldNames[2] = "str";
     // long length;
     FieldTypes[3] = LongTy;
+    FieldNames[3] = "length";
 
     // Create fields
     for (unsigned i = 0; i < 4; ++i) {
       FieldDecl *Field = FieldDecl::Create(*this, CFConstantStringTagDecl,
                                            SourceLocation(),
-                                           SourceLocation(), nullptr,
+                                           SourceLocation(),
+                                           &Idents.get(FieldNames[i]),
                                            FieldTypes[i], /*TInfo=*/nullptr,
                                            /*BitWidth=*/nullptr,
                                            /*Mutable=*/false,
@@ -7564,8 +7577,7 @@ QualType ASTContext::mergeFunctionTypes(QualType lhs, QualType rhs,
     if (lproto->getTypeQuals() != rproto->getTypeQuals())
       return QualType();
 
-    if (LangOpts.ObjCAutoRefCount &&
-        !FunctionTypesMatchOnNSConsumedAttrs(rproto, lproto))
+    if (!doFunctionTypesMatchOnExtParameterInfos(rproto, lproto))
       return QualType();
 
     // Check parameter type compatibility
@@ -7953,21 +7965,26 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
   llvm_unreachable("Invalid Type::Class!");
 }
 
-bool ASTContext::FunctionTypesMatchOnNSConsumedAttrs(
-                   const FunctionProtoType *FromFunctionType,
-                   const FunctionProtoType *ToFunctionType) {
-  if (FromFunctionType->hasAnyConsumedParams() !=
-      ToFunctionType->hasAnyConsumedParams())
+bool ASTContext::doFunctionTypesMatchOnExtParameterInfos(
+                   const FunctionProtoType *firstFnType,
+                   const FunctionProtoType *secondFnType) {
+  // Fast path: if the first type doesn't have ext parameter infos,
+  // we match if and only if they second type also doesn't have them.
+  if (!firstFnType->hasExtParameterInfos())
+    return !secondFnType->hasExtParameterInfos();
+
+  // Otherwise, we can only match if the second type has them.
+  if (!secondFnType->hasExtParameterInfos())
     return false;
-  FunctionProtoType::ExtProtoInfo FromEPI = 
-    FromFunctionType->getExtProtoInfo();
-  FunctionProtoType::ExtProtoInfo ToEPI = 
-    ToFunctionType->getExtProtoInfo();
-  if (FromEPI.ConsumedParameters && ToEPI.ConsumedParameters)
-    for (unsigned i = 0, n = FromFunctionType->getNumParams(); i != n; ++i) {
-      if (FromEPI.ConsumedParameters[i] != ToEPI.ConsumedParameters[i])
-        return false;
-    }
+
+  auto firstEPI = firstFnType->getExtParameterInfos();
+  auto secondEPI = secondFnType->getExtParameterInfos();
+  assert(firstEPI.size() == secondEPI.size());
+
+  for (size_t i = 0, n = firstEPI.size(); i != n; ++i) {
+    if (firstEPI[i] != secondEPI[i])
+      return false;
+  }
   return true;
 }
 
@@ -8585,7 +8602,11 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
     // We never need to emit an uninstantiated function template.
     if (FD->getTemplatedKind() == FunctionDecl::TK_FunctionTemplate)
       return false;
-  } else if (isa<OMPThreadPrivateDecl>(D))
+  } else if (isa<PragmaCommentDecl>(D))
+    return true;
+  else if (isa<PragmaDetectMismatchDecl>(D))
+    return true;
+  else if (isa<OMPThreadPrivateDecl>(D))
     return true;
   else
     return false;

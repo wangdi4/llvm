@@ -142,7 +142,9 @@ public:
   /// Parameters involving this type are used to implement data
   /// recursion over Stmts and Exprs within this class, and should
   /// typically not be explicitly specified by derived classes.
-  typedef SmallVectorImpl<Stmt *> DataRecursionQueue;
+  /// The bool bit indicates whether the statement has been traversed or not.
+  typedef SmallVectorImpl<llvm::PointerIntPair<Stmt *, 1, bool>>
+    DataRecursionQueue;
 
   /// \brief Return a reference to the derived class.
   Derived &getDerived() { return *static_cast<Derived *>(this); }
@@ -165,6 +167,18 @@ public:
   /// \returns false if the visitation was terminated early, true
   /// otherwise (including when the argument is nullptr).
   bool TraverseStmt(Stmt *S, DataRecursionQueue *Queue = nullptr);
+
+  /// Invoked before visiting a statement or expression via data recursion.
+  ///
+  /// \returns false to skip visiting the node, true otherwise.
+  bool dataTraverseStmtPre(Stmt *S) { return true; }
+
+  /// Invoked after visiting a statement or expression via data recursion.
+  /// This is not invoked if the previously invoked \c dataTraverseStmtPre
+  /// returned false.
+  ///
+  /// \returns false if the visitation was terminated early, true otherwise.
+  bool dataTraverseStmtPost(Stmt *S) { return true; }
 
   /// \brief Recursively visit a type, by dispatching to
   /// Traverse*Type() based on the argument's getTypeClass() property.
@@ -483,6 +497,9 @@ private:
 #include "clang/Basic/OpenMPKinds.def"
   /// \brief Process clauses with list of variables.
   template <typename T> bool VisitOMPClauseList(T *Node);
+  /// Process clauses with pre-initis.
+  bool VisitOMPClauseWithPreInit(OMPClauseWithPreInit *Node);
+  bool VisitOMPClauseWithPostUpdate(OMPClauseWithPostUpdate *Node);
 
   bool dataTraverseNode(Stmt *S, DataRecursionQueue *Queue);
 };
@@ -549,20 +566,32 @@ bool RecursiveASTVisitor<Derived>::TraverseStmt(Stmt *S,
     return true;
 
   if (Queue) {
-    Queue->push_back(S);
+    Queue->push_back({S, false});
     return true;
   }
 
-  SmallVector<Stmt *, 8> LocalQueue;
-  LocalQueue.push_back(S);
+  SmallVector<llvm::PointerIntPair<Stmt *, 1, bool>, 8> LocalQueue;
+  LocalQueue.push_back({S, false});
 
   while (!LocalQueue.empty()) {
-    Stmt *CurrS = LocalQueue.pop_back_val();
+    auto &CurrSAndVisited = LocalQueue.back();
+    Stmt *CurrS = CurrSAndVisited.getPointer();
+    bool Visited = CurrSAndVisited.getInt();
+    if (Visited) {
+      LocalQueue.pop_back();
+      TRY_TO(dataTraverseStmtPost(CurrS));
+      continue;
+    }
 
-    size_t N = LocalQueue.size();
-    TRY_TO(dataTraverseNode(CurrS, &LocalQueue));
-    // Process new children in the order they were added.
-    std::reverse(LocalQueue.begin() + N, LocalQueue.end());
+    if (getDerived().dataTraverseStmtPre(CurrS)) {
+      CurrSAndVisited.setInt(true);
+      size_t N = LocalQueue.size();
+      TRY_TO(dataTraverseNode(CurrS, &LocalQueue));
+      // Process new children in the order they were added.
+      std::reverse(LocalQueue.begin() + N, LocalQueue.end());
+    } else {
+      LocalQueue.pop_back();
+    }
   }
 
   return true;
@@ -1335,6 +1364,10 @@ DEF_TRAVERSE_DECL(
      // D->getAnonymousNamespace().
     })
 
+DEF_TRAVERSE_DECL(PragmaCommentDecl, {})
+
+DEF_TRAVERSE_DECL(PragmaDetectMismatchDecl, {})
+
 DEF_TRAVERSE_DECL(ExternCContextDecl, {})
 
 DEF_TRAVERSE_DECL(NamespaceAliasDecl, {
@@ -1437,6 +1470,14 @@ DEF_TRAVERSE_DECL(OMPThreadPrivateDecl, {
   for (auto *I : D->varlists()) {
     TRY_TO(TraverseStmt(I));
   }
+})
+
+DEF_TRAVERSE_DECL(OMPDeclareReductionDecl, {
+  TRY_TO(TraverseStmt(D->getCombiner()));
+  if (auto *Initializer = D->getInitializer())
+    TRY_TO(TraverseStmt(Initializer));
+  TRY_TO(TraverseType(D->getType()));
+  return true;
 })
 
 DEF_TRAVERSE_DECL(OMPCapturedExprDecl, { TRY_TO(TraverseVarHelper(D)); })
@@ -2504,6 +2545,20 @@ bool RecursiveASTVisitor<Derived>::TraverseOMPClause(OMPClause *C) {
 }
 
 template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPClauseWithPreInit(
+    OMPClauseWithPreInit *Node) {
+  TRY_TO(TraverseStmt(Node->getPreInitStmt()));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPClauseWithPostUpdate(
+    OMPClauseWithPostUpdate *Node) {
+  TRY_TO(TraverseStmt(Node->getPostUpdateExpr()));
+  return true;
+}
+
+template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPIfClause(OMPIfClause *C) {
   TRY_TO(TraverseStmt(C->getCondition()));
   return true;
@@ -2554,8 +2609,8 @@ bool RecursiveASTVisitor<Derived>::VisitOMPProcBindClause(OMPProcBindClause *) {
 template <typename Derived>
 bool
 RecursiveASTVisitor<Derived>::VisitOMPScheduleClause(OMPScheduleClause *C) {
+  TRY_TO(VisitOMPClauseWithPreInit(C));
   TRY_TO(TraverseStmt(C->getChunkSize()));
-  TRY_TO(TraverseStmt(C->getHelperChunkSize()));
   return true;
 }
 
@@ -2643,6 +2698,7 @@ template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPFirstprivateClause(
     OMPFirstprivateClause *C) {
   TRY_TO(VisitOMPClauseList(C));
+  TRY_TO(VisitOMPClauseWithPreInit(C));
   for (auto *E : C->private_copies()) {
     TRY_TO(TraverseStmt(E));
   }
@@ -2656,6 +2712,8 @@ template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPLastprivateClause(
     OMPLastprivateClause *C) {
   TRY_TO(VisitOMPClauseList(C));
+  TRY_TO(VisitOMPClauseWithPreInit(C));
+  TRY_TO(VisitOMPClauseWithPostUpdate(C));
   for (auto *E : C->private_copies()) {
     TRY_TO(TraverseStmt(E));
   }
@@ -2741,6 +2799,8 @@ RecursiveASTVisitor<Derived>::VisitOMPReductionClause(OMPReductionClause *C) {
   TRY_TO(TraverseNestedNameSpecifierLoc(C->getQualifierLoc()));
   TRY_TO(TraverseDeclarationNameInfo(C->getNameInfo()));
   TRY_TO(VisitOMPClauseList(C));
+  TRY_TO(VisitOMPClauseWithPreInit(C));
+  TRY_TO(VisitOMPClauseWithPostUpdate(C));
   for (auto *E : C->privates()) {
     TRY_TO(TraverseStmt(E));
   }
@@ -2824,8 +2884,8 @@ bool RecursiveASTVisitor<Derived>::VisitOMPHintClause(OMPHintClause *C) {
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPDistScheduleClause(
     OMPDistScheduleClause *C) {
+  TRY_TO(VisitOMPClauseWithPreInit(C));
   TRY_TO(TraverseStmt(C->getChunkSize()));
-  TRY_TO(TraverseStmt(C->getHelperChunkSize()));
   return true;
 }
 

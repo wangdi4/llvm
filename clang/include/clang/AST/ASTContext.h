@@ -2273,7 +2273,7 @@ public:
   
   QualType mergeObjCGCQualifiers(QualType, QualType);
     
-  bool FunctionTypesMatchOnNSConsumedAttrs(
+  bool doFunctionTypesMatchOnExtParameterInfos(
          const FunctionProtoType *FromFunctionType,
          const FunctionProtoType *ToFunctionType);
 

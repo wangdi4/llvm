@@ -61,6 +61,7 @@ public:
   bool isUnsigned : 1;
   bool isLong : 1;          // This is *not* set for long long.
   bool isLongLong : 1;
+  bool isHalf : 1;          // 1.0h
   bool isFloat : 1;         // 1.0f
 #if INTEL_CUSTOMIZATION
   bool isFloat128 : 1;

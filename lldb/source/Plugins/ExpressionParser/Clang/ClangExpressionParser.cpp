@@ -87,21 +87,6 @@ using namespace lldb_private;
 // Utility Methods for Clang
 //===----------------------------------------------------------------------===//
 
-std::string GetBuiltinIncludePath(const char *Argv0) {
-    SmallString<128> P(llvm::sys::fs::getMainExecutable(
-        Argv0, (void *)(intptr_t) GetBuiltinIncludePath));
-
-    if (!P.empty()) {
-        llvm::sys::path::remove_filename(P); // Remove /clang from foo/bin/clang
-        llvm::sys::path::remove_filename(P); // Remove /bin   from foo/bin
-
-        // Get foo/lib/clang/<version>/include
-        llvm::sys::path::append(P, "lib", "clang", CLANG_VERSION_STRING,
-                                "include");
-    }
-
-    return P.str();
-}
 
 class ClangExpressionParser::LLDBPreprocessorCallbacks : public PPCallbacks
 {
@@ -179,6 +164,12 @@ ClangExpressionParser::ClangExpressionParser (ExecutionContextScope *exe_scope,
     if (exe_scope)
         target_sp = exe_scope->CalculateTarget();
 
+    ArchSpec target_arch;
+    if (target_sp)
+        target_arch = target_sp->GetArchitecture();
+
+    const auto target_machine = target_arch.GetMachine();
+
     // If the expression is being evaluated in the context of an existing
     // stack frame, we introspect to see if the language runtime is available.
     auto frame = exe_scope->CalculateStackFrame();
@@ -197,9 +188,9 @@ ClangExpressionParser::ClangExpressionParser (ExecutionContextScope *exe_scope,
 
     // 2. Configure the compiler with a set of default options that are appropriate
     // for most situations.
-    if (target_sp && target_sp->GetArchitecture().IsValid())
+    if (target_sp && target_arch.IsValid())
     {
-        std::string triple = target_sp->GetArchitecture().GetTriple().str();
+        std::string triple = target_arch.GetTriple().str();
         m_compiler->getTargetOpts().Triple = triple;
         if (log)
             log->Printf("Using %s as the target triple", m_compiler->getTargetOpts().Triple.c_str());
@@ -224,12 +215,16 @@ ClangExpressionParser::ClangExpressionParser (ExecutionContextScope *exe_scope,
         m_compiler->getTargetOpts().ABI = "apcs-gnu";
     }
     // Supported subsets of x86
-    if (target_sp->GetArchitecture().GetMachine() == llvm::Triple::x86 ||
-        target_sp->GetArchitecture().GetMachine() == llvm::Triple::x86_64)
+    if (target_machine == llvm::Triple::x86 ||
+        target_machine == llvm::Triple::x86_64)
     {
         m_compiler->getTargetOpts().Features.push_back("+sse");
         m_compiler->getTargetOpts().Features.push_back("+sse2");
     }
+
+    // Set the target CPU to generate code for.
+    // This will be empty for any CPU that doesn't really need to make a special CPU string.
+    m_compiler->getTargetOpts().CPU = target_arch.GetClangTargetCPU();
 
     // 3. Now allow the runtime to provide custom configuration options for the target.
     // In this case, a specialized language runtime is available and we can query it for extra options.
@@ -295,7 +290,7 @@ ClangExpressionParser::ClangExpressionParser (ExecutionContextScope *exe_scope,
     case lldb::eLanguageTypeC_plus_plus_14:
         m_compiler->getLangOpts().CPlusPlus11 = true;
         m_compiler->getHeaderSearchOpts().UseLibcxx = true;
-        // fall thru ...
+        LLVM_FALLTHROUGH;
     case lldb::eLanguageTypeC_plus_plus_03:
         m_compiler->getLangOpts().CPlusPlus = true;
         // FIXME: the following language option is a temporary workaround,
@@ -440,37 +435,34 @@ ClangExpressionParser::~ClangExpressionParser()
 }
 
 unsigned
-ClangExpressionParser::Parse (Stream &stream)
+ClangExpressionParser::Parse(Stream &stream)
 {
-    TextDiagnosticBuffer *diag_buf = static_cast<TextDiagnosticBuffer*>(m_compiler->getDiagnostics().getClient());
-
-    diag_buf->FlushDiagnostics (m_compiler->getDiagnostics());
+    TextDiagnosticBuffer *diag_buf = static_cast<TextDiagnosticBuffer *>(m_compiler->getDiagnostics().getClient());
+    diag_buf->FlushDiagnostics(m_compiler->getDiagnostics());
 
     const char *expr_text = m_expr.Text();
 
-    clang::SourceManager &SourceMgr = m_compiler->getSourceManager();
+    clang::SourceManager &source_mgr = m_compiler->getSourceManager();
     bool created_main_file = false;
     if (m_compiler->getCodeGenOpts().getDebugInfo() == codegenoptions::FullDebugInfo)
     {
-        std::string temp_source_path;
-
         int temp_fd = -1;
         llvm::SmallString<PATH_MAX> result_path;
         FileSpec tmpdir_file_spec;
         if (HostInfo::GetLLDBPath(lldb::ePathTypeLLDBTempSystemDir, tmpdir_file_spec))
         {
             tmpdir_file_spec.AppendPathComponent("lldb-%%%%%%.expr");
-            temp_source_path = tmpdir_file_spec.GetPath();
+            std::string temp_source_path = tmpdir_file_spec.GetPath();
             llvm::sys::fs::createUniqueFile(temp_source_path, temp_fd, result_path);
         }
         else
         {
             llvm::sys::fs::createTemporaryFile("lldb", "expr", temp_fd, result_path);
         }
-        
+
         if (temp_fd != -1)
         {
-            lldb_private::File file (temp_fd, true);
+            lldb_private::File file(temp_fd, true);
             const size_t expr_text_len = strlen(expr_text);
             size_t bytes_written = expr_text_len;
             if (file.Write(expr_text, bytes_written).Success())
@@ -478,9 +470,8 @@ ClangExpressionParser::Parse (Stream &stream)
                 if (bytes_written == expr_text_len)
                 {
                     file.Close();
-                    SourceMgr.setMainFileID(SourceMgr.createFileID(
-                        m_file_manager->getFile(result_path),
-                        SourceLocation(), SrcMgr::C_User));
+                    source_mgr.setMainFileID(source_mgr.createFileID(m_file_manager->getFile(result_path),
+                                                                     SourceLocation(), SrcMgr::C_User));
                     created_main_file = true;
                 }
             }
@@ -490,7 +481,7 @@ ClangExpressionParser::Parse (Stream &stream)
     if (!created_main_file)
     {
         std::unique_ptr<MemoryBuffer> memory_buffer = MemoryBuffer::getMemBufferCopy(expr_text, __FUNCTION__);
-        SourceMgr.setMainFileID(SourceMgr.createFileID(std::move(memory_buffer)));
+        source_mgr.setMainFileID(source_mgr.createFileID(std::move(memory_buffer)));
     }
 
     diag_buf->BeginSourceFile(m_compiler->getLangOpts(), &m_compiler->getPreprocessor());
@@ -515,34 +506,25 @@ ClangExpressionParser::Parse (Stream &stream)
 
     diag_buf->EndSourceFile();
 
-    TextDiagnosticBuffer::const_iterator diag_iterator;
+    unsigned num_errors = diag_buf->getNumErrors();
 
-    int num_errors = 0;
-    
     if (m_pp_callbacks && m_pp_callbacks->hasErrors())
     {
         num_errors++;
-        
         stream.PutCString(m_pp_callbacks->getErrorString().c_str());
     }
 
-    for (diag_iterator = diag_buf->warn_begin();
-         diag_iterator != diag_buf->warn_end();
-         ++diag_iterator)
-        stream.Printf("warning: %s\n", (*diag_iterator).second.c_str());
+    for (TextDiagnosticBuffer::const_iterator warn = diag_buf->warn_begin(), warn_end = diag_buf->warn_end();
+         warn != warn_end; ++warn)
+        stream.Printf("warning: %s\n", warn->second.c_str());
 
-    for (diag_iterator = diag_buf->err_begin();
-         diag_iterator != diag_buf->err_end();
-         ++diag_iterator)
-    {
-        num_errors++;
-        stream.Printf("error: %s\n", (*diag_iterator).second.c_str());
-    }
+    for (TextDiagnosticBuffer::const_iterator err = diag_buf->err_begin(), err_end = diag_buf->err_end();
+         err != err_end; ++err)
+        stream.Printf("error: %s\n", err->second.c_str());
 
-    for (diag_iterator = diag_buf->note_begin();
-         diag_iterator != diag_buf->note_end();
-         ++diag_iterator)
-        stream.Printf("note: %s\n", (*diag_iterator).second.c_str());
+    for (TextDiagnosticBuffer::const_iterator note = diag_buf->note_begin(), note_end = diag_buf->note_end();
+         note != note_end; ++note)
+        stream.Printf("note: %s\n", note->second.c_str());
 
     if (!num_errors)
     {
@@ -560,13 +542,12 @@ static bool FindFunctionInModule (ConstString &mangled_name,
                                   llvm::Module *module,
                                   const char *orig_name)
 {
-    for (llvm::Module::iterator fi = module->getFunctionList().begin(), fe = module->getFunctionList().end();
-         fi != fe;
-         ++fi)
+    for (const auto &func : module->getFunctionList())
     {
-        if (fi->getName().str().find(orig_name) != std::string::npos)
+        const StringRef &name = func.getName();
+        if (name.find(orig_name) != StringRef::npos)
         {
-            mangled_name.SetCString(fi->getName().str().c_str());
+            mangled_name.SetString(name);
             return true;
         }
     }
@@ -612,11 +593,23 @@ ClangExpressionParser::PrepareForExecution (lldb::addr_t &func_addr,
         if (log)
             log->Printf("Found function %s for %s", function_name.AsCString(), m_expr.FunctionName());
     }
+    
+    SymbolContext sc;
+    
+    if (lldb::StackFrameSP frame_sp = exe_ctx.GetFrameSP())
+    {
+        sc = frame_sp->GetSymbolContext(lldb::eSymbolContextEverything);
+    }
+    else if (lldb::TargetSP target_sp = exe_ctx.GetTargetSP())
+    {
+        sc.target_sp = target_sp;
+    }
 
     execution_unit_sp.reset(new IRExecutionUnit (m_llvm_context, // handed off here
                                                  llvm_module_ap, // handed off here
                                                  function_name,
                                                  exe_ctx.GetTargetSP(),
+                                                 sc,
                                                  m_compiler->getTargetOpts().Features));
 
     ClangExpressionHelper *type_system_helper = dyn_cast<ClangExpressionHelper>(m_expr.GetTypeSystemHelper());

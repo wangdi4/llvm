@@ -325,7 +325,7 @@ void g20(struct G20** p1, struct G20 (*p2)[], int i) {
 }
 
 // CHECK: [[TYPE_char:!.*]] = !{!"omnipotent char", [[TAG_cxx_tbaa:!.*]],
-// CHECK: [[TAG_cxx_tbaa]] = !{!"Simple C/C++ TBAA"}
+// CHECK: [[TAG_cxx_tbaa]] = !{!"Simple C++ TBAA"}
 // CHECK: [[TAG_i32]] = !{[[TYPE_i32:!.*]], [[TYPE_i32]], i64 0}
 // CHECK: [[TYPE_i32]] = !{!"int", [[TYPE_char]],
 // CHECK: [[TAG_i16]] = !{[[TYPE_i16:!.*]], [[TYPE_i16]], i64 0}

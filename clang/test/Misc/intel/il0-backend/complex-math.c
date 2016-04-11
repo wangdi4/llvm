@@ -97,9 +97,8 @@ float _Complex mul_float_cc(float _Complex a, float _Complex b) {
   // X86-NOT: %[[BC:[^ ]+]] = fmul
   // X86-NOT: %[[RR:[^ ]+]] = fsub float %[[AC]], %[[BD]]
   // X86-NOT: %[[RI:[^ ]+]] = fadd float
-  // X86-DAG-NOT: %[[AD]]
-  // X86-DAG-NOT: ,
-  // X86-DAG-NOT: %[[BC]]
+  // X86-NOT: %[[AD]]
+  // X86-NOT: %[[BC]]
   // X86-NOT: fcmp uno float %[[RR]]
   // X86-NOT: fcmp uno float %[[RI]]
   // X86: call {{.*}} @__mulsc3(
@@ -230,9 +229,8 @@ double _Complex mul_double_cc(double _Complex a, double _Complex b) {
   // X86-NOT: %[[BC:[^ ]+]] = fmul
   // X86-NOT: %[[RR:[^ ]+]] = fsub double %[[AC]], %[[BD]]
   // X86-NOT: %[[RI:[^ ]+]] = fadd double
-  // X86-DAG-NOT: %[[AD]]
-  // X86-DAG-NOT: ,
-  // X86-DAG-NOT: %[[BC]]
+  // X86-NOT: %[[AD]]
+  // X86-NOT: %[[BC]]
   // X86-NOT: fcmp uno double %[[RR]]
   // X86-NOT: fcmp uno double %[[RI]]
   // X86: call {{.*}} @__muldc3(
@@ -363,9 +361,8 @@ long double _Complex mul_long_double_cc(long double _Complex a, long double _Com
   // X86-NOT: %[[BC:[^ ]+]] = fmul
   // X86-NOT: %[[RR:[^ ]+]] = fsub x86_fp80 %[[AC]], %[[BD]]
   // X86-NOT: %[[RI:[^ ]+]] = fadd x86_fp80
-  // X86-DAG-NOT: %[[AD]]
-  // X86-DAG-NOT: ,
-  // X86-DAG-NOT: %[[BC]]
+  // X86-NOT: %[[AD]]
+  // X86-NOT: %[[BC]]
   // X86-NOT: fcmp uno x86_fp80 %[[RR]]
   // X86-NOT: fcmp uno x86_fp80 %[[RI]]
   // X86: call {{.*}} @__mulxc3(
@@ -377,9 +374,8 @@ long double _Complex mul_long_double_cc(long double _Complex a, long double _Com
   // PPC-NOT: %[[BC:[^ ]+]] = fmul
   // PPC-NOT: %[[RR:[^ ]+]] = fsub ppc_fp128 %[[AC]], %[[BD]]
   // PPC-NOT: %[[RI:[^ ]+]] = fadd ppc_fp128
-  // PPC-DAG-NOT: %[[AD]]
-  // PPC-DAG-NOT: ,
-  // PPC-DAG-NOT: %[[BC]]
+  // PPC-NOT: %[[AD]]
+  // PPC-NOT: %[[BC]]
   // PPC-NOT: fcmp uno ppc_fp128 %[[RR]]
   // PPC-NOT: fcmp uno ppc_fp128 %[[RI]]
   // PPC: call {{.*}} @__multc3(

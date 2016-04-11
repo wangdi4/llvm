@@ -478,7 +478,7 @@ void Preprocessor::CreateString(StringRef Str, Token &Tok,
 }
 
 Module *Preprocessor::getCurrentModule() {
-  if (getLangOpts().CurrentModule.empty())
+  if (!getLangOpts().CompilingModule)
     return nullptr;
 
   return getHeaderSearchInfo().lookupModule(getLangOpts().CurrentModule);

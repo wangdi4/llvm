@@ -3,6 +3,8 @@
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
+typedef unsigned long ulong;
+
 // CHECK-LABEL: @test_div_scale_f64
 // CHECK: call { double, i1 } @llvm.amdgcn.div.scale.f64(double %a, double %b, i1 true)
 // CHECK-DAG: [[FLAG:%.+]] = extractvalue { double, i1 } %{{.+}}, 1
@@ -99,18 +101,39 @@ void test_rsq_f64(global double* out, double a)
   *out = __builtin_amdgcn_rsq(a);
 }
 
-// CHECK-LABEL: @test_rsq_clamped_f32
-// CHECK: call float @llvm.amdgcn.rsq.clamped.f32
-void test_rsq_clamped_f32(global float* out, float a)
+// CHECK-LABEL: @test_rsq_clamp_f32
+// CHECK: call float @llvm.amdgcn.rsq.clamp.f32
+void test_rsq_clamp_f32(global float* out, float a)
 {
-  *out = __builtin_amdgcn_rsq_clampedf(a);
+  *out = __builtin_amdgcn_rsq_clampf(a);
 }
 
-// CHECK-LABEL: @test_rsq_clamped_f64
-// CHECK: call double @llvm.amdgcn.rsq.clamped.f64
-void test_rsq_clamped_f64(global double* out, double a)
+// CHECK-LABEL: @test_rsq_clamp_f64
+// CHECK: call double @llvm.amdgcn.rsq.clamp.f64
+void test_rsq_clamp_f64(global double* out, double a)
 {
-  *out = __builtin_amdgcn_rsq_clamped(a);
+  *out = __builtin_amdgcn_rsq_clamp(a);
+}
+
+// CHECK-LABEL: @test_sin_f32
+// CHECK: call float @llvm.amdgcn.sin.f32
+void test_sin_f32(global float* out, float a)
+{
+  *out = __builtin_amdgcn_sinf(a);
+}
+
+// CHECK-LABEL: @test_cos_f32
+// CHECK: call float @llvm.amdgcn.cos.f32
+void test_cos_f32(global float* out, float a)
+{
+  *out = __builtin_amdgcn_cosf(a);
+}
+
+// CHECK-LABEL: @test_log_clamp_f32
+// CHECK: call float @llvm.amdgcn.log.clamp.f32
+void test_log_clamp_f32(global float* out, float a)
+{
+  *out = __builtin_amdgcn_log_clampf(a);
 }
 
 // CHECK-LABEL: @test_ldexp_f32
@@ -146,6 +169,29 @@ void test_class_f64(global double* out, double a, int b)
 void test_s_barrier()
 {
   __builtin_amdgcn_s_barrier();
+}
+
+// CHECK-LABEL: @test_s_memtime
+// CHECK: call i64 @llvm.amdgcn.s.memtime()
+void test_s_memtime(global ulong* out)
+{
+  *out = __builtin_amdgcn_s_memtime();
+}
+
+// CHECK-LABEL: @test_s_memrealtime
+// CHECK: call i64 @llvm.amdgcn.s.memrealtime()
+void test_s_memrealtime(global ulong* out)
+{
+  *out = __builtin_amdgcn_s_memrealtime();
+}
+
+// CHECK-LABEL: @test_s_sleep
+// CHECK: call void @llvm.amdgcn.s.sleep(i32 1)
+// CHECK: call void @llvm.amdgcn.s.sleep(i32 15)
+void test_s_sleep()
+{
+  __builtin_amdgcn_s_sleep(1);
+  __builtin_amdgcn_s_sleep(15);
 }
 
 // CHECK-LABEL: @test_cubeid(

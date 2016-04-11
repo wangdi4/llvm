@@ -1873,7 +1873,11 @@ public:
 
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override {
-    Builder.defineMacro("__R600__");
+    if (getTriple().getArch() == llvm::Triple::amdgcn)
+      Builder.defineMacro("__AMDGCN__");
+    else
+      Builder.defineMacro("__R600__");
+
     if (hasFMAF)
       Builder.defineMacro("__HAS_FMAF__");
     if (hasLDEXPF)
@@ -1935,6 +1939,8 @@ public:
       .Case("tonga",    GK_VOLCANIC_ISLANDS)
       .Case("iceland",  GK_VOLCANIC_ISLANDS)
       .Case("carrizo",  GK_VOLCANIC_ISLANDS)
+      .Case("fiji",     GK_VOLCANIC_ISLANDS)
+      .Case("stoney",   GK_VOLCANIC_ISLANDS)
       .Default(GK_NONE);
 
     if (GPU == GK_NONE) {
@@ -2030,8 +2036,8 @@ const char * const AMDGPUTargetInfo::GCCRegNames[] = {
   "s104", "s105", "s106", "s107", "s108", "s109", "s110", "s111",
   "s112", "s113", "s114", "s115", "s116", "s117", "s118", "s119",
   "s120", "s121", "s122", "s123", "s124", "s125", "s126", "s127"
-  "exec", "vcc", "scc", "m0", "flat_scr", "exec_lo", "exec_hi",
-  "vcc_lo", "vcc_hi", "flat_scr_lo", "flat_scr_hi"
+  "exec", "vcc", "scc", "m0", "flat_scratch", "exec_lo", "exec_hi",
+  "vcc_lo", "vcc_hi", "flat_scratch_lo", "flat_scratch_hi"
 };
 
 ArrayRef<const char *> AMDGPUTargetInfo::getGCCRegNames() const {
@@ -2125,7 +2131,11 @@ class X86TargetInfo : public TargetInfo {
   bool HasAVX512DQ = false;
   bool HasAVX512BW = false;
   bool HasAVX512VL = false;
+  bool HasAVX512VBMI = false;
+  bool HasAVX512IFMA = false;
   bool HasSHA = false;
+  bool HasMPX = false;
+  bool HasSGX = false;
   bool HasCX16 = false;
   bool HasFXSR = false;
   bool HasXSAVE = false;
@@ -2133,6 +2143,12 @@ class X86TargetInfo : public TargetInfo {
   bool HasXSAVEC = false;
   bool HasXSAVES = false;
   bool HasPKU = false;
+  bool HasCLFLUSHOPT = false;
+  bool HasPCOMMIT = false;
+  bool HasCLWB = false;
+  bool HasUMIP = false;
+  bool HasMOVBE = false;
+  bool HasPREFETCHWT1 = false;
 
   /// \brief Enumeration of all of the X86 CPUs supported by Clang.
   ///
@@ -2233,9 +2249,17 @@ class X86TargetInfo : public TargetInfo {
     /// Broadwell microarchitecture based processors.
     CK_Broadwell,
 
-    /// \name Skylake
-    /// Skylake microarchitecture based processors.
-    CK_Skylake,
+    /// \name Skylake Client
+    /// Skylake client microarchitecture based processors.
+    CK_SkylakeClient,
+
+    /// \name Skylake Server
+    /// Skylake server microarchitecture based processors.
+    CK_SkylakeServer,
+
+    /// \name Cannonlake Client
+    /// Cannonlake client microarchitecture based processors.
+    CK_Cannonlake,
 
     /// \name Knights Landing
     /// Knights Landing processor.
@@ -2344,8 +2368,10 @@ class X86TargetInfo : public TargetInfo {
         .Case("haswell", CK_Haswell)
         .Case("core-avx2", CK_Haswell) // Legacy name.
         .Case("broadwell", CK_Broadwell)
-        .Case("skylake", CK_Skylake)
-        .Case("skx", CK_Skylake) // Legacy name.
+        .Case("skylake", CK_SkylakeClient)
+        .Case("skylake-avx512", CK_SkylakeServer)
+        .Case("skx", CK_SkylakeServer) // Legacy name.
+        .Case("cannonlake", CK_Cannonlake)
         .Case("knl", CK_KNL)
         .Case("lakemont", CK_Lakemont)
         .Case("k6", CK_K6)
@@ -2522,7 +2548,9 @@ public:
     case CK_IvyBridge:
     case CK_Haswell:
     case CK_Broadwell:
-    case CK_Skylake:
+    case CK_SkylakeClient:
+    case CK_SkylakeServer:
+    case CK_Cannonlake:
     case CK_KNL:
     case CK_Athlon64:
     case CK_Athlon64SSE3:
@@ -2547,15 +2575,21 @@ public:
   bool setFPMath(StringRef Name) override;
 
   CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
-    // We accept all non-ARM calling conventions
-    return (CC == CC_X86ThisCall ||
-            CC == CC_X86FastCall ||
-            CC == CC_X86StdCall ||
-            CC == CC_X86RegCall ||  // INTEL
-            CC == CC_X86VectorCall ||
-            CC == CC_C ||
-            CC == CC_X86Pascal ||
-            CC == CC_IntelOclBicc) ? CCCR_OK : CCCR_Warning;
+    // Most of the non-ARM calling conventions are i386 conventions.
+    switch (CC) {
+    case CC_X86ThisCall:
+    case CC_X86FastCall:
+    case CC_X86StdCall:
+    case CC_X86RegCall:        // INTEL
+    case CC_X86VectorCall:
+    case CC_C:
+    case CC_Swift:
+    case CC_X86Pascal:
+    case CC_IntelOclBicc:
+      return CCCR_OK;
+    default:
+      return CCCR_Warning;
+    }
   }
 
   CallingConv getDefaultCallingConv(CallingConvMethodType MT) const override {
@@ -2640,15 +2674,28 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "cx16", true);
     break;
-  case CK_Skylake:
+  case CK_Cannonlake:
+    setFeatureEnabledImpl(Features, "avx512ifma", true);
+    setFeatureEnabledImpl(Features, "avx512vbmi", true);
+    setFeatureEnabledImpl(Features, "sha", true);
+    setFeatureEnabledImpl(Features, "umip", true);
+    // FALLTHROUGH
+  case CK_SkylakeServer:
     setFeatureEnabledImpl(Features, "avx512f", true);
     setFeatureEnabledImpl(Features, "avx512cd", true);
     setFeatureEnabledImpl(Features, "avx512dq", true);
     setFeatureEnabledImpl(Features, "avx512bw", true);
     setFeatureEnabledImpl(Features, "avx512vl", true);
+    setFeatureEnabledImpl(Features, "pku", true);
+    setFeatureEnabledImpl(Features, "pcommit", true);
+    setFeatureEnabledImpl(Features, "clwb", true);
+    // FALLTHROUGH
+  case CK_SkylakeClient:
     setFeatureEnabledImpl(Features, "xsavec", true);
     setFeatureEnabledImpl(Features, "xsaves", true);
-    setFeatureEnabledImpl(Features, "pku", true);
+    setFeatureEnabledImpl(Features, "mpx", true);
+    setFeatureEnabledImpl(Features, "sgx", true);
+    setFeatureEnabledImpl(Features, "clflushopt", true);
     // FALLTHROUGH
   case CK_Broadwell:
     setFeatureEnabledImpl(Features, "rdseed", true);
@@ -2661,6 +2708,7 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "bmi2", true);
     setFeatureEnabledImpl(Features, "rtm", true);
     setFeatureEnabledImpl(Features, "fma", true);
+    setFeatureEnabledImpl(Features, "movbe", true);
     // FALLTHROUGH
   case CK_IvyBridge:
     setFeatureEnabledImpl(Features, "rdrnd", true);
@@ -2687,6 +2735,7 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "avx512cd", true);
     setFeatureEnabledImpl(Features, "avx512er", true);
     setFeatureEnabledImpl(Features, "avx512pf", true);
+    setFeatureEnabledImpl(Features, "prefetchwt1", true);
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "rdseed", true);
     setFeatureEnabledImpl(Features, "adx", true);
@@ -2703,6 +2752,7 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "cx16", true);
     setFeatureEnabledImpl(Features, "xsaveopt", true);
     setFeatureEnabledImpl(Features, "xsave", true);
+    setFeatureEnabledImpl(Features, "movbe", true);
     break;
   case CK_K6_2:
   case CK_K6_3:
@@ -2871,7 +2921,8 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
   case AVX512F:
     Features["avx512f"] = Features["avx512cd"] = Features["avx512er"] =
       Features["avx512pf"] = Features["avx512dq"] = Features["avx512bw"] =
-      Features["avx512vl"] = false;
+      Features["avx512vl"] = Features["avx512vbmi"] =
+      Features["avx512ifma"] = false;
   }
 }
 
@@ -2969,8 +3020,9 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     setSSELevel(Features, AVX2, Enabled);
   } else if (Name == "avx512f") {
     setSSELevel(Features, AVX512F, Enabled);
-  } else if (Name == "avx512cd" || Name == "avx512er" || Name == "avx512pf"
-          || Name == "avx512dq" || Name == "avx512bw" || Name == "avx512vl") {
+  } else if (Name == "avx512cd" || Name == "avx512er" || Name == "avx512pf" ||
+             Name == "avx512dq" || Name == "avx512bw" || Name == "avx512vl" ||
+             Name == "avx512vbmi" || Name == "avx512ifma") {
     if (Enabled)
       setSSELevel(Features, AVX512F, Enabled);
   } else if (Name == "fma") {
@@ -2998,15 +3050,11 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     else
       setSSELevel(Features, SSE41, Enabled);
   } else if (Name == "xsave") {
-    if (Enabled)
-      setSSELevel(Features, AVX, Enabled);
-    else
+    if (!Enabled)
       Features["xsaveopt"] = false;
   } else if (Name == "xsaveopt" || Name == "xsavec" || Name == "xsaves") {
-    if (Enabled) {
+    if (Enabled)
       Features["xsave"] = true;
-      setSSELevel(Features, AVX, Enabled);
-    }
   }
 }
 
@@ -3060,8 +3108,18 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512BW = true;
     } else if (Feature == "+avx512vl") {
       HasAVX512VL = true;
+    } else if (Feature == "+avx512vbmi") {
+      HasAVX512VBMI = true;
+    } else if (Feature == "+avx512ifma") {
+      HasAVX512IFMA = true;
     } else if (Feature == "+sha") {
       HasSHA = true;
+    } else if (Feature == "+mpx") {
+      HasMPX = true;
+    } else if (Feature == "+movbe") {
+      HasMOVBE = true;
+    } else if (Feature == "+sgx") {
+      HasSGX = true;
     } else if (Feature == "+cx16") {
       HasCX16 = true;
     } else if (Feature == "+fxsr") {
@@ -3076,6 +3134,16 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasXSAVES = true;
     } else if (Feature == "+pku") {
       HasPKU = true;
+    } else if (Feature == "+clflushopt") {
+      HasCLFLUSHOPT = true;
+    } else if (Feature == "+pcommit") {
+      HasPCOMMIT = true;
+    } else if (Feature == "+clwb") {
+      HasCLWB = true;
+    } else if (Feature == "+umip") {
+      HasUMIP = true;
+    } else if (Feature == "+prefetchwt1") {
+      HasPREFETCHWT1 = true;
     }
 
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
@@ -3209,17 +3277,16 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_IvyBridge:
   case CK_Haswell:
   case CK_Broadwell:
+  case CK_SkylakeClient:
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
     defineCPUMacros(Builder, "corei7");
     break;
-  case CK_Skylake:
-    // FIXME: Historically, we defined this legacy name, it would be nice to
-    // remove it at some point. This is the only fine-grained CPU macro in the
-    // main intel CPU line, and it would be better to not have these and force
-    // people to use ISA macros.
+  case CK_SkylakeServer:
     defineCPUMacros(Builder, "skx");
+    break;
+  case CK_Cannonlake:
     break;
   case CK_KNL:
     defineCPUMacros(Builder, "knl");
@@ -3366,6 +3433,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512BW__");
   if (HasAVX512VL)
     Builder.defineMacro("__AVX512VL__");
+  if (HasAVX512VBMI)
+    Builder.defineMacro("__AVX512VBMI__");
+  if (HasAVX512IFMA)
+    Builder.defineMacro("__AVX512IFMA__");
 
   if (HasSHA)
     Builder.defineMacro("__SHA__");
@@ -3464,8 +3535,12 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avx512dq", HasAVX512DQ)
       .Case("avx512bw", HasAVX512BW)
       .Case("avx512vl", HasAVX512VL)
+      .Case("avx512vbmi", HasAVX512VBMI)
+      .Case("avx512ifma", HasAVX512IFMA)
       .Case("bmi", HasBMI)
       .Case("bmi2", HasBMI2)
+      .Case("clflushopt", HasCLFLUSHOPT)
+      .Case("clwb", HasCLWB)
       .Case("cx16", HasCX16)
       .Case("f16c", HasF16C)
       .Case("fma", HasFMA)
@@ -3476,12 +3551,18 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("mm3dnow", MMX3DNowLevel >= AMD3DNow)
       .Case("mm3dnowa", MMX3DNowLevel >= AMD3DNowAthlon)
       .Case("mmx", MMX3DNowLevel >= MMX)
+      .Case("movbe", HasMOVBE)
+      .Case("mpx", HasMPX)
       .Case("pclmul", HasPCLMUL)
+      .Case("pcommit", HasPCOMMIT)
+      .Case("pku", HasPKU)
       .Case("popcnt", HasPOPCNT)
+      .Case("prefetchwt1", HasPREFETCHWT1)
       .Case("prfchw", HasPRFCHW)
       .Case("rdrnd", HasRDRND)
       .Case("rdseed", HasRDSEED)
       .Case("rtm", HasRTM)
+      .Case("sgx", HasSGX)
       .Case("sha", HasSHA)
       .Case("sse", SSELevel >= SSE1)
       .Case("sse2", SSELevel >= SSE2)
@@ -3491,6 +3572,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("sse4.2", SSELevel >= SSE42)
       .Case("sse4a", XOPLevel >= SSE4A)
       .Case("tbm", HasTBM)
+      .Case("umip", HasUMIP)
       .Case("x86", true)
       .Case("x86_32", getTriple().getArch() == llvm::Triple::x86)
       .Case("x86_64", getTriple().getArch() == llvm::Triple::x86_64)
@@ -3499,7 +3581,6 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("xsavec", HasXSAVEC)
       .Case("xsaves", HasXSAVES)
       .Case("xsaveopt", HasXSAVEOPT)
-      .Case("pku", HasPKU)
       .Default(false);
 }
 
@@ -4061,11 +4142,17 @@ public:
   }
 
   CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
-    return (CC == CC_C ||
-            CC == CC_X86VectorCall ||
-            CC == CC_X86RegCall ||  // INTEL
-            CC == CC_IntelOclBicc ||
-            CC == CC_X86_64Win64) ? CCCR_OK : CCCR_Warning;
+    switch (CC) {
+    case CC_C:
+    case CC_Swift:
+    case CC_X86VectorCall:
+    case CC_X86RegCall:            // INTEL
+    case CC_IntelOclBicc:
+    case CC_X86_64Win64:
+      return CCCR_OK;
+    default:
+      return CCCR_Warning;
+    }
   }
 
   CallingConv getDefaultCallingConv(CallingConvMethodType MT) const override {
@@ -4186,6 +4273,7 @@ public:
       : X86_64TargetInfo(Triple) {
     TLSSupported = false;
     WCharType = UnsignedShort;
+    UserLabelPrefix = "";
   }
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override {
@@ -4475,7 +4563,8 @@ class ARMTargetInfo : public TargetInfo {
   }
 
   bool supportsThumb2() const {
-    return CPUAttr.equals("6T2") || ArchVersion >= 7;
+    return CPUAttr.equals("6T2") ||
+           (ArchVersion >= 7 && !CPUAttr.equals("8M_BASE"));
   }
 
   StringRef getCPUAttr() const {
@@ -4500,6 +4589,12 @@ class ARMTargetInfo : public TargetInfo {
       return "8A";
     case llvm::ARM::AK_ARMV8_1A:
       return "8_1A";
+    case llvm::ARM::AK_ARMV8_2A:
+      return "8_2A";
+    case llvm::ARM::AK_ARMV8MBaseline:
+      return "8M_BASE";
+    case llvm::ARM::AK_ARMV8MMainline:
+      return "8M_MAIN";
     }
   }
 
@@ -4789,13 +4884,14 @@ public:
 
     // __ARM_ARCH_ISA_ARM is defined to 1 if the core supports the ARM ISA.  It
     // is not defined for the M-profile.
-    // NOTE that the deffault profile is assumed to be 'A'
-    if (CPUProfile.empty() || CPUProfile != "M")
+    // NOTE that the default profile is assumed to be 'A'
+    if (CPUProfile.empty() || ArchProfile != llvm::ARM::PK_M)
       Builder.defineMacro("__ARM_ARCH_ISA_ARM", "1");
 
-    // __ARM_ARCH_ISA_THUMB is defined to 1 if the core supporst the original
-    // Thumb ISA (including v6-M).  It is set to 2 if the core supports the
-    // Thumb-2 ISA as found in the v6T2 architecture and all v7 architecture.
+    // __ARM_ARCH_ISA_THUMB is defined to 1 if the core supports the original
+    // Thumb ISA (including v6-M and v8-M Baseline).  It is set to 2 if the
+    // core supports the Thumb-2 ISA as found in the v6T2 architecture and all
+    // v7 and v8 architectures excluding v8-M Baseline.
     if (supportsThumb2())
       Builder.defineMacro("__ARM_ARCH_ISA_THUMB", "2");
     else if (supportsThumb())
@@ -4915,7 +5011,7 @@ public:
     Builder.defineMacro("__ARM_SIZEOF_MINIMAL_ENUM",
                         Opts.ShortEnums ? "1" : "4");
 
-    if (ArchVersion >= 6 && CPUAttr != "6M") {
+    if (ArchVersion >= 6 && CPUAttr != "6M" && CPUAttr != "8M_BASE") {
       Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_1");
       Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2");
       Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4");
@@ -4964,8 +5060,8 @@ public:
     default: break;
     case 'l': // r0-r7
     case 'h': // r8-r15
-    case 'w': // VFP Floating point register single precision
-    case 'P': // VFP Floating point register double precision
+    case 't': // VFP Floating point register single precision
+    case 'w': // VFP Floating point register double precision
       Info.setAllowsRegister();
       return true;
     case 'I':
@@ -5044,7 +5140,14 @@ public:
   }
 
   CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
-    return (CC == CC_AAPCS || CC == CC_AAPCS_VFP) ? CCCR_OK : CCCR_Warning;
+    switch (CC) {
+    case CC_AAPCS:
+    case CC_AAPCS_VFP:
+    case CC_Swift:
+      return CCCR_OK;
+    default:
+      return CCCR_Warning;
+    }
   }
 
   int getEHDataRegisterNumber(unsigned RegNo) const override {
@@ -5384,6 +5487,7 @@ public:
                         .Cases("cortex-a53", "cortex-a57", "cortex-a72",
                                "cortex-a35", "exynos-m1", true)
                         .Case("cyclone", true)
+                        .Case("kryo", true)
                         .Default(false);
     return CPUKnown;
   }
@@ -5493,6 +5597,16 @@ public:
     setDataLayoutString();
 
     return true;
+  }
+
+  CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
+    switch (CC) {
+    case CC_C:
+    case CC_Swift:
+      return CCCR_OK;
+    default:
+      return CCCR_Warning;
+    }
   }
 
   bool isCLZForZeroUndef() const override { return false; }
@@ -5721,9 +5835,12 @@ class HexagonTargetInfo : public TargetInfo {
 public:
   HexagonTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
     BigEndian = false;
-    DataLayoutString = "e-m:e-p:32:32:32-"
-                       "i64:64:64-i32:32:32-i16:16:16-i1:8:8-"
-                       "f64:64:64-f32:32:32-v64:64:64-v32:32:32-a:0-n16:32";
+    // Specify the vector alignment explicitly. For v512x1, the calculated
+    // alignment would be 512*alignment(i1), which is 512 bytes, instead of
+    // the required minimum of 64 bytes.
+    DataLayoutString = "e-m:e-p:32:32:32-a:0-n16:32-"
+        "i64:64:64-i32:32:32-i16:16:16-i1:8:8-f32:32:32-f64:64:64-"
+        "v32:32:32-v64:64:64-v512:512:512-v1024:1024:1024-v2048:2048:2048";
     SizeType    = UnsignedInt;
     PtrDiffType = SignedInt;
     IntPtrType  = SignedInt;
