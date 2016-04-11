@@ -11,7 +11,7 @@
 ; CHECK-NEXT: %ii.0 = %ii.0  /  2
 ; CHECK-NEXT: if (%ipntp.0.out + 1 < %ipntp.0)
 ; CHECK-NEXT: {
-; CHECK-NEXT: DO i2 = 0, %ipntp.0.out + -1 * %ipntp.0 + ((-2 + %ii.0.out) /u 2) + %ii.0.out, 1
+; CHECK-NEXT: DO i2 = 0, %ipntp.0.out + -1 * %ipntp.0 + %ii.0.out + ((-2 + %ii.0.out) /u 2), 1
 ; CHECK-NEXT: %4 = {al:4}(%A)[2 * i2 + %ipntp.0.out + 1]
 ; CHECK-NEXT: %5 = {al:4}(%A)[2 * i2 + %ipntp.0.out];
 ; CHECK-NEXT: %6 = {al:4}(%A)[2 * i2 + %ipntp.0.out + 2]

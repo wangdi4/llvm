@@ -2,10 +2,10 @@
 
 ; Check parsing output for the loop verifying that we create a liveout copy for standalone phi %k.0 which is live outside the loop.
 ; CHECK: DO i1 = 0, 44
-; CHECK-NEXT: %k.0.in1 = 0
+; CHECK-NEXT: %k.0 = 0
 ; CHECK-NEXT: DO i2 = 0, -1 * i1 + 46
-; CHECK-NEXT: %k.0.out = %k.0.in1
-; CHECK-NEXT: %k.0.in1 = -1 * i2 + 46
+; CHECK-NEXT: %k.0.out = %k.0
+; CHECK-NEXT: %k.0 = -1 * i2 + 46
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END LOOP
 

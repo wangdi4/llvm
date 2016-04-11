@@ -88,9 +88,6 @@ private:
   typedef std::pair<BlobTy, unsigned> BlobSymbasePairTy;
   typedef SmallVector<BlobSymbasePairTy, 64> BlobTableTy;
 
-  typedef std::pair<BlobTy, unsigned> BlobPtrIndexPairTy;
-  typedef SmallVector<BlobPtrIndexPairTy, 64> BlobToIndexTy;
-
   /// LI - The loop information for the function we are currently analyzing.
   LoopInfo *LI;
 
@@ -139,7 +136,7 @@ private:
   // SmallSet<unsigned, 64> TempBlobSymbases;
 
   /// CurBlobLevelMap - Maps temp blob indices to nesting levels for the current
-  /// DDRef. 
+  /// DDRef.
   SmallDenseMap<unsigned, unsigned, 8> CurTempBlobLevelMap;
 
   // BlobTable - vector containing blobs and corresponding symbases for the
@@ -148,26 +145,17 @@ private:
 
   // BlobToIndexMap - stores a mapping of blobs to corresponding indices for
   // faster lookup.
-  BlobToIndexTy BlobToIndexMap;
+  DenseMap<BlobTy, unsigned> BlobToIndexMap;
 
-  // Used as comparators to sort blobs.
-  struct BlobPtrCompareLess;
-  struct BlobPtrCompareEqual;
-
-  /// BaseSCEVCreator - Creates a base version of SCEV by replacing values by
-  /// base values. Base value is representative of a symbase. This is to create
-  /// a 1:1 mapping between blob index and symbase eliminating comparison issues
-  /// between different blob indices associated with the same symbase.
-  class BaseSCEVCreator;
+  /// BlobProcessor - Performs necessary processing for a blob being added to a
+  /// CanonExpr.
+  class BlobProcessor;
 
   /// TempBlobCollector - Collects temp blobs within a blob.
   class TempBlobCollector;
 
   /// NestedBlobChecker - Check to see if we have a nested blob
   class NestedBlobChecker;
-
-  /// BlobLevelSetter - Used to set blob levels in the canon expr.
-  class BlobLevelSetter;
 
   /// BlobPrinter - Used to print blobs.
   class BlobPrinter;
@@ -244,18 +232,25 @@ private:
   void setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
                             unsigned DefLevel) const;
 
-  /// \brief Wrapper to find/insert Blob in the blob table and assign it a
-  /// symbase, if applicable. Returns blob index and Symbase.
+  /// \brief Wrapper to find/insert Blob in the blob table by retrieving its
+  /// symbase, if applicable. Returns the blob index.
   /// This is only used during parsing.
-  unsigned findOrInsertBlobWrapper(BlobTy Blob, unsigned *SymbasePtr = nullptr);
+  unsigned findOrInsertBlobWrapper(BlobTy Blob);
 
-  /// \brief Adds an entry for the temp blob in blob maps.
-  void addTempBlobEntry(unsigned Index, unsigned NestingLevel,
-                        unsigned DefLevel);
+  /// \brief Caches temp blob level for later reuse in population of BlobDDRefs.
+  void cacheTempBlobLevel(unsigned Index, unsigned NestingLevel,
+                          unsigned DefLevel);
 
-  /// \brief Overrides CE's DefinedAtLevel if the temp blob has a deeper level.
-  void setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
-                        unsigned NestingLevel);
+  /// \brief In addition to calling ScalarSA's getOrAssignScalarSymbase(), it
+  /// updates existing temp blob in the blob table if required. Blob index of
+  /// the temp is returned if it was updated.
+  unsigned getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex = nullptr);
+
+  /// \brief Performs necessary processing for adding TempBlob to CE. This
+  /// includes updating the defined at level of CE, adding an entry in the blob
+  /// table and marking livein temps.
+  const SCEVUnknown *processTempBlob(const SCEVUnknown *TempBlob, CanonExpr *CE,
+                                     unsigned NestingLevel);
 
   /// \brief Breaks multiplication blobs such as (2 * n) into multiplier 2 and
   /// new blob n, otherwise sets the multiplier to 1. Also returns new or
@@ -268,7 +263,7 @@ private:
   void parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
                  unsigned IVLevel = 0);
 
-  /// \brief Calls SE->getSCEVAtScope() based on the location of CurNode. 
+  /// \brief Calls SE->getSCEVAtScope() based on the location of CurNode.
   const SCEV *getSCEVAtScope(const SCEV *SC) const;
 
   /// \brief Recursively parses SCEV tree into CanonExpr. IsTop is true when we
@@ -387,10 +382,16 @@ private:
   /// \brief Internal method to check blob index range.
   bool isBlobIndexValid(unsigned Index) const;
 
+  /// \brief Returns true if Symbase is assigned to some temp blob.
+  bool foundInBlobTable(unsigned Symbase) const;
+
+  /// \brief Validates blob/symbase pair.
+  bool validBlobSymbasePair(BlobTy Blob, unsigned Symbase) const;
+
   /// \brief Implements find()/insert() functionality.
   /// ReturnSymbase indicates whether to return blob index or symbase.
   unsigned findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase, bool Insert,
-                                bool ReturnSymbase);
+                                bool ReturnSymbase, BlobTy NewBlob = nullptr);
 
   /// \brief Returns the index of Blob in the blob table. Index range is [1,
   /// UINT_MAX]. Returns InvalidBlobIndex if the blob is not present in the
@@ -405,6 +406,11 @@ private:
   /// inserted, if it isn't already present in the blob table. Index range is
   /// [1, UINT_MAX].
   unsigned findOrInsertBlob(BlobTy Blob, unsigned Symbase);
+
+  /// \brief Updates OldBlob by NewBlob in the blob table and returns the blob
+  /// index.
+  /// Used internally by parser only.
+  unsigned updateBlob(BlobTy OldBlob, BlobTy NewBlob, unsigned Symbase);
 
   /// \brief Returns blob corresponding to Index.
   BlobTy getBlob(unsigned Index) const;

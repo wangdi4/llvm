@@ -4,7 +4,7 @@
 ; CHECK: DO i1 = 0, 15
 ; CHECK-NEXT: %index.4184.out = %index.4184
 ; CHECK-NEXT: %0 = {al:1}(%p)[i1 + 1];
-; CHECK-NEXT: %.sink.in1 = -1;
+; CHECK-NEXT: %.sink = -1;
 ; CHECK-NEXT: if (%0 == 0)
 ; CHECK-NEXT: {
 ; CHECK-NEXT: }
@@ -15,9 +15,9 @@
 ; CHECK-NEXT: %2 = {al:1}(%p)[i1 + 1];
 ; CHECK-NEXT: %index.4184 = %2  +  %index.4184;
 ; CHECK-NEXT: %3 = {al:4}(%huffcode)[0][%index.4184 + -1];
-; CHECK-NEXT: %.sink.in1 = %3;
+; CHECK-NEXT: %.sink = %3;
 ; CHECK-NEXT: }
-; CHECK-NEXT: (%r)[i1 + 1] = %.sink.in1;
+; CHECK-NEXT: (%r)[i1 + 1] = %.sink;
 ; CHECK-NEXT: END LOOP
 
 

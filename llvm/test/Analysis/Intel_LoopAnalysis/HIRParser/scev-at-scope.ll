@@ -12,7 +12,7 @@
 
 ; Check parsing output for the loop verifying that the copy stmt after i2 loop is parsed properly using getSCEVAtScope() information.
 
-; CHECK: DO i1 = 0, smax(-2, (-1 + (-1 * %count))) + %count + 1
+; CHECK: DO i1 = 0, %count + smax(-2, (-1 + (-1 * %count))) + 1
 ; CHECK-NEXT: %to.addr.130.out = &((%to.addr.130)[0])
 ; CHECK-NEXT: if (%len > 0)
 ; CHECK-NEXT: {

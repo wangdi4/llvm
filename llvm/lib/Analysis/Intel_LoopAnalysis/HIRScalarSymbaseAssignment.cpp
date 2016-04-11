@@ -70,6 +70,35 @@ unsigned HIRScalarSymbaseAssignment::insertBaseTemp(const Value *Temp) {
   return getMaxScalarSymbase();
 }
 
+void HIRScalarSymbaseAssignment::updateBaseTemp(unsigned Symbase,
+                                                const Value *Temp,
+                                                const Value **OldTemp) {
+
+  // If a copy instruction was added as a base temp, we need to update it to
+  // copy's associated phi. Using copies as base temps messes up (value -> base
+  // value) mapping in parsing because ScalarEvolution can optimize away simple
+  // copies such as t = 0 during simplification.
+
+  auto BaseTemp = BaseTemps[getIndex(Symbase)];
+
+  // Base is already a phi.
+  if (isa<PHINode>(BaseTemp)) {
+    return;
+  }
+
+  auto PhiBase = dyn_cast<PHINode>(Temp);
+
+  if (!PhiBase) {
+    return;
+  }
+
+  if (OldTemp) {
+    *OldTemp = BaseTemp;
+  }
+
+  BaseTemps[getIndex(Symbase)] = PhiBase;
+}
+
 void HIRScalarSymbaseAssignment::insertTempSymbase(const Value *Temp,
                                                    unsigned Symbase) {
   assert((Symbase > ConstantSymbase) && (Symbase <= getMaxScalarSymbase()) &&
@@ -80,15 +109,69 @@ void HIRScalarSymbaseAssignment::insertTempSymbase(const Value *Temp,
   assert(Ret.second && "Attempt to overwrite Temp symbase!");
 }
 
+unsigned HIRScalarSymbaseAssignment::getTempSymbase(const Value *Temp) const {
+
+  auto Iter = TempSymbaseMap.find(Temp);
+
+  if (Iter != TempSymbaseMap.end()) {
+    return Iter->second;
+  }
+
+  return InvalidSymbase;
+}
+
+unsigned HIRScalarSymbaseAssignment::assignTempSymbase(const Value *Temp) {
+  auto Symbase = insertBaseTemp(Temp);
+  insertTempSymbase(Temp, Symbase);
+
+  return Symbase;
+}
+
 unsigned HIRScalarSymbaseAssignment::getOrAssignTempSymbase(const Value *Temp) {
   auto Symbase = getTempSymbase(Temp);
 
-  if (!Symbase) {
-    Symbase = insertBaseTemp(Temp);
-    insertTempSymbase(Temp, Symbase);
+  if (Symbase == InvalidSymbase) {
+    Symbase = assignTempSymbase(Temp);
   }
 
   return Symbase;
+}
+
+const Value *HIRScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
+  const Value *RetVal = nullptr;
+
+  assert((Symbase > ConstantSymbase) && "Symbase is out of range!");
+
+  if (Symbase <= getMaxScalarSymbase()) {
+    RetVal = BaseTemps[getIndex(Symbase)];
+  } else {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    // Symbase can be out of range for new temps created by HIR transformations.
+    // These temps are registered by framework utils for printing in debug mode.
+    auto It = ScalarLvalSymbases.find(Symbase);
+    assert((It != ScalarLvalSymbases.end()) && "Symbase not present in map!");
+    RetVal = It->second;
+#else
+    // We shouldn't reach here in prod mode. ScalarLvalSymbases is only
+    // maintained in debug mode for printing.
+    llvm_unreachable("Couldn't find base temp!");
+#endif
+  }
+
+  assert(RetVal && "Unexpected null value in RetVal");
+  return RetVal;
+}
+
+unsigned HIRScalarSymbaseAssignment::getMaxScalarSymbase() const {
+  return BaseTemps.size() + ConstantSymbase;
+}
+
+void HIRScalarSymbaseAssignment::setGenericLoopUpperSymbase() {
+  assignTempSymbase(Func);
+}
+
+const Value *HIRScalarSymbaseAssignment::getGenericLoopUpperVal() const {
+  return Func;
 }
 
 const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
@@ -144,66 +227,6 @@ const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
   return Scalar;
 }
 
-unsigned HIRScalarSymbaseAssignment::getTempSymbase(const Value *Temp) const {
-
-  auto Iter = TempSymbaseMap.find(Temp);
-
-  if (Iter != TempSymbaseMap.end()) {
-    return Iter->second;
-  }
-
-  return InvalidSymbase;
-}
-
-const Value *HIRScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
-  const Value *RetVal = nullptr;
-
-  assert((Symbase > ConstantSymbase) && "Symbase is out of range!");
-
-  if (Symbase <= getMaxScalarSymbase()) {
-    RetVal = BaseTemps[Symbase - ConstantSymbase - 1];
-  } else {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    // Symbase can be out of range for new temps created by HIR transformations.
-    // These temps are registered by framework utils for printing in debug mode.
-    auto It = ScalarLvalSymbases.find(Symbase);
-    assert((It != ScalarLvalSymbases.end()) && "Symbase not present in map!");
-    RetVal = It->second;
-#else
-    // We shouldn't reach here in prod mode. ScalarLvalSymbases is only
-    // maintained in debug mode for printing.
-    llvm_unreachable("Couldn't find base temp!");
-#endif
-  }
-
-  assert(RetVal && "Unexpected null value in RetVal");
-  return RetVal;
-}
-
-const Value *
-HIRScalarSymbaseAssignment::getBaseScalar(const Value *Scalar) const {
-  auto Symbase = getTempSymbase(Scalar);
-
-  if (Symbase) {
-    return getBaseScalar(Symbase);
-  } else {
-    return Scalar;
-  }
-}
-
-unsigned HIRScalarSymbaseAssignment::getMaxScalarSymbase() const {
-  return BaseTemps.size() + ConstantSymbase;
-}
-
-void HIRScalarSymbaseAssignment::setGenericLoopUpperSymbase() {
-  auto Symbase = insertBaseTemp(Func);
-  insertTempSymbase(Func, Symbase);
-}
-
-const Value *HIRScalarSymbaseAssignment::getGenericLoopUpperVal() const {
-  return Func;
-}
-
 bool HIRScalarSymbaseAssignment::isConstant(const Value *Val) const {
   // TODO: add other types
   if (isa<ConstantInt>(Val) || isa<ConstantFP>(Val) ||
@@ -234,7 +257,8 @@ HIRScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
 }
 
 unsigned HIRScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(
-    const Value *Scalar, const IRRegion *IRReg, bool Assign) {
+    const Value *Scalar, const IRRegion *IRReg, bool Assign,
+    const Value **OldBaseScalar) {
   unsigned Symbase = InvalidSymbase;
 
   // TODO: assign constant symbase to metadata types as they do not cause data
@@ -246,7 +270,7 @@ unsigned HIRScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(
   Scalar = traceSingleOperandPhis(Scalar, IRReg);
 
   if (auto Inst = dyn_cast<Instruction>(Scalar)) {
-    // First check if this instruction is a copy instruction inserted by SSA
+    // First check if this instruction has metdadata attached by SSA
     // deconstruction pass. If so, we need to access/update StrSymbaseMap.
     auto MDStr = getInstMDString(Inst);
 
@@ -256,39 +280,36 @@ unsigned HIRScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(
 
       if (It != StrSymbaseMap.end()) {
         Symbase = It->getValue();
+        updateBaseTemp(Symbase, Inst, OldBaseScalar);
 
-        // Insert into TempSymbaseMap so that the base temp can be retrieved
-        // using getBaseScalar().
-        if (Assign && (InvalidSymbase == getTempSymbase(Inst))) {
-          insertTempSymbase(Inst, Symbase);
-        }
       } else {
         if (Assign) {
-          Symbase = getOrAssignTempSymbase(Inst);
+          Symbase = insertBaseTemp(Inst);
           StrSymbaseMap.insert(std::make_pair(StrRef, Symbase));
-        } else {
-          Symbase = getTempSymbase(Inst);
         }
       }
+
     } else {
+      // No metadata attached, look it up in underlying TempSymbase map.
       Symbase = Assign ? getOrAssignTempSymbase(Inst) : getTempSymbase(Inst);
     }
+
   } else {
-    Symbase = Assign ? getOrAssignTempSymbase(Scalar) : getTempSymbase(Inst);
+    // Not an instruction, look it up in underlying TempSymbase map.
+    Symbase = Assign ? getOrAssignTempSymbase(Scalar) : getTempSymbase(Scalar);
   }
 
   return Symbase;
 }
 
-unsigned
-HIRScalarSymbaseAssignment::getOrAssignScalarSymbase(const Value *Scalar,
-                                                     const IRRegion *IRReg) {
-  return getOrAssignScalarSymbaseImpl(Scalar, IRReg, true);
+unsigned HIRScalarSymbaseAssignment::getOrAssignScalarSymbase(
+    const Value *Scalar, const IRRegion *IRReg, const Value **OldBaseScalar) {
+  return getOrAssignScalarSymbaseImpl(Scalar, IRReg, true, OldBaseScalar);
 }
 
 unsigned HIRScalarSymbaseAssignment::getScalarSymbase(const Value *Scalar,
                                                       const IRRegion *IRReg) {
-  return getOrAssignScalarSymbaseImpl(Scalar, IRReg, false);
+  return getOrAssignScalarSymbaseImpl(Scalar, IRReg, false, nullptr);
 }
 
 void HIRScalarSymbaseAssignment::populateRegionLiveouts(
