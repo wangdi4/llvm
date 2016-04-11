@@ -10,6 +10,10 @@ if (NOT WIN32)
   add_definitions(-Wno-missing-braces)
 endif (NOT WIN32)
 
+
+# Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard system libarary directories
+include(../cmake_utils/embed.rpath.txt)
+
 # this component has to use deprecated OpenCL API functions.
 if (WIN32)
     add_definitions(
