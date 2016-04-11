@@ -21,18 +21,24 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetLowering.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
+#include "LPUTargetMachine.h"
+#include "LPU.h"
 #include <utility>
 using namespace llvm;
 
-static cl::opt<unsigned>
-PartialUnrollingThreshold("partial-unrolling-threshold", cl::init(0),
-  cl::desc("Threshold for partial unrolling"), cl::Hidden);
+#define DEBUG_TYPE "lputti"
 
-#define DEBUG_TYPE "basictti"
+
+// Declare the pass initialization routine locally as target-specific passes
+// don't have a target-wide initialization entry point, and so we rely on the
+// pass constructor initialization.
+namespace llvm {
+	void initializeLPUTTIPass(PassRegistry &);
+}
 
 namespace {
 
-class BasicTTI final : public ImmutablePass, public TargetTransformInfo {
+class LPUTTI final : public ImmutablePass, public TargetTransformInfo {
   const TargetMachine *TM;
 
   /// Estimate the overhead of scalarizing an instruction. Insert and Extract
@@ -47,12 +53,12 @@ class BasicTTI final : public ImmutablePass, public TargetTransformInfo {
   }
 
 public:
-  BasicTTI() : ImmutablePass(ID), TM(nullptr) {
+  LPUTTI() : ImmutablePass(ID), TM(nullptr) {
     llvm_unreachable("This pass cannot be directly constructed");
   }
 
-  BasicTTI(const TargetMachine *TM) : ImmutablePass(ID), TM(TM) {
-    initializeBasicTTIPass(*PassRegistry::getPassRegistry());
+  LPUTTI(const TargetMachine *TM) : ImmutablePass(ID), TM(TM) {
+    initializeLPUTTIPass(*PassRegistry::getPassRegistry());
   }
 
   void initializePass() override {
@@ -129,26 +135,26 @@ public:
 
 }
 
-INITIALIZE_AG_PASS(BasicTTI, TargetTransformInfo, "basictti",
+INITIALIZE_AG_PASS(LPUTTI, TargetTransformInfo, "LPUTTI",
                    "Target independent code generator's TTI", true, true, false)
-char BasicTTI::ID = 0;
+char LPUTTI::ID = 0;
 
 ImmutablePass *
-llvm::createBasicTargetTransformInfoPass(const TargetMachine *TM) {
-  return new BasicTTI(TM);
+llvm::createLPUTargetTransformInfoPass(const LPUTargetMachine *TM) {
+  return new LPUTTI(TM);
 }
 
-bool BasicTTI::hasBranchDivergence() const { return false; }
+bool LPUTTI::hasBranchDivergence() const { return false; }
 
-bool BasicTTI::isLegalAddImmediate(int64_t imm) const {
+bool LPUTTI::isLegalAddImmediate(int64_t imm) const {
   return getTLI()->isLegalAddImmediate(imm);
 }
 
-bool BasicTTI::isLegalICmpImmediate(int64_t imm) const {
+bool LPUTTI::isLegalICmpImmediate(int64_t imm) const {
   return getTLI()->isLegalICmpImmediate(imm);
 }
 
-bool BasicTTI::isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
+bool LPUTTI::isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
                                      int64_t BaseOffset, bool HasBaseReg,
                                      int64_t Scale) const {
   TargetLoweringBase::AddrMode AM;
@@ -159,7 +165,7 @@ bool BasicTTI::isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
   return getTLI()->isLegalAddressingMode(AM, Ty);
 }
 
-int BasicTTI::getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
+int LPUTTI::getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
                                    int64_t BaseOffset, bool HasBaseReg,
                                    int64_t Scale) const {
   TargetLoweringBase::AddrMode AM;
@@ -170,36 +176,36 @@ int BasicTTI::getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
   return getTLI()->getScalingFactorCost(AM, Ty);
 }
 
-bool BasicTTI::isTruncateFree(Type *Ty1, Type *Ty2) const {
+bool LPUTTI::isTruncateFree(Type *Ty1, Type *Ty2) const {
   return getTLI()->isTruncateFree(Ty1, Ty2);
 }
 
-bool BasicTTI::isTypeLegal(Type *Ty) const {
+bool LPUTTI::isTypeLegal(Type *Ty) const {
   EVT T = getTLI()->getValueType(Ty);
   return getTLI()->isTypeLegal(T);
 }
 
-unsigned BasicTTI::getJumpBufAlignment() const {
+unsigned LPUTTI::getJumpBufAlignment() const {
   return getTLI()->getJumpBufAlignment();
 }
 
-unsigned BasicTTI::getJumpBufSize() const {
+unsigned LPUTTI::getJumpBufSize() const {
   return getTLI()->getJumpBufSize();
 }
 
-bool BasicTTI::shouldBuildLookupTables() const {
+bool LPUTTI::shouldBuildLookupTables() const {
   const TargetLoweringBase *TLI = getTLI();
   return TLI->isOperationLegalOrCustom(ISD::BR_JT, MVT::Other) ||
          TLI->isOperationLegalOrCustom(ISD::BRIND, MVT::Other);
 }
 
-bool BasicTTI::haveFastSqrt(Type *Ty) const {
+bool LPUTTI::haveFastSqrt(Type *Ty) const {
   const TargetLoweringBase *TLI = getTLI();
   EVT VT = TLI->getValueType(Ty);
   return TLI->isTypeLegal(VT) && TLI->isOperationLegalOrCustom(ISD::FSQRT, VT);
 }
 
-void BasicTTI::getUnrollingPreferences(const Function *F, Loop *L,
+void LPUTTI::getUnrollingPreferences(const Function *F, Loop *L,
                                        UnrollingPreferences &UP) const {
   // This unrolling functionality is target independent, but to provide some
   // motivation for its intended use, for x86:
@@ -224,14 +230,15 @@ void BasicTTI::getUnrollingPreferences(const Function *F, Loop *L,
   // estimating the branch count. As a result, we'll ignore the branch limits
   // until someone finds a case where it matters in practice.
 
-  unsigned MaxOps;
+  unsigned MaxOps = 0;
   const TargetSubtargetInfo *ST = &TM->getSubtarget<TargetSubtargetInfo>(F);
-  if (PartialUnrollingThreshold.getNumOccurrences() > 0)
-    MaxOps = PartialUnrollingThreshold;
-  else if (ST->getSchedModel().LoopMicroOpBufferSize > 0)
+  if (ST->getSchedModel().LoopMicroOpBufferSize > 0)
     MaxOps = ST->getSchedModel().LoopMicroOpBufferSize;
-  else
-    return;
+  //LPU edit: set up runtime unroll threshold for LPU target to UINT32_MAX
+  else {
+	  assert(ST->getTargetTriple().substr(0, 3) == "lpu");
+	  MaxOps = ((uint32_t)-1);
+  }
 
   // Scan the loop: don't unroll loops with calls.
   for (Loop::block_iterator I = L->block_begin(), E = L->block_end();
@@ -261,7 +268,7 @@ void BasicTTI::getUnrollingPreferences(const Function *F, Loop *L,
 //
 //===----------------------------------------------------------------------===//
 
-unsigned BasicTTI::getScalarizationOverhead(Type *Ty, bool Insert,
+unsigned LPUTTI::getScalarizationOverhead(Type *Ty, bool Insert,
                                             bool Extract) const {
   assert (Ty->isVectorTy() && "Can only scalarize vectors");
   unsigned Cost = 0;
@@ -276,19 +283,19 @@ unsigned BasicTTI::getScalarizationOverhead(Type *Ty, bool Insert,
   return Cost;
 }
 
-unsigned BasicTTI::getNumberOfRegisters(bool Vector) const {
+unsigned LPUTTI::getNumberOfRegisters(bool Vector) const {
   return 1;
 }
 
-unsigned BasicTTI::getRegisterBitWidth(bool Vector) const {
+unsigned LPUTTI::getRegisterBitWidth(bool Vector) const {
   return 32;
 }
 
-unsigned BasicTTI::getMaxInterleaveFactor() const {
+unsigned LPUTTI::getMaxInterleaveFactor() const {
   return 1;
 }
 
-unsigned BasicTTI::getArithmeticInstrCost(unsigned Opcode, Type *Ty,
+unsigned LPUTTI::getArithmeticInstrCost(unsigned Opcode, Type *Ty,
                                           OperandValueKind, OperandValueKind,
                                           OperandValueProperties,
                                           OperandValueProperties) const {
@@ -333,7 +340,7 @@ unsigned BasicTTI::getArithmeticInstrCost(unsigned Opcode, Type *Ty,
   return OpCost;
 }
 
-unsigned BasicTTI::getAltShuffleOverhead(Type *Ty) const {
+unsigned LPUTTI::getAltShuffleOverhead(Type *Ty) const {
   assert(Ty->isVectorTy() && "Can only shuffle vectors");
   unsigned Cost = 0;
   // Shuffle cost is equal to the cost of extracting element from its argument
@@ -350,7 +357,7 @@ unsigned BasicTTI::getAltShuffleOverhead(Type *Ty) const {
   return Cost;
 }
 
-unsigned BasicTTI::getShuffleCost(ShuffleKind Kind, Type *Tp, int Index,
+unsigned LPUTTI::getShuffleCost(ShuffleKind Kind, Type *Tp, int Index,
                                   Type *SubTp) const {
   if (Kind == SK_Alternate) {
     return getAltShuffleOverhead(Tp);
@@ -358,7 +365,7 @@ unsigned BasicTTI::getShuffleCost(ShuffleKind Kind, Type *Tp, int Index,
   return 1;
 }
 
-unsigned BasicTTI::getCastInstrCost(unsigned Opcode, Type *Dst,
+unsigned LPUTTI::getCastInstrCost(unsigned Opcode, Type *Dst,
                                     Type *Src) const {
   const TargetLoweringBase *TLI = getTLI();
   int ISD = TLI->InstructionOpcodeToISD(Opcode);
@@ -448,12 +455,12 @@ unsigned BasicTTI::getCastInstrCost(unsigned Opcode, Type *Dst,
   llvm_unreachable("Unhandled cast");
  }
 
-unsigned BasicTTI::getCFInstrCost(unsigned Opcode) const {
+unsigned LPUTTI::getCFInstrCost(unsigned Opcode) const {
   // Branches are assumed to be predicted.
   return 0;
 }
 
-unsigned BasicTTI::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
+unsigned LPUTTI::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
                                       Type *CondTy) const {
   const TargetLoweringBase *TLI = getTLI();
   int ISD = TLI->InstructionOpcodeToISD(Opcode);
@@ -492,14 +499,14 @@ unsigned BasicTTI::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
   return 1;
 }
 
-unsigned BasicTTI::getVectorInstrCost(unsigned Opcode, Type *Val,
+unsigned LPUTTI::getVectorInstrCost(unsigned Opcode, Type *Val,
                                       unsigned Index) const {
   std::pair<unsigned, MVT> LT =  getTLI()->getTypeLegalizationCost(Val->getScalarType());
 
   return LT.first;
 }
 
-unsigned BasicTTI::getMemoryOpCost(unsigned Opcode, Type *Src,
+unsigned LPUTTI::getMemoryOpCost(unsigned Opcode, Type *Src,
                                    unsigned Alignment,
                                    unsigned AddressSpace) const {
   assert(!Src->isVoidTy() && "Invalid type");
@@ -533,7 +540,7 @@ unsigned BasicTTI::getMemoryOpCost(unsigned Opcode, Type *Src,
   return Cost;
 }
 
-unsigned BasicTTI::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
+unsigned LPUTTI::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
                                          ArrayRef<Type *> Tys) const {
   unsigned ISD = 0;
   switch (IID) {
@@ -623,16 +630,16 @@ unsigned BasicTTI::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
   return 10;
 }
 
-unsigned BasicTTI::getNumberOfParts(Type *Tp) const {
+unsigned LPUTTI::getNumberOfParts(Type *Tp) const {
   std::pair<unsigned, MVT> LT = getTLI()->getTypeLegalizationCost(Tp);
   return LT.first;
 }
 
-unsigned BasicTTI::getAddressComputationCost(Type *Ty, bool IsComplex) const {
+unsigned LPUTTI::getAddressComputationCost(Type *Ty, bool IsComplex) const {
   return 0;
 }
 
-unsigned BasicTTI::getReductionCost(unsigned Opcode, Type *Ty,
+unsigned LPUTTI::getReductionCost(unsigned Opcode, Type *Ty,
                                     bool IsPairwise) const {
   assert(Ty->isVectorTy() && "Expect a vector type");
   unsigned NumVecElts = Ty->getVectorNumElements();

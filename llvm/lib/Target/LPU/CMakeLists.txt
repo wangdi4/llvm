@@ -24,7 +24,7 @@ add_llvm_target(LPUCodeGen
   LPUAsmPrinter.cpp
   LPUMCInstLower.cpp
   LPUIfConversion.cpp
-#-  LPUTargetTransformInfo.cpp
+  LPUTargetTransformInfo.cpp
   )
 
 add_subdirectory(InstPrinter)

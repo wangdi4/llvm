@@ -63,6 +63,18 @@ LPUTargetMachine::LPUTargetMachine(const Target &T, StringRef TT,
   //setAsmVerbosityDefault(true);
 }
 
+
+
+void LPUTargetMachine::addAnalysisPasses(PassManagerBase &PM) {
+	// Add first the target-independent BasicTTI pass, then our X86 pass. This
+	// allows the X86 pass to delegate to the target independent layer when
+	// appropriate.
+	//PM.add(createBasicTargetTransformInfoPass(this));
+	PM.add(createLPUTargetTransformInfoPass(this));
+}
+
+
+
 LPUTargetMachine::~LPUTargetMachine() {}
 
 namespace {

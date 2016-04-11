@@ -33,6 +33,8 @@ public:
   const LPUSubtarget *getSubtargetImpl() const override {
     return &Subtarget;
   }
+  /// \brief Register LPU analysis passes with a pass manager.
+  void addAnalysisPasses(PassManagerBase &PM) override;
 
   TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
 
