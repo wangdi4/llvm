@@ -24,19 +24,19 @@ class LPUReg<string n> : Register<n> {
 // Channels between units.  Note that these are only for transient use
 // as needed during code gen.
 // The intent is that channels are vregs and effectively unbounded.
-foreach i = 0-7 in { def CI0_#i : LPUReg<"%ci0_"#i>; }
-foreach i = 0-7 in { def CI1_#i : LPUReg<"%ci1_"#i>; }
-foreach i = 0-7 in { def CI8_#i : LPUReg<"%ci8_"#i>; }
-foreach i = 0-7 in { def CI16_#i : LPUReg<"%ci16_"#i>; }
-foreach i = 0-7 in { def CI32_#i : LPUReg<"%ci32_"#i>; }
-foreach i = 0-7 in { def CI64_#i : LPUReg<"%ci64_"#i>; }
+foreach i = 0-1023 in { def CI0_#i  : LPUReg<"%ci0_"#i>;  }
+foreach i = 0-1023 in { def CI1_#i  : LPUReg<"%ci1_"#i>;  }
+foreach i = 0-1023 in { def CI8_#i  : LPUReg<"%ci8_"#i>;  }
+foreach i = 0-1023 in { def CI16_#i : LPUReg<"%ci16_"#i>; }
+foreach i = 0-1023 in { def CI32_#i : LPUReg<"%ci32_"#i>; }
+foreach i = 0-1023 in { def CI64_#i : LPUReg<"%ci64_"#i>; }
 
-def CI0  : RegisterClass<"LPU", [i1],       8, (add (sequence "CI0_%u", 0, 7))>;
-def CI1  : RegisterClass<"LPU", [i1],       8, (add (sequence "CI1_%u", 0, 7))>;
-def CI8  : RegisterClass<"LPU", [i8],       8, (add (sequence "CI8_%u", 0, 7))>;
-def CI16 : RegisterClass<"LPU", [i16,f16], 16, (add (sequence "CI16_%u", 0, 7))>;
-def CI32 : RegisterClass<"LPU", [i32,f32], 32, (add (sequence "CI32_%u", 0, 7))>;
-def CI64 : RegisterClass<"LPU", [i64,f64], 64, (add (sequence "CI64_%u", 0, 7))>;
+def CI0  : RegisterClass<"LPU", [i1],       0, (add (sequence "CI0_%u",  0, 1023))>;
+def CI1  : RegisterClass<"LPU", [i1],       1, (add (sequence "CI1_%u",  0, 1023))>;
+def CI8  : RegisterClass<"LPU", [i8],       8, (add (sequence "CI8_%u",  0, 1023))>;
+def CI16 : RegisterClass<"LPU", [i16,f16], 16, (add (sequence "CI16_%u", 0, 1023))>;
+def CI32 : RegisterClass<"LPU", [i32,f32], 32, (add (sequence "CI32_%u", 0, 1023))>;
+def CI64 : RegisterClass<"LPU", [i64,f64], 64, (add (sequence "CI64_%u", 0, 1023))>;
 
 //// Registers in main sequential unit
 
@@ -98,9 +98,9 @@ def RI64 : RegisterClass<"LPU", [i64,f64], 64, (add RI0)>;
 // When it comes to final register assignment, they can only be assigned
 // to registers.  (The assumption is that things that could be channels
 // were explicitly identified before register allocation.)
-def I0  : RegisterClass<"LPU", [i1],      64, (add RI0 /*, CI0 */ )>;
-def I1  : RegisterClass<"LPU", [i1],      64, (add RI1 /*, CI1 */ )>;
-def I8  : RegisterClass<"LPU", [i8],      64, (add RI8 /*, CI8 */ )>;
+def I0  : RegisterClass<"LPU", [i1],      64, (add RI0  /*, CI0 */  )>;
+def I1  : RegisterClass<"LPU", [i1],      64, (add RI1  /*, CI1 */  )>;
+def I8  : RegisterClass<"LPU", [i8],      64, (add RI8  /*, CI8 */  )>;
 def I16 : RegisterClass<"LPU", [i16,f16], 64, (add RI16 /*, CI16 */ )>;
 def I32 : RegisterClass<"LPU", [i32,f32], 64, (add RI32 /*, CI32 */ )>;
 def I64 : RegisterClass<"LPU", [i64,f64], 64, (add RI64 /*, CI64 */ )>;
