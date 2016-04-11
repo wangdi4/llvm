@@ -59,7 +59,7 @@ private:
 
     FormatToken *Left = CurrentToken->Previous;
     Left->ParentBracket = Contexts.back().ContextKind;
-    ScopedContextCreator ContextCreator(*this, tok::less, 10);
+    ScopedContextCreator ContextCreator(*this, tok::less, 12);
 
     // If this angle is in the context of an expression, we need to be more
     // hesitant to detect it as opening template parameters.
@@ -409,7 +409,8 @@ private:
                 (!Contexts.back().ColonIsDictLiteral ||
                  Style.Language != FormatStyle::LK_Cpp)) ||
                Style.Language == FormatStyle::LK_Proto) &&
-              Previous->Tok.getIdentifierInfo())
+              (Previous->Tok.getIdentifierInfo() ||
+               Previous->is(tok::string_literal)))
             Previous->Type = TT_SelectorName;
           if (CurrentToken->is(tok::colon) ||
               Style.Language == FormatStyle::LK_JavaScript)
@@ -504,7 +505,7 @@ private:
         Tok->Type = TT_BitFieldColon;
       } else if (Contexts.size() == 1 &&
                  !Line.First->isOneOf(tok::kw_enum, tok::kw_case)) {
-        if (Tok->Previous->is(tok::r_paren))
+        if (Tok->Previous->isOneOf(tok::r_paren, tok::kw_noexcept))
           Tok->Type = TT_CtorInitializerColon;
         else
           Tok->Type = TT_InheritanceColon;
@@ -786,7 +787,8 @@ private:
            Tok.Next->Next && (Tok.Next->Next->TokenText == "module" ||
                               Tok.Next->Next->TokenText == "provide" ||
                               Tok.Next->Next->TokenText == "require" ||
-                              Tok.Next->Next->TokenText == "setTestOnly") &&
+                              Tok.Next->Next->TokenText == "setTestOnly" ||
+                              Tok.Next->Next->TokenText == "forwardDeclare") &&
            Tok.Next->Next->Next && Tok.Next->Next->Next->is(tok::l_paren);
   }
 
@@ -1751,7 +1753,7 @@ unsigned TokenAnnotator::splitPenalty(const AnnotatedLine &Line,
     if (Style.Language == FormatStyle::LK_Proto)
       return 1;
     if (Left.is(tok::r_square))
-      return 25;
+      return 200;
     // Slightly prefer formatting local lambda definitions like functions.
     if (Right.is(TT_LambdaLSquare) && Left.is(tok::equal))
       return 35;
@@ -2037,7 +2039,7 @@ bool TokenAnnotator::spaceRequiredBefore(const AnnotatedLine &Line,
       return true;
   } else if (Style.Language == FormatStyle::LK_JavaScript) {
     if (Left.isOneOf(Keywords.kw_let, Keywords.kw_var, TT_JsFatArrow,
-                     Keywords.kw_in))
+                     Keywords.kw_in, Keywords.kw_of))
       return true;
     if (Left.is(tok::kw_default) && Left.Previous &&
         Left.Previous->is(tok::kw_export))
@@ -2168,8 +2170,8 @@ bool TokenAnnotator::mustBreakBefore(const AnnotatedLine &Line,
 
   if (Style.Language == FormatStyle::LK_JavaScript) {
     // FIXME: This might apply to other languages and token kinds.
-    if (Right.is(tok::char_constant) && Left.is(tok::plus) && Left.Previous &&
-        Left.Previous->is(tok::char_constant))
+    if (Right.is(tok::string_literal) && Left.is(tok::plus) && Left.Previous &&
+        Left.Previous->is(tok::string_literal))
       return true;
     if (Left.is(TT_DictLiteral) && Left.is(tok::l_brace) && Line.Level == 0 &&
         Left.Previous && Left.Previous->is(tok::equal) &&

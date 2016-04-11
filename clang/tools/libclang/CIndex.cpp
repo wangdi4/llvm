@@ -22,17 +22,15 @@
 #include "CXType.h"
 #include "CursorVisitor.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Mangle.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/AST/VTableBuilder.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticCategories.h"
 #include "clang/Basic/DiagnosticIDs.h"
-#include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/ASTUnit.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
+#include "clang/Index/CodegenNameGenerator.h"
 #include "clang/Index/CommentToXML.h"
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/Lexer.h"
@@ -43,8 +41,6 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Config/llvm-config.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Mangler.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/CrashRecoveryContext.h"
 #include "llvm/Support/Format.h"
@@ -2034,7 +2030,19 @@ public:
 #define OPENMP_CLAUSE(Name, Class)                                             \
   void Visit##Class(const Class *C);
 #include "clang/Basic/OpenMPKinds.def"
+  void VisitOMPClauseWithPreInit(const OMPClauseWithPreInit *C);
+  void VisitOMPClauseWithPostUpdate(const OMPClauseWithPostUpdate *C);
 };
+
+void OMPClauseEnqueue::VisitOMPClauseWithPreInit(
+    const OMPClauseWithPreInit *C) {
+  Visitor->AddStmt(C->getPreInitStmt());
+}
+
+void OMPClauseEnqueue::VisitOMPClauseWithPostUpdate(
+    const OMPClauseWithPostUpdate *C) {
+  Visitor->AddStmt(C->getPostUpdateExpr());
+}
 
 void OMPClauseEnqueue::VisitOMPIfClause(const OMPIfClause *C) {
   Visitor->AddStmt(C->getCondition());
@@ -2065,8 +2073,8 @@ void OMPClauseEnqueue::VisitOMPDefaultClause(const OMPDefaultClause *C) { }
 void OMPClauseEnqueue::VisitOMPProcBindClause(const OMPProcBindClause *C) { }
 
 void OMPClauseEnqueue::VisitOMPScheduleClause(const OMPScheduleClause *C) {
+  VisitOMPClauseWithPreInit(C);
   Visitor->AddStmt(C->getChunkSize());
-  Visitor->AddStmt(C->getHelperChunkSize());
 }
 
 void OMPClauseEnqueue::VisitOMPOrderedClause(const OMPOrderedClause *C) {
@@ -2139,10 +2147,19 @@ void OMPClauseEnqueue::VisitOMPPrivateClause(const OMPPrivateClause *C) {
 void OMPClauseEnqueue::VisitOMPFirstprivateClause(
                                         const OMPFirstprivateClause *C) {
   VisitOMPClauseList(C);
+  VisitOMPClauseWithPreInit(C);
+  for (const auto *E : C->private_copies()) {
+    Visitor->AddStmt(E);
+  }
+  for (const auto *E : C->inits()) {
+    Visitor->AddStmt(E);
+  }
 }
 void OMPClauseEnqueue::VisitOMPLastprivateClause(
                                         const OMPLastprivateClause *C) {
   VisitOMPClauseList(C);
+  VisitOMPClauseWithPreInit(C);
+  VisitOMPClauseWithPostUpdate(C);
   for (auto *E : C->private_copies()) {
     Visitor->AddStmt(E);
   }
@@ -2161,6 +2178,8 @@ void OMPClauseEnqueue::VisitOMPSharedClause(const OMPSharedClause *C) {
 }
 void OMPClauseEnqueue::VisitOMPReductionClause(const OMPReductionClause *C) {
   VisitOMPClauseList(C);
+  VisitOMPClauseWithPreInit(C);
+  VisitOMPClauseWithPostUpdate(C);
   for (auto *E : C->privates()) {
     Visitor->AddStmt(E);
   }
@@ -2231,11 +2250,11 @@ void OMPClauseEnqueue::VisitOMPMapClause(const OMPMapClause *C) {
 }
 void OMPClauseEnqueue::VisitOMPDistScheduleClause(
     const OMPDistScheduleClause *C) {
+  VisitOMPClauseWithPreInit(C);
   Visitor->AddStmt(C->getChunkSize());
-  Visitor->AddStmt(C->getHelperChunkSize());
 }
-void OMPClauseEnqueue::VisitOMPDefaultmapClause(const OMPDefaultmapClause *C) {
-}
+void OMPClauseEnqueue::VisitOMPDefaultmapClause(
+    const OMPDefaultmapClause * /*C*/) {}
 }
 
 void EnqueueVisitor::EnqueueChildren(const OMPClause *S) {
@@ -3141,6 +3160,9 @@ clang_parseTranslationUnit_Impl(CXIndex CIdx, const char *source_filename,
   IntrusiveRefCntPtr<DiagnosticsEngine>
     Diags(CompilerInstance::createDiagnostics(new DiagnosticOptions));
 
+  if (options & CXTranslationUnit_KeepGoing)
+    Diags->setFatalsAsError(true);
+
   // Recover resources if we crash before exiting this function.
   llvm::CrashRecoveryContextCleanupRegistrar<DiagnosticsEngine,
     llvm::CrashRecoveryContextReleaseRefCleanup<DiagnosticsEngine> >
@@ -3976,59 +3998,6 @@ static SourceLocation getLocationFromExpr(const Expr *E) {
   return E->getLocStart();
 }
 
-static std::string getMangledStructor(std::unique_ptr<MangleContext> &M,
-                                      std::unique_ptr<llvm::DataLayout> &DL,
-                                      const NamedDecl *ND,
-                                      unsigned StructorType) {
-  std::string FrontendBuf;
-  llvm::raw_string_ostream FOS(FrontendBuf);
-
-  if (const auto *CD = dyn_cast_or_null<CXXConstructorDecl>(ND))
-    M->mangleCXXCtor(CD, static_cast<CXXCtorType>(StructorType), FOS);
-  else if (const auto *DD = dyn_cast_or_null<CXXDestructorDecl>(ND))
-    M->mangleCXXDtor(DD, static_cast<CXXDtorType>(StructorType), FOS);
-
-  std::string BackendBuf;
-  llvm::raw_string_ostream BOS(BackendBuf);
-
-  llvm::Mangler::getNameWithPrefix(BOS, llvm::Twine(FOS.str()), *DL);
-
-  return BOS.str();
-}
-
-static std::string getMangledName(std::unique_ptr<MangleContext> &M,
-                                  std::unique_ptr<llvm::DataLayout> &DL,
-                                  const NamedDecl *ND) {
-  std::string FrontendBuf;
-  llvm::raw_string_ostream FOS(FrontendBuf);
-
-  M->mangleName(ND, FOS);
-
-  std::string BackendBuf;
-  llvm::raw_string_ostream BOS(BackendBuf);
-
-  llvm::Mangler::getNameWithPrefix(BOS, llvm::Twine(FOS.str()), *DL);
-
-  return BOS.str();
-}
-
-static std::string getMangledThunk(std::unique_ptr<MangleContext> &M,
-                                   std::unique_ptr<llvm::DataLayout> &DL,
-                                   const CXXMethodDecl *MD,
-                                   const ThunkInfo &T) {
-  std::string FrontendBuf;
-  llvm::raw_string_ostream FOS(FrontendBuf);
-
-  M->mangleThunk(MD, T, FOS);
-
-  std::string BackendBuf;
-  llvm::raw_string_ostream BOS(BackendBuf);
-
-  llvm::Mangler::getNameWithPrefix(BOS, llvm::Twine(FOS.str()), *DL);
-
-  return BOS.str();
-}
-
 extern "C" {
 
 unsigned clang_visitChildren(CXCursor parent,
@@ -4377,29 +4346,9 @@ CXString clang_Cursor_getMangling(CXCursor C) {
   if (!D || !(isa<FunctionDecl>(D) || isa<VarDecl>(D)))
     return cxstring::createEmpty();
 
-  // First apply frontend mangling.
-  const NamedDecl *ND = cast<NamedDecl>(D);
-  ASTContext &Ctx = ND->getASTContext();
-  std::unique_ptr<MangleContext> MC(Ctx.createMangleContext());
-
-  std::string FrontendBuf;
-  llvm::raw_string_ostream FrontendBufOS(FrontendBuf);
-  if (MC->shouldMangleDeclName(ND)) {
-    MC->mangleName(ND, FrontendBufOS);
-  } else {
-    ND->printName(FrontendBufOS);
-  }
-
-  // Now apply backend mangling.
-  std::unique_ptr<llvm::DataLayout> DL(
-      new llvm::DataLayout(Ctx.getTargetInfo().getDataLayoutString()));
-
-  std::string FinalBuf;
-  llvm::raw_string_ostream FinalBufOS(FinalBuf);
-  llvm::Mangler::getNameWithPrefix(FinalBufOS, llvm::Twine(FrontendBufOS.str()),
-                                   *DL);
-
-  return cxstring::createDup(FinalBufOS.str());
+  ASTContext &Ctx = D->getASTContext();
+  index::CodegenNameGenerator CGNameGen(Ctx);
+  return cxstring::createDup(CGNameGen.getName(D));
 }
 
 CXStringSet *clang_Cursor_getCXXManglings(CXCursor C) {
@@ -4410,49 +4359,9 @@ CXStringSet *clang_Cursor_getCXXManglings(CXCursor C) {
   if (!(isa<CXXRecordDecl>(D) || isa<CXXMethodDecl>(D)))
     return nullptr;
 
-  const NamedDecl *ND = cast<NamedDecl>(D);
-
-  ASTContext &Ctx = ND->getASTContext();
-  std::unique_ptr<MangleContext> M(Ctx.createMangleContext());
-  std::unique_ptr<llvm::DataLayout> DL(
-      new llvm::DataLayout(Ctx.getTargetInfo().getDataLayoutString()));
-
-  std::vector<std::string> Manglings;
-
-  auto hasDefaultCXXMethodCC = [](ASTContext &C, const CXXMethodDecl *MD) {
-    auto DefaultCC = C.getDefaultCallingConvention(/*IsVariadic=*/false,
-                                                   /*IsCSSMethod=*/true);
-    auto CC = MD->getType()->getAs<FunctionProtoType>()->getCallConv();
-    return CC == DefaultCC;
-  };
-
-  if (const auto *CD = dyn_cast_or_null<CXXConstructorDecl>(ND)) {
-    Manglings.emplace_back(getMangledStructor(M, DL, CD, Ctor_Base));
-
-    if (Ctx.getTargetInfo().getCXXABI().isItaniumFamily())
-      if (!CD->getParent()->isAbstract())
-        Manglings.emplace_back(getMangledStructor(M, DL, CD, Ctor_Complete));
-
-    if (Ctx.getTargetInfo().getCXXABI().isMicrosoft())
-      if (CD->hasAttr<DLLExportAttr>() && CD->isDefaultConstructor())
-        if (!(hasDefaultCXXMethodCC(Ctx, CD) && CD->getNumParams() == 0))
-          Manglings.emplace_back(getMangledStructor(M, DL, CD,
-                                                    Ctor_DefaultClosure));
-  } else if (const auto *DD = dyn_cast_or_null<CXXDestructorDecl>(ND)) {
-    Manglings.emplace_back(getMangledStructor(M, DL, DD, Dtor_Base));
-    if (Ctx.getTargetInfo().getCXXABI().isItaniumFamily()) {
-      Manglings.emplace_back(getMangledStructor(M, DL, DD, Dtor_Complete));
-      if (DD->isVirtual())
-        Manglings.emplace_back(getMangledStructor(M, DL, DD, Dtor_Deleting));
-    }
-  } else if (const auto *MD = dyn_cast_or_null<CXXMethodDecl>(ND)) {
-    Manglings.emplace_back(getMangledName(M, DL, ND));
-    if (MD->isVirtual())
-      if (const auto *TIV = Ctx.getVTableContext()->getThunkInfo(MD))
-        for (const auto &T : *TIV)
-          Manglings.emplace_back(getMangledThunk(M, DL, MD, T));
-  }
-
+  ASTContext &Ctx = D->getASTContext();
+  index::CodegenNameGenerator CGNameGen(Ctx);
+  std::vector<std::string> Manglings = CGNameGen.getAllManglings(D);
   return cxstring::createSet(Manglings);
 }
 
@@ -5670,13 +5579,16 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::StaticAssert:
   case Decl::Block:
   case Decl::Captured:
-  case Decl::OMPCapturedField:
+  case Decl::OMPCapturedExpr:
   case Decl::Label:  // FIXME: Is this right??
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::Import:
   case Decl::OMPThreadPrivate:
+  case Decl::OMPDeclareReduction:
   case Decl::ObjCTypeParam:
   case Decl::BuiltinTemplate:
+  case Decl::PragmaComment:
+  case Decl::PragmaDetectMismatch:
     return C;
 
   // Declaration kinds that don't make any sense here, but are
@@ -8021,3 +7933,10 @@ cxindex::Logger::~Logger() {
     OS << "--------------------------------------------------\n";
   }
 }
+
+#ifdef CLANG_TOOL_EXTRA_BUILD
+// This anchor is used to force the linker to link the clang-tidy plugin.
+extern volatile int ClangTidyPluginAnchorSource;
+static int LLVM_ATTRIBUTE_UNUSED ClangTidyPluginAnchorDestination =
+    ClangTidyPluginAnchorSource;
+#endif

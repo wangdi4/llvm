@@ -48,6 +48,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 #include <cctype>
 
 using namespace llvm;
@@ -121,7 +122,7 @@ public:
   bool runOnModule(Module &M) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
+    AU.addRequired<InstructionCombiningPass>();
   }
 
 protected:
@@ -139,8 +140,7 @@ protected:
   void printBlockEquivalence(raw_ostream &OS, const BasicBlock *BB);
   bool computeBlockWeights(Function &F);
   void findEquivalenceClasses(Function &F);
-  void findEquivalencesFor(BasicBlock *BB1,
-                           SmallVector<BasicBlock *, 8> Descendants,
+  void findEquivalencesFor(BasicBlock *BB1, ArrayRef<BasicBlock *> Descendants,
                            DominatorTreeBase<BasicBlock> *DomTree);
   void propagateWeights(Function &F);
   uint64_t visitEdge(Edge E, unsigned *NumUnknownEdges, Edge *UnknownEdge);
@@ -731,7 +731,7 @@ bool SampleProfileLoader::inlineHotFunctions(Function &F) {
 ///                 with blocks from \p BB1's dominator tree, then
 ///                 this is the post-dominator tree, and vice versa.
 void SampleProfileLoader::findEquivalencesFor(
-    BasicBlock *BB1, SmallVector<BasicBlock *, 8> Descendants,
+    BasicBlock *BB1, ArrayRef<BasicBlock *> Descendants,
     DominatorTreeBase<BasicBlock> *DomTree) {
   const BasicBlock *EC = EquivalenceClass[BB1];
   uint64_t Weight = BlockWeights[EC];
@@ -1216,6 +1216,7 @@ char SampleProfileLoader::ID = 0;
 INITIALIZE_PASS_BEGIN(SampleProfileLoader, "sample-profile",
                       "Sample Profile loader", false, false)
 INITIALIZE_PASS_DEPENDENCY(AddDiscriminators)
+INITIALIZE_PASS_DEPENDENCY(InstructionCombiningPass)
 INITIALIZE_PASS_END(SampleProfileLoader, "sample-profile",
                     "Sample Profile loader", false, false)
 
@@ -1258,6 +1259,8 @@ bool SampleProfileLoader::runOnModule(Module &M) {
 }
 
 bool SampleProfileLoader::runOnFunction(Function &F) {
+  F.setEntryCount(0);
+  getAnalysis<InstructionCombiningPass>(F);
   Samples = Reader->getSamplesFor(F);
   if (!Samples->empty())
     return emitAnnotations(F);

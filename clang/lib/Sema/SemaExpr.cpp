@@ -137,7 +137,7 @@ DiagnoseAvailabilityOfDecl(Sema &S, NamedDecl *D, SourceLocation Loc,
 
   const ObjCPropertyDecl *ObjCPDecl = nullptr;
   if (Result == AR_Deprecated || Result == AR_Unavailable ||
-      AR_NotYetIntroduced) {
+      Result == AR_NotYetIntroduced) {
     if (const ObjCMethodDecl *MD = dyn_cast<ObjCMethodDecl>(D)) {
       if (const ObjCPropertyDecl *PD = MD->findPropertyDecl()) {
         AvailabilityResult PDeclResult = PD->getAvailability(nullptr);
@@ -159,11 +159,19 @@ DiagnoseAvailabilityOfDecl(Sema &S, NamedDecl *D, SourceLocation Loc,
       break;
 
     case AR_NotYetIntroduced: {
+      // With strict, the compiler will emit unavailable error.
+      AvailabilityAttr *AA = D->getAttr<AvailabilityAttr>();
+      if (AA && AA->getStrict() &&
+          S.getCurContextAvailability() != AR_NotYetIntroduced)
+        S.EmitAvailabilityWarning(Sema::AD_Unavailable,
+                                  D, Message, Loc, UnknownObjCClass, ObjCPDecl,
+                                  ObjCPropertyAccess);
+
       // Don't do this for enums, they can't be redeclared.
       if (isa<EnumConstantDecl>(D) || isa<EnumDecl>(D))
         break;
  
-      bool Warn = !D->getAttr<AvailabilityAttr>()->isInherited();
+      bool Warn = !AA->isInherited();
       // Objective-C method declarations in categories are not modelled as
       // redeclarations, so manually look for a redeclaration in a category
       // if necessary.
@@ -367,6 +375,19 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, SourceLocation Loc,
     if (getLangOpts().CPlusPlus14 && FD->getReturnType()->isUndeducedType() &&
         DeduceReturnType(FD, Loc))
       return true;
+  }
+
+  // [OpenMP 4.0], 2.15 declare reduction Directive, Restrictions
+  // Only the variables omp_in and omp_out are allowed in the combiner.
+  // Only the variables omp_priv and omp_orig are allowed in the
+  // initializer-clause.
+  auto *DRD = dyn_cast<OMPDeclareReductionDecl>(CurContext);
+  if (LangOpts.OpenMP && DRD && !CurContext->containsDecl(D) &&
+      isa<VarDecl>(D)) {
+    Diag(Loc, diag::err_omp_wrong_var_in_declare_reduction)
+        << getCurFunction()->HasOMPDeclareReductionCombiner;
+    Diag(D->getLocation(), diag::note_entity_declared_at) << D;
+    return true;
   }
   DiagnoseAvailabilityOfDecl(*this, D, Loc, UnknownObjCClass,
                              ObjCPropertyAccess);
@@ -1365,10 +1386,13 @@ Sema::CreateGenericSelectionExpr(SourceLocation KeyLoc,
 
   // Decay and strip qualifiers for the controlling expression type, and handle
   // placeholder type replacement. See committee discussion from WG14 DR423.
-  ExprResult R = DefaultFunctionArrayLvalueConversion(ControllingExpr);
-  if (R.isInvalid())
-    return ExprError();
-  ControllingExpr = R.get();
+  {
+    EnterExpressionEvaluationContext Unevaluated(*this, Sema::Unevaluated);
+    ExprResult R = DefaultFunctionArrayLvalueConversion(ControllingExpr);
+    if (R.isInvalid())
+      return ExprError();
+    ControllingExpr = R.get();
+  }
 
   // The controlling expression is an unevaluated operand, so side effects are
   // likely unintended.
@@ -2874,7 +2898,7 @@ ExprResult Sema::BuildDeclarationNameExpr(
     case Decl::Var:
     case Decl::VarTemplateSpecialization:
     case Decl::VarTemplatePartialSpecialization:
-    case Decl::OMPCapturedField:
+    case Decl::OMPCapturedExpr:
       // In C, "extern void blah;" is valid and is an r-value.
       if (!getLangOpts().CPlusPlus &&
           !type.hasQualifiers() &&
@@ -3295,7 +3319,14 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
 
   if (Literal.isFloatingLiteral()) {
     QualType Ty;
-    if (Literal.isFloat)
+    if (Literal.isHalf){
+      if (getOpenCLOptions().cl_khr_fp16)
+        Ty = Context.HalfTy;
+      else {
+        Diag(Tok.getLocation(), diag::err_half_const_requires_fp16);
+        return ExprError();
+      }
+    } else if (Literal.isFloat)
       Ty = Context.FloatTy;
     else if (!Literal.isLong)
       Ty = Context.DoubleTy;
@@ -6440,6 +6471,18 @@ OpenCLCheckVectorConditional(Sema &S, ExprResult &Cond,
   return OpenCLConvertScalarsToVectors(S, LHS, RHS, CondTy, QuestionLoc);
 }
 
+/// \brief Return true if the Expr is block type
+static bool checkBlockType(Sema &S, const Expr *E) {
+  if (const CallExpr *CE = dyn_cast<CallExpr>(E)) {
+    QualType Ty = CE->getCallee()->getType();
+    if (Ty->isBlockPointerType()) {
+      S.Diag(E->getExprLoc(), diag::err_opencl_ternary_with_block);
+      return true;
+    }
+  }
+  return false;
+}
+
 /// Note that LHS is not null here, even if this is the gnu "x ?: y" extension.
 /// In that case, LHS = cond.
 /// C99 6.5.15
@@ -6488,6 +6531,13 @@ QualType Sema::CheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
 
   QualType LHSTy = LHS.get()->getType();
   QualType RHSTy = RHS.get()->getType();
+
+  // OpenCL v2.0 s6.12.5 - Blocks cannot be used as expressions of the ternary
+  // selection operator (?:).
+  if (getLangOpts().OpenCL &&
+      (checkBlockType(*this, LHS.get()) | checkBlockType(*this, RHS.get()))) {
+    return QualType();
+  }
 
   // If both operands have arithmetic type, do the usual arithmetic conversions
   // to find a common type: C99 6.5.15p3,5.
@@ -6831,8 +6881,23 @@ ExprResult Sema::ActOnConditionalOp(SourceLocation QuestionLoc,
     // doesn't handle dependent types properly, so make sure any TypoExprs have
     // been dealt with before checking the operands.
     ExprResult CondResult = CorrectDelayedTyposInExpr(CondExpr);
-    if (!CondResult.isUsable()) return ExprError();
+    ExprResult LHSResult = CorrectDelayedTyposInExpr(LHSExpr);
+    ExprResult RHSResult = CorrectDelayedTyposInExpr(RHSExpr);
+
+    if (!CondResult.isUsable())
+      return ExprError();
+
+    if (LHSExpr) {
+      if (!LHSResult.isUsable())
+        return ExprError();
+    }
+
+    if (!RHSResult.isUsable())
+      return ExprError();
+
     CondExpr = CondResult.get();
+    LHSExpr = LHSResult.get();
+    RHSExpr = RHSResult.get();
   }
 
   // If this is the gnu "x ?: y" extension, analyze the types as though the LHS
@@ -7566,13 +7631,24 @@ Sema::CheckSingleAssignmentConstraints(QualType LHSType, ExprResult &CallerRHS,
   if (result != Incompatible && RHS.get()->getType() != LHSType) {
     QualType Ty = LHSType.getNonLValueExprType(Context);
     Expr *E = RHS.get();
-    if (getLangOpts().ObjCAutoRefCount)
-      CheckObjCARCConversion(SourceRange(), Ty, E, CCK_ImplicitConversion,
-                             Diagnose, DiagnoseCFAudited);
+
+    // Check for various Objective-C errors. If we are not reporting
+    // diagnostics and just checking for errors, e.g., during overload
+    // resolution, return Incompatible to indicate the failure.
+    if (getLangOpts().ObjCAutoRefCount &&
+        CheckObjCARCConversion(SourceRange(), Ty, E, CCK_ImplicitConversion,
+                               Diagnose, DiagnoseCFAudited) != ACR_okay) {
+      if (!Diagnose)
+        return Incompatible;
+    }
     if (getLangOpts().ObjC1 &&
         (CheckObjCBridgeRelatedConversions(E->getLocStart(), LHSType,
                                            E->getType(), E, Diagnose) ||
          ConversionToObjCStringLiteralCheck(LHSType, E, Diagnose))) {
+      if (!Diagnose)
+        return Incompatible;
+      // Replace the expression with a corrected version and continue so we
+      // can find further errors.
       RHS = E;
       return Compatible;
     }
@@ -9825,6 +9901,67 @@ QualType Sema::CheckAssignmentOperands(Expr *LHSExpr, ExprResult &RHS,
           ? LHSType : LHSType.getUnqualifiedType());
 }
 
+// Only ignore explicit casts to void.
+static bool IgnoreCommaOperand(const Expr *E) {
+  E = E->IgnoreParens();
+
+  if (const CastExpr *CE = dyn_cast<CastExpr>(E)) {
+    if (CE->getCastKind() == CK_ToVoid) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Look for instances where it is likely the comma operator is confused with
+// another operator.  There is a whitelist of acceptable expressions for the
+// left hand side of the comma operator, otherwise emit a warning.
+void Sema::DiagnoseCommaOperator(const Expr *LHS, SourceLocation Loc) {
+  // No warnings in macros
+  if (Loc.isMacroID())
+    return;
+
+  // Don't warn in template instantiations.
+  if (!ActiveTemplateInstantiations.empty())
+    return;
+
+  // Scope isn't fine-grained enough to whitelist the specific cases, so
+  // instead, skip more than needed, then call back into here with the
+  // CommaVisitor in SemaStmt.cpp.
+  // The whitelisted locations are the initialization and increment portions
+  // of a for loop.  The additional checks are on the condition of
+  // if statements, do/while loops, and for loops.
+  const unsigned ForIncrementFlags =
+      Scope::ControlScope | Scope::ContinueScope | Scope::BreakScope;
+  const unsigned ForInitFlags = Scope::ControlScope | Scope::DeclScope;
+  const unsigned ScopeFlags = getCurScope()->getFlags();
+  if ((ScopeFlags & ForIncrementFlags) == ForIncrementFlags ||
+      (ScopeFlags & ForInitFlags) == ForInitFlags)
+    return;
+
+  // If there are multiple comma operators used together, get the RHS of the
+  // of the comma operator as the LHS.
+  while (const BinaryOperator *BO = dyn_cast<BinaryOperator>(LHS)) {
+    if (BO->getOpcode() != BO_Comma)
+      break;
+    LHS = BO->getRHS();
+  }
+
+  // Only allow some expressions on LHS to not warn.
+  if (IgnoreCommaOperand(LHS))
+    return;
+
+  Diag(Loc, diag::warn_comma_operator);
+  Diag(LHS->getLocStart(), diag::note_cast_to_void)
+      << LHS->getSourceRange()
+      << FixItHint::CreateInsertion(LHS->getLocStart(),
+                                    LangOpts.CPlusPlus ? "static_cast<void>("
+                                                       : "(void)(")
+      << FixItHint::CreateInsertion(PP.getLocForEndOfToken(LHS->getLocEnd()),
+                                    ")");
+}
+
 // C99 6.5.17
 static QualType CheckCommaOperands(Sema &S, ExprResult &LHS, ExprResult &RHS,
                                    SourceLocation Loc) {
@@ -9853,6 +9990,9 @@ static QualType CheckCommaOperands(Sema &S, ExprResult &LHS, ExprResult &RHS,
       S.RequireCompleteType(Loc, RHS.get()->getType(),
                             diag::err_incomplete_type);
   }
+
+  if (!S.getDiagnostics().isIgnored(diag::warn_comma_operator, Loc))
+    S.DiagnoseCommaOperator(LHS.get(), Loc);
 
   return RHS.get()->getType();
 }
@@ -10226,6 +10366,14 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
   // If the operand has type "type", the result has type "pointer to type".
   if (op->getType()->isObjCObjectType())
     return Context.getObjCObjectPointerType(op->getType());
+
+  // OpenCL v2.0 s6.12.5 - The unary operators & cannot be used with a block.
+  if (getLangOpts().OpenCL && OrigOp.get()->getType()->isBlockPointerType()) {
+    Diag(OpLoc, diag::err_typecheck_unary_expr) << OrigOp.get()->getType()
+                                                << op->getSourceRange();
+    return QualType();
+  }
+
   return Context.getPointerType(op->getType());
 }
 
@@ -10267,7 +10415,15 @@ static QualType CheckIndirectionOperand(Sema &S, Expr *Op, ExprValueKind &VK,
   }
 
   if (const PointerType *PT = OpTy->getAs<PointerType>())
+  {
     Result = PT->getPointeeType();
+    // OpenCL v2.0 s6.12.5 - The unary operators * cannot be used with a block.
+    if (S.getLangOpts().OpenCLVersion >= 200 && Result->isBlockPointerType()) {
+      S.Diag(OpLoc, diag::err_opencl_dereferencing) << OpTy
+                                                    << Op->getSourceRange();
+      return QualType();
+    }
+  }
   else if (const ObjCObjectPointerType *OPT =
              OpTy->getAs<ObjCObjectPointerType>())
     Result = OPT->getPointeeType();
@@ -12035,10 +12191,11 @@ bool Sema::ConversionToObjCStringLiteralCheck(QualType DstType, Expr *&Exp,
   StringLiteral *SL = dyn_cast<StringLiteral>(SrcExpr);
   if (!SL || !SL->isAscii())
     return false;
-  if (Diagnose)
+  if (Diagnose) {
     Diag(SL->getLocStart(), diag::err_missing_atsign_prefix)
       << FixItHint::CreateInsertion(SL->getLocStart(), "@");
-  Exp = BuildObjCStringLiteral(SL->getLocStart(), SL).get();
+    Exp = BuildObjCStringLiteral(SL->getLocStart(), SL).get();
+  }
   return true;
 }
 

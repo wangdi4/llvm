@@ -11,6 +11,8 @@ class DDecl<Decl base, bit abstract = 0> : Decl<abstract> {
 class DeclContext { }
 
 def TranslationUnit : Decl, DeclContext;
+def PragmaComment : Decl;
+def PragmaDetectMismatch : Decl;
 def ExternCContext : Decl, DeclContext;
 def Named : Decl<1>;
   def Namespace : DDecl<Named>, DeclContext;
@@ -51,7 +53,7 @@ def Named : Decl<1>;
             : DDecl<VarTemplateSpecialization>;
         def ImplicitParam : DDecl<Var>;
         def ParmVar : DDecl<Var>;
-        def OMPCapturedField : DDecl<Var>;
+        def OMPCapturedExpr : DDecl<Var>;
       def NonTypeTemplateParm : DDecl<Declarator>;
   def Template : DDecl<Named, 1>;
     def RedeclarableTemplate : DDecl<Template, 1>;
@@ -73,6 +75,7 @@ def Named : Decl<1>;
       def ObjCImplementation : DDecl<ObjCImpl>;
   def ObjCProperty : DDecl<Named>;
   def ObjCCompatibleAlias : DDecl<Named>;
+  def OMPDeclareReduction : DDecl<Named>, DeclContext;
 def LinkageSpec : Decl, DeclContext;
 def ObjCPropertyImpl : Decl;
 def FileScopeAsm : Decl;

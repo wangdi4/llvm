@@ -28,7 +28,6 @@ class AMDGPUTargetLowering : public TargetLowering {
 protected:
   const AMDGPUSubtarget *Subtarget;
 
-private:
   SDValue LowerConstantInitializer(const Constant* Init, const GlobalValue *GV,
                                    const SDValue &InitPtr,
                                    SDValue Chain,
@@ -270,7 +269,7 @@ enum NodeType : unsigned {
   RCP,
   RSQ,
   RSQ_LEGACY,
-  RSQ_CLAMPED,
+  RSQ_CLAMP,
   LDEXP,
   FP_CLASS,
   DOT4,

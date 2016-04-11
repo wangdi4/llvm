@@ -2269,9 +2269,10 @@ ASTReader::ReadControlBlock(ModuleFile &F,
               (AllowConfigurationMismatch && Result == ConfigurationMismatch))
             Result = Success;
 
-          // If we've diagnosed a problem, we're done.
-          if (Result != Success &&
-              isDiagnosedResult(Result, ClientLoadCapabilities))
+          // If we can't load the module, exit early since we likely
+          // will rebuild the module anyway. The stream may be in the
+          // middle of a block.
+          if (Result != Success)
             return Result;
         } else if (Stream.SkipBlock()) {
           Error("malformed block record in AST file");
@@ -3216,6 +3217,23 @@ ASTReader::ReadASTBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
       OptimizeOffPragmaLocation = ReadSourceLocation(F, Record[0]);
       break;
 
+    case MSSTRUCT_PRAGMA_OPTIONS:
+      if (Record.size() != 1) {
+        Error("invalid pragma ms_struct record");
+        return Failure;
+      }
+      PragmaMSStructState = Record[0];
+      break;
+
+    case POINTERS_TO_MEMBERS_PRAGMA_OPTIONS:
+      if (Record.size() != 2) {
+        Error("invalid pragma ms_struct record");
+        return Failure;
+      }
+      PragmaMSPointersToMembersState = Record[0];
+      PointersToMembersPragmaLocation = ReadSourceLocation(F, Record[1]);
+      break;
+
     case UNUSED_LOCAL_TYPEDEF_NAME_CANDIDATES:
       for (unsigned I = 0, N = Record.size(); I != N; ++I)
         UnusedLocalTypedefNameCandidates.push_back(
@@ -3482,7 +3500,7 @@ static bool SkipCursorToBlock(BitstreamCursor &Cursor, unsigned BlockID) {
   }
 }
 
-ASTReader::ASTReadResult ASTReader::ReadAST(const std::string &FileName,
+ASTReader::ASTReadResult ASTReader::ReadAST(StringRef FileName,
                                             ModuleKind Type,
                                             SourceLocation ImportLoc,
                                             unsigned ClientLoadCapabilities) {
@@ -4062,7 +4080,9 @@ void ASTReader::InitializeContext() {
     if (Module *Imported = getSubmodule(Import.ID)) {
       makeModuleVisible(Imported, Module::AllVisible,
                         /*ImportLoc=*/Import.ImportLoc);
-      PP.makeModuleVisible(Imported, Import.ImportLoc);
+      if (Import.ImportLoc.isValid())
+        PP.makeModuleVisible(Imported, Import.ImportLoc);
+      // FIXME: should we tell Sema to make the module visible too?
     }
   }
   ImportedModules.clear();
@@ -5383,6 +5403,17 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
     SmallVector<QualType, 16> ParamTypes;
     for (unsigned I = 0; I != NumParams; ++I)
       ParamTypes.push_back(readType(*Loc.F, Record, Idx));
+
+    SmallVector<FunctionProtoType::ExtParameterInfo, 4> ExtParameterInfos;
+    if (Idx != Record.size()) {
+      for (unsigned I = 0; I != NumParams; ++I)
+        ExtParameterInfos.push_back(
+          FunctionProtoType::ExtParameterInfo
+                           ::getFromOpaqueValue(Record[Idx++]));
+      EPI.ExtParameterInfos = ExtParameterInfos.data();
+    }
+
+    assert(Idx == Record.size());
 
     return Context.getFunctionType(ResultType, ParamTypes, EPI);
   }
@@ -6984,10 +7015,18 @@ void ASTReader::UpdateSema() {
     SemaDeclRefs.clear();
   }
 
-  // Update the state of 'pragma clang optimize'. Use the same API as if we had
-  // encountered the pragma in the source.
+  // Update the state of pragmas. Use the same API as if we had encountered the
+  // pragma in the source.
   if(OptimizeOffPragmaLocation.isValid())
     SemaObj->ActOnPragmaOptimize(/* IsOn = */ false, OptimizeOffPragmaLocation);
+  if (PragmaMSStructState != -1)
+    SemaObj->ActOnPragmaMSStruct((PragmaMSStructKind)PragmaMSStructState);
+  if (PointersToMembersPragmaLocation.isValid()) {
+    SemaObj->ActOnPragmaMSPointersToMembers(
+        (LangOptions::PragmaMSPointersToMembersKind)
+            PragmaMSPointersToMembersState,
+        PointersToMembersPragmaLocation);
+  }
 }
 
 IdentifierInfo *ASTReader::get(StringRef Name) {
@@ -8682,6 +8721,8 @@ ASTReader::ASTReader(
       Diags(PP.getDiagnostics()), SemaObj(nullptr), PP(PP), Context(Context),
       Consumer(nullptr), ModuleMgr(PP.getFileManager(), PCHContainerRdr),
       ReadTimer(std::move(ReadTimer)),
+      PragmaMSStructState(-1),
+      PragmaMSPointersToMembersState(-1),
       isysroot(isysroot), DisableValidation(DisableValidation),
       AllowASTWithCompilerErrors(AllowASTWithCompilerErrors),
       AllowConfigurationMismatch(AllowConfigurationMismatch),

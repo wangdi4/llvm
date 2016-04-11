@@ -17,7 +17,7 @@
 #include <vector>
 
 namespace lld {
-namespace elf2 {
+namespace elf {
 
 class InputFile;
 class SymbolBody;
@@ -48,7 +48,6 @@ struct Configuration {
   llvm::StringRef SoName;
   llvm::StringRef Sysroot;
   std::string RPath;
-  llvm::MapVector<llvm::StringRef, std::vector<llvm::StringRef>> OutputSections;
   std::vector<llvm::StringRef> SearchPaths;
   std::vector<llvm::StringRef> Undefined;
   bool AllowMultipleDefinition;
@@ -64,10 +63,12 @@ struct Configuration {
   bool ExportDynamic;
   bool GcSections;
   bool GnuHash = false;
+  bool ICF;
   bool Mips64EL = false;
   bool NoInhibitExec;
   bool NoUndefined;
   bool PrintGcSections;
+  bool Relocatable;
   bool Shared;
   bool Static = false;
   bool StripAll;
@@ -87,7 +88,7 @@ struct Configuration {
 // The only instance of Configuration struct.
 extern Configuration *Config;
 
-} // namespace elf2
+} // namespace elf
 } // namespace lld
 
 #endif

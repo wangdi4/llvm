@@ -130,6 +130,13 @@ SITargetLowering::SITargetLowering(TargetMachine &TM,
 
   setOperationAction(ISD::INTRINSIC_VOID, MVT::Other, Custom);
   setOperationAction(ISD::BRCOND, MVT::Other, Custom);
+  setOperationAction(ISD::BR_CC, MVT::i32, Expand);
+  setOperationAction(ISD::BR_CC, MVT::i64, Expand);
+  setOperationAction(ISD::BR_CC, MVT::f32, Expand);
+  setOperationAction(ISD::BR_CC, MVT::f64, Expand);
+
+  // On SI this is s_memtime and s_memrealtime on VI.
+  setOperationAction(ISD::READCYCLECOUNTER, MVT::i64, Legal);
 
   for (MVT VT : MVT::integer_valuetypes()) {
     if (VT == MVT::i64)
@@ -695,6 +702,12 @@ SDValue SITargetLowering::LowerFormalArguments(
     CCInfo.AllocateReg(InputPtrReg);
   }
 
+  if (Info->hasFlatScratchInit()) {
+    unsigned FlatScratchInitReg = Info->addFlatScratchInit(*TRI);
+    MF.addLiveIn(FlatScratchInitReg, &AMDGPU::SReg_64RegClass);
+    CCInfo.AllocateReg(FlatScratchInitReg);
+  }
+
   AnalyzeFormalArguments(CCInfo, Splits);
 
   SmallVector<SDValue, 16> Chains;
@@ -822,8 +835,11 @@ SDValue SITargetLowering::LowerFormalArguments(
 
   // Now that we've figured out where the scratch register inputs are, see if
   // should reserve the arguments and use them directly.
-
   bool HasStackObjects = MF.getFrameInfo()->hasStackObjects();
+  // Record that we know we have non-spill stack objects so we don't need to
+  // check all stack objects later.
+  if (HasStackObjects)
+    Info->setHasNonSpillStackObjects(true);
 
   if (ST.isAmdHsaOS()) {
     // TODO: Assume we will spill without optimizations.
@@ -1162,25 +1178,52 @@ SDValue SITargetLowering::LowerFrameIndex(SDValue Op, SelectionDAG &DAG) const {
   FrameIndexSDNode *FINode = cast<FrameIndexSDNode>(Op);
   unsigned FrameIndex = FINode->getIndex();
 
-  // A FrameIndex node represents a 32-bit offset into scratch memory.  If
-  // the high bit of a frame index offset were to be set, this would mean
-  // that it represented an offset of ~2GB * 64 = ~128GB from the start of the
-  // scratch buffer, with 64 being the number of threads per wave.
+  // A FrameIndex node represents a 32-bit offset into scratch memory. If the
+  // high bit of a frame index offset were to be set, this would mean that it
+  // represented an offset of ~2GB * 64 = ~128GB from the start of the scratch
+  // buffer, with 64 being the number of threads per wave.
   //
-  // If we know the machine uses less than 128GB of scratch, then we can
-  // amrk the high bit of the FrameIndex node as known zero,
-  // which is important, because it means in most situations we can
-  // prove that values derived from FrameIndex nodes are non-negative.
-  // This enables us to take advantage of more addressing modes when
-  // accessing scratch buffers, since for scratch reads/writes, the register
-  // offset must always be positive.
+  // The maximum private allocation for the entire GPU is 4G, and we are
+  // concerned with the largest the index could ever be for an individual
+  // workitem. This will occur with the minmum dispatch size. If a program
+  // requires more, the dispatch size will be reduced.
+  //
+  // With this limit, we can mark the high bit of the FrameIndex node as known
+  // zero, which is important, because it means in most situations we can prove
+  // that values derived from FrameIndex nodes are non-negative. This enables us
+  // to take advantage of more addressing modes when accessing scratch buffers,
+  // since for scratch reads/writes, the register offset must always be
+  // positive.
+
+  uint64_t MaxGPUAlloc = UINT64_C(4) * 1024 * 1024 * 1024;
+
+  // XXX - It is unclear if partial dispatch works. Assume it works at half wave
+  // granularity. It is probably a full wave.
+  uint64_t MinGranularity = 32;
+
+  unsigned KnownBits = Log2_64(MaxGPUAlloc / MinGranularity);
+  EVT ExtVT = EVT::getIntegerVT(*DAG.getContext(), KnownBits);
 
   SDValue TFI = DAG.getTargetFrameIndex(FrameIndex, MVT::i32);
-  if (Subtarget->enableHugeScratchBuffer())
-    return TFI;
-
   return DAG.getNode(ISD::AssertZext, SL, MVT::i32, TFI,
-                    DAG.getValueType(EVT::getIntegerVT(*DAG.getContext(), 31)));
+                     DAG.getValueType(ExtVT));
+}
+
+bool SITargetLowering::isCFIntrinsic(const SDNode *Intr) const {
+  if (Intr->getOpcode() != ISD::INTRINSIC_W_CHAIN)
+    return false;
+
+  switch (cast<ConstantSDNode>(Intr->getOperand(1))->getZExtValue()) {
+  default: return false;
+  case AMDGPUIntrinsic::amdgcn_if:
+  case AMDGPUIntrinsic::amdgcn_else:
+  case AMDGPUIntrinsic::amdgcn_break:
+  case AMDGPUIntrinsic::amdgcn_if_break:
+  case AMDGPUIntrinsic::amdgcn_else_break:
+  case AMDGPUIntrinsic::amdgcn_loop:
+  case AMDGPUIntrinsic::amdgcn_end_cf:
+    return true;
+  }
 }
 
 /// This transforms the control flow intrinsics to get the branch destination as
@@ -1193,13 +1236,11 @@ SDValue SITargetLowering::LowerBRCOND(SDValue BRCOND,
   SDNode *Intr = BRCOND.getOperand(1).getNode();
   SDValue Target = BRCOND.getOperand(2);
   SDNode *BR = nullptr;
+  SDNode *SetCC = nullptr;
 
   if (Intr->getOpcode() == ISD::SETCC) {
     // As long as we negate the condition everything is fine
-    SDNode *SetCC = Intr;
-    assert(SetCC->getConstantOperandVal(1) == 1);
-    assert(cast<CondCodeSDNode>(SetCC->getOperand(2).getNode())->get() ==
-           ISD::SETNE);
+    SetCC = Intr;
     Intr = SetCC->getOperand(0).getNode();
 
   } else {
@@ -1208,7 +1249,16 @@ SDValue SITargetLowering::LowerBRCOND(SDValue BRCOND,
     Target = BR->getOperand(1);
   }
 
-  assert(Intr->getOpcode() == ISD::INTRINSIC_W_CHAIN);
+  if (Intr->getOpcode() != ISD::INTRINSIC_W_CHAIN) {
+    // This is a uniform branch so we don't need to legalize.
+    return BRCOND;
+  }
+
+  assert(!SetCC ||
+        (SetCC->getConstantOperandVal(1) == 1 &&
+         isCFIntrinsic(Intr) &&
+         cast<CondCodeSDNode>(SetCC->getOperand(2).getNode())->get() ==
+                                                             ISD::SETNE));
 
   // Build the result and
   ArrayRef<EVT> Res(Intr->value_begin() + 1, Intr->value_end());
@@ -1342,10 +1392,10 @@ SDValue SITargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
   case Intrinsic::amdgcn_rsq:
   case AMDGPUIntrinsic::AMDGPU_rsq: // Legacy name
     return DAG.getNode(AMDGPUISD::RSQ, DL, VT, Op.getOperand(1));
-  case Intrinsic::amdgcn_rsq_clamped:
+  case Intrinsic::amdgcn_rsq_clamp:
   case AMDGPUIntrinsic::AMDGPU_rsq_clamped: { // Legacy name
     if (Subtarget->getGeneration() < AMDGPUSubtarget::VOLCANIC_ISLANDS)
-      return DAG.getNode(AMDGPUISD::RSQ_CLAMPED, DL, VT, Op.getOperand(1));
+      return DAG.getNode(AMDGPUISD::RSQ_CLAMP, DL, VT, Op.getOperand(1));
 
     Type *Type = VT.getTypeForEVT(*DAG.getContext());
     APFloat Max = APFloat::getLargest(Type->getFltSemantics());
@@ -1498,6 +1548,22 @@ SDValue SITargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
                        Op.getOperand(2), Op.getOperand(3), Op.getOperand(4),
                        Glue);
   }
+  case Intrinsic::amdgcn_sin:
+    return DAG.getNode(AMDGPUISD::SIN_HW, DL, VT, Op.getOperand(1));
+
+  case Intrinsic::amdgcn_cos:
+    return DAG.getNode(AMDGPUISD::COS_HW, DL, VT, Op.getOperand(1));
+
+  case Intrinsic::amdgcn_log_clamp: {
+    if (Subtarget->getGeneration() < AMDGPUSubtarget::VOLCANIC_ISLANDS)
+      return SDValue();
+
+    DiagnosticInfoUnsupported BadIntrin(
+      *MF.getFunction(), "intrinsic not supported on subtarget",
+      DL.getDebugLoc());
+      DAG.getContext()->diagnose(BadIntrin);
+      return DAG.getUNDEF(VT);
+  }
   case Intrinsic::amdgcn_ldexp:
     return DAG.getNode(AMDGPUISD::LDEXP, DL, VT,
                        Op.getOperand(1), Op.getOperand(2));
@@ -1640,11 +1706,31 @@ SDValue SITargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const {
     //
     // Fall-through
   case AMDGPUAS::GLOBAL_ADDRESS:
-  case AMDGPUAS::PRIVATE_ADDRESS:
-    if (NumElements >= 8)
+  case AMDGPUAS::FLAT_ADDRESS:
+    if (NumElements > 4)
       return SplitVectorLoad(Op, DAG);
     // v4 loads are supported for private and global memory.
     return SDValue();
+  case AMDGPUAS::PRIVATE_ADDRESS: {
+    // Depending on the setting of the private_element_size field in the
+    // resource descriptor, we can only make private accesses up to a certain
+    // size.
+    switch (Subtarget->getMaxPrivateElementSize()) {
+    case 4:
+      return ScalarizeVectorLoad(Op, DAG);
+    case 8:
+      if (NumElements > 2)
+        return SplitVectorLoad(Op, DAG);
+      return SDValue();
+    case 16:
+      // Same as global/flat
+      if (NumElements > 4)
+        return SplitVectorLoad(Op, DAG);
+      return SDValue();
+    default:
+      llvm_unreachable("unsupported private_element_size");
+    }
+  }
   case AMDGPUAS::LOCAL_ADDRESS:
     // If properly aligned, if we split we might be able to use ds_read_b64.
     return SplitVectorLoad(Op, DAG);
@@ -1846,25 +1932,43 @@ SDValue SITargetLowering::LowerSTORE(SDValue Op, SelectionDAG &DAG) const {
   StoreSDNode *Store = cast<StoreSDNode>(Op);
   EVT VT = Store->getMemoryVT();
 
-  // These stores are legal.
-  if (Store->getAddressSpace() == AMDGPUAS::PRIVATE_ADDRESS) {
-    if (VT.isVector() && VT.getVectorNumElements() > 4)
-      return ScalarizeVectorStore(Op, DAG);
-    return SDValue();
+  if (VT == MVT::i1) {
+    return DAG.getTruncStore(Store->getChain(), DL,
+       DAG.getSExtOrTrunc(Store->getValue(), DL, MVT::i32),
+       Store->getBasePtr(), MVT::i1, Store->getMemOperand());
   }
 
-  if (SDValue Ret = AMDGPUTargetLowering::LowerSTORE(Op, DAG))
-    return Ret;
+  assert(Store->getValue().getValueType().getScalarType() == MVT::i32);
 
-  if (VT.isVector() && VT.getVectorNumElements() >= 8)
+  unsigned NumElements = VT.getVectorNumElements();
+  switch (Store->getAddressSpace()) {
+  case AMDGPUAS::GLOBAL_ADDRESS:
+  case AMDGPUAS::FLAT_ADDRESS:
+    if (NumElements > 4)
       return SplitVectorStore(Op, DAG);
-
-  if (VT == MVT::i1)
-    return DAG.getTruncStore(Store->getChain(), DL,
-                        DAG.getSExtOrTrunc(Store->getValue(), DL, MVT::i32),
-                        Store->getBasePtr(), MVT::i1, Store->getMemOperand());
-
-  return SDValue();
+    return SDValue();
+  case AMDGPUAS::PRIVATE_ADDRESS: {
+    switch (Subtarget->getMaxPrivateElementSize()) {
+    case 4:
+      return ScalarizeVectorStore(Op, DAG);
+    case 8:
+      if (NumElements > 2)
+        return SplitVectorStore(Op, DAG);
+      return SDValue();
+    case 16:
+      if (NumElements > 4)
+        return SplitVectorStore(Op, DAG);
+      return SDValue();
+    default:
+      llvm_unreachable("unsupported private_element_size");
+    }
+  }
+  case AMDGPUAS::LOCAL_ADDRESS:
+    // If properly aligned, if we split we might be able to use ds_write_b64.
+    return SplitVectorStore(Op, DAG);
+  default:
+    llvm_unreachable("unhandled address space");
+  }
 }
 
 SDValue SITargetLowering::LowerTrig(SDValue Op, SelectionDAG &DAG) const {
@@ -2566,7 +2670,8 @@ void SITargetLowering::adjustWritemask(MachineSDNode *&Node,
                                        SelectionDAG &DAG) const {
   SDNode *Users[4] = { };
   unsigned Lane = 0;
-  unsigned OldDmask = Node->getConstantOperandVal(0);
+  unsigned DmaskIdx = (Node->getNumOperands() - Node->getNumValues() == 9) ? 2 : 3;
+  unsigned OldDmask = Node->getConstantOperandVal(DmaskIdx);
   unsigned NewDmask = 0;
 
   // Try to figure out the used register components
@@ -2606,8 +2711,9 @@ void SITargetLowering::adjustWritemask(MachineSDNode *&Node,
 
   // Adjust the writemask in the node
   std::vector<SDValue> Ops;
+  Ops.insert(Ops.end(), Node->op_begin(), Node->op_begin() + DmaskIdx);
   Ops.push_back(DAG.getTargetConstant(NewDmask, SDLoc(Node), MVT::i32));
-  Ops.insert(Ops.end(), Node->op_begin() + 1, Node->op_end());
+  Ops.insert(Ops.end(), Node->op_begin() + DmaskIdx + 1, Node->op_end());
   Node = (MachineSDNode*)DAG.UpdateNodeOperands(Node, Ops);
 
   // If we only got one lane, replace it with a copy
@@ -2675,12 +2781,13 @@ SDNode *SITargetLowering::PostISelFolding(MachineSDNode *Node,
                                           SelectionDAG &DAG) const {
   const SIInstrInfo *TII =
       static_cast<const SIInstrInfo *>(Subtarget->getInstrInfo());
+  unsigned Opcode = Node->getMachineOpcode();
 
-  if (TII->isMIMG(Node->getMachineOpcode()))
+  if (TII->isMIMG(Opcode) && !TII->get(Opcode).mayStore())
     adjustWritemask(Node, DAG);
 
-  if (Node->getMachineOpcode() == AMDGPU::INSERT_SUBREG ||
-      Node->getMachineOpcode() == AMDGPU::REG_SEQUENCE) {
+  if (Opcode == AMDGPU::INSERT_SUBREG ||
+      Opcode == AMDGPU::REG_SEQUENCE) {
     legalizeTargetIndependentNode(Node, DAG);
     return Node;
   }
@@ -2704,7 +2811,8 @@ void SITargetLowering::AdjustInstrPostInstrSelection(MachineInstr *MI,
 
   if (TII->isMIMG(*MI)) {
     unsigned VReg = MI->getOperand(0).getReg();
-    unsigned Writemask = MI->getOperand(1).getImm();
+    unsigned DmaskIdx = MI->getNumOperands() == 12 ? 3 : 4;
+    unsigned Writemask = MI->getOperand(DmaskIdx).getImm();
     unsigned BitsSet = 0;
     for (unsigned i = 0; i < 4; ++i)
       BitsSet += Writemask & (1 << i) ? 1 : 0;

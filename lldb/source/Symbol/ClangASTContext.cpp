@@ -333,22 +333,7 @@ ClangASTContext::ClangASTContext (const char *target_triple) :
 //----------------------------------------------------------------------
 ClangASTContext::~ClangASTContext()
 {
-    if (m_ast_ap.get())
-    {
-        GetASTMap().Erase(m_ast_ap.get());
-        if (!m_ast_owned)
-            m_ast_ap.release();
-    }
-
-    m_builtins_ap.reset();
-    m_selector_table_ap.reset();
-    m_identifier_table_ap.reset();
-    m_target_info_ap.reset();
-    m_target_options_rp.reset();
-    m_diagnostics_engine_ap.reset();
-    m_source_manager_ap.reset();
-    m_language_options_ap.reset();
-    m_ast_ap.reset();
+    Finalize();
 }
 
 ConstString
@@ -472,6 +457,27 @@ ClangASTContext::Terminate()
     PluginManager::UnregisterPlugin (CreateInstance);
 }
 
+void
+ClangASTContext::Finalize()
+{
+    if (m_ast_ap.get())
+    {
+        GetASTMap().Erase(m_ast_ap.get());
+        if (!m_ast_owned)
+            m_ast_ap.release();
+    }
+
+    m_builtins_ap.reset();
+    m_selector_table_ap.reset();
+    m_identifier_table_ap.reset();
+    m_target_info_ap.reset();
+    m_target_options_rp.reset();
+    m_diagnostics_engine_ap.reset();
+    m_source_manager_ap.reset();
+    m_language_options_ap.reset();
+    m_ast_ap.reset();
+    m_scratch_ast_source_ap.reset();
+}
 
 void
 ClangASTContext::Clear()
@@ -3094,9 +3100,11 @@ ClangASTContext::IsHomogeneousAggregate (lldb::opaque_compiler_type_t type, Comp
                         bool is_hva = false;
                         bool is_hfa = false;
                         clang::QualType base_qual_type;
+                        uint64_t base_bitwidth = 0;
                         for (field_pos = record_decl->field_begin(); field_pos != field_end; ++field_pos)
                         {
                             clang::QualType field_qual_type = field_pos->getType();
+                            uint64_t field_bitwidth = getASTContext()->getTypeSize (qual_type);
                             if (field_qual_type->isFloatingType())
                             {
                                 if (field_qual_type->isComplexType())
@@ -3117,22 +3125,21 @@ ClangASTContext::IsHomogeneousAggregate (lldb::opaque_compiler_type_t type, Comp
                             }
                             else if (field_qual_type->isVectorType() || field_qual_type->isExtVectorType())
                             {
-                                const clang::VectorType *array = field_qual_type.getTypePtr()->getAs<clang::VectorType>();
-                                if (array && array->getNumElements() <= 4)
+                                if (num_fields == 0)
                                 {
-                                    if (num_fields == 0)
-                                        base_qual_type = array->getElementType();
-                                    else
-                                    {
-                                        if (is_hfa)
-                                            return 0;
-                                        is_hva = true;
-                                        if (field_qual_type.getTypePtr() != base_qual_type.getTypePtr())
-                                            return 0;
-                                    }
+                                    base_qual_type = field_qual_type;
+                                    base_bitwidth = field_bitwidth;
                                 }
                                 else
-                                    return 0;
+                                {
+                                    if (is_hfa)
+                                        return 0;
+                                    is_hva = true;
+                                    if (base_bitwidth != field_bitwidth)
+                                        return 0;
+                                    if (field_qual_type.getTypePtr() != base_qual_type.getTypePtr())
+                                        return 0;
+                                }
                             }
                             else
                                 return 0;
@@ -4722,7 +4729,7 @@ ClangASTContext::GetBitSize (lldb::opaque_compiler_type_t type, ExecutionContext
                     }
                 }
             }
-                // fallthrough
+                LLVM_FALLTHROUGH;
             default:
                 const uint32_t bit_size = getASTContext()->getTypeSize (qual_type);
                 if (bit_size == 0)
@@ -9293,6 +9300,7 @@ ClangASTContext::DumpTypeValue (lldb::opaque_compiler_type_t type, Stream *s,
                     return true;
                 }
                 // format was not enum, just fall through and dump the value as requested....
+                LLVM_FALLTHROUGH;
                 
             default:
                 // We are down to a scalar type that we just need to display.
@@ -9920,6 +9928,15 @@ ClangASTContext::CountDeclLevels (clang::DeclContext *frame_decl_ctx,
             {
                 if (searched.find(it->second) != searched.end())
                     continue;
+                
+                // Currently DWARF has one shared translation unit for all Decls at top level, so this
+                // would erroneously find using statements anywhere.  So don't look at the top-level
+                // translation unit.
+                // TODO fix this and add a testcase that depends on it.
+                
+                if (llvm::isa<clang::TranslationUnitDecl>(it->second))
+                    continue;
+                
                 searched.insert(it->second);
                 symbol_file->ParseDeclsForContext(CompilerDeclContext(this, it->second));
 

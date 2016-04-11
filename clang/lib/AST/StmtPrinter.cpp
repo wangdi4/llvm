@@ -664,9 +664,9 @@ void OMPClausePrinter::VisitOMPScheduleClause(OMPScheduleClause *Node) {
     OS << ": ";
   }
   OS << getOpenMPSimpleClauseTypeName(OMPC_schedule, Node->getScheduleKind());
-  if (Node->getChunkSize()) {
+  if (auto *E = Node->getChunkSize()) {
     OS << ", ";
-    Node->getChunkSize()->printPretty(OS, nullptr, Policy);
+    E->printPretty(OS, nullptr, Policy);
   }
   OS << ")";
 }
@@ -768,8 +768,8 @@ void OMPClausePrinter::VisitOMPClauseList(T *Node, char StartSym) {
     assert(*I && "Expected non-null Stmt");
     OS << (I == Node->varlist_begin() ? StartSym : ',');
     if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(*I)) {
-      if (auto *CFD = dyn_cast<OMPCapturedFieldDecl>(DRE->getDecl()))
-        CFD->getInit()->IgnoreImpCasts()->printPretty(OS, nullptr, Policy, 0);
+      if (isa<OMPCapturedExprDecl>(DRE->getDecl()))
+        DRE->printPretty(OS, nullptr, Policy, 0);
       else
         DRE->getDecl()->printQualifiedName(OS);
     } else
@@ -915,9 +915,9 @@ void OMPClausePrinter::VisitOMPMapClause(OMPMapClause *Node) {
 void OMPClausePrinter::VisitOMPDistScheduleClause(OMPDistScheduleClause *Node) {
   OS << "dist_schedule(" << getOpenMPSimpleClauseTypeName(
                            OMPC_dist_schedule, Node->getDistScheduleKind());
-  if (Node->getChunkSize()) {
+  if (auto *E = Node->getChunkSize()) {
     OS << ", ";
-    Node->getChunkSize()->printPretty(OS, nullptr, Policy);
+    E->printPretty(OS, nullptr, Policy);
   }
   OS << ")";
 }
@@ -1136,6 +1136,10 @@ void StmtPrinter::VisitOMPDistributeDirective(OMPDistributeDirective *Node) {
 //===----------------------------------------------------------------------===//
 
 void StmtPrinter::VisitDeclRefExpr(DeclRefExpr *Node) {
+  if (auto *OCED = dyn_cast<OMPCapturedExprDecl>(Node->getDecl())) {
+    OCED->getInit()->IgnoreImpCasts()->printPretty(OS, nullptr, Policy);
+    return;
+  }
   if (NestedNameSpecifier *Qualifier = Node->getQualifier())
     Qualifier->print(OS, Policy);
   if (Node->hasTemplateKeyword())
@@ -1250,6 +1254,12 @@ void StmtPrinter::VisitCharacterLiteral(CharacterLiteral *Node) {
     OS << "'\\v'";
     break;
   default:
+    // A character literal might be sign-extended, which
+    // would result in an invalid \U escape sequence.
+    // FIXME: multicharacter literals such as '\xFF\xFF\xFF\xFF'
+    // are not correctly handled.
+    if ((value & ~0xFFu) == ~0xFFu && Node->getKind() == CharacterLiteral::Ascii)
+      value &= 0xFFu;
     if (value < 256 && isPrintable((unsigned char)value))
       OS << "'" << (char)value << "'";
     else if (value < 256)

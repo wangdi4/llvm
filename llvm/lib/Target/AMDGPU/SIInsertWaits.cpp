@@ -164,7 +164,7 @@ const Counters SIInsertWaits::WaitCounts = { { 15, 7, 15 } };
 const Counters SIInsertWaits::ZeroCounts = { { 0, 0, 0 } };
 
 static bool readsVCCZ(unsigned Opcode) {
-  return Opcode == AMDGPU::S_CBRANCH_VCCNZ || Opcode == AMDGPU::S_CBRANCH_VCCNZ;
+  return Opcode == AMDGPU::S_CBRANCH_VCCNZ || Opcode == AMDGPU::S_CBRANCH_VCCZ;
 }
 
 bool SIInsertWaits::hasOutstandingLGKM() const {
@@ -231,24 +231,23 @@ bool SIInsertWaits::isOpRelevant(MachineOperand &Op) {
     return false;
 
   // Check if this operand is the value being stored.
-  // Special case for DS instructions, since the address
+  // Special case for DS/FLAT instructions, since the address
   // operand comes before the value operand and it may have
   // multiple data operands.
 
-  if (TII->isDS(MI)) {
+  if (TII->isDS(MI) || TII->isFLAT(MI)) {
     MachineOperand *Data = TII->getNamedOperand(MI, AMDGPU::OpName::data);
     if (Data && Op.isIdenticalTo(*Data))
       return true;
+  }
 
+  if (TII->isDS(MI)) {
     MachineOperand *Data0 = TII->getNamedOperand(MI, AMDGPU::OpName::data0);
     if (Data0 && Op.isIdenticalTo(*Data0))
       return true;
 
     MachineOperand *Data1 = TII->getNamedOperand(MI, AMDGPU::OpName::data1);
-    if (Data1 && Op.isIdenticalTo(*Data1))
-      return true;
-
-    return false;
+    return Data1 && Op.isIdenticalTo(*Data1);
   }
 
   // NOTE: This assumes that the value operand is before the

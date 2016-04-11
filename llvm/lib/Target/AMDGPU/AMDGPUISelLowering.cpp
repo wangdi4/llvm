@@ -295,6 +295,17 @@ AMDGPUTargetLowering::AMDGPUTargetLowering(TargetMachine &TM,
   setOperationAction(ISD::CTLZ, MVT::i64, Custom);
   setOperationAction(ISD::CTLZ_ZERO_UNDEF, MVT::i64, Custom);
 
+  // We only really have 32-bit BFE instructions (and 16-bit on VI).
+  //
+  // On SI+ there are 64-bit BFEs, but they are scalar only and there isn't any
+  // effort to match them now. We want this to be false for i64 cases when the
+  // extraction isn't restricted to the upper or lower half. Ideally we would
+  // have some pass reduce 64-bit extracts to 32-bit if possible. Extracts that
+  // span the midpoint are probably relatively rare, so don't worry about them
+  // for now.
+  if (Subtarget->hasBFE())
+    setHasExtractBitsInsn(true);
+
   static const MVT::SimpleValueType VectorIntTypes[] = {
     MVT::v2i32, MVT::v4i32
   };
@@ -671,11 +682,6 @@ void AMDGPUTargetLowering::ReplaceNodeResults(SDNode *N,
     // ReplaceNodeResults to sext_in_reg to an illegal type, so we'll just do
     // nothing here and let the illegal result integer be handled normally.
     return;
-  case ISD::STORE: {
-    if (SDValue Lowered = LowerSTORE(SDValue(N, 0), DAG))
-      Results.push_back(Lowered);
-    return;
-  }
   default:
     return;
   }
@@ -774,10 +780,7 @@ static bool hasDefinedInitializer(const GlobalValue *GV) {
   if (!GVar || !GVar->hasInitializer())
     return false;
 
-  if (isa<UndefValue>(GVar->getInitializer()))
-    return false;
-
-  return true;
+  return !isa<UndefValue>(GVar->getInitializer());
 }
 
 SDValue AMDGPUTargetLowering::LowerGlobalAddress(AMDGPUMachineFunction* MFI,
@@ -1066,7 +1069,9 @@ SDValue AMDGPUTargetLowering::ScalarizeVectorLoad(const SDValue Op,
   SmallVector<SDValue, 8> Chains;
 
   SDLoc SL(Op);
+  unsigned BaseAlign = Load->getAlignment();
   unsigned MemEltSize = MemEltVT.getStoreSize();
+
   MachinePointerInfo SrcValue(Load->getMemOperand()->getValue());
 
   for (unsigned i = 0; i < NumElts; ++i) {
@@ -1078,7 +1083,7 @@ SDValue AMDGPUTargetLowering::ScalarizeVectorLoad(const SDValue Op,
                        Load->getChain(), Ptr,
                        SrcValue.getWithOffset(i * MemEltSize),
                        MemEltVT, Load->isVolatile(), Load->isNonTemporal(),
-                       Load->isInvariant(), Load->getAlignment());
+                       Load->isInvariant(), MinAlign(BaseAlign, i * MemEltSize));
     Loads.push_back(NewLoad.getValue(0));
     Chains.push_back(NewLoad.getValue(1));
   }
@@ -1146,6 +1151,8 @@ SDValue AMDGPUTargetLowering::SplitVectorLoad(const SDValue Op,
   return DAG.getMergeValues(Ops, SL);
 }
 
+// FIXME: This isn't doing anything for SI. This should be used in a target
+// combine during type legalization.
 SDValue AMDGPUTargetLowering::MergeVectorStore(const SDValue &Op,
                                                SelectionDAG &DAG) const {
   StoreSDNode *Store = cast<StoreSDNode>(Op);
@@ -1215,6 +1222,7 @@ SDValue AMDGPUTargetLowering::ScalarizeVectorStore(SDValue Op,
 
   SmallVector<SDValue, 8> Chains;
 
+  unsigned BaseAlign = Store->getAlignment();
   unsigned EltSize = MemEltVT.getStoreSize();
   MachinePointerInfo SrcValue(Store->getMemOperand()->getValue());
 
@@ -1229,7 +1237,7 @@ SDValue AMDGPUTargetLowering::ScalarizeVectorStore(SDValue Op,
       DAG.getTruncStore(Store->getChain(), SL, Val, Ptr,
                         SrcValue.getWithOffset(i * EltSize),
                         MemEltVT, Store->isNonTemporal(), Store->isVolatile(),
-                        Store->getAlignment());
+                        MinAlign(BaseAlign, i * EltSize));
     Chains.push_back(NewStore);
   }
 
@@ -1288,64 +1296,6 @@ SDValue AMDGPUTargetLowering::SplitVectorStore(SDValue Op,
                         HiAlign);
 
   return DAG.getNode(ISD::TokenFactor, SL, MVT::Other, LoStore, HiStore);
-}
-
-SDValue AMDGPUTargetLowering::LowerSTORE(SDValue Op, SelectionDAG &DAG) const {
-  SDLoc DL(Op);
-  if (SDValue Result = AMDGPUTargetLowering::MergeVectorStore(Op, DAG))
-    return Result;
-
-  StoreSDNode *Store = cast<StoreSDNode>(Op);
-  SDValue Chain = Store->getChain();
-  if ((Store->getAddressSpace() == AMDGPUAS::LOCAL_ADDRESS ||
-       Store->getAddressSpace() == AMDGPUAS::PRIVATE_ADDRESS) &&
-      Store->getValue().getValueType().isVector()) {
-    return SplitVectorStore(Op, DAG);
-  }
-
-  EVT MemVT = Store->getMemoryVT();
-  if (Store->getAddressSpace() == AMDGPUAS::PRIVATE_ADDRESS &&
-      MemVT.bitsLT(MVT::i32)) {
-    unsigned Mask = 0;
-    if (Store->getMemoryVT() == MVT::i8) {
-      Mask = 0xff;
-    } else if (Store->getMemoryVT() == MVT::i16) {
-      Mask = 0xffff;
-    }
-    SDValue BasePtr = Store->getBasePtr();
-    SDValue Ptr = DAG.getNode(ISD::SRL, DL, MVT::i32, BasePtr,
-                              DAG.getConstant(2, DL, MVT::i32));
-    SDValue Dst = DAG.getNode(AMDGPUISD::REGISTER_LOAD, DL, MVT::i32,
-                              Chain, Ptr,
-                              DAG.getTargetConstant(0, DL, MVT::i32));
-
-    SDValue ByteIdx = DAG.getNode(ISD::AND, DL, MVT::i32, BasePtr,
-                                  DAG.getConstant(0x3, DL, MVT::i32));
-
-    SDValue ShiftAmt = DAG.getNode(ISD::SHL, DL, MVT::i32, ByteIdx,
-                                   DAG.getConstant(3, DL, MVT::i32));
-
-    SDValue SExtValue = DAG.getNode(ISD::SIGN_EXTEND, DL, MVT::i32,
-                                    Store->getValue());
-
-    SDValue MaskedValue = DAG.getZeroExtendInReg(SExtValue, DL, MemVT);
-
-    SDValue ShiftedValue = DAG.getNode(ISD::SHL, DL, MVT::i32,
-                                       MaskedValue, ShiftAmt);
-
-    SDValue DstMask = DAG.getNode(ISD::SHL, DL, MVT::i32,
-                                  DAG.getConstant(Mask, DL, MVT::i32),
-                                  ShiftAmt);
-    DstMask = DAG.getNode(ISD::XOR, DL, MVT::i32, DstMask,
-                          DAG.getConstant(0xffffffff, DL, MVT::i32));
-    Dst = DAG.getNode(ISD::AND, DL, MVT::i32, Dst, DstMask);
-
-    SDValue Value = DAG.getNode(ISD::OR, DL, MVT::i32, Dst, ShiftedValue);
-    return DAG.getNode(AMDGPUISD::REGISTER_STORE, DL, MVT::Other,
-                       Chain, Value, Ptr,
-                       DAG.getTargetConstant(0, DL, MVT::i32));
-  }
-  return SDValue();
 }
 
 // This is a shortcut for integer division because we have fast i32<->f32
@@ -1478,10 +1428,13 @@ void AMDGPUTargetLowering::LowerUDIVREM64(SDValue Op,
     SDValue Res = DAG.getNode(ISD::UDIVREM, DL, DAG.getVTList(HalfVT, HalfVT),
                               LHS_Lo, RHS_Lo);
 
-    SDValue DIV = DAG.getNode(ISD::BUILD_PAIR, DL, VT, Res.getValue(0), zero);
-    SDValue REM = DAG.getNode(ISD::BUILD_PAIR, DL, VT, Res.getValue(1), zero);
-    Results.push_back(DIV);
-    Results.push_back(REM);
+    SDValue DIV = DAG.getNode(ISD::BUILD_VECTOR, DL, MVT::v2i32,
+                              Res.getValue(0), zero);
+    SDValue REM = DAG.getNode(ISD::BUILD_VECTOR, DL, MVT::v2i32,
+                              Res.getValue(1), zero);
+
+    Results.push_back(DAG.getNode(ISD::BITCAST, DL, MVT::i64, DIV));
+    Results.push_back(DAG.getNode(ISD::BITCAST, DL, MVT::i64, REM));
     return;
   }
 
@@ -1490,7 +1443,8 @@ void AMDGPUTargetLowering::LowerUDIVREM64(SDValue Op,
   SDValue REM_Part = DAG.getNode(ISD::UREM, DL, HalfVT, LHS_Hi, RHS_Lo);
 
   SDValue REM_Lo = DAG.getSelectCC(DL, RHS_Hi, zero, REM_Part, LHS_Hi, ISD::SETEQ);
-  SDValue REM = DAG.getNode(ISD::BUILD_PAIR, DL, VT, REM_Lo, zero);
+  SDValue REM = DAG.getNode(ISD::BUILD_VECTOR, DL, MVT::v2i32, REM_Lo, zero);
+  REM = DAG.getNode(ISD::BITCAST, DL, MVT::i64, REM);
 
   SDValue DIV_Hi = DAG.getSelectCC(DL, RHS_Hi, zero, DIV_Part, zero, ISD::SETEQ);
   SDValue DIV_Lo = zero;
@@ -1520,7 +1474,8 @@ void AMDGPUTargetLowering::LowerUDIVREM64(SDValue Op,
     REM = DAG.getSelectCC(DL, REM, RHS, REM_sub, REM, ISD::SETUGE);
   }
 
-  SDValue DIV = DAG.getNode(ISD::BUILD_PAIR, DL, VT, DIV_Lo, DIV_Hi);
+  SDValue DIV = DAG.getNode(ISD::BUILD_VECTOR, DL, MVT::v2i32, DIV_Lo, DIV_Hi);
+  DIV = DAG.getNode(ISD::BITCAST, DL, MVT::i64, DIV);
   Results.push_back(DIV);
   Results.push_back(REM);
 }
@@ -2849,7 +2804,7 @@ const char* AMDGPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(RCP)
   NODE_NAME_CASE(RSQ)
   NODE_NAME_CASE(RSQ_LEGACY)
-  NODE_NAME_CASE(RSQ_CLAMPED)
+  NODE_NAME_CASE(RSQ_CLAMP)
   NODE_NAME_CASE(LDEXP)
   NODE_NAME_CASE(FP_CLASS)
   NODE_NAME_CASE(DOT4)

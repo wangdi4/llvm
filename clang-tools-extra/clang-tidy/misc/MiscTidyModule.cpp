@@ -15,6 +15,7 @@
 #include "AssignOperatorSignatureCheck.h"
 #include "BoolPointerImplicitConversionCheck.h"
 #include "DefinitionsInHeadersCheck.h"
+#include "ForwardDeclarationNamespaceCheck.h"
 #include "InaccurateEraseCheck.h"
 #include "IncorrectRoundings.h"
 #include "InefficientAlgorithmCheck.h"
@@ -29,6 +30,7 @@
 #include "SizeofContainerCheck.h"
 #include "StaticAssertCheck.h"
 #include "StringIntegerAssignmentCheck.h"
+#include "SuspiciousSemicolonCheck.h"
 #include "SwappedArgumentsCheck.h"
 #include "ThrowByValueCatchByReferenceCheck.h"
 #include "UndelegatedConstructor.h"
@@ -54,6 +56,8 @@ public:
         "misc-bool-pointer-implicit-conversion");
     CheckFactories.registerCheck<DefinitionsInHeadersCheck>(
         "misc-definitions-in-headers");
+    CheckFactories.registerCheck<ForwardDeclarationNamespaceCheck>(
+        "misc-forward-declaration-namespace");
     CheckFactories.registerCheck<InaccurateEraseCheck>(
         "misc-inaccurate-erase");
     CheckFactories.registerCheck<IncorrectRoundings>(
@@ -81,6 +85,8 @@ public:
         "misc-static-assert");
     CheckFactories.registerCheck<StringIntegerAssignmentCheck>(
         "misc-string-integer-assignment");
+    CheckFactories.registerCheck<SuspiciousSemicolonCheck>(
+        "misc-suspicious-semicolon");
     CheckFactories.registerCheck<SwappedArgumentsCheck>(
         "misc-swapped-arguments");
     CheckFactories.registerCheck<ThrowByValueCatchByReferenceCheck>(
