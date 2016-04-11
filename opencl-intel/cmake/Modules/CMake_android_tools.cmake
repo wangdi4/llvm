@@ -12,7 +12,9 @@ set( TOOL_OS_SUFFIX "" )
 set( GCC_VERSION "" )
 set( GCC_VERSION_OUTPUT "" )
 
+
 set ( TARGET_ARCH i686 )
+set ( CMAKE_SKIP_RPATH ON ) # do not embed RPATH/RUNPATH for Android builds
 set ( TOOLCHAIN_DIRECTORY_NAME android-toolchain )
 message(STATUS "Android Toolchain target arhitecture ${TARGET_ARCH}")
 

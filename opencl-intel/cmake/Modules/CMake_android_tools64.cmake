@@ -14,6 +14,7 @@ set( GCC_VERSION "" )
 set( GCC_VERSION_OUTPUT "" )
 
 set ( TARGET_ARCH x86_64 )
+set ( CMAKE_SKIP_RPATH ON ) # do not embed RPATH/RUNPATH for Android builds
 set ( TOOLCHAIN_DIRECTORY_NAME android-toolchain-x86_64 )
 
 message(STATUS "Android Toolchain target arhitecture ${TARGET_ARCH}")
@@ -83,7 +84,7 @@ endif()
 
 if( EXISTS "${ANDROID_NDK}" )
  set( ANDROID_NDK "${ANDROID_NDK}" CACHE PATH "root of the android ndk" FORCE )
- 
+
  if( APPLE )
   set( NDKSYSTEM "darwin-x86" )
  elseif( WIN32 )
@@ -102,7 +103,7 @@ if( EXISTS "${ANDROID_NDK}" )
 # set( PossibleAndroidLevels "9;10" )
 # set( ANDROID_API_LEVEL ${ANDROID_API_LEVEL} TEST STRING "android API level" )
 # set_property( TEST ANDROID_API_LEVEL PROPERTY STRINGS ${PossibleAndroidLevels} )
- 
+
  if( NOT ANDROID_API_LEVEL GREATER 2 )
   set( ANDROID_API_LEVEL 9)
   message( STATUS "Using default android API level android-${ANDROID_API_LEVEL}" )
@@ -114,7 +115,7 @@ if( EXISTS "${ANDROID_NDK}" )
  message( STATUS "ANDROID_NDK_SYSROOT is ${ANDROID_NDK_SYSROOT}" )
 
  __TOOLCHAIN_DETECT_API_LEVEL( "${ANDROID_NDK_SYSROOT}/usr/include/android/api-level.h" ${ANDROID_API_LEVEL} )
- 
+
  #message( STATUS "Using android NDK from ${ANDROID_NDK}" )
  set( BUILD_WITH_ANDROID_NDK True )
 else()
@@ -138,7 +139,7 @@ else()
       sudo ln -s ~/my-android-ndk ${ANDROID_NDK_DEFAULT_SEARCH_PATH}
       sudo ln -s ~/my-android-toolchain ${ANDROID_NDK_TOOLCHAIN_DEFAULT_SEARCH_PATH}" )
  endif()
- 
+
  __TOOLCHAIN_DETECT_API_LEVEL( "${ANDROID_NDK_SYSROOT}/usr/include/android/api-level.h" )
 
  message( STATUS "Using android NDK standalone toolchain from ${ANDROID_NDK_TOOLCHAIN_ROOT}" )
@@ -185,7 +186,7 @@ endif()
 SET( DO_NOT_CHANGE_OUTPUT_PATHS_ON_FIRST_PASS ON CACHE INTERNAL "" FORCE)
 endif( ) # DISABLED PART
 
-# where is the target environment 
+# where is the target environment
 set( CMAKE_FIND_ROOT_PATH "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin" "${ANDROID_NDK_TOOLCHAIN_ROOT}/x86_64-linux-android" "${ANDROID_NDK_SYSROOT}" "${CMAKE_INSTALL_PREFIX}" "${CMAKE_INSTALL_PREFIX}/share" )
 
 if( BUILD_WITH_ANDROID_NDK )
@@ -215,7 +216,7 @@ endif()
 message( STATUS "STL_LIBRARIES_PATH is ${STL_LIBRARIES_PATH}" )
 
 # only search for libraries and includes in the ndk toolchain
-# ARK - Had the change the CMAKE_FIND_ROOT_PATH_MODE_PROGRAM variable to FIRST 
+# ARK - Had the change the CMAKE_FIND_ROOT_PATH_MODE_PROGRAM variable to FIRST
 # so that Perl could be found
 set( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM BOTH )
 set( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )

@@ -15,6 +15,9 @@ find_package(LLVM REQUIRED)
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 
+# Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard system library directories
+include(../../cmake_utils/embed.rpath.txt)
+
 #
 # Source code
 #

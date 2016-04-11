@@ -7,6 +7,10 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME task_executor${BUILD_PLATFORM} )
 
+# Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard system library directories
+include(../../cmake_utils/embed.rpath.txt)
+
+
 include( ${CMAKE_SOURCE_DIR}/cmake_utils/itt.cmake )
 
 if (WIN32 AND NOT BUILD_X64)
