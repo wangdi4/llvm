@@ -29,6 +29,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
@@ -113,6 +114,7 @@ public:
     AU.addRequiredID(LoopSimplifyID);
     AU.addRequiredID(LCSSAID);
     AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
     AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreservedID(LoopSimplifyID);
     AU.addPreservedID(LCSSAID);

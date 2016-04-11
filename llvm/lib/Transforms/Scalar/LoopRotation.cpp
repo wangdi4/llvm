@@ -598,6 +598,7 @@ public:
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addPreserved<BasicAAWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
   }
 
   bool runOnLoop(Loop *L, LPPassManager &LPM) override {

@@ -15,6 +15,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -62,6 +63,7 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<LazyValueInfo>();
       AU.addPreserved<GlobalsAAWrapperPass>();
+      AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
     }
   };
 }

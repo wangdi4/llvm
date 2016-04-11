@@ -19,6 +19,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/DemandedBits.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -47,6 +48,7 @@ struct BDCE : public FunctionPass {
     AU.setPreservesCFG();
     AU.addRequired<DemandedBits>();
     AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
   }
 };
 }

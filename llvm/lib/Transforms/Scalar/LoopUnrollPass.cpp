@@ -18,6 +18,7 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_Andersens.h"           // INTEL
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -154,6 +155,7 @@ namespace {
       // For now, recreate dom info, if loop is unrolled.
       AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
+      AU.addPreserved<AndersensAAWrapperPass>();           // INTEL
     }
 
     // Fill in the UnrollingPreferences parameter with values from the

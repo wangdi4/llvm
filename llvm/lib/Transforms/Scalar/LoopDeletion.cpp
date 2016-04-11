@@ -18,6 +18,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"    // INTEL
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Dominators.h"
@@ -49,6 +50,7 @@ namespace {
       AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addPreserved<LoopInfoWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
+      AU.addPreserved<AndersensAAWrapperPass>();    // INTEL
       AU.addPreservedID(LoopSimplifyID);
       AU.addPreservedID(LCSSAID);
     }
