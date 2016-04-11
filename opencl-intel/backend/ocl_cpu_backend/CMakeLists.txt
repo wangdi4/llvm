@@ -36,12 +36,6 @@ if (NOT WIN32)
                             LINK_FLAGS "-Wl,-Bsymbolic -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME}" )
     endfunction ( SET_LINUX_EXPORTS_FILE )
 
-    # configure immediate dependencies search path at run time for non-standard libs
-    set(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
-    set(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
-    set(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
-    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
-
     set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
 
     # Compiler switches that CANNOT be modified during makefile generation
@@ -68,33 +62,6 @@ if (NOT WIN32)
 
     find_package(Threads)
     set( INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} ${RT_LIB}" )
-
-
-    # embed RPATH and RUNPATH to the binaries that assumes that everything is installed in the same directory
-    #
-    # Description:
-    #   RPATH is used to locate dynamically load shared libraries/objects (DLLs) for the non-standard OS
-    #   locations without need of relinking DLLs during installation. The algorithm is the following:
-    #
-    #     1. If RPATH is present in the EXE/DLL and RUNPATH is NOT present, search through it.
-    #     2. If LD_LIBRARY_PATH env variable is present, search through it
-    #     3. If RUNPATH is present in the EXE/DLL, search through it
-    #     4. Search through locations, configured by system admin and cached in /etc/ld.so.cache
-    #     5. Search through /lib and /usr/lib
-    #
-    #   RUNPATH influences only the immediate dependencies, while RPATH influences the whole subtree of dependencies
-    #   RPATH is concidered deprecated in favor of RUNPATH, but RUNPATH does not supported by some Linux systems.
-    #   If RUNPATH is not supported, system loader may report error - remove "-Wl,--enable-new-dtags" above to
-    #   disable RUNPATH generation.
-    #
-    #   If RPATH or RUNPATH contains string $ORIGIN it is substituted by the full path to the containing EXE/DLL.
-    #   Security issue 1: if EXE/DLL is marked as set-uid or set-gid, $ORIGIN is ignored.
-    #   Security issue 2: if RPATH/RUNPATH references relative subdirs, intruder may fool it by using softlinks
-    #
-    set(CMAKE_SKIP_BUILD_RPATH                  TRUE)   # do not add pointers to the build tree
-    set(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE)   # build rpath as if already installed
-    set(CMAKE_INSTALL_RPATH                     "$ORIGIN") # the rpath to use - search through installation dir only
-    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
 
     # C switches
     set( CMAKE_C_FLAGS         "${CMAKE_C_FLAGS}         ${ADD_C_FLAGS}")
