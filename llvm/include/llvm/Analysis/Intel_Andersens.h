@@ -318,6 +318,8 @@ public:
   bool escapes(const Value *V);
 
 private:
+  bool findNameInTable(StringRef rname, const char** name_table);
+
   bool isPointsToType(Type *Ty) const;
 
   unsigned getNode(Value *V);

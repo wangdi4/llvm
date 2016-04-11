@@ -142,6 +142,30 @@ static cl::opt<int>
 AndersNumConstraintsAfterOptLimit("anders-num-constraints-after-opt-limit",
                             cl::ReallyHidden, cl::init(140000));
 
+// Table of all malloc-like calls that allocate memory. It is used to find
+// whether a call is allocating memory or not during Constraint Collections
+// and treat them new object creators.
+// TODO: Add more flavors of “new” on Windows.
+static const char *(Andersens_Alloc_Intrinsics[]) = {
+   "malloc",
+   "calloc",
+   "realloc",
+   "mmap",
+   "palloc",
+   "strdup",
+   "memalign",
+   "mempool_alloc",
+   "_Znaj",
+   "_ZnajRKSt9nothrow_t",
+   "_Znwj",
+   "_ZnwjRKSt9nothrow_t",
+   "_Znam",
+   "_ZnamRKSt9nothrow_t",
+   "_Znwm",
+   "_ZnwmRKSt9nothrow_t",
+   nullptr 
+};
+
 static const unsigned SelfRep = (unsigned)-1;
 static const unsigned Unvisited = (unsigned)-1;
 // Position of the function return node relative to the function node.
@@ -608,6 +632,21 @@ void AndersensAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
 
+// Returns true if ‘rname’ is found in ‘name_table’.
+bool AndersensAAResult::findNameInTable(StringRef rname, 
+                                        const char** name_table) {
+
+  if (name_table == nullptr) {
+    return false;
+  }
+  for (int i = 0; name_table[i] != nullptr; i++) {
+    if (rname == name_table[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Returns true if "Ty" is Ptr type or PtrVector type.
 bool AndersensAAResult::isPointsToType(Type *Ty) const {
   if (Ty->getScalarType()->isPointerTy()) {
@@ -1048,9 +1087,7 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
           ValueNodes[Callee] = NumObjects++;
 
         if (const Function *F1 = CS.getCalledFunction()) {
-            // TODO: Make this condition as utility function later
-            // after adding more malloc-like calls
-            if (F1->getName() == "malloc" || F1->getName() == "calloc") {
+            if (findNameInTable(F1->getName(), Andersens_Alloc_Intrinsics)) {
                   ObjectNodes[CS.getInstruction()] = NumObjects++;
            }
         }
@@ -1830,10 +1867,9 @@ void AndersensAAResult::AddConstraintsForCall(CallSite CS, Function *F) {
 }
 
 void AndersensAAResult::visitCallSite(CallSite CS) {
-  // TODO: Make this condition as utility function to handle all
-  // malloc-like calls.   
-  if (CS.getCalledFunction() && (CS.getCalledFunction()->getName() == "malloc"
-                      || CS.getCalledFunction()->getName() == "calloc")) {
+  if (CS.getCalledFunction() && 
+      findNameInTable(CS.getCalledFunction()->getName(),
+                      Andersens_Alloc_Intrinsics)) {
       // Instruction* inst = CS.getInstruction();
       unsigned ObjectIndex = getObject(CS.getInstruction());
       GraphNodes[ObjectIndex].setValue(CS.getInstruction());
