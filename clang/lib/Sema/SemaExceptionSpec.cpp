@@ -311,6 +311,14 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
     // when declaring a replaceable global allocation function.
     DiagID = diag::ext_missing_exception_specification;
     ReturnValueOnError = false;
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ#381827: allow missing exception specification in system header.
+  } else if (getLangOpts().IntelCompat &&
+             MissingExceptionSpecification &&
+             SourceMgr.isInSystemHeader(New->getLocation())) {
+    // No error/waring because it is system header so user cannot fix it.
+    return false;
+#endif // INTEL_CUSTOMIZATION
   } else {
     DiagID = diag::err_missing_exception_specification;
     ReturnValueOnError = true;

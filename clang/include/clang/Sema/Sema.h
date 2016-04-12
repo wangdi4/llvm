@@ -1697,6 +1697,7 @@ public:
   void CheckShadow(Scope *S, VarDecl *D);
   void CheckCastAlign(Expr *Op, QualType T, SourceRange TRange);
   void handleTagNumbering(const TagDecl *Tag, Scope *TagScope);
+  void HandleModeAttr(const AttributeList &Attr, QualType *CurTy); // INTEL
   void setTagNameForLinkagePurposes(TagDecl *TagFromDeclSpec,
                                     TypedefNameDecl *NewTD);
   void CheckTypedefForVariablyModifiedType(Scope *S, TypedefNameDecl *D);
@@ -8073,7 +8074,9 @@ public:
 
   /// AddModeAttr - Adds a mode attribute to a particular declaration.
   void AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
-                   unsigned SpellingListIndex, bool InInstantiation = false);
+                   unsigned SpellingListIndex,   // INTEL
+                   bool InInstantiation = false, // INTEL
+                   QualType *CurTy = nullptr);   // INTEL
 
   //===--------------------------------------------------------------------===//
   // C++ Coroutines TS

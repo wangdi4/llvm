@@ -939,7 +939,10 @@ LANGBUILTIN(_alloca, "v*z", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 BUILTIN(__assume,     "vb",  "n")
 BUILTIN(__debugbreak, "v",   "n")
 #else
-LANGBUILTIN(__assume,         "vb",  "n", ALL_MS_LANGUAGES)
+#if INTEL_CUSTOMIZATION
+// CQ#373187: __assume is always enabled in ICC mode.
+LANGBUILTIN(__assume, "vb",  "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+#endif
 LANGBUILTIN(__debugbreak,     "v",   "n", ALL_MS_LANGUAGES)
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 LANGBUILTIN(__exception_code, "ULi", "n", ALL_MS_LANGUAGES)

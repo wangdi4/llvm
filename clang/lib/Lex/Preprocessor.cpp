@@ -74,9 +74,6 @@ Preprocessor::Preprocessor(IntrusiveRefCntPtr<PreprocessorOptions> PPOpts,
       CodeCompletionReached(0), MainFileDir(nullptr),
       SkipMainFilePreamble(0, true), CurPPLexer(nullptr), CurDirLookup(nullptr),
       CurLexerKind(CLK_Lexer), CurSubmodule(nullptr),
-#if INTEL_CUSTOMIZATION
-      LastIncludeWasQuoted(false),
-#endif //INTEL_CUSTOMIZATION
       Callbacks(nullptr),
       CurSubmoduleState(&NullSubmoduleState), MacroArgCache(nullptr),
       Record(nullptr), MIChainHead(nullptr), DeserialMIChainHead(nullptr) {

@@ -111,6 +111,10 @@ static void getDarwinDefines(MacroBuilder &Builder, const LangOptions &Opts,
                              const llvm::Triple &Triple,
                              StringRef &PlatformName,
                              VersionTuple &PlatformMinVersion) {
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ408071: driver in MacOS redefines some macros.
+  if (!Opts.IntelCompat)
+#endif
   Builder.defineMacro("__APPLE_CC__", "6000");
   Builder.defineMacro("__APPLE__");
   Builder.defineMacro("OBJC_NEW_PROPERTIES");
@@ -202,6 +206,10 @@ static void getDarwinDefines(MacroBuilder &Builder, const LangOptions &Opts,
       Str[5] = '0' + (Rev % 10);
       Str[6] = '\0';
     }
+#if INTEL_CUSTOMIZATION
+    // Fix for CQ408071: driver in MacOS redefines some macros.
+    if (!Opts.IntelCompat)
+#endif
     Builder.defineMacro("__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__", Str);
   }
 
@@ -2579,7 +2587,7 @@ bool X86TargetInfo::initFeatureMap(
   if (getTriple().getArch() == llvm::Triple::x86_64)
     setFeatureEnabledImpl(Features, "sse2", true);
 
-  CPUKind Kind = getCPUKind(CPU);
+  const CPUKind Kind = getCPUKind(CPU);
 
   // Enable X87 for all X86 processors but Lakemont.
   if (Kind != CK_Lakemont)
