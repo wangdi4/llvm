@@ -53,7 +53,7 @@ crt_err_code CrtConfig::Init()
 
     if (emulatorEnabled())
     {
-        valueName = "cpu_2_0_emulator_path";
+        valueName = "cpu_2_1_emulator_path";
     }
     else
     {
@@ -82,19 +82,8 @@ crt_err_code CrtConfig::Init()
 
 bool CrtConfig::emulatorEnabled()
 {
-#if defined( _WIN32 )
-
-    const char *regPath = "SOFTWARE\\Intel\\OpenCL";
-    char emulatorVal[16];
-    bool retVal = OCLCRT::Utils::GetStringValueFromRegistry(HKEY_LOCAL_MACHINE, regPath, "ocl_2_0_enabled", emulatorVal, 16);
-
-    if(retVal)
-    {
-        if(_stricmp(emulatorVal, "true") == 0)
-        {
-            return true;
-        }
-    }
-#endif
+#if defined( _WIN32 ) && defined( BUILD_EXPERIMENTAL_21 )
+    return true;
+#endif // defined( _WIN32 )
     return false;
 }

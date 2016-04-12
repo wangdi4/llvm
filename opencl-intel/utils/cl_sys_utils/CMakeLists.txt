@@ -11,9 +11,6 @@ if( DISABLE_NUMA_SUPPORT )
     add_definitions( -DDISABLE_NUMA_SUPPORT )
 endif( DISABLE_NUMA_SUPPORT )
 
-if ( BUILD_2_0_RT )
-    add_definitions( -DBUILD_2_0_RT )
-endif ( BUILD_2_0_RT )
 
 include_directories( AFTER
             ../cl_hw_utils/export

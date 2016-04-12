@@ -36,7 +36,7 @@ if (WIN32)
         set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR} )
     else (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2010
-        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
+        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010${EXPERIMENTAL_POSTFIX}/${OCL_SYS_DEPENDENT_SUBDIR} )
     endif (${MSVC_VERSION} EQUAL 1500)
 else (WIN32)
     set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
@@ -86,16 +86,16 @@ if (WIN32)
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008
         set_target_properties(${TARGET_NAME} PROPERTIES
-		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb.dll"
-		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug.dll"
+		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb${EXPERIMENTAL_POSTFIX}.dll"
+		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug${EXPERIMENTAL_POSTFIX}.dll"
 	    )        
 	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS	"${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")	    
     else (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2010 (assumed if not Visual Studio 2008)
         # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
         # The /DEBUG flag is required in order to create stripped pdbs.	
-	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb_debug.lib /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:tbb_debug.dll /PDBSTRIPPED:${PDB_NAME}")
-	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} tbbmalloc.lib tbb.lib /DELAYLOAD:tbbmalloc.dll  /DELAYLOAD:tbb.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
+	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb_debug${EXPERIMENTAL_POSTFIX}.lib /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:tbb_debug${EXPERIMENTAL_POSTFIX}.dll /PDBSTRIPPED:${PDB_NAME}")
+	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} tbbmalloc.lib tbb${EXPERIMENTAL_POSTFIX}.lib /DELAYLOAD:tbbmalloc.dll  /DELAYLOAD:tbb${EXPERIMENTAL_POSTFIX}.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
     endif (${MSVC_VERSION} EQUAL 1500)
 	install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
     if (INSTALL_PDBS)
@@ -117,3 +117,7 @@ endif (WIN32)
 
 target_link_libraries( ${TARGET_NAME} ${LINK_LIBS} cl_logger cl_sys_utils cl_hw_utils )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )
+
+if ( BUILD_EXPERIMENTAL_21 )
+    set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "${TARGET_NAME}${EXPERIMENTAL_POSTFIX}")
+endif ( BUILD_EXPERIMENTAL_21 )
