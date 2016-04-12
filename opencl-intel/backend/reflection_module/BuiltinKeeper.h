@@ -68,7 +68,7 @@ public:
 
 private:
   BuiltinKeeper();
-  ~BuiltinKeeper();
+  ~BuiltinKeeper(){}
   BuiltinKeeper& operator= (const BuiltinKeeper&)const;
   BuiltinKeeper(const BuiltinKeeper&);
 
@@ -140,7 +140,6 @@ private:
   /////////////////////////////////////////////////////////////////////////////
   bool searchAndCacheUpdate(const FunctionDescriptor&) const;
 
-  static BuiltinKeeper* Instance;
   // Cache for builtins. (contains builtin function which where previously
   // queried.
   mutable BuiltinMap m_descriptorsMap;

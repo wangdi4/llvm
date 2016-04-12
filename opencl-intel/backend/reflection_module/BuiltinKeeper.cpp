@@ -165,8 +165,6 @@ void BuiltinKeeper::addConversionGroup (const StringArray& names,
 
 llvm::sys::Mutex mutex;
 
-BuiltinKeeper* BuiltinKeeper::Instance = NULL;
-
 BuiltinKeeper::BuiltinKeeper(){
   populateReturnTyMap(); 
   m_soaStrategy.setTypeMap(&m_fdToRetTy);
@@ -693,12 +691,9 @@ void BuiltinKeeper::populateReturnTyMap(){
 }
 
 const BuiltinKeeper* BuiltinKeeper::instance(){
-  {
-    llvm::MutexGuard gaurd(mutex);
-    if (!Instance)
-      Instance = new BuiltinKeeper();
-  }
-  return Instance;
+  llvm::MutexGuard gaurd(mutex);
+  static BuiltinKeeper Instance;
+  return &Instance;
 }
 
 //Wrapper around the range struct
