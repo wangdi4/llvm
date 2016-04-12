@@ -3,30 +3,30 @@
 ; split off cycle of {11,13,14,16}
 ;          BEGIN REGION { }
 ;<21>         + DO i1 = 0, 127, 1   <DO_LOOP>
-;<3>          |   %0 = (@B)[0][i1];
-;<5>          |   %1 = (@C)[0][i1];
+;<3>          |   %0 = {al:4}(@B)[0][i1];
+;<5>          |   %1 = {al:4}(@C)[0][i1];
 ;<6>          |   %add = %0  +  %1;
-;<9>          |   (@MC)[0][i1 + 1] = %add;
-;<11>         |   %2 = (@DC)[0][i1];
-;<13>         |   %3 = (@MC)[0][i1];
+;<9>          |   {al:4}(@MC)[0][i1 + 1] = %add;
+;<11>         |   %2 = {al:4}(@DC)[0][i1];
+;<13>         |   %3 = {al:4}(@MC)[0][i1];
 ;<14>         |   %add10 = %2  +  %3;
-;<16>         |   (@DC)[0][i1 + 1] = %add10;
+;<16>         |   {al:4}(@DC)[0][i1 + 1] = %add10;
 ;<22>         + END LOOP
 ;          END REGION
 
 ; CHECK: BEGIN REGION
 ; CHECK-NEXT: DO i1 = 0, 127, 1
-; CHECK-DAG: [[B_LD:%.*]] = (@B)[0][i1]
-; CHECK-DAG: [[C_LD:%.*]] = (@C)[0][i1]
+; CHECK-DAG: [[B_LD:%.*]] = {al:4}(@B)[0][i1]
+; CHECK-DAG: [[C_LD:%.*]] = {al:4}(@C)[0][i1]
 ; CHECK-NEXT: [[ADD:%.*]] = [[B_LD]] + [[C_LD]]
-; CHECK-NEXT: (@MC)[0][i1 + 1] = [[ADD]]
+; CHECK-NEXT: {al:4}(@MC)[0][i1 + 1] = [[ADD]]
 ; CHECK: END LOOP
 
 ; CHECK-NEXT: DO i1 = 0, 127, 1
-; CHECK-DAG: [[DC_LD:%.*]] = (@DC)[0][i1]
-; CHECK-DAG: [[MC_LD:%.*]] = (@MC)[0][i1]
+; CHECK-DAG: [[DC_LD:%.*]] = {al:4}(@DC)[0][i1]
+; CHECK-DAG: [[MC_LD:%.*]] = {al:4}(@MC)[0][i1]
 ; CHECK-NEXT: [[ADD2:%.*]] = [[DC_LD]] + [[MC_LD]]
-; CHECK-NEXT: (@DC)[0][i1 + 1] = [[ADD2]]
+; CHECK-NEXT: {al:4}(@DC)[0][i1 + 1] = [[ADD2]]
 ; CHECK: END LOOP
 ; CHECK-NEXT: END REGION
 

@@ -56,9 +56,13 @@
 //                                                                            //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Operator.h"
@@ -67,13 +71,9 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -439,7 +439,7 @@ const CanonExpr *DDtest::getMulExpr(const CanonExpr *CE1,
 }
 
 const CanonExpr *DDtest::getConstantfromAPInt(Type *Ty, const APInt &apint) {
-  CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, apint, 0); // level 0
+  CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, apint);
   push(CE);
 
   return CE;
@@ -2543,6 +2543,7 @@ bool DDtest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
                      Constraint &NewConstraint, const CanonExpr *&SplitIter,
                      const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop) {
 
+  DEBUG(dbgs() << "\n Test SIV \n");
   DEBUG(dbgs() << "\n   src = "; Src->dump());
   DEBUG(dbgs() << "\n");
   DEBUG(dbgs() << "   dst = "; Dst->dump());
@@ -2559,20 +2560,20 @@ bool DDtest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
     const HLLoop *CurLoop = SrcLoop;
     assert(SrcLoop == DstLoop && "both loops in SIV should be same");
     Level = mapSrcLoop(CurLoop);
-    bool disproven;
+    bool Disproven;
 
     if (areCEEqual(SrcCoeff, DstCoeff)) {
-      disproven = strongSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop, Level,
+      Disproven = strongSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop, Level,
                                 Result, NewConstraint);
     } else if (areCEEqual(SrcCoeff, getNegative(DstCoeff))) {
-      disproven = weakCrossingSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop,
+      Disproven = weakCrossingSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop,
                                       Level, Result, NewConstraint, SplitIter);
     } else {
-      disproven = exactSIVtest(SrcCoeff, DstCoeff, SrcConst, DstConst, CurLoop,
+      Disproven = exactSIVtest(SrcCoeff, DstCoeff, SrcConst, DstConst, CurLoop,
                                Level, Result, NewConstraint);
     }
 
-    return disproven ||
+    return Disproven ||
            gcdMIVtest(Src, Dst, SrcParentLoop, DstParentLoop, Result) ||
            symbolicRDIVtest(SrcCoeff, DstCoeff, SrcConst, DstConst, CurLoop,
                             CurLoop);
@@ -4035,15 +4036,15 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   if (!IsSrcBlob) {
     RegDDRef *RDef = cast<RegDDRef>(SrcDDRef);
-    SrcBaseCE = RDef->getBaseCE();
+    SrcBaseCE = RDef->hasGEPInfo() ? RDef->getBaseCE() : nullptr;
   }
 
   if (!IsDstBlob) {
     RegDDRef *RDef = cast<RegDDRef>(DstDDRef);
-    DstBaseCE = RDef->getBaseCE();
+    DstBaseCE = RDef->hasGEPInfo() ? RDef->getBaseCE() : nullptr;
   }
 
-  if (numSrcDim != numDstDim || !areCEEqual(SrcBaseCE, DstBaseCE, true)) {
+  if (numSrcDim != numDstDim || !areCEEqual(SrcBaseCE, DstBaseCE)) {
     //  Number of dimemsion are different or
     //  different base: need to bail out
     DEBUG(dbgs() << "\nDiff dim or base\n");
@@ -4579,7 +4580,7 @@ void DDtest::getDVForBackwardEdge(const DVectorTy &InputDV, DVectorTy &outputDV,
 
 bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
                              const DVectorTy &InputDV, DVectorTy &forwardDV,
-                             DVectorTy &backwardDV) {
+                             DVectorTy &backwardDV, bool *IsLoopIndepDepTemp) {
 
   // This interface is created to facilitate the building of DDG when forward or
   // backward  edges are needed.
@@ -4599,12 +4600,18 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  like scalar vars).
   //  New code added here for temps with more precision  in DV
 
+  //  IsLoopIndepDepTemp, is returned as true for temps with
+  //  Loop independent dependence
+  //    t1 =
+  //       = t1
+
   bool isTemp = false;
 
   initDV(forwardDV);
   initDV(backwardDV);
 
   auto Result = depends(SrcDDRef, DstDDRef, InputDV);
+  *IsLoopIndepDepTemp = false;
 
   if (Result == nullptr) {
     DEBUG(dbgs() << "\nIs Independent!\n");
@@ -4734,22 +4741,26 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
           for (unsigned II = 1; II <= Levels; ++II) {
             forwardDV[II - 1] = DV::EQ;
           }
-          // Suppress ANTI (< ) edge for now until it's really needed
-          backwardDV[0] = DV::LT;
-          for (unsigned II = 2; II <= Levels; ++II) {
-            backwardDV[II - 1] = DV::ALL;
-          }
-
+          // Suppress ANTI (< ) edge to save Compile time
+          // Instead, set a flag as below
+          // Most Transformations would have to scan and drop this kind
+          // of Anti Dep
+          // backwardDV[0] = DV::LT;
+          // for (unsigned II = 2; II <= Levels; ++II) {
+          //  backwardDV[II - 1] = DV::ALL;
+          // }
         } else {
           for (unsigned II = 1; II <= Levels; ++II) {
             backwardDV[II - 1] = DV::EQ;
           }
-          forwardDV[0] = DV::LT;
-          for (unsigned II = 2; II <= Levels; ++II) {
-            forwardDV[II - 1] = DV::ALL;
-          }
           // Suppress ANTI (< ) edge for now until it's really needed
+          // forwardDV[0] = DV::LT;
+          // for (unsigned II = 2; II <= Levels; ++II) {
+          //  forwardDV[II - 1] = DV::ALL;
+          // }
         }
+        *IsLoopIndepDepTemp = true;
+
       } else if (IsAnti) {
         // b)    = x ;
         //     x =  ;
@@ -5029,6 +5040,7 @@ bool llvm::loopopt::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
     auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
     if (Result == nullptr) {
       *IsIndependent = true;
+      return true;
     }
     for (unsigned I = 1; I <= Result->getLevels(); ++I) {
       RefinedDV[I - 1] = Result->getDirection(I);

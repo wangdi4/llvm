@@ -725,18 +725,14 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
       WideInst = HLNodeUtils::createBinaryHLInst(
         BOp->getOpcode(), WideOps[1], WideOps[2],
         CurInst->getName() + ".vec",  WideOps[0], BOp);
-  } else if (auto LI = dyn_cast<LoadInst>(CurInst)) {
+  } else if (isa<LoadInst>(CurInst)) {
     WideInst = HLNodeUtils::createLoad(WideOps[1],
                                        CurInst->getName() + ".vec",
-                                       WideOps[0],
-                                       LI->isVolatile(), LI->getAlignment());
-
-  } else if (auto SI = dyn_cast<StoreInst>(CurInst)) {
+                                       WideOps[0]);
+  } else if (isa<StoreInst>(CurInst)) {
     WideInst = HLNodeUtils::createStore(WideOps[1],
                                         CurInst->getName() + ".vec",
-                                        WideOps[0],
-                                        SI->isVolatile(), SI->getAlignment());
-
+                                        WideOps[0]);
     InsertInMap = false;
   } else if (isa<CastInst>(CurInst)) {
     assert(WideOps.size() == 2 && "invalid cast");

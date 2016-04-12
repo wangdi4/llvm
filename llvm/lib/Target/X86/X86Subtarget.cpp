@@ -263,6 +263,7 @@ void X86Subtarget::initializeEnvironment() {
   HasBMI = false;
   HasBMI2 = false;
   HasVBMI = false;
+  HasIFMA = false;
   HasRTM = false;
   HasHLE = false;
   HasERI = false;
@@ -285,6 +286,7 @@ void X86Subtarget::initializeEnvironment() {
   HasSSEUnalignedMem = false;
   HasCmpxchg16b = false;
   UseLeaForSP = false;
+  HasFastPartialYMMWrite = false;
   HasSlowDivide32 = false;
   HasSlowDivide64 = false;
   PadShortFunctions = false;

@@ -379,7 +379,7 @@ BasicBlock *Loop::getUniqueExitBlock() const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void Loop::dump() const {
+LLVM_DUMP_METHOD void Loop::dump() const {
   print(dbgs());
 }
 #endif
@@ -641,7 +641,7 @@ void LoopInfo::markAsRemoved(Loop *Unloop) {
   }
 }
 
-char LoopAnalysis::PassID;
+template class llvm::AnalysisBase<LoopAnalysis>;
 
 LoopInfo LoopAnalysis::run(Function &F, AnalysisManager<Function> *AM) {
   // FIXME: Currently we create a LoopInfo from scratch for every function.

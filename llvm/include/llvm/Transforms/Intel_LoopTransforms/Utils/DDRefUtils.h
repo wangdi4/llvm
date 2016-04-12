@@ -23,7 +23,7 @@
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 
 namespace llvm {
 
@@ -37,7 +37,7 @@ namespace loopopt {
 ///
 /// It contains a bunch of static member functions which manipulate DDRefs.
 /// It does not store any state.
-class DDRefUtils : public HLUtils {
+class DDRefUtils : public HIRUtils {
 private:
   /// \brief Do not allow instantiation.
   DDRefUtils() = delete;
@@ -93,12 +93,14 @@ public:
   static RegDDRef *createUndefDDRef(Type *Ty);
 
   /// \brief Returns a new BlobDDRef representing blob with Index. Level is the
-  /// defined at level for the blob. Level of -1 means non-linear blob.
-  static BlobDDRef *createBlobDDRef(unsigned Index, int Level = -1);
+  /// defined at level for the blob.
+  static BlobDDRef *createBlobDDRef(unsigned Index,
+                                    unsigned Level = NonLinearLevel);
 
   /// \brief Returns a new RegDDRef representing blob with Index. Level is the
-  /// defined at level for the blob. Level of -1 means non-linear blob.
-  static RegDDRef *createSelfBlobRef(unsigned Index, int Level = -1);
+  /// defined at level for the blob.
+  static RegDDRef *createSelfBlobRef(unsigned Index,
+                                     unsigned Level = NonLinearLevel);
 
   /// \brief Destroys the passed in DDRef.
   static void destroy(DDRef *Ref);
@@ -111,6 +113,10 @@ public:
   /// of RegDDRef. This parameter is ignored in all other cases.
   static bool areEqual(const DDRef *Ref1, const DDRef *Ref2,
                        bool IgnoreDestType = false);
+
+  /// \brief Prints metadata nodes attached to RegDDRef.
+  static void printMDNodes(formatted_raw_ostream &OS,
+                           const RegDDRef::MDNodesTy &MDNodes);
 
   /// \brief Returns true if it is able to compute a constant distance between
   /// \p Ref1 and \p Ref2.

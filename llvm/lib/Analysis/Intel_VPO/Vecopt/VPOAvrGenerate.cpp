@@ -33,7 +33,7 @@ using namespace llvm::loopopt;
 
 INITIALIZE_PASS_BEGIN(AVRGenerate, "avr-generate", "AVR Generate", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo);
 INITIALIZE_PASS_END(AVRGenerate, "avr-generate", "AVR Generate", false, true)
@@ -85,7 +85,7 @@ AVRGenerateBase::AVRGenerateBase(char &ID) : FunctionPass(ID) {
 void AVRGenerateBase::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<DominatorTreeWrapperPass>();
-  AU.addRequired<PostDominatorTree>();
+  AU.addRequired<PostDominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
 }
 
@@ -630,7 +630,7 @@ void AVRGenerate::getAnalysisUsage(AnalysisUsage &AU) const {
 bool AVRGenerate::runOnFunction(Function &F) {
 
   DT  = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  PDT = &getAnalysis<PostDominatorTree>();
+  PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   LI  = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   WR  = &getAnalysis<WRegionInfo>();
 
@@ -1215,7 +1215,7 @@ void AVRGenerateHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AVRGenerateBase::getAnalysisUsage(AU);
   AU.addRequiredTransitive<HIRParser>();
   AU.addRequiredTransitive<HIRLocalityAnalysis>();
-  AU.addRequiredTransitive<DDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysis>();
 }
 
 bool AVRGenerateHIR::runOnFunction(Function &F) {

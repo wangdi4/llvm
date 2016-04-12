@@ -36,7 +36,7 @@ private:
   RegDDRef *ParentDDRef;
 
 protected:
-  explicit BlobDDRef(unsigned Index, int Level);
+  explicit BlobDDRef(unsigned Index, unsigned Level);
   virtual ~BlobDDRef() override {}
 
   /// \brief Copy constructor used by cloning.

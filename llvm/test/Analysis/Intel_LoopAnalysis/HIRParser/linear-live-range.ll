@@ -17,28 +17,28 @@
 ;  }
 
 ; CHECK: DO i1 = 0, 56, 1
-; CHECK: %fs.promoted = (%fs)[0]
+; CHECK: %fs.promoted = {al:4}(%fs)[0]
 ; CHECK-NEXT: %add21136 = %fs.promoted
 ; CHECK-NEXT: DO i2 = 0, zext.i32.i64((4 + (-1 * trunc.i64.i32(%indvars.iv169))))
-; CHECK-NEXT: %5 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57]
-; CHECK-NEXT: (%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %5
-; CHECK-NEXT: %6 = (%n)[0][-1 * i1 + i2 + 58]
+; CHECK-NEXT: %5 = {al:4}(%ti)[0][-1 * i1 + 58][-1 * i1 + 57]
+; CHECK-NEXT: {al:4}(%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %5
+; CHECK-NEXT: %6 = {al:4}(%n)[0][-1 * i1 + i2 + 58]
 ; CHECK-NEXT: %add21136 = -1 * i1 + i2 + %6 + 58  +  %add21136
 ; CHECK-NEXT: END LOOP
-; CHECK-NEXT: (%fs)[0] = %add21136
-; CHECK: %arrayidx35.promoted = (%ti)[0][-1 * i1 + 57][-1 * i1 + 57]
-; CHECK-NEXT: %n1.promoted = (%n1)[0]
+; CHECK-NEXT: {al:4}(%fs)[0] = %add21136
+; CHECK: %arrayidx35.promoted = {al:4}(%ti)[0][-1 * i1 + 57][-1 * i1 + 57]
+; CHECK-NEXT: %n1.promoted = {al:4}(%n1)[0]
 ; CHECK-NEXT: %8 = %arrayidx35.promoted
 ; CHECK-NEXT: DO i2 = 0, zext.i32.i64((4 + (-1 * trunc.i64.i32(%indvars.iv169))))
-; CHECK-NEXT: %10 = (%ep)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 57]
+; CHECK-NEXT: %10 = {al:4}(%ep)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 57]
 ; CHECK-NEXT: %8 = %8  +  %10
-; CHECK-NEXT: (%a)[0][-1 * i1 + i2 + 58] = -1 * i2 + %n1.promoted
-; CHECK-NEXT: %11 = (%x)[0][-1 * i1 + i2 + 58]
-; CHECK-NEXT: %12 = (%s7)[0][-1 * i1 + i2 + 57]
-; CHECK-NEXT: (%s7)[0][-1 * i1 + i2 + 57] = -1 * %11 + %12
+; CHECK-NEXT: {al:4}(%a)[0][-1 * i1 + i2 + 58] = -1 * i2 + %n1.promoted
+; CHECK-NEXT: %11 = {al:4}(%x)[0][-1 * i1 + i2 + 58]
+; CHECK-NEXT: %12 = {al:4}(%s7)[0][-1 * i1 + i2 + 57]
+; CHECK-NEXT: {al:4}(%s7)[0][-1 * i1 + i2 + 57] = -1 * %11 + %12
 ; CHECK-NEXT: END LOOP
-; CHECK-NEXT: (%ti)[0][-1 * i1 + 57][-1 * i1 + 57] = %8
-; CHECK-NEXT: (%n1)[0] = -1 * i1 + %n1.promoted + 53
+; CHECK-NEXT: {al:4}(%ti)[0][-1 * i1 + 57][-1 * i1 + 57] = %8
+; CHECK-NEXT: {al:4}(%n1)[0] = -1 * i1 + %n1.promoted + 53
 ; CHECK: %indvars.iv169 = -1 * i1 + 57
 ; CHECK-NEXT: END LOOP
 

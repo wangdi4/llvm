@@ -29,17 +29,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/IR/LLVMContext.h"
 
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/LoopFormation.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/ScalarSymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRRegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRScalarSymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
@@ -55,10 +53,10 @@ using namespace llvm::loopopt;
 INITIALIZE_PASS_BEGIN(HIRParser, "hir-parser", "HIR Parser", false, true)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
+INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(HIRCreation)
-INITIALIZE_PASS_DEPENDENCY(LoopFormation)
-INITIALIZE_PASS_DEPENDENCY(ScalarSymbaseAssignment)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopFormation)
+INITIALIZE_PASS_DEPENDENCY(HIRScalarSymbaseAssignment)
 INITIALIZE_PASS_END(HIRParser, "hir-parser", "HIR Parser", false, true)
 
 char HIRParser::ID = 0;
@@ -75,10 +73,10 @@ void HIRParser::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
-  AU.addRequiredTransitive<RegionIdentification>();
+  AU.addRequiredTransitive<HIRRegionIdentification>();
   AU.addRequiredTransitive<HIRCreation>();
-  AU.addRequiredTransitive<LoopFormation>();
-  AU.addRequiredTransitive<ScalarSymbaseAssignment>();
+  AU.addRequiredTransitive<HIRLoopFormation>();
+  AU.addRequiredTransitive<HIRScalarSymbaseAssignment>();
 }
 
 const Instruction *HIRParser::getCurInst() const {
@@ -135,7 +133,7 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
                                          bool Insert, bool ReturnSymbase) {
   assert(Blob && "Blob is null!");
 
-  BlobPtrIndexPairTy BlobPair(Blob, INVALID_BLOB_INDEX);
+  BlobPtrIndexPairTy BlobPair(Blob, InvalidBlobIndex);
 
   auto I = std::lower_bound(BlobToIndexMap.begin(), BlobToIndexMap.end(),
                             BlobPair, HIRParser::BlobPtrCompareLess());
@@ -148,7 +146,7 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
   }
 
   if (Insert) {
-    assert((!isTempBlob(Blob) || (Symbase > CONSTANT_SYMBASE)) &&
+    assert((!isTempBlob(Blob) || (Symbase > ConstantSymbase)) &&
            "Invalid Blob/Symbase combination!");
 
     BlobTable.push_back(std::make_pair(Blob, Symbase));
@@ -159,16 +157,16 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
     return BlobTable.size();
   }
 
-  return ReturnSymbase ? INVALID_SYMBASE : INVALID_BLOB_INDEX;
+  return ReturnSymbase ? InvalidSymbase : InvalidBlobIndex;
 }
 
 unsigned HIRParser::findBlob(BlobTy Blob) {
-  return findOrInsertBlobImpl(Blob, INVALID_SYMBASE, false, false);
+  return findOrInsertBlobImpl(Blob, InvalidSymbase, false, false);
   ;
 }
 
 unsigned HIRParser::findBlobSymbase(BlobTy Blob) {
-  return findOrInsertBlobImpl(Blob, INVALID_SYMBASE, false, true);
+  return findOrInsertBlobImpl(Blob, InvalidSymbase, false, true);
 }
 
 unsigned HIRParser::findOrInsertBlob(BlobTy Blob, unsigned Symbase) {
@@ -186,7 +184,7 @@ unsigned HIRParser::getBlobSymbase(unsigned Index) const {
 }
 
 bool HIRParser::isBlobIndexValid(unsigned Index) const {
-  return ((Index > INVALID_BLOB_INDEX) && (Index <= BlobTable.size()));
+  return ((Index > InvalidBlobIndex) && (Index <= BlobTable.size()));
 }
 
 void HIRParser::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
@@ -335,7 +333,7 @@ BlobTy HIRParser::createBlob(int64_t Val, Type *Ty, bool Insert,
   assert(Ty && "Type cannot be null!");
   auto Blob = SE->getConstant(Ty, Val, false);
 
-  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -346,7 +344,7 @@ BlobTy HIRParser::createAddBlob(BlobTy LHS, BlobTy RHS, bool Insert,
 
   auto Blob = SE->getAddExpr(LHS, RHS);
 
-  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -357,7 +355,7 @@ BlobTy HIRParser::createMinusBlob(BlobTy LHS, BlobTy RHS, bool Insert,
 
   auto Blob = SE->getMinusSCEV(LHS, RHS);
 
-  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -368,7 +366,7 @@ BlobTy HIRParser::createMulBlob(BlobTy LHS, BlobTy RHS, bool Insert,
 
   auto Blob = SE->getMulExpr(LHS, RHS);
 
-  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -379,7 +377,7 @@ BlobTy HIRParser::createUDivBlob(BlobTy LHS, BlobTy RHS, bool Insert,
 
   auto Blob = SE->getUDivExpr(LHS, RHS);
 
-  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -391,7 +389,7 @@ BlobTy HIRParser::createTruncateBlob(BlobTy Blob, Type *Ty, bool Insert,
 
   auto NewBlob = SE->getTruncateExpr(Blob, Ty);
 
-  insertBlobHelper(NewBlob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -403,7 +401,7 @@ BlobTy HIRParser::createZeroExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
 
   auto NewBlob = SE->getZeroExtendExpr(Blob, Ty);
 
-  insertBlobHelper(NewBlob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -415,7 +413,7 @@ BlobTy HIRParser::createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
 
   auto NewBlob = SE->getSignExtendExpr(Blob, Ty);
 
-  insertBlobHelper(NewBlob, INVALID_SYMBASE, Insert, NewBlobIndex);
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -627,7 +625,8 @@ public:
     if (HIRP->isTempBlob(Unknown)) {
       auto Val = Unknown->getValue();
 
-      auto BaseVal = HIRP->ScalarSA->traceSingleOperandPhis(Val);
+      auto BaseVal = HIRP->ScalarSA->traceSingleOperandPhis(
+          Val, HIRP->CurRegion->getIRRegion());
       BaseVal = HIRP->ScalarSA->getBaseScalar(BaseVal);
 
       if (BaseVal != Val) {
@@ -1080,7 +1079,7 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
 }
 
 bool HIRParser::isRegionLiveOut(const Instruction *Inst) const {
-  auto Symbase = ScalarSA->getScalarSymbase(Inst);
+  auto Symbase = ScalarSA->getScalarSymbase(Inst, CurRegion->getIRRegion());
 
   if (Symbase && CurRegion->isLiveOut(Symbase)) {
     return true;
@@ -1143,8 +1142,7 @@ void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
   // If the CE is already non-linear, DefinedAtLevel cannot be refined any
   // further.
   if (!CE->isNonLinear()) {
-    // TODO: use CanonExprUtils::hasNonLinearSemantics()
-    if (DefLevel >= NestingLevel) {
+    if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NestingLevel)) {
       // Make non-linear instead.
       CE->setNonLinear();
     } else if (DefLevel > CE->getDefinedAtLevel()) {
@@ -1156,18 +1154,19 @@ void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
 void HIRParser::addTempBlobEntry(unsigned Index, unsigned NestingLevel,
                                  unsigned DefLevel) {
   // -1 indicates non-linear blob
-  // TODO: use CanonExprUtils::hasNonLinearSemantics()
-  int Level = (DefLevel >= NestingLevel) ? -1 : DefLevel;
-
+  unsigned Level = CanonExprUtils::hasNonLinearSemantics(DefLevel, NestingLevel)
+                       ? NonLinearLevel
+                       : DefLevel;
   CurTempBlobLevelMap.insert(std::make_pair(Index, Level));
 }
 
 unsigned HIRParser::findOrInsertBlobWrapper(BlobTy Blob, unsigned *SymbasePtr) {
-  unsigned Symbase = INVALID_SYMBASE;
+  unsigned Symbase = InvalidSymbase;
 
   if (isTempBlob(Blob)) {
     auto Temp = cast<SCEVUnknown>(Blob)->getValue();
-    Symbase = ScalarSA->getOrAssignScalarSymbase(Temp);
+    Symbase =
+        ScalarSA->getOrAssignScalarSymbase(Temp, CurRegion->getIRRegion());
   }
 
   if (SymbasePtr) {
@@ -1180,41 +1179,46 @@ unsigned HIRParser::findOrInsertBlobWrapper(BlobTy Blob, unsigned *SymbasePtr) {
 void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
                                  unsigned NestingLevel) {
   unsigned DefLevel = 0;
-  HLLoop *HLoop;
+  Loop *Lp = nullptr;
+  HLLoop *HLoop = nullptr;
+  HLLoop *ParLoop = nullptr;
+  HLLoop *LCALoop = nullptr;
 
   auto Temp = TempBlobSCEV->getValue();
   unsigned Symbase;
   auto Index = findOrInsertBlobWrapper(TempBlobSCEV, &Symbase);
 
   if (auto Inst = dyn_cast<Instruction>(Temp)) {
-    auto Lp = LI->getLoopFor(Inst->getParent());
-
     // First check whether the instruction is outisde the current region. If Lp
     // belongs to another region, the second check will pass and we will set an
     // incorrect DefLevel.
     if (!CurRegion->containsBBlock(Inst->getParent())) {
       // Add blob as a livein temp.
       CurRegion->addLiveInTemp(Symbase, Temp);
-      NestingLevel++;
-    } else if (Lp && (HLoop = LF->findHLLoop(Lp))) {
-      DefLevel = HLoop->getNestingLevel();
-    } else {
 
-      // Workaround to mark blob as linear even if the nesting level is zero.
-      // All blobs defined outside any loop are treated as linear regardless of
-      // whether the definition lies inside or outside the region. This keeps
-      // the marking scheme simple as we don't need to track the blob
-      // definition. The trade-off is a logical inconsistency where the blob is
-      // defined inside the region and its uses outside any loop are still
-      // marked as linear.
-      // TODO: remove workaround.
-      NestingLevel++;
+    } else if ((ParLoop = getCurNode()->getParentLoop()) &&
+               (Lp = LI->getLoopFor(Inst->getParent())) &&
+               (HLoop = LF->findHLLoop(Lp)) &&
+               (LCALoop =
+                    HLNodeUtils::getLowestCommonAncestorLoop(ParLoop, HLoop))) {
+      // If the current node where the blob is used and the blob definition are
+      // both in some HLLoop, the defined at level should be the lowest common
+      // ancestor loop. For example-
+      //
+      // DO i1
+      //   DO i2
+      //     t1 = ...
+      //   END DO
+      //
+      //   DO i2
+      //     A[i2] = t1; // t1 is defined at level 1 for this loop.
+      //   END DO
+      // END DO
+      //
+      DefLevel = LCALoop->getNestingLevel();
     }
-
   } else {
     // Blob is some global value. Global values are not marked livein.
-    // Workaround to mark blob as linear even if the nesting level is zero.
-    NestingLevel++;
   }
 
   setCanonExprDefLevel(CE, NestingLevel, DefLevel);
@@ -1281,6 +1285,15 @@ void HIRParser::parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
   LevelSetter.visitAll(Blob);
 }
 
+const SCEV *HIRParser::getSCEVAtScope(const SCEV *SC) const {
+  auto ParHLoop = CurNode->getLexicalParentLoop();
+  const Loop *ParLoop = ParHLoop ? ParHLoop->getLLVMLoop() : nullptr;
+
+  SC = SE->getSCEVAtScope(SC, ParLoop);
+
+  return SC;
+}
+
 void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
                                bool IsTop, bool UnderCast) {
   if (auto ConstSCEV = dyn_cast<SCEVConstant>(SC)) {
@@ -1303,7 +1316,7 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
         assert(HLoop && "Could not find HIR loop!");
 
         if (!HLNodeUtils::contains(HLoop, CurNode, false)) {
-          parseBlob(CastSCEV, CE, Level);
+          parseBlob(getSCEVAtScope(CastSCEV), CE, Level);
           return;
         }
       }
@@ -1348,6 +1361,8 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
     auto Lp = RecSCEV->getLoop();
     auto HLoop = LF->findHLLoop(Lp);
+    bool ComputeAtScope = false;
+
     assert(HLoop && "Could not find HIR loop!");
 
     auto BaseSCEV = RecSCEV->getOperand(0);
@@ -1373,7 +1388,12 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     // {0, +, {0,+,1}<i1> }<i2>
     if (!RecSCEV->isAffine() || (BaseAddRec && !BaseAddRec->isAffine()) ||
         (StepAddRec && !StepAddRec->isAffine()) ||
-        !HLNodeUtils::contains(HLoop, CurNode, false)) {
+        (ComputeAtScope = !HLNodeUtils::contains(HLoop, CurNode, false))) {
+
+      if (ComputeAtScope) {
+        SC = getSCEVAtScope(SC);
+      }
+
       parseBlob(SC, CE, Level);
 
     } else {
@@ -1464,10 +1484,10 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
 
   // For GEP DDRefs, some of the parsed blobs can get cancelled due to index
   // merging. So we check whether there is a mismatch in collected blobs and
-  // actual blobs present in the DDRef. 
+  // actual blobs present in the DDRef.
   //
   // Here's a very simple made up example composed of multiple GEPs-
-  // 
+  //
   // %p = GEP @A, %1
   // %2 = sub 0, %1
   // %q = GEP %p, %2
@@ -1475,7 +1495,7 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
   // When parsing %q, we parse %p (@A + %1) and %2 (-1 * %1) separately and then
   // merge them. On merging %1 will cancel out.
   //
-  if (Ref->getBaseCE()) {
+  if (Ref->hasGEPInfo()) {
     Ref->collectTempBlobIndices(BlobIndices);
   }
 
@@ -1531,14 +1551,21 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
     Val = ScalarSA->getGenericLoopUpperVal();
   }
 
-  auto Symbase = ScalarSA->getOrAssignScalarSymbase(Val);
+  auto Symbase =
+      ScalarSA->getOrAssignScalarSymbase(Val, CurRegion->getIRRegion());
 
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
   auto CE = CanonExprUtils::createCanonExpr(IVType);
   auto BETCType = BETC->getType();
 
+  assert((!BETCType->isPointerTy() ||
+          (getDataLayout().getTypeSizeInBits(BETCType) ==
+           IVType->getPrimitiveSizeInBits())) &&
+         "Loop with pointer type BETC does not have pointer sized IV!");
+
   // If there is a type mismatch, make upper the same type as IVType.
-  if (BETCType != IVType) {
+  if (!BETCType->isPointerTy() && (BETCType != IVType)) {
+
     if (IVType->getPrimitiveSizeInBits() > BETCType->getPrimitiveSizeInBits()) {
       BETC = SE->getZeroExtendExpr(BETC, IVType);
     } else {
@@ -1837,10 +1864,74 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
   return IndexCE;
 }
 
+void HIRParser::mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2) {
+  // The behavior we want here is somewhere between relaxed and non-relaxed
+  // mode. We only tolerate merging zero of a different type.
+  // TODO: look into directly using add() utility.
+
+  if (IndexCE2->isZero()) {
+    return;
+  }
+
+  if (IndexCE1->isZero()) {
+    IndexCE1->setSrcType(IndexCE2->getSrcType());
+    IndexCE1->setDestType(IndexCE2->getDestType());
+    IndexCE1->setExtType(IndexCE2->isSExt());
+  }
+
+  assert(CanonExprUtils::mergeable(IndexCE1, IndexCE2) &&
+         "Indices cannot be merged!");
+  CanonExprUtils::add(IndexCE1, IndexCE2);
+}
+
+void HIRParser::addPhiBaseGEPDimensions(const GEPOperator *GEPOp, RegDDRef *Ref,
+                                        CanonExpr *LastIndexCE, unsigned Level,
+                                        unsigned PhiDims, bool &IsInBounds) {
+  CanonExpr *OpIndexCE = nullptr;
+  unsigned BaseDims = getNumDimensions(Ref->getBaseCE()->getSrcType());
+
+  assert((BaseDims >= PhiDims) &&
+         "More dimensions in phi than in the actual base!");
+
+  // TODO: handle multiple GEPs.
+  if (GEPOp) {
+    // Subtract 1 for the base pointer.
+    auto NumOp = GEPOp->getNumOperands() - 1;
+
+    assert(((NumOp >= 1) && (NumOp <= PhiDims)) &&
+           "Unexpected number of GEP operands!");
+
+    for (auto I = NumOp; I > 0; --I) {
+      // Disable IsTop operations such as cast hiding and denominator parsing
+      // for the first GEP index which would be later merged.
+      OpIndexCE = parse(GEPOp->getOperand(I), Level,
+                        ((I != 1) || LastIndexCE->isZero()));
+      Ref->addDimension(OpIndexCE);
+    }
+
+    mergeIndexCE(OpIndexCE, LastIndexCE);
+    IsInBounds = GEPOp->isInBounds();
+
+  } else {
+    // Insert the dimension varying as part of phi itself.
+    Ref->addDimension(LastIndexCE);
+  }
+
+  // Add zero indices for the extra dimensions.
+  // Extra dimensions are involved when the initial value of BasePhi is computed
+  // using an array like the following-
+  // %p.07 = phi i32* [ %incdec.ptr, %for.body ], [ getelementptr inbounds ([50
+  // x i32], [50 x i32]* @A, i64 0, i64 10), %entry ]
+  for (auto I = (BaseDims - PhiDims); I > 0; --I) {
+    OpIndexCE = CanonExprUtils::createCanonExpr(LastIndexCE->getDestType());
+    Ref->addDimension(OpIndexCE);
+  }
+}
+
 RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                            const GEPOperator *GEPOp,
                                            unsigned Level) {
-  CanonExpr *BaseCE = nullptr, *LastIndexCE = nullptr, *OpIndexCE = nullptr;
+  CanonExpr *BaseCE = nullptr, *LastIndexCE = nullptr;
   auto BaseTy = BasePhi->getType();
 
   auto Ref = DDRefUtils::createRegDDRef(0);
@@ -1848,7 +1939,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   const SCEV *BaseSCEV = nullptr;
   unsigned BitElementSize = getBitElementSize(BaseTy);
   unsigned ElementSize = BitElementSize / 8;
-  unsigned NumDims = 1;
+  unsigned PhiDims = getNumDimensions(BaseTy);
   bool IsInBounds = false;
 
   // If the base is linear, we separate it into a pointer base and a linear
@@ -1873,9 +1964,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
       // bitcasts.
       if ((BaseSCEV = findPointerBlob(RecSCEV)) &&
           (RI->getPrimaryElementType(RecSCEV->getType()) ==
-           RI->getPrimaryElementType(BasePhi->getType()))) {
-        // Get number of dimensions in base type.
-        NumDims = getNumDimensions(BaseSCEV->getType());
+           RI->getPrimaryElementType(BaseTy))) {
 
         auto OffsetSCEV = SE->getMinusSCEV(RecSCEV, BaseSCEV);
 
@@ -1912,57 +2001,10 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     LastIndexCE = CanonExprUtils::createCanonExpr(OffsetType);
   }
 
-  // Here we add the other operands of GEPOperator as dimensions. LastIndexCE is
-  // merged with the highest dimension.
-  if (GEPOp) {
-    // Subtract 1 for the base pointer.
-    auto NumOp = GEPOp->getNumOperands() - 1;
-
-    assert(((NumOp >= 1) && (NumOp <= NumDims)) &&
-           "Unexpected number of GEP operands!");
-
-    // Subtract number of dimensions dereferenced in GEP.
-    NumDims -= NumOp;
-
-    for (auto I = NumOp; I > 0; --I) {
-      // Disable IsTop operations such as cast hiding and denominator parsing
-      // for the first GEP index which would be later merged.
-      OpIndexCE = parse(GEPOp->getOperand(I), Level,
-                        ((I != 1) || LastIndexCE->isZero()));
-      Ref->addDimension(OpIndexCE);
-    }
-
-    // Workaround to allow merge with zero until mergeable() is extended.
-    if (!LastIndexCE->isZero()) {
-      if (OpIndexCE->isZero()) {
-        OpIndexCE->setSrcType(LastIndexCE->getSrcType());
-        OpIndexCE->setDestType(LastIndexCE->getDestType());
-        OpIndexCE->setExtType(LastIndexCE->isSExt());
-      }
-      assert(CanonExprUtils::mergeable(OpIndexCE, LastIndexCE) &&
-             "Indices cannot be merged!");
-      CanonExprUtils::add(OpIndexCE, LastIndexCE);
-    }
-
-    IsInBounds = GEPOp->isInBounds();
-
-  } else {
-    // Insert the dimension varying as part of phi itself.
-    NumDims--;
-    Ref->addDimension(LastIndexCE);
-  }
-
   Ref->setBaseCE(BaseCE);
 
-  // Add zero indices for the extra dimensions.
-  // Extra dimensions are involved when the initial value of BasePhi is computed
-  // using an array like the following-
-  // %p.07 = phi i32* [ %incdec.ptr, %for.body ], [ getelementptr inbounds ([50
-  // x i32], [50 x i32]* @A, i64 0, i64 10), %entry ]
-  for (auto I = NumDims; I > 0; --I) {
-    OpIndexCE = CanonExprUtils::createCanonExpr(LastIndexCE->getDestType());
-    Ref->addDimension(OpIndexCE);
-  }
+  // Here we add the other operands of GEPOperator as dimensions.
+  addPhiBaseGEPDimensions(GEPOp, Ref, LastIndexCE, Level, PhiDims, IsInBounds);
 
   Ref->setInBounds(IsInBounds);
 
@@ -2037,19 +2079,9 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
           parse(TempGEPOp->getOperand(I), Level, !DisableIsTopParsing);
 
       if (OldIndexCE) {
-        // Workaround to allow merge with zero until mergeable() is extended.
-        if (!IndexCE->isZero()) {
-          if (OldIndexCE->isZero()) {
-            OldIndexCE->setSrcType(IndexCE->getSrcType());
-            OldIndexCE->setDestType(IndexCE->getDestType());
-            OldIndexCE->setExtType(IndexCE->isSExt());
-          }
-          assert(CanonExprUtils::mergeable(OldIndexCE, IndexCE) &&
-                 "Indices cannot be merged!");
-          CanonExprUtils::add(OldIndexCE, IndexCE);
-        }
-
+        mergeIndexCE(OldIndexCE, IndexCE);
         CanonExprUtils::destroy(IndexCE);
+
       } else {
         Ref->addDimension(IndexCE);
         assert((NumDims != 0) &&
@@ -2153,7 +2185,8 @@ RegDDRef *HIRParser::createUndefDDRef(Type *Ty) {
   Value *UndefVal = UndefValue::get(Ty);
   BlobTy Blob = SE->getUnknown(UndefVal);
 
-  auto Symbase = ScalarSA->getOrAssignScalarSymbase(UndefVal);
+  auto Symbase =
+      ScalarSA->getOrAssignScalarSymbase(UndefVal, CurRegion->getIRRegion());
 
   RegDDRef *Ref = DDRefUtils::createRegDDRef(Symbase);
   CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty);
@@ -2173,7 +2206,8 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
 
   clearTempBlobLevelMap();
 
-  auto Symbase = ScalarSA->getOrAssignScalarSymbase(Val);
+  auto Symbase =
+      ScalarSA->getOrAssignScalarSymbase(Val, CurRegion->getIRRegion());
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
 
   // Force pointer values to be parsed as blobs. This is for handling lvals but
@@ -2208,7 +2242,7 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
 
   } else if (CE->isConstant()) {
     if (!IsLval) {
-      Ref->setSymbase(CONSTANT_SYMBASE);
+      Ref->setSymbase(ConstantSymbase);
     }
 
   } else {
@@ -2225,6 +2259,11 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
 
   if (auto LInst = dyn_cast<LoadInst>(Inst)) {
     Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
+
+    Ref->setVolatile(LInst->isVolatile());
+    Ref->setAlignment(LInst->getAlignment());
+
+    LInst->getAllMetadataOtherThanDebugLoc(Ref->GepInfo->MDNodes);
 
   } else if (isa<GetElementPtrInst>(Inst)) {
     Ref = createGEPDDRef(Inst, Level, false);
@@ -2247,6 +2286,12 @@ RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
 
   if (auto SInst = dyn_cast<StoreInst>(Inst)) {
     Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
+
+    Ref->setVolatile(SInst->isVolatile());
+    Ref->setAlignment(SInst->getAlignment());
+
+    SInst->getAllMetadataOtherThanDebugLoc(Ref->GepInfo->MDNodes);
+
   } else {
     Ref = createScalarDDRef(Inst, Level, true);
   }
@@ -2296,7 +2341,8 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
 
     if (IsPhase1 && !isEssential(Inst)) {
       // Postpone the processing of this instruction to Phase2.
-      auto Symbase = ScalarSA->getOrAssignScalarSymbase(Inst);
+      auto Symbase =
+          ScalarSA->getOrAssignScalarSymbase(Inst, CurRegion->getIRRegion());
       UnclassifiedSymbaseInsts[Symbase].push_back(std::make_pair(HInst, Level));
       return;
     } else {
@@ -2391,10 +2437,10 @@ bool HIRParser::runOnFunction(Function &F) {
   Func = &F;
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  RI = &getAnalysis<RegionIdentification>();
+  RI = &getAnalysis<HIRRegionIdentification>();
   HIR = &getAnalysis<HIRCreation>();
-  LF = &getAnalysis<LoopFormation>();
-  ScalarSA = &getAnalysis<ScalarSymbaseAssignment>();
+  LF = &getAnalysis<HIRLoopFormation>();
+  ScalarSA = &getAnalysis<HIRScalarSymbaseAssignment>();
 
   BlobUtils::setHIRParser(this);
 
@@ -2424,12 +2470,6 @@ void HIRParser::releaseMemory() {
   RequiredSymbases.clear();
   BlobTable.clear();
   BlobToIndexMap.clear();
-}
-
-LLVMContext &HIRParser::getContext() const { return Func->getContext(); }
-
-const DataLayout &HIRParser::getDataLayout() const {
-  return Func->getParent()->getDataLayout();
 }
 
 void HIRParser::print(raw_ostream &OS, const Module *M) const {

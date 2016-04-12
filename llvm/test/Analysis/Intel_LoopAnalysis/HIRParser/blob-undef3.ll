@@ -8,6 +8,8 @@
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
+; CHECK: NSW: Yes
+
 ; CHECK: ={{.*}}undef * %0{{.*}};
 ; CHECK: <RVAL-REG>{{.*}}undef * %0{{.*}} {undefined}
 ; CHECK: <BLOB> LINEAR {{.*}} undef {undefined}

@@ -2219,35 +2219,49 @@ static int test_lexmin(struct isl_ctx *ctx)
 	return 0;
 }
 
-/* Check that isl_set_min_val and isl_set_max_val compute the correct
- * result on non-convex inputs.
+struct {
+	const char *set;
+	const char *obj;
+	__isl_give isl_val *(*fn)(__isl_keep isl_set *set,
+		__isl_keep isl_aff *obj);
+	const char *res;
+} opt_tests[] = {
+	{ "{ [-1]; [1] }", "{ [x] -> [x] }", &isl_set_min_val, "-1" },
+	{ "{ [-1]; [1] }", "{ [x] -> [x] }", &isl_set_max_val, "1" },
+	{ "{ [a, b] : 0 <= a, b <= 100 and b mod 2 = 0}",
+	  "{ [a, b] -> [floor((b - 2*floor((-a)/4))/5)] }",
+	  &isl_set_max_val, "30" },
+
+};
+
+/* Perform basic isl_set_min_val and isl_set_max_val tests.
+ * In particular, check the results on non-convex inputs.
  */
 static int test_min(struct isl_ctx *ctx)
 {
+	int i;
 	isl_set *set;
-	isl_aff *aff;
-	isl_val *val;
-	int min_ok, max_ok;
+	isl_aff *obj;
+	isl_val *val, *res;
+	isl_bool ok;
 
-	set = isl_set_read_from_str(ctx, "{ [-1]; [1] }");
-	aff = isl_aff_read_from_str(ctx, "{ [x] -> [x] }");
-	val = isl_set_min_val(set, aff);
-	min_ok = isl_val_is_negone(val);
-	isl_val_free(val);
-	val = isl_set_max_val(set, aff);
-	max_ok = isl_val_is_one(val);
-	isl_val_free(val);
-	isl_aff_free(aff);
-	isl_set_free(set);
+	for (i = 0; i < ARRAY_SIZE(opt_tests); ++i) {
+		set = isl_set_read_from_str(ctx, opt_tests[i].set);
+		obj = isl_aff_read_from_str(ctx, opt_tests[i].obj);
+		res = isl_val_read_from_str(ctx, opt_tests[i].res);
+		val = opt_tests[i].fn(set, obj);
+		ok = isl_val_eq(res, val);
+		isl_val_free(res);
+		isl_val_free(val);
+		isl_aff_free(obj);
+		isl_set_free(set);
 
-	if (min_ok < 0 || max_ok < 0)
-		return -1;
-	if (!min_ok)
-		isl_die(ctx, isl_error_unknown,
-			"unexpected minimum", return -1);
-	if (!max_ok)
-		isl_die(ctx, isl_error_unknown,
-			"unexpected maximum", return -1);
+		if (ok < 0)
+			return -1;
+		if (!ok)
+			isl_die(ctx, isl_error_unknown,
+				"unexpected optimum", return -1);
+	}
 
 	return 0;
 }
@@ -2896,6 +2910,7 @@ struct {
 			"4e0 >= 58 + i0 - i1 and i0 >= 2 and i0 <= 511 and "
 			"4e0 >= -61 + i0 + i1)) or "
 		"(i1 <= 66 - i0 and i0 >= 2 and i1 >= 59 + i0) }", 1 },
+	{ "[a, b] -> { : a = 0 and b = -1 }", "[b, a] -> { : b >= -10 }", 1 },
 };
 
 static int test_subset(isl_ctx *ctx)
@@ -3621,6 +3636,7 @@ static int test_bounded_coefficients_schedule(isl_ctx *ctx)
 int test_schedule(isl_ctx *ctx)
 {
 	const char *D, *W, *R, *V, *P, *S;
+	int max_coincidence;
 
 	/* Handle resulting schedule with zero bands. */
 	if (test_one_schedule(ctx, "{[]}", "{}", "{}", "{[] -> []}", 0, 0) < 0)
@@ -3710,8 +3726,11 @@ int test_schedule(isl_ctx *ctx)
 		    "S4[i] -> a[i,N] }";
 	S = "{ S1[i] -> [0,i,0]; S2[i] -> [1,i,0]; S3[i,j] -> [2,i,j]; "
 		"S4[i] -> [4,i,0] }";
+	max_coincidence = isl_options_get_schedule_maximize_coincidence(ctx);
+	isl_options_set_schedule_maximize_coincidence(ctx, 0);
 	if (test_one_schedule(ctx, D, W, R, S, 2, 0) < 0)
 		return -1;
+	isl_options_set_schedule_maximize_coincidence(ctx, max_coincidence);
 
 	D = "[N] -> { S_0[i, j] : i >= 1 and i <= N and j >= 1 and j <= N }";
 	W = "[N] -> { S_0[i, j] -> s[0] : i >= 1 and i <= N and j >= 1 and "
@@ -3920,6 +3939,36 @@ int test_schedule(isl_ctx *ctx)
 		return -1;
 
 	return 0;
+}
+
+/* Perform scheduling tests using the whole component scheduler.
+ */
+static int test_schedule_whole(isl_ctx *ctx)
+{
+	int whole;
+	int r;
+
+	whole = isl_options_get_schedule_whole_component(ctx);
+	isl_options_set_schedule_whole_component(ctx, 1);
+	r = test_schedule(ctx);
+	isl_options_set_schedule_whole_component(ctx, whole);
+
+	return r;
+}
+
+/* Perform scheduling tests using the incremental scheduler.
+ */
+static int test_schedule_incremental(isl_ctx *ctx)
+{
+	int whole;
+	int r;
+
+	whole = isl_options_get_schedule_whole_component(ctx);
+	isl_options_set_schedule_whole_component(ctx, 0);
+	r = test_schedule(ctx);
+	isl_options_set_schedule_whole_component(ctx, whole);
+
+	return r;
 }
 
 int test_plain_injective(isl_ctx *ctx, const char *str, int injective)
@@ -5146,6 +5195,8 @@ struct {
 	    "B[i] -> D[i] : exists a : i = 2 a + 1 }",
 	  "{ A[i] -> B[2i] }",
 	  "{ A[i] -> C[2i] }" },
+	{ "{ A[i] -> B[i] }", "{ C[i] -> A[(i + floor(i/3))/2] }",
+	  "{ C[i] -> B[j] : 2j = i + floor(i/3) }" },
 };
 
 static int test_preimage_union_map(isl_ctx *ctx)
@@ -6211,10 +6262,34 @@ static int test_domain_hash(isl_ctx *ctx)
 	return 0;
 }
 
+/* Check that a universe basic set that is not obviously equal to the universe
+ * is still recognized as being equal to the universe.
+ */
+static int test_universe(isl_ctx *ctx)
+{
+	const char *s;
+	isl_basic_set *bset;
+	isl_bool is_univ;
+
+	s = "{ [] : exists x, y : 3y <= 2x and y >= -3 + 2x and 2y >= 2 - x }";
+	bset = isl_basic_set_read_from_str(ctx, s);
+	is_univ = isl_basic_set_is_universe(bset);
+	isl_basic_set_free(bset);
+
+	if (is_univ < 0)
+		return -1;
+	if (!is_univ)
+		isl_die(ctx, isl_error_unknown,
+			"not recognized as universe set", return -1);
+
+	return 0;
+}
+
 struct {
 	const char *name;
 	int (*fn)(isl_ctx *ctx);
 } tests [] = {
+	{ "universe", &test_universe },
 	{ "domain hash", &test_domain_hash },
 	{ "dual", &test_dual },
 	{ "dependence analysis", &test_flow },
@@ -6248,7 +6323,8 @@ struct {
 	{ "dim_max", &test_dim_max },
 	{ "affine", &test_aff },
 	{ "injective", &test_injective },
-	{ "schedule", &test_schedule },
+	{ "schedule (whole component)", &test_schedule_whole },
+	{ "schedule (incremental)", &test_schedule_incremental },
 	{ "schedule tree grouping", &test_schedule_tree_group },
 	{ "tile", &test_tile },
 	{ "union_pw", &test_union_pw },

@@ -309,10 +309,12 @@ LiveRange::iterator LiveRange::find(SlotIndex Pos) {
   size_t Len = size();
   do {
     size_t Mid = Len >> 1;
-    if (Pos < I[Mid].end)
+    if (Pos < I[Mid].end) {
       Len = Mid;
-    else
-      I += Mid + 1, Len -= Mid + 1;
+    } else {
+      I += Mid + 1;
+      Len -= Mid + 1;
+    }
   } while (Len);
   return I;
 }
@@ -748,8 +750,6 @@ void LiveRange::flushSegmentSet() {
   verify();
 }
 
-#if INTEL_CUSTOMIZATION
-// Cherry picked from r260164
 bool LiveRange::isLiveAtIndexes(ArrayRef<SlotIndex> Slots) const {
   ArrayRef<SlotIndex>::iterator SlotI = Slots.begin();
   ArrayRef<SlotIndex>::iterator SlotE = Slots.end();
@@ -783,8 +783,6 @@ bool LiveRange::isLiveAtIndexes(ArrayRef<SlotIndex> Slots) const {
   // We didn't find a segment containing any of the slots.
   return false;
 }
-#endif // INTEL_CUSTOMIZATION
-
 
 void LiveInterval::freeSubRange(SubRange *S) {
   S->~SubRange();
@@ -1063,7 +1061,7 @@ raw_ostream& llvm::operator<<(raw_ostream& os, const LiveRange::Segment &S) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void LiveRange::Segment::dump() const {
+LLVM_DUMP_METHOD void LiveRange::Segment::dump() const {
   dbgs() << *this << "\n";
 }
 #endif
@@ -1108,11 +1106,11 @@ void LiveInterval::print(raw_ostream &OS) const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void LiveRange::dump() const {
+LLVM_DUMP_METHOD void LiveRange::dump() const {
   dbgs() << *this << "\n";
 }
 
-void LiveInterval::dump() const {
+LLVM_DUMP_METHOD void LiveInterval::dump() const {
   dbgs() << *this << "\n";
 }
 #endif
@@ -1210,8 +1208,7 @@ void LiveRangeUpdater::print(raw_ostream &OS) const {
   OS << '\n';
 }
 
-void LiveRangeUpdater::dump() const
-{
+LLVM_DUMP_METHOD void LiveRangeUpdater::dump() const {
   print(errs());
 }
 
@@ -1457,9 +1454,9 @@ void ConnectedVNInfoEqClasses::Distribute(LiveInterval &LI, LiveInterval *LIV[],
     // called, but it is not a requirement.
     SlotIndex Idx;
     if (MI->isDebugValue())
-      Idx = LIS.getSlotIndexes()->getIndexBefore(MI);
+      Idx = LIS.getSlotIndexes()->getIndexBefore(*MI);
     else
-      Idx = LIS.getInstructionIndex(MI);
+      Idx = LIS.getInstructionIndex(*MI);
     LiveQueryResult LRQ = LI.Query(Idx);
     const VNInfo *VNI = MO.readsReg() ? LRQ.valueIn() : LRQ.valueDefined();
     // In the case of an <undef> use that isn't tied to any def, VNI will be
@@ -1566,7 +1563,7 @@ bool ConnectedSubRegClasses::findComponents(IntEqClasses &Classes,
       const LiveInterval::SubRange &SR = *SRInfo.SR;
       if ((SR.LaneMask & LaneMask) == 0)
         continue;
-      SlotIndex Pos = LIS.getInstructionIndex(MO.getParent());
+      SlotIndex Pos = LIS.getInstructionIndex(*MO.getParent());
       Pos = MO.isDef() ? Pos.getRegSlot(MO.isEarlyClobber())
                        : Pos.getBaseIndex();
       const VNInfo *VNI = SR.getVNInfoAt(Pos);
@@ -1601,7 +1598,7 @@ void ConnectedSubRegClasses::rewriteOperands(const IntEqClasses &Classes,
 
     MachineInstr &MI = *MO.getParent();
 
-    SlotIndex Pos = LIS.getInstructionIndex(&MI);
+    SlotIndex Pos = LIS.getInstructionIndex(MI);
     unsigned SubRegIdx = MO.getSubReg();
     LaneBitmask LaneMask = TRI.getSubRegIndexLaneMask(SubRegIdx);
 
@@ -1675,12 +1672,12 @@ void ConnectedSubRegClasses::computeMainRangesFixFlags(
       // in and out of the instruction anymore. We need to add new dead and kill
       // flags in these cases.
       if (!MO.isUndef()) {
-        SlotIndex Pos = LIS.getInstructionIndex(MO.getParent());
+        SlotIndex Pos = LIS.getInstructionIndex(*MO.getParent());
         if (!LI->liveAt(Pos.getBaseIndex()))
           MO.setIsUndef();
       }
       if (!MO.isDead()) {
-        SlotIndex Pos = LIS.getInstructionIndex(MO.getParent());
+        SlotIndex Pos = LIS.getInstructionIndex(*MO.getParent());
         if (!LI->liveAt(Pos.getDeadSlot()))
           MO.setIsDead();
       }

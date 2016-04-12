@@ -27,6 +27,10 @@ using namespace llvm;
 
 namespace {
 
+cl::opt<bool> DoNameCompression("enable-name-compression",
+                                cl::desc("Enable name string compression"),
+                                cl::init(true));
+
 class InstrProfiling : public ModulePass {
 public:
   static char ID;
@@ -59,6 +63,9 @@ private:
   } PerFunctionProfileData;
   DenseMap<GlobalVariable *, PerFunctionProfileData> ProfileDataMap;
   std::vector<Value *> UsedVars;
+  std::vector<GlobalVariable *> ReferencedNames;
+  GlobalVariable *NamesVar;
+  size_t NamesSize;
 
   bool isMachO() const {
     return Triple(M->getTargetTriple()).isOSBinFormatMachO();
@@ -102,6 +109,9 @@ private:
   /// referring to them will also be created.
   GlobalVariable *getOrCreateRegionCounters(InstrProfIncrementInst *Inc);
 
+  /// Emit the section with compressed function names.
+  void emitNameData();
+
   /// Emit runtime registration functions for each profile data variable.
   void emitRegistration();
 
@@ -131,6 +141,8 @@ bool InstrProfiling::runOnModule(Module &M) {
   bool MadeChange = false;
 
   this->M = &M;
+  NamesVar = nullptr;
+  NamesSize = 0;
   ProfileDataMap.clear();
   UsedVars.clear();
 
@@ -174,6 +186,7 @@ bool InstrProfiling::runOnModule(Module &M) {
   if (!MadeChange)
     return false;
 
+  emitNameData();
   emitRegistration();
   emitRuntimeHook();
   emitUses();
@@ -252,9 +265,8 @@ void InstrProfiling::lowerCoverageData(GlobalVariable *CoverageNamesVar) {
     assert(isa<GlobalVariable>(V) && "Missing reference to function name");
     GlobalVariable *Name = cast<GlobalVariable>(V);
 
-    // Move the name variable to the right section.
-    Name->setSection(getNameSection());
-    Name->setAlignment(1);
+    Name->setLinkage(GlobalValue::PrivateLinkage);
+    ReferencedNames.push_back(Name);
   }
 }
 
@@ -274,14 +286,44 @@ static inline bool shouldRecordFunctionAddr(Function *F) {
   return F->hasAddressTaken();
 }
 
-static inline Comdat *getOrCreateProfileComdat(Module &M,
+static inline bool needsComdatForCounter(Function &F, Module &M) {
+
+  if (F.hasComdat())
+    return true;
+
+  Triple TT(M.getTargetTriple());
+  if (!TT.isOSBinFormatELF())
+    return false;
+
+  // See createPGOFuncNameVar for more details. To avoid link errors, profile
+  // counters for function with available_externally linkage needs to be changed
+  // to linkonce linkage. On ELF based systems, this leads to weak symbols to be
+  // created. Without using comdat, duplicate entries won't be removed by the
+  // linker leading to increased data segement size and raw profile size. Even
+  // worse, since the referenced counter from profile per-function data object
+  // will be resolved to the common strong definition, the profile counts for
+  // available_externally functions will end up being duplicated in raw profile
+  // data. This can result in distorted profile as the counts of those dups
+  // will be accumulated by the profile merger.
+  GlobalValue::LinkageTypes Linkage = F.getLinkage();
+  if (Linkage != GlobalValue::ExternalWeakLinkage &&
+      Linkage != GlobalValue::AvailableExternallyLinkage)
+    return false;
+
+  return true;
+}
+
+static inline Comdat *getOrCreateProfileComdat(Module &M, Function &F,
                                                InstrProfIncrementInst *Inc) {
+  if (!needsComdatForCounter(F, M))
+    return nullptr;
+
   // COFF format requires a COMDAT section to have a key symbol with the same
-  // name. The linker targeting COFF also requires that the COMDAT section
+  // name. The linker targeting COFF also requires that the COMDAT
   // a section is associated to must precede the associating section. For this
-  // reason, we must choose the name var's name as the name of the comdat.
+  // reason, we must choose the counter var's name as the name of the comdat.
   StringRef ComdatPrefix = (Triple(M.getTargetTriple()).isOSBinFormatCOFF()
-                                ? getInstrProfNameVarPrefix()
+                                ? getInstrProfCountersVarPrefix()
                                 : getInstrProfComdatPrefix());
   return M.getOrInsertComdat(StringRef(getVarName(Inc, ComdatPrefix)));
 }
@@ -303,11 +345,7 @@ InstrProfiling::getOrCreateRegionCounters(InstrProfIncrementInst *Inc) {
   // linking.
   Function *Fn = Inc->getParent()->getParent();
   Comdat *ProfileVarsComdat = nullptr;
-  if (Fn->hasComdat())
-    ProfileVarsComdat = getOrCreateProfileComdat(*M, Inc);
-  NamePtr->setSection(getNameSection());
-  NamePtr->setAlignment(1);
-  NamePtr->setComdat(ProfileVarsComdat);
+  ProfileVarsComdat = getOrCreateProfileComdat(*M, *Fn, Inc);
 
   uint64_t NumCounters = Inc->getNumCounters()->getZExtValue();
   LLVMContext &Ctx = M->getContext();
@@ -359,8 +397,35 @@ InstrProfiling::getOrCreateRegionCounters(InstrProfIncrementInst *Inc) {
 
   // Mark the data variable as used so that it isn't stripped out.
   UsedVars.push_back(Data);
+  // Now that the linkage set by the FE has been passed to the data and counter
+  // variables, reset Name variable's linkage and visibility to private so that
+  // it can be removed later by the compiler.
+  NamePtr->setLinkage(GlobalValue::PrivateLinkage);
+  // Collect the referenced names to be used by emitNameData.
+  ReferencedNames.push_back(NamePtr);
 
   return CounterPtr;
+}
+
+void InstrProfiling::emitNameData() {
+  std::string UncompressedData;
+
+  if (ReferencedNames.empty())
+    return;
+
+  std::string CompressedNameStr;
+  collectPGOFuncNameStrings(ReferencedNames, CompressedNameStr,
+                            DoNameCompression);
+
+  auto &Ctx = M->getContext();
+  auto *NamesVal = llvm::ConstantDataArray::getString(
+      Ctx, StringRef(CompressedNameStr), false);
+  NamesVar = new llvm::GlobalVariable(*M, NamesVal->getType(), true,
+                                      llvm::GlobalValue::PrivateLinkage,
+                                      NamesVal, getInstrProfNamesVarName());
+  NamesSize = CompressedNameStr.size();
+  NamesVar->setSection(getNameSection());
+  UsedVars.push_back(NamesVar);
 }
 
 void InstrProfiling::emitRegistration() {
@@ -370,12 +435,14 @@ void InstrProfiling::emitRegistration() {
 
   // Use linker script magic to get data/cnts/name start/end.
   if (Triple(M->getTargetTriple()).isOSLinux() ||
-      Triple(M->getTargetTriple()).isOSFreeBSD())
+      Triple(M->getTargetTriple()).isOSFreeBSD() ||
+      Triple(M->getTargetTriple()).isPS4CPU())
     return;
 
   // Construct the function.
   auto *VoidTy = Type::getVoidTy(M->getContext());
   auto *VoidPtrTy = Type::getInt8PtrTy(M->getContext());
+  auto *Int64Ty = Type::getInt64Ty(M->getContext());
   auto *RegisterFTy = FunctionType::get(VoidTy, false);
   auto *RegisterF = Function::Create(RegisterFTy, GlobalValue::InternalLinkage,
                                      getInstrProfRegFuncsName(), M);
@@ -389,7 +456,20 @@ void InstrProfiling::emitRegistration() {
 
   IRBuilder<> IRB(BasicBlock::Create(M->getContext(), "", RegisterF));
   for (Value *Data : UsedVars)
-    IRB.CreateCall(RuntimeRegisterF, IRB.CreateBitCast(Data, VoidPtrTy));
+    if (Data != NamesVar)
+      IRB.CreateCall(RuntimeRegisterF, IRB.CreateBitCast(Data, VoidPtrTy));
+
+  if (NamesVar) {
+    Type *ParamTypes[] = {VoidPtrTy, Int64Ty};
+    auto *NamesRegisterTy =
+        FunctionType::get(VoidTy, makeArrayRef(ParamTypes), false);
+    auto *NamesRegisterF =
+        Function::Create(NamesRegisterTy, GlobalVariable::ExternalLinkage,
+                         getInstrProfNamesRegFuncName(), M);
+    IRB.CreateCall(NamesRegisterF, {IRB.CreateBitCast(NamesVar, VoidPtrTy),
+                                    IRB.getInt64(NamesSize)});
+  }
+
   IRB.CreateRetVoid();
 }
 

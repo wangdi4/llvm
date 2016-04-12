@@ -1,5 +1,5 @@
 
-;RUN: opt -hir-ssa-deconstruction -S -HIRCG -force-HIRCG %s | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -S -hir-cg -force-hir-cg %s | FileCheck %s
 ; In rhs of <7> we have a 64 bit CE but a i32 iv. Verify we load i32 bit iv
 ; then zext to 64 before doing the addition
 

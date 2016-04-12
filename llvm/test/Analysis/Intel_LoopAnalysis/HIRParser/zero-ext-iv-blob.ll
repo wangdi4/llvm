@@ -2,14 +2,14 @@
 
 ; Check parsing output for the loop verifying that the zero extended IV of outer non-generable loop (%idxprom15) is parsed correctly.
 ; CHECK: DO i1 = 0, zext.i32.i64((-1 + %N))
-; CHECK-NEXT: %0 = (%B)[%indvars.iv47][i1]
-; CHECK-NEXT: %1 = (%C)[%indvars.iv47][i1]
-; CHECK-NEXT: (%A)[%indvars.iv47][i1] = %0 + %1
-; CHECK-NEXT: %2 = (%A)[trunc.i64.i32((4294967295 + %indvars.iv47))][i1]
+; CHECK-NEXT: %0 = {al:4}(%B)[%indvars.iv47][i1]
+; CHECK-NEXT: %1 = {al:4}(%C)[%indvars.iv47][i1]
+; CHECK-NEXT: {al:4}(%A)[%indvars.iv47][i1] = %0 + %1
+; CHECK-NEXT: %2 = {al:4}(%A)[trunc.i64.i32((4294967295 + %indvars.iv47))][i1]
 ; CHECK-NEXT: %conv = sitofp.i32.double(%2)
 ; CHECK-NEXT: %mul = %conv  *  2.000000e+00
 ; CHECK-NEXT: %conv18 = fptosi.double.i32(%mul)
-; CHECK-NEXT: (%D)[%indvars.iv47][i1] = %conv18
+; CHECK-NEXT: {al:4}(%D)[%indvars.iv47][i1] = %conv18
 ; CHECK-NEXT: END LOOP
 
 

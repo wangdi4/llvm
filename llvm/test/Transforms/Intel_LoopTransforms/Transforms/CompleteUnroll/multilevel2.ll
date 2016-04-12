@@ -1,7 +1,7 @@
 ; Test for Complete Unrolling with 2-level loops.
 ; Only the innermost loop should be unrolled as it has small trip count.
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-complete-unroll -HIRCG -S < %s | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-complete-unroll -hir-cg -S < %s | FileCheck %s
 ; CHECK: entry
 
 ; terminator of entry bblock should point to new unrolled region.

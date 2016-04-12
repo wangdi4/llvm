@@ -30,17 +30,6 @@ using namespace polly;
 
 #define DEBUG_TYPE "polly-scop-helper"
 
-Value *polly::getPointerOperand(Instruction &Inst) {
-  if (LoadInst *load = dyn_cast<LoadInst>(&Inst))
-    return load->getPointerOperand();
-  else if (StoreInst *store = dyn_cast<StoreInst>(&Inst))
-    return store->getPointerOperand();
-  else if (GetElementPtrInst *gep = dyn_cast<GetElementPtrInst>(&Inst))
-    return gep->getPointerOperand();
-
-  return 0;
-}
-
 bool polly::hasInvokeEdge(const PHINode *PN) {
   for (unsigned i = 0, e = PN->getNumIncomingValues(); i < e; ++i)
     if (InvokeInst *II = dyn_cast<InvokeInst>(PN->getIncomingValue(i)))
@@ -260,10 +249,15 @@ private:
   const SCEV *visitUnknown(const SCEVUnknown *E) {
 
     // If a value mapping was given try if the underlying value is remapped.
-    if (VMap)
-      if (Value *NewVal = VMap->lookup(E->getValue()))
-        if (NewVal != E->getValue())
-          return visit(SE.getSCEV(NewVal));
+    Value *NewVal = VMap ? VMap->lookup(E->getValue()) : nullptr;
+    if (NewVal) {
+      auto *NewE = SE.getSCEV(NewVal);
+
+      // While the mapped value might be different the SCEV representation might
+      // not be. To this end we will check before we go into recursion here.
+      if (E != NewE)
+        return visit(NewE);
+    }
 
     Instruction *Inst = dyn_cast<Instruction>(E->getValue());
     if (!Inst || (Inst->getOpcode() != Instruction::SRem &&
@@ -442,14 +436,25 @@ bool polly::isIgnoredIntrinsic(const Value *V) {
 }
 
 bool polly::canSynthesize(const Value *V, const llvm::LoopInfo *LI,
-                          ScalarEvolution *SE, const Region *R) {
+                          ScalarEvolution *SE, const Region *R, Loop *Scope) {
   if (!V || !SE->isSCEVable(V->getType()))
     return false;
 
-  if (const SCEV *Scev = SE->getSCEV(const_cast<Value *>(V)))
+  if (const SCEV *Scev = SE->getSCEVAtScope(const_cast<Value *>(V), Scope))
     if (!isa<SCEVCouldNotCompute>(Scev))
-      if (!hasScalarDepsInsideRegion(Scev, R))
+      if (!hasScalarDepsInsideRegion(Scev, R, Scope, false))
         return true;
 
   return false;
+}
+
+llvm::BasicBlock *polly::getUseBlock(llvm::Use &U) {
+  Instruction *UI = dyn_cast<Instruction>(U.getUser());
+  if (!UI)
+    return nullptr;
+
+  if (PHINode *PHI = dyn_cast<PHINode>(UI))
+    return PHI->getIncomingBlock(U);
+
+  return UI->getParent();
 }

@@ -18,7 +18,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 
@@ -87,12 +87,12 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFramework>();
-    AU.addRequiredTransitive<DDAnalysis>();
+    AU.addRequiredTransitive<HIRDDAnalysis>();
   }
 
 private:
   Function *F;
-  DDAnalysis *DDA;
+  HIRDDAnalysis *DDA;
   int OptReportLevel = 1;
 
   // Heuristics set used for this pass
@@ -134,7 +134,7 @@ char HIRLoopDistribution::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopDistribution, "hir-loop-distribute",
                       "HIR Loop Distribution", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRLoopDistribution, "hir-loop-distribute",
                     "HIR Loop Distribution", false, false)
 
@@ -381,7 +381,7 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
     DistCostModel = CmdLineHeuristics;
   }
 
-  DDA = &getAnalysis<DDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysis>();
   SmallVector<HLLoop *, 64> Loops;
   HLNodeUtils::gatherAllLoops(Loops);
 

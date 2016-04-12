@@ -30,7 +30,7 @@
 #include "llvm/Object/ELF.h"
 
 namespace lld {
-namespace elf2 {
+namespace elf {
 
 class ArchiveFile;
 class InputFile;
@@ -65,6 +65,7 @@ public:
     SharedKind,
     DefinedElfLast = SharedKind,
     DefinedCommonKind,
+    DefinedBitcodeKind,
     DefinedSyntheticKind,
     DefinedLast = DefinedSyntheticKind,
     UndefinedElfKind,
@@ -83,24 +84,32 @@ public:
   bool isLazy() const { return SymbolKind == LazyKind; }
   bool isShared() const { return SymbolKind == SharedKind; }
   bool isUsedInRegularObj() const { return IsUsedInRegularObj; }
-  bool isUsedInDynamicReloc() const { return IsUsedInDynamicReloc; }
-  void setUsedInDynamicReloc() { IsUsedInDynamicReloc = true; }
-  bool isTls() const { return IsTls; }
+  bool isFunc() const { return IsFunc; }
 
   // Returns the symbol name.
   StringRef getName() const { return Name; }
 
   uint8_t getVisibility() const { return Visibility; }
 
-  unsigned DynamicSymbolTableIndex = 0;
+  unsigned DynsymIndex = 0;
   uint32_t GlobalDynIndex = -1;
   uint32_t GotIndex = -1;
   uint32_t GotPltIndex = -1;
   uint32_t PltIndex = -1;
   bool hasGlobalDynIndex() { return GlobalDynIndex != uint32_t(-1); }
   bool isInGot() const { return GotIndex != -1U; }
-  bool isInGotPlt() const { return GotPltIndex != -1U; }
   bool isInPlt() const { return PltIndex != -1U; }
+
+  template <class ELFT>
+  typename llvm::object::ELFFile<ELFT>::uintX_t getVA() const;
+  template <class ELFT>
+  typename llvm::object::ELFFile<ELFT>::uintX_t getGotVA() const;
+  template <class ELFT>
+  typename llvm::object::ELFFile<ELFT>::uintX_t getGotPltVA() const;
+  template <class ELFT>
+  typename llvm::object::ELFFile<ELFT>::uintX_t getPltVA() const;
+  template <class ELFT>
+  typename llvm::object::ELFFile<ELFT>::uintX_t getSize() const;
 
   // A SymbolBody has a backreference to a Symbol. Originally they are
   // doubly-linked. A backreference will never change. But the pointer
@@ -119,11 +128,11 @@ public:
 
 protected:
   SymbolBody(Kind K, StringRef Name, bool IsWeak, uint8_t Visibility,
-             bool IsTls)
-      : SymbolKind(K), IsWeak(IsWeak), Visibility(Visibility), IsTls(IsTls),
-        Name(Name) {
+             bool IsTls, bool IsFunc)
+      : SymbolKind(K), IsWeak(IsWeak), Visibility(Visibility),
+        MustBeInDynSym(false), NeedsCopyOrPltAddr(false), IsTls(IsTls),
+        IsFunc(IsFunc), Name(Name) {
     IsUsedInRegularObj = K != SharedKind && K != LazyKind;
-    IsUsedInDynamicReloc = 0;
   }
 
   const unsigned SymbolKind : 8;
@@ -136,10 +145,19 @@ protected:
   // it can be false.
   unsigned IsUsedInRegularObj : 1;
 
+public:
   // If true, the symbol is added to .dynsym symbol table.
-  unsigned IsUsedInDynamicReloc : 1;
+  unsigned MustBeInDynSym : 1;
+
+  // True if the linker has to generate a copy relocation for this shared
+  // symbol or if the symbol should point to its plt entry.
+  unsigned NeedsCopyOrPltAddr : 1;
 
   unsigned IsTls : 1;
+
+protected:
+  unsigned IsFunc : 1;
+
   StringRef Name;
   Symbol *Backref = nullptr;
 };
@@ -147,7 +165,8 @@ protected:
 // The base class for any defined symbols.
 class Defined : public SymbolBody {
 public:
-  Defined(Kind K, StringRef Name, bool IsWeak, uint8_t Visibility, bool IsTls);
+  Defined(Kind K, StringRef Name, bool IsWeak, uint8_t Visibility, bool IsTls,
+          bool IsFunction);
   static bool classof(const SymbolBody *S) { return S->isDefined(); }
 };
 
@@ -159,13 +178,20 @@ protected:
 public:
   DefinedElf(Kind K, StringRef N, const Elf_Sym &Sym)
       : Defined(K, N, Sym.getBinding() == llvm::ELF::STB_WEAK,
-                Sym.getVisibility(), Sym.getType() == llvm::ELF::STT_TLS),
+                Sym.getVisibility(), Sym.getType() == llvm::ELF::STT_TLS,
+                Sym.getType() == llvm::ELF::STT_FUNC),
         Sym(Sym) {}
 
   const Elf_Sym &Sym;
   static bool classof(const SymbolBody *S) {
     return S->kind() <= DefinedElfLast;
   }
+};
+
+class DefinedBitcode : public Defined {
+public:
+  DefinedBitcode(StringRef Name, bool IsWeak);
+  static bool classof(const SymbolBody *S);
 };
 
 class DefinedCommon : public Defined {
@@ -195,15 +221,26 @@ public:
   DefinedRegular(StringRef N, const Elf_Sym &Sym,
                  InputSectionBase<ELFT> *Section)
       : DefinedElf<ELFT>(SymbolBody::DefinedRegularKind, N, Sym),
-        Section(Section) {}
+        Section(Section ? Section->Repl : NullInputSection) {}
 
   static bool classof(const SymbolBody *S) {
     return S->kind() == SymbolBody::DefinedRegularKind;
   }
 
-  // If this is null, the symbol is absolute.
-  InputSectionBase<ELFT> *Section;
+  // The input section this symbol belongs to. Notice that this is
+  // a reference to a pointer. We are using two levels of indirections
+  // because of ICF. If ICF decides two sections need to be merged, it
+  // manipulates this Section pointers so that they point to the same
+  // section. This is a bit tricky, so be careful to not be confused.
+  // If this is null, the symbol is an absolute symbol.
+  InputSectionBase<ELFT> *&Section;
+
+private:
+  static InputSectionBase<ELFT> *NullInputSection;
 };
+
+template <class ELFT>
+InputSectionBase<ELFT> *DefinedRegular<ELFT>::NullInputSection;
 
 // DefinedSynthetic is a class to represent linker-generated ELF symbols.
 // The difference from the regular symbol is that DefinedSynthetic symbols
@@ -213,8 +250,8 @@ template <class ELFT> class DefinedSynthetic : public Defined {
 public:
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym Elf_Sym;
   typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
-  DefinedSynthetic(StringRef N, uintX_t Value,
-                   OutputSectionBase<ELFT> &Section);
+  DefinedSynthetic(StringRef N, uintX_t Value, OutputSectionBase<ELFT> &Section,
+                   uint8_t Visibility);
 
   static bool classof(const SymbolBody *S) {
     return S->kind() == SymbolBody::DefinedSyntheticKind;
@@ -267,10 +304,10 @@ public:
 
   SharedFile<ELFT> *File;
 
-  // True if the linker has to generate a copy relocation for this shared
-  // symbol. OffsetInBss is significant only when NeedsCopy is true.
-  bool NeedsCopy = false;
+  // OffsetInBss is significant only when needsCopy() is true.
   uintX_t OffsetInBss = 0;
+
+  bool needsCopy() const { return this->NeedsCopyOrPltAddr && !this->IsFunc; }
 };
 
 // This class represents a symbol defined in an archive file. It is
@@ -281,7 +318,8 @@ public:
 class Lazy : public SymbolBody {
 public:
   Lazy(ArchiveFile *F, const llvm::object::Archive::Symbol S)
-      : SymbolBody(LazyKind, S.getName(), false, llvm::ELF::STV_DEFAULT, false),
+      : SymbolBody(LazyKind, S.getName(), false, llvm::ELF::STV_DEFAULT,
+                   /*IsTls*/ false, /*IsFunction*/ false),
         File(F), Sym(S) {}
 
   static bool classof(const SymbolBody *S) { return S->kind() == LazyKind; }
@@ -308,6 +346,12 @@ template <class ELFT> struct ElfSym {
   // output file's symbol table. It has weak binding and can be substituted.
   static Elf_Sym Ignored;
 
+  // The content for _etext and etext symbols.
+  static Elf_Sym Etext;
+
+  // The content for _edata and edata symbols.
+  static Elf_Sym Edata;
+
   // The content for _end and end symbols.
   static Elf_Sym End;
 
@@ -321,13 +365,15 @@ template <class ELFT> struct ElfSym {
 };
 
 template <class ELFT> typename ElfSym<ELFT>::Elf_Sym ElfSym<ELFT>::Ignored;
+template <class ELFT> typename ElfSym<ELFT>::Elf_Sym ElfSym<ELFT>::Etext;
+template <class ELFT> typename ElfSym<ELFT>::Elf_Sym ElfSym<ELFT>::Edata;
 template <class ELFT> typename ElfSym<ELFT>::Elf_Sym ElfSym<ELFT>::End;
 template <class ELFT> typename ElfSym<ELFT>::Elf_Sym ElfSym<ELFT>::MipsGp;
 template <class ELFT>
 typename ElfSym<ELFT>::Elf_Sym ElfSym<ELFT>::RelaIpltStart;
 template <class ELFT> typename ElfSym<ELFT>::Elf_Sym ElfSym<ELFT>::RelaIpltEnd;
 
-} // namespace elf2
+} // namespace elf
 } // namespace lld
 
 #endif

@@ -21,6 +21,7 @@ add_llvm_library(LLVMScalarOpts
   LICM.cpp
   LoadCombine.cpp
   LoopDeletion.cpp
+  LoopDataPrefetch.cpp
   LoopDistribute.cpp
   LoopIdiomRecognize.cpp
   LoopInstSimplify.cpp
@@ -28,9 +29,11 @@ add_llvm_library(LLVMScalarOpts
   LoopLoadElimination.cpp
   LoopRerollPass.cpp
   LoopRotation.cpp
+  LoopSimplifyCFG.cpp
   LoopStrengthReduce.cpp
   LoopUnrollPass.cpp
   LoopUnswitch.cpp
+  LoopVersioningLICM.cpp
   LowerAtomic.cpp
   LowerExpectIntrinsic.cpp
   MemCpyOptimizer.cpp

@@ -491,6 +491,7 @@ void Parser::Initialize() {
   Ident_deprecated = nullptr;
   Ident_obsoleted = nullptr;
   Ident_unavailable = nullptr;
+  Ident_strict = nullptr;
 
   Ident__except = nullptr;
 
@@ -658,7 +659,7 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
     HandlePragmaOpenCLExtension();
     return nullptr;
   case tok::annot_pragma_openmp:
-    return ParseOpenMPDeclarativeDirective();
+    return ParseOpenMPDeclarativeDirective(/*AS=*/AS_none);
   case tok::annot_pragma_ms_pointers_to_members:
     HandlePragmaMSPointersToMembers();
     return nullptr;
@@ -883,8 +884,14 @@ Parser::ParseDeclOrFunctionDefInternal(ParsedAttributesWithRange &attrs,
   if (Tok.is(tok::semi)) {
     ProhibitAttributes(attrs);
     ConsumeToken();
-    Decl *TheDecl = Actions.ParsedFreeStandingDeclSpec(getCurScope(), AS, DS);
+    RecordDecl *AnonRecord = nullptr;
+    Decl *TheDecl = Actions.ParsedFreeStandingDeclSpec(getCurScope(), AS_none,
+                                                       DS, AnonRecord);
     DS.complete(TheDecl);
+    if (AnonRecord) {
+      Decl* decls[] = {AnonRecord, TheDecl};
+      return Actions.BuildDeclaratorGroup(decls, /*TypeMayContainAuto=*/false);
+    }
     return Actions.ConvertDeclToDeclGroup(TheDecl);
   }
 

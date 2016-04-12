@@ -2,7 +2,7 @@
 
 ; Check parsing output for the loop verifying that the phi with null initial value is handled correcetly.
 ; CHECK: DO i1 = 0, (umax(4, %p) + -1)/u4
-; CHECK-NEXT: %0 = (null)[i1];
+; CHECK-NEXT: %0 = {al:4}(null)[i1];
 ; CHECK-NEXT: END LOOP
 
 

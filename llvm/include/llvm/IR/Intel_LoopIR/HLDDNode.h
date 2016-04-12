@@ -18,6 +18,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
+#include "llvm/IR/Intel_LoopIR/HLRegion.h"
 #include <iterator>
 
 namespace llvm {
@@ -127,6 +128,11 @@ public:
 
   /// \brief Returns true if Ref is a fake DDRef attached to this node.
   bool isFake(const RegDDRef *Ref) const;
+
+  /// \Brief Returns true if Ref is live out of Region
+  bool isLiveOutOfRegion(unsigned SB) const {
+    return getParentRegion()->isLiveOut(SB);
+  }
 };
 
 } // End namespace loopopt

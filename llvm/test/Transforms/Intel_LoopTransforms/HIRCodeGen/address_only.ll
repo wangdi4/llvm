@@ -1,5 +1,5 @@
-;RUN: opt -HIRCG -force-HIRCG -S %s | FileCheck %s
-;CHECK: loop.11
+;RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -hir-cost-model-throttling=0 -S %s | FileCheck %s
+;CHECK: loop.12
 ;verify first argument of this hir stmt was correctly cg'd
 ;%call = @printf(&((@.str)[0]),  %0);
 ;CHECK: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([11 x i8], [11 x i8]* @.str, i64 0, i64 0)

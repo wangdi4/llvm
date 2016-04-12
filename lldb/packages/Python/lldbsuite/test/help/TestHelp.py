@@ -10,7 +10,9 @@ from __future__ import print_function
 
 import os, time
 import lldb
+from lldbsuite.test.decorators import *
 from lldbsuite.test.lldbtest import *
+from lldbsuite.test import lldbutil
 
 class HelpCommandTestCase(TestBase):
 
@@ -163,3 +165,18 @@ class HelpCommandTestCase(TestBase):
             substrs = ['The following subcommands are supported:'],
             patterns = ['expression +--',
                         'variable +--'])
+
+    @no_debug_info_test
+    def test_help_provides_alternatives(self):
+        """Test that help on commands that don't exist provides information on additional help avenues"""
+        self.expect("help thisisnotadebuggercommand",
+            substrs = ["'thisisnotadebuggercommand' is not a known command.",
+            "Try 'help' to see a current list of commands.",
+            "Try 'apropos thisisnotadebuggercommand' for a list of related commands.",
+            "Try 'type lookup thisisnotadebuggercommand' for information on types, methods, functions, modules, etc."], error=True)
+
+        self.expect("help process thisisnotadebuggercommand",
+            substrs = ["'process thisisnotadebuggercommand' is not a known command.",
+            "Try 'help' to see a current list of commands.",
+            "Try 'apropos thisisnotadebuggercommand' for a list of related commands.",
+            "Try 'type lookup thisisnotadebuggercommand' for information on types, methods, functions, modules, etc."])

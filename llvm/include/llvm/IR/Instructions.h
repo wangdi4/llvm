@@ -1745,6 +1745,10 @@ public:
   void setConvergent() {
     addAttribute(AttributeSet::FunctionIndex, Attribute::Convergent);
   }
+  void setNotConvergent() {
+    removeAttribute(AttributeSet::FunctionIndex,
+                    Attribute::get(getContext(), Attribute::Convergent));
+  }
 
   /// \brief Determine if the call returns a structure through first
   /// pointer argument.
@@ -2512,14 +2516,13 @@ public:
     return block_begin() + getNumOperands();
   }
 
-#if INTEL_CUSTOMIZATION
-  // Cherry picked from r259702
   iterator_range<block_iterator> blocks() {
-    return make_range(block_begin(), block_end());  }
+    return make_range(block_begin(), block_end());
+  }
 
   iterator_range<const_block_iterator> blocks() const {
-    return make_range(block_begin(), block_end());  }
-#endif // INTEL_CUSTOMIZATION
+    return make_range(block_begin(), block_end());
+  }
 
   op_range incoming_values() { return operands(); }
 
@@ -3663,6 +3666,16 @@ public:
   bool cannotDuplicate() const {return hasFnAttr(Attribute::NoDuplicate); }
   void setCannotDuplicate() {
     addAttribute(AttributeSet::FunctionIndex, Attribute::NoDuplicate);
+  }
+
+  /// \brief Determine if the invoke is convergent
+  bool isConvergent() const { return hasFnAttr(Attribute::Convergent); }
+  void setConvergent() {
+    addAttribute(AttributeSet::FunctionIndex, Attribute::Convergent);
+  }
+  void setNotConvergent() {
+    removeAttribute(AttributeSet::FunctionIndex,
+                    Attribute::get(getContext(), Attribute::Convergent));
   }
 
   /// \brief Determine if the call returns a structure through first

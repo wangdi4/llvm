@@ -49,8 +49,8 @@
 #endif
 
 #if defined(_MSC_VER)
-#include "lldb/Host/windows/windows.h"
 #include "Plugins/Process/Windows/Common/ProcessWindowsLog.h"
+#include "lldb/Host/windows/windows.h"
 #endif
 
 #include "llvm/Support/TargetSelect.h"
@@ -97,7 +97,6 @@ SystemInitializerCommon::Initialize()
 
     Log::Initialize();
     HostInfo::Initialize();
-    Timer::Initialize();
     Timer scoped_timer(__PRETTY_FUNCTION__, __PRETTY_FUNCTION__);
 
     llvm::install_fatal_error_handler(fatal_error_handler, 0);
@@ -195,5 +194,6 @@ SystemInitializerCommon::Terminate()
 #endif
     OperatingSystemGo::Terminate();
 
+    HostInfo::Terminate();
     Log::Terminate();
 }

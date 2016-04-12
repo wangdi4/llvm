@@ -61,15 +61,10 @@ static const char *const DWARFGroupName = "DWARF Emission";
 static const char *const DbgTimerName = "Debug Info Emission";
 static const char *const EHTimerName = "DWARF Exception Writer";
 static const char *const CodeViewLineTablesGroupName = "CodeView Line Tables";
-//***INTEL
-static const char *const STIDebugGroupName = "STI Debug Info Emission";
 
-//***INTEL
-static cl::opt<bool> EmitWinCodeViewLineTables(
-        "debug-emit-wincodeviewlinetables",
-        cl::Hidden,
-        cl::desc("Emit WinCodeViewLineTables instead of STI debug information"),
-        cl::init(false));
+#if INTEL_CUSTOMIZATION
+static const char *const STIDebugGroupName = "STI Debug Info Emission";
+#endif // INTEL_CUSTOMIZATION
 
 STATISTIC(EmittedInsts, "Number of machine instrs printed");
 
@@ -259,7 +254,7 @@ bool AsmPrinter::doInitialization(Module &M) {
     bool EmitCodeView = MMI->getModule()->getCodeViewFlag();
     if (EmitCodeView && TM.getTargetTriple().isKnownWindowsMSVCEnvironment()) {
 #if INTEL_CUSTOMIZATION
-      if (!EmitWinCodeViewLineTables) {
+      if (MMI->getModule()->getModuleFlag("Intel STI") != nullptr) {
         Handlers.push_back(HandlerInfo(STIDebug::create(this),
                                        DbgTimerName,
                                        STIDebugGroupName));
@@ -1212,9 +1207,10 @@ bool AsmPrinter::doFinalization(Module &M) {
 
   // Emit __morestack address if needed for indirect calls.
   if (MMI->usesMorestackAddr()) {
+    unsigned Align = 1;
     MCSection *ReadOnlySection = getObjFileLowering().getSectionForConstant(
         getDataLayout(), SectionKind::getReadOnly(),
-        /*C=*/nullptr);
+        /*C=*/nullptr, Align);
     OutStreamer->SwitchSection(ReadOnlySection);
 
     MCSymbol *AddrSymbol =
@@ -1304,8 +1300,8 @@ void AsmPrinter::EmitConstantPool() {
     if (!CPE.isMachineConstantPoolEntry())
       C = CPE.Val.ConstVal;
 
-    MCSection *S =
-        getObjFileLowering().getSectionForConstant(getDataLayout(), Kind, C);
+    MCSection *S = getObjFileLowering().getSectionForConstant(getDataLayout(),
+                                                              Kind, C, Align);
 
     // The number of sections are small, just do a linear search from the
     // last section to the first.
@@ -2542,7 +2538,7 @@ isBlockOnlyReachableByFallthrough(const MachineBasicBlock *MBB) const {
     // If we are the operands of one of the branches, this is not a fall
     // through. Note that targets with delay slots will usually bundle
     // terminators with the delay slot instruction.
-    for (ConstMIBundleOperands OP(&MI); OP.isValid(); ++OP) {
+    for (ConstMIBundleOperands OP(MI); OP.isValid(); ++OP) {
       if (OP->isJTI())
         return false;
       if (OP->isMBB() && OP->getMBB() == MBB)

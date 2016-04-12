@@ -31,7 +31,7 @@ using namespace llvm::vpo;
 INITIALIZE_PASS_BEGIN(WRegionInfo, "vpo-wrninfo", 
                                    "VPO Work-Region Information", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionCollection)
 INITIALIZE_PASS_END(WRegionInfo, "vpo-wrninfo", 
                                  "VPO Work-Region Information", false, true)
@@ -48,7 +48,7 @@ WRegionInfo::WRegionInfo() : FunctionPass(ID) {
 void WRegionInfo::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<PostDominatorTree>();
+  AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
   AU.addRequiredTransitive<WRegionCollection>();
 }
 
@@ -62,7 +62,7 @@ bool WRegionInfo::runOnFunction(Function &F) {
   DEBUG(dbgs() << "\nW-Region Information Collection Start\n");
 
   DT     = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  PDT    = &getAnalysis<PostDominatorTree>();
+  PDT    = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   WRC    = &getAnalysis<WRegionCollection>();
 
 #if 1

@@ -20,7 +20,6 @@
 
 namespace llvm {
 
-class FMAExprSPCommon;
 
 // This class defines structures and methods for holding and maintaining
 // expression trees (DAGs). Each node of the DAG describes one FMA-like
@@ -292,7 +291,7 @@ class FMADagCommon {
     //   t0 * t1 + t2   // DAG has 3 unique terms
     // it changes the DAG to the following:
     //   t1 * t1 + t0   // DAG has 2 unique terms
-    void doTermsMapping(unsigned TermsMapping[]) {
+    void doTermsMapping(const unsigned TermsMapping[]) {
       unsigned NumNodes = getNumNodes();
       unsigned NumTerms = 0;
       for (unsigned NodeInd = 0; NodeInd < NumNodes; NodeInd++) {
@@ -381,6 +380,11 @@ class FMADagCommon {
       writeToUInt32(EncodedNumTermsAndSigns, 5 + NodeInd * 2, 1, Sign ? 1 : 0);
     }
 
+    // Unsets the Mul and Add sign bits in all nodes.
+    void unsetAllSignBits() {
+      writeToUInt32(EncodedNumTermsAndSigns, 4, getNumNodes() * 2, 0);
+    }
+
     // Returns the depth of the DAG/tree.
     // The optional parameter \p NodeInd may be used to get the depth of
     // the subtree.
@@ -394,6 +398,10 @@ class FMADagCommon {
       }
       return OpndDepth + 1;
     }
+
+    // Returns the DAG in unsigned 64-bit form that does not include
+    // information about regular terms, i.e. all regular terms are anonymous.
+    uint64_t getEncodedDag() { return EncodedDag; }
 
     // Prints the DAG to the given output stream \p OS.
     void print(raw_ostream &OS) const {
@@ -436,7 +444,7 @@ class FMADagCommon {
 // This representation makes it possible to transform various DAGs to this
 // form, check if those DAGs are equivalent, and replace one DAG with another.
 class FMAExprSPCommon {
-  private:
+  protected:
     // This const defines the maxumim number of terms that can be used in one
     // product. This limit is set to some "reasonable" value such a way that
     // sum of products does not use too much memory. It always can be easily
@@ -448,6 +456,7 @@ class FMAExprSPCommon {
     // not generate more than 16 terms in 1 product.
     static const unsigned MaxNumOfTermsInProduct = 16;
 
+  public:
     // The number of unique regular terms and the special terms 0.0 and 1.0
     // must be unfied with the class FMADagCommon as the classes FMADagCommon
     // and FMAExprSPCommon are often just different representations of the
@@ -458,14 +467,12 @@ class FMAExprSPCommon {
     static const unsigned MaxNumOfUniqueTermsInSP =
                             FMADagCommon::MaxNumOfUniqueTermsInDAG;
 
-  public:
     // Define two special terms for 0.0 and 1.0 FP values the same way as
     // they are defined in the class FMADagCommon.
     static const uint8_t TermZERO = FMADagCommon::TermZERO;
     static const uint8_t TermONE = FMADagCommon::TermONE;
 
-  private:
-
+  protected:
     // Represent one product of terms. For example, (-t0*t1*t2*...*tN).
     // This is used as a building block for Sum Of Products representation.
     struct FMAExprProduct {
@@ -478,6 +485,15 @@ class FMAExprSPCommon {
 
       // Returns true iff the product consists of only one term TermONE.
       bool isOne() const { return NumTerms == 1 && Terms[0] == TermONE; }
+
+      // Initializes a product as a singleton, i.e. a product having only one
+      // term \p Term. The parameter \p ProductSign specifies the sign of
+      // the product.
+      void setSingleton(bool ProductSign, unsigned Term) {
+        NumTerms = 1;
+        Sign = ProductSign;
+        Terms[0] = Term;
+      }
 
       // Prints the product to the given output stream \p OS.
       void print(raw_ostream &OS) const {
@@ -542,13 +558,13 @@ class FMAExprSPCommon {
         if (!P1.Sign && P2.Sign)
           return true;
 
-        // P1 == P2, in this case, std::stable_sort requires the compare
-        // function to return false.
+        // If (P1.Sign && !P2.Sign) then just return false.
+        // If (P1 == P2) then return false as it is required by
+        // std::stable_sort().
         return false;
       }
     };
 
-  protected:
     // Number of products in the sum of products.
     unsigned NumProducts;
 
@@ -561,43 +577,14 @@ class FMAExprSPCommon {
     // separating products, e.g.:
     //   SP:    +aaabbbcc+ddd+1
     //   Shape:  11111111011101 (binary form)
+    // TODO: Consider hiding this field and implementing a getter method.
     uint64_t Shape;
 
     // A reference to a DAG that can be lowered/flattened to the current sum
     // of products.
+    // TODO: Consider hiding this field and implementing a getter method.
     FMADagCommon *Dag;
 
-  protected:
-    // This constructor creates a copy of the given \p SP using the given
-    // terms mapping \p TermsMapping.
-    // It is called by the patterns matching algorithm, which may have some
-    // proposed version of TermsMapping array telling how the regular terms
-    // must be renamed.
-    // For example:
-    //   SP:             +abc+bc+1
-    //   TermsMapping:   a->c, b->b, c->a
-    //   Constructed SP: +cba+ba+1
-    FMAExprSPCommon(const FMAExprSPCommon &SP, unsigned TermsMapping[]) {
-      NumProducts = SP.NumProducts;
-      Products = new FMAExprProduct[SP.NumProducts];
-      Shape = SP.Shape;
-      Dag = nullptr;
-
-      for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
-        unsigned ProdNumTerms = SP.Products[ProdInd].NumTerms;
-        Products[ProdInd].NumTerms = ProdNumTerms;
-        Products[ProdInd].Sign = SP.Products[ProdInd].Sign;
-
-        for (unsigned TermInd = 0; TermInd < ProdNumTerms; TermInd++) {
-          unsigned Term = SP.Products[ProdInd].Terms[TermInd];
-          if (Term != TermZERO && Term != TermONE)
-            Term = TermsMapping[Term];
-          Products[ProdInd].Terms[TermInd] = Term;
-        }
-      }
-    }
-
-  public:
     // Default constructor which creates an empty sum of products.
     FMAExprSPCommon() {
       NumProducts = 0;
@@ -612,27 +599,120 @@ class FMAExprSPCommon {
       Products = new FMAExprProduct[1];
       Shape = 1;
       Dag = nullptr;
-      Products[0].NumTerms = 1;
-      Products[0].Sign = false;
-      Products[0].Terms[0] = Term;
+      Products[0].setSingleton(false, Term);
     };
+
+    // Creates a copy of the given sum of products \p SP.
+    FMAExprSPCommon(const FMAExprSPCommon &SP) {
+      NumProducts = SP.NumProducts;
+      Products = new FMAExprProduct[NumProducts];
+      memcpy(Products, SP.Products, NumProducts * sizeof(FMAExprProduct));
+      Shape = SP.Shape;
+      Dag = nullptr;
+    }
 
     virtual ~FMAExprSPCommon() { delete Dag; delete[] Products; }
 
     // Returns the number of products in the sum of products.
     unsigned getNumProducts() const { return NumProducts; }
 
+    // Returns the number of terms in the product with index \p ProdInd.
+    unsigned getProductSize(unsigned ProdInd) const {
+      assert(ProdInd < NumProducts && "Incorrect inputs at getProductSize()");
+      return Products[ProdInd].NumTerms;
+    }
+
+    // Returns a term from the product with index \p ProdInd and the position
+    // in the product \p PositionInProduct.
+    unsigned getTerm(unsigned ProdInd, unsigned PositionInProduct) const {
+      assert((ProdInd < NumProducts &&
+              PositionInProduct < Products[ProdInd].NumTerms) &&
+             "Incorrect access to a term in a product.");
+      return Products[ProdInd].Terms[PositionInProduct];
+    }
+
+    // Returns the number of unique regular terms used in the sum of products.
+    // The special terms 0.0 and 1.0 are not included into the returned number.
+    unsigned getNumUniqueTerms() const {
+      unsigned TermUsedBitVector = 0;
+      unsigned NumUniqueTerms = 0;
+
+      for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
+        unsigned NumTerms = Products[ProdInd].NumTerms;
+        for (unsigned TermInd = 0; TermInd < NumTerms; TermInd++) {
+          unsigned Term = Products[ProdInd].Terms[TermInd];
+          if (Term == TermZERO || Term == TermONE)
+            continue;
+
+          unsigned Mask = 1U << Term;
+          if ((TermUsedBitVector & Mask) == 0) {
+            TermUsedBitVector |= Mask;
+            NumUniqueTerms++;
+          }
+        }
+      }
+      return NumUniqueTerms;
+    }
+
+    // Uses the given \m TermsMapping array/map to re-map the regular terms.
+    // For example, for the following input array:
+    //   TermsMapping[] = {1, 1, 0}; // t0->t1, t1->t1, t2->t0
+    // and the initial state of the SP:
+    //   +t0*t1+t2   // SP has 3 unique terms
+    // it changes the SP to the following:
+    //   +t1*t1+t0   // SP has 2 unique terms
+    void doTermsMapping(const unsigned TermsMapping[]) {
+      for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
+        uint8_t *Terms = Products[ProdInd].Terms;
+        unsigned ProdNumTerms = Products[ProdInd].NumTerms;
+        for (unsigned TermInd = 0; TermInd < ProdNumTerms; TermInd++) {
+          unsigned Term = Terms[TermInd];
+          if (Term != TermZERO && Term != TermONE)
+            Terms[TermInd] = TermsMapping[Term];
+        }
+      }
+
+      if (Dag)
+        Dag->doTermsMapping(TermsMapping);
+    }
 
     // Returns true if one of products consists of only the value 1.0.
     // Otherwise, returns false.
     // For example, this method returns true for SP: +ab+1.
     bool hasTermOne() const {
       for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
-        if (Products[ProdInd].NumTerms == 1 &&
-            Products[ProdInd].Terms[0] == TermONE)
+        if (Products[ProdInd].isOne())
           return true;
       }
       return false;
+    }
+
+    // Returns true iff the given sum of products \p SP is identical
+    // to 'this' SP. The parameter \p IgnoreProductSigns specifies if the
+    // signs of products must be ignored during the comparison.
+    bool isEqualTo(const FMAExprSPCommon &SP,
+                   bool IgnoreProductSigns = false) const {
+      if (NumProducts != SP.NumProducts)
+        return false;
+
+      for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
+        unsigned ProdNumTerms = Products[ProdInd].NumTerms;
+        if (ProdNumTerms != SP.Products[ProdInd].NumTerms)
+          return false;
+        if (!IgnoreProductSigns &&
+            Products[ProdInd].Sign != SP.Products[ProdInd].Sign)
+          return false;
+
+        const uint8_t *Terms = Products[ProdInd].Terms;
+        const uint8_t *SPTerms = SP.Products[ProdInd].Terms;
+
+        for (unsigned TermInd = 0; TermInd < ProdNumTerms; TermInd++) {
+          if (Terms[TermInd] != SPTerms[TermInd])
+            return false;
+        }
+      }
+
+      return true;
     }
 
     // Returns true iff the given \p SP has the same number of products and
@@ -670,8 +750,7 @@ class FMAExprSPCommon {
       if (A.isZero() || B.isZero()) {
         NumProducts = 1;
         Products = new FMAExprProduct[1];
-        Products[0].NumTerms = 1;
-        Products[0].Terms[0] = TermZERO;
+        Products[0].setSingleton(false, TermZERO);
         return true;
       }
 
@@ -680,6 +759,7 @@ class FMAExprSPCommon {
       Products = new FMAExprProduct[NumProducts];
 
       for (unsigned AProd = 0; AProd < A.NumProducts; AProd++) {
+        bool AIsOne = A.Products[AProd].isOne();
         for (unsigned BProd = 0; BProd < B.NumProducts; BProd++) {
           unsigned NewProdNumTerms = 0;
 
@@ -688,7 +768,6 @@ class FMAExprSPCommon {
           // i.e. start defining the new result product.
           // Skip this step if the current product from A has only one term
           // TermONE.
-          bool AIsOne = A.Products[AProd].isOne();
           if (!AIsOne) {
             for (unsigned i = 0; i < A.Products[AProd].NumTerms; i++) {
               if (NewProdNumTerms >= MaxNumOfTermsInProduct)
@@ -895,6 +974,15 @@ class FMAExprSPCommon {
       }
     }
 
+    // Returns true iff all products have positive sign.
+    bool allProductsArePositive() const {
+      for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
+        if (Products[ProdInd].Sign)
+          return false;
+      }
+      return true;
+    }
+
     // Prints the sum of product to the given output stream \p OS.
     void print(raw_ostream &OS) const {
       for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++)
@@ -927,7 +1015,462 @@ class FMAExprSPCommon {
     static bool fitsInShape(unsigned NumProducts, unsigned NumTerms) {
       return (NumProducts - 1 + NumTerms <= sizeof(uint64_t) * 8);
     }
+};
 
+// The purpose of this class is to match two sums of products.
+// It has a very simple public interface. Basically it consists of
+// one default constructor, one destructor and one method:
+//   FMADagCommon *getDagToMatchSPs(const FMAExprSPCommon &FormalSPRef,
+//                                  const FMAExprSPCommon &ActualSPRef);
+// which does all the SP to SP matching work.
+//
+// Note that this class does huge amount of work and it is very sensitive to
+// changes. The method getDagToMatchSPs() takes the majority (about 86%) of the
+// time spent in the FMA TableGen component. It is also critical for the FMA
+// optimization performed in CodeGen.
+// In order to optimize the efficiency of this code, many of the private
+// methods do not accept/pass parameters, but read/write from/to the fields
+// defined in this class. That helped to reduce the time spent here by
+// about 2-3 times.
+class FMASPToSPMatcher {
+  private:
+    // This structure contains information describing one term that is included
+    // into the sum of products.
+    // It is needed to make the SP to SP matching faster and to significantly
+    // clip the recursion depth in getDagToMatchSPsImpl().
+    // The arrays of such structures are initialized in initTermsInfo() and
+    // used in canMapFormalTermToActualTerm(). See those functions for details.
+    struct FMASPTermInfo {
+      unsigned NumUses;          // Number of term uses in SP.
+      unsigned NumProducts;      // Number of products using this term.
+      unsigned MaxProductUses;   // Maximal number of term uses in one product.
+      unsigned MinProductUses;   // Minimal number of term uses in one product.
+      unsigned MaxProductLength; // Max length of a product using this term.
+      unsigned SumProductLengths;// Sum of lengths of products using this term.
+      unsigned ValidNeighbors;   // Bit mask of valid neighbors.
+    };
+
+    // All of the fields defined below are stored in the instances of this
+    // class just to avoid passing too many parameters to the hottest method
+    // getDagToMatchSPsImpl(). The fields are initialized in the method
+    // getDagToMatchSPs() and its callees, used and modified in the method
+    // getDagToMatchSPsImpl(), and are invalid after return from
+    // getDagToMatchSPs();
+
+    // The following two fields are the references to the sums of products
+    // being matched. We use the word _formal_ for the sum of products that is
+    // the source, i.e. SP which terms are going to be renamed, and the word
+    // _actual_ for the destination SP, i.e. the sum of product that we want to
+    // get by renaming the terms in FormalSP.
+    const FMAExprSPCommon *FormalSP;
+    const FMAExprSPCommon *ActualSP;
+
+    // Arrays of structures describing terms in FormsSP and ActualSP.
+    FMASPTermInfo FormalTermsInfo[FMAExprSPCommon::MaxNumOfUniqueTermsInSP];
+    FMASPTermInfo ActualTermsInfo[FMAExprSPCommon::MaxNumOfUniqueTermsInSP];
+
+    // Number of unique terms in FormalSP.
+    unsigned NumFormalTerms;
+    // Number of unique terms in ActualSP.
+    unsigned NumActualTerms;
+
+    // This array is used to keep information about the numbers of users of
+    // terms in ActualSP.
+    unsigned ActualTermUses[FMAExprSPCommon::MaxNumOfUniqueTermsInSP];
+
+    // This array is used to keep information about the numbers of terms in
+    // FormalSP used to map to interested term of ActualSP.
+    // E.g. if N = NumFormalTermsForActual[i], then there are N terms
+    // in FormalSP which are mapped to the term with index=i in ActualSP.
+    unsigned NumFormalTermsForActual[FMAExprSPCommon::MaxNumOfUniqueTermsInSP];
+
+    // Mapping of the terms in FormalSP to terms of ActualSP.
+    unsigned FormalToActualMapping[FMAExprSPCommon::MaxNumOfUniqueTermsInSP];
+
+    // Walks through all products and terms of one of two sums of the products
+    // and initializes the structures describing the terms of SP.
+    //
+    // The parameter \p InitActualSP specifies the sum of products and
+    // corresponding array of structures to be initialized. If it is set to
+    // true then this call initializes structures describing terms of ActualSP.
+    // Otherwise, this calls initializes structures describing terms of
+    // FormalSP.
+    //
+    // Inputs: FormalSP, ActualSP, NumFormalTerms, NumActualTerms.
+    // Ouputs: FormalTermsInfo, ActualTermsInfo.
+    //         The array ActualTermUses[] is clobbered in this method.
+    void initTermsInfo(bool InitActualSP) {
+      const FMAExprSPCommon *SP;
+      FMASPTermInfo         *TermsInfo;
+      unsigned               NumTerms;
+
+      if (InitActualSP) {
+        SP = ActualSP;
+        TermsInfo = ActualTermsInfo;
+        NumTerms = NumActualTerms;
+      } else {
+        SP = FormalSP;
+        TermsInfo = FormalTermsInfo;
+        NumTerms = NumFormalTerms;
+      }
+
+      // At this point we need some temporary array holding the numbers of uses
+      // of each term in each of the products. In order to save some time on
+      // memory allocation we temporarily use one of already allocated arrays,
+      // i.e. ActualTermUses[]. The description of this method says that
+      // this array is clobbered here.
+      unsigned *TermUses = ActualTermUses;
+
+      memset(TermsInfo, 0, NumTerms * sizeof(FMASPTermInfo));
+      unsigned NumProducts = SP->getNumProducts();
+      for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
+        unsigned ProdNumTerms = SP->getProductSize(ProdInd);
+
+        // Count the numbers of uses of terms in one product.
+        memset(TermUses, 0, NumTerms * sizeof(unsigned));
+        for (unsigned TermInd = 0; TermInd < ProdNumTerms; TermInd++) {
+          unsigned Term = SP->getTerm(ProdInd, TermInd);
+          if (Term != FMAExprSPCommon::TermZERO &&
+              Term != FMAExprSPCommon::TermONE)
+            TermUses[Term]++;
+        }
+
+        for (unsigned Term = 0; Term < NumTerms; Term++) {
+          unsigned ThisTermUses = TermUses[Term];
+          if (ThisTermUses == 0)
+            continue;
+
+          TermsInfo[Term].NumUses += ThisTermUses;
+
+          if (ProdNumTerms > TermsInfo[Term].MaxProductLength)
+            TermsInfo[Term].MaxProductLength = ProdNumTerms;
+
+          TermsInfo[Term].SumProductLengths += ProdNumTerms;
+          TermsInfo[Term].NumProducts++;
+
+          if (ThisTermUses > TermsInfo[Term].MaxProductUses)
+            TermsInfo[Term].MaxProductUses = ThisTermUses;
+
+          if (TermsInfo[Term].MinProductUses == 0)
+            TermsInfo[Term].MinProductUses = ThisTermUses;
+          else if (ThisTermUses < TermsInfo[Term].MinProductUses)
+            TermsInfo[Term].MinProductUses = ThisTermUses;
+
+          // Set ValidNeighbors.
+          // Term X is a valid neighbor of Y iff there is at least one product
+          // in which both X and Y appear, including the case X == Y as long
+          // as X appears at least twice in such product.
+          for (unsigned OtherTerm = 0; OtherTerm < NumTerms; OtherTerm++) {
+            if (TermUses[OtherTerm] != 0 &&
+                (OtherTerm != Term || ThisTermUses != 1)) {
+              assert(OtherTerm < 32 &&
+                    "Increase the size of ValidNeighbors field and make the "
+                    "shift operation below safe.");
+              TermsInfo[Term].ValidNeighbors |= 1 << OtherTerm;
+            }
+          }
+        } // for (unsigned Term = 0; Term < NumTerms; Term++)
+      } // for (unsigned ProdInd = 0; ProdInd < SP->NumProducts; ProdInd++)
+    }
+
+    // Returns true if it is possible to find such combination of MUL and ADD
+    // signs at the given \p D DAG nodes that after lowered/flattened of the
+    // DAG would give a sum of products with identical product signs as
+    // \p SP has. In this case the signs of \p D are changed accordingly.
+    // Otherwise, false is returned and the sign bits of \p D are set to some
+    // random values.
+    //
+    // Inputs: The parameters \p D, and \p SP.
+    // Outputs: Updated signs in \p D;
+    //          A returned bool value.
+    bool matchDagSignsToSP(FMADagCommon &D, const FMAExprSPCommon &SP) const {
+      // A minor optimization: if all products in SP are positive then
+      // the sign bits for all Mul and Add operations in DAG can be unset.
+      // This situation is typical for DAGs and SPs generated in TableGen.
+      if (SP.allProductsArePositive()) {
+        D.unsetAllSignBits();
+        return true;
+      }
+
+      FMAExprSPCommon TmpSP;
+
+      // FIXME: The following approach is ugly as it is the exhaustive search,
+      // which is especially bad as this method is called from another
+      // exhaustive search code (even though it is limited by some heuristics).
+      // The code below may call the method FMAExprSPCommon::initForDag()
+      // up to 1024 times to find sign bits for a DAG with 5 nodes.
+      //
+      // One of doable solutions is to have special versions of the methods
+      //   FMAExprSPCommon::initForMul()
+      //   FMAExprSPCommon::initForAdd()
+      //   FMAExprSPCommon::canonize()
+      //   FMAExprSPCommon::initForDag()
+      // which would not only do what they were initially designed for,
+      // but also would accumulate and track sign bits of the initial DAG.
+      // For example, for such DAG = {X = (-a*Y+b); Y = (c*d-1)} and signs
+      // represented as S0=sign(-a*Y)=-1, S1=sign(b)=+1, S2=sign(c*d)=1,
+      // S3=sign(-1)=-1 the method initForDag() would return not only SP:
+      //   -acd+bcd-a+b
+      // but also would build a system of equations:
+      //   S0*S2=-1
+      //   S0*S3=+1
+      //   S1*S2=-1
+      //   S1*S3=+1
+      // The signs S0,..S3 could be found using some efficient mathematical
+      // algorithm or by using an exhaustive search which would iterate through
+      // all possible combinations of S0,..S3. Even though it would be an
+      // exhaustive search again, it would not require calling the method
+      // initForDag() many and many times, i.e. it would be hundreds or
+      // thousands times faster.
+
+      // The following {mul_sign, add_sign} combinations are allowed here:
+      // NumNodes = 1:  {0,0}, {0,1}, {1,0}, {1,1};
+      // NumNodes = 2:  {{0,0},{0,0}}, {{0,0},{0,1}}, ..., {{1,1},{1,1}};
+      // NumNodes = 3:  {{0,0},{0,0},{0,0}}, ..., {{1,1},{1,1},{1,1}};
+      // ...
+      // So, '-a*b-c' can be matched against a*b+c
+      unsigned NumNodes = D.getNumNodes();
+
+      // It is safe to use the left shift operation here as NumNodes is small.
+      unsigned Pow4NumNodes = 1 << (NumNodes * 2);
+
+      for (unsigned Comb = 0; Comb < Pow4NumNodes; Comb++) {
+        // 1. Set the signs combination to FMA DAG.
+        unsigned Op = Comb;
+        for (unsigned NodeInd = 0; NodeInd < NumNodes; NodeInd++) {
+          D.setAddSign(NodeInd, (Op & 1) != 0);
+          D.setMulSign(NodeInd, (Op & 2) != 0);
+          Op >>= 2;
+        }
+
+        // 2. Init the temporary Sum Of Products for FMA DAG.
+        TmpSP.initForDag(D);
+        TmpSP.canonize();
+
+        // 3. Compare the signs in the temporary SP computed in (2) and signs
+        //    in the given SP passed to this method.
+        //    If signs combination is found, then keep the current state,
+        //    stop iterations and return.
+        if (SP.hasEqualProductSigns(TmpSP))
+          return true;
+      }
+
+      return false;
+    }
+
+    // If the terms mapping accumulated in the field FormalToActualMapping[]
+    // can be applied to terms of FormalSP to get SP identical to ActualSP,
+    // then a copy of the DAG associated with the \p FormalSP is created,
+    // the terms in the copied DAG are renamed and the result copy is returned.
+    // Otherwise, nullptr is returned.
+    //
+    // Inputs: FormalSP, ActualSP, FormalToActualMapping[].
+    // Outputs: A returned DAG or nullptr.
+    FMADagCommon *getDagIfMappingIsValid() const {
+      // 1. Create a copy of the 'FormalSP' using the given terms mapping.
+      FMAExprSPCommon TmpSP(*FormalSP);
+      TmpSP.doTermsMapping(FormalToActualMapping);
+      TmpSP.canonize();
+
+      // 2. Check that 'this' SP is equal to TmpSP.
+      if (!ActualSP->isEqualTo(TmpSP, true /* IgnoreProductSigns */))
+        return nullptr;
+
+      // 3. Create a copy of the dag associated with 'FormalSP' using
+      //    the given terms mapping.
+      FMADagCommon *ResDag = new FMADagCommon(*FormalSP->Dag);
+      ResDag->doTermsMapping(FormalToActualMapping);
+
+      // 4. Set sign bits in ResDag to make it equivalent to ActualSP.
+      if (!matchDagSignsToSP(*ResDag, *ActualSP)) {
+        delete ResDag;
+        ResDag = nullptr;
+      }
+
+      return ResDag;
+    }
+
+    // This function returns true if the term \p FormalTerm of FormalSP
+    // can potentially be mapped to the term \p ActualTerm of ActualSP and it
+    // returns false if there are obvious reasons why such mapping is invalid.
+    //
+    // Inputs: The parameters \p FormalTerm, \p ActualTerm.
+    //         The fields ActualTermsInfo[], FormalTermsInfo[], ActualTermUses.
+    // Outputs: A returned bool value.
+    bool canMapFormalTermToActualTerm(unsigned FormalTerm,
+                                      unsigned ActualTerm) const {
+      // Attention: the following checks are sorted by their probabilities.
+      // The checks that allow to exit from the routine first are placed
+      // first. That is done to minimize the time spent in this routine
+      // as this routine is included into the hottest path of this TableGen.
+
+      const FMASPTermInfo *ActualTermInfo = &ActualTermsInfo[ActualTerm];
+
+      // Skip the ActualTerm if it is already used more times than in
+      // the actual SP.
+      if (ActualTermInfo->NumUses < ActualTermUses[ActualTerm])
+        return false;
+
+      const FMASPTermInfo *FormalTermInfo = &FormalTermsInfo[FormalTerm];
+
+      // Skip the ActualTerm if the sum of lengths of products using it
+      // is smaller than the sum of lengths of products using FormalTerm.
+      if (ActualTermInfo->SumProductLengths <
+          FormalTermInfo->SumProductLengths)
+        return false;
+
+      // Skip the ActualTerm if it is used in smaller number of products
+      // than the given FormalTerm.
+      //   Example: ActualSP: +ab+b; FormalSP: +ba+a;
+      //   Actual 'a' cannot be mapped to formal 'a'.
+      if (ActualTermInfo->NumProducts < FormalTermInfo->NumProducts)
+        return false;
+
+      // Skip the ActualTerm if the biggest product using it is smaller
+      // than the biggest product using the FormalTerm.
+      if (ActualTermInfo->MaxProductLength < FormalTermInfo->MaxProductLength)
+        return false;
+
+      // Skip the ActualTerm if it has smaller max number of uses in
+      // some product than FormalTerm.
+      if (ActualTermInfo->MaxProductUses < FormalTermInfo->MaxProductUses)
+        return false;
+
+      // Skip the ActualTerm if it has smaller min number of uses in
+      // some product that FormalTerm.
+      if (ActualTermInfo->MinProductUses < FormalTermInfo->MinProductUses)
+        return false;
+
+      // Use the ValidNeighbors field.
+      // If FormalTerm and any other formal term (OtherFT), mapped to actual
+      // terms ActualTerm and corresponding OtherAT, are valid neighbors
+      // then the terms ActualTerm and OtherAT must also be valid neighbors.
+      // Otherwise, mapping of FormalTerm to ActualTerm is not valid.
+      unsigned FTValidNeighbors = FormalTermsInfo[FormalTerm].ValidNeighbors;
+      unsigned ATValidNeighbors = ActualTermsInfo[ActualTerm].ValidNeighbors;
+      for (unsigned OtherFT = 0; OtherFT <= FormalTerm; OtherFT++) {
+        unsigned IsValidNeighborInFormal = (FTValidNeighbors >> OtherFT) & 1;
+        if (IsValidNeighborInFormal) {
+          unsigned OtherAT = FormalToActualMapping[OtherFT];
+          unsigned IsValidNeighborInActual = (ATValidNeighbors >> OtherAT) & 1;
+          if (!IsValidNeighborInActual)
+            return false;
+        }
+      }
+
+      return true;
+    }
+
+    // Tries to match the \p FormalSP to \p ActualSP. The matching is
+    // successful if it is possible to rename/remap the term in \p FormalSP
+    // such a way that the result of that re-mapping gives us \p ActualSP.
+    // If matching is successful, then a pointer to a DAG, equivalent to
+    // \p ActualSP, is returned. Otherwise, nullptr is returned.
+    //
+    // The method recursively calls itself, being initially called with
+    // parameters \p FormalTerm = 0, \p NumActualTermsMapped = 0. Method adds
+    // +1 to \p FormalTerm on each step of the recursion and also updates
+    // \p NumActualTermsMapped parameter accordingly. Exit from the recursion
+    // happens when \p FormalTerm gets equal to NumFormalTerms or when it is
+    // discovered that \p FormalTerm cannot be matched to any of terms from
+    // actual SP. The depth of the recursion cannot exceed
+    // FMAExprSPCommon::MaxNumOfUniqueTermsInSP which is some relatively small
+    // value.
+    //
+    // Inputs:  The parameters: \p FormalTerm (the formal term that should be
+    //          mapped at this call), and \p NumActualTermsMapped (the number
+    //          of terms in ActualSP which are not mapped yet).
+    //          All fields of this class: FormalTermsInfo[], ActualTermsInfo[],
+    //          FormalSP, ActualSP, NumFormalTerms, NumActualTerms,
+    //          NumFormalTermsForActual, ActualTermUses[],
+    //          FormalToActualMapping[];
+    // Outputs: The fields: FormalToActualMapping[], ActualTermUses[],
+    //          NumFormalTermsForActual[].
+    //          A returned DAG or nullptr.
+    FMADagCommon *getDagToMatchSPsImpl(unsigned FormalTerm,
+                                       unsigned NumActualTermsMapped) {
+      // All terms in FormalSP are already mapped to the terms in ActualSP.
+      // Just check if the mapping is valid and return the result DAG.
+      if (FormalTerm == NumFormalTerms)
+        return getDagIfMappingIsValid();
+
+      unsigned NumActualTermsToMap = NumActualTerms - NumActualTermsMapped;
+      unsigned NumFormalTermsToMap = NumFormalTerms - FormalTerm;
+      unsigned FormalTermNumUses = FormalTermsInfo[FormalTerm].NumUses;
+
+      // Some of terms in FormalSP are not yet set/mapped. Try mapping
+      // the 'FormalTerm' to one of term in ActualSP in the following loop.
+      unsigned ActualTerm = 0;
+      for (; ActualTerm < NumActualTerms; ActualTerm++) {
+        unsigned NewActualTermMapped =
+          NumFormalTermsForActual[ActualTerm] == 0 ? 1 : 0;
+
+        // Mapping of FormalTerm to ActualTerm will set the number of free
+        // formal terms to (NumFormalTermsToMap - 1) and the number of free
+        // actual terms to (NumActualTermsToMap - NewActualTermMapped).
+        // Here we check that the mapping will still be possible, i.e. that
+        // there will be enough free formal terms to do the matching.
+        if (NumActualTermsToMap - NewActualTermMapped >= NumFormalTermsToMap)
+          continue;
+
+        ActualTermUses[ActualTerm] += FormalTermNumUses;
+        FormalToActualMapping[FormalTerm] = ActualTerm;
+
+        if (canMapFormalTermToActualTerm(FormalTerm, ActualTerm)) {
+          NumFormalTermsForActual[ActualTerm]++;
+          FMADagCommon *ResDag =
+            getDagToMatchSPsImpl(FormalTerm + 1,
+                                 NumActualTermsMapped + NewActualTermMapped);
+          if (ResDag)
+            return ResDag;
+          NumFormalTermsForActual[ActualTerm]--;
+        }
+
+        ActualTermUses[ActualTerm] -= FormalTermNumUses;
+      }
+      return nullptr;
+    }
+
+  public:
+    FMASPToSPMatcher() { }
+    ~FMASPToSPMatcher() { }
+
+    // Tries to match \p FormalSP to \p ActualSP. The matching is successful
+    // if it is possible to rename/remap the term in \p FormalSP such a way
+    // that the result of that re-mapping gives us \p ActualSP.
+    // If matching is successful, then a pointer to a DAG, equivalent to
+    // \p ActualSP, is returned. Otherwise, nullptr is returned.
+    //
+    // Inputs: parameters \p FormalSPRef and \p ActualSPRef.
+    // Outputs: All fields of this class.
+    //          A returned DAG or nullptr.
+    FMADagCommon *getDagToMatchSPs(const FMAExprSPCommon &FormalSPRef,
+                                   const FMAExprSPCommon &ActualSPRef) {
+      NumActualTerms = ActualSPRef.getNumUniqueTerms();
+      NumFormalTerms = FormalSPRef.getNumUniqueTerms();
+      if (NumFormalTerms < NumActualTerms)
+        return nullptr;
+
+      // Terms matching is not implemented for TermONE. It also does not make
+      // sense implementing it as it would only complicate the code doing
+      // the matching. It is always possible to use a regular term for 1.0
+      // const. Actually, this check is always false and potentially it could
+      // be replaced with an assert, but having return nullptr is more safe
+      // and gentle way to handle such special cases.
+      if (ActualSPRef.hasTermOne() || FormalSPRef.hasTermOne())
+        return nullptr;
+
+      ActualSP = &ActualSPRef;
+      FormalSP = &FormalSPRef;
+
+      initTermsInfo(true /* InitActualSP */);
+      initTermsInfo(false /* InitFormalSP */);
+      memset(ActualTermUses, 0, NumActualTerms * sizeof(unsigned));
+      memset(FormalToActualMapping, 0, NumFormalTerms * sizeof(unsigned));
+      memset(NumFormalTermsForActual, 0, NumActualTerms * sizeof(unsigned));
+
+      return getDagToMatchSPsImpl(0, 0);
+    }
 };
 
 } // End llvm namespace

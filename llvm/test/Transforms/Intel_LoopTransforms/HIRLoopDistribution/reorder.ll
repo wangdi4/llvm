@@ -6,29 +6,29 @@
 ;executes first
 ;          BEGIN REGION { }
 ;<28>         + DO i1 = 0, zext.i32.i64(%UB), 1   <DO_LOOP>
-;<3>          |   %1 = (@B)[0][i1];
-;<5>          |   %2 = (@C)[0][i1];
+;<3>          |   %1 = {al:4}(@B)[0][i1];
+;<5>          |   %2 = {al:4}(@C)[0][i1];
 ;<6>          |   %add = %1  +  %2;
-;<9>          |   (@MC)[0][i1 + %blob1] = %add;
-;<12>         |   %4 = (i32*)(@DC)[0][i1];
-;<16>         |   (i32*)(@B)[0][i1 + 1] = %4;
-;<17>         |   %6 = (@C)[0][i1];
-;<20>         |   %7 = (@MC)[0][i1 + %blob2];
+;<9>          |   {al:4}(@MC)[0][i1 + %blob1] = %add;
+;<12>         |   %4 = {al:4}(i32*)(@DC)[0][i1];
+;<16>         |   {al:4}(i32*)(@B)[0][i1 + 1] = %4;
+;<17>         |   %6 = {al:4}(@C)[0][i1];
+;<20>         |   %7 = {al:4}(@MC)[0][i1 + %blob2];
 ;<21>         |   %add15 = %6  +  %7;
-;<22>         |   (@C)[0][i1] = %add15;
+;<22>         |   {al:4}(@C)[0][i1] = %add15;
 ;<28>         + END LOOP
 ;          END REGION
 ;
 ;Explicitly check contents of first loop
 ; CHECK: DO i1 = 0, 
-; CHECK-NEXT: [[LOAD:%.*]] = (i32*)(@DC)[0][i1]; 
-; CHECK-NEXT: (i32*)(@B)[0][i1 + 1] = [[LOAD]]
+; CHECK-NEXT: [[LOAD:%.*]] = {al:4}(i32*)(@DC)[0][i1]; 
+; CHECK-NEXT: {al:4}(i32*)(@B)[0][i1 + 1] = [[LOAD]]
 ; CHECK-NEXT: END LOOP
 
 ;Second loop contains rest, but most importantly the other
 ; @B[][] reference
 ; CHECK-NEXT: DO i1 = 0, 
-; CHECK: (@B)[0][i1]
+; CHECK: {al:4}(@B)[0][i1]
 ; CHECK: END LOOP
 
 ;Only two loops

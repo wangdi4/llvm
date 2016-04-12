@@ -1,5 +1,5 @@
 
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -HIRCG -force-HIRCG -S | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
 ; liveout value %cmp3 is in defined in entry block of region, for.body 
 ; that def shouldn't be replaced or modified
 

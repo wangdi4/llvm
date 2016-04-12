@@ -921,10 +921,14 @@ ObjectFileELF::SetLoadAddress (Target &target,
                 // Iterate through the object file sections to find all
                 // of the sections that have SHF_ALLOC in their flag bits.
                 SectionSP section_sp (section_list->GetSectionAtIndex (sect_idx));
-                // if (section_sp && !section_sp->IsThreadSpecific())
                 if (section_sp && section_sp->Test(SHF_ALLOC))
                 {
-                    lldb::addr_t load_addr = section_sp->GetFileAddress() + value;
+                    lldb::addr_t load_addr = section_sp->GetFileAddress();
+                    // We don't want to update the load address of a section with type
+                    // eSectionTypeAbsoluteAddress as they already have the absolute load address
+                    // already specified
+                    if (section_sp->GetType() != eSectionTypeAbsoluteAddress)
+                        load_addr += value;
 
                     // On 32-bit systems the load address have to fit into 4 bytes. The rest of
                     // the bytes are the overflow from the addition.
@@ -1562,6 +1566,15 @@ ObjectFileELF::GetSectionHeaderInfo(SectionHeaderColl &section_headers,
         }
     }
 
+    if (arch_spec.GetMachine() == llvm::Triple::arm ||
+        arch_spec.GetMachine() == llvm::Triple::thumb)
+    {
+        if (header.e_flags & llvm::ELF::EF_ARM_SOFT_FLOAT)
+            arch_spec.SetFlags (ArchSpec::eARM_abi_soft_float);
+        else if (header.e_flags & llvm::ELF::EF_ARM_VFP_FLOAT)
+            arch_spec.SetFlags (ArchSpec::eARM_abi_hard_float);
+    }
+
     // If there are no section headers we are done.
     if (header.e_shnum == 0)
         return 0;
@@ -2049,6 +2062,8 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
 
     ArchSpec arch;
     GetArchitecture(arch);
+    ModuleSP module_sp(GetModule());
+    SectionList* module_section_list = module_sp ? module_sp->GetSectionList() : nullptr;
 
     // Local cache to avoid doing a FindSectionByName for each symbol. The "const char*" key must
     // came from a ConstString object so they can be compared by pointer
@@ -2074,9 +2089,9 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
 
         SectionSP symbol_section_sp;
         SymbolType symbol_type = eSymbolTypeInvalid;
-        Elf64_Half symbol_idx = symbol.st_shndx;
+        Elf64_Half section_idx = symbol.st_shndx;
 
-        switch (symbol_idx)
+        switch (section_idx)
         {
         case SHN_ABS:
             symbol_type = eSymbolTypeAbsolute;
@@ -2085,7 +2100,7 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
             symbol_type = eSymbolTypeUndefined;
             break;
         default:
-            symbol_section_sp = section_list->GetSectionAtIndex(symbol_idx);
+            symbol_section_sp = section_list->GetSectionAtIndex(section_idx);
             break;
         }
 
@@ -2269,30 +2284,44 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
             }
         }
 
-        // symbol_value_offset may contain 0 for ARM symbols or -1 for
-        // THUMB symbols. See above for more details.
+        // symbol_value_offset may contain 0 for ARM symbols or -1 for THUMB symbols. See above for
+        // more details.
         uint64_t symbol_value = symbol.st_value + symbol_value_offset;
+
+        if (symbol_section_sp == nullptr && section_idx == SHN_ABS && symbol.st_size != 0)
+        {
+            // We don't have a section for a symbol with non-zero size. Create a new section for it
+            // so the address range covered by the symbol is also covered by the module (represented
+            // through the section list). It is needed so module lookup for the addresses covered
+            // by this symbol will be successfull. This case happens for absolute symbols.
+            ConstString fake_section_name(std::string(".absolute.") + symbol_name);
+            symbol_section_sp = std::make_shared<Section>(module_sp,
+                                                          this,
+                                                          SHN_ABS,
+                                                          fake_section_name,
+                                                          eSectionTypeAbsoluteAddress,
+                                                          symbol_value,
+                                                          symbol.st_size,
+                                                          0, 0, 0,
+                                                          SHF_ALLOC);
+
+            module_section_list->AddSection(symbol_section_sp);
+            section_list->AddSection(symbol_section_sp);
+        }
+
         if (symbol_section_sp && CalculateType() != ObjectFile::Type::eTypeObjectFile)
             symbol_value -= symbol_section_sp->GetFileAddress();
 
-        if (symbol_section_sp)
+        if (symbol_section_sp && module_section_list && module_section_list != section_list)
         {
-            ModuleSP module_sp(GetModule());
-            if (module_sp)
-            {
-                SectionList *module_section_list = module_sp->GetSectionList();
-                if (module_section_list && module_section_list != section_list)
-                {
-                    const ConstString &sect_name = symbol_section_sp->GetName();
-                    auto section_it = section_name_to_section.find(sect_name.GetCString());
-                    if (section_it == section_name_to_section.end())
-                        section_it = section_name_to_section.emplace(
-                            sect_name.GetCString(),
-                            module_section_list->FindSectionByName (sect_name)).first;
-                    if (section_it->second && section_it->second->GetFileSize())
-                        symbol_section_sp = section_it->second;
-                }
-            }
+            const ConstString &sect_name = symbol_section_sp->GetName();
+            auto section_it = section_name_to_section.find(sect_name.GetCString());
+            if (section_it == section_name_to_section.end())
+                section_it = section_name_to_section.emplace(
+                    sect_name.GetCString(),
+                    module_section_list->FindSectionByName (sect_name)).first;
+            if (section_it->second && section_it->second->GetFileSize())
+                symbol_section_sp = section_it->second;
         }
 
         bool is_global = symbol.getBinding() == STB_GLOBAL;
@@ -2323,11 +2352,11 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
                 mangled.SetDemangledName( ConstString((demangled_name + suffix).str()) );
         }
 
-        // In ELF all symbol should have a valid size but it is not true for some code symbols
-        // coming from hand written assembly. As none of the code symbol should have 0 size we try
-        // to calculate the size for these symbols in the symtab with saying that their original
+        // In ELF all symbol should have a valid size but it is not true for some function symbols
+        // coming from hand written assembly. As none of the function symbol should have 0 size we
+        // try to calculate the size for these symbols in the symtab with saying that their original
         // size is not valid.
-        bool symbol_size_valid = symbol.st_size != 0 || symbol_type != eSymbolTypeCode;
+        bool symbol_size_valid = symbol.st_size != 0 || symbol.getType() != STT_FUNC;
 
         Symbol dc_symbol(
             i + start_id,       // ID is the original symbol table index.
@@ -2854,6 +2883,14 @@ ObjectFileELF::GetSymtab()
             }
         }
 
+        DWARFCallFrameInfo* eh_frame = GetUnwindTable().GetEHFrameInfo();
+        if (eh_frame)
+        {
+            if (m_symtab_ap == nullptr)
+                m_symtab_ap.reset(new Symtab(this));
+            ParseUnwindSymbols (m_symtab_ap.get(), eh_frame);
+        }
+
         // If we still don't have any symtab then create an empty instance to avoid do the section
         // lookup next time.
         if (m_symtab_ap == nullptr)
@@ -2883,57 +2920,64 @@ ObjectFileELF::GetSymtab()
     return m_symtab_ap.get();
 }
 
-Symbol *
-ObjectFileELF::ResolveSymbolForAddress(const Address& so_addr, bool verify_unique)
+void
+ObjectFileELF::ParseUnwindSymbols(Symtab *symbol_table, DWARFCallFrameInfo* eh_frame)
 {
-    if (!m_symtab_ap.get())
-        return nullptr; // GetSymtab() should be called first.
-
-    const SectionList *section_list = GetSectionList();
+    SectionList* section_list = GetSectionList();
     if (!section_list)
-        return nullptr;
+        return;
 
-    if (DWARFCallFrameInfo *eh_frame = GetUnwindTable().GetEHFrameInfo())
-    {
-        AddressRange range;
-        if (eh_frame->GetAddressRange (so_addr, range))
+    // First we save the new symbols into a separate list and add them to the symbol table after
+    // we colleced all symbols we want to add. This is neccessary because adding a new symbol
+    // invalidates the internal index of the symtab what causing the next lookup to be slow because
+    // it have to recalculate the index first.
+    std::vector<Symbol> new_symbols;
+
+    eh_frame->ForEachFDEEntries(
+        [this, symbol_table, section_list, &new_symbols](lldb::addr_t file_addr,
+                                                         uint32_t size,
+                                                         dw_offset_t) {
+        Symbol* symbol = symbol_table->FindSymbolAtFileAddress(file_addr);
+        if (symbol)
         {
-            const addr_t file_addr = range.GetBaseAddress().GetFileAddress();
-            Symbol * symbol = verify_unique ? m_symtab_ap->FindSymbolContainingFileAddress(file_addr) : nullptr;
-            if (symbol)
-                return symbol;
-
-            // Note that a (stripped) symbol won't be found by GetSymtab()...
-            lldb::SectionSP eh_sym_section_sp = section_list->FindSectionContainingFileAddress(file_addr);
-            if (eh_sym_section_sp.get())
+            if (!symbol->GetByteSizeIsValid())
             {
-                addr_t section_base = eh_sym_section_sp->GetFileAddress();
-                addr_t offset = file_addr - section_base;
-                uint64_t symbol_id = m_symtab_ap->GetNumSymbols();
-
-                Symbol eh_symbol(
-                        symbol_id,            // Symbol table index.
-                        "???",                // Symbol name.
-                        false,                // Is the symbol name mangled?
-                        eSymbolTypeCode,      // Type of this symbol.
-                        true,                 // Is this globally visible?
-                        false,                // Is this symbol debug info?
-                        false,                // Is this symbol a trampoline?
-                        true,                 // Is this symbol artificial?
-                        eh_sym_section_sp,    // Section in which this symbol is defined or null.
-                        offset,               // Offset in section or symbol value.
-                        range.GetByteSize(),  // Size in bytes of this symbol.
-                        true,                 // Size is valid.
-                        false,                // Contains linker annotations?
-                        0);                   // Symbol flags.
-                if (symbol_id == m_symtab_ap->AddSymbol(eh_symbol))
-                    return m_symtab_ap->SymbolAtIndex(symbol_id);
+                symbol->SetByteSize(size);
+                symbol->SetSizeIsSynthesized(true);
             }
         }
-    }
-    return nullptr;
-}
+        else
+        {
+            SectionSP section_sp = section_list->FindSectionContainingFileAddress(file_addr);
+            if (section_sp)
+            {
+                addr_t offset = file_addr - section_sp->GetFileAddress();
+                const char* symbol_name = GetNextSyntheticSymbolName().GetCString();
+                uint64_t symbol_id = symbol_table->GetNumSymbols();
+                Symbol eh_symbol(
+                        symbol_id,       // Symbol table index.
+                        symbol_name,     // Symbol name.
+                        false,           // Is the symbol name mangled?
+                        eSymbolTypeCode, // Type of this symbol.
+                        true,            // Is this globally visible?
+                        false,           // Is this symbol debug info?
+                        false,           // Is this symbol a trampoline?
+                        true,            // Is this symbol artificial?
+                        section_sp,      // Section in which this symbol is defined or null.
+                        offset,          // Offset in section or symbol value.
+                        0,               // Size:          Don't specify the size as an FDE can
+                        false,           // Size is valid: cover multiple symbols.
+                        false,           // Contains linker annotations?
+                        0);              // Symbol flags.
+                new_symbols.push_back(eh_symbol);
+            }
+        }
+        return true;
+    });
 
+    for (const Symbol& s : new_symbols)
+        symbol_table->AddSymbol(s);
+}
 
 bool
 ObjectFileELF::IsStripped ()

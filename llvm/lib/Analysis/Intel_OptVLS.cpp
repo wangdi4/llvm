@@ -65,8 +65,9 @@ void OVLSAccessType::print(OVLSostream &OS) const {
   }
 }
 
-OVLSMemref::OVLSMemref(unsigned ESize, unsigned NumElements, const OVLSAccessType& AType)
-  : ElementSize(ESize), NumElements(NumElements), AccType(AType) {
+OVLSMemref::OVLSMemref(OVLSMemrefKind K, unsigned ESize, unsigned NumElements,
+                       const OVLSAccessType& AType)
+  : Kind(K), ElementSize(ESize), NumElements(NumElements), AccType(AType) {
   static unsigned MemrefId = 1;
   Id = MemrefId++;
 
@@ -109,17 +110,17 @@ void OVLSGroup::dump() const {
 
 void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
 
-  OS << "\n    Group Size(in bytes): " << getGroupSize();
+  OS << "\n    Vector Length(in bytes): " << getVectorLength();
   // print accessType
   OS << "\n    AccType: ";
   getAccessType().print(OS);
 
   // Print result mask
   OS << "\n    AccessMask(per byte, R to L): ";
-  uint64_t AMask = getAccessMask();
+  uint64_t AMask = getNByteAccessMask();
 
   // Convert int AccessMask to binary
-  char SRMask[MAX_GROUP_SIZE+1], *MaskPtr;
+  char SRMask[MAX_VECTOR_LENGTH+1], *MaskPtr;
   SRMask[0] = '\0';
   MaskPtr = &SRMask[1];
   while (AMask) {
@@ -174,7 +175,7 @@ namespace OptVLS {
 
   static unsigned genMask(unsigned Mask, unsigned shiftcount,
                           unsigned bitlocation) {
-    assert(bitlocation + shiftcount <= MAX_GROUP_SIZE &&
+    assert(bitlocation + shiftcount <= MAX_VECTOR_LENGTH &&
           "Invalid bit location for a bytemask");
 
     uint64_t NewMask = (shiftcount == 64) ? ~0LL : (1LL << shiftcount) - 1;
@@ -189,13 +190,13 @@ namespace OptVLS {
   // the memrefs does not exceed the group size.
   static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
                          OVLSGroupVector &OVLSGrps,
-                         unsigned GrpSize) {
+                         unsigned VectorLength) {
     for (MemrefDistanceMap *AdjMemrefSet : AdjMrfSetVec) {
       assert (!AdjMemrefSet->empty() && "Adjacent memref-set cannot be empty");
       MemrefDistanceMapIt AdjMemrefSetIt = (*AdjMemrefSet).begin();
 
       OVLSAccessType AccType = (AdjMemrefSetIt->second)->getAccessType();
-      OVLSGroup *CurrGrp = new OVLSGroup(GrpSize, AccType);
+      OVLSGroup *CurrGrp = new OVLSGroup(VectorLength, AccType);
       int GrpFirstMDist = AdjMemrefSetIt->first;
 
       // Group memrefs in each set using a greedy approach, keep inserting the
@@ -204,16 +205,16 @@ namespace OptVLS {
       for (MemrefDistanceMapIt E = (*AdjMemrefSet).end();
                                      AdjMemrefSetIt != E; ++AdjMemrefSetIt) {
         OVLSMemref *Memref = AdjMemrefSetIt->second;
-        unsigned ElemSize = Memref->getElementSize() / BYTE_SIZE; // in bytes
+        unsigned ElemSize = Memref->getElementSize() / BYTE; // in bytes
         int Dist = AdjMemrefSetIt->first;
 
-        uint64_t AccMask = CurrGrp->getAccessMask();
+        uint64_t AccMask = CurrGrp->getNByteAccessMask();
 
         if (!CurrGrp->empty() &&
-            ((Dist - GrpFirstMDist + ElemSize) > GrpSize || // capacity exceeded.
+            ((Dist - GrpFirstMDist + ElemSize) > VectorLength || // capacity exceeded.
             !Memref->canMoveTo(*CurrGrp->getFirstMemref()))) {
           OVLSGrps.push_back(CurrGrp);
-          CurrGrp = new OVLSGroup(GrpSize, AccType);
+          CurrGrp = new OVLSGroup(VectorLength, AccType);
 
           // Reset GrpFirstMDist
           GrpFirstMDist = Dist;
@@ -252,19 +253,18 @@ namespace OptVLS {
     for (unsigned i = 0, Size = Memrefs.size(); i < Size; ++i) {
       OVLSMemref *Memref = Memrefs[i];
 
-      int Dist = 0;
+      int64_t Dist = 0;
       bool AdjMrfSetFound = false;
 
       // TODO: Currently finding the appropriate group is done using a linear search.
       // It would be better to use a hashing algorithm for this search.
       for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec) {
 
-        MemrefDistanceMapIt I = (*AdjMemrefSet).begin();
-        OVLSMemref *SetFirstMrf = I->second;
+        OVLSMemref *SetFirstSeenMrf = (*AdjMemrefSet).find(0)->second;
 
-        if (Memref->getAccessType() == SetFirstMrf->getAccessType() && // same access type
-            Memref->haveSameNumElements(*SetFirstMrf) && // same number of vector elements
-            Memref->isAConstDistanceFrom(*SetFirstMrf, &Dist)) { // are a const distance apart
+        if (Memref->getAccessType() == SetFirstSeenMrf->getAccessType() && // same access type
+            Memref->haveSameNumElements(*SetFirstSeenMrf) && // same number of vector elements
+            Memref->isAConstDistanceFrom(*SetFirstSeenMrf, &Dist)) { // are a const distance apart
           // Found a set
           AdjMrfSetFound = true;
           (*AdjMemrefSet).insert(std::pair<int, OVLSMemref*>(Dist, Memref));
@@ -296,12 +296,12 @@ namespace OptVLS {
 // any program semantics nor any memory dependencies.
 void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
                                 OVLSGroupVector &Grps,
-                                unsigned GrpSize) {
+                                unsigned VectorLength) {
   OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n");
 
   if (Memrefs.empty()) return;
-  if (GrpSize > MAX_GROUP_SIZE) {
-    OVLSDebug(OVLSdbgs() << "!!!Group size above " << MAX_GROUP_SIZE <<
+  if (VectorLength > MAX_VECTOR_LENGTH) {
+    OVLSDebug(OVLSdbgs() << "!!!Group size above " << MAX_VECTOR_LENGTH <<
                              " bytes is not supported currently\n");
     return;
   }
@@ -321,7 +321,7 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
   // memref in the group)does not violate any program semantics nor any memory
   // dependencies.
   // Also, make sure the total size of the memrefs does not exceed the group size.
-  OptVLS::formGroups(AdjMemrefSetVec, Grps, GrpSize);
+  OptVLS::formGroups(AdjMemrefSetVec, Grps, VectorLength);
 
   // Release memory
   for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec) {

@@ -28,7 +28,6 @@ class AMDGPUTargetLowering : public TargetLowering {
 protected:
   const AMDGPUSubtarget *Subtarget;
 
-private:
   SDValue LowerConstantInitializer(const Constant* Init, const GlobalValue *GV,
                                    const SDValue &InitPtr,
                                    SDValue Chain,
@@ -102,7 +101,6 @@ protected:
   /// \brief Split a vector store into 2 stores of half the vector.
   SDValue SplitVectorStore(SDValue Op, SelectionDAG &DAG) const;
 
-  SDValue LowerLOAD(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSTORE(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSDIVREM(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerUDIVREM(SDValue Op, SelectionDAG &DAG) const;
@@ -176,7 +174,6 @@ public:
                           SmallVectorImpl<SDValue> &Results,
                           SelectionDAG &DAG) const override;
 
-  SDValue LowerIntrinsicLRP(SDValue Op, SelectionDAG &DAG) const;
   SDValue CombineFMinMaxLegacy(SDLoc DL,
                                EVT VT,
                                SDValue LHS,
@@ -258,6 +255,9 @@ enum NodeType : unsigned {
   FMIN3,
   SMIN3,
   UMIN3,
+  FMED3,
+  SMED3,
+  UMED3,
   URECIP,
   DIV_SCALE,
   DIV_FMAS,
@@ -269,7 +269,7 @@ enum NodeType : unsigned {
   RCP,
   RSQ,
   RSQ_LEGACY,
-  RSQ_CLAMPED,
+  RSQ_CLAMP,
   LDEXP,
   FP_CLASS,
   DOT4,

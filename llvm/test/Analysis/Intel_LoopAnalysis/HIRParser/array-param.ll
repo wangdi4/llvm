@@ -1,9 +1,9 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the load of %A is parsed correctly as a 2 dimentional array.
 ; CHECK: DO i1 = 0, 63, 1
 ; CHECK-SAME: DO_LOOP
-; CHECK-NEXT: %0 = (%A)[i1][i1]
+; CHECK-NEXT: %0 = {al:4}(%A)[i1][i1]
 ; CHECK-NEXT: %sum.09 = %0  +  %sum.09
 ; CHECK-NEXT: END LOOP
 

@@ -20,8 +20,8 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/SCCFormation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRRegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRSCCFormation.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
@@ -35,10 +35,10 @@ using namespace llvm::loopopt;
 
 INITIALIZE_PASS_BEGIN(HIRCreation, "hir-creation", "HIR Creation", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
-INITIALIZE_PASS_DEPENDENCY(SCCFormation)
+INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
+INITIALIZE_PASS_DEPENDENCY(HIRSCCFormation)
 INITIALIZE_PASS_END(HIRCreation, "hir-creation", "HIR Creation", false, true)
 
 char HIRCreation::ID = 0;
@@ -61,11 +61,11 @@ HIRCreation::HIRCreation() : FunctionPass(ID) {
 void HIRCreation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<PostDominatorTree>();
+  AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<RegionIdentification>();
+  AU.addRequiredTransitive<HIRRegionIdentification>();
   // Only used for printing.
-  AU.addRequiredTransitive<SCCFormation>();
+  AU.addRequiredTransitive<HIRSCCFormation>();
 }
 
 const BasicBlock *HIRCreation::getSrcBBlock(HLIf *If) const {
@@ -335,14 +335,10 @@ void HIRCreation::create() {
 }
 
 bool HIRCreation::runOnFunction(Function &F) {
-  this->Func = &F;
-
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  PDT = &getAnalysis<PostDominatorTree>();
+  PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  RI = &getAnalysis<RegionIdentification>();
-
-  HLNodeUtils::initialize(F);
+  RI = &getAnalysis<HIRRegionIdentification>();
 
   create();
 
@@ -374,7 +370,7 @@ void HIRCreation::printWithFrameworkDetails(raw_ostream &OS) const {
 void HIRCreation::printImpl(raw_ostream &OS, bool FrameworkDetails) const {
   formatted_raw_ostream FOS(OS);
   auto RegBegin = RI->begin();
-  auto SCCF = &getAnalysis<SCCFormation>();
+  auto SCCF = &getAnalysis<HIRSCCFormation>();
   unsigned Offset = 0;
 
   for (auto I = begin(), E = end(); I != E; ++I, ++Offset) {

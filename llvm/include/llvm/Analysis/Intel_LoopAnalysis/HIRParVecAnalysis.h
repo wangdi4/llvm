@@ -28,7 +28,7 @@
 namespace llvm {
 namespace loopopt {
 
-class DDAnalysis;
+class HIRDDAnalysis;
 class DDEdge;
 class HLRegion;
 class HLLoop;
@@ -57,6 +57,7 @@ public:
     VecOkay,
     SIMD,
     FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE = 15344,
+    FE_DIAG_VEC_FAIL_EMPTY_LOOP = 15414,
     FE_DIAG_VEC_NOT_INNERMOST = 15553,
     EH
   };
@@ -172,7 +173,7 @@ public:
   }
 
   /// \brief Main analysis function.
-  void analyze(HLLoop *Loop, DDAnalysis *DDA);
+  void analyze(HLLoop *Loop, HIRDDAnalysis *DDA);
 
   /// \brief Print the analysis result.
   void print(raw_ostream &OS, bool WithLoop = true) const;
@@ -180,7 +181,7 @@ public:
   /// \brief Main accessor for the ParVecInfo.
   static ParVecInfo *get(AnalysisMode Mode,
                          DenseMap<HLLoop *, ParVecInfo *> &InfoMap,
-                         DDAnalysis *DDA, HLLoop *Loop) {
+                         HIRDDAnalysis *DDA, HLLoop *Loop) {
 
     auto Info = InfoMap[Loop];
 
@@ -222,7 +223,7 @@ class HIRParVecAnalysis : public FunctionPass {
 private:
 
   bool Enabled;
-  DDAnalysis *DDA;
+  HIRDDAnalysis *DDA;
   DenseMap<HLLoop *, ParVecInfo *> InfoMap;
 
 public:

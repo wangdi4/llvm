@@ -73,24 +73,21 @@ static std::string computeDataLayout(const Triple &TT) {
   // Some ABIs align 64 bit integers and doubles to 64 bits, others to 32.
   if (TT.isArch64Bit() || TT.isOSWindows() || TT.isOSNaCl())
     Ret += "-i64:64";
-  #if INTEL_CUSTOMIZATION
   else if (TT.isOSIAMCU())
     Ret += "-i64:32-f64:32";
-  #endif // INTEL_CUSTOMIZATION
   else
     Ret += "-f64:32:64";
 
   // Some ABIs align long double to 128 bits, others to 32.
-  if (TT.isOSNaCl() || TT.isOSIAMCU()) // INTEL
+  if (TT.isOSNaCl() || TT.isOSIAMCU())
     ; // No f80
   else if (TT.isArch64Bit() || TT.isOSDarwin())
     Ret += "-f80:128";
   else
     Ret += "-f80:32";
-  #if INTEL_CUSTOMIZATION
   if (TT.isOSIAMCU())
     Ret += "-f128:32";
-  #endif
+
   // The registers can hold 8, 16, 32 or, in x86-64, 64 bits.
   if (TT.isArch64Bit())
     Ret += "-n8:16:32:64";
@@ -98,7 +95,7 @@ static std::string computeDataLayout(const Triple &TT) {
     Ret += "-n8:16:32";
 
   // The stack is aligned to 32 bits on some ABIs and 128 bits on others.
-  if ((!TT.isArch64Bit() && TT.isOSWindows()) || TT.isOSIAMCU()) // INTEL
+  if ((!TT.isArch64Bit() && TT.isOSWindows()) || TT.isOSIAMCU())
     Ret += "-a:0:32-S32";
   else
     Ret += "-S128";
@@ -287,7 +284,7 @@ void X86PassConfig::addPreEmitPass() {
     addPass(createX86IssueVZeroUpperPass());
 
   if (getOptLevel() != CodeGenOpt::None) {
-    addPass(createX86FixupBWInsts());                // INTEL
+    addPass(createX86FixupBWInsts());
     addPass(createX86PadShortFunctions());
     addPass(createX86FixupLEAs());
   }

@@ -1,10 +1,10 @@
 ; ModuleID = '<stdin>'
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -HIRCG -force-HIRCG -S < %s | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-cg -force-hir-cg -S < %s | FileCheck %s
 
 ; original bblocks will precede new ones from ir, so liveout replacement checks
 ; are before live in initializations
 
-; output.1 is liveout, HIRCG creates a load in successor bblock
+; output.1 is liveout, CG creates a load in successor bblock
 ; CHECK: for.end.loopexit:
 ; CHECK: [[LIVEOUT:%[0-9]+]] = load i32, i32* %t
 

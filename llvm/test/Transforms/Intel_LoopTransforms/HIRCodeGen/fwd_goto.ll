@@ -1,5 +1,5 @@
 
-;RUN: opt -hir-ssa-deconstruction -HIRCG -force-HIRCG -S %s | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S %s | FileCheck %s
 
 
 ;Inside the conditional for b == 47 we have a goto alter bblock

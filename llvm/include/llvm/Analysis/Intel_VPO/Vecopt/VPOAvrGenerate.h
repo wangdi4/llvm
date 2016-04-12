@@ -23,7 +23,7 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/IR/Intel_LoopIR/HLSwitch.h"

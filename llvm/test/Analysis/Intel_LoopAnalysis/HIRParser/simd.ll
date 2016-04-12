@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the simd loop verifying that it has the simd directives prepended to it
 ; CHECK: @llvm.intel.directive(!7)
@@ -9,18 +9,17 @@
 ; CHECK-NEXT: %mask5 = (%veccast.3)[i1]
 ; CHECK-NEXT: if (%mask5 != 0)
 ; CHECK-NEXT: {
-; CHECK-NEXT: %0 = (%veccast.1)[i1]
-; CHECK-NEXT: %1 = (%veccast.2)[i1]
+; CHECK-NEXT: %0 = {al:4}(%veccast.1)[i1]
+; CHECK-NEXT: %1 = {al:4}(%veccast.2)[i1]
 ; CHECK-NEXT: (%veccast)[i1] = %0 + %1
 ; CHECK-NEXT: }
 ; CHECK-NEXT: END LOOP
 
 
-; ModuleID = '<stdin>'
+; ModuleID = 'simd.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
 define i32 @vec_sum(i32 %a, i32 %b) {
 entry:
   %a.addr = alloca i32, align 4
@@ -33,7 +32,6 @@ entry:
   ret i32 %add
 }
 
-; Function Attrs: nounwind uwtable
 define <4 x i32> @_ZGVxM4vv_vec_sum(<4 x i32> %a, <4 x i32> %b, <4 x i32> %mask) {
 entry:
   %vec_a.addr = alloca <4 x i32>
@@ -51,8 +49,8 @@ entry:
 
 simd.begin.region:                                ; preds = %entry
   call void @llvm.intel.directive(metadata !7)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !9, <4 x i32> %a, <4 x i32> %b, <4 x i32> %mask)
-  call void @llvm.intel.directive.qual.opnd.i32(metadata !8, i32 4)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !8, <4 x i32> %a, <4 x i32> %b, <4 x i32> %mask)
+  call void @llvm.intel.directive.qual.opnd.i32(metadata !9, i32 4)
   call void @llvm.intel.directive.qual(metadata !10)
   br label %simd.loop
 
@@ -91,18 +89,13 @@ return:                                           ; preds = %simd.end.region
   ret <4 x i32> %vec_ret
 }
 
-; Function Attrs: nounwind argmemonly
-declare void @llvm.intel.directive(metadata) 
+declare void @llvm.intel.directive(metadata)
 
-; Function Attrs: nounwind argmemonly
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32) 
+declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32)
 
-; Function Attrs: nounwind argmemonly
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) 
+declare void @llvm.intel.directive.qual.opndlist(metadata, ...)
 
-; Function Attrs: nounwind argmemonly
-declare void @llvm.intel.directive.qual(metadata) 
-
+declare void @llvm.intel.directive.qual(metadata)
 
 !cilk.functions = !{!0}
 !llvm.ident = !{!6}
@@ -115,7 +108,7 @@ declare void @llvm.intel.directive.qual(metadata)
 !5 = !{!"vec_length", i32 undef, i32 4}
 !6 = !{!"clang version 3.8.0 (branches/vpo 1412)"}
 !7 = !{!"DIR.OMP.SIMD"}
-!8 = !{!"QUAL.OMP.SIMDLEN"}
-!9 = !{!"QUAL.OMP.PRIVATE"}
+!8 = !{!"QUAL.OMP.PRIVATE"}
+!9 = !{!"QUAL.OMP.SIMDLEN"}
 !10 = !{!"QUAL.LIST.END"}
 !11 = !{!"DIR.OMP.END.SIMD"}

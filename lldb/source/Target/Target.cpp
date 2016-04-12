@@ -9,6 +9,7 @@
 
 // C Includes
 // C++ Includes
+#include <mutex>
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Target/Target.h"
@@ -1941,7 +1942,7 @@ Target::CalculateTarget ()
 ProcessSP
 Target::CalculateProcess ()
 {
-    return ProcessSP();
+    return m_process_sp;
 }
 
 ThreadSP
@@ -2442,18 +2443,18 @@ Target::GetBreakableLoadAddress (lldb::addr_t addr)
             SymbolContext sc;
             uint32_t resolve_scope = eSymbolContextFunction | eSymbolContextSymbol;
             temp_addr_module_sp->ResolveSymbolContextForAddress(resolved_addr, resolve_scope, sc);
+            Address sym_addr;
             if (sc.function)
-            {
-                function_start = sc.function->GetAddressRange().GetBaseAddress().GetLoadAddress(this);
-                if (function_start == LLDB_INVALID_ADDRESS)
-                    function_start = sc.function->GetAddressRange().GetBaseAddress().GetFileAddress();
-            }
+                sym_addr = sc.function->GetAddressRange().GetBaseAddress();
             else if (sc.symbol)
-            {
-                Address sym_addr = sc.symbol->GetAddress();
+                sym_addr = sc.symbol->GetAddress();
+
+            function_start = sym_addr.GetLoadAddress(this);
+            if (function_start == LLDB_INVALID_ADDRESS)
                 function_start = sym_addr.GetFileAddress();
-            }
-            current_offset = addr - function_start;
+
+            if (function_start)
+                current_offset = addr - function_start;
         }
 
         // If breakpoint address is start of function then we dont have to do anything.
@@ -2777,12 +2778,14 @@ Target::RunStopHooks ()
 const TargetPropertiesSP &
 Target::GetGlobalProperties()
 {
-    static TargetPropertiesSP g_settings_sp;
-    if (!g_settings_sp)
-    {
-        g_settings_sp.reset(new TargetProperties(nullptr));
-    }
-    return g_settings_sp;
+    // NOTE: intentional leak so we don't crash if global destructor chain gets
+    // called as other threads still use the result of this function
+    static TargetPropertiesSP *g_settings_sp_ptr = nullptr;
+    static std::once_flag g_once_flag;
+    std::call_once(g_once_flag,  []() {
+        g_settings_sp_ptr = new TargetPropertiesSP(new TargetProperties(nullptr));
+    });
+    return *g_settings_sp_ptr;
 }
 
 Error
@@ -3363,6 +3366,15 @@ g_load_script_from_sym_file_values[] =
 };
 
 static OptionEnumValueElement
+g_load_current_working_dir_lldbinit_values[] =
+{
+    { eLoadCWDlldbinitTrue,    "true",    "Load .lldbinit files from current directory"},
+    { eLoadCWDlldbinitFalse,   "false",   "Do not load .lldbinit files from current directory"},
+    { eLoadCWDlldbinitWarn,    "warn",    "Warn about loading .lldbinit files from current directory"},
+    { 0, nullptr, nullptr }
+};
+
+static OptionEnumValueElement
 g_memory_module_load_level_values[] =
 {
     { eMemoryModuleLoadLevelMinimal,  "minimal" , "Load minimal information when loading modules from memory. Currently this setting loads sections only."},
@@ -3418,6 +3430,7 @@ g_properties[] =
     { "hex-immediate-style"                , OptionValue::eTypeEnum   ,    false, Disassembler::eHexStyleC,   nullptr, g_hex_immediate_style_values, "Which style to use for printing hexadecimal disassembly values." },
     { "use-fast-stepping"                  , OptionValue::eTypeBoolean   , false, true,                       nullptr, nullptr, "Use a fast stepping algorithm based on running from branch to branch rather than instruction single-stepping." },
     { "load-script-from-symbol-file"       , OptionValue::eTypeEnum   ,    false, eLoadScriptFromSymFileWarn, nullptr, g_load_script_from_sym_file_values, "Allow LLDB to load scripting resources embedded in symbol files when available." },
+    { "load-cwd-lldbinit"                  , OptionValue::eTypeEnum   ,    false, eLoadCWDlldbinitWarn,       nullptr, g_load_current_working_dir_lldbinit_values, "Allow LLDB to .lldbinit files from the current directory automatically." },
     { "memory-module-load-level"           , OptionValue::eTypeEnum   ,    false, eMemoryModuleLoadLevelComplete, nullptr, g_memory_module_load_level_values,
         "Loading modules from memory can be slow as reading the symbol tables and other data can take a long time depending on your connection to the debug target. "
         "This setting helps users control how much information gets loaded when loading modules from memory."
@@ -3465,6 +3478,7 @@ enum
     ePropertyHexImmediateStyle,
     ePropertyUseFastStepping,
     ePropertyLoadScriptFromSymbolFile,
+    ePropertyLoadCWDlldbinitFile,
     ePropertyMemoryModuleLoadLevel,
     ePropertyDisplayExpressionsInCrashlogs,
     ePropertyTrapHandlerNames,
@@ -3943,6 +3957,13 @@ TargetProperties::GetLoadScriptFromSymbolFile () const
 {
     const uint32_t idx = ePropertyLoadScriptFromSymbolFile;
     return (LoadScriptFromSymFile)m_collection_sp->GetPropertyAtIndexAsEnumeration(nullptr, idx, g_properties[idx].default_uint_value);
+}
+
+LoadCWDlldbinitFile
+TargetProperties::GetLoadCWDlldbinitFile () const
+{
+    const uint32_t idx = ePropertyLoadCWDlldbinitFile;
+    return (LoadCWDlldbinitFile) m_collection_sp->GetPropertyAtIndexAsEnumeration(nullptr, idx, g_properties[idx].default_uint_value);
 }
 
 Disassembler::HexImmediateStyle

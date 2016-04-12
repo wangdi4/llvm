@@ -1,5 +1,5 @@
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -HIRCG -force-HIRCG -S %s | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-cg -force-hir-cg -S %s | FileCheck %s
 ; Verify CG for RHS of <2> which is an HInst with an underlying GetElementPtrInst
 ;          BEGIN REGION { }
 ;<9>          + DO i1 = 0, %n + -1, 1   <DO_LOOP>
