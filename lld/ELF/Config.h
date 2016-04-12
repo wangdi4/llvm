@@ -17,7 +17,7 @@
 #include <vector>
 
 namespace lld {
-namespace elf2 {
+namespace elf {
 
 class InputFile;
 class SymbolBody;
@@ -37,6 +37,7 @@ enum ELFKind {
 struct Configuration {
   SymbolBody *EntrySym = nullptr;
   SymbolBody *MipsGpDisp = nullptr;
+  SymbolBody *MipsLocalGp = nullptr;
   InputFile *FirstElf = nullptr;
   llvm::StringRef DynamicLinker;
   llvm::StringRef Entry;
@@ -47,12 +48,12 @@ struct Configuration {
   llvm::StringRef SoName;
   llvm::StringRef Sysroot;
   std::string RPath;
-  llvm::MapVector<llvm::StringRef, std::vector<llvm::StringRef>> OutputSections;
   std::vector<llvm::StringRef> SearchPaths;
   std::vector<llvm::StringRef> Undefined;
   bool AllowMultipleDefinition;
   bool AsNeeded = false;
   bool Bsymbolic;
+  bool BsymbolicFunctions;
   bool Demangle = true;
   bool DiscardAll;
   bool DiscardLocals;
@@ -62,10 +63,12 @@ struct Configuration {
   bool ExportDynamic;
   bool GcSections;
   bool GnuHash = false;
+  bool ICF;
   bool Mips64EL = false;
   bool NoInhibitExec;
   bool NoUndefined;
   bool PrintGcSections;
+  bool Relocatable;
   bool Shared;
   bool Static = false;
   bool StripAll;
@@ -85,7 +88,7 @@ struct Configuration {
 // The only instance of Configuration struct.
 extern Configuration *Config;
 
-} // namespace elf2
+} // namespace elf
 } // namespace lld
 
 #endif

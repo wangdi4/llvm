@@ -303,8 +303,29 @@ void g19(struct G19* p, int i) {
   p->c[i][i] = 5;
 }
 
+struct G20 {
+  int a;
+  int b;
+};
+void g20(struct G20** p1, struct G20 (*p2)[], int i) {
+// CHECK-LABEL: define void @_Z3g20
+// CHECK: store i32 1, i32* %{{.*}}, align {{.*}}, !tbaa [[TAG_i32]]
+// CHECK: store i32 2, i32* %{{.*}}, align {{.*}}, !tbaa [[TAG_i32]]
+// CHECK: store i32 3, i32* %{{.*}}, align {{.*}}, !tbaa [[TAG_i32]]
+// CHECK: store i32 4, i32* %{{.*}}, align {{.*}}, !tbaa [[TAG_i32]]
+// PATH-LABEL: define void @_Z3g20
+// PATH: store i32 1, i32* %{{.*}}, align {{.*}}, !tbaa [[TAG_G20_a:!.*]]
+// PATH: store i32 2, i32* %{{.*}}, align {{.*}}, !tbaa [[TAG_G20_b:!.*]]
+// PATH: store i32 3, i32* %{{.*}}, align {{.*}}, !tbaa [[TAG_G20_a:!.*]]
+// PATH: store i32 4, i32* %{{.*}}, align {{.*}}, !tbaa [[TAG_G20_b:!.*]]
+  (*p1)[i].a = 1;
+  (*p2)[i].b = 2;
+  (*p2)[i].a = 3;
+  (*p2)[i].b = 4;
+}
+
 // CHECK: [[TYPE_char:!.*]] = !{!"omnipotent char", [[TAG_cxx_tbaa:!.*]],
-// CHECK: [[TAG_cxx_tbaa]] = !{!"Simple C/C++ TBAA"}
+// CHECK: [[TAG_cxx_tbaa]] = !{!"Simple C++ TBAA"}
 // CHECK: [[TAG_i32]] = !{[[TYPE_i32:!.*]], [[TYPE_i32]], i64 0}
 // CHECK: [[TYPE_i32]] = !{!"int", [[TYPE_char]],
 // CHECK: [[TAG_i16]] = !{[[TYPE_i16:!.*]], [[TYPE_i16]], i64 0}
@@ -357,3 +378,6 @@ void g19(struct G19* p, int i) {
 // PATH: [[TYPE_A10X10]] = !{!"array@_ZTSA10_A10_i", [[TYPE_A10]], i64 0}
 // PATH: [[TAG_G19_b]] = !{[[TYPE_G19]], [[TYPE_INT]], i64 4}
 // PATH: [[TAG_G19_c]] = !{[[TYPE_G19]], [[TYPE_INT]], i64 44}
+// PATH: [[TAG_G20_a]] = !{[[TYPE_G20:!.*]], [[TYPE_INT]], i64 0}
+// PATH: [[TYPE_G20]] = !{!"struct@_ZTS3G20", [[TYPE_INT]], i64 0, [[TYPE_INT]], i64 4}
+// PATH: [[TAG_G20_b]] = !{[[TYPE_G20]], [[TYPE_INT]], i64 4}

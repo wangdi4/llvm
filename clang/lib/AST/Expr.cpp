@@ -514,6 +514,12 @@ std::string PredefinedExpr::ComputeName(IdentType IT, const Decl *CurrentDecl) {
   if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(CurrentDecl)) {
     if (IT != PrettyFunction && IT != PrettyFunctionNoVirtual && IT != FuncSig)
       return FD->getNameAsString();
+#if INTEL_CUSTOMIZATION
+    //CQ#379210: Return function name if not C++.
+    if (Context.getLangOpts().IntelCompat &&
+        !Context.getLangOpts().CPlusPlus && IT != FuncSig)
+      return FD->getNameAsString();
+#endif // INTEL_CUSTOMIZATION
 
     SmallString<256> Name;
     llvm::raw_svector_ostream Out(Name);
@@ -986,7 +992,7 @@ void StringLiteral::setString(const ASTContext &C, StringRef Str,
       break;
     }
     default:
-      assert(false && "unsupported CharByteWidth");
+      llvm_unreachable("unsupported CharByteWidth");
   }
 }
 
@@ -1745,8 +1751,13 @@ Expr *CastExpr::getSubExprAsWritten() {
     // subexpression describing the call; strip it off.
     if (E->getCastKind() == CK_ConstructorConversion)
       SubExpr = cast<CXXConstructExpr>(SubExpr)->getArg(0);
-    else if (E->getCastKind() == CK_UserDefinedConversion)
-      SubExpr = cast<CXXMemberCallExpr>(SubExpr)->getImplicitObjectArgument();
+    else if (E->getCastKind() == CK_UserDefinedConversion) {
+      assert((isa<CXXMemberCallExpr>(SubExpr) ||
+              isa<BlockExpr>(SubExpr)) &&
+             "Unexpected SubExpr for CK_UserDefinedConversion.");
+      if (isa<CXXMemberCallExpr>(SubExpr))
+        SubExpr = cast<CXXMemberCallExpr>(SubExpr)->getImplicitObjectArgument();
+    }
     
     // If the subexpression we're left with is an implicit cast, look
     // through that, too.
@@ -4046,16 +4057,18 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
   llvm_unreachable("unknown atomic op");
 }
 
-QualType OMPArraySectionExpr::getBaseOriginalType(Expr *Base) {
+QualType OMPArraySectionExpr::getBaseOriginalType(const Expr *Base) {
   unsigned ArraySectionCount = 0;
   while (auto *OASE = dyn_cast<OMPArraySectionExpr>(Base->IgnoreParens())) {
     Base = OASE->getBase();
     ++ArraySectionCount;
   }
-  while (auto *ASE = dyn_cast<ArraySubscriptExpr>(Base->IgnoreParens())) {
+  while (auto *ASE =
+             dyn_cast<ArraySubscriptExpr>(Base->IgnoreParenImpCasts())) {
     Base = ASE->getBase();
     ++ArraySectionCount;
   }
+  Base = Base->IgnoreParenImpCasts();
   auto OriginalTy = Base->getType();
   if (auto *DRE = dyn_cast<DeclRefExpr>(Base))
     if (auto *PVD = dyn_cast<ParmVarDecl>(DRE->getDecl()))

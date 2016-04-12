@@ -20,6 +20,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
@@ -66,8 +67,9 @@ static const DeclContext *getEffectiveDeclContext(const Decl *D) {
   }
   
   const DeclContext *DC = D->getDeclContext();
-  if (const CapturedDecl *CD = dyn_cast<CapturedDecl>(DC))
-    return getEffectiveDeclContext(CD);
+  if (isa<CapturedDecl>(DC) || isa<OMPDeclareReductionDecl>(DC)) {
+    return getEffectiveDeclContext(cast<Decl>(DC));
+  }
 
 #if INTEL_CUSTOMIZATION
   // CQ371729: Incompatible name mangling.
@@ -379,6 +381,7 @@ private:
                                       StringRef Prefix = "");
   void mangleOperatorName(DeclarationName Name, unsigned Arity);
   void mangleOperatorName(OverloadedOperatorKind OO, unsigned Arity);
+  void mangleVendorQualifier(StringRef qualifier);
   void mangleQualifiers(Qualifiers Quals);
   void mangleRefQualifier(RefQualifierKind RefQualifier);
 
@@ -392,7 +395,11 @@ private:
 
   void mangleType(const TagType*);
   void mangleType(TemplateName);
-  void mangleBareFunctionType(const FunctionType *T, bool MangleReturnType,
+  void mangleType(const VectorType *T, bool IsMType); // INTEL
+  static StringRef getCallingConvQualifierName(CallingConv CC);
+  void mangleExtParameterInfo(FunctionProtoType::ExtParameterInfo info);
+  void mangleExtFunctionInfo(const FunctionType *T);
+  void mangleBareFunctionType(const FunctionProtoType *T, bool MangleReturnType,
                               const FunctionDecl *FD = nullptr);
   void mangleNeonVectorType(const VectorType *T);
   void mangleAArch64NeonVectorType(const VectorType *T);
@@ -547,7 +554,7 @@ void CXXNameMangler::mangleFunctionEncoding(const FunctionDecl *FD) {
     FD = PrimaryTemplate->getTemplatedDecl();
   }
 
-  mangleBareFunctionType(FD->getType()->getAs<FunctionType>(), 
+  mangleBareFunctionType(FD->getType()->castAs<FunctionProtoType>(),
                          MangleReturnType, FD);
 }
 
@@ -1810,14 +1817,9 @@ CXXNameMangler::mangleOperatorName(OverloadedOperatorKind OO, unsigned Arity) {
 }
 
 void CXXNameMangler::mangleQualifiers(Qualifiers Quals) {
-  // <CV-qualifiers> ::= [r] [V] [K]    # restrict (C99), volatile, const
-  if (Quals.hasRestrict())
-    Out << 'r';
-  if (Quals.hasVolatile())
-    Out << 'V';
-  if (Quals.hasConst())
-    Out << 'K';
+  // Vendor qualifiers come first.
 
+  // Address space qualifiers start with an ordinary letter.
   if (Quals.hasAddressSpace()) {
     // Address space extension:
     //
@@ -1831,7 +1833,7 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals) {
     if (Context.getASTContext().addressSpaceMapManglingFor(AS)) {
       //  <target-addrspace> ::= "AS" <address-space-number>
       unsigned TargetAS = Context.getASTContext().getTargetAddressSpace(AS);
-      ASString = "AS" + llvm::utostr_32(TargetAS);
+      ASString = "AS" + llvm::utostr(TargetAS);
     } else {
       switch (AS) {
       default: llvm_unreachable("Not a language specific address space");
@@ -1845,10 +1847,10 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals) {
       case LangAS::cuda_shared:     ASString = "CUshared";   break;
       }
     }
-    Out << 'U' << ASString.size() << ASString;
+    mangleVendorQualifier(ASString);
   }
-  
-  StringRef LifetimeName;
+
+  // The ARC ownership qualifiers start with underscores.
   switch (Quals.getObjCLifetime()) {
   // Objective-C ARC Extension:
   //
@@ -1859,15 +1861,15 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals) {
     break;
     
   case Qualifiers::OCL_Weak:
-    LifetimeName = "__weak";
+    mangleVendorQualifier("__weak");
     break;
     
   case Qualifiers::OCL_Strong:
-    LifetimeName = "__strong";
+    mangleVendorQualifier("__strong");
     break;
     
   case Qualifiers::OCL_Autoreleasing:
-    LifetimeName = "__autoreleasing";
+    mangleVendorQualifier("__autoreleasing");
     break;
     
   case Qualifiers::OCL_ExplicitNone:
@@ -1880,8 +1882,18 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals) {
     // in any type signatures that need to be mangled.
     break;
   }
-  if (!LifetimeName.empty())
-    Out << 'U' << LifetimeName.size() << LifetimeName;
+
+  // <CV-qualifiers> ::= [r] [V] [K]    # restrict (C99), volatile, const
+  if (Quals.hasRestrict())
+    Out << 'r';
+  if (Quals.hasVolatile())
+    Out << 'V';
+  if (Quals.hasConst())
+    Out << 'K';
+}
+
+void CXXNameMangler::mangleVendorQualifier(StringRef name) {
+  Out << 'U' << name.size() << name;
 }
 
 void CXXNameMangler::mangleRefQualifier(RefQualifierKind RefQualifier) {
@@ -1918,19 +1930,53 @@ static bool isTypeSubstitutable(Qualifiers Quals, const Type *Ty) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// Is given type one of special __mN vector types?
+//
+// These types are recognized by icc and mangled in a special way. We should
+// replicate this.
+//
+// Is result is true, type identifier is returned via MTypeName. Is result is
+// false, MTypeName is set to "".
+static bool isMType(QualType T, StringRef &MTypeName) {
+  MTypeName = "";
+
+  if (!T->isVectorType())
+    return false;
+
+  auto *TDTy = T->getAs<TypedefType>();
+
+  if (TDTy == nullptr)
+    return false;
+
+  MTypeName = TDTy->getDecl()->getCanonicalDecl()->getIdentifier()->getName();
+
+  bool res = llvm::StringSwitch<bool>(MTypeName)
+    .Case("__m64", true)
+    .Case("__m128", true)
+    .Case("__m128i", true)
+    .Case("__m128d", true)
+    .Case("__m256", true)
+    .Case("__m256i", true)
+    .Case("__m256d", true)
+    .Case("__m512", true)
+    .Case("__m512i", true)
+    .Case("__m512d", true)
+    .Default(false);
+
+  if (res == false)
+    MTypeName = "";
+
+  return res;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CXXNameMangler::mangleType(QualType T) {
 #if INTEL_CUSTOMIZATION
-  // CQ371729: Incompatible name mangling.
-  bool MangleM64 = false;
+  // CQ371729: Special mangling for __mN vector types.
   auto &LangOpts = getASTContext().getLangOpts();
-  if (LangOpts.IntelCompat && T->isVectorType()) {
-    if (auto *TDTy = T->getAs<TypedefType>()) {
-      MangleM64 = TDTy->getDecl()->getCanonicalDecl()->getIdentifier()->isStr(
-                      "__m64") &&
-                  (LangOpts.GNUMangling || LangOpts.GNUFABIVersion >= 4);
-    }
-  }
-  if (!MangleM64) {
+  StringRef MTypeName;
+  bool IsMType = LangOpts.IntelCompat && isMType(T, MTypeName);
 #endif // INTEL_CUSTOMIZATION
   // If our type is instantiation-dependent but not dependent, we mangle
   // it as it was written in the source, removing any top-level sugar. 
@@ -1968,9 +2014,6 @@ void CXXNameMangler::mangleType(QualType T) {
       T = Desugared;
     } while (true);
   }
-#if INTEL_CUSTOMIZATION
-  }
-#endif // INTEL_CUSTOMIZATION
   SplitQualType split = T.split();
   Qualifiers quals = split.Quals;
   const Type *ty = split.Ty;
@@ -1996,12 +2039,13 @@ void CXXNameMangler::mangleType(QualType T) {
     mangleType(QualType(ty, 0));
   } else {
 #if INTEL_CUSTOMIZATION
-    // CQ371729: Incompatible name mangling.
-    if (MangleM64) {
-      if (LangOpts.GNUMangling && LangOpts.GNUFABIVersion < 4)
-        Out << "U8__vectori";
-      else if (LangOpts.GNUMangling || LangOpts.GNUFABIVersion >= 4)
-        Out << "Dv2_i";
+    // CQ371729: Special mangling for __mN vector types.
+    if (IsMType) {
+      // In non-GNUMangling mode, mangle __mN types as: name length + name.
+      if (!LangOpts.GNUMangling)
+        Out << MTypeName.size() << MTypeName;
+      else
+        mangleType(static_cast<const VectorType*>(ty), true);
     } else {
 #endif // INTEL_CUSTOMIZATION
     switch (ty->getTypeClass()) {
@@ -2187,7 +2231,7 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
     Out << "20ocl_image2dmsaadepth";
     break;
   case BuiltinType::OCLImage2dArrayMSAADepth:
-    Out << "35ocl_image2darraymsaadepth";
+    Out << "25ocl_image2darraymsaadepth";
     break;
   case BuiltinType::OCLImage3d:
     Out << "11ocl_image3d";
@@ -2213,10 +2257,87 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   }
 }
 
+StringRef CXXNameMangler::getCallingConvQualifierName(CallingConv CC) {
+  switch (CC) {
+  case CC_C:
+    return "";
+
+  case CC_X86StdCall:
+  case CC_X86FastCall:
+  case CC_X86ThisCall:
+  case CC_X86RegCall:        // INTEL
+  case CC_X86VectorCall:
+  case CC_X86Pascal:
+  case CC_X86_64Win64:
+  case CC_X86_64SysV:
+  case CC_AAPCS:
+  case CC_AAPCS_VFP:
+  case CC_IntelOclBicc:
+  case CC_SpirFunction:
+  case CC_SpirKernel:
+    // FIXME: we should be mangling all of the above.
+    return "";
+
+  case CC_Swift:
+    return "swiftcall";
+  }
+  llvm_unreachable("bad calling convention");
+}
+
+void CXXNameMangler::mangleExtFunctionInfo(const FunctionType *T) {
+  // Fast path.
+  if (T->getExtInfo() == FunctionType::ExtInfo())
+    return;
+
+  // Vendor-specific qualifiers are emitted in reverse alphabetical order.
+  // This will get more complicated in the future if we mangle other
+  // things here; but for now, since we mangle ns_returns_retained as
+  // a qualifier on the result type, we can get away with this:
+  StringRef CCQualifier = getCallingConvQualifierName(T->getExtInfo().getCC());
+  if (!CCQualifier.empty())
+    mangleVendorQualifier(CCQualifier);
+
+  // FIXME: regparm
+  // FIXME: noreturn
+}
+
+void
+CXXNameMangler::mangleExtParameterInfo(FunctionProtoType::ExtParameterInfo PI) {
+  // Vendor-specific qualifiers are emitted in reverse alphabetical order.
+
+  // Note that these are *not* substitution candidates.  Demanglers might
+  // have trouble with this if the parameter type is fully substituted.
+
+  switch (PI.getABI()) {
+  case ParameterABI::Ordinary:
+    break;
+
+  // All of these start with "swift", so they come before "ns_consumed".
+  case ParameterABI::SwiftContext:
+  case ParameterABI::SwiftErrorResult:
+  case ParameterABI::SwiftIndirectResult:
+    mangleVendorQualifier(getParameterABISpelling(PI.getABI()));
+    break;
+  }
+
+  if (PI.isConsumed())
+    mangleVendorQualifier("ns_consumed");
+}
+
 // <type>          ::= <function-type>
 // <function-type> ::= [<CV-qualifiers>] F [Y]
 //                      <bare-function-type> [<ref-qualifier>] E
 void CXXNameMangler::mangleType(const FunctionProtoType *T) {
+#if INTEL_CUSTOMIZATION
+  // CQ371738: 'volatile' qualifier should be added to the mangled name
+  // if there is noreturn attribute in the prototype
+  if (getASTContext().getLangOpts().IntelCompat &&
+      (getASTContext().getLangOpts().GNUFABIVersion < 5) &&
+      T->castAs<clang::FunctionType>()->getNoReturnAttr())
+    Out << 'V';
+#endif // INTEL_CUSTOMIZATION
+  mangleExtFunctionInfo(T);
+
   // Mangle CV-qualifiers, if present.  These are 'this' qualifiers,
   // e.g. "const" in "int (A::*)() const".
   mangleQualifiers(Qualifiers::fromCVRMask(T->getTypeQuals()));
@@ -2249,12 +2370,9 @@ void CXXNameMangler::mangleType(const FunctionNoProtoType *T) {
   Out << 'E';
 }
 
-void CXXNameMangler::mangleBareFunctionType(const FunctionType *T,
+void CXXNameMangler::mangleBareFunctionType(const FunctionProtoType *Proto,
                                             bool MangleReturnType,
                                             const FunctionDecl *FD) {
-  // We should never be mangling something without a prototype.
-  const FunctionProtoType *Proto = cast<FunctionProtoType>(T);
-
   // Record that we're in a function type.  See mangleFunctionParam
   // for details on what we're trying to achieve here.
   FunctionTypeDepthState saved = FunctionTypeDepth.push();
@@ -2262,7 +2380,20 @@ void CXXNameMangler::mangleBareFunctionType(const FunctionType *T,
   // <bare-function-type> ::= <signature type>+
   if (MangleReturnType) {
     FunctionTypeDepth.enterResultType();
-    mangleType(Proto->getReturnType());
+
+    // Mangle ns_returns_retained as an order-sensitive qualifier here.
+    if (Proto->getExtInfo().getProducesResult())
+      mangleVendorQualifier("ns_returns_retained");
+
+    // Mangle the return type without any direct ARC ownership qualifiers.
+    QualType ReturnTy = Proto->getReturnType();
+    if (ReturnTy.getObjCLifetime()) {
+      auto SplitReturnTy = ReturnTy.split();
+      SplitReturnTy.Quals.removeObjCLifetime();
+      ReturnTy = getASTContext().getQualifiedType(SplitReturnTy);
+    }
+    mangleType(ReturnTy);
+
     FunctionTypeDepth.leaveResultType();
   }
 
@@ -2276,7 +2407,13 @@ void CXXNameMangler::mangleBareFunctionType(const FunctionType *T,
 
   assert(!FD || FD->getNumParams() == Proto->getNumParams());
   for (unsigned I = 0, E = Proto->getNumParams(); I != E; ++I) {
-    const auto &ParamTy = Proto->getParamType(I);
+    // Mangle extended parameter info as order-sensitive qualifiers here.
+    if (Proto->hasExtParameterInfos()) {
+      mangleExtParameterInfo(Proto->getExtParameterInfo(I));
+    }
+
+    // Mangle the type.
+    QualType ParamTy = Proto->getParamType(I);
     mangleType(Context.getASTContext().getSignatureParameterType(ParamTy));
 
     if (FD) {
@@ -2531,6 +2668,10 @@ void CXXNameMangler::mangleAArch64NeonVectorType(const VectorType *T) {
   Out << TypeName.length() << TypeName;
 }
 
+#if INTEL_CUSTOMIZATION
+void CXXNameMangler::mangleType(const VectorType *T) { mangleType(T, false); }
+#endif // INTEL_CUSTOMIZATION
+
 // GNU extension: vector types
 // <type>                  ::= <vector-type>
 // <vector-type>           ::= Dv <positive dimension number> _
@@ -2539,7 +2680,7 @@ void CXXNameMangler::mangleAArch64NeonVectorType(const VectorType *T) {
 // <extended element type> ::= <element type>
 //                         ::= p # AltiVec vector pixel
 //                         ::= b # Altivec vector bool
-void CXXNameMangler::mangleType(const VectorType *T) {
+void CXXNameMangler::mangleType(const VectorType *T, bool IsMType) { // INTEL
   if ((T->getVectorKind() == VectorType::NeonVector ||
        T->getVectorKind() == VectorType::NeonPolyVector)) {
     llvm::Triple Target = getASTContext().getTargetInfo().getTriple();
@@ -2553,10 +2694,20 @@ void CXXNameMangler::mangleType(const VectorType *T) {
     return;
   }
 #if INTEL_CUSTOMIZATION
-  // CQ371729: Incompatible name mangling.
+  // CQ371729: Mangle __mN types exactly as icc does.
   auto &LangOpts = getASTContext().getLangOpts();
-  if (LangOpts.IntelCompat && LangOpts.GNUMangling &&
-      LangOpts.GNUFABIVersion < 4)
+  // __m64 is a special type, mangled as if it is defined as two ints, while in
+  // reality it is a long long.
+  if (LangOpts.IntelCompat && IsMType && (T->getNumElements() == 1) &&
+      (getASTContext().getTypeSize(T->getElementType()) == 64)) {
+    if (LangOpts.GNUFABIVersion < 4)
+      Out << "U8__vectori";
+    else
+      Out << "Dv2_i";
+    return;
+  // CQ382285: Mangle GNU vector types exactly as icc does.
+  } else if (LangOpts.IntelCompat && (IsMType || LangOpts.EmulateGNUABIBugs) &&
+             (LangOpts.GNUFABIVersion < 4))
     Out << "U8__vector";
   else
 #endif // INTEL_CUSTOMIZATION

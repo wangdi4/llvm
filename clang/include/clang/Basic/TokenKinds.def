@@ -219,6 +219,9 @@ PUNCTUATOR(at,                  "@")
 PUNCTUATOR(lesslessless,          "<<<")
 PUNCTUATOR(greatergreatergreater, ">>>")
 
+// CL support
+PUNCTUATOR(caretcaret,            "^^")
+
 // C99 6.4.1: Keywords.  These turn into kw_* tokens.
 // Flags allowed:
 //   KEYALL   - This is a keyword in all variants of C and C++, or it
@@ -236,6 +239,8 @@ PUNCTUATOR(greatergreatergreater, ">>>")
 //   KEYMS    - This is a keyword if Microsoft extensions are enabled
 //   KEYNOMS18 - This is a keyword that must never be enabled under
 //               MSVC <= v18.
+//   KEYMSCOMPAT - This is a keyword if Microsoft compatibility mode // INTEL
+//                 is enabled // INTEL
 //   KEYOPENCL  - This is a keyword in OpenCL
 //   KEYNOOPENCL  - This is a keyword that is not supported in OpenCL
 //   KEYALTIVEC - This is a keyword in AltiVec
@@ -355,7 +360,7 @@ CXX11_KEYWORD(constexpr             , 0)
 CXX11_KEYWORD(decltype              , 0)
 CXX11_KEYWORD(noexcept              , 0)
 CXX11_KEYWORD(nullptr               , 0)
-CXX11_KEYWORD(static_assert         , 0)
+CXX11_KEYWORD(static_assert         , KEYMSCOMPAT) // INTEL
 CXX11_KEYWORD(thread_local          , 0)
 
 // C++ concepts TS keywords

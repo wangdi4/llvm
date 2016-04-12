@@ -500,7 +500,21 @@ ProcessGDBRemote::BuildDynamicRegisterInfo (bool force)
         }
     }
 
-    if (GetGDBServerRegisterInfo ())
+    const ArchSpec &target_arch = GetTarget().GetArchitecture();
+    const ArchSpec &remote_host_arch = m_gdb_comm.GetHostArchitecture();
+    const ArchSpec &remote_process_arch = m_gdb_comm.GetProcessArchitecture();
+
+    // Use the process' architecture instead of the host arch, if available
+    ArchSpec arch_to_use;
+    if (remote_process_arch.IsValid ())
+        arch_to_use = remote_process_arch;
+    else
+        arch_to_use = remote_host_arch;
+    
+    if (!arch_to_use.IsValid())
+        arch_to_use = target_arch;
+
+    if (GetGDBServerRegisterInfo (arch_to_use))
         return;
 
     char packet[128];
@@ -640,7 +654,12 @@ ProcessGDBRemote::BuildDynamicRegisterInfo (bool force)
                     reg_info.invalidate_regs = invalidate_regs.data();
                 }
 
-                AugmentRegisterInfoViaABI (reg_info, reg_name, GetABI ());
+                // We have to make a temporary ABI here, and not use the GetABI because this code
+                // gets called in DidAttach, when the target architecture (and consequently the ABI we'll get from
+                // the process) may be wrong.
+                ABISP abi_to_use = ABI::FindPlugin(arch_to_use);
+
+                AugmentRegisterInfoViaABI (reg_info, reg_name, abi_to_use);
 
                 m_register_info.AddRegister(reg_info, reg_name, alt_name, set_name);
             }
@@ -668,22 +687,11 @@ ProcessGDBRemote::BuildDynamicRegisterInfo (bool force)
     // add composite registers to the existing primordial ones.
     bool from_scratch = (m_register_info.GetNumRegisters() == 0);
 
-    const ArchSpec &target_arch = GetTarget().GetArchitecture();
-    const ArchSpec &remote_host_arch = m_gdb_comm.GetHostArchitecture();
-    const ArchSpec &remote_process_arch = m_gdb_comm.GetProcessArchitecture();
-
-    // Use the process' architecture instead of the host arch, if available
-    ArchSpec remote_arch;
-    if (remote_process_arch.IsValid ())
-        remote_arch = remote_process_arch;
-    else
-        remote_arch = remote_host_arch;
-
     if (!target_arch.IsValid())
     {
-        if (remote_arch.IsValid()
-              && (remote_arch.GetMachine() == llvm::Triple::arm || remote_arch.GetMachine() == llvm::Triple::thumb)
-              && remote_arch.GetTriple().getVendor() == llvm::Triple::Apple)
+        if (arch_to_use.IsValid()
+              && (arch_to_use.GetMachine() == llvm::Triple::arm || arch_to_use.GetMachine() == llvm::Triple::thumb)
+              && arch_to_use.GetTriple().getVendor() == llvm::Triple::Apple)
             m_register_info.HardcodeARMRegisters(from_scratch);
     }
     else if (target_arch.GetMachine() == llvm::Triple::arm
@@ -2001,7 +2009,18 @@ ProcessGDBRemote::SetThreadStopInfo (lldb::tid_t tid,
                     {
                         if (reason.compare("trace") == 0)
                         {
-                            thread_sp->SetStopInfo (StopInfo::CreateStopReasonToTrace (*thread_sp));
+                            addr_t pc = thread_sp->GetRegisterContext()->GetPC();
+                            lldb::BreakpointSiteSP bp_site_sp = thread_sp->GetProcess()->GetBreakpointSiteList().FindByAddress(pc);
+
+                            // If the current pc is a breakpoint site then the StopInfo should be set to Breakpoint
+                            // Otherwise, it will be set to Trace.
+                            if (bp_site_sp && bp_site_sp->ValidForThisThread(thread_sp.get()))
+                            {
+                                thread_sp->SetStopInfo(
+                                    StopInfo::CreateStopReasonWithBreakpointSiteID(*thread_sp, bp_site_sp->GetID()));
+                            }
+                            else
+                              thread_sp->SetStopInfo (StopInfo::CreateStopReasonToTrace (*thread_sp));
                             handled = true;
                         }
                         else if (reason.compare("breakpoint") == 0)
@@ -3119,35 +3138,33 @@ ProcessGDBRemote::DoAllocateMemory (size_t size, uint32_t permissions, Error &er
     Log *log (GetLogIfAnyCategoriesSet (LIBLLDB_LOG_PROCESS|LIBLLDB_LOG_EXPRESSIONS));
     addr_t allocated_addr = LLDB_INVALID_ADDRESS;
 
-    LazyBool supported = m_gdb_comm.SupportsAllocDeallocMemory();
-    switch (supported)
+    if (m_gdb_comm.SupportsAllocDeallocMemory() != eLazyBoolNo)
     {
-        case eLazyBoolCalculate:
-        case eLazyBoolYes:
-            allocated_addr = m_gdb_comm.AllocateMemory (size, permissions);
-            if (allocated_addr != LLDB_INVALID_ADDRESS || supported == eLazyBoolYes)
-                return allocated_addr;
+        allocated_addr = m_gdb_comm.AllocateMemory (size, permissions);
+        if (allocated_addr != LLDB_INVALID_ADDRESS || m_gdb_comm.SupportsAllocDeallocMemory() == eLazyBoolYes)
+            return allocated_addr;
+    }
 
-        case eLazyBoolNo:
-            // Call mmap() to create memory in the inferior..
-            unsigned prot = 0;
-            if (permissions & lldb::ePermissionsReadable)
-                prot |= eMmapProtRead;
-            if (permissions & lldb::ePermissionsWritable)
-                prot |= eMmapProtWrite;
-            if (permissions & lldb::ePermissionsExecutable)
-                prot |= eMmapProtExec;
+    if (m_gdb_comm.SupportsAllocDeallocMemory() == eLazyBoolNo)
+    {
+        // Call mmap() to create memory in the inferior..
+        unsigned prot = 0;
+        if (permissions & lldb::ePermissionsReadable)
+            prot |= eMmapProtRead;
+        if (permissions & lldb::ePermissionsWritable)
+            prot |= eMmapProtWrite;
+        if (permissions & lldb::ePermissionsExecutable)
+            prot |= eMmapProtExec;
 
-            if (InferiorCallMmap(this, allocated_addr, 0, size, prot,
-                                 eMmapFlagsAnon | eMmapFlagsPrivate, -1, 0))
-                m_addr_to_mmap_size[allocated_addr] = size;
-            else
-            {
-                allocated_addr = LLDB_INVALID_ADDRESS;
-                if (log)
-                    log->Printf ("ProcessGDBRemote::%s no direct stub support for memory allocation, and InferiorCallMmap also failed - is stub missing register context save/restore capability?", __FUNCTION__);
-            }
-            break;
+        if (InferiorCallMmap(this, allocated_addr, 0, size, prot,
+                             eMmapFlagsAnon | eMmapFlagsPrivate, -1, 0))
+            m_addr_to_mmap_size[allocated_addr] = size;
+        else
+        {
+            allocated_addr = LLDB_INVALID_ADDRESS;
+            if (log)
+                log->Printf ("ProcessGDBRemote::%s no direct stub support for memory allocation, and InferiorCallMmap also failed - is stub missing register context save/restore capability?", __FUNCTION__);
+        }
     }
 
     if (allocated_addr == LLDB_INVALID_ADDRESS)
@@ -4520,7 +4537,7 @@ ParseRegisters (XMLNode feature_node, GdbServerTargetInfo &target_info, GDBRemot
 // return:  'true'  on success
 //          'false' on failure
 bool
-ProcessGDBRemote::GetGDBServerRegisterInfo ()
+ProcessGDBRemote::GetGDBServerRegisterInfo (ArchSpec &arch_to_use)
 {
     // Make sure LLDB has an XML parser it can use first
     if (!XMLDocument::XMLEnabled())
@@ -4599,9 +4616,12 @@ ProcessGDBRemote::GetGDBServerRegisterInfo ()
                 return true; // Keep iterating through all children of the target_node
             });
 
+            // Don't use Process::GetABI, this code gets called from DidAttach, and in that context we haven't
+            // set the Target's architecture yet, so the ABI is also potentially incorrect.
+            ABISP abi_to_use_sp = ABI::FindPlugin(arch_to_use);
             if (feature_node)
             {
-                ParseRegisters(feature_node, target_info, this->m_register_info, GetABI());
+                ParseRegisters(feature_node, target_info, this->m_register_info, abi_to_use_sp);
             }
 
             for (const auto &include : target_info.includes)
@@ -4619,10 +4639,10 @@ ProcessGDBRemote::GetGDBServerRegisterInfo ()
                 XMLNode include_feature_node = include_xml_document.GetRootElement("feature");
                 if (include_feature_node)
                 {
-                    ParseRegisters(include_feature_node, target_info, this->m_register_info, GetABI());
+                    ParseRegisters(include_feature_node, target_info, this->m_register_info, abi_to_use_sp);
                 }
             }
-            this->m_register_info.Finalize(GetTarget().GetArchitecture());
+            this->m_register_info.Finalize(arch_to_use);
         }
     }
 

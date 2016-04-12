@@ -23,13 +23,14 @@ static void EnterAnnotationToken(Preprocessor &PP, SourceLocation Begin,
                                  void *AnnotationVal) {
   // FIXME: Produce this as the current token directly, rather than
   // allocating a new token for it.
-  Token *Tok = new Token[1];
-  Tok[0].startToken();
-  Tok[0].setKind(Kind);
-  Tok[0].setLocation(Begin);
-  Tok[0].setAnnotationEndLoc(End);
-  Tok[0].setAnnotationValue(AnnotationVal);
-  PP.EnterTokenStream(Tok, 1, true, true);
+  Token Tok;
+  Token *T = &Tok;
+  Tok.startToken();
+  Tok.setKind(Kind);
+  Tok.setLocation(Begin);
+  Tok.setAnnotationEndLoc(End);
+  Tok.setAnnotationValue(AnnotationVal);
+  PP.EnterTokenStream(ArrayRef<Token>(T, 1), true);
 }
 
 /// \brief Produce a diagnostic informing the user that a #include or similar
@@ -197,9 +198,30 @@ void Preprocessor::ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTo
   // are processing this module textually (because we're building the module).
   if (File && SuggestedModule && getLangOpts().Modules &&
       SuggestedModule.getModule()->getTopLevelModuleName() !=
-          getLangOpts().CurrentModule &&
-      SuggestedModule.getModule()->getTopLevelModuleName() !=
-          getLangOpts().ImplementationOfModule) {
+          getLangOpts().CurrentModule) {
+    // If this include corresponds to a module but that module is
+    // unavailable, diagnose the situation and bail out.
+    if (!SuggestedModule.getModule()->isAvailable()) {
+      clang::Module::Requirement Requirement;
+      clang::Module::UnresolvedHeaderDirective MissingHeader;
+      Module *M = SuggestedModule.getModule();
+      // Identify the cause.
+      (void)M->isAvailable(getLangOpts(), getTargetInfo(), Requirement,
+                           MissingHeader);
+      if (MissingHeader.FileNameLoc.isValid()) {
+        Diag(MissingHeader.FileNameLoc, diag::err_module_header_missing)
+            << MissingHeader.IsUmbrella << MissingHeader.FileName;
+      } else {
+        Diag(M->DefinitionLoc, diag::err_module_unavailable)
+            << M->getFullModuleName() << Requirement.second
+            << Requirement.first;
+      }
+      Diag(FilenameTok.getLocation(),
+           diag::note_implicit_top_level_module_import_here)
+          << M->getTopLevelModuleName();
+      return;
+    }
+
     // Compute the module access path corresponding to this module.
     // FIXME: Should we have a second loadModule() overload to avoid this
     // extra lookup step?
@@ -213,7 +235,7 @@ void Preprocessor::ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTo
     // We only do this in Objective-C, where we have a module-import syntax.
     if (getLangOpts().ObjC2)
       diagnoseAutoModuleImport(*this, HashLoc, FilenameTok, Path, CharEnd);
-    
+
     // Load the module to import its macros. We'll make the declarations
     // visible when the parser gets here.
     // FIXME: Pass SuggestedModule in here rather than converting it to a path

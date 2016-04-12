@@ -33,6 +33,7 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
+#include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
@@ -375,6 +376,45 @@ static void parseSanitizerKinds(StringRef FlagName,
   }
 }
 
+// Set the profile kind for fprofile-instrument.
+static void setPGOInstrumentor(CodeGenOptions &Opts, ArgList &Args,
+                               DiagnosticsEngine &Diags) {
+  Arg *A = Args.getLastArg(OPT_fprofile_instrument_EQ);
+  if (A == nullptr)
+    return;
+  StringRef S = A->getValue();
+  unsigned I = llvm::StringSwitch<unsigned>(S)
+                   .Case("none", CodeGenOptions::ProfileNone)
+                   .Case("clang", CodeGenOptions::ProfileClangInstr)
+                   .Case("llvm", CodeGenOptions::ProfileIRInstr)
+                   .Default(~0U);
+  if (I == ~0U) {
+    Diags.Report(diag::err_drv_invalid_pgo_instrumentor) << A->getAsString(Args)
+                                                         << S;
+    return;
+  }
+  CodeGenOptions::ProfileInstrKind Instrumentor =
+      static_cast<CodeGenOptions::ProfileInstrKind>(I);
+  Opts.setProfileInstr(Instrumentor);
+}
+
+// Set the profile kind using fprofile-instrument-use-path.
+static void setPGOUseInstrumentor(CodeGenOptions &Opts,
+                                  const std::string ProfileName) {
+  auto ReaderOrErr = llvm::IndexedInstrProfReader::create(ProfileName);
+  // In error, return silently and let Clang PGOUse report the error message.
+  if (ReaderOrErr.getError()) {
+    Opts.setProfileUse(CodeGenOptions::ProfileClangInstr);
+    return;
+  }
+  std::unique_ptr<llvm::IndexedInstrProfReader> PGOReader =
+    std::move(ReaderOrErr.get());
+  if (PGOReader->isIRLevelProfile())
+    Opts.setProfileUse(CodeGenOptions::ProfileIRInstr);
+  else
+    Opts.setProfileUse(CodeGenOptions::ProfileClangInstr);
+}
+
 static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
                              DiagnosticsEngine &Diags,
                              const TargetOptions &TargetOpts) {
@@ -416,31 +456,37 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   if (Arg *A = Args.getLastArg(OPT_debug_info_kind_EQ)) {
     unsigned Val =
         llvm::StringSwitch<unsigned>(A->getValue())
-            .Case("line-tables-only", CodeGenOptions::DebugLineTablesOnly)
-            .Case("limited", CodeGenOptions::LimitedDebugInfo)
-            .Case("standalone", CodeGenOptions::FullDebugInfo)
+            .Case("line-tables-only", codegenoptions::DebugLineTablesOnly)
+            .Case("limited", codegenoptions::LimitedDebugInfo)
+            .Case("standalone", codegenoptions::FullDebugInfo)
             .Default(~0U);
     if (Val == ~0U)
       Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
                                                 << A->getValue();
     else
-      Opts.setDebugInfo(static_cast<CodeGenOptions::DebugInfoKind>(Val));
+      Opts.setDebugInfo(static_cast<codegenoptions::DebugInfoKind>(Val));
   }
   if (Arg *A = Args.getLastArg(OPT_debugger_tuning_EQ)) {
     unsigned Val = llvm::StringSwitch<unsigned>(A->getValue())
-                       .Case("gdb", CodeGenOptions::DebuggerKindGDB)
-                       .Case("lldb", CodeGenOptions::DebuggerKindLLDB)
-                       .Case("sce", CodeGenOptions::DebuggerKindSCE)
+                       .Case("gdb", unsigned(llvm::DebuggerKind::GDB))
+                       .Case("lldb", unsigned(llvm::DebuggerKind::LLDB))
+                       .Case("sce", unsigned(llvm::DebuggerKind::SCE))
                        .Default(~0U);
     if (Val == ~0U)
       Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
                                                 << A->getValue();
     else
-      Opts.setDebuggerTuning(static_cast<CodeGenOptions::DebuggerKind>(Val));
+      Opts.setDebuggerTuning(static_cast<llvm::DebuggerKind>(Val));
   }
   Opts.DwarfVersion = getLastArgIntValue(Args, OPT_dwarf_version_EQ, 0, Diags);
   Opts.DebugColumnInfo = Args.hasArg(OPT_dwarf_column_info);
   Opts.EmitCodeView = Args.hasArg(OPT_gcodeview);
+#if INTEL_CUSTOMIZATION
+  Opts.EmitIntelSTI = Args.hasArg(OPT_gintel_sti);
+#endif // INTEL_CUSTOMIZATION
+  Opts.WholeProgramVTables = Args.hasArg(OPT_fwhole_program_vtables);
+  Opts.WholeProgramVTablesBlacklistFiles =
+      Args.getAllArgValues(OPT_fwhole_program_vtables_blacklist_EQ);
   Opts.SplitDwarfFile = Args.getLastArgValue(OPT_split_dwarf_file);
   Opts.DebugTypeExtRefs = Args.hasArg(OPT_dwarf_ext_refs);
   Opts.DebugExplicitImport = Triple.isPS4CPU(); 
@@ -477,10 +523,15 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.DisableIntegratedAS = Args.hasArg(OPT_fno_integrated_as);
   Opts.Autolink = !Args.hasArg(OPT_fno_autolink);
   Opts.SampleProfileFile = Args.getLastArgValue(OPT_fprofile_sample_use_EQ);
-  Opts.ProfileInstrGenerate = Args.hasArg(OPT_fprofile_instr_generate) ||
-      Args.hasArg(OPT_fprofile_instr_generate_EQ);
-  Opts.InstrProfileOutput = Args.getLastArgValue(OPT_fprofile_instr_generate_EQ);
-  Opts.InstrProfileInput = Args.getLastArgValue(OPT_fprofile_instr_use_EQ);
+
+  setPGOInstrumentor(Opts, Args, Diags);
+  Opts.InstrProfileOutput =
+      Args.getLastArgValue(OPT_fprofile_instrument_path_EQ);
+  Opts.ProfileInstrumentUsePath =
+      Args.getLastArgValue(OPT_fprofile_instrument_use_path_EQ);
+  if (!Opts.ProfileInstrumentUsePath.empty())
+    setPGOUseInstrumentor(Opts, Opts.ProfileInstrumentUsePath);
+
   Opts.CoverageMapping =
       Args.hasFlag(OPT_fcoverage_mapping, OPT_fno_coverage_mapping, false);
   Opts.DumpCoverageMapping = Args.hasArg(OPT_dump_coverage_mapping);
@@ -618,6 +669,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.SanitizeCoverageTraceCmp = Args.hasArg(OPT_fsanitize_coverage_trace_cmp);
   Opts.SanitizeCoverage8bitCounters =
       Args.hasArg(OPT_fsanitize_coverage_8bit_counters);
+  Opts.SanitizeCoverageTracePC = Args.hasArg(OPT_fsanitize_coverage_trace_pc);
   Opts.SanitizeMemoryTrackOrigins =
       getLastArgIntValue(Args, OPT_fsanitize_memory_track_origins_EQ, 0, Diags);
   Opts.SanitizeMemoryUseAfterDtor =
@@ -753,8 +805,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
 
   // If the user requested a flag that requires source locations available in
   // the backend, make sure that the backend tracks source location information.
-  if (NeedLocTracking && Opts.getDebugInfo() == CodeGenOptions::NoDebugInfo)
-    Opts.setDebugInfo(CodeGenOptions::LocTrackingOnly);
+  if (NeedLocTracking && Opts.getDebugInfo() == codegenoptions::NoDebugInfo)
+    Opts.setDebugInfo(codegenoptions::LocTrackingOnly);
 
   Opts.RewriteMapFiles = Args.getAllArgValues(OPT_frewrite_map_file);
 
@@ -1108,6 +1160,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
     = Args.getLastArgValue(OPT_foverride_record_layout_EQ);
   Opts.AuxTriple =
       llvm::Triple::normalize(Args.getLastArgValue(OPT_aux_triple));
+  Opts.FindPchSource = Args.getLastArgValue(OPT_find_pch_source_EQ);
 
   if (const Arg *A = Args.getLastArg(OPT_arcmt_check,
                                      OPT_arcmt_modify,
@@ -1456,6 +1509,7 @@ static Visibility parseVisibility(Arg *arg, ArgList &args,
 }
 
 static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+                          const TargetOptions &TargetOpts,
                           DiagnosticsEngine &Diags) {
   // FIXME: Cleanup per-file based stuff.
   LangStandard::Kind LangStd = LangStandard::lang_unspecified;
@@ -1546,6 +1600,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                    OPT_no_gnu_mangling_for_simd_types, Opts.GNUMangling);
   Opts.GNUFABIVersion = getLastArgIntValue(Args, OPT_gnu_fabi_version_EQ,
                                            Opts.GNUFABIVersion, Diags);
+
+  // CQ382285: Emulate GNU ABI support exactly as icc does it.
+  if (Opts.GNUFABIVersion == 0)
+    Opts.EmulateGNUABIBugs = 0;
+
   // CQ380574: Ability to set various predefines based on gcc version needed.
   Opts.GNUVersion = getLastArgIntValue(Args, OPT_gnu_version_EQ,
 #if INTEL_SPECIFIC_IL0_BACKEND
@@ -1627,6 +1686,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   if (Args.hasArg(OPT_fcuda_target_overloads))
     Opts.CUDATargetOverloads = 1;
+
+  if (Args.hasArg(OPT_fcuda_allow_variadic_functions))
+    Opts.CUDAAllowVariadicFunctions = 1;
 
   if (Opts.ObjC1) {
     if (Arg *arg = Args.getLastArg(OPT_fobjc_runtime_EQ)) {
@@ -1771,9 +1833,10 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.ObjCExceptions = Args.hasArg(OPT_fobjc_exceptions);
   Opts.CXXExceptions = Args.hasArg(OPT_fcxx_exceptions);
   Opts.SjLjExceptions = Args.hasArg(OPT_fsjlj_exceptions);
+  Opts.ExternCNoUnwind = Args.hasArg(OPT_fexternc_nounwind);
   Opts.TraditionalCPP = Args.hasArg(OPT_traditional_cpp);
 
-  Opts.RTTI = !Args.hasArg(OPT_fno_rtti);
+  Opts.RTTI = Opts.CPlusPlus && !Args.hasArg(OPT_fno_rtti);
   Opts.RTTIData = Opts.RTTI && !Args.hasArg(OPT_fno_rtti_data);
   Opts.Blocks = Args.hasArg(OPT_fblocks);
   Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
@@ -1849,10 +1912,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.DebuggerCastResultToId = Args.hasArg(OPT_fdebugger_cast_result_to_id);
   Opts.DebuggerObjCLiteral = Args.hasArg(OPT_fdebugger_objc_literal);
   Opts.ApplePragmaPack = Args.hasArg(OPT_fapple_pragma_pack);
-  Opts.CurrentModule = Args.getLastArgValue(OPT_fmodule_name);
+  Opts.CurrentModule = Args.getLastArgValue(OPT_fmodule_name_EQ);
   Opts.AppExt = Args.hasArg(OPT_fapplication_extension);
-  Opts.ImplementationOfModule =
-      Args.getLastArgValue(OPT_fmodule_implementation_of);
   Opts.ModuleFeatures = Args.getAllArgValues(OPT_fmodule_feature);
   std::sort(Opts.ModuleFeatures.begin(), Opts.ModuleFeatures.end());
   Opts.NativeHalfType |= Args.hasArg(OPT_fnative_half_type);
@@ -1870,12 +1931,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Args.hasFlag(OPT_fdeclspec, OPT_fno_declspec,
                    (Opts.MicrosoftExt || Opts.Borland ||      // INTEL
                     Opts.CUDA || Opts.IntelCompat));          // INTEL
-
-  if (!Opts.CurrentModule.empty() && !Opts.ImplementationOfModule.empty() &&
-      Opts.CurrentModule != Opts.ImplementationOfModule) {
-    Diags.Report(diag::err_conflicting_module_names)
-        << Opts.CurrentModule << Opts.ImplementationOfModule;
-  }
 
   // For now, we only support local submodule visibility in C++ (because we
   // heavily depend on the ODR for merging redefinitions).
@@ -1929,6 +1984,22 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Opts.OpenMP && !Args.hasArg(options::OPT_fnoopenmp_use_tls);
   Opts.OpenMPIsDevice =
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_is_device);
+
+  // Provide diagnostic when a given target is not expected to be an OpenMP
+  // device or host.
+  if (Opts.OpenMP && !Opts.OpenMPIsDevice) {
+    llvm::Triple T(TargetOpts.Triple);
+    switch (T.getArch()) {
+    default:
+      break;
+    // Add unsupported host targets here:
+    case llvm::Triple::nvptx:
+    case llvm::Triple::nvptx64:
+      Diags.Report(clang::diag::err_drv_omp_host_target_not_supported)
+          << TargetOpts.Triple;
+      break;
+    }
+  }
 
   // Get the OpenMP target triples if any.
   if (Arg *A = Args.getLastArg(options::OPT_omptargets_EQ)) {
@@ -2196,7 +2267,7 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
                         Diags, Res.getLangOpts()->Sanitize);
   } else {
     // Other LangOpts are only initialzed when the input is not AST or LLVM IR.
-    ParseLangArgs(*Res.getLangOpts(), Args, DashX, Diags);
+    ParseLangArgs(*Res.getLangOpts(), Args, DashX, Res.getTargetOpts(), Diags);
     if (Res.getFrontendOpts().ProgramAction == frontend::RewriteObjC)
       Res.getLangOpts()->ObjCExceptions = 1;
 #if INTEL_CUSTOMIZATION

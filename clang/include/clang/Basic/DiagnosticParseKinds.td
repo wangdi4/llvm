@@ -185,6 +185,10 @@ def err_expected_statement : Error<"expected statement">;
 // CQ#370084
 def warn_expected_statement :
   Warning<err_expected_statement.Text>, InGroup<IntelCompat>;
+def warn_attributes_ignored_after_init
+    : Warning<"variable attributes appearing after a parenthesized initializer "
+              "are ignored">,
+      InGroup<IgnoredAttributes>;
 // endif INTEL_CUSTOMIZATION
 def err_expected_lparen_after : Error<"expected '(' after '%0'">;
 def err_expected_rparen_after : Error<"expected ')' after '%0'">;
@@ -922,6 +926,9 @@ def err_pragma_optimize_invalid_argument : Error<
 def err_pragma_optimize_extra_argument : Error<
   "unexpected extra argument '%0' to '#pragma clang optimize'">;
 
+def err_opencl_unroll_hint_on_non_loop : Error<
+  "OpenCL only supports 'opencl_unroll_hint' attribute on for, while, and do statements">;
+
 // OpenCL EXTENSION pragma (OpenCL 1.1 [9.1])
 def warn_pragma_expected_colon : Warning<
   "missing ':' after %0 - ignoring">, InGroup<IgnoredPragmas>;
@@ -930,9 +937,11 @@ def warn_pragma_expected_enable_disable : Warning<
 def warn_pragma_unknown_extension : Warning<
   "unknown OpenCL extension %0 - ignoring">, InGroup<IgnoredPragmas>;
 
-// OpenCL error
+// OpenCL errors.
 def err_opencl_taking_function_address_parser : Error<
   "taking address of function is not allowed">;
+def err_opencl_logical_exclusive_or : Error<
+  "^^ is a reserved operator in OpenCL">;
 
 // OpenMP support.
 def warn_pragma_omp_ignored : Warning<
@@ -954,6 +963,8 @@ def err_omp_immediate_directive : Error<
   "'#pragma omp %0' %select{|with '%2' clause }1cannot be an immediate substatement">;
 def err_omp_expected_identifier_for_critical : Error<
   "expected identifier specifying the name of the 'omp critical' directive">;
+def err_omp_expected_reduction_identifier : Error<
+  "expected identifier or one of the following operators: '+', '-', '*', '&', '|', '^', '&&', or '||'">;
 def err_omp_unknown_map_type : Error<
   "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
 def err_omp_unknown_map_type_modifier : Error<

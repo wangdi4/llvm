@@ -833,14 +833,15 @@ static Value *SimplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
       (FMF.noSignedZeros() || CannotBeNegativeZero(Op0)))
     return Op0;
 
-  // fsub 0, (fsub -0.0, X) ==> X
+  // fsub -0.0, (fsub -0.0, X) ==> X
   Value *X;
-  if (match(Op0, m_AnyZero())) {
-    if (match(Op1, m_FSub(m_NegZero(), m_Value(X))))
-      return X;
-    if (FMF.noSignedZeros() && match(Op1, m_FSub(m_AnyZero(), m_Value(X))))
-      return X;
-  }
+  if (match(Op0, m_NegZero()) && match(Op1, m_FSub(m_NegZero(), m_Value(X))))
+    return X;
+
+  // fsub 0.0, (fsub 0.0, X) ==> X if signed zeros are ignored.
+  if (FMF.noSignedZeros() && match(Op0, m_AnyZero()) &&
+      match(Op1, m_FSub(m_AnyZero(), m_Value(X))))
+    return X;
 
   // fsub nnan x, x ==> 0.0
   if (FMF.noNaNs() && Op0 == Op1)
@@ -2727,9 +2728,11 @@ static Value *SimplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
     }
   }
 
+  // x >> y <=u x
   // x udiv y <=u x.
-  if (LBO && match(LBO, m_UDiv(m_Specific(RHS), m_Value()))) {
-    // icmp pred (X /u Y), X
+  if (LBO && (match(LBO, m_LShr(m_Specific(RHS), m_Value())) ||
+              match(LBO, m_UDiv(m_Specific(RHS), m_Value())))) {
+    // icmp pred (X op Y), X
     if (Pred == ICmpInst::ICMP_UGT)
       return getFalse(ITy);
     if (Pred == ICmpInst::ICMP_ULE)
@@ -3259,7 +3262,7 @@ static const Value *SimplifyWithOpReplaced(Value *V, Value *Op, Value *RepOp,
 
       if (LoadInst *LI = dyn_cast<LoadInst>(I))
         if (!LI->isVolatile())
-          return ConstantFoldLoadFromConstPtr(ConstOps[0], Q.DL);
+          return ConstantFoldLoadFromConstPtr(ConstOps[0], LI->getType(), Q.DL);
 
       return ConstantFoldInstOperands(I, ConstOps, Q.DL, Q.TLI);
     }

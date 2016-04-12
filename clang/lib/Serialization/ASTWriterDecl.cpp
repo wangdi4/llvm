@@ -49,6 +49,8 @@ namespace clang {
     void Visit(Decl *D);
 
     void VisitDecl(Decl *D);
+    void VisitPragmaCommentDecl(PragmaCommentDecl *D);
+    void VisitPragmaDetectMismatchDecl(PragmaDetectMismatchDecl *D);
     void VisitTranslationUnitDecl(TranslationUnitDecl *D);
     void VisitNamedDecl(NamedDecl *D);
     void VisitLabelDecl(LabelDecl *LD);
@@ -131,9 +133,12 @@ namespace clang {
     void VisitObjCPropertyDecl(ObjCPropertyDecl *D);
     void VisitObjCPropertyImplDecl(ObjCPropertyImplDecl *D);
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
+    void VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D);
+    void VisitOMPCapturedExprDecl(OMPCapturedExprDecl *D);
 #if INTEL_CUSTOMIZATION
     void VisitPragmaDecl(PragmaDecl *D);
 #endif  // INTEL_CUSTOMIZATION
+
     /// Add an Objective-C type parameter list to the given record.
     void AddObjCTypeParamList(ObjCTypeParamList *typeParams) {
       // Empty type parameter list.
@@ -193,8 +198,8 @@ namespace clang {
       return None;
     }
 
-    template<typename Decl>
-    void AddTemplateSpecializations(Decl *D) {
+    template<typename DeclTy>
+    void AddTemplateSpecializations(DeclTy *D) {
       auto *Common = D->getCommonPtr();
 
       // If we have any lazy specializations, and the external AST source is
@@ -206,8 +211,6 @@ namespace clang {
         assert(!Common->LazySpecializations);
       }
 
-      auto &Specializations = Common->Specializations;
-      auto &&PartialSpecializations = getPartialSpecializations(Common);
       ArrayRef<DeclID> LazySpecializations;
       if (auto *LS = Common->LazySpecializations)
         LazySpecializations = llvm::makeArrayRef(LS + 1, LS[0]);
@@ -216,13 +219,15 @@ namespace clang {
       unsigned I = Record.size();
       Record.push_back(0);
 
-      for (auto &Entry : Specializations) {
-        auto *D = getSpecializationDecl(Entry);
-        assert(D->isCanonicalDecl() && "non-canonical decl in set");
-        AddFirstDeclFromEachModule(D, /*IncludeLocal*/true);
-      }
-      for (auto &Entry : PartialSpecializations) {
-        auto *D = getSpecializationDecl(Entry);
+      // AddFirstDeclFromEachModule might trigger deserialization, invalidating
+      // *Specializations iterators.
+      llvm::SmallVector<const Decl*, 16> Specs;
+      for (auto &Entry : Common->Specializations)
+        Specs.push_back(getSpecializationDecl(Entry));
+      for (auto &Entry : getPartialSpecializations(Common))
+        Specs.push_back(getSpecializationDecl(Entry));
+
+      for (auto *D : Specs) {
         assert(D->isCanonicalDecl() && "non-canonical decl in set");
         AddFirstDeclFromEachModule(D, /*IncludeLocal*/true);
       }
@@ -314,6 +319,28 @@ void ASTDeclWriter::VisitDecl(Decl *D) {
       DC = NS->getParent();
     }
   }
+}
+
+void ASTDeclWriter::VisitPragmaCommentDecl(PragmaCommentDecl *D) {
+  StringRef Arg = D->getArg();
+  Record.push_back(Arg.size());
+  VisitDecl(D);
+  Writer.AddSourceLocation(D->getLocStart(), Record);
+  Record.push_back(D->getCommentKind());
+  Writer.AddString(Arg, Record);
+  Code = serialization::DECL_PRAGMA_COMMENT;
+}
+
+void ASTDeclWriter::VisitPragmaDetectMismatchDecl(
+    PragmaDetectMismatchDecl *D) {
+  StringRef Name = D->getName();
+  StringRef Value = D->getValue();
+  Record.push_back(Name.size() + 1 + Value.size());
+  VisitDecl(D);
+  Writer.AddSourceLocation(D->getLocStart(), Record);
+  Writer.AddString(Name, Record);
+  Writer.AddString(Value, Record);
+  Code = serialization::DECL_PRAGMA_DETECT_MISMATCH;
 }
 
 void ASTDeclWriter::VisitTranslationUnitDecl(TranslationUnitDecl *D) {
@@ -1628,6 +1655,21 @@ void ASTDeclWriter::VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D) {
   for (auto *I : D->varlists())
     Writer.AddStmt(I);
   Code = serialization::DECL_OMP_THREADPRIVATE;
+}
+
+void ASTDeclWriter::VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D) {
+  VisitNamedDecl(D);
+  Writer.AddSourceLocation(D->getLocStart(), Record);
+  Writer.AddStmt(D->getCombiner());
+  Writer.AddStmt(D->getInitializer());
+  Writer.AddDeclRef(D->getPrevDeclInScope(), Record);
+  Writer.AddTypeRef(D->getType(), Record);
+  Code = serialization::DECL_OMP_DECLARE_REDUCTION;
+}
+
+void ASTDeclWriter::VisitOMPCapturedExprDecl(OMPCapturedExprDecl *D) {
+  VisitVarDecl(D);
+  Code = serialization::DECL_OMP_CAPTUREDEXPR;
 }
 
 //===----------------------------------------------------------------------===//

@@ -117,6 +117,8 @@ const TargetInfo &ABIInfo::getTarget() const {
   return CGT.getTarget();
 }
 
+bool ABIInfo:: isAndroid() const { return getTarget().getTriple().isAndroid(); }
+
 bool ABIInfo::isHomogeneousAggregateBaseType(QualType Ty) const {
   return false;
 }
@@ -130,7 +132,7 @@ bool ABIInfo::shouldSignExtUnsignedType(QualType Ty) const {
   return false;
 }
 
-void ABIArgInfo::dump() const {
+LLVM_DUMP_METHOD void ABIArgInfo::dump() const {
   raw_ostream &OS = llvm::errs();
   OS << "(ABIArgInfo Kind=";
   switch (TheKind) {
@@ -364,7 +366,7 @@ static bool isEmptyField(ASTContext &Context, const FieldDecl *FD,
 static bool isEmptyRecord(ASTContext &Context, QualType T, bool AllowArrays) {
   const RecordType *RT = T->getAs<RecordType>();
   if (!RT)
-    return 0;
+    return false;
   const RecordDecl *RD = RT->getDecl();
   if (RD->hasFlexibleArrayMember())
     return false;
@@ -523,6 +525,54 @@ static bool canExpandIndirectArgument(QualType Ty, ASTContext &Context) {
 }
 
 namespace {
+Address EmitVAArgInstr(CodeGenFunction &CGF, Address VAListAddr, QualType Ty,
+                       const ABIArgInfo &AI) {
+  // This default implementation defers to the llvm backend's va_arg
+  // instruction. It can handle only passing arguments directly
+  // (typically only handled in the backend for primitive types), or
+  // aggregates passed indirectly by pointer (NOTE: if the "byval"
+  // flag has ABI impact in the callee, this implementation cannot
+  // work.)
+
+  // Only a few cases are covered here at the moment -- those needed
+  // by the default abi.
+  llvm::Value *Val;
+
+  if (AI.isIndirect()) {
+    assert(!AI.getPaddingType() &&
+           "Unepxected PaddingType seen in arginfo in generic VAArg emitter!");
+    assert(
+        !AI.getIndirectRealign() &&
+        "Unepxected IndirectRealign seen in arginfo in generic VAArg emitter!");
+
+    auto TyInfo = CGF.getContext().getTypeInfoInChars(Ty);
+    CharUnits TyAlignForABI = TyInfo.second;
+
+    llvm::Type *BaseTy =
+        llvm::PointerType::getUnqual(CGF.ConvertTypeForMem(Ty));
+    llvm::Value *Addr =
+        CGF.Builder.CreateVAArg(VAListAddr.getPointer(), BaseTy);
+    return Address(Addr, TyAlignForABI);
+  } else {
+    assert((AI.isDirect() || AI.isExtend()) &&
+           "Unexpected ArgInfo Kind in generic VAArg emitter!");
+
+    assert(!AI.getInReg() &&
+           "Unepxected InReg seen in arginfo in generic VAArg emitter!");
+    assert(!AI.getPaddingType() &&
+           "Unepxected PaddingType seen in arginfo in generic VAArg emitter!");
+    assert(!AI.getDirectOffset() &&
+           "Unepxected DirectOffset seen in arginfo in generic VAArg emitter!");
+    assert(!AI.getCoerceToType() &&
+           "Unepxected CoerceToType seen in arginfo in generic VAArg emitter!");
+
+    Address Temp = CGF.CreateMemTemp(Ty, "varet");
+    Val = CGF.Builder.CreateVAArg(VAListAddr.getPointer(), CGF.ConvertType(Ty));
+    CGF.Builder.CreateStore(Val, Temp);
+    return Temp;
+  }
+}
+
 /// DefaultABIInfo - The default implementation for ABI specific
 /// details. This implementation provides information which results in
 /// self-consistent and sensible LLVM IR generation, but does not
@@ -542,7 +592,9 @@ public:
   }
 
   Address EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
-                    QualType Ty) const override;
+                    QualType Ty) const override {
+    return EmitVAArgInstr(CGF, VAListAddr, Ty, classifyArgumentType(Ty));
+  }
 };
 
 class DefaultTargetCodeGenInfo : public TargetCodeGenInfo {
@@ -550,11 +602,6 @@ public:
   DefaultTargetCodeGenInfo(CodeGen::CodeGenTypes &CGT)
     : TargetCodeGenInfo(new DefaultABIInfo(CGT)) {}
 };
-
-Address DefaultABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
-                                  QualType Ty) const {
-  return Address::invalid();
-}
 
 ABIArgInfo DefaultABIInfo::classifyArgumentType(QualType Ty) const {
   Ty = useFirstFieldIfTransparentUnion(Ty);
@@ -607,13 +654,17 @@ private:
   ABIArgInfo classifyArgumentType(QualType Ty) const;
 
   // DefaultABIInfo's classifyReturnType and classifyArgumentType are
-  // non-virtual, but computeInfo is virtual, so we overload that.
+  // non-virtual, but computeInfo and EmitVAArg is virtual, so we
+  // overload them.
   void computeInfo(CGFunctionInfo &FI) const override {
     if (!getCXXABI().classifyReturnType(FI))
       FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
     for (auto &Arg : FI.arguments())
       Arg.info = classifyArgumentType(Arg.type);
   }
+
+  Address EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                    QualType Ty) const override;
 };
 
 class WebAssemblyTargetCodeGenInfo final : public TargetCodeGenInfo {
@@ -665,6 +716,14 @@ ABIArgInfo WebAssemblyABIInfo::classifyReturnType(QualType RetTy) const {
   return DefaultABIInfo::classifyReturnType(RetTy);
 }
 
+Address WebAssemblyABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                                      QualType Ty) const {
+  return emitVoidPtrVAArg(CGF, VAListAddr, Ty, /*Indirect=*/ false,
+                          getContext().getTypeInfoInChars(Ty),
+                          CharUnits::fromQuantity(4),
+                          /*AllowHigherAlign=*/ true);
+}
+
 //===----------------------------------------------------------------------===//
 // le32/PNaCl bitcode ABI Implementation
 //
@@ -700,7 +759,13 @@ void PNaClABIInfo::computeInfo(CGFunctionInfo &FI) const {
 
 Address PNaClABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
                                 QualType Ty) const {
-  return Address::invalid();
+  // The PNaCL ABI is a bit odd, in that varargs don't use normal
+  // function classification. Structs get passed directly for varargs
+  // functions, through a rewriting transform in
+  // pnacl-llvm/lib/Transforms/NaCl/ExpandVarArgs.cpp, which allows
+  // this target to actually support a va_arg instructions with an
+  // aggregate type, unlike other targets.
+  return EmitVAArgInstr(CGF, VAListAddr, Ty, ABIArgInfo::getDirect());
 }
 
 /// \brief Classify argument of given type \p Ty.
@@ -920,6 +985,11 @@ public:
                    ('T' << 24);
     return llvm::ConstantInt::get(CGM.Int32Ty, Sig);
   }
+
+  StringRef getARCRetainAutoreleasedReturnValueMarker() const override {
+    return "movl\t%ebp, %ebp"
+           "\t\t## marker for objc_retainAutoreleaseReturnValue";
+  }
 };
 
 }
@@ -1112,6 +1182,10 @@ ABIArgInfo X86_32ABIInfo::classifyReturnType(QualType RetTy,
     // If specified, structs and unions are always indirect.
     if (!IsRetSmallStructInRegABI && !RetTy->isAnyComplexType())
       return getIndirectReturnResult(RetTy, State);
+
+    // Ignore empty structs/unions.
+    if (isEmptyRecord(getContext(), RetTy, true))
+      return ABIArgInfo::getIgnore();
 
     // Small structures which are register sized are generally returned
     // in a register.
@@ -3544,12 +3618,15 @@ public:
 
 }
 
+// TODO: this implementation is now likely redundant with
+// DefaultABIInfo::EmitVAArg.
 Address PPC32_SVR4_ABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAList,
                                       QualType Ty) const {
+  const unsigned OverflowLimit = 8;
   if (const ComplexType *CTy = Ty->getAs<ComplexType>()) {
     // TODO: Implement this. For now ignore.
     (void)CTy;
-    return Address::invalid();
+    return Address::invalid(); // FIXME?
   }
 
   // struct __va_list_tag {
@@ -3588,7 +3665,7 @@ Address PPC32_SVR4_ABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAList,
   }
 
   llvm::Value *CC =
-      Builder.CreateICmpULT(NumRegs, Builder.getInt8(8), "cond");
+      Builder.CreateICmpULT(NumRegs, Builder.getInt8(OverflowLimit), "cond");
 
   llvm::BasicBlock *UsingRegs = CGF.createBasicBlock("using_regs");
   llvm::BasicBlock *UsingOverflow = CGF.createBasicBlock("using_overflow");
@@ -3639,6 +3716,8 @@ Address PPC32_SVR4_ABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAList,
   Address MemAddr = Address::invalid();
   {
     CGF.EmitBlock(UsingOverflow);
+
+    Builder.CreateStore(Builder.getInt8(OverflowLimit), NumRegsAddr);
 
     // Everything in the overflow area is rounded up to a size of at least 4.
     CharUnits OverflowAreaAlign = CharUnits::fromQuantity(4);
@@ -3731,7 +3810,7 @@ PPC32TargetCodeGenInfo::initDwarfEHRegSizeTable(CodeGen::CodeGenFunction &CGF,
 
 namespace {
 /// PPC64_SVR4_ABIInfo - The 64-bit PowerPC ELF (SVR4) ABI information.
-class PPC64_SVR4_ABIInfo : public DefaultABIInfo {
+class PPC64_SVR4_ABIInfo : public ABIInfo {
 public:
   enum ABIKind {
     ELFv1 = 0,
@@ -3773,7 +3852,7 @@ private:
 
 public:
   PPC64_SVR4_ABIInfo(CodeGen::CodeGenTypes &CGT, ABIKind Kind, bool HasQPX)
-    : DefaultABIInfo(CGT), Kind(Kind), HasQPX(HasQPX) {}
+      : ABIInfo(CGT), Kind(Kind), HasQPX(HasQPX) {}
 
   bool isPromotableTypeForABI(QualType Ty) const;
   CharUnits getParamTypeAlignment(QualType Ty) const;
@@ -4357,6 +4436,11 @@ ABIArgInfo AArch64ABIInfo::classifyArgumentType(QualType Ty) const {
   // Handle illegal vector types here.
   if (isIllegalVectorType(Ty)) {
     uint64_t Size = getContext().getTypeSize(Ty);
+    // Android promotes <2 x i8> to i16, not i32
+    if(isAndroid() && (Size <= 16)) {
+      llvm::Type *ResType = llvm::Type::getInt16Ty(getVMContext());
+      return ABIArgInfo::getDirect(ResType);
+    }
     if (Size <= 32) {
       llvm::Type *ResType = llvm::Type::getInt32Ty(getVMContext());
       return ABIArgInfo::getDirect(ResType);
@@ -4767,7 +4851,7 @@ Address AArch64ABIInfo::EmitDarwinVAArg(Address VAListAddr, QualType Ty,
   // illegal vector types.  Lower VAArg here for these cases and use
   // the LLVM va_arg instruction for everything else.
   if (!isAggregateTypeForABI(Ty) && !isIllegalVectorType(Ty))
-    return Address::invalid();
+    return EmitVAArgInstr(CGF, VAListAddr, Ty, ABIArgInfo::getDirect());
 
   CharUnits SlotSize = CharUnits::fromQuantity(8);
 
@@ -4839,11 +4923,6 @@ public:
     default:
       return false;
     }
-  }
-
-  bool isAndroid() const {
-    return (getTarget().getTriple().getEnvironment() ==
-            llvm::Triple::Android);
   }
 
   ABIKind getABIKind() const { return Kind; }
@@ -4939,9 +5018,6 @@ public:
 };
 
 class WindowsARMTargetCodeGenInfo : public ARMTargetCodeGenInfo {
-  void addStackProbeSizeTargetAttribute(const Decl *D, llvm::GlobalValue *GV,
-                                        CodeGen::CodeGenModule &CGM) const;
-
 public:
   WindowsARMTargetCodeGenInfo(CodeGenTypes &CGT, ARMABIInfo::ABIKind K)
       : ARMTargetCodeGenInfo(CGT, K) {}
@@ -4949,18 +5025,6 @@ public:
   void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                            CodeGen::CodeGenModule &CGM) const override;
 };
-
-void WindowsARMTargetCodeGenInfo::addStackProbeSizeTargetAttribute(
-    const Decl *D, llvm::GlobalValue *GV, CodeGen::CodeGenModule &CGM) const {
-  if (!isa<FunctionDecl>(D))
-    return;
-  if (CGM.getCodeGenOpts().StackProbeSize == 4096)
-    return;
-
-  llvm::Function *F = cast<llvm::Function>(GV);
-  F->addFnAttr("stack-probe-size",
-               llvm::utostr(CGM.getCodeGenOpts().StackProbeSize));
-}
 
 void WindowsARMTargetCodeGenInfo::setTargetAttributes(
     const Decl *D, llvm::GlobalValue *GV, CodeGen::CodeGenModule &CGM) const {
@@ -4989,7 +5053,7 @@ void ARMABIInfo::computeInfo(CGFunctionInfo &FI) const {
 /// Return the default calling convention that LLVM will use.
 llvm::CallingConv::ID ARMABIInfo::getLLVMDefaultCC() const {
   // The default calling convention that LLVM will infer.
-  if (isEABIHF() || getTarget().getTriple().isWatchOS())
+  if (isEABIHF() || getTarget().getTriple().isWatchABI())
     return llvm::CallingConv::ARM_AAPCS_VFP;
   else if (isEABI())
     return llvm::CallingConv::ARM_AAPCS;
@@ -7010,6 +7074,8 @@ public:
 
 } // End anonymous namespace.
 
+// TODO: this implementation is likely now redundant with the default
+// EmitVAArg.
 Address XCoreABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
                                 QualType Ty) const {
   CGBuilderTy &Builder = CGF.Builder;

@@ -783,12 +783,62 @@ void CoverageData::GetRangeOffsets(const NamedPcRange& r, Symbolizer* sym,
     (*offsets)[i] = UnbundlePc((*offsets)[i]);
 }
 
+static void GenerateHtmlReport(const InternalMmapVector<char *> &cov_files) {
+  if (!common_flags()->html_cov_report) {
+    return;
+  }
+  char *sancov_path = FindPathToBinary(common_flags()->sancov_path);
+  if (sancov_path == nullptr) {
+    return;
+  }
+
+  InternalMmapVector<char *> sancov_argv(cov_files.size() * 2 + 3);
+  sancov_argv.push_back(sancov_path);
+  sancov_argv.push_back(internal_strdup("-html-report"));
+  auto argv_deleter = at_scope_exit([&] {
+    for (uptr i = 0; i < sancov_argv.size(); ++i) {
+      InternalFree(sancov_argv[i]);
+    }
+  });
+
+  for (const auto &cov_file : cov_files) {
+    sancov_argv.push_back(internal_strdup(cov_file));
+  }
+
+  {
+    ListOfModules modules;
+    modules.init();
+    for (const LoadedModule &module : modules) {
+      sancov_argv.push_back(internal_strdup(module.full_name()));
+    }
+  }
+
+  InternalScopedString report_path(kMaxPathLength);
+  fd_t report_fd =
+      CovOpenFile(&report_path, false /* packed */, GetProcessName(), "html");
+  int pid = StartSubprocess(sancov_argv[0], sancov_argv.data(),
+                            kInvalidFd /* stdin */, report_fd /* std_out */);
+  if (pid > 0) {
+    int result = WaitForProcess(pid);
+    if (result == 0)
+      Printf("coverage report generated to %s\n", report_path.data());
+  }
+}
+
 void CoverageData::DumpOffsets() {
   auto sym = Symbolizer::GetOrInit();
   if (!common_flags()->coverage_pcs) return;
   CHECK_NE(sym, nullptr);
   InternalMmapVector<uptr> offsets(0);
   InternalScopedString path(kMaxPathLength);
+
+  InternalMmapVector<char *> cov_files(module_name_vec.size());
+  auto cov_files_deleter = at_scope_exit([&] {
+    for (uptr i = 0; i < cov_files.size(); ++i) {
+      InternalFree(cov_files[i]);
+    }
+  });
+
   for (uptr m = 0; m < module_name_vec.size(); m++) {
     auto r = module_name_vec[m];
     GetRangeOffsets(r, sym, &offsets);
@@ -813,11 +863,14 @@ void CoverageData::DumpOffsets() {
       if (fd == kInvalidFd) continue;
       WriteToFile(fd, offsets.data(), offsets.size() * sizeof(offsets[0]));
       CloseFile(fd);
+      cov_files.push_back(internal_strdup(path.data()));
       VReport(1, " CovDump: %s: %zd PCs written\n", path.data(), num_offsets);
     }
   }
   if (cov_fd != kInvalidFd)
     CloseFile(cov_fd);
+
+  GenerateHtmlReport(cov_files);
 }
 
 void CoverageData::DumpAll() {

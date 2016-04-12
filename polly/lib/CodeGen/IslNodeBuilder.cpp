@@ -48,6 +48,12 @@
 using namespace polly;
 using namespace llvm;
 
+// The maximal number of basic sets we allow during invariant load construction.
+// More complex access ranges will result in very high compile time and are also
+// unlikely to result in good code. This value is very high and should only
+// trigger for corner cases (e.g., the "dct_luma" function in h264, SPEC2006).
+static int const MaxConjunctsInAccessRange = 80;
+
 __isl_give isl_ast_expr *
 IslNodeBuilder::getUpperBound(__isl_keep isl_ast_node *For,
                               ICmpInst::Predicate &Predicate) {
@@ -185,14 +191,15 @@ struct SubtreeReferences {
 static int findReferencesInBlock(struct SubtreeReferences &References,
                                  const ScopStmt *Stmt, const BasicBlock *BB) {
   for (const Instruction &Inst : *BB)
-    for (Value *SrcVal : Inst.operands())
-      if (canSynthesize(SrcVal, &References.LI, &References.SE,
-                        &References.R)) {
-        References.SCEVs.insert(
-            References.SE.getSCEVAtScope(SrcVal, References.LI.getLoopFor(BB)));
+    for (Value *SrcVal : Inst.operands()) {
+      auto *Scope = References.LI.getLoopFor(BB);
+      if (canSynthesize(SrcVal, &References.LI, &References.SE, &References.R,
+                        Scope)) {
+        References.SCEVs.insert(References.SE.getSCEVAtScope(SrcVal, Scope));
         continue;
       } else if (Value *NewVal = References.GlobalMap.lookup(SrcVal))
         References.Values.insert(NewVal);
+    }
   return 0;
 }
 
@@ -352,9 +359,24 @@ void IslNodeBuilder::createUserVector(__isl_take isl_ast_node *User,
 }
 
 void IslNodeBuilder::createMark(__isl_take isl_ast_node *Node) {
+  auto *Id = isl_ast_node_mark_get_id(Node);
   auto Child = isl_ast_node_mark_get_node(Node);
-  create(Child);
   isl_ast_node_free(Node);
+  // If a child node of a 'SIMD mark' is a loop that has a single iteration,
+  // it will be optimized away and we should skip it.
+  if (!strcmp(isl_id_get_name(Id), "SIMD") &&
+      isl_ast_node_get_type(Child) == isl_ast_node_for) {
+    bool Vector = PollyVectorizerChoice == VECTORIZER_POLLY;
+    int VectorWidth = getNumberOfIterations(Child);
+    if (Vector && 1 < VectorWidth && VectorWidth <= 16)
+      createForVector(Child, VectorWidth);
+    else
+      createForSequential(Child, true);
+    isl_id_free(Id);
+    return;
+  }
+  create(Child);
+  isl_id_free(Id);
 }
 
 void IslNodeBuilder::createForVector(__isl_take isl_ast_node *For,
@@ -417,7 +439,8 @@ void IslNodeBuilder::createForVector(__isl_take isl_ast_node *For,
   isl_ast_expr_free(Iterator);
 }
 
-void IslNodeBuilder::createForSequential(__isl_take isl_ast_node *For) {
+void IslNodeBuilder::createForSequential(__isl_take isl_ast_node *For,
+                                         bool KnownParallel) {
   isl_ast_node *Body;
   isl_ast_expr *Init, *Inc, *Iterator, *UB;
   isl_id *IteratorID;
@@ -428,8 +451,8 @@ void IslNodeBuilder::createForSequential(__isl_take isl_ast_node *For) {
   CmpInst::Predicate Predicate;
   bool Parallel;
 
-  Parallel =
-      IslAstInfo::isParallel(For) && !IslAstInfo::isReductionParallel(For);
+  Parallel = KnownParallel || (IslAstInfo::isParallel(For) &&
+                               !IslAstInfo::isReductionParallel(For));
 
   Body = isl_ast_node_for_get_body(For);
 
@@ -647,7 +670,7 @@ void IslNodeBuilder::createFor(__isl_take isl_ast_node *For) {
     createForParallel(For);
     return;
   }
-  createForSequential(For);
+  createForSequential(For, false);
 }
 
 void IslNodeBuilder::createIf(__isl_take isl_ast_node *If) {
@@ -702,12 +725,15 @@ IslNodeBuilder::createNewAccesses(ScopStmt *Stmt,
                                   __isl_keep isl_ast_node *Node) {
   isl_id_to_ast_expr *NewAccesses =
       isl_id_to_ast_expr_alloc(Stmt->getParent()->getIslCtx(), 0);
+
+  auto *Build = IslAstInfo::getBuild(Node);
+  assert(Build && "Could not obtain isl_ast_build from user node");
+  Stmt->setAstBuild(Build);
+
   for (auto *MA : *Stmt) {
     if (!MA->hasNewAccessRelation())
       continue;
 
-    auto Build = IslAstInfo::getBuild(Node);
-    assert(Build && "Could not obtain isl_ast_build from user node");
     auto Schedule = isl_ast_build_get_schedule(Build);
     auto PWAccRel = MA->applyScheduleToAccessRelation(Schedule);
 
@@ -839,11 +865,12 @@ bool IslNodeBuilder::materializeValue(isl_id *Id) {
           // the parent of Inst and lastly if the parent of Inst has an empty
           // domain. In the first and last case the instruction is dead but if
           // there is a statement or the domain is not empty Inst is not dead.
-          auto *Address = getPointerOperand(*Inst);
+          auto MemInst = MemAccInst::dyn_cast(Inst);
+          auto Address = MemInst ? MemInst.getPointerOperand() : nullptr;
           if (Address &&
               SE.getUnknown(UndefValue::get(Address->getType())) ==
                   SE.getPointerBase(SE.getSCEV(Address))) {
-          } else if (S.getStmtForBasicBlock(Inst->getParent())) {
+          } else if (S.getStmtFor(Inst)) {
             IsDead = false;
           } else {
             auto *Domain = S.getDomainConditions(Inst->getParent());
@@ -895,43 +922,37 @@ bool IslNodeBuilder::materializeParameters(isl_set *Set, bool All) {
 Value *IslNodeBuilder::preloadUnconditionally(isl_set *AccessRange,
                                               isl_ast_build *Build,
                                               Instruction *AccInst) {
+  if (isl_set_n_basic_set(AccessRange) > MaxConjunctsInAccessRange) {
+    isl_set_free(AccessRange);
+    return nullptr;
+  }
+
   isl_pw_multi_aff *PWAccRel = isl_pw_multi_aff_from_set(AccessRange);
   PWAccRel = isl_pw_multi_aff_gist_params(PWAccRel, S.getContext());
   isl_ast_expr *Access =
       isl_ast_build_access_from_pw_multi_aff(Build, PWAccRel);
-  Value *PreloadVal = ExprBuilder.create(Access);
-
-  if (LoadInst *PreloadInst = dyn_cast<LoadInst>(PreloadVal))
-    PreloadInst->setAlignment(dyn_cast<LoadInst>(AccInst)->getAlignment());
+  auto *Address = isl_ast_expr_address_of(Access);
+  auto *AddressValue = ExprBuilder.create(Address);
+  Value *PreloadVal;
 
   // Correct the type as the SAI might have a different type than the user
   // expects, especially if the base pointer is a struct.
   Type *Ty = AccInst->getType();
-  if (Ty == PreloadVal->getType())
-    return PreloadVal;
 
-  if (!Ty->isFloatingPointTy() && !PreloadVal->getType()->isFloatingPointTy())
-    return PreloadVal = Builder.CreateBitOrPointerCast(PreloadVal, Ty);
-
-  // We do not want to cast floating point to non-floating point types and vice
-  // versa, thus we simply create a new load with a casted pointer expression.
-  auto *LInst = dyn_cast<LoadInst>(PreloadVal);
-  assert(LInst && "Preloaded value was not a load instruction");
-  auto *Ptr = LInst->getPointerOperand();
-  Ptr = Builder.CreatePointerCast(Ptr, Ty->getPointerTo(),
-                                  Ptr->getName() + ".cast");
-  PreloadVal = Builder.CreateLoad(Ptr, LInst->getName());
+  auto *Ptr = AddressValue;
+  auto Name = Ptr->getName();
+  Ptr = Builder.CreatePointerCast(Ptr, Ty->getPointerTo(), Name + ".cast");
+  PreloadVal = Builder.CreateLoad(Ptr, Name + ".load");
   if (LoadInst *PreloadInst = dyn_cast<LoadInst>(PreloadVal))
     PreloadInst->setAlignment(dyn_cast<LoadInst>(AccInst)->getAlignment());
 
-  LInst->eraseFromParent();
   return PreloadVal;
 }
 
 Value *IslNodeBuilder::preloadInvariantLoad(const MemoryAccess &MA,
                                             isl_set *Domain) {
 
-  isl_set *AccessRange = isl_map_range(MA.getAccessRelation());
+  isl_set *AccessRange = isl_map_range(MA.getAddressFunction());
   if (!materializeParameters(AccessRange, false)) {
     isl_set_free(AccessRange);
     isl_set_free(Domain);
@@ -996,9 +1017,15 @@ Value *IslNodeBuilder::preloadInvariantLoad(const MemoryAccess &MA,
   Builder.SetInsertPoint(MergeBB->getTerminator());
   auto *MergePHI = Builder.CreatePHI(
       AccInstTy, 2, "polly.preload." + AccInst->getName() + ".merge");
+  PreloadVal = MergePHI;
+
+  if (!PreAccInst) {
+    PreloadVal = nullptr;
+    PreAccInst = UndefValue::get(AccInstTy);
+  }
+
   MergePHI->addIncoming(PreAccInst, ExecBB);
   MergePHI->addIncoming(Constant::getNullValue(AccInstTy), CondBB);
-  PreloadVal = MergePHI;
 
   isl_ast_build_free(Build);
   return PreloadVal;
@@ -1025,12 +1052,13 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
   // Check for recurrsion which can be caused by additional constraints, e.g.,
   // non-finitie loop contraints. In such a case we have to bail out and insert
   // a "false" runtime check that will cause the original code to be executed.
-  if (!PreloadedPtrs.insert(std::get<0>(IAClass)).second)
+  auto PtrId = std::make_pair(std::get<0>(IAClass), std::get<3>(IAClass));
+  if (!PreloadedPtrs.insert(PtrId).second)
     return false;
 
   // If the base pointer of this class is dependent on another one we have to
   // make sure it was preloaded already.
-  auto *SAI = S.getScopArrayInfo(MA->getBaseAddr(), ScopArrayInfo::MK_Array);
+  auto *SAI = MA->getScopArrayInfo();
   if (const auto *BaseIAClass = S.lookupInvariantEquivClass(SAI->getBasePtr()))
     if (!preloadInvariantEquivClass(*BaseIAClass))
       return false;
@@ -1043,13 +1071,10 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
   if (!PreloadVal)
     return false;
 
-  assert(PreloadVal->getType() == AccInst->getType());
   for (const MemoryAccess *MA : MAs) {
     Instruction *MAAccInst = MA->getAccessInstruction();
-    // TODO: The bitcast here is wrong. In case of floating and non-floating
-    //       point values we need to reload the value or convert it.
-    ValueMap[MAAccInst] =
-        Builder.CreateBitOrPointerCast(PreloadVal, MAAccInst->getType());
+    assert(PreloadVal->getType() == MAAccInst->getType());
+    ValueMap[MAAccInst] = PreloadVal;
   }
 
   if (SE.isSCEVable(AccInstTy)) {
@@ -1073,11 +1098,8 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
       // should only change the base pointer of the derived SAI if we actually
       // preloaded it.
       if (BasePtr == MA->getBaseAddr()) {
-        // TODO: The bitcast here is wrong. In case of floating and non-floating
-        //       point values we need to reload the value or convert it.
-        BasePtr =
-            Builder.CreateBitOrPointerCast(PreloadVal, BasePtr->getType());
-        DerivedSAI->setBasePtr(BasePtr);
+        assert(BasePtr->getType() == PreloadVal->getType());
+        DerivedSAI->setBasePtr(PreloadVal);
       }
 
       // For scalar derived SAIs we remap the alloca used for the derived value.

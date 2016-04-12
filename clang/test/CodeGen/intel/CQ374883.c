@@ -1,5 +1,6 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -O0 -fintel-compatibility %s -emit-llvm -o - -verify | FileCheck %s
 // expected-no-diagnostics
+// REQUIRES: llvm-backend
 
 // CHECK-LABEL: @strcat
 char *__builtin_strcat(char *dest, const char *src) { return dest; }

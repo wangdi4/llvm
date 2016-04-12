@@ -1845,8 +1845,24 @@ inline internal::Matcher<Stmt> sizeOfExpr(
 ///   namespace a { namespace b { class X; } }
 /// \endcode
 inline internal::Matcher<NamedDecl> hasName(const std::string &Name) {
-  return internal::Matcher<NamedDecl>(new internal::HasNameMatcher(Name));
+  std::vector<std::string> Names;
+  Names.push_back(Name);
+  return internal::Matcher<NamedDecl>(new internal::HasNameMatcher(Names));
 }
+
+/// \brief Matches NamedDecl nodes that have any of the specified names.
+///
+/// This matcher is only provided as a performance optimization of hasName.
+/// \code
+///     hasAnyName(a, b, c)
+/// \endcode
+///  is equivalent to, but faster than
+/// \code
+///     anyOf(hasName(a), hasName(b), hasName(c))
+/// \endcode
+const llvm::VariadicFunction<internal::Matcher<NamedDecl>, StringRef,
+                             internal::hasAnyNameFunc>
+    hasAnyName = {};
 
 /// \brief Matches NamedDecl nodes whose fully qualified names contain
 /// a substring matched by the given RegExp.
@@ -2298,14 +2314,17 @@ AST_MATCHER_P_OVERLOAD(CallExpr, callee, internal::Matcher<Decl>, InnerMatcher,
 ///
 /// Example matches x (matcher = expr(hasType(cxxRecordDecl(hasName("X")))))
 ///             and z (matcher = varDecl(hasType(cxxRecordDecl(hasName("X")))))
+///             and U (matcher = typedefDecl(hasType(asString("int")))
 /// \code
 ///  class X {};
 ///  void y(X &x) { x; X z; }
+///  typedef int U;
 /// \endcode
 AST_POLYMORPHIC_MATCHER_P_OVERLOAD(
-    hasType, AST_POLYMORPHIC_SUPPORTED_TYPES(Expr, ValueDecl),
+    hasType, AST_POLYMORPHIC_SUPPORTED_TYPES(Expr, TypedefDecl, ValueDecl),
     internal::Matcher<QualType>, InnerMatcher, 0) {
-  return InnerMatcher.matches(Node.getType(), Finder, Builder);
+  return InnerMatcher.matches(internal::getUnderlyingType<NodeType>(Node),
+                              Finder, Builder);
 }
 
 /// \brief Overloaded to match the declaration of the expression's or value
@@ -2951,16 +2970,27 @@ AST_MATCHER_P(FunctionDecl, hasAnyParameter,
                                     Node.param_end(), Finder, Builder);
 }
 
-/// \brief Matches \c FunctionDecls that have a specific parameter count.
+/// \brief Matches \c FunctionDecls and \c FunctionProtoTypes that have a
+/// specific parameter count.
 ///
 /// Given
 /// \code
 ///   void f(int i) {}
 ///   void g(int i, int j) {}
+///   void h(int i, int j);
+///   void j(int i);
+///   void k(int x, int y, int z, ...);
 /// \endcode
 /// functionDecl(parameterCountIs(2))
-///   matches g(int i, int j) {}
-AST_MATCHER_P(FunctionDecl, parameterCountIs, unsigned, N) {
+///   matches void g(int i, int j) {}
+/// functionProtoType(parameterCountIs(2))
+///   matches void h(int i, int j)
+/// functionProtoType(parameterCountIs(3))
+///   matches void k(int x, int y, int z, ...);
+AST_POLYMORPHIC_MATCHER_P(parameterCountIs,
+                          AST_POLYMORPHIC_SUPPORTED_TYPES(FunctionDecl,
+                                                          FunctionProtoType),
+                          unsigned, N) {
   return Node.getNumParams() == N;
 }
 
@@ -3491,6 +3521,24 @@ AST_MATCHER(CXXMethodDecl, isVirtual) {
   return Node.isVirtual();
 }
 
+/// \brief Matches if the given method declaration has an explicit "virtual".
+///
+/// Given
+/// \code
+///   class A {
+///    public:
+///     virtual void x();
+///   };
+///   class B : public A {
+///    public:
+///     void x();
+///   };
+/// \endcode
+///   matches A::x but not B::x
+AST_MATCHER(CXXMethodDecl, isVirtualAsWritten) {
+  return Node.isVirtualAsWritten();
+}
+
 /// \brief Matches if the given method or class declaration is final.
 ///
 /// Given:
@@ -3558,6 +3606,23 @@ AST_MATCHER(CXXMethodDecl, isCopyAssignmentOperator) {
   return Node.isCopyAssignmentOperator();
 }
 
+/// \brief Matches if the given method declaration declares a move assignment
+/// operator.
+///
+/// Given
+/// \code
+/// struct A {
+///   A &operator=(const A &);
+///   A &operator=(A &&);
+/// };
+/// \endcode
+///
+/// cxxMethodDecl(isMoveAssignmentOperator()) matches the second method but not
+/// the first one.
+AST_MATCHER(CXXMethodDecl, isMoveAssignmentOperator) {
+  return Node.isMoveAssignmentOperator();
+}
+
 /// \brief Matches if the given method declaration overrides another method.
 ///
 /// Given
@@ -3621,6 +3686,19 @@ AST_MATCHER(QualType, isInteger) {
 /// matches "a(char)", "b(wchar_t)", but not "c(double)".
 AST_MATCHER(QualType, isAnyCharacter) {
     return Node->isAnyCharacterType();
+}
+
+//// \brief Matches QualType nodes that are of any pointer type.
+///
+/// Given
+/// \code
+///   int *i = nullptr;
+///   int j;
+/// \endcode
+/// varDecl(hasType(isAnyPointer()))
+///   matches "int *i", but not "int j".
+AST_MATCHER(QualType, isAnyPointer) {
+  return Node->isAnyPointerType();
 }
 
 /// \brief Matches QualType nodes that are const-qualified, i.e., that
@@ -3898,6 +3976,19 @@ AST_TYPE_MATCHER(ArrayType, arrayType);
 ///   matches "_Complex float f"
 AST_TYPE_MATCHER(ComplexType, complexType);
 
+/// \brief Matches any real floating-point type (float, double, long double).
+///
+/// Given
+/// \code
+///   int i;
+///   float f;
+/// \endcode
+/// realFloatingPointType()
+///   matches "float f" but not "int i"
+AST_MATCHER(Type, realFloatingPointType) {
+  return Node.isRealFloatingType();
+}
+
 /// \brief Matches arrays and C99 complex types that have a specific element
 /// type.
 ///
@@ -4063,6 +4154,18 @@ AST_TYPE_TRAVERSE_MATCHER(hasDeducedType, getDeducedType,
 /// functionType()
 ///   matches "int (*f)(int)" and the type of "g".
 AST_TYPE_MATCHER(FunctionType, functionType);
+
+/// \brief Matches \c FunctionProtoType nodes.
+///
+/// Given
+/// \code
+///   int (*f)(int);
+///   void g();
+/// \endcode
+/// functionProtoType()
+///   matches "int (*f)(int)" and the type of "g" in C++ mode.
+///   In C mode, "g" is not matched because it does not contain a prototype.
+AST_TYPE_MATCHER(FunctionProtoType, functionProtoType);
 
 /// \brief Matches \c ParenType nodes.
 ///
@@ -4751,6 +4854,27 @@ const internal::VariadicDynCastAllOfMatcher<
   Stmt,
   CUDAKernelCallExpr> cudaKernelCallExpr;
 
+
+/// \brief Matches expressions that resolve to a null pointer constant, such as
+/// GNU's __null, C++11's nullptr, or C's NULL macro.
+///
+/// Given:
+/// \code
+///   void *v1 = NULL;
+///   void *v2 = nullptr;
+///   void *v3 = __null; // GNU extension
+///   char *cp = (char *)0;
+///   int *ip = 0;
+///   int i = 0;
+/// \endcode
+/// expr(nullPointerConstant())
+///   matches the initializer for v1, v2, v3, cp, and ip. Does not match the
+///   initializer for i.
+AST_MATCHER_FUNCTION(internal::Matcher<Expr>, nullPointerConstant) {
+  return anyOf(
+      gnuNullExpr(), cxxNullPtrLiteralExpr(),
+      integerLiteral(equals(0), hasParent(expr(hasType(pointerType())))));
+}
 } // end namespace ast_matchers
 } // end namespace clang
 

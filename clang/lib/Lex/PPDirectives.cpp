@@ -27,6 +27,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SaveAndRestore.h"
+
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -272,8 +273,6 @@ void Preprocessor::CheckEndOfDirective(const char *DirType, bool EnableMacros) {
   }
 }
 
-
-
 /// SkipExcludedConditionalBlock - We just read a \#if or related directive and
 /// decided that the subsequent tokens are in the \#if'd out portion of the
 /// file.  Lex the rest of the file, until we see an \#endif.  If
@@ -497,7 +496,6 @@ void Preprocessor::SkipExcludedConditionalBlock(SourceLocation IfTokenLoc,
 }
 
 void Preprocessor::PTHSkipExcludedConditionalBlock() {
-
   while (1) {
     assert(CurPTHLexer);
     assert(CurPTHLexer->LexingRawMode == false);
@@ -571,28 +569,27 @@ void Preprocessor::PTHSkipExcludedConditionalBlock() {
     }
 
     // Otherwise, skip this block and go to the next one.
-    continue;
   }
 }
 
 Module *Preprocessor::getModuleForLocation(SourceLocation Loc) {
-  ModuleMap &ModMap = HeaderInfo.getModuleMap();
-  if (SourceMgr.isInMainFile(Loc)) {
-    if (Module *CurMod = getCurrentModule())
-      return CurMod;                               // Compiling a module.
-    return HeaderInfo.getModuleMap().SourceModule; // Compiling a source.
+  if (!SourceMgr.isInMainFile(Loc)) {
+    // Try to determine the module of the include directive.
+    // FIXME: Look into directly passing the FileEntry from LookupFile instead.
+    FileID IDOfIncl = SourceMgr.getFileID(SourceMgr.getExpansionLoc(Loc));
+    if (const FileEntry *EntryOfIncl = SourceMgr.getFileEntryForID(IDOfIncl)) {
+      // The include comes from an included file.
+      return HeaderInfo.getModuleMap()
+          .findModuleForHeader(EntryOfIncl)
+          .getModule();
+    }
   }
-  // Try to determine the module of the include directive.
-  // FIXME: Look into directly passing the FileEntry from LookupFile instead.
-  FileID IDOfIncl = SourceMgr.getFileID(SourceMgr.getExpansionLoc(Loc));
-  if (const FileEntry *EntryOfIncl = SourceMgr.getFileEntryForID(IDOfIncl)) {
-    // The include comes from a file.
-    return ModMap.findModuleForHeader(EntryOfIncl).getModule();
-  } else {
-    // The include does not come from a file,
-    // so it is probably a module compilation.
-    return getCurrentModule();
-  }
+
+  // This is either in the main file or not in a file at all. It belongs
+  // to the current module, if there is one.
+  return getLangOpts().CurrentModule.empty()
+             ? nullptr
+             : HeaderInfo.lookupModule(getLangOpts().CurrentModule);
 }
 
 Module *Preprocessor::getModuleContainingLocation(SourceLocation Loc) {
@@ -728,7 +725,6 @@ const FileEntry *Preprocessor::LookupFile(
   return nullptr;
 }
 
-
 //===----------------------------------------------------------------------===//
 // Preprocessor Directive Handling.
 //===----------------------------------------------------------------------===//
@@ -740,9 +736,11 @@ public:
     if (pp->MacroExpansionInDirectivesOverride)
       pp->DisableMacroExpansion = false;
   }
+
   ~ResetMacroExpansionHelper() {
     PP->DisableMacroExpansion = save;
   }
+
 private:
   Preprocessor *PP;
   bool save;
@@ -907,7 +905,7 @@ void Preprocessor::HandleDirective(Token &Result) {
   // various pseudo-ops.  Just return the # token and push back the following
   // token to be lexed next time.
   if (getLangOpts().AsmPreprocessor) {
-    Token *Toks = new Token[2];
+    auto Toks = llvm::make_unique<Token[]>(2);
     // Return the # and the token after it.
     Toks[0] = SavedHash;
     Toks[1] = Result;
@@ -920,7 +918,7 @@ void Preprocessor::HandleDirective(Token &Result) {
     // Enter this token stream so that we re-lex the tokens.  Make sure to
     // enable macro expansion, in case the token after the # is an identifier
     // that is expanded.
-    EnterTokenStream(Toks, 2, false, true);
+    EnterTokenStream(std::move(Toks), 2, false);
     return;
   }
 
@@ -1226,7 +1224,6 @@ void Preprocessor::HandleDigitDirective(Token &DigitTok) {
   }
 }
 
-
 /// HandleUserDiagnosticDirective - Handle a #warning or #error directive.
 ///
 void Preprocessor::HandleUserDiagnosticDirective(Token &Tok,
@@ -1245,7 +1242,7 @@ void Preprocessor::HandleUserDiagnosticDirective(Token &Tok,
 
   // Find the first non-whitespace character, so that we can make the
   // diagnostic more succinct.
-  StringRef Msg = StringRef(Message).ltrim(" ");
+  StringRef Msg = StringRef(Message).ltrim(' ');
 
   if (isWarning)
     Diag(Tok, diag::pp_hash_warning) << Msg;
@@ -1465,13 +1462,13 @@ static void EnterAnnotationToken(Preprocessor &PP,
                                  tok::TokenKind Kind, void *AnnotationVal) {
   // FIXME: Produce this as the current token directly, rather than
   // allocating a new token for it.
-  Token *Tok = new Token[1];
+  auto Tok = llvm::make_unique<Token[]>(1);
   Tok[0].startToken();
   Tok[0].setKind(Kind);
   Tok[0].setLocation(Begin);
   Tok[0].setAnnotationEndLoc(End);
   Tok[0].setAnnotationValue(AnnotationVal);
-  PP.EnterTokenStream(Tok, 1, true, true);
+  PP.EnterTokenStream(std::move(Tok), 1, true);
 }
 
 /// \brief Produce a diagnostic informing the user that a #include or similar
@@ -1529,7 +1526,6 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
                                           const DirectoryLookup *LookupFrom,
                                           const FileEntry *LookupFromFile,
                                           bool isImport) {
-
   Token FilenameTok;
   CurPPLexer->LexIncludeFilename(FilenameTok);
 
@@ -1571,7 +1567,6 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
   StringRef OriginalFilename = Filename;
   bool isAngled =
     GetIncludeFilenameSpelling(FilenameTok.getLocation(), Filename);
-  LastIncludeWasQuoted = !isAngled; // INTEL
   // If GetIncludeFilenameSpelling set the start ptr to null, there was an
   // error.
   if (Filename.empty()) {
@@ -1696,10 +1691,7 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
   // are processing this module textually (because we're building the module).
   if (File && SuggestedModule && getLangOpts().Modules &&
       SuggestedModule.getModule()->getTopLevelModuleName() !=
-          getLangOpts().CurrentModule &&
-      SuggestedModule.getModule()->getTopLevelModuleName() !=
-          getLangOpts().ImplementationOfModule) {
-
+          getLangOpts().CurrentModule) {
     // If this include corresponds to a module but that module is
     // unavailable, diagnose the situation and bail out.
     if (!SuggestedModule.getModule()->isAvailable()) {
@@ -1852,14 +1844,6 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
 void Preprocessor::HandleIncludeNextDirective(SourceLocation HashLoc,
                                               Token &IncludeNextTok) {
   Diag(IncludeNextTok, diag::ext_pp_include_next_directive);
-
-#if INTEL_CUSTOMIZATION
-  // CQ#366531 - if the last processed include was quoted, behave like #include.
-  if (getLangOpts().IntelCompat && LastIncludeWasQuoted)
-    return HandleIncludeDirective(HashLoc, IncludeNextTok,
-                                  /*LookupFrom=*/nullptr,
-                                  /*LookupFromFile=*/nullptr);
-#endif // INTEL_CUSTOMIZATION
 
   // #include_next is like #include, except that we start searching after
   // the current found directory.  If we can't do this, issue a
@@ -2179,7 +2163,6 @@ void Preprocessor::HandleDefineDirective(Token &DefineTok,
       // Get the next token of the macro.
       LexUnexpandedToken(Tok);
     }
-
   } else {
     // Otherwise, read the body of a function-like macro.  While we are at it,
     // check C99 6.10.3.2p1: ensure that # operators are followed by macro
@@ -2208,7 +2191,6 @@ void Preprocessor::HandleDefineDirective(Token &DefineTok,
       }
 
       if (Tok.is(tok::hashhash)) {
-        
         // If we see token pasting, check if it looks like the gcc comma
         // pasting extension.  We'll use this information to suppress
         // diagnostics later on.
@@ -2396,7 +2378,6 @@ void Preprocessor::HandleUndefDirective(Token &UndefTok) {
   appendMacroDirective(MacroNameTok.getIdentifierInfo(),
                        AllocateUndefMacroDirective(MacroNameTok.getLocation()));
 }
-
 
 //===----------------------------------------------------------------------===//
 // Preprocessor Conditional Directive Handling.

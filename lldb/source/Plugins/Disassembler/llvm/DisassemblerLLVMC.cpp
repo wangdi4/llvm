@@ -11,20 +11,20 @@
 // C++ Includes
 // Project includes
 #include "llvm-c/Disassembler.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCDisassembler.h"
-#include "llvm/MC/MCExternalSymbolizer.h"
+#include "llvm/MC/MCDisassembler/MCDisassembler.h"
+#include "llvm/MC/MCDisassembler/MCExternalSymbolizer.h"
+#include "llvm/MC/MCDisassembler/MCRelocationInfo.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstPrinter.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCRelocationInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/ADT/SmallString.h"
 
 // Other libraries and framework includes
 #include "DisassemblerLLVMC.h"
@@ -633,7 +633,7 @@ DisassemblerLLVMC::DisassemblerLLVMC (const ArchSpec &arch, const char *flavor_s
         }
         else
         {
-            thumb_arch_name = "thumbv7";
+            thumb_arch_name = "thumbv8.2a";
         }
         thumb_arch.GetTriple().setArchName(llvm::StringRef(thumb_arch_name.c_str()));
     }
@@ -643,7 +643,7 @@ DisassemblerLLVMC::DisassemblerLLVMC (const ArchSpec &arch, const char *flavor_s
     // in case the code uses instructions which are not available in the oldest arm version
     // (used when no sub architecture is specified)
     if (triple.getArch() == llvm::Triple::arm && triple.getSubArch() == llvm::Triple::NoSubArch)
-        triple.setArchName("armv8.1a");
+        triple.setArchName("armv8.2a");
 
     const char *triple_str = triple.getTriple().c_str();
 

@@ -7,14 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CommandObjectCommands.h"
-
 // C Includes
 // C++ Includes
 // Other libraries and framework includes
 #include "llvm/ADT/StringRef.h"
 
 // Project includes
+#include "CommandObjectCommands.h"
+#include "CommandObjectHelp.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/IOHandler.h"
 #include "lldb/Core/StringList.h"
@@ -39,15 +39,15 @@ class CommandObjectCommandsHistory : public CommandObjectParsed
 {
 public:
     CommandObjectCommandsHistory(CommandInterpreter &interpreter) :
-        CommandObjectParsed (interpreter,
-                             "command history",
-                             "Dump the history of commands in this session.",
-                             NULL),
+        CommandObjectParsed(interpreter,
+                            "command history",
+                            "Dump the history of commands in this session.",
+                            nullptr),
         m_options (interpreter)
     {
     }
 
-    ~CommandObjectCommandsHistory () override {}
+    ~CommandObjectCommandsHistory() override = default;
 
     Options *
     GetOptions () override
@@ -56,11 +56,9 @@ public:
     }
 
 protected:
-
     class CommandOptions : public Options
     {
     public:
-
         CommandOptions (CommandInterpreter &interpreter) :
             Options (interpreter),
             m_start_idx(0),
@@ -70,7 +68,7 @@ protected:
         {
         }
 
-        ~CommandOptions () override {}
+        ~CommandOptions() override = default;
 
         Error
         SetOptionValue (uint32_t option_idx, const char *option_arg) override
@@ -222,13 +220,12 @@ protected:
 OptionDefinition
 CommandObjectCommandsHistory::CommandOptions::g_option_table[] =
 {
-{ LLDB_OPT_SET_1, false, "count", 'c', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypeUnsignedInteger,        "How many history commands to print."},
-{ LLDB_OPT_SET_1, false, "start-index", 's', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypeUnsignedInteger,  "Index at which to start printing history commands (or end to mean tail mode)."},
-{ LLDB_OPT_SET_1, false, "end-index", 'e', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypeUnsignedInteger,    "Index at which to stop printing history commands."},
-{ LLDB_OPT_SET_2, false, "clear", 'C', OptionParser::eNoArgument, NULL, NULL, 0, eArgTypeBoolean,    "Clears the current command history."},
-{ 0, false, NULL, 0, 0, NULL, NULL, 0, eArgTypeNone, NULL }
+{ LLDB_OPT_SET_1, false, "count", 'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger,        "How many history commands to print."},
+{ LLDB_OPT_SET_1, false, "start-index", 's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger,  "Index at which to start printing history commands (or end to mean tail mode)."},
+{ LLDB_OPT_SET_1, false, "end-index", 'e', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger,    "Index at which to stop printing history commands."},
+{ LLDB_OPT_SET_2, false, "clear", 'C', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeBoolean,    "Clears the current command history."},
+{ 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
 };
-
 
 //-------------------------------------------------------------------------
 // CommandObjectCommandsSource
@@ -238,10 +235,10 @@ class CommandObjectCommandsSource : public CommandObjectParsed
 {
 public:
     CommandObjectCommandsSource(CommandInterpreter &interpreter) :
-        CommandObjectParsed (interpreter,
-                             "command source",
-                             "Read in debugger commands from the file <filename> and execute them.",
-                             NULL),
+        CommandObjectParsed(interpreter,
+                            "command source",
+                            "Read in debugger commands from the file <filename> and execute them.",
+                            nullptr),
         m_options (interpreter)
     {
         CommandArgumentEntry arg;
@@ -258,7 +255,7 @@ public:
         m_arguments.push_back (arg);
     }
 
-    ~CommandObjectCommandsSource () override {}
+    ~CommandObjectCommandsSource() override = default;
 
     const char*
     GetRepeatCommand (Args &current_command_args, uint32_t index) override
@@ -279,14 +276,14 @@ public:
         std::string completion_str (input.GetArgumentAtIndex(cursor_index));
         completion_str.erase (cursor_char_position);
         
-        CommandCompletions::InvokeCommonCompletionCallbacks (m_interpreter, 
-                                                             CommandCompletions::eDiskFileCompletion,
-                                                             completion_str.c_str(),
-                                                             match_start_point,
-                                                             max_return_elements,
-                                                             NULL,
-                                                             word_complete,
-                                                             matches);
+        CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+                                                            CommandCompletions::eDiskFileCompletion,
+                                                            completion_str.c_str(),
+                                                            match_start_point,
+                                                            max_return_elements,
+                                                            nullptr,
+                                                            word_complete,
+                                                            matches);
         return matches.GetSize();
     }
 
@@ -297,11 +294,9 @@ public:
     }
 
 protected:
-
     class CommandOptions : public Options
     {
     public:
-
         CommandOptions (CommandInterpreter &interpreter) :
             Options (interpreter),
             m_stop_on_error (true),
@@ -310,7 +305,7 @@ protected:
         {
         }
 
-        ~CommandOptions () override {}
+        ~CommandOptions() override = default;
 
         Error
         SetOptionValue (uint32_t option_idx, const char *option_arg) override
@@ -374,7 +369,7 @@ protected:
             const char *filename = command.GetArgumentAtIndex(0);
 
             FileSpec cmd_file (filename, true);
-            ExecutionContext *exe_ctx = NULL;  // Just use the default context.
+            ExecutionContext *exe_ctx = nullptr;  // Just use the default context.
             
             // If any options were set, then use them
             if (m_options.m_stop_on_error.OptionWasSet()    ||
@@ -392,7 +387,6 @@ protected:
                                                       exe_ctx,
                                                       options,
                                                       result);
-                
             }
             else
             {
@@ -403,7 +397,6 @@ protected:
                                                       exe_ctx,
                                                       options,
                                                       result);
-                
             }
         }
         else
@@ -412,18 +405,18 @@ protected:
             result.SetStatus (eReturnStatusFailed);
         }
         return result.Succeeded();
-
     }
+
     CommandOptions m_options;    
 };
 
 OptionDefinition
 CommandObjectCommandsSource::CommandOptions::g_option_table[] =
 {
-{ LLDB_OPT_SET_ALL, false, "stop-on-error", 'e', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypeBoolean,    "If true, stop executing commands on error."},
-{ LLDB_OPT_SET_ALL, false, "stop-on-continue", 'c', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypeBoolean, "If true, stop executing commands on continue."},
-{ LLDB_OPT_SET_ALL, false, "silent-run", 's', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypeBoolean, "If true don't echo commands while executing."},
-{ 0, false, NULL, 0, 0, NULL, NULL, 0, eArgTypeNone, NULL }
+{ LLDB_OPT_SET_ALL, false, "stop-on-error", 'e', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean,    "If true, stop executing commands on error."},
+{ LLDB_OPT_SET_ALL, false, "stop-on-continue", 'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "If true, stop executing commands on continue."},
+{ LLDB_OPT_SET_ALL, false, "silent-run", 's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "If true don't echo commands while executing."},
+{ 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
 };
 
 #pragma mark CommandObjectCommandsAlias
@@ -435,17 +428,14 @@ static const char *g_python_command_instructions =   "Enter your Python command(
                                                      "You must define a Python function with this signature:\n"
                                                      "def my_command_impl(debugger, args, result, internal_dict):\n";
 
-
 class CommandObjectCommandsAlias : public CommandObjectRaw
 {
-    
-    
 public:
     CommandObjectCommandsAlias (CommandInterpreter &interpreter) :
-        CommandObjectRaw (interpreter,
-                       "command alias",
-                       "Allow users to define their own debugger command abbreviations.",
-                       NULL)
+        CommandObjectRaw(interpreter,
+                         "command alias",
+                         "Allow users to define their own debugger command abbreviations.",
+                         nullptr)
     {
         SetHelpLong(
 "'alias' allows the user to create a short-cut or abbreviation for long \
@@ -551,9 +541,7 @@ rather than using a positional placeholder:" R"(
         m_arguments.push_back (arg3);
     }
 
-    ~CommandObjectCommandsAlias () override
-    {
-    }
+    ~CommandObjectCommandsAlias() override = default;
 
 protected:
     bool
@@ -648,9 +636,9 @@ protected:
                 || m_interpreter.UserCommandExists (alias_command.c_str()))
             {
                 OptionArgVectorSP temp_option_arg_sp (m_interpreter.GetAliasOptions (alias_command.c_str()));
-                if (temp_option_arg_sp.get())
+                if (temp_option_arg_sp)
                 {
-                    if (option_arg_vector->size() == 0)
+                    if (option_arg_vector->empty())
                         m_interpreter.RemoveAliasOptions (alias_command.c_str());
                 }
                 result.AppendWarningWithFormat ("Overwriting existing definition for '%s'.\n",
@@ -660,7 +648,7 @@ protected:
             if (cmd_obj_sp)
             {
                 m_interpreter.AddAlias (alias_command.c_str(), cmd_obj_sp);
-                if (option_arg_vector->size() > 0)
+                if (!option_arg_vector->empty())
                     m_interpreter.AddOrReplaceAliasOptions (alias_command.c_str(), option_arg_vector_sp);
                 result.SetStatus (eReturnStatusSuccessFinishNoResult);
             }
@@ -703,10 +691,10 @@ protected:
              CommandObjectSP command_obj_sp(m_interpreter.GetCommandSPExact (actual_command.c_str(), true));
              CommandObjectSP subcommand_obj_sp;
              bool use_subcommand = false;
-             if (command_obj_sp.get())
+             if (command_obj_sp)
              {
                  CommandObject *cmd_obj = command_obj_sp.get();
-                 CommandObject *sub_cmd_obj = NULL;
+                 CommandObject *sub_cmd_obj = nullptr;
                  OptionArgVectorSP option_arg_vector_sp = OptionArgVectorSP (new OptionArgVector);
                  OptionArgVector *option_arg_vector = option_arg_vector_sp.get();
 
@@ -717,7 +705,7 @@ protected:
                          const std::string sub_command = args.GetArgumentAtIndex(0);
                          assert (sub_command.length() != 0);
                          subcommand_obj_sp = cmd_obj->GetSubcommandSP (sub_command.c_str());
-                         if (subcommand_obj_sp.get())
+                         if (subcommand_obj_sp)
                          {
                              sub_cmd_obj = subcommand_obj_sp.get();
                              use_subcommand = true;
@@ -760,9 +748,9 @@ protected:
                      || m_interpreter.UserCommandExists (alias_command.c_str()))
                  {
                      OptionArgVectorSP tmp_option_arg_sp (m_interpreter.GetAliasOptions (alias_command.c_str()));
-                     if (tmp_option_arg_sp.get())
+                     if (tmp_option_arg_sp)
                      {
-                         if (option_arg_vector->size() == 0)
+                         if (option_arg_vector->empty())
                              m_interpreter.RemoveAliasOptions (alias_command.c_str());
                      }
                      result.AppendWarningWithFormat ("Overwriting existing definition for '%s'.\n", 
@@ -773,7 +761,7 @@ protected:
                      m_interpreter.AddAlias (alias_command.c_str(), subcommand_obj_sp);
                  else
                      m_interpreter.AddAlias (alias_command.c_str(), command_obj_sp);
-                 if (option_arg_vector->size() > 0)
+                 if (!option_arg_vector->empty())
                      m_interpreter.AddOrReplaceAliasOptions (alias_command.c_str(), option_arg_vector_sp);
                  result.SetStatus (eReturnStatusSuccessFinishNoResult);
              }
@@ -787,7 +775,6 @@ protected:
 
         return result.Succeeded();
     }
-    
 };
 
 #pragma mark CommandObjectCommandsUnalias
@@ -799,10 +786,10 @@ class CommandObjectCommandsUnalias : public CommandObjectParsed
 {
 public:
     CommandObjectCommandsUnalias (CommandInterpreter &interpreter) :
-        CommandObjectParsed (interpreter,
-                       "command unalias",
-                       "Allow the user to remove/delete a user-defined command abbreviation.",
-                       NULL)
+        CommandObjectParsed(interpreter,
+                            "command unalias",
+                            "Allow the user to remove/delete a user-defined command abbreviation.",
+                            nullptr)
     {
         CommandArgumentEntry arg;
         CommandArgumentData alias_arg;
@@ -818,9 +805,7 @@ public:
         m_arguments.push_back (arg);
     }
 
-    ~CommandObjectCommandsUnalias() override
-    {
-    }
+    ~CommandObjectCommandsUnalias() override = default;
 
 protected:
     bool
@@ -851,8 +836,7 @@ protected:
                 }
                 else
                 {
-
-                    if (m_interpreter.RemoveAlias (command_name) == false)
+                    if (!m_interpreter.RemoveAlias(command_name))
                     {
                         if (m_interpreter.AliasExists (command_name))
                             result.AppendErrorWithFormat ("Error occurred while attempting to unalias '%s'.\n", 
@@ -892,10 +876,10 @@ class CommandObjectCommandsDelete : public CommandObjectParsed
 {
 public:
     CommandObjectCommandsDelete (CommandInterpreter &interpreter) :
-    CommandObjectParsed (interpreter,
-                         "command delete",
-                         "Allow the user to delete user-defined regular expression, python or multi-word commands.",
-                         NULL)
+        CommandObjectParsed(interpreter,
+                            "command delete",
+                            "Allow the user to delete user-defined regular expression, python or multi-word commands.",
+                            nullptr)
     {
         CommandArgumentEntry arg;
         CommandArgumentData alias_arg;
@@ -911,9 +895,7 @@ public:
         m_arguments.push_back (arg);
     }
 
-    ~CommandObjectCommandsDelete() override
-    {
-    }
+    ~CommandObjectCommandsDelete() override = default;
 
 protected:
     bool
@@ -939,8 +921,16 @@ protected:
             }
             else
             {
-                result.AppendErrorWithFormat ("'%s' is not a known command.\nTry 'help' to see a current list of commands.\n",
-                                              command_name);
+                StreamString error_msg_stream;
+                const bool generate_apropos = true;
+                const bool generate_type_lookup = false;
+                CommandObjectHelp::GenerateAdditionalHelpAvenuesMessage(&error_msg_stream,
+                                                                        command_name,
+                                                                        nullptr,
+                                                                        nullptr,
+                                                                        generate_apropos,
+                                                                        generate_type_lookup);
+                result.AppendErrorWithFormat ("%s", error_msg_stream.GetData());
                 result.SetStatus (eReturnStatusFailed);
             }
         }
@@ -997,14 +987,10 @@ a number follows 'f':" R"(
     (lldb) command regex f s/^$/finish/ 's/([0-9]+)/frame select %1/')"
         );
     }
-    
-    ~CommandObjectCommandsAddRegex() override
-    {
-    }
-    
-    
+
+    ~CommandObjectCommandsAddRegex() override = default;
+
 protected:
-    
     void
     IOHandlerActivated (IOHandler &io_handler) override
     {
@@ -1020,7 +1006,7 @@ protected:
     IOHandlerInputComplete (IOHandler &io_handler, std::string &data) override
     {
         io_handler.SetIsDone(true);
-        if (m_regex_cmd_ap.get())
+        if (m_regex_cmd_ap)
         {
             StringList lines;
             if (lines.SplitIntoLines (data))
@@ -1075,15 +1061,15 @@ protected:
                 Debugger &debugger = m_interpreter.GetDebugger();
                 bool color_prompt = debugger.GetUseColor();
                 const bool multiple_lines = true; // Get multiple lines
-                IOHandlerSP io_handler_sp (new IOHandlerEditline (debugger,
-                                                                  IOHandler::Type::Other,
-                                                                  "lldb-regex", // Name of input reader for history
-                                                                  "> ",         // Prompt
-                                                                  NULL,         // Continuation prompt
-                                                                  multiple_lines,
-                                                                  color_prompt,
-                                                                  0,            // Don't show line numbers
-                                                                  *this));
+                IOHandlerSP io_handler_sp(new IOHandlerEditline(debugger,
+                                                                IOHandler::Type::Other,
+                                                                "lldb-regex", // Name of input reader for history
+                                                                "> ",         // Prompt
+                                                                nullptr,      // Continuation prompt
+                                                                multiple_lines,
+                                                                color_prompt,
+                                                                0,            // Don't show line numbers
+                                                                *this));
                 
                 if (io_handler_sp)
                 {
@@ -1122,7 +1108,7 @@ protected:
     {
         Error error;
         
-        if (m_regex_cmd_ap.get() == NULL)
+        if (!m_regex_cmd_ap)
         {
             error.SetErrorStringWithFormat("invalid regular expression command object for: '%.*s'", 
                                            (int)regex_sed.size(), 
@@ -1190,7 +1176,6 @@ protected:
                                                regex_sed.data() + (third_separator_char_pos + 1));
                 return error;
             }
-            
         }
         else if (first_separator_char_pos + 1 == second_separator_char_pos)
         {
@@ -1213,7 +1198,7 @@ protected:
             return error;            
         }
 
-        if (check_only == false)
+        if (!check_only)
         {
             std::string regex(regex_sed.substr(first_separator_char_pos + 1, second_separator_char_pos - first_separator_char_pos - 1));
             std::string subst(regex_sed.substr(second_separator_char_pos + 1, third_separator_char_pos - second_separator_char_pos - 1));
@@ -1226,7 +1211,7 @@ protected:
     void
     AddRegexCommandToInterpreter()
     {
-        if (m_regex_cmd_ap.get())
+        if (m_regex_cmd_ap)
         {
             if (m_regex_cmd_ap->HasRegexEntries())
             {
@@ -1242,14 +1227,13 @@ private:
      class CommandOptions : public Options
      {
      public:
-         
          CommandOptions (CommandInterpreter &interpreter) :
             Options (interpreter)
          {
          }
-         
-         ~CommandOptions () override {}
-         
+
+         ~CommandOptions() override = default;
+
          Error
          SetOptionValue (uint32_t option_idx, const char *option_arg) override
          {
@@ -1264,7 +1248,6 @@ private:
                  case 's':
                      m_syntax.assign (option_arg);
                      break;
-
                  default:
                      error.SetErrorStringWithFormat ("unrecognized option '%c'", short_option);
                      break;
@@ -1291,21 +1274,20 @@ private:
          static OptionDefinition g_option_table[];
          
          const char *
-         GetHelp ()
+         GetHelp()
          {
-             if (m_help.empty())
-                 return NULL;
-             return m_help.c_str();
+             return (m_help.empty() ? nullptr : m_help.c_str());
          }
+
          const char *
          GetSyntax ()
          {
-             if (m_syntax.empty())
-                 return NULL;
-             return m_syntax.c_str();
+             return (m_syntax.empty() ? nullptr : m_syntax.c_str());
          }
-         // Instance variables to hold the values for command options.
+
      protected:
+         // Instance variables to hold the values for command options.
+
          std::string m_help;
          std::string m_syntax;
      };
@@ -1322,30 +1304,23 @@ private:
 OptionDefinition
 CommandObjectCommandsAddRegex::CommandOptions::g_option_table[] =
 {
-{ LLDB_OPT_SET_1, false, "help"  , 'h', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypeNone, "The help text to display for this command."},
-{ LLDB_OPT_SET_1, false, "syntax", 's', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypeNone, "A syntax string showing the typical usage syntax."},
-{ 0             , false,  NULL   , 0  , 0                , NULL, NULL, 0, eArgTypeNone, NULL }
+{ LLDB_OPT_SET_1, false, "help"  , 'h', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeNone, "The help text to display for this command."},
+{ LLDB_OPT_SET_1, false, "syntax", 's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeNone, "A syntax string showing the typical usage syntax."},
+{ 0             , false,  nullptr   , 0  , 0                , nullptr, nullptr, 0, eArgTypeNone, nullptr }
 };
-
 
 class CommandObjectPythonFunction : public CommandObjectRaw
 {
-private:
-    std::string m_function_name;
-    ScriptedCommandSynchronicity m_synchro;
-    bool m_fetched_help_long;
-    
 public:
-    
     CommandObjectPythonFunction (CommandInterpreter &interpreter,
                                  std::string name,
                                  std::string funct,
                                  std::string help,
                                  ScriptedCommandSynchronicity synch) :
-        CommandObjectRaw (interpreter,
-                          name.c_str(),
-                          NULL,
-                          NULL),
+        CommandObjectRaw(interpreter,
+                         name.c_str(),
+                         nullptr,
+                         nullptr),
         m_function_name(funct),
         m_synchro(synch),
         m_fetched_help_long(false)
@@ -1359,11 +1334,9 @@ public:
             SetHelp(stream.GetData());
         }
     }
-    
-    ~CommandObjectPythonFunction () override
-    {
-    }
-    
+
+    ~CommandObjectPythonFunction() override = default;
+
     bool
     IsRemovable () const override
     {
@@ -1409,12 +1382,12 @@ protected:
         
         result.SetStatus(eReturnStatusInvalid);
         
-        if (!scripter || scripter->RunScriptBasedCommand(m_function_name.c_str(),
-                                                         raw_command_line,
-                                                         m_synchro,
-                                                         result,
-                                                         error,
-                                                         m_exe_ctx) == false)
+        if (!scripter || !scripter->RunScriptBasedCommand(m_function_name.c_str(),
+                                                          raw_command_line,
+                                                          m_synchro,
+                                                          result,
+                                                          error,
+                                                          m_exe_ctx))
         {
             result.AppendError(error.AsCString());
             result.SetStatus(eReturnStatusFailed);
@@ -1424,7 +1397,7 @@ protected:
             // Don't change the status if the command already set it...
             if (result.GetStatus() == eReturnStatusInvalid)
             {
-                if (result.GetOutputData() == NULL || result.GetOutputData()[0] == '\0')
+                if (result.GetOutputData() == nullptr || result.GetOutputData()[0] == '\0')
                     result.SetStatus(eReturnStatusSuccessFinishNoResult);
                 else
                     result.SetStatus(eReturnStatusSuccessFinishResult);
@@ -1433,31 +1406,28 @@ protected:
         
         return result.Succeeded();
     }
-    
+
+private:
+    std::string m_function_name;
+    ScriptedCommandSynchronicity m_synchro;
+    bool m_fetched_help_long;
 };
 
 class CommandObjectScriptingObject : public CommandObjectRaw
 {
-private:
-    StructuredData::GenericSP m_cmd_obj_sp;
-    ScriptedCommandSynchronicity m_synchro;
-    bool m_fetched_help_short:1;
-    bool m_fetched_help_long:1;
-    
 public:
-    
     CommandObjectScriptingObject (CommandInterpreter &interpreter,
                                   std::string name,
                                   StructuredData::GenericSP cmd_obj_sp,
                                   ScriptedCommandSynchronicity synch) :
-    CommandObjectRaw (interpreter,
-                      name.c_str(),
-                      NULL,
-                      NULL),
-    m_cmd_obj_sp(cmd_obj_sp),
-    m_synchro(synch),
-    m_fetched_help_short(false),
-    m_fetched_help_long(false)
+        CommandObjectRaw(interpreter,
+                         name.c_str(),
+                         nullptr,
+                         nullptr),
+        m_cmd_obj_sp(cmd_obj_sp),
+        m_synchro(synch),
+        m_fetched_help_short(false),
+        m_fetched_help_long(false)
     {
         StreamString stream;
         stream.Printf("For more information run 'help %s'",name.c_str());
@@ -1465,11 +1435,9 @@ public:
         if (ScriptInterpreter* scripter = m_interpreter.GetScriptInterpreter())
             GetFlags().Set(scripter->GetFlagsForCommandObject(cmd_obj_sp));
     }
-    
-    ~CommandObjectScriptingObject () override
-    {
-    }
-    
+
+    ~CommandObjectScriptingObject() override = default;
+
     bool
     IsRemovable () const override
     {
@@ -1532,12 +1500,12 @@ protected:
         
         result.SetStatus(eReturnStatusInvalid);
         
-        if (!scripter || scripter->RunScriptBasedCommand(m_cmd_obj_sp,
-                                                         raw_command_line,
-                                                         m_synchro,
-                                                         result,
-                                                         error,
-                                                         m_exe_ctx) == false)
+        if (!scripter || !scripter->RunScriptBasedCommand(m_cmd_obj_sp,
+                                                          raw_command_line,
+                                                          m_synchro,
+                                                          result,
+                                                          error,
+                                                          m_exe_ctx))
         {
             result.AppendError(error.AsCString());
             result.SetStatus(eReturnStatusFailed);
@@ -1547,7 +1515,7 @@ protected:
             // Don't change the status if the command already set it...
             if (result.GetStatus() == eReturnStatusInvalid)
             {
-                if (result.GetOutputData() == NULL || result.GetOutputData()[0] == '\0')
+                if (result.GetOutputData() == nullptr || result.GetOutputData()[0] == '\0')
                     result.SetStatus(eReturnStatusSuccessFinishNoResult);
                 else
                     result.SetStatus(eReturnStatusSuccessFinishResult);
@@ -1556,7 +1524,12 @@ protected:
         
         return result.Succeeded();
     }
-    
+
+private:
+    StructuredData::GenericSP m_cmd_obj_sp;
+    ScriptedCommandSynchronicity m_synchro;
+    bool m_fetched_help_short: 1;
+    bool m_fetched_help_long: 1;
 };
 
 //-------------------------------------------------------------------------
@@ -1567,10 +1540,10 @@ class CommandObjectCommandsScriptImport : public CommandObjectParsed
 {
 public:
     CommandObjectCommandsScriptImport (CommandInterpreter &interpreter) :
-        CommandObjectParsed (interpreter,
-                             "command script import",
-                             "Import a scripting module in LLDB.",
-                             NULL),
+        CommandObjectParsed(interpreter,
+                            "command script import",
+                            "Import a scripting module in LLDB.",
+                            nullptr),
         m_options(interpreter)
     {
         CommandArgumentEntry arg1;
@@ -1586,11 +1559,9 @@ public:
         // Push the data for the first argument into the m_arguments vector.
         m_arguments.push_back (arg1);
     }
-    
-    ~CommandObjectCommandsScriptImport () override
-    {
-    }
-    
+
+    ~CommandObjectCommandsScriptImport() override = default;
+
     int
     HandleArgumentCompletion (Args &input,
                               int &cursor_index,
@@ -1604,14 +1575,14 @@ public:
         std::string completion_str (input.GetArgumentAtIndex(cursor_index));
         completion_str.erase (cursor_char_position);
         
-        CommandCompletions::InvokeCommonCompletionCallbacks (m_interpreter, 
-                                                             CommandCompletions::eDiskFileCompletion,
-                                                             completion_str.c_str(),
-                                                             match_start_point,
-                                                             max_return_elements,
-                                                             NULL,
-                                                             word_complete,
-                                                             matches);
+        CommandCompletions::InvokeCommonCompletionCallbacks(m_interpreter,
+                                                            CommandCompletions::eDiskFileCompletion,
+                                                            completion_str.c_str(),
+                                                            match_start_point,
+                                                            max_return_elements,
+                                                            nullptr,
+                                                            word_complete,
+                                                            matches);
         return matches.GetSize();
     }
     
@@ -1622,18 +1593,16 @@ public:
     }
 
 protected:
-    
     class CommandOptions : public Options
     {
     public:
-        
         CommandOptions (CommandInterpreter &interpreter) :
             Options (interpreter)
         {
         }
-        
-        ~CommandOptions () override {}
-        
+
+        ~CommandOptions() override = default;
+
         Error
         SetOptionValue (uint32_t option_idx, const char *option_arg) override
         {
@@ -1730,10 +1699,9 @@ protected:
 OptionDefinition
 CommandObjectCommandsScriptImport::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_1, false, "allow-reload", 'r', OptionParser::eNoArgument, NULL, NULL, 0, eArgTypeNone,        "Allow the script to be loaded even if it was already loaded before. This argument exists for backwards compatibility, but reloading is always allowed, whether you specify it or not."},
-    { 0, false, NULL, 0, 0, NULL, NULL, 0, eArgTypeNone, NULL }
+    { LLDB_OPT_SET_1, false, "allow-reload", 'r', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone,        "Allow the script to be loaded even if it was already loaded before. This argument exists for backwards compatibility, but reloading is always allowed, whether you specify it or not."},
+    { 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
 };
-
 
 //-------------------------------------------------------------------------
 // CommandObjectCommandsScriptAdd
@@ -1745,10 +1713,10 @@ class CommandObjectCommandsScriptAdd :
 {
 public:
     CommandObjectCommandsScriptAdd(CommandInterpreter &interpreter) :
-        CommandObjectParsed (interpreter,
-                             "command script add",
-                             "Add a scripted function as an LLDB command.",
-                             NULL),
+        CommandObjectParsed(interpreter,
+                            "command script add",
+                            "Add a scripted function as an LLDB command.",
+                            nullptr),
         IOHandlerDelegateMultiline ("DONE"),
         m_options (interpreter)
     {
@@ -1765,11 +1733,9 @@ public:
         // Push the data for the first argument into the m_arguments vector.
         m_arguments.push_back (arg1);
     }
-    
-    ~CommandObjectCommandsScriptAdd () override
-    {
-    }
-    
+
+    ~CommandObjectCommandsScriptAdd() override = default;
+
     Options *
     GetOptions () override
     {
@@ -1777,11 +1743,9 @@ public:
     }
     
 protected:
-    
     class CommandOptions : public Options
     {
     public:
-        
         CommandOptions (CommandInterpreter &interpreter) :
             Options (interpreter),
             m_class_name(),
@@ -1790,9 +1754,9 @@ protected:
             m_synchronicity(eScriptedCommandSynchronicitySynchronous)
         {
         }
-        
-        ~CommandOptions () override {}
-        
+
+        ~CommandOptions() override = default;
+
         Error
         SetOptionValue (uint32_t option_idx, const char *option_arg) override
         {
@@ -1922,15 +1886,12 @@ protected:
         }
 
         io_handler.SetIsDone(true);
-        
-        
     }
 
 protected:
     bool
     DoExecute (Args& command, CommandReturnObject &result) override
     {
-        
         if (m_interpreter.GetDebugger().GetScriptLanguage() != lldb::eScriptLanguagePython)
         {
             result.AppendError ("only scripting language supported for scripted commands is currently Python");
@@ -1956,10 +1917,10 @@ protected:
         {
             if (m_options.m_funct_name.empty())
             {
-                m_interpreter.GetPythonCommandsFromIOHandler ("     ",  // Prompt
-                                                              *this,    // IOHandlerDelegate
-                                                              true,     // Run IOHandler in async mode
-                                                              NULL);    // Baton for the "io_handler" that will be passed back into our IOHandlerDelegate functions
+                m_interpreter.GetPythonCommandsFromIOHandler("     ",  // Prompt
+                                                             *this,    // IOHandlerDelegate
+                                                             true,     // Run IOHandler in async mode
+                                                             nullptr); // Baton for the "io_handler" that will be passed back into our IOHandlerDelegate functions
             }
             else
             {
@@ -2013,7 +1974,6 @@ protected:
         }
 
         return result.Succeeded();
-        
     }
     
     CommandOptions m_options;
@@ -2027,17 +1987,17 @@ static OptionEnumValueElement g_script_synchro_type[] =
     { eScriptedCommandSynchronicitySynchronous,      "synchronous",       "Run synchronous"},
     { eScriptedCommandSynchronicityAsynchronous,     "asynchronous",      "Run asynchronous"},
     { eScriptedCommandSynchronicityCurrentValue,     "current",           "Do not alter current setting"},
-    { 0, NULL, NULL }
+    { 0, nullptr, nullptr }
 };
 
 OptionDefinition
 CommandObjectCommandsScriptAdd::CommandOptions::g_option_table[] =
 {
-    { LLDB_OPT_SET_1, false, "function", 'f', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypePythonFunction,        "Name of the Python function to bind to this command name."},
-    { LLDB_OPT_SET_2, false, "class", 'c', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypePythonClass,        "Name of the Python class to bind to this command name."},
-    { LLDB_OPT_SET_1, false, "help"  , 'h', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypeHelpText, "The help text to display for this command."},
-    { LLDB_OPT_SET_ALL, false, "synchronicity", 's', OptionParser::eRequiredArgument, NULL, g_script_synchro_type, 0, eArgTypeScriptedCommandSynchronicity,        "Set the synchronicity of this command's executions with regard to LLDB event system."},
-    { 0, false, NULL, 0, 0, NULL, NULL, 0, eArgTypeNone, NULL }
+    { LLDB_OPT_SET_1, false, "function", 'f', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePythonFunction,        "Name of the Python function to bind to this command name."},
+    { LLDB_OPT_SET_2, false, "class", 'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePythonClass,        "Name of the Python class to bind to this command name."},
+    { LLDB_OPT_SET_1, false, "help"  , 'h', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeHelpText, "The help text to display for this command."},
+    { LLDB_OPT_SET_ALL, false, "synchronicity", 's', OptionParser::eRequiredArgument, nullptr, g_script_synchro_type, 0, eArgTypeScriptedCommandSynchronicity,        "Set the synchronicity of this command's executions with regard to LLDB event system."},
+    { 0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
 };
 
 //-------------------------------------------------------------------------
@@ -2046,33 +2006,26 @@ CommandObjectCommandsScriptAdd::CommandOptions::g_option_table[] =
 
 class CommandObjectCommandsScriptList : public CommandObjectParsed
 {
-private:
-
 public:
     CommandObjectCommandsScriptList(CommandInterpreter &interpreter) :
-    CommandObjectParsed (interpreter,
-                   "command script list",
-                   "List defined scripted commands.",
-                   NULL)
+        CommandObjectParsed(interpreter,
+                            "command script list",
+                            "List defined scripted commands.",
+                            nullptr)
     {
     }
-    
-    ~CommandObjectCommandsScriptList () override
-    {
-    }
-    
+
+    ~CommandObjectCommandsScriptList() override = default;
+
     bool
     DoExecute (Args& command, CommandReturnObject &result) override
     {
-        
         m_interpreter.GetHelp(result,
                               CommandInterpreter::eCommandTypesUserDef);
         
         result.SetStatus (eReturnStatusSuccessFinishResult);
         
         return true;
-        
-        
     }
 };
 
@@ -2082,26 +2035,21 @@ public:
 
 class CommandObjectCommandsScriptClear : public CommandObjectParsed
 {
-private:
-    
 public:
     CommandObjectCommandsScriptClear(CommandInterpreter &interpreter) :
-        CommandObjectParsed (interpreter,
-                             "command script clear",
-                             "Delete all scripted commands.",
-                             NULL)
+        CommandObjectParsed(interpreter,
+                            "command script clear",
+                            "Delete all scripted commands.",
+                            nullptr)
     {
     }
-    
-    ~CommandObjectCommandsScriptClear () override
-    {
-    }
-    
+
+    ~CommandObjectCommandsScriptClear() override = default;
+
 protected:
     bool
     DoExecute (Args& command, CommandReturnObject &result) override
     {
-        
         m_interpreter.RemoveAllUser();
         
         result.SetStatus (eReturnStatusSuccessFinishResult);
@@ -2118,10 +2066,10 @@ class CommandObjectCommandsScriptDelete : public CommandObjectParsed
 {
 public:
     CommandObjectCommandsScriptDelete(CommandInterpreter &interpreter) :
-        CommandObjectParsed (interpreter,
-                             "command script delete",
-                             "Delete a scripted command.",
-                             NULL)
+        CommandObjectParsed(interpreter,
+                            "command script delete",
+                            "Delete a scripted command.",
+                            nullptr)
     {
         CommandArgumentEntry arg1;
         CommandArgumentData cmd_arg;
@@ -2136,11 +2084,9 @@ public:
         // Push the data for the first argument into the m_arguments vector.
         m_arguments.push_back (arg1);
     }
-    
-    ~CommandObjectCommandsScriptDelete () override
-    {
-    }
-    
+
+    ~CommandObjectCommandsScriptDelete() override = default;
+
 protected:
     bool
     DoExecute (Args& command, CommandReturnObject &result) override
@@ -2169,7 +2115,6 @@ protected:
         }
         
         return result.Succeeded();
-        
     }
 };
 
@@ -2195,12 +2140,8 @@ public:
         LoadSubCommand ("import", CommandObjectSP (new CommandObjectCommandsScriptImport (interpreter)));
     }
 
-    ~CommandObjectMultiwordCommandsScript () override
-    {
-    }
-    
+    ~CommandObjectMultiwordCommandsScript() override = default;
 };
-
 
 #pragma mark CommandObjectMultiwordCommands
 
@@ -2223,7 +2164,4 @@ CommandObjectMultiwordCommands::CommandObjectMultiwordCommands (CommandInterpret
     LoadSubCommand ("script",  CommandObjectSP (new CommandObjectMultiwordCommandsScript (interpreter)));
 }
 
-CommandObjectMultiwordCommands::~CommandObjectMultiwordCommands ()
-{
-}
-
+CommandObjectMultiwordCommands::~CommandObjectMultiwordCommands() = default;

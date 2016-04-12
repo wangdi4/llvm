@@ -100,21 +100,26 @@ static void diagnoseBadTypeAttribute(Sema &S, const AttributeList &attr,
     case AttributeList::AT_ObjCGC: \
     case AttributeList::AT_ObjCOwnership
 
-// Function type attributes.
-#define FUNCTION_TYPE_ATTRS_CASELIST \
-    case AttributeList::AT_NoReturn: \
+// Calling convention attributes.
+#define CALLING_CONV_ATTRS_CASELIST \
     case AttributeList::AT_CDecl: \
     case AttributeList::AT_RegCall: /*INTEL*/ \
     case AttributeList::AT_FastCall: \
     case AttributeList::AT_StdCall: \
     case AttributeList::AT_ThisCall: \
     case AttributeList::AT_Pascal: \
+    case AttributeList::AT_SwiftCall: \
     case AttributeList::AT_VectorCall: \
     case AttributeList::AT_MSABI: \
     case AttributeList::AT_SysVABI: \
-    case AttributeList::AT_Regparm: \
     case AttributeList::AT_Pcs: \
     case AttributeList::AT_IntelOclBicc
+
+// Function type attributes.
+#define FUNCTION_TYPE_ATTRS_CASELIST \
+    case AttributeList::AT_NoReturn: \
+    case AttributeList::AT_Regparm: \
+    CALLING_CONV_ATTRS_CASELIST
 
 // Microsoft-specific type qualifiers.
 #define MS_TYPE_ATTRS_CASELIST  \
@@ -240,7 +245,7 @@ namespace {
       savedAttrs.back()->setNext(nullptr);
     }
   };
-}
+} // end anonymous namespace
 
 static void spliceAttrIntoList(AttributeList &attr, AttributeList *&head) {
   attr.setNext(head);
@@ -1710,6 +1715,12 @@ QualType Sema::BuildQualifiedType(QualType T, SourceLocation Loc,
         ProblemTy = EltTy;
       }
     } else if (!T->isDependentType()) {
+#if INTEL_CUSTOMIZATION
+      // CQ#374182: Ignore restict
+      if (getLangOpts().IntelCompat)
+        DiagID = diag::warn_typecheck_invalid_restrict_not_pointer;
+      else
+#endif // INTEL_CUSTOMIZATION
       DiagID = diag::err_typecheck_invalid_restrict_not_pointer;
       ProblemTy = T;
     }
@@ -1852,7 +1863,7 @@ namespace {
 ///
 /// The values of this enum are used in diagnostics.
 enum QualifiedFunctionKind { QFK_BlockPointer, QFK_Pointer, QFK_Reference };
-}
+} // end anonymous namespace
 
 /// Check whether the type T is a qualified function type, and if it is,
 /// diagnose that it cannot be contained within the given kind of declarator.
@@ -2001,7 +2012,6 @@ static bool isArraySizeVLA(Sema &S, Expr *ArraySize, llvm::APSInt &SizeVal) {
   return S.VerifyIntegerConstantExpression(ArraySize, &SizeVal, Diagnoser,
                                            S.LangOpts.GNUMode).isInvalid();
 }
-
 
 /// \brief Build an array type.
 ///
@@ -2217,6 +2227,18 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
     Diag(Loc, diag::warn_vla_used);
   }
 
+  // OpenCL v2.0 s6.12.5 - Arrays of blocks are not supported.
+  // OpenCL v2.0 s6.16.13.1 - Arrays of pipe type are not supported.
+  // OpenCL v2.0 s6.9.b - Arrays of image/sampler type are not supported.
+  if (getLangOpts().OpenCL) {
+    const QualType ArrType = Context.getBaseElementType(T);
+    if (ArrType->isBlockPointerType() || ArrType->isPipeType() ||
+        ArrType->isSamplerT() || ArrType->isImageType()) {
+      Diag(Loc, diag::err_opencl_invalid_type_array) << ArrType;
+      return QualType();
+    }
+  }
+
   return T;
 }
 
@@ -2225,10 +2247,16 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
 /// Run the required checks for the extended vector type.
 QualType Sema::BuildExtVectorType(QualType T, Expr *ArraySize,
                                   SourceLocation AttrLoc) {
-  // unlike gcc's vector_size attribute, we do not allow vectors to be defined
+  // Unlike gcc's vector_size attribute, we do not allow vectors to be defined
   // in conjunction with complex types (pointers, arrays, functions, etc.).
-  if (!T->isDependentType() &&
-      !T->isIntegerType() && !T->isRealFloatingType()) {
+  //
+  // Additionally, OpenCL prohibits vectors of booleans (they're considered a
+  // reserved data type under OpenCL v2.0 s6.1.4), we don't support selects
+  // on bitvectors, and we have no well-defined ABI for bitvectors, so vectors
+  // of bool aren't allowed.
+  if ((!T->isDependentType() && !T->isIntegerType() &&
+       !T->isRealFloatingType()) ||
+      T->isBooleanType()) {
     Diag(AttrLoc, diag::err_attribute_invalid_vector_type) << T;
     return QualType();
   }
@@ -2242,7 +2270,7 @@ QualType Sema::BuildExtVectorType(QualType T, Expr *ArraySize,
       return QualType();
     }
 
-    // unlike gcc's vector_size attribute, the size is specified as the
+    // Unlike gcc's vector_size attribute, the size is specified as the
     // number of elements, not the number of bytes.
     unsigned vectorSize = static_cast<unsigned>(vecSize.getZExtValue());
 
@@ -2288,6 +2316,74 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
   return false;
 }
 
+/// Check the extended parameter information.  Most of the necessary
+/// checking should occur when applying the parameter attribute; the
+/// only other checks required are positional restrictions.
+static void checkExtParameterInfos(Sema &S, ArrayRef<QualType> paramTypes,
+                    const FunctionProtoType::ExtProtoInfo &EPI,
+                    llvm::function_ref<SourceLocation(unsigned)> getParamLoc) {
+  assert(EPI.ExtParameterInfos && "shouldn't get here without param infos");
+
+  bool hasCheckedSwiftCall = false;
+  auto checkForSwiftCC = [&](unsigned paramIndex) {
+    // Only do this once.
+    if (hasCheckedSwiftCall) return;
+    hasCheckedSwiftCall = true;
+    if (EPI.ExtInfo.getCC() == CC_Swift) return;
+    S.Diag(getParamLoc(paramIndex), diag::err_swift_param_attr_not_swiftcall)
+      << getParameterABISpelling(EPI.ExtParameterInfos[paramIndex].getABI());
+  };
+
+  for (size_t paramIndex = 0, numParams = paramTypes.size();
+          paramIndex != numParams; ++paramIndex) {
+    switch (EPI.ExtParameterInfos[paramIndex].getABI()) {
+    // Nothing interesting to check for orindary-ABI parameters.
+    case ParameterABI::Ordinary:
+      continue;
+
+    // swift_indirect_result parameters must be a prefix of the function
+    // arguments.
+    case ParameterABI::SwiftIndirectResult:
+      checkForSwiftCC(paramIndex);
+      if (paramIndex != 0 &&
+          EPI.ExtParameterInfos[paramIndex - 1].getABI()
+            != ParameterABI::SwiftIndirectResult) {
+        S.Diag(getParamLoc(paramIndex),
+               diag::err_swift_indirect_result_not_first);
+      }
+      continue;
+
+    // swift_context parameters must be the last parameter except for
+    // a possible swift_error parameter.
+    case ParameterABI::SwiftContext:
+      checkForSwiftCC(paramIndex);
+      if (!(paramIndex == numParams - 1 ||
+            (paramIndex == numParams - 2 &&
+             EPI.ExtParameterInfos[numParams - 1].getABI()
+               == ParameterABI::SwiftErrorResult))) {
+        S.Diag(getParamLoc(paramIndex),
+               diag::err_swift_context_not_before_swift_error_result);
+      }
+      continue;
+
+    // swift_error parameters must be the last parameter.
+    case ParameterABI::SwiftErrorResult:
+      checkForSwiftCC(paramIndex);
+      if (paramIndex != numParams - 1) {
+        S.Diag(getParamLoc(paramIndex),
+               diag::err_swift_error_result_not_last);
+      } else if (paramIndex == 0 ||
+                 EPI.ExtParameterInfos[paramIndex - 1].getABI()
+                   != ParameterABI::SwiftContext) {
+        S.Diag(getParamLoc(paramIndex),
+               diag::err_swift_error_result_not_after_swift_context);
+      }
+      continue;
+    }
+    llvm_unreachable("bad ABI kind");
+  }
+}
+
 QualType Sema::BuildFunctionType(QualType T,
                                  MutableArrayRef<QualType> ParamTypes,
                                  SourceLocation Loc, DeclarationName Entity,
@@ -2310,6 +2406,11 @@ QualType Sema::BuildFunctionType(QualType T,
     }
 
     ParamTypes[Idx] = ParamType;
+  }
+
+  if (EPI.ExtParameterInfos) {
+    checkExtParameterInfos(*this, ParamTypes, EPI,
+                           [=](unsigned i) { return Loc; });
   }
 
   if (Invalid)
@@ -2981,6 +3082,26 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
                         unsigned ChunkIndex) {
   assert(D.getTypeObject(ChunkIndex).Kind == DeclaratorChunk::Function);
 
+  // Check for an explicit CC attribute.
+  for (auto Attr = FTI.AttrList; Attr; Attr = Attr->getNext()) {
+    switch (Attr->getKind()) {
+    CALLING_CONV_ATTRS_CASELIST: {
+      // Ignore attributes that don't validate or can't apply to the
+      // function type.  We'll diagnose the failure to apply them in
+      // handleFunctionTypeAttr.
+      CallingConv CC;
+      if (!S.CheckCallingConvAttr(*Attr, CC) &&
+          (!FTI.isVariadic || supportsVariadicCall(CC))) {
+        return CC;
+      }
+      break;
+    }
+
+    default:
+      break;
+    }
+  }
+
   bool IsCXXInstanceMethod = false;
 
   if (S.getLangOpts().CPlusPlus) {
@@ -3045,7 +3166,7 @@ namespace {
     BlockPointer,
     MemberPointer,
   };
-}
+} // end anonymous namespace
 
 IdentifierInfo *Sema::getNullabilityKeyword(NullabilityKind nullability) {
   switch (nullability) {
@@ -3105,7 +3226,7 @@ namespace {
     // NSError**
     NSErrorPointerPointer,
   };
-}
+} // end anonymous namespace
 
 /// Classify the given declarator, whose type-specified is \c type, based on
 /// what kind of pointer it refers to.
@@ -3232,7 +3353,6 @@ static PointerDeclaratorKind classifyPointerDeclarator(Sema &S,
 
     break;
   } while (true);
-
 
   switch (numNormalPointers) {
   case 0:
@@ -3682,7 +3802,6 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       T = S.BuildPointerType(T, DeclType.Loc, Name);
       if (DeclType.Ptr.TypeQuals)
         T = S.BuildQualifiedType(T, DeclType.Loc, DeclType.Ptr.TypeQuals);
-
       break;
     case DeclaratorChunk::Reference: {
       // Verify that we're not building a reference to pointer to function with
@@ -3849,7 +3968,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       if (T->isHalfType()) {
         if (S.getLangOpts().OpenCL) {
           if (!S.getOpenCLOptions().cl_khr_fp16) {
-            S.Diag(D.getIdentifierLoc(), diag::err_opencl_half_return) << T;
+            S.Diag(D.getIdentifierLoc(), diag::err_opencl_invalid_return)
+                << T << 0 /*pointer hint*/;
             D.setInvalidType(true);
           } 
         } else if (!S.getLangOpts().HalfArgsAndReturns) {
@@ -3857,6 +3977,14 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
             diag::err_parameters_retval_cannot_have_fp16_type) << 1;
           D.setInvalidType(true);
         }
+      }
+
+        // OpenCL v2.0 s6.12.5 - A block cannot be the return value of a
+        // function.
+      if (LangOpts.OpenCL && T->isBlockPointerType()) {
+        S.Diag(D.getIdentifierLoc(), diag::err_opencl_invalid_return)
+            << T << 1 /*hint off*/;
+        D.setInvalidType(true);
       }
 
       // Methods cannot return interface types. All ObjC objects are
@@ -4017,9 +4145,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         SmallVector<QualType, 16> ParamTys;
         ParamTys.reserve(FTI.NumParams);
 
-        SmallVector<bool, 16> ConsumedParameters;
-        ConsumedParameters.reserve(FTI.NumParams);
-        bool HasAnyConsumedParameters = false;
+        SmallVector<FunctionProtoType::ExtParameterInfo, 16>
+          ExtParameterInfos(FTI.NumParams);
+        bool HasAnyInterestingExtParameterInfos = false;
 
         for (unsigned i = 0, e = FTI.NumParams; i != e; ++i) {
           ParmVarDecl *Param = cast<ParmVarDecl>(FTI.Params[i].Param);
@@ -4077,17 +4205,25 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
             }
           }
 
-          if (LangOpts.ObjCAutoRefCount) {
-            bool Consumed = Param->hasAttr<NSConsumedAttr>();
-            ConsumedParameters.push_back(Consumed);
-            HasAnyConsumedParameters |= Consumed;
+          if (LangOpts.ObjCAutoRefCount && Param->hasAttr<NSConsumedAttr>()) {
+            ExtParameterInfos[i] = ExtParameterInfos[i].withIsConsumed(true);
+            HasAnyInterestingExtParameterInfos = true;
+          }
+
+          if (auto attr = Param->getAttr<ParameterABIAttr>()) {
+            ExtParameterInfos[i] =
+              ExtParameterInfos[i].withABI(attr->getABI());
+            HasAnyInterestingExtParameterInfos = true;
           }
 
           ParamTys.push_back(ParamTy);
         }
 
-        if (HasAnyConsumedParameters)
-          EPI.ConsumedParameters = ConsumedParameters.data();
+        if (HasAnyInterestingExtParameterInfos) {
+          EPI.ExtParameterInfos = ExtParameterInfos.data();
+          checkExtParameterInfos(S, ParamTys, EPI,
+              [&](unsigned i) { return FTI.Params[i].Param->getLocation(); });
+        }
 
         SmallVector<QualType, 4> Exceptions;
         SmallVector<ParsedType, 2> DynamicExceptions;
@@ -4118,7 +4254,6 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
 
         T = Context.getFunctionType(T, ParamTys, EPI);
       }
-
       break;
     }
     case DeclaratorChunk::MemberPointer: {
@@ -4551,6 +4686,8 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
     return AttributeList::AT_ThisCall;
   case AttributedType::attr_pascal:
     return AttributeList::AT_Pascal;
+  case AttributedType::attr_swiftcall:
+    return AttributeList::AT_SwiftCall;
   case AttributedType::attr_vectorcall:
     return AttributeList::AT_VectorCall;
   case AttributedType::attr_pcs:
@@ -4787,7 +4924,7 @@ namespace {
     void VisitPipeTypeLoc(PipeTypeLoc TL) {
       TL.setKWLoc(DS.getTypeSpecTypeLoc());
 
-      TypeSourceInfo *TInfo = 0;
+      TypeSourceInfo *TInfo = nullptr;
       Sema::GetTypeFromParser(DS.getRepAsType(), &TInfo);
       TL.getValueLoc().initializeFullCopy(TInfo->getTypeLoc());
     }
@@ -4921,7 +5058,7 @@ namespace {
       llvm_unreachable("unsupported TypeLoc kind in declarator!");
     }
   };
-}
+} // end anonymous namespace
 
 static void fillAtomicQualLoc(AtomicTypeLoc ATL, const DeclaratorChunk &Chunk) {
   SourceLocation Loc;
@@ -5056,7 +5193,6 @@ ParsedType Sema::ActOnObjCInstanceType(SourceLocation Loc) {
   TypeSourceInfo *TInfo = Context.getTrivialTypeSourceInfo(T, Loc);
   return CreateParsedType(T, TInfo);
 }
-
 
 //===----------------------------------------------------------------------===//
 // Type Attribute Processing
@@ -5431,6 +5567,7 @@ namespace {
   struct FunctionTypeUnwrapper {
     enum WrapKind {
       Desugar,
+      Attributed,
       Parens,
       Pointer,
       BlockPointer,
@@ -5463,6 +5600,9 @@ namespace {
         } else if (isa<ReferenceType>(Ty)) {
           T = cast<ReferenceType>(Ty)->getPointeeType();
           Stack.push_back(Reference);
+        } else if (isa<AttributedType>(Ty)) {
+          T = cast<AttributedType>(Ty)->getEquivalentType();
+          Stack.push_back(Attributed);
         } else {
           const Type *DTy = Ty->getUnqualifiedDesugaredType();
           if (Ty == DTy) {
@@ -5511,6 +5651,9 @@ namespace {
         // information.
         return wrap(C, Old->getUnqualifiedDesugaredType(), I);
 
+      case Attributed:
+        return wrap(C, cast<AttributedType>(Old)->getEquivalentType(), I);
+
       case Parens: {
         QualType New = wrap(C, cast<ParenType>(Old)->getInnerType(), I);
         return C.getParenType(New);
@@ -5545,7 +5688,7 @@ namespace {
       llvm_unreachable("unknown wrapping kind");
     }
   };
-}
+} // end anonymous namespace
 
 static bool handleMSPointerTypeQualifierAttr(TypeProcessingState &State,
                                              AttributeList &Attr,
@@ -5880,6 +6023,8 @@ static AttributedType::Kind getCCTypeAttrKind(AttributeList &Attr) {
     return AttributedType::attr_thiscall;
   case AttributeList::AT_Pascal:
     return AttributedType::attr_pascal;
+  case AttributeList::AT_SwiftCall:
+    return AttributedType::attr_swiftcall;
   case AttributeList::AT_VectorCall:
     return AttributedType::attr_vectorcall;
   case AttributeList::AT_Pcs: {
@@ -5996,18 +6141,28 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
     }
   }
 
-  // Diagnose use of callee-cleanup calling convention on variadic functions.
+  // Diagnose use of variadic functions with calling conventions that
+  // don't support them (e.g. because they're callee-cleanup).
+  // We delay warning about this on unprototyped function declarations
+  // until after redeclaration checking, just in case we pick up a
+  // prototype that way.  And apparently we also "delay" warning about
+  // unprototyped function types in general, despite not necessarily having
+  // much ability to diagnose it later.
   if (!supportsVariadicCall(CC)) {
     const FunctionProtoType *FnP = dyn_cast<FunctionProtoType>(fn);
     if (FnP && FnP->isVariadic()) {
       unsigned DiagID = diag::err_cconv_varargs;
+
       // stdcall and fastcall are ignored with a warning for GCC and MS
       // compatibility.
-      if (CC == CC_X86StdCall || CC == CC_X86FastCall)
+      bool IsInvalid = true;
+      if (CC == CC_X86StdCall || CC == CC_X86FastCall) {
         DiagID = diag::warn_cconv_varargs;
+        IsInvalid = false;
+      }
 
       S.Diag(attr.getLoc(), DiagID) << FunctionType::getNameForCallConv(CC);
-      attr.setInvalid();
+      if (IsInvalid) attr.setInvalid();
       return true;
     }
   }
@@ -6023,9 +6178,14 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
   // Modify the CC from the wrapped function type, wrap it all back, and then
   // wrap the whole thing in an AttributedType as written.  The modified type
   // might have a different CC if we ignored the attribute.
-  FunctionType::ExtInfo EI = unwrapped.get()->getExtInfo().withCallingConv(CC);
-  QualType Equivalent =
+  QualType Equivalent;
+  if (CCOld == CC) {
+    Equivalent = type;
+  } else {
+    auto EI = unwrapped.get()->getExtInfo().withCallingConv(CC);
+    Equivalent =
       unwrapped.wrap(S, S.Context.adjustFunctionType(unwrapped.get(), EI));
+  }
   type = S.Context.getAttributedType(CCAttrKind, type, Equivalent);
   return true;
 }
@@ -6283,6 +6443,17 @@ static void HandleNeonVectorTypeAttr(QualType& CurType,
   CurType = S.Context.getVectorType(CurType, numElts, VecKind);
 }
 
+/// Handle OpenCL Access Qualifier Attribute.
+static void HandleOpenCLAccessAttr(QualType &CurType, const AttributeList &Attr,
+                                   Sema &S) {
+  // OpenCL v2.0 s6.6 - Access qualifier can used only for image and pipe type.
+  if (!(CurType->isImageType() || CurType->isPipeType())) {
+    S.Diag(Attr.getLoc(), diag::err_opencl_invalid_access_qualifier);
+    Attr.setInvalid();
+    return;
+  }
+}
+
 static void processTypeAttrs(TypeProcessingState &state, QualType &type,
                              TypeAttrLocation TAL, AttributeList *attrs) {
   // Scan through and apply attributes to this type where it makes sense.  Some
@@ -6375,6 +6546,15 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       HandleVectorSizeAttr(type, attr, state.getSema());
       attr.setUsedAsTypeAttr();
       break;
+#if INTEL_CUSTOMIZATION
+    // CQ380256: 'mode' attribute ignored when parsing type
+    case AttributeList::AT_Mode:
+      if (state.getDeclarator().getContext() == Declarator::TypeNameContext) {
+        state.getSema().HandleModeAttr(attr, &type);
+        attr.setUsedAsTypeAttr();
+      }
+      break;
+#endif // INTEL_CUSTOMIZATION
     case AttributeList::AT_ExtVectorType:
       HandleExtVectorTypeAttr(type, attr, state.getSema());
       attr.setUsedAsTypeAttr();
@@ -6389,9 +6569,8 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
                                VectorType::NeonPolyVector);
       attr.setUsedAsTypeAttr();
       break;
-    case AttributeList::AT_OpenCLImageAccess:
-      // FIXME: there should be some type checking happening here, I would
-      // imagine, but the original handler's checking was entirely superfluous.
+    case AttributeList::AT_OpenCLAccess:
+      HandleOpenCLAccessAttr(type, attr, state.getSema());
       attr.setUsedAsTypeAttr();
       break;
 
@@ -6693,6 +6872,7 @@ static void assignInheritanceModel(Sema &S, CXXRecordDecl *RD) {
         S.ImplicitMSInheritanceAttrLoc.isValid()
             ? S.ImplicitMSInheritanceAttrLoc
             : RD->getSourceRange()));
+    S.Consumer.AssignInheritanceModel(RD);
   }
 }
 
