@@ -3917,7 +3917,7 @@ void CXXNameMangler::mangleTemplateArg(TemplateArgument A) {
     const VarDecl *VD = dyn_cast<VarDecl>(D);
     if (getASTContext().getLangOpts().IntelCompat &&
         getASTContext().getLangOpts().GNUFABIVersion == 2 && (VD || FD)) {
-      Out << "Z";
+      Out << "_Z";
       if (FD)
         mangleFunctionEncoding(FD);
       else
