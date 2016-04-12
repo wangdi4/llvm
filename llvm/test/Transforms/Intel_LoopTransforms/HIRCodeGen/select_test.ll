@@ -1,4 +1,4 @@
-;RUN: opt -HIRCG -force-HIRCG -S %s | FileCheck %s
+;RUN: opt -hir-cg -force-hir-cg -S %s | FileCheck %s
 
 ;Verify CG for this HIR STMT
 ;<7> %.c = (%0 > %1) ? %0 : %c;

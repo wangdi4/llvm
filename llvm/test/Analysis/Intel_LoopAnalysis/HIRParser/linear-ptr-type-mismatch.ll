@@ -1,12 +1,12 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
-; Check parsing output for the loop verifying that we can parse %ptBlist2.017 and %ptBlist1.016 cleanly in case of type mismatch of the base ptr in the SCEV (%ptr) which is i64* and the type of the phi which is i32*.
+; Check parsing output for the loop verifying that we can parse %ptBlist2.017 and %ptBlist1.016 cleanly in case of type mismatch of the base ptr in the SCEV {al:4}(%ptr) which is i64* and the type of the phi which is i32*.
 
 ; CHECK: DO i1 = 0, 4
-; CHECK-NEXT: %2 = (%0)[i1]
-; CHECK-NEXT: %3 = (%1)[i1]
+; CHECK-NEXT: %2 = {al:4}(%0)[i1]
+; CHECK-NEXT: %3 = {al:4}(%1)[i1]
 ; CHECK-NEXT: %or = %3  ||  %2
-; CHECK-NEXT: (%1)[i1] = %or
+; CHECK-NEXT: {al:4}(%1)[i1] = %or
 ; CHECK-NEXT: END LOOP
 
 

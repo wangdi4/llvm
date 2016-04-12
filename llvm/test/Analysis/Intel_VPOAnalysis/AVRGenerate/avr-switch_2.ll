@@ -10,39 +10,39 @@
 ;CHECK-NEXT: {
 ;CHECK-NEXT: %mask.parm = load (%mask.cast)[i1]
 ;CHECK-NEXT: if (%mask.parm != 0) {
-;CHECK-NEXT: %0 = load (%vec.n.cast)[i1]
+;CHECK-NEXT: %0 = load {al:4}(%vec.n.cast)[i1]
 ;CHECK-NEXT: switch(%0){
 ;CHECK-NEXT: case 1:
-;CHECK-NEXT: %1 = load (%vec.a.cast)[i1]
-;CHECK-NEXT: %2 = load (%vec.b.cast)[i1]
-;CHECK-NEXT: (%ret.cast)[i1] = store %1 + %2
+;CHECK-NEXT: %1 = load {al:4}(%vec.a.cast)[i1]
+;CHECK-NEXT: %2 = load {al:4}(%vec.b.cast)[i1]
+;CHECK-NEXT: {al:4}(%ret.cast)[i1] = store %1 + %2
 ;CHECK-NEXT: break;
 ;CHECK-NEXT: case 2:
-;CHECK-NEXT: %3 = load (%vec.a.cast)[i1]
-;CHECK-NEXT: %4 = load (%vec.b.cast)[i1]
-;CHECK-NEXT: (%ret.cast)[i1] = store %3 + -1 * %4
+;CHECK-NEXT: %3 = load {al:4}(%vec.a.cast)[i1]
+;CHECK-NEXT: %4 = load {al:4}(%vec.b.cast)[i1]
+;CHECK-NEXT: {al:4}(%ret.cast)[i1] = store %3 + -1 * %4
 ;CHECK-NEXT: break;
 ;CHECK-NEXT: case 3:
-;CHECK-NEXT: %5 = load (%vec.a.cast)[i1]
-;CHECK-NEXT: %6 = load (%vec.b.cast)[i1]
-;CHECK-NEXT: %7 = load (%vec.c.cast)[i1]
-;CHECK-NEXT: (%ret.cast)[i1] = store %5 + %6 + -1 * %7
+;CHECK-NEXT: %5 = load {al:4}(%vec.a.cast)[i1]
+;CHECK-NEXT: %6 = load {al:4}(%vec.b.cast)[i1]
+;CHECK-NEXT: %7 = load {al:4}(%vec.c.cast)[i1]
+;CHECK-NEXT: {al:4}(%ret.cast)[i1] = store %5 + %6 + -1 * %7
 ;CHECK-NEXT: break;
 ;CHECK-NEXT: case 4:
-;CHECK-NEXT: %8 = load (%vec.a.cast)[i1]
-;CHECK-NEXT: %9 = load (%vec.b.cast)[i1]
-;CHECK-NEXT: %10 = load (%vec.c.cast)[i1]
-;CHECK-NEXT: (%ret.cast)[i1] = store %8 + %9 + %10
+;CHECK-NEXT: %8 = load {al:4}(%vec.a.cast)[i1]
+;CHECK-NEXT: %9 = load {al:4}(%vec.b.cast)[i1]
+;CHECK-NEXT: %10 = load {al:4}(%vec.c.cast)[i1]
+;CHECK-NEXT: {al:4}(%ret.cast)[i1] = store %8 + %9 + %10
 ;CHECK-NEXT: break;
 ;CHECK-NEXT: case 5:
-;CHECK-NEXT: %11 = load (%vec.a.cast)[i1]
-;CHECK-NEXT: %12 = load (%vec.c.cast)[i1]
-;CHECK-NEXT: (%ret.cast)[i1] = store %11 + -1 * %12
+;CHECK-NEXT: %11 = load {al:4}(%vec.a.cast)[i1]
+;CHECK-NEXT: %12 = load {al:4}(%vec.c.cast)[i1]
+;CHECK-NEXT: {al:4}(%ret.cast)[i1] = store %11 + -1 * %12
 ;CHECK-NEXT: break;
 ;CHECK-NEXT: default:
-;CHECK-NEXT: %13 = load (%vec.a.cast)[i1]
-;CHECK-NEXT: %14 = load (%vec.b.cast)[i1]
-;CHECK-NEXT: (%ret.cast)[i1] = store (%14 * %13)
+;CHECK-NEXT: %13 = load {al:4}(%vec.a.cast)[i1]
+;CHECK-NEXT: %14 = load {al:4}(%vec.b.cast)[i1]
+;CHECK-NEXT: {al:4}(%ret.cast)[i1] = store (%14 * %13)
 
 ;ModuleID = 'switch.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

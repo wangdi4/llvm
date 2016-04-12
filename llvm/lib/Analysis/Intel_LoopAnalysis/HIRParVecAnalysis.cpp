@@ -27,7 +27,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParVecAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/IR/Intel_LoopIR/Diag.h"
 
@@ -55,10 +55,10 @@ private:
   /// InfoMap - Map associating HLLoops with corresponding par vec info.
   DenseMap<HLLoop *, ParVecInfo *> &InfoMap;
   /// DDA - Data dependency analysis handle.
-  DDAnalysis *DDA;
+  HIRDDAnalysis *DDA;
 
 public:
-  ParVecVisitor(ParVecInfo::AnalysisMode Mode, DDAnalysis *DDA,
+  ParVecVisitor(ParVecInfo::AnalysisMode Mode, HIRDDAnalysis *DDA,
                 DenseMap<HLLoop *, ParVecInfo *> &InfoMap)
       : Mode(Mode), InfoMap(InfoMap), DDA(DDA) {}
   /// \brief Determine parallelizability/vectorizability of the loop
@@ -150,7 +150,7 @@ FunctionPass *llvm::createHIRParVecAnalysisPass() { return new HIRParVecAnalysis
 char HIRParVecAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRParVecAnalysis, "hir-parvec-analysis",
                       "HIR Parallel/Vector Candidate Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIRParVecAnalysis, "hir-parvec-analysis",
                     "HIR Parallel/Vector Candidate Analysis", false, true)
 
@@ -175,7 +175,7 @@ void ParVecVisitor::visit(HLInst *Node) {
 
 void HIRParVecAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequiredTransitive<DDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysis>();
 }
 
 bool HIRParVecAnalysis::runOnFunction(Function &F) {
@@ -184,7 +184,7 @@ bool HIRParVecAnalysis::runOnFunction(Function &F) {
   }
 
   Enabled = true;
-  DDA = &getAnalysis<DDAnalysis>();
+  DDA = &getAnalysis<HIRDDAnalysis>();
 
   // ParVecAnalysis runs in on-demand mode. runOnFunction is almost no-op.
   // In the debug mode, run actual analysis in ParallelVector mode, print
@@ -378,7 +378,7 @@ void ParVecInfo::emitDiag() {
   print(errs(), false);
 }
 
-void ParVecInfo::analyze(HLLoop *Loop, DDAnalysis *DDA) {
+void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA) {
   // DD Analysis is expensive. Be sure to run structural analysis first,
   // i.e., before coming here.
   if (isVectorMode() && Loop->isSIMD()) {
@@ -387,6 +387,12 @@ void ParVecInfo::analyze(HLLoop *Loop, DDAnalysis *DDA) {
   }
   if (Mode == VectorForVectorizerInnermost && !Loop->isInnermost()) {
     setVecType(FE_DIAG_VEC_NOT_INNERMOST);
+    emitDiag();
+    return;
+  }
+  if (!Loop->hasChildren()) {
+    setVecType(FE_DIAG_VEC_FAIL_EMPTY_LOOP);
+    setParType(FE_DIAG_VEC_FAIL_EMPTY_LOOP);
     emitDiag();
     return;
   }

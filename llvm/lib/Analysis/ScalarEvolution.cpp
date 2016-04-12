@@ -5323,8 +5323,10 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
     if (!HIRInfo.isValid()) 
       return BTI;
 
+    auto SC = BTI.getExact(this);
+
     // If original cache entry is valid for HIR, copy the entry.
-    if (isValidSCEVForHIR(BTI.getExact(this))) 
+    if ((SC == getCouldNotCompute()) || isValidSCEVForHIR(SC)) 
       return HIRBackedgeTakenCounts.find(L)->second = BTI;
   }
 #endif // INTEL_CUSTOMIZATION

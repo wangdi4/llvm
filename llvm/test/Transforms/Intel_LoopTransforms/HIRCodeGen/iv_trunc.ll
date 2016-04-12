@@ -1,4 +1,4 @@
-;RUN: opt -hir-ssa-deconstruction -S -HIRCG -force-HIRCG %s | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -S -hir-cg -force-hir-cg %s | FileCheck %s
 
 ; In subscript expr on <5> and <11>, we have a 64 bit iv in a 32 bit src 
 ;CE(but 64 bit dest type). Verify that the iv is generated as a truncated
@@ -37,6 +37,10 @@
 ; CHECK: [[MUL_IV:%.*]] = mul i32 3, [[TRUNC_IV2]]
 ; CHECK: [[ADD_IV2:%.*]] = add i32 %N, [[MUL_IV]]
 ; CHECK: zext i32 [[ADD_IV2]] to i64
+
+; Check wrap flags on IV
+; CHECK: [[IV_UPDATE:%.*]] = add nuw nsw i64 {{%.*}}, 1
+; CHECK: icmp sle i64 [[IV_UPDATE]]
 
 ; ModuleID = 'test.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

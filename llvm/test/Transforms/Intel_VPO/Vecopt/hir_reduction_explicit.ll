@@ -1,4 +1,4 @@
-;RUN: opt -hir-ssa-deconstruction -VPODriverHIR -HIRCG -mem2reg -S %s | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -VPODriverHIR -hir-cg -mem2reg -S %s | FileCheck %s
 
 ; CHECK: loop
 ; CHECK: phi <8 x float> [ zeroinitializer

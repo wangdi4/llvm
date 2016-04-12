@@ -1,4 +1,4 @@
-;RUN: opt -HIRCG -force-HIRCG %s -S | FileCheck %s
+;RUN: opt -hir-cg -force-hir-cg %s -S | FileCheck %s
 
 ;in cg for CE (-1 * %row.031 + umax((4 + %row.031), ((4 * sext.i32.i64(%n1)) 
 ;+ %row.031)) + -1)/u4
@@ -6,7 +6,7 @@
 ;expanded, SCEVExpander replaces that add scev with a scev for 
 ;getelementpointer %row.031,1 and expands that. 
 
-;HIRCG assumes it can account for all SCEVUknowns as blobs. This is no longer
+;CG assumes it can account for all SCEVUknowns as blobs. This is no longer
 ;true.
 
 ;

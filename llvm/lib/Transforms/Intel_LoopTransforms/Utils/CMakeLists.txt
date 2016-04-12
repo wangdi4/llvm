@@ -2,6 +2,7 @@ add_llvm_library(LLVMIntel_LoopUtils
   BlobUtils.cpp
   CanonExprUtils.cpp
   DDRefUtils.cpp
+  DDUtils.cpp
   HLNodeUtils.cpp
   DDRefGatherer.cpp
   DDRefGrouping.cpp

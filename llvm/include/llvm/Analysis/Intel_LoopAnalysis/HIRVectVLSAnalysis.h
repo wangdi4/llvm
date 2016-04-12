@@ -40,7 +40,7 @@ class HLLoop;
 class HIRVectVLSAnalysis : public HIRAnalysisPass {
 
 private:
-  DDAnalysis *DDA;
+  HIRDDAnalysis *DDA;
 
 public:
   HIRVectVLSAnalysis()

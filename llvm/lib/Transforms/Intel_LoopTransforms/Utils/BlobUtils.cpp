@@ -70,6 +70,10 @@ bool BlobUtils::isTempBlob(BlobTy Blob) {
   return getHIRParser()->isTempBlob(Blob);
 }
 
+bool BlobUtils::isNestedBlob(BlobTy Blob) {
+  return getHIRParser()->isNestedBlob(Blob);
+}
+
 bool BlobUtils::isGuaranteedProperLinear(BlobTy TempBlob) {
   return getHIRParser()->isGuaranteedProperLinear(TempBlob);
 }

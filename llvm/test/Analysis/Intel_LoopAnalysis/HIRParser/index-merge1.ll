@@ -3,7 +3,7 @@
 ; Check parsing output for the loop verifying that the index of the load is merged properly.
 
 ; CHECK: DO i1 = 0, %i2lc + -1
-; CHECK-NEXT: %0 = (%in)[undef * i1 + sext.i32.i64(undef)]
+; CHECK-NEXT: %0 = {al:4}(%in)[undef * i1 + sext.i32.i64(undef)]
 ; CHECK-NEXT: END LOOP
 
 ; ModuleID = 'bugpoint-reduced-simplified.bc'

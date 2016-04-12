@@ -220,7 +220,6 @@ bool HIRLocalityAnalysis::isMultipleIV(const RegDDRef *Ref, unsigned Level,
     }
   }
 
-  assert(NumIV && " Atleast one IV position should exist.");
   return false;
 }
 
@@ -270,10 +269,11 @@ void HIRLocalityAnalysis::computeTempReuseLocality(const HLLoop *Loop) {
     // The first reference is used for comparison.
     const RegDDRef *CompareRef = *(RefVec.begin());
 
-    // No Temporal Reuse for multiple IV subscripts e.g. A[i+1][i] and A[i][i].
+    // No Temporal Reuse for multiple IV subscripts e.g. A[i+1][i] and A[i][i]
+    // or loop invariants e.g. A[1]
     unsigned IVPos = 0;
-    if (isMultipleIV(CompareRef, Loop->getNestingLevel(), &IVPos)) {
-      continue;
+    if (isMultipleIV(CompareRef, Loop->getNestingLevel(), &IVPos) || IVPos == 0) {
+        continue;
     }
 
     for (auto VecIt = RefVec.begin() + 1, End = RefVec.end(); VecIt != End;

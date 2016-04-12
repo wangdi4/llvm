@@ -5,9 +5,9 @@
 ; CHECK: DO i1 = 0, 69
 ; CHECK-NEXT: DO i2 = 0, zext.i32.i64((39 + (-1 * trunc.i64.i32(%indvars.iv22))))
 ; CHECK-NEXT: %0 = i1 + i2 + 3  *  i1 + 3
-; CHECK-NEXT: %1 = (%A)[i1 + i2 + 3]
+; CHECK-NEXT: %1 = {al:4}(%A)[i1 + i2 + 3]
 ; CHECK-NEXT: %2 = trunc.i64.i32(%0)
-; CHECK-NEXT: (%A)[i1 + i2 + 3] = %1 + %2
+; CHECK-NEXT: {al:4}(%A)[i1 + i2 + 3] = %1 + %2
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: %indvars.iv22 = i1 + 4;
 ; CHECK-NEXT: END LOOP

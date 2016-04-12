@@ -1,17 +1,17 @@
 add_llvm_library(LLVMIntel_LoopAnalysis
   Intel_LoopAnalysis.cpp
-  RegionIdentification.cpp
-  SCCFormation.cpp
-  ScalarSymbaseAssignment.cpp
+  HIRRegionIdentification.cpp
+  HIRSCCFormation.cpp
+  HIRScalarSymbaseAssignment.cpp
   HIRCreation.cpp
   HIRCleanup.cpp
-  LoopFormation.cpp
+  HIRLoopFormation.cpp
   HIRVLSClient.cpp
   HIRVectVLSAnalysis.cpp
   HIRParser.cpp
-  SymbaseAssignment.cpp
+  HIRSymbaseAssignment.cpp
   HIRFramework.cpp
-  DDAnalysis.cpp
+  HIRDDAnalysis.cpp
   DDTests.cpp
   HIRLocalityAnalysis.cpp
   HIRParVecAnalysis.cpp

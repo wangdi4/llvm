@@ -21,7 +21,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 
 namespace llvm {
 
@@ -32,7 +32,7 @@ namespace loopopt {
 class HIRParser;
 
 /// \brief Contains blob related utilities.
-class BlobUtils : public HLUtils {
+class BlobUtils : public HIRUtils {
 private:
   /// \brief Do not allow instantiation.
   BlobUtils() = delete;
@@ -103,6 +103,9 @@ public:
 
   /// \brief Returns true if Blob is a temp.
   static bool isTempBlob(BlobTy Blob);
+
+  /// \brief Returns true if this is a nested blob(SCEV tree with > 1 node).
+  static bool isNestedBlob(BlobTy Blob);
 
   /// \brief Returns true if TempBlob always has a defined at level of zero.
   static bool isGuaranteedProperLinear(BlobTy TempBlob);

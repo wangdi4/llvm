@@ -2,7 +2,7 @@
 ; All the loops should be unrolled as they have small trip count.
 ; The pass should generate just the region with statements.
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-complete-unroll -HIRCG -S < %s | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-complete-unroll -hir-cg -S < %s | FileCheck %s
 ; CHECK: entry
 
 ; terminator of entry bblock should point to new unrolled region.

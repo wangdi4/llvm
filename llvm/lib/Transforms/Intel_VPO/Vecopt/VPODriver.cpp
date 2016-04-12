@@ -34,7 +34,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 
 
 #define DEBUG_TYPE "VPODriver"
@@ -110,7 +110,7 @@ INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerateHIR)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
-INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(VPODriverHIR, "VPODriverHIR",
                     "VPO Vectorization Driver HIR", false, false)
 
@@ -229,6 +229,6 @@ void VPODriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.addRequiredTransitive<HIRParser>();
   AU.addRequiredTransitive<HIRLocalityAnalysis>();
-  AU.addRequiredTransitive<DDAnalysis>();
+  AU.addRequiredTransitive<HIRDDAnalysis>();
 }
 

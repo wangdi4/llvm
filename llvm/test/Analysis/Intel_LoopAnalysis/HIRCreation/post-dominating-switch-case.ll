@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-creation | FileCheck %s
+; RUN: opt < %s -analyze -hir-creation | FileCheck %s
 
 ; Check that the post-dominating switch case (L3 bblock) is linked after the switch while creating lexical links.
 ; CHECK: switch
@@ -20,7 +20,6 @@ target triple = "x86_64-unknown-linux-gnu"
 @B = common global [1000 x [1000 x float]] zeroinitializer, align 16
 @C = common global [1000 x [1000 x float]] zeroinitializer, align 16
 
-; Function Attrs: nounwind uwtable
 define void @sub3(i64 %n) {
 entry:
   br label %for.body
@@ -41,13 +40,13 @@ if.end.11:                                        ; preds = %for.body
   store float %add, float* %arrayidx, align 4
   br label %L2
 
-L2:                                               ; preds = %for.body, %if.end.11
+L2:                                               ; preds = %if.end.11, %for.body
   %1 = phi float [ %conv, %for.body ], [ %add, %if.end.11 ]
   %add16 = fadd float %1, 1.000000e+00
   store float %add16, float* %arrayidx, align 4
   br label %L3
 
-L3:                                               ; preds = %for.body, %L2
+L3:                                               ; preds = %L2, %for.body
   %2 = phi float [ %conv, %for.body ], [ %add16, %L2 ]
   %add19 = fadd float %2, 1.000000e+00
   store float %add19, float* %arrayidx, align 4
@@ -58,4 +57,3 @@ L3:                                               ; preds = %for.body, %L2
 for.end:                                          ; preds = %L3
   ret void
 }
-
