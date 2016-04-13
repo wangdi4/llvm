@@ -26,34 +26,29 @@
 //       Perform cost analysis on the loop ( such as trip count of inner loops )
 //       If all criteria meet, add loop to transformation list and return true,
 //       Else return false indicating the parent loops should not be unrolled.
-//  4. For each loop (inner to outer) of Transformed Loops
+//  4. For each loop (outer to inner) of Transformed Loops
 //       4.1 Clone LoopChild and insert it before the loop.
-//       4.2 Update CanonExprs of LoopChild.
+//       4.2 Update CanonExprs of LoopChild and recursively visit the inner
+//           loops.
 //       4.3 Delete Loop
 //
 // Unrolling would increase the register pressure based on the unroll factor.
 // Current heuristic just uses trip count to determine if loop needs to be
 // unrolled.
 //
-// Works by unrolling transformation from innermost to outermost.
+// Works by unrolling transformation from outermost to inner loops.
 // It avoids outer loops if any of the inner loops are not completely unrolled.
 // No candidate loops should have a switch or call statement.
 //
 //===----------------------------------------------------------------------===//
 
 // TODO: Extensions to be added later.
-//  (1) We want Unroll and rebuild DDG to happen once in complete unrolling
-//      multi-level cases  for the sake of compile time.
-//  (2) Some  rebuildDDG  util need to be invoked before and after unroll for
-//      the sake of incremental rebuild
-//  (3) Safe reductions chains need to be updated or removed
-//  (4) Using a simple heuristic (TripCount) for this implementation. We need to
+//  (1) Safe reductions chains need to be updated or removed
+//  (2) Using a simple heuristic (TripCount) for this implementation. We need to
 //     extend it later to incorporate register pressure. Also, for multi-level
 //     loops, we are currently summing the trip counts for the loop nest.
-//  (5) Handle preheader and postexit of loops during transformation.
-//  (6) Conduct some experiments to determine if going from inner to outer saves
-//     compile time. Experiment if unrolling HLIf's increases/decreases
-//     performance.
+//  (3) Extend it for not normalized loop.
+//  (4) Add opt report.
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -77,8 +72,8 @@ using namespace llvm::loopopt;
 
 // This stat maintains the number of hir loops completely unrolled.
 STATISTIC(LoopsCompletelyUnrolled, "Number of HIR loops completely unrolled");
-// This stat maintains the number of candidates for complete unrolling, but
-// were turned down due to cost model.
+// This stat maintains count of all the candidates for complete unrolling,
+// including those that were turned down due to cost model.
 STATISTIC(LoopsAnalyzed, "Number of HIR loops analyzed for complete unrolling");
 
 static cl::opt<unsigned> CompleteUnrollTripThreshold(
@@ -92,90 +87,11 @@ static cl::opt<bool>
                              cl::Hidden,
                              cl::desc("Disable HIR Loop Complete Unrolling"));
 
-namespace {
-
-/// \brief Visitor to update the CanonExpr.
-class CanonExprVisitor final : public HLNodeVisitorBase {
-private:
-  unsigned Level;
-  int64_t TripVal;
-
-  void processRegDDRef(RegDDRef *RegDD);
-  void processCanonExpr(CanonExpr *CExpr);
-
-public:
-  CanonExprVisitor(unsigned L, int64_t TripV) : Level(L), TripVal(TripV) {}
-
-  void visit(HLDDNode *Node);
-  // No processing needed for Goto and Label's
-  void visit(HLGoto *Goto){};
-  void visit(HLLabel *Label){};
-  void visit(HLNode *Node) {
-    llvm_unreachable(" Node not supported for Complete Unrolling.");
-  }
-  void postVisit(HLNode *Node) {}
-};
-
-} // namespace
-
-void CanonExprVisitor::visit(HLDDNode *Node) {
-
-  // Only expecting if and inst inside the loops.
-  // Primarily to catch errors of other types.
-  assert((isa<HLIf>(Node) || isa<HLInst>(Node)) && " Node not supported for "
-                                                   "complete unrolling.");
-
-  for (auto Iter = Node->ddref_begin(), End = Node->ddref_end(); Iter != End;
-       ++Iter) {
-    processRegDDRef(*Iter);
-  }
-}
-
-/// processRegDDRef - Processes RegDDRef to call the Canon Exprs
-/// present inside it. This is an internal helper function.
-void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
-  // Process CanonExprs inside the RegDDRefs
-  for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
-       ++Iter) {
-    processCanonExpr(*Iter);
-  }
-
-  // Process GEP Base
-  if (RegDD->hasGEPInfo()) {
-    processCanonExpr(RegDD->getBaseCE());
-  }
-
-  RegDD->makeConsistent();
-
-  // Example of an alternative way of updating DDRef which is useful when some
-  // manual work is also involved-
-  //
-  // RegDD->updateBlobDDRefs(BlobDDRefs);
-  // assert(BlobDDRefs.empty() && "New blobs found in DDRef after processing!");
-  // RegDD->updateCELevel();
-}
-
-/// Processes CanonExpr to replace IV by TripVal.
-/// This is an internal helper function.
-void CanonExprVisitor::processCanonExpr(CanonExpr *CExpr) {
-  DEBUG(dbgs() << "Replacing CanonExpr IV by tripval :" << TripVal << " \n");
-  CExpr->replaceIVByConstant(Level, TripVal);
-}
+static cl::opt<bool> DisableHIRTriCompleteUnroll(
+    "disable-hir-tri-complete-unroll", cl::init(false), cl::Hidden,
+    cl::desc("Disable HIR Triangular Complete Unrolling"));
 
 namespace {
-/// \brief Data structure to store loop information.
-/// Extend later to store triangular loop information.
-struct LoopData {
-  // Loop Lower Bound.
-  int64_t LB;
-  // Loop Upper Bound.
-  int64_t UB;
-  // Loop Step Value.
-  int64_t Step;
-
-  LoopData(int64_t LowerB, int64_t UpperB, int64_t Stride)
-      : LB(LowerB), UB(UpperB), Step(Stride) {}
-};
 
 class HIRCompleteUnroll : public HIRTransformPass {
 public:
@@ -199,37 +115,143 @@ public:
 private:
   unsigned CurrentTripThreshold;
 
-  // Storage for Outermost Loops
-  SmallVector<HLLoop *, 64> OuterLoops;
+  class CanonExprVisitor;
 
   /// Storage for loops which will be transformed.
-  /// The ordering inside the container is from inner to outer.
-  SmallVector<std::pair<HLLoop *, LoopData *>, 32> TransformLoops;
+  /// Only outermost loops to be transformed will be stored.
+  SmallVector<HLLoop *, 32> CandidateLoops;
+
+  // Level to TripCount mapping. This is just used during the analysis phase.
+  unsigned TripCountCache[MaxLoopNestLevel + 1];
+
+  /// \brief Computes the trip count necessary for complete unrolling.
+  /// This routine handles cases such as triangular loops.
+  void computeTripCount(const HLLoop *Loop);
+
+  /// \brief This routine checks the dependency across the loop to check
+  /// if all the loops are encapsulated before complete unrolling.
+  /// For example, we may have the following case:
+  /// for(i=0;i<15; i++)
+  ///   for(j=0; j<i; j++)
+  /// Here, j loop is added as candidate, but because of profitability, we
+  /// don't add 'i' loop, then we remove 'j' loop also.
+  void checkDependentLoops();
+
+  /// \brief This routine is helper function to check if the child loops
+  /// do not contain any IV less than the OuterCandidateLevel.
+  bool checkDependency(unsigned OuterCandidateLevel,
+                       SmallVectorImpl<HLLoop *> &ChildLoops) const;
 
   /// \brief Performs cost analysis to determine if a loop
   /// is eligible for complete unrolling. If loop meets all the criteria,
   /// it return true, else false. This routine updates the child trip count
   /// for use by parent loop.
-  bool isProfitable(const HLLoop *Loop, LoopData **LD, int64_t *ChildTripCnt);
+  bool isProfitable(const HLLoop *Loop, int64_t *TripCnt) const;
 
   /// \brief Performs the complete unrolling transformation.
-  void transformLoop(HLLoop *&Loop, LoopData *LD);
+  static void transformLoop(HLLoop *&Loop, HLLoop *OuterLoop,
+                            SmallVectorImpl<int64_t> &TripValues);
 
   /// \brief Main routine to drive the complete unrolling transformation.
-  void processCompleteUnroll();
+  void processCompleteUnroll(SmallVectorImpl<HLLoop *> &OuterLoops);
 
   /// \brief Processes a HLLoop to check if it candidate for transformation.
   /// ChildTripCnt denotes the trip count of the children.
-  bool processLoop(HLLoop *Loop, int64_t *ChildTripCnt);
+  bool processLoop(HLLoop *Loop, int64_t *TotalTripCnt);
 
   /// \brief Drives the profitability analysis when visiting a loop during
   /// transformation.
-  bool processProfitablity(HLLoop *Loop, int64_t *ChildTripCnt);
+  bool processProfitablity(const HLLoop *Loop, int64_t *TripCnt) const;
 
   /// \brief Routine to drive the transformation of candidate loops.
   void transformLoops();
 };
+
+/// \brief Visitor to update the CanonExpr.
+class HIRCompleteUnroll::CanonExprVisitor final : public HLNodeVisitorBase {
+private:
+  HLLoop *OuterLoop;
+  SmallVectorImpl<int64_t> *TripValues;
+
+  void processRegDDRef(RegDDRef *RegDD);
+  void processCanonExpr(CanonExpr *CExpr);
+
+public:
+  CanonExprVisitor(HLLoop *OutLoop, SmallVectorImpl<int64_t> &TripValVec)
+      : OuterLoop(OutLoop), TripValues(&TripValVec) {}
+
+  void visit(HLDDNode *Node);
+  void visit(HLLoop *Loop);
+  // No processing needed for Goto and Label's
+  void visit(HLGoto *Goto){};
+  void visit(HLLabel *Label){};
+  void visit(HLNode *Node) {
+    llvm_unreachable(" Node not supported for Complete Unrolling.");
+  }
+  void postVisit(HLNode *Node) {}
+};
 }
+
+////// CanonExpr Visitor Start
+
+void HIRCompleteUnroll::CanonExprVisitor::visit(HLLoop *Loop) {
+  transformLoop(Loop, OuterLoop, *TripValues);
+}
+
+void HIRCompleteUnroll::CanonExprVisitor::visit(HLDDNode *Node) {
+
+  // Only expecting if and inst inside the loops.
+  // Primarily to catch errors of other types.
+  assert((isa<HLIf>(Node) || isa<HLInst>(Node)) && " Node not supported for "
+                                                   "complete unrolling.");
+
+  DEBUG(dbgs() << " CanonExprVisitor Node \n");
+  DEBUG(Node->dump());
+
+  for (auto Iter = Node->ddref_begin(), End = Node->ddref_end(); Iter != End;
+       ++Iter) {
+    processRegDDRef(*Iter);
+  }
+}
+
+/// processRegDDRef - Processes RegDDRef to call the Canon Exprs
+/// present inside it. This is an internal helper function.
+void HIRCompleteUnroll::CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
+  // Process CanonExprs inside the RegDDRefs
+  for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
+       ++Iter) {
+    processCanonExpr(*Iter);
+  }
+
+  // Process GEP Base
+  if (RegDD->hasGEPInfo()) {
+    processCanonExpr(RegDD->getBaseCE());
+  }
+
+  RegDD->makeConsistent();
+
+  // Example of an alternative way of updating DDRef which is useful when some
+  // manual work is also involved-
+  //
+  // RegDD->updateBlobDDRefs(BlobDDRefs);
+  // assert(BlobDDRefs.empty() && "New blobs found in DDRef after processing!");
+  // RegDD->updateCELevel();
+}
+
+/// Processes CanonExpr to replace IV by TripVal.
+/// This is an internal helper function.
+void HIRCompleteUnroll::CanonExprVisitor::processCanonExpr(CanonExpr *CExpr) {
+
+  // Start replacing the IV's from OuterLoop level to current loop level.
+  int64_t LoopLevel = OuterLoop->getNestingLevel();
+  for (auto &TripV : *TripValues) {
+    DEBUG(dbgs() << "Replacing CanonExpr IV by tripval :" << TripV << " \n");
+    CExpr->replaceIVByConstant(LoopLevel, TripV);
+    LoopLevel++;
+  }
+}
+
+///// CanonExpr Visitor End
 
 char HIRCompleteUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCompleteUnroll, "hir-complete-unroll",
@@ -258,37 +280,130 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
     return false;
   }
 
+  // Storage for Outermost Loops
+  SmallVector<HLLoop *, 64> OuterLoops;
   // Gather the outermost loops
   HLNodeUtils::gatherOutermostLoops(OuterLoops);
 
   // Process Loop Complete Unrolling
-  processCompleteUnroll();
+  processCompleteUnroll(OuterLoops);
 
   return false;
 }
 
 /// processCompleteUnroll - Main routine to perform unrolling.
 /// First, performs cost analysis and then do the transformation.
-void HIRCompleteUnroll::processCompleteUnroll() {
+void HIRCompleteUnroll::processCompleteUnroll(
+    SmallVectorImpl<HLLoop *> &OuterLoops) {
 
   // Walk over the outermost loops across the regions.
-  for (auto Iter = OuterLoops.begin(), E = OuterLoops.end(); Iter != E;
-       ++Iter) {
-    // Child trip count should be set 1 for innermost loops.
+  for (auto &Iter : OuterLoops) {
     int64_t TotalTripCnt = 0;
-    processLoop(*Iter, &TotalTripCnt);
+    if (processLoop(Iter, &TotalTripCnt)) {
+      CandidateLoops.push_back(Iter);
+    }
   }
+
+  // Check the dependency across the loops as the parent
+  // might not be a candidate for complete unrolling loop nest.
+  checkDependentLoops();
 
   transformLoops();
 }
 
+// Here we remove loops from candidate loops where
+// the parent loop is not a candidate but a dependent child loop
+// is added to the candidate list.
+void HIRCompleteUnroll::checkDependentLoops() {
+
+  for (unsigned Index = 0; Index != CandidateLoops.size();) {
+
+    HLLoop *OuterCandidateLoop = CandidateLoops[Index];
+    SmallVector<HLLoop *, 8> ChildLoops;
+    HLNodeUtils::gatherAllLoops(OuterCandidateLoop, ChildLoops);
+    // Check if the dependency of loops is satisfied. If not, then we add
+    // the children loop as candidate and remove the current outermost loops.
+    if (checkDependency(OuterCandidateLoop->getNestingLevel(), ChildLoops)) {
+      Index++;
+      continue;
+    }
+
+    if (!OuterCandidateLoop->isInnermost()) {
+      HLNodeUtils::gatherLoopsWithLevel(OuterCandidateLoop, CandidateLoops,
+                                        OuterCandidateLoop->getNestingLevel() +
+                                            1);
+    }
+    CandidateLoops.erase(CandidateLoops.begin() + Index);
+  }
+}
+
+bool HIRCompleteUnroll::checkDependency(
+    unsigned OuterCandidateLevel, SmallVectorImpl<HLLoop *> &ChildLoops) const {
+
+  for (auto &CLoop : ChildLoops) {
+    CanonExpr *UBCE = CLoop->getUpperCanonExpr();
+    for (unsigned Level = 1; Level < OuterCandidateLevel; Level++) {
+      if (UBCE->hasIV(Level)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+void HIRCompleteUnroll::computeTripCount(const HLLoop *Loop) {
+
+  unsigned LoopLevel = Loop->getNestingLevel();
+  CanonExpr *TripCE = Loop->getTripCountCanonExpr();
+  // For not handled cases, substitute with larger trip count
+  // to avoid unrolling.
+  if (!TripCE || TripCE->hasBlob() || TripCE->hasBlobIVCoeffs() ||
+      (TripCE->getDenominator() != 1) || TripCE->containsUndef()) {
+    TripCountCache[LoopLevel] = CurrentTripThreshold + 1;
+    return;
+  }
+
+  int64_t TripCount = 0;
+  bool isConstTrip = TripCE->isIntConstant(&TripCount);
+  if (isConstTrip) {
+    assert(TripCount && " Zero Trip count loop found.");
+    TripCountCache[LoopLevel] = TripCount;
+    return;
+  }
+
+  // If triangular loop is disabled, we simply return high trip count,
+  // to avoid unrolling triangular loops.
+  if (DisableHIRTriCompleteUnroll) {
+    TripCountCache[LoopLevel] = CurrentTripThreshold + 1;
+    return;
+  }
+
+  // TripCE should only have IV and const.
+  // Substitute the IV with their Trips-1. We are computing the max trip
+  // here for the current level.
+  for (unsigned Level = 1; Level < LoopLevel; ++Level) {
+    TripCE->replaceIVByConstant(Level, TripCountCache[Level] - 1);
+  }
+  assert(TripCE->isIntConstant() && " Trip Count should be a constant.");
+  TripCountCache[LoopLevel] = TripCE->getConstant() + 1;
+}
+
 bool HIRCompleteUnroll::processLoop(HLLoop *Loop, int64_t *TotalTripCnt) {
+
+  SmallVector<HLLoop *, 8> CandidateChildLoops;
+  bool IsLoopCandidate = true;
+
+  // Compute the trip count of current loop,
+  // as it might be used by children loop e.g. triangular loops.
+  computeTripCount(Loop);
+  DEBUG(dbgs() << " Compute Trip Count for Level: " << Loop->getNestingLevel()
+               << " " << TripCountCache[Loop->getNestingLevel()]);
 
   // Visit children, only if it not the innermost, else
   // perform profitability analysis.
   if (!Loop->isInnermost()) {
-    // 1. Gather Loops starting from the outer-most level
     SmallVector<HLLoop *, 8> ChildLoops;
+    // 1. Gather Loops starting from the outer-most level
     HLNodeUtils::gatherLoopsWithLevel(Loop, ChildLoops,
                                       Loop->getNestingLevel() + 1);
 
@@ -297,41 +412,51 @@ bool HIRCompleteUnroll::processLoop(HLLoop *Loop, int64_t *TotalTripCnt) {
     // Recurse through the children.
     for (auto Iter = ChildLoops.begin(), E = ChildLoops.end(); Iter != E;
          ++Iter) {
-      int64_t TripCnt = 0;
-      ChildValid &= processLoop(*Iter, &TripCnt);
-      (*TotalTripCnt) += TripCnt;
+      int64_t ChildTripCnt = 0;
+      bool IsChildCandidate = processLoop(*Iter, &ChildTripCnt);
+      if (IsChildCandidate) {
+        CandidateChildLoops.push_back(*Iter);
+      }
+      ChildValid &= IsChildCandidate;
+      (*TotalTripCnt) += ChildTripCnt;
     }
 
-    if (!ChildValid) {
-      return false;
-    }
+    IsLoopCandidate = ChildValid;
   }
 
-  return processProfitablity(Loop, TotalTripCnt);
+  if (IsLoopCandidate) {
+    IsLoopCandidate &= processProfitablity(Loop, TotalTripCnt);
+  }
+
+  // If current loop is not a candidate, store the children loops
+  // for transformation.
+  if (!IsLoopCandidate) {
+    CandidateLoops.append(CandidateChildLoops.begin(),
+                          CandidateChildLoops.end());
+  }
+
+  // Reset the trip count cache for current loop.
+  TripCountCache[Loop->getNestingLevel()] = 0;
+
+  return IsLoopCandidate;
 }
 
-bool HIRCompleteUnroll::processProfitablity(HLLoop *Loop,
-                                            int64_t *ChildTripCnt) {
+bool HIRCompleteUnroll::processProfitablity(const HLLoop *Loop,
+                                            int64_t *TripCnt) const {
 
   LoopsAnalyzed++;
 
-  LoopData *LD;
-  if (isProfitable(Loop, &LD, ChildTripCnt)) {
-    TransformLoops.push_back(std::make_pair(Loop, LD));
+  if (isProfitable(Loop, TripCnt)) {
     LoopsCompletelyUnrolled++;
     return true;
   }
   return false;
 }
 
-bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
-                                     int64_t *ChildTripCnt) {
+bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop,
+                                     int64_t *TripCnt) const {
 
-  // TODO: Preheader and PostExit not handled currently.
-  if (Loop->hasPreheader() || Loop->hasPostexit()) {
-    return false;
-  }
-
+  // Empty loop.
   if (!Loop->hasChildren()) {
     return false;
   }
@@ -341,39 +466,16 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
     return false;
   }
 
-  const RegDDRef *UBRef = Loop->getUpperDDRef();
-  assert(UBRef && " Loop UpperBound not found.");
-
-  const RegDDRef *LBRef = Loop->getLowerDDRef();
-  assert(LBRef && " Loop LowerBound not found.");
-
-  const RegDDRef *StrideRef = Loop->getStrideDDRef();
-  assert(StrideRef && " Loop Stride not found.");
-
-  // Check if UB is Constant or not.
-  int64_t UBConst;
-  if (!UBRef->isIntConstant(&UBConst)) {
+  // Handle normalized loops only.
+  if (!Loop->isNormalized()) {
     return false;
   }
 
-  // Check if LB is Constant or not.
-  int64_t LBConst;
-  if (!LBRef->isIntConstant(&LBConst)) {
-    return false;
-  }
-
-  // Check if StepVal is Constant or not.
-  int64_t StepConst;
-  if (!StrideRef->isIntConstant(&StepConst)) {
-    return false;
-  }
-
-  // TripCount is (Upper -Lower)/Stride + 1.
-  int64_t ConstTripCount = (int64_t)((UBConst - LBConst) / StepConst) + 1;
-  assert(ConstTripCount && " Zero Trip count loop found.");
+  int64_t ConstTripCount = TripCountCache[Loop->getNestingLevel()];
+  assert(ConstTripCount && " Zero Trip loop found.");
 
   int64_t TotalTripCnt =
-      Loop->isInnermost() ? ConstTripCount : ConstTripCount * (*ChildTripCnt);
+      Loop->isInnermost() ? ConstTripCount : ConstTripCount * (*TripCnt);
 
   DEBUG(dbgs() << " Const Trip Count: " << ConstTripCount << "\n");
   if (TotalTripCnt > CurrentTripThreshold) {
@@ -382,7 +484,7 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
   }
 
   // Update the child trip count for outer loops.
-  *ChildTripCnt = TotalTripCnt;
+  *TripCnt = TotalTripCnt;
 
   // Ignore loops which have switch or function calls for unrolling.
   if (HLNodeUtils::hasSwitchOrCall(Loop->getFirstChild(), Loop->getLastChild(),
@@ -390,34 +492,83 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
     return false;
   }
 
-  // Store loop information for transformation phase.
-  *LData = new LoopData(LBConst, UBConst, StepConst);
-
   return true;
 }
 
-// Transform (Complete Unroll) each loop inside the TransformLoops vector
+// Transform (Complete Unroll) each loop inside the CandidateLoops vector
 void HIRCompleteUnroll::transformLoops() {
 
-  // Transform the loop nest from innermost to outermost.
-  for (auto &I : TransformLoops) {
-    transformLoop(I.first, I.second);
+  SmallVector<int64_t, MaxLoopNestLevel> TripValues;
+
+  // Transform the loop nest from outer to inner.
+  for (auto &Loop : CandidateLoops) {
+    transformLoop(Loop, Loop, TripValues);
   }
 }
 
+int64_t computeUB(HLLoop *Loop, HLLoop *OuterLoop,
+                  SmallVectorImpl<int64_t> &TripValues) {
+  int64_t UBVal = 0;
+
+  CanonExpr *UBCE = Loop->getUpperCanonExpr();
+  if (UBCE->isIntConstant(&UBVal)) {
+    return UBVal;
+  }
+
+  UBCE = UBCE->clone();
+  int64_t LoopLevel = OuterLoop->getNestingLevel();
+  for (auto TripV : TripValues) {
+    UBCE->replaceIVByConstant(LoopLevel, TripV);
+    LoopLevel++;
+  }
+
+  bool isIntConst = UBCE->isIntConstant(&UBVal);
+  (void)isIntConst;
+  assert(isIntConst && " Upper Bound is not a constant after IV substitution.");
+  return UBVal;
+}
+
 // Complete Unroll the given Loop, using provided LD as helper data
-void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, LoopData *LD) {
+void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, HLLoop *OuterLoop,
+                                      SmallVectorImpl<int64_t> &TripValues) {
 
   // Guard against the scanning phase setting it appropriately.
-  assert(Loop && LD && " Loop info (loop ptr or data) is null.");
+  assert(Loop && " Loop is null.");
 
   // Container for cloning body.
   HLContainerTy LoopBody;
 
+  CanonExprVisitor CEVisit(OuterLoop, TripValues);
+
+  int64_t LB = Loop->getLowerCanonExpr()->getConstant();
+  int64_t UB = computeUB(Loop, OuterLoop, TripValues);
+  int64_t Step = Loop->getStrideCanonExpr()->getConstant();
+
+  // Extract Preheader and postexit if there is atleast one trip.
+  // Since, we work on normalized loops, checking UB+1 is sufficient.
+  // TODO: Extend it for unnormalized loops.
+  if ((UB + 1) > 0) {
+    // Store the node pointers.
+    HLNode *PreStart = Loop->getFirstPreheaderNode();
+    HLNode *PreEnd = Loop->getLastPreheaderNode();
+    HLNode *PostStart = Loop->getFirstPostexitNode();
+    HLNode *PostEnd = Loop->getLastPostexitNode();
+
+    // Ztt is not needed since it has ateast one trip.
+    Loop->removeZtt();
+    Loop->extractPreheaderAndPostexit();
+    if (PreStart) {
+      HLNodeUtils::visitRange<true, false>(CEVisit, PreStart, PreEnd);
+    }
+    if (PostStart) {
+      HLNodeUtils::visitRange<true, false>(CEVisit, PostStart, PostEnd);
+    }
+  }
+
   // Iterate over Loop Child for unrolling with trip value incremented
   // each time. Thus, loop body will be expanded by no. of stmts x TripCount.
-  for (int64_t TripVal = LD->LB; TripVal <= LD->UB; TripVal += LD->Step) {
-    // Clone 0th iteration
+  for (int64_t TripVal = LB; TripVal <= UB; TripVal += Step) {
+    // Clone iteration
     HLNodeUtils::cloneSequence(&LoopBody, Loop->getFirstChild(),
                                Loop->getLastChild());
 
@@ -427,10 +578,19 @@ void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, LoopData *LD) {
 
     HLNodeUtils::insertBefore(Loop, &LoopBody);
 
-    // Update CanonExpr and DD Info
-    CanonExprVisitor CEVisit(Loop->getNestingLevel(), TripVal);
-    HLNodeUtils::visitRange(CEVisit, CurFirstChild, CurLastChild);
+    // Trip Values vector is used to store the current IV
+    // trip value for substitution inside the canon expr.
+    TripValues.push_back(TripVal);
+
+    // Update the CanonExpr
+    CanonExprVisitor CEVisit(OuterLoop, TripValues);
+    HLNodeUtils::visitRange<true, false>(CEVisit, CurFirstChild, CurLastChild);
+
+    TripValues.pop_back();
   }
+
+  // DEBUG(dbgs() << " \n After transformation \n");
+  // DEBUG(Loop->getParentRegion()->dump());
 
   assert(Loop->getParentRegion() && " Loop does not have a parent region.");
   Loop->getParentRegion()->setGenCode();
@@ -443,12 +603,4 @@ void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, LoopData *LD) {
   Loop = nullptr;
 }
 
-void HIRCompleteUnroll::releaseMemory() {
-
-  // Delete all Loopinfo.
-  for (auto &I : TransformLoops) {
-    delete I.second;
-  }
-  TransformLoops.clear();
-  OuterLoops.clear();
-}
+void HIRCompleteUnroll::releaseMemory() { CandidateLoops.clear(); }
