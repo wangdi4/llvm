@@ -516,13 +516,14 @@ bool LoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // of 1 makes sense because loop control can be eliminated.
     return false;
   }
-
+  /*
   //LPU edit: make sure runtime unroll is enabled even for SimpleLoopUnrollPass
   //LPU edit: UP.Runtime is always set for lpu target triple, and PartialThreshold set to UINT32_MAX
   if (HasPragma && !PragmaFullUnroll && TripCount == 0 &&
 	  UP.Runtime && UP.PartialThreshold == ((uint32_t)-1)) {
 	  AllowRuntime = true;
   }
+  */
   // Unroll the loop.
   if (!UnrollLoop(L, Count, TripCount, AllowRuntime, TripMultiple, LI, this,
                   &LPM, &AC))

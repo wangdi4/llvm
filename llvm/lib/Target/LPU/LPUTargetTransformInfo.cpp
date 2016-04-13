@@ -240,12 +240,12 @@ void LPUTTI::getUnrollingPreferences(const Function *F, Loop *L,
     MaxOps = ST->getSchedModel().LoopMicroOpBufferSize;
   //LPU edit: set up runtime unroll threshold for LPU target to UINT32_MAX
   else {
-	  assert(ST->getTargetTriple().substr(0, 3) == "lpu");
-    if (LPUUnrollingThreshold) {
-      MaxOps = ((uint32_t)-1);
-    } else {
+    assert(ST->getTargetTriple().substr(0, 3) == "lpu");
+//  if (LPUUnrollingThreshold) {
+//    MaxOps = ((uint32_t)-1);
+//  } else {
       return;
-    }
+//  }
   }
 
   // Scan the loop: don't unroll loops with calls.
