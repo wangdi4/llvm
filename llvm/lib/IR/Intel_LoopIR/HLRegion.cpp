@@ -19,7 +19,7 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLRegion::HLRegion(IRRegion *IReg)
+HLRegion::HLRegion(IRRegion &IReg)
     : HLNode(HLNode::HLRegionVal), GenCode(false), IRReg(IReg) {}
 
 HLRegion *HLRegion::cloneImpl(GotoContainerTy *GotoList,
@@ -55,7 +55,7 @@ void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
 
   if (PrintIRRegion) {
     OS << "\n";
-    IRReg->print(OS, Depth);
+    IRReg.print(OS, Depth);
     OS << "\n";
   }
 

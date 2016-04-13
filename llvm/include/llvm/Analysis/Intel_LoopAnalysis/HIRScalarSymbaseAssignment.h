@@ -129,11 +129,11 @@ private:
   /// \brief Traces back single operand phis until something else is encountered
   /// (or we leave the current region) and returns that.
   const Value *traceSingleOperandPhis(const Value *Scalar,
-                                      const IRRegion *IRReg) const;
+                                      const IRRegion &IRReg) const;
 
   /// \brief Implements getOrAssignScalarSymbase() functionality.
   unsigned getOrAssignScalarSymbaseImpl(const Value *Scalar,
-                                        const IRRegion *IRReg, bool Assign,
+                                        const IRRegion &IRReg, bool Assign,
                                         const Value **OldBaseScalar);
 
   /// \brief Sets current Function as a generic value to represent loop uppers.
@@ -156,8 +156,7 @@ public:
   /// Only used for printing.
   void insertHIRLval(const Value *Lval, unsigned Symbase);
 
-  /// \brief Returns the scalar associated with symbase. It is only used for
-  /// printing.
+  /// \brief Returns the scalar associated with symbase.
   const Value *getBaseScalar(unsigned Symbase) const;
 
   /// \brief Returns the max symbase assigned to any scalar.
@@ -172,11 +171,11 @@ public:
   /// \brief Returns scalar's symbase if it exists, else assigns a new symbase.
   /// If this scalar has replaced an existing base scalar, the existing scalar
   /// is returned via OldBaseScalar.
-  unsigned getOrAssignScalarSymbase(const Value *Scalar, const IRRegion *IRReg,
+  unsigned getOrAssignScalarSymbase(const Value *Scalar, const IRRegion &IRReg,
                                     const Value **OldBaseScalar = nullptr);
 
   /// \brief Returns scalar's symbase if it exists, else returns 0.
-  unsigned getScalarSymbase(const Value *Scalar, const IRRegion *IRReg);
+  unsigned getScalarSymbase(const Value *Scalar, const IRRegion &IRReg);
 };
 
 } // End namespace loopopt

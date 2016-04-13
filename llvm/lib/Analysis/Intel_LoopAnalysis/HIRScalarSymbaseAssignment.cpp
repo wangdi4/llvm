@@ -175,7 +175,7 @@ const Value *HIRScalarSymbaseAssignment::getGenericLoopUpperVal() const {
 }
 
 const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
-    const Value *Scalar, const IRRegion *IRReg) const {
+    const Value *Scalar, const IRRegion &IRReg) const {
 
   auto PhiInst = dyn_cast<PHINode>(Scalar);
 
@@ -212,7 +212,7 @@ const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
     // tracing it back to %t1' in Region 1 because the value %t1' is invalid
     // (converted to symbase) if we generate code for Region 1. Liveins are
     // always initialized using existing LLVM values.
-    if (!IRReg->containsBBlock(PhiInst->getParent())) {
+    if (!IRReg.containsBBlock(PhiInst->getParent())) {
       break;
     }
 
@@ -257,7 +257,7 @@ HIRScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
 }
 
 unsigned HIRScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(
-    const Value *Scalar, const IRRegion *IRReg, bool Assign,
+    const Value *Scalar, const IRRegion &IRReg, bool Assign,
     const Value **OldBaseScalar) {
   unsigned Symbase = InvalidSymbase;
 
@@ -303,19 +303,19 @@ unsigned HIRScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(
 }
 
 unsigned HIRScalarSymbaseAssignment::getOrAssignScalarSymbase(
-    const Value *Scalar, const IRRegion *IRReg, const Value **OldBaseScalar) {
+    const Value *Scalar, const IRRegion &IRReg, const Value **OldBaseScalar) {
   return getOrAssignScalarSymbaseImpl(Scalar, IRReg, true, OldBaseScalar);
 }
 
 unsigned HIRScalarSymbaseAssignment::getScalarSymbase(const Value *Scalar,
-                                                      const IRRegion *IRReg) {
+                                                      const IRRegion &IRReg) {
   return getOrAssignScalarSymbaseImpl(Scalar, IRReg, false, nullptr);
 }
 
 void HIRScalarSymbaseAssignment::populateRegionLiveouts(
     HIRRegionIdentification::iterator RegIt) {
   // Traverse region basic blocks.
-  for (auto BBIt = (*RegIt)->bb_begin(), EndIt = (*RegIt)->bb_end();
+  for (auto BBIt = RegIt->bb_begin(), EndIt = RegIt->bb_end();
        BBIt != EndIt; ++BBIt) {
 
     // Check if any instructions inside the basic blocks are live outside the
@@ -325,7 +325,7 @@ void HIRScalarSymbaseAssignment::populateRegionLiveouts(
 
       if (SCCF->isRegionLiveOut(RegIt, &*Inst)) {
         auto Symbase = getOrAssignScalarSymbase(&*Inst, *RegIt);
-        (*RegIt)->addLiveOutTemp(&*Inst, Symbase);
+        RegIt->addLiveOutTemp(&*Inst, Symbase);
       }
     }
   }
@@ -339,8 +339,8 @@ bool HIRScalarSymbaseAssignment::processRegionPhiLivein(
   // Check whether phi operands are live in to the region.
   for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
 
-    if (!(*RegIt)->containsBBlock(Phi->getIncomingBlock(I))) {
-      (*RegIt)->addLiveInTemp(Symbase, Phi->getIncomingValue(I));
+    if (!RegIt->containsBBlock(Phi->getIncomingBlock(I))) {
+      RegIt->addLiveInTemp(Symbase, Phi->getIncomingValue(I));
 
       Ret = true;
       break;
@@ -357,15 +357,14 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
        SCCIt != EndIt; ++SCCIt) {
 
     bool SCCLiveInProcessed = false;
-    unsigned Symbase = getOrAssignScalarSymbase((*SCCIt)->Root, *RegIt);
+    unsigned Symbase = getOrAssignScalarSymbase(SCCIt->Root, *RegIt);
 
     // Traverse SCC instructions
-    for (auto SCCInstIt = (*SCCIt)->Nodes.begin(),
-              EndIt = (*SCCIt)->Nodes.end();
+    for (auto SCCInstIt = SCCIt->Nodes.begin(), EndIt = SCCIt->Nodes.end();
          SCCInstIt != EndIt; ++SCCInstIt) {
 
       // Assign same symbase to all instructions in the SCC.
-      if ((*SCCInstIt) != (*SCCIt)->Root) {
+      if ((*SCCInstIt) != SCCIt->Root) {
         insertTempSymbase(*SCCInstIt, Symbase);
       }
 
@@ -382,8 +381,8 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
   }
 
   // Process phis in the entry bblock that are not part of any SCC.
-  for (auto InstIt = (*RegIt)->getEntryBBlock()->begin(),
-            EndIt = (*RegIt)->getEntryBBlock()->end();
+  for (auto InstIt = RegIt->getEntryBBlock()->begin(),
+            EndIt = RegIt->getEntryBBlock()->end();
        InstIt != EndIt && isa<PHINode>(InstIt); ++InstIt) {
     // Has been processed already?
     if (getTempSymbase(&*InstIt)) {
@@ -428,11 +427,11 @@ void HIRScalarSymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
     OS << "\nRegion " << (RegIt - RegBegin + 1);
 
     OS << "\n   Phi LiveIns: ";
-    for (auto LiveInIt = (*RegIt)->live_in_begin(),
-              EndIt = (*RegIt)->live_in_end();
+    for (auto LiveInIt = RegIt->live_in_begin(),
+              EndIt = RegIt->live_in_end();
          LiveInIt != EndIt; ++LiveInIt) {
 
-      if (LiveInIt != (*RegIt)->live_in_begin()) {
+      if (LiveInIt != RegIt->live_in_begin()) {
         OS << ", ";
       }
 
@@ -443,10 +442,10 @@ void HIRScalarSymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
     }
 
     OS << "\n   LiveOuts: ";
-    for (auto LiveOutIt = (*RegIt)->live_out_begin(),
-              EndIt = (*RegIt)->live_out_end();
+    for (auto LiveOutIt = RegIt->live_out_begin(),
+              EndIt = RegIt->live_out_end();
          LiveOutIt != EndIt; ++LiveOutIt) {
-      if (LiveOutIt != (*RegIt)->live_out_begin()) {
+      if (LiveOutIt != RegIt->live_out_begin()) {
         OS << ", ";
       }
       LiveOutIt->second->printAsOperand(OS, false);

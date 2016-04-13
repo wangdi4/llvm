@@ -26,7 +26,7 @@ HLNodeUtils::DummyIRBuilderTy *HLNodeUtils::DummyIRBuilder(nullptr);
 Instruction *HLNodeUtils::FirstDummyInst(nullptr);
 Instruction *HLNodeUtils::LastDummyInst(nullptr);
 
-HLRegion *HLNodeUtils::createHLRegion(IRRegion *IRReg) {
+HLRegion *HLNodeUtils::createHLRegion(IRRegion &IRReg) {
   return new HLRegion(IRReg);
 }
 

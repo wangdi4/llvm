@@ -120,7 +120,7 @@ private:
 
   /// \brief Returns the SCC this phi belongs to, if any, otherwise returns
   /// null.
-  HIRSCCFormation::SCCTy *getPhiSCC(const PHINode *Phi) const;
+  const HIRSCCFormation::SCCTy *getPhiSCC(const PHINode *Phi) const;
 
   /// \brief Returns true if OrigPredBB has an alternate reaching path to Phi
   /// other than the immediate successor. This means that adding a livein copy
@@ -148,7 +148,8 @@ private:
   /// replaces the liveout uses with the copy. If SCCNodes is null, Phi is
   /// treated as a standalone phi and this is needed to handle a special case
   /// described in the function definition.
-  void processPhiLiveouts(PHINode *Phi, HIRSCCFormation::SCCNodesTy *SCCNodes,
+  void processPhiLiveouts(PHINode *Phi,
+                          const HIRSCCFormation::SCCNodesTy *SCCNodes,
                           StringRef Name);
 
   /// \brief Deconstructs phi by inserting copies.
@@ -167,7 +168,7 @@ private:
   bool ModifiedIR;
   unsigned NamingCounter;
   HIRRegionIdentification::iterator CurRegIt;
-  SmallPtrSet<HIRSCCFormation::SCCTy *, 32> ProcessedSCCs;
+  SmallPtrSet<const HIRSCCFormation::SCCTy *, 32> ProcessedSCCs;
 };
 }
 
@@ -241,14 +242,14 @@ Instruction *HIRSSADeconstruction::insertCopyAsFirstInst(Instruction *Inst,
   return CopyInst;
 }
 
-HIRSCCFormation::SCCTy *
+const HIRSCCFormation::SCCTy *
 HIRSSADeconstruction::getPhiSCC(const PHINode *Phi) const {
   for (auto SCCIt = SCCF->begin(CurRegIt), E = SCCF->end(CurRegIt); SCCIt != E;
        ++SCCIt) {
 
     // Present in this SCC.
-    if (((*SCCIt)->Nodes).count(Phi)) {
-      return *SCCIt;
+    if (SCCIt->Nodes.count(Phi)) {
+      return &(*SCCIt);
     }
   }
 
@@ -378,7 +379,7 @@ bool HIRSSADeconstruction::liveoutCopyRequired(
 }
 
 void HIRSSADeconstruction::processPhiLiveouts(
-    PHINode *Phi, HIRSCCFormation::SCCNodesTy *SCCNodes, StringRef Name) {
+    PHINode *Phi, const HIRSCCFormation::SCCNodesTy *SCCNodes, StringRef Name) {
 
   Instruction *CopyInst = nullptr;
   bool CopyRequired = false;
@@ -537,7 +538,7 @@ bool HIRSSADeconstruction::processPhiLiveins(
     auto PredBB = Phi->getIncomingBlock(I);
 
     // Ignore if this value is region live-in.
-    if (!(*CurRegIt)->containsBBlock(PredBB)) {
+    if (!CurRegIt->containsBBlock(PredBB)) {
       continue;
     }
 
@@ -559,7 +560,7 @@ bool HIRSSADeconstruction::processPhiLiveins(
                "Could not split edge, SplitCriticalEdge() returned null!");
 
         // Add the new bblock to the current region.
-        (*CurRegIt)->addBBlock(PredBB);
+        CurRegIt->addBBlock(PredBB);
       }
     }
 
@@ -684,7 +685,7 @@ void HIRSSADeconstruction::deconstructSSAForRegions() {
     CurRegIt = RegIt;
 
     // Traverse region basic blocks.
-    for (auto BBIt = (*RegIt)->bb_begin(), EndBBIt = (*RegIt)->bb_end();
+    for (auto BBIt = RegIt->bb_begin(), EndBBIt = RegIt->bb_end();
          BBIt != EndBBIt; ++BBIt) {
 
       // Process instructions inside the basic blocks.

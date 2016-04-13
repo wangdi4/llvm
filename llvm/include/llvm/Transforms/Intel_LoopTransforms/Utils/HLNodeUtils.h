@@ -146,7 +146,7 @@ private:
   static void initialize();
 
   /// \brief Returns a new HLRegion. Only used by framework.
-  static HLRegion *createHLRegion(IRRegion *IRReg);
+  static HLRegion *createHLRegion(IRRegion &IRReg);
 
   /// \brief Returns a new HLLabel. Only used by framework.
   static HLLabel *createHLLabel(BasicBlock *SrcBB);
