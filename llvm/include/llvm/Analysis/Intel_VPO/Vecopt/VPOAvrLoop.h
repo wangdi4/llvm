@@ -56,8 +56,6 @@ public:
 private:
   /// WRNVecLoop Node.
   WRNVecLoopNode *WrnLoopNode;
-  /// Pointer to original LLVM loop.
-  const Loop *LLVMLoop;
   /// Loop nesting level.
   unsigned NestingLevel;
   /// Number of loop exits.
@@ -86,16 +84,9 @@ private:
   // TODO: PHI Node
 
 protected:
-  // Interface to create AVRLoop from LLVM Loop.
-  AVRLoop(const Loop *Lp);
 
-  // AvrLoop copy constructor.
-  AVRLoop(const AVRLoop &AVROrigLoop);
-
+  AVRLoop(unsigned SCID);
   virtual ~AVRLoop() override {}
-
-  /// \brief Set Orig LLVM Loop
-  void setOrigLLVMLoop(Loop *Lp) { LLVMLoop = Lp; }
 
   /// \brief Set the loop nesting level
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
@@ -131,9 +122,6 @@ public:
 
   /// \brief Returns WRNVecLoop node.
   WRNVecLoopNode *getWrnVecLoopNode() { return WrnLoopNode; }
-
-  /// \brief Returns Original LLVM Loop
-  const Loop *getLLVMLoop() const { return LLVMLoop; }
 
   /// \brief Returns Loop nesting level
   unsigned getNestingLevel() const { return NestingLevel; }
@@ -202,7 +190,8 @@ public:
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return Node->getAVRID() == AVR::AVRLoopNode;
+    return (Node->getAVRID() >= AVR::AVRLoopNode &&
+            Node->getAVRID() < AVR::AVRLoopLastNode);
   }
 
   /// \brief Prints the AvrLoop node.

@@ -5,139 +5,76 @@
 ;
 
 ;CHECK: Printing analysis 'AVR Generate' for function '_ZGVxM4v_vec_search':
+
 ;CHECK-NEXT: WRN
 
-;CHECK: simd.begin.region:
-;CHECK-NEXT: call void @llvm.intel.directive
-;CHECK-NEXT: call void @llvm.intel.directive.qual.opnd.i32
-;CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist
-;CHECK-NEXT: call void @llvm.intel.directive
-;CHECK-NEXT: br label %DIR.QUAL.LIST.END
+;CHECK:      simd.begin.region:
+;CHECK:      br label %DIR.QUAL.LIST.END
 
 ;CHECK-NEXT: DIR.QUAL.LIST.END
 ;CHECK-NEXT: br label %simd.loop
 
-;CHECK: LOOP
+;CHECK:      LOOP( IV )
 
-;CHECK: simd.loop:
-;CHECK-NEXT: %index = phi i32 [ 0, %DIR.QUAL.LIST.END.{{[0-9]}} ], [ %indvar, %simd.loop.exit ]      
-;CHECK: br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
+;CHECK:      simd.loop:
+;CHECK:      br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
 
-;CHECK-NEXT: simd.loop.then:
-;CHECK: br label %for.cond
+;CHECK:      if( %mask.cond = icmp ne i32 %mask.parm, 0 )
 
-;CHECK: LOOP
+;CHECK:      simd.loop.then:
+;CHECK:      br i1 %cmp2, label %for.body.lr.ph, label %for.end
 
-;CHECK: for.cond:
-;CHECK-NEXT: %0 = load %i
-;CHECK: br i1 %cmp, label %for.body, label %for.end
+;CHECK:      if( %cmp2 = icmp slt i32 %0, 64 )
+
+
+;CHECK:      for.body.lr.ph:
+;CHECK-NEXT: br label %for.body
 
 ;CHECK-NEXT: for.body:
-;CHECK-NEXT: %1 = load %i
+;CHECK:      br i1 %cmp1, label %if.then, label %if.end
 
-;CHECK: if( %cmp1 = icmp eq i32 %2, %3 )
-;CHECK: if.then:
-;CHECK-NEXT: %4 = load %i
-;CHECK: br label %simd.loop.exit
+;CHECK:      if( %cmp1 = icmp eq i32 %2, %3 )
 
-;CHECK: else
+;CHECK:      if.then:
+;CHECK:      br label %simd.loop.exit
 
-;CHECK: if.end:
+
+;CHECK:      else
+
+;CHECK:      if.end:
 ;CHECK-NEXT: br label %for.inc
 
+;CHECK:      for.inc:
+;CHECK:      %cmp = icmp slt i32 %6, 64
+;CHECK-NEXT: br i1 %cmp, label %for.body, label %for.cond.for.end_crit_edge
 
-;CHECK: for.inc:
-;CHECK-NEXT: %5 = load %i
-;CHECK: br label %for.cond
+;CHECK:      for.cond.for.end_crit_edge:
+;CHECk-NEXT: br label %for.end
 
-;CHECK: for.end:
+;CEHCK:      else
+
+;CHECK:      for.end:
 ;CHECK-NEXT: %ret.cast.gep1 = %ret.cast getelementptr %index
-;CHECK: br label %simd.loop.exit
+;CHECK:      br label %simd.loop.exit
 
-;CHECK-NEXT: simd.loop.else:
+;CHECK:      else
+
+;CHECK:      simd.loop.else:
 ;CHECK-NEXT: br label %simd.loop.exit
 
-;CHECK-NEXT: simd.loop.exit:
-;CHECK-NEXT: %indvar = 1 add %index
-;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
+;CHECK:      simd.loop.exit:
+;CHECK:      br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
 
-;CHECK: simd.end.region:
-;CHECK-NEXT: call void @llvm.intel.directive(metadata !13)
-;CHECK: br label %DIR.QUAL.LIST.END
+;CHECK:      simd.end.region:
+;CHECK:      br label %DIR.QUAL.LIST.END
 
 ;CHECK-NEXT: DIR.QUAL.LIST.END
 ;CHECK-NEXT: br label %return
 
 ;CHECK-NEXT: return:
-;CHECK-NEXT: %vec.ret.cast = bitcast %ret.cast
-;CHECK-NEXT: %vec.ret = load %vec.ret.cast
-;CHECK-NEXT: ret <4 x i32> %vec.ret
+;CHECK:      ret <4 x i32> %vec.ret
 
-
-;
-; Check the correctness of generated Abstract Layer for non-masked function
-;
-
-;CHECK: Printing analysis 'AVR Generate' for function '_ZGVxN4v_vec_search':
-;CHECK: WRN
-
-;CHECK: simd.begin.region:
-;CHECK: call void @llvm.intel.directive
-;CHECK-NEXT: call void @llvm.intel.directive.qual.opnd.i32
-;CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist
-;CHECK-NEXT: call void @llvm.intel.directive
-;CHECK-NEXT: br label %DIR.QUAL.LIST.END
-
-;CHECK-NEXT: DIR.QUAL.LIST.END
-;CHECK-NEXT: br label %simd.loop
-
-;CHECK: LOOP
-;CHECK: simd.loop:
-;CHECK-NEXT: %index = phi i32 [ 0, %DIR.QUAL.LIST.END.{{[0-9]}} ], [ %indvar, %simd.loop.exit ]
-;CHECK: br label %for.cond
-
-;CHECK: LOOP( IV )
-;CHECK: for.cond:
-;CHECK-NEXT: %0 = load %i
-;CHECK: br i1 %cmp, label %for.body, label %for.end
-
-;CHECK-NEXT: for.body:
-;CHECK-NEXT: %1 = load %i
-
-;CHECK: if( %cmp1 = icmp eq i32 %2, %3 )
-;CHECK: if.then:
-;CHECK-NEXT: %4 = load %i
-;CHECK: br label %simd.loop.exit
-
-;CHECK: else
-;CHECK: if.end:
-;CHECK: br label %for.inc
-
-;CHECK: for.inc:
-;CHECK-NEXT: %5 = load %i
-;CHECK: br label %for.cond
-
-;CHECK: simd.loop.exit:
-;CHECK-NEXT: %indvar = 1 add %index
-;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
-
-;CHECK: simd.end.region:
-;CHECK-NEXT: call void @llvm.intel.directive(metadata !13)
-;CHECK-NEXT: call void @llvm.intel.directive(metadata !10)
-;CHECK-NEXT: br label %DIR.QUAL.LIST.END
-
-;CHECK-NEXT: DIR.QUAL.LIST.END
-;CHECK-NEXT: br label %return
-
-;CHECK-NEXT: return:
-;CHECK-NEXT: %vec.ret.cast = bitcast %ret.cast
-;CHECK-NEXT: %vec.ret = load %vec.ret.cast
-;CHECK-NEXT: ret <4 x i32> %vec.ret
-
-;CHECK: for.end:
-;CHECK-NEXT: %ret.cast.gep1 = %ret.cast getelementptr %index
-;CHECK: br label %simd.loop.exit
-
+; ModuleID = 'test.bc'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -151,14 +88,14 @@ entry:
   %i = alloca i32, align 4
   store i32 %x, i32* %x.addr, align 4
   store i32 0, i32* %i, align 4
-  br label %for.cond
-
-for.cond:                                         ; preds = %for.inc, %entry
   %0 = load i32, i32* %i, align 4
-  %cmp = icmp slt i32 %0, 64
-  br i1 %cmp, label %for.body, label %for.end
+  %cmp2 = icmp slt i32 %0, 64
+  br i1 %cmp2, label %for.body.lr.ph, label %for.end
 
-for.body:                                         ; preds = %for.cond
+for.body.lr.ph:                                   ; preds = %entry
+  br label %for.body
+
+for.body:                                         ; preds = %for.body.lr.ph, %for.inc
   %1 = load i32, i32* %i, align 4
   %idxprom = sext i32 %1 to i64
   %arrayidx = getelementptr inbounds [64 x i32], [64 x i32]* @g1, i32 0, i64 %idxprom
@@ -179,15 +116,20 @@ for.inc:                                          ; preds = %if.end
   %5 = load i32, i32* %i, align 4
   %inc = add nsw i32 %5, 1
   store i32 %inc, i32* %i, align 4
-  br label %for.cond
+  %6 = load i32, i32* %i, align 4
+  %cmp = icmp slt i32 %6, 64
+  br i1 %cmp, label %for.body, label %for.cond.for.end_crit_edge
 
-for.end:                                          ; preds = %for.cond
+for.cond.for.end_crit_edge:                       ; preds = %for.inc
+  br label %for.end
+
+for.end:                                          ; preds = %for.cond.for.end_crit_edge, %entry
   store i32 -1, i32* %retval
   br label %return
 
 return:                                           ; preds = %for.end, %if.then
-  %6 = load i32, i32* %retval
-  ret i32 %6
+  %7 = load i32, i32* %retval
+  ret i32 %7
 }
 
 attributes #0 = { nounwind uwtable "_ZGVxM4v_" "_ZGVxN4v_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }

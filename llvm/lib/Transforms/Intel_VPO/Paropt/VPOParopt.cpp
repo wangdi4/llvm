@@ -47,6 +47,10 @@ using namespace llvm::vpo;
 
 INITIALIZE_PASS_BEGIN(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                       false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
+INITIALIZE_PASS_DEPENDENCY(LCSSA)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
 INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                     false)
@@ -62,6 +66,8 @@ VPOParopt::VPOParopt() : ModulePass(ID) {
 
 void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequiredID(LoopSimplifyID);
+  AU.addRequiredID(LCSSAID);
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<WRegionInfo>();
 }
@@ -93,6 +99,12 @@ bool VPOParopt::runOnModule(Module &M) {
     // Get Dom Tree information of the function F
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(*F).getDomTree();
 
+    // Get Scalar Evolution information of the function F
+    ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>(*F).getSE();
+
+    // Get Loop information of the function F
+    LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(*F).getLoopInfo();
+
     if (WI.WRGraphIsEmpty()) {
       DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");
     }
@@ -109,7 +121,7 @@ bool VPOParopt::runOnModule(Module &M) {
     DEBUG(errs().write_escaped(F->getName()) << '\n');
 
     // AUTOPAR | OPENMP | SIMD | OFFLOAD
-    VPOParoptTransform VP(F, &WI, &DT, Mode);
+    VPOParoptTransform VP(F, &WI, &DT, &SE, &LI, Mode);
     Changed = Changed | VP.ParoptTransformer();
 
     // Remove calls to directive intrinsics since the LLVM back end does not

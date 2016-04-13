@@ -1,9 +1,6 @@
-;RUN: opt -hir-ssa-deconstruction -VPODriverHIR -hir-cg -mem2reg -S %s | FileCheck %s
+;RUN: opt -VPODriver -S %s | FileCheck %s
 
-; CHECK: loop
-; CHECK: phi <8 x float> [ zeroinitializer
-; CHECK: fadd <8 x float>
-; CHECK: afterloop
+; CHECK: for.end
 ; CHECK: shufflevector <8 x float>
 ; CHECK: shufflevector <8 x float>
 ; CHECK: fadd <4 x float>
@@ -13,7 +10,10 @@
 ; CHECK: extractelement <2 x float>
 ; CHECK: extractelement <2 x float>
 ; CHECK: fadd float
-; CHECK: br label %for.end
+; CHECK: vector.body
+; CHECK: phi <8 x float> [ zeroinitializer
+; CHECK: fadd <8 x float>
+; CHECK: br {{.*}} label %for.end
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

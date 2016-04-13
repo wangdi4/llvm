@@ -123,6 +123,31 @@ void WRNParallelLoopNode::print(formatted_raw_ostream &OS,
   OS << Indent << "BEGIN WRNParallelLoopNode<" << getNumber() << "> {\n";
   // TODO: print data local to this ParRegion
   //       eg shared vars, priv vars, etc.
+
+  if (auto PrivC = getPriv())
+    for (PrivateItem *PrivI : PrivC->items()) {
+      StringRef PrivS = IntelIntrinsicUtils::getClauseString(QUAL_OMP_PRIVATE);
+      OS << Indent << "PRIVATE clause: " << PrivS << " "
+         << PrivI->getOrig()->getName() << "\n";
+    }
+
+  // LinearClause *C = getLinear();
+  // if (C) {
+  //  OS << Indent;
+  //  C->print(OS);
+  // }
+
+  OS << "\n" << Indent << "EntryBB:" << *getEntryBBlock();
+  OS << "\n" << Indent << "ExitBB:" << *getExitBBlock();
+  OS << "\n" << Indent << "BBlockSet dump:\n";
+  if (!isBBSetEmpty())
+    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
+      const BasicBlock *BB = *I;
+      OS << Indent << *BB;
+    }
+  else
+    OS << Indent << "No BBSet\n";
+
   printChildren(OS, Depth + 1);
   OS << Indent << "} END WRNParallelLoopNode<" << getNumber() << ">\n";
 }

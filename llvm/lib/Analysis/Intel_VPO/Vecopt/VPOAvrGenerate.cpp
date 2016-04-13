@@ -15,10 +15,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecCandIdentify.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -32,10 +32,10 @@ using namespace llvm::vpo;
 using namespace llvm::loopopt;
 
 INITIALIZE_PASS_BEGIN(AVRGenerate, "avr-generate", "AVR Generate", false, true)
-INITIALIZE_PASS_DEPENDENCY(IdentifyVectorCandidates)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WRegionInfo);
 INITIALIZE_PASS_END(AVRGenerate, "avr-generate", "AVR Generate", false, true)
 
 char AVRGenerate::ID = 0;
@@ -624,14 +624,15 @@ AVRGenerate::AVRGenerate() : AVRGenerateBase(ID) {
 
 void AVRGenerate::getAnalysisUsage(AnalysisUsage &AU) const {
   AVRGenerateBase::getAnalysisUsage(AU);
-  AU.addRequired<IdentifyVectorCandidates>();
+  AU.addRequired<WRegionInfo>();
 }
 
 bool AVRGenerate::runOnFunction(Function &F) {
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
+  DT  = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-  VC = &getAnalysis<IdentifyVectorCandidates>();
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  LI  = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  WR  = &getAnalysis<WRegionInfo>();
 
   return AVRGenerateBase::runOnFunction(F);
 }
@@ -666,33 +667,51 @@ bool AVRGenerate::postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const {
   return true;
 }
 
+void AVRGenerate::sortDomChildren(
+    DomTreeNode *Node, SmallVectorImpl<BasicBlock *> &SortedChildren) const {
+
+  // Sort the dom children of Node using post dominator relationship. If child1
+  // post dominates child2, it should be visited after child2 otherwise forward
+  // edges can turn into back edges.
+
+  // TODO: look into dom child ordering for multi-exit loops.
+
+  for (auto &I : (*Node)) {
+    SortedChildren.push_back(I->getBlock());
+  }
+
+  // This check orders children that post-dominate other children, before them.
+  // This is because I couldn't think of an appropriate check for sorting in the
+  // reverse order. So instead the children are visited in reverse order after
+  // sorting.
+  auto PostDomOrder = [this](BasicBlock *B1, BasicBlock *B2) {
+    // First check satisfies the strict weak ordering requirements of
+    // comparator function.
+    return ((B1 != B2) && PDT->dominates(B1, B2));
+  };
+
+  std::sort(SortedChildren.begin(), SortedChildren.end(), PostDomOrder);
+}
+
 AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos) {
 
   assert(BB && &*InsertionPos && "Avr preorder traversal failed!");
 
-  BasicBlock *LatchBB = nullptr;
-  bool LatchIsDomChild = false;
+  SmallVector<BasicBlock *, 8> DomChildren;
   auto *DomNode = DT->getNode(BB);
-
-  if (auto Lp = LI->getLoopFor(BB))
-    LatchBB = Lp->getLoopLatch();
 
   // Build AVR node sequence for current basic block
   InsertionPos = generateAvrInstSeqForBB(BB, InsertionPos);
   AvrItr LastAvr(InsertionPos);
 
-  // Traverse dominator children
-  for (auto I = DomNode->begin(), E = DomNode->end(); I != E; ++I) {
+  // Sort the dominator children
+  sortDomChildren(DomNode, DomChildren);
 
-    auto *DomChildBB = (*I)->getBlock();
+  // Traverse dominator children in reverse order. Post dominating children
+  // preceed the children they dominate. 
+  for (auto RI = DomChildren.rbegin(), RE = DomChildren.rend(); RI != RE; ++RI) {
 
-    // In some cases the latch BB will be a dom child of a conditional.
-    // (Dominator children are not ordered). Save the latch BB evaluation
-    // for the end of our traversal.
-    if (DomChildBB == LatchBB) {
-      LatchIsDomChild = true;
-      continue;
-    }
+    auto DomChildBB = (*RI);
 
     if (AVRIfIR *AvrIfIR = dyn_cast<AVRIfIR>(LastAvr)) {
       AVRBranch *Branch = AvrIfIR->getAvrBranch();
@@ -752,25 +771,79 @@ AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos) {
     InsertionPos = preorderTravAvrBuild(DomChildBB, InsertionPos);
   }
 
-  if (LatchIsDomChild) {
-    InsertionPos = preorderTravAvrBuild(LatchBB, InsertionPos);
-  }
-
   return InsertionPos;
 }
 
-void AVRGenerate::buildAvrsForVectorCandidates() {
-  // Temporary implemtation uses vector of Vector Candidate objects to
-  // build AVRs.  Will move away from usage of this object and use
-  // visitor for WRN graph when available.
 
-  for (auto I = VC->begin(), E = VC->end(); I != E; ++I) {
+#if 0
+/// \brief This visitor class traverses the WRN graph and inserts
+/// AVRWRN nodes into the abstract layer for nested WRN nodes. 
+/// For vectorization, this WRN graph insertion will happen for:
+///
+/// #pragma simd
+/// for () {             WRN #1
+///   ...                 |
+///   #pragma simd        |
+///   for() {             | -> WRN #2
+///     ...
+///   }
+/// }
+///
+/// This nested WRN graph is produced when nested simd
+/// is specified or similarily for nested auto vectorization 
+/// pragmas emitted by par vec analysis.
+/// (This is currently disabled until support in front-end
+/// or parvec is enabled for nested pragmas)
+///
+class AvrWrnInsertVisitor {
+public:
+  /// AL - Abstract Layer to insert WRN nodes into.
+  AVRGenerateBase *AL; 
 
-    AvrWrn = AVRUtils::createAVRWrn((*I)->getWrnNode());
+  /// Visitor constructor
+  AvrWrnInsertVisitor(AVRGenerateBase *Layer) :AL(Layer) {}
 
-    preorderTravAvrBuild((*I)->getEntryBBlock(), AvrItr(AvrWrn));
-    AbstractLayer.push_back(AvrWrn);
+  bool quitVisit(WRegionNode* W) { return false; }
+  void preVisit(WRegionNode* W)  {} 
+  void postVisit(WRegionNode* W) { 
+    if (WRNVecLoopNode *WRN = dyn_cast<WRNVecLoopNode>(W)) {
+
+      // 1. Check if WRN is a child node of a top-level parent WRN.
+      // 2. Create a new AVRWrn node and insert into abstract layer.
+      // 3. Move the respective AVR nodes of this WRN loop nest 
+      //    into the children container of newly created WRN avr. 
+    }
   }
+
+};
+#endif
+
+void AVRGenerate::buildAvrsForVectorCandidates() {
+
+  // Traverse the top level WRN nodes and recursively build avrs for
+  // each of the loop nests these top level nodes represent. If there
+  // exist WRN nodes which have children WRN nodes, these will be 
+  // added to the Abstract Layer after the preorder build is completed.
+  for (auto Itr = WR->begin(), End = WR->end(); Itr != End; ++Itr) {
+
+    if (WRNVecLoopNode *WRNVecNode = dyn_cast<WRNVecLoopNode>(Itr)) {
+
+      AvrWrn = AVRUtils::createAVRWrn(WRNVecNode);
+      preorderTravAvrBuild(WRNVecNode->getEntryBBlock(), AvrItr(AvrWrn));
+      AbstractLayer.push_back(AvrWrn);
+
+    }
+  }
+
+  // Traverse the WRN graph, and update the Abstract Layer with any
+  // children (nested) WRN nodes which are present.
+  // (Need front-end support for nested simd and parvec support
+  // for nested autovect pragma) 
+#if 0
+  AvrWrnInsertVisitor WrnChildInsertion(this);
+  WRegionUtils::forwardVisit(WrnChildInsertion, WR->getWRGraph());
+#endif
+
 }
 
 AvrItr AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB,
@@ -827,7 +900,7 @@ AvrItr AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB,
     default:
       NewNode = AVRUtilsIR::createAVRAssignIR(&*I);
     }
-
+    
     DEBUG(dbgs() << "VECREPORT: Generated New AVR = ");
     DEBUG(NewNode->dump());
 
@@ -856,10 +929,12 @@ AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos) {
 
     if (BI->isConditional()) {
 
-      auto *CI = cast<Instruction>(BI->getCondition());
-      AvrCondition = AvrInsts[CI];
-      assert(AvrCondition && "Avr condition for branch could not be resolved!");
-
+      if (auto *CI = dyn_cast<Instruction>(BI->getCondition())) {
+  
+        AvrCondition = AvrInsts[CI];
+        assert(AvrCondition && "Avr condition for branch could not be "
+                               "resolved!");
+      }
     }
 
     // Create a branch terminator
@@ -870,14 +945,16 @@ AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos) {
     AVRUtils::insertAVRAfter(AvrItr(InsertionPos), ABranch);
     InsertionPos = ABranch;
 
-    // Construct the AVRIf in place. Do not generate AVRIfs for loop header or
-    // loop latches.  The conditional branch this AVRIf represents will be 
+    // Construct the AVRIf in place. Do not generate AVRIfs for
+    // loop latches. The loop latch conditional branch will instead be
+    // represented by the Loop IV, UB, LB and trip count.
+    // The conditional branch this AVRIf represents will be 
     // cleaned up downstream. For now we leave it in the abstract layer.
 
     Loop *Lp = LI->getLoopFor(BB); 
     auto LpLatchBB = Lp ? Lp->getLoopLatch() : nullptr;
 
-    if (BI->isConditional() && !LI->isLoopHeader(BB) && BB != LpLatchBB) {
+    if (BI->isConditional() &&  BB != LpLatchBB) {
 
       // Create an AVRIf node for terminator and insert it into the
       // abstract layer.
@@ -912,12 +989,60 @@ AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos) {
     AVRUtils::insertAVRAfter(AvrItr(InsertionPos), AUnreach);
     InsertionPos = AUnreach;
 
+  } else if (InvokeInst *II = dyn_cast<InvokeInst>(Terminator)) {
+
+    // TODO: Add avr type for invoke.
+    // Create an invoke node terminator and insert into the abstract
+    // layer.
+    AVRAssignIR *AAssign= AVRUtilsIR::createAVRAssignIR(II);
+    AVRUtils::insertAVRAfter(AvrItr(InsertionPos), AAssign);
+    InsertionPos = AAssign;
+
+  } else if (ResumeInst *RI = dyn_cast<ResumeInst>(Terminator)) {
+
+    // TODO: Add avr type for resume.
+    // Create a resume node terminator and insert into the abstract
+    // layer.
+    AVRAssignIR *AAssign= AVRUtilsIR::createAVRAssignIR(RI);
+    AVRUtils::insertAVRAfter(AvrItr(InsertionPos), AAssign);
+    InsertionPos = AAssign;
+
+  } else if (CatchSwitchInst *CSI = dyn_cast<CatchSwitchInst>(Terminator)) {
+
+    // TODO: Add avr type for catchswitch inst.
+    // Create a catchswitch node terminator and insert into the abstract
+    // layer.
+    AVRAssignIR *AAssign= AVRUtilsIR::createAVRAssignIR(CSI);
+    AVRUtils::insertAVRAfter(AvrItr(InsertionPos), AAssign);
+    InsertionPos = AAssign;
+
+  } else if (CatchReturnInst *CRI = dyn_cast<CatchReturnInst>(Terminator)) {
+
+    // TODO: Add avr type for catchret.
+    // Create a catchret node terminator and insert into the abstract
+    // layer.
+    AVRAssignIR *AAssign= AVRUtilsIR::createAVRAssignIR(CRI);
+    AVRUtils::insertAVRAfter(AvrItr(InsertionPos), AAssign);
+    InsertionPos = AAssign;
+
+  } else if (CleanupReturnInst *CRI = dyn_cast<CleanupReturnInst>(Terminator)) {
+
+    // TODO: Add avr type for cleanupret.
+    // Create a cleanup node terminator and insert into the abstract
+    // layer.
+    AVRAssignIR *AAssign= AVRUtilsIR::createAVRAssignIR(CRI);
+    AVRUtils::insertAVRAfter(AvrItr(InsertionPos), AAssign);
+    InsertionPos = AAssign;
+
   } else {
 
     DEBUG(Terminator->dump());
     llvm_unreachable("Unknown terminator type!");
 
   }
+
+  DEBUG(dbgs() << "VECREPORT: Generated New AVR = ");
+  DEBUG(InsertionPos->dump());
 
   return InsertionPos;
 }
@@ -934,6 +1059,25 @@ void AVRGenerate::buildAvrsForFunction() {
   AbstractLayer.push_back(AvrFunction);
 }
 
+bool AVRGenerate::isLoopALSupported(const Loop &Lp) {
+
+  // Abstract Layer currently doesn't support building AVRLoop nodes for LLVM
+  // Loops not in "normal" form. Loop must have a preheader, a single backedge,
+  // and all of its exits have all of their predecessors inside the loop.
+  if (!Lp.isLoopSimplifyForm()) {
+    DEBUG(dbgs() << "VECREPORT: Loop structure not supported.\n");
+    return false;
+  }
+
+  // Multi-exit loop not yet supported.
+  if (!Lp.getExitingBlock()) {
+    DEBUG(dbgs() << "VECREPORT: Multi-exit loops not currently supported.\n");
+    return false;
+  }
+
+  return true;
+}
+
 void AVRGenerate::formAvrLoopNest(AVRFunction *AvrFunction) {
 
   Function *Func = AvrFunction->getOrigFunction();
@@ -947,12 +1091,34 @@ void AVRGenerate::formAvrLoopNest(AVRFunction *AvrFunction) {
     Loop *Lp = LI->getLoopFor(&*I);
     assert(Lp && "Loop not found for Loop Header BB!");
 
+    if (!isLoopALSupported(*Lp))
+      continue;
+
     BasicBlock *LoopLatchBB = Lp->getLoopLatch();
     assert(LoopLatchBB && "Loop Latch BB not found!");
+
+    // Dominator and Post Dominator info is needed for avr loop
+    // formation. Absent info is usually due to infinite or
+    // unreachable loops
+    if (!DT->getNode(LoopLatchBB) || !PDT->getNode(LoopLatchBB)) {
+      DEBUG(dbgs() << "VECREPORT: Unreachable or infinite loops are not "
+                      "supported.\n");
+      continue;
+    }
 
     AVR *AvrLbl = AvrLabels[&*I];
     AVRLabel *AvrTermLabel = AvrLabels[LoopLatchBB];
     AVR *AvrTerm = AvrTermLabel->getTerminator();
+
+    if (AVRBranch *ABranch = dyn_cast<AVRBranch>(AvrTerm)) {
+
+      // We only handle bottom test loops.
+      if (!ABranch->isConditional()) {
+        DEBUG(dbgs() << "VECREPORT: Unconditional loop branch instructions not "
+                        "currently supported.\n");
+        continue;
+      }
+    }
 
     if (AvrLbl && AvrTerm) {
 
@@ -960,11 +1126,11 @@ void AVRGenerate::formAvrLoopNest(AVRFunction *AvrFunction) {
       markLoopBottomTest(AvrTermLabel);
 
       // Create AvrLoop
-      AVRLoop *AvrLoop = AVRUtils::createAVRLoop(Lp);
+      AVRLoopIR *AvrLoopIR = AVRUtilsIR::createAVRLoopIR(Lp);
 
       // Hook AVR Loop into AVR Sequence
-      AVRUtils::insertAVRBefore(AvrItr(AvrLbl), AvrLoop);
-      AVRUtils::moveAsFirstChildren(AvrLoop, AvrItr(AvrLbl), AvrItr(AvrTerm));
+      AVRUtils::insertAVRBefore(AvrItr(AvrLbl), AvrLoopIR);
+      AVRUtils::moveAsFirstChildren(AvrLoopIR, AvrItr(AvrLbl), AvrItr(AvrTerm));
     }
   }
 }
@@ -1006,6 +1172,9 @@ void AVRGenerate::formAvrLoopNest(AVRWrn *AvrWrn) {
     Loop *Lp = LI->getLoopFor(LoopHeaderBB);
     assert(Lp && "Loop not found for Loop Header BB!");
 
+    if (!isLoopALSupported(*Lp))
+      continue;
+
     BasicBlock *LoopLatchBB = Lp->getLoopLatch();
     assert(LoopLatchBB && "Loop Latch BB not found!");
 
@@ -1019,15 +1188,15 @@ void AVRGenerate::formAvrLoopNest(AVRWrn *AvrWrn) {
       markLoopBottomTest(AvrTermLabel);
 
       // Create AvrLoop
-      AVRLoop *AvrLoop = AVRUtils::createAVRLoop(Lp);
+      AVRLoopIR *AvrLoopIR = AVRUtilsIR::createAVRLoopIR(Lp);
 
       // TODO: For nested WRN, this needs to only be set for
       // top-level loop of WRN.
-      AvrLoop->setWrnVecLoopNode(AvrWrn->getWrnNode());
+      AvrLoopIR->setWrnVecLoopNode(AvrWrn->getWrnNode());
 
       // Hook AVR Loop into AVR Sequence
-      AVRUtils::insertAVRBefore(AvrItr(AvrLbl), AvrLoop);
-      AVRUtils::moveAsFirstChildren(AvrLoop, AvrItr(AvrLbl), AvrItr(AvrTerm));
+      AVRUtils::insertAVRBefore(AvrItr(AvrLbl), AvrLoopIR);
+      AVRUtils::moveAsFirstChildren(AvrLoopIR, AvrItr(AvrLbl), AvrItr(AvrTerm));
     }
   }
 
@@ -1107,9 +1276,9 @@ AVR *AVRGenerateHIR::AVRGenerateVisitor::visitGoto(HLGoto *G) {
 }
 
 AVR *AVRGenerateHIR::AVRGenerateVisitor::visitLoop(HLLoop *L) {
-  AVRLoop *ALoop;
+  AVRLoopHIR *ALoop;
 
-  ALoop = AVRUtils::createAVRLoop((const Loop *)nullptr);
+  ALoop = AVRUtilsHIR::createAVRLoopHIR((HLLoop *)nullptr);
 
   // Visit loop children
   for (auto It = L->child_begin(), E = L->child_end(); It != E; ++It) {
