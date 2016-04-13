@@ -70,7 +70,7 @@ void GlobalCompilerConfig::LoadConfig()
     {
         m_infoOutputFile = pEnv;
     }
-
+#endif // NDEBUG
 #ifdef OCLT
     // Stat options are set as llvm options for 2 reasons
     // they are available also for opt
@@ -84,7 +84,6 @@ void GlobalCompilerConfig::LoadConfig()
         }
     }
 #endif // OCLT
-#endif // NDEBUG
 }
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
@@ -114,8 +113,8 @@ void CompilerConfig::LoadConfig()
     {
         m_cpuArch = pEnv;
     }
-#ifndef NDEBUG
-    if (const char *pEnv = getenv("VOLCANO_TRANSPOSE_SIZE"))
+
+    if (const char *pEnv = getenv("CL_CONFIG_CPU_VECTORIZER_MODE"))
     {
         unsigned int size;
         if ((std::stringstream(pEnv) >> size).fail())
@@ -124,7 +123,7 @@ void CompilerConfig::LoadConfig()
         }
         m_transposeSize = ETransposeSize(size);
     }
-
+#ifndef NDEBUG
     if (const char *pEnv = getenv("VOLCANO_CPU_FEATURES"))
     {
         // The validity of the cpud features are checked upon parsing of optimizer options

@@ -553,9 +553,13 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
          * @return the dynamically detected OpenCL version (according to registry in Windows and /etc/ in Linux)
          */        
         OPENCL_VERSION GetOpenCLVersion() const;
+        bool DisableStackDump() const {
 #ifndef NDEBUG
-        bool DisableStackDump() const { return m_pConfigFile->Read<bool>("CL_DISABLE_STACK_TRACE", false ); }
+            return m_pConfigFile->Read<bool>("CL_DISABLE_STACK_TRACE", false );
+#else
+            return false;
 #endif
+        }
         bool UseRelaxedMath() const { return m_pConfigFile->Read<bool>("CL_CONFIG_USE_FAST_RELAXED_MATH", false); }
         int  RTLoopUnrollFactor() const { return m_pConfigFile->Read<int>("CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR", 1); }
 	

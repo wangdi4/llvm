@@ -87,6 +87,11 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 		bool IsGenuineIntel();
 
+        bool isBroadwell();
+        bool isBroxton();
+        bool isSkylake();
+        bool isKabylake();
+
 		bool IsMicroArchitecture(EMicroArchitecture microArchitecture);
 
 		bool IsFeatureSupported(ECPUFeatureSupport featureType);
@@ -118,6 +123,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         char *			m_szCPUBrandString;
         unsigned int	m_uiCPUFeatures;
 		unsigned int	m_uiCoreCount;
+        unsigned short  m_i16ProcessorSignature;
         ECPUBrandFamily m_eCPUBrand;
 
 		void			GetCPUInfo();

@@ -1515,11 +1515,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             if (NULL != paramVal)
             {
-#ifdef BUILD_2_0_RT // emulator
-                *(cl_device_svm_capabilities*)paramVal = CL_DEVICE_SVM_COARSE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_ATOMICS;
-#else
                 *(cl_device_svm_capabilities*)paramVal = CL_DEVICE_SVM_COARSE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS;
-#endif                       
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_MAX_PIPE_ARGS:

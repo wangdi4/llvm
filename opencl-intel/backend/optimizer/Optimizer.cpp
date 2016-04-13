@@ -75,7 +75,9 @@ llvm::Pass *createClangCompatFixerPass();
 #else
 llvm::ModulePass *createSpirMaterializer();
 void materializeSpirDataLayout(llvm::Module&);
+#if defined(INCLUDE_MIC_DEVICE)
 llvm::FunctionPass *createPrefetchPassLevel(int level);
+#endif
 llvm::ModulePass * createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
 llvm::ModulePass* createDebugInfoPass();
@@ -282,12 +284,11 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
                              pConfig->GetDumpIRDir()));
   }
-  if (!pConfig->GetLibraryModule() && (
-#ifndef NDEBUG
-      getenv("DISMPF") != NULL || 
-#endif
-      intel::Statistic::isEnabled()))
+#if defined(INCLUDE_MIC_DEVICE)
+  if (!pConfig->GetLibraryModule() &&
+      getenv("DISMPF") != NULL || intel::Statistic::isEnabled())
     PM.add(createRemovePrefetchPass());
+#endif // INCLUDE_MIC_DEVICE
 #endif //#ifndef __APPLE__
   PM.add(createBuiltinCallToInstPass());
 
@@ -571,8 +572,10 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
     int APFLevel = pConfig->GetAPFLevel();
     // do APF and following cleaning passes only if APF is not disabled
     if (APFLevel != APFLEVEL_0_DISAPF) {
+#if defined(INCLUDE_MIC_DEVICE)
       if (pConfig->GetCpuId().RequirePrefetch())
         PM.add(createPrefetchPassLevel(pConfig->GetAPFLevel()));
+#endif
 
       PM.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
       PM.add(llvm::createInstructionCombiningPass());       // Instruction combining

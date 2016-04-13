@@ -100,6 +100,45 @@ bool CPUDetect::IsGenuineIntel()
     return m_bIsGenuineIntel;
 }
 
+// INTEL CORE.
+bool CPUDetect::isBroadwell()
+{
+    if(0x306D == m_i16ProcessorSignature || // Broadwell ULT Client.
+       0x4067 == m_i16ProcessorSignature || // Broadwell Client Halo.
+       0x406F == m_i16ProcessorSignature)   // Broadwell Server
+        return true;
+
+    return false;
+}
+
+bool CPUDetect::isSkylake()
+{
+    if(0x406E == m_i16ProcessorSignature || // Skylake ULT/ULX.
+       0x506E == m_i16ProcessorSignature)   // Skylake DT/HALO.
+        return true;
+
+    return false;
+}
+
+bool CPUDetect::isKabylake()
+{
+    if(0x806E == m_i16ProcessorSignature || // Kabylake ULT/ULX
+       0x906E == m_i16ProcessorSignature)   // Kabylake DT/HALO.
+        return true;
+
+    return false;
+}
+
+// INTEL ATOM.
+bool CPUDetect::isBroxton()
+{
+    // TODO. There shoud be more signatures.
+    if (0x506C == m_i16ProcessorSignature)// BXT A stepping?
+        return true;
+
+    return false;
+}
+
 bool CPUDetect::IsMicroArchitecture(EMicroArchitecture microArchitecture)
 {
     // !!! IMPORTANT NOTE !!!
@@ -228,6 +267,7 @@ CPUDetect::CPUDetect(void) :
 	m_szCPUBrandString(NULL),
 	m_uiCPUFeatures(0),
 	m_uiCoreCount(0),
+    m_i16ProcessorSignature(0),
     m_eCPUBrand(BRAND_UNKNOWN)
 {
     m_bBypassCPUDetect = ShouldBypassCPUCheck();
@@ -283,6 +323,8 @@ void CPUDetect::GetCPUInfo()
     }
 
     CPUID(viCPUInfo, 1);
+
+    m_i16ProcessorSignature = (short)(viCPUInfo[0] >> 4);
     m_ucStepping = viCPUInfo[0] & 0xf;
     m_ucModel = (viCPUInfo[0] >> 4) & 0xf;
     m_ucExtendedModel = ((viCPUInfo[0] >> 12) & 0xf0) | m_ucModel;

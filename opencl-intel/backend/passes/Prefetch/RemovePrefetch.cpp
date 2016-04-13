@@ -62,11 +62,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   bool RemovePrefetch::runOnModule(Module &M) {
 
-    bool removePF = true;
-#ifndef NDEBUG
-    if (getenv("DISMPF"))
-        removePF = false;
-#endif
+    bool removePF = getenv("DISMPF") != NULL;
 
     // do not execute this pass unless the user asked to remove manual
     // prefetches or the user is collecting stats for this pass

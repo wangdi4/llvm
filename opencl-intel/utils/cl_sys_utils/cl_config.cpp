@@ -28,6 +28,7 @@
 #include "cl_config.h"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
+#include "cl_cpu_detect.h"
 
 #include <cassert>
 #ifdef _WIN32
@@ -39,25 +40,6 @@ using namespace Intel::OpenCL::Utils;
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace Utils {
-
-static bool isBroadwell(short i16ProcessorSignature)
-{
-    if(0x306D == i16ProcessorSignature || // Broadwell ULT Client.
-       0x4067 == i16ProcessorSignature || // Broadwell Client Halo.
-       0x406F == i16ProcessorSignature)   // Broadwell Server
-        return true;
-
-    return false;
-}
-
-static bool isSkylake(short i16ProcessorSignature)
-{
-    if(0x406E == i16ProcessorSignature || // Skylake ULT/ULX.
-       0x506E == i16ProcessorSignature)   // Skylake DT/HALO.
-        return true;
-
-    return false;
-}
 
 #ifdef _WIN32
 
@@ -123,22 +105,23 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
         return OPENCL_VERSION_1_2;  // GPU SKUs Broadwell GT1 and Skylake GT1.5 support OpenCL 1.2, so we have to be aligned with it
     }
 
-    int cpuInfo[4] = {-1};
-    __cpuid(cpuInfo, 1);
-
-    const short i16ProcessorSignature = (short)(cpuInfo[0] >> 4);
-    if(isBroadwell(i16ProcessorSignature) ||
-       isSkylake(i16ProcessorSignature))
+    if(CPUDetect::GetInstance()->isBroadwell() ||
+       CPUDetect::GetInstance()->isSkylake()   ||
+       //TODO. Uncomment next line as soon as VPG support OpenCL 2.0.
+    //   CPUDetect::GetInstance()->isBroxton()   ||
+       CPUDetect::GetInstance()->isKabylake())
     {
         return OPENCL_VERSION_2_0;
     }
 
-    // BXT
+    // Workaround for Windows.
+    // TODO: Replace with isBroxton()
     if ("0A84" == devId || // BXT A stepping
         "1A84" == devId || // BXT B stepping
         "5A84" == devId  ) // BXT A-C steppings
     {
-        return OPENCL_VERSION_2_0;
+    //TODO. Replace next line with OPENCL_VERSION_2_0 as soon as VPG support OpenCL 2.0.
+        return OPENCL_VERSION_1_2;
     }
 
     return OPENCL_VERSION_1_2;
@@ -148,18 +131,30 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
 
 OPENCL_VERSION GetOpenclVerByCpuModel()
 {
-    unsigned int viCPUInfo[4] = {(unsigned int)-1};
-	cpuid(viCPUInfo, 1);
-    const short i16ProcessorSignature = (short)(viCPUInfo[0] >> 4);
-    if(isBroadwell(i16ProcessorSignature) ||
-       isSkylake(i16ProcessorSignature))
+    if(CPUDetect::GetInstance()->isBroadwell() ||
+       CPUDetect::GetInstance()->isSkylake()   ||
+       //TODO. Uncomment next line as soon as VPG support OpenCL 2.0.
+       //CPUDetect::GetInstance()->isBroxton()  ||
+       CPUDetect::GetInstance()->isKabylake())
     {
         return OPENCL_VERSION_2_0;
     }
 
     return OPENCL_VERSION_1_2;
 }
+#elif defined (__ANDROID__)
+OPENCL_VERSION GetOpenclVerByCpuModel()
+{
+    if(CPUDetect::GetInstance()->isBroxton())
+    {
+    //TODO. Replace next line with OPENCL_VERSION_2_0 as soon as VPG support OpenCL 2.0.
+        return OPENCL_VERSION_1_2;
+    }
 
+    return OPENCL_VERSION_1_2;
+}
+#else
+#error Unhandled OS!
 #endif
 
 }}}
@@ -387,10 +382,7 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     if (OPENCL_VERSION_UNKNOWN != s_ver)
     {
         return s_ver;
-    }    
-#ifdef BUILD_2_0_RT
-    return OPENCL_VERSION_2_0;
-#else
+    }
 #ifndef NDEBUG
     // first look in environment variable or configuration file
     string ver = m_pConfigFile->Read("ForceOCLCPUVersion", string(""));   // we are using this name to be aligned with GEN
@@ -419,7 +411,7 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     {
     case 1:
         {
-            s_ver = OPENCL_VERSION_1_2;                 
+            s_ver = OPENCL_VERSION_1_2;
             return OPENCL_VERSION_1_2;
         }
     case 2:
@@ -433,15 +425,14 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
             return OPENCL_VERSION_2_1;
         }
     default:
-#if !defined (__ANDROID__)
-        s_ver = GetOpenclVerByCpuModel();
-        return s_ver;
-#else
-        s_ver = OPENCL_VERSION_1_2;
-        return OPENCL_VERSION_1_2;
-#endif
+        break;
     }
-#else // NDEBUG
+#endif // NDEBUG
+
+#ifdef BUILD_EXPERIMENTAL_21
+    return OPENCL_VERSION_2_1;
+#endif // BUILD_EXPERIMENTAL_21
+
 #if !defined (__ANDROID__)
     s_ver = GetOpenclVerByCpuModel();
     return s_ver;
@@ -449,8 +440,4 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     s_ver = OPENCL_VERSION_1_2;
     return OPENCL_VERSION_1_2;
 #endif
-#endif // NDEBUG
-#endif
 }
-
-

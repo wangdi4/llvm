@@ -30,6 +30,7 @@
 
 using namespace std;
 
+char const* localhost = "127.0.0.1";
 
 #ifdef WIN32
 #include <windows.h>
@@ -66,13 +67,13 @@ DebugCommunicator::~DebugCommunicator()
 RETURN_TYPE_ENTRY_POINT DebugCommunicator::Run()
 {
     DEBUG_SERVER_LOG("DebugCommunicator thread created");
-    try 
+    try
     {
-        // Bind the server socket to its port and wait for a client connection.
+        // Bind the server socket to localhost:port and wait for a client connection.
         // Once a client has connected, we can proceed to processing commands
         // in the communication queue.
-        // 
-        m_server_socket.bind(m_port);
+        //
+        m_server_socket.bind(localhost, m_port);
         m_server_socket.listen();
         m_listen_event.Signal();
         m_connected_socket = auto_ptr<OclSocket>(m_server_socket.accept());
@@ -92,7 +93,7 @@ RETURN_TYPE_ENTRY_POINT DebugCommunicator::Run()
                 case EXIT:
                     log_and_terminate("executing EXIT");
                     return (RETURN_TYPE_ENTRY_POINT)0;
-                case SEND_MESSAGE: 
+                case SEND_MESSAGE:
                 {
                     DEBUG_SERVER_LOG("executing SEND_MESSAGE");
                     assert(!m_msg_send_queue.IsEmpty());
@@ -144,7 +145,7 @@ bool DebugCommunicator::do_receive_message(ClientToServerMessage& recv_msg)
     DEBUG_SERVER_LOG("executing RECEIVE_MESSAGE");
     unsigned header_size = ProtobufPackedMessage::HEADER_SIZE;
     vector<char> header = m_connected_socket->recv_n_bytes(header_size);
-    
+
     if (header.size() < header_size) {
         log_and_terminate("connection closed undexpectedly in receive header");
         return false;
@@ -191,7 +192,7 @@ void DebugCommunicator::sendMessage(const ServerToClientMessage& msg)
 ClientToServerMessage DebugCommunicator::receiveMessage()
 {
     m_cmd_queue.PushBack(RECEIVE_MESSAGE);
-    
+
     // wait until the message arrives - this event will be signaled by the
     // thread
     //
