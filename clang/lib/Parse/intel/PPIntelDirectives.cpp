@@ -198,9 +198,30 @@ void Preprocessor::ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTo
   // are processing this module textually (because we're building the module).
   if (File && SuggestedModule && getLangOpts().Modules &&
       SuggestedModule.getModule()->getTopLevelModuleName() !=
-          getLangOpts().CurrentModule &&
-      SuggestedModule.getModule()->getTopLevelModuleName() !=
-          getLangOpts().ImplementationOfModule) {
+          getLangOpts().CurrentModule) {
+    // If this include corresponds to a module but that module is
+    // unavailable, diagnose the situation and bail out.
+    if (!SuggestedModule.getModule()->isAvailable()) {
+      clang::Module::Requirement Requirement;
+      clang::Module::UnresolvedHeaderDirective MissingHeader;
+      Module *M = SuggestedModule.getModule();
+      // Identify the cause.
+      (void)M->isAvailable(getLangOpts(), getTargetInfo(), Requirement,
+                           MissingHeader);
+      if (MissingHeader.FileNameLoc.isValid()) {
+        Diag(MissingHeader.FileNameLoc, diag::err_module_header_missing)
+            << MissingHeader.IsUmbrella << MissingHeader.FileName;
+      } else {
+        Diag(M->DefinitionLoc, diag::err_module_unavailable)
+            << M->getFullModuleName() << Requirement.second
+            << Requirement.first;
+      }
+      Diag(FilenameTok.getLocation(),
+           diag::note_implicit_top_level_module_import_here)
+          << M->getTopLevelModuleName();
+      return;
+    }
+
     // Compute the module access path corresponding to this module.
     // FIXME: Should we have a second loadModule() overload to avoid this
     // extra lookup step?
@@ -214,7 +235,7 @@ void Preprocessor::ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTo
     // We only do this in Objective-C, where we have a module-import syntax.
     if (getLangOpts().ObjC2)
       diagnoseAutoModuleImport(*this, HashLoc, FilenameTok, Path, CharEnd);
-    
+
     // Load the module to import its macros. We'll make the declarations
     // visible when the parser gets here.
     // FIXME: Pass SuggestedModule in here rather than converting it to a path

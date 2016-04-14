@@ -191,9 +191,6 @@ namespace llvm {
       /// Bitwise Logical AND NOT of Packed FP values.
       ANDNP,
 
-      /// Copy integer sign.
-      PSIGN,
-
       /// Blend where the selector is an immediate.
       BLENDI,
 
@@ -395,11 +392,21 @@ namespace llvm {
       UNPCKH,
       VPERMILPV,
       VPERMILPI,
-      VPERMV,
-      VPERMV3,
-      VPERMIV3,
       VPERMI,
       VPERM2X128,
+
+      // Variable Permute (VPERM)
+      // Res = VPERMV MaskV, V0
+      VPERMV,
+
+      // 3-op Variable Permute (VPERMT2)
+      // Res = VPERMV3 V0, MaskV, V1
+      VPERMV3,
+
+      // 3-op Variable Permute overwriting the index (VPERMI2)
+      // Res = VPERMIV3 V0, MaskV, V1
+      VPERMIV3,
+
       // Bitwise ternary logic
       VPTERNLOG,
       // Fix Up Special Packed Float32/64 values
@@ -517,6 +524,10 @@ namespace llvm {
       LCMPXCHG8_DAG,
       LCMPXCHG16_DAG,
 
+      /// LOCK-prefixed arithmetic read-modify-write instructions.
+      /// EFLAGS, OUTCHAIN = LADD(INCHAIN, PTR, RHS)
+      LADD, LSUB, LOR, LXOR, LAND,
+
       // Load, scalar_to_vector, and zero extend.
       VZEXT_LOAD,
 
@@ -557,8 +568,8 @@ namespace llvm {
       VAARG_64
 
       // WARNING: Do not add anything in the end unless you want the node to
-      // have memop! In fact, starting from ATOMADD64_DAG all opcodes will be
-      // thought as target memory ops!
+      // have memop! In fact, starting from FIRST_TARGET_MEMORY_OPCODE all
+      // opcodes will be thought as target memory ops!
     };
   } // end namespace X86ISD
 
@@ -926,6 +937,8 @@ namespace llvm {
     unsigned
     getExceptionSelectorRegister(const Constant *PersonalityFn) const override;
 
+    virtual bool needsFixedCatchObjects() const override;
+
     /// This method returns a target specific FastISel object,
     /// or null if the target does not support "fast" ISel.
     FastISel *createFastISel(FunctionLoweringInfo &funcInfo,
@@ -1014,6 +1027,8 @@ namespace llvm {
 
     unsigned GetAlignedArgumentStackSize(unsigned StackSize,
                                          SelectionDAG &DAG) const;
+
+    unsigned getAddressSpace(void) const;
 
     std::pair<SDValue,SDValue> FP_TO_INTHelper(SDValue Op, SelectionDAG &DAG,
                                                bool isSigned,
@@ -1140,6 +1155,9 @@ namespace llvm {
 
     MachineBasicBlock *EmitLoweredSegAlloca(MachineInstr *MI,
                                             MachineBasicBlock *BB) const;
+
+    MachineBasicBlock *EmitLoweredTLSAddr(MachineInstr *MI,
+                                          MachineBasicBlock *BB) const;
 
     MachineBasicBlock *EmitLoweredTLSCall(MachineInstr *MI,
                                           MachineBasicBlock *BB) const;

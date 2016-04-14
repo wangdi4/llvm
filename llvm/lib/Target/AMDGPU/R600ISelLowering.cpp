@@ -802,7 +802,7 @@ SDValue R600TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const 
 
     // FIXME: Should be renamed to r600 prefix
     case AMDGPUIntrinsic::AMDGPU_rsq_clamped:
-      return DAG.getNode(AMDGPUISD::RSQ_CLAMPED, DL, VT, Op.getOperand(1));
+      return DAG.getNode(AMDGPUISD::RSQ_CLAMP, DL, VT, Op.getOperand(1));
 
     case Intrinsic::r600_rsq:
     case AMDGPUIntrinsic::AMDGPU_rsq: // Legacy name
@@ -1782,6 +1782,26 @@ EVT R600TargetLowering::getSetCCResultType(const DataLayout &DL, LLVMContext &,
    if (!VT.isVector())
      return MVT::i32;
    return VT.changeVectorElementTypeToInteger();
+}
+
+bool R600TargetLowering::allowsMisalignedMemoryAccesses(EVT VT,
+                                                        unsigned AddrSpace,
+                                                        unsigned Align,
+                                                        bool *IsFast) const {
+  if (IsFast)
+    *IsFast = false;
+
+  if (!VT.isSimple() || VT == MVT::Other)
+    return false;
+
+  if (VT.bitsLT(MVT::i32))
+    return false;
+
+  // TODO: This is a rough estimate.
+  if (IsFast)
+    *IsFast = true;
+
+  return VT.bitsGT(MVT::i32) && Align % 4 == 0;
 }
 
 static SDValue CompactSwizzlableVector(

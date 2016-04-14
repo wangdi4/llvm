@@ -17,6 +17,7 @@
 #if INTEL_SPECIFIC_CILKPLUS
 #include "intel/CGCilkPlusRuntime.h"
 #endif // INTEL_SPECIFIC_CILKPLUS
+#include "CGBlocks.h"
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
 #include "CodeGenFunction.h"
@@ -640,7 +641,8 @@ struct RecordExpansion : TypeExpansion {
 
   RecordExpansion(SmallVector<const CXXBaseSpecifier *, 1> &&Bases,
                   SmallVector<const FieldDecl *, 1> &&Fields)
-      : TypeExpansion(TEK_Record), Bases(Bases), Fields(Fields) {}
+      : TypeExpansion(TEK_Record), Bases(std::move(Bases)),
+        Fields(std::move(Fields)) {}
   static bool classof(const TypeExpansion *TE) {
     return TE->Kind == TEK_Record;
   }
@@ -1604,6 +1606,14 @@ void CodeGenModule::ConstructAttributeList(
     }
   }
 
+  if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice) {
+    // Conservatively, mark all functions and calls in CUDA as convergent
+    // (meaning, they may call an intrinsically convergent op, such as
+    // __syncthreads(), and so can't have certain optimizations applied around
+    // them).  LLVM will remove this attribute where it safely can.
+    FuncAttrs.addAttribute(llvm::Attribute::Convergent);
+  }
+
   ClangToLLVMArgMapping IRFunctionArgs(getContext(), FI);
 
   QualType RetTy = FI.getReturnType();
@@ -2493,9 +2503,26 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
     // In ARC, end functions that return a retainable type with a call
     // to objc_autoreleaseReturnValue.
     if (AutoreleaseResult) {
+#ifndef NDEBUG
+      // Type::isObjCRetainabletype has to be called on a QualType that hasn't
+      // been stripped of the typedefs, so we cannot use RetTy here. Get the
+      // original return type of FunctionDecl, CurCodeDecl, and BlockDecl from
+      // CurCodeDecl or BlockInfo.
+      QualType RT;
+
+      if (auto *FD = dyn_cast<FunctionDecl>(CurCodeDecl))
+        RT = FD->getReturnType();
+      else if (auto *MD = dyn_cast<ObjCMethodDecl>(CurCodeDecl))
+        RT = MD->getReturnType();
+      else if (isa<BlockDecl>(CurCodeDecl))
+        RT = BlockInfo->BlockExpression->getFunctionType()->getReturnType();
+      else
+        llvm_unreachable("Unexpected function/method type");
+
       assert(getLangOpts().ObjCAutoRefCount &&
              !FI.isReturnsRetained() &&
-             RetTy->isObjCRetainableType());
+             RT->isObjCRetainableType());
+#endif
       RV = emitAutoreleaseOfResult(*this, RV);
     }
 
@@ -3081,16 +3108,6 @@ CodeGenFunction::EmitRuntimeCall(llvm::Value *callee,
   return EmitRuntimeCall(callee, None, name);
 }
 
-/// Emits a simple call (never an invoke) to the given runtime function.
-llvm::CallInst *
-CodeGenFunction::EmitRuntimeCall(llvm::Value *callee,
-                                 ArrayRef<llvm::Value*> args,
-                                 const llvm::Twine &name) {
-  llvm::CallInst *call = Builder.CreateCall(callee, args, name);
-  call->setCallingConv(getRuntimeCC());
-  return call;
-}
-
 // Calls which may throw must have operand bundles indicating which funclet
 // they are nested within.
 static void
@@ -3107,6 +3124,19 @@ getBundlesForFunclet(llvm::Value *Callee, llvm::Instruction *CurrentFuncletPad,
     return;
 
   BundleList.emplace_back("funclet", CurrentFuncletPad);
+}
+
+/// Emits a simple call (never an invoke) to the given runtime function.
+llvm::CallInst *
+CodeGenFunction::EmitRuntimeCall(llvm::Value *callee,
+                                 ArrayRef<llvm::Value*> args,
+                                 const llvm::Twine &name) {
+  SmallVector<llvm::OperandBundleDef, 1> BundleList;
+  getBundlesForFunclet(callee, CurrentFuncletPad, BundleList);
+
+  llvm::CallInst *call = Builder.CreateCall(callee, args, BundleList, name);
+  call->setCallingConv(getRuntimeCC());
+  return call;
 }
 
 /// Emits a call or invoke to the given noreturn runtime function.
