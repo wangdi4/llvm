@@ -118,6 +118,7 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   };
 
   const DataLayout &DL;
+  const TargetLibraryInfo &TLI;
 
   std::set<unsigned> PossibleSourceOfPointsToInfo;
 

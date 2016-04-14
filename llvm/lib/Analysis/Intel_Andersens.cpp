@@ -524,7 +524,7 @@ void AndersensAAResult::PrintNonEscapes() const {
 
 AndersensAAResult::AndersensAAResult(const DataLayout &DL,
                                  const TargetLibraryInfo &TLI)
-    : AAResultBase(TLI), DL(DL) {}
+    : AAResultBase(), DL(DL), TLI(TLI) {}
 
 // Partial data of AndersensAAResult is copied here. Once Andersens
 // points-to analysis is done, only GraphNodes, ValueNodes, ObjectNodes,
@@ -534,7 +534,7 @@ AndersensAAResult::AndersensAAResult(const DataLayout &DL,
 // use to implement indirect-call conversion. 
 //
 AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
-    : AAResultBase(std::move(Arg)), DL(Arg.DL),
+    : AAResultBase(std::move(Arg)), DL(Arg.DL), TLI(Arg.TLI),
       IndirectCallList(std::move(Arg.IndirectCallList)),
       DirectCallList(std::move(Arg.DirectCallList)),
       GraphNodes(std::move(Arg.GraphNodes)),

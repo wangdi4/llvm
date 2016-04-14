@@ -30,6 +30,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Transforms/IPO.h"
@@ -54,7 +55,9 @@ extern "C" void LLVMInitializeAMDGPUTarget() {
   initializeAMDGPUAnnotateUniformValuesPass(*PR);
   initializeAMDGPUPromoteAllocaPass(*PR);
   initializeSIAnnotateControlFlowPass(*PR);
+  initializeSIInsertNopsPass(*PR);
   initializeSIInsertWaitsPass(*PR);
+  initializeSILowerControlFlowPass(*PR);
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
@@ -144,6 +147,12 @@ GCNTargetMachine::GCNTargetMachine(const Target &T, const Triple &TT,
 //===----------------------------------------------------------------------===//
 
 namespace {
+
+cl::opt<bool> InsertNops(
+  "amdgpu-insert-nops",
+  cl::desc("Insert two nop instructions for each high level source statement"),
+  cl::init(false));
+
 class AMDGPUPassConfig : public TargetPassConfig {
 public:
   AMDGPUPassConfig(TargetMachine *TM, PassManagerBase &PM)
@@ -239,10 +248,7 @@ void AMDGPUPassConfig::addCodeGenPrepare() {
 
 bool
 AMDGPUPassConfig::addPreISel() {
-  const AMDGPUSubtarget &ST = *getAMDGPUTargetMachine().getSubtargetImpl();
   addPass(createFlattenCFGPass());
-  if (ST.IsIRStructurizerEnabled())
-    addPass(createStructurizeCFGPass());
   return false;
 }
 
@@ -262,6 +268,9 @@ bool AMDGPUPassConfig::addGCPasses() {
 
 bool R600PassConfig::addPreISel() {
   AMDGPUPassConfig::addPreISel();
+  const AMDGPUSubtarget &ST = *getAMDGPUTargetMachine().getSubtargetImpl();
+  if (ST.IsIRStructurizerEnabled())
+    addPass(createStructurizeCFGPass());
   addPass(createR600TextureIntrinsicsReplacer());
   return false;
 }
@@ -300,11 +309,11 @@ bool GCNPassConfig::addPreISel() {
   // FIXME: We need to run a pass to propagate the attributes when calls are
   // supported.
   addPass(&AMDGPUAnnotateKernelFeaturesID);
-
+  addPass(createStructurizeCFGPass(true)); // true -> SkipUniformRegions
   addPass(createSinkingPass());
   addPass(createSITypeRewriter());
-  addPass(createSIAnnotateControlFlowPass());
   addPass(createAMDGPUAnnotateUniformValues());
+  addPass(createSIAnnotateControlFlowPass());
 
   return false;
 }
@@ -362,7 +371,10 @@ void GCNPassConfig::addPreSched2() {
 
 void GCNPassConfig::addPreEmitPass() {
   addPass(createSIInsertWaitsPass(), false);
-  addPass(createSILowerControlFlowPass(*TM), false);
+  addPass(createSILowerControlFlowPass(), false);
+  if (InsertNops) {
+    addPass(createSIInsertNopsPass(), false);
+  }
 }
 
 TargetPassConfig *GCNTargetMachine::createPassConfig(PassManagerBase &PM) {

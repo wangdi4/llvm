@@ -32,6 +32,7 @@
 #include "clang/Sema/Scope.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/MathExtras.h"
+
 using namespace clang;
 using namespace sema;
 
@@ -41,7 +42,7 @@ namespace AttributeLangSupport {
     Cpp,
     ObjC
   };
-}
+} // end namespace AttributeLangSupport
 
 //===----------------------------------------------------------------------===//
 //  Helper functions
@@ -53,6 +54,7 @@ namespace AttributeLangSupport {
 static bool isFunctionOrMethod(const Decl *D) {
   return (D->getFunctionType() != nullptr) || isa<ObjCMethodDecl>(D);
 }
+
 /// \brief Return true if the given decl has function type (function or
 /// function-typed variable) or an Objective-C method or a block.
 static bool isFunctionOrMethodOrBlock(const Decl *D) {
@@ -802,6 +804,8 @@ static void handleLocksExcludedAttr(Sema &S, Decl *D,
 }
 
 static void handleEnableIfAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  S.Diag(Attr.getLoc(), diag::ext_clang_enable_if);
+
   Expr *Cond = Attr.getArgAsExpr(0);
   if (!Cond->isTypeDependent()) {
     ExprResult Converted = S.PerformContextuallyConvertToBool(Cond);
@@ -888,7 +892,6 @@ static void handleConsumableAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                             Attr.getAttributeSpellingListIndex()));
 }
 
-
 static bool checkForConsumableClass(Sema &S, const CXXMethodDecl *MD,
                                         const AttributeList &Attr) {
   ASTContext &CurrContext = S.getASTContext();
@@ -905,7 +908,6 @@ static bool checkForConsumableClass(Sema &S, const CXXMethodDecl *MD,
   
   return true;
 }
-
 
 static void handleCallableWhenAttr(Sema &S, Decl *D,
                                    const AttributeList &Attr) {
@@ -945,7 +947,6 @@ static void handleCallableWhenAttr(Sema &S, Decl *D,
                States.size(), Attr.getAttributeSpellingListIndex()));
 }
 
-
 static void handleParamTypestateAttr(Sema &S, Decl *D,
                                     const AttributeList &Attr) {
   ParamTypestateAttr::ConsumedState ParamState;
@@ -982,7 +983,6 @@ static void handleParamTypestateAttr(Sema &S, Decl *D,
              ParamTypestateAttr(Attr.getRange(), S.Context, ParamState,
                                 Attr.getAttributeSpellingListIndex()));
 }
-
 
 static void handleReturnTypestateAttr(Sema &S, Decl *D,
                                       const AttributeList &Attr) {
@@ -1031,7 +1031,6 @@ static void handleReturnTypestateAttr(Sema &S, Decl *D,
              ReturnTypestateAttr(Attr.getRange(), S.Context, ReturnState,
                                  Attr.getAttributeSpellingListIndex()));
 }
-
 
 static void handleSetTypestateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (!checkForConsumableClass(S, cast<CXXMethodDecl>(D), Attr))
@@ -1919,6 +1918,7 @@ AvailabilityAttr *Sema::mergeAvailabilityAttr(NamedDecl *D, SourceRange Range,
                                               VersionTuple Obsoleted,
                                               bool IsUnavailable,
                                               StringRef Message,
+                                              bool IsStrict,
                                               AvailabilityMergeKind AMK,
                                               unsigned AttrSpellingListIndex) {
   VersionTuple MergedIntroduced = Introduced;
@@ -2065,7 +2065,7 @@ AvailabilityAttr *Sema::mergeAvailabilityAttr(NamedDecl *D, SourceRange Range,
     return ::new (Context) AvailabilityAttr(Range, Context, Platform,
                                             Introduced, Deprecated,
                                             Obsoleted, IsUnavailable, Message,
-                                            AttrSpellingListIndex);
+                                            IsStrict, AttrSpellingListIndex);
   }
   return nullptr;
 }
@@ -2092,6 +2092,7 @@ static void handleAvailabilityAttr(Sema &S, Decl *D,
   AvailabilityChange Deprecated = Attr.getAvailabilityDeprecated();
   AvailabilityChange Obsoleted = Attr.getAvailabilityObsoleted();
   bool IsUnavailable = Attr.getUnavailableLoc().isValid();
+  bool IsStrict = Attr.getStrictLoc().isValid();
   StringRef Str;
   if (const StringLiteral *SE =
           dyn_cast_or_null<StringLiteral>(Attr.getMessageExpr()))
@@ -2102,6 +2103,7 @@ static void handleAvailabilityAttr(Sema &S, Decl *D,
                                                       Deprecated.Version,
                                                       Obsoleted.Version,
                                                       IsUnavailable, Str,
+                                                      IsStrict,
                                                       Sema::AMK_None,
                                                       Index);
   if (NewAttr)
@@ -2146,6 +2148,7 @@ static void handleAvailabilityAttr(Sema &S, Decl *D,
                                                             NewDeprecated,
                                                             NewObsoleted,
                                                             IsUnavailable, Str,
+                                                            IsStrict,
                                                             Sema::AMK_None,
                                                             Index);
         if (NewAttr)
@@ -2168,6 +2171,7 @@ static void handleAvailabilityAttr(Sema &S, Decl *D,
                                                             Deprecated.Version,
                                                             Obsoleted.Version,
                                                             IsUnavailable, Str,
+                                                            IsStrict,
                                                             Sema::AMK_None,
                                                             Index);
         if (NewAttr)
@@ -2614,7 +2618,6 @@ static void handleTargetAttr(Sema &S, Decl *D, const AttributeList &Attr) {
       ::new (S.Context) TargetAttr(Attr.getRange(), S.Context, Str, Index);
   D->addAttr(NewAttr);
 }
-
 
 static void handleCleanupAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   VarDecl *VD = cast<VarDecl>(D);
@@ -3073,7 +3076,6 @@ void Sema::AddAlignValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
 
   // Save dependent expressions in the AST to be instantiated.
   D->addAttr(::new (Context) AlignValueAttr(TmpAttr));
-  return;
 }
 
 static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
@@ -3726,6 +3728,11 @@ static void handleCallConvAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                PascalAttr(Attr.getRange(), S.Context,
                           Attr.getAttributeSpellingListIndex()));
     return;
+  case AttributeList::AT_SwiftCall:
+    D->addAttr(::new (S.Context)
+               SwiftCallAttr(Attr.getRange(), S.Context,
+                             Attr.getAttributeSpellingListIndex()));
+    return;
   case AttributeList::AT_VectorCall:
     D->addAttr(::new (S.Context)
                VectorCallAttr(Attr.getRange(), S.Context,
@@ -3775,6 +3782,11 @@ bool Sema::CheckCallingConvAttr(const AttributeList &attr, CallingConv &CC,
   if (attr.isInvalid())
     return true;
 
+  if (attr.hasProcessingCache()) {
+    CC = (CallingConv) attr.getProcessingCache();
+    return false;
+  }
+
   unsigned ReqArgs = attr.getKind() == AttributeList::AT_Pcs ? 1 : 0;
   if (!checkAttributeNumArgs(*this, attr, ReqArgs)) {
     attr.setInvalid();
@@ -3788,6 +3800,7 @@ bool Sema::CheckCallingConvAttr(const AttributeList &attr, CallingConv &CC,
   case AttributeList::AT_StdCall: CC = CC_X86StdCall; break;
   case AttributeList::AT_ThisCall: CC = CC_X86ThisCall; break;
   case AttributeList::AT_Pascal: CC = CC_X86Pascal; break;
+  case AttributeList::AT_SwiftCall: CC = CC_Swift; break;
   case AttributeList::AT_VectorCall: CC = CC_X86VectorCall; break;
   case AttributeList::AT_MSABI:
     CC = Context.getTargetInfo().getTriple().isOSWindows() ? CC_C :
@@ -3834,7 +3847,98 @@ bool Sema::CheckCallingConvAttr(const AttributeList &attr, CallingConv &CC,
     CC = TI.getDefaultCallingConv(MT);
   }
 
+  attr.setProcessingCache((unsigned) CC);
   return false;
+}
+
+/// Pointer-like types in the default address space.
+static bool isValidSwiftContextType(QualType type) {
+  if (!type->hasPointerRepresentation())
+    return type->isDependentType();
+  return type->getPointeeType().getAddressSpace() == 0;
+}
+
+/// Pointers and references in the default address space.
+static bool isValidSwiftIndirectResultType(QualType type) {
+  if (auto ptrType = type->getAs<PointerType>()) {
+    type = ptrType->getPointeeType();
+  } else if (auto refType = type->getAs<ReferenceType>()) {
+    type = refType->getPointeeType();
+  } else {
+    return type->isDependentType();
+  }
+  return type.getAddressSpace() == 0;
+}
+
+/// Pointers and references to pointers in the default address space.
+static bool isValidSwiftErrorResultType(QualType type) {
+  if (auto ptrType = type->getAs<PointerType>()) {
+    type = ptrType->getPointeeType();
+  } else if (auto refType = type->getAs<ReferenceType>()) {
+    type = refType->getPointeeType();
+  } else {
+    return type->isDependentType();
+  }
+  if (!type.getQualifiers().empty())
+    return false;
+  return isValidSwiftContextType(type);
+}
+
+static void handleParameterABIAttr(Sema &S, Decl *D, const AttributeList &attr,
+                                   ParameterABI abi) {
+  S.AddParameterABIAttr(attr.getRange(), D, abi,
+                        attr.getAttributeSpellingListIndex());
+}
+
+void Sema::AddParameterABIAttr(SourceRange range, Decl *D, ParameterABI abi,
+                               unsigned spellingIndex) {
+
+  QualType type = cast<ParmVarDecl>(D)->getType();
+
+  if (auto existingAttr = D->getAttr<ParameterABIAttr>()) {
+    if (existingAttr->getABI() != abi) {
+      Diag(range.getBegin(), diag::err_attributes_are_not_compatible)
+        << getParameterABISpelling(abi) << existingAttr;
+      Diag(existingAttr->getLocation(), diag::note_conflicting_attribute);
+      return;
+    }
+  }
+
+  switch (abi) {
+  case ParameterABI::Ordinary:
+    llvm_unreachable("explicit attribute for ordinary parameter ABI?");
+
+  case ParameterABI::SwiftContext:
+    if (!isValidSwiftContextType(type)) {
+      Diag(range.getBegin(), diag::err_swift_abi_parameter_wrong_type)
+        << getParameterABISpelling(abi)
+        << /*pointer to pointer */ 0 << type;
+    }
+    D->addAttr(::new (Context)
+               SwiftContextAttr(range, Context, spellingIndex));
+    return;
+
+  case ParameterABI::SwiftErrorResult:
+    if (!isValidSwiftErrorResultType(type)) {
+      Diag(range.getBegin(), diag::err_swift_abi_parameter_wrong_type)
+        << getParameterABISpelling(abi)
+        << /*pointer to pointer */ 1 << type;
+    }
+    D->addAttr(::new (Context)
+               SwiftErrorResultAttr(range, Context, spellingIndex));
+    return;
+
+  case ParameterABI::SwiftIndirectResult:
+    if (!isValidSwiftIndirectResultType(type)) {
+      Diag(range.getBegin(), diag::err_swift_abi_parameter_wrong_type)
+        << getParameterABISpelling(abi)
+        << /*pointer*/ 0 << type;
+    }
+    D->addAttr(::new (Context)
+               SwiftIndirectResultAttr(range, Context, spellingIndex));
+    return;
+  }
+  llvm_unreachable("bad parameter ABI attribute");
 }
 
 /// Checks a regparm attribute, returning true if it is ill-formed and
@@ -3878,7 +3982,6 @@ bool Sema::CheckRegparmAttr(const AttributeList &Attr, unsigned &numParams) {
 static bool checkLaunchBoundsArgument(Sema &S, Expr *E,
                                       const CUDALaunchBoundsAttr &Attr,
                                       const unsigned Idx) {
-
   if (S.DiagnoseUnexpandedParameterPack(E))
     return false;
 
@@ -4021,6 +4124,7 @@ static bool isValidSubjectOfNSAttribute(Sema &S, QualType type) {
          type->isObjCObjectPointerType() || 
          S.Context.isObjCNSObjectType(type);
 }
+
 static bool isValidSubjectOfCFAttribute(Sema &S, QualType type) {
   return type->isDependentType() || 
          type->isPointerType() || 
@@ -4028,36 +4132,49 @@ static bool isValidSubjectOfCFAttribute(Sema &S, QualType type) {
 }
 
 static void handleNSConsumedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  ParmVarDecl *param = cast<ParmVarDecl>(D);
-  bool typeOK, cf;
+  S.AddNSConsumedAttr(Attr.getRange(), D, Attr.getAttributeSpellingListIndex(),
+                      Attr.getKind() == AttributeList::AT_NSConsumed,
+                      /*template instantiation*/ false);
+}
 
-  if (Attr.getKind() == AttributeList::AT_NSConsumed) {
-    typeOK = isValidSubjectOfNSAttribute(S, param->getType());
-    cf = false;
+void Sema::AddNSConsumedAttr(SourceRange attrRange, Decl *D,
+                             unsigned spellingIndex, bool isNSConsumed,
+                             bool isTemplateInstantiation) {
+  ParmVarDecl *param = cast<ParmVarDecl>(D);
+  bool typeOK;
+
+  if (isNSConsumed) {
+    typeOK = isValidSubjectOfNSAttribute(*this, param->getType());
   } else {
-    typeOK = isValidSubjectOfCFAttribute(S, param->getType());
-    cf = true;
+    typeOK = isValidSubjectOfCFAttribute(*this, param->getType());
   }
 
   if (!typeOK) {
-    S.Diag(D->getLocStart(), diag::warn_ns_attribute_wrong_parameter_type)
-      << Attr.getRange() << Attr.getName() << cf;
+    // These attributes are normally just advisory, but in ARC, ns_consumed
+    // is significant.  Allow non-dependent code to contain inappropriate
+    // attributes even in ARC, but require template instantiations to be
+    // set up correctly.
+    Diag(D->getLocStart(),
+         (isTemplateInstantiation && isNSConsumed &&
+            getLangOpts().ObjCAutoRefCount
+          ? diag::err_ns_attribute_wrong_parameter_type
+          : diag::warn_ns_attribute_wrong_parameter_type))
+      << attrRange
+      << (isNSConsumed ? "ns_consumed" : "cf_consumed")
+      << (isNSConsumed ? /*objc pointers*/ 0 : /*cf pointers*/ 1);
     return;
   }
 
-  if (cf)
-    param->addAttr(::new (S.Context)
-                   CFConsumedAttr(Attr.getRange(), S.Context,
-                                  Attr.getAttributeSpellingListIndex()));
+  if (isNSConsumed)
+    param->addAttr(::new (Context)
+                   NSConsumedAttr(attrRange, Context, spellingIndex));
   else
-    param->addAttr(::new (S.Context)
-                   NSConsumedAttr(Attr.getRange(), S.Context,
-                                  Attr.getAttributeSpellingListIndex()));
+    param->addAttr(::new (Context)
+                   CFConsumedAttr(attrRange, Context, spellingIndex));
 }
 
 static void handleNSReturnsRetainedAttr(Sema &S, Decl *D,
                                         const AttributeList &Attr) {
-
   QualType returnType;
 
   if (ObjCMethodDecl *MD = dyn_cast<ObjCMethodDecl>(D))
@@ -4958,7 +5075,7 @@ static void handleNoSanitizeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (!checkAttributeAtLeastNumArgs(S, Attr, 1))
     return;
 
-  std::vector<std::string> Sanitizers;
+  std::vector<StringRef> Sanitizers;
 
   for (unsigned I = 0, E = Attr.getNumArgs(); I != E; ++I) {
     StringRef SanitizerName;
@@ -4982,8 +5099,8 @@ static void handleNoSanitizeSpecificAttr(Sema &S, Decl *D,
                                          const AttributeList &Attr) {
   StringRef AttrName = Attr.getName()->getName();
   normalizeName(AttrName);
-  std::string SanitizerName =
-      llvm::StringSwitch<std::string>(AttrName)
+  StringRef SanitizerName =
+      llvm::StringSwitch<StringRef>(AttrName)
           .Case("no_address_safety_analysis", "address")
           .Case("no_sanitize_address", "address")
           .Case("no_sanitize_thread", "thread")
@@ -5040,6 +5157,40 @@ static bool handleCommonAttributeFeatures(Sema &S, Scope *scope, Decl *D,
     return true;
 
   return false;
+}
+
+static void handleOpenCLAccessAttr(Sema &S, Decl *D,
+                                   const AttributeList &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  // Check if there is only one access qualifier.
+  if (D->hasAttr<OpenCLAccessAttr>()) {
+    S.Diag(Attr.getLoc(), diag::err_opencl_multiple_access_qualifiers)
+        << D->getSourceRange();
+    D->setInvalidDecl(true);
+    return;
+  }
+
+  // OpenCL v2.0 s6.6 - read_write can be used for image types to specify that an
+  // image object can be read and written.
+  // OpenCL v2.0 s6.13.6 - A kernel cannot read from and write to the same pipe
+  // object. Using the read_write (or __read_write) qualifier with the pipe
+  // qualifier is a compilation error.
+  if (const ParmVarDecl *PDecl = dyn_cast<ParmVarDecl>(D)) {
+    const Type *DeclTy = PDecl->getType().getCanonicalType().getTypePtr();
+    if (Attr.getName()->getName().find("read_write") != StringRef::npos) {
+      if (S.getLangOpts().OpenCLVersion < 200 || DeclTy->isPipeType()) {
+        S.Diag(Attr.getLoc(), diag::err_opencl_invalid_read_write)
+            << Attr.getName() << PDecl->getType() << DeclTy->isImageType();
+        D->setInvalidDecl(true);
+        return;
+      }
+    }
+  }
+
+  D->addAttr(::new (S.Context) OpenCLAccessAttr(
+      Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -5260,53 +5411,42 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_VecReturn:
     handleVecReturnAttr(S, D, Attr);
     break;
-
   case AttributeList::AT_ObjCOwnership:
     handleObjCOwnershipAttr(S, D, Attr);
     break;
   case AttributeList::AT_ObjCPreciseLifetime:
     handleObjCPreciseLifetimeAttr(S, D, Attr);
     break;
-
   case AttributeList::AT_ObjCReturnsInnerPointer:
     handleObjCReturnsInnerPointerAttr(S, D, Attr);
     break;
-
   case AttributeList::AT_ObjCRequiresSuper:
     handleObjCRequiresSuperAttr(S, D, Attr);
     break;
-
   case AttributeList::AT_ObjCBridge:
     handleObjCBridgeAttr(S, scope, D, Attr);
     break;
-
   case AttributeList::AT_ObjCBridgeMutable:
     handleObjCBridgeMutableAttr(S, scope, D, Attr);
     break;
-
   case AttributeList::AT_ObjCBridgeRelated:
     handleObjCBridgeRelatedAttr(S, scope, D, Attr);
     break;
-
   case AttributeList::AT_ObjCDesignatedInitializer:
     handleObjCDesignatedInitializer(S, D, Attr);
     break;
-
   case AttributeList::AT_ObjCRuntimeName:
     handleObjCRuntimeName(S, D, Attr);
     break;
-
   case AttributeList::AT_ObjCBoxable:
     handleObjCBoxable(S, D, Attr);
     break;
-          
   case AttributeList::AT_CFAuditedTransfer:
     handleCFAuditedTransferAttr(S, D, Attr);
     break;
   case AttributeList::AT_CFUnknownTransfer:
     handleCFUnknownTransferAttr(S, D, Attr);
     break;
-
   case AttributeList::AT_CFConsumed:
   case AttributeList::AT_NSConsumed:
     handleNSConsumedAttr(S, D, Attr);
@@ -5314,7 +5454,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_NSConsumesSelf:
     handleSimpleAttribute<NSConsumesSelfAttr>(S, D, Attr);
     break;
-
   case AttributeList::AT_NSReturnsAutoreleased:
   case AttributeList::AT_NSReturnsNotRetained:
   case AttributeList::AT_CFReturnsNotRetained:
@@ -5331,11 +5470,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_VecTypeHint:
     handleVecTypeHint(S, D, Attr);
     break;
-
   case AttributeList::AT_InitPriority:
     handleInitPriorityAttr(S, D, Attr);
     break;
-
   case AttributeList::AT_Packed:
     handlePackedAttr(S, D, Attr);
     break;
@@ -5443,6 +5580,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_FastCall:
   case AttributeList::AT_ThisCall:
   case AttributeList::AT_Pascal:
+  case AttributeList::AT_SwiftCall:
   case AttributeList::AT_VectorCall:
   case AttributeList::AT_MSABI:
   case AttributeList::AT_SysVABI:
@@ -5453,8 +5591,17 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_OpenCLKernel:
     handleSimpleAttribute<OpenCLKernelAttr>(S, D, Attr);
     break;
-  case AttributeList::AT_OpenCLImageAccess:
-    handleSimpleAttribute<OpenCLImageAccessAttr>(S, D, Attr);
+  case AttributeList::AT_OpenCLAccess:
+    handleOpenCLAccessAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_SwiftContext:
+    handleParameterABIAttr(S, D, Attr, ParameterABI::SwiftContext);
+    break;
+  case AttributeList::AT_SwiftErrorResult:
+    handleParameterABIAttr(S, D, Attr, ParameterABI::SwiftErrorResult);
+    break;
+  case AttributeList::AT_SwiftIndirectResult:
+    handleParameterABIAttr(S, D, Attr, ParameterABI::SwiftIndirectResult);
     break;
   case AttributeList::AT_InternalLinkage:
     handleInternalLinkageAttr(S, D, Attr);
@@ -5863,7 +6010,6 @@ static void handleDelayedForbiddenType(Sema &S, DelayedDiagnostic &diag,
   diag.Triggered = true;
 }
 
-
 static bool isDeclDeprecated(Decl *D) {
   do {
     if (D->isDeprecated())
@@ -5969,7 +6115,6 @@ static void DoEmitAvailabilityWarning(Sema &S, Sema::AvailabilityDiagnostic K,
         }
       }
     }
-
     break;
 
   case Sema::AD_Partial:

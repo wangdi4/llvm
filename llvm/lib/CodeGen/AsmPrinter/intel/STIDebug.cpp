@@ -1120,9 +1120,15 @@ protected:
   STIType *getClassScope(const DIScope* llvmScope);
 
   STIRegID toSTIRegID(unsigned int regnum) const;
-  STISymbolVariable *createSymbolVariable(const DILocalVariable *DIV,
-                                          unsigned int frameIndex,
-                                          const MachineInstr *DVInsn = nullptr);
+  STISymbolVariable *createSymbolVariableFromDbgValue(
+          const DILocalVariable *DIV,
+          const MachineInstr *DVInsn);
+  STISymbolVariable *createSymbolVariableFromFrameIndex(
+          const DILocalVariable *DIV,
+          int frameIndex);
+  STISymbolVariable *createSymbolVariable(
+          const DILocalVariable *DIV,
+          STILocation *location);
 
   STISymbolProcedure *getCurrentProcedure() const;
   void setCurrentProcedure(STISymbolProcedure *procedure);
@@ -4113,73 +4119,87 @@ STIType *STIDebugImpl::getClassScope(const DIScope* llvmScope) {
   return nullptr;
 }
 
+STISymbolVariable *STIDebugImpl::createSymbolVariableFromDbgValue(
+    const DILocalVariable *DIV,
+    const MachineInstr    *DVInsn) {
+  STILocation *location = nullptr;
+
+  assert(DVInsn && "Unknown location");
+  assert(DVInsn->getNumOperands() == 3 || DVInsn->getNumOperands() == 4);
+  // TODO: handle the case DVInsn->getNumOperands() == 4
+  if (DVInsn->getOperand(0).isReg()) {
+    const MachineOperand RegOp = DVInsn->getOperand(0);
+    // If the second operand is an immediate, this is an indirect value.
+    if (DVInsn->getOperand(1).isImm()) {
+      if (RegOp.getReg() == 0) {
+        location = STILocation::createOffset(DVInsn->getOperand(1).getImm());
+      } else {
+        location = STILocation::createRegisterOffset(
+            toSTIRegID(RegOp.getReg()), DVInsn->getOperand(1).getImm());
+      }
+    } else if (RegOp.getReg()) {
+      bool indirect = isIndirectExpression(DVInsn->getDebugExpression());
+      if (indirect) {
+        location =
+            STILocation::createRegisterOffset(toSTIRegID(RegOp.getReg()), 0);
+      } else {
+        location = STILocation::createRegister(toSTIRegID(RegOp.getReg()));
+      }
+    }
+  } else if (DVInsn->getOperand(0).isImm()) {
+    //assert(!"FIXME: support this case");
+    // addConstantValue(*VariableDie, DVInsn->getOperand(0), DV.getType());
+  } else if (DVInsn->getOperand(0).isFPImm()) {
+    //assert(!"FIXME: support this case");
+    // addConstantFPValue(*VariableDie, DVInsn->getOperand(0));
+  } else if (DVInsn->getOperand(0).isCImm()) {
+    //assert(!"FIXME: support this case");
+    // addConstantValue(*VariableDie, DVInsn->getOperand(0).getCImm(),
+    //                 DV.getType());
+  }
+
+  return createSymbolVariable(DIV, location);
+}
+
+STISymbolVariable *STIDebugImpl::createSymbolVariableFromFrameIndex(
+    const DILocalVariable *DIV,
+    int frameIndex) {
+  STILocation *location = nullptr;
+  unsigned int regnum;
+  int          offset;
+
+  const TargetFrameLowering *TFL =
+      ASM()->MF->getSubtarget().getFrameLowering();
+
+  regnum = 0;
+  offset = TFL->getFrameIndexReference(*ASM()->MF, frameIndex, regnum);
+
+  location = STILocation::createRegisterOffset(toSTIRegID(regnum), offset);
+
+  return createSymbolVariable(DIV, location);
+}
+
 STISymbolVariable *STIDebugImpl::createSymbolVariable(
     const DILocalVariable *DIV,
-    unsigned int frameIndex,
-    const MachineInstr *DVInsn) {
-  STISymbolVariable *variable = nullptr;
-  STILocation *location = nullptr;
-  STIType *type;
+    STILocation *location)
+{
+  StringRef          name;
+  STISymbolVariable *variable;
+  STIType           *type;
 
-  if (frameIndex != ~0U) {
-    unsigned int regnum;
-    int offset;
-
-    const TargetFrameLowering *TFL =
-        ASM()->MF->getSubtarget().getFrameLowering();
-
-    regnum = 0;
-    offset = TFL->getFrameIndexReference(*ASM()->MF, frameIndex, regnum);
-
-    location = STILocation::createRegisterOffset(toSTIRegID(regnum), offset);
-
-  } else {
-    assert(DVInsn && "Unknown location");
-    assert(DVInsn->getNumOperands() == 3 || DVInsn->getNumOperands() == 4);
-    // TODO: handle the case DVInsn->getNumOperands() == 4
-    if (DVInsn->getOperand(0).isReg()) {
-      const MachineOperand RegOp = DVInsn->getOperand(0);
-      // If the second operand is an immediate, this is an indirect value.
-      if (DVInsn->getOperand(1).isImm()) {
-        if (RegOp.getReg() == 0) {
-          location = STILocation::createOffset(DVInsn->getOperand(1).getImm());
-        } else {
-          location = STILocation::createRegisterOffset(
-              toSTIRegID(RegOp.getReg()), DVInsn->getOperand(1).getImm());
-        }
-      } else if (RegOp.getReg()) {
-        bool indirect = isIndirectExpression(DVInsn->getDebugExpression());
-        if (indirect) {
-          location =
-              STILocation::createRegisterOffset(toSTIRegID(RegOp.getReg()), 0);
-        } else {
-          location = STILocation::createRegister(toSTIRegID(RegOp.getReg()));
-        }
-      }
-    } else if (DVInsn->getOperand(0).isImm()) {
-      //assert(!"FIXME: support this case");
-      // addConstantValue(*VariableDie, DVInsn->getOperand(0), DV.getType());
-    } else if (DVInsn->getOperand(0).isFPImm()) {
-      //assert(!"FIXME: support this case");
-      // addConstantFPValue(*VariableDie, DVInsn->getOperand(0));
-    } else if (DVInsn->getOperand(0).isCImm()) {
-      //assert(!"FIXME: support this case");
-      // addConstantValue(*VariableDie, DVInsn->getOperand(0).getCImm(),
-      //                 DV.getType());
-    }
+  // Don't create variables which don't have a valid location.
+  if (!location) {
+    return nullptr;
   }
 
-  if (location) {
-    // Lower the variable type.
-    //
-    type = toTypeDefinition(lowerType(resolve(DIV->getType())));
+  name = DIV->getName();
+  type = toTypeDefinition(lowerType(resolve(DIV->getType())));
 
-    // Create variable only if it has a valid location.
-    variable = STISymbolVariable::create();
-    variable->setName(DIV->getName());
-    variable->setType(type);
-    variable->setLocation(location);
-  }
+  // Create variable only if it has a valid location.
+  variable = STISymbolVariable::create();
+  variable->setName(name);
+  variable->setType(type);
+  variable->setLocation(location);
 
   return variable;
 }
@@ -4794,7 +4814,7 @@ void STIDebugImpl::collectRoutineInfo() {
     if (!scope)
       continue;
 
-    variable = createSymbolVariable(llvmVar, info.Slot);
+    variable = createSymbolVariableFromFrameIndex(llvmVar, info.Slot);
     if (!variable)
       continue;
     scope->add(variable, llvmVar->getArg());
@@ -4819,7 +4839,7 @@ void STIDebugImpl::collectRoutineInfo() {
       continue;
 
     const MachineInstr *MInsn = Ranges.front().first;
-    variable = createSymbolVariable(IV.first, ~0, MInsn); // FIXME: params
+    variable = createSymbolVariableFromDbgValue(IV.first, MInsn);
     if (!variable)
       continue;
     scope->add(variable, IV.first->getArg());
