@@ -27,7 +27,7 @@
 using namespace llvm;
 
 static cl::opt<unsigned>
-LPUUnrollingThreshold("lpu-unrolling-threshold", cl::init(1),
+LPUUnrollingThreshold("lpu-unrolling-threshold", cl::init(248),
 cl::desc("Threshold for partial unrolling"), cl::Hidden);
 
 #define DEBUG_TYPE "lputti"
@@ -241,11 +241,9 @@ void LPUTTI::getUnrollingPreferences(const Function *F, Loop *L,
   //LPU edit: set up runtime unroll threshold for LPU target to UINT32_MAX
   else {
     assert(ST->getTargetTriple().substr(0, 3) == "lpu");
-//  if (LPUUnrollingThreshold) {
-//    MaxOps = ((uint32_t)-1);
-//  } else {
+    if (!LPUUnrollingThreshold) {
       return;
-//  }
+    } 
   }
 
   // Scan the loop: don't unroll loops with calls.
@@ -267,7 +265,7 @@ void LPUTTI::getUnrollingPreferences(const Function *F, Loop *L,
 
   // Enable runtime and partial unrolling up to the specified size.
   UP.Partial = UP.Runtime = true;
-  UP.PartialThreshold = UP.PartialOptSizeThreshold = MaxOps;
+  UP.PartialThreshold = UP.PartialOptSizeThreshold = LPUUnrollingThreshold;
 }
 
 //===----------------------------------------------------------------------===//
