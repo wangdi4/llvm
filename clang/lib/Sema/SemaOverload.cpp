@@ -1639,6 +1639,7 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
     SCS.First = ICK_Identity;
     SCS.Second = ICK_Pointer_Conversion;
     SCS.Third = ICK_Qualification;
+    SCS.DeprecatedStringLiteralToCharPtr = true;
     SCS.QualificationIncludesObjCLifetime = false;
     SCS.setAllToTypes(FromType);
     return true;
