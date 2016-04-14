@@ -841,9 +841,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   if (!RunLoopOptFrameworkOnly) {
     PM.add(createHIRParDirInsertPass());
     PM.add(createHIROptPredicatePass());
+    PM.add(createHIRRuntimeDDPass());
     PM.add(createHIRLoopDistributionPass(false));
     PM.add(createHIRLoopInterchangePass());
-    PM.add(createHIRRuntimeDDPass());
     PM.add(createHIRCompleteUnrollPass());
     PM.add(createHIRVecDirInsertPass(OptLevel == 3));
     PM.add(createVPODriverHIRPass());

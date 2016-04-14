@@ -106,13 +106,17 @@ private:
   bool getPermutation(const HLLoop *);
   // returns true means legal for any permutation
   bool isLegalForAnyPermutation(const HLLoop *Loop);
-  bool isLegalToShiftLoop(unsigned SrcLevel, unsigned DstLevel) const;
+  //  SrcLevel and DstLevel start from 1
+  bool isLegalToShiftLoop(unsigned DstLevel, unsigned SrcLevel) const;
 
   bool isBestLocalityInInnermost(const HLLoop *Loop,
                                  const HLLoop *BestLocalityLoop);
   void getNearbyPermutation(const HLLoop *Loop);
+  // SrcLevel and DstLevel start from 1
   bool isLegalForPermutation(const HLLoop *StartLoop, const HLLoop *SrcLoop,
-                             unsigned DstLevel) const;
+                             unsigned DstLevel, unsigned SrcLevel) const;
+  // SrcLevel and DstLevel start from 1
+  void permuteNearBy(unsigned DstLevel, unsigned SrcLevel);
   void transformLoop(HLLoop *Loop);
   void updateLoopBody(HLLoop *Loop);
   void printOptReport(HLLoop *Loop);
@@ -318,8 +322,11 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
 ///  Check if the best locality loop can stay or move as innermost
 bool HIRLoopInterchange::isBestLocalityInInnermost(
     const HLLoop *Loop, const HLLoop *BestLocalityLoop) {
+  unsigned SrcLevel =
+      BestLocalityLoop->getNestingLevel() - OutmostNestingLevel + 1;
   if (InnermostNestingLevel == BestLocalityLoop->getNestingLevel() ||
-      isLegalForPermutation(Loop, BestLocalityLoop, InnermostNestingLevel)) {
+      isLegalForPermutation(Loop, BestLocalityLoop, InnermostNestingLevel,
+                            SrcLevel)) {
     return true;
   }
   DEBUG(dbgs() << "\nCannot move best locality loop as innermost\n");
@@ -345,34 +352,95 @@ bool HIRLoopInterchange::isBestLocalityInInnermost(
 ///       endif
 ///     endfor
 ///  endwhile
-///  An example: assuming just 1  dv ( < = >)
-///  Best & legal permutation is L = (l3, l2, l1)
-///  j=1,3 in best permutation
-///  Is l3 legal as outermost?  No
-///  Is l2 legal as outermost?  Yes. P = (l2) L = (l3 l1)
-///  Is l1 legal as 2nd level?  Yes. P = (l2, l1) L = (l3)
-///  When while loop exits,  P = (l2,l1,l3), L = null
+///
+/// There is some issue in the paper.
+/// The DVs in (p1,...pk,l) alone cannot determine the legality
+/// The original DVs need to be permuted when L is changed and that should
+/// used for legality check. In the example below, the first * can be moved
+//  to the left but the second * cannot be moved before the first *.
+/// Also, if l is already in the k-th position, select it w/o checking
+/// legality because it is not changing in position.
+
+/// Modified Algorithm:
+///  P = {1 2 ... n}; k = 1; m = n
+///  while (L != null)
+///     for j=1,m
+///       l =  lj in L
+///       if ((l is already at k-th loop level  ||
+///           (all Permuted dv are legal for l to be shifted as k-th loop)
+///          P is updated  by putting l as the k-th loop
+///          L = L - {l};  k++;  m--;
+///          Permute dv accordingly if needed
+///          break for
+///       endif
+///     endfor
+///  endwhile
+///
+///  An example: assuming we have just 1 dv (* * = =)
+///  Best permutation is L = (4 2 1 3)
+///  P = (1 2 3 4)
+///  (l3 is the one with best locality, should be in the innermost
+//   loop when while loop terminates)
+///
+///  j=1,4 in  L
+///    Is l4 at level 1 already? No
+///    Is l4 legal as 1st level?  Yes
+///    P = (4 1 2 3)  L = (2 1 3)
+//     dv becomes (= * * =), corresponding  to (4 1 2 3)
+///  j=1,3 in  L
+///    Is l2 at level 2 already? No.
+///    Is l2 legal as 2nd level? No. (* cannot shift pass *)
+///    Is l1 at level 2 already? Yes.
+//     No change in P or dv
+///    P = (4 1 2 3) L =(2 3)
+///  j=1,2
+///    Is l2 at 3rd level? Yes.  No change in P or sv
+///    P = (4 1 2 3) L =(3)
+///  j=1,1
+///    Is l3 at 4th level? Yes
+///    P = (4 1 2 3) L =()  no change in dv
+
 void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
 
   unsigned DstLevel = 1;
   unsigned Iter = 0;
+  const HLNode *Node = Loop;
 
   //  Based on the paper above, the while loop will halt when
   //  the last loop in L can be moved legally as the innermost loop,
   //  which is verified before calling this function.
+  while (Node) {
+    const HLLoop *Lp = dyn_cast<HLLoop>(Node);
+    if (!Lp) {
+      break;
+    }
+    NearByPerm.push_back(const_cast<HLLoop *>(Lp));
+    Node = Lp->getFirstChild();
+  }
 
   while (!LoopPermutation.empty()) {
     for (auto &I : LoopPermutation) {
-      if (isLegalForPermutation(Loop, I, DstLevel)) {
-        NearByPerm.push_back(I);
+      // Get current level for loop
+      unsigned SrcLevel = 1;
+      for (auto &J : NearByPerm) {
+        if (J->getNestingLevel() == I->getNestingLevel()) {
+          break;
+        }
+        SrcLevel++;
+      }
+      assert(SrcLevel != 0 && "Loop not found");
+      if (isLegalForPermutation(Loop, I, DstLevel, SrcLevel)) {
+        permuteNearBy(DstLevel, SrcLevel);
         LoopPermutation.erase(&I);
         DstLevel++;
         break;
       }
       Iter += 1;
       //  Assert to avoid looping
-      assert((Iter < MaxLoopNestLevel * MaxLoopNestLevel) &&
-             "NearbyPermutation is looping");
+      if (Iter > (MaxLoopNestLevel * MaxLoopNestLevel)) {
+        dbgs() << "NearbyPermutation is looping";
+        std::abort();
+      }
     }
   }
 }
@@ -524,8 +592,8 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
   void postVisit(const HLDDNode *Node) {}
 };
 
-bool HIRLoopInterchange::isLegalToShiftLoop(unsigned SrcLevel,
-                                            unsigned DstLevel) const {
+bool HIRLoopInterchange::isLegalToShiftLoop(unsigned DstLevel,
+                                            unsigned SrcLevel) const {
 
   unsigned SmallerLevel;
 
@@ -544,6 +612,11 @@ bool HIRLoopInterchange::isLegalToShiftLoop(unsigned SrcLevel,
   // (3) Moving > outwards: Return illegal
   //
 
+  //  Adjust DstLevel based on OutmostNestingLevel
+  //  because DV are based on actual loop level, input Dst/Src level
+  //  are relative to 1
+  DstLevel += OutmostNestingLevel - 1;
+  SrcLevel += OutmostNestingLevel - 1;
   SmallerLevel = std::min(SrcLevel, DstLevel);
 
   for (auto &II : DVs) {
@@ -585,19 +658,54 @@ bool HIRLoopInterchange::isLegalToShiftLoop(unsigned SrcLevel,
 ///  e.g. Assuming  dv = (< = >),  ScrLoop is the 3rd level loop
 ///                 DstLevel  = 1
 ///       It will return false because > cannot cross <
+///  Input Levels are relative to 1 (starting in level 1)
 bool HIRLoopInterchange::isLegalForPermutation(const HLLoop *StartLoop,
                                                const HLLoop *SrcLoop,
-                                               unsigned DstLevel) const {
-
-  //  Adjust DstLevel based on OutmostNestingLevel
-  DstLevel += OutmostNestingLevel - 1;
-  unsigned SrcLevel = SrcLoop->getNestingLevel();
+                                               unsigned DstLevel,
+                                               unsigned SrcLevel) const {
 
   if (SrcLevel == DstLevel) {
     return true;
   }
 
-  return isLegalToShiftLoop(SrcLevel, DstLevel);
+  return isLegalToShiftLoop(DstLevel, SrcLevel);
+}
+
+///  1. Move Loop at SrcLevel to DstLevel loop
+///  2. Update all DV accordingly
+///  Levels are relative to 1
+void HIRLoopInterchange::permuteNearBy(unsigned DstLevel, unsigned SrcLevel) {
+
+  if (SrcLevel == DstLevel) {
+    return;
+  }
+  assert((SrcLevel > DstLevel) && "Loops are shifting to the left");
+  bool Erased = false;
+  for (auto &Loop : NearByPerm) {
+    if (Loop->getNestingLevel() == SrcLevel + OutmostNestingLevel - 1) {
+      HLLoop *LoopSave = Loop;
+      NearByPerm.erase(&Loop);
+      NearByPerm.insert(NearByPerm.begin() + DstLevel - 1, LoopSave);
+      Erased = true;
+      break;
+    }
+  }
+
+  assert(Erased && "Loop not found");
+  // Permute DV accordingly
+  DstLevel += OutmostNestingLevel - 1;
+  SrcLevel += OutmostNestingLevel - 1;
+
+  for (auto &II : DVs) {
+    DVType *WorkDV = II;
+    DVType DVSrc = WorkDV[SrcLevel - 1];
+    // Shift right by 1 for these [Dst : Src-1]
+    for (unsigned JJ = SrcLevel; JJ > DstLevel; --JJ) {
+      WorkDV[JJ - 1] = WorkDV[JJ - 2];
+    }
+    // Fill in Dst with Src
+    WorkDV[DstLevel - 1] = DVSrc;
+  }
 }
 
 /// Return true if legal for any permutations
