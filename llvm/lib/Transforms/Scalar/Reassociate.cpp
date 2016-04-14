@@ -27,6 +27,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -161,6 +162,7 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.setPreservesCFG();
       AU.addPreserved<GlobalsAAWrapperPass>();
+      AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
     }
   private:
     void BuildRankMap(Function &F, ReversePostOrderTraversal<Function *> &RPOT);

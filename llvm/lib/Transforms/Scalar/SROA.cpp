@@ -29,6 +29,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"    // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -4267,6 +4268,7 @@ public:
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();    // INTEL
     AU.setPreservesCFG();
   }
 

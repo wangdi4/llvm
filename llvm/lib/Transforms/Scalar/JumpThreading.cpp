@@ -25,6 +25,7 @@
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_Andersens.h"          // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -202,6 +203,7 @@ namespace {
       AU.addRequired<LazyValueInfo>();
       AU.addPreserved<LazyValueInfo>();
       AU.addPreserved<GlobalsAAWrapperPass>();
+      AU.addPreserved<AndersensAAWrapperPass>();                        // INTEL
       AU.addRequired<TargetLibraryInfoWrapperPass>();
     }
 
