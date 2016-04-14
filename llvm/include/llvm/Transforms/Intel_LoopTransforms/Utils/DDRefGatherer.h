@@ -94,7 +94,7 @@ public:
          ++I) {
       RegDDRef *Ref = (*I);
 
-      if (!(Mode & ConstantRefs) && (*I)->getSymbase() == CONSTANT_SYMBASE) {
+      if (!(Mode & ConstantRefs) && (*I)->getSymbase() == ConstantSymbase) {
         continue;
       }
 

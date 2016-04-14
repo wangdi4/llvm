@@ -14,6 +14,7 @@ add_llvm_library(LLVMIntel_LoopIR
   IRRegion.cpp
   RegDDRef.cpp
   HIRVerifier.cpp
+  Diag.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR

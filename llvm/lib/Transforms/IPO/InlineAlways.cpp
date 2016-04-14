@@ -46,16 +46,14 @@ class AlwaysInliner : public Inliner {
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 
 public:
-  // Use extremely low threshold.
-  AlwaysInliner() : Inliner(ID, -2000000000, /*InsertLifetime*/ true) {
+  AlwaysInliner() : Inliner(ID, /*InsertLifetime*/ true) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
 #if INTEL_SPECIFIC_IL0_BACKEND
     Il0BackendMode = false;
 #endif // INTEL_SPECIFIC_IL0_BACKEND
   }
 
-  AlwaysInliner(bool InsertLifetime)
-      : Inliner(ID, -2000000000, InsertLifetime) {
+  AlwaysInliner(bool InsertLifetime) : Inliner(ID, InsertLifetime) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
 #if INTEL_SPECIFIC_IL0_BACKEND
     Il0BackendMode = false;
@@ -64,7 +62,7 @@ public:
 
 #if INTEL_SPECIFIC_IL0_BACKEND
   AlwaysInliner(bool InsertLifetime, bool Il0BackendMode)
-      : Inliner(ID, -2000000000, InsertLifetime) {
+      : Inliner(ID, InsertLifetime) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
     this->Il0BackendMode = Il0BackendMode;
   }

@@ -21,6 +21,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/CostTable.h"
 #include "llvm/Target/TargetLowering.h"
+#include "llvm/IR/Module.h"
 
 using namespace llvm;
 
@@ -1438,12 +1439,65 @@ bool X86TTIImpl::isLegalMaskedLoad(Type *DataTy) {
   int DataWidth = isa<PointerType>(ScalarTy) ?
     DL.getPointerSizeInBits() : ScalarTy->getPrimitiveSizeInBits();
 
-  return (DataWidth >= 32 && ST->hasAVX2());
+  return (DataWidth >= 32 && ST->hasAVX());
 }
 
 bool X86TTIImpl::isLegalMaskedStore(Type *DataType) {
   return isLegalMaskedLoad(DataType);
 }
+
+#if INTEL_CUSTOMIZATION
+bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
+  if (CI->getCallingConv() != CallingConv::Intel_OCL_BI)
+    return false;
+
+  if (CI->getNumOperands() < 2)
+    return false;
+  unsigned lastOpNo = CI->getNumArgOperands() - 1;
+  Value *lastOp = CI->getArgOperand(lastOpNo);
+  VectorType *lastOpType = dyn_cast<VectorType>(lastOp->getType());
+  if (!lastOpType || lastOpType->getScalarSizeInBits() != 1)
+    return false;
+  VectorType *firstOpType =
+    dyn_cast<VectorType>(CI->getArgOperand(0)->getType());
+  assert(firstOpType && "Unexpected type for SVML argument");
+  if (firstOpType->getBitWidth() == 512)
+    return false;
+  IRBuilder<> Builder(CI);
+  
+  LLVMContext &C(getGlobalContext());
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
+  Type* newType = VectorType::get(firstOpType->isDoubleTy()?
+                                  Int64Ty : Int32Ty,
+                                  firstOpType->getNumElements());
+  lastOp = Builder.CreateSExt(lastOp, newType, "extMask");
+  CI->setArgOperand(lastOpNo, lastOp);
+
+  // Create new declaration
+  SmallVector<Type *, 3> ParamTys;
+  for (unsigned i = 0; i < CI->getNumArgOperands(); i++)
+    ParamTys.push_back(CI->getArgOperand(i)->getType());
+  FunctionType* newFuncType =
+    FunctionType::get(CI->getType(), ParamTys, false);
+
+  Function *origFunc = CI->getCalledFunction();
+  Module *M = origFunc->getParent();
+  
+  Function *newFunc;
+  if (origFunc->getName().startswith("_replaced_")) {
+    newFunc = M->getFunction(origFunc->getName().substr(sizeof("_replaced_") - 1));
+    assert(newFunc && "The function should be defined");
+  }
+  else {
+    std::string baseName = origFunc->getName();
+    origFunc->setName(Twine("_replaced_").concat(baseName));
+    newFunc = cast<Function>(M->getOrInsertFunction(baseName, newFuncType, origFunc->getAttributes()));
+  }
+  CI->setCalledFunction(newFunc);
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool X86TTIImpl::isLegalMaskedGather(Type *DataTy) {
   // This function is called now in two cases: from the Loop Vectorizer

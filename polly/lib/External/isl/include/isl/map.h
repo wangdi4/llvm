@@ -279,6 +279,7 @@ __isl_give isl_val *isl_basic_map_plain_get_val_if_fixed(
 	enum isl_dim_type type, unsigned pos);
 
 int isl_basic_map_image_is_bounded(__isl_keep isl_basic_map *bmap);
+isl_bool isl_basic_map_plain_is_universe(__isl_keep isl_basic_map *bmap);
 isl_bool isl_basic_map_is_universe(__isl_keep isl_basic_map *bmap);
 isl_bool isl_basic_map_plain_is_empty(__isl_keep isl_basic_map *bmap);
 __isl_export
@@ -552,6 +553,9 @@ isl_bool isl_map_can_curry(__isl_keep isl_map *map);
 __isl_give isl_basic_map *isl_basic_map_curry(__isl_take isl_basic_map *bmap);
 __isl_give isl_map *isl_map_curry(__isl_take isl_map *map);
 
+isl_bool isl_map_can_range_curry(__isl_keep isl_map *map);
+__isl_give isl_map *isl_map_range_curry(__isl_take isl_map *map);
+
 isl_bool isl_basic_map_can_uncurry(__isl_keep isl_basic_map *bmap);
 isl_bool isl_map_can_uncurry(__isl_keep isl_map *map);
 __isl_give isl_basic_map *isl_basic_map_uncurry(__isl_take isl_basic_map *bmap);
@@ -563,6 +567,9 @@ __isl_give isl_map *isl_map_compute_divs(__isl_take isl_map *map);
 __isl_give isl_map *isl_map_align_divs(__isl_take isl_map *map);
 
 __isl_give isl_basic_map *isl_basic_map_drop_constraints_involving_dims(
+	__isl_take isl_basic_map *bmap,
+	enum isl_dim_type type, unsigned first, unsigned n);
+__isl_give isl_basic_map *isl_basic_map_drop_constraints_not_involving_dims(
 	__isl_take isl_basic_map *bmap,
 	enum isl_dim_type type, unsigned first, unsigned n);
 __isl_give isl_map *isl_map_drop_constraints_involving_dims(

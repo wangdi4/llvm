@@ -21,9 +21,9 @@ namespace llvm {
 
 class FunctionPass;
 
-/// createSSADeconstructionPass - This creates a pass which desconstructs SSA
+/// createHIRSSADeconstructionPass - This creates a pass which desconstructs SSA
 /// for HIR creation.
-FunctionPass *createSSADeconstructionPass();
+FunctionPass *createHIRSSADeconstructionPass();
 
 /// createHIRPrinterPass - This creates a pass that prints HIR.
 FunctionPass *createHIRPrinterPass(raw_ostream &OS, const std::string &Banner);
@@ -58,6 +58,14 @@ FunctionPass *createHIRDummyTransformationPass();
 /// createHIRGeneralUnrollPass - This creates a pass that performs general
 /// unrolling for larger trip count HIR loops.
 FunctionPass *createHIRGeneralUnrollPass(int Threshold = -1, int UFactor = -1);
+
+/// createHIRParDirInsertPass - This creates a pass that injects
+/// directives for auto parallelization loops.
+FunctionPass *createHIRParDirInsertPass();
+
+/// createHIRVecDirInsertPass - This creates a pass that injects
+/// directives for auto vectorization candidate loops.
+FunctionPass *createHIRVecDirInsertPass(bool OuterVec = true);
 }
 
 #endif

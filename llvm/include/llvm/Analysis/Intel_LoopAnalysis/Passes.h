@@ -21,17 +21,17 @@ namespace llvm {
 
 class FunctionPass;
 
-/// createRegionIdentificationPass - This creates a pass that identifies HIR
+/// createHIRRegionIdentificationPass - This creates a pass that identifies HIR
 /// regions.
-FunctionPass *createRegionIdentificationPass();
+FunctionPass *createHIRRegionIdentificationPass();
 
-/// createSCCFormationPass - This creates a pass that identifies SCCs in the
+/// createHIRSCCFormationPass - This creates a pass that identifies SCCs in the
 /// regions.
-FunctionPass *createSCCFormationPass();
+FunctionPass *createHIRSCCFormationPass();
 
-/// createScalarSymbaseAssignmentPass - This creates a pass that assigns
+/// createHIRScalarSymbaseAssignmentPass - This creates a pass that assigns
 /// symbase to livein/liveout scalars.
-FunctionPass *createScalarSymbaseAssignmentPass();
+FunctionPass *createHIRScalarSymbaseAssignmentPass();
 
 /// createHIRCreationPass - This creates a pass that forms HIR nodes.
 FunctionPass *createHIRCreationPass();
@@ -40,8 +40,8 @@ FunctionPass *createHIRCreationPass();
 /// nodes.
 FunctionPass *createHIRCleanupPass();
 
-/// createLoopFormationPass - This creates a pass that forms HIR loops.
-FunctionPass *createLoopFormationPass();
+/// createHIRLoopFormationPass - This creates a pass that forms HIR loops.
+FunctionPass *createHIRLoopFormationPass();
 
 /// createHIRParserPass - This creates a pass that maps populates DDRefs by
 /// parsing SCEVs into CanonExprs.
@@ -49,18 +49,25 @@ FunctionPass *createHIRParserPass();
 
 /// Assigns a symbase to all ddrefs, which groups dd refs into sets that
 /// never alias
-FunctionPass *createSymbaseAssignmentPass();
+FunctionPass *createHIRSymbaseAssignmentPass();
 
 /// createHIRFrameworkPass - This creates a pass which serves as the public
 /// interface of HIR Framework.
 FunctionPass *createHIRFrameworkPass();
 
 /// Creates analysis which can provide a data dependence graph of an HLNode
-FunctionPass *createDDAnalysisPass();
+FunctionPass *createHIRDDAnalysisPass();
 
 /// Computes the locality cost for HLLoops which are used during
 /// transformations.
 FunctionPass *createHIRLocalityAnalysisPass();
+
+/// Creates analysis which can provide parallel/vector candidate analysis
+FunctionPass *createHIRParVecAnalysisPass();
+
+/// Computes the cost of VLS Groups for HLLoops which are used during
+/// Vectorization.
+FunctionPass *createHIRVectVLSAnalysisPass();
 }
 
 #endif

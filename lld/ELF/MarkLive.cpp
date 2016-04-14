@@ -16,11 +16,12 @@
 // by default. Starting with GC-root symbols or sections, markLive function
 // defined in this file visits all reachable sections to set their Live
 // bits. Writer will then ignore sections whose Live bits are off, so that
-// such sections are removed from output.
+// such sections are not included into output.
 //
 //===----------------------------------------------------------------------===//
 
 #include "InputSection.h"
+#include "LinkerScript.h"
 #include "OutputSections.h"
 #include "SymbolTable.h"
 #include "Symbols.h"
@@ -35,9 +36,9 @@ using namespace llvm::ELF;
 using namespace llvm::object;
 
 using namespace lld;
-using namespace lld::elf2;
+using namespace lld::elf;
 
-// Calls Fn for each section that Sec refers to.
+// Calls Fn for each section that Sec refers to via relocations.
 template <class ELFT>
 static void forEachSuccessor(InputSection<ELFT> *Sec,
                              std::function<void(InputSectionBase<ELFT> *)> Fn) {
@@ -70,6 +71,12 @@ template <class ELFT> static bool isReserved(InputSectionBase<ELFT> *Sec) {
     return true;
   default:
     StringRef S = Sec->getSectionName();
+
+    // We do not want to reclaim sections if they can be referred
+    // by __start_* and __stop_* symbols.
+    if (isValidCIdentifier(S))
+      return true;
+
     return S.startswith(".ctors") || S.startswith(".dtors") ||
            S.startswith(".init") || S.startswith(".fini") ||
            S.startswith(".jcr");
@@ -79,7 +86,7 @@ template <class ELFT> static bool isReserved(InputSectionBase<ELFT> *Sec) {
 // This is the main function of the garbage collector.
 // Starting from GC-root sections, this function visits all reachable
 // sections to set their "Live" bits.
-template <class ELFT> void lld::elf2::markLive(SymbolTable<ELFT> *Symtab) {
+template <class ELFT> void elf::markLive(SymbolTable<ELFT> *Symtab) {
   SmallVector<InputSection<ELFT> *, 256> Q;
 
   auto Enqueue = [&](InputSectionBase<ELFT> *Sec) {
@@ -104,7 +111,7 @@ template <class ELFT> void lld::elf2::markLive(SymbolTable<ELFT> *Symtab) {
     MarkSymbol(Symtab->find(S));
 
   // Preserve externally-visible symbols if the symbols defined by this
-  // file could override other ELF file's symbols at runtime.
+  // file can interrupt other ELF file's symbols at runtime.
   if (Config->Shared || Config->ExportDynamic) {
     for (const std::pair<StringRef, Symbol *> &P : Symtab->getSymbols()) {
       SymbolBody *B = P.second->Body;
@@ -113,11 +120,12 @@ template <class ELFT> void lld::elf2::markLive(SymbolTable<ELFT> *Symtab) {
     }
   }
 
-  // Preserve special sections.
+  // Preserve special sections and those which are specified in linker
+  // script KEEP command.
   for (const std::unique_ptr<ObjectFile<ELFT>> &F : Symtab->getObjectFiles())
     for (InputSectionBase<ELFT> *Sec : F->getSections())
-      if (Sec && Sec != &InputSection<ELFT>::Discarded)
-        if (isReserved(Sec))
+      if (Sec && Sec != InputSection<ELFT>::Discarded)
+        if (isReserved(Sec) || Script->shouldKeep<ELFT>(Sec))
           Enqueue(Sec);
 
   // Mark all reachable sections.
@@ -125,7 +133,7 @@ template <class ELFT> void lld::elf2::markLive(SymbolTable<ELFT> *Symtab) {
     forEachSuccessor<ELFT>(Q.pop_back_val(), Enqueue);
 }
 
-template void lld::elf2::markLive<ELF32LE>(SymbolTable<ELF32LE> *);
-template void lld::elf2::markLive<ELF32BE>(SymbolTable<ELF32BE> *);
-template void lld::elf2::markLive<ELF64LE>(SymbolTable<ELF64LE> *);
-template void lld::elf2::markLive<ELF64BE>(SymbolTable<ELF64BE> *);
+template void elf::markLive<ELF32LE>(SymbolTable<ELF32LE> *);
+template void elf::markLive<ELF32BE>(SymbolTable<ELF32BE> *);
+template void elf::markLive<ELF64LE>(SymbolTable<ELF64LE> *);
+template void elf::markLive<ELF64BE>(SymbolTable<ELF64BE> *);

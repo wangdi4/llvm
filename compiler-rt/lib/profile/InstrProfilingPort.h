@@ -22,23 +22,36 @@
 
 #define COMPILER_RT_SECTION(Sect) __attribute__((section(Sect)))
 
+#define COMPILER_RT_MAX_HOSTLEN 128
+#ifdef _MSC_VER
+#define COMPILER_RT_GETHOSTNAME(Name, Len) gethostname(Name, Len)
+#elif defined(__PS4__)
+#define COMPILER_RT_GETHOSTNAME(Name, Len) (-1)
+#else
+#define COMPILER_RT_GETHOSTNAME(Name, Len) GetHostName(Name, Len)
+#define COMPILER_RT_HAS_UNAME 1
+#endif
+
 #if COMPILER_RT_HAS_ATOMICS == 1
 #ifdef _MSC_VER
 #include <windows.h>
+#if _MSC_VER < 1900
+#define snprintf _snprintf
+#endif
 #if defined(_WIN64)
 #define COMPILER_RT_BOOL_CMPXCHG(Ptr, OldV, NewV)                              \
   (InterlockedCompareExchange64((LONGLONG volatile *)Ptr, (LONGLONG)NewV,      \
                                 (LONGLONG)OldV) == (LONGLONG)OldV)
-#else
+#else /* !defined(_WIN64) */
 #define COMPILER_RT_BOOL_CMPXCHG(Ptr, OldV, NewV)                              \
   (InterlockedCompareExchange((LONG volatile *)Ptr, (LONG)NewV, (LONG)OldV) == \
    (LONG)OldV)
 #endif
-#else
+#else /* !defined(_MSC_VER) */
 #define COMPILER_RT_BOOL_CMPXCHG(Ptr, OldV, NewV)                              \
   __sync_bool_compare_and_swap(Ptr, OldV, NewV)
 #endif
-#else
+#else /* COMPILER_RT_HAS_ATOMICS != 1 */
 #define COMPILER_RT_BOOL_CMPXCHG(Ptr, OldV, NewV)                              \
   BoolCmpXchg((void **)Ptr, OldV, NewV)
 #endif

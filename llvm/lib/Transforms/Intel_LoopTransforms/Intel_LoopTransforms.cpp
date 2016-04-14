@@ -15,13 +15,16 @@
 using namespace llvm;
 
 void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
-  initializeSSADeconstructionPass(Registry);
+  initializeHIRSSADeconstructionPass(Registry);
+  initializeHIRLoopInterchangePass(Registry);
   initializeHIROptPredicatePass(Registry);
   initializeHIRCompleteUnrollPass(Registry);
   initializeHIRGeneralUnrollPass(Registry);
   initializeHIRDummyTransformationPass(Registry);
-  initializeHIRLoopInterchangePass(Registry);
   initializeHIRRuntimeDDPass(Registry);
   initializeHIRLoopDistributionPass(Registry);
   initializeHIRCodeGenPass(Registry);
+  initializeVPODriverHIRPass(Registry);
+  initializeHIRParDirInsertPass(Registry);
+  initializeHIRVecDirInsertPass(Registry);
 }

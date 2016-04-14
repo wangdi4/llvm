@@ -16,11 +16,11 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_REGDDREF_H
 #define LLVM_IR_INTEL_LOOPIR_REGDDREF_H
 
-#include "llvm/Support/Casting.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/Casting.h"
 
-#include "llvm/IR/Intel_LoopIR/DDRef.h"
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
+#include "llvm/IR/Intel_LoopIR/DDRef.h"
 
 namespace llvm {
 
@@ -40,6 +40,8 @@ public:
   typedef SmallVector<CanonExpr *, 3> CanonExprsTy;
   typedef SmallVector<BlobDDRef *, 2> BlobDDRefsTy;
   typedef CanonExprsTy SubscriptTy;
+  typedef std::pair<unsigned, MDNode *> MDPairTy;
+  typedef SmallVector<MDPairTy, 6> MDNodesTy;
 
   /// Iterators to iterate over canon exprs
   typedef CanonExprsTy::iterator canon_iterator;
@@ -62,8 +64,26 @@ private:
     // This is set if this DDRef represents an address computation (GEP) instead
     // of a load or store.
     bool AddressOf;
+    bool Volatile;
+    unsigned Alignment;
+
+    // TODO: Atomic attribute is missing. Should we even build regions with
+    // atomic load/stores since optimizing multi-threaded code might be
+    // dangerous? IRBuilder doesn't even seem to have members to create atomic
+    // load/stores.
+
+    // Stores metadata associated with load/stores in sorted order by KindID.
+    // This is the same setup as for LLVM instructions. Refer to
+    // getAllMetadata() in Instruction.h.
+    MDNodesTy MDNodes;
+
+    // Comparators to sort MDNodes.
+    struct MDKindCompareLess;
+    struct MDKindCompareEqual;
 
     GEPInfo();
+    GEPInfo(const GEPInfo &);
+
     ~GEPInfo();
   };
 
@@ -85,8 +105,11 @@ protected:
 
   friend class DDRefUtils;
 
-  /// \brief Required to access setHLDDNode().
+  // Required to access setHLDDNode().
   friend class HLDDNode;
+
+  // Accesses MDNodes.
+  friend class HIRParser;
 
   /// \brief Sets the HLDDNode of this RegDDRef
   void setHLDDNode(HLDDNode *HNode) override { Node = HNode; }
@@ -99,8 +122,15 @@ protected:
 
   /// \brief Creates GEPInfo object for the DDRef.
   void createGEP() {
-    assert(!GepInfo && "Attempt to overwrite GEP info!");
-    GepInfo = new GEPInfo;
+    if (!hasGEPInfo()) {
+      GepInfo = new GEPInfo;
+    }
+  }
+
+  /// \brief Returns contained GEPInfo. Asserts if it is not set.
+  GEPInfo *getGEPInfo() const { 
+    assert(hasGEPInfo() && "GEPInfo not present!");
+    return GepInfo; 
   }
 
   /// \brief Returns non-const iterator version of CBlobI.
@@ -127,9 +157,8 @@ protected:
   /// \brief Implements get*Type() functionality.
   Type *getTypeImpl(bool IsSrc) const;
 
-  /// \brief Returns maximum blob level amongst the blobs in the vector. If a
-  /// non-linear blob is found, -1 is returned.
-  int findMaxBlobLevel(const SmallVectorImpl<unsigned> &BlobIndices) const;
+  /// \brief Returns maximum blob level amongst the blobs in the vector.
+  unsigned findMaxBlobLevel(const SmallVectorImpl<unsigned> &BlobIndices) const;
 
   /// \brief Updates def level of CE based on the level of the blobs present in
   /// CE. DDRef is assumed to have the passed in NestingLevel.
@@ -170,37 +199,84 @@ public:
   void setBaseDestType(Type *DestTy);
 
   /// \brief Returns the canonical form of the subscript base.
-  CanonExpr *getBaseCE() { return hasGEPInfo() ? GepInfo->BaseCE : nullptr; }
+  CanonExpr *getBaseCE() {
+    return getGEPInfo()->BaseCE;
+  }
   const CanonExpr *getBaseCE() const {
     return const_cast<RegDDRef *>(this)->getBaseCE();
   }
+
   /// \brief Sets the canonical form of the subscript base.
   void setBaseCE(CanonExpr *BaseCE) {
-    if (!hasGEPInfo()) {
-      createGEP();
-    }
-    GepInfo->BaseCE = BaseCE;
+    createGEP();
+    getGEPInfo()->BaseCE = BaseCE;
   }
 
   /// \brief Returns true if the inbounds attribute is set for this access.
-  bool isInBounds() const { return hasGEPInfo() ? GepInfo->InBounds : false; }
-  /// Sets the inbounds attribute for this access.
-  void setInBounds(bool IsInBounds) {
-    if (!hasGEPInfo()) {
-      createGEP();
-    }
-    GepInfo->InBounds = IsInBounds;
+  bool isInBounds() const {
+    return getGEPInfo()->InBounds;
   }
 
-  /// \brief Returns true if this ia an address computation.
-  bool isAddressOf() const { return hasGEPInfo() ? GepInfo->AddressOf : false; }
-  /// Marks this ref as an address computation.
-  void setAddressOf(bool IsAddressOf) {
-    if (!hasGEPInfo()) {
-      createGEP();
-    }
-    GepInfo->AddressOf = IsAddressOf;
+  /// Sets the inbounds attribute for this access.
+  void setInBounds(bool IsInBounds) {
+    createGEP();
+    getGEPInfo()->InBounds = IsInBounds;
   }
+
+  /// \brief Returns true if this is an address computation.
+  bool isAddressOf() const {
+    // getGEPInfo() asserts that RegDDRef has GEPInfo. Clients of isAddressOf
+    // should not be forced to check for hasGEPInfo() before calling
+    // isAddressOf().
+    if (!hasGEPInfo()) {
+      return false;
+    }
+    return getGEPInfo()->AddressOf;
+  }
+
+  /// Sets/resets this ref as an address computation.
+  void setAddressOf(bool IsAddressOf) {
+    createGEP();
+    getGEPInfo()->AddressOf = IsAddressOf;
+  }
+
+  /// \brief Returns true if this is a volatile load/store.
+  bool isVolatile() const {
+    return getGEPInfo()->Volatile;
+  }
+
+  /// Sets/resets this ref as a volatile load/store.
+  void setVolatile(bool IsVolatile) {
+    createGEP();
+    getGEPInfo()->Volatile = IsVolatile;
+  }
+
+  /// \brief Returns alignment info for this ref.
+  unsigned getAlignment() const {
+    return getGEPInfo()->Alignment;
+  }
+
+  /// Sets alignment for this ref.
+  void setAlignment(unsigned Align) {
+    createGEP();
+    getGEPInfo()->Alignment = Align;
+  }
+
+  /// \brief Returns the metadata of given kind attached to this ref, else
+  /// returns null.
+  MDNode *getMetadata(StringRef Kind) const;
+  MDNode *getMetadata(unsigned KindID) const;
+
+  /// \brief Returns all metadata attached to this ref.
+  void getAllMetadata(MDNodesTy &MDs) const;
+
+  /// \brief Returns all metadata attached to this ref other than DebugLoc.
+  void getAllMetadataOtherThanDebugLoc(MDNodesTy &MDs) const;
+
+  /// \brief Sets the metadata of the specific kind. This updates/replaces
+  /// metadata if already present, or removes it if Node is null.
+  void setMetadata(StringRef Kind, MDNode *Node);
+  void setMetadata(unsigned KindID, MDNode *Node);
 
   /// \brief Returns true if this RegDDRef is a constant integer.
   /// Val parameter is the value associated inside the CanonExpr
@@ -210,8 +286,21 @@ public:
   }
 
   /// \brief Returns true if this RegDDRef represents an FP constant.
-  bool isFPConstant() const {
-    return isTerminalRef() && getSingleCanonExpr()->isFPConstant();
+  /// Put the underlying LLVM Value in Val
+  bool isFPConstant(ConstantFP **Val = nullptr) const {
+    return isTerminalRef() && getSingleCanonExpr()->isFPConstant(Val);
+  }
+
+  /// \brief Returns true if this RegDDRef represents a vector of constants.
+  /// Put the underlying LLVM Value in Val
+  bool isConstantVector(Constant **Val = nullptr) const {
+    return isTerminalRef() && getSingleCanonExpr()->isConstantVector(Val);
+  }
+
+  /// \brief Returns true if this RegDDRef represents a metadata.
+  /// If true, metadata is returned in Val.
+  bool isMetadata(MetadataAsValue **Val = nullptr) const {
+    return isTerminalRef() && getSingleCanonExpr()->isMetadata(Val);
   }
 
   /// \brief Returns true if this RegDDRef represents null pointer.
@@ -225,7 +314,7 @@ public:
   /// CONSTANT_SYMBASE. Lval DDRefs can have constant canonical expr but cannot
   /// have CONSTANT_SYMBASE.
   bool isConstant() const {
-    return (isIntConstant() || isFPConstant() || isNull());
+    return isTerminalRef() && getSingleCanonExpr()->isConstant();
   }
 
   /// \brief Returns the number of dimensions of the DDRef.
@@ -306,6 +395,17 @@ public:
   /// Else returns true for cases like DDRef - 2*i and M+N.
   bool isTerminalRef() const;
 
+  /// \brief Returns true if the DDRef is structurally invariant at \p Level.
+  /// Note!: It does not check data-dependences, so there may be cases where
+  /// the  DDRef is structurally invariant, but not actually invariant. For
+  /// example, in the loop below, A[5] is structurally invariant, but not
+  /// actually invariant because of the data-dependence:
+  /// for (i=0; i<10; i++) { A[i] = A[5] + i;}
+  bool isStructurallyInvariantAtLevel(unsigned Level) const;
+
+  /// \brief Adds a dimension to the DDRef. Stride can be null for a scalar.
+  void addDimension(CanonExpr *Canon, CanonExpr *Stride);
+
   /// \brief Returns true if the DDRef is a memory reference
   bool isMemRef() const;
 
@@ -356,8 +456,8 @@ public:
   void addBlobDDRef(BlobDDRef *BlobRef);
 
   /// \brief Creates a blob DDRef with passed in Index and Level and adds it to
-  /// this DDRef. Level of -1 means non-linear blob.
-  void addBlobDDRef(unsigned Index, int Level = -1);
+  /// this DDRef.
+  void addBlobDDRef(unsigned Index, unsigned Level = NonLinearLevel);
 
   /// \brief Removes and returns blob DDRef corresponding to CBlobI iterator.
   BlobDDRef *removeBlobDDRef(const_blob_iterator CBlobI);
@@ -439,11 +539,11 @@ public:
                  unsigned NestingLevelIfDetached = (MaxLoopNestLevel + 1));
 
   /// \brief Returns true if the blob is present in this DDRef and returns its
-  /// defined at level via DefLevel. DefLevel is expected to be non-null. -1 is
-  /// returned for non-linear blobs. The blob is searched in the blob DDRefs
-  /// attached to this DDRef. This function can be used to update defined at
-  /// levels for blobs which were copied from this DDRef to another DDRef.
-  bool findBlobLevel(unsigned BlobIndex, int *DefLevel) const;
+  /// defined at level via DefLevel. DefLevel is expected to be non-null. The
+  /// blob is searched in the blob DDRefs attached to this DDRef. This function
+  /// can be used to update defined at levels for blobs which were copied from
+  /// this DDRef to another DDRef.
+  bool findBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const;
 
   /// \brief Verifies RegDDRef integrity.
   virtual void verify() const override;

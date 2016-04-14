@@ -26,10 +26,11 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRVectVLSAnalysis.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 
 #include <type_traits>
 
@@ -41,7 +42,7 @@ class HLLoop;
 class HLRegion;
 
 /// \brief Defines analysis invalidation utilities for HIR.
-class HIRInvalidationUtils : public HLUtils {
+class HIRInvalidationUtils : public HIRUtils {
 private:
   // The InPack type determines if T is presented in the parameter Pack.
   //
@@ -79,7 +80,7 @@ private:
   template <typename... Analysis>
   struct AnalysisSet {
 
-    static_assert(sizeof...(Analysis) == HIRAnalysisPass::PassCountVal,
+    static_assert(sizeof...(Analysis) == HIRAnalysisPass::HIRPassCountVal,
         "One or more HIR Analysis pass is missing!");
 
     template <typename F, typename... ArgsTy>
@@ -100,7 +101,7 @@ private:
   };
 
   // There should be all available analysis
-  typedef AnalysisSet<DDAnalysis, HIRLocalityAnalysis> ForEachAnalysis;
+  typedef AnalysisSet<HIRDDAnalysis, HIRLocalityAnalysis, HIRVectVLSAnalysis> ForEachAnalysis;
 
   /// \brief Do not allow instantiation.
   HIRInvalidationUtils() = delete;

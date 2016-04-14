@@ -20,6 +20,8 @@
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
@@ -99,6 +101,9 @@ public:
   void updateIVWithBounds(unsigned Level, const RegDDRef *LowerBound,
                           const RegDDRef *UpperBound, const HLLoop *InnerLoop);
 
+  void makeConsistent(const SmallVectorImpl<const RegDDRef *> &AuxRefs,
+                      unsigned Level);
+
   Segment genSegment() const;
 
   bool isWrite() const { return IsWrite; }
@@ -147,7 +152,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequiredTransitive<HIRFramework>();
-    AU.addRequiredTransitive<DDAnalysis>();
+    AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.setPreservesAll();
   }
 

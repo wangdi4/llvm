@@ -36,16 +36,16 @@
 #define LLVM_ANALYSIS_DDTEST_H
 
 #include "llvm/ADT/SmallBitVector.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -91,6 +91,23 @@ bool isDValEQ(const DVType *DV);
 /// In this example, isDVIndepFromLevel(&DV, 2) return true
 
 bool isDVIndepFromLevel(const DVType *DV, unsigned FromLevel);
+
+/// Returns true if DV shows cross iter dependence at Level.
+inline bool isDVCrossIterDepAtLevel(const DVType *DV, unsigned Level) {
+  return !(DV[Level-1] == DV::EQ || isDVIndepFromLevel(DV, Level)); 
+}
+
+/// Returns true if DV refinement for Level makes sense.
+/// Be sure to also call isDVIndepFromLevel() before attempting to refine.
+inline bool isDVRefinableAtLevel(const DVType *DV, unsigned Level) {
+  for (unsigned L = 1; L < Level-1; L++){
+    // DV::NE would result in indep after refinement. Should be
+    // handled by isDVIndepFromLevel() instead.
+    if (DV[L-1] == DV::GE || DV[L-1] == DV::LE || DV[L-1] == DV::ALL)
+      return true;
+  }
+  return false; 
+} 
 
 /// Refine DV by calling demand driven DD. Return true when RefineDV[] is set
 
@@ -292,7 +309,7 @@ public:
 
   bool findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
                        const DVectorTy &InputDV, DVectorTy &ForwardDV,
-                       DVectorTy &BackwardDV);
+                       DVectorTy &BackwardDV, bool *IsLoopIndepDepTemp);
 
   /// getSplitIteration - Give a dependence that's splittable at some
   /// particular level, return the iteration that should be used to split
@@ -811,7 +828,7 @@ private:
 
   /// return true if 2 CE are equal
   bool areCEEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                  bool IgnoreDestType = false) const;
+                  bool RelaxedMode = true) const;
 
   /// return negation of CE
   const CanonExpr *getNegative(const CanonExpr *CE);

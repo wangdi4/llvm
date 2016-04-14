@@ -134,17 +134,15 @@ public:
   /// \p MBB will be correctly handled by the target.
   bool canUseAsEpilogue(const MachineBasicBlock &MBB) const override;
 
-#if INTEL_CUSTOMIZATION
+  /// Returns true if the target will correctly handle shrink wrapping.
+  bool enableShrinkWrapping(const MachineFunction &MF) const override;
+
   /// Order the symbols in the local stack.
   /// We want to place the local stack objects in some sort of sensible order.
   /// The heuristic we use is to try and pack them according to static number
   /// of uses and size in order to minimize code size.
   void orderFrameObjects(const MachineFunction &MF,
-                         std::vector<int> &objectsToAllocate) const override;
-#endif // INTEL_CUSTOMIZATION
-
-  /// Returns true if the target will correctly handle shrink wrapping.
-  bool enableShrinkWrapping(const MachineFunction &MF) const override;
+                         SmallVectorImpl<int> &ObjectsToAllocate) const override;
 
   /// convertArgMovsToPushes - This method tries to convert a call sequence
   /// that uses sub and mov instructions to put the argument onto the stack
@@ -201,67 +199,6 @@ private:
                                            MachineBasicBlock::iterator MBBI,
                                            DebugLoc DL, int64_t Offset,
                                            bool InEpilogue) const;
-
-#if INTEL_CUSTOMIZATION
-  /// Class used by orderFrameObjects to help sort the stack objects.
-  class X86FrameSortingObject {
-  public:
-    X86FrameSortingObject() : IsValid(false), ObjectIndex(0), ObjectSize(0),
-                              ObjectAlignment(1), ObjectNumUses(0) {}
-    bool IsValid;                 // true if we care about this Object.
-    unsigned int ObjectIndex;     // Index of Object into MFI list.
-    unsigned int ObjectSize;      // Size of Object in bytes.
-    unsigned int ObjectAlignment; // Alignment of Object in bytes.
-    unsigned int ObjectNumUses;   // Object static number of uses.
-  };
-
-  /// The comparison function we use for std::sort to order our local
-  /// stack symbols. The current algorithm is to use an estimated
-  /// "density". This takes into consideration the size and number of
-  /// uses each object has in order to roughly minimize code size.
-  /// So, for example, an object of size 16B that is referenced 5 times
-  /// will get higher priority than 4 4B objects referenced 1 time each.
-  /// It's not perfect and we may be able to squeeze a few more bytes out of
-  /// it (for example : 0(esp) requires fewer bytes, symbols allocated at the
-  /// fringe end can have special consideration, given their size is less
-  /// important, etc.), but the algorithmic complexity grows too much to be
-  /// worth the extra gains we get. This gets us pretty close.
-  /// The final order leaves us with objects with highest priority going
-  /// at the end of our list.
-  struct X86FrameSortingAlgorithm {
-    inline bool operator() (const X86FrameSortingObject& a,
-                            const X86FrameSortingObject& b)
-    {
-      double DensityA, DensityB;
-
-      // For consistency in our comparison, all invalid objects are placed
-      // at the end. This also allows us to stop walking when we hit the
-      // first invalid item after it's all sorted.
-      if (!a.IsValid)
-        return false;
-      if (!b.IsValid)
-        return true;
-
-      DensityA = static_cast<double>(a.ObjectNumUses) /
-        static_cast<double>(a.ObjectSize);
-      DensityB = static_cast<double>(b.ObjectNumUses) /
-        static_cast<double>(b.ObjectSize);
-
-      // If the two densities are equal, prioritize highest alignment
-      // objects. This allows for similar alignment objects
-      // to be packed together (given the same density).
-      // There's room for improvement here, also, since we can pack
-      // similar alignment (different density) objects next to each
-      // other to save padding. This will also require further
-      // complexity/iterations, and the overall gain isn't worth it,
-      // in general. Something to keep in mind, though.
-      if (DensityA == DensityB)
-        return a.ObjectAlignment < b.ObjectAlignment;
-
-      return DensityA < DensityB;
-    }
-  };
-#endif // INTEL_CUSTOMIZATION
 
   unsigned getPSPSlotOffsetFromSP(const MachineFunction &MF) const;
 

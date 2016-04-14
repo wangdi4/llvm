@@ -312,10 +312,13 @@ include "AArch64InstrFormats.td"
 //===----------------------------------------------------------------------===//
 
 let Defs = [SP], Uses = [SP], hasSideEffects = 1, isCodeGenOnly = 1 in {
+// We set Sched to empty list because we expect these instructions to simply get
+// removed in most cases.
 def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt),
-                              [(AArch64callseq_start timm:$amt)]>;
+                              [(AArch64callseq_start timm:$amt)]>, Sched<[]>;
 def ADJCALLSTACKUP : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
-                            [(AArch64callseq_end timm:$amt1, timm:$amt2)]>;
+                            [(AArch64callseq_end timm:$amt1, timm:$amt2)]>,
+                            Sched<[]>;
 } // Defs = [SP], Uses = [SP], hasSideEffects = 1, isCodeGenOnly = 1
 
 let isReMaterializable = 1, isCodeGenOnly = 1 in {
@@ -528,6 +531,12 @@ def i64imm_32bit : ImmLeaf<i64, [{
   return (Imm & 0xffffffffULL) == static_cast<uint64_t>(Imm);
 }]>;
 
+def s64imm_32bit : ImmLeaf<i64, [{
+  int64_t Imm64 = static_cast<int64_t>(Imm);
+  return Imm64 >= std::numeric_limits<int32_t>::min() &&
+         Imm64 <= std::numeric_limits<int32_t>::max();
+}]>;
+
 def trunc_imm : SDNodeXForm<imm, [{
   return CurDAG->getTargetConstant(N->getZExtValue(), SDLoc(N), MVT::i32);
 }]>;
@@ -734,6 +743,40 @@ def : Pat<(i64 (ineg (mul (sext GPR32:$Rn), (sext GPR32:$Rm)))),
           (SMSUBLrrr GPR32:$Rn, GPR32:$Rm, XZR)>;
 def : Pat<(i64 (ineg (mul (zext GPR32:$Rn), (zext GPR32:$Rm)))),
           (UMSUBLrrr GPR32:$Rn, GPR32:$Rm, XZR)>;
+
+def : Pat<(i64 (mul (sext GPR32:$Rn), (s64imm_32bit:$C))),
+          (SMADDLrrr GPR32:$Rn, (MOVi32imm (trunc_imm imm:$C)), XZR)>;
+def : Pat<(i64 (mul (zext GPR32:$Rn), (i64imm_32bit:$C))),
+          (UMADDLrrr GPR32:$Rn, (MOVi32imm (trunc_imm imm:$C)), XZR)>;
+def : Pat<(i64 (mul (sext_inreg GPR64:$Rn, i32), (s64imm_32bit:$C))),
+          (SMADDLrrr (i32 (EXTRACT_SUBREG GPR64:$Rn, sub_32)),
+                     (MOVi32imm (trunc_imm imm:$C)), XZR)>;
+
+def : Pat<(i64 (ineg (mul (sext GPR32:$Rn), (s64imm_32bit:$C)))),
+          (SMSUBLrrr GPR32:$Rn, (MOVi32imm (trunc_imm imm:$C)), XZR)>;
+def : Pat<(i64 (ineg (mul (zext GPR32:$Rn), (i64imm_32bit:$C)))),
+          (UMSUBLrrr GPR32:$Rn, (MOVi32imm (trunc_imm imm:$C)), XZR)>;
+def : Pat<(i64 (ineg (mul (sext_inreg GPR64:$Rn, i32), (s64imm_32bit:$C)))),
+          (SMSUBLrrr (i32 (EXTRACT_SUBREG GPR64:$Rn, sub_32)),
+                     (MOVi32imm (trunc_imm imm:$C)), XZR)>;
+
+def : Pat<(i64 (add (mul (sext GPR32:$Rn), (s64imm_32bit:$C)), GPR64:$Ra)),
+          (SMADDLrrr GPR32:$Rn, (MOVi32imm (trunc_imm imm:$C)), GPR64:$Ra)>;
+def : Pat<(i64 (add (mul (zext GPR32:$Rn), (i64imm_32bit:$C)), GPR64:$Ra)),
+          (UMADDLrrr GPR32:$Rn, (MOVi32imm (trunc_imm imm:$C)), GPR64:$Ra)>;
+def : Pat<(i64 (add (mul (sext_inreg GPR64:$Rn, i32), (s64imm_32bit:$C)),
+                    GPR64:$Ra)),
+          (SMADDLrrr (i32 (EXTRACT_SUBREG GPR64:$Rn, sub_32)),
+                     (MOVi32imm (trunc_imm imm:$C)), GPR64:$Ra)>;
+
+def : Pat<(i64 (sub GPR64:$Ra, (mul (sext GPR32:$Rn), (s64imm_32bit:$C)))),
+          (SMSUBLrrr GPR32:$Rn, (MOVi32imm (trunc_imm imm:$C)), GPR64:$Ra)>;
+def : Pat<(i64 (sub GPR64:$Ra, (mul (zext GPR32:$Rn), (i64imm_32bit:$C)))),
+          (UMSUBLrrr GPR32:$Rn, (MOVi32imm (trunc_imm imm:$C)), GPR64:$Ra)>;
+def : Pat<(i64 (sub GPR64:$Ra, (mul (sext_inreg GPR64:$Rn, i32),
+                                    (s64imm_32bit:$C)))),
+          (SMSUBLrrr (i32 (EXTRACT_SUBREG GPR64:$Rn, sub_32)),
+                     (MOVi32imm (trunc_imm imm:$C)), GPR64:$Ra)>;
 } // AddedComplexity = 5
 
 def : MulAccumWAlias<"mul", MADDWrrr>;
@@ -1089,6 +1132,14 @@ def : Pat<(AArch64csel (i32 0), (i32 -1), (i32 imm:$cc), NZCV),
           (CSINVWr WZR, WZR, (i32 imm:$cc))>;
 def : Pat<(AArch64csel (i64 0), (i64 -1), (i32 imm:$cc), NZCV),
           (CSINVXr XZR, XZR, (i32 imm:$cc))>;
+def : Pat<(AArch64csel GPR32:$tval, (i32 -1), (i32 imm:$cc), NZCV),
+          (CSINVWr GPR32:$tval, WZR, (i32 imm:$cc))>;
+def : Pat<(AArch64csel GPR64:$tval, (i64 -1), (i32 imm:$cc), NZCV),
+          (CSINVXr GPR64:$tval, XZR, (i32 imm:$cc))>;
+def : Pat<(AArch64csel (i32 -1), GPR32:$fval, (i32 imm:$cc), NZCV),
+          (CSINVWr GPR32:$fval, WZR, (i32 (inv_cond_XFORM imm:$cc)))>;
+def : Pat<(AArch64csel (i64 -1), GPR64:$fval, (i32 imm:$cc), NZCV),
+          (CSINVXr GPR64:$fval, XZR, (i32 (inv_cond_XFORM imm:$cc)))>;
 
 // The inverse of the condition code from the alias instruction is what is used
 // in the aliased instruction. The parser all ready inverts the condition code
@@ -1158,7 +1209,8 @@ def BR  : BranchReg<0b0000, "br", [(brind GPR64:$Rn)]>;
 // Create a separate pseudo-instruction for codegen to use so that we don't
 // flag lr as used in every function. It'll be restored before the RET by the
 // epilogue if it's legitimately used.
-def RET_ReallyLR : Pseudo<(outs), (ins), [(AArch64retflag)]> {
+def RET_ReallyLR : Pseudo<(outs), (ins), [(AArch64retflag)]>,
+                   Sched<[WriteBrReg]> {
   let isTerminator = 1;
   let isBarrier = 1;
   let isReturn = 1;
@@ -1168,7 +1220,7 @@ def RET_ReallyLR : Pseudo<(outs), (ins), [(AArch64retflag)]> {
 // R_AARCH64_TLSDESC_CALL relocation at the offset of the following instruction
 // (which in the usual case is a BLR).
 let hasSideEffects = 1 in
-def TLSDESCCALL : Pseudo<(outs), (ins i64imm:$sym), []> {
+def TLSDESCCALL : Pseudo<(outs), (ins i64imm:$sym), []>, Sched<[]> {
   let AsmString = ".tlsdesccall $sym";
 }
 
@@ -1178,7 +1230,8 @@ let isCall = 1, Defs = [LR, X0, X1], hasSideEffects = 1,
     isCodeGenOnly = 1 in
 def TLSDESC_CALLSEQ
     : Pseudo<(outs), (ins i64imm:$sym),
-             [(AArch64tlsdesc_callseq tglobaltlsaddr:$sym)]>;
+             [(AArch64tlsdesc_callseq tglobaltlsaddr:$sym)]>,
+      Sched<[WriteI, WriteLD, WriteI, WriteBrReg]>;
 def : Pat<(AArch64tlsdesc_callseq texternalsym:$sym),
           (TLSDESC_CALLSEQ texternalsym:$sym)>;
 
@@ -2488,9 +2541,11 @@ defm FMOV : UnscaledConversion<"fmov">;
 let isReMaterializable = 1, isCodeGenOnly = 1 in {
 def FMOVS0 : Pseudo<(outs FPR32:$Rd), (ins), [(set f32:$Rd, (fpimm0))]>,
     PseudoInstExpansion<(FMOVWSr FPR32:$Rd, WZR)>,
+    Sched<[WriteF]>,
     Requires<[NoZCZ]>;
 def FMOVD0 : Pseudo<(outs FPR64:$Rd), (ins), [(set f64:$Rd, (fpimm0))]>,
     PseudoInstExpansion<(FMOVXDr FPR64:$Rd, XZR)>,
+    Sched<[WriteF]>,
     Requires<[NoZCZ]>;
 }
 
@@ -2617,6 +2672,7 @@ def F128CSEL : Pseudo<(outs FPR128:$Rd),
                                        (i32 imm:$cond), NZCV))]> {
   let Uses = [NZCV];
   let usesCustomInserter = 1;
+  let hasNoSchedulingInfo = 1;
 }
 
 
@@ -5982,7 +6038,7 @@ def : NTStore64Pat<v8i8>;
 def : Pat<(nontemporalstore GPR64:$Rt,
             (am_indexed7s32 GPR64sp:$Rn, simm7s4:$offset)),
           (STNPWi (EXTRACT_SUBREG GPR64:$Rt, sub_32),
-                  (EXTRACT_SUBREG (UBFMXri GPR64:$Rt, 0, 31), sub_32),
+                  (EXTRACT_SUBREG (UBFMXri GPR64:$Rt, 32, 63), sub_32),
                   GPR64sp:$Rn, simm7s4:$offset)>;
 } // AddedComplexity=10
 } // Predicates = [IsLE]
@@ -5990,8 +6046,10 @@ def : Pat<(nontemporalstore GPR64:$Rt,
 // Tail call return handling. These are all compiler pseudo-instructions,
 // so no encoding information or anything like that.
 let isCall = 1, isTerminator = 1, isReturn = 1, isBarrier = 1, Uses = [SP] in {
-  def TCRETURNdi : Pseudo<(outs), (ins i64imm:$dst, i32imm:$FPDiff),[]>;
-  def TCRETURNri : Pseudo<(outs), (ins tcGPR64:$dst, i32imm:$FPDiff), []>;
+  def TCRETURNdi : Pseudo<(outs), (ins i64imm:$dst, i32imm:$FPDiff), []>,
+                   Sched<[WriteBrReg]>;
+  def TCRETURNri : Pseudo<(outs), (ins tcGPR64:$dst, i32imm:$FPDiff), []>,
+                   Sched<[WriteBrReg]>;
 }
 
 def : Pat<(AArch64tcret tcGPR64:$dst, (i32 timm:$FPDiff)),

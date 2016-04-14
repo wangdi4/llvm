@@ -16,10 +16,10 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLLOOP_H
 #define LLVM_IR_INTEL_LOOPIR_HLLOOP_H
 
-#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
-#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
 namespace llvm {
 
@@ -86,6 +86,9 @@ private:
   bool IsInnermost;
   Type *IVType;
 
+  // Indicates whether loop's IV is in signed range.
+  bool IsNSW;
+
   // Temporary tag to mark loop as multiversioned.
   unsigned MVTag = 0;
 
@@ -146,6 +149,10 @@ protected:
   HLLoop *cloneImpl(GotoContainerTy *GotoList,
                     LabelMapTy *LabelMap) const override;
 
+  /// \brief Used to print members of the loop which are otherwise hidden in
+  /// pretty print like ztt, innermost flag etc.
+  void printDetails(formatted_raw_ostream &OS, unsigned Depth) const;
+
 public:
   /// \brief Prints HLLoop.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
@@ -158,6 +165,11 @@ public:
   Type *getIVType() const { return IVType; }
   /// \brief Sets the underlying type of the loop IV.
   void setIVType(Type *Ty) { IVType = Ty; }
+
+  /// \brief Returns true if loop's IV is in signed range.
+  bool isNSW() const { return IsNSW; }
+  /// \brief Sets/resets IsNSW flag.
+  void setNSW(bool IsNSW) { this->IsNSW = IsNSW; }
 
   /// \brief Returns true if ztt is present.
   bool hasZtt() const { return Ztt != nullptr; }
@@ -517,8 +529,8 @@ public:
   /// \brief Verifies HLLoop integrity.
   virtual void verify() const override;
 
-  /// TODO: Add isSIMD support
-  bool isSIMD() const { return false; }
+  /// \brief Checks whether SIMD directive is attached to the loop.
+  bool isSIMD() const;
 
   unsigned getMVTag() { return MVTag; }
 

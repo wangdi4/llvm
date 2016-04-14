@@ -33,5 +33,6 @@ HANDLE_DI_FLAG((1 << 12), StaticMember)
 HANDLE_DI_FLAG((1 << 13), LValueReference)
 HANDLE_DI_FLAG((1 << 14), RValueReference)
 HANDLE_DI_FLAG((1 << 15), ExternalTypeRef)
+HANDLE_DI_FLAG((1 << 16), Thunk) // INTEL
 
 #undef HANDLE_DI_FLAG

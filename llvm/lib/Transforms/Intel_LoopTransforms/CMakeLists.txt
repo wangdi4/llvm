@@ -1,6 +1,6 @@
 add_llvm_library(LLVMIntel_LoopTransforms 
         Intel_LoopTransforms.cpp
-        SSADeconstruction.cpp
+        HIRSSADeconstruction.cpp
         HIRPrinter.cpp
         HIRCodeGen.cpp
         HIROptPredicate.cpp
@@ -10,6 +10,9 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRLoopInterchange.cpp
         HIRRuntimeDD.cpp
         HIRLoopDistribution.cpp
+        ParVecDirectiveInsertion.cpp
+        HIRParDirInsert.cpp
+        HIRVecDirInsert.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

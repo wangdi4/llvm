@@ -52,13 +52,12 @@ __isl_give isl_schedule *isl_schedule_from_schedule_tree(isl_ctx *ctx,
 	if (!schedule)
 		goto error;
 
-	schedule->leaf.ctx = ctx;
-	isl_ctx_ref(ctx);
 	schedule->ref = 1;
 	schedule->root = tree;
-	schedule->leaf.ref = -1;
-	schedule->leaf.type = isl_schedule_node_leaf;
+	schedule->leaf = isl_schedule_tree_leaf(ctx);
 
+	if (!schedule->leaf)
+		return isl_schedule_free(schedule);
 	return schedule;
 error:
 	isl_schedule_tree_free(tree);
@@ -134,7 +133,7 @@ __isl_null isl_schedule *isl_schedule_free(__isl_take isl_schedule *sched)
 
 	isl_band_list_free(sched->band_forest);
 	isl_schedule_tree_free(sched->root);
-	isl_ctx_deref(sched->leaf.ctx);
+	isl_schedule_tree_free(sched->leaf);
 	free(sched);
 	return NULL;
 }
@@ -166,7 +165,7 @@ error:
 
 isl_ctx *isl_schedule_get_ctx(__isl_keep isl_schedule *schedule)
 {
-	return schedule ? schedule->leaf.ctx : NULL;
+	return schedule ? isl_schedule_tree_get_ctx(schedule->leaf) : NULL;
 }
 
 /* Return a pointer to the leaf of "schedule".
@@ -177,7 +176,7 @@ isl_ctx *isl_schedule_get_ctx(__isl_keep isl_schedule *schedule)
 __isl_keep isl_schedule_tree *isl_schedule_peek_leaf(
 	__isl_keep isl_schedule *schedule)
 {
-	return schedule ? &schedule->leaf : NULL;
+	return schedule ? schedule->leaf : NULL;
 }
 
 /* Are "schedule1" and "schedule2" obviously equal to each other?
@@ -1131,4 +1130,24 @@ void isl_schedule_dump(__isl_keep isl_schedule *schedule)
 	printer = isl_printer_print_schedule(printer, schedule);
 
 	isl_printer_free(printer);
+}
+
+/* Return a string representation of "schedule".
+ * Print the schedule in flow format.
+ */
+__isl_give char *isl_schedule_to_str(__isl_keep isl_schedule *schedule)
+{
+	isl_printer *printer;
+	char *s;
+
+	if (!schedule)
+		return NULL;
+
+	printer = isl_printer_to_str(isl_schedule_get_ctx(schedule));
+	printer = isl_printer_set_yaml_style(printer, ISL_YAML_STYLE_FLOW);
+	printer = isl_printer_print_schedule(printer, schedule);
+	s = isl_printer_get_str(printer);
+	isl_printer_free(printer);
+
+	return s;
 }

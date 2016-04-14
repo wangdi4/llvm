@@ -882,6 +882,14 @@ TLI_DEFINE_STRING_INTERNAL("setvbuf")
 /// double sin(double x);
 TLI_DEFINE_ENUM_INTERNAL(sin)
 TLI_DEFINE_STRING_INTERNAL("sin")
+#if INTEL_CUSTOMIZATION
+/// void sincos(double x, double *y, double *z);
+TLI_DEFINE_ENUM_INTERNAL(sincos)
+TLI_DEFINE_STRING_INTERNAL("sincos")
+/// void sincosf(float x, float *y, float *z);
+TLI_DEFINE_ENUM_INTERNAL(sincosf)
+TLI_DEFINE_STRING_INTERNAL("sincosf")
+#endif // INTEL_CUSTOMIZATION
 /// float sinf(float x);
 TLI_DEFINE_ENUM_INTERNAL(sinf)
 TLI_DEFINE_STRING_INTERNAL("sinf")

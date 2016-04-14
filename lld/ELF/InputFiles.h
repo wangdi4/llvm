@@ -20,9 +20,10 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ELF.h"
+#include "llvm/Support/StringSaver.h"
 
 namespace lld {
-namespace elf2 {
+namespace elf {
 
 using llvm::object::Archive;
 
@@ -33,14 +34,19 @@ class SymbolBody;
 // The root class of input files.
 class InputFile {
 public:
-  enum Kind { ObjectKind, SharedKind, ArchiveKind };
+  enum Kind { ObjectKind, SharedKind, ArchiveKind, BitcodeKind };
   Kind kind() const { return FileKind; }
 
   StringRef getName() const { return MB.getBufferIdentifier(); }
+  MemoryBufferRef MB;
+
+  // Filename of .a which contained this file. If this file was
+  // not in an archive file, it is the empty string. We use this
+  // string for creating error messages.
+  StringRef ArchiveName;
 
 protected:
   InputFile(Kind K, MemoryBufferRef M) : MB(M), FileKind(K) {}
-  MemoryBufferRef MB;
 
 private:
   const Kind FileKind;
@@ -91,20 +97,23 @@ template <class ELFT> class ObjectFile : public ELFFileBase<ELFT> {
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Word Elf_Word;
   typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
 
+  // uint32 in ELFT's byte order
   typedef llvm::support::detail::packed_endian_specific_integral<
-      uint32_t, ELFT::TargetEndianness, 2> GroupEntryType;
+      uint32_t, ELFT::TargetEndianness, 2>
+      uint32_X;
+
   StringRef getShtGroupSignature(const Elf_Shdr &Sec);
-  ArrayRef<GroupEntryType> getShtGroupEntries(const Elf_Shdr &Sec);
+  ArrayRef<uint32_X> getShtGroupEntries(const Elf_Shdr &Sec);
 
 public:
   static bool classof(const InputFile *F) {
     return F->kind() == Base::ObjectKind;
   }
 
-  ArrayRef<SymbolBody *> getSymbols() { return this->SymbolBodies; }
+  ArrayRef<SymbolBody *> getSymbols() { return SymbolBodies; }
 
   explicit ObjectFile(MemoryBufferRef M);
-  void parse(llvm::DenseSet<StringRef> &Comdats);
+  void parse(llvm::DenseSet<StringRef> &ComdatGroups);
 
   ArrayRef<InputSectionBase<ELFT> *> getSections() const { return Sections; }
   InputSectionBase<ELFT> *getSection(const Elf_Sym &Sym) const;
@@ -113,7 +122,7 @@ public:
     uint32_t FirstNonLocal = this->Symtab->sh_info;
     if (SymbolIndex < FirstNonLocal)
       return nullptr;
-    return this->SymbolBodies[SymbolIndex - FirstNonLocal];
+    return SymbolBodies[SymbolIndex - FirstNonLocal];
   }
 
   Elf_Sym_Range getLocalSymbols();
@@ -126,12 +135,16 @@ public:
   // R_MIPS_GPREL16 / R_MIPS_GPREL32 relocations.
   uint32_t getMipsGp0() const;
 
+  // The number is the offset in the string table. It will be used as the
+  // st_name of the symbol.
+  std::vector<std::pair<const Elf_Sym *, unsigned>> KeptLocalSyms;
+
 private:
-  void initializeSections(llvm::DenseSet<StringRef> &Comdats);
+  void initializeSections(llvm::DenseSet<StringRef> &ComdatGroups);
   void initializeSymbols();
   InputSectionBase<ELFT> *createInputSection(const Elf_Shdr &Sec);
 
-  SymbolBody *createSymbolBody(StringRef StringTable, const Elf_Sym *Sym);
+  SymbolBody *createSymbolBody(const Elf_Sym *Sym);
 
   // List of all sections defined by this file.
   std::vector<InputSectionBase<ELFT> *> Sections;
@@ -159,12 +172,24 @@ public:
   MemoryBufferRef getMember(const Archive::Symbol *Sym);
 
   llvm::MutableArrayRef<Lazy> getLazySymbols() { return LazySymbols; }
-  std::vector<MemoryBufferRef> getMembers();
 
 private:
   std::unique_ptr<Archive> File;
   std::vector<Lazy> LazySymbols;
   llvm::DenseSet<uint64_t> Seen;
+};
+
+class BitcodeFile : public InputFile {
+public:
+  explicit BitcodeFile(MemoryBufferRef M);
+  static bool classof(const InputFile *F);
+  void parse(llvm::DenseSet<StringRef> &ComdatGroups);
+  ArrayRef<SymbolBody *> getSymbols() { return SymbolBodies; }
+
+private:
+  std::vector<SymbolBody *> SymbolBodies;
+  llvm::BumpPtrAllocator Alloc;
+  llvm::StringSaver Saver{Alloc};
 };
 
 // .so file.
@@ -194,7 +219,7 @@ public:
   explicit SharedFile(MemoryBufferRef M);
 
   void parseSoName();
-  void parse();
+  void parseRest();
 
   // Used for --as-needed
   bool AsNeeded = false;
@@ -202,10 +227,11 @@ public:
   bool isNeeded() const { return !AsNeeded || IsUsed; }
 };
 
-template <template <class> class T>
-std::unique_ptr<InputFile> createELFFile(MemoryBufferRef MB);
+std::unique_ptr<InputFile> createObjectFile(MemoryBufferRef MB,
+                                            StringRef ArchiveName = "");
+std::unique_ptr<InputFile> createSharedFile(MemoryBufferRef MB);
 
-} // namespace elf2
+} // namespace elf
 } // namespace lld
 
 #endif

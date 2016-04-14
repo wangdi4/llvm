@@ -56,7 +56,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -99,12 +99,12 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFramework>();
-    AU.addRequiredTransitive<DDAnalysis>();
+    AU.addRequiredTransitive<HIRDDAnalysis>();
   }
 
 private:
   // DD Analysis pointer.
-  DDAnalysis *DD;
+  HIRDDAnalysis *DD;
   unsigned CurOptPredTripThreshold;
   bool IsOptPredTriggered;
   SmallVector<HLLoop *, 64> CandidateLoops;
@@ -173,7 +173,7 @@ char HIROptPredicate::ID = 0;
 INITIALIZE_PASS_BEGIN(HIROptPredicate, "hir-opt-predicate", "HIR OptPredicate",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
-INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_END(HIROptPredicate, "hir-opt-predicate", "HIR OptPredicate",
                     false, false)
 
@@ -184,7 +184,7 @@ FunctionPass *llvm::createHIROptPredicatePass(int Threshold) {
 bool HIROptPredicate::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Opt Predicate for Function : " << F.getName() << "\n");
 
-  DD = &getAnalysis<DDAnalysis>();
+  DD = &getAnalysis<HIRDDAnalysis>();
   IsOptPredTriggered = false;
 
   // Gather the innermost loops as candidates.

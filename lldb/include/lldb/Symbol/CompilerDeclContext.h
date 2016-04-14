@@ -66,7 +66,7 @@ public:
     IsClang () const;
 
     std::vector<CompilerDecl>
-    FindDeclByName (ConstString name);
+    FindDeclByName (ConstString name, const bool ignore_using_decls);
 
     //----------------------------------------------------------------------
     /// Checks if this decl context represents a method of a class.
@@ -127,6 +127,9 @@ public:
 
     ConstString
     GetName () const;
+
+    ConstString
+    GetScopeQualifiedName() const;
 
     bool
     IsStructUnionOrClass () const;

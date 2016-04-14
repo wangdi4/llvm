@@ -13,8 +13,12 @@
 #include "InputFiles.h"
 #include "llvm/ADT/MapVector.h"
 
+namespace llvm {
+class Module;
+}
+
 namespace lld {
-namespace elf2 {
+namespace elf {
 class Lazy;
 template <class ELFT> class OutputSectionBase;
 struct Symbol;
@@ -31,10 +35,12 @@ class Undefined;
 // undefined, it'll read an archive member to read a real definition
 // to replace the lazy symbol. The logic is implemented in resolve().
 template <class ELFT> class SymbolTable {
-public:
-  SymbolTable();
+  typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym Elf_Sym;
+  typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
 
+public:
   void addFile(std::unique_ptr<InputFile> File);
+  void addCombinedLtoObject();
 
   const llvm::MapVector<StringRef, Symbol *> &getSymbols() const {
     return Symtab;
@@ -50,23 +56,27 @@ public:
 
   SymbolBody *addUndefined(StringRef Name);
   SymbolBody *addUndefinedOpt(StringRef Name);
-  void addAbsolute(StringRef Name,
-                   typename llvm::object::ELFFile<ELFT>::Elf_Sym &ESym);
-  void addSynthetic(StringRef Name, OutputSectionBase<ELFT> &Section,
-                    typename llvm::object::ELFFile<ELFT>::uintX_t Value);
+  SymbolBody *addAbsolute(StringRef Name, Elf_Sym &ESym);
+  SymbolBody *addSynthetic(StringRef Name, OutputSectionBase<ELFT> &Section,
+                           uintX_t Value, uint8_t Visibility);
   SymbolBody *addIgnored(StringRef Name);
-  bool isUndefined(StringRef Name);
+
   void scanShlibUndefined();
   SymbolBody *find(StringRef Name);
+  void wrap(StringRef Name);
+  InputFile *findFile(SymbolBody *B);
 
 private:
   Symbol *insert(SymbolBody *New);
   void addLazy(Lazy *New);
   void addMemberFile(Undefined *Undef, Lazy *L);
   void resolve(SymbolBody *Body);
+  std::unique_ptr<InputFile> codegen(llvm::Module &M);
   std::string conflictMsg(SymbolBody *Old, SymbolBody *New);
 
-  std::vector<std::unique_ptr<ArchiveFile>> ArchiveFiles;
+  SmallString<0> OwningLTOData;
+  std::unique_ptr<MemoryBuffer> LtoBuffer;
+  ObjectFile<ELFT> *createCombinedLtoObject();
 
   // The order the global symbols are in is not defined. We can use an arbitrary
   // order, but it has to be reproducible. That is true even when cross linking.
@@ -78,21 +88,22 @@ private:
   llvm::MapVector<StringRef, Symbol *> Symtab;
   llvm::BumpPtrAllocator Alloc;
 
-  llvm::DenseSet<StringRef> Comdats;
+  // Comdat groups define "link once" sections. If two comdat groups have the
+  // same name, only one of them is linked, and the other is ignored. This set
+  // is used to uniquify them.
+  llvm::DenseSet<StringRef> ComdatGroups;
 
-  // The writer needs to infer the machine type from the object files.
+  // The symbol table owns all file objects.
+  std::vector<std::unique_ptr<ArchiveFile>> ArchiveFiles;
   std::vector<std::unique_ptr<ObjectFile<ELFT>>> ObjectFiles;
-
   std::vector<std::unique_ptr<SharedFile<ELFT>>> SharedFiles;
-  llvm::DenseSet<StringRef> IncludedSoNames;
+  std::vector<std::unique_ptr<BitcodeFile>> BitcodeFiles;
+
+  // Set of .so files to not link the same shared object file more than once.
+  llvm::DenseSet<StringRef> SoNames;
 };
 
-template <class ELFT>
-ELFFileBase<ELFT> *
-findFile(ArrayRef<std::unique_ptr<ObjectFile<ELFT>>> ObjectFiles,
-         const SymbolBody *B);
-
-} // namespace elf2
+} // namespace elf
 } // namespace lld
 
 #endif

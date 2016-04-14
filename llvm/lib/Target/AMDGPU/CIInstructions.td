@@ -25,14 +25,6 @@
 // BUFFER_LOAD_DWORDX3
 // BUFFER_STORE_DWORDX3
 
-
-def isCIVI : Predicate <
-  "Subtarget->getGeneration() == AMDGPUSubtarget::SEA_ISLANDS || "
-  "Subtarget->getGeneration() == AMDGPUSubtarget::VOLCANIC_ISLANDS"
->, AssemblerPredicate<"FeatureCIInsts">;
-
-def HasFlatAddressSpace : Predicate<"Subtarget->hasFlatAddressSpace()">;
-
 //===----------------------------------------------------------------------===//
 // VOP1 Instructions
 //===----------------------------------------------------------------------===//
@@ -108,9 +100,11 @@ defm S_DCACHE_INV_VOL : SMRD_Inval <smrd<0x1d, 0x22>,
 // MUBUF Instructions
 //===----------------------------------------------------------------------===//
 
+let DisableSIDecoder = 1 in {
 defm BUFFER_WBINVL1_VOL : MUBUF_Invalidate <mubuf<0x70, 0x3f>,
   "buffer_wbinvl1_vol", int_amdgcn_buffer_wbinvl1_vol
 >;
+}
 
 //===----------------------------------------------------------------------===//
 // Flat Instructions
@@ -241,7 +235,7 @@ defm FLAT_ATOMIC_DEC_X2 : FLAT_ATOMIC <
 
 // CI Only flat instructions
 
-let SubtargetPredicate = isCI, VIAssemblerPredicate = DisableInst in {
+let SubtargetPredicate = isCI, VIAssemblerPredicate = DisableInst, DisableVIDecoder = 1 in {
 
 defm FLAT_ATOMIC_FCMPSWAP : FLAT_ATOMIC <
   flat<0x3e>, "flat_atomic_fcmpswap", VGPR_32, VReg_64
@@ -262,43 +256,7 @@ defm FLAT_ATOMIC_FMAX_X2 : FLAT_ATOMIC <
   flat<0x60>, "flat_atomic_fmax_x2", VReg_64
 >;
 
-} // End let SubtargetPredicate = isCI, VIAssemblerPredicate = DisableInst
-
-//===----------------------------------------------------------------------===//
-// Flat Patterns
-//===----------------------------------------------------------------------===//
-
-let Predicates = [HasFlatAddressSpace] in {
-
-class FLATLoad_Pattern <FLAT Instr_ADDR64, ValueType vt,
-                             PatFrag flat_ld> :
-  Pat <(vt (flat_ld i64:$ptr)),
-       (Instr_ADDR64 $ptr, 0, 0, 0)
->;
-
-def : FLATLoad_Pattern <FLAT_LOAD_SBYTE, i32, sextloadi8_flat>;
-def : FLATLoad_Pattern <FLAT_LOAD_UBYTE, i32, az_extloadi8_flat>;
-def : FLATLoad_Pattern <FLAT_LOAD_SSHORT, i32, sextloadi16_flat>;
-def : FLATLoad_Pattern <FLAT_LOAD_USHORT, i32, az_extloadi16_flat>;
-def : FLATLoad_Pattern <FLAT_LOAD_DWORD, i32, flat_load>;
-def : FLATLoad_Pattern <FLAT_LOAD_DWORDX2, i64, flat_load>;
-def : FLATLoad_Pattern <FLAT_LOAD_DWORDX2, i64, az_extloadi32_flat>;
-def : FLATLoad_Pattern <FLAT_LOAD_DWORDX2, v2i32, flat_load>;
-def : FLATLoad_Pattern <FLAT_LOAD_DWORDX4, v4i32, flat_load>;
-
-class FLATStore_Pattern <FLAT Instr, ValueType vt, PatFrag st> :
-  Pat <(st vt:$value, i64:$ptr),
-        (Instr $value, $ptr, 0, 0, 0)
-  >;
-
-def : FLATStore_Pattern <FLAT_STORE_BYTE, i32, truncstorei8_flat>;
-def : FLATStore_Pattern <FLAT_STORE_SHORT, i32, truncstorei16_flat>;
-def : FLATStore_Pattern <FLAT_STORE_DWORD, i32, flat_store>;
-def : FLATStore_Pattern <FLAT_STORE_DWORDX2, i64, flat_store>;
-def : FLATStore_Pattern <FLAT_STORE_DWORDX2, v2i32, flat_store>;
-def : FLATStore_Pattern <FLAT_STORE_DWORDX4, v4i32, flat_store>;
-
-} // End HasFlatAddressSpace predicate
+} // End SubtargetPredicate = isCI, VIAssemblerPredicate = DisableInst, DisableVIDecoder = 1
 
 let Predicates = [isCI] in {
 
@@ -320,45 +278,35 @@ def : Pat <
 
 
 //===----------------------------------------------------------------------===//
-// Patterns to generate flat for global
+// Flat Patterns
 //===----------------------------------------------------------------------===//
 
-def useFlatForGlobal : Predicate <
-  "Subtarget->useFlatForGlobal() || "
-  "Subtarget->getGeneration() >= AMDGPUSubtarget::VOLCANIC_ISLANDS">;
+let Predicates = [isCIVI] in {
 
-let Predicates = [useFlatForGlobal] in {
-
-// 1. Offset as 20bit DWORD immediate
-def : Pat <
-  (SIload_constant v4i32:$sbase, IMM20bit:$offset),
-  (S_BUFFER_LOAD_DWORD_IMM $sbase, (as_i32imm $offset))
->;
-
-// Patterns for global loads with no offset
+// Patterns for global loads with no offset.
 class FlatLoadPat <FLAT inst, SDPatternOperator node, ValueType vt> : Pat <
   (vt (node i64:$addr)),
   (inst $addr, 0, 0, 0)
 >;
 
-def : FlatLoadPat <FLAT_LOAD_UBYTE, az_extloadi8_global, i32>;
-def : FlatLoadPat <FLAT_LOAD_SBYTE, sextloadi8_global, i32>;
-def : FlatLoadPat <FLAT_LOAD_USHORT, az_extloadi16_global, i32>;
-def : FlatLoadPat <FLAT_LOAD_SSHORT, sextloadi16_global, i32>;
-def : FlatLoadPat <FLAT_LOAD_DWORD, global_load, i32>;
-def : FlatLoadPat <FLAT_LOAD_DWORDX2, global_load, v2i32>;
-def : FlatLoadPat <FLAT_LOAD_DWORDX4, global_load, v4i32>;
+def : FlatLoadPat <FLAT_LOAD_UBYTE, flat_az_extloadi8, i32>;
+def : FlatLoadPat <FLAT_LOAD_SBYTE, flat_sextloadi8, i32>;
+def : FlatLoadPat <FLAT_LOAD_USHORT, flat_az_extloadi16, i32>;
+def : FlatLoadPat <FLAT_LOAD_SSHORT, flat_sextloadi16, i32>;
+def : FlatLoadPat <FLAT_LOAD_DWORD, flat_load, i32>;
+def : FlatLoadPat <FLAT_LOAD_DWORDX2, flat_load, v2i32>;
+def : FlatLoadPat <FLAT_LOAD_DWORDX4, flat_load, v4i32>;
 
 class FlatStorePat <FLAT inst, SDPatternOperator node, ValueType vt> : Pat <
   (node vt:$data, i64:$addr),
-  (inst $data, $addr, 0, 0, 0)
+  (inst $addr, $data, 0, 0, 0)
 >;
 
-def : FlatStorePat <FLAT_STORE_BYTE, truncstorei8_global, i32>;
-def : FlatStorePat <FLAT_STORE_SHORT, truncstorei16_global, i32>;
-def : FlatStorePat <FLAT_STORE_DWORD, global_store, i32>;
-def : FlatStorePat <FLAT_STORE_DWORDX2, global_store, v2i32>;
-def : FlatStorePat <FLAT_STORE_DWORDX4, global_store, v4i32>;
+def : FlatStorePat <FLAT_STORE_BYTE, flat_truncstorei8, i32>;
+def : FlatStorePat <FLAT_STORE_SHORT, flat_truncstorei16, i32>;
+def : FlatStorePat <FLAT_STORE_DWORD, flat_store, i32>;
+def : FlatStorePat <FLAT_STORE_DWORDX2, flat_store, v2i32>;
+def : FlatStorePat <FLAT_STORE_DWORDX4, flat_store, v4i32>;
 
 class FlatAtomicPat <FLAT inst, SDPatternOperator node, ValueType vt> : Pat <
   (vt (node i64:$addr, vt:$data)),
@@ -376,4 +324,4 @@ def : FlatAtomicPat <FLAT_ATOMIC_OR_RTN, atomic_or_global, i32>;
 def : FlatAtomicPat <FLAT_ATOMIC_SWAP_RTN, atomic_swap_global, i32>;
 def : FlatAtomicPat <FLAT_ATOMIC_XOR_RTN, atomic_xor_global, i32>;
 
-} // End Predicates = [useFlatForGlobal]
+} // End Predicates = [isCIVI]

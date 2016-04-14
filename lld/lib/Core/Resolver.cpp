@@ -29,15 +29,15 @@
 
 namespace lld {
 
-bool Resolver::handleFile(File &file) {
+ErrorOr<bool> Resolver::handleFile(File &file) {
+  if (auto ec = _ctx.handleLoadedFile(file))
+    return ec;
   bool undefAdded = false;
   for (const DefinedAtom *atom : file.defined())
     doDefinedAtom(*atom);
   for (const UndefinedAtom *atom : file.undefined()) {
-    if (doUndefinedAtom(*atom)) {
+    if (doUndefinedAtom(*atom))
       undefAdded = true;
-      maybePreloadArchiveMember(atom->name());
-    }
   }
   for (const SharedLibraryAtom *atom : file.sharedLibrary())
     doSharedLibraryAtom(*atom);
@@ -46,9 +46,10 @@ bool Resolver::handleFile(File &file) {
   return undefAdded;
 }
 
-void Resolver::forEachUndefines(File &file, bool searchForOverrides,
-                                UndefCallback callback) {
+ErrorOr<bool> Resolver::forEachUndefines(File &file, bool searchForOverrides,
+                                         UndefCallback callback) {
   size_t i = _undefineIndex[&file];
+  bool undefAdded = false;
   do {
     for (; i < _undefines.size(); ++i) {
       StringRef undefName = _undefines[i];
@@ -60,7 +61,10 @@ void Resolver::forEachUndefines(File &file, bool searchForOverrides,
         _undefines[i] = "";
         continue;
       }
-      callback(undefName, false);
+      auto undefAddedOrError = callback(undefName, false);
+      if (undefAddedOrError.getError())
+        return undefAddedOrError;
+      undefAdded |= undefAddedOrError.get();
     }
     if (!searchForOverrides)
       continue;
@@ -69,43 +73,55 @@ void Resolver::forEachUndefines(File &file, bool searchForOverrides,
       // something that overrode this tentative, so always check.
       const Atom *curAtom = _symbolTable.findByName(tentDefName);
       assert(curAtom != nullptr);
-      if (const DefinedAtom *curDefAtom = dyn_cast<DefinedAtom>(curAtom))
-        if (curDefAtom->merge() == DefinedAtom::mergeAsTentative)
-          callback(tentDefName, true);
+      if (const DefinedAtom *curDefAtom = dyn_cast<DefinedAtom>(curAtom)) {
+        if (curDefAtom->merge() == DefinedAtom::mergeAsTentative) {
+          auto undefAddedOrError = callback(tentDefName, true);
+          if (undefAddedOrError.getError())
+            return undefAddedOrError;
+          undefAdded |= undefAddedOrError.get();
+        }
+      }
     }
   } while (i < _undefines.size());
   _undefineIndex[&file] = i;
-}
-
-bool Resolver::handleArchiveFile(File &file) {
-  ArchiveLibraryFile *archiveFile = cast<ArchiveLibraryFile>(&file);
-  bool searchForOverrides =
-      _ctx.searchArchivesToOverrideTentativeDefinitions();
-  bool undefAdded = false;
-  forEachUndefines(file, searchForOverrides,
-                   [&](StringRef undefName, bool dataSymbolOnly) {
-    if (File *member = archiveFile->find(undefName, dataSymbolOnly)) {
-      member->setOrdinal(_ctx.getNextOrdinalAndIncrement());
-      member->beforeLink();
-      updatePreloadArchiveMap();
-      undefAdded = handleFile(*member) || undefAdded;
-    }
-  });
   return undefAdded;
 }
 
-void Resolver::handleSharedLibrary(File &file) {
+ErrorOr<bool> Resolver::handleArchiveFile(File &file) {
+  ArchiveLibraryFile *archiveFile = cast<ArchiveLibraryFile>(&file);
+  bool searchForOverrides =
+      _ctx.searchArchivesToOverrideTentativeDefinitions();
+  return forEachUndefines(file, searchForOverrides,
+                          [&](StringRef undefName,
+                              bool dataSymbolOnly)->ErrorOr<bool> {
+    if (File *member = archiveFile->find(undefName, dataSymbolOnly)) {
+      member->setOrdinal(_ctx.getNextOrdinalAndIncrement());
+      return handleFile(*member);
+    }
+    return false;
+  });
+}
+
+std::error_code Resolver::handleSharedLibrary(File &file) {
   // Add all the atoms from the shared library
   SharedLibraryFile *sharedLibrary = cast<SharedLibraryFile>(&file);
-  handleFile(*sharedLibrary);
+  auto undefAddedOrError = handleFile(*sharedLibrary);
+  if (undefAddedOrError.getError())
+    return undefAddedOrError.getError();
   bool searchForOverrides =
       _ctx.searchSharedLibrariesToOverrideTentativeDefinitions();
-  forEachUndefines(file, searchForOverrides,
-                   [&](StringRef undefName, bool dataSymbolOnly) {
+  undefAddedOrError = forEachUndefines(file, searchForOverrides,
+                                       [&](StringRef undefName,
+                                           bool dataSymbolOnly)->ErrorOr<bool> {
     if (const SharedLibraryAtom *atom =
             sharedLibrary->exports(undefName, dataSymbolOnly))
       doSharedLibraryAtom(*atom);
+    return false;
   });
+
+  if (undefAddedOrError.getError())
+    return undefAddedOrError.getError();
+  return std::error_code();
 }
 
 bool Resolver::doUndefinedAtom(const UndefinedAtom &atom) {
@@ -122,49 +138,7 @@ bool Resolver::doUndefinedAtom(const UndefinedAtom &atom) {
   if (newUndefAdded)
     _undefines.push_back(atom.name());
 
-  // If the undefined symbol has an alternative name, try to resolve the
-  // symbol with the name to give it a second chance. This feature is used
-  // for COFF "weak external" symbol.
-  if (newUndefAdded || !_symbolTable.isDefined(atom.name())) {
-    if (const UndefinedAtom *fallbackAtom = atom.fallback()) {
-      doUndefinedAtom(*fallbackAtom);
-      _symbolTable.addReplacement(&atom, fallbackAtom);
-    }
-  }
   return newUndefAdded;
-}
-
-/// \brief Add the section group and the group-child reference members.
-void Resolver::maybeAddSectionGroupOrGnuLinkOnce(const DefinedAtom &atom) {
-  // First time adding a group?
-  bool isFirstTime = _symbolTable.addGroup(atom);
-
-  if (!isFirstTime) {
-    // If duplicate symbols are allowed, select the first group.
-    if (_ctx.getAllowDuplicates())
-      return;
-    auto *prevGroup = dyn_cast<DefinedAtom>(_symbolTable.findGroup(atom.name()));
-    assert(prevGroup &&
-           "Internal Error: The group atom could only be a defined atom");
-    // The atoms should be of the same content type, reject invalid group
-    // resolution behaviors.
-    if (atom.contentType() == prevGroup->contentType())
-      return;
-    llvm::errs() << "SymbolTable: error while merging " << atom.name()
-                 << "\n";
-    llvm::report_fatal_error("duplicate symbol error");
-  }
-
-  for (const Reference *r : atom) {
-    if (r->kindNamespace() == lld::Reference::KindNamespace::all &&
-        r->kindValue() == lld::Reference::kindGroupChild) {
-      const DefinedAtom *target = dyn_cast<DefinedAtom>(r->target());
-      assert(target && "Internal Error: kindGroupChild references need to "
-                       "be associated with Defined Atoms only");
-      _atoms.push_back(target);
-      _symbolTable.add(*target);
-    }
-  }
 }
 
 // Called on each atom when a file is added. Returns true if a given
@@ -185,12 +159,7 @@ void Resolver::doDefinedAtom(const DefinedAtom &atom) {
 
   // add to list of known atoms
   _atoms.push_back(&atom);
-
-  if (atom.isGroupParent()) {
-    maybeAddSectionGroupOrGnuLinkOnce(atom);
-  } else {
-    _symbolTable.add(atom);
-  }
+  _symbolTable.add(atom);
 
   // An atom that should never be dead-stripped is a dead-strip root.
   if (_ctx.deadStrip() && atom.deadStrip() == DefinedAtom::deadStripNever) {
@@ -235,17 +204,6 @@ void Resolver::addAtoms(const std::vector<const DefinedAtom *> &newAtoms) {
     doDefinedAtom(*newAtom);
 }
 
-// Instantiate an archive file member if there's a file containing a
-// defined symbol for a given symbol name. Instantiation is done in a
-// different worker thread and has no visible side effect.
-void Resolver::maybePreloadArchiveMember(StringRef sym) {
-  auto it = _archiveMap.find(sym);
-  if (it == _archiveMap.end())
-    return;
-  ArchiveLibraryFile *archive = it->second;
-  archive->preload(_ctx.getTaskGroup(), sym);
-}
-
 // Returns true if at least one of N previous files has created an
 // undefined symbol.
 bool Resolver::undefinesAdded(int begin, int end) {
@@ -276,23 +234,6 @@ File *Resolver::getFile(int &index) {
   return cast<FileNode>(inputs[index++].get())->getFile();
 }
 
-// Update a map of Symbol -> ArchiveFile. The map is used for speculative
-// file loading.
-void Resolver::updatePreloadArchiveMap() {
-  std::vector<std::unique_ptr<Node>> &nodes = _ctx.getNodes();
-  for (int i = nodes.size() - 1; i >= 0; --i) {
-    auto *fnode = dyn_cast<FileNode>(nodes[i].get());
-    if (!fnode)
-      continue;
-    auto *archive = dyn_cast<ArchiveLibraryFile>(fnode->getFile());
-    if (!archive || _archiveSeen.count(archive))
-      continue;
-    _archiveSeen.insert(archive);
-    for (StringRef sym : archive->getDefinedSymbols())
-      _archiveMap[sym] = archive;
-  }
-}
-
 // Keep adding atoms until _ctx.getNextFile() returns an error. This
 // function is where undefined atoms are resolved.
 bool Resolver::resolveUndefines() {
@@ -315,10 +256,17 @@ bool Resolver::resolveUndefines() {
     }
     DEBUG_WITH_TYPE("resolver",
                     llvm::dbgs() << "Loaded file: " << file->path() << "\n");
-    file->beforeLink();
-    updatePreloadArchiveMap();
     switch (file->kind()) {
-    case File::kindObject:
+    case File::kindErrorObject:
+    case File::kindNormalizedObject:
+    case File::kindMachObject:
+    case File::kindCEntryObject:
+    case File::kindHeaderObject:
+    case File::kindEntryObject:
+    case File::kindUndefinedSymsObject:
+    case File::kindStubHelperObject:
+    case File::kindResolverMergedObject:
+    case File::kindSectCreateObject: {
       // The same file may be visited more than once if the file is
       // in --start-group and --end-group. Only library files should
       // be processed more than once.
@@ -327,17 +275,35 @@ bool Resolver::resolveUndefines() {
       seen.insert(file);
       assert(!file->hasOrdinal());
       file->setOrdinal(_ctx.getNextOrdinalAndIncrement());
-      undefAdded = handleFile(*file);
+      auto undefAddedOrError = handleFile(*file);
+      if (undefAddedOrError.getError()) {
+        llvm::errs() << "Error in " + file->path()
+                     << ": " << undefAddedOrError.getError().message() << "\n";
+        return false;
+      }
+      undefAdded = undefAddedOrError.get();
       break;
-    case File::kindArchiveLibrary:
+    }
+    case File::kindArchiveLibrary: {
       if (!file->hasOrdinal())
         file->setOrdinal(_ctx.getNextOrdinalAndIncrement());
-      undefAdded = handleArchiveFile(*file);
+      auto undefAddedOrError = handleArchiveFile(*file);
+      if (undefAddedOrError.getError()) {
+        llvm::errs() << "Error in " + file->path()
+                     << ": " << undefAddedOrError.getError().message() << "\n";
+        return false;
+      }
+      undefAdded = undefAddedOrError.get();
       break;
+    }
     case File::kindSharedLibrary:
       if (!file->hasOrdinal())
         file->setOrdinal(_ctx.getNextOrdinalAndIncrement());
-      handleSharedLibrary(*file);
+      if (auto EC = handleSharedLibrary(*file)) {
+        llvm::errs() << "Error in " + file->path()
+                     << ": " << EC.message() << "\n";
+        return false;
+      }
       break;
     }
     _newUndefinesAdded[file] = undefAdded;
@@ -391,8 +357,7 @@ void Resolver::markLive(const Atom *atom) {
 static bool isBackref(const Reference *ref) {
   if (ref->kindNamespace() != lld::Reference::KindNamespace::all)
     return false;
-  return (ref->kindValue() == lld::Reference::kindLayoutAfter ||
-          ref->kindValue() == lld::Reference::kindGroupChild);
+  return (ref->kindValue() == lld::Reference::kindLayoutAfter);
 }
 
 // remove all atoms not actually used
@@ -505,7 +470,6 @@ void Resolver::removeCoalescedAwayAtoms() {
 bool Resolver::resolve() {
   DEBUG_WITH_TYPE("resolver",
                   llvm::dbgs() << "******** Resolving atom references:\n");
-  updatePreloadArchiveMap();
   if (!resolveUndefines())
     return false;
   updateReferences();

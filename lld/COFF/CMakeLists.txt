@@ -2,7 +2,7 @@ set(LLVM_TARGET_DEFINITIONS Options.td)
 tablegen(LLVM Options.inc -gen-opt-parser-defs)
 add_public_tablegen_target(COFFOptionsTableGen)
 
-add_llvm_library(lldCOFF
+add_lld_library(lldCOFF
   Chunks.cpp
   DLL.cpp
   Driver.cpp
@@ -28,6 +28,8 @@ add_llvm_library(lldCOFF
   Target
   Option
   Support
+
+  LINK_LIBS ${PTHREAD_LIB}
   )
 
 add_dependencies(lldCOFF COFFOptionsTableGen)

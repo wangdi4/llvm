@@ -590,7 +590,7 @@ public:
       SmallVector<Type *, 4> Types;
       for (Value *Op : Args)
         Types.push_back(Op->getType());
-      return getIntrinsicInstrCost(IID, RetTy, Types);
+      return static_cast<T *>(this)->getIntrinsicInstrCost(IID, RetTy, Types);
     }
     case Intrinsic::masked_scatter: {
       Value *Mask = Args[3];
@@ -634,7 +634,14 @@ public:
         Type *Ty = Tys[i];
         if (Ty->isVectorTy()) {
           ScalarizationCost += getScalarizationOverhead(Ty, false, true);
-          ScalarCalls = std::max(ScalarCalls, Ty->getVectorNumElements());
+#if INTEL_CUSTOMIZATION
+          // void functions can still be vectorized (e.g., sincos()). Don't
+          // attempt getVectorNumElements() on void types since this will
+          // result in assertion.
+          if (RetTy->isVectorTy()) {
+            ScalarCalls = std::max(ScalarCalls, RetTy->getVectorNumElements());
+          }
+#endif // INTEL_CUSTOMIZATION
           Ty = Ty->getScalarType();
         }
         ScalarTys.push_back(Ty);

@@ -165,28 +165,6 @@ void HIRLocalityAnalysis::markLoopBodyModified(const HLLoop *L) {
   }
 }
 
-bool HIRLocalityAnalysis::isLoopInvariant(const RegDDRef *RegDD,
-                                          const HLLoop *Loop) {
-
-  // Check the Base CE.
-  if (!RegDD->getBaseCE()->isInvariantAtLevel(Loop->getNestingLevel()))
-    return false;
-
-  // Check canon expr of the ddrefs to see if level exist.
-  for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
-       ++Iter) {
-
-    const CanonExpr *Canon = *Iter;
-    // Check if CanonExpr is invariant i.e. IV is not present in any form inside
-    // the canon expr.
-    if (!Canon->isInvariantAtLevel(Loop->getNestingLevel()))
-      return false;
-  }
-
-  // Level doesn't exist in any of the canon exprs.
-  return true;
-}
-
 void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
                                                  SymToMemRefTy &MemRefMap) {
 
@@ -209,7 +187,7 @@ void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
 
       const RegDDRef *RegDD = *Iter;
 
-      if (isLoopInvariant(RegDD, Loop)) {
+      if (RegDD->isStructurallyInvariantAtLevel(Loop->getNestingLevel())) {
         Iter = RefVec.erase(Iter);
         // Adding 'N-1' to temporal locality.
         LI->TempInv += (getTripCount(Loop) - 1);
@@ -242,7 +220,6 @@ bool HIRLocalityAnalysis::isMultipleIV(const RegDDRef *Ref, unsigned Level,
     }
   }
 
-  assert(NumIV && " Atleast one IV position should exist.");
   return false;
 }
 
@@ -292,10 +269,11 @@ void HIRLocalityAnalysis::computeTempReuseLocality(const HLLoop *Loop) {
     // The first reference is used for comparison.
     const RegDDRef *CompareRef = *(RefVec.begin());
 
-    // No Temporal Reuse for multiple IV subscripts e.g. A[i+1][i] and A[i][i].
+    // No Temporal Reuse for multiple IV subscripts e.g. A[i+1][i] and A[i][i]
+    // or loop invariants e.g. A[1]
     unsigned IVPos = 0;
-    if (isMultipleIV(CompareRef, Loop->getNestingLevel(), &IVPos)) {
-      continue;
+    if (isMultipleIV(CompareRef, Loop->getNestingLevel(), &IVPos) || IVPos == 0) {
+        continue;
     }
 
     for (auto VecIt = RefVec.begin() + 1, End = RefVec.end(); VecIt != End;

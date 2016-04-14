@@ -21,7 +21,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 
 namespace llvm {
 
@@ -32,7 +32,7 @@ namespace loopopt {
 class HIRParser;
 
 /// \brief Contains blob related utilities.
-class BlobUtils : public HLUtils {
+class BlobUtils : public HIRUtils {
 private:
   /// \brief Do not allow instantiation.
   BlobUtils() = delete;
@@ -104,6 +104,9 @@ public:
   /// \brief Returns true if Blob is a temp.
   static bool isTempBlob(BlobTy Blob);
 
+  /// \brief Returns true if this is a nested blob(SCEV tree with > 1 node).
+  static bool isNestedBlob(BlobTy Blob);
+
   /// \brief Returns true if TempBlob always has a defined at level of zero.
   static bool isGuaranteedProperLinear(BlobTy TempBlob);
 
@@ -111,7 +114,15 @@ public:
   static bool isUndefBlob(BlobTy Blob);
 
   /// \brief Returns true if Blob represents a FP constant.
-  static bool isConstantFPBlob(BlobTy Blob);
+  static bool isConstantFPBlob(BlobTy Blob, ConstantFP **Val = nullptr);
+
+  /// \brief Returns true if Blob represents a vector of constants.
+  /// If yes, returns the underlying LLVM Value in Val
+  static bool isConstantVectorBlob(BlobTy Blob, Constant **Val = nullptr);
+
+  /// \brief Returns true if Blob represents a metadata.
+  /// If blob is metadata, sets the return value in Val.
+  static bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val = nullptr);
 
   /// \brief Returns a new blob created from passed in Val.
   static BlobTy createBlob(Value *Val, bool Insert = true,

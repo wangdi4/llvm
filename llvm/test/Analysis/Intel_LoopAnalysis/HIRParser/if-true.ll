@@ -5,6 +5,8 @@
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
+; CHECK: NSW: Yes
+
 ; CHECK:      if ({{.*}}true{{.*}})
 ; CHECK:      <RVAL-REG>{{.*}}{undefined}
 ; CHECK-NEXT: <RVAL-REG>{{.*}}{undefined}

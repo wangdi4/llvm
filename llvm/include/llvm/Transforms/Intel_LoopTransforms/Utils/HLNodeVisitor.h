@@ -269,6 +269,269 @@ private:
   }
 };
 
+///
+/// \brief This class visits HLNodes, in inner loop first manner.
+/// It first visits the loop body in "recurse inside loop" mode,
+/// such that inner loops are processed first. Then, in the "not
+/// recurse inside loop" mode to visit the current loop body only.
+/// Visitor class's visit() function for loop node is used to process
+/// the loop node itself before its loop body is processed in "not recurse"
+/// mode, while the positVisit() is used to process the loop node as part
+/// of the immediate parent loop body, after it's loop body is visited.
+/// Nodes outside of outermost loops are not visited.
+///
+/// Suppose our HLNodes are the following.
+///
+/// R1
+///   S1
+///   IF1
+///     S2
+///   L1
+///     IF2
+///       S3
+///       L2
+///         S4
+///       S5
+///
+/// The following is how the traversal happens (for simplicity, omitting
+/// calls to visitRange*()).
+/// 1) visitRecursiveInsideLoops(R1)
+///   2) visitRecursiveInsideLoops(S1)
+///   3) visitRecursiveInsideLoops(IF1)
+///     4) visitRecursiveInsideLoops(S2)
+///   5) visitRecursiveInsideLoops(L1)
+///     5-1) visitRecursiveInsideLoops(IF2)
+///       5-2) visitRecursiveInsideLoops(S3)
+///       5-3) visitRecursiveInsideLoops(L2)
+///         5-3-1) visitRecursiveInsideLoops(S4)
+///       5-3-2) calls V.visit(L2)
+///         5-3-3) visit(S4), which calls V.visit(S4)
+///       5-4) visitRecursiveInsideLoops(S5)
+///     5-5) calls V.visit(L1)
+///       5-6) visit(IF2), which calls V.visit(IF2)
+///         5-7) visit(S3), which calls V.visit(S3)
+///         5-8) visit(L2), which calls V.postVisit(L2)  // as part of L1 body
+///         5-9) visit(S5), which calls V.visit(S5)
+///       5-10) calls V.postVisit(IF2) // after IF body visits.
+///     5-11) calls V.postVisit(L1) // exisint from outermost loop
+///
+template <typename HV, bool Forward = true>
+class HLInnerToOuterLoopVisitor {
+private:
+  HV &Visitor;
+
+  friend class HLNodeUtils;
+
+  HLInnerToOuterLoopVisitor(HV &V) : Visitor(V) {}
+
+  /// \brief Contains the core logic to recurse as deep in the loop nest
+  /// as possible first, and then on the way back visit the loop and loop body
+  /// nodes. Returns true to indicate that early termination has occurred.
+  template <typename NodeTy, typename = IsHLNodeTy<NodeTy> >
+  bool visitRecurseInsideLoops(NodeTy *Node){
+    if (auto Reg = dyn_cast<HLRegion>(Node)) {
+      if (!Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+        if (visitRangeRecurseInsideLoops(Reg->child_begin(),Reg->child_end())) {
+          return true;
+        }
+      }
+    } else if (auto If = dyn_cast<HLIf>(Node)) {
+      if (!Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+        auto Begin1 = Forward ? If->then_begin() : If->else_begin();
+        auto Begin2 = Forward ? If->else_begin() : If->then_begin();
+        auto End1   = Forward ? If->then_end()   : If->else_end();
+        auto End2   = Forward ? If->else_end()   : If->then_end();
+        if (visitRangeRecurseInsideLoops(Begin1, End1)) {
+          return true;
+        }
+        if (visitRangeRecurseInsideLoops(Begin2, End2)) {
+          return true;
+        }
+      }
+    } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
+      // No need to visit preheader/postexit in this traversal mode.
+      if (!Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+        // Visit the body in "recurse inside loop" mode first.
+        // This is to hit all the loop nodes inside.
+        if (visitRangeRecurseInsideLoops(Loop->child_begin(),
+                                         Loop->child_end())) {
+          return true;
+        }
+        Visitor.visit(Loop);  // Visit first as the parent of nodes whose
+                              // parent loop is this one.
+        if (!Visitor.isDone()) {
+          return true;
+        }
+        // Call visit/postVisit function if the nodes' parent loop is this one.
+        if (visitRange(Loop->child_begin(), Loop->child_end())) {
+          return true;
+        }
+        // postVisit(Loop) for inner loops are performed as part of parent
+        // loops' body node visit. For outermost loops, since there aren't
+        // parent loops, postVisit() is performed here.
+        if (!Loop->getParentLoop()) {
+          Visitor.postVisit(Loop);
+          if (!Visitor.isDone()) {
+            return true;
+          }
+        }
+      }
+    } else if (auto Switch = dyn_cast<HLSwitch>(Node)) {
+      if (!Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+        if (!Forward) {
+          if (visitRangeRecurseInsideLoops(Switch->default_case_child_begin(),
+                                           Switch->default_case_child_end()))
+            return true;
+        }
+        for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+          unsigned I1 = Forward ? I : E - I + 1;
+          if (visitRangeRecurseInsideLoops(Switch->case_child_begin(I1),
+                                           Switch->case_child_end(I1)))
+            return true;
+        }
+        if (Forward) {
+          if (visitRangeRecurseInsideLoops(Switch->default_case_child_begin(),
+                                           Switch->default_case_child_end()))
+            return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /// \brief Contains the core logic to visit nodes and recurse further
+  /// on HLIf and HLSwitch. Recursion inside loop is handled by
+  /// visitRecurseInsideLoops(). Returns true to indicate that early
+  /// termination has occurred.
+  template <typename NodeTy, typename = IsHLNodeTy<NodeTy> >
+  bool visit(NodeTy *Node){
+    if (isa<HLRegion>(Node)) {
+      llvm_unreachable("HLRegion node unexpected!");
+    } else if (auto If = dyn_cast<HLIf>(Node)) {
+      Visitor.visit(If);
+      if (!Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+        auto Begin1 = Forward ? If->then_begin() : If->else_begin();
+        auto Begin2 = Forward ? If->else_begin() : If->then_begin();
+        auto End1   = Forward ? If->then_end()   : If->else_end();
+        auto End2   = Forward ? If->else_end()   : If->then_end();
+        if (visitRange(Begin1, End1)) {
+          return true;
+        }
+        if (visitRange(Begin2, End2)) {
+          return true;
+        }
+      }
+      Visitor.postVisit(If);
+    } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
+      auto Begin1 = Forward ? Loop->pre_begin()  : Loop->post_begin();
+      auto Begin2 = Forward ? Loop->post_begin() : Loop->pre_begin();
+      auto End1   = Forward ? Loop->pre_end()    : Loop->post_end();
+      auto End2   = Forward ? Loop->post_end()   : Loop->pre_end();
+      if (visitRange(Begin1, End1)) {
+        return true;
+      }
+      Visitor.postVisit(Loop);  // visit the loop node as part of parent loop's
+                                // body node, also after all it's body bodes are
+                                // processed.
+      if (!Visitor.isDone()) {
+        return true;
+      }
+      if (visitRange(Begin2, End2)) {
+        return true;
+      }
+    } else if (auto Switch = dyn_cast<HLSwitch>(Node)) {
+      Visitor.visit(Switch);
+      if (!Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+        if (!Forward) {
+          if (visitRange(Switch->default_case_child_begin(),
+                         Switch->default_case_child_end()))
+            return true;
+        }
+        for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+          unsigned I1 = Forward ? I : E - I + 1;
+          if (visitRange(Switch->case_child_begin(I1),
+                         Switch->case_child_end(I1)))
+            return true;
+        }
+        if (Forward) {
+          if (visitRange(Switch->default_case_child_begin(),
+                         Switch->default_case_child_end()))
+            return true;
+        }
+      }
+      Visitor.postVisit(Switch);
+    } else if (auto Label = dyn_cast<HLLabel>(Node)) {
+      Visitor.visit(Label);
+    } else if (auto Goto = dyn_cast<HLGoto>(Node)) {
+      Visitor.visit(Goto);
+    } else if (auto Inst = dyn_cast<HLInst>(Node)) {
+      Visitor.visit(Inst);
+    } else {
+      llvm_unreachable("Unknown HLNode type!");
+    }
+
+    /// Visitor indicated that the traversal is done
+    if (Visitor.isDone()) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /// \brief Visits HLNodes in the forward/backward direction in the range
+  /// [begin, end). Returns true to indicate that early termination has
+  /// occurred.
+  template <typename NodeTy, typename = IsHLNodeTy<NodeTy> >
+  bool visitRangeRecurseInsideLoops(ilist_iterator<NodeTy> Begin,
+                                    ilist_iterator<NodeTy> End) {
+    if (Forward) {
+      for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
+        ++Next;
+        if (visitRecurseInsideLoops(&(*I))) {
+          return true;
+        }
+      }
+    }
+    else {
+      std::reverse_iterator<decltype(Begin)> RI(End);
+      std::reverse_iterator<decltype(End)> RE(Begin);
+      for (auto I = RI, Next = I, E = RE; I != E; I = Next) {
+        ++Next;
+        if (visitRecurseInsideLoops(&(*I))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /// \brief Visits HLNodes in the forward/backward direction in the range
+  /// [begin, end). Returns true to indicate that early termination has
+  /// occurred.
+  template <typename NodeTy, typename = IsHLNodeTy<NodeTy> >
+  bool visitRange(ilist_iterator<NodeTy> Begin, ilist_iterator<NodeTy> End) {
+    if (Forward) {
+      for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
+        ++Next;
+        if (visit(&(*I))) {
+          return true;
+        }
+      }
+    }
+    else {
+      std::reverse_iterator<decltype(Begin)> RI(End);
+      std::reverse_iterator<decltype(End)> RE(Begin);
+      for (auto I = RI, Next = I, E = RE; I != E; I = Next) {
+        ++Next;
+        if (visit(&(*I))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+};
+
 } // End namespace loopopt
 
 } // End namespace llvm

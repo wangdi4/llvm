@@ -20,7 +20,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifndef INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_GRAPH
+#define INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_GRAPH
+
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionPreProcGraph.h"
+
 namespace llvm {
 
 namespace loopopt {
@@ -73,7 +77,8 @@ public:
   typedef std::pointer_to_unary_function<DistPPNode *, HLNode *> DistToHNodeFun;
 
   typedef mapped_iterator<SmallVectorImpl<DistPPNode *>::iterator,
-                          DistToHNodeFun> nodes_iterator;
+                          DistToHNodeFun>
+      nodes_iterator;
 
   // nodes_iterator/begin/end - Allow iteration over hl nodes in piblock in
   // lexical order
@@ -188,7 +193,7 @@ class PiGraph : public HIRGraph<PiBlock, PiGraphEdge> {
   DistPPGraph *PPGraph;
 
 public:
-  PiGraph(HLLoop *Loop, DDAnalysis *DDA) {
+  PiGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
     PPGraph = new DistPPGraph(Loop, DDA);
 
     if (!isGraphValid()) {
@@ -330,3 +335,5 @@ void llvm::loopopt::PiGraph::createNodes() {
     std::reverse(PiBlocks.begin(), PiBlocks.end());
   }
 }
+
+#endif

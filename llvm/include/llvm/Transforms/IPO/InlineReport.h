@@ -220,11 +220,8 @@ typedef std::map<Instruction*, InlineReportCallSite*>
 class InlineReport : public CallGraphReport {
 public:
 
-  explicit InlineReport(unsigned MyLevel, int MyInlineLimit, 
-    int MyHintThreshold, int MyColdThreshold, int MyOptSizeThreshold) : 
-    Level(MyLevel), InlineLimit(MyInlineLimit), HintThreshold(MyHintThreshold), 
-    ColdThreshold(MyColdThreshold), OptSizeThreshold(MyOptSizeThreshold),
-    ActiveInlineInstruction(nullptr) {};
+  explicit InlineReport(unsigned MyLevel) :
+    Level(MyLevel), ActiveInlineInstruction(nullptr) {};
   virtual ~InlineReport(void); 
   InlineReport(const InlineReport&) = delete; 
   void operator=(const InlineReport&) = delete; 
@@ -296,13 +293,8 @@ public:
 private:
 
   /// \brief The Level is specified by the option -inline-report=N.
-  /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level, 
-  /// InlineLimit, HintThreshold, ColdThreshold, and OptSizeThreshold.
+  /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level. 
   unsigned Level;
-  int InlineLimit; 
-  int HintThreshold;
-  int ColdThreshold; 
-  int OptSizeThreshold; 
 
   // \brief The instruction for the call site currently being inlined 
   Instruction* ActiveInlineInstruction; 

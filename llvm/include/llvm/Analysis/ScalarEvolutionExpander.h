@@ -173,6 +173,15 @@ private:
     Value *expandEqualPredicate(const SCEVEqualPredicate *Pred,
                                 Instruction *Loc);
 
+    /// \brief Generates code that evaluates if the \p AR expression will
+    /// overflow.
+    Value *generateOverflowCheck(const SCEVAddRecExpr *AR, Instruction *Loc,
+                                 bool Signed);
+
+    /// \brief A specialized variant of expandCodeForPredicate, handling the
+    /// case when we are expanding code for a SCEVWrapPredicate.
+    Value *expandWrapPredicate(const SCEVWrapPredicate *P, Instruction *Loc);
+
     /// \brief A specialized variant of expandCodeForPredicate, handling the
     /// case when we are expanding code for a SCEVUnionPredicate.
     Value *expandUnionPredicate(const SCEVUnionPredicate *Pred,
@@ -265,10 +274,10 @@ private:
                           const SCEV *const *op_end,
                           PointerType *PTy, Type *Ty, Value *V);
 
-#if INTEL_CUSTOMIZATION
-    virtual
-#endif
-    Value *expand(const SCEV *S);
+    /// \brief Find a previous Value in ExprValueMap for expand.
+    Value *FindValueInExprValueMap(const SCEV *S, const Instruction *InsertPt);
+
+    virtual Value *expand(const SCEV *S);         // INTEL
 
     /// \brief Insert code to directly compute the specified SCEV expression
     /// into the program.  The inserted code is inserted into the SCEVExpander's

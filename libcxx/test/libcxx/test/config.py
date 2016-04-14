@@ -1,3 +1,12 @@
+#===----------------------------------------------------------------------===##
+#
+#                     The LLVM Compiler Infrastructure
+#
+# This file is dual licensed under the MIT and the University of Illinois Open
+# Source Licenses. See LICENSE.TXT for details.
+#
+#===----------------------------------------------------------------------===##
+
 import locale
 import os
 import platform
@@ -506,7 +515,7 @@ class Configuration(object):
         if enable_warnings:
             self.cxx.compile_flags += [
                 '-D_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER',
-                '-Wall', '-Werror'
+                '-Wall', '-Wextra', '-Werror'
             ]
             self.cxx.addWarningFlagIfSupported('-Wno-attributes')
             self.cxx.addWarningFlagIfSupported('-Wno-pessimizing-move')
@@ -516,6 +525,8 @@ class Configuration(object):
             # compiles clean with them.
             self.cxx.addWarningFlagIfSupported('-Wno-unused-local-typedef')
             self.cxx.addWarningFlagIfSupported('-Wno-unused-variable')
+            self.cxx.addWarningFlagIfSupported('-Wno-unused-parameter')
+            self.cxx.addWarningFlagIfSupported('-Wno-sign-compare')
             std = self.get_lit_conf('std', None)
             if std in ['c++98', 'c++03']:
                 # The '#define static_assert' provided by libc++ in C++03 mode
@@ -606,7 +617,7 @@ class Configuration(object):
         for k, v in self.env.items():
             exec_env_str += ' %s=%s' % (k, v)
         # Configure run env substitution.
-        exec_str = ''
+        exec_str = exec_env_str
         if self.lit_config.useValgrind:
             exec_str = ' '.join(self.lit_config.valgrindArgs) + exec_env_str
         sub.append(('%exec', exec_str))

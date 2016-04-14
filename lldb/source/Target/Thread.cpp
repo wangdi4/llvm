@@ -9,6 +9,7 @@
 
 // C Includes
 // C++ Includes
+#include <mutex>
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Breakpoint/BreakpointLocation.h"
@@ -58,10 +59,14 @@ using namespace lldb_private;
 const ThreadPropertiesSP &
 Thread::GetGlobalProperties()
 {
-    static ThreadPropertiesSP g_settings_sp;
-    if (!g_settings_sp)
-        g_settings_sp.reset (new ThreadProperties (true));
-    return g_settings_sp;
+    // NOTE: intentional leak so we don't crash if global destructor chain gets
+    // called as other threads still use the result of this function
+    static ThreadPropertiesSP *g_settings_sp_ptr = nullptr;
+    static std::once_flag g_once_flag;
+    std::call_once(g_once_flag,  []() {
+        g_settings_sp_ptr = new ThreadPropertiesSP(new ThreadProperties (true));
+    });
+    return *g_settings_sp_ptr;
 }
 
 static PropertyDefinition
@@ -701,7 +706,6 @@ Thread::SetupForResume ()
                     ThreadPlanSP step_bp_plan_sp (new ThreadPlanStepOverBreakpoint (*this));
                     if (step_bp_plan_sp)
                     {
-                        ;
                         step_bp_plan_sp->SetPrivate (true);
 
                         if (GetCurrentPlan()->RunState() != eStateStepping)
@@ -1591,7 +1595,7 @@ Thread::QueueThreadPlanForStepOut(bool abort_other_plans,
                                   Vote stop_vote,
                                   Vote run_vote,
                                   uint32_t frame_idx,
-                                  LazyBool step_out_avoids_code_withoug_debug_info)
+                                  LazyBool step_out_avoids_code_without_debug_info)
 {
     ThreadPlanSP thread_plan_sp (new ThreadPlanStepOut (*this, 
                                                         addr_context, 
@@ -1600,7 +1604,7 @@ Thread::QueueThreadPlanForStepOut(bool abort_other_plans,
                                                         stop_vote, 
                                                         run_vote, 
                                                         frame_idx,
-                                                        step_out_avoids_code_withoug_debug_info));
+                                                        step_out_avoids_code_without_debug_info));
     
     if (thread_plan_sp->ValidatePlan(nullptr))
     {
@@ -1620,7 +1624,8 @@ Thread::QueueThreadPlanForStepOutNoShouldStop(bool abort_other_plans,
                                               bool stop_other_threads,
                                               Vote stop_vote,
                                               Vote run_vote,
-                                              uint32_t frame_idx)
+                                              uint32_t frame_idx,
+                                              bool continue_to_next_branch)
 {
     ThreadPlanSP thread_plan_sp(new ThreadPlanStepOut (*this,
                                                         addr_context, 
@@ -1629,7 +1634,8 @@ Thread::QueueThreadPlanForStepOutNoShouldStop(bool abort_other_plans,
                                                         stop_vote, 
                                                         run_vote, 
                                                         frame_idx,
-                                                        eLazyBoolNo));
+                                                        eLazyBoolNo,
+                                                        continue_to_next_branch));
 
     ThreadPlanStepOut *new_plan = static_cast<ThreadPlanStepOut *>(thread_plan_sp.get());
     new_plan->ClearShouldStopHereCallbacks();

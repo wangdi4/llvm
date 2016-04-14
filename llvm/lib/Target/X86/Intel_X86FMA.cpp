@@ -54,12 +54,34 @@ raw_ostream &fmadbgs() {
   return (!DebugFMAOpt) ? nulls() : dbgs();
 }
 
-
 // This class holds all pre-computed/efficient FMA patterns.
 class FMAPatterns {
+  private:
+    // Represents a set of FMA patterns that all have the same SHAPE.
+    struct FMAPatternsSet {
+      const uint64_t  *Dags;
+      unsigned         NumDags;
+
+      // Initializes a set of patterns using the given reference to an array
+      // \p Dags and the size of the array \p NumDags.
+      FMAPatternsSet(const uint64_t *Dags, unsigned NumDags) :
+        Dags(Dags), NumDags(NumDags) { }
+    };
+
+    // All FMA patterns are stored as a vector of references to groups of Dags
+    // where each of the groups has the same SHAPE.
+    // It is also supposed that the groups of Dags are sorted by the SHAPE.
+    std::vector<FMAPatternsSet *> Dags;
+
+    // Returns the number of shape (i.e. the number of Dag/pattern sets).
+    unsigned getNumShapes() { return Dags.size(); }
+
   public:
     FMAPatterns() { };
-    ~FMAPatterns(void) { };
+    ~FMAPatterns(void) {
+      for (auto D : Dags)
+        delete D;
+    }
 
     // Initialize the patterns storage.
     // Currently it is assumed that there is only one set of patterns for

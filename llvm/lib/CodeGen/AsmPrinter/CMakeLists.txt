@@ -5,6 +5,7 @@ add_llvm_library(LLVMAsmPrinter
   AsmPrinterDwarf.cpp
   AsmPrinterInlineAsm.cpp
   DbgValueHistoryCalculator.cpp
+  DebugHandlerBase.cpp
   DebugLocStream.cpp
   DIE.cpp
   DIEHash.cpp
@@ -20,7 +21,7 @@ add_llvm_library(LLVMAsmPrinter
   ErlangGCPrinter.cpp
   OcamlGCPrinter.cpp
   WinException.cpp
-  WinCodeViewLineTables.cpp
+  CodeViewDebug.cpp
 #***INTEL
   intel/STIDebug.cpp
   intel/STIIR.cpp

@@ -329,6 +329,7 @@ int main(int argc, char **argv) {
   initializeRewriteSymbolsPass(Registry);
   initializeWinEHPreparePass(Registry);
   initializeDwarfEHPreparePass(Registry);
+  initializeSafeStackPass(Registry);
   initializeSjLjEHPreparePass(Registry);
 
 #if INTEL_CUSTOMIZATION
@@ -336,6 +337,9 @@ int main(int argc, char **argv) {
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);
+  initializeMapIntrinToImlPass(Registry);
+  initializeIntel_VPOAnalysis(Registry);
+  initializeIntel_VPOTransforms(Registry);
 #endif  // INTEL_CUSTOMIZATION
 
 #ifdef LINK_POLLY_INTO_TOOLS

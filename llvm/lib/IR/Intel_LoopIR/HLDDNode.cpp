@@ -79,7 +79,7 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
     // Simply checking for isConstant() also filters out lval DDRefs whose
     // canonical represenation is a constant. We should print out lval DDRefs
     // regardless.
-    if ((*I) && !PrintConstDDRefs && ((*I)->getSymbase() == CONSTANT_SYMBASE)) {
+    if ((*I) && !PrintConstDDRefs && ((*I)->getSymbase() == ConstantSymbase)) {
       continue;
     }
 

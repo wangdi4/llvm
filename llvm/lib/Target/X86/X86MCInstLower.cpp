@@ -455,10 +455,6 @@ ReSimplify:
            "LEA has segment specified!");
     break;
 
-  case X86::MOV32ri64:
-    OutMI.setOpcode(X86::MOV32ri);
-    break;
-
   // Commute operands to get a smaller encoding by using VEX.R instead of VEX.B
   // if one of the registers is extended, but other isn't.
   case X86::VMOVZPQILo2PQIrr:
@@ -992,7 +988,7 @@ static MachineBasicBlock::const_iterator
 PrevCrossBBInst(MachineBasicBlock::const_iterator MBBI) {
   const MachineBasicBlock *MBB = MBBI->getParent();
   while (MBBI == MBB->begin()) {
-    if (MBB == MBB->getParent()->begin())
+    if (MBB == &MBB->getParent()->front())
       return nullptr;
     MBB = MBB->getPrevNode();
     MBBI = MBB->end();

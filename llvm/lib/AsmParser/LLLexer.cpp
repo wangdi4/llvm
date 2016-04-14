@@ -579,11 +579,16 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(arm_aapcscc);
   KEYWORD(arm_aapcs_vfpcc);
   KEYWORD(msp430_intrcc);
+  KEYWORD(avr_intrcc);
+  KEYWORD(avr_signalcc);
   KEYWORD(ptx_kernel);
   KEYWORD(ptx_device);
   KEYWORD(spir_kernel);
   KEYWORD(spir_func);
   KEYWORD(intel_ocl_bicc);
+#if INTEL_CUSTOMIZATION
+  KEYWORD(svml_cc);
+#endif // INTEL_CUSTOMIZATION
   KEYWORD(x86_64_sysvcc);
   KEYWORD(x86_64_win64cc);
   KEYWORD(x86_regcallcc); // INTEL

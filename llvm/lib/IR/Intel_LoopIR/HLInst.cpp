@@ -13,10 +13,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IntrinsicInst.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -277,7 +281,8 @@ RegDDRef *HLInst::removeLvalDDRef() {
 }
 
 bool HLInst::hasRval() const {
-  return (isa<StoreInst>(Inst) || (hasLval() && isa<UnaryInstruction>(Inst)));
+  return (isa<StoreInst>(Inst) || isa<GetElementPtrInst>(Inst) ||
+          (hasLval() && isa<UnaryInstruction>(Inst)));
 }
 
 RegDDRef *HLInst::getRvalDDRef() {
@@ -405,4 +410,38 @@ void HLInst::verify() const {
            "DDRefs for Select or Cmp Instruction with "
            "True or False predicate must be undefined");
   }
+
+  if (isa<LoadInst>(Inst)) {
+    assert(getRvalDDRef()->isMemRef() &&
+           "Rval of load instruction is not a memref!");
+  }
+
+  if (isa<StoreInst>(Inst)) {
+    assert(getLvalDDRef()->isMemRef() &&
+           "Lval of store instruction is not a memref!");
+  }
+
+  if (isa<GetElementPtrInst>(Inst)) {
+    assert(getRvalDDRef()->isAddressOf() &&
+           "Rval of GEP instruction is not an AddressOf ref!");
+  }
 }
+
+bool HLInst::isIntrinCall(Intrinsic::ID &IntrinID) const {
+  auto Call = dyn_cast<IntrinsicInst>(getLLVMInstruction());
+  if (!Call) {
+    return false;
+  }
+  IntrinID = Call->getIntrinsicID();
+  return true;
+}
+
+bool HLInst::isSIMDDirective() const {
+  Intrinsic::ID IntrinID;
+  if (!isIntrinCall(IntrinID) || !vpo::VPOUtils::isIntelDirective(IntrinID)) {
+    return false;
+  }
+  // TODO: check metadata
+  return true;
+}
+

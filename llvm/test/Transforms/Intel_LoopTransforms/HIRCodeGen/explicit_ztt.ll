@@ -1,7 +1,7 @@
 ;; This test verifies correct cg for an HLIf, representing ztt of an i2 loop 
 ;; Also verifies correct cg for a double subscript address calculation
 ;;
-; RUN: opt -HIRCG -force-HIRCG -S < %s | FileCheck %s
+; RUN: opt -hir-cg -force-hir-cg -S < %s | FileCheck %s
 ; basic cg
 ; CHECK: region:
 

@@ -18,6 +18,7 @@
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
@@ -1184,7 +1185,7 @@ static LinkageInfo getLVForLocalDecl(const NamedDecl *D,
     return LinkageInfo::none();
 
   const Decl *OuterD = getOutermostFuncOrBlockContext(D);
-  if (!OuterD)
+  if (!OuterD || OuterD->isInvalidDecl())
     return LinkageInfo::none();
 
   LinkageInfo LV;
@@ -2708,8 +2709,7 @@ unsigned FunctionDecl::getBuiltinID() const {
     // declaration, for instance "extern "C" { namespace std { decl } }".
     if (!LinkageDecl) {
       if (BuiltinID == Builtin::BI__GetExceptionInfo &&
-          Context.getTargetInfo().getCXXABI().isMicrosoft() &&
-          isInStdNamespace())
+          Context.getTargetInfo().getCXXABI().isMicrosoft())
         return Builtin::BI__GetExceptionInfo;
       return 0;
     }
@@ -2731,6 +2731,12 @@ unsigned FunctionDecl::getBuiltinID() const {
 
   // If this is a static function, it's not a builtin.
   if (getStorageClass() == SC_Static)
+    return 0;
+
+  // OpenCL v1.2 s6.9.f - The library functions defined in
+  // the C99 standard headers are not available.
+  if (Context.getLangOpts().OpenCL &&
+      Context.BuiltinInfo.isPredefinedLibFunction(BuiltinID))
     return 0;
 
   return BuiltinID;
@@ -3900,6 +3906,53 @@ TranslationUnitDecl *TranslationUnitDecl::Create(ASTContext &C) {
   return new (C, (DeclContext *)nullptr) TranslationUnitDecl(C);
 }
 
+void PragmaCommentDecl::anchor() { }
+
+PragmaCommentDecl *PragmaCommentDecl::Create(const ASTContext &C,
+                                             TranslationUnitDecl *DC,
+                                             SourceLocation CommentLoc,
+                                             PragmaMSCommentKind CommentKind,
+                                             StringRef Arg) {
+  PragmaCommentDecl *PCD =
+      new (C, DC, additionalSizeToAlloc<char>(Arg.size() + 1))
+          PragmaCommentDecl(DC, CommentLoc, CommentKind);
+  memcpy(PCD->getTrailingObjects<char>(), Arg.data(), Arg.size());
+  PCD->getTrailingObjects<char>()[Arg.size()] = '\0';
+  return PCD;
+}
+
+PragmaCommentDecl *PragmaCommentDecl::CreateDeserialized(ASTContext &C,
+                                                         unsigned ID,
+                                                         unsigned ArgSize) {
+  return new (C, ID, additionalSizeToAlloc<char>(ArgSize + 1))
+      PragmaCommentDecl(nullptr, SourceLocation(), PCK_Unknown);
+}
+
+void PragmaDetectMismatchDecl::anchor() { }
+
+PragmaDetectMismatchDecl *
+PragmaDetectMismatchDecl::Create(const ASTContext &C, TranslationUnitDecl *DC,
+                                 SourceLocation Loc, StringRef Name,
+                                 StringRef Value) {
+  size_t ValueStart = Name.size() + 1;
+  PragmaDetectMismatchDecl *PDMD =
+      new (C, DC, additionalSizeToAlloc<char>(ValueStart + Value.size() + 1))
+          PragmaDetectMismatchDecl(DC, Loc, ValueStart);
+  memcpy(PDMD->getTrailingObjects<char>(), Name.data(), Name.size());
+  PDMD->getTrailingObjects<char>()[Name.size()] = '\0';
+  memcpy(PDMD->getTrailingObjects<char>() + ValueStart, Value.data(),
+         Value.size());
+  PDMD->getTrailingObjects<char>()[ValueStart + Value.size()] = '\0';
+  return PDMD;
+}
+
+PragmaDetectMismatchDecl *
+PragmaDetectMismatchDecl::CreateDeserialized(ASTContext &C, unsigned ID,
+                                             unsigned NameValueSize) {
+  return new (C, ID, additionalSizeToAlloc<char>(NameValueSize + 1))
+      PragmaDetectMismatchDecl(nullptr, SourceLocation(), 0);
+}
+
 void ExternCContextDecl::anchor() { }
 
 ExternCContextDecl *ExternCContextDecl::Create(const ASTContext &C,
@@ -4024,16 +4077,26 @@ EnumConstantDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
 
 void IndirectFieldDecl::anchor() { }
 
+IndirectFieldDecl::IndirectFieldDecl(ASTContext &C, DeclContext *DC,
+                                     SourceLocation L, DeclarationName N,
+                                     QualType T, NamedDecl **CH, unsigned CHS)
+    : ValueDecl(IndirectField, DC, L, N, T), Chaining(CH), ChainingSize(CHS) {
+  // In C++, indirect field declarations conflict with tag declarations in the
+  // same scope, so add them to IDNS_Tag so that tag redeclaration finds them.
+  if (C.getLangOpts().CPlusPlus)
+    IdentifierNamespace |= IDNS_Tag;
+}
+
 IndirectFieldDecl *
 IndirectFieldDecl::Create(ASTContext &C, DeclContext *DC, SourceLocation L,
                           IdentifierInfo *Id, QualType T, NamedDecl **CH,
                           unsigned CHS) {
-  return new (C, DC) IndirectFieldDecl(DC, L, Id, T, CH, CHS);
+  return new (C, DC) IndirectFieldDecl(C, DC, L, Id, T, CH, CHS);
 }
 
 IndirectFieldDecl *IndirectFieldDecl::CreateDeserialized(ASTContext &C,
                                                          unsigned ID) {
-  return new (C, ID) IndirectFieldDecl(nullptr, SourceLocation(),
+  return new (C, ID) IndirectFieldDecl(C, nullptr, SourceLocation(),
                                        DeclarationName(), QualType(), nullptr,
                                        0);
 }

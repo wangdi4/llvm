@@ -98,6 +98,10 @@ static cl::opt<bool> SetMergedModule(
 static cl::opt<unsigned> Parallelism("j", cl::Prefix, cl::init(1),
                                      cl::desc("Number of backend threads"));
 
+static cl::opt<bool> RestoreGlobalsLinkage(
+    "restore-linkage", cl::init(false),
+    cl::desc("Restore original linkage of globals prior to CodeGen"));
+
 namespace {
 struct ModuleInfo {
   std::vector<bool> CanBeHidden;
@@ -154,8 +158,8 @@ static void diagnosticHandler(const DiagnosticInfo &DI) {
     exit(1);
 }
 
-static void diagnosticHandlerWithContenxt(const DiagnosticInfo &DI,
-                                          void *Context) {
+static void diagnosticHandlerWithContext(const DiagnosticInfo &DI,
+                                         void *Context) {
   diagnosticHandler(DI);
 }
 
@@ -182,8 +186,11 @@ getLocalLTOModule(StringRef Path, std::unique_ptr<MemoryBuffer> &Buffer,
   error(BufferOrErr, "error loading file '" + Path + "'");
   Buffer = std::move(BufferOrErr.get());
   CurrentActivity = ("loading file '" + Path + "'").str();
+  std::unique_ptr<LLVMContext> Context = llvm::make_unique<LLVMContext>();
+  Context->setDiagnosticHandler(diagnosticHandlerWithContext, nullptr, true);
   ErrorOr<std::unique_ptr<LTOModule>> Ret = LTOModule::createInLocalContext(
-      Buffer->getBufferStart(), Buffer->getBufferSize(), Options, Path);
+      std::move(Context), Buffer->getBufferStart(), Buffer->getBufferSize(),
+      Options, Path);
   CurrentActivity = "";
   return std::move(*Ret);
 }
@@ -267,7 +274,7 @@ int main(int argc, char **argv) {
   unsigned BaseArg = 0;
 
   LLVMContext Context;
-  Context.setDiagnosticHandler(diagnosticHandlerWithContenxt, nullptr, true);
+  Context.setDiagnosticHandler(diagnosticHandlerWithContext, nullptr, true);
 
   LTOCodeGenerator CodeGen(Context);
 
@@ -278,6 +285,7 @@ int main(int argc, char **argv) {
 
   CodeGen.setDebugInfo(LTO_DEBUG_MODEL_DWARF);
   CodeGen.setTargetOptions(Options);
+  CodeGen.setShouldRestoreGlobalsLinkage(RestoreGlobalsLinkage);
 
   llvm::StringSet<llvm::MallocAllocator> DSOSymbolsSet;
   for (unsigned i = 0; i < DSOSymbols.size(); ++i)

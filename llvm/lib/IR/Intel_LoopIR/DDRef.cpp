@@ -73,11 +73,11 @@ void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   }
 }
 
-unsigned DDRef::getHLDDNodeLevel() const {
+unsigned DDRef::getNodeLevel() const {
   HLDDNode *DDNode = getHLDDNode();
   assert(DDNode && " DDRef not attached to any node.");
 
-  return DDNode->getHLNodeLevel();
+  return DDNode->getNodeLevel();
 }
 
 void DDRef::verify() const {

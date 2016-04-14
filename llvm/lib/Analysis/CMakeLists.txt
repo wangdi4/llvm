@@ -45,8 +45,10 @@ add_llvm_library(LLVMAnalysis
   Lint.cpp
   Loads.cpp
   LoopAccessAnalysis.cpp
+  LoopUnrollAnalyzer.cpp
   LoopInfo.cpp
   LoopPass.cpp
+  LoopPassManager.cpp
   MemDepPrinter.cpp
   MemDerefPrinter.cpp
   MemoryBuiltins.cpp
@@ -83,3 +85,4 @@ add_llvm_library(LLVMAnalysis
 add_dependencies(LLVMAnalysis intrinsics_gen)
 
 add_subdirectory(Intel_LoopAnalysis)
+add_subdirectory(Intel_VPO)

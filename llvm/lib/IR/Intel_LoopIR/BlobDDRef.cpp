@@ -27,8 +27,8 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-BlobDDRef::BlobDDRef(unsigned Index, int Level)
-    : DDRef(DDRef::BlobDDRefVal, INVALID_SYMBASE), ParentDDRef(nullptr) {
+BlobDDRef::BlobDDRef(unsigned Index, unsigned Level)
+    : DDRef(DDRef::BlobDDRefVal, InvalidSymbase), ParentDDRef(nullptr) {
 
   unsigned Symbase = BlobUtils::getBlobSymbase(Index);
 
@@ -82,7 +82,7 @@ void BlobDDRef::replaceBlob(unsigned NewIndex) {
 void BlobDDRef::verify() const {
   assert(CE != nullptr && "Canon Expr for BlobDDRefObj cannot be NULL");
 
-  CE->verify();
+  CE->verify(getNodeLevel());
 
   assert(CE->isSelfBlob() && "BlobDDRefs should represent a self blob");
 

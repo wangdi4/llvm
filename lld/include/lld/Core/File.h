@@ -14,7 +14,6 @@
 #include "lld/Core/DefinedAtom.h"
 #include "lld/Core/SharedLibraryAtom.h"
 #include "lld/Core/UndefinedAtom.h"
-#include "lld/Core/range.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -45,9 +44,18 @@ public:
 
   /// \brief Kinds of files that are supported.
   enum Kind {
-    kindObject,        ///< object file (.o)
-    kindSharedLibrary, ///< shared library (.so)
-    kindArchiveLibrary ///< archive (.a)
+    kindErrorObject,          ///< a error object file (.o)
+    kindNormalizedObject,     ///< a normalized file (.o)
+    kindMachObject,           ///< a MachO object file (.o)
+    kindCEntryObject,         ///< a file for CEntries
+    kindHeaderObject,         ///< a file for file headers
+    kindEntryObject,          ///< a file for the entry
+    kindUndefinedSymsObject,  ///< a file for undefined symbols
+    kindStubHelperObject,     ///< a file for stub helpers
+    kindResolverMergedObject, ///< the resolver merged file.
+    kindSectCreateObject,     ///< a sect create object file (.o)
+    kindSharedLibrary,        ///< shared library (.so)
+    kindArchiveLibrary        ///< archive (.a)
   };
 
   /// \brief Returns file kind.  Need for dyn_cast<> on File objects.
@@ -137,14 +145,6 @@ public:
 
   std::error_code parse();
 
-  // This function is called just before the core linker tries to use
-  // a file. Currently the PECOFF reader uses this to trigger the
-  // driver to parse .drectve section (which contains command line options).
-  // If you want to do something having side effects, don't do that in
-  // doParse() because a file could be pre-loaded speculatively.
-  // Use this hook instead.
-  virtual void beforeLink() {}
-
   // Usually each file owns a std::unique_ptr<MemoryBuffer>.
   // However, there's one special case. If a file is an archive file,
   // the archive file and its children all shares the same memory buffer.
@@ -190,7 +190,7 @@ private:
 class ErrorFile : public File {
 public:
   ErrorFile(StringRef path, std::error_code ec)
-      : File(path, kindObject), _ec(ec) {}
+      : File(path, kindErrorObject), _ec(ec) {}
 
   std::error_code doParse() override { return _ec; }
 

@@ -960,6 +960,10 @@ public:
     return 0;
   }
 
+  virtual bool needsFixedCatchObjects() const {
+    report_fatal_error("Funclet EH is not implemented for this target");
+  }
+
   /// Returns the target's jmp_buf size in bytes (if never set, the default is
   /// 200)
   unsigned getJumpBufSize() const {
@@ -2204,6 +2208,9 @@ public:
   /// from getBooleanContents().
   bool isConstFalseVal(const SDNode *N) const;
 
+  /// Return if \p N is a True value when extended to \p VT.
+  bool isExtendedTrueVal(const ConstantSDNode *N, EVT VT, bool Signed) const;
+
   /// Try to simplify a setcc built with the specified operands and cc. If it is
   /// unable to simplify it, return a null SDValue.
   SDValue SimplifySetCC(EVT VT, SDValue N0, SDValue N1,
@@ -2270,7 +2277,7 @@ public:
   }
 
   /// Return true if the MachineFunction contains a COPY which would imply
-  /// HasOpaqueSPAdjustment.
+  /// HasCopyImplyingStackAdjustment.
   virtual bool hasCopyImplyingStackAdjustment(MachineFunction *MF) const {
     return false;
   }
@@ -2345,6 +2352,7 @@ public:
     bool IsInReg           : 1;
     bool DoesNotReturn     : 1;
     bool IsReturnValueUsed : 1;
+    bool IsConvergent      : 1;
 
     // IsTailCall should be modified by implementations of
     // TargetLowering::LowerCall that perform tail call conversions.
@@ -2363,10 +2371,11 @@ public:
     SmallVector<ISD::InputArg, 32> Ins;
 
     CallLoweringInfo(SelectionDAG &DAG)
-      : RetTy(nullptr), RetSExt(false), RetZExt(false), IsVarArg(false),
-        IsInReg(false), DoesNotReturn(false), IsReturnValueUsed(true),
-        IsTailCall(false), NumFixedArgs(-1), CallConv(CallingConv::C),
-        DAG(DAG), CS(nullptr), IsPatchPoint(false) {}
+        : RetTy(nullptr), RetSExt(false), RetZExt(false), IsVarArg(false),
+          IsInReg(false), DoesNotReturn(false), IsReturnValueUsed(true),
+          IsConvergent(false), IsTailCall(false), NumFixedArgs(-1),
+          CallConv(CallingConv::C), DAG(DAG), CS(nullptr), IsPatchPoint(false) {
+    }
 
     CallLoweringInfo &setDebugLoc(SDLoc dl) {
       DL = dl;
@@ -2435,6 +2444,11 @@ public:
 
     CallLoweringInfo &setDiscardResult(bool Value = true) {
       IsReturnValueUsed = !Value;
+      return *this;
+    }
+
+    CallLoweringInfo &setConvergent(bool Value = true) {
+      IsConvergent = Value;
       return *this;
     }
 
@@ -2534,12 +2548,12 @@ public:
   }
 
   /// Return the type that should be used to zero or sign extend a
-  /// zeroext/signext integer argument or return value.  FIXME: Most C calling
-  /// convention requires the return type to be promoted, but this is not true
-  /// all the time, e.g. i1 on x86-64. It is also not necessary for non-C
-  /// calling conventions. The frontend should handle this and include all of
-  /// the necessary information.
-  virtual EVT getTypeForExtArgOrReturn(LLVMContext &Context, EVT VT,
+  /// zeroext/signext integer return value.  FIXME: Some C calling conventions
+  /// require the return type to be promoted, but this is not true all the time,
+  /// e.g. i1/i8/i16 on x86/x86_64. It is also not necessary for non-C calling
+  /// conventions. The frontend should handle this and include all of the
+  /// necessary information.
+  virtual EVT getTypeForExtReturn(LLVMContext &Context, EVT VT,
                                        ISD::NodeType /*ExtendKind*/) const {
     EVT MinVT = getRegisterType(Context, MVT::i32);
     return VT.bitsLT(MinVT) ? MinVT : VT;

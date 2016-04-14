@@ -116,6 +116,10 @@ public:
     return unwindInfoToEhFrame;
   }
 
+  Reference::KindValue pointerKind() override {
+    return pointer64;
+  }
+
   uint32_t dwarfCompactUnwindType() override {
     return 0x04000000U;
   }
@@ -280,8 +284,13 @@ const ArchHandler::StubInfo ArchHandler_x86_64::_sStubInfo = {
   { Reference::KindArch::x86_64, lazyImmediateLocation, 1, 0 },
   { Reference::KindArch::x86_64, branch32, 6, 0 },
 
+  // Stub helper image cache content type
+  DefinedAtom::typeNonLazyPointer,
+
   // Stub Helper-Common size and code
   16,
+  // Stub helper alignment
+  2,
   { 0x4C, 0x8D, 0x1D, 0x00, 0x00, 0x00, 0x00,   // leaq cache(%rip),%r11
     0x41, 0x53,                                 // push %r11
     0xFF, 0x25, 0x00, 0x00, 0x00, 0x00,         // jmp *binder(%rip)
@@ -647,13 +656,33 @@ void ArchHandler_x86_64::applyFixupRelocatable(const Reference &ref,
     *loc32 = ref.addend() + inAtomAddress - fixupAddress;
     return;
   case delta32Anon:
-    *loc32 = (targetAddress - fixupAddress) + ref.addend();
+    // The value we write here should be the the delta to the target
+    // after taking in to account the difference from the fixup back to the
+    // last defined label
+    // ie, if we have:
+    // _base: ...
+    // Lfixup: .quad Ltarget - .
+    // ...
+    // Ltarget:
+    //
+    // Then we want to encode the value (Ltarget + addend) - (LFixup - _base)
+    *loc32 = (targetAddress + ref.addend()) - (fixupAddress - inAtomAddress);
     return;
   case delta64:
     *loc64 = ref.addend() + inAtomAddress - fixupAddress;
     return;
   case delta64Anon:
-    *loc64 = (targetAddress - fixupAddress) + ref.addend();
+    // The value we write here should be the the delta to the target
+    // after taking in to account the difference from the fixup back to the
+    // last defined label
+    // ie, if we have:
+    // _base: ...
+    // Lfixup: .quad Ltarget - .
+    // ...
+    // Ltarget:
+    //
+    // Then we want to encode the value (Ltarget + addend) - (LFixup - _base)
+    *loc64 = (targetAddress + ref.addend()) - (fixupAddress - inAtomAddress);
     return;
   case negDelta32:
     *loc32 = fixupAddress - targetAddress + ref.addend();

@@ -99,7 +99,7 @@ bool AArch64InstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
   if (I == MBB.end())
     return false;
 
-  if (!isUnpredicatedTerminator(I))
+  if (!isUnpredicatedTerminator(*I))
     return false;
 
   // Get the last instruction in the block.
@@ -107,7 +107,7 @@ bool AArch64InstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
 
   // If there is only one terminator instruction, process it.
   unsigned LastOpc = LastInst->getOpcode();
-  if (I == MBB.begin() || !isUnpredicatedTerminator(--I)) {
+  if (I == MBB.begin() || !isUnpredicatedTerminator(*--I)) {
     if (isUncondBranchOpcode(LastOpc)) {
       TBB = LastInst->getOperand(0).getMBB();
       return false;
@@ -131,7 +131,7 @@ bool AArch64InstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
       LastInst->eraseFromParent();
       LastInst = SecondLastInst;
       LastOpc = LastInst->getOpcode();
-      if (I == MBB.begin() || !isUnpredicatedTerminator(--I)) {
+      if (I == MBB.begin() || !isUnpredicatedTerminator(*--I)) {
         // Return now the only terminator is an unconditional branch.
         TBB = LastInst->getOperand(0).getMBB();
         return false;
@@ -143,7 +143,7 @@ bool AArch64InstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
   }
 
   // If there are three terminators, we don't know what sort of block this is.
-  if (SecondLastInst && I != MBB.begin() && isUnpredicatedTerminator(--I))
+  if (SecondLastInst && I != MBB.begin() && isUnpredicatedTerminator(*--I))
     return true;
 
   // If the block ends with a B and a Bcc, handle it.
@@ -543,7 +543,8 @@ static bool canBeExpandedToORR(const MachineInstr *MI, unsigned BitSize) {
 // FIXME: this implementation should be micro-architecture dependent, so a
 // micro-architecture target hook should be introduced here in future.
 bool AArch64InstrInfo::isAsCheapAsAMove(const MachineInstr *MI) const {
-  if (!Subtarget.isCortexA57() && !Subtarget.isCortexA53())
+  if (!Subtarget.isCortexA57() && !Subtarget.isCortexA53() &&
+      !Subtarget.isKryo())
     return MI->isAsCheapAsAMove();
 
   switch (MI->getOpcode()) {
@@ -1420,7 +1421,7 @@ bool AArch64InstrInfo::getMemOpBaseRegImmOfsWidth(
   case AArch64::STRBBui:
     Scale = Width = 1;
     break;
-  };
+  }
 
   BaseReg = LdSt->getOperand(1).getReg();
   Offset = LdSt->getOperand(2).getImm() * Scale;
@@ -1879,39 +1880,45 @@ void AArch64InstrInfo::storeRegToStackSlot(
     else if (AArch64::DDRegClass.hasSubClassEq(RC)) {
       assert(Subtarget.hasNEON() &&
              "Unexpected register store without NEON");
-      Opc = AArch64::ST1Twov1d, Offset = false;
+      Opc = AArch64::ST1Twov1d;
+      Offset = false;
     }
     break;
   case 24:
     if (AArch64::DDDRegClass.hasSubClassEq(RC)) {
       assert(Subtarget.hasNEON() &&
              "Unexpected register store without NEON");
-      Opc = AArch64::ST1Threev1d, Offset = false;
+      Opc = AArch64::ST1Threev1d;
+      Offset = false;
     }
     break;
   case 32:
     if (AArch64::DDDDRegClass.hasSubClassEq(RC)) {
       assert(Subtarget.hasNEON() &&
              "Unexpected register store without NEON");
-      Opc = AArch64::ST1Fourv1d, Offset = false;
+      Opc = AArch64::ST1Fourv1d;
+      Offset = false;
     } else if (AArch64::QQRegClass.hasSubClassEq(RC)) {
       assert(Subtarget.hasNEON() &&
              "Unexpected register store without NEON");
-      Opc = AArch64::ST1Twov2d, Offset = false;
+      Opc = AArch64::ST1Twov2d;
+      Offset = false;
     }
     break;
   case 48:
     if (AArch64::QQQRegClass.hasSubClassEq(RC)) {
       assert(Subtarget.hasNEON() &&
              "Unexpected register store without NEON");
-      Opc = AArch64::ST1Threev2d, Offset = false;
+      Opc = AArch64::ST1Threev2d;
+      Offset = false;
     }
     break;
   case 64:
     if (AArch64::QQQQRegClass.hasSubClassEq(RC)) {
       assert(Subtarget.hasNEON() &&
              "Unexpected register store without NEON");
-      Opc = AArch64::ST1Fourv2d, Offset = false;
+      Opc = AArch64::ST1Fourv2d;
+      Offset = false;
     }
     break;
   }
@@ -1977,39 +1984,45 @@ void AArch64InstrInfo::loadRegFromStackSlot(
     else if (AArch64::DDRegClass.hasSubClassEq(RC)) {
       assert(Subtarget.hasNEON() &&
              "Unexpected register load without NEON");
-      Opc = AArch64::LD1Twov1d, Offset = false;
+      Opc = AArch64::LD1Twov1d;
+      Offset = false;
     }
     break;
   case 24:
     if (AArch64::DDDRegClass.hasSubClassEq(RC)) {
       assert(Subtarget.hasNEON() &&
              "Unexpected register load without NEON");
-      Opc = AArch64::LD1Threev1d, Offset = false;
+      Opc = AArch64::LD1Threev1d;
+      Offset = false;
     }
     break;
   case 32:
     if (AArch64::DDDDRegClass.hasSubClassEq(RC)) {
       assert(Subtarget.hasNEON() &&
              "Unexpected register load without NEON");
-      Opc = AArch64::LD1Fourv1d, Offset = false;
+      Opc = AArch64::LD1Fourv1d;
+      Offset = false;
     } else if (AArch64::QQRegClass.hasSubClassEq(RC)) {
       assert(Subtarget.hasNEON() &&
              "Unexpected register load without NEON");
-      Opc = AArch64::LD1Twov2d, Offset = false;
+      Opc = AArch64::LD1Twov2d;
+      Offset = false;
     }
     break;
   case 48:
     if (AArch64::QQQRegClass.hasSubClassEq(RC)) {
       assert(Subtarget.hasNEON() &&
              "Unexpected register load without NEON");
-      Opc = AArch64::LD1Threev2d, Offset = false;
+      Opc = AArch64::LD1Threev2d;
+      Offset = false;
     }
     break;
   case 64:
     if (AArch64::QQQQRegClass.hasSubClassEq(RC)) {
       assert(Subtarget.hasNEON() &&
              "Unexpected register load without NEON");
-      Opc = AArch64::LD1Fourv2d, Offset = false;
+      Opc = AArch64::LD1Fourv2d;
+      Offset = false;
     }
     break;
   }
@@ -2487,15 +2500,36 @@ static bool canCombineWithMUL(MachineBasicBlock &MBB, MachineOperand &MO,
   return true;
 }
 
-/// Return true when there is potentially a faster code sequence
-/// for an instruction chain ending in \p Root. All potential patterns are
-/// listed
-/// in the \p Pattern vector. Pattern should be sorted in priority order since
-/// the pattern evaluator stops checking as soon as it finds a faster sequence.
+// TODO: There are many more machine instruction opcodes to match:
+//       1. Other data types (integer, vectors)
+//       2. Other math / logic operations (xor, or)
+//       3. Other forms of the same operation (intrinsics and other variants)
+bool AArch64InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
+  switch (Inst.getOpcode()) {
+  case AArch64::FADDDrr:
+  case AArch64::FADDSrr:
+  case AArch64::FADDv2f32:
+  case AArch64::FADDv2f64:
+  case AArch64::FADDv4f32:
+  case AArch64::FMULDrr:
+  case AArch64::FMULSrr:
+  case AArch64::FMULX32:
+  case AArch64::FMULX64:
+  case AArch64::FMULXv2f32:
+  case AArch64::FMULXv2f64:
+  case AArch64::FMULXv4f32:
+  case AArch64::FMULv2f32:
+  case AArch64::FMULv2f64:
+  case AArch64::FMULv4f32:
+    return Inst.getParent()->getParent()->getTarget().Options.UnsafeFPMath;
+  default:
+    return false;
+  }
+}
 
-bool AArch64InstrInfo::getMachineCombinerPatterns(
-    MachineInstr &Root,
-    SmallVectorImpl<MachineCombinerPattern> &Patterns) const {
+/// Find instructions that can be turned into madd.
+static bool getMaddPatterns(MachineInstr &Root,
+                            SmallVectorImpl<MachineCombinerPattern> &Patterns) {
   unsigned Opc = Root.getOpcode();
   MachineBasicBlock &MBB = *Root.getParent();
   bool Found = false;
@@ -2598,6 +2632,20 @@ bool AArch64InstrInfo::getMachineCombinerPatterns(
     break;
   }
   return Found;
+}
+
+/// Return true when there is potentially a faster code sequence for an
+/// instruction chain ending in \p Root. All potential patterns are listed in
+/// the \p Pattern vector. Pattern should be sorted in priority order since the
+/// pattern evaluator stops checking as soon as it finds a faster sequence.
+
+bool AArch64InstrInfo::getMachineCombinerPatterns(
+    MachineInstr &Root,
+    SmallVectorImpl<MachineCombinerPattern> &Patterns) const {
+  if (getMaddPatterns(Root, Patterns))
+    return true;
+
+  return TargetInstrInfo::getMachineCombinerPatterns(Root, Patterns);
 }
 
 /// genMadd - Generate madd instruction and combine mul and add.
@@ -2713,8 +2761,10 @@ void AArch64InstrInfo::genAlternativeCodeSequence(
   unsigned Opc;
   switch (Pattern) {
   default:
-    // signal error.
-    break;
+    // Reassociate instructions.
+    TargetInstrInfo::genAlternativeCodeSequence(Root, Pattern, InsInstrs,
+                                                DelInstrs, InstrIdxForVirtReg);
+    return;
   case MachineCombinerPattern::MULADDW_OP1:
   case MachineCombinerPattern::MULADDX_OP1:
     // MUL I=A,B,0

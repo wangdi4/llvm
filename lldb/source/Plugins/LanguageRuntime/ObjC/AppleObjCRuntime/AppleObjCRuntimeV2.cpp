@@ -60,9 +60,6 @@
 #include "AppleObjCDeclVendor.h"
 #include "AppleObjCTrampolineHandler.h"
 
-#if defined(__APPLE__)
-#include "Plugins/Platform/MacOSX/PlatformiOSSimulator.h"
-#endif
 
 using namespace lldb;
 using namespace lldb_private;
@@ -405,9 +402,18 @@ AppleObjCRuntimeV2::GetDynamicTypeAndAddress (ValueObject &in_value,
                                               Address &address,
                                               Value::ValueType &value_type)
 {
-    // The Runtime is attached to a particular process, you shouldn't pass in a value from another process.
-    assert (in_value.GetProcessSP().get() == m_process);
+    // We should never get here with a null process...
     assert (m_process != NULL);
+
+    // The Runtime is attached to a particular process, you shouldn't pass in a value from another process.
+    // Note, however, the process might be NULL (e.g. if the value was made with SBTarget::EvaluateExpression...)
+    // in which case it is sufficient if the target's match:
+    
+    Process *process = in_value.GetProcessSP().get();
+    if (process)
+        assert (process == m_process);
+    else
+        assert (in_value.GetTargetSP().get() == m_process->CalculateTarget().get());
     
     class_type_or_name.Clear();
     value_type = Value::ValueType::eValueTypeScalar;
@@ -1794,17 +1800,14 @@ AppleObjCRuntimeV2::WarnIfNoClassesCached ()
     if (m_noclasses_warning_emitted)
         return;
 
-#if defined(__APPLE__)
     if (m_process &&
         m_process->GetTarget().GetPlatform() &&
-        m_process->GetTarget().GetPlatform()->GetPluginName() == PlatformiOSSimulator::GetPluginNameStatic())
+        m_process->GetTarget().GetPlatform()->GetPluginName().GetStringRef().endswith("-simulator"))
     {
-        // the iOS simulator does not have the objc_opt_ro class table
-        // so don't actually complain to the user
+        // Simulators do not have the objc_opt_ro class table so don't actually complain to the user
         m_noclasses_warning_emitted = true;
         return;
     }
-#endif
 
     Debugger &debugger(GetProcess()->GetTarget().GetDebugger());
     

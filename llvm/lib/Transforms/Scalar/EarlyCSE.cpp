@@ -447,7 +447,7 @@ private:
       return true;
     }
 
-    
+
     bool isMatchingMemLoc(const ParseMemoryInst &Inst) const {
       return (getPointerOperand() == Inst.getPointerOperand() &&
               getMatchingId() == Inst.getMatchingId());

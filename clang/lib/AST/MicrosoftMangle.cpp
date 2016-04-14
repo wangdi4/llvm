@@ -19,6 +19,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
@@ -58,8 +59,9 @@ static const DeclContext *getEffectiveDeclContext(const Decl *D) {
   }
 
   const DeclContext *DC = D->getDeclContext();
-  if (const CapturedDecl *CD = dyn_cast<CapturedDecl>(DC))
-    return getEffectiveDeclContext(CD);
+  if (isa<CapturedDecl>(DC) || isa<OMPDeclareReductionDecl>(DC)) {
+    return getEffectiveDeclContext(cast<Decl>(DC));
+  }
 
   return DC;
 }
@@ -160,13 +162,16 @@ public:
                              raw_ostream &Out) override;
   void mangleStringLiteral(const StringLiteral *SL, raw_ostream &Out) override;
   bool getNextDiscriminator(const NamedDecl *ND, unsigned &disc) {
-    // Lambda closure types are already numbered.
-    if (isLambda(ND))
-      return false;
-
     const DeclContext *DC = getEffectiveDeclContext(ND);
     if (!DC->isFunctionOrMethod())
       return false;
+
+    // Lambda closure types are already numbered, give out a phony number so
+    // that they demangle nicely.
+    if (isLambda(ND)) {
+      disc = 1;
+      return true;
+    }
 
     // Use the canonical number for externally visible decls.
     if (ND->isExternallyVisible()) {
@@ -1799,9 +1804,12 @@ void MicrosoftCXXNameMangler::mangleFunctionType(const FunctionType *T,
   SourceRange Range;
   if (D) Range = D->getSourceRange();
 
+  bool IsInLambda = false;
   bool IsStructor = false, HasThisQuals = ForceThisQuals, IsCtorClosure = false;
   CallingConv CC = T->getCallConv();
   if (const CXXMethodDecl *MD = dyn_cast_or_null<CXXMethodDecl>(D)) {
+    if (MD->getParent()->isLambda())
+      IsInLambda = true;
     if (MD->isInstance())
       HasThisQuals = true;
     if (isa<CXXDestructorDecl>(MD)) {
@@ -1874,6 +1882,8 @@ void MicrosoftCXXNameMangler::mangleFunctionType(const FunctionType *T,
       assert(AT->getKeyword() != AutoTypeKeyword::GNUAutoType &&
              "shouldn't need to mangle __auto_type!");
       mangleSourceName(AT->isDecltypeAuto() ? "<decltype-auto>" : "<auto>");
+      Out << '@';
+    } else if (IsInLambda) {
       Out << '@';
     } else {
       if (ResultType->isVoidType())
@@ -2428,6 +2438,15 @@ void MicrosoftCXXNameMangler::mangleType(const AtomicType *T, Qualifiers,
   mangleArtificalTagType(TTK_Struct, TemplateMangling, {"__clang"});
 }
 
+void MicrosoftCXXNameMangler::mangleType(const PipeType *T, Qualifiers,
+                                         SourceRange Range) {
+  DiagnosticsEngine &Diags = Context.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+    "cannot mangle this OpenCL pipe type yet");
+  Diags.Report(Range.getBegin(), DiagID)
+    << Range;
+}
+
 void MicrosoftMangleContextImpl::mangleCXXName(const NamedDecl *D,
                                                raw_ostream &Out) {
   assert((isa<FunctionDecl>(D) || isa<VarDecl>(D)) &&
@@ -2582,7 +2601,10 @@ void MicrosoftMangleContextImpl::mangleCXXVFTable(
   // NOTE: <cvr-qualifiers> here is always 'B' (const). <storage-class>
   // is always '6' for vftables.
   MicrosoftCXXNameMangler Mangler(*this, Out);
-  Mangler.getStream() << "\01??_7";
+  if (Derived->hasAttr<DLLImportAttr>())
+    Mangler.getStream() << "\01??_S";
+  else
+    Mangler.getStream() << "\01??_7";
   Mangler.mangleName(Derived);
   Mangler.getStream() << "6B"; // '6' for vftable, 'B' for const.
   for (const CXXRecordDecl *RD : BasePath)

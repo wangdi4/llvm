@@ -310,6 +310,11 @@ public:
     CALLSITE_DELEGATE_GETTER(hasFnAttr(A));
   }
 
+  /// \brief Return true if this function has the given attribute.
+  bool hasFnAttr(StringRef A) const {
+    CALLSITE_DELEGATE_GETTER(hasFnAttr(A));
+  }
+
   /// \brief Return true if the call or the callee has the given attribute.
   bool paramHasAttr(unsigned i, Attribute::AttrKind A) const {
     CALLSITE_DELEGATE_GETTER(paramHasAttr(i, A));
@@ -403,6 +408,17 @@ public:
   }
   void setDoesNotThrow() {
     CALLSITE_DELEGATE_SETTER(setDoesNotThrow());
+  }
+
+  /// @brief Determine if the call is convergent.
+  bool isConvergent() const {
+    CALLSITE_DELEGATE_GETTER(isConvergent());
+  }
+  void setConvergent() {
+    CALLSITE_DELEGATE_SETTER(setConvergent());
+  }
+  void setNotConvergent() {
+    CALLSITE_DELEGATE_SETTER(setNotConvergent());
   }
 
   unsigned getNumOperandBundles() const {

@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -HIRCG -force-HIRCG -S | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
 ;Verify cmp instructions are correctly generated
 ;          BEGIN REGION { }
 ;<29>         + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>

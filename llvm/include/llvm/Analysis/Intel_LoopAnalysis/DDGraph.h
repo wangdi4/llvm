@@ -22,15 +22,15 @@
 #ifndef INTEL_LOOPANALYSIS_DDGRAPH
 #define INTEL_LOOPANALYSIS_DDGRAPH
 
-#include <vector>
-#include <map>
-#include <list>
-#include <iterator>
-#include "llvm/Support/Debug.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
-#include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/Debug.h"
+#include <iterator>
+#include <list>
+#include <map>
+#include <vector>
 
 namespace llvm {
 namespace loopopt {
@@ -125,14 +125,20 @@ private:
   DDRef *Src;
   DDRef *Sink;
   DVectorTy DV;
+  bool IsLoopIndepDepTemp;
 
 public:
-  DDEdge() { Src = Sink = nullptr; }
-  DDEdge(DDRef *SrcRef, DDRef *SinkRef, const DVectorTy &DirV)
+  DDEdge() {
+    Src = Sink = nullptr;
+    IsLoopIndepDepTemp = false;
+  }
+  DDEdge(DDRef *SrcRef, DDRef *SinkRef, const DVectorTy &DirV,
+         bool IsLoopIndepDepTempIn = false)
       : Src(SrcRef), Sink(SinkRef) {
     for (unsigned II = 0; II < MaxLoopNestLevel; ++II) {
       DV[II] = DirV[II];
     }
+    IsLoopIndepDepTemp = IsLoopIndepDepTempIn;
   }
 
   DepType getEdgeType() const {
@@ -154,6 +160,7 @@ public:
 
   DDRef *getSrc() const { return Src; }
   DDRef *getSink() const { return Sink; }
+  bool isLoopIndependentDepTemp() const { return IsLoopIndepDepTemp; }
 
   // Next one is useful to loop through each element of DV
   const DVType *getDV() const { return &DV[0]; }
@@ -161,6 +168,45 @@ public:
   DVType getDVAtLevel(unsigned Level) const { return DV[Level - 1]; }
   // Next one returns pointer to an array of char
   const DVectorTy *getDirVector() const { return &DV; }
+
+  // Returns true if the edge is a Forward dependence
+  bool isForwardDep() const {
+
+    auto SrcTopSortNum = getSrc()->getHLDDNode()->getTopSortNum();
+    auto SinkTopSortNum = getSink()->getHLDDNode()->getTopSortNum();
+
+    //Handle the case A[I] = A[I] + B[I]
+    //Case 1: The flow edge (from Lval to Rval) is backward.
+    //Case 2: The anti edge (from Rval to Lval) is forward.
+    if (SrcTopSortNum == SinkTopSortNum) {
+      RegDDRef *SrcRef = dyn_cast<RegDDRef>(Src);
+      bool SrcIsLval = (SrcRef && SrcRef->isLval());
+      return !SrcIsLval; 
+    }
+    return (SrcTopSortNum < SinkTopSortNum);
+  }
+
+  // Returns true if the edge prevents parallelization of Loop at Level
+  // Note that this function only performs a quick check. It doesn't
+  // perform the same level of analysis as ParVec analysis.
+  bool preventsParallelization(unsigned Level) const {
+    return !isINPUTdep() && hasCrossIterDepAtLevel(Level);
+  }
+  // Returns true if the edge prevents vectorization of Loop at Level
+  // Note that this function only performs a quick check. It doesn't
+  // perform the same level of analysis as ParVec analysis.
+  bool preventsVectorization(unsigned Level) const {
+    return preventsParallelization(Level) && !isForwardDep()
+                                          && (getSrc() != getSink());
+  }
+  // Proxy to isDVCrossIterDepAtLevel().
+  bool hasCrossIterDepAtLevel(unsigned Level) const {
+    return isDVCrossIterDepAtLevel(getDV(), Level);
+  }
+  // Proxy to isDVRefinableAtLevel().
+  bool isRefinableDepAtLevel(unsigned Level) const {
+    return isDVRefinableAtLevel(getDV(), Level);
+  }
 
   bool isOUTPUTdep() const { return getEdgeType() == DepType::OUTPUT; }
   bool isFLOWdep() const { return getEdgeType() == DepType::FLOW; }

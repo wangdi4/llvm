@@ -16,13 +16,13 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLNODEUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLNODEUTILS_H
 
-#include <set>
 #include "llvm/Support/Compiler.h"
+#include <set>
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
@@ -43,7 +43,7 @@ class HIRFramework;
 /// It contains a bunch of static member functions which manipulate HLNodes.
 /// It does not store any state.
 ///
-class HLNodeUtils : public HLUtils {
+class HLNodeUtils : public HIRUtils {
 private:
   /// \brief Do not allow instantiation.
   HLNodeUtils() = delete;
@@ -61,7 +61,7 @@ private:
 
   friend class HIRCreation;
   friend class HIRCleanup;
-  friend class LoopFormation;
+  friend class HIRLoopFormation;
   friend class HIRFramework;
 
   /// \brief Visitor for clone sequence.
@@ -121,6 +121,8 @@ private:
         if (Loop->getNestingLevel() == Level) {
           LoopContainer.push_back(Loop);
           SkipNode = Loop;
+        } else if (Loop->isInnermost()) {
+          SkipNode = Loop;
         }
         break;
       default:
@@ -141,7 +143,7 @@ private:
   static void setFirstAndLastDummyInst(Instruction *Inst);
 
   /// \brief Initializes static members for this function.
-  static void initialize(Function &F);
+  static void initialize();
 
   /// \brief Returns a new HLRegion. Only used by framework.
   static HLRegion *createHLRegion(IRRegion *IRReg);
@@ -163,12 +165,6 @@ private:
   /// \brief Destroys all HLNodes, called during framework cleanup.
   static void destroyAll();
 
-  /// \brief Creates a zero value. Used to create dummy instructions.
-  static Value *createZeroVal(Type *Ty);
-
-  /// \brief Creates a one value. Used to create dummy instructions.
-  static Value *createOneVal(Type *Ty);
-
   /// \brief Performs sanity checking on unary instruction operands.
   static void checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,
                                      Type *DestTy);
@@ -183,17 +179,21 @@ private:
   /// applicable.
   static HLInst *createLvalHLInst(Instruction *Inst, RegDDRef *LvalRef);
 
+  /// \brief Creates an HLInst for this Inst. Used for void function call
+  /// and other instructions that do not have Lvalue.
+  /// It also updates first dummy instruction, if applicable.
+  static HLInst *createNonLvalHLInst(Instruction *Inst);
+
   /// \brief Creates a unary instruction.
   static HLInst *createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
                                    const Twine &Name, RegDDRef *LvalRef,
-                                   Type *DestTy, bool IsVolatile,
-                                   unsigned Align);
+                                   Type *DestTy);
 
   /// \brief Creates a binary instruction.
-  static HLInst *createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
-                                    RegDDRef *OpRef2, const Twine &Name,
-                                    RegDDRef *LvalRef, bool HasNUWOrExact,
-                                    bool HasNSW, MDNode *FPMathTag);
+  static HLInst *createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
+                                        RegDDRef *OpRef2, const Twine &Name,
+                                        RegDDRef *LvalRef, bool HasNUWOrExact,
+                                        bool HasNSW, MDNode *FPMathTag);
 
   /// \brief Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
@@ -404,13 +404,11 @@ public:
 
   /// \brief Creates a new Load instruction.
   static HLInst *createLoad(RegDDRef *RvalRef, const Twine &Name = "load",
-                            RegDDRef *LvalRef = nullptr,
-                            bool IsVolatile = false, unsigned Align = 0);
+                            RegDDRef *LvalRef = nullptr);
 
   /// \brief Creates a new Store instruction.
   static HLInst *createStore(RegDDRef *RvalRef, const Twine &Name = "store",
-                             RegDDRef *LvalRef = nullptr,
-                             bool IsVolatile = false, unsigned Align = 0);
+                             RegDDRef *LvalRef = nullptr);
 
   /// \brief Creates a new Trunc instruction.
   static HLInst *createTrunc(Type *DestTy, RegDDRef *RvalRef,
@@ -476,6 +474,19 @@ public:
                                      const Twine &Name = "cast",
                                      RegDDRef *LvalRef = nullptr);
 
+  /// \brief Creates a new BinaryOperator with specified opcode. If
+  /// OrigBinOp is not null, copy IR flags from OrigBinOp to the newly
+  /// create instruction.
+  static HLInst *createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
+                                    RegDDRef *OpRef2,
+                                    const Twine &Name = "",
+                                    RegDDRef *LvalRef = nullptr,
+                                    const BinaryOperator *OrigBinOp = nullptr);
+
+  /// \brief Creates a new Cast instruction with specified opcode.
+  static HLInst *createCastHLInst(Type *DestTy, unsigned OpCode,
+                                  RegDDRef *OpRef, const Twine &Name = "",
+                                  RegDDRef *LvalRef = nullptr);
   /// \brief Creates a new Add instruction.
   static HLInst *createAdd(RegDDRef *OpRef1, RegDDRef *OpRef2,
                            const Twine &Name = "add",
@@ -585,6 +596,22 @@ public:
                               RegDDRef *OpRef2, RegDDRef *OpRef3,
                               RegDDRef *OpRef4, const Twine &Name = "select",
                               RegDDRef *LvalRef = nullptr);
+  /// \brief Creates a new Call instruction.
+  static HLInst *createCall(Function *F,
+                            const SmallVectorImpl<RegDDRef*> &CallArgs,
+                            const Twine &Name = "call",
+                            RegDDRef *LvalRef = nullptr);
+
+  /// \brief Creates a new ShuffleVector instruction
+  static HLInst *CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                         ArrayRef<int> Mask,
+                                         const Twine &Name = "shuffle",
+                                         RegDDRef *LvalRef = nullptr);
+
+  /// \brief Creates a new ExtractElement instruction
+  static HLInst *CreateExtractElementInst(RegDDRef *OpRef, unsigned Idx,
+                                          const Twine &Name = "extract",
+                                          RegDDRef *LvalRef = nullptr);
 
   /// \brief Creates a clones sequence from Node1 to Node2, including both
   /// the nodes and all the nodes in between them. If Node2 is null or Node1
@@ -638,6 +665,31 @@ public:
   static void visitAll(HV &Visitor) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
     V.visitRange(getHIRFramework()->hir_begin(), getHIRFramework()->hir_end());
+  }
+
+  /// \brief Visits HLNodes in the HIR in InnerToOuter loop hierarchy
+  /// order. The direction is specified using Forward flag.
+  template <typename HV, bool Forward = true>
+  static void visitInnerToOuter(HV &Visitor, HLNode *Node) {
+    HLInnerToOuterLoopVisitor<HV, Forward> V(Visitor);
+    V.visitRecurseInsideLoops(Node);
+  }
+
+  /// \brief Visits all HLNodes in the HIR in InnerToOuter loop hierarchy
+  /// order. The direction is specified using Forward flag.
+  template <typename HV, bool Forward = true>
+  static void visitAllInnerToOuter(HV &Visitor) {
+    HLInnerToOuterLoopVisitor<HV, Forward> V(Visitor);
+    V.visitRangeRecurseInsideLoops(getHIRFramework()->hir_begin(),
+                                   getHIRFramework()->hir_end());
+  }
+
+  /// \brief Visits all HLNodes in the HIR in OuterToInner loop hierarchy
+  /// order. The direction is specified using Forward flag.
+  template <typename HV, bool Forward = true>
+  static void visitAllOuterToInner(HV &Visitor) {
+    HLNodeVisitor<HV, true, true, Forward> V(Visitor);
+    V.visit(getHIRFramework()->hir_begin(), getHIRFramework()->hir_end());
   }
 
   /// \brief Inserts an unlinked Node before Pos in HIR.
@@ -913,6 +965,16 @@ public:
   /// Node2, in which case it return false.
   static bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2);
 
+  /// \brief Checks if \p Node1 and \p Node2 are "equivalent" in terms of CFG:
+  /// namely if \p Node1 is reached/accessed anytime \p Node2 is
+  /// reached/Accessed and vice versa. This allows placing/accessing the nodes
+  /// together in the same location.
+  /// Returns false if there may exist a scenario/path in which Node1 is
+  /// reached/accessed and Node2 isn't, or the other way around.
+  /// Note: In the presence of complicated unstructured code (containing 
+  /// gotos/labels) this function will conservatively return false.
+  static bool canAccessTogether(const HLNode *Node1, const HLNode *Node2);
+
   /// \brief Returns true if Parent contains Node. IncludePrePostHdr indicates
   /// whether loop should be considered to contain preheader/postexit nodes.
   static bool contains(const HLNode *Parent, const HLNode *Node,
@@ -943,21 +1005,25 @@ public:
   /// \brief Gathers loops inside the Node with specified Level and stores them
   /// in the Loops vector.
   template <typename T>
-  static void gatherLoopswithLevel(HLNode *Node, SmallVectorImpl<T> &Loops,
+  static void gatherLoopsWithLevel(HLNode *Node, SmallVectorImpl<T> &Loops,
                                    unsigned Level) {
     assert(Node && " Node is null.");
+    HLLoop *Loop = dyn_cast<HLLoop>(Node);
+    (void)Loop;
+    assert((!Loop || !Loop->isInnermost()) &&
+           " Gathering loops inside innermost loop.");
     assert(isLoopLevelValid(Level) && " Level is out of range.");
     LoopLevelVisitor<T, VisitKind::Level> LoopVisit(Loops, Level);
     HLNodeUtils::visit(LoopVisit, Node);
   }
 
-  /// \brief Constant Node version of gatherLoopswithLevel.
+  /// \brief Constant Node version of gatherLoopsWithLevel.
   template <typename T>
-  static void gatherLoopswithLevel(const HLNode *Node,
+  static void gatherLoopsWithLevel(const HLNode *Node,
                                    SmallVectorImpl<T> &Loops, unsigned Level) {
     static_assert(std::is_const<typename std::remove_pointer<T>::type>::value,
                   "Type of SmallVector parameter should be const HLLoop *.");
-    gatherLoopswithLevel(const_cast<HLNode *>(Node), Loops, Level);
+    gatherLoopsWithLevel(const_cast<HLNode *>(Node), Loops, Level);
   }
 
   /// \brief Gathers all the loops across regions and stores them in the
@@ -992,19 +1058,49 @@ public:
   // unrolling.
   static bool hasSwitchOrCall(const HLNode *NodeStart, const HLNode *NodeEnd,
                               bool RecurseInsideLoops = true);
+  /// \brief Updates Loop properties (Bounds, etc) based on input Permutations
+  ///   Used by Interchange now. Could be used later for blocking
+  static void
+  permuteLoopNests(HLLoop *Loop,
+                   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation);
 
   /// \brief Returns true if Loop is a perfect Loop nest
   /// and the innermost loop
   static bool isPerfectLoopNest(const HLLoop *Loop,
                                 const HLLoop **InnermostLoop,
                                 bool AllowPrePostHdr = false,
-                                bool AllowTriangularLoop = false);
+                                bool AllowTriangularLoop = false,
+                                bool AllowNearPerfect = false,
+                                bool *IsNearPerfect = nullptr);
 
-  /// \brief Updates Loop properties (Bounds, etc) based on input Permutations
-  ///   Used by Interchange now. Could be used later for blocking
-  static void
-  permuteLoopNests(HLLoop *Loop,
-                   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation);
+  /// \breif Check if Loop has perfect/near-perfect loop properties
+  ///  set  innermost loop in *Lp if it is hit
+  ///  Return true if it has perfect/near-perfect loop properties
+  static bool hasPerfectLoopProperties(const HLNode *Node, const HLLoop **Lp,
+                                       bool AllowNearPerfect,
+                                       bool *IsNearPerfectLoop);
+
+  ///  \brief Any memref with non-unit stride?
+  ///   Will take innermost loop for now
+  ///   used mostly for blocking / interchange
+  static bool hasNonUnitStrideRefs(const HLLoop *Loop);
+		
+  /// \brief Find node receiving the load
+  /// e.g.   t0 = a[i] ;
+  ///         ...
+  ///        t1 = t0
+  ///  returns t1 = t0
+  static HLInst *
+  findForwardSubInst(const DDRef *LRef,
+                     SmallVectorImpl<HLInst *> &ForwardSubInsts);
+
+
+
+  /// \brief Returns the lowest common ancestor loop of Lp1 and Lp2. Returns
+  /// null if there is no such parent loop.
+  static const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
+                                                   const HLLoop *Lp2);
+  static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
 };
 
 } // End namespace loopopt

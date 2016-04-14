@@ -13,12 +13,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/Debug.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -38,7 +39,7 @@ void HLLoop::initialize() {
 // IsInnermost flag is initialized to true, please refer to the header file.
 HLLoop::HLLoop(const Loop *LLVMLoop)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true) {
+      NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   SmallVector<BasicBlock *, 8> Exits;
@@ -52,7 +53,7 @@ HLLoop::HLLoop(const Loop *LLVMLoop)
 HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
                RegDDRef *StrideDDRef, unsigned NumEx)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true) {
+      NestingLevel(0), IsInnermost(true), IsNSW(false) {
   initialize();
   setNumExits(NumEx);
 
@@ -65,6 +66,8 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
   setLowerDDRef(LowerDDRef);
   setUpperDDRef(UpperDDRef);
   setStrideDDRef(StrideDDRef);
+
+  setIVType(LowerDDRef->getDestType());
 
   assert(
       ((!getLowerDDRef()->containsUndef() &&
@@ -80,7 +83,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
                LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
-      IVType(HLLoopObj.IVType) {
+      IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW) {
 
   initialize();
 
@@ -90,7 +93,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
 
     auto ZttRefIt = HLLoopObj.ztt_ddref_begin();
 
-    for(auto ZIt = ztt_pred_begin(), EZIt = ztt_pred_end(); ZIt != EZIt; ++ZIt) {
+    for (auto ZIt = ztt_pred_begin(), EZIt = ztt_pred_end(); ZIt != EZIt;
+         ++ZIt) {
       setZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt, true);
       ++ZttRefIt;
       setZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt, false);
@@ -168,6 +172,27 @@ HLLoop *HLLoop::cloneCompleteEmptyLoop() const {
   return NewHLLoop;
 }
 
+void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth) const {
+
+  indent(OS, Depth);
+  OS << "+ Ztt: ";
+  if (hasZtt()) {
+    Ztt->printZttHeader(OS, this);
+  } else {
+    OS << "No";
+  }
+  OS << "\n";
+
+  indent(OS, Depth);
+  OS << "+ NumExits: " << getNumExits() << "\n";
+
+  indent(OS, Depth);
+  OS << "+ Innermost: " << (isInnermost() ? "Yes\n" : "No\n");
+
+  indent(OS, Depth);
+  OS << "+ NSW: " << (isNSW() ? "Yes\n" : "No\n");
+}
+
 void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
                    bool Detailed) const {
   const RegDDRef *Ref;
@@ -184,26 +209,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   if (Detailed) {
-    {
-      indent(OS, Depth);
-      OS << "+ NumExits: " << getNumExits() << "\n";
-    }
-
-    {
-      indent(OS, Depth);
-      OS << "+ Ztt: ";
-      if (hasZtt()) {
-        Ztt->printZttHeader(OS, this);
-      } else {
-        OS << "No";
-      }
-      OS << "\n";
-    }
-
-    {
-      indent(OS, Depth);
-      OS << "+ Innermost: " << isInnermost() << "\n";
-    }
+    printDetails(OS, Depth);
   }
 
   indent(OS, Depth);
@@ -479,8 +485,8 @@ CanonExpr *HLLoop::getLoopCanonExpr(RegDDRef *Ref) {
 }
 
 const CanonExpr *HLLoop::getLoopCanonExpr(const RegDDRef *Ref) const {
-  return const_cast<HLLoop *>(this)
-      ->getLoopCanonExpr(const_cast<RegDDRef *>(Ref));
+  return const_cast<HLLoop *>(this)->getLoopCanonExpr(
+      const_cast<RegDDRef *>(Ref));
 }
 
 CanonExpr *HLLoop::getLowerCanonExpr() {
@@ -667,7 +673,7 @@ void HLLoop::createZtt(bool IsOverwrite) {
 
   assert((!hasZtt() || IsOverwrite) && "Overwriting existing Ztt.");
   // Don't generate Ztt for Const trip loops.
-  RegDDRef *TripRef = getTripCountDDRef();
+  RegDDRef *TripRef = getTripCountDDRef(getNestingLevel());
   assert(TripRef && " Trip Count DDRef is null.");
   if (TripRef->getSingleCanonExpr()->isIntConstant()) {
     DDRefUtils::destroy(TripRef);
@@ -690,6 +696,9 @@ HLIf *HLLoop::extractZtt() {
 
   HLNodeUtils::insertBefore(this, Ztt);
   HLNodeUtils::moveAsFirstChild(Ztt, this, true);
+
+  std::for_each(Ztt->ddref_begin(), Ztt->ddref_end(),
+                [](RegDDRef *Ref) { Ref->updateDefLevel(); });
 
   return Ztt;
 }
@@ -753,4 +762,26 @@ void HLLoop::verify() const {
          "If it's not a top-level loop its nesting level should be +1");
   assert((getParentLoop() || getNestingLevel() == 1) &&
          "Top level loops should have 1st nesting level");
+}
+
+bool HLLoop::isSIMD() const {
+  HLContainerTy::const_iterator Iter(*this);
+  auto First = HLNodeUtils::getFirstLexicalChild(getParent(), this);
+  HLContainerTy::const_iterator FIter(*First);
+
+  while (Iter != FIter) {
+    --Iter;
+    const HLInst *I = dyn_cast<HLInst>(Iter);
+    if (!I)
+      return false; // Loop, IF, Switch, etc.
+    Intrinsic::ID IntrinID;
+    if (!I->isIntrinCall(IntrinID) ||
+        !vpo::VPOUtils::isIntelDirectiveOrClause(IntrinID))
+      return false; // Expecting just directives and clauses between SIMD
+                    // and Loop.
+    if (I->isSIMDDirective())
+      return true;
+  }
+
+  return false;
 }

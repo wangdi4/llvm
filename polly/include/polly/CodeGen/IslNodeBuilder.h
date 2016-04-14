@@ -209,13 +209,15 @@ protected:
   virtual void createFor(__isl_take isl_ast_node *For);
 
   /// @brief Set to remember materialized invariant loads.
-  SmallPtrSet<const SCEV *, 16> PreloadedPtrs;
+  ///
+  /// An invariant load is identified by its pointer (the SCEV) and its type.
+  SmallSet<std::pair<const SCEV *, Type *>, 16> PreloadedPtrs;
 
   /// @brief Preload the memory access at @p AccessRange with @p Build.
   ///
   /// @returns The preloaded value casted to type @p Ty
   Value *preloadUnconditionally(__isl_take isl_set *AccessRange,
-                                isl_ast_build *Build, Type *Ty);
+                                isl_ast_build *Build, Instruction *AccInst);
 
   /// @brief Preload the memory load access @p MA.
   ///
@@ -240,7 +242,7 @@ protected:
   bool preloadInvariantEquivClass(const InvariantEquivClassTy &IAClass);
 
   void createForVector(__isl_take isl_ast_node *For, int VectorWidth);
-  void createForSequential(__isl_take isl_ast_node *For);
+  void createForSequential(__isl_take isl_ast_node *For, bool KnownParallel);
 
   /// Create LLVM-IR that executes a for node thread parallel.
   ///

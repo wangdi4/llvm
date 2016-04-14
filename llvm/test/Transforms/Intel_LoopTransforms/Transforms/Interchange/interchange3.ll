@@ -4,15 +4,15 @@
 ;
 ;   for (i1=1; i1 <= 99; i1++) {
 ;      for (i2=1; i2 <= 98; i2++) {
-;					for (i3=1; i3 <= 97; i3++) {
-;						for (i4=1; i4 <= 96; i4++) {
-;							for (i5=1; i5 <= 95; i5++) {
-;								A[i5+n][i4][i3][i2][i1] += 2;
+;	  	for (i3=1; i3 <= 97; i3++) {
+;	         for (i4=1; i4 <= 96; i4++) {
+;	          for (i5=1; i5 <= 95; i5++) {
+;		    A[i5+n][i4][i3][i2][i1] += 2;
 ;
-; RUN: opt -loop-simplify -hir-ssa-deconstruction  -HIRLoopInterchange -HIRCG < %s 2>&1 | FileCheck %s
+; RUN: opt -O2  -loopopt   -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 2 3 4 5 1 )  
-; XFAIL: *
+; 
 
 ; ModuleID = 'interchange3.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

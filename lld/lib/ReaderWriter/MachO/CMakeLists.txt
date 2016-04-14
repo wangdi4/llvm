@@ -1,4 +1,4 @@
-add_llvm_library(lldMachO
+add_lld_library(lldMachO
   ArchHandler.cpp
   ArchHandler_arm.cpp
   ArchHandler_arm64.cpp
@@ -13,6 +13,7 @@ add_llvm_library(lldMachO
   MachONormalizedFileFromAtoms.cpp
   MachONormalizedFileToAtoms.cpp
   MachONormalizedFileYAML.cpp
+  ObjCPass.cpp
   ShimPass.cpp
   StubsPass.cpp
   TLVPass.cpp
@@ -22,6 +23,7 @@ add_llvm_library(lldMachO
     lldYAML
     LLVMObject
     LLVMSupport
+    ${PTHREAD_LIB}
   )
 
 include_directories(.)

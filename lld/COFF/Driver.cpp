@@ -14,6 +14,7 @@
 #include "SymbolTable.h"
 #include "Symbols.h"
 #include "Writer.h"
+#include "lld/Driver/Driver.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/LibDriver/LibDriver.h"
 #include "llvm/Option/Arg.h"
@@ -40,12 +41,13 @@ namespace coff {
 Configuration *Config;
 LinkerDriver *Driver;
 
-void link(llvm::ArrayRef<const char *> Args) {
+bool link(llvm::ArrayRef<const char *> Args) {
   Configuration C;
   LinkerDriver D;
   Config = &C;
   Driver = &D;
-  return Driver->link(Args);
+  Driver->link(Args);
+  return true;
 }
 
 // Drop directory components and replace extension with ".exe".
@@ -586,6 +588,8 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
 
     // Windows specific -- Make sure we resolve all dllexported symbols.
     for (Export &E : Config->Exports) {
+      if (!E.ForwardTo.empty())
+        continue;
       E.Sym = addUndefined(E.Name);
       if (!E.Directives)
         Symtab.mangleMaybe(E.Sym);

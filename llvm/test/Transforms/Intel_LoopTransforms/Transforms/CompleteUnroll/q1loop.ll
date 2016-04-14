@@ -1,7 +1,7 @@
 ; Test Complete Unrolling of simple loop.
 ; A[i] = B[i], unrolled 4 times
 
-; RUN: opt -hir-complete-unroll -HIRCG -S < %s | FileCheck %s
+; RUN: opt -hir-complete-unroll -hir-cg -S < %s | FileCheck %s
 ; CHECK: entry
 
 ; terminator of entry bblock should point to new unrolled region.

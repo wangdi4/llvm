@@ -55,25 +55,31 @@
 //     compile time. Experiment if unrolling HLIf's increases/decreases
 //     performance.
 
-#include "llvm/Pass.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+
+#include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "hir-complete-unroll"
 
 using namespace llvm;
 using namespace llvm::loopopt;
+
+// This stat maintains the number of hir loops completely unrolled.
+STATISTIC(LoopsCompletelyUnrolled, "Number of HIR loops completely unrolled");
+// This stat maintains the number of candidates for complete unrolling, but
+// were turned down due to cost model.
+STATISTIC(LoopsAnalyzed, "Number of HIR loops analyzed for complete unrolling");
 
 static cl::opt<unsigned> CompleteUnrollTripThreshold(
     "completeunroll-trip-threshold", cl::init(20), cl::Hidden,
@@ -216,6 +222,10 @@ private:
   /// ChildTripCnt denotes the trip count of the children.
   bool processLoop(HLLoop *Loop, int64_t *ChildTripCnt);
 
+  /// \brief Drives the profitability analysis when visiting a loop during
+  /// transformation.
+  bool processProfitablity(HLLoop *Loop, int64_t *ChildTripCnt);
+
   /// \brief Routine to drive the transformation of candidate loops.
   void transformLoops();
 };
@@ -274,32 +284,43 @@ void HIRCompleteUnroll::processCompleteUnroll() {
 
 bool HIRCompleteUnroll::processLoop(HLLoop *Loop, int64_t *TotalTripCnt) {
 
-  // 1. Gather Loops starting from the outer-most level, put into ChildLoops
-  SmallVector<HLLoop *, 8> ChildLoops;
-  HLNodeUtils::gatherLoopswithLevel(Loop, ChildLoops,
-                                    Loop->getNestingLevel() + 1);
+  // Visit children, only if it not the innermost, else
+  // perform profitability analysis.
+  if (!Loop->isInnermost()) {
+    // 1. Gather Loops starting from the outer-most level
+    SmallVector<HLLoop *, 8> ChildLoops;
+    HLNodeUtils::gatherLoopsWithLevel(Loop, ChildLoops,
+                                      Loop->getNestingLevel() + 1);
 
-  // 2.Process each Loop for Complete Unrolling
-  bool ChildValid = true;
-  // Recurse through the children.
-  for (auto Iter = ChildLoops.begin(), E = ChildLoops.end(); Iter != E;
-       ++Iter) {
-    int64_t TripCnt = 0;
-    ChildValid &= processLoop(*Iter, &TripCnt);
-    (*TotalTripCnt) += TripCnt;
+    // 2.Process each Loop for Complete Unrolling
+    bool ChildValid = true;
+    // Recurse through the children.
+    for (auto Iter = ChildLoops.begin(), E = ChildLoops.end(); Iter != E;
+         ++Iter) {
+      int64_t TripCnt = 0;
+      ChildValid &= processLoop(*Iter, &TripCnt);
+      (*TotalTripCnt) += TripCnt;
+    }
+
+    if (!ChildValid) {
+      return false;
+    }
   }
 
-  if (!ChildValid) {
-    return false;
-  }
+  return processProfitablity(Loop, TotalTripCnt);
+}
 
-  // Add the loop for transformation if profitable.
+bool HIRCompleteUnroll::processProfitablity(HLLoop *Loop,
+                                            int64_t *ChildTripCnt) {
+
+  LoopsAnalyzed++;
+
   LoopData *LD;
-  if (isProfitable(Loop, &LD, TotalTripCnt)) {
+  if (isProfitable(Loop, &LD, ChildTripCnt)) {
     TransformLoops.push_back(std::make_pair(Loop, LD));
+    LoopsCompletelyUnrolled++;
     return true;
   }
-
   return false;
 }
 

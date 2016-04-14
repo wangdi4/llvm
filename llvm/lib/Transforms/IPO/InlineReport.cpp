@@ -586,10 +586,14 @@ void InlineReport::setReasonNotInlined(const CallSite& CS,
 
 void InlineReport::printOptionValues(void) const {
   llvm::errs() << "Option Values:\n"; 
-  llvm::errs() << "  inline-threshold: " << InlineLimit << "\n";    
-  llvm::errs() << "  inlinehint-threshold: " << HintThreshold << "\n";    
-  llvm::errs() << "  inlinecold-threshold: " << ColdThreshold << "\n";    
-  llvm::errs() << "  inlineoptsize-threshold: " << OptSizeThreshold << "\n";    
+  llvm::errs() << "  inline-threshold: " 
+    << llvm::getDefaultInlineThreshold() << "\n";    
+  llvm::errs() << "  inlinehint-threshold: " 
+    << llvm::getHintThreshold() << "\n";
+  llvm::errs() << "  inlinecold-threshold: " 
+    << llvm::getColdThreshold() << "\n";
+  llvm::errs() << "  inlineoptsize-threshold: " 
+    << llvm::getOptSizeThreshold() << "\n";   
   llvm::errs() << "\n"; 
 } 
 
