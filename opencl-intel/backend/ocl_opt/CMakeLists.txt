@@ -17,6 +17,7 @@ set(OCL_BE_PASSES
     AddImplicitArgs
     BackendPassesWrappers
     BuiltInFuncImport
+    BuiltInAttributesImport
     BuiltinCallToInst
     BuiltinLibInfo
     CloneBlockInvokeFuncToKernel

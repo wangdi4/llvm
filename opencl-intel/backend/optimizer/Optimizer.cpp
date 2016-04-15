@@ -54,6 +54,7 @@ llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBuiltInImportPass(const char* CPUName);
+llvm::ModulePass* createBuiltInAttributesImportPass();
 llvm::ImmutablePass * createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
@@ -207,6 +208,7 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
 
 static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
                                        llvm::Module *M,
+                                       SmallVector<Module*, 2> & pRtlModuleList,
                                        unsigned OptLevel,
                                        const intel::OptimizerConfig *pConfig,
                                        bool isOcl20,
@@ -275,6 +277,9 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
     }
     PM.add(createGenericAddressStaticResolutionPass());
   }
+  PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
+  PM.add(createBuiltInAttributesImportPass());
+
   PM.add(llvm::createBasicAliasAnalysisPass());
   PM.add(createOCLAliasAnalysisPass());
 #ifndef __APPLE__
@@ -313,7 +318,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
 
 static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
                                         llvm::Module *M,
-                                        SmallVector<Module*, 2> pRtlModuleList,
+                                        SmallVector<Module*, 2> & pRtlModuleList,
                                         unsigned OptLevel,
                                         const intel::OptimizerConfig *pConfig,
                                         std::vector<std::string> &UndefinedExternals,
@@ -612,7 +617,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
                            *pModule) >= OclVersion::CL_VER_2_0;
   bool UnrollLoops = true;
   // Add passes which will run unconditionally
-  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, OptLevel, pConfig,
+  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, pRtlModuleList, OptLevel, pConfig,
                              isOcl20, UnrollLoops);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and hasRecursion()

@@ -6,6 +6,7 @@ include_directories(${LLVM_INCLUDE_DIRS}
 add_subdirectory(AddImplicitArgs)
 add_subdirectory(OclFunctionAttrs)
 add_subdirectory(BuiltInFuncImport)
+add_subdirectory(BuiltInAttributesImport)
 add_subdirectory(BuiltinLibInfo)
 add_subdirectory(CloneBlockInvokeFuncToKernel)
 add_subdirectory(DetectFunctionPtrCalls)

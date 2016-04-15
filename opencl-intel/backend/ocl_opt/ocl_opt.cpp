@@ -100,6 +100,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeOCLAliasAnalysisPass(Registry);
     intel::initializeSPIR20BlocksToObjCBlocksPass(Registry);
     intel::initializePrintfArgumentsPromotionPass(Registry);
+    intel::initializeBIAttrImportPass(Registry);
 }
 
 
