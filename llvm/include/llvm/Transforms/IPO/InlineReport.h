@@ -232,6 +232,11 @@ public:
   // \brief Create an InlineReportCallSite to represent CS
   InlineReportCallSite* addCallSite(Function* F, CallSite* CS, Module* M); 
 
+  // \brief Create an InlineReportCallSite to represent CS, if one does
+  // not already exist
+  InlineReportCallSite* addNewCallSite(Function* F, CallSite* CS,
+    Module* M);
+
   // \brief Indicate that the Function is dead
   void setDead(Function *F);
 
@@ -253,8 +258,6 @@ public:
 
   /// \brief Print the inlining report at the given level.
   void print() const;
-  unsigned getLevel() const { return Level; }
-  void setLevel(unsigned Mylevel) { Level = Mylevel; }
 
 #ifndef NDEBUG
   /// \brief Run some simple consistency checking on 'F', e.g.
@@ -283,7 +286,7 @@ public:
 
   void addCallback(Value* V); 
   
-  InlineReportCallSite* getCallSite(const CallSite& CS); 
+  InlineReportCallSite* getCallSite(CallSite* CS); 
 
   Instruction* getActiveInlineInstruction(void) 
     { return ActiveInlineInstruction; } 

@@ -431,9 +431,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
         if (!CS)     // INTEL - Split out compound checks for inlining report
           continue;
 
-        if (getReport().getCallSite(CS) == nullptr) {             // INTEL
-          getReport().addCallSite(F, &CS, &CG.getModule());       // INTEL
-        }                                                         // INTEL
+        getReport().addNewCallSite(F, &CS, &CG.getModule()); // INTEL 
         if (isa<IntrinsicInst>(I)) {                              // INTEL
             getReport().setReasonNotInlined(CS, NinlrIntrinsic);  // INTEL
             continue;
@@ -544,7 +542,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
 
         // Attempt to inline the function.
 #if INTEL_CUSTOMIZATION
-        InlineReportCallSite* IRCS = getReport().getCallSite(CS);
+        InlineReportCallSite* IRCS = getReport().getCallSite(&CS);
         Instruction* NI = CS.getInstruction();
         getReport().setActiveInlineInstruction(NI); 
         InlineReason Reason = InlineCallIfPossible(*this, CS, InlineInfo, 

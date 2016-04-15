@@ -424,6 +424,17 @@ InlineReportCallSite* InlineReport::addCallSite(Function* F, CallSite* CS,
   return IRCS;
 } 
 
+InlineReportCallSite* InlineReport::addNewCallSite(Function* F, CallSite* CS,
+  Module* M) {
+  if (Level == 0) {
+     return nullptr;
+  }
+  InlineReportCallSite* IRCS = getCallSite(CS);
+  if (IRCS != nullptr)
+    return IRCS;
+  return addCallSite(F, CS, M);
+}
+
 void InlineReport::setDead(Function* F) { 
   if (Level == 0) {
     return; 
@@ -750,6 +761,9 @@ void InlineReport::makeCurrent(Module* M, Function* F) {
 } 
 
 void InlineReport::makeAllNotCurrent(void) {
+   if (Level == 0) { 
+     return;
+   } 
    InlineReportFunctionMap::const_iterator It, E; 
    for (It = IRFunctionMap.begin(), E = IRFunctionMap.end(); It != E; ++It) { 
      InlineReportFunction* IRF = It->second; 
@@ -775,8 +789,11 @@ void InlineReport::replaceFunctionWithFunction(Function* OldFunction,
   IRF->setName(NewFunction->getName()); 
 } 
 
-InlineReportCallSite* InlineReport::getCallSite(const CallSite& CS) {
-  Instruction* NI = CS.getInstruction();
+InlineReportCallSite* InlineReport::getCallSite(CallSite* CS) {
+  if (Level == 0) {
+    return nullptr; 
+  } 
+  Instruction* NI = CS->getInstruction();
   InlineReportInstructionCallSiteMap::const_iterator
     MapItC = IRInstructionCallSiteMap.find(NI);
   if (MapItC == IRInstructionCallSiteMap.end()) { 
