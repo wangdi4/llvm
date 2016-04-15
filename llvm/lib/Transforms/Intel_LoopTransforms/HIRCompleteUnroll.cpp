@@ -380,12 +380,24 @@ void HIRCompleteUnroll::computeTripCount(const HLLoop *Loop) {
 
   // TripCE should only have IV and const.
   // Substitute the IV with their Trips-1. We are computing the max trip
-  // here for the current level.
+  // here for the current level. If IVCoeff is negative, we substitute the
+  // LB of parent i.e. 0 for normalized loops.
   for (unsigned Level = 1; Level < LoopLevel; ++Level) {
-    TripCE->replaceIVByConstant(Level, TripCountCache[Level] - 1);
+    if (TripCE->getIVConstCoeff(Level) > 0) {
+      TripCE->replaceIVByConstant(Level, TripCountCache[Level] - 1);
+    } else {
+      TripCE->replaceIVByConstant(Level, 0);
+    }
   }
   assert(TripCE->isIntConstant() && " Trip Count should be a constant.");
-  TripCountCache[LoopLevel] = TripCE->getConstant() + 1;
+  // There can be negative trips for loops i.e. not computed at all.
+  // In such cases, we simply return high trip count to avoid unrolling those
+  // loops.
+  if (TripCE->getConstant() <= 0) {
+    TripCountCache[LoopLevel] = CurrentTripThreshold + 1;
+  } else {
+    TripCountCache[LoopLevel] = TripCE->getConstant() + 1;
+  }
 }
 
 bool HIRCompleteUnroll::processLoop(HLLoop *Loop, int64_t *TotalTripCnt) {
