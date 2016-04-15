@@ -65,7 +65,9 @@ public:
     FrameSetup   = 1 << 0,              // Instruction is used as a part of
                                         // function frame setup code.
     BundledPred  = 1 << 1,              // Instruction has bundled predecessors.
-    BundledSucc  = 1 << 2               // Instruction has bundled successors.
+    BundledSucc  = 1 << 2,              // Instruction has bundled successors.
+    // LPU addition
+    NonSequential = 1 << 3              // Instruction removed from sequence
   };
 private:
   const MCInstrDesc *MCID;              // Instruction descriptor.
