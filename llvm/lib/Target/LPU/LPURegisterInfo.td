@@ -31,12 +31,18 @@ foreach i = 0-1023 in { def CI16_#i : LPUReg<"%ci16_"#i>; }
 foreach i = 0-1023 in { def CI32_#i : LPUReg<"%ci32_"#i>; }
 foreach i = 0-1023 in { def CI64_#i : LPUReg<"%ci64_"#i>; }
 
-def CI0  : RegisterClass<"LPU", [i1],       0, (add (sequence "CI0_%u",  0, 1023))>;
-def CI1  : RegisterClass<"LPU", [i1],       1, (add (sequence "CI1_%u",  0, 1023))>;
-def CI8  : RegisterClass<"LPU", [i8],       8, (add (sequence "CI8_%u",  0, 1023))>;
-def CI16 : RegisterClass<"LPU", [i16,f16], 16, (add (sequence "CI16_%u", 0, 1023))>;
-def CI32 : RegisterClass<"LPU", [i32,f32], 32, (add (sequence "CI32_%u", 0, 1023))>;
-def CI64 : RegisterClass<"LPU", [i64,f64], 64, (add (sequence "CI64_%u", 0, 1023))>;
+// Define LICs.  It is less than ideal to have a full enumeration, but it
+// works for now.
+// Do not allow standard allocation of LICs, or copying.  Allocation is
+// handled specially in conversion from control flow to dataflow.
+let isAllocatable = 0, CopyCost = -1 in {
+  def CI0  : RegisterClass<"LPU", [i1],       0, (add (sequence "CI0_%u",  0, 1023))>;
+  def CI1  : RegisterClass<"LPU", [i1],       1, (add (sequence "CI1_%u",  0, 1023))> { let Size=1;  }
+  def CI8  : RegisterClass<"LPU", [i8],       8, (add (sequence "CI8_%u",  0, 1023))> { let Size=8;  }
+  def CI16 : RegisterClass<"LPU", [i16,f16], 16, (add (sequence "CI16_%u", 0, 1023))> { let Size=16; }
+  def CI32 : RegisterClass<"LPU", [i32,f32], 32, (add (sequence "CI32_%u", 0, 1023))> { let Size=32; }
+  def CI64 : RegisterClass<"LPU", [i64,f64], 64, (add (sequence "CI64_%u", 0, 1023))> { let Size=64; }
+}
 
 //// Registers in main sequential unit
 
@@ -86,7 +92,7 @@ def RA : LPUReg<"%ra">;  // return addr
 
 
 def RI0  : RegisterClass<"LPU", [i1],      64,
-    (add (sequence "R%u", 0, 59), FP, TP, SP, RA)>;
+    (add (sequence "R%u", 0, 59), FP, TP, SP, RA)> { let isAllocatable = 0; }
 def RI1  : RegisterClass<"LPU", [i1],      64, (add RI0)>;
 def RI8  : RegisterClass<"LPU", [i8],      64, (add RI0)>;
 def RI16 : RegisterClass<"LPU", [i16,f16], 64, (add RI0)>;
