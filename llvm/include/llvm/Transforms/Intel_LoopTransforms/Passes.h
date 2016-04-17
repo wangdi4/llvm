@@ -31,7 +31,7 @@ FunctionPass *createHIRPrinterPass(raw_ostream &OS, const std::string &Banner);
 /// createHIRCodeGenPass - This creates a pass that generates LLVM IR from HIR.
 FunctionPass *createHIRCodeGenPass();
 
-/// createHIRCodeGenPass - This creates a pass that performs OptPredicate 
+/// createOptPredicatePass - This creates a pass that performs OptPredicate 
 /// transformation on HIR.
 FunctionPass *createHIROptPredicatePass(int Threshold = -1);
 

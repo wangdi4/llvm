@@ -24,10 +24,11 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRINVALDATIONUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRINVALDATIONUTILS_H
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRResourceAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVectVLSAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
@@ -47,8 +48,7 @@ private:
   // The InPack type determines if T is presented in the parameter Pack.
   //
   // Template declaration, useful things are in the specializations.
-  template <typename T, typename... Pack>
-  struct InPack : std::true_type {};
+  template <typename T, typename... Pack> struct InPack : std::true_type {};
 
   // InPack<A, B, C, D, E, ...> is handled by this specialization.
   //
@@ -60,48 +60,47 @@ private:
   // Recursively it becomes InPack<T = A>, which is actually a false_type.
   template <typename T, typename First, typename... Rest>
   struct InPack<T, First, Rest...>
-    : std::conditional<std::is_same<T, First>::value,
-      std::true_type, InPack<T, Rest...>>::type {};
+      : std::conditional<std::is_same<T, First>::value, std::true_type,
+                         InPack<T, Rest...>>::type {};
 
   // This specialization renders a false_type. This type means that there
   // is no T in the Pack.
-  template <typename T>
-  struct InPack<T> : std::false_type {};
+  template <typename T> struct InPack<T> : std::false_type {};
 
   // AnalysisGetter is a helper class that returns (void *)nullptr if AnalysisTy
   // is void and returns AnalysisTy instance if available.
-  template <typename AnalysisTy>
-  struct AnalysisGetter {
+  template <typename AnalysisTy> struct AnalysisGetter {
     static AnalysisTy *get() {
       return getHIRFramework()->getAnalysisIfAvailable<AnalysisTy>();
     }
   };
 
-  template <typename... Analysis>
-  struct AnalysisSet {
+  template <typename... Analysis> struct AnalysisSet {
 
     static_assert(sizeof...(Analysis) == HIRAnalysisPass::HIRPassCountVal,
-        "One or more HIR Analysis pass is missing!");
+                  "One or more HIR Analysis pass is missing!");
 
     template <typename F, typename... ArgsTy>
-    static void invoke(F&& Func, ArgsTy... Args) {
-      void *AnalysisArray[] = { AnalysisGetter<Analysis>::get()... };
+    static void invoke(F &&Func, ArgsTy... Args) {
+      void *AnalysisArray[] = {AnalysisGetter<Analysis>::get()...};
       for (void *AnalysisPtr : AnalysisArray) {
         if (AnalysisPtr) {
-          (static_cast<HIRAnalysisPass *>(AnalysisPtr)->*Func)
-              (std::forward<ArgsTy>(Args)...);
+          (static_cast<HIRAnalysisPass *>(AnalysisPtr)->*Func)(
+              std::forward<ArgsTy>(Args)...);
         }
       }
     }
 
     // This type is an AnalysisSet, but without excluded analysis.
     template <typename... Excluding>
-    struct Except : AnalysisSet<typename std::conditional<
-      InPack<Analysis, Excluding...>::value, void, Analysis>::type...> {};
+    struct Except
+        : AnalysisSet<typename std::conditional<
+              InPack<Analysis, Excluding...>::value, void, Analysis>::type...> {
+    };
   };
 
   // There should be all available analysis
-  typedef AnalysisSet<HIRDDAnalysis, HIRLocalityAnalysis, HIRVectVLSAnalysis> ForEachAnalysis;
+  typedef AnalysisSet<HIRDDAnalysis, HIRLocalityAnalysis, HIRResourceAnalysis, HIRVectVLSAnalysis> ForEachAnalysis;
 
   /// \brief Do not allow instantiation.
   HIRInvalidationUtils() = delete;
@@ -110,8 +109,7 @@ public:
   /// \brief Invalidates all the available HIR analysis dependent on the loop
   /// body except the preserved ones explicitly specified by
   /// template arguments.
-  template <typename... Except>
-  static void invalidateBody(const HLLoop *Loop) {
+  template <typename... Except> static void invalidateBody(const HLLoop *Loop) {
     ForEachAnalysis::Except<Except...>::invoke(
         &HIRAnalysisPass::markLoopBodyModified, Loop);
   }
@@ -122,7 +120,7 @@ public:
   template <typename... Except>
   static void invalidateNonLoopRegion(const HLRegion *Region) {
     ForEachAnalysis::Except<Except...>::invoke(
-          &HIRAnalysisPass::markNonLoopRegionModified, Region);
+        &HIRAnalysisPass::markNonLoopRegionModified, Region);
   }
 
   /// \brief Invalidates all the available HIR analysis dependent on
@@ -144,15 +142,12 @@ public:
   template <typename... Except>
   static void invalidateBounds(const HLLoop *Loop) {
     ForEachAnalysis::Except<Except...>::invoke(
-          &HIRAnalysisPass::markLoopBoundsModified, Loop);
+        &HIRAnalysisPass::markLoopBoundsModified, Loop);
   }
 };
 
-template <>
-struct HIRInvalidationUtils::AnalysisGetter<void> {
-  static void *get() {
-    return nullptr;
-  }
+template <> struct HIRInvalidationUtils::AnalysisGetter<void> {
+  static void *get() { return nullptr; }
 };
 
 } // End namespace loopopt

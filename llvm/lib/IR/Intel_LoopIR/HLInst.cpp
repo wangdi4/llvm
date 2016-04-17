@@ -178,7 +178,7 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
 
-  for (auto I = op_ddref_begin(), E = op_ddref_end(); I != E; I++, Count++) {
+  for (auto I = op_ddref_begin(), E = op_ddref_end(); I != E; ++I, ++Count) {
     if ((Count > 1) || (!hasLval() && (Count > 0))) {
       checkSeparator(OS, true);
     }

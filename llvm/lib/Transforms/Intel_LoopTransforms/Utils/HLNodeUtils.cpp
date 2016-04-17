@@ -1363,17 +1363,17 @@ void HLNodeUtils::remove(HLNode *Node) {
   removeImpl(It, std::next(It), nullptr);
 }
 
-void HLNodeUtils::remove(HLContainerTy *Container, HLNode *Node1,
-                         HLNode *Node2) {
-  assert(Node1 && Node2 && " Node1 or Node 2 cannot be null.");
+void HLNodeUtils::remove(HLContainerTy *Container, HLNode *First,
+                         HLNode *Last) {
+  assert(First && Last && " Node1 or Node 2 cannot be null.");
   assert(Container && " Clone Container is null.");
-  assert(!isa<HLRegion>(Node1) && !isa<HLRegion>(Node2) &&
+  assert(!isa<HLRegion>(First) && !isa<HLRegion>(Last) &&
          " Node1 or Node2 cannot be a HLRegion.");
-  assert((Node1->getParent() == Node2->getParent()) &&
+  assert((First->getParent() == Last->getParent()) &&
          " Parent of Node1 and Node2 don't match.");
 
-  HLContainerTy::iterator ItStart(Node1);
-  HLContainerTy::iterator ItEnd(Node2);
+  HLContainerTy::iterator ItStart(First);
+  HLContainerTy::iterator ItEnd(Last);
   removeImpl(ItStart, std::next(ItEnd), Container);
 }
 

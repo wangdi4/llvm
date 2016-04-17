@@ -66,7 +66,6 @@
 //    is always executed. Investigate whether this version is better in
 //    performance as compared to the existing one.
 
-#include "llvm/Pass.h"
 
 #include "llvm/ADT/Statistic.h"
 
@@ -78,6 +77,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRResourceAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -201,6 +201,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRResourceAnalysis>();
   }
 
 private:
@@ -253,6 +254,7 @@ char HIRGeneralUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "hir-general-unroll",
                       "HIR General Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRResourceAnalysis)
 INITIALIZE_PASS_END(HIRGeneralUnroll, "hir-general-unroll",
                     "HIR General Unroll", false, false)
 
@@ -271,6 +273,8 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Trip Count Threshold : " << CurrentTripThreshold << "\n");
   DEBUG(dbgs() << "GeneralUnrollFactor : " << UnrollFactor << "\n");
 
+  // Suppressed 
+  // HIRResourceAnalysis *LRes = &getAnalysis<HIRResourceAnalysis>();
   IsUnrollTriggered = false;
 
   // Do an early exit if Trip Threshold is less than 1
@@ -281,6 +285,18 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
   // Gather the innermost loops as candidates.
   SmallVector<HLLoop *, 64> CandidateLoops;
   HLNodeUtils::gatherInnermostLoops(CandidateLoops);
+
+  // Suppressed until the code is fully tested
+  //if (CandidateLoops.size() > 0) {
+  //  DEBUG(dbgs() << " printing Loop\n");
+  //  DEBUG(CandidateLoops[0]->getParentLoop()->dump());
+  //  const LoopResourceInfo *LRInfo = LRes->getLoopResource(CandidateLoops[0]);
+  //  DEBUG(LRInfo->dump());
+  //  if (LRInfo->Bound == LoopResourceBound::Memory) {
+  //    DEBUG(dbgs() << " Memory bound\n");
+  //  }
+  //  return false;
+  // }
 
   // Process General Unrolling
   processGeneralUnroll(CandidateLoops);

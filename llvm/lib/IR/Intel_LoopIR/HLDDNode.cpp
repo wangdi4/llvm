@@ -15,10 +15,10 @@
 
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/DDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
-#include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -77,7 +77,7 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
 
   for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I) {
     // Simply checking for isConstant() also filters out lval DDRefs whose
-    // canonical represenation is a constant. We should print out lval DDRefs
+    // canonical representation is a constant. We should print out lval DDRefs
     // regardless.
     if ((*I) && !PrintConstDDRefs && ((*I)->getSymbase() == ConstantSymbase)) {
       continue;

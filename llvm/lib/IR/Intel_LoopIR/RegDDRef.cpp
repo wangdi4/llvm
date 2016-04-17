@@ -251,7 +251,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       OS << ")";
     }
 
-    for (auto I = canon_rbegin(), E = canon_rend(); I != E; I++) {
+    for (auto I = canon_rbegin(), E = canon_rend(); I != E; ++I) {
       if (hasGEPInfo()) {
         OS << "[";
       }

@@ -20,11 +20,11 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/FormattedStream.h"
 
+#include <iterator>
+#include <set>
 #include <stdint.h>
 #include <utility>
-#include <set>
 #include <vector>
-#include <iterator>
 
 namespace llvm {
 
@@ -226,6 +226,9 @@ protected:
   /// \brief Return the mathematical coefficient to be used in cases
   /// where mathematical addition is performed. The Coeff value in those
   /// cases is multiplied by denominator.
+  /// Example: Original CE = i/2 and we want to add a blob 'b1' to it.
+  /// If IsMath = true, Result = (i+2*b1)/2 .
+  /// If IsMath = false, Result = (i+b1)/2 .
   int64_t getMathCoeff(int64_t Coeff, bool IsMathAdd) {
     return IsMathAdd ? (getDenominator() * Coeff) : Coeff;
   }

@@ -19,13 +19,14 @@
 #include "llvm/Support/Compiler.h"
 #include <set>
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
+#include "llvm/Support/Compiler.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 namespace llvm {
 
@@ -907,7 +908,7 @@ public:
   static void remove(HLNode *Node);
 
   /// \brief Unlinks a set for node from HIR and places then in the container.
-  static void remove(HLContainerTy *Container, HLNode *Node1, HLNode *Node2);
+  static void remove(HLContainerTy *Container, HLNode *First, HLNode *Last);
 
   /// \brief Unlinks Node from HIR and destroys it.
   static void erase(HLNode *Node);

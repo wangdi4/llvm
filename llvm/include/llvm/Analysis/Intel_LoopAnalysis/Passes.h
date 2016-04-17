@@ -62,6 +62,10 @@ FunctionPass *createHIRDDAnalysisPass();
 /// transformations.
 FunctionPass *createHIRLocalityAnalysisPass();
 
+/// Compute the loop resource for HIR Loops which help in 
+/// cost models of different transformations.
+FunctionPass *createHIRResourceAnalysisPass();
+
 /// Creates analysis which can provide parallel/vector candidate analysis
 FunctionPass *createHIRParVecAnalysisPass();
 
