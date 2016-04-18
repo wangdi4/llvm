@@ -23,6 +23,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Pass.h"
 
+#include "llvm/Analysis/AliasAnalysis.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 
@@ -120,6 +122,12 @@ public:
   // some edges may be pointing to a node that is not of interest
   DDGraph getGraph(HLNode *Node, bool InputEdgesReq = false);
 
+  /// \brief Refine DV by calling demand driven DD. Return true when RefineDV
+  /// is set.
+  bool refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
+                unsigned InnermostNestingLevel, unsigned OutermostNestingLevel,
+                DVectorTy &RefinedDV, bool *IsIndependent);
+
   // TODO still needed? Call findDependences directly?
   // bool demandDrivenDD(DDRef* SrcRef, DDRef* SinkRef,
   //  DirectionVector* input_dv, DirectionVector* output_dv);
@@ -142,6 +150,7 @@ public:
   // init_incremental_rebuild(HLNode*)
 private:
   Function *F;
+  AliasAnalysis *AA;
   HIRFramework *HIRF;
 
   DenseMap<HLNode *, bool> GraphValidityMap;

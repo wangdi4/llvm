@@ -100,7 +100,7 @@ private:
   SmallVector<LoopLocalityPair, MaxLoopNestLevel> LoopLocality;
   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation;
   SmallVector<HLLoop *, MaxLoopNestLevel> NearByPerm;
-  SmallVector<DVType *, 16> DVs;
+  SmallVector<DVectorTy, 16> DVs;
 
   bool shouldInterchange(const HLLoop *);
   bool getPermutation(const HLLoop *);
@@ -312,10 +312,6 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
     DEBUG(dbgs() << "\nNo legal permutation available\n");
   }
 
-  for (auto &I : DVs) {
-    delete I;
-  }
-
   return CanInterchange;
 }
 
@@ -453,18 +449,18 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
 ///     saving)
 ///  3. Safe reduction (already excluded out in collectDDInfo)
 static bool ignoreEdge(const DDEdge *Edge, HLLoop *CandidateLoop,
-                       DVType *RefinedDV = nullptr) {
+                       DVectorTy *RefinedDV = nullptr) {
 
-  const DVType *DV = RefinedDV;
+  const DVectorTy *DV = RefinedDV;
   if (DV == nullptr) {
-    DV = Edge->getDV();
+    DV = &Edge->getDV();
   }
-  if (isDValEQ(DV)) {
+  if (DV->isDValEQ()) {
     return true;
   }
 
   HLLoop *Loop = CandidateLoop;
-  if (isDVIndepFromLevel(DV, Loop->getNestingLevel())) {
+  if (DV->isDVIndepFromLevel(Loop->getNestingLevel())) {
     return true;
   }
 
@@ -483,20 +479,21 @@ static bool ignoreEdge(const DDEdge *Edge, HLLoop *CandidateLoop,
 ///  Scan presence of  < ... >
 ///  If none, return true, which  means DV can be dropped for
 ///  Interchange legality checking
-static bool ignoreDVWithNoLTGT(const DVType *DV, unsigned OutmostNestingLevel,
+static bool ignoreDVWithNoLTGT(const DVectorTy &DV,
+                               unsigned OutmostNestingLevel,
                                unsigned InnermostNestingLevel) {
 
   bool DVhasLT = false;
   unsigned LTLevel = 0;
 
   for (unsigned II = OutmostNestingLevel; II <= InnermostNestingLevel; ++II) {
-    if (DVhasLT && (DV[II - 1] & DV::GT)) {
+    if (DVhasLT && (DV[II - 1] & DVKind::GT)) {
       if (II != LTLevel) {
         return false;
       }
     }
 
-    if (!DVhasLT && (DV[II - 1] & DV::LT)) {
+    if (!DVhasLT && (DV[II - 1] & DVKind::LT)) {
       DVhasLT = true;
       LTLevel = II;
     }
@@ -521,7 +518,7 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
 
   // Indicates if we need to call Demand Driven DD to refine DV
   bool RefineDV;
-  SmallVector<DVType *, 16> DVs;
+  SmallVector<DVectorTy, 16> DVs;
   // start, end level of Candidate Loop nest
 
   void visit(HLDDNode *DDNode) {
@@ -549,7 +546,7 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
 #endif
           continue;
         }
-        const DVType *TempDV = II->getDV();
+        const DVectorTy *TempDV = &II->getDV();
 
         // Calling Demand Driven DD to refine DV
         DVectorTy RefinedDV;
@@ -558,27 +555,25 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
           DDRef *DstDDRef = DDref;
           bool IsIndep;
           bool IsDVRefined =
-              refineDV(SrcDDRef, DstDDRef, LIP->InnermostNestingLevel,
-                       LIP->OutmostNestingLevel, RefinedDV, &IsIndep);
+              LIP->DDA->refineDV(SrcDDRef, DstDDRef, LIP->InnermostNestingLevel,
+                                 LIP->OutmostNestingLevel, RefinedDV, &IsIndep);
           if (IsIndep) {
             continue;
           }
           if (IsDVRefined) {
-            if (ignoreEdge(Edge, CandidateLoop, &RefinedDV[0])) {
+            if (ignoreEdge(Edge, CandidateLoop, &RefinedDV)) {
               continue;
             }
-            TempDV = &RefinedDV[0];
+            TempDV = &RefinedDV;
           }
         }
-        if (ignoreDVWithNoLTGT(TempDV, LIP->OutmostNestingLevel,
+        if (ignoreDVWithNoLTGT(*TempDV, LIP->OutmostNestingLevel,
                                LIP->InnermostNestingLevel)) {
           continue;
         }
 
         //  Save the DV in an array which will be used later
-        DVType *WorkDV = new DVectorTy;
-        memcpy(WorkDV, TempDV, MaxLoopNestLevel);
-        DVs.push_back(WorkDV);
+        DVs.push_back(*TempDV);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         DEBUG(dbgs() << "\n\t<Edge selected>");
@@ -621,10 +616,10 @@ bool HIRLoopInterchange::isLegalToShiftLoop(unsigned DstLevel,
 
   for (auto &II : DVs) {
     bool Ok = false;
-    DVType *WorkDV = II;
+    const DVectorTy &WorkDV = II;
     // (1)
     for (unsigned KK = OutmostNestingLevel; KK < SmallerLevel; ++KK) {
-      if (WorkDV[KK - 1] == DV::LT) {
+      if (WorkDV[KK - 1] == DVKind::LT) {
         Ok = true;
         break;
       }
@@ -634,19 +629,20 @@ bool HIRLoopInterchange::isLegalToShiftLoop(unsigned DstLevel,
     }
     // (2)
     if (DstLevel > SrcLevel) {
-      if (WorkDV[SrcLevel - 1] & DV::LT) {
+      if (WorkDV[SrcLevel - 1] & DVKind::LT) {
         for (unsigned JJ = SrcLevel + 1; JJ <= DstLevel; ++JJ) {
-          if (WorkDV[JJ - 1] == DV::LT || WorkDV[JJ - 1] == DV::LE) {
+          if (WorkDV[JJ - 1] == DVKind::LT ||
+              WorkDV[JJ - 1] == DVKind::LE) {
             break;
           }
-          if (WorkDV[JJ - 1] & DV::GT) {
+          if (WorkDV[JJ - 1] & DVKind::GT) {
             return false;
           }
         }
       }
     } else {
       // (3)
-      if (WorkDV[SrcLevel - 1] & DV::GT) {
+      if (WorkDV[SrcLevel - 1] & DVKind::GT) {
         return false;
       }
     }
@@ -696,9 +692,8 @@ void HIRLoopInterchange::permuteNearBy(unsigned DstLevel, unsigned SrcLevel) {
   DstLevel += OutmostNestingLevel - 1;
   SrcLevel += OutmostNestingLevel - 1;
 
-  for (auto &II : DVs) {
-    DVType *WorkDV = II;
-    DVType DVSrc = WorkDV[SrcLevel - 1];
+  for (auto &WorkDV : DVs) {
+    DVKind DVSrc = WorkDV[SrcLevel - 1];
     // Shift right by 1 for these [Dst : Src-1]
     for (unsigned JJ = SrcLevel; JJ > DstLevel; --JJ) {
       WorkDV[JJ - 1] = WorkDV[JJ - 2];

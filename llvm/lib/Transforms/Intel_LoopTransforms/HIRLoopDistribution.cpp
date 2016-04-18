@@ -147,7 +147,7 @@ bool HIRLoopDistribution::piEdgeIsRecurrence(const HLLoop *Lp,
                                              const PiGraphEdge &Edge) const {
   for (auto DDEdgeIt = Edge.getDDEdges().begin(), End = Edge.getDDEdges().end();
        DDEdgeIt != End; ++DDEdgeIt) {
-    if ((*DDEdgeIt)->getDVAtLevel(Lp->getNestingLevel()) & DV::LT) {
+    if ((*DDEdgeIt)->getDVAtLevel(Lp->getNestingLevel()) & DVKind::LT) {
       return true;
     }
   }

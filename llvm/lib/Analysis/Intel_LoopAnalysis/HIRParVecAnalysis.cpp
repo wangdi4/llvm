@@ -79,6 +79,8 @@ public:
 /// \brief Visitor class to determine parallelizability/vectorizability of
 /// the given loop with the given DDG.
 class DDWalk final : public HLNodeVisitorBase {
+  /// DDA - Data dependence analysis
+  HIRDDAnalysis &DDA;
   /// DDG - Data dependency graph.
   DDGraph DDG;
   /// CandidateLoop - current candidate loop.
@@ -92,8 +94,9 @@ class DDWalk final : public HLNodeVisitorBase {
   /// terminals.
   bool isSimplePrivateTerminal(const RegDDRef *SrcRef, const RegDDRef *SinkRef);
 public:
-  DDWalk(DDGraph DDG, HLLoop *CandidateLoop, ParVecInfo *Info)
-      : DDG(DDG), CandidateLoop(CandidateLoop), Info(Info) {}
+  DDWalk(HIRDDAnalysis &DDA, HLLoop *CandidateLoop, ParVecInfo *Info)
+    : DDA(DDA), DDG(DDA.getGraph(CandidateLoop, false)),
+      CandidateLoop(CandidateLoop), Info(Info) {}
   /// \brief Visit all outgoing DDEdges for the given node.
   void visit(HLDDNode *Node);
 
@@ -327,7 +330,7 @@ void DDWalk::analyze(const DDEdge *Edge) {
   if (Edge->isRefinableDepAtLevel(NestLevel)) {
     DVectorTy DV;
     bool IsIndep = false;
-    if (refineDV(Edge->getSrc(), DDref, NestLevel, 1, DV, &IsIndep)) {
+    if (DDA.refineDV(Edge->getSrc(), DDref, NestLevel, 1, DV, &IsIndep)) {
       // TODO: Set Type/Loc. Call emitDiag().
       DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize");
     } else {
@@ -397,9 +400,8 @@ void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA) {
     return;
   }
   if (!isDone()) {
-    auto DDG = DDA->getGraph(Loop, false);
     cleanEdges();
-    DDWalk DDW(DDG, Loop, this);   // Legality checker.
+    DDWalk DDW(*DDA, Loop, this);   // Legality checker.
     HLNodeUtils::visit(DDW, Loop); // This can change isDone() status.
   }
   if (isDone()) {

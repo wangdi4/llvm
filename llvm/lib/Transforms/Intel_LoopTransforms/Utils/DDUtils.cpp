@@ -144,10 +144,10 @@ bool DDUtils::canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
     }
     // Get the level for ParentLoop
     unsigned Level = InnermostLoop->getNestingLevel() - 1;
-    if (FlowEdge->getDVAtLevel(Level) != DV::EQ) {
+    if (FlowEdge->getDVAtLevel(Level) != DVKind::EQ) {
       return false;
     }
-    if (AntiEdge->getDVAtLevel(Level) != DV::EQ) {
+    if (AntiEdge->getDVAtLevel(Level) != DVKind::EQ) {
       return false;
     }
   }

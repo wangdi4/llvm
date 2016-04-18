@@ -134,10 +134,7 @@ public:
   }
   DDEdge(DDRef *SrcRef, DDRef *SinkRef, const DVectorTy &DirV,
          bool IsLoopIndepDepTempIn = false)
-      : Src(SrcRef), Sink(SinkRef) {
-    for (unsigned II = 0; II < MaxLoopNestLevel; ++II) {
-      DV[II] = DirV[II];
-    }
+      : Src(SrcRef), Sink(SinkRef), DV(DirV) {
     IsLoopIndepDepTemp = IsLoopIndepDepTempIn;
   }
 
@@ -162,12 +159,11 @@ public:
   DDRef *getSink() const { return Sink; }
   bool isLoopIndependentDepTemp() const { return IsLoopIndepDepTemp; }
 
-  // Next one is useful to loop through each element of DV
-  const DVType *getDV() const { return &DV[0]; }
-  // returns dv element for loop level.
-  DVType getDVAtLevel(unsigned Level) const { return DV[Level - 1]; }
-  // Next one returns pointer to an array of char
-  const DVectorTy *getDirVector() const { return &DV; }
+  // Returns direction vector of the edge.
+  const DVectorTy &getDV() const { return DV; }
+
+  // Returns DVKind element for a loop level.
+  DVKind getDVAtLevel(unsigned Level) const { return DV[Level - 1]; }
 
   // Returns true if the edge is a Forward dependence
   bool isForwardDep() const {
@@ -201,11 +197,11 @@ public:
   }
   // Proxy to isDVCrossIterDepAtLevel().
   bool hasCrossIterDepAtLevel(unsigned Level) const {
-    return isDVCrossIterDepAtLevel(getDV(), Level);
+    return DV.isDVCrossIterDepAtLevel(Level);
   }
   // Proxy to isDVRefinableAtLevel().
   bool isRefinableDepAtLevel(unsigned Level) const {
-    return isDVRefinableAtLevel(getDV(), Level);
+    return DV.isDVRefinableAtLevel(Level);
   }
 
   bool isOUTPUTdep() const { return getEdgeType() == DepType::OUTPUT; }
@@ -245,11 +241,11 @@ public:
     FOS << " ";
     unsigned Level;
     for (Level = 0; Level < MaxLoopNestLevel; ++Level) {
-      if (DV[Level] == DV::NONE) {
+      if (DV[Level] == DVKind::NONE) {
         break;
       }
     }
-    printDV(DV, Level, FOS);
+    DV.printDV(Level, FOS);
     FOS << " \n";
     // todo
   }
