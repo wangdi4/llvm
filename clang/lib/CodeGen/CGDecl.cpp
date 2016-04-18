@@ -19,6 +19,7 @@
 #include "CGCleanup.h"
 #include "CGDebugInfo.h"
 #include "CGOpenCLRuntime.h"
+#include "CGOpenMPRuntime.h"
 #include "CodeGenModule.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/CharUnits.h"
@@ -136,7 +137,7 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
     return EmitCilkSpawnDecl(cast<CilkSpawnDecl>(&D));
 #endif                     // INTEL_SPECIFIC_CILKPLUS
   case Decl::OMPDeclareReduction:
-    return CGM.EmitOMPDeclareReduction(cast<OMPDeclareReductionDecl>(&D));
+    return CGM.EmitOMPDeclareReduction(cast<OMPDeclareReductionDecl>(&D), this);
 
   case Decl::Typedef:      // typedef int X;
   case Decl::TypeAlias: {  // using X = int; [C++0x]
@@ -1144,9 +1145,8 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
                             /*Id=*/nullptr, CGM.getContext().VoidPtrTy);
       Args2.push_back(&Dst);
 
-      const CGFunctionInfo &FI = CGM.getTypes().arrangeFreeFunctionDeclaration(
-          CGM.getContext().VoidTy, Args2, FunctionType::ExtInfo(),
-          /*isVariadic=*/false);
+      const CGFunctionInfo &FI = CGM.getTypes().
+          arrangeBuiltinFunctionDeclaration(CGM.getContext().VoidTy, Args2);
 
       EHStack.pushCleanup<CallCleanupFunction>(NormalAndEHCleanup, F2, &FI, &D);
     } else {
@@ -1945,6 +1945,10 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
     EmitVarAnnotations(&D, DeclPtr.getPointer());
 }
 
-void CodeGenModule::EmitOMPDeclareReduction(
-    const OMPDeclareReductionDecl * /*D*/) {}
+void CodeGenModule::EmitOMPDeclareReduction(const OMPDeclareReductionDecl *D,
+                                            CodeGenFunction *CGF) {
+  if (!LangOpts.OpenMP || (!LangOpts.EmitAllDecls && !D->isUsed()))
+    return;
+  getOpenMPRuntime().emitUserDefinedReduction(CGF, D);
+}
 

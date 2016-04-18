@@ -548,7 +548,12 @@ std::string PredefinedExpr::ComputeName(IdentType IT, const Decl *CurrentDecl) {
       case CC_C: POut << "__cdecl "; break;
       case CC_X86StdCall: POut << "__stdcall "; break;
       case CC_X86FastCall: POut << "__fastcall "; break;
-      case CC_X86RegCall: POut << "__regcall "; break;  // INTEL
+#if INTEL_CUSTOMIZATION
+      case CC_X86RegCall:
+        if (Context.getLangOpts().IntelCompat)
+          POut << "__regcall ";
+        break;
+#endif // INTEL_CUSTOMIZATION
       case CC_X86ThisCall: POut << "__thiscall "; break;
       case CC_X86VectorCall: POut << "__vectorcall "; break;
       // Only bother printing the conventions that MSVC knows about.

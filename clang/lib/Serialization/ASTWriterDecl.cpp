@@ -139,6 +139,12 @@ namespace clang {
     void VisitPragmaDecl(PragmaDecl *D);
 #endif  // INTEL_CUSTOMIZATION
 
+    void AddLocalOffset(uint64_t LocalOffset) {
+      uint64_t Offset = Writer.Stream.GetCurrentBitNo();
+      assert(LocalOffset < Offset && "invalid offset");
+      Record.push_back(LocalOffset ? Offset - LocalOffset : 0);
+    }
+
     /// Add an Objective-C type parameter list to the given record.
     void AddObjCTypeParamList(ObjCTypeParamList *typeParams) {
       // Empty type parameter list.
@@ -1558,8 +1564,8 @@ void ASTDeclWriter::VisitStaticAssertDecl(StaticAssertDecl *D) {
 /// contexts.
 void ASTDeclWriter::VisitDeclContext(DeclContext *DC, uint64_t LexicalOffset,
                                      uint64_t VisibleOffset) {
-  Record.push_back(LexicalOffset);
-  Record.push_back(VisibleOffset);
+  AddLocalOffset(LexicalOffset);
+  AddLocalOffset(VisibleOffset);
 }
 
 const Decl *ASTWriter::getFirstLocalDecl(const Decl *D) {
@@ -1627,8 +1633,9 @@ void ASTDeclWriter::VisitRedeclarable(Redeclarable<T> *D) {
       if (LocalRedecls.empty())
         Record.push_back(0);
       else {
-        Record.push_back(Writer.Stream.GetCurrentBitNo());
+        auto Start = Writer.Stream.GetCurrentBitNo();
         Writer.Stream.EmitRecord(LOCAL_REDECLARATIONS, LocalRedecls);
+        AddLocalOffset(Start);
       }
     } else {
       Record.push_back(0);
@@ -1658,12 +1665,11 @@ void ASTDeclWriter::VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D) {
 }
 
 void ASTDeclWriter::VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D) {
-  VisitNamedDecl(D);
+  VisitValueDecl(D);
   Writer.AddSourceLocation(D->getLocStart(), Record);
   Writer.AddStmt(D->getCombiner());
   Writer.AddStmt(D->getInitializer());
   Writer.AddDeclRef(D->getPrevDeclInScope(), Record);
-  Writer.AddTypeRef(D->getType(), Record);
   Code = serialization::DECL_OMP_DECLARE_REDUCTION;
 }
 
@@ -2155,7 +2161,7 @@ void ASTWriter::WriteDecl(ASTContext &Context, Decl *D) {
     
   ID = IDR;
 
-  bool isReplacingADecl = ID < FirstDeclID;
+  assert(ID >= FirstDeclID && "invalid decl ID");
 
   // If this declaration is also a DeclContext, write blocks for the
   // declarations that lexically stored inside its context and those
@@ -2166,14 +2172,6 @@ void ASTWriter::WriteDecl(ASTContext &Context, Decl *D) {
   uint64_t VisibleOffset = 0;
   DeclContext *DC = dyn_cast<DeclContext>(D);
   if (DC) {
-    if (isReplacingADecl) {
-      // It is replacing a decl from a chained PCH; make sure that the
-      // DeclContext is fully loaded.
-      if (DC->hasExternalLexicalStorage())
-        DC->LoadLexicalDeclsFromExternalStorage();
-      if (DC->hasExternalVisibleStorage())
-        Chain->completeVisibleDeclsMap(DC);
-    }
     LexicalOffset = WriteDeclContextLexicalBlock(Context, DC);
     VisibleOffset = WriteDeclContextVisibleBlock(Context, DC);
   }
@@ -2185,27 +2183,21 @@ void ASTWriter::WriteDecl(ASTContext &Context, Decl *D) {
   W.Visit(D);
   if (DC) W.VisitDeclContext(DC, LexicalOffset, VisibleOffset);
 
-  if (isReplacingADecl) {
-    // We're replacing a decl in a previous file.
-    ReplacedDecls.push_back(ReplacedDeclInfo(ID, Stream.GetCurrentBitNo(),
-                                             D->getLocation()));
-  } else {
-    unsigned Index = ID - FirstDeclID;
+  unsigned Index = ID - FirstDeclID;
 
-    // Record the offset for this declaration
-    SourceLocation Loc = D->getLocation();
-    if (DeclOffsets.size() == Index)
-      DeclOffsets.push_back(DeclOffset(Loc, Stream.GetCurrentBitNo()));
-    else if (DeclOffsets.size() < Index) {
-      DeclOffsets.resize(Index+1);
-      DeclOffsets[Index].setLocation(Loc);
-      DeclOffsets[Index].BitOffset = Stream.GetCurrentBitNo();
-    }
-
-    SourceManager &SM = Context.getSourceManager();
-    if (Loc.isValid() && SM.isLocalSourceLocation(Loc))
-      associateDeclWithFile(D, ID);
+  // Record the offset for this declaration
+  SourceLocation Loc = D->getLocation();
+  if (DeclOffsets.size() == Index)
+    DeclOffsets.push_back(DeclOffset(Loc, Stream.GetCurrentBitNo()));
+  else if (DeclOffsets.size() < Index) {
+    DeclOffsets.resize(Index+1);
+    DeclOffsets[Index].setLocation(Loc);
+    DeclOffsets[Index].BitOffset = Stream.GetCurrentBitNo();
   }
+
+  SourceManager &SM = Context.getSourceManager();
+  if (Loc.isValid() && SM.isLocalSourceLocation(Loc))
+    associateDeclWithFile(D, ID);
 
   if (!W.Code)
     llvm::report_fatal_error(StringRef("unexpected declaration kind '") +

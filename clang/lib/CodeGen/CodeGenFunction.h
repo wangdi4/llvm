@@ -2563,6 +2563,8 @@ public:
 
   void EmitCilkRankedStmt(const CilkRankedStmt &S);
 #endif // INTEL_SPECIFIC_CILKPLUS
+  llvm::Function *GenerateOpenMPCapturedStmtFunction(const CapturedStmt &S,
+                                                     QualType ReturnQTy);
   llvm::Function *GenerateOpenMPCapturedStmtFunction(const CapturedStmt &S);
   void GenerateOpenMPCapturedVars(const CapturedStmt &S,
                                   SmallVectorImpl<llvm::Value *> &CapturedVars);
@@ -2704,7 +2706,15 @@ public:
   void EmitOMPTaskLoopDirective(const OMPTaskLoopDirective &S);
   void EmitOMPTaskLoopSimdDirective(const OMPTaskLoopSimdDirective &S);
   void EmitOMPDistributeDirective(const OMPDistributeDirective &S);
+  void EmitOMPDistributeLoop(const OMPDistributeDirective &S);
 
+  /// Emit outlined function for the target directive.
+  static std::pair<llvm::Function * /*OutlinedFn*/,
+                   llvm::Constant * /*OutlinedFnID*/>
+  EmitOMPTargetDirectiveOutlinedFunction(CodeGenModule &CGM,
+                                         const OMPTargetDirective &S,
+                                         StringRef ParentName,
+                                         bool IsOffloadEntry);
   /// \brief Emit inner loop of the worksharing/simd construct.
   ///
   /// \param S Directive, for which the inner loop must be emitted.
@@ -2728,16 +2738,25 @@ private:
   /// Helpers for the OpenMP loop directives.
   void EmitOMPLoopBody(const OMPLoopDirective &D, JumpDest LoopExit);
   void EmitOMPSimdInit(const OMPLoopDirective &D, bool IsMonotonic = false);
-  void EmitOMPSimdFinal(const OMPLoopDirective &D);
+  void EmitOMPSimdFinal(
+      const OMPLoopDirective &D,
+      const llvm::function_ref<llvm::Value *(CodeGenFunction &)> &CondGen);
   /// \brief Emit code for the worksharing loop-based directive.
   /// \return true, if this construct has any lastprivate clause, false -
   /// otherwise.
   bool EmitOMPWorksharingLoop(const OMPLoopDirective &S);
+  void EmitOMPOuterLoop(bool IsMonotonic, bool DynamicOrOrdered,
+      const OMPLoopDirective &S, OMPPrivateScope &LoopScope, bool Ordered,
+      Address LB, Address UB, Address ST, Address IL, llvm::Value *Chunk);
   void EmitOMPForOuterLoop(OpenMPScheduleClauseKind ScheduleKind,
                            bool IsMonotonic, const OMPLoopDirective &S,
                            OMPPrivateScope &LoopScope, bool Ordered, Address LB,
                            Address UB, Address ST, Address IL,
                            llvm::Value *Chunk);
+  void EmitOMPDistributeOuterLoop(
+      OpenMPDistScheduleClauseKind ScheduleKind,
+      const OMPDistributeDirective &S, OMPPrivateScope &LoopScope,
+      Address LB, Address UB, Address ST, Address IL, llvm::Value *Chunk);
   /// \brief Emit code for sections directive.
   void EmitSections(const OMPExecutableDirective &S);
 
@@ -3045,11 +3064,10 @@ public:
                               ReturnValueSlot ReturnValue, llvm::Value *This,
                               llvm::Value *ImplicitParam,
                               QualType ImplicitParamTy, const CallExpr *E);
-  RValue EmitCXXStructorCall(const CXXMethodDecl *MD, llvm::Value *Callee,
-                             ReturnValueSlot ReturnValue, llvm::Value *This,
-                             llvm::Value *ImplicitParam,
-                             QualType ImplicitParamTy, const CallExpr *E,
-                             StructorType Type);
+  RValue EmitCXXDestructorCall(const CXXDestructorDecl *DD, llvm::Value *Callee,
+                               llvm::Value *This, llvm::Value *ImplicitParam,
+                               QualType ImplicitParamTy, const CallExpr *E,
+                               StructorType Type);
   RValue EmitCXXMemberCallExpr(const CXXMemberCallExpr *E,
                                ReturnValueSlot ReturnValue);
   RValue EmitCXXMemberOrOperatorMemberCallExpr(const CallExpr *CE,

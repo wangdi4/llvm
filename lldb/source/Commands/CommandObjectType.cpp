@@ -11,6 +11,7 @@
 
 // C Includes
 // C++ Includes
+#include <algorithm>
 #include <cctype>
 #include <functional>
 
@@ -1309,9 +1310,10 @@ public:
     ~CommandObjectTypeFormatterList() override = default;
 
 protected:
-    virtual void
+    virtual bool
     FormatterSpecificList (CommandReturnObject &result)
     {
+        return false;
     }
     
     bool
@@ -1345,10 +1347,13 @@ protected:
             }
         }
         
-        auto category_closure = [&result, &formatter_regex] (const lldb::TypeCategoryImplSP& category) -> void {
+        bool any_printed = false;
+        
+        auto category_closure = [&result, &formatter_regex, &any_printed] (const lldb::TypeCategoryImplSP& category) -> void {
             result.GetOutputStream().Printf("-----------------------\nCategory: %s\n-----------------------\n", category->GetName());
+
             TypeCategoryImpl::ForEachCallbacks<FormatterType> foreach;
-            foreach.SetExact([&result, &formatter_regex] (ConstString name, const FormatterSharedPointer& format_sp) -> bool {
+            foreach.SetExact([&result, &formatter_regex, &any_printed] (ConstString name, const FormatterSharedPointer& format_sp) -> bool {
                 if (formatter_regex)
                 {
                     bool escape = true;
@@ -1364,13 +1369,13 @@ protected:
                     if (escape)
                         return true;
                 }
-                
+
+                any_printed = true;
                 result.GetOutputStream().Printf ("%s: %s\n", name.AsCString(), format_sp->GetDescription().c_str());
-                
                 return true;
             });
             
-            foreach.SetWithRegex( [&result, &formatter_regex] (RegularExpressionSP regex_sp, const FormatterSharedPointer& format_sp) -> bool {
+            foreach.SetWithRegex([&result, &formatter_regex, &any_printed] (RegularExpressionSP regex_sp, const FormatterSharedPointer& format_sp) -> bool {
                 if (formatter_regex)
                 {
                     bool escape = true;
@@ -1387,8 +1392,8 @@ protected:
                         return true;
                 }
                 
+                any_printed = true;
                 result.GetOutputStream().Printf ("%s: %s\n", regex_sp->GetText(), format_sp->GetDescription().c_str());
-                
                 return true;
             });
             
@@ -1426,10 +1431,16 @@ protected:
                 return true;
             });
             
-            FormatterSpecificList(result);
+            any_printed = FormatterSpecificList(result) | any_printed;
         }
         
-        result.SetStatus(eReturnStatusSuccessFinishResult);
+        if (any_printed)
+            result.SetStatus(eReturnStatusSuccessFinishResult);
+        else
+        {
+            result.GetOutputStream().PutCString("no matching results found.");
+            result.SetStatus(eReturnStatusSuccessFinishNoResult);
+        }
         return result.Succeeded();
     }
 };
@@ -2027,7 +2038,7 @@ public:
     }
     
 protected:
-    void
+    bool
     FormatterSpecificList (CommandReturnObject &result) override
     {
         if (DataVisualization::NamedSummaryFormats::GetCount() > 0)
@@ -2037,7 +2048,9 @@ protected:
                 result.GetOutputStream().Printf ("%s: %s\n", name.AsCString(), summary_sp->GetDescription().c_str());
                 return true;
             });
+            return true;
         }
+        return false;
     }
 };
 
@@ -3264,8 +3277,8 @@ public:
     CommandObjectTypeLookup (CommandInterpreter &interpreter) :
     CommandObjectRaw (interpreter,
                       "type lookup",
-                      "Lookup a type by name in the select target.",
-                      "type lookup <typename>",
+                      "Lookup types and declarations in the current target, following language-specific naming conventions.",
+                      "type lookup <type-specifier>",
                       eCommandRequiresTarget),
     m_option_group(interpreter),
     m_command_options()
@@ -3280,6 +3293,32 @@ public:
     GetOptions () override
     {
         return &m_option_group;
+    }
+    
+    const char*
+    GetHelpLong () override
+    {
+        if (m_cmd_help_long.empty())
+        {
+            StreamString stream;
+            // FIXME: hardcoding languages is not good
+            lldb::LanguageType languages[] = {eLanguageTypeObjC,eLanguageTypeC_plus_plus};
+            
+            for(const auto lang_type : languages)
+            {
+                if (auto language = Language::FindPlugin(lang_type))
+                {
+                    if (const char* help = language->GetLanguageSpecificTypeLookupHelp())
+                    {
+                        stream.Printf("%s\n", help);
+                    }
+                }
+            }
+            
+            if (stream.GetData())
+                m_cmd_help_long.assign(stream.GetString());
+        }
+        return this->CommandObject::GetHelpLong();
     }
     
     bool
@@ -3344,7 +3383,9 @@ public:
         
         std::vector<Language*> languages;
         
-        if (m_command_options.m_language == eLanguageTypeUnknown)
+        bool is_global_search = false;
+
+        if ( (is_global_search = (m_command_options.m_language == eLanguageTypeUnknown)) )
         {
             // FIXME: hardcoding languages is not good
             languages.push_back(Language::FindPlugin(eLanguageTypeObjC));
@@ -3353,6 +3394,27 @@ public:
         else
         {
             languages.push_back(Language::FindPlugin(m_command_options.m_language));
+        }
+        
+        // This is not the most efficient way to do this, but we support very few languages
+        // so the cost of the sort is going to be dwarfed by the actual lookup anyway
+        if (StackFrame* frame = m_exe_ctx.GetFramePtr())
+        {
+            LanguageType lang = frame->GuessLanguage();
+            if (lang != eLanguageTypeUnknown)
+            {
+                std::sort(languages.begin(),
+                          languages.end(),
+                          [lang] (Language* lang1,
+                                  Language* lang2) -> bool {
+                              if (!lang1 || !lang2) return false;
+                              LanguageType lt1 = lang1->GetLanguageType();
+                              LanguageType lt2 = lang2->GetLanguageType();
+                              if (lt1 == lang) return true; // make the selected frame's language come first
+                              if (lt2 == lang) return false; // make the selected frame's language come first
+                              return (lt1 < lt2); // normal comparison otherwise
+                          });
+            }
         }
         
         for (Language* language : languages)
@@ -3374,8 +3436,14 @@ public:
                         }
                     }
                 }
+                // this is "type lookup SomeName" and we did find a match, so get out
+                if (any_found && is_global_search)
+                    break;
             }
         }
+        
+        if (!any_found)
+            result.AppendMessageWithFormat("no type was found matching '%s'\n", name_of_type);
         
         result.SetStatus (any_found ? lldb::eReturnStatusSuccessFinishResult : lldb::eReturnStatusSuccessFinishNoResult);
         return true;
@@ -3423,8 +3491,16 @@ protected:
     bool
     DoExecute (const char *command, CommandReturnObject &result) override
     {
-        auto target_sp = m_interpreter.GetDebugger().GetSelectedTarget();
-        auto frame_sp = target_sp->GetProcessSP()->GetThreadList().GetSelectedThread()->GetSelectedFrame();
+        TargetSP target_sp = m_interpreter.GetDebugger().GetSelectedTarget();
+        Thread *thread = GetDefaultThread();
+        if (!thread)
+        {
+            result.AppendError("no default thread");
+            result.SetStatus(lldb::eReturnStatusFailed);
+            return false;
+        }
+        
+        StackFrameSP frame_sp = thread->GetSelectedFrame();
         ValueObjectSP result_valobj_sp;
         EvaluateExpressionOptions options;
         lldb::ExpressionResults expr_result = target_sp->EvaluateExpression(command, frame_sp.get(), result_valobj_sp, options);

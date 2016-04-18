@@ -214,7 +214,7 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
   setOperationAction(ISD::CTTZ_ZERO_UNDEF, MVT::i64, Expand);
   setOperationAction(ISD::CTLZ_ZERO_UNDEF, MVT::i64, Expand);
 
-  if (Subtarget.hasPOPCNTD()) {
+  if (Subtarget.hasPOPCNTD() == PPCSubtarget::POPCNTD_Fast) {
     setOperationAction(ISD::CTPOP, MVT::i32  , Legal);
     setOperationAction(ISD::CTPOP, MVT::i64  , Legal);
   } else {
@@ -255,7 +255,7 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
   setOperationAction(ISD::SINT_TO_FP, MVT::i32, Expand);
   setOperationAction(ISD::UINT_TO_FP, MVT::i32, Expand);
 
-  if (Subtarget.hasDirectMove()) {
+  if (Subtarget.hasDirectMove() && isPPC64) {
     setOperationAction(ISD::BITCAST, MVT::f32, Legal);
     setOperationAction(ISD::BITCAST, MVT::i32, Legal);
     setOperationAction(ISD::BITCAST, MVT::i64, Legal);
@@ -557,7 +557,7 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
         setOperationAction(ISD::SCALAR_TO_VECTOR, MVT::v4f32, Legal);
         setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v4f32, Legal);
       }
-      if (Subtarget.hasDirectMove()) {
+      if (Subtarget.hasDirectMove() && isPPC64) {
         setOperationAction(ISD::SCALAR_TO_VECTOR, MVT::v16i8, Legal);
         setOperationAction(ISD::SCALAR_TO_VECTOR, MVT::v8i16, Legal);
         setOperationAction(ISD::SCALAR_TO_VECTOR, MVT::v4i32, Legal);
@@ -649,6 +649,8 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
 
       setOperationAction(ISD::FNEG, MVT::v4f32, Legal);
       setOperationAction(ISD::FNEG, MVT::v2f64, Legal);
+      setOperationAction(ISD::FABS, MVT::v4f32, Legal);
+      setOperationAction(ISD::FABS, MVT::v2f64, Legal);
 
       addRegisterClass(MVT::v2i64, &PPC::VSRCRegClass);
     }
@@ -914,7 +916,6 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
     break;
   }
 
-  setInsertFencesForAtomic(true);
 
   if (Subtarget.enableMachineScheduler())
     setSchedulingPreference(Sched::Source);
@@ -1514,7 +1515,7 @@ SDValue PPC::get_VSPLTI_elt(SDNode *N, unsigned ByteSize, SelectionDAG &DAG) {
 
     // See if all of the elements in the buildvector agree across.
     for (unsigned i = 0, e = N->getNumOperands(); i != e; ++i) {
-      if (N->getOperand(i).getOpcode() == ISD::UNDEF) continue;
+      if (N->getOperand(i).isUndef()) continue;
       // If the element isn't a constant, bail fully out.
       if (!isa<ConstantSDNode>(N->getOperand(i))) return SDValue();
 
@@ -1560,7 +1561,7 @@ SDValue PPC::get_VSPLTI_elt(SDNode *N, unsigned ByteSize, SelectionDAG &DAG) {
 
   // Check to see if this buildvec has a single non-undef value in its elements.
   for (unsigned i = 0, e = N->getNumOperands(); i != e; ++i) {
-    if (N->getOperand(i).getOpcode() == ISD::UNDEF) continue;
+    if (N->getOperand(i).isUndef()) continue;
     if (!OpVal.getNode())
       OpVal = N->getOperand(i);
     else if (OpVal != N->getOperand(i))
@@ -6254,7 +6255,7 @@ bool PPCTargetLowering::canReuseLoadAddress(SDValue Op, EVT MemVT,
     return false;
 
   RLI.Ptr = LD->getBasePtr();
-  if (LD->isIndexed() && LD->getOffset().getOpcode() != ISD::UNDEF) {
+  if (LD->isIndexed() && !LD->getOffset().isUndef()) {
     assert(LD->getAddressingMode() == ISD::PRE_INC &&
            "Non-pre-inc AM on PPC?");
     RLI.Ptr = DAG.getNode(ISD::ADD, dl, RLI.Ptr.getValueType(), RLI.Ptr,
@@ -6822,7 +6823,7 @@ SDValue PPCTargetLowering::LowerBUILD_VECTOR(SDValue Op,
 
     bool IsConst = true;
     for (unsigned i = 0; i < 4; ++i) {
-      if (BVN->getOperand(i).getOpcode() == ISD::UNDEF) continue;
+      if (BVN->getOperand(i).isUndef()) continue;
       if (!isa<ConstantSDNode>(BVN->getOperand(i))) {
         IsConst = false;
         break;
@@ -6837,7 +6838,7 @@ SDValue PPCTargetLowering::LowerBUILD_VECTOR(SDValue Op,
 
       SmallVector<Constant*, 4> CV(4, NegOne);
       for (unsigned i = 0; i < 4; ++i) {
-        if (BVN->getOperand(i).getOpcode() == ISD::UNDEF)
+        if (BVN->getOperand(i).isUndef())
           CV[i] = UndefValue::get(Type::getFloatTy(*DAG.getContext()));
         else if (isNullConstant(BVN->getOperand(i)))
           continue;
@@ -6865,7 +6866,7 @@ SDValue PPCTargetLowering::LowerBUILD_VECTOR(SDValue Op,
 
     SmallVector<SDValue, 4> Stores;
     for (unsigned i = 0; i < 4; ++i) {
-      if (BVN->getOperand(i).getOpcode() == ISD::UNDEF) continue;
+      if (BVN->getOperand(i).isUndef()) continue;
 
       unsigned Offset = 4*i;
       SDValue Idx = DAG.getConstant(Offset, dl, FIdx.getValueType());
@@ -7173,7 +7174,7 @@ SDValue PPCTargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
     if (VT.getVectorNumElements() != 4)
       return SDValue();
 
-    if (V2.getOpcode() == ISD::UNDEF) V2 = V1;
+    if (V2.isUndef()) V2 = V1;
 
     int AlignIdx = PPC::isQVALIGNIShuffleMask(SVOp);
     if (AlignIdx != -1) {
@@ -7185,9 +7186,6 @@ SDValue PPCTargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
         std::swap(V1, V2);
         SplatIdx -= 4;
       }
-
-      // FIXME: If SplatIdx == 0 and the input came from a load, then there is
-      // nothing to do.
 
       return DAG.getNode(PPCISD::QVESPLATI, dl, VT, V1,
                          DAG.getConstant(SplatIdx, dl, MVT::i32));
@@ -7211,7 +7209,7 @@ SDValue PPCTargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
   // Cases that are handled by instructions that take permute immediates
   // (such as vsplt*) should be left as VECTOR_SHUFFLE nodes so they can be
   // selected by the instruction selector.
-  if (V2.getOpcode() == ISD::UNDEF) {
+  if (V2.isUndef()) {
     if (PPC::isSplatShuffleMask(SVOp, 1) ||
         PPC::isSplatShuffleMask(SVOp, 2) ||
         PPC::isSplatShuffleMask(SVOp, 4) ||
@@ -7309,7 +7307,7 @@ SDValue PPCTargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
 
   // Lower this to a VPERM(V1, V2, V3) expression, where V3 is a constant
   // vector that will get spilled to the constant pool.
-  if (V2.getOpcode() == ISD::UNDEF) V2 = V1;
+  if (V2.isUndef()) V2 = V1;
 
   // The SHUFFLE_VECTOR mask is almost exactly what we want for vperm, except
   // that it is in input element units, not in bytes.  Convert now.
@@ -10267,6 +10265,111 @@ SDValue PPCTargetLowering::PerformDAGCombine(SDNode *N,
         return expandVSXLoadForLE(N, DCI);
     }
 
+    // We sometimes end up with a 64-bit integer load, from which we extract
+    // two single-precision floating-point numbers. This happens with
+    // std::complex<float>, and other similar structures, because of the way we
+    // canonicalize structure copies. However, if we lack direct moves,
+    // then the final bitcasts from the extracted integer values to the
+    // floating-point numbers turn into store/load pairs. Even with direct moves,
+    // just loading the two floating-point numbers is likely better.
+    auto ReplaceTwoFloatLoad = [&]() {
+      if (VT != MVT::i64)
+        return false;
+
+      if (LD->getExtensionType() != ISD::NON_EXTLOAD ||
+          LD->isVolatile())
+        return false;
+
+      //  We're looking for a sequence like this:
+      //  t13: i64,ch = load<LD8[%ref.tmp]> t0, t6, undef:i64
+      //      t16: i64 = srl t13, Constant:i32<32>
+      //    t17: i32 = truncate t16
+      //  t18: f32 = bitcast t17
+      //    t19: i32 = truncate t13
+      //  t20: f32 = bitcast t19
+
+      if (!LD->hasNUsesOfValue(2, 0))
+        return false;
+
+      auto UI = LD->use_begin();
+      while (UI.getUse().getResNo() != 0) ++UI;
+      SDNode *Trunc = *UI++;
+      while (UI.getUse().getResNo() != 0) ++UI;
+      SDNode *RightShift = *UI;
+      if (Trunc->getOpcode() != ISD::TRUNCATE)
+        std::swap(Trunc, RightShift);
+
+      if (Trunc->getOpcode() != ISD::TRUNCATE ||
+          Trunc->getValueType(0) != MVT::i32 ||
+          !Trunc->hasOneUse())
+        return false;
+      if (RightShift->getOpcode() != ISD::SRL ||
+          !isa<ConstantSDNode>(RightShift->getOperand(1)) ||
+          RightShift->getConstantOperandVal(1) != 32 ||
+          !RightShift->hasOneUse())
+        return false;
+
+      SDNode *Trunc2 = *RightShift->use_begin();
+      if (Trunc2->getOpcode() != ISD::TRUNCATE ||
+          Trunc2->getValueType(0) != MVT::i32 ||
+          !Trunc2->hasOneUse())
+        return false;
+
+      SDNode *Bitcast = *Trunc->use_begin();
+      SDNode *Bitcast2 = *Trunc2->use_begin();
+
+      if (Bitcast->getOpcode() != ISD::BITCAST ||
+          Bitcast->getValueType(0) != MVT::f32)
+        return false;
+      if (Bitcast2->getOpcode() != ISD::BITCAST ||          
+          Bitcast2->getValueType(0) != MVT::f32)
+        return false;
+
+      if (Subtarget.isLittleEndian())
+        std::swap(Bitcast, Bitcast2);
+
+      // Bitcast has the second float (in memory-layout order) and Bitcast2
+      // has the first one.
+
+      SDValue BasePtr = LD->getBasePtr();
+      if (LD->isIndexed()) {
+        assert(LD->getAddressingMode() == ISD::PRE_INC &&
+               "Non-pre-inc AM on PPC?");
+        BasePtr =
+          DAG.getNode(ISD::ADD, dl, BasePtr.getValueType(), BasePtr,
+                      LD->getOffset());
+      }
+
+      SDValue FloatLoad =
+        DAG.getLoad(MVT::f32, dl, LD->getChain(), BasePtr,
+                    LD->getPointerInfo(), false, LD->isNonTemporal(),
+                    LD->isInvariant(), LD->getAlignment(), LD->getAAInfo());
+      SDValue AddPtr =
+        DAG.getNode(ISD::ADD, dl, BasePtr.getValueType(),
+                    BasePtr, DAG.getIntPtrConstant(4, dl));
+      SDValue FloatLoad2 =
+        DAG.getLoad(MVT::f32, dl, SDValue(FloatLoad.getNode(), 1), AddPtr,
+                    LD->getPointerInfo().getWithOffset(4), false,
+                    LD->isNonTemporal(), LD->isInvariant(),
+                    MinAlign(LD->getAlignment(), 4), LD->getAAInfo());
+
+      if (LD->isIndexed()) {
+	// Note that DAGCombine should re-form any pre-increment load(s) from
+	// what is produced here if that makes sense.
+        DAG.ReplaceAllUsesOfValueWith(SDValue(LD, 1), BasePtr);
+      }
+
+      DCI.CombineTo(Bitcast2, FloatLoad);
+      DCI.CombineTo(Bitcast, FloatLoad2);
+
+      DAG.ReplaceAllUsesOfValueWith(SDValue(LD, LD->isIndexed() ? 2 : 1),
+                                    SDValue(FloatLoad2.getNode(), 1));
+      return true;
+    };
+
+    if (ReplaceTwoFloatLoad())
+      return SDValue(N, 0);
+
     EVT MemVT = LD->getMemoryVT();
     Type *Ty = MemVT.getTypeForEVT(*DAG.getContext());
     unsigned ABIAlignment = DAG.getDataLayout().getABITypeAlignment(Ty);
@@ -10827,6 +10930,7 @@ PPCTargetLowering::getConstraintType(StringRef Constraint) const {
     case 'b':
     case 'r':
     case 'f':
+    case 'd':
     case 'v':
     case 'y':
       return C_RegisterClass;
@@ -10918,6 +11022,10 @@ PPCTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
       if (VT == MVT::i64 && Subtarget.isPPC64())
         return std::make_pair(0U, &PPC::G8RCRegClass);
       return std::make_pair(0U, &PPC::GPRCRegClass);
+    // 'd' and 'f' constraints are both defined to be "the floating point
+    // registers", where one is for 32-bit and the other for 64-bit. We don't
+    // really care overly much here so just give them all the same reg classes.
+    case 'd':
     case 'f':
       if (VT == MVT::f32 || VT == MVT::i32)
         return std::make_pair(0U, &PPC::F4RCRegClass);

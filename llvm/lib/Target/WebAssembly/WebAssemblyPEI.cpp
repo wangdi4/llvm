@@ -59,7 +59,7 @@ namespace llvm {
 void initializeWasmPEIPass(PassRegistry&);
 }
 namespace {
-class WasmPEI : public MachineFunctionPass {
+class WasmPEI final : public MachineFunctionPass {
 public:
   static char ID;
   WasmPEI() : MachineFunctionPass(ID) {
@@ -877,16 +877,7 @@ void WasmPEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &Fn,
         I->getOpcode() == FrameDestroyOpcode) {
       InsideCallSequence = (I->getOpcode() == FrameSetupOpcode);
       SPAdj += TII.getSPAdjust(I);
-
-      MachineBasicBlock::iterator PrevI = BB->end();
-      if (I != BB->begin()) PrevI = std::prev(I);
-      TFI->eliminateCallFramePseudoInstr(Fn, *BB, I);
-
-      // Visit the instructions created by eliminateCallFramePseudoInstr().
-      if (PrevI == BB->end())
-        I = BB->begin();     // The replaced instr was the first in the block.
-      else
-        I = std::next(PrevI);
+      I = TFI->eliminateCallFramePseudoInstr(Fn, *BB, I);
       continue;
     }
 

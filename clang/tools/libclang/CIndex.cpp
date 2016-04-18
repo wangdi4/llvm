@@ -2053,6 +2053,7 @@ void OMPClauseEnqueue::VisitOMPClauseWithPreInit(
 
 void OMPClauseEnqueue::VisitOMPClauseWithPostUpdate(
     const OMPClauseWithPostUpdate *C) {
+  VisitOMPClauseWithPreInit(C);
   Visitor->AddStmt(C->getPostUpdateExpr());
 }
 
@@ -2170,7 +2171,6 @@ void OMPClauseEnqueue::VisitOMPFirstprivateClause(
 void OMPClauseEnqueue::VisitOMPLastprivateClause(
                                         const OMPLastprivateClause *C) {
   VisitOMPClauseList(C);
-  VisitOMPClauseWithPreInit(C);
   VisitOMPClauseWithPostUpdate(C);
   for (auto *E : C->private_copies()) {
     Visitor->AddStmt(E);
@@ -2190,7 +2190,6 @@ void OMPClauseEnqueue::VisitOMPSharedClause(const OMPSharedClause *C) {
 }
 void OMPClauseEnqueue::VisitOMPReductionClause(const OMPReductionClause *C) {
   VisitOMPClauseList(C);
-  VisitOMPClauseWithPreInit(C);
   VisitOMPClauseWithPostUpdate(C);
   for (auto *E : C->privates()) {
     Visitor->AddStmt(E);
@@ -2207,6 +2206,7 @@ void OMPClauseEnqueue::VisitOMPReductionClause(const OMPReductionClause *C) {
 }
 void OMPClauseEnqueue::VisitOMPLinearClause(const OMPLinearClause *C) {
   VisitOMPClauseList(C);
+  VisitOMPClauseWithPostUpdate(C);
   for (const auto *E : C->privates()) {
     Visitor->AddStmt(E);
   }

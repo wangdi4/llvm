@@ -12,7 +12,7 @@ void www();
 // CHECK-NEXT: @f = global i32 5, align 4
 // CHECK-NEXT: @g = global %struct.S zeroinitializer, align 4
 // CHECK-NEXT: @h = global %class.C zeroinitializer, align 4
-// CHECK-NEXT: @push1 = constant i32 0, section "#bss#__DATA, sect4~@~", align 4
+// CHECK-NEXT: @push1 = global i32 0, section "#bss#__DATA, sect4~@~", align 4
 // CHECK-NEXT: @pop1 = constant i32 0, section "#bss#__DATA, sect43~@~www", align 4
 // CHECK-NEXT: @pop2 = global i32 0, align 4
 // CHECK-NEXT: @_ZZ4mainE6localS = internal global i32 0, align 4

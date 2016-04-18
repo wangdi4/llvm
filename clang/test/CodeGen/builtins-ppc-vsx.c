@@ -1,6 +1,7 @@
 // REQUIRES: powerpc-registered-target
 // RUN: %clang_cc1 -faltivec -target-feature +vsx -triple powerpc64-unknown-unknown -emit-llvm %s -o - | FileCheck %s
 // RUN: %clang_cc1 -faltivec -target-feature +vsx -triple powerpc64le-unknown-unknown -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-LE
+#include <altivec.h>
 
 vector signed char vsc = { -8,  9, -10, 11, -12, 13, -14, 15,
                            -0,  1,  -2,  3,  -4,  5,  -6,  7};
@@ -50,6 +51,14 @@ void dummy() { }
 void test1() {
 // CHECK-LABEL: define void @test1
 // CHECK-LE-LABEL: define void @test1
+
+  res_vf = vec_abs(vf);
+// CHECK: call <4 x float> @llvm.fabs.v4f32(<4 x float> %{{[0-9]*}})
+// CHECK-LE: call <4 x float> @llvm.fabs.v4f32(<4 x float> %{{[0-9]*}})
+
+  dummy();
+// CHECK: call void @dummy()
+// CHECK-LE: call void @dummy()
 
   res_vd = vec_add(vd, vd);
 // CHECK: fadd <2 x double>

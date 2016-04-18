@@ -23,7 +23,28 @@
 
 using namespace llvm;
 
-SIRegisterInfo::SIRegisterInfo() : AMDGPURegisterInfo() {
+static bool hasPressureSet(const int *PSets, unsigned PSetID) {
+  for (unsigned i = 0; PSets[i] != -1; ++i) {
+    if (PSets[i] == (int)PSetID)
+      return true;
+  }
+  return false;
+}
+
+void SIRegisterInfo::classifyPressureSet(unsigned PSetID, unsigned Reg,
+                                         BitVector &PressureSets) const {
+  for (MCRegUnitIterator U(Reg, this); U.isValid(); ++U) {
+    const int *PSets = getRegUnitPressureSets(*U);
+    if (hasPressureSet(PSets, PSetID)) {
+      PressureSets.set(PSetID);
+      break;
+    }
+  }
+}
+
+SIRegisterInfo::SIRegisterInfo() : AMDGPURegisterInfo(),
+                                   SGPRPressureSets(getNumRegPressureSets()),
+                                   VGPRPressureSets(getNumRegPressureSets()) {
   unsigned NumRegPressureSets = getNumRegPressureSets();
 
   SGPR32SetID = NumRegPressureSets;
@@ -33,6 +54,9 @@ SIRegisterInfo::SIRegisterInfo() : AMDGPURegisterInfo() {
       SGPR32SetID = i;
     else if (strncmp("VGPR_32", getRegPressureSetName(i), 7) == 0)
       VGPR32SetID = i;
+
+    classifyPressureSet(i, AMDGPU::SGPR0, SGPRPressureSets);
+    classifyPressureSet(i, AMDGPU::VGPR0, VGPRPressureSets);
   }
   assert(SGPR32SetID < NumRegPressureSets &&
          VGPR32SetID < NumRegPressureSets);
@@ -151,35 +175,25 @@ unsigned SIRegisterInfo::getRegPressureSetLimit(const MachineFunction &MF,
 
   unsigned VSLimit = SGPRLimit + VGPRLimit;
 
-  for (regclass_iterator I = regclass_begin(), E = regclass_end();
-       I != E; ++I) {
-    const TargetRegisterClass *RC = *I;
-
-    unsigned NumSubRegs = std::max((int)RC->getSize() / 4, 1);
-    unsigned Limit;
-
-    if (isPseudoRegClass(RC)) {
-      // FIXME: This is a hack. We should never be considering the pressure of
-      // these since no virtual register should ever have this class.
-      Limit = VSLimit;
-    } else if (isSGPRClass(RC)) {
-      Limit = SGPRLimit / NumSubRegs;
-    } else {
-      Limit = VGPRLimit / NumSubRegs;
-    }
-
-    const int *Sets = getRegClassPressureSets(RC);
-    assert(Sets);
-    for (unsigned i = 0; Sets[i] != -1; ++i) {
-      if (Sets[i] == (int)Idx)
-        return Limit;
-    }
+  if (SGPRPressureSets.test(Idx) && VGPRPressureSets.test(Idx)) {
+    // FIXME: This is a hack. We should never be considering the pressure of
+    // these since no virtual register should ever have this class.
+    return VSLimit;
   }
-  return 256;
+
+  if (SGPRPressureSets.test(Idx))
+    return SGPRLimit;
+
+  return VGPRLimit;
 }
 
 bool SIRegisterInfo::requiresRegisterScavenging(const MachineFunction &Fn) const {
   return Fn.getFrameInfo()->hasStackObjects();
+}
+
+bool
+SIRegisterInfo::requiresFrameIndexScavenging(const MachineFunction &MF) const {
+  return MF.getFrameInfo()->hasStackObjects();
 }
 
 static unsigned getNumSubRegsForSpillOp(unsigned Op) {
@@ -222,16 +236,16 @@ void SIRegisterInfo::buildScratchLoadStore(MachineBasicBlock::iterator MI,
                                            unsigned Value,
                                            unsigned ScratchRsrcReg,
                                            unsigned ScratchOffset,
-                                           int64_t Offset,
-                                           RegScavenger *RS) const {
+                                           int64_t Offset) const {
 
   MachineBasicBlock *MBB = MI->getParent();
-  const MachineFunction *MF = MI->getParent()->getParent();
+  MachineFunction *MF = MI->getParent()->getParent();
+  MachineRegisterInfo &MRI = MF->getRegInfo();
   const SIInstrInfo *TII =
       static_cast<const SIInstrInfo *>(MF->getSubtarget().getInstrInfo());
   LLVMContext &Ctx = MF->getFunction()->getContext();
   DebugLoc DL = MI->getDebugLoc();
-  bool IsLoad = TII->get(LoadStoreOp).mayLoad();
+  bool IsStore = TII->get(LoadStoreOp).mayStore();
 
   bool RanOutOfSGPRs = false;
   bool Scavenged = false;
@@ -241,7 +255,7 @@ void SIRegisterInfo::buildScratchLoadStore(MachineBasicBlock::iterator MI,
   unsigned Size = NumSubRegs * 4;
 
   if (!isUInt<12>(Offset + Size)) {
-    SOffset = RS->scavengeRegister(&AMDGPU::SGPR_32RegClass, MI, 0);
+    SOffset = MRI.createVirtualRegister(&AMDGPU::SGPR_32RegClass);
     if (SOffset == AMDGPU::NoRegister) {
       RanOutOfSGPRs = true;
       SOffset = AMDGPU::SGPR0;
@@ -267,14 +281,14 @@ void SIRegisterInfo::buildScratchLoadStore(MachineBasicBlock::iterator MI,
       SOffsetRegState |= RegState::Kill;
 
     BuildMI(*MBB, MI, DL, TII->get(LoadStoreOp))
-      .addReg(SubReg, getDefRegState(IsLoad))
+      .addReg(SubReg, getDefRegState(!IsStore))
       .addReg(ScratchRsrcReg)
       .addReg(SOffset, SOffsetRegState)
       .addImm(Offset)
       .addImm(0) // glc
       .addImm(0) // slc
       .addImm(0) // tfe
-      .addReg(Value, RegState::Implicit | getDefRegState(IsLoad))
+      .addReg(Value, RegState::Implicit | getDefRegState(!IsStore))
       .setMemRefs(MI->memoperands_begin(), MI->memoperands_end());
   }
 }
@@ -283,6 +297,7 @@ void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
                                         int SPAdj, unsigned FIOperandNum,
                                         RegScavenger *RS) const {
   MachineFunction *MF = MI->getParent()->getParent();
+  MachineRegisterInfo &MRI = MF->getRegInfo();
   MachineBasicBlock *MBB = MI->getParent();
   SIMachineFunctionInfo *MFI = MF->getInfo<SIMachineFunctionInfo>();
   MachineFrameInfo *FrameInfo = MF->getFrameInfo();
@@ -301,6 +316,7 @@ void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
     case AMDGPU::SI_SPILL_S64_SAVE:
     case AMDGPU::SI_SPILL_S32_SAVE: {
       unsigned NumSubRegs = getNumSubRegsForSpillOp(MI->getOpcode());
+      unsigned TmpReg = MRI.createVirtualRegister(&AMDGPU::VGPR_32RegClass);
 
       for (unsigned i = 0, e = NumSubRegs; i < e; ++i) {
         unsigned SubReg = getPhysRegSubReg(MI->getOperand(0).getReg(),
@@ -308,15 +324,37 @@ void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
         struct SIMachineFunctionInfo::SpilledReg Spill =
             MFI->getSpilledReg(MF, Index, i);
 
-        BuildMI(*MBB, MI, DL,
-                TII->getMCOpcodeFromPseudo(AMDGPU::V_WRITELANE_B32),
-                Spill.VGPR)
-                .addReg(SubReg)
-                .addImm(Spill.Lane);
+        if (Spill.hasReg()) {
+          BuildMI(*MBB, MI, DL,
+                  TII->getMCOpcodeFromPseudo(AMDGPU::V_WRITELANE_B32),
+                  Spill.VGPR)
+                  .addReg(SubReg)
+                  .addImm(Spill.Lane);
 
-        // FIXME: Since this spills to another register instead of an actual
-        // frame index, we should delete the frame index when all references to
-        // it are fixed.
+          // FIXME: Since this spills to another register instead of an actual
+          // frame index, we should delete the frame index when all references to
+          // it are fixed.
+        } else {
+          // Spill SGPR to a frame index.
+          // FIXME we should use S_STORE_DWORD here for VI.
+          BuildMI(*MBB, MI, DL, TII->get(AMDGPU::V_MOV_B32_e32), TmpReg)
+                  .addReg(SubReg);
+
+          unsigned Size = FrameInfo->getObjectSize(Index);
+          unsigned Align = FrameInfo->getObjectAlignment(Index);
+          MachinePointerInfo PtrInfo
+              = MachinePointerInfo::getFixedStack(*MF, Index);
+          MachineMemOperand *MMO
+              = MF->getMachineMemOperand(PtrInfo, MachineMemOperand::MOStore,
+                                         Size, Align);
+          BuildMI(*MBB, MI, DL, TII->get(AMDGPU::SI_SPILL_V32_SAVE))
+                  .addReg(TmpReg)                         // src
+                  .addFrameIndex(Index)                   // frame_idx
+                  .addReg(MFI->getScratchRSrcReg())       // scratch_rsrc
+                  .addReg(MFI->getScratchWaveOffsetReg()) // scratch_offset
+                  .addImm(i * 4)                          // offset
+                  .addMemOperand(MMO);
+        }
       }
       MI->eraseFromParent();
       break;
@@ -329,6 +367,7 @@ void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
     case AMDGPU::SI_SPILL_S64_RESTORE:
     case AMDGPU::SI_SPILL_S32_RESTORE: {
       unsigned NumSubRegs = getNumSubRegsForSpillOp(MI->getOpcode());
+      unsigned TmpReg = MRI.createVirtualRegister(&AMDGPU::VGPR_32RegClass);
 
       for (unsigned i = 0, e = NumSubRegs; i < e; ++i) {
         unsigned SubReg = getPhysRegSubReg(MI->getOperand(0).getReg(),
@@ -336,12 +375,38 @@ void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
         struct SIMachineFunctionInfo::SpilledReg Spill =
             MFI->getSpilledReg(MF, Index, i);
 
-        BuildMI(*MBB, MI, DL,
-                TII->getMCOpcodeFromPseudo(AMDGPU::V_READLANE_B32),
-                SubReg)
-                .addReg(Spill.VGPR)
-                .addImm(Spill.Lane)
-                .addReg(MI->getOperand(0).getReg(), RegState::ImplicitDefine);
+        if (Spill.hasReg()) {
+          BuildMI(*MBB, MI, DL,
+                  TII->getMCOpcodeFromPseudo(AMDGPU::V_READLANE_B32),
+                  SubReg)
+                  .addReg(Spill.VGPR)
+                  .addImm(Spill.Lane)
+                  .addReg(MI->getOperand(0).getReg(), RegState::ImplicitDefine);
+        } else {
+          // Restore SGPR from a stack slot.
+          // FIXME: We should use S_LOAD_DWORD here for VI.
+
+          unsigned Align = FrameInfo->getObjectAlignment(Index);
+          unsigned Size = FrameInfo->getObjectSize(Index);
+
+          MachinePointerInfo PtrInfo
+              = MachinePointerInfo::getFixedStack(*MF, Index);
+
+          MachineMemOperand *MMO = MF->getMachineMemOperand(
+              PtrInfo, MachineMemOperand::MOLoad, Size, Align);
+
+          BuildMI(*MBB, MI, DL, TII->get(AMDGPU::SI_SPILL_V32_RESTORE), TmpReg)
+                  .addFrameIndex(Index)                   // frame_idx
+                  .addReg(MFI->getScratchRSrcReg())       // scratch_rsrc
+                  .addReg(MFI->getScratchWaveOffsetReg()) // scratch_offset
+                  .addImm(i * 4)                          // offset
+                  .addMemOperand(MMO);
+          BuildMI(*MBB, MI, DL,
+                  TII->getMCOpcodeFromPseudo(AMDGPU::V_READLANE_B32), SubReg)
+                  .addReg(TmpReg)
+                  .addImm(0)
+                  .addReg(MI->getOperand(0).getReg(), RegState::ImplicitDefine);
+        }
       }
 
       // TODO: only do this when it is needed
@@ -375,7 +440,8 @@ void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
             TII->getNamedOperand(*MI, AMDGPU::OpName::src)->getReg(),
             TII->getNamedOperand(*MI, AMDGPU::OpName::scratch_rsrc)->getReg(),
             TII->getNamedOperand(*MI, AMDGPU::OpName::scratch_offset)->getReg(),
-             FrameInfo->getObjectOffset(Index), RS);
+            FrameInfo->getObjectOffset(Index) +
+            TII->getNamedOperand(*MI, AMDGPU::OpName::offset)->getImm());
       MI->eraseFromParent();
       break;
     case AMDGPU::SI_SPILL_V32_RESTORE:
@@ -388,7 +454,8 @@ void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
             TII->getNamedOperand(*MI, AMDGPU::OpName::dst)->getReg(),
             TII->getNamedOperand(*MI, AMDGPU::OpName::scratch_rsrc)->getReg(),
             TII->getNamedOperand(*MI, AMDGPU::OpName::scratch_offset)->getReg(),
-            FrameInfo->getObjectOffset(Index), RS);
+            FrameInfo->getObjectOffset(Index) +
+            TII->getNamedOperand(*MI, AMDGPU::OpName::offset)->getImm());
       MI->eraseFromParent();
       break;
     }
@@ -397,7 +464,7 @@ void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
       int64_t Offset = FrameInfo->getObjectOffset(Index);
       FIOp.ChangeToImmediate(Offset);
       if (!TII->isImmOperandLegal(MI, FIOperandNum, FIOp)) {
-        unsigned TmpReg = RS->scavengeRegister(&AMDGPU::VGPR_32RegClass, MI, SPAdj);
+        unsigned TmpReg = MRI.createVirtualRegister(&AMDGPU::VGPR_32RegClass);
         BuildMI(*MBB, MI, MI->getDebugLoc(),
                 TII->get(AMDGPU::V_MOV_B32_e32), TmpReg)
                 .addImm(Offset);

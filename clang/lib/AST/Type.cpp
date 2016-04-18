@@ -2655,12 +2655,11 @@ QualType QualType::getNonLValueExprType(const ASTContext &Context) const {
   return *this;
 }
 
-StringRef FunctionType::getNameForCallConv(CallingConv CC) {
+StringRef FunctionType::getNameForCallConv(CallingConv CC, bool IntelComp) {
   switch (CC) {
   case CC_C: return "cdecl";
   case CC_X86StdCall: return "stdcall";
   case CC_X86FastCall: return "fastcall";
-  case CC_X86RegCall: return "regcall"; // INTEL
   case CC_X86ThisCall: return "thiscall";
   case CC_X86Pascal: return "pascal";
   case CC_X86VectorCall: return "vectorcall";
@@ -2670,8 +2669,13 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
   case CC_AAPCS_VFP: return "aapcs-vfp";
   case CC_IntelOclBicc: return "intel_ocl_bicc";
   case CC_SpirFunction: return "spir_function";
-  case CC_SpirKernel: return "spir_kernel";
+  case CC_SpirKernel:   // INTEL CC_X86RegCall
+    if (IntelComp)      // INTEL
+      return "regcall"; // INTEL
+    return "spir_kernel";
   case CC_Swift: return "swiftcall";
+  case CC_PreserveMost: return "preserve_most";
+  case CC_PreserveAll: return "preserve_all";
   }
 
   llvm_unreachable("Invalid calling convention.");
@@ -2949,29 +2953,13 @@ void DependentDecltypeType::Profile(llvm::FoldingSetNodeID &ID,
   E->Profile(ID, Context, true);
 }
 
-TagType::TagType(TypeClass TC, const TagDecl *D, QualType can)
-  : Type(TC, can, D->isDependentType(), 
-         /*InstantiationDependent=*/D->isDependentType(),
-         /*VariablyModified=*/false, 
-         /*ContainsUnexpandedParameterPack=*/false),
-    decl(const_cast<TagDecl*>(D)) {}
-
-static TagDecl *getInterestingTagDecl(TagDecl *decl) {
-  for (auto I : decl->redecls()) {
-    if (I->isCompleteDefinition() || I->isBeingDefined())
-      return I;
-  }
-  // If there's no definition (not even in progress), return what we have.
-  return decl;
-}
-
 UnaryTransformType::UnaryTransformType(QualType BaseType,
                                        QualType UnderlyingType,
                                        UTTKind UKind,
                                        QualType CanonicalType)
-  : Type(UnaryTransform, CanonicalType, UnderlyingType->isDependentType(),
-         UnderlyingType->isInstantiationDependentType(),
-         UnderlyingType->isVariablyModifiedType(),
+  : Type(UnaryTransform, CanonicalType, BaseType->isDependentType(),
+         BaseType->isInstantiationDependentType(),
+         BaseType->isVariablyModifiedType(),
 #if INTEL_CUSTOMIZATION
          // CQ#369185 - support of __bases and __direct_bases intrinsics.
          (UKind == UTTKind::BasesOfType ||
@@ -2993,6 +2981,30 @@ UnaryTransformType::UnaryTransformType(QualType BaseType, UTTKind UKind)
       BaseType(BaseType), UnderlyingType(BaseType), UKind(UKind) {}
 
 #endif // INTEL_CUSTOMIZATION
+
+DependentUnaryTransformType::DependentUnaryTransformType(const ASTContext &C,
+                                                         QualType BaseType,
+                                                         UTTKind UKind)
+   : UnaryTransformType(BaseType, C.DependentTy, UKind, QualType())
+{}
+
+
+TagType::TagType(TypeClass TC, const TagDecl *D, QualType can)
+  : Type(TC, can, D->isDependentType(), 
+         /*InstantiationDependent=*/D->isDependentType(),
+         /*VariablyModified=*/false, 
+         /*ContainsUnexpandedParameterPack=*/false),
+    decl(const_cast<TagDecl*>(D)) {}
+
+static TagDecl *getInterestingTagDecl(TagDecl *decl) {
+  for (auto I : decl->redecls()) {
+    if (I->isCompleteDefinition() || I->isBeingDefined())
+      return I;
+  }
+  // If there's no definition (not even in progress), return what we have.
+  return decl;
+}
+
 TagDecl *TagType::getDecl() const {
   return getInterestingTagDecl(decl);
 }
@@ -3035,6 +3047,8 @@ bool AttributedType::isQualifier() const {
   case AttributedType::attr_swiftcall:
   case AttributedType::attr_vectorcall:
   case AttributedType::attr_inteloclbicc:
+  case AttributedType::attr_preserve_most:
+  case AttributedType::attr_preserve_all:
   case AttributedType::attr_ms_abi:
   case AttributedType::attr_sysv_abi:
   case AttributedType::attr_ptr32:
@@ -3093,6 +3107,8 @@ bool AttributedType::isCallingConv() const {
   case attr_ms_abi:
   case attr_sysv_abi:
   case attr_inteloclbicc:
+  case attr_preserve_most:
+  case attr_preserve_all:
     return true;
   }
   llvm_unreachable("invalid attr kind");

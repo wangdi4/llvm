@@ -2265,7 +2265,6 @@ StringRef CXXNameMangler::getCallingConvQualifierName(CallingConv CC) {
   case CC_X86StdCall:
   case CC_X86FastCall:
   case CC_X86ThisCall:
-  case CC_X86RegCall:        // INTEL
   case CC_X86VectorCall:
   case CC_X86Pascal:
   case CC_X86_64Win64:
@@ -2274,7 +2273,9 @@ StringRef CXXNameMangler::getCallingConvQualifierName(CallingConv CC) {
   case CC_AAPCS_VFP:
   case CC_IntelOclBicc:
   case CC_SpirFunction:
-  case CC_SpirKernel:
+  case CC_SpirKernel: // CC_X86RegCall is the same as CC_SpirKernel  // INTEL
+  case CC_PreserveMost:
+  case CC_PreserveAll:
     // FIXME: we should be mangling all of the above.
     return "";
 

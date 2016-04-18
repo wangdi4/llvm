@@ -469,11 +469,10 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
   MF->setHasInlineAsm(false);
 
   FuncInfo->SplitCSR = false;
-  SmallVector<MachineBasicBlock*, 4> Returns;
 
   // We split CSR if the target supports it for the given function
   // and the function has only return exits.
-  if (TLI->supportSplitCSR(MF)) {
+  if (OptLevel != CodeGenOpt::None && TLI->supportSplitCSR(MF)) {
     FuncInfo->SplitCSR = true;
 
     // Collect all the return blocks.
@@ -482,12 +481,8 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
         continue;
 
       const TerminatorInst *Term = BB.getTerminator();
-      if (isa<UnreachableInst>(Term))
+      if (isa<UnreachableInst>(Term) || isa<ReturnInst>(Term))
         continue;
-      if (isa<ReturnInst>(Term)) {
-        Returns.push_back(FuncInfo->MBBMap[&BB]);
-        continue;
-      }
 
       // Bail out if the exit block is not Return nor Unreachable.
       FuncInfo->SplitCSR = false;
@@ -509,8 +504,21 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
   RegInfo->EmitLiveInCopies(EntryMBB, TRI, *TII);
 
   // Insert copies in the entry block and the return blocks.
-  if (FuncInfo->SplitCSR)
+  if (FuncInfo->SplitCSR) {
+    SmallVector<MachineBasicBlock*, 4> Returns;
+    // Collect all the return blocks.
+    for (MachineBasicBlock &MBB : mf) {
+      if (!MBB.succ_empty())
+        continue;
+
+      MachineBasicBlock::iterator Term = MBB.getFirstTerminator();
+      if (Term != MBB.end() && Term->isReturn()) {
+        Returns.push_back(&MBB);
+        continue;
+      }
+    }
     TLI->insertCopiesSplitCSR(EntryMBB, Returns);
+  }
 
   DenseMap<unsigned, unsigned> LiveInMap;
   if (!FuncInfo->ArgDbgValues.empty())
@@ -3051,7 +3059,8 @@ SelectCodeCommon(SDNode *NodeToMatch, const unsigned char *MatcherTable,
     }
 
     case OPC_EmitMergeInputChains1_0:    // OPC_EmitMergeInputChains, 1, 0
-    case OPC_EmitMergeInputChains1_1: {  // OPC_EmitMergeInputChains, 1, 1
+    case OPC_EmitMergeInputChains1_1:    // OPC_EmitMergeInputChains, 1, 1
+    case OPC_EmitMergeInputChains1_2: {  // OPC_EmitMergeInputChains, 1, 2
       // These are space-optimized forms of OPC_EmitMergeInputChains.
       assert(!InputChain.getNode() &&
              "EmitMergeInputChains should be the first chain producing node");
@@ -3059,7 +3068,7 @@ SelectCodeCommon(SDNode *NodeToMatch, const unsigned char *MatcherTable,
              "Should only have one EmitMergeInputChains per match");
 
       // Read all of the chained nodes.
-      unsigned RecNo = Opcode == OPC_EmitMergeInputChains1_1;
+      unsigned RecNo = Opcode - OPC_EmitMergeInputChains1_0;
       assert(RecNo < RecordedNodes.size() && "Invalid EmitMergeInputChains");
       ChainNodesMatched.push_back(RecordedNodes[RecNo].first.getNode());
 

@@ -14,19 +14,20 @@
 
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Target/Process.h"
-#include "lldb/Breakpoint/StoppointCallbackContext.h"
+#include "Plugins/Process/Utility/InferiorCallPOSIX.h"
 #include "lldb/Breakpoint/BreakpointLocation.h"
-#include "lldb/Core/Event.h"
+#include "lldb/Breakpoint/StoppointCallbackContext.h"
 #include "lldb/Core/Debugger.h"
+#include "lldb/Core/Event.h"
 #include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/State.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Expression/UserExpression.h"
+#include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/IRDynamicChecks.h"
+#include "lldb/Expression/UserExpression.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
@@ -39,17 +40,18 @@
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/Symbol.h"
 #include "lldb/Target/ABI.h"
+#include "lldb/Target/CPPLanguageRuntime.h"
 #include "lldb/Target/DynamicLoader.h"
 #include "lldb/Target/InstrumentationRuntime.h"
 #include "lldb/Target/JITLoader.h"
 #include "lldb/Target/JITLoaderList.h"
+#include "lldb/Target/LanguageRuntime.h"
 #include "lldb/Target/MemoryHistory.h"
 #include "lldb/Target/MemoryRegionInfo.h"
-#include "lldb/Target/OperatingSystem.h"
-#include "lldb/Target/LanguageRuntime.h"
-#include "lldb/Target/CPPLanguageRuntime.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
+#include "lldb/Target/OperatingSystem.h"
 #include "lldb/Target/Platform.h"
+#include "lldb/Target/Process.h"
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/StopInfo.h"
 #include "lldb/Target/SystemRuntime.h"
@@ -60,7 +62,6 @@
 #include "lldb/Target/ThreadPlanBase.h"
 #include "lldb/Target/UnixSignals.h"
 #include "lldb/Utility/NameMatches.h"
-#include "Plugins/Process/Utility/InferiorCallPOSIX.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -657,7 +658,7 @@ ProcessInstanceInfoMatch::Clear()
 }
 
 ProcessSP
-Process::FindPlugin (lldb::TargetSP target_sp, const char *plugin_name, Listener &listener, const FileSpec *crash_file_path)
+Process::FindPlugin (lldb::TargetSP target_sp, const char *plugin_name, ListenerSP listener_sp, const FileSpec *crash_file_path)
 {
     static uint32_t g_process_unique_id = 0;
 
@@ -669,7 +670,7 @@ Process::FindPlugin (lldb::TargetSP target_sp, const char *plugin_name, Listener
         create_callback  = PluginManager::GetProcessCreateCallbackForPluginName (const_plugin_name);
         if (create_callback)
         {
-            process_sp = create_callback(target_sp, listener, crash_file_path);
+            process_sp = create_callback(target_sp, listener_sp, crash_file_path);
             if (process_sp)
             {
                 if (process_sp->CanDebug(target_sp, true))
@@ -685,7 +686,7 @@ Process::FindPlugin (lldb::TargetSP target_sp, const char *plugin_name, Listener
     {
         for (uint32_t idx = 0; (create_callback = PluginManager::GetProcessCreateCallbackAtIndex(idx)) != nullptr; ++idx)
         {
-            process_sp = create_callback(target_sp, listener, crash_file_path);
+            process_sp = create_callback(target_sp, listener_sp, crash_file_path);
             if (process_sp)
             {
                 if (process_sp->CanDebug(target_sp, false))
@@ -708,23 +709,23 @@ Process::GetStaticBroadcasterClass ()
     return class_name;
 }
 
-Process::Process(lldb::TargetSP target_sp, Listener &listener) :
-    Process(target_sp, listener, UnixSignals::Create(HostInfo::GetArchitecture()))
+Process::Process(lldb::TargetSP target_sp, ListenerSP listener_sp) :
+    Process(target_sp, listener_sp, UnixSignals::Create(HostInfo::GetArchitecture()))
 {
     // This constructor just delegates to the full Process constructor,
     // defaulting to using the Host's UnixSignals.
 }
 
-Process::Process(lldb::TargetSP target_sp, Listener &listener, const UnixSignalsSP &unix_signals_sp) :
+Process::Process(lldb::TargetSP target_sp, ListenerSP listener_sp, const UnixSignalsSP &unix_signals_sp) :
     ProcessProperties (this),
     UserID (LLDB_INVALID_PROCESS_ID),
-    Broadcaster (&(target_sp->GetDebugger()), Process::GetStaticBroadcasterClass().AsCString()),
+    Broadcaster ((target_sp->GetDebugger().GetBroadcasterManager()), Process::GetStaticBroadcasterClass().AsCString()),
     m_target_sp (target_sp),
     m_public_state (eStateUnloaded),
     m_private_state (eStateUnloaded),
     m_private_state_broadcaster(nullptr, "lldb.process.internal_state_broadcaster"),
     m_private_state_control_broadcaster(nullptr, "lldb.process.internal_state_control_broadcaster"),
-    m_private_state_listener ("lldb.process.internal_state_listener"),
+    m_private_state_listener_sp (Listener::MakeListener("lldb.process.internal_state_listener")),
     m_private_state_control_wait(),
     m_mod_id (),
     m_process_unique_id(0),
@@ -742,7 +743,7 @@ Process::Process(lldb::TargetSP target_sp, Listener &listener, const UnixSignals
     m_queue_list_stop_id (0),
     m_notifications (),
     m_image_tokens (),
-    m_listener (listener),
+    m_listener_sp (listener_sp),
     m_breakpoint_site_list (),
     m_dynamic_checkers_ap (),
     m_unix_signals_sp (unix_signals_sp),
@@ -792,18 +793,18 @@ Process::Process(lldb::TargetSP target_sp, Listener &listener, const UnixSignals
     m_private_state_control_broadcaster.SetEventName (eBroadcastInternalStateControlPause , "control-pause" );
     m_private_state_control_broadcaster.SetEventName (eBroadcastInternalStateControlResume, "control-resume");
 
-    listener.StartListeningForEvents (this,
+    m_listener_sp->StartListeningForEvents (this,
                                       eBroadcastBitStateChanged |
                                       eBroadcastBitInterrupt |
                                       eBroadcastBitSTDOUT |
                                       eBroadcastBitSTDERR |
                                       eBroadcastBitProfileData);
 
-    m_private_state_listener.StartListeningForEvents(&m_private_state_broadcaster,
+    m_private_state_listener_sp->StartListeningForEvents(&m_private_state_broadcaster,
                                                      eBroadcastBitStateChanged |
                                                      eBroadcastBitInterrupt);
 
-    m_private_state_listener.StartListeningForEvents(&m_private_state_control_broadcaster,
+    m_private_state_listener_sp->StartListeningForEvents(&m_private_state_control_broadcaster,
                                                      eBroadcastInternalStateControlStop |
                                                      eBroadcastInternalStateControlPause |
                                                      eBroadcastInternalStateControlResume);
@@ -904,7 +905,7 @@ Process::Finalize()
 //#ifdef LLDB_CONFIGURATION_DEBUG
 //    StreamFile s(stdout, false);
 //    EventSP event_sp;
-//    while (m_private_state_listener.GetNextEvent(event_sp))
+//    while (m_private_state_listener_sp->GetNextEvent(event_sp))
 //    {
 //        event_sp->Dump (&s);
 //        s.EOL();
@@ -913,7 +914,7 @@ Process::Finalize()
     // We have to be very careful here as the m_private_state_listener might
     // contain events that have ProcessSP values in them which can keep this
     // process around forever. These events need to be cleared out.
-    m_private_state_listener.Clear();
+    m_private_state_listener_sp->Clear();
     m_public_run_lock.TrySetRunning(); // This will do nothing if already locked
     m_public_run_lock.SetStopped();
     m_private_run_lock.TrySetRunning(); // This will do nothing if already locked
@@ -970,7 +971,7 @@ Process::GetNextEvent (EventSP &event_sp)
 {
     StateType state = eStateInvalid;
 
-    if (m_listener.GetNextEventForBroadcaster (this, event_sp) && event_sp)
+    if (m_listener_sp->GetNextEventForBroadcaster (this, event_sp) && event_sp)
         state = Process::ProcessEventData::GetStateFromEvent (event_sp.get());
 
     return state;
@@ -997,7 +998,7 @@ StateType
 Process::WaitForProcessToStop (const TimeValue *timeout,
                                EventSP *event_sp_ptr,
                                bool wait_always,
-                               Listener *hijack_listener,
+                               ListenerSP hijack_listener_sp,
                                Stream *stream,
                                bool use_run_lock)
 {
@@ -1026,7 +1027,7 @@ Process::WaitForProcessToStop (const TimeValue *timeout,
                         __FUNCTION__);
         // We need to toggle the run lock as this won't get done in
         // SetPublicState() if the process is hijacked.
-        if (hijack_listener && use_run_lock)
+        if (hijack_listener_sp && use_run_lock)
             m_public_run_lock.SetStopped();
         return state;
     }
@@ -1034,11 +1035,11 @@ Process::WaitForProcessToStop (const TimeValue *timeout,
     while (state != eStateInvalid)
     {
         EventSP event_sp;
-        state = WaitForStateChangedEvents (timeout, event_sp, hijack_listener);
+        state = WaitForStateChangedEvents (timeout, event_sp, hijack_listener_sp);
         if (event_sp_ptr && event_sp)
             *event_sp_ptr = event_sp;
 
-        bool pop_process_io_handler = hijack_listener != nullptr;
+        bool pop_process_io_handler = (hijack_listener_sp.get() != nullptr);
         Process::HandleProcessStateChangedEvent (event_sp, stream, pop_process_io_handler);
 
         switch (state)
@@ -1049,7 +1050,7 @@ Process::WaitForProcessToStop (const TimeValue *timeout,
         case eStateUnloaded:
             // We need to toggle the run lock as this won't get done in
             // SetPublicState() if the process is hijacked.
-            if (hijack_listener && use_run_lock)
+            if (hijack_listener_sp && use_run_lock)
                 m_public_run_lock.SetStopped();
             return state;
         case eStateStopped:
@@ -1059,7 +1060,7 @@ Process::WaitForProcessToStop (const TimeValue *timeout,
             {
                 // We need to toggle the run lock as this won't get done in
                 // SetPublicState() if the process is hijacked.
-                if (hijack_listener && use_run_lock)
+                if (hijack_listener_sp && use_run_lock)
                     m_public_run_lock.SetStopped();
                 return state;
             }
@@ -1295,11 +1296,11 @@ Process::WaitForState(const TimeValue *timeout,
 }
 
 bool
-Process::HijackProcessEvents (Listener *listener)
+Process::HijackProcessEvents (ListenerSP listener_sp)
 {
-    if (listener != nullptr)
+    if (listener_sp)
     {
-        return HijackBroadcaster(listener, eBroadcastBitStateChanged | eBroadcastBitInterrupt);
+        return HijackBroadcaster(listener_sp, eBroadcastBitStateChanged | eBroadcastBitInterrupt);
     }
     else
         return false;
@@ -1312,7 +1313,7 @@ Process::RestoreProcessEvents ()
 }
 
 StateType
-Process::WaitForStateChangedEvents (const TimeValue *timeout, EventSP &event_sp, Listener *hijack_listener)
+Process::WaitForStateChangedEvents (const TimeValue *timeout, EventSP &event_sp, ListenerSP hijack_listener_sp)
 {
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
 
@@ -1320,15 +1321,15 @@ Process::WaitForStateChangedEvents (const TimeValue *timeout, EventSP &event_sp,
         log->Printf ("Process::%s (timeout = %p, event_sp)...", __FUNCTION__,
                      static_cast<const void*>(timeout));
 
-    Listener *listener = hijack_listener;
-    if (listener == nullptr)
-        listener = &m_listener;
+    ListenerSP listener_sp = hijack_listener_sp;
+    if (!listener_sp)
+        listener_sp = m_listener_sp;
 
     StateType state = eStateInvalid;
-    if (listener->WaitForEventForBroadcasterWithType (timeout,
-                                                      this,
-                                                      eBroadcastBitStateChanged | eBroadcastBitInterrupt,
-                                                      event_sp))
+    if (listener_sp->WaitForEventForBroadcasterWithType (timeout,
+                                                         this,
+                                                         eBroadcastBitStateChanged | eBroadcastBitInterrupt,
+                                                         event_sp))
     {
         if (event_sp && event_sp->GetType() == eBroadcastBitStateChanged)
             state = Process::ProcessEventData::GetStateFromEvent(event_sp.get());
@@ -1352,7 +1353,7 @@ Process::PeekAtStateChangedEvents ()
         log->Printf ("Process::%s...", __FUNCTION__);
 
     Event *event_ptr;
-    event_ptr = m_listener.PeekAtNextEventForBroadcasterWithType (this,
+    event_ptr = m_listener_sp->PeekAtNextEventForBroadcasterWithType (this,
                                                                   eBroadcastBitStateChanged);
     if (log)
     {
@@ -1381,7 +1382,7 @@ Process::WaitForStateChangedEventsPrivate (const TimeValue *timeout, EventSP &ev
                      static_cast<const void*>(timeout));
 
     StateType state = eStateInvalid;
-    if (m_private_state_listener.WaitForEventForBroadcasterWithType (timeout,
+    if (m_private_state_listener_sp->WaitForEventForBroadcasterWithType (timeout,
                                                                      &m_private_state_broadcaster,
                                                                      eBroadcastBitStateChanged | eBroadcastBitInterrupt,
                                                                      event_sp))
@@ -1408,9 +1409,9 @@ Process::WaitForEventsPrivate (const TimeValue *timeout, EventSP &event_sp, bool
                      static_cast<const void*>(timeout));
 
     if (control_only)
-        return m_private_state_listener.WaitForEventForBroadcaster(timeout, &m_private_state_control_broadcaster, event_sp);
+        return m_private_state_listener_sp->WaitForEventForBroadcaster(timeout, &m_private_state_control_broadcaster, event_sp);
     else
-        return m_private_state_listener.WaitForEvent(timeout, event_sp);
+        return m_private_state_listener_sp->WaitForEvent(timeout, event_sp);
 }
 
 bool
@@ -1690,7 +1691,8 @@ Process::StateChangedIsExternallyHijacked()
 {
     if (IsHijackedForEvent(eBroadcastBitStateChanged))
     {
-        if (strcmp(m_hijacking_listeners.back()->GetName(), "lldb.Process.ResumeSynchronous.hijack"))
+        const char *hijacking_name = GetHijackingListenerName();
+        if (hijacking_name && strcmp(hijacking_name, "lldb.Process.ResumeSynchronous.hijack"))
             return true;
     }
     return false;
@@ -1763,13 +1765,13 @@ Process::ResumeSynchronous (Stream *stream)
         return error;
     }
 
-    ListenerSP listener_sp (new Listener("lldb.Process.ResumeSynchronous.hijack"));
-    HijackProcessEvents(listener_sp.get());
+    ListenerSP listener_sp (Listener::MakeListener("lldb.Process.ResumeSynchronous.hijack"));
+    HijackProcessEvents(listener_sp);
 
     Error error = PrivateResume();
     if (error.Success())
     {
-        StateType state = WaitForProcessToStop(nullptr, nullptr, true, listener_sp.get(), stream);
+        StateType state = WaitForProcessToStop (NULL, NULL, true, listener_sp, stream);
         const bool must_be_alive = false; // eStateExited is ok, so this must be false
         if (!StateIsStoppedState(state, must_be_alive))
             error.SetErrorStringWithFormat("process not in stopped state after synchronous resume: %s", StateAsCString(state));
@@ -3065,8 +3067,8 @@ Process::LoadCore ()
     Error error = DoLoadCore();
     if (error.Success())
     {
-        Listener listener ("lldb.process.load_core_listener");
-        HijackProcessEvents(&listener);
+        ListenerSP listener_sp (Listener::MakeListener("lldb.process.load_core_listener"));
+        HijackProcessEvents(listener_sp);
 
         if (PrivateStateThreadIsValid ())
             ResumePrivateStateThread ();
@@ -3091,7 +3093,7 @@ Process::LoadCore ()
 
         // Wait indefinitely for a stopped event since we just posted one above...
         lldb::EventSP event_sp;
-        listener.WaitForEvent(nullptr, event_sp);
+        listener_sp->WaitForEvent (nullptr, event_sp);
         StateType state = ProcessEventData::GetStateFromEvent(event_sp.get());
 
         if (!StateIsStoppedState (state, false))
@@ -3216,10 +3218,13 @@ Process::AttachCompletionHandler::GetExitString ()
     return m_exit_string.c_str();
 }
 
-Listener &
+ListenerSP
 ProcessAttachInfo::GetListenerForProcess (Debugger &debugger)
 {
-    return (m_listener_sp ? *m_listener_sp : debugger.GetListener());
+    if (m_listener_sp)
+        return m_listener_sp;
+    else
+        return debugger.GetListener();
 }
 
 Error
@@ -3599,8 +3604,8 @@ Process::Halt (bool clear_thread_plans, bool use_run_lock)
     // own.
     m_clear_thread_plans_on_stop |= clear_thread_plans;
     
-    Listener halt_listener ("lldb.process.halt_listener");
-    HijackProcessEvents(&halt_listener);
+    ListenerSP halt_listener_sp (Listener::MakeListener("lldb.process.halt_listener"));
+    HijackProcessEvents(halt_listener_sp);
 
     EventSP event_sp;
     
@@ -3620,7 +3625,7 @@ Process::Halt (bool clear_thread_plans, bool use_run_lock)
     TimeValue timeout_time;
     timeout_time = TimeValue::Now();
     timeout_time.OffsetWithSeconds(10);
-    StateType state = WaitForProcessToStop(&timeout_time, &event_sp, true, &halt_listener,
+    StateType state = WaitForProcessToStop(&timeout_time, &event_sp, true, halt_listener_sp,
                                            nullptr, use_run_lock);
     RestoreProcessEvents();
 
@@ -3645,8 +3650,8 @@ Process::StopForDestroyOrDetach(lldb::EventSP &exit_event_sp)
         if (log)
             log->Printf("Process::%s() About to stop.", __FUNCTION__);
 
-        ListenerSP listener_sp (new Listener("lldb.Process.StopForDestroyOrDetach.hijack"));
-        HijackProcessEvents(listener_sp.get());
+        ListenerSP listener_sp (Listener::MakeListener("lldb.Process.StopForDestroyOrDetach.hijack"));
+        HijackProcessEvents(listener_sp);
 
         SendAsyncInterrupt();
 
@@ -3654,7 +3659,7 @@ Process::StopForDestroyOrDetach(lldb::EventSP &exit_event_sp)
         TimeValue timeout (TimeValue::Now());
         timeout.OffsetWithSeconds(10);
 
-        StateType state = WaitForProcessToStop (&timeout, &exit_event_sp, true, listener_sp.get());
+        StateType state = WaitForProcessToStop (&timeout, &exit_event_sp, true, listener_sp);
 
         RestoreProcessEvents();
 
@@ -5190,35 +5195,33 @@ namespace
 } // anonymous namespace
 
 ExpressionResults
-Process::RunThreadPlan (ExecutionContext &exe_ctx,
-                        lldb::ThreadPlanSP &thread_plan_sp,
-                        const EvaluateExpressionOptions &options,
-                        Stream &errors)
+Process::RunThreadPlan(ExecutionContext &exe_ctx, lldb::ThreadPlanSP &thread_plan_sp,
+                       const EvaluateExpressionOptions &options, DiagnosticManager &diagnostic_manager)
 {
     ExpressionResults return_value = eExpressionSetupError;
 
     if (!thread_plan_sp)
     {
-        errors.Printf("RunThreadPlan called with empty thread plan.");
+        diagnostic_manager.PutCString(eDiagnosticSeverityError, "RunThreadPlan called with empty thread plan.");
         return eExpressionSetupError;
     }
 
     if (!thread_plan_sp->ValidatePlan(nullptr))
     {
-        errors.Printf ("RunThreadPlan called with an invalid thread plan.");
+        diagnostic_manager.PutCString(eDiagnosticSeverityError, "RunThreadPlan called with an invalid thread plan.");
         return eExpressionSetupError;
     }
 
     if (exe_ctx.GetProcessPtr() != this)
     {
-        errors.Printf("RunThreadPlan called on wrong process.");
+        diagnostic_manager.PutCString(eDiagnosticSeverityError, "RunThreadPlan called on wrong process.");
         return eExpressionSetupError;
     }
 
     Thread *thread = exe_ctx.GetThreadPtr();
     if (thread == nullptr)
     {
-        errors.Printf("RunThreadPlan called with invalid thread.");
+        diagnostic_manager.PutCString(eDiagnosticSeverityError, "RunThreadPlan called with invalid thread.");
         return eExpressionSetupError;
     }
 
@@ -5241,7 +5244,8 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
 
     if (m_private_state.GetValue() != eStateStopped)
     {
-        errors.Printf ("RunThreadPlan called while the private state was not stopped.");
+        diagnostic_manager.PutCString(eDiagnosticSeverityError,
+                                      "RunThreadPlan called while the private state was not stopped.");
         return eExpressionSetupError;
     }
 
@@ -5254,7 +5258,8 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
         selected_frame_sp = thread->GetSelectedFrame();
         if (!selected_frame_sp)
         {
-            errors.Printf("RunThreadPlan called without a selected frame on thread %d", thread_idx_id);
+            diagnostic_manager.Printf(eDiagnosticSeverityError,
+                                      "RunThreadPlan called without a selected frame on thread %d", thread_idx_id);
             return eExpressionSetupError;
         }
     }
@@ -5323,7 +5328,7 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
         return eExpressionStoppedForDebug;
     }
 
-    Listener listener("lldb.process.listener.run-thread-plan");
+    ListenerSP listener_sp(Listener::MakeListener("lldb.process.listener.run-thread-plan"));
 
     lldb::EventSP event_to_broadcast_sp;
 
@@ -5334,7 +5339,7 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
         // If the event needs to propagate beyond the hijacker (e.g., the process exits during execution), then the event
         // is put into event_to_broadcast_sp for rebroadcasting.
 
-        ProcessEventHijacker run_thread_plan_hijacker (*this, &listener);
+        ProcessEventHijacker run_thread_plan_hijacker (*this, listener_sp);
 
         if (log)
         {
@@ -5396,7 +5401,9 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                 {
                     if (timeout_usec < option_one_thread_timeout)
                     {
-                        errors.Printf("RunThreadPlan called without one thread timeout greater than total timeout");
+                        diagnostic_manager.PutCString(
+                            eDiagnosticSeverityError,
+                            "RunThreadPlan called without one thread timeout greater than total timeout");
                         return eExpressionSetupError;
                     }
                     computed_one_thread_timeout = option_one_thread_timeout;
@@ -5424,10 +5431,11 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
         // Are there cases where we might want to run the remaining events here, and then try to
         // call the function?  That's probably being too tricky for our own good.
 
-        Event *other_events = listener.PeekAtNextEvent();
+        Event *other_events = listener_sp->PeekAtNextEvent();
         if (other_events != nullptr)
         {
-            errors.Printf("Calling RunThreadPlan with pending events on the queue.");
+            diagnostic_manager.PutCString(eDiagnosticSeverityError,
+                                          "RunThreadPlan called with pending events on the queue.");
             return eExpressionSetupError;
         }
 
@@ -5469,12 +5477,12 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                 if (do_resume)
                 {
                     num_resumes++;
-                    Error resume_error = PrivateResume ();
+                    Error resume_error = PrivateResume();
                     if (!resume_error.Success())
                     {
-                        errors.Printf("Error resuming inferior the %d time: \"%s\".\n",
-                                      num_resumes,
-                                      resume_error.AsCString());
+                        diagnostic_manager.Printf(eDiagnosticSeverityError,
+                                                  "couldn't resume inferior the %d time: \"%s\".", num_resumes,
+                                                  resume_error.AsCString());
                         return_value = eExpressionSetupError;
                         break;
                     }
@@ -5483,14 +5491,15 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                 TimeValue resume_timeout = TimeValue::Now();
                 resume_timeout.OffsetWithMicroSeconds(500000);
 
-                got_event = listener.WaitForEvent(&resume_timeout, event_sp);
+                got_event = listener_sp->WaitForEvent(&resume_timeout, event_sp);
                 if (!got_event)
                 {
                     if (log)
-                        log->Printf ("Process::RunThreadPlan(): didn't get any event after resume %d, exiting.",
-                                        num_resumes);
+                        log->Printf("Process::RunThreadPlan(): didn't get any event after resume %" PRIu32 ", exiting.",
+                                    num_resumes);
 
-                    errors.Printf("Didn't get any event after resume %d, exiting.", num_resumes);
+                    diagnostic_manager.Printf(eDiagnosticSeverityError,
+                                              "didn't get any event after resume %" PRIu32 ", exiting.", num_resumes);
                     return_value = eExpressionSetupError;
                     break;
                 }
@@ -5523,8 +5532,9 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                         Halt(clear_thread_plans, use_run_lock);
                     }
 
-                    errors.Printf("Didn't get running event after initial resume, got %s instead.",
-                                  StateAsCString(stop_state));
+                    diagnostic_manager.Printf(eDiagnosticSeverityError,
+                                              "didn't get running event after initial resume, got %s instead.",
+                                              StateAsCString(stop_state));
                     return_value = eExpressionSetupError;
                     break;
                 }
@@ -5605,7 +5615,7 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
             }
             else
 #endif
-            got_event = listener.WaitForEvent (timeout_ptr, event_sp);
+            got_event = listener_sp->WaitForEvent (timeout_ptr, event_sp);
 
             if (got_event)
             {
@@ -5618,9 +5628,10 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                         const bool use_run_lock = false;
                         Halt(clear_thread_plans, use_run_lock);
                         return_value = eExpressionInterrupted;
-                        errors.Printf ("Execution halted by user interrupt.");
+                        diagnostic_manager.PutCString(eDiagnosticSeverityRemark, "execution halted by user interrupt.");
                         if (log)
-                            log->Printf ("Process::RunThreadPlan(): Got  interrupted by eBroadcastBitInterrupted, exiting.");
+                            log->Printf(
+                                "Process::RunThreadPlan(): Got  interrupted by eBroadcastBitInterrupted, exiting.");
                         break;
                     }
                     else
@@ -5723,7 +5734,8 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                             if (stop_state == eStateExited)
                                 event_to_broadcast_sp = event_sp;
 
-                            errors.Printf ("Execution stopped with unexpected state.\n");
+                            diagnostic_manager.PutCString(eDiagnosticSeverityError,
+                                                          "execution stopped with unexpected state.");
                             return_value = eExpressionInterrupted;
                             break;
                         }
@@ -5805,7 +5817,7 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                         real_timeout = TimeValue::Now();
                         real_timeout.OffsetWithMicroSeconds(500000);
 
-                        got_event = listener.WaitForEvent(&real_timeout, event_sp);
+                        got_event = listener_sp->WaitForEvent(&real_timeout, event_sp);
 
                         if (got_event)
                         {
@@ -6406,7 +6418,10 @@ Process::ModulesDidLoad (ModuleList &module_list)
             language_runtime_sp->ModulesDidLoad(module_list);
     }
 
-    LoadOperatingSystemPlugin(false);
+    // If we don't have an operating system plug-in, try to load one since
+    // loading shared libraries might cause a new one to try and load
+    if (!m_os_ap)
+        LoadOperatingSystemPlugin(false);
 }
 
 void

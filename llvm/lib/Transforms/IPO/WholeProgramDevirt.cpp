@@ -459,7 +459,7 @@ bool DevirtModule::tryUniqueRetValOpt(
   auto tryUniqueRetValOptFor = [&](bool IsOne) {
     const BitSetInfo *UniqueBitSet = 0;
     for (const VirtualCallTarget &Target : TargetsForSlot) {
-      if (Target.RetVal == IsOne ? 1 : 0) {
+      if (Target.RetVal == (IsOne ? 1 : 0)) {
         if (UniqueBitSet)
           return false;
         UniqueBitSet = Target.BS;
@@ -591,7 +591,7 @@ bool DevirtModule::tryVirtualConstProp(
       Value *Addr = B.CreateConstGEP1_64(Call.VTable, OffsetByte);
       if (BitWidth == 1) {
         Value *Bits = B.CreateLoad(Addr);
-        Value *Bit = ConstantInt::get(Int8Ty, 1 << OffsetBit);
+        Value *Bit = ConstantInt::get(Int8Ty, 1ULL << OffsetBit);
         Value *BitsAndBit = B.CreateAnd(Bits, Bit);
         auto IsBitSet = B.CreateICmpNE(BitsAndBit, ConstantInt::get(Int8Ty, 0));
         Call.replaceAndErase(IsBitSet);
