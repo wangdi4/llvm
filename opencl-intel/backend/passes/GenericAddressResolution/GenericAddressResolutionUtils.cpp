@@ -20,6 +20,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <set>
 #include <assert.h>
 
+#define DEBUG_TYPE "GenericAddressResolutionUtils"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes { namespace GenericAddressSpace {
   using namespace llvm;
@@ -298,22 +299,28 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                    Module *pModule, LLVMContext *pLLVMContext) {
 
     assert(pModule && pLLVMContext && "emitWarning parameters are invalid!");
-    // Print-out the message ...
-    errs() << "WARNING: " << warning << ": line# ";
-    unsigned lineNo = 0;
-    if (pInstr && !pInstr->getDebugLoc().isUnknown()) {
-      lineNo = pInstr->getDebugLoc().getLine();
-      errs() << lineNo << "\n";
-    } else {
-      errs() << "Unknown\n";
-    }
-    // ... and record to metadata
+
     Intel::MetaDataUtils mdUtils(pModule);
     if (mdUtils.empty_ModuleInfoList()) {
         mdUtils.addModuleInfoListItem(Intel::ModuleInfoMetaDataHandle(Intel::ModuleInfoMetaData::get()));
     }
+
     Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
-    //handle->addGASwarningsItem(lineNo); BUGBUG in Metadata (CQ CSSD100017034)
+
+    // Print-out the message ...
+    DEBUG(
+      dbgs() << "WARNING: " << warning << ": line# ";
+      if (pInstr && !pInstr->getDebugLoc().isUnknown()) {
+        unsigned lineNo = pInstr->getDebugLoc().getLine();
+        dbgs() << lineNo << "\n";
+        // ... and record to metadata
+        handle->addGASwarningsItem(lineNo);
+      }
+      else {
+        dbgs() << "unknown" << "\n";
+      }
+    );
+
     mdUtils.save(*pLLVMContext);
   }
 
