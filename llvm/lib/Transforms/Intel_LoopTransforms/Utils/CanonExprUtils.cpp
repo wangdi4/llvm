@@ -23,15 +23,15 @@
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 
 #define DEBUG_TYPE "hir-canon-utils"
 
 using namespace llvm;
 using namespace loopopt;
 
-HIRFramework *HLUtils::HIRF(nullptr);
+HIRFramework *HIRUtils::HIRF(nullptr);
 
 CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, unsigned Level,
                                            int64_t Const, int64_t Denom,
@@ -47,11 +47,10 @@ CanonExpr *CanonExprUtils::createExtCanonExpr(Type *SrcType, Type *DestType,
                        IsSignedDiv);
 }
 
-CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, const APInt &APVal,
-                                           int Level) {
+CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, const APInt &APVal) {
   // make apint into a CanonExpr
   int64_t Val = APVal.getSExtValue();
-  return createCanonExpr(Ty, Level, Val);
+  return createCanonExpr(Ty, 0, Val);
 }
 
 void CanonExprUtils::destroy(CanonExpr *CE) { CE->destroy(); }
@@ -97,7 +96,7 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val,
   unsigned Index = 0;
 
   BlobUtils::createBlob(Val, Symbase, true, &Index);
-  auto CE = createSelfBlobCanonExpr(Index, -1);
+  auto CE = createSelfBlobCanonExpr(Index, NonLinearLevel);
 
   return CE;
 }
@@ -105,27 +104,27 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val,
 CanonExpr *CanonExprUtils::createMetadataCanonExpr(MetadataAsValue *Val) {
   unsigned Index;
 
-  BlobUtils::createBlob(Val, CONSTANT_SYMBASE, true, &Index);
+  BlobUtils::createBlob(Val, ConstantSymbase, true, &Index);
   auto CE = createStandAloneBlobCanonExpr(Index, 0);
 
   return CE;
 }
 
 CanonExpr *CanonExprUtils::createStandAloneBlobCanonExpr(unsigned Index,
-                                                         int Level) {
+                                                         unsigned Level) {
   auto Blob = BlobUtils::getBlob(Index);
 
   assert((BlobUtils::isTempBlob(Blob) || BlobUtils::isMetadataBlob(Blob) ||
           BlobUtils::isConstantVectorBlob(Blob)) &&
          "Unexpected temp blob!");
+  assert(isValidDefLevel(Level) && "Invalid level!");
 
   auto CE = createCanonExpr(Blob->getType());
   CE->addBlob(Index, 1);
 
-  if (-1 == Level) {
+  if (Level == NonLinearLevel) {
     CE->setNonLinear();
   } else {
-    assert(Level >= 0 && "Invalid level!");
     CE->setDefinedAtLevel(Level);
   }
 
@@ -444,14 +443,18 @@ CanonExpr *CanonExprUtils::cloneAndNegate(const CanonExpr *CE) {
   return Result;
 }
 
-bool CanonExprUtils::hasNonLinearSemantics(int DefLevel,
+bool CanonExprUtils::hasNonLinearSemantics(unsigned DefLevel,
                                            unsigned NestingLevel) {
-  return ((-1 == DefLevel) || (DefLevel && (DefLevel >= (int)NestingLevel)));
+  assert(isValidDefLevel(DefLevel) && "DefLevel is invalid!");
+  assert(isValidLinearDefLevel(NestingLevel) && "NestingLevel is invalid!");
+
+  return ((DefLevel == NonLinearLevel) ||
+          (DefLevel && (DefLevel >= NestingLevel)));
 }
 
-CanonExpr * CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
-                                                 const CanonExpr *CE2,
-                                                 bool RelaxedMode) {
+CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
+                                                const CanonExpr *CE2,
+                                                bool RelaxedMode) {
   // CE1 = C1*B1*i1 + C3*i2 + ..., Level 1
   // CE2 = C2*B2
 

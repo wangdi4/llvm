@@ -187,7 +187,7 @@ namespace CallingConv {
     X86_RegCall = 87,
 
     /// \brief SVML for intel compiler
-    SVML = 85,
+    SVML = 88,
 #endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.

@@ -19,6 +19,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_Andersens.h"     // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DataLayout.h"
@@ -446,7 +447,7 @@ private:
       return true;
     }
 
-    
+
     bool isMatchingMemLoc(const ParseMemoryInst &Inst) const {
       return (getPointerOperand() == Inst.getPointerOperand() &&
               getMatchingId() == Inst.getMatchingId());
@@ -872,6 +873,7 @@ public:
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();       // INTEL
     AU.setPreservesCFG();
   }
 };

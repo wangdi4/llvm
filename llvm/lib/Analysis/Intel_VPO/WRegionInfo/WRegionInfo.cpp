@@ -31,7 +31,7 @@ using namespace llvm::vpo;
 INITIALIZE_PASS_BEGIN(WRegionInfo, "vpo-wrninfo", 
                                    "VPO Work-Region Information", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionCollection)
 INITIALIZE_PASS_END(WRegionInfo, "vpo-wrninfo", 
                                  "VPO Work-Region Information", false, true)
@@ -41,14 +41,14 @@ char WRegionInfo::ID = 0;
 FunctionPass *llvm::createWRegionInfoPass() { return new WRegionInfo(); }
 
 WRegionInfo::WRegionInfo() : FunctionPass(ID) {
-  DEBUG(dbgs() << "\nStart W-Region Information Collection Pass\n\n");
+  // DEBUG(dbgs() << "\nStart W-Region Information Collection Pass\n\n");
   initializeWRegionInfoPass(*PassRegistry::getPassRegistry());
 }
 
 void WRegionInfo::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<PostDominatorTree>();
+  AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
   AU.addRequiredTransitive<WRegionCollection>();
 }
 
@@ -59,10 +59,10 @@ void WRegionInfo::doFillUpWRegionInfo(WRegionCollection *R) {
 bool WRegionInfo::runOnFunction(Function &F) {
   this->Func = &F;
 
-  DEBUG(dbgs() << "W-Region Information Collection Start\n");
+  DEBUG(dbgs() << "\nW-Region Information Collection Start\n");
 
   DT     = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  PDT    = &getAnalysis<PostDominatorTree>();
+  PDT    = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   WRC    = &getAnalysis<WRegionCollection>();
 
 #if 1

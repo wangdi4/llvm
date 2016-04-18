@@ -25,6 +25,10 @@ using namespace llvm::loopopt;
 
 // AVR Creation Utilities
 
+AVRLoopHIR *AVRUtilsHIR::createAVRLoopHIR(HLLoop *Lp) {
+  return new AVRLoopHIR(Lp);
+}
+
 AVRAssignHIR *AVRUtilsHIR::createAVRAssignHIR(HLInst *Inst) {
   return new AVRAssignHIR(Inst);
 }

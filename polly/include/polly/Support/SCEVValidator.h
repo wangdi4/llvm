@@ -19,6 +19,7 @@
 namespace llvm {
 class Region;
 class SCEV;
+class SCEVConstant;
 class ScalarEvolution;
 class Value;
 class Loop;
@@ -45,7 +46,11 @@ void findValues(const llvm::SCEV *Expr, llvm::SetVector<llvm::Value *> &Values);
 ///
 /// @param S The SCEV to analyze.
 /// @param R The region in which we look for dependences.
-bool hasScalarDepsInsideRegion(const llvm::SCEV *S, const llvm::Region *R);
+/// @param Scope Location where the value is needed.
+/// @param AllowLoops Whether loop recurrences outside the loop that are in the
+///                   region count as dependence.
+bool hasScalarDepsInsideRegion(const llvm::SCEV *S, const llvm::Region *R,
+                               llvm::Loop *Scope, bool AllowLoops);
 bool isAffineExpr(const llvm::Region *R, const llvm::SCEV *Expression,
                   llvm::ScalarEvolution &SE, const llvm::Value *BaseAddress = 0,
                   InvariantLoadsSetTy *ILS = nullptr);
@@ -67,7 +72,7 @@ getParamsInAffineExpr(const llvm::Region *R, const llvm::SCEV *Expression,
 /// @param SE The ScalarEvolution analysis to create new SCEVs.
 ///
 /// @returns The constant factor in @p M and the rest of @p M.
-std::pair<const llvm::SCEV *, const llvm::SCEV *>
+std::pair<const llvm::SCEVConstant *, const llvm::SCEV *>
 extractConstantFactor(const llvm::SCEV *M, llvm::ScalarEvolution &SE);
 }
 

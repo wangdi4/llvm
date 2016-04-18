@@ -59,6 +59,7 @@
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/CFG.h"
@@ -138,6 +139,7 @@ FunctionPass *llvm::createTailCallEliminationPass() {
 void TailCallElim::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
+  AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
 }
 
 /// \brief Scan the specified function for alloca instructions.

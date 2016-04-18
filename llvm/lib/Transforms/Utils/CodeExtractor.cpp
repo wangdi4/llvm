@@ -51,14 +51,23 @@ AggregateArgsOpt("aggregate-extracted-args", cl::Hidden,
 
 /// \brief Test whether a block is valid for extraction.
 static bool isBlockValidForExtraction(const BasicBlock &BB) {
+
   // Landing pads must be in the function where they were inserted for cleanup.
   if (BB.isEHPad())
     return false;
 
   // Don't hoist code containing allocas, invokes, or vastarts.
   for (BasicBlock::const_iterator I = BB.begin(), E = BB.end(); I != E; ++I) {
+#ifdef INTEL_CUSTOMIZATION
+    // Allow Alloca in the blocks for extraction. This fixes a bug in the 
+    // way the DT update is handled as well. 
+    if (isa<InvokeInst>(I))
+      return false;
+#else 
     if (isa<AllocaInst>(I) || isa<InvokeInst>(I))
       return false;
+#endif // INTEL_CUSTOMIZATION
+
     if (const CallInst *CI = dyn_cast<CallInst>(I))
       if (const Function *F = CI->getCalledFunction())
         if (F->getIntrinsicID() == Intrinsic::vastart)

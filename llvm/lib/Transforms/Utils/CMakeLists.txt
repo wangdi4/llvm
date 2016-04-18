@@ -21,7 +21,6 @@ add_llvm_library(LLVMTransformUtils
 #if INTEL_CUSTOMIZATION
   Intel_GeneralUtils.cpp
   Intel_IntrinsicUtils.cpp
-  Intel_OpenMPDirectivesAndClauses.cpp
   Intel_VecClone.cpp
 #endif // INTEL_CUSTOMIZATION
   LCSSA.cpp
@@ -55,4 +54,4 @@ add_llvm_library(LLVMTransformUtils
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Utils
   )
 
-add_dependencies(LLVMTransformUtils intrinsics_gen)
+add_dependencies(LLVMTransformUtils intrinsics_gen intel_directives_gen)

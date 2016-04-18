@@ -31,12 +31,18 @@ if(CMAKE_VERSION VERSION_LESS 2.8.12)
   # Invalidate a couple of keywords.
   set(cmake_2_8_12_INTERFACE)
   set(cmake_2_8_12_PRIVATE)
+  if(APPLE)
+    set(CMAKE_MACOSX_RPATH On)
+  endif()
 else()
   # Use ${cmake_2_8_12_KEYWORD} intead of KEYWORD in target_link_libraries().
   set(cmake_2_8_12_INTERFACE INTERFACE)
   set(cmake_2_8_12_PRIVATE PRIVATE)
   if(POLICY CMP0022)
     cmake_policy(SET CMP0022 NEW) # automatic when 2.8.12 is required
+  endif()
+  if(POLICY CMP0042)
+    cmake_policy(SET CMP0042 NEW) # automatic when 2.8.12 is required
   endif()
 endif()
 
@@ -241,6 +247,8 @@ if(MSVC)
   # FIXME: In fact, sanitizers should support both /MT and /MD, see PR20214.
   if(COMPILER_RT_HAS_MT_FLAG)
     foreach(flag_var
+      CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+      CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
       CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
       CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
       string(REGEX REPLACE "/M[DT]d" "/MT" ${flag_var} "${${flag_var}}")

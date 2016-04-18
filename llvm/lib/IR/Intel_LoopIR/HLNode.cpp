@@ -195,9 +195,13 @@ HLLoop *HLNode::getOutermostParentLoop() const {
   return ParLoop;
 }
 
-unsigned HLNode::getHLNodeLevel() const {
+unsigned HLNode::getNodeLevel() const {
 
   assert(getParentRegion() && " Node should be connected to a HLRegion");
+
+  if (auto CurrentLoop = dyn_cast<HLLoop>(this)) {
+    return CurrentLoop->getNestingLevel();
+  }
 
   HLLoop *Loop = getLexicalParentLoop();
   unsigned Level = Loop ? Loop->getNestingLevel() : 0;

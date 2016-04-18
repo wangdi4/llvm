@@ -21,9 +21,9 @@
 ; RUN: opt < %s -S -analyze -debug  -hir-vect-vls-analysis -hir-debug-vect-vls 2>&1 | FileCheck %s
 ;
 ; CHECK: Printing Groups- Total Groups 3
-; CHECK: AccessMask(per byte, R to L): 1111
-; CHECK: AccessMask(per byte, R to L): 111111111111
-; CHECK: AccessMask(per byte, R to L): 1111
+; CHECK-DAG: AccessMask(per byte, R to L): 1111
+; CHECK-DAG: AccessMask(per byte, R to L): 111111111111
+; CHECK-DAG: AccessMask(per byte, R to L): 1111
 
 
 ; ModuleID = 'vectvls1.c'

@@ -17,6 +17,7 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasSetTracker.h"
+#include "llvm/Analysis/AliasAnalysisEvaluator.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CFLAliasAnalysis.h"
 #include "llvm/Analysis/CallPrinter.h"
@@ -35,11 +36,13 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"   // INTEL
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h" // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
@@ -171,7 +174,7 @@ namespace {
       (void) llvm::createPostDomTree();
       (void) llvm::createInstructionNamerPass();
       (void) llvm::createMetaRenamerPass();
-      (void) llvm::createPostOrderFunctionAttrsPass();
+      (void) llvm::createPostOrderFunctionAttrsLegacyPass();
       (void) llvm::createReversePostOrderFunctionAttrsPass();
       (void) llvm::createMergeFunctionsPass();
       std::string buf;
@@ -204,7 +207,9 @@ namespace {
       (void)new llvm::ScalarEvolutionWrapperPass();
       llvm::Function::Create(nullptr, llvm::GlobalValue::ExternalLinkage)->viewCFGOnly();
       llvm::RGPassManager RGM;
-      llvm::AliasAnalysis AA;
+      llvm::TargetLibraryInfoImpl TLII;
+      llvm::TargetLibraryInfo TLI(TLII);
+      llvm::AliasAnalysis AA(TLI);
       llvm::AliasSetTracker X(AA);
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
       (void) llvm::AreStatisticsEnabled();
@@ -213,21 +218,22 @@ namespace {
   #if INTEL_CUSTOMIZATION 
       (void) llvm::createSNodeAnalysisPass();
       // HIR passes
-      (void) llvm::createRegionIdentificationPass();
-      (void) llvm::createSCCFormationPass();
+      (void) llvm::createHIRRegionIdentificationPass();
+      (void) llvm::createHIRSCCFormationPass();
       (void) llvm::createHIRCreationPass();
       (void) llvm::createHIRCleanupPass();
-      (void) llvm::createLoopFormationPass();
-      (void) llvm::createScalarSymbaseAssignmentPass();
+      (void) llvm::createHIRLoopFormationPass();
+      (void) llvm::createHIRScalarSymbaseAssignmentPass();
       (void) llvm::createHIRParserPass();
-      (void) llvm::createSymbaseAssignmentPass();
+      (void) llvm::createHIRSymbaseAssignmentPass();
       (void) llvm::createHIRFrameworkPass();
-      (void) llvm::createDDAnalysisPass();
+      (void) llvm::createHIRDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
       (void) llvm::createHIRParVecAnalysisPass();
       (void) llvm::createHIRVectVLSAnalysisPass();
 
-      (void) llvm::createSSADeconstructionPass();
+      (void) llvm::createHIRSSADeconstructionPass();
+      (void) llvm::createHIRLoopInterchangePass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRCompleteUnrollPass();
@@ -245,7 +251,6 @@ namespace {
       (void) llvm::createWRegionInfoPass();
 
       // VPO Vectorizer Passes
-      (void) llvm::createIdentifyVectorCandidatesPass();
       (void) llvm::createAVRGeneratePass();
       (void) llvm::createAVRGenerateHIRPass();
       (void) llvm::createVPODriverPass();

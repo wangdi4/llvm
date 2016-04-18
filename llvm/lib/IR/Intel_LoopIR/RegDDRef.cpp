@@ -33,19 +33,9 @@ RegDDRef::RegDDRef(unsigned SB)
 RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
     : DDRef(RegDDRefObj), GepInfo(nullptr), Node(nullptr) {
 
-  // Copy base canon expr
-  if (auto NewCE = RegDDRefObj.getBaseCE()) {
-    setBaseCE(NewCE->clone());
-  }
-
-  // Copy inbounds attribute
-  if (RegDDRefObj.isInBounds()) {
-    setInBounds(true);
-  }
-
-  // Copy AddressOf flag.
-  if (RegDDRefObj.isAddressOf()) {
-    setAddressOf(true);
+  // Copy GEPInfo.
+  if (RegDDRefObj.hasGEPInfo()) {
+    GepInfo = new GEPInfo(*(RegDDRefObj.GepInfo));
   }
 
   // Loop over CanonExprs
@@ -64,7 +54,14 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 }
 
 RegDDRef::GEPInfo::GEPInfo()
-    : BaseCE(nullptr), InBounds(false), AddressOf(false) {}
+    : BaseCE(nullptr), InBounds(false), AddressOf(false), Volatile(false),
+      Alignment(0) {}
+
+RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
+    : BaseCE(Info.BaseCE->clone()), InBounds(Info.InBounds),
+      AddressOf(Info.AddressOf), Volatile(Info.Volatile),
+      Alignment(Info.Alignment), MDNodes(Info.MDNodes) {}
+
 RegDDRef::GEPInfo::~GEPInfo() {}
 
 RegDDRef *RegDDRef::clone() const {
@@ -75,17 +72,93 @@ RegDDRef *RegDDRef::clone() const {
   return NewRegDDRef;
 }
 
-int RegDDRef::findMaxBlobLevel(
+// Used to keep MDNodes sorted by KindID.
+struct RegDDRef::GEPInfo::MDKindCompareLess {
+  bool operator()(const MDPairTy &MD1, const MDPairTy &MD2) {
+    return MD1.first < MD2.first;
+  }
+};
+
+// Used to keep MDNodes sorted by KindID.
+struct RegDDRef::GEPInfo::MDKindCompareEqual {
+  bool operator()(const MDPairTy &MD1, const MDPairTy &MD2) {
+    return MD1.first == MD2.first;
+  }
+};
+
+MDNode *RegDDRef::getMetadata(StringRef Kind) const {
+  return getMetadata(HIRUtils::getContext().getMDKindID(Kind));
+}
+
+MDNode *RegDDRef::getMetadata(unsigned KindID) const {
+  if (!hasGEPInfo()) {
+    // TODO: Handle DbgLoc.
+    return nullptr;
+  }
+
+  MDPairTy MD(KindID, nullptr);
+
+  auto Beg = GepInfo->MDNodes.begin();
+  auto End = GepInfo->MDNodes.end();
+
+  auto It = std::lower_bound(Beg, End, MD, GEPInfo::MDKindCompareLess());
+
+  if ((It != End) && GEPInfo::MDKindCompareEqual()(*It, MD)) {
+    return It->second;
+  }
+
+  return nullptr;
+}
+
+void RegDDRef::getAllMetadata(MDNodesTy &MDs) const {
+  // TODO: Include DbgLoc.
+  getAllMetadataOtherThanDebugLoc(MDs);
+}
+
+void RegDDRef::getAllMetadataOtherThanDebugLoc(MDNodesTy &MDs) const {
+  MDs.clear();
+
+  if (!hasGEPInfo()) {
+    return;
+  }
+
+  MDs = GepInfo->MDNodes;
+}
+
+void RegDDRef::setMetadata(StringRef Kind, MDNode *Node) {
+  setMetadata(HIRUtils::getContext().getMDKindID(Kind), Node);
+}
+
+void RegDDRef::setMetadata(unsigned KindID, MDNode *Node) {
+  // TODO: Handle DbgLoc.
+  createGEP();
+
+  MDPairTy MD(KindID, Node);
+
+  auto Beg = GepInfo->MDNodes.begin();
+  auto End = GepInfo->MDNodes.end();
+
+  auto It = std::lower_bound(Beg, End, MD, GEPInfo::MDKindCompareLess());
+
+  if ((It != End) && GEPInfo::MDKindCompareEqual()(*It, MD)) {
+    It->second = Node;
+
+  } else {
+    GepInfo->MDNodes.insert(It, MD);
+  }
+}
+
+unsigned RegDDRef::findMaxBlobLevel(
     const SmallVectorImpl<unsigned> &BlobIndices) const {
-  int DefLevel = 0, MaxLevel = 0;
+  unsigned DefLevel = 0, MaxLevel = 0;
 
   for (auto Index : BlobIndices) {
-    bool BlobExist = findBlobLevel(Index, &DefLevel);
-    (void)BlobExist;
-    assert(BlobExist && "Blob DDRef not found!");
+    bool Found = findBlobLevel(Index, &DefLevel);
+    (void)Found;
+    assert(Found && "Blob DDRef not found!");
 
-    if (-1 == DefLevel) {
-      return -1;
+    if (DefLevel == NonLinearLevel) {
+      return NonLinearLevel;
     } else if (DefLevel > MaxLevel) {
       MaxLevel = DefLevel;
     }
@@ -110,8 +183,8 @@ void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
 
 void RegDDRef::updateDefLevel(unsigned NestingLevelIfDetached) {
 
-  unsigned Level = getHLDDNode() ? getHLDDNodeLevel() : NestingLevelIfDetached;
-  assert((Level <= MaxLoopNestLevel) &&
+  unsigned Level = getHLDDNode() ? getNodeLevel() : NestingLevelIfDetached;
+  assert(CanonExprUtils::isValidLinearDefLevel(Level) &&
          "Nesting level not set for detached DDRef!");
 
   // Update attached blob DDRefs' def level first.
@@ -157,6 +230,15 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
     if (HasGEP) {
       if (isAddressOf()) {
         OS << "&(";
+      } else {
+        // Only print these for loads/stores.
+        if (isVolatile()) {
+          OS << "{vol}";
+        }
+
+        if (auto Alignment = getAlignment()) {
+          OS << "{al:" << Alignment << "}";
+        }
       }
 
       if (PrintBaseCast) {
@@ -181,8 +263,14 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       }
     }
 
-    if (isAddressOf()) {
-      OS << ")";
+    if (HasGEP) {
+      if (isAddressOf()) {
+        OS << ")";
+      }
+
+      if (Detailed) {
+        DDRefUtils::printMDNodes(OS, GepInfo->MDNodes);
+      }
     }
   }
 
@@ -399,7 +487,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
     }
 
     unsigned Index = DimCE->getIVBlobCoeff(Level);
-    if (Index != INVALID_BLOB_INDEX) {
+    if (Index != InvalidBlobIndex) {
       StrideAtLevel->addBlob(Index, DimCE->getIVConstCoeff(Level) * DimStride);
     } else {
       StrideAtLevel->addConstant(DimCE->getIVConstCoeff(Level) * DimStride);
@@ -410,10 +498,11 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   // DefinedAtLevel property of StrideCE.
   SmallVector<unsigned, 8> BlobIndices;
   StrideAtLevel->collectTempBlobIndices(BlobIndices);
-  int MaxLevel = findMaxBlobLevel(BlobIndices);
-  assert(MaxLevel >= 0 && "Invalid level!");
-  if ((unsigned)MaxLevel > StrideAtLevel->getDefinedAtLevel())
-    StrideAtLevel->setDefinedAtLevel(MaxLevel);
+
+  unsigned MaxLevel = findMaxBlobLevel(BlobIndices);
+  assert((MaxLevel != NonLinearLevel) && "Invalid level!");
+
+  StrideAtLevel->setDefinedAtLevel(MaxLevel);
 
   assert(StrideAtLevel->isInvariantAtLevel(Level) && "Invariant Stride!");
   return StrideAtLevel;
@@ -488,7 +577,7 @@ void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {
   BlobRef->setParentDDRef(this);
 }
 
-void RegDDRef::addBlobDDRef(unsigned Index, int Level) {
+void RegDDRef::addBlobDDRef(unsigned Index, unsigned Level) {
   auto BRef = DDRefUtils::createBlobDDRef(Index, Level);
   addBlobDDRef(BRef);
 }
@@ -583,11 +672,11 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
 
   updateBlobDDRefs(NewBlobs);
 
-  unsigned Level = getHLDDNode() ? getHLDDNodeLevel() : NestingLevelIfDetached;
+  unsigned Level = getHLDDNode() ? getNodeLevel() : NestingLevelIfDetached;
 
   // Set def level for the new blobs.
   for (auto &BRef : NewBlobs) {
-    int DefLevel = 0;
+    unsigned DefLevel = 0;
     bool Found = false;
     unsigned Index = BRef->getBlobIndex();
 
@@ -651,7 +740,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
     removeAllBlobDDRefs();
 
     if (!IsLvalAssumed) {
-      setSymbase(CONSTANT_SYMBASE);
+      setSymbase(ConstantSymbase);
     }
 
     return;
@@ -676,7 +765,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
   }
 }
 
-bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
+bool RegDDRef::findBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const {
   assert(DefLevel && "DefLevel ptr should not be null!");
 
   unsigned Index = 0;
@@ -686,7 +775,7 @@ bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
     Index = CE->getSingleBlobIndex();
 
     if (Index == BlobIndex) {
-      *DefLevel = CE->isNonLinear() ? -1 : CE->getDefinedAtLevel();
+      *DefLevel = CE->isNonLinear() ? NonLinearLevel : CE->getDefinedAtLevel();
       return true;
     }
 
@@ -698,7 +787,7 @@ bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
 
     if (Index == BlobIndex) {
       auto CE = (*I)->getCanonExpr();
-      *DefLevel = CE->isNonLinear() ? -1 : CE->getDefinedAtLevel();
+      *DefLevel = CE->isNonLinear() ? NonLinearLevel : CE->getDefinedAtLevel();
       return true;
     }
   }
@@ -755,8 +844,9 @@ void RegDDRef::verify() const {
   assert(getNumDimensions() > 0 &&
          "RegDDRef should contain at least one CanonExpr!");
 
+  auto NodeLevel = getNodeLevel();
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    (*I)->verify();
+    (*I)->verify(NodeLevel);
   }
 
   if (hasGEPInfo()) {
@@ -781,10 +871,10 @@ void RegDDRef::verify() const {
   }
 
   if (!IsConst || isLval()) {
-    assert((getSymbase() > CONSTANT_SYMBASE) && "DDRef has invalid symbase!");
+    assert((getSymbase() > ConstantSymbase) && "DDRef has invalid symbase!");
 
   } else {
-    assert((getSymbase() == CONSTANT_SYMBASE) &&
+    assert((getSymbase() == ConstantSymbase) &&
            "Constant DDRef's symbase is incorrect!");
   }
 

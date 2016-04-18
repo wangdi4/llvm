@@ -1,4 +1,4 @@
-; RUN: llc -mtriple=i686-windows-msvc < %s | FileCheck %s
+; RUN: llc -stack-symbol-ordering=0 -mtriple=i686-windows-msvc < %s | FileCheck %s
 
 ; 32-bit catch-all has to use a filter function because that's how it saves the
 ; exception code.
@@ -53,21 +53,20 @@ entry:
 ; Check that we can get the exception code from eax to the printf.
 
 ; CHECK-LABEL: _main:
-; CHECK: movl %ebp, [[ebp_offs:[0-9]+]](%esi)
 ; CHECK: Lmain$frame_escape_0 = [[code_offs:[-0-9]+]]
 ; CHECK: movl %esp, [[reg_offs:[-0-9]+]](%esi)
 ; CHECK: movl $L__ehtable$main,
 ;       EH state 0
-; CHECK: movl $0, [[id_offs:[0-9]+]](%esi)
+; CHECK: movl $0, 40(%esi)
 ; CHECK: calll _crash
 ; CHECK: retl
 ; CHECK: LBB0_[[lpbb:[0-9]+]]: # %__except
 ;       Restore ESP
 ; CHECK: movl -24(%ebp), %esp
 ;       Restore ESI
-; CHECK: leal -40(%ebp), %esi
+; CHECK: leal -44(%ebp), %esi
 ;       Restore EBP
-; CHECK: movl [[ebp_offs]](%esi), %ebp
+; CHECK: movl 12(%esi), %ebp
 ; CHECK: movl [[code_offs]](%esi), %[[code:[a-z]+]]
 ; CHECK-DAG: movl %[[code]], 4(%esp)
 ; CHECK-DAG: movl $_str, (%esp)

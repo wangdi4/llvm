@@ -27,6 +27,8 @@
 
 #include "llvm/ADT/DenseSet.h"
 
+#include "llvm/IR/Module.h"
+
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
@@ -48,8 +50,8 @@ class Loop;
 
 namespace loopopt {
 
-class ScalarSymbaseAssignment;
-class LoopFormation;
+class HIRScalarSymbaseAssignment;
+class HIRLoopFormation;
 class HLNode;
 class HLDDNode;
 class HLRegion;
@@ -64,7 +66,7 @@ class DDRef;
 class CanonExpr;
 
 typedef const SCEV *BlobTy;
-const unsigned INVALID_BLOB_INDEX = 0;
+const unsigned InvalidBlobIndex = 0;
 
 /// \brief This analysis creates DDRefs and parses SCEVs into CanonExprs for
 /// HLNodes inside HIR regions. It eliminates HLNodes useless to HIR.
@@ -76,7 +78,7 @@ private:
   // HIRParser like createBlob() etc.
   friend class BlobUtils;
   // Needs to access getMaxScalarSymbase().
-  friend class SymbaseAssignment;
+  friend class HIRSymbaseAssignment;
   // Provides access to hir_begin() to HIR transformations.
   friend class HIRFramework;
 
@@ -96,16 +98,16 @@ private:
   ScalarEvolution *SE;
 
   /// RI - The region identification pass.
-  const RegionIdentification *RI;
+  const HIRRegionIdentification *RI;
 
   /// HIR - HIR for the function.
   HIRCreation *HIR;
 
   /// LF - Loop formation analysis of HIR.
-  LoopFormation *LF;
+  HIRLoopFormation *LF;
 
   /// ScalarSA - Scalar Symbase Assignment Analysis.
-  ScalarSymbaseAssignment *ScalarSA;
+  HIRScalarSymbaseAssignment *ScalarSA;
 
   /// Func - The function we are operating on.
   Function *Func;
@@ -137,8 +139,8 @@ private:
   // SmallSet<unsigned, 64> TempBlobSymbases;
 
   /// CurBlobLevelMap - Maps temp blob indices to nesting levels for the current
-  /// DDRef. Level of -1 denotes non-linear blobs.
-  SmallDenseMap<unsigned, int, 8> CurTempBlobLevelMap;
+  /// DDRef. 
+  SmallDenseMap<unsigned, unsigned, 8> CurTempBlobLevelMap;
 
   // BlobTable - vector containing blobs and corresponding symbases for the
   // function.
@@ -147,7 +149,6 @@ private:
   // BlobToIndexMap - stores a mapping of blobs to corresponding indices for
   // faster lookup.
   BlobToIndexTy BlobToIndexMap;
-
 
   // Used as comparators to sort blobs.
   struct BlobPtrCompareLess;
@@ -161,6 +162,9 @@ private:
 
   /// TempBlobCollector - Collects temp blobs within a blob.
   class TempBlobCollector;
+
+  /// NestedBlobChecker - Check to see if we have a nested blob
+  class NestedBlobChecker;
 
   /// BlobLevelSetter - Used to set blob levels in the canon expr.
   class BlobLevelSetter;
@@ -243,8 +247,7 @@ private:
   /// \brief Wrapper to find/insert Blob in the blob table and assign it a
   /// symbase, if applicable. Returns blob index and Symbase.
   /// This is only used during parsing.
-  unsigned findOrInsertBlobWrapper(BlobTy Blob,
-                                   unsigned *SymbasePtr = nullptr);
+  unsigned findOrInsertBlobWrapper(BlobTy Blob, unsigned *SymbasePtr = nullptr);
 
   /// \brief Adds an entry for the temp blob in blob maps.
   void addTempBlobEntry(unsigned Index, unsigned NestingLevel,
@@ -264,6 +267,9 @@ private:
   /// IV coeff.
   void parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
                  unsigned IVLevel = 0);
+
+  /// \brief Calls SE->getSCEVAtScope() based on the location of CurNode. 
+  const SCEV *getSCEVAtScope(const SCEV *SC) const;
 
   /// \brief Recursively parses SCEV tree into CanonExpr. IsTop is true when we
   /// are at the top of the tree and UnderCast is true if we are under a cast
@@ -331,6 +337,17 @@ private:
   /// \brief Creates a canon expr which represents the index of header phi.
   CanonExpr *createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level);
 
+  /// \brief Wrapper for merging IndexCE2 into IndexCE1.
+  static void mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2);
+
+  /// \brief Creates and adds dimensions for a phi base GEP into Ref.
+  /// LastIndexCE is merged with the highest phi dimension.
+  /// PhiDims is the number of dimensions in the phi type.
+  /// IsInBounds is set to true, if applicable.
+  void addPhiBaseGEPDimensions(const GEPOperator *GEPOp, RegDDRef *Ref,
+                               CanonExpr *LastIndexCE, unsigned Level,
+                               unsigned PhiDims, bool &IsInBounds);
+
   /// \brief Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
   RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                   const GEPOperator *GEPOp, unsigned Level);
@@ -372,11 +389,11 @@ private:
 
   /// \brief Implements find()/insert() functionality.
   /// ReturnSymbase indicates whether to return blob index or symbase.
-  unsigned findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
-                                       bool Insert, bool ReturnSymbase);
+  unsigned findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase, bool Insert,
+                                bool ReturnSymbase);
 
   /// \brief Returns the index of Blob in the blob table. Index range is [1,
-  /// UINT_MAX]. Returns INVALID_BLOB_INDEX if the blob is not present in the
+  /// UINT_MAX]. Returns InvalidBlobIndex if the blob is not present in the
   /// table.
   unsigned findBlob(BlobTy Blob);
 
@@ -399,47 +416,44 @@ private:
   /// \brief Maps blobs in Blobs to their corresponding indices and inserts
   /// them in Indices.
   void mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
-                                SmallVectorImpl<unsigned> &Indices);
-
+                         SmallVectorImpl<unsigned> &Indices);
 
   /// \brief Returns a new blob created from passed in Val.
   BlobTy createBlob(Value *Val, unsigned Symbase, bool Insert,
-                               unsigned *NewBlobIndex);
+                    unsigned *NewBlobIndex);
 
   /// \brief Returns a new blob created from a constant value.
-  BlobTy createBlob(int64_t Val, Type *Ty, bool Insert,
-                               unsigned *NewBlobIndex);
+  BlobTy createBlob(int64_t Val, Type *Ty, bool Insert, unsigned *NewBlobIndex);
 
   /// \brief Returns a blob which represents (LHS + RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  BlobTy createAddBlob(BlobTy LHS, BlobTy RHS,
-                                  bool Insert, unsigned *NewBlobIndex);
+  BlobTy createAddBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                       unsigned *NewBlobIndex);
 
   /// \brief Returns a blob which represents (LHS - RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  BlobTy createMinusBlob(BlobTy LHS,
-                                    BlobTy RHS, bool Insert,
-                                    unsigned *NewBlobIndex);
+  BlobTy createMinusBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                         unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (LHS * RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  BlobTy createMulBlob(BlobTy LHS, BlobTy RHS,
-                                  bool Insert, unsigned *NewBlobIndex);
+  BlobTy createMulBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                       unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (LHS / RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  BlobTy createUDivBlob(BlobTy LHS, BlobTy RHS,
-                                   bool Insert, unsigned *NewBlobIndex);
+  BlobTy createUDivBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                        unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (trunc Blob to Ty). If Insert is
   /// true its index is returned via NewBlobIndex argument.
-  BlobTy createTruncateBlob(BlobTy Blob, Type *Ty,
-                                       bool Insert, unsigned *NewBlobIndex);
+  BlobTy createTruncateBlob(BlobTy Blob, Type *Ty, bool Insert,
+                            unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (zext Blob to Ty). If Insert is
   /// true its index is returned via NewBlobIndex argument.
-  BlobTy createZeroExtendBlob(BlobTy Blob, Type *Ty,
-                                         bool Insert, unsigned *NewBlobIndex);
+  BlobTy createZeroExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
+                              unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (sext Blob to Ty). If Insert is
   /// true its index is returned via NewBlobIndex argument.
-  BlobTy createSignExtendBlob(BlobTy Blob, Type *Ty,
-                                         bool Insert, unsigned *NewBlobIndex);
+  BlobTy createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
+                              unsigned *NewBlobIndex);
 
   // TODO handle min/max blobs.
 
@@ -447,8 +461,7 @@ private:
   bool contains(BlobTy Blob, BlobTy SubBlob) const;
 
   /// \brief Collects and returns temp blobs present inside Blob.
-  void collectTempBlobs(BlobTy Blob,
-                        SmallVectorImpl<BlobTy> &TempBlobs) const;
+  void collectTempBlobs(BlobTy Blob, SmallVectorImpl<BlobTy> &TempBlobs) const;
 
   /// \brief Returns the max symbase assigned to any temp.
   unsigned getMaxScalarSymbase() const;
@@ -470,6 +483,9 @@ private:
   /// \brief Returns true if this is a temp blob.
   bool isTempBlob(BlobTy Blob) const;
 
+  /// \brief Returns true if this is a nested blob(SCEV tree with > 1 node).
+  bool isNestedBlob(BlobTy Blob) const;
+
   /// \brief Returns true if TempBlob always has a defined at level of zero.
   bool isGuaranteedProperLinear(BlobTy TempBlob) const;
 
@@ -488,8 +504,19 @@ private:
   /// If blob is metadata, sets the return value in Val.
   bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) const;
 
-  LLVMContext &getContext() const;
-  const DataLayout &getDataLayout() const;
+  /// \brief Returns Function object.
+  Function &getFunction() const { return *Func; }
+
+  /// \brief Returns Module object.
+  Module &getModule() const { return *(getFunction().getParent()); }
+
+  /// \brief Returns LLVMContext object.
+  LLVMContext &getContext() const { return getFunction().getContext(); }
+
+  /// \brief Returns DataLayout object.
+  const DataLayout &getDataLayout() const {
+    return getModule().getDataLayout();
+  }
 
   /// Region iterator methods
   HIRCreation::iterator hir_begin() { return HIR->begin(); }

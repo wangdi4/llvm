@@ -402,9 +402,9 @@ void ContinuationIndenter::addTokenOnCurrentLine(LineState &State, bool DryRun,
                (Previous.isNot(tok::lessless) || Previous.OperatorIndex != 0 ||
                 Previous.NextOperator)) ||
               Current.StartsBinaryExpression)) {
-    // Always indent relative to the RHS of the expression unless this is a
-    // simple assignment without binary expression on the RHS. Also indent
-    // relative to unary operators and the colons of constructor initializers.
+    // Indent relative to the RHS of the expression unless this is a simple
+    // assignment without binary expression on the RHS. Also indent relative to
+    // unary operators and the colons of constructor initializers.
     State.Stack.back().LastSpace = State.Column;
   } else if (Previous.is(TT_InheritanceColon)) {
     State.Stack.back().Indent = State.Column;
@@ -531,6 +531,12 @@ unsigned ContinuationIndenter::addTokenOnNewLine(LineState &State,
 
   if (!Current.isTrailingComment())
     State.Stack.back().LastSpace = State.Column;
+  if (Current.is(tok::lessless))
+    // If we are breaking before a "<<", we always want to indent relative to
+    // RHS. This is necessary only for "<<", as we special-case it and don't
+    // always indent relative to the RHS.
+    State.Stack.back().LastSpace += 3; // 3 -> width of "<< ".
+
   State.StartOfLineLevel = Current.NestingLevel;
   State.LowestLevelOnLine = Current.NestingLevel;
 
@@ -841,7 +847,7 @@ void ContinuationIndenter::moveStatePastFakeLParens(LineState &State,
     // there is a line-break right after the operator.
     // Exclude relational operators, as there, it is always more desirable to
     // have the LHS 'left' of the RHS.
-    if (Previous && Previous->getPrecedence() > prec::Assignment &&
+    if (Previous && Previous->getPrecedence() != prec::Assignment &&
         Previous->isOneOf(TT_BinaryOperator, TT_ConditionalExpr) &&
         Previous->getPrecedence() != prec::Relational) {
       bool BreakBeforeOperator =

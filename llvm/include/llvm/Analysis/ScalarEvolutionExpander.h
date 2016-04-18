@@ -274,10 +274,10 @@ private:
                           const SCEV *const *op_end,
                           PointerType *PTy, Type *Ty, Value *V);
 
-#if INTEL_CUSTOMIZATION
-    virtual
-#endif
-    Value *expand(const SCEV *S);
+    /// \brief Find a previous Value in ExprValueMap for expand.
+    Value *FindValueInExprValueMap(const SCEV *S, const Instruction *InsertPt);
+
+    virtual Value *expand(const SCEV *S);         // INTEL
 
     /// \brief Insert code to directly compute the specified SCEV expression
     /// into the program.  The inserted code is inserted into the SCEVExpander's

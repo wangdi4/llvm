@@ -98,6 +98,7 @@ namespace lltok {
     kw_x86_regcallcc, // INTEL
     kw_arm_apcscc, kw_arm_aapcscc, kw_arm_aapcs_vfpcc,
     kw_msp430_intrcc,
+    kw_avr_intrcc, kw_avr_signalcc,
     kw_ptx_kernel, kw_ptx_device,
     kw_spir_kernel, kw_spir_func,
     kw_x86_64_sysvcc, kw_x86_64_win64cc,

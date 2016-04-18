@@ -74,6 +74,7 @@ public:
         eKindClang,
         eKindSwift,
         eKindGo,
+        eKindJava,
         kNumKinds
     };
 
@@ -91,6 +92,12 @@ public:
 
     static lldb::TypeSystemSP
     CreateInstance (lldb::LanguageType language, Target *target);
+
+     
+    // Free up any resources associated with this TypeSystem.  Done before removing
+    // all the TypeSystems from the TypeSystemMap.
+    virtual void
+    Finalize() {}
 
     virtual DWARFASTParser *
     GetDWARFParser ()
@@ -584,6 +591,8 @@ protected:
         TypeSystemMap ();
         ~TypeSystemMap();
 
+        // Clear calls Finalize on all the TypeSystems managed by this map, and then
+        // empties the map.
         void
         Clear ();
 
@@ -599,9 +608,15 @@ protected:
         GetTypeSystemForLanguage (lldb::LanguageType language, Target *target, bool can_create);
 
     protected:
+        // This function does not take the map mutex, and should only be called from
+        // functions that do take the mutex.
+        void
+        AddToMap (lldb::LanguageType language, lldb::TypeSystemSP const &type_system_sp);
+
         typedef std::map<lldb::LanguageType, lldb::TypeSystemSP> collection;
         mutable Mutex m_mutex; ///< A mutex to keep this object happy in multi-threaded environments.
         collection m_map;
+        bool m_clear_in_progress;
     };
 
 } // namespace lldb_private

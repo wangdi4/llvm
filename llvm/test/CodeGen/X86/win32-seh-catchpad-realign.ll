@@ -1,4 +1,4 @@
-; RUN: llc < %s | FileCheck %s
+; RUN: llc -stack-symbol-ordering=0 < %s | FileCheck %s
 
 ; The aligned alloca means that we have to realign the stack, which forces the
 ; use of ESI to address local variables.
@@ -48,11 +48,11 @@ declare i32 @_except_handler3(...)
 ; CHECK: subl    $64, %esp
 ; CHECK: movl    %esp, %esi
 ; Spill EBP
-; CHECK: movl    %ebp, [[ebp_spill:[0-9]+]](%esi)
+; CHECK: movl    %ebp, 12(%esi)
 ; Spill ESP
-; CHECK: movl    %esp, [[esp_spill:[0-9]+]](%esi)
-; The state is stored at ESI+28, the end of the node is ESI+32.
-; CHECK: movl    $-1, 28(%esi)
+; CHECK: movl    %esp, 36(%esi)
+; The state is stored at ESI+56, the end of the node is ESI+60.
+; CHECK: movl    $-1, 56(%esi)
 ;
 ; __try
 ; CHECK: calll _useit
@@ -69,9 +69,9 @@ declare i32 @_except_handler3(...)
 ; CHECK: LBB0_1:                                 # %__except.ret
 ; Restore ESP
 ; CHECK: movl    -24(%ebp), %esp
-; Recompute ESI by subtracting 32 from the end of the registration node.
-; CHECK: leal    -32(%ebp), %esi
+; Recompute ESI by subtracting 60 from the end of the registration node.
+; CHECK: leal    -60(%ebp), %esi
 ; Restore EBP
-; CHECK: movl    [[ebp_spill]](%esi), %ebp
+; CHECK: movl    12(%esi), %ebp
 ; Rejoin normal control flow
 ; CHECK: jmp     LBB0_2

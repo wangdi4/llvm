@@ -3,8 +3,8 @@
 ; Check parsing output for the loop verifying that the outer loop IV which is the stride for inner loop IV is reverse engineering correctly.
 ; CHECK: DO i1 = 0, 8190
 ; CHECK-NEXT: DO i2 = 0, (8191 /u %i.015)
-; CHECK-NEXT: %0 = (%A)[%i.015 * i2]
-; CHECK-NEXT: (%A)[%i.015 * i2] = %i.015 * i2 + %0
+; CHECK-NEXT: %0 = {al:8}(%A)[%i.015 * i2]
+; CHECK-NEXT: {al:8}(%A)[%i.015 * i2] = %i.015 * i2 + %0
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: %i.015 = i1 + 2
 ; CHECK-NEXT: END LOOP

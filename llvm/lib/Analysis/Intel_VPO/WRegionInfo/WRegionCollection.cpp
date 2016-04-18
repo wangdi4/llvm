@@ -234,10 +234,6 @@ bool WRegionCollection::runOnFunction(Function &F) {
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
-  // Initialize maps from Directive/Clause strings to IDs
-  // This has to be done before clients such as CFGRestructuring calls it
-  VPOUtils::initDirectiveAndClauseStringMap();
-
 #if 0
   // Run -vpo-cfg-restructuring transformation pass before this analysis.
   // Analysis passes can't modify LLVM IR.

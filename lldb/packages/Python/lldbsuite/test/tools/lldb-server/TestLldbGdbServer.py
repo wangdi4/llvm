@@ -1232,6 +1232,7 @@ class LldbGdbServerTestCase(gdbremote_testcase.GdbRemoteTestCaseBase):
         self.software_breakpoint_set_and_remove_work()
 
     @llgs_test
+    @expectedFlakeyLinux("llvm.org/pr25652")
     def test_software_breakpoint_set_and_remove_work_llgs(self):
         self.init_llgs_test()
         self.build()
@@ -1318,6 +1319,7 @@ class LldbGdbServerTestCase(gdbremote_testcase.GdbRemoteTestCaseBase):
         self.written_M_content_reads_back_correctly()
 
     @llgs_test
+    @expectedFlakeyLinux("llvm.org/pr25652")
     def test_written_M_content_reads_back_correctly_llgs(self):
         self.init_llgs_test()
         self.build()

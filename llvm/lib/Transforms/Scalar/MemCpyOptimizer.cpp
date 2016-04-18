@@ -18,6 +18,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"          // INTEL
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -328,6 +329,7 @@ namespace {
       AU.addRequired<AAResultsWrapperPass>();
       AU.addRequired<TargetLibraryInfoWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
+      AU.addPreserved<AndersensAAWrapperPass>();          // INTEL
       AU.addPreserved<MemoryDependenceAnalysis>();
     }
 

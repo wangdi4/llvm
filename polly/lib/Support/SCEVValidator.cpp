@@ -423,13 +423,18 @@ public:
 struct SCEVInRegionDependences
     : public SCEVVisitor<SCEVInRegionDependences, bool> {
 public:
-  /// Returns true when the SCEV has SSA names defined in region R.
-  static bool hasDependences(const SCEV *S, const Region *R) {
-    SCEVInRegionDependences Ignore(R);
+  /// Returns true when the SCEV has SSA names defined in region R. It @p
+  /// AllowLoops is false, loop dependences are checked as well. AddRec SCEVs
+  /// are only allowed within its loop (current loop determined by @p Scope),
+  /// not outside of it unless AddRec's loop is not even in the region.
+  static bool hasDependences(const SCEV *S, const Region *R, Loop *Scope,
+                             bool AllowLoops) {
+    SCEVInRegionDependences Ignore(R, Scope, AllowLoops);
     return Ignore.visit(S);
   }
 
-  SCEVInRegionDependences(const Region *R) : R(R) {}
+  SCEVInRegionDependences(const Region *R, Loop *Scope, bool AllowLoops)
+      : R(R), Scope(Scope), AllowLoops(AllowLoops) {}
 
   bool visit(const SCEV *Expr) {
     return SCEVVisitor<SCEVInRegionDependences, bool>::visit(Expr);
@@ -476,8 +481,13 @@ public:
   }
 
   bool visitAddRecExpr(const SCEVAddRecExpr *Expr) {
-    if (visit(Expr->getStart()))
-      return true;
+    if (!AllowLoops) {
+      if (!Scope)
+        return true;
+      auto *L = Expr->getLoop();
+      if (R->contains(L) && !L->contains(Scope))
+        return true;
+    }
 
     for (size_t i = 0; i < Expr->getNumOperands(); ++i)
       if (visit(Expr->getOperand(i)))
@@ -514,6 +524,8 @@ public:
 
 private:
   const Region *R;
+  Loop *Scope;
+  bool AllowLoops;
 };
 
 namespace polly {
@@ -559,8 +571,9 @@ void findValues(const SCEV *Expr, SetVector<Value *> &Values) {
   ST.visitAll(Expr);
 }
 
-bool hasScalarDepsInsideRegion(const SCEV *Expr, const Region *R) {
-  return SCEVInRegionDependences::hasDependences(Expr, R);
+bool hasScalarDepsInsideRegion(const SCEV *Expr, const Region *R,
+                               llvm::Loop *Scope, bool AllowLoops) {
+  return SCEVInRegionDependences::hasDependences(Expr, R, Scope, AllowLoops);
 }
 
 bool isAffineExpr(const Region *R, const SCEV *Expr, ScalarEvolution &SE,
@@ -640,19 +653,35 @@ std::vector<const SCEV *> getParamsInAffineExpr(const Region *R,
   return Result.getParameters();
 }
 
-std::pair<const SCEV *, const SCEV *>
+std::pair<const SCEVConstant *, const SCEV *>
 extractConstantFactor(const SCEV *S, ScalarEvolution &SE) {
 
-  const SCEV *LeftOver = SE.getConstant(S->getType(), 1);
-  const SCEV *ConstPart = SE.getConstant(S->getType(), 1);
+  auto *LeftOver = SE.getConstant(S->getType(), 1);
+  auto *ConstPart = cast<SCEVConstant>(SE.getConstant(S->getType(), 1));
 
-  const SCEVMulExpr *M = dyn_cast<SCEVMulExpr>(S);
-  if (!M)
+  if (auto *Constant = dyn_cast<SCEVConstant>(S))
+    return std::make_pair(Constant, LeftOver);
+
+  auto *AddRec = dyn_cast<SCEVAddRecExpr>(S);
+  if (AddRec) {
+    auto *StartExpr = AddRec->getStart();
+    if (StartExpr->isZero()) {
+      auto StepPair = extractConstantFactor(AddRec->getStepRecurrence(SE), SE);
+      auto *LeftOverAddRec =
+          SE.getAddRecExpr(StartExpr, StepPair.second, AddRec->getLoop(),
+                           AddRec->getNoWrapFlags());
+      return std::make_pair(StepPair.first, LeftOverAddRec);
+    }
+    return std::make_pair(ConstPart, S);
+  }
+
+  auto *Mul = dyn_cast<SCEVMulExpr>(S);
+  if (!Mul)
     return std::make_pair(ConstPart, S);
 
-  for (const SCEV *Op : M->operands())
+  for (auto *Op : Mul->operands())
     if (isa<SCEVConstant>(Op))
-      ConstPart = SE.getMulExpr(ConstPart, Op);
+      ConstPart = cast<SCEVConstant>(SE.getMulExpr(ConstPart, Op));
     else
       LeftOver = SE.getMulExpr(LeftOver, Op);
 

@@ -1129,7 +1129,10 @@ bool Sema::IsOverload(FunctionDecl *New, FunctionDecl *Old,
     // Don't allow mixing of HD with other kinds. This guarantees that
     // we have only one viable function with this signature on any
     // side of CUDA compilation .
-    if ((NewTarget == CFT_HostDevice) || (OldTarget == CFT_HostDevice))
+    // __global__ functions can't be overloaded based on attribute
+    // difference because, like HD, they also exist on both sides.
+    if ((NewTarget == CFT_HostDevice) || (OldTarget == CFT_HostDevice) ||
+        (NewTarget == CFT_Global) || (OldTarget == CFT_Global))
       return false;
 
     // Allow overloading of functions with same signature, but
@@ -2538,9 +2541,8 @@ bool Sema::IsBlockPointerConversion(QualType FromType, QualType ToType,
        // Argument types are too different. Abort.
        return false;
    }
-   if (LangOpts.ObjCAutoRefCount && 
-       !Context.FunctionTypesMatchOnNSConsumedAttrs(FromFunctionType, 
-                                                    ToFunctionType))
+   if (!Context.doFunctionTypesMatchOnExtParameterInfos(FromFunctionType,
+                                                        ToFunctionType))
      return false;
    
    ConvertedType = ToType;
@@ -5955,34 +5957,27 @@ EnableIfAttr *Sema::CheckEnableIf(FunctionDecl *Function, ArrayRef<Expr *> Args,
   bool ContainsValueDependentExpr = false;
 
   // Convert the arguments.
-  for (unsigned i = 0, e = Args.size(); i != e; ++i) {
-    if (i == 0 && !MissingImplicitThis && isa<CXXMethodDecl>(Function) &&
+  for (unsigned I = 0, E = Args.size(); I != E; ++I) {
+    ExprResult R;
+    if (I == 0 && !MissingImplicitThis && isa<CXXMethodDecl>(Function) &&
         !cast<CXXMethodDecl>(Function)->isStatic() &&
         !isa<CXXConstructorDecl>(Function)) {
       CXXMethodDecl *Method = cast<CXXMethodDecl>(Function);
-      ExprResult R =
-        PerformObjectArgumentInitialization(Args[0], /*Qualifier=*/nullptr,
-                                            Method, Method);
-      if (R.isInvalid()) {
-        InitializationFailed = true;
-        break;
-      }
-      ContainsValueDependentExpr |= R.get()->isValueDependent();
-      ConvertedArgs.push_back(R.get());
+      R = PerformObjectArgumentInitialization(Args[0], /*Qualifier=*/nullptr,
+                                              Method, Method);
     } else {
-      ExprResult R =
-        PerformCopyInitialization(InitializedEntity::InitializeParameter(
-                                                Context,
-                                                Function->getParamDecl(i)),
-                                  SourceLocation(),
-                                  Args[i]);
-      if (R.isInvalid()) {
-        InitializationFailed = true;
-        break;
-      }
-      ContainsValueDependentExpr |= R.get()->isValueDependent();
-      ConvertedArgs.push_back(R.get());
+      R = PerformCopyInitialization(InitializedEntity::InitializeParameter(
+                                        Context, Function->getParamDecl(I)),
+                                    SourceLocation(), Args[I]);
     }
+
+    if (R.isInvalid()) {
+      InitializationFailed = true;
+      break;
+    }
+
+    ContainsValueDependentExpr |= R.get()->isValueDependent();
+    ConvertedArgs.push_back(R.get());
   }
 
   if (InitializationFailed || Trap.hasErrorOccurred())
@@ -8722,14 +8717,44 @@ OverloadingResult
 OverloadCandidateSet::BestViableFunction(Sema &S, SourceLocation Loc,
                                          iterator &Best,
                                          bool UserDefinedConversion) {
+  llvm::SmallVector<OverloadCandidate *, 16> Candidates;
+  std::transform(begin(), end(), std::back_inserter(Candidates),
+                 [](OverloadCandidate &Cand) { return &Cand; });
+
+  // [CUDA] HD->H or HD->D calls are technically not allowed by CUDA
+  // but accepted by both clang and NVCC. However during a particular
+  // compilation mode only one call variant is viable. We need to
+  // exclude non-viable overload candidates from consideration based
+  // only on their host/device attributes. Specifically, if one
+  // candidate call is WrongSide and the other is SameSide, we ignore
+  // the WrongSide candidate.
+  if (S.getLangOpts().CUDA && S.getLangOpts().CUDATargetOverloads) {
+    const FunctionDecl *Caller = dyn_cast<FunctionDecl>(S.CurContext);
+    bool ContainsSameSideCandidate =
+        llvm::any_of(Candidates, [&](OverloadCandidate *Cand) {
+          return Cand->Function &&
+                 S.IdentifyCUDAPreference(Caller, Cand->Function) ==
+                     Sema::CFP_SameSide;
+        });
+    if (ContainsSameSideCandidate) {
+      auto IsWrongSideCandidate = [&](OverloadCandidate *Cand) {
+        return Cand->Function &&
+               S.IdentifyCUDAPreference(Caller, Cand->Function) ==
+                   Sema::CFP_WrongSide;
+      };
+      Candidates.erase(std::remove_if(Candidates.begin(), Candidates.end(),
+                                      IsWrongSideCandidate),
+                       Candidates.end());
+    }
+  }
+
   // Find the best viable function.
   Best = end();
-  for (iterator Cand = begin(); Cand != end(); ++Cand) {
+  for (auto *Cand : Candidates)
     if (Cand->Viable)
       if (Best == end() || isBetterOverloadCandidate(S, *Cand, *Best, Loc,
                                                      UserDefinedConversion))
         Best = Cand;
-  }
 
   // If we didn't find any viable functions, abort.
   if (Best == end())
@@ -8739,7 +8764,7 @@ OverloadCandidateSet::BestViableFunction(Sema &S, SourceLocation Loc,
 
   // Make sure that this function is better than every other viable
   // function. If not, we have an ambiguity.
-  for (iterator Cand = begin(); Cand != end(); ++Cand) {
+  for (auto *Cand : Candidates) {
     if (Cand->Viable &&
         Cand != Best &&
         !isBetterOverloadCandidate(S, *Best, *Cand, Loc,
@@ -9026,8 +9051,10 @@ static void DiagnoseBadConversion(Sema &S, OverloadCandidate *Cand,
   else {
     // TODO: detect and diagnose the full richness of const mismatches.
     if (CanQual<PointerType> FromPT = CFromTy->getAs<PointerType>())
-      if (CanQual<PointerType> ToPT = CToTy->getAs<PointerType>())
-        CFromTy = FromPT->getPointeeType(), CToTy = ToPT->getPointeeType();
+      if (CanQual<PointerType> ToPT = CToTy->getAs<PointerType>()) {
+        CFromTy = FromPT->getPointeeType();
+        CToTy = ToPT->getPointeeType();
+      }
   }
 
   if (CToTy.getUnqualifiedType() == CFromTy.getUnqualifiedType() &&

@@ -65,19 +65,6 @@ struct Inliner : public CallGraphSCCPass {
 
 #if INTEL_CUSTOMIZATION
   InlineReport& getReport() { return Report; }
-  void addDeletableFunction(Function *F) {
-    DeletableFunctions.push_back(F);
-    // If F->dropAllReferences() is not called from addDeletableFunctio, the IPO
-    // will crash in ArgPromotion because F was marked for deletion, and so is
-    // no longer in the call-graph.
-    // But according to documentation for dropAllReferences(), calling it here
-    // may break the inlining report due to calling F.getName().
-    // InlineReport should invent its own method to remove the body of the
-    // function and to keep the declaration part only only keep all required
-    // strings directly.
-    F->dropAllReferences();
-  }
-  void removeDeletableFunctions(void);
 #endif // INTEL_CUSTOMIZATION
 
 private:
@@ -91,9 +78,6 @@ bool shouldInline(CallSite CS);
 #if INTEL_CUSTOMIZATION
   // The inline report
   InlineReport Report;
-
-  // A list of Function*s that can be deleted after the inliner is done
-  SmallVector<Function*, 16> DeletableFunctions;
 #endif // INTEL_CUSTOMIZATION
 
 protected:

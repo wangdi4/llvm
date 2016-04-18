@@ -16,12 +16,14 @@ set(Tests
   BufferOverflowOnInput
   CallerCalleeTest
   CounterTest
+  CustomMutatorTest
   FourIndependentBranchesTest
   FullCoverageSetTest
   InitializeTest
   MemcmpTest
   LeakTest
   NullDerefTest
+  NthRunCrashTest
   RepeatedMemcmp
   SimpleCmpTest
   SimpleDictionaryTest
@@ -35,7 +37,6 @@ set(Tests
   )
 
 set(CustomMainTests
-  UserSuppliedFuzzerTest
   )
 
 set(UninstrumentedTests
@@ -44,6 +45,11 @@ set(UninstrumentedTests
 
 set(TraceBBTests
   SimpleTest
+  )
+
+set(TracePCTests
+  FourIndependentBranchesTest
+  FullCoverageSetTest
   )
 
 set(TestBinaries)
@@ -110,6 +116,12 @@ add_subdirectory(trace-bb)
 
 foreach(Test ${TraceBBTests})
   set(TestBinaries ${TestBinaries} LLVMFuzzer-${Test}-TraceBB)
+endforeach()
+
+add_subdirectory(trace-pc)
+
+foreach(Test ${TracePCTests})
+  set(TestBinaries ${TestBinaries} LLVMFuzzer-${Test}-TracePC)
 endforeach()
 
 set_target_properties(${TestBinaries}

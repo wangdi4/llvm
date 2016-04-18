@@ -1,6 +1,6 @@
 ; This is more properly a full pipeline test. With full set of cleanup passes
 ; we should see IR close to incoming IR
-; RUN: opt -HIRCG -force-HIRCG -simplifycfg -mem2reg -gvn -indvars -S < %s | FileCheck %s
+; RUN: opt -hir-cg -force-hir-cg -simplifycfg -mem2reg -gvn -indvars -S < %s | FileCheck %s
 
 ; terminator of entry bblock should have changed
 ; CHECK-NOT: for.body

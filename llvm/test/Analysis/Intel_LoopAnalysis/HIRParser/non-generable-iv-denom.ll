@@ -2,8 +2,8 @@
 
 ; Check parsing output for the loop verifying that the compare instruction is parsed correctly.
 ; CHECK: DO i1 = 0, ((-1 + sext.i32.i64(%m)) /u %indvars.iv)
-; CHECK-NEXT: %3 = (%A)[%indvars.iv * i1]
-; CHECK-NEXT: (%A)[%indvars.iv * i1] = trunc.i64.i32(%indvars.iv) * i1 + %3
+; CHECK-NEXT: %3 = {al:4}(%A)[%indvars.iv * i1]
+; CHECK-NEXT: {al:4}(%A)[%indvars.iv * i1] = trunc.i64.i32(%indvars.iv) * i1 + %3
 ; CHECK-NEXT: END LOOP
 
 

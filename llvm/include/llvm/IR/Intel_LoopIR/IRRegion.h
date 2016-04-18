@@ -57,7 +57,7 @@ protected:
   void operator=(const IRRegion &) = delete;
 
   // Required to call destroyAll().
-  friend class RegionIdentification;
+  friend class HIRRegionIdentification;
 
 private:
   /// \brief Destroys all objects of this class. Should only be called after

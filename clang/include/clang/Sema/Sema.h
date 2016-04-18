@@ -29,6 +29,7 @@
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/Module.h"
 #include "clang/Basic/OpenMPKinds.h"
+#include "clang/Basic/PragmaKinds.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TemplateKinds.h"
 #include "clang/Basic/TypeTraits.h"
@@ -144,6 +145,7 @@ namespace clang {
   class ObjCPropertyDecl;
   class ObjCProtocolDecl;
   class OMPThreadPrivateDecl;
+  class OMPDeclareReductionDecl;
   class OMPClause;
   struct OverloadCandidate;
   class OverloadCandidateSet;
@@ -2108,6 +2110,7 @@ public:
                                           VersionTuple Obsoleted,
                                           bool IsUnavailable,
                                           StringRef Message,
+                                          bool IsStrict,
                                           AvailabilityMergeKind AMK,
                                           unsigned AttrSpellingListIndex);
   TypeVisibilityAttr *mergeTypeVisibilityAttr(Decl *D, SourceRange Range,
@@ -2669,6 +2672,8 @@ public:
     LookupObjCProtocolName,
     /// Look up implicit 'self' parameter of an objective-c method.
     LookupObjCImplicitSelfParam,
+    /// \brief Look up the name of an OpenMP user-defined reduction operation.
+    LookupOMPReductionName,
     /// \brief Look up any declaration with any name.
     LookupAnyName
   };
@@ -3968,6 +3973,8 @@ public:
                         BinaryOperatorKind Opc, Expr *LHSExpr, Expr *RHSExpr);
   ExprResult CreateBuiltinBinOp(SourceLocation OpLoc, BinaryOperatorKind Opc,
                                 Expr *LHSExpr, Expr *RHSExpr);
+
+  void DiagnoseCommaOperator(const Expr *LHS, SourceLocation Loc);
 
   /// ActOnConditionalOp - Parse a ?: operation.  Note that 'LHS' may be null
   /// in the case of a the GNU conditional expr extension.
@@ -5292,11 +5299,18 @@ public:
                             ArrayRef<CXXCtorInitializer*> MemInits,
                             bool AnyErrors);
 
+  /// \brief Check class-level dllimport/dllexport attribute. The caller must
+  /// ensure that referenceDLLExportedClassMethods is called some point later
+  /// when all outer classes of Class are complete.
   void checkClassLevelDLLAttribute(CXXRecordDecl *Class);
+
+  void referenceDLLExportedClassMethods();
+
   void propagateDLLAttrToBaseClassTemplate(
       CXXRecordDecl *Class, Attr *ClassAttr,
       ClassTemplateSpecializationDecl *BaseTemplateSpec,
       SourceLocation BaseLoc);
+
   void CheckCompletedCXXClass(CXXRecordDecl *Record);
   void ActOnFinishCXXMemberSpecification(Scope* S, SourceLocation RLoc,
                                          Decl *TagDecl,
@@ -6617,6 +6631,10 @@ public:
   /// template defined within it.
   llvm::DenseSet<Module*> &getLookupModules();
 
+  /// \brief Map from the most recent declaration of a namespace to the most
+  /// recent visible declaration of that namespace.
+  llvm::DenseMap<NamedDecl*, NamedDecl*> VisibleNamespaceCache;
+
   /// \brief Whether we are in a SFINAE context that is not associated with
   /// template instantiation.
   ///
@@ -6968,6 +6986,33 @@ public:
     SavedPendingLocalImplicitInstantiations;
   };
 
+  /// A helper class for building up ExtParameterInfos.
+  class ExtParameterInfoBuilder {
+    SmallVector<FunctionProtoType::ExtParameterInfo, 16> Infos;
+    bool HasInteresting = false;
+
+  public:
+    /// Set the ExtParameterInfo for the parameter at the given index,
+    /// 
+    void set(unsigned index, FunctionProtoType::ExtParameterInfo info) {
+      assert(Infos.size() <= index);
+      Infos.resize(index);
+      Infos.push_back(info);
+
+      if (!HasInteresting)
+        HasInteresting = (info != FunctionProtoType::ExtParameterInfo());
+    }
+
+    /// Return a pointer (suitable for setting in an ExtProtoInfo) to the
+    /// ExtParameterInfo array we've built up.
+    const FunctionProtoType::ExtParameterInfo *
+    getPointerOrNull(unsigned numParams) {
+      if (!HasInteresting) return nullptr;
+      Infos.resize(numParams);
+      return Infos.data();
+    }
+  };
+
   void PerformPendingInstantiations(bool LocalOnly = false);
 
   TypeSourceInfo *SubstType(TypeSourceInfo *T,
@@ -6997,9 +7042,11 @@ public:
                                 bool ExpectParameterPack);
   bool SubstParmTypes(SourceLocation Loc,
                       ParmVarDecl **Params, unsigned NumParams,
+                      const FunctionProtoType::ExtParameterInfo *ExtParamInfos,
                       const MultiLevelTemplateArgumentList &TemplateArgs,
                       SmallVectorImpl<QualType> &ParamTypes,
-                      SmallVectorImpl<ParmVarDecl *> *OutParams = nullptr);
+                      SmallVectorImpl<ParmVarDecl *> *OutParams,
+                      ExtParameterInfoBuilder &ParamInfos);
   ExprResult SubstExpr(Expr *E,
                        const MultiLevelTemplateArgumentList &TemplateArgs);
 
@@ -7567,20 +7614,6 @@ public:
     PPK_Pop      // #pragma pack(pop, [identifier], [n])
   };
 
-  enum PragmaMSStructKind {
-    PMSST_OFF,  // #pragms ms_struct off
-    PMSST_ON    // #pragms ms_struct on
-  };
-
-  enum PragmaMSCommentKind {
-    PCK_Unknown,
-    PCK_Linker,   // #pragma comment(linker, ...)
-    PCK_Lib,      // #pragma comment(lib, ...)
-    PCK_Compiler, // #pragma comment(compiler, ...)
-    PCK_ExeStr,   // #pragma comment(exestr, ...)
-    PCK_User      // #pragma comment(user, ...)
-  };
-
   /// ActOnPragmaPack - Called on well formed \#pragma pack(...).
   void ActOnPragmaPack(PragmaPackKind Kind,
                        IdentifierInfo *Name,
@@ -7594,7 +7627,8 @@ public:
 
   /// ActOnPragmaMSComment - Called on well formed
   /// \#pragma comment(kind, "arg").
-  void ActOnPragmaMSComment(PragmaMSCommentKind Kind, StringRef Arg);
+  void ActOnPragmaMSComment(SourceLocation CommentLoc, PragmaMSCommentKind Kind,
+                            StringRef Arg);
 
   /// ActOnPragmaMSPointersToMembers - called on well formed \#pragma
   /// pointers_to_members(representation method[, general purpose
@@ -7640,7 +7674,8 @@ public:
   void ActOnPragmaDump(Scope *S, SourceLocation Loc, IdentifierInfo *II);
 
   /// ActOnPragmaDetectMismatch - Call on well-formed \#pragma detect_mismatch
-  void ActOnPragmaDetectMismatch(StringRef Name, StringRef Value);
+  void ActOnPragmaDetectMismatch(SourceLocation Loc, StringRef Name,
+                                 StringRef Value);
 
   /// ActOnPragmaUnused - Called on well-formed '\#pragma unused'.
   void ActOnPragmaUnused(const Token &Identifier,
@@ -7754,6 +7789,13 @@ public:
   void AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
                    unsigned SpellingListIndex, bool InInstantiation = false);
 
+  void AddParameterABIAttr(SourceRange AttrRange, Decl *D,
+                           ParameterABI ABI, unsigned SpellingListIndex);
+
+  void AddNSConsumedAttr(SourceRange AttrRange, Decl *D,
+                         unsigned SpellingListIndex, bool isNSConsumed,
+                         bool isTemplateInstantiation);
+
   //===--------------------------------------------------------------------===//
   // C++ Coroutines TS
   //
@@ -7791,7 +7833,7 @@ public:
   /// constructs.
   VarDecl *IsOpenMPCapturedDecl(ValueDecl *D);
   ExprResult getOpenMPCapturedExpr(VarDecl *Capture, ExprValueKind VK,
-                                   ExprObjectKind OK);
+                                   ExprObjectKind OK, SourceLocation Loc);
 
   /// \brief Check if the specified variable is used in 'private' clause.
   /// \param Level Relative level of nested OpenMP construct for that the check
@@ -7836,6 +7878,26 @@ public:
   OMPThreadPrivateDecl *CheckOMPThreadPrivateDecl(
                                      SourceLocation Loc,
                                      ArrayRef<Expr *> VarList);
+  /// \brief Check if the specified type is allowed to be used in 'omp declare
+  /// reduction' construct.
+  QualType ActOnOpenMPDeclareReductionType(SourceLocation TyLoc,
+                                           TypeResult ParsedType);
+  /// \brief Called on start of '#pragma omp declare reduction'.
+  DeclGroupPtrTy ActOnOpenMPDeclareReductionDirectiveStart(
+      Scope *S, DeclContext *DC, DeclarationName Name,
+      ArrayRef<std::pair<QualType, SourceLocation>> ReductionTypes,
+      AccessSpecifier AS, Decl *PrevDeclInScope = nullptr);
+  /// \brief Initialize declare reduction construct initializer.
+  void ActOnOpenMPDeclareReductionCombinerStart(Scope *S, Decl *D);
+  /// \brief Finish current declare reduction construct initializer.
+  void ActOnOpenMPDeclareReductionCombinerEnd(Decl *D, Expr *Combiner);
+  /// \brief Initialize declare reduction construct initializer.
+  void ActOnOpenMPDeclareReductionInitializerStart(Scope *S, Decl *D);
+  /// \brief Finish current declare reduction construct initializer.
+  void ActOnOpenMPDeclareReductionInitializerEnd(Decl *D, Expr *Initializer);
+  /// \brief Called at the end of '#pragma omp declare reduction'.
+  DeclGroupPtrTy ActOnOpenMPDeclareReductionDirectiveEnd(
+      Scope *S, DeclGroupPtrTy DeclReductions, bool IsValid);
 
   /// \brief Initialization of captured region for OpenMP region.
   void ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope);
@@ -8654,7 +8716,7 @@ public:
                                         Expr *CastExpr,
                                         SourceLocation RParenLoc);
 
-  enum ARCConversionResult { ACR_okay, ACR_unbridged };
+  enum ARCConversionResult { ACR_okay, ACR_unbridged, ACR_error };
 
   /// \brief Checks for invalid conversions and casts between
   /// retainable pointers and other pointer kinds.
@@ -8794,12 +8856,18 @@ public:
 
   CUDAFunctionTarget IdentifyCUDATarget(const FunctionDecl *D);
 
+  // CUDA function call preference. Must be ordered numerically from
+  // worst to best.
   enum CUDAFunctionPreference {
     CFP_Never,      // Invalid caller/callee combination.
-    CFP_LastResort, // Lowest priority. Only in effect if
+    CFP_WrongSide,  // Calls from host-device to host or device
+                    // function that do not match current compilation
+                    // mode. Only in effect if
                     // LangOpts.CUDADisableTargetCallChecks is true.
-    CFP_Fallback,   // Low priority caller/callee combination
-    CFP_Best,       // Preferred caller/callee combination
+    CFP_HostDevice, // Any calls to host/device functions.
+    CFP_SameSide,   // Calls from host-device to host or device
+                    // function matching current compilation mode.
+    CFP_Native,     // host-to-host or device-to-device calls.
   };
 
   /// Identifies relative preference of a given Caller/Callee
@@ -8910,6 +8978,7 @@ public:
   void CodeCompletePostfixExpression(Scope *S, ExprResult LHS);
   void CodeCompleteTag(Scope *S, unsigned TagSpec);
   void CodeCompleteTypeQualifiers(DeclSpec &DS);
+  void CodeCompleteBracketDeclarator(Scope *S);
   void CodeCompleteCase(Scope *S);
   void CodeCompleteCall(Scope *S, Expr *Fn, ArrayRef<Expr *> Args);
   void CodeCompleteConstructor(Scope *S, QualType Type, SourceLocation Loc,
@@ -9097,13 +9166,6 @@ public:
   };
   static FormatStringType GetFormatStringType(const FormatAttr *Format);
 
-  void CheckFormatString(const StringLiteral *FExpr, const Expr *OrigFormatExpr,
-                         ArrayRef<const Expr *> Args, bool HasVAListArg,
-                         unsigned format_idx, unsigned firstDataArg,
-                         FormatStringType Type, bool inFunctionCall,
-                         VariadicCallType CallType,
-                         llvm::SmallBitVector &CheckedVarArgs);
-  
   bool FormatStringHasSArg(const StringLiteral *FExpr);
   
   static bool GetFormatNSStringIdx(const FormatAttr *Format, unsigned &Idx);
