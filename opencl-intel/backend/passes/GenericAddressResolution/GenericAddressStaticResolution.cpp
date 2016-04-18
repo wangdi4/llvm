@@ -81,37 +81,37 @@ namespace intel {
 
   void GenericAddressStaticResolution::analyzeGASPointers(TFunctionList::const_iterator curFuncIt) {
 
-      for (inst_iterator inst_it = inst_begin(*curFuncIt),
-           inst_it_end = inst_end(*curFuncIt);
-	       inst_it != inst_it_end;) {
+    for (inst_iterator inst_it = inst_begin(*curFuncIt),
+         inst_it_end = inst_end(*curFuncIt);
+          inst_it != inst_it_end;) {
 
-        Instruction *pInstr = &(*inst_it++);
+      Instruction *pInstr = &(*inst_it++);
 
-        if (IntToPtrInst* pIntToPtr = dyn_cast<IntToPtrInst>(pInstr)){
-          if (PtrToIntInst* pPtrToInt = dyn_cast<PtrToIntInst>(pIntToPtr->getOperand(0))){
-            Type* dstTy = pIntToPtr->getDestTy();
-            CastInst* castInst = CastInst::CreatePointerCast(pPtrToInt->getOperand(0), dstTy, "", pPtrToInt);
-            pIntToPtr->replaceAllUsesWith(castInst);
-            pIntToPtr->eraseFromParent();
-            if(pPtrToInt->user_empty())
-              pPtrToInt->eraseFromParent();
-            continue;
-          }
-        }
-        for (unsigned idx = 0; idx < pInstr->getNumOperands(); idx++) {
-          if (ConstantExpr *pPtrToInt = dyn_cast<ConstantExpr>(pInstr->getOperand(idx)))
-            if (Instruction::IntToPtr == pPtrToInt->getOpcode())
-              if (ConstantExpr* pIntToPtr = dyn_cast<ConstantExpr>(pPtrToInt->getOperand(0)))
-                if (Instruction::PtrToInt == pIntToPtr->getOpcode()){
-                  Type *dstType = pPtrToInt->getType();
-                  Constant* newConstant = ConstantExpr::getPointerCast(pIntToPtr->getOperand(0), dstType);
-                  pPtrToInt->replaceAllUsesWith(newConstant);
-                }
+      if (IntToPtrInst* pIntToPtr = dyn_cast<IntToPtrInst>(pInstr)) {
+        if (PtrToIntInst* pPtrToInt = dyn_cast<PtrToIntInst>(pIntToPtr->getOperand(0))) {
+          Type* dstTy = pIntToPtr->getDestTy();
+          CastInst* castInst = CastInst::CreatePointerCast(pPtrToInt->getOperand(0), dstTy, "", pPtrToInt);
+          pIntToPtr->replaceAllUsesWith(castInst);
+          pIntToPtr->eraseFromParent();
+          if(pPtrToInt->user_empty())
+            pPtrToInt->eraseFromParent();
+          continue;
         }
       }
+      for (unsigned idx = 0; idx < pInstr->getNumOperands(); idx++) {
+        if (ConstantExpr *pPtrToInt = dyn_cast<ConstantExpr>(pInstr->getOperand(idx)))
+          if (Instruction::IntToPtr == pPtrToInt->getOpcode())
+            if (ConstantExpr* pIntToPtr = dyn_cast<ConstantExpr>(pPtrToInt->getOperand(0)))
+              if (Instruction::PtrToInt == pIntToPtr->getOpcode()){
+                Type *dstType = pPtrToInt->getType();
+                Constant* newConstant = ConstantExpr::getPointerCast(pIntToPtr->getOperand(0), dstType);
+                pPtrToInt->replaceAllUsesWith(newConstant);
+              }
+      }
+    }
 
 
-  // Collect GAS pointers initializations in the function (together with their uses' tree)
+    // Collect GAS pointers initializations in the function (together with their uses' tree)
     for (inst_iterator inst_it = inst_begin(*curFuncIt),
                        inst_it_end = inst_end(*curFuncIt);
                        inst_it != inst_it_end; inst_it++) {
