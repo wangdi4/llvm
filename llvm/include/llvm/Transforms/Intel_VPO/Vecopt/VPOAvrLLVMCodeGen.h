@@ -48,8 +48,10 @@ public:
   void saveInsertPointForReductionPhis(Instruction *Inst) {
     PhiInsertPt = Inst;
   }
-  static Constant *getRecurrenceIdentity(ReductionItem::WRNReductionKind RKind,
-                                         Type *Ty);
+
+  static Value * getRecurrenceIdentityVector(ReductionItem *RedItem,
+                                             Type *Ty, unsigned VL);
+
   // Widening reduction Phi node
   Instruction *vectorizePhiNode(PHINode *RdxPhi, unsigned VL);
 

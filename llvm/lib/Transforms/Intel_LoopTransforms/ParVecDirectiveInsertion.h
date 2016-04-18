@@ -21,7 +21,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParVecAnalysis.h"
-#include "llvm/Transforms/Utils/Intel_OpenMPDirectivesAndClauses.h"
+#include "llvm/Analysis/Intel_Directives.h"
 
 namespace llvm {
 namespace loopopt {

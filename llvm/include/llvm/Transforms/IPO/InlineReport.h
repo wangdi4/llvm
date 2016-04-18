@@ -48,6 +48,8 @@ typedef enum {
 
 } 
 
+class InlineReportFunction; 
+
 ///
 /// \brief Represents a CallSite in the inlining report
 ///
@@ -56,11 +58,11 @@ public:
 
   // \brief Constructor for InlineReportCallSite
   // The source file is given by 'M'.  The line and column info by 'Dloc'
-  explicit InlineReportCallSite(Function* Callee, bool IsInlined,
+  explicit InlineReportCallSite(InlineReportFunction* IRCallee, bool IsInlined,
     InlineReportTypes::InlineReason Reason, Module* Module, DebugLoc* DLoc, 
-    Instruction* I) :
-    Callee(Callee), IsInlined(IsInlined), Reason(Reason), InlineCost(-1),
-    OuterInlineCost (-1), InlineThreshold (-1), Call (I), M (Module) {
+    Instruction* I) : IRCallee(IRCallee), IsInlined(IsInlined), Reason(Reason),
+    InlineCost(-1), OuterInlineCost (-1), InlineThreshold (-1), Call (I), 
+    M (Module) {
     Line = DLoc && DLoc->get() ? DLoc->getLine() : 0;
     Col = DLoc && DLoc->get() ? DLoc->getCol() : 0;
     Children.clear();
@@ -74,7 +76,7 @@ public:
   // use the IIMap to get a new value for the 'Call'.
   InlineReportCallSite* cloneBase(const ValueToValueMapTy& IIMap);
 
-  Function* getCallee() const { return Callee; }
+  InlineReportFunction* getIRCallee() const { return IRCallee; }
   InlineReportTypes::InlineReason getReason() const 
     { return Reason; }
   void setReason(InlineReportTypes::InlineReason MyReason) 
@@ -118,13 +120,8 @@ public:
   /// calls into the map 'Lmap'.
   void loadCallsToMap(std::map<Instruction*, bool>& LMap);
  
-  /// \brief Change the value of Callee to F.  This is done when a call 
-  /// graph altering optimization replaces a function 'Callee' with 
-  /// another function 'F'.  
-  void reassignCallee(Function* F) { Callee = F; } 
-
 private:
-  Function* Callee;
+  InlineReportFunction* IRCallee;
   bool IsInlined;
   InlineReportTypes::InlineReason Reason;
   int InlineCost;
@@ -155,8 +152,8 @@ private:
 class InlineReportFunction {
 public:
 
-  explicit InlineReportFunction(const Function* F) : IsDead (false),
-    IsCurrent (false) {};
+  explicit InlineReportFunction(const Function* F) : IsDead(false),
+    IsCurrent(false), IsDeclaration(false), LinkageChar(' ') {};
   ~InlineReportFunction(void); 
   InlineReportFunction(const InlineReportFunction&) = delete; 
   void operator=(const InlineReportFunction&) = delete; 
@@ -186,16 +183,34 @@ public:
   /// \brief Set whether the inline report for the routine is current
   void setCurrent(bool Current) { IsCurrent = Current; } 
 
+  bool getIsDeclaration(void) const { return IsDeclaration; } 
+
+  void setIsDeclaration(bool Declaration) { IsDeclaration = Declaration; } 
+
+  /// brief Get a single character indicating the linkage type 
+  char getLinkageChar(void) { return LinkageChar; } 
+
+  /// brief Set a single character indicating the linkage type 
+  void setLinkageChar(Function *F); 
+
+  std::string& getName() { return Name; } 
+
+  void setName(std::string FunctionName) { Name = FunctionName; } 
+
   void print(unsigned Level) const; 
 
 private:
   bool IsDead;
   bool IsCurrent; 
+  bool IsDeclaration; 
+  char LinkageChar; 
+  std::string Name; 
   InlineReportCallSiteVector CallSites;
 };
 
 typedef MapVector<Function*, InlineReportFunction*> 
   InlineReportFunctionMap;
+typedef std::vector<InlineReportFunction*> InlineReportFunctionVector; 
 typedef std::map<Instruction*, InlineReportCallSite*>
   InlineReportInstructionCallSiteMap;
 
@@ -290,6 +305,10 @@ private:
   /// \brief A mapping from Instructions to InlineReportCallSites
   InlineReportInstructionCallSiteMap IRInstructionCallSiteMap;
 
+  /// \brief A vector of InlineReportFunctions of Functions that have
+  /// been eliminated by dead static function elimination
+  InlineReportFunctionVector IRDeadFunctionVector; 
+
   /// \brief Clone the vector of InlineReportCallSites for NewCallSite
   /// using the mapping of old calls to new calls IIMap
   void cloneChildren(const InlineReportCallSiteVector& OldCallSiteVector,
@@ -299,15 +318,15 @@ private:
   void printOptionValues(void) const;
 
   ///
-  /// \brief CallbackVM for Instructions in the InlineReport
+  /// \brief CallbackVM for Instructions and Functions in the InlineReport
   ///
   class InlineReportCallback : public CallbackVH { 
     InlineReport* IR; 
-    /// \brief Indicate in the inline report that the call site corresponding 
-    /// to the Value has been deleted
     void deleted() override { 
       assert(IR != nullptr); 
       if (isa<Instruction>(getValPtr())) { 
+        /// \brief Indicate in the inline report that the call site 
+        /// corresponding to the Value has been deleted
         Instruction* I = cast<Instruction>(getValPtr()); 
         if (IR->getActiveInlineInstruction() != I) { 
           InlineReportInstructionCallSiteMap::const_iterator MapIt;  
@@ -319,6 +338,20 @@ private:
           }
         }
       }  
+      else if (isa<Function>(getValPtr())) {
+        /// \brief Indicate in the inline report that the function
+        /// corresponding to the Value has been deleted
+        Function* F = cast<Function>(getValPtr()); 
+        InlineReportFunctionMap::iterator MapIt; 
+        MapIt = IR->IRFunctionMap.find(F);
+        if (MapIt != IR->IRFunctionMap.end()) { 
+          InlineReportFunction* IRF = MapIt->second; 
+          IR->setDead(F); 
+          IRF->setLinkageChar(F);
+          IR->IRFunctionMap.erase(MapIt);
+          IR->IRDeadFunctionVector.push_back(IRF); 
+        } 
+      } 
       setValPtr(nullptr); 
     };
   public: 

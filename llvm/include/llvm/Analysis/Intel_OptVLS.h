@@ -64,6 +64,8 @@ typedef OVLSVector<OVLSMemref*> OVLSMemrefVector;
 typedef class OVLSGroup OVLSGroup;
 typedef OVLSVector<OVLSGroup*> OVLSGroupVector;
 
+typedef class OVLSInstruction OVLSInstruction;
+
 // AccessType: {Strided|Indexed}{Load|Store}
 class OVLSAccessType {
 private:
@@ -272,6 +274,16 @@ private:
   OVLSAccessType AccType;  // AccessType of the group.
 };
 
+class OVLSCostModelAnalysis {
+
+public:
+  /// Returns the expected cost of the instruction.
+  /// Returns -1 if the cost is unknown. Different cost parameters are defined
+  /// by the OptVLS clients.
+  virtual uint64_t getInstructionCost(const OVLSInstruction *I) const = 0;
+
+};
+
 // OptVLS public Interface class that operates on OptVLS Abstract types.
 class OptVLSInterface {
 public:
@@ -295,6 +307,27 @@ public:
   static void getGroups(const OVLSMemrefVector &Memrefs,
                         OVLSGroupVector &Grps,
                         uint32_t VectorLength);
+
+  /// getGroupCost() returns an expected cost/benefit of performing adjacent
+  /// gather/scatter optimization for a group (of gathers/scatters). Adj.
+  /// gather/scatter optimization replaces a set of gathers/scatters by a set
+  /// of contiguous loads/stores followed by a sequence of shuffle
+  /// instructions.
+  ///
+  /// Currently, this function is not implemented yet and it will be implemented
+  /// in multiple stages. Stage-1(coming next) will support only groups of
+  /// strided-loads with few exceptions:
+  ///  - Gaps will not be supported in between the accesses.
+  ///    E.g.
+  ///     t1 = a[3i];
+  ///     t2 = a[3i+1];
+  ///     t3 = a[3i+3];
+  ///  - Heterogeneous data types will not be supported.
+  ///  - It will return an approximate cost which means instead of accurately
+  /// computing the cost for a shuffle sequence stage-1 implementation will
+  /// consider an approximate cost of 10 cycles for shuffles.
+  static uint64_t getGroupCost(const OVLSGroup& Group,
+                               const OVLSCostModelAnalysis& CM);
 
 };
 

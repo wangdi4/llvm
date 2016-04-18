@@ -17,6 +17,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"   // INTEL
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
@@ -265,6 +266,7 @@ void LoadCombine::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.addRequired<AAResultsWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
+  AU.addPreserved<AndersensAAWrapperPass>();   // INTEL
 }
 
 char LoadCombine::ID = 0;

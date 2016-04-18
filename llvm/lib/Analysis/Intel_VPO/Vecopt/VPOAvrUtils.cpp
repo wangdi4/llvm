@@ -31,8 +31,6 @@ AVRFunction *AVRUtils::createAVRFunction(Function *OrigF,
   return new AVRFunction(OrigF, LpInfo);
 }
 
-AVRLoop *AVRUtils::createAVRLoop(const Loop *Lp) { return new AVRLoop(Lp); }
-
 AVRWrn *AVRUtils::createAVRWrn(WRNVecLoopNode *WrnSimdNode) {
   // TODO - for now we create an AVRWrn for every HIR region node by
   // passing a null WrnSimdNode. This assert is suppressed until we

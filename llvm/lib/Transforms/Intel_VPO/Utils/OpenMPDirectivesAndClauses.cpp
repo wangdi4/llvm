@@ -19,66 +19,42 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Utils/Intel_OpenMPDirectivesAndClauses.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+#include "llvm/Analysis/Intel_Directives.h"
 
 #define DEBUG_TYPE "vpo-utils"
 
 using namespace llvm;
 using namespace llvm::vpo;
 
-StringMap<int> VPOUtils::DirectiveIDs;
-
-StringMap<int> VPOUtils::ClauseIDs;
-
 StringRef VPOUtils::getDirectiveName(int Id) {
   // skip "DIR_OMP_"
-  return IntelOpenMPDirectivesAndClauses::DirectiveStrings[Id].substr(8);
+  return IntelDirectives::DirectiveStrings[Id].substr(8);
 }
 
 StringRef VPOUtils::getClauseName(int Id) {
   return IntelIntrinsicUtils::getClauseString(Id).substr(9); // skip "QUAL_OMP_"
 }
 
-void VPOUtils::initDirectiveAndClauseStringMap() {
-
-  if (!DirectiveIDs.empty()) // All maps are already initialized
-    return;
-
-  // Initialize mapping from Directive string to ID.
-  // First enum in OMP_DIRECTIVES starts with 0
-  for (int Id = 0; Id <= DIR_QUAL_LIST_END; ++Id) {
-    StringRef S = IntelIntrinsicUtils::getDirectiveString(Id);
-    DirectiveIDs[S] = Id;
-  }
-
-  // Initialize mapping from Clause string to ID.
-  // First enum in OMP_CLAUSES starts with 0
-  for (int Id = 0; Id <= QUAL_LIST_END; ++Id) {
-    StringRef S = IntelIntrinsicUtils::getClauseString(Id);
-    ClauseIDs[S] = Id;
-  }
-}
-
 bool VPOUtils::isOpenMPDirective(StringRef DirFullName) {
-  return VPOUtils::DirectiveIDs.count(DirFullName);
+  return IntelDirectives::DirectiveIDs.count(DirFullName);
 }
 
 bool VPOUtils::isOpenMPClause(StringRef ClauseFullName) {
-  return VPOUtils::ClauseIDs.count(ClauseFullName);
+  return IntelDirectives::ClauseIDs.count(ClauseFullName);
 }
 
 int VPOUtils::getDirectiveID(StringRef DirFullName) {
   // DEBUG(dbgs() << "DirFullName 1" << DirFullName << "\n" );
   assert(VPOUtils::isOpenMPDirective(DirFullName) && 
          "Directive string not found");
-  return VPOUtils::DirectiveIDs[DirFullName];
+  return IntelDirectives::DirectiveIDs[DirFullName];
 }
 
 int VPOUtils::getClauseID(StringRef ClauseFullName) {
   assert(VPOUtils::isOpenMPClause(ClauseFullName) && 
          "Clause string not found");
-  return VPOUtils::ClauseIDs[ClauseFullName];
+  return IntelDirectives::ClauseIDs[ClauseFullName];
 }
 
 bool VPOUtils::isBeginDirective(StringRef DirString) {
