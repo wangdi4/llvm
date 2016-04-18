@@ -35,13 +35,15 @@ namespace __sanitizer {
 
 // --------------------- sanitizer_common.h
 uptr GetPageSize() {
-  // FIXME: there is an API for getting the system page size (GetSystemInfo or
-  // GetNativeSystemInfo), but if we use it here we get test failures elsewhere.
-  return 1U << 14;
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  return si.dwPageSize;
 }
 
 uptr GetMmapGranularity() {
-  return 1U << 16;  // FIXME: is this configurable?
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  return si.dwAllocationGranularity;
 }
 
 uptr GetMaxVirtualAddress() {
@@ -234,9 +236,9 @@ int CompareModulesBase(const void *pl, const void *pr) {
 #ifndef SANITIZER_GO
 void DumpProcessMap() {
   Report("Dumping process modules:\n");
-  InternalScopedBuffer<LoadedModule> modules(kMaxNumberOfModules);
-  uptr num_modules =
-      GetListOfModules(modules.data(), kMaxNumberOfModules, nullptr);
+  ListOfModules modules;
+  modules.init();
+  uptr num_modules = modules.size();
 
   InternalScopedBuffer<ModuleInfo> module_infos(num_modules);
   for (size_t i = 0; i < num_modules; ++i) {
@@ -370,8 +372,8 @@ static uptr GetPreferredBase(const char *modname) {
 }
 
 #ifndef SANITIZER_GO
-uptr GetListOfModules(LoadedModule *modules, uptr max_modules,
-                      string_predicate_t filter) {
+void ListOfModules::init() {
+  clear();
   HANDLE cur_process = GetCurrentProcess();
 
   // Query the list of modules.  Start by assuming there are no more than 256
@@ -393,10 +395,8 @@ uptr GetListOfModules(LoadedModule *modules, uptr max_modules,
   }
 
   // |num_modules| is the number of modules actually present,
-  // |count| is the number of modules we return.
-  size_t nun_modules = bytes_required / sizeof(HMODULE),
-         count = 0;
-  for (size_t i = 0; i < nun_modules && count < max_modules; ++i) {
+  size_t num_modules = bytes_required / sizeof(HMODULE);
+  for (size_t i = 0; i < num_modules; ++i) {
     HMODULE handle = hmodules[i];
     MODULEINFO mi;
     if (!GetModuleInformation(cur_process, handle, &mi, sizeof(mi)))
@@ -414,9 +414,6 @@ uptr GetListOfModules(LoadedModule *modules, uptr max_modules,
                               &module_name[0], kMaxPathLength, NULL, NULL);
     module_name[module_name_len] = '\0';
 
-    if (filter && !filter(module_name))
-      continue;
-
     uptr base_address = (uptr)mi.lpBaseOfDll;
     uptr end_address = (uptr)mi.lpBaseOfDll + mi.SizeOfImage;
 
@@ -427,15 +424,13 @@ uptr GetListOfModules(LoadedModule *modules, uptr max_modules,
     uptr preferred_base = GetPreferredBase(&module_name[0]);
     uptr adjusted_base = base_address - preferred_base;
 
-    LoadedModule *cur_module = &modules[count];
-    cur_module->set(module_name, adjusted_base);
+    LoadedModule cur_module;
+    cur_module.set(module_name, adjusted_base);
     // We add the whole module as one single address range.
-    cur_module->addAddressRange(base_address, end_address, /*executable*/ true);
-    count++;
+    cur_module.addAddressRange(base_address, end_address, /*executable*/ true);
+    modules_.push_back(cur_module);
   }
   UnmapOrDie(hmodules, modules_buffer_size);
-
-  return count;
 };
 
 // We can't use atexit() directly at __asan_init time as the CRT is not fully
@@ -744,8 +739,17 @@ SignalContext SignalContext::Create(void *siginfo, void *context) {
 #endif
   uptr access_addr = exception_record->ExceptionInformation[1];
 
-  WriteFlag write_flag = SignalContext::UNKNOWN;  // FIXME: compute this.
-  bool is_memory_access = false;                  // FIXME: compute this.
+  // The contents of this array are documented at
+  // https://msdn.microsoft.com/en-us/library/windows/desktop/aa363082(v=vs.85).aspx
+  // The first element indicates read as 0, write as 1, or execute as 8.  The
+  // second element is the faulting address.
+  WriteFlag write_flag = SignalContext::UNKNOWN;
+  switch (exception_record->ExceptionInformation[0]) {
+  case 0: write_flag = SignalContext::READ; break;
+  case 1: write_flag = SignalContext::WRITE; break;
+  case 8: write_flag = SignalContext::UNKNOWN; break;
+  }
+  bool is_memory_access = write_flag != SignalContext::UNKNOWN;
   return SignalContext(context, access_addr, pc, sp, bp, is_memory_access,
                        write_flag);
 }

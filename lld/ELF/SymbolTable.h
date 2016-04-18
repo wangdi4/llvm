@@ -13,8 +13,12 @@
 #include "InputFiles.h"
 #include "llvm/ADT/MapVector.h"
 
+namespace llvm {
+class Module;
+}
+
 namespace lld {
-namespace elf2 {
+namespace elf {
 class Lazy;
 template <class ELFT> class OutputSectionBase;
 struct Symbol;
@@ -36,6 +40,7 @@ template <class ELFT> class SymbolTable {
 
 public:
   void addFile(std::unique_ptr<InputFile> File);
+  void addCombinedLtoObject();
 
   const llvm::MapVector<StringRef, Symbol *> &getSymbols() const {
     return Symtab;
@@ -53,20 +58,25 @@ public:
   SymbolBody *addUndefinedOpt(StringRef Name);
   SymbolBody *addAbsolute(StringRef Name, Elf_Sym &ESym);
   SymbolBody *addSynthetic(StringRef Name, OutputSectionBase<ELFT> &Section,
-                           uintX_t Value);
+                           uintX_t Value, uint8_t Visibility);
   SymbolBody *addIgnored(StringRef Name);
 
   void scanShlibUndefined();
   SymbolBody *find(StringRef Name);
   void wrap(StringRef Name);
-  ELFFileBase<ELFT> *findFile(SymbolBody *B);
+  InputFile *findFile(SymbolBody *B);
 
 private:
   Symbol *insert(SymbolBody *New);
   void addLazy(Lazy *New);
   void addMemberFile(Undefined *Undef, Lazy *L);
   void resolve(SymbolBody *Body);
+  std::unique_ptr<InputFile> codegen(llvm::Module &M);
   std::string conflictMsg(SymbolBody *Old, SymbolBody *New);
+
+  SmallString<0> OwningLTOData;
+  std::unique_ptr<MemoryBuffer> LtoBuffer;
+  ObjectFile<ELFT> *createCombinedLtoObject();
 
   // The order the global symbols are in is not defined. We can use an arbitrary
   // order, but it has to be reproducible. That is true even when cross linking.
@@ -87,12 +97,13 @@ private:
   std::vector<std::unique_ptr<ArchiveFile>> ArchiveFiles;
   std::vector<std::unique_ptr<ObjectFile<ELFT>>> ObjectFiles;
   std::vector<std::unique_ptr<SharedFile<ELFT>>> SharedFiles;
+  std::vector<std::unique_ptr<BitcodeFile>> BitcodeFiles;
 
   // Set of .so files to not link the same shared object file more than once.
   llvm::DenseSet<StringRef> SoNames;
 };
 
-} // namespace elf2
+} // namespace elf
 } // namespace lld
 
 #endif

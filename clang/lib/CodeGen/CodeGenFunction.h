@@ -568,6 +568,8 @@ public:
   /// potentially set the return value.
   bool SawAsmBlock;
 
+  const FunctionDecl *CurSEHParent = nullptr;
+
   /// True if the current function is an outlined SEH helper. This can be a
   /// finally block or filter expression.
   bool IsOutlinedSEHHelper;
@@ -1474,10 +1476,7 @@ public:
   void disableExceptions() { ExceptionsDisabled = true; }
   void enableExceptions() { ExceptionsDisabled = false; }
 #endif // INTEL__SPECIFIC_CILKPLUS
-  bool currentFunctionUsesSEHTry() const {
-    const auto *FD = dyn_cast_or_null<FunctionDecl>(CurCodeDecl);
-    return FD && FD->usesSEHTry();
-  }
+  bool currentFunctionUsesSEHTry() const { return CurSEHParent != nullptr; }
 
   const TargetInfo &getTarget() const { return Target; }
   llvm::LLVMContext &getLLVMContext() { return CGM.getLLVMContext(); }
@@ -1725,13 +1724,19 @@ public:
 
   /// EmitVTablePtrCheckForCall - Virtual method MD is being called via VTable.
   /// If vptr CFI is enabled, emit a check that VTable is valid.
-  void EmitVTablePtrCheckForCall(const CXXMethodDecl *MD, llvm::Value *VTable,
+  void EmitVTablePtrCheckForCall(const CXXRecordDecl *RD, llvm::Value *VTable,
                                  CFITypeCheckKind TCK, SourceLocation Loc);
 
   /// EmitVTablePtrCheck - Emit a check that VTable is a valid virtual table for
   /// RD using llvm.bitset.test.
   void EmitVTablePtrCheck(const CXXRecordDecl *RD, llvm::Value *VTable,
                           CFITypeCheckKind TCK, SourceLocation Loc);
+
+  /// If whole-program virtual table optimization is enabled, emit an assumption
+  /// that VTable is a member of the type's bitset. Or, if vptr CFI is enabled,
+  /// emit a check that VTable is a member of the type's bitset.
+  void EmitBitSetCodeForVCall(const CXXRecordDecl *RD, llvm::Value *VTable,
+                              SourceLocation Loc);
 
   /// CanDevirtualizeMemberFunctionCalls - Checks whether virtual calls on given
   /// expr can be devirtualized.
@@ -2734,7 +2739,7 @@ private:
                            Address UB, Address ST, Address IL,
                            llvm::Value *Chunk);
   /// \brief Emit code for sections directive.
-  OpenMPDirectiveKind EmitSections(const OMPExecutableDirective &S);
+  void EmitSections(const OMPExecutableDirective &S);
 
 #if INTEL_SPECIFIC_OPENMP
   void EmitIntelOpenMPDirective(const OMPExecutableDirective &S);

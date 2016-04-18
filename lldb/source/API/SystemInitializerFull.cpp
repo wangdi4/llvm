@@ -26,19 +26,20 @@
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/GoASTContext.h"
+#include "lldb/Symbol/JavaASTContext.h"
 
-#include "Plugins/ABI/MacOSX-i386/ABIMacOSX_i386.h"
 #include "Plugins/ABI/MacOSX-arm/ABIMacOSX_arm.h"
 #include "Plugins/ABI/MacOSX-arm64/ABIMacOSX_arm64.h"
+#include "Plugins/ABI/MacOSX-i386/ABIMacOSX_i386.h"
 #include "Plugins/ABI/SysV-arm/ABISysV_arm.h"
 #include "Plugins/ABI/SysV-arm64/ABISysV_arm64.h"
 #include "Plugins/ABI/SysV-hexagon/ABISysV_hexagon.h"
 #include "Plugins/ABI/SysV-i386/ABISysV_i386.h"
-#include "Plugins/ABI/SysV-x86_64/ABISysV_x86_64.h"
-#include "Plugins/ABI/SysV-ppc/ABISysV_ppc.h"
-#include "Plugins/ABI/SysV-ppc64/ABISysV_ppc64.h"
 #include "Plugins/ABI/SysV-mips/ABISysV_mips.h"
 #include "Plugins/ABI/SysV-mips64/ABISysV_mips64.h"
+#include "Plugins/ABI/SysV-ppc/ABISysV_ppc.h"
+#include "Plugins/ABI/SysV-ppc64/ABISysV_ppc64.h"
+#include "Plugins/ABI/SysV-x86_64/ABISysV_x86_64.h"
 #include "Plugins/Disassembler/llvm/DisassemblerLLVMC.h"
 #include "Plugins/DynamicLoader/Static/DynamicLoaderStatic.h"
 #include "Plugins/Instruction/ARM64/EmulateInstructionARM64.h"
@@ -46,12 +47,14 @@
 #include "Plugins/JITLoader/GDB/JITLoaderGDB.h"
 #include "Plugins/Language/CPlusPlus/CPlusPlusLanguage.h"
 #include "Plugins/Language/Go/GoLanguage.h"
+#include "Plugins/Language/Java/JavaLanguage.h"
 #include "Plugins/Language/ObjC/ObjCLanguage.h"
 #include "Plugins/Language/ObjCPlusPlus/ObjCPlusPlusLanguage.h"
 #include "Plugins/LanguageRuntime/CPlusPlus/ItaniumABI/ItaniumABILanguageRuntime.h"
+#include "Plugins/LanguageRuntime/Go/GoLanguageRuntime.h"
+#include "Plugins/LanguageRuntime/Java/JavaLanguageRuntime.h"
 #include "Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCRuntimeV1.h"
 #include "Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCRuntimeV2.h"
-#include "Plugins/LanguageRuntime/Go/GoLanguageRuntime.h"
 #include "Plugins/LanguageRuntime/RenderScript/RenderScriptRuntime/RenderScriptRuntime.h"
 #include "Plugins/MemoryHistory/asan/MemoryHistoryASan.h"
 #include "Plugins/Platform/gdb-server/PlatformRemoteGDBServer.h"
@@ -60,11 +63,12 @@
 #include "Plugins/ScriptInterpreter/None/ScriptInterpreterNone.h"
 #include "Plugins/SymbolFile/DWARF/SymbolFileDWARF.h"
 #include "Plugins/SymbolFile/DWARF/SymbolFileDWARFDebugMap.h"
+#include "Plugins/SymbolFile/PDB/SymbolFilePDB.h"
 #include "Plugins/SymbolFile/Symtab/SymbolFileSymtab.h"
 #include "Plugins/SymbolVendor/ELF/SymbolVendorELF.h"
 #include "Plugins/SystemRuntime/MacOSX/SystemRuntimeMacOSX.h"
-#include "Plugins/UnwindAssembly/x86/UnwindAssembly-x86.h"
 #include "Plugins/UnwindAssembly/InstEmulation/UnwindAssemblyInstEmulation.h"
+#include "Plugins/UnwindAssembly/x86/UnwindAssembly-x86.h"
 
 #if defined(__APPLE__)
 #include "Plugins/Process/mach-core/ProcessMachCore.h"
@@ -272,6 +276,7 @@ SystemInitializerFull::Initialize()
 
     ClangASTContext::Initialize();
     GoASTContext::Initialize();
+    JavaASTContext::Initialize();
 
     ABIMacOSX_i386::Initialize();
     ABIMacOSX_arm::Initialize();
@@ -297,6 +302,7 @@ SystemInitializerFull::Initialize()
 
     SymbolVendorELF::Initialize();
     SymbolFileDWARF::Initialize();
+    SymbolFilePDB::Initialize();
     SymbolFileSymtab::Initialize();
     UnwindAssemblyInstEmulation::Initialize();
     UnwindAssembly_x86::Initialize();
@@ -308,9 +314,11 @@ SystemInitializerFull::Initialize()
     SystemRuntimeMacOSX::Initialize();
     RenderScriptRuntime::Initialize();
     GoLanguageRuntime::Initialize();
+    JavaLanguageRuntime::Initialize();
 
     CPlusPlusLanguage::Initialize();
     GoLanguage::Initialize();
+    JavaLanguage::Initialize();
     ObjCLanguage::Initialize();
     ObjCPlusPlusLanguage::Initialize();
 
@@ -391,6 +399,7 @@ SystemInitializerFull::Terminate()
 
     ClangASTContext::Terminate();
     GoASTContext::Terminate();
+    JavaASTContext::Terminate();
 
     ABIMacOSX_i386::Terminate();
     ABIMacOSX_arm::Terminate();
@@ -415,6 +424,7 @@ SystemInitializerFull::Terminate()
     AddressSanitizerRuntime::Terminate();
     SymbolVendorELF::Terminate();
     SymbolFileDWARF::Terminate();
+    SymbolFilePDB::Terminate();
     SymbolFileSymtab::Terminate();
     UnwindAssembly_x86::Terminate();
     UnwindAssemblyInstEmulation::Terminate();
@@ -425,9 +435,11 @@ SystemInitializerFull::Terminate()
     AppleObjCRuntimeV1::Terminate();
     SystemRuntimeMacOSX::Terminate();
     RenderScriptRuntime::Terminate();
+    JavaLanguageRuntime::Terminate();
 
     CPlusPlusLanguage::Terminate();
     GoLanguage::Terminate();
+    JavaLanguage::Terminate();
     ObjCLanguage::Terminate();
     ObjCPlusPlusLanguage::Terminate();
 

@@ -56,7 +56,7 @@ void test_then_spawn() {
   else
     baz_then_spawn_b();
   // CHECK: call void @baz_then_spawn_b
-  // CHECK-NEXT-NOT: call void @__cilk_helper_epilogue
+  // CHECK-NOT: call void @__cilk_helper_epilogue
   // CHECK: call void @baz_then_spawn_a
   // CHECK-NEXT: call void @__cilk_helper_epilogue
 }
@@ -69,7 +69,7 @@ void test_else_spawn() {
   else
     _Cilk_spawn baz_else_spawn_b();
   // CHECK: call void @baz_else_spawn_a
-  // CHECK-NEXT-NOT: call void @__cilk_helper_epilogue
+  // CHECK-NOT: call void @__cilk_helper_epilogue
   // CHECK: call void @baz_else_spawn_b
   // CHECK-NEXT: call void @__cilk_helper_epilogue
 }

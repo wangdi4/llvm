@@ -269,6 +269,10 @@ public:
   /// \brief Auxiliary triple for CUDA compilation.
   std::string AuxTriple;
 
+  /// \brief If non-empty, search the pch input file as it was a header
+  // included by this file.
+  std::string FindPchSource;
+
 public:
   FrontendOptions() :
     DisableFree(false), RelocatablePCH(false), ShowHelp(false),

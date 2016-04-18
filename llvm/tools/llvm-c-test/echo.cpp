@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm-c-test.h"
+#include "llvm-c/Target.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/ErrorHandling.h"
 
@@ -59,6 +60,10 @@ struct TypeCloner {
   LLVMContextRef Ctx;
 
   TypeCloner(LLVMModuleRef M): M(M), Ctx(LLVMGetModuleContext(M)) {}
+
+  LLVMTypeRef Clone(LLVMValueRef Src) {
+    return Clone(LLVMTypeOf(Src));
+  }
 
   LLVMTypeRef Clone(LLVMTypeRef Src) {
     LLVMTypeKind Kind = LLVMGetTypeKind(Src);
@@ -149,7 +154,147 @@ struct TypeCloner {
   }
 };
 
-static ValueMap clone_params(LLVMValueRef Src, LLVMValueRef Dst);
+static ValueMap clone_params(LLVMValueRef Src, LLVMValueRef Dst) {
+  unsigned Count = LLVMCountParams(Src);
+  if (Count != LLVMCountParams(Dst))
+    report_fatal_error("Parameter count mismatch");
+
+  ValueMap VMap;
+  if (Count == 0)
+    return VMap;
+
+  LLVMValueRef SrcFirst = LLVMGetFirstParam(Src);
+  LLVMValueRef DstFirst = LLVMGetFirstParam(Dst);
+  LLVMValueRef SrcLast = LLVMGetLastParam(Src);
+  LLVMValueRef DstLast = LLVMGetLastParam(Dst);
+
+  LLVMValueRef SrcCur = SrcFirst;
+  LLVMValueRef DstCur = DstFirst;
+  LLVMValueRef SrcNext = nullptr;
+  LLVMValueRef DstNext = nullptr;
+  while (true) {
+    const char *Name = LLVMGetValueName(SrcCur);
+    LLVMSetValueName(DstCur, Name);
+
+    VMap[SrcCur] = DstCur;
+
+    Count--;
+    SrcNext = LLVMGetNextParam(SrcCur);
+    DstNext = LLVMGetNextParam(DstCur);
+    if (SrcNext == nullptr && DstNext == nullptr) {
+      if (SrcCur != SrcLast)
+        report_fatal_error("SrcLast param does not match End");
+      if (DstCur != DstLast)
+        report_fatal_error("DstLast param does not match End");
+      break;
+    }
+
+    if (SrcNext == nullptr)
+      report_fatal_error("SrcNext was unexpectedly null");
+    if (DstNext == nullptr)
+      report_fatal_error("DstNext was unexpectedly null");
+
+    LLVMValueRef SrcPrev = LLVMGetPreviousParam(SrcNext);
+    if (SrcPrev != SrcCur)
+      report_fatal_error("SrcNext.Previous param is not Current");
+
+    LLVMValueRef DstPrev = LLVMGetPreviousParam(DstNext);
+    if (DstPrev != DstCur)
+      report_fatal_error("DstNext.Previous param is not Current");
+
+    SrcCur = SrcNext;
+    DstCur = DstNext;
+  }
+
+  if (Count != 0)
+    report_fatal_error("Parameter count does not match iteration");
+
+  return VMap;
+}
+
+LLVMValueRef clone_constant(LLVMValueRef Cst, LLVMModuleRef M) {
+  if (!LLVMIsAConstant(Cst))
+    report_fatal_error("Expected a constant");
+
+  // Maybe it is a symbol
+  if (LLVMIsAGlobalValue(Cst)) {
+    const char *Name = LLVMGetValueName(Cst);
+
+    // Try function
+    if (LLVMIsAFunction(Cst)) {
+      LLVMValueRef Dst = LLVMGetNamedFunction(M, Name);
+      if (Dst)
+        return Dst;
+      report_fatal_error("Could not find function");
+    }
+
+    // Try global variable
+    if (LLVMIsAGlobalVariable(Cst)) {
+      LLVMValueRef Dst = LLVMGetNamedGlobal(M, Name);
+      if (Dst)
+        return Dst;
+      report_fatal_error("Could not find function");
+    }
+
+    fprintf(stderr, "Could not find @%s\n", Name);
+    exit(-1);
+  }
+
+  // Try integer literal
+  if (LLVMIsAConstantInt(Cst))
+    return LLVMConstInt(TypeCloner(M).Clone(Cst),
+                        LLVMConstIntGetZExtValue(Cst), false);
+
+  // Try zeroinitializer
+  if (LLVMIsAConstantAggregateZero(Cst))
+    return LLVMConstNull(TypeCloner(M).Clone(Cst));
+
+  // Try constant array
+  if (LLVMIsAConstantArray(Cst)) {
+    LLVMTypeRef Ty = TypeCloner(M).Clone(Cst);
+    unsigned EltCount = LLVMGetArrayLength(Ty);
+    SmallVector<LLVMValueRef, 8> Elts;
+    for (unsigned i = 0; i < EltCount; i++)
+      Elts.push_back(clone_constant(LLVMGetOperand(Cst, i), M));
+    return LLVMConstArray(LLVMGetElementType(Ty), Elts.data(), EltCount);
+  }
+
+  // Try constant struct
+  if (LLVMIsAConstantStruct(Cst)) {
+    LLVMTypeRef Ty = TypeCloner(M).Clone(Cst);
+    unsigned EltCount = LLVMCountStructElementTypes(Ty);
+    SmallVector<LLVMValueRef, 8> Elts;
+    for (unsigned i = 0; i < EltCount; i++)
+      Elts.push_back(clone_constant(LLVMGetOperand(Cst, i), M));
+    if (LLVMGetStructName(Ty))
+      return LLVMConstNamedStruct(Ty, Elts.data(), EltCount);
+    return LLVMConstStructInContext(LLVMGetModuleContext(M), Elts.data(),
+                                    EltCount, LLVMIsPackedStruct(Ty));
+  }
+
+  // Try undef
+  if (LLVMIsUndef(Cst))
+    return LLVMGetUndef(TypeCloner(M).Clone(Cst));
+
+  // Try float literal
+  if (LLVMIsAConstantFP(Cst))
+    report_fatal_error("ConstantFP is not supported");
+
+  // This kind of constant is not supported
+  if (!LLVMIsAConstantExpr(Cst))
+    report_fatal_error("Expected a constant expression");
+
+  // At this point, it must be a constant expression
+  LLVMOpcode Op = LLVMGetConstOpcode(Cst);
+  switch(Op) {
+    case LLVMBitCast:
+      return LLVMConstBitCast(clone_constant(LLVMGetOperand(Cst, 0), M),
+                              TypeCloner(M).Clone(Cst));
+    default:
+      fprintf(stderr, "%d is not a supported opcode\n", Op);
+      exit(-1);
+  }
+}
 
 struct FunCloner {
   LLVMValueRef Fun;
@@ -166,64 +311,30 @@ struct FunCloner {
   }
 
   LLVMTypeRef CloneType(LLVMValueRef Src) {
-    return CloneType(LLVMTypeOf(Src));
+    return TypeCloner(M).Clone(Src);
   }
 
   // Try to clone everything in the llvm::Value hierarchy.
   LLVMValueRef CloneValue(LLVMValueRef Src) {
-    const char *Name = LLVMGetValueName(Src);
-
     // First, the value may be constant.
-    if (LLVMIsAConstant(Src)) {
-      // Maybe it is a symbol
-      if (LLVMIsAGlobalValue(Src)) {
-        // Try function
-        LLVMValueRef Dst = LLVMGetNamedFunction(M, Name);
-        if (Dst != nullptr)
-          return Dst;
-
-        // Try global variable
-        Dst = LLVMGetNamedGlobal(M, Name);
-        if (Dst != nullptr)
-          return Dst;
-
-        fprintf(stderr, "Could not find @%s\n", Name);
-        exit(-1);
-      }
-
-      // Try literal
-      if (LLVMIsAConstantInt(Src)) {
-        LLVMTypeRef Ty = CloneType(Src);
-        return LLVMConstInt(Ty, LLVMConstIntGetZExtValue(Src), false);
-      }
-
-      // Try undef
-      if (LLVMIsUndef(Src))
-        return LLVMGetUndef(CloneType(Src));
-
-      // This kind of constant is not supported.
-      report_fatal_error("Unsupported contant type");
-    }
+    if (LLVMIsAConstant(Src))
+      return clone_constant(Src, M);
 
     // Function argument should always be in the map already.
-    if (LLVMIsAArgument(Src)) {
-      auto i = VMap.find(Src);
-      if (i != VMap.end())
-        return i->second;
-    }
+    auto i = VMap.find(Src);
+    if (i != VMap.end())
+      return i->second;
 
-    if (LLVMIsAInstruction(Src)) {
-      auto Ctx = LLVMGetModuleContext(M);
-      auto Builder = LLVMCreateBuilderInContext(Ctx);
-      auto BB = DeclareBB(LLVMGetInstructionParent(Src));
-      LLVMPositionBuilderAtEnd(Builder, BB);
-      auto Dst = CloneInstruction(Src, Builder);
-      LLVMDisposeBuilder(Builder);
-      return Dst;
-    }
+    if (!LLVMIsAInstruction(Src))
+      report_fatal_error("Expected an instruction");
 
-    fprintf(stderr, "Could not determine the type of %s\n", Name);
-    exit(-1);
+    auto Ctx = LLVMGetModuleContext(M);
+    auto Builder = LLVMCreateBuilderInContext(Ctx);
+    auto BB = DeclareBB(LLVMGetInstructionParent(Src));
+    LLVMPositionBuilderAtEnd(Builder, BB);
+    auto Dst = CloneInstruction(Src, Builder);
+    LLVMDisposeBuilder(Builder);
+    return Dst;
   }
 
   LLVMValueRef CloneInstruction(LLVMValueRef Src, LLVMBuilderRef Builder) {
@@ -234,8 +345,15 @@ struct FunCloner {
     // Check if this is something we already computed.
     {
       auto i = VMap.find(Src);
-      if (i != VMap.end())
-        return i->second;
+      if (i != VMap.end()) {
+        // If we have a hit, it means we already generated the instruction
+        // as a dependancy to somethign else. We need to make sure
+        // it is ordered properly.
+        auto I = i->second;
+        LLVMInstructionRemoveFromParent(I);
+        LLVMInsertIntoBuilderWithName(Builder, I, Name);
+        return I;
+      }
     }
 
     // We tried everything, it must be an instruction
@@ -270,8 +388,19 @@ struct FunCloner {
       }
       case LLVMSwitch:
       case LLVMIndirectBr:
-      case LLVMInvoke:
         break;
+      case LLVMInvoke: {
+        SmallVector<LLVMValueRef, 8> Args;
+        int ArgCount = LLVMGetNumArgOperands(Src);
+        for (int i = 0; i < ArgCount; i++)
+          Args.push_back(CloneValue(LLVMGetOperand(Src, i)));
+        LLVMValueRef Fn = CloneValue(LLVMGetCalledValue(Src));
+        LLVMBasicBlockRef Then = DeclareBB(LLVMGetNormalDest(Src));
+        LLVMBasicBlockRef Unwind = DeclareBB(LLVMGetUnwindDest(Src));
+        Dst = LLVMBuildInvoke(Builder, Fn, Args.data(), ArgCount,
+                              Then, Unwind, Name);
+        break;
+      }
       case LLVMUnreachable:
         Dst = LLVMBuildUnreachable(Builder);
         break;
@@ -358,12 +487,58 @@ struct FunCloner {
         Dst = LLVMBuildAlloca(Builder, Ty, Name);
         break;
       }
+      case LLVMLoad: {
+        LLVMValueRef Ptr = CloneValue(LLVMGetOperand(Src, 0));
+        Dst = LLVMBuildLoad(Builder, Ptr, Name);
+        LLVMSetAlignment(Dst, LLVMGetAlignment(Src));
+        break;
+      }
+      case LLVMStore: {
+        LLVMValueRef Val = CloneValue(LLVMGetOperand(Src, 0));
+        LLVMValueRef Ptr = CloneValue(LLVMGetOperand(Src, 1));
+        Dst = LLVMBuildStore(Builder, Val, Ptr);
+        LLVMSetAlignment(Dst, LLVMGetAlignment(Src));
+        break;
+      }
+      case LLVMGetElementPtr: {
+        LLVMValueRef Ptr = CloneValue(LLVMGetOperand(Src, 0));
+        SmallVector<LLVMValueRef, 8> Idx;
+        int NumIdx = LLVMGetNumIndices(Src);
+        for (int i = 1; i <= NumIdx; i++)
+          Idx.push_back(CloneValue(LLVMGetOperand(Src, i)));
+        if (LLVMIsInBounds(Src))
+          Dst = LLVMBuildInBoundsGEP(Builder, Ptr, Idx.data(), NumIdx, Name);
+        else
+          Dst = LLVMBuildGEP(Builder, Ptr, Idx.data(), NumIdx, Name);
+        break;
+      }
+      case LLVMBitCast: {
+        LLVMValueRef V = CloneValue(LLVMGetOperand(Src, 0));
+        Dst = LLVMBuildBitCast(Builder, V, CloneType(Src), Name);
+        break;
+      }
       case LLVMICmp: {
         LLVMIntPredicate Pred = LLVMGetICmpPredicate(Src);
         LLVMValueRef LHS = CloneValue(LLVMGetOperand(Src, 0));
         LLVMValueRef RHS = CloneValue(LLVMGetOperand(Src, 1));
         Dst = LLVMBuildICmp(Builder, Pred, LHS, RHS, Name);
         break;
+      }
+      case LLVMPHI: {
+        // We need to agressively set things here because of loops.
+        VMap[Src] = Dst = LLVMBuildPhi(Builder, CloneType(Src), Name);
+
+        SmallVector<LLVMValueRef, 8> Values;
+        SmallVector<LLVMBasicBlockRef, 8> Blocks;
+
+        unsigned IncomingCount = LLVMCountIncoming(Src);
+        for (unsigned i = 0; i < IncomingCount; ++i) {
+          Blocks.push_back(DeclareBB(LLVMGetIncomingBlock(Src, i)));
+          Values.push_back(CloneValue(LLVMGetIncomingValue(Src, i)));
+        }
+
+        LLVMAddIncoming(Dst, Values.data(), Blocks.data(), IncomingCount);
+        return Dst;
       }
       case LLVMCall: {
         SmallVector<LLVMValueRef, 8> Args;
@@ -372,6 +547,20 @@ struct FunCloner {
           Args.push_back(CloneValue(LLVMGetOperand(Src, i)));
         LLVMValueRef Fn = CloneValue(LLVMGetCalledValue(Src));
         Dst = LLVMBuildCall(Builder, Fn, Args.data(), ArgCount, Name);
+        LLVMSetTailCall(Dst, LLVMIsTailCall(Src));
+        break;
+      }
+      case LLVMResume: {
+        Dst = LLVMBuildResume(Builder, CloneValue(LLVMGetOperand(Src, 0)));
+        break;
+      }
+      case LLVMLandingPad: {
+        // The landing pad API is a bit screwed up for historical reasons.
+        Dst = LLVMBuildLandingPad(Builder, CloneType(Src), nullptr, 0, Name);
+        unsigned NumClauses = LLVMGetNumClauses(Src);
+        for (unsigned i = 0; i < NumClauses; ++i)
+          LLVMAddClause(Dst, CloneValue(LLVMGetClause(Src, i)));
+        LLVMSetCleanup(Dst, LLVMIsCleanup(Src));
         break;
       }
       case LLVMExtractValue: {
@@ -412,12 +601,11 @@ struct FunCloner {
       }
     }
 
-    const char *Name = LLVMGetBasicBlockName(Src);
-
     LLVMValueRef V = LLVMBasicBlockAsValue(Src);
     if (!LLVMValueIsBasicBlock(V) || LLVMValueAsBasicBlock(V) != Src)
       report_fatal_error("Basic block is not a basic block");
 
+    const char *Name = LLVMGetBasicBlockName(Src);
     const char *VName = LLVMGetValueName(V);
     if (Name != VName)
       report_fatal_error("Basic block name mismatch");
@@ -438,11 +626,8 @@ struct FunCloner {
     LLVMValueRef Last = LLVMGetLastInstruction(Src);
 
     if (First == nullptr) {
-      if (Last != nullptr) {
-        fprintf(stderr, "Has no first instruction, but last one\n");
-        exit(-1);
-      }
-
+      if (Last != nullptr)
+        report_fatal_error("Has no first instruction, but last one");
       return BB;
     }
 
@@ -456,19 +641,14 @@ struct FunCloner {
       CloneInstruction(Cur, Builder);
       Next = LLVMGetNextInstruction(Cur);
       if (Next == nullptr) {
-        if (Cur != Last) {
-          fprintf(stderr, "Final instruction does not match Last\n");
-          exit(-1);
-        }
-
+        if (Cur != Last)
+          report_fatal_error("Final instruction does not match Last");
         break;
       }
 
       LLVMValueRef Prev = LLVMGetPreviousInstruction(Next);
-      if (Prev != Cur) {
-        fprintf(stderr, "Next.Previous instruction is not Current\n");
-        exit(-1);
-      }
+      if (Prev != Cur)
+        report_fatal_error("Next.Previous instruction is not Current");
 
       Cur = Next;
     }
@@ -492,146 +672,169 @@ struct FunCloner {
       Count--;
       Next = LLVMGetNextBasicBlock(Cur);
       if (Next == nullptr) {
-        if (Cur != Last) {
-          fprintf(stderr, "Final basic block does not match Last\n");
-          exit(-1);
-        }
-
+        if (Cur != Last)
+          report_fatal_error("Final basic block does not match Last");
         break;
       }
 
       LLVMBasicBlockRef Prev = LLVMGetPreviousBasicBlock(Next);
-      if (Prev != Cur) {
-        fprintf(stderr, "Next.Previous basic bloc is not Current\n");
-        exit(-1);
-      }
+      if (Prev != Cur)
+        report_fatal_error("Next.Previous basic bloc is not Current");
 
       Cur = Next;
     }
 
-    if (Count != 0) {
-      fprintf(stderr, "Basic block count does not match iterration\n");
-      exit(-1);
-    }
+    if (Count != 0)
+      report_fatal_error("Basic block count does not match iterration");
   }
 };
 
-static ValueMap clone_params(LLVMValueRef Src, LLVMValueRef Dst) {
-  unsigned Count = LLVMCountParams(Src);
-  if (Count != LLVMCountParams(Dst)) {
-    fprintf(stderr, "Parameter count mismatch\n");
-    exit(-1);
-  }
-
-  ValueMap VMap;
-  if (Count == 0)
-    return VMap;
-
-  LLVMValueRef SrcFirst = LLVMGetFirstParam(Src);
-  LLVMValueRef DstFirst = LLVMGetFirstParam(Dst);
-  LLVMValueRef SrcLast = LLVMGetLastParam(Src);
-  LLVMValueRef DstLast = LLVMGetLastParam(Dst);
-
-  LLVMValueRef SrcCur = SrcFirst;
-  LLVMValueRef DstCur = DstFirst;
-  LLVMValueRef SrcNext = nullptr;
-  LLVMValueRef DstNext = nullptr;
-  while (true) {
-    const char *Name = LLVMGetValueName(SrcCur);
-    LLVMSetValueName(DstCur, Name);
-
-    VMap[SrcCur] = DstCur;
-
-    Count--;
-    SrcNext = LLVMGetNextParam(SrcCur);
-    DstNext = LLVMGetNextParam(DstCur);
-    if (SrcNext == nullptr && DstNext == nullptr) {
-      if (SrcCur != SrcLast) {
-        fprintf(stderr, "SrcLast param does not match End\n");
-        exit(-1);
-      }
-
-      if (DstCur != DstLast) {
-        fprintf(stderr, "DstLast param does not match End\n");
-        exit(-1);
-      }
-
-      break;
-    }
-
-    if (SrcNext == nullptr) {
-      fprintf(stderr, "SrcNext was unexpectedly null\n");
-      exit(-1);
-    }
-
-    if (DstNext == nullptr) {
-      fprintf(stderr, "DstNext was unexpectedly null\n");
-      exit(-1);
-    }
-
-    LLVMValueRef SrcPrev = LLVMGetPreviousParam(SrcNext);
-    if (SrcPrev != SrcCur) {
-      fprintf(stderr, "SrcNext.Previous param is not Current\n");
-      exit(-1);
-    }
-
-    LLVMValueRef DstPrev = LLVMGetPreviousParam(DstNext);
-    if (DstPrev != DstCur) {
-      fprintf(stderr, "DstNext.Previous param is not Current\n");
-      exit(-1);
-    }
-
-    SrcCur = SrcNext;
-    DstCur = DstNext;
-  }
-
-  if (Count != 0) {
-    fprintf(stderr, "Parameter count does not match iteration\n");
-    exit(-1);
-  }
-
-  return VMap;
-}
-
-static LLVMValueRef clone_function(LLVMValueRef Src, LLVMModuleRef M) {
-  const char *Name = LLVMGetValueName(Src);
-  LLVMValueRef Fun = LLVMGetNamedFunction(M, Name);
-  if (Fun != nullptr)
-    return Fun;
-
-  LLVMTypeRef DstTy = TypeCloner(M).Clone(LLVMTypeOf(Src));
-  LLVMTypeRef FunTy = LLVMGetElementType(DstTy);
-
-  Fun = LLVMAddFunction(M, Name, FunTy);
-  FunCloner FC(Src, Fun);
-  FC.CloneBBs(Src);
-
-  return Fun;
-}
-
-static void clone_functions(LLVMModuleRef Src, LLVMModuleRef Dst) {
-  LLVMValueRef Begin = LLVMGetFirstFunction(Src);
-  LLVMValueRef End = LLVMGetLastFunction(Src);
+static void declare_symbols(LLVMModuleRef Src, LLVMModuleRef M) {
+  LLVMValueRef Begin = LLVMGetFirstGlobal(Src);
+  LLVMValueRef End = LLVMGetLastGlobal(Src);
 
   LLVMValueRef Cur = Begin;
   LLVMValueRef Next = nullptr;
+  if (!Begin) {
+    if (End != nullptr)
+      report_fatal_error("Range has an end but no begining");
+    goto FunDecl;
+  }
+
   while (true) {
-    clone_function(Cur, Dst);
+    const char *Name = LLVMGetValueName(Cur);
+    if (LLVMGetNamedGlobal(M, Name))
+      report_fatal_error("GlobalVariable already cloned");
+    LLVMAddGlobal(M, LLVMGetElementType(TypeCloner(M).Clone(Cur)), Name);
+
+    Next = LLVMGetNextGlobal(Cur);
+    if (Next == nullptr) {
+      if (Cur != End)
+        report_fatal_error("");
+      break;
+    }
+
+    LLVMValueRef Prev = LLVMGetPreviousGlobal(Next);
+    if (Prev != Cur)
+      report_fatal_error("Next.Previous global is not Current");
+
+    Cur = Next;
+  }
+
+FunDecl:
+  Begin = LLVMGetFirstFunction(Src);
+  End = LLVMGetLastFunction(Src);
+  if (!Begin) {
+    if (End != nullptr)
+      report_fatal_error("Range has an end but no begining");
+    return;
+  }
+
+  Cur = Begin;
+  Next = nullptr;
+  while (true) {
+    const char *Name = LLVMGetValueName(Cur);
+    if (LLVMGetNamedFunction(M, Name))
+      report_fatal_error("Function already cloned");
+    LLVMAddFunction(M, Name, LLVMGetElementType(TypeCloner(M).Clone(Cur)));
+
     Next = LLVMGetNextFunction(Cur);
     if (Next == nullptr) {
-      if (Cur != End) {
-        fprintf(stderr, "Last function does not match End\n");
-        exit(-1);
-      }
-
+      if (Cur != End)
+        report_fatal_error("Last function does not match End");
       break;
     }
 
     LLVMValueRef Prev = LLVMGetPreviousFunction(Next);
-    if (Prev != Cur) {
-      fprintf(stderr, "Next.Previous function is not Current\n");
-      exit(-1);
+    if (Prev != Cur)
+      report_fatal_error("Next.Previous function is not Current");
+
+    Cur = Next;
+  }
+}
+
+static void clone_symbols(LLVMModuleRef Src, LLVMModuleRef M) {
+  LLVMValueRef Begin = LLVMGetFirstGlobal(Src);
+  LLVMValueRef End = LLVMGetLastGlobal(Src);
+
+  LLVMValueRef Cur = Begin;
+  LLVMValueRef Next = nullptr;
+  if (!Begin) {
+    if (End != nullptr)
+      report_fatal_error("Range has an end but no begining");
+    goto FunClone;
+  }
+
+  while (true) {
+    const char *Name = LLVMGetValueName(Cur);
+    LLVMValueRef G = LLVMGetNamedGlobal(M, Name);
+    if (!G)
+      report_fatal_error("GlobalVariable must have been declared already");
+
+    if (auto I = LLVMGetInitializer(Cur))
+      LLVMSetInitializer(G, clone_constant(I, M));
+
+    LLVMSetGlobalConstant(G, LLVMIsGlobalConstant(Cur));
+    LLVMSetThreadLocal(G, LLVMIsThreadLocal(Cur));
+    LLVMSetExternallyInitialized(G, LLVMIsExternallyInitialized(Cur));
+    LLVMSetLinkage(G, LLVMGetLinkage(Cur));
+    LLVMSetSection(G, LLVMGetSection(Cur));
+    LLVMSetVisibility(G, LLVMGetVisibility(Cur));
+    LLVMSetUnnamedAddr(G, LLVMHasUnnamedAddr(Cur));
+    LLVMSetAlignment(G, LLVMGetAlignment(Cur));
+
+    Next = LLVMGetNextGlobal(Cur);
+    if (Next == nullptr) {
+      if (Cur != End)
+        report_fatal_error("");
+      break;
     }
+
+    LLVMValueRef Prev = LLVMGetPreviousGlobal(Next);
+    if (Prev != Cur)
+      report_fatal_error("Next.Previous global is not Current");
+
+    Cur = Next;
+  }
+
+FunClone:
+  Begin = LLVMGetFirstFunction(Src);
+  End = LLVMGetLastFunction(Src);
+  if (!Begin) {
+    if (End != nullptr)
+      report_fatal_error("Range has an end but no begining");
+    return;
+  }
+
+  Cur = Begin;
+  Next = nullptr;
+  while (true) {
+    const char *Name = LLVMGetValueName(Cur);
+    LLVMValueRef Fun = LLVMGetNamedFunction(M, Name);
+    if (!Fun)
+      report_fatal_error("Function must have been declared already");
+
+    if (LLVMHasPersonalityFn(Cur)) {
+      const char *FName = LLVMGetValueName(LLVMGetPersonalityFn(Cur));
+      LLVMValueRef P = LLVMGetNamedFunction(M, FName);
+      if (!P)
+        report_fatal_error("Could not find personality function");
+      LLVMSetPersonalityFn(Fun, P);
+    }
+
+    FunCloner FC(Cur, Fun);
+    FC.CloneBBs(Cur);
+
+    Next = LLVMGetNextFunction(Cur);
+    if (Next == nullptr) {
+      if (Cur != End)
+        report_fatal_error("Last function does not match End");
+      break;
+    }
+
+    LLVMValueRef Prev = LLVMGetPreviousFunction(Next);
+    if (Prev != Cur)
+      report_fatal_error("Next.Previous function is not Current");
 
     Cur = Next;
   }
@@ -643,14 +846,20 @@ int llvm_echo(void) {
   LLVMModuleRef Src = llvm_load_module(false, true);
 
   LLVMContextRef Ctx = LLVMContextCreate();
-  LLVMModuleRef Dst = LLVMModuleCreateWithNameInContext("<stdin>", Ctx);
+  LLVMModuleRef M = LLVMModuleCreateWithNameInContext("<stdin>", Ctx);
 
-  clone_functions(Src, Dst);
-  char *Str = LLVMPrintModuleToString(Dst);
+  LLVMSetTarget(M, LLVMGetTarget(Src));
+  LLVMSetModuleDataLayout(M, LLVMGetModuleDataLayout(Src));
+  if (strcmp(LLVMGetDataLayoutStr(M), LLVMGetDataLayoutStr(Src)))
+    report_fatal_error("Inconsistent DataLayout string representation");
+
+  declare_symbols(Src, M);
+  clone_symbols(Src, M);
+  char *Str = LLVMPrintModuleToString(M);
   fputs(Str, stdout);
 
   LLVMDisposeMessage(Str);
-  LLVMDisposeModule(Dst);
+  LLVMDisposeModule(M);
   LLVMContextDispose(Ctx);
 
   return 0;

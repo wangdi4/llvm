@@ -1388,6 +1388,7 @@ ObjectFileMachO::GetAddressClass (lldb::addr_t file_addr)
                     case eSectionTypeCompactUnwind:
                         return eAddressClassRuntime;
 
+                    case eSectionTypeAbsoluteAddress:
                     case eSectionTypeELFSymbolTable:
                     case eSectionTypeELFDynamicSymbols:
                     case eSectionTypeELFRelocationEntries:
@@ -3079,7 +3080,7 @@ ObjectFileMachO::ParseSymtab ()
                                                             {
                                                                 // This is usually the second N_SO entry that contains just the filename,
                                                                 // so here we combine it with the first one if we are minimizing the symbol table
-                                                                const char *so_path = sym[sym_idx - 1].GetMangled().GetDemangledName().AsCString();
+                                                                const char *so_path = sym[sym_idx - 1].GetMangled().GetDemangledName(lldb::eLanguageTypeUnknown).AsCString();
                                                                 if (so_path && so_path[0])
                                                                 {
                                                                     std::string full_so_path (so_path);
@@ -3466,7 +3467,7 @@ ObjectFileMachO::ParseSymtab ()
                                                         sym[sym_idx].GetMangled().SetValue(const_symbol_name, symbol_name_is_mangled);
                                                         if (is_gsym && is_debug)
                                                         {
-                                                            const char *gsym_name = sym[sym_idx].GetMangled().GetName(Mangled::ePreferMangled).GetCString();
+                                                            const char *gsym_name = sym[sym_idx].GetMangled().GetName(lldb::eLanguageTypeUnknown, Mangled::ePreferMangled).GetCString();
                                                             if (gsym_name)
                                                                 N_GSYM_name_to_sym_idx[gsym_name] = sym_idx;
                                                         }
@@ -3540,7 +3541,7 @@ ObjectFileMachO::ParseSymtab ()
                                                             bool found_it = false;
                                                             for (ValueToSymbolIndexMap::const_iterator pos = range.first; pos != range.second; ++pos)
                                                             {
-                                                                if (sym[sym_idx].GetMangled().GetName(Mangled::ePreferMangled) == sym[pos->second].GetMangled().GetName(Mangled::ePreferMangled))
+                                                                if (sym[sym_idx].GetMangled().GetName(lldb::eLanguageTypeUnknown, Mangled::ePreferMangled) == sym[pos->second].GetMangled().GetName(lldb::eLanguageTypeUnknown, Mangled::ePreferMangled))
                                                                 {
                                                                     m_nlist_idx_to_sym_idx[nlist_idx] = pos->second;
                                                                     // We just need the flags from the linker symbol, so put these flags
@@ -3579,7 +3580,7 @@ ObjectFileMachO::ParseSymtab ()
                                                             bool found_it = false;
                                                             for (ValueToSymbolIndexMap::const_iterator pos = range.first; pos != range.second; ++pos)
                                                             {
-                                                                if (sym[sym_idx].GetMangled().GetName(Mangled::ePreferMangled) == sym[pos->second].GetMangled().GetName(Mangled::ePreferMangled))
+                                                                if (sym[sym_idx].GetMangled().GetName(lldb::eLanguageTypeUnknown, Mangled::ePreferMangled) == sym[pos->second].GetMangled().GetName(lldb::eLanguageTypeUnknown, Mangled::ePreferMangled))
                                                                 {
                                                                     m_nlist_idx_to_sym_idx[nlist_idx] = pos->second;
                                                                     // We just need the flags from the linker symbol, so put these flags
@@ -3596,7 +3597,7 @@ ObjectFileMachO::ParseSymtab ()
                                                         }
                                                         else
                                                         {
-                                                            const char *gsym_name = sym[sym_idx].GetMangled().GetName(Mangled::ePreferMangled).GetCString();
+                                                            const char *gsym_name = sym[sym_idx].GetMangled().GetName(lldb::eLanguageTypeUnknown, Mangled::ePreferMangled).GetCString();
                                                             if (gsym_name)
                                                             {
                                                                 // Combine N_GSYM stab entries with the non stab symbol
@@ -4090,7 +4091,7 @@ ObjectFileMachO::ParseSymtab ()
                     case N_ECOML:
                         // end common (local name): 0,,n_sect,0,address
                         symbol_section = section_info.GetSection (nlist.n_sect, nlist.n_value);
-                        // Fall through
+                        LLVM_FALLTHROUGH;
 
                     case N_ECOMM:
                         // end common: name,,n_sect,0,0
@@ -4146,7 +4147,8 @@ ObjectFileMachO::ParseSymtab ()
                             ConstString undefined_name(symbol_name + ((symbol_name[0] == '_') ? 1 : 0));
                             undefined_name_to_desc[undefined_name] = nlist.n_desc;
                         }
-                        // Fall through
+                        LLVM_FALLTHROUGH;
+
                     case N_PBUD:
                         type = eSymbolTypeUndefined;
                         break;
@@ -4517,7 +4519,6 @@ ObjectFileMachO::ParseSymtab ()
 
         if (function_starts_count > 0)
         {
-            char synthetic_function_symbol[PATH_MAX];
             uint32_t num_synthetic_function_symbols = 0;
             for (i=0; i<function_starts_count; ++i)
             {
@@ -4532,7 +4533,6 @@ ObjectFileMachO::ParseSymtab ()
                     num_syms = sym_idx + num_synthetic_function_symbols;
                     sym = symtab->Resize (num_syms);
                 }
-                uint32_t synthetic_function_symbol_idx = 0;
                 for (i=0; i<function_starts_count; ++i)
                 {
                     const FunctionStarts::Entry *func_start_entry = function_starts.GetEntryAtIndex (i);
@@ -4567,13 +4567,8 @@ ObjectFileMachO::ParseSymtab ()
                                 {
                                     symbol_byte_size = section_end_file_addr - symbol_file_addr;
                                 }
-                                snprintf (synthetic_function_symbol,
-                                          sizeof(synthetic_function_symbol),
-                                          "___lldb_unnamed_function%u$$%s",
-                                          ++synthetic_function_symbol_idx,
-                                          module_sp->GetFileSpec().GetFilename().GetCString());
                                 sym[sym_idx].SetID (synthetic_sym_id++);
-                                sym[sym_idx].GetMangled().SetDemangledName(ConstString(synthetic_function_symbol));
+                                sym[sym_idx].GetMangled().SetDemangledName(GetNextSyntheticSymbolName());
                                 sym[sym_idx].SetType (eSymbolTypeCode);
                                 sym[sym_idx].SetIsSynthetic (true);
                                 sym[sym_idx].GetAddressRef() = symbol_addr;
@@ -5125,6 +5120,7 @@ ObjectFileMachO::GetEntryPointAddress ()
                         start_address = text_segment_sp->GetFileAddress() + entryoffset;
                     }
                 }
+                break;
 
             default:
                 break;

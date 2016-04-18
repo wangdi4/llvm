@@ -573,8 +573,15 @@ FunctionModRefBehavior BasicAAResult::getModRefBehavior(ImmutableCallSite CS) {
   if (CS.onlyAccessesArgMemory())
     Min = FunctionModRefBehavior(Min & FMRB_OnlyAccessesArgumentPointees);
 
-  // The AAResultBase base class has some smarts, lets use them.
-  return FunctionModRefBehavior(AAResultBase::getModRefBehavior(CS) & Min);
+  // If CS has operand bundles then aliasing attributes from the function it
+  // calls do not directly apply to the CallSite.  This can be made more
+  // precise in the future.
+  if (!CS.hasOperandBundles())
+    if (const Function *F = CS.getCalledFunction())
+      Min =
+          FunctionModRefBehavior(Min & getBestAAResults().getModRefBehavior(F));
+
+  return Min;
 }
 
 /// Returns the behavior when calling the given function. For use when the call
@@ -593,8 +600,7 @@ FunctionModRefBehavior BasicAAResult::getModRefBehavior(const Function *F) {
   if (F->onlyAccessesArgMemory())
     Min = FunctionModRefBehavior(Min & FMRB_OnlyAccessesArgumentPointees);
 
-  // Otherwise be conservative.
-  return FunctionModRefBehavior(AAResultBase::getModRefBehavior(F) & Min);
+  return Min;
 }
 
 /// Returns true if this is a writeonly (i.e Mod only) parameter.  Currently,
@@ -1554,7 +1560,8 @@ bool BasicAAResult::constantOffsetHeuristic(
   unsigned V0ZExtBits = 0, V0SExtBits = 0, V1ZExtBits = 0, V1SExtBits = 0;
   const Value *V0 = GetLinearExpression(Var0.V, V0Scale, V0Offset, V0ZExtBits,
                                         V0SExtBits, DL, 0, AC, DT, NSW, NUW);
-  NSW = true, NUW = true;
+  NSW = true;
+  NUW = true;
   const Value *V1 = GetLinearExpression(Var1.V, V1Scale, V1Offset, V1ZExtBits,
                                         V1SExtBits, DL, 0, AC, DT, NSW, NUW);
 
@@ -1584,8 +1591,6 @@ bool BasicAAResult::constantOffsetHeuristic(
 //===----------------------------------------------------------------------===//
 // BasicAliasAnalysis Pass
 //===----------------------------------------------------------------------===//
-
-char BasicAA::PassID;
 
 BasicAAResult BasicAA::run(Function &F, AnalysisManager<Function> *AM) {
   return BasicAAResult(F.getParent()->getDataLayout(),

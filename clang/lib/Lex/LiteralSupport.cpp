@@ -522,6 +522,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   isLong = false;
   isUnsigned = false;
   isLongLong = false;
+  isHalf = false;
   isFloat = false;
 #if INTEL_CUSTOMIZATION
   isFloat128 = false;
@@ -558,13 +559,21 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   // we break out of the loop.
   for (; s != ThisTokEnd; ++s) {
     switch (*s) {
+    case 'h':      // FP Suffix for "half".
+    case 'H':
+      // OpenCL Extension v1.2 s9.5 - h or H suffix for half type.
+      if (!PP.getLangOpts().Half) break;
+      if (!isFPConstant) break;  // Error for integer constant.
+      if (isHalf || isFloat || isLong) break; // HH, FH, LH invalid.
+      isHalf = true;
+      continue;  // Success.
     case 'f':      // FP Suffix for "float"
     case 'F':
       if (!isFPConstant) break;  // Error for integer constant.
 #if INTEL_CUSTOMIZATION
-      if (isFloat || isLong || isFloat128) break; // FF, LF invalid.
-#else
-      if (isFloat || isLong) break; // FF, LF invalid.
+      // HF, FF, LF, F128 invalid.
+      if (isHalf || isFloat || isLong || isFloat128) break;
+      if (isHalf || isFloat || isLong) break; // HF, FF, LF invalid.
 #endif  // INTEL_CUSTOMIZATION
       isFloat = true;
       continue;  // Success.
@@ -587,10 +596,8 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
     case 'L':
 #if INTEL_CUSTOMIZATION
       if (isLong || isLongLong || isFloat128) break;  // Cannot be repeated.
-#else
-      if (isLong || isLongLong) break;  // Cannot be repeated.
 #endif  // INTEL_CUSTOMIZATION
-      if (isFloat) break;               // LF invalid.
+      if (isHalf || isFloat) break;     // LH, LF invalid.
 
       // Check for long long.  The L's need to be adjacent and the same case.
       if (s[1] == s[0]) {
@@ -689,6 +696,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       isUnsigned = false;
       isLongLong = false;
       isFloat = false;
+      isHalf = false;
       isImaginary = false;
       MicrosoftInteger = 0;
 
