@@ -13,6 +13,8 @@
 
 include "llvm/Target/Target.td"
 
+include "LPUSchedule.td"
+
 //===----------------------------------------------------------------------===//
 // LPU subtarget features
 //===----------------------------------------------------------------------===//
@@ -72,10 +74,12 @@ def FeatureMath0 : SubtargetFeature<"math0", "HasMath0", "true",
 
 // These map to processor layouts in lpusim
 
-class Proc<string Name, list<SubtargetFeature> Features>
- : Processor<Name, NoItineraries, Features>;
+class Proc<string Name, SchedMachineModel Model,
+           list<SubtargetFeature> Features>
+  : Processor<Name, NoItineraries, Features>;
 
-def : Proc<"ordered",  [FeatureOrdered,
+def : Proc<"ordered",  LPUGeneric,
+                       [FeatureOrdered,
                         FeatureI1,    FeatureI8,    FeatureI16,   FeatureI32,
                         FeatureI64,   FeatureF16,   FeatureF32,   FeatureF64,
                         FeatureSextL, FeatureDispl, FeatureIndex,
@@ -83,23 +87,27 @@ def : Proc<"ordered",  [FeatureOrdered,
                         FeatureIDiv,  FeatureFDiv,  FeatureFMA,
                         FeatureSqrt,  FeatureMath0]>;
 
-def : Proc<"autounit", [FeatureI1,    FeatureI8,    FeatureI16,   FeatureI32,
+def : Proc<"autounit", LPUGeneric,
+                       [FeatureI1,    FeatureI8,    FeatureI16,   FeatureI32,
                         FeatureI64,   FeatureF16,   FeatureF32,   FeatureF64,
                         FeatureSextL, FeatureDispl, FeatureIndex,
                         FeatureShAdd, FeatureBitOp,
                         FeatureIDiv,  FeatureFDiv,  FeatureFMA,
                         FeatureSqrt,  FeatureMath0]>;
 // Like autounit, but almost all more complex ops disabled
-def : Proc<"automin",  [FeatureI1,    FeatureI32,   FeatureI64,
+def : Proc<"automin",  LPUGeneric,
+                       [FeatureI1,    FeatureI32,   FeatureI64,
                                       FeatureF32,   FeatureF64]>;
 
-def : Proc<"config0",  [FeatureI1,    FeatureI8,    FeatureI16,   FeatureI32,
+def : Proc<"config0",  LPUConfig0,
+                       [FeatureI1,    FeatureI8,    FeatureI16,   FeatureI32,
                         FeatureI64,   FeatureF16,   FeatureF32,   FeatureF64,
                         FeatureSextL, FeatureDispl, FeatureIndex,
                         FeatureShAdd, FeatureBitOp,
                         FeatureIDiv,  FeatureFDiv,  FeatureFMA,
                         FeatureSqrt,  FeatureMath0]>;
-def : Proc<"config1",  [FeatureI1,    FeatureI8,    FeatureI16,   FeatureI32,
+def : Proc<"config1",  LPUConfig1,
+                       [FeatureI1,    FeatureI8,    FeatureI16,   FeatureI32,
                         FeatureI64,   FeatureF16,   FeatureF32,   FeatureF64,
                         FeatureSextL, FeatureDispl, FeatureIndex,
                         FeatureShAdd, FeatureBitOp,
