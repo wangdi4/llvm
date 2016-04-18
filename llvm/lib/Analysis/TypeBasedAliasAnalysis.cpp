@@ -665,7 +665,9 @@ bool TypeBasedAAResult::PathAliases(const MDNode *A, const MDNode *B, // INTEL
   return false;
 }
 
-TypeBasedAAResult TypeBasedAA::run(Function &F, AnalysisManager<Function> *AM) {
+char TypeBasedAA::PassID;
+
+TypeBasedAAResult TypeBasedAA::run(Function &F, AnalysisManager<Function> &AM) {
   return TypeBasedAAResult();
 }
 

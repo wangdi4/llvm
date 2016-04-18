@@ -68,12 +68,12 @@ IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0),
 #endif // INTEL_CUSTOMIZATION 
 
 Inliner::Inliner(char &ID)
-  : CallGraphSCCPass(ID), InsertLifetime(true), 
-    Report(IntelInlineReportLevel) {}  // INTEL 
+    : CallGraphSCCPass(ID), InsertLifetime(true),           // INTEL
+      Report(IntelInlineReportLevel) {}                     // INTEL 
 
 Inliner::Inliner(char &ID, bool InsertLifetime)
-  : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime), 
-    Report(IntelInlineReportLevel) {} // INTEL 
+    : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime), // INTEL
+      Report(IntelInlineReportLevel) {}                     // INTEL 
 
 /// For this class, we declare that we require and preserve the call graph.
 /// If the derived class implements this method, it should
@@ -601,7 +601,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
         CalleeNode->removeAllCalledFunctions();
         
         // Removing the node for callee from the call graph and delete it.
-        delete CG.removeFunctionFromModule(CalleeNode); 
+        delete CG.removeFunctionFromModule(CalleeNode);
         ++NumDeleted;
       }
 

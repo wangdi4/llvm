@@ -15,9 +15,6 @@
 #include "lldb/Core/Timer.h"
 #include "lldb/Symbol/GoASTContext.h"
 #include "lldb/Symbol/ClangASTContext.h"
-#include "Plugins/DynamicLoader/MacOSX-DYLD/DynamicLoaderMacOSXDYLD.h"
-#include "Plugins/DynamicLoader/POSIX-DYLD/DynamicLoaderPOSIXDYLD.h"
-#include "Plugins/DynamicLoader/Windows-DYLD/DynamicLoaderWindowsDYLD.h"
 #include "Plugins/Instruction/ARM/EmulateInstructionARM.h"
 #include "Plugins/Instruction/MIPS/EmulateInstructionMIPS.h"
 #include "Plugins/Instruction/MIPS64/EmulateInstructionMIPS64.h"
@@ -25,8 +22,6 @@
 #include "Plugins/ObjectContainer/Universal-Mach-O/ObjectContainerUniversalMachO.h"
 #include "Plugins/ObjectFile/ELF/ObjectFileELF.h"
 #include "Plugins/ObjectFile/PECOFF/ObjectFilePECOFF.h"
-#include "Plugins/OperatingSystem/Python/OperatingSystemPython.h"
-#include "Plugins/OperatingSystem/Go/OperatingSystemGo.h"
 #include "Plugins/Platform/Android/PlatformAndroid.h"
 #include "Plugins/Platform/FreeBSD/PlatformFreeBSD.h"
 #include "Plugins/Platform/Kalimba/PlatformKalimba.h"
@@ -39,7 +34,6 @@
 
 #if defined(__APPLE__)
 #include "Plugins/Platform/MacOSX/PlatformiOSSimulator.h"
-#include "Plugins/DynamicLoader/Darwin-Kernel/DynamicLoaderDarwinKernel.h"
 #include "Plugins/ObjectFile/Mach-O/ObjectFileMachO.h"
 #include "Plugins/Platform/MacOSX/PlatformDarwinKernel.h"
 #endif
@@ -110,8 +104,6 @@ SystemInitializerCommon::Initialize()
     ObjectContainerBSDArchive::Initialize();
     ObjectFileELF::Initialize();
     ObjectFilePECOFF::Initialize();
-    DynamicLoaderPOSIXDYLD::Initialize();
-    DynamicLoaderWindowsDYLD::Initialize();
     platform_freebsd::PlatformFreeBSD::Initialize();
     platform_linux::PlatformLinux::Initialize();
     platform_netbsd::PlatformNetBSD::Initialize();
@@ -126,7 +118,6 @@ SystemInitializerCommon::Initialize()
     //----------------------------------------------------------------------
     // Apple/Darwin hosted plugins
     //----------------------------------------------------------------------
-    DynamicLoaderMacOSXDYLD::Initialize();
     ObjectContainerUniversalMachO::Initialize();
 
     PlatformRemoteiOS::Initialize();
@@ -134,7 +125,6 @@ SystemInitializerCommon::Initialize()
 
 #if defined(__APPLE__)
     PlatformiOSSimulator::Initialize();
-    DynamicLoaderDarwinKernel::Initialize();
     PlatformDarwinKernel::Initialize();
     ObjectFileMachO::Initialize();
 #endif
@@ -145,10 +135,6 @@ SystemInitializerCommon::Initialize()
 #if defined(_MSC_VER)
     ProcessWindowsLog::Initialize();
 #endif
-#ifndef LLDB_DISABLE_PYTHON
-    OperatingSystemPython::Initialize();
-#endif
-    OperatingSystemGo::Initialize();
 }
 
 void
@@ -158,15 +144,12 @@ SystemInitializerCommon::Terminate()
     ObjectContainerBSDArchive::Terminate();
     ObjectFileELF::Terminate();
     ObjectFilePECOFF::Terminate();
-    DynamicLoaderPOSIXDYLD::Terminate();
-    DynamicLoaderWindowsDYLD::Terminate();
     platform_freebsd::PlatformFreeBSD::Terminate();
     platform_linux::PlatformLinux::Terminate();
     platform_netbsd::PlatformNetBSD::Terminate();
     PlatformWindows::Terminate();
     PlatformKalimba::Terminate();
     platform_android::PlatformAndroid::Terminate();
-    DynamicLoaderMacOSXDYLD::Terminate();
     ObjectContainerUniversalMachO::Terminate();
     PlatformMacOSX::Terminate();
     PlatformRemoteiOS::Terminate();
@@ -180,7 +163,6 @@ SystemInitializerCommon::Terminate()
 
 #if defined(__APPLE__)
     PlatformiOSSimulator::Terminate();
-    DynamicLoaderDarwinKernel::Terminate();
     ObjectFileMachO::Terminate();
     PlatformDarwinKernel::Terminate();
 #endif
@@ -188,11 +170,6 @@ SystemInitializerCommon::Terminate()
 #if defined(_MSC_VER)
     ProcessWindowsLog::Terminate();
 #endif
-
-#ifndef LLDB_DISABLE_PYTHON
-    OperatingSystemPython::Terminate();
-#endif
-    OperatingSystemGo::Terminate();
 
     HostInfo::Terminate();
     Log::Terminate();

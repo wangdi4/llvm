@@ -63,6 +63,9 @@
 
 #include "llvm/Support/Signals.h"
 
+#include "Plugins/ExpressionParser/Clang/ClangFunctionCaller.h"
+#include "Plugins/ExpressionParser/Clang/ClangUserExpression.h"
+#include "Plugins/ExpressionParser/Clang/ClangUtilityFunction.h"
 #include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Flags.h"
 #include "lldb/Core/Log.h"
@@ -72,12 +75,11 @@
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/ThreadSafeDenseMap.h"
 #include "lldb/Core/UniqueCStringMap.h"
-#include "Plugins/ExpressionParser/Clang/ClangUserExpression.h"
-#include "Plugins/ExpressionParser/Clang/ClangFunctionCaller.h"
-#include "Plugins/ExpressionParser/Clang/ClangUtilityFunction.h"
 #include "lldb/Symbol/ClangASTContext.h"
+#include "lldb/Symbol/ClangASTImporter.h"
 #include "lldb/Symbol/ClangExternalASTSourceCallbacks.h"
 #include "lldb/Symbol/ClangExternalASTSourceCommon.h"
+#include "lldb/Symbol/ClangUtil.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Symbol/VerifyDecl.h"
@@ -685,8 +687,9 @@ public:
     {
         m_log = lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_EXPRESSIONS);
     }
-    
-    void HandleDiagnostic (DiagnosticsEngine::Level DiagLevel, const Diagnostic &info)
+
+    void
+    HandleDiagnostic(DiagnosticsEngine::Level DiagLevel, const clang::Diagnostic &info)
     {
         if (m_log)
         {
@@ -1056,7 +1059,7 @@ ClangASTContext::GetBuiltinTypeForDWARFEncodingAndBitSize (const char *type_name
                     if (::strstr(type_name, "complex"))
                     {
                         CompilerType complex_int_clang_type = GetBuiltinTypeForDWARFEncodingAndBitSize ("int", DW_ATE_signed, bit_size/2);
-                        return CompilerType (ast, ast->getComplexType (GetQualType(complex_int_clang_type)));
+                        return CompilerType(ast, ast->getComplexType(ClangUtil::GetQualType(complex_int_clang_type)));
                     }
                 }
                 break;
@@ -1071,7 +1074,7 @@ ClangASTContext::GetBuiltinTypeForDWARFEncodingAndBitSize (const char *type_name
                 else 
                 {
                     CompilerType complex_float_clang_type = GetBuiltinTypeForDWARFEncodingAndBitSize ("float", DW_ATE_float, bit_size/2);
-                    return CompilerType (ast, ast->getComplexType (GetQualType(complex_float_clang_type)));
+                    return CompilerType(ast, ast->getComplexType(ClangUtil::GetQualType(complex_float_clang_type)));
                 }
                 break;
                 
@@ -1301,9 +1304,9 @@ ClangASTContext::AreTypesSame (CompilerType type1,
     if (type1.GetOpaqueQualType() == type2.GetOpaqueQualType())
         return true;
 
-    QualType type1_qual = GetQualType(type1);
-    QualType type2_qual = GetQualType(type2);
-    
+    QualType type1_qual = ClangUtil::GetQualType(type1);
+    QualType type2_qual = ClangUtil::GetQualType(type2);
+
     if (ignore_qualifiers)
     {
         type1_qual = type1_qual.getUnqualifiedType();
@@ -2015,31 +2018,17 @@ ClangASTContext::CreateFunctionDeclaration (DeclContext *decl_ctx,
 
     if (name && name[0])
     {
-        func_decl = FunctionDecl::Create (*ast,
-                                          decl_ctx,
-                                          SourceLocation(),
-                                          SourceLocation(),
-                                          DeclarationName (&ast->Idents.get(name)),
-                                          GetQualType(function_clang_type),
-                                          nullptr,
-                                          (clang::StorageClass)storage,
-                                          is_inline,
-                                          hasWrittenPrototype,
-                                          isConstexprSpecified);
+        func_decl = FunctionDecl::Create(
+            *ast, decl_ctx, SourceLocation(), SourceLocation(), DeclarationName(&ast->Idents.get(name)),
+            ClangUtil::GetQualType(function_clang_type), nullptr, (clang::StorageClass)storage, is_inline,
+            hasWrittenPrototype, isConstexprSpecified);
     }
     else
     {
-        func_decl = FunctionDecl::Create (*ast,
-                                          decl_ctx,
-                                          SourceLocation(),
-                                          SourceLocation(),
-                                          DeclarationName (),
-                                          GetQualType(function_clang_type),
-                                          nullptr,
-                                          (clang::StorageClass)storage,
-                                          is_inline,
-                                          hasWrittenPrototype,
-                                          isConstexprSpecified);
+        func_decl =
+            FunctionDecl::Create(*ast, decl_ctx, SourceLocation(), SourceLocation(), DeclarationName(),
+                                 ClangUtil::GetQualType(function_clang_type), nullptr, (clang::StorageClass)storage,
+                                 is_inline, hasWrittenPrototype, isConstexprSpecified);
     }
     if (func_decl)
         decl_ctx->addDecl (func_decl);
@@ -2062,7 +2051,7 @@ ClangASTContext::CreateFunctionType (ASTContext *ast,
     assert (ast != nullptr);
     std::vector<QualType> qual_type_args;
     for (unsigned i=0; i<num_args; ++i)
-        qual_type_args.push_back (GetQualType(args[i]));
+        qual_type_args.push_back(ClangUtil::GetQualType(args[i]));
 
     // TODO: Detect calling convention in DWARF?
     FunctionProtoType::ExtProtoInfo proto_info;
@@ -2071,9 +2060,7 @@ ClangASTContext::CreateFunctionType (ASTContext *ast,
     proto_info.TypeQuals = type_quals;
     proto_info.RefQualifier = RQ_None;
 
-    return CompilerType (ast, ast->getFunctionType (GetQualType(result_type),
-                                                    qual_type_args,
-                                                    proto_info));
+    return CompilerType(ast, ast->getFunctionType(ClangUtil::GetQualType(result_type), qual_type_args, proto_info));
 }
 
 ParmVarDecl *
@@ -2081,15 +2068,9 @@ ClangASTContext::CreateParameterDeclaration (const char *name, const CompilerTyp
 {
     ASTContext *ast = getASTContext();
     assert (ast != nullptr);
-    return ParmVarDecl::Create(*ast,
-                                ast->getTranslationUnitDecl(),
-                                SourceLocation(),
-                                SourceLocation(),
-                                name && name[0] ? &ast->Idents.get(name) : nullptr,
-                                GetQualType(param_type),
-                                nullptr,
-                                (clang::StorageClass)storage,
-                                nullptr);
+    return ParmVarDecl::Create(*ast, ast->getTranslationUnitDecl(), SourceLocation(), SourceLocation(),
+                               name && name[0] ? &ast->Idents.get(name) : nullptr, ClangUtil::GetQualType(param_type),
+                               nullptr, (clang::StorageClass)storage, nullptr);
 }
 
 void
@@ -2114,7 +2095,7 @@ ClangASTContext::CreateArrayType (const CompilerType &element_type,
 
         if (is_vector)
         {
-            return CompilerType (ast, ast->getExtVectorType(GetQualType(element_type), element_count));
+            return CompilerType(ast, ast->getExtVectorType(ClangUtil::GetQualType(element_type), element_count));
         }
         else
         {
@@ -2122,16 +2103,13 @@ ClangASTContext::CreateArrayType (const CompilerType &element_type,
             llvm::APInt ap_element_count (64, element_count);
             if (element_count == 0)
             {
-                return CompilerType (ast, ast->getIncompleteArrayType (GetQualType(element_type),
-                                                                       clang::ArrayType::Normal,
-                                                                       0));
+                return CompilerType(ast, ast->getIncompleteArrayType(ClangUtil::GetQualType(element_type),
+                                                                     clang::ArrayType::Normal, 0));
             }
             else
             {
-                return CompilerType (ast, ast->getConstantArrayType (GetQualType(element_type),
-                                                                     ap_element_count,
-                                                                     clang::ArrayType::Normal,
-                                                                     0));
+                return CompilerType(ast, ast->getConstantArrayType(ClangUtil::GetQualType(element_type),
+                                                                   ap_element_count, clang::ArrayType::Normal, 0));
             }
         }
     }
@@ -2189,8 +2167,8 @@ ClangASTContext::CreateEnumerationType
     if (enum_decl)
     {
         // TODO: check if we should be setting the promotion type too?
-        enum_decl->setIntegerType(GetQualType(integer_clang_type));
-        
+        enum_decl->setIntegerType(ClangUtil::GetQualType(integer_clang_type));
+
         enum_decl->setAccess(AS_public); // TODO respect what's in the debug info
         
         return CompilerType (ast, ast->getTagDeclType(enum_decl));
@@ -2583,7 +2561,7 @@ ClangASTContext::SetDefaultAccessForRecordFields (clang::RecordDecl* record_decl
 clang::DeclContext *
 ClangASTContext::GetDeclContextForType (const CompilerType& type)
 {
-    return GetDeclContextForType(GetQualType(type));
+    return GetDeclContextForType(ClangUtil::GetQualType(type));
 }
 
 clang::DeclContext *
@@ -3185,7 +3163,7 @@ ClangASTContext::GetFunctionArgumentAtIndex (lldb::opaque_compiler_type_t type, 
 {
     if (type)
     {
-        clang::QualType qual_type (GetCanonicalQualType(type));
+        clang::QualType qual_type (GetQualType(type));
         const clang::FunctionProtoType* func = llvm::dyn_cast<clang::FunctionProtoType>(qual_type.getTypePtr());
         if (func)
         {
@@ -3485,8 +3463,8 @@ ClangASTContext::IsObjCClassType (const CompilerType& type)
 {
     if (type)
     {
-        clang::QualType qual_type (GetCanonicalQualType(type));
-        
+        clang::QualType qual_type(ClangUtil::GetCanonicalQualType(type));
+
         const clang::ObjCObjectPointerType *obj_pointer_type = llvm::dyn_cast<clang::ObjCObjectPointerType>(qual_type);
         
         if (obj_pointer_type)
@@ -3498,8 +3476,8 @@ ClangASTContext::IsObjCClassType (const CompilerType& type)
 bool
 ClangASTContext::IsObjCObjectOrInterfaceType (const CompilerType& type)
 {
-    if (IsClangType(type))
-        return GetCanonicalQualType(type)->isObjCObjectOrInterfaceType();
+    if (ClangUtil::IsClangType(type))
+        return ClangUtil::GetCanonicalQualType(type)->isObjCObjectOrInterfaceType();
     return false;
 }
 
@@ -3715,7 +3693,7 @@ ClangASTContext::GetCXXClassName (const CompilerType& type, std::string &class_n
 {
     if (type)
     {
-        clang::QualType qual_type (GetCanonicalQualType(type));
+        clang::QualType qual_type(ClangUtil::GetCanonicalQualType(type));
         if (!qual_type.isNull())
         {
             clang::CXXRecordDecl *cxx_record_decl = qual_type->getAsCXXRecordDecl();
@@ -3736,8 +3714,8 @@ ClangASTContext::IsCXXClassType (const CompilerType& type)
 {
     if (!type)
         return false;
-    
-    clang::QualType qual_type (GetCanonicalQualType(type));
+
+    clang::QualType qual_type(ClangUtil::GetCanonicalQualType(type));
     if (!qual_type.isNull() && qual_type->getAsCXXRecordDecl() != nullptr)
         return true;
     return false;
@@ -3761,7 +3739,7 @@ ClangASTContext::IsObjCObjectPointerType (const CompilerType& type, CompilerType
     if (!type)
         return false;
 
-    clang::QualType qual_type (GetCanonicalQualType(type));
+    clang::QualType qual_type(ClangUtil::GetCanonicalQualType(type));
 
     if (!qual_type.isNull() && qual_type->isObjCObjectPointerType())
     {
@@ -3789,9 +3767,9 @@ ClangASTContext::GetObjCClassName (const CompilerType& type, std::string &class_
 {
     if (!type)
         return false;
-    
-    clang::QualType qual_type (GetCanonicalQualType(type));
-    
+
+    clang::QualType qual_type(ClangUtil::GetCanonicalQualType(type));
+
     const clang::ObjCObjectType *object_type = llvm::dyn_cast<clang::ObjCObjectType>(qual_type);
     if (object_type)
     {
@@ -4510,7 +4488,7 @@ ClangASTContext::CreateTypedefType (const CompilerType& type,
         if (!ast)
             return CompilerType();
         clang::ASTContext* clang_ast = ast->getASTContext();
-        clang::QualType qual_type (GetQualType(type));
+        clang::QualType qual_type(ClangUtil::GetQualType(type));
 
         clang::DeclContext *decl_ctx = ClangASTContext::DeclContextGetAsDeclContext(compiler_decl_ctx);
         if (decl_ctx == nullptr)
@@ -4640,6 +4618,20 @@ ClangASTContext::CreateTypedef (lldb::opaque_compiler_type_t type, const char *t
                                                                &clang_ast->Idents.get(typedef_name),
                                                                clang_ast->getTrivialTypeSourceInfo(qual_type));
 
+        clang::TagDecl *tdecl = nullptr;
+        if (!qual_type.isNull())
+        {
+            if (const clang::RecordType *rt = qual_type->getAs<clang::RecordType>())
+                tdecl = rt->getDecl();
+            if (const clang::EnumType *et = qual_type->getAs<clang::EnumType>())
+                tdecl = et->getDecl();
+        }
+
+        // Check whether this declaration is an anonymous struct, union, or enum, hidden behind a typedef. If so, we
+        // try to check whether we have a typedef tag to attach to the original record declaration
+        if (tdecl && !tdecl->getIdentifier() && !tdecl->getTypedefNameForAnonDecl())
+            tdecl->setTypedefNameForAnonDecl(decl);
+
         decl->setAccess(clang::AS_public); // TODO respect proper access specifier
 
         // Get a uniqued clang::QualType for the typedef decl type
@@ -4662,18 +4654,6 @@ ClangASTContext::GetTypedefedType (lldb::opaque_compiler_type_t type)
     return CompilerType();
 }
 
-CompilerType
-ClangASTContext::RemoveFastQualifiers (const CompilerType& type)
-{
-    if (IsClangType(type))
-    {
-        clang::QualType qual_type(GetQualType(type));
-        qual_type.getQualifiers().removeFastQualifiers();
-        return CompilerType (type.GetTypeSystem(), qual_type.getAsOpaquePtr());
-    }
-    return type;
-}
-
 
 //----------------------------------------------------------------------
 // Create related types using the current type's AST
@@ -4694,8 +4674,16 @@ ClangASTContext::GetBitSize (lldb::opaque_compiler_type_t type, ExecutionContext
     if (GetCompleteType (type))
     {
         clang::QualType qual_type(GetCanonicalQualType(type));
-        switch (qual_type->getTypeClass())
+        const clang::Type::TypeClass type_class = qual_type->getTypeClass();
+        switch (type_class)
         {
+            case clang::Type::Record:
+                if (GetCompleteType(type))
+                    return getASTContext()->getTypeSize(qual_type);
+                else
+                    return 0;
+                break;
+
             case clang::Type::ObjCInterface:
             case clang::Type::ObjCObject:
             {
@@ -7235,7 +7223,7 @@ CompilerType
 ClangASTContext::GetTypeForFormatters (void* type)
 {
     if (type)
-        return RemoveFastQualifiers(CompilerType(this, type));
+        return ClangUtil::RemoveFastQualifiers(CompilerType(this, type));
     return CompilerType();
 }
 
@@ -7458,7 +7446,7 @@ IsOperator (const char *name, clang::OverloadedOperatorKind &op_kind)
 clang::EnumDecl *
 ClangASTContext::GetAsEnumDecl (const CompilerType& type)
 {
-    const clang::EnumType *enutype = llvm::dyn_cast<clang::EnumType>(GetCanonicalQualType(type));
+    const clang::EnumType *enutype = llvm::dyn_cast<clang::EnumType>(ClangUtil::GetCanonicalQualType(type));
     if (enutype)
         return enutype->getDecl();
     return NULL;
@@ -7467,7 +7455,7 @@ ClangASTContext::GetAsEnumDecl (const CompilerType& type)
 clang::RecordDecl *
 ClangASTContext::GetAsRecordDecl (const CompilerType& type)
 {
-    const clang::RecordType *record_type = llvm::dyn_cast<clang::RecordType>(GetCanonicalQualType(type));
+    const clang::RecordType *record_type = llvm::dyn_cast<clang::RecordType>(ClangUtil::GetCanonicalQualType(type));
     if (record_type)
         return record_type->getDecl();
     return nullptr;
@@ -7476,7 +7464,7 @@ ClangASTContext::GetAsRecordDecl (const CompilerType& type)
 clang::TagDecl *
 ClangASTContext::GetAsTagDecl (const CompilerType& type)
 {
-    clang::QualType qual_type = GetCanonicalQualType(type);
+    clang::QualType qual_type = ClangUtil::GetCanonicalQualType(type);
     if (qual_type.isNull())
         return nullptr;
     else
@@ -7492,7 +7480,8 @@ ClangASTContext::GetAsCXXRecordDecl (lldb::opaque_compiler_type_t type)
 clang::ObjCInterfaceDecl *
 ClangASTContext::GetAsObjCInterfaceDecl (const CompilerType& type)
 {
-    const clang::ObjCObjectType *objc_class_type = llvm::dyn_cast<clang::ObjCObjectType>(GetCanonicalQualType(type));
+    const clang::ObjCObjectType *objc_class_type =
+        llvm::dyn_cast<clang::ObjCObjectType>(ClangUtil::GetCanonicalQualType(type));
     if (objc_class_type)
         return objc_class_type->getInterface();
     return nullptr;
@@ -7523,17 +7512,14 @@ ClangASTContext::AddFieldToRecordType (const CompilerType& type, const char *nam
     clang::RecordDecl *record_decl = ast->GetAsRecordDecl (type);
     if (record_decl)
     {
-        field = clang::FieldDecl::Create (*clang_ast,
-                                          record_decl,
-                                          clang::SourceLocation(),
-                                          clang::SourceLocation(),
-                                          name ? &clang_ast->Idents.get(name) : nullptr,  // Identifier
-                                          GetQualType(field_clang_type),             // Field type
-                                          nullptr,                                    // TInfo *
-                                          bit_width,                                  // BitWidth
-                                          false,                                      // Mutable
-                                          clang::ICIS_NoInit);                        // HasInit
-        
+        field = clang::FieldDecl::Create(*clang_ast, record_decl, clang::SourceLocation(), clang::SourceLocation(),
+                                         name ? &clang_ast->Idents.get(name) : nullptr, // Identifier
+                                         ClangUtil::GetQualType(field_clang_type),      // Field type
+                                         nullptr,                                       // TInfo *
+                                         bit_width,                                     // BitWidth
+                                         false,                                         // Mutable
+                                         clang::ICIS_NoInit);                           // HasInit
+
         if (!name)
         {
             // Determine whether this field corresponds to an anonymous
@@ -7568,18 +7554,14 @@ ClangASTContext::AddFieldToRecordType (const CompilerType& type, const char *nam
             const bool is_synthesized = false;
             
             field_clang_type.GetCompleteType();
-            
-            field = clang::ObjCIvarDecl::Create (*clang_ast,
-                                                 class_interface_decl,
-                                                 clang::SourceLocation(),
-                                                 clang::SourceLocation(),
-                                                 name ? &clang_ast->Idents.get(name) : nullptr,   // Identifier
-                                                 GetQualType(field_clang_type),           // Field type
-                                                 nullptr,                                     // TypeSourceInfo *
-                                                 ConvertAccessTypeToObjCIvarAccessControl (access),
-                                                 bit_width,
-                                                 is_synthesized);
-            
+
+            field = clang::ObjCIvarDecl::Create(
+                *clang_ast, class_interface_decl, clang::SourceLocation(), clang::SourceLocation(),
+                name ? &clang_ast->Idents.get(name) : nullptr, // Identifier
+                ClangUtil::GetQualType(field_clang_type),      // Field type
+                nullptr,                                       // TypeSourceInfo *
+                ConvertAccessTypeToObjCIvarAccessControl(access), bit_width, is_synthesized);
+
             if (field)
             {
                 class_interface_decl->addDecl(field);
@@ -7739,14 +7721,15 @@ ClangASTContext::AddVariableToRecordType (const CompilerType& type, const char *
     clang::RecordDecl *record_decl = ast->GetAsRecordDecl (type);
     if (record_decl)
     {
-        var_decl = clang::VarDecl::Create (*ast->getASTContext(),                      // ASTContext &
-                                           record_decl,                                // DeclContext *
-                                           clang::SourceLocation(),                    // clang::SourceLocation StartLoc
-                                           clang::SourceLocation(),                    // clang::SourceLocation IdLoc
-                                           name ? &ast->getASTContext()->Idents.get(name) : nullptr,  // clang::IdentifierInfo *
-                                           GetQualType(var_type),                      // Variable clang::QualType
-                                           nullptr,                                    // TypeSourceInfo *
-                                           clang::SC_Static);                          // StorageClass
+        var_decl =
+            clang::VarDecl::Create(*ast->getASTContext(),   // ASTContext &
+                                   record_decl,             // DeclContext *
+                                   clang::SourceLocation(), // clang::SourceLocation StartLoc
+                                   clang::SourceLocation(), // clang::SourceLocation IdLoc
+                                   name ? &ast->getASTContext()->Idents.get(name) : nullptr, // clang::IdentifierInfo *
+                                   ClangUtil::GetQualType(var_type),                         // Variable clang::QualType
+                                   nullptr,                                                  // TypeSourceInfo *
+                                   clang::SC_Static);                                        // StorageClass
         if (var_decl)
         {
             var_decl->setAccess(ClangASTContext::ConvertAccessTypeToAccessSpecifier (access));
@@ -7781,9 +7764,9 @@ ClangASTContext::AddMethodToCXXRecordType (lldb::opaque_compiler_type_t type, co
     
     if (cxx_record_decl == nullptr)
         return nullptr;
-    
-    clang::QualType method_qual_type (GetQualType(method_clang_type));
-    
+
+    clang::QualType method_qual_type(ClangUtil::GetQualType(method_clang_type));
+
     clang::CXXMethodDecl *cxx_method_decl = nullptr;
     
     clang::DeclarationName decl_name (&getASTContext()->Idents.get(name));
@@ -8067,17 +8050,16 @@ ClangASTContext::AddObjCClassProperty (const CompilerType& type,
             if (ivar_decl)
                 prop_type_source = clang_ast->getTrivialTypeSourceInfo (ivar_decl->getType());
             else
-                prop_type_source = clang_ast->getTrivialTypeSourceInfo (GetQualType(property_clang_type));
-            
-            clang::ObjCPropertyDecl *property_decl = clang::ObjCPropertyDecl::Create (*clang_ast,
-                                                                                      class_interface_decl,
-                                                                                      clang::SourceLocation(), // Source Location
-                                                                                      &clang_ast->Idents.get(property_name),
-                                                                                      clang::SourceLocation(), //Source Location for AT
-                                                                                      clang::SourceLocation(), //Source location for (
-                                                                                      ivar_decl ? ivar_decl->getType() : ClangASTContext::GetQualType(property_clang_type),
-                                                                                      prop_type_source);
-            
+                prop_type_source = clang_ast->getTrivialTypeSourceInfo(ClangUtil::GetQualType(property_clang_type));
+
+            clang::ObjCPropertyDecl *property_decl = clang::ObjCPropertyDecl::Create(
+                *clang_ast, class_interface_decl,
+                clang::SourceLocation(), // Source Location
+                &clang_ast->Idents.get(property_name),
+                clang::SourceLocation(), // Source Location for AT
+                clang::SourceLocation(), // Source location for (
+                ivar_decl ? ivar_decl->getType() : ClangUtil::GetQualType(property_clang_type), prop_type_source);
+
             if (property_decl)
             {
                 if (metadata)
@@ -8142,22 +8124,13 @@ ClangASTContext::AddObjCClassProperty (const CompilerType& type,
                     const bool isDefined = false;
                     const clang::ObjCMethodDecl::ImplementationControl impControl = clang::ObjCMethodDecl::None;
                     const bool HasRelatedResultType = false;
-                    
-                    clang::ObjCMethodDecl *getter = clang::ObjCMethodDecl::Create (*clang_ast,
-                                                                                   clang::SourceLocation(),
-                                                                                   clang::SourceLocation(),
-                                                                                   getter_sel,
-                                                                                   GetQualType(property_clang_type_to_access),
-                                                                                   nullptr,
-                                                                                   class_interface_decl,
-                                                                                   isInstance,
-                                                                                   isVariadic,
-                                                                                   isSynthesized,
-                                                                                   isImplicitlyDeclared,
-                                                                                   isDefined,
-                                                                                   impControl,
-                                                                                   HasRelatedResultType);
-                    
+
+                    clang::ObjCMethodDecl *getter = clang::ObjCMethodDecl::Create(
+                        *clang_ast, clang::SourceLocation(), clang::SourceLocation(), getter_sel,
+                        ClangUtil::GetQualType(property_clang_type_to_access), nullptr, class_interface_decl,
+                        isInstance, isVariadic, isSynthesized, isImplicitlyDeclared, isDefined, impControl,
+                        HasRelatedResultType);
+
                     if (getter && metadata)
                         ClangASTContext::SetMetadata(clang_ast, getter, *metadata);
                     
@@ -8200,17 +8173,12 @@ ClangASTContext::AddObjCClassProperty (const CompilerType& type,
                         ClangASTContext::SetMetadata(clang_ast, setter, *metadata);
                     
                     llvm::SmallVector<clang::ParmVarDecl *, 1> params;
-                    
-                    params.push_back (clang::ParmVarDecl::Create (*clang_ast,
-                                                                  setter,
-                                                                  clang::SourceLocation(),
-                                                                  clang::SourceLocation(),
-                                                                  nullptr, // anonymous
-                                                                  GetQualType(property_clang_type_to_access),
-                                                                  nullptr,
-                                                                  clang::SC_Auto,
-                                                                  nullptr));
-                    
+
+                    params.push_back(clang::ParmVarDecl::Create(
+                        *clang_ast, setter, clang::SourceLocation(), clang::SourceLocation(),
+                        nullptr, // anonymous
+                        ClangUtil::GetQualType(property_clang_type_to_access), nullptr, clang::SC_Auto, nullptr));
+
                     if (setter)
                     {
                         setter->setMethodParams(*clang_ast, llvm::ArrayRef<clang::ParmVarDecl*>(params), llvm::ArrayRef<clang::SourceLocation>());
@@ -8286,9 +8254,9 @@ ClangASTContext::AddMethodToObjCObjectType (const CompilerType& type,
     
     clang::Selector method_selector = ast->Selectors.getSelector (num_selectors_with_args ? selector_idents.size() : 0,
                                                                     selector_idents.data());
-    
-    clang::QualType method_qual_type (GetQualType(method_clang_type));
-    
+
+    clang::QualType method_qual_type(ClangUtil::GetQualType(method_clang_type));
+
     // Populate the method decl with parameter decls
     const clang::Type *method_type(method_qual_type.getTypePtr());
     
@@ -8310,23 +8278,18 @@ ClangASTContext::AddMethodToObjCObjectType (const CompilerType& type,
     
     if (num_args != num_selectors_with_args)
         return nullptr; // some debug information is corrupt.  We are not going to deal with it.
-    
-    clang::ObjCMethodDecl *objc_method_decl = clang::ObjCMethodDecl::Create (*ast,
-                                                                             clang::SourceLocation(), // beginLoc,
-                                                                             clang::SourceLocation(), // endLoc,
-                                                                             method_selector,
-                                                                             method_function_prototype->getReturnType(),
-                                                                             nullptr, // TypeSourceInfo *ResultTInfo,
-                                                                             ClangASTContext::GetASTContext(ast)->GetDeclContextForType(GetQualType(type)),
-                                                                             name[0] == '-',
-                                                                             is_variadic,
-                                                                             is_synthesized,
-                                                                             true, // is_implicitly_declared; we force this to true because we don't have source locations
-                                                                             is_defined,
-                                                                             imp_control,
-                                                                             false /*has_related_result_type*/);
-    
-    
+
+    clang::ObjCMethodDecl *objc_method_decl = clang::ObjCMethodDecl::Create(
+        *ast,
+        clang::SourceLocation(), // beginLoc,
+        clang::SourceLocation(), // endLoc,
+        method_selector, method_function_prototype->getReturnType(),
+        nullptr, // TypeSourceInfo *ResultTInfo,
+        ClangASTContext::GetASTContext(ast)->GetDeclContextForType(ClangUtil::GetQualType(type)), name[0] == '-',
+        is_variadic, is_synthesized,
+        true, // is_implicitly_declared; we force this to true because we don't have source locations
+        is_defined, imp_control, false /*has_related_result_type*/);
+
     if (objc_method_decl == nullptr)
         return nullptr;
     
@@ -8362,10 +8325,10 @@ ClangASTContext::AddMethodToObjCObjectType (const CompilerType& type,
 bool
 ClangASTContext::GetHasExternalStorage (const CompilerType &type)
 {
-    if (IsClangType(type))
+    if (ClangUtil::IsClangType(type))
         return false;
 
-    clang::QualType qual_type (GetCanonicalQualType(type));
+    clang::QualType qual_type(ClangUtil::GetCanonicalQualType(type));
 
     const clang::Type::TypeClass type_class = qual_type->getTypeClass();
     switch (type_class)
@@ -8493,158 +8456,12 @@ ClangASTContext::SetHasExternalStorage (lldb::opaque_compiler_type_t type, bool 
 }
 
 
-bool
-ClangASTContext::CanImport (const CompilerType &type, lldb_private::ClangASTImporter &importer)
-{
-    if (IsClangType(type))
-    {
-        // TODO: remove external completion BOOL
-        // CompleteAndFetchChildren should get the Decl out and check for the
-
-        clang::QualType qual_type(GetCanonicalQualType(RemoveFastQualifiers(type)));
-
-        const clang::Type::TypeClass type_class = qual_type->getTypeClass();
-        switch (type_class)
-        {
-            case clang::Type::Record:
-            {
-                const clang::CXXRecordDecl *cxx_record_decl = qual_type->getAsCXXRecordDecl();
-                if (cxx_record_decl)
-                {
-                    if (importer.ResolveDeclOrigin (cxx_record_decl, NULL, NULL))
-                        return true;
-                }
-            }
-                break;
-
-            case clang::Type::Enum:
-            {
-                clang::EnumDecl *enum_decl = llvm::cast<clang::EnumType>(qual_type)->getDecl();
-                if (enum_decl)
-                {
-                    if (importer.ResolveDeclOrigin (enum_decl, NULL, NULL))
-                        return true;
-                }
-            }
-                break;
-
-            case clang::Type::ObjCObject:
-            case clang::Type::ObjCInterface:
-            {
-                const clang::ObjCObjectType *objc_class_type = llvm::dyn_cast<clang::ObjCObjectType>(qual_type);
-                if (objc_class_type)
-                {
-                    clang::ObjCInterfaceDecl *class_interface_decl = objc_class_type->getInterface();
-                    // We currently can't complete objective C types through the newly added ASTContext
-                    // because it only supports TagDecl objects right now...
-                    if (class_interface_decl)
-                    {
-                        if (importer.ResolveDeclOrigin (class_interface_decl, NULL, NULL))
-                            return true;
-                    }
-                }
-            }
-                break;
-
-
-            case clang::Type::Typedef:
-                return CanImport(CompilerType (type.GetTypeSystem(), llvm::cast<clang::TypedefType>(qual_type)->getDecl()->getUnderlyingType().getAsOpaquePtr()), importer);
-
-            case clang::Type::Auto:
-                return CanImport(CompilerType (type.GetTypeSystem(), llvm::cast<clang::AutoType>(qual_type)->getDeducedType().getAsOpaquePtr()), importer);
-                
-            case clang::Type::Elaborated:
-                return CanImport(CompilerType (type.GetTypeSystem(), llvm::cast<clang::ElaboratedType>(qual_type)->getNamedType().getAsOpaquePtr()), importer);
-
-            case clang::Type::Paren:
-                return CanImport(CompilerType (type.GetTypeSystem(), llvm::cast<clang::ParenType>(qual_type)->desugar().getAsOpaquePtr()), importer);
-
-            default:
-                break;
-        }
-    }
-    return false;
-}
-bool
-ClangASTContext::Import (const CompilerType &type, lldb_private::ClangASTImporter &importer)
-{
-    if (IsClangType(type))
-    {
-        // TODO: remove external completion BOOL
-        // CompleteAndFetchChildren should get the Decl out and check for the
-
-        clang::QualType qual_type(GetCanonicalQualType(RemoveFastQualifiers(type)));
-
-        const clang::Type::TypeClass type_class = qual_type->getTypeClass();
-        switch (type_class)
-        {
-            case clang::Type::Record:
-            {
-                const clang::CXXRecordDecl *cxx_record_decl = qual_type->getAsCXXRecordDecl();
-                if (cxx_record_decl)
-                {
-                    if (importer.ResolveDeclOrigin (cxx_record_decl, NULL, NULL))
-                        return importer.CompleteAndFetchChildren(qual_type);
-                }
-            }
-                break;
-
-            case clang::Type::Enum:
-            {
-                clang::EnumDecl *enum_decl = llvm::cast<clang::EnumType>(qual_type)->getDecl();
-                if (enum_decl)
-                {
-                    if (importer.ResolveDeclOrigin (enum_decl, NULL, NULL))
-                        return importer.CompleteAndFetchChildren(qual_type);
-                }
-            }
-                break;
-
-            case clang::Type::ObjCObject:
-            case clang::Type::ObjCInterface:
-            {
-                const clang::ObjCObjectType *objc_class_type = llvm::dyn_cast<clang::ObjCObjectType>(qual_type);
-                if (objc_class_type)
-                {
-                    clang::ObjCInterfaceDecl *class_interface_decl = objc_class_type->getInterface();
-                    // We currently can't complete objective C types through the newly added ASTContext
-                    // because it only supports TagDecl objects right now...
-                    if (class_interface_decl)
-                    {
-                        if (importer.ResolveDeclOrigin (class_interface_decl, NULL, NULL))
-                            return importer.CompleteAndFetchChildren(qual_type);
-                    }
-                }
-            }
-                break;
-
-
-            case clang::Type::Typedef:
-                return Import (CompilerType(type.GetTypeSystem(), llvm::cast<clang::TypedefType>(qual_type)->getDecl()->getUnderlyingType().getAsOpaquePtr()), importer);
-
-            case clang::Type::Auto:
-                return Import (CompilerType(type.GetTypeSystem(),llvm::cast<clang::AutoType>(qual_type)->getDeducedType().getAsOpaquePtr()), importer);
-                
-            case clang::Type::Elaborated:
-                return Import (CompilerType(type.GetTypeSystem(),llvm::cast<clang::ElaboratedType>(qual_type)->getNamedType().getAsOpaquePtr()), importer);
-
-            case clang::Type::Paren:
-                return Import (CompilerType(type.GetTypeSystem(),llvm::cast<clang::ParenType>(qual_type)->desugar().getAsOpaquePtr()), importer);
-                
-            default:
-                break;
-        }
-    }
-    return false;
-}
-
-
 #pragma mark TagDecl
 
 bool
 ClangASTContext::StartTagDeclarationDefinition (const CompilerType &type)
 {
-    clang::QualType qual_type (ClangASTContext::GetQualType(type));
+    clang::QualType qual_type(ClangUtil::GetQualType(type));
     if (!qual_type.isNull())
     {
         const clang::TagType *tag_type = qual_type->getAs<clang::TagType>();
@@ -8675,7 +8492,7 @@ ClangASTContext::StartTagDeclarationDefinition (const CompilerType &type)
 bool
 ClangASTContext::CompleteTagDeclarationDefinition (const CompilerType& type)
 {
-    clang::QualType qual_type (ClangASTContext::GetQualType(type));
+    clang::QualType qual_type(ClangUtil::GetQualType(type));
     if (!qual_type.isNull())
     {
         clang::CXXRecordDecl *cxx_record_decl = qual_type->getAsCXXRecordDecl();
@@ -8755,15 +8572,11 @@ ClangASTContext::AddEnumerationValueToEnumerationType (lldb::opaque_compiler_typ
             {
                 llvm::APSInt enum_llvm_apsint(enum_value_bit_size, is_signed);
                 enum_llvm_apsint = enum_value;
-                clang::EnumConstantDecl *enumerator_decl =
-                clang::EnumConstantDecl::Create (*getASTContext(),
-                                                 enutype->getDecl(),
-                                                 clang::SourceLocation(),
-                                                 name ? &getASTContext()->Idents.get(name) : nullptr,    // Identifier
-                                                 GetQualType(enumerator_clang_type),
-                                                 nullptr,
-                                                 enum_llvm_apsint);
-                
+                clang::EnumConstantDecl *enumerator_decl = clang::EnumConstantDecl::Create(
+                    *getASTContext(), enutype->getDecl(), clang::SourceLocation(),
+                    name ? &getASTContext()->Idents.get(name) : nullptr, // Identifier
+                    ClangUtil::GetQualType(enumerator_clang_type), nullptr, enum_llvm_apsint);
+
                 if (enumerator_decl)
                 {
                     enutype->getDecl()->addDecl(enumerator_decl);
@@ -8806,9 +8619,9 @@ ClangASTContext::CreateMemberPointerType (const CompilerType& type, const Compil
         ClangASTContext *ast = llvm::dyn_cast<ClangASTContext>(type.GetTypeSystem());
         if (!ast)
             return CompilerType();
-        return CompilerType (ast->getASTContext(),
-                             ast->getASTContext()->getMemberPointerType (GetQualType(pointee_type),
-                                                                         GetQualType(type).getTypePtr()));
+        return CompilerType(ast->getASTContext(),
+                            ast->getASTContext()->getMemberPointerType(ClangUtil::GetQualType(pointee_type),
+                                                                       ClangUtil::GetQualType(type).getTypePtr()));
     }
     return CompilerType();
 }
@@ -9539,9 +9352,9 @@ ClangASTContext::DumpTypeDescription (lldb::opaque_compiler_type_t type, Stream 
 void
 ClangASTContext::DumpTypeName (const CompilerType &type)
 {
-    if (IsClangType(type))
+    if (ClangUtil::IsClangType(type))
     {
-        clang::QualType qual_type(GetCanonicalQualType(RemoveFastQualifiers(type)));
+        clang::QualType qual_type(ClangUtil::GetCanonicalQualType(ClangUtil::RemoveFastQualifiers(type)));
 
         const clang::Type::TypeClass type_class = qual_type->getTypeClass();
         switch (type_class)
@@ -9653,9 +9466,8 @@ ClangASTContext::CompleteObjCInterfaceDecl (void *baton, clang::ObjCInterfaceDec
     }
 }
 
-
 DWARFASTParser *
-ClangASTContext::GetDWARFParser ()
+ClangASTContext::GetDWARFParser()
 {
     if (!m_dwarf_ast_parser_ap)
         m_dwarf_ast_parser_ap.reset(new DWARFASTParserClang(*this));
@@ -9674,7 +9486,8 @@ ClangASTContext::LayoutRecordType(void *baton,
 {
     ClangASTContext *ast = (ClangASTContext *)baton;
     DWARFASTParserClang *dwarf_ast_parser = (DWARFASTParserClang *)ast->GetDWARFParser();
-    return dwarf_ast_parser->LayoutRecordType(record_decl, bit_size, alignment, field_offsets, base_offsets, vbase_offsets);
+    return dwarf_ast_parser->GetClangASTImporter().LayoutRecordType(record_decl, bit_size, alignment, field_offsets,
+                                                                    base_offsets, vbase_offsets);
 }
 
 //----------------------------------------------------------------------

@@ -36,6 +36,8 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/Support/Format.h"
+#include "llvm/Support/Locale.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/raw_ostream.h"
 #include <limits>
@@ -259,16 +261,9 @@ static bool SemaBuiltinSEHScopeCheck(Sema &SemaRef, CallExpr *TheCall,
   return false;
 }
 
-/// Returns readable name for a call.
-static StringRef getFunctionName(CallExpr *Call) {
-  return cast<FunctionDecl>(Call->getCalleeDecl())->getName();
-}
-
 /// Returns OpenCL access qual.
 static OpenCLAccessAttr *getOpenCLArgAccess(const Decl *D) {
-  if (D->hasAttr<OpenCLAccessAttr>())
     return D->getAttr<OpenCLAccessAttr>();
-  return nullptr;
 }
 
 /// Returns true if pipe element type is different from the pointer.
@@ -277,7 +272,7 @@ static bool checkOpenCLPipeArg(Sema &S, CallExpr *Call) {
   // First argument type should always be pipe.
   if (!Arg0->getType()->isPipeType()) {
     S.Diag(Call->getLocStart(), diag::err_opencl_builtin_pipe_first_arg)
-        << getFunctionName(Call) << Arg0->getSourceRange();
+        << Call->getDirectCallee() << Arg0->getSourceRange();
     return true;
   }
   OpenCLAccessAttr *AccessQual =
@@ -286,20 +281,38 @@ static bool checkOpenCLPipeArg(Sema &S, CallExpr *Call) {
   // OpenCL v2.0 s6.13.16 - The access qualifiers for pipe should only be
   // read_only and write_only, and assumed to be read_only if no qualifier is
   // specified.
-  bool isValid = true;
-  bool ReadOnly = getFunctionName(Call).find("read") != StringRef::npos;
-  if (ReadOnly)
-    isValid = AccessQual == nullptr || AccessQual->isReadOnly();
-  else
-    isValid = AccessQual != nullptr && AccessQual->isWriteOnly();
-  if (!isValid) {
-    const char *AM = ReadOnly ? "read_only" : "write_only";
-    S.Diag(Arg0->getLocStart(),
-           diag::err_opencl_builtin_pipe_invalid_access_modifier)
-        << AM << Arg0->getSourceRange();
-    return true;
+  switch (Call->getDirectCallee()->getBuiltinID()) {
+  case Builtin::BIread_pipe:
+  case Builtin::BIreserve_read_pipe:
+  case Builtin::BIcommit_read_pipe:
+  case Builtin::BIwork_group_reserve_read_pipe:
+  case Builtin::BIsub_group_reserve_read_pipe:
+  case Builtin::BIwork_group_commit_read_pipe:
+  case Builtin::BIsub_group_commit_read_pipe:
+    if (!(!AccessQual || AccessQual->isReadOnly())) {
+      S.Diag(Arg0->getLocStart(),
+             diag::err_opencl_builtin_pipe_invalid_access_modifier)
+          << "read_only" << Arg0->getSourceRange();
+      return true;
+    }
+    break;
+  case Builtin::BIwrite_pipe:
+  case Builtin::BIreserve_write_pipe:
+  case Builtin::BIcommit_write_pipe:
+  case Builtin::BIwork_group_reserve_write_pipe:
+  case Builtin::BIsub_group_reserve_write_pipe:
+  case Builtin::BIwork_group_commit_write_pipe:
+  case Builtin::BIsub_group_commit_write_pipe:
+    if (!(AccessQual && AccessQual->isWriteOnly())) {
+      S.Diag(Arg0->getLocStart(),
+             diag::err_opencl_builtin_pipe_invalid_access_modifier)
+          << "write_only" << Arg0->getSourceRange();
+      return true;
+    }
+    break;
+  default:
+    break;
   }
-
   return false;
 }
 
@@ -308,16 +321,16 @@ static bool checkOpenCLPipePacketType(Sema &S, CallExpr *Call, unsigned Idx) {
   const Expr *Arg0 = Call->getArg(0);
   const Expr *ArgIdx = Call->getArg(Idx);
   const PipeType *PipeTy = cast<PipeType>(Arg0->getType());
-  const Type *EltTy = PipeTy->getElementType().getTypePtr();
-  const PointerType *ArgTy =
-      dyn_cast<PointerType>(ArgIdx->getType().getTypePtr());
+  const QualType EltTy = PipeTy->getElementType();
+  const PointerType *ArgTy = ArgIdx->getType()->getAs<PointerType>();
   // The Idx argument should be a pointer and the type of the pointer and
   // the type of pipe element should also be the same.
-  if (!ArgTy || EltTy != ArgTy->getPointeeType().getTypePtr()) {
+  if (!ArgTy ||
+      !S.Context.hasSameType(
+          EltTy, ArgTy->getPointeeType()->getCanonicalTypeInternal())) {
     S.Diag(Call->getLocStart(), diag::err_opencl_builtin_pipe_invalid_arg)
-        << getFunctionName(Call)
-        << S.Context.getPointerType(PipeTy->getElementType())
-        << ArgIdx->getSourceRange();
+        << Call->getDirectCallee() << S.Context.getPointerType(EltTy)
+        << ArgIdx->getType() << ArgIdx->getSourceRange();
     return true;
   }
   return false;
@@ -328,16 +341,15 @@ static bool checkOpenCLPipePacketType(Sema &S, CallExpr *Call, unsigned Idx) {
 // \param Call A pointer to the builtin call.
 // \return True if a semantic error has been found, false otherwise.
 static bool SemaBuiltinRWPipe(Sema &S, CallExpr *Call) {
-  // Two kinds of read/write pipe
-  // From OpenCL C Specification 6.13.16.2 the built-in read/write
-  // functions have following forms.
+  // OpenCL v2.0 s6.13.16.2 - The built-in read/write
+  // functions have two forms.
   switch (Call->getNumArgs()) {
   case 2: {
     if (checkOpenCLPipeArg(S, Call))
       return true;
     // The call with 2 arguments should be
-    // read/write_pipe(pipe T, T*)
-    // check packet type T
+    // read/write_pipe(pipe T, T*).
+    // Check packet type T.
     if (checkOpenCLPipePacketType(S, Call, 1))
       return true;
   } break;
@@ -346,32 +358,32 @@ static bool SemaBuiltinRWPipe(Sema &S, CallExpr *Call) {
     if (checkOpenCLPipeArg(S, Call))
       return true;
     // The call with 4 arguments should be
-    // read/write_pipe(pipe T, reserve_id_t, uint, T*)
-    // check reserve_id_t
+    // read/write_pipe(pipe T, reserve_id_t, uint, T*).
+    // Check reserve_id_t.
     if (!Call->getArg(1)->getType()->isReserveIDT()) {
       S.Diag(Call->getLocStart(), diag::err_opencl_builtin_pipe_invalid_arg)
-          << getFunctionName(Call) << S.Context.OCLReserveIDTy
-          << Call->getArg(1)->getSourceRange();
+          << Call->getDirectCallee() << S.Context.OCLReserveIDTy
+          << Call->getArg(1)->getType() << Call->getArg(1)->getSourceRange();
       return true;
     }
 
-    // check the index
+    // Check the index.
     const Expr *Arg2 = Call->getArg(2);
     if (!Arg2->getType()->isIntegerType() &&
         !Arg2->getType()->isUnsignedIntegerType()) {
       S.Diag(Call->getLocStart(), diag::err_opencl_builtin_pipe_invalid_arg)
-          << getFunctionName(Call) << S.Context.UnsignedIntTy
-          << Arg2->getSourceRange();
+          << Call->getDirectCallee() << S.Context.UnsignedIntTy
+          << Arg2->getType() << Arg2->getSourceRange();
       return true;
     }
 
-    // check packet type T
+    // Check packet type T.
     if (checkOpenCLPipePacketType(S, Call, 3))
       return true;
   } break;
   default:
     S.Diag(Call->getLocStart(), diag::err_opencl_builtin_pipe_arg_num)
-        << getFunctionName(Call) << Call->getSourceRange();
+        << Call->getDirectCallee() << Call->getSourceRange();
     return true;
   }
 
@@ -390,12 +402,12 @@ static bool SemaBuiltinReserveRWPipe(Sema &S, CallExpr *Call) {
   if (checkOpenCLPipeArg(S, Call))
     return true;
 
-  // check the reserve size
+  // Check the reserve size.
   if (!Call->getArg(1)->getType()->isIntegerType() &&
       !Call->getArg(1)->getType()->isUnsignedIntegerType()) {
     S.Diag(Call->getLocStart(), diag::err_opencl_builtin_pipe_invalid_arg)
-        << getFunctionName(Call) << S.Context.UnsignedIntTy
-        << Call->getArg(1)->getSourceRange();
+        << Call->getDirectCallee() << S.Context.UnsignedIntTy
+        << Call->getArg(1)->getType() << Call->getArg(1)->getSourceRange();
     return true;
   }
 
@@ -414,11 +426,11 @@ static bool SemaBuiltinCommitRWPipe(Sema &S, CallExpr *Call) {
   if (checkOpenCLPipeArg(S, Call))
     return true;
 
-  // check reserve_id_t
+  // Check reserve_id_t.
   if (!Call->getArg(1)->getType()->isReserveIDT()) {
     S.Diag(Call->getLocStart(), diag::err_opencl_builtin_pipe_invalid_arg)
-        << getFunctionName(Call) << S.Context.OCLReserveIDTy
-        << Call->getArg(1)->getSourceRange();
+        << Call->getDirectCallee() << S.Context.OCLReserveIDTy
+        << Call->getArg(1)->getType() << Call->getArg(1)->getSourceRange();
     return true;
   }
 
@@ -436,7 +448,7 @@ static bool SemaBuiltinPipePackets(Sema &S, CallExpr *Call) {
 
   if (!Call->getArg(0)->getType()->isPipeType()) {
     S.Diag(Call->getLocStart(), diag::err_opencl_builtin_pipe_first_arg)
-        << getFunctionName(Call) << Call->getArg(0)->getSourceRange();
+        << Call->getDirectCallee() << Call->getArg(0)->getSourceRange();
     return true;
   }
 
@@ -1817,6 +1829,8 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     // C    __c11_atomic_load(A *, int)
     Load,
     // void __atomic_load(A *, CP, int)
+    LoadCopy,
+    // void __atomic_store(A *, CP, int)
     Copy,
     // C    __c11_atomic_add(A *, M, int)
     Arithmetic,
@@ -1829,8 +1843,8 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     // bool __atomic_compare_exchange(A *, C *, CP, bool, int, int)
     GNUCmpXchg
   } Form = Init;
-  const unsigned NumArgs[] = { 2, 2, 3, 3, 3, 4, 5, 6 };
-  const unsigned NumVals[] = { 1, 0, 1, 1, 1, 2, 2, 3 };
+  const unsigned NumArgs[] = { 2, 2, 3, 3, 3, 3, 4, 5, 6 };
+  const unsigned NumVals[] = { 1, 0, 1, 1, 1, 1, 2, 2, 3 };
   // where:
   //   C is an appropriate type,
   //   A is volatile _Atomic(C) for __c11 builtins and is C for GNU builtins,
@@ -1860,8 +1874,11 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     Form = Load;
     break;
 
-  case AtomicExpr::AO__c11_atomic_store:
   case AtomicExpr::AO__atomic_load:
+    Form = LoadCopy;
+    break;
+
+  case AtomicExpr::AO__c11_atomic_store:
   case AtomicExpr::AO__atomic_store:
   case AtomicExpr::AO__atomic_store_n:
     Form = Copy;
@@ -1948,7 +1965,7 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
       return ExprError();
     }
     ValType = AtomTy->getAs<AtomicType>()->getValueType();
-  } else if (Form != Load && Op != AtomicExpr::AO__atomic_load) {
+  } else if (Form != Load && Form != LoadCopy) {
     if (ValType.isConstQualified()) {
       Diag(DRE->getLocStart(), diag::err_atomic_op_needs_non_const_pointer)
         << Ptr->getType() << Ptr->getSourceRange();
@@ -2009,10 +2026,11 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
 
   // atomic_fetch_or takes a pointer to a volatile 'A'.  We shouldn't let the
   // volatile-ness of the pointee-type inject itself into the result or the
-  // other operands.
+  // other operands. Similarly atomic_load can take a pointer to a const 'A'.
   ValType.removeLocalVolatile();
+  ValType.removeLocalConst();
   QualType ResultType = ValType;
-  if (Form == Copy || Form == GNUXchg || Form == Init)
+  if (Form == Copy || Form == LoadCopy || Form == GNUXchg || Form == Init)
     ResultType = Context.VoidTy;
   else if (Form == C11CmpXchg || Form == GNUCmpXchg)
     ResultType = Context.BoolTy;
@@ -2022,10 +2040,6 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
   QualType ByValType = ValType; // 'CP'
   if (!IsC11 && !IsN)
     ByValType = Ptr->getType();
-
-  // FIXME: __atomic_load allows the first argument to be a a pointer to const
-  // but not the second argument. We need to manually remove possible const
-  // qualifiers.
 
   // The first argument --- the pointer --- has a fixed type; we
   // deduce the types of the rest of the arguments accordingly.  Walk
@@ -2093,6 +2107,7 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
   case Load:
     SubExprs.push_back(TheCall->getArg(1)); // Order
     break;
+  case LoadCopy:
   case Copy:
   case Arithmetic:
   case Xchg:
@@ -3613,20 +3628,33 @@ bool Sema::CheckFormatArguments(ArrayRef<const Expr *> Args,
   // format is either NSString or CFString. This is a hack to prevent
   // diag when using the NSLocalizedString and CFCopyLocalizedString macros
   // which are usually used in place of NS and CF string literals.
-  if (Type == FST_NSString &&
-      SourceMgr.isInSystemMacro(Args[format_idx]->getLocStart()))
+  SourceLocation FormatLoc = Args[format_idx]->getLocStart();
+  if (Type == FST_NSString && SourceMgr.isInSystemMacro(FormatLoc))
     return false;
 
   // If there are no arguments specified, warn with -Wformat-security, otherwise
   // warn only with -Wformat-nonliteral.
-  if (Args.size() == firstDataArg)
-    Diag(Args[format_idx]->getLocStart(),
-         diag::warn_format_nonliteral_noargs)
+  if (Args.size() == firstDataArg) {
+    Diag(FormatLoc, diag::warn_format_nonliteral_noargs)
       << OrigFormatExpr->getSourceRange();
-  else
-    Diag(Args[format_idx]->getLocStart(),
-         diag::warn_format_nonliteral)
-           << OrigFormatExpr->getSourceRange();
+    switch (Type) {
+    default:
+      break;
+    case FST_Kprintf:
+    case FST_FreeBSDKPrintf:
+    case FST_Printf:
+      Diag(FormatLoc, diag::note_format_security_fixit)
+        << FixItHint::CreateInsertion(FormatLoc, "\"%s\", ");
+      break;
+    case FST_NSString:
+      Diag(FormatLoc, diag::note_format_security_fixit)
+        << FixItHint::CreateInsertion(FormatLoc, "@\"%@\", ");
+      break;
+    }
+  } else {
+    Diag(FormatLoc, diag::warn_format_nonliteral)
+      << OrigFormatExpr->getSourceRange();
+  }
   return false;
 }
 
@@ -3955,12 +3983,41 @@ CheckFormatHandler::HandleInvalidConversionSpecifier(unsigned argIndex,
     // gibberish when trying to match arguments.
     keepGoing = false;
   }
-  
-  EmitFormatDiagnostic(S.PDiag(diag::warn_format_invalid_conversion)
-                         << StringRef(csStart, csLen),
-                       Loc, /*IsStringLocation*/true,
-                       getSpecifierRange(startSpec, specifierLen));
-  
+
+  StringRef Specifier(csStart, csLen);
+
+  // If the specifier in non-printable, it could be the first byte of a UTF-8
+  // sequence. In that case, print the UTF-8 code point. If not, print the byte
+  // hex value.
+  std::string CodePointStr;
+  if (!llvm::sys::locale::isPrint(*csStart)) {
+    UTF32 CodePoint;
+    const UTF8 **B = reinterpret_cast<const UTF8 **>(&csStart);
+    const UTF8 *E =
+        reinterpret_cast<const UTF8 *>(csStart + csLen);
+    ConversionResult Result =
+        llvm::convertUTF8Sequence(B, E, &CodePoint, strictConversion);
+
+    if (Result != conversionOK) {
+      unsigned char FirstChar = *csStart;
+      CodePoint = (UTF32)FirstChar;
+    }
+
+    llvm::raw_string_ostream OS(CodePointStr);
+    if (CodePoint < 256)
+      OS << "\\x" << llvm::format("%02x", CodePoint);
+    else if (CodePoint <= 0xFFFF)
+      OS << "\\u" << llvm::format("%04x", CodePoint);
+    else
+      OS << "\\U" << llvm::format("%08x", CodePoint);
+    OS.flush();
+    Specifier = CodePointStr;
+  }
+
+  EmitFormatDiagnostic(
+      S.PDiag(diag::warn_format_invalid_conversion) << Specifier, Loc,
+      /*IsStringLocation*/ true, getSpecifierRange(startSpec, specifierLen));
+
   return keepGoing;
 }
 
@@ -5554,7 +5611,7 @@ static const CXXRecordDecl *getContainedDynamicClass(QualType T,
 
   const CXXRecordDecl *RD = Ty->getAsCXXRecordDecl();
   RD = RD ? RD->getDefinition() : nullptr;
-  if (!RD)
+  if (!RD || RD->isInvalidDecl())
     return nullptr;
 
   if (RD->isDynamicClass())

@@ -576,12 +576,12 @@ def : Proc<"athlon64-sse3",   [FeatureX87, FeatureSlowUAMem16, FeatureSSE3,
                                FeatureSlowBTMem, FeatureSlowSHLD]>;
 def : Proc<"amdfam10",        [FeatureX87, FeatureSSE4A, Feature3DNowA,
                                FeatureFXSR, FeatureCMPXCHG16B, FeatureLZCNT,
-                               FeaturePOPCNT, FeatureSlowBTMem,
-                               FeatureSlowSHLD]>;
+                               FeaturePOPCNT, FeatureSlowBTMem, FeatureSlowSHLD,
+                               FeatureLAHFSAHF]>;
 def : Proc<"barcelona",       [FeatureX87, FeatureSSE4A, Feature3DNowA,
                                FeatureFXSR, FeatureCMPXCHG16B, FeatureLZCNT,
-                               FeaturePOPCNT, FeatureSlowBTMem,
-                               FeatureSlowSHLD]>;
+                               FeaturePOPCNT, FeatureSlowBTMem, FeatureSlowSHLD,
+                               FeatureLAHFSAHF]>;
 
 // Bobcat
 def : Proc<"btver1", [
@@ -594,7 +594,6 @@ def : Proc<"btver1", [
   FeaturePRFCHW,
   FeatureLZCNT,
   FeaturePOPCNT,
-  FeatureXSAVE,
   FeatureSlowSHLD,
   FeatureLAHFSAHF
 ]>;

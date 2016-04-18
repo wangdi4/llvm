@@ -66,10 +66,12 @@ DECODE_OPERAND(VReg_64)
 DECODE_OPERAND(VReg_96)
 DECODE_OPERAND(VReg_128)
 
+DECODE_OPERAND(SGPR_32)
 DECODE_OPERAND(SReg_32)
 DECODE_OPERAND(SReg_64)
 DECODE_OPERAND(SReg_128)
 DECODE_OPERAND(SReg_256)
+DECODE_OPERAND(SReg_512)
 
 #define GET_SUBTARGETINFO_ENUM
 #include "AMDGPUGenSubtargetInfo.inc"
@@ -81,10 +83,10 @@ DECODE_OPERAND(SReg_256)
 //
 //===----------------------------------------------------------------------===//
 
-static inline uint32_t eatB32(ArrayRef<uint8_t>& Bytes) {
-  assert(Bytes.size() >= sizeof eatB32(Bytes));
-  const auto Res = support::endian::read32le(Bytes.data());
-  Bytes = Bytes.slice(sizeof Res);
+template <typename T> static inline T eatBytes(ArrayRef<uint8_t>& Bytes) {
+  assert(Bytes.size() >= sizeof(T));
+  const auto Res = support::endian::read<T, support::endianness::little>(Bytes.data());
+  Bytes = Bytes.slice(sizeof(T));
   return Res;
 }
 
@@ -119,10 +121,22 @@ DecodeStatus AMDGPUDisassembler::getInstruction(MCInst &MI, uint64_t &Size,
 
   DecodeStatus Res = MCDisassembler::Fail;
   do {
-    // ToDo: better to switch enc len using some bit predicate
+    // ToDo: better to switch encoding length using some bit predicate
     // but it is unknown yet, so try all we can
+    
+    // Try to decode DPP first to solve conflict with VOP1 and VOP2 encodings
+    if (Bytes.size() >= 8) {
+      const uint64_t QW = eatBytes<uint64_t>(Bytes);
+      Res = tryDecodeInst(DecoderTableDPP64, MI, QW, Address);
+      if (Res) break;
+    }
+
+    // Reinitialize Bytes as DPP64 could have eaten too much
+    Bytes = Bytes_.slice(0, MaxInstBytesNum);
+
+    // Try decode 32-bit instruction
     if (Bytes.size() < 4) break;
-    const uint32_t DW = eatB32(Bytes);
+    const uint32_t DW = eatBytes<uint32_t>(Bytes);
     Res = tryDecodeInst(DecoderTableVI32, MI, DW, Address);
     if (Res) break;
 
@@ -130,7 +144,7 @@ DecodeStatus AMDGPUDisassembler::getInstruction(MCInst &MI, uint64_t &Size,
     if (Res) break;
 
     if (Bytes.size() < 4) break;
-    const uint64_t QW = ((uint64_t)eatB32(Bytes) << 32) | DW;
+    const uint64_t QW = ((uint64_t)eatBytes<uint32_t>(Bytes) << 32) | DW;
     Res = tryDecodeInst(DecoderTableVI64, MI, QW, Address);
     if (Res) break;
 
@@ -259,7 +273,7 @@ MCOperand AMDGPUDisassembler::decodeLiteralConstant() const {
   if (Bytes.size() < 4)
     return errOperand(0, "cannot read literal, inst bytes left " +
                          Twine(Bytes.size()));
-  return MCOperand::createImm(eatB32(Bytes));
+  return MCOperand::createImm(eatBytes<uint32_t>(Bytes));
 }
 
 MCOperand AMDGPUDisassembler::decodeIntImmed(unsigned Imm) {

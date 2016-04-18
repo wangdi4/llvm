@@ -148,6 +148,9 @@ namespace llvm {
 
     bool parseStandaloneConstantValue(Constant *&C, const SlotMapping *Slots);
 
+    bool parseTypeAtBeginning(Type *&Ty, unsigned &Read,
+                              const SlotMapping *Slots);
+
     LLVMContext &getContext() { return Context; }
 
   private:
@@ -258,6 +261,7 @@ namespace llvm {
     bool ValidateEndOfModule();
     bool ParseTargetDefinition();
     bool ParseModuleAsm();
+    bool ParseSourceFileName();
     bool ParseDepLibs();        // FIXME: Remove in 4.0.
     bool ParseUnnamedType();
     bool ParseNamedType();

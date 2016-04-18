@@ -405,6 +405,9 @@ namespace RTLIB {
     // Stack Protector Fail.
     STACKPROTECTOR_CHECK_FAIL,
 
+    // Deoptimization.
+    DEOPTIMIZE,
+
     UNKNOWN_LIBCALL
   };
 
@@ -434,7 +437,7 @@ namespace RTLIB {
 
   /// Return the SYNC_FETCH_AND_* value for the given opcode and type, or
   /// UNKNOWN_LIBCALL if there is none.
-  Libcall getATOMIC(unsigned Opc, MVT VT);
+  Libcall getSYNC(unsigned Opc, MVT VT);
 }
 }
 

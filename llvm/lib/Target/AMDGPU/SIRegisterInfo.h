@@ -13,8 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 
-#ifndef LLVM_LIB_TARGET_R600_SIREGISTERINFO_H
-#define LLVM_LIB_TARGET_R600_SIREGISTERINFO_H
+#ifndef LLVM_LIB_TARGET_AMDGPU_SIREGISTERINFO_H
+#define LLVM_LIB_TARGET_AMDGPU_SIREGISTERINFO_H
 
 #include "AMDGPURegisterInfo.h"
 #include "AMDGPUSubtarget.h"
@@ -23,12 +23,16 @@
 
 namespace llvm {
 
-struct SIRegisterInfo : public AMDGPURegisterInfo {
+struct SIRegisterInfo final : public AMDGPURegisterInfo {
 private:
   unsigned SGPR32SetID;
   unsigned VGPR32SetID;
+  BitVector SGPRPressureSets;
+  BitVector VGPRPressureSets;
 
   void reserveRegisterTuples(BitVector &, unsigned Reg) const;
+  void classifyPressureSet(unsigned PSetID, unsigned Reg,
+                           BitVector &PressureSets) const;
 
 public:
   SIRegisterInfo();
@@ -48,6 +52,8 @@ public:
                                   unsigned Idx) const override;
 
   bool requiresRegisterScavenging(const MachineFunction &Fn) const override;
+
+  bool requiresFrameIndexScavenging(const MachineFunction &MF) const override;
 
   void eliminateFrameIndex(MachineBasicBlock::iterator MI, int SPAdj,
                            unsigned FIOperandNum,
@@ -70,9 +76,12 @@ public:
   }
 
   bool isSGPRReg(const MachineRegisterInfo &MRI, unsigned Reg) const {
+    const TargetRegisterClass *RC;
     if (TargetRegisterInfo::isVirtualRegister(Reg))
-      return isSGPRClass(MRI.getRegClass(Reg));
-    return getPhysRegClass(Reg);
+      RC = MRI.getRegClass(Reg);
+    else
+      RC = getPhysRegClass(Reg);
+    return isSGPRClass(RC);
   }
 
   /// \returns true if this class contains VGPR registers.
@@ -162,7 +171,7 @@ private:
   void buildScratchLoadStore(MachineBasicBlock::iterator MI,
                              unsigned LoadStoreOp, unsigned Value,
                              unsigned ScratchRsrcReg, unsigned ScratchOffset,
-                             int64_t Offset, RegScavenger *RS) const;
+                             int64_t Offset) const;
 };
 
 } // End namespace llvm

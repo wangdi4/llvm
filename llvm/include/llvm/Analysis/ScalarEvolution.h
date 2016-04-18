@@ -967,6 +967,9 @@ namespace llvm {
     bool proveNoWrapByVaryingStart(const SCEV *Start, const SCEV *Step,
                                    const Loop *L);
 
+    /// Try to prove NSW or NUW on \p AR relying on ConstantRange manipulation.
+    SCEV::NoWrapFlags proveNoWrapViaConstantRanges(const SCEVAddRecExpr *AR);
+
     bool isMonotonicPredicateImpl(const SCEVAddRecExpr *LHS,
                                   ICmpInst::Predicate Pred, bool &Increasing);
 
@@ -1490,13 +1493,14 @@ namespace llvm {
     getWrapPredicate(const SCEVAddRecExpr *AR,
                      SCEVWrapPredicate::IncrementWrapFlags AddedFlags);
 
-    /// Re-writes the SCEV according to the Predicates in \p Preds.
+    /// Re-writes the SCEV according to the Predicates in \p A.
     const SCEV *rewriteUsingPredicate(const SCEV *S, const Loop *L,
                                       SCEVUnionPredicate &A);
     /// Tries to convert the \p S expression to an AddRec expression,
     /// adding additional predicates to \p Preds as required.
-    const SCEV *convertSCEVToAddRecWithPredicates(const SCEV *S, const Loop *L,
-                                                  SCEVUnionPredicate &Preds);
+    const SCEVAddRecExpr *
+    convertSCEVToAddRecWithPredicates(const SCEV *S, const Loop *L,
+                                      SCEVUnionPredicate &Preds);
 
   private:
     /// Compute the backedge taken count knowing the interval difference, the
@@ -1528,22 +1532,25 @@ namespace llvm {
   };
 
   /// \brief Analysis pass that exposes the \c ScalarEvolution for a function.
-  struct ScalarEvolutionAnalysis : AnalysisBase<ScalarEvolutionAnalysis> {
+  class ScalarEvolutionAnalysis
+      : public AnalysisInfoMixin<ScalarEvolutionAnalysis> {
+    friend AnalysisInfoMixin<ScalarEvolutionAnalysis>;
+    static char PassID;
+
+  public:
     typedef ScalarEvolution Result;
 
-    ScalarEvolution run(Function &F, AnalysisManager<Function> *AM);
+    ScalarEvolution run(Function &F, AnalysisManager<Function> &AM);
   };
-
-  extern template class AnalysisBase<ScalarEvolutionAnalysis>;
 
   /// \brief Printer pass for the \c ScalarEvolutionAnalysis results.
   class ScalarEvolutionPrinterPass
-      : public PassBase<ScalarEvolutionPrinterPass> {
+      : public PassInfoMixin<ScalarEvolutionPrinterPass> {
     raw_ostream &OS;
 
   public:
     explicit ScalarEvolutionPrinterPass(raw_ostream &OS) : OS(OS) {}
-    PreservedAnalyses run(Function &F, AnalysisManager<Function> *AM);
+    PreservedAnalyses run(Function &F, AnalysisManager<Function> &AM);
   };
 
   class ScalarEvolutionWrapperPass : public FunctionPass {
@@ -1590,8 +1597,10 @@ namespace llvm {
     /// \brief Adds a new predicate.
     void addPredicate(const SCEVPredicate &Pred);
     /// \brief Attempts to produce an AddRecExpr for V by adding additional
-    /// SCEV predicates.
-    const SCEV *getAsAddRec(Value *V);
+    /// SCEV predicates. If we can't transform the expression into an
+    /// AddRecExpr we return nullptr and not add additional SCEV predicates
+    /// to the current context.
+    const SCEVAddRecExpr *getAsAddRec(Value *V);
     /// \brief Proves that V doesn't overflow by adding SCEV predicate.
     void setNoOverflow(Value *V, SCEVWrapPredicate::IncrementWrapFlags Flags);
     /// \brief Returns true if we've proved that V doesn't wrap by means of a
