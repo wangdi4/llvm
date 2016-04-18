@@ -253,6 +253,13 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
     return;
   }
   
+
+  // TODO: Handle the case when we have a denominator
+  if (CExpr->getDenominator() != 1) {
+    IsHandled = false;
+    return;
+  }
+  
   SmallVector<unsigned, 8> BlobIndices;
   CExpr->collectBlobIndices(BlobIndices, false);
 
@@ -700,9 +707,9 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
 
     Ref = *Iter;
 
-    // Lval SelfBlob refs get the widened ref duing the HLInst creation
+    // Lval terminal refs get the widened ref duing the HLInst creation
     // later.
-    if (Ref->isLval() && Ref->isSelfBlob())
+    if (Ref->isLval() && Ref->isTerminalRef())
       WideOps.push_back(nullptr);
     else {
       WideRef = widenRef(Ref);

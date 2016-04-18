@@ -309,6 +309,8 @@ HLInst *HLNodeUtils::createCastHLInst(Type *DestTy, unsigned Opcode,
     return createZExt(DestTy, Op, Name, LvalRef);
   case Instruction::Trunc:
     return createTrunc(DestTy, Op, Name, LvalRef);
+  case Instruction::BitCast:
+    return createBitCast(DestTy, Op, Name, LvalRef);
   default:
     llvm_unreachable("Unexpected cast opcode");
   }

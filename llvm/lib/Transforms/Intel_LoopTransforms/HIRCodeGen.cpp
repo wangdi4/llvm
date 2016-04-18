@@ -608,11 +608,27 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
   SmallVector<Value *, 4> IndexV;
+  bool AnyVector = false;
 
   // stored as A[canon3][canon2][canon1], but gep requires them in reverse order
   for (auto CEIt = Ref->canon_rbegin(), E = Ref->canon_rend(); CEIt != E;
        ++CEIt) {
-    IndexV.push_back(visitCanonExpr(*CEIt));
+    auto IndexVal = visitCanonExpr(*CEIt);
+
+    if (IndexVal->getType()->isVectorTy()) {
+      AnyVector = true;
+    }
+
+    IndexV.push_back(IndexVal);
+  }
+
+  // A GEP instruction is allowed to have a mix of scalar and vector operands.
+  // However, not all optimizations(especially LLVM loop unroller) are handling
+  // such cases. To workaround, the base pointer value needs to be broadcast.
+  if (AnyVector &&
+      !BaseV->getType()->isVectorTy()) {
+    auto VL = Ref->getDestType()->getVectorNumElements();
+    BaseV = Builder->CreateVectorSplat(VL, BaseV);
   }
 
   Value *GEPVal;
