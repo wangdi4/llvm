@@ -28,6 +28,7 @@ public:
   void addLibrary(StringRef Name);
 
 private:
+  std::vector<MemoryBufferRef> getArchiveMembers(MemoryBufferRef MB);
   void readConfigs(llvm::opt::InputArgList &Args);
   void createFiles(llvm::opt::InputArgList &Args);
   template <class ELFT> void link(llvm::opt::InputArgList &Args);
@@ -39,8 +40,14 @@ private:
 };
 
 // Parses command line options.
-llvm::opt::InputArgList parseArgs(llvm::BumpPtrAllocator *A,
-                                  ArrayRef<const char *> Args);
+class ELFOptTable : public llvm::opt::OptTable {
+public:
+  ELFOptTable();
+  llvm::opt::InputArgList parse(ArrayRef<const char *> Argv);
+
+private:
+  llvm::BumpPtrAllocator Alloc;
+};
 
 // Create enum with OPT_xxx values for each option in Options.td
 enum {

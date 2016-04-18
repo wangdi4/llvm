@@ -191,10 +191,11 @@ def COMPLETION_MSG(str_before, str_after):
     '''A generic message generator for the completion mechanism.'''
     return "'%s' successfully completes to '%s'" % (str_before, str_after)
 
-def EXP_MSG(str, exe):
+def EXP_MSG(str, actual, exe):
     '''A generic "'%s' returns expected result" message generator if exe.
     Otherwise, it generates "'%s' matches expected result" message.'''
-    return "'%s' %s expected result" % (str, 'returns' if exe else 'matches')
+    
+    return "'%s' %s expected result, got '%s'" % (str, 'returns' if exe else 'matches', actual.strip())
 
 def SETTING_MSG(setting):
     '''A generic "Value of setting '%s' is correct" message generator.'''
@@ -1421,9 +1422,15 @@ class Base(unittest2.TestCase):
 # Metaclass for TestBase to change the list of test metods when a new TestCase is loaded.
 # We change the test methods to create a new test method for each test for each debug info we are
 # testing. The name of the new test method will be '<original-name>_<debug-info>' and with adding
-# the new test method we remove the old method at the same time.
+# the new test method we remove the old method at the same time. This functionality can be
+# supressed by at test case level setting the class attribute NO_DEBUG_INFO_TESTCASE or at test
+# level by using the decorator @no_debug_info_test.
 class LLDBTestCaseFactory(type):
     def __new__(cls, name, bases, attrs):
+        original_testcase = super(LLDBTestCaseFactory, cls).__new__(cls, name, bases, attrs)
+        if original_testcase.NO_DEBUG_INFO_TESTCASE:
+            return original_testcase
+
         newattrs = {}
         for attrname, attrvalue in attrs.items():
             if attrname.startswith("test") and not getattr(attrvalue, "__no_debug_info_test__", False):
@@ -1524,6 +1531,10 @@ class TestBase(Base):
           should be provided for the sys.platform running the test suite.  The
           Mac OS X implementation is located in plugins/darwin.py.
     """
+
+    # Subclasses can set this to true (if they don't depend on debug info) to avoid running the
+    # test multiple times with various debug info types.
+    NO_DEBUG_INFO_TESTCASE = False
 
     # Maximum allowed attempts when launching the inferior process.
     # Can be overridden by the LLDB_MAX_LAUNCH_COUNT environment variable.
@@ -1808,7 +1819,7 @@ class TestBase(Base):
                 break
 
         self.assertTrue(matched if matching else not matched,
-                        msg if msg else EXP_MSG(str, exe))
+                        msg if msg else EXP_MSG(str, output, exe))
 
         return match_object        
 
@@ -1882,10 +1893,10 @@ class TestBase(Base):
         # Look for sub strings, if specified.
         keepgoing = matched if matching else not matched
         if substrs and keepgoing:
-            for str in substrs:
-                matched = output.find(str) != -1
+            for substr in substrs:
+                matched = output.find(substr) != -1
                 with recording(self, trace) as sbuf:
-                    print("%s sub string: %s" % (heading, str), file=sbuf)
+                    print("%s sub string: %s" % (heading, substr), file=sbuf)
                     print("Matched" if matched else "Not matched", file=sbuf)
                 keepgoing = matched if matching else not matched
                 if not keepgoing:
@@ -1905,7 +1916,7 @@ class TestBase(Base):
                     break
 
         self.assertTrue(matched if matching else not matched,
-                        msg if msg else EXP_MSG(str, exe))
+                        msg if msg else EXP_MSG(str, output, exe))
 
     def invoke(self, obj, name, trace=False):
         """Use reflection to call a method dynamically with no argument."""

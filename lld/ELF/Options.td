@@ -12,6 +12,9 @@ def Bdynamic: Flag<["-"], "Bdynamic">,
 def Bstatic: Flag<["-"], "Bstatic">,
   HelpText<"Do not link against shared libraries">;
 
+def build_id : Flag<["--", "-"], "build-id">,
+  HelpText<"Generate build ID note">;
+
 def L : JoinedOrSeparate<["-"], "L">, MetaVarName<"<dir>">,
   HelpText<"Directory to search for libraries">;
 
@@ -72,6 +75,9 @@ def init : Separate<["-"], "init">, MetaVarName<"<symbol>">,
 def l : JoinedOrSeparate<["-"], "l">, MetaVarName<"<libName>">,
   HelpText<"Root name of library to use">;
 
+def lto_O : Joined<["--"], "lto-O">, MetaVarName<"<opt-level>">,
+  HelpText<"Optimization level for LTO">;
+
 def m : JoinedOrSeparate<["-"], "m">,
   HelpText<"Set target emulation">;
 
@@ -93,6 +99,9 @@ def no_undefined : Flag<["--"], "no-undefined">,
 
 def o : JoinedOrSeparate<["-"], "o">, MetaVarName<"<path>">,
   HelpText<"Path to file to write output">;
+
+def pie : Flag<["-"], "pie">,
+  HelpText<"Create a position independent executable">;
 
 def print_gc_sections: Flag<["--"], "print-gc-sections">,
   HelpText<"List removed unused sections">;
@@ -118,6 +127,11 @@ def strip_all : Flag<["--"], "strip-all">,
 def sysroot : Joined<["--"], "sysroot=">,
   HelpText<"Set the system root">;
 
+def threads : Joined<["--"], "threads">;
+
+def trace: Flag<["--"], "trace">,
+  HelpText<"Print the names of the input files">;
+
 def undefined : Joined<["--"], "undefined=">,
   HelpText<"Force undefined symbol during linking">;
 
@@ -125,6 +139,9 @@ def verbose : Flag<["--"], "verbose">;
 
 def version : Flag<["--", "-"], "version">,
   HelpText<"Display the version number">;
+
+def warn_common : Flag<["--", "-"], "warn-common">,
+  HelpText<"Warn about duplicate common symbols">;
 
 def whole_archive : Flag<["--", "-"], "whole-archive">,
   HelpText<"Force load of all members in a static library">;
@@ -151,12 +168,14 @@ def alias_hash_style_hash_style : Joined<["--", "-"], "hash-style=">, Alias<hash
 def alias_init_init : Joined<["-"], "init=">, Alias<init>;
 def alias_l__library : Joined<["--"], "library=">, Alias<l>;
 def alias_o_output : Joined<["--"], "output=">, Alias<o>;
+def alias_pie_pic_executable: Flag<["--"], "pic-executable">, Alias<pie>;
 def alias_rpath_rpath : Joined<["-"], "rpath=">, Alias<rpath>;
 def alias_relocatable_r : Flag<["-"], "r">, Alias<relocatable>;
 def alias_shared_Bshareable : Flag<["-"], "Bshareable">, Alias<shared>;
 def alias_soname_h : JoinedOrSeparate<["-"], "h">, Alias<soname>;
 def alias_soname_soname : Separate<["-"], "soname">, Alias<soname>;
 def alias_script_T : JoinedOrSeparate<["-"], "T">, Alias<script>;
+def alias_trace : Flag<["-"], "t">, Alias<trace>;
 def alias_strip_all: Flag<["-"], "s">, Alias<strip_all>;
 def alias_undefined_u : JoinedOrSeparate<["-"], "u">, Alias<undefined>;
 def alias_wrap_wrap : Joined<["--", "-"], "wrap=">, Alias<wrap>;
@@ -169,16 +188,32 @@ def end_group_paren: Flag<["-"], ")">;
 def start_group : Flag<["--"], "start-group">;
 def start_group_paren: Flag<["-"], "(">;
 
+// Ignore LTO plugin-related options.
+// clang -flto passes -plugin and -plugin-opt to the linker. This is required
+// for ld.gold and ld.bfd to get LTO working. But it's not for lld which doesn't
+// rely on a plugin. Instead of detecting which linker is used on clang side we
+// just ignore the option on lld side as it's easier. In fact, the linker could
+// be called 'ld' and understanding which linker is used would require parsing of
+// --version output.
+def plugin : Separate<["--", "-"], "plugin">;
+def plugin_eq : Joined<["--", "-"], "plugin=">;
+def plugin_opt : Separate<["--", "-"], "plugin-opt">;
+def plugin_opt_eq : Joined<["--", "-"], "plugin-opt=">;
+
 // Options listed below are silently ignored for now for compatibility.
-def build_id : Flag<["--"], "build-id">;
 def fatal_warnings : Flag<["--"], "fatal-warnings">;
 def no_add_needed : Flag<["--"], "no-add-needed">;
 def no_fatal_warnings : Flag<["--"], "no-fatal-warnings">;
+def no_warn_common : Flag<["--", "-"], "no-warn-common">;
 def no_warn_mismatch : Flag<["--"], "no-warn-mismatch">;
+def rpath_link : Separate<["--", "-"], "rpath-link">;
+def rpath_link_eq : Joined<["--", "-"], "rpath-link=">;
 def version_script : Separate<["--"], "version-script">;
-def warn_common : Flag<["--"], "warn-common">;
 def warn_shared_textrel : Flag<["--"], "warn-shared-textrel">;
 def G : Separate<["-"], "G">;
 
 // Aliases for ignored options
 def alias_version_script_version_script : Joined<["--"], "version-script=">, Alias<version_script>;
+
+// Debugging options
+def save_temps : Flag<["-"], "save-temps">;

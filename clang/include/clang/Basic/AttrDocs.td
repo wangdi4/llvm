@@ -260,6 +260,29 @@ only a single candidate. In a call to g(1, 1), the call is ambiguous even though
 not ODR-equivalent.
 
 Query for this feature with ``__has_attribute(enable_if)``.
+
+Note that functions with one or more ``enable_if`` attributes may not have
+their address taken, unless all of the conditions specified by said
+``enable_if`` are constants that evaluate to ``true``. For example:
+
+.. code-block:: c
+
+  const int TrueConstant = 1;
+  const int FalseConstant = 0;
+  int f(int a) __attribute__((enable_if(a > 0, "")));
+  int g(int a) __attribute__((enable_if(a == 0 || a != 0, "")));
+  int h(int a) __attribute__((enable_if(1, "")));
+  int i(int a) __attribute__((enable_if(TrueConstant, "")));
+  int j(int a) __attribute__((enable_if(FalseConstant, "")));
+
+  void fn() {
+    int (*ptr)(int);
+    ptr = &f; // error: 'a > 0' is not always true
+    ptr = &g; // error: 'a == 0 || a != 0' is not a truthy constant
+    ptr = &h; // OK: 1 is a truthy constant
+    ptr = &i; // OK: 'TrueConstant' is a truthy constant
+    ptr = &j; // error: 'FalseConstant' is a constant, but not truthy
+  }
   }];
 }
 
@@ -661,6 +684,11 @@ message=\ *string-literal*
   error about use of a deprecated or obsoleted declaration.  Useful to direct
   users to replacement APIs.
 
+replacement=\ *string-literal*
+  Additional message text that Clang will use to provide Fix-It when emitting
+  a warning about use of a deprecated declaration. The Fix-It will replace
+  the deprecated declaration with the new declaration specified.
+
 Multiple availability attributes can be placed on a declaration, which may
 correspond to different platforms.  Only the availability attribute with the
 platform corresponding to the target platform will be used; any others will be
@@ -729,11 +757,63 @@ When one method overrides another, the overriding method can be more widely avai
   }];
 }
 
+def WarnMaybeUnusedDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "maybe_unused, unused, gnu::unused";
+  let Content = [{
+When passing the ``-Wunused`` flag to Clang, entities that are unused by the
+program may be diagnosed. The ``[[maybe_unused]]`` (or
+``__attribute__((unused))``) attribute can be used to silence such diagnostics
+when the entity cannot be removed. For instance, a local variable may exist
+solely for use in an ``assert()`` statement, which makes the local variable
+unused when ``NDEBUG`` is defined.
+
+The attribute may be applied to the declaration of a class, a typedef, a
+variable, a function or method, a function parameter, an enumeration, an
+enumerator, a non-static data member, or a label.
+
+.. code-block: c++
+  #include <cassert>
+
+  [[maybe_unused]] void f([[maybe_unused]] bool thing1,
+                          [[maybe_unused]] bool thing2) {
+    [[maybe_unused]] bool b = thing1 && thing2;
+    assert(b);
+  }
+  }];
+}
+
+def WarnUnusedResultsDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "nodiscard, warn_unused_result, clang::warn_unused_result, gnu::warn_unused_result";
+  let Content  = [{
+Clang supports the ability to diagnose when the results of a function call
+expression are discarded under suspicious circumstances. A diagnostic is
+generated when a function or its return type is marked with ``[[nodiscard]]``
+(or ``__attribute__((warn_unused_result))``) and the function call appears as a
+potentially-evaluated discarded-value expression that is not explicitly cast to
+`void`.
+
+.. code-block: c++
+  struct [[nodiscard]] error_info { /*...*/ };
+  error_info enable_missile_safety_mode();
+  
+  void launch_missiles();
+  void test_missiles() {
+    enable_missile_safety_mode(); // diagnoses
+    launch_missiles();
+  }
+  error_info &foo();
+  void f() { foo(); } // Does not diagnose, error_info is a reference.  
+  }];
+}
+
 def FallthroughDocs : Documentation {
   let Category = DocCatStmt;
+  let Heading = "fallthrough, clang::fallthrough";
   let Content = [{
-The ``clang::fallthrough`` attribute is used along with the
-``-Wimplicit-fallthrough`` argument to annotate intentional fall-through
+The ``fallthrough`` (or ``clang::fallthrough``) attribute is used
+to annotate intentional fall-through
 between switch labels.  It can only be applied to a null statement placed at a
 point of execution between any statement and the next switch label.  It is
 common to mark these places with a specific comment, but this attribute is
@@ -743,6 +823,10 @@ be used wherever an intended fall-through occurs.  It is designed to mimic
 control-flow statements like ``break;``, so it can be placed in most places
 where ``break;`` can, but only if there are no statements on the execution path
 between it and the next switch label.
+
+By default, Clang does not warn on unannotated fallthrough from one ``switch``
+case to another. Diagnostics on fallthrough without a corresponding annotation
+can be enabled with the ``-Wimplicit-fallthrough`` argument.
 
 Here is an example:
 
@@ -1689,6 +1773,17 @@ cannot point to the private address space.
   }];
 }
 
+def OpenCLNoSVMDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+OpenCL 2.0 supports the optional ``__attribute__((nosvm))`` qualifier for
+pointer variable. It informs the compiler that the pointer does not refer
+to a shared virtual memory region. See OpenCL v2.0 s6.7.2 for details.
+
+Since it is not widely used and has been removed from OpenCL 2.1, it is ignored
+by Clang.
+  }];
+}
 def NullabilityDocs : DocumentationCategory<"Nullability Attributes"> {
   let Content = [{
 Whether a particular pointer may be "null" is an important concern when working with pointers in the C family of languages. The various nullability attributes indicate whether a particular pointer can be null or not, which makes APIs more expressive and can help static analysis tools identify bugs involving null pointers. Clang supports several kinds of nullability attributes: the ``nonnull`` and ``returns_nonnull`` attributes indicate which function or method parameters and result types can never be null, while nullability type qualifiers indicate which pointer types can be null (``_Nullable``) or cannot be null (``_Nonnull``). 
@@ -1801,6 +1896,41 @@ def NoAliasDocs : Documentation {
 The ``noalias`` attribute indicates that the only memory accesses inside
 function are loads and stores from objects pointed to by its pointer-typed
 arguments, with arbitrary offsets.
+  }];
+}
+
+def OMPDeclareSimdDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "#pragma omp declare simd";
+  let Content = [{
+The `declare simd` construct can be applied to a function to enable the creation
+of one or more versions that can process multiple arguments using SIMD
+instructions from a single invocation in a SIMD loop. The `declare simd`
+directive is a declarative directive. There may be multiple `declare simd`
+directives for a function. The use of a `declare simd` construct on a function
+enables the creation of SIMD versions of the associated function that can be
+used to process multiple arguments from a single invocation from a SIMD loop
+concurrently.
+The syntax of the `declare simd` construct is as follows:
+
+  .. code-block:: c
+
+  #pragma omp declare simd [clause[[,] clause] ...] new-line
+  [#pragma omp declare simd [clause[[,] clause] ...] new-line]
+  [...]
+  function definition or declaration
+
+where clause is one of the following:
+
+  .. code-block:: c
+
+  simdlen(length)
+  linear(argument-list[:constant-linear-step])
+  aligned(argument-list[:alignment])
+  uniform(argument-list)
+  inbranch
+  notinbranch
+
   }];
 }
 
@@ -2100,5 +2230,107 @@ value of type ``T``.
 Making indirect results explicit in the signature allows C functions to
 directly construct objects into them without relying on language
 optimizations like C++'s named return value optimization (NRVO).
+  }];
+}
+
+def AbiTagsDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+The ``abi_tag`` attribute can be applied to a function, variable, class or
+inline namespace declaration to modify the mangled name of the entity. It gives
+the ability to distinguish between different versions of the same entity but
+with different ABI versions supported. For example, a newer version of a class
+could have a different set of data members and thus have a different size. Using
+the ``abi_tag`` attribute, it is possible to have different mangled names for
+a global variable of the class type. Therefor, the old code could keep using
+the old manged name and the new code will use the new mangled name with tags.
+  }];
+}
+
+def PreserveMostDocs : Documentation {
+  let Category = DocCatCallingConvs;
+  let Content = [{
+On X86-64 and AArch64 targets, this attribute changes the calling convention of
+a function. The ``preserve_most`` calling convention attempts to make the code
+in the caller as unintrusive as possible. This convention behaves identically
+to the ``C`` calling convention on how arguments and return values are passed,
+but it uses a different set of caller/callee-saved registers. This alleviates
+the burden of saving and recovering a large register set before and after the
+call in the caller. If the arguments are passed in callee-saved registers,
+then they will be preserved by the callee across the call. This doesn't
+apply for values returned in callee-saved registers.
+
+- On X86-64 the callee preserves all general purpose registers, except for
+  R11. R11 can be used as a scratch register. Floating-point registers
+  (XMMs/YMMs) are not preserved and need to be saved by the caller.
+
+The idea behind this convention is to support calls to runtime functions
+that have a hot path and a cold path. The hot path is usually a small piece
+of code that doesn't use many registers. The cold path might need to call out to
+another function and therefore only needs to preserve the caller-saved
+registers, which haven't already been saved by the caller. The
+`preserve_most` calling convention is very similar to the ``cold`` calling
+convention in terms of caller/callee-saved registers, but they are used for
+different types of function calls. ``coldcc`` is for function calls that are
+rarely executed, whereas `preserve_most` function calls are intended to be
+on the hot path and definitely executed a lot. Furthermore ``preserve_most``
+doesn't prevent the inliner from inlining the function call.
+
+This calling convention will be used by a future version of the Objective-C
+runtime and should therefore still be considered experimental at this time.
+Although this convention was created to optimize certain runtime calls to
+the Objective-C runtime, it is not limited to this runtime and might be used
+by other runtimes in the future too. The current implementation only
+supports X86-64 and AArch64, but the intention is to support more architectures
+in the future.
+  }];
+}
+
+def PreserveAllDocs : Documentation {
+  let Category = DocCatCallingConvs;
+  let Content = [{
+On X86-64 and AArch64 targets, this attribute changes the calling convention of
+a function. The ``preserve_all`` calling convention attempts to make the code
+in the caller even less intrusive than the ``preserve_most`` calling convention.
+This calling convention also behaves identical to the ``C`` calling convention
+on how arguments and return values are passed, but it uses a different set of
+caller/callee-saved registers. This removes the burden of saving and
+recovering a large register set before and after the call in the caller. If
+the arguments are passed in callee-saved registers, then they will be
+preserved by the callee across the call. This doesn't apply for values
+returned in callee-saved registers.
+
+- On X86-64 the callee preserves all general purpose registers, except for
+  R11. R11 can be used as a scratch register. Furthermore it also preserves
+  all floating-point registers (XMMs/YMMs).
+
+The idea behind this convention is to support calls to runtime functions
+that don't need to call out to any other functions.
+
+This calling convention, like the ``preserve_most`` calling convention, will be
+used by a future version of the Objective-C runtime and should be considered
+experimental at this time.
+  }];
+}
+
+def DeprecatedDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+The ``deprecated`` attribute can be applied to a function, a variable, or a
+type. This is useful when identifying functions, variables, or types that are
+expected to be removed in a future version of a program.
+
+Consider the function declaration for a hypothetical function ``f``:
+
+.. code-block:: c++
+
+  void f(void) __attribute__((deprecated("message", "replacement")));
+
+When spelled as `__attribute__((deprecated))`, the deprecated attribute can have
+two optional string arguments. The first one is the message to display when
+emitting the warning; the second one enables the compiler to provide a Fix-It
+to replace the deprecated name with a new name. Otherwise, when spelled as
+`[[gnu::deprecated]] or [[deprecated]]`, the attribute can have one optional
+string argument which is the message to display when emitting the warning.
   }];
 }
