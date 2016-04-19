@@ -40,6 +40,11 @@ ConvertControlPass("lpu-cvt-ctrl-pass", cl::Hidden,
 		   cl::desc("LPU Specific: Convert control flow pass"),
 		   cl::init(0));
 
+static cl::opt<int>
+IfConversionTokens("lpu-if-conversion", cl::Hidden,
+		   cl::desc("LPU Specific: if Conversion within a loop"),
+		   cl::init(0));
+
 #define DEBUG_TYPE "lpu-convert-control"
 
 typedef LPUIfConversion::IfcvtToken IfcvtToken;
@@ -462,7 +467,13 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 
   LPU::CondCode branchCC = (LPU::CondCode)brCond[0].getImm();
   bool swapPickSwitchRegs = false;
-  if (branchCC == LPU::COND_F) {
+  if ((Kind == ICTriangle || Kind == ICTriangleRev) 
+       && (branchCC == LPU::COND_T)) {
+    swapPickSwitchRegs = true;
+  }
+
+  if ((Kind == ICTriangleFalse || Kind == ICTriangleFRev) 
+       && (branchCC == LPU::COND_F)) {
     swapPickSwitchRegs = true;
   }
 
@@ -533,7 +544,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
           // other BBs with predTrueReg
 	  if (useMI.getParent() == currBB) { 
 	    useMI.substituteRegister(Reg, predFalseReg, 0, TRI);
-          } else if (!DT->dominates(useMI.getParent(), currBB)) {
+          } else if (useMI.getParent() == postDomBB) {
 	    useMI.substituteRegister(Reg, predTrueReg, 0, TRI);
    	  }
 
@@ -684,6 +695,10 @@ processIfConversionRegion(std::vector<IfcvtToken*> &Tokens) {
 
     bool Change = false;
    
+
+    if (IfConversionTokens == 0) return false;
+
+    int TokensProcessedCnt = 0;
     while (!Tokens.empty()) {
       IfcvtToken *Token = Tokens.back();
       Tokens.pop_back();
@@ -773,6 +788,12 @@ processIfConversionRegion(std::vector<IfcvtToken*> &Tokens) {
 
       Change |= RetVal;
 
+#ifndef NDEBUG
+      assert(IfConversionTokens > 0 && "IfConversionTokens has invalid value!");
+      TokensProcessedCnt++;
+      if (TokensProcessedCnt == IfConversionTokens) break;
+#endif
+
       //NumIfCvts = NumSimple + NumSimpleFalse + NumTriangle + NumTriangleRev +
       //  NumTriangleFalse + NumTriangleFRev + NumDiamonds;
      // if (IfCvtLimit != -1 && (int)NumIfCvts >= IfCvtLimit)
@@ -809,11 +830,11 @@ bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
     MachineBasicBlock::iterator LastPhiInst =
       std::prev(BB->SkipPHIsAndLabels(BB->begin())); 
 
-    // process each instruction in BB
+    // generate pick/switch DF ops for live-in uses and live-out defs
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
       MachineInstr *MI = I;
 
-      DEBUG(errs() << "processing inst: ");  
+      DEBUG(errs() << "gen pick/switch DF ops: processing inst: ");  
       DEBUG(MI->print(*thisOS, &TM));  
 
       // TODO: do we need to process all insts? 
@@ -825,6 +846,21 @@ bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
       }
 
     } // for each instruction in BB
+
+    // make live ranges LIC allocatable
+    //std::set<unsigned> LiveRangesSet;
+    //for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
+      //MachineInstr *MI = I;
+
+      //DEBUG(errs() << "make lic allocatable: processing inst: ");  
+      //DEBUG(MI->print(*thisOS, &TM));  
+
+      //if (processLiveRanges(MI, BB, LiveRangesSet)) {
+      //  DEBUG(errs() << "modified graph - processLiveRanges\n");
+      //  loopModified = true;
+      //}
+    //}
+
     DEBUG(errs() << "end BB# - " <<  BB->getNumber() << "\n");
   } // for each block in loop 
   DEBUG(errs() << "end loop - " << "\n");
@@ -857,18 +893,6 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
   DT = &getAnalysis<MachineDominatorTree>();
 
   bool Modified = false;
-
-#ifndef NDEBUG
-  //DEBUG(errs() << "\nGraph before ConvertControlPass\n");
-
-  /*for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB) {
-    for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
-      MachineInstr *MI = I;
-      DEBUG(MI->print(*thisOS, &TM));  
-    }
-  }
-  thisOS->flush();*/
-#endif
 
   // for now only well formed innermost loop regions are processed in this pass
   MachineLoopInfo *MLI = &getAnalysis<MachineLoopInfo>();
@@ -918,18 +942,6 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
 #endif
   } // end for all loops in MF 
 
-
-#ifndef NDEBUG
-  //DEBUG(errs() << "\ngraph after ConvertControlPass\n");
-
-  /*for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB) {
-    for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
-      MachineInstr *MI = I;
-      DEBUG(MI->print(*thisOS, &TM));  
-    }
-  }
-  thisOS->flush();*/
-#endif
 
   return Modified;
 

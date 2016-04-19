@@ -94,8 +94,13 @@ public:
     return false;
   }
 
+#define DEBUG_TYPE "lpu-convert-control"
   void addPreRegAlloc() override {
+    std::string Banner = std::string("Before LPUConvertControlPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
     addPass(createLPUConvertControlPass(), false);
+    Banner = std::string("After LPUConvertControlPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
   }
 
 };
