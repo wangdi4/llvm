@@ -17,8 +17,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/IR/ValueMap.h>
 #include <llvm/Transforms/Utils/Cloning.h>
+#include <llvm/Support/Debug.h>
 #include <assert.h>
 
+#define DEBUG_TYPE "GenericAddressStaticResolution"
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend::Passes::GenericAddressSpace;
@@ -73,7 +75,7 @@ namespace intel {
       mdUtils.addModuleInfoListItem(Intel::ModuleInfoMetaDataHandle(Intel::ModuleInfoMetaData::get()));
     }
     Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
-    //handle->setGAScounter(m_failCount);  BUGBUG in Metadata (CQ CSSD100017034)
+    handle->setGAScounter(m_failCount);
     mdUtils.save(*m_pLLVMContext);
 
     return changed;
@@ -81,37 +83,37 @@ namespace intel {
 
   void GenericAddressStaticResolution::analyzeGASPointers(TFunctionList::const_iterator curFuncIt) {
 
-      for (inst_iterator inst_it = inst_begin(*curFuncIt),
-           inst_it_end = inst_end(*curFuncIt);
-	       inst_it != inst_it_end;) {
+    for (inst_iterator inst_it = inst_begin(*curFuncIt),
+         inst_it_end = inst_end(*curFuncIt);
+          inst_it != inst_it_end;) {
 
-        Instruction *pInstr = &(*inst_it++);
+      Instruction *pInstr = &(*inst_it++);
 
-        if (IntToPtrInst* pIntToPtr = dyn_cast<IntToPtrInst>(pInstr)){
-          if (PtrToIntInst* pPtrToInt = dyn_cast<PtrToIntInst>(pIntToPtr->getOperand(0))){
-            Type* dstTy = pIntToPtr->getDestTy();
-            CastInst* castInst = CastInst::CreatePointerCast(pPtrToInt->getOperand(0), dstTy, "", pPtrToInt);
-            pIntToPtr->replaceAllUsesWith(castInst);
-            pIntToPtr->eraseFromParent();
-            if(pPtrToInt->user_empty())
-              pPtrToInt->eraseFromParent();
-            continue;
-          }
-        }
-        for (unsigned idx = 0; idx < pInstr->getNumOperands(); idx++) {
-          if (ConstantExpr *pPtrToInt = dyn_cast<ConstantExpr>(pInstr->getOperand(idx)))
-            if (Instruction::IntToPtr == pPtrToInt->getOpcode())
-              if (ConstantExpr* pIntToPtr = dyn_cast<ConstantExpr>(pPtrToInt->getOperand(0)))
-                if (Instruction::PtrToInt == pIntToPtr->getOpcode()){
-                  Type *dstType = pPtrToInt->getType();
-                  Constant* newConstant = ConstantExpr::getPointerCast(pIntToPtr->getOperand(0), dstType);
-                  pPtrToInt->replaceAllUsesWith(newConstant);
-                }
+      if (IntToPtrInst* pIntToPtr = dyn_cast<IntToPtrInst>(pInstr)) {
+        if (PtrToIntInst* pPtrToInt = dyn_cast<PtrToIntInst>(pIntToPtr->getOperand(0))) {
+          Type* dstTy = pIntToPtr->getDestTy();
+          CastInst* castInst = CastInst::CreatePointerCast(pPtrToInt->getOperand(0), dstTy, "", pPtrToInt);
+          pIntToPtr->replaceAllUsesWith(castInst);
+          pIntToPtr->eraseFromParent();
+          if(pPtrToInt->user_empty())
+            pPtrToInt->eraseFromParent();
+          continue;
         }
       }
+      for (unsigned idx = 0; idx < pInstr->getNumOperands(); idx++) {
+        if (ConstantExpr *pPtrToInt = dyn_cast<ConstantExpr>(pInstr->getOperand(idx)))
+          if (Instruction::IntToPtr == pPtrToInt->getOpcode())
+            if (ConstantExpr* pIntToPtr = dyn_cast<ConstantExpr>(pPtrToInt->getOperand(0)))
+              if (Instruction::PtrToInt == pIntToPtr->getOpcode()){
+                Type *dstType = pPtrToInt->getType();
+                Constant* newConstant = ConstantExpr::getPointerCast(pIntToPtr->getOperand(0), dstType);
+                pPtrToInt->replaceAllUsesWith(newConstant);
+              }
+      }
+    }
 
 
-  // Collect GAS pointers initializations in the function (together with their uses' tree)
+    // Collect GAS pointers initializations in the function (together with their uses' tree)
     for (inst_iterator inst_it = inst_begin(*curFuncIt),
                        inst_it_end = inst_end(*curFuncIt);
                        inst_it != inst_it_end; inst_it++) {
@@ -121,7 +123,8 @@ namespace intel {
       // Filter-out unsupported cases of structs of GAS pointers
       const AllocaInst *pAlloca = dyn_cast<const AllocaInst>(pInstr);
       if (pAlloca && isAllocaStructGASPointer(pAlloca->getAllocatedType(), false)) {
-        assert(0 && "No support for structs of generic address space pointers!");
+        // let the dynamic resolution handle it...
+        DEBUG( dbgs() << "No support for structs of generic address space pointers: "; pAlloca->dump(); );
         continue;
       }
 
@@ -136,6 +139,7 @@ namespace intel {
               !IS_ADDR_SPACE_GENERIC(pSrcPtrType->getAddressSpace())) {
             // If this is a conversion from named pointer type to GAS pointer:
             // store GAS pointer info into the collection (together with its uses - recursively)
+            DEBUG( dbgs() << "Added GAS pointer: "; pInstr->dump(); );
             addGASInstr(pInstr, (OCLAddressSpace::spaces) pSrcPtrType->getAddressSpace());
             continue;
           }
