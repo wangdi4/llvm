@@ -48,6 +48,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
+#include <array>
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
