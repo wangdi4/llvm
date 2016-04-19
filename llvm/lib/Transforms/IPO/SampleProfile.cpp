@@ -681,7 +681,7 @@ bool SampleProfileLoader::inlineHotFunctions(Function &F) {
       Function *CalledFunction = CI->getCalledFunction();
       DebugLoc DLoc = CI->getDebugLoc();
       uint64_t NumSamples = findCalleeFunctionSamples(*CI)->getTotalSamples();
-      if (IsInlinedReason(InlineFunction(CI, IFI))) {    // INTEL
+      if (InlineFunction(CI, IFI)) {
         LocalChanged = true;
         emitOptimizationRemark(Ctx, DEBUG_TYPE, F, DLoc,
                                Twine("inlined hot callee '") +

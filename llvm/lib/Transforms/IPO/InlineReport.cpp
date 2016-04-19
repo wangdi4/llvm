@@ -153,6 +153,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtSimple, "Cannot inline call with operand bundle",
   // NinlrMSVCEH,
   InlPrtSimple, "Microsoft EH prevents inlining",
+  // NinlrSEH,
+  InlPrtSimple, "Structured EH prevents inlining",
   // NinlrLast 
   InlPrtNone, nullptr
 }; 

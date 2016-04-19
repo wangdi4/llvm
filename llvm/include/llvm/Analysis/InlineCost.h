@@ -100,6 +100,7 @@ typedef enum {
    NinlrNotProfitable,
    NinlrOpBundles,
    NinlrMSVCEH,
+   NinlrSEH,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 

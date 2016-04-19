@@ -97,10 +97,10 @@ InlinedArrayAllocasTy;
 /// available from other functions inlined into the caller.  If we are able to
 /// inline this call site we attempt to reuse already available allocas or add
 /// any new allocas to the set if not possible.
-static InlineReason
-            InlineCallIfPossible(Pass &P, CallSite CS, InlineFunctionInfo &IFI,
+static bool InlineCallIfPossible(Pass &P, CallSite CS, InlineFunctionInfo &IFI,
                                  InlinedArrayAllocasTy &InlinedArrayAllocas,
-                                 int InlineHistory, bool InsertLifetime) {
+                                 int InlineHistory, bool InsertLifetime,
+                                 InlineReason* IR) { // INTEL 
   Function *Callee = CS.getCalledFunction();
   Function *Caller = CS.getCaller();
 
@@ -114,12 +114,9 @@ static InlineReason
 
   // Try to inline the function.  Get the list of static allocas that were
   // inlined.
-#if INTEL_CUSTOMIZATION     
-  InlineReason IR = InlineFunction(CS, IFI, &AAR, InsertLifetime); 
-  if (IR != InlrNoReason) {
-    return IR;
-  } 
-#endif // INTEL_CUSTOMIZATION
+  if (!InlineFunction(CS, IFI, IR, &AAR, InsertLifetime)) {  // INTEL 
+    return false;
+  } // INTEL 
 
   AttributeFuncs::mergeAttributesForInlining(*Caller, *Callee);
 
@@ -158,8 +155,12 @@ static InlineReason
   // because their scopes are not disjoint.  We could make this smarter by
   // keeping track of the inline history for each alloca in the
   // InlinedArrayAllocas but this isn't likely to be a significant win.
-  if (InlineHistory != -1)  // Only do merging for top-level call sites in SCC.
-    return InlrNoReason; // INTEL 
+#if INTEL_CUSTOMIZATION
+  if (InlineHistory != -1) { // Only do merging for top-level call sites in SCC.
+    *IR = InlrNoReason; 
+    return true;
+  } 
+#endif // INTEL_CUSTOMIZATION
   
   // Loop over all the allocas we have so far and see if they can be merged with
   // a previously inlined alloca.  If not, remember that we had it.
@@ -245,8 +246,8 @@ static InlineReason
     AllocasForType.push_back(AI);
     UsedAllocas.insert(AI);
   }
-  
-  return InlrNoReason; // INTEL 
+  *IR = InlrNoReason; // INTEL  
+  return true; 
 }
 
 static void emitAnalysis(CallSite CS, const Twine &Msg) {
@@ -545,10 +546,10 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
         InlineReportCallSite* IRCS = getReport().getCallSite(&CS);
         Instruction* NI = CS.getInstruction();
         getReport().setActiveInlineInstruction(NI); 
-        InlineReason Reason = InlineCallIfPossible(*this, CS, InlineInfo, 
-          InlinedArrayAllocas, InlineHistoryID, InsertLifetime);
-        getReport().setActiveInlineInstruction(nullptr); 
-        if (IsNotInlinedReason(Reason)) { 
+        InlineReason Reason = NinlrNoReason;
+        if (!InlineCallIfPossible(*this, CS, InlineInfo, 
+          InlinedArrayAllocas, InlineHistoryID, InsertLifetime, &Reason)) {
+          getReport().setActiveInlineInstruction(nullptr); 
           getReport().setReasonNotInlined(CS, Reason); 
 #endif // INTEL_CUSTOMIZATION
           emitOptimizationRemarkMissed(CallerCtx, DEBUG_TYPE, *Caller, DLoc,
