@@ -19,6 +19,7 @@ include_directories(
     ${OCL_SOURCE_DIR}/fe_compilers/clang_compiler
     ${OCL_SOURCE_DIR}/externals/gtest/include
     ${OCL_SOURCE_DIR}/tests/test_common
+    ${OCL_SOURCE_DIR}/externals/khronos/spirv/headers/include
     ${CL_API_HEADERS} )
 
 set ( CLANG_COMPILER_TEST_TYPE_SOURCE_FILES

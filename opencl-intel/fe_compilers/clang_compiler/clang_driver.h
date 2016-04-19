@@ -35,6 +35,7 @@
 #include <list>
 #include <vector>
 #include <string>
+#include <cstdint>
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
     typedef std::list<std::string> ArgListType;
@@ -103,13 +104,21 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
     class ClangFECompilerParseSPIRVTask : ClangFETask
     {
     public:
-        ClangFECompilerParseSPIRVTask(Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor* pProgDesc)
-          : m_pProgDesc(pProgDesc)
-        {}
-
+         ClangFECompilerParseSPIRVTask(
+             Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor* pProgDesc,
+             Intel::OpenCL::ClangFE::CLANG_DEV_INFO const& sDeviceInfo);
+        /// \brief Translate SPIR-V into LLVM-IR
+        /// \return error code of clCompileProgram API
         int ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult);
     private:
+        /// \brief Read 32bit integer value and convert it to little-endian if necessary
+        std::uint32_t getSPIRVWord(std::uint32_t const* wordPtr) const;
+        /// \brief Check a SPIR-V module's version, capabilities, and memory model are supported
+        bool isSPIRVSupported() const;
+
         Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor* m_pProgDesc;
+        Intel::OpenCL::ClangFE::CLANG_DEV_INFO                  m_sDeviceInfo;
+        bool m_littleEndian; ///< True if SPIR-V module byte order is little-endian
     };
 
     // ClangFECompilerCheckCompileOptions

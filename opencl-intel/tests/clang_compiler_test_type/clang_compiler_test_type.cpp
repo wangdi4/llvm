@@ -26,6 +26,10 @@
 
 #include "ClangCompilerTestTypeFixture.h"
 
+#include <spirv/1.0/spirv.hpp>
+
+#include <llvm/Support/SwapByteOrder.h>
+
 #include <string>
 #include <fstream>
 #include <cstring>
@@ -115,6 +119,187 @@ TEST_F(ClangCompilerTestType, Test_RejectInvalidCompileOption)
 
     int err = GetFECompiler()->ParseSPIRV(&spirvDesc, &m_binary_result);
     ASSERT_EQ(CL_INVALID_COMPILER_OPTIONS, err) << "Unexpected retcode in presence of invalid compile options.\n";
+}
+
+// The following constants are used to make SPIR-V 1.0 BC in place (little-endian byte order)
+const std::uint32_t SPIRVVersion       = 0x00010000;
+const std::uint32_t SPIRVOpCapability  = 0x00020000 | spv::OpCapability;
+const std::uint32_t SPIRVOpMemoryModel = 0x00030000 | spv::OpMemoryModel;
+
+// test what a module with device agnostic capabilities is accepted by FE
+TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesLittleEndian) {
+    // Hand made SPIR-V module
+    std::uint32_t const spvBC[] = {
+        // First 5 mandatory words
+        spv::MagicNumber, SPIRVVersion, 0, 0, 0,
+        // Common capabilities
+        SPIRVOpCapability,  spv::CapabilityAddresses,
+        SPIRVOpCapability,  spv::CapabilityLinkage,
+        SPIRVOpCapability,  spv::CapabilityKernel,
+        SPIRVOpCapability,  spv::CapabilityVector16,
+        SPIRVOpCapability,  spv::CapabilityFloat16Buffer,
+        SPIRVOpCapability,  spv::CapabilityInt64,
+        SPIRVOpCapability,  spv::CapabilityPipes,
+        SPIRVOpCapability,  spv::CapabilityGroups,
+        SPIRVOpCapability,  spv::CapabilityDeviceEnqueue,
+        SPIRVOpCapability,  spv::CapabilityLiteralSampler,
+        SPIRVOpCapability,  spv::CapabilityInt16,
+        SPIRVOpCapability,  spv::CapabilityGenericPointer,
+        SPIRVOpCapability,  spv::CapabilityInt8,
+        // Memory model
+        SPIRVOpMemoryModel, spv::AddressingModelPhysical32, spv::MemoryModelOpenCL
+    };
+    auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+
+    int err = GetFECompiler()->ParseSPIRV(&spirvDesc, &m_binary_result);
+    ASSERT_EQ(CL_SUCCESS, err) << "Unexpected retcode for a valid SPIR-V module.\n";
+}
+
+// Enable the following subtest once the byte order bug is fixed in SPIR-V consumer
+// https://jira01.devtools.intel.com/browse/CORC-1111
+// https://github.com/KhronosGroup/SPIRV-LLVM/issues/132
+// test what a module with device agnostic capabilities is accepted by FE
+TEST_F(ClangCompilerTestType, DISABLED_Test_AcceptCommonSpirvCapabilitiesBigEndian) {
+    // Hand made SPIR-V module
+    std::uint32_t spvBC[] = {
+        // First 5 mandatory words
+        spv::MagicNumber, SPIRVVersion, 0, 0, 0,
+        // Common capabilities
+        SPIRVOpCapability,  spv::CapabilityAddresses,
+        SPIRVOpCapability,  spv::CapabilityLinkage,
+        SPIRVOpCapability,  spv::CapabilityKernel,
+        SPIRVOpCapability,  spv::CapabilityVector16,
+        SPIRVOpCapability,  spv::CapabilityFloat16Buffer,
+        SPIRVOpCapability,  spv::CapabilityInt64,
+        SPIRVOpCapability,  spv::CapabilityPipes,
+        SPIRVOpCapability,  spv::CapabilityGroups,
+        SPIRVOpCapability,  spv::CapabilityDeviceEnqueue,
+        SPIRVOpCapability,  spv::CapabilityLiteralSampler,
+        SPIRVOpCapability,  spv::CapabilityInt16,
+        SPIRVOpCapability,  spv::CapabilityGenericPointer,
+        SPIRVOpCapability,  spv::CapabilityInt8,
+        // Memory model
+        SPIRVOpMemoryModel, spv::AddressingModelPhysical32, spv::MemoryModelOpenCL
+    };
+    // Swap byte order of SPIR-V BC
+    for(auto & word : spvBC)
+        word = llvm::sys::SwapByteOrder_32(word);
+
+    auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+
+    int err = GetFECompiler()->ParseSPIRV(&spirvDesc, &m_binary_result);
+    ASSERT_EQ(CL_SUCCESS, err) << "Unexpected retcode for a valid SPIR-V module.\n";
+}
+
+// test what a module w\o mandatory memory model instruction is rejected
+TEST_F(ClangCompilerTestType, Test_NoSpirvMemoryModel) {
+    // Hand made SPIR-V module
+    std::uint32_t const spvBC[] = {
+        // First 5 mandatory words
+        spv::MagicNumber, SPIRVVersion, 0, 0, 0,
+        // Common capabilities
+        SPIRVOpCapability, spv::CapabilityAddresses,
+        // No mandatory memory model
+    };
+    auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+
+    int err = GetFECompiler()->ParseSPIRV(&spirvDesc, &m_binary_result);
+    ASSERT_EQ(CL_INVALID_PROGRAM, err)
+        << "Unexpected retcode for a SPIR-V module w\\o mandatory OpMemoryModel .\n";
+}
+
+// test what a module requiring fp64 and images is accepted by a device
+// which supports it
+TEST_F(ClangCompilerTestType, Test_SpirvWithFP64AndImages) {
+    // Hand made SPIR-V module
+    std::uint32_t const spvBC[] = {
+        // First 5 mandatory words
+        spv::MagicNumber, SPIRVVersion, 0, 0, 0,
+        // Common capabilities
+        SPIRVOpCapability, spv::CapabilityImageBasic,
+        SPIRVOpCapability, spv::CapabilityImageReadWrite,
+        SPIRVOpCapability, spv::CapabilityFloat64,
+        // Memory model
+        SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
+    };
+    auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+
+    CLANG_DEV_INFO devInfo = {
+        "",   // extensions
+        true, // images support
+        true, // fp64 support
+        false // source level profiling
+    };
+    std::unique_ptr<IOCLFECompiler> spFeCompiler;
+    IOCLFECompiler * pFeCompiler = spFeCompiler.get();
+
+    int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
+    ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
+
+    err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
+    ASSERT_EQ(CL_SUCCESS, err)
+        << "Unexpected retcode for a device supporting images/fp64 .\n";
+}
+
+// test what a module requiring fp64 is rejected by a device which doesn't support fp64
+TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
+    // Hand made SPIR-V module
+    std::uint32_t const spvBC[] = {
+        // First 5 mandatory words
+        spv::MagicNumber, SPIRVVersion, 0, 0, 0,
+        // Common capabilities
+        SPIRVOpCapability, spv::CapabilityFloat64,
+        // Memory model
+        SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
+    };
+    auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+
+    CLANG_DEV_INFO devInfo = {
+        "",   // extensions
+        true, // images support
+        false,// fp64 support
+        false // source level profiling
+    };
+    std::unique_ptr<IOCLFECompiler> spFeCompiler;
+    IOCLFECompiler * pFeCompiler = spFeCompiler.get();
+
+    int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
+    ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
+
+    err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
+    ASSERT_EQ(CL_INVALID_PROGRAM, err)
+        << "Unexpected retcode for a device w\\o fp64 support.\n";
+}
+
+// test what a module requiring images is rejected by a device which doesn't support images
+TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
+    // Hand made SPIR-V module
+    std::uint32_t const spvBC[] = {
+        // First 5 mandatory words
+        spv::MagicNumber, SPIRVVersion, 0, 0, 0,
+        // Common capabilities
+        SPIRVOpCapability, spv::CapabilityImageBasic,
+        SPIRVOpCapability, spv::CapabilityImageReadWrite,
+        // Memory model
+        SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
+    };
+    auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+
+    CLANG_DEV_INFO devInfo = {
+        "",   // extensions
+        false, // images support
+        true, // fp64 support
+        false // source level profiling
+    };
+    std::unique_ptr<IOCLFECompiler> spFeCompiler;
+    IOCLFECompiler * pFeCompiler = spFeCompiler.get();
+
+    int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
+    ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
+
+    err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
+    ASSERT_EQ(CL_INVALID_PROGRAM, err)
+        << "Unexpected retcode for a device w\\o image support.\n";
 }
 
 int main(int argc, char** argv)

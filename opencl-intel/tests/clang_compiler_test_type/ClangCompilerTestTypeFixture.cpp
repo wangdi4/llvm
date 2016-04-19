@@ -26,18 +26,6 @@ using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;
 
-#if defined (_WIN32)
-#define DLL_IMPORT _declspec(dllimport)
-#else
-#define DLL_IMPORT
-#endif
-
-extern "C" DLL_IMPORT int CreateFrontEndInstance(
-    const void* pDeviceInfo,
-    size_t devInfoSize,
-    IOCLFECompiler* *pFECompiler,
-    FrameworkUserLogger* pUserLogger);
-
 void ClangCompilerTestType::SetUp()
 {
     GetTestSPIRVProgram(m_spirv_program_binary);

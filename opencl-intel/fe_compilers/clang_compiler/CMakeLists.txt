@@ -61,6 +61,7 @@ include_directories( AFTER
             ${OCL_BINARY_DIR}
             ${CMAKE_BINARY_DIR}/include
             ${CL_API_HEADERS}
+            ${OCL_SOURCE_DIR}/externals/khronos/spirv/headers/include
             )
 
 if (WIN32)

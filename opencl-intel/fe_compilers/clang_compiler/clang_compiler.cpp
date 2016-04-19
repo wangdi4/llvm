@@ -98,7 +98,7 @@ int ClangFECompiler::ParseSPIRV(FESPIRVProgramDescriptor* pProgDesc, IOCLFEBinar
     assert(NULL != pProgDesc);
     assert(NULL != pBinaryResult);
 
-    return ClangFECompilerParseSPIRVTask(pProgDesc).ParseSPIRV(pBinaryResult);
+    return ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo).ParseSPIRV(pBinaryResult);
 }
 
 int ClangFECompiler::GetKernelArgInfo(const void*             pBin,
