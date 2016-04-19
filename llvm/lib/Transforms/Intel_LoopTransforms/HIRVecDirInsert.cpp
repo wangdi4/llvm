@@ -29,7 +29,7 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 static cl::opt<bool>
-    NoAutoVec("disable-hir-vec-dir-insert", cl::init(true), cl::Hidden,
+    NoAutoVec("disable-hir-vec-dir-insert", cl::init(false), cl::Hidden,
               cl::desc("Disable Auto Vectorization at O2 and above"));
 static cl::opt<bool>
     OuterVecDisabled("disable-hir-vec-outer", cl::init(false), cl::Hidden,
