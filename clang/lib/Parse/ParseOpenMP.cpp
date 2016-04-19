@@ -1438,6 +1438,12 @@ OMPClause *Parser::ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
           << ((Kind == OMPC_flush) ? getOpenMPDirectiveName(OMPD_flush)
                                    : getOpenMPClauseName(Kind))
           << (Kind == OMPC_flush);
+#if INTEL_CUSTOMIZATION
+    // Fix for CQ408991: Allow to use comma as separator only and allow to not
+    // specify expression after comma in list clauses.
+    if (getLangOpts().IntelCompat)
+      IsComma = false;
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Parse ')' for linear clause with modifier.

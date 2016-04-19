@@ -80,14 +80,14 @@ void n (R<N>) {}
 extern int N;
 template <int &> struct S {};
 void n (S<N>) {}
-// CHECK-ABI2-DAG: _Z1n1SILZ1NEE
+// CHECK-ABI2-DAG: _Z1n1SIL_Z1NEE
 
 void foo(char);
 template<void (&)(char)> struct CB {};
 
 void g(CB<foo> i) {}
 
-// CHECK-ABI2-DAG: _Z1g2CBILZ3foocEE
+// CHECK-ABI2-DAG: _Z1g2CBIL_Z3foocEE
 
 #elif defined(VAR)
 template<typename... Args>

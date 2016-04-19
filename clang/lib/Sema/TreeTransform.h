@@ -5339,7 +5339,8 @@ QualType TreeTransform<Derived>::TransformUnaryTransformType(
 #if INTEL_CUSTOMIZATION
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
 static void CollectAllBases(QualType Type, ASTContext &Context,
-                            llvm::SmallPtrSet<QualType, 4> &Set) {
+                            llvm::SmallVectorImpl<QualType> &Vec,
+                            llvm::SmallPtrSetImpl<QualType> &Set) {
   // Even though the incoming type is a base, it might not be
   // a class -- it could be a template parm, for instance.
   if (const auto *Rec = Type->getAs<RecordType>()) {
@@ -5348,21 +5349,24 @@ static void CollectAllBases(QualType Type, ASTContext &Context,
     for (const auto &BaseSpec : Decl->bases()) {
       QualType Base =
           Context.getCanonicalType(BaseSpec.getType()).getUnqualifiedType();
-      if (Set.insert(Base).second)
+      if (Set.insert(Base).second) {
         // If we've not already seen it, recurse.
-        CollectAllBases(Base, Context, Set);
+        CollectAllBases(Base, Context, Vec, Set);
+        Vec.push_back(Base);
+      } else if (!BaseSpec.isVirtual())
+        Vec.push_back(Base);
     }
   }
 }
 
 static void CollectAllDirectBases(QualType Type, ASTContext &Context,
-                                  llvm::SmallPtrSet<QualType, 4> &Set) {
+                            llvm::SmallVectorImpl<QualType> &Vec) {
   if (const auto *Rec = Type->getAs<RecordType>()) {
     const auto *Decl = Rec->getAsCXXRecordDecl();
     for (const auto &BaseSpec : Decl->bases()) {
       QualType Base =
           Context.getCanonicalType(BaseSpec.getType()).getUnqualifiedType();
-      Set.insert(Base);
+      Vec.push_back(Base);
     }
   }
 }
@@ -5393,10 +5397,11 @@ bool TreeTransform<Derived>::TryTransformBasesOfType(
   QualType T = UTT->getUnderlyingType();
 
   // Collect base classes of evaluated type T.
-  llvm::SmallPtrSet<QualType, 4> BaseTypes;
-  if (UTT->getUTTKind() == UnaryTransformType::BasesOfType)
-    CollectAllBases(T, SemaRef.Context, BaseTypes);
-  else if (UTT->getUTTKind() == UnaryTransformType::DirectBasesOfType)
+  llvm::SmallVector<QualType, 4> BaseTypes;
+  if (UTT->getUTTKind() == UnaryTransformType::BasesOfType) {
+    llvm::SmallPtrSet<QualType, 4> BaseTypesSet;
+    CollectAllBases(T, SemaRef.Context, BaseTypes, BaseTypesSet);
+  } else if (UTT->getUTTKind() == UnaryTransformType::DirectBasesOfType)
     CollectAllDirectBases(T, SemaRef.Context, BaseTypes);
   else
     llvm_unreachable("unknown kind of bases type");

@@ -3199,9 +3199,12 @@ Sema::IsStringLiteralToNonConstPointerConversion(Expr *From, QualType ToType) {
 #if INTEL_CUSTOMIZATION
   // Fix for CQ375389: cannot convert wchar_t type in conditional expression.
   if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat)
-    while (auto *CondOp =
+    if (auto *CondOp =
             dyn_cast<AbstractConditionalOperator>(From->IgnoreParens()))
-      From = CondOp->getTrueExpr()->IgnoreParenImpCasts();
+      return IsStringLiteralToNonConstPointerConversion(
+                 CondOp->getTrueExpr()->IgnoreParenImpCasts(), ToType) ||
+             IsStringLiteralToNonConstPointerConversion(
+                 CondOp->getFalseExpr()->IgnoreParenImpCasts(), ToType);
 #endif // INTEL_CUSTOMIZATION
   if (StringLiteral *StrLit = dyn_cast<StringLiteral>(From->IgnoreParens()))
     if (const PointerType *ToPtrType = ToType->getAs<PointerType>())

@@ -5040,6 +5040,13 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
         ParseMicrosoftTypeAttributes(DS.getAttributes());
         continue;
       }
+#if INTEL_CUSTOMIZATION
+      // CQ367651: allow '__unalinged' (MS Extention) on Linux as well
+      if (getLangOpts().IntelCompat && (Tok.getKind() == tok::kw___unaligned)) {
+        ParseMicrosoftTypeAttributes(DS.getAttributes());
+        continue;
+      }
+#endif // INTEL_CUSTOMIZATION
       goto DoneWithTypeQuals;
     case tok::kw___pascal:
       if (AttrReqs & AR_VendorAttributesParsed) {

@@ -1597,19 +1597,33 @@ void InitListChecker::CheckArrayType(const InitializedEntity &Entity,
 
   // Check for the special-case of initializing an array with a string.
   if (Index < IList->getNumInits()) {
-    if (IsStringInit(IList->getInit(Index), arrayType, SemaRef.Context) ==
-        SIF_None) {
+#if INTEL_CUSTOMIZATION
+    // Fix for CQ#408063 skip array to pointer decay conversion for array
+    // initialization for aggregate initializers.
+    Expr *Init = IList->getInit(Index);
+    // Bypass array to pointer decay cast if any.
+    if (SemaRef.getLangOpts().IntelCompat &&
+        SemaRef.getLangOpts().IntelMSCompat) {
+      while (auto *CE = dyn_cast<CastExpr>(Init))
+        if (CE->getCastKind() == CK_NoOp ||
+            CE->getCastKind() == CK_ArrayToPointerDecay)
+          Init = CE->getSubExpr();
+        else
+          break;
+    }
+    if (IsStringInit(Init, arrayType, SemaRef.Context) == SIF_None) {
       // We place the string literal directly into the resulting
       // initializer list. This is the only place where the structure
       // of the structured initializer list doesn't match exactly,
       // because doing so would involve allocating one character
       // constant for each string.
       if (!VerifyOnly) {
-        CheckStringInit(IList->getInit(Index), DeclType, arrayType, SemaRef);
+        CheckStringInit(Init, DeclType, arrayType, SemaRef);
         UpdateStructuredListElement(StructuredList, StructuredIndex,
-                                    IList->getInit(Index));
+                                    Init);
         StructuredList->resizeInits(SemaRef.Context, StructuredIndex);
       }
+#endif // INTEL_CUSTOMIZATION
       ++Index;
       return;
     }
