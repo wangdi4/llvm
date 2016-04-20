@@ -48,6 +48,9 @@ WRegionNode *WRegionUtils::createWRegion(
     case DIR_OMP_SIMD:
       W = new WRNVecLoopNode(EntryBB, LI);
       break;
+    case DIR_OMP_MASTER:
+      W = new WRNMasterNode(EntryBB);
+      break;
   }
   if (W)
     W->setLevel(NestingLevel);

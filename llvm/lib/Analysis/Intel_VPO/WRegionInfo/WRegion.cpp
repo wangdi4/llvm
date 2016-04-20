@@ -255,3 +255,29 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
   printChildren(OS, Depth + 1);
   OS << Indent << "} END WRNVecLoopNode<" << getNumber() << ">\n\n";
 }
+
+// constructor
+WRNMasterNode::WRNMasterNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNMaster, BB) {
+  DEBUG(dbgs() << "\nCreated WRNMasterNode <" << getNumber() << ">\n");
+}
+
+WRNMasterNode::WRNMasterNode(WRNMasterNode *W) : WRegionNode(W) {
+  DEBUG(dbgs() << "\nCreated WRNMasterNode<" << getNumber() << ">\n");
+}
+
+void WRNMasterNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "\nBEGIN WRNMasterNode<" << getNumber() << "> {\n";
+
+  if (!isBBSetEmpty())
+    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
+      const BasicBlock *BB = *I;
+      OS << Indent << *BB;
+    }
+  else 
+    OS << Indent << "No BBSet\n";
+
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNMasterNode <" << getNumber() << ">\n\n";
+}
