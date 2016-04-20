@@ -181,9 +181,9 @@ static unsigned getTypeAttribute(const DIDerivedType *llvmType,
   unsigned attribute = 0;
 
   if (llvmType->isProtected())
-    attribute = attribute | STI_ACCESS_PRIVATE;
-  else if (llvmType->isPrivate())
     attribute = attribute | STI_ACCESS_PROTECT;
+  else if (llvmType->isPrivate())
+    attribute = attribute | STI_ACCESS_PRIVATE;
   else if (llvmType->isPublic())
     attribute = attribute | STI_ACCESS_PUBLIC;
   // Otherwise C++ member and base classes are considered public.
@@ -228,6 +228,21 @@ static bool isIndirectExpression(const DIExpression *Expr) {
     }
   }
   return false;
+}
+
+//===----------------------------------------------------------------------===//
+// truncateName(name)
+//
+// Truncates the specified name if it is too long to encode in individual
+// symbol entries.
+//
+//===----------------------------------------------------------------------===//
+
+static void truncateName(std::string& name) {
+  const size_t MAXIMUM_NAME_SIZE = 4096 - 1; // remove one for null terminator
+  if (name.size() > MAXIMUM_NAME_SIZE) {
+    name.resize(MAXIMUM_NAME_SIZE); 
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -390,8 +405,8 @@ static size_t calculateFieldLength(const STITypeFieldListItem *field) {
     bool              isStatic = member->isStatic();
 
     length = 8
-                + (isStatic ? 0 : numericLength(offset))
-                + name.size() + 1;
+           + (isStatic ? 0 : numericLength(offset))
+           + name.size() + 1;
     }
     break;
 
@@ -638,7 +653,7 @@ typedef DenseMap<const MachineInstr *, MCSymbol *> LabelMap;
 //===----------------------------------------------------------------------===//
 
 struct ClassInfo {
-  typedef std::vector<const MDNode *> BaseClassList;
+  typedef std::vector<const DIDerivedType *> BaseClassList;
   struct VBaseClassInfo {
     const MDNode *llvmInheritance;
     unsigned vbIndex;
@@ -1105,9 +1120,15 @@ protected:
   STIType *getClassScope(const DIScope* llvmScope);
 
   STIRegID toSTIRegID(unsigned int regnum) const;
-  STISymbolVariable *createSymbolVariable(const DILocalVariable *DIV,
-                                          unsigned int frameIndex,
-                                          const MachineInstr *DVInsn = nullptr);
+  STISymbolVariable *createSymbolVariableFromDbgValue(
+          const DILocalVariable *DIV,
+          const MachineInstr *DVInsn);
+  STISymbolVariable *createSymbolVariableFromFrameIndex(
+          const DILocalVariable *DIV,
+          int frameIndex);
+  STISymbolVariable *createSymbolVariable(
+          const DILocalVariable *DIV,
+          STILocation *location);
 
   STISymbolProcedure *getCurrentProcedure() const;
   void setCurrentProcedure(STISymbolProcedure *procedure);
@@ -1205,6 +1226,7 @@ protected:
   STIType *lowerTypeAlias(const DIDerivedType *llvmType);
   STIType *lowerTypeMemberFunction(const DISubroutineType *llvmType,
                                    const DIType *llvmClass);
+  STIType* lowerTypeUnspecified(const DIType* llvmType);
   STIType *lowerType(const DIType *llvmType);
 
   STIType *lowerSubprogramType(const DISubprogram *subprogram);
@@ -1463,6 +1485,14 @@ void STIDebugImpl::endFunction(const MachineFunction *MF) {
   // Record the label marking the end of the procedure.
   procedure->setLabelEnd(ASM()->getFunctionEnd());
 
+  // If a routine does not contain a valid machine instruction with a source
+  // correlation, then we may not have found an end-of-prologue instruction.
+  // In this case set it to the beginning of the procedure.
+  //
+  if (procedure->getLabelPrologEnd() == nullptr) {
+    procedure->setLabelPrologEnd(procedure->getLabelBegin());
+  }
+
   // Collect information about this routine.
   collectRoutineInfo();
 
@@ -1677,6 +1707,17 @@ const DITypeIdentifierMap &STIDebugImpl::getTypeIdentifierMap() const {
   return TypeIdentifierMap;
 }
 
+//===----------------------------------------------------------------------===//
+// toSTIRegID(llvmID)
+//
+// Maps the specified llvm register identifier to an equivalent STI register
+// identifier.
+//
+// When the compiler is built, the X86 definitions for llvmID are defined in:
+//   * builds/xmain[variant]/llvm/lib/Target/X86/X86GenRegisterInfo.inc
+//
+//===----------------------------------------------------------------------===//
+
 STIRegID STIDebugImpl::toSTIRegID(unsigned int llvmID) const {
   STIRegID stiID;
 
@@ -1731,121 +1772,215 @@ STIRegID STIDebugImpl::toSTIRegID(unsigned int llvmID) const {
     MAP(0x2f, STI_REGISTER_SP);
     MAP(0x30, STI_REGISTER_SPL);
     MAP(0x31, STI_REGISTER_SS);
-    MAP(0x32, STI_REGISTER_CR0);
-    MAP(0x33, STI_REGISTER_CR1);
-    MAP(0x34, STI_REGISTER_CR2);
-    MAP(0x35, STI_REGISTER_CR3);
-    MAP(0x36, STI_REGISTER_CR4);
- // MAP(0x37, STI_REGISTER_CR5);
- // MAP(0x38, STI_REGISTER_CR6);
- // MAP(0x39, STI_REGISTER_CR7);
-    MAP(0x3a, STI_REGISTER_CR8);
- // MAP(0x3b, STI_REGISTER_CR9);
- // MAP(0x3c, STI_REGISTER_CR10);
- // MAP(0x3d, STI_REGISTER_CR11);
- // MAP(0x3e, STI_REGISTER_CR12);
- // MAP(0x3f, STI_REGISTER_CR13);
- // MAP(0x40, STI_REGISTER_CR14);
- // MAP(0x41, STI_REGISTER_CR15);
-    MAP(0x42, STI_REGISTER_DR0);
-    MAP(0x43, STI_REGISTER_DR1);
-    MAP(0x44, STI_REGISTER_DR2);
-    MAP(0x45, STI_REGISTER_DR3);
-    MAP(0x46, STI_REGISTER_DR4);
-    MAP(0x47, STI_REGISTER_DR5);
-    MAP(0x48, STI_REGISTER_DR6);
-    MAP(0x49, STI_REGISTER_DR7);
-    MAP(0x4a, STI_REGISTER_DR8);
-    MAP(0x4b, STI_REGISTER_DR9);
-    MAP(0x4c, STI_REGISTER_DR10);
-    MAP(0x4d, STI_REGISTER_DR11);
-    MAP(0x4e, STI_REGISTER_DR12);
-    MAP(0x4f, STI_REGISTER_DR13);
-    MAP(0x50, STI_REGISTER_DR14);
-    MAP(0x51, STI_REGISTER_DR15);
- // MAP(0x52, STI_REGISTER_FP0);
- // MAP(0x53, STI_REGISTER_FP1);
- // MAP(0x54, STI_REGISTER_FP2);
- // MAP(0x55, STI_REGISTER_FP3);
- // MAP(0x56, STI_REGISTER_FP4);
- // MAP(0x57, STI_REGISTER_FP5);
- // MAP(0x58, STI_REGISTER_FP6);
- // MAP(0x59, STI_REGISTER_FP7);
- // MAP(0x5a, STI_REGISTER_K0);
- // MAP(0x5b, STI_REGISTER_K1);
- // MAP(0x5c, STI_REGISTER_K2);
- // MAP(0x5d, STI_REGISTER_K3);
- // MAP(0x5e, STI_REGISTER_K4);
- // MAP(0x5f, STI_REGISTER_K5);
- // MAP(0x60, STI_REGISTER_K6);
- // MAP(0x61, STI_REGISTER_K7);
-    MAP(0x62, STI_REGISTER_MM0);
-    MAP(0x63, STI_REGISTER_MM1);
-    MAP(0x64, STI_REGISTER_MM2);
-    MAP(0x65, STI_REGISTER_MM3);
-    MAP(0x66, STI_REGISTER_MM4);
-    MAP(0x67, STI_REGISTER_MM5);
-    MAP(0x68, STI_REGISTER_MM6);
-    MAP(0x69, STI_REGISTER_MM7);
-    MAP(0x6a, STI_REGISTER_R8);
-    MAP(0x6b, STI_REGISTER_R9);
-    MAP(0x6c, STI_REGISTER_R10);
-    MAP(0x6d, STI_REGISTER_R11);
-    MAP(0x6e, STI_REGISTER_R12);
-    MAP(0x6f, STI_REGISTER_R13);
-    MAP(0x70, STI_REGISTER_R14);
-    MAP(0x71, STI_REGISTER_R15);
 
-    MAP(0x72, STI_REGISTER_ST0);
-    MAP(0x73, STI_REGISTER_ST1);
-    MAP(0x74, STI_REGISTER_ST2);
-    MAP(0x75, STI_REGISTER_ST3);
-    MAP(0x76, STI_REGISTER_ST4);
-    MAP(0x77, STI_REGISTER_ST5);
-    MAP(0x78, STI_REGISTER_ST6);
-    MAP(0x79, STI_REGISTER_ST7);
+//  MAP(0x32, STI_REGISTER_BND0);
+//  MAP(0x33, STI_REGISTER_BND1);
+//  MAP(0x34, STI_REGISTER_BND2);
+//  MAP(0x35, STI_REGISTER_BND3);
 
-    MAP(0x7a, STI_REGISTER_XMM0);
-    MAP(0x7b, STI_REGISTER_XMM1);
-    MAP(0x7c, STI_REGISTER_XMM2);
-    MAP(0x7d, STI_REGISTER_XMM3);
-    MAP(0x7e, STI_REGISTER_XMM4);
-    MAP(0x7f, STI_REGISTER_XMM5);
-    MAP(0x80, STI_REGISTER_XMM6);
-    MAP(0x81, STI_REGISTER_XMM7);
-    MAP(0x82, STI_REGISTER_XMM8);
-    MAP(0x83, STI_REGISTER_XMM9);
-    MAP(0x84, STI_REGISTER_XMM10);
-    MAP(0x85, STI_REGISTER_XMM11);
-    MAP(0x86, STI_REGISTER_XMM12);
-    MAP(0x87, STI_REGISTER_XMM13);
-    MAP(0x88, STI_REGISTER_XMM14);
-    MAP(0x89, STI_REGISTER_XMM15);
+    MAP(0x36, STI_REGISTER_CR0);
+    MAP(0x37, STI_REGISTER_CR1);
+    MAP(0x38, STI_REGISTER_CR2);
+    MAP(0x39, STI_REGISTER_CR3);
+    MAP(0x3a, STI_REGISTER_CR4);
+ // MAP(0x3b, STI_REGISTER_CR5);
+ // MAP(0x3c, STI_REGISTER_CR6);
+ // MAP(0x3d, STI_REGISTER_CR7);
+    MAP(0x3e, STI_REGISTER_CR8);
+ // MAP(0x3f, STI_REGISTER_CR9);
+ // MAP(0x40, STI_REGISTER_CR10);
+ // MAP(0x41, STI_REGISTER_CR11);
+ // MAP(0x42, STI_REGISTER_CR12);
+ // MAP(0x43, STI_REGISTER_CR13);
+ // MAP(0x44, STI_REGISTER_CR14);
+ // MAP(0x45, STI_REGISTER_CR15);
+    MAP(0x46, STI_REGISTER_DR0);
+    MAP(0x47, STI_REGISTER_DR1);
+    MAP(0x48, STI_REGISTER_DR2);
+    MAP(0x49, STI_REGISTER_DR3);
+    MAP(0x4a, STI_REGISTER_DR4);
+    MAP(0x4b, STI_REGISTER_DR5);
+    MAP(0x4c, STI_REGISTER_DR6);
+    MAP(0x4d, STI_REGISTER_DR7);
+    MAP(0x4e, STI_REGISTER_DR8);
+    MAP(0x4f, STI_REGISTER_DR9);
+    MAP(0x50, STI_REGISTER_DR10);
+    MAP(0x51, STI_REGISTER_DR11);
+    MAP(0x52, STI_REGISTER_DR12);
+    MAP(0x53, STI_REGISTER_DR13);
+    MAP(0x54, STI_REGISTER_DR14);
+    MAP(0x55, STI_REGISTER_DR15);
 
-    MAP(0xda, STI_REGISTER_R8B);
-    MAP(0xdb, STI_REGISTER_R9B);
-    MAP(0xdc, STI_REGISTER_R10B);
-    MAP(0xdd, STI_REGISTER_R11B);
-    MAP(0xde, STI_REGISTER_R12B);
-    MAP(0xdf, STI_REGISTER_R13B);
-    MAP(0xe0, STI_REGISTER_R14B);
-    MAP(0xe1, STI_REGISTER_R15B);
-    MAP(0xe2, STI_REGISTER_R8W);
-    MAP(0xe3, STI_REGISTER_R9W);
-    MAP(0xe4, STI_REGISTER_R10W);
-    MAP(0xe5, STI_REGISTER_R11W);
-    MAP(0xe6, STI_REGISTER_R12W);
-    MAP(0xe7, STI_REGISTER_R13W);
-    MAP(0xe8, STI_REGISTER_R14W);
-    MAP(0xe9, STI_REGISTER_R15W);
-    MAP(0xea, STI_REGISTER_R8D);
-    MAP(0xeb, STI_REGISTER_R9D);
-    MAP(0xec, STI_REGISTER_R10D);
-    MAP(0xed, STI_REGISTER_R11D);
-    MAP(0xee, STI_REGISTER_R12D);
-    MAP(0xef, STI_REGISTER_R13D);
-    MAP(0xf0, STI_REGISTER_R14D);
-    MAP(0xf1, STI_REGISTER_R15D);
+ // MAP(0x56, STI_REGISTER_FP0);
+ // MAP(0x57, STI_REGISTER_FP1);
+ // MAP(0x58, STI_REGISTER_FP2);
+ // MAP(0x59, STI_REGISTER_FP3);
+ // MAP(0x5a, STI_REGISTER_FP4);
+ // MAP(0x5b, STI_REGISTER_FP5);
+ // MAP(0x5c, STI_REGISTER_FP6);
+ // MAP(0x5d, STI_REGISTER_FP7);
+
+ // MAP(0x5e, STI_REGISTER_K0);
+ // MAP(0x5f, STI_REGISTER_K1);
+ // MAP(0x60, STI_REGISTER_K2);
+ // MAP(0x61, STI_REGISTER_K3);
+ // MAP(0x62, STI_REGISTER_K4);
+ // MAP(0x63, STI_REGISTER_K5);
+ // MAP(0x64, STI_REGISTER_K6);
+ // MAP(0x65, STI_REGISTER_K7);
+
+    MAP(0x66, STI_REGISTER_MM0);
+    MAP(0x67, STI_REGISTER_MM1);
+    MAP(0x68, STI_REGISTER_MM2);
+    MAP(0x69, STI_REGISTER_MM3);
+    MAP(0x6a, STI_REGISTER_MM4);
+    MAP(0x6b, STI_REGISTER_MM5);
+    MAP(0x6c, STI_REGISTER_MM6);
+    MAP(0x6d, STI_REGISTER_MM7);
+
+    MAP(0x6e, STI_REGISTER_R8);
+    MAP(0x6f, STI_REGISTER_R9);
+    MAP(0x70, STI_REGISTER_R10);
+    MAP(0x71, STI_REGISTER_R11);
+    MAP(0x72, STI_REGISTER_R12);
+    MAP(0x73, STI_REGISTER_R13);
+    MAP(0x74, STI_REGISTER_R14);
+    MAP(0x75, STI_REGISTER_R15);
+
+    MAP(0x76, STI_REGISTER_ST0);
+    MAP(0x77, STI_REGISTER_ST1);
+    MAP(0x78, STI_REGISTER_ST2);
+    MAP(0x79, STI_REGISTER_ST3);
+    MAP(0x7a, STI_REGISTER_ST4);
+    MAP(0x7b, STI_REGISTER_ST5);
+    MAP(0x7c, STI_REGISTER_ST6);
+    MAP(0x7d, STI_REGISTER_ST7);
+
+    MAP(0x7e, STI_REGISTER_XMM0);
+    MAP(0x7f, STI_REGISTER_XMM1);
+    MAP(0x80, STI_REGISTER_XMM2);
+    MAP(0x81, STI_REGISTER_XMM3);
+    MAP(0x82, STI_REGISTER_XMM4);
+    MAP(0x83, STI_REGISTER_XMM5);
+    MAP(0x84, STI_REGISTER_XMM6);
+    MAP(0x85, STI_REGISTER_XMM7);
+    MAP(0x86, STI_REGISTER_XMM8);
+    MAP(0x87, STI_REGISTER_XMM9);
+    MAP(0x88, STI_REGISTER_XMM10);
+    MAP(0x89, STI_REGISTER_XMM11);
+    MAP(0x8a, STI_REGISTER_XMM12);
+    MAP(0x8b, STI_REGISTER_XMM13);
+    MAP(0x8c, STI_REGISTER_XMM14);
+    MAP(0x8d, STI_REGISTER_XMM15);
+//  MAP(0x8e, STI_REGISTER_XMM16);
+//  MAP(0x8f, STI_REGISTER_XMM17);
+//  MAP(0x90, STI_REGISTER_XMM18);
+//  MAP(0x91, STI_REGISTER_XMM19);
+//  MAP(0x92, STI_REGISTER_XMM20);
+//  MAP(0x93, STI_REGISTER_XMM21);
+//  MAP(0x94, STI_REGISTER_XMM22);
+//  MAP(0x95, STI_REGISTER_XMM23);
+//  MAP(0x96, STI_REGISTER_XMM24);
+//  MAP(0x97, STI_REGISTER_XMM25);
+//  MAP(0x98, STI_REGISTER_XMM26);
+//  MAP(0x99, STI_REGISTER_XMM27);
+//  MAP(0x9a, STI_REGISTER_XMM28);
+//  MAP(0x9b, STI_REGISTER_XMM29);
+//  MAP(0x9c, STI_REGISTER_XMM30);
+//  MAP(0x9dj STI_REGISTER_XMM31);
+
+//  MAP(0x9e, STI_REGISTER_YMM0);
+//  MAP(0x9f, STI_REGISTER_YMM1);
+//  MAP(0xa0, STI_REGISTER_YMM2);
+//  MAP(0xa1, STI_REGISTER_YMM3);
+//  MAP(0xa2, STI_REGISTER_YMM4);
+//  MAP(0xa3, STI_REGISTER_YMM5);
+//  MAP(0xa4, STI_REGISTER_YMM6);
+//  MAP(0xa5, STI_REGISTER_YMM7);
+//  MAP(0xa6, STI_REGISTER_YMM8);
+//  MAP(0xa7, STI_REGISTER_YMM9);
+//  MAP(0xa8, STI_REGISTER_YMM10);
+//  MAP(0xa9, STI_REGISTER_YMM11);
+//  MAP(0xaa, STI_REGISTER_YMM12);
+//  MAP(0xab, STI_REGISTER_YMM13);
+//  MAP(0xac, STI_REGISTER_YMM14);
+//  MAP(0xad, STI_REGISTER_YMM15);
+//  MAP(0xae, STI_REGISTER_YMM16);
+//  MAP(0xaf, STI_REGISTER_YMM17);
+//  MAP(0xb0, STI_REGISTER_YMM18);
+//  MAP(0xb1, STI_REGISTER_YMM19);
+//  MAP(0xb2, STI_REGISTER_YMM20);
+//  MAP(0xb3, STI_REGISTER_YMM21);
+//  MAP(0xb4, STI_REGISTER_YMM22);
+//  MAP(0xb5, STI_REGISTER_YMM23);
+//  MAP(0xb6, STI_REGISTER_YMM24);
+//  MAP(0xb7, STI_REGISTER_YMM25);
+//  MAP(0xb8, STI_REGISTER_YMM26);
+//  MAP(0xb9, STI_REGISTER_YMM27);
+//  MAP(0xba, STI_REGISTER_YMM28);
+//  MAP(0xbb, STI_REGISTER_YMM29);
+//  MAP(0xbc, STI_REGISTER_YMM30);
+//  MAP(0xbd, STI_REGISTER_YMM31);
+
+//  MAP(0xbe, STI_REGISTER_ZMM0);
+//  MAP(0xbf, STI_REGISTER_ZMM1);
+//  MAP(0xc0, STI_REGISTER_ZMM2);
+//  MAP(0xc1, STI_REGISTER_ZMM3);
+//  MAP(0xc2, STI_REGISTER_ZMM4);
+//  MAP(0xc3, STI_REGISTER_ZMM5);
+//  MAP(0xc4, STI_REGISTER_ZMM6);
+//  MAP(0xc5, STI_REGISTER_ZMM7);
+//  MAP(0xc6, STI_REGISTER_ZMM8);
+//  MAP(0xc7, STI_REGISTER_ZMM9);
+//  MAP(0xc8, STI_REGISTER_ZMM10);
+//  MAP(0xc9, STI_REGISTER_ZMM11);
+//  MAP(0xca, STI_REGISTER_ZMM12);
+//  MAP(0xcb, STI_REGISTER_ZMM13);
+//  MAP(0xcc, STI_REGISTER_ZMM14);
+//  MAP(0xcd, STI_REGISTER_ZMM15);
+//  MAP(0xce, STI_REGISTER_ZMM16);
+//  MAP(0xcf, STI_REGISTER_ZMM17);
+//  MAP(0xd0, STI_REGISTER_ZMM18);
+//  MAP(0xd1, STI_REGISTER_ZMM19);
+//  MAP(0xd2, STI_REGISTER_ZMM20);
+//  MAP(0xd3, STI_REGISTER_ZMM21);
+//  MAP(0xd4, STI_REGISTER_ZMM22);
+//  MAP(0xd5, STI_REGISTER_ZMM23);
+//  MAP(0xd6, STI_REGISTER_ZMM24);
+//  MAP(0xd7, STI_REGISTER_ZMM25);
+//  MAP(0xd8, STI_REGISTER_ZMM26);
+//  MAP(0xd9, STI_REGISTER_ZMM27);
+//  MAP(0xda, STI_REGISTER_ZMM28);
+//  MAP(0xdb, STI_REGISTER_ZMM29);
+//  MAP(0xdc, STI_REGISTER_ZMM30);
+//  MAP(0xdd, STI_REGISTER_ZMM31);
+
+    MAP(0xde, STI_REGISTER_R8B);
+    MAP(0xdf, STI_REGISTER_R9B);
+    MAP(0xe0, STI_REGISTER_R10B);
+    MAP(0xe1, STI_REGISTER_R11B);
+    MAP(0xe2, STI_REGISTER_R12B);
+    MAP(0xe3, STI_REGISTER_R13B);
+    MAP(0xe4, STI_REGISTER_R14B);
+    MAP(0xe5, STI_REGISTER_R15B);
+
+    MAP(0xe6, STI_REGISTER_R8D);
+    MAP(0xe7, STI_REGISTER_R9D);
+    MAP(0xe8, STI_REGISTER_R10D);
+    MAP(0xe9, STI_REGISTER_R11D);
+    MAP(0xea, STI_REGISTER_R12D);
+    MAP(0xeb, STI_REGISTER_R13D);
+    MAP(0xec, STI_REGISTER_R14D);
+    MAP(0xed, STI_REGISTER_R15D);
+
+    MAP(0xee, STI_REGISTER_R8W);
+    MAP(0xef, STI_REGISTER_R9W);
+    MAP(0xf0, STI_REGISTER_R10W);
+    MAP(0xf1, STI_REGISTER_R11W);
+    MAP(0xf2, STI_REGISTER_R12W);
+    MAP(0xf3, STI_REGISTER_R13W);
+    MAP(0xf4, STI_REGISTER_R14W);
+    MAP(0xf5, STI_REGISTER_R15W);
 
 #undef MAP
   default:
@@ -2113,6 +2248,44 @@ void STIDebugImpl::collectMemberInfo(ClassInfo &info,
   //(void)lowerType(Ty);
 }
 
+//===----------------------------------------------------------------------===//
+// stripScopesFromName(name)
+//
+// Subprogram names used to contain only the name, now they are fully
+// qualified.  We need to strip off the qualification to get the bare name.
+//
+// FIXME: The names should be fixed in CLANG and then this can be removed.
+//
+//===----------------------------------------------------------------------===//
+
+static StringRef stripScopesFromName(StringRef name) {
+  StringRef::size_type pos;
+  unsigned int         template_level;
+
+  if (name.empty())
+    return name;
+  
+  for (pos = name.size() - 1, template_level = 0; pos > 1; --pos) {
+    switch (name[pos]) {
+    case '>':
+      template_level++;
+      break;
+    case '<':
+      if (template_level > 0)
+        template_level--;
+      break;
+    case ':':
+      if (template_level == 0 && name[pos - 1] == ':')
+        return name.substr(pos + 1);
+      break;
+    default:
+      break;
+    }
+  }
+
+  return name;
+}
+
 ClassInfo &STIDebugImpl::collectClassInfo(const DICompositeType *llvmType) {
   auto *CIM = getClassInfoMap();
   auto itr = CIM->find(llvmType);
@@ -2137,7 +2310,7 @@ ClassInfo &STIDebugImpl::collectClassInfo(const DICompositeType *llvmType) {
     if (const DISubprogram *subprogram = dyn_cast<DISubprogram>(Element)) {
       // FIXME: implement this case
       // getOrCreateSubprogramDIE(Element);
-      StringRef methodName = subprogram->getName();
+      StringRef methodName = stripScopesFromName(subprogram->getName());
       info.methods[methodName].push_back(
           std::make_pair(subprogram, true /*introduced*/));
 
@@ -2499,6 +2672,8 @@ STITypeStructure *STIDebugImpl::lowerTypeStructureDecl(
   properties.set(STI_COMPOSITE_PROPERTY_FWDREF);
   properties.set(STI_COMPOSITE_PROPERTY_REALNAME);
 
+  truncateName(name);
+
   type = createTypeStructure(
           leaf,
           name,
@@ -2579,6 +2754,8 @@ STITypeStructure *STIDebugImpl::lowerTypeStructureDefn(
   if (info.hasCTOR) {
     properties.set(STI_COMPOSITE_PROPERTY_CTOR);
   }
+
+  truncateName(name);
 
   type = createTypeStructure(
           leaf,
@@ -3127,8 +3304,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
   // Create base classes
   ClassInfo::BaseClassList &baseClasses = info.baseClasses;
   for (unsigned i = 0, e = baseClasses.size(); i != e; ++i) {
-    const DIDerivedType *inheritance =
-        dyn_cast<DIDerivedType>(baseClasses[i]);
+    const DIDerivedType *inheritance = baseClasses[i];
 
     STITypeBaseClass *bClass = STITypeBaseClass::create();
     bClass->setAttribute(getTypeAttribute(inheritance, llvmType));
@@ -3178,16 +3354,17 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
     auto itr = members[i];
     const DIDerivedType *llvmMember = dyn_cast<DIDerivedType>(itr.first);
 
-    STITypeMember *member = STITypeMember::create();
+    std::string name = llvmMember->getName();
+    truncateName(name);
 
-    STIType *memberBaseType =
-        lowerType(resolve(llvmMember->getBaseType()));
+    STITypeMember *member = STITypeMember::create();
+    STIType *memberBaseType = lowerType(resolve(llvmMember->getBaseType()));
 
     if (llvmMember->isStaticMember()) {
       member->setIsStatic(true);
       member->setAttribute(getTypeAttribute(llvmMember, llvmType));
       member->setType(memberBaseType);
-      member->setName(llvmMember->getName());
+      member->setName(name);
 
       fieldListBuilder.append(member);
       continue;
@@ -3227,7 +3404,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
     member->setAttribute(getTypeAttribute(llvmMember, llvmType));
     member->setType(memberBaseType);
     member->setOffset(createNumericUnsignedInt(OffsetInBytes));
-    member->setName(llvmMember->getName());
+    member->setName(name);
 
     fieldListBuilder.append(member);
   }
@@ -3236,6 +3413,8 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
   for (auto &itr : info.methods) {
     unsigned overloadedCount = itr.second.size();
     assert(overloadedCount > 0 && "Empty methods map entry");
+    std::string name = itr.first;
+    truncateName(name);
     if (overloadedCount == 1) {
       auto &methodInfo = itr.second[0];
       const DISubprogram *subprogram =
@@ -3258,7 +3437,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
         method->setVirtuality(virtuality);
         method->setVirtualIndex(virtualIndex);
       }
-      method->setName(itr.first);
+      method->setName(name);
 
       fieldListBuilder.append(method);
     } else {
@@ -3296,7 +3475,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
 
       method->setCount(overloadedCount);
       method->setList(methodList);
-      method->setName(itr.first);
+      method->setName(name);
 
       fieldListBuilder.append(method);
     }
@@ -3426,11 +3605,13 @@ STITypeEnumerator* STIDebugImpl::lowerTypeEnumerator(
   STITypeEnumerator *type;
   uint16_t attribute;
   STINumeric *value;
-  StringRef name;
+  std::string name;
 
   name      = llvmType->getName();
   value     = createNumericSignedInt(llvmType->getValue());
   attribute = STI_ACCESS_PUBLIC; // FIXME: set correct attributes here!
+
+  truncateName(name);
 
   type = STITypeEnumerator::create();
   type->setAttribute(attribute);
@@ -3497,7 +3678,7 @@ STIType *STIDebugImpl::lowerTypeEnumeration(const DICompositeType *llvmType) {
   STIType *fieldType;
   unsigned count;
   STITypeEnumeration::Properties properties;
-  StringRef name;
+  std::string name;
   uint32_t sizeInBits;
 
   // If this enumeration is contained within another type then it needs to be
@@ -3520,6 +3701,7 @@ STIType *STIDebugImpl::lowerTypeEnumeration(const DICompositeType *llvmType) {
       //
       name = _unnamedType;
   }
+  truncateName(name);
 
   sizeInBits    = llvmType->getSizeInBits();
 
@@ -3740,7 +3922,7 @@ STIType *STIDebugImpl::lowerTypeSubroutine(const DISubroutineType *llvmType) {
 //
 //===----------------------------------------------------------------------===//
 
-STIType *STIDebugImpl::lowerTypeRestrict(const DIDerivedType* llvmType) {
+STIType *STIDebugImpl::lowerTypeRestrict(const DIDerivedType *llvmType) {
   STIType *type;
   DIType  *baseType = resolve(llvmType->getBaseType());
 
@@ -3752,6 +3934,32 @@ STIType *STIDebugImpl::lowerTypeRestrict(const DIDerivedType* llvmType) {
   // Further references to the restrict type should return the existing base
   // type entry.
   //
+  mapLLVMTypeToSTIType(llvmType, type);
+
+  return type;
+}
+
+//===----------------------------------------------------------------------===//
+// lowerTypeUnspecified(llvmType)
+//
+// Lower an unspecified type (DW_TAG_unspecified_type).
+//
+//===----------------------------------------------------------------------===//
+
+STIType *STIDebugImpl::lowerTypeUnspecified(const DIType *llvmType) {
+  STIType *type;
+
+  // This is currently only used for describing the nullptr base type:
+  //   !1855 = !DIBasicType(
+  //             tag: DW_TAG_unspecified_type,
+  //             name: "decltype(nullptr)")
+  //
+  assert(isa<DIBasicType>(llvmType));
+
+  // There's no unspecified type on Windows, so create it as a pointer to void.
+  //
+  type = createTypeBasic(T_PVOID, getPointerSizeInBits());
+  appendType(type);
   mapLLVMTypeToSTIType(llvmType, type);
 
   return type;
@@ -3789,7 +3997,7 @@ STIType *STIDebugImpl::lowerType(const DIType *llvmType) {
   X(DW_TAG_pointer_type,          lowerTypePointer,       DIDerivedType);
   X(DW_TAG_reference_type,        lowerTypePointer,       DIDerivedType);
   X(DW_TAG_rvalue_reference_type, lowerTypePointer,       DIDerivedType);
-  X(DW_TAG_unspecified_type,      lowerTypePointer,       DIDerivedType);
+  X(DW_TAG_unspecified_type,      lowerTypeUnspecified,   DIType);
   X(DW_TAG_ptr_to_member_type,    lowerTypePointer,       DIDerivedType);
   X(DW_TAG_const_type,            lowerTypeModifier,      DIDerivedType);
   X(DW_TAG_volatile_type,         lowerTypeModifier,      DIDerivedType);
@@ -3800,6 +4008,7 @@ STIType *STIDebugImpl::lowerType(const DIType *llvmType) {
 
   default:
     assert(tag != tag); // unhandled type tag!
+    type = nullptr;
     break;
   }
 
@@ -3910,73 +4119,87 @@ STIType *STIDebugImpl::getClassScope(const DIScope* llvmScope) {
   return nullptr;
 }
 
+STISymbolVariable *STIDebugImpl::createSymbolVariableFromDbgValue(
+    const DILocalVariable *DIV,
+    const MachineInstr    *DVInsn) {
+  STILocation *location = nullptr;
+
+  assert(DVInsn && "Unknown location");
+  assert(DVInsn->getNumOperands() == 3 || DVInsn->getNumOperands() == 4);
+  // TODO: handle the case DVInsn->getNumOperands() == 4
+  if (DVInsn->getOperand(0).isReg()) {
+    const MachineOperand RegOp = DVInsn->getOperand(0);
+    // If the second operand is an immediate, this is an indirect value.
+    if (DVInsn->getOperand(1).isImm()) {
+      if (RegOp.getReg() == 0) {
+        location = STILocation::createOffset(DVInsn->getOperand(1).getImm());
+      } else {
+        location = STILocation::createRegisterOffset(
+            toSTIRegID(RegOp.getReg()), DVInsn->getOperand(1).getImm());
+      }
+    } else if (RegOp.getReg()) {
+      bool indirect = isIndirectExpression(DVInsn->getDebugExpression());
+      if (indirect) {
+        location =
+            STILocation::createRegisterOffset(toSTIRegID(RegOp.getReg()), 0);
+      } else {
+        location = STILocation::createRegister(toSTIRegID(RegOp.getReg()));
+      }
+    }
+  } else if (DVInsn->getOperand(0).isImm()) {
+    //assert(!"FIXME: support this case");
+    // addConstantValue(*VariableDie, DVInsn->getOperand(0), DV.getType());
+  } else if (DVInsn->getOperand(0).isFPImm()) {
+    //assert(!"FIXME: support this case");
+    // addConstantFPValue(*VariableDie, DVInsn->getOperand(0));
+  } else if (DVInsn->getOperand(0).isCImm()) {
+    //assert(!"FIXME: support this case");
+    // addConstantValue(*VariableDie, DVInsn->getOperand(0).getCImm(),
+    //                 DV.getType());
+  }
+
+  return createSymbolVariable(DIV, location);
+}
+
+STISymbolVariable *STIDebugImpl::createSymbolVariableFromFrameIndex(
+    const DILocalVariable *DIV,
+    int frameIndex) {
+  STILocation *location = nullptr;
+  unsigned int regnum;
+  int          offset;
+
+  const TargetFrameLowering *TFL =
+      ASM()->MF->getSubtarget().getFrameLowering();
+
+  regnum = 0;
+  offset = TFL->getFrameIndexReference(*ASM()->MF, frameIndex, regnum);
+
+  location = STILocation::createRegisterOffset(toSTIRegID(regnum), offset);
+
+  return createSymbolVariable(DIV, location);
+}
+
 STISymbolVariable *STIDebugImpl::createSymbolVariable(
     const DILocalVariable *DIV,
-    unsigned int frameIndex,
-    const MachineInstr *DVInsn) {
-  STISymbolVariable *variable = nullptr;
-  STILocation *location = nullptr;
-  STIType *type;
+    STILocation *location)
+{
+  StringRef          name;
+  STISymbolVariable *variable;
+  STIType           *type;
 
-  if (frameIndex != ~0U) {
-    unsigned int regnum;
-    int offset;
-
-    const TargetFrameLowering *TFL =
-        ASM()->MF->getSubtarget().getFrameLowering();
-
-    regnum = 0;
-    offset = TFL->getFrameIndexReference(*ASM()->MF, frameIndex, regnum);
-
-    location = STILocation::createRegisterOffset(toSTIRegID(regnum), offset);
-
-  } else {
-    assert(DVInsn && "Unknown location");
-    assert(DVInsn->getNumOperands() == 3 || DVInsn->getNumOperands() == 4);
-    // TODO: handle the case DVInsn->getNumOperands() == 4
-    if (DVInsn->getOperand(0).isReg()) {
-      const MachineOperand RegOp = DVInsn->getOperand(0);
-      // If the second operand is an immediate, this is an indirect value.
-      if (DVInsn->getOperand(1).isImm()) {
-        if (RegOp.getReg() == 0) {
-          location = STILocation::createOffset(DVInsn->getOperand(1).getImm());
-        } else {
-          location = STILocation::createRegisterOffset(
-              toSTIRegID(RegOp.getReg()), DVInsn->getOperand(1).getImm());
-        }
-      } else if (RegOp.getReg()) {
-        bool indirect = isIndirectExpression(DVInsn->getDebugExpression());
-        if (indirect) {
-          location =
-              STILocation::createRegisterOffset(toSTIRegID(RegOp.getReg()), 0);
-        } else {
-          location = STILocation::createRegister(toSTIRegID(RegOp.getReg()));
-        }
-      }
-    } else if (DVInsn->getOperand(0).isImm()) {
-      //assert(!"FIXME: support this case");
-      // addConstantValue(*VariableDie, DVInsn->getOperand(0), DV.getType());
-    } else if (DVInsn->getOperand(0).isFPImm()) {
-      //assert(!"FIXME: support this case");
-      // addConstantFPValue(*VariableDie, DVInsn->getOperand(0));
-    } else if (DVInsn->getOperand(0).isCImm()) {
-      //assert(!"FIXME: support this case");
-      // addConstantValue(*VariableDie, DVInsn->getOperand(0).getCImm(),
-      //                 DV.getType());
-    }
+  // Don't create variables which don't have a valid location.
+  if (!location) {
+    return nullptr;
   }
 
-  if (location) {
-    // Lower the variable type.
-    //
-    type = toTypeDefinition(lowerType(resolve(DIV->getType())));
+  name = DIV->getName();
+  type = toTypeDefinition(lowerType(resolve(DIV->getType())));
 
-    // Create variable only if it has a valid location.
-    variable = STISymbolVariable::create();
-    variable->setName(DIV->getName());
-    variable->setType(type);
-    variable->setLocation(location);
-  }
+  // Create variable only if it has a valid location.
+  variable = STISymbolVariable::create();
+  variable->setName(name);
+  variable->setType(type);
+  variable->setLocation(location);
 
   return variable;
 }
@@ -4015,18 +4238,28 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
 
   STISymbolFrameProc *frame = STISymbolFrameProc::create();
 
+  // The subprogram name is now encoded as a fully qualified name, but it
+  // isn't formatted the way we like (spaces are missing between template
+  // parameters).  So strip the scopes off the name, rebuild them, and
+  // then truncate to the maximum allowable size.
+  //
+  std::string name = stripScopesFromName(SP->getName()).str();
+  name = getScopeFullName(resolve(SP->getScope()), name, true);
+  truncateName(name);
+
   STISymbolProcedure *procedure;
   procedure = STISymbolProcedure::create();
-  procedure->setName(
-      getScopeFullName(resolve(SP->getScope()), SP->getName(), true));
+  procedure->setName(name);
 
   if (EmitFunctionIDs) {
+    std::string name = SP->getName();
+    truncateName(name);
     STIType *classType = getClassScope(resolve(SP->getScope()));
     STITypeFunctionID *funcIDType = STITypeFunctionID::create();
     funcIDType->setType(procedureType);
     funcIDType->setParentScope(nullptr); // FIXME
     funcIDType->setParentClassType(classType);
-    funcIDType->setName(SP->getName());
+    funcIDType->setName(name);
 
     getTypeTable()->push_back(funcIDType);
 
@@ -4112,6 +4345,9 @@ STISymbolBlock *STIDebugImpl::createSymbolBlock(const DILexicalBlockBase* LB) {
   STISymbolBlock *block;
   block = STISymbolBlock::create();
 
+  std::string name = LB->getName();
+  truncateName(name);
+
   LexicalScope *Scope = _lexicalScopes.findLexicalScope(LB);
   if (!Scope)
     // Lexical block has no lexical scope created, skip it by returning null.
@@ -4130,7 +4366,7 @@ STISymbolBlock *STIDebugImpl::createSymbolBlock(const DILexicalBlockBase* LB) {
   // FIXME: emit block labels correctly
   block->setLabelBegin(_labelsBeforeInsn[BInst]);
   block->setLabelEnd(_labelsAfterInsn[EInst]);
-  block->setName(LB->getName());
+  block->setName(name);
 
   getOrCreateScope(LB->getScope())->add(block);
 
@@ -4578,7 +4814,7 @@ void STIDebugImpl::collectRoutineInfo() {
     if (!scope)
       continue;
 
-    variable = createSymbolVariable(llvmVar, info.Slot);
+    variable = createSymbolVariableFromFrameIndex(llvmVar, info.Slot);
     if (!variable)
       continue;
     scope->add(variable, llvmVar->getArg());
@@ -4603,7 +4839,7 @@ void STIDebugImpl::collectRoutineInfo() {
       continue;
 
     const MachineInstr *MInsn = Ranges.front().first;
-    variable = createSymbolVariable(IV.first, ~0, MInsn); // FIXME: params
+    variable = createSymbolVariableFromDbgValue(IV.first, MInsn);
     if (!variable)
       continue;
     scope->add(variable, IV.first->getArg());
@@ -5140,6 +5376,7 @@ STIDebugImpl::emitSymbolThunk(const STISymbolThunk *thunk) const {
 
   default:
     assert(!"Invalid ordinal kind!");
+    ordinalSize = 0;
     break;
   }
 
