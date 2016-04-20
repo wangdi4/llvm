@@ -175,10 +175,17 @@ def err_multichar_utf_character_literal : Error<
 def err_exponent_has_no_digits : Error<"exponent has no digits">;
 def ext_imaginary_constant : Extension<
   "imaginary constants are a GNU extension">, InGroup<GNUImaginaryConstant>;
-def err_hexconstant_requires: Error<
-  "hexadecimal floating constants require %select{an exponent|a significand}0">;
-def ext_hexconstant_invalid : Extension<
+def err_hex_constant_requires : Error<
+  "hexadecimal floating %select{constant|literal}0 requires "
+  "%select{an exponent|a significand}1">;
+def ext_hex_constant_invalid : Extension<
   "hexadecimal floating constants are a C99 feature">, InGroup<C99>;
+def ext_hex_literal_invalid : Extension<
+  "hexadecimal floating literals are a C++1z feature">, InGroup<CXX1z>;
+def warn_cxx1z_hex_literal : Warning<
+  "hexidecimal floating literals are incompatible with "
+  "C++ standards before C++1z">,
+  InGroup<CXXPre1zCompatPedantic>, DefaultIgnore;
 def ext_binary_literal : Extension<
   "binary integer literals are a GNU extension">, InGroup<GNUBinaryLiteral>;
 def ext_binary_literal_cxx14 : Extension<
@@ -380,7 +387,7 @@ def err_pp_expected_comma_in_arg_list : Error<
 def err_pp_duplicate_name_in_arg_list : Error<
   "duplicate macro parameter name %0">;
 def err_pp_stringize_not_parameter : Error<
-  "'#' is not followed by a macro parameter">;
+  "'%select{#|#@}0' is not followed by a macro parameter">;
 def err_pp_malformed_ident : Error<"invalid #ident directive">;
 def err_pp_unterminated_conditional : Error<
   "unterminated conditional directive">;

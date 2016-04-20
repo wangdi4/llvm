@@ -106,7 +106,7 @@ class elf::ScriptParser {
 
 public:
   ScriptParser(BumpPtrAllocator *A, StringRef S, bool B)
-      : Saver(*A), Tokens(tokenize(S)), IsUnderSysroot(B) {}
+      : Saver(*A), Input(S), Tokens(tokenize(S)), IsUnderSysroot(B) {}
 
   void run();
 
@@ -137,9 +137,11 @@ private:
   void readOutputSectionDescription();
   void readSectionPatterns(StringRef OutSec, bool Keep);
 
+  size_t getPos();
   std::vector<uint8_t> parseHex(StringRef S);
 
   StringSaver Saver;
+  StringRef Input;
   std::vector<StringRef> Tokens;
   const static StringMap<Handler> Cmd;
   size_t Pos = 0;
@@ -174,7 +176,7 @@ void ScriptParser::run() {
 void ScriptParser::setError(const Twine &Msg) {
   if (Error)
     return;
-  error(Msg);
+  error("line " + Twine(getPos()) + ": " + Msg);
   Error = true;
 }
 
@@ -296,7 +298,7 @@ void ScriptParser::addFile(StringRef S) {
   } else {
     std::string Path = findFromSearchPaths(S);
     if (Path.empty())
-      setError("Unable to find " + S);
+      setError("unable to find " + S);
     else
       Driver->addFile(Saver.save(Path));
   }
@@ -412,6 +414,15 @@ void ScriptParser::readSectionPatterns(StringRef OutSec, bool Keep) {
     Script->Sections.emplace_back(OutSec, next(), Keep);
 }
 
+// Returns the current line number.
+size_t ScriptParser::getPos() {
+  if (Pos == 0)
+    return 1;
+  const char *Begin = Input.data();
+  const char *Tok = Tokens[Pos - 1].data();
+  return StringRef(Begin, Tok - Begin).count('\n') + 1;
+}
+
 std::vector<uint8_t> ScriptParser::parseHex(StringRef S) {
   std::vector<uint8_t> Hex;
   while (!S.empty()) {
@@ -419,7 +430,7 @@ std::vector<uint8_t> ScriptParser::parseHex(StringRef S) {
     S = S.substr(2);
     uint8_t H;
     if (B.getAsInteger(16, H)) {
-      setError("Not a HEX value: " + B);
+      setError("not a hexadecimal value: " + B);
       return {};
     }
     Hex.push_back(H);
@@ -442,13 +453,13 @@ void ScriptParser::readOutputSectionDescription() {
       readSectionPatterns(OutSec, true);
       expect(")");
     } else {
-      setError("Unknown command " + Tok);
+      setError("unknown command " + Tok);
     }
   }
   StringRef Tok = peek();
   if (Tok.startswith("=")) {
     if (!Tok.startswith("=0x")) {
-      setError("Filler should be a HEX value");
+      setError("filler should be a hexadecimal value");
       return;
     }
     Tok = Tok.substr(3);

@@ -68,17 +68,62 @@ class FMAExprSPTG;
 // trees/dags and it adds only some methods required for TableGen.
 class FMADagTG : public FMADagCommon {
   private:
+    // Returns true iff the DAG node with the given index \p NodeInd is used
+    // by at least one of the previous nodes.
+    bool isNodeUsed(unsigned NodeInd) const;
+
+    // Returns the number of times the node with the index \p NodeInd is used
+    // as an operand in other DAG nodes.
+    unsigned countNodeUses(unsigned NodeInd) const;
+
     // Sets the operand with the index \p OpndInd in the node \p NodeInd to
     // the specified value \p Operand. The parameter \p IsTerm specifies if
     // the parameter \p Operand is an index of a term or an FMA node.
     void setOperand(unsigned NodeInd, unsigned OpndInd,
                     bool IsTerm, unsigned Operand);
 
+    // Sets the operand with the index \p OpndInd in the node \p NodeInd to
+    // the specified value \p Operand. There is no any special parameter
+    // specifying the kind of the \p Operand, i.e. if it is a term,
+    // a special term or an FMA. So, the following agreement is used:
+    // The \p Operand is:
+    // - another FMA node,   if (Operand < NumNodes);
+    // - a regular term,     if (Operand == NumNodes);
+    // - a special term 1.0, if (Operand == NumNodes + 1);
+    // - a special term 0.0, if (Operand == NumNodes + 2).
+    void setOperandSpecial(unsigned NodeInd, unsigned OpndInd,
+                           unsigned Operand);
+
     // Generates a sum of products for this Dag and stores it to the given
     // Dags storage \p SPsStorage.
     // If for some reasons the SP seems inefficient or unsupported then
     // it may not be added to the SPs storage to not pollute it.
-    void generateAndStoreSP(std::vector<FMAExprSPTG *> &SPsStorage);
+    void generateAndStoreSP(std::vector<FMAExprSPTG *> &SPsStorage) const;
+
+    // Generates all possible FMA Dags recursively, generates sums of products
+    // for them and puts them to the storage \p SPsStorage.
+    //
+    // The parameter \p NodeInd specifies the index of the node that is not
+    // formed yet. It is supposed that the nodes with indices
+    // 0, ..., (\p NodeInd - 1) are already formed. The recursion ends when
+    // \p NodeInd becomes equal to (NumNodes - 1) where NumNodes is the number
+    // of nodes in DAG. Notice that the DAG size must be properly initialized
+    // before the first call of generateNode().
+    //
+    // The parameter \p NumFMARefs specifies the number of times that FMA nodes
+    // have been used as operands by the first (\p NodeInd - 1) DAG nodes,
+    // which have been constructed so far. It is added to filter out odd and
+    // too complicated FMA DAGs, which may exist, but often not wanted because
+    // they are almost never met in real world, are lowered into too big sums
+    // of products having too few terms (i.e. being only corner cases), etc.
+    void generateNode(unsigned NodeInd, unsigned NumFMARefs,
+                      std::vector<FMAExprSPTG *> &SPsStorage);
+
+    // Checks if the DAG seems good, i.e. it is not a duplicate of some other
+    // already generated DAG, it does not have obvious inefficiencies, etc.,
+    // generates SP for the DAG, links SP and DAG and stores SP to the SPs
+    // storage.
+    void checkAndSaveDag(std::vector<FMAExprSPTG *> &SPsStorage);
 
     // Initializes the DAG using the given string \p SpecialDag.
     void initForString(const char *SpecialDag);
@@ -103,6 +148,15 @@ class FMADagTG : public FMADagCommon {
     // the process of building DAGs the knowledge about the DAGs structures and
     // the access to private methods is required.
     static void generateDagsAndSPs(std::vector<FMAExprSPTG *> &SPsStorage);
+
+    // Returns the number of operands in the node with index \p NodeInd, which
+    // are references to other DAG nodes.
+    unsigned getNumberOfFMAsInNode(unsigned NodeInd) const;
+
+    // Returns the number of regular terms in the node with the index
+    // \p NodeInd. Special terms 0.0 and 1.0 are not included into the
+    // returned value.
+    unsigned getNumberOfRegularTermsInNode(unsigned NodeInd) const;
 };
 
 // This class is a child of the class FMAExprSPCommon representing expressions
@@ -117,11 +171,73 @@ class FMAExprSPTG : public FMAExprSPCommon {
     // Also, (+ab+c) is considered similar to (+ac+b) because it is also
     // possible to rename terms in the first to get the second.
     bool isSimilarOrMoreGeneralCaseThan(const FMAExprSPTG &SP) const;
+
+    // Returns true iff the DAG associated with this sum of products is similar
+    // or better than the DAG associated with the given sum of products \p SP.
+    // The first DAG is similar or better than the second if the first has
+    // the same of smaller number of operations AND has the same or smaller
+    // depth. If one DAG has smaller number of operations but has bigger
+    // depth than another, then the first is not better (and not worse) than
+    // another.
+    // Usually this function is called to compare DAGs associated with SPs
+    // having the same shape or even identical SPs, but that does not add
+    // any constraints to this method and it potentially can be asked to
+    // compare DAGs associated with SPs having different shapes as well.
+    bool hasSimilarOrBetterDagThan(const FMAExprSPTG &SP) const;
 };
 
 bool FMAExprSPTG::isSimilarOrMoreGeneralCaseThan(const FMAExprSPTG &SP) const {
-  // FIXME: the method is not implemented yet.
+  // If 'this' can be transformed to the given SP, then 'this' SP is
+  // equivalent to or more general than the passed SP.
+  FMASPToSPMatcher SPMatcher;
+  FMADagCommon *TmpDag = SPMatcher.getDagToMatchSPs(*this, SP);
+
+  if (!TmpDag)
+    return false;
+
+  delete TmpDag;
+  return true;
+}
+
+bool FMAExprSPTG::hasSimilarOrBetterDagThan(const FMAExprSPTG &SP) const {
+  return (Dag->getDepth() <= SP.Dag->getDepth() &&
+          Dag->getNumNodes() <= SP.Dag->getNumNodes());
+}
+
+bool FMADagTG::isNodeUsed(unsigned NodeInd) const {
+  for (unsigned N = 0; N < NodeInd; N++) {
+    bool AIsTerm, BIsTerm, CIsTerm;
+
+    unsigned A = getOperand(N, 0, &AIsTerm);
+    if (!AIsTerm && A == NodeInd)
+      return true;
+
+    unsigned B = getOperand(N, 1, &BIsTerm);
+    if (!BIsTerm && B == NodeInd)
+      return true;
+
+    unsigned C = getOperand(N, 2, &CIsTerm);
+    if (!CIsTerm && C == NodeInd)
+      return true;
+  }
   return false;
+}
+
+unsigned FMADagTG::countNodeUses(unsigned NodeInd) const {
+  unsigned NumUses = 0;
+  for (unsigned N = 0; N < NodeInd; N++) {
+    bool AIsTerm, BIsTerm, CIsTerm;
+    unsigned A = getOperand(N, 0, &AIsTerm);
+    unsigned B = getOperand(N, 1, &BIsTerm);
+    unsigned C = getOperand(N, 2, &CIsTerm);
+    if (!AIsTerm && A == NodeInd)
+      NumUses++;
+    if (!BIsTerm && B == NodeInd)
+      NumUses++;
+    if (!CIsTerm && C == NodeInd)
+      NumUses++;
+  }
+  return NumUses;
 }
 
 void FMADagTG::setOperand(unsigned NodeInd, unsigned OpndInd,
@@ -150,6 +266,25 @@ void FMADagTG::setOperand(unsigned NodeInd, unsigned OpndInd,
   }
 }
 
+void FMADagTG::setOperandSpecial(unsigned NodeInd, unsigned OpndInd,
+                                 unsigned OpndVal) {
+  unsigned NumNodes = getNumNodes();
+
+  bool IsTerm;
+  if (OpndVal < NumNodes)
+    IsTerm = false;
+  else {
+    IsTerm = true;
+    if (OpndVal == NumNodes)
+      OpndVal = 0; // 1st term, it must be renamed later.
+    else if (OpndVal == NumNodes + 1)
+      OpndVal = TermONE;
+    else if (OpndVal == NumNodes + 2)
+      OpndVal = TermZERO;
+  }
+  setOperand(NodeInd, OpndInd, IsTerm, OpndVal);
+}
+
 class MAPatternsEmitter {
   RecordKeeper &Records;
 private:
@@ -172,7 +307,34 @@ public:
   void run(raw_ostream &OS);
 };
 
-void FMADagTG::generateAndStoreSP(std::vector<FMAExprSPTG *> &SPsStorage) {
+unsigned FMADagTG::getNumberOfFMAsInNode(unsigned NodeInd) const {
+  bool IsTerm0, IsTerm1, IsTerm2;
+  getOperand(NodeInd, 0, &IsTerm0);
+  getOperand(NodeInd, 1, &IsTerm1);
+  getOperand(NodeInd, 2, &IsTerm2);
+  return (IsTerm0 ? 0 : 1) + (IsTerm1 ? 0 : 1) + (IsTerm2 ? 0 : 1);
+}
+
+unsigned FMADagTG::getNumberOfRegularTermsInNode(unsigned NodeInd) const {
+  bool IsTerm0, IsTerm1, IsTerm2;
+  unsigned Opnd0 = getOperand(NodeInd, 0, &IsTerm0);
+  unsigned Opnd1 = getOperand(NodeInd, 1, &IsTerm1);
+  unsigned Opnd2 = getOperand(NodeInd, 2, &IsTerm2);
+
+  unsigned NumTerms = 0;
+  // We are looking for non-constant terms only.
+  if (IsTerm0 && Opnd0 != TermZERO && Opnd0 != TermONE)
+    NumTerms++;
+  if (IsTerm1 && Opnd1 != TermZERO && Opnd1 != TermONE)
+    NumTerms++;
+  if (IsTerm2 && Opnd2 != TermZERO && Opnd2 != TermONE)
+    NumTerms++;
+
+  return NumTerms;
+}
+
+void
+FMADagTG::generateAndStoreSP(std::vector<FMAExprSPTG *> &SPsStorage) const {
   FMAExprSPTG *SP = new FMAExprSPTG();
   if (!SP->initForDag(*this)) {
     delete SP;
@@ -203,7 +365,7 @@ void FMADagTG::generateAndStoreSP(std::vector<FMAExprSPTG *> &SPsStorage) {
 void FMADagTG::initForString(const char *DagString) {
   unsigned NumNodes = DagString[0] - '0';
   assert(NumNodes > 0 && NumNodes <= MaxNumOfNodesInDAG &&
-         DagString[1] == ':' && 
+         DagString[1] == ':' &&
          "Special dag is incorrectly encoded in string.");
   DagString += 2;
   setNumNodes(NumNodes);
@@ -243,6 +405,150 @@ void FMADagTG::initForString(const char *DagString) {
   }
 
   renumberTerms();
+}
+
+void FMADagTG::checkAndSaveDag(std::vector<FMAExprSPTG *> &SPsStorage) {
+  unsigned NumNodes = getNumNodes();
+
+  // Reject DAGs having two nodes forming this pattern:
+  //   CurFMA(OtherFMA, 1, *);
+  //   OtherFMA(A, B, 0); // CurFMA is the only user of OtherFMA.
+  // because we already should have some DAG where those 2 nodes are fused
+  // into one:
+  //   CurFMA(A, B, *);
+  for (unsigned CurFMAInd = 0; CurFMAInd < NumNodes - 1; CurFMAInd++) {
+    bool CurAIsTerm, CurBIsTerm, OtherCIsTerm;
+
+    unsigned OtherFMAInd = getOperand(CurFMAInd, 0, &CurAIsTerm);
+    if (CurAIsTerm)
+      continue;
+
+    unsigned CurBTerm = getOperand(CurFMAInd, 1, &CurBIsTerm);
+    if (!CurBIsTerm || CurBTerm != TermONE)
+      continue;
+
+    unsigned OtherCTerm = getOperand(OtherFMAInd, 2, &OtherCIsTerm);
+    if (OtherCIsTerm && OtherCTerm == TermZERO &&
+        countNodeUses(OtherFMAInd) == 1)
+      return;
+  }
+
+  // Reject DAGs that have nodes not sorted by depth (avoid repeats).
+  unsigned CurNodeDepth = MaxNumOfNodesInDAG;
+  for (unsigned NextNodeInd = 1; NextNodeInd < NumNodes - 1; NextNodeInd++) {
+    unsigned NextNodeDepth = getDepth(NextNodeInd);
+
+    // If the nodes of the DAG are not sorted by their depth, then skip
+    // such DAG as a duplicate of a similar DAG but having nodes sorted.
+    // TODO: consider adding some changes to the method generateNode() that
+    // would filter out such DAGs at the moment they are constructed.
+    if (NextNodeDepth > CurNodeDepth)
+      return;
+
+    if (NextNodeDepth == CurNodeDepth) {
+      // The nodes have equal depth. Check how many terms are there.
+      unsigned CurFMAsNum = getNumberOfFMAsInNode(NextNodeInd - 1);
+      unsigned NextFMAsNum = getNumberOfFMAsInNode(NextNodeInd);
+      if (CurFMAsNum < NextFMAsNum)
+        return;
+
+      if (CurFMAsNum == NextFMAsNum) {
+        unsigned CurNumTerms = getNumberOfRegularTermsInNode(NextNodeInd - 1);
+        unsigned NextNumTerms = getNumberOfRegularTermsInNode(NextNodeInd);
+        if (CurNumTerms < NextNumTerms)
+          return;
+      }
+    }
+    CurNodeDepth = NextNodeDepth;
+  }
+
+  renumberTerms();
+  generateAndStoreSP(SPsStorage);
+}
+
+void FMADagTG::generateNode(unsigned NodeInd, unsigned NumFMARefs,
+                            std::vector<FMAExprSPTG *> &SPsStorage) {
+  unsigned NumNodes = getNumNodes();
+  assert(NodeInd < NumNodes && "Cannot add any more nodes to the DAG.");
+
+  // The Dag is still under construction. NodeInd is the index of the node
+  // is being currently constructed.
+  //
+  // In the following 3 nested loops iterate through the possible values of
+  // the FMA node operands A, B and C using some special agreement.
+  // The operand is:
+  // - one of next DAG nodes (operand < NumNodes);
+  // - a terminal            (operand == NumNodes);
+  // - 1.0                   (operand == NumNodes + 1);
+  // - 0.0                   (operand == NumNodes + 2);
+  for (unsigned A = NodeInd + 1; A <= NumNodes + 1; A++) {
+    // The first operand A can be anything except 0.0.
+    setOperandSpecial(NodeInd, 0, A);
+
+    for (unsigned B = A; B <= NumNodes + 1; B++) {
+      // The second operand B can be enything except 0.0.
+      // Also, B >= A to avoid commutative repeats
+      // I.e. having FMA(F1,F3,x) makes FMA(F3,F1,x) redundant.
+      setOperandSpecial(NodeInd, 1, B);
+
+      // Reject FMA(1, 1, *)
+      if (A == NumNodes + 1 && B == NumNodes + 1)
+        continue;
+
+      for (unsigned C = NodeInd + 1; C <= NumNodes + 2; C++) {
+        // The third operand C can be anything, including the value 0.0.
+
+        unsigned NumLocalFMARefs = 0;
+        if (A < NumNodes)
+          NumLocalFMARefs++;
+        if (B < NumNodes)
+          NumLocalFMARefs++;
+        if (C < NumNodes)
+          NumLocalFMARefs++;
+
+        // Reject the DAG if it seems too complicated.
+        // Removing this constraint would increase the number of DAGs by more
+        // than two times. It is though clear that the majority of such
+        // additional DAGs are quite odd, and unlikely to be met in real world
+        // applications.
+        // Here is example of DAG/SP filtered out by this constraint:
+        //   +aaaaaaaabbbbbbbb+aaaaaabbbbbb+aaaaaabbbbbb+aaaabbbb+aaabbb+ab+ab;
+        //   F0=+F1*F2+F4; F1=+F2*F3+1; F2=+F3*F4+F4; F3=+F4*F4+0; F4=+a*b+0;
+        // Such DAGs would only pollute the auto-generated header file
+        // with patterns.
+        //                                 x  1  2  3  4  5  6  7
+        static unsigned MaxNumFMARefs[] = {0, 0, 3, 5, 6, 6, 6, 6};
+        if (NumFMARefs + NumLocalFMARefs > MaxNumFMARefs[NumNodes])
+          continue;
+
+        // Do not allow FMA(*, 1, 0).
+        if (B == NumNodes + 1 && C == NumNodes + 2)
+          continue;
+
+        // Reject dags having FMA(F3, 1, F1) because
+        // we already have FMA(F1, 1, F3).
+        if (B == NumNodes + 1 && A > C)
+          continue;
+
+        setOperandSpecial(NodeInd, 2, C);
+
+        unsigned NextNodeInd = NodeInd + 1;
+        if (NextNodeInd < NumNodes) {
+          // Need to construct at least one more node.
+
+          // If next node is not reachable from already constructed nodes,
+          // then there is no need in constructing it.
+          if (!isNodeUsed(NextNodeInd))
+            continue;
+
+          // Construct the next node.
+          generateNode(NodeInd + 1, NumFMARefs + NumLocalFMARefs, SPsStorage);
+        } else
+          // The DAG is constructed, check it and save to the DAGs storage.
+          checkAndSaveDag(SPsStorage);
+      }
+    }
+  }
 }
 
 void FMADagTG::generateDagsAndSPs(std::vector<FMAExprSPTG *> &SPsStorage) {
@@ -294,7 +600,7 @@ void FMADagTG::generateDagsAndSPs(std::vector<FMAExprSPTG *> &SPsStorage) {
     // +ab+cd+ef+gh+ij+lm+k;
     // throughput optimized; compute as (a*b+(c*d+(e*f+(g*h+(i*j+(l*m+k)))))).
     "6: A=T*T+B; B=T*T+C; C=T*T+D; D=T*T+E; E=T*T+F; F=T*T+T;",
-    
+
     // +ab+cd+ef+gh+jk+l;
     // recurrence (l) optimized; compute as (a*b+(c*d+(e*f+(g*h+(j*k)))))+l;
     // (throughput optimized version is autogenerated).
@@ -306,26 +612,85 @@ void FMADagTG::generateDagsAndSPs(std::vector<FMAExprSPTG *> &SPsStorage) {
     Dag.initForString(SpecialDags[i]);
     Dag.generateAndStoreSP(SPsStorage);
   }
+
+  // Automatically generate DAGs, generate SPs for them, link DAGs and SPs,
+  // and store SPs to a storage.
+  for (unsigned NumNodes = 1; NumNodes <= 5; NumNodes++) {
+    // We are going to initialize the first NumNodes nodes in the Dag.
+    // Initialize the EncodedDag to 0 to clean the upper bits to clean
+    // any garbage in upper bits of the EncodedDag.
+    // That is needed only for more comfortable debugging.
+    Dag.EncodedDag = 0ULL;
+
+    Dag.setNumNodes(NumNodes);
+    Dag.generateNode(0, 0, SPsStorage);
+  }
 }
 
 // This is the worker function for std::stable_sort() that is used to
-// sort the sums of products.
-static bool cmpSPs(const FMAExprSPTG *A, const FMAExprSPTG *B) {
-
+// sort the sums of products before removing inefficient/duplicated SPs.
+// The priorities in this routine are:
+// 1) SPs are sorted by shape to group SPs with the same shape and to make it
+//    possible to use binary search using the SHAPE.
+// 2) Put the most general SPs first to reduce the number SP-to-SP matchings
+//    that must be performed to remove inefficient/duplicated SPs.
+// 3) Put SPs having better DAGs first to slightly improve the removal of
+//    inefficient/duplicated SPs.
+static bool cmpSPsBeforeFiltering(const FMAExprSPTG *A, const FMAExprSPTG *B) {
   // 1. Compare shapes.
   if (A->Shape < B->Shape)
     return true;
   if (A->Shape > B->Shape)
      return false;
 
-  // 2. Compare complexity (smaller goes first).
+  // 2. Compare the numbers of terms in SPs.
+  // The SP with bigger number of terms goes first.
+  int Cmp = A->getNumUniqueTerms() - B->getNumUniqueTerms();
+  if (Cmp > 0)
+    return true;
+  if (Cmp < 0)
+    return false;
+
+  // 3. Compare the numbers of nodes in the DAGs (the smaller DAG goes first).
+  Cmp = A->Dag->getNumNodes() - B->Dag->getNumNodes();
+  if (Cmp < 0)
+    return true;
+  if (Cmp > 0)
+    return false;
+
+  // 4. Compare depth (the DAG with smaller depth goes first).
+  Cmp = A->Dag->getDepth() - B->Dag->getDepth();
+  if (Cmp < 0)
+    return true;
+
+  // Return false by default.
+  return false;
+}
+
+// This is the worker function for std::stable_sort() that is used to
+// sort the sums of products after removing inefficient/duplicated SPs.
+// The priorities in this routine are:
+// 1) Preserve the sorting done by SHAPE.
+// 2) Put the SPs with better DAGs first to simplify the work of
+//    FMA optimization that is going to use the pre-generated SPs.
+//    So, the first found SP-to-SP match would give the best DAG there.
+// 3) Preserve the sorting by the number of terms in SPs. SPs having more terms
+//    and thus more flexible/general go first.
+static bool cmpSPsAfterFiltering(const FMAExprSPTG *A, const FMAExprSPTG *B) {
+  // 1. Compare shapes.
+  if (A->Shape < B->Shape)
+    return true;
+  if (A->Shape > B->Shape)
+     return false;
+
+  // 2. Compare the numbers of nodes in the DAGs (the smaller DAG goes first).
   int Cmp = A->Dag->getNumNodes() - B->Dag->getNumNodes();
   if (Cmp < 0)
     return true;
   if (Cmp > 0)
     return false;
 
-  // 3. Compare depth (smaller goes first).
+  // 3. Compare depth (the DAG with smaller depth goes first).
   Cmp = A->Dag->getDepth() - B->Dag->getDepth();
   if (Cmp < 0)
     return true;
@@ -333,8 +698,9 @@ static bool cmpSPs(const FMAExprSPTG *A, const FMAExprSPTG *B) {
     return false;
 
   // 4. Compare the numbers of terms in SPs.
+  // The SP with bigger number of terms goes first.
   Cmp = A->getNumUniqueTerms() - B->getNumUniqueTerms();
-  if (Cmp < 0)
+  if (Cmp > 0)
     return true;
 
   // Return false by default.
@@ -353,7 +719,25 @@ static bool cmpSPs(const FMAExprSPTG *A, const FMAExprSPTG *B) {
 // The first DAG is just equivalent of the second one.
 void MAPatternsEmitter::removeRedundantPatterns(
                                       std::vector<FMAExprSPTG *> &SPsStorage) {
-  // FIXME: this method is not implemented yet.
+  for (auto CurIt = SPsStorage.begin(); CurIt != SPsStorage.end(); CurIt++) {
+    FMAExprSPTG *CurSP = *CurIt;
+
+    // Now iterate NextIt while see the same shape as CurIt has.
+    auto NextIt = CurIt;
+    for (NextIt++; NextIt != SPsStorage.end();) {
+      FMAExprSPTG *NextSP = *NextIt;
+
+      if (CurSP->Shape != NextSP->Shape)
+        break;
+
+      if (CurSP->hasSimilarOrBetterDagThan(*NextSP) &&
+          CurSP->isSimilarOrMoreGeneralCaseThan(*NextSP)) {
+        delete NextSP;
+        NextIt = SPsStorage.erase(NextIt);
+      } else
+        NextIt++;
+    }
+  }
 }
 } // End anonymous namespace
 
@@ -422,18 +806,27 @@ MAPatternsEmitter::emitX86Patterns(raw_ostream &OS,
     return;
   }
 
-  // 1. Try all possible Dags and generate/collect SPs for relatively good Dags.
+  // 1. Try all possible Dags and generate/collect SPs for relatively
+  //    good Dags.
   std::vector<FMAExprSPTG *> SPsStorage;
   FMADagTG::generateDagsAndSPs(SPsStorage);
-  std::stable_sort(SPsStorage.begin(), SPsStorage.end(), cmpSPs);
+
+  // 2. Sort SPs to make the removal of inefficient/duplicated faster.
+  std::stable_sort(SPsStorage.begin(), SPsStorage.end(),
+                   cmpSPsBeforeFiltering);
 
   OS << "\n// Initial number of dags:                             "
      << SPsStorage.size() << "\n";
 
-  // 2. Remove duplicated or inefficient SPs/Dags.
+  // 3. Remove duplicated or inefficient SPs/Dags.
   removeRedundantPatterns(SPsStorage);
 
-  // 3. Count the number of different SHAPEs, group Dags with the same SHAPE
+  // 4. Sort SPs to make the FMA optimization working faster.
+  //    Put the SPs with better DAGs first. So, the first found SP match
+  //    would give the best DAG.
+  std::stable_sort(SPsStorage.begin(), SPsStorage.end(), cmpSPsAfterFiltering);
+
+  // 5. Count the number of different SHAPEs, group Dags with the same SHAPE
   //    and count the number of Dags in each of such groups.
   uint64_t CurShape = 0;
   unsigned NumShapes = 0;
@@ -459,7 +852,7 @@ MAPatternsEmitter::emitX86Patterns(raw_ostream &OS,
      << NumShapes << "\n\n\n";
   OS << "Dags.resize(" << NumShapes << ");\n\n";
 
-  // 4. Print the SHAPEs and DAGs to the auto-generated include file.
+  // 6. Print the SHAPEs and DAGs to the auto-generated include file.
   unsigned DagInd = 0;
   for (unsigned ShapeInd = 0; ShapeInd < NumShapes; ShapeInd++) {
     FMAExprSPTG *SP = SPsStorage[DagInd];

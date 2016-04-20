@@ -41,6 +41,10 @@ N: Greg Clayton
 E: gclayton@apple.com
 D: LLDB
 
+N: Hans Wennborg
+E: hans@chromium.org
+D: Release management (x.y.0 releases)
+
 N: Marshall Clow
 E: mclow.lists@gmail.com
 D: libc++
@@ -137,6 +141,10 @@ D: XCore Backend
 N: Krzysztof Parzyszek
 E: kparzysz@codeaurora.org
 D: Hexagon Backend
+
+N: Jacques Pienaar
+E: jpienaar@google.com
+D: Lanai Backend
 
 N: Paul Robinson
 E: paul_robinson@playstation.sony.com

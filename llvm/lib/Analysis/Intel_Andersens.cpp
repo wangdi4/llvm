@@ -2326,7 +2326,7 @@ void AndersensAAResult::HU() {
   Node2Visited.clear();
   Node2Deleted.clear();
   // Pre-grow our densemap so that we don't get really bad behavior
-  Set2PEClass.resize(GraphNodes.size());
+  Set2PEClass.reserve(GraphNodes.size());
 
   // Visit the condensed graph and generate pointer equivalence labels.
   Node2Visited.insert(Node2Visited.begin(), GraphNodes.size(), false);

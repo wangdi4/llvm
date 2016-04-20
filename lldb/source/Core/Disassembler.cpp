@@ -13,20 +13,19 @@
 // C++ Includes
 #include <cstdio>
 #include <cstring>
-#include <limits>
 
 // Other libraries and framework includes
 // Project includes
-#include "lldb/lldb-private.h"
-#include "lldb/Core/Error.h"
 #include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/DataExtractor.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/EmulateInstruction.h"
+#include "lldb/Core/Error.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/RegularExpression.h"
 #include "lldb/Core/Timer.h"
+#include "lldb/Host/FileSystem.h"
 #include "lldb/Interpreter/OptionValue.h"
 #include "lldb/Interpreter/OptionValueArray.h"
 #include "lldb/Interpreter/OptionValueDictionary.h"
@@ -39,6 +38,7 @@
 #include "lldb/Target/SectionLoadList.h"
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
+#include "lldb/lldb-private.h"
 
 #define DEFAULT_DISASM_BYTE_SIZE 32
 
@@ -850,8 +850,7 @@ Instruction::TestEmulation (Stream *out_stream, const char *file_name)
         out_stream->Printf ("Instruction::TestEmulation:  Missing file_name.");
         return false;
     }
-        
-    FILE *test_file = fopen (file_name, "r");
+    FILE *test_file = FileSystem::Fopen(file_name, "r");
     if (!test_file)
     {
         out_stream->Printf ("Instruction::TestEmulation: Attempt to open test file failed.");
@@ -1036,7 +1035,7 @@ InstructionList::GetIndexOfNextBranchInstruction(uint32_t start, Target &target)
 {
     size_t num_instructions = m_instructions.size();
     
-    uint32_t next_branch = std::numeric_limits<uint32_t>::max();
+    uint32_t next_branch = UINT32_MAX;
     size_t i;
     for (i = start; i < num_instructions; i++)
     {
@@ -1053,7 +1052,7 @@ InstructionList::GetIndexOfNextBranchInstruction(uint32_t start, Target &target)
     if (target.GetArchitecture().GetTriple().getArch() == llvm::Triple::hexagon)
     {
         // If we didn't find a branch, find the last packet start.
-        if (next_branch == std::numeric_limits<uint32_t>::max())
+        if (next_branch == UINT32_MAX)
         {
             i = num_instructions - 1;
         }
@@ -1086,7 +1085,7 @@ InstructionList::GetIndexOfNextBranchInstruction(uint32_t start, Target &target)
             }
         }
 
-        if (next_branch == std::numeric_limits<uint32_t>::max())
+        if (next_branch == UINT32_MAX)
         {
             // We couldn't find the previous packet, so return start
             next_branch = start;
@@ -1099,7 +1098,7 @@ uint32_t
 InstructionList::GetIndexOfInstructionAtAddress (const Address &address)
 {
     size_t num_instructions = m_instructions.size();
-    uint32_t index = std::numeric_limits<uint32_t>::max();
+    uint32_t index = UINT32_MAX;
     for (size_t i = 0; i < num_instructions; i++)
     {
         if (m_instructions[i]->GetAddress() == address)
@@ -1152,7 +1151,7 @@ Disassembler::ParseInstructions (const ExecutionContext *exe_ctx,
                                 m_arch.GetByteOrder(),
                                 m_arch.GetAddressByteSize());
             const bool data_from_file = load_addr == LLDB_INVALID_ADDRESS;
-            return DecodeInstructions(range.GetBaseAddress(), data, 0, std::numeric_limits<uint32_t>::max(), false,
+            return DecodeInstructions(range.GetBaseAddress(), data, 0, UINT32_MAX, false,
                                       data_from_file);
         }
         else if (error_strm_ptr)

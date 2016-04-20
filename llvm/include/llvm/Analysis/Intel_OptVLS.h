@@ -274,12 +274,22 @@ private:
   OVLSAccessType AccType;  // AccessType of the group.
 };
 
+/// OVLS server works in a target independent manner. In order to estimate
+/// more accurate cost for a specific target (architecture), client needs to
+/// provide the necessary target-specific information.
+/// This cost-model interface class defines all the necessary
+/// parameters/functions that are needed by the server to estimate more accurate
+/// cost. In order to get cost, client needs to provide an object of this class
+/// filled up with the necessary target-specific cost information that are
+/// defined by the underlying targets. Consequently, it's the clients that
+/// decide on the cost accuracy level.
 class OVLSCostModelAnalysis {
 
 public:
-  /// Returns the expected cost of the instruction.
-  /// Returns -1 if the cost is unknown. Different cost parameters are defined
-  /// by the OptVLS clients.
+  /// \brief Returns target-specific cost for an OVLSInstruction, different
+  /// cost parameters are defined by each specific target.
+  /// Returns -1 if the cost is unknown. This function needs to be overriden by
+  /// the OVLS clients to help getting the target-specific instruction cost.
   virtual uint64_t getInstructionCost(const OVLSInstruction *I) const = 0;
 
 };
@@ -308,25 +318,12 @@ public:
                         OVLSGroupVector &Grps,
                         uint32_t VectorLength);
 
-  /// getGroupCost() returns an expected cost/benefit of performing adjacent
-  /// gather/scatter optimization for a group (of gathers/scatters). Adj.
-  /// gather/scatter optimization replaces a set of gathers/scatters by a set
-  /// of contiguous loads/stores followed by a sequence of shuffle
+  /// \brief getGroupCost() returns a relative cost/benefit of performing
+  /// adjacent gather/scatter optimization for a group (of gathers/scatters).
+  /// Adj. gather/scatter optimization replaces a set of gathers/scatters by a
+  /// set of contiguous loads/stores followed by a sequence of shuffle
   /// instructions.
-  ///
-  /// Currently, this function is not implemented yet and it will be implemented
-  /// in multiple stages. Stage-1(coming next) will support only groups of
-  /// strided-loads with few exceptions:
-  ///  - Gaps will not be supported in between the accesses.
-  ///    E.g.
-  ///     t1 = a[3i];
-  ///     t2 = a[3i+1];
-  ///     t3 = a[3i+3];
-  ///  - Heterogeneous data types will not be supported.
-  ///  - It will return an approximate cost which means instead of accurately
-  /// computing the cost for a shuffle sequence stage-1 implementation will
-  /// consider an approximate cost of 10 cycles for shuffles.
-  static uint64_t getGroupCost(const OVLSGroup& Group,
+  static int64_t getGroupCost(const OVLSGroup& Group,
                                const OVLSCostModelAnalysis& CM);
 
 };
