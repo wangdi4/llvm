@@ -187,7 +187,6 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
   case Instruction::FPExt:
   case Instruction::PtrToInt:
   case Instruction::IntToPtr:
-  case Instruction::BitCast:
   case Instruction::AddrSpaceCast: {
 
     InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode, DummyVal,
@@ -195,10 +194,27 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
     break;
   }
 
+  case Instruction::BitCast: {
+    // IRBuilder CreateCast returns input value when DestType is the same as
+    // the value's type. In such cases, the return value is not guaranteed to
+    // be an instruction as isa<Instruction>(DummyVal) is not necessarily true.
+    // We take care of such cases by forcing creation of a copy Instruction
+    // here.
+    if (DestTy == DummyVal->getType()) {
+      return createCopyInst(RvalRef, Name, LvalRef);
+    }
+    else {
+      InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode,
+                                           DummyVal, DestTy, Name);
+    }
+    break;
+  }
+
   default:
     assert(false && "Instruction not handled!");
   }
 
+  assert(isa<Instruction>(InstVal) && "Expected instruction!");
   Inst = cast<Instruction>(InstVal);
 
   HInst = createLvalHLInst(Inst, LvalRef);
