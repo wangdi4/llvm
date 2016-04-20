@@ -113,7 +113,9 @@ static void diagnoseBadTypeAttribute(Sema &S, const AttributeList &attr,
     case AttributeList::AT_MSABI: \
     case AttributeList::AT_SysVABI: \
     case AttributeList::AT_Pcs: \
-    case AttributeList::AT_IntelOclBicc
+    case AttributeList::AT_IntelOclBicc: \
+    case AttributeList::AT_PreserveMost: \
+    case AttributeList::AT_PreserveAll
 
 // Function type attributes.
 #define FUNCTION_TYPE_ATTRS_CASELIST \
@@ -4699,6 +4701,10 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
     return AttributeList::AT_MSABI;
   case AttributedType::attr_sysv_abi:
     return AttributeList::AT_SysVABI;
+  case AttributedType::attr_preserve_most:
+    return AttributeList::AT_PreserveMost;
+  case AttributedType::attr_preserve_all:
+    return AttributeList::AT_PreserveAll;
   case AttributedType::attr_ptr32:
     return AttributeList::AT_Ptr32;
   case AttributedType::attr_ptr64:
@@ -6046,6 +6052,10 @@ static AttributedType::Kind getCCTypeAttrKind(AttributeList &Attr) {
     return AttributedType::attr_ms_abi;
   case AttributeList::AT_SysVABI:
     return AttributedType::attr_sysv_abi;
+  case AttributeList::AT_PreserveMost:
+    return AttributedType::attr_preserve_most;
+  case AttributeList::AT_PreserveAll:
+    return AttributedType::attr_preserve_all;
   }
   llvm_unreachable("unexpected attribute kind!");
 }
@@ -6090,6 +6100,7 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
     return true;
   }
 
+  bool IntelCompat = S.getLangOpts().IntelCompat; // INTEL
   if (attr.getKind() == AttributeList::AT_Regparm) {
     unsigned value;
     if (S.CheckRegparmAttr(attr, value))
@@ -6104,7 +6115,7 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
     CallingConv CC = fn->getCallConv();
     if (CC == CC_X86FastCall) {
       S.Diag(attr.getLoc(), diag::err_attributes_are_not_compatible)
-        << FunctionType::getNameForCallConv(CC)
+        << FunctionType::getNameForCallConv(CC, IntelCompat) // INTEL
         << "regparm";
       attr.setInvalid();
       return true;
@@ -6134,8 +6145,8 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
     const AttributedType *AT = S.getCallingConvAttributedType(type);
     if (AT && AT->getAttrKind() != CCAttrKind) {
       S.Diag(attr.getLoc(), diag::err_attributes_are_not_compatible)
-        << FunctionType::getNameForCallConv(CC)
-        << FunctionType::getNameForCallConv(CCOld);
+        << FunctionType::getNameForCallConv(CC, IntelCompat) // INTEL
+        << FunctionType::getNameForCallConv(CCOld, IntelCompat); // INTEL
       attr.setInvalid();
       return true;
     }
@@ -6161,7 +6172,8 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
         IsInvalid = false;
       }
 
-      S.Diag(attr.getLoc(), DiagID) << FunctionType::getNameForCallConv(CC);
+      S.Diag(attr.getLoc(), DiagID)                             // INTEL
+          << FunctionType::getNameForCallConv(CC, IntelCompat); // INTEL
       if (IsInvalid) attr.setInvalid();
       return true;
     }
@@ -6170,7 +6182,9 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
   // Also diagnose fastcall with regparm.
   if (CC == CC_X86FastCall && fn->getHasRegParm()) {
     S.Diag(attr.getLoc(), diag::err_attributes_are_not_compatible)
-        << "regparm" << FunctionType::getNameForCallConv(CC_X86FastCall);
+        << "regparm"                                        // INTEL
+        << FunctionType::getNameForCallConv(CC_X86FastCall, // INTEL
+                                            IntelCompat);   // INTEL
     attr.setInvalid();
     return true;
   }
@@ -6218,8 +6232,9 @@ void Sema::adjustMemberFunctionCC(QualType &T, bool IsStatic, bool IsCtorOrDtor,
     // Issue a warning on ignored calling convention -- except of __stdcall.
     // Again, this is what MS compiler does.
     if (CurCC != CC_X86StdCall)
-      Diag(Loc, diag::warn_cconv_structors)
-          << FunctionType::getNameForCallConv(CurCC);
+      Diag(Loc, diag::warn_cconv_structors)                 // INTEL
+          << FunctionType::getNameForCallConv(              // INTEL
+                 CurCC, Context.getLangOpts().IntelCompat); // INTEL
   // Default adjustment.
   } else {
     // Only adjust types with the default convention.  For example, on Windows

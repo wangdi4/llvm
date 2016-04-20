@@ -2084,7 +2084,9 @@ void StmtPrinter::VisitLambdaExpr(LambdaExpr *Node) {
     case LCK_This:
       OS << "this";
       break;
-
+    case LCK_StarThis:
+      OS << "*this";
+      break;
     case LCK_ByRef:
       if (Node->getCaptureDefault() != LCD_ByRef || Node->isInitCapture(C))
         OS << '&';

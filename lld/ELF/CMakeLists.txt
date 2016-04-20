@@ -9,6 +9,7 @@ add_lld_library(lldELF
   ICF.cpp
   InputFiles.cpp
   InputSection.cpp
+  LTO.cpp
   LinkerScript.cpp
   MarkLive.cpp
   OutputSections.cpp
@@ -19,17 +20,22 @@ add_lld_library(lldELF
 
   LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
+  Analysis
   BitReader
+  BitWriter
   Core
+  IPO
   Linker
   Object
   Option
   MC
   Support
   Target
+  TransformUtils
 
   LINK_LIBS
   lldConfig
+  ${PTHREAD_LIB}
   )
 
 add_dependencies(lldELF ELFOptionsTableGen)

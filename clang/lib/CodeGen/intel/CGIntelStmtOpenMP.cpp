@@ -52,9 +52,7 @@ static llvm::Value *emitIntelOpenMPDefaultConstructor(CodeGenModule &CGM,
                         /*Id=*/nullptr, PtrTy);
   Args.push_back(&Dst);
 
-  auto &FI = CGM.getTypes().arrangeFreeFunctionDeclaration(
-      PtrTy, Args, FunctionType::ExtInfo(),
-      /*isVariadic=*/false);
+  auto &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(PtrTy, Args);
   auto FTy = CGM.getTypes().GetFunctionType(FI);
   auto *Fn = CGM.CreateGlobalInitOrDestructFunction(FTy, OutName, FI);
   CGF.StartFunction(GlobalDecl(), PtrTy, Fn, FI, Args, SourceLocation());
@@ -93,9 +91,8 @@ static llvm::Value *emitIntelOpenMPDestructor(CodeGenModule &CGM,
                         /*Id=*/nullptr, PtrTy);
   Args.push_back(&Dst);
 
-  auto &FI = CGM.getTypes().arrangeFreeFunctionDeclaration(
-      CGM.getContext().VoidTy, Args, FunctionType::ExtInfo(),
-      /*isVariadic=*/false);
+  auto &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(
+      CGM.getContext().VoidTy, Args);
   auto FTy = CGM.getTypes().GetFunctionType(FI);
   auto *Fn = CGM.CreateGlobalInitOrDestructFunction(FTy, OutName, FI);
   CGF.StartFunction(GlobalDecl(), CGM.getContext().VoidTy, Fn, FI, Args,
@@ -638,6 +635,8 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_target_parallel_for:
     break;
   case OMPD_threadprivate:
+  case OMPD_declare_reduction:
+  case OMPD_declare_simd:
   case OMPD_unknown:
     llvm_unreachable("Wrong OpenMP directive");
   }

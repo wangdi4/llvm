@@ -126,6 +126,9 @@ def CC_AArch64_DarwinPCS : CallingConv<[
   // slot is 64-bit.
   CCIfByVal<CCPassByVal<8, 8>>,
 
+  // A SwiftSelf is passed in X9.
+  CCIfSwiftSelf<CCIfType<[i64], CCAssignToRegWithShadow<[X9], [W9]>>>,
+
   CCIfConsecutiveRegs<CCCustom<"CC_AArch64_Custom_Block">>,
 
   // Handle i1, i8, i16, i32, i64, f32, f64 and v2f64 by passing in registers,
@@ -310,3 +313,7 @@ def CSR_AArch64_AllRegs
                            (sequence "Q%u", 0, 31))>;
 
 def CSR_AArch64_NoRegs : CalleeSavedRegs<(add)>;
+
+def CSR_AArch64_RT_MostRegs :  CalleeSavedRegs<(add CSR_AArch64_AAPCS,
+                                                (sequence "X%u", 9, 15))>;
+

@@ -541,8 +541,10 @@ CXCallingConv clang_getFunctionTypeCallingConv(CXType X) {
       TCALLINGCONV(AAPCS_VFP);
       TCALLINGCONV(IntelOclBicc);
       TCALLINGCONV(Swift);
+      TCALLINGCONV(PreserveMost);
+      TCALLINGCONV(PreserveAll);
     case CC_SpirFunction: return CXCallingConv_Unexposed;
-    case CC_SpirKernel: return CXCallingConv_Unexposed;
+    //case CC_SpirKernel: return CXCallingConv_Unexposed; // INTEL
       break;
     }
 #undef TCALLINGCONV

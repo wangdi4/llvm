@@ -91,7 +91,7 @@ static CCMangling getCallingConvMangling(const ASTContext &Context,
     return CCM_Fast;
 #if INTEL_CUSTOMIZATION
   case CC_X86RegCall:
-    return CCM_RegCall;
+    return Context.getLangOpts().IntelCompat ? CCM_RegCall : CCM_Other;
 #endif // INTEL_CUSTOMIZATION
   case CC_X86StdCall:
     return CCM_Std;
@@ -131,9 +131,9 @@ void MangleContext::mangleName(const NamedDecl *D, raw_ostream &Out) {
     // llvm mangler on ELF is a nop, so we can just avoid adding the \01
     // marker.  We also avoid adding the marker if this is an alias for an
     // LLVM intrinsic.
-    StringRef UserLabelPrefix =
-        getASTContext().getTargetInfo().getUserLabelPrefix();
-    if (!UserLabelPrefix.empty() && !ALA->getLabel().startswith("llvm."))
+    char GlobalPrefix =
+        getASTContext().getTargetInfo().getDataLayout().getGlobalPrefix();
+    if (GlobalPrefix && !ALA->getLabel().startswith("llvm."))
       Out << '\01'; // LLVM IR Marker for __asm("foo")
 
     Out << ALA->getLabel();

@@ -73,7 +73,7 @@ void test() {
 
   _Cilk_spawn warn_func1(); // expected-warning {{ignoring return value of function declared with pure attribute}}
   _Cilk_spawn warn_func2(); // expected-warning {{ignoring return value of function declared with const attribute}}
-  _Cilk_spawn warn_func3(); // expected-warning {{ignoring return value of function declared with warn_unused_result attribute}}
+  _Cilk_spawn warn_func3(); // expected-warning {{ignoring return value of function declared with 'warn_unused_result' attribute}}
 
   struct baz d1 = _Cilk_spawn foo(); // expected-error {{initializing 'struct baz' with an expression of incompatible type 'int'}}
   struct baz d2;

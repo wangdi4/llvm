@@ -49,7 +49,7 @@ using namespace sema;
 
 /// \brief Determine whether the use of this declaration is valid, without
 /// emitting diagnostics.
-bool Sema::CanUseDecl(NamedDecl *D) {
+bool Sema::CanUseDecl(NamedDecl *D, bool TreatUnavailableAsInvalid) {
   // See if this is an auto-typed variable whose initializer we are parsing.
   if (ParsingInitForAutoVars.count(D))
     return false;
@@ -67,7 +67,7 @@ bool Sema::CanUseDecl(NamedDecl *D) {
   }
 
   // See if this function is unavailable.
-  if (D->getAvailability() == AR_Unavailable &&
+  if (TreatUnavailableAsInvalid && D->getAvailability() == AR_Unavailable &&
       cast<Decl>(CurContext)->getAvailability() != AR_Unavailable)
     return false;
 
@@ -76,10 +76,14 @@ bool Sema::CanUseDecl(NamedDecl *D) {
 
 static void DiagnoseUnusedOfDecl(Sema &S, NamedDecl *D, SourceLocation Loc) {
   // Warn if this is used but marked unused.
-  if (D->hasAttr<UnusedAttr>()) {
-    const Decl *DC = cast_or_null<Decl>(S.getCurObjCLexicalContext());
-    if (DC && !DC->hasAttr<UnusedAttr>())
-      S.Diag(Loc, diag::warn_used_but_marked_unused) << D->getDeclName();
+  if (const auto *A = D->getAttr<UnusedAttr>()) {
+    // [[maybe_unused]] should not diagnose uses, but __attribute__((unused))
+    // should diagnose them.
+    if (A->getSemanticSpelling() != UnusedAttr::CXX11_maybe_unused) {
+      const Decl *DC = cast_or_null<Decl>(S.getCurObjCLexicalContext());
+      if (DC && !DC->hasAttr<UnusedAttr>())
+        S.Diag(Loc, diag::warn_used_but_marked_unused) << D->getDeclName();
+    }
   }
 }
 
@@ -159,19 +163,11 @@ DiagnoseAvailabilityOfDecl(Sema &S, NamedDecl *D, SourceLocation Loc,
       break;
 
     case AR_NotYetIntroduced: {
-      // With strict, the compiler will emit unavailable error.
-      AvailabilityAttr *AA = D->getAttr<AvailabilityAttr>();
-      if (AA && AA->getStrict() &&
-          S.getCurContextAvailability() != AR_NotYetIntroduced)
-        S.EmitAvailabilityWarning(Sema::AD_Unavailable,
-                                  D, Message, Loc, UnknownObjCClass, ObjCPDecl,
-                                  ObjCPropertyAccess);
-
       // Don't do this for enums, they can't be redeclared.
       if (isa<EnumConstantDecl>(D) || isa<EnumDecl>(D))
         break;
  
-      bool Warn = !AA->isInherited();
+      bool Warn = !D->getAttr<AvailabilityAttr>()->isInherited();
       // Objective-C method declarations in categories are not modelled as
       // redeclarations, so manually look for a redeclaration in a category
       // if necessary.
@@ -2861,6 +2857,7 @@ ExprResult Sema::BuildDeclarationNameExpr(
     // Unresolved using declarations are dependent.
     case Decl::EnumConstant:
     case Decl::UnresolvedUsingValue:
+    case Decl::OMPDeclareReduction:
       valueKind = VK_RValue;
       break;
 
@@ -5072,6 +5069,14 @@ static FunctionDecl *rewriteBuiltinFunctionDecl(Sema *Sema, ASTContext &Context,
   return OverloadDecl;
 }
 
+static bool isNumberOfArgsValidForCall(Sema &S, const FunctionDecl *Callee,
+                                       std::size_t NumArgs) {
+  if (S.TooManyArguments(Callee->getNumParams(), NumArgs,
+                         /*PartialOverloading=*/false))
+    return Callee->isVariadic();
+  return Callee->getMinRequiredArguments() <= NumArgs;
+}
+
 /// ActOnCallExpr - Handle a call to Fn with the specified array of arguments.
 /// This provides the location of the left/right parens and a list of comma
 /// locations.
@@ -5203,7 +5208,14 @@ Sema::ActOnCallExpr(Scope *S, Expr *Fn, SourceLocation LParenLoc,
                                            Fn->getLocStart()))
       return ExprError();
 
-    if (FD->hasAttr<EnableIfAttr>()) {
+    // CheckEnableIf assumes that the we're passing in a sane number of args for
+    // FD, but that doesn't always hold true here. This is because, in some
+    // cases, we'll emit a diag about an ill-formed function call, but then
+    // we'll continue on as if the function call wasn't ill-formed. So, if the
+    // number of args looks incorrect, don't do enable_if checks; we should've
+    // already emitted an error about the bad call.
+    if (FD->hasAttr<EnableIfAttr>() &&
+        isNumberOfArgsValidForCall(*this, FD, ArgExprs.size())) {
       if (const EnableIfAttr *Attr = CheckEnableIf(FD, ArgExprs, true)) {
         Diag(Fn->getLocStart(),
              isa<CXXMethodDecl>(FD) ?
@@ -12936,7 +12948,7 @@ static bool IsPotentiallyEvaluatedContext(Sema &SemaRef) {
 /// \brief Mark a function referenced, and check whether it is odr-used
 /// (C++ [basic.def.odr]p2, C99 6.9p3)
 void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
-                                  bool OdrUse) {
+                                  bool MightBeOdrUse) {
   assert(Func && "No function?");
 
   Func->setReferenced();
@@ -12949,8 +12961,8 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
   // We (incorrectly) mark overload resolution as an unevaluated context, so we
   // can just check that here. Skip the rest of this function if we've already
   // marked the function as used.
-  if (Func->isUsed(/*CheckUsedAttr=*/false) ||
-      !IsPotentiallyEvaluatedContext(*this)) {
+  bool OdrUse = MightBeOdrUse && IsPotentiallyEvaluatedContext(*this);
+  if (Func->isUsed(/*CheckUsedAttr=*/false) || !OdrUse) {
     // C++11 [temp.inst]p3:
     //   Unless a function template specialization has been explicitly
     //   instantiated or explicitly specialized, the function template
@@ -13039,8 +13051,6 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
   if (FPT && isUnresolvedExceptionSpec(FPT->getExceptionSpecType()))
     ResolveExceptionSpec(Loc, FPT);
 
-  if (!OdrUse) return;
-
   // Implicit instantiation of function templates and member functions of
   // class templates.
   if (Func->isImplicitlyInstantiable()) {
@@ -13088,9 +13098,11 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
     // Walk redefinitions, as some of them may be instantiable.
     for (auto i : Func->redecls()) {
       if (!i->isUsed(false) && i->isImplicitlyInstantiable())
-        MarkFunctionReferenced(Loc, i);
+        MarkFunctionReferenced(Loc, i, OdrUse);
     }
   }
+
+  if (!OdrUse) return;
 
   // Keep track of used but undefined functions.
   if (!Func->isDefined()) {
@@ -13661,7 +13673,7 @@ static bool captureInCapturedRegion(CapturedRegionScopeInfo *RSI,
 
 /// \brief Create a field within the lambda class for the variable
 /// being captured.
-static void addAsFieldToClosureType(Sema &S, LambdaScopeInfo *LSI, VarDecl *Var,
+static void addAsFieldToClosureType(Sema &S, LambdaScopeInfo *LSI, 
                                     QualType FieldType, QualType DeclRefType,
                                     SourceLocation Loc,
                                     bool RefersToCapturedVariable) {
@@ -13755,7 +13767,7 @@ static bool captureInLambda(LambdaScopeInfo *LSI,
 
   // Capture this variable in the lambda.
   if (BuildAndDiagnose)
-    addAsFieldToClosureType(S, LSI, Var, CaptureType, DeclRefType, Loc,
+    addAsFieldToClosureType(S, LSI, CaptureType, DeclRefType, Loc,
                             RefersToCapturedVariable);
     
   // Compute the type of a reference to this captured variable.
@@ -13935,8 +13947,9 @@ bool Sema::tryCaptureVariable(
         Diag(ExprLoc, diag::err_lambda_impcap) << Var->getDeclName();
         Diag(Var->getLocation(), diag::note_previous_decl) 
           << Var->getDeclName();
-        Diag(cast<LambdaScopeInfo>(CSI)->Lambda->getLocStart(),
-             diag::note_lambda_decl);
+        if (cast<LambdaScopeInfo>(CSI)->Lambda)
+          Diag(cast<LambdaScopeInfo>(CSI)->Lambda->getLocStart(),
+               diag::note_lambda_decl);
         // FIXME: If we error out because an outer lambda can not implicitly
         // capture a variable that an inner lambda explicitly captures, we
         // should have the inner lambda do the explicit capture - because
@@ -14239,13 +14252,13 @@ void Sema::MarkVariableReferenced(SourceLocation Loc, VarDecl *Var) {
 }
 
 static void MarkExprReferenced(Sema &SemaRef, SourceLocation Loc,
-                               Decl *D, Expr *E, bool OdrUse) {
+                               Decl *D, Expr *E, bool MightBeOdrUse) {
   if (VarDecl *Var = dyn_cast<VarDecl>(D)) {
     DoMarkVarDeclReferenced(SemaRef, Loc, Var, E);
     return;
   }
 
-  SemaRef.MarkAnyDeclReferenced(Loc, D, OdrUse);
+  SemaRef.MarkAnyDeclReferenced(Loc, D, MightBeOdrUse);
 
   // If this is a call to a method via a cast, also mark the method in the
   // derived class used in case codegen can devirtualize the call.
@@ -14267,7 +14280,7 @@ static void MarkExprReferenced(Sema &SemaRef, SourceLocation Loc,
   CXXMethodDecl *DM = MD->getCorrespondingMethodInClass(MostDerivedClassDecl);
   if (!DM || DM->isPure())
     return;
-  SemaRef.MarkAnyDeclReferenced(Loc, DM, OdrUse);
+  SemaRef.MarkAnyDeclReferenced(Loc, DM, MightBeOdrUse);
 } 
 
 /// \brief Perform reference-marking and odr-use handling for a DeclRefExpr.
@@ -14290,30 +14303,31 @@ void Sema::MarkMemberReferenced(MemberExpr *E) {
   //   overload resolution when referred to from a potentially-evaluated
   //   expression, is odr-used, unless it is a pure virtual function and its
   //   name is not explicitly qualified.
-  bool OdrUse = true;
+  bool MightBeOdrUse = true;
   if (E->performsVirtualDispatch(getLangOpts())) {
     if (CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(E->getMemberDecl()))
       if (Method->isPure())
-        OdrUse = false;
+        MightBeOdrUse = false;
   }
   SourceLocation Loc = E->getMemberLoc().isValid() ?
                             E->getMemberLoc() : E->getLocStart();
-  MarkExprReferenced(*this, Loc, E->getMemberDecl(), E, OdrUse);
+  MarkExprReferenced(*this, Loc, E->getMemberDecl(), E, MightBeOdrUse);
 }
 
 /// \brief Perform marking for a reference to an arbitrary declaration.  It
 /// marks the declaration referenced, and performs odr-use checking for
 /// functions and variables. This method should not be used when building a
 /// normal expression which refers to a variable.
-void Sema::MarkAnyDeclReferenced(SourceLocation Loc, Decl *D, bool OdrUse) {
-  if (OdrUse) {
+void Sema::MarkAnyDeclReferenced(SourceLocation Loc, Decl *D,
+                                 bool MightBeOdrUse) {
+  if (MightBeOdrUse) {
     if (auto *VD = dyn_cast<VarDecl>(D)) {
       MarkVariableReferenced(Loc, VD);
       return;
     }
   }
   if (auto *FD = dyn_cast<FunctionDecl>(D)) {
-    MarkFunctionReferenced(Loc, FD, OdrUse);
+    MarkFunctionReferenced(Loc, FD, MightBeOdrUse);
     return;
   }
   D->setReferenced();

@@ -1,8 +1,14 @@
-=============
-Release Notes
-=============
+========================
+Release Notes (upcoming)
+========================
 
 In Polly 3.9 the following important changes have been incorporated.
+
+.. warning::
+
+  These releaes notes are for the next release of Polly and describe
+  the new features that have recently been committed to our development
+  branch.
 
 Increased analysis coverage
 ---------------------------
@@ -29,7 +35,7 @@ can model and optimize such code.
 
 If the accesses are not aligned with the size of the access type we model them
 as multiple accesses to an array of smaller elements. This is especially
-usefull for structs containing different typed elements as accesses to them are
+useful for structs containing different typed elements as accesses to them are
 represented using only one base pointer, namely the ``struct`` itself.  In the
 example below the accesses to ``s`` are all modeled as if ``s`` was a single
 char array because the accesses to ``s->A`` and ``s->B`` are not aligned with
@@ -60,11 +66,21 @@ supported before, we now allow and model two other kinds. The first are
 intrinsic calls to ``memcpy``, ``memmove`` and ``memset``. These calls can be
 represented precisely if the pointers involved are known and the given length
 is affine. Additionally, we allow to over-approximate function calls that are
-known only to read memory, read memory accesible through pointer arguments or
-access only memory accesible through pointer arguments. See also the function
+known only to read memory, read memory accessible through pointer arguments or
+access only memory accessible through pointer arguments. See also the function
 attributes ``readonly`` and ``argmemonly`` for more information.
 
+Fine-grain dependences analysis
+-------------------------------
 
+In addition of the ScopStmt wise dependences analysis, now the "polly-dependence"
+pass provides dependences analysis at memory reference wise and memory access wise.
+The memory reference wise analysis distinguishes the accessed references in the
+same statement, and generates dependences relationships between (statement, reference)
+pairs. The memory access wise analysis distinguishes accesses in the same statement,
+and generates dependences relationships between (statement, access) pairs. These
+fine-grain dependences are enabled by "-polly-dependences-analysis-level=reference-wise"
+and "-polly-dependences-analysis-level=access-wise", respectively.
 
 Update of the isl math library
 ------------------------------

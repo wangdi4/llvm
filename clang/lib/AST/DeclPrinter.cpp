@@ -163,19 +163,17 @@ void Decl::printGroup(Decl** Begin, unsigned NumDecls,
     ++Begin;
 
   PrintingPolicy SubPolicy(Policy);
-  if (TD && TD->isCompleteDefinition()) {
-    TD->print(Out, Policy, Indentation);
-    Out << " ";
-    SubPolicy.SuppressTag = true;
-  }
 
   bool isFirst = true;
   for ( ; Begin != End; ++Begin) {
     if (isFirst) {
+      if(TD)
+        SubPolicy.IncludeTagDefinition = true;
       SubPolicy.SuppressSpecifiers = false;
       isFirst = false;
     } else {
       if (!isFirst) Out << ", ";
+      SubPolicy.IncludeTagDefinition = false;
       SubPolicy.SuppressSpecifiers = true;
     }
 
@@ -249,7 +247,7 @@ void DeclPrinter::printDeclType(QualType T, StringRef DeclName, bool Pack) {
     Pack = true;
     T = PET->getPattern();
   }
-  T.print(Out, Policy, (Pack ? "..." : "") + DeclName);
+  T.print(Out, Policy, (Pack ? "..." : "") + DeclName, Indentation);
 }
 
 void DeclPrinter::ProcessDeclGroup(SmallVectorImpl<Decl*>& Decls) {
@@ -387,7 +385,8 @@ void DeclPrinter::VisitTypedefDecl(TypedefDecl *D) {
     if (D->isModulePrivate())
       Out << "__module_private__ ";
   }
-  D->getTypeSourceInfo()->getType().print(Out, Policy, D->getName());
+  QualType Ty = D->getTypeSourceInfo()->getType();
+  Ty.print(Out, Policy, D->getName(), Indentation);
   prettyPrintAttributes(D);
 }
 
@@ -692,7 +691,7 @@ void DeclPrinter::VisitFieldDecl(FieldDecl *D) {
     Out << "__module_private__ ";
 
   Out << D->getASTContext().getUnqualifiedObjCPointerType(D->getType()).
-            stream(Policy, D->getName());
+         stream(Policy, D->getName(), Indentation);
 
   if (D->isBitField()) {
     Out << " : ";
@@ -762,7 +761,7 @@ void DeclPrinter::VisitVarDecl(VarDecl *D) {
       }
       PrintingPolicy SubPolicy(Policy);
       SubPolicy.SuppressSpecifiers = false;
-      SubPolicy.SuppressTag = false;
+      SubPolicy.IncludeTagDefinition = false;
       Init->printPretty(Out, nullptr, SubPolicy, Indentation);
       if ((D->getInitStyle() == VarDecl::CallInit) && !isa<ParenListExpr>(Init))
         Out << ")";

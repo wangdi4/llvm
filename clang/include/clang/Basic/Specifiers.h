@@ -233,11 +233,17 @@ namespace clang {
   };
 
   /// \brief CallingConv - Specifies the calling convention that a function uses.
+#if INTEL_CUSTOMIZATION
+  /// Currently calling convention field of Type::ExtInfo class has size 4 bits.
+  /// All these bits are used already and there is no place for a new Intel
+  /// regcall calling convention. For that reason CC_X86RegCall has the same
+  /// value as CC_SpirKernel supposing that CC_SpirKernel calling convention
+  /// won't be used in Intel xmain compiler for C/C++.
+#endif // INTEL_CUSTOMIZATION
   enum CallingConv {
     CC_C,           // __attribute__((cdecl))
     CC_X86StdCall,  // __attribute__((stdcall))
     CC_X86FastCall, // __attribute__((fastcall))
-    CC_X86RegCall, // INTEL __attribute__((regcall))
     CC_X86ThisCall, // __attribute__((thiscall))
     CC_X86VectorCall, // __attribute__((vectorcall))
     CC_X86Pascal,   // __attribute__((pascal))
@@ -248,7 +254,10 @@ namespace clang {
     CC_IntelOclBicc, // __attribute__((intel_ocl_bicc))
     CC_SpirFunction, // default for OpenCL functions on SPIR target
     CC_SpirKernel,   // inferred for OpenCL kernels on SPIR target
-    CC_Swift         // __attribute__((swiftcall))
+    CC_X86RegCall = CC_SpirKernel, // INTEL __attribute__((regcall))
+    CC_Swift,        // __attribute__((swiftcall))
+    CC_PreserveMost, // __attribute__((preserve_most))
+    CC_PreserveAll,  // __attribute__((preserve_all))
   };
 
   /// \brief Checks whether the given calling convention supports variadic
@@ -257,12 +266,11 @@ namespace clang {
     switch (CC) {
     case CC_X86StdCall:
     case CC_X86FastCall:
-    case CC_X86RegCall: // INTEL
     case CC_X86ThisCall:
     case CC_X86Pascal:
     case CC_X86VectorCall:
     case CC_SpirFunction:
-    case CC_SpirKernel:
+    case CC_SpirKernel: // INTEL CC_X86RegCall
     case CC_Swift:
       return false;
     default:
