@@ -217,46 +217,39 @@ void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
   return;
 }
 
-void WRegionCollection::doBuildWRegionGraph(Function &F) {
-
-  DEBUG(dbgs() << "\nFunction = \n" << *this->Func);
+void WRegionCollection::buildWRGraphFromLLVMIR(Function &F) {
+  WRGraph = new (WRContainerTy);
   WRStack<WRegionNode *> S;
-
   doPreOrderDomTreeVisit(&F.getEntryBlock(), &S);
-
   return;
 }
 
 bool WRegionCollection::runOnFunction(Function &F) {
+  DEBUG(dbgs() << "\nENTER WRegionCollection::runOnFunction: "
+               << F.getName() << "{\n");
   this->Func = &F;
-
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
-#if 0
-  // Run -vpo-cfg-restructuring transformation pass before this analysis.
-  // Analysis passes can't modify LLVM IR.
-
-  // CFG Restructuring, which puts directives into standalone basic blocks.
-  // It maintains DominatorTree and LoopInfo.
-  VPOUtils::CFGRestructuring(F, DT, LI);
-#endif
-
-  // TBD: This needs to be run for LLVM IR only path. For the HIR case,
-  // standalone basic blocks created cause HIR region formation to not
-  // include the SIMD directives which in turn causes WRegion formation
-  // to fail. Commenting out the call for now.
-
-  DEBUG(dbgs() << "W-Region Graph Construction Start {\n");
-  WRGraph = new (WRContainerTy);
-  doBuildWRegionGraph(F);
-  DEBUG(dbgs() << "} W-Region Graph Construction End\n");
-
-  // TODO: This return should return true if call to CFGRestruction()
-  // has modifed the IR.
+  DEBUG(dbgs() << "\n}EXIT WRegionCollection::runOnFunction: "
+               << F.getName() << "\n");
   return false;
 }
+
+void WRegionCollection::buildWRGraph(bool FromHIR) {
+  DEBUG(dbgs() << "\nENTER WRegionCollection::buildWRGraph(FromHIR=" 
+               << FromHIR <<"){\n");
+  if (FromHIR) {
+    // TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
+    //       after Vectorizer's HIR mode starts using this new interface
+    WRGraph = WRegionUtils::buildWRGraphFromHIR();
+  } else {
+    buildWRGraphFromLLVMIR(*Func);
+  }
+  DEBUG(dbgs() << "\n} EXIT WRegionCollection::buildWRGraph\n");
+}
+
 
 void WRegionCollection::releaseMemory() {
 #if 0

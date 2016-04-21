@@ -90,9 +90,8 @@ public:
 void VPOParoptTransform::gatherWRegionNodeList() {
   DEBUG(dbgs() << "\nSTART: Gather WRegion Node List\n");
 
-  VPOWRegionVisitor WV(WRegionList);
-  WRNVisitor<VPOWRegionVisitor> WRegionGather(WV);
-  WRegionGather.forwardVisit(WI->getWRGraph());
+  VPOWRegionVisitor Visitor(WRegionList);
+  WRegionUtils::forwardVisit(Visitor, WI->getWRGraph());
 
   DEBUG(dbgs() << "\nEND: Gather WRegion Node List\n");
   return;
@@ -322,7 +321,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
-  DEBUG(dbgs() << "--- Parallel For LoopInfo: \n");
+  DEBUG(dbgs() << "--- Parallel For LoopInfo: \n" << *L);
   DEBUG(dbgs() << "--- Loop Preheader: " << *(L->getLoopPreheader()) << "\n");
   DEBUG(dbgs() << "--- Loop Header: " << *(L->getHeader()) << "\n");
   DEBUG(dbgs() << "--- Loop Latch: " << *(L->getLoopLatch()) << "\n\n");
