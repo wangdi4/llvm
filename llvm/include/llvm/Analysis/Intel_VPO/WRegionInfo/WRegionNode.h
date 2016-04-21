@@ -189,6 +189,12 @@ protected:
   virtual void setAligned(AlignedClause *A)  {errorClause(QUAL_OMP_ALIGNED);  }
   virtual AlignedClause *getAligned()  const {errorClause(QUAL_OMP_ALIGNED);
                                               return nullptr;                 }
+  virtual void setAtomicKind(WRNAtomicKind A)   {errorClause("ATOMIC_KIND");  }
+  virtual WRNAtomicKind getAtomicKind()   const {errorClause("ATOMIC_KIND");
+                                                 return WRNAtomicUpdate;      }
+  virtual void setHasSeqCstClause(bool SC)      {errorClause("SEQ_CST");      }
+  virtual bool getHasSeqCstClause()       const {errorClause("SEQ_CST");
+                                                 return false;                }
   virtual void setCollapse(int N)            {errorClause(QUAL_OMP_COLLAPSE); }
   virtual int getCollapse()            const {errorClause(QUAL_OMP_COLLAPSE);
                                               return 0;                       }

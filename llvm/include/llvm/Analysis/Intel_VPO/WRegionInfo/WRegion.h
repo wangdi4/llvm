@@ -296,6 +296,37 @@ public:
   }
 };
 
+/// WRegion Node for OMP Atomic Directive.
+/// \code
+///   #pragma omp atomic [seq_cst[,]] atomic-clause [[,]seq_cst]
+/// \endcode
+/// Where:
+///   'atomic-clause' can be read, write, update or capture.
+///   'seq_cst' clause is optional.
+class WRNAtomicNode : public WRegionNode {
+private:
+  WRNAtomicKind AtomicKind;
+  bool HasSeqCstClause;
+
+protected:
+  void setAtomicKind(WRNAtomicKind AK) { AtomicKind = AK; }
+  void setHasSeqCstClause(bool SC) { HasSeqCstClause = SC; }
+
+public:
+  WRNAtomicNode(BasicBlock *BB);
+  WRNAtomicNode(WRNAtomicNode *W);
+
+  WRNAtomicKind getAtomicKind() const { return AtomicKind; }
+  bool getHasSeqCstClause() const { return HasSeqCstClause; }
+
+  void print(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNAtomic;
+  }
+};
+
 //
 // WRNMasterNode
 //

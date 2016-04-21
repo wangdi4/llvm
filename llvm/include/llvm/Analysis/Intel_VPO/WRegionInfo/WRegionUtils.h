@@ -239,6 +239,14 @@ public:
 
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(WRegionNode *OldW, WRegionNode *NewW);
+
+  ///\name Clause related Utilities
+  /// @{
+
+  /// \brief get the Clause Id for the WRNAtomicKind \p kind.
+  static int getClauseIdFromAtomicKind(WRNAtomicKind Kind);
+
+  /// @}
 };
 
 

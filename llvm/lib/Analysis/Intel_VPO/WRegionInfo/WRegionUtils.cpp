@@ -48,6 +48,9 @@ WRegionNode *WRegionUtils::createWRegion(
     case DIR_OMP_SIMD:
       W = new WRNVecLoopNode(EntryBB, LI);
       break;
+    case DIR_OMP_ATOMIC:
+      W = new WRNAtomicNode(EntryBB);
+      break;
     case DIR_OMP_MASTER:
       W = new WRNMasterNode(EntryBB);
       break;
@@ -264,3 +267,18 @@ void WRegionUtils::insertWRegionNode(
   return;
 }
 
+// Clause Utilities
+int WRegionUtils::getClauseIdFromAtomicKind(WRNAtomicKind Kind) {
+  switch (Kind) {
+  case WRNAtomicUpdate:
+    return QUAL_OMP_UPDATE;
+  case WRNAtomicRead:
+    return QUAL_OMP_READ;
+  case WRNAtomicWrite:
+    return QUAL_OMP_WRITE;
+  case WRNAtomicCapture:
+    return QUAL_OMP_CAPTURE;
+  default:
+    llvm_unreachable("Unsupported Atomic Kind");
+  }
+}

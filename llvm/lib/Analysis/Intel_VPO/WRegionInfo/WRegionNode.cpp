@@ -174,21 +174,25 @@ void WRegionNode::handleQual(int ClauseID) {
     break;
   case QUAL_OMP_UNTIED:
     break;
-  case QUAL_OMP_READ:
-    break;
   case QUAL_OMP_READ_SEQ_CST:
-    break;
-  case QUAL_OMP_WRITE:
+    setHasSeqCstClause(true);
+  case QUAL_OMP_READ:
+    setAtomicKind(WRNAtomicRead);
     break;
   case QUAL_OMP_WRITE_SEQ_CST:
-    break;
-  case QUAL_OMP_UPDATE:
+    setHasSeqCstClause(true);
+  case QUAL_OMP_WRITE:
+    setAtomicKind(WRNAtomicWrite);
     break;
   case QUAL_OMP_UPDATE_SEQ_CST:
-    break;
-  case QUAL_OMP_CAPTURE:
+    setHasSeqCstClause(true);
+  case QUAL_OMP_UPDATE:
+    setAtomicKind(WRNAtomicUpdate);
     break;
   case QUAL_OMP_CAPTURE_SEQ_CST:
+    setHasSeqCstClause(true);
+  case QUAL_OMP_CAPTURE:
+    setAtomicKind(WRNAtomicCapture);
     break;
   case QUAL_OMP_MERGEABLE:
     break;
