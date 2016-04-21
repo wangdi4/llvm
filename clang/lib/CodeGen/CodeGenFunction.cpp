@@ -47,6 +47,7 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       CurFn(nullptr), ReturnValue(Address::invalid()),
       CapturedStmtInfo(nullptr),
 #if INTEL_SPECIFIC_CILKPLUS
+      CurCilkStackFrame(nullptr),
       CurCGCilkImplicitSyncInfo(nullptr),
 #endif // INTEL_SPECIFIC_CILKPLUS
       SanOpts(CGM.getLangOpts().Sanitize), IsSanitizerScope(false),

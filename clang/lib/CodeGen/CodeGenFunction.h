@@ -243,6 +243,7 @@ public:
   };
   CGCapturedStmtInfo *CapturedStmtInfo;
 #if INTEL_SPECIFIC_CILKPLUS
+  llvm::AllocaInst *CurCilkStackFrame;
   class CGSIMDForStmtInfo; // Defined below, after simd wrappers.
 
   /// \brief Wrapper for "#pragma simd" and "#pragma omp simd".
