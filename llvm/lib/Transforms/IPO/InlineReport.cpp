@@ -384,9 +384,10 @@ InlineReportFunction* InlineReport::addFunction(Function* F, Module* M) {
     return nullptr; 
   } 
   InlineReportFunctionMap::const_iterator MapIt = IRFunctionMap.find(F); 
-  if (MapIt != IRFunctionMap.end()) { 
+  if (MapIt != IRFunctionMap.end()) {
+    InlineReportFunction* IRF = MapIt->second;
     makeCurrent(M, F); 
-    return MapIt->second; 
+    return IRF; 
   } 
   InlineReportFunction* IRF = new InlineReportFunction(F);
   IRFunctionMap.insert(std::make_pair(F, IRF)); 

@@ -558,6 +558,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
                                              Caller->getName()));
           continue;
         }
+        getReport().setActiveInlineInstruction(nullptr); // INTEL
         ++NumInlined;
 
         // Report the inline decision.
