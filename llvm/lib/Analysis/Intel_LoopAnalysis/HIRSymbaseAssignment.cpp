@@ -96,11 +96,12 @@ void HIRSymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
 
   PtrToRefs[Ptr].push_back(Ref);
 
-  // TODO eventually want restrict/tbaa associated with refs
-  AAMDNodes AAInfo;
-  // we want loop carried disam, so use a store of unknown size
+  AAMDNodes AANodes;
+  Ref->getAAMetadata(AANodes);
+
+  // We want loop carried disam, so use a store of unknown size
   // to simulate read/write of all mem accessed by loop
-  AST.add(Ptr, MemoryLocation::UnknownSize, AAInfo);
+  AST.add(Ptr, MemoryLocation::UnknownSize, AANodes);
 }
 
 void HIRSymbaseAssignmentVisitor::visit(HLDDNode *Node) {

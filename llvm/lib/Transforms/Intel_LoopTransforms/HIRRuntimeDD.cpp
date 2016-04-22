@@ -90,6 +90,7 @@
 #include "llvm/ADT/Statistic.h"
 
 #include "llvm/IR/Function.h"
+#include "llvm/IR/MDBuilder.h"
 
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
@@ -107,6 +108,11 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+using namespace llvm::loopopt::runtimedd;
+
+static cl::opt<bool> DisableRuntimeDD("disable-" OPT_SWITCH, cl::init(false),
+                                      cl::Hidden,
+                                      cl::desc("Disable " OPT_DESCR));
 
 static cl::opt<unsigned>
     MaximumNumberOfTests(OPT_SWITCH "-max-tests",
@@ -121,7 +127,7 @@ STATISTIC(OuterLoopsMultiversioned,
           "Number of outer loops multiversioned by runtime DD");
 
 struct HIRRuntimeDD::LoopAnalyzer final : public HLNodeVisitorBase {
-  SmallVector<LoopCandidate, 16> Candidates;
+  SmallVector<LoopContext, 16> LoopContexts;
 
   LoopAnalyzer() : SkipNode(nullptr) {}
 
@@ -129,13 +135,13 @@ struct HIRRuntimeDD::LoopAnalyzer final : public HLNodeVisitorBase {
   void postVisit(HLNode *) {}
 
   void visit(HLLoop *Loop) {
-    LoopCandidate Candidate;
+    LoopContext Context;
     DEBUG(dbgs() << "Runtime DD for loop " << Loop->getNumber() << ":\n");
-    RuntimeDDResult Result = HIRRuntimeDD::computeTests(Loop, Candidate);
+    RuntimeDDResult Result = HIRRuntimeDD::computeTests(Loop, Context);
     if (Result == OK) {
       SkipNode = Loop;
 
-      Candidates.push_back(std::move(Candidate));
+      LoopContexts.push_back(std::move(Context));
       LoopsMultiversioned++;
 
       if (!Loop->isInnermost()) {
@@ -500,15 +506,13 @@ bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
     }
   }
 
-  assert(Result->getConstant() != 0 && "Duplicate DDRef found.");
-
   return true;
 }
 
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
-                                           LoopCandidate &Candidate) {
-  Candidate.Loop = Loop;
-  Candidate.GenTripCountTest = true;
+                                           LoopContext &Context) {
+  Context.Loop = Loop;
+  Context.GenTripCountTest = true;
 
   if (Loop->getMVTag()) {
     return ALREADY_MV;
@@ -521,7 +525,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
   }
 
   MemRefGatherer::MapTy RefMap;
-  DDRefGrouping::RefGroupsTy Groups;
+  DDRefGrouping::RefGroupsTy &Groups = Context.Groups;
 
   // Gather references which are only inside a loop, excepting loop bounds,
   // pre-header and post-exit.
@@ -529,8 +533,6 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
   DEBUG(MemRefGatherer::dump(RefMap));
 
   MemRefGatherer::sort(RefMap);
-  DEBUG(MemRefGatherer::dump(RefMap));
-  MemRefGatherer::makeUnique(RefMap);
   DEBUG(MemRefGatherer::dump(RefMap));
 
   DDRefGrouping::createGroups(Groups, RefMap, isGroupMemRefMatchForRTDD);
@@ -550,7 +552,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
 
   RuntimeDDResult Res;
   Res = processLoopnest(Loop, InnermostLoop, IVSegments, Supported,
-                        Candidate.GenTripCountTest);
+                        Context.GenTripCountTest);
   if (Res != OK)  {
     return Res;
   }
@@ -595,8 +597,8 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
         return Res;
       }
 
-      Candidate.SegmentList.push_back(S1.genSegment());
-      Candidate.SegmentList.push_back(S2.genSegment());
+      Context.SegmentList.push_back(S1.genSegment());
+      Context.SegmentList.push_back(S2.genSegment());
 
       NumOfTests++;
       if (NumOfTests > MaximumNumberOfTests) {
@@ -605,7 +607,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
     }
   }
 
-  if (Candidate.SegmentList.size() == 0) {
+  if (Context.SegmentList.size() == 0) {
     return NO_OPPORTUNITIES;
   }
 
@@ -614,7 +616,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
 
 HLIf *HIRRuntimeDD::createIfStmtForIntersection(HLContainerTy &Nodes,
                                                 Segment &S1,
-                                                Segment &S2) const {
+                                                Segment &S2) {
   Segment *S[] = {&S1, &S2};
   Type *S1Type = S[0]->getType()->getPointerElementType();
   Type *S2Type = S[1]->getType()->getPointerElementType();
@@ -645,22 +647,51 @@ HLIf *HIRRuntimeDD::createIfStmtForIntersection(HLContainerTy &Nodes,
   return If;
 }
 
-void HIRRuntimeDD::generateDDTest(LoopCandidate &Candidate) const {
-  Candidate.Loop->extractPreheaderAndPostexit();
+void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
+  Context.Loop->extractZtt();
+  Context.Loop->extractPreheaderAndPostexit();
+
+  // The HIR structure will be the following:
+  //
+  // <Preheader>
+  // ZTT {
+  //   if (<low trip test>) goto orig;
+  //
+  //   if (<test-0>) goto orig;
+  //   ...
+  //   if (<test-n>) goto orig;
+  //
+  //   <Modified loop>
+  //   goto escape;
+  //
+  //   orig:
+  //   <Original loop>
+  //
+  //   escape:
+  // }
+  // <PostExit>
+
+  HLLoop *OrigLoop = Context.Loop->clone();
+  HLLoop *ModifiedLoop = Context.Loop;
+
+  HLNodeUtils::insertAfter(ModifiedLoop, OrigLoop);
 
   HLLabel *OrigLabel = HLNodeUtils::createHLLabel("mv.orig");
+  HLNodeUtils::insertBefore(OrigLoop, OrigLabel);
+
   HLLabel *EscapeLabel = HLNodeUtils::createHLLabel("mv.escape");
+  HLNodeUtils::insertAfter(OrigLoop, EscapeLabel);
+
+  HLGoto *EscapeGoto = HLNodeUtils::createHLGoto(EscapeLabel);
+  HLNodeUtils::insertAfter(ModifiedLoop, EscapeGoto);
 
   HLGoto *OrigGoto = HLNodeUtils::createHLGoto(OrigLabel);
 
-  HLNodeUtils::insertBefore(Candidate.Loop, OrigLabel);
-  HLNodeUtils::insertAfter(Candidate.Loop, EscapeLabel);
-
   // Generate tripcount test
-  if (Candidate.GenTripCountTest) {
+  if (Context.GenTripCountTest) {
     // TODO: generation of small tripcount tests for a loopnest
     uint64_t MinTripCount = SmallTripCountTest;
-    RegDDRef *TripCountRef = Candidate.Loop->getTripCountDDRef();
+    RegDDRef *TripCountRef = Context.Loop->getTripCountDDRef();
     assert(TripCountRef != nullptr &&
            "getTripCountDDRef() unexpectedly returned nullptr");
     HLIf *LowTripCountIf =
@@ -669,55 +700,88 @@ void HIRRuntimeDD::generateDDTest(LoopCandidate &Candidate) const {
                                     TripCountRef->getDestType(), MinTripCount));
 
     HLNodeUtils::insertAsFirstChild(LowTripCountIf, OrigGoto, true);
-    HLNodeUtils::insertBefore(OrigLabel, LowTripCountIf);
+    HLNodeUtils::insertBefore(ModifiedLoop, LowTripCountIf);
   }
   //////////////////////////
 
-  unsigned RefsCount = Candidate.SegmentList.size();
+  unsigned RefsCount = Context.SegmentList.size();
   for (unsigned i = 0; i < RefsCount; i += 2) {
-    auto &S1 = Candidate.SegmentList[i];
-    auto &S2 = Candidate.SegmentList[i + 1];
+    auto &S1 = Context.SegmentList[i];
+    auto &S2 = Context.SegmentList[i + 1];
 
     HLContainerTy Nodes;
     HLIf *DDCheck = createIfStmtForIntersection(Nodes, S1, S2);
 
     HLNodeUtils::insertAsFirstChild(DDCheck, OrigGoto->clone(), true);
-    HLNodeUtils::insertBefore(OrigLabel, &Nodes);
+    HLNodeUtils::insertBefore(ModifiedLoop, &Nodes);
   }
 
-  HLGoto *EscapeGoto = HLNodeUtils::createHLGoto(EscapeLabel);
-  HLNodeUtils::insertBefore(OrigLabel, EscapeGoto);
+  unsigned MVTag = ModifiedLoop->getNumber();
+  ModifiedLoop->setMVTag(MVTag);
+  OrigLoop->setMVTag(MVTag);
 
-  HLLoop *MVLoop = Candidate.Loop->clone();
-  unsigned MVTag = Candidate.Loop->getNumber();
-  Candidate.Loop->setMVTag(MVTag);
-  MVLoop->setMVTag(MVTag);
-  // TODO: Mark MVLoop ddrefs to say HIRDDAnalysis that they do not intersect.
+  markDDRefsIndep(Context);
 
-  HLNodeUtils::insertBefore(EscapeGoto, MVLoop);
-
-  HLRegion *ParentRegion = Candidate.Loop->getParentRegion();
+  HLRegion *ParentRegion = Context.Loop->getParentRegion();
   assert(ParentRegion && "Processed loop is not attached.");
   ParentRegion->setGenCode(true);
 
-  if (HLLoop *ParentLoop = Candidate.Loop->getParentLoop()) {
+  if (HLLoop *ParentLoop = Context.Loop->getParentLoop()) {
     HIRInvalidationUtils::invalidateBody(ParentLoop);
   } else {
     HIRInvalidationUtils::invalidateNonLoopRegion(ParentRegion);
   }
 }
 
+void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
+  DDRefGrouping::RefGroupsTy &Groups = Context.Groups;
+
+  auto Size = Groups.size();
+  MDBuilder MDB(HIRUtils::getContext());
+
+  MDNode *Domain = MDB.createAnonymousAliasScopeDomain();
+  SmallVector<MDNode *, ExpectedNumberOfTests> NewScopes;
+  NewScopes.reserve(Size);
+  for (unsigned I = 0; I < Size; ++I) {
+    NewScopes.push_back(MDB.createAnonymousAliasScope(Domain));
+  }
+
+  for (auto &Pair : Groups) {
+    auto ScopeId = Pair.first;
+
+    for (RegDDRef *Ref : Pair.second) {
+      AAMDNodes AANodes;
+      Ref->getAAMetadata(AANodes);
+
+      AANodes.Scope = MDNode::concatenate(AANodes.Scope, NewScopes[ScopeId]);
+
+      for (unsigned I = 0; I < ScopeId; ++I) {
+        AANodes.NoAlias = MDNode::concatenate(AANodes.NoAlias, NewScopes[I]);
+      }
+      for (unsigned I = ScopeId + 1; I < Size; ++I) {
+        AANodes.NoAlias = MDNode::concatenate(AANodes.NoAlias, NewScopes[I]);
+      }
+
+      Ref->setAAMetadata(AANodes);
+    }
+  }
+}
+
 bool HIRRuntimeDD::runOnFunction(Function &F) {
+  if (DisableRuntimeDD) {
+    return false;
+  }
+
   DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
 
   LoopAnalyzer LA;
   HLNodeUtils::visitAll(LA);
 
-  if (LA.Candidates.size() == 0) {
+  if (LA.LoopContexts.size() == 0) {
     return false;
   }
 
-  for (LoopCandidate &Candidate : LA.Candidates) {
+  for (LoopContext &Candidate : LA.LoopContexts) {
     generateDDTest(Candidate);
   }
 

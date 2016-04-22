@@ -29,9 +29,10 @@
 
 namespace llvm {
 namespace loopopt {
+namespace runtimedd {
 
 const unsigned ExpectedNumberOfTests = 8;
-const unsigned SmallTripCountTest = 4;
+const unsigned SmallTripCountTest = 12;
 
 enum RuntimeDDResult {
   OK,
@@ -124,8 +125,9 @@ public:
 #endif
 };
 
-struct LoopCandidate {
+struct LoopContext {
   HLLoop *Loop;
+  DDRefGrouping::RefGroupsTy Groups;
   llvm::SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
   bool GenTripCountTest;
 
@@ -178,15 +180,19 @@ private:
                                         const RegDDRef *Ref2);
 
   // \brief Returns required DD tests for an arbitrary loop L.
-  static RuntimeDDResult computeTests(HLLoop *Loop, LoopCandidate &Candidate);
+  static RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);
 
-  HLIf *createIfStmtForIntersection(HLContainerTy &Nodes, Segment &S1,
-                                    Segment &S2) const;
+  static HLIf *createIfStmtForIntersection(HLContainerTy &Nodes, Segment &S1,
+                                    Segment &S2);
 
   // \brief Modifies HIR implementing specified tests.
-  void generateDDTest(LoopCandidate &Candidate) const;
+  static void generateDDTest(LoopContext &Context);
+
+  // \brief Marks all DDRefs independent across groups.
+  static void markDDRefsIndep(LoopContext &Context);
 };
 
+}
 }
 }
 

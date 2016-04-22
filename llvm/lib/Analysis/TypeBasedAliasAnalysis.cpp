@@ -298,10 +298,10 @@ AliasResult TypeBasedAAResult::alias(const MemoryLocation &LocA,
   DirectRefA = DirectRefB = false;
   const Value *Ptr1 = LocA.Ptr;
   const Value *Ptr2 = LocB.Ptr;
-  if (isa<GlobalValue>(Ptr1)) {
+  if (Ptr1 && isa<GlobalValue>(Ptr1)) {
     DirectRefA = true;
   }
-  if (isa<GlobalValue>(Ptr2)) {
+  if (Ptr2 && isa<GlobalValue>(Ptr2)) {
     DirectRefB = true;
   }
 #endif // INTEL_CUSTOMIZATION

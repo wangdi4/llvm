@@ -35,7 +35,7 @@ class DDRefGrouping {
 public:
   typedef MemRefGatherer::MapTy SymToMemRefTy;
 
-  typedef SmallVector<const RegDDRef *, 8> RefGroupTy;
+  typedef SmallVector<RegDDRef *, 8> RefGroupTy;
 
   // RefGroupsTy data structure.
   // The first unsigned argument is the group number.
@@ -72,7 +72,7 @@ public:
         // Check if DDRef matches any of the groups.
         for (unsigned GroupIndex = StartGroupIndex; GroupIndex < MaxGroupNo;
              ++GroupIndex) {
-          SmallVectorImpl<const RegDDRef *> &GroupRefVec = Groups[GroupIndex];
+          SmallVectorImpl<RegDDRef *> &GroupRefVec = Groups[GroupIndex];
           assert(!GroupRefVec.empty() && " Ref Group is empty.");
           if (Predicate(GroupRefVec[0], *VecIt)) {
             MatchFound = true;

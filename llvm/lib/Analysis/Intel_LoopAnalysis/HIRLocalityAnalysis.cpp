@@ -263,7 +263,7 @@ void HIRLocalityAnalysis::computeTempReuseLocality(const HLLoop *Loop) {
   for (auto GroupVecPair = RefGroups.begin(), Last = RefGroups.end();
        GroupVecPair != Last; ++GroupVecPair) {
 
-    SmallVectorImpl<const RegDDRef *> &RefVec = GroupVecPair->second;
+    SmallVectorImpl<RegDDRef *> &RefVec = GroupVecPair->second;
     assert(!RefVec.empty() && " Ref Group is empty.");
 
     // The first reference is used for comparison.
@@ -358,7 +358,7 @@ void HIRLocalityAnalysis::computeSpatialLocality(const HLLoop *Loop) {
   for (auto GroupVecPair = RefGroups.begin(), Last = RefGroups.end();
        GroupVecPair != Last; ++GroupVecPair) {
 
-    SmallVectorImpl<const RegDDRef *> &RefVec = GroupVecPair->second;
+    SmallVectorImpl<RegDDRef *> &RefVec = GroupVecPair->second;
     assert(!RefVec.empty() && " Ref Group is empty.");
 
     // We need to compute spatial locality for only one from each RefGroup.

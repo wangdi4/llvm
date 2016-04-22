@@ -395,8 +395,12 @@ class DDTest {
   void getDVForBackwardEdge(const DVectorTy &InputDV, DVectorTy &OutputDV,
                             unsigned MaxLevel) const;
 
-  //    AliasAnalysis *AA;
-  //    Function *F;
+  /// \brief Query LLVM Alias Analysis to check if there is no aliasing between
+  /// \p SrcDDRef and \p DstDDref (ex. due to TBAA or AliasScopes)
+  bool queryAAIndep(RegDDRef *SrcDDRef, RegDDRef *DstDDRef);
+
+    //AliasAnalysis *AA;
+    //Function *F;
   /// Subscript - This private struct represents a pair of subscripts from
   /// a pair of potentially multi-dimensional array references. We use a
   /// vector of them to guide subscript partitioning.

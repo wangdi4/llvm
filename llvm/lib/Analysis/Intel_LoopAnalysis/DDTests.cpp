@@ -3910,6 +3910,18 @@ DDTest::~DDTest() {
   WorkCE.clear();
 }
 
+bool DDTest::queryAAIndep(RegDDRef *SrcDDRef, RegDDRef *DstDDRef) {
+  assert(SrcDDRef->isMemRef() && DstDDRef->isMemRef() &&
+         "Both should be mem refs");
+
+  MemoryLocation SrcLoc;
+  MemoryLocation DstLoc;
+  SrcDDRef->getAAMetadata(SrcLoc.AATags);
+  DstDDRef->getAAMetadata(DstLoc.AATags);
+
+  return AA.isNoAlias(SrcLoc, DstLoc);
+}
+
 // depends:
 // Returns nullptr if there is no dependence.
 // Otherwise, return a Dependence with as many details as possible.
@@ -3969,13 +3981,11 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   bool IsSrcRval = false;
   bool IsDstRval = false;
-  bool IsSrcBlob = false;
-  bool IsDstBlob = false;
 
-  int numSrcDim = 1;
-  int numDstDim = 1;
-  CanonExpr *SrcBaseCE = nullptr;
-  CanonExpr *DstBaseCE = nullptr;
+  int NumSrcDim = 1;
+  int NumDstDim = 1;
+
+  bool EqualBaseCE = false;
 
   DEBUG(dbgs() << "\n Src, Dst DDRefs\n"; SrcDDRef->dump());
   DEBUG(dbgs() << ",  "; DstDDRef->dump());
@@ -3988,30 +3998,28 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   //    return nullptr;
   //	}
 
-  if (isa<BlobDDRef>(SrcDDRef)) {
-    IsSrcRval = true;
-    IsSrcBlob = true;
-  } else {
-    RegDDRef *RegRef = cast<RegDDRef>(SrcDDRef);
-    if (!RegRef->isLval()) {
+  RegDDRef *SrcRegDDRef = dyn_cast<RegDDRef>(SrcDDRef);
+  if (SrcRegDDRef) {
+    NumSrcDim = SrcRegDDRef->getNumDimensions();
+    if (!SrcRegDDRef->isLval()) {
       IsSrcRval = true;
     }
-    numSrcDim = RegRef->getNumDimensions();
+  } else {
+    IsSrcRval = true;
   }
 
-  if (isa<BlobDDRef>(DstDDRef)) {
-    IsDstRval = true;
-    IsDstBlob = true;
-  } else {
-    RegDDRef *RegRef = cast<RegDDRef>(DstDDRef);
-    if (!RegRef->isLval()) {
+  RegDDRef *DstRegDDRef = dyn_cast<RegDDRef>(DstDDRef);
+  if (DstRegDDRef) {
+    NumDstDim = DstRegDDRef->getNumDimensions();
+    if (!DstRegDDRef->isLval()) {
       IsDstRval = true;
     }
-    numDstDim = RegRef->getNumDimensions();
+  } else {
+    IsDstRval = true;
   }
 
-  DEBUG(dbgs() << "\nSrc/Dst Blob?  " << IsSrcBlob << " " << IsDstBlob
-               << "\n ");
+  DEBUG(dbgs() << "\nSrc/Dst Blob?  " << (SrcRegDDRef == nullptr) << " "
+               << (DstRegDDRef == nullptr) << "\n ");
 
   if ((IsSrcRval && IsDstRval)) {
     // if both instructions don't reference memory, there's no dependence
@@ -4020,6 +4028,28 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     // We only need to generate input dep when there is no dd_ref with lval
     // so it requires a scan first
     return nullptr;
+  }
+
+  // If both are RegDDRefs
+  if (SrcRegDDRef && DstRegDDRef && SrcRegDDRef->isMemRef() &&
+      DstRegDDRef->isMemRef()) {
+    auto SrcBaseCE = SrcRegDDRef->getBaseCE();
+    auto DstBaseCE = DstRegDDRef->getBaseCE();
+
+    // We check for equal base CE
+    EqualBaseCE = areCEEqual(SrcBaseCE, DstBaseCE);
+
+    // Inquire disam util to get INDEP if the base ptrs are different
+    // DD_refs could be in the same symbase after merging even the memory
+    // difference are distinct
+    if (!EqualBaseCE) {
+      DEBUG(dbgs() << "AA query: ");
+      if (queryAAIndep(SrcRegDDRef, DstRegDDRef)) {
+        DEBUG(dbgs() << "no alias\n");
+        return nullptr;
+      }
+      DEBUG(dbgs() << "may alias\n");
+    }
   }
 
   // establish loop nesting levels
@@ -4032,57 +4062,41 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   ++TotalArrayPairs;
   WorkCE.clear();
 
-  if (!IsSrcBlob) {
-    RegDDRef *RDef = cast<RegDDRef>(SrcDDRef);
-    SrcBaseCE = RDef->hasGEPInfo() ? RDef->getBaseCE() : nullptr;
-  }
-
-  if (!IsDstBlob) {
-    RegDDRef *RDef = cast<RegDDRef>(DstDDRef);
-    DstBaseCE = RDef->hasGEPInfo() ? RDef->getBaseCE() : nullptr;
-  }
-
-  if (numSrcDim != numDstDim || !areCEEqual(SrcBaseCE, DstBaseCE)) {
-    //  Number of dimemsion are different or
-    //  different base: need to bail out
+  //  Number of dimemsion are different or different base: need to bail out
+  if (!EqualBaseCE || NumSrcDim != NumDstDim) {
     DEBUG(dbgs() << "\nDiff dim or base\n");
     auto Final = make_unique<FullDependences>(Result);
     Result.DV = nullptr;
     return std::move(Final);
   }
 
-  // TODO: inquire disam util to get INDEP if the base ptrs are different
-  // DD_refs could be in the same symbase after merging even the memory
-  // difference are distinct
-
-  unsigned Pairs = numSrcDim;
+  unsigned Pairs = NumSrcDim;
 
   DEBUG(dbgs() << " # of Pairs " << Pairs << "\n");
 
   SmallVector<Subscript, 4> Pair(Pairs);
 
-  if (IsSrcBlob) {
-    BlobDDRef *BRef = dyn_cast<BlobDDRef>(SrcDDRef);
-    Pair[0].Src = BRef->getCanonExpr();
-  } else {
-    RegDDRef *RegRef = cast<RegDDRef>(SrcDDRef);
+  if (SrcRegDDRef) {
     int P = 0;
-    for (auto CE = RegRef->canon_begin(), E = RegRef->canon_end(); CE != E;
-         CE++, P++) {
+    for (auto CE = SrcRegDDRef->canon_begin(), E = SrcRegDDRef->canon_end();
+         CE != E; CE++, P++) {
       Pair[P].Src = *CE;
     }
+
+  } else {
+    BlobDDRef *BRef = cast<BlobDDRef>(SrcDDRef);
+    Pair[0].Src = BRef->getCanonExpr();
   }
 
-  if (IsDstBlob) {
-    BlobDDRef *BRef = dyn_cast<BlobDDRef>(DstDDRef);
-    Pair[0].Dst = BRef->getCanonExpr();
-  } else {
-    RegDDRef *RegRef = cast<RegDDRef>(DstDDRef);
+  if (DstRegDDRef) {
     int P = 0;
-    for (auto CE = RegRef->canon_begin(), E = RegRef->canon_end(); CE != E;
-         CE++, P++) {
+    for (auto CE = DstRegDDRef->canon_begin(), E = DstRegDDRef->canon_end();
+         CE != E; CE++, P++) {
       Pair[P].Dst = *CE;
     }
+  } else {
+    BlobDDRef *BRef = cast<BlobDDRef>(DstDDRef);
+    Pair[0].Dst = BRef->getCanonExpr();
   }
 
   // Note: Couple of original functionality were skipped

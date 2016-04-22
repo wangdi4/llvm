@@ -247,7 +247,7 @@ bool CanonExprUtils::canMergeConstants(const CanonExpr *CE1,
 
   // Check for zero condition.
   // These can be merged.
-  if ((Val1 == 0) || (Val2 == 0)) {
+  if ((IsCE1Const && Val1 == 0) || (IsCE2Const && Val2 == 0)) {
     return true;
   }
 

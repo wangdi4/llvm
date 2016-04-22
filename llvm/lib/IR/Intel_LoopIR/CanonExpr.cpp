@@ -1029,7 +1029,7 @@ void CanonExpr::multiplyByBlob(unsigned Index) {
   //
   //  1) (b*b1), (b*b2) are new blobs
   //  2) c1 was not touched, just need to switch b1 to (b1*b)
-  //  3) b2 blob is removed, the new (b1*b) is added with the same c2 coeff
+  //  3) b2 blob is removed, the new (b2*b) is added with the same c2 coeff
   //  4) c0 is removed, the b blob is added with c0 coeff
 
   // Get blob for "b"

@@ -262,6 +262,10 @@ public:
     getGEPInfo()->Alignment = Align;
   }
 
+  /// \brief Extract and submit AA metadata
+  void getAAMetadata(AAMDNodes &AANodes) const;
+  void setAAMetadata(AAMDNodes &AANodes);
+
   /// \brief Returns the metadata of given kind attached to this ref, else
   /// returns null.
   MDNode *getMetadata(StringRef Kind) const;

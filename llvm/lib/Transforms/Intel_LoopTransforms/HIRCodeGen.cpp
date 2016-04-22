@@ -679,7 +679,6 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   // value of A[i], ie a load. For lval, we will store into &A[i], so we
   // want the address, the gep
   if (Ref->isRval()) {
-    RegDDRef::MDNodesTy MDs;
     Instruction *LInst;
 
     if (GEPVal->getType()->isVectorTy()) {
@@ -691,6 +690,7 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
                                          Ref->isVolatile(), "gepload");
     }
 
+    RegDDRef::MDNodesTy MDs;
     Ref->getAllMetadata(MDs);
     setMetadata(LInst, MDs);
 

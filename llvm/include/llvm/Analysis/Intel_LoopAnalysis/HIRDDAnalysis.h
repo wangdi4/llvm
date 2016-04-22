@@ -150,7 +150,7 @@ public:
   // init_incremental_rebuild(HLNode*)
 private:
   Function *F;
-  AliasAnalysis *AA;
+  AAResults AA;
   HIRFramework *HIRF;
 
   DenseMap<HLNode *, bool> GraphValidityMap;

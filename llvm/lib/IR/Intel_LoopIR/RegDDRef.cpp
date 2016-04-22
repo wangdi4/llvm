@@ -131,7 +131,7 @@ void RegDDRef::setMetadata(StringRef Kind, MDNode *Node) {
 
 void RegDDRef::setMetadata(unsigned KindID, MDNode *Node) {
   // TODO: Handle DbgLoc.
-  createGEP();
+  assert(hasGEPInfo() && "Metadata can be attached only to GEP DDRefs");
 
   MDPairTy MD(KindID, Node);
 
@@ -141,11 +141,31 @@ void RegDDRef::setMetadata(unsigned KindID, MDNode *Node) {
   auto It = std::lower_bound(Beg, End, MD, GEPInfo::MDKindCompareLess());
 
   if ((It != End) && GEPInfo::MDKindCompareEqual()(*It, MD)) {
-    It->second = Node;
-
+    // Update Node
+    if (Node) {
+      It->second = Node;
+    } else {
+      // Remove Node
+      GepInfo->MDNodes.erase(It);
+    }
   } else {
-    GepInfo->MDNodes.insert(It, MD);
+    // Not found in MDNodes
+    if (Node) {
+      GepInfo->MDNodes.insert(It, MD);
+    }
   }
+}
+
+void RegDDRef::getAAMetadata(AAMDNodes &AANodes) const {
+  AANodes.Scope = getMetadata(LLVMContext::MD_alias_scope);
+  AANodes.NoAlias = getMetadata(LLVMContext::MD_noalias);
+  AANodes.TBAA = getMetadata(LLVMContext::MD_tbaa);
+}
+
+void RegDDRef::setAAMetadata(AAMDNodes &AANodes) {
+  setMetadata(LLVMContext::MD_alias_scope, AANodes.Scope);
+  setMetadata(LLVMContext::MD_noalias, AANodes.NoAlias);
+  setMetadata(LLVMContext::MD_tbaa, AANodes.TBAA);
 }
 
 unsigned RegDDRef::findMaxBlobLevel(
