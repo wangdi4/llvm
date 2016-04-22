@@ -43,6 +43,7 @@ class Function;
 class Instruction;
 class MDString;
 class PHINode;
+class ScalarEvolution;
 
 namespace loopopt {
 
@@ -61,6 +62,9 @@ class HIRScalarSymbaseAssignment : public FunctionPass {
 private:
   /// Func - The function we are analyzing.
   Function *Func;
+
+  /// SE - Scalar Evolution analysis for the function.
+  ScalarEvolution *SE;
 
   /// RI - Region Identification analysis.
   HIRRegionIdentification *RI;

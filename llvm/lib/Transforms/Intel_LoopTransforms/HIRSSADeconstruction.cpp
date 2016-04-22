@@ -90,12 +90,6 @@ public:
   }
 
 private:
-  enum MetadataType {
-    LiveInType,
-    LiveOutType,
-    LiveRangeType,
-  };
-
   /// \brief Attaches a string metadata node to instruction. This will be used
   /// by ScalarSymbaseAssignment to assign symbases. The metadata kind used for
   /// livein/liveout values is different because livein copies need to be
@@ -103,7 +97,7 @@ private:
   /// don't. Live range type is used to indicate live range violation and
   /// suppress traceback during SCEV creation.
   void attachMetadata(Instruction *Inst, StringRef Name,
-                      MetadataType MType) const;
+                      ScalarEvolution::HIRLiveKind Kind) const;
 
   /// \brief Returns a copy of Val.
   Instruction *createCopy(Value *Val, StringRef Name, bool IsLivein) const;
@@ -187,20 +181,15 @@ FunctionPass *llvm::createHIRSSADeconstructionPass() {
   return new HIRSSADeconstruction();
 }
 
-void HIRSSADeconstruction::attachMetadata(Instruction *Inst, StringRef Name,
-                                          MetadataType MType) const {
+void HIRSSADeconstruction::attachMetadata(
+    Instruction *Inst, StringRef Name,
+    ScalarEvolution::HIRLiveKind Kind) const {
   Twine NewName(Name, ".de.ssa");
 
   Metadata *Args[] = {MDString::get(Inst->getContext(), NewName.str())};
   MDNode *Node = MDNode::get(Inst->getContext(), Args);
 
-  if (MType == LiveInType) {
-    Inst->setMetadata(HIR_LIVE_IN_STR, Node);
-  } else if (MType == LiveOutType) {
-    Inst->setMetadata(HIR_LIVE_OUT_STR, Node);
-  } else {
-    Inst->setMetadata(HIR_LIVE_RANGE_STR, Node);
-  }
+  Inst->setMetadata(SE->getHIRMDKindID(Kind), Node);
 }
 
 Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
@@ -210,7 +199,8 @@ Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
   auto CInst =
       CastInst::Create(Instruction::BitCast, Val, Val->getType(), NewName);
 
-  attachMetadata(CInst, Name, IsLivein ? LiveInType : LiveOutType);
+  attachMetadata(CInst, Name, IsLivein ? ScalarEvolution::HIRLiveKind::LiveIn
+                                       : ScalarEvolution::HIRLiveKind::LiveOut);
 
   return CInst;
 }
@@ -623,7 +613,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
 
         // Attach live range type metadata to suppress SCEV traceback.
         attachMetadata(const_cast<Instruction *>(SCCInst), Name.str(),
-                       LiveRangeType);
+                       ScalarEvolution::HIRLiveKind::LiveRange);
         // Tell SCEV to reparse the instruction.
         SE->forgetValue(const_cast<Instruction *>(SCCInst));
       }
@@ -633,7 +623,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
       // Attach metadata to the root node to connect the SCC to its livein
       // copies.
       attachMetadata(const_cast<Instruction *>(PhiSCC->Root), Name.str(),
-                     LiveInType);
+                     ScalarEvolution::HIRLiveKind::LiveIn);
     }
 
   } else {
@@ -669,7 +659,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     constructName(Phi, Name);
 
     // Attach metadata to Phi to connect it to its copies.
-    attachMetadata(Phi, Name.str(), LiveInType);
+    attachMetadata(Phi, Name.str(), ScalarEvolution::HIRLiveKind::LiveIn);
 
     processPhiLiveins(Phi, nullptr, Name.str());
     processPhiLiveouts(Phi, nullptr, Name.str());

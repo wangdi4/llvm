@@ -474,8 +474,7 @@ private:
   unsigned NumSubBlobs;
 
 public:
-  NestedBlobChecker(const HIRParser &HIRP)
-      : HIRP(HIRP), NumSubBlobs(0) {}
+  NestedBlobChecker(const HIRParser &HIRP) : HIRP(HIRP), NumSubBlobs(0) {}
 
   ~NestedBlobChecker() {}
 
@@ -499,7 +498,7 @@ bool HIRParser::isNestedBlob(BlobTy Blob) const {
   NestedBlobChecker NBC(*this);
   SCEVTraversal<NestedBlobChecker> Collector(NBC);
   Collector.visitAll(Blob);
-  
+
   return NBC.isNestedBlob();
 }
 
@@ -704,7 +703,8 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
 
   if (!CurInst) {
     CurInst = HIRP->getCurInst();
-    IsLiveInCopy = HIRP->SE->isHIRLiveInCopyInst(CurInst);
+    IsLiveInCopy =
+        HIRP->SE->getHIRMetadata(CurInst, ScalarEvolution::HIRLiveKind::LiveIn);
     FirstInst = true;
 
     // We just started the traceback, clear previous entries.
@@ -2130,7 +2130,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   // In some cases float* is converted into i32* before loading/storing. This
   // info is propagated into the BaseCE dest type.
   if (auto BCInst = dyn_cast<BitCastInst>(GEPVal)) {
-    if (!SE->isHIRCopyInst(BCInst) &&
+    if (!SE->getHIRMetadata(BCInst, ScalarEvolution::HIRLiveKind::LiveOut) &&
         RI->isSupported(BCInst->getOperand(0)->getType())) {
       GEPVal = BCInst->getOperand(0);
       DestTy = BCInst->getDestTy();
@@ -2141,7 +2141,8 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
   // Try to get to the phi associated with this GEP.
   // Do not cross the live range indicator for GEP uses (load/store/bitcast).
-  if ((!IsUse || !GEPInst || !SE->isHIRLiveRangeIndicator(GEPInst)) &&
+  if ((!IsUse || !GEPInst ||
+       !SE->getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) &&
       (GEPOp = dyn_cast<GEPOperator>(GEPVal))) {
 
     BasePhi = dyn_cast<PHINode>(GEPOp->getPointerOperand());

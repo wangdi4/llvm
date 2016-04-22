@@ -36,6 +36,7 @@ using namespace llvm::loopopt;
 INITIALIZE_PASS_BEGIN(HIRScalarSymbaseAssignment,
                       "hir-scalar-symbase-assignment",
                       "HIR Scalar Symbase Assignment", false, true)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(HIRSCCFormation)
 INITIALIZE_PASS_END(HIRScalarSymbaseAssignment, "hir-scalar-symbase-assignment",
@@ -53,6 +54,7 @@ HIRScalarSymbaseAssignment::HIRScalarSymbaseAssignment() : FunctionPass(ID) {
 
 void HIRScalarSymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
+  AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<HIRRegionIdentification>();
   AU.addRequired<HIRSCCFormation>();
 }
@@ -242,7 +244,7 @@ MDString *
 HIRScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
   // We only care about livein copies here because unlike liveout copies, livein
   // copies need to be assigned the same symbase as other values in the SCC.
-  auto MDNode = Inst->getMetadata(HIR_LIVE_IN_STR);
+  auto MDNode = SE->getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn);
 
   if (!MDNode) {
     return nullptr;
@@ -396,6 +398,7 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
 
 bool HIRScalarSymbaseAssignment::runOnFunction(Function &F) {
   Func = &F;
+  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   SCCF = &getAnalysis<HIRSCCFormation>();
   RI = &getAnalysis<HIRRegionIdentification>();
 

@@ -4718,27 +4718,33 @@ ScalarEvolution::getRange(const SCEV *S,
 }
 
 #if INTEL_CUSTOMIZATION // HIR parsing 
+unsigned ScalarEvolution::getHIRMDKindID(HIRLiveKind Kind) {
 
-const char* const llvm::HIR_LIVE_IN_STR = "in.de.ssa";
-const char* const llvm::HIR_LIVE_OUT_STR = "out.de.ssa";
-const char* const llvm::HIR_LIVE_RANGE_STR = "live.range.de.ssa";
+  // Initialize all kinds together.
+  if (!HIRLiveInID) {
+    HIRLiveInID = getContext().getMDKindID("in.de.ssa");
+    HIRLiveOutID = getContext().getMDKindID("out.de.ssa");
+    HIRLiveRangeID = getContext().getMDKindID("live.range.de.ssa");
+  }
 
-bool ScalarEvolution::isHIRLiveInCopyInst(const Instruction *Inst) const {
-  return Inst->getMetadata(HIR_LIVE_IN_STR);
+  switch(Kind) {
+  case HIRLiveKind::LiveIn: 
+      return HIRLiveInID;
+
+  case HIRLiveKind::LiveOut: 
+    return HIRLiveOutID;
+
+  case HIRLiveKind::LiveRange: 
+    return HIRLiveRangeID;
+  }
+
+  llvm_unreachable("Invalid HIRLiveKind encountered!");
 }
 
-bool ScalarEvolution::isHIRLiveOutCopyInst(const Instruction *Inst) const {
-  return Inst->getMetadata(HIR_LIVE_OUT_STR);
+MDNode *ScalarEvolution::getHIRMetadata(const Instruction *Inst, 
+                                        HIRLiveKind Kind) {
+  return Inst->getMetadata(getHIRMDKindID(Kind));
 }
-
-bool ScalarEvolution::isHIRCopyInst(const Instruction *Inst) const {
-  return isHIRLiveInCopyInst(Inst) || isHIRLiveOutCopyInst(Inst);
-}
-
-bool ScalarEvolution::isHIRLiveRangeIndicator(const Instruction *Inst) const {
-  return Inst->getMetadata(HIR_LIVE_RANGE_STR);
-}
-
 #endif // INTEL_CUSTOMIZATION
 
 SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {
@@ -4817,7 +4823,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
 
     // INTEL - Suppress traceback for instructions indicating possible live
     // range violation.
-    if (isHIRLiveRangeIndicator(I))
+    if (getHIRMetadata(I, HIRLiveKind::LiveRange))
       return getUnknown(V);
 
   } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(V))
@@ -4847,7 +4853,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
 #if INTEL_CUSTOMIZATION // HIR parsing 
       if (!U || (Opcode != Instruction::Add && Opcode != Instruction::Sub) ||
           (isa<Instruction>(Op) && 
-          isHIRLiveRangeIndicator(cast<Instruction>(Op)))) {
+          getHIRMetadata(cast<Instruction>(Op), HIRLiveKind::LiveRange))) {
 #endif // INTEL_CUSTOMIZATION
         assert(Op != V && "V should be an add");
         AddOps.push_back(getSCEV(Op));
@@ -4891,7 +4897,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
       U = dyn_cast<Operator>(Op);
 #if INTEL_CUSTOMIZATION // HIR parsing 
       if (!U || U->getOpcode() != Instruction::Mul || (isa<Instruction>(Op) &&
-          isHIRLiveRangeIndicator(cast<Instruction>(Op)))) {
+          getHIRMetadata(cast<Instruction>(Op), HIRLiveKind::LiveRange))) {
 #endif // INTEL_CUSTOMIZATION
         assert(Op != V && "V should be a mul");
         MulOps.push_back(getSCEV(Op));
@@ -5109,7 +5115,8 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
 
   case Instruction::BitCast:
     // INTEL - Suppress traceback for liveout copy instructions inserted by HIR.
-    if (!isa<Instruction>(V) || !isHIRLiveOutCopyInst(cast<Instruction>(V)))  
+    if (!isa<Instruction>(V) || 
+        !getHIRMetadata(cast<Instruction>(V), HIRLiveKind::LiveOut))  
       // BitCasts are no-op casts so we just eliminate the cast.
       if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
         return getSCEV(U->getOperand(0));
@@ -9450,6 +9457,9 @@ ScalarEvolution::ScalarEvolution(ScalarEvolution &&Arg)
       CouldNotCompute(std::move(Arg.CouldNotCompute)),
       ValueExprMap(std::move(Arg.ValueExprMap)),
       HIRValueExprMap(std::move(Arg.HIRValueExprMap)), // INTEL
+      HIRLiveInID(Arg.HIRLiveInID), // INTEL
+      HIRLiveOutID(Arg.HIRLiveOutID), // INTEL
+      HIRLiveRangeID(Arg.HIRLiveRangeID), // INTEL
       WalkingBEDominatingConds(false), ProvingSplitPredicate(false),
       BackedgeTakenCounts(std::move(Arg.BackedgeTakenCounts)),
       HIRBackedgeTakenCounts(std::move(Arg.HIRBackedgeTakenCounts)), // INTEL

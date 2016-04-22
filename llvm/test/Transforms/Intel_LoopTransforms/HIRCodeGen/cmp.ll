@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
 ;Verify cmp instructions are correctly generated
 ;          BEGIN REGION { }
 ;<29>         + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
@@ -56,15 +56,17 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
 define void @_Z3fooPiS_i(i32* nocapture %A, i32* nocapture %B, i32 %n) {
 entry:
   %cmp.28 = icmp sgt i32 %n, 0
-  br i1 %cmp.28, label %for.body, label %for.end
+  br i1 %cmp.28, label %for.body.preheader, label %for.end
 
-for.body:                                         ; preds = %entry, %for.inc
-  %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc ], [ 0, %entry ]
-  %small.030 = phi i8 [ %frombool, %for.inc ], [ 0, %entry ]
+for.body.preheader:                               ; preds = %entry
+  br label %for.body
+
+for.body:                                         ; preds = %for.body.preheader, %for.inc
+  %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc ], [ 0, %for.body.preheader ]
+  %small.030 = phi i8 [ %frombool, %for.inc ], [ 0, %for.body.preheader ]
   %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
   %0 = load i32, i32* %arrayidx, align 4
   %arrayidx2 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
@@ -85,13 +87,15 @@ if.else:                                          ; preds = %for.body
   store i32 %0, i32* %arrayidx2, align 4
   br label %for.inc
 
-for.inc:                                          ; preds = %if.then, %if.else
+for.inc:                                          ; preds = %if.else, %if.then
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n
-  br i1 %exitcond, label %for.end, label %for.body
+  br i1 %exitcond, label %for.end.loopexit, label %for.body
 
-for.end:                                          ; preds = %for.inc, %entry
+for.end.loopexit:                                 ; preds = %for.inc
+  br label %for.end
+
+for.end:                                          ; preds = %for.end.loopexit, %entry
   ret void
 }
-
