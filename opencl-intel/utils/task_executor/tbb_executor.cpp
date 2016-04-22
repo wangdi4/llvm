@@ -210,7 +210,8 @@ void immediate_executor_task::operator()()
 
 /////////////// TaskExecutor //////////////////////
 TBBTaskExecutor::TBBTaskExecutor() :
-    m_pScheduler(NULL)
+    m_pScheduler(NULL),
+    m_pLoggerClient(NULL)
 {
     // we deliberately don't delete m_pScheduler (see comment above its definition)
 }
@@ -292,8 +293,7 @@ void TBBTaskExecutor::Finalize()
         m_pScheduler = NULL;
     }
 
-    gWorker_threads = 0;    
-    LOG_INFO(TEXT("%s"),"TBBTaskExecutor Destroyed");
+    gWorker_threads = 0;
     RELEASE_LOGGER_CLIENT;
 }
 
