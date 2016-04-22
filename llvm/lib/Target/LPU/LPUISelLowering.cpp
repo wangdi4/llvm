@@ -400,6 +400,14 @@ bool LPUTargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
   return NumBits1 > NumBits2;
 }
 
+bool LPUTargetLowering::isTruncateFree(Type *Ty1, Type *Ty2) const {
+  if (!Ty1->isIntegerTy() || !Ty2->isIntegerTy())
+    return false;
+  unsigned NumBits1 = Ty1->getPrimitiveSizeInBits();
+  unsigned NumBits2 = Ty2->getPrimitiveSizeInBits();
+  return NumBits1 > NumBits2;
+}
+
 bool LPUTargetLowering::isZExtFree(Type *Ty1, Type *Ty2) const {
   // Using a small op only references the relevant bits
   return true;
@@ -418,6 +426,40 @@ bool LPUTargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
 bool LPUTargetLowering::isNarrowingProfitable(EVT VT1, EVT VT2) const {
   return true;
 }
+
+
+// isLegalAddressingMode - Return true if the addressing mode represented
+// by AM is legal for this target, for a load/store of the specified type.
+bool LPUTargetLowering::isLegalAddressingMode(const AddrMode &AM,
+  Type *Ty) const {
+  /**/
+  // X86 supports extremely general addressing modes.
+  CodeModel::Model M = getTargetMachine().getCodeModel();
+  Reloc::Model R = getTargetMachine().getRelocationModel();
+
+  switch (AM.Scale) {
+  case 0:
+  case 1:
+  case 2:
+  case 4:
+  case 8:
+    // These scales always work.
+    break;
+  case 3:
+  case 5:
+  case 9:
+    // These scales are formed with basereg+scalereg.  Only accept if there is
+    // no basereg yet.
+    if (AM.HasBaseReg)
+      return false;
+    break;
+  default:  // Other stuff never works.
+    return false;
+  }
+
+  return true;
+}
+
 
 
 //===----------------------------------------------------------------------===//
