@@ -798,10 +798,13 @@ struct CrtBuildCallBackData
     CrtBuildCallBackData( cl_program prog, prog_logging_fn pfn_notify, void* user_data ):
         m_pfnNotify( pfn_notify ),
         m_userData( user_data ),
+        m_refCount( 1 ),
+        m_numBuild( 0 ),
         m_clProgramHandle( prog ) {};
 
     prog_logging_fn                     m_pfnNotify;
     void *                              m_userData;
+    long                                m_refCount;
     long                                m_numBuild;
     cl_program                          m_clProgramHandle;
     OCLCRT::Utils::OclBinarySemaphore   m_lock;
