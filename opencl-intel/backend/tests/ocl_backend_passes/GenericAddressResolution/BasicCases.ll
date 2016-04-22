@@ -44,10 +44,9 @@
 
 ; CHECK: declare float @_Z5fractfPU3AS1f(float, float addrspace(1)*)
 
-; BUGBUG: !3 = !{!4, !5}                             BUGBUG in Metadata (CQ CSSD100017034)
-; BUGBUG: !4 = !{!"gen_addr_space_pointer_counter", i32 3}    BUGBUG in Metadata (CQ CSSD100017034)
-; BUGBUG: !5 = !{!"gen_addr_space_pointer_warnings", i32 0}   BUGBUG in Metadata (CQ CSSD100017034)
-  
+; CHECK: !{{[0-9]+}} = !{!{{[0-9]+}}, ![[GASCount:[0-9]+]], ![[GASWarnings:[0-9]+]]}
+; CHECK: ![[GASCount]] = !{!"gen_addr_space_pointer_counter", i32 3}
+; CHECK: ![[GASWarnings]] = !{!"gen_addr_space_pointer_warnings"}
 
 define void @test1(i32 addrspace(4)* %a) nounwind {
 entry:
