@@ -1033,6 +1033,10 @@ namespace llvm {
     /// is assumed to be the outermost loop of the loopnest. A null outermost
     /// loop specifies disabling all AddRecs.
     const SCEV *getSCEVForHIR(Value *Val, const Loop *OutermostLoop);
+
+    /// Returns a SCEVAtScope expression suitable for HIR consumption.
+    const SCEV *getSCEVAtScopeForHIR(const SCEV *SC, const Loop *Lp,
+                                     const Loop *OutermostLoop);
 #endif  // INTEL_CUSTOMIZATION
 
     const SCEV *getConstant(ConstantInt *V);

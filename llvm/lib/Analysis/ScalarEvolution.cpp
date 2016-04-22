@@ -3511,6 +3511,19 @@ const SCEV *ScalarEvolution::getSCEVForHIR(Value *Val,
   return SC;
 }
 
+const SCEV *ScalarEvolution::getSCEVAtScopeForHIR(const SCEV *SC, 
+                                                  const Loop *Lp,
+                                                  const Loop *OutermostLoop) {
+  HIRInfo.set(OutermostLoop);
+
+  SC = getSCEVAtScope(SC, Lp);
+
+  HIRInfo.reset();
+
+  return SC;
+}
+
+
 bool ScalarEvolution::isLoopZtt(const Loop *Lp, const BranchInst *ZttInst) {
 
   auto ZttCond = ZttInst->getCondition();

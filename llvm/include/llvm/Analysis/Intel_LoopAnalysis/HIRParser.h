@@ -88,6 +88,9 @@ private:
   typedef std::pair<BlobTy, unsigned> BlobSymbasePairTy;
   typedef SmallVector<BlobSymbasePairTy, 64> BlobTableTy;
 
+  /// DT - The dominator tree.
+  DominatorTree *DT;
+
   /// LI - The loop information for the function we are currently analyzing.
   LoopInfo *LI;
 
@@ -162,6 +165,9 @@ private:
 
   /// PointerBlobFinder - Used to find pointer type blobs.
   class PointerBlobFinder;
+
+  /// ScopeSCEVValidator - Validates SCEV returned by getSCEVAtScope().
+  class ScopeSCEVValidator;
 
   /// \brief Visits HIR and calls HIRParser's parse*() utilities. Parsing for
   /// non-essential HLInsts is postponed for phase2. Refer to isEssential().
@@ -259,18 +265,24 @@ private:
                                    BlobTy *NewBlob);
 
   /// \brief Parses a blob into CE. If IVLevel is non-zero, blob is parsed as an
-  /// IV coeff.
-  void parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
-                 unsigned IVLevel = 0);
+  /// IV coeff. If IndicateFailure is set, the function returns true/false
+  /// indicating parsing success/failure instead of asserting on failures.
+  bool parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
+                 unsigned IVLevel = 0, bool IndicateFailure = false);
+
+  /// \brief Returns true if the passed in SCEV is valid for use in HIR.
+  bool isValidScopeSCEV(const SCEV *SC) const;
 
   /// \brief Calls SE->getSCEVAtScope() based on the location of CurNode.
   const SCEV *getSCEVAtScope(const SCEV *SC) const;
 
   /// \brief Recursively parses SCEV tree into CanonExpr. IsTop is true when we
   /// are at the top of the tree and UnderCast is true if we are under a cast
-  /// type SCEV.
-  void parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
-                      bool IsTop = true, bool UnderCast = false);
+  /// type SCEV. If IndicateFailure is set, the function returns true/false
+  /// indicating parsing success/failure instead of asserting on failures.
+  bool parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
+                      bool IsTop = true, bool UnderCast = false,
+                      bool IndicateFailure = false);
 
   /// \brief Forces incoming value to be parsed as a blob.
   CanonExpr *parseAsBlob(const Value *Val, unsigned Level);
