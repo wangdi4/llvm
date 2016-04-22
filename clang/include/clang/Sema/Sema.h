@@ -8697,11 +8697,6 @@ public:
   // type.
   ExprResult DefaultLvalueConversion(Expr *E);
 
-  // DefaultArgumentPromotion (C99 6.5.2.2p6). Used for function calls that
-  // do not have a prototype. Integer promotions are performed on each
-  // argument, and arguments that have type float are promoted to double.
-  ExprResult DefaultArgumentPromotion(Expr *E);
-
   // Used for emitting the right warning by DefaultVariadicArgumentPromotion
   enum VariadicCallType {
     VariadicFunction,
@@ -8711,6 +8706,15 @@ public:
     VariadicDoesNotApply
   };
 
+#ifdef INTEL_CUSTOMIZATION
+  // cq381613: The declaration is pulled down and additional argument was added.
+  //
+  // DefaultArgumentPromotion (C99 6.5.2.2p6). Used for function calls that
+  // do not have a prototype. Integer promotions are performed on each
+  // argument, and arguments that have type float are promoted to double.
+  ExprResult
+  DefaultArgumentPromotion(Expr *E, VariadicCallType CT = VariadicDoesNotApply);
+#endif // INTEL_CUSTOMIZATION
   VariadicCallType getVariadicCallType(FunctionDecl *FDecl,
                                        const FunctionProtoType *Proto,
                                        Expr *Fn);
@@ -9032,8 +9036,10 @@ public:
 
   /// \brief Type-check an expression that's being passed to an
   /// __unknown_anytype parameter.
-  ExprResult checkUnknownAnyArg(SourceLocation callLoc,
-                                Expr *result, QualType &paramType);
+  ExprResult                                                            // INTEL
+  checkUnknownAnyArg(SourceLocation callLoc,                            // INTEL
+                     Expr *result, QualType &paramType,                 // INTEL
+                     VariadicCallType CallType = VariadicDoesNotApply); // INTEL
 
   // CheckVectorCast - check type constraints for vectors.
   // Since vectors are an extension, there are no C standard reference for this.

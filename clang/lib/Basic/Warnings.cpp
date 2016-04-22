@@ -74,6 +74,13 @@ void clang::ProcessWarningOptions(DiagnosticsEngine &Diags,
   SmallVector<diag::kind, 10> _Diags;
   const IntrusiveRefCntPtr< DiagnosticIDs > DiagIDs =
     Diags.getDiagnosticIDs();
+#if  INTEL_CUSTOMIZATION
+  // cq381613: If IntelCompat change default error to warning.
+  if (IgnoreIgnored) {
+    Diags.setDiagnosticGroupWarningAsError("non-pod-varargs", false,
+                                           true);
+  }
+#endif //INTEL_CUSTOMIZATION
   // We parse the warning options twice.  The first pass sets diagnostic state,
   // while the second pass reports warnings/errors.  This has the effect that
   // we follow the more canonical "last option wins" paradigm when there are 

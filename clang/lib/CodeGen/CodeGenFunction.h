@@ -3437,7 +3437,8 @@ public:
                            const FunctionDecl *FD, unsigned ParmNum);
 
   /// EmitCallArg - Emit a single call argument.
-  void EmitCallArg(CallArgList &args, const Expr *E, QualType ArgType);
+  void EmitCallArg(CallArgList &args, const Expr *E,   // INTEL
+                   QualType ArgType, bool IsVariadic); // INTEL
 
   /// EmitDelegateCallArg - We are performing a delegate call; that
   /// is, the current function is delegating to another one.  Produce

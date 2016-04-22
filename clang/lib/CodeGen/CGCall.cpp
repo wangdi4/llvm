@@ -3149,9 +3149,11 @@ void CodeGenFunction::EmitCallArgs(
 
     // Evaluate each argument.
     size_t CallArgsStart = Args.size();
+    bool IsVariadic = CalleeDecl ? CalleeDecl->isVariadic() : false; // INTEL
     for (int I = ArgTypes.size() - 1; I >= 0; --I) {
       CallExpr::const_arg_iterator Arg = ArgRange.begin() + I;
-      EmitCallArg(Args, *Arg, ArgTypes[I]);
+      EmitCallArg(Args, *Arg, ArgTypes[I],                              // INTEL
+                  IsVariadic && I >= (int)CalleeDecl->getNumParams ()); // INTEL
       EmitNonNullArgCheck(Args.back().RV, ArgTypes[I], (*Arg)->getExprLoc(),
                           CalleeDecl, ParamsToSkip + I);
       MaybeEmitImplicitObjectSize(I, *Arg);
@@ -3163,10 +3165,12 @@ void CodeGenFunction::EmitCallArgs(
     return;
   }
 
+  bool IsVariadic = CalleeDecl ? CalleeDecl->isVariadic() : false; // INTEL
   for (unsigned I = 0, E = ArgTypes.size(); I != E; ++I) {
     CallExpr::const_arg_iterator Arg = ArgRange.begin() + I;
     assert(Arg != ArgRange.end());
-    EmitCallArg(Args, *Arg, ArgTypes[I]);
+    EmitCallArg(Args, *Arg, ArgTypes[I],                         // INTEL
+                IsVariadic && I >= CalleeDecl->getNumParams ()); // INTEL
     EmitNonNullArgCheck(Args.back().RV, ArgTypes[I], (*Arg)->getExprLoc(),
                         CalleeDecl, ParamsToSkip + I);
     MaybeEmitImplicitObjectSize(I, *Arg);
@@ -3206,7 +3210,7 @@ struct DisableDebugLocationUpdates {
 } // end anonymous namespace
 
 void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
-                                  QualType type) {
+                                  QualType type, bool IsVariadic) { // INTEL
   DisableDebugLocationUpdates Dis(*this, E);
   if (const ObjCIndirectCopyRestoreExpr *CRE
         = dyn_cast<ObjCIndirectCopyRestoreExpr>(E)) {
@@ -3215,14 +3219,20 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     return emitWritebackArg(*this, args, CRE);
   }
 
+#if INTEL_CUSTOMIZATION
+  // cq381613: Not reference for variadic arguments. 
+  if (!getLangOpts().IntelCompat || !IsVariadic) {
+#endif // INTEL_CUSTOMIZATION
   assert(type->isReferenceType() == E->isGLValue() &&
          "reference binding to unmaterialized r-value!");
 
-  if (E->isGLValue()) {
+  if (E->isGLValue()) { // INTEL
     assert(E->getObjectKind() == OK_Ordinary);
     return args.add(EmitReferenceBindingToExpr(E), type);
   }
-
+#if INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
   bool HasAggregateEvalKind = hasAggregateEvaluationKind(type);
 
   // In the Microsoft C++ ABI, aggregate arguments are destructed by the callee.
