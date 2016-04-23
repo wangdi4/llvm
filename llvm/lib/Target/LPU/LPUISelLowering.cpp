@@ -409,18 +409,37 @@ bool LPUTargetLowering::isTruncateFree(Type *Ty1, Type *Ty2) const {
 }
 
 bool LPUTargetLowering::isZExtFree(Type *Ty1, Type *Ty2) const {
-  // Using a small op only references the relevant bits
-  return true;
+  // x86-64 implicitly zero-extends 32-bit results in 64-bit registers.
+  return Ty1->isIntegerTy(32) && Ty2->isIntegerTy(64);  //&& Subtarget->is64Bit()
 }
 
 bool LPUTargetLowering::isZExtFree(EVT VT1, EVT VT2) const {
-  // Using a small op only references the relevant bits
-  return true;
+  // x86-64 implicitly zero-extends 32-bit results in 64-bit registers.
+  return VT1 == MVT::i32 && VT2 == MVT::i64;  // && Subtarget->is64Bit()
 }
 
 bool LPUTargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
   EVT VT1 = Val.getValueType();
-  return (isZExtFree(VT1, VT2));
+  if (isZExtFree(VT1, VT2))
+    return true;
+
+  if (Val.getOpcode() != ISD::LOAD)
+    return false;
+
+  if (!VT1.isSimple() || !VT1.isInteger() ||
+    !VT2.isSimple() || !VT2.isInteger())
+    return false;
+
+  switch (VT1.getSimpleVT().SimpleTy) {
+  default: break;
+  case MVT::i8:
+  case MVT::i16:
+  case MVT::i32:
+    // X86 has 8, 16, and 32-bit zero-extending loads.
+    return true;
+  }
+
+  return false;
 }
 
 bool LPUTargetLowering::isNarrowingProfitable(EVT VT1, EVT VT2) const {
