@@ -230,7 +230,6 @@ multiclass BinOpNC<string opStr, SDNode opNode, RegisterClass RC,
   }
 }
 
-
 multiclass ShiftOp<string opStr, SDNode opNode, RegisterClass RC,
            ValueType opType, SDNode immNode, list<Predicate> preds,
            InstrItinClass itin = NoItinerary> {
@@ -242,9 +241,9 @@ multiclass ShiftOp<string opStr, SDNode opNode, RegisterClass RC,
       [(set RC:$dst, (opNode RC:$op1, I8:$op2))]>;
     def i : FMTGEN<
       (outs RC:$dst),
-      (ins RC:$op1, Operand<opType>:$imm),
+      (ins RC:$op1, Operand<i8>:$imm),
       !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set RC:$dst, (opNode RC:$op1, (opType immNode:$imm)))]>;
+      [(set RC:$dst, (opNode RC:$op1, (i8 immNode:$imm)))]>;
     // Only difference with BinOpC is this additional pattern, allowing
     // literal operation for the 1st of the 2 binary operands
     def i1 : FMTGEN<
@@ -255,11 +254,36 @@ multiclass ShiftOp<string opStr, SDNode opNode, RegisterClass RC,
   }
 }
 
-
-
+multiclass ShAdd<string opStr, SDNode inner, SDNode outer, RegisterClass RC,
+           ValueType opType, SDNode immNode, list<Predicate> preds,
+           InstrItinClass itin = NoItinerary> {
+  let Predicates = preds, Itinerary = itin in {
+    def "" : FMTGEN<
+      (outs RC:$dst),
+      (ins RC:$op1, I8:$op2, RC:$op3),
+      !strconcat(opStr, "\t$dst, $op1, $op2, $op3"),
+      [(set RC:$dst, (outer (inner RC:$op1, I8:$op2), RC:$op3))]>;
+    def i : FMTGEN<
+      (outs RC:$dst),
+      (ins RC:$op1, I8:$op2, Operand<opType>:$imm),
+      !strconcat(opStr, "\t$dst, $op1, $op2, $imm"),
+      [(set RC:$dst, (outer (inner RC:$op1, I8:$op2), (opType immNode:$imm)))]>;
+    def ix : FMTGEN<
+      (outs RC:$dst),
+      (ins RC:$op1, Operand<i8>:$imm, RC:$op3),
+      !strconcat(opStr, "\t$dst, $op1, $imm, $op3"),
+      [(set RC:$dst, (outer (inner RC:$op1, (i8 immNode:$imm)), RC:$op3))]>;
+    def ii : FMTGEN<
+      (outs RC:$dst),
+      (ins RC:$op1, Operand<i8>:$imm2, RC:$imm3),
+      !strconcat(opStr, "\t$dst, $op1, $imm2, $imm3"),
+      [(set RC:$dst, (outer (inner RC:$op1, (i8 immNode:$imm2)),
+                                                    (opType immNode:$imm3)))]>;
+  }
+}
 
 multiclass FusedOp1<string opStr, SDNode inner, SDNode outer, RegisterClass RC,
-           ValueType opType, list<Predicate> preds,
+           ValueType opType, SDNode immNode, list<Predicate> preds,
            InstrItinClass itin = NoItinerary> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
@@ -271,23 +295,23 @@ multiclass FusedOp1<string opStr, SDNode inner, SDNode outer, RegisterClass RC,
       (outs RC:$dst),
       (ins RC:$op1, RC:$op2, Operand<opType>:$imm),
       !strconcat(opStr, "\t$dst, $op1, $op2, $imm"),
-      [(set RC:$dst, (outer (inner RC:$op1, RC:$op2), (opType fpimm:$imm)))]>;
+      [(set RC:$dst, (outer (inner RC:$op1, RC:$op2), (opType immNode:$imm)))]>;
     def ix : FMTGEN<
       (outs RC:$dst),
       (ins RC:$op1, Operand<opType>:$imm, RC:$op3),
       !strconcat(opStr, "\t$dst, $op1, $imm, $op3"),
-      [(set RC:$dst, (outer (inner RC:$op1, (opType fpimm:$imm)), RC:$op3))]>;
+      [(set RC:$dst, (outer (inner RC:$op1, (opType immNode:$imm)), RC:$op3))]>;
     def ii : FMTGEN<
       (outs RC:$dst),
       (ins RC:$op1, Operand<opType>:$imm2, RC:$imm3),
       !strconcat(opStr, "\t$dst, $op1, $imm2, $imm3"),
-      [(set RC:$dst, (outer (inner RC:$op1, (opType fpimm:$imm2)),
-                                                    (opType fpimm:$imm3)))]>;
+      [(set RC:$dst, (outer (inner RC:$op1, (opType immNode:$imm2)),
+                                                    (opType immNode:$imm3)))]>;
   }
 }
 
 multiclass FusedOp2<string opStr, SDNode inner, SDNode outer, RegisterClass RC,
-           ValueType opType, list<Predicate> preds,
+           ValueType opType, SDNode immNode, list<Predicate> preds,
            InstrItinClass itin = NoItinerary> {
   let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
@@ -299,7 +323,7 @@ multiclass FusedOp2<string opStr, SDNode inner, SDNode outer, RegisterClass RC,
       (outs RC:$dst),
       (ins Operand<opType>:$imm, RC:$op2, RC:$op3),
       !strconcat(opStr, "\t$dst, $op2, $op3, $imm"),
-      [(set RC:$dst, (outer (opType fpimm:$imm), (inner RC:$op2, RC:$op3)))]>;
+      [(set RC:$dst, (outer (opType immNode:$imm), (inner RC:$op2, RC:$op3)))]>;
   }
 }
 
@@ -824,23 +848,29 @@ def LAND1 : FMTGEN<
   "land1\t$dst, $op1, $op2, $op3, $op4",
   []> { let Itinerary = IIALU; }
 
-defm FMAF16  : FusedOp1<"fmaf16",  fmul, fadd, I16, f16, [HasF16,HasFMA], IIFMAF16>;
-// crude handling of commutative
-defm FMAF16x : FusedOp2<"fmaf16",  fmul, fadd, I16, f16, [HasF16,HasFMA], IIFMAF16>;
-defm FMSF16  : FusedOp1<"fmsf16",  fmul, fsub, I16, f16, [HasF16,HasFMA], IIFMAF16>;
-defm FMRSF16 : FusedOp2<"fmrsf16", fmul, fsub, I16, f16, [HasF16,HasFMA], IIFMAF16>;
+// Shift/add - itinerary depends on constant small shift amt - else IShft...
+defm SLADD8  : ShAdd<"sladd8",  shl,  add,  I8,  i8,  imm,   [HasI8, HasShAdd], IIALU>;
+defm SLADD16 : ShAdd<"sladd16", shl,  add,  I16, i16, imm,   [HasI16,HasShAdd], IIALU>;
+defm SLADD32 : ShAdd<"sladd32", shl,  add,  I32, i32, imm,   [HasI32,HasShAdd], IIALU>;
+defm SLADD64 : ShAdd<"sladd64", shl,  add,  I64, i64, imm,   [HasI64,HasShAdd], IIALU>;
 
-defm FMAF32  : FusedOp1<"fmaf32",  fmul, fadd, I32, f32, [HasF32,HasFMA], IIFMAF32>;
+defm FMAF16  : FusedOp1<"fmaf16",  fmul, fadd, I16, f16, fpimm, [HasF16,HasFMA], IIFMAF16>;
 // crude handling of commutative
-defm FMAF32x : FusedOp2<"fmaf32",  fmul, fadd, I32, f32, [HasF32,HasFMA], IIFMAF32>;
-defm FMSF32  : FusedOp1<"fmsf32",  fmul, fsub, I32, f32, [HasF32,HasFMA], IIFMAF32>;
-defm FMRSF32 : FusedOp2<"fmrsf32", fmul, fsub, I32, f32, [HasF32,HasFMA], IIFMAF32>;
+defm FMAF16x : FusedOp2<"fmaf16",  fmul, fadd, I16, f16, fpimm, [HasF16,HasFMA], IIFMAF16>;
+defm FMSF16  : FusedOp1<"fmsf16",  fmul, fsub, I16, f16, fpimm, [HasF16,HasFMA], IIFMAF16>;
+defm FMRSF16 : FusedOp2<"fmrsf16", fmul, fsub, I16, f16, fpimm, [HasF16,HasFMA], IIFMAF16>;
 
-defm FMAF64  : FusedOp1<"fmaf64",  fmul, fadd, I64, f64, [HasF64,HasFMA], IIFMAF64>;
+defm FMAF32  : FusedOp1<"fmaf32",  fmul, fadd, I32, f32, fpimm, [HasF32,HasFMA], IIFMAF32>;
 // crude handling of commutative
-defm FMAF64x : FusedOp2<"fmaf64",  fmul, fadd, I64, f64, [HasF64,HasFMA], IIFMAF64>;
-defm FMSF64  : FusedOp1<"fmsf64",  fmul, fsub, I64, f64, [HasF64,HasFMA], IIFMAF64>;
-defm FMRSF64 : FusedOp2<"fmrsf64", fmul, fsub, I64, f64, [HasF64,HasFMA], IIFMAF64>;
+defm FMAF32x : FusedOp2<"fmaf32",  fmul, fadd, I32, f32, fpimm, [HasF32,HasFMA], IIFMAF32>;
+defm FMSF32  : FusedOp1<"fmsf32",  fmul, fsub, I32, f32, fpimm, [HasF32,HasFMA], IIFMAF32>;
+defm FMRSF32 : FusedOp2<"fmrsf32", fmul, fsub, I32, f32, fpimm, [HasF32,HasFMA], IIFMAF32>;
+
+defm FMAF64  : FusedOp1<"fmaf64",  fmul, fadd, I64, f64, fpimm, [HasF64,HasFMA], IIFMAF64>;
+// crude handling of commutative
+defm FMAF64x : FusedOp2<"fmaf64",  fmul, fadd, I64, f64, fpimm, [HasF64,HasFMA], IIFMAF64>;
+defm FMSF64  : FusedOp1<"fmsf64",  fmul, fsub, I64, f64, fpimm, [HasF64,HasFMA], IIFMAF64>;
+defm FMRSF64 : FusedOp2<"fmrsf64", fmul, fsub, I64, f64, fpimm, [HasF64,HasFMA], IIFMAF64>;
 
 // Should we do these, or drop and assume sext-at-consumer?
 // todo: LDS8
@@ -1010,6 +1040,46 @@ def REPEAT64 : FMTGEN<  // TODO: something to reflect state
   (ins I1:$pred, I64:$in),
   "repeat64\t$out, $pred, $in",
   []> { let Itinerary = IIALU; }
+
+
+multiclass Init<RegisterClass RC, ValueType opType, list<Predicate> preds> {
+ let Predicates = preds in {
+   def "" : PseudoInstLPU<
+      (outs RC:$dst),
+      (ins Operand<opType>:$imm),
+      ".lic\t$dst;\t.value $imm;\t.avail 0",
+      []>;
+  }
+}
+
+defm INIT0  : Init<I1,  i1,  [HasI1]>;
+defm INIT1  : Init<I1,  i1,  [HasI1]>;
+defm INIT8  : Init<I8,  i8,  [HasI8]>;
+defm INIT16 : Init<I16, i16, [HasI16]>;
+defm INIT32 : Init<I32, i32, [HasI32]>;
+defm INIT64 : Init<I64, i64, [HasI64]>;
+
+// Unit - type only
+def UNIT : PseudoInstLPU<
+    (outs),
+    (ins Operand<i64>:$immType),
+    ".unit\t$immType",
+    []>;
+
+// Unit type + index of unit in type only
+def UNITI : PseudoInstLPU<
+    (outs),
+    (ins Operand<i64>:$immType, Operand<i64>:$idx),
+    ".unit\t$immType, $idx",
+    []>;
+
+// Unit type / allocated - includes coordinate indicies
+def UNITA : PseudoInstLPU<
+    (outs),
+    (ins Operand<i64>:$immType, Operand<i64>:$idx1, Operand<i64>:$idx2),
+    ".unit\t$immType, $idx1, $idx2",
+    []>;
+
 
 // Arbitrary immediate support
 def: Pat<(i1 imm:$imm),  (MOV1 imm:$imm)>;
