@@ -51,8 +51,10 @@
 // CHECK-NEXT:    Size: 0
 // CHECK-NEXT:    Binding: Local
 // CHECK-NEXT:    Type: None
-// CHECK-NEXT:    Other: 0
-// CHECK-NEXT:    Section: Absolute
+// CHECK-NEXT:    Other [
+// CHECK-NEXT:      STV_HIDDEN
+// CHECK-NEXT:    ]
+// CHECK-NEXT:    Section: .rela.plt
 // CHECK-NEXT:  }
 // CHECK-NEXT:  Symbol {
 // CHECK-NEXT:    Name: __rela_iplt_start
@@ -60,8 +62,10 @@
 // CHECK-NEXT:    Size: 0
 // CHECK-NEXT:    Binding: Local
 // CHECK-NEXT:    Type: None
-// CHECK-NEXT:    Other: 0
-// CHECK-NEXT:    Section: Absolute
+// CHECK-NEXT:    Other [
+// CHECK-NEXT:      STV_HIDDEN
+// CHECK-NEXT:    ]
+// CHECK-NEXT:    Section: .rela.plt
 // CHECK-NEXT:  }
 // CHECK-NEXT:  Symbol {
 // CHECK-NEXT:    Name: _start

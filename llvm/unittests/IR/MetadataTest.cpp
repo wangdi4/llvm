@@ -174,8 +174,8 @@ TEST_F(MDNodeTest, Simple) {
 
   MDString *s1 = MDString::get(Context, StringRef(&x[0], 3));
   MDString *s2 = MDString::get(Context, StringRef(&y[0], 3));
-  ConstantAsMetadata *CI = ConstantAsMetadata::get(
-      ConstantInt::get(getGlobalContext(), APInt(8, 0)));
+  ConstantAsMetadata *CI =
+      ConstantAsMetadata::get(ConstantInt::get(Context, APInt(8, 0)));
 
   std::vector<Metadata *> V;
   V.push_back(s1);
@@ -206,8 +206,8 @@ TEST_F(MDNodeTest, Simple) {
 }
 
 TEST_F(MDNodeTest, Delete) {
-  Constant *C = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1);
-  Instruction *I = new BitCastInst(C, Type::getInt32Ty(getGlobalContext()));
+  Constant *C = ConstantInt::get(Type::getInt32Ty(Context), 1);
+  Instruction *I = new BitCastInst(C, Type::getInt32Ty(Context));
 
   Metadata *const V = LocalAsMetadata::get(I);
   MDNode *n = MDNode::get(Context, V);
@@ -1413,9 +1413,10 @@ TEST_F(DISubprogramTest, get) {
   bool IsDefinition = true;
   unsigned ScopeLine = 3;
   DITypeRef ContainingType = getCompositeType();
-  unsigned Virtuality = 4;
+  unsigned Virtuality = 2;
   unsigned VirtualIndex = 5;
   unsigned Flags = 6;
+  unsigned NotFlags = (~Flags) & ((1 << 27) - 1);
   bool IsOptimized = false;
   MDTuple *TemplateParams = getTuple();
   DISubprogram *Declaration = getSubprogram();
@@ -1513,7 +1514,7 @@ TEST_F(DISubprogramTest, get) {
   EXPECT_NE(N, DISubprogram::get(Context, Scope, Name, LinkageName, File, Line,
                                  Type, IsLocalToUnit, IsDefinition, ScopeLine,
                                  ContainingType, Virtuality, VirtualIndex,
-                                 ~Flags, IsOptimized, TemplateParams,
+                                 NotFlags, IsOptimized, TemplateParams,
                                  Declaration, Variables));
   EXPECT_NE(N, DISubprogram::get(Context, Scope, Name, LinkageName, File, Line,
                                  Type, IsLocalToUnit, IsDefinition, ScopeLine,
@@ -2061,8 +2062,8 @@ TEST_F(ValueAsMetadataTest, UpdatesOnRAUW) {
 
 TEST_F(ValueAsMetadataTest, TempTempReplacement) {
   // Create a constant.
-  ConstantAsMetadata *CI = ConstantAsMetadata::get(
-      ConstantInt::get(getGlobalContext(), APInt(8, 0)));
+  ConstantAsMetadata *CI =
+      ConstantAsMetadata::get(ConstantInt::get(Context, APInt(8, 0)));
 
   auto Temp1 = MDTuple::getTemporary(Context, None);
   auto Temp2 = MDTuple::getTemporary(Context, {CI});
@@ -2078,8 +2079,8 @@ TEST_F(ValueAsMetadataTest, TempTempReplacement) {
 
 TEST_F(ValueAsMetadataTest, CollidingDoubleUpdates) {
   // Create a constant.
-  ConstantAsMetadata *CI = ConstantAsMetadata::get(
-      ConstantInt::get(getGlobalContext(), APInt(8, 0)));
+  ConstantAsMetadata *CI =
+      ConstantAsMetadata::get(ConstantInt::get(Context, APInt(8, 0)));
 
   // Create a temporary to prevent nodes from resolving.
   auto Temp = MDTuple::getTemporary(Context, None);

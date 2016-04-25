@@ -113,8 +113,8 @@ template <class ELFT> void elf::markLive(SymbolTable<ELFT> *Symtab) {
   // Preserve externally-visible symbols if the symbols defined by this
   // file can interrupt other ELF file's symbols at runtime.
   if (Config->Shared || Config->ExportDynamic) {
-    for (const std::pair<StringRef, Symbol *> &P : Symtab->getSymbols()) {
-      SymbolBody *B = P.second->Body;
+    for (const Symbol *S : Symtab->getSymbols()) {
+      SymbolBody *B = S->Body;
       if (B->getVisibility() == STV_DEFAULT)
         MarkSymbol(B);
     }
@@ -124,7 +124,7 @@ template <class ELFT> void elf::markLive(SymbolTable<ELFT> *Symtab) {
   // script KEEP command.
   for (const std::unique_ptr<ObjectFile<ELFT>> &F : Symtab->getObjectFiles())
     for (InputSectionBase<ELFT> *Sec : F->getSections())
-      if (Sec && Sec != InputSection<ELFT>::Discarded)
+      if (Sec && Sec != &InputSection<ELFT>::Discarded)
         if (isReserved(Sec) || Script->shouldKeep<ELFT>(Sec))
           Enqueue(Sec);
 

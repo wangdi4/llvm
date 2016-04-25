@@ -1992,7 +1992,7 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   //                 ::= f  # float
   //                 ::= d  # double
   //                 ::= e  # long double, __float80
-  // UNSUPPORTED:    ::= g  # __float128
+  //                 ::= g  # __float128
   // UNSUPPORTED:    ::= Dd # IEEE 754r decimal floating point (64 bits)
   // UNSUPPORTED:    ::= De # IEEE 754r decimal floating point (128 bits)
   // UNSUPPORTED:    ::= Df # IEEE 754r decimal floating point (32 bits)
@@ -2001,6 +2001,7 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   //                 ::= Ds # char16_t
   //                 ::= Dn # std::nullptr_t (i.e., decltype(nullptr))
   //                 ::= u <source-name>    # vendor extended type
+  std::string type_name;
   switch (T->getKind()) {
   case BuiltinType::Void:
     Out << 'v';
@@ -2072,6 +2073,12 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
                 ? 'g'
                 : 'e');
     break;
+  case BuiltinType::Float128:
+    if (getASTContext().getTargetInfo().useFloat128ManglingForLongDouble())
+      Out << "U10__float128"; // Match the GCC mangling
+    else
+      Out << 'g';
+    break;
   case BuiltinType::NullPtr:
     Out << "Dn";
     break;
@@ -2091,42 +2098,12 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::ObjCSel:
     Out << "13objc_selector";
     break;
-  case BuiltinType::OCLImage1d:
-    Out << "11ocl_image1d";
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
+  case BuiltinType::Id: \
+    type_name = "ocl_" #ImgType "_" #Suffix; \
+    Out << type_name.size() << type_name; \
     break;
-  case BuiltinType::OCLImage1dArray:
-    Out << "16ocl_image1darray";
-    break;
-  case BuiltinType::OCLImage1dBuffer:
-    Out << "17ocl_image1dbuffer";
-    break;
-  case BuiltinType::OCLImage2d:
-    Out << "11ocl_image2d";
-    break;
-  case BuiltinType::OCLImage2dArray:
-    Out << "16ocl_image2darray";
-    break;
-  case BuiltinType::OCLImage2dDepth:
-    Out << "16ocl_image2ddepth";
-    break;
-  case BuiltinType::OCLImage2dArrayDepth:
-    Out << "21ocl_image2darraydepth";
-    break;
-  case BuiltinType::OCLImage2dMSAA:
-    Out << "15ocl_image2dmsaa";
-    break;
-  case BuiltinType::OCLImage2dArrayMSAA:
-    Out << "20ocl_image2darraymsaa";
-    break;
-  case BuiltinType::OCLImage2dMSAADepth:
-    Out << "20ocl_image2dmsaadepth";
-    break;
-  case BuiltinType::OCLImage2dArrayMSAADepth:
-    Out << "25ocl_image2darraymsaadepth";
-    break;
-  case BuiltinType::OCLImage3d:
-    Out << "11ocl_image3d";
-    break;
+#include "clang/Basic/OpenCLImageTypes.def"
   case BuiltinType::OCLSampler:
     Out << "11ocl_sampler";
     break;

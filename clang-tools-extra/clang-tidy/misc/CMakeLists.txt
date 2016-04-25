@@ -17,12 +17,14 @@ add_clang_library(clangTidyMiscModule
   MisplacedWideningCastCheck.cpp
   MoveConstantArgumentCheck.cpp
   MoveConstructorInitCheck.cpp
+  MultipleStatementMacroCheck.cpp
   NewDeleteOverloadsCheck.cpp
   NoexceptMoveConstructorCheck.cpp
   NonCopyableObjects.cpp
   SizeofContainerCheck.cpp
   StaticAssertCheck.cpp
   StringIntegerAssignmentCheck.cpp
+  StringLiteralWithEmbeddedNulCheck.cpp
   SuspiciousMissingCommaCheck.cpp
   SuspiciousSemicolonCheck.cpp
   SwappedArgumentsCheck.cpp

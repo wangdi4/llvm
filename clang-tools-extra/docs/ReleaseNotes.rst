@@ -74,6 +74,12 @@ identified.  The improvements since the 3.8 release include:
 
   Flags ``for`` loops where the induction expression has a floating-point type.
 
+- New `cppcoreguidelines-interfaces-global-init
+  <http://clang.llvm.org/extra/clang-tidy/checks/cppcoreguidelines-interfaces-global-init.html>`_ check
+
+  Flags initializers of globals that access extern objects, and therefore can
+  lead to order-of-initialization problems.
+
 - New `cppcoreguidelines-pro-type-member-init
   <http://clang.llvm.org/extra/clang-tidy/checks/cppcoreguidelines-pro-type-member-init.html>`_ check
 
@@ -96,6 +102,12 @@ identified.  The improvements since the 3.8 release include:
 
   Warns when there is a explicit redundant cast of a calculation result to a
   bigger type.
+
+- New `misc-string-literal-with-embedded-nul
+  <http://clang.llvm.org/extra/clang-tidy/checks/misc-string-literal-with-embedded-nul.html>`_ check
+
+  Warns about suspicious NUL character in string literals which may lead to
+  truncation or invalid character escaping.
 
 - New `misc-suspicious-missing-comma
   <http://clang.llvm.org/extra/clang-tidy/checks/misc-suspicious-missing-comma.html>`_ check
@@ -142,6 +154,12 @@ identified.  The improvements since the 3.8 release include:
 
   Warns about top-level const parameters in function declarations.
 
+- New `readability-deleted-default
+  <http://clang.llvm.org/extra/clang-tidy/checks/readability-deleted-default.html>`_ check
+
+  Warns about defaulted constructors and assignment operators that are actually
+  deleted.
+
 - New `readability-redundant-control-flow
   <http://clang.llvm.org/extra/clang-tidy/checks/readability-redundant-control-flow.html>`_ check
 
@@ -153,11 +171,19 @@ identified.  The improvements since the 3.8 release include:
 
   Finds unnecessary string initializations.
 
+- New `readability-static-definition-in-anonymous-namespace
+  <http://clang.llvm.org/extra/clang-tidy/checks/readability-static-definition-in-anonymous-namespace.html>`_ check
+
+  Finds static function and variable definitions in anonymous namespace.
+
 Fixed bugs:
 
-  Crash when running on compile database with relative source files paths.
+- Crash when running on compile database with relative source files paths.
 
-  Crash when running with the `-fdelayed-template-parsing` flag.
+- Crash when running with the `-fdelayed-template-parsing` flag.
+
+- The `modernize-use-override` check: incorrect fix-its placement around
+  ``__declspec`` and other attributes.
 
 Clang-tidy changes from 3.7 to 3.8
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -250,6 +276,23 @@ The 3.8 release didn't include release notes for :program:`clang-tidy`. In the
   * `readability-uniqueptr-delete-release
     <http://llvm.org/releases/3.8.0/tools/clang/tools/extra/docs/clang-tidy/checks/readability-uniqueptr-delete-release.html>`_
 
+- Updated ``cppcoreguidelines-pro-member-type-member-init`` check
+
+  This check now conforms to C++ Core Guidelines rule Type.6: Always Initialize
+  a Member Variable. The check examines every record type where construction
+  might result in an undefined memory state. These record types needing
+  initialization have at least one default-initialized built-in, pointer,
+  array or record type matching these criteria or a default-initialized
+  direct base class of this kind.
+
+  The check has two complementary aspects:
+
+  1. Ensure every constructor for a record type needing initialization
+     value-initializes all members and direct bases via a combination of
+     in-class initializers and the member initializer list.
+  2. Value-initialize every non-member instance of a record type needing
+     initialization that lacks a user-provided default constructor, e.g.
+     a POD.
 
 Improvements to modularize
 --------------------------
