@@ -122,7 +122,13 @@ bool CPUDetect::isSkylake()
 
 bool CPUDetect::isKabylake()
 {
-    if(0x806E == m_i16ProcessorSignature || // Kabylake ULT/ULX
+    if(0x506E == m_i16ProcessorSignature && // Early Kabylake DT/HALO.
+         0x8  == m_ucStepping)
+       return true;
+    if(0x406E == m_i16ProcessorSignature && // Early Kabylake ULT/ULX.
+         0x8  == m_ucStepping)
+       return true;
+    if(0x806E == m_i16ProcessorSignature || // Kabylake ULT/ULX.
        0x906E == m_i16ProcessorSignature)   // Kabylake DT/HALO.
         return true;
 
