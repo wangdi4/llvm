@@ -37,6 +37,7 @@
 #include "lldb/lldb-enumerations.h"
 
 class DWARFASTParserClang;
+class PDBASTParser;
 
 namespace lldb_private {
 
@@ -524,6 +525,8 @@ public:
     //------------------------------------------------------------------
     DWARFASTParser *
     GetDWARFParser() override;
+    PDBASTParser *
+    GetPDBParser();
 
     //------------------------------------------------------------------
     // ClangASTContext callbacks for external source lookups.
@@ -696,7 +699,13 @@ public:
     
     bool
     IsPolymorphicClass (lldb::opaque_compiler_type_t type) override;
-    
+
+    static bool
+    IsClassType(lldb::opaque_compiler_type_t type);
+
+    static bool
+    IsEnumType(lldb::opaque_compiler_type_t type);
+
     bool
     IsPossibleDynamicType(lldb::opaque_compiler_type_t type,
                           CompilerType *target_type, // Can pass nullptr
@@ -1151,23 +1160,26 @@ public:
     clang::VarDecl *
     CreateVariableDeclaration (clang::DeclContext *decl_context, const char *name, clang::QualType type);
 
-protected:
+    static lldb::opaque_compiler_type_t
+    GetOpaqueCompilerType(clang::ASTContext *ast, lldb::BasicType basic_type);
+
     static clang::QualType
-    GetQualType (lldb::opaque_compiler_type_t type)
+    GetQualType(lldb::opaque_compiler_type_t type)
     {
         if (type)
             return clang::QualType::getFromOpaquePtr(type);
         return clang::QualType();
     }
-    
+
     static clang::QualType
-    GetCanonicalQualType (lldb::opaque_compiler_type_t type)
+    GetCanonicalQualType(lldb::opaque_compiler_type_t type)
     {
         if (type)
             return clang::QualType::getFromOpaquePtr(type).getCanonicalType();
         return clang::QualType();
     }
 
+protected:
     //------------------------------------------------------------------
     // Classes that inherit from ClangASTContext can see and modify these
     //------------------------------------------------------------------
@@ -1186,6 +1198,7 @@ protected:
     std::unique_ptr<clang::SelectorTable>           m_selector_table_ap;
     std::unique_ptr<clang::Builtin::Context>        m_builtins_ap;
     std::unique_ptr<DWARFASTParserClang>            m_dwarf_ast_parser_ap;
+    std::unique_ptr<PDBASTParser>                   m_pdb_ast_parser_ap;
     std::unique_ptr<ClangASTSource>                 m_scratch_ast_source_ap;
     std::unique_ptr<clang::MangleContext>           m_mangle_ctx_ap;
     CompleteTagDeclCallback                         m_callback_tag_decl;

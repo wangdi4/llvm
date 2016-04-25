@@ -20,7 +20,7 @@ namespace lld {
 namespace elf {
 
 class InputFile;
-class SymbolBody;
+struct Symbol;
 
 enum ELFKind {
   ELFNoneKind,
@@ -30,14 +30,14 @@ enum ELFKind {
   ELF64BEKind
 };
 
+enum class BuildIdKind { None, Fnv1, Md5, Sha1 };
+
 // This struct contains the global configuration for the linker.
 // Most fields are direct mapping from the command line options
 // and such fields have the same name as the corresponding options.
 // Most fields are initialized by the driver.
 struct Configuration {
-  SymbolBody *EntrySym = nullptr;
-  SymbolBody *MipsGpDisp = nullptr;
-  SymbolBody *MipsLocalGp = nullptr;
+  Symbol *EntrySym = nullptr;
   InputFile *FirstElf = nullptr;
   llvm::StringRef DynamicLinker;
   llvm::StringRef Entry;
@@ -48,14 +48,15 @@ struct Configuration {
   llvm::StringRef SoName;
   llvm::StringRef Sysroot;
   std::string RPath;
+  std::vector<llvm::StringRef> DynamicList;
   std::vector<llvm::StringRef> SearchPaths;
   std::vector<llvm::StringRef> Undefined;
   bool AllowMultipleDefinition;
   bool AsNeeded = false;
   bool Bsymbolic;
   bool BsymbolicFunctions;
-  bool BuildId;
   bool Demangle = true;
+  bool DisableVerify;
   bool DiscardAll;
   bool DiscardLocals;
   bool DiscardNone;
@@ -66,6 +67,7 @@ struct Configuration {
   bool GnuHash = false;
   bool ICF;
   bool Mips64EL = false;
+  bool NoGnuUnique;
   bool NoUndefined;
   bool NoinhibitExec;
   bool Pic;
@@ -77,6 +79,7 @@ struct Configuration {
   bool Shared;
   bool Static = false;
   bool StripAll;
+  bool StripDebug;
   bool SysvHash = true;
   bool Threads;
   bool Trace;
@@ -87,6 +90,7 @@ struct Configuration {
   bool ZNow;
   bool ZOrigin;
   bool ZRelro;
+  BuildIdKind BuildId = BuildIdKind::None;
   ELFKind EKind = ELFNoneKind;
   uint16_t EMachine = llvm::ELF::EM_NONE;
   uint64_t EntryAddr = -1;

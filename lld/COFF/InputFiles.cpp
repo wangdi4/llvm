@@ -32,6 +32,7 @@ namespace lld {
 namespace coff {
 
 int InputFile::NextIndex = 0;
+llvm::LLVMContext BitcodeFile::Context;
 
 // Returns the last element of a path, which is supposed to be a filename.
 static StringRef getBasename(StringRef Path) {
@@ -93,7 +94,9 @@ MemoryBufferRef ArchiveFile::getMember(const Archive::Symbol *Sym) {
 void ObjectFile::parse() {
   // Parse a memory buffer as a COFF file.
   auto BinOrErr = createBinary(MB);
-  error(BinOrErr, "Failed to parse object file");
+  if (!BinOrErr)
+    error(errorToErrorCode(BinOrErr.takeError()),
+                           "Failed to parse object file");
   std::unique_ptr<Binary> Bin = std::move(*BinOrErr);
 
   if (auto *Obj = dyn_cast<COFFObjectFile>(Bin.get())) {
@@ -318,9 +321,8 @@ void BitcodeFile::parse() {
   // Usually parse() is thread-safe, but bitcode file is an exception.
   std::lock_guard<std::mutex> Lock(Mu);
 
-  ErrorOr<std::unique_ptr<LTOModule>> ModOrErr =
-      LTOModule::createFromBuffer(llvm::getGlobalContext(), MB.getBufferStart(),
-                                  MB.getBufferSize(), llvm::TargetOptions());
+  ErrorOr<std::unique_ptr<LTOModule>> ModOrErr = LTOModule::createFromBuffer(
+      Context, MB.getBufferStart(), MB.getBufferSize(), llvm::TargetOptions());
   error(ModOrErr, "Could not create lto module");
   M = std::move(*ModOrErr);
 

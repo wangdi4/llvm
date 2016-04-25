@@ -13,7 +13,7 @@ int main ()
 // CHECK: [[s:%.+]] = bitcast %struct.anon* {{%.+}} to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[s]], i8* bitcast (%struct.anon* [[s_init]] to i8*), i64 8, i32 4, i1 false)
   int *p = new int[2]{6,7};
-// CHECK: [[call:%.+]] = call noalias i8* {{@.+}}(i64 8)
+// CHECK: [[call:%.+]] = call i8* {{@.+}}(i64 8)
 // CHECK: [[t2:%.+]] = bitcast i8* [[call]] to i32*
 // CHECK: store i32 6, i32* [[t2]], align 4
 // CHECK: [[t3:%.+]] = getelementptr inbounds i32, i32* [[t2]], i64 1

@@ -45,6 +45,15 @@ template <class ELFT> static bool isCompatible(InputFile *FileP) {
   return false;
 }
 
+// Returns "(internal)", "foo.a(bar.o)" or "baz.o".
+static std::string getFilename(InputFile *F) {
+  if (!F)
+    return "(internal)";
+  if (!F->ArchiveName.empty())
+    return (F->ArchiveName + "(" + F->getName() + ")").str();
+  return F->getName();
+}
+
 // Add symbols in File to the symbol table.
 template <class ELFT>
 void SymbolTable<ELFT>::addFile(std::unique_ptr<InputFile> File) {
@@ -61,6 +70,18 @@ void SymbolTable<ELFT>::addFile(std::unique_ptr<InputFile> File) {
     return;
   }
 
+  // Lazy object file
+  if (auto *F = dyn_cast<LazyObjectFile>(FileP)) {
+    LazyObjectFiles.emplace_back(cast<LazyObjectFile>(File.release()));
+    F->parse();
+    for (Lazy &Sym : F->getLazySymbols())
+      addLazy(&Sym);
+    return;
+  }
+
+  if (Config->Trace)
+    llvm::outs() << getFilename(FileP) << "\n";
+
   // .so file
   if (auto *F = dyn_cast<SharedFile<ELFT>>(FileP)) {
     // DSOs are uniquified not by filename but by soname.
@@ -75,7 +96,7 @@ void SymbolTable<ELFT>::addFile(std::unique_ptr<InputFile> File) {
     return;
   }
 
-  // LLVM bitcode file.
+  // LLVM bitcode file
   if (auto *F = dyn_cast<BitcodeFile>(FileP)) {
     BitcodeFiles.emplace_back(cast<BitcodeFile>(File.release()));
     F->parse(ComdatGroups);
@@ -85,7 +106,7 @@ void SymbolTable<ELFT>::addFile(std::unique_ptr<InputFile> File) {
     return;
   }
 
-  // .o file
+  // Regular object file
   auto *F = cast<ObjectFile<ELFT>>(FileP);
   ObjectFiles.emplace_back(cast<ObjectFile<ELFT>>(File.release()));
   F->parse(ComdatGroups);
@@ -110,6 +131,10 @@ template <class ELFT> void SymbolTable<ELFT>::addCombinedLtoObject() {
   for (SymbolBody *Body : Obj->getNonLocalSymbols()) {
     Symbol *Sym = insert(Body);
     Sym->Body->setUsedInRegularObj();
+    if (Sym->Body->isShared())
+      Sym->Body->MustBeInDynSym = true;
+    if (Sym->Body->MustBeInDynSym)
+      Body->MustBeInDynSym = true;
     if (!Sym->Body->isUndefined() && Body->isUndefined())
       continue;
     Sym->Body = Body;
@@ -120,7 +145,8 @@ template <class ELFT> void SymbolTable<ELFT>::addCombinedLtoObject() {
 // Add an undefined symbol.
 template <class ELFT>
 SymbolBody *SymbolTable<ELFT>::addUndefined(StringRef Name) {
-  auto *Sym = new (Alloc) Undefined(Name, false, STV_DEFAULT, false);
+  auto *Sym = new (Alloc)
+      UndefinedElf<ELFT>(Name, STB_GLOBAL, STV_DEFAULT, /*Type*/ 0, false);
   resolve(Sym);
   return Sym;
 }
@@ -129,15 +155,17 @@ SymbolBody *SymbolTable<ELFT>::addUndefined(StringRef Name) {
 // doesn't have to be resolved, thus "opt" (optional).
 template <class ELFT>
 SymbolBody *SymbolTable<ELFT>::addUndefinedOpt(StringRef Name) {
-  auto *Sym = new (Alloc) Undefined(Name, false, STV_HIDDEN, true);
+  auto *Sym = new (Alloc)
+      UndefinedElf<ELFT>(Name, STB_GLOBAL, STV_HIDDEN, /*Type*/ 0, true);
   resolve(Sym);
   return Sym;
 }
 
 template <class ELFT>
-SymbolBody *SymbolTable<ELFT>::addAbsolute(StringRef Name, Elf_Sym &ESym) {
+DefinedRegular<ELFT> *SymbolTable<ELFT>::addAbsolute(StringRef Name,
+                                                     uint8_t Visibility) {
   // Pass nullptr because absolute symbols have no corresponding input sections.
-  auto *Sym = new (Alloc) DefinedRegular<ELFT>(Name, ESym, nullptr);
+  auto *Sym = new (Alloc) DefinedRegular<ELFT>(Name, STB_GLOBAL, Visibility);
   resolve(Sym);
   return Sym;
 }
@@ -145,18 +173,20 @@ SymbolBody *SymbolTable<ELFT>::addAbsolute(StringRef Name, Elf_Sym &ESym) {
 template <class ELFT>
 SymbolBody *SymbolTable<ELFT>::addSynthetic(StringRef Name,
                                             OutputSectionBase<ELFT> &Sec,
-                                            uintX_t Val, uint8_t Visibility) {
-  auto *Sym = new (Alloc) DefinedSynthetic<ELFT>(Name, Val, Sec, Visibility);
+                                            uintX_t Val) {
+  auto *Sym = new (Alloc) DefinedSynthetic<ELFT>(Name, Val, Sec);
   resolve(Sym);
   return Sym;
 }
 
 // Add Name as an "ignored" symbol. An ignored symbol is a regular
-// linker-synthesized defined symbol, but it is not recorded to the output
-// file's symbol table. Such symbols are useful for some linker-defined symbols.
+// linker-synthesized defined symbol, but is only defined if needed.
 template <class ELFT>
-SymbolBody *SymbolTable<ELFT>::addIgnored(StringRef Name) {
-  return addAbsolute(Name, ElfSym<ELFT>::Ignored);
+DefinedRegular<ELFT> *SymbolTable<ELFT>::addIgnored(StringRef Name,
+                                                    uint8_t Visibility) {
+  if (!find(Name))
+    return nullptr;
+  return addAbsolute(Name, Visibility);
 }
 
 // Rename SYM as __wrap_SYM. The original symbol is preserved as __real_SYM.
@@ -188,15 +218,6 @@ template <class ELFT> InputFile *SymbolTable<ELFT>::findFile(SymbolBody *B) {
   return nullptr;
 }
 
-// Returns "(internal)", "foo.a(bar.o)" or "baz.o".
-static std::string getFilename(InputFile *F) {
-  if (!F)
-    return "(internal)";
-  if (!F->ArchiveName.empty())
-    return (F->ArchiveName + "(" + F->getName() + ")").str();
-  return F->getName();
-}
-
 // Construct a string in the form of "Sym in File1 and File2".
 // Used to construct an error message.
 template <class ELFT>
@@ -216,25 +237,27 @@ template <class ELFT> void SymbolTable<ELFT>::resolve(SymbolBody *New) {
 
   SymbolBody *Existing = Sym->Body;
 
-  if (Lazy *L = dyn_cast<Lazy>(Existing)) {
-    if (auto *Undef = dyn_cast<Undefined>(New)) {
-      addMemberFile(Undef, L);
+  if (auto *L = dyn_cast<Lazy>(Existing)) {
+    if (New->isUndefined()) {
+      addMemberFile(New, L);
       return;
     }
     // Found a definition for something also in an archive.
     // Ignore the archive definition.
+    if (L->isUsedInRegularObj())
+      New->setUsedInRegularObj();
     Sym->Body = New;
     return;
   }
 
-  if (New->IsTls != Existing->IsTls) {
+  if (New->isTls() != Existing->isTls()) {
     error("TLS attribute mismatch for symbol: " + conflictMsg(Existing, New));
     return;
   }
 
   // compare() returns -1, 0, or 1 if the lhs symbol is less preferable,
   // equivalent (conflicting), or more preferable, respectively.
-  int Comp = Existing->compare<ELFT>(New);
+  int Comp = Existing->compare(New);
   if (Comp == 0) {
     std::string S = "duplicate symbol: " + conflictMsg(Existing, New);
     if (Config->AllowMultipleDefinition)
@@ -250,9 +273,15 @@ template <class ELFT> void SymbolTable<ELFT>::resolve(SymbolBody *New) {
 // Find an existing symbol or create and insert a new one.
 template <class ELFT> Symbol *SymbolTable<ELFT>::insert(SymbolBody *New) {
   StringRef Name = New->getName();
-  Symbol *&Sym = Symtab[Name];
-  if (!Sym)
+  unsigned NumSyms = SymVector.size();
+  auto P = Symtab.insert(std::make_pair(Name, NumSyms));
+  Symbol *Sym;
+  if (P.second) {
     Sym = new (Alloc) Symbol{New};
+    SymVector.push_back(Sym);
+  } else {
+    Sym = SymVector[P.first->second];
+  }
   New->setBackref(Sym);
   return Sym;
 }
@@ -261,21 +290,24 @@ template <class ELFT> SymbolBody *SymbolTable<ELFT>::find(StringRef Name) {
   auto It = Symtab.find(Name);
   if (It == Symtab.end())
     return nullptr;
-  return It->second->Body;
+  return SymVector[It->second]->Body;
 }
 
 template <class ELFT> void SymbolTable<ELFT>::addLazy(Lazy *L) {
   Symbol *Sym = insert(L);
-  if (Sym->Body == L)
+  SymbolBody *Cur = Sym->Body;
+  if (Cur == L)
     return;
-  if (auto *Undef = dyn_cast<Undefined>(Sym->Body)) {
+  if (Cur->isUndefined()) {
     Sym->Body = L;
-    addMemberFile(Undef, L);
+    addMemberFile(Cur, L);
   }
 }
 
 template <class ELFT>
-void SymbolTable<ELFT>::addMemberFile(Undefined *Undef, Lazy *L) {
+void SymbolTable<ELFT>::addMemberFile(SymbolBody *Undef, Lazy *L) {
+  if (Undef->isUsedInRegularObj())
+    L->setUsedInRegularObj();
   // Weak undefined symbols should not fetch members from archives.
   // If we were to keep old symbol we would not know that an archive member was
   // available if a strong undefined symbol shows up afterwards in the link.
@@ -285,16 +317,16 @@ void SymbolTable<ELFT>::addMemberFile(Undefined *Undef, Lazy *L) {
   // symbols and copy information to reduce how many special cases are needed.
   if (Undef->isWeak()) {
     L->setUsedInRegularObj();
-    L->setWeak();
+    L->Binding = Undef->Binding;
+    L->Type = Undef->Type;
 
     // FIXME: Do we need to copy more?
-    L->IsTls |= Undef->IsTls;
     return;
   }
 
   // Fetch a member file that has the definition for L.
   // getMember returns nullptr if the member was already read from the library.
-  if (std::unique_ptr<InputFile> File = L->getMember())
+  if (std::unique_ptr<InputFile> File = L->getFile())
     addFile(std::move(File));
 }
 
@@ -311,6 +343,14 @@ template <class ELFT> void SymbolTable<ELFT>::scanShlibUndefined() {
       if (SymbolBody *Sym = find(U))
         if (Sym->isDefined())
           Sym->MustBeInDynSym = true;
+}
+
+// This function process the dynamic list option by marking all the symbols
+// to be exported in the dynamic table.
+template <class ELFT> void SymbolTable<ELFT>::scanDynamicList() {
+  for (StringRef S : Config->DynamicList)
+    if (SymbolBody *B = find(S))
+      B->MustBeInDynSym = true;
 }
 
 template class elf::SymbolTable<ELF32LE>;

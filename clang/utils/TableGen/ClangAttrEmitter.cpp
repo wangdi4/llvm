@@ -110,20 +110,16 @@ static std::string ReadPCHRecord(StringRef type) {
 
 // Assumes that the way to get the value is SA->getname()
 static std::string WritePCHRecord(StringRef type, StringRef name) {
-  return StringSwitch<std::string>(type)
-    .EndsWith("Decl *", "AddDeclRef(" + std::string(name) +
-                        ", Record);\n")
-    .Case("TypeSourceInfo *",
-          "AddTypeSourceInfo(" + std::string(name) + ", Record);\n")
+  return "Record." + StringSwitch<std::string>(type)
+    .EndsWith("Decl *", "AddDeclRef(" + std::string(name) + ");\n")
+    .Case("TypeSourceInfo *", "AddTypeSourceInfo(" + std::string(name) + ");\n")
     .Case("Expr *", "AddStmt(" + std::string(name) + ");\n")
-    .Case("IdentifierInfo *", 
-          "AddIdentifierRef(" + std::string(name) + ", Record);\n")
+    .Case("IdentifierInfo *", "AddIdentifierRef(" + std::string(name) + ");\n")
 #if INTEL_CUSTOMIZATION
-    .Case("SourceLocation",
-          "AddSourceLocation(" + std::string(name) + ", Record);\n")
+    .Case("SourceLocation", "AddSourceLocation(" + std::string(name) + ");\n")
 #endif  // INTEL_CUSTOMIZATION
-    .Case("StringRef", "AddString(" + std::string(name) + ", Record);\n")
-    .Default("Record.push_back(" + std::string(name) + ");\n");
+    .Case("StringRef", "AddString(" + std::string(name) + ");\n")
+    .Default("push_back(" + std::string(name) + ");\n");
 }
 
 // Normalize attribute name by removing leading and trailing
@@ -411,7 +407,7 @@ namespace {
       OS << getLowerName();
     }
     void writePCHWrite(raw_ostream &OS) const override {
-      OS << "    AddString(SA->get" << getUpperName() << "(), Record);\n";
+      OS << "    Record.AddString(SA->get" << getUpperName() << "());\n";
     }
     void writeValue(raw_ostream &OS) const override {
       OS << "\\\"\" << get" << getUpperName() << "() << \"\\\"";
@@ -527,10 +523,10 @@ namespace {
     void writePCHWrite(raw_ostream &OS) const override {
       OS << "    Record.push_back(SA->is" << getUpperName() << "Expr());\n";
       OS << "    if (SA->is" << getUpperName() << "Expr())\n";
-      OS << "      AddStmt(SA->get" << getUpperName() << "Expr());\n";
+      OS << "      Record.AddStmt(SA->get" << getUpperName() << "Expr());\n";
       OS << "    else\n";
-      OS << "      AddTypeSourceInfo(SA->get" << getUpperName()
-         << "Type(), Record);\n";
+      OS << "      Record.AddTypeSourceInfo(SA->get" << getUpperName()
+         << "Type());\n";
     }
     void writeValue(raw_ostream &OS) const override {
       OS << "\";\n";
@@ -927,7 +923,7 @@ namespace {
       OS << getLowerName();
     }
     void writePCHWrite(raw_ostream &OS) const override {
-      OS << "    AddVersionTuple(SA->get" << getUpperName() << "(), Record);\n";
+      OS << "    Record.AddVersionTuple(SA->get" << getUpperName() << "());\n";
     }
     void writeValue(raw_ostream &OS) const override {
       OS << getLowerName() << "=\" << get" << getUpperName() << "() << \"";

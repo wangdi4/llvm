@@ -18,10 +18,49 @@
 namespace lld {
 namespace elf {
 
+class SymbolBody;
+
 template <class ELFT> class ICF;
+template <class ELFT> class DefinedRegular;
 template <class ELFT> class ObjectFile;
 template <class ELFT> class OutputSection;
 template <class ELFT> class OutputSectionBase;
+
+enum RelExpr {
+  R_ABS,
+  R_GOT,
+  R_GOT_PAGE_PC,
+  R_GOT_PC,
+  R_MIPS_GOT,
+  R_MIPS_GOT_LOCAL,
+  R_MIPS_GP0,
+  R_PAGE_PC,
+  R_PC,
+  R_PLT,
+  R_PLT_PC,
+  R_PPC_OPD,
+  R_PPC_PLT_OPD,
+  R_PPC_TOC,
+  R_RELAX_TLS_GD_TO_IE,
+  R_RELAX_TLS_GD_TO_IE_PC,
+  R_RELAX_TLS_GD_TO_LE,
+  R_RELAX_TLS_IE_TO_LE,
+  R_RELAX_TLS_LD_TO_LE,
+  R_SIZE,
+  R_THUNK,
+  R_TLSGD,
+  R_TLSGD_PC,
+  R_TLSLD,
+  R_TLSLD_PC
+};
+
+struct Relocation {
+  RelExpr Expr;
+  uint32_t Type;
+  uint64_t Offset;
+  uint64_t Addend;
+  SymbolBody *Sym;
+};
 
 // This corresponds to a section of an input file.
 template <class ELFT> class InputSectionBase {
@@ -39,6 +78,8 @@ protected:
 public:
   enum Kind { Regular, EHFrame, Merge, MipsReginfo };
   Kind SectionKind;
+
+  InputSectionBase() : Repl(this) {}
 
   InputSectionBase(ObjectFile<ELFT> *File, const Elf_Shdr *Header,
                    Kind SectionKind);
@@ -58,12 +99,12 @@ public:
   // Returns the size of this section (even if this is a common or BSS.)
   size_t getSize() const;
 
-  static InputSectionBase<ELFT> *Discarded;
+  static InputSectionBase<ELFT> Discarded;
 
   StringRef getSectionName() const;
   const Elf_Shdr *getSectionHdr() const { return Header; }
   ObjectFile<ELFT> *getFile() const { return File; }
-  uintX_t getOffset(const Elf_Sym &Sym);
+  uintX_t getOffset(const DefinedRegular<ELFT> &Sym);
 
   // Translate an offset in the input section to an offset in the output
   // section.
@@ -75,19 +116,11 @@ public:
   InputSectionBase<ELFT> *getRelocTarget(const Elf_Rel &Rel) const;
   InputSectionBase<ELFT> *getRelocTarget(const Elf_Rela &Rel) const;
 
-  template <class RelTy>
-  void relocate(uint8_t *Buf, uint8_t *BufEnd,
-                llvm::iterator_range<const RelTy *> Rels);
-
-private:
-  template <class RelTy>
-  int32_t findMipsPairedAddend(uint8_t *Buf, uint8_t *BufLoc, SymbolBody &Sym,
-                               const RelTy *Rel, const RelTy *End);
+  void relocate(uint8_t *Buf, uint8_t *BufEnd);
+  std::vector<Relocation> Relocations;
 };
 
-template <class ELFT>
-InputSectionBase<ELFT> *
-    InputSectionBase<ELFT>::Discarded = (InputSectionBase<ELFT> *)-1ULL;
+template <class ELFT> InputSectionBase<ELFT> InputSectionBase<ELFT>::Discarded;
 
 // Usually sections are copied to the output as atomic chunks of data,
 // but some special types of sections are split into small pieces of data
@@ -180,7 +213,7 @@ public:
 
 private:
   template <class RelTy>
-  void copyRelocations(uint8_t *Buf, llvm::iterator_range<const RelTy *> Rels);
+  void copyRelocations(uint8_t *Buf, llvm::ArrayRef<RelTy> Rels);
 
   // Called by ICF to merge two input sections.
   void replace(InputSection<ELFT> *Other);
