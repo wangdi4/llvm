@@ -700,7 +700,7 @@ struct ClassInfo {
 
   ClassInfo()
       : vbpOffset(~0), vFuncTab(nullptr), hasCTOR(false), hasDTOR(false),
-        vMethodsCount(0), isNested(false) {}
+        isNested(false), vMethodsCount(0) {}
 };
 
 //===----------------------------------------------------------------------===//
@@ -4207,8 +4207,7 @@ STISymbolVariable *STIDebugImpl::createSymbolVariable(
 STISymbolProcedure *
 STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
   DISubprogramMap::iterator Itr = _subprogramMap.find(SP);
-  if (Itr == _subprogramMap.end())
-    return nullptr;
+  assert(Itr != _subprogramMap.end() && "DISubprogram has no function code!");
   Function *pFunc = Itr->second;
 
   // Functions with available_externally linkage are not emitted as part of
@@ -4749,14 +4748,9 @@ void STIDebugImpl::collectModuleInfo() {
     }
   }
 
-  NamedMDNode *CU_Nodes = M->getNamedMetadata("llvm.dbg.cu");
-  if (!CU_Nodes)
-    return;
+  TypeIdentifierMap = generateDITypeIdentifierMap(*M);
 
-  TypeIdentifierMap = generateDITypeIdentifierMap(CU_Nodes);
-
-  for (const MDNode *node : CU_Nodes->operands()) {
-    const DICompileUnit  *CU = cast<const DICompileUnit>(node);
+  for (DICompileUnit *CU : M->debug_compile_units()) {
     STISymbolCompileUnit *compileUnit;
 
     compileUnit = STISymbolCompileUnit::create();
@@ -4773,8 +4767,10 @@ void STIDebugImpl::collectModuleInfo() {
 
     collectGlobalVariableInfo(CU);
 
-    for (auto *SP : CU->getSubprograms()) {
-      getOrCreateSymbolProcedure(SP);
+    for (auto &Itr : _subprogramMap) {
+      auto *SP = Itr.first;
+      if (SP->getUnit() == CU)
+        getOrCreateSymbolProcedure(SP);
     }
   }
 }

@@ -64,6 +64,7 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeSNodeAnalysisPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeModuleDebugInfoPrinterPass(Registry);
+  initializeModuleSummaryIndexWrapperPassPass(Registry);
   initializeObjCARCAAWrapperPassPass(Registry);
   initializePostDominatorTreeWrapperPassPass(Registry);
   initializeRegionInfoPassPass(Registry);

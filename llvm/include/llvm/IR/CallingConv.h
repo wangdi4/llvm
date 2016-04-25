@@ -178,16 +178,28 @@ namespace CallingConv {
     /// which have an "optimized" convention to preserve registers.
     AVR_BUILTIN = 86,
 
+    /// Calling convention used for Mesa vertex shaders.
+    AMDGPU_VS = 87,
+
+    /// Calling convention used for Mesa geometry shaders.
+    AMDGPU_GS = 88,
+
+    /// Calling convention used for Mesa pixel shaders.
+    AMDGPU_PS = 89,
+
+    /// Calling convention used for Mesa compute shaders.
+    AMDGPU_CS = 90,
+
 #ifdef INTEL_CUSTOMIZATION
     /// \brief The __regcall convention as specified in the Intel Vector
     /// Function ABI. This calling convention differs from the x86 ABI in
     /// that scalar arguments are passed in GPRs, the order of GPRs used
     /// differs from the x86-64 ABI, and all XMM/YMM registers are used for
     /// vector/FP arguments.
-    X86_RegCall = 87,
+    X86_RegCall = 91,
 
     /// \brief SVML for intel compiler
-    SVML = 88,
+    SVML = 92,
 #endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.

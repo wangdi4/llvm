@@ -446,6 +446,10 @@ createSeparateConstOffsetFromGEPPass(const TargetMachine *TM = nullptr,
 //
 FunctionPass *createSpeculativeExecutionPass();
 
+// Same as createSpeculativeExecutionPass, but does nothing unless
+// TargetTransformInfo::hasBranchDivergence() is true.
+FunctionPass *createSpeculativeExecutionIfHasBranchDivergencePass();
+
 //===----------------------------------------------------------------------===//
 //
 // LoadCombine - Combine loads into bigger loads.
@@ -518,6 +522,9 @@ FunctionPass *createLoopVersioningPass();
 // LoopDataPrefetch - Perform data prefetching in loops.
 //
 FunctionPass *createLoopDataPrefetchPass();
+
+///===---------------------------------------------------------------------===//
+ModulePass *createNameAnonFunctionPass();
 
 } // End llvm namespace
 

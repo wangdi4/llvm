@@ -175,17 +175,17 @@ attributes #2 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-
 !llvm.module.flags = !{!13, !14, !15}
 !llvm.ident = !{!16}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !1, producer: "clang version 3.9.0 (branches/xmain_web 6799)", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2, retainedTypes: !3, subprograms: !6)
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !1, producer: "clang version 3.9.0 (branches/xmain_web 6799)", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2, retainedTypes: !3)
 !1 = !DIFile(filename: "dwarf.cpp", directory: "C:\5Ciusers\5Cbwyma\5Cxmain_web")
 !2 = !{}
 !3 = !{!4}
 !4 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !5, size: 64, align: 64)
 !5 = !DIBasicType(name: "int", size: 32, align: 32, encoding: DW_ATE_signed)
 !6 = !{!7, !10}
-!7 = distinct !DISubprogram(name: "erase", linkageName: "\01?erase@@YAXPEAH@Z", scope: !1, file: !1, line: 4, type: !8, isLocal: false, isDefinition: true, scopeLine: 4, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!7 = distinct !DISubprogram(unit: !0, name: "erase", linkageName: "\01?erase@@YAXPEAH@Z", scope: !1, file: !1, line: 4, type: !8, isLocal: false, isDefinition: true, scopeLine: 4, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
 !8 = !DISubroutineType(types: !9)
 !9 = !{null, !4}
-!10 = distinct !DISubprogram(name: "erase_all", linkageName: "\01?erase_all@@YAXXZ", scope: !1, file: !1, line: 29, type: !11, isLocal: false, isDefinition: true, scopeLine: 29, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!10 = distinct !DISubprogram(unit: !0, name: "erase_all", linkageName: "\01?erase_all@@YAXXZ", scope: !1, file: !1, line: 29, type: !11, isLocal: false, isDefinition: true, scopeLine: 29, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
 !11 = !DISubroutineType(types: !12)
 !12 = !{null}
 !13 = !{i32 2, !"Dwarf Version", i32 4}

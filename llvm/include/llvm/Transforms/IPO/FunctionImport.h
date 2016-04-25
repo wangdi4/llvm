@@ -11,6 +11,7 @@
 #define LLVM_FUNCTIONIMPORT_H
 
 #include "llvm/ADT/StringMap.h"
+#include "llvm/IR/GlobalValue.h"
 
 #include <functional>
 #include <map>
@@ -18,6 +19,7 @@
 
 namespace llvm {
 class LLVMContext;
+class GlobalValueSummary;
 class Module;
 class ModuleSummaryIndex;
 
@@ -29,7 +31,7 @@ public:
   /// containing all the functions to import for a source module.
   /// The keys is the GUID identifying a function to import, and the value
   /// is the threshold applied when deciding to import it.
-  typedef std::map<uint64_t, unsigned> FunctionsToImportTy;
+  typedef std::map<GlobalValue::GUID, unsigned> FunctionsToImportTy;
 
   /// The map contains an entry for every module to import from, the key being
   /// the module identifier to pass to the ModuleLoader. The value is the set of
@@ -37,7 +39,7 @@ public:
   typedef StringMap<FunctionsToImportTy> ImportMapTy;
 
   /// The set contains an entry for every global value the module exports.
-  typedef std::unordered_set<uint64_t> ExportSetTy;
+  typedef std::unordered_set<GlobalValue::GUID> ExportSetTy;
 
   /// Create a Function Importer.
   FunctionImporter(
@@ -58,6 +60,9 @@ private:
 
 /// Compute all the imports and exports for every module in the Index.
 ///
+/// \p ModuleToDefinedGVSummaries contains for each Module a map
+/// (GUID -> Summary) for every global defined in the module.
+///
 /// \p ImportLists will be populated with an entry for every Module we are
 /// importing into. This entry is itself a map that can be passed to
 /// FunctionImporter::importFunctions() above (see description there).
@@ -67,8 +72,18 @@ private:
 /// is the set of globals that need to be promoted/renamed appropriately.
 void ComputeCrossModuleImport(
     const ModuleSummaryIndex &Index,
+    const StringMap<std::map<GlobalValue::GUID, GlobalValueSummary *>> &
+        ModuleToDefinedGVSummaries,
     StringMap<FunctionImporter::ImportMapTy> &ImportLists,
     StringMap<FunctionImporter::ExportSetTy> &ExportLists);
+
+/// Compute all the imports for the given module using the Index.
+///
+/// \p ImportList will be populated with a map that can be passed to
+/// FunctionImporter::importFunctions() above (see description there).
+void ComputeCrossModuleImportForModule(
+    StringRef ModulePath, const ModuleSummaryIndex &Index,
+    FunctionImporter::ImportMapTy &ImportList);
 }
 
 #endif // LLVM_FUNCTIONIMPORT_H

@@ -427,6 +427,10 @@ added in the future:
 
     - On X86-64 the callee preserves all general purpose registers, except for
       RDI and RAX.
+"``swiftcc``" - This calling convention is used for Swift language.
+    - On X86-64 RCX and R8 are available for additional integer returns, and
+      XMM2 and XMM3 are available for additional FP/vector returns.
+    - On iOS platforms, we use AAPCS-VFP calling convention.
 "``cc <n>``" - Numbered convention
     Any calling convention may be specified by number, allowing
     target-specific calling conventions to be used. Target specific
@@ -760,6 +764,25 @@ some can only be checked when producing an object file:
 * No global value in the expression can be a declaration, since that
   would require a relocation, which is not possible.
 
+.. _langref_ifunc:
+
+IFuncs
+-------
+
+IFuncs, like as aliases, don't create any new data or func. They are just a new
+symbol that dynamic linker resolves at runtime by calling a resolver function.
+
+IFuncs have a name and a resolver that is a function called by dynamic linker
+that returns address of another function associated with the name.
+
+IFunc may have an optional :ref:`linkage type <linkage>` and an optional
+:ref:`visibility style <visibility>`.
+
+Syntax::
+
+    @<Name> = [Linkage] [Visibility] ifunc <IFuncTy>, <ResolverTy>* @<Resolver>
+
+
 .. _langref_comdats:
 
 Comdats
@@ -1063,6 +1086,25 @@ Currently, only the following parameter attributes are defined:
     a valid attribute for return values and can only be applied to one
     parameter.
 
+``swifterror``
+    This attribute is motivated to model and optimize Swift error handling. It
+    can be applied to a parameter with pointer to pointer type or a
+    pointer-sized alloca. At the call site, the actual argument that corresponds
+    to a ``swifterror`` parameter has to come from a ``swifterror`` alloca. A
+    ``swifterror`` value (either the parameter or the alloca) can only be loaded
+    and stored from, or used as a ``swifterror`` argument. This is not a valid
+    attribute for return values and can only be applied to one parameter.
+
+    These constraints allow the calling convention to optimize access to
+    ``swifterror`` variables by associating them with a specific register at
+    call boundaries rather than placing them in memory. Since this does change
+    the calling convention, a function which uses the ``swifterror`` attribute
+    on a parameter is not ABI-compatible with one which does not.
+
+    These constraints also allow LLVM to assume that a ``swifterror`` argument
+    does not alias any other memory visible within a function and that a
+    ``swifterror`` alloca passed as an argument does not escape.
+
 .. _gc:
 
 Garbage Collector Strategy Names
@@ -1227,6 +1269,15 @@ example:
     epilogue, the backend should forcibly align the stack pointer.
     Specify the desired alignment, which must be a power of two, in
     parentheses.
+``allocsize(<EltSizeParam>[, <NumEltsParam>])``
+    This attribute indicates that the annotated function will always return at
+    least a given number of bytes (or null). Its arguments are zero-indexed
+    parameter numbers; if one argument is provided, then it's assumed that at
+    least ``CallSite.Args[EltSizeParam]`` bytes will be available at the
+    returned pointer. If two are provided, then it's assumed that
+    ``CallSite.Args[EltSizeParam] * CallSite.Args[NumEltsParam]`` bytes are
+    available. The referenced parameters must be integer types. No assumptions
+    are made about the contents of the returned block of memory.
 ``alwaysinline``
     This attribute indicates that the inliner should attempt to inline
     this function into callers whenever possible, ignoring any active
@@ -3912,21 +3963,27 @@ The following ``tag:`` values are valid:
 
 .. code-block:: llvm
 
-  DW_TAG_formal_parameter   = 5
   DW_TAG_member             = 13
   DW_TAG_pointer_type       = 15
   DW_TAG_reference_type     = 16
   DW_TAG_typedef            = 22
+  DW_TAG_inheritance        = 28
   DW_TAG_ptr_to_member_type = 31
   DW_TAG_const_type         = 38
+  DW_TAG_friend             = 42
   DW_TAG_volatile_type      = 53
   DW_TAG_restrict_type      = 55
 
 ``DW_TAG_member`` is used to define a member of a :ref:`composite type
-<DICompositeType>` or :ref:`subprogram <DISubprogram>`. The type of the member
-is the ``baseType:``. The ``offset:`` is the member's bit offset.
-``DW_TAG_formal_parameter`` is used to define a member which is a formal
-argument of a subprogram.
+<DICompositeType>`. The type of the member is the ``baseType:``. The
+``offset:`` is the member's bit offset.  If the composite type has a non-empty
+``identifier:``, then it respects ODR rules.  In that case, the ``scope:``
+reference will be a :ref:`metadata string <metadata-string>`, and the member
+will be uniqued solely based on its ``name:`` and ``scope:``.
+
+``DW_TAG_inheritance`` and ``DW_TAG_friend`` are used in the ``elements:``
+field of :ref:`composite types <DICompositeType>` to describe parents and
+friends.
 
 ``DW_TAG_typedef`` is used to provide a name for the ``baseType:``.
 
@@ -3949,6 +4006,11 @@ identifier used for type merging between modules. When specified, other types
 can refer to composite types indirectly via a :ref:`metadata string
 <metadata-string>` that matches their identifier.
 
+For a given ``identifier:``, there should only be a single composite type that
+does not have  ``flags: DIFlagFwdDecl`` set.  LLVM tools that link modules
+together will unique such definitions at parse time via the ``identifier:``
+field, even if the nodes are ``distinct``.
+
 .. code-block:: llvm
 
     !0 = !DIEnumerator(name: "SixKind", value: 7)
@@ -3967,9 +4029,6 @@ The following ``tag:`` values are valid:
   DW_TAG_enumeration_type = 4
   DW_TAG_structure_type   = 19
   DW_TAG_union_type       = 23
-  DW_TAG_subroutine_type  = 21
-  DW_TAG_inheritance      = 28
-
 
 For ``DW_TAG_array_type``, the ``elements:`` should be :ref:`subrange
 descriptors <DISubrange>`, each representing the range of subscripts at that
@@ -3983,7 +4042,9 @@ value for the set. All enumeration type descriptors are collected in the
 
 For ``DW_TAG_structure_type``, ``DW_TAG_class_type``, and
 ``DW_TAG_union_type``, the ``elements:`` should be :ref:`derived types
-<DIDerivedType>` with ``tag: DW_TAG_member`` or ``tag: DW_TAG_inheritance``.
+<DIDerivedType>` with ``tag: DW_TAG_member``, ``tag: DW_TAG_inheritance``, or
+``tag: DW_TAG_friend``; or :ref:`subprograms <DISubprogram>` with
+``isDefinition: false``.
 
 .. _DISubrange:
 
@@ -4072,6 +4133,12 @@ metadata. The ``variables:`` field points at :ref:`variables <DILocalVariable>`
 that must be retained, even if their IR counterparts are optimized out of
 the IR. The ``type:`` field must point at an :ref:`DISubroutineType`.
 
+When ``isDefinition: false``, subprograms describe a declaration in the type
+tree as opposed to a definition of a funciton.  If the scope is a
+:ref:`metadata string <metadata-string>` then the composite type follows ODR
+rules, and the subprogram declaration is uniqued based only on its
+``linkageName:`` and ``scope:``.
+
 .. code-block:: llvm
 
     define void @_Z3foov() !dbg !0 {
@@ -4080,7 +4147,7 @@ the IR. The ``type:`` field must point at an :ref:`DISubroutineType`.
 
     !0 = distinct !DISubprogram(name: "foo", linkageName: "_Zfoov", scope: !1,
                                 file: !2, line: 7, type: !3, isLocal: true,
-                                isDefinition: false, scopeLine: 8,
+                                isDefinition: true, scopeLine: 8,
                                 containingType: !4,
                                 virtuality: DW_VIRTUALITY_pure_virtual,
                                 virtualIndex: 10, flags: DIFlagPrototyped,
@@ -6812,7 +6879,7 @@ Syntax:
 ::
 
       <result> = load [volatile] <ty>, <ty>* <pointer>[, align <alignment>][, !nontemporal !<index>][, !invariant.load !<index>][, !invariant.group !<index>][, !nonnull !<index>][, !dereferenceable !<deref_bytes_node>][, !dereferenceable_or_null !<deref_bytes_node>][, !align !<align_node>]
-      <result> = load atomic [volatile] <ty>* <pointer> [singlethread] <ordering>, align <alignment> [, !invariant.group !<index>]
+      <result> = load atomic [volatile] <ty>, <ty>* <pointer> [singlethread] <ordering>, align <alignment> [, !invariant.group !<index>]
       !<index> = !{ i32 1 }
       !<deref_bytes_node> = !{i64 <dereferenceable_bytes>}
       !<align_node> = !{ i64 <value_alignment> }
@@ -11903,44 +11970,6 @@ the value of the guard. When the function exits, the guard on the stack is
 checked against the original guard by ``llvm.stackprotectorcheck``. If they are
 different, then ``llvm.stackprotectorcheck`` causes the program to abort by
 calling the ``__stack_chk_fail()`` function.
-
-'``llvm.stackprotectorcheck``' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Syntax:
-"""""""
-
-::
-
-      declare void @llvm.stackprotectorcheck(i8** <guard>)
-
-Overview:
-"""""""""
-
-The ``llvm.stackprotectorcheck`` intrinsic compares ``guard`` against an already
-created stack protector and if they are not equal calls the
-``__stack_chk_fail()`` function.
-
-Arguments:
-""""""""""
-
-The ``llvm.stackprotectorcheck`` intrinsic requires one pointer argument, the
-the variable ``@__stack_chk_guard``.
-
-Semantics:
-""""""""""
-
-This intrinsic is provided to perform the stack protector check by comparing
-``guard`` with the stack slot created by ``llvm.stackprotector`` and if the
-values do not match call the ``__stack_chk_fail()`` function.
-
-The reason to provide this as an IR level intrinsic instead of implementing it
-via other IR operations is that in order to perform this operation at the IR
-level without an intrinsic, one would need to create additional basic blocks to
-handle the success/failure cases. This makes it difficult to stop the stack
-protector check from disrupting sibling tail calls in Codegen. With this
-intrinsic, we are able to generate the stack protector basic blocks late in
-codegen after the tail call decision has occurred.
 
 '``llvm.objectsize``' Intrinsic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

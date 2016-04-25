@@ -412,10 +412,11 @@ class JMP_IDX_COMPACT_DESC_BASE<string opstr, DAGOperand opnd,
   dag InOperandList = (ins GPROpnd:$rt, opnd:$offset);
   string AsmString = !strconcat(opstr, "\t$rt, $offset");
   list<dag> Pattern = [];
-  bit isTerminator = 1;
   bit hasDelaySlot = 0;
   InstrItinClass Itinerary = itin;
   bit isCTI = 1;
+  bit isBranch = 1;
+  bit isIndirectBranch = 1;
 }
 
 class JIALC_DESC : JMP_IDX_COMPACT_DESC_BASE<"jialc", calloffset16,
@@ -427,6 +428,7 @@ class JIALC_DESC : JMP_IDX_COMPACT_DESC_BASE<"jialc", calloffset16,
 class JIC_DESC : JMP_IDX_COMPACT_DESC_BASE<"jic", jmpoffset16,
                                            GPR32Opnd, II_JIALC> {
   bit isBarrier = 1;
+  bit isTerminator = 1;
   list<Register> Defs = [AT];
 }
 
@@ -817,8 +819,11 @@ def SWC2_R6 : SWC2_R6_ENC, SWC2_R6_DESC, ISA_MIPS32R6;
 let AdditionalPredicates = [NotInMicroMips] in {
 def : MipsInstAlias<"sdbbp", (SDBBP_R6 0)>, ISA_MIPS32R6;
 }
-def : MipsInstAlias<"jr $rs", (JALR ZERO, GPR32Opnd:$rs), 1>, ISA_MIPS32R6;
+def : MipsInstAlias<"jr $rs", (JALR ZERO, GPR32Opnd:$rs), 1>, ISA_MIPS32R6, GPR_32;
 
+def : MipsInstAlias<"jrc $rs", (JIC GPR32Opnd:$rs, 0), 1>, ISA_MIPS32R6, GPR_32;
+
+def : MipsInstAlias<"jalrc $rs", (JIALC GPR32Opnd:$rs, 0), 1>, ISA_MIPS32R6, GPR_32;
 //===----------------------------------------------------------------------===//
 //
 // Patterns and Pseudo Instructions
