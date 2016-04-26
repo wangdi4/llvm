@@ -96,7 +96,7 @@ static cl::opt<bool>
 OutputAssembly("S", cl::desc("Write output as LLVM assembly"));
 
 static cl::opt<bool>
-NoVerify("disable-verify", cl::desc("Do not verify result module"), cl::Hidden);
+NoVerify("disable-verify", cl::desc("Do not run the verifier"), cl::Hidden);
 
 static cl::opt<bool>
 VerifyEach("verify-each", cl::desc("Verify after each transform"));
@@ -158,6 +158,12 @@ DisableSLPVectorization("disable-slp-vectorization",
                         cl::desc("Disable the slp vectorization pass"),
                         cl::init(false));
 
+static cl::opt<bool> EmitSummaryIndex("module-summary",
+                                      cl::desc("Emit module summary index"),
+                                      cl::init(false));
+
+static cl::opt<bool> EmitModuleHash("module-hash", cl::desc("Emit module hash"),
+                                    cl::init(false));
 
 static cl::opt<bool>
 DisableSimplifyLibCalls("disable-simplify-libcalls",
@@ -196,6 +202,11 @@ static cl::opt<bool>
              cl::desc("Run all passes twice, re-using the same pass manager."),
              cl::init(false), cl::Hidden);
 
+static cl::opt<bool> DiscardValueNames(
+    "discard-value-names",
+    cl::desc("Discard names from Value (other than GlobalValue)."),
+    cl::init(false), cl::Hidden);
+
 static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
   // Add the pass to the pass manager...
   PM.add(P);
@@ -212,7 +223,8 @@ static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
 static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
                                   legacy::FunctionPassManager &FPM,
                                   unsigned OptLevel, unsigned SizeLevel) {
-  FPM.add(createVerifierPass()); // Verify that input is correct
+  if (!NoVerify || VerifyEach)
+    FPM.add(createVerifierPass()); // Verify that input is correct
 
   PassManagerBuilder Builder;
   Builder.OptLevel = OptLevel;
@@ -304,7 +316,7 @@ int main(int argc, char **argv) {
   EnableDebugBuffering = true;
 
   llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
-  LLVMContext &Context = getGlobalContext();
+  LLVMContext Context;
 
   InitializeAllTargets();
   InitializeAllTargetMCs();
@@ -355,6 +367,8 @@ int main(int argc, char **argv) {
   }
 
   SMDiagnostic Err;
+
+  Context.setDiscardValueNames(DiscardValueNames);
 
   // Load the input module...
   std::unique_ptr<Module> M = parseIRFile(InputFilename, Err, Context);
@@ -616,10 +630,15 @@ int main(int argc, char **argv) {
       BOS = make_unique<raw_svector_ostream>(Buffer);
       OS = BOS.get();
     }
-    if (OutputAssembly)
+    if (OutputAssembly) {
+      if (EmitSummaryIndex)
+        report_fatal_error("Text output is incompatible with -module-summary");
+      if (EmitModuleHash)
+        report_fatal_error("Text output is incompatible with -module-hash");
       Passes.add(createPrintModulePass(*OS, "", PreserveAssemblyUseListOrder));
-    else
-      Passes.add(createBitcodeWriterPass(*OS, PreserveBitcodeUseListOrder));
+    } else
+      Passes.add(createBitcodeWriterPass(*OS, PreserveBitcodeUseListOrder,
+                                         EmitSummaryIndex, EmitModuleHash));
   }
 
   // Before executing passes, print the final values of the LLVM options.

@@ -291,6 +291,11 @@ TLI_DEFINE_STRING_INTERNAL("__memmove_chk")
 /// void *__memset_chk(void *s, char v, size_t n, size_t s1size);
 TLI_DEFINE_ENUM_INTERNAL(memset_chk)
 TLI_DEFINE_STRING_INTERNAL("__memset_chk")
+
+// int __nvvm_reflect(const char *)
+TLI_DEFINE_ENUM_INTERNAL(nvvm_reflect)
+TLI_DEFINE_STRING_INTERNAL("__nvvm_reflect")
+
 /// double __remainder_finite(double x, double y);
 TLI_DEFINE_ENUM_INTERNAL(dunder_remainder_finite)
 TLI_DEFINE_STRING_INTERNAL("__remainder_finite")

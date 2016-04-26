@@ -96,12 +96,14 @@ bool ClientMemref::isAConstDistanceFrom(const OVLSMemref& Mrf, int64_t *Distance
 
 
 namespace OVLSTest {
+  static OVLSContext Context;
+
   static void parseCommandLineOptions(int argc, char **argv, const char *Banner = nullptr) {
     cl::ParseCommandLineOptions(argc, argv, Banner);
   }
 
   OVLSContext& getContext() {
-    return getGlobalContext();
+    return Context;
   }
 
   static OVLSAccessType getAccessType(const std::string &AccType) {

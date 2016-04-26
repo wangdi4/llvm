@@ -29,6 +29,7 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -132,12 +133,19 @@ static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
                                    unsigned BonusInstThreshold) {
   bool Changed = false;
   bool LocalChange = true;
+
+  SmallVector<std::pair<const BasicBlock *, const BasicBlock *>, 32> Edges;
+  FindFunctionBackedges(F, Edges);
+  SmallPtrSet<BasicBlock *, 16> LoopHeaders;
+  for (unsigned i = 0, e = Edges.size(); i != e; ++i)
+    LoopHeaders.insert(const_cast<BasicBlock *>(Edges[i].second));
+
   while (LocalChange) {
     LocalChange = false;
 
     // Loop over all of the basic blocks and remove them if they are unneeded.
     for (Function::iterator BBIt = F.begin(); BBIt != F.end(); ) {
-      if (SimplifyCFG(&*BBIt++, TTI, BonusInstThreshold, AC)) {
+      if (SimplifyCFG(&*BBIt++, TTI, BonusInstThreshold, AC, &LoopHeaders)) {
         LocalChange = true;
         ++NumSimpl;
       }
@@ -179,9 +187,9 @@ SimplifyCFGPass::SimplifyCFGPass(int BonusInstThreshold)
     : BonusInstThreshold(BonusInstThreshold) {}
 
 PreservedAnalyses SimplifyCFGPass::run(Function &F,
-                                       AnalysisManager<Function> *AM) {
-  auto &TTI = AM->getResult<TargetIRAnalysis>(F);
-  auto &AC = AM->getResult<AssumptionAnalysis>(F);
+                                       AnalysisManager<Function> &AM) {
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F);
+  auto &AC = AM.getResult<AssumptionAnalysis>(F);
 
   if (simplifyFunctionCFG(F, TTI, &AC, BonusInstThreshold))
     return PreservedAnalyses::none();

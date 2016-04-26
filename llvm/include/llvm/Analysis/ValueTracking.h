@@ -26,6 +26,7 @@ namespace llvm {
   class AssumptionCache;
   class DataLayout;
   class DominatorTree;
+  class GEPOperator;
   class Instruction;
   class Loop;
   class LoopInfo;
@@ -91,6 +92,13 @@ namespace llvm {
                           AssumptionCache *AC = nullptr,
                           const Instruction *CxtI = nullptr,
                           const DominatorTree *DT = nullptr);
+
+  /// Returns true if the given value is known be positive (i.e. non-negative
+  /// and non-zero).
+  bool isKnownPositive(Value *V, const DataLayout &DL, unsigned Depth = 0,
+                       AssumptionCache *AC = nullptr,
+                       const Instruction *CxtI = nullptr,
+                       const DominatorTree *DT = nullptr);
 
   /// isKnownNonEqual - Return true if the given values are known to be
   /// non-equal when defined. Supports scalar integer types only.
@@ -159,12 +167,14 @@ namespace llvm {
   /// CannotBeNegativeZero - Return true if we can prove that the specified FP
   /// value is never equal to -0.0.
   ///
-  bool CannotBeNegativeZero(const Value *V, unsigned Depth = 0);
+  bool CannotBeNegativeZero(const Value *V, const TargetLibraryInfo *TLI,
+                            unsigned Depth = 0);
 
   /// CannotBeOrderedLessThanZero - Return true if we can prove that the
   /// specified FP value is either a NaN or never less than 0.0.
   ///
-  bool CannotBeOrderedLessThanZero(const Value *V, unsigned Depth = 0);
+  bool CannotBeOrderedLessThanZero(const Value *V, const TargetLibraryInfo *TLI,
+                                   unsigned Depth = 0);
 
   /// isBytewiseValue - If the specified value can be set by repeating the same
   /// byte in memory, return the i8 value that it is represented with.  This is
@@ -194,6 +204,10 @@ namespace llvm {
     return GetPointerBaseWithConstantOffset(const_cast<Value *>(Ptr), Offset,
                                             DL);
   }
+
+  /// Returns true if the GEP is based on a pointer to a string (array of i8), 
+  /// and is indexing into this string.
+  bool isGEPBasedOnPointerToString(const GEPOperator *GEP);
 
   /// getConstantStringInfo - This function computes the length of a
   /// null-terminated C string pointed to by V.  If successful, it returns true

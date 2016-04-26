@@ -245,7 +245,7 @@ static bool rotateLoop(Loop *L, unsigned MaxHeaderSize, LoopInfo *LI,
 
     // Eagerly remap the operands of the instruction.
     RemapInstruction(C, ValueMap,
-                     RF_NoModuleLevelChanges|RF_IgnoreMissingEntries);
+                     RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
 
     // With the operands remapped, see if the instruction constant folds or is
     // otherwise simplifyable.  This commonly occurs because the entry from PHI
@@ -593,6 +593,7 @@ public:
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
     getLoopAnalysisUsage(AU);
+    AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
   }
 
   bool runOnLoop(Loop *L, LPPassManager &LPM) override {

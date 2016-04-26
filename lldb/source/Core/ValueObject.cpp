@@ -2146,6 +2146,10 @@ ValueObject::GetSyntheticBitFieldChild (uint32_t from, uint32_t to, bool can_cre
         synthetic_child_sp = GetSyntheticChild (index_const_str);
         if (!synthetic_child_sp)
         {
+            uint32_t bit_field_size = to - from + 1;
+            uint32_t bit_field_offset = from;
+            if (GetDataExtractor().GetByteOrder() == eByteOrderBig)
+                bit_field_offset = GetByteSize() * 8 - bit_field_size - bit_field_offset;
             // We haven't made a synthetic array member for INDEX yet, so
             // lets make one and cache it for any future reference.
             ValueObjectChild *synthetic_child = new ValueObjectChild (*this,
@@ -2153,8 +2157,8 @@ ValueObject::GetSyntheticBitFieldChild (uint32_t from, uint32_t to, bool can_cre
                                                                       index_const_str,
                                                                       GetByteSize(),
                                                                       0,
-                                                                      to-from+1,
-                                                                      from,
+                                                                      bit_field_size,
+                                                                      bit_field_offset,
                                                                       false,
                                                                       false,
                                                                       eAddressTypeInvalid,
@@ -2536,7 +2540,7 @@ ValueObject::GetExpressionPath (Stream &s, bool qualify_cxx_base_classes, GetExp
         if (!is_deref_of_parent)
         {
             ValueObject *non_base_class_parent = GetNonBaseClassParent();
-            if (non_base_class_parent)
+            if (non_base_class_parent && !non_base_class_parent->GetName().IsEmpty())
             {
                 CompilerType non_base_class_parent_compiler_type = non_base_class_parent->GetCompilerType();
                 if (non_base_class_parent_compiler_type)

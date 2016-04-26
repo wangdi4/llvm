@@ -1458,17 +1458,17 @@ Host::StartMonitoringChildProcess(Host::MonitorChildProcessCallback callback, vo
     Log *log(lldb_private::GetLogIfAnyCategoriesSet (LIBLLDB_LOG_HOST | LIBLLDB_LOG_PROCESS));
 
 
-    dispatch_source_t source = ::dispatch_source_create (DISPATCH_SOURCE_TYPE_PROC, 
-                                                         pid, 
-                                                         mask, 
+    dispatch_source_t source = ::dispatch_source_create (DISPATCH_SOURCE_TYPE_PROC,
+                                                         pid,
+                                                         mask,
                                                          ::dispatch_get_global_queue (DISPATCH_QUEUE_PRIORITY_DEFAULT,0));
 
     if (log)
-        log->Printf ("Host::StartMonitoringChildProcess (callback=%p, baton=%p, pid=%i, monitor_signals=%i) source = %p\n", 
-                     callback, 
-                     callback_baton, 
-                     (int)pid, 
-                     monitor_signals, 
+        log->Printf ("Host::StartMonitoringChildProcess (callback=%p, baton=%p, pid=%i, monitor_signals=%i) source = %p\n",
+                     callback,
+                     callback_baton,
+                     (int)pid,
+                     monitor_signals,
                      source);
 
     if (source)
@@ -1477,7 +1477,7 @@ Host::StartMonitoringChildProcess(Host::MonitorChildProcessCallback callback, vo
             ::dispatch_release (source);
         });
         ::dispatch_source_set_event_handler (source, ^{
-            
+
             int status= 0;
             int wait_pid = 0;
             bool cancel = false;
@@ -1523,10 +1523,10 @@ Host::StartMonitoringChildProcess(Host::MonitorChildProcessCallback callback, vo
                                  status_cstr,
                                  signal,
                                  exit_status);
-                
+
                 if (callback)
                     cancel = callback (callback_baton, pid, exited, signal, exit_status);
-                
+
                 if (exited || cancel)
                 {
                     ::dispatch_source_cancel(source);

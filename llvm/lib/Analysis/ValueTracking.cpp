@@ -20,6 +20,7 @@
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
@@ -45,33 +46,10 @@ using namespace llvm::PatternMatch;
 
 const unsigned MaxDepth = 6;
 
-/// Enable an experimental feature to leverage information about dominating
-/// conditions to compute known bits.  The individual options below control how
-/// hard we search.  The defaults are chosen to be fairly aggressive.  If you
-/// run into compile time problems when testing, scale them back and report
-/// your findings.
-static cl::opt<bool> EnableDomConditions("value-tracking-dom-conditions",
-                                         cl::Hidden, cl::init(false));
-
-// This is expensive, so we only do it for the top level query value.
-// (TODO: evaluate cost vs profit, consider higher thresholds)
-static cl::opt<unsigned> DomConditionsMaxDepth("dom-conditions-max-depth",
-                                               cl::Hidden, cl::init(1));
-
-/// How many dominating blocks should be scanned looking for dominating
-/// conditions?
-static cl::opt<unsigned> DomConditionsMaxDomBlocks("dom-conditions-dom-blocks",
-                                                   cl::Hidden,
-                                                   cl::init(20));
-
 // Controls the number of uses of the value searched for possible
 // dominating comparisons.
 static cl::opt<unsigned> DomConditionsMaxUses("dom-conditions-max-uses",
                                               cl::Hidden, cl::init(20));
-
-// If true, don't consider only compares whose only use is a branch.
-static cl::opt<bool> DomConditionsSingleCmpUse("dom-conditions-single-cmp-use",
-                                               cl::Hidden, cl::init(false));
 
 /// Returns the bitwidth of the given scalar or pointer type (if unknown returns
 /// 0). For vector types, returns the element type's bitwidth.
@@ -203,6 +181,18 @@ bool llvm::isKnownNonNegative(Value *V, const DataLayout &DL, unsigned Depth,
   bool NonNegative, Negative;
   ComputeSignBit(V, NonNegative, Negative, DL, Depth, AC, CxtI, DT);
   return NonNegative;
+}
+
+bool llvm::isKnownPositive(Value *V, const DataLayout &DL, unsigned Depth,
+                           AssumptionCache *AC, const Instruction *CxtI,
+                           const DominatorTree *DT) {
+  if (auto *CI = dyn_cast<ConstantInt>(V))
+    return CI->getValue().isStrictlyPositive();
+  
+  // TODO: We'd doing two recursive queries here.  We should factor this such
+  // that only a single query is needed.
+  return isKnownNonNegative(V, DL, Depth, AC, CxtI, DT) &&
+    isKnownNonZero(V, DL, Depth, AC, CxtI, DT);
 }
 
 static bool isKnownNonEqual(Value *V1, Value *V2, const Query &Q);
@@ -604,187 +594,6 @@ inline match_combine_or<BinaryOp_match<LHS, RHS, Instruction::Xor>,
                         BinaryOp_match<RHS, LHS, Instruction::Xor>>
 m_c_Xor(const LHS &L, const RHS &R) {
   return m_CombineOr(m_Xor(L, R), m_Xor(R, L));
-}
-
-/// Compute known bits in 'V' under the assumption that the condition 'Cmp' is
-/// true (at the context instruction.)  This is mostly a utility function for
-/// the prototype dominating conditions reasoning below.
-static void computeKnownBitsFromTrueCondition(Value *V, ICmpInst *Cmp,
-                                              APInt &KnownZero,
-                                              APInt &KnownOne,
-                                              unsigned Depth, const Query &Q) {
-  Value *LHS = Cmp->getOperand(0);
-  Value *RHS = Cmp->getOperand(1);
-  // TODO: We could potentially be more aggressive here.  This would be worth
-  // evaluating.  If we can, explore commoning this code with the assume
-  // handling logic.
-  if (LHS != V && RHS != V)
-    return;
-
-  const unsigned BitWidth = KnownZero.getBitWidth();
-
-  switch (Cmp->getPredicate()) {
-  default:
-    // We know nothing from this condition
-    break;
-  // TODO: implement unsigned bound from below (known one bits)
-  // TODO: common condition check implementations with assumes
-  // TODO: implement other patterns from assume (e.g. V & B == A)
-  case ICmpInst::ICMP_SGT:
-    if (LHS == V) {
-      APInt KnownZeroTemp(BitWidth, 0), KnownOneTemp(BitWidth, 0);
-      computeKnownBits(RHS, KnownZeroTemp, KnownOneTemp, Depth + 1, Q);
-      if (KnownOneTemp.isAllOnesValue() || KnownZeroTemp.isNegative()) {
-        // We know that the sign bit is zero.
-        KnownZero |= APInt::getSignBit(BitWidth);
-      }
-    }
-    break;
-  case ICmpInst::ICMP_EQ:
-    {
-      APInt KnownZeroTemp(BitWidth, 0), KnownOneTemp(BitWidth, 0);
-      if (LHS == V)
-        computeKnownBits(RHS, KnownZeroTemp, KnownOneTemp, Depth + 1, Q);
-      else if (RHS == V)
-        computeKnownBits(LHS, KnownZeroTemp, KnownOneTemp, Depth + 1, Q);
-      else
-        llvm_unreachable("missing use?");
-      KnownZero |= KnownZeroTemp;
-      KnownOne |= KnownOneTemp;
-    }
-    break;
-  case ICmpInst::ICMP_ULE:
-    if (LHS == V) {
-      APInt KnownZeroTemp(BitWidth, 0), KnownOneTemp(BitWidth, 0);
-      computeKnownBits(RHS, KnownZeroTemp, KnownOneTemp, Depth + 1, Q);
-      // The known zero bits carry over
-      unsigned SignBits = KnownZeroTemp.countLeadingOnes();
-      KnownZero |= APInt::getHighBitsSet(BitWidth, SignBits);
-    }
-    break;
-  case ICmpInst::ICMP_ULT:
-    if (LHS == V) {
-      APInt KnownZeroTemp(BitWidth, 0), KnownOneTemp(BitWidth, 0);
-      computeKnownBits(RHS, KnownZeroTemp, KnownOneTemp, Depth + 1, Q);
-      // Whatever high bits in rhs are zero are known to be zero (if rhs is a
-      // power of 2, then one more).
-      unsigned SignBits = KnownZeroTemp.countLeadingOnes();
-      if (isKnownToBeAPowerOfTwo(RHS, false, Depth + 1, Query(Q, Cmp)))
-        SignBits++;
-      KnownZero |= APInt::getHighBitsSet(BitWidth, SignBits);
-    }
-    break;
-  };
-}
-
-/// Compute known bits in 'V' from conditions which are known to be true along
-/// all paths leading to the context instruction.  In particular, look for
-/// cases where one branch of an interesting condition dominates the context
-/// instruction.  This does not do general dataflow.
-/// NOTE: This code is EXPERIMENTAL and currently off by default.
-static void computeKnownBitsFromDominatingCondition(Value *V, APInt &KnownZero,
-                                                    APInt &KnownOne,
-                                                    unsigned Depth,
-                                                    const Query &Q) {
-  // Need both the dominator tree and the query location to do anything useful
-  if (!Q.DT || !Q.CxtI)
-    return;
-  Instruction *Cxt = const_cast<Instruction *>(Q.CxtI);
-  // The context instruction might be in a statically unreachable block.  If
-  // so, asking dominator queries may yield suprising results.  (e.g. the block
-  // may not have a dom tree node)
-  if (!Q.DT->isReachableFromEntry(Cxt->getParent()))
-    return;
-
-  // Avoid useless work
-  if (auto VI = dyn_cast<Instruction>(V))
-    if (VI->getParent() == Cxt->getParent())
-      return;
-
-  // Note: We currently implement two options.  It's not clear which of these
-  // will survive long term, we need data for that.
-  // Option 1 - Try walking the dominator tree looking for conditions which
-  // might apply.  This works well for local conditions (loop guards, etc..),
-  // but not as well for things far from the context instruction (presuming a
-  // low max blocks explored).  If we can set an high enough limit, this would
-  // be all we need.
-  // Option 2 - We restrict out search to those conditions which are uses of
-  // the value we're interested in.  This is independent of dom structure,
-  // but is slightly less powerful without looking through lots of use chains.
-  // It does handle conditions far from the context instruction (e.g. early
-  // function exits on entry) really well though.
-
-  // Option 1 - Search the dom tree
-  unsigned NumBlocksExplored = 0;
-  BasicBlock *Current = Cxt->getParent();
-  while (true) {
-    // Stop searching if we've gone too far up the chain
-    if (NumBlocksExplored >= DomConditionsMaxDomBlocks)
-      break;
-    NumBlocksExplored++;
-
-    if (!Q.DT->getNode(Current)->getIDom())
-      break;
-    Current = Q.DT->getNode(Current)->getIDom()->getBlock();
-    if (!Current)
-      // found function entry
-      break;
-
-    BranchInst *BI = dyn_cast<BranchInst>(Current->getTerminator());
-    if (!BI || BI->isUnconditional())
-      continue;
-    ICmpInst *Cmp = dyn_cast<ICmpInst>(BI->getCondition());
-    if (!Cmp)
-      continue;
-
-    // We're looking for conditions that are guaranteed to hold at the context
-    // instruction.  Finding a condition where one path dominates the context
-    // isn't enough because both the true and false cases could merge before
-    // the context instruction we're actually interested in.  Instead, we need
-    // to ensure that the taken *edge* dominates the context instruction.  We
-    // know that the edge must be reachable since we started from a reachable
-    // block.
-    BasicBlock *BB0 = BI->getSuccessor(0);
-    BasicBlockEdge Edge(BI->getParent(), BB0);
-    if (!Edge.isSingleEdge() || !Q.DT->dominates(Edge, Q.CxtI->getParent()))
-      continue;
-
-    computeKnownBitsFromTrueCondition(V, Cmp, KnownZero, KnownOne, Depth, Q);
-  }
-
-  // Option 2 - Search the other uses of V
-  unsigned NumUsesExplored = 0;
-  for (auto U : V->users()) {
-    // Avoid massive lists
-    if (NumUsesExplored >= DomConditionsMaxUses)
-      break;
-    NumUsesExplored++;
-    // Consider only compare instructions uniquely controlling a branch
-    ICmpInst *Cmp = dyn_cast<ICmpInst>(U);
-    if (!Cmp)
-      continue;
-
-    if (DomConditionsSingleCmpUse && !Cmp->hasOneUse())
-      continue;
-
-    for (auto *CmpU : Cmp->users()) {
-      BranchInst *BI = dyn_cast<BranchInst>(CmpU);
-      if (!BI || BI->isUnconditional())
-        continue;
-      // We're looking for conditions that are guaranteed to hold at the
-      // context instruction.  Finding a condition where one path dominates
-      // the context isn't enough because both the true and false cases could
-      // merge before the context instruction we're actually interested in.
-      // Instead, we need to ensure that the taken *edge* dominates the context
-      // instruction. 
-      BasicBlock *BB0 = BI->getSuccessor(0);
-      BasicBlockEdge Edge(BI->getParent(), BB0);
-      if (!Edge.isSingleEdge() || !Q.DT->dominates(Edge, Q.CxtI->getParent()))
-        continue;
-
-      computeKnownBitsFromTrueCondition(V, Cmp, KnownZero, KnownOne, Depth, Q);
-    }
-  }
 }
 
 static void computeKnownBitsFromAssume(Value *V, APInt &KnownZero,
@@ -1702,7 +1511,7 @@ void computeKnownBits(Value *V, APInt &KnownZero, APInt &KnownOne,
   // A weak GlobalAlias is totally unknown. A non-weak GlobalAlias has
   // the bits of its aliasee.
   if (GlobalAlias *GA = dyn_cast<GlobalAlias>(V)) {
-    if (!GA->mayBeOverridden())
+    if (!GA->isInterposable())
       computeKnownBits(GA->getAliasee(), KnownZero, KnownOne, Depth + 1, Q);
     return;
   }
@@ -1717,17 +1526,11 @@ void computeKnownBits(Value *V, APInt &KnownZero, APInt &KnownOne,
       KnownZero |= APInt::getLowBitsSet(BitWidth, countTrailingZeros(Align));
   }
 
-  // computeKnownBitsFromAssume and computeKnownBitsFromDominatingCondition
-  // strictly refines KnownZero and KnownOne. Therefore, we run them after
-  // computeKnownBitsFromOperator.
+  // computeKnownBitsFromAssume strictly refines KnownZero and
+  // KnownOne. Therefore, we run them after computeKnownBitsFromOperator.
 
   // Check whether a nearby assume intrinsic can determine some known bits.
   computeKnownBitsFromAssume(V, KnownZero, KnownOne, Depth, Q);
-
-  // Check whether there's a dominating condition which implies something about
-  // this value at the given context.
-  if (EnableDomConditions && Depth <= DomConditionsMaxDepth)
-    computeKnownBitsFromDominatingCondition(V, KnownZero, KnownOne, Depth, Q);
 
   assert((KnownZero & KnownOne) == 0 && "Bits known to be one AND zero?");
 }
@@ -2576,7 +2379,8 @@ bool llvm::ComputeMultiple(Value *V, unsigned Base, Value *&Multiple,
 /// NOTE: this function will need to be revisited when we support non-default
 /// rounding modes!
 ///
-bool llvm::CannotBeNegativeZero(const Value *V, unsigned Depth) {
+bool llvm::CannotBeNegativeZero(const Value *V, const TargetLibraryInfo *TLI,
+                                unsigned Depth) {
   if (const ConstantFP *CFP = dyn_cast<ConstantFP>(V))
     return !CFP->getValueAPF().isNegZero();
 
@@ -2604,30 +2408,26 @@ bool llvm::CannotBeNegativeZero(const Value *V, unsigned Depth) {
   if (isa<SIToFPInst>(I) || isa<UIToFPInst>(I))
     return true;
 
-  if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(I))
+  if (const CallInst *CI = dyn_cast<CallInst>(I)) {
+    Intrinsic::ID IID = getIntrinsicIDForCall(CI, TLI);
+    switch (IID) {
+    default:
+      break;
     // sqrt(-0.0) = -0.0, no other negative results are possible.
-    if (II->getIntrinsicID() == Intrinsic::sqrt)
-      return CannotBeNegativeZero(II->getArgOperand(0), Depth+1);
-
-  if (const CallInst *CI = dyn_cast<CallInst>(I))
-    if (const Function *F = CI->getCalledFunction()) {
-      if (F->isDeclaration()) {
-        // abs(x) != -0.0
-        if (F->getName() == "abs") return true;
-        // fabs[lf](x) != -0.0
-        if (F->getName() == "fabs") return true;
-        if (F->getName() == "fabsf") return true;
-        if (F->getName() == "fabsl") return true;
-        if (F->getName() == "sqrt" || F->getName() == "sqrtf" ||
-            F->getName() == "sqrtl")
-          return CannotBeNegativeZero(CI->getArgOperand(0), Depth+1);
-      }
+    case Intrinsic::sqrt:
+      return CannotBeNegativeZero(CI->getArgOperand(0), TLI, Depth + 1);
+    // fabs(x) != -0.0
+    case Intrinsic::fabs:
+      return true;
     }
+  }
 
   return false;
 }
 
-bool llvm::CannotBeOrderedLessThanZero(const Value *V, unsigned Depth) {
+bool llvm::CannotBeOrderedLessThanZero(const Value *V,
+                                       const TargetLibraryInfo *TLI,
+                                       unsigned Depth) {
   if (const ConstantFP *CFP = dyn_cast<ConstantFP>(V))
     return !CFP->getValueAPF().isNegative() || CFP->getValueAPF().isZero();
 
@@ -2653,43 +2453,44 @@ bool llvm::CannotBeOrderedLessThanZero(const Value *V, unsigned Depth) {
   case Instruction::FAdd:
   case Instruction::FDiv:
   case Instruction::FRem:
-    return CannotBeOrderedLessThanZero(I->getOperand(0), Depth+1) &&
-           CannotBeOrderedLessThanZero(I->getOperand(1), Depth+1);
+    return CannotBeOrderedLessThanZero(I->getOperand(0), TLI, Depth + 1) &&
+           CannotBeOrderedLessThanZero(I->getOperand(1), TLI, Depth + 1);
   case Instruction::Select:
-    return CannotBeOrderedLessThanZero(I->getOperand(1), Depth+1) &&
-           CannotBeOrderedLessThanZero(I->getOperand(2), Depth+1);
+    return CannotBeOrderedLessThanZero(I->getOperand(1), TLI, Depth + 1) &&
+           CannotBeOrderedLessThanZero(I->getOperand(2), TLI, Depth + 1);
   case Instruction::FPExt:
   case Instruction::FPTrunc:
     // Widening/narrowing never change sign.
-    return CannotBeOrderedLessThanZero(I->getOperand(0), Depth+1);
-  case Instruction::Call: 
-    if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) 
-      switch (II->getIntrinsicID()) {
-      default: break;
-      case Intrinsic::maxnum:
-        return CannotBeOrderedLessThanZero(I->getOperand(0), Depth+1) ||
-               CannotBeOrderedLessThanZero(I->getOperand(1), Depth+1);
-      case Intrinsic::minnum:
-        return CannotBeOrderedLessThanZero(I->getOperand(0), Depth+1) &&
-               CannotBeOrderedLessThanZero(I->getOperand(1), Depth+1);
-      case Intrinsic::exp:
-      case Intrinsic::exp2:
-      case Intrinsic::fabs:
-      case Intrinsic::sqrt:
-        return true;
-      case Intrinsic::powi: 
-        if (ConstantInt *CI = dyn_cast<ConstantInt>(I->getOperand(1))) {
-          // powi(x,n) is non-negative if n is even.
-          if (CI->getBitWidth() <= 64 && CI->getSExtValue() % 2u == 0)
-            return true;
-        }
-        return CannotBeOrderedLessThanZero(I->getOperand(0), Depth+1);
-      case Intrinsic::fma:
-      case Intrinsic::fmuladd:
-        // x*x+y is non-negative if y is non-negative.
-        return I->getOperand(0) == I->getOperand(1) && 
-               CannotBeOrderedLessThanZero(I->getOperand(2), Depth+1);
+    return CannotBeOrderedLessThanZero(I->getOperand(0), TLI, Depth + 1);
+  case Instruction::Call:
+    Intrinsic::ID IID = getIntrinsicIDForCall(cast<CallInst>(I), TLI);
+    switch (IID) {
+    default:
+      break;
+    case Intrinsic::maxnum:
+      return CannotBeOrderedLessThanZero(I->getOperand(0), TLI, Depth + 1) ||
+             CannotBeOrderedLessThanZero(I->getOperand(1), TLI, Depth + 1);
+    case Intrinsic::minnum:
+      return CannotBeOrderedLessThanZero(I->getOperand(0), TLI, Depth + 1) &&
+             CannotBeOrderedLessThanZero(I->getOperand(1), TLI, Depth + 1);
+    case Intrinsic::exp:
+    case Intrinsic::exp2:
+    case Intrinsic::fabs:
+    case Intrinsic::sqrt:
+      return true;
+    case Intrinsic::powi:
+      if (ConstantInt *CI = dyn_cast<ConstantInt>(I->getOperand(1))) {
+        // powi(x,n) is non-negative if n is even.
+        if (CI->getBitWidth() <= 64 && CI->getSExtValue() % 2u == 0)
+          return true;
       }
+      return CannotBeOrderedLessThanZero(I->getOperand(0), TLI, Depth + 1);
+    case Intrinsic::fma:
+    case Intrinsic::fmuladd:
+      // x*x+y is non-negative if y is non-negative.
+      return I->getOperand(0) == I->getOperand(1) &&
+             CannotBeOrderedLessThanZero(I->getOperand(2), TLI, Depth + 1);
+    }
     break;
   }
   return false; 
@@ -2949,7 +2750,7 @@ Value *llvm::GetPointerBaseWithConstantOffset(Value *Ptr, int64_t &Offset,
                Operator::getOpcode(Ptr) == Instruction::AddrSpaceCast) {
       Ptr = cast<Operator>(Ptr)->getOperand(0);
     } else if (GlobalAlias *GA = dyn_cast<GlobalAlias>(Ptr)) {
-      if (GA->mayBeOverridden())
+      if (GA->isInterposable())
         break;
       Ptr = GA->getAliasee();
     } else {
@@ -2960,6 +2761,24 @@ Value *llvm::GetPointerBaseWithConstantOffset(Value *Ptr, int64_t &Offset,
   return Ptr;
 }
 
+bool llvm::isGEPBasedOnPointerToString(const GEPOperator *GEP) {
+  // Make sure the GEP has exactly three arguments.
+  if (GEP->getNumOperands() != 3)
+    return false;
+
+  // Make sure the index-ee is a pointer to array of i8.
+  ArrayType *AT = dyn_cast<ArrayType>(GEP->getSourceElementType());
+  if (!AT || !AT->getElementType()->isIntegerTy(8))
+    return false;
+
+  // Check to make sure that the first operand of the GEP is an integer and
+  // has value 0 so that we are sure we're indexing into the initializer.
+  const ConstantInt *FirstIdx = dyn_cast<ConstantInt>(GEP->getOperand(1));
+  if (!FirstIdx || !FirstIdx->isZero())
+    return false;
+
+  return true;
+} 
 
 /// This function computes the length of a null-terminated C string pointed to
 /// by V. If successful, it returns true and returns the string in Str.
@@ -2974,19 +2793,9 @@ bool llvm::getConstantStringInfo(const Value *V, StringRef &Str,
   // If the value is a GEP instruction or constant expression, treat it as an
   // offset.
   if (const GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
-    // Make sure the GEP has exactly three arguments.
-    if (GEP->getNumOperands() != 3)
-      return false;
-
-    // Make sure the index-ee is a pointer to array of i8.
-    ArrayType *AT = dyn_cast<ArrayType>(GEP->getSourceElementType());
-    if (!AT || !AT->getElementType()->isIntegerTy(8))
-      return false;
-
-    // Check to make sure that the first operand of the GEP is an integer and
-    // has value 0 so that we are sure we're indexing into the initializer.
-    const ConstantInt *FirstIdx = dyn_cast<ConstantInt>(GEP->getOperand(1));
-    if (!FirstIdx || !FirstIdx->isZero())
+    // The GEP operator should be based on a pointer to string constant, and is
+    // indexing into the string constant.
+    if (!isGEPBasedOnPointerToString(GEP))
       return false;
 
     // If the second index isn't a ConstantInt, then this is a variable index
@@ -3145,7 +2954,7 @@ Value *llvm::GetUnderlyingObject(Value *V, const DataLayout &DL,
                Operator::getOpcode(V) == Instruction::AddrSpaceCast) {
       V = cast<Operator>(V)->getOperand(0);
     } else if (GlobalAlias *GA = dyn_cast<GlobalAlias>(V)) {
-      if (GA->mayBeOverridden())
+      if (GA->isInterposable())
         return V;
       V = GA->getAliasee();
     } else {
@@ -3298,17 +3107,29 @@ bool llvm::isSafeToSpeculativelyExecute(const Value *V,
       case Intrinsic::umul_with_overflow:
       case Intrinsic::usub_with_overflow:
         return true;
-      // Sqrt should be OK, since the llvm sqrt intrinsic isn't defined to set
-      // errno like libm sqrt would.
+      // These intrinsics are defined to have the same behavior as libm
+      // functions except for setting errno.
       case Intrinsic::sqrt:
       case Intrinsic::fma:
       case Intrinsic::fmuladd:
+        return true;
+      // These intrinsics are defined to have the same behavior as libm
+      // functions, and the corresponding libm functions never set errno.
+      case Intrinsic::trunc:
+      case Intrinsic::copysign:
       case Intrinsic::fabs:
       case Intrinsic::minnum:
       case Intrinsic::maxnum:
         return true;
-      // TODO: some fp intrinsics are marked as having the same error handling
-      // as libm. They're safe to speculate when they won't error.
+      // These intrinsics are defined to have the same behavior as libm
+      // functions, which never overflow when operating on the IEEE754 types
+      // that we support, and never set errno otherwise.
+      case Intrinsic::ceil:
+      case Intrinsic::floor:
+      case Intrinsic::nearbyint:
+      case Intrinsic::rint:
+      case Intrinsic::round:
+        return true;
       // TODO: are convert_{from,to}_fp16 safe?
       // TODO: can we list target-specific intrinsics here?
       default: break;
@@ -3388,9 +3209,6 @@ static bool isKnownNonNullFromDominatingCondition(const Value *V,
     // Consider only compare instructions uniquely controlling a branch
     const ICmpInst *Cmp = dyn_cast<ICmpInst>(U);
     if (!Cmp)
-      continue;
-
-    if (DomConditionsSingleCmpUse && !Cmp->hasOneUse())
       continue;
 
     for (auto *CmpU : Cmp->users()) {
@@ -3861,10 +3679,11 @@ static SelectPatternResult matchSelectPattern(CmpInst::Predicate Pred,
         return {(CmpLHS == FalseVal) ? SPF_ABS : SPF_NABS, SPNB_NA, false};
       }
     }
-    
+
     // Y >s C ? ~Y : ~C == ~Y <s ~C ? ~Y : ~C = SMIN(~Y, ~C)
     if (const auto *C2 = dyn_cast<ConstantInt>(FalseVal)) {
-      if (C1->getType() == C2->getType() && ~C1->getValue() == C2->getValue() &&
+      if (Pred == ICmpInst::ICMP_SGT && C1->getType() == C2->getType() &&
+          ~C1->getValue() == C2->getValue() &&
           (match(TrueVal, m_Not(m_Specific(CmpLHS))) ||
            match(CmpLHS, m_Not(m_Specific(TrueVal))))) {
         LHS = TrueVal;

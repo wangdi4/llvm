@@ -485,6 +485,7 @@ PlatformLinux::GetSupportedArchitectureAtIndex (uint32_t idx, ArchSpec &arch)
             case 6: triple.setArchName("mips"); break;
             case 7: triple.setArchName("mips64el"); break;
             case 8: triple.setArchName("mipsel"); break;
+            case 9: triple.setArchName("s390x"); break;
             default: return false;
         }
         // Leave the vendor as "llvm::Triple:UnknownVendor" and don't specify the vendor by
@@ -670,9 +671,9 @@ PlatformLinux::DebugProcess (ProcessLaunchInfo &launch_info,
         if (log)
             log->Printf ("PlatformLinux::%s setting up hijacker", __FUNCTION__);
 
-        listener_sp.reset (new Listener("lldb.PlatformLinux.DebugProcess.hijack"));
+        listener_sp = Listener::MakeListener("lldb.PlatformLinux.DebugProcess.hijack");
         launch_info.SetHijackListener (listener_sp);
-        process_sp->HijackProcessEvents (listener_sp.get ());
+        process_sp->HijackProcessEvents (listener_sp);
     }
 
     // Log file actions.
@@ -698,7 +699,7 @@ PlatformLinux::DebugProcess (ProcessLaunchInfo &launch_info,
         // Handle the hijacking of process events.
         if (listener_sp)
         {
-            const StateType state = process_sp->WaitForProcessToStop (NULL, NULL, false, listener_sp.get());
+            const StateType state = process_sp->WaitForProcessToStop (NULL, NULL, false, listener_sp);
 
             if (state == eStateStopped)
             {

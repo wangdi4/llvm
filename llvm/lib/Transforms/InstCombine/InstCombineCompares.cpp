@@ -26,6 +26,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/VectorUtils.h"
 
 using namespace llvm;
 using namespace PatternMatch;
@@ -2248,6 +2249,15 @@ Instruction *InstCombiner::visitICmpInstWithInstAndIntCst(ICmpInst &ICI,
           Constant *NotCI = ConstantExpr::getNot(RHS);
           if (!ConstantExpr::getAnd(BOC, NotCI)->isNullValue())
             return replaceInstUsesWith(ICI, Builder->getInt1(isICMP_NE));
+
+          // Comparing if all bits outside of a constant mask are set?
+          // Replace (X | C) == -1 with (X & ~C) == ~C.
+          // This removes the -1 constant.
+          if (BO->hasOneUse() && RHS->isAllOnesValue()) {
+            Constant *NotBOC = ConstantExpr::getNot(BOC);
+            Value *And = Builder->CreateAnd(BO->getOperand(0), NotBOC);
+            return new ICmpInst(ICI.getPredicate(), And, NotBOC);
+          }
         }
         break;
 
@@ -3287,6 +3297,19 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
       if (Instruction *Res = ProcessUGT_ADDCST_ADD(I, A, B, CI2, CI, *this))
         return Res;
     }
+
+    // (icmp sgt smin(PosA, B) 0) -> (icmp sgt B 0)
+    if (CI->isZero() && I.getPredicate() == ICmpInst::ICMP_SGT)
+      if (auto *SI = dyn_cast<SelectInst>(Op0)) {
+        SelectPatternResult SPR = matchSelectPattern(SI, A, B);
+        if (SPR.Flavor == SPF_SMIN) {
+          if (isKnownPositive(A, DL))
+            return new ICmpInst(I.getPredicate(), B, CI);
+          if (isKnownPositive(B, DL))
+            return new ICmpInst(I.getPredicate(), A, CI);
+        }
+      }
+    
 
     // The following transforms are only 'worth it' if the only user of the
     // subtraction is the icmp.
@@ -4660,39 +4683,33 @@ Instruction *InstCombiner::visitFCmpInst(FCmpInst &I) {
           break;
 
         CallInst *CI = cast<CallInst>(LHSI);
-        const Function *F = CI->getCalledFunction();
-        if (!F)
+        Intrinsic::ID IID = getIntrinsicIDForCall(CI, TLI);
+        if (IID != Intrinsic::fabs)
           break;
 
         // Various optimization for fabs compared with zero.
-        LibFunc::Func Func;
-        if (F->getIntrinsicID() == Intrinsic::fabs ||
-            (TLI->getLibFunc(F->getName(), Func) && TLI->has(Func) &&
-             (Func == LibFunc::fabs || Func == LibFunc::fabsf ||
-              Func == LibFunc::fabsl))) {
-          switch (I.getPredicate()) {
-          default:
-            break;
-            // fabs(x) < 0 --> false
-          case FCmpInst::FCMP_OLT:
-            return replaceInstUsesWith(I, Builder->getFalse());
-            // fabs(x) > 0 --> x != 0
-          case FCmpInst::FCMP_OGT:
-            return new FCmpInst(FCmpInst::FCMP_ONE, CI->getArgOperand(0), RHSC);
-            // fabs(x) <= 0 --> x == 0
-          case FCmpInst::FCMP_OLE:
-            return new FCmpInst(FCmpInst::FCMP_OEQ, CI->getArgOperand(0), RHSC);
-            // fabs(x) >= 0 --> !isnan(x)
-          case FCmpInst::FCMP_OGE:
-            return new FCmpInst(FCmpInst::FCMP_ORD, CI->getArgOperand(0), RHSC);
-            // fabs(x) == 0 --> x == 0
-            // fabs(x) != 0 --> x != 0
-          case FCmpInst::FCMP_OEQ:
-          case FCmpInst::FCMP_UEQ:
-          case FCmpInst::FCMP_ONE:
-          case FCmpInst::FCMP_UNE:
-            return new FCmpInst(I.getPredicate(), CI->getArgOperand(0), RHSC);
-          }
+        switch (I.getPredicate()) {
+        default:
+          break;
+        // fabs(x) < 0 --> false
+        case FCmpInst::FCMP_OLT:
+          llvm_unreachable("handled by SimplifyFCmpInst");
+        // fabs(x) > 0 --> x != 0
+        case FCmpInst::FCMP_OGT:
+          return new FCmpInst(FCmpInst::FCMP_ONE, CI->getArgOperand(0), RHSC);
+        // fabs(x) <= 0 --> x == 0
+        case FCmpInst::FCMP_OLE:
+          return new FCmpInst(FCmpInst::FCMP_OEQ, CI->getArgOperand(0), RHSC);
+        // fabs(x) >= 0 --> !isnan(x)
+        case FCmpInst::FCMP_OGE:
+          return new FCmpInst(FCmpInst::FCMP_ORD, CI->getArgOperand(0), RHSC);
+        // fabs(x) == 0 --> x == 0
+        // fabs(x) != 0 --> x != 0
+        case FCmpInst::FCMP_OEQ:
+        case FCmpInst::FCMP_UEQ:
+        case FCmpInst::FCMP_ONE:
+        case FCmpInst::FCMP_UNE:
+          return new FCmpInst(I.getPredicate(), CI->getArgOperand(0), RHSC);
         }
       }
       }

@@ -141,6 +141,8 @@ GetArgsX86(const GetArgsCtx &ctx, ArgItem *arg_list, size_t num_args)
 {
     Log *log = GetLogIfAllCategoriesSet(LIBLLDB_LOG_LANGUAGE);
 
+    Error error;
+
     // get the current stack pointer
     uint64_t sp = ctx.reg_ctx->GetSP();
 
@@ -183,6 +185,8 @@ GetArgsX86_64(GetArgsCtx &ctx, ArgItem *arg_list, size_t num_args)
         8, // eLong,
         4, // eBool,
     }};
+
+    Error error;
 
     // get the current stack pointer
     uint64_t sp = ctx.reg_ctx->GetSP();
@@ -227,7 +231,6 @@ GetArgsX86_64(GetArgsCtx &ctx, ArgItem *arg_list, size_t num_args)
             // read the argument from memory
             arg.value = 0;
             // note: due to little endian layout reading 4 or 8 bytes will give the correct value.
-            Error error;
             size_t read = ctx.process->ReadMemory(sp, &arg.value, size, error);
             success = (error.Success() && read==size);
             // advance past this argument
@@ -237,7 +240,8 @@ GetArgsX86_64(GetArgsCtx &ctx, ArgItem *arg_list, size_t num_args)
         if (!success)
         {
             if (log)
-                log->Printf("%s - error reading argument: %" PRIu64, __FUNCTION__, uint64_t(i));
+                log->Printf("%s - error reading argument: %" PRIu64", reason: %s",
+                            __FUNCTION__, uint64_t(i), error.AsCString("n/a"));
             return false;
         }
     }
@@ -251,6 +255,8 @@ GetArgsArm(GetArgsCtx &ctx, ArgItem *arg_list, size_t num_args)
     static const uint32_t c_args_in_reg = 4;
 
     Log *log = GetLogIfAllCategoriesSet(LIBLLDB_LOG_LANGUAGE);
+
+    Error error;
 
     // get the current stack pointer
     uint64_t sp = ctx.reg_ctx->GetSP();
@@ -275,7 +281,6 @@ GetArgsArm(GetArgsCtx &ctx, ArgItem *arg_list, size_t num_args)
             // clear all 64bits
             arg.value = 0;
             // read this argument from memory
-            Error error;
             size_t bytes_read = ctx.process->ReadMemory(sp, &arg.value, arg_size, error);
             success = (error.Success() && bytes_read == arg_size);
             // advance the stack pointer
@@ -285,7 +290,8 @@ GetArgsArm(GetArgsCtx &ctx, ArgItem *arg_list, size_t num_args)
         if (!success)
         {
             if (log)
-                log->Printf("%s - error reading argument: %" PRIu64, __FUNCTION__, uint64_t(i));
+                log->Printf("%s - error reading argument: %" PRIu64", reason: %s",
+                            __FUNCTION__, uint64_t(i), error.AsCString("n/a"));
             return false;
         }
     }
@@ -340,6 +346,11 @@ GetArgsMipsel(GetArgsCtx &ctx, ArgItem *arg_list, size_t num_args)
 
     Log *log = GetLogIfAllCategoriesSet(LIBLLDB_LOG_LANGUAGE);
 
+    Error error;
+
+    // find offset to arguments on the stack (+16 to skip over a0-a3 shadow space)
+    uint64_t sp = ctx.reg_ctx->GetSP() + 16;
+
     for (size_t i = 0; i < num_args; ++i)
     {
         bool success = false;
@@ -355,14 +366,19 @@ GetArgsMipsel(GetArgsCtx &ctx, ArgItem *arg_list, size_t num_args)
         // arguments passed on the stack
         else
         {
-            if (log)
-                log->Printf("%s - reading arguments spilled to stack not implemented.", __FUNCTION__);
+            const size_t arg_size = sizeof(uint32_t);
+            arg.value = 0;
+            size_t bytes_read = ctx.process->ReadMemory(sp, &arg.value, arg_size, error);
+            success = (error.Success() && bytes_read == arg_size);
+            // advance the stack pointer
+            sp += arg_size;
         }
         // fail if we couldn't read this argument
         if (!success)
         {
             if (log)
-                log->Printf("%s - error reading argument: %" PRIu64, __FUNCTION__, uint64_t(i));
+                log->Printf("%s - error reading argument: %" PRIu64", reason: %s",
+                            __FUNCTION__, uint64_t(i), error.AsCString("n/a"));
             return false;
         }
     }
@@ -378,6 +394,8 @@ GetArgsMips64el(GetArgsCtx &ctx, ArgItem *arg_list, size_t num_args)
     static const uint32_t c_reg_offset = 4;
 
     Log *log = GetLogIfAllCategoriesSet(LIBLLDB_LOG_LANGUAGE);
+
+    Error error;
 
     // get the current stack pointer
     uint64_t sp = ctx.reg_ctx->GetSP();
@@ -402,7 +420,6 @@ GetArgsMips64el(GetArgsCtx &ctx, ArgItem *arg_list, size_t num_args)
             // clear all 64bits
             arg.value = 0;
             // read this argument from memory
-            Error error;
             size_t bytes_read = ctx.process->ReadMemory(sp, &arg.value, arg_size, error);
             success = (error.Success() && bytes_read == arg_size);
             // advance the stack pointer
@@ -412,7 +429,8 @@ GetArgsMips64el(GetArgsCtx &ctx, ArgItem *arg_list, size_t num_args)
         if (!success)
         {
             if (log)
-                log->Printf("%s - error reading argument: %" PRIu64, __FUNCTION__, uint64_t(i));
+                log->Printf("%s - error reading argument: %" PRIu64", reason: %s",
+                            __FUNCTION__, uint64_t(i), error.AsCString("n/a"));
             return false;
         }
     }
@@ -739,8 +757,6 @@ const uint32_t RenderScriptRuntime::AllocationDetails::RSTypeToFormat[][3] = {
     {eFormatVectorOfFloat32, eFormatVectorOfFloat32, sizeof(float) * 4}   // RS_TYPE_MATRIX_2X2
 };
 
-const std::string RenderScriptRuntime::s_runtimeExpandSuffix(".expand");
-const std::array<const char *, 3> RenderScriptRuntime::s_runtimeCoordVars{{"rsIndex", "p->current.y", "p->current.z"}};
 //------------------------------------------------------------------
 // Static Functions
 //------------------------------------------------------------------
@@ -1457,8 +1473,10 @@ RenderScriptRuntime::EvalRSExpression(const char *expression, StackFrame *frame_
         log->Printf("%s(%s)", __FUNCTION__, expression);
 
     ValueObjectSP expr_result;
+    EvaluateExpressionOptions options;
+    options.SetLanguage(lldb::eLanguageTypeC_plus_plus);
     // Perform the actual expression evaluation
-    GetProcess()->GetTarget().EvaluateExpression(expression, frame_ptr, expr_result);
+    GetProcess()->GetTarget().EvaluateExpression(expression, frame_ptr, expr_result, options);
 
     if (!expr_result)
     {
@@ -3247,6 +3265,9 @@ RenderScriptRuntime::GetFrameVarAsUnsigned(const StackFrameSP frame_sp, const ch
 bool
 RenderScriptRuntime::GetKernelCoordinate(RSCoordinate &coord, Thread *thread_ptr)
 {
+    static const std::string s_runtimeExpandSuffix(".expand");
+    static const std::array<const char *, 3> s_runtimeCoordVars{{"rsIndex", "p->current.y", "p->current.z"}};
+
     Log *log(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_LANGUAGE));
 
     if (!thread_ptr)
@@ -3279,13 +3300,13 @@ RenderScriptRuntime::GetKernelCoordinate(RSCoordinate &coord, Thread *thread_ptr
 
         // Check if function name has .expand suffix
         std::string func_name(func_name_cstr);
-        const int length_difference = func_name.length() - RenderScriptRuntime::s_runtimeExpandSuffix.length();
+        const int length_difference = func_name.length() - s_runtimeExpandSuffix.length();
         if (length_difference <= 0)
             continue;
 
         const int32_t has_expand_suffix = func_name.compare(length_difference,
-                                                            RenderScriptRuntime::s_runtimeExpandSuffix.length(),
-                                                            RenderScriptRuntime::s_runtimeExpandSuffix);
+                                                            s_runtimeExpandSuffix.length(),
+                                                            s_runtimeExpandSuffix);
 
         if (has_expand_suffix != 0)
             continue;
@@ -3295,12 +3316,12 @@ RenderScriptRuntime::GetKernelCoordinate(RSCoordinate &coord, Thread *thread_ptr
 
         // Get values for variables in .expand frame that tell us the current kernel invocation
         bool found_coord_variables = true;
-        assert(RenderScriptRuntime::s_runtimeCoordVars.size() == coord.size());
+        assert(s_runtimeCoordVars.size() == coord.size());
 
         for (uint32_t i = 0; i < coord.size(); ++i)
         {
             uint64_t value = 0;
-            if (!GetFrameVarAsUnsigned(frame_sp, RenderScriptRuntime::s_runtimeCoordVars[i], value))
+            if (!GetFrameVarAsUnsigned(frame_sp, s_runtimeCoordVars[i], value))
             {
                 found_coord_variables = false;
                 break;

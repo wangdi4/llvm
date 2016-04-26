@@ -52,7 +52,7 @@ private:
   /// instructions. Dummy instructions are appended to the function entry
   /// bblock. IRBuilder by default uses constant folding which needs to be
   /// suppressed for dummy instructions so we use NoFolder class instead.
-  typedef IRBuilder<true, NoFolder> DummyIRBuilderTy;
+  typedef IRBuilder<NoFolder> DummyIRBuilderTy;
   static DummyIRBuilderTy *DummyIRBuilder;
   /// \brief Points to first dummy instruction of the function.
   static Instruction *FirstDummyInst;

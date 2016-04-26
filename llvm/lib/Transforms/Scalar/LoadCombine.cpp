@@ -17,6 +17,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"   // INTEL
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
@@ -68,7 +69,7 @@ public:
   const char *getPassName() const override { return "LoadCombine"; }
   static char ID;
 
-  typedef IRBuilder<true, TargetFolder> BuilderTy;
+  typedef IRBuilder<TargetFolder> BuilderTy;
 
 private:
   BuilderTy *Builder;
@@ -226,7 +227,7 @@ bool LoadCombine::runOnBasicBlock(BasicBlock &BB) {
 
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
 
-  IRBuilder<true, TargetFolder> TheBuilder(
+  IRBuilder<TargetFolder> TheBuilder(
       BB.getContext(), TargetFolder(BB.getModule()->getDataLayout()));
   Builder = &TheBuilder;
 
@@ -265,6 +266,7 @@ void LoadCombine::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.addRequired<AAResultsWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
+  AU.addPreserved<AndersensAAWrapperPass>();   // INTEL
 }
 
 char LoadCombine::ID = 0;

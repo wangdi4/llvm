@@ -370,14 +370,21 @@ ProcessWinMiniDump::Impl::MapMiniDumpIntoMemory()
 {
     Error error;
     const char *file = m_core_file.GetCString();
-    m_dump_file = ::CreateFile(file, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    std::wstring wfile;
+    if (!llvm::ConvertUTF8toWide(file, wfile))
+    {
+        error.SetErrorString("Error converting path to UTF-16");
+        return error;
+    }
+    m_dump_file =
+        ::CreateFileW(wfile.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (m_dump_file == INVALID_HANDLE_VALUE)
     {
         error.SetError(::GetLastError(), lldb::eErrorTypeWin32);
         return error;
     }
 
-    m_mapping = ::CreateFileMapping(m_dump_file, NULL, PAGE_READONLY, 0, 0, NULL);
+    m_mapping = ::CreateFileMappingW(m_dump_file, NULL, PAGE_READONLY, 0, 0, NULL);
     if (m_mapping == NULL)
     {
         error.SetError(::GetLastError(), lldb::eErrorTypeWin32);
@@ -404,9 +411,17 @@ ProcessWinMiniDump::Impl::DetermineArchitecture()
         switch (system_info_ptr->ProcessorArchitecture)
         {
         case PROCESSOR_ARCHITECTURE_INTEL:
-            return ArchSpec(eArchTypeCOFF, IMAGE_FILE_MACHINE_I386, LLDB_INVALID_CPUTYPE);
+            if (system_info_ptr->ProcessorLevel == 6)
+            {
+                return ArchSpec("i686-pc-windows");
+            }
+            else
+            {
+                return ArchSpec("i386-pc-windows");
+            }
+            break;
         case PROCESSOR_ARCHITECTURE_AMD64:
-            return ArchSpec(eArchTypeCOFF, IMAGE_FILE_MACHINE_AMD64, LLDB_INVALID_CPUTYPE);
+            return ArchSpec("x86_64-pc-windows");
         default:
             break;
         }
@@ -509,7 +524,7 @@ ProcessWinMiniDump::Impl::GetMiniDumpString(RVA rva) const
     auto source_start = reinterpret_cast<const UTF16 *>(md_string->Buffer);
     const auto source_length = ::wcslen(md_string->Buffer);
     const auto source_end = source_start + source_length;
-    result.resize(4 * source_length); // worst case length
+    result.resize(UNI_MAX_UTF8_BYTES_PER_CODE_POINT * source_length); // worst case length
     auto result_start = reinterpret_cast<UTF8 *>(&result[0]);
     const auto result_end = result_start + result.size();
     ConvertUTF16toUTF8(&source_start, source_end, &result_start, result_end, strictConversion);
@@ -538,12 +553,12 @@ ProcessWinMiniDump::Terminate()
 }
 
 lldb::ProcessSP
-ProcessWinMiniDump::CreateInstance(lldb::TargetSP target_sp, Listener &listener, const FileSpec *crash_file)
+ProcessWinMiniDump::CreateInstance(lldb::TargetSP target_sp, lldb::ListenerSP listener_sp, const FileSpec *crash_file)
 {
     lldb::ProcessSP process_sp;
     if (crash_file)
     {
-        process_sp.reset(new ProcessWinMiniDump(target_sp, listener, *crash_file));
+        process_sp.reset(new ProcessWinMiniDump(target_sp, listener_sp, *crash_file));
     }
     return process_sp;
 }
@@ -555,8 +570,8 @@ ProcessWinMiniDump::CanDebug(lldb::TargetSP target_sp, bool plugin_specified_by_
     return true;
 }
 
-ProcessWinMiniDump::ProcessWinMiniDump(lldb::TargetSP target_sp, Listener &listener, const FileSpec &core_file)
-    : ProcessWindows(target_sp, listener), m_impl_up(new Impl(core_file, this))
+ProcessWinMiniDump::ProcessWinMiniDump(lldb::TargetSP target_sp, lldb::ListenerSP listener_sp, const FileSpec &core_file)
+    : ProcessWindows(target_sp, listener_sp), m_impl_up(new Impl(core_file, this))
 {
 }
 

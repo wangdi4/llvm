@@ -41,8 +41,8 @@ attributes #1 = { alwaysinline nounwind uwtable "less-precise-fpmad"="false" "no
 
 !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1)
 !1 = !DIFile(filename: "sm1.c", directory: "/users/rcox2/rgSmall")
-!4 = distinct !DISubprogram(name: "fred", scope: !1, file: !1, line: 6)
-!8 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 1)
+!4 = distinct !DISubprogram(unit: !0, name: "fred", scope: !1, file: !1, line: 6)
+!8 = distinct !DISubprogram(unit: !0, name: "foo", scope: !1, file: !1, line: 1)
 !9 = !{i32 2, !"Dwarf Version", i32 4}
 !10 = !{i32 2, !"Debug Info Version", i32 3}
 !12 = !DILocation(line: 8, column: 11, scope: !4)

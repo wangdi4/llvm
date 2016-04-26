@@ -1207,7 +1207,8 @@ void ASTStmtReader::VisitCXXForRangeStmt(CXXForRangeStmt *S) {
   S->ColonLoc = ReadSourceLocation(Record, Idx);
   S->RParenLoc = ReadSourceLocation(Record, Idx);
   S->setRangeStmt(Reader.ReadSubStmt());
-  S->setBeginEndStmt(Reader.ReadSubStmt());
+  S->setBeginStmt(Reader.ReadSubStmt());
+  S->setEndStmt(Reader.ReadSubStmt());
   S->setCond(Reader.ReadSubExpr());
   S->setInc(Reader.ReadSubExpr());
   S->setLoopVarStmt(Reader.ReadSubStmt());
@@ -1679,6 +1680,8 @@ void ASTStmtReader::VisitMSPropertySubscriptExpr(MSPropertySubscriptExpr *E) {
 void ASTStmtReader::VisitCXXUuidofExpr(CXXUuidofExpr *E) {
   VisitExpr(E);
   E->setSourceRange(ReadSourceRange(Record, Idx));
+  std::string UuidStr = ReadString(Record, Idx);
+  E->setUuidStr(StringRef(UuidStr).copy(Reader.getContext()));
   if (E->isTypeOperand()) { // __uuidof(ComType)
     E->setTypeOperandSourceInfo(
         GetTypeSourceInfo(Record, Idx));
@@ -1898,6 +1901,7 @@ void OMPClauseReader::VisitOMPClauseWithPreInit(OMPClauseWithPreInit *C) {
 }
 
 void OMPClauseReader::VisitOMPClauseWithPostUpdate(OMPClauseWithPostUpdate *C) {
+  VisitOMPClauseWithPreInit(C);
   C->setPostUpdateExpr(Reader->Reader.ReadSubExpr());
 }
 
@@ -2025,7 +2029,6 @@ void OMPClauseReader::VisitOMPFirstprivateClause(OMPFirstprivateClause *C) {
 }
 
 void OMPClauseReader::VisitOMPLastprivateClause(OMPLastprivateClause *C) {
-  VisitOMPClauseWithPreInit(C);
   VisitOMPClauseWithPostUpdate(C);
   C->setLParenLoc(Reader->ReadSourceLocation(Record, Idx));
   unsigned NumVars = C->varlist_size();
@@ -2063,7 +2066,6 @@ void OMPClauseReader::VisitOMPSharedClause(OMPSharedClause *C) {
 }
 
 void OMPClauseReader::VisitOMPReductionClause(OMPReductionClause *C) {
-  VisitOMPClauseWithPreInit(C);
   VisitOMPClauseWithPostUpdate(C);
   C->setLParenLoc(Reader->ReadSourceLocation(Record, Idx));
   C->setColonLoc(Reader->ReadSourceLocation(Record, Idx));
@@ -2099,6 +2101,7 @@ void OMPClauseReader::VisitOMPReductionClause(OMPReductionClause *C) {
 }
 
 void OMPClauseReader::VisitOMPLinearClause(OMPLinearClause *C) {
+  VisitOMPClauseWithPostUpdate(C);
   C->setLParenLoc(Reader->ReadSourceLocation(Record, Idx));
   C->setColonLoc(Reader->ReadSourceLocation(Record, Idx));
   C->setModifier(static_cast<OpenMPLinearClauseKind>(Record[Idx++]));
@@ -2307,8 +2310,10 @@ void ASTStmtReader::VisitOMPLoopDirective(OMPLoopDirective *D) {
   D->setCond(Reader.ReadSubExpr());
   D->setInit(Reader.ReadSubExpr());
   D->setInc(Reader.ReadSubExpr());
+  D->setPreInits(Reader.ReadSubStmt());
   if (isOpenMPWorksharingDirective(D->getDirectiveKind()) ||
-      isOpenMPTaskLoopDirective(D->getDirectiveKind())) {
+      isOpenMPTaskLoopDirective(D->getDirectiveKind()) ||
+      isOpenMPDistributeDirective(D->getDirectiveKind())) {
     D->setIsLastIterVariable(Reader.ReadSubExpr());
     D->setLowerBoundVariable(Reader.ReadSubExpr());
     D->setUpperBoundVariable(Reader.ReadSubExpr());

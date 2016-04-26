@@ -77,7 +77,6 @@ public:
 #if INTEL_CUSTOMIZATION
     bool ReturnValue = removeDeadFunctions(CG, /*AlwaysInlineOnly=*/ true);
     getReport().print();
-    removeDeletableFunctions();
     return ReturnValue;
 #endif // INTEL_CUSTOMIZATION
   }

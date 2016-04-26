@@ -172,7 +172,7 @@ InlineReportCallSite::~InlineReportCallSite(void) {
 InlineReportCallSite* InlineReportCallSite::copyBase(
   const InlineReportCallSite& Base, Instruction* NI)
 {
-  InlineReportCallSite* NewCS = new InlineReportCallSite(Base.Callee, 
+  InlineReportCallSite* NewCS = new InlineReportCallSite(Base.IRCallee, 
     Base.IsInlined, Base.Reason, Base.M, nullptr, NI); 
   NewCS->IsInlined = Base.IsInlined; 
   NewCS->InlineCost = Base.InlineCost; 
@@ -267,14 +267,12 @@ void InlineReportCallSite::printOuterCostAndThreshold(void) {
 /// if the 'Level' specifies InlineReportOptions::Linkage. 
 /// For an explanation of the meaning of these letters, see InlineReport.h. 
 ///
-static void printFunctionLinkage(unsigned Level, Function* F)
+static void printFunctionLinkage(unsigned Level, InlineReportFunction* IRF)
 {
   if (!(Level & InlineReportOptions::Linkage)) { 
     return;
   } 
-  llvm::errs() << (F->hasLocalLinkage() ? "L " :
-    (F->hasLinkOnceODRLinkage() ? "O " :
-    (F->hasAvailableExternallyLinkage() ? "X " : "A ")));
+  llvm::errs() << IRF->getLinkageChar() << " "; 
 } 
 
 ///
@@ -283,9 +281,9 @@ static void printFunctionLinkage(unsigned Level, Function* F)
 ///
 void InlineReportCallSite::printCalleeNameModuleLineCol(unsigned Level) 
 {
-  if (getCallee() != nullptr) { 
-    printFunctionLinkage(Level, getCallee()); 
-    llvm::errs() << getCallee()->getName(); 
+  if (getIRCallee() != nullptr) { 
+    printFunctionLinkage(Level, getIRCallee()); 
+    llvm::errs() << getIRCallee()->getName(); 
   } 
   if (Level & InlineReportOptions::File) { 
     llvm::errs() << " " << M->getModuleIdentifier();   
@@ -366,6 +364,12 @@ InlineReportFunction::~InlineReportFunction(void) {
   }
 }
 
+void InlineReportFunction::setLinkageChar(Function *F) { 
+  LinkageChar = (F->hasLocalLinkage() ? 'L' :
+    (F->hasLinkOnceODRLinkage() ? 'O' :
+    (F->hasAvailableExternallyLinkage() ? 'X' : 'A')));
+} 
+
 // 
 // Member functions for class InlineReport
 //
@@ -384,6 +388,10 @@ InlineReportFunction* InlineReport::addFunction(Function* F, Module* M) {
   } 
   InlineReportFunction* IRF = new InlineReportFunction(F);
   IRFunctionMap.insert(std::make_pair(F, IRF)); 
+  IRF->setName(F->getName().str()); 
+  IRF->setIsDeclaration(F->isDeclaration()); 
+  IRF->setLinkageChar(F); 
+  addCallback(F); 
   return IRF; 
 } 
 
@@ -397,11 +405,19 @@ InlineReportCallSite* InlineReport::addCallSite(Function* F, CallSite* CS,
   } 
   Instruction *I = CS->getInstruction(); 
   DebugLoc DLoc = CS->getInstruction()->getDebugLoc();
-  InlineReportCallSite* IRCS = new InlineReportCallSite(
-    CS->getCalledFunction(), false, NinlrNoReason, M, &DLoc, I); 
   InlineReportFunctionMap::const_iterator MapIt = IRFunctionMap.find(F);
   assert(MapIt != IRFunctionMap.end()); 
   InlineReportFunction* IRF = MapIt->second;  
+  Function* Callee = CS->getCalledFunction(); 
+  InlineReportFunction* IRFC = nullptr; 
+  if (Callee != nullptr) { 
+    InlineReportFunctionMap::const_iterator MapItC 
+      = IRFunctionMap.find(Callee);
+    IRFC = MapItC == IRFunctionMap.end() 
+        ? addFunction(Callee, M) : MapItC->second;
+  } 
+  InlineReportCallSite* IRCS = new InlineReportCallSite(IRFC, false, 
+    NinlrNoReason, M, &DLoc, I); 
   IRF->addCallSite(IRCS); 
   IRInstructionCallSiteMap.insert(std::make_pair(I, IRCS)); 
   addCallback(I); 
@@ -610,17 +626,23 @@ void InlineReport::print(void) const {
   } 
   llvm::errs() << "---- Begin Inlining Report ----\n"; 
   printOptionValues();  
+  for (unsigned I = 0, E = IRDeadFunctionVector.size(); I < E; ++I) { 
+    InlineReportFunction* IRF = IRDeadFunctionVector[I];
+    llvm::errs() << "DEAD STATIC FUNC: ";
+    printFunctionLinkage(Level, IRF);
+    llvm::errs() << IRF->getName() << "\n\n";
+  } 
   InlineReportFunctionMap::const_iterator Mit, E; 
   for (Mit = IRFunctionMap.begin(), E = IRFunctionMap.end(); Mit != E; ++Mit) { 
     Function* F = Mit->first;
+    // Update the linkage info one last time before printing, 
+    // as it may have changed.
     InlineReportFunction* IRF = Mit->second;
-    if (IRF->getDead()) {
-      llvm::errs() << "DEAD STATIC FUNC: " << F->getName() << "\n\n";
-    }
-    else if (!F->isDeclaration()) {
+    IRF->setLinkageChar(F); 
+    if (!IRF->getIsDeclaration()) {
       llvm::errs() << "COMPILE FUNC: ";
-      printFunctionLinkage(Level, F); 
-      llvm::errs() << F->getName() << "\n";
+      printFunctionLinkage(Level, IRF); 
+      llvm::errs() << IRF->getName() << "\n";
       InlineReportFunction* IRF = Mit->second;
       IRF->print(Level); 
       llvm::errs() << "\n"; 
@@ -749,14 +771,8 @@ void InlineReport::replaceFunctionWithFunction(Function* OldFunction,
   int count = IRFunctionMap.erase(OldFunction); 
   assert(count == 1); 
   IRFunctionMap.insert(std::make_pair(NewFunction, IRF)); 
-  InlineReportInstructionCallSiteMap::const_iterator IrcsIt, IrcsEnd; 
-  for (IrcsIt = IRInstructionCallSiteMap.begin(), 
-    IrcsEnd = IRInstructionCallSiteMap.end(); IrcsIt != IrcsEnd; ++IrcsIt) {
-    InlineReportCallSite* IRCS = IrcsIt->second;
-    if (IRCS->getCallee() == OldFunction) { 
-      IRCS->reassignCallee(NewFunction); 
-    } 
-  } 
+  IRF->setLinkageChar(NewFunction); 
+  IRF->setName(NewFunction->getName()); 
 } 
 
 InlineReportCallSite* InlineReport::getCallSite(const CallSite& CS) {

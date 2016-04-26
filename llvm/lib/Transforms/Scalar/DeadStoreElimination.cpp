@@ -22,6 +22,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"       // INTEL
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -48,7 +49,7 @@ STATISTIC(NumFastOther , "Number of other instrs removed");
 namespace {
   struct DSE : public FunctionPass {
     AliasAnalysis *AA;
-    MemoryDependenceAnalysis *MD;
+    MemoryDependenceResults *MD;
     DominatorTree *DT;
     const TargetLibraryInfo *TLI;
 
@@ -62,7 +63,7 @@ namespace {
         return false;
 
       AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-      MD = &getAnalysis<MemoryDependenceAnalysis>();
+      MD = &getAnalysis<MemoryDependenceWrapperPass>().getMemDep();
       DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
       TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
@@ -89,11 +90,12 @@ namespace {
       AU.setPreservesCFG();
       AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<AAResultsWrapperPass>();
-      AU.addRequired<MemoryDependenceAnalysis>();
+      AU.addRequired<MemoryDependenceWrapperPass>();
       AU.addRequired<TargetLibraryInfoWrapperPass>();
       AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
-      AU.addPreserved<MemoryDependenceAnalysis>();
+      AU.addPreserved<AndersensAAWrapperPass>();       // INTEL
+      AU.addPreserved<MemoryDependenceWrapperPass>();
     }
   };
 }
@@ -103,7 +105,7 @@ INITIALIZE_PASS_BEGIN(DSE, "dse", "Dead Store Elimination", false, false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(MemoryDependenceAnalysis)
+INITIALIZE_PASS_DEPENDENCY(MemoryDependenceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(DSE, "dse", "Dead Store Elimination", false, false)
 
@@ -120,7 +122,7 @@ FunctionPass *llvm::createDeadStoreEliminationPass() { return new DSE(); }
 /// If ValueSet is non-null, remove any deleted instructions from it as well.
 ///
 static void DeleteDeadInstruction(Instruction *I,
-                               MemoryDependenceAnalysis &MD,
+                               MemoryDependenceResults &MD,
                                const TargetLibraryInfo &TLI,
                                SmallSetVector<Value*, 16> *ValueSet = nullptr) {
   SmallVector<Instruction*, 32> NowDeadInsts;

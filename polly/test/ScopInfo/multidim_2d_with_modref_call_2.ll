@@ -1,5 +1,7 @@
-; RUN: opt %loadPolly -polly-scops -analyze < %s | FileCheck %s
-; RUN: opt %loadPolly -polly-scops -polly-allow-nonaffine -analyze < %s | FileCheck %s --check-prefix=NONAFFINE
+; RUN: opt %loadPolly -polly-scops -analyze -polly-allow-modref-calls \
+; RUN: < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-scops -polly-allow-nonaffine \
+; RUN: -polly-allow-modref-calls -analyze < %s | FileCheck %s --check-prefix=NONAFFINE
 
 ;  TODO: We should delinearize the accesses despite the use in a call to a
 ;        readonly function. For now we verify we do not delinearize them though.
@@ -17,7 +19,7 @@
 ; CHECK-NEXT:    Assumed Context:
 ; CHECK-NEXT:    [tmp14, p_1] -> {  :  }
 ; CHECK-NEXT:    Invalid Context:
-; CHECK-NEXT:    [tmp14, p_1] -> { : tmp14 > 0 and (tmp14 >= 1152921504606846977 or p_1 <= -1152921504606846977 or p_1 >= 1152921504606846977 - tmp14) }
+; CHECK-NEXT:    [tmp14, p_1] -> { : tmp14 > 0 and (p_1 <= -1152921504606846977 or tmp14 >= 1152921504606846977 or p_1 >= 1152921504606846977 - tmp14) }
 ; CHECK-NEXT:    p0: %tmp14
 ; CHECK-NEXT:    p1: {0,+,(0 smax %tmp)}<%bb12>
 ; CHECK-NEXT:    Arrays {
