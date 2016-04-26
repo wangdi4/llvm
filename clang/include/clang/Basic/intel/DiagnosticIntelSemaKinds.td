@@ -55,7 +55,7 @@ def warn_attribute_requires_integer_param_type : Warning<
 def note_param_index_specified_here : Note<
   "parameter's index specified here">;
 // CQ#370092
-def warn_attribute_invalid_on_stmt : Warning<
+def warn_decl_attribute_invalid_on_stmt : Warning<
   "%0 attribute cannot be applied to a statement; "
   "attribute ignored">,
   InGroup<IgnoredAttributes>;

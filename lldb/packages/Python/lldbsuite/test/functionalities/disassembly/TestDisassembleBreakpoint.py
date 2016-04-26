@@ -42,7 +42,10 @@ class DisassemblyTestCase(TestBase):
             instructions = [' add ', ' ldr ', ' str ']
         elif re.match("mips" , arch):
             breakpoint_opcodes = ["break"]
-            instructions = ['lw', 'sw', 'jr']
+            instructions = ['lw', 'sw']
+        elif arch in ["s390x"]:
+            breakpoint_opcodes = [".long"]
+            instructions = [' l ', ' a ', ' st ']
         else:
             # TODO please add your arch here
             self.fail('unimplemented for arch = "{arch}"'.format(arch=self.getArchitecture()))

@@ -346,6 +346,14 @@ public:
              atomContentType == DefinedAtom::typeTLVInitialZeroFill);
   }
 
+  /// Utility function to check if relocations in this atom to other defined
+  /// atoms can be implicitly generated, and so we don't need to explicitly
+  /// emit those relocations.
+  bool relocsToDefinedCanBeImplicit() const {
+    ContentType atomContentType = contentType();
+    return atomContentType == typeCFI;
+  }
+
   // Returns true if lhs should be placed before rhs in the final output.
   static bool compareByPosition(const DefinedAtom *lhs,
                                 const DefinedAtom *rhs);
@@ -354,6 +362,8 @@ protected:
   // DefinedAtom is an abstract base class. Only subclasses can access
   // constructor.
   DefinedAtom() : Atom(definitionRegular) { }
+
+  ~DefinedAtom() override = default;
 
   /// \brief Returns a pointer to the Reference object that the abstract
   /// iterator "points" to.

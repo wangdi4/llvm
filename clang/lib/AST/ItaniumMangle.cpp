@@ -2105,6 +2105,7 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   //                 ::= Ds # char16_t
   //                 ::= Dn # std::nullptr_t (i.e., decltype(nullptr))
   //                 ::= u <source-name>    # vendor extended type
+  std::string type_name;
   switch (T->getKind()) {
   case BuiltinType::Void:
     Out << 'v';
@@ -2200,42 +2201,12 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::ObjCSel:
     Out << "13objc_selector";
     break;
-  case BuiltinType::OCLImage1d:
-    Out << "11ocl_image1d";
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
+  case BuiltinType::Id: \
+    type_name = "ocl_" #ImgType "_" #Suffix; \
+    Out << type_name.size() << type_name; \
     break;
-  case BuiltinType::OCLImage1dArray:
-    Out << "16ocl_image1darray";
-    break;
-  case BuiltinType::OCLImage1dBuffer:
-    Out << "17ocl_image1dbuffer";
-    break;
-  case BuiltinType::OCLImage2d:
-    Out << "11ocl_image2d";
-    break;
-  case BuiltinType::OCLImage2dArray:
-    Out << "16ocl_image2darray";
-    break;
-  case BuiltinType::OCLImage2dDepth:
-    Out << "16ocl_image2ddepth";
-    break;
-  case BuiltinType::OCLImage2dArrayDepth:
-    Out << "21ocl_image2darraydepth";
-    break;
-  case BuiltinType::OCLImage2dMSAA:
-    Out << "15ocl_image2dmsaa";
-    break;
-  case BuiltinType::OCLImage2dArrayMSAA:
-    Out << "20ocl_image2darraymsaa";
-    break;
-  case BuiltinType::OCLImage2dMSAADepth:
-    Out << "20ocl_image2dmsaadepth";
-    break;
-  case BuiltinType::OCLImage2dArrayMSAADepth:
-    Out << "25ocl_image2darraymsaadepth";
-    break;
-  case BuiltinType::OCLImage3d:
-    Out << "11ocl_image3d";
-    break;
+#include "clang/Basic/OpenCLImageTypes.def"
   case BuiltinType::OCLSampler:
     Out << "11ocl_sampler";
     break;
@@ -2265,7 +2236,6 @@ StringRef CXXNameMangler::getCallingConvQualifierName(CallingConv CC) {
   case CC_X86StdCall:
   case CC_X86FastCall:
   case CC_X86ThisCall:
-  case CC_X86RegCall:        // INTEL
   case CC_X86VectorCall:
   case CC_X86Pascal:
   case CC_X86_64Win64:
@@ -2274,7 +2244,9 @@ StringRef CXXNameMangler::getCallingConvQualifierName(CallingConv CC) {
   case CC_AAPCS_VFP:
   case CC_IntelOclBicc:
   case CC_SpirFunction:
-  case CC_SpirKernel:
+  case CC_SpirKernel: // CC_X86RegCall is the same as CC_SpirKernel  // INTEL
+  case CC_PreserveMost:
+  case CC_PreserveAll:
     // FIXME: we should be mangling all of the above.
     return "";
 
@@ -4013,7 +3985,7 @@ void CXXNameMangler::mangleTemplateArg(TemplateArgument A) {
     const VarDecl *VD = dyn_cast<VarDecl>(D);
     if (getASTContext().getLangOpts().IntelCompat &&
         getASTContext().getLangOpts().GNUFABIVersion == 2 && (VD || FD)) {
-      Out << "Z";
+      Out << "_Z";
       if (FD)
         mangleFunctionEncoding(FD);
       else

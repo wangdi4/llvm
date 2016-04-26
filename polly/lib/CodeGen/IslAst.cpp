@@ -71,16 +71,7 @@ static cl::opt<bool> DetectParallel("polly-ast-detect-parallel",
                                     cl::init(false), cl::ZeroOrMore,
                                     cl::cat(PollyCategory));
 
-/// @brief Free an IslAstUserPayload object pointed to by @p Ptr
-static void freeIslAstUserPayload(void *Ptr) {
-  delete ((IslAstInfo::IslAstUserPayload *)Ptr);
-}
-
-IslAstInfo::IslAstUserPayload::~IslAstUserPayload() {
-  isl_ast_build_free(Build);
-  isl_pw_aff_free(MinimalDependenceDistance);
-}
-
+namespace polly {
 /// @brief Temporary information used when building the ast.
 struct AstBuildUserInfo {
   /// @brief Construct and initialize the helper struct for AST creation.
@@ -96,6 +87,17 @@ struct AstBuildUserInfo {
   /// @brief The last iterator id created for the current SCoP.
   isl_id *LastForNodeId;
 };
+}
+
+/// @brief Free an IslAstUserPayload object pointed to by @p Ptr
+static void freeIslAstUserPayload(void *Ptr) {
+  delete ((IslAstInfo::IslAstUserPayload *)Ptr);
+}
+
+IslAstInfo::IslAstUserPayload::~IslAstUserPayload() {
+  isl_ast_build_free(Build);
+  isl_pw_aff_free(MinimalDependenceDistance);
+}
 
 /// @brief Print a string @p str in a single line using @p Printer.
 static isl_printer *printLine(__isl_take isl_printer *Printer,
@@ -534,12 +536,13 @@ bool IslAstInfo::isExecutedInParallel(__isl_keep isl_ast_node *Node) {
   return isOutermostParallel(Node) && !isReductionParallel(Node);
 }
 
-isl_union_map *IslAstInfo::getSchedule(__isl_keep isl_ast_node *Node) {
+__isl_give isl_union_map *
+IslAstInfo::getSchedule(__isl_keep isl_ast_node *Node) {
   IslAstUserPayload *Payload = getNodePayload(Node);
   return Payload ? isl_ast_build_get_schedule(Payload->Build) : nullptr;
 }
 
-isl_pw_aff *
+__isl_give isl_pw_aff *
 IslAstInfo::getMinimalDependenceDistance(__isl_keep isl_ast_node *Node) {
   IslAstUserPayload *Payload = getNodePayload(Node);
   return Payload ? isl_pw_aff_copy(Payload->MinimalDependenceDistance)

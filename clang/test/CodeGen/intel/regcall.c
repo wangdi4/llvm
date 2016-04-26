@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 %s -triple %itanium_abi_triple -emit-llvm -fms-extensions -o - | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-windows-msvc -emit-llvm %s -fms-extensions -o - | FileCheck %s
+// RUN: %clang_cc1 %s -triple %itanium_abi_triple -emit-llvm -fms-extensions -fintel-compatibility -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-windows-msvc -emit-llvm %s -fms-extensions -fintel-compatibility -o - | FileCheck %s
 
 /* Function declarations. */
 __declspec(noinline) double __regcall foo(int bar);

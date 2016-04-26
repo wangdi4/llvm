@@ -12,6 +12,7 @@
 
 #include "SymbolTable.h"
 #include "lld/Core/LLVM.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/raw_ostream.h"
@@ -28,19 +29,33 @@ public:
   void addLibrary(StringRef Name);
 
 private:
+  std::vector<MemoryBufferRef> getArchiveMembers(MemoryBufferRef MB);
+  llvm::Optional<MemoryBufferRef> readFile(StringRef Path);
   void readConfigs(llvm::opt::InputArgList &Args);
+  void readDynamicList(StringRef Path);
   void createFiles(llvm::opt::InputArgList &Args);
   template <class ELFT> void link(llvm::opt::InputArgList &Args);
 
-  llvm::BumpPtrAllocator Alloc;
+  // True if we are in --whole-archive and --no-whole-archive.
   bool WholeArchive = false;
+
+  // True if we are in --start-lib and --end-lib.
+  bool InLib = false;
+
+  llvm::BumpPtrAllocator Alloc;
   std::vector<std::unique_ptr<InputFile>> Files;
   std::vector<std::unique_ptr<MemoryBuffer>> OwningMBs;
 };
 
 // Parses command line options.
-llvm::opt::InputArgList parseArgs(llvm::BumpPtrAllocator *A,
-                                  ArrayRef<const char *> Args);
+class ELFOptTable : public llvm::opt::OptTable {
+public:
+  ELFOptTable();
+  llvm::opt::InputArgList parse(ArrayRef<const char *> Argv);
+
+private:
+  llvm::BumpPtrAllocator Alloc;
+};
 
 // Create enum with OPT_xxx values for each option in Options.td
 enum {

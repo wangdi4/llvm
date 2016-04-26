@@ -49,6 +49,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CFGMST.h"
+#include "IndirectCallSiteVisitor.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
@@ -60,7 +61,6 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/MDBuilder.h"
@@ -97,11 +97,19 @@ static cl::opt<std::string>
                        cl::desc("Specify the path of profile data file. This is"
                                 "mainly for test purpose."));
 
-// Command line options to disable value profiling. The default is false:
+// Command line option to disable value profiling. The default is false:
 // i.e. value profiling is enabled by default. This is for debug purpose.
 static cl::opt<bool> DisableValueProfiling("disable-vp", cl::init(false),
                                            cl::Hidden,
                                            cl::desc("Disable Value Profiling"));
+
+// Command line option to set the maximum number of VP annotations to write to
+// the metada for a single indirect call callsite.
+static cl::opt<unsigned>
+    MaxNumAnnotations("icp-max-annotations", cl::init(3), cl::Hidden,
+                     cl::ZeroOrMore,
+                     cl::desc("Max number of annotations for a single indirect "
+                              "call callsite"));
 
 namespace {
 class PGOInstrumentationGen : public ModulePass {
@@ -318,20 +326,6 @@ BasicBlock *FuncPGOInstrumentation<Edge, BBInfo>::getInstrBB(Edge *E) {
   return InstrBB;
 }
 
-// Visitor class that finds all indirect call sites.
-struct PGOIndirectCallSiteVisitor
-    : public InstVisitor<PGOIndirectCallSiteVisitor> {
-  std::vector<CallInst *> IndirectCallInsts;
-  PGOIndirectCallSiteVisitor() {}
-
-  void visitCallInst(CallInst &I) {
-    CallSite CS(&I);
-    if (CS.getCalledFunction() || !CS.getCalledValue())
-      return;
-    IndirectCallInsts.push_back(&I);
-  }
-};
-
 // Visit all edge and instrument the edges not in MST, and do value profiling.
 // Critical edges will be split.
 static void instrumentOneFunc(Function &F, Module *M,
@@ -365,9 +359,7 @@ static void instrumentOneFunc(Function &F, Module *M,
     return;
 
   unsigned NumIndirectCallSites = 0;
-  PGOIndirectCallSiteVisitor ICV;
-  ICV.visit(F);
-  for (auto &I : ICV.IndirectCallInsts) {
+  for (auto &I : findIndirectCallSites(F)) {
     CallSite CS(I);
     Value *Callee = CS.getCalledValue();
     DEBUG(dbgs() << "Instrument one indirect call: CallSite Index = "
@@ -451,6 +443,32 @@ static uint64_t sumEdgeCount(const ArrayRef<PGOUseEdge *> Edges) {
 }
 
 class PGOUseFunc {
+public:
+  PGOUseFunc(Function &Func, Module *Modu, BranchProbabilityInfo *BPI = nullptr,
+             BlockFrequencyInfo *BFI = nullptr)
+      : F(Func), M(Modu), FuncInfo(Func, false, BPI, BFI),
+        FreqAttr(FFA_Normal) {}
+
+  // Read counts for the instrumented BB from profile.
+  bool readCounters(IndexedInstrProfReader *PGOReader);
+
+  // Populate the counts for all BBs.
+  void populateCounters();
+
+  // Set the branch weights based on the count values.
+  void setBranchWeights();
+
+  // Annotate the indirect call sites.
+  void annotateIndirectCallSites();
+
+  // The hotness of the function from the profile count.
+  enum FuncFreqAttr { FFA_Normal, FFA_Cold, FFA_Hot };
+
+  // Return the funtion hotness from the profile.
+  FuncFreqAttr getFuncFreqAttr() const {
+    return FreqAttr;
+  }
+
 private:
   Function &F;
   Module *M;
@@ -469,6 +487,9 @@ private:
   // ProfileRecord for this function.
   InstrProfRecord ProfileRecord;
 
+  // Function hotness info derived from profile.
+  FuncFreqAttr FreqAttr;
+
   // Find the Instrumented BB and set the value.
   void setInstrumentedCounts(const std::vector<uint64_t> &CountFromProfile);
 
@@ -482,7 +503,7 @@ private:
   // Set the hot/cold inline hints based on the count values.
   // FIXME: This function should be removed once the functionality in
   // the inliner is implemented.
-  void applyFunctionAttributes(uint64_t EntryCount, uint64_t MaxCount) {
+  void markFunctionAttributes(uint64_t EntryCount, uint64_t MaxCount) {
     if (ProgramMaxCount == 0)
       return;
     // Threshold of the hot functions.
@@ -490,27 +511,10 @@ private:
     // Threshold of the cold functions.
     const BranchProbability ColdFunctionThreshold(2, 10000);
     if (EntryCount >= HotFunctionThreshold.scale(ProgramMaxCount))
-      F.addFnAttr(llvm::Attribute::InlineHint);
+      FreqAttr = FFA_Hot;
     else if (MaxCount <= ColdFunctionThreshold.scale(ProgramMaxCount))
-      F.addFnAttr(llvm::Attribute::Cold);
+      FreqAttr = FFA_Cold;
   }
-
-public:
-  PGOUseFunc(Function &Func, Module *Modu, BranchProbabilityInfo *BPI = nullptr,
-             BlockFrequencyInfo *BFI = nullptr)
-      : F(Func), M(Modu), FuncInfo(Func, false, BPI, BFI) {}
-
-  // Read counts for the instrumented BB from profile.
-  bool readCounters(IndexedInstrProfReader *PGOReader);
-
-  // Populate the counts for all BBs.
-  void populateCounters();
-
-  // Set the branch weights based on the count values.
-  void setBranchWeights();
-
-  // Annotate the indirect call sites.
-  void annotateIndirectCallSites();
 };
 
 // Visit all the edges and assign the count value for the instrumented
@@ -673,7 +677,7 @@ void PGOUseFunc::populateCounters() {
     if (Count > FuncMaxCount)
       FuncMaxCount = Count;
   }
-  applyFunctionAttributes(FuncEntryCount, FuncMaxCount);
+  markFunctionAttributes(FuncEntryCount, FuncMaxCount);
 
   DEBUG(FuncInfo.dumpInfo("after reading profile."));
 }
@@ -728,12 +732,14 @@ void PGOUseFunc::annotateIndirectCallSites() {
   if (DisableValueProfiling)
     return;
 
+  // Create the PGOFuncName meta data.
+  createPGOFuncNameMetadata(F);
+
   unsigned IndirectCallSiteIndex = 0;
-  PGOIndirectCallSiteVisitor ICV;
-  ICV.visit(F);
+  auto IndirectCallSites = findIndirectCallSites(F);
   unsigned NumValueSites =
       ProfileRecord.getNumValueSites(IPVK_IndirectCallTarget);
-  if (NumValueSites != ICV.IndirectCallInsts.size()) {
+  if (NumValueSites != IndirectCallSites.size()) {
     std::string Msg =
         std::string("Inconsistent number of indirect call sites: ") +
         F.getName().str();
@@ -743,12 +749,12 @@ void PGOUseFunc::annotateIndirectCallSites() {
     return;
   }
 
-  for (auto &I : ICV.IndirectCallInsts) {
+  for (auto &I : IndirectCallSites) {
     DEBUG(dbgs() << "Read one indirect call instrumentation: Index="
                  << IndirectCallSiteIndex << " out of " << NumValueSites
                  << "\n");
     annotateValueSite(*M, *I, ProfileRecord, IPVK_IndirectCallTarget,
-                      IndirectCallSiteIndex);
+                      IndirectCallSiteIndex, MaxNumAnnotations);
     IndirectCallSiteIndex++;
   }
 }
@@ -819,6 +825,8 @@ bool PGOInstrumentationUse::runOnModule(Module &M) {
     return false;
   }
 
+  std::vector<Function *> HotFunctions;
+  std::vector<Function *> ColdFunctions;
   for (auto &F : M) {
     if (F.isDeclaration())
       continue;
@@ -828,6 +836,23 @@ bool PGOInstrumentationUse::runOnModule(Module &M) {
         &(getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI());
     PGOUseFunc Func(F, &M, BPI, BFI);
     setPGOCountOnFunc(Func, PGOReader.get());
+    PGOUseFunc::FuncFreqAttr FreqAttr = Func.getFuncFreqAttr();
+    if (FreqAttr == PGOUseFunc::FFA_Cold)
+      ColdFunctions.push_back(&F);
+    else if (FreqAttr == PGOUseFunc::FFA_Hot)
+      HotFunctions.push_back(&F);
   }
+
+  // Set function hotness attribute from the profile.
+  for (auto &F : HotFunctions) {
+    F->addFnAttr(llvm::Attribute::InlineHint);
+    DEBUG(dbgs() << "Set inline attribute to function: " << F->getName()
+                 << "\n");
+  }
+  for (auto &F : ColdFunctions) {
+    F->addFnAttr(llvm::Attribute::Cold);
+    DEBUG(dbgs() << "Set cold attribute to function: " << F->getName() << "\n");
+  }
+
   return true;
 }

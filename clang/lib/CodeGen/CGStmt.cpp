@@ -79,6 +79,12 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   // Generate a stoppoint if we are emitting debug info.
   EmitStopPoint(S);
 
+#if INTEL_SPECIFIC_OPENMP
+  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP)
+    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
+      return EmitIntelOpenMPDirective(*Dir);
+#endif // INTEL_SPECIFIC_OPENMP
+
   switch (S->getStmtClass()) {
 #if INTEL_CUSTOMIZATION
   case Stmt::PragmaStmtClass:
@@ -903,7 +909,8 @@ CodeGenFunction::EmitCXXForRangeStmt(const CXXForRangeStmt &S,
 
   // Evaluate the first pieces before the loop.
   EmitStmt(S.getRangeStmt());
-  EmitStmt(S.getBeginEndStmt());
+  EmitStmt(S.getBeginStmt());
+  EmitStmt(S.getEndStmt());
 
   // Start the loop with a block that tests the condition.
   // If there's an increment, the continue scope will be overwritten
@@ -2218,8 +2225,7 @@ CodeGenFunction::GenerateCapturedStmtFunction(const CapturedStmt &S) {
   // Create the function declaration.
   FunctionType::ExtInfo ExtInfo;
   const CGFunctionInfo &FuncInfo =
-      CGM.getTypes().arrangeFreeFunctionDeclaration(Ctx.VoidTy, Args, ExtInfo,
-                                                    /*IsVariadic=*/false);
+    CGM.getTypes().arrangeBuiltinFunctionDeclaration(Ctx.VoidTy, Args);
   llvm::FunctionType *FuncLLVMTy = CGM.getTypes().GetFunctionType(FuncInfo);
 
   llvm::Function *F =

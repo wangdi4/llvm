@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Sema/SemaInternal.h"
 #include "TypeLocBuilder.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
@@ -22,7 +21,6 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/AST/TypeLocVisitor.h"
-#include "clang/Lex/Preprocessor.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Lex/Preprocessor.h"
@@ -30,9 +28,11 @@
 #include "clang/Sema/DelayedDiagnostic.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/ScopeInfo.h"
+#include "clang/Sema/SemaInternal.h"
 #include "clang/Sema/Template.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace clang;
@@ -113,7 +113,9 @@ static void diagnoseBadTypeAttribute(Sema &S, const AttributeList &attr,
     case AttributeList::AT_MSABI: \
     case AttributeList::AT_SysVABI: \
     case AttributeList::AT_Pcs: \
-    case AttributeList::AT_IntelOclBicc
+    case AttributeList::AT_IntelOclBicc: \
+    case AttributeList::AT_PreserveMost: \
+    case AttributeList::AT_PreserveAll
 
 // Function type attributes.
 #define FUNCTION_TYPE_ATTRS_CASELIST \
@@ -1177,6 +1179,21 @@ TypeResult Sema::actOnObjCTypeArgsAndProtocolQualifiers(
   return CreateParsedType(Result, ResultTInfo);
 }
 
+static StringRef getImageAccessAttrStr(AttributeList *attrs) {
+  if (attrs) {
+
+    AttributeList *Next;
+    do {
+      AttributeList &Attr = *attrs;
+      Next = Attr.getNext();
+      if (Attr.getKind() == AttributeList::AT_OpenCLAccess) {
+        return Attr.getName()->getName();
+      }
+    } while (Next);
+  }
+  return "";
+}
+
 /// \brief Convert the specified declspec to the appropriate type
 /// object.
 /// \param state Specifies the declarator containing the declaration specifier
@@ -1372,6 +1389,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     }
     break;
   case DeclSpec::TST_bool: Result = Context.BoolTy; break; // _Bool or bool
+    break;
   case DeclSpec::TST_decimal32:    // _Decimal32
   case DeclSpec::TST_decimal64:    // _Decimal64
   case DeclSpec::TST_decimal128:   // _Decimal128
@@ -1440,9 +1458,18 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
           declarator.setInvalidType(true);
         }
       } else if (!S.getOpenCLOptions().cl_khr_gl_msaa_sharing &&
-                 (Result->isImage2dMSAAT() || Result->isImage2dArrayMSAAT() ||
-                  Result->isImage2dArrayMSAATDepth() ||
-                  Result->isImage2dMSAATDepth())) {
+                 (Result->isOCLImage2dArrayMSAADepthROType() ||
+                  Result->isOCLImage2dArrayMSAADepthWOType() ||
+                  Result->isOCLImage2dArrayMSAADepthRWType() ||
+                  Result->isOCLImage2dArrayMSAAROType() ||
+                  Result->isOCLImage2dArrayMSAARWType() ||
+                  Result->isOCLImage2dArrayMSAAWOType() ||
+                  Result->isOCLImage2dMSAADepthROType() ||
+                  Result->isOCLImage2dMSAADepthRWType() ||
+                  Result->isOCLImage2dMSAADepthWOType() ||
+                  Result->isOCLImage2dMSAAROType() ||
+                  Result->isOCLImage2dMSAARWType() ||
+                  Result->isOCLImage2dMSAAWOType())) {
         S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_requires_extension)
             << Result << "cl_khr_gl_msaa_sharing";
         declarator.setInvalidType(true);
@@ -1574,6 +1601,16 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       declarator.setInvalidType(true);
     }
     break;
+
+#define GENERIC_IMAGE_TYPE(ImgType, Id) \
+  case DeclSpec::TST_##ImgType##_t: \
+    Result = llvm::StringSwitch<QualType>( \
+                 getImageAccessAttrStr(DS.getAttributes().getList())) \
+                 .Cases("write_only", "__write_only", Context.Id##WOTy) \
+                 .Cases("read_write", "__read_write", Context.Id##RWTy) \
+                 .Default(Context.Id##ROTy); \
+    break;
+#include "clang/Basic/OpenCLImageTypes.def"
 
   case DeclSpec::TST_error:
     Result = Context.IntTy;
@@ -4699,6 +4736,10 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
     return AttributeList::AT_MSABI;
   case AttributedType::attr_sysv_abi:
     return AttributeList::AT_SysVABI;
+  case AttributedType::attr_preserve_most:
+    return AttributeList::AT_PreserveMost;
+  case AttributedType::attr_preserve_all:
+    return AttributeList::AT_PreserveAll;
   case AttributedType::attr_ptr32:
     return AttributeList::AT_Ptr32;
   case AttributedType::attr_ptr64:
@@ -6046,6 +6087,10 @@ static AttributedType::Kind getCCTypeAttrKind(AttributeList &Attr) {
     return AttributedType::attr_ms_abi;
   case AttributeList::AT_SysVABI:
     return AttributedType::attr_sysv_abi;
+  case AttributeList::AT_PreserveMost:
+    return AttributedType::attr_preserve_most;
+  case AttributeList::AT_PreserveAll:
+    return AttributedType::attr_preserve_all;
   }
   llvm_unreachable("unexpected attribute kind!");
 }
@@ -6090,6 +6135,7 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
     return true;
   }
 
+  bool IntelCompat = S.getLangOpts().IntelCompat; // INTEL
   if (attr.getKind() == AttributeList::AT_Regparm) {
     unsigned value;
     if (S.CheckRegparmAttr(attr, value))
@@ -6104,7 +6150,7 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
     CallingConv CC = fn->getCallConv();
     if (CC == CC_X86FastCall) {
       S.Diag(attr.getLoc(), diag::err_attributes_are_not_compatible)
-        << FunctionType::getNameForCallConv(CC)
+        << FunctionType::getNameForCallConv(CC, IntelCompat) // INTEL
         << "regparm";
       attr.setInvalid();
       return true;
@@ -6134,8 +6180,8 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
     const AttributedType *AT = S.getCallingConvAttributedType(type);
     if (AT && AT->getAttrKind() != CCAttrKind) {
       S.Diag(attr.getLoc(), diag::err_attributes_are_not_compatible)
-        << FunctionType::getNameForCallConv(CC)
-        << FunctionType::getNameForCallConv(CCOld);
+        << FunctionType::getNameForCallConv(CC, IntelCompat) // INTEL
+        << FunctionType::getNameForCallConv(CCOld, IntelCompat); // INTEL
       attr.setInvalid();
       return true;
     }
@@ -6161,7 +6207,8 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
         IsInvalid = false;
       }
 
-      S.Diag(attr.getLoc(), DiagID) << FunctionType::getNameForCallConv(CC);
+      S.Diag(attr.getLoc(), DiagID)                             // INTEL
+          << FunctionType::getNameForCallConv(CC, IntelCompat); // INTEL
       if (IsInvalid) attr.setInvalid();
       return true;
     }
@@ -6170,7 +6217,9 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
   // Also diagnose fastcall with regparm.
   if (CC == CC_X86FastCall && fn->getHasRegParm()) {
     S.Diag(attr.getLoc(), diag::err_attributes_are_not_compatible)
-        << "regparm" << FunctionType::getNameForCallConv(CC_X86FastCall);
+        << "regparm"                                        // INTEL
+        << FunctionType::getNameForCallConv(CC_X86FastCall, // INTEL
+                                            IntelCompat);   // INTEL
     attr.setInvalid();
     return true;
   }
@@ -6218,8 +6267,9 @@ void Sema::adjustMemberFunctionCC(QualType &T, bool IsStatic, bool IsCtorOrDtor,
     // Issue a warning on ignored calling convention -- except of __stdcall.
     // Again, this is what MS compiler does.
     if (CurCC != CC_X86StdCall)
-      Diag(Loc, diag::warn_cconv_structors)
-          << FunctionType::getNameForCallConv(CurCC);
+      Diag(Loc, diag::warn_cconv_structors)                 // INTEL
+          << FunctionType::getNameForCallConv(              // INTEL
+                 CurCC, Context.getLangOpts().IntelCompat); // INTEL
   // Default adjustment.
   } else {
     // Only adjust types with the default convention.  For example, on Windows

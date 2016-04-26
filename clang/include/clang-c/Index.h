@@ -32,7 +32,7 @@
  * compatible, thus CINDEX_VERSION_MAJOR is expected to remain stable.
  */
 #define CINDEX_VERSION_MAJOR 0
-#define CINDEX_VERSION_MINOR 33
+#define CINDEX_VERSION_MINOR 34
 
 #define CINDEX_VERSION_ENCODE(major, minor) ( \
       ((major) * 10000)                       \
@@ -2978,6 +2978,8 @@ enum CXCallingConv {
   CXCallingConv_X86_64SysV = 11,
   CXCallingConv_X86VectorCall = 12,
   CXCallingConv_Swift = 13,
+  CXCallingConv_PreserveMost = 14,
+  CXCallingConv_PreserveAll = 15,
 #if INTEL_CUSTOMIZATION
   CXCallingConv_X86RegCall = 20,
 #endif /* INTEL_CUSTOMIZATION */
@@ -4966,7 +4968,7 @@ CINDEX_LINKAGE unsigned clang_defaultCodeCompleteOptions(void);
  * Note that the column should point just after the syntactic construct that
  * initiated code completion, and not in the middle of a lexical token.
  *
- * \param unsaved_files the Tiles that have not yet been saved to disk
+ * \param unsaved_files the Files that have not yet been saved to disk
  * but may be required for parsing or code completion, including the
  * contents of those files.  The contents and name of these files (as
  * specified by CXUnsavedFile) are copied when necessary, so the

@@ -74,15 +74,15 @@ void check_bases() {
                 "struct D has the wrong bases");
 
   static_assert(is_same_type<bases<E>::type,
-                __reflection_typelist<struct C, struct A, struct D, struct B>>::value,
+                __reflection_typelist<struct A, struct C, struct B, struct D>>::value,
                 "struct E has the wrong bases");
 
   static_assert(is_same_type<bases<E2>::type,
-                __reflection_typelist<struct C, struct A, struct D, struct B>>::value,
+                __reflection_typelist<struct A, struct C, struct B,  struct D>>::value,
                 "struct E2 has the wrong bases");
 
   static_assert(is_same_type<bases<E3>::type,
-                __reflection_typelist<struct D, struct A, struct B, struct C>>::value,
+                __reflection_typelist<struct A, struct B, struct D, struct A, struct C>>::value,
                 "struct E3 has the wrong bases");
 
   static_assert(is_same_type<bases<F>::type,

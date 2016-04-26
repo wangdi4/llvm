@@ -39,13 +39,8 @@ typedef DenseMap<const MDString *, DIType *> DITypeIdentifierMap;
 /// \brief Find subprogram that is enclosing this scope.
 DISubprogram *getDISubprogram(const MDNode *Scope);
 
-/// \brief Find debug info for a given function.
-///
-/// \returns a valid subprogram, if found. Otherwise, return \c nullptr.
-DISubprogram *getDISubprogram(const Function *F);
-
 /// \brief Generate map by visiting all retained types.
-DITypeIdentifierMap generateDITypeIdentifierMap(const NamedMDNode *CU_Nodes);
+DITypeIdentifierMap generateDITypeIdentifierMap(const Module &M);
 
 /// \brief Strip debug info in the module if it exists.
 ///

@@ -23,6 +23,7 @@
 #include "llvm/CodeGen/DAGCombine.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/Support/ArrayRecycler.h"
 #include "llvm/Support/RecyclingAllocator.h"
 #include "llvm/Target/TargetMachine.h"
 #include <cassert>
@@ -208,6 +209,7 @@ class SelectionDAG {
 
   /// Pool allocation for machine-opcode SDNode operands.
   BumpPtrAllocator OperandAllocator;
+  ArrayRecycler<SDUse> OperandRecycler;
 
   /// Pool allocation for misc. objects that are created once per SelectionDAG.
   BumpPtrAllocator Allocator;
@@ -272,6 +274,30 @@ private:
   SDNodeT *newSDNode(ArgTypes &&... Args) {
     return new (NodeAllocator.template Allocate<SDNodeT>())
         SDNodeT(std::forward<ArgTypes>(Args)...);
+  }
+
+  void createOperands(SDNode *Node, ArrayRef<SDValue> Vals) {
+    assert(!Node->OperandList && "Node already has operands");
+    SDUse *Ops = OperandRecycler.allocate(
+        ArrayRecycler<SDUse>::Capacity::get(Vals.size()), OperandAllocator);
+
+    for (unsigned I = 0; I != Vals.size(); ++I) {
+      Ops[I].setUser(Node);
+      Ops[I].setInitial(Vals[I]);
+    }
+    Node->NumOperands = Vals.size();
+    Node->OperandList = Ops;
+    checkForCycles(Node);
+  }
+
+  void removeOperands(SDNode *Node) {
+    if (!Node->OperandList)
+      return;
+    OperandRecycler.deallocate(
+        ArrayRecycler<SDUse>::Capacity::get(Node->NumOperands),
+        Node->OperandList);
+    Node->NumOperands = 0;
+    Node->OperandList = nullptr;
   }
 
   void operator=(const SelectionDAG&) = delete;
@@ -1258,10 +1284,12 @@ public:
   /// vector op and fill the end of the resulting vector with UNDEFS.
   SDValue UnrollVectorOp(SDNode *N, unsigned ResNE = 0);
 
-  /// Return true if LD is loading 'Bytes' bytes from a location that is 'Dist'
-  /// units away from the location that the 'Base' load is loading from.
-  bool isConsecutiveLoad(LoadSDNode *LD, LoadSDNode *Base,
-                         unsigned Bytes, int Dist) const;
+  /// Return true if loads are next to each other and can be
+  /// merged. Check that both are nonvolatile and if LD is loading
+  /// 'Bytes' bytes from a location that is 'Dist' units away from the
+  /// location that the 'Base' load is loading from.
+  bool areNonVolatileConsecutiveLoads(LoadSDNode *LD, LoadSDNode *Base,
+                                      unsigned Bytes, int Dist) const;
 
   /// Infer alignment of a load / store address. Return 0 if
   /// it cannot be inferred.
@@ -1316,9 +1344,8 @@ private:
 
   void allnodes_clear();
 
-  BinarySDNode *GetBinarySDNode(unsigned Opcode, SDLoc DL, SDVTList VTs,
-                                SDValue N1, SDValue N2,
-                                const SDNodeFlags *Flags = nullptr);
+  SDNode *GetBinarySDNode(unsigned Opcode, SDLoc DL, SDVTList VTs, SDValue N1,
+                          SDValue N2, const SDNodeFlags *Flags = nullptr);
 
   /// Look up the node specified by ID in CSEMap.  If it exists, return it.  If
   /// not, return the insertion token that will make insertion faster.  This

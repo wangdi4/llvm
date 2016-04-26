@@ -598,16 +598,25 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   // The compilation takes ownership of Args.
   Compilation *C = new Compilation(*this, TC, UArgs.release(), TranslatedArgs);
 
-  C->setCudaDeviceToolChain(
-      &getToolChain(C->getArgs(), llvm::Triple(TC.getTriple().isArch64Bit()
-                                                   ? "nvptx64-nvidia-cuda"
-                                                   : "nvptx-nvidia-cuda")));
   if (!HandleImmediateArgs(*C))
     return C;
 
   // Construct the list of inputs.
   InputList Inputs;
   BuildInputs(C->getDefaultToolChain(), *TranslatedArgs, Inputs);
+
+  // Initialize the CUDA device TC only if we have any CUDA Inputs.  This is
+  // necessary so that we don't break compilations that pass flags that are
+  // incompatible with the NVPTX TC (e.g. -mthread-model single).
+  if (llvm::any_of(Inputs, [](const std::pair<types::ID, const Arg *> &I) {
+        return I.first == types::TY_CUDA || I.first == types::TY_PP_CUDA ||
+               I.first == types::TY_CUDA_DEVICE;
+      })) {
+    C->setCudaDeviceToolChain(
+        &getToolChain(C->getArgs(), llvm::Triple(TC.getTriple().isArch64Bit()
+                                                     ? "nvptx64-nvidia-cuda"
+                                                     : "nvptx-nvidia-cuda")));
+  }
 
   // Construct the list of abstract actions to perform for this compilation. On
   // MachO targets this uses the driver-driver and universal actions.
@@ -1207,7 +1216,7 @@ void Driver::BuildUniversalActions(Compilation &C, const ToolChain &TC,
 /// \brief Check that the file referenced by Value exists. If it doesn't,
 /// issue a diagnostic and return false.
 static bool DiagnoseInputExistence(const Driver &D, const DerivedArgList &Args,
-                                   StringRef Value) {
+                                   StringRef Value, types::ID Ty) {
   if (!D.getCheckInputsExist())
     return true;
 
@@ -1227,9 +1236,18 @@ static bool DiagnoseInputExistence(const Driver &D, const DerivedArgList &Args,
   if (llvm::sys::fs::exists(Twine(Path)))
     return true;
 
-  if (D.IsCLMode() && !llvm::sys::path::is_absolute(Twine(Path)) &&
-      llvm::sys::Process::FindInEnvPath("LIB", Value))
-    return true;
+  if (D.IsCLMode()) {
+    if (!llvm::sys::path::is_absolute(Twine(Path)) &&
+        llvm::sys::Process::FindInEnvPath("LIB", Value))
+      return true;
+
+    if (Args.hasArg(options::OPT__SLASH_link) && Ty == types::TY_Object) {
+      // Arguments to the /link flag might cause the linker to search for object
+      // and library files in paths we don't know about. Don't error in such
+      // cases.
+      return true;
+    }
+  }
 
   D.Diag(clang::diag::err_drv_no_such_file) << Path;
   return false;
@@ -1345,19 +1363,19 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
         }
       }
 
-      if (DiagnoseInputExistence(*this, Args, Value))
+      if (DiagnoseInputExistence(*this, Args, Value, Ty))
         Inputs.push_back(std::make_pair(Ty, A));
 
     } else if (A->getOption().matches(options::OPT__SLASH_Tc)) {
       StringRef Value = A->getValue();
-      if (DiagnoseInputExistence(*this, Args, Value)) {
+      if (DiagnoseInputExistence(*this, Args, Value, types::TY_C)) {
         Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
         Inputs.push_back(std::make_pair(types::TY_C, InputArg));
       }
       A->claim();
     } else if (A->getOption().matches(options::OPT__SLASH_Tp)) {
       StringRef Value = A->getValue();
-      if (DiagnoseInputExistence(*this, Args, Value)) {
+      if (DiagnoseInputExistence(*this, Args, Value, types::TY_CXX)) {
         Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
         Inputs.push_back(std::make_pair(types::TY_CXX, InputArg));
       }
@@ -1599,14 +1617,6 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   if (Args.hasArg(options::OPT__SLASH_Y_)) {
     // /Y- disables all pch handling.  Rather than check for it everywhere,
     // just remove clang-cl pch-related flags here.
-    Args.eraseArg(options::OPT__SLASH_Fp);
-    Args.eraseArg(options::OPT__SLASH_Yc);
-    Args.eraseArg(options::OPT__SLASH_Yu);
-    YcArg = YuArg = nullptr;
-  }
-  // FIXME: For now, only enable pch support if an internal flag is passed too.
-  // Remove this once pch support has stabilitzed.
-  if (!Args.hasArg(options::OPT__SLASH_internal_enable_pch)) {
     Args.eraseArg(options::OPT__SLASH_Fp);
     Args.eraseArg(options::OPT__SLASH_Yc);
     Args.eraseArg(options::OPT__SLASH_Yu);
@@ -2568,6 +2578,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       case llvm::Triple::hexagon:
         TC = new toolchains::HexagonToolChain(*this, Target, Args);
         break;
+      case llvm::Triple::lanai:
+        TC = new toolchains::LanaiToolChain(*this, Target, Args);
+        break;
       case llvm::Triple::xcore:
         TC = new toolchains::XCoreToolChain(*this, Target, Args);
         break;
@@ -2640,6 +2653,34 @@ bool Driver::GetReleaseVersion(const char *Str, unsigned &Major,
     return false;
   HadExtra = true;
   return true;
+}
+
+/// Parse digits from a string \p Str and fulfill \p Digits with
+/// the parsed numbers. This method assumes that the max number of
+/// digits to look for is equal to Digits.size().
+///
+/// \return True if the entire string was parsed and there are
+/// no extra characters remaining at the end.
+bool Driver::GetReleaseVersion(const char *Str,
+                               MutableArrayRef<unsigned> Digits) {
+  if (*Str == '\0')
+    return false;
+
+  char *End;
+  unsigned CurDigit = 0;
+  while (CurDigit < Digits.size()) {
+    unsigned Digit = (unsigned)strtol(Str, &End, 10);
+    Digits[CurDigit] = Digit;
+    if (*Str != '\0' && *End == '\0')
+      return true;
+    if (*End != '.' || Str == End)
+      return false;
+    Str = End + 1;
+    CurDigit++;
+  }
+
+  // More digits than requested, bail out...
+  return false;
 }
 
 std::pair<unsigned, unsigned> Driver::getIncludeExcludeOptionFlagMasks() const {

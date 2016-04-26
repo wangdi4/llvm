@@ -76,10 +76,10 @@ enum AssumptionKind {
   INBOUNDS,
   WRAPPING,
   ERRORBLOCK,
+  COMPLEXITY,
   INFINITELOOP,
   INVARIANTLOAD,
   DELINEARIZATION,
-  ERROR_DOMAINCONJUNCTS,
 };
 
 /// @brief Enum to distinguish between assumptions and restrictions.
@@ -650,6 +650,21 @@ private:
   /// @param SAI Info object for the accessed array.
   void buildAccessRelation(const ScopArrayInfo *SAI);
 
+  /// @brief Carry index overflows of dimensions with constant size to the next
+  ///        higher dimension.
+  ///
+  /// For dimensions that have constant size, modulo the index by the size and
+  /// add up the carry (floored division) to the next higher dimension. This is
+  /// how overflow is defined in row-major order.
+  /// It happens e.g. when ScalarEvolution computes the offset to the base
+  /// pointer and would algebraically sum up all lower dimensions' indices of
+  /// constant size.
+  ///
+  /// Example:
+  ///   float (*A)[4];
+  ///   A[1][6] -> A[2][2]
+  void wrapConstantDimensions();
+
 public:
   /// @brief Create a new MemoryAccess.
   ///
@@ -782,6 +797,9 @@ public:
   /// @brief Return the access function subscript in the dimension @p Dim.
   const SCEV *getSubscript(unsigned Dim) const { return Subscripts[Dim]; }
 
+  /// @brief Compute the isl representation for the SCEV @p E wrt. this access.
+  __isl_give isl_pw_aff *getPwAff(const SCEV *E);
+
   /// Get the stride of this memory access in the specified Schedule. Schedule
   /// is a map from the statement to a schedule where the innermost dimension is
   /// the dimension of the innermost loop containing the statement.
@@ -887,7 +905,6 @@ using InvariantEquivClassTy =
 /// @brief Type for invariant accesses equivalence classes.
 using InvariantEquivClassesTy = SmallVector<InvariantEquivClassTy, 8>;
 
-///===----------------------------------------------------------------------===//
 /// @brief Statement of the Scop
 ///
 /// A Scop statement represents an instruction in the Scop.
@@ -917,6 +934,14 @@ private:
 
   /// The Scop containing this ScopStmt
   Scop &Parent;
+
+  /// @brief The context under which this statement is not modeled precisely.
+  ///
+  /// The invalid context for a statement describes all parameter combinations
+  /// under which the statement looks to be executed but is in fact not because
+  /// some assumption/restriction makes the statement/scop invalid. Currently
+  /// it is build only using error block domain contexts.
+  isl_set *InvalidContext;
 
   /// The iteration domain describes the set of iterations for which this
   /// statement is executed.
@@ -1071,6 +1096,14 @@ public:
 
   /// @brief Get an isl string representing this schedule.
   std::string getScheduleStr() const;
+
+  /// @brief Get the invalid context for this statement.
+  __isl_give isl_set *getInvalidContext() const {
+    return isl_set_copy(InvalidContext);
+  }
+
+  /// @brief Set the invalid context for this statement to @p IC.
+  void setInvalidContext(__isl_take isl_set *IC);
 
   /// @brief Get the BasicBlock represented by this ScopStmt (if any).
   ///
@@ -1232,7 +1265,6 @@ static inline raw_ostream &operator<<(raw_ostream &O, const ScopStmt &S) {
   return O;
 }
 
-///===----------------------------------------------------------------------===//
 /// @brief Static Control Part
 ///
 /// A Scop is the polyhedral representation of a control flow region detected
@@ -1352,6 +1384,37 @@ private:
   /// need to be "false". Otherwise they behave the same.
   isl_set *InvalidContext;
 
+  /// @brief Helper struct to remember assumptions.
+  struct Assumption {
+
+    /// @brief The kind of the assumption (e.g., WRAPPING).
+    AssumptionKind Kind;
+
+    /// @brief Flag to distinguish assumptions and restrictions.
+    AssumptionSign Sign;
+
+    /// @brief The valid/invalid context if this is an assumption/restriction.
+    isl_set *Set;
+
+    /// @brief The location that caused this assumption.
+    DebugLoc Loc;
+
+    /// @brief An optional block whos domain can simplify the assumption.
+    BasicBlock *BB;
+  };
+
+  /// @brief Collection to hold taken assumptions.
+  ///
+  /// There are two reasons why we want to record assumptions first before we
+  /// add them to the assumed/invalid context:
+  ///   1) If the SCoP is not profitable or otherwise invalid without the
+  ///      assumed/invalid context we do not have to compute it.
+  ///   2) Information about the context are gathered rather late in the SCoP
+  ///      construction (basically after we know all parameters), thus the user
+  ///      might see overly complicated assumptions to be taken while they will
+  ///      only be simplified later on.
+  SmallVector<Assumption, 8> RecordedAssumptions;
+
   /// @brief The schedule of the SCoP
   ///
   /// The schedule of the SCoP describes the execution order of the statements
@@ -1411,7 +1474,7 @@ private:
   InvariantEquivClassesTy InvariantEquivClasses;
 
   /// @brief Scop constructor; invoked from ScopInfo::buildScop.
-  Scop(Region &R, ScalarEvolution &SE, unsigned MaxLoopDepth);
+  Scop(Region &R, ScalarEvolution &SE, LoopInfo &LI, unsigned MaxLoopDepth);
 
   /// @brief Get or create the access function set in a BasicBlock
   AccFuncSetType &getOrCreateAccessFunctions(const BasicBlock *BB) {
@@ -1422,6 +1485,53 @@ private:
   /// @brief Initialize this ScopInfo .
   void init(AliasAnalysis &AA, AssumptionCache &AC, ScopDetection &SD,
             DominatorTree &DT, LoopInfo &LI);
+
+  /// @brief Propagate domains that are known due to graph properties.
+  ///
+  /// As a CFG is mostly structured we use the graph properties to propagate
+  /// domains without the need to compute all path conditions. In particular, if
+  /// a block A dominates a block B and B post-dominates A we know that the
+  /// domain of B is a superset of the domain of A. As we do not have
+  /// post-dominator information available here we use the less precise region
+  /// information. Given a region R, we know that the exit is always executed if
+  /// the entry was executed, thus the domain of the exit is a superset of the
+  /// domain of the entry. In case the exit can only be reached from within the
+  /// region the domains are in fact equal. This function will use this property
+  /// to avoid the generation of condition constraints that determine when a
+  /// branch is taken. If @p BB is a region entry block we will propagate its
+  /// domain to the region exit block. Additionally, we put the region exit
+  /// block in the @p FinishedExitBlocks set so we can later skip edges from
+  /// within the region to that block.
+  ///
+  /// @param BB The block for which the domain is currently propagated.
+  /// @param BBLoop The innermost affine loop surrounding @p BB.
+  /// @param FinishedExitBlocks Set of region exits the domain was set for.
+  /// @param SD The ScopDetection analysis for the current function.
+  /// @param LI The LoopInfo for the current function.
+  ///
+  void propagateDomainConstraintsToRegionExit(
+      BasicBlock *BB, Loop *BBLoop,
+      SmallPtrSetImpl<BasicBlock *> &FinishedExitBlocks, ScopDetection &SD,
+      LoopInfo &LI);
+
+  /// @brief Compute the union of predecessor domains for @p BB.
+  ///
+  /// To compute the union of all domains of predecessors of @p BB this
+  /// function applies similar reasoning on the CFG structure as described for
+  ///   @see propagateDomainConstraintsToRegionExit
+  ///
+  /// @param BB     The block for which the predecessor domains are collected.
+  /// @param Domain The domain under which BB is executed.
+  /// @param SD     The ScopDetection analysis for the current function.
+  /// @param DT     The DominatorTree for the current function.
+  /// @param LI     The LoopInfo for the current function.
+  ///
+  /// @returns The domain under which @p BB is executed.
+  __isl_give isl_set *getPredecessorDomainConstraints(BasicBlock *BB,
+                                                      isl_set *Domain,
+                                                      ScopDetection &SD,
+                                                      DominatorTree &DT,
+                                                      LoopInfo &LI);
 
   /// @brief Add loop carried constraints to the header block of the loop @p L.
   ///
@@ -1435,7 +1545,9 @@ private:
   /// @param SD The ScopDetection analysis for the current function.
   /// @param DT The DominatorTree for the current function.
   /// @param LI The LoopInfo for the current function.
-  void buildDomainsWithBranchConstraints(Region *R, ScopDetection &SD,
+  ///
+  /// @returns True if there was no problem and false otherwise.
+  bool buildDomainsWithBranchConstraints(Region *R, ScopDetection &SD,
                                          DominatorTree &DT, LoopInfo &LI);
 
   /// @brief Propagate the domain constraints through the region @p R.
@@ -1447,14 +1559,19 @@ private:
   void propagateDomainConstraints(Region *R, ScopDetection &SD,
                                   DominatorTree &DT, LoopInfo &LI);
 
-  /// @brief Remove domains of error blocks/regions (and blocks dominated by
-  ///        them).
+  /// @brief Propagate invalid contexts of statements through @p R.
   ///
+  /// This method will propagate invalid statement contexts through @p R and at
+  /// the same time add error block domain context to them. Additionally, the
+  /// domains of error statements and those only reachable via error statements
+  /// will be replaced by an empty set. Later those will be removed completely.
+  ///
+  /// @param R  The currently traversed region.
   /// @param SD The ScopDetection analysis for the current function.
   /// @param DT The DominatorTree for the current function.
   /// @param LI The LoopInfo for the current function.
-  void removeErrorBlockDomains(ScopDetection &SD, DominatorTree &DT,
-                               LoopInfo &LI);
+  void propagateInvalidStmtContexts(Region *R, ScopDetection &SD,
+                                    DominatorTree &DT, LoopInfo &LI);
 
   /// @brief Compute the domain for each basic block in @p R.
   ///
@@ -1462,7 +1579,9 @@ private:
   /// @param SD The ScopDetection analysis for the current function.
   /// @param DT The DominatorTree for the current function.
   /// @param LI The LoopInfo for the current function.
-  void buildDomains(Region *R, ScopDetection &SD, DominatorTree &DT,
+  ///
+  /// @returns True if there was no problem and false otherwise.
+  bool buildDomains(Region *R, ScopDetection &SD, DominatorTree &DT,
                     LoopInfo &LI);
 
   /// @brief Check if a region part should be represented in the SCoP or not.
@@ -1556,9 +1675,6 @@ private:
 
   /// @brief Build the Context of the Scop.
   void buildContext();
-
-  /// @brief Add the restrictions based on the wrapping of expressions.
-  void addWrappingContext();
 
   /// @brief Add user provided parameter constraints to context (source code).
   void addUserAssumptions(AssumptionCache &AC, DominatorTree &DT, LoopInfo &LI);
@@ -1678,14 +1794,14 @@ private:
   __isl_give isl_union_map *
   getAccessesOfType(std::function<bool(MemoryAccess &)> Predicate);
 
-  /// @name Helper function for printing the Scop.
+  /// @name Helper functions for printing the Scop.
   ///
-  ///{
+  //@{
   void printContext(raw_ostream &OS) const;
   void printArrayInfo(raw_ostream &OS) const;
   void printStatements(raw_ostream &OS) const;
   void printAliasAssumptions(raw_ostream &OS) const;
-  ///}
+  //@}
 
   friend class ScopInfo;
 
@@ -1702,7 +1818,6 @@ public:
     AccFuncMapType::iterator at = AccFuncMap.find(BB);
     return at != AccFuncMap.end() ? &(at->second) : 0;
   }
-  //@}
 
   ScalarEvolution *getSE() const;
 
@@ -1838,6 +1953,28 @@ public:
   ///             (needed/assumptions) or negative (invalid/restrictions).
   void addAssumption(AssumptionKind Kind, __isl_take isl_set *Set, DebugLoc Loc,
                      AssumptionSign Sign);
+
+  /// @brief Record an assumption for later addition to the assumed context.
+  ///
+  /// This function will add the assumption to the RecordedAssumptions. This
+  /// collection will be added (@see addAssumption) to the assumed context once
+  /// all paramaters are known and the context is fully build.
+  ///
+  /// @param Kind The assumption kind describing the underlying cause.
+  /// @param Set  The relations between parameters that are assumed to hold.
+  /// @param Loc  The location in the source that caused this assumption.
+  /// @param Sign Enum to indicate if the assumptions in @p Set are positive
+  ///             (needed/assumptions) or negative (invalid/restrictions).
+  /// @param BB   The block in which this assumption was taken. If it is
+  ///             set, the domain of that block will be used to simplify the
+  ///             actual assumption in @p Set once it is added. This is useful
+  ///             if the assumption was created prior to the domain.
+  void recordAssumption(AssumptionKind Kind, __isl_take isl_set *Set,
+                        DebugLoc Loc, AssumptionSign Sign,
+                        BasicBlock *BB = nullptr);
+
+  /// @brief Add all recorded assumptions to the assumed context.
+  void addRecordedAssumptions();
 
   /// @brief Mark the scop as invalid.
   ///
@@ -1981,14 +2118,19 @@ public:
   /// @param BB An (optional) basic block in which the isl_pw_aff is computed.
   ///           SCEVs known to not reference any loops in the SCoP can be
   ///           passed without a @p BB.
+  ///
+  /// Note that this function will always return a valid isl_pw_aff. However, if
+  /// the translation of @p E was deemed to complex the SCoP is invalidated and
+  /// a dummy value of appropriate dimension is returned. This allows to bail
+  /// for complex cases without "error handling code" needed on the users side.
   __isl_give isl_pw_aff *getPwAff(const SCEV *E, BasicBlock *BB = nullptr);
 
-  /// @brief Return the non-loop carried conditions on the domain of @p Stmt.
+  /// @brief Return the domain of @p Stmt.
   ///
   /// @param Stmt The statement for which the conditions should be returned.
   __isl_give isl_set *getDomainConditions(ScopStmt *Stmt);
 
-  /// @brief Return the non-loop carried conditions on the domain of @p BB.
+  /// @brief Return the domain of @p BB.
   ///
   /// @param BB The block for which the conditions should be returned.
   __isl_give isl_set *getDomainConditions(BasicBlock *BB);
@@ -2047,9 +2189,7 @@ static inline raw_ostream &operator<<(raw_ostream &O, const Scop &scop) {
   return O;
 }
 
-///===---------------------------------------------------------------------===//
 /// @brief Build the Polly IR (Scop and ScopStmt) on a Region.
-///
 class ScopInfo : public RegionPass {
   //===-------------------------------------------------------------------===//
   ScopInfo(const ScopInfo &) = delete;

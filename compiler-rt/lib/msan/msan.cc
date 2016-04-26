@@ -22,6 +22,10 @@
 #include "sanitizer_common/sanitizer_flags.h"
 #include "sanitizer_common/sanitizer_flag_parser.h"
 #include "sanitizer_common/sanitizer_libc.h"
+#if defined(__s390x__) && defined(__linux__)
+// For AvoidCVE_2016_2143.
+#include "sanitizer_common/sanitizer_linux.h"
+#endif
 #include "sanitizer_common/sanitizer_procmaps.h"
 #include "sanitizer_common/sanitizer_stacktrace.h"
 #include "sanitizer_common/sanitizer_symbolizer.h"
@@ -178,7 +182,7 @@ static void InitializeFlags() {
 #endif
   VPrintf(1, "MSAN_OPTIONS: %s\n", msan_options ? msan_options : "<empty>");
 
-  SetVerbosity(common_flags()->verbosity);
+  InitializeCommonFlags();
 
   if (Verbosity()) ReportUnrecognizedFlags();
 
@@ -375,6 +379,9 @@ void __msan_init() {
   msan_init_is_running = 1;
   SanitizerToolName = "MemorySanitizer";
 
+#if defined(__s390x__) && defined(__linux__)
+  AvoidCVE_2016_2143();
+#endif
   InitTlsSize();
 
   CacheBinaryName();

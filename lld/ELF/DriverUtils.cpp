@@ -35,37 +35,31 @@ using namespace lld::elf;
 #undef PREFIX
 
 // Create table mapping all options defined in Options.td
-static const opt::OptTable::Info infoTable[] = {
+static const opt::OptTable::Info OptInfo[] = {
 #define OPTION(X1, X2, ID, KIND, GROUP, ALIAS, X6, X7, X8, X9, X10)            \
   {                                                                            \
     X1, X2, X9, X10, OPT_##ID, opt::Option::KIND##Class, X8, X7, OPT_##GROUP,  \
         OPT_##ALIAS, X6                                                        \
-  }                                                                            \
-  ,
+  },
 #include "Options.inc"
 #undef OPTION
 };
 
-class ELFOptTable : public opt::OptTable {
-public:
-  ELFOptTable() : OptTable(infoTable) {}
-};
+ELFOptTable::ELFOptTable() : OptTable(OptInfo) {}
 
 // Parses a given list of options.
-opt::InputArgList elf::parseArgs(llvm::BumpPtrAllocator *A,
-                                 ArrayRef<const char *> Argv) {
+opt::InputArgList ELFOptTable::parse(ArrayRef<const char *> Argv) {
   // Make InputArgList from string vectors.
-  ELFOptTable Table;
   unsigned MissingIndex;
   unsigned MissingCount;
 
   // Expand response files. '@<filename>' is replaced by the file's contents.
   SmallVector<const char *, 256> Vec(Argv.data(), Argv.data() + Argv.size());
-  StringSaver Saver(*A);
+  StringSaver Saver(Alloc);
   llvm::cl::ExpandResponseFiles(Saver, llvm::cl::TokenizeGNUCommandLine, Vec);
 
   // Parse options and then do error checking.
-  opt::InputArgList Args = Table.ParseArgs(Vec, MissingIndex, MissingCount);
+  opt::InputArgList Args = this->ParseArgs(Vec, MissingIndex, MissingCount);
   if (MissingCount)
     error(Twine("missing arg value for \"") + Args.getArgString(MissingIndex) +
           "\", expected " + Twine(MissingCount) +
@@ -88,7 +82,8 @@ void elf::printVersion() {
   outs() << "LLD " << getLLDVersion();
   std::string S = getLLDRepositoryVersion();
   if (!S.empty())
-    outs() << " " << S << "\n";
+    outs() << " " << S;
+  outs() << "\n";
 }
 
 std::string elf::findFromSearchPaths(StringRef Path) {
@@ -103,20 +98,14 @@ std::string elf::findFromSearchPaths(StringRef Path) {
 // Searches a given library from input search paths, which are filled
 // from -L command line switches. Returns a path to an existent library file.
 std::string elf::searchLibrary(StringRef Path) {
-  std::vector<std::string> Names;
-  if (Path[0] == ':') {
-    Names.push_back(Path.drop_front());
-  } else {
-    if (!Config->Static)
-      Names.push_back(("lib" + Path + ".so").str());
-    Names.push_back(("lib" + Path + ".a").str());
-  }
-  for (const std::string &Name : Names) {
-    std::string S = findFromSearchPaths(Name);
+  if (Path.startswith(":"))
+    return findFromSearchPaths(Path.substr(1));
+  if (!Config->Static) {
+    std::string S = findFromSearchPaths(("lib" + Path + ".so").str());
     if (!S.empty())
       return S;
   }
-  return "";
+  return findFromSearchPaths(("lib" + Path + ".a").str());
 }
 
 // Makes a path by concatenating Dir and File.

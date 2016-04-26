@@ -42,9 +42,9 @@ using namespace lld::elf;
 template <class ELFT>
 static void forEachSuccessor(InputSection<ELFT> *Sec,
                              std::function<void(InputSectionBase<ELFT> *)> Fn) {
-  typedef typename ELFFile<ELFT>::Elf_Rel Elf_Rel;
-  typedef typename ELFFile<ELFT>::Elf_Rela Elf_Rela;
-  typedef typename ELFFile<ELFT>::Elf_Shdr Elf_Shdr;
+  typedef typename ELFT::Rel Elf_Rel;
+  typedef typename ELFT::Rela Elf_Rela;
+  typedef typename ELFT::Shdr Elf_Shdr;
 
   ELFFile<ELFT> &Obj = Sec->getFile()->getObj();
   for (const Elf_Shdr *RelSec : Sec->RelocSections) {
@@ -99,12 +99,13 @@ template <class ELFT> void elf::markLive(SymbolTable<ELFT> *Symtab) {
 
   auto MarkSymbol = [&](SymbolBody *Sym) {
     if (Sym)
-      if (auto *D = dyn_cast<DefinedRegular<ELFT>>(Sym->repl()))
+      if (auto *D = dyn_cast<DefinedRegular<ELFT>>(Sym))
         Enqueue(D->Section);
   };
 
   // Add GC root symbols.
-  MarkSymbol(Config->EntrySym);
+  if (Config->EntrySym)
+    MarkSymbol(Config->EntrySym->Body);
   MarkSymbol(Symtab->find(Config->Init));
   MarkSymbol(Symtab->find(Config->Fini));
   for (StringRef S : Config->Undefined)
@@ -113,8 +114,8 @@ template <class ELFT> void elf::markLive(SymbolTable<ELFT> *Symtab) {
   // Preserve externally-visible symbols if the symbols defined by this
   // file can interrupt other ELF file's symbols at runtime.
   if (Config->Shared || Config->ExportDynamic) {
-    for (const std::pair<StringRef, Symbol *> &P : Symtab->getSymbols()) {
-      SymbolBody *B = P.second->Body;
+    for (const Symbol *S : Symtab->getSymbols()) {
+      SymbolBody *B = S->Body;
       if (B->getVisibility() == STV_DEFAULT)
         MarkSymbol(B);
     }
@@ -124,7 +125,7 @@ template <class ELFT> void elf::markLive(SymbolTable<ELFT> *Symtab) {
   // script KEEP command.
   for (const std::unique_ptr<ObjectFile<ELFT>> &F : Symtab->getObjectFiles())
     for (InputSectionBase<ELFT> *Sec : F->getSections())
-      if (Sec && Sec != InputSection<ELFT>::Discarded)
+      if (Sec && Sec != &InputSection<ELFT>::Discarded)
         if (isReserved(Sec) || Script->shouldKeep<ELFT>(Sec))
           Enqueue(Sec);
 

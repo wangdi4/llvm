@@ -28,6 +28,7 @@
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/CodeGen/RegisterClassInfo.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -52,6 +53,7 @@ namespace {
     static char ID;
     RAFast() : MachineFunctionPass(ID), StackSlotForVirtReg(-1),
                isBulkSpilling(false) {}
+
   private:
     MachineFunction *MF;
     MachineRegisterInfo *MRI;
@@ -157,6 +159,11 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.setPreservesCFG();
       MachineFunctionPass::getAnalysisUsage(AU);
+    }
+
+    MachineFunctionProperties getSetProperties() const override {
+      return MachineFunctionProperties().set(
+          MachineFunctionProperties::Property::AllVRegsAllocated);
     }
 
   private:

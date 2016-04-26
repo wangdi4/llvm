@@ -10,6 +10,7 @@
 #ifndef LLD_ELF_TARGET_H
 #define LLD_ELF_TARGET_H
 
+#include "InputSection.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Object/ELF.h"
 
@@ -17,19 +18,22 @@
 
 namespace lld {
 namespace elf {
+class InputFile;
 class SymbolBody;
 
 class TargetInfo {
 public:
   uint64_t getVAStart() const;
-  virtual bool isTlsLocalDynamicRel(unsigned Type) const;
-  virtual bool isTlsGlobalDynamicRel(unsigned Type) const;
-  virtual unsigned getDynRel(unsigned Type) const { return Type; }
-  virtual bool isTlsDynRel(unsigned Type, const SymbolBody &S) const;
-  virtual unsigned getTlsGotRel(unsigned Type) const { return TlsGotRel; }
+  virtual bool isTlsInitialExecRel(uint32_t Type) const;
+  virtual bool pointsToLocalDynamicGotEntry(uint32_t Type) const;
+  virtual bool isTlsLocalDynamicRel(uint32_t Type) const;
+  virtual bool isTlsGlobalDynamicRel(uint32_t Type) const;
+  virtual uint32_t getDynRel(uint32_t Type) const { return Type; }
+  virtual uint32_t getTlsGotRel(uint32_t Type) const { return TlsGotRel; }
   virtual void writeGotHeader(uint8_t *Buf) const {}
   virtual void writeGotPltHeader(uint8_t *Buf) const {}
   virtual void writeGotPlt(uint8_t *Buf, uint64_t Plt) const {};
+  virtual uint64_t getImplicitAddend(const uint8_t *Buf, uint32_t Type) const;
 
   // If lazy binding is supported, the first entry of the PLT has code
   // to call the dynamic linker to resolve PLT entries the first time
@@ -52,26 +56,27 @@ public:
   // dynamic linker if isRelRelative returns true.
   virtual bool isRelRelative(uint32_t Type) const;
 
-  virtual bool isSizeRel(uint32_t Type) const;
-  virtual bool needsDynRelative(unsigned Type) const { return false; }
-  virtual bool needsGot(uint32_t Type, SymbolBody &S) const;
+  virtual bool needsDynRelative(uint32_t Type) const { return false; }
+  virtual bool needsGot(uint32_t Type, const SymbolBody &S) const;
   virtual bool refersToGotEntry(uint32_t Type) const;
 
   enum PltNeed { Plt_No, Plt_Explicit, Plt_Implicit };
-  template <class ELFT>
   PltNeed needsPlt(uint32_t Type, const SymbolBody &S) const;
 
-  virtual void relocateOne(uint8_t *Loc, uint8_t *BufEnd, uint32_t Type,
-                           uint64_t P, uint64_t SA, uint64_t ZA = 0,
-                           uint8_t *PairedLoc = nullptr) const = 0;
+  virtual bool needsThunk(uint32_t Type, const InputFile &File,
+                          const SymbolBody &S) const;
+
+  virtual void writeThunk(uint8_t *Buf, uint64_t S) const {}
+
+  virtual RelExpr getRelExpr(uint32_t Type, const SymbolBody &S) const = 0;
+  virtual void relocateOne(uint8_t *Loc, uint32_t Type, uint64_t Val) const = 0;
   virtual bool isGotRelative(uint32_t Type) const;
-  virtual bool canRelaxTls(unsigned Type, const SymbolBody *S) const;
+  bool canRelaxTls(uint32_t Type, const SymbolBody *S) const;
   template <class ELFT>
   bool needsCopyRel(uint32_t Type, const SymbolBody &S) const;
-  virtual unsigned relaxTls(uint8_t *Loc, uint8_t *BufEnd, uint32_t Type,
-                            uint64_t P, uint64_t SA, const SymbolBody *S) const;
   virtual ~TargetInfo();
 
+  unsigned TlsGdToLeSkip = 1;
   unsigned PageSize = 4096;
 
   // On freebsd x86_64 the first page cannot be mmaped.
@@ -82,19 +87,25 @@ public:
   // 0x200000, but it looks like every OS uses 4k pages for executables.
   uint64_t VAStart = 0x10000;
 
-  unsigned CopyRel;
-  unsigned GotRel;
-  unsigned PltRel;
-  unsigned RelativeRel;
-  unsigned IRelativeRel;
-  unsigned TlsGotRel = 0;
-  unsigned TlsModuleIndexRel;
-  unsigned TlsOffsetRel;
+  uint32_t CopyRel;
+  uint32_t GotRel;
+  uint32_t PltRel;
+  uint32_t RelativeRel;
+  uint32_t IRelativeRel;
+  uint32_t TlsGotRel = 0;
+  uint32_t TlsModuleIndexRel;
+  uint32_t TlsOffsetRel;
   unsigned PltEntrySize = 8;
   unsigned PltZeroSize = 0;
   unsigned GotHeaderEntriesNum = 0;
   unsigned GotPltHeaderEntriesNum = 3;
+  uint32_t ThunkSize = 0;
   bool UseLazyBinding = false;
+
+  virtual void relaxTlsGdToIe(uint8_t *Loc, uint32_t Type, uint64_t Val) const;
+  virtual void relaxTlsGdToLe(uint8_t *Loc, uint32_t Type, uint64_t Val) const;
+  virtual void relaxTlsIeToLe(uint8_t *Loc, uint32_t Type, uint64_t Val) const;
+  virtual void relaxTlsLdToLe(uint8_t *Loc, uint32_t Type, uint64_t Val) const;
 
 private:
   virtual bool needsCopyRelImpl(uint32_t Type) const;
@@ -103,10 +114,8 @@ private:
 
 uint64_t getPPC64TocBase();
 
-template <class ELFT>
-typename llvm::object::ELFFile<ELFT>::uintX_t getMipsGpAddr();
-
-template <class ELFT> bool isGnuIFunc(const SymbolBody &S);
+const unsigned MipsGPOffset = 0x7ff0;
+template <class ELFT> typename ELFT::uint getMipsGpAddr();
 
 extern TargetInfo *Target;
 TargetInfo *createTarget();

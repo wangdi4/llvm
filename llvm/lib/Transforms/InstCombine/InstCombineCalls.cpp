@@ -834,11 +834,12 @@ static Instruction *simplifyMaskedScatter(IntrinsicInst &II, InstCombiner &IC) {
 static Instruction *simplifyX86MaskedLoad(IntrinsicInst &II, InstCombiner &IC) {
   Value *Ptr = II.getOperand(0);
   Value *Mask = II.getOperand(1);
+  Constant *ZeroVec = Constant::getNullValue(II.getType());
 
   // Special case a zero mask since that's not a ConstantDataVector.
-  // This masked load instruction does nothing, so return an undef.
+  // This masked load instruction creates a zero vector.
   if (isa<ConstantAggregateZero>(Mask))
-    return IC.replaceInstUsesWith(II, UndefValue::get(II.getType()));
+    return IC.replaceInstUsesWith(II, ZeroVec);
 
   auto *ConstMask = dyn_cast<ConstantDataVector>(Mask);
   if (!ConstMask)
@@ -857,7 +858,9 @@ static Instruction *simplifyX86MaskedLoad(IntrinsicInst &II, InstCombiner &IC) {
   // on each element's most significant bit (the sign bit).
   Constant *BoolMask = getNegativeIsTrueBoolVec(ConstMask);
 
-  CallInst *NewMaskedLoad = IC.Builder->CreateMaskedLoad(PtrCast, 1, BoolMask);
+  // The pass-through vector for an x86 masked load is a zero vector.
+  CallInst *NewMaskedLoad =
+      IC.Builder->CreateMaskedLoad(PtrCast, 1, BoolMask, ZeroVec);
   return IC.replaceInstUsesWith(II, NewMaskedLoad);
 }
 
@@ -875,6 +878,11 @@ static bool simplifyX86MaskedStore(IntrinsicInst &II, InstCombiner &IC) {
     IC.eraseInstFromFunction(II);
     return true;
   }
+
+  // The SSE2 version is too weird (eg, unaligned but non-temporal) to do
+  // anything else at this level.
+  if (II.getIntrinsicID() == Intrinsic::x86_sse2_maskmov_dqu)
+    return false;
 
   auto *ConstMask = dyn_cast<ConstantDataVector>(Mask);
   if (!ConstMask)
@@ -991,8 +999,13 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   default: break;
   case Intrinsic::objectsize: {
     uint64_t Size;
-    if (getObjectSize(II->getArgOperand(0), Size, DL, TLI))
-      return replaceInstUsesWith(CI, ConstantInt::get(CI.getType(), Size));
+    if (getObjectSize(II->getArgOperand(0), Size, DL, TLI)) {
+      APInt APSize(II->getType()->getIntegerBitWidth(), Size);
+      // Equality check to be sure that `Size` can fit in a value of type
+      // `II->getType()`
+      if (APSize == Size)
+        return replaceInstUsesWith(CI, ConstantInt::get(II->getType(), APSize));
+    }
     return nullptr;
   }
   case Intrinsic::bswap: {
@@ -1674,6 +1687,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
       return I;
     break;
 
+  case Intrinsic::x86_sse2_maskmov_dqu:
   case Intrinsic::x86_avx_maskstore_ps:
   case Intrinsic::x86_avx_maskstore_pd:
   case Intrinsic::x86_avx_maskstore_ps_256:
@@ -1840,6 +1854,31 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
 
     break;
   }
+  case Intrinsic::amdgcn_frexp_mant:
+  case Intrinsic::amdgcn_frexp_exp: {
+    Value *Src = II->getArgOperand(0);
+    if (const ConstantFP *C = dyn_cast<ConstantFP>(Src)) {
+      int Exp;
+      APFloat Significand = frexp(C->getValueAPF(), Exp,
+                                  APFloat::rmNearestTiesToEven);
+
+      if (II->getIntrinsicID() == Intrinsic::amdgcn_frexp_mant) {
+        return replaceInstUsesWith(CI, ConstantFP::get(II->getContext(),
+                                                       Significand));
+      }
+
+      // Match instruction special case behavior.
+      if (Exp == APFloat::IEK_NaN || Exp == APFloat::IEK_Inf)
+        Exp = 0;
+
+      return replaceInstUsesWith(CI, ConstantInt::get(II->getType(), Exp));
+    }
+
+    if (isa<UndefValue>(Src))
+      return replaceInstUsesWith(CI, UndefValue::get(II->getType()));
+
+    break;
+  }
   case Intrinsic::stackrestore: {
     // If the save is right next to the restore, remove the restore.  This can
     // happen when variable allocas are DCE'd.
@@ -1912,11 +1951,16 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     break;
   }
   case Intrinsic::assume: {
+    Value *IIOperand = II->getArgOperand(0);
+    // Remove an assume if it is immediately followed by an identical assume.
+    if (match(II->getNextNode(),
+              m_Intrinsic<Intrinsic::assume>(m_Specific(IIOperand))))
+      return eraseInstFromFunction(CI);
+
     // Canonicalize assume(a && b) -> assume(a); assume(b);
     // Note: New assumption intrinsics created here are registered by
     // the InstCombineIRInserter object.
-    Value *IIOperand = II->getArgOperand(0), *A, *B,
-          *AssumeIntrinsic = II->getCalledValue();
+    Value *AssumeIntrinsic = II->getCalledValue(), *A, *B;
     if (match(IIOperand, m_And(m_Value(A), m_Value(B)))) {
       Builder->CreateCall(AssumeIntrinsic, A, II->getName());
       Builder->CreateCall(AssumeIntrinsic, B, II->getName());
@@ -2173,7 +2217,15 @@ Instruction *InstCombiner::visitCallSite(CallSite CS) {
   if (!isa<Function>(Callee) && transformConstExprCastCall(CS))
     return nullptr;
 
-  if (Function *CalleeF = dyn_cast<Function>(Callee))
+  if (Function *CalleeF = dyn_cast<Function>(Callee)) {
+    // Remove the convergent attr on calls when the callee is not convergent.
+    if (CS.isConvergent() && !CalleeF->isConvergent()) {
+      DEBUG(dbgs() << "Removing convergent attr from instr "
+                   << CS.getInstruction() << "\n");
+      CS.setNotConvergent();
+      return CS.getInstruction();
+    }
+
     // If the call and callee calling conventions don't match, this call must
     // be unreachable, as the call is undefined.
     if (CalleeF->getCallingConv() != CS.getCallingConv() &&
@@ -2198,6 +2250,7 @@ Instruction *InstCombiner::visitCallSite(CallSite CS) {
                                     Constant::getNullValue(CalleeF->getType()));
       return nullptr;
     }
+  }
 
   if (isa<ConstantPointerNull>(Callee) || isa<UndefValue>(Callee)) {
     // If CS does not return void then replaceAllUsesWith undef.

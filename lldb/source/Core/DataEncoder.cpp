@@ -13,7 +13,6 @@
 // C++ Includes
 #include <cassert>
 #include <cstddef>
-#include <limits>
 
 // Other libraries and framework includes
 #include "llvm/Support/MathExtras.h"
@@ -233,7 +232,7 @@ DataEncoder::PutU8 (uint32_t offset, uint8_t value)
         m_start[offset] = value;
         return offset + 1;
     }
-    return std::numeric_limits<uint32_t>::max();
+    return UINT32_MAX;
 }
 
 uint32_t
@@ -248,7 +247,7 @@ DataEncoder::PutU16 (uint32_t offset, uint16_t value)
 
         return offset + sizeof (value);
     }
-    return std::numeric_limits<uint32_t>::max();
+    return UINT32_MAX;
 }
 
 uint32_t
@@ -263,7 +262,7 @@ DataEncoder::PutU32 (uint32_t offset, uint32_t value)
         
         return offset + sizeof (value);
     }
-    return std::numeric_limits<uint32_t>::max();
+    return UINT32_MAX;
 }
 
 uint32_t
@@ -278,7 +277,7 @@ DataEncoder::PutU64 (uint32_t offset, uint64_t value)
         
         return offset + sizeof (value);
     }
-    return std::numeric_limits<uint32_t>::max();
+    return UINT32_MAX;
 }
 
 //----------------------------------------------------------------------
@@ -304,7 +303,7 @@ DataEncoder::PutMaxU64 (uint32_t offset, uint32_t byte_size, uint64_t value)
         assert(!"GetMax64 unhandled case!");
         break;
     }
-    return std::numeric_limits<uint32_t>::max();
+    return UINT32_MAX;
 }
 
 uint32_t
@@ -318,7 +317,7 @@ DataEncoder::PutData (uint32_t offset, const void *src, uint32_t src_len)
         memcpy (m_start + offset, src, src_len);
         return offset + src_len;
     }
-    return std::numeric_limits<uint32_t>::max();
+    return UINT32_MAX;
 }
 
 uint32_t
@@ -332,5 +331,5 @@ DataEncoder::PutCString (uint32_t offset, const char *cstr)
 {
     if (cstr != nullptr)
         return PutData (offset, cstr, strlen(cstr) + 1);
-    return std::numeric_limits<uint32_t>::max();
+    return UINT32_MAX;
 }

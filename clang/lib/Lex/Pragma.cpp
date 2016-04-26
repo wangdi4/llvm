@@ -1557,6 +1557,7 @@ void Preprocessor::RegisterBuiltinPragmas() {
   AddPragmaHandler("STDC", new PragmaSTDC_FENV_ACCESSHandler());
   AddPragmaHandler("STDC", new PragmaSTDC_CX_LIMITED_RANGEHandler());
   AddPragmaHandler("STDC", new PragmaSTDC_UnknownHandler());
+
 #if INTEL_CUSTOMIZATION
   // MS extensions.
   if (LangOpts.MicrosoftExt || LangOpts.IntelCompat) {
@@ -1583,6 +1584,12 @@ void Preprocessor::RegisterBuiltinPragmas() {
   }
 #endif // INTEL_CUSTOMIZATION
 
+  // Pragmas added by plugins
+  for (PragmaHandlerRegistry::iterator it = PragmaHandlerRegistry::begin(),
+                                       ie = PragmaHandlerRegistry::end();
+       it != ie; ++it) {
+    AddPragmaHandler(it->instantiate().release());
+  }
 }
 
 /// Ignore all pragmas, useful for modes such as -Eonly which would otherwise

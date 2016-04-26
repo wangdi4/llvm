@@ -20,6 +20,7 @@
 #include "clang/AST/Type.h"
 #include "clang/Basic/AttrKinds.h"
 #include "clang/Basic/LLVM.h"
+#include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/Sanitizers.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/VersionTuple.h"
@@ -118,6 +119,19 @@ public:
   /// however, an attribute can override this. Returns true if the attribute
   /// can be duplicated when merging.
   bool duplicatesAllowed() const { return DuplicatesAllowed; }
+};
+
+class StmtAttr : public Attr {
+protected:
+  StmtAttr(attr::Kind AK, SourceRange R, unsigned SpellingListIndex,
+                  bool IsLateParsed, bool DuplicatesAllowed)
+      : Attr(AK, R, SpellingListIndex, IsLateParsed, DuplicatesAllowed) {}
+
+public:
+  static bool classof(const Attr *A) {
+    return A->getKind() >= attr::FirstStmtAttr &&
+           A->getKind() <= attr::LastStmtAttr;
+  }
 };
 
 class InheritableAttr : public Attr {

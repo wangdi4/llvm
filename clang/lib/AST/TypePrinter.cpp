@@ -81,12 +81,14 @@ namespace {
   
   class TypePrinter {
     PrintingPolicy Policy;
+    unsigned Indentation;
     bool HasEmptyPlaceHolder;
     bool InsideCCAttribute;
 
   public:
-    explicit TypePrinter(const PrintingPolicy &Policy)
-      : Policy(Policy), HasEmptyPlaceHolder(false), InsideCCAttribute(false) { }
+    explicit TypePrinter(const PrintingPolicy &Policy, unsigned Indentation = 0)
+      : Policy(Policy), Indentation(Indentation),
+        HasEmptyPlaceHolder(false), InsideCCAttribute(false) { }
 
     void print(const Type *ty, Qualifiers qs, raw_ostream &OS,
                StringRef PlaceHolder);
@@ -411,7 +413,7 @@ void TypePrinter::printMemberPointerBefore(const MemberPointerType *T,
     OS << '(';
 
   PrintingPolicy InnerPolicy(Policy);
-  InnerPolicy.SuppressTag = false;
+  InnerPolicy.IncludeTagDefinition = false;
   TypePrinter(InnerPolicy).print(QualType(T->getClass(), 0), OS, StringRef());
 
   OS << "::*";
@@ -696,11 +698,6 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
     case CC_X86FastCall:
       OS << " __attribute__((fastcall))";
       break;
-#if INTEL_CUSTOMIZATION
-    case CC_X86RegCall:
-      OS << " __attribute__((regcall))";
-      break;
-#endif // INTEL_CUSTOMIZATION
     case CC_X86ThisCall:
       OS << " __attribute__((thiscall))";
       break;
@@ -727,10 +724,21 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
       break;
     case CC_SpirFunction:
     case CC_SpirKernel:
+#if INTEL_CUSTOMIZATION
+      if (Policy.LangOpts.IntelCompat && Info.getCC() == CC_X86RegCall)
+        OS << " __attribute__((regcall))";
+#endif // INTEL_CUSTOMIZATION
       // Do nothing. These CCs are not available as attributes.
       break;
     case CC_Swift:
       OS << " __attribute__((swiftcall))";
+      break;
+    case CC_PreserveMost:
+      OS << " __attribute__((preserve_most))";
+      break;
+    case CC_PreserveAll:
+      OS << " __attribute__((preserve_all))";
+      break;
     }
   }
 
@@ -952,8 +960,13 @@ void TypePrinter::AppendScope(DeclContext *DC, raw_ostream &OS) {
 }
 
 void TypePrinter::printTag(TagDecl *D, raw_ostream &OS) {
-  if (Policy.SuppressTag)
+  if (Policy.IncludeTagDefinition) {
+    PrintingPolicy SubPolicy = Policy;
+    SubPolicy.IncludeTagDefinition = false;
+    D->print(OS, SubPolicy, Indentation);
+    spaceBeforePlaceHolder(OS);
     return;
+  }
 
   bool HasKindDecoration = false;
 
@@ -1108,14 +1121,16 @@ void TypePrinter::printInjectedClassNameAfter(const InjectedClassNameType *T,
 
 void TypePrinter::printElaboratedBefore(const ElaboratedType *T,
                                         raw_ostream &OS) {
-  if (Policy.SuppressTag && isa<TagType>(T->getNamedType()))
-    return;
-  OS << TypeWithKeyword::getKeywordName(T->getKeyword());
-  if (T->getKeyword() != ETK_None)
-    OS << " ";
-  NestedNameSpecifier* Qualifier = T->getQualifier();
-  if (Qualifier)
-    Qualifier->print(OS, Policy);
+  // The tag definition will take care of these.
+  if (!Policy.IncludeTagDefinition)
+  {
+    OS << TypeWithKeyword::getKeywordName(T->getKeyword());
+    if (T->getKeyword() != ETK_None)
+      OS << " ";
+    NestedNameSpecifier* Qualifier = T->getQualifier();
+    if (Qualifier)
+      Qualifier->print(OS, Policy);
+  }
   
   ElaboratedTypePolicyRAII PolicyRAII(Policy);
   printBefore(T->getNamedType(), OS);
@@ -1371,6 +1386,12 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
    break;
   }
   case AttributedType::attr_inteloclbicc: OS << "inteloclbicc"; break;
+  case AttributedType::attr_preserve_most:
+    OS << "preserve_most";
+    break;
+  case AttributedType::attr_preserve_all:
+    OS << "preserve_all";
+    break;
   }
   OS << "))";
 }
@@ -1667,11 +1688,11 @@ std::string QualType::getAsString(const Type *ty, Qualifiers qs) {
 
 void QualType::print(const Type *ty, Qualifiers qs,
                      raw_ostream &OS, const PrintingPolicy &policy,
-                     const Twine &PlaceHolder) {
+                     const Twine &PlaceHolder, unsigned Indentation) {
   SmallString<128> PHBuf;
   StringRef PH = PlaceHolder.toStringRef(PHBuf);
 
-  TypePrinter(policy).print(ty, qs, OS, PH);
+  TypePrinter(policy, Indentation).print(ty, qs, OS, PH);
 }
 
 void QualType::getAsStringInternal(const Type *ty, Qualifiers qs,

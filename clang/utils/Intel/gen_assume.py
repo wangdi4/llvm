@@ -51,6 +51,10 @@ simpleMacroRegEx = re.compile(r'^#define\s+(_.*?)\s')
 # Matches "static __inline" with any number of spaces
 staticInline = re.compile(r'^static\s+__inline') 
 
+# Match do-while statemant.
+# In macros we need to use semicolon instead of comma in do-while cases.
+doWhile = re.compile(r'^do\s*\{(\n|.)*\}\s*while', re.M)
+
 def handleFunction(line, inFile, outFile):
   # TODO: The original line may have the funcDecl, not the next line...
   # (This is not likely though, given how the intrinsic headers are written)
@@ -96,24 +100,37 @@ def handleMacro(line, inFile, outFile):
     # TODO: Should probably read to the end of the macro instead of returning early!
     return
   allIntrinsics.remove(name)
-  # Output the prototype, and add the assume followed by the comma operator
+  # Output the prototype
   for i in [1, 2, 3]:
     outFile.write(match.group(i))
-  outFile.write(' \\\n  (__builtin_assume(__builtin_has_cpu_feature(%s)), \\\n' % tech)
-  outFile.write(match.group(4))
+  # create string with the body of the define
+  body = []
+  body.append(match.group(4))
   if match.group(5) == '':
-    outFile.write(')\n')
+    outFile.write(' \\\n  (__builtin_assume(__builtin_has_cpu_feature(%s)), \\\n' % tech)
+    outFile.write(''.join(body) + ')\n')
     return
   # The first line ended with a backslash. Write the backslash back
-  outFile.write('\\\n')
+  body.append('\\\n')
   # Now, find the first line that doesn't end with a backslash, 
-  # and add the closing paren to it.    
+  # and add the closing paren to it.
   while True:
     line = inFile.readline()
     if not line.strip().endswith('\\'): break
-    outFile.write(line)
-  outFile.write(line.rstrip().rstrip(';'))
-  outFile.write(')\n')
+    body.append(line)
+  body.append(line.rstrip().rstrip(';'))
+  # check if we have do-while statemant, in that case, use semicolon operator
+  bodyStr = ''.join(body)
+  doMatch = doWhile.search(bodyStr)
+  if doMatch:
+    # add the assume followed by the semicolon operator
+    outFile.write(' \\\n  do {__builtin_assume(__builtin_has_cpu_feature(%s)); \\\n' % tech)
+    outFile.write(bodyStr + '; \\\n')
+    outFile.write('} while (0) \n')
+  else:
+    # add the assume followed by the comma operator
+    outFile.write(' \\\n  (__builtin_assume(__builtin_has_cpu_feature(%s)), \\\n' % tech)
+    outFile.write(bodyStr + ')\n')
 
 def parseDataXML(xmlfile):
   root = ET.parse(xmlfile)

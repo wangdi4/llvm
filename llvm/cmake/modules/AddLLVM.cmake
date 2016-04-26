@@ -8,9 +8,9 @@ function(llvm_update_compile_flags name)
     set(update_src_props ON)
   endif()
 
-  # LLVM_REQUIRES_EH is an internal flag that individual
-  # targets can use to force EH
-  if((LLVM_REQUIRES_EH OR LLVM_ENABLE_EH) AND NOT CLANG_CL)
+  # LLVM_REQUIRES_EH is an internal flag that individual targets can use to
+  # force EH
+  if(LLVM_REQUIRES_EH OR LLVM_ENABLE_EH)
     if(NOT (LLVM_REQUIRES_RTTI OR LLVM_ENABLE_RTTI))
       message(AUTHOR_WARNING "Exception handling requires RTTI. Enabling RTTI for ${name}")
       set(LLVM_REQUIRES_RTTI ON)
@@ -850,13 +850,13 @@ function(create_llvm_tool_options)
   create_subdirectory_options(LLVM TOOL)
 endfunction(create_llvm_tool_options)
 
-function(add_llvm_implicit_projects)
+function(llvm_add_implicit_projects project)
   set(list_of_implicit_subdirs "")
   file(GLOB sub-dirs "${CMAKE_CURRENT_SOURCE_DIR}/*")
   foreach(dir ${sub-dirs})
     if(IS_DIRECTORY "${dir}" AND EXISTS "${dir}/CMakeLists.txt")
       canonicalize_tool_name(${dir} name)
-      if (LLVM_TOOL_${name}_BUILD)
+      if (${project}_TOOL_${name}_BUILD)
         get_filename_component(fn "${dir}" NAME)
         list(APPEND list_of_implicit_subdirs "${fn}")
       endif()
@@ -864,8 +864,12 @@ function(add_llvm_implicit_projects)
   endforeach()
 
   foreach(external_proj ${list_of_implicit_subdirs})
-    add_llvm_external_project("${external_proj}")
+    add_llvm_subdirectory(${project} TOOL "${external_proj}" ${ARGN})
   endforeach()
+endfunction(llvm_add_implicit_projects)
+
+function(add_llvm_implicit_projects)
+  llvm_add_implicit_projects(LLVM)
 endfunction(add_llvm_implicit_projects)
 
 # Generic support for adding a unittest.
@@ -1181,6 +1185,10 @@ function(llvm_externalize_debuginfo name)
     return()
   endif()
 
+  if(NOT LLVM_EXTERNALIZE_DEBUGINFO_SKIP_STRIP)
+    set(strip_command COMMAND xcrun strip -Sxl $<TARGET_FILE:${name}>)
+  endif()
+
   if(APPLE)
     if(CMAKE_CXX_FLAGS MATCHES "-flto"
       OR CMAKE_CXX_FLAGS_${uppercase_CMAKE_BUILD_TYPE} MATCHES "-flto")
@@ -1191,7 +1199,8 @@ function(llvm_externalize_debuginfo name)
     endif()
     add_custom_command(TARGET ${name} POST_BUILD
       COMMAND xcrun dsymutil $<TARGET_FILE:${name}>
-      COMMAND xcrun strip -Sxl $<TARGET_FILE:${name}>)
+      ${strip_command}
+      )
   else()
     message(FATAL_ERROR "LLVM_EXTERNALIZE_DEBUGINFO isn't implemented for non-darwin platforms!")
   endif()

@@ -1002,6 +1002,8 @@ Parser::isExpressionOrTypeSpecifierSimple(tok::TokenKind Kind) {
   case tok::kw___pixel:
   case tok::kw___bool:
   case tok::kw__Atomic:
+#define GENERIC_IMAGE_TYPE(ImgType, Id) case tok::kw_##ImgType##_t:
+#include "clang/Basic/OpenCLImageTypes.def"
   case tok::kw___unknown_anytype:
     return TPResult::False;
 
@@ -1814,7 +1816,11 @@ Parser::TPResult Parser::TryParseFunctionDeclarator() {
     return TPResult::Error;
 
   // cv-qualifier-seq
-  while (Tok.isOneOf(tok::kw_const, tok::kw_volatile, tok::kw_restrict))
+#if INTEL_CUSTOMIZATION
+  while (Tok.isOneOf(tok::kw_const, tok::kw_volatile, tok::kw_restrict) ||
+         // CQ367651: allow '__unalinged' (MS Extention) on Linux as well
+         (getLangOpts().IntelCompat && (Tok.getKind() == tok::kw___unaligned)))
+#endif // INTEL_CUSTOMIZATION
     ConsumeToken();
 
   // ref-qualifier[opt]

@@ -1410,8 +1410,9 @@ ObjectFileELF::RefineModuleDetailsFromNote (lldb_private::DataExtractor &data, l
                     // Only bother processing this if we don't already have the uuid set.
                     if (!uuid.IsValid())
                     {
-                        // 16 bytes is UUID|MD5, 20 bytes is SHA1
-                        if ((note.n_descsz == 16 || note.n_descsz == 20))
+                        // 16 bytes is UUID|MD5, 20 bytes is SHA1. Other linkers may produce a build-id of a different
+                        // length. Accept it as long as it's at least 4 bytes as it will be better than our own crc32.
+                        if (note.n_descsz >= 4 && note.n_descsz <= 20)
                         {
                             uint8_t uuidbuf[20];
                             if (data.GetU8 (&offset, &uuidbuf, note.n_descsz) == nullptr)
@@ -2610,17 +2611,17 @@ ObjectFileELF::ParseTrampolineSymbols(Symtab *symbol_table,
 {
     assert(rel_hdr->sh_type == SHT_RELA || rel_hdr->sh_type == SHT_REL);
 
-    // The link field points to the associated symbol table. The info field
-    // points to the section holding the plt.
+    // The link field points to the associated symbol table.
     user_id_t symtab_id = rel_hdr->sh_link;
-    user_id_t plt_id = rel_hdr->sh_info;
 
     // If the link field doesn't point to the appropriate symbol name table then
     // try to find it by name as some compiler don't fill in the link fields.
     if (!symtab_id)
         symtab_id = GetSectionIndexByName(".dynsym");
-    if (!plt_id)
-        plt_id = GetSectionIndexByName(".plt");
+
+    // Get PLT section.  We cannot use rel_hdr->sh_info, since current linkers
+    // point that to the .got.plt or .got section instead of .plt.
+    user_id_t plt_id = GetSectionIndexByName(".plt");
 
     if (!symtab_id || !plt_id)
         return 0;
@@ -2995,6 +2996,22 @@ ObjectFileELF::IsStripped ()
 void
 ObjectFileELF::Dump(Stream *s)
 {
+    ModuleSP module_sp(GetModule());
+    if (!module_sp)
+    {
+        return;
+    }
+
+    lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+    s->Printf("%p: ", static_cast<void *>(this));
+    s->Indent();
+    s->PutCString("ObjectFileELF");
+
+    ArchSpec header_arch;
+    GetArchitecture(header_arch);
+
+    *s << ", file = '" << m_file << "', arch = " << header_arch.GetArchitectureName() << "\n";
+
     DumpELFHeader(s, m_header);
     s->EOL();
     DumpELFProgramHeaders(s);
