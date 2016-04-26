@@ -1,4 +1,4 @@
-//===------ HIRDDAnalysis.h - Provides Data Dependence Analysis --*-- C++ --*-===//
+//===---- HIRDDAnalysis.h - Provides Data Dependence Analysis --*-- C++--*-===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -126,7 +126,7 @@ public:
   /// is set.
   bool refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
                 unsigned InnermostNestingLevel, unsigned OutermostNestingLevel,
-                DVectorTy &RefinedDV, bool *IsIndependent);
+                DirectionVector &RefinedDV, bool *IsIndependent);
 
   // TODO still needed? Call findDependences directly?
   // bool demandDrivenDD(DDRef* SrcRef, DDRef* SinkRef,
@@ -163,7 +163,7 @@ private:
   DDGraphTy FunctionDDGraph;
 
   bool edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq);
-  void setInputDV(DVectorTy &DV, HLNode *Node, DDRef *Ref1, DDRef *Ref2);
+  void setInputDV(DirectionVector &DV, HLNode *Node, DDRef *Ref1, DDRef *Ref2);
 
   // Used to rebuild graphs for node/regions based on cl options
   // in DDA's runonPass for verification purposes.

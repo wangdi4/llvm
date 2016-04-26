@@ -22,14 +22,17 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGrouping.h"
 
 namespace llvm {
 namespace loopopt {
 namespace runtimedd {
+
+typedef DDRefGrouping::RefGroupTy<RegDDRef> RefGroupTy;
+typedef DDRefGrouping::RefGroupMapTy<RegDDRef> RefGroupMapTy;
 
 const unsigned ExpectedNumberOfTests = 8;
 const unsigned SmallTripCountTest = 12;
@@ -90,7 +93,7 @@ class IVSegment {
                                     const HLLoop *InnerLoop);
 
 public:
-  IVSegment(const DDRefGrouping::RefGroupTy &Group);
+  IVSegment(const RefGroupTy &Group);
   IVSegment(const IVSegment &) = delete;
   IVSegment(IVSegment &&Segment);
 
@@ -127,7 +130,7 @@ public:
 
 struct LoopContext {
   HLLoop *Loop;
-  DDRefGrouping::RefGroupsTy Groups;
+  RefGroupMapTy Groups;
   llvm::SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
   bool GenTripCountTest;
 
@@ -183,7 +186,7 @@ private:
   static RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);
 
   static HLIf *createIfStmtForIntersection(HLContainerTy &Nodes, Segment &S1,
-                                    Segment &S2);
+                                           Segment &S2);
 
   // \brief Modifies HIR implementing specified tests.
   static void generateDDTest(LoopContext &Context);
@@ -191,7 +194,6 @@ private:
   // \brief Marks all DDRefs independent across groups.
   static void markDDRefsIndep(LoopContext &Context);
 };
-
 }
 }
 }

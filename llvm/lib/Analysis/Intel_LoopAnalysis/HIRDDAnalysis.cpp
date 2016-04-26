@@ -67,7 +67,7 @@ cl::list<DDVerificationLevel> VerifyLevelList(
 
 // Disable caching behavior and rebuild graph for every request.
 static cl::opt<bool>
-    forceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
+    ForceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
 FunctionPass *llvm::createHIRDDAnalysisPass() { return new HIRDDAnalysis(); }
@@ -159,8 +159,8 @@ bool HIRDDAnalysis::edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq) {
 
 // initializes direction vector used to test from Node's loop nesting level
 // to the deepest of ref1 and ref2s level
-void HIRDDAnalysis::setInputDV(DVectorTy &InputDV, HLNode *Node, DDRef *Ref1,
-                               DDRef *Ref2) {
+void HIRDDAnalysis::setInputDV(DirectionVector &InputDV, HLNode *Node,
+                               DDRef *Ref1, DDRef *Ref2) {
   HLLoop *Parent1 = dyn_cast<HLLoop>(Ref1->getHLDDNode());
   HLLoop *Parent2 = dyn_cast<HLLoop>(Ref2->getHLDDNode());
   Parent1 = Parent1 ? Parent1 : Ref1->getHLDDNode()->getLexicalParentLoop();
@@ -183,13 +183,7 @@ void HIRDDAnalysis::setInputDV(DVectorTy &InputDV, HLNode *Node, DDRef *Ref1,
   }
   assert(ShallowestLevel <= DeepestLevel && "Incorrect Input DV calculation");
 
-  for (int I = 1; I < ShallowestLevel; ++I) {
-    InputDV[I - 1] = DVKind::EQ;
-  }
-
-  for (int I = ShallowestLevel; I <= DeepestLevel; ++I) {
-    InputDV[I - 1] = DVKind::ALL;
-  }
+  InputDV.setAsInput(ShallowestLevel, DeepestLevel);
 }
 
 void HIRDDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
@@ -213,15 +207,15 @@ void HIRDDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
       for (auto Ref2 = Ref1; Ref2 != E; ++Ref2) {
         if (edgeNeeded(*Ref1, *Ref2, BuildInputEdges)) {
           DDTest DA(AA);
-          DVectorTy inputDV;
-          DVectorTy OutputDVForward;
-          DVectorTy OutputDVBackward;
+          DirectionVector InputDV;
+          DirectionVector OutputDVForward;
+          DirectionVector OutputDVBackward;
           bool IsLoopIndepDepTemp = false;
           // TODO this is incorrect, we need a direction vector of
           //= = * for 3rd level inermost loops
-          inputDV.setInputDV(1, 9);
+          InputDV.setAsInput(1, 9);
 
-          DA.findDependences(*Ref1, *Ref2, inputDV, OutputDVForward,
+          DA.findDependences(*Ref1, *Ref2, InputDV, OutputDVForward,
                              OutputDVBackward, &IsLoopIndepDepTemp);
           //  Sample code to check output:
           //  first check IsDependent
@@ -256,7 +250,7 @@ void HIRDDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
 bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
                              unsigned InnermostNestingLevel,
                              unsigned OutermostNestingLevel,
-                             DVectorTy &RefinedDV, bool *IsIndependent) {
+                             DirectionVector &RefinedDV, bool *IsIndependent) {
 
   bool IsDVRefined = false;
   *IsIndependent = false;
@@ -264,8 +258,8 @@ bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   if (RegDDref && !(RegDDref->isTerminalRef())) {
     DDTest DA(AA);
-    DVectorTy InputDV;
-    InputDV.setInputDV(InnermostNestingLevel, OutermostNestingLevel);
+    DirectionVector InputDV;
+    InputDV.setAsInput(InnermostNestingLevel, OutermostNestingLevel);
     auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
     if (Result == nullptr) {
       *IsIndependent = true;
@@ -280,9 +274,8 @@ bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
   return IsDVRefined;
 }
 
-
 bool HIRDDAnalysis::graphForNodeValid(HLNode *Node) {
-  if (forceDDA)
+  if (ForceDDA)
     return false;
 
   // TODO

@@ -92,15 +92,15 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/MDBuilder.h"
 
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define OPT_SWITCH "hir-runtime-dd"
 #define OPT_DESCR "HIR RuntimeDD Multiversioning"
@@ -120,8 +120,7 @@ static cl::opt<unsigned>
                          cl::desc("Maximum number of runtime tests for loop."));
 
 // This will count both innermost and outer transformations
-STATISTIC(LoopsMultiversioned,
-          "Number of loops multiversioned by runtime DD");
+STATISTIC(LoopsMultiversioned, "Number of loops multiversioned by runtime DD");
 
 STATISTIC(OuterLoopsMultiversioned,
           "Number of outer loops multiversioned by runtime DD");
@@ -158,7 +157,7 @@ private:
   const HLNode *SkipNode;
 };
 
-IVSegment::IVSegment(const DDRefGrouping::RefGroupTy &Group) {
+IVSegment::IVSegment(const RefGroupTy &Group) {
   Lower = Group.front()->clone();
   Upper = Group.back()->clone();
 
@@ -186,10 +185,8 @@ IVSegment::IVSegment(const DDRefGrouping::RefGroupTy &Group) {
 }
 
 IVSegment::IVSegment(IVSegment &&Segment)
-    : Lower(std::move(Segment.Lower)),
-      Upper(std::move(Segment.Upper)),
-      BaseCE(std::move(Segment.BaseCE)),
-      IsWrite(std::move(Segment.IsWrite)) {
+    : Lower(std::move(Segment.Lower)), Upper(std::move(Segment.Upper)),
+      BaseCE(std::move(Segment.BaseCE)), IsWrite(std::move(Segment.IsWrite)) {
 
   Segment.Lower = nullptr;
   Segment.Upper = nullptr;
@@ -347,10 +344,8 @@ void IVSegment::makeConsistent(const SmallVectorImpl<const RegDDRef *> &AuxRefs,
 void IVSegment::updateIVWithBounds(unsigned Level, const RegDDRef *LowerBound,
                                    const RegDDRef *UpperBound,
                                    const HLLoop *InnerLoop) {
-  updateRefIVWithBounds(getLower(), Level, LowerBound, UpperBound,
-      InnerLoop);
-  updateRefIVWithBounds(getUpper(), Level, UpperBound, LowerBound,
-      InnerLoop);
+  updateRefIVWithBounds(getLower(), Level, LowerBound, UpperBound, InnerLoop);
+  updateRefIVWithBounds(getUpper(), Level, UpperBound, LowerBound, InnerLoop);
 }
 
 char HIRRuntimeDD::ID = 0;
@@ -403,7 +398,7 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
     bool &ShouldGenerateTripCount) {
 
   assert(InnermostLoop->isInnermost() &&
-           "InnermostLoop is not an innermost loop");
+         "InnermostLoop is not an innermost loop");
 
   // Check the loopnest for applicability
   for (const HLLoop *LoopI = InnermostLoop, *LoopE = OuterLoop->getParentLoop();
@@ -457,7 +452,7 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
     for (unsigned I = 0; I < SegmentCount; ++I) {
       if (SegmentConditions[I] == OK) {
         IVSegments[I].updateIVWithBounds(Level, LowerBoundRef, UpperBoundRef,
-            InnermostLoop);
+                                         InnermostLoop);
       }
     }
   }
@@ -509,8 +504,7 @@ bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
   return true;
 }
 
-RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
-                                           LoopContext &Context) {
+RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   Context.Loop = Loop;
   Context.GenTripCountTest = true;
 
@@ -525,7 +519,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
   }
 
   MemRefGatherer::MapTy RefMap;
-  DDRefGrouping::RefGroupsTy &Groups = Context.Groups;
+  RefGroupMapTy &Groups = Context.Groups;
 
   // Gather references which are only inside a loop, excepting loop bounds,
   // pre-header and post-exit.
@@ -553,7 +547,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
   RuntimeDDResult Res;
   Res = processLoopnest(Loop, InnermostLoop, IVSegments, Supported,
                         Context.GenTripCountTest);
-  if (Res != OK)  {
+  if (Res != OK) {
     return Res;
   }
 
@@ -615,8 +609,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
 }
 
 HLIf *HIRRuntimeDD::createIfStmtForIntersection(HLContainerTy &Nodes,
-                                                Segment &S1,
-                                                Segment &S2) {
+                                                Segment &S1, Segment &S2) {
   Segment *S[] = {&S1, &S2};
   Type *S1Type = S[0]->getType()->getPointerElementType();
   Type *S2Type = S[1]->getType()->getPointerElementType();
@@ -734,7 +727,7 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
 }
 
 void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
-  DDRefGrouping::RefGroupsTy &Groups = Context.Groups;
+  RefGroupMapTy &Groups = Context.Groups;
 
   auto Size = Groups.size();
   MDBuilder MDB(HIRUtils::getContext());

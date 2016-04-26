@@ -100,7 +100,7 @@ private:
   SmallVector<LoopLocalityPair, MaxLoopNestLevel> LoopLocality;
   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation;
   SmallVector<HLLoop *, MaxLoopNestLevel> NearByPerm;
-  SmallVector<DVectorTy, 16> DVs;
+  SmallVector<DirectionVector, 16> DVs;
 
   bool shouldInterchange(const HLLoop *);
   bool getPermutation(const HLLoop *);
@@ -449,18 +449,18 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
 ///     saving)
 ///  3. Safe reduction (already excluded out in collectDDInfo)
 static bool ignoreEdge(const DDEdge *Edge, HLLoop *CandidateLoop,
-                       DVectorTy *RefinedDV = nullptr) {
+                       DirectionVector *RefinedDV = nullptr) {
 
-  const DVectorTy *DV = RefinedDV;
+  const DirectionVector *DV = RefinedDV;
   if (DV == nullptr) {
     DV = &Edge->getDV();
   }
-  if (DV->isDValEQ()) {
+  if (DV->isEQ()) {
     return true;
   }
 
   HLLoop *Loop = CandidateLoop;
-  if (DV->isDVIndepFromLevel(Loop->getNestingLevel())) {
+  if (DV->isIndepFromLevel(Loop->getNestingLevel())) {
     return true;
   }
 
@@ -479,7 +479,7 @@ static bool ignoreEdge(const DDEdge *Edge, HLLoop *CandidateLoop,
 ///  Scan presence of  < ... >
 ///  If none, return true, which  means DV can be dropped for
 ///  Interchange legality checking
-static bool ignoreDVWithNoLTGT(const DVectorTy &DV,
+static bool ignoreDVWithNoLTGT(const DirectionVector &DV,
                                unsigned OutmostNestingLevel,
                                unsigned InnermostNestingLevel) {
 
@@ -518,7 +518,7 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
 
   // Indicates if we need to call Demand Driven DD to refine DV
   bool RefineDV;
-  SmallVector<DVectorTy, 16> DVs;
+  SmallVector<DirectionVector, 16> DVs;
   // start, end level of Candidate Loop nest
 
   void visit(HLDDNode *DDNode) {
@@ -546,10 +546,10 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
 #endif
           continue;
         }
-        const DVectorTy *TempDV = &II->getDV();
+        const DirectionVector *TempDV = &II->getDV();
 
         // Calling Demand Driven DD to refine DV
-        DVectorTy RefinedDV;
+        DirectionVector RefinedDV;
         if (RefineDV) {
           DDRef *SrcDDRef = II->getSrc();
           DDRef *DstDDRef = DDref;
@@ -616,7 +616,7 @@ bool HIRLoopInterchange::isLegalToShiftLoop(unsigned DstLevel,
 
   for (auto &II : DVs) {
     bool Ok = false;
-    const DVectorTy &WorkDV = II;
+    const DirectionVector &WorkDV = II;
     // (1)
     for (unsigned KK = OutmostNestingLevel; KK < SmallerLevel; ++KK) {
       if (WorkDV[KK - 1] == DVKind::LT) {
@@ -631,8 +631,7 @@ bool HIRLoopInterchange::isLegalToShiftLoop(unsigned DstLevel,
     if (DstLevel > SrcLevel) {
       if (WorkDV[SrcLevel - 1] & DVKind::LT) {
         for (unsigned JJ = SrcLevel + 1; JJ <= DstLevel; ++JJ) {
-          if (WorkDV[JJ - 1] == DVKind::LT ||
-              WorkDV[JJ - 1] == DVKind::LE) {
+          if (WorkDV[JJ - 1] == DVKind::LT || WorkDV[JJ - 1] == DVKind::LE) {
             break;
           }
           if (WorkDV[JJ - 1] & DVKind::GT) {

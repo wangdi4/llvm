@@ -56,10 +56,10 @@
 //                                                                            //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -155,9 +155,9 @@ const CanonExpr *FullDependences::getDistance(unsigned Level) const {
 
 // setDirection - sets DV for  with a particular level.
 void FullDependences::setDirection(const unsigned Level,
-                                   const DVKind dv) const {
+                                   const DVKind Direction) const {
   assert(0 < Level && Level <= Levels && "Level out of range");
-  DV[Level - 1].Direction = dv;
+  DV[Level - 1].Direction = Direction;
 }
 
 // sets the distance for a particular level.
@@ -212,7 +212,7 @@ const CanonExpr *DDTest::getInvariant(const CanonExpr *CE) {
   return CE2;
 }
 
-const CanonExpr *DDTest::getCoeff(const CanonExpr *CE, unsigned int IVnum,
+const CanonExpr *DDTest::getCoeff(const CanonExpr *CE, unsigned int IVNum,
                                   bool checkSingleIV) {
 
   // IVnum  indicates getting the first, 2nd, ..  iv
@@ -224,8 +224,8 @@ const CanonExpr *DDTest::getCoeff(const CanonExpr *CE, unsigned int IVnum,
   CanonExpr *CE2 = CanonExprUtils::createExtCanonExpr(
       CE->getSrcType(), CE->getDestType(), CE->isSExt());
 
-  unsigned int IVfound = 0;
-  assert(HLNodeUtils::isLoopLevelValid(IVnum) && "IVnum not within range");
+  unsigned int IVFound = 0;
+  assert(HLNodeUtils::isLoopLevelValid(IVNum) && "IVnum not within range");
 
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
@@ -238,8 +238,8 @@ const CanonExpr *DDTest::getCoeff(const CanonExpr *CE, unsigned int IVnum,
     if (ConstCoeff == 0) {
       continue;
     }
-    IVfound++;
-    if (IVfound == IVnum) {
+    IVFound++;
+    if (IVFound == IVNum) {
       if (BlobIdx != 0) {
         CE2->addBlob(BlobIdx, ConstCoeff);
       } else {
@@ -247,7 +247,7 @@ const CanonExpr *DDTest::getCoeff(const CanonExpr *CE, unsigned int IVnum,
       }
     }
     if (checkSingleIV) {
-      assert((IVfound == 1) && "found more than 1 iv");
+      assert((IVFound == 1) && "found more than 1 iv");
     }
   }
 
@@ -272,7 +272,7 @@ const CanonExpr *DDTest::getSecondCoeff(const CanonExpr *CE) {
   return CE2;
 }
 
-static const HLLoop *getLoop(const CanonExpr *CE, const HLLoop *parentLoop) {
+static const HLLoop *getLoop(const CanonExpr *CE, const HLLoop *ParentLoop) {
 
   // Returns Loop correponding to the iv in CE
   // Input CE has only one or no iv
@@ -294,13 +294,13 @@ static const HLLoop *getLoop(const CanonExpr *CE, const HLLoop *parentLoop) {
     }
   }
 
-  Loop = HLNodeUtils::getParentLoopwithLevel(IVLevel, parentLoop);
+  Loop = HLNodeUtils::getParentLoopwithLevel(IVLevel, ParentLoop);
 
   return Loop;
 }
 
 static const HLLoop *getFirstLoop(const CanonExpr *CE,
-                                  const HLLoop *parentLoop) {
+                                  const HLLoop *ParentLoop) {
   // returns Loop correponding to first iv
   // e.g. 1 * i1 + 2 *i3 return loop corrs. to level 1
   // Input CE has mutiple ivs
@@ -317,13 +317,13 @@ static const HLLoop *getFirstLoop(const CanonExpr *CE,
   }
 
   Loop =
-      HLNodeUtils::getParentLoopwithLevel(CE->getLevel(CurIVPair), parentLoop);
+      HLNodeUtils::getParentLoopwithLevel(CE->getLevel(CurIVPair), ParentLoop);
   assert(Loop && "Loop must be found for iv ");
   return Loop;
 }
 
 static const HLLoop *getSecondLoop(const CanonExpr *CE,
-                                   const HLLoop *parentLoop) {
+                                   const HLLoop *ParentLoop) {
   // returns Loop correponding to second iv
   // e.g. 1 * i1 + 2 *i3 return loop corrs. to level 3
   // Input CE has mutiple ivs
@@ -331,17 +331,17 @@ static const HLLoop *getSecondLoop(const CanonExpr *CE,
   assert(CE->hasIV() && "Loop has no iv");
 
   HLLoop *Loop;
-  int numiv = 0;
+  int NumIV = 0;
   auto CurIVPair = CE->iv_begin();
 
   for (auto E = CE->iv_end(); CurIVPair != E; ++CurIVPair) {
     if (CE->getIVConstCoeff(CurIVPair)) {
-      if ((numiv++) == 2) {
+      if ((NumIV++) == 2) {
         break;
       }
     }
   }
-  for (Loop = const_cast<HLLoop *>(parentLoop); Loop != nullptr;
+  for (Loop = const_cast<HLLoop *>(ParentLoop); Loop != nullptr;
        Loop = Loop->getParentLoop()) {
     if (CE->getLevel(CurIVPair) == Loop->getNestingLevel()) {
       return Loop;
@@ -1060,10 +1060,11 @@ unsigned DDTest::mapSrcLoop(const HLLoop *SrcLoop) const {
 // Given one of the loops containing the destination,
 // return its level index in our numbering scheme.
 unsigned DDTest::mapDstLoop(unsigned NestingLevel) const {
-  if (NestingLevel > CommonLevels)
+  if (NestingLevel > CommonLevels) {
     return NestingLevel - CommonLevels + SrcLevels;
-  else
+  } else {
     return NestingLevel;
+  }
 }
 
 unsigned DDTest::mapDstLoop(const HLLoop *DstLoop) const {
@@ -1211,13 +1212,16 @@ DDTest::classifyPair(const CanonExpr *Src, const HLLoop *SrcLoopNest,
   Loops = SrcLoops;
   Loops |= DstLoops;
   unsigned N = Loops.count();
-  if (N == 0)
+  if (N == 0) {
     return Subscript::ZIV;
-  if (N == 1)
+  }
+  if (N == 1) {
     return Subscript::SIV;
+  }
   if (N == 2 && (SrcLoops.count() == 0 || DstLoops.count() == 0 ||
-                 (SrcLoops.count() == 1 && DstLoops.count() == 1)))
+                 (SrcLoops.count() == 1 && DstLoops.count() == 1))) {
     return Subscript::RDIV;
+  }
   return Subscript::MIV;
 }
 
@@ -1398,14 +1402,15 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
     }
   }
 
-  int64_t k1, k2;
-  const CanonExpr *k1CE;
+  int64_t K1;
+  int64_t K2;
+  const CanonExpr *K1CE;
 
   // Can we compute distance?
-  if (Coeff->isIntConstant(&k2)) {
-    if (Delta->isIntConstant(&k1)) {
-      APInt ConstDelta = llvm::APInt(64, k1, true);
-      APInt ConstCoeff = llvm::APInt(64, k2, true);
+  if (Coeff->isIntConstant(&K2)) {
+    if (Delta->isIntConstant(&K1)) {
+      APInt ConstDelta = llvm::APInt(64, K1, true);
+      APInt ConstCoeff = llvm::APInt(64, K2, true);
       APInt Distance = ConstDelta; // these need to be initialized
       APInt Remainder = ConstDelta;
 
@@ -1422,10 +1427,10 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
         return true;
       }
 
-      k1CE = Result.DV[Level].Distance =
+      K1CE = Result.DV[Level].Distance =
           getConstantfromAPInt(Coeff->getDestType(), Distance);
 
-      NewConstraint.setDistance(k1CE, CurLoop);
+      NewConstraint.setDistance(K1CE, CurLoop);
 
       if (Distance.sgt(0)) {
         Result.DV[Level].Direction &= DVKind::LT;
@@ -1545,9 +1550,9 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
     return false;
   }
 
-  int64_t coeffValue;
+  int64_t CoeffValue;
   const CanonExpr *ConstCoeff = Coeff;
-  if (!(Coeff->isIntConstant(&coeffValue))) {
+  if (!(Coeff->isIntConstant(&CoeffValue))) {
     return false;
   }
 
@@ -1587,8 +1592,8 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
   DEBUG(dbgs() << "\n    Split iter = "; SplitIter->dump());
 
   const CanonExpr *ConstantDelta = Delta;
-  int64_t deltaValue;
-  if (!(ConstantDelta->isIntConstant(&deltaValue))) {
+  int64_t DeltaValue;
+  if (!(ConstantDelta->isIntConstant(&DeltaValue))) {
     return false;
   }
 
@@ -1649,8 +1654,8 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
   APInt APDelta;
   APInt APCoeff;
 
-  APDelta = llvm::APInt(64, deltaValue, true);
-  APCoeff = llvm::APInt(64, coeffValue, true);
+  APDelta = llvm::APInt(64, DeltaValue, true);
+  APCoeff = llvm::APInt(64, CoeffValue, true);
 
   APInt Distance = APDelta; // these need to be initialzed
   APInt Remainder = APDelta;
@@ -1727,24 +1732,32 @@ static APInt floorOfQuotient(APInt A, APInt B) {
   APInt Q = A; // these need to be initialized
   APInt R = A;
   APInt::sdivrem(A, B, Q, R);
-  if (R == 0)
+
+  if (R == 0) {
     return Q;
-  if ((A.sgt(0) && B.sgt(0)) || (A.slt(0) && B.slt(0)))
+  }
+
+  if ((A.sgt(0) && B.sgt(0)) || (A.slt(0) && B.slt(0))) {
     return Q;
-  else
+  } else {
     return Q - 1;
+  }
 }
 
 static APInt ceilingOfQuotient(APInt A, APInt B) {
   APInt Q = A; // these need to be initialized
   APInt R = A;
   APInt::sdivrem(A, B, Q, R);
-  if (R == 0)
+
+  if (R == 0) {
     return Q;
-  if ((A.sgt(0) && B.sgt(0)) || (A.slt(0) && B.slt(0)))
+  }
+
+  if ((A.sgt(0) && B.sgt(0)) || (A.slt(0) && B.slt(0))) {
     return Q + 1;
-  else
+  } else {
     return Q;
+  }
 }
 
 static APInt maxAPInt(APInt A, APInt B) { return A.sgt(B) ? A : B; }
@@ -1795,20 +1808,20 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
 
   NewConstraint.setLine(SrcCoeff, getNegative(DstCoeff), Delta, CurLoop);
 
-  int64_t k1, k2, k3;
-  if (!(Delta->isIntConstant(&k1)) || !(SrcCoeff->isIntConstant(&k2)) ||
-      !(DstCoeff->isIntConstant(&k3))) {
+  int64_t K1, K2, K3;
+  if (!(Delta->isIntConstant(&K1)) || !(SrcCoeff->isIntConstant(&K2)) ||
+      !(DstCoeff->isIntConstant(&K3))) {
     return false;
   }
 
-  DEBUG(dbgs() << "\tDelta, SrcCoeff, DstCoeff = " << k1 << "," << k2 << ","
-               << k3);
+  DEBUG(dbgs() << "\tDelta, SrcCoeff, DstCoeff = " << K1 << "," << K2 << ","
+               << K3);
 
   // find gcd
   APInt G, X, Y;
-  APInt DM = llvm::APInt(64, k1, true);
-  APInt AM = llvm::APInt(64, k2, true);
-  APInt BM = llvm::APInt(64, k3, true);
+  APInt DM = llvm::APInt(64, K1, true);
+  APInt AM = llvm::APInt(64, K2, true);
+  APInt BM = llvm::APInt(64, K3, true);
 
   unsigned Bits = AM.getBitWidth();
   if (findGCD(Bits, AM, BM, DM, G, X, Y)) {
@@ -1826,8 +1839,8 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
 
   // UM is perhaps unavailable, let's check
   if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
-    if (UpperBound->isIntConstant(&k1)) {
-      UM = llvm::APInt(64, k1, true);
+    if (UpperBound->isIntConstant(&K1)) {
+      UM = llvm::APInt(64, K1, true);
       DEBUG(dbgs() << "\t    UM = " << UM << "\n");
       UMvalid = true;
     }
@@ -1948,12 +1961,12 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
 static bool isRemainderZero(const CanonExpr *Dividend,
                             const CanonExpr *Divisor) {
 
-  int64_t k1, k2;
+  int64_t K1, K2;
 
-  Dividend->isIntConstant(&k1);
-  APInt ConstDividend = llvm::APInt(64, k1, true);
-  Divisor->isIntConstant(&k2);
-  APInt ConstDivisor = llvm::APInt(64, k2, true);
+  Dividend->isIntConstant(&K1);
+  APInt ConstDividend = llvm::APInt(64, K1, true);
+  Divisor->isIntConstant(&K2);
+  APInt ConstDivisor = llvm::APInt(64, K2, true);
   return ConstDividend.srem(ConstDivisor) == 0;
 }
 
@@ -2033,9 +2046,9 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
     return false; // dependences caused by first iteration
   }
 
-  int64_t coeffValue;
+  int64_t CoeffValue;
   const CanonExpr *ConstCoeff = DstCoeff;
-  if (!(DstCoeff->isIntConstant(&coeffValue))) {
+  if (!(DstCoeff->isIntConstant(&CoeffValue))) {
     return false;
   }
 
@@ -2159,11 +2172,11 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
     return false; // dependences caused by first iteration
   }
 
-  int64_t k1;
+  int64_t K1;
 
   const CanonExpr *ConstCoeff = SrcCoeff;
 
-  if (ConstCoeff->isIntConstant(&k1)) {
+  if (ConstCoeff->isIntConstant(&K1)) {
     return false;
   }
 
@@ -2211,7 +2224,7 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
 
   // if SrcCoeff doesn't divide Delta, then no dependence
 
-  if (!(Delta->isIntConstant(&k1))) {
+  if (!(Delta->isIntConstant(&K1))) {
     return false;
   }
 
@@ -2680,9 +2693,9 @@ bool DDTest::testRDIV(const CanonExpr *Src, const CanonExpr *Dst,
 // Return true if dependence disproved.
 // Can sometimes refine direction vectors.
 bool DDTest::testMIV(const CanonExpr *Src, const CanonExpr *Dst,
-                     const DVectorTy &InputDV, const SmallBitVector &Loops,
-                     FullDependences &Result, const HLLoop *SrcParentLoop,
-                     const HLLoop *DstParentLoop) {
+                     const DirectionVector &InputDV,
+                     const SmallBitVector &Loops, FullDependences &Result,
+                     const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop) {
 
   DEBUG(dbgs() << "\n   src = "; Src->dump());
   DEBUG(dbgs() << "\n   dst = "; Dst->dump());
@@ -2756,7 +2769,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   const CanonExpr *CE = Src;
   const CanonExpr *CE2;
 
-  int64_t k1 = 0;
+  int64_t K1 = 0;
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
 
@@ -2766,8 +2779,8 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
     DEBUG(dbgs() << "\nindex, coeff  =" << Index << "  " << Coeff1);
 
-    k1 = CE->getIVConstCoeff(CurIVPair);
-    if (k1 == 0) {
+    K1 = CE->getIVConstCoeff(CurIVPair);
+    if (K1 == 0) {
       continue;
     }
     //  okay to ignore blobcoeff
@@ -2776,9 +2789,9 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     // do i=1,n; do j=2,n; a(i+2*j) = a(i+2*j-1) with input dv (= *)
     // returns INDEP (Tested already)
 
-    APInt ConstCoeff = llvm::APInt(64, k1, true);
+    APInt ConstCoeff = llvm::APInt(64, K1, true);
     DEBUG(dbgs() << "\nRunningGCD in  =" << RunningGCD);
-    DEBUG(dbgs() << "\n k1  =" << k1);
+    DEBUG(dbgs() << "\n k1  =" << K1);
 
     RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
     DEBUG(dbgs() << "\nRunningGCD1  =" << RunningGCD);
@@ -2792,7 +2805,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   // we can't quit the loop just because the GCD == 1.
 
   CE = Dst;
-  k1 = 0;
+  K1 = 0;
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
     if (!CE->getIVConstCoeff(CurIVPair)) {
@@ -2801,8 +2814,8 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
     // okay to ignore blob coeff
 
-    k1 = CE->getIVConstCoeff(CurIVPair);
-    APInt ConstCoeff = llvm::APInt(64, k1, true);
+    K1 = CE->getIVConstCoeff(CurIVPair);
+    APInt ConstCoeff = llvm::APInt(64, K1, true);
     RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
     DEBUG(dbgs() << "\nRunningGCD2  =" << RunningGCD);
   }
@@ -2821,11 +2834,11 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   // Refer to original code
 
   const CanonExpr *Constant = Delta;
-  if (!Constant || !(Constant->isIntConstant(&k1))) {
+  if (!Constant || !(Constant->isIntConstant(&K1))) {
     return false;
   }
 
-  APInt ConstDelta = llvm::APInt(64, k1, true);
+  APInt ConstDelta = llvm::APInt(64, K1, true);
   DEBUG(dbgs() << "\n ConstDelta = " << ConstDelta << "\n");
   if (ConstDelta == 0)
     return false;
@@ -2884,7 +2897,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     CE2 = Inner;
 
     for (auto CurIVPair2 = CE2->iv_begin(), E2 = CE2->iv_end();
-         CurIVPair2 != E2; CurIVPair2++) {
+         CurIVPair2 != E2; ++CurIVPair2) {
       if (RunningGCD == 1) {
         break;
       }
@@ -2895,8 +2908,8 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
         // SrcCoeff == Coeff
       } else {
 
-        k1 = CE2->getIVConstCoeff(CurIVPair2);
-        APInt ConstCoeff = llvm::APInt(64, k1, true);
+        K1 = CE2->getIVConstCoeff(CurIVPair2);
+        APInt ConstCoeff = llvm::APInt(64, K1, true);
         RunningGCD =
             APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
       }
@@ -2905,7 +2918,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     Inner = Dst;
     CE2 = Inner;
     for (auto CurIVPair2 = CE2->iv_begin(), E2 = CE2->iv_end();
-         CurIVPair2 != E2; CurIVPair2++) {
+         CurIVPair2 != E2; ++CurIVPair2) {
       if (RunningGCD == 1) {
         break;
       }
@@ -2919,8 +2932,8 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
                                        CE2->getIVConstCoeff(CurIVPair2));
       } else {
 
-        k1 = CE2->getIVConstCoeff(CurIVPair2);
-        APInt ConstCoeff = llvm::APInt(64, k1, true);
+        K1 = CE2->getIVConstCoeff(CurIVPair2);
+        APInt ConstCoeff = llvm::APInt(64, K1, true);
         RunningGCD =
             APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
       }
@@ -2931,12 +2944,12 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     }
 
     Delta = getMinus(SrcCoeff, DstCoeff);
-    if (!Delta || !(Delta->isIntConstant(&k1))) {
+    if (!Delta || !(Delta->isIntConstant(&K1))) {
       continue;
     }
 
     Constant = Delta;
-    APInt ConstCoeff = llvm::APInt(64, k1, true);
+    APInt ConstCoeff = llvm::APInt(64, K1, true);
     RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
     DEBUG(dbgs() << "\tRunningGCD = " << RunningGCD << "\n");
     if (RunningGCD != 0) {
@@ -2994,7 +3007,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 //
 // Return true if dependence disproved.
 bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
-                             const DVectorTy &InputDV,
+                             const DirectionVector &InputDV,
                              const SmallBitVector &Loops,
                              FullDependences &Result,
                              const HLLoop *SrcParentLoop,
@@ -3088,7 +3101,7 @@ unsigned DDTest::exploreDirections(unsigned Level, CoefficientInfo *A,
                                    const SmallBitVector &Loops,
                                    unsigned &DepthExpanded,
                                    const CanonExpr *Delta,
-                                   const DVectorTy &InputDV) {
+                                   const DirectionVector &InputDV) {
   if (Level > CommonLevels) {
     // record result
     DEBUG(dbgs() << "\n\t[");
@@ -3204,7 +3217,8 @@ unsigned DDTest::exploreDirections(unsigned Level, CoefficientInfo *A,
 // Return false implies no dependences for that level & DirKind
 
 bool DDTest::testBounds(DVKind DirKind, unsigned Level, BoundInfo *Bound,
-                        const CanonExpr *Delta, const DVectorTy &InputDV) {
+                        const CanonExpr *Delta,
+                        const DirectionVector &InputDV) {
 
   Bound[Level].Direction = DirKind;
   DEBUG(dbgs() << "\n\tTestBound: Level,DirKind\t" << Level << " "
@@ -3333,10 +3347,12 @@ void DDTest::findBoundsLT(CoefficientInfo *A, CoefficientInfo *B,
                                      CE->isSExt(), 1));
     const CanonExpr *NegPart =
         getNegativePart(getMinus(A[K].NegPart, B[K].Coeff));
-    Bound[K].Lower[DVKind::LT] = getMinus(getMulExpr(NegPart, Iter_1), B[K].Coeff);
+    Bound[K].Lower[DVKind::LT] =
+        getMinus(getMulExpr(NegPart, Iter_1), B[K].Coeff);
     const CanonExpr *PosPart =
         getPositivePart(getMinus(A[K].PosPart, B[K].Coeff));
-    Bound[K].Upper[DVKind::LT] = getMinus(getMulExpr(PosPart, Iter_1), B[K].Coeff);
+    Bound[K].Upper[DVKind::LT] =
+        getMinus(getMulExpr(PosPart, Iter_1), B[K].Coeff);
   } else {
     // If the positive/negative part of the difference is 0,
     // we won't need to know the number of iterations.
@@ -3378,10 +3394,12 @@ void DDTest::findBoundsGT(CoefficientInfo *A, CoefficientInfo *B,
                                      CE->isSExt(), 1));
     const CanonExpr *NegPart =
         getNegativePart(getMinus(A[K].Coeff, B[K].PosPart));
-    Bound[K].Lower[DVKind::GT] = getAdd(getMulExpr(NegPart, Iter_1), A[K].Coeff);
+    Bound[K].Lower[DVKind::GT] =
+        getAdd(getMulExpr(NegPart, Iter_1), A[K].Coeff);
     const CanonExpr *PosPart =
         getPositivePart(getMinus(A[K].Coeff, B[K].NegPart));
-    Bound[K].Upper[DVKind::GT] = getAdd(getMulExpr(PosPart, Iter_1), A[K].Coeff);
+    Bound[K].Upper[DVKind::GT] =
+        getAdd(getMulExpr(PosPart, Iter_1), A[K].Coeff);
   } else {
     // If the positive/negative part of the difference is 0,
     // we won't need to know the number of iterations.
@@ -3513,10 +3531,11 @@ const CanonExpr *DDTest::getLowerBound(BoundInfo *Bound) {
 const CanonExpr *DDTest::getUpperBound(BoundInfo *Bound) {
   const CanonExpr *Sum = Bound[1].Upper[Bound[1].Direction];
   for (unsigned K = 2; Sum && K <= MaxLevels; ++K) {
-    if (Bound[K].Upper[Bound[K].Direction])
+    if (Bound[K].Upper[Bound[K].Direction]) {
       Sum = getAdd(Sum, Bound[K].Upper[Bound[K].Direction]);
-    else
+    } else {
       Sum = nullptr;
+    }
   }
   return Sum;
 }
@@ -3886,8 +3905,9 @@ static void dumpSmallBitVector(SmallBitVector &BV) {
   dbgs() << "{";
   for (int VI = BV.find_first(); VI >= 0; VI = BV.find_next(VI)) {
     dbgs() << VI;
-    if (BV.find_next(VI) >= 0)
+    if (BV.find_next(VI) >= 0) {
       dbgs() << ' ';
+    }
   }
   dbgs() << "}\n";
 }
@@ -3899,7 +3919,6 @@ DDTest::DDTest(AliasAnalysis &AA) : AA(AA) {
 }
 
 DDTest::~DDTest() {
-
   DEBUG(dbgs() << "\n ~DDTest called\n");
   for (auto I = WorkCE.begin(), E = WorkCE.end(); I != E; ++I) {
     // const CanonExpr *CE = *I;
@@ -3935,7 +3954,7 @@ bool DDTest::queryAAIndep(RegDDRef *SrcDDRef, RegDDRef *DstDDRef) {
 // up to date with respect to this routine.
 
 std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
-                                             const DVectorTy &InputDV,
+                                             const DirectionVector &InputDV,
                                              bool fromFusion) {
   //
   //
@@ -4294,13 +4313,13 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     if (Pair[SI].Classification != Subscript::ZIV &&
         Pair[SI].Classification != Subscript::MIV) {
 
-      const HLLoop *ivLoop = getLoop(Pair[SI].Src, SrcLoop);
-      if (ivLoop == nullptr) {
-        ivLoop = getLoop(Pair[SI].Dst, DstLoop);
+      const HLLoop *IVLoop = getLoop(Pair[SI].Src, SrcLoop);
+      if (IVLoop == nullptr) {
+        IVLoop = getLoop(Pair[SI].Dst, DstLoop);
       }
-      assert(ivLoop && "SIV must have an assoicated loop");
+      assert(IVLoop && "SIV must have an assoicated loop");
 
-      unsigned Level = mapSrcLoop(ivLoop);
+      unsigned Level = mapSrcLoop(IVLoop);
 
       if (Level <= Result.Levels) {
         // DV is computed up to Common Level of the 2 DDRef
@@ -4482,28 +4501,28 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  Reverse DV when needed
   //
 
-  bool needReversal = false;
-  bool done = false;
+  bool NeedReversal = false;
+  bool Done = false;
 
-  for (unsigned II = 1; II <= CommonLevels && !done; ++II) {
+  for (unsigned II = 1; II <= CommonLevels && !Done; ++II) {
     switch (Result.getDirection(II)) {
     case DVKind::GT:
     case DVKind::GE:
     // ALL does not need reversal. The  check is in the caller
     case DVKind::ALL:
-      needReversal = true;
-      done = true;
+      NeedReversal = true;
+      Done = true;
       break;
     case DVKind::LT:
     case DVKind::LE:
-      done = true;
+      Done = true;
       break;
     default:
       break;
     }
   }
 
-  if (needReversal) {
+  if (NeedReversal) {
     Result.Reversed = true;
     DEBUG(dbgs() << "\nDV based on reversing ddref src & sink!\n");
     for (unsigned II = 1; II <= CommonLevels; ++II) {
@@ -4558,14 +4577,15 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 ///  -----------------------------
 ///  For simplicity we derive from it as  (<= * <)
 
-void DDTest::getDVForBackwardEdge(const DVectorTy &InputDV, DVectorTy &outputDV,
+void DDTest::getDVForBackwardEdge(const DirectionVector &InputDV,
+                                  DirectionVector &OutputDV,
                                   unsigned MaxLevel) const {
 
   unsigned StarLevel = 1;
 
   // Scan for leftmost STAR
   for (unsigned II = 1; II <= MaxLevel; ++II) {
-    outputDV[II - 1] = InputDV[II - 1];
+    OutputDV[II - 1] = InputDV[II - 1];
     assert(InputDV[II - 1] != DVKind::LT && "Unexpected Input DV for reversal");
     if (InputDV[II - 1] == DVKind::ALL) {
       StarLevel = II;
@@ -4576,27 +4596,29 @@ void DDTest::getDVForBackwardEdge(const DVectorTy &InputDV, DVectorTy &outputDV,
   for (unsigned II = StarLevel + 1; II <= MaxLevel; ++II) {
     switch (InputDV[II - 1]) {
     case DVKind::LT:
-      outputDV[II - 1] = DVKind::GT;
+      OutputDV[II - 1] = DVKind::GT;
       break;
     case DVKind::LE:
-      outputDV[II - 1] = DVKind::GE;
+      OutputDV[II - 1] = DVKind::GE;
       break;
     case DVKind::GT:
-      outputDV[II - 1] = DVKind::LT;
+      OutputDV[II - 1] = DVKind::LT;
       break;
     case DVKind::GE:
-      outputDV[II - 1] = DVKind::LE;
+      OutputDV[II - 1] = DVKind::LE;
       break;
     default:
-      outputDV[II - 1] = InputDV[II - 1];
+      OutputDV[II - 1] = InputDV[II - 1];
       break;
     }
   }
 }
 
 bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
-                             const DVectorTy &InputDV, DVectorTy &forwardDV,
-                             DVectorTy &backwardDV, bool *IsLoopIndepDepTemp) {
+                             const DirectionVector &InputDV,
+                             DirectionVector &ForwardDV,
+                             DirectionVector &BackwardDV,
+                             bool *IsLoopIndepDepTemp) {
 
   // This interface is created to facilitate the building of DDG when forward or
   // backward  edges are needed.
@@ -4621,10 +4643,10 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   //    t1 =
   //       = t1
 
-  bool isTemp = false;
+  bool IsTemp = false;
 
-  forwardDV.initDV();
-  backwardDV.initDV();
+  ForwardDV.setZero();
+  BackwardDV.setZero();
 
   auto Result = depends(SrcDDRef, DstDDRef, InputDV);
   *IsLoopIndepDepTemp = false;
@@ -4654,11 +4676,11 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   bool BiDirection = false;
   if (SrcDDRef != DstDDRef) {
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
-      DVKind dv = Result->getDirection(II);
-      if (dv == DVKind::LT) {
+      DVKind Direction = Result->getDirection(II);
+      if (Direction == DVKind::LT) {
         break;
       }
-      if (dv == DVKind::ALL) {
+      if (Direction == DVKind::ALL) {
         BiDirection = true;
         DEBUG(dbgs() << "BiDirection needed!\n");
         break;
@@ -4667,15 +4689,15 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   if (isa<BlobDDRef>(SrcDDRef)) {
-    isTemp = true;
+    IsTemp = true;
   } else {
     RegDDRef *RegRef = cast<RegDDRef>(SrcDDRef);
     if (RegRef->isTerminalRef()) {
-      isTemp = true;
+      IsTemp = true;
     }
   }
 
-  if (isTemp) {
+  if (IsTemp) {
 
     // DV for Scalar temps could be refined. Calls to DA.depends
     // is still needed so it can set up the nesting level info.
@@ -4725,12 +4747,8 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
 
     if (DstNum < SrcNum || ((DstNum == SrcNum) && IsDstRval && !IsSrcRval)) {
-      DDRef *tmp = SrcDDRef;
-      HLNode *tmp2 = SrcHIR;
-      SrcDDRef = DstDDRef;
-      DstDDRef = tmp;
-      SrcHIR = DstHIR;
-      DstHIR = tmp2;
+      std::swap(SrcDDRef, DstDDRef);
+      std::swap(SrcHIR, DstHIR);
       IsReversed = true;
     }
 
@@ -4755,7 +4773,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
         //       anti (< *)
         if (!IsReversed) {
           for (unsigned II = 1; II <= Levels; ++II) {
-            forwardDV[II - 1] = DVKind::EQ;
+            ForwardDV[II - 1] = DVKind::EQ;
           }
           // Suppress ANTI (< ) edge to save Compile time
           // Instead, set a flag as below
@@ -4767,7 +4785,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
           // }
         } else {
           for (unsigned II = 1; II <= Levels; ++II) {
-            backwardDV[II - 1] = DVKind::EQ;
+            BackwardDV[II - 1] = DVKind::EQ;
           }
           // Suppress ANTI (< ) edge for now until it's really needed
           // forwardDV[0] = DVElement::LT;
@@ -4786,31 +4804,31 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
         if (!IsReversed) {
           for (unsigned II = 1; II <= Levels; ++II) {
             if (II == 1) {
-              forwardDV[II - 1] = DVKind::LE;
+              ForwardDV[II - 1] = DVKind::LE;
             } else {
-              forwardDV[II - 1] = DVKind::ALL;
+              ForwardDV[II - 1] = DVKind::ALL;
             }
           }
           for (unsigned II = 1; II <= Levels; ++II) {
             if (II == 1) {
-              backwardDV[II - 1] = DVKind::LT;
+              BackwardDV[II - 1] = DVKind::LT;
             } else {
-              backwardDV[II - 1] = DVKind::ALL;
+              BackwardDV[II - 1] = DVKind::ALL;
             }
           }
         } else {
           for (unsigned II = 1; II <= Levels; ++II) {
             if (II == 1) {
-              backwardDV[II - 1] = DVKind::LE;
+              BackwardDV[II - 1] = DVKind::LE;
             } else {
-              backwardDV[II - 1] = DVKind::ALL;
+              BackwardDV[II - 1] = DVKind::ALL;
             }
           }
           for (unsigned II = 1; II <= Levels; ++II) {
             if (II == 1) {
-              forwardDV[II - 1] = DVKind::LT;
+              ForwardDV[II - 1] = DVKind::LT;
             } else {
-              forwardDV[II - 1] = DVKind::ALL;
+              ForwardDV[II - 1] = DVKind::ALL;
             }
           }
         }
@@ -4820,20 +4838,20 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
         //    one edge (*) from Src to sink is sufficient
         if (!IsReversed) {
           for (unsigned II = 1; II <= Levels; ++II) {
-            forwardDV[II - 1] = DVKind::ALL;
+            ForwardDV[II - 1] = DVKind::ALL;
           }
         } else {
           for (unsigned II = 1; II <= Levels; ++II) {
-            backwardDV[II - 1] = DVKind::ALL;
+            BackwardDV[II - 1] = DVKind::ALL;
           }
         }
       }
     }
 
-    if (forwardDV[0] != DVKind::NONE || backwardDV[0] != DVKind::NONE) {
+    if (ForwardDV[0] != DVKind::NONE || BackwardDV[0] != DVKind::NONE) {
       // If either forward or backward DV is filled, okay to return
-      DEBUG(dbgs() << "\nforward DV: "; forwardDV.printDV(Levels, dbgs()));
-      DEBUG(dbgs() << "\nbackward DV: "; backwardDV.printDV(Levels, dbgs()));
+      DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(Levels, dbgs()));
+      DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(Levels, dbgs()));
       return true;
     }
   }
@@ -4852,14 +4870,14 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
 
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
       // Computed from Src -> Dst (Forward edge)
-      forwardDV[II - 1] = Result->getDirection(II);
+      ForwardDV[II - 1] = Result->getDirection(II);
     }
-    getDVForBackwardEdge(forwardDV, backwardDV, Result->getLevels());
+    getDVForBackwardEdge(ForwardDV, BackwardDV, Result->getLevels());
 
     DEBUG(dbgs() << "\nforward DV: ";
-          forwardDV.printDV(Result->getLevels(), dbgs()));
+          ForwardDV.print(Result->getLevels(), dbgs()));
     DEBUG(dbgs() << "\nbackward DV: ";
-          forwardDV.printDV(Result->getLevels(), dbgs()));
+          ForwardDV.print(Result->getLevels(), dbgs()));
     return true;
   }
 
@@ -4876,17 +4894,17 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     DEBUG(dbgs() << "\nTopSortNum: " << SrcNum << " " << DstNum);
     if (SrcNum <= DstNum) {
       for (unsigned II = 1; II <= Result->getLevels(); ++II) {
-        forwardDV[II - 1] = Result->getDirection(II);
+        ForwardDV[II - 1] = Result->getDirection(II);
       }
     } else {
       for (unsigned II = 1; II <= Result->getLevels(); ++II) {
-        backwardDV[II - 1] = Result->getDirection(II);
+        BackwardDV[II - 1] = Result->getDirection(II);
       }
     }
     DEBUG(dbgs() << "\nforward DV: ";
-          forwardDV.printDV(Result->getLevels(), dbgs()));
+          ForwardDV.print(Result->getLevels(), dbgs()));
     DEBUG(dbgs() << "\nbackward DV: ";
-          backwardDV.printDV(Result->getLevels(), dbgs()));
+          BackwardDV.print(Result->getLevels(), dbgs()));
     return true;
   }
 
@@ -4895,27 +4913,27 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   if (!Result->isReversed()) {
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
-      forwardDV[II - 1] = Result->getDirection(II);
+      ForwardDV[II - 1] = Result->getDirection(II);
     }
   }
   //  Dest->Srce
   else {
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
-      backwardDV[II - 1] = Result->getDirection(II);
+      BackwardDV[II - 1] = Result->getDirection(II);
     }
   }
 
   DEBUG(dbgs() << "\nforward DV: ";
-  forwardDV.printDV(Result->getLevels(), dbgs()));
+        ForwardDV.print(Result->getLevels(), dbgs()));
   DEBUG(dbgs() << "\nbackward DV: ";
-  backwardDV.printDV(Result->getLevels(), dbgs()));
+        BackwardDV.print(Result->getLevels(), dbgs()));
 
   return true;
 }
 
 // Returns last level used  in DV
 // e.g  ( = = >)  return 3
-unsigned DVectorTy::lastLevelInDV() const {
+unsigned DirectionVector::getLastLevel() const {
   for (unsigned II = 1; II <= MaxLoopNestLevel; ++II) {
     if ((*this)[II - 1] == DVKind::NONE) {
       return II - 1;
@@ -4925,33 +4943,33 @@ unsigned DVectorTy::lastLevelInDV() const {
   return MaxLoopNestLevel;
 }
 
-void DVectorTy::setInputDV(const unsigned int startLevel,
-                        const unsigned int endLevel) {
-  DVectorTy &InputDV = *this;
+void DirectionVector::setAsInput(const unsigned int StartLevel,
+                                const unsigned int EndLevel) {
+  DirectionVector &InputDV = *this;
 
   // setInputDV (&InputDV, 3,4)
   // will construct (= = * *)
 
-  for (unsigned II = 1; II < startLevel; ++II) {
+  for (unsigned II = 1; II < StartLevel; ++II) {
     InputDV[II - 1] = DVKind::EQ;
   }
 
-  for (unsigned II = startLevel; II <= endLevel; ++II) {
+  for (unsigned II = StartLevel; II <= EndLevel; ++II) {
     InputDV[II - 1] = DVKind::ALL;
   }
 
-  for (unsigned II = endLevel + 1; II <= MaxLoopNestLevel; ++II) {
+  for (unsigned II = EndLevel + 1; II <= MaxLoopNestLevel; ++II) {
     InputDV[II - 1] = DVKind::NONE;
   }
 }
 
-void DVectorTy::initDV() {
+void DirectionVector::setZero() {
   // Construct all  0 (NONE)
   fill(DVKind::NONE);
 }
 
-void DVectorTy::printDV(unsigned Levels, raw_ostream &OS) const {
-  const DVectorTy &DV = *this;
+void DirectionVector::print(unsigned Levels, raw_ostream &OS) const {
+  const DirectionVector &DV = *this;
   if (DV[0] == DVKind::NONE) {
     OS << "nil\n";
     return;
@@ -4992,7 +5010,7 @@ void DVectorTy::printDV(unsigned Levels, raw_ostream &OS) const {
 }
 
 /// Is  DV all ( = = = .. =)?
-bool DVectorTy::isDValEQ() const {
+bool DirectionVector::isEQ() const {
   for (unsigned II = 1; II <= MaxLoopNestLevel; ++II) {
     auto Direction = (*this)[II - 1];
     if (Direction == DVKind::NONE) {
@@ -5008,7 +5026,7 @@ bool DVectorTy::isDValEQ() const {
 /// Is DV implying INDEP for level L to end?
 /// e.g.  DV = (< *)	 implies INDEP for innermost loop
 /// In this example, isDVIndepFromLevel(&DV, 2) return true
-bool DVectorTy::isDVIndepFromLevel(unsigned FromLevel) const {
+bool DirectionVector::isIndepFromLevel(unsigned FromLevel) const {
 
   assert(HLNodeUtils::isLoopLevelValid(FromLevel) && "incorrect Level");
 
@@ -5019,9 +5037,7 @@ bool DVectorTy::isDVIndepFromLevel(unsigned FromLevel) const {
     }
     switch (Direction) {
     case DVKind::LT:
-      //    case DVElement::LE:
     case DVKind::GT:
-      //    case DVElement::GE:
     case DVKind::NE:
       return true;
     default:

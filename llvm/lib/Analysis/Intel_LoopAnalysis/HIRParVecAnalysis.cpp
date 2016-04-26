@@ -26,10 +26,10 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParVecAnalysis.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/IR/Intel_LoopIR/Diag.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 
@@ -93,10 +93,11 @@ class DDWalk final : public HLNodeVisitorBase {
   /// \brief Analyze whether the src/sink DDRefs represents privatizable
   /// terminals.
   bool isSimplePrivateTerminal(const RegDDRef *SrcRef, const RegDDRef *SinkRef);
+
 public:
   DDWalk(HIRDDAnalysis &DDA, HLLoop *CandidateLoop, ParVecInfo *Info)
-    : DDA(DDA), DDG(DDA.getGraph(CandidateLoop, false)),
-      CandidateLoop(CandidateLoop), Info(Info) {}
+      : DDA(DDA), DDG(DDA.getGraph(CandidateLoop, false)),
+        CandidateLoop(CandidateLoop), Info(Info) {}
   /// \brief Visit all outgoing DDEdges for the given node.
   void visit(HLDDNode *Node);
 
@@ -149,7 +150,9 @@ public:
 
 } // unnamed namespace
 
-FunctionPass *llvm::createHIRParVecAnalysisPass() { return new HIRParVecAnalysis(); }
+FunctionPass *llvm::createHIRParVecAnalysisPass() {
+  return new HIRParVecAnalysis();
+}
 char HIRParVecAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRParVecAnalysis, "hir-parvec-analysis",
                       "HIR Parallel/Vector Candidate Analysis", false, true)
@@ -274,10 +277,10 @@ bool DDWalk::isSimplePrivateTerminal(const RegDDRef *SrcRef,
     return false;
   }
 
-  HLNode *WriteNode     = SrcRef->isLval() ? SrcRef->getHLDDNode()
-                                           : SinkRef->getHLDDNode();
-  HLNode *TheOtherNode  = SrcRef->isLval() ? SinkRef->getHLDDNode()
-                                           : SrcRef->getHLDDNode();
+  HLNode *WriteNode =
+      SrcRef->isLval() ? SrcRef->getHLDDNode() : SinkRef->getHLDDNode();
+  HLNode *TheOtherNode =
+      SrcRef->isLval() ? SinkRef->getHLDDNode() : SrcRef->getHLDDNode();
 
   if (SrcRef->isLval() && SinkRef->isLval()) {
     // Terminal output dependence is fine, as long as it is not live out
@@ -286,8 +289,7 @@ bool DDWalk::isSimplePrivateTerminal(const RegDDRef *SrcRef,
     // should exist and it would prevent vectorization/parallelization if
     // not privatizable in that context.
     return true;
-  }
-  else if (HLNodeUtils::strictlyDominates(WriteNode, TheOtherNode)) {
+  } else if (HLNodeUtils::strictlyDominates(WriteNode, TheOtherNode)) {
     // Def strictly dominates Use. Privatizable.
     return true;
   }
@@ -321,14 +323,14 @@ void DDWalk::analyze(const DDEdge *Edge) {
   }
 
   if (isSimplePrivateTerminal(dyn_cast<RegDDRef>(Edge->getSrc()),
-                              dyn_cast<RegDDRef>(DDref))){
+                              dyn_cast<RegDDRef>(DDref))) {
     DEBUG(dbgs() << "\tis safe to vectorize/parallelize (private)\n");
     return;
   }
 
   // Is this really useful if refineDV() doesn't recompute?
   if (Edge->isRefinableDepAtLevel(NestLevel)) {
-    DVectorTy DV;
+    DirectionVector DV;
     bool IsIndep = false;
     if (DDA.refineDV(Edge->getSrc(), DDref, NestLevel, 1, DV, &IsIndep)) {
       // TODO: Set Type/Loc. Call emitDiag().
@@ -338,8 +340,7 @@ void DDWalk::analyze(const DDEdge *Edge) {
       DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize");
     }
     DEBUG(dbgs() << " @ Level " << NestLevel << "\n");
-  }
-  else {
+  } else {
     DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize\n");
   }
   Info->setVecType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);
@@ -401,7 +402,7 @@ void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA) {
   }
   if (!isDone()) {
     cleanEdges();
-    DDWalk DDW(*DDA, Loop, this);   // Legality checker.
+    DDWalk DDW(*DDA, Loop, this);  // Legality checker.
     HLNodeUtils::visit(DDW, Loop); // This can change isDone() status.
   }
   if (isDone()) {
@@ -455,10 +456,9 @@ void ParVecInfo::print(raw_ostream &OS, bool WithLoop) const {
       VecLoc.print(OS);
     }
     OS << " ";
-    if (VecType <= SIMD){
+    if (VecType <= SIMD) {
       OS << LoopTypeString[VecType];
-    }
-    else {
+    } else {
       OS << "#" << VecType << ": " << OptReportDiag::getMsg(VecType);
     }
     OS << "\n";
@@ -475,6 +475,4 @@ void ParVecInfo::printIndent(raw_ostream &OS, bool ZeroBase) const {
 
 const std::string ParVecInfo::LoopTypeString[4] = {
     "analyzing", "loop is parallelizable", "loop is vectorizable",
-    "loop has SIMD directive"
-};
-
+    "loop has SIMD directive"};
