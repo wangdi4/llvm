@@ -842,10 +842,16 @@ bool RecursiveASTVisitor<Derived>::TraverseConstructorInitializer(
   if (Init->isWritten() || getDerived().shouldVisitImplicitCode())
     TRY_TO(TraverseStmt(Init->getInit()));
 
-  if (Init->getNumArrayIndices() && getDerived().shouldVisitImplicitCode())
-    for (VarDecl *VD : Init->getArrayIndexes()) {
+  if (getDerived().shouldVisitImplicitCode())
+    // The braces for this one-line loop are required for MSVC2013.  It
+    // refuses to compile
+    //     for (int i : int_vec)
+    //       do {} while(false);
+    // without braces on the for loop.
+    for (VarDecl *VD : Init->getArrayIndices()) {
       TRY_TO(TraverseDecl(VD));
     }
+
   return true;
 }
 
@@ -2538,6 +2544,7 @@ bool RecursiveASTVisitor<Derived>::TraverseOMPClause(OMPClause *C) {
     break;
 #include "clang/Basic/OpenMPKinds.def"
   case OMPC_threadprivate:
+  case OMPC_uniform:
   case OMPC_unknown:
     break;
   }

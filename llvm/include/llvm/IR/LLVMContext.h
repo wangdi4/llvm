@@ -108,7 +108,7 @@ public:
   /// Return true if the Context runtime configuration is set to discard all
   /// value names. When true, only GlobalValue names will be available in the
   /// IR.
-  bool discardValueNames() const;
+  bool shouldDiscardValueNames() const;
 
   /// Set the Context runtime configuration to discard all value name (but
   /// GlobalValue). Clients can use this flag to save memory and runtime,
@@ -234,10 +234,6 @@ private:
   // Module needs access to the add/removeModule methods.
   friend class Module;
 };
-
-/// getGlobalContext - Returns a global context.  This is for LLVM clients that
-/// only care about operating on a single thread.
-extern LLVMContext &getGlobalContext();
 
 // Create wrappers for C Binding types (see CBindingWrapping.h).
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLVMContext, LLVMContextRef)

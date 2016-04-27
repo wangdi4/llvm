@@ -1037,7 +1037,12 @@ Driver::MainLoop ()
         atexit (reset_stdin_termios);
     }
 
+#ifndef _MSC_VER
+    // Disabling stdin buffering with MSVC's 2015 CRT exposes a bug in fgets
+    // which causes it to miss newlines depending on whether there have been an
+    // odd or even number of characters.  Bug has been reported to MS via Connect.
     ::setbuf (stdin, NULL);
+#endif
     ::setbuf (stdout, NULL);
 
     m_debugger.SetErrorFileHandle (stderr, false);
@@ -1283,7 +1288,9 @@ sigint_handler (int signo)
 void
 sigtstp_handler (int signo)
 {
-    g_driver->GetDebugger().SaveInputTerminalState();
+    if (g_driver)
+        g_driver->GetDebugger().SaveInputTerminalState();
+
     signal (signo, SIG_DFL);
     kill (getpid(), signo);
     signal (signo, sigtstp_handler);
@@ -1292,7 +1299,9 @@ sigtstp_handler (int signo)
 void
 sigcont_handler (int signo)
 {
-    g_driver->GetDebugger().RestoreInputTerminalState();
+    if (g_driver)
+        g_driver->GetDebugger().RestoreInputTerminalState();
+
     signal (signo, SIG_DFL);
     kill (getpid(), signo);
     signal (signo, sigcont_handler);
@@ -1305,12 +1314,6 @@ wmain(int argc, wchar_t const *wargv[])
 main(int argc, char const *argv[])
 #endif
 {
-#ifdef _MSC_VER
-	// disable buffering on windows
-	setvbuf(stdout, NULL, _IONBF, 0);
-	setvbuf(stdin , NULL, _IONBF, 0);
-#endif
-
 #ifdef _WIN32
         // Convert wide arguments to UTF-8
         std::vector<std::string> argvStrings(argc);

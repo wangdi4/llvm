@@ -30,8 +30,9 @@ CODEGENOPT(Name, Bits, Default)
 
 CODEGENOPT(DisableIntegratedAS, 1, 0) ///< -no-integrated-as
 CODEGENOPT(CompressDebugSections, 1, 0) ///< -Wa,-compress-debug-sections
-CODEGENOPT(Autolink          , 1, 1) ///< -fno-autolink
 CODEGENOPT(AsmVerbose        , 1, 0) ///< -dA, -fverbose-asm.
+CODEGENOPT(AssumeSaneOperatorNew , 1, 1) ///< implicit __attribute__((malloc)) operator new
+CODEGENOPT(Autolink          , 1, 1) ///< -fno-autolink
 CODEGENOPT(ObjCAutoRefCountExceptions , 1, 0) ///< Whether ARC should be EH-safe.
 CODEGENOPT(CoverageExtraChecksum, 1, 0) ///< Whether we need a second checksum for functions in GCNO files.
 CODEGENOPT(CoverageNoFunctionNamesInData, 1, 0) ///< Do not include function names in GCDA files.
@@ -155,6 +156,7 @@ CODEGENOPT(UnitAtATime       , 1, 1) ///< Unused. For mirroring GCC optimization
                                      ///< selection.
 CODEGENOPT(UnrollLoops       , 1, 0) ///< Control whether loops are unrolled.
 CODEGENOPT(RerollLoops       , 1, 0) ///< Control whether loops are rerolled.
+CODEGENOPT(NoUseJumpTables   , 1, 0) ///< Set when -fno-jump-tables is enabled.
 CODEGENOPT(UnsafeFPMath      , 1, 0) ///< Allow unsafe floating point optzns.
 CODEGENOPT(UnwindTables      , 1, 0) ///< Emit unwind tables.
 CODEGENOPT(VectorizeBB       , 1, 0) ///< Run basic block vectorizer.
@@ -182,15 +184,15 @@ CODEGENOPT(DebugColumnInfo, 1, 0) ///< Whether or not to use column information
 CODEGENOPT(DebugTypeExtRefs, 1, 0) ///< Whether or not debug info should contain
                                    ///< external references to a PCH or module.
 
+CODEGENOPT(DebugExplicitImport, 1, 0)  ///< Whether or not debug info should 
+                                       ///< contain explicit imports for 
+                                       ///< anonymous namespaces
+
 #if INTEL_CUSTOMIZATION
 // CQ#368123
 CODEGENOPT(EmitClassDebugAlways, 1, 1) ///< Whether or not to emit debug info
                                        ///< for all class members.
 #endif // INTEL_CUSTOMIZATION
-
-CODEGENOPT(DebugExplicitImport, 1, 0)  ///< Whether or not debug info should 
-                                       ///< contain explicit imports for 
-                                       ///< anonymous namespaces
 
 CODEGENOPT(EmitLLVMUseLists, 1, 0) ///< Control whether to serialize use-lists.
 

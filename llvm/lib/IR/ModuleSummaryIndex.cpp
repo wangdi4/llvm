@@ -23,7 +23,7 @@ void ModuleSummaryIndex::mergeFrom(std::unique_ptr<ModuleSummaryIndex> Other,
 
   StringRef ModPath;
   for (auto &OtherGlobalValInfoLists : *Other) {
-    uint64_t ValueGUID = OtherGlobalValInfoLists.first;
+    GlobalValue::GUID ValueGUID = OtherGlobalValInfoLists.first;
     GlobalValueInfoList &List = OtherGlobalValInfoLists.second;
 
     // Assert that the value info list only has one entry, since we shouldn't
@@ -67,4 +67,35 @@ void ModuleSummaryIndex::removeEmptySummaryEntries() {
     else
       ++MI;
   }
+}
+
+// Collect for the given module the list of function it defines
+// (GUID -> Summary).
+void ModuleSummaryIndex::collectDefinedFunctionsForModule(
+    StringRef ModulePath,
+    std::map<GlobalValue::GUID, FunctionSummary *> &FunctionInfoMap) const {
+  for (auto &GlobalList : *this) {
+    auto GUID = GlobalList.first;
+    for (auto &GlobInfo : GlobalList.second) {
+      auto *Summary = dyn_cast_or_null<FunctionSummary>(GlobInfo->summary());
+      if (!Summary)
+        // Ignore global variable, focus on functions
+        continue;
+      // Ignore summaries from other modules.
+      if (Summary->modulePath() != ModulePath)
+        continue;
+      FunctionInfoMap[GUID] = Summary;
+    }
+  }
+}
+
+GlobalValueInfo *
+ModuleSummaryIndex::getGlobalValueInfo(uint64_t ValueGUID,
+                                       bool PerModuleIndex) const {
+  auto InfoList = findGlobalValueInfoList(ValueGUID);
+  assert(InfoList != end() && "GlobalValue not found in index");
+  assert((!PerModuleIndex || InfoList->second.size() == 1) &&
+         "Expected a single entry per global value in per-module index");
+  auto &Info = InfoList->second[0];
+  return Info.get();
 }

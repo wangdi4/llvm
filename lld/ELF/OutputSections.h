@@ -16,6 +16,8 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/MC/StringTableBuilder.h"
 #include "llvm/Object/ELF.h"
+#include "llvm/Support/MD5.h"
+#include "llvm/Support/SHA1.h"
 
 namespace lld {
 namespace elf {
@@ -70,14 +72,14 @@ public:
   // Returns the size of the section in the output file.
   uintX_t getSize() const { return Header.sh_size; }
   void setSize(uintX_t Val) { Header.sh_size = Val; }
-  uintX_t getFlags() { return Header.sh_flags; }
-  uintX_t getFileOff() { return Header.sh_offset; }
-  uintX_t getAlign() {
+  uintX_t getFlags() const { return Header.sh_flags; }
+  uintX_t getFileOff() const { return Header.sh_offset; }
+  uintX_t getAlign() const {
     // The ELF spec states that a value of 0 means the section has no alignment
     // constraits.
     return std::max<uintX_t>(Header.sh_addralign, 1);
   }
-  uint32_t getType() { return Header.sh_type; }
+  uint32_t getType() const { return Header.sh_type; }
   void updateAlign(uintX_t Align) {
     if (Align > Header.sh_addralign)
       Header.sh_addralign = Align;
@@ -87,8 +89,9 @@ public:
   // Typically the first section of each PT_LOAD segment has this flag.
   bool PageAlign = false;
 
-  virtual void assignOffsets() {}
   virtual void finalize() {}
+  virtual void
+  forEachInputSection(std::function<void(InputSectionBase<ELFT> *)> F) {}
   virtual void writeTo(uint8_t *Buf) {}
   virtual ~OutputSectionBase() = default;
 
@@ -109,9 +112,10 @@ public:
   bool addDynTlsEntry(SymbolBody &Sym);
   bool addTlsIndex();
   bool empty() const { return MipsLocalEntries == 0 && Entries.empty(); }
-  uintX_t getMipsLocalFullAddr(const SymbolBody &B);
+  uintX_t getMipsLocalEntryAddr(uintX_t EntryValue);
   uintX_t getMipsLocalPageAddr(uintX_t Addr);
   uintX_t getGlobalDynAddr(const SymbolBody &B) const;
+  uintX_t getGlobalDynOffset(const SymbolBody &B) const;
   uintX_t getNumEntries() const { return Entries.size(); }
 
   // Returns the symbol which corresponds to the first entry of the global part
@@ -125,6 +129,7 @@ public:
   unsigned getMipsLocalEntriesNum() const;
 
   uintX_t getTlsIndexVA() { return Base::getVA() + TlsIndexOff; }
+  uint32_t getTlsIndexOff() { return TlsIndexOff; }
 
 private:
   std::vector<const SymbolBody *> Entries;
@@ -133,8 +138,6 @@ private:
   // Output sections referenced by MIPS GOT relocations.
   llvm::SmallPtrSet<const OutputSectionBase<ELFT> *, 10> MipsOutSections;
   llvm::DenseMap<uintX_t, size_t> MipsLocalGotPos;
-
-  uintX_t getMipsLocalEntryAddr(uintX_t EntryValue);
 };
 
 template <class ELFT>
@@ -171,36 +174,17 @@ template <class ELFT> struct DynamicReloc {
   typedef typename ELFT::uint uintX_t;
   uint32_t Type;
 
-  // Where the relocation is.
-  enum OffsetKind {
-    Off_Got,       // The got entry of Sym.
-    Off_GotPlt,    // The got.plt entry of Sym.
-    Off_Bss,       // The bss entry of Sym (copy reloc).
-    Off_Sec,       // The final position of the given input section and offset.
-    Off_LTlsIndex, // The local tls index.
-    Off_GTlsIndex, // The global tls index of Sym.
-    Off_GTlsOffset // The global tls offset of Sym.
-  } OKind;
+  SymbolBody *Sym;
+  const OutputSectionBase<ELFT> *OffsetSec;
+  uintX_t OffsetInSec;
+  bool UseSymVA;
+  uintX_t Addend;
 
-  SymbolBody *Sym = nullptr;
-  InputSectionBase<ELFT> *OffsetSec = nullptr;
-  uintX_t OffsetInSec = 0;
-  bool UseSymVA = false;
-  uintX_t Addend = 0;
-
-  DynamicReloc(uint32_t Type, OffsetKind OKind, SymbolBody *Sym)
-      : Type(Type), OKind(OKind), Sym(Sym) {}
-
-  DynamicReloc(uint32_t Type, OffsetKind OKind, bool UseSymVA, SymbolBody *Sym)
-      : Type(Type), OKind(OKind), Sym(Sym), UseSymVA(UseSymVA) {}
-
-  DynamicReloc(uint32_t Type, InputSectionBase<ELFT> *OffsetSec,
+  DynamicReloc(uint32_t Type, const OutputSectionBase<ELFT> *OffsetSec,
                uintX_t OffsetInSec, bool UseSymVA, SymbolBody *Sym,
                uintX_t Addend)
-      : Type(Type), OKind(Off_Sec), Sym(Sym), OffsetSec(OffsetSec),
-        OffsetInSec(OffsetInSec), UseSymVA(UseSymVA), Addend(Addend) {}
-
-  uintX_t getOffset() const;
+      : Type(Type), Sym(Sym), OffsetSec(OffsetSec), OffsetInSec(OffsetInSec),
+        UseSymVA(UseSymVA), Addend(Addend) {}
 };
 
 template <class ELFT>
@@ -231,7 +215,6 @@ private:
   void writeGlobalSymbols(uint8_t *Buf);
 
   const OutputSectionBase<ELFT> *getOutputSection(SymbolBody *Sym);
-  static uint8_t getSymbolBinding(SymbolBody *Body);
 
   SymbolTable<ELFT> &Table;
 
@@ -272,10 +255,9 @@ public:
   void sortInitFini();
   void sortCtorsDtors();
   void writeTo(uint8_t *Buf) override;
-  void assignOffsets() override;
   void finalize() override;
-
-private:
+  void
+  forEachInputSection(std::function<void(InputSectionBase<ELFT> *)> F) override;
   std::vector<InputSection<ELFT> *> Sections;
 };
 
@@ -321,10 +303,12 @@ public:
   typedef typename ELFT::Rela Elf_Rela;
   EHOutputSection(StringRef Name, uint32_t Type, uintX_t Flags);
   void writeTo(uint8_t *Buf) override;
+  void finalize() override;
+  void
+  forEachInputSection(std::function<void(InputSectionBase<ELFT> *)> F) override;
 
   template <class RelTy>
-  void addSectionAux(EHInputSection<ELFT> *S,
-                     llvm::iterator_range<const RelTy *> Rels);
+  void addSectionAux(EHInputSection<ELFT> *S, llvm::ArrayRef<RelTy> Rels);
 
   void addSection(InputSectionBase<ELFT> *S) override;
 
@@ -336,6 +320,7 @@ private:
 
   // Maps CIE content + personality to a index in Cies.
   llvm::DenseMap<std::pair<StringRef, SymbolBody *>, unsigned> CieMap;
+  bool Finalized = false;
 };
 
 template <class ELFT>
@@ -494,6 +479,8 @@ public:
 
   bool Live = false;
 
+  EHOutputSection<ELFT> *Sec = nullptr;
+
 private:
   struct FdeData {
     uint8_t Enc;
@@ -503,21 +490,50 @@ private:
 
   uintX_t getFdePc(uintX_t EhVA, const FdeData &F);
 
-  EHOutputSection<ELFT> *Sec = nullptr;
   std::vector<FdeData> FdeList;
 };
 
-template <class ELFT>
-class BuildIdSection final : public OutputSectionBase<ELFT> {
+template <class ELFT> class BuildIdSection : public OutputSectionBase<ELFT> {
 public:
-  BuildIdSection();
   void writeTo(uint8_t *Buf) override;
-  void update(ArrayRef<uint8_t> Buf);
-  void writeBuildId();
+  virtual void update(ArrayRef<uint8_t> Buf) = 0;
+  virtual void writeBuildId() = 0;
+
+protected:
+  BuildIdSection(size_t HashSize);
+  size_t HashSize;
+  uint8_t *HashBuf = nullptr;
+};
+
+template <class ELFT> class BuildIdFnv1 final : public BuildIdSection<ELFT> {
+public:
+  BuildIdFnv1() : BuildIdSection<ELFT>(8) {}
+  void update(ArrayRef<uint8_t> Buf) override;
+  void writeBuildId() override;
 
 private:
-  uint64_t Hash = 0xcbf29ce484222325; // FNV1 hash basis
-  uint8_t *HashBuf;
+  // 64-bit FNV-1 initial value
+  uint64_t Hash = 0xcbf29ce484222325;
+};
+
+template <class ELFT> class BuildIdMd5 final : public BuildIdSection<ELFT> {
+public:
+  BuildIdMd5() : BuildIdSection<ELFT>(16) {}
+  void update(ArrayRef<uint8_t> Buf) override;
+  void writeBuildId() override;
+
+private:
+  llvm::MD5 Hash;
+};
+
+template <class ELFT> class BuildIdSha1 final : public BuildIdSection<ELFT> {
+public:
+  BuildIdSha1() : BuildIdSection<ELFT>(20) {}
+  void update(ArrayRef<uint8_t> Buf) override;
+  void writeBuildId() override;
+
+private:
+  llvm::SHA1 Hash;
 };
 
 // All output sections that are hadnled by the linker specially are

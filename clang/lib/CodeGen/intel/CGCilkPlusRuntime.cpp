@@ -1155,10 +1155,8 @@ static llvm::Function *GetCilkHelperEpilogue(CodeGenFunction &CGF) {
 static const char *stack_frame_name = "__cilkrts_sf";
 
 static Address LookupStackFrame(CodeGenFunction &CGF) {
-  if (auto *V = CGF.CurFn->getValueSymbolTable().lookup(stack_frame_name)) {
-    auto *AI = cast<AllocaInst>(V);
+  if(auto *AI = CGF.CurCilkStackFrame)
     return Address(AI, CharUnits::fromQuantity(AI->getAlignment()));
-  }
   return Address::invalid();
 }
 
@@ -1170,6 +1168,7 @@ static Address CreateStackFrame(CodeGenFunction &CGF) {
   llvm::AllocaInst *SF = CGF.CreateTempAlloca(SFTy);
   SF->setAlignment(CGF.PointerAlignInBytes);
   SF->setName(stack_frame_name);
+  CGF.CurCilkStackFrame = SF;
   if (CGF.getTarget().getTriple().isKnownWindowsMSVCEnvironment() &&
       (CGF.getTarget().getTriple().getArch() == llvm::Triple::x86_64))
     SF->setAlignment(16); // XMM inside JMP_BUFFER requirement on WIN-64

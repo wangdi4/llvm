@@ -112,9 +112,8 @@ static Value *MakeBinaryAtomicValue(CodeGenFunction &CGF,
   llvm::Type *ValueType = Args[1]->getType();
   Args[1] = EmitToInt(CGF, Args[1], T, IntType);
 
-  llvm::Value *Result =
-      CGF.Builder.CreateAtomicRMW(Kind, Args[0], Args[1],
-                                  llvm::SequentiallyConsistent);
+  llvm::Value *Result = CGF.Builder.CreateAtomicRMW(
+      Kind, Args[0], Args[1], llvm::AtomicOrdering::SequentiallyConsistent);
   return EmitFromInt(CGF, Result, T, ValueType);
 }
 
@@ -174,9 +173,8 @@ static RValue EmitBinaryAtomicPost(CodeGenFunction &CGF,
   Args[1] = EmitToInt(CGF, Args[1], T, IntType);
   Args[0] = CGF.Builder.CreateBitCast(DestPtr, IntPtrType);
 
-  llvm::Value *Result =
-      CGF.Builder.CreateAtomicRMW(Kind, Args[0], Args[1],
-                                  llvm::SequentiallyConsistent);
+  llvm::Value *Result = CGF.Builder.CreateAtomicRMW(
+      Kind, Args[0], Args[1], llvm::AtomicOrdering::SequentiallyConsistent);
   Result = CGF.Builder.CreateBinOp(Op, Result, Args[1]);
   if (Invert)
     Result = CGF.Builder.CreateBinOp(llvm::Instruction::Xor, Result,
@@ -213,9 +211,9 @@ static Value *MakeAtomicCmpXchgValue(CodeGenFunction &CGF, const CallExpr *E,
   Args[1] = EmitToInt(CGF, Args[1], T, IntType);
   Args[2] = EmitToInt(CGF, CGF.EmitScalarExpr(E->getArg(2)), T, IntType);
 
-  Value *Pair = CGF.Builder.CreateAtomicCmpXchg(Args[0], Args[1], Args[2],
-                                                llvm::SequentiallyConsistent,
-                                                llvm::SequentiallyConsistent);
+  Value *Pair = CGF.Builder.CreateAtomicCmpXchg(
+      Args[0], Args[1], Args[2], llvm::AtomicOrdering::SequentiallyConsistent,
+      llvm::AtomicOrdering::SequentiallyConsistent);
   if (ReturnBool)
     // Extract boolean success flag and zext it to int.
     return CGF.Builder.CreateZExt(CGF.Builder.CreateExtractValue(Pair, 1),
@@ -897,13 +895,19 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     return RValue::get(Builder.CreateZExt(V, ConvertType(E->getType())));
   }
 
-  case Builtin::BI__builtin_isinf: {
-    // isinf(x) --> fabs(x) == infinity
+  case Builtin::BI__builtin_isinf:
+  case Builtin::BI__builtin_isfinite: {
+    // isinf(x)    --> fabs(x) == infinity
+    // isfinite(x) --> fabs(x) != infinity
+    // x != NaN via the ordered compare in either case.
     Value *V = EmitScalarExpr(E->getArg(0));
-    V = EmitFAbs(*this, V);
-
-    V = Builder.CreateFCmpOEQ(V, ConstantFP::getInfinity(V->getType()),"isinf");
-    return RValue::get(Builder.CreateZExt(V, ConvertType(E->getType())));
+    Value *Fabs = EmitFAbs(*this, V);
+    Constant *Infinity = ConstantFP::getInfinity(V->getType());
+    CmpInst::Predicate Pred = (BuiltinID == Builtin::BI__builtin_isinf)
+                                  ? CmpInst::FCMP_OEQ
+                                  : CmpInst::FCMP_ONE;
+    Value *FCmp = Builder.CreateFCmp(Pred, Fabs, Infinity, "cmpinf");
+    return RValue::get(Builder.CreateZExt(FCmp, ConvertType(E->getType())));
   }
 
   case Builtin::BI__builtin_isinf_sign: {
@@ -938,19 +942,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
                             "isnormal");
     V = Builder.CreateAnd(Eq, IsLessThanInf, "and");
     V = Builder.CreateAnd(V, IsNormal, "and");
-    return RValue::get(Builder.CreateZExt(V, ConvertType(E->getType())));
-  }
-
-  case Builtin::BI__builtin_isfinite: {
-    // isfinite(x) --> x == x && fabs(x) != infinity;
-    Value *V = EmitScalarExpr(E->getArg(0));
-    Value *Eq = Builder.CreateFCmpOEQ(V, V, "iseq");
-
-    Value *Abs = EmitFAbs(*this, V);
-    Value *IsNotInf =
-      Builder.CreateFCmpUNE(Abs, ConstantFP::getInfinity(V->getType()),"isinf");
-
-    V = Builder.CreateAnd(Eq, IsNotInf, "and");
     return RValue::get(Builder.CreateZExt(V, ConvertType(E->getType())));
   }
 
@@ -1547,7 +1538,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     llvm::StoreInst *Store =
       Builder.CreateAlignedStore(llvm::Constant::getNullValue(ITy), Ptr,
                                  StoreSize);
-    Store->setAtomic(llvm::Release);
+    Store->setAtomic(llvm::AtomicOrdering::Release);
     return RValue::get(nullptr);
   }
 
@@ -1559,7 +1550,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     // any way to safely use it... but in practice, it mostly works
     // to use it with non-atomic loads and stores to get acquire/release
     // semantics.
-    Builder.CreateFence(llvm::SequentiallyConsistent);
+    Builder.CreateFence(llvm::AtomicOrdering::SequentiallyConsistent);
     return RValue::get(nullptr);
   }
 
@@ -1610,30 +1601,27 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
       switch (ord) {
       case 0:  // memory_order_relaxed
       default: // invalid order
-        Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg,
-                                         Ptr, NewVal,
-                                         llvm::Monotonic);
+        Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg, Ptr, NewVal,
+                                         llvm::AtomicOrdering::Monotonic);
         break;
-      case 1:  // memory_order_consume
-      case 2:  // memory_order_acquire
-        Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg,
-                                         Ptr, NewVal,
-                                         llvm::Acquire);
+      case 1: // memory_order_consume
+      case 2: // memory_order_acquire
+        Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg, Ptr, NewVal,
+                                         llvm::AtomicOrdering::Acquire);
         break;
-      case 3:  // memory_order_release
-        Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg,
-                                         Ptr, NewVal,
-                                         llvm::Release);
+      case 3: // memory_order_release
+        Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg, Ptr, NewVal,
+                                         llvm::AtomicOrdering::Release);
         break;
-      case 4:  // memory_order_acq_rel
-        Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg,
-                                         Ptr, NewVal,
-                                         llvm::AcquireRelease);
+      case 4: // memory_order_acq_rel
+
+        Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg, Ptr, NewVal,
+                                         llvm::AtomicOrdering::AcquireRelease);
         break;
-      case 5:  // memory_order_seq_cst
-        Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg,
-                                         Ptr, NewVal,
-                                         llvm::SequentiallyConsistent);
+      case 5: // memory_order_seq_cst
+        Result = Builder.CreateAtomicRMW(
+            llvm::AtomicRMWInst::Xchg, Ptr, NewVal,
+            llvm::AtomicOrdering::SequentiallyConsistent);
         break;
       }
       Result->setVolatile(Volatile);
@@ -1650,9 +1638,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
       createBasicBlock("seqcst", CurFn)
     };
     llvm::AtomicOrdering Orders[5] = {
-      llvm::Monotonic, llvm::Acquire, llvm::Release,
-      llvm::AcquireRelease, llvm::SequentiallyConsistent
-    };
+        llvm::AtomicOrdering::Monotonic, llvm::AtomicOrdering::Acquire,
+        llvm::AtomicOrdering::Release, llvm::AtomicOrdering::AcquireRelease,
+        llvm::AtomicOrdering::SequentiallyConsistent};
 
     Order = Builder.CreateIntCast(Order, Builder.getInt32Ty(), false);
     llvm::SwitchInst *SI = Builder.CreateSwitch(Order, BBs[0]);
@@ -1696,13 +1684,13 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
       switch (ord) {
       case 0:  // memory_order_relaxed
       default: // invalid order
-        Store->setOrdering(llvm::Monotonic);
+        Store->setOrdering(llvm::AtomicOrdering::Monotonic);
         break;
       case 3:  // memory_order_release
-        Store->setOrdering(llvm::Release);
+        Store->setOrdering(llvm::AtomicOrdering::Release);
         break;
       case 5:  // memory_order_seq_cst
-        Store->setOrdering(llvm::SequentiallyConsistent);
+        Store->setOrdering(llvm::AtomicOrdering::SequentiallyConsistent);
         break;
       }
       return RValue::get(nullptr);
@@ -1716,8 +1704,8 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
       createBasicBlock("seqcst", CurFn)
     };
     llvm::AtomicOrdering Orders[3] = {
-      llvm::Monotonic, llvm::Release, llvm::SequentiallyConsistent
-    };
+        llvm::AtomicOrdering::Monotonic, llvm::AtomicOrdering::Release,
+        llvm::AtomicOrdering::SequentiallyConsistent};
 
     Order = Builder.CreateIntCast(Order, Builder.getInt32Ty(), false);
     llvm::SwitchInst *SI = Builder.CreateSwitch(Order, BBs[0]);
@@ -1756,16 +1744,17 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
         break;
       case 1:  // memory_order_consume
       case 2:  // memory_order_acquire
-        Builder.CreateFence(llvm::Acquire, Scope);
+        Builder.CreateFence(llvm::AtomicOrdering::Acquire, Scope);
         break;
       case 3:  // memory_order_release
-        Builder.CreateFence(llvm::Release, Scope);
+        Builder.CreateFence(llvm::AtomicOrdering::Release, Scope);
         break;
       case 4:  // memory_order_acq_rel
-        Builder.CreateFence(llvm::AcquireRelease, Scope);
+        Builder.CreateFence(llvm::AtomicOrdering::AcquireRelease, Scope);
         break;
       case 5:  // memory_order_seq_cst
-        Builder.CreateFence(llvm::SequentiallyConsistent, Scope);
+        Builder.CreateFence(llvm::AtomicOrdering::SequentiallyConsistent,
+                            Scope);
         break;
       }
       return RValue::get(nullptr);
@@ -1782,23 +1771,23 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     llvm::SwitchInst *SI = Builder.CreateSwitch(Order, ContBB);
 
     Builder.SetInsertPoint(AcquireBB);
-    Builder.CreateFence(llvm::Acquire, Scope);
+    Builder.CreateFence(llvm::AtomicOrdering::Acquire, Scope);
     Builder.CreateBr(ContBB);
     SI->addCase(Builder.getInt32(1), AcquireBB);
     SI->addCase(Builder.getInt32(2), AcquireBB);
 
     Builder.SetInsertPoint(ReleaseBB);
-    Builder.CreateFence(llvm::Release, Scope);
+    Builder.CreateFence(llvm::AtomicOrdering::Release, Scope);
     Builder.CreateBr(ContBB);
     SI->addCase(Builder.getInt32(3), ReleaseBB);
 
     Builder.SetInsertPoint(AcqRelBB);
-    Builder.CreateFence(llvm::AcquireRelease, Scope);
+    Builder.CreateFence(llvm::AtomicOrdering::AcquireRelease, Scope);
     Builder.CreateBr(ContBB);
     SI->addCase(Builder.getInt32(4), AcqRelBB);
 
     Builder.SetInsertPoint(SeqCstBB);
-    Builder.CreateFence(llvm::SequentiallyConsistent, Scope);
+    Builder.CreateFence(llvm::AtomicOrdering::SequentiallyConsistent, Scope);
     Builder.CreateBr(ContBB);
     SI->addCase(Builder.getInt32(5), SeqCstBB);
 
@@ -1809,7 +1798,8 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
 #if INTEL_CUSTOMIZATION
   // CQ#377340: __memory_barrier is equivalent of __c11_atomic_thread_fence(5i).
   case Builtin::BI__memory_barrier: {
-    Builder.CreateFence(llvm::SequentiallyConsistent, llvm::SingleThread);
+    Builder.CreateFence(llvm::AtomicOrdering::SequentiallyConsistent,
+                        llvm::SingleThread);
     return RValue::get(nullptr);
   }
 #endif // INTEL_CUSTOMIZATION
@@ -2137,9 +2127,10 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     llvm::Value *Comparand =
       Builder.CreatePtrToInt(EmitScalarExpr(E->getArg(2)), IntType);
 
-    auto Result = Builder.CreateAtomicCmpXchg(Destination, Comparand, Exchange,
-                                              SequentiallyConsistent,
-                                              SequentiallyConsistent);
+    auto Result =
+        Builder.CreateAtomicCmpXchg(Destination, Comparand, Exchange,
+                                    AtomicOrdering::SequentiallyConsistent,
+                                    AtomicOrdering::SequentiallyConsistent);
     Result->setVolatile(true);
 
     return RValue::get(Builder.CreateIntToPtr(Builder.CreateExtractValue(Result,
@@ -2151,8 +2142,8 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
         EmitScalarExpr(E->getArg(0)),
         EmitScalarExpr(E->getArg(2)),
         EmitScalarExpr(E->getArg(1)),
-        SequentiallyConsistent,
-        SequentiallyConsistent);
+        AtomicOrdering::SequentiallyConsistent,
+        AtomicOrdering::SequentiallyConsistent);
       CXI->setVolatile(true);
       return RValue::get(Builder.CreateExtractValue(CXI, 0));
   }
@@ -2161,7 +2152,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
       AtomicRMWInst::Add,
       EmitScalarExpr(E->getArg(0)),
       ConstantInt::get(Int32Ty, 1),
-      llvm::SequentiallyConsistent);
+      llvm::AtomicOrdering::SequentiallyConsistent);
     RMWI->setVolatile(true);
     return RValue::get(Builder.CreateAdd(RMWI, ConstantInt::get(Int32Ty, 1)));
   }
@@ -2170,7 +2161,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
       AtomicRMWInst::Sub,
       EmitScalarExpr(E->getArg(0)),
       ConstantInt::get(Int32Ty, 1),
-      llvm::SequentiallyConsistent);
+      llvm::AtomicOrdering::SequentiallyConsistent);
     RMWI->setVolatile(true);
     return RValue::get(Builder.CreateSub(RMWI, ConstantInt::get(Int32Ty, 1)));
   }
@@ -2179,7 +2170,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
       AtomicRMWInst::Add,
       EmitScalarExpr(E->getArg(0)),
       EmitScalarExpr(E->getArg(1)),
-      llvm::SequentiallyConsistent);
+      llvm::AtomicOrdering::SequentiallyConsistent);
     RMWI->setVolatile(true);
     return RValue::get(RMWI);
   }

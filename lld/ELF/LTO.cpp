@@ -59,8 +59,7 @@ static void runLTOPasses(Module &M, TargetMachine &TM) {
   PassManagerBuilder PMB;
   PMB.LibraryInfo = new TargetLibraryInfoImpl(Triple(TM.getTargetTriple()));
   PMB.Inliner = createFunctionInliningPass();
-  PMB.VerifyInput = true;
-  PMB.VerifyOutput = true;
+  PMB.VerifyInput = PMB.VerifyOutput = !Config->DisableVerify;
   PMB.LoopVectorize = true;
   PMB.SLPVectorize = true;
   PMB.OptLevel = Config->LtoO;
@@ -88,7 +87,9 @@ void BitcodeCompiler::add(BitcodeFile &F) {
 
   for (const BasicSymbolRef &Sym : Obj->symbols()) {
     GlobalValue *GV = Obj->getSymbolGV(Sym.getRawDataRefImpl());
-    assert(GV);
+    // Ignore module asm symbols.
+    if (!GV)
+      continue;
     if (GV->hasAppendingLinkage()) {
       Keep.push_back(GV);
       continue;
@@ -117,7 +118,8 @@ void BitcodeCompiler::add(BitcodeFile &F) {
     // Shared libraries need to be handled slightly differently.
     // For now, let's be conservative and just never internalize
     // symbols when creating a shared library.
-    if (!Config->Shared && !Config->ExportDynamic && !B->isUsedInRegularObj())
+    if (!Config->Shared && !Config->ExportDynamic && !B->isUsedInRegularObj() &&
+        !B->MustBeInDynSym)
       if (!Used.count(GV))
         InternalizedSyms.insert(GV->getName());
 
@@ -138,23 +140,23 @@ static void internalize(GlobalValue &GV) {
 // and return the resulting ObjectFile.
 std::unique_ptr<InputFile> BitcodeCompiler::compile() {
   for (const auto &Name : InternalizedSyms) {
-    GlobalValue *GV = Combined.getNamedValue(Name.first());
+    GlobalValue *GV = Combined->getNamedValue(Name.first());
     assert(GV);
     internalize(*GV);
   }
 
   if (Config->SaveTemps)
-    saveBCFile(Combined, ".lto.bc");
+    saveBCFile(*Combined, ".lto.bc");
 
   std::unique_ptr<TargetMachine> TM(getTargetMachine());
-  runLTOPasses(Combined, *TM);
+  runLTOPasses(*Combined, *TM);
 
   raw_svector_ostream OS(OwningData);
   legacy::PassManager CodeGenPasses;
   if (TM->addPassesToEmitFile(CodeGenPasses, OS,
                               TargetMachine::CGFT_ObjectFile))
     fatal("failed to setup codegen");
-  CodeGenPasses.run(Combined);
+  CodeGenPasses.run(*Combined);
   MB = MemoryBuffer::getMemBuffer(OwningData,
                                   "LLD-INTERNAL-combined-lto-object", false);
   if (Config->SaveTemps)
@@ -163,7 +165,7 @@ std::unique_ptr<InputFile> BitcodeCompiler::compile() {
 }
 
 TargetMachine *BitcodeCompiler::getTargetMachine() {
-  StringRef TripleStr = Combined.getTargetTriple();
+  StringRef TripleStr = Combined->getTargetTriple();
   std::string Msg;
   const Target *T = TargetRegistry::lookupTarget(TripleStr, Msg);
   if (!T)

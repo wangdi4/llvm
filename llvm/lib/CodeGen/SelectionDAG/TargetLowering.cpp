@@ -15,9 +15,11 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/CodeGen/Analysis.h"
+#include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -65,6 +67,31 @@ bool TargetLowering::isInTailCallPosition(SelectionDAG &DAG, SDNode *Node,
   return isUsedByReturnOnly(Node, Chain);
 }
 
+bool TargetLowering::parametersInCSRMatch(const MachineRegisterInfo &MRI,
+    const uint32_t *CallerPreservedMask,
+    const SmallVectorImpl<CCValAssign> &ArgLocs,
+    const SmallVectorImpl<SDValue> &OutVals) const {
+  for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
+    const CCValAssign &ArgLoc = ArgLocs[I];
+    if (!ArgLoc.isRegLoc())
+      continue;
+    unsigned Reg = ArgLoc.getLocReg();
+    // Only look at callee saved registers.
+    if (MachineOperand::clobbersPhysReg(CallerPreservedMask, Reg))
+      continue;
+    // Check that we pass the value used for the caller.
+    // (We look for a CopyFromReg reading a virtual register that is used
+    //  for the function live-in value of register Reg)
+    SDValue Value = OutVals[I];
+    if (Value->getOpcode() != ISD::CopyFromReg)
+      return false;
+    unsigned ArgReg = cast<RegisterSDNode>(Value->getOperand(1))->getReg();
+    if (MRI.getLiveInPhysReg(ArgReg) != Reg)
+      return false;
+  }
+  return true;
+}
+
 /// \brief Set CallLoweringInfo attribute flags based on a call instruction
 /// and called function attributes.
 void TargetLowering::ArgListEntry::setAttributes(ImmutableCallSite *CS,
@@ -78,6 +105,7 @@ void TargetLowering::ArgListEntry::setAttributes(ImmutableCallSite *CS,
   isInAlloca = CS->paramHasAttr(AttrIdx, Attribute::InAlloca);
   isReturned = CS->paramHasAttr(AttrIdx, Attribute::Returned);
   isSwiftSelf = CS->paramHasAttr(AttrIdx, Attribute::SwiftSelf);
+  isSwiftError = CS->paramHasAttr(AttrIdx, Attribute::SwiftError);
   Alignment  = CS->getParamAlignment(AttrIdx);
 }
 
@@ -2329,7 +2357,7 @@ TargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *RI,
 
     for (TargetRegisterClass::iterator I = RC->begin(), E = RC->end();
          I != E; ++I) {
-      if (RegName.equals_lower(RI->getName(*I))) {
+      if (RegName.equals_lower(RI->getRegAsmName(*I))) {
         std::pair<unsigned, const TargetRegisterClass*> S =
           std::make_pair(*I, RC);
 
