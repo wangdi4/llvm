@@ -217,7 +217,9 @@ TBBTaskExecutor::TBBTaskExecutor() :
 
 TBBTaskExecutor::~TBBTaskExecutor()
 {
-    Finalize();
+    /* We don't delete m_pGlobalArenaHandler because of all kind of TBB issues in the shutdown sequence, but since this destructor is called when the whole library goes down and m_pGlobalArenaHandler
+       is a singleton, it doesn't really matter. */
+    // TBB seem to have a bug in ~task_scheduler_init(), so we work around it by not deleting m_pScheduler (TBB bug #1955)
 }
 
 int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData)
