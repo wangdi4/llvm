@@ -9,6 +9,7 @@
 
 #include "Driver.h"
 #include "Config.h"
+#include "DynamicList.h"
 #include "Error.h"
 #include "ICF.h"
 #include "InputFiles.h"
@@ -66,7 +67,7 @@ static std::pair<ELFKind, uint16_t> parseEmulation(StringRef S) {
     error("Windows targets are not supported on the ELF frontend: " + S);
   else
     error("unknown emulation: " + S);
-  return {ELFNoneKind, 0};
+  return {ELFNoneKind, EM_NONE};
 }
 
 // Returns slices of MB by parsing MB as an archive file.
@@ -80,11 +81,11 @@ LinkerDriver::getArchiveMembers(MemoryBufferRef MB) {
   for (const ErrorOr<Archive::Child> &COrErr : File->children()) {
     Archive::Child C = check(COrErr, "could not get the child of the archive " +
                                          File->getFileName());
-    MemoryBufferRef Mb =
+    MemoryBufferRef MBRef =
         check(C.getMemoryBufferRef(),
               "could not get the buffer for a child of the archive " +
                   File->getFileName());
-    V.push_back(Mb);
+    V.push_back(MBRef);
   }
 
   // Take ownership of memory buffers created for members of thin archives.
@@ -98,16 +99,12 @@ LinkerDriver::getArchiveMembers(MemoryBufferRef MB) {
 // Newly created memory buffers are owned by this driver.
 void LinkerDriver::addFile(StringRef Path) {
   using namespace llvm::sys::fs;
-  if (Config->Verbose || Config->Trace)
+  if (Config->Verbose)
     llvm::outs() << Path << "\n";
-  auto MBOrErr = MemoryBuffer::getFile(Path);
-  if (!MBOrErr) {
-    error(MBOrErr, "cannot open " + Path);
+  Optional<MemoryBufferRef> Buffer = readFile(Path);
+  if (!Buffer.hasValue())
     return;
-  }
-  std::unique_ptr<MemoryBuffer> &MB = *MBOrErr;
-  MemoryBufferRef MBRef = MB->getMemBufferRef();
-  OwningMBs.push_back(std::move(MB)); // take MB ownership
+  MemoryBufferRef MBRef = *Buffer;
 
   switch (identify_magic(MBRef.getBuffer())) {
   case file_magic::unknown:
@@ -129,8 +126,27 @@ void LinkerDriver::addFile(StringRef Path) {
     Files.push_back(createSharedFile(MBRef));
     return;
   default:
-    Files.push_back(createObjectFile(MBRef));
+    if (InLib)
+      Files.push_back(make_unique<LazyObjectFile>(MBRef));
+    else
+      Files.push_back(createObjectFile(MBRef));
   }
+}
+
+Optional<MemoryBufferRef> LinkerDriver::readFile(StringRef Path) {
+  auto MBOrErr = MemoryBuffer::getFile(Path);
+  error(MBOrErr, "cannot open " + Path);
+  if (HasError)
+    return None;
+  std::unique_ptr<MemoryBuffer> &MB = *MBOrErr;
+  MemoryBufferRef MBRef = MB->getMemBufferRef();
+  OwningMBs.push_back(std::move(MB)); // take MB ownership
+  return MBRef;
+}
+
+void LinkerDriver::readDynamicList(StringRef Path) {
+  if (Optional<MemoryBufferRef> Buffer = readFile(Path))
+    parseDynamicList(*Buffer);
 }
 
 // Add a given library by searching it from input search paths.
@@ -140,6 +156,24 @@ void LinkerDriver::addLibrary(StringRef Name) {
     error("unable to find library -l" + Name);
   else
     addFile(Path);
+}
+
+// This function is called on startup. We need this for LTO since
+// LTO calls LLVM functions to compile bitcode files to native code.
+// Technically this can be delayed until we read bitcode files, but
+// we don't bother to do lazily because the initialization is fast.
+static void initLLVM(opt::InputArgList &Args) {
+  InitializeAllTargets();
+  InitializeAllTargetMCs();
+  InitializeAllAsmPrinters();
+  InitializeAllAsmParsers();
+
+  // Parse and evaluate -mllvm options.
+  std::vector<const char *> V;
+  V.push_back("lld (LLVM option parsing)");
+  for (auto *Arg : Args.filtered(OPT_mllvm))
+    V.push_back(Arg->getValue());
+  cl::ParseCommandLineOptions(V.size(), V.data());
 }
 
 // Some command line options or some combinations of them are not allowed.
@@ -156,17 +190,16 @@ static void checkOptions(opt::InputArgList &Args) {
   if (Config->Pie && Config->Shared)
     error("-shared and -pie may not be used together");
 
-  if (!Config->Relocatable)
-    return;
-
-  if (Config->Shared)
-    error("-r and -shared may not be used together");
-  if (Config->GcSections)
-    error("-r and --gc-sections may not be used together");
-  if (Config->ICF)
-    error("-r and --icf may not be used together");
-  if (Config->Pie)
-    error("-r and -pie may not be used together");
+  if (Config->Relocatable) {
+    if (Config->Shared)
+      error("-r and -shared may not be used together");
+    if (Config->GcSections)
+      error("-r and --gc-sections may not be used together");
+    if (Config->ICF)
+      error("-r and --icf may not be used together");
+    if (Config->Pie)
+      error("-r and -pie may not be used together");
+  }
 }
 
 static StringRef
@@ -205,6 +238,7 @@ void LinkerDriver::main(ArrayRef<const char *> ArgsArr) {
     return;
   }
 
+  initLLVM(Args);
   readConfigs(Args);
   createFiles(Args);
   checkOptions(Args);
@@ -250,8 +284,8 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   Config->AllowMultipleDefinition = Args.hasArg(OPT_allow_multiple_definition);
   Config->Bsymbolic = Args.hasArg(OPT_Bsymbolic);
   Config->BsymbolicFunctions = Args.hasArg(OPT_Bsymbolic_functions);
-  Config->BuildId = Args.hasArg(OPT_build_id);
   Config->Demangle = !Args.hasArg(OPT_no_demangle);
+  Config->DisableVerify = Args.hasArg(OPT_disable_verify);
   Config->DiscardAll = Args.hasArg(OPT_discard_all);
   Config->DiscardLocals = Args.hasArg(OPT_discard_locals);
   Config->DiscardNone = Args.hasArg(OPT_discard_none);
@@ -260,6 +294,7 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   Config->ExportDynamic = Args.hasArg(OPT_export_dynamic);
   Config->GcSections = Args.hasArg(OPT_gc_sections);
   Config->ICF = Args.hasArg(OPT_icf);
+  Config->NoGnuUnique = Args.hasArg(OPT_no_gnu_unique);
   Config->NoUndefined = Args.hasArg(OPT_no_undefined);
   Config->NoinhibitExec = Args.hasArg(OPT_noinhibit_exec);
   Config->Pie = Args.hasArg(OPT_pie);
@@ -268,6 +303,7 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   Config->SaveTemps = Args.hasArg(OPT_save_temps);
   Config->Shared = Args.hasArg(OPT_shared);
   Config->StripAll = Args.hasArg(OPT_strip_all);
+  Config->StripDebug = Args.hasArg(OPT_strip_debug);
   Config->Threads = Args.hasArg(OPT_threads);
   Config->Trace = Args.hasArg(OPT_trace);
   Config->Verbose = Args.hasArg(OPT_verbose);
@@ -283,6 +319,8 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
 
   Config->Optimize = getInteger(Args, OPT_O, 0);
   Config->LtoO = getInteger(Args, OPT_lto_O, 2);
+  if (Config->LtoO > 3)
+    error("invalid optimization level for LTO: " + getString(Args, OPT_lto_O));
 
   Config->ZExecStack = hasZOption(Args, "execstack");
   Config->ZNodelete = hasZOption(Args, "nodelete");
@@ -290,10 +328,15 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   Config->ZOrigin = hasZOption(Args, "origin");
   Config->ZRelro = !hasZOption(Args, "norelro");
 
-  Config->Pic = Config->Pie || Config->Shared;
-
   if (Config->Relocatable)
     Config->StripAll = false;
+
+  // --strip-all implies --strip-debug.
+  if (Config->StripAll)
+    Config->StripDebug = true;
+
+  // Config->Pic is true if we are generating position-independent code.
+  Config->Pic = Config->Pie || Config->Shared;
 
   if (auto *Arg = Args.getLastArg(OPT_hash_style)) {
     StringRef S = Arg->getValue();
@@ -306,8 +349,24 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
       error("unknown hash style: " + S);
   }
 
+  // Parse --build-id or --build-id=<style>.
+  if (Args.hasArg(OPT_build_id))
+    Config->BuildId = BuildIdKind::Fnv1;
+  if (auto *Arg = Args.getLastArg(OPT_build_id_eq)) {
+    StringRef S = Arg->getValue();
+    if (S == "md5") {
+      Config->BuildId = BuildIdKind::Md5;
+    } else if (S == "sha1") {
+      Config->BuildId = BuildIdKind::Sha1;
+    } else
+      error("unknown --build-id style: " + S);
+  }
+
   for (auto *Arg : Args.filtered(OPT_undefined))
     Config->Undefined.push_back(Arg->getValue());
+
+  if (Args.hasArg(OPT_dynamic_list))
+    readDynamicList(getString(Args, OPT_dynamic_list));
 }
 
 void LinkerDriver::createFiles(opt::InputArgList &Args) {
@@ -338,6 +397,12 @@ void LinkerDriver::createFiles(opt::InputArgList &Args) {
     case OPT_no_whole_archive:
       WholeArchive = false;
       break;
+    case OPT_start_lib:
+      InLib = true;
+      break;
+    case OPT_end_lib:
+      InLib = false;
+      break;
     }
   }
 
@@ -345,23 +410,7 @@ void LinkerDriver::createFiles(opt::InputArgList &Args) {
     error("no input files.");
 }
 
-template <class ELFT> static void initSymbols() {
-  ElfSym<ELFT>::Etext.setBinding(STB_GLOBAL);
-  ElfSym<ELFT>::Edata.setBinding(STB_GLOBAL);
-  ElfSym<ELFT>::End.setBinding(STB_GLOBAL);
-  ElfSym<ELFT>::Ignored.setBinding(STB_WEAK);
-  ElfSym<ELFT>::Ignored.setVisibility(STV_HIDDEN);
-}
-
 template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
-  // For LTO
-  InitializeAllTargets();
-  InitializeAllTargetMCs();
-  InitializeAllAsmPrinters();
-  InitializeAllAsmParsers();
-
-  initSymbols<ELFT>();
-
   SymbolTable<ELFT> Symtab;
   std::unique_ptr<TargetInfo> TI(createTarget());
   Target = TI.get();
@@ -375,43 +424,11 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
       Config->EMachine != EM_AMDGPU)
     Config->Entry = Config->EMachine == EM_MIPS ? "__start" : "_start";
 
-  // In the assembly for 32 bit x86 the _GLOBAL_OFFSET_TABLE_ symbol
-  // is magical and is used to produce a R_386_GOTPC relocation.
-  // The R_386_GOTPC relocation value doesn't actually depend on the
-  // symbol value, so it could use an index of STN_UNDEF which, according
-  // to the spec, means the symbol value is 0.
-  // Unfortunately both gas and MC keep the _GLOBAL_OFFSET_TABLE_ symbol in
-  // the object file.
-  // The situation is even stranger on x86_64 where the assembly doesn't
-  // need the magical symbol, but gas still puts _GLOBAL_OFFSET_TABLE_ as
-  // an undefined symbol in the .o files.
-  // Given that the symbol is effectively unused, we just create a dummy
-  // hidden one to avoid the undefined symbol error.
-  if (!Config->Relocatable)
-    Symtab.addIgnored("_GLOBAL_OFFSET_TABLE_");
-
   if (!Config->Entry.empty()) {
     // Set either EntryAddr (if S is a number) or EntrySym (otherwise).
     StringRef S = Config->Entry;
     if (S.getAsInteger(0, Config->EntryAddr))
-      Config->EntrySym = Symtab.addUndefined(S);
-  }
-
-  if (Config->EMachine == EM_MIPS) {
-    // On MIPS O32 ABI, _gp_disp is a magic symbol designates offset between
-    // start of function and 'gp' pointer into GOT.
-    Config->MipsGpDisp = Symtab.addIgnored("_gp_disp");
-    // The __gnu_local_gp is a magic symbol equal to the current value of 'gp'
-    // pointer. This symbol is used in the code generated by .cpload pseudo-op
-    // in case of using -mno-shared option.
-    // https://sourceware.org/ml/binutils/2004-12/msg00094.html
-    Config->MipsLocalGp = Symtab.addIgnored("__gnu_local_gp");
-
-    // Define _gp for MIPS. st_value of _gp symbol will be updated by Writer
-    // so that it points to an absolute address which is relative to GOT.
-    // See "Global Data Symbols" in Chapter 6 in the following document:
-    // ftp://www.linux-mips.org/pub/linux/mips/doc/ABI/mipsabi.pdf
-    Symtab.addAbsolute("_gp", ElfSym<ELFT>::MipsGp);
+      Config->EntrySym = Symtab.addUndefined(S)->getSymbol();
   }
 
   for (std::unique_ptr<InputFile> &F : Files)
@@ -422,16 +439,21 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
   for (StringRef S : Config->Undefined)
     Symtab.addUndefinedOpt(S);
 
+  // -save-temps creates a file based on the output file name so we want
+  // to set it right before LTO. This code can't be moved to option parsing
+  // because linker scripts can override the output filename using the
+  // OUTPUT() directive.
+  if (Config->OutputFile.empty())
+    Config->OutputFile = "a.out";
+
   Symtab.addCombinedLtoObject();
 
   for (auto *Arg : Args.filtered(OPT_wrap))
     Symtab.wrap(Arg->getValue());
 
-  if (Config->OutputFile.empty())
-    Config->OutputFile = "a.out";
-
   // Write the result to the file.
   Symtab.scanShlibUndefined();
+  Symtab.scanDynamicList();
   if (Config->GcSections)
     markLive<ELFT>(&Symtab);
   if (Config->ICF)

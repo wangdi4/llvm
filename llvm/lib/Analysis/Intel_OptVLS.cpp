@@ -108,42 +108,6 @@ void OVLSGroup::dump() const {
 }
 #endif
 
-void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
-
-  OS << "\n    Vector Length(in bytes): " << getVectorLength();
-  // print accessType
-  OS << "\n    AccType: ";
-  getAccessType().print(OS);
-
-  // Print result mask
-  OS << "\n    AccessMask(per byte, R to L): ";
-  uint64_t AMask = getNByteAccessMask();
-
-  // Convert int AccessMask to binary
-  char SRMask[MAX_VECTOR_LENGTH+1], *MaskPtr;
-  SRMask[0] = '\0';
-  MaskPtr = &SRMask[1];
-  while (AMask) {
-    if (AMask & 1)
-      *MaskPtr++ = '1';
-    else
-      *MaskPtr++ = '0';
-
-    AMask >>= 1;
-  }
-  // print the mask reverse
-  while (*(--MaskPtr) != '\0') {
-    OS << *MaskPtr;
-  }
-  OS << "\n";
-
-  // Print vector of memrefs that belong to this group.
-  for (unsigned i = 0, S = MemrefVec.size(); i < S; i++) {
-    MemrefVec[i]->print(OS, NumSpaces);
-    OS << "\n";
-  }
-}
-
 namespace OptVLS {
   static void dumpOVLSGroupVector(OVLSostream &OS, const OVLSGroupVector &Grps) {
     OS << "\n  Printing Groups- Total Groups " << Grps.size() << "\n";
@@ -182,6 +146,25 @@ namespace OptVLS {
     Mask |= NewMask << bitlocation;
 
     return Mask;
+  }
+
+  static void printMask(OVLSostream &OS, uint64_t Mask) {
+    // Convert int AccessMask to binary
+    char SRMask[MAX_VECTOR_LENGTH+1], *MaskPtr;
+    SRMask[0] = '\0';
+    MaskPtr = &SRMask[1];
+    while (Mask) {
+      if (Mask & 1)
+        *MaskPtr++ = '1';
+      else
+        *MaskPtr++ = '0';
+
+      Mask >>= 1;
+    }
+    // print the mask reverse
+    while (*(--MaskPtr) != '\0') {
+      OS << *MaskPtr;
+    }
   }
 
   // Form OptVLSgroups for each set of adjacent memrefs in the MemrefSetVec
@@ -285,6 +268,44 @@ namespace OptVLS {
     return;
   }
 } // end of namespace
+
+void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
+
+  OS << "\n    Vector Length(in bytes): " << getVectorLength();
+  // print accessType
+  OS << "\n    AccType: ";
+  getAccessType().print(OS);
+
+  // Print result mask
+  OS << "\n    AccessMask(per byte, R to L): ";
+  uint64_t AMask = getNByteAccessMask();
+  OptVLS::printMask(OS, AMask);
+  OS << "\n";
+
+  // Print vector of memrefs that belong to this group.
+  for (unsigned i = 0, S = MemrefVec.size(); i < S; i++) {
+    MemrefVec[i]->print(OS, NumSpaces);
+    OS << "\n";
+  }
+}
+
+/// print the load instruction like this:
+///   %1 = mask.load.32.3 (<Base:0x165eca0 Offset:0>, 111)
+///   %2 = mask.load.32.3 (<Base:0x165eca0 Offset:12>, 111)
+void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
+  uint32_t Counter = 0;
+  while (Counter++ != NumSpaces)
+    OS << " ";
+
+  OS << "%" << getId();
+  OS << " = ";
+  OS << "mask.load." << getElementSize() << "." << getNumElements() << " (";
+  Src.print(OS);
+  OS << ", ";
+  OptVLS::printMask(OS, getMask());
+  OS << ")";
+  OS << "\n";
+}
 
 // getGroups() takes a vector of OVLSMemrefs and a group size in bytes
 // (which is the the maximum length of the underlying vector register

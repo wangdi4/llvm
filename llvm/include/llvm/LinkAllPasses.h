@@ -198,6 +198,7 @@ namespace {
       (void) llvm::createScalarizerPass();
       (void) llvm::createSeparateConstOffsetFromGEPPass();
       (void) llvm::createSpeculativeExecutionPass();
+      (void) llvm::createSpeculativeExecutionIfHasBranchDivergencePass();
       (void) llvm::createRewriteSymbolsPass();
       (void) llvm::createStraightLineStrengthReducePass();
       (void) llvm::createMemDerefPrinter();

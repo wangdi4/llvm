@@ -351,7 +351,6 @@ public:
   GlobalValueMaterializer(IRLinker &TheIRLinker) : TheIRLinker(TheIRLinker) {}
   Value *materializeDeclFor(Value *V) override;
   void materializeInitFor(GlobalValue *New, GlobalValue *Old) override;
-  bool isMetadataNeeded(Metadata *MD) override;
 };
 
 class LocalValueMaterializer final : public ValueMaterializer {
@@ -361,7 +360,6 @@ public:
   LocalValueMaterializer(IRLinker &TheIRLinker) : TheIRLinker(TheIRLinker) {}
   Value *materializeDeclFor(Value *V) override;
   void materializeInitFor(GlobalValue *New, GlobalValue *Old) override;
-  bool isMetadataNeeded(Metadata *MD) override;
 };
 
 /// This is responsible for keeping track of the state used for moving data
@@ -399,13 +397,9 @@ class IRLinker {
 
   bool HasError = false;
 
-  /// Flags to pass to value mapper invocations.
-  RemapFlags ValueMapperFlags = RF_MoveDistinctMDs;
-
-  /// Set of subprogram metadata that does not need to be linked into the
-  /// destination module, because the functions were not imported directly
-  /// or via an inlined body in an imported function.
-  SmallPtrSet<const Metadata *, 16> UnneededSubprograms;
+  /// Entry point for mapping values and alternate context for mapping aliases.
+  ValueMapper Mapper;
+  unsigned AliasMCID;
 
   /// Handles cloning of a global values from the source module into
   /// the destination module, including setting the attributes and visibility.
@@ -472,23 +466,16 @@ class IRLinker {
 
   void linkNamedMDNodes();
 
-  /// Populate the UnneededSubprograms set with the DISubprogram metadata
-  /// from the source module that we don't need to link into the dest module,
-  /// because the functions were not imported directly or via an inlined body
-  /// in an imported function.
-  void findNeededSubprograms();
-
-  /// The value mapper leaves nulls in the list of subprograms for any
-  /// in the UnneededSubprograms map. Strip those out of the mapped
-  /// compile unit.
-  void stripNullSubprograms(DICompileUnit *CU);
-
 public:
   IRLinker(Module &DstM, IRMover::IdentifiedStructTypeSet &Set,
            std::unique_ptr<Module> SrcM, ArrayRef<GlobalValue *> ValuesToLink,
            std::function<void(GlobalValue &, IRMover::ValueAdder)> AddLazyFor)
       : DstM(DstM), SrcM(std::move(SrcM)), AddLazyFor(AddLazyFor), TypeMap(Set),
-        GValMaterializer(*this), LValMaterializer(*this) {
+        GValMaterializer(*this), LValMaterializer(*this),
+        Mapper(ValueMap, RF_MoveDistinctMDs | RF_IgnoreMissingLocals, &TypeMap,
+               &GValMaterializer),
+        AliasMCID(Mapper.registerAlternateMappingContext(AliasValueMap,
+                                                         &LValMaterializer)) {
     for (GlobalValue *GV : ValuesToLink)
       maybeAdd(GV);
   }
@@ -496,11 +483,6 @@ public:
   bool run();
   Value *materializeDeclFor(Value *V, bool ForAlias);
   void materializeInitFor(GlobalValue *New, GlobalValue *Old, bool ForAlias);
-
-  /// Indicates whether we need to map the given metadata into the destination
-  /// module. Used to prevent linking of metadata only needed by functions not
-  /// linked into the dest module.
-  bool isMetadataNeeded(Metadata *MD);
 };
 }
 
@@ -534,10 +516,6 @@ void GlobalValueMaterializer::materializeInitFor(GlobalValue *New,
   TheIRLinker.materializeInitFor(New, Old, false);
 }
 
-bool GlobalValueMaterializer::isMetadataNeeded(Metadata *MD) {
-  return TheIRLinker.isMetadataNeeded(MD);
-}
-
 Value *LocalValueMaterializer::materializeDeclFor(Value *V) {
   return TheIRLinker.materializeDeclFor(V, true);
 }
@@ -545,10 +523,6 @@ Value *LocalValueMaterializer::materializeDeclFor(Value *V) {
 void LocalValueMaterializer::materializeInitFor(GlobalValue *New,
                                                 GlobalValue *Old) {
   TheIRLinker.materializeInitFor(New, Old, true);
-}
-
-bool LocalValueMaterializer::isMetadataNeeded(Metadata *MD) {
-  return TheIRLinker.isMetadataNeeded(MD);
 }
 
 Value *IRLinker::materializeDeclFor(Value *V, bool ForAlias) {
@@ -576,19 +550,6 @@ void IRLinker::materializeInitFor(GlobalValue *New, GlobalValue *Old,
 
   if (ForAlias || shouldLink(New, *Old))
     linkGlobalValueBody(*New, *Old);
-}
-
-bool IRLinker::isMetadataNeeded(Metadata *MD) {
-  // Currently only DISubprogram metadata is marked as being unneeded.
-  if (UnneededSubprograms.empty())
-    return true;
-  MDNode *Node = dyn_cast<MDNode>(MD);
-  if (!Node)
-    return true;
-  DISubprogram *SP = getDISubprogram(Node);
-  if (!SP)
-    return true;
-  return !UnneededSubprograms.count(SP);
 }
 
 /// Loop through the global variables in the src module and merge them into the
@@ -756,6 +717,10 @@ Constant *IRLinker::linkAppendingVarProto(GlobalVariable *DstGV,
   Type *EltTy = cast<ArrayType>(TypeMap.get(SrcGV->getValueType()))
                     ->getElementType();
 
+  // FIXME: This upgrade is done during linking to support the C API.  Once the
+  // old form is deprecated, we should move this upgrade to
+  // llvm::UpgradeGlobalVariable() and simplify the logic here and in
+  // Mapper::mapAppendingVariable() in ValueMapper.cpp.
   StringRef Name = SrcGV->getName();
   bool IsNewStructor = false;
   bool IsOldStructor = false;
@@ -773,8 +738,10 @@ Constant *IRLinker::linkAppendingVarProto(GlobalVariable *DstGV,
     EltTy = StructType::get(SrcGV->getContext(), Tys, false);
   }
 
+  uint64_t DstNumElements = 0;
   if (DstGV) {
     ArrayType *DstTy = cast<ArrayType>(DstGV->getValueType());
+    DstNumElements = DstTy->getNumElements();
 
     if (!SrcGV->hasAppendingLinkage() || !DstGV->hasAppendingLinkage()) {
       emitError(
@@ -818,10 +785,6 @@ Constant *IRLinker::linkAppendingVarProto(GlobalVariable *DstGV,
     }
   }
 
-  SmallVector<Constant *, 16> DstElements;
-  if (DstGV)
-    getArrayElements(DstGV->getInitializer(), DstElements);
-
   SmallVector<Constant *, 16> SrcElements;
   getArrayElements(SrcGV->getInitializer(), SrcElements);
 
@@ -837,7 +800,7 @@ Constant *IRLinker::linkAppendingVarProto(GlobalVariable *DstGV,
                          return !shouldLink(DGV, *Key);
                        }),
         SrcElements.end());
-  uint64_t NewSize = DstElements.size() + SrcElements.size();
+  uint64_t NewSize = DstNumElements + SrcElements.size();
   ArrayType *NewType = ArrayType::get(EltTy, NewSize);
 
   // Create the new global variable.
@@ -854,25 +817,9 @@ Constant *IRLinker::linkAppendingVarProto(GlobalVariable *DstGV,
   // Stop recursion.
   ValueMap[SrcGV] = Ret;
 
-  for (auto *V : SrcElements) {
-    Constant *NewV;
-    if (IsOldStructor) {
-      auto *S = cast<ConstantStruct>(V);
-      auto *E1 = MapValue(S->getOperand(0), ValueMap, ValueMapperFlags,
-                          &TypeMap, &GValMaterializer);
-      auto *E2 = MapValue(S->getOperand(1), ValueMap, ValueMapperFlags,
-                          &TypeMap, &GValMaterializer);
-      Value *Null = Constant::getNullValue(VoidPtrTy);
-      NewV =
-          ConstantStruct::get(cast<StructType>(EltTy), E1, E2, Null, nullptr);
-    } else {
-      NewV =
-          MapValue(V, ValueMap, ValueMapperFlags, &TypeMap, &GValMaterializer);
-    }
-    DstElements.push_back(NewV);
-  }
-
-  NG->setInitializer(ConstantArray::get(NewType, DstElements));
+  Mapper.scheduleMapAppendingVariable(*NG,
+                                      DstGV ? DstGV->getInitializer() : nullptr,
+                                      IsOldStructor, SrcElements);
 
   // Replace any uses of the two global variables with uses of the new
   // global.
@@ -979,8 +926,7 @@ Constant *IRLinker::linkGlobalValueProto(GlobalValue *SGV, bool ForAlias) {
 /// referenced are in Dest.
 void IRLinker::linkGlobalInit(GlobalVariable &Dst, GlobalVariable &Src) {
   // Figure out what the initializer looks like in the dest module.
-  Dst.setInitializer(MapValue(Src.getInitializer(), ValueMap, ValueMapperFlags,
-                              &TypeMap, &GValMaterializer));
+  Mapper.scheduleMapGlobalInitializer(Dst, *Src.getInitializer());
 }
 
 /// Copy the source function over into the dest function and fix up references
@@ -993,64 +939,31 @@ bool IRLinker::linkFunctionBody(Function &Dst, Function &Src) {
   if (std::error_code EC = Src.materialize())
     return emitError(EC.message());
 
-  // Link in the prefix data.
+  // Link in the operands without remapping.
   if (Src.hasPrefixData())
-    Dst.setPrefixData(MapValue(Src.getPrefixData(), ValueMap, ValueMapperFlags,
-                               &TypeMap, &GValMaterializer));
-
-  // Link in the prologue data.
+    Dst.setPrefixData(Src.getPrefixData());
   if (Src.hasPrologueData())
-    Dst.setPrologueData(MapValue(Src.getPrologueData(), ValueMap,
-                                 ValueMapperFlags, &TypeMap,
-                                 &GValMaterializer));
-
-  // Link in the personality function.
+    Dst.setPrologueData(Src.getPrologueData());
   if (Src.hasPersonalityFn())
-    Dst.setPersonalityFn(MapValue(Src.getPersonalityFn(), ValueMap,
-                                  ValueMapperFlags, &TypeMap,
-                                  &GValMaterializer));
+    Dst.setPersonalityFn(Src.getPersonalityFn());
 
-  // Go through and convert function arguments over, remembering the mapping.
-  Function::arg_iterator DI = Dst.arg_begin();
-  for (Argument &Arg : Src.args()) {
-    DI->setName(Arg.getName()); // Copy the name over.
-
-    // Add a mapping to our mapping.
-    ValueMap[&Arg] = &*DI;
-    ++DI;
-  }
-
-  // Copy over the metadata attachments.
+  // Copy over the metadata attachments without remapping.
   SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;
   Src.getAllMetadata(MDs);
   for (const auto &I : MDs)
-    Dst.setMetadata(I.first, MapMetadata(I.second, ValueMap, ValueMapperFlags,
-                                         &TypeMap, &GValMaterializer));
+    Dst.setMetadata(I.first, I.second);
 
-  // Splice the body of the source function into the dest function.
+  // Steal arguments and splice the body of Src into Dst.
+  Dst.stealArgumentListFrom(Src);
   Dst.getBasicBlockList().splice(Dst.end(), Src.getBasicBlockList());
 
-  // At this point, all of the instructions and values of the function are now
-  // copied over.  The only problem is that they are still referencing values in
-  // the Source function as operands.  Loop through all of the operands of the
-  // functions and patch them up to point to the local versions.
-  for (BasicBlock &BB : Dst)
-    for (Instruction &I : BB)
-      RemapInstruction(&I, ValueMap, RF_IgnoreMissingEntries | ValueMapperFlags,
-                       &TypeMap, &GValMaterializer);
-
-  // There is no need to map the arguments anymore.
-  for (Argument &Arg : Src.args())
-    ValueMap.erase(&Arg);
-
+  // Everything has been moved over.  Remap it.
+  Mapper.scheduleRemapFunction(Dst);
   return false;
 }
 
 void IRLinker::linkAliasBody(GlobalAlias &Dst, GlobalAlias &Src) {
-  Constant *Aliasee = Src.getAliasee();
-  Constant *Val = MapValue(Aliasee, AliasValueMap, ValueMapperFlags, &TypeMap,
-                           &LValMaterializer);
-  Dst.setAliasee(Val);
+  Mapper.scheduleMapGlobalAliasee(Dst, *Src.getAliasee(), AliasMCID);
 }
 
 bool IRLinker::linkGlobalValueBody(GlobalValue &Dst, GlobalValue &Src) {
@@ -1064,62 +977,8 @@ bool IRLinker::linkGlobalValueBody(GlobalValue &Dst, GlobalValue &Src) {
   return false;
 }
 
-void IRLinker::findNeededSubprograms() {
-  // Track unneeded nodes to make it simpler to handle the case
-  // where we are checking if an already-mapped SP is needed.
-  NamedMDNode *CompileUnits = SrcM->getNamedMetadata("llvm.dbg.cu");
-  if (!CompileUnits)
-    return;
-  for (unsigned I = 0, E = CompileUnits->getNumOperands(); I != E; ++I) {
-    auto *CU = cast<DICompileUnit>(CompileUnits->getOperand(I));
-    assert(CU && "Expected valid compile unit");
-    // Ensure that we don't remove subprograms referenced by DIImportedEntity.
-    // It is not legal to have a DIImportedEntity with a null entity or scope.
-    // Using getDISubprogram handles the case where the subprogram is reached
-    // via an intervening DILexicalBlock.
-    // FIXME: The DISubprogram for functions not linked in but kept due to
-    // being referenced by a DIImportedEntity should also get their
-    // IsDefinition flag is unset.
-    SmallPtrSet<DISubprogram *, 8> ImportedEntitySPs;
-    for (auto *IE : CU->getImportedEntities()) {
-      if (auto *SP = getDISubprogram(dyn_cast<MDNode>(IE->getEntity())))
-        ImportedEntitySPs.insert(SP);
-      if (auto *SP = getDISubprogram(dyn_cast<MDNode>(IE->getScope())))
-        ImportedEntitySPs.insert(SP);
-    }
-    for (auto *Op : CU->getSubprograms()) {
-      // Any needed SPs should have been mapped as they would be reached
-      // from the function linked in (either on the function itself for linked
-      // function bodies, or from DILocation on inlined instructions).
-      if (!ValueMap.MD()[Op] && !ImportedEntitySPs.count(Op))
-        UnneededSubprograms.insert(Op);
-    }
-  }
-}
-
-// Squash null subprograms from the given compile unit's subprogram list.
-void IRLinker::stripNullSubprograms(DICompileUnit *CU) {
-  // There won't be any nulls if we didn't have any subprograms marked
-  // as unneeded.
-  if (UnneededSubprograms.empty())
-    return;
-  SmallVector<Metadata *, 16> NewSPs;
-  NewSPs.reserve(CU->getSubprograms().size());
-  bool FoundNull = false;
-  for (DISubprogram *SP : CU->getSubprograms()) {
-    if (!SP) {
-      FoundNull = true;
-      continue;
-    }
-    NewSPs.push_back(SP);
-  }
-  if (FoundNull)
-    CU->replaceSubprograms(MDTuple::get(CU->getContext(), NewSPs));
-}
-
 /// Insert all of the named MDNodes in Src into the Dest module.
 void IRLinker::linkNamedMDNodes() {
-  findNeededSubprograms();
   const NamedMDNode *SrcModFlags = SrcM->getModuleFlagsMetadata();
   for (const NamedMDNode &NMD : SrcM->named_metadata()) {
     // Don't link module flags here. Do them separately.
@@ -1127,17 +986,8 @@ void IRLinker::linkNamedMDNodes() {
       continue;
     NamedMDNode *DestNMD = DstM.getOrInsertNamedMetadata(NMD.getName());
     // Add Src elements into Dest node.
-    for (const MDNode *op : NMD.operands()) {
-      MDNode *DestMD = MapMetadata(
-          op, ValueMap, ValueMapperFlags | RF_NullMapMissingGlobalValues,
-          &TypeMap, &GValMaterializer);
-      // For each newly mapped compile unit remove any null subprograms,
-      // which occur when findNeededSubprograms identified any as unneeded
-      // in the dest module.
-      if (auto *CU = dyn_cast<DICompileUnit>(DestMD))
-        stripNullSubprograms(CU);
-      DestNMD->addOperand(DestMD);
-    }
+    for (const MDNode *Op : NMD.operands())
+      DestNMD->addOperand(Mapper.mapMDNode(*Op));
   }
 }
 
@@ -1377,7 +1227,7 @@ bool IRLinker::run() {
       continue;
 
     assert(!GV->isDeclaration());
-    MapValue(GV, ValueMap, ValueMapperFlags, &TypeMap, &GValMaterializer);
+    Mapper.mapValue(*GV);
     if (HasError)
       return true;
   }
@@ -1385,6 +1235,7 @@ bool IRLinker::run() {
   // Note that we are done linking global value bodies. This prevents
   // metadata linking from creating new references.
   DoneLinkingBodies = true;
+  Mapper.addFlags(RF_NullMapMissingGlobalValues);
 
   // Remap all of the named MDNodes in Src into the DstM module. We do this
   // after linking GlobalValues so that MDNodes that reference GlobalValues

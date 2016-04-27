@@ -560,6 +560,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(addrspace);
   KEYWORD(section);
   KEYWORD(alias);
+  KEYWORD(ifunc);
   KEYWORD(module);
   KEYWORD(asm);
   KEYWORD(sideeffect);
@@ -594,6 +595,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(x86_64_win64cc);
   KEYWORD(x86_regcallcc); // INTEL
   KEYWORD(webkit_jscc);
+  KEYWORD(swiftcc);
   KEYWORD(anyregcc);
   KEYWORD(preserve_mostcc);
   KEYWORD(preserve_allcc);
@@ -602,6 +604,10 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(hhvmcc);
   KEYWORD(hhvm_ccc);
   KEYWORD(cxx_fast_tlscc);
+  KEYWORD(amdgpu_vs);
+  KEYWORD(amdgpu_gs);
+  KEYWORD(amdgpu_ps);
+  KEYWORD(amdgpu_cs);
 
   KEYWORD(cc);
   KEYWORD(c);
@@ -609,6 +615,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(attributes);
 
   KEYWORD(alwaysinline);
+  KEYWORD(allocsize);
   KEYWORD(argmemonly);
   KEYWORD(builtin);
   KEYWORD(byval);
@@ -652,6 +659,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(sanitize_address);
   KEYWORD(sanitize_thread);
   KEYWORD(sanitize_memory);
+  KEYWORD(swifterror);
   KEYWORD(swiftself);
   KEYWORD(uwtable);
   KEYWORD(zeroext);

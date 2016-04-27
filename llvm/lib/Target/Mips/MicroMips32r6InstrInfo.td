@@ -266,7 +266,7 @@ class CVT_S_L_MMR6_ENC : POOL32F_CVT_DS_FM<"cvt.s.l", 2, 0b1101101>;
 //===----------------------------------------------------------------------===//
 
 class ADD_MMR6_DESC : ArithLogicR<"add", GPR32Opnd>;
-class ADDIU_MMR6_DESC : ArithLogicI<"addiu", simm16, GPR32Opnd>;
+class ADDIU_MMR6_DESC : ArithLogicI<"addiu", simm16, GPR32Opnd, II_ADDIU, immSExt16, add>;
 class ADDU_MMR6_DESC : ArithLogicR<"addu", GPR32Opnd>;
 class MUL_MMR6_DESC : ArithLogicR<"mul", GPR32Opnd>;
 class MUH_MMR6_DESC : ArithLogicR<"muh", GPR32Opnd>;
@@ -982,9 +982,9 @@ class LUI_MMR6_DESC : IsAsCheapAsAMove, MMR6Arch<"lui">, MipsR6Inst{
 
 class SYNC_MMR6_DESC : MMR6Arch<"sync">, MipsR6Inst {
   dag OutOperandList = (outs);
-  dag InOperandList = (ins i32imm:$stype);
+  dag InOperandList = (ins uimm5:$stype);
   string AsmString = !strconcat("sync", "\t$stype");
-  list<dag> Pattern = [(MipsSync imm:$stype)];
+  list<dag> Pattern = [(MipsSync immZExt5:$stype)];
   InstrItinClass Itinerary = NoItinerary;
   bit HasSideEffects = 1;
 }
