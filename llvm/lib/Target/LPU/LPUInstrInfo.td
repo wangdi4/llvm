@@ -1063,7 +1063,7 @@ defm INIT64 : Init<I64, i64, [HasI64]>;
 def UNIT : PseudoInstLPU<
     (outs),
     (ins Operand<i64>:$immType),
-    ".unit\t$immType",
+    ".unit\tALU",  // ".unit\t$immType", temp - just claim ALU until implemented
     []>;
 
 // Unit type + index of unit in type only

@@ -27,6 +27,7 @@ namespace llvm {
   FunctionPass *createLPUISelDag(LPUTargetMachine &TM,
                                  llvm::CodeGenOpt::Level OptLevel);
   MachineFunctionPass *createLPUConvertControlPass();
+  MachineFunctionPass *createLPUAllocUnitPass();
   MachineFunctionPass *createLPUPrologEpilogPass();
   MachineFunctionPass *createLPULICAllocPass();
   /// \brief Creates an LPU-specific Target Transformation Info pass.

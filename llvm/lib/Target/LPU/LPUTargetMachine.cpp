@@ -103,6 +103,10 @@ public:
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
   }
 
+  void addPostRegAlloc() override {
+    addPass(createLPUAllocUnitPass(), false);
+  }
+
 };
 } // namespace
 

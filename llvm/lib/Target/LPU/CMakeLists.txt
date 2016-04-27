@@ -9,10 +9,10 @@ tablegen(LLVM LPUGenSubtargetInfo.inc -gen-subtarget)
 add_public_tablegen_target(LPUCommonTableGen)
 
 add_llvm_target(LPUCodeGen
-## LPUBranchSelector.cpp
   LPUISelDAGToDAG.cpp
   LPUISelLowering.cpp
   LPUInstrInfo.cpp
+  LPUAllocUnitPass.cpp
   LPUConvertControlPass.cpp
   LPUFrameLowering.cpp
   LPULICAllocPass.cpp
