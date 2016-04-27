@@ -210,16 +210,15 @@ void immediate_executor_task::operator()()
 
 /////////////// TaskExecutor //////////////////////
 TBBTaskExecutor::TBBTaskExecutor() :
-    m_pScheduler(NULL)
+    m_pScheduler(NULL),
+    m_pLoggerClient(NULL)
 {
     // we deliberately don't delete m_pScheduler (see comment above its definition)
 }
 
 TBBTaskExecutor::~TBBTaskExecutor()
 {
-    /* We don't delete m_pGlobalArenaHandler because of all kind of TBB issues in the shutdown sequence, but since this destructor is called when the whole library goes down and m_pGlobalArenaHandler
-       is a singleton, it doesn't really matter. */
-    // TBB seem to have a bug in ~task_scheduler_init(), so we work around it by not deleting m_pScheduler (TBB bug #1955)
+    Finalize();
 }
 
 int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData)
@@ -292,8 +291,7 @@ void TBBTaskExecutor::Finalize()
         m_pScheduler = NULL;
     }
 
-    gWorker_threads = 0;    
-    LOG_INFO(TEXT("%s"),"TBBTaskExecutor Destroyed");
+    gWorker_threads = 0;
     RELEASE_LOGGER_CLIENT;
 }
 
