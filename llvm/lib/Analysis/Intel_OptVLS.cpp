@@ -65,9 +65,10 @@ void OVLSAccessType::print(OVLSostream &OS) const {
   }
 }
 
-OVLSMemref::OVLSMemref(OVLSMemrefKind K, unsigned ESize, unsigned NumElements,
+OVLSMemref::OVLSMemref(OVLSMemrefKind K, OVLSType T,
                        const OVLSAccessType& AType)
-  : Kind(K), ElementSize(ESize), NumElements(NumElements), AccType(AType) {
+  : Kind(K), AccType(AType) {
+  DType = T;
   static unsigned MemrefId = 1;
   Id = MemrefId++;
 
@@ -93,8 +94,8 @@ void OVLSMemref::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << "#" << getId();
 
   // print memref type
-  OS << " <" << getNumElements() << " x " << getElementSize()
-            << ">";
+  OS << " ";
+  OS << getType();
 
   // print accessType
   OS << " ";
@@ -188,7 +189,7 @@ namespace OptVLS {
       for (MemrefDistanceMapIt E = (*AdjMemrefSet).end();
                                      AdjMemrefSetIt != E; ++AdjMemrefSetIt) {
         OVLSMemref *Memref = AdjMemrefSetIt->second;
-        unsigned ElemSize = Memref->getElementSize() / BYTE; // in bytes
+        unsigned ElemSize = Memref->getType().getElementSize() / BYTE; // in bytes
         int Dist = AdjMemrefSetIt->first;
 
         uint64_t AccMask = CurrGrp->getNByteAccessMask();
@@ -299,7 +300,9 @@ void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
 
   OS << "%" << getId();
   OS << " = ";
-  OS << "mask.load." << getElementSize() << "." << getNumElements() << " (";
+  OS << "mask.load." << getType().getElementSize() << ".";
+  OS << getType().getNumElements();
+  OS << " (";
   Src.print(OS);
   OS << ", ";
   OptVLS::printMask(OS, getMask());
