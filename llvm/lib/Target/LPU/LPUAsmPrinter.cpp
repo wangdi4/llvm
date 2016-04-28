@@ -271,7 +271,6 @@ void LPUAsmPrinter::emitParamList(const Function *F) {
       sz = cast<IntegerType>(Ty)->getBitWidth();
     } else if (Ty->isFloatingPointTy()) {
       sz = Ty->getPrimitiveSizeInBits();
-      typeStr = ".f";
     } else if (isa<PointerType>(Ty)) {
       sz = thePointerTy.getSizeInBits();
     } else {
@@ -305,7 +304,7 @@ void LPUAsmPrinter::emitReturnVal(const Function *F) {
     } else {
       assert(Ty->isFloatingPointTy() && "Floating point type expected here");
       size = Ty->getPrimitiveSizeInBits();
-      O << " .f" << size;
+      O << " .i" << size;
     }
     
   } else if (isa<PointerType>(Ty)) {
@@ -359,6 +358,28 @@ void LPUAsmPrinter::EmitFunctionEntryLabel() {
 void LPUAsmPrinter::EmitFunctionBodyStart() {
   //  const MachineRegisterInfo *MRI;
   MRI = &MF->getRegInfo();
+  const LPUMachineFunctionInfo *LMFI = MF->getInfo<LPUMachineFunctionInfo>();
+
+  // Loop over the LIC classes, and over each lic in the class.
+  // Note: If we start allowing parameters and results in LICs for
+  // HybridDataFlow, this may need to be revisited to make sure they
+  // are in order
+  for (TargetRegisterClass::iterator ri = LPU::ANYCRegClass.begin();
+                                     ri != LPU::ANYCRegClass.end(); ++ri) {
+    MCPhysReg reg = *ri;
+    if (LMFI->isAllocated(reg)) {
+      SmallString<128> Str;
+      raw_svector_ostream O(Str);
+      O << "\t";
+      // LIC or register
+      O << (LPU::ANYCRegClass.contains(reg) ? ".lic " : ".reg ");
+      // To get type, will need map from VReg RegClass
+      O << ".i64";
+      O << " " << LPUInstPrinter::getRegisterName(reg);
+      OutStreamer.EmitRawText(O.str());
+    }
+  }
+
   // iterate over all "registers" (LICs) (should be an iterator for that...)
   // What we need is specifically a list of inputs (.param) in order,
   // and a list of results (.result) in order, and all lics not otherwise

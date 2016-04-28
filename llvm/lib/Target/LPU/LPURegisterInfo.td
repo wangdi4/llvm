@@ -42,6 +42,7 @@ let isAllocatable = 0, CopyCost = -1 in {
   def CI16 : RegisterClass<"LPU", [i16,f16], 16, (add (sequence "CI16_%u", 0, 1023))> { let Size=16; }
   def CI32 : RegisterClass<"LPU", [i32,f32], 32, (add (sequence "CI32_%u", 0, 1023))> { let Size=32; }
   def CI64 : RegisterClass<"LPU", [i64,f64], 64, (add (sequence "CI64_%u", 0, 1023))> { let Size=64; }
+  def ANYC : RegisterClass<"LPU", [i1],       0, (add CI0, CI1, CI8, CI16, CI32, CI64)>;
 }
 
 //// Registers in main sequential unit

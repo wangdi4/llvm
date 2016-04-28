@@ -14,6 +14,7 @@
 #ifndef LLVM_LIB_TARGET_LPU_LPUMACHINEFUNCTIONINFO_H
 #define LLVM_LIB_TARGET_LPU_LPUMACHINEFUNCTIONINFO_H
 
+#include "LPURegisterInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 
 namespace llvm {
@@ -21,6 +22,9 @@ namespace llvm {
 /// LPUMachineFunctionInfo - This class is derived from MachineFunction and
 /// contains private LPU target-specific information for each MachineFunction.
 class LPUMachineFunctionInfo : public MachineFunctionInfo {
+
+  struct Info;
+  Info* info;
 
   virtual void anchor();
 
@@ -36,8 +40,8 @@ class LPUMachineFunctionInfo : public MachineFunctionInfo {
   int VarArgsFrameIndex;
 
 public:
-  explicit LPUMachineFunctionInfo(MachineFunction &MF)
-    : FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {}
+  explicit LPUMachineFunctionInfo(MachineFunction &MF);
+  ~LPUMachineFunctionInfo();
  
   int getFPFrameIndex() const { return FPFrameIndex; }
   void setFPFrameIndex(int Index) { FPFrameIndex = Index; }
@@ -48,6 +52,33 @@ public:
   int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
   void setVarArgsFrameIndex(int Index) { VarArgsFrameIndex = Index; }
 
+  // This is a potentially temporary approach for handling LIC allocation.
+  // LICs are not considered normally allocatable entities for register
+  // allocation - all are reserved.  Instead, each case where a LIC is used
+  // is explicitly allocated with allocateLIC.  In assembly generation, LIC
+  // declarations are emitted for the current routine for each allocated LIC.
+
+  const TargetRegisterClass* licRCFromGenRC(const TargetRegisterClass* RC);
+  const TargetRegisterClass* licFromType(MVT vt);
+
+  // Return an available "physical" LIC matching the LIC "register" class.
+  // (e.g. one of CI0, CI1, CI8, CI16, CI32 or CI64)
+  // This represents a unique LIC statically allocated for the current routine.
+  // Note that a different routine may have a use of the "same" LIC, but
+  // it represents a different static physical instance.  (e.g. 2 routines
+  // may have CI64_3, but they are distinct entities.)
+  unsigned allocateLIC(const TargetRegisterClass* RegClass);
+  // True if the lic (register) is allocated
+  bool isAllocated(unsigned lic) const;
+
+  // Set the depth for a particular LIC explicitly, rather than the default.
+  void setLICDepth(unsigned lic, int amount);
+
+  // Return the depth of the specified LIC.
+  // A depth of -1 means the LIC is not allocated
+  // A depth of 0 means to use the default (currently, and expected to be, 2)
+  // Non-zero means an explicit (normally larger) value.
+  int getLICDepth(unsigned lic);
 };
 
 } // End llvm namespace
