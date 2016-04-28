@@ -84,7 +84,7 @@ protected:
               // This is an unconditional branch to the return. Replace the
               // branch with a blr.
               BuildMI(**PI, J, J->getDebugLoc(), TII->get(I->getOpcode()))
-                  .copyImplicitOps(I);
+                  .copyImplicitOps(*I);
               MachineBasicBlock::iterator K = J--;
               K->eraseFromParent();
               BlockChanged = true;
@@ -98,7 +98,7 @@ protected:
               BuildMI(**PI, J, J->getDebugLoc(), TII->get(PPC::BCCLR))
                   .addImm(J->getOperand(0).getImm())
                   .addReg(J->getOperand(1).getReg())
-                  .copyImplicitOps(I);
+                  .copyImplicitOps(*I);
               MachineBasicBlock::iterator K = J--;
               K->eraseFromParent();
               BlockChanged = true;
@@ -113,7 +113,7 @@ protected:
                   **PI, J, J->getDebugLoc(),
                   TII->get(J->getOpcode() == PPC::BC ? PPC::BCLR : PPC::BCLRn))
                   .addReg(J->getOperand(0).getReg())
-                  .copyImplicitOps(I);
+                  .copyImplicitOps(*I);
               MachineBasicBlock::iterator K = J--;
               K->eraseFromParent();
               BlockChanged = true;
@@ -192,6 +192,11 @@ public:
       return Changed;
     }
 
+    MachineFunctionProperties getRequiredProperties() const override {
+      return MachineFunctionProperties().set(
+          MachineFunctionProperties::Property::AllVRegsAllocated);
+    }
+
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       MachineFunctionPass::getAnalysisUsage(AU);
     }
@@ -204,4 +209,3 @@ INITIALIZE_PASS(PPCEarlyReturn, DEBUG_TYPE,
 char PPCEarlyReturn::ID = 0;
 FunctionPass*
 llvm::createPPCEarlyReturnPass() { return new PPCEarlyReturn(); }
-

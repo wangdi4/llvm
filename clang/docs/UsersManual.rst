@@ -1053,6 +1053,21 @@ are listed below.
    the behavior of sanitizers in the ``cfi`` group to allow checking
    of cross-DSO virtual and indirect calls.
 
+.. option:: -fwhole-program-vtables
+
+   Enable whole-program vtable optimizations, such as single-implementation
+   devirtualization and virtual constant propagation. Requires ``-flto``.
+
+   By default, the compiler will assume that all type hierarchies are
+   closed except those in the ``std`` namespace, the ``stdext`` namespace
+   and classes with the ``__declspec(uuid())`` attribute.
+
+.. option:: -fwhole-program-vtables-blacklist=path
+
+   Allows the user to specify the path to a list of additional classes to
+   blacklist from whole-program vtable optimizations. This list is in the
+   :ref:`CFI blacklist <cfi-blacklist>` format.
+
 .. option:: -fno-assume-sane-operator-new
 
    Don't assume that the C++'s new operator is sane.
@@ -1711,6 +1726,9 @@ extensions are not implemented yet:
      ...
      local_function(1);
 
+-  clang does not support static initialization of flexible array
+   members. This appears to be a rarely used extension, but could be
+   implemented pending user demand.
 -  clang does not support
    ``__builtin_va_arg_pack``/``__builtin_va_arg_pack_len``. This is
    used rarely, but in some potentially interesting places, like the
@@ -1752,13 +1770,11 @@ Intentionally unsupported GCC extensions
 Microsoft extensions
 --------------------
 
-clang has some experimental support for extensions from Microsoft Visual
-C++; to enable it, use the ``-fms-extensions`` command-line option. This is
-the default for Windows targets. Note that the support is incomplete.
-Some constructs such as ``dllexport`` on classes are ignored with a warning,
-and others such as `Microsoft IDL annotations
-<http://msdn.microsoft.com/en-us/library/8tesw2eh.aspx>`_ are silently
-ignored.
+clang has support for many extensions from Microsoft Visual C++. To enable these
+extensions, use the ``-fms-extensions`` command-line option. This is the default
+for Windows targets. Clang does not implement every pragma or declspec provided
+by MSVC, but the popular ones, such as ``__declspec(dllexport)`` and ``#pragma
+comment(lib)`` are well supported.
 
 clang has a ``-fms-compatibility`` flag that makes clang accept enough
 invalid C++ to be able to parse most Microsoft headers. For example, it
@@ -1771,23 +1787,14 @@ for Windows targets.
 definitions until the end of a translation unit. This flag is enabled by
 default for Windows targets.
 
--  clang allows setting ``_MSC_VER`` with ``-fmsc-version=``. It defaults to
-   1700 which is the same as Visual C/C++ 2012. Any number is supported
-   and can greatly affect what Windows SDK and c++stdlib headers clang
-   can compile.
--  clang does not support the Microsoft extension where anonymous record
-   members can be declared using user defined typedefs.
--  clang supports the Microsoft ``#pragma pack`` feature for controlling
-   record layout. GCC also contains support for this feature, however
-   where MSVC and GCC are incompatible clang follows the MSVC
-   definition.
--  clang supports the Microsoft ``#pragma comment(lib, "foo.lib")`` feature for
-   automatically linking against the specified library.  Currently this feature
-   only works with the Visual C++ linker.
--  clang supports the Microsoft ``#pragma comment(linker, "/flag:foo")`` feature
-   for adding linker flags to COFF object files.  The user is responsible for
-   ensuring that the linker understands the flags.
--  clang defaults to C++11 for Windows targets.
+For compatibility with existing code that compiles with MSVC, clang defines the
+``_MSC_VER`` and ``_MSC_FULL_VER`` macros. These default to the values of 1800
+and 180000000 respectively, making clang look like an early release of Visual
+C++ 2013. The ``-fms-compatibility-version=`` flag overrides these values.  It
+accepts a dotted version tuple, such as 19.00.23506. Changing the MSVC
+compatibility version makes clang behave more like that version of MSVC. For
+example, ``-fms-compatibility-version=19`` will enable C++14 features and define
+``char16_t`` and ``char32_t`` as builtin types.
 
 .. _cxx:
 
@@ -2032,6 +2039,8 @@ Execute ``clang-cl /?`` to see a list of supported options:
     CL.EXE COMPATIBILITY OPTIONS:
       /?                     Display available options
       /arch:<value>          Set architecture for code generation
+      /Brepro-               Emit an object file which cannot be reproduced over time
+      /Brepro                Emit an object file which can be reproduced over time
       /C                     Don't discard comments when preprocessing
       /c                     Compile only
       /D <macro[=value]>     Define macro
@@ -2075,8 +2084,6 @@ Execute ``clang-cl /?`` to see a list of supported options:
       /Oi                    Enable use of builtin functions
       /Os                    Optimize for size
       /Ot                    Optimize for speed
-      /Oy-                   Disable frame pointer omission
-      /Oy                    Enable frame pointer omission
       /O<value>              Optimization level
       /o <file or directory> Set output file or directory (ends in / or \)
       /P                     Preprocess to file
@@ -2101,7 +2108,7 @@ Execute ``clang-cl /?`` to see a list of supported options:
       /W2                    Enable -Wall
       /W3                    Enable -Wall
       /W4                    Enable -Wall and -Wextra
-      /Wall                  Enable -Wall
+      /Wall                  Enable -Wall and -Wextra
       /WX-                   Do not treat warnings as errors
       /WX                    Treat warnings as errors
       /w                     Disable all warnings
@@ -2129,8 +2136,10 @@ Execute ``clang-cl /?`` to see a list of supported options:
       -fms-compatibility-version=<value>
                               Dot-separated value representing the Microsoft compiler version
                               number to report in _MSC_VER (0 = don't define it (default))
-      -fmsc-version=<value>   Microsoft compiler version number to report in _MSC_VER (0 = don't
-                              define it (default))
+      -fms-compatibility      Enable full Microsoft Visual C++ compatibility
+      -fms-extensions         Accept some non-standard constructs supported by the Microsoft compiler
+      -fmsc-version=<value>   Microsoft compiler version number to report in _MSC_VER
+                              (0 = don't define it (default))
       -fno-sanitize-coverage=<value>
                               Disable specified features of coverage instrumentation for Sanitizers
       -fno-sanitize-recover=<value>

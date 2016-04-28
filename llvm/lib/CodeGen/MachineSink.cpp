@@ -344,8 +344,10 @@ bool MachineSinking::ProcessBlock(MachineBasicBlock &MBB) {
       continue;
     }
 
-    if (SinkInstruction(MI, SawStore, AllSuccessors))
-      ++NumSunk, MadeChange = true;
+    if (SinkInstruction(MI, SawStore, AllSuccessors)) {
+      ++NumSunk;
+      MadeChange = true;
+    }
 
     // If we just processed the first instruction in the block, we're done.
   } while (!ProcessedBegin);
@@ -468,10 +470,6 @@ bool MachineSinking::PostponeSplitCriticalEdge(MachineInstr *MI,
   ToSplit.insert(std::make_pair(FromBB, ToBB));
   
   return true;
-}
-
-static bool AvoidsSinking(MachineInstr *MI, MachineRegisterInfo *MRI) {
-  return MI->isInsertSubreg() || MI->isSubregToReg() || MI->isRegSequence();
 }
 
 /// collectDebgValues - Scan instructions following MI and collect any
@@ -700,7 +698,8 @@ static bool SinkingPreventsImplicitNullCheck(MachineInstr *MI,
       !PredBB->getTerminator()->getMetadata(LLVMContext::MD_make_implicit))
     return false;
 
-  unsigned BaseReg, Offset;
+  unsigned BaseReg;
+  int64_t Offset;
   if (!TII->getMemOpBaseRegImmOfs(MI, BaseReg, Offset, TRI))
     return false;
 
@@ -721,9 +720,8 @@ static bool SinkingPreventsImplicitNullCheck(MachineInstr *MI,
 /// instruction out of its current block into a successor.
 bool MachineSinking::SinkInstruction(MachineInstr *MI, bool &SawStore,
                                      AllSuccsCache &AllSuccessors) {
-  // Don't sink insert_subreg, subreg_to_reg, reg_sequence. These are meant to
-  // be close to the source to make it easier to coalesce.
-  if (AvoidsSinking(MI, MRI))
+  // Don't sink instructions that the target prefers not to sink.
+  if (!TII->shouldSink(*MI))
     return false;
 
   // Check if it's safe to move the instruction.

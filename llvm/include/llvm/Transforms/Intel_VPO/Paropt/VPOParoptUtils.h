@@ -112,39 +112,62 @@ public:
     /// \brief Generate OpenMP runtime __kmpc_begin(&loc, flags) 
     /// initialization code. The generated runtime routine call is invoked 
     /// (only once) right after entering the main function.
-    static CallInst* genRTLKmpcBeginCall(Function *F, Instruction *AI, 
-                                         StructType *IdentTy);
+    static CallInst* genKmpcBeginCall(Function *F, Instruction *InsertPt, 
+                                      StructType *IdentTy);
 
     /// \brief Generate OpenMP runtime __kmpc_end(&loc) termination code 
     /// The generated runtime routine call is invoked (only once) right 
     /// before exiting the main function.
-    static CallInst* genRTLKmpcEndCall(Function *F, 
-                                       Instruction *AI, 
-                                       StructType *IdentTy);
+    static CallInst* genKmpcEndCall(Function *F, 
+                                    Instruction *InsertPt, 
+                                    StructType *IdentTy);
    
     /// \brief Generate OpenMP runtime __kmpc_global_thread_num() call 
     /// The generated runtime routine call is invoked (only once) to get 
     /// runtime right 
     /// after entering each function that contains OpenMP constructs 
-    static CallInst* genRTLKmpcGlobalThreadNumCall(Function    *F, 
-                                                   Instruction *AI, 
-                                                   StructType  *IdentTy);
+    static CallInst* genKmpcGlobalThreadNumCall(Function    *F, 
+                                                Instruction *InsertPt, 
+                                                StructType  *IdentTy);
       
+    /// \brief Generate OpenMP runtime ForkTest = ___kmpc_ok_to_fork(&loc) 
+    static CallInst* genKmpcForkTest(WRegionNode *W, StructType *IdentTy, 
+                                     Instruction *InsertPt);
+
     /// \brief Generate source location information from Instruction DebugLoc
     static AllocaInst* genKmpcLocfromDebugLoc(Function *F, Instruction *AI, 
                                               StructType *IdentTy, int Flags, 
                                               BasicBlock *BS, BasicBlock *BE);
 
+    /// \brief Generate a call to notify the runtime system that the static 
+    /// loop scheduling is started 
+    /// call void @__kmpc_for_static_init_4(%ident_t* %loc, i32 %tid,
+    ///             i32 schedtype, i32* %islast,i32* %lb, i32* %ub, i32* %st,
+    ///             i32 inc, i32 chunk)
+    static CallInst* genKmpcStaticInit(WRegionNode *W,
+                                       StructType *IdentTy,
+                                       Value *Tid, Value *SchedType, 
+                                       Value *IsLastVal, Value *LB, Value *UB, 
+                                       Value *ST, Value *Inc, Value *Chunk,
+                                       Instruction *InsertPt);
+
+    /// \brief Generate a call to notify the runtime system that the static 
+    /// loop scheduling is done 
+    ///   call void @__kmpc_for_static_fini(%ident_t* %loc, i32 %tid)
+    static CallInst* genKmpcStaticFini(WRegionNode *W,
+                                       StructType *IdentTy,
+                                       Value *Tid, Instruction *InsertPt);
+
     /// \brief Generate source location information for Explicit barrier
     static AllocaInst* genKmpcLocforExplicitBarrier(Function *F, 
-                                                    Instruction *AI, 
+                                                    Instruction *InsertPt, 
                                                     StructType *IdentTy, 
                                                     BasicBlock *BB);
 
     /// \brief Generate source location information for Implicit barrier
     static AllocaInst* genKmpcLocforImplicitBarrier(WRegionNode *W,
                                                     Function *F,
-                                                    Instruction *AI,
+                                                    Instruction *InsertPt,
                                                     StructType *IdentTy,
                                                     BasicBlock *BB);
 };

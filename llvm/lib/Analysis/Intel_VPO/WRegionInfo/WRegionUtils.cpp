@@ -184,8 +184,6 @@ WRContainerTy *WRegionUtils::buildWRGraphFromHIR()
 {
   HIRVisitor Visitor;
 
-  VPOUtils::initDirectiveAndClauseStringMap();
-
   HLNodeUtils::visitAll(Visitor);
   return Visitor.getWRGraph();
 }

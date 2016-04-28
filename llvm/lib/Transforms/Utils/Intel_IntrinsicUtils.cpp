@@ -27,7 +27,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
-#include "llvm/Transforms/Utils/Intel_OpenMPDirectivesAndClauses.h"
+#include "llvm/Analysis/Intel_Directives.h"
 
 #define DEBUG_TYPE "IntrinsicUtils"
 
@@ -121,13 +121,13 @@ CallInst *IntelIntrinsicUtils::createDirectiveQualOpndListCall(
 }
 
 StringRef IntelIntrinsicUtils::getDirectiveString(int Id) {
-  assert(IntelOpenMPDirectivesAndClauses::DirectiveStrings.count(Id) &&
+  assert(IntelDirectives::DirectiveStrings.count(Id) &&
          "Can't find a string for directive id");
-  return IntelOpenMPDirectivesAndClauses::DirectiveStrings[Id];
+  return IntelDirectives::DirectiveStrings[Id];
 }
 
 StringRef IntelIntrinsicUtils::getClauseString(int Id) {
-  assert(IntelOpenMPDirectivesAndClauses::ClauseStrings.count(Id) &&
+  assert(IntelDirectives::ClauseStrings.count(Id) &&
          "Can't find a string for clause id");
-  return IntelOpenMPDirectivesAndClauses::ClauseStrings[Id];
+  return IntelDirectives::ClauseStrings[Id];
 }

@@ -573,6 +573,8 @@ void AVRSelectIR::print(formatted_raw_ostream &OS, unsigned Depth,
   // Close up open braces
   if (VLevel >= PrintAvrType)
     OS << "}";
+
+  OS << "\n";
 }
 
 std::string AVRSelectIR::getAvrValueName() const {

@@ -25,7 +25,6 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/MC/MCInstrDesc.h"
@@ -35,9 +34,14 @@
 namespace llvm {
 
 template <typename T> class SmallVectorImpl;
+class DILocalVariable;
+class DIExpression;
 class TargetInstrInfo;
 class TargetRegisterClass;
 class TargetRegisterInfo;
+#ifdef LLVM_BUILD_GLOBAL_ISEL
+class Type;
+#endif
 class MachineFunction;
 class MachineMemOperand;
 
@@ -101,6 +105,13 @@ private:
   mmo_iterator MemRefs;
 
   DebugLoc debugLoc;                    // Source line information.
+
+#ifdef LLVM_BUILD_GLOBAL_ISEL
+  /// Type of the instruction in case of a generic opcode.
+  /// \invariant This must be nullptr is getOpcode() is not
+  /// in the range of generic opcodes.
+  Type *Ty;
+#endif
 
   MachineInstr(const MachineInstr&) = delete;
   void operator=(const MachineInstr&) = delete;
@@ -176,6 +187,11 @@ public:
     Flags &= ~((uint8_t)Flag);
   }
 
+  /// Set the type of the instruction.
+  /// \pre getOpcode() is in the range of the generic opcodes.
+  void setType(Type *Ty);
+  Type *getType() const;
+
   /// Return true if MI is in a bundle (but not the first MI in a bundle).
   ///
   /// A bundle looks like this before it's finalized:
@@ -248,17 +264,11 @@ public:
 
   /// Return the debug variable referenced by
   /// this DBG_VALUE instruction.
-  const DILocalVariable *getDebugVariable() const {
-    assert(isDebugValue() && "not a DBG_VALUE");
-    return cast<DILocalVariable>(getOperand(2).getMetadata());
-  }
+  const DILocalVariable *getDebugVariable() const;
 
   /// Return the complex address expression referenced by
   /// this DBG_VALUE instruction.
-  const DIExpression *getDebugExpression() const {
-    assert(isDebugValue() && "not a DBG_VALUE");
-    return cast<DIExpression>(getOperand(3).getMetadata());
-  }
+  const DIExpression *getDebugExpression() const;
 
   /// Emit an error referring to the source location of this instruction.
   /// This should only be used for inline assembly that is somehow
@@ -721,7 +731,7 @@ public:
 
   /// Return true if this instruction is identical to (same
   /// opcode and same operands as) the specified instruction.
-  bool isIdenticalTo(const MachineInstr *Other,
+  bool isIdenticalTo(const MachineInstr &Other,
                      MICheckType Check = CheckDefs) const;
 
   /// Unlink 'this' from the containing basic block, and return it without
@@ -1062,8 +1072,8 @@ public:
                          const TargetRegisterInfo *RegInfo,
                          bool AddIfNotFound = false);
 
-  /// Clear all kill flags affecting Reg.  If RegInfo is
-  /// provided, this includes super-register kills.
+  /// Clear all kill flags affecting Reg.  If RegInfo is provided, this includes
+  /// all aliasing registers.
   void clearRegisterKills(unsigned Reg, const TargetRegisterInfo *RegInfo);
 
   /// We have determined MI defined a register without a use.
@@ -1133,7 +1143,7 @@ public:
 
   /// Copy implicit register operands from specified
   /// instruction to this instruction.
-  void copyImplicitOps(MachineFunction &MF, const MachineInstr *MI);
+  void copyImplicitOps(MachineFunction &MF, const MachineInstr &MI);
 
   //
   // Debugging support
@@ -1176,7 +1186,7 @@ public:
     assert(debugLoc.hasTrivialDestructor() && "Expected trivial destructor");
   }
 
-  /// Erase an operand  from an instruction, leaving it with one
+  /// Erase an operand from an instruction, leaving it with one
   /// fewer operand than it started with.
   void RemoveOperand(unsigned i);
 
@@ -1276,7 +1286,7 @@ struct MachineInstrExpressionTrait : DenseMapInfo<MachineInstr*> {
     if (RHS == getEmptyKey() || RHS == getTombstoneKey() ||
         LHS == getEmptyKey() || LHS == getTombstoneKey())
       return LHS == RHS;
-    return LHS->isIdenticalTo(RHS, MachineInstr::IgnoreVRegDefs);
+    return LHS->isIdenticalTo(*RHS, MachineInstr::IgnoreVRegDefs);
   }
 };
 

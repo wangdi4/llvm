@@ -22,6 +22,10 @@
 #include "sanitizer_common/sanitizer_flags.h"
 #include "sanitizer_common/sanitizer_flag_parser.h"
 #include "sanitizer_common/sanitizer_libc.h"
+#if defined(__s390x__) && defined(__linux__)
+// For AvoidCVE_2016_2143.
+#include "sanitizer_common/sanitizer_linux.h"
+#endif
 #include "sanitizer_common/sanitizer_procmaps.h"
 #include "sanitizer_common/sanitizer_stacktrace.h"
 #include "sanitizer_common/sanitizer_symbolizer.h"
@@ -178,7 +182,7 @@ static void InitializeFlags() {
 #endif
   VPrintf(1, "MSAN_OPTIONS: %s\n", msan_options ? msan_options : "<empty>");
 
-  SetVerbosity(common_flags()->verbosity);
+  InitializeCommonFlags();
 
   if (Verbosity()) ReportUnrecognizedFlags();
 
@@ -375,6 +379,9 @@ void __msan_init() {
   msan_init_is_running = 1;
   SanitizerToolName = "MemorySanitizer";
 
+#if defined(__s390x__) && defined(__linux__)
+  AvoidCVE_2016_2143();
+#endif
   InitTlsSize();
 
   CacheBinaryName();
@@ -462,13 +469,8 @@ void __msan_dump_shadow(const void *x, uptr size) {
   }
 
   unsigned char *s = (unsigned char*)MEM_TO_SHADOW(x);
-  for (uptr i = 0; i < size; i++) {
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    Printf("%x%x ", s[i] & 0xf, s[i] >> 4);
-#else
+  for (uptr i = 0; i < size; i++)
     Printf("%x%x ", s[i] >> 4, s[i] & 0xf);
-#endif
-  }
   Printf("\n");
 }
 
@@ -580,13 +582,13 @@ u32 __msan_get_umr_origin() {
 }
 
 u16 __sanitizer_unaligned_load16(const uu16 *p) {
-  __msan_retval_tls[0] = *(uu16 *)MEM_TO_SHADOW((uptr)p);
+  *(uu16 *)&__msan_retval_tls[0] = *(uu16 *)MEM_TO_SHADOW((uptr)p);
   if (__msan_get_track_origins())
     __msan_retval_origin_tls = GetOriginIfPoisoned((uptr)p, sizeof(*p));
   return *p;
 }
 u32 __sanitizer_unaligned_load32(const uu32 *p) {
-  __msan_retval_tls[0] = *(uu32 *)MEM_TO_SHADOW((uptr)p);
+  *(uu32 *)&__msan_retval_tls[0] = *(uu32 *)MEM_TO_SHADOW((uptr)p);
   if (__msan_get_track_origins())
     __msan_retval_origin_tls = GetOriginIfPoisoned((uptr)p, sizeof(*p));
   return *p;
@@ -598,7 +600,7 @@ u64 __sanitizer_unaligned_load64(const uu64 *p) {
   return *p;
 }
 void __sanitizer_unaligned_store16(uu16 *p, u16 x) {
-  u16 s = __msan_param_tls[1];
+  u16 s = *(uu16 *)&__msan_param_tls[1];
   *(uu16 *)MEM_TO_SHADOW((uptr)p) = s;
   if (s && __msan_get_track_origins())
     if (uu32 o = __msan_param_origin_tls[2])
@@ -606,7 +608,7 @@ void __sanitizer_unaligned_store16(uu16 *p, u16 x) {
   *p = x;
 }
 void __sanitizer_unaligned_store32(uu32 *p, u32 x) {
-  u32 s = __msan_param_tls[1];
+  u32 s = *(uu32 *)&__msan_param_tls[1];
   *(uu32 *)MEM_TO_SHADOW((uptr)p) = s;
   if (s && __msan_get_track_origins())
     if (uu32 o = __msan_param_origin_tls[2])

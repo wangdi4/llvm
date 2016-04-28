@@ -26,6 +26,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/VectorUtils.h"
 
 using namespace llvm;
 using namespace PatternMatch;
@@ -2215,27 +2216,30 @@ Instruction *InstCombiner::visitICmpInstWithInstAndIntCst(ICmpInst &ICI,
         }
         break;
       case Instruction::Xor:
-        // For the xor case, we can xor two constants together, eliminating
-        // the explicit xor.
-        if (Constant *BOC = dyn_cast<Constant>(BO->getOperand(1))) {
-          return new ICmpInst(ICI.getPredicate(), BO->getOperand(0),
-                              ConstantExpr::getXor(RHS, BOC));
-        } else if (RHSV == 0) {
-          // Replace ((xor A, B) != 0) with (A != B)
-          return new ICmpInst(ICI.getPredicate(), BO->getOperand(0),
-                              BO->getOperand(1));
+        if (BO->hasOneUse()) {
+          if (Constant *BOC = dyn_cast<Constant>(BO->getOperand(1))) {
+            // For the xor case, we can xor two constants together, eliminating
+            // the explicit xor.
+            return new ICmpInst(ICI.getPredicate(), BO->getOperand(0),
+                ConstantExpr::getXor(RHS, BOC));
+          } else if (RHSV == 0) {
+            // Replace ((xor A, B) != 0) with (A != B)
+            return new ICmpInst(ICI.getPredicate(), BO->getOperand(0),
+                BO->getOperand(1));
+          }
         }
         break;
       case Instruction::Sub:
-        // Replace ((sub A, B) != C) with (B != A-C) if A & C are constants.
-        if (ConstantInt *BOp0C = dyn_cast<ConstantInt>(BO->getOperand(0))) {
-          if (BO->hasOneUse())
+        if (BO->hasOneUse()) {
+          if (ConstantInt *BOp0C = dyn_cast<ConstantInt>(BO->getOperand(0))) {
+            // Replace ((sub A, B) != C) with (B != A-C) if A & C are constants.
             return new ICmpInst(ICI.getPredicate(), BO->getOperand(1),
-                                ConstantExpr::getSub(BOp0C, RHS));
-        } else if (RHSV == 0) {
-          // Replace ((sub A, B) != 0) with (A != B)
-          return new ICmpInst(ICI.getPredicate(), BO->getOperand(0),
-                              BO->getOperand(1));
+                ConstantExpr::getSub(BOp0C, RHS));
+          } else if (RHSV == 0) {
+            // Replace ((sub A, B) != 0) with (A != B)
+            return new ICmpInst(ICI.getPredicate(), BO->getOperand(0),
+                BO->getOperand(1));
+          }
         }
         break;
       case Instruction::Or:
@@ -2245,6 +2249,15 @@ Instruction *InstCombiner::visitICmpInstWithInstAndIntCst(ICmpInst &ICI,
           Constant *NotCI = ConstantExpr::getNot(RHS);
           if (!ConstantExpr::getAnd(BOC, NotCI)->isNullValue())
             return replaceInstUsesWith(ICI, Builder->getInt1(isICMP_NE));
+
+          // Comparing if all bits outside of a constant mask are set?
+          // Replace (X | C) == -1 with (X & ~C) == ~C.
+          // This removes the -1 constant.
+          if (BO->hasOneUse() && RHS->isAllOnesValue()) {
+            Constant *NotBOC = ConstantExpr::getNot(BOC);
+            Value *And = Builder->CreateAnd(BO->getOperand(0), NotBOC);
+            return new ICmpInst(ICI.getPredicate(), And, NotBOC);
+          }
         }
         break;
 
@@ -3285,6 +3298,19 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
         return Res;
     }
 
+    // (icmp sgt smin(PosA, B) 0) -> (icmp sgt B 0)
+    if (CI->isZero() && I.getPredicate() == ICmpInst::ICMP_SGT)
+      if (auto *SI = dyn_cast<SelectInst>(Op0)) {
+        SelectPatternResult SPR = matchSelectPattern(SI, A, B);
+        if (SPR.Flavor == SPF_SMIN) {
+          if (isKnownPositive(A, DL))
+            return new ICmpInst(I.getPredicate(), B, CI);
+          if (isKnownPositive(B, DL))
+            return new ICmpInst(I.getPredicate(), A, CI);
+        }
+      }
+    
+
     // The following transforms are only 'worth it' if the only user of the
     // subtraction is the icmp.
     if (Op0->hasOneUse()) {
@@ -3792,10 +3818,14 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
     // Analyze the case when either Op0 or Op1 is an add instruction.
     // Op0 = A + B (or A and B are null); Op1 = C + D (or C and D are null).
     Value *A = nullptr, *B = nullptr, *C = nullptr, *D = nullptr;
-    if (BO0 && BO0->getOpcode() == Instruction::Add)
-      A = BO0->getOperand(0), B = BO0->getOperand(1);
-    if (BO1 && BO1->getOpcode() == Instruction::Add)
-      C = BO1->getOperand(0), D = BO1->getOperand(1);
+    if (BO0 && BO0->getOpcode() == Instruction::Add) {
+      A = BO0->getOperand(0);
+      B = BO0->getOperand(1);
+    }
+    if (BO1 && BO1->getOpcode() == Instruction::Add) {
+      C = BO1->getOperand(0);
+      D = BO1->getOperand(1);
+    }
 
     // icmp (X+cst) < 0 --> X < -cst
     if (NoOp0WrapProblem && ICmpInst::isSigned(Pred) && match(Op1, m_Zero()))
@@ -3912,11 +3942,18 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
 
     // Analyze the case when either Op0 or Op1 is a sub instruction.
     // Op0 = A - B (or A and B are null); Op1 = C - D (or C and D are null).
-    A = nullptr; B = nullptr; C = nullptr; D = nullptr;
-    if (BO0 && BO0->getOpcode() == Instruction::Sub)
-      A = BO0->getOperand(0), B = BO0->getOperand(1);
-    if (BO1 && BO1->getOpcode() == Instruction::Sub)
-      C = BO1->getOperand(0), D = BO1->getOperand(1);
+    A = nullptr;
+    B = nullptr;
+    C = nullptr;
+    D = nullptr;
+    if (BO0 && BO0->getOpcode() == Instruction::Sub) {
+      A = BO0->getOperand(0);
+      B = BO0->getOperand(1);
+    }
+    if (BO1 && BO1->getOpcode() == Instruction::Sub) {
+      C = BO1->getOperand(0);
+      D = BO1->getOperand(1);
+    }
 
     // icmp (X-Y), X -> icmp 0, Y for equalities or if there is no overflow.
     if (A == Op1 && NoOp0WrapProblem)
@@ -4646,39 +4683,33 @@ Instruction *InstCombiner::visitFCmpInst(FCmpInst &I) {
           break;
 
         CallInst *CI = cast<CallInst>(LHSI);
-        const Function *F = CI->getCalledFunction();
-        if (!F)
+        Intrinsic::ID IID = getIntrinsicIDForCall(CI, TLI);
+        if (IID != Intrinsic::fabs)
           break;
 
         // Various optimization for fabs compared with zero.
-        LibFunc::Func Func;
-        if (F->getIntrinsicID() == Intrinsic::fabs ||
-            (TLI->getLibFunc(F->getName(), Func) && TLI->has(Func) &&
-             (Func == LibFunc::fabs || Func == LibFunc::fabsf ||
-              Func == LibFunc::fabsl))) {
-          switch (I.getPredicate()) {
-          default:
-            break;
-            // fabs(x) < 0 --> false
-          case FCmpInst::FCMP_OLT:
-            return replaceInstUsesWith(I, Builder->getFalse());
-            // fabs(x) > 0 --> x != 0
-          case FCmpInst::FCMP_OGT:
-            return new FCmpInst(FCmpInst::FCMP_ONE, CI->getArgOperand(0), RHSC);
-            // fabs(x) <= 0 --> x == 0
-          case FCmpInst::FCMP_OLE:
-            return new FCmpInst(FCmpInst::FCMP_OEQ, CI->getArgOperand(0), RHSC);
-            // fabs(x) >= 0 --> !isnan(x)
-          case FCmpInst::FCMP_OGE:
-            return new FCmpInst(FCmpInst::FCMP_ORD, CI->getArgOperand(0), RHSC);
-            // fabs(x) == 0 --> x == 0
-            // fabs(x) != 0 --> x != 0
-          case FCmpInst::FCMP_OEQ:
-          case FCmpInst::FCMP_UEQ:
-          case FCmpInst::FCMP_ONE:
-          case FCmpInst::FCMP_UNE:
-            return new FCmpInst(I.getPredicate(), CI->getArgOperand(0), RHSC);
-          }
+        switch (I.getPredicate()) {
+        default:
+          break;
+        // fabs(x) < 0 --> false
+        case FCmpInst::FCMP_OLT:
+          llvm_unreachable("handled by SimplifyFCmpInst");
+        // fabs(x) > 0 --> x != 0
+        case FCmpInst::FCMP_OGT:
+          return new FCmpInst(FCmpInst::FCMP_ONE, CI->getArgOperand(0), RHSC);
+        // fabs(x) <= 0 --> x == 0
+        case FCmpInst::FCMP_OLE:
+          return new FCmpInst(FCmpInst::FCMP_OEQ, CI->getArgOperand(0), RHSC);
+        // fabs(x) >= 0 --> !isnan(x)
+        case FCmpInst::FCMP_OGE:
+          return new FCmpInst(FCmpInst::FCMP_ORD, CI->getArgOperand(0), RHSC);
+        // fabs(x) == 0 --> x == 0
+        // fabs(x) != 0 --> x != 0
+        case FCmpInst::FCMP_OEQ:
+        case FCmpInst::FCMP_UEQ:
+        case FCmpInst::FCMP_ONE:
+        case FCmpInst::FCMP_UNE:
+          return new FCmpInst(I.getPredicate(), CI->getArgOperand(0), RHSC);
         }
       }
       }

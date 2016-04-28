@@ -65,6 +65,16 @@ types::ID MachO::LookupTypeForExtension(const char *Ext) const {
 
 bool MachO::HasNativeLLVMSupport() const { return true; }
 
+ToolChain::CXXStdlibType Darwin::GetDefaultCXXStdlibType() const {
+  // Default to use libc++ on OS X 10.9+ and iOS 7+.
+  if ((isTargetMacOS() && !isMacosxVersionLT(10, 9)) ||
+       (isTargetIOSBased() && !isIPhoneOSVersionLT(7, 0)) ||
+       isTargetWatchOSBased())
+    return ToolChain::CST_Libcxx;
+
+  return ToolChain::CST_Libstdcxx;
+}
+
 /// Darwin provides an ARC runtime starting in MacOS X 10.7 and iOS 5.0.
 ObjCRuntime Darwin::getDefaultObjCRuntime(bool isNonFragile) const {
   if (isTargetWatchOSBased())
@@ -343,36 +353,9 @@ void Darwin::addProfileRTLibs(const ArgList &Args,
                               ArgStringList &CmdArgs) const {
   if (!needsProfileRT(Args)) return;
 
-  // TODO: Clean this up once autoconf is gone
-  SmallString<128> P(getDriver().ResourceDir);
-  llvm::sys::path::append(P, "lib", "darwin");
-  const char *Library = "libclang_rt.profile_osx.a";
-
-  // Select the appropriate runtime library for the target.
-  if (isTargetWatchOS()) {
-    Library = "libclang_rt.profile_watchos.a";
-  } else if (isTargetWatchOSSimulator()) {
-    llvm::sys::path::append(P, "libclang_rt.profile_watchossim.a");
-    Library = getVFS().exists(P) ? "libclang_rt.profile_watchossim.a"
-                                 : "libclang_rt.profile_watchos.a";
-  } else if (isTargetTvOS()) {
-    Library = "libclang_rt.profile_tvos.a";
-  } else if (isTargetTvOSSimulator()) {
-    llvm::sys::path::append(P, "libclang_rt.profile_tvossim.a");
-    Library = getVFS().exists(P) ? "libclang_rt.profile_tvossim.a"
-                                 : "libclang_rt.profile_tvos.a";
-  } else if (isTargetIPhoneOS()) {
-    Library = "libclang_rt.profile_ios.a";
-  } else if (isTargetIOSSimulator()) {
-    llvm::sys::path::append(P, "libclang_rt.profile_iossim.a");
-    Library = getVFS().exists(P) ? "libclang_rt.profile_iossim.a"
-                                 : "libclang_rt.profile_ios.a";
-  } else {
-    assert(isTargetMacOS() && "unexpected non MacOS platform");
-  }
-  AddLinkRuntimeLib(Args, CmdArgs, Library,
+  AddLinkRuntimeLib(Args, CmdArgs, (Twine("libclang_rt.profile_") +
+       getOSLibraryNameSuffix() + ".a").str(),
                     /*AlwaysLink*/ true);
-  return;
 }
 
 void DarwinClang::AddLinkSanitizerLibArgs(const ArgList &Args,
@@ -761,7 +744,6 @@ void DarwinClang::AddCXXStdlibLibArgs(const ArgList &Args,
 
 void DarwinClang::AddCCKextLibArgs(const ArgList &Args,
                                    ArgStringList &CmdArgs) const {
-
   // For Darwin platforms, use the compiler-rt-based support library
   // instead of the gcc-provided one (which is also incidentally
   // only present in the gcc lib dir, which makes it hard to find).
@@ -1051,11 +1033,8 @@ DerivedArgList *Darwin::TranslateArgs(const DerivedArgList &Args,
     }
   }
 
-  // Default to use libc++ on OS X 10.9+ and iOS 7+.
-  if (((isTargetMacOS() && !isMacosxVersionLT(10, 9)) ||
-       (isTargetIOSBased() && !isIPhoneOSVersionLT(7, 0)) ||
-       isTargetWatchOSBased()) &&
-      !Args.getLastArg(options::OPT_stdlib_EQ))
+  if (!Args.getLastArg(options::OPT_stdlib_EQ) &&
+      GetCXXStdlibType(Args) == ToolChain::CST_Libcxx)
     DAL->AddJoinedArg(nullptr, Opts.getOption(options::OPT_stdlib_EQ),
                       "libc++");
 
@@ -1096,6 +1075,13 @@ bool Darwin::UseSjLjExceptions(const ArgList &Args) const {
   // Only watchOS uses the new DWARF/Compact unwinding method.
   llvm::Triple Triple(ComputeLLVMTriple(Args));
   return !Triple.isWatchABI();
+}
+
+bool Darwin::SupportsEmbeddedBitcode() const {
+  assert(TargetInitialized && "Target not initialized!");
+  if (isTargetIPhoneOS() && isIPhoneOSVersionLT(6, 0))
+    return false;
+  return true;
 }
 
 bool MachO::isPICDefault() const { return true; }
@@ -1239,13 +1225,18 @@ void Darwin::CheckObjCARC() const {
 }
 
 SanitizerMask Darwin::getSupportedSanitizers() const {
+  const bool IsX86_64 = getTriple().getArch() == llvm::Triple::x86_64;
   SanitizerMask Res = ToolChain::getSupportedSanitizers();
   Res |= SanitizerKind::Address;
   if (isTargetMacOS()) {
     if (!isMacosxVersionLT(10, 9))
       Res |= SanitizerKind::Vptr;
     Res |= SanitizerKind::SafeStack;
-    Res |= SanitizerKind::Thread;
+    if (IsX86_64)
+      Res |= SanitizerKind::Thread;
+  } else if (isTargetIOSSimulator() || isTargetTvOSSimulator()) {
+    if (IsX86_64)
+      Res |= SanitizerKind::Thread;
   }
   return Res;
 }
@@ -2444,7 +2435,6 @@ bool Generic_GCC::addLibStdCXXIncludePaths(
   return true;
 }
 
-
 void Generic_ELF::addClangTargetOptions(const ArgList &DriverArgs,
                                         ArgStringList &CC1Args) const {
   const Generic_GCC::GCCVersion &V = GCCInstallation.getVersion();
@@ -2596,13 +2586,8 @@ std::string HexagonToolChain::getHexagonTargetDir(
   if (getVFS().exists(InstallRelDir = InstalledDir + "/../target"))
     return InstallRelDir;
 
-  std::string PrefixRelDir = std::string(LLVM_PREFIX) + "/target";
-  if (getVFS().exists(PrefixRelDir))
-    return PrefixRelDir;
-
   return InstallRelDir;
 }
-
 
 Optional<unsigned> HexagonToolChain::getSmallDataThreshold(
       const ArgList &Args) {
@@ -2621,7 +2606,6 @@ Optional<unsigned> HexagonToolChain::getSmallDataThreshold(
 
   return None;
 }
-
 
 void HexagonToolChain::getHexagonLibraryPaths(const ArgList &Args,
       ToolChain::path_list &LibPaths) const {
@@ -2998,6 +2982,16 @@ Tool *CloudABI::buildLinker() const {
   return new tools::cloudabi::Linker(*this);
 }
 
+SanitizerMask CloudABI::getSupportedSanitizers() const {
+  SanitizerMask Res = ToolChain::getSupportedSanitizers();
+  Res |= SanitizerKind::SafeStack;
+  return Res;
+}
+
+SanitizerMask CloudABI::getDefaultSanitizers() const {
+  return SanitizerKind::SafeStack;
+}
+
 /// OpenBSD - OpenBSD tool chain which can call as(1) and ld(1) directly.
 
 OpenBSD::OpenBSD(const Driver &D, const llvm::Triple &Triple,
@@ -3027,16 +3021,7 @@ Tool *Bitrig::buildAssembler() const {
 
 Tool *Bitrig::buildLinker() const { return new tools::bitrig::Linker(*this); }
 
-ToolChain::CXXStdlibType Bitrig::GetCXXStdlibType(const ArgList &Args) const {
-  if (Arg *A = Args.getLastArg(options::OPT_stdlib_EQ)) {
-    StringRef Value = A->getValue();
-    if (Value == "libstdc++")
-      return ToolChain::CST_Libstdcxx;
-    if (Value == "libc++")
-      return ToolChain::CST_Libcxx;
-
-    getDriver().Diag(diag::err_drv_invalid_stdlib_name) << A->getAsString(Args);
-  }
+ToolChain::CXXStdlibType Bitrig::GetDefaultCXXStdlibType() const {
   return ToolChain::CST_Libcxx;
 }
 
@@ -3100,16 +3085,7 @@ FreeBSD::FreeBSD(const Driver &D, const llvm::Triple &Triple,
     getFilePaths().push_back(getDriver().SysRoot + "/usr/lib");
 }
 
-ToolChain::CXXStdlibType FreeBSD::GetCXXStdlibType(const ArgList &Args) const {
-  if (Arg *A = Args.getLastArg(options::OPT_stdlib_EQ)) {
-    StringRef Value = A->getValue();
-    if (Value == "libstdc++")
-      return ToolChain::CST_Libstdcxx;
-    if (Value == "libc++")
-      return ToolChain::CST_Libcxx;
-
-    getDriver().Diag(diag::err_drv_invalid_stdlib_name) << A->getAsString(Args);
-  }
+ToolChain::CXXStdlibType FreeBSD::GetDefaultCXXStdlibType() const {
   if (getTriple().getOSMajorVersion() >= 10)
     return ToolChain::CST_Libcxx;
   return ToolChain::CST_Libstdcxx;
@@ -3131,6 +3107,22 @@ void FreeBSD::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
                      getDriver().SysRoot + "/usr/include/c++/4.2");
     addSystemInclude(DriverArgs, CC1Args,
                      getDriver().SysRoot + "/usr/include/c++/4.2/backward");
+    break;
+  }
+}
+
+void FreeBSD::AddCXXStdlibLibArgs(const ArgList &Args,
+                                  ArgStringList &CmdArgs) const {
+  CXXStdlibType Type = GetCXXStdlibType(Args);
+  bool Profiling = Args.hasArg(options::OPT_pg);
+
+  switch (Type) {
+  case ToolChain::CST_Libcxx:
+    CmdArgs.push_back(Profiling ? "-lc++_p" : "-lc++");
+    break;
+
+  case ToolChain::CST_Libstdcxx:
+    CmdArgs.push_back(Profiling ? "-lstdc++_p" : "-lstdc++");
     break;
   }
 }
@@ -3181,7 +3173,6 @@ SanitizerMask FreeBSD::getSupportedSanitizers() const {
 
 NetBSD::NetBSD(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
     : Generic_ELF(D, Triple, Args) {
-
   if (getDriver().UseStdLib) {
     // When targeting a 32-bit platform, try the special directory used on
     // 64-bit hosts, and only fall back to the main library directory if that
@@ -3237,20 +3228,10 @@ Tool *NetBSD::buildAssembler() const {
 
 Tool *NetBSD::buildLinker() const { return new tools::netbsd::Linker(*this); }
 
-ToolChain::CXXStdlibType NetBSD::GetCXXStdlibType(const ArgList &Args) const {
-  if (Arg *A = Args.getLastArg(options::OPT_stdlib_EQ)) {
-    StringRef Value = A->getValue();
-    if (Value == "libstdc++")
-      return ToolChain::CST_Libstdcxx;
-    if (Value == "libc++")
-      return ToolChain::CST_Libcxx;
-
-    getDriver().Diag(diag::err_drv_invalid_stdlib_name) << A->getAsString(Args);
-  }
-
+ToolChain::CXXStdlibType NetBSD::GetDefaultCXXStdlibType() const {
   unsigned Major, Minor, Micro;
   getTriple().getOSVersion(Major, Minor, Micro);
-  if (Major >= 7 || (Major == 6 && Minor == 99 && Micro >= 49) || Major == 0) {
+  if (Major >= 7 || Major == 0) {
     switch (getArch()) {
     case llvm::Triple::aarch64:
     case llvm::Triple::arm:
@@ -3260,6 +3241,8 @@ ToolChain::CXXStdlibType NetBSD::GetCXXStdlibType(const ArgList &Args) const {
     case llvm::Triple::ppc:
     case llvm::Triple::ppc64:
     case llvm::Triple::ppc64le:
+    case llvm::Triple::sparc:
+    case llvm::Triple::sparcv9:
     case llvm::Triple::x86:
     case llvm::Triple::x86_64:
       return ToolChain::CST_Libcxx;
@@ -4037,7 +4020,6 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   addExternCSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/include");
 }
 
-
 static std::string DetectLibcxxIncludePath(StringRef base) {
   std::error_code EC;
   int MaxVersion = 0;
@@ -4225,6 +4207,10 @@ CudaToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
                                      llvm::opt::ArgStringList &CC1Args) const {
   Linux::addClangTargetOptions(DriverArgs, CC1Args);
   CC1Args.push_back("-fcuda-is-device");
+
+  if (DriverArgs.hasFlag(options::OPT_fcuda_flush_denormals_to_zero,
+                         options::OPT_fno_cuda_flush_denormals_to_zero, false))
+    CC1Args.push_back("-fcuda-flush-denormals-to-zero");
 
   if (DriverArgs.hasArg(options::OPT_nocudalib))
     return;
@@ -4453,6 +4439,11 @@ Tool *MyriadToolChain::buildLinker() const {
 WebAssembly::WebAssembly(const Driver &D, const llvm::Triple &Triple,
                          const llvm::opt::ArgList &Args)
   : ToolChain(D, Triple, Args) {
+
+  assert(Triple.isArch32Bit() != Triple.isArch64Bit());
+  getFilePaths().push_back(
+      getDriver().SysRoot + "/lib" + (Triple.isArch32Bit() ? "32" : "64"));
+
   // Use LLD by default.
   DefaultLinker = "lld";
 }

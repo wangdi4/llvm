@@ -25,6 +25,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/CallSite.h"
@@ -1542,6 +1543,7 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<TargetLibraryInfoWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
+      AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
     }
     static char ID; // Pass identification, replacement for typeid
     SCCP() : FunctionPass(ID) {
@@ -1724,9 +1726,9 @@ bool IPSCCP::runOnModule(Module &M) {
     if (F->isDeclaration())
       continue;
 
-    // If this is a strong or ODR definition of this function, then we can
-    // propagate information about its result into callsites of it.
-    if (!F->mayBeOverridden())
+    // If this is an exact definition of this function, then we can propagate
+    // information about its result into callsites of it.
+    if (F->hasExactDefinition())
       Solver.AddTrackedFunction(&*F);
 
     // If this function only has direct calls that we can see, we can track its

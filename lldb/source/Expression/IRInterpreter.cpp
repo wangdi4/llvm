@@ -7,16 +7,19 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "lldb/Expression/IRInterpreter.h"
+#include "lldb/Core/ConstString.h"
 #include "lldb/Core/DataExtractor.h"
 #include "lldb/Core/Error.h"
 #include "lldb/Core/Log.h"
-#include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/Module.h"
+#include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/Scalar.h"
 #include "lldb/Core/StreamString.h"
 #include "lldb/Core/ValueObject.h"
+#include "lldb/Expression/DiagnosticManager.h"
+#include "lldb/Expression/IRExecutionUnit.h"
 #include "lldb/Expression/IRMemoryMap.h"
-#include "lldb/Expression/IRInterpreter.h"
 #include "lldb/Host/Endian.h"
 
 #include "lldb/Target/ABI.h"
@@ -101,7 +104,7 @@ public:
 
     ValueMap                                m_values;
     DataLayout                             &m_target_data;
-    lldb_private::IRMemoryMap              &m_memory_map;
+    lldb_private::IRExecutionUnit          &m_execution_unit;
     const BasicBlock                       *m_bb;
     BasicBlock::const_iterator              m_ii;
     BasicBlock::const_iterator              m_ie;
@@ -114,11 +117,11 @@ public:
     size_t                                  m_addr_byte_size;
 
     InterpreterStackFrame (DataLayout &target_data,
-                           lldb_private::IRMemoryMap &memory_map,
+                           lldb_private::IRExecutionUnit &execution_unit,
                            lldb::addr_t stack_frame_bottom,
                            lldb::addr_t stack_frame_top) :
         m_target_data (target_data),
-        m_memory_map (memory_map)
+        m_execution_unit (execution_unit)
     {
         m_byte_order = (target_data.isLittleEndian() ? lldb::eByteOrderLittle : lldb::eByteOrderBig);
         m_addr_byte_size = (target_data.getPointerSize(0));
@@ -203,7 +206,7 @@ public:
             lldb_private::DataExtractor value_extractor;
             lldb_private::Error extract_error;
 
-            m_memory_map.GetMemoryData(value_extractor, process_address, value_size, extract_error);
+            m_execution_unit.GetMemoryData(value_extractor, process_address, value_size, extract_error);
 
             if (!extract_error.Success())
                 return false;
@@ -228,7 +231,7 @@ public:
 
         lldb_private::Scalar cast_scalar;
 
-        if (!AssignToMatchType(cast_scalar, scalar.GetRawBits64(0), value->getType()))
+        if (!AssignToMatchType(cast_scalar, scalar.ULongLong(), value->getType()))
             return false;
 
         size_t value_byte_size = m_target_data.getTypeStoreSize(value->getType());
@@ -242,7 +245,7 @@ public:
 
         lldb_private::Error write_error;
 
-        m_memory_map.WriteMemory(process_address, buf.GetBytes(), buf.GetByteSize(), write_error);
+        m_execution_unit.WriteMemory(process_address, buf.GetBytes(), buf.GetByteSize(), write_error);
 
         return write_error.Success();
     }
@@ -252,6 +255,17 @@ public:
         switch (constant->getValueID())
         {
         default:
+            break;
+        case Value::FunctionVal:
+            if (const Function *constant_func = dyn_cast<Function>(constant))
+            {
+                lldb_private::ConstString name(constant_func->getName());
+                lldb::addr_t addr = m_execution_unit.FindSymbol(name);
+                if (addr == LLDB_INVALID_ADDRESS)
+                    return false;
+                value = APInt(m_target_data.getPointerSizeInBits(), addr);
+                return true;
+            }
             break;
         case Value::ConstantIntVal:
             if (const ConstantInt *constant_int = dyn_cast<ConstantInt>(constant))
@@ -329,12 +343,12 @@ public:
 
         lldb_private::Error write_error;
 
-        m_memory_map.WritePointerToMemory(data_address, address, write_error);
+        m_execution_unit.WritePointerToMemory(data_address, address, write_error);
 
         if (!write_error.Success())
         {
             lldb_private::Error free_error;
-            m_memory_map.Free(data_address, free_error);
+            m_execution_unit.Free(data_address, free_error);
             return false;
         }
 
@@ -359,19 +373,18 @@ public:
         if (!ResolveConstantValue(resolved_value, constant))
             return false;
 
-        lldb_private::StreamString buffer (lldb_private::Stream::eBinary,
-                                           m_memory_map.GetAddressByteSize(),
-                                           m_memory_map.GetByteOrder());
-
         size_t constant_size = m_target_data.getTypeStoreSize(constant->getType());
+        lldb_private::DataBufferHeap buf(constant_size, 0);
 
-        const uint64_t *raw_data = resolved_value.getRawData();
+        lldb_private::Error get_data_error;
 
-        buffer.PutRawBytes(raw_data, constant_size, lldb_private::endian::InlHostByteOrder());
+        lldb_private::Scalar resolved_scalar(resolved_value.zextOrTrunc(llvm::NextPowerOf2(constant_size) * 8));
+        if (!resolved_scalar.GetAsMemoryData(buf.GetBytes(), buf.GetByteSize(), m_byte_order, get_data_error))
+            return false;
 
         lldb_private::Error write_error;
 
-        m_memory_map.WriteMemory(process_address, (const uint8_t*)buffer.GetData(), constant_size, write_error);
+        m_execution_unit.WriteMemory(process_address, buf.GetBytes(), buf.GetByteSize(), write_error);
 
         return write_error.Success();
     }
@@ -410,7 +423,7 @@ public:
 
         lldb_private::Error read_error;
 
-        m_memory_map.ReadMemory(buf.GetBytes(), addr, length, read_error);
+        m_execution_unit.ReadMemory(buf.GetBytes(), addr, length, read_error);
 
         if (!read_error.Success())
             return std::string("<couldn't read data>");
@@ -444,7 +457,7 @@ public:
             if (!ResolveConstant (data_address, constant))
             {
                 lldb_private::Error free_error;
-                m_memory_map.Free(data_address, free_error);
+                m_execution_unit.Free(data_address, free_error);
                 return LLDB_INVALID_ADDRESS;
             }
         }
@@ -464,6 +477,46 @@ static const char *memory_write_error               = "Interpreter couldn't writ
 static const char *memory_read_error                = "Interpreter couldn't read from memory";
 static const char *infinite_loop_error              = "Interpreter ran for too many cycles";
 //static const char *bad_result_error                 = "Result of expression is in bad memory";
+
+static bool
+CanResolveConstant (llvm::Constant *constant)
+{
+    switch (constant->getValueID())
+    {
+    default:
+        return false;
+    case Value::ConstantIntVal:
+    case Value::ConstantFPVal:
+    case Value::FunctionVal:
+        return true;
+    case Value::ConstantExprVal:
+        if (const ConstantExpr *constant_expr = dyn_cast<ConstantExpr>(constant))
+        {
+            switch (constant_expr->getOpcode())
+            {
+                default:
+                    return false;
+                case Instruction::IntToPtr:
+                case Instruction::PtrToInt:
+                case Instruction::BitCast:
+                    return CanResolveConstant(constant_expr->getOperand(0));
+                case Instruction::GetElementPtr:
+                {
+                    ConstantExpr::const_op_iterator op_cursor = constant_expr->op_begin();
+                    Constant *base = dyn_cast<Constant>(*op_cursor);
+                    if (!base)
+                        return false;
+                    
+                    return CanResolveConstant(base);
+                }
+            }
+        } else {
+            return false;
+        }
+    case Value::ConstantPointerNullVal:
+        return true;
+    }
+}
 
 bool
 IRInterpreter::CanInterpret (llvm::Module &module,
@@ -611,6 +664,17 @@ IRInterpreter::CanInterpret (llvm::Module &module,
                         return false;
                     }
                 }
+                
+                if (Constant *constant = llvm::dyn_cast<Constant>(operand))
+                {
+                    if (!CanResolveConstant(constant))
+                    {
+                        if (log)
+                            log->Printf("Unsupported constant: %s", PrintValue(constant).c_str());
+                        error.SetErrorString(unsupported_operand_error);
+                        return false;
+                    }
+                }
             }
         }
 
@@ -622,7 +686,7 @@ bool
 IRInterpreter::Interpret (llvm::Module &module,
                           llvm::Function &function,
                           llvm::ArrayRef<lldb::addr_t> args,
-                          lldb_private::IRMemoryMap &memory_map,
+                          lldb_private::IRExecutionUnit &execution_unit,
                           lldb_private::Error &error,
                           lldb::addr_t stack_frame_bottom,
                           lldb::addr_t stack_frame_top,
@@ -644,7 +708,7 @@ IRInterpreter::Interpret (llvm::Module &module,
 
     DataLayout data_layout(&module);
 
-    InterpreterStackFrame frame(data_layout, memory_map, stack_frame_bottom, stack_frame_top);
+    InterpreterStackFrame frame(data_layout, execution_unit, stack_frame_bottom, stack_frame_top);
 
     if (frame.m_frame_process_address == LLDB_INVALID_ADDRESS)
     {
@@ -754,7 +818,9 @@ IRInterpreter::Interpret (llvm::Module &module,
                         result = L / R;
                         break;
                     case Instruction::UDiv:
-                        result = L.GetRawBits64(0) / R.GetRawBits64(1);
+                        L.MakeUnsigned();
+                        R.MakeUnsigned();
+                        result = L / R;
                         break;
                     case Instruction::SRem:
                         L.MakeSigned();
@@ -762,7 +828,9 @@ IRInterpreter::Interpret (llvm::Module &module,
                         result = L % R;
                         break;
                     case Instruction::URem:
-                        result = L.GetRawBits64(0) % R.GetRawBits64(1);
+                        L.MakeUnsigned();
+                        R.MakeUnsigned();
+                        result = L % R;
                         break;
                     case Instruction::Shl:
                         result = L << R;
@@ -850,7 +918,7 @@ IRInterpreter::Interpret (llvm::Module &module,
 
                 lldb_private::Error write_error;
 
-                memory_map.WritePointerToMemory(P, R, write_error);
+                execution_unit.WritePointerToMemory(P, R, write_error);
 
                 if (!write_error.Success())
                 {
@@ -859,8 +927,8 @@ IRInterpreter::Interpret (llvm::Module &module,
                     error.SetErrorToGenericError();
                     error.SetErrorString(memory_write_error);
                     lldb_private::Error free_error;
-                    memory_map.Free(P, free_error);
-                    memory_map.Free(R, free_error);
+                    execution_unit.Free(P, free_error);
+                    execution_unit.Free(R, free_error);
                     return false;
                 }
 
@@ -965,7 +1033,7 @@ IRInterpreter::Interpret (llvm::Module &module,
                         return false;
                     }
 
-                    if (C.GetRawBits64(0))
+                    if (!C.IsZero())
                         frame.Jump(br_inst->getSuccessor(0));
                     else
                         frame.Jump(br_inst->getSuccessor(1));
@@ -1116,16 +1184,24 @@ IRInterpreter::Interpret (llvm::Module &module,
                         result = (L != R);
                         break;
                     case CmpInst::ICMP_UGT:
-                        result = (L.GetRawBits64(0) > R.GetRawBits64(0));
+                        L.MakeUnsigned();
+                        R.MakeUnsigned();
+                        result = (L > R);
                         break;
                     case CmpInst::ICMP_UGE:
-                        result = (L.GetRawBits64(0) >= R.GetRawBits64(0));
+                        L.MakeUnsigned();
+                        R.MakeUnsigned();
+                        result = (L >= R);
                         break;
                     case CmpInst::ICMP_ULT:
-                        result = (L.GetRawBits64(0) < R.GetRawBits64(0));
+                        L.MakeUnsigned();
+                        R.MakeUnsigned();
+                        result = (L < R);
                         break;
                     case CmpInst::ICMP_ULE:
-                        result = (L.GetRawBits64(0) <= R.GetRawBits64(0));
+                        L.MakeUnsigned();
+                        R.MakeUnsigned();
+                        result = (L <= R);
                         break;
                     case CmpInst::ICMP_SGT:
                         L.MakeSigned();
@@ -1324,7 +1400,7 @@ IRInterpreter::Interpret (llvm::Module &module,
 
                 lldb::addr_t R;
                 lldb_private::Error read_error;
-                memory_map.ReadPointerFromMemory(&R, P, read_error);
+                execution_unit.ReadPointerFromMemory(&R, P, read_error);
 
                 if (!read_error.Success())
                 {
@@ -1339,7 +1415,7 @@ IRInterpreter::Interpret (llvm::Module &module,
                 lldb_private::DataBufferHeap buffer(target_size, 0);
 
                 read_error.Clear();
-                memory_map.ReadMemory(buffer.GetBytes(), R, buffer.GetByteSize(), read_error);
+                execution_unit.ReadMemory(buffer.GetBytes(), R, buffer.GetByteSize(), read_error);
                 if (!read_error.Success())
                 {
                     if (log)
@@ -1350,7 +1426,7 @@ IRInterpreter::Interpret (llvm::Module &module,
                 }
 
                 lldb_private::Error write_error;
-                memory_map.WriteMemory(D, buffer.GetBytes(), buffer.GetByteSize(), write_error);
+                execution_unit.WriteMemory(D, buffer.GetBytes(), buffer.GetByteSize(), write_error);
                 if (!write_error.Success())
                 {
                     if (log)
@@ -1424,7 +1500,7 @@ IRInterpreter::Interpret (llvm::Module &module,
 
                 lldb::addr_t R;
                 lldb_private::Error read_error;
-                memory_map.ReadPointerFromMemory(&R, P, read_error);
+                execution_unit.ReadPointerFromMemory(&R, P, read_error);
 
                 if (!read_error.Success())
                 {
@@ -1439,7 +1515,7 @@ IRInterpreter::Interpret (llvm::Module &module,
                 lldb_private::DataBufferHeap buffer(target_size, 0);
 
                 read_error.Clear();
-                memory_map.ReadMemory(buffer.GetBytes(), D, buffer.GetByteSize(), read_error);
+                execution_unit.ReadMemory(buffer.GetBytes(), D, buffer.GetByteSize(), read_error);
                 if (!read_error.Success())
                 {
                     if (log)
@@ -1450,7 +1526,7 @@ IRInterpreter::Interpret (llvm::Module &module,
                 }
 
                 lldb_private::Error write_error;
-                memory_map.WriteMemory(R, buffer.GetBytes(), buffer.GetByteSize(), write_error);
+                execution_unit.WriteMemory(R, buffer.GetBytes(), buffer.GetByteSize(), write_error);
                 if (!write_error.Success())
                 {
                     if (log)
@@ -1532,7 +1608,7 @@ IRInterpreter::Interpret (llvm::Module &module,
                 }
                 lldb_private::Address funcAddr(I.ULongLong(LLDB_INVALID_ADDRESS));
 
-                lldb_private::StreamString error_stream;
+                lldb_private::DiagnosticManager diagnostics;
                 lldb_private::EvaluateExpressionOptions options;
 
                 // We generally receive a function pointer which we must dereference
@@ -1599,14 +1675,14 @@ IRInterpreter::Interpret (llvm::Module &module,
                         lldb::addr_t addr = tmp_op.ULongLong();
                         size_t dataSize = 0;
 
-                        if (memory_map.GetAllocSize(addr, dataSize))
+                        if (execution_unit.GetAllocSize(addr, dataSize))
                         {
                             // Create the required buffer
                             rawArgs[i].size = dataSize;
                             rawArgs[i].data_ap.reset(new uint8_t[dataSize + 1]);
 
                             // Read string from host memory
-                            memory_map.ReadMemory(rawArgs[i].data_ap.get(), addr, dataSize, error);
+                            execution_unit.ReadMemory(rawArgs[i].data_ap.get(), addr, dataSize, error);
                             if (error.Fail())
                             {
                                 assert(!"we have failed to read the string from memory");
@@ -1637,31 +1713,24 @@ IRInterpreter::Interpret (llvm::Module &module,
                 llvm::ArrayRef<lldb_private::ABI::CallArgument> args(rawArgs, numArgs);
 
                 // Setup a thread plan to call the target function
-                lldb::ThreadPlanSP call_plan_sp
-                (
-                    new lldb_private::ThreadPlanCallFunctionUsingABI
-                    (
-                        exe_ctx.GetThreadRef(),
-                        funcAddr,
-                        *prototype,
-                        *returnType,
-                        args,
-                        options
-                    )
-                );
+                lldb::ThreadPlanSP call_plan_sp(new lldb_private::ThreadPlanCallFunctionUsingABI(
+                    exe_ctx.GetThreadRef(), funcAddr, *prototype, *returnType, args, options));
 
                 // Check if the plan is valid
-                if (!call_plan_sp || !call_plan_sp->ValidatePlan(&error_stream))
+                lldb_private::StreamString ss;
+                if (!call_plan_sp || !call_plan_sp->ValidatePlan(&ss))
                 {
                     error.SetErrorToGenericError();
-                    error.SetErrorStringWithFormat("unable to make ThreadPlanCallFunctionUsingABI for 0x%llx", I.ULongLong());
+                    error.SetErrorStringWithFormat("unable to make ThreadPlanCallFunctionUsingABI for 0x%llx",
+                                                   I.ULongLong());
                     return false;
                 }
 
                 exe_ctx.GetProcessPtr()->SetRunningUserExpression(true);
 
                 // Execute the actual function call thread plan
-                lldb::ExpressionResults res = exe_ctx.GetProcessRef().RunThreadPlan(exe_ctx, call_plan_sp, options, error_stream);
+                lldb::ExpressionResults res =
+                    exe_ctx.GetProcessRef().RunThreadPlan(exe_ctx, call_plan_sp, options, diagnostics);
 
                 // Check that the thread plan completed successfully
                 if (res != lldb::ExpressionResults::eExpressionCompleted)

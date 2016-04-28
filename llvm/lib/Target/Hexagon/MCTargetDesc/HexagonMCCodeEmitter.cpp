@@ -357,8 +357,8 @@ Hexagon::Fixups getFixupNoBits(MCInstrInfo const &MCII, const MCInst &MI,
   // The only relocs left should be GP relative:
   default:
     if (MCID.mayStore() || MCID.mayLoad()) {
-      for (const MCPhysReg *ImpUses = MCID.getImplicitUses();
-           *ImpUses && *ImpUses; ++ImpUses) {
+      for (const MCPhysReg *ImpUses = MCID.getImplicitUses(); *ImpUses;
+           ++ImpUses) {
         if (*ImpUses != Hexagon::GP)
           continue;
         switch (HexagonMCInstrInfo::getAccessSize(MCII, MI)) {
@@ -418,9 +418,8 @@ unsigned HexagonMCCodeEmitter::getExprOpValue(const MCInst &MI,
                                               const MCSubtargetInfo &STI) const
 
 {
-  auto Wrapper = dyn_cast<HexagonNoExtendOperand>(ME);
-  if (Wrapper != nullptr)
-    ME = Wrapper->getExpr();
+  if (isa<HexagonMCExpr>(ME))
+    ME = &HexagonMCInstrInfo::getExpr(*ME);
   int64_t Value;
   if (ME->evaluateAsAbsolute(Value))
     return Value;
@@ -551,6 +550,13 @@ unsigned HexagonMCCodeEmitter::getExprOpValue(const MCInst &MI,
       }
     } else
       switch (kind) {
+      case MCSymbolRefExpr::VK_None: {
+        if (HexagonMCInstrInfo::s23_2_reloc(*MO.getExpr()))
+          FixupKind = Hexagon::fixup_Hexagon_23_REG;
+        else
+          raise_relocation_error(bits, kind);
+        break;
+      }
       case MCSymbolRefExpr::VK_DTPREL:
         FixupKind = Hexagon::fixup_Hexagon_DTPREL_16;
         break;
@@ -762,13 +768,22 @@ unsigned
 HexagonMCCodeEmitter::getMachineOpValue(MCInst const &MI, MCOperand const &MO,
                                         SmallVectorImpl<MCFixup> &Fixups,
                                         MCSubtargetInfo const &STI) const {
-  if (MO.isReg())
-    return MCT.getRegisterInfo()->getEncodingValue(MO.getReg());
-  if (MO.isImm())
-    return static_cast<unsigned>(MO.getImm());
+  assert(!MO.isImm());
+  if (MO.isReg()) {
+    unsigned Reg = MO.getReg();
+    if (HexagonMCInstrInfo::isSubInstruction(MI))
+      return HexagonMCInstrInfo::getDuplexRegisterNumbering(Reg);
+    switch(MI.getOpcode()){
+    case Hexagon::A2_tfrrcr:
+    case Hexagon::A2_tfrcrr:
+      if(Reg == Hexagon::M0)
+        Reg = Hexagon::C6;
+      if(Reg == Hexagon::M1)
+        Reg = Hexagon::C7;
+    }
+    return MCT.getRegisterInfo()->getEncodingValue(Reg);
+  }
 
-  // MO must be an ME.
-  assert(MO.isExpr());
   return getExprOpValue(MI, MO, MO.getExpr(), Fixups, STI);
 }
 

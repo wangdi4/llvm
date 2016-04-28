@@ -22,17 +22,15 @@
 #include "CXType.h"
 #include "CursorVisitor.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Mangle.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/AST/VTableBuilder.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticCategories.h"
 #include "clang/Basic/DiagnosticIDs.h"
-#include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/ASTUnit.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
+#include "clang/Index/CodegenNameGenerator.h"
 #include "clang/Index/CommentToXML.h"
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/Lexer.h"
@@ -43,8 +41,6 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Config/llvm-config.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Mangler.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/CrashRecoveryContext.h"
 #include "llvm/Support/Format.h"
@@ -1458,18 +1454,9 @@ bool CursorVisitor::VisitBuiltinTypeLoc(BuiltinTypeLoc TL) {
   case BuiltinType::Void:
   case BuiltinType::NullPtr:
   case BuiltinType::Dependent:
-  case BuiltinType::OCLImage1d:
-  case BuiltinType::OCLImage1dArray:
-  case BuiltinType::OCLImage1dBuffer:
-  case BuiltinType::OCLImage2d:
-  case BuiltinType::OCLImage2dArray:
-  case BuiltinType::OCLImage2dDepth:
-  case BuiltinType::OCLImage2dArrayDepth:
-  case BuiltinType::OCLImage2dMSAA:
-  case BuiltinType::OCLImage2dArrayMSAA:
-  case BuiltinType::OCLImage2dMSAADepth:
-  case BuiltinType::OCLImage2dArrayMSAADepth:
-  case BuiltinType::OCLImage3d:
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
+  case BuiltinType::Id:
+#include "clang/Basic/OpenCLImageTypes.def"
   case BuiltinType::OCLSampler:
   case BuiltinType::OCLEvent:
   case BuiltinType::OCLClkEvent:
@@ -2034,7 +2021,20 @@ public:
 #define OPENMP_CLAUSE(Name, Class)                                             \
   void Visit##Class(const Class *C);
 #include "clang/Basic/OpenMPKinds.def"
+  void VisitOMPClauseWithPreInit(const OMPClauseWithPreInit *C);
+  void VisitOMPClauseWithPostUpdate(const OMPClauseWithPostUpdate *C);
 };
+
+void OMPClauseEnqueue::VisitOMPClauseWithPreInit(
+    const OMPClauseWithPreInit *C) {
+  Visitor->AddStmt(C->getPreInitStmt());
+}
+
+void OMPClauseEnqueue::VisitOMPClauseWithPostUpdate(
+    const OMPClauseWithPostUpdate *C) {
+  VisitOMPClauseWithPreInit(C);
+  Visitor->AddStmt(C->getPostUpdateExpr());
+}
 
 void OMPClauseEnqueue::VisitOMPIfClause(const OMPIfClause *C) {
   Visitor->AddStmt(C->getCondition());
@@ -2065,8 +2065,8 @@ void OMPClauseEnqueue::VisitOMPDefaultClause(const OMPDefaultClause *C) { }
 void OMPClauseEnqueue::VisitOMPProcBindClause(const OMPProcBindClause *C) { }
 
 void OMPClauseEnqueue::VisitOMPScheduleClause(const OMPScheduleClause *C) {
+  VisitOMPClauseWithPreInit(C);
   Visitor->AddStmt(C->getChunkSize());
-  Visitor->AddStmt(C->getHelperChunkSize());
 }
 
 void OMPClauseEnqueue::VisitOMPOrderedClause(const OMPOrderedClause *C) {
@@ -2139,10 +2139,18 @@ void OMPClauseEnqueue::VisitOMPPrivateClause(const OMPPrivateClause *C) {
 void OMPClauseEnqueue::VisitOMPFirstprivateClause(
                                         const OMPFirstprivateClause *C) {
   VisitOMPClauseList(C);
+  VisitOMPClauseWithPreInit(C);
+  for (const auto *E : C->private_copies()) {
+    Visitor->AddStmt(E);
+  }
+  for (const auto *E : C->inits()) {
+    Visitor->AddStmt(E);
+  }
 }
 void OMPClauseEnqueue::VisitOMPLastprivateClause(
                                         const OMPLastprivateClause *C) {
   VisitOMPClauseList(C);
+  VisitOMPClauseWithPostUpdate(C);
   for (auto *E : C->private_copies()) {
     Visitor->AddStmt(E);
   }
@@ -2161,6 +2169,7 @@ void OMPClauseEnqueue::VisitOMPSharedClause(const OMPSharedClause *C) {
 }
 void OMPClauseEnqueue::VisitOMPReductionClause(const OMPReductionClause *C) {
   VisitOMPClauseList(C);
+  VisitOMPClauseWithPostUpdate(C);
   for (auto *E : C->privates()) {
     Visitor->AddStmt(E);
   }
@@ -2176,6 +2185,7 @@ void OMPClauseEnqueue::VisitOMPReductionClause(const OMPReductionClause *C) {
 }
 void OMPClauseEnqueue::VisitOMPLinearClause(const OMPLinearClause *C) {
   VisitOMPClauseList(C);
+  VisitOMPClauseWithPostUpdate(C);
   for (const auto *E : C->privates()) {
     Visitor->AddStmt(E);
   }
@@ -2231,11 +2241,11 @@ void OMPClauseEnqueue::VisitOMPMapClause(const OMPMapClause *C) {
 }
 void OMPClauseEnqueue::VisitOMPDistScheduleClause(
     const OMPDistScheduleClause *C) {
+  VisitOMPClauseWithPreInit(C);
   Visitor->AddStmt(C->getChunkSize());
-  Visitor->AddStmt(C->getHelperChunkSize());
 }
-void OMPClauseEnqueue::VisitOMPDefaultmapClause(const OMPDefaultmapClause *C) {
-}
+void OMPClauseEnqueue::VisitOMPDefaultmapClause(
+    const OMPDefaultmapClause * /*C*/) {}
 }
 
 void EnqueueVisitor::EnqueueChildren(const OMPClause *S) {
@@ -3141,6 +3151,9 @@ clang_parseTranslationUnit_Impl(CXIndex CIdx, const char *source_filename,
   IntrusiveRefCntPtr<DiagnosticsEngine>
     Diags(CompilerInstance::createDiagnostics(new DiagnosticOptions));
 
+  if (options & CXTranslationUnit_KeepGoing)
+    Diags->setFatalsAsError(true);
+
   // Recover resources if we crash before exiting this function.
   llvm::CrashRecoveryContextCleanupRegistrar<DiagnosticsEngine,
     llvm::CrashRecoveryContextReleaseRefCleanup<DiagnosticsEngine> >
@@ -3396,26 +3409,23 @@ static StringLiteral* getCFSTR_value(CallExpr *callExpr) {
   return S;
 }
 
-typedef struct {
+struct ExprEvalResult {
   CXEvalResultKind EvalType;
   union {
     int intVal;
     double floatVal;
     char *stringVal;
   } EvalData;
-} ExprEvalResult;
+  ~ExprEvalResult() {
+    if (EvalType != CXEval_UnExposed && EvalType != CXEval_Float &&
+        EvalType != CXEval_Int) {
+      delete EvalData.stringVal;
+    }
+  }
+};
 
 void clang_EvalResult_dispose(CXEvalResult E) {
-  ExprEvalResult *ER = (ExprEvalResult *)E;
-  if (ER) {
-    CXEvalResultKind evalType = ER->EvalType;
-
-    if (evalType != CXEval_UnExposed &&  evalType != CXEval_Float &&
-            evalType != CXEval_Int && ER->EvalData.stringVal) {
-            free((void *) ER->EvalData.stringVal);
-    }
-    free((void *)ER);
-  }
+  delete static_cast<ExprEvalResult *>(E);
 }
 
 CXEvalResultKind clang_EvalResult_getKind(CXEvalResult E) {
@@ -3449,155 +3459,140 @@ const char* clang_EvalResult_getAsStr(CXEvalResult E) {
 static const ExprEvalResult* evaluateExpr(Expr *expr, CXCursor C) {
   Expr::EvalResult ER;
   ASTContext &ctx = getCursorContext(C);
-  if (!expr) {
+  if (!expr)
     return nullptr;
-  }
+
   expr = expr->IgnoreParens();
-  bool res = expr->EvaluateAsRValue(ER, ctx);
+  if (!expr->EvaluateAsRValue(ER, ctx))
+    return nullptr;
+
   QualType rettype;
   CallExpr *callExpr;
-  ExprEvalResult *result = (ExprEvalResult *) malloc(sizeof(ExprEvalResult));
-  if (!result) {
-    return nullptr;
-  }
+  auto result = llvm::make_unique<ExprEvalResult>();
   result->EvalType = CXEval_UnExposed;
 
-  if (res) {
+  if (ER.Val.isInt()) {
+    result->EvalType = CXEval_Int;
+    result->EvalData.intVal = ER.Val.getInt().getExtValue();
+    return result.release();
+  }
 
-    if (ER.Val.isInt()) {
-      result->EvalType = CXEval_Int;
-      result->EvalData.intVal = ER.Val.getInt().getExtValue();
-      return result;
-    } else if (ER.Val.isFloat()) {
+  if (ER.Val.isFloat()) {
+    llvm::SmallVector<char, 100> Buffer;
+    ER.Val.getFloat().toString(Buffer);
+    std::string floatStr(Buffer.data(), Buffer.size());
+    result->EvalType = CXEval_Float;
+    bool ignored;
+    llvm::APFloat apFloat = ER.Val.getFloat();
+    apFloat.convert(llvm::APFloat::IEEEdouble,
+                    llvm::APFloat::rmNearestTiesToEven, &ignored);
+    result->EvalData.floatVal = apFloat.convertToDouble();
+    return result.release();
+  }
 
-      llvm::SmallVector<char, 100> Buffer;
-      ER.Val.getFloat().toString(Buffer);
-      std::string floatStr(Buffer.data(), Buffer.size());
-      result->EvalType = CXEval_Float;
-      bool ignored;
-      llvm::APFloat apFloat = ER.Val.getFloat();
-      apFloat.convert(llvm::APFloat::IEEEdouble,
-                      llvm::APFloat::rmNearestTiesToEven, &ignored);
-      result->EvalData.floatVal = apFloat.convertToDouble();
-      return result;
-
-    } else if (expr->getStmtClass() == Stmt::ImplicitCastExprClass) {
-
-      const ImplicitCastExpr *I = dyn_cast<ImplicitCastExpr>(expr);
-      auto *subExpr = I->getSubExprAsWritten();
-      if (subExpr->getStmtClass() == Stmt::StringLiteralClass ||
-          subExpr->getStmtClass() == Stmt::ObjCStringLiteralClass) {
-
-        const StringLiteral *StrE = nullptr;
-        const ObjCStringLiteral *ObjCExpr;
-        ObjCExpr = dyn_cast<ObjCStringLiteral>(subExpr);
-
-        if (ObjCExpr) {
-          StrE = ObjCExpr->getString();
-          result->EvalType = CXEval_ObjCStrLiteral;
-        } else {
-          StrE = cast<StringLiteral>(I->getSubExprAsWritten());
-          result->EvalType = CXEval_StrLiteral;
-        }
-
-        std::string strRef(StrE->getString().str());
-        result->EvalData.stringVal = (char *)malloc(strRef.size()+1);
-        strncpy((char*)result->EvalData.stringVal, strRef.c_str(),
-                   strRef.size());
-        result->EvalData.stringVal[strRef.size()] = '\0';
-        return result;
-      }
-
-    } else if (expr->getStmtClass() == Stmt::ObjCStringLiteralClass ||
-             expr->getStmtClass() == Stmt::StringLiteralClass) {
-
+  if (expr->getStmtClass() == Stmt::ImplicitCastExprClass) {
+    const ImplicitCastExpr *I = dyn_cast<ImplicitCastExpr>(expr);
+    auto *subExpr = I->getSubExprAsWritten();
+    if (subExpr->getStmtClass() == Stmt::StringLiteralClass ||
+        subExpr->getStmtClass() == Stmt::ObjCStringLiteralClass) {
       const StringLiteral *StrE = nullptr;
       const ObjCStringLiteral *ObjCExpr;
-      ObjCExpr = dyn_cast<ObjCStringLiteral>(expr);
+      ObjCExpr = dyn_cast<ObjCStringLiteral>(subExpr);
 
       if (ObjCExpr) {
         StrE = ObjCExpr->getString();
         result->EvalType = CXEval_ObjCStrLiteral;
       } else {
-        StrE = cast<StringLiteral>(expr);
+        StrE = cast<StringLiteral>(I->getSubExprAsWritten());
         result->EvalType = CXEval_StrLiteral;
       }
 
       std::string strRef(StrE->getString().str());
-      result->EvalData.stringVal = (char *)malloc(strRef.size()+1);
-      strncpy((char*)result->EvalData.stringVal, strRef.c_str(),
-                  strRef.size());
+      result->EvalData.stringVal = new char[strRef.size() + 1];
+      strncpy((char *)result->EvalData.stringVal, strRef.c_str(),
+              strRef.size());
       result->EvalData.stringVal[strRef.size()] = '\0';
-      return result;
+      return result.release();
+    }
+  } else if (expr->getStmtClass() == Stmt::ObjCStringLiteralClass ||
+             expr->getStmtClass() == Stmt::StringLiteralClass) {
+    const StringLiteral *StrE = nullptr;
+    const ObjCStringLiteral *ObjCExpr;
+    ObjCExpr = dyn_cast<ObjCStringLiteral>(expr);
 
-    } else if (expr->getStmtClass() == Stmt::CStyleCastExprClass) {
+    if (ObjCExpr) {
+      StrE = ObjCExpr->getString();
+      result->EvalType = CXEval_ObjCStrLiteral;
+    } else {
+      StrE = cast<StringLiteral>(expr);
+      result->EvalType = CXEval_StrLiteral;
+    }
 
-      CStyleCastExpr *CC = static_cast<CStyleCastExpr *>(expr);
+    std::string strRef(StrE->getString().str());
+    result->EvalData.stringVal = new char[strRef.size() + 1];
+    strncpy((char *)result->EvalData.stringVal, strRef.c_str(), strRef.size());
+    result->EvalData.stringVal[strRef.size()] = '\0';
+    return result.release();
+  }
 
-      rettype = CC->getType();
-      if (rettype.getAsString() == "CFStringRef" &&
-            CC->getSubExpr()->getStmtClass() == Stmt::CallExprClass) {
+  if (expr->getStmtClass() == Stmt::CStyleCastExprClass) {
+    CStyleCastExpr *CC = static_cast<CStyleCastExpr *>(expr);
 
-        callExpr = static_cast<CallExpr *>(CC->getSubExpr());
-        StringLiteral* S = getCFSTR_value(callExpr);
-        if (S) {
-          std::string strLiteral(S->getString().str());
-          result->EvalType = CXEval_CFStr;
+    rettype = CC->getType();
+    if (rettype.getAsString() == "CFStringRef" &&
+        CC->getSubExpr()->getStmtClass() == Stmt::CallExprClass) {
 
-          result->EvalData.stringVal = (char *)malloc(strLiteral.size()+1);
-          strncpy((char*)result->EvalData.stringVal, strLiteral.c_str(),
-                     strLiteral.size());
-          result->EvalData.stringVal[strLiteral.size()] = '\0';
-          return result;
-        }
-      }
+      callExpr = static_cast<CallExpr *>(CC->getSubExpr());
+      StringLiteral *S = getCFSTR_value(callExpr);
+      if (S) {
+        std::string strLiteral(S->getString().str());
+        result->EvalType = CXEval_CFStr;
 
-    } else if (expr->getStmtClass() == Stmt::CallExprClass) {
-
-      callExpr = static_cast<CallExpr *>(expr);
-      rettype = callExpr->getCallReturnType(ctx);
-
-      if (rettype->isVectorType() || callExpr->getNumArgs() > 1) {
-        return nullptr;
-      }
-      if (rettype->isIntegralType(ctx) || rettype->isRealFloatingType()) {
-        if(callExpr->getNumArgs() == 1 &&
-              !callExpr->getArg(0)->getType()->isIntegralType(ctx)){
-
-          return nullptr;
-        }
-      } else if(rettype.getAsString() == "CFStringRef") {
-
-        StringLiteral* S = getCFSTR_value(callExpr);
-        if (S) {
-          std::string strLiteral(S->getString().str());
-          result->EvalType = CXEval_CFStr;
-          result->EvalData.stringVal = (char *)malloc(strLiteral.size()+1);
-          strncpy((char*)result->EvalData.stringVal, strLiteral.c_str(),
-                     strLiteral.size());
-          result->EvalData.stringVal[strLiteral.size()] = '\0';
-          return result;
-        }
-      }
-
-    } else if (expr->getStmtClass() == Stmt::DeclRefExprClass) {
-
-      DeclRefExpr *D = static_cast<DeclRefExpr *>(expr);
-      ValueDecl *V = D->getDecl();
-      if (V->getKind() == Decl::Function) {
-        std::string strName(V->getNameAsString());
-        result->EvalType = CXEval_Other;
-        result->EvalData.stringVal = (char *)malloc(strName.size()+1);
-        strncpy((char*)result->EvalData.stringVal, strName.c_str(),
-                   strName.size());
-        result->EvalData.stringVal[strName.size()] = '\0';
-        return result;
+        result->EvalData.stringVal = new char[strLiteral.size() + 1];
+        strncpy((char *)result->EvalData.stringVal, strLiteral.c_str(),
+                strLiteral.size());
+        result->EvalData.stringVal[strLiteral.size()] = '\0';
+        return result.release();
       }
     }
 
+  } else if (expr->getStmtClass() == Stmt::CallExprClass) {
+    callExpr = static_cast<CallExpr *>(expr);
+    rettype = callExpr->getCallReturnType(ctx);
+
+    if (rettype->isVectorType() || callExpr->getNumArgs() > 1)
+      return nullptr;
+
+    if (rettype->isIntegralType(ctx) || rettype->isRealFloatingType()) {
+      if (callExpr->getNumArgs() == 1 &&
+          !callExpr->getArg(0)->getType()->isIntegralType(ctx))
+        return nullptr;
+    } else if (rettype.getAsString() == "CFStringRef") {
+
+      StringLiteral *S = getCFSTR_value(callExpr);
+      if (S) {
+        std::string strLiteral(S->getString().str());
+        result->EvalType = CXEval_CFStr;
+        result->EvalData.stringVal = new char[strLiteral.size() + 1];
+        strncpy((char *)result->EvalData.stringVal, strLiteral.c_str(),
+                strLiteral.size());
+        result->EvalData.stringVal[strLiteral.size()] = '\0';
+        return result.release();
+      }
+    }
+  } else if (expr->getStmtClass() == Stmt::DeclRefExprClass) {
+    DeclRefExpr *D = static_cast<DeclRefExpr *>(expr);
+    ValueDecl *V = D->getDecl();
+    if (V->getKind() == Decl::Function) {
+      std::string strName = V->getNameAsString();
+      result->EvalType = CXEval_Other;
+      result->EvalData.stringVal = new char[strName.size() + 1];
+      strncpy(result->EvalData.stringVal, strName.c_str(), strName.size());
+      result->EvalData.stringVal[strName.size()] = '\0';
+      return result.release();
+    }
   }
 
-  clang_EvalResult_dispose((CXEvalResult *)result);
   return nullptr;
 }
 
@@ -3976,59 +3971,6 @@ static SourceLocation getLocationFromExpr(const Expr *E) {
   return E->getLocStart();
 }
 
-static std::string getMangledStructor(std::unique_ptr<MangleContext> &M,
-                                      std::unique_ptr<llvm::DataLayout> &DL,
-                                      const NamedDecl *ND,
-                                      unsigned StructorType) {
-  std::string FrontendBuf;
-  llvm::raw_string_ostream FOS(FrontendBuf);
-
-  if (const auto *CD = dyn_cast_or_null<CXXConstructorDecl>(ND))
-    M->mangleCXXCtor(CD, static_cast<CXXCtorType>(StructorType), FOS);
-  else if (const auto *DD = dyn_cast_or_null<CXXDestructorDecl>(ND))
-    M->mangleCXXDtor(DD, static_cast<CXXDtorType>(StructorType), FOS);
-
-  std::string BackendBuf;
-  llvm::raw_string_ostream BOS(BackendBuf);
-
-  llvm::Mangler::getNameWithPrefix(BOS, llvm::Twine(FOS.str()), *DL);
-
-  return BOS.str();
-}
-
-static std::string getMangledName(std::unique_ptr<MangleContext> &M,
-                                  std::unique_ptr<llvm::DataLayout> &DL,
-                                  const NamedDecl *ND) {
-  std::string FrontendBuf;
-  llvm::raw_string_ostream FOS(FrontendBuf);
-
-  M->mangleName(ND, FOS);
-
-  std::string BackendBuf;
-  llvm::raw_string_ostream BOS(BackendBuf);
-
-  llvm::Mangler::getNameWithPrefix(BOS, llvm::Twine(FOS.str()), *DL);
-
-  return BOS.str();
-}
-
-static std::string getMangledThunk(std::unique_ptr<MangleContext> &M,
-                                   std::unique_ptr<llvm::DataLayout> &DL,
-                                   const CXXMethodDecl *MD,
-                                   const ThunkInfo &T) {
-  std::string FrontendBuf;
-  llvm::raw_string_ostream FOS(FrontendBuf);
-
-  M->mangleThunk(MD, T, FOS);
-
-  std::string BackendBuf;
-  llvm::raw_string_ostream BOS(BackendBuf);
-
-  llvm::Mangler::getNameWithPrefix(BOS, llvm::Twine(FOS.str()), *DL);
-
-  return BOS.str();
-}
-
 extern "C" {
 
 unsigned clang_visitChildren(CXCursor parent,
@@ -4377,29 +4319,9 @@ CXString clang_Cursor_getMangling(CXCursor C) {
   if (!D || !(isa<FunctionDecl>(D) || isa<VarDecl>(D)))
     return cxstring::createEmpty();
 
-  // First apply frontend mangling.
-  const NamedDecl *ND = cast<NamedDecl>(D);
-  ASTContext &Ctx = ND->getASTContext();
-  std::unique_ptr<MangleContext> MC(Ctx.createMangleContext());
-
-  std::string FrontendBuf;
-  llvm::raw_string_ostream FrontendBufOS(FrontendBuf);
-  if (MC->shouldMangleDeclName(ND)) {
-    MC->mangleName(ND, FrontendBufOS);
-  } else {
-    ND->printName(FrontendBufOS);
-  }
-
-  // Now apply backend mangling.
-  std::unique_ptr<llvm::DataLayout> DL(
-      new llvm::DataLayout(Ctx.getTargetInfo().getDataLayoutString()));
-
-  std::string FinalBuf;
-  llvm::raw_string_ostream FinalBufOS(FinalBuf);
-  llvm::Mangler::getNameWithPrefix(FinalBufOS, llvm::Twine(FrontendBufOS.str()),
-                                   *DL);
-
-  return cxstring::createDup(FinalBufOS.str());
+  ASTContext &Ctx = D->getASTContext();
+  index::CodegenNameGenerator CGNameGen(Ctx);
+  return cxstring::createDup(CGNameGen.getName(D));
 }
 
 CXStringSet *clang_Cursor_getCXXManglings(CXCursor C) {
@@ -4410,49 +4332,9 @@ CXStringSet *clang_Cursor_getCXXManglings(CXCursor C) {
   if (!(isa<CXXRecordDecl>(D) || isa<CXXMethodDecl>(D)))
     return nullptr;
 
-  const NamedDecl *ND = cast<NamedDecl>(D);
-
-  ASTContext &Ctx = ND->getASTContext();
-  std::unique_ptr<MangleContext> M(Ctx.createMangleContext());
-  std::unique_ptr<llvm::DataLayout> DL(
-      new llvm::DataLayout(Ctx.getTargetInfo().getDataLayoutString()));
-
-  std::vector<std::string> Manglings;
-
-  auto hasDefaultCXXMethodCC = [](ASTContext &C, const CXXMethodDecl *MD) {
-    auto DefaultCC = C.getDefaultCallingConvention(/*IsVariadic=*/false,
-                                                   /*IsCSSMethod=*/true);
-    auto CC = MD->getType()->getAs<FunctionProtoType>()->getCallConv();
-    return CC == DefaultCC;
-  };
-
-  if (const auto *CD = dyn_cast_or_null<CXXConstructorDecl>(ND)) {
-    Manglings.emplace_back(getMangledStructor(M, DL, CD, Ctor_Base));
-
-    if (Ctx.getTargetInfo().getCXXABI().isItaniumFamily())
-      if (!CD->getParent()->isAbstract())
-        Manglings.emplace_back(getMangledStructor(M, DL, CD, Ctor_Complete));
-
-    if (Ctx.getTargetInfo().getCXXABI().isMicrosoft())
-      if (CD->hasAttr<DLLExportAttr>() && CD->isDefaultConstructor())
-        if (!(hasDefaultCXXMethodCC(Ctx, CD) && CD->getNumParams() == 0))
-          Manglings.emplace_back(getMangledStructor(M, DL, CD,
-                                                    Ctor_DefaultClosure));
-  } else if (const auto *DD = dyn_cast_or_null<CXXDestructorDecl>(ND)) {
-    Manglings.emplace_back(getMangledStructor(M, DL, DD, Dtor_Base));
-    if (Ctx.getTargetInfo().getCXXABI().isItaniumFamily()) {
-      Manglings.emplace_back(getMangledStructor(M, DL, DD, Dtor_Complete));
-      if (DD->isVirtual())
-        Manglings.emplace_back(getMangledStructor(M, DL, DD, Dtor_Deleting));
-    }
-  } else if (const auto *MD = dyn_cast_or_null<CXXMethodDecl>(ND)) {
-    Manglings.emplace_back(getMangledName(M, DL, ND));
-    if (MD->isVirtual())
-      if (const auto *TIV = Ctx.getVTableContext()->getThunkInfo(MD))
-        for (const auto &T : *TIV)
-          Manglings.emplace_back(getMangledThunk(M, DL, MD, T));
-  }
-
+  ASTContext &Ctx = D->getASTContext();
+  index::CodegenNameGenerator CGNameGen(Ctx);
+  std::vector<std::string> Manglings = CGNameGen.getAllManglings(D);
   return cxstring::createSet(Manglings);
 }
 
@@ -5675,8 +5557,11 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::Import:
   case Decl::OMPThreadPrivate:
+  case Decl::OMPDeclareReduction:
   case Decl::ObjCTypeParam:
   case Decl::BuiltinTemplate:
+  case Decl::PragmaComment:
+  case Decl::PragmaDetectMismatch:
     return C;
 
   // Declaration kinds that don't make any sense here, but are
@@ -8021,3 +7906,10 @@ cxindex::Logger::~Logger() {
     OS << "--------------------------------------------------\n";
   }
 }
+
+#ifdef CLANG_TOOL_EXTRA_BUILD
+// This anchor is used to force the linker to link the clang-tidy plugin.
+extern volatile int ClangTidyPluginAnchorSource;
+static int LLVM_ATTRIBUTE_UNUSED ClangTidyPluginAnchorDestination =
+    ClangTidyPluginAnchorSource;
+#endif

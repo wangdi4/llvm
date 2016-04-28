@@ -26,7 +26,6 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
@@ -366,8 +365,8 @@ void DwarfDebug::constructAbstractSubprogramScopeDIE(LexicalScope *Scope) {
 
   // Find the subprogram's DwarfCompileUnit in the SPMap in case the subprogram
   // was inlined from another compile unit.
-  auto &CU = SPMap[SP];
-  forBothCUs(*CU, [&](DwarfCompileUnit &CU) {
+  auto &CU = *CUMap.lookup(cast<DISubprogram>(SP)->getUnit());
+  forBothCUs(CU, [&](DwarfCompileUnit &CU) {
     CU.constructAbstractSubprogramScopeDIE(Scope);
   });
 }
@@ -391,8 +390,11 @@ DwarfDebug::constructDwarfCompileUnit(const DICompileUnit *DIUnit) {
   DwarfCompileUnit &NewCU = *OwnedUnit;
   DIE &Die = NewCU.getUnitDie();
   InfoHolder.addUnit(std::move(OwnedUnit));
-  if (useSplitDwarf())
+  if (useSplitDwarf()) {
     NewCU.setSkeleton(constructSkeletonCU(NewCU));
+    NewCU.addString(Die, dwarf::DW_AT_GNU_dwo_name,
+                    DIUnit->getSplitDebugFilename());
+  }
 
   // LTO with assembly output shares a single line table amongst multiple CUs.
   // To avoid the compilation directory being ambiguous, let the line table
@@ -464,22 +466,23 @@ void DwarfDebug::beginModule() {
 
   const Module *M = MMI->getModule();
 
-  NamedMDNode *CU_Nodes = M->getNamedMetadata("llvm.dbg.cu");
-  if (!CU_Nodes)
-    return;
-  TypeIdentifierMap = generateDITypeIdentifierMap(CU_Nodes);
+  TypeIdentifierMap = generateDITypeIdentifierMap(*M);
+  unsigned NumDebugCUs = 0;
+  for (DICompileUnit *CUNode : M->debug_compile_units()) {
+    (void)CUNode;
+    ++NumDebugCUs;
+  }
 
-  SingleCU = CU_Nodes->getNumOperands() == 1;
+  // Tell MMI whether we have debug info.
+  MMI->setDebugInfoAvailability(NumDebugCUs > 0);
+  SingleCU = NumDebugCUs == 1;
 
-  for (MDNode *N : CU_Nodes->operands()) {
-    auto *CUNode = cast<DICompileUnit>(N);
+  for (DICompileUnit *CUNode : M->debug_compile_units()) {
     DwarfCompileUnit &CU = constructDwarfCompileUnit(CUNode);
     for (auto *IE : CUNode->getImportedEntities())
       CU.addImportedEntity(IE);
     for (auto *GV : CUNode->getGlobalVariables())
       CU.getOrCreateGlobalVariableDIE(GV);
-    for (auto *SP : CUNode->getSubprograms())
-      SPMap.insert(std::make_pair(SP, &CU));
     for (auto *Ty : CUNode->getEnumTypes()) {
       // The enum types array by design contains pointers to
       // MDNodes rather than DIRefs. Unique them here.
@@ -488,19 +491,16 @@ void DwarfDebug::beginModule() {
     for (auto *Ty : CUNode->getRetainedTypes()) {
       // The retained types array by design contains pointers to
       // MDNodes rather than DIRefs. Unique them here.
-      DIType *RT = cast<DIType>(resolve(Ty->getRef()));
-      if (!RT->isExternalTypeRef())
-        // There is no point in force-emitting a forward declaration.
-        CU.getOrCreateTypeDIE(RT);
+      if (DIType *RT = dyn_cast<DIType>(resolve(Ty->getRef())))
+        if (!RT->isExternalTypeRef())
+          // There is no point in force-emitting a forward declaration.
+          CU.getOrCreateTypeDIE(RT);
     }
     // Emit imported_modules last so that the relevant context is already
     // available.
     for (auto *IE : CUNode->getImportedEntities())
       constructAndAddImportedEntityDIE(CU, IE);
   }
-
-  // Tell MMI that we have debug info.
-  MMI->setDebugInfoAvailability(true);
 }
 
 void DwarfDebug::finishVariableDefinitions() {
@@ -523,30 +523,20 @@ void DwarfDebug::finishVariableDefinitions() {
 }
 
 void DwarfDebug::finishSubprogramDefinitions() {
-  for (const auto &P : SPMap)
-    forBothCUs(*P.second, [&](DwarfCompileUnit &CU) {
-      CU.finishSubprogramDefinition(cast<DISubprogram>(P.first));
-    });
-}
-
-// Collect info for variables that were optimized out.
-void DwarfDebug::collectDeadVariables() {
-  const Module *M = MMI->getModule();
-
-  if (NamedMDNode *CU_Nodes = M->getNamedMetadata("llvm.dbg.cu")) {
-    for (MDNode *N : CU_Nodes->operands()) {
-      auto *TheCU = cast<DICompileUnit>(N);
-      // Construct subprogram DIE and add variables DIEs.
-      DwarfCompileUnit *SPCU =
-          static_cast<DwarfCompileUnit *>(CUMap.lookup(TheCU));
-      assert(SPCU && "Unable to find Compile Unit!");
-      for (auto *SP : TheCU->getSubprograms()) {
-        if (ProcessedSPNodes.count(SP) != 0)
-          continue;
-        SPCU->collectDeadVariables(SP);
-      }
-    }
-  }
+  for (auto &F : MMI->getModule()->functions())
+    if (auto *SP = F.getSubprogram())
+      if (ProcessedSPNodes.count(SP) &&
+          SP->getUnit()->getEmissionKind() != DICompileUnit::NoDebug)
+        forBothCUs(*CUMap.lookup(SP->getUnit()), [&](DwarfCompileUnit &CU) {
+          CU.finishSubprogramDefinition(SP);
+        });
+  for (auto *AbsScope : LScopes.getAbstractScopesList())
+    if (auto *SP = dyn_cast<DISubprogram>(AbsScope->getScopeNode()))
+      if (ProcessedSPNodes.count(SP) &&
+          SP->getUnit()->getEmissionKind() != DICompileUnit::NoDebug)
+        forBothCUs(*CUMap.lookup(SP->getUnit()), [&](DwarfCompileUnit &CU) {
+          CU.finishSubprogramDefinition(SP);
+        });
 }
 
 void DwarfDebug::finalizeModuleInfo() {
@@ -555,9 +545,6 @@ void DwarfDebug::finalizeModuleInfo() {
   finishSubprogramDefinitions();
 
   finishVariableDefinitions();
-
-  // Collect info for variables that were optimized out.
-  collectDeadVariables();
 
   // Handle anything that needs to be done on a per-unit basis after
   // all other generation.
@@ -688,7 +675,6 @@ void DwarfDebug::endModule() {
   }
 
   // clean up.
-  SPMap.clear();
   AbstractVariables.clear();
 }
 
@@ -916,7 +902,7 @@ DwarfDebug::buildLocationList(SmallVectorImpl<DebugLocEntry> &DebugLoc,
     DEBUG({
       dbgs() << CurEntry->getValues().size() << " Values:\n";
       for (auto &Value : CurEntry->getValues())
-        Value.getExpression()->dump();
+        Value.dump();
       dbgs() << "-----\n";
     });
 
@@ -933,6 +919,18 @@ DbgVariable *DwarfDebug::createConcreteVariable(LexicalScope &Scope,
       make_unique<DbgVariable>(IV.first, IV.second, this));
   InfoHolder.addScopeVariable(&Scope, ConcreteVariables.back().get());
   return ConcreteVariables.back().get();
+}
+
+// Determine whether this DBG_VALUE is valid at the beginning of the function.
+static bool validAtEntry(const MachineInstr *MInsn) {
+  auto MBB = MInsn->getParent();
+  // Is it in the entry basic block?
+  if (!MBB->pred_empty())
+    return false;
+  for (MachineBasicBlock::const_reverse_iterator I(MInsn); I != MBB->rend(); ++I)
+    if (!(I->isDebugValue() || I->getFlag(MachineInstr::FrameSetup)))
+      return false;
+  return true;
 }
 
 // Find variables for each lexical scope.
@@ -967,8 +965,11 @@ void DwarfDebug::collectVariableInfo(DwarfCompileUnit &TheCU,
     const MachineInstr *MInsn = Ranges.front().first;
     assert(MInsn->isDebugValue() && "History must begin with debug value");
 
-    // Check if the first DBG_VALUE is valid for the rest of the function.
-    if (Ranges.size() == 1 && Ranges.front().second == nullptr) {
+    // Check if there is a single DBG_VALUE, valid throughout the function.
+    // A single constant is also considered valid for the entire function.
+    if (Ranges.size() == 1 &&
+        (MInsn->getOperand(0).isImm() ||
+         (validAtEntry(MInsn) && Ranges.front().second == nullptr))) {
       RegVar->initializeDbgValue(MInsn);
       continue;
     }
@@ -980,7 +981,7 @@ void DwarfDebug::collectVariableInfo(DwarfCompileUnit &TheCU,
     SmallVector<DebugLocEntry, 8> Entries;
     buildLocationList(Entries, Ranges);
 
-    // If the variable has an DIBasicType, extract it.  Basic types cannot have
+    // If the variable has a DIBasicType, extract it.  Basic types cannot have
     // unique identifiers, so don't bother resolving the type with the
     // identifier map.
     const DIBasicType *BT = dyn_cast<DIBasicType>(
@@ -1072,8 +1073,13 @@ void DwarfDebug::beginFunction(const MachineFunction *MF) {
   // isn't structurally identical (see: file path/name info from clang, which
   // includes the directory of the cpp file being built, even when the file name
   // is absolute (such as an <> lookup header)))
-  DwarfCompileUnit *TheCU = SPMap.lookup(FnScope->getScopeNode());
-  assert(TheCU && "Unable to find compile unit!");
+  auto *SP = cast<DISubprogram>(FnScope->getScopeNode());
+  DwarfCompileUnit *TheCU = CUMap.lookup(SP->getUnit());
+  if (!TheCU) {
+    assert(SP->getUnit()->getEmissionKind() == DICompileUnit::NoDebug &&
+           "DICompileUnit missing from llvm.dbg.cu?");
+    return;
+  }
   if (Asm->OutStreamer->hasRawTextSupport())
     // Use a single line table if we are generating assembly.
     Asm->OutStreamer->getContext().setDwarfCompileUnitID(0);
@@ -1095,14 +1101,19 @@ void DwarfDebug::endFunction(const MachineFunction *MF) {
   assert(CurFn == MF &&
       "endFunction should be called with the same function as beginFunction");
 
-  if (!MMI->hasDebugInfo() || LScopes.empty() ||
-      !MF->getFunction()->getSubprogram()) {
+  const DISubprogram *SP = MF->getFunction()->getSubprogram();
+  if (!MMI->hasDebugInfo() || LScopes.empty() || !SP ||
+      SP->getUnit()->getEmissionKind() == DICompileUnit::NoDebug) {
     // If we don't have a lexical scope for this function then there will
     // be a hole in the range information. Keep note of this by setting the
     // previously used section to nullptr.
     PrevCU = nullptr;
     CurFn = nullptr;
     DebugHandlerBase::endFunction(MF);
+    // Mark functions with no debug info on any instructions, but a
+    // valid DISubprogram as processed.
+    if (SP)
+      ProcessedSPNodes.insert(SP);
     return;
   }
 
@@ -1110,8 +1121,8 @@ void DwarfDebug::endFunction(const MachineFunction *MF) {
   Asm->OutStreamer->getContext().setDwarfCompileUnitID(0);
 
   LexicalScope *FnScope = LScopes.getCurrentFunctionScope();
-  auto *SP = cast<DISubprogram>(FnScope->getScopeNode());
-  DwarfCompileUnit &TheCU = *SPMap.lookup(SP);
+  SP = cast<DISubprogram>(FnScope->getScopeNode());
+  DwarfCompileUnit &TheCU = *CUMap.lookup(SP->getUnit());
 
   DenseSet<InlinedVariable> ProcessedVars;
   collectVariableInfo(TheCU, SP, ProcessedVars);
@@ -1121,7 +1132,7 @@ void DwarfDebug::endFunction(const MachineFunction *MF) {
 
   // Under -gmlt, skip building the subprogram if there are no inlined
   // subroutines inside it.
-  if (TheCU.getCUNode()->getEmissionKind() == DIBuilder::LineTablesOnly &&
+  if (TheCU.getCUNode()->getEmissionKind() == DICompileUnit::LineTablesOnly &&
       LScopes.getAbstractScopesList().empty() && !IsDarwin) {
     assert(InfoHolder.getScopeVariables().empty());
     assert(DbgValues.empty());
@@ -1421,10 +1432,10 @@ static void emitDebugLocValue(const AsmPrinter &AP, const DIBasicType *BT,
         DwarfExpr.AddMachineRegExpression(Expr, Loc.getReg(),
                                           PieceOffsetInBits);
     }
+  } else if (Value.isConstantFP()) {
+    APInt RawBytes = Value.getConstantFP()->getValueAPF().bitcastToAPInt();
+    DwarfExpr.AddUnsignedConstant(RawBytes);
   }
-  // else ... ignore constant fp. There is not any good way to
-  // to represent them here in dwarf.
-  // FIXME: ^
 }
 
 void DebugLocEntry::finalize(const AsmPrinter &AP,
@@ -1628,9 +1639,10 @@ void DwarfDebug::emitDebugARanges() {
   }
 
   // Sort the CU list (again, to ensure consistent output order).
-  std::sort(CUs.begin(), CUs.end(), [](const DwarfUnit *A, const DwarfUnit *B) {
-    return A->getUniqueID() < B->getUniqueID();
-  });
+  std::sort(CUs.begin(), CUs.end(),
+            [](const DwarfCompileUnit *A, const DwarfCompileUnit *B) {
+              return A->getUniqueID() < B->getUniqueID();
+            });
 
   // Emit an arange table for each CU we used.
   for (DwarfCompileUnit *CU : CUs) {
@@ -1793,7 +1805,7 @@ void DwarfDebug::emitDebugMacinfo() {
 // DWARF5 Experimental Separate Dwarf emitters.
 
 void DwarfDebug::initSkeletonUnit(const DwarfUnit &U, DIE &Die,
-                                  std::unique_ptr<DwarfUnit> NewU) {
+                                  std::unique_ptr<DwarfCompileUnit> NewU) {
   NewU->addString(Die, dwarf::DW_AT_GNU_dwo_name,
                   U.getCUNode()->getSplitDebugFilename());
 
@@ -1882,21 +1894,19 @@ void DwarfDebug::addDwarfTypeUnitType(DwarfCompileUnit &CU,
   if (!TypeUnitsUnderConstruction.empty() && AddrPool.hasBeenUsed())
     return;
 
-  const DwarfTypeUnit *&TU = DwarfTypeUnits[CTy];
-  if (TU) {
-    CU.addDIETypeSignature(RefDie, *TU);
+  auto Ins = TypeSignatures.insert(std::make_pair(CTy, 0));
+  if (!Ins.second) {
+    CU.addDIETypeSignature(RefDie, Ins.first->second);
     return;
   }
 
   bool TopLevelType = TypeUnitsUnderConstruction.empty();
   AddrPool.resetUsedFlag();
 
-  auto OwnedUnit = make_unique<DwarfTypeUnit>(
-      InfoHolder.getUnits().size() + TypeUnitsUnderConstruction.size(), CU, Asm,
-      this, &InfoHolder, getDwoLineTable(CU));
+  auto OwnedUnit = make_unique<DwarfTypeUnit>(CU, Asm, this, &InfoHolder,
+                                              getDwoLineTable(CU));
   DwarfTypeUnit &NewTU = *OwnedUnit;
   DIE &UnitDie = NewTU.getUnitDie();
-  TU = &NewTU;
   TypeUnitsUnderConstruction.push_back(
       std::make_pair(std::move(OwnedUnit), CTy));
 
@@ -1905,6 +1915,7 @@ void DwarfDebug::addDwarfTypeUnitType(DwarfCompileUnit &CU,
 
   uint64_t Signature = makeTypeSignature(Identifier);
   NewTU.setTypeSignature(Signature);
+  Ins.first->second = Signature;
 
   if (useSplitDwarf())
     NewTU.initSection(Asm->getObjFileLowering().getDwarfTypesDWOSection());
@@ -1928,7 +1939,7 @@ void DwarfDebug::addDwarfTypeUnitType(DwarfCompileUnit &CU,
       // This is pessimistic as some of these types might not be dependent on
       // the type that used an address.
       for (const auto &TU : TypeUnitsToAdd)
-        DwarfTypeUnits.erase(TU.second);
+        TypeSignatures.erase(TU.second);
 
       // Construct this type in the CU directly.
       // This is inefficient because all the dependent types will be rebuilt
@@ -1940,10 +1951,12 @@ void DwarfDebug::addDwarfTypeUnitType(DwarfCompileUnit &CU,
 
     // If the type wasn't dependent on fission addresses, finish adding the type
     // and all its dependent types.
-    for (auto &TU : TypeUnitsToAdd)
-      InfoHolder.addUnit(std::move(TU.first));
+    for (auto &TU : TypeUnitsToAdd) {
+      InfoHolder.computeSizeAndOffsetsForUnit(TU.first.get());
+      InfoHolder.emitUnit(TU.first.get(), useSplitDwarf());
+    }
   }
-  CU.addDIETypeSignature(RefDie, NewTU);
+  CU.addDIETypeSignature(RefDie, Signature);
 }
 
 // Accelerator table mutators - add each name along with its companion

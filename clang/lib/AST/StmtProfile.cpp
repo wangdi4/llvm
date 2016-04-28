@@ -268,7 +268,22 @@ public:
 #define OPENMP_CLAUSE(Name, Class)                                             \
   void Visit##Class(const Class *C);
 #include "clang/Basic/OpenMPKinds.def"
+  void VistOMPClauseWithPreInit(const OMPClauseWithPreInit *C);
+  void VistOMPClauseWithPostUpdate(const OMPClauseWithPostUpdate *C);
 };
+
+void OMPClauseProfiler::VistOMPClauseWithPreInit(
+    const OMPClauseWithPreInit *C) {
+  if (auto *S = C->getPreInitStmt())
+    Profiler->VisitStmt(S);
+}
+
+void OMPClauseProfiler::VistOMPClauseWithPostUpdate(
+    const OMPClauseWithPostUpdate *C) {
+  VistOMPClauseWithPreInit(C);
+  if (auto *E = C->getPostUpdateExpr())
+    Profiler->VisitStmt(E);
+}
 
 void OMPClauseProfiler::VisitOMPIfClause(const OMPIfClause *C) {
   if (C->getCondition())
@@ -305,12 +320,9 @@ void OMPClauseProfiler::VisitOMPDefaultClause(const OMPDefaultClause *C) { }
 void OMPClauseProfiler::VisitOMPProcBindClause(const OMPProcBindClause *C) { }
 
 void OMPClauseProfiler::VisitOMPScheduleClause(const OMPScheduleClause *C) {
-  if (C->getChunkSize()) {
-    Profiler->VisitStmt(C->getChunkSize());
-    if (C->getHelperChunkSize()) {
-      Profiler->VisitStmt(C->getChunkSize());
-    }
-  }
+  VistOMPClauseWithPreInit(C);
+  if (auto *S = C->getChunkSize())
+    Profiler->VisitStmt(S);
 }
 
 void OMPClauseProfiler::VisitOMPOrderedClause(const OMPOrderedClause *C) {
@@ -356,6 +368,7 @@ void OMPClauseProfiler::VisitOMPPrivateClause(const OMPPrivateClause *C) {
 void
 OMPClauseProfiler::VisitOMPFirstprivateClause(const OMPFirstprivateClause *C) {
   VisitOMPClauseList(C);
+  VistOMPClauseWithPreInit(C);
   for (auto *E : C->private_copies()) {
     Profiler->VisitStmt(E);
   }
@@ -366,6 +379,7 @@ OMPClauseProfiler::VisitOMPFirstprivateClause(const OMPFirstprivateClause *C) {
 void
 OMPClauseProfiler::VisitOMPLastprivateClause(const OMPLastprivateClause *C) {
   VisitOMPClauseList(C);
+  VistOMPClauseWithPostUpdate(C);
   for (auto *E : C->source_exprs()) {
     Profiler->VisitStmt(E);
   }
@@ -385,6 +399,7 @@ void OMPClauseProfiler::VisitOMPReductionClause(
       C->getQualifierLoc().getNestedNameSpecifier());
   Profiler->VisitName(C->getNameInfo().getName());
   VisitOMPClauseList(C);
+  VistOMPClauseWithPostUpdate(C);
   for (auto *E : C->privates()) {
     Profiler->VisitStmt(E);
   }
@@ -400,6 +415,7 @@ void OMPClauseProfiler::VisitOMPReductionClause(
 }
 void OMPClauseProfiler::VisitOMPLinearClause(const OMPLinearClause *C) {
   VisitOMPClauseList(C);
+  VistOMPClauseWithPostUpdate(C);
   for (auto *E : C->privates()) {
     Profiler->VisitStmt(E);
   }
@@ -633,12 +649,9 @@ void StmtProfiler::VisitOMPDistributeDirective(
 
 void OMPClauseProfiler::VisitOMPDistScheduleClause(
     const OMPDistScheduleClause *C) {
-  if (C->getChunkSize()) {
-    Profiler->VisitStmt(C->getChunkSize());
-    if (C->getHelperChunkSize()) {
-      Profiler->VisitStmt(C->getChunkSize());
-    }
-  }
+  VistOMPClauseWithPreInit(C);
+  if (auto *S = C->getChunkSize())
+    Profiler->VisitStmt(S);
 }
 
 void OMPClauseProfiler::VisitOMPDefaultmapClause(const OMPDefaultmapClause *) {}
@@ -1245,6 +1258,7 @@ StmtProfiler::VisitLambdaExpr(const LambdaExpr *S) {
        C != CEnd; ++C) {
     ID.AddInteger(C->getCaptureKind());
     switch (C->getCaptureKind()) {
+    case LCK_StarThis:
     case LCK_This:
       break;
     case LCK_ByRef:

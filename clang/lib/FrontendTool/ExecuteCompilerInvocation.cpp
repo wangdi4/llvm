@@ -66,7 +66,9 @@ CreateFrontendBaseAction(CompilerInstance &CI) {
          it != ie; ++it) {
       if (it->getName() == CI.getFrontendOpts().ActionName) {
         std::unique_ptr<PluginASTAction> P(it->instantiate());
-        if (!P->ParseArgs(CI, CI.getFrontendOpts().PluginArgs))
+        if ((P->getActionType() != PluginASTAction::ReplaceAction &&
+             P->getActionType() != PluginASTAction::Cmdline) ||
+            !P->ParseArgs(CI, CI.getFrontendOpts().PluginArgs[it->getName()]))
           return nullptr;
         return std::move(P);
       }
@@ -189,15 +191,20 @@ bool clang::ExecuteCompilerInvocation(CompilerInstance *Clang) {
          e = Clang->getFrontendOpts().Plugins.size(); i != e; ++i) {
     const std::string &Path = Clang->getFrontendOpts().Plugins[i];
     std::string Error;
-    llvm::sys::DynamicLibrary DL(
-        llvm::sys::DynamicLibrary::getPermanentLibrary(Path.c_str(), &Error));
-    if (DL.isValid()) {
-      // On Windows, we need to import the plugin front-end action
-      // dynamically.
-      LLVM_IMPORT_REGISTRY(FrontendPluginRegistry, DL);
-    } else {
+    if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(Path.c_str(), &Error))
       Clang->getDiagnostics().Report(diag::err_fe_unable_to_load_plugin)
         << Path << Error;
+  }
+
+  // Check if any of the loaded plugins replaces the main AST action
+  for (FrontendPluginRegistry::iterator it = FrontendPluginRegistry::begin(),
+                                        ie = FrontendPluginRegistry::end();
+       it != ie; ++it) {
+    std::unique_ptr<PluginASTAction> P(it->instantiate());
+    if (P->getActionType() == PluginASTAction::ReplaceAction) {
+      Clang->getFrontendOpts().ProgramAction = clang::frontend::PluginAction;
+      Clang->getFrontendOpts().ActionName = it->getName();
+      break;
     }
   }
 

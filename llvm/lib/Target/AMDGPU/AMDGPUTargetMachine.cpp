@@ -23,6 +23,7 @@
 #include "SIISelLowering.h"
 #include "SIInstrInfo.h"
 #include "llvm/Analysis/Passes.h"
+#include "llvm/CodeGen/GlobalISel/IRTranslator.h"
 #include "llvm/CodeGen/MachineFunctionAnalysis.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
@@ -30,6 +31,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Transforms/IPO.h"
@@ -47,14 +49,16 @@ extern "C" void LLVMInitializeAMDGPUTarget() {
   initializeSILowerI1CopiesPass(*PR);
   initializeSIFixSGPRCopiesPass(*PR);
   initializeSIFoldOperandsPass(*PR);
-  initializeSIFixSGPRLiveRangesPass(*PR);
   initializeSIFixControlFlowLiveIntervalsPass(*PR);
   initializeSILoadStoreOptimizerPass(*PR);
   initializeAMDGPUAnnotateKernelFeaturesPass(*PR);
   initializeAMDGPUAnnotateUniformValuesPass(*PR);
   initializeAMDGPUPromoteAllocaPass(*PR);
   initializeSIAnnotateControlFlowPass(*PR);
+  initializeSIInsertNopsPass(*PR);
   initializeSIInsertWaitsPass(*PR);
+  initializeSIWholeQuadModePass(*PR);
+  initializeSILowerControlFlowPass(*PR);
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
@@ -144,6 +148,12 @@ GCNTargetMachine::GCNTargetMachine(const Target &T, const Triple &TT,
 //===----------------------------------------------------------------------===//
 
 namespace {
+
+cl::opt<bool> InsertNops(
+  "amdgpu-insert-nops",
+  cl::desc("Insert two nop instructions for each high level source statement"),
+  cl::init(false));
+
 class AMDGPUPassConfig : public TargetPassConfig {
 public:
   AMDGPUPassConfig(TargetMachine *TM, PassManagerBase &PM)
@@ -176,7 +186,7 @@ public:
   bool addGCPasses() override;
 };
 
-class R600PassConfig : public AMDGPUPassConfig {
+class R600PassConfig final : public AMDGPUPassConfig {
 public:
   R600PassConfig(TargetMachine *TM, PassManagerBase &PM)
     : AMDGPUPassConfig(TM, PM) { }
@@ -187,12 +197,17 @@ public:
   void addPreEmitPass() override;
 };
 
-class GCNPassConfig : public AMDGPUPassConfig {
+class GCNPassConfig final : public AMDGPUPassConfig {
 public:
   GCNPassConfig(TargetMachine *TM, PassManagerBase &PM)
     : AMDGPUPassConfig(TM, PM) { }
   bool addPreISel() override;
+  void addMachineSSAOptimization() override;
   bool addInstSelector() override;
+#ifdef LLVM_BUILD_GLOBAL_ISEL
+  bool addIRTranslator() override;
+  bool addRegBankSelect() override;
+#endif
   void addFastRegAlloc(FunctionPass *RegAllocPass) override;
   void addOptimizedRegAlloc(FunctionPass *RegAllocPass) override;
   void addPreRegAlloc() override;
@@ -239,10 +254,7 @@ void AMDGPUPassConfig::addCodeGenPrepare() {
 
 bool
 AMDGPUPassConfig::addPreISel() {
-  const AMDGPUSubtarget &ST = *getAMDGPUTargetMachine().getSubtargetImpl();
   addPass(createFlattenCFGPass());
-  if (ST.IsIRStructurizerEnabled())
-    addPass(createStructurizeCFGPass());
   return false;
 }
 
@@ -262,6 +274,9 @@ bool AMDGPUPassConfig::addGCPasses() {
 
 bool R600PassConfig::addPreISel() {
   AMDGPUPassConfig::addPreISel();
+  const AMDGPUSubtarget &ST = *getAMDGPUTargetMachine().getSubtargetImpl();
+  if (ST.IsIRStructurizerEnabled())
+    addPass(createStructurizeCFGPass());
   addPass(createR600TextureIntrinsicsReplacer());
   return false;
 }
@@ -300,22 +315,46 @@ bool GCNPassConfig::addPreISel() {
   // FIXME: We need to run a pass to propagate the attributes when calls are
   // supported.
   addPass(&AMDGPUAnnotateKernelFeaturesID);
-
+  addPass(createStructurizeCFGPass(true)); // true -> SkipUniformRegions
   addPass(createSinkingPass());
   addPass(createSITypeRewriter());
-  addPass(createSIAnnotateControlFlowPass());
   addPass(createAMDGPUAnnotateUniformValues());
+  addPass(createSIAnnotateControlFlowPass());
 
   return false;
+}
+
+void GCNPassConfig::addMachineSSAOptimization() {
+  TargetPassConfig::addMachineSSAOptimization();
+
+  // We want to fold operands after PeepholeOptimizer has run (or as part of
+  // it), because it will eliminate extra copies making it easier to fold the
+  // real source operand. We want to eliminate dead instructions after, so that
+  // we see fewer uses of the copies. We then need to clean up the dead
+  // instructions leftover after the operands are folded as well.
+  //
+  // XXX - Can we get away without running DeadMachineInstructionElim again?
+  addPass(&SIFoldOperandsID);
+  addPass(&DeadMachineInstructionElimID);
 }
 
 bool GCNPassConfig::addInstSelector() {
   AMDGPUPassConfig::addInstSelector();
   addPass(createSILowerI1CopiesPass());
   addPass(&SIFixSGPRCopiesID);
-  addPass(createSIFoldOperandsPass());
   return false;
 }
+
+#ifdef LLVM_BUILD_GLOBAL_ISEL
+bool GCNPassConfig::addIRTranslator() {
+  addPass(new IRTranslator());
+  return false;
+}
+
+bool GCNPassConfig::addRegBankSelect() {
+  return false;
+}
+#endif
 
 void GCNPassConfig::addPreRegAlloc() {
   const AMDGPUSubtarget &ST = *getAMDGPUTargetMachine().getSubtargetImpl();
@@ -337,19 +376,14 @@ void GCNPassConfig::addPreRegAlloc() {
     insertPass(&MachineSchedulerID, &RegisterCoalescerID);
   }
   addPass(createSIShrinkInstructionsPass(), false);
+  addPass(createSIWholeQuadModePass());
 }
 
 void GCNPassConfig::addFastRegAlloc(FunctionPass *RegAllocPass) {
-  addPass(&SIFixSGPRLiveRangesID);
   TargetPassConfig::addFastRegAlloc(RegAllocPass);
 }
 
 void GCNPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
-  // We want to run this after LiveVariables is computed to avoid computing them
-  // twice.
-  // FIXME: We shouldn't disable the verifier here. r249087 introduced a failure
-  // that needs to be fixed.
-  insertPass(&LiveVariablesID, &SIFixSGPRLiveRangesID, /*VerifyAfter=*/false);
   TargetPassConfig::addOptimizedRegAlloc(RegAllocPass);
 }
 
@@ -362,7 +396,10 @@ void GCNPassConfig::addPreSched2() {
 
 void GCNPassConfig::addPreEmitPass() {
   addPass(createSIInsertWaitsPass(), false);
-  addPass(createSILowerControlFlowPass(*TM), false);
+  addPass(createSILowerControlFlowPass(), false);
+  if (InsertNops) {
+    addPass(createSIInsertNopsPass(), false);
+  }
 }
 
 TargetPassConfig *GCNTargetMachine::createPassConfig(PassManagerBase &PM) {

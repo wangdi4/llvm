@@ -898,7 +898,7 @@ void Dependences::dump(raw_ostream &OS) const {
 #if 0 
 
 static
-AliasAnalysis::AliasResult underlyingObjectsAlias(AliasAnalysis *AA,
+AAResults::AliasResult underlyingObjectsAlias(AAResults *AA,
                                                   const Value *A,
                                                   const Value *B) {
   const Value *AObj = GetUnderlyingObject(A);
@@ -3913,7 +3913,7 @@ static void dumpSmallBitVector(SmallBitVector &BV) {
 }
 #endif
 
-DDTest::DDTest(AliasAnalysis &AA) : AA(AA) {
+DDTest::DDTest(AAResults &AAR) : AAR(AAR) {
   DEBUG(dbgs() << "DDTest initiated\n");
   WorkCE.clear();
 }
@@ -3938,7 +3938,7 @@ bool DDTest::queryAAIndep(RegDDRef *SrcDDRef, RegDDRef *DstDDRef) {
   SrcDDRef->getAAMetadata(SrcLoc.AATags);
   DstDDRef->getAAMetadata(DstLoc.AATags);
 
-  return AA.isNoAlias(SrcLoc, DstLoc);
+  return AAR.isNoAlias(SrcLoc, DstLoc);
 }
 
 // depends:
@@ -5111,7 +5111,7 @@ const  SCEV *DependenceAnalysis::getSplitIteration(const Dependence &Dep,
   Value *SrcPtr = getPointerOperand(Src);
   Value *DstPtr = getPointerOperand(Dst);
   assert(underlyingObjectsAlias(AA, DstPtr, SrcPtr) ==
-         AliasAnalysis::MustAlias);
+         AAResults::MustAlias);
 
   // establish loop nesting levels
   establishNestingLevels(Src, Dst);

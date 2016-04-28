@@ -82,6 +82,9 @@ public:
     bool
     GetStopReasonExtendedInfoAsJSON (lldb::SBStream &stream);
     
+    SBThreadCollection
+    GetStopReasonExtendedBacktraces (InstrumentationRuntimeType type);
+    
     size_t
     GetStopDescription (char *dst, size_t dst_len);
     
@@ -114,6 +117,12 @@ public:
 
     void
     StepInto (const char *target_name, lldb::RunMode stop_other_threads = lldb::eOnlyDuringStepping);
+    
+    void
+    StepInto (const char *target_name,
+              uint32_t end_line,
+              SBError &error,
+              lldb::RunMode stop_other_threads = lldb::eOnlyDuringStepping);
     
     void
     StepOut ();

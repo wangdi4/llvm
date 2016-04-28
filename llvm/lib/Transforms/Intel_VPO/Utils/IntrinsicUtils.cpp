@@ -28,7 +28,7 @@
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 
-#define DEBUG_TYPE "IntrinsicUtils"
+#define DEBUG_TYPE "VPOIntrinsicUtils"
 
 using namespace llvm;
 using namespace llvm::vpo;

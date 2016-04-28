@@ -17,10 +17,8 @@
 #ifndef LLVM_IR_DEBUGINFO_H
 #define LLVM_IR_DEBUGINFO_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/Casting.h"
@@ -32,6 +30,8 @@ namespace llvm {
 class Module;
 class DbgDeclareInst;
 class DbgValueInst;
+template <typename K, typename V, typename KeyInfoT, typename BucketT>
+class DenseMap;
 
 /// \brief Maps from type identifier to the actual MDNode.
 typedef DenseMap<const MDString *, DIType *> DITypeIdentifierMap;
@@ -39,13 +39,8 @@ typedef DenseMap<const MDString *, DIType *> DITypeIdentifierMap;
 /// \brief Find subprogram that is enclosing this scope.
 DISubprogram *getDISubprogram(const MDNode *Scope);
 
-/// \brief Find debug info for a given function.
-///
-/// \returns a valid subprogram, if found. Otherwise, return \c nullptr.
-DISubprogram *getDISubprogram(const Function *F);
-
 /// \brief Generate map by visiting all retained types.
-DITypeIdentifierMap generateDITypeIdentifierMap(const NamedMDNode *CU_Nodes);
+DITypeIdentifierMap generateDITypeIdentifierMap(const Module &M);
 
 /// \brief Strip debug info in the module if it exists.
 ///

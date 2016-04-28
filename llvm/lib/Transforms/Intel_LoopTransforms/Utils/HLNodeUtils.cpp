@@ -1683,7 +1683,7 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
         TempSucc = &*(std::next(Iter));
 
         /// Check whether we are crossing separators.
-        if ((TempSucc != If->ElseBegin)) {
+        if ((TempSucc != &*(If->ElseBegin))) {
           Succ = TempSucc;
           break;
         }
@@ -1697,7 +1697,7 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
         bool IsSeparator = false;
         /// Check whether we are crossing separators.
         for (unsigned I = 0, E = Switch->getNumCases(); I < E; ++I) {
-          if ((TempSucc == Switch->CaseBegin[I])) {
+          if ((TempSucc == &*(Switch->CaseBegin[I]))) {
             IsSeparator = true;
             break;
           }

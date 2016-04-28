@@ -176,6 +176,10 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   bool runOnMachineFunction(MachineFunction&) override;
+  MachineFunctionProperties getSetProperties() const override {
+    return MachineFunctionProperties().set(
+        MachineFunctionProperties::Property::AllVRegsAllocated);
+  }
 };
 } // end anonymous namespace
 
@@ -329,7 +333,7 @@ bool VirtRegRewriter::readsUndefSubreg(const MachineOperand &MO) const {
   unsigned Reg = MO.getReg();
   const LiveInterval &LI = LIS->getInterval(Reg);
   const MachineInstr &MI = *MO.getParent();
-  SlotIndex BaseIndex = LIS->getInstructionIndex(&MI);
+  SlotIndex BaseIndex = LIS->getInstructionIndex(MI);
   // This code is only meant to handle reading undefined subregisters which
   // we couldn't properly detect before.
   assert(LI.liveAt(BaseIndex) &&
@@ -438,11 +442,10 @@ void VirtRegRewriter::rewrite() {
         ++NumIdCopies;
         DEBUG(dbgs() << "Deleting identity copy.\n");
         if (Indexes)
-          Indexes->removeMachineInstrFromMaps(MI);
+          Indexes->removeMachineInstrFromMaps(*MI);
         // It's safe to erase MI because MII has already been incremented.
         MI->eraseFromParent();
       }
     }
   }
 }
-

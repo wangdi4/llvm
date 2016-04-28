@@ -20,14 +20,15 @@ using namespace llvm;
 
 /// initializeAnalysis - Initialize all passes linked into the Analysis library.
 void llvm::initializeAnalysis(PassRegistry &Registry) {
-  initializeAAEvalPass(Registry);
+  initializeAAEvalLegacyPassPass(Registry);
   initializeAliasSetPrinterPass(Registry);
   initializeAndersensAAWrapperPassPass(Registry);  // INTEL
   initializeBasicAAWrapperPassPass(Registry);
   initializeBlockFrequencyInfoWrapperPassPass(Registry);
   initializeBranchProbabilityInfoWrapperPassPass(Registry);
   initializeCallGraphWrapperPassPass(Registry);
-  initializeCallGraphPrinterPass(Registry);
+  initializeCallGraphDOTPrinterPass(Registry);
+  initializeCallGraphPrinterLegacyPassPass(Registry);
   initializeCallGraphViewerPass(Registry);
   initializeCostModelAnalysisPass(Registry);
   initializeCFGViewerPass(Registry);
@@ -39,7 +40,7 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeDelinearizationPass(Registry);
   initializeDemandedBitsPass(Registry);
   initializeDivergenceAnalysisPass(Registry);
-  initializeDominanceFrontierPass(Registry);
+  initializeDominanceFrontierWrapperPassPass(Registry);
   initializeDomViewerPass(Registry);
   initializeDomPrinterPass(Registry);
   initializeDomOnlyViewerPass(Registry);
@@ -58,13 +59,14 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeLoopInfoWrapperPassPass(Registry);
   initializeMemDepPrinterPass(Registry);
   initializeMemDerefPrinterPass(Registry);
-  initializeMemoryDependenceAnalysisPass(Registry);
+  initializeMemoryDependenceWrapperPassPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeSNodeAnalysisPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeModuleDebugInfoPrinterPass(Registry);
+  initializeModuleSummaryIndexWrapperPassPass(Registry);
   initializeObjCARCAAWrapperPassPass(Registry);
-  initializePostDominatorTreePass(Registry);
+  initializePostDominatorTreeWrapperPassPass(Registry);
   initializeRegionInfoPassPass(Registry);
   initializeRegionViewerPass(Registry);
   initializeRegionPrinterPass(Registry);

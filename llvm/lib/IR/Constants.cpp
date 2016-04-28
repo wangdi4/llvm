@@ -42,6 +42,8 @@ using namespace llvm;
 
 void Constant::anchor() { }
 
+void ConstantData::anchor() {}
+
 bool Constant::isNegativeZeroValue() const {
   // Floating point values have an explicit -0.0 value.
   if (const ConstantFP *CFP = dyn_cast<ConstantFP>(this))
@@ -268,14 +270,8 @@ Constant *Constant::getAllOnesValue(Type *Ty) {
 /// not.  This can return null if the element index is a ConstantExpr, or if
 /// 'this' is a constant expr.
 Constant *Constant::getAggregateElement(unsigned Elt) const {
-  if (const ConstantStruct *CS = dyn_cast<ConstantStruct>(this))
-    return Elt < CS->getNumOperands() ? CS->getOperand(Elt) : nullptr;
-
-  if (const ConstantArray *CA = dyn_cast<ConstantArray>(this))
-    return Elt < CA->getNumOperands() ? CA->getOperand(Elt) : nullptr;
-
-  if (const ConstantVector *CV = dyn_cast<ConstantVector>(this))
-    return Elt < CV->getNumOperands() ? CV->getOperand(Elt) : nullptr;
+  if (const ConstantAggregate *CC = dyn_cast<ConstantAggregate>(this))
+    return Elt < CC->getNumOperands() ? CC->getOperand(Elt) : nullptr;
 
   if (const ConstantAggregateZero *CAZ = dyn_cast<ConstantAggregateZero>(this))
     return Elt < CAZ->getNumElements() ? CAZ->getElementValue(Elt) : nullptr;
@@ -521,8 +517,8 @@ void Constant::removeDeadConstantUsers() const {
 
 void ConstantInt::anchor() { }
 
-ConstantInt::ConstantInt(IntegerType *Ty, const APInt& V)
-  : Constant(Ty, ConstantIntVal, nullptr, 0), Val(V) {
+ConstantInt::ConstantInt(IntegerType *Ty, const APInt &V)
+    : ConstantData(Ty, ConstantIntVal), Val(V) {
   assert(V.getBitWidth() == Ty->getBitWidth() && "Invalid constant for type");
 }
 
@@ -748,8 +744,8 @@ Constant *ConstantFP::getInfinity(Type *Ty, bool Negative) {
   return C;
 }
 
-ConstantFP::ConstantFP(Type *Ty, const APFloat& V)
-  : Constant(Ty, ConstantFPVal, nullptr, 0), Val(V) {
+ConstantFP::ConstantFP(Type *Ty, const APFloat &V)
+    : ConstantData(Ty, ConstantFPVal), Val(V) {
   assert(&V.getSemantics() == TypeToFloatSemantics(Ty) &&
          "FP type Mismatch");
 }
@@ -910,16 +906,25 @@ static Constant *getSequenceIfElementsMatch(Constant *C,
   return nullptr;
 }
 
-ConstantArray::ConstantArray(ArrayType *T, ArrayRef<Constant *> V)
-  : Constant(T, ConstantArrayVal,
-             OperandTraits<ConstantArray>::op_end(this) - V.size(),
-             V.size()) {
-  assert(V.size() == T->getNumElements() &&
-         "Invalid initializer vector for constant array");
-  for (unsigned i = 0, e = V.size(); i != e; ++i)
-    assert(V[i]->getType() == T->getElementType() &&
-           "Initializer for array element doesn't match array element type!");
+ConstantAggregate::ConstantAggregate(CompositeType *T, ValueTy VT,
+                                     ArrayRef<Constant *> V)
+    : Constant(T, VT, OperandTraits<ConstantAggregate>::op_end(this) - V.size(),
+               V.size()) {
   std::copy(V.begin(), V.end(), op_begin());
+
+  // Check that types match, unless this is an opaque struct.
+  if (auto *ST = dyn_cast<StructType>(T))
+    if (ST->isOpaque())
+      return;
+  for (unsigned I = 0, E = V.size(); I != E; ++I)
+    assert(V[I]->getType() == T->getTypeAtIndex(I) &&
+           "Initializer for composite element doesn't match!");
+}
+
+ConstantArray::ConstantArray(ArrayType *T, ArrayRef<Constant *> V)
+    : ConstantAggregate(T, ConstantArrayVal, V) {
+  assert(V.size() == T->getNumElements() &&
+         "Invalid initializer for constant array");
 }
 
 Constant *ConstantArray::get(ArrayType *Ty, ArrayRef<Constant*> V) {
@@ -978,17 +983,10 @@ StructType *ConstantStruct::getTypeForElements(ArrayRef<Constant*> V,
   return getTypeForElements(V[0]->getContext(), V, Packed);
 }
 
-
 ConstantStruct::ConstantStruct(StructType *T, ArrayRef<Constant *> V)
-  : Constant(T, ConstantStructVal,
-             OperandTraits<ConstantStruct>::op_end(this) - V.size(),
-             V.size()) {
-  assert(V.size() == T->getNumElements() &&
-         "Invalid initializer vector for constant structure");
-  for (unsigned i = 0, e = V.size(); i != e; ++i)
-    assert((T->isOpaque() || V[i]->getType() == T->getElementType(i)) &&
-           "Initializer for struct element doesn't match struct element type!");
-  std::copy(V.begin(), V.end(), op_begin());
+    : ConstantAggregate(T, ConstantStructVal, V) {
+  assert((T->isOpaque() || V.size() == T->getNumElements()) &&
+         "Invalid initializer for constant struct");
 }
 
 // ConstantStruct accessors.
@@ -1031,13 +1029,9 @@ Constant *ConstantStruct::get(StructType *T, ...) {
 }
 
 ConstantVector::ConstantVector(VectorType *T, ArrayRef<Constant *> V)
-  : Constant(T, ConstantVectorVal,
-             OperandTraits<ConstantVector>::op_end(this) - V.size(),
-             V.size()) {
-  for (size_t i = 0, e = V.size(); i != e; i++)
-    assert(V[i]->getType() == T->getElementType() &&
-           "Initializer for vector element doesn't match vector element type!");
-  std::copy(V.begin(), V.end(), op_begin());
+    : ConstantAggregate(T, ConstantVectorVal, V) {
+  assert(V.size() == T->getNumElements() &&
+         "Invalid initializer for constant vector");
 }
 
 // ConstantVector accessors.
@@ -2814,34 +2808,6 @@ void Constant::handleOperandChange(Value *From, Value *To) {
 
   // Delete the old constant!
   destroyConstant();
-}
-
-Value *ConstantInt::handleOperandChangeImpl(Value *From, Value *To) {
-  llvm_unreachable("Unsupported class for handleOperandChange()!");
-}
-
-Value *ConstantFP::handleOperandChangeImpl(Value *From, Value *To) {
-  llvm_unreachable("Unsupported class for handleOperandChange()!");
-}
-
-Value *ConstantTokenNone::handleOperandChangeImpl(Value *From, Value *To) {
-  llvm_unreachable("Unsupported class for handleOperandChange()!");
-}
-
-Value *UndefValue::handleOperandChangeImpl(Value *From, Value *To) {
-  llvm_unreachable("Unsupported class for handleOperandChange()!");
-}
-
-Value *ConstantPointerNull::handleOperandChangeImpl(Value *From, Value *To) {
-  llvm_unreachable("Unsupported class for handleOperandChange()!");
-}
-
-Value *ConstantAggregateZero::handleOperandChangeImpl(Value *From, Value *To) {
-  llvm_unreachable("Unsupported class for handleOperandChange()!");
-}
-
-Value *ConstantDataSequential::handleOperandChangeImpl(Value *From, Value *To) {
-  llvm_unreachable("Unsupported class for handleOperandChange()!");
 }
 
 Value *ConstantArray::handleOperandChangeImpl(Value *From, Value *To) {

@@ -14,8 +14,6 @@
 #include "clang/AST/DeclarationName.h"
 #include "clang/AST/GlobalDecl.h"
 #include "clang/AST/Mangle.h"
-#include "clang/Sema/Lookup.h"
-#include "clang/Sema/Sema.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -331,7 +329,8 @@ NestedNameSpecifier *createNestedNameSpecifier(
 NestedNameSpecifier *createNestedNameSpecifier(
     const ASTContext &Ctx, const TypeDecl *TD, bool FullyQualify) {
   return NestedNameSpecifier::Create(Ctx, createOuterNNS(Ctx, TD, FullyQualify),
-                                     true /*Template*/, TD->getTypeForDecl());
+                                     false /*No TemplateKeyword*/,
+                                     TD->getTypeForDecl());
 }
 
 /// \brief Return the fully qualified type, including fully-qualified

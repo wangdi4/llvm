@@ -232,7 +232,7 @@ class LldbGdbServerTestCase(gdbremote_testcase.GdbRemoteTestCaseBase):
         self.add_verified_launch_packets(launch_args)
         self.test_sequence.add_log_lines(
             ["read packet: $vCont;c#a8",
-             {"type":"output_match", "regex":r"^hello, world\r\n$" },
+             {"type":"output_match", "regex": self.maybe_strict_output_regex(r"hello, world\r\n")},
              "send packet: $W00#00"],
             True)
 
@@ -246,6 +246,7 @@ class LldbGdbServerTestCase(gdbremote_testcase.GdbRemoteTestCaseBase):
         self.inferior_print_exit()
 
     @llgs_test
+    @expectedFlakeyLinux("llvm.org/pr25652")
     def test_inferior_print_exit_llgs(self):
         self.init_llgs_test()
         self.build()
@@ -867,7 +868,8 @@ class LldbGdbServerTestCase(gdbremote_testcase.GdbRemoteTestCaseBase):
              "read packet: $c#63",
              # Match output line that prints the memory address of the message buffer within the inferior. 
              # Note we require launch-only testing so we can get inferior otuput.
-             { "type":"output_match", "regex":r"^data address: 0x([0-9a-fA-F]+)\r\n$", "capture":{ 1:"message_address"} },
+             { "type":"output_match", "regex":self.maybe_strict_output_regex(r"data address: 0x([0-9a-fA-F]+)\r\n"),
+               "capture":{ 1:"message_address"} },
              # Now stop the inferior.
              "read packet: {}".format(chr(3)),
              # And wait for the stop notification.
@@ -949,7 +951,8 @@ class LldbGdbServerTestCase(gdbremote_testcase.GdbRemoteTestCaseBase):
              "read packet: $c#63",
              # Match output line that prints the memory address of the message buffer within the inferior. 
              # Note we require launch-only testing so we can get inferior otuput.
-             { "type":"output_match", "regex":r"^code address: 0x([0-9a-fA-F]+)\r\n$", "capture":{ 1:"code_address"} },
+             { "type":"output_match", "regex":self.maybe_strict_output_regex(r"code address: 0x([0-9a-fA-F]+)\r\n"),
+               "capture":{ 1:"code_address"} },
              # Now stop the inferior.
              "read packet: {}".format(chr(3)),
              # And wait for the stop notification.
@@ -1010,7 +1013,8 @@ class LldbGdbServerTestCase(gdbremote_testcase.GdbRemoteTestCaseBase):
              "read packet: $c#63",
              # Match output line that prints the memory address of the message buffer within the inferior. 
              # Note we require launch-only testing so we can get inferior otuput.
-             { "type":"output_match", "regex":r"^stack address: 0x([0-9a-fA-F]+)\r\n$", "capture":{ 1:"stack_address"} },
+             { "type":"output_match", "regex":self.maybe_strict_output_regex(r"stack address: 0x([0-9a-fA-F]+)\r\n"),
+               "capture":{ 1:"stack_address"} },
              # Now stop the inferior.
              "read packet: {}".format(chr(3)),
              # And wait for the stop notification.
@@ -1071,7 +1075,8 @@ class LldbGdbServerTestCase(gdbremote_testcase.GdbRemoteTestCaseBase):
              "read packet: $c#63",
              # Match output line that prints the memory address of the message buffer within the inferior. 
              # Note we require launch-only testing so we can get inferior otuput.
-             { "type":"output_match", "regex":r"^heap address: 0x([0-9a-fA-F]+)\r\n$", "capture":{ 1:"heap_address"} },
+             { "type":"output_match", "regex":self.maybe_strict_output_regex(r"heap address: 0x([0-9a-fA-F]+)\r\n"),
+               "capture":{ 1:"heap_address"} },
              # Now stop the inferior.
              "read packet: {}".format(chr(3)),
              # And wait for the stop notification.
@@ -1134,7 +1139,8 @@ class LldbGdbServerTestCase(gdbremote_testcase.GdbRemoteTestCaseBase):
              "read packet: $c#63",
              # Match output line that prints the memory address of the function call entry point.
              # Note we require launch-only testing so we can get inferior otuput.
-             { "type":"output_match", "regex":r"^code address: 0x([0-9a-fA-F]+)\r\n$", "capture":{ 1:"function_address"} },
+             { "type":"output_match", "regex":self.maybe_strict_output_regex(r"code address: 0x([0-9a-fA-F]+)\r\n"),
+               "capture":{ 1:"function_address"} },
              # Now stop the inferior.
              "read packet: {}".format(chr(3)),
              # And wait for the stop notification.
@@ -1232,6 +1238,7 @@ class LldbGdbServerTestCase(gdbremote_testcase.GdbRemoteTestCaseBase):
         self.software_breakpoint_set_and_remove_work()
 
     @llgs_test
+    @expectedFlakeyLinux("llvm.org/pr25652")
     def test_software_breakpoint_set_and_remove_work_llgs(self):
         self.init_llgs_test()
         self.build()
@@ -1277,7 +1284,8 @@ class LldbGdbServerTestCase(gdbremote_testcase.GdbRemoteTestCaseBase):
              "read packet: $c#63",
              # Match output line that prints the memory address of the message buffer within the inferior. 
              # Note we require launch-only testing so we can get inferior otuput.
-             { "type":"output_match", "regex":r"^data address: 0x([0-9a-fA-F]+)\r\n$", "capture":{ 1:"message_address"} },
+             { "type":"output_match", "regex":self.maybe_strict_output_regex(r"data address: 0x([0-9a-fA-F]+)\r\n"),
+               "capture":{ 1:"message_address"} },
              # Now stop the inferior.
              "read packet: {}".format(chr(3)),
              # And wait for the stop notification.
@@ -1318,6 +1326,7 @@ class LldbGdbServerTestCase(gdbremote_testcase.GdbRemoteTestCaseBase):
         self.written_M_content_reads_back_correctly()
 
     @llgs_test
+    @expectedFlakeyLinux("llvm.org/pr25652")
     def test_written_M_content_reads_back_correctly_llgs(self):
         self.init_llgs_test()
         self.build()

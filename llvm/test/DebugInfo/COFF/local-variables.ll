@@ -122,7 +122,7 @@
 ; OBJ:      LocalVariableAddrRange {
 ; OBJ:        OffsetStart: .text+0x8
 ; OBJ:        ISectStart: 0x0
-; OBJ:        Range: 79
+; OBJ:        Range: 0x4F
 ; OBJ:      }
 ; OBJ:    }
 ; OBJ:    Local {
@@ -139,7 +139,7 @@
 ; OBJ:      LocalVariableAddrRange {
 ; OBJ:        OffsetStart: .text+0xC
 ; OBJ:        ISectStart: 0x0
-; OBJ:        Range: 33
+; OBJ:        Range: 0x21
 ; OBJ:      }
 ; OBJ:    }
 ; OBJ:    Local {
@@ -156,13 +156,13 @@
 ; OBJ:      LocalVariableAddrRange {
 ; OBJ:        OffsetStart: .text+0x2D
 ; OBJ:        ISectStart: 0x0
-; OBJ:        Range: 36
+; OBJ:        Range: 0x24
 ; OBJ:      }
 ; OBJ:    }
 ; OBJ:    InlineSite {
 ; OBJ:      PtrParent: 0x0
 ; OBJ:      PtrEnd: 0x0
-; OBJ:      Inlinee: will_be_inlined (0x1003)
+; OBJ:      Inlinee: will_be_inlined (0x1002)
 ; OBJ:      BinaryAnnotations [
 ; OBJ:        ChangeLineOffset: 1
 ; OBJ:        ChangeCodeOffset: 0x14
@@ -184,7 +184,7 @@
 ; OBJ:      LocalVariableAddrRange {
 ; OBJ:        OffsetStart: .text+0x14
 ; OBJ:        ISectStart: 0x0
-; OBJ:        Range: 25
+; OBJ:        Range: 0x19
 ; OBJ:      }
 ; OBJ:    }
 ; OBJ:    InlineSiteEnd {
@@ -192,7 +192,7 @@
 ; OBJ:    InlineSite {
 ; OBJ:      PtrParent: 0x0
 ; OBJ:      PtrEnd: 0x0
-; OBJ:      Inlinee: will_be_inlined (0x1003)
+; OBJ:      Inlinee: will_be_inlined (0x1002)
 ; OBJ:      BinaryAnnotations [
 ; OBJ:        ChangeLineOffset: 1
 ; OBJ:        ChangeCodeOffset: 0x35
@@ -214,7 +214,7 @@
 ; OBJ:      LocalVariableAddrRange {
 ; OBJ:        OffsetStart: .text+0x35
 ; OBJ:        ISectStart: 0x0
-; OBJ:        Range: 23
+; OBJ:        Range: 0x17
 ; OBJ:      }
 ; OBJ:    }
 ; OBJ:    InlineSiteEnd {
@@ -276,15 +276,14 @@ attributes #3 = { nounwind }
 !llvm.module.flags = !{!11, !12, !13}
 !llvm.ident = !{!14}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !1, producer: "clang version 3.9.0 ", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2, subprograms: !3)
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !1, producer: "clang version 3.9.0 ", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !2)
 !1 = !DIFile(filename: "t.cpp", directory: "D:\5Csrc\5Cllvm\5Cbuild")
 !2 = !{}
-!3 = !{!4, !8}
-!4 = distinct !DISubprogram(name: "f", scope: !1, file: !1, line: 7, type: !5, isLocal: false, isDefinition: true, scopeLine: 7, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!4 = distinct !DISubprogram(name: "f", scope: !1, file: !1, line: 7, type: !5, isLocal: false, isDefinition: true, scopeLine: 7, flags: DIFlagPrototyped, isOptimized: false, unit: !0, variables: !2)
 !5 = !DISubroutineType(types: !6)
 !6 = !{null, !7}
 !7 = !DIBasicType(name: "int", size: 32, align: 32, encoding: DW_ATE_signed)
-!8 = distinct !DISubprogram(name: "will_be_inlined", linkageName: "\01?will_be_inlined@@YAXXZ", scope: !1, file: !1, line: 3, type: !9, isLocal: true, isDefinition: true, scopeLine: 3, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!8 = distinct !DISubprogram(name: "will_be_inlined", linkageName: "\01?will_be_inlined@@YAXXZ", scope: !1, file: !1, line: 3, type: !9, isLocal: true, isDefinition: true, scopeLine: 3, flags: DIFlagPrototyped, isOptimized: false, unit: !0, variables: !2)
 !9 = !DISubroutineType(types: !10)
 !10 = !{null}
 !11 = !{i32 2, !"CodeView", i32 1}

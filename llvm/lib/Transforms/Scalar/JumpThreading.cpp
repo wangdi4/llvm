@@ -25,6 +25,7 @@
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_Andersens.h"          // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -202,6 +203,7 @@ namespace {
       AU.addRequired<LazyValueInfo>();
       AU.addPreserved<LazyValueInfo>();
       AU.addPreserved<GlobalsAAWrapperPass>();
+      AU.addPreserved<AndersensAAWrapperPass>();                        // INTEL
       AU.addRequired<TargetLibraryInfoWrapperPass>();
     }
 
@@ -323,11 +325,14 @@ bool JumpThreading::runOnFunction(Function &F) {
       // Can't thread an unconditional jump, but if the block is "almost
       // empty", we can replace uses of it with uses of the successor and make
       // this dead.
+      // We should not eliminate the loop header either, because eliminating
+      // a loop header might later prevent LoopSimplify from transforming nested
+      // loops into simplified form.
       if (BI && BI->isUnconditional() &&
           DoCFGSimplifications &&                                       // INTEL
           BB != &BB->getParent()->getEntryBlock() &&
           // If the terminator is the only non-phi instruction, try to nuke it.
-          BB->getFirstNonPHIOrDbg()->isTerminator()) {
+          BB->getFirstNonPHIOrDbg()->isTerminator() && !LoopHeaders.count(BB)) {
         // Since TryToSimplifyUncondBranchFromEmptyBlock may delete the
         // block, we have to make sure it isn't in the LoopHeaders set.  We
         // reinsert afterward if needed.
@@ -505,7 +510,7 @@ static bool matchingRegionInfo(const ThreadRegionInfo &RegionInfo1,
 ///
 bool JumpThreading::
 ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
-                                ThreadRegionInfo &RegionInfo,           // INTEL
+                                ThreadRegionInfo &RegionInfo,       // INTEL
                                 ConstantPreference Preference,
                                 Instruction *CxtI) {
   // This method walks up use-def chains recursively.  Because of this, we could
@@ -620,6 +625,26 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
 #endif // INTEL_CUSTOMIZATION
   }
 
+  // Handle Cast instructions.  Only see through Cast when the source operand is
+  // PHI or Cmp and the source type is i1 to save the compilation time.
+  if (CastInst *CI = dyn_cast<CastInst>(I)) {
+    Value *Source = CI->getOperand(0);
+    if (!Source->getType()->isIntegerTy(1))
+      return false;
+    if (!isa<PHINode>(Source) && !isa<CmpInst>(Source))
+      return false;
+    ComputeValueKnownInPredecessors(Source, BB, Result, RegionInfo,     // INTEL
+                                    Preference, CxtI);                  // INTEL
+    if (Result.empty())
+      return false;
+
+    // Convert the known values.
+    for (auto &R : Result)
+      R.first = ConstantExpr::getCast(CI->getOpcode(), R.first, CI->getType());
+
+    return true;
+  }
+
   PredValueInfoTy LHSVals, RHSVals;
 
   // Handle some boolean conditions.
@@ -689,7 +714,8 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
         isa<ConstantInt>(I->getOperand(1)) &&
         cast<ConstantInt>(I->getOperand(1))->isOne()) {
       ComputeValueKnownInPredecessors(I->getOperand(0), BB, Result,
-                                      RegionInfo, WantInteger, CxtI);   // INTEL
+                                      RegionInfo,                       // INTEL
+                                      WantInteger, CxtI);
       if (Result.empty())
         return false;
 
@@ -1420,9 +1446,11 @@ bool JumpThreading::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
     return false;
 
   PredValueInfoTy PredValues;
+  bool Changed = false;
   ThreadRegionInfoTy RegionInfo;                                        // INTEL
   if (!ComputeValueKnownInPredecessors(Cond, BB, PredValues,            // INTEL
-                                       RegionInfo, Preference, CxtI))   // INTEL
+                                       RegionInfo,                      // INTEL
+                                       Preference, CxtI))               // INTEL
     return false;
 
   assert(!PredValues.empty() && !RegionInfo.empty() &&                  // INTEL
@@ -1516,7 +1544,7 @@ bool JumpThreading::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
                             getSuccessor(GetBestDestForJumpOnUndef(BB));
 
   // Ok, try to thread it!
-  return ThreadEdge(RegionInfo, PredsToFactor, MostPopularDest);        // INTEL
+  return ThreadEdge(RegionInfo, PredsToFactor, MostPopularDest);    // INTEL
 }
 
 /// ProcessBranchOnPHI - We have an otherwise unthreadable conditional branch on
@@ -1589,10 +1617,12 @@ bool JumpThreading::ProcessBranchOnXOR(BinaryOperator *BO) {
   ThreadRegionInfoTy RegionInfo;                                        // INTEL
   bool isLHS = true;
   if (!ComputeValueKnownInPredecessors(BO->getOperand(0), BB, XorOpValues,
-                                       RegionInfo, WantInteger, BO)) {  // INTEL
+                                       RegionInfo,                      // INTEL
+                                       WantInteger, BO)) {
     assert(XorOpValues.empty());
     if (!ComputeValueKnownInPredecessors(BO->getOperand(1), BB, XorOpValues,
-                                         RegionInfo, WantInteger, BO))  // INTEL
+                                         RegionInfo,                    // INTEL
+                                         WantInteger, BO))
       return false;
     isLHS = false;
   }

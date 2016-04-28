@@ -1,6 +1,6 @@
 //=---- Intel_VecClone.cpp - Vector function to loop transform -*- C++ -*----=//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -85,7 +85,7 @@
 #include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
-#include "llvm/Transforms/Utils/Intel_OpenMPDirectivesAndClauses.h"
+#include "llvm/Analysis/Intel_Directives.h"
 #include <map>
 #include <set>
 
@@ -1331,6 +1331,7 @@ void VecClone::insertBeginRegion(Module& M, Function *Clone, Function &F,
   // marked as private.
   SmallVector<Value*, 4> LinearVars;
   SmallVector<Value*, 4> PrivateVars;
+  SmallVector<Value*, 4> UniformVars;
   Function::ArgumentListType &ArgList = Clone->getArgumentList();
   Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
   Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
@@ -1342,6 +1343,14 @@ void VecClone::insertBeginRegion(Module& M, Function *Clone, Function &F,
 
     if (ParmKinds[ParmIdx].isLinear()) {
       LinearVars.push_back(&*ArgListIt); 
+      Constant *Stride =
+        ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
+                         ParmKinds[ParmIdx].getStride());
+      LinearVars.push_back(Stride);
+    }
+
+    if (ParmKinds[ParmIdx].isUniform()) {
+      UniformVars.push_back(&*ArgListIt); 
     }
 
     if (ParmKinds[ParmIdx].isVector()) {
@@ -1363,6 +1372,15 @@ void VecClone::insertBeginRegion(Module& M, Function *Clone, Function &F,
             M, IntelIntrinsicUtils::getClauseString(QUAL_OMP_PRIVATE),
                                          PrivateVars);
     PrivateCall->insertAfter(VlenCall);
+  }
+
+  if (UniformVars.size() > 0) {
+    CallInst *UniformCall =
+        IntelIntrinsicUtils::createDirectiveQualOpndListCall(
+            M, IntelIntrinsicUtils::getClauseString(QUAL_OMP_UNIFORM),
+                                         UniformVars);
+
+    UniformCall->insertAfter(VlenCall);
   }
 
   CallInst *DirQualListEndCall =

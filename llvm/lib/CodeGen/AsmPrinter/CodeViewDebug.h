@@ -35,13 +35,40 @@ class LexicalScope;
 class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
   MCStreamer &OS;
 
+  /// Represents the most general definition range.
+  struct LocalVarDefRange {
+    /// Indicates that variable data is stored in memory relative to the
+    /// specified register.
+    int InMemory : 1;
+
+    /// Offset of variable data in memory.
+    int DataOffset : 31;
+
+    /// Offset of the data into the user level struct. If zero, no splitting
+    /// occurred.
+    uint16_t StructOffset;
+
+    /// Register containing the data or the register base of the memory
+    /// location containing the data.
+    uint16_t CVRegister;
+
+    /// Compares all location fields. This includes all fields except the label
+    /// ranges.
+    bool isDifferentLocation(LocalVarDefRange &O) {
+      return InMemory != O.InMemory || DataOffset != O.DataOffset ||
+             StructOffset != O.StructOffset || CVRegister != O.CVRegister;
+    }
+
+    SmallVector<std::pair<const MCSymbol *, const MCSymbol *>, 1> Ranges;
+  };
+
+  static LocalVarDefRange createDefRangeMem(uint16_t CVRegister, int Offset);
+  static LocalVarDefRange createDefRangeReg(uint16_t CVRegister);
+
   /// Similar to DbgVariable in DwarfDebug, but not dwarf-specific.
   struct LocalVariable {
     const DILocalVariable *DIVar = nullptr;
-    SmallVector<std::pair<const MCSymbol *, const MCSymbol *>, 1> Ranges;
-    unsigned CVRegister = 0;
-    int RegisterOffset = 0;
-    // FIXME: Add support for DIExpressions.
+    SmallVector<LocalVarDefRange, 1> DefRanges;
   };
 
   struct InlineSite {
@@ -72,9 +99,23 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
   };
   FunctionInfo *CurFn;
 
+  /// The next available function index for use with our .cv_* directives. Not
+  /// to be confused with type indices for LF_FUNC_ID records.
   unsigned NextFuncId = 0;
 
-  InlineSite &getInlineSite(const DILocation *Loc);
+  /// The next available type index.
+  unsigned NextTypeIndex = llvm::codeview::TypeIndex::FirstNonSimpleIndex;
+
+  /// Get the next type index and reserve it. Can be used to reserve more than
+  /// one type index.
+  unsigned getNextTypeIndex(unsigned NumRecords = 1) {
+    unsigned Result = NextTypeIndex;
+    NextTypeIndex += NumRecords;
+    return Result;
+  }
+
+  InlineSite &getInlineSite(const DILocation *InlinedAt,
+                            const DISubprogram *Inlinee);
 
   static void collectInlineSiteChildren(SmallVectorImpl<unsigned> &Children,
                                         const FunctionInfo &FI,
@@ -87,17 +128,18 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
   /// Map from DIFile to .cv_file id.
   DenseMap<const DIFile *, unsigned> FileIdMap;
 
-  SmallSetVector<const DISubprogram *, 4> InlinedSubprograms;
+  /// Map from subprogram to index in InlinedSubprograms.
+  DenseMap<const DISubprogram *, size_t> SubprogramIndices;
 
-  DenseMap<const DISubprogram *, codeview::TypeIndex> SubprogramToFuncId;
+  /// All inlined subprograms in the order they should be emitted.
+  SmallVector<const DISubprogram *, 4> InlinedSubprograms;
 
-  unsigned TypeCount = 0;
-
-  /// Gets the next type index and increments the count of types streamed so
-  /// far.
-  codeview::TypeIndex getNextTypeIndex() {
-    return codeview::TypeIndex(codeview::TypeIndex::FirstNonSimpleIndex + TypeCount++);
-  }
+  /// The first type index that refers to an LF_FUNC_ID record. We have one
+  /// record per inlined subprogram.
+  /// FIXME: Keep in sync with emitTypeInformation until we buffer type records
+  /// on the side as we go. Once we buffer type records, we can allocate type
+  /// indices on demand without interleaving our assembly output.
+  unsigned FuncIdTypeIndexStart = NextTypeIndex + 2;
 
   typedef std::map<const DIFile *, std::string> FileToFilepathMapTy;
   FileToFilepathMapTy FileToFilepathMap;
@@ -116,14 +158,22 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
 
   void emitTypeInformation();
 
-  void emitInlineeLinesSubsection();
+  void emitInlineeFuncIdsAndLines();
 
   void emitDebugInfoForFunction(const Function *GV, FunctionInfo &FI);
 
   void emitInlinedCallSite(const FunctionInfo &FI, const DILocation *InlinedAt,
                            const InlineSite &Site);
 
-  void collectVariableInfoFromMMITable();
+  typedef DbgValueHistoryMap::InlinedVariable InlinedVariable;
+
+  void collectVariableInfo(const DISubprogram *SP);
+
+  void collectVariableInfoFromMMITable(DenseSet<InlinedVariable> &Processed);
+
+  /// Records information about a local variable in the appropriate scope. In
+  /// particular, locals from inlined code live inside the inlining site.
+  void recordLocalVariable(LocalVariable &&Var, const DILocation *Loc);
 
   void emitLocalVariable(const LocalVariable &Var);
 

@@ -309,10 +309,12 @@ LiveRange::iterator LiveRange::find(SlotIndex Pos) {
   size_t Len = size();
   do {
     size_t Mid = Len >> 1;
-    if (Pos < I[Mid].end)
+    if (Pos < I[Mid].end) {
       Len = Mid;
-    else
-      I += Mid + 1, Len -= Mid + 1;
+    } else {
+      I += Mid + 1;
+      Len -= Mid + 1;
+    }
   } while (Len);
   return I;
 }
@@ -1452,9 +1454,9 @@ void ConnectedVNInfoEqClasses::Distribute(LiveInterval &LI, LiveInterval *LIV[],
     // called, but it is not a requirement.
     SlotIndex Idx;
     if (MI->isDebugValue())
-      Idx = LIS.getSlotIndexes()->getIndexBefore(MI);
+      Idx = LIS.getSlotIndexes()->getIndexBefore(*MI);
     else
-      Idx = LIS.getInstructionIndex(MI);
+      Idx = LIS.getInstructionIndex(*MI);
     LiveQueryResult LRQ = LI.Query(Idx);
     const VNInfo *VNI = MO.readsReg() ? LRQ.valueIn() : LRQ.valueDefined();
     // In the case of an <undef> use that isn't tied to any def, VNI will be
@@ -1481,15 +1483,20 @@ void ConnectedVNInfoEqClasses::Distribute(LiveInterval &LI, LiveInterval *LIV[],
       SubRanges.resize(NumComponents-1, nullptr);
       for (unsigned I = 0; I < NumValNos; ++I) {
         const VNInfo &VNI = *SR.valnos[I];
-        const VNInfo *MainRangeVNI = LI.getVNInfoAt(VNI.def);
-        assert(MainRangeVNI != nullptr
-               && "SubRange def must have corresponding main range def");
-        unsigned ComponentNum = getEqClass(MainRangeVNI);
-        VNIMapping.push_back(ComponentNum);
-        if (ComponentNum > 0 && SubRanges[ComponentNum-1] == nullptr) {
-          SubRanges[ComponentNum-1]
-            = LIV[ComponentNum-1]->createSubRange(Allocator, SR.LaneMask);
+        unsigned ComponentNum;
+        if (VNI.isUnused()) {
+          ComponentNum = 0;
+        } else {
+          const VNInfo *MainRangeVNI = LI.getVNInfoAt(VNI.def);
+          assert(MainRangeVNI != nullptr
+                 && "SubRange def must have corresponding main range def");
+          ComponentNum = getEqClass(MainRangeVNI);
+          if (ComponentNum > 0 && SubRanges[ComponentNum-1] == nullptr) {
+            SubRanges[ComponentNum-1]
+              = LIV[ComponentNum-1]->createSubRange(Allocator, SR.LaneMask);
+          }
         }
+        VNIMapping.push_back(ComponentNum);
       }
       DistributeRange(SR, SubRanges.data(), VNIMapping);
     }
@@ -1561,7 +1568,7 @@ bool ConnectedSubRegClasses::findComponents(IntEqClasses &Classes,
       const LiveInterval::SubRange &SR = *SRInfo.SR;
       if ((SR.LaneMask & LaneMask) == 0)
         continue;
-      SlotIndex Pos = LIS.getInstructionIndex(MO.getParent());
+      SlotIndex Pos = LIS.getInstructionIndex(*MO.getParent());
       Pos = MO.isDef() ? Pos.getRegSlot(MO.isEarlyClobber())
                        : Pos.getBaseIndex();
       const VNInfo *VNI = SR.getVNInfoAt(Pos);
@@ -1596,7 +1603,7 @@ void ConnectedSubRegClasses::rewriteOperands(const IntEqClasses &Classes,
 
     MachineInstr &MI = *MO.getParent();
 
-    SlotIndex Pos = LIS.getInstructionIndex(&MI);
+    SlotIndex Pos = LIS.getInstructionIndex(MI);
     unsigned SubRegIdx = MO.getSubReg();
     LaneBitmask LaneMask = TRI.getSubRegIndexLaneMask(SubRegIdx);
 
@@ -1670,12 +1677,12 @@ void ConnectedSubRegClasses::computeMainRangesFixFlags(
       // in and out of the instruction anymore. We need to add new dead and kill
       // flags in these cases.
       if (!MO.isUndef()) {
-        SlotIndex Pos = LIS.getInstructionIndex(MO.getParent());
+        SlotIndex Pos = LIS.getInstructionIndex(*MO.getParent());
         if (!LI->liveAt(Pos.getBaseIndex()))
           MO.setIsUndef();
       }
       if (!MO.isDead()) {
-        SlotIndex Pos = LIS.getInstructionIndex(MO.getParent());
+        SlotIndex Pos = LIS.getInstructionIndex(*MO.getParent());
         if (!LI->liveAt(Pos.getDeadSlot()))
           MO.setIsDead();
       }

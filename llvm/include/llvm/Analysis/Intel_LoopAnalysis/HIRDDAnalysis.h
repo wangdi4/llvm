@@ -150,7 +150,7 @@ public:
   // init_incremental_rebuild(HLNode*)
 private:
   Function *F;
-  AAResults AA;
+  std::unique_ptr<AAResults> AAR;
   HIRFramework *HIRF;
 
   DenseMap<HLNode *, bool> GraphValidityMap;

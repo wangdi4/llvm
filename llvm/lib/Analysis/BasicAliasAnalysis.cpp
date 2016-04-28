@@ -400,7 +400,7 @@ static int64_t adjustToPointerSize(int64_t Offset, unsigned PointerSize) {
     if (!Op) {
       // The only non-operator case we can handle are GlobalAliases.
       if (const GlobalAlias *GA = dyn_cast<GlobalAlias>(V)) {
-        if (!GA->mayBeOverridden()) {
+        if (!GA->isInterposable()) {
           V = GA->getAliasee();
           continue;
         }
@@ -614,8 +614,15 @@ FunctionModRefBehavior BasicAAResult::getModRefBehavior(ImmutableCallSite CS) {
   if (CS.onlyAccessesArgMemory())
     Min = FunctionModRefBehavior(Min & FMRB_OnlyAccessesArgumentPointees);
 
-  // The AAResultBase base class has some smarts, lets use them.
-  return FunctionModRefBehavior(AAResultBase::getModRefBehavior(CS) & Min);
+  // If CS has operand bundles then aliasing attributes from the function it
+  // calls do not directly apply to the CallSite.  This can be made more
+  // precise in the future.
+  if (!CS.hasOperandBundles())
+    if (const Function *F = CS.getCalledFunction())
+      Min =
+          FunctionModRefBehavior(Min & getBestAAResults().getModRefBehavior(F));
+
+  return Min;
 }
 
 /// Returns the behavior when calling the given function. For use when the call
@@ -634,8 +641,7 @@ FunctionModRefBehavior BasicAAResult::getModRefBehavior(const Function *F) {
   if (F->onlyAccessesArgMemory())
     Min = FunctionModRefBehavior(Min & FMRB_OnlyAccessesArgumentPointees);
 
-  // Otherwise be conservative.
-  return FunctionModRefBehavior(AAResultBase::getModRefBehavior(F) & Min);
+  return Min;
 }
 
 /// Returns true if this is a writeonly (i.e Mod only) parameter.  Currently,
@@ -792,6 +798,20 @@ ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS,
     }
 
     if (!PassedAsArg)
+      return MRI_NoModRef;
+  }
+
+  // If the CallSite is to malloc or calloc, we can assume that it doesn't
+  // modify any IR visible value.  This is only valid because we assume these
+  // routines do not read values visible in the IR.  TODO: Consider special
+  // casing realloc and strdup routines which access only their arguments as
+  // well.  Or alternatively, replace all of this with inaccessiblememonly once
+  // that's implemented fully. 
+  auto *Inst = CS.getInstruction();
+  if (isMallocLikeFn(Inst, &TLI) || isCallocLikeFn(Inst, &TLI)) {
+    // Be conservative if the accessed pointer may alias the allocation -
+    // fallback to the generic handling below.
+    if (getBestAAResults().alias(MemoryLocation(Inst), Loc) == NoAlias)
       return MRI_NoModRef;
   }
 
@@ -1659,7 +1679,8 @@ bool BasicAAResult::constantOffsetHeuristic(
   unsigned V0ZExtBits = 0, V0SExtBits = 0, V1ZExtBits = 0, V1SExtBits = 0;
   const Value *V0 = GetLinearExpression(Var0.V, V0Scale, V0Offset, V0ZExtBits,
                                         V0SExtBits, DL, 0, AC, DT, NSW, NUW);
-  NSW = true, NUW = true;
+  NSW = true;
+  NUW = true;
   const Value *V1 = GetLinearExpression(Var1.V, V1Scale, V1Offset, V1ZExtBits,
                                         V1SExtBits, DL, 0, AC, DT, NSW, NUW);
 
@@ -1692,12 +1713,12 @@ bool BasicAAResult::constantOffsetHeuristic(
 
 char BasicAA::PassID;
 
-BasicAAResult BasicAA::run(Function &F, AnalysisManager<Function> *AM) {
+BasicAAResult BasicAA::run(Function &F, AnalysisManager<Function> &AM) {
   return BasicAAResult(F.getParent()->getDataLayout(),
-                       AM->getResult<TargetLibraryAnalysis>(F),
-                       AM->getResult<AssumptionAnalysis>(F),
-                       AM->getCachedResult<DominatorTreeAnalysis>(F),
-                       AM->getCachedResult<LoopAnalysis>(F));
+                       AM.getResult<TargetLibraryAnalysis>(F),
+                       AM.getResult<AssumptionAnalysis>(F),
+                       &AM.getResult<DominatorTreeAnalysis>(F),
+                       AM.getCachedResult<LoopAnalysis>(F));
 }
 
 BasicAAWrapperPass::BasicAAWrapperPass() : FunctionPass(ID) {
@@ -1710,6 +1731,7 @@ void BasicAAWrapperPass::anchor() {}
 INITIALIZE_PASS_BEGIN(BasicAAWrapperPass, "basicaa",
                       "Basic Alias Analysis (stateless AA impl)", true, true)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(BasicAAWrapperPass, "basicaa",
                     "Basic Alias Analysis (stateless AA impl)", true, true)
@@ -1721,12 +1743,11 @@ FunctionPass *llvm::createBasicAAWrapperPass() {
 bool BasicAAWrapperPass::runOnFunction(Function &F) {
   auto &ACT = getAnalysis<AssumptionCacheTracker>();
   auto &TLIWP = getAnalysis<TargetLibraryInfoWrapperPass>();
-  auto *DTWP = getAnalysisIfAvailable<DominatorTreeWrapperPass>();
+  auto &DTWP = getAnalysis<DominatorTreeWrapperPass>();
   auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
 
   Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), TLIWP.getTLI(),
-                                 ACT.getAssumptionCache(F),
-                                 DTWP ? &DTWP->getDomTree() : nullptr,
+                                 ACT.getAssumptionCache(F), &DTWP.getDomTree(),
                                  LIWP ? &LIWP->getLoopInfo() : nullptr));
 
   return false;
@@ -1735,6 +1756,7 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
 void BasicAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<AssumptionCacheTracker>();
+  AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
 

@@ -19,6 +19,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_Andersens.h"     // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DataLayout.h"
@@ -446,7 +447,7 @@ private:
       return true;
     }
 
-    
+
     bool isMatchingMemLoc(const ParseMemoryInst &Inst) const {
       return (getPointerOperand() == Inst.getPointerOperand() &&
               getMatchingId() == Inst.getMatchingId());
@@ -673,7 +674,7 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
     // to advance the generation.  We do need to prevent DSE across the fence,
     // but that's handled above.
     if (FenceInst *FI = dyn_cast<FenceInst>(Inst))
-      if (FI->getOrdering() == Release) {
+      if (FI->getOrdering() == AtomicOrdering::Release) {
         assert(Inst->mayReadFromMemory() && "relied on to prevent DSE above");
         continue;
       }
@@ -818,11 +819,11 @@ bool EarlyCSE::run() {
 }
 
 PreservedAnalyses EarlyCSEPass::run(Function &F,
-                                    AnalysisManager<Function> *AM) {
-  auto &TLI = AM->getResult<TargetLibraryAnalysis>(F);
-  auto &TTI = AM->getResult<TargetIRAnalysis>(F);
-  auto &DT = AM->getResult<DominatorTreeAnalysis>(F);
-  auto &AC = AM->getResult<AssumptionAnalysis>(F);
+                                    AnalysisManager<Function> &AM) {
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F);
+  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+  auto &AC = AM.getResult<AssumptionAnalysis>(F);
 
   EarlyCSE CSE(TLI, TTI, DT, AC);
 
@@ -872,6 +873,7 @@ public:
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();       // INTEL
     AU.setPreservesCFG();
   }
 };

@@ -23,6 +23,7 @@
 #include "llvm/CodeGen/DAGCombine.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/Support/ArrayRecycler.h"
 #include "llvm/Support/RecyclingAllocator.h"
 #include "llvm/Target/TargetMachine.h"
 #include <cassert>
@@ -217,6 +218,7 @@ class SelectionDAG {
 
   /// Pool allocation for machine-opcode SDNode operands.
   BumpPtrAllocator OperandAllocator;
+  ArrayRecycler<SDUse> OperandRecycler;
 
   /// Pool allocation for misc. objects that are created once per SelectionDAG.
   BumpPtrAllocator Allocator;
@@ -276,6 +278,36 @@ private:
   bool setSubgraphColorHelper(SDNode *N, const char *Color,
                               DenseSet<SDNode *> &visited,
                               int level, bool &printed);
+
+  template <typename SDNodeT, typename... ArgTypes>
+  SDNodeT *newSDNode(ArgTypes &&... Args) {
+    return new (NodeAllocator.template Allocate<SDNodeT>())
+        SDNodeT(std::forward<ArgTypes>(Args)...);
+  }
+
+  void createOperands(SDNode *Node, ArrayRef<SDValue> Vals) {
+    assert(!Node->OperandList && "Node already has operands");
+    SDUse *Ops = OperandRecycler.allocate(
+        ArrayRecycler<SDUse>::Capacity::get(Vals.size()), OperandAllocator);
+
+    for (unsigned I = 0; I != Vals.size(); ++I) {
+      Ops[I].setUser(Node);
+      Ops[I].setInitial(Vals[I]);
+    }
+    Node->NumOperands = Vals.size();
+    Node->OperandList = Ops;
+    checkForCycles(Node);
+  }
+
+  void removeOperands(SDNode *Node) {
+    if (!Node->OperandList)
+      return;
+    OperandRecycler.deallocate(
+        ArrayRecycler<SDUse>::Capacity::get(Node->NumOperands),
+        Node->OperandList);
+    Node->NumOperands = 0;
+    Node->OperandList = nullptr;
+  }
 
   void operator=(const SelectionDAG&) = delete;
   SelectionDAG(const SelectionDAG&) = delete;
@@ -436,6 +468,13 @@ public:
   //===--------------------------------------------------------------------===//
   // Node creation methods.
   //
+
+  /// \brief Create a ConstantSDNode wrapping a constant value.
+  /// If VT is a vector type, the constant is splatted into a BUILD_VECTOR.
+  ///
+  /// If only legal types can be produced, this does the necessary
+  /// transformations (e.g., if the vector element type is illegal).
+  /// @{
   SDValue getConstant(uint64_t Val, SDLoc DL, EVT VT, bool isTarget = false,
                       bool isOpaque = false);
   SDValue getConstant(const APInt &Val, SDLoc DL, EVT VT, bool isTarget = false,
@@ -455,8 +494,16 @@ public:
                             bool isOpaque = false) {
     return getConstant(Val, DL, VT, true, isOpaque);
   }
-  // The forms below that take a double should only be used for simple
-  // constants that can be exactly represented in VT.  No checks are made.
+  /// @}
+
+  /// \brief Create a ConstantFPSDNode wrapping a constant value.
+  /// If VT is a vector type, the constant is splatted into a BUILD_VECTOR.
+  ///
+  /// If only legal types can be produced, this does the necessary
+  /// transformations (e.g., if the vector element type is illegal).
+  /// The forms that take a double should only be used for simple constants
+  /// that can be exactly represented in VT.  No checks are made.
+  /// @{
   SDValue getConstantFP(double Val, SDLoc DL, EVT VT, bool isTarget = false);
   SDValue getConstantFP(const APFloat& Val, SDLoc DL, EVT VT,
                         bool isTarget = false);
@@ -471,6 +518,8 @@ public:
   SDValue getTargetConstantFP(const ConstantFP &Val, SDLoc DL, EVT VT) {
     return getConstantFP(Val, DL, VT, true);
   }
+  /// @}
+
   SDValue getGlobalAddress(const GlobalValue *GV, SDLoc DL, EVT VT,
                            int64_t offset = 0, bool isTargetGA = false,
                            unsigned char TargetFlags = 0);
@@ -1244,10 +1293,12 @@ public:
   /// vector op and fill the end of the resulting vector with UNDEFS.
   SDValue UnrollVectorOp(SDNode *N, unsigned ResNE = 0);
 
-  /// Return true if LD is loading 'Bytes' bytes from a location that is 'Dist'
-  /// units away from the location that the 'Base' load is loading from.
-  bool isConsecutiveLoad(LoadSDNode *LD, LoadSDNode *Base,
-                         unsigned Bytes, int Dist) const;
+  /// Return true if loads are next to each other and can be
+  /// merged. Check that both are nonvolatile and if LD is loading
+  /// 'Bytes' bytes from a location that is 'Dist' units away from the
+  /// location that the 'Base' load is loading from.
+  bool areNonVolatileConsecutiveLoads(LoadSDNode *LD, LoadSDNode *Base,
+                                      unsigned Bytes, int Dist) const;
 
   /// Infer alignment of a load / store address. Return 0 if
   /// it cannot be inferred.
@@ -1302,9 +1353,8 @@ private:
 
   void allnodes_clear();
 
-  BinarySDNode *GetBinarySDNode(unsigned Opcode, SDLoc DL, SDVTList VTs,
-                                SDValue N1, SDValue N2,
-                                const SDNodeFlags *Flags = nullptr);
+  SDNode *GetBinarySDNode(unsigned Opcode, SDLoc DL, SDVTList VTs, SDValue N1,
+                          SDValue N2, const SDNodeFlags *Flags = nullptr);
 
   /// Look up the node specified by ID in CSEMap.  If it exists, return it.  If
   /// not, return the insertion token that will make insertion faster.  This

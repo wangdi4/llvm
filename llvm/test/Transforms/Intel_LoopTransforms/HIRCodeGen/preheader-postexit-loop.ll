@@ -19,8 +19,16 @@
 
 
 ; Check that the i2 loop with ztt, preheader and postexit is CG'd correctly.
+<<<<<<< .working
+; CHECK: dummy check to prevent lit testing hangs on windows.
+; XFAIL: *
+=======
 ; CHECK: region:
+>>>>>>> .merge-right.r8647
 
+<<<<<<< .working
+
+=======
 ; Check outer loop begin
 ; CHECK: store i64 0, i64* %i1.i64
 ; CHECK: loop.{{[0-9]+}}:
@@ -57,6 +65,7 @@
 
 
 
+>>>>>>> .merge-right.r8647
 ; ModuleID = 'livein-copy1.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

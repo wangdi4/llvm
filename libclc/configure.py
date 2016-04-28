@@ -69,8 +69,8 @@ llvm_version = string.split(string.replace(llvm_config(['--version']), 'svn', ''
 llvm_int_version = int(llvm_version[0]) * 100 + int(llvm_version[1]) * 10
 llvm_string_version = 'LLVM' + llvm_version[0] + '.' + llvm_version[1]
 
-if llvm_int_version < 370:
-    print "libclc requires LLVM >= 3.7"
+if llvm_int_version < 390:
+    print "libclc requires LLVM >= 3.9"
     sys.exit(1)
 
 llvm_system_libs = llvm_config(['--system-libs'])
@@ -102,6 +102,9 @@ available_targets = {
   'amdgcn--': { 'devices' :
                 [{'gpu' : 'tahiti', 'aliases' : ['pitcairn', 'verde', 'oland', 'hainan', 'bonaire', 'kabini', 'kaveri', 'hawaii','mullins','tonga','carrizo','iceland','fiji','stoney'],
                  'defines' : {}} ]},
+  'amdgcn--amdhsa': { 'devices' :
+                      [{'gpu' : '', 'aliases' : ['bonaire', 'hawaii', 'kabini', 'kaveri', 'mullins', 'carrizo', 'stoney', 'fiji', 'iceland', 'tonga'],
+                       'defines' : {}} ]},
   'nvptx--'   : { 'devices' : [{'gpu' : '', 'aliases' : [],
                                 'defines' : {'all' : ['cl_khr_fp64']}}]},
   'nvptx64--' : { 'devices' : [{'gpu' : '', 'aliases' : [],
@@ -112,7 +115,7 @@ available_targets = {
                                         'defines' : {'all' : ['cl_khr_fp64']}}]},
 }
 
-default_targets = ['nvptx--nvidiacl', 'nvptx64--nvidiacl', 'r600--', 'amdgcn--']
+default_targets = ['nvptx--nvidiacl', 'nvptx64--nvidiacl', 'r600--', 'amdgcn--', 'amdgcn--amdhsa']
 
 targets = args
 if not targets:
@@ -175,8 +178,8 @@ for target in targets:
     subdirs.append("%s-%s-%s" % (arch, t_vendor, t_os))
     subdirs.append("%s-%s" % (arch, t_os))
     subdirs.append(arch)
-    if arch == 'amdgcn':
-        subdirs.append('r600')
+    if arch == 'amdgcn' or arch == 'r600':
+        subdirs.append('amdgpu')
 
   incdirs = filter(os.path.isdir,
                [os.path.join(srcdir, subdir, 'include') for subdir in subdirs])

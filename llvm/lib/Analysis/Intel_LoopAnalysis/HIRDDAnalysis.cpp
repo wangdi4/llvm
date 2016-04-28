@@ -75,6 +75,7 @@ FunctionPass *llvm::createHIRDDAnalysisPass() { return new HIRDDAnalysis(); }
 char HIRDDAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRDDAnalysis, "hir-dd-analysis",
                       "HIR Data Dependence Analysis", false, true)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TypeBasedAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
@@ -84,6 +85,7 @@ INITIALIZE_PASS_END(HIRDDAnalysis, "hir-dd-analysis",
 void HIRDDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
+  AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFramework>();
 
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
@@ -94,12 +96,15 @@ void HIRDDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 // \brief Because the graph is evaluated lazily, runOnFunction doesn't
 // do any analysis
 bool HIRDDAnalysis::runOnFunction(Function &F) {
+
+  AAR.reset(new AAResults(getAnalysis<TargetLibraryInfoWrapperPass>().getTLI()));
+
   if (auto *Pass = getAnalysisIfAvailable<ScopedNoAliasAAWrapperPass>()) {
-    AA.addAAResult(Pass->getResult());
+    AAR->addAAResult(Pass->getResult());
   }
 
   if (auto *Pass = getAnalysisIfAvailable<TypeBasedAAWrapperPass>()) {
-    AA.addAAResult(Pass->getResult());
+    AAR->addAAResult(Pass->getResult());
   }
 
   HIRF = &getAnalysis<HIRFramework>();
@@ -206,7 +211,7 @@ void HIRDDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
     for (auto Ref1 = RefVec.begin(), E = RefVec.end(); Ref1 != E; ++Ref1) {
       for (auto Ref2 = Ref1; Ref2 != E; ++Ref2) {
         if (edgeNeeded(*Ref1, *Ref2, BuildInputEdges)) {
-          DDTest DA(AA);
+          DDTest DA(*AAR);
           DirectionVector InputDV;
           DirectionVector OutputDVForward;
           DirectionVector OutputDVBackward;
@@ -257,7 +262,7 @@ bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
   RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
 
   if (RegDDref && !(RegDDref->isTerminalRef())) {
-    DDTest DA(AA);
+    DDTest DA(*AAR);
     DirectionVector InputDV;
     InputDV.setAsInput(InnermostNestingLevel, OutermostNestingLevel);
     auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);

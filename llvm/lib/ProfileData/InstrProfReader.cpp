@@ -412,6 +412,9 @@ RawInstrProfReader<IntPtrT>::readValueProfilingData(InstrProfRecord &Record) {
   if (VDataPtrOrErr.getError())
     return VDataPtrOrErr.getError();
 
+  // Note that besides deserialization, this also performs the conversion for
+  // indirect call targets.  The function pointers from the raw profile are
+  // remapped into function name hashes.
   VDataPtrOrErr.get()->deserializeTo(Record, &Symtab->getAddrHashMap());
   CurValueDataSize = VDataPtrOrErr.get()->getSize();
   return success();
@@ -589,15 +592,14 @@ IndexedInstrProfReader::readSummary(IndexedInstrProf::ProfVersion Version,
     for (unsigned I = 0; I < SummarySize / sizeof(uint64_t); I++)
       Dst[I] = endian::byte_swap<uint64_t, little>(Src[I]);
 
-    // initialize ProfileSummary using the SummaryData from disk.
-    this->Summary = llvm::make_unique<ProfileSummary>(*(SummaryData.get()));
+    // initialize InstrProfSummary using the SummaryData from disk.
+    this->Summary = llvm::make_unique<InstrProfSummary>(*(SummaryData.get()));
     return Cur + SummarySize;
   } else {
     // For older version of profile data, we need to compute on the fly:
     using namespace IndexedInstrProf;
-    std::vector<uint32_t> Cutoffs(&SummaryCutoffs[0],
-                                  &SummaryCutoffs[NumSummaryCutoffs]);
-    this->Summary = llvm::make_unique<ProfileSummary>(Cutoffs);
+    this->Summary =
+        llvm::make_unique<InstrProfSummary>(ProfileSummary::DefaultCutoffs);
     this->Summary->computeDetailedSummary();
     return Cur;
   }

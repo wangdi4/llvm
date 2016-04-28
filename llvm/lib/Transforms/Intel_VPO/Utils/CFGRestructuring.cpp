@@ -87,7 +87,7 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
     // block, we can just skip splitting around it. Note that,
     // directive_qual_list_end will never be the first instruction of a basic
     // block, since it is always paired with directive_begin or directive_end.
-    if (I != BB->begin()) {
+    if (I != &*(BB->begin())) {
       Instruction *SplitPoint = I;
       StringRef DirString =
           getDirectiveMetadataString(dyn_cast<IntrinsicInst>(I));

@@ -45,13 +45,13 @@ class ThreadGDBRemote;
 class ProcessGDBRemote : public Process
 {
 public:
-    ProcessGDBRemote(lldb::TargetSP target_sp, Listener &listener);
+    ProcessGDBRemote(lldb::TargetSP target_sp, lldb::ListenerSP listener_sp);
 
     ~ProcessGDBRemote() override;
 
     static lldb::ProcessSP
     CreateInstance (lldb::TargetSP target_sp,
-                    Listener &listener,
+                    lldb::ListenerSP listener_sp,
                     const FileSpec *crash_file_path);
 
     static void
@@ -282,7 +282,7 @@ protected:
     Mutex m_last_stop_packet_mutex;
     GDBRemoteDynamicRegisterInfo m_register_info;
     Broadcaster m_async_broadcaster;
-    Listener m_async_listener;
+    lldb::ListenerSP m_async_listener_sp;
     HostThread m_async_thread;
     Mutex m_async_thread_state_mutex;
     typedef std::vector<lldb::tid_t> tid_collection;
@@ -461,14 +461,15 @@ protected:
 
     // Query remote GDBServer for register information
     bool
-    GetGDBServerRegisterInfo ();
+    GetGDBServerRegisterInfo (ArchSpec &arch);
 
     // Query remote GDBServer for a detailed loaded library list
     Error
     GetLoadedModuleList (LoadedModuleInfoList &);
 
     lldb::ModuleSP
-    LoadModuleAtAddress (const FileSpec &file, lldb::addr_t base_addr, bool value_is_offset);
+    LoadModuleAtAddress (const FileSpec &file, lldb::addr_t link_map, lldb::addr_t base_addr,
+                         bool value_is_offset);
 
 private:
     //------------------------------------------------------------------

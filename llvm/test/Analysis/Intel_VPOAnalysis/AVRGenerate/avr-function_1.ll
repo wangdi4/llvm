@@ -2,6 +2,7 @@
 
 ; Check that the Abstract Layer generated incoming LLVM basic blocks in lexical order.
 
+
 ;CHECK: Printing analysis 'AVR Generate' for function 'foo':
 ;CHECK: foo(i32* %a, i32* %b, i32* %c, i32* %d, i32 %N)
 
@@ -9,23 +10,16 @@
 ;CHECK-NEXT: %a.addr = alloca 1
 ;CHECK: br label %for.cond
 
-;CHECK: LOOP
 
 ;CHECK: for.cond:
 ;CHECK-NEXT: %0 = load %i
 ;CHECK: br i1 %cmp, label %for.body, label %for.end
 
-;CHECK-NEXT: for.body:
-;CHECK-NEXT: %2 = load %i
-;CHECK: br i1 %cmp1, label %land.lhs.true, label %if.else
-
-;CHECK-NEXT: if( %cmp1 = icmp eq i32 %rem, 0 )
+;CHECK: for.body:
 
 ;CHECK: land.lhs.true:
 ;CHECK-NEXT: %5 = load %i
 ;CHECK: br i1 %cmp5, label %if.then, label %if.else
-
-;CHECK:  if( %cmp5 = icmp eq i32 %rem4, 0 )
 
 ;CHECK: if.then:
 ;CHECK-NEXT: %8 = load %i

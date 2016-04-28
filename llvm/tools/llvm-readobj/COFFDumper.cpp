@@ -654,6 +654,8 @@ static const EnumEntry<SimpleTypeKind> SimpleTypeNames[] = {
     {"unsigned char*", SimpleTypeKind::UnsignedCharacter},
     {"char*", SimpleTypeKind::NarrowCharacter},
     {"wchar_t*", SimpleTypeKind::WideCharacter},
+    {"char16_t*", SimpleTypeKind::Character16},
+    {"char32_t*", SimpleTypeKind::Character32},
     {"__int8*", SimpleTypeKind::SByte},
     {"unsigned __int8*", SimpleTypeKind::Byte},
     {"short*", SimpleTypeKind::Int16Short},
@@ -1907,7 +1909,7 @@ void COFFDumper::printLocalVariableAddrRange(
   DictScope S(W, "LocalVariableAddrRange");
   printRelocatedField("OffsetStart", Sec, SectionContents, &Range.OffsetStart);
   W.printHex("ISectStart", Range.ISectStart);
-  W.printNumber("Range", Range.Range);
+  W.printHex("Range", Range.Range);
 }
 
 void COFFDumper::printLocalVariableAddrGap(StringRef &SymData) {
@@ -1915,8 +1917,8 @@ void COFFDumper::printLocalVariableAddrGap(StringRef &SymData) {
     const LocalVariableAddrGap *Gap;
     error(consumeObject(SymData, Gap));
     ListScope S(W, "LocalVariableAddrGap");
-    W.printNumber("GapStartOffset", Gap->GapStartOffset);
-    W.printNumber("Range", Gap->Range);
+    W.printHex("GapStartOffset", Gap->GapStartOffset);
+    W.printHex("Range", Gap->Range);
   }
 }
 

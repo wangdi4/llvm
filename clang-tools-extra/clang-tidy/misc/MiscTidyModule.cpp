@@ -14,7 +14,9 @@
 #include "AssertSideEffectCheck.h"
 #include "AssignOperatorSignatureCheck.h"
 #include "BoolPointerImplicitConversionCheck.h"
+#include "DanglingHandleCheck.h"
 #include "DefinitionsInHeadersCheck.h"
+#include "ForwardDeclarationNamespaceCheck.h"
 #include "InaccurateEraseCheck.h"
 #include "IncorrectRoundings.h"
 #include "InefficientAlgorithmCheck.h"
@@ -23,12 +25,17 @@
 #include "MisplacedWideningCastCheck.h"
 #include "MoveConstantArgumentCheck.h"
 #include "MoveConstructorInitCheck.h"
+#include "MultipleStatementMacroCheck.h"
 #include "NewDeleteOverloadsCheck.h"
 #include "NoexceptMoveConstructorCheck.h"
 #include "NonCopyableObjects.h"
+#include "PointerAndIntegralOperationCheck.h"
 #include "SizeofContainerCheck.h"
+#include "SizeofExpressionCheck.h"
 #include "StaticAssertCheck.h"
 #include "StringIntegerAssignmentCheck.h"
+#include "StringLiteralWithEmbeddedNulCheck.h"
+#include "SuspiciousMissingCommaCheck.h"
 #include "SuspiciousSemicolonCheck.h"
 #include "SwappedArgumentsCheck.h"
 #include "ThrowByValueCatchByReferenceCheck.h"
@@ -53,8 +60,12 @@ public:
         "misc-assign-operator-signature");
     CheckFactories.registerCheck<BoolPointerImplicitConversionCheck>(
         "misc-bool-pointer-implicit-conversion");
+    CheckFactories.registerCheck<DanglingHandleCheck>(
+        "misc-dangling-handle");
     CheckFactories.registerCheck<DefinitionsInHeadersCheck>(
         "misc-definitions-in-headers");
+    CheckFactories.registerCheck<ForwardDeclarationNamespaceCheck>(
+        "misc-forward-declaration-namespace");
     CheckFactories.registerCheck<InaccurateEraseCheck>(
         "misc-inaccurate-erase");
     CheckFactories.registerCheck<IncorrectRoundings>(
@@ -71,17 +82,27 @@ public:
         "misc-move-const-arg");
     CheckFactories.registerCheck<MoveConstructorInitCheck>(
         "misc-move-constructor-init");
+    CheckFactories.registerCheck<MultipleStatementMacroCheck>(
+        "misc-multiple-statement-macro");
     CheckFactories.registerCheck<NewDeleteOverloadsCheck>(
         "misc-new-delete-overloads");
     CheckFactories.registerCheck<NoexceptMoveConstructorCheck>(
         "misc-noexcept-move-constructor");
     CheckFactories.registerCheck<NonCopyableObjectsCheck>(
         "misc-non-copyable-objects");
+    CheckFactories.registerCheck<PointerAndIntegralOperationCheck>(
+        "misc-pointer-and-integral-operation");
     CheckFactories.registerCheck<SizeofContainerCheck>("misc-sizeof-container");
+    CheckFactories.registerCheck<SizeofExpressionCheck>(
+        "misc-sizeof-expression");
     CheckFactories.registerCheck<StaticAssertCheck>(
         "misc-static-assert");
     CheckFactories.registerCheck<StringIntegerAssignmentCheck>(
         "misc-string-integer-assignment");
+    CheckFactories.registerCheck<StringLiteralWithEmbeddedNulCheck>(
+        "misc-string-literal-with-embedded-nul");
+    CheckFactories.registerCheck<SuspiciousMissingCommaCheck>(
+        "misc-suspicious-missing-comma");
     CheckFactories.registerCheck<SuspiciousSemicolonCheck>(
         "misc-suspicious-semicolon");
     CheckFactories.registerCheck<SwappedArgumentsCheck>(

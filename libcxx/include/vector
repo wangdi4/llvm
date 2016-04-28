@@ -262,6 +262,7 @@ void swap(vector<T,Allocator>& x, vector<T,Allocator>& y)
 */
 
 #include <__config>
+#include <iosfwd> // for forward declaration of vector
 #include <__bit_reference>
 #include <type_traits>
 #include <climits>
@@ -453,7 +454,7 @@ __vector_base<_Tp, _Allocator>::~__vector_base()
     }
 }
 
-template <class _Tp, class _Allocator = allocator<_Tp> >
+template <class _Tp, class _Allocator /* = allocator<_Tp> */>
 class _LIBCPP_TYPE_VIS_ONLY vector
     : private __vector_base<_Tp, _Allocator>
 {
@@ -2362,6 +2363,7 @@ public:
         _NOEXCEPT_(!__alloc_traits::propagate_on_container_swap::value || 
                     __is_nothrow_swappable<allocator_type>::value);
 #endif
+    static void swap(reference __x, reference __y) _NOEXCEPT { _VSTD::swap(__x, __y); }
 
     void resize(size_type __sz, value_type __x = false);
     void flip() _NOEXCEPT;

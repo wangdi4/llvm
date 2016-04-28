@@ -46,7 +46,7 @@ class ScopStmt;
 /// Translate a SCEV to an isl_pw_aff.
 struct SCEVAffinator : public llvm::SCEVVisitor<SCEVAffinator, isl_pw_aff *> {
 public:
-  SCEVAffinator(Scop *S);
+  SCEVAffinator(Scop *S, llvm::LoopInfo &LI);
   ~SCEVAffinator();
 
   /// @brief Translate a SCEV to an isl_pw_aff.
@@ -81,6 +81,7 @@ private:
   unsigned NumIterators;
   const llvm::Region &R;
   llvm::ScalarEvolution &SE;
+  llvm::LoopInfo &LI;
   llvm::BasicBlock *BB;
 
   /// @brief Target data for element size computing.
@@ -95,14 +96,12 @@ private:
   __isl_give isl_pw_aff *addModuloSemantic(__isl_take isl_pw_aff *PWA,
                                            llvm::Type *ExprType) const;
 
-  /// @brief Compute the context in which integer wrapping for @p PWA happens.
+  /// @brief If @p Expr might cause an integer wrap record an assumption.
   ///
-  /// @returns The context in which integer wrapping happens or nullptr if
-  /// empty.
-  __isl_give isl_set *getWrappingContext(llvm::SCEV::NoWrapFlags Flags,
-                                         llvm::Type *ExprType,
-                                         __isl_keep isl_pw_aff *PWA,
-                                         __isl_keep isl_set *ExprDomain) const;
+  /// @param Expr The SCEV expression that might wrap.
+  /// @param PWA  The isl representation of @p Expr.
+  void checkForWrapping(const llvm::SCEV *Expr,
+                        __isl_keep isl_pw_aff *PWA) const;
 
   __isl_give isl_pw_aff *visit(const llvm::SCEV *E);
   __isl_give isl_pw_aff *visitConstant(const llvm::SCEVConstant *E);

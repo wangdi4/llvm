@@ -35,12 +35,12 @@
 #include "lldb/Target/ThreadPlanStepRange.h"
 #include "lldb/Target/ThreadPlanStepInRange.h"
 
-
 #include "lldb/API/SBAddress.h"
 #include "lldb/API/SBDebugger.h"
 #include "lldb/API/SBEvent.h"
 #include "lldb/API/SBFrame.h"
 #include "lldb/API/SBProcess.h"
+#include "lldb/API/SBThreadCollection.h"
 #include "lldb/API/SBThreadPlan.h"
 #include "lldb/API/SBValue.h"
 
@@ -326,6 +326,30 @@ SBThread::GetStopReasonExtendedInfoAsJSON (lldb::SBStream &stream)
     info->Dump(strm);
     
     return true;
+}
+
+SBThreadCollection
+SBThread::GetStopReasonExtendedBacktraces (InstrumentationRuntimeType type)
+{
+    ThreadCollectionSP threads;
+    threads.reset(new ThreadCollection());
+    
+    // We currently only support ThreadSanitizer.
+    if (type != eInstrumentationRuntimeTypeThreadSanitizer)
+        return threads;
+    
+    ExecutionContext exe_ctx (m_opaque_sp.get());
+    if (! exe_ctx.HasThreadScope())
+        return threads;
+    
+    ProcessSP process_sp = exe_ctx.GetProcessSP();
+    
+    StopInfoSP stop_info = exe_ctx.GetThreadPtr()->GetStopInfo();
+    StructuredData::ObjectSP info = stop_info->GetExtendedInfo();
+    if (! info)
+        return threads;
+    
+    return process_sp->GetInstrumentationRuntime(type)->GetBacktracesFromExtendedStopInfo(info);
 }
 
 size_t
@@ -774,6 +798,13 @@ SBThread::StepInto (lldb::RunMode stop_other_threads)
 void
 SBThread::StepInto (const char *target_name, lldb::RunMode stop_other_threads)
 {
+    SBError error;
+    StepInto(target_name, LLDB_INVALID_LINE_NUMBER, error, stop_other_threads);
+}
+
+void
+SBThread::StepInto (const char *target_name, uint32_t end_line, SBError &error, lldb::RunMode stop_other_threads)
+{
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
 
     Mutex::Locker api_locker;
@@ -795,11 +826,20 @@ SBThread::StepInto (const char *target_name, lldb::RunMode stop_other_threads)
 
         if (frame_sp && frame_sp->HasDebugInformation ())
         {
+            SymbolContext sc(frame_sp->GetSymbolContext(eSymbolContextEverything));
+            AddressRange range;
+            if (end_line == LLDB_INVALID_LINE_NUMBER)
+                range = sc.line_entry.range;
+            else
+            {
+                if (!sc.GetAddressRangeFromHereToEndLine(end_line, range, error.ref()))
+                    return;
+            }
+            
             const LazyBool step_out_avoids_code_without_debug_info = eLazyBoolCalculate;
             const LazyBool step_in_avoids_code_without_debug_info = eLazyBoolCalculate;
-            SymbolContext sc(frame_sp->GetSymbolContext(eSymbolContextEverything));
             new_plan_sp = thread->QueueThreadPlanForStepInRange (abort_other_plans,
-                                                              sc.line_entry,
+                                                              range,
                                                               sc,
                                                               target_name,
                                                               stop_other_threads,
@@ -813,8 +853,7 @@ SBThread::StepInto (const char *target_name, lldb::RunMode stop_other_threads)
                                                                            stop_other_threads);
         }
 
-        // This returns an error, we should use it!
-        ResumeNewPlan (exe_ctx, new_plan_sp.get());
+        error = ResumeNewPlan (exe_ctx, new_plan_sp.get());
     }
 }
 

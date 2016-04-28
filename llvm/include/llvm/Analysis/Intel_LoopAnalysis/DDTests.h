@@ -36,7 +36,6 @@
 #define LLVM_ANALYSIS_DDTEST_H
 
 #include "llvm/ADT/SmallBitVector.h"
-#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/InstIterator.h"
@@ -54,6 +53,8 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 namespace llvm {
+
+class AAResults;
 
 namespace loopopt {
 
@@ -316,9 +317,9 @@ private:
 class DDTest {
   friend class HIRDDAnalysis;
 
-  AliasAnalysis &AA;
+  AAResults &AAR;
 
-  DDTest(AliasAnalysis &AA);
+  DDTest(AAResults &AAR);
   ~DDTest();
 
   /// \brief Tests for a dependence between the Src and Dst DDRefs

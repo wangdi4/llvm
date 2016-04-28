@@ -241,6 +241,7 @@ Language::LanguageIsCPlusPlus (LanguageType language)
         case eLanguageTypeC_plus_plus_03:
         case eLanguageTypeC_plus_plus_11:
         case eLanguageTypeC_plus_plus_14:
+        case eLanguageTypeObjC_plus_plus:
             return true;
         default:
             return false;
@@ -363,6 +364,12 @@ Language::GetLanguagesSupportingREPLs (std::set<lldb::LanguageType> &languages)
 
 std::unique_ptr<Language::TypeScavenger>
 Language::GetTypeScavenger ()
+{
+    return nullptr;
+}
+
+const char*
+Language::GetLanguageSpecificTypeLookupHelp ()
 {
     return nullptr;
 }

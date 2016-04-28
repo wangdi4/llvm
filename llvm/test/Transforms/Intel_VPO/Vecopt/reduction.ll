@@ -89,11 +89,11 @@ attributes #4 = { nounwind }
 !llvm.dbg.intel.emit_class_debug_always = !{!11}
 !llvm.ident = !{!12}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C89, file: !1, producer: "clang version 3.8.0 (branches/vpo 1936)", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2, subprograms: !3)
+!0 = distinct !DICompileUnit(language: DW_LANG_C89, file: !1, producer: "clang version 3.8.0 (branches/vpo 1936)", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2)
 !1 = !DIFile(filename: "simdloop.c", directory: "/export/iusers/xtian/llvm_temp")
 !2 = !{}
 !3 = !{!4}
-!4 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 2, type: !5, isLocal: false, isDefinition: true, scopeLine: 3, flags: DIFlagPrototyped, isOptimized: false, function: float (float*)* @foo, variables: !2)
+!4 = distinct !DISubprogram(unit: !0, name: "foo", scope: !1, file: !1, line: 2, type: !5, isLocal: false, isDefinition: true, scopeLine: 3, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
 !5 = !DISubroutineType(types: !6)
 !6 = !{!7, !8}
 !7 = !DIBasicType(name: "float", size: 32, align: 32, encoding: DW_ATE_float)

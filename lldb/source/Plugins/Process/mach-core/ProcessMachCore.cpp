@@ -65,7 +65,7 @@ ProcessMachCore::Terminate()
 
 
 lldb::ProcessSP
-ProcessMachCore::CreateInstance (lldb::TargetSP target_sp, Listener &listener, const FileSpec *crash_file)
+ProcessMachCore::CreateInstance (lldb::TargetSP target_sp, ListenerSP listener_sp, const FileSpec *crash_file)
 {
     lldb::ProcessSP process_sp;
     if (crash_file)
@@ -81,7 +81,7 @@ ProcessMachCore::CreateInstance (lldb::TargetSP target_sp, Listener &listener, c
             if (ObjectFileMachO::ParseHeader(data, &data_offset, mach_header))
             {
                 if (mach_header.filetype == llvm::MachO::MH_CORE)
-                    process_sp.reset(new ProcessMachCore (target_sp, listener, *crash_file));
+                    process_sp.reset(new ProcessMachCore (target_sp, listener_sp, *crash_file));
             }
         }
         
@@ -122,8 +122,8 @@ ProcessMachCore::CanDebug(lldb::TargetSP target_sp, bool plugin_specified_by_nam
 //----------------------------------------------------------------------
 // ProcessMachCore constructor
 //----------------------------------------------------------------------
-ProcessMachCore::ProcessMachCore(lldb::TargetSP target_sp, Listener &listener, const FileSpec &core_file) :
-    Process (target_sp, listener),
+ProcessMachCore::ProcessMachCore(lldb::TargetSP target_sp, ListenerSP listener_sp, const FileSpec &core_file) :
+    Process (target_sp, listener_sp),
     m_core_aranges (),
     m_core_module_sp (),
     m_core_file (core_file),
@@ -343,21 +343,27 @@ ProcessMachCore::DoLoadCore ()
         // search heuristics might identify the correct one.
         // Most of the time, I expect the address from SearchForDarwinKernel() will be the
         // same as the address we found via exhaustive search.
-        // 
-        // NB SearchForDarwinKernel will end up calling back into this this class in the GetImageInfoAddress
-        // method which will give it the m_mach_kernel_addr address it already has.  Save that aside
-        // and set m_mach_kernel_addr to an invalid address temporarily so DynamicLoaderDarwinKernel does
-        // a real search for the kernel using its own heuristics.
 
         if (GetTarget().GetArchitecture().IsValid() == false && m_core_module_sp.get())
         {
             GetTarget().SetArchitecture (m_core_module_sp->GetArchitecture());
         }
 
+        // SearchForDarwinKernel will end up calling back into this this class in the GetImageInfoAddress
+        // method which will give it the m_mach_kernel_addr/m_dyld_addr it already has.  Save that aside
+        // and set m_mach_kernel_addr/m_dyld_addr to an invalid address temporarily so 
+        // DynamicLoaderDarwinKernel does a real search for the kernel using its own heuristics.
+
         addr_t saved_mach_kernel_addr = m_mach_kernel_addr;
+        addr_t saved_user_dyld_addr = m_dyld_addr;
         m_mach_kernel_addr = LLDB_INVALID_ADDRESS;
+        m_dyld_addr = LLDB_INVALID_ADDRESS;
+
         addr_t better_kernel_address = DynamicLoaderDarwinKernel::SearchForDarwinKernel (this);
+
         m_mach_kernel_addr = saved_mach_kernel_addr;
+        m_dyld_addr = saved_user_dyld_addr;
+
         if (better_kernel_address != LLDB_INVALID_ADDRESS)
         {
             if (log)

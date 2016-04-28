@@ -118,7 +118,9 @@ X86TargetMachine::X86TargetMachine(const Target &T, const Triple &TT,
   // after a call to 'noreturn' function.
   // To prevent that, we emit a trap for 'unreachable' IR instructions.
   // (which on X86, happens to be the 'ud2' instruction)
-  if (Subtarget.isTargetWin64())
+  // On PS4, the "return address" of a 'noreturn' call must still be within
+  // the calling function, and TrapUnreachable is an easy way to get that.
+  if (Subtarget.isTargetWin64() || Subtarget.isTargetPS4())
     this->Options.TrapUnreachable = true;
 
   // By default (and when -ffast-math is on), enable estimate codegen for
@@ -154,7 +156,6 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
   // it as a key for the subtarget since that can be the only difference
   // between two functions.
   bool SoftFloat =
-      F.hasFnAttribute("use-soft-float") &&
       F.getFnAttribute("use-soft-float").getValueAsString() == "true";
   // If the soft float attribute is set on the function turn on the soft float
   // subtarget feature.
@@ -284,7 +285,7 @@ void X86PassConfig::addPreEmitPass() {
     addPass(createX86IssueVZeroUpperPass());
 
   if (getOptLevel() != CodeGenOpt::None) {
-    addPass(createX86FixupBWInsts());                // INTEL
+    addPass(createX86FixupBWInsts());
     addPass(createX86PadShortFunctions());
     addPass(createX86FixupLEAs());
   }

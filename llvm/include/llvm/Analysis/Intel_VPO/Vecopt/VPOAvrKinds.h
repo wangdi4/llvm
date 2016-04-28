@@ -28,8 +28,12 @@
 /// the range AVRAssignNode and AVRAssignLastNode. We need to ensure that this
 /// ordering is maintained for things to work correctly.
 enum AVRVal {
-  AVRLoopNode,
   AVRFunctionNode,
+
+  AVRLoopNode,
+  AVRLoopIRNode,
+  AVRLoopHIRNode,
+  AVRLoopLastNode,
 
   AVRIfNode,
   AVRIfIRNode,

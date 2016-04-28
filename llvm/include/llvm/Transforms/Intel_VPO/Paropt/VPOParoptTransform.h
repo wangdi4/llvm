@@ -76,9 +76,9 @@ class VPOParoptTransform {
 public:
   /// \brief ParoptTransform object constructor
   VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
-                     VPOParoptMode Mode)
-      : F(F), WI(WI), DT(DT), Mode(Mode), IdentTy(nullptr), TidPtr(nullptr),
-        BidPtr(nullptr) {}
+                     ScalarEvolution *SE, LoopInfo *LI, VPOParoptMode Mode)
+      : F(F), WI(WI), DT(DT), SE(SE), LI(LI), Mode(Mode), IdentTy(nullptr), 
+        TidPtr(nullptr), BidPtr(nullptr) {}
 
   /// \brief Top level interface for parallel transformation
   bool ParoptTransformer();
@@ -92,6 +92,12 @@ private:
 
   /// \brief Get the Dominator Tree for code extractor
   DominatorTree *DT;
+
+  /// \brief Get the Scalar Evolution information for loop candidates
+  ScalarEvolution *SE;
+
+  /// \brief Get the Loop information for loop candidates
+  LoopInfo *LI;
 
   /// \brief Paropt compilation mode
   VPOParoptMode Mode;
@@ -112,20 +118,21 @@ private:
   /// W-Region Graph in DFS order and perform outlining transformation.
   void gatherWRegionNodeList();
 
+  /// \brief Generate code for privatization 
+  bool genPrivatizationCode(WRegionNode *W);
+
+  /// \brief Generate loop schdudeling code
+  bool genLoopSchedulingCode(WRegionNode *W);
+
   /// \brief Finalize extracted MT-function argument list for runtime
-  Function *finalizeExtractedMTFunction(Function *Fn);
+  Function *finalizeExtractedMTFunction(Function *Fn, 
+                                        bool IsTidArg, unsigned int TidArgNo);
+
+  /// \brief Generate __kmpc_fork_call Instruction after CodeExtractor
+  CallInst* genForkCallInst(WRegionNode *W, CallInst *CI);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
-
-  /// \brief Generate __kmpc_fork_call Instruction after CodeExtractor
-  void genForkCallInst(WRegionNode *W, CallInst *CI);
-
-  /// \brief Generate loop schdudeling code
-  // void genParLoopScheduleCode(CallInst *CI, WRegionInfo *WI);
-
-  /// Threading/OpenMP Runtime Function Declarations
-  // Function *genOktoForkCall();
 };
 
 } /// namespace vpo

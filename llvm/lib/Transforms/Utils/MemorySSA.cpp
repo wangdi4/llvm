@@ -231,7 +231,7 @@ MemorySSAWalker *MemorySSA::buildMemorySSA(AliasAnalysis *AA,
   assert(!this->AA && !this->DT &&
          "MemorySSA without a walker already has AA or DT?");
 
-  auto *Result = new CachingMemorySSAWalker(this, AA, DT);
+  Walker = new CachingMemorySSAWalker(this, AA, DT);
   this->AA = AA;
   this->DT = DT;
 
@@ -253,25 +253,21 @@ MemorySSAWalker *MemorySSA::buildMemorySSA(AliasAnalysis *AA,
   // Go through each block, figure out where defs occur, and chain together all
   // the accesses.
   for (BasicBlock &B : F) {
-    bool InsertIntoDefUse = false;
     bool InsertIntoDef = false;
     AccessListType *Accesses = nullptr;
     for (Instruction &I : B) {
-      MemoryAccess *MA = createNewAccess(&I, true);
-      if (!MA)
+      MemoryUseOrDef *MUD = createNewAccess(&I, true);
+      if (!MUD)
         continue;
-      if (isa<MemoryDef>(MA))
-        InsertIntoDef = true;
-      else if (isa<MemoryUse>(MA))
-        InsertIntoDefUse = true;
+      InsertIntoDef |= isa<MemoryDef>(MUD);
 
       if (!Accesses)
         Accesses = getOrCreateAccessList(&B);
-      Accesses->push_back(MA);
+      Accesses->push_back(MUD);
     }
     if (InsertIntoDef)
       DefiningBlocks.insert(&B);
-    if (InsertIntoDefUse)
+    if (Accesses)
       DefUseBlocks.insert(&B);
   }
 
@@ -343,7 +339,7 @@ MemorySSAWalker *MemorySSA::buildMemorySSA(AliasAnalysis *AA,
     for (auto &MA : *Accesses) {
       if (auto *MU = dyn_cast<MemoryUse>(&MA)) {
         Instruction *Inst = MU->getMemoryInst();
-        MU->setDefiningAccess(Result->getClobberingMemoryAccess(Inst));
+        MU->setDefiningAccess(Walker->getClobberingMemoryAccess(Inst));
       }
     }
   }
@@ -354,12 +350,12 @@ MemorySSAWalker *MemorySSA::buildMemorySSA(AliasAnalysis *AA,
     if (!Visited.count(&BB))
       markUnreachableAsLiveOnEntry(&BB);
 
-  Walker = Result;
   return Walker;
 }
 
 /// \brief Helper function to create new memory accesses
-MemoryAccess *MemorySSA::createNewAccess(Instruction *I, bool IgnoreNonMemory) {
+MemoryUseOrDef *MemorySSA::createNewAccess(Instruction *I,
+                                           bool IgnoreNonMemory) {
   // Find out what affect this instruction has on memory.
   ModRefInfo ModRef = AA->getModRefInfo(I);
   bool Def = bool(ModRef & MRI_Mod);
@@ -373,13 +369,13 @@ MemoryAccess *MemorySSA::createNewAccess(Instruction *I, bool IgnoreNonMemory) {
   assert((Def || Use) &&
          "Trying to create a memory access with a non-memory instruction");
 
-  MemoryUseOrDef *MA;
+  MemoryUseOrDef *MUD;
   if (Def)
-    MA = new MemoryDef(I->getContext(), nullptr, I, I->getParent(), NextID++);
+    MUD = new MemoryDef(I->getContext(), nullptr, I, I->getParent(), NextID++);
   else
-    MA = new MemoryUse(I->getContext(), nullptr, I, I->getParent());
-  ValueToMemoryAccess.insert(std::make_pair(I, MA));
-  return MA;
+    MUD = new MemoryUse(I->getContext(), nullptr, I, I->getParent());
+  ValueToMemoryAccess.insert(std::make_pair(I, MUD));
+  return MUD;
 }
 
 MemoryAccess *MemorySSA::findDominatingDef(BasicBlock *UseBlock,
@@ -425,6 +421,76 @@ bool MemorySSA::dominatesUse(const MemoryAccess *Replacer,
       return false;
   }
   return true;
+}
+
+/// \brief If all arguments of a MemoryPHI are defined by the same incoming
+/// argument, return that argument.
+static MemoryAccess *onlySingleValue(MemoryPhi *MP) {
+  MemoryAccess *MA = nullptr;
+
+  for (auto &Arg : MP->operands()) {
+    if (!MA)
+      MA = cast<MemoryAccess>(Arg);
+    else if (MA != Arg)
+      return nullptr;
+  }
+  return MA;
+}
+
+/// \brief Properly remove \p MA from all of MemorySSA's lookup tables.
+///
+/// Because of the way the intrusive list and use lists work, it is important to
+/// do removal in the right order.
+void MemorySSA::removeFromLookups(MemoryAccess *MA) {
+  assert(MA->use_empty() &&
+         "Trying to remove memory access that still has uses");
+  if (MemoryUseOrDef *MUD = dyn_cast<MemoryUseOrDef>(MA))
+    MUD->setDefiningAccess(nullptr);
+  // Invalidate our walker's cache if necessary
+  if (!isa<MemoryUse>(MA))
+    Walker->invalidateInfo(MA);
+  // The call below to erase will destroy MA, so we can't change the order we
+  // are doing things here
+  Value *MemoryInst;
+  if (MemoryUseOrDef *MUD = dyn_cast<MemoryUseOrDef>(MA)) {
+    MemoryInst = MUD->getMemoryInst();
+  } else {
+    MemoryInst = MA->getBlock();
+  }
+  ValueToMemoryAccess.erase(MemoryInst);
+
+  auto AccessIt = PerBlockAccesses.find(MA->getBlock());
+  std::unique_ptr<AccessListType> &Accesses = AccessIt->second;
+  Accesses->erase(MA);
+  if (Accesses->empty())
+    PerBlockAccesses.erase(AccessIt);
+}
+
+void MemorySSA::removeMemoryAccess(MemoryAccess *MA) {
+  assert(!isLiveOnEntryDef(MA) && "Trying to remove the live on entry def");
+  // We can only delete phi nodes if they have no uses, or we can replace all
+  // uses with a single definition.
+  MemoryAccess *NewDefTarget = nullptr;
+  if (MemoryPhi *MP = dyn_cast<MemoryPhi>(MA)) {
+    // Note that it is sufficient to know that all edges of the phi node have
+    // the same argument.  If they do, by the definition of dominance frontiers
+    // (which we used to place this phi), that argument must dominate this phi,
+    // and thus, must dominate the phi's uses, and so we will not hit the assert
+    // below.
+    NewDefTarget = onlySingleValue(MP);
+    assert((NewDefTarget || MP->use_empty()) &&
+           "We can't delete this memory phi");
+  } else {
+    NewDefTarget = cast<MemoryUseOrDef>(MA)->getDefiningAccess();
+  }
+
+  // Re-point the uses at our defining access
+  if (!MA->use_empty())
+    MA->replaceAllUsesWith(NewDefTarget);
+
+  // The call below to erase will destroy MA, so we can't change the order we
+  // are doing things here
+  removeFromLookups(MA);
 }
 
 void MemorySSA::print(raw_ostream &OS) const {
@@ -473,8 +539,8 @@ void MemorySSA::verifyDomination(Function &F) const {
       if (!MD)
         continue;
 
-      for (const auto &U : MD->users()) {
-        BasicBlock *UseBlock;
+      for (User *U : MD->users()) {
+        BasicBlock *UseBlock; (void)UseBlock;
         // Things are allowed to flow to phi nodes over their predecessor edge.
         if (auto *P = dyn_cast<MemoryPhi>(U)) {
           for (const auto &Arg : P->operands()) {
@@ -697,11 +763,11 @@ struct CachingMemorySSAWalker::UpwardsMemoryQuery {
   const Instruction *Inst;
   // Set of visited Instructions for this query.
   DenseSet<MemoryAccessPair> Visited;
-  // Set of visited call accesses for this query. This is separated out because
-  // you can always cache and lookup the result of call queries (IE when IsCall
-  // == true) for every call in the chain. The calls have no AA location
+  // Vector of visited call accesses for this query. This is separated out
+  // because you can always cache and lookup the result of call queries (IE when
+  // IsCall == true) for every call in the chain. The calls have no AA location
   // associated with them with them, and thus, no context dependence.
-  SmallPtrSet<const MemoryAccess *, 32> VisitedCalls;
+  SmallVector<const MemoryAccess *, 32> VisitedCalls;
   // The MemoryAccess we actually got called with, used to test local domination
   const MemoryAccess *OriginalAccess;
   // The Datalayout for the module we started in
@@ -711,6 +777,43 @@ struct CachingMemorySSAWalker::UpwardsMemoryQuery {
       : SawBackedgePhi(false), IsCall(false), Inst(nullptr),
         OriginalAccess(nullptr), DL(nullptr) {}
 };
+
+void CachingMemorySSAWalker::invalidateInfo(MemoryAccess *MA) {
+
+  // TODO: We can do much better cache invalidation with differently stored
+  // caches.  For now, for MemoryUses, we simply remove them
+  // from the cache, and kill the entire call/non-call cache for everything
+  // else.  The problem is for phis or defs, currently we'd need to follow use
+  // chains down and invalidate anything below us in the chain that currently
+  // terminates at this access.
+
+  // See if this is a MemoryUse, if so, just remove the cached info. MemoryUse
+  // is by definition never a barrier, so nothing in the cache could point to
+  // this use. In that case, we only need invalidate the info for the use
+  // itself.
+
+  if (MemoryUse *MU = dyn_cast<MemoryUse>(MA)) {
+    UpwardsMemoryQuery Q;
+    Instruction *I = MU->getMemoryInst();
+    Q.IsCall = bool(ImmutableCallSite(I));
+    Q.Inst = I;
+    if (!Q.IsCall)
+      Q.StartingLoc = MemoryLocation::get(I);
+    doCacheRemove(MA, Q, Q.StartingLoc);
+    return;
+  }
+  // If it is not a use, the best we can do right now is destroy the cache.
+  bool IsCall = false;
+
+  if (auto *MUD = dyn_cast<MemoryUseOrDef>(MA)) {
+    Instruction *I = MUD->getMemoryInst();
+    IsCall = bool(ImmutableCallSite(I));
+  }
+  if (IsCall)
+    CachedUpwardsClobberingCall.clear();
+  else
+    CachedUpwardsClobberingAccess.clear();
+}
 
 void CachingMemorySSAWalker::doCacheRemove(const MemoryAccess *M,
                                            const UpwardsMemoryQuery &Q,
@@ -759,7 +862,7 @@ bool CachingMemorySSAWalker::instructionClobbersQuery(
 
   // If this is a call, mark it for caching
   if (ImmutableCallSite(DefMemoryInst))
-    Q.VisitedCalls.insert(MD);
+    Q.VisitedCalls.push_back(MD);
   ModRefInfo I = AA->getModRefInfo(DefMemoryInst, ImmutableCallSite(Q.Inst));
   return I != MRI_NoModRef;
 }
@@ -795,19 +898,34 @@ MemoryAccessPair CachingMemorySSAWalker::UpwardsDFSWalk(
       continue;
     }
 
+#ifndef NDEBUG
+    // The loop below visits the phi's children for us. Because phis are the
+    // only things with multiple edges, skipping the children should always lead
+    // us to the end of the loop.
+    //
+    // Use a copy of DFI because skipChildren would kill our search stack, which
+    // would make caching anything on the way back impossible.
+    auto DFICopy = DFI;
+    assert(DFICopy.skipChildren() == DFE &&
+           "Skipping phi's children doesn't end the DFS?");
+#endif
+
+    const MemoryAccessPair PHIPair(CurrAccess, Loc);
+
+    // Don't try to optimize this phi again if we've already tried to do so.
+    if (!Q.Visited.insert(PHIPair).second) {
+      ModifyingAccess = CurrAccess;
+      break;
+    }
+
+    std::size_t InitialVisitedCallSize = Q.VisitedCalls.size();
+
     // Recurse on PHI nodes, since we need to change locations.
     // TODO: Allow graphtraits on pairs, which would turn this whole function
     // into a normal single depth first walk.
     MemoryAccess *FirstDef = nullptr;
-    DFI = DFI.skipChildren();
-    const MemoryAccessPair PHIPair(CurrAccess, Loc);
-    bool VisitedOnlyOne = true;
     for (auto MPI = upward_defs_begin(PHIPair), MPE = upward_defs_end();
          MPI != MPE; ++MPI) {
-      // Don't follow this path again if we've followed it once
-      if (!Q.Visited.insert(*MPI).second)
-        continue;
-
       bool Backedge =
           !FollowingBackedge &&
           DT->dominates(CurrAccess->getBlock(), MPI.getPhiArgBlock());
@@ -825,36 +943,33 @@ MemoryAccessPair CachingMemorySSAWalker::UpwardsDFSWalk(
 
       if (!FirstDef)
         FirstDef = CurrentPair.first;
-      else
-        VisitedOnlyOne = false;
     }
 
-    // The above loop determines if all arguments of the phi node reach the
-    // same place. However we skip arguments that are cyclically dependent
-    // only on the value of this phi node. This means in some cases, we may
-    // only visit one argument of the phi node, and the above loop will
-    // happily say that all the arguments are the same. However, in that case,
-    // we still can't walk past the phi node, because that argument still
-    // kills the access unless we hit the top of the function when walking
-    // that argument.
-    if (VisitedOnlyOne && FirstDef && !MSSA->isLiveOnEntryDef(FirstDef))
-      ModifyingAccess = CurrAccess;
+    // If we exited the loop early, go with the result it gave us.
+    if (!ModifyingAccess) {
+      assert(FirstDef && "Found a Phi with no upward defs?");
+      ModifyingAccess = FirstDef;
+    } else {
+      // If we can't optimize this Phi, then we can't safely cache any of the
+      // calls we visited when trying to optimize it. Wipe them out now.
+      Q.VisitedCalls.resize(InitialVisitedCallSize);
+    }
+    break;
   }
 
   if (!ModifyingAccess)
     return {MSSA->getLiveOnEntryDef(), Q.StartingLoc};
 
-  const BasicBlock *OriginalBlock = Q.OriginalAccess->getBlock();
+  const BasicBlock *OriginalBlock = StartingAccess->getBlock();
   unsigned N = DFI.getPathLength();
-  MemoryAccess *FinalAccess = ModifyingAccess;
   for (; N != 0; --N) {
-    ModifyingAccess = DFI.getPath(N - 1);
-    BasicBlock *CurrBlock = ModifyingAccess->getBlock();
+    MemoryAccess *CacheAccess = DFI.getPath(N - 1);
+    BasicBlock *CurrBlock = CacheAccess->getBlock();
     if (!FollowingBackedge)
-      doCacheInsert(ModifyingAccess, FinalAccess, Q, Loc);
+      doCacheInsert(CacheAccess, ModifyingAccess, Q, Loc);
     if (DT->dominates(CurrBlock, OriginalBlock) &&
         (CurrBlock != OriginalBlock || !FollowingBackedge ||
-         MSSA->locallyDominates(ModifyingAccess, Q.OriginalAccess)))
+         MSSA->locallyDominates(CacheAccess, StartingAccess)))
       break;
   }
 

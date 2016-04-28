@@ -32,7 +32,7 @@
 // RUN: not %run %t 26 2>&1 | FileCheck %s --check-prefix=CHECK26
 // RUN: not %run %t 27 2>&1 | FileCheck %s --check-prefix=CHECK27
 // Parts of the test are too platform-specific:
-// REQUIRES: x86_64-supported-target
+// REQUIRES: x86_64-target-arch
 // REQUIRES: shell
 #include <stdlib.h>
 #include <stdio.h>
@@ -166,14 +166,14 @@ int main(int argc, char **argv) {
     // CHECK3: SCARINESS: 33 (2-byte-write-heap-buffer-overflow)
     // CHECK4: SCARINESS: 52 (8-byte-write-heap-buffer-overflow-far-from-bounds)
     // CHECK5: SCARINESS: 55 (multi-byte-write-heap-buffer-overflow-far-from-bounds)
-    // CHECK6: SCARINESS: 22 (1-byte-read-heap-use-after-free)
+    // CHECK6: SCARINESS: 40 (1-byte-read-heap-use-after-free)
     // CHECK7: SCARINESS: 46 (4-byte-write-heap-use-after-free)
-    // CHECK8: SCARINESS: 33 (8-byte-read-heap-use-after-free)
+    // CHECK8: SCARINESS: 51 (8-byte-read-heap-use-after-free)
     // CHECK9: SCARINESS: 55 (multi-byte-write-heap-use-after-free)
     // CHECK10: SCARINESS: 46 (1-byte-write-stack-buffer-overflow)
     // CHECK11: SCARINESS: 38 (8-byte-read-stack-buffer-overflow)
     // CHECK12: SCARINESS: 61 (4-byte-write-stack-buffer-overflow-far-from-bounds)
-    // CHECK13: SCARINESS: 32 (1-byte-read-stack-use-after-return)
+    // CHECK13: SCARINESS: 50 (1-byte-read-stack-use-after-return)
     // CHECK14: SCARINESS: 65 (multi-byte-write-stack-use-after-return)
     // CHECK15: SCARINESS: 31 (1-byte-write-global-buffer-overflow)
     // CHECK16: SCARINESS: 36 (multi-byte-read-global-buffer-overflow-far-from-bounds)

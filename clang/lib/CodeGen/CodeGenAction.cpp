@@ -53,7 +53,6 @@ namespace clang {
 
     std::unique_ptr<CodeGenerator> Gen;
 
-    std::unique_ptr<llvm::Module> TheModule;
     SmallVector<std::pair<unsigned, std::unique_ptr<llvm::Module>>, 4>
         LinkModules;
 
@@ -81,7 +80,10 @@ namespace clang {
         this->LinkModules.push_back(
             std::make_pair(I.first, std::unique_ptr<llvm::Module>(I.second)));
     }
-    std::unique_ptr<llvm::Module> takeModule() { return std::move(TheModule); }
+    llvm::Module *getModule() const { return Gen->GetModule(); }
+    std::unique_ptr<llvm::Module> takeModule() {
+      return std::unique_ptr<llvm::Module>(Gen->ReleaseModule());
+    }
     void releaseLinkModules() {
       for (auto &I : LinkModules)
         I.second.release();
@@ -100,8 +102,6 @@ namespace clang {
         LLVMIRGeneration.startTimer();
 
       Gen->Initialize(Ctx);
-
-      TheModule.reset(Gen->GetModule());
 
       if (llvm::TimePassesIsEnabled)
         LLVMIRGeneration.stopTimer();
@@ -123,14 +123,14 @@ namespace clang {
       return true;
     }
 
-    void HandleInlineMethodDefinition(CXXMethodDecl *D) override {
+    void HandleInlineFunctionDefinition(FunctionDecl *D) override {
       PrettyStackTraceDecl CrashInfo(D, SourceLocation(),
                                      Context->getSourceManager(),
-                                     "LLVM IR generation of inline method");
+                                     "LLVM IR generation of inline function");
       if (llvm::TimePassesIsEnabled)
         LLVMIRGeneration.startTimer();
 
-      Gen->HandleInlineMethodDefinition(D);
+      Gen->HandleInlineFunctionDefinition(D);
 
       if (llvm::TimePassesIsEnabled)
         LLVMIRGeneration.stopTimer();
@@ -149,25 +149,12 @@ namespace clang {
       }
 
       // Silently ignore if we weren't initialized for some reason.
-      if (!TheModule)
+      if (!getModule())
         return;
-
-      // Make sure IR generation is happy with the module. This is released by
-      // the module provider.
-      llvm::Module *M = Gen->ReleaseModule();
-      if (!M) {
-        // The module has been released by IR gen on failures, do not double
-        // free.
-        TheModule.release();
-        return;
-      }
-
-      assert(TheModule.get() == M &&
-             "Unexpected module change during IR generation");
 
       // Install an inline asm handler so that diagnostics get printed through
       // our diagnostics hooks.
-      LLVMContext &Ctx = TheModule->getContext();
+      LLVMContext &Ctx = getModule()->getContext();
       LLVMContext::InlineAsmDiagHandlerTy OldHandler =
         Ctx.getInlineAsmDiagnosticHandler();
       void *OldContext = Ctx.getInlineAsmDiagnosticContext();
@@ -182,13 +169,13 @@ namespace clang {
       for (auto &I : LinkModules) {
         unsigned LinkFlags = I.first;
         CurLinkModule = I.second.get();
-        if (Linker::linkModules(*M, std::move(I.second), LinkFlags))
+        if (Linker::linkModules(*getModule(), std::move(I.second), LinkFlags))
           return;
       }
 
       EmitBackendOutput(Diags, CodeGenOpts, TargetOpts, LangOpts,
-                        C.getTargetInfo().getDataLayoutString(),
-                        TheModule.get(), Action, AsmOutStream);
+                        C.getTargetInfo().getDataLayout(),
+                        getModule(), Action, AsmOutStream);
 
       Ctx.setInlineAsmDiagnosticHandler(OldHandler, OldContext);
 
@@ -216,19 +203,6 @@ namespace clang {
 
     void HandleVTable(CXXRecordDecl *RD) override {
       Gen->HandleVTable(RD);
-    }
-
-    void HandleLinkerOption(llvm::StringRef Opts) override {
-      Gen->HandleLinkerOption(Opts);
-    }
-
-    void HandleDetectMismatch(llvm::StringRef Name,
-                                      llvm::StringRef Value) override {
-      Gen->HandleDetectMismatch(Name, Value);
-    }
-
-    void HandleDependentLibrary(llvm::StringRef Opts) override {
-      Gen->HandleDependentLibrary(Opts);
     }
 
     static void InlineAsmDiagHandler(const llvm::SMDiagnostic &SM,void *Context,
@@ -786,6 +760,22 @@ static void BitcodeInlineAsmDiagHandler(const llvm::SMDiagnostic &SM,
                                          void *Context,
                                          unsigned LocCookie) {
   SM.print(nullptr, llvm::errs());
+
+  auto Diags = static_cast<DiagnosticsEngine *>(Context);
+  unsigned DiagID;
+  switch (SM.getKind()) {
+  case llvm::SourceMgr::DK_Error:
+    DiagID = diag::err_fe_inline_asm;
+    break;
+  case llvm::SourceMgr::DK_Warning:
+    DiagID = diag::warn_fe_inline_asm;
+    break;
+  case llvm::SourceMgr::DK_Note:
+    DiagID = diag::note_fe_inline_asm;
+    break;
+  }
+
+  Diags->Report(DiagID).AddString("cannot compile inline asm");
 }
 
 void CodeGenAction::ExecuteAction() {
@@ -837,9 +827,10 @@ void CodeGenAction::ExecuteAction() {
     }
 
     LLVMContext &Ctx = TheModule->getContext();
-    Ctx.setInlineAsmDiagnosticHandler(BitcodeInlineAsmDiagHandler);
+    Ctx.setInlineAsmDiagnosticHandler(BitcodeInlineAsmDiagHandler,
+                                      &CI.getDiagnostics());
     EmitBackendOutput(CI.getDiagnostics(), CI.getCodeGenOpts(), TargetOpts,
-                      CI.getLangOpts(), CI.getTarget().getDataLayoutString(),
+                      CI.getLangOpts(), CI.getTarget().getDataLayout(),
                       TheModule.get(), BA, OS);
     return;
   }

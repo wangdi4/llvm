@@ -22,9 +22,9 @@
 // DISASM-NEXT: 1104d: 49 81 c4 fc ff ff ff addq $-4, %r12
 // Corrupred output:
 // DISASM-NEXT: 11054: 48 8d 80 f8 ff ff ff leaq -8(%rax), %rax
-// DISASM-NEXT: 1105b: 48 d1 81 c4 f8 ff ff rolq -1852(%rcx)
+// DISASM-NEXT: 1105b: 48 d1 81 c4 fc ff ff rolq -828(%rcx)
 // DISASM-NEXT: 11062: ff 48 d1 decl -47(%rax)
-// DISASM-NEXT: 11065: 81 c4 f8 ff ff ff addl $4294967288, %esp
+// DISASM-NEXT: 11065: 81 c4 fc ff ff ff addl $4294967292, %esp
 // LD to LE:
 // DISASM-NEXT: 1106b: 66 66 66 64 48 8b 04 25 00 00 00 00 movq %fs:0, %rax
 // DISASM-NEXT: 11077: 48 8d 88 f8 ff ff ff                leaq -8(%rax), %rcx
@@ -35,6 +35,11 @@
 // DISASM-NEXT: 1109a: 48 8d 80 f8 ff ff ff                leaq -8(%rax), %rax
 // DISASM-NEXT: 110a1: 64 48 8b 04 25 00 00 00 00          movq %fs:0, %rax
 // DISASM-NEXT: 110aa: 48 8d 80 fc ff ff ff                leaq -4(%rax), %rax
+// LD to LE (2):
+// DISASM:      _DTPOFF64_1:
+// DISASM-NEXT: 110b1: f8
+// DISASM:      _DTPOFF64_2:
+// DISASM-NEXT: 110ba: fc
 
 .type tls0,@object
 .section .tbss,"awT",@nobits
@@ -91,3 +96,12 @@ _start:
  .word 0x6666
  rex64
  call __tls_get_addr@plt
+ 
+ //LD to LE (2):
+_DTPOFF64_1:
+ .quad tls0@DTPOFF
+ nop
+
+_DTPOFF64_2:
+ .quad tls1@DTPOFF
+ nop

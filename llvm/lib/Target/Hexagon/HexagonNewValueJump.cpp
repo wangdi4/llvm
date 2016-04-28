@@ -87,6 +87,10 @@ namespace {
     }
 
     bool runOnMachineFunction(MachineFunction &Fn) override;
+    MachineFunctionProperties getRequiredProperties() const override {
+      return MachineFunctionProperties().set(
+          MachineFunctionProperties::Property::AllVRegsAllocated);
+    }
 
   private:
     /// \brief A handle to the branch probability pass.
@@ -116,7 +120,7 @@ static bool canBeFeederToNewValueJump(const HexagonInstrInfo *QII,
                                       MachineFunction &MF) {
 
   // Predicated instruction can not be feeder to NVJ.
-  if (QII->isPredicated(II))
+  if (QII->isPredicated(*II))
     return false;
 
   // Bail out if feederReg is a paired register (double regs in

@@ -25,6 +25,10 @@ using namespace llvm::vpo;
 
 // AVR Creation Utilities
 
+AVRLoopIR *AVRUtilsIR::createAVRLoopIR(Loop *Lp) {
+  return new AVRLoopIR(Lp);
+}
+
 AVRCompareIR *AVRUtilsIR::createAVRCompareIR(Instruction *Inst) {
   return new AVRCompareIR(Inst);
 }

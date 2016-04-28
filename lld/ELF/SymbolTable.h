@@ -11,14 +11,45 @@
 #define LLD_ELF_SYMBOL_TABLE_H
 
 #include "InputFiles.h"
-#include "llvm/ADT/MapVector.h"
+#include "LTO.h"
+#include "llvm/ADT/DenseMap.h"
 
 namespace lld {
-namespace elf2 {
+namespace elf {
 class Lazy;
 template <class ELFT> class OutputSectionBase;
 struct Symbol;
-class Undefined;
+
+struct SymName {
+  SymName(StringRef Name) : Name(Name) {
+    Hash = llvm::DenseMapInfo<StringRef>::getHashValue(Name);
+  }
+  SymName(StringRef Name, unsigned Hash) : Name(Name), Hash(Hash) {}
+  StringRef Name;
+  unsigned Hash;
+};
+}
+}
+
+namespace llvm {
+template <> struct DenseMapInfo<lld::elf::SymName> {
+  static lld::elf::SymName getEmptyKey() {
+    StringRef N = DenseMapInfo<StringRef>::getEmptyKey();
+    return {N, 0};
+  }
+  static lld::elf::SymName getTombstoneKey() {
+    StringRef N = DenseMapInfo<StringRef>::getTombstoneKey();
+    return {N, 0};
+  }
+  static unsigned getHashValue(lld::elf::SymName Name) { return Name.Hash; }
+  static bool isEqual(lld::elf::SymName A, lld::elf::SymName B) {
+    return A.Name == B.Name;
+  }
+};
+}
+
+namespace lld {
+namespace elf {
 
 // SymbolTable is a bucket of all known symbols, including defined,
 // undefined, or lazy symbols (the last one is symbols in archive
@@ -31,15 +62,14 @@ class Undefined;
 // undefined, it'll read an archive member to read a real definition
 // to replace the lazy symbol. The logic is implemented in resolve().
 template <class ELFT> class SymbolTable {
-  typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym Elf_Sym;
-  typedef typename llvm::object::ELFFile<ELFT>::uintX_t uintX_t;
+  typedef typename ELFT::Sym Elf_Sym;
+  typedef typename ELFT::uint uintX_t;
 
 public:
   void addFile(std::unique_ptr<InputFile> File);
+  void addCombinedLtoObject();
 
-  const llvm::MapVector<StringRef, Symbol *> &getSymbols() const {
-    return Symtab;
-  }
+  llvm::ArrayRef<Symbol *> getSymbols() const { return SymVector; }
 
   const std::vector<std::unique_ptr<ObjectFile<ELFT>>> &getObjectFiles() const {
     return ObjectFiles;
@@ -51,31 +81,35 @@ public:
 
   SymbolBody *addUndefined(StringRef Name);
   SymbolBody *addUndefinedOpt(StringRef Name);
-  SymbolBody *addAbsolute(StringRef Name, Elf_Sym &ESym);
+  DefinedRegular<ELFT> *addAbsolute(StringRef Name,
+                                    uint8_t Visibility = llvm::ELF::STV_HIDDEN);
   SymbolBody *addSynthetic(StringRef Name, OutputSectionBase<ELFT> &Section,
                            uintX_t Value);
-  SymbolBody *addIgnored(StringRef Name);
+  DefinedRegular<ELFT> *addIgnored(StringRef Name,
+                                   uint8_t Visibility = llvm::ELF::STV_HIDDEN);
 
   void scanShlibUndefined();
+  void scanDynamicList();
   SymbolBody *find(StringRef Name);
   void wrap(StringRef Name);
-  ELFFileBase<ELFT> *findFile(SymbolBody *B);
+  InputFile *findFile(SymbolBody *B);
 
 private:
   Symbol *insert(SymbolBody *New);
   void addLazy(Lazy *New);
-  void addMemberFile(Undefined *Undef, Lazy *L);
+  void addMemberFile(SymbolBody *Undef, Lazy *L);
   void resolve(SymbolBody *Body);
   std::string conflictMsg(SymbolBody *Old, SymbolBody *New);
 
   // The order the global symbols are in is not defined. We can use an arbitrary
   // order, but it has to be reproducible. That is true even when cross linking.
   // The default hashing of StringRef produces different results on 32 and 64
-  // bit systems so we use a MapVector. That is arbitrary, deterministic but
-  // a bit inefficient.
+  // bit systems so we use a map to a vector. That is arbitrary, deterministic
+  // but a bit inefficient.
   // FIXME: Experiment with passing in a custom hashing or sorting the symbols
   // once symbol resolution is finished.
-  llvm::MapVector<StringRef, Symbol *> Symtab;
+  llvm::DenseMap<SymName, unsigned> Symtab;
+  std::vector<Symbol *> SymVector;
   llvm::BumpPtrAllocator Alloc;
 
   // Comdat groups define "link once" sections. If two comdat groups have the
@@ -86,13 +120,17 @@ private:
   // The symbol table owns all file objects.
   std::vector<std::unique_ptr<ArchiveFile>> ArchiveFiles;
   std::vector<std::unique_ptr<ObjectFile<ELFT>>> ObjectFiles;
+  std::vector<std::unique_ptr<LazyObjectFile>> LazyObjectFiles;
   std::vector<std::unique_ptr<SharedFile<ELFT>>> SharedFiles;
+  std::vector<std::unique_ptr<BitcodeFile>> BitcodeFiles;
 
   // Set of .so files to not link the same shared object file more than once.
   llvm::DenseSet<StringRef> SoNames;
+
+  std::unique_ptr<BitcodeCompiler> Lto;
 };
 
-} // namespace elf2
+} // namespace elf
 } // namespace lld
 
 #endif

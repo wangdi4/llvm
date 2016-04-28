@@ -244,26 +244,6 @@ define void @v_and_i64(i64 addrspace(1)* %out, i64 addrspace(1)* %aptr, i64 addr
   ret void
 }
 
-; FUNC-LABEL: {{^}}v_and_i64_br:
-; SI: v_and_b32
-; SI: v_and_b32
-define void @v_and_i64_br(i64 addrspace(1)* %out, i64 addrspace(1)* %aptr, i64 addrspace(1)* %bptr, i32 %cond) {
-entry:
-  %tmp0 = icmp eq i32 %cond, 0
-  br i1 %tmp0, label %if, label %endif
-
-if:
-  %a = load i64, i64 addrspace(1)* %aptr, align 8
-  %b = load i64, i64 addrspace(1)* %bptr, align 8
-  %and = and i64 %a, %b
-  br label %endif
-
-endif:
-  %tmp1 = phi i64 [%and, %if], [0, %entry]
-  store i64 %tmp1, i64 addrspace(1)* %out, align 8
-  ret void
-}
-
 ; FUNC-LABEL: {{^}}v_and_constant_i64:
 ; SI-DAG: v_and_b32_e32 {{v[0-9]+}}, 0xab19b207, {{v[0-9]+}}
 ; SI-DAG: v_and_b32_e32 {{v[0-9]+}}, 0x11e, {{v[0-9]+}}
@@ -302,11 +282,11 @@ define void @v_and_multi_use_constant_i64(i64 addrspace(1)* %out, i64 addrspace(
 ; SI: buffer_load_dwordx2 v{{\[}}[[LO1:[0-9]+]]:[[HI1:[0-9]+]]{{\]}}
 ; SI-NOT: and
 ; SI: v_and_b32_e32 v[[RESLO0:[0-9]+]], 63, v[[LO0]]
+; SI-NOT: and
+; SI: buffer_store_dwordx2 v{{\[}}[[RESLO0]]
 ; SI: v_and_b32_e32 v[[RESLO1:[0-9]+]], 63, v[[LO1]]
 ; SI-NOT: and
-; SI: buffer_store_dwordx2
-; SI-NOT: and
-; SI: buffer_store_dwordx2
+; SI: buffer_store_dwordx2 v{{\[}}[[RESLO1]]
 define void @v_and_multi_use_inline_imm_i64(i64 addrspace(1)* %out, i64 addrspace(1)* %aptr) {
   %a = load volatile i64, i64 addrspace(1)* %aptr
   %b = load volatile i64, i64 addrspace(1)* %aptr

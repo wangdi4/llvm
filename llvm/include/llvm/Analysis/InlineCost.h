@@ -108,7 +108,6 @@ typedef enum {
 extern bool IsInlinedReason(InlineReportTypes::InlineReason Reason);
 extern bool IsNotInlinedReason(InlineReportTypes::InlineReason Reason);
 #endif // INTEL_CUSTOMIZATION
-
 /// \brief Represents the cost of inlining a function.
 ///
 /// This supports special values for functions which should "always" or

@@ -362,6 +362,18 @@ bool Decl::isReferenced() const {
   return false; 
 }
 
+bool Decl::hasDefiningAttr() const {
+  return hasAttr<AliasAttr>() || hasAttr<IFuncAttr>();
+}
+
+const Attr *Decl::getDefiningAttr() const {
+  if (AliasAttr *AA = getAttr<AliasAttr>())
+    return AA;
+  if (IFuncAttr *IFA = getAttr<IFuncAttr>())
+    return IFA;
+  return nullptr;
+}
+
 /// \brief Determine the availability of the given declaration based on
 /// the target platform.
 ///
@@ -432,7 +444,7 @@ static AvailabilityResult CheckAvailability(ASTContext &Context,
           << VTI << HintMessage;
     }
 
-    return AR_NotYetIntroduced;
+    return A->getStrict() ? AR_Unavailable : AR_NotYetIntroduced;
   }
 
   // Make sure that this declaration hasn't been obsoleted.
@@ -467,6 +479,9 @@ static AvailabilityResult CheckAvailability(ASTContext &Context,
 }
 
 AvailabilityResult Decl::getAvailability(std::string *Message) const {
+  if (auto *FTD = dyn_cast<FunctionTemplateDecl>(this))
+    return FTD->getTemplatedDecl()->getAvailability(Message);
+
   AvailabilityResult Result = AR_Available;
   std::string ResultMessage;
 
@@ -630,6 +645,9 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
     case TemplateTemplateParm:
       return IDNS_Ordinary | IDNS_Tag | IDNS_Type;
 
+    case OMPDeclareReduction:
+      return IDNS_OMPReduction;
+
     // Never have names.
     case Friend:
     case FriendTemplate:
@@ -638,6 +656,8 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
     case FileScopeAsm:
     case StaticAssert:
     case ObjCPropertyImpl:
+    case PragmaComment:
+    case PragmaDetectMismatch:
     case Block:
     case Captured:
     case TranslationUnit:
@@ -958,6 +978,7 @@ DeclContext *DeclContext::getPrimaryContext() {
   case Decl::LinkageSpec:
   case Decl::Block:
   case Decl::Captured:
+  case Decl::OMPDeclareReduction:
     // There is only one DeclContext for these entities.
     return this;
 
@@ -1550,9 +1571,12 @@ void DeclContext::makeDeclVisibleInContextWithFlags(NamedDecl *D, bool Internal,
                                                     bool Recoverable) {
   assert(this == getPrimaryContext() && "expected a primary DC");
 
-  // Skip declarations within functions.
-  if (isFunctionOrMethod())
+  if (!isLookupContext()) {
+    if (isTransparentContext())
+      getParent()->getPrimaryContext()
+        ->makeDeclVisibleInContextWithFlags(D, Internal, Recoverable);
     return;
+  }
 
   // Skip declarations which should be invisible to name lookup.
   if (shouldBeHidden(D))

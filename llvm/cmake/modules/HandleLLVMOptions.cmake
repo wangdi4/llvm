@@ -6,54 +6,12 @@
 # else.
 string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 
+include(CheckCompilerVersion)
 include(HandleLLVMStdlib)
 include(AddLLVMDefinitions)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
-if(NOT LLVM_FORCE_USE_OLD_TOOLCHAIN)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.7)
-      message(FATAL_ERROR "Host GCC version must be at least 4.7!")
-    endif()
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 3.1)
-      message(FATAL_ERROR "Host Clang version must be at least 3.1!")
-    endif()
-
-    if (CMAKE_CXX_SIMULATE_ID MATCHES "MSVC")
-      if (CMAKE_CXX_SIMULATE_VERSION VERSION_LESS 18.0)
-        message(FATAL_ERROR "Host Clang must have at least -fms-compatibility-version=18.0")
-      endif()
-      set(CLANG_CL 1)
-    elseif(NOT LLVM_ENABLE_LIBCXX)
-      # Otherwise, test that we aren't using too old of a version of libstdc++
-      # with the Clang compiler. This is tricky as there is no real way to
-      # check the version of libstdc++ directly. Instead we test for a known
-      # bug in libstdc++4.6 that is fixed in libstdc++4.7.
-      set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-      set(OLD_CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES})
-      set(CMAKE_REQUIRED_FLAGS "-std=c++0x")
-      check_cxx_source_compiles("
-#include <atomic>
-std::atomic<float> x(0.0f);
-int main() { return (float)x; }"
-        LLVM_NO_OLD_LIBSTDCXX)
-      if(NOT LLVM_NO_OLD_LIBSTDCXX)
-        message(FATAL_ERROR "Host Clang must be able to find libstdc++4.7 or newer!")
-      endif()
-      set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
-      set(CMAKE_REQUIRED_LIBRARIES ${OLD_CMAKE_REQUIRED_LIBRARIES})
-    endif()
-  elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18.0)
-      message(FATAL_ERROR "Host Visual Studio must be at least 2013")
-    elseif(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18.0.31101)
-      message(WARNING "Host Visual Studio should at least be 2013 Update 4 (MSVC 18.0.31101)"
-        "  due to miscompiles from earlier versions")
-    endif()
-  endif()
-endif()
 
 if (CMAKE_LINKER MATCHES "lld-link.exe")
   # Pass /MANIFEST:NO so that CMake doesn't run mt.exe on our binaries.  Adding
@@ -180,6 +138,25 @@ function(add_flag_or_print_warning flag name)
     message(WARNING "${flag} is not supported.")
   endif()
 endfunction()
+
+if (LLVM_ENABLE_MODULES)
+  set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+  set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fmodules -Xclang -fmodules-local-submodule-visibility")
+  # Check that we can build code with modules enabled, and that repeatedly
+  # including <cassert> still manages to respect NDEBUG properly.
+  CHECK_CXX_SOURCE_COMPILES("#undef NDEBUG
+                             #include <cassert>
+                             #define NDEBUG
+                             #include <cassert>
+                             int main() { assert(this code is not compiled); }"
+                             CXX_SUPPORTS_MODULES)
+  set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
+  if (CXX_SUPPORTS_MODULES)
+    append_if(CXX_SUPPORTS_MODULES "-fmodules -Xclang -fmodules-local-submodule-visibility" CMAKE_CXX_FLAGS)
+  else()
+    message(FATAL_ERROR "LLVM_ENABLE_MODULES is not supported by this compiler")
+  endif()
+endif(LLVM_ENABLE_MODULES)
 
 if( LLVM_ENABLE_PIC )
   if( XCODE )
@@ -389,6 +366,19 @@ if( MSVC )
   # "Enforce type conversion rules".
   append("/Zc:rvalueCast" CMAKE_CXX_FLAGS)
 
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # Find and run MSVC (not clang-cl) and get its version. This will tell
+    # clang-cl what version of MSVC to pretend to be so that the STL works.
+    execute_process(COMMAND "$ENV{VSINSTALLDIR}/VC/bin/cl.exe"
+      OUTPUT_QUIET
+      ERROR_VARIABLE MSVC_COMPAT_VERSION
+      )
+    string(REGEX REPLACE "^.*Compiler Version ([0-9.]+) for .*$" "\\1"
+      MSVC_COMPAT_VERSION "${MSVC_COMPAT_VERSION}")
+    append("-fms-compatibility-version=${MSVC_COMPAT_VERSION}"
+      CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+  endif()
+
   if (NOT LLVM_ENABLE_TIMESTAMPS AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # clang-cl and cl by default produce non-deterministic binaries because
     # link.exe /incremental requires a timestamp in the .obj file.  clang-cl
@@ -500,25 +490,6 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
       message(FATAL_ERROR "LLVM requires C++11 support but the '-std=c++11' flag isn't supported.")
     endif()
   endif()
-  if (LLVM_ENABLE_MODULES)
-    set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fmodules")
-    # Check that we can build code with modules enabled, and that repeatedly
-    # including <cassert> still manages to respect NDEBUG properly.
-    CHECK_CXX_SOURCE_COMPILES("#undef NDEBUG
-                               #include <cassert>
-                               #define NDEBUG
-                               #include <cassert>
-                               int main() { assert(this code is not compiled); }"
-                               CXX_SUPPORTS_MODULES)
-    set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
-    if (CXX_SUPPORTS_MODULES)
-      append_if(CXX_SUPPORTS_MODULES "-fmodules" CMAKE_C_FLAGS)
-      append_if(CXX_SUPPORTS_MODULES "-fmodules -fcxx-modules" CMAKE_CXX_FLAGS)
-    else()
-      message(FATAL_ERROR "LLVM_ENABLE_MODULES is not supported by this compiler")
-    endif()
-  endif(LLVM_ENABLE_MODULES)
 endif( MSVC )
 
 macro(append_common_sanitizer_flags)

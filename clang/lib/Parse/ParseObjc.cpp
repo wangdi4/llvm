@@ -21,6 +21,7 @@
 #include "clang/Sema/Scope.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
+
 using namespace clang;
 
 /// Skips attributes after an Objective-C @ directive. Emits a diagnostic.
@@ -99,16 +100,20 @@ class Parser::ObjCTypeParamListScope {
   Sema &Actions;
   Scope *S;
   ObjCTypeParamList *Params;
+
 public:
   ObjCTypeParamListScope(Sema &Actions, Scope *S)
       : Actions(Actions), S(S), Params(nullptr) {}
+
   ~ObjCTypeParamListScope() {
     leave();
   }
+
   void enter(ObjCTypeParamList *P) {
     assert(!Params);
     Params = P;
   }
+
   void leave() {
     if (Params)
       Actions.popObjCTypeParamList(S, Params);
@@ -1688,11 +1693,18 @@ void Parser::parseObjCTypeArgsOrProtocolQualifiers(
     return;
   }
 
-  // We syntactically matched a type argument, so commit to parsing
-  // type arguments.
+  // We parsed an identifier list but stumbled into non single identifiers, this
+  // means we might (a) check that what we already parsed is a legitimate type
+  // (not a protocol or unknown type) and (b) parse the remaining ones, which
+  // must all be type args.
 
   // Convert the identifiers into type arguments.
   bool invalid = false;
+  IdentifierInfo *foundProtocolId = nullptr, *foundValidTypeId = nullptr;
+  SourceLocation foundProtocolSrcLoc, foundValidTypeSrcLoc;
+  SmallVector<IdentifierInfo *, 2> unknownTypeArgs;
+  SmallVector<SourceLocation, 2> unknownTypeArgsLoc;
+
   for (unsigned i = 0, n = identifiers.size(); i != n; ++i) {
     ParsedType typeArg
       = Actions.getTypeName(*identifiers[i], identifierLocs[i], getCurScope());
@@ -1706,17 +1718,32 @@ void Parser::parseObjCTypeArgsOrProtocolQualifiers(
       // Form a declarator to turn this into a type.
       Declarator D(DS, Declarator::TypeNameContext);
       TypeResult fullTypeArg = Actions.ActOnTypeName(getCurScope(), D);
-      if (fullTypeArg.isUsable())
+      if (fullTypeArg.isUsable()) {
         typeArgs.push_back(fullTypeArg.get());
-      else
+        if (!foundValidTypeId) {
+          foundValidTypeId = identifiers[i];
+          foundValidTypeSrcLoc = identifierLocs[i];
+        }
+      } else {
         invalid = true;
+        unknownTypeArgs.push_back(identifiers[i]);
+        unknownTypeArgsLoc.push_back(identifierLocs[i]);
+      }
     } else {
       invalid = true;
+      if (!Actions.LookupProtocol(identifiers[i], identifierLocs[i])) {
+        unknownTypeArgs.push_back(identifiers[i]);
+        unknownTypeArgsLoc.push_back(identifierLocs[i]);
+      } else if (!foundProtocolId) {
+        foundProtocolId = identifiers[i];
+        foundProtocolSrcLoc = identifierLocs[i];
+      }
     }
   }
 
   // Continue parsing type-names.
   do {
+    Token CurTypeTok = Tok;
     TypeResult typeArg = ParseTypeName();
 
     // Consume the '...' for a pack expansion.
@@ -1728,10 +1755,27 @@ void Parser::parseObjCTypeArgsOrProtocolQualifiers(
 
     if (typeArg.isUsable()) {
       typeArgs.push_back(typeArg.get());
+      if (!foundValidTypeId) {
+        foundValidTypeId = CurTypeTok.getIdentifierInfo();
+        foundValidTypeSrcLoc = CurTypeTok.getLocation();
+      }
     } else {
       invalid = true;
     }
   } while (TryConsumeToken(tok::comma));
+
+  // Diagnose the mix between type args and protocols.
+  if (foundProtocolId && foundValidTypeId)
+    Actions.DiagnoseTypeArgsAndProtocols(foundProtocolId, foundProtocolSrcLoc,
+                                         foundValidTypeId,
+                                         foundValidTypeSrcLoc);
+
+  // Diagnose unknown arg types.
+  ParsedType T;
+  if (unknownTypeArgs.size())
+    for (unsigned i = 0, e = unknownTypeArgsLoc.size(); i < e; ++i)
+      Actions.DiagnoseUnknownTypeName(unknownTypeArgs[i], unknownTypeArgsLoc[i],
+                                      getCurScope(), nullptr, T);
 
   // Parse the closing '>'.
   SourceLocation rAngleLoc;
@@ -1961,7 +2005,6 @@ void Parser::ParseObjCClassInstanceVariables(Decl *interfaceDecl,
   }
   HelperActionsForIvarDeclarations(interfaceDecl, atLoc,
                                    T, AllIvarDecls, false);
-  return;
 }
 
 ///   objc-protocol-declaration:
@@ -2938,7 +2981,6 @@ bool Parser::isStartOfObjCClassMessageMissingOpenBracket() {
       InMessageExpression)
     return false;
   
-  
   ParsedType Type;
 
   if (Tok.is(tok::annot_typename)) 
@@ -3567,7 +3609,7 @@ ExprResult Parser::ParseObjCSelectorExpression(SourceLocation AtLoc) {
                                              T.getOpenLocation(),
                                              T.getCloseLocation(),
                                              !HasOptionalParen);
- }
+}
 
 void Parser::ParseLexedObjCMethodDefs(LexedMethod &LM, bool parseMethod) {
   // MCDecl might be null due to error in method or c-function  prototype, etc.
@@ -3623,6 +3665,4 @@ void Parser::ParseLexedObjCMethodDefs(LexedMethod &LM, bool parseMethod) {
       while (Tok.getLocation() != OrigLoc && Tok.isNot(tok::eof))
         ConsumeAnyToken();
   }
-  
-  return;
 }

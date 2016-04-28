@@ -59,6 +59,11 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
+  MachineFunctionProperties getRequiredProperties() const override {
+    return MachineFunctionProperties().set(
+        MachineFunctionProperties::Property::AllVRegsAllocated);
+  }
+
   /// runOnMachineFunction - Insert prolog/epilog code and replace abstract
   /// frame indexes with appropriate references.
   ///
@@ -233,6 +238,8 @@ bool PEI::runOnMachineFunction(MachineFunction &Fn) {
   delete RS;
   SaveBlocks.clear();
   RestoreBlocks.clear();
+  MFI->setSavePoint(nullptr);
+  MFI->setRestorePoint(nullptr);
   return true;
 }
 
@@ -323,14 +330,13 @@ void PEI::assignCalleeSavedSpillSlots(MachineFunction &F,
 
     // Now that we know which registers need to be saved and restored, allocate
     // stack slots for them.
-    for (std::vector<CalleeSavedInfo>::iterator I = CSI.begin(), E = CSI.end();
-         I != E; ++I) {
-      unsigned Reg = I->getReg();
+    for (auto &CS : CSI) {
+      unsigned Reg = CS.getReg();
       const TargetRegisterClass *RC = RegInfo->getMinimalPhysRegClass(Reg);
 
       int FrameIdx;
       if (RegInfo->hasReservedSpillSlot(F, Reg, FrameIdx)) {
-        I->setFrameIdx(FrameIdx);
+        CS.setFrameIdx(FrameIdx);
         continue;
       }
 
@@ -359,7 +365,7 @@ void PEI::assignCalleeSavedSpillSlots(MachineFunction &F,
             MFI->CreateFixedSpillStackObject(RC->getSize(), FixedSlot->Offset);
       }
 
-      I->setFrameIdx(FrameIdx);
+      CS.setFrameIdx(FrameIdx);
     }
   }
 
@@ -707,12 +713,14 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
                           Offset, MaxAlign, Skew);
   }
 
-#ifdef INTEL_CUSTOMIZATION
-  std::vector<int> ObjectsToAllocate;
-#endif // INTEL_CUSTOMIZATION
+  SmallVector<int, 8> ObjectsToAllocate;
 
-  // Then assign frame offsets to stack objects that are not used to spill
-  // callee saved registers.
+  int EHRegNodeFrameIndex = INT_MAX;
+  if (const WinEHFuncInfo *FuncInfo = Fn.getWinEHFuncInfo())
+    EHRegNodeFrameIndex = FuncInfo->EHRegNodeFrameIndex;
+
+  // Then prepare to assign frame offsets to stack objects that are not used to
+  // spill callee saved registers.
   for (unsigned i = 0, e = MFI->getObjectIndexEnd(); i != e; ++i) {
     if (MFI->isObjectPreAllocated(i) &&
         MFI->getUseLocalStackAllocationBlock())
@@ -725,25 +733,28 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
       continue;
     if (MFI->getStackProtectorIndex() == (int)i)
       continue;
+    if (EHRegNodeFrameIndex == (int)i)
+      continue;
     if (ProtectedObjs.count(i))
       continue;
 
-#ifdef INTEL_CUSTOMIZATION
     // Add the objects that we need to allocate to our working set.
     ObjectsToAllocate.push_back(i);
-#endif // INTEL_CUSTOMIZATION
   }
 
-#ifdef INTEL_CUSTOMIZATION
+  // Allocate the EH registration node first if one is present.
+  if (EHRegNodeFrameIndex != INT_MAX)
+    AdjustStackOffset(MFI, EHRegNodeFrameIndex, StackGrowsDown, Offset,
+                      MaxAlign, Skew);
+
   // Give the targets a chance to order the objects the way they like it.
   if (Fn.getTarget().getOptLevel() != CodeGenOpt::None &&
       Fn.getTarget().Options.StackSymbolOrdering)
     TFI.orderFrameObjects(Fn, ObjectsToAllocate);
   
   // Now walk the objects and actually assign base offsets to them.
-  for (auto &object : ObjectsToAllocate)
-    AdjustStackOffset(MFI, object, StackGrowsDown, Offset, MaxAlign, Skew);    
-#endif // INTEL_CUSTOMIZATION
+  for (auto &Object : ObjectsToAllocate)
+    AdjustStackOffset(MFI, Object, StackGrowsDown, Offset, MaxAlign, Skew);
 
   // Make sure the special register scavenging spill slot is closest to the
   // stack pointer.
@@ -871,7 +882,7 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &Fn,
   unsigned FrameSetupOpcode = TII.getCallFrameSetupOpcode();
   unsigned FrameDestroyOpcode = TII.getCallFrameDestroyOpcode();
 
-  if (RS && !FrameIndexVirtualScavenging) RS->enterBasicBlock(BB);
+  if (RS && !FrameIndexVirtualScavenging) RS->enterBasicBlock(*BB);
 
   bool InsideCallSequence = false;
 
@@ -882,15 +893,7 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &Fn,
       InsideCallSequence = (I->getOpcode() == FrameSetupOpcode);
       SPAdj += TII.getSPAdjust(I);
 
-      MachineBasicBlock::iterator PrevI = BB->end();
-      if (I != BB->begin()) PrevI = std::prev(I);
-      TFI->eliminateCallFramePseudoInstr(Fn, *BB, I);
-
-      // Visit the instructions created by eliminateCallFramePseudoInstr().
-      if (PrevI == BB->end())
-        I = BB->begin();     // The replaced instr was the first in the block.
-      else
-        I = std::next(PrevI);
+      I = TFI->eliminateCallFramePseudoInstr(Fn, *BB, I);
       continue;
     }
 
@@ -990,7 +993,7 @@ PEI::scavengeFrameVirtualRegs(MachineFunction &Fn) {
   // Run through the instructions and find any virtual registers.
   for (MachineFunction::iterator BB = Fn.begin(),
        E = Fn.end(); BB != E; ++BB) {
-    RS->enterBasicBlock(&*BB);
+    RS->enterBasicBlock(*BB);
 
     int SPAdj = 0;
 

@@ -12,17 +12,15 @@
 
 #include "SymbolTable.h"
 #include "lld/Core/LLVM.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace lld {
-namespace elf2 {
+namespace elf {
 
 extern class LinkerDriver *Driver;
-
-// Entry point of the ELF linker. Returns true on success.
-bool link(ArrayRef<const char *> Args, llvm::raw_ostream &Error = llvm::errs());
 
 class LinkerDriver {
 public:
@@ -31,19 +29,33 @@ public:
   void addLibrary(StringRef Name);
 
 private:
+  std::vector<MemoryBufferRef> getArchiveMembers(MemoryBufferRef MB);
+  llvm::Optional<MemoryBufferRef> readFile(StringRef Path);
   void readConfigs(llvm::opt::InputArgList &Args);
+  void readDynamicList(StringRef Path);
   void createFiles(llvm::opt::InputArgList &Args);
   template <class ELFT> void link(llvm::opt::InputArgList &Args);
 
-  llvm::BumpPtrAllocator Alloc;
+  // True if we are in --whole-archive and --no-whole-archive.
   bool WholeArchive = false;
+
+  // True if we are in --start-lib and --end-lib.
+  bool InLib = false;
+
+  llvm::BumpPtrAllocator Alloc;
   std::vector<std::unique_ptr<InputFile>> Files;
   std::vector<std::unique_ptr<MemoryBuffer>> OwningMBs;
 };
 
 // Parses command line options.
-llvm::opt::InputArgList parseArgs(llvm::BumpPtrAllocator *A,
-                                  ArrayRef<const char *> Args);
+class ELFOptTable : public llvm::opt::OptTable {
+public:
+  ELFOptTable();
+  llvm::opt::InputArgList parse(ArrayRef<const char *> Argv);
+
+private:
+  llvm::BumpPtrAllocator Alloc;
+};
 
 // Create enum with OPT_xxx values for each option in Options.td
 enum {
@@ -53,14 +65,14 @@ enum {
 #undef OPTION
 };
 
-// Parses a linker script. Calling this function updates the Symtab and Config.
-void readLinkerScript(llvm::BumpPtrAllocator *A, MemoryBufferRef MB);
+void printHelp(const char *Argv0);
+void printVersion();
 
 std::string findFromSearchPaths(StringRef Path);
 std::string searchLibrary(StringRef Path);
 std::string buildSysrootedPath(llvm::StringRef Dir, llvm::StringRef File);
 
-} // namespace elf2
+} // namespace elf
 } // namespace lld
 
 #endif

@@ -11,11 +11,11 @@
 # REQUIRES: mips
 
 # CHECK:      Relocations [
-# CHECK-NEXT:   Section (7) .rel.dyn {
+# CHECK-NEXT:   Section ({{.*}}) .rel.dyn {
 # CHECK-NEXT:     0x{{[0-9A-F]+}} R_MIPS_COPY data0 0x0
 # CHECK-NEXT:     0x{{[0-9A-F]+}} R_MIPS_COPY data1 0x0
 # CHECK-NEXT:   }
-# CHECK-NEXT:   Section (8) .rel.plt {
+# CHECK-NEXT:   Section ({{.*}}) .rel.plt {
 # CHECK-NEXT:     0x{{[0-9A-F]+}} R_MIPS_JUMP_SLOT foo0 0x0
 # CHECK-NEXT:     0x{{[0-9A-F]+}} R_MIPS_JUMP_SLOT foo1 0x0
 # CHECK-NEXT:   }
@@ -75,11 +75,11 @@ bar:
 loc:
   nop
 
-  .data
+  .rodata
   .globl gd
 gd:
   .word 0
 ld:
-  .word data1+8-.          # R_MIPS_PC32 requires COPY rel for DSO defined data.
-  .word foo1+8-.           # R_MIPS_PC32 requires JUMP_SLOT/PLT entry
-                           # for DSO defined func.
+  .word data1+8            # R_MIPS_32 requires REL32 dnamic relocation
+                           # for DSO defined data. For now we generate COPY one.
+  .word foo1+8             # R_MIPS_32 requires PLT entry for DSO defined func.

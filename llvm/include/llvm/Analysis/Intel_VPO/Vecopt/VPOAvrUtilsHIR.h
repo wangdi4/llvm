@@ -20,6 +20,7 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmtHIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIfHIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrSwitchHIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrLoopHIR.h"
 
 using namespace llvm::loopopt;
 
@@ -38,6 +39,9 @@ class AVRUtilsHIR {
 public:
 
   // Creation Utilities
+
+  /// \brief Returns a new AVRLoopHIR node.
+  static AVRLoopHIR *createAVRLoopHIR(HLLoop *Lp);
 
   /// \brief Returns a new AVRAssignHIR node.
   static AVRAssignHIR *createAVRAssignHIR(HLInst *Inst);

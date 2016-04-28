@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 2.8.12.2)
 
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "No build type selected, default to Debug")
-  set(CMAKE_BUILD_TYPE "Debug")
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (default Debug)")
 endif()
 
 if(POLICY CMP0022)
@@ -392,24 +392,26 @@ if(LLVM_LINK_LLVM_DYLIB OR LLVM_BUILD_LLVM_C_DYLIB)
   set(LLVM_BUILD_LLVM_DYLIB_default ON)
 endif()
 option(LLVM_BUILD_LLVM_DYLIB "Build libllvm dynamic library" ${LLVM_BUILD_LLVM_DYLIB_default})
-set(LLVM_DISABLE_LLVM_DYLIB_ATEXIT_DEFAULT ON)
-if (LLVM_LINK_LLVM_DYLIB)
-  set(LLVM_DISABLE_LLVM_DYLIB_ATEXIT_DEFAULT OFF)
-endif()
-option(LLVM_DISABLE_LLVM_DYLIB_ATEXIT "Disable llvm-shlib's atexit destructors." ${LLVM_DISABLE_LLVM_DYLIB_ATEXIT_DEFAULT})
-if(LLVM_DISABLE_LLVM_DYLIB_ATEXIT)
-  set(DISABLE_LLVM_DYLIB_ATEXIT 1)
-endif()
 
 option(LLVM_OPTIMIZED_TABLEGEN "Force TableGen to be built with optimization" OFF)
 if(CMAKE_CROSSCOMPILING OR (LLVM_OPTIMIZED_TABLEGEN AND LLVM_ENABLE_ASSERTIONS))
   set(LLVM_USE_HOST_TOOLS ON)
 endif()
 
+if (MSVC_IDE AND NOT (MSVC_VERSION LESS 1900))
+  option(LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION "Configure project to use Visual Studio native visualizers" TRUE)
+else()
+  set(LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION FALSE CACHE INTERNAL "For Visual Studio 2013, manually copy natvis files to Documents\\Visual Studio 2013\\Visualizers" FORCE)
+endif()
+
 # All options referred to from HandleLLVMOptions have to be specified
 # BEFORE this include, otherwise options will not be correctly set on
 # first cmake run
 include(config-ix)
+
+string(REPLACE "Native" ${LLVM_NATIVE_ARCH}
+  LLVM_TARGETS_TO_BUILD "${LLVM_TARGETS_TO_BUILD}")
+list(REMOVE_DUPLICATES LLVM_TARGETS_TO_BUILD)
 
 # By default, we target the host, but this can be overridden at CMake
 # invocation time.
@@ -629,6 +631,12 @@ else()
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=0")
 endif()
 
+if(INTEL_SPECIFIC_OPENMP)
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=1")
+else()
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=0")
+endif()
+
 if(INTEL_SPECIFIC_CILKPLUS)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_CILKPLUS=1")
 else()
@@ -681,6 +689,11 @@ else()
     message(FATAL_ERROR "Including tests when not building utils will not work.
     Either set LLVM_INCLUDE_UTILS to On, or set LLVM_INCLDE_TESTS to Off.")
   endif()
+endif()
+
+# Use LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION instead of LLVM_INCLUDE_UTILS because it is not really a util
+if (LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION)
+  add_subdirectory(utils/LLVMVisualizers)
 endif()
 
 if(LLVM_INCLUDE_TESTS)
@@ -738,6 +751,8 @@ if( LLVM_INCLUDE_TESTS )
     DEPENDS ${LLVM_LIT_DEPENDS}
     ARGS ${LLVM_LIT_EXTRA_ARGS}
     )
+  add_custom_target(test-depends DEPENDS ${LLVM_LIT_DEPENDS})
+  set_target_properties(test-depends PROPERTIES FOLDER "Tests")
 endif()
 
 if (LLVM_INCLUDE_DOCS)
@@ -780,4 +795,28 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
                               -DCMAKE_INSTALL_COMPONENT=llvm-headers
                               -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
   endif()
+endif()
+
+# This must be at the end of the LLVM root CMakeLists file because it must run
+# after all targets are created.
+if(LLVM_DISTRIBUTION_COMPONENTS)
+  if(CMAKE_CONFIGURATION_TYPES)
+    message(FATAL_ERROR "LLVM_DISTRIBUTION_COMPONENTS cannot be specified with multi-configuration generators (i.e. Xcode or Visual Studio)")
+  endif()
+
+  add_custom_target(distribution)
+  add_custom_target(install-distribution)
+  foreach(target ${LLVM_DISTRIBUTION_COMPONENTS})
+    if(TARGET ${target})
+      add_dependencies(distribution ${target})
+    else()
+      message(FATAL_ERROR "Specified distribution component '${target}' doesn't have a target")
+    endif()
+
+    if(TARGET install-${target})
+      add_dependencies(install-distribution install-${target})
+    else()
+      message(FATAL_ERROR "Specified distribution component '${target}' doesn't have an install target")
+    endif()
+  endforeach()
 endif()
