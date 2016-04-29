@@ -7,6 +7,8 @@ set(modified_files
   avx512cdintrin.h
   avx512erintrin.h
   avx512fintrin.h
+  avx512ifmaintrin.h
+  avx512ifmavlintrin.h
   avx512vlbwintrin.h
   avx512vlintrin.h
   avx512dqintrin.h
@@ -87,8 +89,6 @@ set(orig_files
   vecintrin.h
   xopintrin.h
   xtestintrin.h
-  avx512ifmaintrin.h
-  avx512ifmavlintrin.h
   )
 
 set(intel_files ${modified_files} ${special_files})
