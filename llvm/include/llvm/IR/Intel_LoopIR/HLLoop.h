@@ -535,6 +535,10 @@ public:
   unsigned getMVTag() { return MVTag; }
 
   void setMVTag(unsigned Tag) { MVTag = Tag; }
+	
+  /// \brief return true if Triangular Loop
+  bool isTriangularLoop() const;
+	
 };
 
 } // End namespace loopopt

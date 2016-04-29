@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
@@ -781,6 +781,28 @@ bool HLLoop::isSIMD() const {
                     // and Loop.
     if (I->isSIMDDirective())
       return true;
+  }
+
+  return false;
+}
+
+bool HLLoop::isTriangularLoop() const {
+
+  const CanonExpr *LB = getLowerCanonExpr();
+  const CanonExpr *UB = getUpperCanonExpr();
+  if (LB->hasIV() || UB->hasIV()) {
+    return true;
+  }
+
+  for (auto I = ztt_ddref_begin(), E1 = ztt_ddref_end(); I != E1; ++I) {
+    RegDDRef *RRef = *I;
+    for (auto Iter = RRef->canon_begin(), E2 = RRef->canon_end(); Iter != E2;
+         ++Iter) {
+      const CanonExpr *CE = *Iter;
+      if (CE->hasIV()) {
+        return true;
+      }
+    }
   }
 
   return false;

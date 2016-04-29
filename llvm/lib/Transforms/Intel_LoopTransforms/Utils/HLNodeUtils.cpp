@@ -202,8 +202,7 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
     // here.
     if (DestTy == DummyVal->getType()) {
       return createCopyInst(RvalRef, Name, LvalRef);
-    }
-    else {
+    } else {
       InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode,
                                            DummyVal, DestTy, Name);
     }
@@ -2725,8 +2724,7 @@ bool HLNodeUtils::isPerfectLoopNest(
       break;
     }
 
-    const CanonExpr *UpperBound = Lp->getUpperCanonExpr();
-    if (!AllowTriangularLoop && !FirstIter && UpperBound->hasIV()) {
+    if (!AllowTriangularLoop && !FirstIter && Lp->isTriangularLoop()) {
       //  okay for outermost loop UB to have iv
       break;
     }
