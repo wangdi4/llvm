@@ -1394,6 +1394,51 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
     return true;
   }
 
+  // VARARG node is created for every Vararg function. VARARG node is
+  // used to model varargs for both call and callee. 
+  
+  // void @llvm.va_start(i8* <arglist>)
+  //
+  // llvm.va_start is same as va_start and initializes <arglist> to VARARG
+  // of current routine.
+  //
+  if (F->getName() == "llvm.va_start") {
+    Function *Src_Fun;
+    const FunctionType *FTy = F->getFunctionType();
+
+    // Get current routine
+    Src_Fun = CS->getParent()->getParent();
+
+    if (!Src_Fun || !Src_Fun->getFunctionType()->isVarArg() ||
+        FTy->getNumParams() <= 0 || !isPointsToType(FTy->getParamType(0))) {
+      return false;
+    }
+    
+    CreateConstraint(Constraint::AddressOf, getNode(CS.getArgument(0)), 
+                     getVarargNode(Src_Fun));
+    return true;
+  }
+
+  // void @llvm.va_copy(i8* <destarglist>, i8* <srcarglist>)
+  //
+  // <destarglist> = <srcarglist>
+  //
+  if (F->getName() == "llvm.va_copy") {
+    const FunctionType *FTy = F->getFunctionType();
+    if (FTy->getNumParams() > 1 && 
+        isPointsToType(FTy->getParamType(0)) &&
+        isPointsToType(FTy->getParamType(1))) {
+      CreateConstraint(Constraint::Copy, getNode(CS.getArgument(0)),
+                       getNode(CS.getArgument(1)));
+      return true;
+    }
+  }
+
+  // Skip it since there is no change in points-to info
+  if (F->getName() == "llvm.va_end") {
+    return true;
+  }
+
   bool lib_call_handled = false;
 
   // These functions do induce points-to edges.
@@ -1884,7 +1929,6 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
   CallSite::arg_iterator arg_end = CS.arg_end();
   Function::arg_iterator formal_itr = F->arg_begin();
   Function::arg_iterator formal_end = F->arg_end();
-  Function::arg_iterator last_formal = F->arg_end();
 
   if (isPointsToType(CS.getType())) {
     CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()), 
@@ -1903,23 +1947,16 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
         CreateConstraint(Constraint::Copy, getNode(&(*formal_itr)), UniversalSet);
       }     
     }
-    last_formal = formal_itr;
     ++formal_itr;
     ++arg_itr;
   }
 
   if (F->getFunctionType()->isVarArg()) {
-    if (last_formal == F->arg_end()) {
-      // Handle calls like "call @_Z3h1pz(...)  
-      // TODO:  
-      AddConstraintsForInitActualsToUniversalSet(CS);
-      return;
-    }
-    for (; arg_itr != arg_end && last_formal != formal_end; ++arg_itr) {
+    for (; arg_itr != arg_end; ++arg_itr) {
       Value* actual = *arg_itr;
       if (isPointsToType(actual->getType())) {
-        CreateConstraint(Constraint::Copy, getNode(&(*last_formal)),
-                         getNode(actual));
+        // Using VARARG node of routine to model varargs.
+        CreateConstraint(Constraint::Copy, getVarargNode(F), getNode(actual));
       }
     } 
   }
@@ -3087,7 +3124,6 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   CallSite::arg_iterator arg_end = CS.arg_end();
   Function::arg_iterator formal_itr = F->arg_begin();
   Function::arg_iterator formal_end = F->arg_end();
-  Function::arg_iterator last_formal = F->arg_end();
 
   // TODO: Ignore non-vararg functions if number of formals 
   // doesn’t match with number of arguments of the call-site 
@@ -3116,16 +3152,16 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
         AddEdgeInGraph(getNode(&(*formal_itr)), UniversalSet);
       }
     }
-    last_formal = formal_itr;
     ++formal_itr;
     ++arg_itr;
   }
 
   if (F->getFunctionType()->isVarArg()) {
-    for (; arg_itr != arg_end && last_formal != formal_end; ++arg_itr) {
+    for (; arg_itr != arg_end; ++arg_itr) {
       Value* actual = *arg_itr;
       if (isPointsToType(actual->getType())) {
-        AddEdgeInGraph(getNode(&(*last_formal)), getNode(actual));
+        // Using VARARG node of routine to model varargs.
+        AddEdgeInGraph(getVarargNode(F), getNode(actual));
       }
     }
   }
