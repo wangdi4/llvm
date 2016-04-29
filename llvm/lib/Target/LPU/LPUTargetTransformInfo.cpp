@@ -234,10 +234,10 @@ void LPUTTI::getUnrollingPreferences(const Function *F, Loop *L,
   // estimating the branch count. As a result, we'll ignore the branch limits
   // until someone finds a case where it matters in practice.
 
-  unsigned MaxOps = 0;
+  //  unsigned MaxOps = 0;
   const TargetSubtargetInfo *ST = &TM->getSubtarget<TargetSubtargetInfo>(F);
   if (ST->getSchedModel().LoopMicroOpBufferSize > 0)
-    MaxOps = ST->getSchedModel().LoopMicroOpBufferSize;
+    /* MaxOps = ST->getSchedModel().LoopMicroOpBufferSize */ ;
   //LPU edit: set up runtime unroll threshold for LPU target to UINT32_MAX
   else {
     assert(ST->getTargetTriple().substr(0, 3) == "lpu");

@@ -79,7 +79,6 @@ namespace {
     }
   };
 
-
   class LPUAsmPrinter : public AsmPrinter {
     const Function *F;
     const MachineRegisterInfo *MRI;
@@ -106,7 +105,7 @@ namespace {
     void EmitStartOfAsmFile(Module &) override;
     void EmitFunctionEntryLabel() override;
     void EmitFunctionBodyStart() override;
-    //    void EmitFunctionBodyEnd() override;
+    void EmitFunctionBodyEnd() override;
     void EmitInstruction(const MachineInstr *MI) override;
   };
 } // end of anonymous namespace
@@ -333,7 +332,7 @@ void LPUAsmPrinter::EmitStartOfAsmFile(Module &) {
 
   OutStreamer.EmitRawText(O.str());
   OutStreamer.EmitRawText("\t.version 0,5,0");
-  OutStreamer.EmitRawText("\t.unit sxu,0");
+  OutStreamer.EmitRawText("\t.unit sxu");
 }
 
 void LPUAsmPrinter::EmitFunctionEntryLabel() {
@@ -349,6 +348,10 @@ void LPUAsmPrinter::EmitFunctionEntryLabel() {
   O << *CurrentFnSym << ":";
   OutStreamer.EmitRawText(O.str());
 
+  // Start a scope for this routine to localize the LIC names
+  // For now, this includes parameters and results
+  ////OutStreamer.EmitRawText("{");
+
   emitReturnVal(F);
 
   emitParamList(F);
@@ -360,10 +363,11 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
   MRI = &MF->getRegInfo();
   const LPUMachineFunctionInfo *LMFI = MF->getInfo<LPUMachineFunctionInfo>();
 
-  // Loop over the LIC classes, and over each lic in the class.
+  // Generate declarations for each LIC by looping over the LIC classes,
+  // and over each lic in the class, outputting a decl if needed.
   // Note: If we start allowing parameters and results in LICs for
   // HybridDataFlow, this may need to be revisited to make sure they
-  // are in order
+  // are in order.
   for (TargetRegisterClass::iterator ri = LPU::ANYCRegClass.begin();
                                      ri != LPU::ANYCRegClass.end(); ++ri) {
     MCPhysReg reg = *ri;
@@ -373,43 +377,23 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
       O << "\t";
       // LIC or register
       O << (LPU::ANYCRegClass.contains(reg) ? ".lic " : ".reg ");
-      // To get type, will need map from VReg RegClass
-      O << ".i64";
+      // Output type based on regclass
+      if      (LPU::CI64RegClass.contains(reg)) O << ".i64";
+      else if (LPU::CI32RegClass.contains(reg)) O << ".i32";
+      else if (LPU::CI16RegClass.contains(reg)) O << ".i16";
+      else if (LPU::CI8RegClass.contains(reg))  O << ".i8";
+      else if (LPU::CI1RegClass.contains(reg))  O << ".i1";
+      else if (LPU::CI0RegClass.contains(reg))  O << ".i0";
       O << " " << LPUInstPrinter::getRegisterName(reg);
       OutStreamer.EmitRawText(O.str());
     }
   }
 
-  // iterate over all "registers" (LICs) (should be an iterator for that...)
-  // What we need is specifically a list of inputs (.param) in order,
-  // and a list of results (.result) in order, and all lics not otherwise
-  // appearing in either .param or .result.  NOTE: all LIC names must be
-  // module-unique like labels, not just routine-unique.
-  // 
-  // FIXME!!!
-  /*
-  for (TargetRegisterClass::iterator ri = LPU::I64RRegClass.begin(); ri!=LPU::I64RRegClass.end(); ++ri) {
-    MCPhysReg reg = *ri;
-    SmallString<128> Str;
-    raw_svector_ostream O(Str);
-    if (MRI->isPhysRegUsed(reg)) {
-      O << "\t";
-      // This probably isn't a good way to do this - .param or .result
-      //      if (MRI->isLiveIn(reg)) { O << ".param "; }
-      //      else if (reg==LPU::R2 || reg==LPU::R3) { O << ".result "; }
-      // LIC or register
-      O << (LPU::ANYCRegClass.contains(reg) ? ".lic " : ".reg ");
-      // To get type, will need map from VReg RegClass
-      O << ".i64";
-      O << " " << LPUInstPrinter::getRegisterName(reg);
-      OutStreamer.EmitRawText(O.str());
-    }
-  }
-  */
 }
 
-//void LPUAsmPrinter::EmitFunctionBodyEnd() {
-//}
+void LPUAsmPrinter::EmitFunctionBodyEnd() {
+  ////OutStreamer.EmitRawText("}");
+}
 
 void LPUAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   LPUMCInstLower MCInstLowering(OutContext, *this);

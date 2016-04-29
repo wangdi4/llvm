@@ -14,6 +14,10 @@
 // Note that this information is provided in itinerary form, but isn't actually
 // intended for "instruction scheduling".
 //===----------------------------------------------------------------------===//
+
+// NOTE: This enumeration is effectively duplicated in LPUInstrInfo.h
+// for now.  Eventually, that information will hopefully just rely on
+// information here.
 def VIR : FuncUnit; // Virtual unit - doesn't really exist
 def ALU : FuncUnit; // Integer arithmetic and logical
 def SHF : FuncUnit; // Shift unit
@@ -75,6 +79,9 @@ def IICtl     : InstrItinClass;
 //===----------------------------------------------------------------------===//
 // LPU Generic instruction itineraries.
 //===----------------------------------------------------------------------===//
+
+// Note: This information is currently replicated in LPUAllocUnitPass.cpp
+//
 def LPUGenericItineraries :
 ProcessorItineraries<
   [VIR, ALU, SHF, IMA, FMA, FCM, CFI, CIF, DIV, MEM, SXU, SPD], [], [

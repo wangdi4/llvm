@@ -28,6 +28,30 @@ namespace LPU {
     COND_F,
     COND_INVALID
   };
+
+  // This should match the LPUSchedule.td FuncUnit list.  This is
+  // intended to be a temporary placeholder until that method works
+  // without needing this separate copy.
+  // Note: There is a mapping from these index values to text in
+  // LPUInstPrinter.cpp - do not reorder/change without adjusting that table.
+  namespace FUNCUNIT {
+    enum FuncUnit {
+      None,
+      VIR, // Virtual unit - doesn't really exist
+      ALU, // Integer arithmetic and logical
+      SHF, // Shift unit
+      IMA, // Integer multiply/accumulate
+      FMA, // Floating Multiply Accumulate
+      FCM, // Floating point comparisons
+      CFI, // Conversion to Floating from Integer
+      CIF, // Conversion to Integer of Floating
+      DIV, // Division
+      MEM, // Memory access
+      SXU, // Sequential eXecution Unit
+      SPD, // Scratchpad
+        Count
+    };
+  }
 }
 
 class LPUSubtarget;

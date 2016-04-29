@@ -27,6 +27,7 @@ class InstLPU<dag outs, dag ins, string asmstr, list<dag> pattern>
 class PseudoInstLPU<dag outs, dag ins, string asmstr, list<dag> pattern>
    : InstLPU<outs, ins, asmstr, pattern> {
   let isPseudo = 1;
+  let Itinerary = IIPseudo;
 }
 
 

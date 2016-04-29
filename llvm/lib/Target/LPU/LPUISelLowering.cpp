@@ -453,8 +453,8 @@ bool LPUTargetLowering::isLegalAddressingMode(const AddrMode &AM,
   Type *Ty) const {
   /**/
   // X86 supports extremely general addressing modes.
-  CodeModel::Model M = getTargetMachine().getCodeModel();
-  Reloc::Model R = getTargetMachine().getRelocationModel();
+  //  CodeModel::Model M = getTargetMachine().getCodeModel();
+  //  Reloc::Model R = getTargetMachine().getRelocationModel();
 
   switch (AM.Scale) {
   case 0:

@@ -20,6 +20,10 @@ include "LPUInstrFormats.td"
 def brtarget     : Operand<OtherVT>;
 def calltarget   : Operand<i64>;
 
+def UnitOpnd : Operand<i64> {
+  let PrintMethod = "printUnitOperand";
+}
+
 // Memory operands
 class Addr<int numArgs, string funcName, dag opInfo> :
   Operand<i64>, ComplexPattern<i64, numArgs,
@@ -849,10 +853,10 @@ def LAND1 : FMTGEN<
   []> { let Itinerary = IIALU; }
 
 // Shift/add - itinerary depends on constant small shift amt - else IShft...
-defm SLADD8  : ShAdd<"sladd8",  shl,  add,  I8,  i8,  imm,   [HasI8, HasShAdd], IIALU>;
-defm SLADD16 : ShAdd<"sladd16", shl,  add,  I16, i16, imm,   [HasI16,HasShAdd], IIALU>;
-defm SLADD32 : ShAdd<"sladd32", shl,  add,  I32, i32, imm,   [HasI32,HasShAdd], IIALU>;
-defm SLADD64 : ShAdd<"sladd64", shl,  add,  I64, i64, imm,   [HasI64,HasShAdd], IIALU>;
+defm SLADD8  : ShAdd<"sladd8",  shl,  add,  I8,  i8,  imm,   [HasI8, HasShAdd], IISAdd>;
+defm SLADD16 : ShAdd<"sladd16", shl,  add,  I16, i16, imm,   [HasI16,HasShAdd], IISAdd>;
+defm SLADD32 : ShAdd<"sladd32", shl,  add,  I32, i32, imm,   [HasI32,HasShAdd], IISAdd>;
+defm SLADD64 : ShAdd<"sladd64", shl,  add,  I64, i64, imm,   [HasI64,HasShAdd], IISAdd>;
 
 defm FMAF16  : FusedOp1<"fmaf16",  fmul, fadd, I16, f16, fpimm, [HasF16,HasFMA], IIFMAF16>;
 // crude handling of commutative
@@ -1062,21 +1066,21 @@ defm INIT64 : Init<I64, i64, [HasI64]>;
 // Unit - type only
 def UNIT : PseudoInstLPU<
     (outs),
-    (ins Operand<i64>:$immType),
-    ".unit\tALU",  // ".unit\t$immType", temp - just claim ALU until implemented
+    (ins UnitOpnd:$immType),
+    ".unit\t$immType",
     []>;
 
 // Unit type + index of unit in type only
 def UNITI : PseudoInstLPU<
     (outs),
-    (ins Operand<i64>:$immType, Operand<i64>:$idx),
+    (ins UnitOpnd:$immType, Operand<i64>:$idx),
     ".unit\t$immType, $idx",
     []>;
 
 // Unit type / allocated - includes coordinate indicies
 def UNITA : PseudoInstLPU<
     (outs),
-    (ins Operand<i64>:$immType, Operand<i64>:$idx1, Operand<i64>:$idx2),
+    (ins UnitOpnd:$immType, Operand<i64>:$idx1, Operand<i64>:$idx2),
     ".unit\t$immType, $idx1, $idx2",
     []>;
 
