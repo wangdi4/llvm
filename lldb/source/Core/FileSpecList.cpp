@@ -12,7 +12,6 @@
 // C Includes
 // C++ Includes
 #include <algorithm>
-#include <limits>
 
 // Other libraries and framework includes
 // Project includes
@@ -125,7 +124,7 @@ FileSpecList::FindFileIndex (size_t start_idx, const FileSpec &file_spec, bool f
     }
 
     // We didn't find the file, return an invalid index
-    return std::numeric_limits<uint32_t>::max();
+    return UINT32_MAX;
 }
 
 //------------------------------------------------------------------

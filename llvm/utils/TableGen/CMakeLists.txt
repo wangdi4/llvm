@@ -24,6 +24,7 @@ add_tablegen(llvm-tblgen LLVM
   FixedLenDecoderEmitter.cpp
   InstrInfoEmitter.cpp
   IntrinsicEmitter.cpp
+  Intel_DirectivesEmitter.cpp # INTEL
   Intel_MAPatternsEmitter.cpp # INTEL
   OptParserEmitter.cpp
   PseudoLoweringEmitter.cpp

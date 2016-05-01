@@ -16,4 +16,4 @@ add_llvm_library(LLVMIntel_VPOTransforms
   Paropt/VPOParoptUtils.cpp
 )
 
-add_dependencies(LLVMIntel_VPOTransforms intrinsics_gen)
+add_dependencies(LLVMIntel_VPOTransforms intrinsics_gen intel_directives_gen)

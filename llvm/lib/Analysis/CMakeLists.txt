@@ -33,6 +33,7 @@ add_llvm_library(LLVMAnalysis
   InstructionSimplify.cpp
 #ifdef INTEL_CUSTOMIZATION
   Intel_Andersens.cpp
+  Intel_Directives.cpp
   Intel_SNode.cpp
   Intel_OptVLS.cpp
   Intel_VectorVariant.cpp
@@ -55,6 +56,7 @@ add_llvm_library(LLVMAnalysis
   MemoryDependenceAnalysis.cpp
   MemoryLocation.cpp
   ModuleDebugInfoPrinter.cpp
+  ModuleSummaryAnalysis.cpp
   ObjCARCAliasAnalysis.cpp
   ObjCARCAnalysisUtils.cpp
   ObjCARCInstKind.cpp
@@ -82,7 +84,7 @@ add_llvm_library(LLVMAnalysis
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
   )
 
-add_dependencies(LLVMAnalysis intrinsics_gen)
+add_dependencies(LLVMAnalysis intrinsics_gen intel_directives_gen)
 
 add_subdirectory(Intel_LoopAnalysis)
 add_subdirectory(Intel_VPO)

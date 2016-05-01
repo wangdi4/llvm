@@ -56,11 +56,15 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <ucontext.h>
 #include <unistd.h>
 
 #if SANITIZER_FREEBSD
+#include <sys/exec.h>
 #include <sys/sysctl.h>
+#include <vm/vm_param.h>
+#include <vm/pmap.h>
 #include <machine/atomic.h>
 extern "C" {
 // <sys/umtx.h> must be included after <errno.h> and <sys/types.h> on
@@ -109,7 +113,32 @@ namespace __sanitizer {
 // --------------- sanitizer_libc.h
 uptr internal_mmap(void *addr, uptr length, int prot, int flags, int fd,
                    OFF_T offset) {
-#if SANITIZER_FREEBSD || SANITIZER_LINUX_USES_64BIT_SYSCALLS
+#ifdef __s390__
+  struct s390_mmap_params {
+    unsigned long addr;
+    unsigned long length;
+    unsigned long prot;
+    unsigned long flags;
+    unsigned long fd;
+    unsigned long offset;
+  } params = {
+    (unsigned long)addr,
+    (unsigned long)length,
+    (unsigned long)prot,
+    (unsigned long)flags,
+    (unsigned long)fd,
+# ifdef __s390x__
+    (unsigned long)offset,
+# else
+    (unsigned long)(offset / 4096),
+# endif
+  };
+# ifdef __s390x__
+  return internal_syscall(SYSCALL(mmap), &params);
+# else
+  return internal_syscall(SYSCALL(mmap2), &params);
+# endif
+#elif SANITIZER_FREEBSD || SANITIZER_LINUX_USES_64BIT_SYSCALLS
   return internal_syscall(SYSCALL(mmap), (uptr)addr, length, prot, flags, fd,
                           offset);
 #else
@@ -241,7 +270,15 @@ uptr internal_lstat(const char *path, void *buf) {
   return internal_syscall(SYSCALL(newfstatat), AT_FDCWD, (uptr)path,
                          (uptr)buf, AT_SYMLINK_NOFOLLOW);
 #elif SANITIZER_LINUX_USES_64BIT_SYSCALLS
+# if SANITIZER_MIPS64
+  // For mips64, lstat syscall fills buffer in the format of kernel_stat
+  struct kernel_stat kbuf;
+  int res = internal_syscall(SYSCALL(lstat), path, &kbuf);
+  kernel_stat_to_stat(&kbuf, (struct stat *)buf);
+  return res;
+# else
   return internal_syscall(SYSCALL(lstat), (uptr)path, (uptr)buf);
+# endif
 #else
   struct stat64 buf64;
   int res = internal_syscall(SYSCALL(lstat64), path, &buf64);
@@ -252,7 +289,15 @@ uptr internal_lstat(const char *path, void *buf) {
 
 uptr internal_fstat(fd_t fd, void *buf) {
 #if SANITIZER_FREEBSD || SANITIZER_LINUX_USES_64BIT_SYSCALLS
+# if SANITIZER_MIPS64
+  // For mips64, fstat syscall fills buffer in the format of kernel_stat
+  struct kernel_stat kbuf;
+  int res = internal_syscall(SYSCALL(fstat), fd, &kbuf);
+  kernel_stat_to_stat(&kbuf, (struct stat *)buf);
+  return res;
+# else
   return internal_syscall(SYSCALL(fstat), fd, (uptr)buf);
+# endif
 #else
   struct stat64 buf64;
   int res = internal_syscall(SYSCALL(fstat64), fd, &buf64);
@@ -395,11 +440,13 @@ const char *GetEnv(const char *name) {
 #endif
 }
 
+#if !SANITIZER_FREEBSD
 extern "C" {
   SANITIZER_WEAK_ATTRIBUTE extern void *__libc_stack_end;
 }
+#endif
 
-#if !SANITIZER_GO
+#if !SANITIZER_GO && !SANITIZER_FREEBSD
 static void ReadNullSepFileToArray(const char *path, char ***arr,
                                    int arr_size) {
   char *buff;
@@ -425,6 +472,7 @@ static void ReadNullSepFileToArray(const char *path, char ***arr,
 #endif
 
 static void GetArgsAndEnv(char ***argv, char ***envp) {
+#if !SANITIZER_FREEBSD
 #if !SANITIZER_GO
   if (&__libc_stack_end) {
 #endif
@@ -438,6 +486,19 @@ static void GetArgsAndEnv(char ***argv, char ***envp) {
     ReadNullSepFileToArray("/proc/self/cmdline", argv, kMaxArgv);
     ReadNullSepFileToArray("/proc/self/environ", envp, kMaxEnvp);
   }
+#endif
+#else
+  // On FreeBSD, retrieving the argument and environment arrays is done via the
+  // kern.ps_strings sysctl, which returns a pointer to a structure containing
+  // this information. See also <sys/exec.h>.
+  ps_strings *pss;
+  size_t sz = sizeof(pss);
+  if (sysctlbyname("kern.ps_strings", &pss, &sz, NULL, 0) == -1) {
+    Printf("sysctl kern.ps_strings failed\n");
+    Die();
+  }
+  *argv = pss->ps_argvstr;
+  *envp = pss->ps_envstr;
 #endif
 }
 
@@ -592,7 +653,9 @@ int internal_sigaction_norestorer(int signum, const void *act, void *oldact) {
     // rt_sigaction, so we need to do the same (we'll need to reimplement the
     // restorers; for x86_64 the restorer address can be obtained from
     // oldact->sa_restorer upon a call to sigaction(xxx, NULL, oldact).
+#if !SANITIZER_ANDROID || !SANITIZER_MIPS32
     k_act.sa_restorer = u_act->sa_restorer;
+#endif
   }
 
   uptr result = internal_syscall(SYSCALL(rt_sigaction), (uptr)signum,
@@ -606,7 +669,9 @@ int internal_sigaction_norestorer(int signum, const void *act, void *oldact) {
     internal_memcpy(&u_oldact->sa_mask, &k_oldact.sa_mask,
                     sizeof(__sanitizer_kernel_sigset_t));
     u_oldact->sa_flags = k_oldact.sa_flags;
+#if !SANITIZER_ANDROID || !SANITIZER_MIPS32
     u_oldact->sa_restorer = k_oldact.sa_restorer;
+#endif
   }
   return result;
 }
@@ -1274,18 +1339,89 @@ void GetPcSpBp(void *context, uptr *pc, uptr *sp, uptr *bp) {
   *pc = ucontext->uc_mcontext.pc;
   *bp = ucontext->uc_mcontext.gregs[30];
   *sp = ucontext->uc_mcontext.gregs[29];
+#elif defined(__s390__)
+  ucontext_t *ucontext = (ucontext_t*)context;
+# if defined(__s390x__)
+  *pc = ucontext->uc_mcontext.psw.addr;
+# else
+  *pc = ucontext->uc_mcontext.psw.addr & 0x7fffffff;
+# endif
+  *bp = ucontext->uc_mcontext.gregs[11];
+  *sp = ucontext->uc_mcontext.gregs[15];
 #else
 # error "Unsupported arch"
 #endif
 }
 
-void DisableReexec() {
-  // No need to re-exec on Linux.
-}
-
 void MaybeReexec() {
   // No need to re-exec on Linux.
 }
+
+#ifdef __s390x__
+static bool FixedCVE_2016_2143() {
+  // Try to determine if the running kernel has a fix for CVE-2016-2143,
+  // return false if in doubt (better safe than sorry).  Distros may want to
+  // adjust this for their own kernels.
+  struct utsname buf;
+  unsigned int major, minor, patch = 0;
+  // This should never fail, but just in case...
+  if (uname(&buf))
+    return false;
+  char *ptr = buf.release;
+  major = internal_simple_strtoll(ptr, &ptr, 10);
+  // At least first 2 should be matched.
+  if (ptr[0] != '.')
+    return false;
+  minor = internal_simple_strtoll(ptr+1, &ptr, 10);
+  // Third is optional.
+  if (ptr[0] == '.')
+    patch = internal_simple_strtoll(ptr+1, &ptr, 10);
+  if (major < 3) {
+    // <3.0 is bad.
+    return false;
+  } else if (major == 3) {
+    // 3.2.79+ is OK.
+    if (minor == 2 && patch >= 79)
+      return true;
+    // Otherwise, bad.
+    return false;
+  } else if (major == 4) {
+    // 4.1.21+ is OK.
+    if (minor == 1 && patch >= 21)
+      return true;
+    // 4.4.6+ is OK.
+    if (minor == 4 && patch >= 6)
+      return true;
+    // Otherwise, OK if 4.5+.
+    return minor >= 5;
+  } else {
+    // Linux 5 and up are fine.
+    return true;
+  }
+}
+
+void AvoidCVE_2016_2143() {
+  // Older kernels are affected by CVE-2016-2143 - they will crash hard
+  // if someone uses 4-level page tables (ie. virtual addresses >= 4TB)
+  // and fork() in the same process.  Unfortunately, sanitizers tend to
+  // require such addresses.  Since this is very likely to crash the whole
+  // machine (sanitizers themselves use fork() for llvm-symbolizer, for one),
+  // abort the process at initialization instead.
+  if (FixedCVE_2016_2143())
+    return;
+  if (GetEnv("SANITIZER_IGNORE_CVE_2016_2143"))
+    return;
+  Report(
+    "ERROR: Your kernel seems to be vulnerable to CVE-2016-2143.  Using ASan,\n"
+    "MSan or TSan with such kernel can and will crash your machine, or worse.\n"
+    "\n"
+    "If you are certain your kernel is not vulnerable (you have compiled it\n"
+    "yourself, are are using an unrecognized distribution kernel), you can\n"
+    "override this safety check by exporting SANITIZER_IGNORE_CVE_2016_2143\n"
+    "with any value.\n");
+  Die();
+}
+#endif
 
 } // namespace __sanitizer
 

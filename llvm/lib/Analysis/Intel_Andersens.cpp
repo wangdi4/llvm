@@ -1387,7 +1387,7 @@ bool AndersensAAResult::IsLibFunction(const Function *F) {
 /// return false.
 bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
                                                       Function *F) {
-  assert((F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden()) &&
+  assert((F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition()) &&
          "Not an external function!");
 
   if (findNameInTable(F->getName(), Andersens_No_Side_Effects_Intrinsics)) {
@@ -2019,7 +2019,7 @@ void AndersensAAResult::AddConstraintsForCall(CallSite CS, Function *F) {
   // If this is a call to an external function, try to handle it directly to get
   // some taste of context sensitivity.
   // Treat calls to weak functions as external calls.
-  if (F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden()) {
+  if (F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition()) {
     if (AddConstraintsForExternalCall(CS, F)) {
       return;
     }
@@ -2492,7 +2492,7 @@ void AndersensAAResult::HU() {
   Node2Visited.clear();
   Node2Deleted.clear();
   // Pre-grow our densemap so that we don't get really bad behavior
-  Set2PEClass.resize(GraphNodes.size());
+  Set2PEClass.reserve(GraphNodes.size());
 
   // Visit the condensed graph and generate pointer equivalence labels.
   Node2Visited.insert(Node2Visited.begin(), GraphNodes.size(), false);
@@ -3114,7 +3114,7 @@ void AndersensAAResult::InitIndirectCallActualsToUniversalSet(CallSite CS) {
 void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
 
   // Treat calls to weak functions as external calls.
-  if (F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden()) {
+  if (F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition()) {
     // TODO: Model Library calls like malloc here and change Graph
     InitIndirectCallActualsToUniversalSet(CS);
     return;
@@ -4393,7 +4393,7 @@ void IntelModRefImpl::collectFunction(Function *F)
 
     // Don't collect for a weak function, because it may not be
     // the function linked in.
-    if (F->mayBeOverridden()) {
+    if (!F->hasExactDefinition()) {
         return;
     }
 
@@ -4602,7 +4602,7 @@ bool IntelModRefImpl::isResolvableCallee(const Function *F) const
     // If calling a weak definition function, we cannot know that a
     // definition in this compilation unit will not be overridden,
     // so treat the call as unresolvable.
-    if (F->mayBeOverridden()) {
+    if (!F->hasExactDefinition()) {
         return false;
     }
 
@@ -5228,7 +5228,7 @@ void AndersensAAResult::CallSitesAnalysis() {
     // TODO Side effect information for the library
     // needs to be used here.
     if (const Function *F = CS.getCalledFunction()) {
-      if (F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden()) {
+      if (F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition()) {
         if (IsLibFunction(F))
           continue;
         if (F->getName() == "malloc" || F->getName() == "calloc" ||

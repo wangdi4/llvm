@@ -46,6 +46,8 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
     return static_cast<const OMPLastprivateClause *>(C);
   case OMPC_reduction:
     return static_cast<const OMPReductionClause *>(C);
+  case OMPC_linear:
+    return static_cast<const OMPLinearClause *>(C);
   case OMPC_default:
   case OMPC_proc_bind:
   case OMPC_if:
@@ -56,7 +58,6 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_collapse:
   case OMPC_private:
   case OMPC_shared:
-  case OMPC_linear:
   case OMPC_aligned:
   case OMPC_copyin:
   case OMPC_copyprivate:
@@ -85,6 +86,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_hint:
   case OMPC_defaultmap:
   case OMPC_unknown:
+  case OMPC_uniform:
     break;
   }
 
@@ -102,6 +104,8 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
     return static_cast<const OMPLastprivateClause *>(C);
   case OMPC_reduction:
     return static_cast<const OMPReductionClause *>(C);
+  case OMPC_linear:
+    return static_cast<const OMPLinearClause *>(C);
   case OMPC_schedule:
   case OMPC_dist_schedule:
   case OMPC_firstprivate:
@@ -115,7 +119,6 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_collapse:
   case OMPC_private:
   case OMPC_shared:
-  case OMPC_linear:
   case OMPC_aligned:
   case OMPC_copyin:
   case OMPC_copyprivate:
@@ -144,6 +147,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_hint:
   case OMPC_defaultmap:
   case OMPC_unknown:
+  case OMPC_uniform:
     break;
   }
 
@@ -304,7 +308,8 @@ OMPLinearClause *OMPLinearClause::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
     OpenMPLinearClauseKind Modifier, SourceLocation ModifierLoc,
     SourceLocation ColonLoc, SourceLocation EndLoc, ArrayRef<Expr *> VL,
-    ArrayRef<Expr *> PL, ArrayRef<Expr *> IL, Expr *Step, Expr *CalcStep) {
+    ArrayRef<Expr *> PL, ArrayRef<Expr *> IL, Expr *Step, Expr *CalcStep,
+    Stmt *PreInit, Expr *PostUpdate) {
   // Allocate space for 4 lists (Vars, Inits, Updates, Finals) and 2 expressions
   // (Step and CalcStep).
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(5 * VL.size() + 2));
@@ -321,6 +326,8 @@ OMPLinearClause *OMPLinearClause::Create(
             nullptr);
   Clause->setStep(Step);
   Clause->setCalcStep(CalcStep);
+  Clause->setPreInitStmt(PreInit);
+  Clause->setPostUpdateExpr(PostUpdate);
   return Clause;
 }
 

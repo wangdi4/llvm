@@ -52,6 +52,7 @@ enum NodeChange { Removal, Insertion, Modification };
 
 // Forward Declarations
 class ALChange;
+class WRegionInfo;
 class IdentifyVectorCandidates;
 class CandidateIf;
 
@@ -253,6 +254,9 @@ private:
   /// LI - Loop Info for this function.
   const LoopInfo *LI;
 
+  /// WR - WorkRegionInfo Pass
+  WRegionInfo *WR;
+
   /// \brief Sets the Loop Info for this function.
   void setLoopInfo(const LoopInfo *LpIn) { LI = LpIn; }
 
@@ -279,6 +283,11 @@ private:
   /// switch cases in SI.
   bool postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const;
 
+  /// \brief Sorts the dominator children of Node using post dominator
+  /// relationship.
+  void sortDomChildren(DomTreeNode *Node,
+                       SmallVectorImpl<BasicBlock *> &SortedChildren) const;
+
   /// \brief Recursive preorder traversal walk of Basic Block, which
   /// builds and AVR at InsertionPos.
   AvrItr preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos);
@@ -300,6 +309,10 @@ private:
 
   void formAvrLoopNest(AVRFunction *AvrFunction);
   void formAvrLoopNest(AVRWrn *AvrWrn);
+
+  /// \brief Returns true if the abstract layer supports avr loop node
+  /// generation for the given llvm loop.
+  bool isLoopALSupported(const Loop &Lp); 
 
   /// \brief Given AvrLabel of loop latch, find the conditional branch
   /// and mark as bottom test.

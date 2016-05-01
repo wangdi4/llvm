@@ -44,8 +44,8 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 // This function generates a runtime library call to __kmpc_begin(&loc, 0)
-CallInst *VPOParoptUtils::genRTLKmpcBeginCall(Function *F, Instruction *AI,
-                                              StructType *IdentTy) {
+CallInst *VPOParoptUtils::genKmpcBeginCall(Function *F, Instruction *AI,
+                                           StructType *IdentTy) {
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
 
@@ -77,8 +77,8 @@ CallInst *VPOParoptUtils::genRTLKmpcBeginCall(Function *F, Instruction *AI,
 }
 
 // This function generates a runtime library call to __kmpc_end(&loc)
-CallInst *VPOParoptUtils::genRTLKmpcEndCall(Function *F, Instruction *AI,
-                                            StructType *IdentTy) {
+CallInst *VPOParoptUtils::genKmpcEndCall(Function *F, Instruction *AI,
+                                         StructType *IdentTy) {
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
 
@@ -105,11 +105,163 @@ CallInst *VPOParoptUtils::genRTLKmpcEndCall(Function *F, Instruction *AI,
   return KmpcEndCall;
 }
 
+
+// This function generates a runtime library call to __kmpc_ok_to_fork(&loc)
+CallInst *VPOParoptUtils::genKmpcForkTest(WRegionNode *W, StructType *IdentTy, 
+                                          Instruction *InsertPt) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+
+  Function *F = B->getParent();
+
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  int Flags = KMP_IDENT_KMPC;
+
+  AllocaInst *Loc = genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+
+  FunctionType *FnForkTestTy = FunctionType::get(
+      Type::getInt32Ty(C), PointerType::getUnqual(IdentTy), false);
+
+  Function *FnForkTest = M->getFunction("__kmpc_ok_to_fork");
+
+  if (!FnForkTest) {
+    FnForkTest = Function::Create(FnForkTestTy, GlobalValue::ExternalLinkage,
+                                  "__kmpc_ok_to_fork", M);
+    FnForkTest->setCallingConv(CallingConv::C);
+  }
+
+  std::vector<Value *> FnForkTestArgs;
+  FnForkTestArgs.push_back(Loc);
+
+  CallInst *ForkTestCall = CallInst::Create(FnForkTest, FnForkTestArgs, 
+                                            "fork.test", InsertPt);
+  ForkTestCall->setCallingConv(CallingConv::C);
+  ForkTestCall->setTailCall(true);
+
+  return ForkTestCall;
+}
+
+
+// This function generates a call to notify the runtime system that the static 
+// loop scheduling is started
+//
+//   call void @__kmpc_for_static_init_4(%ident_t* %loc, i32 %tid, 
+//               i32 schedtype, i32* %islast,i32* %lb, i32* %ub, i32* %st, 
+//               i32 inc, i32 chunk)
+CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
+                                            StructType *IdentTy,
+                                            Value *Tid, Value *SchedType,
+                                            Value *IsLastVal, Value *LB,
+                                            Value *UB, Value *ST,
+                                            Value *Inc, Value *Chunk,
+                                            Instruction *InsertPt) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+
+  Function *F = B->getParent();
+  Module   *M = F->getParent();
+
+  LLVMContext &C = F->getContext();
+
+  Type *IntTy = Type::getInt32Ty(C);
+
+  int Flags = KMP_IDENT_KMPC;
+  AllocaInst *Loc = genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+
+  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+
+  Type *InitParamsTy[] = {PointerType::getUnqual(IdentTy), 
+                          IntTy, IntTy, PointerType::getUnqual(IntTy),
+                          PointerType::getUnqual(IntTy),
+                          PointerType::getUnqual(IntTy),
+                          PointerType::getUnqual(IntTy), IntTy, IntTy};
+
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), 
+                                         InitParamsTy, false);
+
+  Function *FnStaticInit = M->getFunction("__kmpc_for_static_init_4");
+
+  if (!FnStaticInit) {
+    FnStaticInit = Function::Create(FnTy, GlobalValue::ExternalLinkage,
+                                  "__kmpc_for_static_init_4", M);
+    FnStaticInit->setCallingConv(CallingConv::C);
+  }
+
+  std::vector<Value *> FnStaticInitArgs;
+
+  FnStaticInitArgs.push_back(Loc);
+  FnStaticInitArgs.push_back(Tid);
+  FnStaticInitArgs.push_back(SchedType);
+  FnStaticInitArgs.push_back(IsLastVal);
+  FnStaticInitArgs.push_back(LB);
+  FnStaticInitArgs.push_back(UB);
+  FnStaticInitArgs.push_back(ST);
+  FnStaticInitArgs.push_back(Inc);
+  FnStaticInitArgs.push_back(Chunk);
+
+  CallInst *StaticInitCall = CallInst::Create(FnStaticInit, 
+                                              FnStaticInitArgs, "", InsertPt);
+  StaticInitCall->setCallingConv(CallingConv::C);
+  StaticInitCall->setTailCall(false);
+
+  return StaticInitCall;
+}
+
+// This function generates a call to notify the runtime system that the static 
+// loop scheduling is done 
+//   call void @__kmpc_for_static_fini(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W, 
+                                            StructType *IdentTy, 
+                                            Value *Tid, 
+                                            Instruction *InsertPt) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  int Flags = KMP_IDENT_KMPC;
+
+  Type *IntTy = Type::getInt32Ty(C);
+
+  AllocaInst *Loc = genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+
+  Type *InitParamsTy[] = {PointerType::getUnqual(IdentTy), IntTy};
+
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C),
+                                         InitParamsTy, false);
+
+  Function *FnStaticFini = M->getFunction("__kmpc_for_static_fini");
+
+  if (!FnStaticFini) {
+    FnStaticFini = Function::Create(FnTy, GlobalValue::ExternalLinkage,
+                                  "__kmpc_for_static_fini", M);
+    FnStaticFini->setCallingConv(CallingConv::C);
+  }
+
+  std::vector<Value *> FnStaticFiniArgs;
+
+  FnStaticFiniArgs.push_back(Loc);
+  FnStaticFiniArgs.push_back(Tid);
+
+  CallInst *StaticFiniCall = CallInst::Create(FnStaticFini,
+                                              FnStaticFiniArgs, "", InsertPt);
+  StaticFiniCall->setCallingConv(CallingConv::C);
+  StaticFiniCall->setTailCall(false);
+
+  return StaticFiniCall;
+}
+
+
 // This function generates a runtime library call to get global OpenMP thread
 // ID - __kmpc_global_thread_num(&loc)
-CallInst *VPOParoptUtils::genRTLKmpcGlobalThreadNumCall(Function *F,
-                                                        Instruction *AI,
-                                                        StructType *IdentTy) {
+CallInst *VPOParoptUtils::genKmpcGlobalThreadNumCall(Function *F,
+                                                     Instruction *AI,
+                                                     StructType *IdentTy) {
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
 
@@ -134,7 +286,7 @@ CallInst *VPOParoptUtils::genRTLKmpcGlobalThreadNumCall(Function *F,
   std::vector<Value *> FnGetTidArgs;
   FnGetTidArgs.push_back(KmpcLoc);
 
-  CallInst *GetTidCall = CallInst::Create(FnGetTid, FnGetTidArgs, "valtid");
+  CallInst *GetTidCall = CallInst::Create(FnGetTid, FnGetTidArgs, "tid.val");
   GetTidCall->setCallingConv(CallingConv::C);
   GetTidCall->setTailCall(true);
 
@@ -225,9 +377,9 @@ AllocaInst *VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
   // Global Variable Definitions
   // VarLoc->setInitializer(LocStrRef);
 
-  AllocaInst *KmpcLoc = new AllocaInst(IdentTy, "loc." + std::to_string(SLine) +
-                                                    "." + std::to_string(ELine),
-                                       AI);
+  AllocaInst *KmpcLoc = new AllocaInst(IdentTy, "loc.addr." + 
+                                       std::to_string(SLine) + "." + 
+                                       std::to_string(ELine), AI);
   KmpcLoc->setAlignment(8);
 
   GetElementPtrInst *FlagsPtr = GetElementPtrInst::Create(

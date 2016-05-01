@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "polly/Support/SCEVAffinator.h"
+#include "polly/Options.h"
 #include "polly/ScopInfo.h"
 #include "polly/Support/GICHelper.h"
 #include "polly/Support/SCEVValidator.h"
@@ -24,8 +25,48 @@
 using namespace llvm;
 using namespace polly;
 
-SCEVAffinator::SCEVAffinator(Scop *S)
-    : S(S), Ctx(S->getIslCtx()), R(S->getRegion()), SE(*S->getSE()),
+static cl::opt<bool> IgnoreIntegerWrapping(
+    "polly-ignore-integer-wrapping",
+    cl::desc("Do not build run-time checks to proof absence of integer "
+             "wrapping"),
+    cl::Hidden, cl::ZeroOrMore, cl::init(false), cl::cat(PollyCategory));
+
+// The maximal number of basic sets we allow during the construction of a
+// piecewise affine function. More complex ones will result in very high
+// compile time.
+static int const MaxConjunctsInPwAff = 100;
+
+/// @brief Add the number of basic sets in @p Domain to @p User
+static isl_stat addNumBasicSets(isl_set *Domain, isl_aff *Aff, void *User) {
+  auto *NumBasicSets = static_cast<unsigned *>(User);
+  *NumBasicSets += isl_set_n_basic_set(Domain);
+  isl_set_free(Domain);
+  isl_aff_free(Aff);
+  return isl_stat_ok;
+}
+
+/// @brief Determine if @p PWA is to complex to continue
+///
+/// Note that @p PWA will be "free" (deallocated) if this function returns true,
+/// but not if this function returns false.
+static bool isToComplex(isl_pw_aff *PWA) {
+  unsigned NumBasicSets = 0;
+  isl_pw_aff_foreach_piece(PWA, addNumBasicSets, &NumBasicSets);
+  if (NumBasicSets <= MaxConjunctsInPwAff)
+    return false;
+  isl_pw_aff_free(PWA);
+  return true;
+}
+
+/// @brief Return the flag describing the possible wrapping of @p Expr.
+static SCEV::NoWrapFlags getNoWrapFlags(const SCEV *Expr) {
+  if (auto *NAry = dyn_cast<SCEVNAryExpr>(Expr))
+    return NAry->getNoWrapFlags();
+  return SCEV::NoWrapMask;
+}
+
+SCEVAffinator::SCEVAffinator(Scop *S, LoopInfo &LI)
+    : S(S), Ctx(S->getIslCtx()), R(S->getRegion()), SE(*S->getSE()), LI(LI),
       TD(R.getEntry()->getParent()->getParent()->getDataLayout()) {}
 
 SCEVAffinator::~SCEVAffinator() {
@@ -44,15 +85,14 @@ __isl_give isl_pw_aff *SCEVAffinator::getPwAff(const SCEV *Expr,
   } else
     NumIterators = 0;
 
-  S->addParams(getParamsInAffineExpr(&R, Expr, SE));
+  auto *Scope = LI.getLoopFor(BB);
+  S->addParams(getParamsInAffineExpr(&R, Scope, Expr, SE));
 
   return visit(Expr);
 }
 
-__isl_give isl_set *
-SCEVAffinator::getWrappingContext(SCEV::NoWrapFlags Flags, Type *ExprType,
-                                  __isl_keep isl_pw_aff *PWA,
-                                  __isl_take isl_set *ExprDomain) const {
+void SCEVAffinator::checkForWrapping(const SCEV *Expr,
+                                     __isl_keep isl_pw_aff *PWA) const {
   // If the SCEV flags do contain NSW (no signed wrap) then PWA already
   // represents Expr in modulo semantic (it is not allowed to overflow), thus we
   // are done. Otherwise, we will compute:
@@ -60,58 +100,19 @@ SCEVAffinator::getWrappingContext(SCEV::NoWrapFlags Flags, Type *ExprType,
   // whereas n is the number of bits of the Expr, hence:
   //   n = bitwidth(ExprType)
 
-  if (Flags & SCEV::FlagNSW)
-    return nullptr;
+  if (IgnoreIntegerWrapping || (getNoWrapFlags(Expr) & SCEV::FlagNSW))
+    return;
 
-  isl_pw_aff *PWAMod = addModuloSemantic(isl_pw_aff_copy(PWA), ExprType);
-  if (isl_pw_aff_is_equal(PWA, PWAMod)) {
-    isl_pw_aff_free(PWAMod);
-    return nullptr;
-  }
+  auto *PWAMod = addModuloSemantic(isl_pw_aff_copy(PWA), Expr->getType());
+  auto *NotEqualSet = isl_pw_aff_ne_set(isl_pw_aff_copy(PWA), PWAMod);
 
-  PWA = isl_pw_aff_copy(PWA);
+  const DebugLoc &Loc = BB ? BB->getTerminator()->getDebugLoc() : DebugLoc();
+  NotEqualSet = BB ? NotEqualSet : isl_set_params(NotEqualSet);
 
-  auto *NotEqualSet = isl_pw_aff_ne_set(PWA, PWAMod);
-  NotEqualSet = isl_set_intersect(NotEqualSet, isl_set_copy(ExprDomain));
-  NotEqualSet = isl_set_gist_params(NotEqualSet, S->getContext());
-  NotEqualSet = isl_set_params(NotEqualSet);
-  return NotEqualSet;
-}
-
-__isl_give isl_set *SCEVAffinator::getWrappingContext() const {
-
-  isl_set *WrappingCtx = isl_set_empty(S->getParamSpace());
-
-  for (const auto &CachedPair : CachedExpressions) {
-    const SCEV *Expr = CachedPair.first.first;
-    SCEV::NoWrapFlags Flags;
-
-    switch (Expr->getSCEVType()) {
-    case scAddExpr:
-      Flags = cast<SCEVAddExpr>(Expr)->getNoWrapFlags();
-      break;
-    case scMulExpr:
-      Flags = cast<SCEVMulExpr>(Expr)->getNoWrapFlags();
-      break;
-    case scAddRecExpr:
-      Flags = cast<SCEVAddRecExpr>(Expr)->getNoWrapFlags();
-      break;
-    default:
-      continue;
-    }
-
-    isl_pw_aff *PWA = CachedPair.second;
-    BasicBlock *BB = CachedPair.first.second;
-    isl_set *ExprDomain = BB ? S->getDomainConditions(BB) : nullptr;
-
-    isl_set *WPWACtx =
-        getWrappingContext(Flags, Expr->getType(), PWA, ExprDomain);
-    isl_set_free(ExprDomain);
-
-    WrappingCtx = WPWACtx ? isl_set_union(WrappingCtx, WPWACtx) : WrappingCtx;
-  }
-
-  return WrappingCtx;
+  if (isl_set_is_empty(NotEqualSet))
+    isl_set_free(NotEqualSet);
+  else
+    S->recordAssumption(WRAPPING, NotEqualSet, Loc, AS_RESTRICTION, BB);
 }
 
 __isl_give isl_pw_aff *
@@ -177,6 +178,7 @@ __isl_give isl_pw_aff *SCEVAffinator::visit(const SCEV *Expr) {
     PWA = isl_pw_aff_alloc(Domain, Affine);
   } else {
     PWA = SCEVVisitor<SCEVAffinator, isl_pw_aff *>::visit(Expr);
+    checkForWrapping(Expr, PWA);
   }
 
   PWA = isl_pw_aff_mul(visitConstant(Factor), PWA);
@@ -184,6 +186,8 @@ __isl_give isl_pw_aff *SCEVAffinator::visit(const SCEV *Expr) {
   // For compile time reasons we need to simplify the PWA before we cache and
   // return it.
   PWA = isl_pw_aff_coalesce(PWA);
+  checkForWrapping(Key.first, PWA);
+
   CachedExpressions[Key] = isl_pw_aff_copy(PWA);
   return PWA;
 }
@@ -232,13 +236,24 @@ __isl_give isl_pw_aff *SCEVAffinator::visitAddExpr(const SCEVAddExpr *Expr) {
   for (int i = 1, e = Expr->getNumOperands(); i < e; ++i) {
     isl_pw_aff *NextSummand = visit(Expr->getOperand(i));
     Sum = isl_pw_aff_add(Sum, NextSummand);
+    if (isToComplex(Sum))
+      return nullptr;
   }
 
   return Sum;
 }
 
 __isl_give isl_pw_aff *SCEVAffinator::visitMulExpr(const SCEVMulExpr *Expr) {
-  llvm_unreachable("SCEVMulExpr should not be reached");
+  isl_pw_aff *Prod = visit(Expr->getOperand(0));
+
+  for (int i = 1, e = Expr->getNumOperands(); i < e; ++i) {
+    isl_pw_aff *NextFactor = visit(Expr->getOperand(i));
+    Prod = isl_pw_aff_mul(Prod, NextFactor);
+    if (isToComplex(Prod))
+      return nullptr;
+  }
+
+  return Prod;
 }
 
 __isl_give isl_pw_aff *SCEVAffinator::visitUDivExpr(const SCEVUDivExpr *Expr) {
@@ -291,6 +306,8 @@ __isl_give isl_pw_aff *SCEVAffinator::visitSMaxExpr(const SCEVSMaxExpr *Expr) {
   for (int i = 1, e = Expr->getNumOperands(); i < e; ++i) {
     isl_pw_aff *NextOperand = visit(Expr->getOperand(i));
     Max = isl_pw_aff_max(Max, NextOperand);
+    if (isToComplex(Max))
+      return nullptr;
   }
 
   return Max;

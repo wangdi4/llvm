@@ -159,6 +159,12 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
     }
     break;
 
+  case 's':
+    if (Name == "stackprotectorcheck") {
+      NewFn = nullptr;
+      return true;
+    }
+
   case 'x': {
     if (Name.startswith("x86.sse2.pcmpeq.") ||
         Name.startswith("x86.sse2.pcmpgt.") ||
@@ -645,6 +651,8 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
 
       Value *UndefV = UndefValue::get(Op0->getType());
       Rep = Builder.CreateShuffleVector(Op0, UndefV, ConstantVector::get(Idxs));
+    } else if (Name == "llvm.stackprotectorcheck") {
+      Rep = nullptr;
     } else {
       bool PD128 = false, PD256 = false, PS128 = false, PS256 = false;
       if (Name == "llvm.x86.avx.vpermil.pd.256")
@@ -684,7 +692,8 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
       }
     }
 
-    CI->replaceAllUsesWith(Rep);
+    if (Rep)
+      CI->replaceAllUsesWith(Rep);
     CI->eraseFromParent();
     return;
   }
@@ -894,11 +903,64 @@ bool llvm::UpgradeDebugInfo(Module &M) {
   return RetCode;
 }
 
-void llvm::UpgradeMDStringConstant(std::string &String) {
-  const std::string OldPrefix = "llvm.vectorizer.";
-  if (String == "llvm.vectorizer.unroll") {
-    String = "llvm.loop.interleave.count";
-  } else if (String.find(OldPrefix) == 0) {
-    String.replace(0, OldPrefix.size(), "llvm.loop.vectorize.");
-  }
+static bool isOldLoopArgument(Metadata *MD) {
+  auto *T = dyn_cast_or_null<MDTuple>(MD);
+  if (!T)
+    return false;
+  if (T->getNumOperands() < 1)
+    return false;
+  auto *S = dyn_cast_or_null<MDString>(T->getOperand(0));
+  if (!S)
+    return false;
+  return S->getString().startswith("llvm.vectorizer.");
+}
+
+static MDString *upgradeLoopTag(LLVMContext &C, StringRef OldTag) {
+  StringRef OldPrefix = "llvm.vectorizer.";
+  assert(OldTag.startswith(OldPrefix) && "Expected old prefix");
+
+  if (OldTag == "llvm.vectorizer.unroll")
+    return MDString::get(C, "llvm.loop.interleave.count");
+
+  return MDString::get(
+      C, (Twine("llvm.loop.vectorize.") + OldTag.drop_front(OldPrefix.size()))
+             .str());
+}
+
+static Metadata *upgradeLoopArgument(Metadata *MD) {
+  auto *T = dyn_cast_or_null<MDTuple>(MD);
+  if (!T)
+    return MD;
+  if (T->getNumOperands() < 1)
+    return MD;
+  auto *OldTag = dyn_cast_or_null<MDString>(T->getOperand(0));
+  if (!OldTag)
+    return MD;
+  if (!OldTag->getString().startswith("llvm.vectorizer."))
+    return MD;
+
+  // This has an old tag.  Upgrade it.
+  SmallVector<Metadata *, 8> Ops;
+  Ops.reserve(T->getNumOperands());
+  Ops.push_back(upgradeLoopTag(T->getContext(), OldTag->getString()));
+  for (unsigned I = 1, E = T->getNumOperands(); I != E; ++I)
+    Ops.push_back(T->getOperand(I));
+
+  return MDTuple::get(T->getContext(), Ops);
+}
+
+MDNode *llvm::upgradeInstructionLoopAttachment(MDNode &N) {
+  auto *T = dyn_cast<MDTuple>(&N);
+  if (!T)
+    return &N;
+
+  if (!llvm::any_of(T->operands(), isOldLoopArgument))
+    return &N;
+
+  SmallVector<Metadata *, 8> Ops;
+  Ops.reserve(T->getNumOperands());
+  for (Metadata *MD : T->operands())
+    Ops.push_back(upgradeLoopArgument(MD));
+
+  return MDTuple::get(T->getContext(), Ops);
 }

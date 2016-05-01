@@ -57,9 +57,12 @@ Constant *IntelGeneralUtils::getConstantValue(Type *Ty, LLVMContext &Context,
 Loop *IntelGeneralUtils::getLoopFromLoopInfo(LoopInfo *LI,
                                              BasicBlock *WRNEntryBB) {
 
-  // The loop header BB is the successor BB of the WRN's entry BB
-  BasicBlock *LoopHeaderBB = *(succ_begin(WRNEntryBB));
+  // The loop pre-header BB is the successor BB of the WRN's entry BB
+  BasicBlock *LoopPreheaderBB = *(succ_begin(WRNEntryBB));
+  BasicBlock *LoopHeaderBB = *(succ_begin(LoopPreheaderBB));
+
   Loop *Lp = LI->getLoopFor(LoopHeaderBB);
+
 #if 0
   dbgs() << "Checking BB for Loop:\n" << *LoopHeaderBB << "\n";
   if (Lp)

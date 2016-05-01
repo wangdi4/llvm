@@ -38,28 +38,10 @@ DISubprogram *llvm::getDISubprogram(const MDNode *Scope) {
   return nullptr;
 }
 
-DISubprogram *llvm::getDISubprogram(const Function *F) {
-  // We look for the first instr that has a debug annotation leading back to F.
-  for (auto &BB : *F) {
-    auto Inst = std::find_if(BB.begin(), BB.end(), [](const Instruction &Inst) {
-      return Inst.getDebugLoc();
-    });
-    if (Inst == BB.end())
-      continue;
-    DebugLoc DLoc = Inst->getDebugLoc();
-    const MDNode *Scope = DLoc.getInlinedAtScope();
-    auto *Subprogram = getDISubprogram(Scope);
-    return Subprogram->describes(F) ? Subprogram : nullptr;
-  }
-
-  return nullptr;
-}
-
 DITypeIdentifierMap
-llvm::generateDITypeIdentifierMap(const NamedMDNode *CU_Nodes) {
+llvm::generateDITypeIdentifierMap(const Module &M) {
   DITypeIdentifierMap Map;
-  for (unsigned CUi = 0, CUe = CU_Nodes->getNumOperands(); CUi != CUe; ++CUi) {
-    auto *CU = cast<DICompileUnit>(CU_Nodes->getOperand(CUi));
+  for (DICompileUnit *CU : M.debug_compile_units()) {
     DINodeArray Retain = CU->getRetainedTypes();
     for (unsigned Ti = 0, Te = Retain.size(); Ti != Te; ++Ti) {
       if (!isa<DICompositeType>(Retain[Ti]))
@@ -96,44 +78,44 @@ void DebugInfoFinder::reset() {
 }
 
 void DebugInfoFinder::InitializeTypeMap(const Module &M) {
-  if (!TypeMapInitialized)
-    if (NamedMDNode *CU_Nodes = M.getNamedMetadata("llvm.dbg.cu")) {
-      TypeIdentifierMap = generateDITypeIdentifierMap(CU_Nodes);
-      TypeMapInitialized = true;
-    }
+  if (TypeMapInitialized)
+    return;
+  TypeIdentifierMap = generateDITypeIdentifierMap(M);
+  TypeMapInitialized = true;
 }
 
 void DebugInfoFinder::processModule(const Module &M) {
   InitializeTypeMap(M);
-  if (NamedMDNode *CU_Nodes = M.getNamedMetadata("llvm.dbg.cu")) {
-    for (unsigned i = 0, e = CU_Nodes->getNumOperands(); i != e; ++i) {
-      auto *CU = cast<DICompileUnit>(CU_Nodes->getOperand(i));
-      addCompileUnit(CU);
-      for (auto *DIG : CU->getGlobalVariables()) {
-        if (addGlobalVariable(DIG)) {
-          processScope(DIG->getScope());
-          processType(DIG->getType().resolve(TypeIdentifierMap));
-        }
-      }
-      for (auto *SP : CU->getSubprograms())
-        processSubprogram(SP);
-      for (auto *ET : CU->getEnumTypes())
-        processType(ET);
-      for (auto *RT : CU->getRetainedTypes())
-        processType(RT);
-      for (auto *Import : CU->getImportedEntities()) {
-        auto *Entity = Import->getEntity().resolve(TypeIdentifierMap);
-        if (auto *T = dyn_cast<DIType>(Entity))
-          processType(T);
-        else if (auto *SP = dyn_cast<DISubprogram>(Entity))
-          processSubprogram(SP);
-        else if (auto *NS = dyn_cast<DINamespace>(Entity))
-          processScope(NS->getScope());
-        else if (auto *M = dyn_cast<DIModule>(Entity))
-          processScope(M->getScope());
+  for (auto *CU : M.debug_compile_units()) {
+    addCompileUnit(CU);
+    for (auto *DIG : CU->getGlobalVariables()) {
+      if (addGlobalVariable(DIG)) {
+        processScope(DIG->getScope());
+        processType(DIG->getType().resolve(TypeIdentifierMap));
       }
     }
+    for (auto *ET : CU->getEnumTypes())
+      processType(ET);
+    for (auto *RT : CU->getRetainedTypes())
+      if (auto *T = dyn_cast<DIType>(RT))
+        processType(T);
+      else
+        processSubprogram(cast<DISubprogram>(RT));
+    for (auto *Import : CU->getImportedEntities()) {
+      auto *Entity = Import->getEntity().resolve(TypeIdentifierMap);
+      if (auto *T = dyn_cast<DIType>(Entity))
+        processType(T);
+      else if (auto *SP = dyn_cast<DISubprogram>(Entity))
+        processSubprogram(SP);
+      else if (auto *NS = dyn_cast<DINamespace>(Entity))
+        processScope(NS->getScope());
+      else if (auto *M = dyn_cast<DIModule>(Entity))
+        processScope(M->getScope());
+    }
   }
+  for (auto &F : M.functions())
+    if (auto *SP = cast_or_null<DISubprogram>(F.getSubprogram()))
+      processSubprogram(SP);
 }
 
 void DebugInfoFinder::processLocation(const Module &M, const DILocation *Loc) {

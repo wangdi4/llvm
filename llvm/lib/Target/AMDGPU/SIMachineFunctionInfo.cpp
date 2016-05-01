@@ -48,6 +48,7 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
     PrivateSegmentWaveByteOffsetSystemSGPR(AMDGPU::NoRegister),
     PSInputAddr(0),
     ReturnsVoid(true),
+    MaximumWorkGroupSize(0),
     LDSWaveSpillSize(0),
     PSInputEna(0),
     NumUserSGPRs(0),
@@ -65,12 +66,12 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
     GridWorkgroupCountX(false),
     GridWorkgroupCountY(false),
     GridWorkgroupCountZ(false),
-    WorkGroupIDX(true),
+    WorkGroupIDX(false),
     WorkGroupIDY(false),
     WorkGroupIDZ(false),
     WorkGroupInfo(false),
     PrivateSegmentWaveByteOffset(false),
-    WorkItemIDX(true),
+    WorkItemIDX(false),
     WorkItemIDY(false),
     WorkItemIDZ(false) {
   const AMDGPUSubtarget &ST = MF.getSubtarget<AMDGPUSubtarget>();
@@ -80,8 +81,11 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
 
   const MachineFrameInfo *FrameInfo = MF.getFrameInfo();
 
-  if (getShaderType() == ShaderType::COMPUTE)
+  if (!AMDGPU::isShader(F->getCallingConv())) {
     KernargSegmentPtr = true;
+    WorkGroupIDX = true;
+    WorkItemIDX = true;
+  }
 
   if (F->hasFnAttribute("amdgpu-work-group-id-y"))
     WorkGroupIDY = true;
@@ -100,7 +104,7 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
   if (WorkItemIDZ)
     WorkItemIDY = true;
 
-  bool MaySpill = ST.isVGPRSpillingEnabled(this);
+  bool MaySpill = ST.isVGPRSpillingEnabled(*F);
   bool HasStackObjects = FrameInfo->hasStackObjects();
 
   if (HasStackObjects || MaySpill)
@@ -120,6 +124,11 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
   if (HasStackObjects && ST.getGeneration() >= AMDGPUSubtarget::SEA_ISLANDS &&
       ST.isAmdHsaOS())
     FlatScratchInit = true;
+
+  if (AMDGPU::isCompute(F->getCallingConv()))
+    MaximumWorkGroupSize = AMDGPU::getMaximumWorkGroupSize(*F);
+  else
+    MaximumWorkGroupSize = ST.getWavefrontSize();
 }
 
 unsigned SIMachineFunctionInfo::addPrivateSegmentBuffer(
@@ -162,7 +171,7 @@ SIMachineFunctionInfo::SpilledReg SIMachineFunctionInfo::getSpilledReg(
                                                        MachineFunction *MF,
                                                        unsigned FrameIndex,
                                                        unsigned SubIdx) {
-  const MachineFrameInfo *FrameInfo = MF->getFrameInfo();
+  MachineFrameInfo *FrameInfo = MF->getFrameInfo();
   const SIRegisterInfo *TRI = static_cast<const SIRegisterInfo *>(
       MF->getSubtarget<AMDGPUSubtarget>().getRegisterInfo());
   MachineRegisterInfo &MRI = MF->getRegInfo();
@@ -173,19 +182,15 @@ SIMachineFunctionInfo::SpilledReg SIMachineFunctionInfo::getSpilledReg(
   unsigned Lane = (Offset / 4) % 64;
 
   struct SpilledReg Spill;
+  Spill.Lane = Lane;
 
   if (!LaneVGPRs.count(LaneVGPRIdx)) {
     unsigned LaneVGPR = TRI->findUnusedRegister(MRI, &AMDGPU::VGPR_32RegClass);
 
-    if (LaneVGPR == AMDGPU::NoRegister) {
-      LLVMContext &Ctx = MF->getFunction()->getContext();
-      Ctx.emitError("Ran out of VGPRs for spilling SGPR");
+    if (LaneVGPR == AMDGPU::NoRegister)
+      // We have no VGPRs left for spilling SGPRs.
+      return Spill;
 
-      // When compiling from inside Mesa, the compilation continues.
-      // Select an arbitrary register to avoid triggering assertions
-      // during subsequent passes.
-      LaneVGPR = AMDGPU::VGPR0;
-    }
 
     LaneVGPRs[LaneVGPRIdx] = LaneVGPR;
 
@@ -198,14 +203,10 @@ SIMachineFunctionInfo::SpilledReg SIMachineFunctionInfo::getSpilledReg(
   }
 
   Spill.VGPR = LaneVGPRs[LaneVGPRIdx];
-  Spill.Lane = Lane;
   return Spill;
 }
 
 unsigned SIMachineFunctionInfo::getMaximumWorkGroupSize(
                                               const MachineFunction &MF) const {
-  const AMDGPUSubtarget &ST = MF.getSubtarget<AMDGPUSubtarget>();
-  // FIXME: We should get this information from kernel attributes if it
-  // is available.
-  return getShaderType() == ShaderType::COMPUTE ? 256 : ST.getWavefrontSize();
+  return MaximumWorkGroupSize;
 }

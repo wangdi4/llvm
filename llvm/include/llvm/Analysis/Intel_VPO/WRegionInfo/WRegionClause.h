@@ -46,6 +46,7 @@ typedef Value* RDECL;
 //   CopyinItem:       derived class for an item in the COPYIN       clause
 //   CopyprivateItem:  derived class for an item in the COPYPRIVATE  clause
 //   LinearItem:       derived class for an item in the LINEAR       clause
+//   UniformItem:      derived class for an item in the UNIFORM      clause
 //
 
 
@@ -302,6 +303,14 @@ class LinearItem : public Item
     int getStep() const { return Step; }
 };
 
+//
+//   UniformItem: OMP UNIFORM clause item
+//
+class UniformItem : public Item
+{
+  public:
+    UniformItem(VAR Orig) : Item(Orig) {}
+};
 
 //
 // These two item classes for list-type clauses are not derived from the 
@@ -403,7 +412,12 @@ template <typename ClauseItem> class Clause
       OS << S << " clause, size=" << size() << ": " ;
       for (auto I=begin(); I != end(); ++I) {
         OS << "(" << *((*I)->getOrig()) << ") ";
+        if (getClauseID() == QUAL_OMP_LINEAR) {
+          LinearItem *LinItem = (LinearItem*)(*I);
+          OS << ", stride = " << LinItem->getStep();
+        }
       }
+      OS << "\n";
     }
 
     // search the clause for 
@@ -437,6 +451,7 @@ typedef Clause<ReductionItem>    ReductionClause;
 typedef Clause<CopyinItem>       CopyinClause;
 typedef Clause<CopyprivateItem>  CopyprivateClause;
 typedef Clause<LinearItem>       LinearClause;
+typedef Clause<UniformItem>      UniformClause;
 typedef Clause<DependItem>       DependClause;
 typedef Clause<AlignedItem>      AlignedClause;
 
@@ -448,6 +463,7 @@ typedef std::vector<ReductionItem>::iterator    ReductionIter;
 typedef std::vector<CopyinItem>::iterator       CopyinIter;
 typedef std::vector<CopyprivateItem>::iterator  CopyprivateIter;
 typedef std::vector<LinearItem>::iterator       LinearIter;
+typedef std::vector<UniformItem>::iterator      UniformIter;
 typedef std::vector<DependItem>::iterator       DependIter;
 typedef std::vector<AlignedItem>::iterator      AlignedIter;
 

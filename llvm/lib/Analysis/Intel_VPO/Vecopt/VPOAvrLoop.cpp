@@ -21,17 +21,7 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-AVRLoop::AVRLoop(const Loop *Lp)
-    : AVR(AVR::AVRLoopNode), WrnLoopNode(nullptr), LLVMLoop(Lp) {
-
-  setNestingLevel(0);     // TODO
-  setNumberOfExits(0);    // TODO
-  setIsDoWhileLoop(true); // TODO
-  setIsInnerMost(false);  // TODO
-  setVectorCandidate(true);
-  setAutoVectorCandidate(false);    // TODO
-  setExplicitVectorCandidate(true); // TODO
-}
+AVRLoop::AVRLoop(unsigned SCID) : AVR(SCID) {}
 
 AVRLoop *AVRLoop::clone() const { return nullptr; }
 

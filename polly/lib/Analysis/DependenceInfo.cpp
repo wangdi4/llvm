@@ -73,12 +73,12 @@ static cl::opt<enum AnalysisType> OptAnalysisType(
 static cl::opt<Dependences::AnalyisLevel> OptAnalysisLevel(
     "polly-dependences-analysis-level",
     cl::desc("The level of dependence analysis"),
-    cl::values(clEnumValN(Dependences::AL_Statement, "statement-level",
+    cl::values(clEnumValN(Dependences::AL_Statement, "statement-wise",
                           "Statement-level analysis"),
-               clEnumValN(Dependences::AL_Reference, "reference-level",
+               clEnumValN(Dependences::AL_Reference, "reference-wise",
                           "Memory reference level analysis that distinguish"
                           " accessed references in the same statement"),
-               clEnumValN(Dependences::AL_Access, "access-level",
+               clEnumValN(Dependences::AL_Access, "access-wise",
                           "Memory reference level analysis that distinguish"
                           " access instructions in the same statement"),
                clEnumValEnd),
@@ -716,7 +716,7 @@ void Dependences::releaseMemory() {
   ReductionDependences.clear();
 }
 
-isl_union_map *Dependences::getDependences(int Kinds) const {
+__isl_give isl_union_map *Dependences::getDependences(int Kinds) const {
   assert(hasValidDependences() && "No valid dependences available");
   isl_space *Space = isl_union_map_get_space(RAW);
   isl_union_map *Deps = isl_union_map_empty(Space);
@@ -745,7 +745,8 @@ bool Dependences::hasValidDependences() const {
   return (RAW != nullptr) && (WAR != nullptr) && (WAW != nullptr);
 }
 
-isl_map *Dependences::getReductionDependences(MemoryAccess *MA) const {
+__isl_give isl_map *
+Dependences::getReductionDependences(MemoryAccess *MA) const {
   return isl_map_copy(ReductionDependences.lookup(MA));
 }
 

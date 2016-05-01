@@ -64,6 +64,8 @@ typedef OVLSVector<OVLSMemref*> OVLSMemrefVector;
 typedef class OVLSGroup OVLSGroup;
 typedef OVLSVector<OVLSGroup*> OVLSGroupVector;
 
+typedef class OVLSInstruction OVLSInstruction;
+
 // AccessType: {Strided|Indexed}{Load|Store}
 class OVLSAccessType {
 private:
@@ -122,6 +124,67 @@ public:
 
 };
 
+
+/// Defines OVLS data type which is a vector type, representing a vector of
+/// elements. A vector type requires a size (number of elements in the vector)
+/// and an element size. The kinds of instructions OVLS deals with (i.e load/store
+/// permute/shift) do not require element type such as integer, float. Knowing
+/// the element size is sufficient.
+/// Please note that, since OVLS server works with target independent abstract
+/// instructions (OVLSInstruction), it has no restrictions on the sizes.
+/// Any size is considered as a valid size.
+/// Syntax:  < <# elements> x <element-size> >
+class OVLSType {
+private:
+  uint32_t  ElementSize;
+  uint32_t  NumElements;
+
+public:
+
+  OVLSType() {
+    ElementSize = 0;
+    NumElements = 0;
+  }
+  OVLSType(uint32_t ESize, uint32_t NElems) {
+    assert(NElems != 0 && "Number of elements cannot be zero in a vector");
+    assert(ESize != 0 && "Element size cannot be zero in a vector");
+    ElementSize = ESize;
+    NumElements = NElems;
+  }
+
+  bool operator==(OVLSType Rhs) const {
+    return ElementSize == Rhs.ElementSize &&
+	   NumElements == Rhs.NumElements;
+  }
+
+  uint32_t getElementSize() const { return ElementSize; }
+  void setElementSize(uint32_t ESize) { ElementSize = ESize; }
+
+  uint32_t getNumElements() const { return NumElements; }
+  void setNumElements(uint32_t NElems) { NumElements = NElems; }
+
+  /// \brief prints the type as "<NumElements x ElementSize>"
+  void print(OVLSostream &OS) const {
+    OS << "<" << NumElements << " x " << ElementSize << ">";
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// This method is used for debugging.
+  ///
+  void dump() const {
+    print(OVLSdbgs()) ;
+    OVLSdbgs() << '\n';
+  }
+#endif
+};
+
+// Printing of OVLStypes.
+static inline OVLSostream &operator<<(OVLSostream &OS, OVLSType T) {
+  T.print(OS);
+  return OS;
+}
+
+
 class OVLSMemref {
 public:
   /// Discriminator for LLVM-style RTTI (dyn_cast<> et al.)
@@ -134,14 +197,15 @@ private:
 public:
   OVLSMemrefKind getKind() const { return Kind; }
 
-  explicit OVLSMemref(OVLSMemrefKind K, unsigned ElementSize,
-                      unsigned NumElements, const OVLSAccessType& AccType);
+  explicit OVLSMemref(OVLSMemrefKind K, OVLSType Type,
+                      const OVLSAccessType& AccType);
 
   virtual ~OVLSMemref() {}
 
-  unsigned getNumElements() const { return NumElements; }
-  void setNumElements(unsigned nelems) { NumElements = nelems; }
-  unsigned getElementSize() const { return ElementSize; }
+  OVLSType getType() const { return DType; }
+  void setType(OVLSType T) { DType = T; }
+
+  void setNumElements(uint32_t nelems) { DType.setNumElements(nelems); }
   OVLSAccessType getAccessType() const { return AccType; }
   void setAccessType(const OVLSAccessType& Type) { AccType = Type; }
 
@@ -205,8 +269,7 @@ public:
 
 private:
   unsigned Id;          // A unique Id, helps debugging.
-  unsigned ElementSize; // in bits
-  unsigned NumElements;
+  OVLSType DType;          // represents the memref data type.
   OVLSAccessType AccType; // Access type of the Memref, e.g {S|I}{Load|store}
 };
 
@@ -272,6 +335,168 @@ private:
   OVLSAccessType AccType;  // AccessType of the group.
 };
 
+/// OVLSOperand is used to define an operand object for OVLSInstruction.
+/// TODO: Support Operand Type.
+class OVLSOperand {
+
+public:
+  /// An operand can be an address or a temp.
+  /// TODO: We will also need to support value.
+  enum OperandKind { OK_Address, OK_Instruction };
+
+  explicit OVLSOperand(OperandKind K) : Kind(K) {}
+
+  OVLSOperand() {}
+
+  ~OVLSOperand() {}
+
+  OperandKind getKind() const { return Kind; }
+
+  virtual void print(OVLSostream &OS) const = 0;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// This method is used for debugging.
+  ///
+  virtual void dump() const = 0;
+#endif
+
+private:
+  OperandKind Kind;
+};
+
+/// OVLSAddress{Base, Offset} represents an address that is Offset
+/// bytes from the Base(which is an address of an OVLSMemref).
+class OVLSAddress : public OVLSOperand {
+public:
+  explicit OVLSAddress(OVLSMemref *B, int64_t O) :
+    OVLSOperand(OK_Address), Base(B), Offset(O) {}
+
+  explicit OVLSAddress() {}
+
+  static bool classof(const OVLSOperand *Operand) {
+    return Operand->getKind() == OK_Address;
+  }
+
+  void setBase(OVLSMemref *B) { Base = B; }
+  void setOffset(int64_t O) { Offset = O; }
+  const OVLSMemref* getBase() const { return Base; }
+  int64_t getOffset() const { return Offset; }
+
+  OVLSAddress& operator=(const OVLSOperand& Operand) {
+    assert(isa<OVLSAddress>(&Operand) && "Expected An Address Operand!!!");
+    const OVLSAddress *AddrOperand = cast<const OVLSAddress>(&Operand);
+    Base = AddrOperand->Base;
+    Offset = AddrOperand->Offset;
+
+    return *this;
+}
+
+  void print(OVLSostream &OS) const {
+    OS << "<Base:" << Base << " Offset:" << Offset << ">";
+  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const {
+    print(OVLSdbgs());
+    OVLSdbgs() << '\n';
+  }
+#endif
+
+private:
+  /// \brief Represents the address of the memory reference that is pointed to
+  /// by the Base.
+  const OVLSMemref *Base;
+  /// \brief Represents a distance in bytes from Base.
+  int64_t Offset;
+};
+
+class OVLSInstruction {
+public:
+  enum OperationCode { OC_Load, OC_Store };
+
+  explicit OVLSInstruction(OperationCode OC,  OVLSType T) :
+    OPCode(OC) {
+    DType = T;
+    static uint64_t InstructionId = 1;
+    Id = InstructionId++;
+  }
+
+  virtual ~OVLSInstruction() {}
+
+  virtual void print(OVLSostream &OS, unsigned NumSpaces) const = 0;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// This method is used for debugging.
+  ///
+  virtual void dump() const = 0;
+#endif
+
+  OVLSType getType() const { return DType; }
+  void setType(OVLSType T) { DType = T; }
+
+  uint64_t getId() const { return Id; }
+private:
+  OperationCode OPCode;
+
+  /// \brief An instruction can be an operand or result of an instruction.
+  ///  If so, this defines the operand type.
+  OVLSType DType;
+  /// \brief Class identification, helps debugging.
+  uint64_t Id;
+};
+
+class OVLSLoad : public OVLSInstruction {
+
+public:
+  /// \brief Load <ESize x NElems> bits from S using \p EMask (element mask).
+  explicit OVLSLoad(OVLSType T, const OVLSOperand& S,
+		    uint64_t EMask) :
+    OVLSInstruction(OC_Load, T), ElemMask(EMask) {
+    Src = S;
+  }
+
+  void print(OVLSostream &OS, unsigned NumSpaces) const;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const {
+    print(OVLSdbgs(), 0);
+    OVLSdbgs() << '\n';
+  }
+#endif
+
+  uint64_t getMask() const { return ElemMask; }
+  void setMask(uint64_t Mask) { ElemMask = Mask; }
+
+private:
+
+  OVLSAddress Src;
+
+  /// \brief Reads a vector from memory using this mask. This mask holds a bit
+  /// for each element.  When a bit is set the corresponding element in memory
+  /// is accessed.
+  uint64_t ElemMask;
+
+};
+
+/// OVLS server works in a target independent manner. In order to estimate
+/// more accurate cost for a specific target (architecture), client needs to
+/// provide the necessary target-specific information.
+/// This cost-model interface class defines all the necessary
+/// parameters/functions that are needed by the server to estimate more accurate
+/// cost. In order to get cost, client needs to provide an object of this class
+/// filled up with the necessary target-specific cost information that are
+/// defined by the underlying targets. Consequently, it's the clients that
+/// decide on the cost accuracy level.
+class OVLSCostModelAnalysis {
+
+public:
+  /// \brief Returns target-specific cost for an OVLSInstruction, different
+  /// cost parameters are defined by each specific target.
+  /// Returns -1 if the cost is unknown. This function needs to be overriden by
+  /// the OVLS clients to help getting the target-specific instruction cost.
+  virtual uint64_t getInstructionCost(const OVLSInstruction *I) const = 0;
+
+};
+
 // OptVLS public Interface class that operates on OptVLS Abstract types.
 class OptVLSInterface {
 public:
@@ -295,6 +520,14 @@ public:
   static void getGroups(const OVLSMemrefVector &Memrefs,
                         OVLSGroupVector &Grps,
                         uint32_t VectorLength);
+
+  /// \brief getGroupCost() returns a relative cost/benefit of performing
+  /// adjacent gather/scatter optimization for a group (of gathers/scatters).
+  /// Adj. gather/scatter optimization replaces a set of gathers/scatters by a
+  /// set of contiguous loads/stores followed by a sequence of shuffle
+  /// instructions.
+  static int64_t getGroupCost(const OVLSGroup& Group,
+                              const OVLSCostModelAnalysis& CM);
 
 };
 

@@ -19,6 +19,7 @@
 #ifndef LLVM_ANAYSIS_VPO_AVR_UTILS_IR_H
 #define LLVM_ANAYSIS_VPO_AVR_UTILS_IR_H
 
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrLoopIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrSwitchIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmtIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIfIR.h"
@@ -35,6 +36,9 @@ class AVRUtilsIR {
 
 public:
   // Creation Utilities
+
+  /// \brief Returns a new AVRLoopIR node.
+  static AVRLoopIR *createAVRLoopIR(Loop *Lp);
 
   /// \brief Returns a new AVRCompareIR node.
   static AVRCompareIR *createAVRCompareIR(Instruction *Inst);

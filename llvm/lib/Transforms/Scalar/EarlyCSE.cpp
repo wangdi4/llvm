@@ -674,7 +674,7 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
     // to advance the generation.  We do need to prevent DSE across the fence,
     // but that's handled above.
     if (FenceInst *FI = dyn_cast<FenceInst>(Inst))
-      if (FI->getOrdering() == Release) {
+      if (FI->getOrdering() == AtomicOrdering::Release) {
         assert(Inst->mayReadFromMemory() && "relied on to prevent DSE above");
         continue;
       }
@@ -819,11 +819,11 @@ bool EarlyCSE::run() {
 }
 
 PreservedAnalyses EarlyCSEPass::run(Function &F,
-                                    AnalysisManager<Function> *AM) {
-  auto &TLI = AM->getResult<TargetLibraryAnalysis>(F);
-  auto &TTI = AM->getResult<TargetIRAnalysis>(F);
-  auto &DT = AM->getResult<DominatorTreeAnalysis>(F);
-  auto &AC = AM->getResult<AssumptionAnalysis>(F);
+                                    AnalysisManager<Function> &AM) {
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F);
+  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+  auto &AC = AM.getResult<AssumptionAnalysis>(F);
 
   EarlyCSE CSE(TLI, TTI, DT, AC);
 
