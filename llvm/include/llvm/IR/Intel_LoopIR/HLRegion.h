@@ -19,8 +19,8 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
-#include <set>
 #include <iterator>
+#include <set>
 
 namespace llvm {
 
@@ -33,7 +33,7 @@ namespace loopopt {
 /// A High level region is a section of CFG which can be analyzed and
 /// transformed independently of other sections of CFG. It typically consists
 /// of a single loopnest.
-class HLRegion : public HLNode {
+class HLRegion final : public HLNode {
 public:
   /// List of children nodes inside region
   typedef HLContainerTy ChildNodeTy;
@@ -81,6 +81,17 @@ private:
   ChildNodeTy Children;
 
 public:
+  /// Prints header for the region.
+  void printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                   bool PrintIRRegion, bool Detailed) const;
+
+  /// Prints body for the region.
+  void printBody(formatted_raw_ostream &OS, unsigned Depth,
+                 bool Detailed) const;
+
+  /// Prints footer for the region.
+  void printFooter(formatted_raw_ostream &OS, unsigned Depth) const;
+
   /// \brief Prints HLRegion.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
@@ -125,9 +136,7 @@ public:
   const_bb_iterator bb_end() const { return IRReg.bb_end(); }
 
   /// Live-in iterator methods
-  const_live_in_iterator live_in_begin() const {
-    return IRReg.live_in_begin();
-  }
+  const_live_in_iterator live_in_begin() const { return IRReg.live_in_begin(); }
   const_live_in_iterator live_in_end() const { return IRReg.live_in_end(); }
 
   /// Live-out iterator methods

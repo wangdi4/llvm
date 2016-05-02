@@ -25,6 +25,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/Support/Debug.h"
 #include <iterator>

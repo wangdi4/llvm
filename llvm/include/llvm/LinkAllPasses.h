@@ -231,7 +231,7 @@ namespace {
       (void) llvm::createHIRFrameworkPass();
       (void) llvm::createHIRDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
-      (void) llvm::createHIRResourceAnalysisPass();
+      (void) llvm::createHIRLoopResourcePass();
       (void) llvm::createHIRParVecAnalysisPass();
       (void) llvm::createHIRVectVLSAnalysisPass();
 

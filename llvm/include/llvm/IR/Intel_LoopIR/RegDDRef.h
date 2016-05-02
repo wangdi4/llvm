@@ -24,6 +24,9 @@
 
 namespace llvm {
 
+class MDNode;
+class AAMDNodes;
+
 namespace loopopt {
 
 class HLDDNode;

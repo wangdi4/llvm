@@ -29,7 +29,7 @@ class HLLoop;
 ///
 /// Sample HLIf-
 /// If( (Op1 Pred1 Op2) AND (Op3 Pred2 Op4) )
-class HLIf : public HLDDNode {
+class HLIf final : public HLDDNode {
 public:
   typedef SmallVector<PredicateTy, 2> PredicateContainerTy;
   typedef HLContainerTy ChildNodeTy;

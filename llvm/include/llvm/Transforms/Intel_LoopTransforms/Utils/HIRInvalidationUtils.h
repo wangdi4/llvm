@@ -24,11 +24,11 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRINVALDATIONUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRINVALDATIONUTILS_H
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRResourceAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopResource.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVectVLSAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
@@ -100,7 +100,9 @@ private:
   };
 
   // There should be all available analysis
-  typedef AnalysisSet<HIRDDAnalysis, HIRLocalityAnalysis, HIRResourceAnalysis, HIRVectVLSAnalysis> ForEachAnalysis;
+  typedef AnalysisSet<HIRDDAnalysis, HIRLocalityAnalysis, HIRLoopResource,
+                      HIRVectVLSAnalysis>
+      ForEachAnalysis;
 
   /// \brief Do not allow instantiation.
   HIRInvalidationUtils() = delete;
@@ -130,10 +132,9 @@ public:
   static void invalidateParentLoopBodyOrRegion(const HLNode *Node) {
     if (auto Loop = Node->getParentLoop()) {
       invalidateBody<Except...>(Loop);
-    }
-    else if (auto Region = Node->getParentRegion()) {
+    } else if (auto Region = Node->getParentRegion()) {
       invalidateNonLoopRegion<Except...>(Region);
-    } 
+    }
   }
 
   /// \brief Invalidates all the available HIR analysis dependent on the loop

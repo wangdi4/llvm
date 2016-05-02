@@ -339,6 +339,27 @@ void HLInst::removeFakeDDRef(RegDDRef *RDDRef) {
   llvm_unreachable("Unexpected condition!");
 }
 
+bool HLInst::isLval(const RegDDRef *Ref) const {
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  return (getLvalDDRef() == Ref);
+}
+
+bool HLInst::isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
+
+bool HLInst::isFake(const RegDDRef *Ref) const {
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  for (auto I = fake_ddref_begin(), E = fake_ddref_end(); I != E; ++I) {
+
+    if ((*I) == Ref) {
+      return true;
+    }
+  }
+
+  return false;
+}
+          
 unsigned HLInst::getNumOperands() const { return getNumOperandsInternal(); }
 
 unsigned HLInst::getNumOperandsInternal() const {

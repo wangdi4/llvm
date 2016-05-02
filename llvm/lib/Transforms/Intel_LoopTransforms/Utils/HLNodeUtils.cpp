@@ -13,10 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "hlnode-utils"
 using namespace llvm;
@@ -1061,11 +1061,15 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
 
   assert(InsertContainer && "InsertContainer is null");
 
-  // Update TopSortNum
-  updateTopSortNum(*InsertContainer, First, Pos);
+  // Skip updating info for disconnected nodes. This can happen during cloning.
+  // The info will be updated when they are finally attached.
+  if (First->isAttached()) {
+    // Update TopSortNum
+    updateTopSortNum(*InsertContainer, First, Pos);
 
-  // Update loop info for loops in this range.
-  updateLoopInfoRecursively(std::prev(Pos, Count), Pos);
+    // Update loop info for loops in this range.
+    updateLoopInfoRecursively(First, Pos);
+  }
 }
 
 void HLNodeUtils::insertBefore(HLNode *Pos, HLNode *Node) {
@@ -2838,32 +2842,40 @@ void HLNodeUtils::moveProperties(HLLoop *SrcLoop, HLLoop *DstLoop) {
 /// Update Loop properties based on Input Permutations
 /// Used by Loop Interchange now. Will be useful for loop blocking later
 void HLNodeUtils::permuteLoopNests(
-    HLLoop *Loop, SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation) {
+    HLLoop *OutermostLoop, const SmallVectorImpl<HLLoop *> &LoopPermutation) {
 
-  SmallVector<HLLoop *, MaxLoopNestLevel> LoopSaved;
-  HLLoop *DstLoop = Loop;
+  SmallVector<HLLoop *, MaxLoopNestLevel> SavedLoops;
+  HLLoop *DstLoop = OutermostLoop;
 
-  for (auto &I : LoopPermutation) {
-    HLLoop *LoopCopy = I->cloneCompleteEmptyLoop();
-    LoopSaved.push_back(LoopCopy);
+  for (auto &Lp : LoopPermutation) {
+    HLLoop *LoopCopy = Lp->cloneEmptyLoop();
+    LoopCopy->setNestingLevel(Lp->getNestingLevel());
+    SavedLoops.push_back(LoopCopy);
   }
 
-  for (auto I = LoopPermutation.begin(), E = LoopPermutation.end(); I != E;
-       ++I, DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild())) {
+  for (auto &Lp : LoopPermutation) {
+    assert(DstLoop && "Perfect loop nest expected");
+
     HLLoop *SrcLoop = nullptr;
-    if (*I == DstLoop) {
+
+    // Loop is already in desired position.
+    if (Lp == DstLoop) {
       continue;
     }
-    assert(isa<HLLoop>(DstLoop) && "Perfect loop nest expected");
-    for (auto &L : LoopSaved) {
-      if ((*I)->getNestingLevel() == L->getNestingLevel()) {
-        SrcLoop = L;
+
+    for (auto &Lp1 : SavedLoops) {
+      // getNestingLevel() asserts for disconnected loops. It is set explicitly
+      // for saved loops in the previous loop so we access it directly.
+      if (Lp->getNestingLevel() == Lp1->NestingLevel) {
+        SrcLoop = Lp1;
         break;
       }
     }
     assert(SrcLoop && "Input Loop is null");
     assert(DstLoop != SrcLoop && "Dst, Src loop cannot be equal");
     moveProperties(SrcLoop, DstLoop);
+
+    DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild());
   }
 }
 

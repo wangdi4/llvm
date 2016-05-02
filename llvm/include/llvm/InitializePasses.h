@@ -363,7 +363,7 @@ void initializeHIRSymbaseAssignmentPass(PassRegistry&);
 void initializeHIRFrameworkPass(PassRegistry&);
 void initializeHIRDDAnalysisPass(PassRegistry&);
 void initializeHIRLocalityAnalysisPass(PassRegistry&);
-void initializeHIRResourceAnalysisPass(PassRegistry&);
+void initializeHIRLoopResourcePass(PassRegistry&);
 void initializeHIRSSADeconstructionPass(PassRegistry&);
 void initializeHIRParVecAnalysisPass(PassRegistry&);
 void initializeHIRParDirInsertPass(PassRegistry&);

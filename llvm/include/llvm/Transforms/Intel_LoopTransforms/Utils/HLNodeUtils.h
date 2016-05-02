@@ -479,8 +479,7 @@ public:
   /// OrigBinOp is not null, copy IR flags from OrigBinOp to the newly
   /// create instruction.
   static HLInst *createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
-                                    RegDDRef *OpRef2,
-                                    const Twine &Name = "",
+                                    RegDDRef *OpRef2, const Twine &Name = "",
                                     RegDDRef *LvalRef = nullptr,
                                     const BinaryOperator *OrigBinOp = nullptr);
 
@@ -599,7 +598,7 @@ public:
                               RegDDRef *LvalRef = nullptr);
   /// \brief Creates a new Call instruction.
   static HLInst *createCall(Function *F,
-                            const SmallVectorImpl<RegDDRef*> &CallArgs,
+                            const SmallVectorImpl<RegDDRef *> &CallArgs,
                             const Twine &Name = "call",
                             RegDDRef *LvalRef = nullptr);
 
@@ -972,7 +971,7 @@ public:
   /// together in the same location.
   /// Returns false if there may exist a scenario/path in which Node1 is
   /// reached/accessed and Node2 isn't, or the other way around.
-  /// Note: In the presence of complicated unstructured code (containing 
+  /// Note: In the presence of complicated unstructured code (containing
   /// gotos/labels) this function will conservatively return false.
   static bool canAccessTogether(const HLNode *Node1, const HLNode *Node2);
 
@@ -1061,9 +1060,10 @@ public:
                               bool RecurseInsideLoops = true);
   /// \brief Updates Loop properties (Bounds, etc) based on input Permutations
   ///   Used by Interchange now. Could be used later for blocking
+  /// Loops are added to \p LoopPermutation in the desired permuted order.
   static void
-  permuteLoopNests(HLLoop *Loop,
-                   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation);
+  permuteLoopNests(HLLoop *OutermostLoop,
+                   const SmallVectorImpl<HLLoop *> &LoopPermutation);
 
   /// \brief Returns true if Loop is a perfect Loop nest
   /// and the innermost loop
@@ -1085,17 +1085,14 @@ public:
   ///   Will take innermost loop for now
   ///   used mostly for blocking / interchange
   static bool hasNonUnitStrideRefs(const HLLoop *Loop);
-		
+
   /// \brief Find node receiving the load
   /// e.g.   t0 = a[i] ;
   ///         ...
   ///        t1 = t0
   ///  returns t1 = t0
-  static HLInst *
-  findForwardSubInst(const DDRef *LRef,
-                     SmallVectorImpl<HLInst *> &ForwardSubInsts);
-
-
+  static HLInst *findForwardSubInst(const DDRef *LRef,
+                                    SmallVectorImpl<HLInst *> &ForwardSubInsts);
 
   /// \brief Returns the lowest common ancestor loop of Lp1 and Lp2. Returns
   /// null if there is no such parent loop.

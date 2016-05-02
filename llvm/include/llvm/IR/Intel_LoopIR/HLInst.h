@@ -29,7 +29,7 @@ namespace loopopt {
 class RegDDRef;
 
 /// \brief High level node representing a LLVM instruction
-class HLInst : public HLDDNode {
+class HLInst final : public HLDDNode {
 private:
   // Neither the pointer nor the Instruction object pointed to can be modified
   // once HLInst has been constructed.
@@ -128,39 +128,14 @@ public:
   /// \brief Removes a previously inserted fake DDRef.
   void removeFakeDDRef(RegDDRef *RDDRef);
 
-  /// Operand DDRef iterator methods
-  ddref_iterator op_ddref_begin() { return RegDDRefs.begin(); }
-  const_ddref_iterator op_ddref_begin() const { return RegDDRefs.begin(); }
-  ddref_iterator op_ddref_end() { return RegDDRefs.begin() + getNumOperands(); }
-  const_ddref_iterator op_ddref_end() const {
-    return RegDDRefs.begin() + getNumOperands();
-  }
+  /// \brief Returns true if Ref is the lval DDRef of this node.
+  virtual bool isLval(const RegDDRef *Ref) const override;
 
-  reverse_ddref_iterator op_ddref_rbegin() {
-    return RegDDRefs.rend() - getNumOperands();
-  }
-  const_reverse_ddref_iterator op_ddref_rbegin() const {
-    return RegDDRefs.rend() - getNumOperands();
-  }
-  reverse_ddref_iterator op_ddref_rend() { return RegDDRefs.rend(); }
-  const_reverse_ddref_iterator op_ddref_rend() const {
-    return RegDDRefs.rend();
-  }
+  /// \brief Returns true if Ref is a rval DDRef of this node.
+  virtual bool isRval(const RegDDRef *Ref) const override;
 
-  /// Fake DDRef iterator methods
-  ddref_iterator fake_ddref_begin() { return op_ddref_end(); }
-  const_ddref_iterator fake_ddref_begin() const { return op_ddref_end(); }
-  ddref_iterator fake_ddref_end() { return RegDDRefs.end(); }
-  const_ddref_iterator fake_ddref_end() const { return RegDDRefs.end(); }
-
-  reverse_ddref_iterator fake_ddref_rbegin() { return RegDDRefs.rbegin(); }
-  const_reverse_ddref_iterator fake_ddref_rbegin() const {
-    return RegDDRefs.rbegin();
-  }
-  reverse_ddref_iterator fake_ddref_rend() { return op_ddref_rbegin(); }
-  const_reverse_ddref_iterator fake_ddref_rend() const {
-    return op_ddref_rbegin();
-  }
+  /// \brief Returns true if Ref is a fake DDRef attached to this node.
+  virtual bool isFake(const RegDDRef *Ref) const override;
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {

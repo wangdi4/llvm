@@ -13,13 +13,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
-#include "llvm/IR/Intel_LoopIR/HLLoop.h"
-#include "llvm/IR/Intel_LoopIR/HLInst.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -196,8 +196,7 @@ HLLoop *HLNode::getOutermostParentLoop() const {
 }
 
 unsigned HLNode::getNodeLevel() const {
-
-  assert(getParentRegion() && " Node should be connected to a HLRegion");
+  assert(getParentRegionImpl() && "Node should be connected to a HLRegion!");
 
   if (auto CurrentLoop = dyn_cast<HLLoop>(this)) {
     return CurrentLoop->getNestingLevel();
@@ -208,7 +207,7 @@ unsigned HLNode::getNodeLevel() const {
   return Level;
 }
 
-HLRegion *HLNode::getParentRegion() const {
+HLRegion *HLNode::getParentRegionImpl() const {
   assert(!isa<HLRegion>(this) && "Region cannot not have a parent!");
 
   HLNode *Par = getParent();
@@ -218,6 +217,13 @@ HLRegion *HLNode::getParentRegion() const {
   }
 
   return cast_or_null<HLRegion>(Par);
+}
+
+HLRegion *HLNode::getParentRegion() const {
+  auto Reg = getParentRegionImpl();
+  assert(Reg && "getParentRegion() called on detached node!");
+
+  return Reg;
 }
 
 void HLNode::verify() const {
