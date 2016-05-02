@@ -48,7 +48,7 @@ using namespace llvm;
 // Maximum number of determined targets to specialize indirect call
 static cl::opt<unsigned>
 IndCallConvMaxTarget("intel-ind-call-conv-max-target",
-                      cl::ReallyHidden, cl::init(3));
+                      cl::ReallyHidden, cl::init(2));
 
 // Option to trace indirect call conversion transformation
 static cl::opt<bool> IndCallConvTrace("print-indirect-call-conv",
@@ -74,6 +74,7 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<TargetLibraryInfoWrapperPass>();
       AU.addRequired<AndersensAAWrapperPass>();
+      AU.addPreserved<AndersensAAWrapperPass>();
     }
 
 private:
