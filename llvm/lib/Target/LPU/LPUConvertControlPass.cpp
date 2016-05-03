@@ -109,7 +109,7 @@ private:
     thisMF->RenumberBlocks();
     myIfConverter->BBAnalysis.resize(thisMF->getNumBlockIDs());
     myIfConverter->TII = thisMF->getSubtarget().getInstrInfo();
-    const TargetSubtargetInfo &ST = 
+    const TargetSubtargetInfo &ST =
       thisMF->getTarget().getSubtarget<TargetSubtargetInfo>();
     myIfConverter->SchedModel.init(ST.getSchedModel(),&ST,myIfConverter->TII);
   }
@@ -121,16 +121,16 @@ private:
   bool processLoopRegion(MachineLoop *currLoop);
 
   // generate picks/switches for loop CF
-  bool genDFInstructions(MachineInstr *MI, MachineBasicBlock *BB, 
-                         MachineBasicBlock::iterator LastPhiInst); 
+  bool genDFInstructions(MachineInstr *MI, MachineBasicBlock *BB,
+                         MachineBasicBlock::iterator LastPhiInst);
 
-  bool analyzePhiOperands(MachineInstr *MI, MachineBasicBlock *BB, 
+  bool analyzePhiOperands(MachineInstr *MI, MachineBasicBlock *BB,
                           unsigned int *srcReg1, unsigned int *predReg1,
                           unsigned int *predReg2, MachineBasicBlock **predBB1,
-                          MachineBasicBlock **predBB2); 
+                          MachineBasicBlock **predBB2);
 
   bool processIfConversionRegion(std::vector<IfcvtToken*> &Tokens);
-                                 
+
 
   bool processIfConversionToken(IfcvtToken *Token);
 
@@ -152,7 +152,7 @@ MachineFunctionPass *llvm::createLPUConvertControlPass() {
 
 char LPUConvertControlPass::ID = 0;
 
-bool 
+bool
 LPUConvertControlPass::
 candidateForIfConversion(MachineLoop *loop, std::vector<IfcvtToken*> &Tokens) {
 
@@ -161,17 +161,17 @@ candidateForIfConversion(MachineLoop *loop, std::vector<IfcvtToken*> &Tokens) {
   assert(Tokens.empty() && "IfCvt tokens not empty!");
 
   // TODO: iterate until no change to handle nesting
-  for (MachineLoop::block_iterator BI = loop->block_begin(), 
-       E = loop->block_end(); BI != E; ++BI) { 
+  for (MachineLoop::block_iterator BI = loop->block_begin(),
+       E = loop->block_end(); BI != E; ++BI) {
     // starting with each block in loop body analyze it
     MachineBasicBlock *BB = *BI;
 
-    myIfConverter->AnalyzeBlock(BB, Tokens); 
+    myIfConverter->AnalyzeBlock(BB, Tokens);
   }
 
   if (!Tokens.empty()) {
     // this sorting is inherited from the llvm ifConverter and not understood
-    std::stable_sort(Tokens.begin(), Tokens.end(), 
+    std::stable_sort(Tokens.begin(), Tokens.end(),
                      LPUIfConversion::IfcvtTokenCmp);
     return true;
   }
@@ -200,11 +200,11 @@ bool LPUConvertControlPass::candidateLoopForDF(MachineLoop *currLoop) {
       DEBUG(errs() << "\nloop is candidate for if-conversion\n");
 
       if (!processIfConversionRegion(Tokens)) {
-        DEBUG(errs() << "ifcvt failed: ignoring loop with multiple blocks\n"); 
+        DEBUG(errs() << "ifcvt failed: ignoring loop with multiple blocks\n");
         return false;
       }
-     
-      if (currLoop->getNumBlocks() > 1) { 
+
+      if (currLoop->getNumBlocks() > 1) {
         DEBUG(errs() << "\nignoring loop with multiple blocks\n");
         return false;
       }
@@ -214,24 +214,24 @@ bool LPUConvertControlPass::candidateLoopForDF(MachineLoop *currLoop) {
       DEBUG(errs() << "\nignoring loop with multiple backedges\n");
       return false;
     }
-    // TODO: ignore loops with no live-in uses & no live-out defs - 
+    // TODO: ignore loops with no live-in uses & no live-out defs -
     // check this early & quickly
 
     return true;
 
 }
 
-bool 
+bool
 LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
                                           MachineBasicBlock *BB,
-                                          unsigned int *srcReg1, 
-                                          unsigned int *predReg1, 
+                                          unsigned int *srcReg1,
+                                          unsigned int *predReg1,
                                           unsigned int *predReg2,
                                           MachineBasicBlock **predBB1,
-                                          MachineBasicBlock **predBB2) { 
+                                          MachineBasicBlock **predBB2) {
 
   const TargetInstrInfo &TII = *thisMF->getSubtarget().getInstrInfo();
-  
+
   bool firstPred = true;
   for (unsigned i = 1, e = MI->getNumOperands(); i != e; i +=2 ) {
     // for each src operand get BB label & corresponding predicate reg
@@ -263,20 +263,20 @@ LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
 
       if (predCond.empty() || predCond.size() != 2) {
         DEBUG(errs() << "Phi predCond is empty \n");
-        return false;	
+        return false;
       }
 
       LPU::CondCode branchCC = (LPU::CondCode)predCond[0].getImm();
-		
+
       // is the loop back branch predicate set to true?
       if (&predBB == loopBackedgeBB) {
         if (predTBB != BB) {
           DEBUG(errs() << "Loop back branch predicate is set to false \n");
-          return false;	
+          return false;
         }
         if (branchCC != LPU::COND_T) {
           DEBUG(errs() << "Loop back branch predicate is set to false \n");
-          return false;	
+          return false;
         }
       }
 
@@ -284,11 +284,11 @@ LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
       if (&predBB != loopBackedgeBB) {
         if (predFBB && (predFBB != BB || predFBB != loopPreheader)) {
           DEBUG(errs() << "Loop entry fallthrough predicate is set to true \n");
-          return false;	
+          return false;
         }
         if (!predFBB && (branchCC != LPU::COND_T)) {
           DEBUG(errs() << "Loop entry fallthrough predicate is set to true \n");
-          return false;	
+          return false;
         }
       }
 
@@ -302,7 +302,7 @@ LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
         assert(*predReg1 != 0);
         if (*predReg2 != 0) {
           DEBUG(errs() << "Phi has more than 2 srcs \n");
-	  return false;	
+	  return false;
 	}
 	*predReg2 = predCond[1].getReg();
         *predBB2 = &predBB;
@@ -313,11 +313,11 @@ LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
 }
 
 // generate PICKs or SWITCHes when possible
-bool 
-LPUConvertControlPass::genDFInstructions(MachineInstr *MI, 
-                                         MachineBasicBlock *BB, 
-                                         MachineBasicBlock::iterator 
-                                           LastPhiInst) { 
+bool
+LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
+                                         MachineBasicBlock *BB,
+                                         MachineBasicBlock::iterator
+                                           LastPhiInst) {
 
   const TargetMachine &TM = thisMF->getTarget();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>
@@ -327,14 +327,14 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
   bool genDFInst = false;
 
   if (MI->isPHI()) { // process Phi
-    // process each live-in use also defined within the loop 
+    // process each live-in use also defined within the loop
     unsigned predReg1 =0, predReg2 = 0, predReg3 = 0;
     unsigned srcReg1;
     MachineBasicBlock *predBB1;
     MachineBasicBlock *predBB2;
 
 
-    if (!analyzePhiOperands(MI, BB, &srcReg1, &predReg1, &predReg2, &predBB1, 
+    if (!analyzePhiOperands(MI, BB, &srcReg1, &predReg1, &predReg2, &predBB1,
                             &predBB2)) {
       DEBUG(errs() << "Phi operands analysis returned false\n");
       return false;
@@ -348,10 +348,10 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
     const TargetRegisterClass *TRC = MRI->getRegClass(dst);
     unsigned newDst = MRI->createVirtualRegister(TRC);
     const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
-    MachineInstr *pickInst = BuildMI(*BB, MI, MI->getDebugLoc(), 
+    MachineInstr *pickInst = BuildMI(*BB, MI, MI->getDebugLoc(),
                                      TII.get(pickOpcode), dst).addReg(predReg3).
                                      addReg(srcReg1).addReg(newDst);
-	 
+
     //add a new Phi for the PICK inst src predicate
     BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(TargetOpcode::PHI),predReg3).
             addReg(predReg1).addMBB(predBB1).addReg(predReg2).addMBB(predBB2);
@@ -363,7 +363,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
     MI->substituteRegister(dst, newDst, 0, TRI);
 
     genDFInst = true;
-	 
+
   } // end process phi inst & PICK generation
   else { // generate SWITCHes for each live-out def used in loop
     for (const MachineOperand &currDef : MI->defs()) {
@@ -373,18 +373,18 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
       unsigned defReg = currDef.getReg();
       bool liveOut = false;
       MachineInstr *usePhi = nullptr;
-      for (MachineInstr &useMI : MRI->use_instructions(defReg)) { 
+      for (MachineInstr &useMI : MRI->use_instructions(defReg)) {
         //for each use of this def
         // is there any use outside this BB?
-        if (useMI.getParent() != BB) { 
+        if (useMI.getParent() != BB) {
           liveOut = true;
 	  continue;
         }
         // is there any use in a Phi inside this BB?
         if (useMI.isPHI()) {
           usePhi = &useMI;
-        } 
-      } // process each use 
+        }
+      } // process each use
 
       if (liveOut && usePhi) { // generate a SWITCH
         const TargetRegisterClass *TRC = MRI->getRegClass(defReg);
@@ -400,17 +400,17 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
 
         if (brCond.empty()) {
           DEBUG(errs() << "brCond is empty \n");
-          return false;	
+          return false;
         }
 
-        MachineBasicBlock::iterator loopBranch = BB->getFirstTerminator(); 
+        MachineBasicBlock::iterator loopBranch = BB->getFirstTerminator();
 
         // generate switch op
-        const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false 
+        const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false
                                                               /*not pick op*/);
-        MachineInstr *switchInst = BuildMI(*BB, BB->end(), 
-                                           DebugLoc(), 
-                                           TII.get(switchOpcode), 
+        MachineInstr *switchInst = BuildMI(*BB, BB->end(),
+                                           DebugLoc(),
+                                           TII.get(switchOpcode),
                                            newLiveOutReg).addReg(newLoopBackReg,
                                            RegState::Define).
                                            addReg(brCond[1].getReg()).
@@ -421,33 +421,33 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
 
         // update SSA
         usePhi->substituteRegister(defReg, newLoopBackReg, 0, TRI);
-        for (MachineInstr &useMI : MRI->use_instructions(defReg)) { 
+        for (MachineInstr &useMI : MRI->use_instructions(defReg)) {
           //for each use of this def
 	  // replace uses of defReg outside this BB with switch def
-	  if (useMI.getParent() != BB) { 
+	  if (useMI.getParent() != BB) {
 	    useMI.substituteRegister(defReg, newLiveOutReg, 0, TRI);
    	  }
-        } // process each use 
+        } // process each use
 
       genDFInst =  true;
       } // generate switch
 
-    } // process each def in instruction          
+    } // process each def in instruction
 
   } // end process non-phi instructions & SWITCH generation
   return genDFInst;
 }
 
-bool 
+bool
 LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
-                                         MachineBasicBlock::iterator 
+                                         MachineBasicBlock::iterator
 						LastPhiInst,
 					 std::set<unsigned> UseRegsSet) {
 
   IfcvtKind Kind = Token->Kind;
 
   assert(((Kind == ICTriangle) || (Kind == ICTriangleRev) ||
-          (Kind == ICTriangleFalse) || (Kind == ICTriangleFRev)) && 
+          (Kind == ICTriangleFalse) || (Kind == ICTriangleFRev)) &&
           "LPUIfConversion: genDFInstructions - unexpected Token Kind");
 
   const TargetMachine &TM = thisMF->getTarget();
@@ -464,7 +464,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
   MachineBasicBlock *currBB = TrueBBI.BB;
   MachineBasicBlock *postDomBB = FalseBBI.BB;
 
-  
+
   if (Kind == ICTriangleFalse || Kind == ICTriangleFRev) {
     std::swap(currBB, postDomBB);
   }
@@ -480,17 +480,17 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 
   if (brCond.empty()) {
     DEBUG(errs() << "LPUIfConversion: brCond is empty \n");
-    return false;	
+    return false;
   }
 
   LPU::CondCode branchCC = (LPU::CondCode)brCond[0].getImm();
   bool swapPickSwitchRegs = false;
-  if ((Kind == ICTriangle || Kind == ICTriangleRev) 
+  if ((Kind == ICTriangle || Kind == ICTriangleRev)
        && (branchCC == LPU::COND_T)) {
     swapPickSwitchRegs = true;
   }
 
-  if ((Kind == ICTriangleFalse || Kind == ICTriangleFRev) 
+  if ((Kind == ICTriangleFalse || Kind == ICTriangleFRev)
        && (branchCC == LPU::COND_F)) {
     swapPickSwitchRegs = true;
   }
@@ -511,7 +511,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 	  UseRegsSet.insert(Reg);
 	}
 
-        DEBUG(errs() << "LPUIfConversion: found live in Reg" << 
+        DEBUG(errs() << "LPUIfConversion: found live in Reg" <<
                      PrintReg(Reg) << "\n");
 
         // generate and insert SWITCH in dominating block
@@ -526,14 +526,14 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 	  predTrueReg = tmp;
 	}
 
-        MachineBasicBlock::iterator domBranch = domBB->getFirstTerminator(); 
+        MachineBasicBlock::iterator domBranch = domBB->getFirstTerminator();
 
         // generate switch op
-        const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false 
+        const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false
                                                               /*not pick op*/);
-        MachineInstr *switchInst = BuildMI(*domBB, domBB->end(), 
-                                           DebugLoc(), 
-                                           TII.get(switchOpcode), 
+        MachineInstr *switchInst = BuildMI(*domBB, domBB->end(),
+                                           DebugLoc(),
+                                           TII.get(switchOpcode),
                                            predFalseReg).addReg(predTrueReg,
                                            RegState::Define).
                                            addReg(brCond[1].getReg()).
@@ -552,21 +552,21 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 
         // update SSA
         MI->substituteRegister(Reg, predFalseReg, 0, TRI);
-        for (MachineInstr &useMI : MRI->use_instructions(Reg)) { 
+        for (MachineInstr &useMI : MRI->use_instructions(Reg)) {
 
           if (useMI.getParent() == domBB) // ignore uses in domBB
 	     continue;
 
           // for each use of this def
-	  // replace uses of Reg in currBB with predFalseReg and 
+	  // replace uses of Reg in currBB with predFalseReg and
           // other BBs with predTrueReg
-	  if (useMI.getParent() == currBB) { 
+	  if (useMI.getParent() == currBB) {
 	    useMI.substituteRegister(Reg, predFalseReg, 0, TRI);
           } else if (useMI.getParent() == postDomBB) {
 	    useMI.substituteRegister(Reg, predTrueReg, 0, TRI);
    	  }
 
-        } // process each use 
+        } // process each use
 
         genDFInst =  true;
 
@@ -575,14 +575,14 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 
     // process defs
     if (MO->isDef()) {
-      for (MachineInstr &useMI : MRI->use_instructions(Reg)) { 
+      for (MachineInstr &useMI : MRI->use_instructions(Reg)) {
         //for each use of this def
         // is there any use outside this BB i.e. live out of conversion block?
-        if (useMI.getParent() != currBB) { 
-	  assert(useMI.isPHI() && 
+        if (useMI.getParent() != currBB) {
+	  assert(useMI.isPHI() &&
                  "use of live out conditional def. is not in a Phi");
 
-          DEBUG(errs() << "LPUIfConversion: found live out Reg#  " 
+          DEBUG(errs() << "LPUIfConversion: found live out Reg#  "
                 << PrintReg(Reg) << "\n");
 
           // generate and insert PICK in post dominating block
@@ -593,14 +593,14 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 
           unsigned srcReg1 = useMI.getOperand(1).getReg();
 	  if (useMI.getOperand(2).getMBB() == currBB) {
-	    assert(useMI.getOperand(4).getMBB() == domBB && 
+	    assert(useMI.getOperand(4).getMBB() == domBB &&
 		   "genDFInstructions: cannot generate PICK for live out reg");
             srcReg1 = useMI.getOperand(3).getReg();
  	  }
 	  else {
-	    assert(useMI.getOperand(4).getMBB() == currBB && 
+	    assert(useMI.getOperand(4).getMBB() == currBB &&
 		   "genDFInstructions: cannot generate PICK for live out reg");
-	    assert(useMI.getOperand(2).getMBB() == domBB && 
+	    assert(useMI.getOperand(2).getMBB() == domBB &&
 		   "genDFInstructions: cannot generate PICK for live out reg");
 	  }
 
@@ -611,15 +611,15 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 	    newDst = tmp;
 	  }
 
-          const unsigned pickOpcode = 
+          const unsigned pickOpcode =
         	TII.getPickSwitchOpcode(TRC, true /*pick op*/);
-          MachineInstr *pickInst = BuildMI(*postDomBB, &useMI, 
-                                           useMI.getDebugLoc(), 
+          MachineInstr *pickInst = BuildMI(*postDomBB, &useMI,
+                                           useMI.getDebugLoc(),
                                            TII.get(pickOpcode), dst).
                                            addReg(brCond[1].getReg()).
                                            addReg(newDst).
                                            addReg(srcReg1);
-	 
+
     	  pickInst->removeFromParent();
           postDomBB->insertAfter(LastPhiInst,pickInst);
 
@@ -635,13 +635,13 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
     	  useMI.substituteRegister(dst, newDst, 0, TRI);
 
     	  genDFInst = true;
-        
+
         } // end if live out use
       } // end for each use instruction of Reg
     } // end if this operand is a def
 
   }// end for each operand in this instruction
-  
+
   return genDFInst;
 }
 
@@ -657,7 +657,7 @@ bool LPUConvertControlPass::processIfConversionToken(IfcvtToken *Token) {
       case ICTriangleFRev: break;
       default: return genDFInst;
   }
-  
+
   BBInfo &BBI = Token->BBI;
   BBInfo &TrueBBI = myIfConverter->BBAnalysis[BBI.TrueBB->getNumber()];
   BBInfo &FalseBBI = myIfConverter->BBAnalysis[BBI.FalseBB->getNumber()];
@@ -677,7 +677,7 @@ bool LPUConvertControlPass::processIfConversionToken(IfcvtToken *Token) {
   }
 
   MachineBasicBlock::iterator LastPhiInst =
-      std::prev(NextBBI->BB->SkipPHIsAndLabels(NextBBI->BB->begin())); 
+      std::prev(NextBBI->BB->SkipPHIsAndLabels(NextBBI->BB->begin()));
 
 
   std::set<unsigned> UseRegsSet;
@@ -686,10 +686,10 @@ bool LPUConvertControlPass::processIfConversionToken(IfcvtToken *Token) {
   for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
     MachineInstr *MI = I;
 
-    //DEBUG(errs() << "processing inst: ");  
-    //DEBUG(MI->print(*thisOS, &TM));  
+    //DEBUG(errs() << "processing inst: ");
+    //DEBUG(MI->print(*thisOS, &TM));
 
-    // TODO: do we need to process all insts? 
+    // TODO: do we need to process all insts?
     // what about picks/switches/cmps/brs?
 
     if (genDFInstructions(MI, Token, LastPhiInst, UseRegsSet)) {
@@ -711,7 +711,7 @@ bool LPUConvertControlPass::
 processIfConversionRegion(std::vector<IfcvtToken*> &Tokens) {
 
     bool Change = false;
-   
+
 
     if (IfConversionTokens == 0) return false;
 
@@ -855,8 +855,8 @@ bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
   loopPreheader = currLoop->getLoopPreheader();
   assert(loopBackedgeBB && "backedge BB is null!");
 
-  for (MachineLoop::block_iterator BI = currLoop->block_begin(), 
-       E = currLoop->block_end(); BI != E; ++BI) { 
+  for (MachineLoop::block_iterator BI = currLoop->block_begin(),
+       E = currLoop->block_end(); BI != E; ++BI) {
     // for each block in loop body - should be only 1 for now
     MachineBasicBlock *BB = *BI;
 
@@ -867,19 +867,19 @@ bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
       continue;
     }
 
-    // TODO: ignore BB/pred/succ with un-analyzeable brs  - 
+    // TODO: ignore BB/pred/succ with un-analyzeable brs  -
     // check this early & quickly
     MachineBasicBlock::iterator LastPhiInst =
-      std::prev(BB->SkipPHIsAndLabels(BB->begin())); 
+      std::prev(BB->SkipPHIsAndLabels(BB->begin()));
 
     // generate pick/switch DF ops for live-in uses and live-out defs
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
       MachineInstr *MI = I;
 
-      DEBUG(errs() << "gen pick/switch DF ops: processing inst: ");  
-      DEBUG(MI->print(*thisOS, &TM));  
+      DEBUG(errs() << "gen pick/switch DF ops: processing inst: ");
+      DEBUG(MI->print(*thisOS, &TM));
 
-      // TODO: do we need to process all insts? 
+      // TODO: do we need to process all insts?
       // what about picks/switches/cmps/brs?
 
       if (genDFInstructions(MI, BB, LastPhiInst)) {
@@ -896,7 +896,7 @@ bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
     }
 
     DEBUG(errs() << "end BB# - " <<  BB->getNumber() << "\n");
-  } // for each block in loop 
+  } // for each block in loop
   DEBUG(errs() << "end loop - " << "\n");
 
   return loopModified;
@@ -908,10 +908,10 @@ void LPUConvertControlPass::addLoop(std::vector<MachineLoop *> &loopList, Machin
 
   // add nested loops
   const std::vector<MachineLoop*> &SubLoops = loop->getSubLoops();
-  if (SubLoops.size() == 0) return;  
+  if (SubLoops.size() == 0) return;
 
   for (size_t SLI = 0; SLI != SubLoops.size(); SLI++) {
-      addLoop(loopList, SubLoops[SLI]); 
+      addLoop(loopList, SubLoops[SLI]);
   }
 }
 
@@ -938,22 +938,22 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
   // first collect the loops to be in cfg (top-down) order
   // is it necessary to walk the loops in cfg order?
   std::vector<MachineLoop *> cfgOrderLoops;
-  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); 
+  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end();
        LI != LE; ++LI) { // for all top-level loops in MF
-    
+
     MachineLoop *ML = *LI;
-    addLoop(cfgOrderLoops, ML); 
+    addLoop(cfgOrderLoops, ML);
   }
 
   prepareIfConverter();
 
-  // for each (loop) region in cfg order 
+  // for each (loop) region in cfg order
   int loopProcessedCnt = 0;
-  for (std::vector<MachineLoop *>::reverse_iterator lpIter = 
-       cfgOrderLoops.rbegin(), lpIterEnd = cfgOrderLoops.rend(); 
+  for (std::vector<MachineLoop *>::reverse_iterator lpIter =
+       cfgOrderLoops.rbegin(), lpIterEnd = cfgOrderLoops.rend();
        lpIter != lpIterEnd; ++lpIter) { // for all loops in MF
     MachineLoop *currLoop = *lpIter;
-    
+
     DEBUG(errs() << "\nbegin loop# - \n");
 
     //Is this a candidate loop for dataflow conversion?
@@ -970,9 +970,9 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
     thisOS->flush();
     assert(ConvertControlPass > 0 && "ConvertControlPass has invalid value!");
     if (loopModified) loopProcessedCnt++;
-    if (loopProcessedCnt == ConvertControlPass) return Modified;    
+    if (loopProcessedCnt == ConvertControlPass) return Modified;
 #endif
-  } // end for all loops in MF 
+  } // end for all loops in MF
 
 
   return Modified;
