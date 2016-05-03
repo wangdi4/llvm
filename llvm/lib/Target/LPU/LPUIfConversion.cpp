@@ -1,4 +1,56 @@
+//===-- LPUIfConversion.cpp - LPU If Conversion ---------------------------===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains If Conversion support (used for dataflow conversion.)
+//
+//===----------------------------------------------------------------------===//
+
 #include "LPUIfConversion.h"
+
+#include "llvm/CodeGen/Passes.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
+#include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/MC/MCInstrItineraries.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetRegisterInfo.h"
+#include "llvm/Target/TargetSubtargetInfo.h"
+
+using namespace llvm;
+
+#define DEBUG_TYPE "ifcvt"
+
+// Hidden options for help debugging.
+//static cl::opt<int> IfCvtFnStart("ifcvt-fn-start", cl::init(-1), cl::Hidden);
+//static cl::opt<int> IfCvtFnStop("ifcvt-fn-stop", cl::init(-1), cl::Hidden);
+//static cl::opt<int> IfCvtLimit("ifcvt-limit", cl::init(-1), cl::Hidden);
+//static cl::opt<bool> DisableSimple("disable-ifcvt-simple",
+//                                   cl::init(false), cl::Hidden);
+//static cl::opt<bool> DisableSimpleF("disable-ifcvt-simple-false",
+//                                    cl::init(false), cl::Hidden);
+//static cl::opt<bool> DisableTriangle("disable-ifcvt-triangle",
+//                                     cl::init(false), cl::Hidden);
+//static cl::opt<bool> DisableTriangleR("disable-ifcvt-triangle-rev",
+//                                      cl::init(false), cl::Hidden);
+//static cl::opt<bool> DisableTriangleF("disable-ifcvt-triangle-false",
+//                                      cl::init(false), cl::Hidden);
+//static cl::opt<bool> DisableTriangleFR("disable-ifcvt-triangle-false-rev",
+//                                       cl::init(false), cl::Hidden);
+//static cl::opt<bool> DisableDiamond("disable-ifcvt-diamond",
+//                                    cl::init(false), cl::Hidden);
+//static cl::opt<bool> IfCvtBranchFold("ifcvt-branch-fold",
+//                                    cl::init(true), cl::Hidden);
 
 using namespace llvm;
 

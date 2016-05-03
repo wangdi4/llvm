@@ -11,63 +11,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/CodeGen/Passes.h"
-#include "llvm/ADT/STLExtras.h"
+#ifndef LLVM_LIB_TARGET_LPU_LPUIFCONVERSION_H
+#define LLVM_LIB_TARGET_LPU_LPUIFCONVERSION_H
+
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/LivePhysRegs.h"
-#include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
-#include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetSchedule.h"
-#include "llvm/MC/MCInstrItineraries.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetLowering.h"
-#include "llvm/Target/TargetRegisterInfo.h"
-#include "llvm/Target/TargetSubtargetInfo.h"
-
-using namespace llvm;
-
-#define DEBUG_TYPE "ifcvt"
-
-// Hidden options for help debugging.
-//static cl::opt<int> IfCvtFnStart("ifcvt-fn-start", cl::init(-1), cl::Hidden);
-//static cl::opt<int> IfCvtFnStop("ifcvt-fn-stop", cl::init(-1), cl::Hidden);
-//static cl::opt<int> IfCvtLimit("ifcvt-limit", cl::init(-1), cl::Hidden);
-//static cl::opt<bool> DisableSimple("disable-ifcvt-simple",
-//                                   cl::init(false), cl::Hidden);
-//static cl::opt<bool> DisableSimpleF("disable-ifcvt-simple-false",
-//                                    cl::init(false), cl::Hidden);
-//static cl::opt<bool> DisableTriangle("disable-ifcvt-triangle",
-//                                     cl::init(false), cl::Hidden);
-//static cl::opt<bool> DisableTriangleR("disable-ifcvt-triangle-rev",
-//                                      cl::init(false), cl::Hidden);
-//static cl::opt<bool> DisableTriangleF("disable-ifcvt-triangle-false",
-//                                      cl::init(false), cl::Hidden);
-//static cl::opt<bool> DisableTriangleFR("disable-ifcvt-triangle-false-rev",
-//                                       cl::init(false), cl::Hidden);
-//static cl::opt<bool> DisableDiamond("disable-ifcvt-diamond",
-//                                    cl::init(false), cl::Hidden);
-//static cl::opt<bool> IfCvtBranchFold("ifcvt-branch-fold",
-//                                    cl::init(true), cl::Hidden);
-
-STATISTIC(NumSimple,       "Number of simple if-conversions performed");
-STATISTIC(NumSimpleFalse,  "Number of simple (F) if-conversions performed");
-STATISTIC(NumTriangle,     "Number of triangle if-conversions performed");
-STATISTIC(NumTriangleRev,  "Number of triangle (R) if-conversions performed");
-STATISTIC(NumTriangleFalse,"Number of triangle (F) if-conversions performed");
-STATISTIC(NumTriangleFRev, "Number of triangle (F/R) if-conversions performed");
-STATISTIC(NumDiamonds,     "Number of diamond if-conversions performed");
-STATISTIC(NumIfConvBBs,    "Number of if-converted blocks");
-STATISTIC(NumDupBBs,       "Number of duplicated blocks");
-STATISTIC(NumUnpred,       "Number of true blocks of diamonds unpredicated");
+#include "llvm/CodeGen/LivePhysRegs.h"
+#include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/TargetSchedule.h"
 
 namespace llvm {
   class LPUIfConversion {
@@ -266,4 +219,4 @@ namespace llvm {
 
 }
 
-
+#endif

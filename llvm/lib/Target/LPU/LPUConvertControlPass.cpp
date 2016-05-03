@@ -18,6 +18,8 @@
 #include "LPUInstrInfo.h"
 #include "LPUTargetMachine.h"
 #include "LPUIfConversion.h"
+#include "LPULicAllocation.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -46,6 +48,17 @@ IfConversionTokens("lpu-if-conversion", cl::Hidden,
 		   cl::init(0));
 
 #define DEBUG_TYPE "lpu-convert-control"
+
+STATISTIC(NumSimple,       "Number of simple if-conversions performed");
+STATISTIC(NumSimpleFalse,  "Number of simple (F) if-conversions performed");
+STATISTIC(NumTriangle,     "Number of triangle if-conversions performed");
+STATISTIC(NumTriangleRev,  "Number of triangle (R) if-conversions performed");
+STATISTIC(NumTriangleFalse,"Number of triangle (F) if-conversions performed");
+STATISTIC(NumTriangleFRev, "Number of triangle (F/R) if-conversions performed");
+STATISTIC(NumDiamonds,     "Number of diamond if-conversions performed");
+//STATISTIC(NumIfConvBBs,    "Number of if-converted blocks");
+//STATISTIC(NumDupBBs,       "Number of duplicated blocks");
+//STATISTIC(NumUnpred,       "Number of true blocks of diamonds unpredicated");
 
 typedef LPUIfConversion::IfcvtToken IfcvtToken;
 typedef LPUIfConversion::IfcvtKind IfcvtKind;
@@ -87,6 +100,7 @@ private:
   MachineDominatorTree *DT;
 
   LPUIfConversion *myIfConverter;
+  LPULicAllocation *myLicAllocater;
 
   void addLoop(std::vector<MachineLoop *> &loopList, MachineLoop *ML);
 
@@ -124,6 +138,10 @@ private:
   bool genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
                          MachineBasicBlock::iterator LastPhiInst,
 			 std::set<unsigned> UseRegsSet);
+
+
+  // analyze each live range in loop and allocate LICs as appropriate
+  bool processLiveRangesInLoop(MachineBasicBlock* BB);
 
 };
 }
@@ -557,7 +575,6 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI, IfcvtToken *Token,
 
     // process defs
     if (MO->isDef()) {
-      bool liveOut = false;
       for (MachineInstr &useMI : MRI->use_instructions(Reg)) { 
         //for each use of this def
         // is there any use outside this BB i.e. live out of conversion block?
@@ -804,6 +821,31 @@ processIfConversionRegion(std::vector<IfcvtToken*> &Tokens) {
 
 }
 
+// process live ranges within the loop
+bool LPUConvertControlPass::processLiveRangesInLoop(MachineBasicBlock *BB) {
+  const TargetMachine &TM = thisMF->getTarget();
+  std::set<unsigned> LiveRangesSet;
+  myLicAllocater = new LPULicAllocation();
+  bool loopModified = false;
+  for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
+    MachineInstr *MI = I;
+
+    DEBUG(errs() << "process live ranges within loop processing inst: ");
+    DEBUG(MI->print(*thisOS, &TM));
+
+    /*
+    if(myLicAllocater->makeLiveRangesLicAllocatable(MI, BB, LiveRangesSet)){
+      loopModified = true;
+    }
+    if(myLicAllocater->allocateLicsInLoop(MI, BB)){
+      loopModified = true;
+    }
+    */
+  }
+  return loopModified;
+
+}
+
 bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
 
   const TargetMachine &TM = thisMF->getTarget();
@@ -847,19 +889,11 @@ bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
 
     } // for each instruction in BB
 
-    // make live ranges LIC allocatable
-    //std::set<unsigned> LiveRangesSet;
-    //for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
-      //MachineInstr *MI = I;
 
-      //DEBUG(errs() << "make lic allocatable: processing inst: ");  
-      //DEBUG(MI->print(*thisOS, &TM));  
-
-      //if (processLiveRanges(MI, BB, LiveRangesSet)) {
-      //  DEBUG(errs() << "modified graph - processLiveRanges\n");
-      //  loopModified = true;
-      //}
-    //}
+    if (processLiveRangesInLoop(BB)) {
+      DEBUG(errs() << "modified graph - processLiveRangesInLoop\n");
+      loopModified = true;
+    }
 
     DEBUG(errs() << "end BB# - " <<  BB->getNumber() << "\n");
   } // for each block in loop 
@@ -886,8 +920,6 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
   if (ConvertControlPass == 0) return false;
 
   thisMF = &MF;
-  const TargetMachine &TM = MF.getTarget();
-  
   thisOS = CreateInfoOutputFile();
 
   DT = &getAnalysis<MachineDominatorTree>();
