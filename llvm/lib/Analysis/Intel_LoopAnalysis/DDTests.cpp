@@ -56,10 +56,10 @@
 //                                                                            //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -4674,10 +4674,17 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   ///  See more details in getDVForBackwardEdge
 
   bool BiDirection = false;
+  //  <> Level
+  unsigned LTGTLevel = 0;
   if (SrcDDRef != DstDDRef) {
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
       DVKind Direction = Result->getDirection(II);
       if (Direction == DVKind::LT) {
+        break;
+      }
+      if (Direction == (DVKind::LT | DVKind::GT)) {
+        BiDirection = true;
+        LTGTLevel = II;
         break;
       }
       if (Direction == DVKind::ALL) {
@@ -4873,7 +4880,12 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       ForwardDV[II - 1] = Result->getDirection(II);
     }
     getDVForBackwardEdge(ForwardDV, BackwardDV, Result->getLevels());
-
+    if (LTGTLevel) {
+      // e.g. (= <> < =)
+      // Forward  edge DV: (= < < =)
+      // Backward edge DV: (= < > =)
+      ForwardDV[LTGTLevel - 1] = BackwardDV[LTGTLevel - 1] = DVKind::LT;
+    }
     DEBUG(dbgs() << "\nforward DV: ";
           ForwardDV.print(Result->getLevels(), dbgs()));
     DEBUG(dbgs() << "\nbackward DV: ";
@@ -4944,7 +4956,7 @@ unsigned DirectionVector::getLastLevel() const {
 }
 
 void DirectionVector::setAsInput(const unsigned int StartLevel,
-                                const unsigned int EndLevel) {
+                                 const unsigned int EndLevel) {
   DirectionVector &InputDV = *this;
 
   // setInputDV (&InputDV, 3,4)
