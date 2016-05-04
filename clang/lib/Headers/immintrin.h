@@ -87,7 +87,6 @@ _mm256_cvtph_ps(__m128i __a)
 
 #include <avx512erintrin.h>
 
-#ifndef __INTEL_COMPILER
 #include <avx512ifmaintrin.h>
 
 #include <avx512ifmavlintrin.h>
@@ -97,7 +96,6 @@ _mm256_cvtph_ps(__m128i __a)
 #include <avx512vbmivlintrin.h>
 
 #include <pkuintrin.h>
-#endif /* __INTEL_COMPILER */
 
 static __inline__ int __attribute__((__always_inline__, __nodebug__, __target__("rdrnd")))
 _rdrand16_step(unsigned short *__p)
