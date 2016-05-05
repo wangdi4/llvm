@@ -3518,6 +3518,8 @@ cl_int CL_API_CALL clBuildProgram(
         crtProg->m_buildContexts.push_back(ctx);
         cl_program prog = crtProg->m_ContextToProgram[ctx];
 
+        atomic_increment(&(crtData->m_refCount));
+
         errCode = prog->dispatch->clBuildProgram(
             prog,
             matchDevices,
@@ -3525,6 +3527,7 @@ cl_int CL_API_CALL clBuildProgram(
             optReflect.c_str(),
             buildCompleteFn,
             crtData);
+
 
         // if ( CL_BUILD_PROGRAM_FAILURE != errCode ) is True; it means that
         // This is the first call to the underlying platforms, since the previous
@@ -3538,8 +3541,6 @@ cl_int CL_API_CALL clBuildProgram(
     if (!pfn_notify)
     {
         crtData->m_lock.Wait();
-        delete crtData;
-        crtData = NULL;
 
         // According to the spec we must return the build status on returning
         // from a blocking build request
@@ -3564,13 +3565,14 @@ cl_int CL_API_CALL clBuildProgram(
         }
     }
 FINISH:
-    if( CL_SUCCESS != errCode )
+    if (0 == atomic_decrement(&(crtData->m_refCount)))
     {
-        if( crtData )
+        if( crtData->m_pfnNotify )
         {
-            delete crtData;
-            crtData = NULL;
+            crtData->m_pfnNotify( crtData->m_clProgramHandle, crtData->m_userData );
         }
+        delete crtData;
+        crtData = NULL;
     }
     if( deviceList )
     {
@@ -3706,7 +3708,7 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
         crtProg->m_assocDevices.push_back( deviceList[i] );
     }
 
-    crtData->m_numBuild = getNumRelevantContexts( num_devices, deviceList, crtCtx );
+    crtData->m_numBuild = getNumRelevantContexts( num_devices, deviceList, crtProg->m_contextCRT );
 
     outDevices  = new cl_device_id[ num_devices ];
     if( NULL == outDevices )
@@ -3747,6 +3749,8 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
             devPrograms[ p++ ] = (*pItr)->m_ContextToProgram[ itr->first ];
         }
 
+        atomic_increment(&(crtData->m_refCount));
+
         cl_program devPro = itr->second.clLinkProgram(
             itr->first,
             matchDevices,
@@ -3776,8 +3780,6 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
     if (!pfn_notify)
     {
         crtData->m_lock.Wait();
-        delete crtData;
-        crtData = NULL;
 
         // According to the spec we must return the build status on returning
         // from a blocking build request
@@ -3802,13 +3804,17 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
         }
     }
 FINISH:
+    if (0 == atomic_decrement(&(crtData->m_refCount)))
+    {
+        if( crtData->m_pfnNotify )
+        {
+            crtData->m_pfnNotify( crtData->m_clProgramHandle, crtData->m_userData );
+        }
+        delete crtData;
+        crtData = NULL;
+    }
     if( CL_SUCCESS != errCode )
     {
-        if( NULL != crtData )
-        {
-            delete crtData;
-            crtData = NULL;
-        }
         if( NULL != crtProg )
         {
             crtProg->Release();
@@ -3981,6 +3987,8 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
 
         }
 
+        atomic_increment(&(crtData->m_refCount));
+
         errCode = prog->dispatch->clCompileProgram(
             prog,
             matchDevices,
@@ -4009,8 +4017,6 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
     if (!pfn_notify)
     {
         crtData->m_lock.Wait();
-        delete crtData;
-        crtData = NULL;
 
         // According to the spec we must return the build status on returning
         // from a blocking build request
@@ -4035,15 +4041,15 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
         }
     }
 FINISH:
-    if( CL_SUCCESS != errCode )
+    if (0 == atomic_decrement(&(crtData->m_refCount)))
     {
-        if( crtData )
+        if( crtData->m_pfnNotify )
         {
-            delete crtData;
-            crtData = NULL;
+            crtData->m_pfnNotify( crtData->m_clProgramHandle, crtData->m_userData );
         }
+        delete crtData;
+        crtData = NULL;
     }
-
     if( deviceList )
     {
         delete[] deviceList;

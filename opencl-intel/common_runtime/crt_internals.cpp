@@ -281,18 +281,27 @@ void CL_CALLBACK buildCompleteFn( cl_program program, void *userData )
     CrtBuildCallBackData *data  = ( CrtBuildCallBackData* ) userData;
     cl_program pgm              = data->m_clProgramHandle;
 
-    // Check if this is the last build routine to finish
+
     if (0 == atomic_decrement(&(data->m_numBuild)))
+    {
+        // this is the last build routine to finish
+        data->m_lock.Signal();
+    }
+
+    long refs = atomic_decrement(&(data->m_refCount));
+    if (refs == 0)
     {
         if( data->m_pfnNotify )
         {
             data->m_pfnNotify( pgm, data->m_userData );
-            delete data;
         }
         else
         {
-            data->m_lock.Signal();
+            assert( 0 && "refcount is 0 while we suppose wait for finish in CRT"
+                         " and hold the ref" );
         }
+
+        delete data;
     }
 }
 
