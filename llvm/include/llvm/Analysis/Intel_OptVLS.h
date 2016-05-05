@@ -65,6 +65,7 @@ typedef class OVLSGroup OVLSGroup;
 typedef OVLSVector<OVLSGroup*> OVLSGroupVector;
 
 typedef class OVLSInstruction OVLSInstruction;
+typedef OVLSVector<OVLSInstruction*> OVLSInstructionVector;
 
 // AccessType: {Strided|Indexed}{Load|Store}
 class OVLSAccessType {
@@ -122,6 +123,8 @@ public:
   bool isIndexedAccess() const { return AccType == ILoad ||
                                         AccType == IStore; }
 
+  bool isGather() const { return AccType == ILoad ||
+                                 AccType == SLoad; }
 };
 
 
@@ -278,6 +281,7 @@ public:
   explicit OVLSGroup(int VLen, const OVLSAccessType& AType)
     : VectorLength(VLen), AccType(AType) {
     NByteAccessMask = 0;
+    ElementMask = 0;
   }
 
   typedef OVLSMemrefVector::iterator iterator;
@@ -288,9 +292,11 @@ public:
   bool empty() const {
     return MemrefVec.empty();
   }
-  // Inserts an element into the Group.
-  void insert(OVLSMemref *Mrf) {
+  // Insert an element into the Group and set the masks accordingly.
+  void insert(OVLSMemref *Mrf, uint64_t AMask, uint64_t EMask) {
     MemrefVec.push_back(Mrf);
+    NByteAccessMask = AMask;
+    ElementMask = EMask;
   }
 
   // Returns group access mask.
@@ -298,15 +304,49 @@ public:
   void setAccessMask(uint64_t Mask) { NByteAccessMask = Mask; }
   OVLSAccessType getAccessType() const { return AccType; }
   uint32_t getVectorLength() const { return VectorLength; }
+  uint64_t getElementMask() const { return ElementMask; }
+  void setElementMask(uint64_t Mask) { ElementMask = Mask; }
 
   bool hasStridedAccesses() const {
     return AccType.isStridedAccess();
   }
+
+  // Gathers collectively refers to both indexed and strided loads.
+  bool hasGathers() const {
+    return AccType.isGather();
+  }
+
   // Return the first OVLSMemref of this group.
   OVLSMemref* getFirstMemref() const {
     if (!MemrefVec.empty()) return MemrefVec[0];
     return nullptr;
   }
+
+  /// \brief Return true and the constant stride in \p ConstStride if all of the
+  /// memrefs in the group have the same constant stride. Otherwise, returns
+  /// false and untouched GStride. Stride represents a uniform distance between
+  /// the vector elements of a OVLSMemref.
+  /// Inverting the function return does not invert the functionality
+  /// (e.g. false does not mean the group has a variable stride).
+  bool hasAConstStride(int64_t &ConstStride) const {
+    int64_t Stride = 0;
+    if (getFirstMemref()->hasAConstStride(&Stride)) {
+      // A group only comprises the memrefs that have the same matching strides.
+      // Therefore, checking whether the first memref in the group has a
+      // constant stride is sufficient.
+      ConstStride = Stride;
+      return true;
+    }
+    return false;
+  }
+
+  // Assuming all members have the same element size.
+  // TODO: Support heterogeneous types using GCD
+  uint32_t getElemSize() const { return MemrefVec[0]->getType().getElementSize(); }
+
+  // Currently, a group is formed only if the members have the same number
+  // of elements.
+  uint32_t getNumElems() const { return MemrefVec[0]->getType().getNumElements(); }
 
   void print(OVLSostream &OS, unsigned SpaceCount) const;
 
@@ -317,22 +357,30 @@ public:
 #endif
 
 private:
-  OVLSMemrefVector MemrefVec;// Group element-vector
-  uint32_t VectorLength;   // Vector length in bytes, default/maximum supported
-                           // length is 64. VectorLength can be the maximum
-                           // length of the underlying vector register or any
-                           // other desired size that clients want to consider.
-  uint64_t NByteAccessMask;// NByteAccessMask is a byte mask, represents the
-                           // access pattern for each N bytes comprising the
-                           // i-th element of the memrefs in the MemrefVec,
-                           // here N <= VectorLength.
-                           // Each bit in the mask corresponds to a byte.
-                           // Specifically, it tells us if there are any gaps
-                           // in between the i-th accesses (since access
-                           // pattern information is not recorded in the
-                           // MemrefVec to save memory)
-                           // Maximum 64 bytes can be represented.
-  OVLSAccessType AccType;  // AccessType of the group.
+  /// \brief Group element-vector
+  OVLSMemrefVector MemrefVec;
+
+  /// \brief Vector length in bytes, default/maximum supported length is 64.
+  /// VectorLength can be the maximum length of the underlying vector register
+  /// or any other desired size that clients want to consider.
+  uint32_t VectorLength;
+
+  /// \brief NByteAccessMask is a byte mask, represents the access pattern for
+  /// each N bytes comprising the i-th element of the memrefs in the MemrefVec,
+  /// here N <= VectorLength. Each bit in the mask corresponds to a byte.
+  /// Specifically, it tells us if there are any gaps in between the i-th
+  /// accesses (since access pattern information is not recorded in the
+  /// MemrefVec to save memory) Maximum 64 bytes can be represented.
+  uint64_t NByteAccessMask;
+
+  /// \brief AccessType of the group.
+  OVLSAccessType AccType;
+
+  /// \brief Represents an element-wise mask for the ith elements of the
+  /// MemrefVec. Memrefs can have different element sizes but they will have
+  /// common divisors. The greatest common divisor is considered as an element
+  /// in the ElementMask.
+  uint64_t ElementMask;
 };
 
 /// OVLSOperand is used to define an operand object for OVLSInstruction.
@@ -434,6 +482,8 @@ public:
   void setType(OVLSType T) { DType = T; }
 
   uint64_t getId() const { return Id; }
+
+  OperationCode getKind() const { return OPCode; }
 private:
   OperationCode OPCode;
 
@@ -452,6 +502,10 @@ public:
 		    uint64_t EMask) :
     OVLSInstruction(OC_Load, T), ElemMask(EMask) {
     Src = S;
+  }
+
+  static bool classof(const OVLSInstruction *I) {
+    return I->getKind() == OC_Load;
   }
 
   void print(OVLSostream &OS, unsigned NumSpaces) const;
@@ -476,6 +530,15 @@ private:
   uint64_t ElemMask;
 
 };
+
+// Printing of OVLSInstruction.
+static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSInstruction& I) {
+  if (isa<OVLSLoad>(&I)) {
+    const OVLSLoad *LI = cast<const OVLSLoad>(&I);
+    LI->print(OS, 2);
+  }
+  return OS;
+}
 
 /// OVLS server works in a target independent manner. In order to estimate
 /// more accurate cost for a specific target (architecture), client needs to
@@ -528,6 +591,17 @@ public:
   /// instructions.
   static int64_t getGroupCost(const OVLSGroup& Group,
                               const OVLSCostModelAnalysis& CM);
+
+  /// \brief getSequence() takes a group of gathers/scatters, returns true
+  /// if it is able to generate a vector of instructions (basically a set of
+  /// contiguous loads/stores followed by shuffles) that can replace (which is
+  /// semantically equivalent) the gathers/scatters.
+  /// Returns false if it is unable to generate the sequence. This function
+  /// tries to generate the best optimized sequence without doing any
+  /// relative cost/benefit analysis (which is gather/scatter vs. the generated
+  /// sequence). The main purpose of this function is to help diagnostics.
+  static bool getSequence(const OVLSGroup& Group,
+			  OVLSInstructionVector& InstVector);
 
 };
 
