@@ -13,11 +13,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/ScalarEvolution.h"
-
-#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -1127,4 +1127,8 @@ void CanonExpr::verify(unsigned NestingLevel) const {
     assert((!(getLevel(I) > NestingLevel) || !hasIVConstCoeff(I)) &&
            "The RegDDRef with IV is attached outside of the loop");
   }
+}
+
+void std::default_delete<CanonExpr>::operator()(CanonExpr *CE) const {
+  CanonExprUtils::destroy(CE);
 }

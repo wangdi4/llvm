@@ -348,22 +348,48 @@ private:
   /// returns nullptr.
   static HLNode *getNextLinkListNode(HLNode *Node);
 
+  enum VALType : unsigned { IsUnknown, IsConstant, IsMax, IsMin };
+
+  // Get possible Minimum/Maximum value of canon.
+  // Only handles single Blob + constant - No support for IV now
+  // If known, return ValueType and Value.
+  // Return value indicates if Val is used as Constant, Min or Max.
+  static VALType getMinMaxCoeffVal(const CanonExpr *CE,
+                                   const CanonExpr *BoundCE, int64_t *Val);
+
+  static VALType getMinMaxValueFromPred(const CanonExpr *CE, PredicateTy Pred,
+                                         const RegDDRef *Lhs,
+                                         const RegDDRef *Rhs, int64_t *Val);
+
+  template <typename PredIter, typename GetDDRefFunc>
+  static VALType
+  getMinMaxValueFromPredRange(const CanonExpr *CE, PredIter Begin, PredIter End,
+                              GetDDRefFunc GetDDRef, bool InvertPredicates,
+                              int64_t *Val);
+
+  static VALType getMinMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
+                                int64_t *Val);
+
 public:
   /// \brief return true if non-zero
   static bool isKnownNonZero(const CanonExpr *CE,
-                             const HLLoop *ParentLoop = nullptr);
+                             const HLNode *ParentNode = nullptr);
+
   /// \brief return true if non-positive
   static bool isKnownNonPositive(const CanonExpr *CE,
-                                 const HLLoop *ParentLoop = nullptr);
+                                 const HLNode *ParentNode = nullptr);
+
   /// \brief return true if non-negative
   static bool isKnownNonNegative(const CanonExpr *CE,
-                                 const HLLoop *ParentLoop = nullptr);
+                                 const HLNode *ParentNode = nullptr);
+
   /// \brief return true if negative
   static bool isKnownNegative(const CanonExpr *CE,
-                              const HLLoop *ParentLoop = nullptr);
+                              const HLNode *ParentNode = nullptr);
+
   /// \brief return true if positive
   static bool isKnownPositive(const CanonExpr *CE,
-                              const HLLoop *ParentLoop = nullptr);
+                              const HLNode *ParentNode = nullptr);
 
   /// \brief Returns the first dummy instruction of the function.
   static Instruction *getFirstDummyInst() { return FirstDummyInst; }
@@ -918,8 +944,9 @@ public:
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(HLNode *OldNode, HLNode *NewNode);
 
-  /// \brief Returns true if Node is in the top sort num range [FirstNode,
-  /// LastNode].
+  /// \brief Returns true if Node is in the top sort num range [\p FirstNode,
+  /// \p LastNode]. The \p FirstNode could be a nullptr, the method will return
+  /// false in this case.
   static bool isInTopSortNumRange(const HLNode *Node, const HLNode *FirstNode,
                                   const HLNode *LastNode);
 

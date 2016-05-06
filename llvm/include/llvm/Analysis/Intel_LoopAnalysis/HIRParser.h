@@ -522,6 +522,10 @@ private:
   /// If blob is metadata, sets the return value in Val.
   bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) const;
 
+  /// \brief Returns true if \p Blob represents a signed extension value.
+  /// If \p Val is not null, returns cast operand in \p Val.
+  bool isSignExtendBlob(BlobTy Blob, BlobTy *Val = nullptr) const;
+
   /// \brief Returns Function object.
   Function &getFunction() const { return *Func; }
 

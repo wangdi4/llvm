@@ -124,6 +124,10 @@ public:
   /// If blob is metadata, sets the return value in Val.
   static bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val = nullptr);
 
+  /// \brief Returns true if \p Blob represents a signed extension value.
+  /// If blob is sext, sets the return value in Val.
+  static bool isSignExtendBlob(BlobTy Blob, BlobTy *Val = nullptr);
+
   /// \brief Returns a new blob created from passed in Val.
   static BlobTy createBlob(Value *Val, bool Insert = true,
                                       unsigned *NewBlobIndex = nullptr);

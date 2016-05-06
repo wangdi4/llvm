@@ -327,6 +327,17 @@ bool HIRParser::isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) const {
   return false;
 }
 
+bool HIRParser::isSignExtendBlob(BlobTy Blob, BlobTy *Val) const {
+  if (auto CastSCEV = dyn_cast<SCEVSignExtendExpr>(Blob)) {
+    if (Val) {
+      *Val = CastSCEV->getOperand();
+    }
+    return true;
+  }
+
+  return false;
+}
+
 void HIRParser::insertBlobHelper(BlobTy Blob, unsigned Symbase, bool Insert,
                                  unsigned *NewBlobIndex) {
   if (Insert) {

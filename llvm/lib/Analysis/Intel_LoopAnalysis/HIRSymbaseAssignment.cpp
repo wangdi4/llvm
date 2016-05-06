@@ -86,9 +86,7 @@ Value *HIRSymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
 
 // TODO: add special handling for memrefs with undefined base pointers.
 void HIRSymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
-  if (Ref->isTerminalRef()) {
-    return;
-  }
+  assert(!Ref->isTerminalRef() && "Non terminal ref is expected.");
 
   Value *Ptr = getRefPtr(Ref);
   assert(Ptr && "Could not find Value* ptr for mem load store ref");

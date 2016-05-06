@@ -94,6 +94,10 @@ bool BlobUtils::isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) {
   return getHIRParser()->isMetadataBlob(Blob, Val);
 }
 
+bool BlobUtils::isSignExtendBlob(BlobTy Blob, BlobTy *Val) {
+  return getHIRParser()->isSignExtendBlob(Blob, Val);
+}
+
 BlobTy BlobUtils::createBlob(Value *TempVal, unsigned Symbase, bool Insert,
                              unsigned *NewBlobIndex) {
   return getHIRParser()->createBlob(TempVal, Symbase, Insert, NewBlobIndex);

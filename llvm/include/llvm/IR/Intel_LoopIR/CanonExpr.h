@@ -545,6 +545,7 @@ public:
   /// \brief Returns the blob coeff of the only blob.
   int64_t getSingleBlobCoeff() const {
     assert((numBlobs() == 1) && "Canon expr does not contain single blob!");
+    assert(BlobCoeffs[0].Coeff != 0 && "Single Blob Coeff should not be zero");
     return BlobCoeffs[0].Coeff;
   }
 
@@ -616,5 +617,16 @@ public:
 } // End loopopt namespace
 
 } // End llvm namespace
+
+namespace std {
+
+// default_delete<CanonExpr> is a helper for destruction CanonExpr objects to
+// support std::unique_ptr<CanonExpr>.
+template <>
+struct default_delete<llvm::loopopt::CanonExpr> {
+  void operator()(llvm::loopopt::CanonExpr *CE) const;
+};
+
+}
 
 #endif

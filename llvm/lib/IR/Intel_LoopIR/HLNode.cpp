@@ -198,6 +198,9 @@ HLLoop *HLNode::getOutermostParentLoop() const {
 unsigned HLNode::getNodeLevel() const {
   assert(getParentRegionImpl() && "Node should be connected to a HLRegion!");
 
+  // For the HLLoop nodes return Loop nesting level instead of the level of
+  // attachment. This is a workaround for loop bounds to make them feel like
+  // they are attached at the loop nesting level.
   if (auto CurrentLoop = dyn_cast<HLLoop>(this)) {
     return CurrentLoop->getNestingLevel();
   }

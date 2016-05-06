@@ -102,6 +102,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
+#include <memory>
+
 #define OPT_SWITCH "hir-runtime-dd"
 #define OPT_DESCR "HIR RuntimeDD Multiversioning"
 #define DEBUG_TYPE OPT_SWITCH
@@ -234,18 +236,16 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
     int64_t Direction = 1;
     if (IVBlobIndex != InvalidBlobIndex) {
       // IVBlobExpr is a helper CE to use HLNodeUtils::isKnownNegative
-      CanonExpr *IVBlobExpr = CanonExprUtils::createExtCanonExpr(
-          CE->getSrcType(), CE->getDestType(), CE->isSExt());
+      std::unique_ptr<CanonExpr> IVBlobExpr(CanonExprUtils::createExtCanonExpr(
+          CE->getSrcType(), CE->getDestType(), CE->isSExt()));
       IVBlobExpr->addBlob(IVBlobIndex, IVCoeff);
 
       // At this point IVBlobIndex is KnownPositive or KnownNegative, as we
       // dropped others as non supported
       // The utility checks both blob and coeff sign.
-      if (HLNodeUtils::isKnownNegative(IVBlobExpr, InnerLoop)) {
+      if (HLNodeUtils::isKnownNegative(IVBlobExpr.get(), InnerLoop)) {
         Direction *= -1;
       }
-
-      CanonExprUtils::destroy(IVBlobExpr);
     } else {
       Direction *= IVCoeff;
     }
@@ -254,13 +254,14 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
     const RegDDRef *Bound = (Direction > 0) ? MaxRef : MinRef;
     assert(Bound->isTerminalRef() && "DDRef should be a terminal reference.");
 
+    const CanonExpr *BoundCE = Bound->getSingleCanonExpr();
+
     // The relaxed mode is safe here as we know that upper bound is always non
     // negative
-    assert(!Bound->getSingleCanonExpr()->isTrunc() &&
+    assert(!BoundCE->isTrunc() &&
            "Truncations are not supported");
 
-    bool Ret = CanonExprUtils::replaceIVByCanonExpr(
-        CE, Level, Bound->getSingleCanonExpr(), true);
+    bool Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, BoundCE, true);
     assert(Ret &&
            "Assuming replace will always succeed as we already checked if both "
            "are mergeable.");
@@ -307,21 +308,22 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
         return UPPER_SUB_TYPE_MISMATCH;
       }
       assert(CanonExprUtils::mergeable(CE, LoopI->getLowerCanonExpr(), true) &&
-             "Assuming that the Lower bound is also mergeable if Upper is"
-             "mergeable");
+             "Assuming that the Lower bound is also mergeable or can be "
+             "represented as a blob if Upper is mergeable or can be represented"
+             " as a blob");
 
       auto IVBlobIndex = CE->getIVBlobCoeff(Level);
       if (IVBlobIndex != InvalidBlobIndex) {
-        CanonExpr *IVBlobExpr = CanonExprUtils::createExtCanonExpr(
-            CE->getSrcType(), CE->getDestType(), CE->isSExt());
+        std::unique_ptr<CanonExpr> IVBlobExpr(
+            CanonExprUtils::createExtCanonExpr(
+                CE->getSrcType(), CE->getDestType(), CE->isSExt()));
 
         IVBlobExpr->addBlob(IVBlobIndex, CE->getIVConstCoeff(Level));
 
         bool IsKnownNonZero =
-            HLNodeUtils::isKnownPositive(IVBlobExpr, InnermostLoop) ||
-            HLNodeUtils::isKnownNegative(IVBlobExpr, InnermostLoop);
+            HLNodeUtils::isKnownPositive(IVBlobExpr.get(), InnermostLoop) ||
+            HLNodeUtils::isKnownNegative(IVBlobExpr.get(), InnermostLoop);
 
-        CanonExprUtils::destroy(IVBlobExpr);
         if (!IsKnownNonZero) {
           return BLOB_IV_COEFF;
         }
@@ -380,7 +382,7 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
   case UPPER_SUB_TYPE_MISMATCH:
     return "Upper bound/sub type mismatch";
   case BLOB_IV_COEFF:
-    return "Blob IV coeffs are not supported yet.";
+    return "Unknown Blob IV coeffs are not supported yet.";
   case SAME_BASE:
     return "Multiple groups with the same base CE";
   case NON_DO_LOOP:
@@ -399,18 +401,6 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
 
   assert(InnermostLoop->isInnermost() &&
          "InnermostLoop is not an innermost loop");
-
-  // Check the loopnest for applicability
-  for (const HLLoop *LoopI = InnermostLoop, *LoopE = OuterLoop->getParentLoop();
-       LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
-    if (!LoopI->isDo()) {
-      return NON_DO_LOOP;
-    }
-
-    if (!LoopI->getStrideCanonExpr()->isIntConstant()) {
-      return NON_CONSTANT_IV_STRIDE;
-    }
-  }
 
   unsigned SegmentCount = IVSegments.size();
 
@@ -514,8 +504,20 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   const HLLoop *InnermostLoop = Loop;
   if (!Loop->isInnermost() &&
-      !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false, false)) {
+      !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop)) {
     return NON_PERFECT_LOOPNEST;
+  }
+
+  // Check the loopnest for applicability
+  for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop;
+       LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
+    if (!LoopI->isDo()) {
+      return NON_DO_LOOP;
+    }
+
+    if (!LoopI->getStrideCanonExpr()->isIntConstant()) {
+      return NON_CONSTANT_IV_STRIDE;
+    }
   }
 
   MemRefGatherer::MapTy RefMap;
@@ -646,8 +648,8 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
 
   // The HIR structure will be the following:
   //
-  // <Preheader>
   // ZTT {
+  //   <Preheader>
   //   if (<low trip test>) goto orig;
   //
   //   if (<test-0>) goto orig;
@@ -661,8 +663,8 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   //   <Original loop>
   //
   //   escape:
+  //   <PostExit>
   // }
-  // <PostExit>
 
   HLLoop *OrigLoop = Context.Loop->clone();
   HLLoop *ModifiedLoop = Context.Loop;
