@@ -122,7 +122,7 @@ private:
   SmallVector<HLLoop *, 32> CandidateLoops;
 
   // Level to TripCount mapping. This is just used during the analysis phase.
-  unsigned TripCountCache[MaxLoopNestLevel + 1];
+  int64_t TripCountCache[MaxLoopNestLevel + 1];
 
   /// \brief Computes the trip count necessary for complete unrolling.
   /// This routine handles cases such as triangular loops.
