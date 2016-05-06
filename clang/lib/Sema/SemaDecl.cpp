@@ -4024,6 +4024,13 @@ Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS, DeclSpec &DS,
     // obvious intent of DR1819.
     //
     // Per C++ [dcl.enum]p1, an opaque-enum-declaration can't either.
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#409175: Replace error with warning
+    if (getLangOpts().IntelCompat)
+      Diag(SS.getBeginLoc(), diag::warn_standalone_class_nested_name_specifier)
+           << GetDiagnosticTypeSpecifierID(DS.getTypeSpecType()) << SS.getRange();
+    else
+#endif // INTEL_CUSTOMIZATION
     Diag(SS.getBeginLoc(), diag::err_standalone_class_nested_name_specifier)
         << GetDiagnosticTypeSpecifierID(DS.getTypeSpecType()) << SS.getRange();
     return nullptr;
