@@ -407,14 +407,45 @@ bool AVRCodeGenHIR::vectorize() {
   return RetVal;
 }
 
+void AVRCodeGenHIR::eraseIntrinsBeforeLoop() {
+  // Erase intrinsics before the Loop - the code below mimics the code
+  // to check for a SIMD loop (HLLoop::isSIMD).
+  auto FirstChild = HLNodeUtils::getFirstLexicalChild(OrigLoop->getParent(),
+                                                      OrigLoop);
+  HLContainerTy::iterator FIter(*FirstChild);
+  HLContainerTy::iterator Iter(OrigLoop);
+
+  bool FirstDirItSet = false;
+  HLContainerTy::iterator FirstDirIt;
+  HLContainerTy::iterator LoopIt(OrigLoop);
+
+  while (Iter != FIter) {
+    --Iter;
+
+    auto Inst = dyn_cast<HLInst>(Iter);
+    if (!Inst)
+      break; // Loop, IF, Switch, etc.
+
+    Intrinsic::ID IntrinID;
+    // Expecting just directives and clauses between SIMD directive and Loop.
+    if (!Inst->isIntrinCall(IntrinID) ||
+        !vpo::VPOUtils::isIntelDirectiveOrClause(IntrinID))
+      break; 
+    
+    FirstDirItSet = true;
+    FirstDirIt = Iter;
+  }
+
+  assert(FirstDirItSet && "Expected SIMD directive not found");
+  if (FirstDirItSet)
+    // Erase intrinsics and clauses before the loop
+    HLNodeUtils::erase(FirstDirIt, LoopIt);
+}
+
 bool AVRCodeGenHIR::processLoop() {
   HLLoop *LoopX = const_cast<HLLoop *>(OrigLoop);
-  HLRegion *Parent = dyn_cast<HLRegion>(OrigLoop->getParent());
-  HLContainerTy::iterator It1(Parent->child_begin());
-  HLContainerTy::iterator It2(LoopX);
 
-  // Erase intrinsics at the beginning of the region
-  HLNodeUtils::erase(It1, It2);
+  eraseIntrinsBeforeLoop();
 
   auto Begin = LoopX->child_begin();
   auto End = LoopX->child_end();
