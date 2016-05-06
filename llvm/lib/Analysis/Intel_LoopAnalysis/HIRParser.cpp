@@ -451,6 +451,27 @@ BlobTy HIRParser::createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
   return NewBlob;
 }
 
+BlobTy HIRParser::createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty,
+                                 bool Insert, unsigned *NewBlobIndex) {
+  assert(Blob && "Blob cannot be null!");
+  assert(Ty && "Type cannot be null!");
+  assert(Ty->isIntegerTy() && "Invalid type!");
+
+  BlobTy NewBlob = nullptr;
+
+  if (Ty->getPrimitiveSizeInBits() >
+      Blob->getType()->getPrimitiveSizeInBits()) {
+    NewBlob = IsSExt ? SE->getSignExtendExpr(Blob, Ty)
+                     : SE->getZeroExtendExpr(Blob, Ty);
+  } else {
+    NewBlob = SE->getTruncateExpr(Blob, Ty);
+  }
+
+  insertBlobHelper(NewBlob, InvalidSymbase, Insert, NewBlobIndex);
+
+  return NewBlob;
+}
+
 bool HIRParser::contains(BlobTy Blob, BlobTy SubBlob) const {
   assert(Blob && "Blob cannot be null!");
   assert(SubBlob && "SubBlob cannot be null!");
@@ -568,7 +589,6 @@ public:
   BlobProcessor(HIRParser *HIRPar, CanonExpr *CE, unsigned Level)
       : SCEVRewriteVisitor(*(HIRPar->SE)), HIRP(HIRPar), CE(CE),
         NestingLevel(Level), SafeMode(false), Failed(false) {}
-
 
   /// Returns true if \p Blob can be processed without encountering failure.
   bool canProcessSafely(BlobTy Blob) {

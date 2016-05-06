@@ -147,6 +147,11 @@ BlobTy BlobUtils::createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
   return getHIRParser()->createSignExtendBlob(Blob, Ty, Insert, NewBlobIndex);
 }
 
+BlobTy BlobUtils::createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty,
+                                 bool Insert, unsigned *NewBlobIndex) {
+  return getHIRParser()->createCastBlob(Blob, IsSExt, Ty, Insert, NewBlobIndex);
+}
+
 bool BlobUtils::contains(BlobTy Blob, BlobTy SubBlob) {
   return getHIRParser()->contains(Blob, SubBlob);
 }

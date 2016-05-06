@@ -221,7 +221,7 @@ bool CanonExpr::isExtImpl(bool IsSigned, bool IsTrunc) const {
     return false;
   }
 
-  if (ScalSrcTy->getPrimitiveSizeInBits() > 
+  if (ScalSrcTy->getPrimitiveSizeInBits() >
       ScalDestTy->getPrimitiveSizeInBits()) {
     if (IsTrunc) {
       return true;
@@ -315,7 +315,7 @@ bool CanonExpr::isConstantVectorImpl(Constant **Val) const {
   }
 
   return BlobUtils::isConstantVectorBlob(
-                        BlobUtils::getBlob(getSingleBlobIndex()), Val);
+      BlobUtils::getBlob(getSingleBlobIndex()), Val);
 }
 
 bool CanonExpr::isIntVectorConstant(Constant **Val) const {
@@ -329,13 +329,12 @@ bool CanonExpr::isIntVectorConstant(Constant **Val) const {
   if (isIntConstantSplat(&ConstIntVal)) {
     if (Val) {
       Constant *ConstVal;
-      
-      ConstVal = ConstantInt::get(getDestType()->getScalarType(),
-                                  ConstIntVal);
+
+      ConstVal = ConstantInt::get(getDestType()->getScalarType(), ConstIntVal);
       *Val = ConstantVector::getSplat(getDestType()->getVectorNumElements(),
-                                        ConstVal);
+                                      ConstVal);
     }
-    
+
     return true;
   }
 
@@ -353,7 +352,7 @@ bool CanonExpr::isFPVectorConstant(Constant **Val) const {
   if (isFPConstantSplat(&ConstFPVal)) {
     if (Val) {
       Constant *ConstVal;
-      
+
       ConstVal = ConstFPVal;
       *Val = ConstantVector::getSplat(getDestType()->getVectorNumElements(),
                                       ConstVal);
@@ -493,9 +492,8 @@ void CanonExpr::setIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff,
 
   assert(CanonExprUtils::isValidLinearDefLevel(Lvl) &&
          "Level is out of bounds!");
-  assert(
-      ((Index == InvalidBlobIndex) || BlobUtils::isBlobIndexValid(Index)) &&
-      "Blob Index is invalid!");
+  assert(((Index == InvalidBlobIndex) || BlobUtils::isBlobIndexValid(Index)) &&
+         "Blob Index is invalid!");
 
   resizeIVCoeffsToMax(Lvl);
 
@@ -538,9 +536,8 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
 
   assert(CanonExprUtils::isValidLinearDefLevel(Lvl) &&
          "Level is out of bounds!");
-  assert(
-      ((Index == InvalidBlobIndex) || BlobUtils::isBlobIndexValid(Index)) &&
-      "Blob Index is invalid!");
+  assert(((Index == InvalidBlobIndex) || BlobUtils::isBlobIndexValid(Index)) &&
+         "Blob Index is invalid!");
 
   resizeIVCoeffsToMax(Lvl);
 
@@ -1074,7 +1071,129 @@ void CanonExpr::multiplyByBlob(unsigned Index) {
   }
 }
 
-void CanonExpr::negate() { multiplyByConstant(-1); }
+bool CanonExpr::canConvertToStandAloneBlob() const {
+
+  // Not applicable to other types.
+  if (!getSrcType()->isIntegerTy()) {
+    return false;
+  }
+
+  if (hasIV()) {
+    return false;
+  }
+
+  // SCEV doesn't have signed division.
+  if ((getDenominator() != 1) && isSignedDiv()) {
+    return false;
+  }
+
+  return true;
+}
+
+bool CanonExpr::convertToStandAloneBlob() {
+  if (!canConvertToStandAloneBlob()) {
+    return false;
+  }
+
+  BlobTy MergedBlob = nullptr;
+
+  // Create one merged blob by adding all the individual blobs.
+  for (auto BIt = blob_begin(), E = blob_end(); BIt != E; ++BIt) {
+    BlobTy CurBlob = BlobUtils::getBlob(BIt->Index);
+
+    if (BIt->Coeff != 1) {
+      auto CoeffBlob = BlobUtils::createBlob(BIt->Coeff, getSrcType(), false);
+      CurBlob = BlobUtils::createMulBlob(CoeffBlob, CurBlob, false);
+    }
+
+    if (MergedBlob) {
+      MergedBlob = BlobUtils::createAddBlob(MergedBlob, CurBlob, false);
+    } else {
+      MergedBlob = CurBlob;
+    }
+  }
+
+  // Add constant part.
+  if (getConstant() != 0) {
+    auto ConstBlob = BlobUtils::createBlob(getConstant(), getSrcType(), false);
+    MergedBlob = BlobUtils::createAddBlob(MergedBlob, ConstBlob, false);
+  }
+
+  // Create division for the denominator.
+  if (getDenominator() != 1) {
+    auto DenomBlob =
+        BlobUtils::createBlob(getDenominator(), getSrcType(), false);
+    MergedBlob = BlobUtils::createUDivBlob(MergedBlob, DenomBlob, false);
+  }
+
+  // Create cast for mismatched types.
+  if (getSrcType() != getDestType()) {
+    MergedBlob =
+        BlobUtils::createCastBlob(MergedBlob, isSExt(), getDestType(), false);
+  }
+
+  // Clear all the current fields.
+  clearBlobs();
+  Denominator = 1;
+  Const = 0;
+
+  // Set dest type as also the src type.
+  setSrcType(getDestType());
+
+  // Set merged blob in the CE.
+  unsigned MergedBlobIndex = BlobUtils::findOrInsertBlob(MergedBlob);
+  setBlobCoeff(MergedBlobIndex, 1);
+
+  return true;
+}
+
+bool CanonExpr::castStandAloneBlob(Type *Ty, bool IsSExt) {
+  assert(Ty && "Ty is null!");
+  assert(getDestType()->isIntegerTy() && Ty->isIntegerTy() && "Invalid cast!");
+
+  if (!convertToStandAloneBlob()) {
+    return false;
+  }
+
+  unsigned OldIndex = getSingleBlobIndex();
+  unsigned NewIndex = InvalidBlobIndex;
+
+  BlobUtils::createCastBlob(BlobUtils::getBlob(getSingleBlobIndex()), IsSExt,
+                            Ty, true, &NewIndex);
+
+  replaceBlob(OldIndex, NewIndex);
+  setSrcType(Ty);
+  setDestType(Ty);
+
+  return true;
+}
+
+bool CanonExpr::convertSExtStandAloneBlob(Type *Ty) {
+  assert(Ty && "Ty is null!");
+  assert((CanonExprUtils::getTypeSizeInBits(Ty) >
+          CanonExprUtils::getTypeSizeInBits(getDestType())) &&
+         "Invalid cast!");
+
+  return castStandAloneBlob(Ty, true);
+}
+
+bool CanonExpr::convertZExtStandAloneBlob(Type *Ty) {
+  assert(Ty && "Ty is null!");
+  assert((CanonExprUtils::getTypeSizeInBits(Ty) >
+          CanonExprUtils::getTypeSizeInBits(getDestType())) &&
+         "Invalid cast!");
+
+  return castStandAloneBlob(Ty, false);
+}
+
+bool CanonExpr::convertTruncStandAloneBlob(Type *Ty) {
+  assert(Ty && "Ty is null!");
+  assert((CanonExprUtils::getTypeSizeInBits(Ty) <
+          CanonExprUtils::getTypeSizeInBits(getDestType())) &&
+         "Invalid cast!");
+
+  return castStandAloneBlob(Ty, false);
+}
 
 void CanonExpr::verify(unsigned NestingLevel) const {
   assert(getDenominator() > 0 && "Denominator must be greater than zero!");

@@ -472,6 +472,11 @@ private:
   /// true its index is returned via NewBlobIndex argument.
   BlobTy createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
                               unsigned *NewBlobIndex);
+  /// Returns a new blob with appropriate cast (SExt, ZExt, Trunc) applied on
+  /// top of \p Blob. If Insert is true its index is returned via NewBlobIndex
+  /// argument.
+  BlobTy createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty, bool Insert,
+                        unsigned *NewBlobIndex);
 
   // TODO handle min/max blobs.
 
