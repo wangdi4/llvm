@@ -716,4 +716,5 @@ void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
   AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>();
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<CFLAAWrapperPass>();
+  AU.addUsedIfAvailable<AndersensAAWrapperPass>();        // INTEL
 }

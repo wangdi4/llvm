@@ -440,6 +440,14 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
   addInitialAliasAnalysisPasses(MPM);
+#if INTEL_CUSTOMIZATION
+  if (EnableAndersen) {
+    MPM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
+  }
+  if (EnableIndirectCallConv && EnableAndersen) {
+    MPM.add(createIndirectCallConvPass()); // Indirect Call Conv
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (!DisableUnitAtATime) {
     // Infer attributes about declarations if possible.
