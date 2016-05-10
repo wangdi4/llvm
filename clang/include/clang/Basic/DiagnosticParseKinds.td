@@ -967,6 +967,11 @@ def err_omp_unknown_directive : Error<
   "expected an OpenMP directive">;
 def err_omp_unexpected_directive : Error<
   "unexpected OpenMP directive '#pragma omp %0'">;
+// if INTEL_CUSTOMIZATION
+// CQ#410305 ignore declare target directive inside function.
+def warn_omp_ignore_unexpected_directive : Warning<
+  "ignoring unexpected OpenMP directive '#pragma omp %0'">, InGroup<IntelCompat>;
+// endif
 def err_omp_expected_punc : Error<
   "expected ',' or ')' in '%0' %select{clause|directive}1">;
 def err_omp_unexpected_clause : Error<

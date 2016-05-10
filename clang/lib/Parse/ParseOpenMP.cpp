@@ -898,9 +898,19 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     OMPDirectiveScope.Exit();
     break;
   }
-  case OMPD_declare_simd:
+#if INTEL_CUSTOMIZATION
+  // CQ#410305 ignore declare target directive inside function.
   case OMPD_declare_target:
   case OMPD_end_declare_target:
+    if (getLangOpts().IntelCompat) {
+      Diag(Tok, diag::warn_omp_ignore_unexpected_directive)
+          << getOpenMPDirectiveName(DKind);
+      SkipUntil(tok::annot_pragma_openmp_end);
+      break;
+    }
+    // no break
+#endif // INTEL_CUSTOMIZATION
+  case OMPD_declare_simd:
     Diag(Tok, diag::err_omp_unexpected_directive)
         << getOpenMPDirectiveName(DKind);
     SkipUntil(tok::annot_pragma_openmp_end);
