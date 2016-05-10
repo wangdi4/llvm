@@ -610,7 +610,10 @@ def Extra : DiagGroup<"extra", [
     SemiBeforeMethodBody,
     MissingMethodReturnType,
     SignCompare,
-    UnusedParameter
+    UnusedParameter, // INTEL
+    // CQ380634: Warnings from this group should be enabled under -Wextra // INTEL
+    // only // INTEL
+    TautologicalCompare // INTEL
   ]>;
 
 def Most : DiagGroup<"most", [

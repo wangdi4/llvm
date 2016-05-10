@@ -1417,7 +1417,7 @@ const char ToggleHighlight = 127;
 void ProcessWarningOptions(DiagnosticsEngine &Diags,
                            const DiagnosticOptions &Opts,
                            bool ReportDiags = true, // INTEL
-                           bool IgnoreIgnored = false); // INTEL
+                           bool IntelCompat = false); // INTEL
 
 }  // end namespace clang
 

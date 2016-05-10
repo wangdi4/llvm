@@ -44,7 +44,7 @@ static void EmitUnknownDiagWarning(DiagnosticsEngine &Diags,
 void clang::ProcessWarningOptions(DiagnosticsEngine &Diags,
                                   const DiagnosticOptions &Opts,
                                   bool ReportDiags, // INTEL
-                                  bool IgnoreIgnored) { // INTEL
+                                  bool IntelCompat) { // INTEL
   Diags.setSuppressSystemWarnings(true);  // Default to -Wno-system-headers
   Diags.setIgnoreAllWarnings(Opts.IgnoreWarnings);
   Diags.setShowOverloads(Opts.getShowOverloads());
@@ -71,16 +71,22 @@ void clang::ProcessWarningOptions(DiagnosticsEngine &Diags,
   else
     Diags.setExtensionHandlingBehavior(diag::Severity::Ignored);
 
+#if INTEL_CUSTOMIZATION
+  // cq381613: If IntelCompat change default error to warning.
+  if (IntelCompat)
+    Diags.setDiagnosticGroupWarningAsError("non-pod-varargs", false, true);
+
+  // CQ#380634: GCC ignores by default "tautological-compare" warnings. So
+  // should we.
+  if (IntelCompat) {
+    Diags.setSeverityForGroup(diag::Flavor::WarningOrError,
+                              "tautological-compare", diag::Severity::Ignored);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   SmallVector<diag::kind, 10> _Diags;
   const IntrusiveRefCntPtr< DiagnosticIDs > DiagIDs =
     Diags.getDiagnosticIDs();
-#if  INTEL_CUSTOMIZATION
-  // cq381613: If IntelCompat change default error to warning.
-  if (IgnoreIgnored) {
-    Diags.setDiagnosticGroupWarningAsError("non-pod-varargs", false,
-                                           true);
-  }
-#endif //INTEL_CUSTOMIZATION
   // We parse the warning options twice.  The first pass sets diagnostic state,
   // while the second pass reports warnings/errors.  This has the effect that
   // we follow the more canonical "last option wins" paradigm when there are 
@@ -160,7 +166,7 @@ void clang::ProcessWarningOptions(DiagnosticsEngine &Diags,
         if (SetDiagnostic) {
           // Set the warning as error flag for this specifier.
           Diags.setDiagnosticGroupWarningAsError(Specifier, isPositive, // INTEL
-                                                 IgnoreIgnored); // INTEL
+                                                 IntelCompat); // INTEL
         } else if (DiagIDs->getDiagnosticsInGroup(Flavor, Specifier, _Diags)) {
           EmitUnknownDiagWarning(Diags, Flavor, "-Werror=", Specifier);
         }
