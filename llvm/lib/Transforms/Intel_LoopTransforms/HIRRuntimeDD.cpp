@@ -261,7 +261,26 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
     assert(!BoundCE->isTrunc() &&
            "Truncations are not supported");
 
-    bool Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, BoundCE, true);
+    bool Ret;
+    if (BoundCE->getDenominator() == 1 &&
+        CanonExprUtils::mergeable(CE, BoundCE, true)) {
+      Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, BoundCE, true);
+    } else {
+      // Have to treat bound as blob and then truncate or extend it.
+      std::unique_ptr<CanonExpr> NewBoundCE(BoundCE->clone());
+
+      if (CE->getSrcType() == NewBoundCE->getSrcType()) {
+        Ret = NewBoundCE->convertToStandAloneBlob();
+      } else {
+        Ret = NewBoundCE->castStandAloneBlob(CE->getSrcType(), false);
+      }
+
+      assert(Ret && "convertToStandAloneBlob() should always succeed as we"
+                    "already checked if it's convertible");
+
+      Ret = CanonExprUtils::replaceIVByCanonExpr(CE, Level, NewBoundCE.get(),
+                                                 true);
+    }
     assert(Ret &&
            "Assuming replace will always succeed as we already checked if both "
            "are mergeable.");
@@ -303,11 +322,13 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
       // Check if CE and UpperBoundCE are mergeable and check if UpperBoundCE
       // denominator equals one as we will not be able to replace IV with such
       // upper bound. This is because b*(x/d) != (b*x)/d.
-      if (UpperBoundCE->getDenominator() != 1 ||
-          !CanonExprUtils::mergeable(CE, UpperBoundCE, true)) {
+      if ((UpperBoundCE->getDenominator() != 1 ||
+           !CanonExprUtils::mergeable(CE, UpperBoundCE, true)) &&
+          !UpperBoundCE->canConvertToStandAloneBlob()) {
         return UPPER_SUB_TYPE_MISMATCH;
       }
-      assert(CanonExprUtils::mergeable(CE, LoopI->getLowerCanonExpr(), true) &&
+      assert((CanonExprUtils::mergeable(CE, LoopI->getLowerCanonExpr(), true) ||
+              LoopI->getLowerCanonExpr()->canConvertToStandAloneBlob()) &&
              "Assuming that the Lower bound is also mergeable or can be "
              "represented as a blob if Upper is mergeable or can be represented"
              " as a blob");

@@ -1116,8 +1116,14 @@ bool CanonExpr::convertToStandAloneBlob() {
   // Add constant part.
   if (getConstant() != 0) {
     auto ConstBlob = BlobUtils::createBlob(getConstant(), getSrcType(), false);
-    MergedBlob = BlobUtils::createAddBlob(MergedBlob, ConstBlob, false);
+    if (MergedBlob) {
+      MergedBlob = BlobUtils::createAddBlob(MergedBlob, ConstBlob, false);
+    } else {
+      MergedBlob = ConstBlob;
+    }
   }
+
+  assert(MergedBlob && "MergedBlob should not be null at this point");
 
   // Create division for the denominator.
   if (getDenominator() != 1) {
