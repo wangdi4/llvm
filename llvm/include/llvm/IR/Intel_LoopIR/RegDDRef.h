@@ -25,7 +25,7 @@
 namespace llvm {
 
 class MDNode;
-class AAMDNodes;
+struct AAMDNodes;
 
 namespace loopopt {
 

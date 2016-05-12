@@ -1213,11 +1213,25 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     StoreVal = Ops[1];
 
   } else if (auto BOp = dyn_cast<BinaryOperator>(Inst)) {
-    StoreVal = Builder->CreateBinOp(BOp->getOpcode(), Ops[1], Ops[2]);
+    BinaryOperator *CastOp;
+    StoreVal = CastOp = cast<BinaryOperator>(
+        Builder->CreateBinOp(BOp->getOpcode(), Ops[1], Ops[2]));
+
+    if (isa<PossiblyExactOperator>(BOp)) {
+      CastOp->setIsExact(BOp->isExact());
+    }
+
+    if (isa<OverflowingBinaryOperator>(BOp)) {
+      CastOp->setHasNoSignedWrap(BOp->hasNoSignedWrap());
+      CastOp->setHasNoUnsignedWrap(BOp->hasNoUnsignedWrap());
+    }
+
+    // TODO: Copy metadata from HLInst instead.
+    RegDDRef::MDNodesTy MDs;
+    Inst->getAllMetadata(MDs);
+    setMetadata(CastOp, MDs);
 
   } else if (auto Call = dyn_cast<CallInst>(Inst)) {
-    RegDDRef::MDNodesTy CallMDs;
-
     if (HInst->hasLval()) {
       // Turns Operands vector into function args vector by removing lval
       // TODO: Separate this logic from framework's implementation of putting
@@ -1235,8 +1249,9 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     ResCall->setTailCallKind(Call->getTailCallKind());
 
     // TODO: Copy metadata from HLInst instead.
-    Call->getAllMetadata(CallMDs);
-    setMetadata(ResCall, CallMDs);
+    RegDDRef::MDNodesTy MDs;
+    Inst->getAllMetadata(MDs);
+    setMetadata(ResCall, MDs);
 
     StoreVal = ResCall;
 
@@ -1300,8 +1315,9 @@ Value *HIRCodeGen::CGVisitor::sumBlobs(CanonExpr *CE) {
   Value *res = BlobPairCG(CE, CurBlobPair);
   CurBlobPair++;
 
-  for (auto E = CE->blob_end(); CurBlobPair != E; ++CurBlobPair)
+  for (auto E = CE->blob_end(); CurBlobPair != E; ++CurBlobPair) {
     res = Builder->CreateAdd(res, BlobPairCG(CE, CurBlobPair));
+  }
 
   return res;
 }
@@ -1317,8 +1333,9 @@ Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {
       break;
   }
 
-  if (CurIVPair == CE->iv_end())
+  if (CurIVPair == CE->iv_end()) {
     llvm_unreachable("No iv in CE");
+  }
 
   Type *Ty = CE->getSrcType();
   if (Ty->isVectorTy()) {
