@@ -254,7 +254,7 @@ protected:
 
 public:
   
-#if 0
+#if 1
   // WRegionNodes are destroyed in bulk using
   // WRegionUtils::destroyAll(). iplist<> tries to
   // access and destroy the nodes if we don't clear them out here.

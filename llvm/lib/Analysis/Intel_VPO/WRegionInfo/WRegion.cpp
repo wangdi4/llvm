@@ -301,6 +301,10 @@ void WRNAtomicNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
   OS << Indent << "} END WRNAtomicNode<" << getNumber() << ">\n";
 }
 
+//
+// Methods for WRNMasterNode
+//
+
 // constructor
 WRNMasterNode::WRNMasterNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNMaster, BB) {
@@ -320,7 +324,7 @@ void WRNMasterNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
       const BasicBlock *BB = *I;
       OS << Indent << *BB;
     }
-  else 
+  else
     OS << Indent << "No BBSet\n";
 
   printChildren(OS, Depth + 1);

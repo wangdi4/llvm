@@ -267,6 +267,18 @@ void WRegionUtils::insertWRegionNode(
   return;
 }
 
+//Removal Utilities
+bool WRegionUtils::stripDirectives(WRegionNode *WRN) {
+  bool success = true;
+  BasicBlock *EntryBB = WRN->getEntryBBlock();
+  BasicBlock *ExitBB = WRN->getExitBBlock();
+
+  success = success && VPOUtils::stripDirectives(*EntryBB);
+  success = success && VPOUtils::stripDirectives(*ExitBB);
+
+  return success;
+}
+
 // Clause Utilities
 int WRegionUtils::getClauseIdFromAtomicKind(WRNAtomicKind Kind) {
   switch (Kind) {
