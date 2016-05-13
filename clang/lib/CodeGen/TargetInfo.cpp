@@ -2495,7 +2495,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
     postMerge(Size, Lo, Hi);
     assert((Hi != SSEUp || Lo == SSE) && "Invalid SSEUp array classification.");
 #if INTEL_CUSTOMIZATION
-    if ((Hi == SSE && Lo == SSE) && (Size == 128 ||
+    if (isNamedArg && (Hi == SSE && Lo == SSE) && (Size == 128 ||
         (AVXLevel == X86AVXABILevel::AVX && Size == 256))) {
       // Arguments of 256-bits are split into four eightbyte chunks. The
       // least significant one belongs to class SSE and all the others to class
@@ -2628,7 +2628,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
 
     postMerge(Size, Lo, Hi);
 #if INTEL_CUSTOMIZATION
-    if ((Hi == SSE && Lo == SSE) && (Size == 128 ||
+    if (isNamedArg && (Hi == SSE && Lo == SSE) && (Size == 128 ||
         (AVXLevel == X86AVXABILevel::AVX && Size == 256))) {
       // Arguments of 256-bits are split into four eightbyte chunks. The
       // least significant one belongs to class SSE and all the others to class
