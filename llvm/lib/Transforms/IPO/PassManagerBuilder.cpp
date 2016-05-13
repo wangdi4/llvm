@@ -155,7 +155,7 @@ static cl::opt<bool> RunMapIntrinToIml("enable-iml-trans",
 
 // Indirect call Conv
 static cl::opt<bool> EnableIndirectCallConv("enable-ind-call-conv",
-    cl::init(false), cl::Hidden, cl::desc("Enable Indirect Call Conv"));
+    cl::init(true), cl::Hidden, cl::desc("Enable Indirect Call Conv"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableNonLTOGlobalsModRef(
@@ -356,11 +356,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #endif // INTEL_CUSTOMIZATION
 
   MPM.add(createLICMPass());
-#if INTEL_CUSTOMIZATION
-  if (EnableIndirectCallConv && EnableAndersen) {
-    MPM.add(createIndirectCallConvPass()); // Indirect Call Conv
-  }
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
   if (OptLevel >= 2 && EnableNonLTOGlobalVarOpt && EnableAndersen) {
     MPM.add(createNonLTOGlobalOptimizerPass());
@@ -731,6 +726,15 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addInstructionCombiningPass(PM);
   addExtensionsToPM(EP_Peephole, PM);
 
+#if INTEL_CUSTOMIZATION
+  if (EnableAndersen) {
+    PM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
+  }
+  if (EnableIndirectCallConv && EnableAndersen) {
+    PM.add(createIndirectCallConvPass()); // Indirect Call Conv
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Inline small functions
   bool RunInliner = Inliner;
   if (RunInliner) {
@@ -764,17 +768,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createPostOrderFunctionAttrsLegacyPass()); // Add nocapture.
   PM.add(createGlobalsAAWrapperPass()); // IP alias analysis.
 
-#if INTEL_CUSTOMIZATION
-  if (EnableAndersen) {
-    PM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
-  }
-#endif // INTEL_CUSTOMIZATION
   PM.add(createLICMPass());                 // Hoist loop invariants.
-#if INTEL_CUSTOMIZATION
-  if (EnableIndirectCallConv && EnableAndersen) {
-    PM.add(createIndirectCallConvPass()); // Indirect Call Conv
-  }
-#endif // INTEL_CUSTOMIZATION
   if (EnableMLSM)
     PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
   PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.

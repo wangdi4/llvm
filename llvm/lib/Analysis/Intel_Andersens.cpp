@@ -153,6 +153,7 @@ static const char *(Andersens_Alloc_Intrinsics[]) = {
    "mmap",
    "palloc",
    "strdup",
+   "strndup",
    "memalign",
    "mempool_alloc",
    "_Znaj",
@@ -164,6 +165,111 @@ static const char *(Andersens_Alloc_Intrinsics[]) = {
    "_Znwm",
    "_ZnwmRKSt9nothrow_t",
    nullptr 
+};
+
+// Not handled lib calls yet: signal, atexit, strerror, strerror_r, localeconv,
+// fopen, fdopen, freopen 
+
+// Since types of args and returns are not pointers for below lib calls,
+// points-to analysis simply ignores them. So, decided not to add these
+// libs to any tables.
+//
+// div, abs, labs, llabs, acos*, acosh*, asin*, asinh*, creal,
+// cimage, cimagf, creall, cimagl, cabs*, cacos*, carg*, casin*,
+// catan*, conj*, cbrt*, ceil*, cos*, cosh*, trunc*, round*,
+// exp*, exp2*, expm1*, fabs*, floor*, fmod*, gamma*, gamma_r*,
+// hypot*, ilogb*, invsqrt*, j0*, j1*, jn*, lgamma*, llrint*,
+// llround*, log*, log10*, log1p*, log2*, logb*, lrint*, lround*,
+// fdim*, fma*, fmax*, fmin*, pow*, powi*, remainder*, rint*,
+// nearbyint*, nextafter*, nexttoward*, scalb*, scalbln*, scalbn*,
+// significand*, sin*, sinh*, sqrt*, tgamma*, y0*, y1*, yn*, tan*,
+// tanh*, abort, isatty, tolower, towlower, toupper, towupper,
+// srand, rand, srandom, close,, ldexp*, copysign*, getchar, putchar,
+// exit, difftime, isnan*, isinf*, ccos*, ccosh*, cis*, cexp*, clog*,
+// cpow*. cproj*, csin*, csinh*, csqrt*, ctan*, ctanh*, erf*, erfc*,
+// erfcx*, erfinv*, isalnum, isalpha, isascii, isblank, iscntrl,
+// isdigit, isgraph, islower, isprint, ispunct, isspace, iswspace,
+// isupper, isxdigit, fsync, chsize, eof, flushall, setmode, tell,
+// llvm.sqrt*, llvm.powi.*, llvm.sin.*, llvm.cos.*, llvm.pow.*,
+// llvm.exp.*, llvm.exp2.*, llvm.log.*, llvm.log10.*, llvm.log2.*,
+// llvm.fma.*, llvm.fabs.*, llvm.minnum.*, llvm.maxnum.*,
+// llvm.copysign.*, llvm.floor.*, llvm.ceil.*, llvm.trunc.*, llvm.rint.*,
+// llvm.nearbyint.*, llvm.round.*
+//
+
+// This table contains lib calls that don't change points-to
+// info.
+static const char *(Andersens_No_Side_Effects_Intrinsics[]) = {
+  "atoi", "atof", "atol", "atoll",
+  "remove", "unlink", "rename", "memcmp",
+  "llvm.memset.p0i8.i32", "llvm.memset.p0i8.i64",
+  "strcmp", "strncmp", "strlen", "strnlen", 
+  "execl", "execlp", "execle", "execv", "execvp"
+  "chmod", "puts", "write", "open",
+  "create", "truncate",  "chdir", "mkdir",
+  "rmdir", "read",  "pipe", "wait", "utime", 
+  "time", "stat",  "fstat", "lstat",
+  "fflush", "feof", "fclose", "fcloseall", 
+  "fileno", "clearerr", "rewind", "ftell", "ftello",
+  "ferror", "fgetc", "getc", "_IO_getc", "ungetc",
+  "fwrite", "fread", "fputc", "fputs", "putc",
+  "_IO_putc", "fseek", "fgetpos",
+  "fsetpos", "printf", "fprintf", "sprintf", "vsnprintf",
+  "vprintf", "vfprintf", "vsprintf", "scanf",
+  "fscanf", "sscanf", "vfscanf", "vscanf", "vsscanf", "__assert_fail",
+  "modf", "modff", "modfl", "setjmp", "longjmp", 
+  "gammaf_r", "lgammaf_r", "remquo", "remquof", "remquol", 
+  "sincos", "sincosf", "sincosl", "sincosd", "sincosdf", "sincosdl",
+  "setbuf", "setvbuf", "strspn", "strcspn", "frexp", "frexpf", "frexpl",
+  "system", "sinhcosh", "sinhcoshf", "sinhcoshl",   
+  "wcstombs", "mbstowcs", "mblen",
+  // TODO: Adding these two intrinsics causes an issue with
+  // self-build compiler on efi2linux. Need more investigation
+  // before adding them again.
+  // "llvm.lifetime.start", "llvm.lifetime.end",
+  "llvm.invariant.start", "llvm.invariant.end",
+  nullptr      
+};
+
+// Table contains memcpy like lib calls
+//
+static const char *(Andersens_Memcpy_Intrinsics[]) = {
+  "llvm.memcpy.p0i8.p0i8.i32", "llvm.memcpy.p0i8.p0i8.i64",
+  "llvm.memmove.p0i8.p0i8.i32", "llvm.memmove.p0i8.p0i8.i64",
+  "wcsncpy", "wcscpy", "memmove", "memcpy",
+  nullptr
+};
+
+// Model these lib calls like below: 
+//  *arg1 = arg0;
+//
+static const char *(Andersens_Store_Arg_0_in_Arg_1_Intrinsics[]) = {
+  "strtod", "strtof", "strtold", "strtoul", "strtoull",
+  "strtol", "strtoll", 
+  nullptr
+};
+
+// Model these lib calls like below:
+//     ret_val = arg0;
+//
+// llvm.memset.*, llvm.memmove etc  don't return anything.  
+// Note realloc, memcpy etc are in multiple tables.
+//
+static const char *(Andersens_Return_Arg_0_Intrinsics[]) = {
+  "realloc", "memset", "strchr", "strrchr", "strstr",
+  "strtok", "fgets", "gets", "strcat",  "strcpy", "strncpy", 
+  "memchr", "memrchr", "rawmemchr", "strtok_r", "strsep", "strpbrk",
+  "strncat", "memmem", "strcasestr", "memccpy", "memcpy", "mempcpy",
+  "memmove", "strfry", "strupr", "gets_s",
+  nullptr
+};
+
+// TODO: Need to add intrinsics like below:
+//       operator new(std::size_t, void *)
+//       operator new[](std::size_t, void *)
+//
+static const char *(Andersens_Return_Arg_1_Intrinsics[]) = {
+  nullptr
 };
 
 static const unsigned SelfRep = (unsigned)-1;
@@ -1284,13 +1390,59 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
   assert((F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition()) &&
          "Not an external function!");
 
-  if (IsLibFunction(F))
+  if (findNameInTable(F->getName(), Andersens_No_Side_Effects_Intrinsics)) {
     return true;
+  }
+
+  // VARARG node is created for every Vararg function. VARARG node is
+  // used to model varargs for both call and callee. 
+  
+  // void @llvm.va_start(i8* <arglist>)
+  //
+  // llvm.va_start is same as va_start and initializes <arglist> to VARARG
+  // of current routine.
+  //
+  if (F->getName() == "llvm.va_start") {
+    Function *Src_Fun;
+    const FunctionType *FTy = F->getFunctionType();
+
+    // Get current routine
+    Src_Fun = CS->getParent()->getParent();
+
+    if (!Src_Fun || !Src_Fun->getFunctionType()->isVarArg() ||
+        FTy->getNumParams() <= 0 || !isPointsToType(FTy->getParamType(0))) {
+      return false;
+    }
+    
+    CreateConstraint(Constraint::AddressOf, getNode(CS.getArgument(0)), 
+                     getVarargNode(Src_Fun));
+    return true;
+  }
+
+  // void @llvm.va_copy(i8* <destarglist>, i8* <srcarglist>)
+  //
+  // <destarglist> = <srcarglist>
+  //
+  if (F->getName() == "llvm.va_copy") {
+    const FunctionType *FTy = F->getFunctionType();
+    if (FTy->getNumParams() > 1 && 
+        isPointsToType(FTy->getParamType(0)) &&
+        isPointsToType(FTy->getParamType(1))) {
+      CreateConstraint(Constraint::Copy, getNode(CS.getArgument(0)),
+                       getNode(CS.getArgument(1)));
+      return true;
+    }
+  }
+
+  // Skip it since there is no change in points-to info
+  if (F->getName() == "llvm.va_end") {
+    return true;
+  }
+
+  bool lib_call_handled = false;
 
   // These functions do induce points-to edges.
-  if (F->getName() == "llvm.memcpy" ||
-      F->getName() == "llvm.memmove" ||
-      F->getName() == "memmove") {
+  if (findNameInTable(F->getName(), Andersens_Memcpy_Intrinsics)) {
 
     const FunctionType *FTy = F->getFunctionType();
     if (FTy->getNumParams() > 1 && 
@@ -1305,26 +1457,48 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
       GraphNodes.push_back(Node());
       CreateConstraint(Constraint::Store, FirstArg, TempArg);
       CreateConstraint(Constraint::Load, TempArg, SecondArg);
-      // In addition, Dest = Src
-      CreateConstraint(Constraint::Copy, FirstArg, SecondArg);
-      return true;
+      lib_call_handled = true;
+    }
+  }
+
+  // *arg1 = arg0 
+  if (findNameInTable(F->getName(), 
+      Andersens_Store_Arg_0_in_Arg_1_Intrinsics)) {
+
+    const FunctionType *FTy = F->getFunctionType();
+    if (FTy->getNumParams() > 1 && 
+        isPointsToType(FTy->getParamType(0)) &&
+        isPointsToType(FTy->getParamType(1))) {
+      unsigned FirstArg = getNode(CS.getArgument(0));
+      unsigned SecondArg = getNode(CS.getArgument(1));
+      CreateConstraint(Constraint::Store, SecondArg, FirstArg);
+      lib_call_handled = true;
     }
   }
 
   // Result = Arg0
-  if (F->getName() == "realloc" || F->getName() == "strchr" ||
-      F->getName() == "strrchr" || F->getName() == "strstr" ||
-      F->getName() == "strtok") {
+  if (findNameInTable(F->getName(), Andersens_Return_Arg_0_Intrinsics)) {
     const FunctionType *FTy = F->getFunctionType();
     if (FTy->getNumParams() > 0 && 
         isPointsToType(FTy->getParamType(0))) {
       CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()),
                        getNode(CS.getArgument(0)));
-      return true;
+      lib_call_handled = true;
     }
   }
 
-  return false;
+  // Result = Arg1
+  if (findNameInTable(F->getName(), Andersens_Return_Arg_1_Intrinsics)) {
+    const FunctionType *FTy = F->getFunctionType();
+    if (FTy->getNumParams() > 1 && 
+        isPointsToType(FTy->getParamType(1))) {
+      CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()),
+                       getNode(CS.getArgument(1)));
+      lib_call_handled = true;
+    }
+  }
+
+  return lib_call_handled;
 }
 
 /// CollectConstraints - This stage scans the program, adding a constraint to
@@ -1755,7 +1929,6 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
   CallSite::arg_iterator arg_end = CS.arg_end();
   Function::arg_iterator formal_itr = F->arg_begin();
   Function::arg_iterator formal_end = F->arg_end();
-  Function::arg_iterator last_formal = F->arg_end();
 
   if (isPointsToType(CS.getType())) {
     CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()), 
@@ -1774,23 +1947,16 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
         CreateConstraint(Constraint::Copy, getNode(&(*formal_itr)), UniversalSet);
       }     
     }
-    last_formal = formal_itr;
     ++formal_itr;
     ++arg_itr;
   }
 
   if (F->getFunctionType()->isVarArg()) {
-    if (last_formal == F->arg_end()) {
-      // Handle calls like "call @_Z3h1pz(...)  
-      // TODO:  
-      AddConstraintsForInitActualsToUniversalSet(CS);
-      return;
-    }
-    for (; arg_itr != arg_end && last_formal != formal_end; ++arg_itr) {
+    for (; arg_itr != arg_end; ++arg_itr) {
       Value* actual = *arg_itr;
       if (isPointsToType(actual->getType())) {
-        CreateConstraint(Constraint::Copy, getNode(&(*last_formal)),
-                         getNode(actual));
+        // Using VARARG node of routine to model varargs.
+        CreateConstraint(Constraint::Copy, getVarargNode(F), getNode(actual));
       }
     } 
   }
@@ -2958,7 +3124,6 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   CallSite::arg_iterator arg_end = CS.arg_end();
   Function::arg_iterator formal_itr = F->arg_begin();
   Function::arg_iterator formal_end = F->arg_end();
-  Function::arg_iterator last_formal = F->arg_end();
 
   // TODO: Ignore non-vararg functions if number of formals 
   // doesn’t match with number of arguments of the call-site 
@@ -2987,16 +3152,16 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
         AddEdgeInGraph(getNode(&(*formal_itr)), UniversalSet);
       }
     }
-    last_formal = formal_itr;
     ++formal_itr;
     ++arg_itr;
   }
 
   if (F->getFunctionType()->isVarArg()) {
-    for (; arg_itr != arg_end && last_formal != formal_end; ++arg_itr) {
+    for (; arg_itr != arg_end; ++arg_itr) {
       Value* actual = *arg_itr;
       if (isPointsToType(actual->getType())) {
-        AddEdgeInGraph(getNode(&(*last_formal)), getNode(actual));
+        // Using VARARG node of routine to model varargs.
+        AddEdgeInGraph(getVarargNode(F), getNode(actual));
       }
     }
   }

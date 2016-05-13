@@ -91,7 +91,8 @@ public:
   /// Base class is initialized with NumElements=0
   HIRVLSClientMemref(RegDDRef *Ref, VectVLSContext *Cntxt)
     : OVLSMemref(VLSK_HIRVLSClientMemref,
-                 CanonExprUtils::getTypeSizeInBits(Ref->getSrcType()), 0,
+                 OVLSType(CanonExprUtils::getTypeSizeInBits(Ref->getSrcType()),
+                          1),
                  OVLSAccessType::getUnknownTy()),
         Ref(Ref), VectContext(Cntxt), Stride(nullptr), ConstStride(0) {}
 
