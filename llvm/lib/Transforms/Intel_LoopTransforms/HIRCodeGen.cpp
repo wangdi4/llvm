@@ -1213,23 +1213,22 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     StoreVal = Ops[1];
 
   } else if (auto BOp = dyn_cast<BinaryOperator>(Inst)) {
-    BinaryOperator *CastOp;
-    StoreVal = CastOp = cast<BinaryOperator>(
-        Builder->CreateBinOp(BOp->getOpcode(), Ops[1], Ops[2]));
+    StoreVal = Builder->CreateBinOp(BOp->getOpcode(), Ops[1], Ops[2], "",
+                                    BOp->getMetadata(LLVMContext::MD_fpmath));
 
-    if (isa<PossiblyExactOperator>(BOp)) {
-      CastOp->setIsExact(BOp->isExact());
+    // CreateBinOp could fold operator to constant.
+    BinaryOperator *CastOp = dyn_cast<BinaryOperator>(StoreVal);
+
+    if (CastOp) {
+      if (isa<PossiblyExactOperator>(BOp)) {
+        CastOp->setIsExact(BOp->isExact());
+      }
+
+      if (isa<OverflowingBinaryOperator>(BOp)) {
+        CastOp->setHasNoSignedWrap(BOp->hasNoSignedWrap());
+        CastOp->setHasNoUnsignedWrap(BOp->hasNoUnsignedWrap());
+      }
     }
-
-    if (isa<OverflowingBinaryOperator>(BOp)) {
-      CastOp->setHasNoSignedWrap(BOp->hasNoSignedWrap());
-      CastOp->setHasNoUnsignedWrap(BOp->hasNoUnsignedWrap());
-    }
-
-    // TODO: Copy metadata from HLInst instead.
-    RegDDRef::MDNodesTy MDs;
-    Inst->getAllMetadata(MDs);
-    setMetadata(CastOp, MDs);
 
   } else if (auto Call = dyn_cast<CallInst>(Inst)) {
     if (HInst->hasLval()) {
