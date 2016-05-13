@@ -441,11 +441,11 @@ void PassManagerBuilder::populateModulePassManager(
 
   addInitialAliasAnalysisPasses(MPM);
 #if INTEL_CUSTOMIZATION
-  if (EnableAndersen) {
+  if (OptLevel >= 2 && EnableAndersen && !PrepareForLTO) {
     MPM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
-  }
-  if (EnableIndirectCallConv && EnableAndersen) {
-    MPM.add(createIndirectCallConvPass()); // Indirect Call Conv
+    if (EnableIndirectCallConv) {
+      MPM.add(createIndirectCallConvPass()); // Indirect Call Conv
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
