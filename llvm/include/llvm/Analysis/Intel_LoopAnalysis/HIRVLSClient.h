@@ -24,16 +24,17 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRVLSCLIENT_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRVLSCLIENT_H
 
-#include <map>
+#include "llvm/Analysis/Intel_OptVLS.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecContext.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Pass.h"
+#include <map>
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_OptVLS.h"
+using namespace llvm::vpo;
 
 namespace llvm {
-
 namespace loopopt {
 
 class HLNode;
@@ -54,23 +55,7 @@ typedef LoopMemrefsVector::iterator LoopMemrefsIt;
 /// The client analysis pass may consider several contexts. Specifically the
 /// vectorizer will consider different loops in a loop nest and different VFs.
 /// Therefore the context the Memrefs point to may change.
-class VectVLSContext {
-public:
-  VectVLSContext(DDGraph DDG, unsigned Level) : DDG(DDG), LoopLevel(Level) {}
-
-  DDGraph getDDG() const { return DDG; }
-  unsigned getLoopLevel() const { return LoopLevel; }
-  unsigned getVectFactor() { return VectFactor; }
-
-protected:
-  friend class HIRVectVLSAnalysis;
-  void setCurrentVF(unsigned VF) { VectFactor = VF; }
-
-private:
-  DDGraph DDG;
-  unsigned LoopLevel;
-  unsigned VectFactor;
-};
+typedef class VPOVecContextHIR VectVLSContext;
 
 /// A memory reference that is considered for Vector-Load-Store (VLS)
 /// optimization.
@@ -146,9 +131,8 @@ public:
   /// from two different clients. This is why this method has to accept the
   /// base type pointer, but always expects to get an HIRVLSClientMemref.
   bool isAConstDistanceFrom(const OVLSMemref &Mrf, int64_t *Distance) {
-    // FIXME: change to dynamic_cast or RTTI
-    const HIRVLSClientMemref *CLMrf = (const HIRVLSClientMemref *)(&Mrf);
-    assert(CLMrf != NULL);
+    assert(isa<HIRVLSClientMemref>(&Mrf) && "Expected HIRVLSClientMemref");
+    const HIRVLSClientMemref *CLMrf = cast<const HIRVLSClientMemref>(&Mrf);
     const RegDDRef *Ref2 = CLMrf->getRef();
     // In the context of VLS grouping, if the two Memrefs don't have the same
     // access type they will never end up in the same group so don't bother
@@ -162,12 +146,8 @@ public:
         (this->hasConstStride() && CLMrf->hasConstStride() &&
          !(this->getConstStride() == CLMrf->getConstStride())))
       return false;
-    // FIXME: Change OVLS.h to use int64_t in the definiton of
-    // isAConstDistanceFrom
-    int64_t Dist64;
-    bool Ok = DDRefUtils::getConstDistance(Ref, Ref2, &Dist64);
-    *Distance = (int)Dist64;
-    return Ok;
+
+    return DDRefUtils::getConstDistance(Ref, Ref2, Distance);
   }
 
   /// \bried Returns true if this and Memref have the same number of elements.
@@ -187,21 +167,21 @@ public:
   /// the same type (client type). Normally no usage scenario will mix \p Mrfs
   /// from two different clients. This is why this method has to accept the
   /// base type pointer, but always expects to get an HIRVLSClientMemref.
-  // FIXME: Add RTTI mechanism to Intel_OptVLS.h.
   bool canMoveTo(const OVLSMemref &Mrf) {
-    // FIXME: change to dynamic_cast or RTTI
-    const HIRVLSClientMemref *CLMrf = (const HIRVLSClientMemref *)(&Mrf);
-    assert(CLMrf != NULL);
+    assert(isa<HIRVLSClientMemref>(&Mrf) && "Expected HIRVLSClientMemref");
+    const HIRVLSClientMemref *CLMrf = cast<const HIRVLSClientMemref>(&Mrf);
     const RegDDRef *Ref2 = CLMrf->getRef();
     assert(Ref2);
     assert(CLMrf->sameVectContext(VectContext));
     return canAccessWith(Ref, Ref2, VectContext);
   }
 
-  // FIXME: Support Stride
   bool hasAConstStride(int64_t *Stride) {
-    // Temporary implementation
-    return false;
+    if (!hasConstStride())
+      return false;
+
+    *Stride = getConstStride();
+    return true;
   }
 
   /// \brief Checks if \p Ref can be moved to the location of \p AtRef.
@@ -232,10 +212,6 @@ public:
     OVLSMemref::setNumElements(NumElements);
   }
 
-  /// \brief Returns true if \p RefDD is invariant at \p Level
-  // FIXME: Temporarily here. To be moved to RegDDRef.h
-  static bool isInvariantAtLevel(const RegDDRef *RegDD, unsigned Level);
-
 private:
   /// \brief The memref that this object represents.
   const RegDDRef *Ref;
@@ -263,7 +239,6 @@ private:
 };
 
 } // End namespace loopopt
-
 } // End namespace llvm
 
 #endif
