@@ -19,7 +19,7 @@
 ; CHECK: 0x000000000000002c      3      0      1   0             0  is_stmt
 ; CHECK: 0x000000000000003c      4      0      1   0             0  is_stmt
 ; CHECK: 0x0000000000000048      5      0      1   0             0  is_stmt
-; CHECK: 0x0000000000000058      5      0      1   0             0  is_stmt end_sequence
+; CHECK: 0x0000000000000060      5      0      1   0             0  is_stmt end_sequence
 
 
 target datalayout = "E-m:m-p:32:32-i8:8:32-i16:16:32-i64:64-n32-S64"
@@ -56,11 +56,10 @@ attributes #1 = { nounwind readnone }
 !llvm.module.flags = !{!9, !10}
 !llvm.ident = !{!11}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C99, producer: "clang version 3.5.0 ", isOptimized: false, emissionKind: FullDebug, file: !1, enums: !2, retainedTypes: !2, subprograms: !3, globals: !2, imports: !2)
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, producer: "clang version 3.5.0 ", isOptimized: false, emissionKind: FullDebug, file: !1, enums: !2, retainedTypes: !2, globals: !2, imports: !2)
 !1 = !DIFile(filename: "test.c", directory: "/tmp")
 !2 = !{}
-!3 = !{!4}
-!4 = distinct !DISubprogram(name: "foo", line: 1, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: false, scopeLine: 1, file: !1, scope: !5, type: !6, variables: !2)
+!4 = distinct !DISubprogram(name: "foo", line: 1, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: false, unit: !0, scopeLine: 1, file: !1, scope: !5, type: !6, variables: !2)
 !5 = !DIFile(filename: "test.c", directory: "/tmp")
 !6 = !DISubroutineType(types: !7)
 !7 = !{!8, !8}

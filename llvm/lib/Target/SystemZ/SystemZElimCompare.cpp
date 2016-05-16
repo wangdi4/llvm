@@ -18,7 +18,6 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/IR/Function.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetMachine.h"
@@ -501,6 +500,9 @@ bool SystemZElimCompare::processBlock(MachineBasicBlock &MBB) {
 }
 
 bool SystemZElimCompare::runOnMachineFunction(MachineFunction &F) {
+  if (skipFunction(*F.getFunction()))
+    return false;
+
   TII = static_cast<const SystemZInstrInfo *>(F.getSubtarget().getInstrInfo());
   TRI = &TII->getRegisterInfo();
 

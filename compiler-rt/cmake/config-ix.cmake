@@ -268,7 +268,8 @@ set(ALL_TSAN_SUPPORTED_ARCH ${X86_64} ${MIPS64} ${ARM64} ${PPC64})
 set(ALL_UBSAN_SUPPORTED_ARCH ${X86} ${X86_64} ${ARM32} ${ARM64}
     ${MIPS32} ${MIPS64} ${PPC64} ${S390X})
 set(ALL_SAFESTACK_SUPPORTED_ARCH ${X86} ${X86_64} ${ARM64} ${MIPS32} ${MIPS64})
-set(ALL_CFI_SUPPORTED_ARCH ${X86} ${X86_64})
+set(ALL_CFI_SUPPORTED_ARCH ${X86} ${X86_64} ${MIPS64})
+set(ALL_ESAN_SUPPORTED_ARCH ${X86_64})
 
 if(APPLE)
   include(CompilerRTDarwinUtils)
@@ -424,11 +425,13 @@ if(APPLE)
           DARWIN_${platform}sim_ARCHS
           ${toolchain_arches})
         message(STATUS "${platform} Simulator supported arches: ${DARWIN_${platform}sim_ARCHS}")
-        if(DARWIN_iossim_ARCHS)
+        if(DARWIN_${platform}_ARCHS)
           list(APPEND SANITIZER_COMMON_SUPPORTED_OS ${platform}sim)
           list(APPEND BUILTIN_SUPPORTED_OS ${platform}sim)
           list(APPEND PROFILE_SUPPORTED_OS ${platform}sim)
-          list(APPEND TSAN_SUPPORTED_OS ${platform}sim)
+          if(DARWIN_${platform}_SYSROOT_INTERNAL)
+            list(APPEND TSAN_SUPPORTED_OS ${platform}sim)
+          endif()
         endif()
         foreach(arch ${DARWIN_${platform}sim_ARCHS})
           list(APPEND COMPILER_RT_SUPPORTED_ARCH ${arch})
@@ -501,6 +504,9 @@ if(APPLE)
   list_intersect(CFI_SUPPORTED_ARCH
     ALL_CFI_SUPPORTED_ARCH
     SANITIZER_COMMON_SUPPORTED_ARCH)
+  list_intersect(ESAN_SUPPORTED_ARCH
+    ALL_ESAN_SUPPORTED_ARCH
+    SANITIZER_COMMON_SUPPORTED_ARCH)
 else()
   # Architectures supported by compiler-rt libraries.
   filter_available_targets(BUILTIN_SUPPORTED_ARCH
@@ -523,6 +529,7 @@ else()
   filter_available_targets(SAFESTACK_SUPPORTED_ARCH
     ${ALL_SAFESTACK_SUPPORTED_ARCH})
   filter_available_targets(CFI_SUPPORTED_ARCH ${ALL_CFI_SUPPORTED_ARCH})
+  filter_available_targets(ESAN_SUPPORTED_ARCH ${ALL_ESAN_SUPPORTED_ARCH})
 endif()
 
 if (MSVC)
@@ -629,4 +636,11 @@ if (COMPILER_RT_HAS_SANITIZER_COMMON AND CFI_SUPPORTED_ARCH AND
   set(COMPILER_RT_HAS_CFI TRUE)
 else()
   set(COMPILER_RT_HAS_CFI FALSE)
+endif()
+
+if (COMPILER_RT_HAS_SANITIZER_COMMON AND ESAN_SUPPORTED_ARCH AND
+    OS_NAME MATCHES "Linux")
+  set(COMPILER_RT_HAS_ESAN TRUE)
+else()
+  set(COMPILER_RT_HAS_ESAN FALSE)
 endif()

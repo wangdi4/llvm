@@ -193,6 +193,18 @@ BitVector SIRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
     assert(!isSubRegister(ScratchRSrcReg, ScratchWaveOffsetReg));
   }
 
+  // Reserve VGPRs for trap handler usage if "amdgpu-debugger-reserve-trap-regs"
+  // attribute was specified.
+  const AMDGPUSubtarget &ST = MF.getSubtarget<AMDGPUSubtarget>();
+  if (ST.debuggerReserveTrapVGPRs()) {
+    unsigned ReservedVGPRFirst =
+      MaxWorkGroupVGPRCount - MFI->getDebuggerReserveTrapVGPRCount();
+    for (unsigned i = ReservedVGPRFirst; i < MaxWorkGroupVGPRCount; ++i) {
+      unsigned Reg = AMDGPU::VGPR_32RegClass.getRegister(i);
+      reserveRegisterTuples(Reserved, Reg);
+    }
+  }
+
   return Reserved;
 }
 
@@ -225,6 +237,133 @@ bool SIRegisterInfo::requiresRegisterScavenging(const MachineFunction &Fn) const
 bool
 SIRegisterInfo::requiresFrameIndexScavenging(const MachineFunction &MF) const {
   return MF.getFrameInfo()->hasStackObjects();
+}
+
+bool SIRegisterInfo::requiresVirtualBaseRegisters(
+  const MachineFunction &) const {
+  // There are no special dedicated stack or frame pointers.
+  return true;
+}
+
+int64_t SIRegisterInfo::getFrameIndexInstrOffset(const MachineInstr *MI,
+                                                 int Idx) const {
+  if (!SIInstrInfo::isMUBUF(*MI))
+    return 0;
+
+  assert(Idx == AMDGPU::getNamedOperandIdx(MI->getOpcode(),
+                                           AMDGPU::OpName::vaddr) &&
+         "Should never see frame index on non-address operand");
+
+  int OffIdx = AMDGPU::getNamedOperandIdx(MI->getOpcode(),
+                                          AMDGPU::OpName::offset);
+  return MI->getOperand(OffIdx).getImm();
+}
+
+bool SIRegisterInfo::needsFrameBaseReg(MachineInstr *MI, int64_t Offset) const {
+  return MI->mayLoadOrStore();
+}
+
+void SIRegisterInfo::materializeFrameBaseRegister(MachineBasicBlock *MBB,
+                                                  unsigned BaseReg,
+                                                  int FrameIdx,
+                                                  int64_t Offset) const {
+  MachineBasicBlock::iterator Ins = MBB->begin();
+  DebugLoc DL; // Defaults to "unknown"
+
+  if (Ins != MBB->end())
+    DL = Ins->getDebugLoc();
+
+  MachineFunction *MF = MBB->getParent();
+  const AMDGPUSubtarget &Subtarget = MF->getSubtarget<AMDGPUSubtarget>();
+  const TargetInstrInfo *TII = Subtarget.getInstrInfo();
+
+  assert(isUInt<27>(Offset) &&
+         "Private offset should never exceed maximum private size");
+
+
+  if (Offset == 0) {
+    BuildMI(*MBB, Ins, DL, TII->get(AMDGPU::V_MOV_B32_e32), BaseReg)
+      .addFrameIndex(FrameIdx);
+    return;
+  }
+
+  MachineRegisterInfo &MRI = MF->getRegInfo();
+  unsigned UnusedCarry = MRI.createVirtualRegister(&AMDGPU::SReg_64RegClass);
+
+  BuildMI(*MBB, Ins, DL, TII->get(AMDGPU::V_ADD_I32_e64), BaseReg)
+    .addReg(UnusedCarry, RegState::Define | RegState::Dead)
+    .addImm(Offset)
+    .addFrameIndex(FrameIdx);
+}
+
+void SIRegisterInfo::resolveFrameIndex(MachineInstr &MI, unsigned BaseReg,
+                                       int64_t Offset) const {
+
+  MachineBasicBlock *MBB = MI.getParent();
+  MachineFunction *MF = MBB->getParent();
+  const AMDGPUSubtarget &Subtarget = MF->getSubtarget<AMDGPUSubtarget>();
+  const SIInstrInfo *TII
+    = static_cast<const SIInstrInfo *>(Subtarget.getInstrInfo());
+
+#ifndef NDEBUG
+  // FIXME: Is it possible to be storing a frame index to itself?
+  bool SeenFI = false;
+  for (const MachineOperand &MO: MI.operands()) {
+    if (MO.isFI()) {
+      if (SeenFI)
+        llvm_unreachable("should not see multiple frame indices");
+
+      SeenFI = true;
+    }
+  }
+#endif
+
+  MachineOperand *FIOp = TII->getNamedOperand(MI, AMDGPU::OpName::vaddr);
+  assert(FIOp && FIOp->isFI() && "frame index must be address operand");
+
+  assert(TII->isMUBUF(MI));
+
+  MachineOperand *OffsetOp = TII->getNamedOperand(MI, AMDGPU::OpName::offset);
+  int64_t NewOffset = OffsetOp->getImm() + Offset;
+  if (isUInt<12>(NewOffset)) {
+    // If we have a legal offset, fold it directly into the instruction.
+    FIOp->ChangeToRegister(BaseReg, false);
+    OffsetOp->setImm(NewOffset);
+    return;
+  }
+
+  // The offset is not legal, so we must insert an add of the offset.
+  MachineRegisterInfo &MRI = MF->getRegInfo();
+  unsigned NewReg = MRI.createVirtualRegister(&AMDGPU::VGPR_32RegClass);
+  DebugLoc DL = MI.getDebugLoc();
+
+  assert(Offset != 0 && "Non-zero offset expected");
+
+  unsigned UnusedCarry = MRI.createVirtualRegister(&AMDGPU::SReg_64RegClass);
+
+  // In the case the instruction already had an immediate offset, here only
+  // the requested new offset is added because we are leaving the original
+  // immediate in place.
+  BuildMI(*MBB, MI, DL, TII->get(AMDGPU::V_ADD_I32_e64), NewReg)
+    .addReg(UnusedCarry, RegState::Define | RegState::Dead)
+    .addImm(Offset)
+    .addReg(BaseReg);
+
+  FIOp->ChangeToRegister(NewReg, false);
+}
+
+bool SIRegisterInfo::isFrameOffsetLegal(const MachineInstr *MI,
+                                        unsigned BaseReg,
+                                        int64_t Offset) const {
+  return SIInstrInfo::isMUBUF(*MI) && isUInt<12>(Offset);
+}
+
+const TargetRegisterClass *SIRegisterInfo::getPointerRegClass(
+  const MachineFunction &MF, unsigned Kind) const {
+  // This is inaccurate. It depends on the instruction and address space. The
+  // only place where we should hit this is for dealing with frame indexes /
+  // private accesses, so this is correct in that case.
+  return &AMDGPU::VGPR_32RegClass;
 }
 
 static unsigned getNumSubRegsForSpillOp(unsigned Op) {
@@ -455,22 +594,6 @@ void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
                   .addImm(0)
                   .addReg(MI->getOperand(0).getReg(), RegState::ImplicitDefine);
         }
-      }
-
-      // TODO: only do this when it is needed
-      switch (MF->getSubtarget<AMDGPUSubtarget>().getGeneration()) {
-      case AMDGPUSubtarget::SOUTHERN_ISLANDS:
-        // "VALU writes SGPR" -> "SMRD reads that SGPR" needs 4 wait states
-        // ("S_NOP 3") on SI
-        TII->insertWaitStates(*MBB, MI, 4);
-        break;
-      case AMDGPUSubtarget::SEA_ISLANDS:
-        break;
-      default: // VOLCANIC_ISLANDS and later
-        // "VALU writes SGPR -> VMEM reads that SGPR" needs 5 wait states
-        // ("S_NOP 4") on VI and later. This also applies to VALUs which write
-        // VCC, but we're unlikely to see VMEM use VCC.
-        TII->insertWaitStates(*MBB, MI, 5);
       }
 
       MI->eraseFromParent();
@@ -790,7 +913,8 @@ unsigned SIRegisterInfo::getPreloadedValue(const MachineFunction &MF,
     assert(MFI->hasDispatchPtr());
     return MFI->DispatchPtrUserSGPR;
   case SIRegisterInfo::QUEUE_PTR:
-    llvm_unreachable("not implemented");
+    assert(MFI->hasQueuePtr());
+    return MFI->QueuePtrUserSGPR;
   case SIRegisterInfo::WORKITEM_ID_X:
     assert(MFI->hasWorkItemIDX());
     return AMDGPU::VGPR0;
@@ -850,4 +974,15 @@ unsigned SIRegisterInfo::getNumSGPRsAllowed(AMDGPUSubtarget::Generation gen,
       default: return 103;
     }
   }
+}
+
+bool SIRegisterInfo::isVGPR(const MachineRegisterInfo &MRI,
+                            unsigned Reg) const {
+  const TargetRegisterClass *RC;
+  if (TargetRegisterInfo::isVirtualRegister(Reg))
+    RC = MRI.getRegClass(Reg);
+  else
+    RC = getPhysRegClass(Reg);
+
+  return hasVGPRs(RC);
 }

@@ -609,6 +609,7 @@ void Parser::ParseMicrosoftTypeAttributes(ParsedAttributes &attrs) {
     case tok::kw___ptr64:
     case tok::kw___w64:
     case tok::kw___ptr32:
+    case tok::kw___unaligned:
     case tok::kw___sptr:
     case tok::kw___uptr: {
       IdentifierInfo *AttrName = Tok.getIdentifierInfo();
@@ -2003,7 +2004,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
         TemplateParameterLists FakedParamLists;
         FakedParamLists.push_back(Actions.ActOnTemplateParameterList(
             0, SourceLocation(), TemplateInfo.TemplateLoc, LAngleLoc, None,
-            LAngleLoc));
+            LAngleLoc, nullptr));
 
         ThisDecl =
             Actions.ActOnTemplateDeclarator(getCurScope(), FakedParamLists, D);
@@ -3086,11 +3087,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       break;
     }
 
-    case tok::kw___unaligned:
-      isInvalid = DS.SetTypeQual(DeclSpec::TQ_unaligned, Loc, PrevSpec, DiagID,
-                                 getLangOpts());
-      break;
-
     case tok::kw___sptr:
     case tok::kw___uptr:
     case tok::kw___ptr64:
@@ -3101,6 +3097,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     case tok::kw___fastcall:
     case tok::kw___thiscall:
     case tok::kw___vectorcall:
+    case tok::kw___unaligned:
       ParseMicrosoftTypeAttributes(DS.getAttributes());
       continue;
 
@@ -3307,10 +3304,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       break;
     case tok::kw_double:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_double, Loc, PrevSpec,
-                                     DiagID, Policy);
-      break;
-    case tok::kw___float128:
-      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float128, Loc, PrevSpec,
                                      DiagID, Policy);
       break;
     case tok::kw_wchar_t:
@@ -4262,27 +4255,6 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
   }
 }
 
-/// isTypeSpecifierQualifier - Return true if the current token could be the
-/// start of a type-qualifier-list.
-bool Parser::isTypeQualifier() const {
-  switch (Tok.getKind()) {
-  default: return false;
-  // type-qualifier
-  case tok::kw_const:
-  case tok::kw_volatile:
-  case tok::kw_restrict:
-  case tok::kw___private:
-  case tok::kw___local:
-  case tok::kw___global:
-  case tok::kw___constant:
-  case tok::kw___generic:
-  case tok::kw___read_only:
-  case tok::kw___read_write:
-  case tok::kw___write_only:
-    return true;
-  }
-}
-
 /// isKnownToBeTypeSpecifier - Return true if we know that the specified token
 /// is definitely a type-specifier.  Return false if it isn't part of a type
 /// specifier or if we're not sure.
@@ -4307,7 +4279,6 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-  case tok::kw___float128:
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -4382,7 +4353,6 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-  case tok::kw___float128:
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -4537,7 +4507,6 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-  case tok::kw___float128:
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -4822,10 +4791,6 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
       ParseOpenCLQualifiers(DS.getAttributes());
       break;
 
-    case tok::kw___unaligned:
-      isInvalid = DS.SetTypeQual(DeclSpec::TQ_unaligned, Loc, PrevSpec, DiagID,
-                                 getLangOpts());
-      break;
     case tok::kw___uptr:
       // GNU libc headers in C mode use '__uptr' as an identifer which conflicts
       // with the MS modifier keyword.
@@ -4843,6 +4808,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
     case tok::kw___fastcall:
     case tok::kw___thiscall:
     case tok::kw___vectorcall:
+    case tok::kw___unaligned:
       if (AttrReqs & AR_DeclspecAttributesParsed) {
         ParseMicrosoftTypeAttributes(DS.getAttributes());
         continue;
@@ -5065,8 +5031,7 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
                                                 DS.getConstSpecLoc(),
                                                 DS.getVolatileSpecLoc(),
                                                 DS.getRestrictSpecLoc(),
-                                                DS.getAtomicSpecLoc(),
-                                                DS.getUnalignedSpecLoc()),
+                                                DS.getAtomicSpecLoc()),
                     DS.getAttributes(),
                     SourceLocation());
     else

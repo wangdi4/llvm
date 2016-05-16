@@ -1503,7 +1503,6 @@ void Sema::actOnObjCTypeArgsOrProtocolQualifiers(
                                                 SourceLocation(),
                                                 SourceLocation(),
                                                 SourceLocation(),
-                                                SourceLocation(),
                                                 SourceLocation()),
                                                 parsedAttrs,
                                                 starLoc);
@@ -3304,6 +3303,12 @@ void Sema::addMethodToGlobalList(ObjCMethodList *List,
 void Sema::ReadMethodPool(Selector Sel) {
   assert(ExternalSource && "We need an external AST source");
   ExternalSource->ReadMethodPool(Sel);
+}
+
+void Sema::updateOutOfDateSelector(Selector Sel) {
+  if (!ExternalSource)
+    return;
+  ExternalSource->updateOutOfDateSelector(Sel);
 }
 
 void Sema::AddMethodToGlobalPool(ObjCMethodDecl *Method, bool impl,

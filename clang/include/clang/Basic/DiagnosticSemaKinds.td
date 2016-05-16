@@ -352,6 +352,14 @@ def warn_decl_shadow :
           "static data member of %2|"
           "field of %2}1">,
   InGroup<Shadow>, DefaultIgnore;
+def warn_ctor_parm_shadows_field:
+  Warning<"constructor parameter %0 shadows the field %1 of %2">,
+  InGroup<ShadowFieldInConstructor>, DefaultIgnore;
+def warn_modifying_shadowing_decl :
+  Warning<"modifying constructor parameter %0 that shadows a "
+          "field of %1">,
+  InGroup<ShadowFieldInConstructorModified>, DefaultIgnore;
+
 
 // C++ using declarations
 def err_using_requires_qualname : Error<
@@ -1667,7 +1675,7 @@ def warn_maybe_uninit_var : Warning<
   "variable %0 may be uninitialized when "
   "%select{used here|captured by block}1">,
   InGroup<UninitializedMaybe>, DefaultIgnore;
-def note_uninit_var_def : Note<"variable %0 is declared here">;
+def note_var_declared_here : Note<"variable %0 is declared here">;
 def note_uninit_var_use : Note<
   "%select{uninitialized use occurs|variable is captured by block}0 here">;
 def warn_uninit_byref_blockvar_captured_by_block : Warning<
@@ -2504,9 +2512,6 @@ def warn_type_attribute_wrong_type : Warning<
 def warn_incomplete_encoded_type : Warning<
   "encoding of %0 type is incomplete because %1 component has unknown encoding">,
   InGroup<DiagGroup<"encode-type">>;
-def warn_attribute_requires_functions_or_static_globals : Warning<
-  "%0 only applies to variables with static storage duration and functions">,
-  InGroup<IgnoredAttributes>;
 def warn_gnu_inline_attribute_requires_inline : Warning<
   "'gnu_inline' attribute requires function to be marked 'inline',"
   " attribute ignored">,
@@ -2742,9 +2747,6 @@ def warn_impcast_float_precision : Warning<
 def warn_impcast_double_promotion : Warning<
   "implicit conversion increases floating-point precision: %0 to %1">,
   InGroup<DoublePromotion>, DefaultIgnore;
-def warn_impcast_float_integer : Warning<
-  "implicit conversion turns floating-point number into integer: %0 to %1">,
-  InGroup<FloatConversion>, DefaultIgnore;
 def warn_impcast_integer_sign : Warning<
   "implicit conversion changes signedness: %0 to %1">,
   InGroup<SignConversion>, DefaultIgnore;
@@ -2763,9 +2765,22 @@ def warn_impcast_integer_precision_constant : Warning<
 def warn_impcast_bitfield_precision_constant : Warning<
   "implicit truncation from %2 to bitfield changes value from %0 to %1">,
   InGroup<BitFieldConstantConversion>;
+
 def warn_impcast_literal_float_to_integer : Warning<
   "implicit conversion from %0 to %1 changes value from %2 to %3">,
   InGroup<LiteralConversion>;
+def warn_impcast_float_integer : Warning<
+  "implicit conversion turns floating-point number into integer: %0 to %1">,
+  InGroup<FloatConversion>, DefaultIgnore;
+
+def warn_impcast_float_to_integer : Warning<
+  "implicit conversion of out of range value from %0 to %1 changes value "
+  "from %2 to %3">,
+  InGroup<FloatOverflowConversion>, DefaultIgnore;
+def warn_impcast_float_to_integer_zero : Warning<
+  "implicit conversion from %0 to %1 changes non-zero value from %2 to %3">,
+  InGroup<FloatZeroConversion>, DefaultIgnore;
+
 def warn_impcast_string_literal_to_bool : Warning<
   "implicit conversion turns string literal into bool: %0 to %1">,
   InGroup<StringConversion>, DefaultIgnore;
@@ -3883,7 +3898,18 @@ def note_template_type_alias_instantiation_here : Note<
   "in instantiation of template type alias %0 requested here">;
 def note_template_exception_spec_instantiation_here : Note<
   "in instantiation of exception specification for %0 requested here">;
-  
+def warn_var_template_missing : Warning<"instantiation of variable %q0 "
+  "required here, but no definition is available">,
+  InGroup<UndefinedVarTemplate>;
+def warn_func_template_missing : Warning<"instantiation of function %q0 "
+  "required here, but no definition is available">,
+  InGroup<UndefinedFuncTemplate>, DefaultIgnore;
+def note_forward_template_decl : Note<
+  "forward declaration of template entity is here">;
+def note_inst_declaration_hint : Note<"add an explicit instantiation "
+  "declaration to suppress this warning if %q0 is explicitly instantiated in "
+  "another translation unit">;
+
 def note_default_arg_instantiation_here : Note<
   "in instantiation of default argument for '%0' required here">;
 def note_default_function_arg_instantiation_here : Note<
@@ -5246,6 +5272,8 @@ def err_typecheck_pointer_arith_void_type : Error<
   "arithmetic on%select{ a|}0 pointer%select{|s}0 to void">;
 def err_typecheck_decl_incomplete_type : Error<
   "variable has incomplete type %0">;
+def err_typecheck_decl_incomplete_type___float128 : Error<
+  "support for type '__float128' is not yet implemented">;
 def ext_typecheck_decl_incomplete_type : ExtWarn<
   "tentative definition of variable with internal linkage has incomplete non-array type %0">,
   InGroup<DiagGroup<"tentative-definition-incomplete-type">>;
@@ -7409,10 +7437,13 @@ def err_va_start_used_in_wrong_abi_function : Error<
   "'va_start' used in %select{System V|Win64}0 ABI function">;
 def err_ms_va_start_used_in_sysv_function : Error<
   "'__builtin_ms_va_start' used in System V ABI function">;
-def warn_second_parameter_of_va_start_not_last_named_argument : Warning<
-  "second parameter of 'va_start' not last named argument">, InGroup<Varargs>;
-def warn_va_start_of_reference_type_is_undefined : Warning<
-  "'va_start' has undefined behavior with reference types">, InGroup<Varargs>;
+def warn_second_arg_of_va_start_not_last_named_param : Warning<
+  "second argument to 'va_start' is not the last named parameter">,
+  InGroup<Varargs>;
+def warn_va_start_type_is_undefined : Warning<
+  "passing %select{an object that undergoes default argument promotion|"
+  "an object of reference type|a parameter declared with the 'register' "
+  "keyword}0 to 'va_start' has undefined behavior">, InGroup<Varargs>;
 def err_first_argument_to_va_arg_not_of_type_va_list : Error<
   "first argument to 'va_arg' is of type %0 and not 'va_list'">;
 def err_second_parameter_to_va_arg_incomplete: Error<
@@ -7599,8 +7630,8 @@ def err_c99_array_usage_cxx : Error<
   "feature, not permitted in C++">;
  def err_type_requires_extension : Error<
   "use of type %0 requires %1 extension to be enabled">;
-def err_type_unsupported : Error<
-  "%0 is not supported on this target">;
+def err_int128_unsupported : Error<
+  "__int128 is not supported on this target">;
 def err_nsconsumed_attribute_mismatch : Error<
   "overriding method has mismatched ns_consumed attribute on its"
   " parameter">;
@@ -8233,6 +8264,10 @@ def err_module_private_local_class : Error<
 def err_module_unimported_use : Error<
   "%select{declaration|definition|default argument}0 of %1 must be imported "
   "from module '%2' before it is required">;
+def err_module_unimported_use_header : Error<
+  "missing '#include %3'; "
+  "%select{declaration|definition|default argument}0 of %1 must be imported "
+  "from module '%2' before it is required">;
 def err_module_unimported_use_multiple : Error<
   "%select{declaration|definition|default argument}0 of %1 must be imported "
   "from one of the following modules before it is required:%2">;
@@ -8433,5 +8468,13 @@ def err_objc_type_arg_does_not_match_bound : Error<
 def warn_objc_redundant_qualified_class_type : Warning<
   "parameterized class %0 already conforms to the protocols listed; did you "
   "forget a '*'?">, InGroup<ObjCProtocolQualifiers>;
+
+def warn_block_literal_attributes_on_omitted_return_type : Warning<
+  "attribute %0 ignored, because it cannot be applied to omitted return type">,
+  InGroup<IgnoredAttributes>;
+
+def warn_block_literal_qualifiers_on_omitted_return_type : Warning<
+  "'%0' qualifier on omitted return type %1 has no effect">,
+  InGroup<IgnoredQualifiers>;
 
 } // end of sema component.

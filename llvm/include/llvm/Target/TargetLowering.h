@@ -41,6 +41,7 @@
 #include <vector>
 
 namespace llvm {
+  class BranchProbability;
   class CallInst;
   class CCState;
   class CCValAssign;
@@ -261,6 +262,10 @@ public:
     return PredictableSelectIsExpensive;
   }
 
+  /// If a branch or a select condition is skewed in one direction by more than
+  /// this factor, it is very likely to be predicted correctly.
+  virtual BranchProbability getPredictableBranchThreshold() const;
+
   /// isLoadBitCastBeneficial() - Return true if the following transform
   /// is beneficial.
   /// fold (conv (load x)) -> (load (conv*)x)
@@ -268,9 +273,31 @@ public:
   /// efficiently, casting the load to a smaller vector of larger types and
   /// loading is more efficient, however, this can be undone by optimizations in
   /// dag combiner.
-  virtual bool isLoadBitCastBeneficial(EVT /* Load */,
-                                       EVT /* Bitcast */) const {
+  virtual bool isLoadBitCastBeneficial(EVT LoadVT,
+                                       EVT BitcastVT) const {
+    // Don't do if we could do an indexed load on the original type, but not on
+    // the new one.
+    if (!LoadVT.isSimple() || !BitcastVT.isSimple())
+      return true;
+
+    MVT LoadMVT = LoadVT.getSimpleVT();
+
+    // Don't bother doing this if it's just going to be promoted again later, as
+    // doing so might interfere with other combines.
+    if (getOperationAction(ISD::LOAD, LoadMVT) == Promote &&
+        getTypeToPromoteTo(ISD::LOAD, LoadMVT) == BitcastVT.getSimpleVT())
+      return false;
+
     return true;
+  }
+
+  /// isStoreBitCastBeneficial() - Mirror of isLoadBitCastBeneficial(). Return
+  /// true if the following transform is beneficial.
+  ///
+  /// (store (y (conv x)), y*)) -> (store x, (x*))
+  virtual bool isStoreBitCastBeneficial(EVT StoreVT, EVT BitcastVT) const {
+    // Default to the same logic as loads.
+    return isLoadBitCastBeneficial(StoreVT, BitcastVT);
   }
 
   /// Return true if it is expected to be cheaper to do a store of a non-zero
@@ -603,21 +630,20 @@ public:
     unsigned MemI = (unsigned) MemVT.getSimpleVT().SimpleTy;
     assert(ExtType < ISD::LAST_LOADEXT_TYPE && ValI < MVT::LAST_VALUETYPE &&
            MemI < MVT::LAST_VALUETYPE && "Table isn't big enough!");
-    return LoadExtActions[ValI][MemI][ExtType];
+    unsigned Shift = 4 * ExtType;
+    return (LegalizeAction)((LoadExtActions[ValI][MemI] >> Shift) & 0xf);
   }
 
   /// Return true if the specified load with extension is legal on this target.
   bool isLoadExtLegal(unsigned ExtType, EVT ValVT, EVT MemVT) const {
-    return ValVT.isSimple() && MemVT.isSimple() &&
-      getLoadExtAction(ExtType, ValVT, MemVT) == Legal;
+    return getLoadExtAction(ExtType, ValVT, MemVT) == Legal;
   }
 
   /// Return true if the specified load with extension is legal or custom
   /// on this target.
   bool isLoadExtLegalOrCustom(unsigned ExtType, EVT ValVT, EVT MemVT) const {
-    return ValVT.isSimple() && MemVT.isSimple() &&
-      (getLoadExtAction(ExtType, ValVT, MemVT) == Legal ||
-       getLoadExtAction(ExtType, ValVT, MemVT) == Custom);
+    return getLoadExtAction(ExtType, ValVT, MemVT) == Legal ||
+           getLoadExtAction(ExtType, ValVT, MemVT) == Custom;
   }
 
   /// Return how this store with truncation should be treated: either it is
@@ -635,16 +661,15 @@ public:
   /// Return true if the specified store with truncation is legal on this
   /// target.
   bool isTruncStoreLegal(EVT ValVT, EVT MemVT) const {
-    return isTypeLegal(ValVT) && MemVT.isSimple() &&
-      getTruncStoreAction(ValVT.getSimpleVT(), MemVT.getSimpleVT()) == Legal;
+    return isTypeLegal(ValVT) && getTruncStoreAction(ValVT, MemVT) == Legal;
   }
 
   /// Return true if the specified store with truncation has solution on this
   /// target.
   bool isTruncStoreLegalOrCustom(EVT ValVT, EVT MemVT) const {
-    return isTypeLegal(ValVT) && MemVT.isSimple() &&
-      (getTruncStoreAction(ValVT.getSimpleVT(), MemVT.getSimpleVT()) == Legal ||
-       getTruncStoreAction(ValVT.getSimpleVT(), MemVT.getSimpleVT()) == Custom);
+    return isTypeLegal(ValVT) &&
+      (getTruncStoreAction(ValVT, MemVT) == Legal ||
+       getTruncStoreAction(ValVT, MemVT) == Custom);
   }
 
   /// Return how the indexed load should be treated: either it is legal, needs
@@ -689,7 +714,7 @@ public:
   LegalizeAction
   getCondCodeAction(ISD::CondCode CC, MVT VT) const {
     assert((unsigned)CC < array_lengthof(CondCodeActions) &&
-           ((unsigned)VT.SimpleTy >> 4) < array_lengthof(CondCodeActions[0]) &&
+           ((unsigned)VT.SimpleTy >> 3) < array_lengthof(CondCodeActions[0]) &&
            "Table isn't big enough!");
     // See setCondCodeAction for how this is encoded.
     uint32_t Shift = 4 * (VT.SimpleTy & 0x7);
@@ -1015,6 +1040,8 @@ public:
 
   /// If the target has a standard location for the stack protector guard,
   /// returns the address of that location. Otherwise, returns nullptr.
+  /// DEPRECATED: please override useLoadStackGuardNode and customize
+  ///             LOAD_STACK_GUARD, or customize @llvm.stackguard().
   virtual Value *getIRStackGuard(IRBuilder<> &IRB) const;
 
   /// Inserts necessary declarations for SSP purpose. Should be used only when
@@ -1024,7 +1051,7 @@ public:
   /// Return the variable that's previously inserted by insertSSPDeclarations,
   /// if any, otherwise return nullptr. Should be used only when
   /// getIRStackGuard returns nullptr.
-  virtual Value *getSDStackGuard(const Module &M) const;
+  virtual Value *getSDagStackGuard(const Module &M) const;
 
   /// If the target has a standard location for the unsafe stack pointer,
   /// returns the address of that location. Otherwise, returns nullptr.
@@ -1360,7 +1387,10 @@ protected:
                         LegalizeAction Action) {
     assert(ExtType < ISD::LAST_LOADEXT_TYPE && ValVT.isValid() &&
            MemVT.isValid() && "Table isn't big enough!");
-    LoadExtActions[(unsigned)ValVT.SimpleTy][MemVT.SimpleTy][ExtType] = Action;
+    assert((unsigned)Action < 0x10 && "too many bits for bitfield array");
+    unsigned Shift = 4 * ExtType;
+    LoadExtActions[ValVT.SimpleTy][MemVT.SimpleTy] &= ~((uint16_t)0xF << Shift);
+    LoadExtActions[ValVT.SimpleTy][MemVT.SimpleTy] |= (uint16_t)Action << Shift;
   }
 
   /// Indicate that the specified truncating store does not work with the
@@ -1933,9 +1963,9 @@ private:
 
   /// For each load extension type and each value type, keep a LegalizeAction
   /// that indicates how instruction selection should deal with a load of a
-  /// specific value type and extension type.
-  LegalizeAction LoadExtActions[MVT::LAST_VALUETYPE][MVT::LAST_VALUETYPE]
-                               [ISD::LAST_LOADEXT_TYPE];
+  /// specific value type and extension type. Uses 4-bits to store the action
+  /// for each of the 4 load ext types.
+  uint16_t LoadExtActions[MVT::LAST_VALUETYPE][MVT::LAST_VALUETYPE];
 
   /// For each value type pair keep a LegalizeAction that indicates whether a
   /// truncating store of a specific value type and truncating type is legal.
@@ -2921,6 +2951,15 @@ public:
   /// \param ST Store with a vector value type
   /// \returns MERGE_VALUs of the individual store chains.
   SDValue scalarizeVectorStore(StoreSDNode *ST, SelectionDAG &DAG) const;
+
+  /// Expands an unaligned load to 2 half-size loads for an integer, and
+  /// possibly more for vectors.
+  std::pair<SDValue, SDValue> expandUnalignedLoad(LoadSDNode *LD,
+                                                  SelectionDAG &DAG) const;
+
+  /// Expands an unaligned store to 2 half-size stores for integer values, and
+  /// possibly more for vectors.
+  SDValue expandUnalignedStore(StoreSDNode *ST, SelectionDAG &DAG) const;
 
   //===--------------------------------------------------------------------===//
   // Instruction Emitting Hooks

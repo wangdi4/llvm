@@ -108,7 +108,6 @@ bool Sema::isSimpleTypeSpecifier(tok::TokenKind Kind) const {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-  case tok::kw___float128:
   case tok::kw_wchar_t:
   case tok::kw_bool:
   case tok::kw___underlying_type:
@@ -1610,9 +1609,19 @@ void Sema::ActOnPopScope(SourceLocation Loc, Scope *S) {
     // If this was a forward reference to a label, verify it was defined.
     if (LabelDecl *LD = dyn_cast<LabelDecl>(D))
       CheckPoppedLabel(LD, *this);
-    
-    // Remove this name from our lexical scope.
+
+    // Remove this name from our lexical scope, and warn on it if we haven't
+    // already.
     IdResolver.RemoveDecl(D);
+    auto ShadowI = ShadowingDecls.find(D);
+    if (ShadowI != ShadowingDecls.end()) {
+      if (const auto *FD = dyn_cast<FieldDecl>(ShadowI->second)) {
+        Diag(D->getLocation(), diag::warn_ctor_parm_shadows_field)
+            << D << FD << FD->getParent();
+        Diag(FD->getLocation(), diag::note_previous_declaration);
+      }
+      ShadowingDecls.erase(ShadowI);
+    }
   }
 }
 
@@ -3974,8 +3983,6 @@ Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS, DeclSpec &DS,
     // Restrict is covered above.
     if (DS.getTypeQualifiers() & DeclSpec::TQ_atomic)
       Diag(DS.getAtomicSpecLoc(), DiagID) << "_Atomic";
-    if (DS.getTypeQualifiers() & DeclSpec::TQ_unaligned)
-      Diag(DS.getUnalignedSpecLoc(), DiagID) << "__unaligned";
   }
 
   // Warn about ignored type attributes, for example:
@@ -4233,11 +4240,6 @@ Decl *Sema::BuildAnonymousStructOrUnion(Scope *S, DeclSpec &DS,
              diag::ext_anonymous_struct_union_qualified)
           << Record->isUnion() << "_Atomic"
           << FixItHint::CreateRemoval(DS.getAtomicSpecLoc());
-      if (DS.getTypeQualifiers() & DeclSpec::TQ_unaligned)
-        Diag(DS.getUnalignedSpecLoc(),
-             diag::ext_anonymous_struct_union_qualified)
-          << Record->isUnion() << "__unaligned"
-          << FixItHint::CreateRemoval(DS.getUnalignedSpecLoc());
 
       DS.ClearTypeQualifiers();
     }
@@ -6390,6 +6392,17 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   return NewVD;
 }
 
+/// Enum describing the %select options in diag::warn_decl_shadow.
+enum ShadowedDeclKind { SDK_Local, SDK_Global, SDK_StaticMember, SDK_Field };
+
+/// Determine what kind of declaration we're shadowing.
+static ShadowedDeclKind computeShadowedDeclKind(const NamedDecl *ShadowedDecl,
+                                                const DeclContext *OldDC) {
+  if (isa<RecordDecl>(OldDC))
+    return isa<FieldDecl>(ShadowedDecl) ? SDK_Field : SDK_StaticMember;
+  return OldDC->isFileContext() ? SDK_Global : SDK_Local;
+}
+
 /// \brief Diagnose variable or built-in function shadowing.  Implements
 /// -Wshadow.
 ///
@@ -6418,11 +6431,22 @@ void Sema::CheckShadow(Scope *S, VarDecl *D, const LookupResult& R) {
   if (!isa<VarDecl>(ShadowedDecl) && !isa<FieldDecl>(ShadowedDecl))
     return;
 
-  // Fields are not shadowed by variables in C++ static methods.
-  if (isa<FieldDecl>(ShadowedDecl))
+  if (FieldDecl *FD = dyn_cast<FieldDecl>(ShadowedDecl)) {
+    // Fields are not shadowed by variables in C++ static methods.
     if (CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(NewDC))
       if (MD->isStatic())
         return;
+
+    // Fields shadowed by constructor parameters are a special case. Usually
+    // the constructor initializes the field with the parameter.
+    if (isa<CXXConstructorDecl>(NewDC) && isa<ParmVarDecl>(D)) {
+      // Remember that this was shadowed so we can either warn about its
+      // modification or its existence depending on warning settings.
+      D = D->getCanonicalDecl();
+      ShadowingDecls.insert({D, FD});
+      return;
+    }
+  }
 
   if (VarDecl *shadowedVar = dyn_cast<VarDecl>(ShadowedDecl))
     if (shadowedVar->isExternC()) {
@@ -6451,27 +6475,13 @@ void Sema::CheckShadow(Scope *S, VarDecl *D, const LookupResult& R) {
     // shadowing context, but that's just a false negative.
   }
 
-  // Determine what kind of declaration we're shadowing.
-
-  // The order must be consistent with the %select in the warning message.
-  enum ShadowedDeclKind { Local, Global, StaticMember, Field };
-  ShadowedDeclKind Kind;
-  if (isa<RecordDecl>(OldDC)) {
-    if (isa<FieldDecl>(ShadowedDecl))
-      Kind = Field;
-    else
-      Kind = StaticMember;
-  } else if (OldDC->isFileContext()) {
-    Kind = Global;
-  } else {
-    Kind = Local;
-  }
 
   DeclarationName Name = R.getLookupName();
 
   // Emit warning and note.
   if (getSourceManager().isInSystemMacro(R.getNameLoc()))
     return;
+  ShadowedDeclKind Kind = computeShadowedDeclKind(ShadowedDecl, OldDC);
   Diag(R.getNameLoc(), diag::warn_decl_shadow) << Name << Kind << OldDC;
   Diag(ShadowedDecl->getLocation(), diag::note_previous_declaration);
 }
@@ -6485,6 +6495,30 @@ void Sema::CheckShadow(Scope *S, VarDecl *D) {
                  Sema::LookupOrdinaryName, Sema::ForRedeclaration);
   LookupName(R, S);
   CheckShadow(S, D, R);
+}
+
+/// Check if 'E', which is an expression that is about to be modified, refers
+/// to a constructor parameter that shadows a field.
+void Sema::CheckShadowingDeclModification(Expr *E, SourceLocation Loc) {
+  // Quickly ignore expressions that can't be shadowing ctor parameters.
+  if (!getLangOpts().CPlusPlus || ShadowingDecls.empty())
+    return;
+  E = E->IgnoreParenImpCasts();
+  auto *DRE = dyn_cast<DeclRefExpr>(E);
+  if (!DRE)
+    return;
+  const NamedDecl *D = cast<NamedDecl>(DRE->getDecl()->getCanonicalDecl());
+  auto I = ShadowingDecls.find(D);
+  if (I == ShadowingDecls.end())
+    return;
+  const NamedDecl *ShadowedDecl = I->second;
+  const DeclContext *OldDC = ShadowedDecl->getDeclContext();
+  Diag(Loc, diag::warn_modifying_shadowing_decl) << D << OldDC;
+  Diag(D->getLocation(), diag::note_var_declared_here) << D;
+  Diag(ShadowedDecl->getLocation(), diag::note_previous_declaration);
+
+  // Avoid issuing multiple warnings about the same decl.
+  ShadowingDecls.erase(I);
 }
 
 /// Check for conflict between this global or extern "C" declaration and
@@ -8638,6 +8672,14 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
           NewTemplateDecl->getInstantiatedFromMemberTemplate()) {
         NewTemplateDecl->setMemberSpecialization();
         assert(OldTemplateDecl->isMemberSpecialization());
+        // Explicit specializations of a member template do not inherit deleted
+        // status from the parent member template that they are specializing.
+        if (OldTemplateDecl->getTemplatedDecl()->isDeleted()) {
+          FunctionDecl *const OldTemplatedDecl =
+              OldTemplateDecl->getTemplatedDecl();
+          assert(OldTemplatedDecl->getCanonicalDecl() == OldTemplatedDecl);
+          OldTemplatedDecl->setDeletedAsWritten(false);
+        }
       }
       
     } else {

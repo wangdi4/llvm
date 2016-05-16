@@ -3839,6 +3839,19 @@ bool LLParser::ParseDICompositeType(MDNode *&Result, bool IsDistinct) {
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
+  // If this has an identifier try to build an ODR type.
+  if (identifier.Val)
+    if (auto *CT = DICompositeType::buildODRType(
+            Context, *identifier.Val, tag.Val, name.Val, file.Val, line.Val,
+            scope.Val, baseType.Val, size.Val, align.Val, offset.Val, flags.Val,
+            elements.Val, runtimeLang.Val, vtableHolder.Val,
+            templateParams.Val)) {
+      Result = CT;
+      return false;
+    }
+
+  // Create a new node, and save it in the context if it belongs in the type
+  // map.
   Result = GET_OR_DISTINCT(
       DICompositeType,
       (Context, tag.Val, name.Val, file.Val, line.Val, scope.Val, baseType.Val,
@@ -3875,8 +3888,7 @@ bool LLParser::ParseDIFile(MDNode *&Result, bool IsDistinct) {
 ///   ::= !DICompileUnit(language: DW_LANG_C99, file: !0, producer: "clang",
 ///                      isOptimized: true, flags: "-O2", runtimeVersion: 1,
 ///                      splitDebugFilename: "abc.debug",
-///                      emissionKind: FullDebug,
-///                      enums: !1, retainedTypes: !2, subprograms: !3,
+///                      emissionKind: FullDebug, enums: !1, retainedTypes: !2,
 ///                      globals: !4, imports: !5, macros: !6, dwoId: 0x0abcd)
 bool LLParser::ParseDICompileUnit(MDNode *&Result, bool IsDistinct) {
   if (!IsDistinct)
@@ -3893,7 +3905,6 @@ bool LLParser::ParseDICompileUnit(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(emissionKind, EmissionKindField, );                                 \
   OPTIONAL(enums, MDField, );                                                  \
   OPTIONAL(retainedTypes, MDField, );                                          \
-  OPTIONAL(subprograms, MDField, );                                            \
   OPTIONAL(globals, MDField, );                                                \
   OPTIONAL(imports, MDField, );                                                \
   OPTIONAL(macros, MDField, );                                                 \
@@ -3904,8 +3915,7 @@ bool LLParser::ParseDICompileUnit(MDNode *&Result, bool IsDistinct) {
   Result = DICompileUnit::getDistinct(
       Context, language.Val, file.Val, producer.Val, isOptimized.Val, flags.Val,
       runtimeVersion.Val, splitDebugFilename.Val, emissionKind.Val, enums.Val,
-      retainedTypes.Val, subprograms.Val, globals.Val, imports.Val, macros.Val,
-      dwoId.Val);
+      retainedTypes.Val, globals.Val, imports.Val, macros.Val, dwoId.Val);
   return false;
 }
 
@@ -3934,6 +3944,7 @@ bool LLParser::ParseDISubprogram(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(virtualIndex, MDUnsignedField, (0, UINT32_MAX));                    \
   OPTIONAL(flags, DIFlagField, );                                              \
   OPTIONAL(isOptimized, MDBoolField, );                                        \
+  OPTIONAL(unit, MDField, );                                                   \
   OPTIONAL(templateParams, MDField, );                                         \
   OPTIONAL(declaration, MDField, );                                            \
   OPTIONAL(variables, MDField, );
@@ -3946,11 +3957,11 @@ bool LLParser::ParseDISubprogram(MDNode *&Result, bool IsDistinct) {
         "missing 'distinct', required for !DISubprogram when 'isDefinition'");
 
   Result = GET_OR_DISTINCT(
-      DISubprogram,
-      (Context, scope.Val, name.Val, linkageName.Val, file.Val, line.Val,
-       type.Val, isLocal.Val, isDefinition.Val, scopeLine.Val,
-       containingType.Val, virtuality.Val, virtualIndex.Val, flags.Val,
-       isOptimized.Val, templateParams.Val, declaration.Val, variables.Val));
+      DISubprogram, (Context, scope.Val, name.Val, linkageName.Val, file.Val,
+                     line.Val, type.Val, isLocal.Val, isDefinition.Val,
+                     scopeLine.Val, containingType.Val, virtuality.Val,
+                     virtualIndex.Val, flags.Val, isOptimized.Val, unit.Val,
+                     templateParams.Val, declaration.Val, variables.Val));
   return false;
 }
 

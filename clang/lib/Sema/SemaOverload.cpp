@@ -1671,20 +1671,6 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
     SCS.Second = ICK_Complex_Real;
     FromType = ToType.getUnqualifiedType();
   } else if (FromType->isRealFloatingType() && ToType->isRealFloatingType()) {
-    // FIXME: disable conversions between long double and __float128 if
-    // their representation is different until there is back end support
-    // We of course allow this conversion if long double is really double.
-    if (&S.Context.getFloatTypeSemantics(FromType) !=
-        &S.Context.getFloatTypeSemantics(ToType)) {
-      bool Float128AndLongDouble = ((FromType == S.Context.Float128Ty &&
-                                    ToType == S.Context.LongDoubleTy) ||
-                                   (FromType == S.Context.LongDoubleTy &&
-                                    ToType == S.Context.Float128Ty));
-      if (Float128AndLongDouble &&
-          (&S.Context.getFloatTypeSemantics(S.Context.LongDoubleTy) !=
-           &llvm::APFloat::IEEEdouble))
-        return false;
-    }
     // Floating point conversions (C++ 4.8).
     SCS.Second = ICK_Floating_Conversion;
     FromType = ToType.getUnqualifiedType();
@@ -1987,8 +1973,7 @@ bool Sema::IsFloatingPointPromotion(QualType FromType, QualType ToType) {
       if (!getLangOpts().CPlusPlus &&
           (FromBuiltin->getKind() == BuiltinType::Float ||
            FromBuiltin->getKind() == BuiltinType::Double) &&
-          (ToBuiltin->getKind() == BuiltinType::LongDouble ||
-           ToBuiltin->getKind() == BuiltinType::Float128))
+          (ToBuiltin->getKind() == BuiltinType::LongDouble))
         return true;
 
       // Half can be promoted to float.
@@ -7213,13 +7198,13 @@ class BuiltinOperatorOverloadBuilder {
   // provided via the getArithmeticType() method below.
   // The "promoted arithmetic types" are the arithmetic
   // types are that preserved by promotion (C++ [over.built]p2).
-  static const unsigned FirstIntegralType = 4;
-  static const unsigned LastIntegralType = 21;
-  static const unsigned FirstPromotedIntegralType = 4,
-                        LastPromotedIntegralType = 12;
+  static const unsigned FirstIntegralType = 3;
+  static const unsigned LastIntegralType = 20;
+  static const unsigned FirstPromotedIntegralType = 3,
+                        LastPromotedIntegralType = 11;
   static const unsigned FirstPromotedArithmeticType = 0,
-                        LastPromotedArithmeticType = 12;
-  static const unsigned NumArithmeticTypes = 21;
+                        LastPromotedArithmeticType = 11;
+  static const unsigned NumArithmeticTypes = 20;
 
   /// \brief Get the canonical type for a given arithmetic type index.
   CanQualType getArithmeticType(unsigned index) {
@@ -7230,7 +7215,6 @@ class BuiltinOperatorOverloadBuilder {
       &ASTContext::FloatTy,
       &ASTContext::DoubleTy,
       &ASTContext::LongDoubleTy,
-      &ASTContext::Float128Ty,
 
       // Start of integral types.
       &ASTContext::IntTy,
@@ -7273,7 +7257,7 @@ class BuiltinOperatorOverloadBuilder {
     // (we could precompute SLL x UI for all known platforms, but it's
     // better not to make any assumptions).
     // We assume that int128 has a higher rank than long long on all platforms.
-    enum PromotedType {
+    enum PromotedType : int8_t {
             Dep=-1,
             Flt,  Dbl, LDbl,   SI,   SL,  SLL, S128,   UI,   UL,  ULL, U128
     };
@@ -9340,11 +9324,8 @@ static void DiagnoseArityMismatch(Sema &S, OverloadCandidate *Cand,
 }
 
 static TemplateDecl *getDescribedTemplate(Decl *Templated) {
-  if (FunctionDecl *FD = dyn_cast<FunctionDecl>(Templated))
-    return FD->getDescribedFunctionTemplate();
-  else if (CXXRecordDecl *RD = dyn_cast<CXXRecordDecl>(Templated))
-    return RD->getDescribedClassTemplate();
-
+  if (TemplateDecl *TD = Templated->getDescribedTemplate())
+    return TD;
   llvm_unreachable("Unsupported: Getting the described template declaration"
                    " for bad deduction diagnosis");
 }

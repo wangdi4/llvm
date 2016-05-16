@@ -20,7 +20,7 @@ namespace lld {
 namespace elf {
 
 class InputFile;
-class SymbolBody;
+struct Symbol;
 
 enum ELFKind {
   ELFNoneKind,
@@ -37,7 +37,7 @@ enum class BuildIdKind { None, Fnv1, Md5, Sha1 };
 // and such fields have the same name as the corresponding options.
 // Most fields are initialized by the driver.
 struct Configuration {
-  SymbolBody *EntrySym = nullptr;
+  Symbol *EntrySym = nullptr;
   InputFile *FirstElf = nullptr;
   llvm::StringRef DynamicLinker;
   llvm::StringRef Entry;
@@ -48,9 +48,11 @@ struct Configuration {
   llvm::StringRef SoName;
   llvm::StringRef Sysroot;
   std::string RPath;
+  std::string Reproduce;
   std::vector<llvm::StringRef> DynamicList;
   std::vector<llvm::StringRef> SearchPaths;
   std::vector<llvm::StringRef> Undefined;
+  std::vector<llvm::StringRef> VersionScriptGlobals;
   bool AllowMultipleDefinition;
   bool AsNeeded = false;
   bool Bsymbolic;
@@ -84,6 +86,7 @@ struct Configuration {
   bool Threads;
   bool Trace;
   bool Verbose;
+  bool VersionScript = false;
   bool WarnCommon;
   bool ZExecStack;
   bool ZNodelete;
@@ -94,6 +97,7 @@ struct Configuration {
   ELFKind EKind = ELFNoneKind;
   uint16_t EMachine = llvm::ELF::EM_NONE;
   uint64_t EntryAddr = -1;
+  unsigned LtoJobs;
   unsigned LtoO;
   unsigned Optimize;
 };
