@@ -6202,7 +6202,8 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
       // stdcall and fastcall are ignored with a warning for GCC and MS
       // compatibility.
       bool IsInvalid = true;
-      if (CC == CC_X86StdCall || CC == CC_X86FastCall) {
+      if (CC == CC_X86StdCall || CC == CC_X86FastCall ||             // INTEL
+          (S.getLangOpts().IntelCompat && CC == CC_X86VectorCall)) { // INTEL
         DiagID = diag::warn_cconv_varargs;
         IsInvalid = false;
       }
