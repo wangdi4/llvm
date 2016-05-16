@@ -1949,7 +1949,10 @@ static bool isMType(QualType T, StringRef &MTypeName) {
   if (TDTy == nullptr)
     return false;
 
-  MTypeName = TDTy->getDecl()->getCanonicalDecl()->getIdentifier()->getName();
+  if (const auto *IInfo = TDTy->getDecl()->getCanonicalDecl()->getIdentifier())
+    MTypeName = IInfo->getName();
+  else
+    return false;
 
   bool res = llvm::StringSwitch<bool>(MTypeName)
     .Case("__m64", true)
