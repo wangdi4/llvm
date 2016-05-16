@@ -641,9 +641,8 @@ void HIRRegionIdentification::formRegions() {
 }
 
 bool HIRRegionIdentification::runOnFunction(Function &F) {
-  if (skipOptnoneFunction(F)) {
+  if (F.hasFnAttribute(Attribute::OptimizeNone))
     return false;
-  }
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();

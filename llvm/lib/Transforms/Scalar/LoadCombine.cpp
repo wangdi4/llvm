@@ -222,7 +222,7 @@ bool LoadCombine::combineLoads(SmallVectorImpl<LoadPOPPair> &Loads) {
 }
 
 bool LoadCombine::runOnBasicBlock(BasicBlock &BB) {
-  if (skipOptnoneFunction(BB))
+  if (skipBasicBlock(BB))
     return false;
 
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();

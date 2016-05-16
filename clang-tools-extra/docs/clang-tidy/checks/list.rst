@@ -3,12 +3,15 @@
 Clang-Tidy Checks
 =========================
 
-.. toctree::   
+.. toctree::
+
+   boost-use-to-string
    cert-dcl03-c (redirects to misc-static-assert) <cert-dcl03-c>
    cert-dcl50-cpp
    cert-dcl54-cpp (redirects to misc-new-delete-overloads) <cert-dcl54-cpp>
    cert-dcl59-cpp (redirects to google-build-namespaces) <cert-dcl59-cpp>
    cert-env33-c
+   cert-err34-c
    cert-err52-cpp
    cert-err58-cpp
    cert-err60-cpp
@@ -53,6 +56,7 @@ Clang-Tidy Checks
    misc-bool-pointer-implicit-conversion
    misc-dangling-handle
    misc-definitions-in-headers
+   misc-fold-init-type
    misc-forward-declaration-namespace
    misc-inaccurate-erase
    misc-incorrect-roundings
@@ -60,19 +64,23 @@ Clang-Tidy Checks
    misc-macro-parentheses
    misc-macro-repeated-side-effects
    misc-misplaced-widening-cast
+   misc-move-const-arg
    misc-move-constructor-init
    misc-multiple-statement-macro
    misc-new-delete-overloads
    misc-noexcept-move-constructor
    misc-non-copyable-objects
    misc-pointer-and-integral-operation
+   misc-redundant-expression
    misc-sizeof-container
    misc-sizeof-expression
    misc-static-assert
+   misc-string-constructor
    misc-string-integer-assignment
    misc-string-literal-with-embedded-nul
    misc-suspicious-missing-comma
    misc-suspicious-semicolon
+   misc-suspicious-string-compare
    misc-swapped-arguments
    misc-throw-by-value-catch-by-reference
    misc-undelegated-constructor
@@ -80,6 +88,7 @@ Clang-Tidy Checks
    misc-unused-alias-decls
    misc-unused-parameters
    misc-unused-raii
+   misc-unused-using-decls
    misc-virtual-near-miss
    modernize-deprecated-headers
    modernize-loop-convert
