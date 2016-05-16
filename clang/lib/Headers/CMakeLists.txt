@@ -9,8 +9,10 @@ set(modified_files
   avx512fintrin.h
   avx512ifmaintrin.h
   avx512ifmavlintrin.h
+  avx512pfintrin.h
   avx512vlbwintrin.h
   avx512vlintrin.h
+  avx512vlcdintrin.h
   avx512dqintrin.h
   avx512vldqintrin.h
   avx512vbmiintrin.h

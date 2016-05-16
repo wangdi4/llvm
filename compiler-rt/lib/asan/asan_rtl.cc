@@ -27,10 +27,6 @@
 #include "sanitizer_common/sanitizer_atomic.h"
 #include "sanitizer_common/sanitizer_flags.h"
 #include "sanitizer_common/sanitizer_libc.h"
-#if defined(__s390x__) && defined(__linux__)
-// For AvoidCVE_2016_2143.
-#include "sanitizer_common/sanitizer_linux.h"
-#endif
 #include "sanitizer_common/sanitizer_symbolizer.h"
 #include "lsan/lsan_common.h"
 #include "ubsan/ubsan_init.h"
@@ -332,7 +328,7 @@ static void InitializeHighMemEnd() {
 static void ProtectGap(uptr addr, uptr size) {
   if (!flags()->protect_shadow_gap)
     return;
-  void *res = MmapNoAccess(addr, size, "shadow gap");
+  void *res = MmapFixedNoAccess(addr, size, "shadow gap");
   if (addr == (uptr)res)
     return;
   // A few pages at the start of the address space can not be protected.
@@ -343,7 +339,7 @@ static void ProtectGap(uptr addr, uptr size) {
     while (size > step && addr < kZeroBaseMaxShadowStart) {
       addr += step;
       size -= step;
-      void *res = MmapNoAccess(addr, size, "shadow gap");
+      void *res = MmapFixedNoAccess(addr, size, "shadow gap");
       if (addr == (uptr)res)
         return;
     }
@@ -419,9 +415,7 @@ static void AsanInitInternal() {
 
   AsanCheckIncompatibleRT();
   AsanCheckDynamicRTPrereqs();
-#if defined(__s390x__) && defined(__linux__)
   AvoidCVE_2016_2143();
-#endif
 
   SetCanPoisonMemory(flags()->poison_heap);
   SetMallocContextSize(common_flags()->malloc_context_size);

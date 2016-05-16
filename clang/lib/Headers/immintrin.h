@@ -83,6 +83,10 @@ _mm256_cvtph_ps(__m128i __a)
 
 #include <avx512vlbwintrin.h>
 
+#ifndef __INTEL_COMPILER
+#include <avx512vlcdintrin.h>
+#endif /* __INTEL_COMPILER */
+
 #include <avx512vldqintrin.h>
 
 #include <avx512erintrin.h>
@@ -94,6 +98,10 @@ _mm256_cvtph_ps(__m128i __a)
 #include <avx512vbmiintrin.h>
 
 #include <avx512vbmivlintrin.h>
+
+#ifndef __INTEL_COMPILER
+#include <avx512pfintrin.h>
+#endif /* __INTEL_COMPILER */
 
 #include <pkuintrin.h>
 

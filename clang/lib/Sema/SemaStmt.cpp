@@ -40,6 +40,7 @@
 #if INTEL_CUSTOMIZATION
 #include "clang/Basic/PartialDiagnostic.h"
 #endif  // INTEL_CUSTOMIZATION
+
 using namespace clang;
 using namespace sema;
 

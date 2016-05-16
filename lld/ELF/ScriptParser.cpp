@@ -14,6 +14,7 @@
 
 #include "ScriptParser.h"
 #include "Error.h"
+#include "llvm/ADT/Twine.h"
 
 using namespace llvm;
 using namespace lld;
@@ -42,8 +43,12 @@ void ScriptParserBase::printErrorPos() {
 void ScriptParserBase::setError(const Twine &Msg) {
   if (Error)
     return;
-  error("line " + Twine(getPos()) + ": " + Msg);
-  printErrorPos();
+  if (Input.empty()) {
+    error(Msg);
+  } else {
+    error("line " + Twine(getPos()) + ": " + Msg);
+    printErrorPos();
+  }
   Error = true;
 }
 
@@ -70,7 +75,7 @@ std::vector<StringRef> ScriptParserBase::tokenize(StringRef S) {
     // Unquoted token
     size_t Pos = S.find_first_not_of(
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-        "0123456789_.$/\\~=+[]*?-:");
+        "0123456789_.$/\\~=+[]*?-:!<>");
     // A character that cannot start a word (which is usually a
     // punctuation) forms a single character token.
     if (Pos == 0)
