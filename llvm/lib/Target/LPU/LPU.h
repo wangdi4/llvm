@@ -27,9 +27,10 @@ namespace llvm {
   FunctionPass *createLPUISelDag(LPUTargetMachine &TM,
                                  llvm::CodeGenOpt::Level OptLevel);
   MachineFunctionPass *createLPUConvertControlPass();
+  MachineFunctionPass *createLPUCvtCFDFPass();
+  MachineFunctionPass *createLPUOptDFPass();
   MachineFunctionPass *createLPUAllocUnitPass();
   MachineFunctionPass *createLPUPrologEpilogPass();
-  MachineFunctionPass *createLPULICAllocPass();
   /// \brief Creates an LPU-specific Target Transformation Info pass.
   ImmutablePass *createLPUTargetTransformInfoPass(const LPUTargetMachine *TM);
   //FunctionPass *createLPULowerStructArgsPass();

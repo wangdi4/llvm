@@ -66,11 +66,11 @@ LPUTargetMachine::LPUTargetMachine(const Target &T, StringRef TT,
 
 
 void LPUTargetMachine::addAnalysisPasses(PassManagerBase &PM) {
-	// Add first the target-independent BasicTTI pass, then our X86 pass. This
-	// allows the X86 pass to delegate to the target independent layer when
-	// appropriate.
-	//PM.add(createBasicTargetTransformInfoPass(this));
-	PM.add(createLPUTargetTransformInfoPass(this));
+  // Add first the target-independent BasicTTI pass, then our X86 pass. This
+  // allows the X86 pass to delegate to the target independent layer when
+  // appropriate.
+  //PM.add(createBasicTargetTransformInfoPass(this));
+  PM.add(createLPUTargetTransformInfoPass(this));
 }
 
 
@@ -101,7 +101,19 @@ public:
     addPass(createLPUConvertControlPass(), false);
     Banner = std::string("After LPUConvertControlPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-  }
+
+    Banner = std::string("Before LPUCvtCFDFPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    addPass(createLPUCvtCFDFPass(), false);
+    Banner = std::string("After LPUCvtCFDFPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
+    Banner = std::string("Before LPUOptDFPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    addPass(createLPUOptDFPass(), false);
+    Banner = std::string("After LPUOptDFPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+}
 
   void addPostRegAlloc() override {
     addPass(createLPUAllocUnitPass(), false);
