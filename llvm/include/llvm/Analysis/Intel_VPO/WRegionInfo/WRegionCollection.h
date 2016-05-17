@@ -81,15 +81,20 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
 
+  /// \brief Entry point for on-demand call to build the WRGraph.
+  /// If FromHIR==true, it walks the HIR; else, it walks the LLVM IR
+  void buildWRGraph(bool FromHIR);
+
   /// \brief Returns true if ParOpt/VecOpt is able to handle this loop.
   bool isCandidateLoop(Loop &Lp);
 
   /// \brief performs pre-order visit in LLVM Dom-Tree to get W-Regions
-
   void doPreOrderDomTreeVisit(BasicBlock *BB, WRStack<WRegionNode *> *S);
 
   /// \brief Identifies WRegionNodes and builds WRGraph for LLVM Dom-Tree
-  void doBuildWRegionGraph(Function &F);
+  void buildWRGraphFromLLVMIR(Function &F);
+
+  //TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
 
   /// \brief Returns WRGraph
   WRContainerTy *getWRGraph() { return WRGraph; }
