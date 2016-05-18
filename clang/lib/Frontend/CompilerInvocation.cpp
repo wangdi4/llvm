@@ -485,8 +485,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.EmitIntelSTI = Args.hasArg(OPT_gintel_sti);
 #endif // INTEL_CUSTOMIZATION
   Opts.WholeProgramVTables = Args.hasArg(OPT_fwhole_program_vtables);
-  Opts.WholeProgramVTablesBlacklistFiles =
-      Args.getAllArgValues(OPT_fwhole_program_vtables_blacklist_EQ);
+  Opts.LTOVisibilityPublicStd = Args.hasArg(OPT_flto_visibility_public_std);
   Opts.SplitDwarfFile = Args.getLastArgValue(OPT_split_dwarf_file);
   Opts.DebugTypeExtRefs = Args.hasArg(OPT_dwarf_ext_refs);
   Opts.DebugExplicitImport = Triple.isPS4CPU(); 
@@ -1376,6 +1375,7 @@ static void ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args) {
 }
 
 void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+                                         const llvm::Triple &T,
                                          LangStandard::Kind LangStd) {
   // Set some properties which depend solely on the input kind; it would be nice
   // to move these to the language standard, and have the driver resolve the
@@ -1408,7 +1408,11 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
     case IK_PreprocessedC:
     case IK_ObjC:
     case IK_PreprocessedObjC:
-      LangStd = LangStandard::lang_gnu11;
+      // The PS4 uses C99 as the default C standard.
+      if (T.isPS4())
+        LangStd = LangStandard::lang_gnu99;
+      else
+        LangStd = LangStandard::lang_gnu11;
       break;
     case IK_CXX:
     case IK_PreprocessedCXX:
@@ -1527,9 +1531,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
             << A->getAsString(Args) << "C++/ObjC++";
         break;
       case IK_OpenCL:
-        if (!Std.isC99())
-          Diags.Report(diag::err_drv_argument_not_allowed_with)
-            << A->getAsString(Args) << "OpenCL";
+        Diags.Report(diag::err_drv_argument_not_allowed_with)
+          << A->getAsString(Args) << "OpenCL";
         break;
       case IK_CUDA:
       case IK_PreprocessedCuda:
@@ -1562,7 +1565,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       LangStd = OpenCLLangStd;
   }
 
-  CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
+  llvm::Triple T(TargetOpts.Triple);
+  CompilerInvocation::setLangDefaults(Opts, IK, T, LangStd);
 #if INTEL_SPECIFIC_CILKPLUS
   Opts.CilkPlus = Args.hasArg(OPT_fcilkplus);
   if (Opts.CilkPlus && (Opts.ObjC1 || Opts.ObjC2))
@@ -1974,7 +1978,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // Provide diagnostic when a given target is not expected to be an OpenMP
   // device or host.
   if (Opts.OpenMP && !Opts.OpenMPIsDevice) {
-    llvm::Triple T(TargetOpts.Triple);
     switch (T.getArch()) {
     default:
       break;
@@ -2278,6 +2281,12 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
         llvm::Triple(Res.getTargetOpts().Triple).getArch() == llvm::Triple::x86)
       Res.getLangOpts()->NoInt128 = 1;
 #endif
+  }
+
+  // During CUDA device-side compilation, the aux triple is the triple used for
+  // host compilation.
+  if (LangOpts.CUDA && LangOpts.CUDAIsDevice) {
+    Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
   }
 
   // FIXME: Override value name discarding when asan or msan is used because the

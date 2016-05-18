@@ -10,7 +10,7 @@ __declspec(selectany) int x5;
 
 // CHECK: @x1 = weak_odr global i32 0, comdat, align 4
 // CHECK: @x2 = weak_odr global i32 0, comdat, align 4
-// CHECK: @_Z2x3 = weak_odr global i32 0, comdat, align 4
+// CHECK: @x3 = weak_odr global i32 0, comdat, align 4
 // CHECK: @x4 = weak_odr global i32 0, comdat, align 4
 // CHECK: @x5 = weak_odr global i32 0, comdat, align 4
 

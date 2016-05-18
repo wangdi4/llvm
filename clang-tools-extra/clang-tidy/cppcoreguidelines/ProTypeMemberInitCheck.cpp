@@ -77,7 +77,7 @@ SourceLocation getLocationForEndOfToken(const ASTContext &Context,
                                         SourceLocation Location) {
   return Lexer::getLocForEndOfToken(Location, 0, Context.getSourceManager(),
                                     Context.getLangOpts());
-};
+}
 
 // There are 3 kinds of insertion placements:
 enum class InitializerPlacement {
@@ -145,7 +145,7 @@ struct IntializerInsertion {
       Stream << ", " << joined << "()";
       break;
     }
-    return Code;
+    return Stream.str();
   }
 
   InitializerPlacement Placement;
@@ -208,8 +208,12 @@ computeInsertions(const CXXConstructorDecl::init_const_range &Inits,
 void getInitializationsInOrder(const CXXRecordDecl *ClassDecl,
                                SmallVectorImpl<const NamedDecl *> &Decls) {
   Decls.clear();
-  for (const auto &Base : ClassDecl->bases())
-    Decls.emplace_back(getCanonicalRecordDecl(Base.getType()));
+  for (const auto &Base : ClassDecl->bases()) {
+    // Decl may be null if the base class is a template parameter.
+    if (const NamedDecl *Decl = getCanonicalRecordDecl(Base.getType())) {
+      Decls.emplace_back(Decl);
+    }
+  }
   Decls.append(ClassDecl->fields().begin(), ClassDecl->fields().end());
 }
 
@@ -248,7 +252,7 @@ void forEachField(const RecordDecl *Record, const T &Fields,
   }
 }
 
-} // namespace
+} // anonymous namespace
 
 ProTypeMemberInitCheck::ProTypeMemberInitCheck(StringRef Name,
                                                ClangTidyContext *Context)
@@ -277,6 +281,7 @@ void ProTypeMemberInitCheck::registerMatchers(MatchFinder *Finder) {
                            isDefaultConstructor(), unless(isUserProvided())))));
   Finder->addMatcher(
       varDecl(isDefinition(), HasDefaultConstructor,
+              hasAutomaticStorageDuration(),
               hasType(recordDecl(has(fieldDecl()),
                                  isTriviallyDefaultConstructible())))
           .bind("var"),
@@ -285,6 +290,9 @@ void ProTypeMemberInitCheck::registerMatchers(MatchFinder *Finder) {
 
 void ProTypeMemberInitCheck::check(const MatchFinder::MatchResult &Result) {
   if (const auto *Ctor = Result.Nodes.getNodeAs<CXXConstructorDecl>("ctor")) {
+    // Skip declarations delayed by late template parsing without a body.
+    if (!Ctor->getBody())
+      return;
     checkMissingMemberInitializer(*Result.Context, Ctor);
     checkMissingBaseClassInitializer(*Result.Context, Ctor);
   } else if (const auto *Var = Result.Nodes.getNodeAs<VarDecl>("var")) {
@@ -304,11 +312,6 @@ void ProTypeMemberInitCheck::checkMissingMemberInitializer(
   if (IsUnion && ClassDecl->hasInClassInitializer())
     return;
 
-  // Skip declarations delayed by late template parsing without a body.
-  const Stmt *Body = Ctor->getBody();
-  if (!Body)
-    return;
-
   SmallPtrSet<const FieldDecl *, 16> FieldsToInit;
   fieldsRequiringInit(ClassDecl->fields(), Context, FieldsToInit);
   if (FieldsToInit.empty())
@@ -323,7 +326,7 @@ void ProTypeMemberInitCheck::checkMissingMemberInitializer(
       FieldsToInit.erase(Init->getMember());
     }
   }
-  removeFieldsInitializedInBody(*Body, Context, FieldsToInit);
+  removeFieldsInitializedInBody(*Ctor->getBody(), Context, FieldsToInit);
 
   // Collect all fields in order, both direct fields and indirect fields from
   // anonmyous record types.
