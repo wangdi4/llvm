@@ -724,10 +724,13 @@ static void PropagateParallelLoopAccessMetadata(CallSite CS,
     Instruction *NI = dyn_cast<Instruction>(VMI->second);
     if (!NI)
       continue;
-
-    if (MDNode *PM = NI->getMetadata(LLVMContext::MD_mem_parallel_loop_access)) {
-        M = MDNode::concatenate(PM, M);
-      NI->setMetadata(LLVMContext::MD_mem_parallel_loop_access, M);
+#if INTEL_CUSTOMIZATION
+    // CQ410950: Do not reassign M, use a temporary TM
+    if (MDNode *PM 
+        = NI->getMetadata(LLVMContext::MD_mem_parallel_loop_access)) {
+        MDNode* TM = MDNode::concatenate(PM, M);
+      NI->setMetadata(LLVMContext::MD_mem_parallel_loop_access, TM);
+#endif // INTEL_CUSTOMIZATION
     } else if (NI->mayReadOrWriteMemory()) {
       NI->setMetadata(LLVMContext::MD_mem_parallel_loop_access, M);
     }
