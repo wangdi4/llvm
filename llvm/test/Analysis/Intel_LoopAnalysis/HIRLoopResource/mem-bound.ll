@@ -16,12 +16,11 @@
 ; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK:    Integer Memory Reads: 2
 ; CHECK:    Integer Memory Writes: 1
-; CHECK:    Integer Operations: 0
-; CHECK:    Floating Point Reads: 0
-; CHECK:    Floating Point Writes: 0
-; CHECK:    Floating Point Operations: 0
 ; CHECK:    Memory Bound
 ; CHECK: + END LOOP
+
+; Total resouce should be same as self resource for innermost loops.
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-loop-resource -hir-print-total-resource | FileCheck %s
 
 
 ; ModuleID = 'mem-bound.c'

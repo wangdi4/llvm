@@ -178,6 +178,11 @@ public:
 
   /// \brief Returns all the temp blobs present in Blob via TempBlobs vector.
   static void collectTempBlobs(BlobTy Blob, SmallVectorImpl<BlobTy> &TempBlobs);
+
+  /// \brief Returns all the temp blobs present in blob with index \p BlobIndex
+  /// via \p TempBlobIndices vector.
+  static void collectTempBlobs(unsigned BlobIndex,
+                               SmallVectorImpl<unsigned> &TempBlobIndices);
 };
 
 } // End namespace loopopt

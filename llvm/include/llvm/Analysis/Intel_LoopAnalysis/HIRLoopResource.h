@@ -46,128 +46,124 @@ class HIRLoopResource;
 // Captures all the loop resource information.
 struct LoopResourceInfo {
 private:
-  enum LoopResourceBound {
-    // Indicates if the loop has large number of memory operations.
-    Memory,
-    // Indicates if the loop has large number of floating point operations.
-    FP,
-    // Indicates if the loop has large number of integer operations.
-    Int,
-    // Indicates that loop bounding type is unknown.
-    Unknown
-  };
+  /// Indicates whether loop cost is dominated by memory, FP or int operations.
+  enum LoopResourceBound { Memory, FP, Int, Unknown };
 
-  // Integer operations
   unsigned IntOps;
-  // Floating point operations
   unsigned FPOps;
-  // Integer loads/reads
   unsigned IntMemReads;
-  // Integer stores/writes
   unsigned IntMemWrites;
-  // Floating point loads/reads.
   unsigned FPMemReads;
-  // Floating point stores/writes.
   unsigned FPMemWrites;
-  // Indicates the loop resource bound.
   LoopResourceBound Bound;
 
-  // Costs based on type of operation.
+  /// Costs based on type of operation.
   // TODO: Tune for specific targets later.
   static const unsigned IntCost = 1;
   static const unsigned FPCost = 2;
   static const unsigned MemCost = 2;
-
-  /// Visitor to compute resource for the loop.
-  struct LoopResourceVisitor;
-
-  // Adds the loop resource LR to this resource information.
-  LoopResourceInfo &operator+=(const LoopResourceInfo &LRI);
-
-  // Classifies loop resource as Mem, FP, Int or Unknown bound.
-  void classify();
 
 public:
   LoopResourceInfo()
       : IntOps(0), FPOps(0), IntMemReads(0), IntMemWrites(0), FPMemReads(0),
         FPMemWrites(0), Bound(LoopResourceBound::Unknown) {}
 
-  // Returns the number of memory reads.
+  LoopResourceInfo(const LoopResourceInfo &LRI)
+      : IntOps(LRI.IntOps), FPOps(LRI.FPOps), IntMemReads(LRI.IntMemReads),
+        IntMemWrites(LRI.IntMemWrites), FPMemReads(LRI.FPMemReads),
+        FPMemWrites(LRI.FPMemWrites), Bound(LRI.Bound) {}
+
+  /// Visitor to compute resource.
+  struct LoopResourceVisitor;
+
+  /// Returns the number of memory reads.
   unsigned getNumMemReads() const { return IntMemReads + FPMemReads; }
 
-  // Returns the number of memory writes.
+  /// Returns the number of memory writes.
   unsigned getNumMemWrites() const { return IntMemWrites + FPMemWrites; }
 
-  // Returns the number of integer memory refs.
-  unsigned getNumIntMemRefs() const { return IntMemReads + IntMemWrites; }
+  /// Returns the number of integer memory operations.
+  unsigned getNumIntMemOps() const { return IntMemReads + IntMemWrites; }
 
-  // Returns the cost of integer memory refs.
-  unsigned getIntMemRefsCost() const { return IntCost * getNumIntMemRefs(); }
+  /// Returns the cost of integer memory operations.
+  unsigned getIntMemOpsCost() const { return IntCost * getNumIntMemOps(); }
 
-  // Returns the number of FP memory refs.
-  unsigned getNumFPMemRefs() const { return FPMemReads + FPMemWrites; }
+  /// Returns the number of FP memory operations.
+  unsigned getNumFPMemOps() const { return FPMemReads + FPMemWrites; }
 
-  // Returns the cost of FP memory refs.
-  unsigned getFPMemRefsCost() const { return FPCost * getNumFPMemRefs(); }
+  /// Returns the cost of FP memory operations.
+  unsigned getFPMemOpsCost() const { return FPCost * getNumFPMemOps(); }
 
-  // Returns the total number of memory references.
-  unsigned getNumMemRefs() const {
-    return getNumIntMemRefs() + getNumFPMemRefs();
+  /// Returns the total number of memory references.
+  unsigned getNumMemOps() const { return getNumIntMemOps() + getNumFPMemOps(); }
+
+  /// Returns the cost of all memory operations.
+  unsigned getMemOpsCost() const {
+    return getIntMemOpsCost() + getFPMemOpsCost();
   }
 
-  // Returns the cost of all memory refs.
-  unsigned getMemRefsCost() const {
-    return getIntMemRefsCost() + getFPMemRefsCost();
-  }
-
-  // Returns the number of integer operations.
+  /// Returns the number of integer operations.
   unsigned getNumIntOps() const { return IntOps; }
 
-  // Returns the cost of integer operations.
+  /// Returns the cost of integer operations.
   unsigned getIntOpsCost() const { return IntCost * getNumIntOps(); }
 
-  // Returns the number of FP operations.
+  /// Returns the number of FP operations.
   unsigned getNumFPOps() const { return FPOps; }
 
-  // Returns the cost of FP operations.
+  /// Returns the cost of FP operations.
   unsigned getFPOpsCost() const { return FPCost * getNumFPOps(); }
 
-  // Returns the cost of all operations.
-  unsigned getNumOps() const { return getNumIntOps() + getNumFPOps(); }
+  /// Returns the cost of integer and FP operations.
+  unsigned getNumIntAndFPOps() const { return getNumIntOps() + getNumFPOps(); }
 
-  // Returns the cost of integer operations.
-  unsigned getOpsCost() const { return getIntOpsCost() + getFPOpsCost(); }
+  /// Returns the cost of integer and FP operations.
+  unsigned getIntAndFPOpsCost() const {
+    return getIntOpsCost() + getFPOpsCost();
+  }
 
-  // Returns true if loop resource is memory bound.
+  /// Returns true if loop resource is memory bound.
   bool isMemBound() const { return (Bound == LoopResourceBound::Memory); }
 
-  // Returns true if loop resource is FP operations bound.
+  /// Returns true if loop resource is FP operations bound.
   bool isFPBound() const { return (Bound == LoopResourceBound::FP); }
 
-  // Returns true if loop resource is integer operations bound.
+  /// Returns true if loop resource is integer operations bound.
   bool isIntBound() const { return (Bound == LoopResourceBound::Int); }
 
-  // Returns true if loop resource bound cannot be determined.
-  bool isUnkownBound() const { return (Bound == LoopResourceBound::Unknown); }
+  /// Returns true if loop resource bound cannot be determined.
+  bool isUnknownBound() const { return (Bound == LoopResourceBound::Unknown); }
 
-  // Computes loop resource for the passed in loop in the current object.
+  /// Classifies loop resource as Mem, FP, Int or Unknown bound.
+  void classify();
+
+  /// Computes loop resource for the passed in loop in the current object.
   void compute(HIRLoopResource &HLR, const HLLoop *Lp);
 
-  // Prints the loop resource.
+  /// Adds the loop resource LRI to this resource information.
+  LoopResourceInfo &operator+=(const LoopResourceInfo &LRI);
+
+  /// Multiplies loop resource.
+  LoopResourceInfo &operator*=(unsigned Multiplier);
+
+  /// Prints the loop resource.
   void print(formatted_raw_ostream &OS, const HLLoop *Lp) const;
 };
 
 class HIRLoopResource final : public HIRAnalysisPass {
 private:
-  // Maintains the resource information in a map for the loops.
-  DenseMap<const HLLoop *, LoopResourceInfo> ResourceMap;
+  /// Maintains self resource information for loops.
+  DenseMap<const HLLoop *, LoopResourceInfo> SelfResourceMap;
 
-  /// \brief Computes the loop resource by traversing the instructions
-  /// inside the body, preheader and postexit.
-  const LoopResourceInfo &computeLoopResource(const HLLoop *Loop);
+  /// Maintains total resource information for loops.
+  DenseMap<const HLLoop *, LoopResourceInfo> TotalResourceMap;
+
+  /// \brief Computes self and/or total loop resource of \p Lp. If SelfOnly mode
+  /// is set, we only compute the self resource.
+  const LoopResourceInfo &computeLoopResource(const HLLoop *Lp, bool SelfOnly);
 
 protected:
-  // Prints analyis results for loop.
+  /// Prints analyis results for loop.
   virtual void print(formatted_raw_ostream &OS, const HLLoop *Lp) override;
 
 public:
@@ -186,9 +182,15 @@ public:
   /// needs to recomputed.
   void markLoopBodyModified(const HLLoop *Loop) override;
 
-  /// \brief Returns the loop resource of the specified loop. Transformations
-  /// should call this method to access the loop resource.
-  const LoopResourceInfo &getLoopResource(const HLLoop *Loop);
+  /// \brief Returns the loop resource of the specified loop. This excludes loop
+  /// resource of children loops.
+  const LoopResourceInfo &getSelfLoopResource(const HLLoop *Loop);
+
+  /// \brief Returns the loop resource of the specified loop including children
+  /// loops.
+  /// NOTE: Children loop's resouce is added assuming a trip count of one. No
+  /// multiplier is involved.
+  const LoopResourceInfo &getTotalLoopResource(const HLLoop *Loop);
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HIRAnalysisPass *AP) {

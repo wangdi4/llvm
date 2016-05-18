@@ -869,13 +869,7 @@ void CanonExpr::collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
   /// Push all blobs from BlobCoeffs.
   for (auto &I : BlobCoeffs) {
     if (NeedTempBlobs) {
-
-      // Collect temp blobs inside this blob.
-      SmallVector<BlobTy, 6> TempBlobs;
-
-      BlobUtils::collectTempBlobs(BlobUtils::getBlob(I.Index), TempBlobs);
-      BlobUtils::mapBlobsToIndices(TempBlobs, Indices);
-
+      BlobUtils::collectTempBlobs(I.Index, Indices);
     } else {
       Indices.push_back(I.Index);
     }
@@ -888,13 +882,7 @@ void CanonExpr::collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
     }
 
     if (NeedTempBlobs) {
-
-      // Collect temp blobs inside this blob.
-      SmallVector<BlobTy, 6> TempBlobs;
-
-      BlobUtils::collectTempBlobs(BlobUtils::getBlob(I.Index), TempBlobs);
-      BlobUtils::mapBlobsToIndices(TempBlobs, Indices);
-
+      BlobUtils::collectTempBlobs(I.Index, Indices);
     } else {
       Indices.push_back(I.Index);
     }
@@ -1201,6 +1189,20 @@ bool CanonExpr::convertTruncStandAloneBlob(Type *Ty) {
   return castStandAloneBlob(Ty, false);
 }
 
+bool CanonExpr::verifyNestingLevel(unsigned NestingLevel) const {
+  assert((!isLinearAtLevel() ||
+          (getDefinedAtLevel() < NestingLevel || isProperLinear())) &&
+         "CE is undefined at the attached level or should be non-linear.");
+
+  // Verify that there are no undefined IVs.
+  for (auto I = iv_begin(), E = iv_end(); I != E; ++I) {
+    assert((!(getLevel(I) > NestingLevel) || !hasIVConstCoeff(I)) &&
+           "The RegDDRef with IV is attached outside of the loop");
+  }
+
+  return true;
+}
+
 void CanonExpr::verify(unsigned NestingLevel) const {
   assert(getDenominator() > 0 && "Denominator must be greater than zero!");
 
@@ -1243,15 +1245,7 @@ void CanonExpr::verify(unsigned NestingLevel) const {
            " Defined at Level should be 0 for constant canonexpr!");
   }
 
-  assert((!isLinearAtLevel() ||
-          (getDefinedAtLevel() < NestingLevel || isProperLinear())) &&
-         "CE is undefined at the attached level or should be non-linear.");
-
-  // Verify that there are no undefined IVs.
-  for (auto I = iv_begin(), E = iv_end(); I != E; ++I) {
-    assert((!(getLevel(I) > NestingLevel) || !hasIVConstCoeff(I)) &&
-           "The RegDDRef with IV is attached outside of the loop");
-  }
+  verifyNestingLevel(NestingLevel);
 }
 
 void std::default_delete<CanonExpr>::operator()(CanonExpr *CE) const {

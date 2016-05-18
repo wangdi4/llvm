@@ -358,8 +358,8 @@ private:
                                    const CanonExpr *BoundCE, int64_t *Val);
 
   static VALType getMinMaxValueFromPred(const CanonExpr *CE, PredicateTy Pred,
-                                         const RegDDRef *Lhs,
-                                         const RegDDRef *Rhs, int64_t *Val);
+                                        const RegDDRef *Lhs,
+                                        const RegDDRef *Rhs, int64_t *Val);
 
   template <typename PredIter, typename GetDDRefFunc>
   static VALType
@@ -369,6 +369,13 @@ private:
 
   static VALType getMinMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
                                 int64_t *Val);
+
+  /// Returns constant min or max value of CE based on its context (ParentNode)
+  /// and IsMin paramter.
+  /// Value is returned in Val. Only handles IVs + constant for now.
+  /// TODO: merge with getMinMaxCoeffVal() to handle blobs and IVs.
+  static bool getMinMaxValueImpl(const CanonExpr *CE, const HLNode *ParentNode,
+                                 bool IsMin, int64_t *Val);
 
 public:
   /// \brief return true if non-zero
@@ -1126,6 +1133,16 @@ public:
   static const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
                                                    const HLLoop *Lp2);
   static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
+
+  /// Returns true if minimum value of \p CE can be evaluated. Returns the
+  /// minimum value in \p Val.
+  static bool getMinValue(const CanonExpr *CE, const HLNode *ParentNode,
+                          int64_t *Val);
+
+  /// Returns true if maximum value of \p CE can be evaluated. Returns the
+  /// maximum value in \p Val.
+  static bool getMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
+                          int64_t *Val);
 };
 
 } // End namespace loopopt

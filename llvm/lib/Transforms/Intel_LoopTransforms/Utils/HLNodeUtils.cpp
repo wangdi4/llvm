@@ -2471,7 +2471,8 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxCoeffVal(const CanonExpr *CE,
 
   BlobTy Blob = BlobUtils::getBlob(BlobIdx);
   // Strip sign extend cast from Blob
-  while (BlobUtils::isSignExtendBlob(Blob, &Blob));
+  while (BlobUtils::isSignExtendBlob(Blob, &Blob))
+    ;
 
   BlobTy BoundBlob = BlobUtils::getBlob(BoundBlobIdx);
 
@@ -2737,6 +2738,82 @@ bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
   return false;
 }
 
+// TODO: merge with getMinMaxCoeffVal() to handle blobs and IVs.
+bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
+                                     const HLNode *ParentNode, bool IsMin,
+                                     int64_t *Val) {
+
+  assert(CE && "CE is null!");
+  assert(ParentNode && "ParentNode is null!");
+  assert(Val && "Val is null!");
+
+  assert(CE->verifyNestingLevel(ParentNode->getNodeLevel()) &&
+         "Invalid arguments!");
+
+  if (CE->hasBlob() || CE->hasBlobIVCoeffs()) {
+    return false;
+  }
+
+  int64_t MinOrMax = 0;
+
+  if (CE->hasIV()) {
+    auto ParentLoop = isa<HLLoop>(ParentNode) ? cast<HLLoop>(ParentNode)
+                                              : ParentNode->getParentLoop();
+
+    for (auto Lp = ParentLoop; Lp != nullptr; Lp = Lp->getParentLoop()) {
+
+      unsigned Level = Lp->getNodeLevel();
+      int64_t Coeff = CE->getIVConstCoeff(Level);
+      int64_t IVMinOrMax = 0;
+
+      if (!Coeff) {
+        continue;
+      }
+
+      // Ignoring is equivalent to subtituting IV by zero (initial value of IV
+      // in normalized loops).
+      if ((IsMin && (Coeff > 0)) || (!IsMin && (Coeff < 0))) {
+        assert(Lp->isNormalized() && "Normalized loop expected!");
+        continue;
+      }
+
+      // Replace IV by min or max value of upper canon depending on whether we
+      // are calculating min or max and whether the coefficient is positive or
+      // negative.
+      if (IsMin) {
+        if (!getMaxValue(Lp->getUpperCanonExpr(), Lp, &IVMinOrMax)) {
+          return false;
+        }
+      } else if (!getMinValue(Lp->getUpperCanonExpr(), Lp, &IVMinOrMax)) {
+        return false;
+      }
+
+      MinOrMax += (Coeff * IVMinOrMax);
+    }
+  }
+
+  MinOrMax += CE->getConstant();
+
+  if (CE->getDenominator() != 1) {
+    MinOrMax = CE->isSignedDiv() ? MinOrMax / CE->getDenominator()
+                                 : uint64_t(MinOrMax) / CE->getDenominator();
+  }
+
+  *Val = MinOrMax;
+
+  return true;
+}
+
+bool HLNodeUtils::getMinValue(const CanonExpr *CE, const HLNode *ParentNode,
+                              int64_t *Val) {
+  return getMinMaxValueImpl(CE, ParentNode, true, Val);
+}
+
+bool HLNodeUtils::getMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
+                              int64_t *Val) {
+  return getMinMaxValueImpl(CE, ParentNode, false, Val);
+}
+
 ///  Check if Loop has perfect/near-perfect loop properties
 ///  Set InnermostLoop in *Lp
 ///
@@ -2945,6 +3022,8 @@ bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop) {
 void HLNodeUtils::moveProperties(HLLoop *SrcLoop, HLLoop *DstLoop) {
 
   DstLoop->setIVType(SrcLoop->getIVType());
+  DstLoop->setNSW(SrcLoop->isNSW());
+
   DstLoop->removeZtt();
 
   if (SrcLoop->hasZtt()) {

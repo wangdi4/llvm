@@ -37,7 +37,7 @@ FunctionPass *createHIROptPredicatePass(int Threshold = -1);
 
 /// createHIRCompleteUnrollPass - This creates a pass that performs complete
 /// unrolling on small trip count HIR loops.
-FunctionPass *createHIRCompleteUnrollPass(int Threshold = -1);
+FunctionPass *createHIRCompleteUnrollPass();
 
 /// createHIRDistributionPass - This creates a pass that performs Loop
 /// Distribution for perfect nest formation or breaking memory recurrences

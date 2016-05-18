@@ -39,11 +39,9 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-loop-resource"
 
-// Primarily used for verification purpose for lit tests.
-// We do not print any information except DEBUG mode.
-static cl::opt<bool> verifyLoopResource(
-    "hir-verify-loop-resource", cl::init(false), cl::Hidden,
-    cl::desc("Pre-computes loop resource for all loops inside function."));
+static cl::opt<bool> PrintTotalResource(
+    "hir-print-total-resource", cl::init(false), cl::Hidden,
+    cl::desc("Prints total loop resource instead of self loop resource"));
 
 FunctionPass *llvm::createHIRLoopResourcePass() {
   return new HIRLoopResource();
@@ -66,45 +64,45 @@ bool HIRLoopResource::runOnFunction(Function &F) {
   return false;
 }
 
-void HIRLoopResource::releaseMemory() { ResourceMap.clear(); }
+void HIRLoopResource::releaseMemory() {
+  SelfResourceMap.clear();
+  TotalResourceMap.clear();
+}
 
 struct LoopResourceInfo::LoopResourceVisitor final : public HLNodeVisitorBase {
-  LoopResourceInfo &LRInfo;
   HIRLoopResource &HLR;
+  const HLLoop *Lp;
+  LoopResourceInfo &SelfLRI;
+  LoopResourceInfo *TotalLRI;
 
-  LoopResourceVisitor(LoopResourceInfo &LRI, HIRLoopResource &HLR)
-      : LRInfo(LRI), HLR(HLR) {}
+  LoopResourceVisitor(HIRLoopResource &HLR, const HLLoop *Lp,
+                      LoopResourceInfo &SelfLRI, LoopResourceInfo *TotalLRI)
+      : HLR(HLR), Lp(Lp), SelfLRI(SelfLRI), TotalLRI(TotalLRI) {}
+
+  // Main entry function to compute loop resource.
+  void compute();
+
+  // Accounts for 'num' integer or FP predicates in self resource.
+  void addPredicateOps(unsigned Num, bool IsInt);
 
   // Ignore gotos/labels.
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
 
-  void visit(const HLDDNode *Node);
-
-  void visit(const HLLoop *Lp) {
-    // Add child loop resource.
-    const LoopResourceInfo &ChildLRInfo = HLR.getLoopResource(Lp);
-    LRInfo += ChildLRInfo;
-
-    // Add child loop's preheader/postexit to parent loop's resource.
-    HLNodeUtils::visitRange(*this, Lp->pre_begin(), Lp->pre_end());
-    HLNodeUtils::visitRange(*this, Lp->post_begin(), Lp->post_end());
-  }
-
-  void visit(const HLIf *If) {
-    // Capture the number of compare and logical operations.
-    auto Num = If->getNumPredicates();
-    LRInfo.IntOps += (2 * Num - 1);
-
-    visit(cast<HLDDNode>(If));
-  }
-
+  bool visit(const HLDDNode *Node);
   void visit(const HLInst *HInst);
 
-  bool isDone() const override { return false; }
+  void visit(const HLIf *If);
+  void visit(const HLLoop *Lp);
 };
 
-void LoopResourceInfo::LoopResourceVisitor::visit(const HLDDNode *Node) {
+bool LoopResourceInfo::LoopResourceVisitor::visit(const HLDDNode *Node) {
+
+  // Valid SelfLRI is available.
+  if (!SelfLRI.isUnknownBound()) {
+    return false;
+  }
+
   for (auto RefIt = Node->op_ddref_begin(), E = Node->op_ddref_end();
        RefIt != E; ++RefIt) {
     auto Ref = *RefIt;
@@ -116,15 +114,21 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLDDNode *Node) {
     bool IsFloat = Ref->getDestType()->isFPOrFPVectorTy();
 
     if ((*RefIt)->isLval()) {
-      IsFloat ? ++LRInfo.FPMemWrites : ++LRInfo.IntMemWrites;
+      IsFloat ? ++SelfLRI.FPMemWrites : ++SelfLRI.IntMemWrites;
     } else {
-      IsFloat ? ++LRInfo.FPMemReads : ++LRInfo.IntMemReads;
+      IsFloat ? ++SelfLRI.FPMemReads : ++SelfLRI.IntMemReads;
     }
   }
+
+  return true;
 }
 
 void LoopResourceInfo::LoopResourceVisitor::visit(const HLInst *HInst) {
-  visit(cast<HLDDNode>(HInst));
+
+  // Valid SelfLRI is available.
+  if (!visit(cast<HLDDNode>(HInst))) {
+    return;
+  }
 
   auto Inst = HInst->getLLVMInstruction();
 
@@ -134,7 +138,52 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLInst *HInst) {
 
   bool IsFloat = HInst->getLvalDDRef()->getDestType()->isFPOrFPVectorTy();
 
-  IsFloat ? ++LRInfo.FPOps : ++LRInfo.IntOps;
+  IsFloat ? ++SelfLRI.FPOps : ++SelfLRI.IntOps;
+}
+
+void LoopResourceInfo::LoopResourceVisitor::addPredicateOps(unsigned Num,
+                                                           bool IsInt) {
+  // Add number of logical operations as IntOps.
+  SelfLRI.IntOps += Num - 1;
+
+  // Add number of compares.
+  if (IsInt) {
+    SelfLRI.IntOps += Num;
+  } else {
+    SelfLRI.FPOps += Num;
+  }
+}
+
+void LoopResourceInfo::LoopResourceVisitor::visit(const HLIf *If) {
+
+  // Valid SelfLRI is available.
+  if (!visit(cast<HLDDNode>(If))) {
+    return;
+  }
+
+  // Capture the number of compare and logical operations.
+  addPredicateOps(If->getNumPredicates(),
+                 CmpInst::isIntPredicate(*If->pred_begin()));
+}
+
+void LoopResourceInfo::LoopResourceVisitor::visit(const HLLoop *Lp) {
+
+  if (SelfLRI.isUnknownBound()) {
+    // Add ztt predicates to self resource.
+    if (Lp->hasZtt()) {
+      addPredicateOps(Lp->getNumZttPredicates(),
+                     CmpInst::isIntPredicate(*Lp->ztt_pred_begin()));
+    }
+
+    // Add child loop's preheader/postexit to parent loop's self resource.
+    HLNodeUtils::visitRange(*this, Lp->pre_begin(), Lp->pre_end());
+    HLNodeUtils::visitRange(*this, Lp->post_begin(), Lp->post_end());
+  }
+
+  // No need to process children loops in self-only mode.
+  if (TotalLRI) {
+    *TotalLRI += HLR.getTotalLoopResource(Lp);
+  }
 }
 
 LoopResourceInfo &LoopResourceInfo::operator+=(const LoopResourceInfo &LRI) {
@@ -148,15 +197,27 @@ LoopResourceInfo &LoopResourceInfo::operator+=(const LoopResourceInfo &LRI) {
   return *this;
 }
 
+LoopResourceInfo &LoopResourceInfo::operator*=(unsigned Multiplier) {
+  IntOps *= Multiplier;
+  FPOps *= Multiplier;
+  IntMemReads *= Multiplier;
+  IntMemWrites *= Multiplier;
+  FPMemReads *= Multiplier;
+  FPMemWrites *= Multiplier;
+
+  return *this;
+}
+
 void LoopResourceInfo::classify() {
 
-  unsigned MemRefsCost = getMemRefsCost();
+  unsigned IntOpsCost = getIntOpsCost();
   unsigned FPOpsCost = getFPOpsCost();
+  unsigned MemOpsCost = getMemOpsCost();
 
-  if (MemRefsCost && (MemRefsCost >= getOpsCost())) {
+  if (MemOpsCost && (MemOpsCost >= FPOpsCost) && (MemOpsCost >= IntOpsCost)) {
     Bound = LoopResourceBound::Memory;
 
-  } else if (FPOpsCost && (FPOpsCost >= getIntOpsCost())) {
+  } else if (FPOpsCost && (FPOpsCost >= IntOpsCost)) {
     Bound = LoopResourceBound::FP;
 
   } else {
@@ -164,34 +225,56 @@ void LoopResourceInfo::classify() {
   }
 }
 
-void LoopResourceInfo::compute(HIRLoopResource &HLR, const HLLoop *Lp) {
-  LoopResourceVisitor LRV(*this, HLR);
+void LoopResourceInfo::LoopResourceVisitor::compute() {
 
-  // Do not directly recurse inside children loops. Loop resource is recursively
-  // computed for children loops by the visitor using getLoopResource().
-  HLNodeUtils::visitRange<true, false>(LRV, Lp->child_begin(), Lp->child_end());
+  // Do not directly recurse inside children loops. Total resource is
+  // recursively computed for children loops by the visitor using
+  // getTotalLoopResource().
+  HLNodeUtils::visitRange<true, false>(*this, Lp->child_begin(),
+                                       Lp->child_end());
 
-  // Classify loop into Mem bound, FP bound or Int bound.
-  classify();
+  // Classify self reource into Mem bound, FP bound or Int bound.
+  if (SelfLRI.isUnknownBound()) {
+    SelfLRI.classify();
+  }
+
+  // Add self reource to total resource and classify it.
+  if (TotalLRI) {
+    *TotalLRI += SelfLRI;
+    TotalLRI->classify();
+  }
 }
 
-void LoopResourceInfo::print(formatted_raw_ostream &OS, const HLLoop *Lp) const {
+void LoopResourceInfo::print(formatted_raw_ostream &OS,
+                             const HLLoop *Lp) const {
 
   // Indent at one level more than the loop nesting level.
   unsigned Depth = Lp->getNestingLevel() + 1;
 
-  Lp->indent(OS, Depth);
-  OS << "Integer Memory Reads: " << IntMemReads << "\n";
-  Lp->indent(OS, Depth);
-  OS << "Integer Memory Writes: " << IntMemWrites << "\n";
-  Lp->indent(OS, Depth);
-  OS << "Integer Operations: " << IntOps << "\n";
-  Lp->indent(OS, Depth);
-  OS << "Floating Point Reads: " << FPMemReads << "\n";
-  Lp->indent(OS, Depth);
-  OS << "Floating Point Writes: " << FPMemWrites << "\n";
-  Lp->indent(OS, Depth);
-  OS << "Floating Point Operations: " << FPOps << "\n";
+  if (IntMemReads) {
+    Lp->indent(OS, Depth);
+    OS << "Integer Memory Reads: " << IntMemReads << "\n";
+  }
+  if (IntMemWrites) {
+    Lp->indent(OS, Depth);
+    OS << "Integer Memory Writes: " << IntMemWrites << "\n";
+  }
+  if (IntOps) {
+    Lp->indent(OS, Depth);
+    OS << "Integer Operations: " << IntOps << "\n";
+  }
+  if (FPMemReads) {
+    Lp->indent(OS, Depth);
+    OS << "Floating Point Reads: " << FPMemReads << "\n";
+  }
+  if (FPMemWrites) {
+    Lp->indent(OS, Depth);
+    OS << "Floating Point Writes: " << FPMemWrites << "\n";
+  }
+  if (FPOps) {
+    Lp->indent(OS, Depth);
+    OS << "Floating Point Operations: " << FPOps << "\n";
+  }
 
   Lp->indent(OS, Depth);
 
@@ -213,44 +296,76 @@ void LoopResourceInfo::print(formatted_raw_ostream &OS, const HLLoop *Lp) const 
   }
 }
 
-const LoopResourceInfo &
-HIRLoopResource::computeLoopResource(const HLLoop *Loop) {
+const LoopResourceInfo &HIRLoopResource::computeLoopResource(const HLLoop *Loop,
+                                                             bool SelfOnly) {
 
-  // Insert empty resource in cache.
-  auto Pair = ResourceMap.insert(std::make_pair(Loop, LoopResourceInfo()));
-  LoopResourceInfo &LRInfo = Pair.first->second;
+  // These will be set below using the cache and SelfOnly paramter.
+  LoopResourceInfo *TotalLRI = nullptr;
 
-  // Compute resource for this loop.
-  LRInfo.compute(*this, Loop);
+  // Get or Insert self resource.
+  auto SelfPair =
+      SelfResourceMap.insert(std::make_pair(Loop, LoopResourceInfo()));
+  LoopResourceInfo &SelfLRI = SelfPair.first->second;
 
-  return LRInfo;
+  if (!SelfOnly) {
+    // Set TotalLRI to indicate that total resource need to be computed.
+    auto TotalPair =
+        TotalResourceMap.insert(std::make_pair(Loop, LoopResourceInfo()));
+    TotalLRI = &TotalPair.first->second;
+  }
+
+  LoopResourceInfo::LoopResourceVisitor LRV(*this, Loop, SelfLRI, TotalLRI);
+
+  LRV.compute();
+
+  return SelfOnly ? SelfLRI : *TotalLRI;
 }
 
-const LoopResourceInfo &HIRLoopResource::getLoopResource(const HLLoop *Loop) {
+const LoopResourceInfo &
+HIRLoopResource::getSelfLoopResource(const HLLoop *Loop) {
   assert(Loop && " Loop parameter is null.");
 
-  auto LRInfoIt = ResourceMap.find(Loop);
+  auto LRInfoIt = SelfResourceMap.find(Loop);
 
   // Return cached resource, if present.
-  if (LRInfoIt != ResourceMap.end()) {
+  if (LRInfoIt != SelfResourceMap.end()) {
     return LRInfoIt->second;
   }
 
   // Compute and return a new reource.
-  return computeLoopResource(Loop);
+  return computeLoopResource(Loop, true);
+}
+
+const LoopResourceInfo &
+HIRLoopResource::getTotalLoopResource(const HLLoop *Loop) {
+  assert(Loop && " Loop parameter is null.");
+
+  auto LRInfoIt = TotalResourceMap.find(Loop);
+
+  // Return cached resource, if present.
+  if (LRInfoIt != TotalResourceMap.end()) {
+    return LRInfoIt->second;
+  }
+
+  // Compute and return a new reource.
+  return computeLoopResource(Loop, false);
 }
 
 void HIRLoopResource::print(formatted_raw_ostream &OS, const HLLoop *Lp) {
-  const LoopResourceInfo &LRI = getLoopResource(Lp);
+  const LoopResourceInfo &LRI =
+      PrintTotalResource ? getTotalLoopResource(Lp) : getSelfLoopResource(Lp);
   LRI.print(OS, Lp);
 }
 
 void HIRLoopResource::markLoopBodyModified(const HLLoop *Loop) {
   assert(Loop && " Loop parameter is null.");
 
-  // Remove the current and parent loops from the cache.
+  // Remove current loop's self resource from the cache.
+  SelfResourceMap.erase(Loop);
+
+  // Remove current and parent loops total resouce from the cache.
   while (Loop) {
-    ResourceMap.erase(Loop);
+    TotalResourceMap.erase(Loop);
     Loop = Loop->getParentLoop();
   }
 }

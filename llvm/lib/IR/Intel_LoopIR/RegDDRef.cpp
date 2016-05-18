@@ -168,12 +168,12 @@ void RegDDRef::setAAMetadata(AAMDNodes &AANodes) {
   setMetadata(LLVMContext::MD_tbaa, AANodes.TBAA);
 }
 
-unsigned RegDDRef::findMaxBlobLevel(
-    const SmallVectorImpl<unsigned> &BlobIndices) const {
+unsigned RegDDRef::findMaxTempBlobLevel(
+    const SmallVectorImpl<unsigned> &TempBlobIndices) const {
   unsigned DefLevel = 0, MaxLevel = 0;
 
-  for (auto Index : BlobIndices) {
-    bool Found = findBlobLevel(Index, &DefLevel);
+  for (auto Index : TempBlobIndices) {
+    bool Found = findTempBlobLevel(Index, &DefLevel);
     (void)Found;
     assert(Found && "Blob DDRef not found!");
 
@@ -187,12 +187,20 @@ unsigned RegDDRef::findMaxBlobLevel(
   return MaxLevel;
 }
 
+unsigned RegDDRef::findMaxBlobLevel(unsigned BlobIndex) const {
+  SmallVector<unsigned, 8> Indices;
+
+  BlobUtils::collectTempBlobs(BlobIndex, Indices);
+
+  return findMaxTempBlobLevel(Indices);
+}
+
 void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
   SmallVector<unsigned, 8> BlobIndices;
 
   CE->collectTempBlobIndices(BlobIndices);
 
-  auto MaxLevel = findMaxBlobLevel(BlobIndices);
+  auto MaxLevel = findMaxTempBlobLevel(BlobIndices);
 
   if (CanonExprUtils::hasNonLinearSemantics(MaxLevel, NestingLevel)) {
     CE->setNonLinear();
@@ -519,7 +527,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   SmallVector<unsigned, 8> BlobIndices;
   StrideAtLevel->collectTempBlobIndices(BlobIndices);
 
-  unsigned MaxLevel = findMaxBlobLevel(BlobIndices);
+  unsigned MaxLevel = findMaxTempBlobLevel(BlobIndices);
   assert((MaxLevel != NonLinearLevel) && "Invalid level!");
 
   StrideAtLevel->setDefinedAtLevel(MaxLevel);
@@ -703,7 +711,7 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
     assert(AuxRefs && "Missing auxiliary refs!");
 
     for (auto &AuxRef : (*AuxRefs)) {
-      if (AuxRef->findBlobLevel(Index, &DefLevel)) {
+      if (AuxRef->findTempBlobLevel(Index, &DefLevel)) {
         if (CanonExprUtils::hasNonLinearSemantics(DefLevel, Level)) {
           BRef->setNonLinear();
         } else {
@@ -785,7 +793,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
   }
 }
 
-bool RegDDRef::findBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const {
+bool RegDDRef::findTempBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const {
   assert(DefLevel && "DefLevel ptr should not be null!");
 
   unsigned Index = 0;

@@ -128,6 +128,29 @@ public:
   /// \brief Removes a previously inserted fake DDRef.
   void removeFakeDDRef(RegDDRef *RDDRef);
 
+  /// Rval operand DDRef iterator methods
+  ddref_iterator rval_op_ddref_begin() {
+    return hasLval() ? op_ddref_begin() + 1 : op_ddref_begin();
+  }
+  const_ddref_iterator rval_op_ddref_begin() const {
+    return const_cast<HLInst *>(this)->rval_op_ddref_begin();
+  }
+  ddref_iterator rval_op_ddref_end() { return op_ddref_end(); }
+  const_ddref_iterator rval_op_ddref_end() const {
+    return const_cast<HLInst *>(this)->rval_op_ddref_end();
+  }
+
+  reverse_ddref_iterator rval_op_ddref_rbegin() { return op_ddref_rbegin(); }
+  const_reverse_ddref_iterator rval_op_ddref_rbegin() const {
+    return const_cast<HLInst *>(this)->rval_op_ddref_rbegin();
+  }
+  reverse_ddref_iterator rval_op_ddref_rend() {
+    return hasLval() ? op_ddref_rend() - 1 : op_ddref_rend();
+  }
+  const_reverse_ddref_iterator rval_op_ddref_rend() const {
+    return const_cast<HLInst *>(this)->rval_op_ddref_rend();
+  }
+
   /// \brief Returns true if Ref is the lval DDRef of this node.
   virtual bool isLval(const RegDDRef *Ref) const override;
 

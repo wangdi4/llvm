@@ -52,6 +52,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
@@ -70,18 +71,10 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-// This stat maintains the number of hir loops completely unrolled.
-STATISTIC(LoopsCompletelyUnrolled, "Number of HIR loops completely unrolled");
-// This stat maintains count of all the candidates for complete unrolling,
-// including those that were turned down due to cost model.
-STATISTIC(LoopsAnalyzed, "Number of HIR loops analyzed for complete unrolling");
+// This stat maintains the number of hir loopnests completely unrolled.
+STATISTIC(LoopnestsCompletelyUnrolled,
+          "Number of HIR loopnests completely unrolled");
 
-static cl::opt<unsigned> CompleteUnrollTripThreshold(
-    "completeunroll-trip-threshold", cl::init(20), cl::Hidden,
-    cl::desc("Don't unroll if total trip count is bigger than this,"
-             "threshold."));
-
-// Option to turn off the HIR Complete Unroll Pass
 static cl::opt<bool>
     DisableHIRCompleteUnroll("disable-hir-complete-unroll", cl::init(false),
                              cl::Hidden,
@@ -91,17 +84,43 @@ static cl::opt<bool> DisableHIRTriCompleteUnroll(
     "disable-hir-tri-complete-unroll", cl::init(false), cl::Hidden,
     cl::desc("Disable HIR Triangular Complete Unrolling"));
 
+// The trip count threshold is intentionally set to a high value as profitablity
+// should be driven by the combination of trip count and loop resource.
+static cl::opt<unsigned> CompleteUnrollTripThreshold(
+    "hir-complete-unroll-trip-threshold", cl::init(50), cl::Hidden,
+    cl::desc("Don't unroll if total trip count is bigger than this "
+             "threshold."));
+
+static cl::opt<unsigned> UnrolledLoopMemRefThreshold(
+    "hir-complete-unroll-memref-threshold", cl::init(120), cl::Hidden,
+    cl::desc("Maximum number of memory refs allowed in completely unrolled "
+             "loopnest"));
+
+static cl::opt<unsigned>
+    UnrolledLoopDDRefThreshold("hir-complete-unroll-ddref-threshold",
+                               cl::init(350), cl::Hidden,
+                               cl::desc("Maximum number of DDRefs allowed in "
+                                        "completely unrolled loopnest"));
+
+static cl::opt<unsigned> SmallLoopMemRefThreshold(
+    "hir-complete-small-memref-threshold", cl::init(16), cl::Hidden,
+    cl::desc("Threshold for memory refs in small loops (higher probability of "
+             "unrolling)"));
+
+static cl::opt<unsigned>
+    SmallLoopDDRefThreshold("hir-complete-small-ddref-threshold", cl::init(32),
+                            cl::Hidden,
+                            cl::desc("Threshold for DDRefs in small loops "
+                                     "(higher probability of unrolling)"));
+
 namespace {
 
 class HIRCompleteUnroll : public HIRTransformPass {
 public:
   static char ID;
 
-  HIRCompleteUnroll(int T = -1) : HIRTransformPass(ID) {
+  HIRCompleteUnroll() : HIRTransformPass(ID) {
     initializeHIRCompleteUnrollPass(*PassRegistry::getPassRegistry());
-
-    CurrentTripThreshold =
-        (T == -1) ? CompleteUnrollTripThreshold : unsigned(T);
   }
 
   bool runOnFunction(Function &F) override;
@@ -113,20 +132,22 @@ public:
   }
 
 private:
-  unsigned CurrentTripThreshold;
-
   class CanonExprVisitor;
+  class ProfitabilityAnalyzer;
 
   /// Storage for loops which will be transformed.
   /// Only outermost loops to be transformed will be stored.
   SmallVector<HLLoop *, 32> CandidateLoops;
 
-  // Level to TripCount mapping. This is just used during the analysis phase.
-  int64_t TripCountCache[MaxLoopNestLevel + 1];
+  // Caches average trip count of loops for profitability analysis.
+  DenseMap<const HLLoop *, unsigned> AvgTripCount;
 
-  /// \brief Computes the trip count necessary for complete unrolling.
-  /// This routine handles cases such as triangular loops.
-  void computeTripCount(const HLLoop *Loop);
+  // Returns true if loop is eligible for complete unrolling.
+  bool isApplicable(const HLLoop *Loop) const;
+
+  /// \brief Computes and returns average trip count for profitability analysis.
+  /// Returns -1 if it cannot be computed.
+  int64_t computeAvgTripCount(const HLLoop *Loop);
 
   /// \brief This routine checks the dependency across the loop to check
   /// if all the loops are encapsulated before complete unrolling.
@@ -142,11 +163,8 @@ private:
   bool checkDependency(unsigned OuterCandidateLevel,
                        SmallVectorImpl<HLLoop *> &ChildLoops) const;
 
-  /// \brief Performs cost analysis to determine if a loop
-  /// is eligible for complete unrolling. If loop meets all the criteria,
-  /// it return true, else false. This routine updates the child trip count
-  /// for use by parent loop.
-  bool isProfitable(const HLLoop *Loop, int64_t *TripCnt) const;
+  /// \brief Returns true if loop is profitable for complete unrolling.
+  bool isProfitable(const HLLoop *Loop, int64_t TotalTripCnt) const;
 
   /// \brief Performs the complete unrolling transformation.
   static void transformLoop(HLLoop *&Loop, HLLoop *OuterLoop,
@@ -155,13 +173,10 @@ private:
   /// \brief Main routine to drive the complete unrolling transformation.
   void processCompleteUnroll(SmallVectorImpl<HLLoop *> &OuterLoops);
 
-  /// \brief Processes a HLLoop to check if it candidate for transformation.
-  /// ChildTripCnt denotes the trip count of the children.
-  bool processLoop(HLLoop *Loop, int64_t *TotalTripCnt);
-
-  /// \brief Drives the profitability analysis when visiting a loop during
-  /// transformation.
-  bool processProfitablity(const HLLoop *Loop, int64_t *TripCnt) const;
+  /// \brief Processes a HLLoop to check if it is candidate for transformation.
+  /// Returns the avg trip count of the loopnest. Non-negative value indicates
+  /// that loopnest is a candidate.
+  int64_t processLoop(HLLoop *Loop);
 
   /// \brief Routine to drive the transformation of candidate loops.
   void transformLoops();
@@ -189,6 +204,90 @@ public:
     llvm_unreachable(" Node not supported for Complete Unrolling.");
   }
   void postVisit(HLNode *Node) {}
+};
+
+/// Determines if unrolling the loop nest would be profitable.
+/// Profitability of the loopnest is determined by giving positive weight to
+/// simplification opportunities and negative weight to chance of increase in
+/// code size/register pressure. Loopnest is profitable if the accumulated
+/// weight is positive.
+///
+/// Simplification opportunity includes the following cases-
+/// 1) Substitution of IV by a constant.
+/// 2) Presence of linear blobs (invariance can lead to CSE).
+///
+/// Code size increase includes the following cases-
+/// 1) Presence of non-linear blobs.
+class HIRCompleteUnroll::ProfitabilityAnalyzer final
+    : public HLNodeVisitorBase {
+
+  const HIRCompleteUnroll &HCU;
+  const HLLoop *CurLoop;
+  const HLLoop *OuterLoop;
+
+  int64_t ProfitabilityIndex;
+
+  unsigned NumMemRefs;
+  unsigned NumDDRefs;
+
+  // Private constructor used for chilren loops.
+  ProfitabilityAnalyzer(const HIRCompleteUnroll &HCU, const HLLoop *CurLp,
+                        const HLLoop *OuterLp)
+      : HCU(HCU), CurLoop(CurLp), OuterLoop(OuterLp), ProfitabilityIndex(0),
+        NumMemRefs(0), NumDDRefs(0) {}
+
+  /// Processes RegDDRef for profitability. Returns true if Ref can be
+  /// simplified to a constant.
+  bool processRef(const RegDDRef *Ref);
+
+  /// Processes CanonExpr for profitability. Returns true if CE can be
+  /// simplified to a constant.
+  bool processCanonExpr(const CanonExpr *CE, const RegDDRef *ParentRef);
+
+  /// Processes blob for profitability. Returns true if blob is profitable.
+  bool processBlob(unsigned Index, const RegDDRef *ParentRef, bool CEIsLinear);
+
+  /// Scales the profitability by the given multiplier.
+  void scale(unsigned Multiplier) {
+    ProfitabilityIndex *= Multiplier;
+    NumMemRefs *= Multiplier;
+    NumDDRefs *= Multiplier;
+  }
+
+  // Adds profitability analysis results from PA to this.
+  ProfitabilityAnalyzer &operator+=(const ProfitabilityAnalyzer &PA) {
+    ProfitabilityIndex += PA.ProfitabilityIndex;
+    NumMemRefs += PA.NumMemRefs;
+    NumDDRefs += PA.NumDDRefs;
+
+    return *this;
+  }
+
+public:
+  ProfitabilityAnalyzer(const HIRCompleteUnroll &HCU, const HLLoop *CurLp)
+      : HCU(HCU), CurLoop(CurLp), OuterLoop(CurLp), ProfitabilityIndex(0),
+        NumMemRefs(0), NumDDRefs(0) {}
+
+  // Main interface of the analyzer.
+  void analyze();
+
+  // Returns true if loopnest is profitable.
+  bool isProfitable() const;
+
+  // Returns true if loop has a small body.
+  bool isSmallLoop() const;
+
+  void visit(const HLLoop *Lp);
+  void visit(const HLDDNode *Node);
+
+  // No processing needed for Gotos/Labels.
+  void visit(const HLGoto *Goto) {}
+  void visit(const HLLabel *Label) {}
+
+  void visit(const HLNode *Node) {
+    llvm_unreachable("Node not supported for Complete Unrolling.");
+  }
+  void postVisit(const HLNode *Node) {}
 };
 }
 
@@ -253,6 +352,269 @@ void HIRCompleteUnroll::CanonExprVisitor::processCanonExpr(CanonExpr *CExpr) {
 
 ///// CanonExpr Visitor End
 
+///// ProfitabilityAnalyzer Visitor Start
+
+void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
+  HLNodeUtils::visitRange<true, false>(*this, CurLoop->child_begin(),
+                                       CurLoop->child_end());
+
+  // Scale results by loop's average trip count.
+  auto It = HCU.AvgTripCount.find(CurLoop);
+  assert((It != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
+
+  // Check if the loop is small enough to assign trip count worth of
+  // profitability (for eliminating loop control) and give it higher chance of
+  // unrolling.
+  if (isSmallLoop()) {
+    ProfitabilityIndex += It->second;
+  }
+
+  scale(It->second);
+}
+
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::isSmallLoop() const {
+  return (NumMemRefs <= SmallLoopMemRefThreshold) &&
+         (NumDDRefs <= SmallLoopDDRefThreshold);
+}
+
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
+  return (ProfitabilityIndex >= 0) &&
+         (NumMemRefs <= UnrolledLoopMemRefThreshold) &&
+         (NumDDRefs <= UnrolledLoopDDRefThreshold);
+}
+
+void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLLoop *Lp) {
+  // Visit preheade/postexit.
+  HLNodeUtils::visitRange(*this, Lp->pre_begin(), Lp->pre_end());
+  HLNodeUtils::visitRange(*this, Lp->post_begin(), Lp->post_end());
+
+  // Analyze child loop.
+  ProfitabilityAnalyzer PA(HCU, Lp, OuterLoop);
+  PA.analyze();
+
+  // Add the result of child loop profitability analysis.
+  *this += PA;
+}
+
+void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
+
+  auto HInst = dyn_cast<HLInst>(Node);
+  bool IsBinaryOp = false;
+
+  if (HInst) {
+    IsBinaryOp = isa<BinaryOperator>(HInst->getLLVMInstruction());
+
+    auto Ref = HInst->getLvalDDRef();
+
+    if (Ref) {
+      ++NumDDRefs;
+
+      // Ignore terminal lval refs.
+      if (!Ref->isTerminalRef()) {
+        processRef(Ref);
+      }
+    }
+  }
+
+  bool CanSimplifyRvals = true;
+
+  auto RefIt = HInst ? HInst->rval_op_ddref_begin() : Node->op_ddref_begin();
+  auto End = HInst ? HInst->rval_op_ddref_end() : Node->op_ddref_end();
+
+  for (; RefIt != End; ++RefIt) {
+    auto Ref = *RefIt;
+    ++NumDDRefs;
+
+    if (!processRef(Ref)) {
+      CanSimplifyRvals = false;
+    }
+  }
+
+  // Add or subtract 1 according to whether binary operation can be simplified.
+  if (IsBinaryOp) {
+    CanSimplifyRvals ? ++ProfitabilityIndex : --ProfitabilityIndex;
+  }
+}
+
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
+
+  bool CanSimplify = true;
+
+  if (Ref->hasGEPInfo()) {
+    CanSimplify = false;
+    processCanonExpr(Ref->getBaseCE(), Ref);
+
+    if (Ref->isMemRef()) {
+      ++NumMemRefs;
+    }
+  }
+
+  for (auto CEIt = Ref->canon_begin(), E = Ref->canon_end(); CEIt != E;
+       ++CEIt) {
+    if (!processCanonExpr(*CEIt, Ref)) {
+      CanSimplify = false;
+    }
+  }
+
+  return CanSimplify;
+}
+
+/// Evaluates profitability of CanonExpr.
+/// Example 1-
+/// The profitability index of CE: (3 * i1 + 1) is 3. It is computed as
+/// follows-
+/// +1 for substitution of i2 by constant.
+/// +1 for simplification of (3 * i2) to a constant.
+/// +1 for simplification of (3 * i2 + 1) to a constant.
+///
+/// Example 2-
+/// The profitability index of CE: (b1 * i1 + 1) where b1 is a linear temp is 3.
+/// It is computed as follows-
+/// +1 for substitution of i1 by constant.
+/// +1 for linear blob b1.
+/// +1 for b1 * i1 possibly resulting in opportunity for CSE.
+///
+/// Example 3-
+/// The profitability index of CE: (b1 * i1 + 1) where b1 is a non-linear temp
+/// is -1. It is computed as follows-
+/// +1 for substitution of i1 by constant.
+/// -1 for non-linear blob b1.
+/// -1 for b1 * i1 resulting in code size increase because of non-linearity of
+///    blob.
+///
+/// Example 4-
+/// The profitability index of CE: (i1 + 2 * i2 + b1) where i1 loopnest is
+/// being unrolled and b1 is a non-linear temp is 3. It is computed as follows-
+/// +1 for substitution of i1 by constant.
+/// +1 for substitution of i2 by constant.
+/// +1 for simplification of (2 * i2) to a constant.
+/// +1 for simplification of (i1 + 2 * i2) to a constant.
+/// -1 for non-linear blob.
+///
+/// Example 5-
+/// The profitability index of CE: (i1 + 2 * i2 + b1) where i2 loop is being
+/// unrolled and b1 is a non-linear temp is 1. It is computed as follows-
+/// +1 for substitution of i2 by constant.
+/// +1 for simplification of (2 * i2) to a constant.
+/// -1 for non-linear blob.
+///
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
+    const CanonExpr *CE, const RegDDRef *ParentRef) {
+
+  bool NumeratorBecomesConstant = true;
+  unsigned NumSimplifiedIVs = 0;
+
+  unsigned NodeLevel = CurLoop->getNestingLevel();
+  unsigned OuterLevel = OuterLoop->getNestingLevel();
+  bool IsLinear = CE->isLinearAtLevel();
+
+  for (unsigned Level = 1; Level <= NodeLevel; ++Level) {
+    unsigned BlobIndex;
+    int64_t Coeff;
+
+    CE->getIVCoeff(Level, &BlobIndex, &Coeff);
+
+    if (!Coeff) {
+      continue;
+    }
+
+    if (Level >= OuterLevel) {
+      // This IV belongs to one of the unroll candidates, add 1 for substitution
+      // of IV by constant.
+      if (Coeff != 1) {
+        // Add one more for simplfication of (Coeff * IV).
+        ProfitabilityIndex += 2;
+      } else {
+        ++ProfitabilityIndex;
+      }
+
+      // Keep track of inductive terms simplified to constant.
+      if (BlobIndex == InvalidBlobIndex) {
+        ++NumSimplifiedIVs;
+      }
+    } else {
+      NumeratorBecomesConstant = false;
+      // IV multiplication gives us opportunity for CSE.
+      if (Coeff != 1) {
+        ++ProfitabilityIndex;
+      }
+    }
+
+    if (BlobIndex != InvalidBlobIndex) {
+      NumeratorBecomesConstant = false;
+      // Add or subtract 1 for (Blob * IV) based on whether this blob is
+      // profitable.
+      processBlob(BlobIndex, ParentRef, IsLinear) ? ++ProfitabilityIndex
+                                                  : --ProfitabilityIndex;
+    }
+  }
+
+  // Add 1 each for number of simplified IV additions.
+  if (NumSimplifiedIVs) {
+    ProfitabilityIndex += (NumSimplifiedIVs - 1);
+  }
+
+  for (auto Blob = CE->blob_begin(), E = CE->blob_end(); Blob != E; ++Blob) {
+    NumeratorBecomesConstant = false;
+
+    bool IsProfitable = processBlob(Blob->Index, ParentRef, IsLinear);
+
+    if (Blob->Coeff != 1) {
+      // Add or subtract 1 for (Coeff * Blob) based on whether this blob is
+      // profitable.
+      IsProfitable ? ++ProfitabilityIndex : --ProfitabilityIndex;
+    }
+  }
+
+  // Add or subtract 1 for the constant based on linearity and IV
+  // simplifications.
+  if (CE->getConstant()) {
+    (IsLinear || NumSimplifiedIVs) ? ++ProfitabilityIndex
+                                   : --ProfitabilityIndex;
+  }
+
+  // Add or subtract 1 for non-unit denominator based on linearity.
+  if ((CE->getDenominator() != 1)) {
+    IsLinear ? ++ProfitabilityIndex : --ProfitabilityIndex;
+  }
+
+  return NumeratorBecomesConstant;
+}
+
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::processBlob(
+    unsigned Index, const RegDDRef *ParentRef, bool CEIsLinear) {
+  // Profitability of blob is evaluated using 'linearity index' defined as:
+  // (number of contained linear temp blobs) - (number of contained non-linear
+  // temp blobs).
+
+  SmallVector<unsigned, 8> Indices;
+  int LinearityIndex = 0;
+
+  BlobUtils::collectTempBlobs(Index, Indices);
+
+  if (CEIsLinear) {
+    LinearityIndex = Indices.size();
+
+  } else {
+
+    for (auto Idx : Indices) {
+      unsigned DefLevel;
+
+      bool Found = ParentRef->findTempBlobLevel(Idx, &DefLevel);
+      (void)Found;
+      assert(Found && "Temp blob not found in Ref!");
+
+      (DefLevel == NonLinearLevel) ? --LinearityIndex : ++LinearityIndex;
+    }
+  }
+
+  ProfitabilityIndex += LinearityIndex;
+
+  return (LinearityIndex > 0);
+}
+
+///// ProfitabilityAnalyzer Visitor End
+
 char HIRCompleteUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCompleteUnroll, "hir-complete-unroll",
                       "HIR Complete Unroll", false, false)
@@ -260,8 +622,8 @@ INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_END(HIRCompleteUnroll, "hir-complete-unroll",
                     "HIR Complete Unroll", false, false)
 
-FunctionPass *llvm::createHIRCompleteUnrollPass(int Threshold) {
-  return new HIRCompleteUnroll(Threshold);
+FunctionPass *llvm::createHIRCompleteUnrollPass() {
+  return new HIRCompleteUnroll();
 }
 
 bool HIRCompleteUnroll::runOnFunction(Function &F) {
@@ -272,11 +634,12 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
   }
 
   DEBUG(dbgs() << "Complete unrolling for Function : " << F.getName() << "\n");
-  DEBUG(dbgs() << "Trip Count Threshold : " << CurrentTripThreshold << "\n");
+  DEBUG(dbgs() << "Trip Count Threshold : " << CompleteUnrollTripThreshold
+               << "\n");
 
   // Do an early exit if Trip Threshold is less than 1
   // TODO: Check if we want give some feedback to user
-  if (CurrentTripThreshold == 0) {
+  if (CompleteUnrollTripThreshold == 0) {
     return false;
   }
 
@@ -297,10 +660,9 @@ void HIRCompleteUnroll::processCompleteUnroll(
     SmallVectorImpl<HLLoop *> &OuterLoops) {
 
   // Walk over the outermost loops across the regions.
-  for (auto &Iter : OuterLoops) {
-    int64_t TotalTripCnt = 0;
-    if (processLoop(Iter, &TotalTripCnt)) {
-      CandidateLoops.push_back(Iter);
+  for (auto &Lp : OuterLoops) {
+    if (processLoop(Lp) >= 0) {
+      CandidateLoops.push_back(Lp);
     }
   }
 
@@ -351,124 +713,14 @@ bool HIRCompleteUnroll::checkDependency(
   return true;
 }
 
-void HIRCompleteUnroll::computeTripCount(const HLLoop *Loop) {
+bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
 
-  unsigned LoopLevel = Loop->getNestingLevel();
-  CanonExpr *TripCE = Loop->getTripCountCanonExpr();
-  // For not handled cases, substitute with larger trip count
-  // to avoid unrolling.
-  if (!TripCE || TripCE->hasBlob() || TripCE->hasBlobIVCoeffs() ||
-      (TripCE->getDenominator() != 1) || TripCE->containsUndef()) {
-    TripCountCache[LoopLevel] = CurrentTripThreshold + 1;
-    return;
+  // Throttle multi-exit/unknown loops.
+  if (!Loop->isDo()) {
+    return false;
   }
 
-  int64_t TripCount = 0;
-  bool isConstTrip = TripCE->isIntConstant(&TripCount);
-  if (isConstTrip) {
-    assert(TripCount && " Zero Trip count loop found.");
-    TripCountCache[LoopLevel] = TripCount;
-    return;
-  }
-
-  // If triangular loop is disabled, we simply return high trip count,
-  // to avoid unrolling triangular loops.
-  if (DisableHIRTriCompleteUnroll) {
-    TripCountCache[LoopLevel] = CurrentTripThreshold + 1;
-    return;
-  }
-
-  // TripCE should only have IV and const.
-  // Substitute the IV with their Trips-1. We are computing the max trip
-  // here for the current level. If IVCoeff is negative, we substitute the
-  // LB of parent i.e. 0 for normalized loops.
-  for (unsigned Level = 1; Level < LoopLevel; ++Level) {
-    if (TripCE->getIVConstCoeff(Level) > 0) {
-      TripCE->replaceIVByConstant(Level, TripCountCache[Level] - 1);
-    } else {
-      TripCE->replaceIVByConstant(Level, 0);
-    }
-  }
-  assert(TripCE->isIntConstant() && " Trip Count should be a constant.");
-  // There can be negative trips for loops i.e. not computed at all.
-  // In such cases, we simply return high trip count to avoid unrolling those
-  // loops.
-  if (TripCE->getConstant() <= 0) {
-    TripCountCache[LoopLevel] = CurrentTripThreshold + 1;
-  } else {
-    TripCountCache[LoopLevel] = TripCE->getConstant() + 1;
-  }
-}
-
-bool HIRCompleteUnroll::processLoop(HLLoop *Loop, int64_t *TotalTripCnt) {
-
-  SmallVector<HLLoop *, 8> CandidateChildLoops;
-  bool IsLoopCandidate = true;
-
-  // Compute the trip count of current loop,
-  // as it might be used by children loop e.g. triangular loops.
-  computeTripCount(Loop);
-  DEBUG(dbgs() << " Compute Trip Count for Level: " << Loop->getNestingLevel()
-               << " " << TripCountCache[Loop->getNestingLevel()]);
-
-  // Visit children, only if it not the innermost, else
-  // perform profitability analysis.
-  if (!Loop->isInnermost()) {
-    SmallVector<HLLoop *, 8> ChildLoops;
-    // 1. Gather Loops starting from the outer-most level
-    HLNodeUtils::gatherLoopsWithLevel(Loop, ChildLoops,
-                                      Loop->getNestingLevel() + 1);
-
-    // 2.Process each Loop for Complete Unrolling
-    bool ChildValid = true;
-    // Recurse through the children.
-    for (auto Iter = ChildLoops.begin(), E = ChildLoops.end(); Iter != E;
-         ++Iter) {
-      int64_t ChildTripCnt = 0;
-      bool IsChildCandidate = processLoop(*Iter, &ChildTripCnt);
-      if (IsChildCandidate) {
-        CandidateChildLoops.push_back(*Iter);
-      }
-      ChildValid &= IsChildCandidate;
-      (*TotalTripCnt) += ChildTripCnt;
-    }
-
-    IsLoopCandidate = ChildValid;
-  }
-
-  if (IsLoopCandidate) {
-    IsLoopCandidate &= processProfitablity(Loop, TotalTripCnt);
-  }
-
-  // If current loop is not a candidate, store the children loops
-  // for transformation.
-  if (!IsLoopCandidate) {
-    CandidateLoops.append(CandidateChildLoops.begin(),
-                          CandidateChildLoops.end());
-  }
-
-  // Reset the trip count cache for current loop.
-  TripCountCache[Loop->getNestingLevel()] = 0;
-
-  return IsLoopCandidate;
-}
-
-bool HIRCompleteUnroll::processProfitablity(const HLLoop *Loop,
-                                            int64_t *TripCnt) const {
-
-  LoopsAnalyzed++;
-
-  if (isProfitable(Loop, TripCnt)) {
-    LoopsCompletelyUnrolled++;
-    return true;
-  }
-  return false;
-}
-
-bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop,
-                                     int64_t *TripCnt) const {
-
-  // Empty loop.
+  // Ignore empty loops.
   if (!Loop->hasChildren()) {
     return false;
   }
@@ -483,20 +735,167 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop,
     return false;
   }
 
-  int64_t ConstTripCount = TripCountCache[Loop->getNestingLevel()];
-  assert(ConstTripCount && " Zero Trip loop found.");
+  return true;
+}
 
-  int64_t TotalTripCnt =
-      Loop->isInnermost() ? ConstTripCount : ConstTripCount * (*TripCnt);
+int64_t HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
-  DEBUG(dbgs() << " Const Trip Count: " << ConstTripCount << "\n");
-  if (TotalTripCnt > CurrentTripThreshold) {
+  auto UpperCE = Loop->getUpperCanonExpr();
+
+  if (UpperCE->hasBlob() || UpperCE->hasBlobIVCoeffs() ||
+      (UpperCE->getDenominator() != 1)) {
+    return -1;
+  }
+
+  int64_t UpperVal = 0;
+
+  // TODO: Fix parser to always make constant bounds positive.
+  if (UpperCE->isIntConstant(&UpperVal)) {
+    assert(UpperVal >= 0 && "Negative loop upper found!");
+    int64_t TripCnt = UpperVal + 1;
+
+    if (TripCnt > CompleteUnrollTripThreshold) {
+      return -1;
+    }
+
+    AvgTripCount.insert(std::make_pair(Loop, TripCnt));
+
+    return TripCnt;
+  }
+
+  // If triangular loop is disabled, we simply return high trip count,
+  // to avoid unrolling triangular loops.
+  if (DisableHIRTriCompleteUnroll) {
+    return -1;
+  }
+
+  unsigned LoopLevel = Loop->getNestingLevel();
+  auto ParLoop = Loop->getParentLoop();
+  bool CanUnrollParents = true;
+
+  // This is a triangular loop unrolling candidate. Check whether all parent
+  // loops on which this loop's upper canon is dependent can be unrolled as
+  // well. CanUnrollParents is set to false by the first parent loop which
+  // cannot be unrolled. Any occurence of parent loop IVs from then on makes
+  // the loop ineligible for unrolling. Here's an example-
+  //
+  // DO i1 = 1, 5
+  //   DO i2 = 1, %n
+  //     DO i3 = 1, i1
+  //
+  // CanUnrollParents is set to false by i2 loop. Therefore, presence of i1 in
+  // i3 loop's upper canon makes it ineligible for complete unrolling.
+  for (unsigned Level = LoopLevel - 1; Level > 0; --Level) {
+
+    if (!AvgTripCount.count(ParLoop)) {
+      CanUnrollParents = false;
+    }
+
+    if (UpperCE->getIVConstCoeff(Level) && !CanUnrollParents) {
+      return -1;
+    }
+
+    ParLoop = ParLoop->getParentLoop();
+  }
+
+  int64_t MinUpper = 0, MaxUpper = 0, AvgTripCnt = 0;
+
+  // If we reached here, we should be able to compute the min/max trip count of
+  // this loop.
+  bool HasMin = HLNodeUtils::getMinValue(UpperCE, Loop, &MinUpper);
+  assert(HasMin && "Could not compute min value of upper!");
+
+  // MinUpper can evaluate to a negative value. For purposes of calculating
+  // average trip count for profitability analysis, we take the absolute value.
+  MinUpper = (MinUpper > 0) ? MinUpper : -MinUpper;
+
+  bool HasMax = HLNodeUtils::getMaxValue(UpperCE, Loop, &MaxUpper);
+  assert(HasMax && "Could not compute max value of upper!");
+
+  // Loop never executes.
+  if (MaxUpper < 0) {
+    AvgTripCnt = 0;
+  } else {
+    AvgTripCnt = ((MinUpper + MaxUpper) / 2) + 1;
+  }
+
+  if (AvgTripCnt > CompleteUnrollTripThreshold) {
+    return -1;
+  }
+
+  AvgTripCount.insert(std::make_pair(Loop, AvgTripCnt));
+
+  return AvgTripCnt;
+}
+
+int64_t HIRCompleteUnroll::processLoop(HLLoop *Loop) {
+
+  SmallVector<HLLoop *, 8> CandidateChildLoops;
+  int64_t AvgTripCnt = -1;
+  int64_t MaxChildTripCnt = 1;
+
+  bool IsLoopCandidate = isApplicable(Loop);
+
+  // Compute average trip count of current loop as it is used in profitability
+  // analysis.
+  if (IsLoopCandidate) {
+    AvgTripCnt = computeAvgTripCount(Loop);
+    IsLoopCandidate = (AvgTripCnt < 0) ? false : true;
+  }
+
+  // Visit children, only if it not the innermost, else
+  // perform profitability analysis.
+  if (!Loop->isInnermost()) {
+    SmallVector<HLLoop *, 8> ChildLoops;
+    // 1. Gather Loops starting from the outer-most level
+    HLNodeUtils::gatherLoopsWithLevel(Loop, ChildLoops,
+                                      Loop->getNestingLevel() + 1);
+
+    // 2.Process each Loop for Complete Unrolling
+    bool HasValidChildren = true;
+    // Recurse through the children.
+    for (auto &ChildLp : ChildLoops) {
+
+      int64_t ChildTripCnt = processLoop(ChildLp);
+
+      if (ChildTripCnt >= 0) {
+        CandidateChildLoops.push_back(ChildLp);
+
+        if (ChildTripCnt > MaxChildTripCnt) {
+          MaxChildTripCnt = ChildTripCnt;
+        }
+
+      } else {
+        HasValidChildren = false;
+      }
+    }
+
+    IsLoopCandidate = IsLoopCandidate && HasValidChildren;
+  }
+
+  if (IsLoopCandidate) {
+    // Compute trip count of loopnest.
+    AvgTripCnt *= MaxChildTripCnt;
+    IsLoopCandidate = isProfitable(Loop, AvgTripCnt);
+  }
+
+  // If current loop is not a candidate, store the children loops
+  // for transformation.
+  if (!IsLoopCandidate) {
+    CandidateLoops.append(CandidateChildLoops.begin(),
+                          CandidateChildLoops.end());
+  }
+
+  return IsLoopCandidate ? AvgTripCnt : -1;
+}
+
+bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop,
+                                     int64_t TotalTripCnt) const {
+
+  if (TotalTripCnt > CompleteUnrollTripThreshold) {
     DEBUG(dbgs() << "TotalTripCnt:" << TotalTripCnt << "\n");
     return false;
   }
-
-  // Update the child trip count for outer loops.
-  *TripCnt = TotalTripCnt;
 
   // Ignore loops which have switch or function calls for unrolling.
   if (HLNodeUtils::hasSwitchOrCall(Loop->getFirstChild(), Loop->getLastChild(),
@@ -504,13 +903,18 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop,
     return false;
   }
 
-  return true;
+  ProfitabilityAnalyzer PA(*this, Loop);
+
+  PA.analyze();
+
+  return PA.isProfitable();
 }
 
 // Transform (Complete Unroll) each loop inside the CandidateLoops vector
 void HIRCompleteUnroll::transformLoops() {
-
   SmallVector<int64_t, MaxLoopNestLevel> TripValues;
+
+  LoopnestsCompletelyUnrolled += CandidateLoops.size();
 
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
@@ -570,10 +974,10 @@ void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, HLLoop *OuterLoop,
     Loop->removeZtt();
     Loop->extractPreheaderAndPostexit();
     if (PreStart) {
-      HLNodeUtils::visitRange<true, false>(CEVisit, PreStart, PreEnd);
+      HLNodeUtils::visitRange(CEVisit, PreStart, PreEnd);
     }
     if (PostStart) {
-      HLNodeUtils::visitRange<true, false>(CEVisit, PostStart, PostEnd);
+      HLNodeUtils::visitRange(CEVisit, PostStart, PostEnd);
     }
   }
 

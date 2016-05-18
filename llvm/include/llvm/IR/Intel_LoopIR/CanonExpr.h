@@ -152,6 +152,8 @@ protected:
   virtual ~CanonExpr(){};
 
   friend class CanonExprUtils;
+  // Calls verifyNestingLevel().
+  friend class HLNodeUtils;
   friend class HIRParser;
 
   /// \brief Destroys the object.
@@ -232,6 +234,9 @@ protected:
   int64_t getMathCoeff(int64_t Coeff, bool IsMathAdd) {
     return IsMathAdd ? (getDenominator() * Coeff) : Coeff;
   }
+
+  /// Verifies that the incoming nesting level is valid for this CE, asserts otherwise.
+  bool verifyNestingLevel(unsigned NestingLevel) const;
 
 public:
   CanonExpr *clone() const;

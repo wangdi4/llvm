@@ -160,3 +160,11 @@ void BlobUtils::collectTempBlobs(BlobTy Blob,
                                  SmallVectorImpl<BlobTy> &TempBlobs) {
   return getHIRParser()->collectTempBlobs(Blob, TempBlobs);
 }
+
+void BlobUtils::collectTempBlobs(unsigned BlobIndex,
+                                 SmallVectorImpl<unsigned> &TempBlobIndices) {
+  SmallVector<BlobTy, 8> TempBlobs;
+
+  collectTempBlobs(getBlob(BlobIndex), TempBlobs);
+  mapBlobsToIndices(TempBlobs, TempBlobIndices);
+}

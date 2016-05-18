@@ -13,15 +13,12 @@
 ; Check the loop resource and verify that it is int bound.
 
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; CHECK:    Integer Memory Reads: 0
-; CHECK:    Integer Memory Writes: 0
 ; CHECK:    Integer Operations: 2
-; CHECK:    Floating Point Reads: 0
-; CHECK:    Floating Point Writes: 0
-; CHECK:    Floating Point Operations: 0
 ; CHECK:    Integer Bound
 ; CHECK: + END LOOP
 
+; Total resouce should be same as self resource for innermost loops.
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-loop-resource -hir-print-total-resource | FileCheck %s
 
 ; ModuleID = 'int-bound.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

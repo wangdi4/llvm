@@ -21,6 +21,8 @@
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
@@ -191,6 +193,21 @@ HLLoop *HLNode::getOutermostParentLoop() const {
     ParLoop = TempLoop;
     TempLoop = TempLoop->getParentLoop();
   }
+
+  return ParLoop;
+}
+
+HLLoop *HLNode::getParentLoopAtLevel(unsigned Level) const {
+  assert(HLNodeUtils::isLoopLevelValid(Level) && "Invalid loop level!");
+  assert((getNodeLevel() >= Level) && "Invalid level w.r.t this node!"); 
+
+  HLLoop *ParLoop = getParentLoop();
+
+  while (ParLoop && (ParLoop->getNestingLevel() > Level)) {
+    ParLoop = ParLoop->getParentLoop();
+  }
+
+  assert(ParLoop && "Could not find parent at level!");
 
   return ParLoop;
 }
