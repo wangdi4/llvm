@@ -143,7 +143,7 @@ bool SystemZShortenInst::shortenOn001AddCC(MachineInstr &MI,
 					   unsigned Opcode) {
   if (!LiveRegs.contains(SystemZ::CC) && shortenOn001(MI, Opcode)) {
     MachineInstrBuilder(*MI.getParent()->getParent(), &MI)
-      .addReg(SystemZ::CC, RegState::ImplicitDefine);
+      .addReg(SystemZ::CC, RegState::ImplicitDefine | RegState::Dead);
     return true;
   }
   return false;
@@ -268,6 +268,9 @@ bool SystemZShortenInst::processBlock(MachineBasicBlock &MBB) {
 }
 
 bool SystemZShortenInst::runOnMachineFunction(MachineFunction &F) {
+  if (skipFunction(*F.getFunction()))
+    return false;
+
   const SystemZSubtarget &ST = F.getSubtarget<SystemZSubtarget>();
   TII = ST.getInstrInfo();
   TRI = ST.getRegisterInfo();

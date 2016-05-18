@@ -23,7 +23,6 @@
 using namespace llvm;
 using namespace std;
 
-typedef class Type OVLSType;
 typedef class LLVMContext OVLSContext;
 
 class ClientMemref : public OVLSMemref {
@@ -32,8 +31,9 @@ public:
   ClientMemref(char MemrefId, int Distance,
                Type *ElemType, unsigned NumElements, // VectorType
                OVLSAccessType AType, char IdxId, VectorType *IdxType) :
-    OVLSMemref(VLSK_ClientMemref, ElemType->getPrimitiveSizeInBits(),
-               NumElements, AType) {
+    OVLSMemref(VLSK_ClientMemref,
+               OVLSType(ElemType->getPrimitiveSizeInBits(), NumElements),
+               AType) {
     MId = MemrefId;
     Dist = Distance;
     IndexId = IdxId;
@@ -46,7 +46,8 @@ public:
   ClientMemref(char MemrefId, int Distance,
                Type *ElemType, unsigned NumElements, // VectorType
                OVLSAccessType AType, bool CVStride, char VectorStrideId) :
-    OVLSMemref(VLSK_ClientMemref, ElemType->getPrimitiveSizeInBits(), NumElements,
+    OVLSMemref(VLSK_ClientMemref, OVLSType(ElemType->getPrimitiveSizeInBits(),
+                                           NumElements),
                AType) {
     MId = MemrefId;
     Dist = Distance;
@@ -59,7 +60,8 @@ public:
   ClientMemref(char MemrefId, int Distance,
                Type *ElemType, unsigned NumElements, // VectorType
                OVLSAccessType AType, bool CVStride, int VStride) :
-    OVLSMemref(VLSK_ClientMemref, ElemType->getPrimitiveSizeInBits(), NumElements,
+    OVLSMemref(VLSK_ClientMemref, OVLSType(ElemType->getPrimitiveSizeInBits(),
+                                           NumElements),
                AType) {
     MId = MemrefId;
     Dist = Distance;

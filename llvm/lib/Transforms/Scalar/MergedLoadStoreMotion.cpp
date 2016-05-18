@@ -72,9 +72,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CFG.h"
@@ -86,13 +83,11 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
-#include <vector>
 
 using namespace llvm;
 
@@ -567,6 +562,9 @@ bool MergedLoadStoreMotion::mergeStores(BasicBlock *T) {
 /// \brief Run the transformation for each function
 ///
 bool MergedLoadStoreMotion::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   auto *MDWP = getAnalysisIfAvailable<MemoryDependenceWrapperPass>();
   MD = MDWP ? &MDWP->getMemDep() : nullptr;
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();

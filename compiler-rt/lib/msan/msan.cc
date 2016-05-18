@@ -22,10 +22,6 @@
 #include "sanitizer_common/sanitizer_flags.h"
 #include "sanitizer_common/sanitizer_flag_parser.h"
 #include "sanitizer_common/sanitizer_libc.h"
-#if defined(__s390x__) && defined(__linux__)
-// For AvoidCVE_2016_2143.
-#include "sanitizer_common/sanitizer_linux.h"
-#endif
 #include "sanitizer_common/sanitizer_procmaps.h"
 #include "sanitizer_common/sanitizer_stacktrace.h"
 #include "sanitizer_common/sanitizer_symbolizer.h"
@@ -379,9 +375,7 @@ void __msan_init() {
   msan_init_is_running = 1;
   SanitizerToolName = "MemorySanitizer";
 
-#if defined(__s390x__) && defined(__linux__)
   AvoidCVE_2016_2143();
-#endif
   InitTlsSize();
 
   CacheBinaryName();
@@ -544,6 +538,13 @@ void __msan_set_alloca_origin4(void *a, uptr size, char *descr, uptr pc) {
     u32 idx = atomic_fetch_add(&NumStackOriginDescrs, 1, memory_order_relaxed);
     CHECK_LT(idx, kNumStackOriginDescrs);
     StackOriginDescr[idx] = descr + 4;
+#if SANITIZER_PPC64V1
+    // On PowerPC64 ELFv1, the address of a function actually points to a
+    // three-doubleword data structure with the first field containing
+    // the address of the function's code.
+    if (pc)
+      pc = *reinterpret_cast<uptr*>(pc);
+#endif
     StackOriginPC[idx] = pc;
     id = Origin::CreateStackOrigin(idx).raw_id();
     *id_ptr = id;

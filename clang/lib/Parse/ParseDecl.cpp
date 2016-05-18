@@ -2004,7 +2004,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
         TemplateParameterLists FakedParamLists;
         FakedParamLists.push_back(Actions.ActOnTemplateParameterList(
             0, SourceLocation(), TemplateInfo.TemplateLoc, LAngleLoc, None,
-            LAngleLoc));
+            LAngleLoc, nullptr));
 
         ThisDecl =
             Actions.ActOnTemplateDeclarator(getCurScope(), FakedParamLists, D);
@@ -4252,27 +4252,6 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
     // ';' after the definition.
     PP.EnterToken(Tok);
     Tok.setKind(tok::semi);
-  }
-}
-
-/// isTypeSpecifierQualifier - Return true if the current token could be the
-/// start of a type-qualifier-list.
-bool Parser::isTypeQualifier() const {
-  switch (Tok.getKind()) {
-  default: return false;
-  // type-qualifier
-  case tok::kw_const:
-  case tok::kw_volatile:
-  case tok::kw_restrict:
-  case tok::kw___private:
-  case tok::kw___local:
-  case tok::kw___global:
-  case tok::kw___constant:
-  case tok::kw___generic:
-  case tok::kw___read_only:
-  case tok::kw___read_write:
-  case tok::kw___write_only:
-    return true;
   }
 }
 

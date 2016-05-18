@@ -56,17 +56,31 @@ PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
   cl::init(true), cl::Hidden,
   cl::desc("Convert align attributes to assumptions during inlining."));
 
-InlineReason                                                      // INTEL
-      llvm::InlineFunction(CallInst *CI, InlineFunctionInfo &IFI, // INTEL
-                                  AAResults *CalleeAAR, bool InsertLifetime) {
-  return InlineFunction(CallSite(CI), IFI, CalleeAAR, InsertLifetime);
+#if INTEL_CUSTOMIZATION
+
+bool llvm::InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
+                          InlineReason* Reason,
+                          AAResults *CalleeAAR, bool InsertLifetime) {
+  return InlineFunction(CallSite(CI), IFI, Reason, CalleeAAR, InsertLifetime);
+}
+bool llvm::InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
+                          InlineReason* Reason, 
+                          AAResults *CalleeAAR, bool InsertLifetime) {
+  return InlineFunction(CallSite(II), IFI, Reason, CalleeAAR, InsertLifetime);
 }
 
-InlineReason
-     llvm::InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI, // INTEL 
+bool llvm::InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
                           AAResults *CalleeAAR, bool InsertLifetime) {
-  return InlineFunction(CallSite(II), IFI, CalleeAAR, InsertLifetime);
+  InlineReason Reason = NinlrNoReason;
+  return InlineFunction(CallSite(CI), IFI, &Reason, CalleeAAR, InsertLifetime);
 }
+bool llvm::InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
+                          AAResults *CalleeAAR, bool InsertLifetime) {
+  InlineReason Reason = NinlrNoReason;
+  return InlineFunction(CallSite(II), IFI, &Reason, CalleeAAR, InsertLifetime);
+}
+
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
   /// A class for recording information about inlining a landing pad.
@@ -690,6 +704,34 @@ static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
   // invoke instruction. Eliminate these entries (which might even delete the
   // PHI node) now.
   UnwindDest->removePredecessor(InvokeBB);
+}
+
+/// When inlining a call site that has !llvm.mem.parallel_loop_access metadata,
+/// that metadata should be propagated to all memory-accessing cloned
+/// instructions.
+static void PropagateParallelLoopAccessMetadata(CallSite CS,
+                                                ValueToValueMapTy &VMap) {
+  MDNode *M =
+    CS.getInstruction()->getMetadata(LLVMContext::MD_mem_parallel_loop_access);
+  if (!M)
+    return;
+
+  for (ValueToValueMapTy::iterator VMI = VMap.begin(), VMIE = VMap.end();
+       VMI != VMIE; ++VMI) {
+    if (!VMI->second)
+      continue;
+
+    Instruction *NI = dyn_cast<Instruction>(VMI->second);
+    if (!NI)
+      continue;
+
+    if (MDNode *PM = NI->getMetadata(LLVMContext::MD_mem_parallel_loop_access)) {
+        M = MDNode::concatenate(PM, M);
+      NI->setMetadata(LLVMContext::MD_mem_parallel_loop_access, M);
+    } else if (NI->mayReadOrWriteMemory()) {
+      NI->setMetadata(LLVMContext::MD_mem_parallel_loop_access, M);
+    }
+  }
 }
 
 /// When inlining a function that contains noalias scope metadata,
@@ -1336,11 +1378,11 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
 /// exists in the instruction stream.  Similarly this will inline a recursive
 /// function by one level.
 ///
-/// INTEL The Intel version returns the principal reason the function was or 
+/// INTEL The Intel version computes the principal reason the function was or 
 /// INTEL was not inlined at the call site.
 ///
-InlineReason                                                    // INTEL
-     llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI, // INTEL
+bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI, 
+                          InlineReason* Reason, // INTEL
                           AAResults *CalleeAAR, bool InsertLifetime) {
   Instruction *TheCall = CS.getInstruction();
   assert(TheCall->getParent() && TheCall->getParent()->getParent() &&
@@ -1356,15 +1398,18 @@ InlineReason                                                    // INTEL
 #ifdef INTEL_CUSTOMIZATION 
     if (!CalledFunc) { 
       // Can't inline indirect call
-      return NinlrIndirect;
+      *Reason = NinlrIndirect;
+      return false;
     }
     if (CalledFunc->isDeclaration()) { 
       // Can't inline external call 
-      return NinlrExtern; 
+      *Reason = NinlrExtern; 
+      return false; 
     }
     assert(CalledFunc->getFunctionType()->isVarArg()); 
     // Can't inline call to a vararg function!
-    return NinlrVarargs;
+    *Reason = NinlrVarargs;
+    return false; 
 #endif // INTEL_CUSTOMIZATION
   } // INTEL 
 
@@ -1379,8 +1424,8 @@ InlineReason                                                    // INTEL
       // ... and "funclet" operand bundles.
       if (Tag == LLVMContext::OB_funclet)
         continue;
-
-      return NinlrOpBundles;  // INTEL
+      *Reason = NinlrOpBundles; // INTEL 
+      return false; 
     }
   }
 
@@ -1398,8 +1443,10 @@ InlineReason                                                    // INTEL
   if (CalledFunc->hasGC()) {
     if (!Caller->hasGC())
       Caller->setGC(CalledFunc->getGC());
-    else if (CalledFunc->getGC() != Caller->getGC())
-      return NinlrMismatchedGC; // INTEL 
+    else if (CalledFunc->getGC() != Caller->getGC()) {  // INTEL 
+      *Reason = NinlrMismatchedGC; // INTEL 
+      return false; 
+    } // INTEL 
   }
 
   // Get the personality function from the callee if it contains a landing pad.
@@ -1422,8 +1469,10 @@ InlineReason                                                    // INTEL
     // inlining. Otherwise, we can't inline.
     // TODO: This isn't 100% true. Some personality functions are proper
     //       supersets of others and can be used in place of the other.
-    else if (CalledPersonality != CallerPersonality)
-      return NinlrMismatchedPersonality; // INTEL 
+    else if (CalledPersonality != CallerPersonality) { // INTEL 
+      *Reason = NinlrMismatchedPersonality; // INTEL 
+      return false; 
+    } // INTEL 
   }
 
   // We need to figure out which funclet the callsite was in so that we may
@@ -1447,16 +1496,20 @@ InlineReason                                                    // INTEL
             // Ok, the call site is within a cleanuppad.  Let's check the callee
             // for catchpads.
             for (const BasicBlock &CalledBB : *CalledFunc) {
-              if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI()))
-                return NinlrMSVCEH; // INTEL
+              if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI())) { // INTEL 
+                *Reason = NinlrMSVCEH; // INTEL
+                return false; 
+              } // INTEL 
             }
           }
         } else if (isAsynchronousEHPersonality(Personality)) {
           // SEH is even less tolerant, there may not be any sort of exceptional
           // funclet in the callee.
           for (const BasicBlock &CalledBB : *CalledFunc) {
-            if (CalledBB.isEHPad())
-              return NinlrMSVCEH; // INTEL
+            if (CalledBB.isEHPad()) { // INTEL 
+              *Reason = NinlrSEH; // INTEL
+              return false; 
+            } // INTEL 
           }
         }
       }
@@ -1605,6 +1658,9 @@ InlineReason                                                    // INTEL
 
     // Add noalias metadata if necessary.
     AddAliasScopeMetadata(CS, VMap, DL, CalleeAAR);
+
+    // Propagate llvm.mem.parallel_loop_access if necessary.
+    PropagateParallelLoopAccessMetadata(CS, VMap);
 
     // FIXME: We could register any cloned assumptions instead of clearing the
     // whole function's cache.
@@ -1974,7 +2030,8 @@ InlineReason                                                    // INTEL
     Returns[0]->eraseFromParent();
 
     // We are now done with the inlining.
-    return InlrNoReason; // INTEL 
+    *Reason = InlrNoReason; // INTEL 
+    return true; 
   }
 
   // Otherwise, we have the normal case, of more than one block to inline or
@@ -2129,5 +2186,17 @@ InlineReason                                                    // INTEL
     }
   }
 
-  return InlrNoReason; // INTEL 
+  *Reason = InlrNoReason; // INTEL 
+  return true; 
 }
+
+#if INTEL_CUSTOMIZATION
+
+bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
+                          AAResults *CalleeAAR, bool InsertLifetime) {
+  InlineReason Reason;
+  return llvm::InlineFunction(CS, IFI, &Reason, CalleeAAR, InsertLifetime);
+}
+
+#endif // INTEL_CUSTOMIZATION
+

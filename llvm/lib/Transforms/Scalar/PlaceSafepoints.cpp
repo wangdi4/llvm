@@ -641,7 +641,7 @@ InsertSafepointPoll(Instruction *InsertBefore,
 
   // Do the actual inlining
   InlineFunctionInfo IFI;
-  bool InlineStatus = IsInlinedReason(InlineFunction(PollCall, IFI)); // INTEL
+  bool InlineStatus = InlineFunction(PollCall, IFI); 
   assert(InlineStatus && "inline must succeed");
   (void)InlineStatus; // suppress warning in release-asserts
 

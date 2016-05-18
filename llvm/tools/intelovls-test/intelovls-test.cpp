@@ -118,21 +118,21 @@ namespace OVLSTest {
     return OVLSAccessType::getUnknownTy();
   }
 
-  static OVLSType* getScalarType(const std::string ST) {
+  static Type* getScalarType(const std::string ST) {
     OVLSContext& Context = getContext();
 
     if (ST.compare("i8") == 0 || ST.compare("si8") == 0)
-      return OVLSType::getInt8Ty(Context);
+      return Type::getInt8Ty(Context);
     else if (ST.compare("i16") == 0 || ST.compare("si16") == 0)
-      return OVLSType::getInt16Ty(Context);
+      return Type::getInt16Ty(Context);
     else if (ST.compare("i32") == 0 || ST.compare("si32") == 0)
-      return OVLSType::getInt32Ty(Context);
+      return Type::getInt32Ty(Context);
     else if (ST.compare("i64") == 0 || ST.compare("si64") == 0)
-      return OVLSType::getInt64Ty(Context);
+      return Type::getInt64Ty(Context);
     else if (ST.compare("f32") == 0)
-      return OVLSType::getFloatTy (Context);
+      return Type::getFloatTy (Context);
     else if (ST.compare("f64") == 0)
-      return OVLSType::getDoubleTy (Context);
+      return Type::getDoubleTy (Context);
 
     return nullptr;
   }
@@ -215,6 +215,14 @@ int main(int argc, char **argv) {
   OptVLSInterface::getGroups(Mrfs, Grps, GroupSize);
 
   // Do something with the grps.
+  for (OVLSGroup *Grp : Grps) {
+    OVLSInstructionVector InstVec;
+    if (OptVLSInterface::getSequence(*Grp, InstVec)) {
+      for (OVLSInstruction *I : InstVec) {
+        OVLSdbgs() << *I;
+      }
+    }
+  }
 
   // Release memory
   for (OVLSMemref *Memref : Mrfs) {
