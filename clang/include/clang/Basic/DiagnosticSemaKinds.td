@@ -5417,6 +5417,11 @@ def ext_standalone_specifier : ExtWarn<"'%0' is not permitted on a declaration "
 def err_standalone_class_nested_name_specifier : Error<
   "forward declaration of %select{class|struct|interface|union|enum}0 cannot "
   "have a nested name specifier">;
+// if INTEL_CUSTOMIZATION
+//   CQ409175: allow class name specifiers of forward declarations.
+def warn_standalone_class_nested_name_specifier : Warning<
+  err_standalone_class_nested_name_specifier.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_typecheck_sclass_func : Error<"illegal storage class on function">;
 def err_static_block_func : Error<
   "function declared in block scope cannot have 'static' storage class">;
@@ -5863,6 +5868,12 @@ def err_static_downcast_via_virtual : Error<
   "cannot cast %0 to %1 via virtual base %2">;
 def err_downcast_from_inaccessible_base : Error<
   "cannot cast %select{private|protected}2 base class %1 to %0">;
+// if INTEL_CUSTOMIZATION
+// CQ#409860 allow downcast from inaccessible base in MSVC compat mode.
+def ext_ms_downcast_from_inaccessible_base : ExtWarn<
+  "casting from %select{private|protected}2 base class %1 to derived class %0 is a Microsoft extension">,
+  InGroup<MicrosoftCast>;
+// endif // INTEL_CUSTOMIZATION
 def err_upcast_to_inaccessible_base : Error<
   "cannot cast %0 to its %select{private|protected}2 base class %1">;
 def err_bad_dynamic_cast_not_ref_or_ptr : Error<

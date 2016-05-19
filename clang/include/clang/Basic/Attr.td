@@ -1543,7 +1543,7 @@ def Uuid : InheritableAttr {
   let Spellings = [Declspec<"uuid">];
   let Args = [StringArgument<"Guid">];
 //  let Subjects = SubjectList<[CXXRecord]>;
-  let LangOpts = [MicrosoftExt, Borland];
+//  let LangOpts = [MicrosoftExt, Borland]; // INTEL
   let Documentation = [Undocumented];
 }
 
@@ -2065,7 +2065,7 @@ def DLLImport : InheritableAttr, TargetSpecificAttr<TargetWindows> {
 
 def SelectAny : InheritableAttr {
   let Spellings = [Declspec<"selectany">];
-  let LangOpts = [MicrosoftExt];
+  // let LangOpts = [MicrosoftExt]; // INTEL
   let Documentation = [Undocumented];
 }
 
