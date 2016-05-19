@@ -65,9 +65,10 @@ void OVLSAccessType::print(OVLSostream &OS) const {
   }
 }
 
-OVLSMemref::OVLSMemref(OVLSMemrefKind K, unsigned ESize, unsigned NumElements,
+OVLSMemref::OVLSMemref(OVLSMemrefKind K, OVLSType T,
                        const OVLSAccessType& AType)
-  : Kind(K), ElementSize(ESize), NumElements(NumElements), AccType(AType) {
+  : Kind(K), AccType(AType) {
+  DType = T;
   static unsigned MemrefId = 1;
   Id = MemrefId++;
 
@@ -93,8 +94,8 @@ void OVLSMemref::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << "#" << getId();
 
   // print memref type
-  OS << " <" << getNumElements() << " x " << getElementSize()
-            << ">";
+  OS << " ";
+  OS << getType();
 
   // print accessType
   OS << " ";
@@ -188,7 +189,7 @@ namespace OptVLS {
       for (MemrefDistanceMapIt E = (*AdjMemrefSet).end();
                                      AdjMemrefSetIt != E; ++AdjMemrefSetIt) {
         OVLSMemref *Memref = AdjMemrefSetIt->second;
-        unsigned ElemSize = Memref->getElementSize() / BYTE; // in bytes
+        unsigned ElemSize = Memref->getType().getElementSize() / BYTE; // in bytes
         int Dist = AdjMemrefSetIt->first;
 
         uint64_t AccMask = CurrGrp->getNByteAccessMask();
@@ -206,9 +207,14 @@ namespace OptVLS {
         } else
           AccMask = OptVLS::genMask(AccMask, ElemSize, Dist - GrpFirstMDist);
 
-        CurrGrp->insert(Memref);
-        // Set Access Mask.
-        CurrGrp->setAccessMask(AccMask);
+        uint64_t ElementMask = CurrGrp->getElementMask();
+        // TODO: Support heterogeneous types. Currently, heterogeneous types
+        // are not supported, therefore, a group cannot have different element
+        // sizes.
+        ElementMask = OptVLS::genMask(ElementMask, 1,
+                                      (Dist - GrpFirstMDist)/ElemSize);
+
+        CurrGrp->insert(Memref, AccMask, ElementMask);
       }
       OVLSGrps.push_back(CurrGrp);
     }
@@ -246,7 +252,9 @@ namespace OptVLS {
         OVLSMemref *SetFirstSeenMrf = (*AdjMemrefSet).find(0)->second;
 
         if (Memref->getAccessType() == SetFirstSeenMrf->getAccessType() && // same access type
-            Memref->haveSameNumElements(*SetFirstSeenMrf) && // same number of vector elements
+            // Memref->haveSameNumElements(*SetFirstSeenMrf) && // same number of vector elements
+            // TODO: Support heterogeneous types
+            Memref->getType() == SetFirstSeenMrf->getType() &&
             Memref->isAConstDistanceFrom(*SetFirstSeenMrf, &Dist)) { // are a const distance apart
           // Found a set
           AdjMrfSetFound = true;
@@ -267,6 +275,94 @@ namespace OptVLS {
     OVLSDebug(OptVLS::dumpMemrefDistanceMapVector(OVLSdbgs(), AdjMemrefSetVec));
     return;
   }
+
+  // Returns true if this acceess-mask has contiguous accesses means no 0s
+  // between 1s
+  static bool hasContiguousAccesses(uint64_t ByteAccessMask,
+                                    uint64_t TotalBytes) {
+    // All bytes are set to 1
+    if ((((uint64_t)1 << TotalBytes)-1) == ByteAccessMask)
+      return true;
+
+    // Look for the first zero in the mask.
+    while ((ByteAccessMask & 0x1) == 1)
+      ByteAccessMask = ByteAccessMask >> 1;
+
+    // mask value (starting from the first zero in the mask)is zero,
+    // that means there are no more accesses after a gap.
+    if (ByteAccessMask == 0)
+      return true;
+
+    return false;
+  }
+
+  static bool isSupported(const OVLSGroup& Group) {
+    int64_t Stride = 0;
+    if (!Group.hasGathers() || !Group.hasAConstStride(Stride)) {
+      OVLSDebug(OVLSdbgs() << "Optimized sequence is only supported for a group"
+                            " of gathers that has a constant stride!!!\n");
+      return false;
+    }
+
+    // Currently, AOS with heterogeneous members or adjacent memrefs with gaps
+    // in between the accesses are not supported.
+    if (!OptVLS::hasContiguousAccesses(Group.getNByteAccessMask(),
+                                       Group.getVectorLength())) {
+      OVLSDebug(OVLSdbgs() << "Cost analysis is only supported for a group of"
+                              " contiguous ith accesses!!!\n");
+      return false;
+    }
+
+    // Compute the number of bytes in the i-th elements of the memrefs
+    uint64_t NBMask = Group.getNByteAccessMask();
+    int32_t UsedBytes = 0;
+    while (NBMask != 0) {
+      NBMask = NBMask >> 1;
+      UsedBytes++;
+    }
+
+    // Group with overlapping accesses is not supported
+    if ((Stride+1) < UsedBytes)
+      return false;
+
+    return true;
+  }
+
+  /// This function returns a vector of contiguous loads for a group of
+  /// gathers that has a constant stride using a greedy approach. This default
+  /// approach generates a contiguous vector load for each i-th elements.
+  static void getDefaultLoads(const OVLSGroup& Group,
+                              OVLSInstructionVector &InstVector) {
+    int64_t Stride = 0;
+    if (!Group.hasGathers() || !Group.hasAConstStride(Stride))
+      assert("Unexpected Group!!!");
+
+    // Generate load mask
+    uint64_t ElementMask = Group.getElementMask();
+    int64_t Offset = 0;
+
+    // Compute Load Type
+    uint32_t ElemSize = Group.getElemSize();
+    uint32_t NumElemsInALoad = 0;
+    uint64_t EMask = ElementMask;
+    while (EMask != 0) {
+      EMask = EMask >> 1;
+      NumElemsInALoad++;
+    }
+    OVLSType LoadType = OVLSType(ElemSize, NumElemsInALoad);
+
+    int32_t MemrefVectorLength = Group.getNumElems();
+
+    OVLSMemref *GrpFirstMemref = Group.getFirstMemref();
+
+    while (MemrefVectorLength-- > 0) {
+      OVLSOperand *Src = new OVLSAddress(GrpFirstMemref, Offset);
+      OVLSInstruction *MemInst = new OVLSLoad(LoadType, *Src, ElementMask);
+      InstVector.push_back(MemInst);
+      Offset += Stride;
+    }
+  }
+
 } // end of namespace
 
 void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
@@ -299,7 +395,9 @@ void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
 
   OS << "%" << getId();
   OS << " = ";
-  OS << "mask.load." << getElementSize() << "." << getNumElements() << " (";
+  OS << "mask.load." << getType().getElementSize() << ".";
+  OS << getType().getNumElements();
+  OS << " (";
   Src.print(OS);
   OS << ", ";
   OptVLS::printMask(OS, getMask());
@@ -321,6 +419,7 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
   OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n");
 
   if (Memrefs.empty()) return;
+
   if (VectorLength > MAX_VECTOR_LENGTH) {
     OVLSDebug(OVLSdbgs() << "!!!Group size above " << MAX_VECTOR_LENGTH <<
                              " bytes is not supported currently\n");
@@ -345,9 +444,50 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
   OptVLS::formGroups(AdjMemrefSetVec, Grps, VectorLength);
 
   // Release memory
-  for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec) {
+  for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec)
     delete AdjMemrefSet;
-  }
 
   return;
+}
+
+// \brief getSequence() takes a group of gathers/scatters (collectively
+// represents both strided and indexed loads/stores). Returns true
+// if it is able to generate a vector of instructions (basically a set of
+// contiguous loads/stores followed by shuffles) that can replace (which is
+// semantically equivalent of) the gathers/scatters.
+// Returns false if it is unable to generate the sequence. This function
+// tries to generate the best optimized sequence without doing any
+// relative cost/benefit analysis (which is gather/scatter vs. the generated
+// sequence). The main purpose of this function is to help diagnostics.
+//
+// Current implementation status:
+// Current implementation only supports a group of adjacent strided-loads
+// with no gaps in between the accesses. E.g. a series of strided loads like
+// below will not be supported since access to a[3i+2] is missing in this set.
+// loop:
+//      t1 = a[3i];
+//      t2 = a[3i+1];
+//      t3 = a[3i+3];
+//
+// Therefore, it will also not supoport array of structs where members have
+// different data types.
+// E.g.
+// struct S{ float f, double d}s[100];
+// loop:
+//   t1 = s[i].f;
+//   t2 = s[i].d;
+//
+// Only strided-loads with constant stride (a uniform distance between the vector
+// elements) is supported.
+//
+// Right now, it only generates the load sequence, shuffle sequence are not
+// supported.
+bool OptVLSInterface::getSequence(const OVLSGroup& Group,
+				  OVLSInstructionVector& InstVector) {
+  if (!OptVLS::isSupported(Group))
+    return false;
+
+  OptVLS::getDefaultLoads(Group, InstVector);
+
+  return true;
 }

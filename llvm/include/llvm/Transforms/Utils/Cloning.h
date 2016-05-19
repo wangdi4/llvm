@@ -216,21 +216,25 @@ public:
 /// exists in the instruction stream.  Similarly this will inline a recursive
 /// function by one level.
 ///
-#if INTEL_CUSTOMIZATION
-/// The Intel version returns the InlineReason indicating the prinicipal 
-/// reason the function was or was not inlined. To determine if the function
-/// was or was not inlined, one can call IsInlinedReason(InlineReason) or 
-/// NotInlinedReason(InlineReason). 
-///
+bool InlineFunction(CallInst *C, InlineFunctionInfo &IFI,
+                    AAResults *CalleeAAR = nullptr, bool InsertLifetime = true);
+bool InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
+                    AAResults *CalleeAAR = nullptr, bool InsertLifetime = true);
+bool InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
+                    AAResults *CalleeAAR = nullptr, bool InsertLifetime = true);
 
-InlineReportTypes::InlineReason InlineFunction(CallInst *C, 
-                    InlineFunctionInfo &IFI,
+#if INTEL_CUSTOMIZATION
+/// The Intel version computes the InlineReason indicating the prinicipal 
+/// reason the function was or was not inlined. 
+///
+bool InlineFunction(CallInst *C, InlineFunctionInfo &IFI,
+                    InlineReportTypes::InlineReason* Reason,
                     AAResults *CalleeAAR = nullptr, bool InsertLifetime = true);
-InlineReportTypes::InlineReason InlineFunction(InvokeInst *II, 
-                    InlineFunctionInfo &IFI,
+bool InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
+                    InlineReportTypes::InlineReason* Reason,
                     AAResults *CalleeAAR = nullptr, bool InsertLifetime = true);
-InlineReportTypes::InlineReason InlineFunction(CallSite CS, 
-                    InlineFunctionInfo &IFI,
+bool InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
+                    InlineReportTypes::InlineReason* Reason,
                     AAResults *CalleeAAR = nullptr, bool InsertLifetime = true);
 #endif // INTEL_CUSTOMIZATION
 
@@ -239,6 +243,7 @@ InlineReportTypes::InlineReason InlineFunction(CallSite CS,
 ///
 /// Updates LoopInfo and DominatorTree assuming the loop is dominated by block
 /// \p LoopDomBB.  Insert the new blocks before block specified in \p Before.
+/// Note: Only innermost loops are supported.
 Loop *cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
                              Loop *OrigLoop, ValueToValueMapTy &VMap,
                              const Twine &NameSuffix, LoopInfo *LI,

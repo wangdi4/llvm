@@ -17,7 +17,6 @@
 
 #include "llvm/Target/TargetRecip.h"
 #include "llvm/MC/MCTargetOptions.h"
-#include <string>
 
 namespace llvm {
   class MachineFunction;
@@ -99,8 +98,7 @@ namespace llvm {
           GuaranteedTailCallOpt(false),            // INTEL
           IntelLibIRCAllowed(false),               // INTEL
           StackAlignmentOverride(0),               // INTEL
-          StackSymbolOrdering(true),
-          EnableFastISel(false), PositionIndependentExecutable(false),
+          StackSymbolOrdering(true), EnableFastISel(false),
           UseInitArray(false), DisableIntegratedAS(false),
           CompressDebugSections(false), FunctionSections(false),
           DataSections(false), UniqueSectionNames(true), TrapUnreachable(false),
@@ -190,12 +188,6 @@ namespace llvm {
     /// compile time.
     unsigned EnableFastISel : 1;
 
-    /// PositionIndependentExecutable - This flag indicates whether the code
-    /// will eventually be linked into a single executable, despite the PIC
-    /// relocation model being in use. It's value is undefined (and irrelevant)
-    /// if the relocation model is anything other than PIC.
-    unsigned PositionIndependentExecutable : 1;
-
     /// UseInitArray - Use .init_array instead of .ctors for static
     /// constructors.
     unsigned UseInitArray : 1;
@@ -283,7 +275,6 @@ inline bool operator==(const TargetOptions &LHS,
     ARE_EQUAL(GuaranteedTailCallOpt) &&
     ARE_EQUAL(StackAlignmentOverride) &&
     ARE_EQUAL(EnableFastISel) &&
-    ARE_EQUAL(PositionIndependentExecutable) &&
     ARE_EQUAL(UseInitArray) &&
     ARE_EQUAL(TrapUnreachable) &&
     ARE_EQUAL(EmulatedTLS) &&

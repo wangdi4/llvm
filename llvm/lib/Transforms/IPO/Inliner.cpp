@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/IPO/InlinerPass.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -28,9 +27,9 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/IPO/InlinerPass.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
 using namespace llvm;
@@ -97,10 +96,10 @@ InlinedArrayAllocasTy;
 /// available from other functions inlined into the caller.  If we are able to
 /// inline this call site we attempt to reuse already available allocas or add
 /// any new allocas to the set if not possible.
-static InlineReason
-            InlineCallIfPossible(Pass &P, CallSite CS, InlineFunctionInfo &IFI,
+static bool InlineCallIfPossible(Pass &P, CallSite CS, InlineFunctionInfo &IFI,
                                  InlinedArrayAllocasTy &InlinedArrayAllocas,
-                                 int InlineHistory, bool InsertLifetime) {
+                                 int InlineHistory, bool InsertLifetime,
+                                 InlineReason* IR) { // INTEL 
   Function *Callee = CS.getCalledFunction();
   Function *Caller = CS.getCaller();
 
@@ -114,12 +113,9 @@ static InlineReason
 
   // Try to inline the function.  Get the list of static allocas that were
   // inlined.
-#if INTEL_CUSTOMIZATION     
-  InlineReason IR = InlineFunction(CS, IFI, &AAR, InsertLifetime); 
-  if (IR != InlrNoReason) {
-    return IR;
-  } 
-#endif // INTEL_CUSTOMIZATION
+  if (!InlineFunction(CS, IFI, IR, &AAR, InsertLifetime)) {  // INTEL 
+    return false;
+  } // INTEL 
 
   AttributeFuncs::mergeAttributesForInlining(*Caller, *Callee);
 
@@ -158,8 +154,12 @@ static InlineReason
   // because their scopes are not disjoint.  We could make this smarter by
   // keeping track of the inline history for each alloca in the
   // InlinedArrayAllocas but this isn't likely to be a significant win.
-  if (InlineHistory != -1)  // Only do merging for top-level call sites in SCC.
-    return InlrNoReason; // INTEL 
+#if INTEL_CUSTOMIZATION
+  if (InlineHistory != -1) { // Only do merging for top-level call sites in SCC.
+    *IR = InlrNoReason; 
+    return true;
+  } 
+#endif // INTEL_CUSTOMIZATION
   
   // Loop over all the allocas we have so far and see if they can be merged with
   // a previously inlined alloca.  If not, remember that we had it.
@@ -245,8 +245,8 @@ static InlineReason
     AllocasForType.push_back(AI);
     UsedAllocas.insert(AI);
   }
-  
-  return InlrNoReason; // INTEL 
+  *IR = InlrNoReason; // INTEL  
+  return true; 
 }
 
 static void emitAnalysis(CallSite CS, const Twine &Msg) {
@@ -254,6 +254,76 @@ static void emitAnalysis(CallSite CS, const Twine &Msg) {
   LLVMContext &Ctx = Caller->getContext();
   DebugLoc DLoc = CS.getInstruction()->getDebugLoc();
   emitOptimizationRemarkAnalysis(Ctx, DEBUG_TYPE, *Caller, DLoc, Msg);
+}
+
+bool Inliner::shouldBeDeferred(Function *Caller, CallSite CS, InlineCost IC,
+                               int &TotalSecondaryCost) {
+
+  // For now we only handle local or inline functions.
+  if (!Caller->hasLocalLinkage() && !Caller->hasLinkOnceODRLinkage())
+    return false;
+  // Try to detect the case where the current inlining candidate caller (call
+  // it B) is a static or linkonce-ODR function and is an inlining candidate
+  // elsewhere, and the current candidate callee (call it C) is large enough
+  // that inlining it into B would make B too big to inline later. In these
+  // circumstances it may be best not to inline C into B, but to inline B into
+  // its callers.
+  //
+  // This only applies to static and linkonce-ODR functions because those are
+  // expected to be available for inlining in the translation units where they
+  // are used. Thus we will always have the opportunity to make local inlining
+  // decisions. Importantly the linkonce-ODR linkage covers inline functions
+  // and templates in C++.
+  //
+  // FIXME: All of this logic should be sunk into getInlineCost. It relies on
+  // the internal implementation of the inline cost metrics rather than
+  // treating them as truly abstract units etc.
+  TotalSecondaryCost = 0;
+  // The candidate cost to be imposed upon the current function.
+  int CandidateCost = IC.getCost() - (InlineConstants::CallPenalty + 1);
+  // This bool tracks what happens if we do NOT inline C into B.
+  bool callerWillBeRemoved = Caller->hasLocalLinkage();
+  // This bool tracks what happens if we DO inline C into B.
+  bool inliningPreventsSomeOuterInline = false;
+  for (User *U : Caller->users()) {
+    CallSite CS2(U);
+
+    // If this isn't a call to Caller (it could be some other sort
+    // of reference) skip it.  Such references will prevent the caller
+    // from being removed.
+    if (!CS2 || CS2.getCalledFunction() != Caller) {
+      callerWillBeRemoved = false;
+      continue;
+    }
+
+    InlineCost IC2 = getInlineCost(CS2);
+    ++NumCallerCallersAnalyzed;
+    if (!IC2) {
+      callerWillBeRemoved = false;
+      continue;
+    }
+    if (IC2.isAlways())
+      continue;
+
+    // See if inlining or original callsite would erase the cost delta of
+    // this callsite. We subtract off the penalty for the call instruction,
+    // which we would be deleting.
+    if (IC2.getCostDelta() <= CandidateCost) {
+      inliningPreventsSomeOuterInline = true;
+      TotalSecondaryCost += IC2.getCost();
+    }
+  }
+  // If all outer calls to Caller would get inlined, the cost for the last
+  // one is set very low by getInlineCost, in anticipation that Caller will
+  // be removed entirely.  We did not account for this above unless there
+  // is only one caller of Caller.
+  if (callerWillBeRemoved && !Caller->use_empty())
+    TotalSecondaryCost += InlineConstants::LastCallToStaticBonus;
+
+  if (inliningPreventsSomeOuterInline && TotalSecondaryCost < IC.getCost())
+    return true;
+
+  return false;
 }
 
 /// Return true if the inliner should attempt to inline at the given CallSite.
@@ -291,79 +361,19 @@ bool Inliner::shouldInline(CallSite CS) {
     getReport().setReasonNotInlined(CS, IC); // INTEL 
     return false;
   }
-  
-  // Try to detect the case where the current inlining candidate caller (call
-  // it B) is a static or linkonce-ODR function and is an inlining candidate
-  // elsewhere, and the current candidate callee (call it C) is large enough
-  // that inlining it into B would make B too big to inline later. In these
-  // circumstances it may be best not to inline C into B, but to inline B into
-  // its callers.
-  //
-  // This only applies to static and linkonce-ODR functions because those are
-  // expected to be available for inlining in the translation units where they
-  // are used. Thus we will always have the opportunity to make local inlining
-  // decisions. Importantly the linkonce-ODR linkage covers inline functions
-  // and templates in C++.
-  //
-  // FIXME: All of this logic should be sunk into getInlineCost. It relies on
-  // the internal implementation of the inline cost metrics rather than
-  // treating them as truly abstract units etc.
-  if (Caller->hasLocalLinkage() || Caller->hasLinkOnceODRLinkage()) {
-    int TotalSecondaryCost = 0;
-    // The candidate cost to be imposed upon the current function.
-    int CandidateCost = IC.getCost() - (InlineConstants::CallPenalty + 1);
-    // This bool tracks what happens if we do NOT inline C into B.
-    bool callerWillBeRemoved = Caller->hasLocalLinkage();
-    // This bool tracks what happens if we DO inline C into B.
-    bool inliningPreventsSomeOuterInline = false;
-    for (User *U : Caller->users()) {
-      CallSite CS2(U);
 
-      // If this isn't a call to Caller (it could be some other sort
-      // of reference) skip it.  Such references will prevent the caller
-      // from being removed.
-      if (!CS2 || CS2.getCalledFunction() != Caller) {
-        callerWillBeRemoved = false;
-        continue;
-      }
-
-      InlineCost IC2 = getInlineCost(CS2);
-      ++NumCallerCallersAnalyzed;
-      if (!IC2) {
-        callerWillBeRemoved = false;
-        continue;
-      }
-      if (IC2.isAlways())
-        continue;
-
-      // See if inlining or original callsite would erase the cost delta of
-      // this callsite. We subtract off the penalty for the call instruction,
-      // which we would be deleting.
-      if (IC2.getCostDelta() <= CandidateCost) {
-        inliningPreventsSomeOuterInline = true;
-        TotalSecondaryCost += IC2.getCost();
-      }
-    }
-    // If all outer calls to Caller would get inlined, the cost for the last
-    // one is set very low by getInlineCost, in anticipation that Caller will
-    // be removed entirely.  We did not account for this above unless there
-    // is only one caller of Caller.
-    if (callerWillBeRemoved && !Caller->use_empty())
-      TotalSecondaryCost += InlineConstants::LastCallToStaticBonus;
-
-    if (inliningPreventsSomeOuterInline && TotalSecondaryCost < IC.getCost()) {
-      DEBUG(dbgs() << "    NOT Inlining: " << *CS.getInstruction() <<
-           " Cost = " << IC.getCost() <<
-           ", outer Cost = " << TotalSecondaryCost << '\n');
-      emitAnalysis(
-          CS, Twine("Not inlining. Cost of inlining " +
-                    CS.getCalledFunction()->getName() +
-                    " increases the cost of inlining " +
-                    CS.getCaller()->getName() + " in other contexts"));
-      IC.setInlineReason(NinlrOuterInlining); // INTEL 
-      getReport().setReasonNotInlined(CS, IC, TotalSecondaryCost); // INTEL 
-      return false;
-    }
+  int TotalSecondaryCost = 0;
+  if (shouldBeDeferred(Caller, CS, IC, TotalSecondaryCost)) {
+    DEBUG(dbgs() << "    NOT Inlining: " << *CS.getInstruction()
+          << " Cost = " << IC.getCost()
+          << ", outer Cost = " << TotalSecondaryCost << '\n');
+    emitAnalysis(CS, Twine("Not inlining. Cost of inlining " +
+                           CS.getCalledFunction()->getName() +
+                           " increases the cost of inlining " +
+                           CS.getCaller()->getName() + " in other contexts"));
+    IC.setInlineReason(NinlrOuterInlining); // INTEL 
+    getReport().setReasonNotInlined(CS, IC, TotalSecondaryCost); // INTEL 
+    return false;
   }
 
   DEBUG(dbgs() << "    Inlining: cost=" << IC.getCost()
@@ -392,6 +402,9 @@ static bool InlineHistoryIncludes(Function *F, int InlineHistoryID,
 }
 
 bool Inliner::runOnSCC(CallGraphSCC &SCC) {
+  if (skipSCC(SCC))
+    return false;
+
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
   ACT = &getAnalysis<AssumptionCacheTracker>();
   auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
@@ -431,9 +444,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
         if (!CS)     // INTEL - Split out compound checks for inlining report
           continue;
 
-        if (getReport().getCallSite(CS) == nullptr) {             // INTEL
-          getReport().addCallSite(F, &CS, &CG.getModule());       // INTEL
-        }                                                         // INTEL
+        getReport().addNewCallSite(F, &CS, &CG.getModule()); // INTEL 
         if (isa<IntrinsicInst>(I)) {                              // INTEL
             getReport().setReasonNotInlined(CS, NinlrIntrinsic);  // INTEL
             continue;
@@ -544,13 +555,13 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
 
         // Attempt to inline the function.
 #if INTEL_CUSTOMIZATION
-        InlineReportCallSite* IRCS = getReport().getCallSite(CS);
+        InlineReportCallSite* IRCS = getReport().getCallSite(&CS);
         Instruction* NI = CS.getInstruction();
         getReport().setActiveInlineInstruction(NI); 
-        InlineReason Reason = InlineCallIfPossible(*this, CS, InlineInfo, 
-          InlinedArrayAllocas, InlineHistoryID, InsertLifetime);
-        getReport().setActiveInlineInstruction(nullptr); 
-        if (IsNotInlinedReason(Reason)) { 
+        InlineReason Reason = NinlrNoReason;
+        if (!InlineCallIfPossible(*this, CS, InlineInfo, 
+          InlinedArrayAllocas, InlineHistoryID, InsertLifetime, &Reason)) {
+          getReport().setActiveInlineInstruction(nullptr); 
           getReport().setReasonNotInlined(CS, Reason); 
 #endif // INTEL_CUSTOMIZATION
           emitOptimizationRemarkMissed(CallerCtx, DEBUG_TYPE, *Caller, DLoc,
@@ -559,6 +570,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
                                              Caller->getName()));
           continue;
         }
+        getReport().setActiveInlineInstruction(nullptr); // INTEL
         ++NumInlined;
 
         // Report the inline decision.

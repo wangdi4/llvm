@@ -24,6 +24,8 @@
 #include "llvm/Object/IRObjectFile.h"
 #include "llvm/Support/StringSaver.h"
 
+#include <map>
+
 namespace lld {
 namespace elf {
 
@@ -87,13 +89,14 @@ public:
 
   uint32_t getSectionIndex(const Elf_Sym &Sym) const;
 
+  Elf_Sym_Range getElfSymbols(bool OnlyGlobals);
+
 protected:
   llvm::object::ELFFile<ELFT> ELFObj;
   const Elf_Shdr *Symtab = nullptr;
   ArrayRef<Elf_Word> SymtabSHNDX;
   StringRef StringTable;
   void initStringTable();
-  Elf_Sym_Range getElfSymbols(bool OnlyGlobals);
 };
 
 // .o file.
@@ -125,6 +128,11 @@ public:
 
   SymbolBody &getSymbolBody(uint32_t SymbolIndex) const {
     return *SymbolBodies[SymbolIndex];
+  }
+
+  template <typename RelT> SymbolBody &getRelocTargetSym(const RelT &Rel) const {
+    uint32_t SymIndex = Rel.getSymbol(Config->Mips64EL);
+    return getSymbolBody(SymIndex);
   }
 
   const Elf_Shdr *getSymbolTable() const { return this->Symtab; };
@@ -176,9 +184,7 @@ public:
     return F->kind() == LazyObjectKind;
   }
 
-  void parse();
-
-  llvm::MutableArrayRef<LazyObject> getLazySymbols() { return LazySymbols; }
+  template <class ELFT> void parse();
 
 private:
   std::vector<StringRef> getSymbols();
@@ -187,7 +193,6 @@ private:
 
   llvm::BumpPtrAllocator Alloc;
   llvm::StringSaver Saver{Alloc};
-  std::vector<LazyObject> LazySymbols;
 };
 
 // An ArchiveFile object represents a .a file.
@@ -195,37 +200,36 @@ class ArchiveFile : public InputFile {
 public:
   explicit ArchiveFile(MemoryBufferRef M) : InputFile(ArchiveKind, M) {}
   static bool classof(const InputFile *F) { return F->kind() == ArchiveKind; }
-  void parse();
+  template <class ELFT> void parse();
 
   // Returns a memory buffer for a given symbol. An empty memory buffer
   // is returned if we have already returned the same memory buffer.
   // (So that we don't instantiate same members more than once.)
   MemoryBufferRef getMember(const Archive::Symbol *Sym);
 
-  llvm::MutableArrayRef<LazyArchive> getLazySymbols() { return LazySymbols; }
-
 private:
   std::unique_ptr<Archive> File;
-  std::vector<LazyArchive> LazySymbols;
   llvm::DenseSet<uint64_t> Seen;
 };
 
 class BitcodeFile : public InputFile {
 public:
   explicit BitcodeFile(MemoryBufferRef M);
-  static bool classof(const InputFile *F);
+  static bool classof(const InputFile *F) { return F->kind() == BitcodeKind; }
+  template <class ELFT>
   void parse(llvm::DenseSet<StringRef> &ComdatGroups);
-  ArrayRef<SymbolBody *> getSymbols() { return SymbolBodies; }
-  static bool shouldSkip(const llvm::object::BasicSymbolRef &Sym);
+  ArrayRef<Symbol *> getSymbols() { return Symbols; }
+  static bool shouldSkip(uint32_t Flags);
+  std::unique_ptr<llvm::object::IRObjectFile> Obj;
 
 private:
-  std::vector<SymbolBody *> SymbolBodies;
+  std::vector<Symbol *> Symbols;
   llvm::BumpPtrAllocator Alloc;
   llvm::StringSaver Saver{Alloc};
-  SymbolBody *
-  createSymbolBody(const llvm::DenseSet<const llvm::Comdat *> &KeptComdats,
-                   const llvm::object::IRObjectFile &Obj,
-                   const llvm::object::BasicSymbolRef &Sym);
+  template <class ELFT>
+  Symbol *createSymbol(const llvm::DenseSet<const llvm::Comdat *> &KeptComdats,
+                       const llvm::object::IRObjectFile &Obj,
+                       const llvm::object::BasicSymbolRef &Sym);
 };
 
 // .so file.
@@ -235,16 +239,16 @@ template <class ELFT> class SharedFile : public ELFFileBase<ELFT> {
   typedef typename ELFT::Sym Elf_Sym;
   typedef typename ELFT::Word Elf_Word;
   typedef typename ELFT::SymRange Elf_Sym_Range;
+  typedef typename ELFT::Versym Elf_Versym;
+  typedef typename ELFT::Verdef Elf_Verdef;
 
-  std::vector<SharedSymbol<ELFT>> SymbolBodies;
   std::vector<StringRef> Undefs;
   StringRef SoName;
+  const Elf_Shdr *VersymSec = nullptr;
+  const Elf_Shdr *VerdefSec = nullptr;
 
 public:
   StringRef getSoName() const { return SoName; }
-  llvm::MutableArrayRef<SharedSymbol<ELFT>> getSharedSymbols() {
-    return SymbolBodies;
-  }
   const Elf_Shdr *getSection(const Elf_Sym &Sym) const;
   llvm::ArrayRef<StringRef> getUndefinedSymbols() { return Undefs; }
 
@@ -256,6 +260,19 @@ public:
 
   void parseSoName();
   void parseRest();
+  std::vector<const Elf_Verdef *> parseVerdefs(const Elf_Versym *&Versym);
+
+  struct NeededVer {
+    // The string table offset of the version name in the output file.
+    size_t StrTab;
+
+    // The version identifier for this version name.
+    uint16_t Index;
+  };
+
+  // Mapping from Elf_Verdef data structures to information about Elf_Vernaux
+  // data structures in the output file.
+  std::map<const Elf_Verdef *, NeededVer> VerdefMap;
 
   // Used for --as-needed
   bool AsNeeded = false;

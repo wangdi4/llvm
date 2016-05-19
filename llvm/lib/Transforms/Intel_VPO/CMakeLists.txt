@@ -12,6 +12,7 @@ add_llvm_library(LLVMIntel_VPOTransforms
   Vecopt/VPOAvrHIRCodeGen.cpp
 
   Paropt/VPOParopt.cpp
+  Paropt/VPOParoptAtomics.cpp
   Paropt/VPOParoptTransform.cpp
   Paropt/VPOParoptUtils.cpp
 )

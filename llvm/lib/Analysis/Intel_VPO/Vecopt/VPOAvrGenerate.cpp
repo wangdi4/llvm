@@ -649,6 +649,9 @@ void AVRGenerate::buildAbstractLayer() {
 
     DEBUG(dbgs() << "\nAVR: Generating AVRs for vector candidates.\n");
 
+    // Build the WRGraph
+    WR->buildWRGraph(false);
+
     // Build AVR node representation for incoming vector candidates
     buildAvrsForVectorCandidates();
   }

@@ -4120,8 +4120,19 @@ bool ABIInfo::isHomogeneousAggregate(QualType Ty, const Type *&Base,
     // agree in both total size and mode (float vs. vector) are
     // treated as being equivalent here.
     const Type *TyPtr = Ty.getTypePtr();
-    if (!Base)
+    if (!Base) {
       Base = TyPtr;
+      // If it's a non-power-of-2 vector, its size is already a power-of-2,
+      // so make sure to widen it explicitly.
+      if (const VectorType *VT = Base->getAs<VectorType>()) {
+        QualType EltTy = VT->getElementType();
+        unsigned NumElements =
+            getContext().getTypeSize(VT) / getContext().getTypeSize(EltTy);
+        Base = getContext()
+                   .getVectorType(EltTy, NumElements, VT->getVectorKind())
+                   .getTypePtr();
+      }
+    }
 
     if (Base->isVectorType() != TyPtr->isVectorType() ||
         getContext().getTypeSize(Base) != getContext().getTypeSize(TyPtr))
@@ -4472,7 +4483,7 @@ ABIArgInfo AArch64ABIInfo::classifyArgumentType(QualType Ty) const {
   if (isIllegalVectorType(Ty)) {
     uint64_t Size = getContext().getTypeSize(Ty);
     // Android promotes <2 x i8> to i16, not i32
-    if(isAndroid() && (Size <= 16)) {
+    if (isAndroid() && (Size <= 16)) {
       llvm::Type *ResType = llvm::Type::getInt16Ty(getVMContext());
       return ABIArgInfo::getDirect(ResType);
     }
@@ -5702,12 +5713,12 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
 
 namespace {
 
-class SystemZABIInfo : public ABIInfo {
+class SystemZABIInfo : public SwiftABIInfo {
   bool HasVector;
 
 public:
   SystemZABIInfo(CodeGenTypes &CGT, bool HV)
-    : ABIInfo(CGT), HasVector(HV) {}
+    : SwiftABIInfo(CGT), HasVector(HV) {}
 
   bool isPromotableIntegerType(QualType Ty) const;
   bool isCompoundType(QualType Ty) const;
@@ -5727,6 +5738,12 @@ public:
 
   Address EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
                     QualType Ty) const override;
+
+  bool shouldPassIndirectlyForSwift(CharUnits totalSize,
+                                    ArrayRef<llvm::Type*> scalars,
+                                    bool asReturnValue) const override {
+    return occupiesMoreThan(CGT, scalars, /*total*/ 4);
+  }
 };
 
 class SystemZTargetCodeGenInfo : public TargetCodeGenInfo {
@@ -6680,6 +6697,7 @@ public:
       I.info = classifyArgumentType(I.type, State);
   }
 
+  ABIArgInfo getIndirectResult(QualType Ty, bool ByVal, CCState &State) const;
   ABIArgInfo classifyArgumentType(QualType RetTy, CCState &State) const;
 };
 } // end anonymous namespace
@@ -6701,21 +6719,72 @@ bool LanaiABIInfo::shouldUseInReg(QualType Ty, CCState &State) const {
   return true;
 }
 
+ABIArgInfo LanaiABIInfo::getIndirectResult(QualType Ty, bool ByVal,
+                                           CCState &State) const {
+  if (!ByVal) {
+    if (State.FreeRegs) {
+      --State.FreeRegs; // Non-byval indirects just use one pointer.
+      return getNaturalAlignIndirectInReg(Ty);
+    }
+    return getNaturalAlignIndirect(Ty, false);
+  }
+
+  // Compute the byval alignment.
+  const unsigned MinABIStackAlignInBytes = 4;
+  unsigned TypeAlign = getContext().getTypeAlign(Ty) / 8;
+  return ABIArgInfo::getIndirect(CharUnits::fromQuantity(4), /*ByVal=*/true,
+                                 /*Realign=*/TypeAlign >
+                                     MinABIStackAlignInBytes);
+}
+
 ABIArgInfo LanaiABIInfo::classifyArgumentType(QualType Ty,
                                               CCState &State) const {
-  if (isAggregateTypeForABI(Ty))
-    return getNaturalAlignIndirect(Ty);
+  // Check with the C++ ABI first.
+  const RecordType *RT = Ty->getAs<RecordType>();
+  if (RT) {
+    CGCXXABI::RecordArgABI RAA = getRecordArgABI(RT, getCXXABI());
+    if (RAA == CGCXXABI::RAA_Indirect) {
+      return getIndirectResult(Ty, /*ByVal=*/false, State);
+    } else if (RAA == CGCXXABI::RAA_DirectInMemory) {
+      return getNaturalAlignIndirect(Ty, /*ByRef=*/true);
+    }
+  }
+
+  if (isAggregateTypeForABI(Ty)) {
+    // Structures with flexible arrays are always indirect.
+    if (RT && RT->getDecl()->hasFlexibleArrayMember())
+      return getIndirectResult(Ty, /*ByVal=*/true, State);
+
+    // Ignore empty structs/unions.
+    if (isEmptyRecord(getContext(), Ty, true))
+      return ABIArgInfo::getIgnore();
+
+    llvm::LLVMContext &LLVMContext = getVMContext();
+    unsigned SizeInRegs = (getContext().getTypeSize(Ty) + 31) / 32;
+    if (SizeInRegs <= State.FreeRegs) {
+      llvm::IntegerType *Int32 = llvm::Type::getInt32Ty(LLVMContext);
+      SmallVector<llvm::Type *, 3> Elements(SizeInRegs, Int32);
+      llvm::Type *Result = llvm::StructType::get(LLVMContext, Elements);
+      State.FreeRegs -= SizeInRegs;
+      return ABIArgInfo::getDirectInReg(Result);
+    } else {
+      State.FreeRegs = 0;
+    }
+    return getIndirectResult(Ty, true, State);
+  }
 
   // Treat an enum type as its underlying type.
   if (const auto *EnumTy = Ty->getAs<EnumType>())
     Ty = EnumTy->getDecl()->getIntegerType();
 
-  if (shouldUseInReg(Ty, State))
-    return ABIArgInfo::getDirectInReg();
-
-  if (Ty->isPromotableIntegerType())
+  bool InReg = shouldUseInReg(Ty, State);
+  if (Ty->isPromotableIntegerType()) {
+    if (InReg)
+      return ABIArgInfo::getDirectInReg();
     return ABIArgInfo::getExtend();
-
+  }
+  if (InReg)
+    return ABIArgInfo::getDirectInReg();
   return ABIArgInfo::getDirect();
 }
 
@@ -7379,7 +7448,6 @@ public:
 /// Emit SPIR specific metadata: OpenCL and SPIR version.
 void SPIRTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
                                          CodeGen::CodeGenModule &CGM) const {
-  assert(CGM.getLangOpts().OpenCL && "SPIR is only for OpenCL");
   llvm::LLVMContext &Ctx = CGM.getModule().getContext();
   llvm::Type *Int32Ty = llvm::Type::getInt32Ty(Ctx);
   llvm::Module &M = CGM.getModule();
