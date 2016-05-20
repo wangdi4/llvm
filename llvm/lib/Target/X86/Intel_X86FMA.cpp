@@ -25,10 +25,12 @@
 #include "X86InstrInfo.h"
 #include "X86Subtarget.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetInstrInfo.h"
 #include "Intel_X86FMACommon.h"
 using namespace llvm;
 
@@ -107,7 +109,8 @@ public:
 class X86GlobalFMA : public MachineFunctionPass {
 public:
   X86GlobalFMA()
-      : MachineFunctionPass(ID), MF(nullptr), TII(nullptr), Patterns(nullptr) {}
+      : MachineFunctionPass(ID), MF(nullptr), TII(nullptr), MRI(nullptr),
+        Patterns(nullptr) {}
   ~X86GlobalFMA() { delete Patterns; }
 
   const char *getPassName() const override { return "X86 GlobalFMA"; }
@@ -126,7 +129,10 @@ private:
   MachineFunction *MF;
 
   /// This field is used to get information about available target operations.
-  const TargetInstrInfo *TII;
+  const X86InstrInfo *TII;
+
+  /// Machine register information.
+  MachineRegisterInfo *MRI;
 
   /// A storage with pre-computed/efficient FMA patterns.
   FMAPatterns *Patterns;
@@ -142,6 +148,17 @@ private:
   /// the input machine basic block \p MBB.
   /// Return true iff any changes in the IR (i.e. in \p MBB) were made.
   bool optParsedBasicBlock(FMABasicBlock &FMABB, MachineBasicBlock &MBB);
+
+  /// Performs the Forward Substitution transformation of the FMA expressions
+  /// in the given FMA basic block \p FMABB.
+  /// This transformation fuses small FMA expressions into bigger expressions
+  /// that can then be optimized.
+  /// For example,
+  ///   t1 = a * b;
+  ///   t2 = t1 + c;
+  /// -->
+  ///   t2 = a * b + c;
+  void doFWS(FMABasicBlock &FMABB);
 };
 
 char X86GlobalFMA::ID = 0;
@@ -441,6 +458,19 @@ private:
   /// down to their users.
   const MachineInstr *MI;
 
+  /// Virtual registers which are killed after being used in this
+  /// FMA expression.
+  /// This set is maintained only for root FMA expressions, i.e. when the field
+  /// IsRootExpr is set to 'true'.
+  std::set<unsigned> KilledRegs;
+
+  /// A set of machine instructions corresponding to other FMA expressions
+  /// consumed by this FMA expression. The machine instructions in this list
+  /// must be removed from IR when/if this expression is translated back to IR.
+  /// This set is maintained only for root FMA expressions, i.e. when the field
+  /// IsRootExpr is set to 'true'.
+  std::list<const MachineInstr *> ConsumedMIs;
+
   /// Returns an index for the given term \p Term. It is asserted that the
   /// provided term is used as an operand of one of FMA operations included
   /// into the expression tree referenced by 'this' FMA expression.
@@ -473,6 +503,11 @@ private:
   /// stops being used by the consuming expression. Thus the removed term
   /// can be only an FMARegisterTerm.
   void removeFromUsedTerms(FMARegisterTerm *Term);
+
+  /// This method puts 'this' node and all subexpressions to the given
+  /// set \p ExprSet. It may be needed when each expression node must be
+  /// visited only once.
+  void putExprToExprSet(std::set<const FMAExpr *> &ExprSet) const;
 
 public:
   /// Create FMAExpr for ADD/SUB/FMA instruction.
@@ -513,10 +548,25 @@ public:
   /// subtracted, and the value 'false' is used when the 3rd operand is added.
   void setAddSign(bool Sign) { AddSign = Sign; }
 
+  /// Returns the term associated with the result of this FMA expression.
+  FMARegisterTerm *getResultTerm() const { return ResultTerm; }
 
   /// Returns the reference to machine instruction associated with
   /// FMA expression.
   const MachineInstr *getMI() const { return MI; }
+
+  /// Returns the number of times the given term \p Term is used by 'this'
+  /// expression and its subexpressions.
+  unsigned countTermUses(const FMATerm *Term) const;
+
+  /// Replaces the uses of the term \p Term with the uses of the expression
+  /// \p Expr. Usually that is done when the expression \p Expr is consumed
+  /// by 'this' expression.
+  void replaceTermWithExpr(FMATerm *Term, FMAExpr *Expr);
+
+  /// Includes the given expression \p Expr into 'this' expression. It is
+  /// assumed that the term defined by \p Expr is used in 'this' expression.
+  void consume(FMAExpr *Expr);
 
   /// Returns true iff 'this' FMA expression is included into some bigger
   /// FMA expression and does not show up as independent expression.
@@ -526,8 +576,19 @@ public:
   /// a sub-expression of some bigger FMA expression.
   void markAsConsumed() { IsRootExpr = false; }
 
-  // Returns the number of used register and memory terms.
-  unsigned getNumUsedTerms() { return UsedTerms.size(); }
+  /// Looks for an expression in the given basic block \p FMABB that could be
+  /// included into 'this' expression. Returns a reference to such expression
+  /// or nullptr if no consumable expressions were found.
+  /// Expressions that are not used or used not only by 'this' expression are
+  /// not considered as candidates for being consumed.
+  /// The parameter \p MRI is passed to this method to make it possible to
+  /// count the number of users of registers associated with the results of
+  /// candidates for consumption.
+  FMAExpr *findFWSCandidate(FMABasicBlock &FMABB,
+                            const MachineRegisterInfo *MRI) const;
+
+  /// Returns the number of used register and memory terms.
+  unsigned getNumUsedTerms() const { return UsedTerms.size(); }
 
   /// Returns the used term by the index \p Index.
   FMATerm *getUsedTermByIndex(unsigned Index) const { return UsedTerms[Index]; }
@@ -558,6 +619,42 @@ FMAExpr::FMAExpr(MVT VT, const MachineInstr *MI, FMARegisterTerm *ResultTerm,
     addToUsedTerms(Op2->castToTerm());
   if (Op3->isRegisterTerm() || Op3->isMemoryTerm())
     addToUsedTerms(Op3->castToTerm());
+
+  // If the given MachineInstr has the last use for some of virtual register
+  // terms, then add such registers to the list of registers that must
+  // get isKill() attribute at the Machine IR emitting stage.
+  unsigned NumOperands = MI->getNumOperands();
+  const MachineRegisterInfo &MRI = MI->getParent()->getParent()->getRegInfo();
+  const TargetRegisterClass *RC = MRI.getRegClass(ResultTerm->getReg());
+  for (unsigned OpInd = 1; OpInd < NumOperands; OpInd++) {
+    MachineOperand MO = MI->getOperand(OpInd);
+
+    // It is assumed here that the result and all operands of FMA operation
+    // have the same register class. The only exception from that rule is
+    // the operand loaded from memory. The load from memory is represented by
+    // the last several machine operands having different register class.
+    // We do not want to add the last ones to the KilledRegs set as such
+    // address registers would not be used and would only pollute KilledRegs.
+    if (!MO.isReg())
+      continue;
+    unsigned Reg = MO.getReg();
+    if (!TargetRegisterInfo::isVirtualRegister(Reg) ||
+        RC != MRI.getRegClass(Reg))
+      continue;
+
+    if (MO.isKill())
+      KilledRegs.insert(Reg);
+  }
+}
+
+void FMAExpr::putExprToExprSet(std::set<const FMAExpr *> &ExprSet) const {
+  if (ExprSet.find(this) != ExprSet.end())
+    return;
+
+  ExprSet.insert(this);
+  for (auto Opnd : Operands)
+    if (Opnd->isFMA())
+      Opnd->castToExpr()->putExprToExprSet(ExprSet);
 }
 
 void FMAExpr::print(raw_ostream &OS, bool PrintType) const {
@@ -593,6 +690,58 @@ void FMAExpr::removeFromUsedTerms(FMARegisterTerm *Term) {
   UsedTerms.erase(I);
 }
 
+void FMAExpr::replaceTermWithExpr(FMATerm *Term, FMAExpr *Expr) {
+  for (auto &Opnd : Operands)
+    if (Opnd == Term)
+      Opnd = Expr;
+    else if (Opnd->isFMA())
+      Opnd->castToExpr()->replaceTermWithExpr(Term, Expr);
+}
+
+void FMAExpr::consume(FMAExpr *FWSExpr) {
+  FWSExpr->markAsConsumed();
+
+  // Update the list of consumed machine instructions.
+  // Also, FWSExpr does not need to keep the list of consumed machine
+  // instructions anymore.
+  ConsumedMIs.push_back(FWSExpr->getMI());
+  ConsumedMIs.splice(ConsumedMIs.end(), FWSExpr->ConsumedMIs);
+
+  // Term defined by the FWSExpr.
+  FMARegisterTerm *FWSTerm = FWSExpr->getResultTerm();
+
+  // Change the corresponding operands/terms with the reference to fws_expr.
+  replaceTermWithExpr(FWSTerm, FWSExpr);
+
+  // Remove FWSTerm from the set of used terms as it just got substituted by
+  // the expression FWSExpr.
+  removeFromUsedTerms(FWSTerm);
+
+  // Add terms used by 'FWSExpr' to the list of terms used by the current
+  // FMA expression.
+  // Also, FWSExpr does not need to keep the list of used terms anymore.
+  addToUsedTerms(FWSExpr->UsedTerms);
+  FWSExpr->UsedTerms.clear();
+
+  KilledRegs.insert(FWSExpr->KilledRegs.begin(), FWSExpr->KilledRegs.end());
+  FWSExpr->KilledRegs.clear();
+
+  DEBUG(fmadbgs() << "  -->After consuming expr: " << *this << "\n");
+}
+
+unsigned FMAExpr::countTermUses(const FMATerm *Term) const {
+  std::set<const FMAExpr *> ExprSet;
+  putExprToExprSet(ExprSet);
+
+  unsigned NumUses = 0;
+  for (auto E : ExprSet)
+    for (auto Opnd : E->Operands)
+      if (Opnd == Term)
+        NumUses++;
+
+  return NumUses;
+}
+
 /// This class represents one optimizable basic block. It holds all FMAExpr
 /// objects created for operations in one MachineBasicBlock.
 /// It also keeps references to special terms 0.0 and 1.0 created only once and
@@ -607,6 +756,11 @@ private:
   /// to have quick search through already existing terms using virtual
   /// registers as keys.
   std::map<unsigned, FMARegisterTerm *> RegisterToFMARegisterTerm;
+
+  /// This field maps terms to expressions defining those terms.
+  /// For example, for any expression T1 = FMA1(...) there should be a pair
+  /// <T1, FMA1> in this map.
+  std::map<const FMATerm *, FMAExpr *> TermToDefFMA;
 
   /// Memory terms used by FMA expressions in the basic block are stored into
   /// std::map to avoid creation of duplicated terms and to have quick search
@@ -669,6 +823,17 @@ public:
   /// MUL/ADD/FMA operations and creates FMA expressions (FMAExpr) for them.
   /// Returns the number of optimizable expressions found in the block.
   unsigned findFMAs();
+
+  /// Returns a reference to FMA expression defining the given \p Term.
+  FMAExpr *findDefiningFMA(const FMATerm *Term) const {
+    auto I = TermToDefFMA.find(Term);
+    if (I == TermToDefFMA.end())
+      return nullptr;
+    return I->second;
+  }
+
+  /// Returns the vector containing all FMAs available in this basic block.
+  const std::vector<FMAExpr *> &getFMAs() const { return FMAs; };
 
   /// Prints the type to the given stream \p OS.
   void print(raw_ostream &OS) const;
@@ -736,6 +901,7 @@ FMAExpr *FMABasicBlock::createFMA(MVT VT, const MachineInstr *MI,
                                   FMANode *Op2, FMANode *Op3) {
   FMAExpr *Expr = new FMAExpr(VT, MI, ResTerm, Op1, Op2, Op3);
   FMAs.push_back(Expr);
+  TermToDefFMA[ResTerm] = Expr;
   return Expr;
 }
 
@@ -1023,7 +1189,7 @@ void FMABasicBlock::print(raw_ostream &OS) const {
     OS << "\n  ";
   }
 
-  OS << "\nFMA EXPRESSIONAs:\n";
+  OS << "\nFMA EXPRESSIONs:\n";
   unsigned Index = 0;
   for (auto E : FMAs) {
     if (!E->isConsumed()) {
@@ -1032,6 +1198,96 @@ void FMABasicBlock::print(raw_ostream &OS) const {
       OS << "\n";
     }
   }
+}
+
+FMAExpr *FMAExpr::findFWSCandidate(FMABasicBlock &FMABB,
+                                   const MachineRegisterInfo *MRI) const {
+
+  // Walk through all terms used by the current FMA, find those that are the
+  // results of other FMAs.
+  for (FMATerm *Term : UsedTerms) {
+    FMAExpr *TermDefFMA = FMABB.findDefiningFMA(Term);
+    if (TermDefFMA == nullptr)
+      continue;
+
+    // If TermDefFMA was consumed, then TermDefFMA expression would be part of
+    // 'this' expression and the term defined by TermDefFMA would not be used
+    // as an operand of 'this' expression.
+    assert(!TermDefFMA->isConsumed() && "Cannot consume one expression twice");
+
+    // This place would be good for doing safety check verifying that it is Ok
+    // to use the virtual register associated with 'Term' at the point where
+    // the machine instruction associated with this FMA expression is located.
+    // For FMARegisterTerm we can just use the virtual register as it is SSA
+    // form and the register is virtual at this phase. For FMAMemoryTerm the
+    // virtual register is not assigned yet, but it is going to be defined
+    // right before the load instruction associated with FMAMemoryTerm and
+    // it should be Ok to use such term in 'this' FMA expression.
+    // So, no checks are performed here.
+
+    // Check that there is only one FMA expression using this term.
+    //
+    // TODO: In some cases it is profitable to let the expression TermDefFMA
+    // be consumed by several independent expressions, but such transformation
+    // should avoid unnecessary operations duplication.
+    // Good test case:
+    //   t1 = a * b; // TermDefFMA has 2 users.
+    //   t2 = t1 + c;
+    //   t3 = t1 + d;
+    // Fusing may replace 3 operations with 2 FMA operations:
+    //   t2 = a * b + c;
+    //   t3 = a * b + d;
+    // Bad test case:
+    //   t1 = a * b * c; // TermDefFMA has 2 users.
+    //   t2 = t1 * d;
+    //   t3 = t1 * e;
+    // Fusing just increases the number of operations from 4 to 6:
+    //   t2 = a * b * c * d;
+    //   t3 = a * b * c * e;
+    // Consumption of expressions having two or more users requires having
+    // in-flight pattern matching giving quick estimation of whether it is
+    // efficient.
+    unsigned Reg = Term->getReg();
+    if (!MRI->hasOneNonDBGUse(Reg)) {
+      // A. Count the number of 'Reg' uses in IR.
+      iterator_range<MachineRegisterInfo::use_nodbg_iterator> RegUses =
+        MRI->use_nodbg_operands(Reg);
+      unsigned NumRegUses = std::distance(RegUses.begin(), RegUses.end());
+      DEBUG(fmadbgs() << "  The register vreg"
+                      << TargetRegisterInfo::virtReg2Index(Reg) << " has "
+                      << NumRegUses << " uses.\n");
+
+      // B. How many times 'Term' is used in 'this'?
+      unsigned NumTermUses = countTermUses(Term);
+      DEBUG(fmadbgs()
+            << "  The term corresponding to register mentioned above is used "
+            << NumTermUses << " times.\n");
+
+      // C. Compare A and B.
+      if (NumTermUses < NumRegUses)
+        continue;
+    }
+
+    // TODO: this is a workaround for lack of efficient partitioning of
+    // big and huge expressions. This check should be removed when
+    // such partitioning is implemented.
+    //
+    // The consumption is possible, but before returning the expression
+    // as a good candidate let's first check if the new expression after
+    // such fuse would be optimizable. Remember that too big expressions are
+    // not optimized now. In particular, expressions having more than
+    // FMADagCommon::MaxNumOfUniqueTermsInDAG terms cannot be optimized.
+    std::set<FMATerm *> NewTermsSet;
+    NewTermsSet.insert(UsedTerms.begin(), UsedTerms.end());
+    NewTermsSet.insert(TermDefFMA->UsedTerms.begin(),
+                       TermDefFMA->UsedTerms.end());
+    if (NewTermsSet.size() > FMADagCommon::MaxNumOfUniqueTermsInDAG)
+      continue;
+
+    return TermDefFMA;
+  }
+
+  return nullptr;
 }
 
 /// Loop over all of the basic blocks, performing the FMA optimization for
@@ -1043,6 +1299,7 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   MF = &MFunc;
   const X86Subtarget &ST = MF->getSubtarget<X86Subtarget>();
   TII = ST.getInstrInfo();
+  MRI = &MF->getRegInfo();
 
   // SubTarget must support FMA ISA.
   if (!ST.hasFMA())
@@ -1150,10 +1407,44 @@ bool X86GlobalFMA::optBasicBlock(MachineBasicBlock &MBB) {
 
 bool X86GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB,
                                        MachineBasicBlock &MBB) {
-  // Not implemented yet.
-  return false;
+  bool EverMadeChangeInBB = false;
+  doFWS(FMABB);
+
+  // TODO: The optimization of new bigger expressions is not implemented yet.
+  // EverMadeChangeInBB is set to true here if any of input expressions got
+  // replaced with new better versions.
+
+  return EverMadeChangeInBB;
 }
 
+void X86GlobalFMA::doFWS(FMABasicBlock &FMABB) {
+
+  DEBUG(fmadbgs() << "\nFMA-STEP2: DO FWS:\n");
+
+  bool Consumed = true;
+  while (Consumed) {
+    Consumed = false;
+
+    for (auto Expr : FMABB.getFMAs()) {
+      if (Expr->isConsumed())
+        continue;
+
+      DEBUG(fmadbgs() << "  FWS: try to find terms that could be substituted "
+                         "by expressions in: "
+                      << *Expr << "\n");
+      FMAExpr *FWSExpr = Expr->findFWSCandidate(FMABB, MRI);
+      while (FWSExpr) {
+        DEBUG(fmadbgs() << "  -->Found such a term/expression:\n  " << *FWSExpr
+                        << "    to\n  " << *Expr << "\n");
+        Expr->consume(FWSExpr);
+        Consumed = true;
+
+        FWSExpr = Expr->findFWSCandidate(FMABB, MRI);
+      }
+    }
+  }
+  DEBUG(fmadbgs() << "\nFMA-STEP2 DONE. FMA basic block after FWS:\n" << FMABB);
+}
 } // End anonymous namespace.
 
 FunctionPass *llvm::createX86GlobalFMAPass() { return new X86GlobalFMA(); }
