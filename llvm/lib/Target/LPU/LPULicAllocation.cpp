@@ -19,6 +19,7 @@
 #include "InstPrinter/LPUInstPrinter.h"
 #include "LPU.h"
 #include "LPUInstrInfo.h"
+#include "LPULicCopyTree.h"
 #include "LPUTargetMachine.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -34,76 +35,294 @@
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 
+
 using namespace llvm;
 
-//insert PICKs/SWITCHes/init code to make live range LIC allocatable
-bool LPULicAllocation::
-makeLiveRangesLicAllocatable(MachineInstr *MI, MachineBasicBlock* BB, 
-                             std::set<unsigned> &LiveRangesSet) {
-/*
-  for (unsigned i = 1, e = MI->getNumOperands(); i != e; i+=2) {
-    MachineOperand &currOperand = MI->getOperand(i);
-    if (currOperand.isReg()) {
-      unsigned Reg = currOperand.getReg();
-      if (LiveRangesSet.count(Reg) != 0) continue;
-      LiveRangesSet.insert(Reg);
-      if (currOperand.isUse()) { //src
-        MachineInstr *DefMI = MRI->getVRegDef(Reg)
-	if (DefMI && (DefMI->getParent() != BB)) { //live into BB
-          // insert PICK and new live range
-          MachineBasicBlock* DefBB = DefMI->getParent();
-	  if (DefBB->hasMultipleSuccessors() &&  !DefMI->isSwitch()) {
-	  // insert PICK and new live range
+
+
+// Count the number of uses of a particular register.
+//
+// TBD(jsukha): This method is more complicated than it needs to be,
+// because it is trying to print some useful debugging error messages.
+// Eventually, we may wish to simplify this method down even further.
+//
+int LPULicAllocation::
+count_reg_uses(MachineRegisterInfo* MRI,
+               unsigned Reg,
+               MachineBasicBlock* BB,
+               bool skip_phis)
+{
+  DEBUG(errs() << "Counting uses of register " << PrintReg(Reg) << " in BB " << BB << "\n");
+  int uses_in_block = 0;
+  int uses_outside_block = 0;
+  int uses_outside_in_PHIs = 0;
+
+  for (MachineInstr &useMI : MRI->use_instructions(Reg)) {
+    // Count uses inside the block, and outside.
+    bool in_block = (useMI.getParent() == BB);
+    bool is_phi = (useMI.isPHI());
+
+    // Walk over the operands in the use instruction.  Why do we need
+    // a walk?  Because the instruction might use the register
+    // multiple times...
+    for (MIOperands MO(&useMI); MO.isValid(); ++MO) {
+      if (MO->isReg() &&
+          MO->isUse() &&
+          (MO->getReg() == Reg)) {
+        
+        if (is_phi && skip_phis) {
+          DEBUG(errs() << "Skipping use of " << PrintReg(Reg) << ", a use in a PHI was found\n");
+          return 0;
+        }
+        
+        if (in_block) {
+          uses_in_block++;
+        }
+        else {
+          // Count the uses outside the block.  We really expect all
+          // of them to be PHIs at this point.
+          uses_outside_block++;
+
+          // Count uses in PHI instructions, just for fun.
+          if (is_phi) {
+            uses_outside_in_PHIs++;
           }
         }
       }
-      if (currOperand.isDef()) { //dest reg
-      }
-    }
-
-    if (currOperand.isImm()) {
-    }
-  }  
-*/
-  return false;
-}
-
-//allocate LICs to live ranges that are LIC allocatable
-bool LPULicAllocation::
-allocateLicsInLoop(MachineInstr *MI, MachineBasicBlock* BB) {
-  //  const TargetMachine &TM = BB->getParent()->getTarget();
-  //  const TargetRegisterInfo *TRI = TM.getSubtargetImpl()->getRegisterInfo();
-  //  MachineRegisterInfo *MRI = &BB->getParent()->getRegInfo();
-  bool modified = false;
-  for (unsigned i = 1, e = MI->getNumOperands(); i != e; i+=2) {
-    MachineOperand &currOperand = MI->getOperand(i);
-    if (currOperand.isReg()) {
-      /*
-      unsigned Reg = currOperand.getReg();
-      if (TRI->isLIC(Reg)) continue;
-      MachineInstr *DefMI = MRI->getVRegDef(Reg)
-      if (DefMI && DefMI->getParent() != BB) continue;
-      bool allocLic = true;
-      unsigned numUses = 0;
-      for each use of Reg {
-        numUses++;
-	if (useMI->getParent() != BB) {
-          allocLic = false;
-	  break;
-	} 
-      }
-      if (!allocLic) continue;
-      if (numUses > 1) {
-	 continue;
-	 //generateCopyAndRename(Reg,numUses);
-      }
-      else { 
-	assert(numUses == 1 && "LPU LIC allocation insanity");
-        TRI->mapRegToLIC(Reg); 
-        modified = true;
-      }
-      */
     }
   }
+
+  // Print out some warning messages if there are uses outside the
+  // expected block which are nto PHIs.
+  if (uses_outside_block) {
+    DEBUG(errs() << "WARNING: Defs of " << PrintReg(Reg) << ": " << uses_outside_block << ", ");
+    DEBUG(errs() << uses_outside_in_PHIs << " in PHI subset \n");
+  }
+
+  return uses_in_block + uses_outside_block;
+}
+
+
+
+
+int LPULicAllocation::
+replace_reg_uses_with_LICs(MachineRegisterInfo* MRI,
+                           const TargetRegisterInfo& TRI,
+                           unsigned Reg,
+                           std::vector<unsigned>& replacement_LICs,
+                           bool skip_phis)
+{
+  DEBUG(errs() << "Replacing all uses of register " << PrintReg(Reg) << "\n");
+  unsigned use_count = 0;
+  for (MachineRegisterInfo::reg_iterator I = MRI->reg_begin(Reg), E = MRI->reg_end(); I != E; ) {
+    MachineOperand& MO = *I;
+    ++I;
+
+    if (MO.isReg() &&
+        MO.isUse() &&
+        (MO.getReg() == Reg)) {
+        bool is_phi = (MO.getParent()->isPHI());
+
+        //  Skip PHIs if the flag is set.
+        if (is_phi && skip_phis) {
+          assert((use_count == 0) && "Replaced use of a virtual register involved in a PHI");
+          return use_count;
+        }
+        
+        unsigned target_LIC;
+        if (use_count >= replacement_LICs.size()) {
+          assert(replacement_LICs.size() >= 1);
+          target_LIC = replacement_LICs[0];
+        }
+        else {
+          target_LIC = replacement_LICs[use_count];
+        }
+        use_count++;
+        DEBUG(errs() << "   Replacing use with " << PrintReg(target_LIC) << "\n");
+        MO.substPhysReg(target_LIC, TRI);
+    }
+  }
+  
+  DEBUG(errs() << "Replaced " << use_count << " uses of register " << PrintReg(Reg) << "\n");
+  return use_count;
+}
+
+
+
+void
+LPULicAllocation::
+generate_LIC_copies(LPUMachineFunctionInfo* LMFI,
+                    unsigned src,
+                    const TargetRegisterClass* new_LIC_RC,
+                    std::vector<unsigned>* replacement_LICs,
+                    int N) {
+
+  // Temporary implementation flag.  We can test turning off the
+  // copies for test purposes, but we really expect to have them.
+  const bool ENABLE_COPIES = false;
+  
+  replacement_LICs->clear();
+  if (N >= 2) {
+    if (ENABLE_COPIES) {
+      // Create a copy tree.
+      LPULicCopyTree<4> copy_tree(N);
+
+      // After testing the copy tree, we don't really need to
+      // double-check this any more.
+      //
+      // assert(copy_tree.validate());
+
+      int num_extra_lics = copy_tree.leaf_stop();
+
+      DEBUG(errs() << "Copy tree for reg " << PrintReg(src));
+      DEBUG(errs() << "  N = " << N);
+      DEBUG(errs() << ", requires " << num_extra_lics << " copy LICs\n");
+      assert(copy_tree.leaf_stop() - copy_tree.leaf_start() == N);
+
+      // Structure that maps the integer ids for the nodes in the copy
+      // tree (from [0, num_extra_lics))
+      std::vector<unsigned> reg_map;
+
+      // First, allocate the LICs for all nodes in the tree.
+      for (int j = 0; j < copy_tree.leaf_stop(); ++j) {
+        if (j == 0) {
+          reg_map.push_back(src);
+        }
+        else {
+          unsigned copy_reg = LMFI->allocateLIC(new_LIC_RC);
+          reg_map.push_back(copy_reg);
+          DEBUG(errs() << " For internal node " << j << ", created reg " << PrintReg(copy_reg) << ", " << copy_reg << "\n");
+        }
+      }
+      
+      // Next, generate the map which identifies the leaves of the tree.
+      for (int j = copy_tree.leaf_start();
+           j < copy_tree.leaf_stop();
+           ++j) {
+        assert((j >= 0) && (j < (int)reg_map.size()));
+        replacement_LICs->push_back(reg_map[j]);
+      }
+
+      // TBD(jsukha): Finally, we should generate the copy statements.
+      // INSERT THOSE STATEMENTS HERE!
+    }
+    else {
+      // If we aren't generating copies, just point everything at the
+      // source LIC.
+      for (int j = 0; j < N; ++j) {
+        replacement_LICs->push_back(src);
+      }
+    }
+  }
+  else if (N == 1) {
+    // For exactly one copy, life is easy.  Just push our original root register back. q
+    replacement_LICs->push_back(src);
+  }
+  else {
+    assert(N == 0);
+    // Someone will eventually generate a statement to eat the result.  But we aren't going to do that here.
+  }
+}
+
+
+bool LPULicAllocation::
+allocateLicsInBlock(MachineBasicBlock* BB)
+{
+  DEBUG(errs() << "\nCalling allocateLicsinLoop for block " << BB << "\n");
+  
+  // Extract fields from the machine function.
+  MachineFunction* MF = BB->getParent();
+  MachineRegisterInfo *MRI = &(MF->getRegInfo());
+  const TargetMachine &TM = MF->getTarget();
+  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  LPUMachineFunctionInfo *LMFI = MF->getInfo<LPUMachineFunctionInfo>();
+
+  bool modified = false;
+
+  // Walk over instructions in basic block BB, changing each def into
+  // a LIC, and converting its uses to use the LIC copies.
+  for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end();  ++I) {
+    MachineInstr *MI = I;
+    //    DEBUG(errs() << "Found MachineInstr " << *MI << "\n");
+
+    // If we are skipping PHIs in the processing, don't analyze any
+    // virtual register defined by a PHI instruction,
+    if (this->SKIP_PHI_FLAG && MI->isPHI()) {
+      continue;
+    }
+    
+    // Walk over machine operands in that instruction.
+    for (MIOperands MO(MI); MO.isValid(); ++MO) {
+      if (MO->isReg()) {
+        DEBUG(errs() << "Reg  " << MO->getReg() << " corresponds to " << PrintReg(MO->getReg()) << " \n");
+      }
+      if (MO->isReg() &&
+          MO->isDef()) {
+        unsigned Reg = MO->getReg();
+
+        // TBD(jsukha): 
+        // This check is necessary (in part) because instructions
+        // like the following can appear. What does it mean?  I don't
+        // quite know.
+        //
+        // ADJCALLSTACKDOWN 0, %SP<imp-def,dead>, %SP<imp-use>
+        if (!TargetRegisterInfo::isVirtualRegister(Reg)) {
+          continue;
+        }
+
+        int num_uses = count_reg_uses(MRI, Reg, BB,
+                                      this->SKIP_PHI_FLAG);
+        DEBUG(errs() << "Reg " << PrintReg(Reg) << ": found " << num_uses << " uses\n");
+
+        // Look up target register class corresponding to this
+        // register.
+        const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC( MRI->getRegClass(Reg) );
+        assert(new_LIC_RC && "Can't determine register class for register");
+
+        if (this->do_LIC_replacement()) {
+          if (num_uses > 0) {
+            // Step 1: Allocate a new LIC for this register.
+            unsigned newReg = LMFI->allocateLIC(new_LIC_RC);
+
+            // Step 2: TBD: Allocate copy LICs, and generate LIC copy
+            // statements.  For now, replace with all the replacements
+            // pointing to the same LIC.
+            //
+            // If we are doing replacement, use the new defined LIC as
+            // the source.  Otherwise, just use the original register.
+            std::vector<unsigned> replacement_LICs;
+            generate_LIC_copies(LMFI,
+                                newReg,
+                                new_LIC_RC,
+                                &replacement_LICs,
+                                num_uses);
+
+            // Step 3: Substitute all the uses of Reg with the
+            // appropriate LICs.
+            replace_reg_uses_with_LICs(MRI,
+                                       TRI,
+                                       Reg,
+                                       replacement_LICs,
+                                       this->SKIP_PHI_FLAG);
+
+            DEBUG(errs() << "Substituting def of reg " << PrintReg(Reg) << " with " << PrintReg(newReg) << "\n");
+            MO->substPhysReg(newReg, TRI);
+            modified = true;
+          }
+          else {
+            DEBUG(errs() << "For Reg " << PrintReg(Reg) << ", found no uses that can be replaced\n");
+          }
+        }
+      }
+    }
+  }
+  
   return modified;
 }
+
+
+
+
+
+
+

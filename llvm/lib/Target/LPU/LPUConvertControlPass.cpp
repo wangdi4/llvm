@@ -47,6 +47,14 @@ IfConversionTokens("lpu-if-conversion", cl::Hidden,
 		   cl::desc("LPU Specific: if Conversion within a loop"),
 		   cl::init(0));
 
+
+// Flag to enable step that replaces registers with LICs.
+static cl::opt<int>
+LICAllocationStep("lpu-lic-alloc", cl::Hidden,
+                  cl::desc("LPU Specific: Enable LIC replacement of registers"),
+                  cl::init(LPULicAllocation::LicAllocDisabled));
+
+
 #define DEBUG_TYPE "lpu-convert-control"
 
 STATISTIC(NumSimple,       "Number of simple if-conversions performed");
@@ -821,29 +829,16 @@ processIfConversionRegion(std::vector<IfcvtToken*> &Tokens) {
 
 }
 
-// process live ranges within the loop
+// process live ranges within the loop.
+// Does conversion of registers into LICs. 
 bool LPUConvertControlPass::processLiveRangesInLoop(MachineBasicBlock *BB) {
-  const TargetMachine &TM = thisMF->getTarget();
-  std::set<unsigned> LiveRangesSet;
-  myLicAllocater = new LPULicAllocation();
+  myLicAllocater = new LPULicAllocation(LICAllocationStep);
   bool loopModified = false;
-  for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
-    MachineInstr *MI = I;
-
-    DEBUG(errs() << "process live ranges within loop processing inst: ");
-    DEBUG(MI->print(*thisOS, &TM));
-
-    /*
-    if(myLicAllocater->makeLiveRangesLicAllocatable(MI, BB, LiveRangesSet)){
-      loopModified = true;
-    }
-    if(myLicAllocater->allocateLicsInLoop(MI, BB)){
-      loopModified = true;
-    }
-    */
+  if (myLicAllocater->pass_enabled()) {
+    loopModified = myLicAllocater->allocateLicsInBlock(BB);
   }
+  delete myLicAllocater;
   return loopModified;
-
 }
 
 bool LPUConvertControlPass::processLoopRegion(MachineLoop *currLoop) {
