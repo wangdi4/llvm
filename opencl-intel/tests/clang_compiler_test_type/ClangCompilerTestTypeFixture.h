@@ -31,6 +31,8 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/Bitcode/ReaderWriter.h>
 
+#include <cstdint>
+
 #define SPIR_OPTIONS_METADATA     "opencl.compiler.options"
 #define SPIR_EXT_OPTIONS_METADATA "opencl.compiler.ext.options"
 
@@ -60,6 +62,19 @@ protected:
     // Returns a test FESPIRVProgramDescriptor structure - an argument for ParseSPIRV.
     Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor GetTestFESPIRVProgramDescriptor(
         const char* build_options);
+    // Returns a test FESPIRVProgramDescriptor structure - an argument for ParseSPIRV.
+    template<typename T, std::size_t N>
+    Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor GetTestFESPIRVProgramDescriptor(
+        T (&bin) [N]) {
+        using Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor;
+        FESPIRVProgramDescriptor spirvDesc;
+
+        spirvDesc.pSPIRVContainer = reinterpret_cast<char const*>(bin);
+        spirvDesc.uiSPIRVContainerSize = N * sizeof(T);
+        spirvDesc.pszOptions = "";
+
+        return spirvDesc;
+    }
     // Parses FE Compiler return structure and decodes llvm::Module.
     llvm::ErrorOr<llvm::Module*> ExtractModule(Intel::OpenCL::ClangFE::IOCLFEBinaryResult* pResult);
 protected:
@@ -69,5 +84,17 @@ private:
     Intel::OpenCL::FECompilerAPI::IOCLFECompiler* m_fe_compiler;
     llvm::LLVMContext* m_llvm_context;
 };
+
+#if defined (_WIN32)
+#define DLL_IMPORT _declspec(dllimport)
+#else
+#define DLL_IMPORT
+#endif
+
+extern "C" DLL_IMPORT int CreateFrontEndInstance(
+    const void* pDeviceInfo,
+    size_t devInfoSize,
+    Intel::OpenCL::FECompilerAPI::IOCLFECompiler* *pFECompiler,
+    Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger);
 
 #endif

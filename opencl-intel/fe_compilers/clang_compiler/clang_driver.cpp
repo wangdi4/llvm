@@ -35,12 +35,15 @@
 #include <cl_cpu_detect.h>
 #include <cl_autoptr_ex.h>
 
+#include <spirv/1.0/spirv.hpp>
+
 #include <llvm/IR/Module.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Bitcode/ReaderWriter.h>
 #include <llvm/Support/SPIRV.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/SwapByteOrder.h>
 
 #include <string>
 #include <vector>
@@ -272,14 +275,106 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult* *pBinaryResult)
     return res;
 }
 
+namespace spv {
+    // See Table 1. "First Words of Physical Layout" of SPIR-V specification
+    enum {
+        MagicNumberIdx = 0,
+        SPIRVVersionIdx = 1,
+        FirstOpIdx = 5
+    };
+}
+
+ClangFECompilerParseSPIRVTask::ClangFECompilerParseSPIRVTask(
+     Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor* pProgDesc,
+     Intel::OpenCL::ClangFE::CLANG_DEV_INFO const& sDeviceInfo)
+     : m_pProgDesc(pProgDesc), m_sDeviceInfo(sDeviceInfo) {
+
+    uint32_t const* spirvBC =
+          reinterpret_cast<std::uint32_t const*>(pProgDesc->pSPIRVContainer);
+    m_littleEndian = spirvBC[spv::MagicNumberIdx] == spv::MagicNumber;
+}
+
+
+std::uint32_t ClangFECompilerParseSPIRVTask::getSPIRVWord(std::uint32_t const* wordPtr) const {
+    return m_littleEndian ? *wordPtr : llvm::sys::SwapByteOrder_32(*wordPtr);
+}
+
+bool ClangFECompilerParseSPIRVTask::isSPIRVSupported() const {
+    std::uint32_t const* spirvBC =
+        reinterpret_cast<std::uint32_t const*>(m_pProgDesc->pSPIRVContainer);
+    // Pointer behind the last work in SPIR-V BC
+    std::uint32_t const*const spirvEnd = spirvBC + m_pProgDesc->uiSPIRVContainerSize / 4;
+
+    if(spirvEnd <= spirvBC + spv::FirstOpIdx)
+        return false;
+    // Check SPIR-V magic number is sane
+    std::uint32_t const magicNumber = spirvBC[spv::MagicNumberIdx];
+    if(!m_littleEndian && magicNumber != llvm::sys::SwapByteOrder_32(spv::MagicNumber))
+        return false;
+
+    // SPIR-V version is 1.0
+    std::uint32_t const version = getSPIRVWord(spirvBC + spv::SPIRVVersionIdx);
+    if(version != spv::Version) return false;
+
+    // Look for OpCapability instructions and check the declared capabilites
+    // are supported by CPU device.
+    std::uint32_t const* currentWord = spirvBC + spv::FirstOpIdx;
+    while(currentWord < spirvEnd) {
+        std::uint32_t const word = getSPIRVWord(currentWord);
+        std::uint16_t wordCount = word >> 16;
+        std::uint16_t opCode = word;
+        // According to logical layout defined by SPIR-V spec. OpMemoryModel is requeied
+        if(opCode == spv::OpCapability) {
+            std::uint32_t const capability = getSPIRVWord(currentWord + 1);
+            switch(capability){
+                default:
+                    return false;
+                case spv::CapabilityImageBasic:
+                case spv::CapabilityImageReadWrite:
+                    if(!m_sDeviceInfo.bImageSupport) return false;
+                    break;
+
+                case spv::CapabilityFloat64:
+                    if(!m_sDeviceInfo.bDoubleSupport) return false;
+                    break;
+
+                // The following capabilities are common for all OpenCL 2.1 capable devices
+                case spv::CapabilityAddresses:
+                case spv::CapabilityLinkage:
+                case spv::CapabilityKernel:
+                case spv::CapabilityVector16:
+                case spv::CapabilityFloat16Buffer:
+                case spv::CapabilityInt64:
+                case spv::CapabilityPipes:
+                case spv::CapabilityGroups:
+                case spv::CapabilityDeviceEnqueue:
+                case spv::CapabilityLiteralSampler:
+                case spv::CapabilityInt16:
+                case spv::CapabilityGenericPointer:
+                case spv::CapabilityInt8:
+                    break;
+            }
+        // OpMemoryModel is a mandatory entry in a valid SPIR-V module
+        } else if(opCode == spv::OpMemoryModel) {
+            if(getSPIRVWord(currentWord + 2) != spv::MemoryModelOpenCL)
+                return false;
+            return true;
+        }
+        // Go for the next SPIR-V op.
+        currentWord = currentWord + wordCount;
+    }
+
+    return false;
+}
+
 //
-// ClangFECompilerParseSPIRVTask call implementation. 
+// ClangFECompilerParseSPIRVTask call implementation.
 // Description:
 // Implements conversion from a SPIR-V 1.0 program (incapsulated in ClangFECompilerParseSPIRVTask)
 // to a llvm::Module, converts build options to LLVM metadata according to SPIR specification.
 int ClangFECompilerParseSPIRVTask::ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult)
 {
-    OCLFEBinaryResult* pResult(new OCLFEBinaryResult());
+    std::unique_ptr<OCLFEBinaryResult> pResult(new OCLFEBinaryResult());
 
     // verify build options
     unsigned int uiUnrecognizedOptionsSize = strlen(m_pProgDesc->pszOptions) + 1;
@@ -296,10 +391,19 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult
         pResult->setLog(errorMessage.str());
 
         if (pBinaryResult) {
-            *pBinaryResult = pResult;
+            *pBinaryResult = pResult.release();
         }
 
         return CL_INVALID_COMPILER_OPTIONS;
+    }
+
+    // verify SPIR-V module is supported
+    if(!isSPIRVSupported()) {
+        if (pBinaryResult) {
+            pResult->setLog("Usupported SPIR-V module\n");
+            *pBinaryResult = pResult.release();
+        }
+        return CL_INVALID_PROGRAM;
     }
 
     // parse SPIR-V
@@ -357,7 +461,7 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult
     pResult->setIRName(pModule->getName());
 
     if (pBinaryResult) {
-        *pBinaryResult = pResult;
+        *pBinaryResult = pResult.release();
     }
 
     return isParsed ? CL_SUCCESS : CL_INVALID_PROGRAM;
