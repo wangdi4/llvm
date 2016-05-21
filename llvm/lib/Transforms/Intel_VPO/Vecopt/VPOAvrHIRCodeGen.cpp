@@ -436,7 +436,15 @@ void AVRCodeGenHIR::eraseIntrinsBeforeLoop() {
     FirstDirIt = Iter;
   }
 
-  assert(FirstDirItSet && "Expected SIMD directive not found");
+  // In cases where we have other HLInsts between the SIMD related directives
+  // and HLLoop, we will hit the following assert. As a workaround for now,
+  // do not assert. These directives will be deleted by the intrinsic cleanup
+  // pass that runs later.
+  // TODO: Modify this function to look for the first/last SIMD directive
+  // before a HLLoop ignoring other HLInsts before the loop before we hit the
+  // first SIMD related directive.
+  // assert(FirstDirItSet && "Expected SIMD directive not found");
+
   if (FirstDirItSet)
     // Erase intrinsics and clauses before the loop
     HLNodeUtils::erase(FirstDirIt, LoopIt);
