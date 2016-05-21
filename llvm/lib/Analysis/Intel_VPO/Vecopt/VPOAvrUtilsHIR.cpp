@@ -41,16 +41,49 @@ AVRBranchHIR *AVRUtilsHIR::createAVRBranchHIR(HLNode *Inst) {
   return new AVRBranchHIR(Inst);
 }
 
-AVRIfHIR *AVRUtilsHIR::createAVRIfHIR(HLIf *If) { return new AVRIfHIR(If); }
+AVRIfHIR *AVRUtilsHIR::createAVRIfHIR(HLIf *If) {
+  AVRIfHIR* AIf = new AVRIfHIR(If);
+
+  AVRExpressionHIR *Root = nullptr;
+  AVRExpressionHIR *Last;
+  for (auto It = If->pred_begin(), E = If->pred_end(); It != E; ++It) {
+    Last = createAVRExpressionHIR(AIf, It);
+    if (Root) {
+
+      // Create an expression for the implicit AND between predicates.
+      Root = createAVRExpressionHIR(Root, Last);
+    }
+    else {
+      Root = Last;
+    }
+  }
+
+  AIf->Condition = Root;
+
+  return AIf;
+}
 
 AVRExpressionHIR *AVRUtilsHIR::createAVRExpressionHIR(AVRAssignHIR *HLAssign,
                                                       AssignOperand AOp) {
   return new AVRExpressionHIR(HLAssign, AOp);
 }
 
+AVRExpressionHIR *AVRUtilsHIR::createAVRExpressionHIR(AVRIfHIR *AIf,
+                                                HLIf::const_pred_iterator& It) {
+
+  return new AVRExpressionHIR(AIf, It);
+}
+
+AVRExpressionHIR *AVRUtilsHIR::createAVRExpressionHIR(AVRExpressionHIR* LHS,
+                                                      AVRExpressionHIR* RHS) {
+
+  return new AVRExpressionHIR(LHS, RHS);
+}
+
 AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(RegDDRef *DDRef,
-                                            HLInst *HLInstruct) {
-  return new AVRValueHIR(DDRef, HLInstruct);
+                                            HLInst *HLInstruct,
+                                            AVRExpressionHIR *Parent) {
+  return new AVRValueHIR(DDRef, HLInstruct, Parent);
 }
 
 AVRSwitchHIR *AVRUtilsHIR::createAVRSwitchHIR(HLSwitch *HSwitch) {

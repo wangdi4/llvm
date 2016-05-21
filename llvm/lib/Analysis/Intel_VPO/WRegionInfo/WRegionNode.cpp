@@ -397,6 +397,12 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
     setLpriv(C);
     break;
   }
+  case QUAL_OMP_UNIFORM: {
+    UniformClause *C =
+        WRegionUtils::extractQualOpndList<UniformClause>(Call, getUniform());
+    setUniform(C);
+    break;
+  }
   case QUAL_OMP_LINEAR: {
     LinearClause *C =
         WRegionUtils::extractQualOpndList<LinearClause>(Call, getLinear());

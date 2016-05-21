@@ -13,13 +13,13 @@
 
 ;CHECK: for.cond:
 ;CHECK-NEXT: %0 = load %i
-;CHECK: br i1 %cmp, label %for.body, label %for.end
+;TEMP-DO-NOT-CHECK: br i1 %cmp, label %for.body, label %for.end
 
 ;CHECK: for.body:
 
 ;CHECK: land.lhs.true:
 ;CHECK-NEXT: %5 = load %i
-;CHECK: br i1 %cmp5, label %if.then, label %if.else
+;TEMP-DO-NOT-CHECK: br i1 %cmp5, label %if.then, label %if.else
 
 ;CHECK: if.then:
 ;CHECK-NEXT: %8 = load %i

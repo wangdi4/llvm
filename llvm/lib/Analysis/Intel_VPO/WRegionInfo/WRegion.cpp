@@ -162,6 +162,7 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
   setPriv(nullptr);
   setLpriv(nullptr);
   setRed(nullptr);
+  setUniform(nullptr);
   setLinear(nullptr);
   setAligned(nullptr);
   setSimdlen(0);
@@ -181,6 +182,7 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN)
   setPriv(nullptr);
   setLpriv(nullptr);
   setRed(nullptr);
+  setUniform(nullptr);
   setLinear(nullptr);
   setAligned(nullptr);
   setSimdlen(0);
@@ -198,6 +200,7 @@ WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegionNode(W) {
   setPriv(W->getPriv());
   setLpriv(W->getLpriv());
   setRed(W->getRed());
+  setUniform(W->getUniform());
   setLinear(W->getLinear());
   setAligned(W->getAligned());
   setSimdlen(W->getSimdlen());
@@ -229,6 +232,11 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
       OS << Indent << "REDUCTION clause: " << RedStr << " "
          << RI->getOrig()->getName() << "\n";
     }
+  UniformClause *CU = getUniform();
+  if (CU) {
+    OS << Indent;
+    CU->print(OS);
+  }
   LinearClause *C = getLinear();
   if (C) {
     OS << Indent;

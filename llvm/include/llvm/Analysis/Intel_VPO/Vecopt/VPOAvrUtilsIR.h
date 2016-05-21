@@ -78,7 +78,9 @@ public:
                                                 AssignOperand AOp);
 
   /// \brief Returns a new AVRValueIR node.
-  static AVRValueIR *createAVRValueIR(const Value *V, const Instruction *Inst);
+  static AVRValueIR *createAVRValueIR(const Value *Val,
+                                      const Instruction *Inst,
+                                      AVR *Parent);
 
   /// \brief Returns a new AVRSwitchIR node.
   static AVRSwitchIR *createAVRSwitchIR(Instruction *SwitchI);
