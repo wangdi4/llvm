@@ -611,7 +611,10 @@ class FMAExprSPCommon {
       Dag = nullptr;
     }
 
-    virtual ~FMAExprSPCommon() { delete Dag; delete[] Products; }
+    virtual ~FMAExprSPCommon() {
+      delete Dag;
+      delete[] Products;
+    }
 
     // Returns the number of products in the sum of products.
     unsigned getNumProducts() const { return NumProducts; }
@@ -811,31 +814,40 @@ class FMAExprSPCommon {
       return fitsInShape(NumProducts, NewSPNumTerms);
     }
 
-    // Initialize the sum of products as the result of an ADD operation of two
-    // given sums of products \p A and \p B.
-    //   A:      +abc-d
-    //   B:      +ab+e
-    //   Result: +abc-d+ab+e
-    // The parameters \p ASign and \BSign may be passed to invert the sign
-    // of the passed sums of products. So, \p BSign set to true, means that
-    // the newly initialized sum of products is the result of subtract
-    // operation: (A - B).
-    //
-    // The returned value is true if the initialization passed successfully.
-    // Otherwise, false is returned, which is possible when the sum of A and B
-    // produces either too many products, too big products, or too many terms.
+    /// Initialize the sum of products as the result of an ADD operation of two
+    /// given sums of products \p A and \p B.
+    ///   A:      +abc-d
+    ///   B:      +ab+e
+    ///   Result: +abc-d+ab+e
+    /// The parameters \p ASign and \BSign may be passed to invert the sign
+    /// of the passed sums of products. So, \p BSign set to true, means that
+    /// the newly initialized sum of products is the result of subtract
+    /// operation: (A - B).
+    ///
+    /// The returned value is true if the initialization passed successfully.
+    /// Otherwise, false is returned, which is possible when the sum of A and B
+    /// produces too many terms, or too many products not fitting into the
+    /// SHAPE representation.
     bool initForAdd(const FMAExprSPCommon &A, const FMAExprSPCommon &B,
                     bool ASign, bool BSign) {
-      assert(Products == nullptr &&
-             "initForAdd() must be used only for empty SP.");
-
       bool AIsZero = A.isZero();
       bool BIsZero = B.isZero();
-      NumProducts = (AIsZero ? 0 : A.getNumProducts()) +
-                    (BIsZero ? 0 : B.getNumProducts());
-      if (NumProducts == 0)
-        NumProducts++;
-      Products = new FMAExprProduct[NumProducts];
+      unsigned NewNumProducts = (AIsZero ? 0 : A.getNumProducts()) +
+                                (BIsZero ? 0 : B.getNumProducts());
+      if (NewNumProducts == 0)
+        NewNumProducts++;
+
+      if (NumProducts != 0) {
+        // FIXME: the need in this code is caused by the inefficiency of
+        // the code in matchDagSignsToSP() which tries building all possible
+        // combinations of signs to match the signs from the input SP.
+        // That code builds SP for a DAG many times.
+        assert(NumProducts == NewNumProducts &&
+               "SPs of arbitrary size cannot be re-used");
+      } else {
+        NumProducts = NewNumProducts;
+        Products = new FMAExprProduct[NumProducts];
+      }
 
       unsigned NewSPNumTerms = 0;
       unsigned NewSPProdInd = 0;
@@ -951,7 +963,7 @@ class FMAExprSPCommon {
     // Canonizes the sum of products. Here that means that the terms in each
     // of the products and the products itself must be lexicographically
     // ordered.
-    void canonize() {
+    virtual void canonize() {
       unsigned ProdIndex;
 
       // 1. Sort terms in each of products.
