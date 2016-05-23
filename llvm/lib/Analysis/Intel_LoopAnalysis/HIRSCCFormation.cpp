@@ -410,6 +410,35 @@ bool HIRSCCFormation::isValidSCC(const SCCNodesTy &Nodes) const {
   return true;
 }
 
+void HIRSCCFormation::updateRoot(SCCTy &SCC, const NodeTy *NewRoot) const {
+
+  if (!isa<PHINode>(NewRoot)) {
+    return;
+  }
+
+  // Update blindly if NewRoot is a phi and old root is not. This avoids loop
+  // lookup for single phi SCCs.
+  if (!isa<PHINode>(SCC.Root)) {
+    SCC.Root = NewRoot;
+    return;
+  }
+
+  auto ParentBB = NewRoot->getParent();
+  auto NewLp = LI->getLoopFor(ParentBB);
+
+  // Return if NewRoot isn't a header phi.
+  if (ParentBB != NewLp->getHeader()) {
+    return;
+  }
+
+  auto OldLp = LI->getLoopFor(SCC.Root->getParent());
+
+  // If new loop contains old loop, we have found an outer loop header phi.
+  if (NewLp->contains(OldLp)) {
+    SCC.Root = NewRoot;
+  }
+}
+
 unsigned HIRSCCFormation::findSCC(const NodeTy *Node) {
   unsigned Index = GlobalNodeIndex++;
   unsigned LowLink = Index;
@@ -457,26 +486,21 @@ unsigned HIRSCCFormation::findSCC(const NodeTy *Node) {
       SCCTy NewSCC(Node);
       auto &NewSCCNodes = NewSCC.Nodes;
       const NodeTy *SCCNode;
-      bool isRootPhi = isa<PHINode>(Node);
 
       // Insert Nodes in new SCC.
       do {
         SCCNode = NodeStack.pop_back_val();
         NewSCCNodes.insert(SCCNode);
 
-        // If the root of this SCC is not a phi, it may get eliminated as an
-        // intermediate node which results in a dangling root node. To fix this
-        // we set the first phi we encounter to be the root node.
-        if (!isRootPhi && isa<PHINode>(SCCNode)) {
-          NewSCC.Root = SCCNode;
-          isRootPhi = true;
-        }
+        updateRoot(NewSCC, SCCNode);
 
         // Invalidate index so node is ignored in subsequent traverals.
         VisitedNodes[SCCNode] = 0;
       } while (SCCNode != Node);
 
-      assert(isRootPhi && "No phi found in SCC!");
+      assert(isa<PHINode>(NewSCC.Root) &&
+             RI->isHeaderPhi(cast<PHINode>(NewSCC.Root)) &&
+             "No phi found in SCC!");
 
       // Remove nodes not directly associated with the phi nodes.
       removeIntermediateNodes(NewSCCNodes);

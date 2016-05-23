@@ -13,15 +13,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
 
-#include "llvm/IR/Intel_LoopIR/DDRef.h"
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
-#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/IR/Intel_LoopIR/DDRef.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 
@@ -86,10 +86,21 @@ void DDRef::verify() const {
 }
 
 bool DDRef::isLiveOutOfRegion() const {
+  assert((isa<BlobDDRef>(this) || cast<RegDDRef>(this)->isTerminalRef()) &&
+         "Invalid DDRef!");
   return getHLDDNode()->isLiveOutOfRegion(Symbase);
 }
 
-HLLoop *DDRef::getParentLoop() const {
-  return getHLDDNode()->getParentLoop();
+bool DDRef::isLiveIntoParentLoop() const {
+  assert((isa<BlobDDRef>(this) || cast<RegDDRef>(this)->isTerminalRef()) &&
+         "Invalid DDRef!");
+  return getHLDDNode()->isLiveIntoParentLoop(Symbase);
 }
 
+bool DDRef::isLiveOutOfParentLoop() const {
+  assert((isa<BlobDDRef>(this) || cast<RegDDRef>(this)->isTerminalRef()) &&
+         "Invalid DDRef!");
+  return getHLDDNode()->isLiveOutOfParentLoop(Symbase);
+}
+
+HLLoop *DDRef::getParentLoop() const { return getHLDDNode()->getParentLoop(); }

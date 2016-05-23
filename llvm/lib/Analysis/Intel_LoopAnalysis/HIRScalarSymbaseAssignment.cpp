@@ -20,10 +20,13 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRSCCFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRScalarSymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
@@ -36,9 +39,11 @@ using namespace llvm::loopopt;
 INITIALIZE_PASS_BEGIN(HIRScalarSymbaseAssignment,
                       "hir-scalar-symbase-assignment",
                       "HIR Scalar Symbase Assignment", false, true)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(HIRSCCFormation)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopFormation)
 INITIALIZE_PASS_END(HIRScalarSymbaseAssignment, "hir-scalar-symbase-assignment",
                     "HIR Scalar Symbase Assignment", false, true)
 
@@ -54,9 +59,11 @@ HIRScalarSymbaseAssignment::HIRScalarSymbaseAssignment() : FunctionPass(ID) {
 
 void HIRScalarSymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
+  AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<HIRRegionIdentification>();
   AU.addRequired<HIRSCCFormation>();
+  AU.addRequired<HIRLoopFormation>();
 }
 
 void HIRScalarSymbaseAssignment::insertHIRLval(const Value *Lval,
@@ -314,11 +321,28 @@ unsigned HIRScalarSymbaseAssignment::getScalarSymbase(const Value *Scalar,
   return getOrAssignScalarSymbaseImpl(Scalar, IRReg, false, nullptr);
 }
 
+void HIRScalarSymbaseAssignment::populateLoopLiveouts(const Instruction *Inst,
+                                                      unsigned Symbase) const {
+
+  Loop *Lp = LI->getLoopFor(Inst->getParent());
+
+  if (!Lp) {
+    return;
+  }
+
+  HLLoop *DefLoop = LF->findHLLoop(Lp);
+
+  while (DefLoop) {
+    DefLoop->addLiveOutTemp(Symbase);
+    DefLoop = DefLoop->getParentLoop();
+  }
+}
+
 void HIRScalarSymbaseAssignment::populateRegionLiveouts(
     HIRRegionIdentification::iterator RegIt) {
   // Traverse region basic blocks.
-  for (auto BBIt = RegIt->bb_begin(), EndIt = RegIt->bb_end();
-       BBIt != EndIt; ++BBIt) {
+  for (auto BBIt = RegIt->bb_begin(), EndIt = RegIt->bb_end(); BBIt != EndIt;
+       ++BBIt) {
 
     // Check if any instructions inside the basic blocks are live outside the
     // region.
@@ -328,6 +352,7 @@ void HIRScalarSymbaseAssignment::populateRegionLiveouts(
       if (SCCF->isRegionLiveOut(RegIt, &*Inst)) {
         auto Symbase = getOrAssignScalarSymbase(&*Inst, *RegIt);
         RegIt->addLiveOutTemp(&*Inst, Symbase);
+        populateLoopLiveouts(&*Inst, Symbase);
       }
     }
   }
@@ -352,6 +377,42 @@ bool HIRScalarSymbaseAssignment::processRegionPhiLivein(
   return Ret;
 }
 
+void HIRScalarSymbaseAssignment::populateLoopSCCPhiLiveinLiveouts(
+    const Instruction *SCCInst, unsigned Symbase, bool IsRoot) {
+
+  // Loop livein/liveout logic for SCC phis is as follows-
+  //
+  // For each loop header phi in SCC-
+  // 1) Mark symbase as live into the loop.
+  // 2) Mark symbase as live out of the inner loops of the SCC.
+
+  if (!isa<PHINode>(SCCInst)) {
+    return;
+  }
+
+  auto ParentBB = SCCInst->getParent();
+
+  Loop *Lp = LI->getLoopFor(ParentBB);
+  assert(Lp && "SCC instruction does not have parent loop!");
+
+  // Ignore non-header phis.
+  if (ParentBB != Lp->getHeader()) {
+    return;
+  }
+
+  HLLoop *DefLoop = LF->findHLLoop(Lp);
+  assert(DefLoop && "SCC instruction does not have parent HLLoop!");
+
+  // Add as livein to the loop.
+  DefLoop->addLiveInTemp(Symbase);
+
+  // If this is not the root instruction, then this is an inner loop so symbase
+  // should be marked liveout as well.
+  if (!IsRoot) {
+    DefLoop->addLiveOutTemp(Symbase);
+  }
+}
+
 void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
     HIRRegionIdentification::iterator RegIt) {
   // Traverse SCCs associated with the region.
@@ -359,7 +420,10 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
        SCCIt != EndIt; ++SCCIt) {
 
     bool SCCLiveInProcessed = false;
+    // This call sets SCC's root node as the base temp.
     unsigned Symbase = getOrAssignScalarSymbase(SCCIt->Root, *RegIt);
+
+    populateLoopSCCPhiLiveinLiveouts(SCCIt->Root, Symbase, true);
 
     // Traverse SCC instructions
     for (auto SCCInstIt = SCCIt->Nodes.begin(), EndIt = SCCIt->Nodes.end();
@@ -368,6 +432,7 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
       // Assign same symbase to all instructions in the SCC.
       if ((*SCCInstIt) != SCCIt->Root) {
         insertTempSymbase(*SCCInstIt, Symbase);
+        populateLoopSCCPhiLiveinLiveouts(*SCCInstIt, Symbase, false);
       }
 
       if (SCCLiveInProcessed) {
@@ -398,9 +463,11 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
 
 bool HIRScalarSymbaseAssignment::runOnFunction(Function &F) {
   Func = &F;
+  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   SCCF = &getAnalysis<HIRSCCFormation>();
   RI = &getAnalysis<HIRRegionIdentification>();
+  LF = &getAnalysis<HIRLoopFormation>();
 
   // Assign a generic symbase representing loop uppers.
   setGenericLoopUpperSymbase();
@@ -430,8 +497,7 @@ void HIRScalarSymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
     OS << "\nRegion " << (RegIt - RegBegin + 1);
 
     OS << "\n   Phi LiveIns: ";
-    for (auto LiveInIt = RegIt->live_in_begin(),
-              EndIt = RegIt->live_in_end();
+    for (auto LiveInIt = RegIt->live_in_begin(), EndIt = RegIt->live_in_end();
          LiveInIt != EndIt; ++LiveInIt) {
 
       if (LiveInIt != RegIt->live_in_begin()) {

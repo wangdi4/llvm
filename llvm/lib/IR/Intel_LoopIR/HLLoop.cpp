@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
@@ -83,7 +83,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
                LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
-      IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW) {
+      IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW),
+      LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet) {
 
   initialize();
 
@@ -204,6 +205,34 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
   OS << "+ NSW: " << (isNSW() ? "Yes\n" : "No\n");
+
+  bool First = true;
+
+  indent(OS, Depth);
+  OS << "+ LiveIn symbases: ";
+  for(auto I = live_in_begin(), E = live_in_end(); I != E; ++I) {
+    if (!First) {
+      OS << ", ";
+    }
+    OS << *I;
+    First = false;
+  }
+
+  OS << "\n";
+
+  First = true;
+
+  indent(OS, Depth);
+  OS << "+ LiveOut symbases: ";
+  for(auto I = live_out_begin(), E = live_out_end(); I != E; ++I) {
+    if (!First) {
+      OS << ", ";
+    }
+    OS << *I;
+    First = false;
+  }
+
+  OS << "\n";
 }
 
 void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,

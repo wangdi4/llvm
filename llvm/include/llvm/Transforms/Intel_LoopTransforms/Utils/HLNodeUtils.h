@@ -1012,7 +1012,7 @@ public:
   /// \brief Returns true if Parent contains Node. IncludePrePostHdr indicates
   /// whether loop should be considered to contain preheader/postexit nodes.
   static bool contains(const HLNode *Parent, const HLNode *Node,
-                       bool IncludePrePostHdr = true);
+                       bool IncludePrePostHdr = false);
 
   /// \brief get parent loop for certain level, nullptr could be returned
   /// if input is invalid

@@ -252,6 +252,11 @@ private:
   /// the temp is returned if it was updated.
   unsigned getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex = nullptr);
 
+  /// Adds \p Inst in region livein set and loop livein/liveout sets as
+  /// applicable and returns its def level.
+  unsigned processInstBlob(const Instruction *Inst, const Instruction *BaseInst,
+                           unsigned Symbase, unsigned NestingLevel);
+
   /// \brief Performs necessary processing for adding TempBlob to CE. This
   /// includes updating the defined at level of CE, adding an entry in the blob
   /// table and marking livein temps.

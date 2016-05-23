@@ -179,10 +179,16 @@ public:
     return false;
   }
 
-  /// \Brief Returns true if Ref is live out of Region
+  /// Returns true if symbase is live out of region.
   bool isLiveOutOfRegion(unsigned SB) const {
     return getParentRegion()->isLiveOut(SB);
   }
+
+  /// Returns true if symbase is live into parent loop.
+  bool isLiveIntoParentLoop(unsigned SB) const; 
+
+  /// Returns true if symbase is live out of parent loop.
+  bool isLiveOutOfParentLoop(unsigned SB) const;
 };
 
 } // End namespace loopopt

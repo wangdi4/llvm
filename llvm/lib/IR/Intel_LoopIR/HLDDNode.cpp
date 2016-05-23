@@ -17,6 +17,7 @@
 
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/DDRef.h"
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
@@ -137,5 +138,13 @@ void HLDDNode::verify() const {
   }
 
   HLNode::verify();
+}
+
+bool HLDDNode::isLiveIntoParentLoop(unsigned SB) const {
+  return getLexicalParentLoop()->isLiveIn(SB);
+}
+
+bool HLDDNode::isLiveOutOfParentLoop(unsigned SB) const {
+  return getLexicalParentLoop()->isLiveOut(SB);
 }
 

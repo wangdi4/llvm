@@ -1,15 +1,37 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
+; HIR-
+; + DO i1 = 0, %n + -1, 1   <DO_LOOP>
+; |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; |   |   %0 = {al:4}(%A)[i2];
+; |   |   %t1.035 = %0  +  %t1.035;
+; |   + END LOOP
+; |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; |   |   %1 = {al:4}(%B)[i2];
+; |   |   {al:4}(%B)[i2] = %1 + %t1.035;
+; |   + END LOOP
+; + END LOOP
+
 ; Check parsing output for the loop verifying that t1.035 which is defined in first inner loop and used in second inner loop gets the defined at level of 1 in the second loop.
+
+; Collect scc symbase (%t1.035 -> %t1.130 -> %add) from i1 loop
+; CHECK: LiveIn symbases: [[SCCSYMBASE:[0-9]+]]
 
 ; CHECK: DO i32 i1 = 0, %n + -1
 
 ; First i2 loop
+; Check that scc symbase is live into and live out from first i2 loop. 
+; CHECK: LiveIn symbases: [[SCCSYMBASE]]
+; CHECK: LiveOut symbases: [[SCCSYMBASE]]
+
 ; CHECK: DO i64 i2 = 0, zext.i32.i64((-1 + %n))
 ; CHECK: %t1.035 = %0  +  %t1.035
 ; CHECK: END LOOP
 
 ; Second i2 loop
+; Check that scc symbase is live into the second i2 loop. 
+; CHECK: LiveIn symbases: [[SCCSYMBASE]]
+
 ; CHECK: DO i64 i2 = 0, zext.i32.i64((-1 + %n))
 ; CHECK: (%B)[i2] = %1 + %t1.035
 
