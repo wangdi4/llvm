@@ -70,7 +70,7 @@ private:
   LoopInfo *LI;
 
   /// RI - The region identification pass.
-  const HIRRegionIdentification *RI;
+  HIRRegionIdentification *RI;
 
   /// CurRegion - Points to the region being processed.
   HLRegion *CurRegion;

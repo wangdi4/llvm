@@ -178,7 +178,7 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
 
-  for (auto I = op_ddref_begin(), E = op_ddref_end(); I != E; I++, Count++) {
+  for (auto I = op_ddref_begin(), E = op_ddref_end(); I != E; ++I, ++Count) {
     if ((Count > 1) || (!hasLval() && (Count > 0))) {
       checkSeparator(OS, true);
     }
@@ -339,6 +339,27 @@ void HLInst::removeFakeDDRef(RegDDRef *RDDRef) {
   llvm_unreachable("Unexpected condition!");
 }
 
+bool HLInst::isLval(const RegDDRef *Ref) const {
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  return (getLvalDDRef() == Ref);
+}
+
+bool HLInst::isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
+
+bool HLInst::isFake(const RegDDRef *Ref) const {
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  for (auto I = fake_ddref_begin(), E = fake_ddref_end(); I != E; ++I) {
+
+    if ((*I) == Ref) {
+      return true;
+    }
+  }
+
+  return false;
+}
+          
 unsigned HLInst::getNumOperands() const { return getNumOperandsInternal(); }
 
 unsigned HLInst::getNumOperandsInternal() const {

@@ -15,6 +15,7 @@
 
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FormattedStream.h"
 
 #include "llvm/IR/Intel_LoopIR/DDRef.h"
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
@@ -83,3 +84,12 @@ unsigned DDRef::getNodeLevel() const {
 void DDRef::verify() const {
   assert(getSymbase() != 0 && "Symbase should not be zero");
 }
+
+bool DDRef::isLiveOutOfRegion() const {
+  return getHLDDNode()->isLiveOutOfRegion(Symbase);
+}
+
+HLLoop *DDRef::getParentLoop() const {
+  return getHLDDNode()->getParentLoop();
+}
+

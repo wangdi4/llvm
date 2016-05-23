@@ -28,7 +28,7 @@ class BasicBlock;
 namespace loopopt {
 
 /// \brief High level node representing a label.
-class HLLabel : public HLNode {
+class HLLabel final : public HLNode {
 private:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   static StringSet<> LabelNames;

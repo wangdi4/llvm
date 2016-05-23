@@ -22,16 +22,20 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGrouping.h"
 
 namespace llvm {
 namespace loopopt {
+namespace runtimedd {
+
+typedef DDRefGrouping::RefGroupTy<RegDDRef> RefGroupTy;
+typedef DDRefGrouping::RefGroupMapTy<RegDDRef> RefGroupMapTy;
 
 const unsigned ExpectedNumberOfTests = 8;
-const unsigned SmallTripCountTest = 4;
+const unsigned SmallTripCountTest = 12;
 
 enum RuntimeDDResult {
   OK,
@@ -89,7 +93,7 @@ class IVSegment {
                                     const HLLoop *InnerLoop);
 
 public:
-  IVSegment(const DDRefGrouping::RefGroupTy &Group);
+  IVSegment(const RefGroupTy &Group);
   IVSegment(const IVSegment &) = delete;
   IVSegment(IVSegment &&Segment);
 
@@ -124,8 +128,9 @@ public:
 #endif
 };
 
-struct LoopCandidate {
+struct LoopContext {
   HLLoop *Loop;
+  RefGroupMapTy Groups;
   llvm::SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
   bool GenTripCountTest;
 
@@ -178,15 +183,18 @@ private:
                                         const RegDDRef *Ref2);
 
   // \brief Returns required DD tests for an arbitrary loop L.
-  static RuntimeDDResult computeTests(HLLoop *Loop, LoopCandidate &Candidate);
+  static RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);
 
-  HLIf *createIfStmtForIntersection(HLContainerTy &Nodes, Segment &S1,
-                                    Segment &S2) const;
+  static HLIf *createIfStmtForIntersection(HLContainerTy &Nodes, Segment &S1,
+                                           Segment &S2);
 
   // \brief Modifies HIR implementing specified tests.
-  void generateDDTest(LoopCandidate &Candidate) const;
-};
+  static void generateDDTest(LoopContext &Context);
 
+  // \brief Marks all DDRefs independent across groups.
+  static void markDDRefsIndep(LoopContext &Context);
+};
+}
 }
 }
 

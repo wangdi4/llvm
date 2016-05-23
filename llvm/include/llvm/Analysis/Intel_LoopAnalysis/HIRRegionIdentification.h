@@ -22,6 +22,8 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/IR/Intel_LoopIR/IRRegion.h"
+
 namespace llvm {
 
 class Value;
@@ -39,15 +41,13 @@ class SCEV;
 
 namespace loopopt {
 
-class IRRegion;
-
 /// \brief This analysis is the first step in creating HIR. We start by
 /// identiyfing regions as a set of basic blocks in the incoming IR. This
 /// information is then used by HIRCreation pass to create and populate
 /// HIR regions.
 class HIRRegionIdentification : public FunctionPass {
 public:
-  typedef SmallVector<IRRegion *, 16> IRRegionsTy;
+  typedef SmallVector<IRRegion, 16> IRRegionsTy;
 
   /// Iterators to iterate over regions
   typedef IRRegionsTy::iterator iterator;

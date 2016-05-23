@@ -17,17 +17,19 @@
 #define LLVM_IR_INTEL_LOOPIR_DDREF_H
 
 #include "llvm/Support/Compiler.h"
-#include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include <set>
 
 namespace llvm {
 
 class Value;
 class Type;
+class formatted_raw_ostream;
 
 namespace loopopt {
 
 class CanonExpr;
+class HLDDNode;
+class HLLoop;
 
 /// \brief Base class for encapsulating Values/References which can cause
 /// data dependencies and/or for which we need to generate code using the
@@ -122,17 +124,10 @@ public:
 
   /// \brief Returns true if DDRef temp is live out of Region
   ///  Note: This is different from Live out of Loop
-  bool isLiveOutOfRegion() const {
-    return getHLDDNode()->isLiveOutOfRegion(Symbase);
-  }
+  bool isLiveOutOfRegion() const;
 
-  /// \brief  Returns ParentLoop of DDRef
-  HLLoop *getParentLoop() {
-    HLDDNode *DDNode = getHLDDNode();
-    HLNode *HIR = dyn_cast<HLNode>(DDNode);
-    HLLoop *ParentLoop = HIR->getParentLoop();
-    return ParentLoop;
-  }
+  /// \brief  Returns ParentLoop of DDRef.
+  HLLoop *getParentLoop() const;
 };
 
 } // End loopopt namespace

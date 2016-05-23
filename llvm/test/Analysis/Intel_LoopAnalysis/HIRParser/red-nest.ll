@@ -19,6 +19,14 @@
 ; CHECK-NEXT: %r.035.out = %r.035
 ; CHECK: END LOOP
 
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-parser -hir-details -hir-cost-model-throttling=0 | FileCheck -check-prefix=DETAIL %s
+; Check that %t.034 is correctly set to non-linear in the i2 loop.
+
+; DETAIL: DO i64 i2
+; DETAIL: %t.034.out = %t.034
+; DETAIL-NEXT: <LVAL-REG> NON-LINEAR i32 %t.034.out 
+; DETAIL-NEXT: <RVAL-REG> NON-LINEAR i32 %t.034 
+
 
 ; ModuleID = 'red_nest2.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

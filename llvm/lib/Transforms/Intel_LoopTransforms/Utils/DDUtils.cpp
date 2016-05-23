@@ -137,13 +137,17 @@ bool DDUtils::canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
   }
 
   if (Defs == 1) {
-    assert(FlowEdge && AntiEdge && "both edge must exist here");
-    // Get the level for ParentLoop
-    unsigned Level = InnermostLoop->getNestingLevel() - 1;
-    if (FlowEdge->getDVAtLevel(Level) != DV::EQ) {
+    if (!FlowEdge || !AntiEdge) {
+      // This is a case that the load goes through 2 copy stmts
+      // Need some forwardSub cleanup. Bail out now.
       return false;
     }
-    if (AntiEdge->getDVAtLevel(Level) != DV::EQ) {
+    // Get the level for ParentLoop
+    unsigned Level = InnermostLoop->getNestingLevel() - 1;
+    if (FlowEdge->getDVAtLevel(Level) != DVKind::EQ) {
+      return false;
+    }
+    if (AntiEdge->getDVAtLevel(Level) != DVKind::EQ) {
       return false;
     }
   }
