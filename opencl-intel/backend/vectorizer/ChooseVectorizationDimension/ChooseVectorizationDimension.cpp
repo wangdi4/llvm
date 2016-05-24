@@ -220,12 +220,14 @@ ChooseVectorizationDimension::PreferredOption ChooseVectorizationDimension::getP
 }
 
 void ChooseVectorizationDimension::setFinalDecision(int dim, bool canUnitWorkGroups) {
+#ifndef NDEBUG
   if (getenv("DONT_SWITCH_DIM")) {
     dim = 0;
   }
   if (getenv("DONT_UNITE_WORKGROUPS")) {
     canUnitWorkGroups = false;
   }
+#endif
   Chosen_Vectorization_Dim = dim; // Statistics
   m_vectorizationDim = dim;
   m_canUniteWorkgroups = canUnitWorkGroups;
