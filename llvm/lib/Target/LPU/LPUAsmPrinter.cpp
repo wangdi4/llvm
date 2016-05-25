@@ -350,7 +350,7 @@ void LPUAsmPrinter::EmitFunctionEntryLabel() {
 
   // Start a scope for this routine to localize the LIC names
   // For now, this includes parameters and results
-  ////OutStreamer.EmitRawText("{");
+  OutStreamer.EmitRawText("{");
 
   emitReturnVal(F);
 
@@ -392,7 +392,7 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
 }
 
 void LPUAsmPrinter::EmitFunctionBodyEnd() {
-  ////OutStreamer.EmitRawText("}");
+  OutStreamer.EmitRawText("}");
 }
 
 void LPUAsmPrinter::EmitInstruction(const MachineInstr *MI) {
