@@ -354,3 +354,15 @@ LPUInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
 
 }
 
+
+unsigned
+LPUInstrInfo::getCopyOpcode(const TargetRegisterClass *RC) const {
+  if      (RC == &LPU::CI1RegClass)  return LPU::COPY1;
+  else if (RC == &LPU::CI8RegClass)  return LPU::COPY8;
+  else if (RC == &LPU::CI16RegClass) return LPU::COPY16;
+  else if (RC == &LPU::CI32RegClass) return LPU::COPY32;
+  else if (RC == &LPU::CI64RegClass) return LPU::COPY64;
+  else
+    llvm_unreachable("Unknown Target LIC class!");
+}
+

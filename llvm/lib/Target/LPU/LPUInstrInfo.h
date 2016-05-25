@@ -136,6 +136,8 @@ public:
                         DebugLoc DL) const override;
 
   unsigned getPickSwitchOpcode(const TargetRegisterClass *RC, bool isPick) const;
+
+  unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
 };
 
 }

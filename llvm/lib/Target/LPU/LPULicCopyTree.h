@@ -97,6 +97,15 @@ struct LPULicCopyTree {
     return m_leaf_stop;
   }
 
+  int num_copy_stmts() const {
+    return m_copy_stmts.size();
+  }
+
+  const LPULicCopyStmt<D>& get_copy_stmt(int i) {
+    assert((i >= 0) && (i < m_copy_stmts.size()));
+    return m_copy_stmts[i];
+  }
+  
   
 #if LPU_DEBUG_COPY_TREE
   void print() {

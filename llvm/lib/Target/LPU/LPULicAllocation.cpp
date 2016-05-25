@@ -152,20 +152,24 @@ replace_reg_uses_with_LICs(MachineRegisterInfo* MRI,
 void
 LPULicAllocation::
 generate_LIC_copies(LPUMachineFunctionInfo* LMFI,
+                    const LPUInstrInfo& TII,
                     unsigned src,
                     const TargetRegisterClass* new_LIC_RC,
                     std::vector<unsigned>* replacement_LICs,
-                    int N) {
+                    int N,
+                    MachineInstr* def_ins) {
 
-  // Temporary implementation flag.  We can test turning off the
-  // copies for test purposes, but we really expect to have them.
+
+  // Set to false to turn off copy generation.  For now, we skip the
+  // copy generation because we assume the simulator will handle it.
   const bool ENABLE_COPIES = false;
+  const int D = 4;
   
   replacement_LICs->clear();
   if (N >= 2) {
     if (ENABLE_COPIES) {
       // Create a copy tree.
-      LPULicCopyTree<4> copy_tree(N);
+      LPULicCopyTree<D> copy_tree(N);
 
       // After testing the copy tree, we don't really need to
       // double-check this any more.
@@ -203,8 +207,55 @@ generate_LIC_copies(LPUMachineFunctionInfo* LMFI,
         replacement_LICs->push_back(reg_map[j]);
       }
 
-      // TBD(jsukha): Finally, we should generate the copy statements.
-      // INSERT THOSE STATEMENTS HERE!
+      // Finally, add copy statements to the block.
+      const unsigned copy_opcode = TII.getCopyOpcode( new_LIC_RC );
+
+      // Walk over the instructions in the copy tree in reverse order.
+      // We use this order because we are going to insert all of them
+      // after the definition, and we want them to be in order in the
+      // basic block.
+      for (int k = copy_tree.num_copy_stmts()-1; k >= 0; k--) {
+        const LPULicCopyStmt<D>& cstmt = copy_tree.get_copy_stmt(k);
+
+        unsigned dest_reg[D];
+        unsigned src_reg = LPU::IGN;
+        
+        // Look up the source register from the copy statement.
+        assert((cstmt.src >= 0) && "Copy statement has invalid source register index");
+        assert(cstmt.src < (int)reg_map.size());
+        src_reg = reg_map[cstmt.src];
+
+        // Look up the destination registers from the copy statement.
+        // Some of these might be LPU::IGN.
+        for (int j = 0; j < D; ++j) {
+          int dest_idx = cstmt.out[j];
+          if (dest_idx >= 0) {
+            assert(dest_idx < (int)reg_map.size());
+            dest_reg[j] = reg_map[dest_idx];
+          }
+          else {
+            dest_reg[j] = LPU::IGN;
+          }
+        }
+
+        // Build a copy instruction.
+        MachineBasicBlock* BB = def_ins->getParent();
+        MachineInstr* copyInst =
+          BuildMI(*BB, def_ins, def_ins->getDebugLoc(),
+                  TII.get(copy_opcode),
+                  dest_reg[0]).
+                  addReg(dest_reg[1], RegState::Define).
+                  addReg(dest_reg[2], RegState::Define).
+                  addReg(dest_reg[3], RegState::Define).
+                  addReg(src_reg);
+
+        // Add it to the basic block, after the definition.  Note the
+        // order of insertion is important, because we assume the copy
+        // tree has the statements in an order that has all def's
+        // before uses.
+        copyInst->removeFromParent();
+        BB->insertAfter(def_ins, copyInst);
+      }
     }
     else {
       // If we aren't generating copies, just point everything at the
@@ -236,6 +287,8 @@ allocateLicsInBlock(MachineBasicBlock* BB)
   const TargetMachine &TM = MF->getTarget();
   const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
   LPUMachineFunctionInfo *LMFI = MF->getInfo<LPUMachineFunctionInfo>();
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>
+    (MF->getSubtarget().getInstrInfo());
 
   bool modified = false;
 
@@ -243,7 +296,7 @@ allocateLicsInBlock(MachineBasicBlock* BB)
   // a LIC, and converting its uses to use the LIC copies.
   for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end();  ++I) {
     MachineInstr *MI = I;
-    //    DEBUG(errs() << "Found MachineInstr " << *MI << "\n");
+    DEBUG(errs() << "Found MachineInstr " << *MI << "\n");
 
     // If we are skipping PHIs in the processing, don't analyze any
     // virtual register defined by a PHI instruction,
@@ -292,10 +345,12 @@ allocateLicsInBlock(MachineBasicBlock* BB)
             // the source.  Otherwise, just use the original register.
             std::vector<unsigned> replacement_LICs;
             generate_LIC_copies(LMFI,
+                                TII,
                                 newReg,
                                 new_LIC_RC,
                                 &replacement_LICs,
-                                num_uses);
+                                num_uses,
+                                MI);
 
             // Step 3: Substitute all the uses of Reg with the
             // appropriate LICs.
@@ -307,6 +362,7 @@ allocateLicsInBlock(MachineBasicBlock* BB)
 
             DEBUG(errs() << "Substituting def of reg " << PrintReg(Reg) << " with " << PrintReg(newReg) << "\n");
             MO->substPhysReg(newReg, TRI);
+
             modified = true;
           }
           else {

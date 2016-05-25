@@ -118,6 +118,10 @@ namespace llvm {
     // 
     // This method allocates LICs for each of nodes in the tree.
     //
+    // "def_ins" is the machine instruction that defines "src"; this
+    // method will insert the necessary copy statements after this
+    // instruction.
+    //
     // After this method is complete, replacement_LICs is a vector
     // leaves of the tree that is modified to store the LICs at the N
     // leaves of the tree.
@@ -125,10 +129,12 @@ namespace llvm {
     // TBD(jsukha): This method should also insert the relevant copy
     // instructions.
     void generate_LIC_copies(LPUMachineFunctionInfo* LMFI,
+                             const LPUInstrInfo& TII,
                              unsigned src,
                              const TargetRegisterClass* new_LIC_RC,
                              std::vector<unsigned>* replacement_LICs,
-                             int N);
+                             int N,
+                             MachineInstr* def_ins);
 
   };
 }
