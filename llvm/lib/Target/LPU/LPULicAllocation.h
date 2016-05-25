@@ -53,12 +53,30 @@ namespace llvm {
     int m_lic_alloc_flag;
 
 
+    // Some knobs to control the execution of this code.
+    //
+    // TBD(jsukha): We may eventually get rid of many of these knobs,
+    // once we are further along.
+    // 
+    // Set to false to turn off copy generation.  For now, we skip the
+    // copy generation because we assume the simulator will handle it.
+    const bool ENABLE_COPIES = false;
+
     // Flag for controlling whether we do replacement of registers in
     // PHIs.
     //
-    // TBD(jsukha): It is 1 for now, until we understand how to deal
-    // with registers that appear in PHI nodes.
-    const int SKIP_PHI_FLAG = 1;
+    // TBD(jsukha): It is true for now, until we understand how to
+    // deal with registers that appear in PHI nodes.
+    const bool SKIP_PHI_FLAG = true;
+
+    // Flag for controlling whether we do replacement of registers
+    // with LICS for uses that are in different blocks from their
+    // defs.
+    // 
+    // TBD(jsukha): It is true for now, until we finish the other
+    // phases that insert the right picks and switches.
+    const bool SKIP_OUTSIDE_BLOCK_FLAG = true;
+
 
     // Method checking whether we will actually replace registers with
     // LICs or not, based on the user's input flag.
@@ -71,31 +89,39 @@ namespace llvm {
 
     // Count the number of uses of a particular virtual register
     // "Reg".
+    //
+    // The MachineBasicBlock BB is the basic block is one
+    // we expect to have most of the uses, but some of the uses can be
+    // outside this block.
+
     // 
     // If "skip_phis" is true, then this function returns 0 if this
     // register is used in any PHI instruction.
     // TBD(jsukha): For now, we are skipping register uses in PHIs
-    // because there are problems in later stages.   
-    // 
-    // The MachineBasicBlock BB is the basic block is one we expect
-    // to have most of the uses, but some of the uses can be
-    // outside this block.
-    // 
-    // TBD(jsukha): Right now, this method internally differentiates
-    // between uses inside BB and outside, but it only returns a total
-    // value.  We may want to change the interface to eliminate this
-    // distinction later.
+    // because there are problems in later stages.
+
+    // If "skip_outside_block" is true, then this function returns 0
+    // if this register is used in any instruction outside the basic
+    // block BB.  Otherwise, it counts all uses, both inside and
+    // outside BB.
+    //
+    // TBD(jsukha): For now, we are skipping register uses outside the
+    // current basic block because we haven't put all the necessary
+    // picks / switches in place yet.
+    //
     int count_reg_uses(MachineRegisterInfo* MRI,
                        unsigned Reg,
                        MachineBasicBlock* BB,
-                       bool skip_phis);
+                       bool skip_phis,
+                       bool skip_outside_block);
 
     
     // Replace the uses of a particular virtual register "Reg" with
     // the list of LICs defined in "replacement_LICs".
     //
     // The uses replaced should match the ones counted by a
-    // corresponding call to count_reg_uses.
+    // corresponding call to count_reg_uses.  BB is the basic block we
+    // want to replace uses in, if skip_outside_block is True.
     //
     //  Use j of "Reg" is replaced by replacement_LICs[j], if j <
     //  replacement_LICs[j].size(), or replacement_LICs[0] if j is out
@@ -110,7 +136,9 @@ namespace llvm {
                                    const TargetRegisterInfo& TRI,
                                    unsigned Reg,
                                    std::vector<unsigned>& replacement_LICs,
-                                   bool skip_phis);
+                                   bool skip_phis,
+                                   bool skip_outside_block,
+                                   MachineBasicBlock* BB);
 
     // Generates N copies of the source register/LIC "src" (with the
     // specified register class "new_LIC_RC") connected using a

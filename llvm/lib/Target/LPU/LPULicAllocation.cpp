@@ -50,7 +50,8 @@ int LPULicAllocation::
 count_reg_uses(MachineRegisterInfo* MRI,
                unsigned Reg,
                MachineBasicBlock* BB,
-               bool skip_phis)
+               bool skip_phis,
+               bool skip_outside_block)
 {
   DEBUG(errs() << "Counting uses of register " << PrintReg(Reg) << " in BB " << BB << "\n");
   int uses_in_block = 0;
@@ -79,6 +80,10 @@ count_reg_uses(MachineRegisterInfo* MRI,
           uses_in_block++;
         }
         else {
+          if (skip_outside_block) {
+            DEBUG(errs() << "Skipping use of " << PrintReg(Reg) <<", a use outside block " << BB << " was found\n");
+            return 0;
+          }
           // Count the uses outside the block.  We really expect all
           // of them to be PHIs at this point.
           uses_outside_block++;
@@ -110,7 +115,9 @@ replace_reg_uses_with_LICs(MachineRegisterInfo* MRI,
                            const TargetRegisterInfo& TRI,
                            unsigned Reg,
                            std::vector<unsigned>& replacement_LICs,
-                           bool skip_phis)
+                           bool skip_phis,
+                           bool skip_outside_block,
+                           MachineBasicBlock* targetBB)
 {
   DEBUG(errs() << "Replacing all uses of register " << PrintReg(Reg) << "\n");
   unsigned use_count = 0;
@@ -121,11 +128,21 @@ replace_reg_uses_with_LICs(MachineRegisterInfo* MRI,
     if (MO.isReg() &&
         MO.isUse() &&
         (MO.getReg() == Reg)) {
-        bool is_phi = (MO.getParent()->isPHI());
+
+
+        MachineInstr* use_ins = MO.getParent();
+        bool is_phi = use_ins->isPHI();
 
         //  Skip PHIs if the flag is set.
-        if (is_phi && skip_phis) {
+        if (skip_phis && is_phi) {
           assert((use_count == 0) && "Replaced use of a virtual register involved in a PHI");
+          return use_count;
+        }
+
+        bool outside_block = (use_ins->getParent() != targetBB);
+        if (skip_outside_block && outside_block) {
+          assert(use_ins->getParent());
+          assert((use_count == 0) && "Replaced use of a virtual register outside target block");
           return use_count;
         }
         
@@ -160,14 +177,11 @@ generate_LIC_copies(LPUMachineFunctionInfo* LMFI,
                     MachineInstr* def_ins) {
 
 
-  // Set to false to turn off copy generation.  For now, we skip the
-  // copy generation because we assume the simulator will handle it.
-  const bool ENABLE_COPIES = false;
   const int D = 4;
   
   replacement_LICs->clear();
   if (N >= 2) {
-    if (ENABLE_COPIES) {
+    if (this->ENABLE_COPIES) {
       // Create a copy tree.
       LPULicCopyTree<D> copy_tree(N);
 
@@ -324,7 +338,8 @@ allocateLicsInBlock(MachineBasicBlock* BB)
         }
 
         int num_uses = count_reg_uses(MRI, Reg, BB,
-                                      this->SKIP_PHI_FLAG);
+                                      this->SKIP_PHI_FLAG,
+                                      this->SKIP_OUTSIDE_BLOCK_FLAG);
         DEBUG(errs() << "Reg " << PrintReg(Reg) << ": found " << num_uses << " uses\n");
 
         // Look up target register class corresponding to this
@@ -358,7 +373,9 @@ allocateLicsInBlock(MachineBasicBlock* BB)
                                        TRI,
                                        Reg,
                                        replacement_LICs,
-                                       this->SKIP_PHI_FLAG);
+                                       this->SKIP_PHI_FLAG,
+                                       this->SKIP_OUTSIDE_BLOCK_FLAG,
+                                       BB);
 
             DEBUG(errs() << "Substituting def of reg " << PrintReg(Reg) << " with " << PrintReg(newReg) << "\n");
             MO->substPhysReg(newReg, TRI);
