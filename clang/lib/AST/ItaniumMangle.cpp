@@ -89,7 +89,7 @@ static const DeclContext *getEffectiveDeclContext(const Decl *D) {
     if (FD->isExternC())
       return FD->getASTContext().getTranslationUnitDecl();
 
-  return DC;
+  return DC->getRedeclContext();
 }
 
 static const DeclContext *getEffectiveParentContext(const DeclContext *DC) {
@@ -1949,7 +1949,10 @@ static bool isMType(QualType T, StringRef &MTypeName) {
   if (TDTy == nullptr)
     return false;
 
-  MTypeName = TDTy->getDecl()->getCanonicalDecl()->getIdentifier()->getName();
+  if (const auto *IInfo = TDTy->getDecl()->getCanonicalDecl()->getIdentifier())
+    MTypeName = IInfo->getName();
+  else
+    return false;
 
   bool res = llvm::StringSwitch<bool>(MTypeName)
     .Case("__m64", true)
@@ -4011,7 +4014,11 @@ void CXXNameMangler::mangleTemplateArg(TemplateArgument A) {
     //  <template-arg> ::= J <template-arg>* E
 #if INTEL_CUSTOMIZATION
     // CQ371729: Incompatible name mangling.
-    if (getASTContext().getLangOpts().IntelCompat)
+    // CQ#408802: GNU ABI v6 name mangling.
+    // FIXME: GCC, starting with 4.7.4 version, with ABI version lesser than 6
+    // generates both versions. We possibly might need to emulate it.
+    if (getASTContext().getLangOpts().IntelCompat &&
+        getASTContext().getLangOpts().GNUFABIVersion < 6)
       Out << 'I';
     else
 #endif // INTEL_CUSTOMIZATION

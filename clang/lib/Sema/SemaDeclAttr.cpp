@@ -4181,18 +4181,6 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
 #endif // INTEL CUSTOMIZATION
 
 static void handleNoDebugAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  if (const VarDecl *VD = dyn_cast<VarDecl>(D)) {
-    if (!VD->hasGlobalStorage())
-      S.Diag(Attr.getLoc(),
-             diag::warn_attribute_requires_functions_or_static_globals)
-        << Attr.getName();
-  } else if (!isFunctionOrMethod(D)) {
-    S.Diag(Attr.getLoc(),
-           diag::warn_attribute_requires_functions_or_static_globals)
-      << Attr.getName();
-    return;
-  }
-
   D->addAttr(::new (S.Context)
              NoDebugAttr(Attr.getRange(), S.Context,
                          Attr.getAttributeSpellingListIndex()));
@@ -5214,6 +5202,17 @@ static void handleObjCPreciseLifetimeAttr(Sema &S, Decl *D,
 //===----------------------------------------------------------------------===//
 
 static void handleUuidAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+#if INTEL_CUSTOMIZATION
+  if (!S.getLangOpts().MicrosoftExt && !S.getLangOpts().Borland &&
+      !S.getLangOpts().IntelCompat) {
+    // CQ380552: xmain should allow uuid MS attribute on linux in intel
+    // compatibility mode. The check has been moved here from
+    // include/clang/Basic/Attr.td
+    S.Diag(Attr.getRange().getBegin(), diag::warn_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (!S.LangOpts.CPlusPlus) {
     S.Diag(Attr.getLoc(), diag::err_attribute_not_supported_in_lang)
       << Attr.getName() << AttributeLangSupport::C;
@@ -5273,6 +5272,24 @@ static void handleMSInheritanceAttr(Sema &S, Decl *D, const AttributeList &Attr)
     S.Consumer.AssignInheritanceModel(cast<CXXRecordDecl>(D));
   }
 }
+
+#if INTEL_CUSTOMIZATION
+// CQ380552: xmain should allow selectany MS attribute on linux in intel
+// compatibility mode. The check has been moved here from
+// include/clang/Basic/Attr.td
+static void handleSelectAnyAttr(Sema & S, Decl * D,
+                                const AttributeList & Attr) {
+
+  if (!S.getLangOpts().MicrosoftExt && !S.getLangOpts().IntelCompat) {
+    S.Diag(Attr.getRange().getBegin(), diag::warn_attribute_ignored)
+        << Attr.getName();
+    return;
+  }
+
+  D->addAttr(::new (S.Context) SelectAnyAttr(
+      Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
+#endif // INTEL_CUSTOMIZATION
 
 static void handleDeclspecThreadAttr(Sema &S, Decl *D,
                                      const AttributeList &Attr) {
@@ -6466,6 +6483,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_InternalLinkage:
     handleInternalLinkageAttr(S, D, Attr);
     break;
+  case AttributeList::AT_LTOVisibilityPublic:
+    handleSimpleAttribute<LTOVisibilityPublicAttr>(S, D, Attr);
+    break;
 
   // Microsoft attributes:
   case AttributeList::AT_MSNoVTable:
@@ -6481,7 +6501,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleMSInheritanceAttr(S, D, Attr);
     break;
   case AttributeList::AT_SelectAny:
-    handleSimpleAttribute<SelectAnyAttr>(S, D, Attr);
+#if INTEL_CUSTOMIZATION
+    // CQ380552: xmain should allow selectany attribute in intel
+    // compatibility mode.
+    handleSelectAnyAttr(S, D, Attr);
+#endif // INTEL_CUSTOMIZATION
     break;
   case AttributeList::AT_Thread:
     handleDeclspecThreadAttr(S, D, Attr);

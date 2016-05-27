@@ -979,7 +979,9 @@ def NoCommon : InheritableAttr {
 
 def NoDebug : InheritableAttr {
   let Spellings = [GCC<"nodebug">];
-  let Documentation = [Undocumented];
+  let Subjects = SubjectList<[FunctionLike, ObjCMethod, GlobalVar], WarnDiag,
+                              "ExpectedFunctionGlobalVarMethodOrProperty">;
+  let Documentation = [NoDebugDocs];
 }
 
 def NoDuplicate : InheritableAttr {
@@ -1541,7 +1543,7 @@ def Uuid : InheritableAttr {
   let Spellings = [Declspec<"uuid">];
   let Args = [StringArgument<"Guid">];
 //  let Subjects = SubjectList<[CXXRecord]>;
-  let LangOpts = [MicrosoftExt, Borland];
+//  let LangOpts = [MicrosoftExt, Borland]; // INTEL
   let Documentation = [Undocumented];
 }
 
@@ -1615,6 +1617,12 @@ def WeakRef : InheritableAttr {
   let Args = [StringArgument<"Aliasee", 1>];
   let Subjects = SubjectList<[Var, Function], WarnDiag>; //***INTEL
   let Documentation = [Undocumented];
+}
+
+def LTOVisibilityPublic : InheritableAttr {
+  let Spellings = [CXX11<"clang", "lto_visibility_public">];
+  let Subjects = SubjectList<[Record]>;
+  let Documentation = [LTOVisibilityDocs];
 }
 
 def AnyX86Interrupt : InheritableAttr, TargetSpecificAttr<TargetAnyX86> {
@@ -2057,7 +2065,7 @@ def DLLImport : InheritableAttr, TargetSpecificAttr<TargetWindows> {
 
 def SelectAny : InheritableAttr {
   let Spellings = [Declspec<"selectany">];
-  let LangOpts = [MicrosoftExt];
+  // let LangOpts = [MicrosoftExt]; // INTEL
   let Documentation = [Undocumented];
 }
 

@@ -7357,7 +7357,7 @@ class BuiltinOperatorOverloadBuilder {
     // We assume that int128 has a higher rank than long long on all platforms.
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 
-    enum PromotedType {
+    enum PromotedType : int8_t {
             Dep=-1,
             Flt,  Dbl, LDbl, Flt128,  SI,   SL,  SLL, S128,   UI,
             UL,  ULL, U128
@@ -7390,7 +7390,7 @@ class BuiltinOperatorOverloadBuilder {
             U128, U128, U128 },
     };
 #else
-    enum PromotedType {
+    enum PromotedType : int8_t {
             Dep=-1,
             Flt,  Dbl, LDbl,   SI,   SL,  SLL, S128,   UI,   UL,  ULL, U128
     };
@@ -9509,11 +9509,8 @@ static void DiagnoseArityMismatch(Sema &S, OverloadCandidate *Cand,
 }
 
 static TemplateDecl *getDescribedTemplate(Decl *Templated) {
-  if (FunctionDecl *FD = dyn_cast<FunctionDecl>(Templated))
-    return FD->getDescribedFunctionTemplate();
-  else if (CXXRecordDecl *RD = dyn_cast<CXXRecordDecl>(Templated))
-    return RD->getDescribedClassTemplate();
-
+  if (TemplateDecl *TD = Templated->getDescribedTemplate())
+    return TD;
   llvm_unreachable("Unsupported: Getting the described template declaration"
                    " for bad deduction diagnosis");
 }

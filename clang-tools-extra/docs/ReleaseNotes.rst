@@ -63,11 +63,25 @@ Improvements to clang-tidy
 explain them more clearly, and provide more accurate fix-its for the issues
 identified.  The improvements since the 3.8 release include:
 
+- New Boost module containing checks for issues with Boost library.
+
+- New `boost-use-to-string 
+  <http://clang.llvm.org/extra/clang-tidy/checks/boost-use-to-string.html>`_ check
+
+  Finds usages of ``boost::lexical_cast<std::string>`` and changes it to
+  ``std::to_string``.
+
 - New `cert-env33-c
   <http://clang.llvm.org/extra/clang-tidy/checks/cert-env33-c.html>`_ check
 
   Flags calls to ``system()``, ``popen()``, and ``_popen()``, which execute a
   command processor.
+
+- New `cert-err34-c
+  <http://clang.llvm.org/extra/clang-tidy/checks/cert-err34-c.html>`_ check
+
+  Flags calls to string-to-number conversion functions that do not verify the
+  validity of the conversion.
 
 - New `cert-flp30-c
   <http://clang.llvm.org/extra/clang-tidy/checks/cert-flp30-c.html>`_ check
@@ -92,6 +106,12 @@ identified.  The improvements since the 3.8 release include:
   Detects dangling references in value handlers like
   ``std::experimental::string_view``.
 
+- New `misc-fold-init-type
+  <http://clang.llvm.org/extra/clang-tidy/checks/misc-fold-init-type.html>`_ check
+
+  The check flags type mismatches in `folds` like ``std::accumulate`` that might
+  result in loss of precision.
+
 - New `misc-forward-declaration-namespace
   <http://clang.llvm.org/extra/clang-tidy/checks/misc-forward-declaration-namespace.html>`_ check
 
@@ -109,14 +129,24 @@ identified.  The improvements since the 3.8 release include:
   Detect multiple statement macros that are used in unbraced conditionals.
 
 - New `misc-pointer-and-integral-operation
-  <http://clang.llvm.org/extra/clang-tidy/checks/misc-misc-pointer-and-integral-operation.html>`_ check
+  <http://clang.llvm.org/extra/clang-tidy/checks/misc-pointer-and-integral-operation.html>`_ check
 
   Warns about suspicious operations involving pointers and integral types.
+
+- New `misc-redundant-expression
+  <http://clang.llvm.org/extra/clang-tidy/checks/misc-redundant-expression.html>`_ check
+
+  Warns about redundant and equivalent expressions.
 
 - New `misc-sizeof-expression
   <http://clang.llvm.org/extra/clang-tidy/checks/misc-sizeof-expression.html>`_ check
 
   Warns about incorrect uses of ``sizeof`` operator.
+
+- New `misc-string-constructor
+  <http://clang.llvm.org/extra/clang-tidy/checks/misc-string-constructor.html>`_ check
+
+  Finds string constructors that are suspicious and probably errors.
 
 - New `misc-string-literal-with-embedded-nul
   <http://clang.llvm.org/extra/clang-tidy/checks/misc-string-literal-with-embedded-nul.html>`_ check
@@ -134,6 +164,16 @@ identified.  The improvements since the 3.8 release include:
 
   Finds most instances of stray semicolons that unexpectedly alter the meaning
   of the code.
+
+- New `misc-suspicious-string-compare
+  <http://clang.llvm.org/extra/clang-tidy/checks/misc-suspicious-string-compare.html>`_ check
+
+  Find suspicious usage of runtime string comparison functions.
+
+- New `misc-unused-using-decls
+  <http://clang.llvm.org/extra/clang-tidy/checks/misc-unused-using-decls.html>`_ check
+
+  Finds unused ``using`` declarations.
 
 - New `modernize-deprecated-headers
   <http://clang.llvm.org/extra/clang-tidy/checks/modernize-deprecated-headers.html>`_ check

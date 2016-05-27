@@ -48,9 +48,11 @@ struct Configuration {
   llvm::StringRef SoName;
   llvm::StringRef Sysroot;
   std::string RPath;
+  std::string Reproduce;
   std::vector<llvm::StringRef> DynamicList;
   std::vector<llvm::StringRef> SearchPaths;
   std::vector<llvm::StringRef> Undefined;
+  std::vector<llvm::StringRef> VersionScriptGlobals;
   bool AllowMultipleDefinition;
   bool AsNeeded = false;
   bool Bsymbolic;
@@ -84,6 +86,7 @@ struct Configuration {
   bool Threads;
   bool Trace;
   bool Verbose;
+  bool VersionScript = false;
   bool WarnCommon;
   bool ZExecStack;
   bool ZNodelete;
@@ -94,6 +97,7 @@ struct Configuration {
   ELFKind EKind = ELFNoneKind;
   uint16_t EMachine = llvm::ELF::EM_NONE;
   uint64_t EntryAddr = -1;
+  unsigned LtoJobs;
   unsigned LtoO;
   unsigned Optimize;
 };
