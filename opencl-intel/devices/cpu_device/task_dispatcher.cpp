@@ -594,7 +594,7 @@ void AffinitizeThreads::WaitForEndOfTask() const
     }
 }
 
-int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount)
+int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount, size_t numberOfThreads)
 {
     m_uiMasterHWId = Intel::OpenCL::Utils::GetCpuId(); 
     // copy execution parameters

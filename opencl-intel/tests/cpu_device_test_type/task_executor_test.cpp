@@ -72,7 +72,7 @@ public:
 	Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
 	// ITaskSet interface
-	int		Init(size_t region[], unsigned int &regCount)
+	int Init(size_t region[], unsigned int &regCount, size_t numberOfThreads)
 	{
 		*m_pDone = 0;
 #ifdef EXTENDED_PRINT
