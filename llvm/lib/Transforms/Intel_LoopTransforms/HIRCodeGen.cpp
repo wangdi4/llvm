@@ -215,9 +215,9 @@ private:
 
     //\brief returns value for blobCoeff*blob in <blobidx,coeff> pair
     Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt) {
-      auto BlobVal = CoefCG(CE->getBlobCoeff(BlobIt),
-                            getBlobValue(CE->getBlobIndex(BlobIt),
-                                         CE->getSrcType()));
+      auto BlobVal =
+          CoefCG(CE->getBlobCoeff(BlobIt),
+                 getBlobValue(CE->getBlobIndex(BlobIt), CE->getSrcType()));
       auto CEDestTy = CE->getDestType();
 
       // We can have a CanonExpr with blobs where some of the blobs have
@@ -225,8 +225,7 @@ private:
       // broadcast of the loop invariant blob value. Handle these cases
       // here. Example CE: i1 + %N + %.vec + <i32 0, i32 1, i32 2, i32 3>
       // %N is a blob that needs a broadcast.
-      if (CEDestTy->isVectorTy() &&
-          !BlobVal->getType()->isVectorTy()) {
+      if (CEDestTy->isVectorTy() && !BlobVal->getType()->isVectorTy()) {
         BlobVal = Builder->CreateVectorSplat(CEDestTy->getVectorNumElements(),
                                              BlobVal);
       }
@@ -280,7 +279,7 @@ private:
         // adds of ptr types with a SCEV for a gep instead of ptrtoints
         // and adds. These new scevunknowns have an instruction but no
         // corresponding blob. For those, return their underlying value
-        if(BlobSymbase == InvalidBlobIndex)  {
+        if (BlobSymbase == InvalidBlobIndex) {
           return V;
         }
 
@@ -365,6 +364,13 @@ private:
   // CodeGen like extracting ztt.
   void preVisitCG(HLRegion *Reg) const;
 
+  // Clears HIR related metadata from instructions. Returns true if any
+  // instruction was cleared.
+  bool clearHIRMetadata(HLRegion *Reg) const;
+
+  // Returns true if we need to generate code for this region.
+  bool shouldGenCode(HLRegion *Reg, unsigned RegionIdx) const;
+
 public:
   static char ID;
 
@@ -384,17 +390,22 @@ public:
     CGVisitor CG(&F, SE, this);
     bool Transformed = false;
     unsigned RegionIdx = 1;
+
     for (auto I = HIRF->hir_begin(), E = HIRF->hir_end(); I != E;
          ++I, ++RegionIdx) {
       HLRegion *Reg = cast<HLRegion>(&*I);
-      if ((!HIRDebugRegion && (Reg->shouldGenCode() || forceHIRCG)) ||
-          (RegionIdx == HIRDebugRegion)) {
+
+      if (shouldGenCode(Reg, RegionIdx)) {
         DEBUG(dbgs() << "Starting the code gen for " << RegionIdx << "\n");
         DEBUG(Reg->dump(true));
         DEBUG(Reg->dump());
         preVisitCG(Reg);
         CG.visit(Reg);
         Transformed = true;
+      } else {
+        // Clear HIR related metadata.
+        bool Cleared = clearHIRMetadata(Reg);
+        Transformed = Transformed || Cleared;
       }
     }
 
@@ -403,10 +414,9 @@ public:
     RegionIdx = 1;
     for (auto I = HIRF->hir_begin(), E = HIRF->hir_end(); I != E;
          ++I, ++RegionIdx) {
-      HLRegion *R = cast<HLRegion>(I);
-      if ((!HIRDebugRegion && (R->shouldGenCode() || forceHIRCG)) ||
-          (RegionIdx == HIRDebugRegion)) {
-        CG.processLiveOut(R);
+      HLRegion *Reg = cast<HLRegion>(I);
+      if (shouldGenCode(Reg, RegionIdx)) {
+        CG.processLiveOut(Reg);
       }
     }
 
@@ -435,6 +445,57 @@ INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_END(HIRCodeGen, "hir-cg", "HIR Code Generation", false, false)
 
+bool HIRCodeGen::shouldGenCode(HLRegion *Reg, unsigned RegionIdx) const {
+
+  if (HIRDebugRegion) {
+    if (HIRDebugRegion == RegionIdx) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  if (forceHIRCG) {
+    return true;
+  }
+
+  if (Reg->shouldGenCode()) {
+    return true;
+  }
+
+  return false;
+}
+
+bool HIRCodeGen::clearHIRMetadata(HLRegion *Reg) const {
+  bool Cleared = false;
+  unsigned LiveInID = SE->getHIRMDKindID(ScalarEvolution::HIRLiveKind::LiveIn);
+  unsigned LiveOutID =
+      SE->getHIRMDKindID(ScalarEvolution::HIRLiveKind::LiveOut);
+  unsigned LiveRangeID =
+      SE->getHIRMDKindID(ScalarEvolution::HIRLiveKind::LiveRange);
+
+  for (auto BB = Reg->bb_begin(), End = Reg->bb_end(); BB != End; ++BB) {
+    for (auto &Inst : **BB) {
+      Instruction &NonConstInst = const_cast<Instruction &>(Inst);
+
+      if (Inst.getMetadata(LiveInID)) {
+        Cleared = true;
+        NonConstInst.setMetadata(LiveInID, nullptr);
+
+      } else if (Inst.getMetadata(LiveOutID)) {
+        Cleared = true;
+        NonConstInst.setMetadata(LiveOutID, nullptr);
+
+      } else if (Inst.getMetadata(LiveRangeID)) {
+        Cleared = true;
+        NonConstInst.setMetadata(LiveRangeID, nullptr);
+      }
+    }
+  }
+
+  return Cleared;
+}
+
 void HIRCodeGen::preVisitCG(HLRegion *Reg) const {
   // Gather all loops for processing.
   SmallVector<HLLoop *, 64> Loops;
@@ -453,8 +514,7 @@ Value *HIRCodeGen::CGVisitor::castToDestType(CanonExpr *CE, Value *Val) {
 
   // If the value is a scalar type and dest type is a vector, we need
   // to do a broadcast before applying the cast.
-  if (DestTy->isVectorTy() &&
-      !Val->getType()->isVectorTy()) {
+  if (DestTy->isVectorTy() && !Val->getType()->isVectorTy()) {
     Val = Builder->CreateVectorSplat(DestTy->getVectorNumElements(), Val);
   }
 
@@ -523,16 +583,14 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   Value *Res = nullptr;
   if (BlobSum && IVSum) {
     auto BlobTy = BlobSum->getType();
-    auto IVTy   = IVSum->getType();
-    
+    auto IVTy = IVSum->getType();
+
     // Broadcast scalar value
     if (BlobTy->isVectorTy() && !IVTy->isVectorTy()) {
-      IVSum = Builder->CreateVectorSplat(BlobTy->getVectorNumElements(),
-                                         IVSum);
-    }
-    else if (!BlobTy->isVectorTy() && IVTy->isVectorTy()) {
-      BlobSum = Builder->CreateVectorSplat(IVTy->getVectorNumElements(),
-                                           BlobSum);
+      IVSum = Builder->CreateVectorSplat(BlobTy->getVectorNumElements(), IVSum);
+    } else if (!BlobTy->isVectorTy() && IVTy->isVectorTy()) {
+      BlobSum =
+          Builder->CreateVectorSplat(IVTy->getVectorNumElements(), BlobSum);
     }
 
     Res = Builder->CreateAdd(BlobSum, IVSum);
@@ -608,11 +666,26 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
   SmallVector<Value *, 4> IndexV;
+  bool AnyVector = false;
 
   // stored as A[canon3][canon2][canon1], but gep requires them in reverse order
   for (auto CEIt = Ref->canon_rbegin(), E = Ref->canon_rend(); CEIt != E;
        ++CEIt) {
-    IndexV.push_back(visitCanonExpr(*CEIt));
+    auto IndexVal = visitCanonExpr(*CEIt);
+
+    if (IndexVal->getType()->isVectorTy()) {
+      AnyVector = true;
+    }
+
+    IndexV.push_back(IndexVal);
+  }
+
+  // A GEP instruction is allowed to have a mix of scalar and vector operands.
+  // However, not all optimizations(especially LLVM loop unroller) are handling
+  // such cases. To workaround, the base pointer value needs to be broadcast.
+  if (AnyVector && !BaseV->getType()->isVectorTy()) {
+    auto VL = Ref->getDestType()->getVectorNumElements();
+    BaseV = Builder->CreateVectorSplat(VL, BaseV);
   }
 
   Value *GEPVal;
@@ -629,23 +702,22 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
     // is <4 x float>*, we will have pointer vector <4 x int*>. This vector
     // needs to be bitcast to <4 x float*> so that the gather/scatter
     // loads/stores <4 x float>.
-    auto BaseDestTy = Ref->getBaseDestType();               // <4 x float>*
-    auto PtrBaseDestTy = cast<PointerType>(BaseDestTy);     // <4 x float>*
-    auto BaseDestElTy = PtrBaseDestTy->getElementType();    // <4 x float> 
-    auto BaseDestScTy = BaseDestElTy->getScalarType();      // float
-    auto BaseDestScPtrTy = PointerType::get(BaseDestScTy,   // float *
+    auto BaseDestTy = Ref->getBaseDestType();             // <4 x float>*
+    auto PtrBaseDestTy = cast<PointerType>(BaseDestTy);   // <4 x float>*
+    auto BaseDestElTy = PtrBaseDestTy->getElementType();  // <4 x float>
+    auto BaseDestScTy = BaseDestElTy->getScalarType();    // float
+    auto BaseDestScPtrTy = PointerType::get(BaseDestScTy, // float *
                                             PtrBaseDestTy->getAddressSpace());
-    
+
     if (Ref->getBaseSrcType() != BaseDestScPtrTy) {
       auto VL = BaseDestElTy->getVectorNumElements();
-      
+
       // We have a vector of pointers of BaseSrcType. We need to convert it to
       // vector of pointers of BaseDestScType.
-      GEPVal = Builder->CreateBitCast(GEPVal,
-                                      VectorType::get(BaseDestScPtrTy, VL));
+      GEPVal =
+          Builder->CreateBitCast(GEPVal, VectorType::get(BaseDestScPtrTy, VL));
     }
-  }
-  else {
+  } else {
     // Base CE could have different src and dest types in which case we need a
     // bitcast. Can occur from llvm's canonicalization of store/load of float
     // to int by bitcast. Note that bitcast of  something like int * to
@@ -663,18 +735,16 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   // value of A[i], ie a load. For lval, we will store into &A[i], so we
   // want the address, the gep
   if (Ref->isRval()) {
-    RegDDRef::MDNodesTy MDs;
     Instruction *LInst;
 
     if (GEPVal->getType()->isVectorTy()) {
-      LInst = VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal,
-                                               Builder);
-    }
-    else {
+      LInst = VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal, Builder);
+    } else {
       LInst = Builder->CreateAlignedLoad(GEPVal, Ref->getAlignment(),
                                          Ref->isVolatile(), "gepload");
     }
 
+    RegDDRef::MDNodesTy MDs;
     Ref->getAllMetadata(MDs);
     setMetadata(LInst, MDs);
 
@@ -798,8 +868,8 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   // TODO - As mentioned in discussions with Pankaj, the framework should
   // handle this splitting as splitting here can cause problems.
   if (&(F->getEntryBlock()) == EntryFirstHalf) {
-    EntryFirstHalf = EntryFirstHalf->splitBasicBlock(EntryFirstHalf->getTerminator(),
-                                                     "entry.split");
+    EntryFirstHalf = EntryFirstHalf->splitBasicBlock(
+        EntryFirstHalf->getTerminator(), "entry.split");
   }
 
   BasicBlock *RegionSuccessor = R->getSuccBBlock();
@@ -1098,10 +1168,9 @@ void HIRCodeGen::CGVisitor::generateLvalStore(const HLInst *HInst,
     if (StorePtr->getType()->isVectorTy()) {
       ResInst = VPOUtils::createMaskedScatterCall(F->getParent(), StorePtr,
                                                   StoreVal, Builder);
-    }
-    else {
+    } else {
       ResInst = Builder->CreateAlignedStore(
-        StoreVal, StorePtr, LvalRef->getAlignment(), LvalRef->isVolatile());
+          StoreVal, StorePtr, LvalRef->getAlignment(), LvalRef->isVolatile());
     }
 
     LvalRef->getAllMetadataOtherThanDebugLoc(MDs);
@@ -1123,8 +1192,7 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     // Do a broadcast of instruction operands if needed.
     if ((*R)->isRval() && DestTy->isVectorTy() &&
         !(OpVal->getType()->isVectorTy())) {
-      OpVal = Builder->CreateVectorSplat(DestTy->getVectorNumElements(),
-                                         OpVal);
+      OpVal = Builder->CreateVectorSplat(DestTy->getVectorNumElements(), OpVal);
     }
 
     Ops.push_back(OpVal);
@@ -1145,11 +1213,24 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     StoreVal = Ops[1];
 
   } else if (auto BOp = dyn_cast<BinaryOperator>(Inst)) {
-    StoreVal = Builder->CreateBinOp(BOp->getOpcode(), Ops[1], Ops[2]);
+    StoreVal = Builder->CreateBinOp(BOp->getOpcode(), Ops[1], Ops[2], "",
+                                    BOp->getMetadata(LLVMContext::MD_fpmath));
+
+    // CreateBinOp could fold operator to constant.
+    BinaryOperator *CastOp = dyn_cast<BinaryOperator>(StoreVal);
+
+    if (CastOp) {
+      if (isa<PossiblyExactOperator>(BOp)) {
+        CastOp->setIsExact(BOp->isExact());
+      }
+
+      if (isa<OverflowingBinaryOperator>(BOp)) {
+        CastOp->setHasNoSignedWrap(BOp->hasNoSignedWrap());
+        CastOp->setHasNoUnsignedWrap(BOp->hasNoUnsignedWrap());
+      }
+    }
 
   } else if (auto Call = dyn_cast<CallInst>(Inst)) {
-    RegDDRef::MDNodesTy CallMDs;
-
     if (HInst->hasLval()) {
       // Turns Operands vector into function args vector by removing lval
       // TODO: Separate this logic from framework's implementation of putting
@@ -1167,8 +1248,9 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     ResCall->setTailCallKind(Call->getTailCallKind());
 
     // TODO: Copy metadata from HLInst instead.
-    Call->getAllMetadata(CallMDs);
-    setMetadata(ResCall, CallMDs);
+    RegDDRef::MDNodesTy MDs;
+    Inst->getAllMetadata(MDs);
+    setMetadata(ResCall, MDs);
 
     StoreVal = ResCall;
 
@@ -1210,12 +1292,11 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
                                      "hir.alloca." +
                                          std::to_string(HInst->getNumber()));
 
-
   } else if (isa<ExtractElementInst>(Inst)) {
     StoreVal = Builder->CreateExtractElement(Ops[1], Ops[2], Inst->getName());
   } else if (isa<ShuffleVectorInst>(Inst)) {
-    StoreVal = Builder->CreateShuffleVector(Ops[1], Ops[2], Ops[3],
-                                            Inst->getName());
+    StoreVal =
+        Builder->CreateShuffleVector(Ops[1], Ops[2], Ops[3], Inst->getName());
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }
@@ -1233,8 +1314,9 @@ Value *HIRCodeGen::CGVisitor::sumBlobs(CanonExpr *CE) {
   Value *res = BlobPairCG(CE, CurBlobPair);
   CurBlobPair++;
 
-  for (auto E = CE->blob_end(); CurBlobPair != E; ++CurBlobPair)
+  for (auto E = CE->blob_end(); CurBlobPair != E; ++CurBlobPair) {
     res = Builder->CreateAdd(res, BlobPairCG(CE, CurBlobPair));
+  }
 
   return res;
 }
@@ -1250,11 +1332,12 @@ Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {
       break;
   }
 
-  if (CurIVPair == CE->iv_end())
+  if (CurIVPair == CE->iv_end()) {
     llvm_unreachable("No iv in CE");
+  }
 
   Type *Ty = CE->getSrcType();
-  if (Ty->isVectorTy()){
+  if (Ty->isVectorTy()) {
     Ty = Ty->getVectorElementType();
   }
 

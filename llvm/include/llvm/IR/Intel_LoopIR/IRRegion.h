@@ -19,9 +19,9 @@
 #include <iterator>
 #include <set>
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallVector.h"
 
 namespace llvm {
 
@@ -47,25 +47,13 @@ public:
   typedef LiveOutSetTy::const_iterator const_live_out_iterator;
 
 protected:
-  IRRegion(BasicBlock *Entry, const RegionBBlocksTy &BBlocks);
-  ~IRRegion() {}
-
   /// \brief Make class uncopyable.
   IRRegion(const IRRegion &) = delete;
 
   /// \brief Make class unassignable.
   void operator=(const IRRegion &) = delete;
 
-  // Required to call destroyAll().
-  friend class HIRRegionIdentification;
-
 private:
-  /// \brief Destroys all objects of this class. Should only be called after
-  /// code gen.
-  static void destroyAll();
-  /// Keeps track of objects of this class.
-  static std::set<IRRegion *> Objs;
-
   BasicBlock *EntryBBlock;
   BasicBlock *ExitBBlock;
   RegionBBlocksTy BBlocks;
@@ -73,11 +61,16 @@ private:
   // a store during HIRCG.
   LiveInSetTy LiveInSet;
   // Set of symbases/values whose live-out uses need to be materialized into a
-  // load
-  // during HIRCG.
+  // load during HIRCG.
   LiveOutSetTy LiveOutSet;
 
 public:
+  IRRegion(BasicBlock *Entry, const RegionBBlocksTy &BBlocks);
+
+  /// \brief Move constructor. This is used by HIRRegionIdentification pass to
+  /// push_back regions onto SmallVector.
+  IRRegion(IRRegion &&);
+
   /// \brief Dumps IRRegion.
   void dump() const;
   /// \brief Prints IRRegion..

@@ -1,4 +1,4 @@
-;RUN: opt -loop-simplify -hir-cg -force-hir-cg -S %s | FileCheck %s
+;RUN: opt -hir-cg -force-hir-cg -S %s | FileCheck %s
 ;
 ;CHECK: region:
 ;CHECK: fcmp olt double %a, %b
@@ -36,9 +36,12 @@ for.body:                                         ; preds = %for.body, %for.body
   store i32 %2, i32* %arrayidx, align 4, !tbaa !1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %N
-  br i1 %exitcond, label %for.end, label %for.body
+  br i1 %exitcond, label %for.end.loopexit, label %for.body
 
-for.end:                                          ; preds = %for.body, %entry
+for.end.loopexit:                                 ; preds = %for.body
+  br label %for.end
+
+for.end:                                          ; preds = %for.end.loopexit, %entry
   ret void
 }
 

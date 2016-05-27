@@ -348,6 +348,8 @@ CommandInterpreter::Initialize ()
             po->SetHelp("Evaluate an expression in the current program context, using user defined variables and variables currently in scope, and display the result of evaluation in a language-specific manner.");
             po->SetHelpLong("");
         }
+        AddAlias("parray", cmd_obj_sp, "--element-count %1 --")->SetHelpLong("");
+        AddAlias("poarray", cmd_obj_sp, "--object-description --element-count %1 --")->SetHelpLong("");
     }
     
     cmd_obj_sp = GetCommandSPExact ("process kill", false);
@@ -2806,7 +2808,7 @@ CommandInterpreter::FindCommandsForApropos (const char *search_word,
         
         if (cmd_obj->IsMultiwordObject())
         {
-            CommandObjectMultiword *cmd_multiword = (CommandObjectMultiword*)cmd_obj;
+            CommandObjectMultiword *cmd_multiword = cmd_obj->GetAsMultiwordCommand();
             FindCommandsForApropos(search_word,
                                    commands_found,
                                    commands_help,

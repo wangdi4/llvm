@@ -94,6 +94,10 @@ bool BlobUtils::isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) {
   return getHIRParser()->isMetadataBlob(Blob, Val);
 }
 
+bool BlobUtils::isSignExtendBlob(BlobTy Blob, BlobTy *Val) {
+  return getHIRParser()->isSignExtendBlob(Blob, Val);
+}
+
 BlobTy BlobUtils::createBlob(Value *TempVal, unsigned Symbase, bool Insert,
                              unsigned *NewBlobIndex) {
   return getHIRParser()->createBlob(TempVal, Symbase, Insert, NewBlobIndex);
@@ -143,6 +147,11 @@ BlobTy BlobUtils::createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
   return getHIRParser()->createSignExtendBlob(Blob, Ty, Insert, NewBlobIndex);
 }
 
+BlobTy BlobUtils::createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty,
+                                 bool Insert, unsigned *NewBlobIndex) {
+  return getHIRParser()->createCastBlob(Blob, IsSExt, Ty, Insert, NewBlobIndex);
+}
+
 bool BlobUtils::contains(BlobTy Blob, BlobTy SubBlob) {
   return getHIRParser()->contains(Blob, SubBlob);
 }
@@ -150,4 +159,12 @@ bool BlobUtils::contains(BlobTy Blob, BlobTy SubBlob) {
 void BlobUtils::collectTempBlobs(BlobTy Blob,
                                  SmallVectorImpl<BlobTy> &TempBlobs) {
   return getHIRParser()->collectTempBlobs(Blob, TempBlobs);
+}
+
+void BlobUtils::collectTempBlobs(unsigned BlobIndex,
+                                 SmallVectorImpl<unsigned> &TempBlobIndices) {
+  SmallVector<BlobTy, 8> TempBlobs;
+
+  collectTempBlobs(getBlob(BlobIndex), TempBlobs);
+  mapBlobsToIndices(TempBlobs, TempBlobIndices);
 }

@@ -19,13 +19,14 @@
 #include "llvm/Support/Compiler.h"
 #include <set>
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
+#include "llvm/Support/Compiler.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 namespace llvm {
 
@@ -146,7 +147,7 @@ private:
   static void initialize();
 
   /// \brief Returns a new HLRegion. Only used by framework.
-  static HLRegion *createHLRegion(IRRegion *IRReg);
+  static HLRegion *createHLRegion(IRRegion &IRReg);
 
   /// \brief Returns a new HLLabel. Only used by framework.
   static HLLabel *createHLLabel(BasicBlock *SrcBB);
@@ -347,22 +348,55 @@ private:
   /// returns nullptr.
   static HLNode *getNextLinkListNode(HLNode *Node);
 
+  enum VALType : unsigned { IsUnknown, IsConstant, IsMax, IsMin };
+
+  // Get possible Minimum/Maximum value of canon.
+  // Only handles single Blob + constant - No support for IV now
+  // If known, return ValueType and Value.
+  // Return value indicates if Val is used as Constant, Min or Max.
+  static VALType getMinMaxCoeffVal(const CanonExpr *CE,
+                                   const CanonExpr *BoundCE, int64_t *Val);
+
+  static VALType getMinMaxValueFromPred(const CanonExpr *CE, PredicateTy Pred,
+                                        const RegDDRef *Lhs,
+                                        const RegDDRef *Rhs, int64_t *Val);
+
+  template <typename PredIter, typename GetDDRefFunc>
+  static VALType
+  getMinMaxValueFromPredRange(const CanonExpr *CE, PredIter Begin, PredIter End,
+                              GetDDRefFunc GetDDRef, bool InvertPredicates,
+                              int64_t *Val);
+
+  static VALType getMinMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
+                                int64_t *Val);
+
+  /// Returns constant min or max value of CE based on its context (ParentNode)
+  /// and IsMin paramter.
+  /// Value is returned in Val. Only handles IVs + constant for now.
+  /// TODO: merge with getMinMaxCoeffVal() to handle blobs and IVs.
+  static bool getMinMaxValueImpl(const CanonExpr *CE, const HLNode *ParentNode,
+                                 bool IsMin, int64_t *Val);
+
 public:
   /// \brief return true if non-zero
   static bool isKnownNonZero(const CanonExpr *CE,
-                             const HLLoop *ParentLoop = nullptr);
+                             const HLNode *ParentNode = nullptr);
+
   /// \brief return true if non-positive
   static bool isKnownNonPositive(const CanonExpr *CE,
-                                 const HLLoop *ParentLoop = nullptr);
+                                 const HLNode *ParentNode = nullptr);
+
   /// \brief return true if non-negative
   static bool isKnownNonNegative(const CanonExpr *CE,
-                                 const HLLoop *ParentLoop = nullptr);
+                                 const HLNode *ParentNode = nullptr);
+
   /// \brief return true if negative
   static bool isKnownNegative(const CanonExpr *CE,
-                              const HLLoop *ParentLoop = nullptr);
+                              const HLNode *ParentNode = nullptr);
+
   /// \brief return true if positive
   static bool isKnownPositive(const CanonExpr *CE,
-                              const HLLoop *ParentLoop = nullptr);
+                              const HLNode *ParentNode = nullptr);
 
   /// \brief Returns the first dummy instruction of the function.
   static Instruction *getFirstDummyInst() { return FirstDummyInst; }
@@ -478,8 +512,7 @@ public:
   /// OrigBinOp is not null, copy IR flags from OrigBinOp to the newly
   /// create instruction.
   static HLInst *createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
-                                    RegDDRef *OpRef2,
-                                    const Twine &Name = "",
+                                    RegDDRef *OpRef2, const Twine &Name = "",
                                     RegDDRef *LvalRef = nullptr,
                                     const BinaryOperator *OrigBinOp = nullptr);
 
@@ -598,7 +631,7 @@ public:
                               RegDDRef *LvalRef = nullptr);
   /// \brief Creates a new Call instruction.
   static HLInst *createCall(Function *F,
-                            const SmallVectorImpl<RegDDRef*> &CallArgs,
+                            const SmallVectorImpl<RegDDRef *> &CallArgs,
                             const Twine &Name = "call",
                             RegDDRef *LvalRef = nullptr);
 
@@ -907,7 +940,7 @@ public:
   static void remove(HLNode *Node);
 
   /// \brief Unlinks a set for node from HIR and places then in the container.
-  static void remove(HLContainerTy *Container, HLNode *Node1, HLNode *Node2);
+  static void remove(HLContainerTy *Container, HLNode *First, HLNode *Last);
 
   /// \brief Unlinks Node from HIR and destroys it.
   static void erase(HLNode *Node);
@@ -918,8 +951,9 @@ public:
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(HLNode *OldNode, HLNode *NewNode);
 
-  /// \brief Returns true if Node is in the top sort num range [FirstNode,
-  /// LastNode].
+  /// \brief Returns true if Node is in the top sort num range [\p FirstNode,
+  /// \p LastNode]. The \p FirstNode could be a nullptr, the method will return
+  /// false in this case.
   static bool isInTopSortNumRange(const HLNode *Node, const HLNode *FirstNode,
                                   const HLNode *LastNode);
 
@@ -971,7 +1005,7 @@ public:
   /// together in the same location.
   /// Returns false if there may exist a scenario/path in which Node1 is
   /// reached/accessed and Node2 isn't, or the other way around.
-  /// Note: In the presence of complicated unstructured code (containing 
+  /// Note: In the presence of complicated unstructured code (containing
   /// gotos/labels) this function will conservatively return false.
   static bool canAccessTogether(const HLNode *Node1, const HLNode *Node2);
 
@@ -1060,9 +1094,10 @@ public:
                               bool RecurseInsideLoops = true);
   /// \brief Updates Loop properties (Bounds, etc) based on input Permutations
   ///   Used by Interchange now. Could be used later for blocking
+  /// Loops are added to \p LoopPermutation in the desired permuted order.
   static void
-  permuteLoopNests(HLLoop *Loop,
-                   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation);
+  permuteLoopNests(HLLoop *OutermostLoop,
+                   const SmallVectorImpl<HLLoop *> &LoopPermutation);
 
   /// \brief Returns true if Loop is a perfect Loop nest
   /// and the innermost loop
@@ -1084,23 +1119,30 @@ public:
   ///   Will take innermost loop for now
   ///   used mostly for blocking / interchange
   static bool hasNonUnitStrideRefs(const HLLoop *Loop);
-		
+
   /// \brief Find node receiving the load
   /// e.g.   t0 = a[i] ;
   ///         ...
   ///        t1 = t0
   ///  returns t1 = t0
-  static HLInst *
-  findForwardSubInst(const DDRef *LRef,
-                     SmallVectorImpl<HLInst *> &ForwardSubInsts);
-
-
+  static HLInst *findForwardSubInst(const DDRef *LRef,
+                                    SmallVectorImpl<HLInst *> &ForwardSubInsts);
 
   /// \brief Returns the lowest common ancestor loop of Lp1 and Lp2. Returns
   /// null if there is no such parent loop.
   static const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
                                                    const HLLoop *Lp2);
   static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
+
+  /// Returns true if minimum value of \p CE can be evaluated. Returns the
+  /// minimum value in \p Val.
+  static bool getMinValue(const CanonExpr *CE, const HLNode *ParentNode,
+                          int64_t *Val);
+
+  /// Returns true if maximum value of \p CE can be evaluated. Returns the
+  /// maximum value in \p Val.
+  static bool getMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
+                          int64_t *Val);
 };
 
 } // End namespace loopopt

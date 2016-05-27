@@ -24,6 +24,9 @@
 
 namespace llvm {
 
+class MDNode;
+struct AAMDNodes;
+
 namespace loopopt {
 
 class HLDDNode;
@@ -128,9 +131,9 @@ protected:
   }
 
   /// \brief Returns contained GEPInfo. Asserts if it is not set.
-  GEPInfo *getGEPInfo() const { 
+  GEPInfo *getGEPInfo() const {
     assert(hasGEPInfo() && "GEPInfo not present!");
-    return GepInfo; 
+    return GepInfo;
   }
 
   /// \brief Returns non-const iterator version of CBlobI.
@@ -156,9 +159,6 @@ protected:
 
   /// \brief Implements get*Type() functionality.
   Type *getTypeImpl(bool IsSrc) const;
-
-  /// \brief Returns maximum blob level amongst the blobs in the vector.
-  unsigned findMaxBlobLevel(const SmallVectorImpl<unsigned> &BlobIndices) const;
 
   /// \brief Updates def level of CE based on the level of the blobs present in
   /// CE. DDRef is assumed to have the passed in NestingLevel.
@@ -199,9 +199,7 @@ public:
   void setBaseDestType(Type *DestTy);
 
   /// \brief Returns the canonical form of the subscript base.
-  CanonExpr *getBaseCE() {
-    return getGEPInfo()->BaseCE;
-  }
+  CanonExpr *getBaseCE() { return getGEPInfo()->BaseCE; }
   const CanonExpr *getBaseCE() const {
     return const_cast<RegDDRef *>(this)->getBaseCE();
   }
@@ -213,9 +211,7 @@ public:
   }
 
   /// \brief Returns true if the inbounds attribute is set for this access.
-  bool isInBounds() const {
-    return getGEPInfo()->InBounds;
-  }
+  bool isInBounds() const { return getGEPInfo()->InBounds; }
 
   /// Sets the inbounds attribute for this access.
   void setInBounds(bool IsInBounds) {
@@ -241,9 +237,7 @@ public:
   }
 
   /// \brief Returns true if this is a volatile load/store.
-  bool isVolatile() const {
-    return getGEPInfo()->Volatile;
-  }
+  bool isVolatile() const { return getGEPInfo()->Volatile; }
 
   /// Sets/resets this ref as a volatile load/store.
   void setVolatile(bool IsVolatile) {
@@ -252,15 +246,17 @@ public:
   }
 
   /// \brief Returns alignment info for this ref.
-  unsigned getAlignment() const {
-    return getGEPInfo()->Alignment;
-  }
+  unsigned getAlignment() const { return getGEPInfo()->Alignment; }
 
   /// Sets alignment for this ref.
   void setAlignment(unsigned Align) {
     createGEP();
     getGEPInfo()->Alignment = Align;
   }
+
+  /// \brief Extract and submit AA metadata
+  void getAAMetadata(AAMDNodes &AANodes) const;
+  void setAAMetadata(AAMDNodes &AANodes);
 
   /// \brief Returns the metadata of given kind attached to this ref, else
   /// returns null.
@@ -543,7 +539,18 @@ public:
   /// blob is searched in the blob DDRefs attached to this DDRef. This function
   /// can be used to update defined at levels for blobs which were copied from
   /// this DDRef to another DDRef.
-  bool findBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const;
+  bool findTempBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const;
+
+  /// \brief Returns maximum blob level amongst the blobs in the vector.
+  /// NOTE: this function asserts if any of the temp blobs is not contained in
+  /// the DDRef.
+  unsigned
+  findMaxTempBlobLevel(const SmallVectorImpl<unsigned> &TempBlobIndices) const;
+
+  /// \brief Returns maximum blob level of temp blobs contained in this blob.
+  /// NOTE: This function asserts if any of the temp blobs is not contained in
+  /// the DDRef.
+  unsigned findMaxBlobLevel(unsigned BlobIndex) const;
 
   /// \brief Verifies RegDDRef integrity.
   virtual void verify() const override;

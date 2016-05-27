@@ -26,7 +26,6 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/ConstantRange.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
@@ -35,7 +34,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/DataTypes.h"
-#include <map>
 
 namespace llvm {
   class APInt;
@@ -55,12 +53,7 @@ namespace llvm {
   class SCEVExpander;
   class SCEVPredicate;
   class SCEVUnknown;
-
-#if INTEL_CUSTOMIZATION // HIR
-  extern const char* const HIR_LIVE_IN_STR;
-  extern const char* const HIR_LIVE_OUT_STR;
-  extern const char* const HIR_LIVE_RANGE_STR;
-#endif // INTEL_CUSTOMIZATION
+  class Function;
 
   template <> struct FoldingSetTrait<SCEV>;
   template <> struct FoldingSetTrait<SCEVPredicate>;
@@ -559,6 +552,10 @@ namespace llvm {
 
     HIRInfoS HIRInfo;
 
+    // MDKind ID for HIR metadata.
+    unsigned HIRLiveInID = 0;
+    unsigned HIRLiveOutID = 0;
+    unsigned HIRLiveRangeID = 0;
 #endif  // INTEL_CUSTOMIZATION
 
     /// Mark predicate values currently being processed by isImpliedCond.
@@ -1164,6 +1161,24 @@ namespace llvm {
     // (e.g. a nuw add) would trigger undefined behavior on overflow.
     SCEV::NoWrapFlags getNoWrapFlagsFromUB(const Value *V);
 
+    /// Return true if the SCEV corresponding to \p I is never poison.  Proving
+    /// this is more complex than proving that just \p I is never poison, since
+    /// SCEV commons expressions across control flow, and you can have cases
+    /// like:
+    ///
+    ///   idx0 = a + b;
+    ///   ptr[idx0] = 100;
+    ///   if (<condition>) {
+    ///     idx1 = a +nsw b;
+    ///     ptr[idx1] = 200;
+    ///   }
+    ///
+    /// where the SCEV expression (+ a b) is guaranteed to not be poison (and
+    /// hence not sign-overflow) only if "<condition>" is true.  Since both
+    /// `idx0` and `idx1` will be mapped to the same SCEV expression, (+ a b),
+    /// it is not okay to annotate (+ a b) with <nsw> in the above example.
+    bool isSCEVExprNeverPoison(const Instruction *I);
+
   public:
     ScalarEvolution(Function &F, TargetLibraryInfo &TLI, AssumptionCache &AC,
                     DominatorTree &DT, LoopInfo &LI);
@@ -1173,21 +1188,19 @@ namespace llvm {
     LLVMContext &getContext() const { return F.getContext(); }
 
 #if INTEL_CUSTOMIZATION // HIR parsing 
-    /// isHIRLiveInCopyInst - Returns true if this instruction is a livein copy
-    /// instruction inserted by HIR framework.
-    bool isHIRLiveInCopyInst(const Instruction *Inst) const;
+    /// Lists types of HIR metadata.
+    enum HIRLiveKind {
+      LiveIn,
+      LiveOut,
+      LiveRange
+    };
 
-    /// isHIRLiveOutCopyInst - Returns true if this instruction is a liveout
-    /// copy instruction inserted by HIR framework.
-    bool isHIRLiveOutCopyInst(const Instruction *Inst) const;
+    /// Returns MDKind ID associated with this HIR metadata type.
+    unsigned getHIRMDKindID(HIRLiveKind Kind);
 
-    /// isHIRCopyInst - Returns true if this instruction is a copy instruction
-    /// inserted by HIR framework.
-    bool isHIRCopyInst(const Instruction *Inst) const; 
-
-    /// isHIRLiveRangeIndicator - Returns true if this instruction is a live
-    /// range indicator for HIR.
-    bool isHIRLiveRangeIndicator(const Instruction *Inst) const;
+    /// Returns MDNode associated with this instruction for the particular HIR
+    /// metadata type.
+    MDNode *getHIRMetadata(const Instruction *Inst, HIRLiveKind Kind);
 #endif  // INTEL_CUSTOMIZATION
 
     /// Test if values of the given type are analyzable within the SCEV
@@ -1226,6 +1239,10 @@ namespace llvm {
     /// is assumed to be the outermost loop of the loopnest. A null outermost
     /// loop specifies disabling all AddRecs.
     const SCEV *getSCEVForHIR(Value *Val, const Loop *OutermostLoop);
+
+    /// Returns a SCEVAtScope expression suitable for HIR consumption.
+    const SCEV *getSCEVAtScopeForHIR(const SCEV *SC, const Loop *Lp,
+                                     const Loop *OutermostLoop);
 #endif  // INTEL_CUSTOMIZATION
 
     const SCEV *getConstant(ConstantInt *V);

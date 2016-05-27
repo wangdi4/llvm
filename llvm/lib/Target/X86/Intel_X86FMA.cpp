@@ -25,26 +25,36 @@
 #include "X86InstrInfo.h"
 #include "X86Subtarget.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetInstrInfo.h"
 #include "Intel_X86FMACommon.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "x86-global-fma"
 
 namespace {
-// This internal switch can be used to turn off the Global FMA optimization.
-// Currently the optimization is turned OFF by default.
+
+/// This internal switch can be used to turn off the Global FMA optimization.
+/// Currently the optimization is turned OFF by default.
 static cl::opt<bool> DoFMAOpt("do-x86-global-fma",
                               cl::desc("Enable the global FMA opt."),
                               cl::init(false), cl::Hidden);
-// This internal switch regulates the amount of debug messages printed
-// by the Global FMA optimization.
+
+/// This internal switch regulates the amount of debug messages printed
+/// by the Global FMA optimization.
 static cl::opt<bool> DebugFMAOpt("debug-x86-global-fma",
                                  cl::desc("Control FMA debug printings."),
                                  cl::init(false), cl::Hidden);
+
+/// The internal switch that is used to re-define FMA heuristics.
+static cl::opt<unsigned> FMAControl("x86-global-fma-control",
+                                    cl::desc("FMA heuristics control."),
+                                    cl::init(0), cl::Hidden);
 
 // This function was created to make it possible to generate DEBUG output
 // with desired level of details. DEBUG_WITH_TYPE() macro does not let to do
@@ -58,8 +68,24 @@ class FMATerm;
 class FMARegisterTerm;
 class FMAMemoryTerm;
 class FMASpecialTerm;
+class FMAExprSP;
+class FMADag;
 
 /// This class holds all pre-computed/efficient FMA patterns/DAGs encoded in
+/// 64-bit integer values.
+///
+/// The DAGs are grouped by their SHAPEs (see FMAExprSPCommon::Shape
+/// for details). The groups/sets of DAGs are also sorted by SHAPEs which makes
+/// it possible to use binary search for finding of DAGs match-able with some
+/// input and potentially inefficient expressions.
+///
+/// The class has quite simple external interface having only two methods:
+///
+///   // Loads pre-computed DAGs from an auto-generated header file.
+///   void init();
+///
+///   // Returns the most efficient DAG for the given sum of products.
+///   FMADag *getDagForBestSPMatch(const FMAExprSP &SP);
 class FMAPatterns {
 private:
   /// Represents a set of FMA patterns that all have the same SHAPE.
@@ -81,6 +107,20 @@ private:
   /// Returns the number of shape (i.e. the number of Dag/pattern sets).
   unsigned getNumShapes() { return Dags.size(); }
 
+  /// This map contains the sums of products created during the binary search
+  /// performed on the pre-computed DAGs. The sums of products are saved to
+  /// this map to speed up the searches that are performed not for the first
+  /// time.
+  std::map<uint64_t, FMAExprSP *> EncodedDagToSPMap;
+
+  /// Returns a set of 64-bit encoded DAGs for the given \p Shape.
+  /// If such set cannot be found then nullptr is returned.
+  FMAPatternsSet *getDagsForShape(uint64_t Shape);
+
+  /// Returns a sum of product generated for 64-bit int encoded DAG
+  /// \p EncodedDag.
+  FMAExprSP *acquireSP(uint64_t EncodedDag);
+
 public:
   FMAPatterns(){};
   ~FMAPatterns(void) {
@@ -99,6 +139,10 @@ public:
     // following included header file.
 #   include "X86GenMAPatterns.inc"
   }
+
+  /// Returns an FMA DAG that would be the most efficient equivalent of the
+  /// given sum of products \p SP.
+  FMADag *getDagForBestSPMatch(const FMAExprSP &SP);
 };
 
 /// This class does all the optimization work, it goes through the functions,
@@ -107,7 +151,8 @@ public:
 class X86GlobalFMA : public MachineFunctionPass {
 public:
   X86GlobalFMA()
-      : MachineFunctionPass(ID), MF(nullptr), TII(nullptr), Patterns(nullptr) {}
+      : MachineFunctionPass(ID), MF(nullptr), TII(nullptr), MRI(nullptr),
+        Patterns(nullptr) {}
   ~X86GlobalFMA() { delete Patterns; }
 
   const char *getPassName() const override { return "X86 GlobalFMA"; }
@@ -118,6 +163,15 @@ public:
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
+  /// The latency of ADD and SUB operations in the target CPU.
+  unsigned AddSubLatency;
+
+  /// The latency of MUL operations in the target CPU.
+  unsigned MulLatency;
+
+  /// The latency of FMA operations in the target CPU.
+  unsigned FMALatency;
+
 private:
   /// Pass identification, replacement for typeid.
   static char ID;
@@ -126,10 +180,38 @@ private:
   MachineFunction *MF;
 
   /// This field is used to get information about available target operations.
-  const TargetInstrInfo *TII;
+  const X86InstrInfo *TII;
+
+  /// Machine register information.
+  MachineRegisterInfo *MRI;
 
   /// A storage with pre-computed/efficient FMA patterns.
   FMAPatterns *Patterns;
+
+  /// This field if set to true means that the target CPU has AVX512 feature,
+  /// and that the special AVX512 opcodes must be recognized in the input IR and
+  /// generated to the output IR.
+  bool HasAVX512;
+
+  /// The bits that are used to define various FMA heuristics in the
+  /// internal switch FMAControl/"-x86-global-fma-control".
+  static const unsigned FMAControlHaswellFMAs = 0x1;
+  static const unsigned FMAControlBroadwellFMAs = 0x2;
+  static const unsigned FMAControlSkylakeFMAs = 0x4;
+  static const unsigned FMAControlTargetFMAsMask = 0xFF;
+  static const unsigned FMAControlForceFMAs = 0x100;
+
+  /// Returns true iff all of the passed features \p F are enabled
+  /// by the internal switch FMAControl/"-x86-global-fma-control".
+  static bool checkAllFMAFeatures(unsigned F) {
+    return (FMAControl & F) == F;
+  }
+
+  /// Returns true iff any of the passed features \p F is enabled
+  /// by the internal switch FMAControl/"fma-control".
+  static bool checkAnyOfFMAFeatures(unsigned F) {
+    return (FMAControl & F) != 0;
+  }
 
   /// Do the FMA optimization in one basic block.
   /// Return true iff any changes in the IR were made.
@@ -142,9 +224,115 @@ private:
   /// the input machine basic block \p MBB.
   /// Return true iff any changes in the IR (i.e. in \p MBB) were made.
   bool optParsedBasicBlock(FMABasicBlock &FMABB, MachineBasicBlock &MBB);
+
+  /// Performs the Forward Substitution transformation of the FMA expressions
+  /// in the given FMA basic block \p FMABB.
+  /// This transformation fuses small FMA expressions into bigger expressions
+  /// that can then be optimized.
+  /// For example,
+  ///   t1 = a * b;
+  ///   t2 = t1 + c;
+  /// -->
+  ///   t2 = a * b + c;
+  void doFWS(FMABasicBlock &FMABB);
+
+  /// Generates output IR for the FMA expression \p Expr. The given DAG \p Dag
+  /// gives the efficient version of the generated expression tree.
+  /// The new instruction is inserted into the machine basic block \p MBB.
+  /// The exact insertion point for the new instructions is taken from
+  /// the field MI of the given FMA expression \p Expr.
+  /// The parameter \p FMABB is passed to the routine as a storage of existing
+  /// special const terms that may be needed during code-generation.
+  ///
+  /// Note that the parameter \p Expr does not have 'const' attribute because
+  /// it may be changed during the code-gen phase. For example, virtual
+  /// registers created and assigned to operands of \p Expr may be written
+  /// to those operands.
+  void generateOutputIR(FMAExpr &Expr, const FMADag &Dag, FMABasicBlock &FMABB,
+                        MachineBasicBlock &MBB);
+
+  /// Returns true if the DAG \p Dag seems more efficient than the initial
+  /// expression \p Expr being optimized now.
+  /// The parameter \p TuneForLatency specifies if the latency aspect has
+  /// the priority over the throughput.
+  bool isDagBetterThanInitialExpr(const FMADag &Dag, const FMAExpr &Expr,
+                                  bool TuneForLatency = true) const;
 };
 
 char X86GlobalFMA::ID = 0;
+
+/// This class is derived from FMADagCommon representing FMA Directed Acyclic
+/// Graphs. It adds some methods specific for code-generation.
+class FMADag : public FMADagCommon {
+public:
+  /// Creates an FMA DAG for 64-bit encoded DAG from precomputed FMA DAGs.
+  FMADag(uint64_t Encoded64) : FMADagCommon(Encoded64){};
+
+  /// Creates a copy of the given DAG \p Dag.
+  FMADag(const FMADagCommon &Dag) : FMADagCommon(Dag){};
+
+  /// Returns true if the term or expression used in \p NodeInd and \p OpndInd
+  /// operand is used the last time in this DAG.
+  /// The word "last" should be understood in the way how code-generation phase
+  /// would understand it. Code-geneneration translate the DAG to IR starting
+  /// from the node with maximum index. So the term with
+  /// (\p NodeInd, \p OpndInd) coordinates is the last if it is not used
+  /// in nodes with indices 0 to (\p NodeInd - 1), and is not used
+  /// in the operands 0 to (\p OpndInd - 1) in the node with index \p NodeInd.
+  bool isLastUse(unsigned NodeInd, unsigned OpndInd) const;
+
+  /// Returns true iff this FMA DAG has any node having the third operand
+  /// equal to 1.0.
+  bool hasPlusMinusOne() const;
+};
+
+/// This class is derived from FMAExprSPCommon representing expressions
+/// consisting of MUL/ADD/SUB/FMA operations in canonical form, i.e. sum of
+/// products. It adds only some methods specific for FMA optimization.
+class FMAExprSP : public FMAExprSPCommon {
+public:
+  /// Default constructor. Creates an empty sum of products.
+  FMAExprSP() : FMAExprSPCommon() {}
+
+  /// Creates a sum of products consisting of only one product with the
+  /// only term \p Term.
+  FMAExprSP(unsigned Term) : FMAExprSPCommon(Term) {}
+
+  /// Initializes the sum of products using the given DAG \p EncodedDag
+  /// encoded in 64-bit integer.
+  void initForEncodedDag(uint64_t EncodedDag);
+
+  /// Canonizes the sum of products. Here that means that the terms in each
+  /// of the products and the products itself must be lexicographically
+  /// ordered. This method also can remove products which are identical but
+  /// have opposite signs.
+  void canonize() override;
+
+  /// Returns a reference to an array that can be used to do terms mapping
+  /// which may be needed to compact regular terms after some of such terms
+  /// got removed completely from the sum of products.
+  /// If this method cannot find any unused terms then it returns nullptr,
+  /// which means that terms compression is not possible and not needed.
+  /// The returned array TM (TermsMapping) has the elements defined such a way
+  /// that the desired SP would be the result of using this rule:
+  ///   NewTermIndex = TM[OldTermIndex];
+  /// For the terms removed from SP a special value ~0U is written, i.e. if
+  /// the term with index Ti is removed, then TM[Ti] is set to ~0U;
+  ///
+  /// Example. The method canonize() may remove 4 products from SP:
+  ///   +aa-aa+bc+dd-dd+e;
+  /// SP after canonize() is:
+  ///   +bc+e;
+  /// The terms 'a', and 'd' are unused. After this method discovers that, it
+  /// returns the following terms mapping:
+  ///   TM[] = {~0U, 0, 1, ~0U, 2}
+  /// The caller of this method then can use this array such a way:
+  ///   NewTerm = TM[OldTerm];
+  /// The caller of this method can use this rule for the initial SP and
+  /// transform it to:
+  ///   +ab+c;
+  unsigned *getTermsMappingToCompactTerms();
+};
 
 /// This class represents FMA expressions and terms. It works as a bridge
 /// between input IR and internal FMA structures, in particular it helps
@@ -441,6 +629,19 @@ private:
   /// down to their users.
   const MachineInstr *MI;
 
+  /// Virtual registers which are killed after being used in this
+  /// FMA expression.
+  /// This set is maintained only for root FMA expressions, i.e. when the field
+  /// IsRootExpr is set to 'true'.
+  std::set<unsigned> KilledRegs;
+
+  /// A set of machine instructions corresponding to other FMA expressions
+  /// consumed by this FMA expression. The machine instructions in this list
+  /// must be removed from IR when/if this expression is translated back to IR.
+  /// This set is maintained only for root FMA expressions, i.e. when the field
+  /// IsRootExpr is set to 'true'.
+  std::list<const MachineInstr *> ConsumedMIs;
+
   /// Returns an index for the given term \p Term. It is asserted that the
   /// provided term is used as an operand of one of FMA operations included
   /// into the expression tree referenced by 'this' FMA expression.
@@ -473,6 +674,22 @@ private:
   /// stops being used by the consuming expression. Thus the removed term
   /// can be only an FMARegisterTerm.
   void removeFromUsedTerms(FMARegisterTerm *Term);
+
+  /// This method puts 'this' node and all subexpressions to the given
+  /// set \p ExprSet. It may be needed when each expression node must be
+  /// visited only once.
+  void putExprToExprSet(std::set<const FMAExpr *> &ExprSet) const;
+
+  /// Recursively walks through the expression nodes, builds sums of products
+  /// for them and puts the created SPs to the given map \p ExprToSPMap.
+  /// Returns the sum of products generated for 'this' FMA expression.
+  /// The parameter \p RootFMAExpr is a reference to a root FMA expression,
+  /// which holds the container with all used terms, which is needed to
+  /// convert terms into unsigned indices/terms used in the result
+  /// sum of products.
+  FMAExprSP *generateSPRecursively(
+      const FMAExpr *RootFMAExpr,
+      std::map<const FMAExpr *, FMAExprSP *> &ExprToSPMap) const;
 
 public:
   /// Create FMAExpr for ADD/SUB/FMA instruction.
@@ -513,10 +730,36 @@ public:
   /// subtracted, and the value 'false' is used when the 3rd operand is added.
   void setAddSign(bool Sign) { AddSign = Sign; }
 
+  /// Returns the operand of FMA operation with the index \p Index.
+  FMANode *getOperand(unsigned Index) {
+    assert(Index < 3 && "Operand index must be in the range 0 to 2.");
+    return Operands[Index];
+  };
+  /// Returns the const operand of FMA operation with the index \p Index.
+  const FMANode *getOperand(unsigned Index) const {
+    assert(Index < 3 && "Operand index must be in the range 0 to 2.");
+    return Operands[Index];
+  };
+
+  /// Returns the term associated with the result of this FMA expression.
+  FMARegisterTerm *getResultTerm() const { return ResultTerm; }
 
   /// Returns the reference to machine instruction associated with
   /// FMA expression.
   const MachineInstr *getMI() const { return MI; }
+
+  /// Returns the number of times the given term \p Term is used by 'this'
+  /// expression and its subexpressions.
+  unsigned countTermUses(const FMATerm *Term) const;
+
+  /// Replaces the uses of the term \p Term with the uses of the expression
+  /// \p Expr. Usually that is done when the expression \p Expr is consumed
+  /// by 'this' expression.
+  void replaceTermWithExpr(FMATerm *Term, FMAExpr *Expr);
+
+  /// Includes the given expression \p Expr into 'this' expression. It is
+  /// assumed that the term defined by \p Expr is used in 'this' expression.
+  void consume(FMAExpr *Expr);
 
   /// Returns true iff 'this' FMA expression is included into some bigger
   /// FMA expression and does not show up as independent expression.
@@ -526,11 +769,37 @@ public:
   /// a sub-expression of some bigger FMA expression.
   void markAsConsumed() { IsRootExpr = false; }
 
-  // Returns the number of used register and memory terms.
-  unsigned getNumUsedTerms() { return UsedTerms.size(); }
+  /// Looks for an expression in the given basic block \p FMABB that could be
+  /// included into 'this' expression. Returns a reference to such expression
+  /// or nullptr if no consumable expressions were found.
+  /// Expressions that are not used or used not only by 'this' expression are
+  /// not considered as candidates for being consumed.
+  /// The parameter \p MRI is passed to this method to make it possible to
+  /// count the number of users of registers associated with the results of
+  /// candidates for consumption.
+  FMAExpr *findFWSCandidate(FMABasicBlock &FMABB,
+                            const MachineRegisterInfo *MRI) const;
+
+  /// Returns the number of used register and memory terms.
+  unsigned getNumUsedTerms() const { return UsedTerms.size(); }
 
   /// Returns the used term by the index \p Index.
   FMATerm *getUsedTermByIndex(unsigned Index) const { return UsedTerms[Index]; }
+
+  /// Compacts terms in the given sum of products \p SP generated for 'this'
+  /// FMA expression and does corresponding changes in 'this' FMA expression as
+  /// well. Terms compaction may be needed after call of FMAExprSP::canonize()
+  /// method that may remove some of products and remove some of terms.
+  /// For example,
+  ///     Before canonize(): +ab+c-c+d
+  ///     After  canonize(): +ab+d
+  /// The term 'c' got totally removed here.
+  /// Terms compact will rename the term 'd' with 'c':
+  ///     After compactTerms(): +ab+c.
+  void compactTerms(FMAExprSP *SP);
+
+  /// Generates and returns a sum of products for 'this' FMA expression.
+  FMAExprSP *generateSP() const;
 
   /// Prints the FMA expression or term to the given stream \p OS.
   /// The parameter \p PrintAttributes specifies if the caller wants to see
@@ -558,6 +827,42 @@ FMAExpr::FMAExpr(MVT VT, const MachineInstr *MI, FMARegisterTerm *ResultTerm,
     addToUsedTerms(Op2->castToTerm());
   if (Op3->isRegisterTerm() || Op3->isMemoryTerm())
     addToUsedTerms(Op3->castToTerm());
+
+  // If the given MachineInstr has the last use for some of virtual register
+  // terms, then add such registers to the list of registers that must
+  // get isKill() attribute at the Machine IR emitting stage.
+  unsigned NumOperands = MI->getNumOperands();
+  const MachineRegisterInfo &MRI = MI->getParent()->getParent()->getRegInfo();
+  const TargetRegisterClass *RC = MRI.getRegClass(ResultTerm->getReg());
+  for (unsigned OpInd = 1; OpInd < NumOperands; OpInd++) {
+    MachineOperand MO = MI->getOperand(OpInd);
+
+    // It is assumed here that the result and all operands of FMA operation
+    // have the same register class. The only exception from that rule is
+    // the operand loaded from memory. The load from memory is represented by
+    // the last several machine operands having different register class.
+    // We do not want to add the last ones to the KilledRegs set as such
+    // address registers would not be used and would only pollute KilledRegs.
+    if (!MO.isReg())
+      continue;
+    unsigned Reg = MO.getReg();
+    if (!TargetRegisterInfo::isVirtualRegister(Reg) ||
+        RC != MRI.getRegClass(Reg))
+      continue;
+
+    if (MO.isKill())
+      KilledRegs.insert(Reg);
+  }
+}
+
+void FMAExpr::putExprToExprSet(std::set<const FMAExpr *> &ExprSet) const {
+  if (ExprSet.find(this) != ExprSet.end())
+    return;
+
+  ExprSet.insert(this);
+  for (auto Opnd : Operands)
+    if (Opnd->isFMA())
+      Opnd->castToExpr()->putExprToExprSet(ExprSet);
 }
 
 void FMAExpr::print(raw_ostream &OS, bool PrintType) const {
@@ -593,6 +898,292 @@ void FMAExpr::removeFromUsedTerms(FMARegisterTerm *Term) {
   UsedTerms.erase(I);
 }
 
+void FMAExprSP::initForEncodedDag(uint64_t EncodedDag) {
+  assert(Dag == nullptr && "initForEncodedDag() is applied to initialized SP");
+  Dag = new FMADag(EncodedDag);
+  bool isOk = initForDag(*Dag);
+  assert(isOk && "Could not initialize SP for 64-bit encoded DAG.");
+
+  canonize();
+  computeShape();
+}
+
+void FMAExprSP::canonize() {
+  FMAExprSPCommon::canonize();
+
+  if (NumProducts == 0)
+    return;
+
+  // The base version of the canonize() method sorted the products.
+  // If there are some equal products but having opposite signs, then the
+  // products with negative signs got placed after products with positive
+  // signs. For example: +abc+ad+ad-ad-ad+c.
+  //
+  // The loop below looks for and removes such products with opposite signs.
+  for (unsigned ProdInd = 1; ProdInd < NumProducts; ProdInd++) {
+    const FMAExprProduct *PrevProd = &Products[ProdInd - 1];
+    const FMAExprProduct *CurProd = &Products[ProdInd];
+    if (CurProd->Sign && !PrevProd->Sign &&
+        CurProd->NumTerms == PrevProd->NumTerms) {
+
+      // Compare the products.
+      unsigned TermInd;
+      for (TermInd = 0; TermInd < CurProd->NumTerms; TermInd++) {
+        if (PrevProd->Terms[TermInd] != CurProd->Terms[TermInd])
+          break;
+      }
+
+      // If the products are equal, then just remove both products.
+      if (TermInd == CurProd->NumTerms) {
+        // Ok, just remove two products now.
+        for (unsigned i = ProdInd + 1; i < NumProducts; i++)
+          Products[i - 2] = Products[i];
+        NumProducts -= 2;
+
+        // Two products with indices (ProdInd - 1) and (ProdInd) have been
+        // removed. Go to the next loop iteration. Adjust the loop variable
+        // to remove more products with opposite signs and not to skip any
+        // optimizable cases.
+        // For example:
+        //    +abc+ad+ad-ad-ad+c // ProdInd here is equal to 3,
+        //               ^^
+        //    SP after removal of the products with indices 2 and 3:
+        //    +abc+ad-ad+c
+        //    ProdInd must be set to 1 here.
+        // So, subtract 2 from ProdInd, but do that carefully, i.e. do not make
+        // ProdInd negative.
+        ProdInd--;
+        if (ProdInd != 0)
+          ProdInd--;
+      }
+    }
+  }
+
+  // Handle a special case. If all products got removed, then the result
+  // sum of product is equal to zero.
+  if (NumProducts == 0) {
+    NumProducts = 1;
+    Products[0].setSingleton(false, TermZERO);
+  }
+}
+
+unsigned *FMAExprSP::getTermsMappingToCompactTerms() {
+
+  // First of all get the mask showing what terms are used.
+  // For each of the used terms set the corresponding bit in the bit mask.
+  bool IsTermUsed[MaxNumOfUniqueTermsInSP] = {};
+  unsigned UsageMask = 0;
+
+  for (unsigned ProdInd = 0; ProdInd < NumProducts; ProdInd++) {
+    unsigned NumTerms = Products[ProdInd].NumTerms;
+    uint8_t *Terms = Products[ProdInd].Terms;
+    for (unsigned TermInd = 0; TermInd < NumTerms; TermInd++) {
+      unsigned Term = Terms[TermInd];
+      if (Term != TermZERO && Term != TermONE) {
+        UsageMask |= 1 << Term;
+        IsTermUsed[Term] = true;
+      }
+    }
+  }
+
+  // If the mask is full, then just return nullptr as the terms
+  // mapping is not needed.
+  if (((UsageMask + 1) & UsageMask) == 0)
+    return nullptr;
+
+  // Compact the term indices now.
+  unsigned *TermsMapping = new unsigned[MaxNumOfUniqueTermsInSP];
+  unsigned TheLastNewUsedTerm = 0;
+  for (unsigned Term = 0; Term < MaxNumOfUniqueTermsInSP; Term++) {
+    if (!IsTermUsed[Term])
+      TermsMapping[Term] = ~0U;
+    else {
+      TermsMapping[Term] = TheLastNewUsedTerm;
+      TheLastNewUsedTerm++;
+    }
+  }
+
+  return TermsMapping;
+}
+
+bool FMADag::isLastUse(unsigned NodeInd, unsigned OpndInd) const {
+  bool OpndIsTerm;
+  unsigned SearchedOpnd = getOperand(NodeInd, OpndInd, &OpndIsTerm);
+
+  for (unsigned OI = 0; OI < OpndInd; OI++) {
+    bool IsTerm;
+    unsigned ExprOrTerm = getOperand(NodeInd, OI, &IsTerm);
+    if (IsTerm == OpndIsTerm && ExprOrTerm == SearchedOpnd)
+      return false;
+  }
+
+  for (unsigned NI = 0; NI < NodeInd; NI++) {
+    for (unsigned OI = 0; OI < 3; OI++) {
+      bool IsTerm;
+      unsigned ExprOrTerm = getOperand(NI, OI, &IsTerm);
+      if (IsTerm == OpndIsTerm && ExprOrTerm == SearchedOpnd)
+        return false;
+    }
+  }
+  return true;
+}
+
+bool FMADag::hasPlusMinusOne() const {
+  unsigned NumNodes = getNumNodes();
+  for (unsigned NodeInd = 0; NodeInd < NumNodes; NodeInd++) {
+    bool CIsTerm;
+    unsigned C = getOperand(NodeInd, 2, &CIsTerm);
+    if (CIsTerm && C == TermONE)
+      return true;
+  }
+  return false;
+}
+
+FMAExprSP *FMAExpr::generateSPRecursively(
+    const FMAExpr *RootFMAExpr,
+    std::map<const FMAExpr *, FMAExprSP *> &ExprToSPMap) const {
+  // If the sum of products is already initialized for 'this' FMA expression,
+  // then return it.
+  FMAExprSP *SP = ExprToSPMap[this];
+  if (SP != nullptr)
+    return SP;
+
+  FMAExprSP *OperandSP[3];
+  for (unsigned OpndInd = 0; OpndInd < 3; OpndInd++) {
+    FMANode *Opnd = Operands[OpndInd];
+    if (Opnd->isZero())
+      SP = new FMAExprSP(FMAExprSPCommon::TermZERO);
+    else if (Opnd->isOne())
+      SP = new FMAExprSP(FMAExprSPCommon::TermONE);
+    else if (Opnd->isTerm())
+      SP = new FMAExprSP(RootFMAExpr->getUsedTermIndex(Opnd->castToTerm()));
+    else if (Opnd->isFMA())
+      SP = Opnd->castToExpr()->generateSPRecursively(RootFMAExpr, ExprToSPMap);
+    else
+      llvm_unreachable("Unsupported node kind.");
+
+    // Sums of products must be available for all operands. Otherwise,
+    // it is impossible to generate a sum of products for expression.
+    if (!SP)
+      return nullptr;
+
+    OperandSP[OpndInd] = SP;
+  }
+
+  FMAExprSP MulSP;
+  if (!MulSP.initForMul(*OperandSP[0], *OperandSP[1]))
+    return nullptr;
+
+  SP = new FMAExprSP();
+  if (!SP->initForAdd(MulSP, *OperandSP[2], MulSign, AddSign)) {
+    delete SP;
+    return nullptr;
+  }
+
+  ExprToSPMap[this] = SP;
+  return SP;
+}
+
+FMAExprSP *FMAExpr::generateSP() const {
+  // Exit early if the number of terms is obviously too big and
+  // SP cannot be built.
+  if (UsedTerms.size() > FMAExprSP::MaxNumOfUniqueTermsInSP)
+    return nullptr;
+
+  std::map<const FMAExpr *, FMAExprSP *> ExprToSPMap;
+  FMAExprSP *SP = generateSPRecursively(this, ExprToSPMap);
+
+  if (SP) {
+    SP->canonize();
+    SP->computeShape();
+  }
+
+  // Free all temporarily allocated sums of products.
+  for (auto S : ExprToSPMap) {
+    if (S.second != SP)
+      delete S.second;
+  }
+  return SP;
+}
+
+// The canonize() method may remove some of terms completely,
+// For example,
+//     Before: +ab+c-c+d
+//     After : +ab+d
+// The term 'c' got totally removed here. Let's compact the terms
+// in SP and in 'this' FMAExpr.
+void FMAExpr::compactTerms(FMAExprSP *SP) {
+  unsigned *TermsMapping = SP->getTermsMappingToCompactTerms();
+  if (TermsMapping) {
+    SP->doTermsMapping(TermsMapping);
+
+    // Now delete the unused terms from the vector UsedTerms.
+    unsigned TermsMappingIndex = 0;
+    for (auto I = UsedTerms.begin(); I != UsedTerms.end();) {
+      // Terms mapping has the value ~0U if the corresponding term must be
+      // removed.
+      if (TermsMapping[TermsMappingIndex] == ~0U)
+        I = UsedTerms.erase(I);
+      else
+        I++;
+      TermsMappingIndex++;
+    }
+    delete[] TermsMapping;
+  }
+}
+
+void FMAExpr::replaceTermWithExpr(FMATerm *Term, FMAExpr *Expr) {
+  for (auto &Opnd : Operands)
+    if (Opnd == Term)
+      Opnd = Expr;
+    else if (Opnd->isFMA())
+      Opnd->castToExpr()->replaceTermWithExpr(Term, Expr);
+}
+
+void FMAExpr::consume(FMAExpr *FWSExpr) {
+  FWSExpr->markAsConsumed();
+
+  // Update the list of consumed machine instructions.
+  // Also, FWSExpr does not need to keep the list of consumed machine
+  // instructions anymore.
+  ConsumedMIs.push_back(FWSExpr->getMI());
+  ConsumedMIs.splice(ConsumedMIs.end(), FWSExpr->ConsumedMIs);
+
+  // Term defined by the FWSExpr.
+  FMARegisterTerm *FWSTerm = FWSExpr->getResultTerm();
+
+  // Change the corresponding operands/terms with the reference to fws_expr.
+  replaceTermWithExpr(FWSTerm, FWSExpr);
+
+  // Remove FWSTerm from the set of used terms as it just got substituted by
+  // the expression FWSExpr.
+  removeFromUsedTerms(FWSTerm);
+
+  // Add terms used by 'FWSExpr' to the list of terms used by the current
+  // FMA expression.
+  // Also, FWSExpr does not need to keep the list of used terms anymore.
+  addToUsedTerms(FWSExpr->UsedTerms);
+  FWSExpr->UsedTerms.clear();
+
+  KilledRegs.insert(FWSExpr->KilledRegs.begin(), FWSExpr->KilledRegs.end());
+  FWSExpr->KilledRegs.clear();
+
+  DEBUG(fmadbgs() << "  -->After consuming expr: " << *this << "\n");
+}
+
+unsigned FMAExpr::countTermUses(const FMATerm *Term) const {
+  std::set<const FMAExpr *> ExprSet;
+  putExprToExprSet(ExprSet);
+
+  unsigned NumUses = 0;
+  for (auto E : ExprSet)
+    for (auto Opnd : E->Operands)
+      if (Opnd == Term)
+        NumUses++;
+
+  return NumUses;
+}
+
 /// This class represents one optimizable basic block. It holds all FMAExpr
 /// objects created for operations in one MachineBasicBlock.
 /// It also keeps references to special terms 0.0 and 1.0 created only once and
@@ -607,6 +1198,11 @@ private:
   /// to have quick search through already existing terms using virtual
   /// registers as keys.
   std::map<unsigned, FMARegisterTerm *> RegisterToFMARegisterTerm;
+
+  /// This field maps terms to expressions defining those terms.
+  /// For example, for any expression T1 = FMA1(...) there should be a pair
+  /// <T1, FMA1> in this map.
+  std::map<const FMATerm *, FMAExpr *> TermToDefFMA;
 
   /// Memory terms used by FMA expressions in the basic block are stored into
   /// std::map to avoid creation of duplicated terms and to have quick search
@@ -669,6 +1265,17 @@ public:
   /// MUL/ADD/FMA operations and creates FMA expressions (FMAExpr) for them.
   /// Returns the number of optimizable expressions found in the block.
   unsigned findFMAs();
+
+  /// Returns a reference to FMA expression defining the given \p Term.
+  FMAExpr *findDefiningFMA(const FMATerm *Term) const {
+    auto I = TermToDefFMA.find(Term);
+    if (I == TermToDefFMA.end())
+      return nullptr;
+    return I->second;
+  }
+
+  /// Returns the vector containing all FMAs available in this basic block.
+  const std::vector<FMAExpr *> &getFMAs() const { return FMAs; };
 
   /// Prints the type to the given stream \p OS.
   void print(raw_ostream &OS) const;
@@ -736,6 +1343,7 @@ FMAExpr *FMABasicBlock::createFMA(MVT VT, const MachineInstr *MI,
                                   FMANode *Op2, FMANode *Op3) {
   FMAExpr *Expr = new FMAExpr(VT, MI, ResTerm, Op1, Op2, Op3);
   FMAs.push_back(Expr);
+  TermToDefFMA[ResTerm] = Expr;
   return Expr;
 }
 
@@ -1023,7 +1631,7 @@ void FMABasicBlock::print(raw_ostream &OS) const {
     OS << "\n  ";
   }
 
-  OS << "\nFMA EXPRESSIONAs:\n";
+  OS << "\nFMA EXPRESSIONs:\n";
   unsigned Index = 0;
   for (auto E : FMAs) {
     if (!E->isConsumed()) {
@@ -1032,6 +1640,96 @@ void FMABasicBlock::print(raw_ostream &OS) const {
       OS << "\n";
     }
   }
+}
+
+FMAExpr *FMAExpr::findFWSCandidate(FMABasicBlock &FMABB,
+                                   const MachineRegisterInfo *MRI) const {
+
+  // Walk through all terms used by the current FMA, find those that are the
+  // results of other FMAs.
+  for (FMATerm *Term : UsedTerms) {
+    FMAExpr *TermDefFMA = FMABB.findDefiningFMA(Term);
+    if (TermDefFMA == nullptr)
+      continue;
+
+    // If TermDefFMA was consumed, then TermDefFMA expression would be part of
+    // 'this' expression and the term defined by TermDefFMA would not be used
+    // as an operand of 'this' expression.
+    assert(!TermDefFMA->isConsumed() && "Cannot consume one expression twice");
+
+    // This place would be good for doing safety check verifying that it is Ok
+    // to use the virtual register associated with 'Term' at the point where
+    // the machine instruction associated with this FMA expression is located.
+    // For FMARegisterTerm we can just use the virtual register as it is SSA
+    // form and the register is virtual at this phase. For FMAMemoryTerm the
+    // virtual register is not assigned yet, but it is going to be defined
+    // right before the load instruction associated with FMAMemoryTerm and
+    // it should be Ok to use such term in 'this' FMA expression.
+    // So, no checks are performed here.
+
+    // Check that there is only one FMA expression using this term.
+    //
+    // TODO: In some cases it is profitable to let the expression TermDefFMA
+    // be consumed by several independent expressions, but such transformation
+    // should avoid unnecessary operations duplication.
+    // Good test case:
+    //   t1 = a * b; // TermDefFMA has 2 users.
+    //   t2 = t1 + c;
+    //   t3 = t1 + d;
+    // Fusing may replace 3 operations with 2 FMA operations:
+    //   t2 = a * b + c;
+    //   t3 = a * b + d;
+    // Bad test case:
+    //   t1 = a * b * c; // TermDefFMA has 2 users.
+    //   t2 = t1 * d;
+    //   t3 = t1 * e;
+    // Fusing just increases the number of operations from 4 to 6:
+    //   t2 = a * b * c * d;
+    //   t3 = a * b * c * e;
+    // Consumption of expressions having two or more users requires having
+    // in-flight pattern matching giving quick estimation of whether it is
+    // efficient.
+    unsigned Reg = Term->getReg();
+    if (!MRI->hasOneNonDBGUse(Reg)) {
+      // A. Count the number of 'Reg' uses in IR.
+      iterator_range<MachineRegisterInfo::use_nodbg_iterator> RegUses =
+        MRI->use_nodbg_operands(Reg);
+      unsigned NumRegUses = std::distance(RegUses.begin(), RegUses.end());
+      DEBUG(fmadbgs() << "  The register vreg"
+                      << TargetRegisterInfo::virtReg2Index(Reg) << " has "
+                      << NumRegUses << " uses.\n");
+
+      // B. How many times 'Term' is used in 'this'?
+      unsigned NumTermUses = countTermUses(Term);
+      DEBUG(fmadbgs()
+            << "  The term corresponding to register mentioned above is used "
+            << NumTermUses << " times.\n");
+
+      // C. Compare A and B.
+      if (NumTermUses < NumRegUses)
+        continue;
+    }
+
+    // TODO: this is a workaround for lack of efficient partitioning of
+    // big and huge expressions. This check should be removed when
+    // such partitioning is implemented.
+    //
+    // The consumption is possible, but before returning the expression
+    // as a good candidate let's first check if the new expression after
+    // such fuse would be optimizable. Remember that too big expressions are
+    // not optimized now. In particular, expressions having more than
+    // FMADagCommon::MaxNumOfUniqueTermsInDAG terms cannot be optimized.
+    std::set<FMATerm *> NewTermsSet;
+    NewTermsSet.insert(UsedTerms.begin(), UsedTerms.end());
+    NewTermsSet.insert(TermDefFMA->UsedTerms.begin(),
+                       TermDefFMA->UsedTerms.end());
+    if (NewTermsSet.size() > FMADagCommon::MaxNumOfUniqueTermsInDAG)
+      continue;
+
+    return TermDefFMA;
+  }
+
+  return nullptr;
 }
 
 /// Loop over all of the basic blocks, performing the FMA optimization for
@@ -1043,6 +1741,7 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   MF = &MFunc;
   const X86Subtarget &ST = MF->getSubtarget<X86Subtarget>();
   TII = ST.getInstrInfo();
+  MRI = &MF->getRegInfo();
 
   // SubTarget must support FMA ISA.
   if (!ST.hasFMA())
@@ -1103,6 +1802,23 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
     Patterns->init();
   }
 
+  HasAVX512 = ST.hasAVX512();
+  if ((HasAVX512 && !checkAnyOfFMAFeatures(FMAControlTargetFMAsMask)) ||
+      checkAllFMAFeatures(FMAControlSkylakeFMAs)) {
+    AddSubLatency = 4;
+    MulLatency = 4;
+    FMALatency = 4;
+  } else if (checkAllFMAFeatures(FMAControlBroadwellFMAs)) {
+    AddSubLatency = 3;
+    MulLatency = 3;
+    FMALatency = 5;
+  } else {
+    // Haswell is the last available option.
+    AddSubLatency = 3;
+    MulLatency = 5;
+    FMALatency = 5;
+  }
+
   bool EverMadeChangeInFunc = false;
 
   // Process all basic blocks.
@@ -1150,10 +1866,193 @@ bool X86GlobalFMA::optBasicBlock(MachineBasicBlock &MBB) {
 
 bool X86GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB,
                                        MachineBasicBlock &MBB) {
+  bool EverMadeChangeInBB = false;
+  doFWS(FMABB);
+
+  DEBUG(fmadbgs() << "\nFMA-STEP3: DO PATTERN MATCHING AND CODE-GEN:\n");
+  for (FMAExpr *Expr : FMABB.getFMAs()) {
+    if (Expr->isConsumed())
+      continue;
+
+    DEBUG(fmadbgs() << "  Optimize FMA EXPR:\n  " << *Expr);
+    FMAExprSP *SP = Expr->generateSP();
+    if (!SP) {
+      DEBUG(fmadbgs() << "  Could not compute SP.\n");
+      continue;
+    }
+
+    // The returned SP might have some opportunities for terms compact.
+    // For example, for initial FMAExpr expression
+    //   +ab+c-c+d
+    // the returned SP may be shorter and the term 'c' is not used anymore:
+    //   +ab+d
+    // Let's compact the terms in SP and in 'this' FMAExpr.
+    Expr->compactTerms(SP);
+
+    DEBUG(fmadbgs() << "  Computed SP is: ");
+    DEBUG(SP->print(fmadbgs()));
+    DEBUG(fmadbgs() << "  SHAPE: " << format_hex(SP->Shape, 2) << "\n\n");
+
+    FMADag *Dag = Patterns->getDagForBestSPMatch(*SP);
+    if (!Dag)
+      continue;
+    SP->Dag = Dag;
+
+    DEBUG(fmadbgs() << "  CONGRATULATIONS! A searched DAG was found:\n    ");
+    DEBUG(Dag->print(fmadbgs()));
+    if (!isDagBetterThanInitialExpr(*Dag, *Expr, true)) {
+      DEBUG(fmadbgs() << "  DAG is NOT better than the initial EXPR.\n\n");
+      continue;
+    }
+    DEBUG(fmadbgs() << "  DAG IS better than the initial EXPR.\n");
+
+    EverMadeChangeInBB = true;
+    generateOutputIR(*Expr, *Dag, FMABB, MBB);
+  }
+  DEBUG(fmadbgs() << "\nFMA-STEP3 IS DONE. Machine basic block IS "
+                  << (EverMadeChangeInBB ? "" : "NOT ") << "UPDATED.\n\n");
+  return EverMadeChangeInBB;
+}
+
+FMAExprSP *FMAPatterns::acquireSP(uint64_t EncodedDag) {
+  FMAExprSP *SP = EncodedDagToSPMap[EncodedDag];
+
+  if (!SP) {
+    SP = new FMAExprSP();
+    SP->initForEncodedDag(EncodedDag);
+    EncodedDagToSPMap[EncodedDag] = SP;
+  }
+
+  return SP;
+}
+
+FMAPatterns::FMAPatternsSet *FMAPatterns::getDagsForShape(uint64_t Shape) {
+  unsigned First = 0, Last = getNumShapes() - 1;
+
+  // If the passed 'Shape' is bigger than the biggest available shape in
+  // the storage, then just exit early and skip the binary search.
+  FMAExprSP *SP = acquireSP(Dags[Last]->Dags[0]);
+  if (Shape > SP->Shape)
+    return nullptr;
+  if (Shape == SP->Shape)
+    return Dags[Last];
+
+  while (First < Last) {
+    // Check the SHAPE of a set of DAGs in the middle of the search scope.
+    unsigned Middle = (First + Last) / 2;
+    SP = acquireSP(Dags[Middle]->Dags[0]);
+    uint64_t CurShape = SP->Shape;
+
+    // If the searched SHAPE is found, then return the whole set of DAGs having
+    // the same SHAPE.
+    if (Shape == CurShape)
+      return Dags[Middle];
+
+    // Halve the search scope and continue the binary search.
+    if (Shape < CurShape)
+      Last = Middle;
+    else
+      First = Middle + 1;
+  }
+
+  return nullptr;
+}
+
+// This routine checks if it is possible to match the current SP and the
+// given SP. Such matching is often possible if the given SP is just a more
+// general form of 'this' SP, i.e. the given SP has more terms than 'this' SP.
+FMADag *FMAPatterns::getDagForBestSPMatch(const FMAExprSP &SP) {
+
+  FMAPatternsSet *DagsSet = getDagsForShape(SP.Shape);
+  if (!DagsSet)
+    return nullptr;
+
+  DEBUG(fmadbgs() << "  MATCHING: could find a set of DAGs for SHAPE("
+                  << format_hex(SP.Shape, 2) << ")\n");
+
+  // Find the best DAG for the given SP.
+  FMADagCommon *BestDag = nullptr;
+  for (unsigned i = 0; i < DagsSet->NumDags; i++) {
+    uint64_t Dag64 = DagsSet->Dags[i];
+
+    // FIXME: TermONE in C position is not yet supported, e.g. (A*B+1). Fix it.
+    FMADag Dag(Dag64);
+    if (Dag.hasPlusMinusOne())
+      continue;
+
+    FMAExprSP *CandidateSP = acquireSP(Dag64);
+
+    DEBUG(fmadbgs() << "  MATCHING: let's try to match 2 SPs:\n    actual: ");
+    SP.print(fmadbgs());
+    DEBUG(fmadbgs() << "    formal: ");
+    CandidateSP->print(fmadbgs());
+
+    FMASPToSPMatcher SPMatcher;
+    FMADagCommon *CandidateDag = SPMatcher.getDagToMatchSPs(*CandidateSP, SP);
+
+    if (CandidateDag) {
+      // Ok, we found Sum Of Products. Let's do some heuristical checks
+      // and choose the best alternative here.
+
+      // FIXME: currently we just choose the first one and return it.
+      BestDag = CandidateDag;
+      break;
+    }
+  }
+
+  if (BestDag) {
+    FMADag *Dag = new FMADag(*BestDag);
+    delete BestDag;
+    return Dag;
+  }
+
+  return nullptr;
+}
+
+void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag,
+                                    FMABasicBlock &FMABB,
+                                    MachineBasicBlock &MBB) {
+  // Not implemented yet.
+}
+
+bool X86GlobalFMA::isDagBetterThanInitialExpr(const FMADag &Dag,
+                                              const FMAExpr &Expr,
+                                              bool TuneForLatency) const {
+  if (checkAllFMAFeatures(FMAControlForceFMAs))
+    return true;
+
   // Not implemented yet.
   return false;
 }
 
+void X86GlobalFMA::doFWS(FMABasicBlock &FMABB) {
+
+  DEBUG(fmadbgs() << "\nFMA-STEP2: DO FWS:\n");
+
+  bool Consumed = true;
+  while (Consumed) {
+    Consumed = false;
+
+    for (auto Expr : FMABB.getFMAs()) {
+      if (Expr->isConsumed())
+        continue;
+
+      DEBUG(fmadbgs() << "  FWS: try to find terms that could be substituted "
+                         "by expressions in: "
+                      << *Expr << "\n");
+      FMAExpr *FWSExpr = Expr->findFWSCandidate(FMABB, MRI);
+      while (FWSExpr) {
+        DEBUG(fmadbgs() << "  -->Found such a term/expression:\n  " << *FWSExpr
+                        << "    to\n  " << *Expr << "\n");
+        Expr->consume(FWSExpr);
+        Consumed = true;
+
+        FWSExpr = Expr->findFWSCandidate(FMABB, MRI);
+      }
+    }
+  }
+  DEBUG(fmadbgs() << "\nFMA-STEP2 DONE. FMA basic block after FWS:\n" << FMABB);
+}
 } // End anonymous namespace.
 
 FunctionPass *llvm::createX86GlobalFMAPass() { return new X86GlobalFMA(); }

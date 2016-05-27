@@ -102,7 +102,8 @@ namespace {
       (void) llvm::createGCOVProfilerPass();
       (void) llvm::createPGOInstrumentationGenPass();
       (void) llvm::createPGOInstrumentationUsePass();
-      (void) llvm::createInstrProfilingPass();
+      (void) llvm::createPGOIndirectCallPromotionPass();
+      (void) llvm::createInstrProfilingLegacyPass();
       (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
       (void) llvm::createAlwaysInlinerPass();
@@ -231,6 +232,7 @@ namespace {
       (void) llvm::createHIRFrameworkPass();
       (void) llvm::createHIRDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
+      (void) llvm::createHIRLoopResourcePass();
       (void) llvm::createHIRParVecAnalysisPass();
       (void) llvm::createHIRVectVLSAnalysisPass();
 

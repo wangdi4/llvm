@@ -405,6 +405,23 @@ void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << "\n";
 }
 
+bool OVLSShuffle::hasValidOperands(OVLSOperand O1, OVLSOperand O2,
+                                   OVLSOperand Mask) {
+  // O1 and O2 must be vectors of the same type.
+  if (!O1.getType().isValid() || O1.getType() != O2.getType())
+    return false;
+
+  // Mask needs to be a vector of constants.
+  if (!Mask.getType().isValid() || !isa<OVLSConstant>(&Mask))
+    return false;
+
+  if (Mask.getType().getNumElements() >
+      (O1.getType().getNumElements() + O2.getType().getNumElements()))
+    return false;
+
+  return true;
+}
+
 // getGroups() takes a vector of OVLSMemrefs and a group size in bytes
 // (which is the the maximum length of the underlying vector register
 // or any other desired size that clients want to consider, maximum size

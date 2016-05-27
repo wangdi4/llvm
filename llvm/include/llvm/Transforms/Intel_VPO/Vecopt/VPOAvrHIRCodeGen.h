@@ -113,6 +113,7 @@ private:
   void widenNode(const HLNode *Node, HLNode *Anchor);
   RegDDRef *getVectorValue(const RegDDRef *Op);
   HLInst *widenReductionNode(const HLNode *Node, HLNode *Anchor);
+  void eraseIntrinsBeforeLoop();
   bool processLoop();
   bool isConstStrideRef(const RegDDRef *Ref, int64_t *CoeffPtr = nullptr);
 

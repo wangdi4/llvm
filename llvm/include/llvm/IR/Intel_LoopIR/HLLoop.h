@@ -31,7 +31,7 @@ class CanonExpr;
 class RegDDRef;
 
 /// \brief High level node representing a loop
-class HLLoop : public HLDDNode {
+class HLLoop final : public HLDDNode {
 public:
   typedef HLContainerTy ChildNodeTy;
   typedef ChildNodeTy PreheaderTy;
@@ -151,9 +151,29 @@ protected:
 
   /// \brief Used to print members of the loop which are otherwise hidden in
   /// pretty print like ztt, innermost flag etc.
-  void printDetails(formatted_raw_ostream &OS, unsigned Depth) const;
+  void printDetails(formatted_raw_ostream &OS, unsigned Depth,
+                    bool Detailed) const;
 
 public:
+  /// \brief Prints preheader of loop.
+  void printPreheader(formatted_raw_ostream &OS, unsigned Depth,
+                      bool Detailed) const;
+
+  /// \brief Prints header of loop.
+  void printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed) const;
+
+  /// \brief Prints body of loop.
+  void printBody(formatted_raw_ostream &OS, unsigned Depth,
+                 bool Detailed) const;
+
+  /// \brief Prints footer of loop.
+  void printFooter(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  /// \brief Prints postexit of loop.
+  void printPostexit(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed) const;
+
   /// \brief Prints HLLoop.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
@@ -340,9 +360,16 @@ public:
   void setNumExits(unsigned NumEx);
 
   /// \brief Returns the nesting level of the loop.
-  unsigned getNestingLevel() const { return NestingLevel; }
+  unsigned getNestingLevel() const {
+    assert(getParentRegion() && "getNestingLevel() invoked on detached loop!");
+    return NestingLevel;
+  }
+
   /// \brief Returns true if this is the innermost loop in the loop nest.
-  bool isInnermost() const { return IsInnermost; }
+  bool isInnermost() const {
+    assert(getParentRegion() && "isInnermost() invoked on detached loop!");
+    return IsInnermost;
+  }
 
   /// Preheader iterator methods
   pre_iterator pre_begin() { return Children.begin(); }
@@ -516,13 +543,6 @@ public:
   /// be updated by HLNode insertion/removal utilities.
   HLLoop *cloneEmptyLoop() const;
 
-  /// \brief - Clones the original loop without any of the children, preheader
-  /// and postexit nodes. This routines copies all the original loop properties
-  /// such as exits, ub, lb, strides, level. Data members that depend on where
-  //  the cloned loop lives in HIR (like parent, etc) are not copied. They will
-  /// be updated by HLNode insertion/removal utilities.
-  HLLoop *cloneCompleteEmptyLoop() const;
-
   /// \brief Returns the number of operands associated with the loop ztt.
   unsigned getNumZttOperands() const;
 
@@ -535,6 +555,10 @@ public:
   unsigned getMVTag() { return MVTag; }
 
   void setMVTag(unsigned Tag) { MVTag = Tag; }
+	
+  /// \brief return true if Triangular Loop
+  bool isTriangularLoop() const;
+	
 };
 
 } // End namespace loopopt

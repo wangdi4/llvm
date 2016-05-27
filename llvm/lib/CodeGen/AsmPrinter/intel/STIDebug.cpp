@@ -1051,9 +1051,6 @@ private:
   STIWriter* _writer;
   STIDebugFixupTable _fixupTable;
 
-  // Maps from a type identifier to the actual MDNode.
-  DITypeIdentifierMap TypeIdentifierMap;
-
   static const char* _unnamedType;
 
 public:
@@ -1110,9 +1107,6 @@ protected:
     STISymbolCompileUnit *compileUnit = module->getCompileUnits()->back();
     return compileUnit;
   }
-
-  /// \brief Return the TypeIdentifierMap.
-  const DITypeIdentifierMap &getTypeIdentifierMap() const;
 
   STIScope *getOrCreateScope(const DIScope* llvmScope);
   std::string getScopeFullName(const DIScope* llvmScope, StringRef name,
@@ -1701,10 +1695,6 @@ void STIDebugImpl::setWriter(STIWriter* writer) {
 
 std::string STIDebugImpl::getUniqueName() {
   return (Twine("<unnamed-tag>") + Twine(_uniqueNameCounter++)).str();
-}
-
-const DITypeIdentifierMap &STIDebugImpl::getTypeIdentifierMap() const {
-  return TypeIdentifierMap;
 }
 
 //===----------------------------------------------------------------------===//
@@ -2537,7 +2527,7 @@ void STIDebugImpl::setDefnInProgress(const DIType *llvmType, bool inProgress) {
 //===----------------------------------------------------------------------===//
 
 template <typename T> T* STIDebugImpl::resolve(TypedDINodeRef<T> ref) const {
-  return ref.resolve(getTypeIdentifierMap());
+  return ref.resolve();
 }
 
 //===----------------------------------------------------------------------===//
@@ -4747,8 +4737,6 @@ void STIDebugImpl::collectModuleInfo() {
       _subprogramMap.insert(std::make_pair(SP, Fn));
     }
   }
-
-  TypeIdentifierMap = generateDITypeIdentifierMap(*M);
 
   for (DICompileUnit *CU : M->debug_compile_units()) {
     STISymbolCompileUnit *compileUnit;
