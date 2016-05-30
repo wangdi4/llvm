@@ -70,7 +70,6 @@ void GlobalCompilerConfig::LoadConfig()
     {
         m_infoOutputFile = pEnv;
     }
-#endif // NDEBUG
 #ifdef OCLT
     // Stat options are set as llvm options for 2 reasons
     // they are available also for opt
@@ -84,6 +83,7 @@ void GlobalCompilerConfig::LoadConfig()
         }
     }
 #endif // OCLT
+#endif // NDEBUG
 }
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
