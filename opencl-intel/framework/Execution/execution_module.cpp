@@ -712,7 +712,7 @@ cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event*
     // Before waiting all on events, the function need to flush all relevant queues,
     // Since the dependencies between events in different queues is unknown it is better
     // to flush all queues in the context.
-    FlushAllQueuesForContext(clEventsContext);
+    //FlushAllQueuesForContext(clEventsContext);
 
     // This call is blocking
     errVal = m_pEventsManager->WaitForEvents(uiNumEvents, cpEventList);
