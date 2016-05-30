@@ -566,6 +566,12 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__VERSION__", "\"" +
                       Twine(getIClangFullCPPVersion()) + "\"");
   else
+#else
+  // Version string for xmain: cq374831
+  if (LangOpts.IntelCompat)
+    Builder.defineMacro("__VERSION__", "\"" +
+                      Twine(getXMainFullCPPVersion()) + "\"");
+  else
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
   // As sad as it is, enough software depends on the __VERSION__ for version

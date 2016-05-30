@@ -165,6 +165,22 @@ std::string getIClangFullCPPVersion() {
   OS << "Intel(R) C++ Clang " CLANG_VERSION_STRING " mode";
   return OS.str();
 }
+#else // if !INTEL_SPECIFIC_IL0_BACKEND
+std::string getXMainFullCPPVersion() {
+  // The version string we report in __VERSION__ is just a compacted version of
+  // the one we report on the command line.
+  std::string buf;
+  llvm::raw_string_ostream OS(buf);
+#ifdef CLANG_VENDOR
+  OS << CLANG_VENDOR;
+#endif
+#ifdef GNU_VERSION_STRING
+  OS << "Intel(R) Clang Based C++, gcc " << GNU_VERSION_STRING << " mode";
+#else
+  OS << "Intel(R) Clang Based C++, clang " << CLANG_VERSION_STRING;
+#endif // GNU_VERSION_STRING
+  return OS.str();
+}
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
 
