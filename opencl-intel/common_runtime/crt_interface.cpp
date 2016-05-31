@@ -8906,6 +8906,42 @@ FINISH:
     }
     return commandQueue;
 }
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+CL_API_ENTRY cl_int CL_API_CALL clSetPerformanceConfigurationINTEL(
+    cl_device_id    device,
+    cl_uint         count,
+    cl_uint*        offsets,
+    cl_uint*        values )
+{
+    cl_int result = CL_SUCCESS;
+    CrtDeviceInfo* pDeviceInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( device );
+
+    if( (count == 0) ||
+        (offsets == NULL) ||
+        (values == NULL) )
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    if( pDeviceInfo && ( pDeviceInfo->m_devType == CL_DEVICE_TYPE_GPU ) )
+    {
+        result = ( (SOCLEntryPointsTable*) device )->crtDispatch->clSetPerformanceConfigurationINTEL(
+            device,
+            count,
+            offsets,
+            values );
+    }
+    else
+    {
+        result = CL_INVALID_DEVICE;
+    }
+    
+    return result;
+}
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -9399,6 +9435,87 @@ FINISH:
 }
 SET_ALIAS( clRetainAcceleratorINTEL );
 
+#ifdef CL_VDBOX_INTEL_EXT
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+CL_API_ENTRY cl_int CL_API_CALL clEnqueueMediaPakINTEL(
+    cl_command_queue                          command_queue,
+    cl_accelerator_intel                      accelerator,
+    const cl_pak_hevc_picture_intel           *picture,
+    cl_uint                                   num_slices,
+    cl_uint                                  *num_slice_headers,
+    const cl_pak_hevc_insert_intel           *slice_headers,
+    const cl_pak_hevc_slice_intel            *slices,
+    const cl_pak_hevc_ctu_intel              *coding_tree_units,
+    cl_mem                                    coding_units,
+    cl_mem                                    current_image,
+    cl_mem                                    current_temporal,
+    cl_mem                                    current_recon,
+    cl_uint                                   num_refs,
+    cl_mem                                   *ref_images,
+    cl_mem                                   *ref_temporal,
+    cl_mem                                    status_out,
+    cl_mem                                    stream_out,
+    cl_uint                                   num_events_in_wait_list,
+    const cl_event                           *event_wait_list,
+    cl_event                                 *oclevent )
+{
+    cl_int errCode = CL_SUCCESS;
+    cl_device_id devId = NULL;
+    CrtQueue* crtQueue = NULL;
+
+    if( accelerator == NULL )
+    {
+        errCode = CL_INVALID_ACCELERATOR_INTEL;
+        goto FINISH;
+    }
+   
+    crtQueue = reinterpret_cast<CrtQueue*>( ( ( _cl_command_queue_crt* )command_queue )->object );
+    if( crtQueue  == NULL )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+    devId = crtQueue->m_contextCRT->GetDeviceByType( CL_DEVICE_TYPE_GPU );
+    if( NULL == devId )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+    if( ( ( SOCLEntryPointsTable* )accelerator )->crtDispatch->clEnqueueMediaPakINTEL == NULL )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    errCode = ( ( SOCLEntryPointsTable* )accelerator )->crtDispatch->clEnqueueMediaPakINTEL(
+                command_queue,
+                accelerator,
+                picture,
+                num_slices,
+                num_slice_headers,
+                slice_headers,
+                slices,
+                coding_tree_units,
+                coding_units,
+                current_image,
+                current_temporal,
+                current_recon,
+                num_refs,
+                ref_images,
+                ref_temporal,
+                status_out,
+                stream_out,
+                num_events_in_wait_list,
+                event_wait_list,
+                oclevent );
+
+FINISH:
+    return errCode;
+}
+SET_ALIAS( clEnqueueMediaPakINTEL );
+#endif
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -9695,10 +9812,6 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clEnqueueReleaseDX9ObjectsINTEL ) );
     }
-    if( funcname && !strcmp( funcname, "clCreatePerfCountersCommandQueueINTEL" ) )
-    {
-        return ( ( void* )( ptrdiff_t )GET_ALIAS( clCreatePerfCountersCommandQueueINTEL ) );
-    }
     if( funcname && !strcmp( funcname, "clSetDebugVariableINTEL" ) )
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clSetDebugVariableINTEL ) );
@@ -9708,6 +9821,14 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
         return ( ( void* )( ptrdiff_t )GET_ALIAS( GetCRTInfo ) );
     }
 #endif
+    if( funcname && !strcmp( funcname, "clCreatePerfCountersCommandQueueINTEL" ) )
+    {
+        return ( ( void* )( ptrdiff_t )( clCreatePerfCountersCommandQueueINTEL ) );
+    }
+    if( funcname && !strcmp( funcname, "clSetPerformanceConfigurationINTEL" ) )
+    {
+        return ((void*) (ptrdiff_t) (clSetPerformanceConfigurationINTEL));
+    }
     if( funcname && !strcmp( funcname, "clCreateAcceleratorINTEL" ) )
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clCreateAcceleratorINTEL ) );
@@ -9728,6 +9849,12 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clReleaseAcceleratorINTEL ) );
     }
+#ifdef CL_VDBOX_INTEL_EXT
+    if( funcname && !strcmp( funcname, "clEnqueueMediaPakINTEL" ) )
+    {
+        return ( ( void* )( ptrdiff_t )GET_ALIAS( clEnqueueMediaPakINTEL ) );
+    }
+#endif
 #ifdef _WIN32
     if( funcname && !strcmp( funcname, "clCreateProfiledProgramWithSourceINTEL" ) )
     {
@@ -10234,7 +10361,7 @@ cl_int CL_API_CALL clEnqueueSVMMemFill(
         goto FINISH;
     }
 
-    if( NULL == pattern || !IsPowerOf2( pattern_size ) || pattern_size > 128 )
+    if( NULL == pattern || !IsPowerOf2( (cl_uint)pattern_size ) || pattern_size > 128 )
     {
         errCode = CL_INVALID_VALUE;
         goto FINISH;

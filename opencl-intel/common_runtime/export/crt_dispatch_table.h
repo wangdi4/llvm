@@ -32,6 +32,10 @@
 #endif
 #endif
 
+#ifdef CL_VDBOX_INTEL_EXT
+#include <CL/IntelNDA/cl_vdbox_intel.h>
+#endif
+
 namespace CRT_ICD_DISPATCH
 {
 #ifdef _WIN32
@@ -95,6 +99,12 @@ namespace CRT_ICD_DISPATCH
         cl_uint                     configuration,
         cl_int *                    errcode_ret );
 
+    typedef CL_API_ENTRY cl_int ( CL_API_CALL *INTELpfn_clSetPerformanceConfigurationINTEL )(
+        cl_device_id                device,
+        cl_uint                     count,
+        cl_uint*                    offsets,
+        cl_uint*                    values);
+
     /* cl_intel_accelerator */
     typedef CL_API_ENTRY cl_accelerator_intel (CL_API_CALL *INTELpfn_clCreateAcceleratorINTEL)(
         cl_context                  context,
@@ -118,7 +128,31 @@ namespace CRT_ICD_DISPATCH
 
     typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clRetainAcceleratorINTEL)(
         cl_accelerator_intel        accelerator ) CL_API_SUFFIX__VERSION_1_2;
-
+#ifdef CL_VDBOX_INTEL_EXT
+    typedef CL_API_ENTRY cl_int( CL_API_CALL *INTELpfn_clEnqueueMediaPakINTEL )(
+        cl_command_queue                          command_queue,
+        cl_accelerator_intel                      accelerator,
+        const cl_pak_hevc_picture_intel           *picture,
+        cl_uint                                   num_slices,
+        cl_uint                                  *num_slice_headers,
+        const cl_pak_hevc_insert_intel           *slice_headers,
+        const cl_pak_hevc_slice_intel            *slices,
+        const cl_pak_hevc_ctu_intel              *coding_tree_units,
+        cl_mem                                    coding_units,
+        cl_mem                                    current_image,
+        cl_mem                                    current_temporal,
+        cl_mem                                    current_recon,
+        cl_uint                                   num_refs,
+        cl_mem                                   *ref_images,
+        cl_mem                                   *ref_temporal,
+        cl_mem                                    status_out,
+        cl_mem                                    stream_out,
+        cl_uint                                   num_events_in_wait_list,
+        const cl_event                           *event_wait_list,
+        cl_event                                 *oclevent ) CL_API_SUFFIX__VERSION_1_2;
+#else
+    typedef CL_API_ENTRY cl_int( CL_API_CALL *INTELpfn_clEnqueueMediaPakINTEL )();
+#endif
     typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clReleaseAcceleratorINTEL)(
         cl_accelerator_intel        accelerator ) CL_API_SUFFIX__VERSION_1_2;
 
@@ -224,6 +258,11 @@ namespace CRT_ICD_DISPATCH
 
         // Video Analytics Accelerator
         INTELpfn_clSetAcceleratorInfoINTEL                  clSetAcceleratorInfoINTEL;
+        // VDBox
+        INTELpfn_clEnqueueMediaPakINTEL                     clEnqueueMediaPakINTEL;
+
+        // OCL Performance Counters configuration.
+        INTELpfn_clSetPerformanceConfigurationINTEL         clSetPerformanceConfigurationINTEL;
     };
 
     struct SOCLEntryPointsTable
