@@ -331,7 +331,7 @@ void LPUAsmPrinter::EmitStartOfAsmFile(Module &) {
   O << TM.getSubtarget<LPUSubtarget>().lpuName();
 
   OutStreamer.EmitRawText(O.str());
-  OutStreamer.EmitRawText("\t.version 0,5,0");
+  OutStreamer.EmitRawText("\t.version 0,6,0");
   OutStreamer.EmitRawText("\t.unit sxu");
 }
 

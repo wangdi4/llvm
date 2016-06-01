@@ -1051,7 +1051,7 @@ multiclass Init<RegisterClass RC, ValueType opType, list<Predicate> preds> {
    def "" : PseudoInstLPU<
       (outs RC:$dst),
       (ins Operand<opType>:$imm),
-      ".lic\t$dst;\t.value $imm;\t.avail 0",
+      ".curr\t$dst;\t.value $imm;\t.avail 0",
       []>;
   }
 }
