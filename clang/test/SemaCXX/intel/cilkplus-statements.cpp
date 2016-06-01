@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -fsyntax-only -verify -std=c++11 %s
+// RUN: %clang_cc1 -fintel-compatibility -fcilkplus -fsyntax-only -verify -std=c++11 %s
 // REQUIRES: cilkplus
 
 template<typename T>

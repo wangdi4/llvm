@@ -91,6 +91,9 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
   case BuiltinType::LongDouble:
     ID = PREDEF_TYPE_LONGDOUBLE_ID;
     break;
+  case BuiltinType::Float128:
+    ID = PREDEF_TYPE_FLOAT128_ID;
+    break;
   case BuiltinType::NullPtr:
     ID = PREDEF_TYPE_NULLPTR_ID;
     break;
@@ -115,11 +118,6 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
   case BuiltinType::UnknownAny:
     ID = PREDEF_TYPE_UNKNOWN_ANY;
     break;
-#if INTEL_CUSTOMIZATION
-  case BuiltinType::Float128:
-    ID = PREDEF_TYPE_FLOAT128_ID;
-    break;
-#endif  // INTEL_CUSTOMIZATION
   case BuiltinType::ARCUnbridgedCast:
     ID = PREDEF_TYPE_ARC_UNBRIDGED_CAST;
     break;

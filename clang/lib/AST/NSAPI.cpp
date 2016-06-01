@@ -441,6 +441,7 @@ NSAPI::getNSNumberFactoryMethodKind(QualType T) const {
   case BuiltinType::Int128:
   case BuiltinType::LongDouble:
   case BuiltinType::UInt128:
+  case BuiltinType::Float128:
   case BuiltinType::NullPtr:
   case BuiltinType::ObjCClass:
   case BuiltinType::ObjCId:
@@ -460,9 +461,6 @@ NSAPI::getNSNumberFactoryMethodKind(QualType T) const {
   case BuiltinType::UnknownAny:
   case BuiltinType::ARCUnbridgedCast:
   case BuiltinType::Half:
-#if INTEL_CUSTOMIZATION
-  case BuiltinType::Float128:
-#endif  // INTEL_CUSTOMIZATION
   case BuiltinType::PseudoObject:
   case BuiltinType::BuiltinFn:
   case BuiltinType::OMPArraySection:

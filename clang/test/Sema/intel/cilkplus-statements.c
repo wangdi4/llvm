@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -fsyntax-only -verify %s
+// RUN: %clang_cc1 -fintel-compatibility -fcilkplus -fsyntax-only -verify %s
 // REQUIRES: cilkplus
 
 int foo();

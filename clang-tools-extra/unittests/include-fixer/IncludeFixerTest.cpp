@@ -7,16 +7,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "InMemoryXrefsDB.h"
+#include "InMemorySymbolIndex.h"
 #include "IncludeFixer.h"
+#include "SymbolIndexManager.h"
 #include "unittests/Tooling/RewriterTestContext.h"
 #include "clang/Tooling/Tooling.h"
 #include "gtest/gtest.h"
-using namespace clang;
 
 namespace clang {
 namespace include_fixer {
 namespace {
+
+using find_all_symbols::SymbolInfo;
 
 static bool runOnCode(tooling::ToolAction *ToolAction, StringRef Code,
                       StringRef FileName,
@@ -46,15 +48,27 @@ static bool runOnCode(tooling::ToolAction *ToolAction, StringRef Code,
 static std::string runIncludeFixer(
     StringRef Code,
     const std::vector<std::string> &ExtraArgs = std::vector<std::string>()) {
-  std::map<std::string, std::vector<std::string>> XrefsMap = {
-      {"std::string", {"<string>"}},
-      {"std::string::size_type", {"<string>"}},
-      {"a::b::foo", {"dir/otherdir/qux.h"}},
+  std::vector<SymbolInfo> Symbols = {
+      SymbolInfo("string", SymbolInfo::SymbolKind::Class, "<string>", 1,
+                 {{SymbolInfo::ContextType::Namespace, "std"}}),
+      SymbolInfo("sting", SymbolInfo::SymbolKind::Class, "\"sting\"", 1,
+                 {{SymbolInfo::ContextType::Namespace, "std"}}),
+      SymbolInfo("size_type", SymbolInfo::SymbolKind::Variable, "<string>", 1,
+                 {{SymbolInfo::ContextType::Namespace, "string"},
+                  {SymbolInfo::ContextType::Namespace, "std"}}),
+      SymbolInfo("foo", SymbolInfo::SymbolKind::Class, "\"dir/otherdir/qux.h\"",
+                 1, {{SymbolInfo::ContextType::Namespace, "b"},
+                     {SymbolInfo::ContextType::Namespace, "a"}}),
+      SymbolInfo("bar", SymbolInfo::SymbolKind::Class, "\"bar.h\"",
+                 1, {{SymbolInfo::ContextType::Namespace, "b"},
+                     {SymbolInfo::ContextType::Namespace, "a"}}),
   };
-  auto XrefsDB =
-      llvm::make_unique<include_fixer::InMemoryXrefsDB>(std::move(XrefsMap));
+  auto SymbolIndexMgr = llvm::make_unique<include_fixer::SymbolIndexManager>();
+  SymbolIndexMgr->addSymbolIndex(
+      llvm::make_unique<include_fixer::InMemorySymbolIndex>(Symbols));
+
   std::vector<clang::tooling::Replacement> Replacements;
-  IncludeFixerActionFactory Factory(*XrefsDB, Replacements);
+  IncludeFixerActionFactory Factory(*SymbolIndexMgr, Replacements);
   runOnCode(&Factory, Code, "input.cc", ExtraArgs);
   clang::RewriterTestContext Context;
   clang::FileID ID = Context.createInMemoryFile("input.cc", Code);
@@ -79,8 +93,11 @@ TEST(IncludeFixer, Typo) {
       "#include <string>\n#include \"foo.h\"\nstd::string::size_type foo;\n",
       runIncludeFixer("#include \"foo.h\"\nstd::string::size_type foo;\n"));
 
-  // The fixed xrefs db doesn't know how to handle string without std::.
-  EXPECT_EQ("string foo;\n", runIncludeFixer("string foo;\n"));
+  // string without "std::" can also be fixed since fixed db results go through
+  // SymbolIndexManager, and SymbolIndexManager matches unqualified identifiers
+  // too.
+  EXPECT_EQ("#include <string>\nstring foo;\n",
+            runIncludeFixer("string foo;\n"));
 }
 
 TEST(IncludeFixer, IncompleteType) {
@@ -109,6 +126,44 @@ TEST(IncludeFixer, MinimizeInclude) {
             runIncludeFixer("a::b::foo bar;\n", IncludePath));
 }
 
+#ifndef _WIN32
+// It doesn't pass for targeting win32. Investigating.
+TEST(IncludeFixer, NestedName) {
+  EXPECT_EQ("#include \"dir/otherdir/qux.h\"\n"
+            "int x = a::b::foo(0);\n",
+            runIncludeFixer("int x = a::b::foo(0);\n"));
+
+  // FIXME: Handle simple macros.
+  EXPECT_EQ("#define FOO a::b::foo\nint x = FOO;\n",
+            runIncludeFixer("#define FOO a::b::foo\nint x = FOO;\n"));
+  EXPECT_EQ("#define FOO(x) a::##x\nint x = FOO(b::foo);\n",
+            runIncludeFixer("#define FOO(x) a::##x\nint x = FOO(b::foo);\n"));
+
+  EXPECT_EQ("#include \"dir/otherdir/qux.h\"\n"
+            "namespace a {}\nint a = a::b::foo(0);\n",
+            runIncludeFixer("namespace a {}\nint a = a::b::foo(0);\n"));
+}
+#endif
+
+TEST(IncludeFixer, MultipleMissingSymbols) {
+  EXPECT_EQ("#include <string>\nstd::string bar;\nstd::sting foo;\n",
+            runIncludeFixer("std::string bar;\nstd::sting foo;\n"));
+}
+
+TEST(IncludeFixer, ScopedNamespaceSymbols) {
+  EXPECT_EQ("#include \"bar.h\"\nnamespace a { b::bar b; }\n",
+            runIncludeFixer("namespace a { b::bar b; }\n"));
+  EXPECT_EQ("#include \"bar.h\"\nnamespace A { a::b::bar b; }\n",
+            runIncludeFixer("namespace A { a::b::bar b; }\n"));
+  EXPECT_EQ("#include \"bar.h\"\nnamespace a { void func() { b::bar b; } }\n",
+            runIncludeFixer("namespace a { void func() { b::bar b; } }\n"));
+  EXPECT_EQ("namespace A { c::b::bar b; }\n",
+            runIncludeFixer("namespace A { c::b::bar b; }\n"));
+  // FIXME: The header should not be added here. Remove this after we support
+  // full match.
+  EXPECT_EQ("#include \"bar.h\"\nnamespace A { b::bar b; }\n",
+            runIncludeFixer("namespace A { b::bar b; }\n"));
+}
 } // namespace
 } // namespace include_fixer
 } // namespace clang

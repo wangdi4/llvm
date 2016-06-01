@@ -51,9 +51,7 @@ static CXTypeKind GetBuiltinTypeKind(const BuiltinType *BT) {
     BTCASE(Float);
     BTCASE(Double);
     BTCASE(LongDouble);
-#if INTEL_CUSTOMIZATION
     BTCASE(Float128);
-#endif  // INTEL_CUSTOMIZATION
     BTCASE(NullPtr);
     BTCASE(Overload);
     BTCASE(Dependent);
@@ -94,6 +92,7 @@ static CXTypeKind GetTypeKind(QualType T) {
     TKCASE(Vector);
     TKCASE(MemberPointer);
     TKCASE(Auto);
+    TKCASE(Elaborated);
     default:
       return CXType_Unexposed;
   }
@@ -469,9 +468,7 @@ CXString clang_getTypeKindSpelling(enum CXTypeKind K) {
     TKIND(Float);
     TKIND(Double);
     TKIND(LongDouble);
-#if INTEL_CUSTOMIZATION
     TKIND(Float128);
-#endif  // INTEL_CUSTOMIZATION
     TKIND(NullPtr);
     TKIND(Overload);
     TKIND(Dependent);
@@ -497,6 +494,7 @@ CXString clang_getTypeKindSpelling(enum CXTypeKind K) {
     TKIND(Vector);
     TKIND(MemberPointer);
     TKIND(Auto);
+    TKIND(Elaborated);
   }
 #undef TKIND
   return cxstring::createRef(s);
@@ -992,6 +990,16 @@ unsigned clang_Cursor_isAnonymous(CXCursor C){
   if (const RecordDecl *FD = dyn_cast_or_null<RecordDecl>(D))
     return FD->isAnonymousStructOrUnion();
   return 0;
+}
+
+CXType clang_Type_getNamedType(CXType CT){
+  QualType T = GetQualType(CT);
+  const Type *TP = T.getTypePtrOrNull();
+
+  if (TP && TP->getTypeClass() == Type::Elaborated)
+    return MakeCXType(cast<ElaboratedType>(TP)->getNamedType(), GetTU(CT));
+
+  return MakeCXType(QualType(), GetTU(CT));
 }
 
 } // end: extern "C"

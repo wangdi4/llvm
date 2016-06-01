@@ -53,9 +53,7 @@ bool FormatToken::isSimpleTypeSpecifier() const {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#if INTEL_CUSTOMIZATION
-  case tok::kw__Quad:
-#endif  // INTEL_CUSTOMIZATION
+  case tok::kw___float128:
   case tok::kw_wchar_t:
   case tok::kw_bool:
   case tok::kw___underlying_type:

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -emit-llvm %s -o %t
+// RUN: %clang_cc1 -fcilkplus -fintel-compatibility -emit-llvm %s -o %t
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK1 %s
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK2 %s
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK3 %s

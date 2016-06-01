@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -fsyntax-only -verify -Wall %s
+// RUN: %clang_cc1 -fintel-compatibility -fcilkplus -fsyntax-only -verify -Wall %s
 // REQUIRES: cilkplus
 
 _Cilk_for; // expected-error {{expected unqualified-id}}

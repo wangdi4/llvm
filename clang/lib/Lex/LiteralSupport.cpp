@@ -528,6 +528,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   isFloat128 = false;
 #endif  // INTEL_CUSTOMIZATION
   isImaginary = false;
+  isFloat128 = false;
   MicrosoftInteger = 0;
   hadError = false;
 
@@ -570,22 +571,17 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
     case 'f':      // FP Suffix for "float"
     case 'F':
       if (!isFPConstant) break;  // Error for integer constant.
-#if INTEL_CUSTOMIZATION
-      // HF, FF, LF, F128 invalid.
-      if (isHalf || isFloat || isLong || isFloat128) break;
-      if (isHalf || isFloat || isLong) break; // HF, FF, LF invalid.
-#endif  // INTEL_CUSTOMIZATION
+      if (isHalf || isFloat || isLong || isFloat128)
+        break; // HF, FF, LF, QF invalid.
       isFloat = true;
       continue;  // Success.
-#if INTEL_CUSTOMIZATION
-    case 'q':      // FP Suffix for "_Quad"
+    case 'q':    // FP Suffix for "__float128"
     case 'Q':
-      if (!PP.getLangOpts().Float128) break;
       if (!isFPConstant) break;  // Error for integer constant.
-      if (isFloat || isLong || isFloat128) break; // FF, LF invalid.
+      if (isHalf || isFloat || isLong || isFloat128)
+        break; // HQ, FQ, LQ, QQ invalid.
       isFloat128 = true;
       continue;  // Success.
-#endif  // INTEL_CUSTOMIZATION
     case 'u':
     case 'U':
       if (isFPConstant) break;  // Error for floating constant.
@@ -597,7 +593,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
 #if INTEL_CUSTOMIZATION
       if (isLong || isLongLong || isFloat128) break;  // Cannot be repeated.
 #endif  // INTEL_CUSTOMIZATION
-      if (isHalf || isFloat) break;     // LH, LF invalid.
+      if (isHalf || isFloat || isFloat128) break;     // LH, LF, LQ invalid.
 
       // Check for long long.  The L's need to be adjacent and the same case.
       if (s[1] == s[0]) {

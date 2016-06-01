@@ -118,7 +118,6 @@ def ext_vla : Extension<"variable length arrays are a C99 feature">,
   InGroup<VLAExtension>;
 def warn_vla_used : Warning<"variable length array used">,
   InGroup<VLA>, DefaultIgnore;
-def err_vla_non_pod : Error<"variable length array of non-POD element type %0">;
 def err_vla_in_sfinae : Error<
   "variable length array cannot be formed during template argument deduction">;
 def err_array_star_in_function_definition : Error<
@@ -397,10 +396,12 @@ def note_using_decl_constructor_ellipsis : Note<
 def err_using_decl_can_not_refer_to_class_member : Error<
   "using declaration cannot refer to class member">;
 def note_using_decl_class_member_workaround : Note<
-  "use %select{an alias declaration|a typedef declaration|a reference}0 "
-  "instead">;
+  "use %select{an alias declaration|a typedef declaration|a reference|"
+  "a const variable|a constexpr variable}0 instead">;
 def err_using_decl_can_not_refer_to_namespace : Error<
-  "using declaration cannot refer to namespace">;
+  "using declaration cannot refer to a namespace">;
+def err_using_decl_can_not_refer_to_scoped_enum : Error<
+  "using declaration cannot refer to a scoped enumerator">;
 def err_using_decl_constructor : Error<
   "using declaration cannot refer to a constructor">;
 def warn_cxx98_compat_using_decl_constructor : Warning<
@@ -3441,6 +3442,16 @@ def note_ovl_candidate_bad_cvr : Note<"candidate "
     "%select{const|restrict|const and restrict|volatile|const and volatile|"
     "volatile and restrict|const, volatile, and restrict}3 qualifier"
     "%select{||s||s|s|s}3">;
+def note_ovl_candidate_bad_unaligned : Note<"candidate "
+    "%select{function|function|constructor|"
+    "function |function |constructor |"
+    "constructor (the implicit default constructor)|"
+    "constructor (the implicit copy constructor)|"
+    "constructor (the implicit move constructor)|"
+    "function (the implicit copy assignment operator)|"
+    "function (the implicit move assignment operator)|"
+    "constructor (inherited)}0%1 not viable: "
+    "%ordinal4 argument (%2) would lose __unaligned qualifier">;
 def note_ovl_candidate_bad_base_to_derived_conv : Note<"candidate "
     "%select{function|function|constructor|"
     "function |function |constructor |"
@@ -3778,6 +3789,8 @@ def err_template_spec_unknown_kind : Error<
   "class template">;
 def note_specialized_entity : Note<
   "explicitly specialized declaration is here">;
+def note_explicit_specialization_declared_here : Note<
+  "explicit specialization declared here">;
 def err_template_spec_decl_function_scope : Error<
   "explicit specialization of %0 in function scope">;
 def err_template_spec_decl_class_scope : Error<
@@ -3900,6 +3913,8 @@ def err_partial_spec_ordering_ambiguous : Error<
 def note_partial_spec_match : Note<"partial specialization matches %0">;
 def err_partial_spec_redeclared : Error<
   "class template partial specialization %0 cannot be redeclared">;
+def note_partial_specialization_declared_here : Note<
+  "explicit specialization declared here">;
 def note_prev_partial_spec_here : Note<
   "previous declaration of class template partial specialization %0 is here">;
 def err_partial_spec_fully_specialized : Error<
@@ -5366,8 +5381,6 @@ def warn_typecheck_pointer_arith_void_type : Warning<
 // endif INTEL_CUSTOMIZATION
 def err_typecheck_decl_incomplete_type : Error<
   "variable has incomplete type %0">;
-def err_typecheck_decl_incomplete_type___float128 : Error<
-  "support for type '__float128' is not yet implemented">;
 def ext_typecheck_decl_incomplete_type : ExtWarn<
   "tentative definition of variable with internal linkage has incomplete non-array type %0">,
   InGroup<DiagGroup<"tentative-definition-incomplete-type">>;
@@ -5457,7 +5470,11 @@ def ext_typecheck_indirection_through_void_pointer : ExtWarn<
   "ISO C++ does not allow indirection on operand of type %0">,
   InGroup<DiagGroup<"void-ptr-dereference">>;
 def warn_indirection_through_null : Warning<
-  "indirection of non-volatile null pointer will be deleted, not trap">, InGroup<NullDereference>;
+  "indirection of non-volatile null pointer will be deleted, not trap">,
+  InGroup<NullDereference>;
+def warn_binding_null_to_reference : Warning<
+  "binding dereferenced null pointer to reference has undefined behavior">,
+  InGroup<NullDereference>;
 def note_indirection_through_null : Note<
   "consider using __builtin_trap() or qualifying pointer with 'volatile'">;
 def warn_pointer_indirection_from_incompatible_type : Warning<
@@ -6655,7 +6672,9 @@ def err_dynamic_var_init : Error<
     "__device__, __constant__, and __shared__ variables.">;
 def err_shared_var_init : Error<
     "initialization is not supported for __shared__ variables.">;
-
+def err_device_static_local_var : Error<
+    "Within a __device__/__global__ function, "
+    "only __shared__ variables may be marked \"static\"">;
 def warn_non_pod_vararg_with_format_string : Warning<
   "cannot pass %select{non-POD|non-trivial}0 object of type %1 to variadic "
   "%select{function|block|method|constructor}2; expected type from format "
@@ -6721,7 +6740,13 @@ def warn_cast_pointer_from_sel : Warning<
 def warn_function_def_in_objc_container : Warning<
   "function definition inside an Objective-C container is deprecated">,
   InGroup<FunctionDefInObjCContainer>;
-  
+
+def warn_cast_calling_conv : Warning<
+  "cast between incompatible calling conventions '%0' and '%1'; "
+  "calls through this pointer may abort at runtime">,
+  InGroup<DiagGroup<"cast-calling-convention">>;
+def note_change_calling_conv_fixit : Note<
+  "consider defining %0 with the '%1' calling convention">;
 def warn_bad_function_cast : Warning<
   "cast from function call of type %0 to non-matching type %1">,
   InGroup<BadFunctionCast>, DefaultIgnore;
@@ -7741,8 +7766,8 @@ def err_c99_array_usage_cxx : Error<
   "feature, not permitted in C++">;
  def err_type_requires_extension : Error<
   "use of type %0 requires %1 extension to be enabled">;
-def err_int128_unsupported : Error<
-  "__int128 is not supported on this target">;
+def err_type_unsupported : Error<
+  "%0 is not supported on this target">;
 def err_nsconsumed_attribute_mismatch : Error<
   "overriding method has mismatched ns_consumed attribute on its"
   " parameter">;
@@ -7957,13 +7982,13 @@ def err_opencl_builtin_pipe_invalid_access_modifier : Error<
 def err_opencl_invalid_access_qualifier : Error<
   "access qualifier can only be used for pipe and image type">;
 def err_opencl_invalid_read_write : Error<
-  "access qualifier %0 can not be used for %1 %select{|earlier than OpenCL2.0 version}2">;
+  "access qualifier %0 can not be used for %1 %select{|earlier than OpenCL version 2.0}2">;
 def err_opencl_multiple_access_qualifiers : Error<
   "multiple access qualifiers">;
 
 // OpenCL Section 6.8.g
 def err_opencl_unknown_type_specifier : Error<
-  "OpenCL does not support the '%0' %select{type qualifier|storage class specifier}1">;
+  "OpenCL version %0 does not support the '%1' %select{type qualifier|storage class specifier}2">;
 
 // OpenCL v2.0 s6.12.5 Blocks restrictions
 def err_opencl_block_storage_type : Error<
@@ -8093,6 +8118,12 @@ def warn_omp_alignment_not_power_of_two : Warning<
   InGroup<OpenMPClauses>;
 def err_omp_enclosed_declare_target : Error<
   "declare target region may not be enclosed within another declare target region">;
+def err_omp_invalid_target_decl : Error<
+  "%0 used in declare target directive is not a variable or a function name">;
+def err_omp_declare_target_multiple : Error<
+  "%0 appears multiple times in clauses on the same declare target directive">;
+def err_omp_declare_target_to_and_link : Error<
+  "%0 must not appear in both clauses 'to' and 'link'">;
 def warn_omp_not_in_target_context : Warning<
   "declaration is not declared in any declare target region">,
   InGroup<OpenMPTarget>;
@@ -8375,14 +8406,17 @@ def err_module_private_local_class : Error<
   "local %select{struct|interface|union|class|enum}0 cannot be declared "
   "__module_private__">;
 def err_module_unimported_use : Error<
-  "%select{declaration|definition|default argument}0 of %1 must be imported "
+  "%select{declaration|definition|default argument|"
+  "explicit specialization|partial specialization}0 of %1 must be imported "
   "from module '%2' before it is required">;
 def err_module_unimported_use_header : Error<
   "missing '#include %3'; "
-  "%select{declaration|definition|default argument}0 of %1 must be imported "
+  "%select{declaration|definition|default argument|"
+  "explicit specialization|partial specialization}0 of %1 must be imported "
   "from module '%2' before it is required">;
 def err_module_unimported_use_multiple : Error<
-  "%select{declaration|definition|default argument}0 of %1 must be imported "
+  "%select{declaration|definition|default argument|"
+  "explicit specialization|partial specialization}0 of %1 must be imported "
   "from one of the following modules before it is required:%2">;
 def ext_module_import_in_extern_c : ExtWarn<
   "import of C++ module '%0' appears within extern \"C\" language linkage "

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -triple x86_64-windows-msvc -emit-llvm %s -o - | FileCheck --check-prefix=X64 %s
+// RUN: %clang_cc1 -fcilkplus -fintel-compatibility -triple x86_64-windows-msvc -emit-llvm %s -o - | FileCheck --check-prefix=X64 %s
 // REQUIRES: cilkplus
 
 int foo ();

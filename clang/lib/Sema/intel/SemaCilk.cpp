@@ -4421,10 +4421,10 @@ StmtResult Sema::BuildCilkForStmt(SourceLocation CilkForLoc,
   SmallVector<Expr *, 4> CaptureInits;
   BuildCapturedStmtCaptureList(Captures, CaptureInits, FSI->Captures);
 
-  CapturedStmt *CapturedBody = CapturedStmt::Create(getASTContext(), Body,
-                                                    FSI->CapRegionKind,
-                                                    Captures, CaptureInits,
-                                                    CD, RD);
+  CapturedStmt *CapturedBody =
+      CapturedStmt::Create(getASTContext(), Body,
+                           static_cast<CapturedRegionKind>(FSI->CapRegionKind),
+                           Captures, CaptureInits, CD, RD);
 
   CD->setBody(CapturedBody->getCapturedStmt());
   RD->completeDefinition();
@@ -4580,10 +4580,10 @@ StmtResult Sema::BuildSIMDForStmt(SourceLocation PragmaLoc,
   SmallVector<Expr *, 4> CaptureInits;
   BuildCapturedStmtCaptureList(Captures, CaptureInits, FSI->Captures);
 
-  CapturedStmt *CapturedBody = CapturedStmt::Create(getASTContext(), Body,
-                                                    FSI->CapRegionKind,
-                                                    Captures, CaptureInits,
-                                                    CD, RD);
+  CapturedStmt *CapturedBody =
+      CapturedStmt::Create(getASTContext(), Body,
+                           static_cast<CapturedRegionKind>(FSI->CapRegionKind),
+                           Captures, CaptureInits, CD, RD);
 
   CD->setBody(Body);
   RD->completeDefinition();

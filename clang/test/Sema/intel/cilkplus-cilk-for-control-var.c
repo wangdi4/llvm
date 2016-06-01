@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -fsyntax-only -Wall -verify %s
+// RUN: %clang_cc1 -fintel-compatibility -fcilkplus -fsyntax-only -Wall -verify %s
 // REQUIRES: cilkplus
 void func1(const int);
 void func2(int *i);

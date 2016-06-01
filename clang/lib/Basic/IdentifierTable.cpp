@@ -92,40 +92,45 @@ IdentifierTable::IdentifierTable(const LangOptions &LangOpts,
 
 // Constants for TokenKinds.def
 namespace {
-  enum {
-    KEYC99 = 0x1,
-    KEYCXX = 0x2,
-    KEYCXX11 = 0x4,
-    KEYGNU = 0x8,
-    KEYMS = 0x10,
-    BOOLSUPPORT = 0x20,
-    KEYALTIVEC = 0x40,
-    KEYNOCXX = 0x80,
-    KEYBORLAND = 0x100,
-    KEYOPENCL = 0x200,
-    KEYC11 = 0x400,
-    KEYARC = 0x800,
-    KEYNOMS18 = 0x01000,
-    KEYNOOPENCL = 0x02000,
-    WCHARSUPPORT = 0x04000,
-    HALFSUPPORT = 0x08000,
-    KEYCONCEPTS = 0x10000,
-    KEYOBJC2    = 0x20000,
-    KEYZVECTOR  = 0x40000,
-    KEYCOROUTINES = 0x80000,
+enum {
+  KEYC99 = 0x1,
+  KEYCXX = 0x2,
+  KEYCXX11 = 0x4,
+  KEYGNU = 0x8,
+  KEYMS = 0x10,
+  BOOLSUPPORT = 0x20,
+  KEYALTIVEC = 0x40,
+  KEYNOCXX = 0x80,
+  KEYBORLAND = 0x100,
+  KEYOPENCL = 0x200,
+  KEYC11 = 0x400,
+  KEYARC = 0x800,
+  KEYNOMS18 = 0x01000,
+  KEYNOOPENCL = 0x02000,
+  WCHARSUPPORT = 0x04000,
+  HALFSUPPORT = 0x08000,
+  KEYCONCEPTS = 0x10000,
+  KEYOBJC2 = 0x20000,
+  KEYZVECTOR = 0x40000,
+  KEYCOROUTINES = 0x80000,
 #if INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
-    KEYCILKPLUS = 0x100000,
-    KEYFLOAT128 = 0x200000,
-    KEYRESTRICT = 0x400000,
-    KEYMSASM = 0x8000000,
-    KEYBASES = 0x10000000,
-    KEYNOINT128 = 0x20000000,
-    KEYDECIMAL = 0x40000000,
-    KEYMSCOMPAT = 0x80000000,
+  KEYCILKPLUS = 0x100000,
+  KEYFLOAT128 = 0x200000,
+  KEYRESTRICT = 0x400000,
+  KEYMSASM = 0x8000000,
+  KEYBASES = 0x10000000,
+  KEYNOINT128 = 0x20000000,
+  KEYDECIMAL = 0x40000000,
+  KEYMSCOMPAT = 0x80000000,
+  KEYNOINTELALL =
+      ~(KEYCILKPLUS | KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES |
+        KEYNOINT128 | KEYDECIMAL | KEYMSCOMPAT | KEYNOMS18 | KEYNOOPENCL),
+  KEYINTELALL = KEYCILKPLUS | KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES |
+                KEYNOINT128 | KEYDECIMAL | KEYMSCOMPAT,
 #endif // INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
-    KEYALL = (0xffffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0xfffffff
-              ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
-  };
+  KEYALL = (0xffffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0xfffffff
+            ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
+};
 
   /// \brief How a keyword is treated in the selected standard.
   enum KeywordStatus {
@@ -141,37 +146,52 @@ namespace {
 static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
                                       unsigned Flags) {
   if (Flags == KEYALL) return KS_Enabled;
+#if INTEL_CUSTOMIZATION
+  if (LangOpts.IntelCompat) {
+    if ((Flags & KEYINTELALL) == KEYINTELALL)
+      return KS_Enabled;
+    if ((Flags & KEYNOINTELALL) == KEYNOINTELALL)
+      Flags = Flags & KEYINTELALL;
+#if INTEL_SPECIFIC_CILKPLUS
+    if (LangOpts.CilkPlus && (Flags & KEYCILKPLUS))
+      return KS_Enabled;
+#endif // INTEL_SPECIFIC_CILKPLUS
+    if (LangOpts.Float128 && (Flags & KEYFLOAT128))
+      return KS_Extension;
+    // CQ#366963 - enable/disable 'restrict' keyword in IntelCompat mode.
+    if (Flags & KEYRESTRICT) {
+      if (LangOpts.Restrict)
+        return LangOpts.C99 ? KS_Enabled : KS_Extension;
+      else
+        return KS_Disabled;
+    }
+    // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
+    if (LangOpts.AsmBlocks && (Flags & KEYMSASM))
+      return KS_Extension;
+    // CQ#369185 - enable '__bases' and '__direct_bases' keywords for
+    // IntelCompat and C++11 modes only.
+    if (LangOpts.CPlusPlus11 && (Flags & KEYBASES))
+      return KS_Extension;
+    if (!LangOpts.NoInt128 && (Flags & KEYNOINT128))
+      return KS_Enabled;
+    // CQ#374317 - don't recognize _Decimal keyword if not in GNU mode.
+    if (LangOpts.GNUMode && (Flags & KEYDECIMAL))
+      return KS_Enabled;
+    // Some keywords (like static_assert in C, CQ#377592) are enabled in MS
+    // compatibility mode only.
+    if (LangOpts.MSVCCompat && (Flags & KEYMSCOMPAT))
+      return KS_Enabled;
+  } else if ((Flags & KEYNOINTELALL) == KEYNOINTELALL) {
+    // CQ#374317 - don't recognize _Decimal keyword if not in GNU mode.
+    return KS_Enabled;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (LangOpts.CPlusPlus && (Flags & KEYCXX)) return KS_Enabled;
   if (LangOpts.CPlusPlus11 && (Flags & KEYCXX11)) return KS_Enabled;
   if (LangOpts.C99 && (Flags & KEYC99)) return KS_Enabled;
   if (LangOpts.GNUKeywords && (Flags & KEYGNU)) return KS_Extension;
   if (LangOpts.MicrosoftExt && (Flags & KEYMS)) return KS_Extension;
   if (LangOpts.Borland && (Flags & KEYBORLAND)) return KS_Extension;
-#if INTEL_SPECIFIC_CILKPLUS
-  if (LangOpts.CilkPlus && (Flags & KEYCILKPLUS)) return KS_Extension;
-#endif // INTEL_SPECIFIC_CILKPLUS
-#if INTEL_CUSTOMIZATION
-  if (LangOpts.Float128 && (Flags & KEYFLOAT128)) return KS_Extension;
-  // CQ#366963 - enable/disable 'restrict' keyword in IntelCompat mode.
-  if (LangOpts.Restrict && (Flags & KEYRESTRICT))
-    return LangOpts.C99 ? KS_Enabled : KS_Extension;
-  // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
-  if (LangOpts.IntelCompat && LangOpts.AsmBlocks && (Flags & KEYMSASM))
-    return KS_Extension;
-  // CQ#369185 - enable '__bases' and '__direct_bases' keywords for IntelCompat
-  // and C++11 modes only.
-  if (LangOpts.IntelCompat && LangOpts.CPlusPlus11 && (Flags & KEYBASES))
-    return KS_Extension;
-  if (!(LangOpts.IntelCompat && LangOpts.NoInt128) && (Flags & KEYNOINT128))
-    return KS_Enabled;
-  // CQ#374317 - don't recognize _Decimal keyword if not in GNU mode.
-  if ((!LangOpts.IntelCompat || LangOpts.GNUMode) && (Flags & KEYDECIMAL))
-    return KS_Enabled;
-  // Some keywords (like static_assert in C, CQ#377592) are enabled in MS
-  // compatibility mode only.
-  if (LangOpts.IntelCompat && LangOpts.MSVCCompat && (Flags & KEYMSCOMPAT))
-    return KS_Enabled;
-#endif  // INTEL_CUSTOMIZATION
   if (LangOpts.Bool && (Flags & BOOLSUPPORT)) return KS_Enabled;
   if (LangOpts.Half && (Flags & HALFSUPPORT)) return KS_Enabled;
   if (LangOpts.WChar && (Flags & WCHARSUPPORT)) return KS_Enabled;
@@ -263,9 +283,9 @@ void IdentifierTable::AddKeywords(const LangOptions &LangOpts) {
 #if INTEL_CUSTOMIZATION
 // CQ#380574: Ability to set various predefines based on gcc version needed.
   if (LangOpts.IntelCompat && LangOpts.IntelQuad)
-    AddKeyword("_Quad", tok::kw__Quad, KEYFLOAT128, LangOpts, *this);
+    AddKeyword("_Quad", tok::kw___float128, KEYFLOAT128, LangOpts, *this);
   if (LangOpts.IntelCompat && LangOpts.GNUVersion >= 40400 && LangOpts.GNUMode)
-    AddKeyword("__float128", tok::kw__Quad, KEYFLOAT128, LangOpts, *this);
+    AddKeyword("__float128", tok::kw___float128, KEYFLOAT128, LangOpts, *this);
 #endif // INTEL_CUSTOMIZATION
 }
 

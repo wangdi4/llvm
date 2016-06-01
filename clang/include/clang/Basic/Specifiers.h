@@ -54,9 +54,7 @@ namespace clang {
     TST_half,         // OpenCL half, ARM NEON __fp16
     TST_float,
     TST_double,
-#ifdef INTEL_CUSTOMIZATION
     TST_float128,
-#endif  // INTEL_CUSTOMIZATION
     TST_bool,         // _Bool
     TST_decimal32,    // _Decimal32
     TST_decimal64,    // _Decimal64

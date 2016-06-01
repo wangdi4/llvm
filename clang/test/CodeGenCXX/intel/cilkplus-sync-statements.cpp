@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++11 -fcxx-exceptions -fexceptions -fcilkplus -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -std=c++11 -fcxx-exceptions -fexceptions -fintel-compatibility -fcilkplus -emit-llvm %s -o - | FileCheck %s
 // XFAIL: win
 // REQUIRES: cilkplus
 

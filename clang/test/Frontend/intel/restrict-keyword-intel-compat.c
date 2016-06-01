@@ -9,10 +9,10 @@
 // RUN: %clang_cc1 -fintel-compatibility -restrict -x c++ -std=gnu++98 -verify %s -DTESTOK
 // RUN: %clang_cc1 -fintel-compatibility -no-restrict -x c++ -std=gnu++98 -verify %s -DTESTERR
 // RUN: %clang_cc1 -fintel-compatibility -x c++ -std=gnu++98 -verify %s -DTESTERR
-// RUN: %clang_cc1 -restrict -std=c89 -verify %s -DTESTOK
-// RUN: %clang_cc1 -restrict -std=c99 -verify %s -DTESTOK
-// RUN: %clang_cc1 -restrict -x c++ -std=gnu++98 -verify %s -DTESTOK
-// RUN: %clang_cc1 -no-restrict -std=c99 -verify %s -DTESTERR
+// RUN: %clang_cc1 -fintel-compatibility -restrict -std=c89 -verify %s -DTESTOK
+// RUN: %clang_cc1 -fintel-compatibility -restrict -std=c99 -verify %s -DTESTOK
+// RUN: %clang_cc1 -fintel-compatibility -restrict -x c++ -std=gnu++98 -verify %s -DTESTOK
+// RUN: %clang_cc1 -fintel-compatibility -no-restrict -std=c99 -verify %s -DTESTERR
 
 
 #if TESTOK

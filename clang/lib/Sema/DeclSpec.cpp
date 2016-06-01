@@ -289,9 +289,7 @@ bool Declarator::isDeclarationOfFunction() const {
     case TST_decimal32:
     case TST_decimal64:
     case TST_double:
-#if INTEL_CUSTOMIZATION
     case TST_float128:
-#endif  // INTEL_CUSTOMIZATION
     case TST_enum:
     case TST_error:
     case TST_float:
@@ -465,9 +463,7 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T,
   case DeclSpec::TST_half:        return "half";
   case DeclSpec::TST_float:       return "float";
   case DeclSpec::TST_double:      return "double";
-#if INTEL_CUSTOMIZATION
-  case DeclSpec::TST_float128:    return "_Quad";
-#endif  // INTEL_CUSTOMIZATION
+  case DeclSpec::TST_float128:    return "__float128";
   case DeclSpec::TST_bool:        return Policy.Bool ? "bool" : "_Bool";
   case DeclSpec::TST_decimal32:   return "_Decimal32";
   case DeclSpec::TST_decimal64:   return "_Decimal64";
@@ -508,6 +504,7 @@ const char *DeclSpec::getSpecifierName(TQ T) {
   case DeclSpec::TQ_restrict:    return "restrict";
   case DeclSpec::TQ_volatile:    return "volatile";
   case DeclSpec::TQ_atomic:      return "_Atomic";
+  case DeclSpec::TQ_unaligned:   return "__unaligned";
   }
   llvm_unreachable("Unknown typespec!");
 }
@@ -802,6 +799,11 @@ bool DeclSpec::SetTypeQual(TQ T, SourceLocation Loc, const char *&PrevSpec,
       IsExtension = false;
     return BadSpecifier(T, T, PrevSpec, DiagID, IsExtension);
   }
+#if INTEL_CUSTOMIZATION
+  // On non-MS mode '_unaligned' must be recognized, but just ignored.
+  if (Lang.IntelCompat && !Lang.IntelMSCompat && T == TQ_unaligned)
+    return false;
+#endif // INTEL_CUSTOMIZATION
   TypeQualifiers |= T;
 
   switch (T) {
@@ -810,6 +812,7 @@ bool DeclSpec::SetTypeQual(TQ T, SourceLocation Loc, const char *&PrevSpec,
   case TQ_restrict: TQ_restrictLoc = Loc; return false;
   case TQ_volatile: TQ_volatileLoc = Loc; return false;
   case TQ_atomic:   TQ_atomicLoc = Loc; return false;
+  case TQ_unaligned: TQ_unalignedLoc = Loc; return false;
   }
 
   llvm_unreachable("Unknown type qualifier!");
@@ -975,10 +978,10 @@ void DeclSpec::Finish(Sema &S, const PrintingPolicy &Policy) {
        TypeSpecSign != TSS_unspecified ||
        TypeAltiVecVector || TypeAltiVecPixel || TypeAltiVecBool ||
        TypeQualifiers)) {
-    const unsigned NumLocs = 8;
+    const unsigned NumLocs = 9;
     SourceLocation ExtraLocs[NumLocs] = {
       TSWLoc, TSCLoc, TSSLoc, AltiVecLoc,
-      TQ_constLoc, TQ_restrictLoc, TQ_volatileLoc, TQ_atomicLoc
+      TQ_constLoc, TQ_restrictLoc, TQ_volatileLoc, TQ_atomicLoc, TQ_unalignedLoc
     };
     FixItHint Hints[NumLocs];
     SourceLocation FirstLoc;

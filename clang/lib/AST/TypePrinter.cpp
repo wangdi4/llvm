@@ -919,7 +919,8 @@ void TypePrinter::printAtomicAfter(const AtomicType *T, raw_ostream &OS) { }
 void TypePrinter::printPipeBefore(const PipeType *T, raw_ostream &OS) {
   IncludeStrongLifetimeRAII Strong(Policy);
 
-  OS << "pipe";
+  OS << "pipe ";
+  print(T->getElementType(), OS, StringRef());
   spaceBeforePlaceHolder(OS);
 }
 
@@ -1615,6 +1616,12 @@ void Qualifiers::print(raw_ostream &OS, const PrintingPolicy& Policy,
   unsigned quals = getCVRQualifiers();
   if (quals) {
     AppendTypeQualList(OS, quals, Policy.LangOpts.C99);
+    addSpace = true;
+  }
+  if (hasUnaligned()) {
+    if (addSpace)
+      OS << ' ';
+    OS << "__unaligned";
     addSpace = true;
   }
   if (unsigned addrspace = getAddressSpace()) {

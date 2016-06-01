@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -std=c++11 -fcilkplus -emit-llvm %s -o %t
+// RUN: %clang_cc1 -fcilkplus -std=c++11 -fcilkplus -fintel-compatibility -emit-llvm %s -o %t
 // RUN: FileCheck -check-prefix=CHECK-CILK1 --input-file=%t %s
 // RUN: FileCheck -check-prefix=CHECK-CILK2 --input-file=%t %s
 // RUN: FileCheck -check-prefix=CHECK-CILK3 --input-file=%t %s

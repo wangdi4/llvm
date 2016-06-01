@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -emit-llvm -O0 -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fcilkplus -fintel-compatibility -emit-llvm -O0 -o - %s | FileCheck %s
 // REQUIRES: cilkplus
 
 // CHECK: %struct.anon = type { i32*, float**, i32* }

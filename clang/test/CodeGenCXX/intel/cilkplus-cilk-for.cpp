@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++11 -fcilkplus -fcxx-exceptions -fexceptions  -disable-llvm-optzns -emit-llvm %s -o %t
+// RUN: %clang_cc1 -std=c++11 -fintel-compatibility -fcilkplus -fcxx-exceptions -fexceptions  -disable-llvm-optzns -emit-llvm %s -o %t
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK1 %s
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK2 %s
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK5 %s

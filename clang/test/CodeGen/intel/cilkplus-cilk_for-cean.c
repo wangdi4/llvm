@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -emit-llvm -O2 -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fcilkplus -fintel-compatibility -emit-llvm -O2 -o - %s | FileCheck %s
 // REQUIRES: cilkplus
 
 #define N SMALL_INT_ARRAY_SIZE

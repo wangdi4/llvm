@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++11 -fcilkplus -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++11 -fintel-compatibility -fcilkplus -fsyntax-only -verify %s
 // REQUIRES: cilkplus
 
 constexpr int stride() { return 1; }

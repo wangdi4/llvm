@@ -1183,8 +1183,10 @@ void mips::getMipsCPUAndABI(const ArgList &Args, const llvm::Triple &Triple,
   }
 
   // MIPS64r6 is the default for Android MIPS64 (mips64el-linux-android).
-  if (Triple.isAndroid())
+  if (Triple.isAndroid()) {
+    DefMips32CPU = "mips32";
     DefMips64CPU = "mips64r6";
+  }
 
   // MIPS3 is the default for mips64*-unknown-openbsd.
   if (Triple.getOS() == llvm::Triple::OpenBSD)
@@ -1479,6 +1481,7 @@ static std::string getPPCTargetCPU(const ArgList &Args) {
         .Case("power6x", "pwr6x")
         .Case("power7", "pwr7")
         .Case("power8", "pwr8")
+        .Case("power9", "pwr9")
         .Case("pwr3", "pwr3")
         .Case("pwr4", "pwr4")
         .Case("pwr5", "pwr5")
@@ -1487,6 +1490,7 @@ static std::string getPPCTargetCPU(const ArgList &Args) {
         .Case("pwr6x", "pwr6x")
         .Case("pwr7", "pwr7")
         .Case("pwr8", "pwr8")
+        .Case("pwr9", "pwr9")
         .Case("powerpc", "ppc")
         .Case("powerpc64", "ppc64")
         .Case("powerpc64le", "ppc64le")
@@ -1653,6 +1657,12 @@ void Clang::AddSparcTargetArgs(const ArgList &Args,
     D.Diag(diag::err_drv_unsupported_opt_for_target) << "-msoft-float"
                                                      << Triple;
   }
+}
+
+void Clang::AddSystemZTargetArgs(const ArgList &Args,
+                                 ArgStringList &CmdArgs) const {
+  if (Args.hasFlag(options::OPT_mbackchain, options::OPT_mno_backchain, false))
+    CmdArgs.push_back("-mbackchain");
 }
 
 static const char *getSystemZTargetCPU(const ArgList &Args) {
@@ -3285,7 +3295,7 @@ static void appendUserToPath(SmallVectorImpl<char> &Result) {
   Result.append(UID.begin(), UID.end());
 }
 
-VersionTuple visualstudio::getMSVCVersion(const Driver *D,
+VersionTuple visualstudio::getMSVCVersion(const Driver *D, const ToolChain &TC,
                                           const llvm::Triple &Triple,
                                           const llvm::opt::ArgList &Args,
                                           bool IsWindowsMSVC) {
@@ -3327,8 +3337,14 @@ VersionTuple visualstudio::getMSVCVersion(const Driver *D,
     if (Major || Minor || Micro)
       return VersionTuple(Major, Minor, Micro);
 
-    // FIXME: Consider bumping this to 19 (MSVC2015) soon.
-    return VersionTuple(18);
+    if (IsWindowsMSVC) {
+      VersionTuple MSVT = TC.getMSVCVersionFromExe();
+      if (!MSVT.empty())
+        return MSVT;
+
+      // FIXME: Consider bumping this to 19 (MSVC2015) soon.
+      return VersionTuple(18);
+    }
   }
   return VersionTuple();
 }
@@ -3765,12 +3781,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (C.getDriver().embedBitcodeEnabled() &&
       (isa<BackendJobAction>(JA) || isa<AssembleJobAction>(JA))) {
     // Add flags implied by -fembed-bitcode.
-    CmdArgs.push_back("-fembed-bitcode");
+    Args.AddLastArg(CmdArgs, options::OPT_fembed_bitcode_EQ);
     // Disable all llvm IR level optimizations.
     CmdArgs.push_back("-disable-llvm-optzns");
   }
   if (C.getDriver().embedBitcodeMarkerOnly())
-    CmdArgs.push_back("-fembed-bitcode-marker");
+    CmdArgs.push_back("-fembed-bitcode=marker");
 
   // We normally speed up the clang process a bit by skipping destructors at
   // exit, but when we're generating diagnostics we can rely on some of the
@@ -4243,6 +4259,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   case llvm::Triple::sparcel:
   case llvm::Triple::sparcv9:
     AddSparcTargetArgs(Args, CmdArgs);
+    break;
+
+  case llvm::Triple::systemz:
+    AddSystemZTargetArgs(Args, CmdArgs);
     break;
 
   case llvm::Triple::x86:
@@ -5251,7 +5271,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // -fms-compatibility-version=18.00 is default.
   VersionTuple MSVT = visualstudio::getMSVCVersion(
-      &D, getToolChain().getTriple(), Args, IsWindowsMSVC);
+      &D, getToolChain(), getToolChain().getTriple(), Args, IsWindowsMSVC);
   if (!MSVT.empty())
     CmdArgs.push_back(
         Args.MakeArgString("-fms-compatibility-version=" + MSVT.getAsString()));
@@ -5632,6 +5652,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Arg *A = Args.getLastArg(options::OPT_fshow_overloads_EQ))
     A->render(Args, CmdArgs);
 
+  if (Arg *A = Args.getLastArg(
+          options::OPT_fsanitize_undefined_strip_path_components_EQ))
+    A->render(Args, CmdArgs);
+
   // -fdollars-in-identifiers default varies depending on platform and
   // language; only pass if specified.
   if (Arg *A = Args.getLastArg(options::OPT_fdollars_in_identifiers,
@@ -5734,7 +5758,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // With -save-temps, we want to save the unoptimized bitcode output from the
   // CompileJobAction, use -disable-llvm-passes to get pristine IR generated
   // by the frontend.
-  if (C.getDriver().isSaveTempsEnabled() && isa<CompileJobAction>(JA))
+  // When -fembed-bitcode is enabled, optimized bitcode is emitted because it
+  // has slightly different breakdown between stages.
+  // FIXME: -fembed-bitcode -save-temps will save optimized bitcode instead of
+  // pristine IR generated by the frontend. Ideally, a new compile action should
+  // be added so both IR can be captured.
+  if (C.getDriver().isSaveTempsEnabled() &&
+      !C.getDriver().embedBitcodeEnabled() && isa<CompileJobAction>(JA))
     CmdArgs.push_back("-disable-llvm-passes");
 
   if (Output.getType() == types::TY_Dependencies) {
@@ -6288,8 +6318,7 @@ void ClangAs::ConstructJob(Compilation &C, const JobAction &JA,
     // Set the AT_producer to the clang version when using the integrated
     // assembler on assembly source files.
     CmdArgs.push_back("-dwarf-debug-producer");
-    std::string QuotedClangVersion("'" + getClangFullVersion() + "'");
-    CmdArgs.push_back(Args.MakeArgString(QuotedClangVersion));
+    CmdArgs.push_back(Args.MakeArgString(getClangFullVersion()));
 
     // And pass along -I options
     Args.AddAllArgs(CmdArgs, options::OPT_I);
@@ -6814,6 +6843,8 @@ void amdgpu::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   std::string Linker = getToolChain().GetProgramPath(getShortName());
   ArgStringList CmdArgs;
   AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs);
+  CmdArgs.push_back("-shared");
+  CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
   C.addCommand(llvm::make_unique<Command>(JA, *this, Args.MakeArgString(Linker),
                                           CmdArgs, Inputs));
@@ -8976,9 +9007,10 @@ static void AddLibgcc(const llvm::Triple &Triple, const Driver &D,
 static std::string getLinuxDynamicLinker(const ArgList &Args,
                                          const toolchains::Linux &ToolChain) {
   const llvm::Triple::ArchType Arch = ToolChain.getArch();
+  const llvm::Triple &Triple = ToolChain.getTriple();
 
-  if (ToolChain.getTriple().isAndroid()) {
-    if (ToolChain.getTriple().isArch64Bit())
+  if (Triple.isAndroid()) {
+    if (Triple.isArch64Bit())
       return "/system/bin/linker64";
     else
       return "/system/bin/linker";
@@ -8990,29 +9022,29 @@ static std::string getLinuxDynamicLinker(const ArgList &Args,
   else if (Arch == llvm::Triple::aarch64_be)
     return "/lib/ld-linux-aarch64_be.so.1";
   else if (Arch == llvm::Triple::arm || Arch == llvm::Triple::thumb) {
-    if (ToolChain.getTriple().getEnvironment() == llvm::Triple::GNUEABIHF ||
+    if (Triple.getEnvironment() == llvm::Triple::GNUEABIHF ||
         arm::getARMFloatABI(ToolChain, Args) == arm::FloatABI::Hard)
       return "/lib/ld-linux-armhf.so.3";
     else
       return "/lib/ld-linux.so.3";
   } else if (Arch == llvm::Triple::armeb || Arch == llvm::Triple::thumbeb) {
     // TODO: check which dynamic linker name.
-    if (ToolChain.getTriple().getEnvironment() == llvm::Triple::GNUEABIHF ||
+    if (Triple.getEnvironment() == llvm::Triple::GNUEABIHF ||
         arm::getARMFloatABI(ToolChain, Args) == arm::FloatABI::Hard)
       return "/lib/ld-linux-armhf.so.3";
     else
       return "/lib/ld-linux.so.3";
   } else if (Arch == llvm::Triple::mips || Arch == llvm::Triple::mipsel ||
              Arch == llvm::Triple::mips64 || Arch == llvm::Triple::mips64el) {
-    std::string LibDir =
-        "/lib" + mips::getMipsABILibSuffix(Args, ToolChain.getTriple());
+    std::string LibDir = "/lib" + mips::getMipsABILibSuffix(Args, Triple);
     StringRef LibName;
-    bool IsNaN2008 = mips::isNaN2008(Args, ToolChain.getTriple());
+    bool IsNaN2008 = mips::isNaN2008(Args, Triple);
     if (mips::isUCLibc(Args))
       LibName = IsNaN2008 ? "ld-uClibc-mipsn8.so.0" : "ld-uClibc.so.0";
-    else if (!ToolChain.getTriple().hasEnvironment()) {
-      bool LE = (ToolChain.getTriple().getArch() == llvm::Triple::mipsel) ||
-                (ToolChain.getTriple().getArch() == llvm::Triple::mips64el);
+    else if (!Triple.hasEnvironment() &&
+             Triple.getVendor() == llvm::Triple::VendorType::MipsTechnologies) {
+      bool LE = (Triple.getArch() == llvm::Triple::mipsel) ||
+                (Triple.getArch() == llvm::Triple::mips64el);
       LibName = LE ? "ld-musl-mipsel.so.1" : "ld-musl-mips.so.1";
     } else
       LibName = IsNaN2008 ? "ld-linux-mipsn8.so.1" : "ld.so.1";
@@ -9033,7 +9065,7 @@ static std::string getLinuxDynamicLinker(const ArgList &Args,
   else if (Arch == llvm::Triple::sparcv9)
     return "/lib64/ld-linux.so.2";
   else if (Arch == llvm::Triple::x86_64 &&
-           ToolChain.getTriple().getEnvironment() == llvm::Triple::GNUX32)
+           Triple.getEnvironment() == llvm::Triple::GNUX32)
     return "/libx32/ld-linux-x32.so.2";
   else
     return "/lib64/ld-linux-x86-64.so.2";
@@ -10510,12 +10542,12 @@ void CrossWindows::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     } else {
       for (const auto &Lib : {"asan_dynamic", "asan_dynamic_runtime_thunk"})
         CmdArgs.push_back(TC.getCompilerRTArgString(Args, Lib));
-        // Make sure the dynamic runtime thunk is not optimized out at link time
-        // to ensure proper SEH handling.
-        CmdArgs.push_back(Args.MakeArgString("--undefined"));
-        CmdArgs.push_back(Args.MakeArgString(TC.getArch() == llvm::Triple::x86
-                                                 ? "___asan_seh_interceptor"
-                                                 : "__asan_seh_interceptor"));
+      // Make sure the dynamic runtime thunk is not optimized out at link time
+      // to ensure proper SEH handling.
+      CmdArgs.push_back(Args.MakeArgString("--undefined"));
+      CmdArgs.push_back(Args.MakeArgString(TC.getArch() == llvm::Triple::x86
+                                               ? "___asan_seh_interceptor"
+                                               : "__asan_seh_interceptor"));
     }
   }
 
@@ -10710,7 +10742,7 @@ void PS4cpu::Assemble::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back(Input.getFilename());
 
   const char *Exec =
-      Args.MakeArgString(getToolChain().GetProgramPath("ps4-as"));
+      Args.MakeArgString(getToolChain().GetProgramPath("orbis-as"));
   C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
 }
 
@@ -10778,7 +10810,7 @@ static void ConstructPS4LinkJob(const Tool &T, Compilation &C,
     CmdArgs.push_back("-lpthread");
   }
 
-  const char *Exec = Args.MakeArgString(ToolChain.GetProgramPath("ps4-ld"));
+  const char *Exec = Args.MakeArgString(ToolChain.GetProgramPath("orbis-ld"));
 
   C.addCommand(llvm::make_unique<Command>(JA, T, Exec, CmdArgs, Inputs));
 }
@@ -10951,9 +10983,9 @@ static void ConstructGoldLinkJob(const Tool &T, Compilation &C,
 
   const char *Exec =
 #ifdef LLVM_ON_WIN32
-      Args.MakeArgString(ToolChain.GetProgramPath("ps4-ld.gold"));
+      Args.MakeArgString(ToolChain.GetProgramPath("orbis-ld.gold"));
 #else
-      Args.MakeArgString(ToolChain.GetProgramPath("ps4-ld"));
+      Args.MakeArgString(ToolChain.GetProgramPath("orbis-ld"));
 #endif
 
   C.addCommand(llvm::make_unique<Command>(JA, T, Exec, CmdArgs, Inputs));

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++11 -fcilkplus -fsyntax-only -fcxx-exceptions -verify -Wno-unused %s
+// RUN: %clang_cc1 -std=c++11 -fintel-compatibility -fcilkplus -fsyntax-only -fcxx-exceptions -verify -Wno-unused %s
 // REQUIRES: cilkplus
 
 extern int foo();

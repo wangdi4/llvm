@@ -1,8 +1,8 @@
-// RUN: %clang_cc1 -std=c++11 -fcxx-exceptions -fexceptions -fcilkplus -emit-llvm %s -o %t
+// RUN: %clang_cc1 -std=c++11 -fcxx-exceptions -fexceptions -fcilkplus -fintel-compatibility -emit-llvm %s -o %t
 // RUN: FileCheck -check-prefix=CHECK_PARENT --input-file=%t %s
 // RUN: FileCheck -check-prefix=CHECK_HELPER_F1 --input-file=%t %s
 // RUN: FileCheck -check-prefix=CHECK_HELPER_F2 --input-file=%t %s
-// RUN: %clang_cc1 -disable-llvm-optzns -std=c++11 -fcxx-exceptions -fexceptions -fcilkplus -emit-llvm %s -o %t-noopt
+// RUN: %clang_cc1 -disable-llvm-optzns -std=c++11 -fcxx-exceptions -fexceptions -fcilkplus -fintel-compatibility -emit-llvm %s -o %t-noopt
 // RUN: FileCheck -check-prefix=CHECK_IMPLICIT_SYNC --input-file=%t-noopt %s
 // RUN: FileCheck -check-prefix=CHECK_SYNC_JUMP --input-file=%t-noopt %s
 // RUN: FileCheck -check-prefix=CHECK_MISC_IMP_SYNC --input-file=%t-noopt %s

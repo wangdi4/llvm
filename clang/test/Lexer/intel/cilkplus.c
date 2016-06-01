@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify -fcilkplus %s
+// RUN: %clang_cc1 -fsyntax-only -verify -fcilkplus -fintel-compatibility %s
 // REQUIRES: cilkplus
 
 int _Cilk_spawn; // expected-error {{expected identifier}}
