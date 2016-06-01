@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -166,7 +166,7 @@ int4 __attribute__((overloadable)) ProjectToEdgeInt(__private image_aux_data *pI
 // Clamps SOA4 coordinates to be inside image
 //
 // @param [in] image: the image object
-// @param [in] coord_(x,y) coordinates of the pixel 
+// @param [in] coord_(x,y) coordinates of the pixel
 // @param [out] res_(x,y) output coordinates
 void __attribute__((overloadable)) SOA4_ProjectToEdgeInt(__private image_aux_data *pImage, int4 coord_x, int4 coord_y, __private int4* res_x, __private int4* res_y)
 {
@@ -182,7 +182,7 @@ void __attribute__((overloadable)) SOA4_ProjectToEdgeInt(__private image_aux_dat
 // Clamps SOA8 coordinates to be inside image
 //
 // @param [in] image: the image object
-// @param [in] coord_(x,y) coordinates of the pixel 
+// @param [in] coord_(x,y) coordinates of the pixel
 // @param [out] res_(x,y) output coordinates
 void __attribute__((overloadable)) SOA8_ProjectToEdgeInt(__private image_aux_data *pImage, int8 coord_x, int8 coord_y, __private int8* res_x, __private int8* res_y)
 {
@@ -237,7 +237,7 @@ void __attribute__((overloadable)) soa8_extract_pixel(image2d_t image, int8 coor
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     uint8 offset_x = (uint8)(pImage->offset[0]);
     uint8 offset_y = (uint8)(pImage->offset[1]);
-    
+
     uint8 ocoord_x = (as_uint8(coord_x)) * offset_x;
     uint8 ocoord_y = (as_uint8(coord_y)) * offset_y;
 
@@ -476,6 +476,14 @@ void __attribute__((overloadable)) soa4_read_imageui(image2d_t image, sampler_t 
     call_SOA4_Image_UI_READ_CBK(read_cbk, (__private void*)pImage, translated_coord_x, translated_coord_y, pData, res_x, res_y, res_z, res_w);
 }
 
+void __attribute__((overloadable)) soa4_read_imageui(image2d_t image, int4 coord_x, int4 coord_y,
+                                                    __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w)
+{
+    // call SOA version with the default sampler
+    sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
+    soa4_read_imageui(image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
 void __attribute__((overloadable)) soa8_read_imageui(image2d_t image, sampler_t sampler, int8 coord_x, int8 coord_y,
                                                     __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
 {
@@ -488,6 +496,15 @@ void __attribute__((overloadable)) soa8_read_imageui(image2d_t image, sampler_t 
     int8 translated_coord_y;
     call_SOA8_Image_I_COORD_CBK(coord_cbk, (__private void*)pImage, coord_x, coord_y, &translated_coord_x, &translated_coord_y );
     call_SOA8_Image_UI_READ_CBK(read_cbk, (__private void*)pImage, translated_coord_x, translated_coord_y, pData, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) soa8_read_imageui(image2d_t image, int8 coord_x, int8 coord_y,
+                                                    __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
+{
+    // call SOA version with the default sampler
+    sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
+    soa8_read_imageui(image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+
 }
 
 uint4  __attribute__((overloadable)) mask_read_imageui(int mask, read_only image2d_t image, sampler_t sampler, int2 coord)
@@ -1462,5 +1479,55 @@ void __attribute__((overloadable)) mask_soa8_write_imageui(int8 mask, image2d_t 
     }
 }
 
+// SOA versions of masked read_imageui what have unmasked counterparts
+void __attribute__((overloadable)) mask_soa4_read_imageui(int4 mask, image2d_t image, sampler_t sampler, int4 coord_x, int4 coord_y,
+                                                         __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w)
+{
+    const int rescmp = intel_movemask(mask);
+    // ALL elements in mask are zero
+    if(rescmp == 0){
+        return;
+    }
+
+    // If addressing mode isn't set then set clamp to edge to avoid out of bounds memory accesses
+    if(__builtin_astype(sampler, int) & __ADDRESS_MASK) {
+        sampler_t maskSampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+        sampler = maskSampler;
+    }
+    soa4_read_imageui(image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) mask_soa4_read_imageui(int4 mask, image2d_t image, int4 coord_x, int4 coord_y,
+                                                         __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w)
+{
+  // Use clamp to edge addressing mode to avoid out of bounds memory accesses
+  sampler_t sampler  = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+  mask_soa4_read_imageui(mask, image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+
+void __attribute__((overloadable)) mask_soa8_read_imageui(int8 mask, image2d_t image, sampler_t sampler, int8 coord_x, int8 coord_y,
+                                                         __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
+{
+    const int rescmp = intel_movemask(mask);
+    // ALL elements in mask are zero
+    if(rescmp == 0){
+        return;
+    }
+    // If addressing mode isn't set then set clamp to edge to avoid out of bounds memory accesses
+    if(__builtin_astype(sampler, int) & __ADDRESS_MASK) {
+        sampler_t maskSampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+        sampler = maskSampler;
+    }
+    soa8_read_imageui(image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+void __attribute__((overloadable)) mask_soa8_read_imageui(int8 mask, image2d_t image, int8 coord_x, int8 coord_y,
+                                                         __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
+{
+  // Use clamp to edge addressing mode to avoid out of bounds memory accesses
+  sampler_t sampler  = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+  mask_soa8_read_imageui(mask, image, sampler, coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
 
 #endif // defined (__MIC__) || defined(__MIC2__)
