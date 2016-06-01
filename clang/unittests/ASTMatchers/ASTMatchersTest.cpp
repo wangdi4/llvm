@@ -51,7 +51,6 @@ TEST(Finder, DynamicOnlyAcceptsSomeMatchers) {
 
   // Do not accept non-toplevel matchers.
   EXPECT_FALSE(Finder.addDynamicMatcher(isArrow(), nullptr));
-  EXPECT_FALSE(Finder.addDynamicMatcher(hasSize(2), nullptr));
   EXPECT_FALSE(Finder.addDynamicMatcher(hasName("x"), nullptr));
 }
 
@@ -2536,6 +2535,17 @@ TEST(Matcher, StringLiterals) {
   EXPECT_TRUE(notMatches("const char s[1] = {'a'};", Literal));
 }
 
+TEST(StringLiteral, HasSize) {
+  StatementMatcher Literal = stringLiteral(hasSize(4));
+  EXPECT_TRUE(matches("const char *s = \"abcd\";", Literal));
+  // wide string
+  EXPECT_TRUE(matches("const wchar_t *s = L\"abcd\";", Literal));
+  // with escaped characters
+  EXPECT_TRUE(matches("const char *s = \"\x05\x06\x07\x08\";", Literal));
+  // no matching, too small
+  EXPECT_TRUE(notMatches("const char *s = \"ab\";", Literal));
+}
+
 TEST(Matcher, CharacterLiterals) {
   StatementMatcher CharLiteral = characterLiteral();
   EXPECT_TRUE(matches("const char c = 'c';", CharLiteral));
@@ -3475,6 +3485,15 @@ TEST(CastExpression, DoesNotMatchNonCasts) {
   EXPECT_TRUE(notMatches("int i = 0;", castExpr()));
 }
 
+TEST(CastExpression, HasCastKind) {
+  EXPECT_TRUE(matches("char *p = 0;",
+              castExpr(hasCastKind(CK_NullToPointer))));
+  EXPECT_TRUE(notMatches("char *p = 0;",
+              castExpr(hasCastKind(CK_DerivedToBase))));
+  EXPECT_TRUE(matches("char *p = 0;",
+              implicitCastExpr(hasCastKind(CK_NullToPointer))));
+}
+
 TEST(ReinterpretCast, MatchesSimpleCase) {
   EXPECT_TRUE(matches("char* p = reinterpret_cast<char*>(&p);",
                       cxxReinterpretCastExpr()));
@@ -3550,6 +3569,22 @@ TEST(HasDestinationType, MatchesSimpleCase) {
   EXPECT_TRUE(matches("char* p = static_cast<char*>(0);",
                       cxxStaticCastExpr(hasDestinationType(
                           pointsTo(TypeMatcher(anything()))))));
+}
+
+TEST(hasDynamicExceptionSpec, MatchesDynamicExceptionSpecifications) {
+  EXPECT_TRUE(notMatches("void f();", functionDecl(hasDynamicExceptionSpec())));
+  EXPECT_TRUE(notMatches("void g() noexcept;",
+                         functionDecl(hasDynamicExceptionSpec())));
+  EXPECT_TRUE(notMatches("void h() noexcept(true);",
+                         functionDecl(hasDynamicExceptionSpec())));
+  EXPECT_TRUE(notMatches("void i() noexcept(false);",
+                         functionDecl(hasDynamicExceptionSpec())));
+  EXPECT_TRUE(
+      matches("void j() throw();", functionDecl(hasDynamicExceptionSpec())));
+  EXPECT_TRUE(
+      matches("void k() throw(int);", functionDecl(hasDynamicExceptionSpec())));
+  EXPECT_TRUE(
+      matches("void l() throw(...);", functionDecl(hasDynamicExceptionSpec())));
 }
 
 TEST(HasImplicitDestinationType, MatchesSimpleCase) {
@@ -5570,6 +5605,41 @@ TEST(StatementMatcher, HasReturnValue) {
   EXPECT_TRUE(matches("int F() { int a, b; return a + b; }", RetVal));
   EXPECT_FALSE(matches("int F() { int a; return a; }", RetVal));
   EXPECT_FALSE(matches("void F() { return; }", RetVal));
+}
+
+TEST(StatementMatcher, ForFunction) {
+  const auto CppString1 =
+    "struct PosVec {"
+    "  PosVec& operator=(const PosVec&) {"
+    "    auto x = [] { return 1; };"
+    "    return *this;"
+    "  }"
+    "};";
+  const auto CppString2 =
+    "void F() {"
+    "  struct S {"
+    "    void F2() {"
+    "       return;"
+    "    }"
+    "  };"
+    "}";
+  EXPECT_TRUE(
+    matches(
+      CppString1,
+      returnStmt(forFunction(hasName("operator=")),
+                 has(unaryOperator(hasOperatorName("*"))))));
+  EXPECT_TRUE(
+    notMatches(
+      CppString1,
+      returnStmt(forFunction(hasName("operator=")),
+                 has(integerLiteral()))));
+  EXPECT_TRUE(
+    matches(
+      CppString1,
+      returnStmt(forFunction(hasName("operator()")),
+                 has(integerLiteral()))));
+  EXPECT_TRUE(matches(CppString2, returnStmt(forFunction(hasName("F2")))));
+  EXPECT_TRUE(notMatches(CppString2, returnStmt(forFunction(hasName("F")))));
 }
 
 } // end namespace ast_matchers

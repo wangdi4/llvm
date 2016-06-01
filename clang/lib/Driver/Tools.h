@@ -242,7 +242,7 @@ namespace amdgpu {
 
 class LLVM_LIBRARY_VISIBILITY Linker : public GnuTool {
 public:
-  Linker(const ToolChain &TC) : GnuTool("amdgpu::Linker", "amdphdrs", TC) {}
+  Linker(const ToolChain &TC) : GnuTool("amdgpu::Linker", "ld.lld", TC) {}
   bool isLinkJob() const override { return true; }
   bool hasIntegratedCPP() const override { return false; }
   void ConstructJob(Compilation &C, const JobAction &JA,
@@ -682,7 +682,8 @@ public:
 
 /// Visual studio tools.
 namespace visualstudio {
-VersionTuple getMSVCVersion(const Driver *D, const llvm::Triple &Triple,
+VersionTuple getMSVCVersion(const Driver *D, const ToolChain &TC,
+                            const llvm::Triple &Triple,
                             const llvm::opt::ArgList &Args, bool IsWindowsMSVC);
 
 class LLVM_LIBRARY_VISIBILITY Linker : public Tool {

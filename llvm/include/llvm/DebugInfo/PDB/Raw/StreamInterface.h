@@ -11,21 +11,25 @@
 #define LLVM_DEBUGINFO_PDB_RAW_STREAMINTERFACE_H
 
 #include "llvm/ADT/ArrayRef.h"
-
-#include <stdint.h>
-#include <system_error>
+#include "llvm/Support/Error.h"
+#include <cstdint>
 
 namespace llvm {
 namespace pdb {
+
 class StreamInterface {
 public:
   virtual ~StreamInterface() {}
 
-  virtual std::error_code readBytes(uint32_t Offset,
-                                    MutableArrayRef<uint8_t> Buffer) const = 0;
+  virtual Error readBytes(uint32_t Offset,
+                          MutableArrayRef<uint8_t> Buffer) const = 0;
+  virtual Error getArrayRef(uint32_t Offset, ArrayRef<uint8_t> &Buffer,
+                            uint32_t Length) const = 0;
+
   virtual uint32_t getLength() const = 0;
 };
-}
-}
 
-#endif
+} // end namespace pdb
+} // end namespace llvm
+
+#endif // LLVM_DEBUGINFO_PDB_RAW_STREAMINTERFACE_H

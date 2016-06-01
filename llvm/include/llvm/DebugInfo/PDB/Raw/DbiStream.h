@@ -14,8 +14,10 @@
 #include "llvm/DebugInfo/PDB/Raw/ByteStream.h"
 #include "llvm/DebugInfo/PDB/Raw/MappedBlockStream.h"
 #include "llvm/DebugInfo/PDB/Raw/ModInfo.h"
+#include "llvm/DebugInfo/PDB/Raw/NameHashTable.h"
 #include "llvm/DebugInfo/PDB/Raw/RawConstants.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/Error.h"
 
 namespace llvm {
 namespace pdb {
@@ -27,10 +29,11 @@ class DbiStream {
 public:
   DbiStream(PDBFile &File);
   ~DbiStream();
-  std::error_code reload();
+  Error reload();
 
   PdbRaw_DbiVer getDbiVersion() const;
   uint32_t getAge() const;
+  uint16_t getPublicSymbolStreamIndex() const;
 
   bool isIncrementallyLinked() const;
   bool hasCTypes() const;
@@ -48,12 +51,13 @@ public:
   ArrayRef<ModuleInfoEx> modules() const;
 
 private:
-  std::error_code initializeFileInfo();
+  Error initializeFileInfo();
 
   PDBFile &Pdb;
   MappedBlockStream Stream;
 
   std::vector<ModuleInfoEx> ModuleInfos;
+  NameHashTable ECNames;
 
   ByteStream ModInfoSubstream;
   ByteStream SecContrSubstream;

@@ -44,6 +44,38 @@ define i32 @yes1(i32* %q) {
   ret i32 %t
 }
 
+; Yes because undefined behavior can be sunk past a store.
+
+; CHECK-LABEL: sink_trap:
+; CHECK: return $pop0{{$}}
+define i32 @sink_trap(i32 %x, i32 %y, i32* %p) {
+  %t = sdiv i32 %x, %y
+  store volatile i32 0, i32* %p
+  ret i32 %t
+}
+
+; Yes because the call is readnone.
+
+; CHECK-LABEL: sink_readnone_call:
+; CHECK: return $pop0{{$}}
+declare i32 @readnone_callee() readnone nounwind
+define i32 @sink_readnone_call(i32 %x, i32 %y, i32* %p) {
+  %t = call i32 @readnone_callee()
+  store volatile i32 0, i32* %p
+  ret i32 %t
+}
+
+; No because the call is readonly and there's an intervening store.
+
+; CHECK-LABEL: no_sink_readonly_call:
+; CHECK: return ${{[0-9]+}}{{$}}
+declare i32 @readonly_callee() readonly nounwind
+define i32 @no_sink_readonly_call(i32 %x, i32 %y, i32* %p) {
+  %t = call i32 @readonly_callee()
+  store i32 0, i32* %p
+  ret i32 %t
+}
+
 ; Don't schedule stack uses into the stack. To reduce register pressure, the
 ; scheduler might be tempted to move the definition of $2 down. However, this
 ; would risk getting incorrect liveness if the instructions are later
@@ -69,7 +101,7 @@ define i32 @yes1(i32* %q) {
 ; CHECK-NEXT: br_if       0, $pop8{{$}}
 ; CHECK-NEXT: i32.const   $push9=, 0{{$}}
 ; CHECK-NEXT: return      $pop9{{$}}
-; CHECK-NEXT: .LBB4_2:
+; CHECK-NEXT: .LBB7_2:
 ; CHECK-NEXT: end_block{{$}}
 ; CHECK-NEXT: i32.const   $push14=, 1{{$}}
 ; CHECK-NEXT: return      $pop14{{$}}
@@ -103,7 +135,7 @@ false:
 ; CHECK-NEXT: i32.lt_u    $push[[NUM3:[0-9]+]]=, $3, $0{{$}}
 ; CHECK-NEXT: br_if       0, $pop[[NUM3]]{{$}}
 ; CHECK-NEXT: i32.store   $discard=, 0($2), $3{{$}}
-; CHECK-NEXT: .LBB5_3:
+; CHECK-NEXT: .LBB8_3:
 ; CHECK-NEXT: end_block{{$}}
 ; CHECK-NEXT: return{{$}}
 define void @multiple_uses(i32* %arg0, i32* %arg1, i32* %arg2) nounwind {
@@ -194,9 +226,9 @@ entry:
 ; CHECK-LABEL: simple_multiple_use:
 ; CHECK:  .param      i32, i32{{$}}
 ; CHECK-NEXT:  i32.mul     $push[[NUM0:[0-9]+]]=, $1, $0{{$}}
-; CHECK-NEXT:  tee_local   $push[[NUM1:[0-9]+]]=, $0=, $pop[[NUM0]]{{$}}
+; CHECK-NEXT:  tee_local   $push[[NUM1:[0-9]+]]=, $[[NUM2:[0-9]+]]=, $pop[[NUM0]]{{$}}
 ; CHECK-NEXT:  call        use_a@FUNCTION, $pop[[NUM1]]{{$}}
-; CHECK-NEXT:  call        use_b@FUNCTION, $0{{$}}
+; CHECK-NEXT:  call        use_b@FUNCTION, $[[NUM2]]{{$}}
 ; CHECK-NEXT:  return{{$}}
 declare void @use_a(i32)
 declare void @use_b(i32)
@@ -212,8 +244,8 @@ define void @simple_multiple_use(i32 %x, i32 %y) {
 ; CHECK-LABEL: multiple_uses_in_same_insn:
 ; CHECK:  .param      i32, i32{{$}}
 ; CHECK-NEXT:  i32.mul     $push[[NUM0:[0-9]+]]=, $1, $0{{$}}
-; CHECK-NEXT:  tee_local   $push[[NUM1:[0-9]+]]=, $0=, $pop[[NUM0]]{{$}}
-; CHECK-NEXT:  call        use_2@FUNCTION, $pop[[NUM1]], $0{{$}}
+; CHECK-NEXT:  tee_local   $push[[NUM1:[0-9]+]]=, $[[NUM2:[0-9]+]]=, $pop[[NUM0]]{{$}}
+; CHECK-NEXT:  call        use_2@FUNCTION, $pop[[NUM1]], $[[NUM2]]{{$}}
 ; CHECK-NEXT:  return{{$}}
 declare void @use_2(i32, i32)
 define void @multiple_uses_in_same_insn(i32 %x, i32 %y) {
@@ -273,7 +305,6 @@ define i32 @no_stackify_past_use(i32 %arg) {
 ; CHECK-NEXT:   tee_local       $push[[NUM1:[0-9]+]]=, $[[NUM2:[0-9]+]]=, $pop[[NUM0]]{{$}}
 ; CHECK-NEXT:   f64.select      $push{{[0-9]+}}=, $pop{{[0-9]+}}, $pop[[NUM1]], ${{[0-9]+}}{{$}}
 ; CHECK:        $[[NUM2]]=,
-; CHECK:        $[[NUM2]]=,
 define void @multiple_defs(i32 %arg, i32 %arg1, i1 %arg2, i1 %arg3, i1 %arg4) {
 bb:
   br label %bb5
@@ -325,9 +356,9 @@ define i32 @no_stackify_call_past_load() {
 
 ; Don't move stores past loads if there may be aliasing
 ; CHECK-LABEL: no_stackify_store_past_load
-; CHECK: i32.store {{.*}}, 0($1), $0
+; CHECK: i32.store $[[L0:[0-9]+]]=, 0($1), $0
 ; CHECK: i32.load {{.*}}, 0($2)
-; CHECK: i32.call {{.*}}, callee@FUNCTION, $0
+; CHECK: i32.call {{.*}}, callee@FUNCTION, $[[L0]]{{$}}
 define i32 @no_stackify_store_past_load(i32 %a, i32* %p1, i32* %p2) {
   store i32 %a, i32* %p1
   %b = load i32, i32* %p2, align 4
@@ -355,6 +386,18 @@ declare void @llvm.dbg.value(metadata, i64, metadata, metadata)
 define void @ignore_dbg_value() {
   call void @llvm.dbg.value(metadata i32 0, i64 0, metadata !7, metadata !9), !dbg !10
   unreachable
+}
+
+; Don't stackify an expression that might use the stack into a return, since we
+; might insert a prologue before the return.
+
+; CHECK-LABEL: no_stackify_past_epilogue:
+; CHECK: return ${{[0-9]+}}{{$}}
+declare i32 @use_memory(i32*)
+define i32 @no_stackify_past_epilogue() {
+  %x = alloca i32
+  %call = call i32 @use_memory(i32* %x)
+  ret i32 %call
 }
 
 !llvm.module.flags = !{!0}

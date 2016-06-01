@@ -188,7 +188,7 @@ bool llvm::isKnownPositive(Value *V, const DataLayout &DL, unsigned Depth,
                            const DominatorTree *DT) {
   if (auto *CI = dyn_cast<ConstantInt>(V))
     return CI->getValue().isStrictlyPositive();
-  
+
   // TODO: We'd doing two recursive queries here.  We should factor this such
   // that only a single query is needed.
   return isKnownNonNegative(V, DL, Depth, AC, CxtI, DT) &&
@@ -1465,8 +1465,7 @@ void computeKnownBits(Value *V, APInt &KnownZero, APInt &KnownOne,
     return;
   }
   // Handle a constant vector by taking the intersection of the known bits of
-  // each element.  There is no real need to handle ConstantVector here, because
-  // we don't handle undef in any particularly useful way.
+  // each element.
   if (ConstantDataSequential *CDS = dyn_cast<ConstantDataSequential>(V)) {
     // We know that CDS must be a vector of integers. Take the intersection of
     // each element.
@@ -1474,6 +1473,26 @@ void computeKnownBits(Value *V, APInt &KnownZero, APInt &KnownOne,
     APInt Elt(KnownZero.getBitWidth(), 0);
     for (unsigned i = 0, e = CDS->getNumElements(); i != e; ++i) {
       Elt = CDS->getElementAsInteger(i);
+      KnownZero &= ~Elt;
+      KnownOne &= Elt;
+    }
+    return;
+  }
+
+  if (auto *CV = dyn_cast<ConstantVector>(V)) {
+    // We know that CV must be a vector of integers. Take the intersection of
+    // each element.
+    KnownZero.setAllBits(); KnownOne.setAllBits();
+    APInt Elt(KnownZero.getBitWidth(), 0);
+    for (unsigned i = 0, e = CV->getNumOperands(); i != e; ++i) {
+      Constant *Element = CV->getAggregateElement(i);
+      auto *ElementCI = dyn_cast_or_null<ConstantInt>(Element);
+      if (!ElementCI) {
+        KnownZero.clearAllBits();
+        KnownOne.clearAllBits();
+        return;
+      }
+      Elt = ElementCI->getValue();
       KnownZero &= ~Elt;
       KnownOne &= Elt;
     }
@@ -1743,7 +1762,7 @@ bool isKnownNonZero(Value *V, unsigned Depth, const Query &Q) {
   // Check for pointer simplifications.
   if (V->getType()->isPointerTy()) {
     if (isKnownNonNull(V))
-      return true; 
+      return true;
     if (GEPOperator *GEP = dyn_cast<GEPOperator>(V))
       if (isGEPKnownNonNull(GEP, Depth, Q))
         return true;
@@ -1794,7 +1813,7 @@ bool isKnownNonZero(Value *V, unsigned Depth, const Query &Q) {
       APInt KnownZero(BitWidth, 0);
       APInt KnownOne(BitWidth, 0);
       computeKnownBits(X, KnownZero, KnownOne, Depth, Q);
-      
+
       auto ShiftVal = Shift->getLimitedValue(BitWidth - 1);
       // Is there a known one in the portion not shifted out?
       if (KnownOne.countLeadingZeros() < BitWidth - ShiftVal)
@@ -2572,7 +2591,7 @@ bool llvm::CannotBeOrderedLessThanZero(const Value *V,
     return true;
   case Instruction::FMul:
     // x*x is always non-negative or a NaN.
-    if (I->getOperand(0) == I->getOperand(1)) 
+    if (I->getOperand(0) == I->getOperand(1))
       return true;
     // Fall through
   case Instruction::FAdd:
@@ -2618,7 +2637,7 @@ bool llvm::CannotBeOrderedLessThanZero(const Value *V,
     }
     break;
   }
-  return false; 
+  return false;
 }
 
 /// If the specified value can be set by repeating the same byte in memory,
@@ -2903,7 +2922,7 @@ bool llvm::isGEPBasedOnPointerToString(const GEPOperator *GEP) {
     return false;
 
   return true;
-} 
+}
 
 /// This function computes the length of a null-terminated C string pointed to
 /// by V. If successful, it returns true and returns the string in Str.
@@ -3309,7 +3328,7 @@ bool llvm::isKnownNonNull(const Value *V, const TargetLibraryInfo *TLI) {
     return !GV->hasExternalWeakLinkage() &&
            GV->getType()->getAddressSpace() == 0;
 
-  // A Load tagged w/nonnull metadata is never null. 
+  // A Load tagged with nonnull metadata is never null.
   if (const LoadInst *LI = dyn_cast<LoadInst>(V))
     return LI->getMetadata(LLVMContext::MD_nonnull);
 
@@ -3326,38 +3345,31 @@ static bool isKnownNonNullFromDominatingCondition(const Value *V,
   assert(V->getType()->isPointerTy() && "V must be pointer type");
 
   unsigned NumUsesExplored = 0;
-  for (auto U : V->users()) {
+  for (auto *U : V->users()) {
     // Avoid massive lists
     if (NumUsesExplored >= DomConditionsMaxUses)
       break;
     NumUsesExplored++;
     // Consider only compare instructions uniquely controlling a branch
-    const ICmpInst *Cmp = dyn_cast<ICmpInst>(U);
-    if (!Cmp)
+    CmpInst::Predicate Pred;
+    if (!match(const_cast<User *>(U),
+               m_c_ICmp(Pred, m_Specific(V), m_Zero())) ||
+        (Pred != ICmpInst::ICMP_EQ && Pred != ICmpInst::ICMP_NE))
       continue;
 
-    for (auto *CmpU : Cmp->users()) {
-      const BranchInst *BI = dyn_cast<BranchInst>(CmpU);
-      if (!BI)
-        continue;
-      
-      assert(BI->isConditional() && "uses a comparison!");
+    for (auto *CmpU : U->users()) {
+      if (const BranchInst *BI = dyn_cast<BranchInst>(CmpU)) {
+        assert(BI->isConditional() && "uses a comparison!");
 
-      BasicBlock *NonNullSuccessor = nullptr;
-      CmpInst::Predicate Pred;
-
-      if (match(const_cast<ICmpInst*>(Cmp),
-                m_c_ICmp(Pred, m_Specific(V), m_Zero()))) {
-        if (Pred == ICmpInst::ICMP_EQ)
-          NonNullSuccessor = BI->getSuccessor(1);
-        else if (Pred == ICmpInst::ICMP_NE)
-          NonNullSuccessor = BI->getSuccessor(0);
-      }
-
-      if (NonNullSuccessor) {
+        BasicBlock *NonNullSuccessor =
+            BI->getSuccessor(Pred == ICmpInst::ICMP_EQ ? 1 : 0);
         BasicBlockEdge Edge(BI->getParent(), NonNullSuccessor);
         if (Edge.isSingleEdge() && DT->dominates(Edge, CtxI->getParent()))
           return true;
+      } else if (Pred == ICmpInst::ICMP_NE &&
+                 match(CmpU, m_Intrinsic<Intrinsic::experimental_guard>()) &&
+                 DT->dominates(cast<Instruction>(CmpU), CtxI)) {
+        return true;
       }
     }
   }
@@ -4049,19 +4061,24 @@ isImpliedCondOperands(CmpInst::Predicate Pred, Value *ALHS, Value *ARHS,
   }
 }
 
+/// Return true if the operands of the two compares match.  IsSwappedOps is true
+/// when the operands match, but are swapped.
+static bool isMatchingOps(Value *ALHS, Value *ARHS, Value *BLHS, Value *BRHS,
+                          bool &IsSwappedOps) {
+
+  bool IsMatchingOps = (ALHS == BLHS && ARHS == BRHS);
+  IsSwappedOps = (ALHS == BRHS && ARHS == BLHS);
+  return IsMatchingOps || IsSwappedOps;
+}
+
 /// Return true if "icmp1 APred ALHS ARHS" implies "icmp2 BPred BLHS BRHS" is
 /// true.  Return false if "icmp1 APred ALHS ARHS" implies "icmp2 BPred BLHS
 /// BRHS" is false.  Otherwise, return None if we can't infer anything.
 static Optional<bool> isImpliedCondMatchingOperands(CmpInst::Predicate APred,
                                                     Value *ALHS, Value *ARHS,
                                                     CmpInst::Predicate BPred,
-                                                    Value *BLHS, Value *BRHS) {
-  // The operands of the two compares must match.
-  bool IsMatchingOps = (ALHS == BLHS && ARHS == BRHS);
-  bool IsSwappedOps = (ALHS == BRHS && ARHS == BLHS);
-  if (!IsMatchingOps && !IsSwappedOps)
-    return None;
-
+                                                    Value *BLHS, Value *BRHS,
+                                                    bool IsSwappedOps) {
   // Canonicalize the operands so they're matching.
   if (IsSwappedOps) {
     std::swap(BLHS, BRHS);
@@ -4072,6 +4089,27 @@ static Optional<bool> isImpliedCondMatchingOperands(CmpInst::Predicate APred,
   if (CmpInst::isImpliedFalseByMatchingCmp(APred, BPred))
     return false;
 
+  return None;
+}
+
+/// Return true if "icmp1 APred ALHS C1" implies "icmp2 BPred BLHS C2" is
+/// true.  Return false if "icmp1 APred ALHS C1" implies "icmp2 BPred BLHS
+/// C2" is false.  Otherwise, return None if we can't infer anything.
+static Optional<bool>
+isImpliedCondMatchingImmOperands(CmpInst::Predicate APred, Value *ALHS,
+                                 ConstantInt *C1, CmpInst::Predicate BPred,
+                                 Value *BLHS, ConstantInt *C2) {
+  assert(ALHS == BLHS && "LHS operands must match.");
+  ConstantRange DomCR =
+      ConstantRange::makeExactICmpRegion(APred, C1->getValue());
+  ConstantRange CR =
+      ConstantRange::makeAllowedICmpRegion(BPred, C2->getValue());
+  ConstantRange Intersection = DomCR.intersectWith(CR);
+  ConstantRange Difference = DomCR.difference(CR);
+  if (Intersection.isEmptySet())
+    return false;
+  if (Difference.isEmptySet())
+    return true;
   return None;
 }
 
@@ -4107,10 +4145,28 @@ Optional<bool> llvm::isImpliedCondition(Value *LHS, Value *RHS,
   if (InvertAPred)
     APred = CmpInst::getInversePredicate(APred);
 
-  Optional<bool> Implication =
-      isImpliedCondMatchingOperands(APred, ALHS, ARHS, BPred, BLHS, BRHS);
-  if (Implication)
-    return Implication;
+  // Can we infer anything when the two compares have matching operands?
+  bool IsSwappedOps;
+  if (isMatchingOps(ALHS, ARHS, BLHS, BRHS, IsSwappedOps)) {
+    if (Optional<bool> Implication = isImpliedCondMatchingOperands(
+            APred, ALHS, ARHS, BPred, BLHS, BRHS, IsSwappedOps))
+      return Implication;
+    // No amount of additional analysis will infer the second condition, so
+    // early exit.
+    return None;
+  }
+
+  // Can we infer anything when the LHS operands match and the RHS operands are
+  // constants (not necessarily matching)?
+  if (ALHS == BLHS && isa<ConstantInt>(ARHS) && isa<ConstantInt>(BRHS)) {
+    if (Optional<bool> Implication = isImpliedCondMatchingImmOperands(
+            APred, ALHS, cast<ConstantInt>(ARHS), BPred, BLHS,
+            cast<ConstantInt>(BRHS)))
+      return Implication;
+    // No amount of additional analysis will infer the second condition, so
+    // early exit.
+    return None;
+  }
 
   if (APred == BPred)
     return isImpliedCondOperands(APred, ALHS, ARHS, BLHS, BRHS, DL, Depth, AC,

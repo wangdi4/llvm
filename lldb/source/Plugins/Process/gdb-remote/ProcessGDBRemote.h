@@ -405,11 +405,8 @@ protected:
     AsyncThread (void *arg);
 
     static bool
-    MonitorDebugserverProcess (void *callback_baton,
-                               lldb::pid_t pid,
-                               bool exited,
-                               int signo,
-                               int exit_status);
+    MonitorDebugserverProcess(std::weak_ptr<ProcessGDBRemote> process_wp, lldb::pid_t pid, bool exited, int signo,
+                              int exit_status);
 
     lldb::StateType
     SetThreadStopInfo (StringExtractor& stop_packet);

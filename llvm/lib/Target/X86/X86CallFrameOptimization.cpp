@@ -88,7 +88,7 @@ private:
   void collectCallInfo(MachineFunction &MF, MachineBasicBlock &MBB,
                        MachineBasicBlock::iterator I, CallContext &Context);
 
-  bool adjustCallSequence(MachineFunction &MF, const CallContext &Context);
+  void adjustCallSequence(MachineFunction &MF, const CallContext &Context);
 
   MachineInstr *canFoldIntoRegPush(MachineBasicBlock::iterator FrameSetup,
                                    unsigned Reg);
@@ -246,9 +246,12 @@ bool X86CallFrameOptimization::runOnMachineFunction(MachineFunction &MF) {
   if (!isProfitable(MF, CallSeqVector))
     return false;
 
-  for (auto CC : CallSeqVector)
-    if (CC.UsePush)
-      Changed |= adjustCallSequence(MF, CC);
+  for (auto CC : CallSeqVector) {
+    if (CC.UsePush) {
+      adjustCallSequence(MF, CC);
+      Changed = true;
+    }
+  }
 
   return Changed;
 }
@@ -446,7 +449,7 @@ void X86CallFrameOptimization::collectCallInfo(MachineFunction &MF,
   Context.UsePush = true;
 }
 
-bool X86CallFrameOptimization::adjustCallSequence(MachineFunction &MF,
+void X86CallFrameOptimization::adjustCallSequence(MachineFunction &MF,
                                                   const CallContext &Context) {
   // Ok, we can in fact do the transformation for this call.
   // Do not remove the FrameSetup instruction, but adjust the parameters.
@@ -544,8 +547,6 @@ bool X86CallFrameOptimization::adjustCallSequence(MachineFunction &MF,
   // frame.
   X86MachineFunctionInfo *FuncInfo = MF.getInfo<X86MachineFunctionInfo>();
   FuncInfo->setHasPushSequences(true);
-
-  return true;
 }
 
 MachineInstr *X86CallFrameOptimization::canFoldIntoRegPush(
