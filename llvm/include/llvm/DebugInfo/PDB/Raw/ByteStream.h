@@ -11,16 +11,17 @@
 #define LLVM_DEBUGINFO_PDB_RAW_BYTESTREAM_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/PDB/Raw/StreamInterface.h"
-
-#include <stdint.h>
-
-#include <system_error>
-#include <vector>
+#include "llvm/Support/Error.h"
+#include <cstdint>
+#include <memory>
 
 namespace llvm {
 namespace pdb {
+
 class StreamReader;
+
 class ByteStream : public StreamInterface {
 public:
   ByteStream();
@@ -31,19 +32,25 @@ public:
   void reset();
   void initialize(MutableArrayRef<uint8_t> Bytes);
   void initialize(uint32_t Length);
-  std::error_code initialize(StreamReader &Reader, uint32_t Length);
+  Error initialize(StreamReader &Reader, uint32_t Length);
 
-  std::error_code readBytes(uint32_t Offset,
-                            MutableArrayRef<uint8_t> Buffer) const override;
+  Error readBytes(uint32_t Offset,
+                  MutableArrayRef<uint8_t> Buffer) const override;
+
+  Error getArrayRef(uint32_t Offset, ArrayRef<uint8_t> &Buffer,
+                    uint32_t Length) const override;
+
   uint32_t getLength() const override;
 
   ArrayRef<uint8_t> data() const { return Data; }
+  StringRef str() const;
 
 private:
   MutableArrayRef<uint8_t> Data;
-  bool Owned;
+  std::unique_ptr<uint8_t[]> Ownership;
 };
-}
-}
 
-#endif
+} // end namespace pdb
+} // end namespace llvm
+
+#endif // LLVM_DEBUGINFO_PDB_RAW_BYTESTREAM_H

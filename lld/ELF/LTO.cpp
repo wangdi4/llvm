@@ -13,13 +13,20 @@
 #include "Error.h"
 #include "InputFiles.h"
 #include "Symbols.h"
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/CGSCCPassManager.h"
+#include "llvm/Analysis/LoopPassManager.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/CodeGen/ParallelCG.h"
+#include "llvm/IR/AutoUpgrade.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Linker/IRMover.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/StringSaver.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetMachine.h"
@@ -55,10 +62,44 @@ static void saveBCFile(Module &M, StringRef Suffix) {
   WriteBitcodeToFile(&M, OS, /* ShouldPreserveUseListOrder */ true);
 }
 
-// Run LTO passes.
-// Note that the gold plugin has a similar piece of code, so
-// it is probably better to move this code to a common place.
-static void runLTOPasses(Module &M, TargetMachine &TM) {
+static void runNewCustomLtoPasses(Module &M, TargetMachine &TM) {
+  PassBuilder PB(&TM);
+
+  AAManager AA;
+  LoopAnalysisManager LAM;
+  FunctionAnalysisManager FAM;
+  CGSCCAnalysisManager CGAM;
+  ModuleAnalysisManager MAM;
+
+  // Register the AA manager first so that our version is the one used.
+  FAM.registerPass([&] { return std::move(AA); });
+
+  // Register all the basic analyses with the managers.
+  PB.registerModuleAnalyses(MAM);
+  PB.registerCGSCCAnalyses(CGAM);
+  PB.registerFunctionAnalyses(FAM);
+  PB.registerLoopAnalyses(LAM);
+  PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+  ModulePassManager MPM;
+  if (!Config->DisableVerify)
+    MPM.addPass(VerifierPass());
+
+  // Now, add all the passes we've been requested to.
+  if (!PB.parsePassPipeline(MPM, Config->LtoNewPmPasses)) {
+    error("unable to parse pass pipeline description: " +
+          Config->LtoNewPmPasses);
+    return;
+  }
+
+  if (!Config->DisableVerify)
+    MPM.addPass(VerifierPass());
+  MPM.run(M, MAM);
+}
+
+static void runOldLtoPasses(Module &M, TargetMachine &TM) {
+  // Note that the gold plugin has a similar piece of code, so
+  // it is probably better to move this code to a common place.
   legacy::PassManager LtoPasses;
   LtoPasses.add(createTargetTransformInfoWrapperPass(TM.getTargetIRAnalysis()));
   PassManagerBuilder PMB;
@@ -70,35 +111,58 @@ static void runLTOPasses(Module &M, TargetMachine &TM) {
   PMB.OptLevel = Config->LtoO;
   PMB.populateLTOPassManager(LtoPasses);
   LtoPasses.run(M);
+}
+
+static void runLTOPasses(Module &M, TargetMachine &TM) {
+  if (!Config->LtoNewPmPasses.empty()) {
+    // The user explicitly asked for a set of passes to be run.
+    // This needs the new PM to work as there's no clean way to
+    // pass a set of passes to run in the legacy PM.
+    runNewCustomLtoPasses(M, TM);
+    if (HasError)
+      return;
+  } else {
+    // Run the 'default' set of LTO passes. This code still uses
+    // the legacy PM as the new one is not the default.
+    runOldLtoPasses(M, TM);
+  }
 
   if (Config->SaveTemps)
     saveBCFile(M, ".lto.opt.bc");
 }
 
 static bool shouldInternalize(const SmallPtrSet<GlobalValue *, 8> &Used,
-                              SymbolBody &B, GlobalValue *GV) {
-  if (B.Backref->IsUsedInRegularObj)
+                              Symbol *S, GlobalValue *GV) {
+  if (S->IsUsedInRegularObj)
     return false;
 
   if (Used.count(GV))
     return false;
 
-  return !B.Backref->includeInDynsym();
+  return !S->includeInDynsym();
 }
 
 BitcodeCompiler::BitcodeCompiler()
     : Combined(new llvm::Module("ld-temp.o", Driver->Context)),
       Mover(*Combined) {}
 
+static void undefine(Symbol *S) {
+  replaceBody<Undefined>(S, S->body()->getName(), STV_DEFAULT, 0);
+}
+
 void BitcodeCompiler::add(BitcodeFile &F) {
   std::unique_ptr<IRObjectFile> Obj = std::move(F.Obj);
   std::vector<GlobalValue *> Keep;
   unsigned BodyIndex = 0;
-  ArrayRef<SymbolBody *> Bodies = F.getSymbols();
+  ArrayRef<Symbol *> Syms = F.getSymbols();
 
   Module &M = Obj->getModule();
   if (M.getDataLayoutStr().empty())
     fatal("invalid bitcode file: " + F.getName() + " has no datalayout");
+
+  // Discard non-compatible debug infos if necessary.
+  M.materializeMetadata();
+  UpgradeDebugInfo(M);
 
   // If a symbol appears in @llvm.used, the linker is required
   // to treat the symbol as there is a reference to the symbol
@@ -107,19 +171,39 @@ void BitcodeCompiler::add(BitcodeFile &F) {
   collectUsedGlobalVariables(M, Used, /* CompilerUsed */ false);
 
   for (const BasicSymbolRef &Sym : Obj->symbols()) {
+    uint32_t Flags = Sym.getFlags();
     GlobalValue *GV = Obj->getSymbolGV(Sym.getRawDataRefImpl());
-    // Ignore module asm symbols.
-    if (!GV)
-      continue;
-    if (GV->hasAppendingLinkage()) {
+    if (GV && GV->hasAppendingLinkage())
       Keep.push_back(GV);
+    if (BitcodeFile::shouldSkip(Flags))
       continue;
-    }
-    if (BitcodeFile::shouldSkip(Sym))
+    Symbol *S = Syms[BodyIndex++];
+    if (Flags & BasicSymbolRef::SF_Undefined)
       continue;
-    SymbolBody *B = Bodies[BodyIndex++];
-    if (!B || &B->repl() != B || !isa<DefinedBitcode>(B))
+    auto *B = dyn_cast<DefinedBitcode>(S->body());
+    if (!B || B->File != &F)
       continue;
+
+    // We collect the set of symbols we want to internalize here
+    // and change the linkage after the IRMover executed, i.e. after
+    // we imported the symbols and satisfied undefined references
+    // to it. We can't just change linkage here because otherwise
+    // the IRMover will just rename the symbol.
+    if (GV && shouldInternalize(Used, S, GV))
+      InternalizedSyms.insert(GV->getName());
+
+    // At this point we know that either the combined LTO object will provide a
+    // definition of a symbol, or we will internalize it. In either case, we
+    // need to undefine the symbol. In the former case, the real definition
+    // needs to be able to replace the original definition without conflicting.
+    // In the latter case, we need to allow the combined LTO object to provide a
+    // definition with the same name, for example when doing parallel codegen.
+    undefine(S);
+
+    if (!GV)
+      // Module asm symbol.
+      continue;
+
     switch (GV->getLinkage()) {
     default:
       break;
@@ -130,14 +214,6 @@ void BitcodeCompiler::add(BitcodeFile &F) {
       GV->setLinkage(GlobalValue::WeakODRLinkage);
       break;
     }
-
-    // We collect the set of symbols we want to internalize here
-    // and change the linkage after the IRMover executed, i.e. after
-    // we imported the symbols and satisfied undefined references
-    // to it. We can't just change linkage here because otherwise
-    // the IRMover will just rename the symbol.
-    if (shouldInternalize(Used, *B, GV))
-      InternalizedSyms.insert(GV->getName());
 
     Keep.push_back(GV);
   }
@@ -205,6 +281,8 @@ std::vector<std::unique_ptr<InputFile>> BitcodeCompiler::compile() {
 
   std::unique_ptr<TargetMachine> TM = CreateTargetMachine();
   runLTOPasses(*Combined, *TM);
+  if (HasError)
+    return {};
 
   return runSplitCodegen(CreateTargetMachine);
 }

@@ -1485,7 +1485,9 @@ void LLVMSetLinkage(LLVMValueRef Global, LLVMLinkage Linkage) {
 }
 
 const char *LLVMGetSection(LLVMValueRef Global) {
-  return unwrap<GlobalValue>(Global)->getSection();
+  // Using .data() is safe because of how GlobalObject::setSection is
+  // implemented.
+  return unwrap<GlobalValue>(Global)->getSection().data();
 }
 
 void LLVMSetSection(LLVMValueRef Global, const char *Section) {
@@ -2215,8 +2217,8 @@ LLVMBool LLVMIsInBounds(LLVMValueRef GEP) {
   return unwrap<GetElementPtrInst>(GEP)->isInBounds();
 }
 
-void LLVMSetIsInBounds(LLVMValueRef GEP, LLVMBool b) {
-  return unwrap<GetElementPtrInst>(GEP)->setIsInBounds(b);
+void LLVMSetIsInBounds(LLVMValueRef GEP, LLVMBool InBounds) {
+  return unwrap<GetElementPtrInst>(GEP)->setIsInBounds(InBounds);
 }
 
 /*--.. Operations on phi nodes .............................................--*/
