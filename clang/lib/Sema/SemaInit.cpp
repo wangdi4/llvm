@@ -5263,6 +5263,17 @@ void InitializationSequence::InitializeFrom(Sema &S,
     else
       TryUserDefinedConversion(S, DestType, Kind, Initializer, *this,
                                TopLevelOfInitList);
+#if INTEL_CUSTOMIZATION
+    // CQ#364712 - in MSVC compatibility mode also try constructor
+    // initialization because MSVC allows 2 user defined conversions in a row in
+    // this case.
+    if (S.getLangOpts().IntelCompat && S.getLangOpts().IntelMSCompat &&
+        Kind.getKind() == InitializationKind::IK_Copy && Failed()) {
+      setSequenceKind(NormalSequence);
+      TryConstructorInitialization(S, Entity, Kind, Args,
+                                   DestType, *this);
+    }
+#endif // INTEL_CUSTOMIZATION
     return;
   }
 
