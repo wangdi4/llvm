@@ -67,6 +67,7 @@ public:
   /// Get a handle to the engine that explores and evaluates the 
   /// vectorization opportunities in a Region.
   virtual VPOScenarioEvaluationBase &getScenariosEngine() = 0;
+  virtual void resetScenariosEngineForRegion() = 0;
 };
 
 } // End namespace vpo

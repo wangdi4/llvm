@@ -121,7 +121,16 @@ public:
 /// Layer as it is optimized.
 class AVRExpression : public AVR {
 
+private:
+
+  /// \p ValType - type of this expression.
+  Type *ExprType;
+
 protected:
+
+  /// Set the data type of this expression.
+  void setType(Type *DataType) { ExprType = DataType; } 
+
   /// Operation - Operation which is executed on operands.
   unsigned Operation;
 
@@ -133,6 +142,7 @@ protected:
 
   /// \brief Constructor used by derived classes. Should not instantiate
   /// this object at this level.
+  AVRExpression(unsigned SCID, Type *ExprType);
   AVRExpression(unsigned SCID);
 
   /// \brief Destructor for object.
@@ -142,7 +152,10 @@ protected:
   friend class AVRUtils;
 
 public:
-  /// brief Clone method for AVRExpression.
+  /// \brief Returns the data type of this expression
+  Type *getType() const { return ExprType; }
+
+  /// \brief Clone method for AVRExpression.
   AVRExpression *clone() const override;
 
   /// \brief Returns the number of operands for this operator
@@ -203,9 +216,12 @@ private:
   // MemRefInfo *MRI;
 
 protected:
+  /// \p ValType - type of this value.
+  Type *ValType;
+
   /// \brief Constructor used by derived classes. Should not instantiate
   /// this object at this level.
-  AVRValue(unsigned SCID);
+  AVRValue(unsigned SCID, Type *ValType);
 
   /// \brief Destructor for this object.
   virtual ~AVRValue() override {}
@@ -214,6 +230,9 @@ protected:
   friend class AVRUtils;
 
 public:
+  /// \brief Returns the data type of this value.
+  Type *getType() const { return ValType; }
+
   /// \brief Clone method for AVRValue.
   AVRValue *clone() const override;
 

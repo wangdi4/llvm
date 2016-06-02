@@ -38,22 +38,76 @@ typedef VFsVector::iterator LoopVFsIt;
 class VPOVecContextBase;
 
 /// \brief CostModel Utilities for evaluation of vectorization profitability.
-// Just a placeholder for now.
 // TODO: Provide cost utilities for different granularities? (AVRWrn,
 // AVRLoop, BasicBlock?).
 class VPOCostModelBase {
 private:
+  // TODO: We are currently not taking advantage of information across 
+  // different loops within a region. Currently the scope of our passes
+  // (cost model, SLEV) is an individual loop. The intention in the future 
+  // is to look at multiple loops together.
   AVRWrn *AWrn;
-
 public:
   VPOCostModelBase(AVRWrn *AWrn) : AWrn(AWrn) {}
   VPOCostModelBase() {}
 
-  /// \brief Calculate a cost for the given AVR region, according to the
-  // information in the Vectorization Context, namely which Aloops in the
-  // region are vectorized and how (using which Vectorization Factor).
+  /// \brief Calculate a cost for the given \p ALoop assuming the Vectorization
+  /// factor is \p VF.
   // TODO: Consider also VLS group information
-  int getCost(const VPOVecContextBase *VC) const;
+  // TODO: Calculate a cost at the scope of a region, taking advantage of 
+  // information about multiple loops in a region at once. Currently our scope
+  // is one ALoop at a time. For that we'll also need to finalize how we really
+  // want to encode the results of the CostModel, namely, which ALoops in the
+  // region to vectorize and using which VFs (directly/explicitely in the 
+  // AVR?...)
+  int getCost(AVRLoop *ALoop, unsigned int VF) const;
+};
+
+/// \brief Visitor Class for accumulating the cost of an AVR Loop.
+// TODO: Extend to non-innermost loops. 
+class VPOCostGatherer {
+private:
+  /// \name Used per AvrLoop in region to accumulate the overall vectorization
+  /// cost for an AvrLoop in the region. Some costs are incured in each 
+  /// iteration; These are counted in \p LoopBodyCost (which will be multiplied
+  /// by the loop's iteration-count). Some costs are incured once per loop;
+  /// these are counted in \p OutOfLoop Cost.
+  /// @{
+  unsigned int LoopBodyCost;
+  unsigned int OutOfLoopCost;
+  /// @}
+
+public:
+  VPOCostGatherer() { LoopBodyCost = 0; OutOfLoopCost = 0; }  
+  
+  /// \name Get the costs associated with vectorizing the AvrLoop currently 
+  /// under consideration.
+  /// @{
+  unsigned int getLoopBodyCost() { return LoopBodyCost; }
+  unsigned int getOutOfLoopCost() { return OutOfLoopCost; }
+  /// @}
+
+  /// \name Visit Functions 
+  /// @{
+  bool isDone() { return false; } 
+  bool skipRecursion(AVR *ANode) { return false; } 
+
+  void visit(AVR* ANode) {} 
+  void postVisit(AVR* ANode) {} 
+
+  void visit(AVRLoop* Loop);
+  void postVisit(AVRLoop* Loop);
+
+  void visit(AVRAssign* Assign);
+  void postVisit(AVRAssign* Assign);
+
+  void visit(AVRExpression* Expr);
+  void postVisit(AVRExpression* Expr);
+
+  void visit(AVRValue* AValue);
+  void postVisit(AVRValue* AValue);
+  // TODO: Support other AVR nodes as well.
+  /// @}
 };
 
 /// \brief Information on Data Dependences in a loop.
@@ -85,6 +139,7 @@ public:
 class VPOVLSInfoBase {
 public:
   VPOVLSInfoBase() {}
+  virtual ~VPOVLSInfoBase() {}
 
   /// Analyze the loop memory references with respect to VectorContext.
   /// \param [out] VLSMrfs holds objects that can provide services
@@ -103,6 +158,7 @@ public:
 class VPOVLSInfo : public VPOVLSInfoBase {
 public:
   VPOVLSInfo() : VPOVLSInfoBase() {}
+  ~VPOVLSInfo() {}
 
   void analyzeVLSMemrefsInLoop(OVLSMemrefVector &VLSMrfs) override {}
   void analyzeVLSGroupsInLoop(OVLSMemrefVector &VLSMrfs,
@@ -126,6 +182,7 @@ public:
   VPOVLSInfoHIR(HIRVectVLSAnalysis *VLS, VPOVecContextHIR *VC,
                 LoopMemrefsVector &Refs)
       : VLS(VLS), VC(VC), LoopMemrefs(&Refs) {}
+  ~VPOVLSInfoHIR() {}
 
   void analyzeVLSMemrefsInLoop(OVLSMemrefVector &VLSMrfs) override {
     assert(VC && "VectorContext not set.");
@@ -153,8 +210,9 @@ private:
 
 public:
   VPOScenarioEvaluationBase() {}
+  virtual ~VPOScenarioEvaluationBase() {}
   void setAWrn(AVRWrn *AvrWrn) { AWrn = AvrWrn; }
-  void setALoop(AVRLoop *L) { ALoop = L; }
+  void setALoop(AVRLoop *L) { ALoop = L; } 
 
   // Functions with a base-level implementation common to both underlying IRs
 
@@ -178,14 +236,21 @@ public:
   VPOVecContextBase *processLoop(AVRWrn *AvrWrn, int *Cost);
 #endif
 
-  /// Analyze a specific vectorization candidate (Loop and Vectorization
-  /// Factor) as indicated by the \p VC.
+  /// \brief Analyze a specific vectorization candidate, namely a specific
+  /// \p ALoop and \p VF (Vectorization factor). Additional information
+  /// (mostly at level of underlying IR) is passed in the \p VC (VecContext). 
   // TODO: Ideally we have very few VF sensitive adjusments to make.
   // processCandidate is as much as possible just a getCost call.
-  int processCandidate(VPOVecContextBase &VC);
+  // TODO: Support a scenario which consists of more than one loop.
+  // TODO: Decide how we indicate for this function which Loops and VFs to 
+  // consider (possibly directly/explicitely in the AVR?). Looks like we will 
+  // not use VecContext for this purpose. Need to finalize what vecContext 
+  // will be used for. Currently it is used to pass underlying-ir level 
+  // information.
+  int processCandidate(AVRLoop *ALoop, unsigned int VF, VPOVecContextBase &VC);
 
-  /// Analyze which Vectorization Factors make sense for the loop (in terms of
-  /// target support and data-types operated on in the loop).
+  /// \brief Analyze which Vectorization Factors make sense for the loop (in 
+  /// terms of target support and data-types operated on in the loop).
   void findVFCandidates(VFsVector &VFCandidates) const;
 
 // Functions to be implemented at the underlying IR level
@@ -199,6 +264,7 @@ public:
   virtual VPODataDepInfoBase getDataDepInfoForLoop() = 0;
   virtual VPOVLSInfoBase *getVLSInfoForCandidate() = 0;
   virtual VPOVecContextBase &setVecContext(unsigned VF) = 0;
+  virtual void resetLoopInfo() = 0;
 };
 
 /// LLVMIR ScenarioEvaluation. Currently an empty implementation.
@@ -210,6 +276,7 @@ private:
 
 public:
   VPOScenarioEvaluation() {}
+  ~VPOScenarioEvaluation() {}
 
   /// Obtain the underlying loop.
 #ifdef USEALOOP
@@ -232,6 +299,8 @@ public:
     VC = VPOVecContext(VF);
     return VC;
   }
+
+  void resetLoopInfo() override { return; }
 };
 
 /// HIR ScenarioEvaluation
@@ -261,6 +330,7 @@ private:
 public:
   VPOScenarioEvaluationHIR(HIRDDAnalysis *DDA, HIRVectVLSAnalysis *VLS)
       : DDA(DDA), VLS(VLS), Loop(nullptr) {}
+  ~VPOScenarioEvaluationHIR() {}
 
 #ifdef USEALOOP
   // CHECKME: This code is not working (no HLLoop is obtained).
@@ -284,7 +354,6 @@ public:
   // internally?
   void gatherMemrefsInLoop() override {
     assert(Loop && "Loop not set.");
-    LoopMemrefs.clear();
     HIRVectVLSAnalysis::gatherMemrefsInLoop(Loop, LoopMemrefs);
     // TODO: mark that Memrefs are now valid.
   }
@@ -313,6 +382,8 @@ public:
     // TODO: mark that VC is now valid
     return VC;
   }
+
+  void resetLoopInfo() override { LoopMemrefs.clear(); }
 };
 
 } // End namespace vpo

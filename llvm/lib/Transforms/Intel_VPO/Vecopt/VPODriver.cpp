@@ -63,12 +63,20 @@ public:
     initializeVPODriverPass(*PassRegistry::getPassRegistry());
     ScenariosEngine = nullptr;
   }
+
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   VPOScenarioEvaluationBase &getScenariosEngine() override {
     ScenariosEngine = new VPOScenarioEvaluation();
     return *ScenariosEngine;
+  }
+
+  void resetScenariosEngineForRegion() override {
+    if (ScenariosEngine) {
+      delete ScenariosEngine;
+      ScenariosEngine = nullptr;
+    }
   }
 
 private:
@@ -101,6 +109,13 @@ public:
   VPOScenarioEvaluationBase &getScenariosEngine() override {
     ScenariosEngine = new VPOScenarioEvaluationHIR(DDA, VLS);
     return *ScenariosEngine;
+  }
+
+  void resetScenariosEngineForRegion() override {
+    if (ScenariosEngine) {
+      delete ScenariosEngine;
+      ScenariosEngine = nullptr;
+    }
   }
 
 private:
@@ -191,6 +206,8 @@ bool VPODriverBase::runOnFunction(Function &F) {
       // Widen selected candidate
       ret_val = ret_val | AvrCGNode.vectorize(VF);
     }
+
+    resetScenariosEngineForRegion();
   }
 
   return ret_val;

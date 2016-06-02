@@ -44,7 +44,7 @@ std::string AVRAssignHIR::getAvrValueName() const {
 
 //----------AVR Expression for HIR Implementation----------//
 AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand)
-  : AVRExpression(AVR::AVRExpressionHIRNode) {
+  : AVRExpression(AVR::AVRExpressionHIRNode) { 
 
   HLInst* HLInst = HLAssign->getHIRInstruction();
   HIRNode = HLInst;
@@ -55,6 +55,7 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
   else
     Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
   this->setParent(HLAssign); // Set Parent
+  this->setType(LLVMInstruction->getType()); 
 
   if (Operand == RightHand) {
 
@@ -89,6 +90,7 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
     IsLHSExpr = false;
 }
 
+// TODO: set type
 AVRExpressionHIR::AVRExpressionHIR(AVRIfHIR *AIf,
                                    HLIf::const_pred_iterator& PredIt)
   : AVRExpression(AVR::AVRExpressionHIRNode) {
@@ -120,6 +122,7 @@ AVRExpressionHIR::AVRExpressionHIR(AVRIfHIR *AIf,
   }
 }
 
+// TODO: set type
 AVRExpressionHIR::AVRExpressionHIR(AVRExpressionHIR* LHS,
                                    AVRExpressionHIR* RHS)
   : AVRExpression(AVR::AVRExpressionHIRNode) {
@@ -149,7 +152,7 @@ std::string AVRExpressionHIR::getOpCodeName() const {
 
 //----------AVR Value for HIR Implementation----------//
 AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLInst *Inst, AVRExpressionHIR *Parent)
-  : AVRValue(AVR::AVRValueHIRNode), Val(DDRef), HLInstruct(Inst) {
+  : AVRValue(AVR::AVRValueHIRNode, DDRef->getSrcType()), Val(DDRef), HLInstruct(Inst) {
   setParent(Parent);
 }
 
@@ -167,7 +170,7 @@ void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
     case PrintAvrType:
       OS << getAvrTypeName() << "{";
     case PrintDataType:
-      //OS << *ValType << " ";
+      OS << *ValType << " ";
     case PrintBase:
       Val->print(OS,false);
       break;

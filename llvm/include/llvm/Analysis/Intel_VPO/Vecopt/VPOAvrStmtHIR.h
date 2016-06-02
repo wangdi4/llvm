@@ -140,9 +140,6 @@ private:
   /// HLInstruct - Underlying HLNode which produced this value.
   HLInst *HLInstruct;
 
-  /// ValType - The data type of this Value.
-  Type *ValType;
-
 protected:
   /// \brief Constructs an AVRValueHIR node for the operand in HLInst node
   ///  specified by DDRef.

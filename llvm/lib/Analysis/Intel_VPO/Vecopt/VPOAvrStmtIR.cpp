@@ -72,6 +72,7 @@ AVRExpressionIR::AVRExpressionIR(AVRAssignIR *Assign, AssignOperand Operand)
   Instruct = Assign->getLLVMInstruction(); // Set LLVM Instuction
   this->Operation = Instruct->getOpcode(); // Set Operation Type
   this->setParent(Assign);                 // Set Parent
+  this->setType(Instruct->getType());      // Set the Data Type.
 
   // Create RHS Expression
   if (Operand == RightHand) {
@@ -127,9 +128,8 @@ std::string AVRExpressionIR::getOpCodeName() const {
 
 //----------AVR Value for LLVM IR Implementation----------//
 AVRValueIR::AVRValueIR(const Value *V, const Instruction *Inst, AVR *Parent)
-    : AVRValue(AVR::AVRValueIRNode), Val(V), Instruct(Inst) {
+    : AVRValue(AVR::AVRValueIRNode, V->getType()), Val(V), Instruct(Inst) {
 
-  ValType = Val->getType();
   setParent(Parent);
 }
 

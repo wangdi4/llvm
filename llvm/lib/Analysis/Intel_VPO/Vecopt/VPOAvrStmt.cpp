@@ -168,7 +168,7 @@ void AVRExpression::shallowPrint(formatted_raw_ostream &OS) const {
 StringRef AVRExpression::getAvrTypeName() const { return StringRef("EXPR"); }
 
 //----------AVR Value Implementation----------//
-AVRValue::AVRValue(unsigned SCID) : AVR(SCID) {}
+AVRValue::AVRValue(unsigned SCID, Type *ValType) : AVR(SCID), ValType(ValType) {}
 
 AVRValue *AVRValue::clone() const { return nullptr; }
 
