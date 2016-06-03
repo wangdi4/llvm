@@ -83,4 +83,10 @@ void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
+void AVRIf::shallowPrint(formatted_raw_ostream &OS) const {
+
+  OS << "(" << getNumber() << ") "
+     << "IF (" << getCondition()->getNumber() << ")";
+}
+
 StringRef AVRIf::getAvrTypeName() const { return StringRef("if"); }

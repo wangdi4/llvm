@@ -198,6 +198,9 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VLevel) const override;
 
+  /// \brief Shallow-prints the AvrLoop node.
+  void shallowPrint(formatted_raw_ostream &OS) const override;
+
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;
 

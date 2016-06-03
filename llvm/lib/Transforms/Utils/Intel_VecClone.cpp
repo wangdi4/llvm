@@ -443,7 +443,7 @@ PHINode* VecClone::createPhiAndBackedgeForLoop(
   Constant *IndInit = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
                                        0);
 
-  Instruction *Induction = BinaryOperator::CreateNUWAdd(Inc, Phi, "indvar",
+  Instruction *Induction = BinaryOperator::CreateNUWAdd(Phi, Inc, "indvar",
                                                         LoopExitBlock);
 
   Constant *VL = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),

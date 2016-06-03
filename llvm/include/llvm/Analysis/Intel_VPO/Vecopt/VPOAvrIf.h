@@ -61,6 +61,9 @@ protected:
 
 public:
 
+  /// \brief Returns the condition AVR for conditional branch.
+  virtual AVR *getCondition() const = 0;
+
   /// Children iterator methods
   then_iterator then_begin() { return ThenChildren.begin(); }
   const_then_iterator then_begin() const { return ThenChildren.begin(); }
@@ -131,6 +134,9 @@ public:
   /// \brief Prints the AvrIf node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
 	     VerbosityLevel VLevel) const override;
+
+  /// \brief Shallow-prints the AvrIf node.
+  void shallowPrint(formatted_raw_ostream &OS) const override;
 
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;

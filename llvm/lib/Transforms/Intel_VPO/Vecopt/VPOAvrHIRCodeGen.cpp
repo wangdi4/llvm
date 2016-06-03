@@ -24,9 +24,6 @@
 
 #define DEBUG_TYPE "VPODriver"
 
-static cl::opt<unsigned> DefaultVL("default-vpo-vl", cl::init(4),
-                                   cl::desc("Default vector length"));
-
 using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
@@ -280,10 +277,14 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
   }
 }
 
+// TODO: Take as input a VPOVecContext that indicates which AVRLoop(s)
+// is (are) to be vectorized, as identified by the vectorization scenario
+// evaluation.
+// FORNOW there is only one AVRLoop per region, so we will re-discover
+// the same AVRLoop that the vecScenarioEvaluation had "selected".
 bool AVRCodeGenHIR::loopIsHandled() {
   AVRWrn *AWrn = nullptr;
   AVRLoop *ALoop = nullptr;
-  int VL = 0;
   unsigned int TripCount = 0;
   WRNVecLoopNode *WVecNode;
   HLLoop *Loop = nullptr;
@@ -295,6 +296,7 @@ bool AVRCodeGenHIR::loopIsHandled() {
   WVecNode = AWrn->getWrnNode();
 
   // An AVRWrn node is expected to have only one AVRLoop child
+  // FIXME?: This expectation was already checked by the VecScenarioEvaluation.
   for (auto Itr = AWrn->child_begin(), End = AWrn->child_end(); Itr != End;
        ++Itr) {
     if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
@@ -326,12 +328,10 @@ bool AVRCodeGenHIR::loopIsHandled() {
       return false;
   }
 
-  VL = AWrn->getSimdVectorLength();
-
-  // Assume the default vectorization factor when VL is 0
-  if (VL == 0)
-    VL = DefaultVL;
-
+  assert(VL >= 1);
+  if (VL == 1)
+    return false;
+  
   // Loop parent is expected to be an HLRegion
   HLRegion *Parent = dyn_cast<HLRegion>(Loop->getParent());
   if (!Parent)
@@ -381,15 +381,18 @@ bool AVRCodeGenHIR::loopIsHandled() {
 
   setALoop(ALoop);
   setTripCount(TripCount);
-  setVL(VL);
 
   DEBUG(errs() << "Handled loop\n");
   return true;
 }
 
-bool AVRCodeGenHIR::vectorize() {
+// TODO: Change all VL occurences with VF
+// TODO: Have this method take a VecContext as input, which indicates which
+// AVRLoops in the region to vectorize, and how (using what VF).
+bool AVRCodeGenHIR::vectorize(int VL) {
   bool RetVal, LoopHandled;
 
+  setVL(VL);
   LoopHandled = loopIsHandled();
   if (!LoopHandled)
     return false;

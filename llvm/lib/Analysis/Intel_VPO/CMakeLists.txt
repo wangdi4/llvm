@@ -39,6 +39,10 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   Vecopt/VPOAvrUtils.cpp
   Vecopt/VPOAvrUtilsIR.cpp
   Vecopt/VPOAvrUtilsHIR.cpp
+  Vecopt/VPODefUse.cpp
+  Vecopt/VPOCFG.cpp
+  Vecopt/VPOSIMDLaneEvolution.cpp
+  Vecopt/VPOScenarioEvaluation.cpp
 )
 
 add_dependencies(LLVMIntel_VPOAnalysis intrinsics_gen)

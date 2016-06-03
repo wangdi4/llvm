@@ -36,7 +36,7 @@
 ; CHECK-NEXT: br label %simd.loop.exit
 
 ; CHECK: simd.loop.exit:
-; CHECK-NEXT: %indvar = add nuw i32 1, %index
+; CHECK-NEXT: %indvar = add nuw i32 %index, 1
 ; CHECK-NEXT: %vl.cond = icmp ult i32 %indvar, 4
 ; CHECK-NEXT: br i1 %vl.cond, label %simd.loop, label %simd.end.region
 

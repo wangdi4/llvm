@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -16,12 +16,12 @@
 #ifndef LLVM_TRANSFORMS_VPO_VECOPT_VPOAVRLLVMCODEGEN_H
 #define LLVM_TRANSFORMS_VPO_VECOPT_VPOAVRLLVMCODEGEN_H
 
-#include <map>
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Function.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include <map>
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace
@@ -49,8 +49,8 @@ public:
     PhiInsertPt = Inst;
   }
 
-  static Value * getRecurrenceIdentityVector(ReductionItem *RedItem,
-                                             Type *Ty, unsigned VL);
+  static Value *getRecurrenceIdentityVector(ReductionItem *RedItem, Type *Ty,
+                                            unsigned VL);
 
   // Widening reduction Phi node
   Instruction *vectorizePhiNode(PHINode *RdxPhi, unsigned VL);
@@ -80,8 +80,9 @@ public:
 
   ~AVRCodeGen() { WidenMap.clear(); }
 
-  // Perform the actual loop widening (vectorization).
-  bool vectorize();
+  // Perform the actual loop widening (vectorization) using VL as the
+  // vectorization factor.
+  bool vectorize(int VL);
 
 private:
   AVR *Avr;
