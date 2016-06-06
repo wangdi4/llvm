@@ -8472,17 +8472,6 @@ static GVALinkage basicGVALinkageForFunction(const ASTContext &Context,
     break;
   }
 
-#if INTEL_CUSTOMIZATION
-  // CQ#369830 - static declarations are treated differently.
-  // For a function definition, if it has ever been declared static, set
-  // internal linkage for C.
-  const LangOptions &Opts = Context.getLangOpts();
-  if (Opts.IntelCompat && !(Opts.CPlusPlus || Opts.ObjC1 || Opts.ObjC2)) {
-    for (const FunctionDecl *Prev = FD; Prev; Prev = Prev->getPreviousDecl())
-      if (Prev->getStorageClass() == SC_Static)
-        return GVA_Internal;
-  }
-#endif // INTEL_CUSTOMIZATION
   if (!FD->isInlined())
     return External;
 
@@ -8510,7 +8499,10 @@ static GVALinkage basicGVALinkageForFunction(const ASTContext &Context,
   return GVA_DiscardableODR;
 }
 
-static GVALinkage adjustGVALinkageForAttributes(GVALinkage L, const Decl *D) {
+#if INTEL_CUSTOMIZATION
+static GVALinkage adjustGVALinkageForAttributes(GVALinkage L, const Decl *D,
+                                                const ASTContext &Context) {
+#endif // INTEL_CUSTOMIZATION
   // See http://msdn.microsoft.com/en-us/library/xa0d9ste.aspx
   // dllexport/dllimport on inline functions.
   if (D->hasAttr<DLLImportAttr>()) {
@@ -8519,13 +8511,27 @@ static GVALinkage adjustGVALinkageForAttributes(GVALinkage L, const Decl *D) {
   } else if (D->hasAttr<DLLExportAttr>() || D->hasAttr<CUDAGlobalAttr>()) {
     if (L == GVA_DiscardableODR)
       return GVA_StrongODR;
+#if INTEL_CUSTOMIZATION
+  } else if (const auto *FD = dyn_cast<FunctionDecl>(D)) {
+    // CQ#369830 - static declarations are treated differently.
+    //   In C language for a function that has ever been declared static,
+    //   set internal linkage.
+    // CQ#382093 - static + __declspec(dllimport) cause error in BE.
+    //   Don't affect functions with dllimport/dllexport attributes.
+    const LangOptions &Opts = Context.getLangOpts();
+    if (Opts.IntelCompat && !(Opts.CPlusPlus || Opts.ObjC1 || Opts.ObjC2)) {
+      for (const FunctionDecl *Prev = FD; Prev; Prev = Prev->getPreviousDecl())
+        if (Prev->getStorageClass() == SC_Static)
+          return GVA_Internal;
+    }
+#endif // INTEL_CUSTOMIZATION
   }
   return L;
 }
 
 GVALinkage ASTContext::GetGVALinkageForFunction(const FunctionDecl *FD) const {
   return adjustGVALinkageForAttributes(basicGVALinkageForFunction(*this, FD),
-                                       FD);
+                                       FD, *this); // INTEL
 }
 
 static GVALinkage basicGVALinkageForVariable(const ASTContext &Context,
@@ -8590,7 +8596,7 @@ static GVALinkage basicGVALinkageForVariable(const ASTContext &Context,
 
 GVALinkage ASTContext::GetGVALinkageForVariable(const VarDecl *VD) {
   return adjustGVALinkageForAttributes(basicGVALinkageForVariable(*this, VD),
-                                       VD);
+                                       VD, *this); // INTEL
 }
 
 bool ASTContext::DeclMustBeEmitted(const Decl *D) {
