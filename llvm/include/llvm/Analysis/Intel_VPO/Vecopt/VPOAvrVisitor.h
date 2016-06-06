@@ -253,11 +253,24 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     callVisit<AVRLoopIR, AVRLoopHIR, AVRLoop>(ALoop);
     if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
 
+      Ret = Forward ? forwardVisit(ALoop->pre_begin(), ALoop->pre_end(),
+                                   RecurseInsideLoops, true)
+                    : backwardVisit(ALoop->post_begin(), ALoop->post_end(),
+                                    RecurseInsideLoops, true);
+      if (Ret)
+        return true;
+
       Ret = Forward ? forwardVisit(ALoop->child_begin(), ALoop->child_end(),
                                    RecurseInsideLoops, true)
                     : backwardVisit(ALoop->child_begin(), ALoop->child_end(),
                                     RecurseInsideLoops, true);
+      if (Ret)
+        return true;
 
+      Ret = Forward ? forwardVisit(ALoop->post_begin(), ALoop->post_end(),
+                                   RecurseInsideLoops, true)
+                    : backwardVisit(ALoop->pre_begin(), ALoop->pre_end(),
+                                    RecurseInsideLoops, true);
       if (Ret)
         return true;
 

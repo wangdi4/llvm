@@ -30,12 +30,10 @@ namespace vpo {  // VPO Vectorizer Namespace
 class AVRLoopHIR : public AVRLoop {
 
 private:
-
   /// Pointer to HIR loop node.
   HLLoop *HIRLoop;
 
 protected:
-
   // Interface to create AVRLoop from LLVM Loop.
   AVRLoopHIR(HLLoop *Lp);
 
@@ -51,7 +49,6 @@ protected:
   friend class AVRUtilsHIR;
 
 public:
-
   AVRLoopHIR *clone() const override;
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
@@ -61,10 +58,6 @@ public:
 
   /// \brief Returns HLLoop node.
   HLLoop *getLoop() const { return HIRLoop; }
-
-  /// \brief Prints the AvrLoop node.
-  void print(formatted_raw_ostream &OS, unsigned Depth,
-             VerbosityLevel VLevel) const override;
 
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;
@@ -76,8 +69,7 @@ public:
   void codeGen() override;
 };
 
-
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 
-#endif  // LLVM_ANALYSIS_VPO_AVR_LOOP_HIR_H
+#endif // LLVM_ANALYSIS_VPO_AVR_LOOP_HIR_H
