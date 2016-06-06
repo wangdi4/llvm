@@ -1765,15 +1765,6 @@ public:
 
     checkEmptyNamespace(AnnotatedLines);
 
-    for (auto &Line : AnnotatedLines) {
-      if (Line->Affected) {
-        cleanupRight(Line->First, tok::comma, tok::comma);
-        cleanupRight(Line->First, TT_CtorInitializerColon, tok::comma);
-        cleanupLeft(Line->First, TT_CtorInitializerComma, tok::l_brace);
-        cleanupLeft(Line->First, TT_CtorInitializerColon, tok::l_brace);
-      }
-    }
-
     return generateFixes();
   }
 
@@ -1862,45 +1853,6 @@ private:
     return true;
   }
 
-  // Checks pairs {start, start->next},..., {end->previous, end} and deletes one
-  // of the token in the pair if the left token has \p LK token kind and the
-  // right token has \p RK token kind. If \p DeleteLeft is true, the left token
-  // is deleted on match; otherwise, the right token is deleted.
-  template <typename LeftKind, typename RightKind>
-  void cleanupPair(FormatToken *Start, LeftKind LK, RightKind RK,
-                   bool DeleteLeft) {
-    auto NextNotDeleted = [this](const FormatToken &Tok) -> FormatToken * {
-      for (auto *Res = Tok.Next; Res; Res = Res->Next)
-        if (!Res->is(tok::comment) &&
-            DeletedTokens.find(Res) == DeletedTokens.end())
-          return Res;
-      return nullptr;
-    };
-    for (auto *Left = Start; Left;) {
-      auto *Right = NextNotDeleted(*Left);
-      if (!Right)
-        break;
-      if (Left->is(LK) && Right->is(RK)) {
-        deleteToken(DeleteLeft ? Left : Right);
-        // If the right token is deleted, we should keep the left token
-        // unchanged and pair it with the new right token.
-        if (!DeleteLeft)
-          continue;
-      }
-      Left = Right;
-    }
-  }
-
-  template <typename LeftKind, typename RightKind>
-  void cleanupLeft(FormatToken *Start, LeftKind LK, RightKind RK) {
-    cleanupPair(Start, LK, RK, /*DeleteLeft=*/true);
-  }
-
-  template <typename LeftKind, typename RightKind>
-  void cleanupRight(FormatToken *Start, LeftKind LK, RightKind RK) {
-    cleanupPair(Start, LK, RK, /*DeleteLeft=*/false);
-  }
-
   // Delete the given token.
   inline void deleteToken(FormatToken *Tok) {
     if (Tok)
@@ -1938,7 +1890,7 @@ private:
   struct FormatTokenLess {
     FormatTokenLess(const SourceManager &SM) : SM(SM) {}
 
-    bool operator()(const FormatToken *LHS, const FormatToken *RHS) const {
+    bool operator()(const FormatToken *LHS, const FormatToken *RHS) {
       return SM.isBeforeInTranslationUnit(LHS->Tok.getLocation(),
                                           RHS->Tok.getLocation());
     }
@@ -2140,23 +2092,13 @@ tooling::Replacements formatReplacements(StringRef Code,
                                          const tooling::Replacements &Replaces,
                                          const FormatStyle &Style) {
   // We need to use lambda function here since there are two versions of
-  // `sortIncludes`.
-  auto SortIncludes = [](const FormatStyle &Style, StringRef Code,
-                         std::vector<tooling::Range> Ranges,
-                         StringRef FileName) -> tooling::Replacements {
-    return sortIncludes(Style, Code, Ranges, FileName);
-  };
-  tooling::Replacements SortedReplaces =
-      processReplacements(SortIncludes, Code, Replaces, Style);
-
-  // We need to use lambda function here since there are two versions of
   // `reformat`.
   auto Reformat = [](const FormatStyle &Style, StringRef Code,
                      std::vector<tooling::Range> Ranges,
                      StringRef FileName) -> tooling::Replacements {
     return reformat(Style, Code, Ranges, FileName);
   };
-  return processReplacements(Reformat, Code, SortedReplaces, Style);
+  return processReplacements(Reformat, Code, Replaces, Style);
 }
 
 tooling::Replacements

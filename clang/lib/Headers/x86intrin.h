@@ -80,12 +80,6 @@
 #include <f16cintrin.h>
 #endif
 
-#ifndef __INTEL_COMPILER
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__MWAITX__)
-#include <mwaitxintrin.h>
-#endif
-#endif // !__INTEL_COMPILER
-
 /* FIXME: LWP */
 
 #endif /* __X86INTRIN_H */

@@ -90,7 +90,6 @@ set(orig_files
   varargs.h
   vecintrin.h
   xopintrin.h
-  mwaitxintrin.h
   xtestintrin.h
   )
 

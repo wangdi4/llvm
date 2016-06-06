@@ -1543,9 +1543,9 @@ void ASTDeclReader::ReadCXXDefinitionData(
 
 void ASTDeclReader::MergeDefinitionData(
     CXXRecordDecl *D, struct CXXRecordDecl::DefinitionData &&MergeDD) {
-  assert(D->DefinitionData &&
+  assert(D->DefinitionData.getNotUpdated() &&
          "merging class definition into non-definition");
-  auto &DD = *D->DefinitionData;
+  auto &DD = *D->DefinitionData.getNotUpdated();
 
   if (DD.Definition != MergeDD.Definition) {
     // Track that we merged the definitions.
@@ -1668,7 +1668,7 @@ void ASTDeclReader::ReadCXXRecordDefinition(CXXRecordDecl *D, bool Update) {
   // because we're reading an update record, or because we've already done some
   // merging. Either way, just merge into it.
   CXXRecordDecl *Canon = D->getCanonicalDecl();
-  if (Canon->DefinitionData) {
+  if (Canon->DefinitionData.getNotUpdated()) {
     MergeDefinitionData(Canon, std::move(*DD));
     D->DefinitionData = Canon->DefinitionData;
     return;
@@ -2004,8 +2004,8 @@ ASTDeclReader::VisitClassTemplateSpecializationDeclImpl(
 
         // This declaration might be a definition. Merge with any existing
         // definition.
-        if (auto *DDD = D->DefinitionData) {
-          if (CanonSpec->DefinitionData)
+        if (auto *DDD = D->DefinitionData.getNotUpdated()) {
+          if (CanonSpec->DefinitionData.getNotUpdated())
             MergeDefinitionData(CanonSpec, std::move(*DDD));
           else
             CanonSpec->DefinitionData = D->DefinitionData;
@@ -2329,8 +2329,8 @@ void ASTDeclReader::mergeTemplatePattern(RedeclarableTemplateDecl *D,
     // FIXME: This is duplicated in several places. Refactor.
     auto *ExistingClass =
         cast<CXXRecordDecl>(ExistingPattern)->getCanonicalDecl();
-    if (auto *DDD = DClass->DefinitionData) {
-      if (ExistingClass->DefinitionData) {
+    if (auto *DDD = DClass->DefinitionData.getNotUpdated()) {
+      if (ExistingClass->DefinitionData.getNotUpdated()) {
         MergeDefinitionData(ExistingClass, std::move(*DDD));
       } else {
         ExistingClass->DefinitionData = DClass->DefinitionData;
@@ -2768,9 +2768,9 @@ DeclContext *ASTDeclReader::getPrimaryContextForMerging(ASTReader &Reader,
 
   if (CXXRecordDecl *RD = dyn_cast<CXXRecordDecl>(DC)) {
     // Try to dig out the definition.
-    auto *DD = RD->DefinitionData;
+    auto *DD = RD->DefinitionData.getNotUpdated();
     if (!DD)
-      DD = RD->getCanonicalDecl()->DefinitionData;
+      DD = RD->getCanonicalDecl()->DefinitionData.getNotUpdated();
 
     // If there's no definition yet, then DC's definition is added by an update
     // record, but we've not yet loaded that update record. In this case, we
@@ -3780,7 +3780,7 @@ void ASTDeclReader::UpdateDecl(Decl *D, ModuleFile &ModuleFile,
 
     case UPD_CXX_INSTANTIATED_CLASS_DEFINITION: {
       auto *RD = cast<CXXRecordDecl>(D);
-      auto *OldDD = RD->getCanonicalDecl()->DefinitionData;
+      auto *OldDD = RD->getCanonicalDecl()->DefinitionData.getNotUpdated();
       bool HadRealDefinition =
           OldDD && (OldDD->Definition != RD ||
                     !Reader.PendingFakeDefinitionData.count(OldDD));

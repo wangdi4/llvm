@@ -399,7 +399,6 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(unaryOperator);
   REGISTER_MATCHER(unaryTransformType);
   REGISTER_MATCHER(unless);
-  REGISTER_MATCHER(unresolvedLookupExpr);
   REGISTER_MATCHER(unresolvedUsingTypenameDecl);
   REGISTER_MATCHER(unresolvedUsingValueDecl);
   REGISTER_MATCHER(userDefinedLiteral);

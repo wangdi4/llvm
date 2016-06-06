@@ -27,8 +27,6 @@
 // CHECK-SAVE-TEMP: -cc1as
 
 // RUN: %clang -c %s -flto -fembed-bitcode 2>&1 -### | FileCheck %s -check-prefix=CHECK-LTO
-// RUN: %clang -c %s -flto=full -fembed-bitcode 2>&1 -### | FileCheck %s -check-prefix=CHECK-LTO
-// RUN: %clang -c %s -flto=thin -fembed-bitcode 2>&1 -### | FileCheck %s -check-prefix=CHECK-LTO
 // CHECK-LTO: -cc1
 // CHECK-LTO: -emit-llvm-bc
 // CHECK-LTO-NOT: warning: argument unused during compilation: '-fembed-bitcode'

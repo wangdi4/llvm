@@ -1004,7 +1004,8 @@ Value *ScalarExprEmitter::VisitExpr(Expr *E) {
 
 Value *ScalarExprEmitter::VisitShuffleVectorExpr(ShuffleVectorExpr *E) {
   // Vector Mask Case
-  if (E->getNumSubExprs() == 2) {
+  if (E->getNumSubExprs() == 2 ||
+      (E->getNumSubExprs() == 3 && E->getExpr(2)->getType()->isVectorType())) {
     Value *LHS = CGF.EmitScalarExpr(E->getExpr(0));
     Value *RHS = CGF.EmitScalarExpr(E->getExpr(1));
     Value *Mask;
@@ -1012,7 +1013,22 @@ Value *ScalarExprEmitter::VisitShuffleVectorExpr(ShuffleVectorExpr *E) {
     llvm::VectorType *LTy = cast<llvm::VectorType>(LHS->getType());
     unsigned LHSElts = LTy->getNumElements();
 
-    Mask = RHS;
+    if (E->getNumSubExprs() == 3) {
+      Mask = CGF.EmitScalarExpr(E->getExpr(2));
+
+      // Shuffle LHS & RHS into one input vector.
+      SmallVector<llvm::Constant*, 32> concat;
+      for (unsigned i = 0; i != LHSElts; ++i) {
+        concat.push_back(Builder.getInt32(2*i));
+        concat.push_back(Builder.getInt32(2*i+1));
+      }
+
+      Value* CV = llvm::ConstantVector::get(concat);
+      LHS = Builder.CreateShuffleVector(LHS, RHS, CV, "concat");
+      LHSElts *= 2;
+    } else {
+      Mask = RHS;
+    }
 
     llvm::VectorType *MTy = cast<llvm::VectorType>(Mask->getType());
 

@@ -326,18 +326,19 @@ static bool ExecuteAssembler(AssemblerInvocation &Opts,
 
   MCContext Ctx(MAI.get(), MRI.get(), MOFI.get(), &SrcMgr);
 
-  bool PIC = false;
+  llvm::Reloc::Model RM = llvm::Reloc::Default;
   if (Opts.RelocationModel == "static") {
-    PIC = false;
+    RM = llvm::Reloc::Static;
   } else if (Opts.RelocationModel == "pic") {
-    PIC = true;
+    RM = llvm::Reloc::PIC_;
   } else {
     assert(Opts.RelocationModel == "dynamic-no-pic" &&
            "Invalid PIC model!");
-    PIC = false;
+    RM = llvm::Reloc::DynamicNoPIC;
   }
 
-  MOFI->InitMCObjectFileInfo(Triple(Opts.Triple), PIC, CodeModel::Default, Ctx);
+  MOFI->InitMCObjectFileInfo(Triple(Opts.Triple), RM,
+                             CodeModel::Default, Ctx);
   if (Opts.SaveTemporaryLabels)
     Ctx.setAllowTemporaryLabels(false);
   if (Opts.GenDwarfForAssembly)
