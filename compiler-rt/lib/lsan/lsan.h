@@ -24,11 +24,8 @@
       stack_top = t->stack_end();                                              \
       stack_bottom = t->stack_begin();                                         \
     }                                                                          \
-    if (!SANITIZER_MIPS ||                                                     \
-        IsValidFrame(GET_CURRENT_FRAME(), stack_top, stack_bottom)) {          \
-      stack.Unwind(max_size, StackTrace::GetCurrentPc(), GET_CURRENT_FRAME(),  \
-                   /* context */ 0, stack_top, stack_bottom, fast);            \
-    }                                                                          \
+    stack.Unwind(max_size, StackTrace::GetCurrentPc(), GET_CURRENT_FRAME(),    \
+                 /* context */ 0, stack_top, stack_bottom, fast);              \
   }
 
 #define GET_STACK_TRACE_FATAL \

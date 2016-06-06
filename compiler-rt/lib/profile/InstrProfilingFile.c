@@ -254,8 +254,6 @@ int __llvm_profile_register_write_file_atexit(void) {
   if (HasBeenRegistered)
     return 0;
 
-  lprofSetupValueProfiler();
-
   HasBeenRegistered = 1;
   return atexit(writeFileWithoutReturn);
 }
