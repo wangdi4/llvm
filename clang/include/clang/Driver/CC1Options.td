@@ -656,6 +656,8 @@ def no_friend_injection : Flag<["--"], "no_friend_injection">,
 def fintel_openmp : Flag<["-"], "fintel-openmp">,
   HelpText<"Enable emitting of Intel specific OpenMP code">;
 // endif INTEL_SPECIFIC_OPENMP
+def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
+  HelpText<"Set default MS calling convention">;
 
 // C++ TSes.
 def fcoroutines : Flag<["-"], "fcoroutines">,

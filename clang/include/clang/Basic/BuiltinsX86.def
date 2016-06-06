@@ -367,14 +367,8 @@ TARGET_BUILTIN(__builtin_ia32_pmaddwd128, "V4iV8sV8s", "", "sse2")
 TARGET_BUILTIN(__builtin_ia32_monitor, "vv*UiUi", "", "sse3")
 TARGET_BUILTIN(__builtin_ia32_mwait, "vUiUi", "", "sse3")
 TARGET_BUILTIN(__builtin_ia32_lddqu, "V16ccC*", "", "sse3")
-#if INTEL_CUSTOMIZATION
-// Fix for CQ374386: mwaitxintrin.h couldn't be compiled because of undeclared
-// builtin-functions
-TARGET_BUILTIN(__builtin_ia32_monitorx, "vvC*UiUi", "Fnc", "sse3")
-TARGET_BUILTIN(__builtin_ia32_mwaitx, "vUiUiUi", "Fnc", "sse3")
-#endif // INTEL_CUSTOMIZATION
 
-TARGET_BUILTIN(__builtin_ia32_palignr128, "V16cV16cV16cIc", "", "ssse3")
+TARGET_BUILTIN(__builtin_ia32_palignr128, "V16cV16cV16cIi", "", "ssse3")
 
 TARGET_BUILTIN(__builtin_ia32_insertps128, "V4fV4fV4fIc", "", "sse4.1")
 TARGET_BUILTIN(__builtin_ia32_pblendvb128, "V16cV16cV16cV16c", "", "sse4.1")
@@ -543,7 +537,7 @@ TARGET_BUILTIN(__builtin_ia32_paddusb256, "V32cV32cV32c", "", "avx2")
 TARGET_BUILTIN(__builtin_ia32_paddusw256, "V16sV16sV16s", "", "avx2")
 TARGET_BUILTIN(__builtin_ia32_psubusb256, "V32cV32cV32c", "", "avx2")
 TARGET_BUILTIN(__builtin_ia32_psubusw256, "V16sV16sV16s", "", "avx2")
-TARGET_BUILTIN(__builtin_ia32_palignr256, "V32cV32cV32cIc", "", "avx2")
+TARGET_BUILTIN(__builtin_ia32_palignr256, "V32cV32cV32cIi", "", "avx2")
 TARGET_BUILTIN(__builtin_ia32_pavgb256, "V32cV32cV32c", "", "avx2")
 TARGET_BUILTIN(__builtin_ia32_pavgw256, "V16sV16sV16s", "", "avx2")
 TARGET_BUILTIN(__builtin_ia32_pblendvb256, "V32cV32cV32cV32c", "", "avx2")
@@ -2277,6 +2271,10 @@ TARGET_BUILTIN(__builtin_ia32_cvtusi2sd32, "V2dV2dUi","","avx512f")
 TARGET_BUILTIN(__builtin_ia32_cvtusi2sd64, "V2dV2dULLiIi","","avx512f")
 TARGET_BUILTIN(__builtin_ia32_cvtusi2ss32, "V4fV4fUiIi","","avx512f")
 TARGET_BUILTIN(__builtin_ia32_cvtusi2ss64, "V4fV4fULLiIi","","avx512f")
+
+// MONITORX/MWAITX
+TARGET_BUILTIN(__builtin_ia32_monitorx, "vv*UiUi", "", "mwaitx")
+TARGET_BUILTIN(__builtin_ia32_mwaitx, "vUiUiUi", "", "mwaitx")
 
 #undef BUILTIN
 #undef TARGET_BUILTIN
