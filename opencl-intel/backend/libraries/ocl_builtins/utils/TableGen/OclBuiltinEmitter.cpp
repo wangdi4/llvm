@@ -269,9 +269,9 @@ OclGenType::OclGenType(const OclBuiltinDB& DB, const Record* R)
   ListInit* Tin = R->getValueAsListInit("Tin");
   ListInit* Tout = R->getValueAsListInit("Tout");
 
-  assert(Tin && Tout && Tin->getSize() > 0 && Tin->getSize() == Tout->getSize() && "Invalid OclGenType record.");
+  assert(Tin && Tout && Tin->size() > 0 && Tin->size() == Tout->size() && "Invalid OclGenType record.");
 
-  if (!(Tin && Tout && Tin->getSize() > 0 && Tin->getSize() == Tout->getSize())) {
+  if (!(Tin && Tout && Tin->size() > 0 && Tin->size() == Tout->size())) {
     GENOCL_WARNING("Invalid gentype '" << m_Name << "' is found.\n");
     return;
   }
@@ -936,7 +936,7 @@ OclBuiltinImpl::appendImpl(const Record* R)
       const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
       assert(dyn_cast<ListInit>(IV->getValue()) && "Invalid OclBuiltinImpl record.");
       ListInit* List = dyn_cast<ListInit>(IV->getValue());
-      for (unsigned i = 0; i != List->getSize(); ++i) {
+      for (unsigned i = 0; i != List->size(); ++i) {
         DefInit* DI = dyn_cast<DefInit>(List->getElement(i));
         assert(DI && "Invalid OclBuiltinImpl record, list is not entirely DefInit.");
         Tys.push_back(DI->getDef());
