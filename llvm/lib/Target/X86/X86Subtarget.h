@@ -166,9 +166,6 @@ protected:
   /// Processor has LAHF/SAHF instructions.
   bool HasLAHFSAHF;
 
-  /// Processor has MONITORX/MWAITX instructions.
-  bool HasMWAITX;
-
   /// Processor has Prefetch with intent to Write instruction
   bool HasPFPREFETCHWT1;
 
@@ -426,7 +423,6 @@ public:
   bool hasPRFCHW() const { return HasPRFCHW; }
   bool hasRDSEED() const { return HasRDSEED; }
   bool hasLAHFSAHF() const { return HasLAHFSAHF; }
-  bool hasMWAITX() const { return HasMWAITX; }
   bool isBTMemSlow() const { return IsBTMemSlow; }
   bool isSHLDSlow() const { return IsSHLDSlow; }
   bool isUnalignedMem16Slow() const { return IsUAMem16Slow; }

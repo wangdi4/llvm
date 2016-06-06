@@ -13,8 +13,9 @@
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 
 namespace llvm {
-
-/// Lowering for an AVR ELF32 object file.
+/**
+ * Lowering for an AVR ELF32 object file.
+ */
 class AVRTargetObjectFile : public TargetLoweringObjectFileELF {
   typedef TargetLoweringObjectFileELF Base;
 

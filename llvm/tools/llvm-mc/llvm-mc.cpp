@@ -115,8 +115,20 @@ MAttrs("mattr",
   cl::desc("Target specific attributes (-mattr=help for details)"),
   cl::value_desc("a1,+a2,-a3,..."));
 
-static cl::opt<bool> PIC("position-independent",
-                         cl::desc("Position independent"), cl::init(false));
+static cl::opt<Reloc::Model>
+RelocModel("relocation-model",
+             cl::desc("Choose relocation model"),
+             cl::init(Reloc::Default),
+             cl::values(
+            clEnumValN(Reloc::Default, "default",
+                       "Target default relocation model"),
+            clEnumValN(Reloc::Static, "static",
+                       "Non-relocatable code"),
+            clEnumValN(Reloc::PIC_, "pic",
+                       "Fully relocatable, position independent code"),
+            clEnumValN(Reloc::DynamicNoPIC, "dynamic-no-pic",
+                       "Relocatable external references, non-relocatable code"),
+            clEnumValEnd));
 
 static cl::opt<llvm::CodeModel::Model>
 CMModel("code-model",
@@ -420,7 +432,7 @@ int main(int argc, char **argv) {
   // MCObjectFileInfo needs a MCContext reference in order to initialize itself.
   MCObjectFileInfo MOFI;
   MCContext Ctx(MAI.get(), MRI.get(), &MOFI, &SrcMgr);
-  MOFI.InitMCObjectFileInfo(TheTriple, PIC, CMModel, Ctx);
+  MOFI.InitMCObjectFileInfo(TheTriple, RelocModel, CMModel, Ctx);
 
   if (SaveTempLabels)
     Ctx.setAllowTemporaryLabels(false);

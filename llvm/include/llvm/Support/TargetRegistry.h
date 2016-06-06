@@ -20,7 +20,6 @@
 #define LLVM_SUPPORT_TARGETREGISTRY_H
 
 #include "llvm-c/Disassembler.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/FormattedStream.h"
@@ -105,8 +104,8 @@ public:
                                                       StringRef Features);
   typedef TargetMachine *(*TargetMachineCtorTy)(
       const Target &T, const Triple &TT, StringRef CPU, StringRef Features,
-      const TargetOptions &Options, Optional<Reloc::Model> RM,
-      CodeModel::Model CM, CodeGenOpt::Level OL);
+      const TargetOptions &Options, Reloc::Model RM, CodeModel::Model CM,
+      CodeGenOpt::Level OL);
   // If it weren't for layering issues (this header is in llvm/Support, but
   // depends on MC?) this should take the Streamer by value rather than rvalue
   // reference.
@@ -360,7 +359,8 @@ public:
   /// host if that does not exist.
   TargetMachine *
   createTargetMachine(StringRef TT, StringRef CPU, StringRef Features,
-                      const TargetOptions &Options, Optional<Reloc::Model> RM,
+                      const TargetOptions &Options,
+                      Reloc::Model RM = Reloc::Default,
                       CodeModel::Model CM = CodeModel::Default,
                       CodeGenOpt::Level OL = CodeGenOpt::Default) const {
     if (!TargetMachineCtorFn)
@@ -1097,8 +1097,7 @@ template <class TargetMachineImpl> struct RegisterTargetMachine {
 private:
   static TargetMachine *Allocator(const Target &T, const Triple &TT,
                                   StringRef CPU, StringRef FS,
-                                  const TargetOptions &Options,
-                                  Optional<Reloc::Model> RM,
+                                  const TargetOptions &Options, Reloc::Model RM,
                                   CodeModel::Model CM, CodeGenOpt::Level OL) {
     return new TargetMachineImpl(T, TT, CPU, FS, Options, RM, CM, OL);
   }

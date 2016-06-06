@@ -54,7 +54,13 @@ static opt<std::string> OutputFilename(Required, "o",
                                        value_desc("filename"),
                                        cat(DwpCategory));
 
-static void
+static int error(const Twine &Error, const Twine &Context) {
+  errs() << Twine("while processing ") + Context + ":\n";
+  errs() << Twine("error: ") + Error + "\n";
+  return 1;
+}
+
+static Error
 writeStringsAndOffsets(MCStreamer &Out, StringMap<uint32_t> &Strings,
                        uint32_t &StringOffset, MCSection *StrSection,
                        MCSection *StrOffsetSection, StringRef CurStrSection,
@@ -62,7 +68,7 @@ writeStringsAndOffsets(MCStreamer &Out, StringMap<uint32_t> &Strings,
   // Could possibly produce an error or warning if one of these was non-null but
   // the other was null.
   if (CurStrSection.empty() || CurStrOffsetSection.empty())
-    return;
+    return Error();
 
   DenseMap<uint32_t, uint32_t> OffsetRemapping;
 
@@ -93,6 +99,8 @@ writeStringsAndOffsets(MCStreamer &Out, StringMap<uint32_t> &Strings,
     auto NewOffset = OffsetRemapping[OldOffset];
     Out.EmitIntValue(NewOffset, 4);
   }
+
+  return Error();
 }
 
 static uint32_t getCUAbbrev(StringRef Abbrev, uint64_t AbbrCode) {
@@ -364,13 +372,13 @@ std::string buildDWODescription(StringRef Name, StringRef DWPName, StringRef DWO
   return Text;
 }
 
-Error buildDuplicateError(const std::pair<uint64_t, UnitIndexEntry> &PrevE,
-                          const CompileUnitIdentifiers &ID, StringRef DWPName) {
-  return make_error<DWPError>(
-      std::string("Duplicate DWO ID (") + utohexstr(PrevE.first) + ") in " +
-      buildDWODescription(PrevE.second.Name, PrevE.second.DWPName,
-                          PrevE.second.DWOName) +
-      " and " + buildDWODescription(ID.Name, DWPName, ID.DWOName));
+std::string
+buildDuplicateError(const std::pair<uint64_t, UnitIndexEntry> &PrevE,
+                    const CompileUnitIdentifiers &ID, StringRef DWPName) {
+  return std::string("Duplicate DWO ID (") + utohexstr(PrevE.first) + ") in " +
+         buildDWODescription(PrevE.second.Name, PrevE.second.DWPName,
+                             PrevE.second.DWOName) +
+         " and " + buildDWODescription(ID.Name, DWPName, ID.DWOName);
 }
 static Error write(MCStreamer &Out, ArrayRef<std::string> Inputs) {
   const auto &MCOFI = *Out.getContext().getObjectFileInfo();
@@ -515,7 +523,7 @@ static Error write(MCStreamer &Out, ArrayRef<std::string> Inputs) {
           return EID.takeError();
         const auto &ID = *EID;
         if (!P.second)
-          return buildDuplicateError(*P.first, ID, Input);
+          return make_error<DWPError>(buildDuplicateError(*P.first, ID, Input));
         auto &NewEntry = P.first->second;
         NewEntry.Name = ID.Name;
         NewEntry.DWOName = ID.DWOName;
@@ -529,9 +537,7 @@ static Error write(MCStreamer &Out, ArrayRef<std::string> Inputs) {
       }
 
       if (!CurTypesSection.empty()) {
-        if (CurTypesSection.size() != 1)
-          return make_error<DWPError>(
-              "multiple type unit sections in .dwp file");
+        assert(CurTypesSection.size() == 1);
         DWARFUnitIndex TUIndex(DW_SECT_TYPES);
         DataExtractor TUIndexData(CurTUIndexSection,
                                   ErrOrObj->getBinary()->isLittleEndian(), 0);
@@ -549,16 +555,17 @@ static Error write(MCStreamer &Out, ArrayRef<std::string> Inputs) {
       const auto &ID = *EID;
       auto P = IndexEntries.insert(std::make_pair(ID.Signature, CurEntry));
       if (!P.second)
-        return buildDuplicateError(*P.first, ID, "");
+        return make_error<DWPError>(buildDuplicateError(*P.first, ID, ""));
       P.first->second.Name = ID.Name;
       P.first->second.DWOName = ID.DWOName;
       addAllTypes(Out, TypeIndexEntries, TypesSection, CurTypesSection,
                   CurEntry, ContributionOffsets[DW_SECT_TYPES - DW_SECT_INFO]);
     }
 
-    writeStringsAndOffsets(Out, Strings, StringOffset, StrSection,
-                           StrOffsetSection, CurStrSection,
-                           CurStrOffsetSection);
+    if (auto Err = writeStringsAndOffsets(Out, Strings, StringOffset,
+                                          StrSection, StrOffsetSection,
+                                          CurStrSection, CurStrOffsetSection))
+      return Err;
   }
 
   // Lie about there being no info contributions so the TU index only includes
@@ -576,12 +583,6 @@ static Error write(MCStreamer &Out, ArrayRef<std::string> Inputs) {
              IndexEntries);
 
   return Error();
-}
-
-static int error(const Twine &Error, const Twine &Context) {
-  errs() << Twine("while processing ") + Context + ":\n";
-  errs() << Twine("error: ") + Error + "\n";
-  return 1;
 }
 
 int main(int argc, char **argv) {
@@ -616,7 +617,7 @@ int main(int argc, char **argv) {
 
   MCObjectFileInfo MOFI;
   MCContext MC(MAI.get(), MRI.get(), &MOFI);
-  MOFI.InitMCObjectFileInfo(TheTriple, /*PIC*/ false, CodeModel::Default, MC);
+  MOFI.InitMCObjectFileInfo(TheTriple, Reloc::Default, CodeModel::Default, MC);
 
   auto MAB = TheTarget->createMCAsmBackend(*MRI, TripleName, "");
   if (!MAB)

@@ -86,6 +86,8 @@ static MCCodeGenInfo *createMipsMCCodeGenInfo(const Triple &TT, Reloc::Model RM,
                                               CodeModel::Model CM,
                                               CodeGenOpt::Level OL) {
   MCCodeGenInfo *X = new MCCodeGenInfo();
+  if (RM == Reloc::Default || CM == CodeModel::JITDefault)
+    RM = Reloc::Static;
   X->initMCCodeGenInfo(RM, CM, OL);
   return X;
 }

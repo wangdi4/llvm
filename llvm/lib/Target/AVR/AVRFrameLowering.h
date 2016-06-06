@@ -10,6 +10,8 @@
 #ifndef LLVM_AVR_FRAME_LOWERING_H
 #define LLVM_AVR_FRAME_LOWERING_H
 
+#include "AVRConfig.h"
+
 #include "llvm/Target/TargetFrameLowering.h"
 
 namespace llvm {
@@ -36,7 +38,7 @@ public:
   bool canSimplifyCallFramePseudos(const MachineFunction &MF) const override;
   void determineCalleeSaves(MachineFunction &MF, BitVector &SavedRegs,
                             RegScavenger *RS = nullptr) const override;
-  MachineBasicBlock::iterator
+  void
   eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator MI) const override;
 };

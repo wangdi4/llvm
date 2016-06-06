@@ -14,6 +14,8 @@
 #ifndef LLVM_AVR_TARGET_MACHINE_H
 #define LLVM_AVR_TARGET_MACHINE_H
 
+#include "AVRConfig.h"
+
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Target/TargetMachine.h"
 
@@ -25,7 +27,9 @@
 
 namespace llvm {
 
-/// A generic AVR implementation.
+/**
+ * A generic AVR implementation.
+ */
 class AVRTargetMachine : public LLVMTargetMachine {
 public:
   AVRTargetMachine(const Target &T, const Triple &TT, StringRef CPU,

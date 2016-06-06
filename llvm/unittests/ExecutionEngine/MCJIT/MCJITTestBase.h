@@ -282,6 +282,7 @@ protected:
   MCJITTestBase()
     : TrivialModuleBuilder(HostTriple)
     , OptLevel(CodeGenOpt::None)
+    , RelocModel(Reloc::Default)
     , CodeModel(CodeModel::Default)
     , MArch("")
     , MM(new SectionMemoryManager)
@@ -321,6 +322,7 @@ protected:
                  .setErrorStr(&Error)
                  .setOptLevel(CodeGenOpt::None)
                  .setCodeModel(CodeModel::JITDefault)
+                 .setRelocationModel(Reloc::Default)
                  .setMArch(MArch)
                  .setMCPU(sys::getHostCPUName())
                  //.setMAttrs(MAttrs)
@@ -330,6 +332,7 @@ protected:
   }
 
   CodeGenOpt::Level OptLevel;
+  Reloc::Model RelocModel;
   CodeModel::Model CodeModel;
   StringRef MArch;
   SmallVector<std::string, 1> MAttrs;

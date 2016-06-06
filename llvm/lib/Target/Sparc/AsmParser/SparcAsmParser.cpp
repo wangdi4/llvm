@@ -899,7 +899,8 @@ SparcAsmParser::parseSparcAsmOperand(std::unique_ptr<SparcOperand> &Op,
 
       const MCExpr *Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None,
                                                   getContext());
-      if (isCall && getContext().getObjectFileInfo()->isPositionIndependent())
+      if (isCall &&
+          getContext().getObjectFileInfo()->getRelocM() == Reloc::PIC_)
         Res = SparcMCExpr::create(SparcMCExpr::VK_Sparc_WPLT30, Res,
                                   getContext());
       Op = SparcOperand::CreateImm(Res, S, E);
@@ -1220,7 +1221,7 @@ SparcAsmParser::adjustPICRelocation(SparcMCExpr::VariantKind VK,
   // actually a %pc10 or %pc22 relocation. Otherwise, they are interpreted
   // as %got10 or %got22 relocation.
 
-  if (getContext().getObjectFileInfo()->isPositionIndependent()) {
+  if (getContext().getObjectFileInfo()->getRelocM() == Reloc::PIC_) {
     switch(VK) {
     default: break;
     case SparcMCExpr::VK_Sparc_LO:

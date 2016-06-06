@@ -166,14 +166,15 @@ void X86ATTInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
     printRegName(O, Op.getReg());
   } else if (Op.isImm()) {
     // Print X86 immediates as signed values.
-    int64_t Imm = Op.getImm();
-    O << markup("<imm:") << '$' << formatImm(Imm) << markup(">");
+    O << markup("<imm:") << '$' << formatImm((int64_t)Op.getImm())
+      << markup(">");
 
     // If there are no instruction-specific comments, add a comment clarifying
     // the hex value of the immediate operand when it isn't in the range
     // [-256,255].
-    if (CommentStream && !HasCustomInstComment && (Imm > 255 || Imm < -256))
-      *CommentStream << format("imm = 0x%" PRIX64 "\n", (uint64_t)Imm);
+    if (CommentStream && !HasCustomInstComment &&
+        (Op.getImm() > 255 || Op.getImm() < -256))
+      *CommentStream << format("imm = 0x%" PRIX64 "\n", (uint64_t)Op.getImm());
 
   } else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");

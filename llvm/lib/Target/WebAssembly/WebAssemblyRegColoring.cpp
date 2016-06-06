@@ -99,7 +99,7 @@ bool WebAssemblyRegColoring::runOnMachineFunction(MachineFunction &MF) {
     unsigned VReg = TargetRegisterInfo::index2VirtReg(i);
     if (MFI.isVRegStackified(VReg))
       continue;
-    // Skip unused registers, which can use $drop.
+    // Skip unused registers, which can use $discard.
     if (MRI->use_empty(VReg))
       continue;
 

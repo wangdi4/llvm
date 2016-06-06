@@ -61,7 +61,9 @@ enum TOF {
 
 } // end of namespace AVRII
 
-/// Utilities related to the AVR instruction set.
+/**
+ * Utilities related to the AVR instruction set.
+ */
 class AVRInstrInfo : public AVRGenInstrInfo {
 public:
   explicit AVRInstrInfo();

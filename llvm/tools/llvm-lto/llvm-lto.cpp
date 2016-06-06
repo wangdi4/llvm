@@ -390,7 +390,7 @@ public:
   ThinLTOCodeGenerator ThinGenerator;
 
   ThinLTOProcessing(const TargetOptions &Options) {
-    ThinGenerator.setCodePICModel(getRelocModel());
+    ThinGenerator.setCodePICModel(RelocModel);
     ThinGenerator.setTargetOptions(Options);
     ThinGenerator.setCacheDir(ThinLTOCacheDir);
 
@@ -737,7 +737,7 @@ int main(int argc, char **argv) {
   if (UseDiagnosticHandler)
     CodeGen.setDiagnosticHandler(handleDiagnostics, nullptr);
 
-  CodeGen.setCodePICModel(getRelocModel());
+  CodeGen.setCodePICModel(RelocModel);
 
   CodeGen.setDebugInfo(LTO_DEBUG_MODEL_DWARF);
   CodeGen.setTargetOptions(Options);

@@ -3385,11 +3385,10 @@ void InnerLoopVectorizer::truncateToMinimalBitwidths() {
   // truncated version of `I` and reextend its result. InstCombine runs
   // later and will remove any ext/trunc pairs.
   //
-  SmallPtrSet<Value *, 4> Erased;
   for (auto &KV : MinBWs) {
     VectorParts &Parts = WidenMap.get(KV.first);
     for (Value *&I : Parts) {
-      if (Erased.count(I) || I->use_empty())
+      if (I->use_empty())
         continue;
       Type *OriginalTy = I->getType();
       Type *ScalarTruncatedTy =
@@ -3475,7 +3474,6 @@ void InnerLoopVectorizer::truncateToMinimalBitwidths() {
       Value *Res = B.CreateZExtOrTrunc(NewI, OriginalTy);
       I->replaceAllUsesWith(Res);
       cast<Instruction>(I)->eraseFromParent();
-      Erased.insert(I);
       I = Res;
     }
   }

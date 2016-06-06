@@ -46,9 +46,6 @@ def FeatureHardQuad
 def UsePopc : SubtargetFeature<"popc", "UsePopc", "true",
                                "Use the popc (population count) instruction">;
 
-def FeatureSoftFloat : SubtargetFeature<"soft-float", "UseSoftFloat", "true",
-                              "Use software emulation for floating point">;  
-
 //==== Features added predmoninantly for LEON subtarget support                               
 include "LeonFeatures.td"
 

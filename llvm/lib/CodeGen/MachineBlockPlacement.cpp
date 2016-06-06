@@ -1455,6 +1455,9 @@ bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &F) {
   if (std::next(F.begin()) == F.end())
     return false;
 
+  if (skipFunction(*F.getFunction()))
+    return false;
+
   MBPI = &getAnalysis<MachineBranchProbabilityInfo>();
   MBFI = &getAnalysis<MachineBlockFrequencyInfo>();
   MLI = &getAnalysis<MachineLoopInfo>();

@@ -203,8 +203,6 @@ bool isPositiveHalfWord(SDNode *N);
                                     ISD::MemIndexedMode &AM,
                                     SelectionDAG &DAG) const override;
 
-    ConstraintType getConstraintType(StringRef Constraint) const override;
-
     std::pair<unsigned, const TargetRegisterClass *>
     getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
                                  StringRef Constraint, MVT VT) const override;
@@ -213,6 +211,8 @@ bool isPositiveHalfWord(SDNode *N);
     getInlineAsmMemConstraint(StringRef ConstraintCode) const override {
       if (ConstraintCode == "o")
         return InlineAsm::Constraint_o;
+      else if (ConstraintCode == "v")
+        return InlineAsm::Constraint_v;
       return TargetLowering::getInlineAsmMemConstraint(ConstraintCode);
     }
 

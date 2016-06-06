@@ -79,10 +79,10 @@ struct LTOCodeGenerator {
 
   void setTargetOptions(TargetOptions Options);
   void setDebugInfo(lto_debug_model);
-  void setCodePICModel(Optional<Reloc::Model> Model) { RelocModel = Model; }
-
+  void setCodePICModel(Reloc::Model Model) { RelocModel = Model; }
+  
   /// Set the file type to be emitted (assembly or object code).
-  /// The default is TargetMachine::CGFT_ObjectFile.
+  /// The default is TargetMachine::CGFT_ObjectFile. 
   void setFileType(TargetMachine::CodeGenFileType FT) { FileType = FT; }
 
   void setCpu(const char *MCpu) { this->MCpu = MCpu; }
@@ -211,7 +211,7 @@ private:
   bool EmitDwarfDebugInfo = false;
   bool ScopeRestrictionsDone = false;
   bool HasVerifiedInput = false;
-  Optional<Reloc::Model> RelocModel;
+  Reloc::Model RelocModel = Reloc::Default;
   StringSet<> MustPreserveSymbols;
   StringSet<> AsmUndefinedRefs;
   StringMap<GlobalValue::LinkageTypes> ExternalSymbols;

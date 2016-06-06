@@ -321,7 +321,7 @@ static int compileModule(char **argv, LLVMContext &Context) {
 
   std::unique_ptr<TargetMachine> Target(
       TheTarget->createTargetMachine(TheTriple.getTriple(), CPUStr, FeaturesStr,
-                                     Options, getRelocModel(), CMModel, OLvl));
+                                     Options, RelocModel, CMModel, OLvl));
 
   assert(Target && "Could not allocate target machine!");
 

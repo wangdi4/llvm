@@ -45,7 +45,7 @@ std::unique_ptr<TargetMachine> createTargetMachine() {
 
   TargetOptions Options;
   return std::unique_ptr<TargetMachine>(
-      T->createTargetMachine("x86_64", "", "", Options, None,
+      T->createTargetMachine("x86_64", "", "", Options, Reloc::Default,
                              CodeModel::Default, CodeGenOpt::Aggressive));
 }
 

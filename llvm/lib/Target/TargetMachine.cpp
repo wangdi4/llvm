@@ -71,11 +71,11 @@ void TargetMachine::resetTargetOptions(const Function &F) const {
   RESET_OPTION(NoNaNsFPMath, "no-nans-fp-math");
 }
 
-/// Returns the code generation relocation model. The choices are static, PIC,
-/// and dynamic-no-pic.
+/// getRelocationModel - Returns the code generation relocation model. The
+/// choices are static, PIC, and dynamic-no-pic, and target default.
 Reloc::Model TargetMachine::getRelocationModel() const {
   if (!CodeGenInfo)
-    return Reloc::Static; // FIXME
+    return Reloc::Default;
   return CodeGenInfo->getRelocationModel();
 }
 

@@ -105,7 +105,7 @@ LLVMTargetMachineRef LLVMCreateTargetMachine(LLVMTargetRef T,
         const char* Triple, const char* CPU, const char* Features,
         LLVMCodeGenOptLevel Level, LLVMRelocMode Reloc,
         LLVMCodeModel CodeModel) {
-  Optional<Reloc::Model> RM;
+  Reloc::Model RM;
   switch (Reloc){
     case LLVMRelocStatic:
       RM = Reloc::Static;
@@ -117,6 +117,7 @@ LLVMTargetMachineRef LLVMCreateTargetMachine(LLVMTargetRef T,
       RM = Reloc::DynamicNoPIC;
       break;
     default:
+      RM = Reloc::Default;
       break;
   }
 

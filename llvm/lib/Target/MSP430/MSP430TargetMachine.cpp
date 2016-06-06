@@ -26,20 +26,13 @@ extern "C" void LLVMInitializeMSP430Target() {
   RegisterTargetMachine<MSP430TargetMachine> X(TheMSP430Target);
 }
 
-static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
-  if (!RM.hasValue())
-    return Reloc::Static;
-  return *RM;
-}
-
 MSP430TargetMachine::MSP430TargetMachine(const Target &T, const Triple &TT,
                                          StringRef CPU, StringRef FS,
                                          const TargetOptions &Options,
-                                         Optional<Reloc::Model> RM,
-                                         CodeModel::Model CM,
+                                         Reloc::Model RM, CodeModel::Model CM,
                                          CodeGenOpt::Level OL)
     : LLVMTargetMachine(T, "e-m:e-p:16:16-i32:16:32-a:16-n8:16", TT, CPU, FS,
-                        Options, getEffectiveRelocModel(RM), CM, OL),
+                        Options, RM, CM, OL),
       TLOF(make_unique<TargetLoweringObjectFileELF>()),
       // FIXME: Check DataLayout string.
       Subtarget(TT, CPU, FS, *this) {

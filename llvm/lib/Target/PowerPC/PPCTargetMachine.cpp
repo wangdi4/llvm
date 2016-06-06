@@ -178,16 +178,6 @@ static PPCTargetMachine::PPCABI computeTargetABI(const Triple &TT,
   return PPCTargetMachine::PPC_ABI_UNKNOWN;
 }
 
-static Reloc::Model getEffectiveRelocModel(const Triple &TT,
-                                           Optional<Reloc::Model> RM) {
-  if (!RM.hasValue()) {
-    if (TT.isOSDarwin())
-      return Reloc::DynamicNoPIC;
-    return Reloc::Static;
-  }
-  return *RM;
-}
-
 // The FeatureString here is a little subtle. We are modifying the feature
 // string with what are (currently) non-function specific overrides as it goes
 // into the LLVMTargetMachine constructor and then using the stored value in the
@@ -195,11 +185,10 @@ static Reloc::Model getEffectiveRelocModel(const Triple &TT,
 PPCTargetMachine::PPCTargetMachine(const Target &T, const Triple &TT,
                                    StringRef CPU, StringRef FS,
                                    const TargetOptions &Options,
-                                   Optional<Reloc::Model> RM,
-                                   CodeModel::Model CM, CodeGenOpt::Level OL)
+                                   Reloc::Model RM, CodeModel::Model CM,
+                                   CodeGenOpt::Level OL)
     : LLVMTargetMachine(T, getDataLayoutString(TT), TT, CPU,
-                        computeFSAdditions(FS, OL, TT), Options,
-                        getEffectiveRelocModel(TT, RM), CM, OL),
+                        computeFSAdditions(FS, OL, TT), Options, RM, CM, OL),
       TLOF(createTLOF(getTargetTriple())),
       TargetABI(computeTargetABI(TT, Options)),
       Subtarget(TargetTriple, CPU, computeFSAdditions(FS, OL, TT), *this) {
@@ -231,8 +220,7 @@ void PPC32TargetMachine::anchor() { }
 PPC32TargetMachine::PPC32TargetMachine(const Target &T, const Triple &TT,
                                        StringRef CPU, StringRef FS,
                                        const TargetOptions &Options,
-                                       Optional<Reloc::Model> RM,
-                                       CodeModel::Model CM,
+                                       Reloc::Model RM, CodeModel::Model CM,
                                        CodeGenOpt::Level OL)
     : PPCTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL) {}
 
@@ -241,8 +229,7 @@ void PPC64TargetMachine::anchor() { }
 PPC64TargetMachine::PPC64TargetMachine(const Target &T, const Triple &TT,
                                        StringRef CPU, StringRef FS,
                                        const TargetOptions &Options,
-                                       Optional<Reloc::Model> RM,
-                                       CodeModel::Model CM,
+                                       Reloc::Model RM, CodeModel::Model CM,
                                        CodeGenOpt::Level OL)
     : PPCTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL) {}
 

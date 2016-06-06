@@ -194,8 +194,12 @@ protected:
   MCSection *SXDataSection;
 
 public:
-  void InitMCObjectFileInfo(const Triple &TT, bool PIC, CodeModel::Model CM,
-                            MCContext &ctx);
+  void InitMCObjectFileInfo(const Triple &TT, Reloc::Model RM,
+                            CodeModel::Model CM, MCContext &ctx);
+  LLVM_ATTRIBUTE_DEPRECATED(
+      void InitMCObjectFileInfo(StringRef TT, Reloc::Model RM,
+                                CodeModel::Model CM, MCContext &ctx),
+      "StringRef GNU Triple argument replaced by a llvm::Triple object");
 
   bool getSupportsWeakOmittedEHFrame() const {
     return SupportsWeakOmittedEHFrame;
@@ -346,11 +350,11 @@ public:
   enum Environment { IsMachO, IsELF, IsCOFF };
   Environment getObjectFileType() const { return Env; }
 
-  bool isPositionIndependent() const { return PositionIndependent; }
+  Reloc::Model getRelocM() const { return RelocM; }
 
 private:
   Environment Env;
-  bool PositionIndependent;
+  Reloc::Model RelocM;
   CodeModel::Model CMModel;
   MCContext *Ctx;
   Triple TT;

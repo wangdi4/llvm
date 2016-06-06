@@ -619,11 +619,7 @@ SDValue AMDGPUTargetLowering::LowerCall(CallLoweringInfo &CLI,
   DiagnosticInfoUnsupported NoCalls(
       Fn, "unsupported call to function " + FuncName, CLI.DL.getDebugLoc());
   DAG.getContext()->diagnose(NoCalls);
-
-  for (unsigned I = 0, E = CLI.Ins.size(); I != E; ++I)
-    InVals.push_back(DAG.getUNDEF(CLI.Ins[I].VT));
-
-  return DAG.getEntryNode();
+  return SDValue();
 }
 
 SDValue AMDGPUTargetLowering::LowerDYNAMIC_STACKALLOC(SDValue Op,

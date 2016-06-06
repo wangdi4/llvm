@@ -1463,11 +1463,9 @@ SparcTargetLowering::SparcTargetLowering(const TargetMachine &TM,
 
   // Set up the register classes.
   addRegisterClass(MVT::i32, &SP::IntRegsRegClass);
-  if (!Subtarget->useSoftFloat()) {
-    addRegisterClass(MVT::f32, &SP::FPRegsRegClass);
-    addRegisterClass(MVT::f64, &SP::DFPRegsRegClass);
-    addRegisterClass(MVT::f128, &SP::QFPRegsRegClass);
-  }
+  addRegisterClass(MVT::f32, &SP::FPRegsRegClass);
+  addRegisterClass(MVT::f64, &SP::DFPRegsRegClass);
+  addRegisterClass(MVT::f128, &SP::QFPRegsRegClass);
   if (Subtarget->is64Bit()) {
     addRegisterClass(MVT::i64, &SP::I64RegsRegClass);
   } else {
@@ -1762,7 +1760,7 @@ SparcTargetLowering::SparcTargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::FP_ROUND,  MVT::f32, Custom);
 
     // Setup Runtime library names.
-    if (Subtarget->is64Bit() && !Subtarget->useSoftFloat()) {
+    if (Subtarget->is64Bit()) {
       setLibcallName(RTLIB::ADD_F128,  "_Qp_add");
       setLibcallName(RTLIB::SUB_F128,  "_Qp_sub");
       setLibcallName(RTLIB::MUL_F128,  "_Qp_mul");
@@ -1780,7 +1778,7 @@ SparcTargetLowering::SparcTargetLowering(const TargetMachine &TM,
       setLibcallName(RTLIB::FPEXT_F64_F128, "_Qp_dtoq");
       setLibcallName(RTLIB::FPROUND_F128_F32, "_Qp_qtos");
       setLibcallName(RTLIB::FPROUND_F128_F64, "_Qp_qtod");
-    } else if (!Subtarget->useSoftFloat()) {
+    } else {
       setLibcallName(RTLIB::ADD_F128,  "_Q_add");
       setLibcallName(RTLIB::SUB_F128,  "_Q_sub");
       setLibcallName(RTLIB::MUL_F128,  "_Q_mul");
@@ -1806,10 +1804,6 @@ SparcTargetLowering::SparcTargetLowering(const TargetMachine &TM,
   setMinFunctionAlignment(2);
 
   computeRegisterProperties(Subtarget->getRegisterInfo());
-}
-
-bool SparcTargetLowering::useSoftFloat() const {
-  return Subtarget->useSoftFloat();
 }
 
 const char *SparcTargetLowering::getTargetNodeName(unsigned Opcode) const {

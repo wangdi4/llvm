@@ -691,11 +691,13 @@ static bool promoteIndirectCalls(Module &M, bool InLTO) {
 
 bool PGOIndirectCallPromotionLegacyPass::runOnModule(Module &M) {
   // Command-line option has the priority for InLTO.
-  return promoteIndirectCalls(M, InLTO | ICPLTOMode);
+  InLTO |= ICPLTOMode;
+  return promoteIndirectCalls(M, InLTO);
 }
 
 PreservedAnalyses PGOIndirectCallPromotion::run(Module &M, AnalysisManager<Module> &AM) {
-  if (!promoteIndirectCalls(M, InLTO | ICPLTOMode))
+  InLTO |= ICPLTOMode;
+  if (!promoteIndirectCalls(M, InLTO))
     return PreservedAnalyses::all();
 
   return PreservedAnalyses::none();

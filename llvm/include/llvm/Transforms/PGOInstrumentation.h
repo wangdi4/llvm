@@ -38,8 +38,9 @@ private:
 /// The indirect function call promotion pass.
 class PGOIndirectCallPromotion : public PassInfoMixin<PGOIndirectCallPromotion> {
 public:
-  PGOIndirectCallPromotion(bool IsInLTO = false) : InLTO(IsInLTO) {}
+  PGOIndirectCallPromotion() : InLTO(false) {}
   PreservedAnalyses run(Module &M, AnalysisManager<Module> &AM);
+  void setInLTO() { InLTO = true; }
 private:
   bool InLTO;
 };

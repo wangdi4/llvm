@@ -22,21 +22,6 @@
 namespace llvm {
 namespace MachOYAML {
 
-struct Section {
-  char sectname[16];
-  char segname[16];
-  llvm::yaml::Hex64 addr;
-  uint64_t size;
-  llvm::yaml::Hex32 offset;
-  uint32_t align;
-  llvm::yaml::Hex32 reloff;
-  uint32_t nreloc;
-  llvm::yaml::Hex32 flags;
-  llvm::yaml::Hex32 reserved1;
-  llvm::yaml::Hex32 reserved2;
-  llvm::yaml::Hex32 reserved3;
-};
-
 struct FileHeader {
   llvm::yaml::Hex32 magic;
   llvm::yaml::Hex32 cputype;
@@ -50,21 +35,19 @@ struct FileHeader {
 
 struct LoadCommand {
   virtual ~LoadCommand();
-  llvm::MachO::macho_load_command Data;
-  std::vector<Section> Sections;
+  MachO::LoadCommandType cmd;
+  uint32_t cmdsize;
 };
 
 struct Object {
   FileHeader Header;
-  std::vector<LoadCommand> LoadCommands;
-  std::vector<Section> Sections;
+  std::vector<std::unique_ptr<LoadCommand>> LoadCommands;
 };
 
 } // namespace llvm::MachOYAML
 } // namespace llvm
 
-LLVM_YAML_IS_SEQUENCE_VECTOR(llvm::MachOYAML::LoadCommand)
-LLVM_YAML_IS_SEQUENCE_VECTOR(llvm::MachOYAML::Section)
+LLVM_YAML_IS_SEQUENCE_VECTOR(std::unique_ptr<llvm::MachOYAML::LoadCommand>)
 
 namespace llvm {
 namespace yaml {
@@ -77,15 +60,12 @@ template <> struct MappingTraits<MachOYAML::Object> {
   static void mapping(IO &IO, MachOYAML::Object &Object);
 };
 
-template <> struct MappingTraits<MachOYAML::LoadCommand> {
-  static void mapping(IO &IO, MachOYAML::LoadCommand &LoadCommand);
+template <> struct MappingTraits<std::unique_ptr<MachOYAML::LoadCommand>> {
+  static void mapping(IO &IO,
+                      std::unique_ptr<MachOYAML::LoadCommand> &LoadCommand);
 };
 
-template <> struct MappingTraits<MachOYAML::Section> {
-  static void mapping(IO &IO, MachOYAML::Section &Section);
-};
-
-#define HANDLE_LOAD_COMMAND(LCName, LCValue, LCStruct)                         \
+#define HANDLE_LOAD_COMMAND(LCName, LCValue, LCStruct)                 \
   io.enumCase(value, #LCName, MachO::LCName);
 
 template <> struct ScalarEnumerationTraits<MachO::LoadCommandType> {
@@ -94,52 +74,7 @@ template <> struct ScalarEnumerationTraits<MachO::LoadCommandType> {
   }
 };
 
-// This trait is used for 16-byte chars in Mach structures used for strings
-typedef char char_16[16];
-
-template <> struct ScalarTraits<char_16> {
-  static void output(const char_16 &Val, void *, llvm::raw_ostream &Out);
-
-  static StringRef input(StringRef Scalar, void *, char_16 &Val);
-  static bool mustQuote(StringRef S);
-};
-
-// This trait is used for UUIDs. It reads and writes them matching otool's
-// formatting style.
-typedef uint8_t uuid_t[16];
-
-template <> struct ScalarTraits<uuid_t> {
-  static void output(const uuid_t &Val, void *, llvm::raw_ostream &Out);
-
-  static StringRef input(StringRef Scalar, void *, uuid_t &Val);
-  static bool mustQuote(StringRef S);
-};
-
-// Load Command struct mapping traits
-
-#define LOAD_COMMAND_STRUCT(LCStruct)                                          \
-  template <> struct MappingTraits<MachO::LCStruct> {                          \
-    static void mapping(IO &IO, MachO::LCStruct &LoadCommand);                 \
-  };
-
-#include "llvm/Support/MachO.def"
-
-// Extra structures used by load commands
-template <> struct MappingTraits<MachO::dylib> {
-  static void mapping(IO &IO, MachO::dylib &LoadCommand);
-};
-
-template <> struct MappingTraits<MachO::fvmlib> {
-  static void mapping(IO &IO, MachO::fvmlib &LoadCommand);
-};
-
-template <> struct MappingTraits<MachO::section> {
-  static void mapping(IO &IO, MachO::section &LoadCommand);
-};
-
-template <> struct MappingTraits<MachO::section_64> {
-  static void mapping(IO &IO, MachO::section_64 &LoadCommand);
-};
+#undef HANDLE_LOAD_COMMAND
 
 } // namespace llvm::yaml
 

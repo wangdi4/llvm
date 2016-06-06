@@ -76,7 +76,7 @@ public:
 
   TTI::PopcntSupportKind getPopcntSupport(unsigned TyWidth) {
     assert(isPowerOf2_32(TyWidth) && "Ty width must be power of 2");
-    return TTI::PSK_FastHardware;
+    return ST->hasBCNT(TyWidth) ? TTI::PSK_FastHardware : TTI::PSK_Software;
   }
 
   unsigned getNumberOfRegisters(bool Vector);

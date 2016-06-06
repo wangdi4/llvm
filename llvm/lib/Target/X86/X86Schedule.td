@@ -364,8 +364,6 @@ def IIC_SSE_PALIGNRR : InstrItinClass;
 def IIC_SSE_PALIGNRM : InstrItinClass;
 def IIC_SSE_MWAIT : InstrItinClass;
 def IIC_SSE_MONITOR : InstrItinClass;
-def IIC_SSE_MWAITX : InstrItinClass;
-def IIC_SSE_MONITORX : InstrItinClass;
 
 def IIC_SSE_PREFETCH : InstrItinClass;
 def IIC_SSE_PAUSE : InstrItinClass;

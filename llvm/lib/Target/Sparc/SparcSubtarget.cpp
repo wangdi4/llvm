@@ -34,7 +34,6 @@ SparcSubtarget &SparcSubtarget::initializeSubtargetDependencies(StringRef CPU,
   IsVIS = false;
   HasHardQuad = false;
   UsePopc = false;
-  UseSoftFloat = false;
 
   // Leon features
   HasLeonCasa = false;
