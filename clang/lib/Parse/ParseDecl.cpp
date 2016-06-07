@@ -3645,6 +3645,10 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
 
     // OpenCL qualifiers:
     case tok::kw___generic:
+#if INTEL_CUSTOMIZATION
+      // CQ381345: OpenCL is not supported in Intel compatibility mode.
+      if (!Actions.getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
       // generic address space is introduced only in OpenCL v2.0
       // see OpenCL C Spec v2.0 s6.5.5
       if (Actions.getLangOpts().OpenCLVersion < 200) {
@@ -4597,6 +4601,11 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::less:
     return getLangOpts().ObjC1;
 
+#if INTEL_CUSTOMIZATION
+    // CQ381345: OpenCL is not supported in Intel compatibility mode.
+  case tok::kw___generic:
+    return !getLangOpts().IntelCompat;
+#endif // INTEL_CUSTOMIZATION
   case tok::kw___cdecl:
   case tok::kw___stdcall:
   case tok::kw___fastcall:
@@ -4618,7 +4627,6 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw___local:
   case tok::kw___global:
   case tok::kw___constant:
-  case tok::kw___generic:
   case tok::kw___read_only:
   case tok::kw___read_write:
   case tok::kw___write_only:
@@ -4782,6 +4790,11 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
     return !DisambiguatingWithExpression ||
            !isStartOfObjCClassMessageMissingOpenBracket();
 
+#if INTEL_CUSTOMIZATION
+    // CQ381345: OpenCL is not supported in Intel compatibility mode.
+  case tok::kw___generic:
+    return !getLangOpts().IntelCompat;
+#endif // INTEL_CUSTOMIZATION
   case tok::kw___declspec:
   case tok::kw___cdecl:
   case tok::kw___stdcall:
@@ -4809,7 +4822,6 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw___local:
   case tok::kw___global:
   case tok::kw___constant:
-  case tok::kw___generic:
   case tok::kw___read_only:
   case tok::kw___read_write:
   case tok::kw___write_only:
@@ -4996,11 +5008,16 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
       break;
 
     // OpenCL qualifiers:
+#if INTEL_CUSTOMIZATION
+    case tok::kw___generic:
+      // CQ381345: OpenCL is not supported in Intel compatibility mode.
+      assert (!getLangOpts().IntelCompat &&
+              "OpenCL is not supported in Intel compatibility mode.");
+#endif // INTEL_CUSTOMIZATION 
     case tok::kw___private:
     case tok::kw___global:
     case tok::kw___local:
     case tok::kw___constant:
-    case tok::kw___generic:
     case tok::kw___read_only:
     case tok::kw___write_only:
     case tok::kw___read_write:

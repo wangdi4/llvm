@@ -1699,7 +1699,16 @@ private:
   ExprResult ParseStringLiteralExpression(bool AllowUserDefinedLiteral = false);
 
   ExprResult ParseGenericSelectionExpression();
-  
+
+#if INTEL_CUSTOMIZATION
+  // CQ#381345: Parse Intel generic selection expressioon
+  bool  getTypeOfPossibleControllingExpr(QualType &T);
+
+  QualType getTypeOfControllingExpr();
+
+  ExprResult ParseIntelGenericSelectionExpression();
+#endif // INTEL_CUSTOMIZATION
+
   ExprResult ParseObjCBoolLiteral();
 
   ExprResult ParseFoldExpression(ExprResult LHS, BalancedDelimiterTracker &T);
