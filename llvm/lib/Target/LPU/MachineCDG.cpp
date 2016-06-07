@@ -11,7 +11,7 @@
 // Program Dependence Graph and Its Use in Optimization."
 //
 //===----------------------------------------------------------------------===//
-
+#include "LPU.h"
 #include "MachineCDG.h"
 
 #include "llvm/Analysis/DOTGraphTraitsPass.h"
@@ -340,10 +340,15 @@ struct ControlDependencePrinter
 
 } // end anonymous namespace
 
+
+MachineFunctionPass *llvm::createControlDepenceGraph() {
+  return new ControlDependenceGraph();
+}
 char ControlDependenceGraph::ID = 0;
 static RegisterPass<ControlDependenceGraph> Graph("function-control-deps",
 						  "Compute control dependency graphs",
 						  true, true);
+
 /*
 char ControlDependenceGraphs::ID = 0;
 static RegisterPass<ControlDependenceGraphs> Graphs("module-control-deps",

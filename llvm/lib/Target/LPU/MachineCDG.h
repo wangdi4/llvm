@@ -22,6 +22,8 @@
 #include "llvm/Support/DOTGraphTraits.h"
 #include "llvm/CodeGen/MachinePostDominators.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
+#include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/Target/TargetSubtargetInfo.h"
 #include <map>
 #include <set>
 #include <iterator>
@@ -190,8 +192,8 @@ public:
   bool controls(MachineBasicBlock *A, MachineBasicBlock *B) const;
   bool influences(MachineBasicBlock *A, MachineBasicBlock *B) const;
   const ControlDependenceNode *enclosingRegion(MachineBasicBlock *BB) const;
-  //MachineFunction *thisMF;
-  TargetInstrInfo *TII;
+  MachineFunction *thisMF;
+  const TargetInstrInfo *TII;
 
 private:
   ControlDependenceNode *root;
@@ -209,10 +211,14 @@ public:
   ControlDependenceGraph() : MachineFunctionPass(ID), ControlDependenceGraphBase() {}
   virtual ~ControlDependenceGraph() { }
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequired<MachineDominatorTree>();
     AU.addRequired<MachinePostDominatorTree>();
     AU.setPreservesAll();
+    MachineFunctionPass::getAnalysisUsage(AU);
   }
   virtual bool runOnMachineFunction(MachineFunction &F) {
+    thisMF = &F;
+    TII = thisMF->getSubtarget().getInstrInfo();
     MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
     graphForFunction(F,pdt); 
     return false;
@@ -286,7 +292,7 @@ template <> struct DOTGraphTraits<ControlDependenceGraph *>
 };
 
 
-/***************************
+#if 0
 class ControlDependenceGraphs : public ModulePass {
 public:
   static char ID;
@@ -317,7 +323,7 @@ public:
 private:
   std::map<const Function *, ControlDependenceGraphBase> graphs;
 };
-************************/
+#endif
 } // namespace llvm
 
 #endif // LPU_CONTROLDEPENDENCEGRAPH_H

@@ -97,6 +97,13 @@ public:
 #define DEBUG_TYPE "lpu-convert-control"
   void addPreRegAlloc() override {
     std::string Banner = std::string("Before LPUConvertControlPass");
+#if 0
+    Banner = std::string("Before Machine CDG Pass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    addPass(createControlDepenceGraph(), false);
+    Banner = std::string("After Machine CDG Pass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+#else
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
     addPass(createLPUConvertControlPass(), false);
     Banner = std::string("After LPUConvertControlPass");
@@ -113,6 +120,8 @@ public:
     addPass(createLPUOptDFPass(), false);
     Banner = std::string("After LPUOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+#endif
+
 }
 
   void addPostRegAlloc() override {

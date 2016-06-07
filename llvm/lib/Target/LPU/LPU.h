@@ -27,6 +27,7 @@ namespace llvm {
   FunctionPass *createLPUISelDag(LPUTargetMachine &TM,
                                  llvm::CodeGenOpt::Level OptLevel);
   MachineFunctionPass *createLPUConvertControlPass();
+  MachineFunctionPass *createControlDepenceGraph();
   MachineFunctionPass *createLPUCvtCFDFPass();
   MachineFunctionPass *createLPUOptDFPass();
   MachineFunctionPass *createLPUAllocUnitPass();
