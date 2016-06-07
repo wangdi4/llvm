@@ -411,6 +411,10 @@ static Error dumpPublicsStream(ScopedPrinter &P, PDBFile &File) {
   P.printNumber("SymHash", Publics.getSymHash());
   P.printNumber("AddrMap", Publics.getAddrMap());
   P.printNumber("Number of buckets", Publics.getNumBuckets());
+  P.printList("Hash Buckets", Publics.getHashBuckets());
+  P.printList("Address Map", Publics.getAddressMap());
+  P.printList("Thunk Map", Publics.getThunkMap());
+  P.printList("Section Offsets", Publics.getSectionOffsets());
   return Error::success();
 }
 
