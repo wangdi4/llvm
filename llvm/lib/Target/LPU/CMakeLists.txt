@@ -27,6 +27,7 @@ add_llvm_target(LPUCodeGen
   LPUIfConversion.cpp
   LPUTargetTransformInfo.cpp
   LPULicAllocation.cpp
+  MachineCDG.cpp
   )
 
 add_subdirectory(InstPrinter)
