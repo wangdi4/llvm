@@ -246,16 +246,18 @@ void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
     if (node->TrueChildren.size() > 1) {
       ControlDependenceNode *region = new ControlDependenceNode();
       nodes.insert(region);
-      for (ControlDependenceNode::node_iterator C = node->true_begin(), CE = node->true_end();
-	   C != CE; ++C) {
-	ControlDependenceNode *child = *C;
-	assert(node);
-	assert(child);
-	assert(region);
-	region->addOther(child);
-	child->addParent(region);
-	child->removeParent(node);
-	node->removeTrue(child);
+      ControlDependenceNode::node_iterator C = node->true_begin(), CE = node->true_end();
+      while (C != CE) {
+        ControlDependenceNode *child = *C;
+        ++C;
+        assert(node);
+        assert(child);
+        assert(region);
+        region->addOther(child);
+        child->addParent(region);
+        child->removeParent(node);
+        node->removeTrue(child);
+
       }
       node->addTrue(region);
       region->addParent(node);
@@ -265,13 +267,14 @@ void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
     if (node->FalseChildren.size() > 1) {
       ControlDependenceNode *region = new ControlDependenceNode();
       nodes.insert(region);
-      for (ControlDependenceNode::node_iterator C = node->false_begin(), CE = node->false_end();
-	   C != CE; ++C) {
-	ControlDependenceNode *child = *C;
-	region->addOther(child);
-	child->addParent(region);
-	child->removeParent(node);
-	node->removeFalse(child);
+      ControlDependenceNode::node_iterator C = node->false_begin(), CE = node->false_end();
+      while (C != CE) {
+        ControlDependenceNode *child = *C;
+        ++C;
+        region->addOther(child);
+        child->addParent(region);
+        child->removeParent(node);
+        node->removeFalse(child);
       }
       node->addFalse(region);
       region->addParent(node);
