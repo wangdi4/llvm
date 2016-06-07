@@ -505,20 +505,18 @@ static bool ignoreDVWithNoLTGT(const DirectionVector &DV,
 /// Call Demand Driven DD as needed (Currently  not calling)
 struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
 
-  HIRLoopInterchange *LIP;
-  DDGraph DDG;
+  HIRLoopInterchange &LIP;
   HLLoop *CandidateLoop;
+  DDGraph DDG;
 
-  CollectDDInfo(HIRLoopInterchange *LoopIP, DDGraph DDGraph,
-                HLLoop *CandidateLoop, bool RefineDV)
-      : LIP(LoopIP), DDG(DDGraph), CandidateLoop(CandidateLoop),
-        RefineDV(RefineDV) {
-    DVs.clear();
+  CollectDDInfo(HIRLoopInterchange &LIP, HLLoop *CandidateLoop, bool RefineDV)
+      : LIP(LIP), CandidateLoop(CandidateLoop),
+        DDG(LIP.DDA->getGraph(CandidateLoop, false)), RefineDV(RefineDV) {
+    LIP.DVs.clear();
   }
 
   // Indicates if we need to call Demand Driven DD to refine DV
   bool RefineDV;
-  SmallVector<DirectionVector, 16> DVs;
   // start, end level of Candidate Loop nest
 
   void visit(HLDDNode *DDNode) {
@@ -533,30 +531,30 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
                 EE = DDG.outgoing_edges_end(*I);
            II != EE; ++II) {
         // Examining outoging edges is sufficent
-        DDRef *DDref = II->getSink();
+        const DDEdge *Edge = *II;
+        DDRef *DDref = Edge->getSink();
         if (!(HLNodeUtils::contains(CandidateLoop, DDref->getHLDDNode()))) {
           continue;
         }
-        const DDEdge *Edge = &(*II);
         if (ignoreEdge(Edge, CandidateLoop)) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
           DEBUG(dbgs() << "\n\t<Edge dropped>");
-          DEBUG(dbgs() << "\t"; II->print(dbgs()));
+          DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
 #endif
           continue;
         }
-        const DirectionVector *TempDV = &II->getDV();
+        const DirectionVector *TempDV = &Edge->getDV();
 
         // Calling Demand Driven DD to refine DV
         DirectionVector RefinedDV;
         if (RefineDV) {
-          DDRef *SrcDDRef = II->getSrc();
+          DDRef *SrcDDRef = Edge->getSrc();
           DDRef *DstDDRef = DDref;
           bool IsIndep;
           bool IsDVRefined =
-              LIP->DDA->refineDV(SrcDDRef, DstDDRef, LIP->InnermostNestingLevel,
-                                 LIP->OutmostNestingLevel, RefinedDV, &IsIndep);
+              LIP.DDA->refineDV(SrcDDRef, DstDDRef, LIP.InnermostNestingLevel,
+                                 LIP.OutmostNestingLevel, RefinedDV, &IsIndep);
           if (IsIndep) {
             continue;
           }
@@ -567,21 +565,22 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
             TempDV = &RefinedDV;
           }
         }
-        if (ignoreDVWithNoLTGT(*TempDV, LIP->OutmostNestingLevel,
-                               LIP->InnermostNestingLevel)) {
+        if (ignoreDVWithNoLTGT(*TempDV, LIP.OutmostNestingLevel,
+                               LIP.InnermostNestingLevel)) {
           continue;
         }
 
         //  Save the DV in an array which will be used later
-        DVs.push_back(*TempDV);
+        LIP.DVs.push_back(*TempDV);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         DEBUG(dbgs() << "\n\t<Edge selected>");
-        DEBUG(dbgs() << "\t"; II->print(dbgs()));
+        DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
 #endif
       }
     }
   }
+
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
   void postVisit(const HLDDNode *Node) {}
@@ -716,15 +715,14 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
   HLLoop *Loop2 = const_cast<HLLoop *>(Loop);
   DEBUG(dbgs() << "\n\tStart, End level\n"
                << OutmostNestingLevel << " " << InnermostNestingLevel);
-  DDGraph DDG = DDA->getGraph(Loop2, false);
 
   //  Set refineDV as false for now (last argument) until we see kernels
   //  that really need to refine DV.
 
-  CollectDDInfo CDD(this, DDG, Loop2, false);
+  // The following visitor will gather DVs from DDG and push them into
+  // HIRLoopInterchange::DVs;
+  CollectDDInfo CDD(*this, Loop2, false);
   HLNodeUtils::visit(CDD, Loop2);
-
-  DVs = CDD.DVs;
 
   // If edges are selected,
   // there are dependencies to check out w.r.t to interchange order

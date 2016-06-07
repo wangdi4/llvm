@@ -742,11 +742,8 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   assert(ParentRegion && "Processed loop is not attached.");
   ParentRegion->setGenCode(true);
 
-  if (HLLoop *ParentLoop = Context.Loop->getParentLoop()) {
-    HIRInvalidationUtils::invalidateBody(ParentLoop);
-  } else {
-    HIRInvalidationUtils::invalidateNonLoopRegion(ParentRegion);
-  }
+  HIRInvalidationUtils::invalidateBody(Context.Loop);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Context.Loop);
 }
 
 void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
