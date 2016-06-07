@@ -1986,12 +1986,17 @@ static bool isRemainderZero(const CanonExpr *Dividend,
 //
 //    (c1 - c2)/a = i
 //
-// If i is not an integer, there's no dependence.
-// If i < 0 or > UB, there's no dependence.
-// If i = 0, the direction is <= and peeling the
-// 1st iteration will break the dependence.
-// If i = UB, the direction is >= and peeling the
-// last iteration will break the dependence.
+// Src:  X[c1]; Dst:  X(c2 + a *i]
+//
+// If the dependence happens at first iteration when i = 0,
+//       the direction is >= when a > 0
+//       the direction is = when a < 0
+//       for simplicty, we will create >= because it includes =
+//   Peeling the  1st iteration will break the dependence.
+//
+// If the dependence happens at last iteration when i = UB,
+//       the direction is <=
+//   Peeling the last iteration will break the dependence.
 // Otherwise, the direction is *.
 //
 // Can prove independence. Failing that, we can sometimes refine
@@ -2039,7 +2044,8 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   if (isKnownPredicate(CmpInst::ICMP_EQ, SrcConst, DstConst)) {
     if (Level < CommonLevels) {
-      Result.DV[Level].Direction &= DVKind::LE;
+      // Srce: A[2] ; Dst: A[2*i +2];  DV should be >=
+      Result.DV[Level].Direction &= DVKind::GE;
       Result.DV[Level].PeelFirst = true;
       ++WeakZeroSIVsuccesses;
     }
@@ -2078,7 +2084,7 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
     if (isKnownPredicate(CmpInst::ICMP_EQ, NewDelta, Product)) {
       // dependences caused by last iteration
       if (Level < CommonLevels) {
-        Result.DV[Level].Direction &= DVKind::GE;
+        Result.DV[Level].Direction &= DVKind::LE;
         Result.DV[Level].PeelLast = true;
         ++WeakZeroSIVsuccesses;
       }
@@ -2121,14 +2127,18 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
 //
 //    i = (c2 - c1)/a
 //
-// If i is not an integer, there's no dependence.
-// If i < 0 or > UB, there's no dependence.
-// If i = 0, the direction is <= and peeling the
-// 1st iteration will break the dependence.
-// If i = UB, the direction is >= and peeling the
-// last iteration will break the dependence.
-// Otherwise, the direction is *.
+// Src:   X(c1 + a *i]  Dst: X[c2]
 //
+// If the dependence happens at first iteration when i = 0,
+//       the direction is = when a > 0
+//       the direction is <= when a < 0
+//       for simplicty, we will create <= because it includes =
+//   Peeling the  1st iteration will break the dependence.
+//
+// If the dependence happens at last iteration when i = UB,
+//       the direction is >=
+//   Peeling the last iteration will break the dependence.
+// Otherwise, the direction is *.
 // Can prove independence. Failing that, we can sometimes refine
 // the directions. Can sometimes show that first or last
 // iteration carries all the dependences (so worth peeling).
@@ -4662,9 +4672,9 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     return false;
   }
 
-  ///  Bidirectional DV is needed when scanning from L to R, it enconuters
+  ///  Bidirectional DV is needed when scanning from L to R, it encounters
   ///  a * before hitting <.
-  ///  If * is preveded by <. then no backward edge is needed.
+  ///  If * is preceeded by <. then no backward edge is needed.
   ///  Exception:  when src == dst, 1 edge is enough for self output dep.
   ///  e.g.
   ///  (= = *   =)  Yes
@@ -4863,6 +4873,22 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
   }
 
+  unsigned Levels = Result->getLevels();
+  if (Result->isPeelFirst(Levels) && Result->isReversed()) {
+    // Result coming back from weakZeroSrcSIVtest
+    // e.g. for i=0, 2
+    //        x[2*i +2] = x[2];
+    // Need special casing:
+    // Forward DV is  (=)  Backward DV is (<)
+    for (unsigned II = 1; II < Levels; ++II) {
+      ForwardDV[II - 1] = Result->getDirection(II);
+    }
+    ForwardDV[Levels - 1] = DVKind::EQ;
+    getDVForBackwardEdge(ForwardDV, BackwardDV, Levels);
+    BackwardDV[Levels - 1] = DVKind::LT;
+    return true;
+  }
+
   // How to determine whether the edge is forward or backward:
   //  (1) bidirection: both forward & backward
   //  (2) if all EQ, look at TopSort order
@@ -5001,6 +5027,9 @@ void DirectionVector::print(unsigned Levels, raw_ostream &OS) const {
       break;
     case DVKind::LE:
       OS << "<=";
+      break;
+    case DVKind::GE:
+      OS << ">=";
       break;
     case DVKind::GT:
       OS << ">";
