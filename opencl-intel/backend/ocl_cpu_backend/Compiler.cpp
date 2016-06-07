@@ -17,7 +17,6 @@ File Name:  Compiler.cpp
 \*****************************************************************************/
 #define NOMINMAX
 #include "cl_types.h"
-#include "cl_config.h"
 #include "cpu_dev_limits.h"
 #include "Compiler.h"
 #include "Optimizer.h"
