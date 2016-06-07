@@ -655,6 +655,8 @@ private:
   static const unsigned FMAControlSkylakeFMAs = 0x4;
   static const unsigned FMAControlTargetFMAsMask = 0xFF;
   static const unsigned FMAControlForceFMAs = 0x100;
+  static const unsigned FMAControlTuneForLatency = 0x200;
+  static const unsigned FMAControlTuneForThroughput = 0x400;
 
   /// Returns true iff all of the passed features \p F are enabled
   /// by the internal switch FMAControl/"-x86-global-fma-control".
@@ -728,8 +730,30 @@ private:
   /// expression \p Expr being optimized now.
   /// The parameter \p TuneForLatency specifies if the latency aspect has
   /// the priority over the throughput.
+  /// The parameter \p TuneForThroughput specifies if the throughput aspect has
+  /// the priority over the latency.
+  /// If \p TuneForLatency and \p TuneForThroughput are both set or both unset,
+  /// then both aspects are the same important and the final decision depends
+  /// on some heuristics.
   bool isDagBetterThanInitialExpr(const FMADag &Dag, const FMAExpr &Expr,
-                                  bool TuneForLatency = true) const;
+                                  bool TuneForLatency = false,
+                                  bool TuneForThroughput = false) const;
+
+  /// For the given DAG \p Dag this method puts the latency of the dag to
+  /// \p Latency, the number of add or subtract operations to \p NumAddSub,
+  /// the number of multiply operations to \p NumMul, and the number of FMA
+  /// operations to \p NumFMA.
+  void getDagProperties(const FMADag &Dag, unsigned &Latency,
+                        unsigned &NumAddSub, unsigned &NumMul,
+                        unsigned &NumFMA) const;
+
+  /// For the given expression \p Expr this method puts the latency of the
+  /// expression to \p Latency, the number of add or subtract operations to
+  /// \p NumAddSub, the number of multiply operations to \p NumMul, and
+  /// the number of FMA operations to \p NumFMA.
+  void getExprProperties(const FMAExpr &Expr, unsigned &Latency,
+                         unsigned &NumAddSub, unsigned &NumMul,
+                         unsigned &NumFMA) const;
 };
 
 char X86GlobalFMA::ID = 0;
@@ -757,6 +781,25 @@ public:
   /// Returns true iff this FMA DAG has any node having the third operand
   /// equal to 1.0.
   bool hasPlusMinusOne() const;
+
+  /// Returns true iff the FMA DAG node \p NodeInd is a pure MUL operation,
+  /// i.e. the addend is zero and neither multiplicand is zero or one.
+  bool isMul(unsigned NodeInd) const;
+
+  /// Returns true iff the FMA DAG node \p NodeInd is a pure ADD operation,
+  /// i.e. neither of three operands is zero and one of multiplicands is equal
+  /// to one.
+  bool isAdd(unsigned NodeInd) const;
+
+  /// Returns true iff the FMA DAG node \NodeInd is an FMA operation.
+  bool isFMA(unsigned NodeInd) const;
+
+  /// Returns the latency of the expression tree starting from the node
+  /// \p NodeInd.
+  /// The parameters \p MulLatency, \p AddSubLatency, FMALatency specify
+  /// the latency of MUL, ADD-or-SUB, FMA operations.
+  unsigned getLatency(unsigned MulLatency, unsigned AddSubLatency,
+                      unsigned FMALatency, unsigned NodeInd = 0) const;
 };
 
 /// This class is derived from FMAExprSPCommon representing expressions
@@ -1188,11 +1231,6 @@ private:
   /// can be only an FMARegisterTerm.
   void removeFromUsedTerms(FMARegisterTerm *Term);
 
-  /// This method puts 'this' node and all subexpressions to the given
-  /// set \p ExprSet. It may be needed when each expression node must be
-  /// visited only once.
-  void putExprToExprSet(std::set<const FMAExpr *> &ExprSet) const;
-
   /// Recursively walks through the expression nodes, builds sums of products
   /// for them and puts the created SPs to the given map \p ExprToSPMap.
   /// Returns the sum of products generated for 'this' FMA expression.
@@ -1261,6 +1299,17 @@ public:
   /// Returns the reference to machine instruction associated with
   /// FMA expression.
   const MachineInstr *getMI() const { return MI; }
+
+  /// This method puts 'this' node and all subexpressions to the given
+  /// set \p ExprSet. It may be needed when each expression node must be
+  /// visited only once.
+  void putExprToExprSet(std::set<const FMAExpr *> &ExprSet) const;
+
+  /// Returns the latency of the FMA expression tree.
+  /// The parameters \p AddSubLatency, \p MulLatency, \p FMALatency specify
+  /// the latencies of add/subtract, multiply, FMA operations.
+  unsigned getLatency(unsigned AddSubLatency, unsigned MulLatency,
+                      unsigned FMALatency) const;
 
   /// Returns the number of times the given term \p Term is used by 'this'
   /// expression and its subexpressions.
@@ -1566,6 +1615,106 @@ bool FMADag::hasPlusMinusOne() const {
   return false;
 }
 
+bool FMADag::isMul(unsigned NodeInd) const {
+  bool AIsTerm, BIsTerm, CIsTerm;
+
+  // If A is 0.0 or 1.0 then it is not a MUL operation.
+  unsigned A = getOperand(NodeInd, 0, &AIsTerm);
+  if (AIsTerm && (A == FMADagCommon::TermZERO || A == FMADagCommon::TermONE))
+    return false;
+
+  // If B is 0.0 or 1.0 then it is not a MUL operation.
+  unsigned B = getOperand(NodeInd, 1, &BIsTerm);
+  if (BIsTerm && (B == FMADagCommon::TermZERO || B == FMADagCommon::TermONE))
+    return false;
+
+  // If C is NOT 0.0 then it is not a MUL operation.
+  unsigned C = getOperand(NodeInd, 2, &CIsTerm);
+  if (!CIsTerm || C != FMADagCommon::TermZERO)
+    return false;
+
+  return true;
+}
+
+bool FMADag::isAdd(unsigned NodeInd) const {
+  bool AIsTerm, BIsTerm, CIsTerm;
+
+  // If A is 0.0 then it is not an ADD operation.
+  unsigned A = getOperand(NodeInd, 0, &AIsTerm);
+  bool AIsZero = false, AIsOne = false;
+  if (AIsTerm) {
+    AIsZero = A == FMADagCommon::TermZERO;
+    AIsOne = A == FMADagCommon::TermONE;
+  }
+  if (AIsZero)
+    return false;
+
+  // If B is 0.0 then it is not an ADD operation.
+  unsigned B = getOperand(NodeInd, 1, &BIsTerm);
+  bool BIsZero = false, BIsOne = false;
+  if (BIsTerm) {
+    BIsZero = B == FMADagCommon::TermZERO;
+    BIsOne = B == FMADagCommon::TermONE;
+  }
+  if (BIsZero)
+    return false;
+
+  // At least one of A and B must be equal to 1.0 in ADD operation.
+  if (!AIsOne && !BIsOne)
+    return false;
+
+  // If C is 0.0 then it is not an ADD operation.
+  unsigned C = getOperand(NodeInd, 2, &CIsTerm);
+  if (CIsTerm && C == FMADagCommon::TermZERO)
+    return false;
+
+  return true;
+}
+
+bool FMADag::isFMA(unsigned NodeInd) const {
+  bool AIsTerm, BIsTerm, CIsTerm;
+
+  // If A is 0.0 or 1.0 then it is not an FMA operation.
+  unsigned A = getOperand(NodeInd, 0, &AIsTerm);
+  if (AIsTerm && (A == FMADagCommon::TermZERO || A == FMADagCommon::TermONE))
+    return false;
+
+  // If B is 0.0 or 1.0 then it is not an FMA operation.
+  unsigned B = getOperand(NodeInd, 1, &BIsTerm);
+  if (BIsTerm && (B == FMADagCommon::TermZERO || B == FMADagCommon::TermONE))
+    return false;
+
+  // If C is 0.0 then it is not an FMA operation.
+  unsigned C = getOperand(NodeInd, 2, &CIsTerm);
+  if (CIsTerm && C == FMADagCommon::TermZERO)
+    return false;
+
+  return true;
+}
+
+unsigned FMADag::getLatency(unsigned MulLatency, unsigned AddSubLatency,
+                            unsigned FMALatency, unsigned NodeInd) const {
+  unsigned Latency = 0;
+  for (unsigned OpndInd = 0; OpndInd < 3; OpndInd++) {
+    bool OpndIsTerm;
+    unsigned Opnd = getOperand(NodeInd, OpndInd, &OpndIsTerm);
+    if (!OpndIsTerm)
+      Latency = std::max(
+          Latency, getLatency(MulLatency, AddSubLatency, FMALatency, Opnd));
+  }
+
+  if (isMul(NodeInd))
+    Latency += MulLatency;
+  else if (isAdd(NodeInd))
+    Latency += AddSubLatency;
+  else if (isFMA(NodeInd))
+    Latency += FMALatency;
+  else
+    llvm_unreachable("Dag has obvious inefficiencies.");
+
+  return Latency;
+}
+
 FMAExprSP *FMAExpr::generateSPRecursively(
     const FMAExpr *RootFMAExpr,
     std::map<const FMAExpr *, FMAExprSP *> &ExprToSPMap) const {
@@ -1696,6 +1845,31 @@ void FMAExpr::consume(FMAExpr *FWSExpr) {
   FWSExpr->KilledRegs.clear();
 
   DEBUG(fmadbgs() << "  -->After consuming expr: " << *this << "\n");
+}
+
+unsigned FMAExpr::getLatency(unsigned AddSubLatency, unsigned MulLatency,
+                             unsigned FMALatency) const {
+  unsigned MaxOperandLatency = 0;
+  for (auto Opnd : Operands)
+    if (Opnd->isFMA()) {
+      unsigned OperandLatency =
+          Opnd->castToExpr()->getLatency(AddSubLatency, MulLatency, FMALatency);
+      MaxOperandLatency = std::max(MaxOperandLatency, OperandLatency);
+    }
+
+  if (Operands[0]->isZero() || Operands[1]->isZero())
+    // This FMA is actually a term. It adds nothing to the returned latency.
+    return MaxOperandLatency;
+
+  if (Operands[0]->isOne() || Operands[1]->isOne()) {
+    if (!Operands[2]->isZero())
+      return MaxOperandLatency + AddSubLatency;
+  } else if (Operands[2]->isZero())
+    return MaxOperandLatency + MulLatency;
+  else
+    return MaxOperandLatency + FMALatency;
+
+  return MaxOperandLatency;
 }
 
 unsigned FMAExpr::countTermUses(const FMATerm *Term) const {
@@ -2262,7 +2436,18 @@ bool X86GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB,
 
     DEBUG(fmadbgs() << "  CONGRATULATIONS! A searched DAG was found:\n    ");
     DEBUG(Dag->print(fmadbgs()));
-    if (!isDagBetterThanInitialExpr(*Dag, *Expr, true)) {
+
+    // FIXME: Currently, the setting of the latency vs throughput priorities
+    // is set only accordingly to the internal switch value.
+    // For some target architectures (e.g. in-order targets) the throughput
+    // aspects should be more important.
+    // Also, this place should be updated after the latency vs throughput
+    // analysis of the optimized basic block and the data dependencies analysis
+    // in the optimized expression are implemented.
+    bool TuneForLatency = checkAllFMAFeatures(FMAControlTuneForLatency);
+    bool TuneForThroughput = checkAllFMAFeatures(FMAControlTuneForThroughput);
+    if (!isDagBetterThanInitialExpr(*Dag, *Expr, TuneForLatency,
+                                    TuneForThroughput)) {
       DEBUG(fmadbgs() << "  DAG is NOT better than the initial EXPR.\n\n");
       continue;
     }
@@ -2627,14 +2812,150 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag,
   MBB.erase(MI);
 }
 
+void X86GlobalFMA::getExprProperties(const FMAExpr &Expr, unsigned &Latency,
+                                     unsigned &NumAddSub, unsigned &NumMul,
+                                     unsigned &NumFMA) const {
+  NumAddSub = 0;
+  NumMul = 0;
+  NumFMA = 0;
+
+  std::set<const FMAExpr *> ExprSet;
+  Expr.putExprToExprSet(ExprSet);
+  for (auto E : ExprSet) {
+    if (E->getOperand(0)->isZero() || E->getOperand(1)->isZero())
+      // This FMA is actually a term. It adds nothing to the returned
+      // statistics.
+      continue;
+
+    if (E->getOperand(0)->isOne() || E->getOperand(1)->isOne()) {
+      if (!E->getOperand(2)->isZero())
+        NumAddSub++;
+    } else if (E->getOperand(2)->isZero())
+      NumMul++;
+    else
+      NumFMA++;
+  }
+
+  Latency = Expr.getLatency(AddSubLatency, MulLatency, FMALatency);
+}
+
+void X86GlobalFMA::getDagProperties(const FMADag &Dag,
+                                    unsigned &Latency,
+                                    unsigned &NumAddSub,
+                                    unsigned &NumMul,
+                                    unsigned &NumFMA) const {
+  NumAddSub = 0;
+  NumMul = 0;
+  NumFMA = 0;
+
+  unsigned NumNodes = Dag.getNumNodes();
+  for (unsigned NodeInd = 0; NodeInd < NumNodes; NodeInd++) {
+    bool AIsTerm, BIsTerm, CIsTerm;
+    unsigned A = Dag.getOperand(NodeInd, 0, &AIsTerm);
+    unsigned B = Dag.getOperand(NodeInd, 1, &BIsTerm);
+    unsigned C = Dag.getOperand(NodeInd, 2, &CIsTerm);
+
+    bool AIsZero = AIsTerm && A == FMADagCommon::TermZERO;
+    bool BIsZero = BIsTerm && B == FMADagCommon::TermZERO;
+    bool CIsZero = CIsTerm && C == FMADagCommon::TermZERO;
+
+    assert((!AIsZero && !BIsZero) && "DAG has obvious inefficiencies.");
+
+    bool AIsOne = AIsTerm && A == FMADagCommon::TermONE;
+    bool BIsOne = BIsTerm && B == FMADagCommon::TermONE;
+
+    if (AIsOne || BIsOne) {
+      assert(!CIsZero && "DAG has obvious inefficiencies.");
+      NumAddSub++;
+      // -A - C node requires 2 operations at the code-generation phase:
+      //   T0 = A + C; T1 = 0 - T0;
+      // Count the additional subtract operation here.
+      if (Dag.getMulSign(NodeInd) && Dag.getAddSign(NodeInd))
+        NumAddSub++;
+    } else if (CIsZero) {
+      // A*B requires 1 MUL operation at the code-generation phase.
+      // -A*B requires 1 FMA operation: -A*B+0.
+      if (Dag.getMulSign(NodeInd))
+        NumFMA++;
+      else
+        NumMul++;
+    } else
+      NumFMA++;
+  }
+  Latency = Dag.getLatency(MulLatency, AddSubLatency, FMALatency);
+}
+
 bool X86GlobalFMA::isDagBetterThanInitialExpr(const FMADag &Dag,
                                               const FMAExpr &Expr,
-                                              bool TuneForLatency) const {
+                                              bool TuneForLatency,
+                                              bool TuneForThroughput) const {
+  unsigned ELatency, ENumAddSub, ENumMul, ENumFMA;
+  unsigned DLatency, DNumAddSub, DNumMul, DNumFMA;
+
+  getDagProperties(Dag, DLatency, DNumAddSub, DNumMul, DNumFMA);
+  getExprProperties(Expr, ELatency, ENumAddSub, ENumMul, ENumFMA);
+
+  unsigned DNumOperations = DNumAddSub + DNumMul + DNumFMA;
+  unsigned ENumOperations = ENumAddSub + ENumMul + ENumFMA;
+
+  DEBUG(fmadbgs() << "  Compare DAG and initial EXPR:\n"
+                  << "    DAG has: #Operations = " << DNumOperations
+                  << ", Latency = " << DLatency << "\n"
+                  << "    EXPR has: #Operations = " << ENumOperations
+                  << ", Latency = " << ELatency << "\n");
+
+  // If the internal switch requires FMAs, then just return true.
+  // This code is placed after the printings of the DAG/Expr properties
+  // as the last may be interesting even if FMAs are forced.
   if (checkAllFMAFeatures(FMAControlForceFMAs))
     return true;
 
-  // Not implemented yet.
-  return false;
+  // Tuning for latency AND throughput means that the caller does not have
+  // strong preferences and the choice should be made heuristically.
+  if (TuneForLatency && TuneForThroughput) {
+    TuneForLatency = false;
+    TuneForThroughput = false;
+  }
+
+  if (TuneForLatency) {
+    if (DLatency == ELatency)
+      return DNumOperations < ENumOperations;
+    // If DAG has better latency, then return true even if DAG has latency
+    // that is better by just 1 clock-tick and twice bigger number
+    // of operations.
+    return (DLatency < ELatency);
+  }
+
+  if (TuneForThroughput) {
+    if (DNumOperations == ENumOperations)
+      return DLatency < ELatency;
+    // If DAG has smaller number of operations, then return true even if DAG
+    // has 1 operation less than in the initial expression and DAG has twice
+    // bigger latency than the initial expression.
+    return DNumOperations < ENumOperations;
+  }
+
+  double LatencyImprovement;
+  if (ELatency > DLatency)
+    LatencyImprovement = (double)ELatency / (double)DLatency - 1.0;
+  else
+    LatencyImprovement = -((double)DLatency / (double)ELatency - 1.0);
+
+  double ThroughputImprovement;
+  if (ENumOperations > DNumOperations)
+    ThroughputImprovement =
+      (double)ENumOperations / (double)DNumOperations - 1.0;
+  else
+    ThroughputImprovement =
+      -((double)DNumOperations / (double)ENumOperations - 1.0);
+
+  double Improvement = LatencyImprovement + ThroughputImprovement;
+  if (Improvement == 0)
+    // Prefer to have less FMAs as FMAs are less flexible when they are
+    // processed by memory-folding, coalescing and register allocation
+    // optimizations.
+    return DNumFMA < ENumFMA;
+  return LatencyImprovement + ThroughputImprovement > 0;
 }
 
 void X86GlobalFMA::doFWS(FMABasicBlock &FMABB) {
