@@ -79,6 +79,11 @@ public:
         }
       }
     }
+
+    if (getUSRForDecl(ConstructorDecl) == USR) {
+      // This takes care of the class name part of a non-inline ctor definition.
+      LocationsFound.push_back(ConstructorDecl->getLocStart());
+    }
     return true;
   }
 
@@ -123,9 +128,9 @@ private:
   }
 
   // All the locations of the USR were found.
-  StringRef USR;
+  const std::string USR;
   // Old name that is renamed.
-  StringRef PrevName;
+  const std::string PrevName;
   std::vector<clang::SourceLocation> LocationsFound;
 };
 } // namespace

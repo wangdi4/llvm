@@ -108,7 +108,7 @@ static cl::opt<std::string>
 static cl::opt<std::string> ThinLTOPrefixReplace(
     "thinlto-prefix-replace",
     cl::desc("Control where files for distributed backends are "
-             "created. Expects 'oldprefix:newprefix' and if path "
+             "created. Expects 'oldprefix;newprefix' and if path "
              "prefix of output file is oldprefix it will be "
              "replaced with newprefix."));
 
@@ -307,9 +307,9 @@ static void createCombinedModuleSummaryIndex() {
 static void getThinLTOOldAndNewPrefix(std::string &OldPrefix,
                                       std::string &NewPrefix) {
   assert(ThinLTOPrefixReplace.empty() ||
-         ThinLTOPrefixReplace.find(":") != StringRef::npos);
+         ThinLTOPrefixReplace.find(";") != StringRef::npos);
   StringRef PrefixReplace = ThinLTOPrefixReplace;
-  std::pair<StringRef, StringRef> Split = PrefixReplace.split(":");
+  std::pair<StringRef, StringRef> Split = PrefixReplace.split(";");
   OldPrefix = Split.first.str();
   NewPrefix = Split.second.str();
 }
@@ -390,7 +390,7 @@ public:
   ThinLTOCodeGenerator ThinGenerator;
 
   ThinLTOProcessing(const TargetOptions &Options) {
-    ThinGenerator.setCodePICModel(RelocModel);
+    ThinGenerator.setCodePICModel(getRelocModel());
     ThinGenerator.setTargetOptions(Options);
     ThinGenerator.setCacheDir(ThinLTOCacheDir);
 
@@ -737,7 +737,7 @@ int main(int argc, char **argv) {
   if (UseDiagnosticHandler)
     CodeGen.setDiagnosticHandler(handleDiagnostics, nullptr);
 
-  CodeGen.setCodePICModel(RelocModel);
+  CodeGen.setCodePICModel(getRelocModel());
 
   CodeGen.setDebugInfo(LTO_DEBUG_MODEL_DWARF);
   CodeGen.setTargetOptions(Options);
