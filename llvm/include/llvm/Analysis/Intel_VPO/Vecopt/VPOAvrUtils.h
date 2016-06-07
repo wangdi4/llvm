@@ -123,6 +123,9 @@ public:
   /// \brief Add a case to the ASwitch node
   static void addCase(AVRSwitch *ASwitch);
 
+  /// \brief set Avr nodes's SLEV data.
+  static void setSLEV(AVR *Avr, const SLEV& Slev);
+
   /// \brief Sets AvrLoop's zero trip test
   static void setZeroTripTest(AVRLoop *AvrLoop, AVRIf *IfZtt);
 

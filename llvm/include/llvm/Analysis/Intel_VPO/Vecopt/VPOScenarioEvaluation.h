@@ -23,6 +23,7 @@
 #include "llvm/Analysis/Intel_OptVLS.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecContext.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
 
 namespace llvm {
 namespace vpo {
@@ -264,6 +265,7 @@ public:
   virtual VPODataDepInfoBase getDataDepInfoForLoop() = 0;
   virtual VPOVLSInfoBase *getVLSInfoForCandidate() = 0;
   virtual VPOVecContextBase &setVecContext(unsigned VF) = 0;
+  virtual SIMDLaneEvolutionAnalysisUtilBase& getSLEVUtil() = 0;
   virtual void resetLoopInfo() = 0;
 };
 
@@ -273,9 +275,10 @@ class VPOScenarioEvaluation : public VPOScenarioEvaluationBase {
 private:
   VPODataDepInfo VPODDG;
   VPOVecContext VC;
+  SIMDLaneEvolutionAnalysisUtil SLEVUtil;
 
 public:
-  VPOScenarioEvaluation() {}
+  VPOScenarioEvaluation(AvrDefUse& DU) : SLEVUtil(DU) {}
   ~VPOScenarioEvaluation() {}
 
   /// Obtain the underlying loop.
@@ -300,6 +303,8 @@ public:
     return VC;
   }
 
+  SIMDLaneEvolutionAnalysisUtilBase& getSLEVUtil() override { return SLEVUtil; }
+
   void resetLoopInfo() override { return; }
 };
 
@@ -308,6 +313,7 @@ class VPOScenarioEvaluationHIR : public VPOScenarioEvaluationBase {
 private:
   HIRDDAnalysis *DDA;
   HIRVectVLSAnalysis *VLS;
+  SIMDLaneEvolutionAnalysisUtilHIR SLEVUtil;
 
   /// \name Information about the loop currently under consideration.
   /// These data-structures are initially empty. We set them per loop.
@@ -328,8 +334,10 @@ private:
   /// @}
 
 public:
-  VPOScenarioEvaluationHIR(HIRDDAnalysis *DDA, HIRVectVLSAnalysis *VLS)
-      : DDA(DDA), VLS(VLS), Loop(nullptr) {}
+  VPOScenarioEvaluationHIR(HIRDDAnalysis *DDA,
+                           HIRVectVLSAnalysis *VLS,
+                           AvrDefUseHIR& DU)
+      : DDA(DDA), VLS(VLS), SLEVUtil(DU), Loop(nullptr) {}
   ~VPOScenarioEvaluationHIR() {}
 
 #ifdef USEALOOP
@@ -382,6 +390,8 @@ public:
     // TODO: mark that VC is now valid
     return VC;
   }
+
+  SIMDLaneEvolutionAnalysisUtilBase& getSLEVUtil() override { return SLEVUtil; }
 
   void resetLoopInfo() override { LoopMemrefs.clear(); }
 };

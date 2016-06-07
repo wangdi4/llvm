@@ -38,6 +38,7 @@ void AVRIfHIR::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "(" << getNumber() << ")";
   case PrintAvrType:
   case PrintDataType:
+    printSLEV(OS);
   case PrintBase:
     CompareInstruction->printHeader(OS, 0);
     OS << Indent << "{\n";

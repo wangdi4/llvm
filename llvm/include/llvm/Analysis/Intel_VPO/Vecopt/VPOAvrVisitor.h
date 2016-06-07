@@ -297,7 +297,8 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     if (isa<AVRIfHIR>(AIf) && // TODO: UNIFY BEHAVIOR WITH IR
         Forward &&
         Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
-      Ret = visit(AIf->getCondition(), Recursive, RecurseInsideLoops, Forward);
+      if (visit(AIf->getCondition(), Recursive, RecurseInsideLoops, Forward))
+        return true;
     }
 
     if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
@@ -321,7 +322,8 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
       if (isa<AVRIfHIR>(AIf) && // TODO: UNIFY BEHAVIOR WITH IR
           !Forward &&
           Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
-        Ret = visit(AIf->getCondition(), Recursive, RecurseInsideLoops, Forward);
+        if (visit(AIf->getCondition(), Recursive, RecurseInsideLoops, Forward))
+          return true;
       }
 
       callPostVisit<AVRIfIR, AVRIfHIR, AVRIf>(AIf);
@@ -364,8 +366,11 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
   } else if (AVRAssign *AAssign = dyn_cast<AVRAssign>(Node)) {
     callVisit<AVRAssignIR, AVRAssignHIR, AVRAssign>(AAssign);
 
-    if (!Recursive || Visitor.skipRecursion(Node) || Visitor.isDone())
+    if (Visitor.isDone())
       return true;
+
+    if (!Recursive || Visitor.skipRecursion(Node))
+      return false;
 
     AVR *First = Forward ? AAssign->getRHS() : AAssign->getLHS();
     AVR *Second = Forward ? AAssign->getLHS() : AAssign->getRHS();
@@ -386,8 +391,11 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
   } else if (AVRExpression *AExpr = dyn_cast<AVRExpression>(Node)) {
     callVisit<AVRExpressionIR, AVRExpressionHIR, AVRExpression>(AExpr);
 
-    if (!Recursive || Visitor.skipRecursion(Node) || Visitor.isDone())
+    if (Visitor.isDone())
       return true;
+
+    if (!Recursive || Visitor.skipRecursion(Node))
+      return false;
 
     unsigned NumOperands = AExpr->getNumOperands();
     for (unsigned OpIt = 1; OpIt <= NumOperands; ++OpIt) {
@@ -406,7 +414,10 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
   } else if (AVRPhi *APhi = dyn_cast<AVRPhi>(Node)) {
     callVisit<AVRPhiIR, AVRPhi>(APhi);
 
-    if (!Recursive || Visitor.skipRecursion(Node) || Visitor.isDone())
+    if (Visitor.isDone())
+      return true;
+
+    if (!Recursive || Visitor.skipRecursion(Node))
       return false;
 
     auto& IncomingValues = APhi->getIncomingValues();

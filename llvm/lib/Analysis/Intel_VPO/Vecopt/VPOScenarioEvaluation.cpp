@@ -217,6 +217,12 @@ VPOScenarioEvaluationBase::processLoop(AVRWrn *AvrWrn, int *BestCostForALoop) {
   getDataDepInfoForLoop();
   gatherMemrefsInLoop();
 
+  // TODO: adapt to being called on a loop.
+  getSLEVUtil().runOnAvr(AvrWrn->child_begin(), AvrWrn->child_end());
+  DEBUG(formatted_raw_ostream FOS(dbgs());
+        FOS << "After SLEV analysis:\n";
+        AvrWrn->print(FOS, 1, PrintNumber));
+
   // Identify VF candidates
   //
   VFsVector VFCandidates;

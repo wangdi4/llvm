@@ -72,6 +72,10 @@ void AVRUtils::setZeroTripTest(AVRLoop *ALoop, AVRIf *IfZtt) {
   ALoop->setZeroTripTest(IfZtt);
 }
 
+void AVRUtils::setSLEV(AVR *Avr, const SLEV& Slev) {
+  Avr->Slev.copyValue(Slev);
+}
+
 // Insertion Utilities
 
 void AVRUtils::insertSingleton(AVR *DestinationParent,

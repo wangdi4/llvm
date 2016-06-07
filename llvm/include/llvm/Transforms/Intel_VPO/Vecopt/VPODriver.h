@@ -37,6 +37,7 @@
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
 
 namespace llvm {
 

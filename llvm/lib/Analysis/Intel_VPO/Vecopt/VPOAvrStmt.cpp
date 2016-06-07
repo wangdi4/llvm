@@ -41,6 +41,7 @@ void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
+    printSLEV(OS);
   case PrintBase:
     if (hasLHS() && hasRHS()) {
 
@@ -68,8 +69,9 @@ void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
 
 void AVRAssign::shallowPrint(formatted_raw_ostream &OS) const {
 
-  OS << "(" << getNumber() << ") "
-     << getAvrTypeName() << "{";
+  OS << "(" << getNumber() << ") ";
+  printSLEV(OS);
+  OS << getAvrTypeName() << "{";
 
   if (hasLHS() && hasRHS()) {
 
@@ -105,6 +107,7 @@ void AVRExpression::print(formatted_raw_ostream &OS, unsigned Depth,
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
+    printSLEV(OS);
   case PrintBase:
     if (isUnaryOperation()) {
 
@@ -139,8 +142,9 @@ void AVRExpression::print(formatted_raw_ostream &OS, unsigned Depth,
 
 void AVRExpression::shallowPrint(formatted_raw_ostream &OS) const {
 
-  OS << "("  << getNumber() << ")"
-     << getAvrTypeName() << "{";
+  OS << "("  << getNumber() << ")";
+  printSLEV(OS);
+  OS << getAvrTypeName() << "{";
 
   if (isUnaryOperation()) {
   
@@ -204,6 +208,7 @@ void AVRPhi::print(formatted_raw_ostream &OS, unsigned Depth,
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
+    printSLEV(OS);
   case PrintBase:
     {
       LHS->print(OS, 0, VLevel);
@@ -232,8 +237,9 @@ void AVRPhi::print(formatted_raw_ostream &OS, unsigned Depth,
 
 void AVRPhi::shallowPrint(formatted_raw_ostream &OS) const {
 
-  OS << "(" << getNumber() << ") "
-     << getAvrTypeName() << "{("
+  OS << "(" << getNumber() << ") ";
+  printSLEV(OS);
+  OS << getAvrTypeName() << "{("
      << LHS->getNumber() << ") := phi(";
 
   unsigned IncomingNum = IncomingValues.size();

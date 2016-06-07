@@ -145,6 +145,7 @@ void AVRValueIR::print(formatted_raw_ostream &OS, unsigned Depth,
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
+    printSLEV(OS);
     OS << *ValType << " ";
   case PrintBase:
     Val->printAsOperand(OS, false);
@@ -226,6 +227,7 @@ void AVRPhiIR::print(formatted_raw_ostream &OS, unsigned Depth,
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
+    printSLEV(OS);
   case PrintBase:
     OS << getAvrValueName();
     break;
@@ -282,6 +284,7 @@ void AVRCallIR::print(formatted_raw_ostream &OS, unsigned Depth,
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
+    printSLEV(OS);
   case PrintBase:
     OS << getAvrValueName();
     break;
@@ -354,6 +357,7 @@ void AVRBranchIR::print(formatted_raw_ostream &OS, unsigned Depth,
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
+    printSLEV(OS);
   case PrintBase:
     OS << getAvrValueName();
     break;
@@ -639,6 +643,7 @@ void AVRCompareIR::print(formatted_raw_ostream &OS, unsigned Depth,
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
+    printSLEV(OS);
   case PrintBase:
     OS << getAvrValueName();
     break;

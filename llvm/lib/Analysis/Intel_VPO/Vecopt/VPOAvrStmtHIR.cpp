@@ -170,6 +170,7 @@ void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
     case PrintAvrType:
       OS << getAvrTypeName() << "{";
     case PrintDataType:
+      printSLEV(OS);
       OS << *ValType << " ";
     case PrintBase:
       Val->print(OS,false);
@@ -228,6 +229,7 @@ void AVRBranchHIR::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "("  << getNumber() << ")";
   if (VLevel > PrintBase) {
     OS << Indent << "AVR_FBRANCH:";
+    printSLEV(OS);
     Instruct->print(OS, Depth);
     OS << "\n" ;
   }

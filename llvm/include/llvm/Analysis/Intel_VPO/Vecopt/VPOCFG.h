@@ -135,13 +135,18 @@ public:
 
 typedef DenseMap<AVR*, AvrBasicBlock*> AVRBasicBlocksMapTy;
 
-/// \brief Base class of the function-level analysis providing a control
-/// flow graph for an AVR program.
-class AvrCFGBase : public FunctionPass {
+/// \brief This class provides a Control Flow Graph view of AVR programs.
+/// The CFG is external to the AVR program: the basic blocks are not AVR
+/// nodes and the AVR program itself is not modified in any way.
+class AvrCFGBase {
 
 public:
 
-  virtual ~AvrCFGBase() { reset(); }
+  AvrCFGBase(AvrItr Begin, AvrItr End,
+             const std::string& T,
+             bool Compress = false);
+
+  virtual ~AvrCFGBase();
 
   const std::string& getTitle() const { return Title; }
 
@@ -203,18 +208,14 @@ public:
 
   void print(raw_ostream &OS, const PathTy& Path) const;
 
-  void print(raw_ostream &OS, const Module* = nullptr) const override;
+  void print(raw_ostream &OS) const;
 
   void printDot(raw_ostream &O, bool ShortNames = false);
 
 protected:
 
-  AvrCFGBase(char &ID);
-
   /// \brief Create a CFG for an AVR program.
-  void runOnAvr(AVRGenerateBase& AV,
-                const std::string& T,
-                bool Compress = false);
+  void runOnAvr(AvrItr Begin, AvrItr End, bool Compress);
 
 private:
 
@@ -262,9 +263,6 @@ private:
 
   /// \brief Compress the CFG by merging chains of basic blocks.
   void compress();
-
-  /// \brief Reset internal data structures.
-  void reset();
 
   /// \brief A descriptive title for the CFG in favor of debug printing.
   std::string Title;
@@ -352,7 +350,7 @@ private:
 ///
 /// This class provides the function-pass level CFG of the AVR as provided by
 /// AVRGenerate.
-class AvrCFG : public AvrCFGBase {
+class AvrCFG  : public FunctionPass {
 
 public:
 
@@ -369,13 +367,19 @@ public:
   }
 
   bool runOnFunction(Function &F) override;
+
+  void print(raw_ostream &OS, const Module* = nullptr) const override;
+
+private:
+
+  AvrCFGBase* CFG = nullptr;
 };
 
 /// \brief AVR CFG analysis variant for HIR.
 ///
 /// This class provides the function-pass level CFG of the AVR as provided by
 /// AVRGenerateHIR.
-class AvrCFGHIR : public AvrCFGBase {
+class AvrCFGHIR : public FunctionPass {
 
 public:
 
@@ -392,6 +396,12 @@ public:
   }
 
   bool runOnFunction(Function &F) override;
+
+  void print(raw_ostream &OS, const Module* = nullptr) const override;
+
+private:
+
+  AvrCFGBase* CFG = nullptr;
 };
 
 /// \brief Template specialization of the standard LLVM dominator tree utility
