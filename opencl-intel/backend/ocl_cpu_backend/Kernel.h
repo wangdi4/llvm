@@ -15,8 +15,8 @@ Copyright (c) Intel Corporation (2010).
 File Name:  Kernel.h
 
 \*****************************************************************************/
-// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE 
-//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS  
+// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE
+//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS
 #pragma once
 
 #include <assert.h>
@@ -215,12 +215,14 @@ public:
    * for interpreting pKernelUniformArgs
    * @param pDevMemObjArray [internal use] pointer to the exiplicit arguments
    * @param devMemObjArrayLength [internal use] size of the array
+   * @param numOfComputeUnits number of compute units ND-range is to be run on
    * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
    */
   virtual cl_dev_err_code
   PrepareKernelArguments(void *pKernelUniformArgs,
                          const cl_mem_obj_descriptor **pDevMemObjArray,
-                         unsigned int devMemObjArrayLength) const;
+                         unsigned int devMemObjArrayLength,
+                         size_t numOfComputeUnits) const;
 
   /**
    * Execute the specified kernel with the given arguments
@@ -274,7 +276,8 @@ public:
    * Calculate the local workgroup sizes if one was not specified in the input
    * work sizes
    */
-  void CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs) const;
+  void CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
+                             size_t numOfComputeUnits) const;
   /**
    * get RuntimeService
    */
@@ -319,7 +322,7 @@ private:
   bool operator=(const Kernel &);
 protected:
 #ifdef OCL_DEV_BACKEND_PLUGINS
-    // m_pluginManager is mutable to allow kernel's const methods, 
+    // m_pluginManager is mutable to allow kernel's const methods,
     // like Kernel::PrepareKernelArguments init m_pluginManager, which
     // is initialised on each kernel
     mutable Intel::OpenCL::PluginManager m_pluginManager;
