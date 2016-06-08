@@ -281,6 +281,10 @@ void ControlDependenceGraphBase::graphForFunction(MachineFunction &F, MachinePos
   insertRegions(pdt);
 }
 
+//base on "compact representaions for control dependence, by Cytron, Ferrante, Sarkar"
+//ControlDependenceNode is the link between these ADT:
+//ControlDependenceNode => MachineBasicBlock
+//ControlDependenceNode => Region
 void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePostDominatorTree &pdt) {
   DenseMap<MachineBasicBlock *, Region *> mbb2rgn;
   Region* rootRegion = new Region(0);
@@ -291,15 +295,13 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
   for (std::set<ControlDependenceNode *>::iterator N = nodes.begin(), E = nodes.end();
     N != E; ++N) {
     ControlDependenceNode *node = *N;
-    rootRegion->nodes.push_back(node);
+    rootRegion->nodes.insert(node);
     cdg2rgn[node] = rootRegion;
   }
  
   unsigned T = NumRegions;
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
     MachineBasicBlock *A = BB;
-    ControlDependenceNode *AN = bb2cdg[A];
-
     for (MachineBasicBlock::succ_iterator succ = A->succ_begin(), end = A->succ_end(); succ != end; ++succ) {
       MachineBasicBlock *B = *succ;
       assert(A && B);
@@ -311,7 +313,7 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
           MachineBasicBlock *YB = Y->getBlock();
           Region *YR = cdg2rgn[bb2cdg[YB]];
           //RHEAD
-          ControlDependenceNode *YRHdr = YR->nodes.front();
+          ControlDependenceNode *YRHdr = YR->nodes[0];
           MachineBasicBlock *YRHdrBB = cdg2bb[YRHdr];
           MachineDomTreeNode *YRHdrDN = pdt.getNode(YRHdrBB);
           //RTAIL
@@ -327,8 +329,11 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
               NumRegions++;
               //denote Y is in a new region now
               cdg2rgn[bb2cdg[YB]] = splitRgn;
+              ControlDependenceNode *YCN = bb2cdg[YB];
               //delete Y from YR
+              YR->nodes.remove(YCN);
               //add Y at tail of the new splitRgn
+              splitRgn->nodes.insert(YCN); 
             }
           }
         }

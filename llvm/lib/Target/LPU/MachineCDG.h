@@ -11,6 +11,7 @@
 
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/DOTGraphTraits.h"
@@ -163,7 +164,7 @@ namespace llvm {
   };
 
   struct Region {
-    std::deque<ControlDependenceNode *> nodes;
+    SetVector<ControlDependenceNode *> nodes;
     unsigned regionNum;
     Region(unsigned rNum) {
       this->regionNum = rNum;
