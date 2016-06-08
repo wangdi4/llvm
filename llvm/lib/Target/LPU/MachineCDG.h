@@ -183,6 +183,7 @@ namespace llvm {
 
     void graphForFunction(MachineFunction &F, MachinePostDominatorTree &pdt);
     void regionsForGraph(MachineFunction &F, MachinePostDominatorTree &pdt);
+    void dumpRegions();
     ControlDependenceNode *getRoot() { return root; }
     const ControlDependenceNode *getRoot() const { return root; }
     ControlDependenceNode *operator[](const MachineBasicBlock *BB) { return getNode(BB); }

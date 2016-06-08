@@ -13,6 +13,8 @@
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
+#include "llvm/Support/debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "LPUInstrInfo.h"
 #include <deque>
 #include <set>
@@ -280,6 +282,7 @@ void ControlDependenceGraphBase::graphForFunction(MachineFunction &F, MachinePos
   computeDependencies(F,pdt);
   insertRegions(pdt);
   regionsForGraph(F, pdt);
+  dumpRegions();
 }
 
 //base on "compact representaions for control dependence, by Cytron, Ferrante, Sarkar"
@@ -356,6 +359,19 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
   }//end of for(A
 }
 
+void ControlDependenceGraphBase::dumpRegions() {
+  for (int i = 0; i < regions.size(); i++) {
+    Region *r = regions[i];
+    errs() << "Region" << i << ": ";
+    for (SetVector<ControlDependenceNode *>::iterator N = r->nodes.begin(), E = r->nodes.end();
+      N != E; ++N) {
+      ControlDependenceNode *node = *N;
+      assert(node);
+      errs() << cdg2bb[node]->getFullName() << ", ";
+    }
+    errs() << "\n";
+  }
+}
 
 bool ControlDependenceGraphBase::controls(MachineBasicBlock *A, MachineBasicBlock *B) const {
   const ControlDependenceNode *n = getNode(B);
