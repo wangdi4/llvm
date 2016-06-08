@@ -323,6 +323,19 @@ const ControlDependenceNode *ControlDependenceGraphBase::enclosingRegion(Machine
   }
 }
 
+void ControlDependenceGraph::writeDotGraph(StringRef fname) {
+  std::string Filename = fname.str() + ".dot";
+  std::error_code EC;
+
+  errs() << "Writing '" << Filename << "'...";
+
+  raw_fd_ostream File(Filename, EC, sys::fs::F_Text);
+  std::string GraphName = DOTGraphTraits<ControlDependenceGraph>::getGraphName(this);
+  std::string Title = GraphName + " for '" + fname.str() + "' function";
+  GraphWriter<ControlDependenceGraph *> gwr(File, this, false);
+  gwr.writeGraph();
+}
+
 } // namespace llvm
 
 namespace {

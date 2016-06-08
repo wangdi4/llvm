@@ -216,11 +216,13 @@ public:
     AU.setPreservesAll();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
+  void writeDotGraph(StringRef fname);
   virtual bool runOnMachineFunction(MachineFunction &F) {
     thisMF = &F;
     TII = thisMF->getSubtarget().getInstrInfo();
     MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
     graphForFunction(F,pdt); 
+    writeDotGraph(F.getName());
     return false;
   }
 };
@@ -275,7 +277,7 @@ template <> struct DOTGraphTraits<ControlDependenceGraph *>
     if (Node->isRegion()) {
       return "REGION";
     } else {
-      return (Node->getBlock()->getName() != NULL) ? Node->getBlock()->getName() : "ENTRY";
+      return (Node->getBlock()->getName() != "null") ? Node->getBlock()->getName() : "ENTRY";
     }
   }
 
