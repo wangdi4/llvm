@@ -287,26 +287,32 @@ void ControlDependenceGraphBase::graphForFunction(MachineFunction &F, MachinePos
 //ControlDependenceNode => MachineBasicBlock
 //ControlDependenceNode => Region
 void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePostDominatorTree &pdt) {
+  typedef po_iterator<MachinePostDominatorTree*> po_pdt_iterator;
   DenseMap<MachineBasicBlock *, Region *> mbb2rgn;
   Region* rootRegion = new Region;
-  regions[0] = rootRegion;
+  //regions[0] = rootRegion;
+  regions.push_back(rootRegion);
   rootRegion->NewRegion = 0;
   unsigned NumRegions = 0;
   SmallDenseMap<ControlDependenceNode *, Region *> cdg2rgn;
-  //first, add all CDG nodes into region 0
-  for (std::set<ControlDependenceNode *>::iterator N = nodes.begin(), E = nodes.end();
-    N != E; ++N) {
-    ControlDependenceNode *node = *N;
+  //first, add all CDG nodes into region 0, by postorder traversal of the pdt, so that
+  //RTAIL(0)==STOP; and postdominator of any node X is linked into the list somewhere AFTER X
+  for (po_pdt_iterator DTN = po_pdt_iterator::begin(&pdt), END = po_pdt_iterator::end(&pdt);
+    DTN != END; ++DTN) {
+    if (!DTN->getBlock())
+      continue;
+    ControlDependenceNode *node = bb2cdg[DTN->getBlock()];
     rootRegion->nodes.insert(node);
     cdg2rgn[node] = rootRegion;
   }
- 
+
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
     MachineBasicBlock *A = BB;
     for (MachineBasicBlock::succ_iterator succ = A->succ_begin(), end = A->succ_end(); succ != end; ++succ) {
       MachineBasicBlock *B = *succ;
       assert(A && B);
       unsigned T = NumRegions;
+      //???? do we need this restriction????
       if (A == B || !pdt.dominates(B, A)) {
         MachineDomTreeNode *Y= pdt.getNode(B);
         MachineDomTreeNode *StartDN = Y;
@@ -323,12 +329,13 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
           MachineBasicBlock *YRTailBB = cdg2bb[YRTail];
           MachineDomTreeNode *YRTailDN = pdt.getNode(YRTailBB);
           bool isYBtwnStartEnd = pdt.dominates(YRHdrDN, StartDN) &&
-                                 pdt.dominates(EndDN, YRTailDN);
+                                 pdt.properlyDominates(EndDN, YRTailDN);
           if (!isYBtwnStartEnd) {
             if (YR->NewRegion <= T) {
               NumRegions++;
               Region *splitRgn = new Region();
-              regions[NumRegions] = splitRgn;
+              //regions[NumRegions] = splitRgn;
+              regions.push_back(splitRgn);
               //YR's splited new region has region# NumRegions in regions list
               YR->NewRegion = NumRegions;
               //splitRgn's new region is itself -- not splited yet
