@@ -279,6 +279,7 @@ void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
 void ControlDependenceGraphBase::graphForFunction(MachineFunction &F, MachinePostDominatorTree &pdt) {
   computeDependencies(F,pdt);
   insertRegions(pdt);
+  regionsForGraph(F, pdt);
 }
 
 //base on "compact representaions for control dependence, by Cytron, Ferrante, Sarkar"
@@ -287,9 +288,10 @@ void ControlDependenceGraphBase::graphForFunction(MachineFunction &F, MachinePos
 //ControlDependenceNode => Region
 void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePostDominatorTree &pdt) {
   DenseMap<MachineBasicBlock *, Region *> mbb2rgn;
-  Region* rootRegion = new Region(0);
-  regions[rootRegion->regionNum] = rootRegion;
-  unsigned NumRegions = 1;
+  Region* rootRegion = new Region;
+  regions[0] = rootRegion;
+  rootRegion->NewRegion = 0;
+  unsigned NumRegions = 0;
   SmallDenseMap<ControlDependenceNode *, Region *> cdg2rgn;
   //first, add all CDG nodes into region 0
   for (std::set<ControlDependenceNode *>::iterator N = nodes.begin(), E = nodes.end();
@@ -299,12 +301,12 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
     cdg2rgn[node] = rootRegion;
   }
  
-  unsigned T = NumRegions;
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
     MachineBasicBlock *A = BB;
     for (MachineBasicBlock::succ_iterator succ = A->succ_begin(), end = A->succ_end(); succ != end; ++succ) {
       MachineBasicBlock *B = *succ;
       assert(A && B);
+      unsigned T = NumRegions;
       if (A == B || !pdt.dominates(B, A)) {
         MachineDomTreeNode *Y= pdt.getNode(B);
         MachineDomTreeNode *StartDN = Y;
@@ -323,24 +325,28 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
           bool isYBtwnStartEnd = pdt.dominates(YRHdrDN, StartDN) &&
                                  pdt.dominates(EndDN, YRTailDN);
           if (!isYBtwnStartEnd) {
-            if (NumRegions <= T) {
-              Region *splitRgn = new Region(NumRegions);
-              regions[NumRegions] = splitRgn;
+            if (YR->NewRegion <= T) {
               NumRegions++;
+              Region *splitRgn = new Region();
+              regions[NumRegions] = splitRgn;
+              //YR's splited new region has region# NumRegions in regions list
+              YR->NewRegion = NumRegions;
+              //splitRgn's new region is itself -- not splited yet
+              splitRgn->NewRegion = NumRegions;
               //denote Y is in a new region now
               cdg2rgn[bb2cdg[YB]] = splitRgn;
-              ControlDependenceNode *YCN = bb2cdg[YB];
-              //delete Y from YR
-              YR->nodes.remove(YCN);
-              //add Y at tail of the new splitRgn
-              splitRgn->nodes.insert(YCN); 
             }
+            ControlDependenceNode *YCN = bb2cdg[YB];
+            //delete Y from YR
+            YR->nodes.remove(YCN);
+            //add Y at tail of the new splitRgn
+            regions[YR->NewRegion]->nodes.insert(YCN); 
           }
-        }
-        Y = Y->getIDom();
-      }
-    }
-  }
+          Y = Y->getIDom();
+        } //end of while
+      } //end of if(A == B ...
+    } //end of edge AB's end point
+  }//end of for(A
 }
 
 

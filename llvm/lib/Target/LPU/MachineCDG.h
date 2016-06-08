@@ -165,10 +165,7 @@ namespace llvm {
 
   struct Region {
     SetVector<ControlDependenceNode *> nodes;
-    unsigned regionNum;
-    Region(unsigned rNum) {
-      this->regionNum = rNum;
-    }
+    unsigned NewRegion;
   };
  
   class ControlDependenceGraphBase {
