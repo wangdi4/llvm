@@ -1,11 +1,5 @@
 //===- MachineCDG.h -----------------------*- C++ -*-===//
 //
-//                      Static Program Analysis for LLVM
-//
-// This file is distributed under a Modified BSD License (see LICENSE.TXT).
-//
-//===----------------------------------------------------------------------===//
-//
 // This file defines the ControlDependenceGraph class, which allows fast and 
 // efficient control dependence queries. It is based on Ferrante et al's "The 
 // Program Dependence Graph and Its Use in Optimization."
@@ -26,224 +20,239 @@
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include <map>
 #include <set>
+#include <deque>
 #include <iterator>
 
 namespace llvm {
 
-class MachineBasicBlock;
-class ControlDependenceGraphBase;
+  class MachineBasicBlock;
+  class ControlDependenceGraphBase;
 
-class ControlDependenceNode {
-public:
-  enum EdgeType { TRUE, FALSE, OTHER };
-  typedef std::set<ControlDependenceNode *>::iterator       node_iterator;
-  typedef std::set<ControlDependenceNode *>::const_iterator const_node_iterator;
+  class ControlDependenceNode {
+  public:
+    enum EdgeType { TRUE, FALSE, OTHER };
+    typedef std::set<ControlDependenceNode *>::iterator       node_iterator;
+    typedef std::set<ControlDependenceNode *>::const_iterator const_node_iterator;
 
-  struct edge_iterator {
-    typedef node_iterator::value_type      value_type;
-    typedef node_iterator::difference_type difference_type;
-    typedef node_iterator::reference       reference;
-    typedef node_iterator::pointer         pointer;
-    typedef std::input_iterator_tag        iterator_category;
+    struct edge_iterator {
+      typedef node_iterator::value_type      value_type;
+      typedef node_iterator::difference_type difference_type;
+      typedef node_iterator::reference       reference;
+      typedef node_iterator::pointer         pointer;
+      typedef std::input_iterator_tag        iterator_category;
 
-    edge_iterator(ControlDependenceNode *n) : 
-      node(n), stage(TRUE), it(n->TrueChildren.begin()), end(n->TrueChildren.end()) {
-      while ((stage != OTHER) && (it == end)) this->operator++();
-    }
-    edge_iterator(ControlDependenceNode *n, EdgeType t, node_iterator i, node_iterator e) :
-      node(n), stage(t), it(i), end(e) {
-      while ((stage != OTHER) && (it == end)) this->operator++();
-    }
-    EdgeType type() const { return stage; }
-    bool operator==(edge_iterator const &other) const { 
-      return (this->stage == other.stage) && (this->it == other.it);
-    }
-    bool operator!=(edge_iterator const &other) const { return !(*this == other); }
-    reference operator*()  { return *this->it; }
-    pointer   operator->() { return &*this->it; }
-    edge_iterator& operator++() {
-      if (it != end) ++it;
-      while ((stage != OTHER) && (it == end)) {
-	if (stage == TRUE) {
-	  it = node->FalseChildren.begin();
-	  end = node->FalseChildren.end();
-	  stage = FALSE;
-	} else {
-	  it = node->OtherChildren.begin();
-	  end = node->OtherChildren.end();
-	  stage = OTHER;
-	}
+      edge_iterator(ControlDependenceNode *n) :
+        node(n), stage(TRUE), it(n->TrueChildren.begin()), end(n->TrueChildren.end()) {
+        while ((stage != OTHER) && (it == end)) this->operator++();
       }
-      return *this;
+      edge_iterator(ControlDependenceNode *n, EdgeType t, node_iterator i, node_iterator e) :
+        node(n), stage(t), it(i), end(e) {
+        while ((stage != OTHER) && (it == end)) this->operator++();
+      }
+      EdgeType type() const { return stage; }
+      bool operator==(edge_iterator const &other) const {
+        return (this->stage == other.stage) && (this->it == other.it);
+      }
+      bool operator!=(edge_iterator const &other) const { return !(*this == other); }
+      reference operator*() { return *this->it; }
+      pointer   operator->() { return &*this->it; }
+      edge_iterator& operator++() {
+        if (it != end) ++it;
+        while ((stage != OTHER) && (it == end)) {
+          if (stage == TRUE) {
+            it = node->FalseChildren.begin();
+            end = node->FalseChildren.end();
+            stage = FALSE;
+          }
+          else {
+            it = node->OtherChildren.begin();
+            end = node->OtherChildren.end();
+            stage = OTHER;
+          }
+        }
+        return *this;
+      }
+      edge_iterator operator++(int) {
+        edge_iterator ret(*this);
+        assert(ret.stage == OTHER || ret.it != ret.end);
+        this->operator++();
+        return ret;
+      }
+    private:
+      ControlDependenceNode *node;
+      EdgeType stage;
+      node_iterator it, end;
+      unsigned regionNum;
+    };
+
+    edge_iterator begin() { return edge_iterator(this); }
+    edge_iterator end() { return edge_iterator(this, OTHER, OtherChildren.end(), OtherChildren.end()); }
+
+    node_iterator true_begin() { return TrueChildren.begin(); }
+    node_iterator true_end() { return TrueChildren.end(); }
+
+    node_iterator false_begin() { return FalseChildren.begin(); }
+    node_iterator false_end() { return FalseChildren.end(); }
+
+    node_iterator other_begin() { return OtherChildren.begin(); }
+    node_iterator other_end() { return OtherChildren.end(); }
+
+    node_iterator parent_begin() { return Parents.begin(); }
+    node_iterator parent_end() { return Parents.end(); }
+    const_node_iterator parent_begin() const { return Parents.begin(); }
+    const_node_iterator parent_end()   const { return Parents.end(); }
+
+    MachineBasicBlock *getBlock() const { return TheBB; }
+    size_t getNumParents() const { return Parents.size(); }
+    size_t getNumChildren() const {
+      return TrueChildren.size() + FalseChildren.size() + OtherChildren.size();
     }
-    edge_iterator operator++(int) {
-      edge_iterator ret(*this);
-      assert(ret.stage == OTHER || ret.it != ret.end);
-      this->operator++();
-      return ret;
-    }
+    bool isRegion() const { return TheBB == NULL; }
+    const ControlDependenceNode *enclosingRegion() const;
+
   private:
-    ControlDependenceNode *node;
-    EdgeType stage;
-    node_iterator it, end;
+    MachineBasicBlock *TheBB;
+    std::set<ControlDependenceNode *> Parents;
+    std::set<ControlDependenceNode *> TrueChildren;
+    std::set<ControlDependenceNode *> FalseChildren;
+    std::set<ControlDependenceNode *> OtherChildren;
+
+    friend class ControlDependenceGraphBase;
+
+    void clearAllChildren() {
+      TrueChildren.clear();
+      FalseChildren.clear();
+      OtherChildren.clear();
+    }
+    void clearAllParents() { Parents.clear(); }
+
+    void addTrue(ControlDependenceNode *Child);
+    void addFalse(ControlDependenceNode *Child);
+    void addOther(ControlDependenceNode *Child);
+    void addParent(ControlDependenceNode *Parent);
+    void removeTrue(ControlDependenceNode *Child);
+    void removeFalse(ControlDependenceNode *Child);
+    void removeOther(ControlDependenceNode *Child);
+    void removeParent(ControlDependenceNode *Child);
+
+    ControlDependenceNode() : TheBB(NULL) {}
+    ControlDependenceNode(MachineBasicBlock *bb) : TheBB(bb) {}
   };
 
-  edge_iterator begin() { return edge_iterator(this); }
-  edge_iterator end()   { return edge_iterator(this, OTHER, OtherChildren.end(), OtherChildren.end()); }
+  template <> struct GraphTraits<ControlDependenceNode *> {
+    typedef ControlDependenceNode NodeType;
+    typedef NodeType::edge_iterator ChildIteratorType;
 
-  node_iterator true_begin()   { return TrueChildren.begin(); }
-  node_iterator true_end()     { return TrueChildren.end(); }
+    static NodeType *getEntryNode(NodeType *N) { return N; }
 
-  node_iterator false_begin()  { return FalseChildren.begin(); }
-  node_iterator false_end()    { return FalseChildren.end(); }
+    static inline ChildIteratorType child_begin(NodeType *N) {
+      return N->begin();
+    }
+    static inline ChildIteratorType child_end(NodeType *N) {
+      return N->end();
+    }
 
-  node_iterator other_begin()  { return OtherChildren.begin(); }
-  node_iterator other_end()    { return OtherChildren.end(); }
+    typedef df_iterator<ControlDependenceNode *> nodes_iterator;
 
-  node_iterator parent_begin() { return Parents.begin(); }
-  node_iterator parent_end()   { return Parents.end(); }
-  const_node_iterator parent_begin() const { return Parents.begin(); }
-  const_node_iterator parent_end()   const { return Parents.end(); }
+    static nodes_iterator nodes_begin(ControlDependenceNode *N) {
+      return df_begin(getEntryNode(N));
+    }
+    static nodes_iterator nodes_end(ControlDependenceNode *N) {
+      return df_end(getEntryNode(N));
+    }
+  };
 
-  MachineBasicBlock *getBlock() const { return TheBB; }
-  size_t getNumParents() const { return Parents.size(); }
-  size_t getNumChildren() const { 
-    return TrueChildren.size() + FalseChildren.size() + OtherChildren.size();
-  }
-  bool isRegion() const { return TheBB == NULL; }
-  const ControlDependenceNode *enclosingRegion() const;
+  struct Region {
+    std::deque<ControlDependenceNode *> nodes;
+    unsigned regionNum;
+    Region(unsigned rNum) {
+      this->regionNum = rNum;
+    }
+  };
+ 
+  class ControlDependenceGraphBase {
+  public:
+    ControlDependenceGraphBase() : root(NULL) {}
+    virtual ~ControlDependenceGraphBase() { releaseMemory(); }
+    virtual void releaseMemory() {
+      for (ControlDependenceNode::node_iterator n = nodes.begin(), e = nodes.end();
+        n != e; ++n) delete *n;
+      nodes.clear();
+      bb2cdg.clear();
+      cdg2bb.clear();
+      root = NULL;
+    }
 
-private:
-  MachineBasicBlock *TheBB;
-  std::set<ControlDependenceNode *> Parents;
-  std::set<ControlDependenceNode *> TrueChildren;
-  std::set<ControlDependenceNode *> FalseChildren;
-  std::set<ControlDependenceNode *> OtherChildren;
+    void graphForFunction(MachineFunction &F, MachinePostDominatorTree &pdt);
+    void regionsForGraph(MachineFunction &F, MachinePostDominatorTree &pdt);
+    ControlDependenceNode *getRoot() { return root; }
+    const ControlDependenceNode *getRoot() const { return root; }
+    ControlDependenceNode *operator[](const MachineBasicBlock *BB) { return getNode(BB); }
+    const ControlDependenceNode *operator[](const MachineBasicBlock *BB) const { return getNode(BB); }
+    ControlDependenceNode *getNode(const MachineBasicBlock *BB) {
+      return bb2cdg[BB];
+    }
+    const ControlDependenceNode *getNode(const MachineBasicBlock *BB) const {
+      return (bb2cdg.find(BB) != bb2cdg.end()) ? bb2cdg.find(BB)->second : NULL;
+    }
+    bool controls(MachineBasicBlock *A, MachineBasicBlock *B) const;
+    bool influences(MachineBasicBlock *A, MachineBasicBlock *B) const;
+    const ControlDependenceNode *enclosingRegion(MachineBasicBlock *BB) const;
+    MachineFunction *thisMF;
+    const TargetInstrInfo *TII;
 
-  friend class ControlDependenceGraphBase;
+  private:
+    ControlDependenceNode *root;
+    std::set<ControlDependenceNode *> nodes;
+    DenseMap<const MachineBasicBlock *, ControlDependenceNode *> bb2cdg;
+    DenseMap<ControlDependenceNode *, MachineBasicBlock *> cdg2bb;
+    SmallVector<Region *, 64> regions;
+    ControlDependenceNode::EdgeType getEdgeType(MachineBasicBlock *, MachineBasicBlock *);
+    void computeDependencies(MachineFunction &F, MachinePostDominatorTree &pdt);
+    void insertRegions(MachinePostDominatorTree &pdt);
+  };
 
-  void clearAllChildren() {
-    TrueChildren.clear();
-    FalseChildren.clear();
-    OtherChildren.clear();
-  }
-  void clearAllParents() { Parents.clear(); }
 
-  void addTrue(ControlDependenceNode *Child);
-  void addFalse(ControlDependenceNode *Child);
-  void addOther(ControlDependenceNode *Child);
-  void addParent(ControlDependenceNode *Parent);
-  void removeTrue(ControlDependenceNode *Child);
-  void removeFalse(ControlDependenceNode *Child);
-  void removeOther(ControlDependenceNode *Child);
-  void removeParent(ControlDependenceNode *Child);
+  class ControlDependenceGraph : public MachineFunctionPass, public ControlDependenceGraphBase {
+  public:
+    static char ID;
 
-  ControlDependenceNode() : TheBB(NULL) {}
-  ControlDependenceNode(MachineBasicBlock *bb) : TheBB(bb) {}
-};
+    ControlDependenceGraph() : MachineFunctionPass(ID), ControlDependenceGraphBase() {}
+    virtual ~ControlDependenceGraph() { }
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<MachineDominatorTree>();
+      AU.addRequired<MachinePostDominatorTree>();
+      AU.setPreservesAll();
+      MachineFunctionPass::getAnalysisUsage(AU);
+    }
+    void writeDotGraph(StringRef fname);
+    virtual bool runOnMachineFunction(MachineFunction &F) {
+      thisMF = &F;
+      TII = thisMF->getSubtarget().getInstrInfo();
+      MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
+      graphForFunction(F, pdt);
+      writeDotGraph(F.getName());
+      return false;
+    }
+  };
 
-template <> struct GraphTraits<ControlDependenceNode *> {
-  typedef ControlDependenceNode NodeType;
-  typedef NodeType::edge_iterator ChildIteratorType;
+  template <> struct GraphTraits<ControlDependenceGraph *>
+    : public GraphTraits<ControlDependenceNode *> {
+    static NodeType *getEntryNode(ControlDependenceGraph *CD) {
+      return CD->getRoot();
+    }
 
-  static NodeType *getEntryNode(NodeType *N) { return N; }
+    static nodes_iterator nodes_begin(ControlDependenceGraph *CD) {
+      if (getEntryNode(CD))
+        return df_begin(getEntryNode(CD));
+      else
+        return df_end(getEntryNode(CD));
+    }
 
-  static inline ChildIteratorType child_begin(NodeType *N) {
-    return N->begin();
-  }
-  static inline ChildIteratorType child_end(NodeType *N) {
-    return N->end();
-  }
-
-  typedef df_iterator<ControlDependenceNode *> nodes_iterator;
-
-  static nodes_iterator nodes_begin(ControlDependenceNode *N) {
-    return df_begin(getEntryNode(N));
-  }
-  static nodes_iterator nodes_end(ControlDependenceNode *N) {
-    return df_end(getEntryNode(N));
-  }
-};
-  
-class ControlDependenceGraphBase {
-public:
-  ControlDependenceGraphBase() : root(NULL) {}
-  virtual ~ControlDependenceGraphBase() { releaseMemory(); }
-  virtual void releaseMemory() {
-    for (ControlDependenceNode::node_iterator n = nodes.begin(), e = nodes.end();
-	 n != e; ++n) delete *n;
-    nodes.clear();
-    bbMap.clear();
-    root = NULL;
-  }
-
-  void graphForFunction(MachineFunction &F, MachinePostDominatorTree &pdt);
-
-  ControlDependenceNode *getRoot()             { return root; }
-  const ControlDependenceNode *getRoot() const { return root; }
-  ControlDependenceNode *operator[](const MachineBasicBlock *BB)             { return getNode(BB); }
-  const ControlDependenceNode *operator[](const MachineBasicBlock *BB) const { return getNode(BB); }
-  ControlDependenceNode *getNode(const MachineBasicBlock *BB) { 
-    return bbMap[BB];
-  }
-  const ControlDependenceNode *getNode(const MachineBasicBlock *BB) const {
-    return (bbMap.find(BB) != bbMap.end()) ? bbMap.find(BB)->second : NULL;
-  }
-  bool controls(MachineBasicBlock *A, MachineBasicBlock *B) const;
-  bool influences(MachineBasicBlock *A, MachineBasicBlock *B) const;
-  const ControlDependenceNode *enclosingRegion(MachineBasicBlock *BB) const;
-  MachineFunction *thisMF;
-  const TargetInstrInfo *TII;
-
-private:
-  ControlDependenceNode *root;
-  std::set<ControlDependenceNode *> nodes;
-  std::map<const MachineBasicBlock *,ControlDependenceNode *> bbMap;
-  ControlDependenceNode::EdgeType getEdgeType(MachineBasicBlock *, MachineBasicBlock *);
-  void computeDependencies(MachineFunction &F, MachinePostDominatorTree &pdt);
-  void insertRegions(MachinePostDominatorTree &pdt);
-};
-
-class ControlDependenceGraph : public MachineFunctionPass, public ControlDependenceGraphBase {
-public:
-  static char ID;
-
-  ControlDependenceGraph() : MachineFunctionPass(ID), ControlDependenceGraphBase() {}
-  virtual ~ControlDependenceGraph() { }
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<MachineDominatorTree>();
-    AU.addRequired<MachinePostDominatorTree>();
-    AU.setPreservesAll();
-    MachineFunctionPass::getAnalysisUsage(AU);
-  }
-  void writeDotGraph(StringRef fname);
-  virtual bool runOnMachineFunction(MachineFunction &F) {
-    thisMF = &F;
-    TII = thisMF->getSubtarget().getInstrInfo();
-    MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
-    graphForFunction(F,pdt); 
-    writeDotGraph(F.getName());
-    return false;
-  }
-};
-
-template <> struct GraphTraits<ControlDependenceGraph *>
-  : public GraphTraits<ControlDependenceNode *> {
-  static NodeType *getEntryNode(ControlDependenceGraph *CD) {
-    return CD->getRoot();
-  }
-
-  static nodes_iterator nodes_begin(ControlDependenceGraph *CD) {
-    if (getEntryNode(CD))
-      return df_begin(getEntryNode(CD));
-    else
+    static nodes_iterator nodes_end(ControlDependenceGraph *CD) {
       return df_end(getEntryNode(CD));
-  }
-
-  static nodes_iterator nodes_end(ControlDependenceGraph *CD) {
-    return df_end(getEntryNode(CD));
-  }
-};
+    }
+  };
 
 
   template <> struct GraphTraits<MachinePostDominatorTree*>
@@ -265,33 +274,34 @@ template <> struct GraphTraits<ControlDependenceGraph *>
   };
 
 
-template <> struct DOTGraphTraits<ControlDependenceGraph *>
-  : public DefaultDOTGraphTraits {
-  DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
+  template <> struct DOTGraphTraits<ControlDependenceGraph *>
+    : public DefaultDOTGraphTraits {
+    DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
 
-  static std::string getGraphName(ControlDependenceGraph *Graph) {
-    return "Control dependence graph";
-  }
-
-  std::string getNodeLabel(ControlDependenceNode *Node, ControlDependenceGraph *Graph) {
-    if (Node->isRegion()) {
-      return "REGION";
-    } else {
-      return Node->getBlock()->getFullName();
+    static std::string getGraphName(ControlDependenceGraph *Graph) {
+      return "Control dependence graph";
     }
-  }
 
-  static std::string getEdgeSourceLabel(ControlDependenceNode *Node, ControlDependenceNode::edge_iterator I) {
-    switch (I.type()) {
-    case ControlDependenceNode::TRUE:
-      return "T";
-    case ControlDependenceNode::FALSE:
-      return "F";
-    case ControlDependenceNode::OTHER:
-      return "";
+    std::string getNodeLabel(ControlDependenceNode *Node, ControlDependenceGraph *Graph) {
+      if (Node->isRegion()) {
+        return "REGION";
+      }
+      else {
+        return Node->getBlock()->getFullName();
+      }
     }
-  }
-};
+
+    static std::string getEdgeSourceLabel(ControlDependenceNode *Node, ControlDependenceNode::edge_iterator I) {
+      switch (I.type()) {
+      case ControlDependenceNode::TRUE:
+        return "T";
+      case ControlDependenceNode::FALSE:
+        return "F";
+      case ControlDependenceNode::OTHER:
+        return "";
+      }
+    }
+  };
 
 
 
@@ -306,55 +316,8 @@ template <> struct DOTGraphTraits<ControlDependenceGraph *>
     std::string getNodeLabel(MachineDomTreeNode *Node, MachinePostDominatorTree *Graph) {
       return Node->getBlock()->getFullName();
     }
-#if 0
-    static std::string getEdgeSourceLabel(MachineDomTreeNode *Node, MachineDomTreeNode::edge_iterator I) {
-      switch (I.type()) {
-      case ControlDependenceNode::TRUE:
-        return "T";
-      case ControlDependenceNode::FALSE:
-        return "F";
-      case ControlDependenceNode::OTHER:
-        return "";
-      }
-    }
-#endif
   };
 
-
-
-
-#if 0
-class ControlDependenceGraphs : public ModulePass {
-public:
-  static char ID;
-
-  ControlDependenceGraphs() : ModulePass(ID) {}
-  virtual ~ControlDependenceGraphs() {
-    graphs.clear();
-  }
-
-  virtual bool runOnModule(Module &M) {
-    for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
-      if (F->isDeclaration())
-	continue;
-      ControlDependenceGraphBase &cdg = graphs[F];
-      PostDominatorTree &pdt = getAnalysis<PostDominatorTree>(*F);
-      cdg.graphForFunction(*F,pdt);
-    }
-    return false;
-  }
-
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<PostDominatorTree>();
-    AU.setPreservesAll();
-  }
-
-  ControlDependenceGraphBase &operator[](const Function *F) { return graphs[F]; }
-  ControlDependenceGraphBase &graphFor(const Function *F) { return graphs[F]; }
-private:
-  std::map<const Function *, ControlDependenceGraphBase> graphs;
-};
-#endif
 } // namespace llvm
 
 #endif // LPU_CONTROLDEPENDENCEGRAPH_H
