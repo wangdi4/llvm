@@ -324,16 +324,20 @@ const ControlDependenceNode *ControlDependenceGraphBase::enclosingRegion(Machine
 }
 
 void ControlDependenceGraph::writeDotGraph(StringRef fname) {
-  std::string Filename = fname.str() + ".dot";
+  std::string Filename = fname.str() + "_CDG" + ".dot";
   std::error_code EC;
 
   errs() << "Writing '" << Filename << "'...";
 
   raw_fd_ostream File(Filename, EC, sys::fs::F_Text);
-  std::string GraphName = DOTGraphTraits<ControlDependenceGraph>::getGraphName(this);
-  std::string Title = GraphName + " for '" + fname.str() + "' function";
   GraphWriter<ControlDependenceGraph *> gwr(File, this, false);
   gwr.writeGraph();
+
+  MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
+  Filename = fname.str() + "_PDT" + ".dot";
+  raw_fd_ostream File2(Filename, EC, sys::fs::F_Text);
+  GraphWriter<MachinePostDominatorTree *> gwr2(File2, &pdt, false);
+  gwr2.writeGraph();
 }
 
 } // namespace llvm

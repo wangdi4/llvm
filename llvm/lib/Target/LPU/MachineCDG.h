@@ -277,7 +277,7 @@ template <> struct DOTGraphTraits<ControlDependenceGraph *>
     if (Node->isRegion()) {
       return "REGION";
     } else {
-      return (Node->getBlock()->getName() != "null") ? Node->getBlock()->getName() : "ENTRY";
+      return Node->getBlock()->getFullName();
     }
   }
 
@@ -292,6 +292,35 @@ template <> struct DOTGraphTraits<ControlDependenceGraph *>
     }
   }
 };
+
+
+
+  template <> struct DOTGraphTraits<MachinePostDominatorTree *>
+    : public DefaultDOTGraphTraits {
+    DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
+
+    static std::string getGraphName(MachinePostDominatorTree *Graph) {
+      return "Machine Post Dominator Tree";
+    }
+
+    std::string getNodeLabel(MachineDomTreeNode *Node, MachinePostDominatorTree *Graph) {
+      return Node->getBlock()->getFullName();
+    }
+#if 0
+    static std::string getEdgeSourceLabel(MachineDomTreeNode *Node, MachineDomTreeNode::edge_iterator I) {
+      switch (I.type()) {
+      case ControlDependenceNode::TRUE:
+        return "T";
+      case ControlDependenceNode::FALSE:
+        return "F";
+      case ControlDependenceNode::OTHER:
+        return "";
+      }
+    }
+#endif
+  };
+
+
 
 
 #if 0
