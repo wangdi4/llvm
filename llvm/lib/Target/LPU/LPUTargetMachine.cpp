@@ -104,7 +104,7 @@ public:
     Banner = std::string("After Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 #else
-    std::string Banner = std::string("Before LPUConvertControlPass");
+    Banner = std::string("Before LPUConvertControlPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
     addPass(createLPUConvertControlPass(), false);
     Banner = std::string("After LPUConvertControlPass");
