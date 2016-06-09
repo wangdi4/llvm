@@ -163,7 +163,7 @@ namespace llvm {
     }
   };
 
-  struct Region {
+  struct CDGRegion {
     SetVector<ControlDependenceNode *> nodes;
     unsigned NewRegion;
   };
@@ -205,7 +205,7 @@ namespace llvm {
     std::set<ControlDependenceNode *> nodes;
     DenseMap<const MachineBasicBlock *, ControlDependenceNode *> bb2cdg;
     DenseMap<ControlDependenceNode *, MachineBasicBlock *> cdg2bb;
-    SmallVector<Region *, 64> regions;
+    SmallVector<CDGRegion *, 64> regions;
     ControlDependenceNode::EdgeType getEdgeType(MachineBasicBlock *, MachineBasicBlock *);
     void computeDependencies(MachineFunction &F, MachinePostDominatorTree &pdt);
     void insertRegions(MachinePostDominatorTree &pdt);

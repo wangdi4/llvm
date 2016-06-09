@@ -291,13 +291,13 @@ void ControlDependenceGraphBase::graphForFunction(MachineFunction &F, MachinePos
 //ControlDependenceNode => Region
 void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePostDominatorTree &pdt) {
   typedef po_iterator<MachinePostDominatorTree*> po_pdt_iterator;
-  DenseMap<MachineBasicBlock *, Region *> mbb2rgn;
-  Region* rootRegion = new Region;
+  DenseMap<MachineBasicBlock *, CDGRegion *> mbb2rgn;
+  CDGRegion* rootRegion = new CDGRegion;
   //regions[0] = rootRegion;
   regions.push_back(rootRegion);
   rootRegion->NewRegion = 0;
   unsigned NumRegions = 0;
-  SmallDenseMap<ControlDependenceNode *, Region *> cdg2rgn;
+  SmallDenseMap<ControlDependenceNode *, CDGRegion *> cdg2rgn;
   //first, add all CDG nodes into region 0, by postorder traversal of the pdt, so that
   //RTAIL(0)==STOP; and postdominator of any node X is linked into the list somewhere AFTER X
   for (po_pdt_iterator DTN = po_pdt_iterator::begin(&pdt), END = po_pdt_iterator::end(&pdt);
@@ -317,12 +317,13 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
       unsigned T = NumRegions;
       //???? do we need this restriction????
       if (A == B || !pdt.dominates(B, A)) {
+      //if (!pdt.dominates(B, A)) {
         MachineDomTreeNode *Y= pdt.getNode(B);
         MachineDomTreeNode *StartDN = Y;
         MachineDomTreeNode *EndDN = pdt.getNode(A)->getIDom(); 
         while (Y != EndDN) {
           MachineBasicBlock *YB = Y->getBlock();
-          Region *YR = cdg2rgn[bb2cdg[YB]];
+          CDGRegion *YR = cdg2rgn[bb2cdg[YB]];
           //RHEAD
           ControlDependenceNode *YRHdr = YR->nodes[0];
           MachineBasicBlock *YRHdrBB = cdg2bb[YRHdr];
@@ -336,21 +337,21 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
           if (!isYBtwnStartEnd) {
             if (YR->NewRegion <= T) {
               NumRegions++;
-              Region *splitRgn = new Region();
+              CDGRegion *splitRgn = new CDGRegion();
               //regions[NumRegions] = splitRgn;
               regions.push_back(splitRgn);
               //YR's splited new region has region# NumRegions in regions list
               YR->NewRegion = NumRegions;
               //splitRgn's new region is itself -- not splited yet
               splitRgn->NewRegion = NumRegions;
-              //denote Y is in a new region now
-              cdg2rgn[bb2cdg[YB]] = splitRgn;
             }
             ControlDependenceNode *YCN = bb2cdg[YB];
             //delete Y from YR
             YR->nodes.remove(YCN);
-            //add Y at tail of the new splitRgn
+            //add Y at tail of the new region
             regions[YR->NewRegion]->nodes.insert(YCN); 
+            //denote Y is in a new region now
+            cdg2rgn[bb2cdg[YB]] = regions[YR->NewRegion];
           }
           Y = Y->getIDom();
         } //end of while
@@ -361,7 +362,7 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
 
 void ControlDependenceGraphBase::dumpRegions() {
   for (int i = 0; i < regions.size(); i++) {
-    Region *r = regions[i];
+    CDGRegion *r = regions[i];
     errs() << "Region" << i << ": ";
     for (SetVector<ControlDependenceNode *>::iterator N = r->nodes.begin(), E = r->nodes.end();
       N != E; ++N) {
