@@ -175,6 +175,10 @@ namespace llvm {
     virtual void releaseMemory() {
       for (ControlDependenceNode::node_iterator n = nodes.begin(), e = nodes.end();
         n != e; ++n) delete *n;
+      for (unsigned i = 0; i < regions.size(); i++) {
+        CDGRegion *r = regions[i];
+        delete r;
+      }
       nodes.clear();
       bb2cdg.clear();
       cdg2bb.clear();
@@ -216,7 +220,7 @@ namespace llvm {
   public:
     static char ID;
 
-    ControlDependenceGraph() : MachineFunctionPass(ID), ControlDependenceGraphBase() {}
+    ControlDependenceGraph();
     virtual ~ControlDependenceGraph() { }
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<MachineDominatorTree>();

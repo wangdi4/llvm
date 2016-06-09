@@ -361,7 +361,7 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
 }
 
 void ControlDependenceGraphBase::dumpRegions() {
-  for (int i = 0; i < regions.size(); i++) {
+  for (unsigned i = 0; i < regions.size(); i++) {
     CDGRegion *r = regions[i];
     errs() << "Region" << i << ": ";
     for (SetVector<ControlDependenceNode *>::iterator N = r->nodes.begin(), E = r->nodes.end();
@@ -413,6 +413,16 @@ const ControlDependenceNode *ControlDependenceGraphBase::enclosingRegion(Machine
   }
 }
 
+char ControlDependenceGraph::ID = 0;
+//declare ControlDependenceGraph Pass
+INITIALIZE_PASS(ControlDependenceGraph, "machine-cdg",
+  "Machine Control Dependence Graph Construction", true, true)
+
+ControlDependenceGraph::ControlDependenceGraph() : MachineFunctionPass(ID), ControlDependenceGraphBase() {
+  initializeControlDependenceGraphPass(*PassRegistry::getPassRegistry());
+}
+
+
 void ControlDependenceGraph::writeDotGraph(StringRef fname) {
   std::string Filename = fname.str() + "_CDG" + ".dot";
   std::error_code EC;
@@ -450,15 +460,16 @@ struct ControlDependencePrinter
 
 } // end anonymous namespace
 
-
 MachineFunctionPass *llvm::createControlDepenceGraph() {
   return new ControlDependenceGraph();
 }
+
+#if 0
 char ControlDependenceGraph::ID = 0;
 static RegisterPass<ControlDependenceGraph> Graph("function-control-deps",
 						  "Compute control dependency graphs",
 						  true, true);
-
+#endif
 /*
 char ControlDependenceGraphs::ID = 0;
 static RegisterPass<ControlDependenceGraphs> Graphs("module-control-deps",

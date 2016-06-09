@@ -23,7 +23,7 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachineDominators.h"
+#include "llvm/CodeGen/MachinePostDominators.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Pass.h"
@@ -31,6 +31,7 @@
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
+#include "MachineCDG.h"
 
 using namespace llvm;
 
@@ -55,14 +56,15 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<MachineLoopInfo>();
+    AU.addRequired<ControlDependenceGraph>();
     //AU.addRequired<LiveVariables>();
-    AU.addRequired<MachineDominatorTree>();
+    AU.addRequired<MachinePostDominatorTree>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
 private:
   MachineFunction *thisMF;
-  MachineDominatorTree *DT;
+  MachinePostDominatorTree *PDT;
 };
 }
 
@@ -78,12 +80,14 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   thisMF = &MF;
 
-  DT = &getAnalysis<MachineDominatorTree>();
+  PDT = &getAnalysis<MachinePostDominatorTree>();
 
   bool Modified = false;
 
   // for now only well formed innermost loop regions are processed in this pass
   MachineLoopInfo *MLI = &getAnalysis<MachineLoopInfo>();
+  ControlDependenceGraph *CDG = &getAnalysis<ControlDependenceGraph>();
+  ControlDependenceNode *root = CDG->getRoot();
 
   if (!MLI) {
     DEBUG(errs() << "no loop info.\n");
