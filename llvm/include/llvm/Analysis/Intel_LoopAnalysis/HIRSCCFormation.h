@@ -113,6 +113,16 @@ private:
   /// \brief Returns true if this is a potential root of a new SCC.
   bool isCandidateRootNode(const NodeTy *Node) const;
 
+  /// Returns true if \p Phi is used in a header phi contained in CurLoop.
+  bool usedInHeaderPhi(const PHINode *Phi) const;
+
+  /// Returns true if \p Inst is used outside the loop it is defined in.
+  bool isLoopLiveOut(const Instruction *Inst) const;
+ 
+  /// Returns true if any of \p Phi's operands depend directly or indirectly on
+  /// another phi defined in the same bblock as itself.
+  bool dependsOnSameBasicBlockPhi(const PHINode *Phi) const;
+
   /// \brief Returns true if this is a node of the graph.
   bool isCandidateNode(const NodeTy *Node) const;
 

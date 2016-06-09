@@ -1,6 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
-; Check parsing output for the loop verifying that the single operand phi liveout case(%e.sroa.3.1.lcssa) is handled properly.
+; Check parsing output for the loop verifying that we do not create the SCC (%e.sroa.3.042 -> %e.sroa.3.1 -> %e.sroa.3.1.lcssa) because of loop liveout phi's (%e.sroa.3.1) dependence on the same bblock phi %k.0.
 
 ; CHECK: DO i1 = 0, 47, 1   <DO_LOOP>
 ; CHECK-NEXT: %e.sroa.3.1 = %e.sroa.3.042;
