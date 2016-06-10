@@ -3,7 +3,7 @@
 ; Check that CG correctly handles the pointer comparison with null pointer.
 ; CHECK: region:
 ; CHECK: hir.cmp.{{[0-9]+}}
-; CHECK-SAME: icmp eq i32*
+; CHECK-SAME: icmp ne i32*
 ; CHECK-SAME: null
 
 

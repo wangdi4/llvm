@@ -1913,6 +1913,17 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
   }
 }
 
+void HIRParser::postParse(HLIf *If) {
+
+  auto PredIter = If->pred_begin();
+
+  // If 'then' is empty, move 'else' children to 'then' by inverting predicate.
+  if (!If->hasThenChildren() && (If->getNumPredicates() == 1) && (*PredIter != UNDEFINED_PREDICATE)) {
+    If->replacePredicate(PredIter, CmpInst::getInversePredicate(*PredIter));
+    HLNodeUtils::moveAsFirstChildren(If, If->else_begin(), If->else_end(), true);
+  }
+}
+
 void HIRParser::parse(HLSwitch *Switch) {
   RegDDRef *CaseValRef = nullptr;
   unsigned CaseNum = 1;
@@ -2360,11 +2371,13 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
   // In some cases float* is converted into i32* before loading/storing. This
   // info is propagated into the BaseCE dest type.
-  if (auto BCInst = dyn_cast<BitCastInst>(GEPVal)) {
-    if (!SE->getHIRMetadata(BCInst, ScalarEvolution::HIRLiveKind::LiveOut) &&
-        RI->isSupported(BCInst->getOperand(0)->getType())) {
-      GEPVal = BCInst->getOperand(0);
-      DestTy = BCInst->getDestTy();
+  if (auto BCOp = dyn_cast<BitCastOperator>(GEPVal)) {
+    if ((!isa<Instruction>(BCOp) ||
+         !SE->getHIRMetadata(cast<Instruction>(BCOp),
+                             ScalarEvolution::HIRLiveKind::LiveOut)) &&
+        RI->isSupported(BCOp->getOperand(0)->getType())) {
+      GEPVal = BCOp->getOperand(0);
+      DestTy = BCOp->getDestTy();
     }
   }
 
