@@ -27,6 +27,7 @@
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/MachineSSAUpdater.h"
 #include "llvm/Pass.h"
 #include "llvm/PassSupport.h"
 #include "llvm/Support/Debug.h"
@@ -34,6 +35,7 @@
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include "MachineCDG.h"
+#include "LPUInstrInfo.h"
 
 using namespace llvm;
 
@@ -55,7 +57,7 @@ namespace llvm {
     }
 
     bool runOnMachineFunction(MachineFunction &MF) override;
-
+    MachineInstr* insertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB);
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       //AU.addRequired<MachineLoopInfo>();
       AU.addRequired<ControlDependenceGraph>();
@@ -69,6 +71,7 @@ namespace llvm {
     MachineFunction *thisMF;
     MachineDominatorTree *DT;
     ControlDependenceGraph *CDG;
+    DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *>> bb2switch;  //switch for Reg added in bb
   };
 
 
@@ -76,7 +79,7 @@ namespace llvm {
   //declare LPUCvtCFDFPass Pass
   INITIALIZE_PASS(LPUCvtCFDFPass, "lpu-cvt-cfdf", "LPU Convert Control Flow to Data Flow", true, true)
 
-    LPUCvtCFDFPass::LPUCvtCFDFPass() : MachineFunctionPass(ID) {
+  LPUCvtCFDFPass::LPUCvtCFDFPass() : MachineFunctionPass(ID) {
     initializeLPUCvtCFDFPassPass(*PassRegistry::getPassRegistry());
   }
 }
@@ -89,14 +92,12 @@ MachineFunctionPass *llvm::createLPUCvtCFDFPass() {
 bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   if (CvtCFDFPass == 0) return false;
-
   thisMF = &MF;
 
   DT = &getAnalysis<MachineDominatorTree>();
   CDG = &getAnalysis<ControlDependenceGraph>();
 
   bool Modified = false;
-
 #if 0
   // for now only well formed innermost loop regions are processed in this pass
   MachineLoopInfo *MLI = &getAnalysis<MachineLoopInfo>();
@@ -109,6 +110,29 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   return Modified;
 
 }
+
+MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB) {
+  // generate and insert SWITCH in dominating block
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+  unsigned switchFalseReg = MRI->createVirtualRegister(TRC);
+  unsigned switchTrueReg = MRI->createVirtualRegister(TRC);
+
+  MachineBasicBlock::iterator loc = cdgpBB->getFirstTerminator();
+  MachineInstr* bi = loc;
+  // generate switch op
+  const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
+  MachineInstr *switchInst = BuildMI(*cdgpBB, loc,
+                                     DebugLoc(),
+                                     TII.get(switchOpcode),
+                                     switchFalseReg).addReg(switchTrueReg,
+                                     RegState::Define).
+                                     addReg(bi->getOperand(0).getReg()).
+                                     addReg(Reg);
+  return switchInst;
+}
+
 void LPUCvtCFDFPass::insertSWITCHForIf() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const TargetMachine &TM = thisMF->getTarget();
@@ -133,17 +157,79 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
           ControlDependenceNode *unode = CDG->getNode(mbb);
           CDGRegion *uregion = CDG->getRegion(unode);
           MachineInstr *DefMI = MRI->getVRegDef(Reg);
+          const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+      
           if (DefMI && (DefMI->getParent() != mbb)) { // live into MI BB
             MachineBasicBlock *dmbb = DefMI->getParent();
             ControlDependenceNode *dnode = CDG->getNode(dmbb);
             CDGRegion *dRegion = CDG->getRegion(dnode);
+            //use, def in different region => need switch
             if (uregion != dRegion) {
+              if (DefMI->getOpcode() == TII.getPickSwitchOpcode(TRC, false/*not pick op*/)) {
+                //def already from a switch -- can only happen if use is an immediate child of def in CDG
+                assert(dnode->isChild(unode));
+                continue;
+              }
+
+              unsigned numIfParent = 0;
               for (ControlDependenceNode::node_iterator uparent = unode->parent_begin(), uparent_end = unode->parent_end();
                 uparent != uparent_end; ++uparent) {
-                MachineBasicBlock *upbb = (*uparent)->getBlock();
-                if (DT->dominates(dmbb, upbb)) {
-                  assert(!dnode->isLatchNode());
-                  //insertSWITCHForRegInBB(Reg, upbb);
+                ControlDependenceNode *upnode = *uparent;
+                MachineBasicBlock *upbb = upnode->getBlock();
+                if (DT->properlyDominates(dmbb, upbb)) {
+                  numIfParent++;
+                  if (numIfParent > 1) {
+                    assert(false && "TBD: support multiple if parents in CDG has not been implemented yet");
+                  }
+                  assert(!dnode->isLatchNode() && "latch node can't forward dominate nodes inside its own loop");
+       
+                  MachineInstr *defSwitchInstr = NULL;
+                  if (bb2switch[upbb].find(Reg) == bb2switch[upbb].end()) {
+                    defSwitchInstr = insertSWITCHForReg(Reg, upbb);
+                    DenseMap<unsigned, MachineInstr *> reg2inst;
+                    reg2inst[Reg] = defSwitchInstr;
+                    bb2switch[upbb] = reg2inst;
+                  } else {
+                    defSwitchInstr = bb2switch[upbb][Reg];
+                  }
+
+                  unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
+                  unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
+                  unsigned newVReg;
+                  if (upnode->isFalseChild(unode)) {
+                    //rename Reg to switchFalseReg
+                    newVReg = switchFalseReg;
+                  }
+                  else {
+                    //rename it to switchTrueReg
+                    newVReg = switchTrueReg;
+                  }
+                  
+                  SmallVector<MachineInstr*, 8> NewPHIs;
+                  MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
+                  SSAUpdate.Initialize(newVReg);
+                  SSAUpdate.AddAvailableValue(upbb, newVReg);
+                  SSAUpdate.AddAvailableValue(mbb, Reg);
+                  // Rewrite Reg uses that are inside the current block, they have to be outside the def block
+                  MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+                  while (UI != MRI->use_end()) {
+                    MachineOperand &UseMO = *UI;
+                    MachineInstr *UseMI = UseMO.getParent();
+                    ++UI;
+                    if (UseMI->isDebugValue()) {
+                      // SSAUpdate can replace the use with an undef. That creates
+                      // a debug instruction that is a kill.
+                      // FIXME: Should it SSAUpdate job to delete debug instructions
+                      // instead of replacing the use with undef?
+                      UseMI->eraseFromParent();
+                      continue;
+                    }
+
+                    if (UseMI->getParent() == mbb && !UseMI->isPHI()) {
+                      assert(mbb != upbb);
+                      SSAUpdate.RewriteUse(UseMO);
+                    }
+                  }
                 }
               }
             }

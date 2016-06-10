@@ -111,6 +111,22 @@ namespace llvm {
     const ControlDependenceNode *enclosingRegion() const;
     bool isLatchNode();
 
+    bool isTrueChild(ControlDependenceNode *cnode) {
+      return (TrueChildren.find(cnode) != true_end());
+    }
+
+    bool isFalseChild(ControlDependenceNode *cnode) {
+      return (FalseChildren.find(cnode) != false_end());
+    }
+
+    bool isOtherChild(ControlDependenceNode *cnode) {
+      return (OtherChildren.find(cnode) != other_end());
+    }
+
+    bool isChild(ControlDependenceNode *cnode) {
+      return isTrueChild(cnode) || isFalseChild(cnode) || isOtherChild(cnode);
+    }
+
   private:
     MachineBasicBlock *TheBB;
     std::set<ControlDependenceNode *> Parents;
@@ -125,6 +141,7 @@ namespace llvm {
       FalseChildren.clear();
       OtherChildren.clear();
     }
+
     void clearAllParents() { Parents.clear(); }
 
     void addTrue(ControlDependenceNode *Child);
