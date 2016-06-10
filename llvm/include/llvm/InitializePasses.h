@@ -191,6 +191,8 @@ void initializeMachineDominanceFrontierPass(PassRegistry&);
 void initializeMachinePostDominatorTreePass(PassRegistry&);
 void initializeMachineLICMPass(PassRegistry&);
 void initializeMachineLoopInfoPass(PassRegistry&);
+void initializeControlDependenceGraphPass(PassRegistry&); //LPU EDIT
+void initializeLPUCvtCFDFPassPass(PassRegistry&);         //LPU EDIT
 void initializeMachineModuleInfoPass(PassRegistry&);
 void initializeMachineRegionInfoPassPass(PassRegistry&);
 void initializeMachineSchedulerPass(PassRegistry&);

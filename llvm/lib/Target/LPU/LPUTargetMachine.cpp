@@ -103,17 +103,17 @@ public:
     addPass(createControlDepenceGraph(), false);
     Banner = std::string("After Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-#else
-    Banner = std::string("Before LPUConvertControlPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-    addPass(createLPUConvertControlPass(), false);
-    Banner = std::string("After LPUConvertControlPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
     Banner = std::string("Before LPUCvtCFDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
     addPass(createLPUCvtCFDFPass(), false);
     Banner = std::string("After LPUCvtCFDFPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+#else
+    Banner = std::string("Before LPUConvertControlPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+    addPass(createLPUConvertControlPass(), false);
+    Banner = std::string("After LPUConvertControlPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
     Banner = std::string("Before LPUOptDFPass");

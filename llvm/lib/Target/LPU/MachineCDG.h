@@ -83,7 +83,6 @@ namespace llvm {
       ControlDependenceNode *node;
       EdgeType stage;
       node_iterator it, end;
-      unsigned regionNum;
     };
 
     edge_iterator begin() { return edge_iterator(this); }
@@ -110,6 +109,7 @@ namespace llvm {
     }
     bool isRegion() const { return TheBB == NULL; }
     const ControlDependenceNode *enclosingRegion() const;
+    bool isLatchNode();
 
   private:
     MachineBasicBlock *TheBB;
@@ -198,6 +198,9 @@ namespace llvm {
     const ControlDependenceNode *getNode(const MachineBasicBlock *BB) const {
       return (bb2cdg.find(BB) != bb2cdg.end()) ? bb2cdg.find(BB)->second : NULL;
     }
+    CDGRegion* getRegion(ControlDependenceNode *anode) {
+      return cdg2rgn[anode];
+    }
     bool controls(MachineBasicBlock *A, MachineBasicBlock *B) const;
     bool influences(MachineBasicBlock *A, MachineBasicBlock *B) const;
     const ControlDependenceNode *enclosingRegion(MachineBasicBlock *BB) const;
@@ -209,6 +212,7 @@ namespace llvm {
     std::set<ControlDependenceNode *> nodes;
     DenseMap<const MachineBasicBlock *, ControlDependenceNode *> bb2cdg;
     DenseMap<ControlDependenceNode *, MachineBasicBlock *> cdg2bb;
+    SmallDenseMap<ControlDependenceNode *, CDGRegion *> cdg2rgn;
     SmallVector<CDGRegion *, 64> regions;
     ControlDependenceNode::EdgeType getEdgeType(MachineBasicBlock *, MachineBasicBlock *);
     void computeDependencies(MachineFunction &F, MachinePostDominatorTree &pdt);

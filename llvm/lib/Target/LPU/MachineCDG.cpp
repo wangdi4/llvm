@@ -13,7 +13,7 @@
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/Support/debug.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "LPUInstrInfo.h"
 #include <deque>
@@ -74,6 +74,17 @@ const ControlDependenceNode *ControlDependenceNode::enclosingRegion() const {
     assert(region->isRegion());
     return region;
   }
+}
+
+bool ControlDependenceNode::isLatchNode() {
+  bool result = false;
+  for (node_iterator pnode = parent_begin(), pend = parent_begin(); pnode != pend; ++pnode) {
+    if (*pnode == this) {
+      result = true;
+      break;
+    }
+  }
+  return result;
 }
 
 ControlDependenceNode::EdgeType
@@ -297,7 +308,6 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
   regions.push_back(rootRegion);
   rootRegion->NewRegion = 0;
   unsigned NumRegions = 0;
-  SmallDenseMap<ControlDependenceNode *, CDGRegion *> cdg2rgn;
   //first, add all CDG nodes into region 0, by postorder traversal of the pdt, so that
   //RTAIL(0)==STOP; and postdominator of any node X is linked into the list somewhere AFTER X
   for (po_pdt_iterator DTN = po_pdt_iterator::begin(&pdt), END = po_pdt_iterator::end(&pdt);
@@ -442,46 +452,8 @@ void ControlDependenceGraph::writeDotGraph(StringRef fname) {
 
 } // namespace llvm
 
-namespace {
-
-struct ControlDependenceViewer
-  : public DOTGraphTraitsViewer<ControlDependenceGraph, false> {
-  static char ID;
-  ControlDependenceViewer() : 
-    DOTGraphTraitsViewer<ControlDependenceGraph, false>("control-deps", ID) {}
-};
-
-struct ControlDependencePrinter
-  : public DOTGraphTraitsPrinter<ControlDependenceGraph, false> {
-  static char ID;
-  ControlDependencePrinter() :
-    DOTGraphTraitsPrinter<ControlDependenceGraph, false>("control-deps", ID) {}
-};
-
-} // end anonymous namespace
 
 MachineFunctionPass *llvm::createControlDepenceGraph() {
   return new ControlDependenceGraph();
 }
 
-#if 0
-char ControlDependenceGraph::ID = 0;
-static RegisterPass<ControlDependenceGraph> Graph("function-control-deps",
-						  "Compute control dependency graphs",
-						  true, true);
-#endif
-/*
-char ControlDependenceGraphs::ID = 0;
-static RegisterPass<ControlDependenceGraphs> Graphs("module-control-deps",
-						    "Compute control dependency graphs for an entire module",
-						    true, true);
-*/
-char ControlDependenceViewer::ID = 0;
-static RegisterPass<ControlDependenceViewer> Viewer("view-control-deps",
-						    "View the control dependency graph",
-						    true, true);
-
-char ControlDependencePrinter::ID = 0;
-static RegisterPass<ControlDependencePrinter> Printer("print-control-deps",
-						      "Print the control dependency graph as a 'dot' file",
-						      true, true);
