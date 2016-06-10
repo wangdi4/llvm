@@ -1835,9 +1835,18 @@ private:  //***INTEL
   ///         assignment-expression
   ///         '{' ...
   ExprResult ParseInitializer() {
+#if INTEL_CUSTOMIZATION
+    ExprResult res;
+    Actions.IsInInitializerContext = true;
+
     if (Tok.isNot(tok::l_brace))
-      return ParseAssignmentExpression();
-    return ParseBraceInitializer();
+      res = ParseAssignmentExpression();
+    else
+      res = ParseBraceInitializer();
+
+    Actions.IsInInitializerContext = false;
+    return res;
+#endif // INTEL_CUSTOMIZATION
   }
   bool MayBeDesignationStart();
   ExprResult ParseBraceInitializer();

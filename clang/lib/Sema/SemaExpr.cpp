@@ -2270,7 +2270,15 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
   // instance method.
   if (!R.empty() && (*R.begin())->isCXXClassMember()) {
     bool MightBeImplicitMember;
-    if (!IsAddressOfOperand)
+#if INTEL_CUSTOMIZATION
+    // CQ#410807: To be compatible with MS, we should always assume that an
+    // identifier might be a reference to a class method and treat it as such.
+    // This is only applicable to "inside initializer" context and only when we
+    // sure that a function call doesn't follow (hence HasTrailingLParen check).
+    if (!IsAddressOfOperand &&
+        !(getLangOpts().IntelMSCompat && IsInInitializerContext &&
+          dyn_cast<FunctionDecl>(*R.begin()) && !HasTrailingLParen))
+#endif // INTEL_CUSTOMIZATION
       MightBeImplicitMember = true;
     else if (!SS.isEmpty())
       MightBeImplicitMember = false;
@@ -10448,7 +10456,11 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
         << OrigOp.get()->getSourceRange();
 
     // The method was named without a qualifier.
-    } else if (!DRE->getQualifier()) {
+#if INTEL_CUSTOMIZATION
+    // CQ#410807: To be compatible with MS, we allow non-qualified names in
+    // IntelMSCompat mode.
+    } else if (!DRE->getQualifier() && !getLangOpts().IntelMSCompat) {
+#endif // INTEL_CUSTOMIZATION
       if (MD->getParent()->getName().empty())
         Diag(OpLoc, diag::err_unqualified_pointer_member_function)
           << op->getSourceRange();

@@ -10042,6 +10042,15 @@ public:
   // Emitting members of dllexported classes is delayed until the class
   // (including field initializers) is fully parsed.
   SmallVector<CXXRecordDecl*, 4> DelayedDllExportClasses;
+
+#if INTEL_CUSTOMIZATION
+  // CQ#410807: To be compatible with MS, we should parse initializers
+  // differently (always assuming that an identifier might be a reference to a
+  // class method). To do this in every situation and not add an additional
+  // argument to every function, we should remember that we are inside
+  // initializer parsing.
+  bool IsInInitializerContext = false;
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// \brief RAII object that enters a new expression evaluation context.
