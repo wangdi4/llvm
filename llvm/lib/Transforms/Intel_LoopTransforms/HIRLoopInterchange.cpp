@@ -448,7 +448,7 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
 ///     (check no longer needed because of change in DD for compile time
 ///     saving)
 ///  3. Safe reduction (already excluded out in collectDDInfo)
-static bool ignoreEdge(const DDEdge *Edge, HLLoop *CandidateLoop,
+static bool ignoreEdge(const DDEdge *Edge, const HLLoop *CandidateLoop,
                        DirectionVector *RefinedDV = nullptr) {
 
   const DirectionVector *DV = RefinedDV;
@@ -459,7 +459,7 @@ static bool ignoreEdge(const DDEdge *Edge, HLLoop *CandidateLoop,
     return true;
   }
 
-  HLLoop *Loop = CandidateLoop;
+  const HLLoop *Loop = CandidateLoop;
   if (DV->isIndepFromLevel(Loop->getNestingLevel())) {
     return true;
   }
@@ -506,10 +506,11 @@ static bool ignoreDVWithNoLTGT(const DirectionVector &DV,
 struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
 
   HIRLoopInterchange &LIP;
-  HLLoop *CandidateLoop;
+  const HLLoop *CandidateLoop;
   DDGraph DDG;
 
-  CollectDDInfo(HIRLoopInterchange &LIP, HLLoop *CandidateLoop, bool RefineDV)
+  CollectDDInfo(HIRLoopInterchange &LIP, const HLLoop *CandidateLoop,
+                bool RefineDV)
       : LIP(LIP), CandidateLoop(CandidateLoop),
         DDG(LIP.DDA->getGraph(CandidateLoop, false)), RefineDV(RefineDV) {
     LIP.DVs.clear();
@@ -519,9 +520,9 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
   bool RefineDV;
   // start, end level of Candidate Loop nest
 
-  void visit(HLDDNode *DDNode) {
+  void visit(const HLDDNode *DDNode) {
 
-    HLInst *Inst = dyn_cast<HLInst>(DDNode);
+    const HLInst *Inst = dyn_cast<HLInst>(DDNode);
     if (Inst && Inst->isSafeRedn()) {
       return;
     }
@@ -712,7 +713,6 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
   // safe reduction.
   // We plan to avoid demand driven DD refining DV.
 
-  HLLoop *Loop2 = const_cast<HLLoop *>(Loop);
   DEBUG(dbgs() << "\n\tStart, End level\n"
                << OutmostNestingLevel << " " << InnermostNestingLevel);
 
@@ -721,8 +721,8 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
 
   // The following visitor will gather DVs from DDG and push them into
   // HIRLoopInterchange::DVs;
-  CollectDDInfo CDD(*this, Loop2, false);
-  HLNodeUtils::visit(CDD, Loop2);
+  CollectDDInfo CDD(*this, Loop, false);
+  HLNodeUtils::visit(CDD, Loop);
 
   // If edges are selected,
   // there are dependencies to check out w.r.t to interchange order

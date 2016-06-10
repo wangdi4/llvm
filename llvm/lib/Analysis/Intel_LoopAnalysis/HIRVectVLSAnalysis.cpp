@@ -225,8 +225,7 @@ void VectVLSDDRefVisitor::visit(const HLInst *Inst) {
 void HIRVectVLSAnalysis::analyzeVLSInLoop(const HLLoop *Loop) {
 
   unsigned Level = Loop->getNestingLevel();
-  HLLoop *Loop2 = const_cast<HLLoop *>(Loop);
-  DDGraph DDG = DDA->getGraph(Loop2, false);
+  DDGraph DDG = DDA->getGraph(Loop, false);
   // DEBUG(DDG.dump());
 
   // 1. Gather MemRefs in Loop
