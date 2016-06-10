@@ -145,6 +145,7 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
     MachineBasicBlock *mbb = DTN->getBlock();
     if (!mbb) continue; //root node has no bb
+    //if (root->isChild(*DTN)) continue;  ??????
     // process each instruction in BB
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = I;
@@ -176,6 +177,10 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
                 uparent != uparent_end; ++uparent) {
                 ControlDependenceNode *upnode = *uparent;
                 MachineBasicBlock *upbb = upnode->getBlock();
+                if (!upbb) {
+                  //this is tipical define inside loop, used outside loop on the main execution path
+                  continue;
+                }
                 if (DT->properlyDominates(dmbb, upbb)) {
                   numIfParent++;
                   if (numIfParent > 1) {

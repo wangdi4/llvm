@@ -291,7 +291,7 @@ void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
 
 void ControlDependenceGraphBase::graphForFunction(MachineFunction &F, MachinePostDominatorTree &pdt) {
   computeDependencies(F,pdt);
-  insertRegions(pdt);
+  //insertRegions(pdt);
   regionsForGraph(F, pdt);
   dumpRegions();
 }
@@ -330,7 +330,12 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
       //if (!pdt.dominates(B, A)) {
         MachineDomTreeNode *Y= pdt.getNode(B);
         MachineDomTreeNode *StartDN = Y;
-        MachineDomTreeNode *EndDN = pdt.getNode(A)->getIDom(); 
+        MachineBasicBlock *L = pdt.findNearestCommonDominator(A, B);
+        MachineBasicBlock *loopLatch = NULL;
+        if (A == L) {
+          loopLatch = A;
+        }
+        MachineDomTreeNode *EndDN = pdt.getNode(A)->getIDom();
         while (Y != EndDN) {
           MachineBasicBlock *YB = Y->getBlock();
           CDGRegion *YR = cdg2rgn[bb2cdg[YB]];
@@ -345,7 +350,8 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
           bool isYBtwnStartEnd = pdt.dominates(YRHdrDN, StartDN) &&
                                  pdt.properlyDominates(EndDN, YRTailDN);
           if (!isYBtwnStartEnd) {
-            if (YR->NewRegion <= T) {
+            //modification to the original paper: latch node need to be in a seperate region by itself
+            if (YR->NewRegion <= T || loopLatch && Y->getBlock() == loopLatch) {
               NumRegions++;
               CDGRegion *splitRgn = new CDGRegion();
               //regions[NumRegions] = splitRgn;
