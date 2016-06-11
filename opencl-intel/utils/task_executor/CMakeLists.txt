@@ -75,7 +75,7 @@ install(TARGETS ${TARGET_NAME}
 		LIBRARY DESTINATION bin)
 
 if (WIN32)
-	list(APPEND LINK_LIBS delayimp.lib )
+    list( APPEND LINK_LIBS delayimp.lib legacy_stdio_definitions.lib )
 else (WIN32)
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} task_executor_linux_exports.txt )
 endif(WIN32)
