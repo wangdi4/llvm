@@ -151,12 +151,13 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
       MachineInstr *MI = I;
       if (MI->isPHI()) continue; //care about forks, not joints
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
-        if (!MO->isReg()) continue;
+        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
         // process uses
         if (MO->isUse()) {
           ControlDependenceNode *unode = CDG->getNode(mbb);
           CDGRegion *uregion = CDG->getRegion(unode);
+          assert(uregion);
           MachineInstr *DefMI = MRI->getVRegDef(Reg);
           const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
       
@@ -164,6 +165,7 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
             MachineBasicBlock *dmbb = DefMI->getParent();
             ControlDependenceNode *dnode = CDG->getNode(dmbb);
             CDGRegion *dRegion = CDG->getRegion(dnode);
+            assert(dRegion);
             //use, def in different region => need switch
             if (uregion != dRegion) {
               if (DefMI->getOpcode() == TII.getPickSwitchOpcode(TRC, false/*not pick op*/)) {
@@ -181,7 +183,15 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
                   //this is tipical define inside loop, used outside loop on the main execution path
                   continue;
                 }
-                if (DT->properlyDominates(dmbb, upbb)) {
+                if (mbb == upbb) {
+                  //mbb is a loop latch node, use inside a loop will be take care of in HandleUseInLopp
+                  continue;
+                }
+                if (upnode->isLatchNode()) {
+                  //no need to conside backedge for if-statements handling
+                  continue;
+                }
+                if (DT->dominates(dmbb, upbb)) { //including dmbb itself
                   numIfParent++;
                   if (numIfParent > 1) {
                     assert(false && "TBD: support multiple if parents in CDG has not been implemented yet");
@@ -204,35 +214,20 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
                   if (upnode->isFalseChild(unode)) {
                     //rename Reg to switchFalseReg
                     newVReg = switchFalseReg;
-                  }
-                  else {
+                  } else {
                     //rename it to switchTrueReg
                     newVReg = switchTrueReg;
                   }
-                  
-                  SmallVector<MachineInstr*, 8> NewPHIs;
-                  MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
-                  SSAUpdate.Initialize(newVReg);
-                  SSAUpdate.AddAvailableValue(upbb, newVReg);
-                  SSAUpdate.AddAvailableValue(mbb, Reg);
-                  // Rewrite Reg uses that are inside the current block, they have to be outside the def block
+
                   MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
                   while (UI != MRI->use_end()) {
                     MachineOperand &UseMO = *UI;
                     MachineInstr *UseMI = UseMO.getParent();
                     ++UI;
-                    if (UseMI->isDebugValue()) {
-                      // SSAUpdate can replace the use with an undef. That creates
-                      // a debug instruction that is a kill.
-                      // FIXME: Should it SSAUpdate job to delete debug instructions
-                      // instead of replacing the use with undef?
-                      UseMI->eraseFromParent();
-                      continue;
-                    }
 
-                    if (UseMI->getParent() == mbb && !UseMI->isPHI()) {
+                    if (UseMI->getParent() == mbb) {
                       assert(mbb != upbb);
-                      SSAUpdate.RewriteUse(UseMO);
+                      UseMO.setReg(newVReg);
                     }
                   }
                 }

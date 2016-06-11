@@ -77,14 +77,7 @@ const ControlDependenceNode *ControlDependenceNode::enclosingRegion() const {
 }
 
 bool ControlDependenceNode::isLatchNode() {
-  bool result = false;
-  for (node_iterator pnode = parent_begin(), pend = parent_begin(); pnode != pend; ++pnode) {
-    if (*pnode == this) {
-      result = true;
-      break;
-    }
-  }
-  return result;
+  return isChild(this);
 }
 
 ControlDependenceNode::EdgeType
