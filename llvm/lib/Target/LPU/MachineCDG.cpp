@@ -105,6 +105,24 @@ ControlDependenceGraphBase::getEdgeType(MachineBasicBlock *A, MachineBasicBlock 
   }
 }
 
+
+ControlDependenceNode* ControlDependenceGraphBase::getLatchParent(ControlDependenceNode* anode) {
+  if (anode->getNumParents() == 0) return NULL;
+  for (ControlDependenceNode::node_iterator pnode = anode->parent_begin(), pend = anode->parent_end(); pnode != pend; ++pnode) {
+    ControlDependenceNode* pcdn = *pnode;
+    if (pcdn->isLatchNode()) {
+      MachineDomTreeNode* ppdt = thisPDT->getNode(pcdn->getBlock());
+      MachineDomTreeNode* npdt = thisPDT->getNode(anode->getBlock());
+      if (npdt->getIDom() == ppdt) {
+        //parent is latch, and an immediate post dominator
+        return pcdn;
+      }
+    }
+  }
+  return NULL;
+}
+
+
 void ControlDependenceGraphBase::computeDependencies(MachineFunction &F, MachinePostDominatorTree &pdt) {
   root = new ControlDependenceNode();
   nodes.insert(root);

@@ -67,6 +67,7 @@ namespace llvm {
       MachineFunctionPass::getAnalysisUsage(AU);
     }
     void insertSWITCHForIf();
+    void insertSWITCHForLoop();
   private:
     MachineFunction *thisMF;
     MachineDominatorTree *DT;
@@ -141,7 +142,6 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 
   ControlDependenceNode *root = CDG->getRoot();
-
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
     MachineBasicBlock *mbb = DTN->getBlock();
     if (!mbb) continue; //root node has no bb
@@ -239,3 +239,86 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
     }//end of for MI
   }//end of for DTN(mbb)
 }
+
+void LPUCvtCFDFPass::insertSWITCHForLoop() {
+  typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
+  const TargetMachine &TM = thisMF->getTarget();
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+
+  ControlDependenceNode *root = CDG->getRoot();
+  for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
+    ControlDependenceNode *latchParent;
+    if (DTN->isLatchNode()) {
+      latchParent = *DTN;
+    } else {
+      latchParent = CDG->getLatchParent(*DTN);
+    }
+    //inside a loop
+    if (latchParent) {
+      MachineBasicBlock *mbb = DTN->getBlock();
+      if (!mbb) continue; //root node has no bb
+      for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
+        MachineInstr *MI = I;
+        if (MI->isPHI()) continue; //care about forks, not joints
+        for (MIOperands MO(MI); MO.isValid(); ++MO) {
+          if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+          unsigned Reg = MO->getReg();
+          // process defs
+          if (MO->isDef()) {
+            ControlDependenceNode *dnode = CDG->getNode(mbb);
+            CDGRegion *dregion = CDG->getRegion(dnode);
+            assert(dregion);
+            MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+            while (UI != MRI->use_end()) {
+              MachineOperand &UseMO = *UI;
+              MachineInstr *UseMI = UseMO.getParent();
+              ++UI;
+              MachineBasicBlock *UseBB = UseMI->getParent();
+              if (UseBB == mbb) continue;
+              ControlDependenceNode *unode = CDG->getNode(UseBB);
+              CDGRegion *uregion = CDG->getRegion(unode);
+              assert(uregion);
+              if (dregion != uregion || !DT->dominates(mbb, UseBB)) {
+                //can only have one nesting level difference
+                if (!DT->dominates(mbb, UseBB)) {
+                  //def, use must in same loop, use must be loop hdr PHI, def come from backedge to loop hdr PHI
+                  //reassure the previous set up condition
+                  assert(mbb != UseBB);
+                  //two cases: a) dregion == uregion; b) dregion != uregion
+                  assert(UseMI->isPHI());
+                  if (dregion == uregion) {
+                    assert(CDG->getLatchParent(dnode) == CDG->getLatchParent(unode));
+                  }
+                  else {
+                    assert(dnode->isLatchNode() && CDG->getLatchParent(unode) == dnode);
+                  }
+                  //insertSWITCHForBackEdge();
+                  //renameLPHdrPhi();
+                }
+                else {
+                  //def dom use but in different regions
+                  //two possibilites: a) def dom use;  b) def !dom use; -- with b) already coveried in previous branch
+                  assert(DT->dominates(mbb, UseBB));
+                  //two cases: each can only have one nesting level difference
+                  // 1) def inside a loop, use outside the loop as LCSSA Phi with single input
+                  // 2) def outside a loop, use inside the loop, not handled here
+                  assert(latchParent->getNumParents() == 1 && "loop latch has more than one CDG parent"); //assume single entry loop, and latch can't be the end node
+                  ControlDependenceNode* loopParent = *latchParent->parent_begin();
+                  assert(loopParent);
+                  if (CDG->getRegion(loopParent) == CDG->getRegion(unode)) {
+                    //this is case 1, can only have one level nesting difference 
+                    //insertSWITCHForLPExit()
+                    //renameLCSSAPhi()
+                  }
+                }
+              }
+            }//end of while (!use_end)
+          }
+        }//end of for operand
+      }//end of for MI
+    }//end of for DTN(mbb)
+  }
+}
+

@@ -110,7 +110,6 @@ namespace llvm {
     bool isRegion() const { return TheBB == NULL; }
     const ControlDependenceNode *enclosingRegion() const;
     bool isLatchNode();
-
     bool isTrueChild(ControlDependenceNode *cnode) {
       return (TrueChildren.find(cnode) != true_end());
     }
@@ -218,11 +217,13 @@ namespace llvm {
     CDGRegion* getRegion(ControlDependenceNode *anode) {
       return cdg2rgn[anode];
     }
+    ControlDependenceNode* getLatchParent(ControlDependenceNode* anode);
     bool controls(MachineBasicBlock *A, MachineBasicBlock *B) const;
     bool influences(MachineBasicBlock *A, MachineBasicBlock *B) const;
     const ControlDependenceNode *enclosingRegion(MachineBasicBlock *BB) const;
     MachineFunction *thisMF;
     const TargetInstrInfo *TII;
+    MachinePostDominatorTree *thisPDT;
 
   private:
     ControlDependenceNode *root;
@@ -254,6 +255,7 @@ namespace llvm {
       thisMF = &F;
       TII = thisMF->getSubtarget().getInstrInfo();
       MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
+      thisPDT = &pdt;
       graphForFunction(F, pdt);
       writeDotGraph(F.getName());
       return false;
