@@ -68,6 +68,7 @@ namespace llvm {
     }
     void insertSWITCHForIf();
     void insertSWITCHForRepeat();
+    void releaseMemory();
   private:
     MachineFunction *thisMF;
     MachineDominatorTree *DT;
@@ -90,6 +91,14 @@ MachineFunctionPass *llvm::createLPUCvtCFDFPass() {
   return new LPUCvtCFDFPass();
 }
 
+void LPUCvtCFDFPass::releaseMemory() {
+  DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> ::iterator itm = bb2switch.begin();
+  while (itm != bb2switch.end()) {
+    DenseMap<unsigned, MachineInstr *>* reg2switch = itm->getSecond();
+    ++itm;
+    delete reg2switch;
+  }
+}
 
 bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
@@ -362,7 +371,10 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
       MachineInstr *MI = I;
       if (MI->isPHI()) continue; //care about forks, not joints
       //To avoid infinitive recursive since the newly add SWITCH always use Reg
-      if (TII.isSwitch(MI)) continue;
+      if (TII.isSwitch(MI) && CDG->getNode(mbb)->isLatchNode()) {
+        //we are workin from inner most out, no need to revisit the switch after it is inserted into the latch
+        continue;
+      }
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
@@ -428,7 +440,6 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
             SSAUpdate.Initialize(newVReg);
             SSAUpdate.AddAvailableValue(DefBB, Reg);
             SSAUpdate.AddAvailableValue(latchBB, newVReg);
-            //SSAUpdate.AddAvailableValue(mlphdr, Reg);
             // Rewrite uses that outside of the original def's block, inside the loop
             MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
             while (UI != MRI->use_end()) {
