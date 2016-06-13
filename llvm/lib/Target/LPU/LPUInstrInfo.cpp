@@ -354,6 +354,13 @@ LPUInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
 
 }
 
+bool LPUInstrInfo::isSwitch(MachineInstr *MI) const {
+  return MI->getOpcode() == LPU::SWITCH1 ||
+         MI->getOpcode() == LPU::SWITCH8 ||
+         MI->getOpcode() == LPU::SWITCH16 ||
+         MI->getOpcode() == LPU::SWITCH32 ||
+         MI->getOpcode() == LPU::SWITCH64;
+}
 
 unsigned
 LPUInstrInfo::getCopyOpcode(const TargetRegisterClass *RC) const {

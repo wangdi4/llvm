@@ -73,7 +73,7 @@ namespace llvm {
     MachineDominatorTree *DT;
     ControlDependenceGraph *CDG;
     MachineLoopInfo *MLI;
-    DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *>> bb2switch;  //switch for Reg added in bb
+    DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> bb2switch;  //switch for Reg added in bb
   };
 
 
@@ -110,6 +110,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   }
 #endif
   insertSWITCHForIf();
+  insertSWITCHForRepeat();
   return Modified;
 
 }
@@ -200,14 +201,21 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
                   }
                   assert(!dnode->isLatchNode() && "latch node can't forward dominate nodes inside its own loop");
        
-                  MachineInstr *defSwitchInstr = NULL;
-                  if (bb2switch[upbb].find(Reg) == bb2switch[upbb].end()) {
+                  MachineInstr *defSwitchInstr = nullptr;
+                  DenseMap<unsigned, MachineInstr *>* reg2switch = nullptr;
+                  if (bb2switch.find(upbb) == bb2switch.end()) {
+                    reg2switch = new DenseMap<unsigned, MachineInstr*>();
+                    bb2switch[upbb] = reg2switch;
+                  }
+                  else {
+                    reg2switch = bb2switch[upbb];
+                  }
+
+                  if (reg2switch->find(Reg) == reg2switch->end()) {
                     defSwitchInstr = insertSWITCHForReg(Reg, upbb);
-                    DenseMap<unsigned, MachineInstr *> reg2inst;
-                    reg2inst[Reg] = defSwitchInstr;
-                    bb2switch[upbb] = reg2inst;
+                    (*reg2switch)[Reg] = defSwitchInstr;
                   } else {
-                    defSwitchInstr = bb2switch[upbb][Reg];
+                    defSwitchInstr = (*reg2switch)[Reg];
                   }
 
                   unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
@@ -328,6 +336,10 @@ void LPUCvtCFDFPass::insertSWITCHForLoop() {
 }
 #endif
 
+
+
+
+
 void LPUCvtCFDFPass::insertSWITCHForRepeat() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const TargetMachine &TM = thisMF->getTarget();
@@ -349,6 +361,8 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = I;
       if (MI->isPHI()) continue; //care about forks, not joints
+      //To avoid infinitive recursive since the newly add SWITCH always use Reg
+      if (TII.isSwitch(MI)) continue;
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
@@ -376,15 +390,23 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
           //use, def in different region cross latch
           bool isDefEnclosingUse = MLI->getLoopFor(DefBB) == NULL || mLatch->isParent(defLatchNode);
           if (isDefEnclosingUse && uregion != dregion && DT->dominates(DefBB, mbb)) {
-            MachineInstr *defSwitchInstr = NULL;
-            if (bb2switch[latchBB].find(Reg) == bb2switch[latchBB].end()) {
-              defSwitchInstr = insertSWITCHForReg(Reg, latchBB);
-              DenseMap<unsigned, MachineInstr *> reg2inst;
-              reg2inst[Reg] = defSwitchInstr;
-              bb2switch[latchBB] = reg2inst;
+            MachineInstr *defSwitchInstr = nullptr;
+
+            DenseMap<unsigned, MachineInstr *>* reg2switch = nullptr;
+            if (bb2switch.find(latchBB) == bb2switch.end()) {
+              reg2switch = new DenseMap<unsigned, MachineInstr*>();
+              bb2switch[latchBB] = reg2switch;
             }
             else {
-              defSwitchInstr = bb2switch[latchBB][Reg];
+              reg2switch = bb2switch[latchBB];
+            }
+
+            if (reg2switch->find(Reg) == reg2switch->end()) {
+              defSwitchInstr = insertSWITCHForReg(Reg, latchBB);
+              (*reg2switch)[Reg] = defSwitchInstr;
+            }
+            else {
+              defSwitchInstr = (*reg2switch)[Reg];
             }
 
             unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
@@ -426,3 +448,4 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
     }
   }
 }
+
