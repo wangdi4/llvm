@@ -292,7 +292,7 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
     //inside a loop
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = I;
-      if (MI->isPHI()) continue; //care about forks, not joints
+      //if (MI->isPHI()) continue; //care about forks, not joints
       
       if (TII.isSwitch(MI)) continue; //avoid infinitive recursive
 
