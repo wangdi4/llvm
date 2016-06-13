@@ -94,6 +94,14 @@ public:
     return false;
   }
 
+
+
+  bool addPreISel() override {
+    addPass(createLCSSAPass());
+    return false;
+  }
+
+  
 #define DEBUG_TYPE "lpu-convert-control"
   void addPreRegAlloc() override {
     std::string Banner;

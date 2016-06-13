@@ -126,6 +126,10 @@ namespace llvm {
       return isTrueChild(cnode) || isFalseChild(cnode) || isOtherChild(cnode);
     }
 
+    bool isParent(ControlDependenceNode *pnode) {
+      return Parents.find(pnode) != parent_end();
+    }
+
   private:
     MachineBasicBlock *TheBB;
     std::set<ControlDependenceNode *> Parents;
