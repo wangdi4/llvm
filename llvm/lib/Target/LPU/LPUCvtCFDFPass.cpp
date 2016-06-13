@@ -388,7 +388,8 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
             assert(defLatchNode->isLatchNode());
           }
           //use, def in different region cross latch
-          bool isDefEnclosingUse = MLI->getLoopFor(DefBB) == NULL || mLatch->isParent(defLatchNode);
+          bool isDefEnclosingUse = MLI->getLoopFor(DefBB) == NULL || 
+                                   mLatch->isParent(defLatchNode) && mLatch != defLatchNode;
           if (isDefEnclosingUse && uregion != dregion && DT->dominates(DefBB, mbb)) {
             MachineInstr *defSwitchInstr = nullptr;
 
@@ -425,9 +426,9 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
             SmallVector<MachineInstr*, 8> NewPHIs;
             MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
             SSAUpdate.Initialize(newVReg);
-            //SSAUpdate.AddAvailableValue(DefBB, Reg);
+            SSAUpdate.AddAvailableValue(DefBB, Reg);
             SSAUpdate.AddAvailableValue(latchBB, newVReg);
-            SSAUpdate.AddAvailableValue(mlphdr, Reg);
+            //SSAUpdate.AddAvailableValue(mlphdr, Reg);
             // Rewrite uses that outside of the original def's block, inside the loop
             MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
             while (UI != MRI->use_end()) {
