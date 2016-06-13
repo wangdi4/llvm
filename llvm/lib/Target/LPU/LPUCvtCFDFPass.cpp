@@ -122,6 +122,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 #endif
   insertSWITCHForIf();
   insertSWITCHForRepeat();
+  insertSWITCHForLoopExit();
   return Modified;
 
 }
@@ -292,6 +293,9 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = I;
       if (MI->isPHI()) continue; //care about forks, not joints
+      
+      if (TII.isSwitch(MI)) continue; //avoid infinitive recursive
+
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
@@ -316,7 +320,10 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                 //insertSWITCHForBackEdge();
                 //def, use must in same loop, use must be loop hdr PHI, def come from backedge to loop hdr PHI
                 assert(UseMI->isPHI());
-                assert(UseBB == mloop->getHeader());
+                if (UseBB != mloop->getHeader()) {
+                  //no need to attend if-footer Phi
+                  continue;
+                }
                 //reassure the previous set up condition
                 assert(mbb != UseBB);
                 //two cases: a) dregion == uregion; b) dregion != uregion
@@ -379,11 +386,10 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                   assert(useLatchNode->isLatchNode());
                 }
                 bool isUseEnclosingDef = MLI->getLoopFor(UseBB) == NULL ||
-                  mLatch->isParent(useLatchNode) && mLatch != useLatchNode;
+                     mLatch->isParent(useLatchNode) && mLatch != useLatchNode;
                 //only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2 which should already have been run
                 if (isUseEnclosingDef && uregion != dregion && DT->dominates(mbb, UseBB)) {
                   //this is case 1, can only have one level nesting difference 
-
 
                   MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, latchBB);
 
@@ -417,9 +423,9 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                   }
                 }
                 else {
-                  //assert(use have to be a switch from the repeat handling pass);  
-                  assert(TII.isSwitch(UseMI));
-                  assert(MLI->getLoopFor(UseBB)->getLoopLatch() == UseBB);
+                  //assert(use have to be a switch from the repeat handling pass, or def is a switch from the if handling pass  
+                  assert(TII.isSwitch(UseMI) && MLI->getLoopFor(UseBB)->getLoopLatch() == UseBB || 
+                         TII.isSwitch(MI) && unode->isParent(dnode));
                 }
               }
             }
