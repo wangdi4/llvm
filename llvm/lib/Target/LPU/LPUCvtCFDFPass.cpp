@@ -314,27 +314,20 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
             ControlDependenceNode *unode = CDG->getNode(UseBB);
             CDGRegion *uregion = CDG->getRegion(unode);
             assert(uregion);
-            if (dregion != uregion || !DT->dominates(mbb, UseBB)) {
+            MachineLoop* useLoop = MLI->getLoopFor(UseBB);
+            if (mloop != useLoop || !DT->dominates(mbb, UseBB)) {
+              if (DT->dominates(mbb, UseBB) && mloop == useLoop) continue;
               //can only have one nesting level difference
-              if (!DT->dominates(mbb, UseBB)) {
+              else if (!DT->dominates(mbb, UseBB) && mloop == useLoop) {
                 //insertSWITCHForBackEdge();
                 //def, use must in same loop, use must be loop hdr PHI, def come from backedge to loop hdr PHI
                 assert(UseMI->isPHI());
                 if (UseBB != mloop->getHeader()) {
-                  //no need to attend if-footer Phi
+                  //no need to attend if-footer Phi inside the loop, still need to attend those outside the loop
                   continue;
                 }
-                //reassure the previous set up condition
+                //reassure the previous set up condition ??? need to handle x = phi(y, );y=.. in same block case
                 assert(mbb != UseBB);
-                //two cases: a) dregion == uregion; b) dregion != uregion
-                if (dregion == uregion) {
-                  //def, use in non-latch blocks of the same loop
-                  assert(MLI->getLoopFor(UseBB) == mloop);
-                }
-                else {
-                  //def in latch
-                  assert(mloop->getLoopLatch() == mbb);
-                }
 
                 MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, latchBB);
               
@@ -364,15 +357,13 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                   if (MLI->getLoopFor(UseMI->getParent()) == mloop &&
                     UseMI->getParent() == lphdr &&
                     UseMI->isPHI()) {
-                    //renameLPHdrPhi();
+                    //rename loop header Phi
                     SSAUpdate.RewriteUse(UseMO);
                   }
                 }
               }
-              else {
-                //def dom use but in different regions
-                //two possibilites: a) def dom use;  b) def !dom use; -- with b) already coveried in previous branch
-                assert(DT->dominates(mbb, UseBB));
+              else {   //mloop != defLoop
+                //two possibilites: a) def dom use;  b) def !dom use;
                 //two cases: each can only have one nesting level difference
                 // 1) def inside a loop, use outside the loop as LCSSA Phi with single input
                 // 2) def outside a loop, use inside the loop, not handled here
@@ -388,7 +379,7 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                 bool isUseEnclosingDef = MLI->getLoopFor(UseBB) == NULL ||
                      mLatch->isParent(useLatchNode) && mLatch != useLatchNode;
                 //only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2 which should already have been run
-                if (isUseEnclosingDef && uregion != dregion && DT->dominates(mbb, UseBB)) {
+                if (isUseEnclosingDef) {
                   //this is case 1, can only have one level nesting difference 
 
                   MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, latchBB);
@@ -417,11 +408,11 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                     MachineInstr *UseMI = UseMO.getParent();
                     ++UI;
                     if (UseMI->getParent() == UseBB) {
-                      //renameLCSSAPhi
+                      //renameLCSSAPhi or other cross boundary uses
                       SSAUpdate.RewriteUse(UseMO);
                     }
                   }
-                }
+                } //use enclosing def
                 else {
                   //assert(use have to be a switch from the repeat handling pass, or def is a switch from the if handling pass  
                   assert(TII.isSwitch(UseMI) && MLI->getLoopFor(UseBB)->getLoopLatch() == UseBB || 
