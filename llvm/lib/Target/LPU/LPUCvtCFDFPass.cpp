@@ -58,6 +58,7 @@ namespace llvm {
 
     bool runOnMachineFunction(MachineFunction &MF) override;
     MachineInstr* insertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB);
+    MachineInstr* getOrInsertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgBB);
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<MachineLoopInfo>();
       AU.addRequired<ControlDependenceGraph>();
@@ -147,6 +148,29 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
   return switchInst;
 }
 
+
+MachineInstr* LPUCvtCFDFPass::getOrInsertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB) {
+  MachineInstr *defSwitchInstr = nullptr;
+  DenseMap<unsigned, MachineInstr *>* reg2switch = nullptr;
+  if (bb2switch.find(cdgpBB) == bb2switch.end()) {
+    reg2switch = new DenseMap<unsigned, MachineInstr*>();
+    bb2switch[cdgpBB] = reg2switch;
+  }
+  else {
+    reg2switch = bb2switch[cdgpBB];
+  }
+
+  if (reg2switch->find(Reg) == reg2switch->end()) {
+    defSwitchInstr = insertSWITCHForReg(Reg, cdgpBB);
+    (*reg2switch)[Reg] = defSwitchInstr;
+  }
+  else {
+    defSwitchInstr = (*reg2switch)[Reg];
+  }
+  
+  return defSwitchInstr;
+}
+
 //focus on uses
 void LPUCvtCFDFPass::insertSWITCHForIf() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
@@ -212,23 +236,7 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
                   }
                   assert(!dnode->isLatchNode() && "latch node can't forward dominate nodes inside its own loop");
        
-                  MachineInstr *defSwitchInstr = nullptr;
-                  DenseMap<unsigned, MachineInstr *>* reg2switch = nullptr;
-                  if (bb2switch.find(upbb) == bb2switch.end()) {
-                    reg2switch = new DenseMap<unsigned, MachineInstr*>();
-                    bb2switch[upbb] = reg2switch;
-                  }
-                  else {
-                    reg2switch = bb2switch[upbb];
-                  }
-
-                  if (reg2switch->find(Reg) == reg2switch->end()) {
-                    defSwitchInstr = insertSWITCHForReg(Reg, upbb);
-                    (*reg2switch)[Reg] = defSwitchInstr;
-                  } else {
-                    defSwitchInstr = (*reg2switch)[Reg];
-                  }
-
+                  MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, upbb);
                   unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
                   unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
                   unsigned newVReg;
@@ -321,24 +329,8 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                   assert(mloop->getLoopLatch() == mbb);
                 }
 
-                MachineInstr *defSwitchInstr = nullptr;
-                DenseMap<unsigned, MachineInstr *>* reg2switch = nullptr;
-                if (bb2switch.find(latchBB) == bb2switch.end()) {
-                  reg2switch = new DenseMap<unsigned, MachineInstr*>();
-                  bb2switch[latchBB] = reg2switch;
-                }
-                else {
-                  reg2switch = bb2switch[latchBB];
-                }
-
-                if (reg2switch->find(Reg) == reg2switch->end()) {
-                  defSwitchInstr = insertSWITCHForReg(Reg, latchBB);
-                  (*reg2switch)[Reg] = defSwitchInstr;
-                }
-                else {
-                  defSwitchInstr = (*reg2switch)[Reg];
-                }
-
+                MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, latchBB);
+              
                 unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
                 unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
                 MachineBasicBlock* mlphdr = mloop->getHeader();
@@ -391,11 +383,43 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                 //only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2 which should already have been run
                 if (isUseEnclosingDef && uregion != dregion && DT->dominates(mbb, UseBB)) {
                   //this is case 1, can only have one level nesting difference 
-                  //insertSWITCHForLoopExit()
-                  //renameLCSSAPhi()
+
+
+                  MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, latchBB);
+
+                  unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
+                  unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
+                  MachineBasicBlock* mlphdr = mloop->getHeader();
+                  unsigned newVReg;
+                  if (mLatch->isFalseChild(CDG->getNode(UseBB))) {
+                    //rename Reg to switchFalseReg
+                    newVReg = switchFalseReg;
+                  }
+                  else {
+                    //rename it to switchTrueReg
+                    newVReg = switchTrueReg;
+                  }
+                  MachineBasicBlock* lphdr = mloop->getHeader();
+                  SmallVector<MachineInstr*, 8> NewPHIs;
+                  MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
+                  SSAUpdate.Initialize(newVReg);
+                  SSAUpdate.AddAvailableValue(latchBB, newVReg);
+                  // Rewrite uses that outside of the original def's block, inside the loop
+                  MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+                  while (UI != MRI->use_end()) {
+                    MachineOperand &UseMO = *UI;
+                    MachineInstr *UseMI = UseMO.getParent();
+                    ++UI;
+                    if (UseMI->getParent() == UseBB) {
+                      //renameLCSSAPhi
+                      SSAUpdate.RewriteUse(UseMO);
+                    }
+                  }
                 }
                 else {
                   //assert(use have to be a switch from the repeat handling pass);  
+                  assert(TII.isSwitch(UseMI));
+                  assert(MLI->getLoopFor(UseBB)->getLoopLatch() == UseBB);
                 }
               }
             }
@@ -462,24 +486,7 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
           bool isDefEnclosingUse = MLI->getLoopFor(DefBB) == NULL || 
                                    mLatch->isParent(defLatchNode) && mLatch != defLatchNode;
           if (isDefEnclosingUse && uregion != dregion && DT->dominates(DefBB, mbb)) {
-            MachineInstr *defSwitchInstr = nullptr;
-
-            DenseMap<unsigned, MachineInstr *>* reg2switch = nullptr;
-            if (bb2switch.find(latchBB) == bb2switch.end()) {
-              reg2switch = new DenseMap<unsigned, MachineInstr*>();
-              bb2switch[latchBB] = reg2switch;
-            }
-            else {
-              reg2switch = bb2switch[latchBB];
-            }
-
-            if (reg2switch->find(Reg) == reg2switch->end()) {
-              defSwitchInstr = insertSWITCHForReg(Reg, latchBB);
-              (*reg2switch)[Reg] = defSwitchInstr;
-            }
-            else {
-              defSwitchInstr = (*reg2switch)[Reg];
-            }
+            MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, latchBB);
 
             unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
             unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
