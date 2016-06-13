@@ -52,14 +52,6 @@ AVRSwitchIR *AVRSwitchIR::clone() const {
   return nullptr;
 }
 
-void AVRSwitchIR::printConditionValueName(formatted_raw_ostream &OS) const {
-
-  SwitchInst *SI = cast<SwitchInst>(Instruct);
-  Value *Cond = SI->getCondition();
-
-  Cond->printAsOperand(OS,false);
-}
-
 std::string AVRSwitchIR::getAvrValueName() const {
   return "";
 }

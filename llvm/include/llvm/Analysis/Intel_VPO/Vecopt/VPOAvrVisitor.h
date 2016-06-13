@@ -329,7 +329,14 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
       callPostVisit<AVRIfIR, AVRIfHIR, AVRIf>(AIf);
     }
   } else if (AVRSwitch *ASwitch = dyn_cast<AVRSwitch>(Node)) {
-    Visitor.visit(ASwitch);
+    callVisit<AVRSwitchIR, AVRSwitchHIR, AVRSwitch>(ASwitch);
+
+    if (Forward && Recursive && !Visitor.skipRecursion(Node) &&
+        !Visitor.isDone()) {
+      if (visit(ASwitch->getCondition(), Recursive, RecurseInsideLoops, Forward))
+        return true;
+    }
+
     if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
 
       if (Forward) {
@@ -362,6 +369,13 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
         }
       }
     }
+
+    if (!Forward && Recursive && !Visitor.skipRecursion(Node) &&
+        !Visitor.isDone()) {
+      if (visit(ASwitch->getCondition(), Recursive, RecurseInsideLoops, Forward))
+        return true;
+    }
+
     callPostVisit<AVRSwitch, AVRSwitchIR, AVRSwitchHIR>(ASwitch);
   } else if (AVRAssign *AAssign = dyn_cast<AVRAssign>(Node)) {
     callVisit<AVRAssignIR, AVRAssignHIR, AVRAssign>(AAssign);

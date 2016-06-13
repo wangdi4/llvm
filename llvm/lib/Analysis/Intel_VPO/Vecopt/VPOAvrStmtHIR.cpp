@@ -151,8 +151,8 @@ std::string AVRExpressionHIR::getOpCodeName() const {
 }
 
 //----------AVR Value for HIR Implementation----------//
-AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLInst *Inst, AVRExpressionHIR *Parent)
-  : AVRValue(AVR::AVRValueHIRNode, DDRef->getSrcType()), Val(DDRef), HLInstruct(Inst) {
+AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
+  : AVRValue(AVR::AVRValueHIRNode, DDRef->getSrcType()), Val(DDRef), HNode(Node) {
   setParent(Parent);
 }
 

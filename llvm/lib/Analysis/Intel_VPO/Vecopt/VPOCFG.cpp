@@ -469,6 +469,35 @@ void AvrCFGBase::Visitor::visit(AVRIf* AIf) {
 }
 
 void AvrCFGBase::Visitor::visit(AVRSwitch* ASwitch) {
+
+  AvrBasicBlock* CurrentPredecessor = nullptr;
+
+  setNextInstruction(getOrCreateInstruction(ASwitch->getCondition()));
+
+  CurrentPredecessor = *CurrentPredecessors.begin();
+  clearCurrentPredecessors();
+
+  unsigned NumCases = ASwitch->getNumCases();
+  for (unsigned I = 1; I <= NumCases; ++I) {
+
+    // Recurse into case.
+    AvrCFGBase::Visitor CaseCFGVisitor(CFG, CurrentPredecessor);
+    AVRVisitor<AvrCFGBase::Visitor> CaseVisitor(CaseCFGVisitor);
+    CaseVisitor.forwardVisit(ASwitch->case_child_begin(I),
+                             ASwitch->case_child_end(I), true, true);
+    // Set any dangling predecessors of the case as predecessors.
+    CurrentPredecessors.insert(CaseCFGVisitor.CurrentPredecessors.begin(),
+                               CaseCFGVisitor.CurrentPredecessors.end());
+  }
+
+  // Recurse into default case.
+  AvrCFGBase::Visitor DefaultCFGVisitor(CFG, CurrentPredecessor);
+  AVRVisitor<AvrCFGBase::Visitor> DefaultVisitor(DefaultCFGVisitor);
+  DefaultVisitor.forwardVisit(ASwitch->default_case_child_begin(),
+                           ASwitch->default_case_child_end(), true, true);
+  // Set any dangling predecessors of the case as predecessors.
+  CurrentPredecessors.insert(DefaultCFGVisitor.CurrentPredecessors.begin(),
+                             DefaultCFGVisitor.CurrentPredecessors.end());
 }
 
 void AvrCFGBase::Visitor::visit(AVRLoopHIR *ALoopHIR) {

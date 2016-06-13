@@ -86,7 +86,14 @@ AVRValueIR *AVRUtilsIR::createAVRValueIR(const Value *Val,
 }
 
 AVRSwitchIR *AVRUtilsIR::createAVRSwitchIR(Instruction *SwitchI) {
-  return new AVRSwitchIR(SwitchI);
+  AVRSwitchIR *ASwitchIR = new AVRSwitchIR(SwitchI);
+
+  SwitchInst *SI = cast<SwitchInst>(SwitchI);
+
+  ASwitchIR->ConditionValue = createAVRValueIR(SI->getCondition(),
+                                               SwitchI,
+                                               ASwitchIR);
+  return ASwitchIR;
 }
 
 AVRUnreachableIR *AVRUtilsIR::createAVRUnreachableIR(Instruction *UI) {

@@ -1092,6 +1092,10 @@ public:
     // Propagate from condition's SLEV.
     AVRUtils::setSLEV(AIfHIR, AIfHIR->getCondition()->getSLEV());
   }
+  void visit(AVRSwitch* ASwitch) {
+    // Propagate from condition's SLEV.
+    AVRUtils::setSLEV(ASwitch, ASwitch->getCondition()->getSLEV());
+  }
   void visit(AVRAssign* AAssign) {
     // RHS' SLEV is the Assign's SLEV.
     assert(AAssign->hasRHS() && "Assign without an RHS");
