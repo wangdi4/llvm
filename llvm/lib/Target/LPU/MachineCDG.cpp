@@ -105,7 +105,7 @@ ControlDependenceGraphBase::getEdgeType(MachineBasicBlock *A, MachineBasicBlock 
   }
 }
 
-
+#if 0
 ControlDependenceNode* ControlDependenceGraphBase::getLatchParent(ControlDependenceNode* anode) {
   if (anode->getNumParents() == 0) return NULL;
   for (ControlDependenceNode::node_iterator pnode = anode->parent_begin(), pend = anode->parent_end(); pnode != pend; ++pnode) {
@@ -121,7 +121,7 @@ ControlDependenceNode* ControlDependenceGraphBase::getLatchParent(ControlDepende
   }
   return NULL;
 }
-
+#endif 
 
 void ControlDependenceGraphBase::computeDependencies(MachineFunction &F, MachinePostDominatorTree &pdt) {
   root = new ControlDependenceNode();

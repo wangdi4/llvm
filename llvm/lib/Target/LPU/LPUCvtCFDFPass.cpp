@@ -68,7 +68,8 @@ namespace llvm {
     }
     void insertSWITCHForIf();
     void insertSWITCHForRepeat();
-    void releaseMemory();
+    void insertSWITCHForLoopExit();
+    void releaseMemory() override;
   private:
     MachineFunction *thisMF;
     MachineDominatorTree *DT;
@@ -146,6 +147,7 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
   return switchInst;
 }
 
+//focus on uses
 void LPUCvtCFDFPass::insertSWITCHForIf() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const TargetMachine &TM = thisMF->getTarget();
@@ -258,97 +260,154 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
     }//end of for MI
   }//end of for DTN(mbb)
 }
-#if 0
-void LPUCvtCFDFPass::insertSWITCHForLoop() {
+
+
+//focus on def
+void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const TargetMachine &TM = thisMF->getTarget();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-
+  
   ControlDependenceNode *root = CDG->getRoot();
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
-    ControlDependenceNode *latchParent;
-    if (DTN->isLatchNode()) {
-      latchParent = *DTN;
-    } else {
-      latchParent = CDG->getLatchParent(*DTN);
-    }
+    MachineBasicBlock *mbb = DTN->getBlock();
+    if (!mbb) continue; //root node has no bb
+    MachineLoop* mloop = MLI->getLoopFor(mbb);
+    //not inside a loop
+    if (!mloop) continue;
+    MachineBasicBlock *latchBB = mloop->getLoopLatch();
+    ControlDependenceNode *mLatch = CDG->getNode(latchBB);
+    assert(mLatch->isLatchNode());
     //inside a loop
-    if (latchParent) {
-      MachineLoop* mloop = MLI->getLoopFor(latchParent->getBlock());
-      assert(mloop->isLoopExiting(latchParent->getBlock()) && "LoopInfo and CDG see different Loop exit");
-      MachineBasicBlock *mbb = DTN->getBlock();
-      if (!mbb) continue; //root node has no bb
-      for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
-        MachineInstr *MI = I;
-        if (MI->isPHI()) continue; //care about forks, not joints
-        for (MIOperands MO(MI); MO.isValid(); ++MO) {
-          if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-          unsigned Reg = MO->getReg();
-          // process defs
-          if (MO->isDef()) {
-            ControlDependenceNode *dnode = CDG->getNode(mbb);
-            CDGRegion *dregion = CDG->getRegion(dnode);
-            assert(dregion);
-            MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
-            while (UI != MRI->use_end()) {
-              MachineOperand &UseMO = *UI;
-              MachineInstr *UseMI = UseMO.getParent();
-              ++UI;
-              MachineBasicBlock *UseBB = UseMI->getParent();
-              if (UseBB == mbb) continue;
-              ControlDependenceNode *unode = CDG->getNode(UseBB);
-              CDGRegion *uregion = CDG->getRegion(unode);
-              assert(uregion);
-              if (dregion != uregion || !DT->dominates(mbb, UseBB)) {
-                //can only have one nesting level difference
-                if (!DT->dominates(mbb, UseBB)) {
-                  //def, use must in same loop, use must be loop hdr PHI, def come from backedge to loop hdr PHI
-                  //reassure the previous set up condition
-                  assert(mbb != UseBB);
-                  //two cases: a) dregion == uregion; b) dregion != uregion
-                  assert(UseMI->isPHI());
-                  if (dregion == uregion) {
-                    assert(CDG->getLatchParent(dnode) == CDG->getLatchParent(unode));
-                  } 
-                  else {
-                    assert(dnode->isLatchNode() && CDG->getLatchParent(unode) == dnode);
-                  }
-                  //insertSWITCHForBackEdge();
-                  //renameLPHdrPhi();
+    for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
+      MachineInstr *MI = I;
+      if (MI->isPHI()) continue; //care about forks, not joints
+      for (MIOperands MO(MI); MO.isValid(); ++MO) {
+        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+        unsigned Reg = MO->getReg();
+        // process defs
+        if (MO->isDef()) {
+          ControlDependenceNode *dnode = CDG->getNode(mbb);
+          CDGRegion *dregion = CDG->getRegion(dnode);
+          assert(dregion);
+          MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+          while (UI != MRI->use_end()) {
+            MachineOperand &UseMO = *UI;
+            MachineInstr *UseMI = UseMO.getParent();
+            ++UI;
+            MachineBasicBlock *UseBB = UseMI->getParent();
+            if (UseBB == mbb) continue;
+            ControlDependenceNode *unode = CDG->getNode(UseBB);
+            CDGRegion *uregion = CDG->getRegion(unode);
+            assert(uregion);
+            if (dregion != uregion || !DT->dominates(mbb, UseBB)) {
+              //can only have one nesting level difference
+              if (!DT->dominates(mbb, UseBB)) {
+                //insertSWITCHForBackEdge();
+                //def, use must in same loop, use must be loop hdr PHI, def come from backedge to loop hdr PHI
+                assert(UseMI->isPHI());
+                assert(UseBB == mloop->getHeader());
+                //reassure the previous set up condition
+                assert(mbb != UseBB);
+                //two cases: a) dregion == uregion; b) dregion != uregion
+                if (dregion == uregion) {
+                  //def, use in non-latch blocks of the same loop
+                  assert(MLI->getLoopFor(UseBB) == mloop);
                 }
                 else {
-                  //def dom use but in different regions
-                  //two possibilites: a) def dom use;  b) def !dom use; -- with b) already coveried in previous branch
-                  assert(DT->dominates(mbb, UseBB));
-                  //two cases: each can only have one nesting level difference
-                  // 1) def inside a loop, use outside the loop as LCSSA Phi with single input
-                  // 2) def outside a loop, use inside the loop, not handled here
-                  assert(latchParent->getNumParents() == 1 && "loop latch has more than one CDG parent"); //assume single entry loop, and latch can't be the end node
-                  ControlDependenceNode* loopParent = *latchParent->parent_begin();
-                  assert(loopParent);
-                  //only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2
-                  if (MLI->getLoopFor(loopParent->getBlock()) == MLI->getLoopFor(unode->getBlock())) {
-                    //this is case 1, can only have one level nesting difference 
-                    //insertSWITCHForLoopExit()
-                    //renameLCSSAPhi()
+                  //def in latch
+                  assert(mloop->getLoopLatch() == mbb);
+                }
+
+                MachineInstr *defSwitchInstr = nullptr;
+                DenseMap<unsigned, MachineInstr *>* reg2switch = nullptr;
+                if (bb2switch.find(latchBB) == bb2switch.end()) {
+                  reg2switch = new DenseMap<unsigned, MachineInstr*>();
+                  bb2switch[latchBB] = reg2switch;
+                }
+                else {
+                  reg2switch = bb2switch[latchBB];
+                }
+
+                if (reg2switch->find(Reg) == reg2switch->end()) {
+                  defSwitchInstr = insertSWITCHForReg(Reg, latchBB);
+                  (*reg2switch)[Reg] = defSwitchInstr;
+                }
+                else {
+                  defSwitchInstr = (*reg2switch)[Reg];
+                }
+
+                unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
+                unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
+                MachineBasicBlock* mlphdr = mloop->getHeader();
+                unsigned newVReg;
+                if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
+                  //rename Reg to switchFalseReg
+                  newVReg = switchFalseReg;
+                }
+                else {
+                  //rename it to switchTrueReg
+                  newVReg = switchTrueReg;
+                }
+                MachineBasicBlock* lphdr = mloop->getHeader();
+                SmallVector<MachineInstr*, 8> NewPHIs;
+                MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
+                SSAUpdate.Initialize(newVReg);
+                SSAUpdate.AddAvailableValue(latchBB, newVReg);
+                // Rewrite uses that outside of the original def's block, inside the loop
+                MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+                while (UI != MRI->use_end()) {
+                  MachineOperand &UseMO = *UI;
+                  MachineInstr *UseMI = UseMO.getParent();
+                  ++UI;
+                  if (MLI->getLoopFor(UseMI->getParent()) == mloop &&
+                    UseMI->getParent() == lphdr &&
+                    UseMI->isPHI()) {
+                    //renameLPHdrPhi();
+                    SSAUpdate.RewriteUse(UseMO);
                   }
                 }
               }
-            }//end of while (use)
-          }
-        }//end of for operand
-      }//end of for MI
-    }//end of for DTN(mbb)
-  }
+              else {
+                //def dom use but in different regions
+                //two possibilites: a) def dom use;  b) def !dom use; -- with b) already coveried in previous branch
+                assert(DT->dominates(mbb, UseBB));
+                //two cases: each can only have one nesting level difference
+                // 1) def inside a loop, use outside the loop as LCSSA Phi with single input
+                // 2) def outside a loop, use inside the loop, not handled here
+                //use, def in different region cross latch
+                ControlDependenceNode* useLatchNode = NULL;
+                if (MLI->getLoopFor(UseBB) != NULL) {
+                  MachineLoop* defLoop = MLI->getLoopFor(UseBB);
+                  MachineBasicBlock* useLatch = defLoop->getLoopLatch();
+                  assert(useLatch);
+                  useLatchNode = CDG->getNode(useLatch);
+                  assert(useLatchNode->isLatchNode());
+                }
+                bool isUseEnclosingDef = MLI->getLoopFor(UseBB) == NULL ||
+                  mLatch->isParent(useLatchNode) && mLatch != useLatchNode;
+                //only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2 which should already have been run
+                if (isUseEnclosingDef && uregion != dregion && DT->dominates(mbb, UseBB)) {
+                  //this is case 1, can only have one level nesting difference 
+                  //insertSWITCHForLoopExit()
+                  //renameLCSSAPhi()
+                }
+                else {
+                  //assert(use have to be a switch from the repeat handling pass);  
+                }
+              }
+            }
+          }//end of while (use)
+        }
+      }//end of for operand
+    }//end of for MI
+  }//end of for DTN(mbb)
 }
-#endif
 
 
-
-
-
+//focus on uses
 void LPUCvtCFDFPass::insertSWITCHForRepeat() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const TargetMachine &TM = thisMF->getTarget();
