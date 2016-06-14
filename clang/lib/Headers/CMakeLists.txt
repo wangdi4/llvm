@@ -30,6 +30,7 @@ set(modified_files
   lzcntintrin.h
   mmintrin.h
   mm_malloc.h
+  mwaitxintrin.h
   nmmintrin.h
   pmmintrin.h
   popcntintrin.h
@@ -90,7 +91,6 @@ set(orig_files
   varargs.h
   vecintrin.h
   xopintrin.h
-  mwaitxintrin.h
   xtestintrin.h
   )
 
