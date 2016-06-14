@@ -292,10 +292,11 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
     //inside a loop
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = I;
-      //if (MI->isPHI()) continue; //care about forks, not joints
-      
-      if (TII.isSwitch(MI)) continue; //avoid infinitive recursive
 
+      //avoid infinitive recursive
+      if (TII.isSwitch(MI) && mbb == latchBB) {
+        continue; 
+      }
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
@@ -310,15 +311,23 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
             MachineInstr *UseMI = UseMO.getParent();
             ++UI;
             MachineBasicBlock *UseBB = UseMI->getParent();
-            if (UseBB == mbb) continue;
+            if (UseBB == mbb) {
+              if (UseBB != mloop->getHeader() || !UseMI->isPHI()) {
+                //not a loop hdr Phi
+                continue;
+              }
+              //for loop hdr Phi, we still need to handle the following same block case:
+              // %y = Phi(%x0, %x)
+              // %x = ...
+            }
             ControlDependenceNode *unode = CDG->getNode(UseBB);
             CDGRegion *uregion = CDG->getRegion(unode);
             assert(uregion);
             MachineLoop* useLoop = MLI->getLoopFor(UseBB);
-            if (mloop != useLoop || !DT->dominates(mbb, UseBB)) {
-              if (DT->dominates(mbb, UseBB) && mloop == useLoop) continue;
+            if (mloop != useLoop || !DT->properlyDominates(mbb, UseBB)) {
+              if (DT->properlyDominates(mbb, UseBB) && mloop == useLoop) continue;
               //can only have one nesting level difference
-              else if (!DT->dominates(mbb, UseBB) && mloop == useLoop) {
+              else if (!DT->properlyDominates(mbb, UseBB) && mloop == useLoop) {
                 //insertSWITCHForBackEdge();
                 //def, use must in same loop, use must be loop hdr PHI, def come from backedge to loop hdr PHI
                 assert(UseMI->isPHI());
@@ -326,9 +335,6 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                   //no need to attend if-footer Phi inside the loop, still need to attend those outside the loop
                   continue;
                 }
-                //reassure the previous set up condition ??? need to handle x = phi(y, );y=.. in same block case
-                assert(mbb != UseBB);
-
                 MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, latchBB);
               
                 unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
