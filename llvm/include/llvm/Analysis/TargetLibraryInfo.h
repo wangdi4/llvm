@@ -85,8 +85,11 @@ public:
   /// addVectorizableFunctionsFromVecLib for filling up the tables of
   /// vectorizable functions.
   enum VectorLibrary {
-    NoLibrary, // Don't use any vector library.
-    Accelerate // Use Accelerate framework.
+    NoLibrary,  // Don't use any vector library.
+    Accelerate, // Use Accelerate framework.
+#if INTEL_CUSTOMIZATION
+    SVML,       // Intel short vector math library.
+#endif // INTEL_CUSTOMIZATION
   };
 
   TargetLibraryInfoImpl();

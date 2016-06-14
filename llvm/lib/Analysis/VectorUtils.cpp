@@ -60,9 +60,6 @@ bool llvm::isTriviallyVectorizable(Intrinsic::ID ID) {
   case Intrinsic::ctlz:
   case Intrinsic::cttz:
   case Intrinsic::powi:
-#if INTEL_CUSTOMIZATION
-  case Intrinsic::sincos:
-#endif // INTEL_CUSTOMIZATION
     return true;
   default:
     return false;

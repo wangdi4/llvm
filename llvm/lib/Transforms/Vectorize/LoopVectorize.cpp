@@ -4301,18 +4301,6 @@ void InnerLoopVectorizer::vectorizeBlockInLoop(BasicBlock *BB, PhiVector *PV) {
       bool UseVectorIntrinsic =
           ID && getVectorIntrinsicCost(CI, VF, *TTI, TLI) <= CallCost;
 
-#if INTEL_CUSTOMIZATION
-      // For now, turn off sincos vectorization because svml translation is
-      // turned off by default. Otherwise, we'll assert in the back end.
-      // TODO: add scalarization support in the back end for sincos in case
-      // svml translation fails or is turned off. This goes for any other math
-      // intrinsics that are not currently supported via scalarization. As of
-      // now, sincos is the only additional function added to Intrinsics.td
-      // that will cause this problem.
-      if (ID == Intrinsic::sincos)
-        UseVectorIntrinsic = false;
-#endif // INTEL_CUSTOMIZATION
-
       if (!UseVectorIntrinsic && NeedToScalarize) {
         scalarizeInstruction(&*it);
         break;
@@ -4333,67 +4321,11 @@ void InnerLoopVectorizer::vectorizeBlockInLoop(BasicBlock *BB, PhiVector *PV) {
 
         Function *VectorF;
 
-#if INTEL_CUSTOMIZATION
-        // Use vector version of the intrinsic.
-        if (UseVectorIntrinsic) {
-          SmallVector<Type*, 4> TysForDecl;
-          TysForDecl.push_back(CI->getType());
-          if (VF > 1) {
-            // We can't create VectorTypes for void functions.
-            if (!CI->getType()->isVoidTy()) {
-              TysForDecl[0] =
-                VectorType::get(CI->getType()->getScalarType(), VF);
-            }
-
-            // DescTable stores information about the types defined in the .td
-            // file for the intrinsic. We use this information to determine how
-            // to build the parameter types to properly generate an intrinsic
-            // declaration.
-            SmallVector<Intrinsic::IITDescriptor, 8> DescTable;
-            getIntrinsicInfoTableEntries(ID, DescTable);
-
-            // Setting the 1st element of TysForDecl to the return type of the
-            // function only works for intrinsics that have the same parameter
-            // types as the return. It's still possible to vectorize other
-            // function calls w/o parameters (i.e., drand48()), void functions
-            // (i.e., sincos), and functions where the return/parameter types
-            // don't match (i.e., isinf). The code below ensures correct
-            // TysForDecl types based on the underlying intrinsic type
-            // encodings. Start with ArgIdx of 1 because DescTable[0] refers to
-            // the return type. Since the return type has already been set in
-            // TysForDecl above, we now want to get the parameter types. The
-            // getArgumentNumber() function will return the appropriate index
-            // in TysForDecl to set the type of the argument. For overloaded
-            // types (using LLVMMatchType), it's only necessary to specify the
-            // type once, and at the same position in TysForDecl, as other
-            // parameters using the same type. The getDeclaration() function
-            // will also use the underlying type encodings for the intrinsic
-            // and thus should be able to produce the intrinsic.
-
-            unsigned ArgIdx = 1;
-            unsigned NumArgs = Args.size();
-            for (unsigned i = 0; i < NumArgs; ++i) {
-              Type *ArgType = Args[i]->getType();
-              if (DescTable[ArgIdx].Kind ==
-                  Intrinsic::IITDescriptor::Argument) {
-                unsigned ArgNum = DescTable[ArgIdx].getArgumentNumber();
-                // Expand the TysForDecl capacity, if necessary, to account
-                // for more parameter types than can currently be held. This
-                // is necessary since we need to index directly into a
-                // SmallVector.
-                TysForDecl.resize(ArgNum + 1);
-                TysForDecl[ArgNum] = ArgType;
-              }
-              ArgIdx++;
-            }
-          }
-#else // INTEL_CUSTOMIZATION
         // Use vector version of the intrinsic.
         if (UseVectorIntrinsic) {
           Type *TysForDecl[] = {CI->getType()};
           if (VF > 1)
             TysForDecl[0] = VectorType::get(CI->getType()->getScalarType(), VF);
-#endif // INTEL_CUSTOMIZATION
           VectorF = Intrinsic::getDeclaration(M, ID, TysForDecl);
         } else {
           // Use vector version of the library call.

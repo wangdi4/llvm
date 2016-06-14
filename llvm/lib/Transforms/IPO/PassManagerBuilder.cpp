@@ -146,7 +146,7 @@ static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
 
 static cl::opt<bool> RunMapIntrinToIml("enable-iml-trans",
-  cl::init(false), cl::Hidden,
+  cl::init(true), cl::Hidden,
   cl::desc("Map vectorized math intrinsic calls to svml/libm."));
 
 // Indirect call Conv
