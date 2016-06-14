@@ -147,8 +147,10 @@ bool CPUDeviceConfig::IsDoubleSupported() const
     return false;
 #endif
 
+#if WIN32
     if(CPUDetect::GetInstance()->isBroxton())
-        return false;
+        return true;
+#endif
 
     // disabled on Atom
     if (BRAND_INTEL_ATOM == CPUDetect::GetInstance()->GetCPUBrandFamily())
