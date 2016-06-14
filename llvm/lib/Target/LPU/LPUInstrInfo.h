@@ -139,6 +139,8 @@ public:
   bool isSwitch(MachineInstr *) const;
 
   unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
+  unsigned getMoveOpcode(const TargetRegisterClass *RC) const;
+
 };
 
 }
