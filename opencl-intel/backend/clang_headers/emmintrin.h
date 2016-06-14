@@ -39,6 +39,10 @@ typedef long long __v2di __attribute__ ((__vector_size__ (16)));
 typedef short __v8hi __attribute__((__vector_size__(16)));
 typedef char __v16qi __attribute__((__vector_size__(16)));
 
+/* We need an explicitly signed variant for char. Note that this shouldn't
+ * appear in the interface though. */
+typedef signed char __v16qs __attribute__((__vector_size__(16)));
+
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_add_sd(__m128d a, __m128d b)
 {
@@ -821,9 +825,28 @@ _mm_xor_si128(__m128i a, __m128i b)
   return a ^ b;
 }
 
-#define _mm_slli_si128(a, count) __extension__ ({ \
-  __m128i __a = (a); \
-  (__m128i)__builtin_ia32_pslldqi128(__a, (count)*8); })
+#define _mm_slli_si128(a, imm) __extension__ ({                         \
+  (__m128i)__builtin_shufflevector((__v16qi)_mm_setzero_si128(),        \
+                                   (__v16qi)(__m128i)(a),               \
+                                   ((imm)&0xF0) ? 0 : 16 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 17 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 18 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 19 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 20 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 21 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 22 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 23 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 24 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 25 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 26 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 27 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 28 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 29 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 30 - ((imm)&0xF), \
+                                   ((imm)&0xF0) ? 0 : 31 - ((imm)&0xF)); })
+
+#define _mm_bslli_si128(a, imm) \
+  _mm_slli_si128((a), (imm))
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_slli_epi16(__m128i a, int count)
@@ -886,9 +909,28 @@ _mm_sra_epi32(__m128i a, __m128i count)
 }
 
 
-#define _mm_srli_si128(a, count) __extension__ ({ \
-  __m128i __a = (a); \
-  (__m128i)__builtin_ia32_psrldqi128(__a, (count)*8); })
+#define _mm_srli_si128(a, imm) __extension__ ({                          \
+  (__m128i)__builtin_shufflevector((__v16qi)(__m128i)(a),                \
+                                   (__v16qi)_mm_setzero_si128(),         \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 0,  \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 1,  \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 2,  \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 3,  \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 4,  \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 5,  \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 6,  \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 7,  \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 8,  \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 9,  \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 10, \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 11, \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 12, \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 13, \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 14, \
+                                   ((imm)&0xF0) ? 16 : ((imm)&0xF) + 15); })
+
+#define _mm_bsrli_si128(a, imm) \
+  _mm_srli_si128((a), (imm))
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_srli_epi16(__m128i a, int count)

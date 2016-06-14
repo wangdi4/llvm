@@ -25,6 +25,9 @@
 #error "Never use <avx2intrin.h> directly; include <intrin.h> instead."
 #endif
 
+/* Define the default attributes for the functions in this file. */
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
+
 /* SSE4 Multiple Packed Sums of Absolute Difference.  */
 #define _mm256_mpsadbw_epu8(X, Y, M) __builtin_ia32_mpsadbw256((X), (Y), (M))
 
@@ -731,22 +734,22 @@ _mm256_stream_load_si256(__m256i *__V)
   return (__m256i)__builtin_ia32_movntdqa256((__private __v4di *)(__v4di *)__V);
 }
 
-static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128 __DEFAULT_FN_ATTRS
 _mm_broadcastss_ps(__m128 __X)
 {
-  return (__m128)__builtin_ia32_vbroadcastss_ps((__v4sf)__X);
+  return (__m128)__builtin_shufflevector((__v4sf)__X, (__v4sf)__X, 0, 0, 0, 0);
 }
 
-static __inline__ __m256 __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m256 __DEFAULT_FN_ATTRS
 _mm256_broadcastss_ps(__m128 __X)
 {
-  return (__m256)__builtin_ia32_vbroadcastss_ps256((__v4sf)__X);
+  return (__m256)__builtin_shufflevector((__v4sf)__X, (__v4sf)__X, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
-static __inline__ __m256d __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m256d __DEFAULT_FN_ATTRS
 _mm256_broadcastsd_pd(__m128d __X)
 {
-  return (__m256d)__builtin_ia32_vbroadcastsd_pd256((__v2df)__X);
+  return (__m256d)__builtin_shufflevector((__v2df)__X, (__v2df)__X, 0, 0, 0, 0);
 }
 
 /*
@@ -760,60 +763,72 @@ _mm_broadcastsi128_si256(__m128i const *a)
 #define _mm_blend_epi32(V1, V2, M) __extension__ ({ \
   __m128i __V1 = (V1); \
   __m128i __V2 = (V2); \
-  (__m128i)__builtin_ia32_pblendd128((__v4si)__V1, (__v4si)__V2, (M)); })
+  (__m128i)__builtin_shufflevector((__v4si)__V1, (__v4si)__V2, \
+                                   (((M) & 0x01) ? 4 : 0), \
+                                   (((M) & 0x02) ? 5 : 1), \
+                                   (((M) & 0x04) ? 6 : 2), \
+                                   (((M) & 0x08) ? 7 : 3)); })
 
 #define _mm256_blend_epi32(V1, V2, M) __extension__ ({ \
   __m256i __V1 = (V1); \
   __m256i __V2 = (V2); \
-  (__m256i)__builtin_ia32_pblendd256((__v8si)__V1, (__v8si)__V2, (M)); })
+  (__m256i)__builtin_shufflevector((__v8si)__V1, (__v8si)__V2, \
+                                   (((M) & 0x01) ?  8 : 0), \
+                                   (((M) & 0x02) ?  9 : 1), \
+                                   (((M) & 0x04) ? 10 : 2), \
+                                   (((M) & 0x08) ? 11 : 3), \
+                                   (((M) & 0x10) ? 12 : 4), \
+                                   (((M) & 0x20) ? 13 : 5), \
+                                   (((M) & 0x40) ? 14 : 6), \
+                                   (((M) & 0x80) ? 15 : 7)); })
 
-static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m256i __DEFAULT_FN_ATTRS
 _mm256_broadcastb_epi8(__m128i __X)
 {
-  return (__m256i)__builtin_ia32_pbroadcastb256((__v16qi)__X);
+  return (__m256i)__builtin_shufflevector((__v16qi)__X, (__v16qi)__X, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
-static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m256i __DEFAULT_FN_ATTRS
 _mm256_broadcastw_epi16(__m128i __X)
 {
-  return (__m256i)__builtin_ia32_pbroadcastw256((__v8hi)__X);
+  return (__m256i)__builtin_shufflevector((__v8hi)__X, (__v8hi)__X, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
-static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m256i __DEFAULT_FN_ATTRS
 _mm256_broadcastd_epi32(__m128i __X)
 {
-  return (__m256i)__builtin_ia32_pbroadcastd256((__v4si)__X);
+  return (__m256i)__builtin_shufflevector((__v4si)__X, (__v4si)__X, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
-static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m256i __DEFAULT_FN_ATTRS
 _mm256_broadcastq_epi64(__m128i __X)
 {
-  return (__m256i)__builtin_ia32_pbroadcastq256(__X);
+  return (__m256i)__builtin_shufflevector(__X, __X, 0, 0, 0, 0);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_broadcastb_epi8(__m128i __X)
 {
-  return (__m128i)__builtin_ia32_pbroadcastb128((__v16qi)__X);
+  return (__m128i)__builtin_shufflevector((__v16qi)__X, (__v16qi)__X, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_broadcastw_epi16(__m128i __X)
 {
-  return (__m128i)__builtin_ia32_pbroadcastw128((__v8hi)__X);
+  return (__m128i)__builtin_shufflevector((__v8hi)__X, (__v8hi)__X, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_broadcastd_epi32(__m128i __X)
 {
-  return (__m128i)__builtin_ia32_pbroadcastd128((__v4si)__X);
+  return (__m128i)__builtin_shufflevector((__v4si)__X, (__v4si)__X, 0, 0, 0, 0);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_broadcastq_epi64(__m128i __X)
 {
-  return (__m128i)__builtin_ia32_pbroadcastq128(__X);
+  return (__m128i)__builtin_shufflevector(__X, __X, 0, 0);
 }
 
 static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))
@@ -828,10 +843,10 @@ _mm256_permutevar8x32_epi32(__m256i a, __m256i b)
                                    (M) & 0x3, ((M) & 0xc) >> 2, \
                                    ((M) & 0x30) >> 4, ((M) & 0xc0) >> 6); })
 
-static __inline__ __m256 __attribute__((__always_inline__, __nodebug__))
-_mm256_permutevar8x32_ps(__m256 a, __m256 b)
+static __inline__ __m256 __DEFAULT_FN_ATTRS
+_mm256_permutevar8x32_ps(__m256 __a, __m256i __b)
 {
-  return (__m256)__builtin_ia32_permvarsf256((__v8sf)a, (__v8sf)b);
+  return (__m256)__builtin_ia32_permvarsf256((__v8sf)__a, (__v8si)__b);
 }
 
 #define _mm256_permute4x64_epi64(V, M) __extension__ ({ \

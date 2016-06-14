@@ -30,6 +30,9 @@
 
 #include <tmmintrin.h>
 
+/* Define the default attributes for the functions in this file. */
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
+
 /* SSE4 Rounding macros. */
 #define _MM_FROUND_TO_NEAREST_INT    0x00
 #define _MM_FROUND_TO_NEG_INF        0x01
@@ -79,12 +82,18 @@
 #define _mm_blend_pd(V1, V2, M) __extension__ ({ \
   __m128d __V1 = (V1); \
   __m128d __V2 = (V2); \
-  (__m128d) __builtin_ia32_blendpd ((__v2df)__V1, (__v2df)__V2, (M)); })
+  (__m128d)__builtin_shufflevector((__v2df)__V1, (__v2df)__V2, \
+                                   (((M) & 0x01) ? 2 : 0), \
+                                   (((M) & 0x02) ? 3 : 1)); })
 
 #define _mm_blend_ps(V1, V2, M) __extension__ ({ \
   __m128 __V1 = (V1); \
   __m128 __V2 = (V2); \
-  (__m128) __builtin_ia32_blendps ((__v4sf)__V1, (__v4sf)__V2, (M)); })
+  (__m128)__builtin_shufflevector((__v4sf)__V1, (__v4sf)__V2, \
+                                  (((M) & 0x01) ? 4 : 0), \
+                                  (((M) & 0x02) ? 5 : 1), \
+                                  (((M) & 0x04) ? 6 : 2), \
+                                  (((M) & 0x08) ? 7 : 3)); })
 
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_blendv_pd (__m128d __V1, __m128d __V2, __m128d __M)
@@ -110,7 +119,15 @@ _mm_blendv_epi8 (__m128i __V1, __m128i __V2, __m128i __M)
 #define _mm_blend_epi16(V1, V2, M) __extension__ ({ \
   __m128i __V1 = (V1); \
   __m128i __V2 = (V2); \
-  (__m128i) __builtin_ia32_pblendw128 ((__v8hi)__V1, (__v8hi)__V2, (M)); })
+  (__m128i)__builtin_shufflevector((__v8hi)__V1, (__v8hi)__V2, \
+                                   (((M) & 0x01) ?  8 : 0), \
+                                   (((M) & 0x02) ?  9 : 1), \
+                                   (((M) & 0x04) ? 10 : 2), \
+                                   (((M) & 0x08) ? 11 : 3), \
+                                   (((M) & 0x10) ? 12 : 4), \
+                                   (((M) & 0x20) ? 13 : 5), \
+                                   (((M) & 0x40) ? 14 : 6), \
+                                   (((M) & 0x80) ? 15 : 7)); })
 
 /* SSE4 Dword Multiply Instructions.  */
 static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
@@ -269,40 +286,47 @@ _mm_cmpeq_epi64(__m128i __V1, __m128i __V2)
 }
 
 /* SSE4 Packed Integer Sign-Extension.  */
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepi8_epi16(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_pmovsxbw128((__v16qi) __V);
+  /* This function always performs a signed extension, but __v16qi is a char
+     which may be signed or unsigned, so use __v16qs. */
+  return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v16qs)__V, (__v16qs)__V, 0, 1, 2, 3, 4, 5, 6, 7), __v8hi);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepi8_epi32(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_pmovsxbd128((__v16qi) __V);
+  /* This function always performs a signed extension, but __v16qi is a char
+     which may be signed or unsigned, so use __v16qs. */
+  return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v16qs)__V, (__v16qs)__V, 0, 1, 2, 3), __v4si);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepi8_epi64(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_pmovsxbq128((__v16qi) __V);
+  /* This function always performs a signed extension, but __v16qi is a char
+     which may be signed or unsigned, so use __v16qs. */
+  typedef signed char __v16qs __attribute__((__vector_size__(16)));
+  return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v16qs)__V, (__v16qs)__V, 0, 1), __v2di);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepi16_epi32(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_pmovsxwd128((__v8hi) __V); 
+  return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v8hi)__V, (__v8hi)__V, 0, 1, 2, 3), __v4si);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepi16_epi64(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_pmovsxwq128((__v8hi)__V);
+  return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v8hi)__V, (__v8hi)__V, 0, 1), __v2di);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepi32_epi64(__m128i __V)
 {
-  return (__m128i) __builtin_ia32_pmovsxdq128((__v4si)__V);
+  return (__m128i)__builtin_convertvector(__builtin_shufflevector((__v4si)__V, (__v4si)__V, 0, 1), __v2di);
 }
 
 /* SSE4 Packed Integer Zero-Extension.  */
