@@ -74,6 +74,7 @@ namespace llvm {
     void insertSWITCHForLoopExit();
     void replacePhiWithPICK();
     void replaceLoopHdrPhi();
+    void replaceIfFooterPhi();
     void releaseMemory() override;
   private:
     MachineFunction *thisMF;
@@ -105,6 +106,19 @@ void LPUCvtCFDFPass::releaseMemory() {
     ++itm;
     delete reg2switch;
   }
+
+  DenseMap<MachineBasicBlock *, SmallVectorImpl<MachineInstr *> *> ::iterator itmv = bb2predcpy.begin();
+  while (itmv != bb2predcpy.end()) {
+    SmallVectorImpl<MachineInstr *>* instrv = itmv->getSecond();
+    ++itmv;
+    delete instrv;
+  }
+}
+
+
+void LPUCvtCFDFPass::replacePhiWithPICK() {
+  replaceLoopHdrPhi();
+  replaceIfFooterPhi();
 }
 
 bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
@@ -128,7 +142,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForIf();
   insertSWITCHForRepeat();
   insertSWITCHForLoopExit();
-  replaceLoopHdrPhi();
+  replacePhiWithPICK();
   return Modified;
 
 }
@@ -184,8 +198,18 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
   MachineBasicBlock::iterator loc = cdgpBB->getFirstTerminator();
   MachineInstr* bi = loc;
   unsigned predReg = bi->getOperand(0).getReg();
+
   const TargetRegisterClass *TRC = MRI->getRegClass(predReg);
+#if 0
   unsigned cpyReg = MRI->createVirtualRegister(TRC);
+#else
+  LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
+  // Look up target register class corresponding to this register.
+  const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(MRI->getRegClass(predReg));
+  assert(new_LIC_RC && "Can't determine register class for register");
+  unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
+#endif
+
   const unsigned copyOpcode = TII.getCopyOpcode(TRC);
   MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(),TII.get(copyOpcode), cpyReg).addReg(bi->getOperand(0).getReg());
 
@@ -661,3 +685,86 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
     }
   }
 }
+
+
+#if 0
+void LPUCvtCFDFPass::replaceIfFooterPhi() {
+  typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
+  const TargetMachine &TM = thisMF->getTarget();
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  ControlDependenceNode *root = CDG->getRoot();
+  for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
+    MachineBasicBlock *mbb = DTN->getBlock();
+    if (!mbb) continue; //root node has no bb
+    MachineLoop* mloop = MLI->getLoopFor(mbb);
+    //not inside a loop
+    if (!mloop) continue;
+    //only scan loop header
+    if (mbb != mloop->getHeader()) continue;
+    MachineBasicBlock *latchBB = mloop->getLoopLatch();
+
+    SmallVectorImpl<MachineInstr *>* predCpy = getOrInsertPredCopy(latchBB);
+
+    ControlDependenceNode *mLatch = CDG->getNode(latchBB);
+
+    assert(mLatch->isLatchNode());
+    assert(latchBB);
+    MachineBasicBlock::iterator iterI = mbb->begin();
+    while (iterI != mbb->end()) {
+      MachineInstr *MI = iterI;
+      ++iterI;
+      if (!MI->isPHI()) continue;
+      assert(MI->getNumOperands() == 5 && "loop header Phi can't have more than 2 inputs");
+      unsigned pickSrc[2] = { 0 };
+      int phiInitIndex = -1;
+      for (MIOperands MO(MI); MO.isValid(); ++MO) {
+        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+        unsigned Reg = MO->getReg();
+        // process use at loop level
+        if (MO->isUse()) {
+          //move to its incoming block operand
+          ++MO;
+          //MachineBasicBlock* SrcBB = MO->getMBB();
+          ControlDependenceNode *unode = CDG->getNode(mbb);
+          CDGRegion *uregion = CDG->getRegion(unode);
+          assert(uregion);
+          MachineInstr* dMI = MRI->getVRegDef(Reg);
+          MachineBasicBlock* DefBB = dMI->getParent();
+          //if (DefBB == mbb) continue;
+          //0 index is for init value, 1 for backedge value
+          if (MLI->getLoopFor(DefBB) != mloop) {
+            //def out side the loop
+            pickSrc[0] = Reg;
+          }
+          else {
+            //inside loop def must come from a switch in the latch
+            assert(DefBB == mloop->getLoopLatch() && TII.isSwitch(dMI));
+            pickSrc[1] = Reg;
+          }
+        }
+      } //end for MO
+      unsigned pickFalseReg, pickTrueReg;
+      assert(mLatch->isChild(*DTN));
+      if (mLatch->isFalseChild(*DTN)) {
+        pickFalseReg = pickSrc[1];
+        pickTrueReg = pickSrc[0];
+      }
+      else {
+        pickTrueReg = pickSrc[1];
+        pickFalseReg = pickSrc[0];
+      }
+      unsigned predReg = (*predCpy)[0]->getOperand(0).getReg();
+      unsigned dst = MI->getOperand(0).getReg();
+      const TargetRegisterClass *TRC = MRI->getRegClass(dst);
+      const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
+      //generate PICK, and insert before MI
+      MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).
+        addReg(predReg).
+        addReg(pickFalseReg).addReg(pickTrueReg);
+      MI->removeFromParent();
+    }
+  }
+}
+#endif
