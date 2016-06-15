@@ -128,6 +128,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForIf();
   insertSWITCHForRepeat();
   insertSWITCHForLoopExit();
+  replaceLoopHdrPhi();
   return Modified;
 
 }
@@ -190,19 +191,19 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
 
   MachineBasicBlock *lphdr = MLI->getLoopFor(cdgpBB)->getHeader();
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
-  const unsigned mvOpcode = TII.getMoveOpcode(TRC);
+  const unsigned InitOpcode = TII.getInitOpcode(TRC);
 
   ControlDependenceNode* hdrNode = CDG->getNode(lphdr);
   ControlDependenceNode* latchNode = CDG->getNode(cdgpBB);
-  MachineInstr *mvInst = nullptr;
+  MachineInstr *initInst = nullptr;
   if (latchNode->isTrueChild(hdrNode)) {
-    mvInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(mvOpcode), cpyReg).addImm(0);
+    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
   } else {
-    mvInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(mvOpcode), cpyReg).addImm(1);
+    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
   }
   SmallVector<MachineInstr *, 2>* predVec = new SmallVector<MachineInstr *, 2>();
   predVec->push_back(cpyInst);
-  predVec->push_back(mvInst);
+  predVec->push_back(initInst);
   return predVec;
 }
 
@@ -604,10 +605,12 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
 
     assert(mLatch->isLatchNode());
     assert(latchBB);
-    for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
-      MachineInstr *MI = I;
+    MachineBasicBlock::iterator iterI = mbb->begin();
+    while(iterI != mbb->end()) {
+      MachineInstr *MI = iterI;
+      ++iterI;
       if (!MI->isPHI()) continue;
-      assert(MI->getNumOperands() == 4 && "loop header Phi can't have more than 2 inputs");
+      assert(MI->getNumOperands() == 5 && "loop header Phi can't have more than 2 inputs");
       unsigned pickSrc[2] = { 0 };
       int phiInitIndex = -1;
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
@@ -624,6 +627,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
           MachineInstr* dMI = MRI->getVRegDef(Reg);
           MachineBasicBlock* DefBB = dMI->getParent();
           //if (DefBB == mbb) continue;
+          //0 index is for init value, 1 for backedge value
           if (MLI->getLoopFor(DefBB) != mloop) {
             //def out side the loop
             pickSrc[0] = Reg;
@@ -653,6 +657,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
       MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).
                                         addReg(predReg).
                                         addReg(pickFalseReg).addReg(pickTrueReg);
+      MI->removeFromParent();
     }
   }
 }

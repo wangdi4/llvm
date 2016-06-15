@@ -140,6 +140,7 @@ public:
 
   unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
   unsigned getMoveOpcode(const TargetRegisterClass *RC) const;
+  unsigned getInitOpcode(const TargetRegisterClass *RC) const;
 
 };
 

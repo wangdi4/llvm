@@ -364,22 +364,33 @@ bool LPUInstrInfo::isSwitch(MachineInstr *MI) const {
 
 unsigned
 LPUInstrInfo::getCopyOpcode(const TargetRegisterClass *RC) const {
-  if      (RC == &LPU::CI1RegClass)  return LPU::COPY1;
-  else if (RC == &LPU::CI8RegClass)  return LPU::COPY8;
-  else if (RC == &LPU::CI16RegClass) return LPU::COPY16;
-  else if (RC == &LPU::CI32RegClass) return LPU::COPY32;
-  else if (RC == &LPU::CI64RegClass) return LPU::COPY64;
+  if      (RC == &LPU::I1RegClass)  return LPU::COPY1;
+  else if (RC == &LPU::I8RegClass)  return LPU::COPY8;
+  else if (RC == &LPU::I16RegClass) return LPU::COPY16;
+  else if (RC == &LPU::I32RegClass) return LPU::COPY32;
+  else if (RC == &LPU::I64RegClass) return LPU::COPY64;
   else
     llvm_unreachable("Unknown Target LIC class!");
 }
 
 unsigned
 LPUInstrInfo::getMoveOpcode(const TargetRegisterClass *RC) const {
-  if (RC == &LPU::CI1RegClass)  return LPU::MOV1;
-  else if (RC == &LPU::CI8RegClass)  return LPU::MOV8;
-  else if (RC == &LPU::CI16RegClass) return LPU::MOV16;
-  else if (RC == &LPU::CI32RegClass) return LPU::MOV32;
-  else if (RC == &LPU::CI64RegClass) return LPU::MOV64;
+  if (RC == &LPU::I1RegClass)  return LPU::MOV1;
+  else if (RC == &LPU::I8RegClass)  return LPU::MOV8;
+  else if (RC == &LPU::I16RegClass) return LPU::MOV16;
+  else if (RC == &LPU::I32RegClass) return LPU::MOV32;
+  else if (RC == &LPU::I64RegClass) return LPU::MOV64;
+  else
+    llvm_unreachable("Unknown Target LIC class!");
+}
+
+unsigned
+LPUInstrInfo::getInitOpcode(const TargetRegisterClass *RC) const {
+  if (RC == &LPU::I1RegClass)  return LPU::INIT1;
+  else if (RC == &LPU::I8RegClass)  return LPU::INIT8;
+  else if (RC == &LPU::I16RegClass) return LPU::INIT16;
+  else if (RC == &LPU::I32RegClass) return LPU::INIT32;
+  else if (RC == &LPU::I64RegClass) return LPU::INIT64;
   else
     llvm_unreachable("Unknown Target LIC class!");
 }
