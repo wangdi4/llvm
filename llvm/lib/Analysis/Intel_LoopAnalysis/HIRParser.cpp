@@ -1395,9 +1395,6 @@ bool HIRParser::parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
                           unsigned IVLevel, bool IndicateFailure) {
   int64_t Multiplier;
 
-  BlobTy NewBlob;
-  breakConstantMultiplierBlob(Blob, &Multiplier, &NewBlob);
-
   // Process and create base version of the blob.
   BlobProcessor BP(this, CE, Level);
 
@@ -1405,7 +1402,9 @@ bool HIRParser::parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
     return false;
   }
 
-  NewBlob = BP.process(NewBlob);
+  auto NewBlob = BP.process(Blob);
+  breakConstantMultiplierBlob(NewBlob, &Multiplier, &NewBlob);
+
   unsigned Index = findOrInsertBlobWrapper(NewBlob);
 
   if (IVLevel) {
