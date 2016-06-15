@@ -28,7 +28,7 @@ for.body:                                         ; preds = %for.body, %entry
   %arrayidx2 = getelementptr inbounds [80 x i32], [80 x i32]* @a, i64 0, i64 %indvars.iv
   store i32 %2, i32* %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 80
+  %exitcond = icmp eq i64 %indvars.iv.next, 30
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body

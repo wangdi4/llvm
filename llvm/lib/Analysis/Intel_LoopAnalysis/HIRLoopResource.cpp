@@ -24,15 +24,21 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopResource.h"
 
+#include "llvm/ADT/SmallSet.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -51,15 +57,23 @@ char HIRLoopResource::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopResource, "hir-loop-resource",
                       "Loop Resource Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(HIRLoopResource, "hir-loop-resource",
                     "Loop Resource Analysis", false, true)
 
 void HIRLoopResource::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<HIRFramework>();
+  AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<TargetTransformInfoWrapperPass>();
 }
 
 bool HIRLoopResource::runOnFunction(Function &F) {
+
+  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+
   // This is an on-demand analysis, so we don't perform any analysis here.
   return false;
 }
@@ -71,19 +85,51 @@ void HIRLoopResource::releaseMemory() {
 
 struct LoopResourceInfo::LoopResourceVisitor final : public HLNodeVisitorBase {
   HIRLoopResource &HLR;
+  const TargetTransformInfo &TTI;
   const HLLoop *Lp;
   LoopResourceInfo &SelfLRI;
   LoopResourceInfo *TotalLRI;
+  SmallSet<unsigned, 8> VersionedLoops;
+
+  struct BlobCostEvaluator;
 
   LoopResourceVisitor(HIRLoopResource &HLR, const HLLoop *Lp,
                       LoopResourceInfo &SelfLRI, LoopResourceInfo *TotalLRI)
-      : HLR(HLR), Lp(Lp), SelfLRI(SelfLRI), TotalLRI(TotalLRI) {}
+      : HLR(HLR), TTI(*HLR.getTTI()), Lp(Lp), SelfLRI(SelfLRI),
+        TotalLRI(TotalLRI) {}
 
-  // Main entry function to compute loop resource.
+  /// Sets the threshold cost for non-memory expensive instructions.
+  /// Memory related instructions should not reach here.
+  static unsigned getNormalizedCost(int Cost) {
+    return std::min(Cost, (int)LoopResourceInfo::OperationCost::ExpensiveOp);
+  }
+
+  /// Main entry function to compute loop resource.
   void compute();
 
-  // Accounts for 'num' integer or FP predicates in self resource.
-  void addPredicateOps(unsigned Num, bool IsInt);
+  /// Accounts for \p Num integer or FP predicates in self resource.
+  void addPredicateOps(Type *Ty, unsigned Num);
+
+  /// Returns the cost of the underlying operation of HLInst. For example, for
+  /// binary operators the cost of add, mul, div operation etc is returned. For
+  /// cast instructions, the cost of the cast is returned.
+  /// This does not include DDRef operands' cost.
+  unsigned getOperationCost(const HLInst *HInst) const;
+
+  /// Evaluates cost of blob.
+  void visit(unsigned BlobIndex);
+
+  /// Helper to add cost of cast operation in CE.
+  void addCastCost(const CanonExpr *CE);
+
+  /// Helper to add cost of denominator in CE.
+  void addDenominatorCost(const CanonExpr *CE);
+
+  /// Evaluates cost of CE.
+  void visit(const CanonExpr *CE);
+
+  /// Evaluates cost of Ref;
+  void visit(const RegDDRef *Ref);
 
   // Ignore gotos/labels.
   void visit(const HLNode *Node) {}
@@ -96,6 +142,261 @@ struct LoopResourceInfo::LoopResourceVisitor final : public HLNodeVisitorBase {
   void visit(const HLLoop *Lp);
 };
 
+struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
+    : public SCEVVisitor<BlobCostEvaluator> {
+  const LoopResourceVisitor &LRV;
+
+  BlobCostEvaluator(LoopResourceVisitor &LRV) : LRV(LRV) {}
+
+  void visitConstant(const SCEVConstant *Constant) {}
+
+  void visitTruncateExpr(const SCEVTruncateExpr *TruncBlob) {
+    unsigned Cost = LRV.getNormalizedCost(
+        LRV.TTI.getOperationCost(Instruction::Trunc, TruncBlob->getType(),
+                                 TruncBlob->getOperand()->getType()));
+    LRV.SelfLRI.addIntOps(Cost);
+
+    visit(TruncBlob->getOperand());
+  }
+
+  void visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExtBlob) {
+    unsigned Cost = LRV.getNormalizedCost(
+        LRV.TTI.getOperationCost(Instruction::ZExt, ZExtBlob->getType(),
+                                 ZExtBlob->getOperand()->getType()));
+    LRV.SelfLRI.addIntOps(Cost);
+
+    visit(ZExtBlob->getOperand());
+  }
+
+  void visitSignExtendExpr(const SCEVSignExtendExpr *SExtBlob) {
+    unsigned Cost = LRV.getNormalizedCost(
+        LRV.TTI.getOperationCost(Instruction::SExt, SExtBlob->getType(),
+                                 SExtBlob->getOperand()->getType()));
+    LRV.SelfLRI.addIntOps(Cost);
+
+    visit(SExtBlob->getOperand());
+  }
+
+  void visitNAryExpr(const SCEVNAryExpr *NAryExpr) {
+    for (unsigned I = 0, E = NAryExpr->getNumOperands(); I < E; ++I) {
+      visit(NAryExpr->getOperand(I));
+    }
+  }
+
+  void visitAddExpr(const SCEVAddExpr *AddBlob) {
+    unsigned Cost = LRV.getNormalizedCost(
+        LRV.TTI.getOperationCost(Instruction::Add, AddBlob->getType()));
+    LRV.SelfLRI.addIntOps(Cost, AddBlob->getNumOperands() - 1);
+
+    visitNAryExpr(cast<SCEVNAryExpr>(AddBlob));
+  }
+
+  void visitMulExpr(const SCEVMulExpr *MulBlob) {
+    unsigned Cost = LRV.getNormalizedCost(
+        LRV.TTI.getOperationCost(Instruction::Mul, MulBlob->getType()));
+    LRV.SelfLRI.addIntOps(Cost, MulBlob->getNumOperands() - 1);
+
+    visitNAryExpr(cast<SCEVNAryExpr>(MulBlob));
+  }
+
+  void visitUDivExpr(const SCEVUDivExpr *UDivBlob) {
+    unsigned OpCode;
+    auto ConstDiv = dyn_cast<SCEVConstant>(UDivBlob->getRHS());
+
+    if (ConstDiv && ConstDiv->getAPInt().isPowerOf2()) {
+      OpCode = Instruction::LShr;
+    } else {
+      OpCode = Instruction::UDiv;
+    }
+
+    unsigned Cost = LRV.getNormalizedCost(
+        LRV.TTI.getOperationCost(OpCode, UDivBlob->getType()));
+
+    LRV.SelfLRI.addIntOps(Cost);
+
+    visit(UDivBlob->getLHS());
+    visit(UDivBlob->getRHS());
+  }
+
+  void visitAddRecExpr(const SCEVAddRecExpr *AddRec) {
+    llvm_unreachable("Found AddRec blob!");
+  }
+
+  void visitSMaxExpr(const SCEVSMaxExpr *SMaxBlob) {
+    unsigned Cost = LRV.getNormalizedCost(
+        LRV.TTI.getOperationCost(Instruction::ICmp, SMaxBlob->getType()));
+    LRV.SelfLRI.addIntOps(Cost, SMaxBlob->getNumOperands() - 1);
+
+    visitNAryExpr(cast<SCEVNAryExpr>(SMaxBlob));
+  }
+
+  void visitUMaxExpr(const SCEVUMaxExpr *UMaxBlob) {
+    unsigned Cost = LRV.getNormalizedCost(
+        LRV.TTI.getOperationCost(Instruction::ICmp, UMaxBlob->getType()));
+    LRV.SelfLRI.addIntOps(Cost, UMaxBlob->getNumOperands() - 1);
+
+    visitNAryExpr(cast<SCEVNAryExpr>(UMaxBlob));
+  }
+
+  void visitUnknown(const SCEVUnknown *Unknown) {}
+
+  void visitCouldNotCompute(const SCEVCouldNotCompute *CNC) {
+    llvm_unreachable("Found could not compute!!");
+  }
+};
+
+void LoopResourceInfo::LoopResourceVisitor::visit(unsigned BlobIndex) {
+  auto Blob = BlobUtils::getBlob(BlobIndex);
+
+  BlobCostEvaluator BCE(*this);
+  BCE.visit(Blob);
+}
+
+void LoopResourceInfo::LoopResourceVisitor::addCastCost(const CanonExpr *CE) {
+  auto SrcTy = CE->getSrcType();
+  auto DestTy = CE->getDestType();
+
+  if (SrcTy == DestTy) {
+    return;
+  }
+
+  unsigned OpCode = CE->isTrunc()
+                        ? Instruction::Trunc
+                        : CE->isSExt() ? Instruction::SExt : Instruction::ZExt;
+  unsigned Cost =
+      getNormalizedCost(TTI.getOperationCost(OpCode, DestTy, SrcTy));
+
+  SelfLRI.addIntOps(Cost);
+}
+
+void LoopResourceInfo::LoopResourceVisitor::addDenominatorCost(
+    const CanonExpr *CE) {
+  auto Denom = CE->getDenominator();
+
+  if (Denom == 1) {
+    return;
+  }
+
+  unsigned OpCode =
+      CE->isSignedDiv()
+          ? Instruction::SDiv
+          : isPowerOf2_64(Denom) ? Instruction::LShr : Instruction::UDiv;
+  unsigned Cost =
+      getNormalizedCost(TTI.getOperationCost(OpCode, CE->getSrcType()));
+
+  SelfLRI.addIntOps(Cost);
+}
+
+void LoopResourceInfo::LoopResourceVisitor::visit(const CanonExpr *CE) {
+  auto SrcTy = CE->getSrcType();
+
+  unsigned AddCost =
+      getNormalizedCost(TTI.getOperationCost(Instruction::Add, SrcTy));
+  unsigned MulCost =
+      getNormalizedCost(TTI.getOperationCost(Instruction::Mul, SrcTy));
+  unsigned ShlCost =
+      getNormalizedCost(TTI.getOperationCost(Instruction::Shl, SrcTy));
+
+  bool First = true;
+  bool FoundAdditive = false;
+
+  for (auto IV = CE->iv_begin(), E = CE->iv_end(); IV != E; ++IV) {
+    unsigned BlobIndex;
+    int64_t Coeff;
+
+    CE->getIVCoeff(IV, &BlobIndex, &Coeff);
+
+    if (!Coeff) {
+      continue;
+    }
+
+    if (Coeff != 1) {
+      isPowerOf2_64(Coeff) ? SelfLRI.addIntOps(ShlCost)
+                           : SelfLRI.addIntOps(MulCost);
+    }
+
+    if (BlobIndex != InvalidBlobIndex) {
+      visit(BlobIndex);
+      SelfLRI.addIntOps(MulCost);
+    }
+
+    if (First) {
+      FoundAdditive = true;
+      First = false;
+    } else {
+      SelfLRI.addIntOps(AddCost);
+    }
+  }
+
+  First = true;
+  for (auto Blob = CE->blob_begin(), E = CE->blob_end(); Blob != E; ++Blob) {
+    if (First) {
+      if (FoundAdditive) {
+        SelfLRI.addIntOps(AddCost);
+      }
+      FoundAdditive = true;
+      First = false;
+    } else {
+      SelfLRI.addIntOps(AddCost);
+    }
+
+    visit(Blob->Index);
+
+    if (Blob->Coeff != 1) {
+      isPowerOf2_64(Blob->Coeff) ? SelfLRI.addIntOps(ShlCost)
+                                 : SelfLRI.addIntOps(MulCost);
+    }
+  }
+
+  if (FoundAdditive && CE->getConstant() != 0) {
+    SelfLRI.addIntOps(AddCost);
+  }
+
+  addDenominatorCost(CE);
+
+  addCastCost(CE);
+}
+
+void LoopResourceInfo::LoopResourceVisitor::visit(const RegDDRef *Ref) {
+
+  if (Ref->isMemRef()) {
+    bool IsFloat = Ref->getDestType()->isFPOrFPVectorTy();
+
+    if (Ref->isLval()) {
+      IsFloat ? ++SelfLRI.FPMemWrites : ++SelfLRI.IntMemWrites;
+    } else {
+      IsFloat ? ++SelfLRI.FPMemReads : ++SelfLRI.IntMemReads;
+    }
+  }
+  // Ignore temp lvals.
+  else if (Ref->isLval()) {
+    return;
+  }
+
+  bool HasGEPInfo = Ref->hasGEPInfo();
+  unsigned DimNum = 1;
+
+  for (auto CEI = Ref->canon_begin(), CEE = Ref->canon_end(); CEI != CEE;
+       ++CEI, ++DimNum) {
+    visit(*CEI);
+
+    if (HasGEPInfo && !(*CEI)->isZero()) {
+      // Add cost for base + offset.
+      unsigned Cost = getNormalizedCost(
+          TTI.getOperationCost(Instruction::Add, (*CEI)->getDestType()));
+      SelfLRI.addIntOps(Cost);
+
+      auto Stride = Ref->getDimensionStride(DimNum);
+
+      // Add cost of stride multiplication.
+      Cost = getNormalizedCost(TTI.getOperationCost(
+          isPowerOf2_64(Stride) ? Instruction::LShr : Instruction::Mul,
+          (*CEI)->getDestType()));
+      SelfLRI.addIntOps(Cost);
+    }
+  }
+}
+
 bool LoopResourceInfo::LoopResourceVisitor::visit(const HLDDNode *Node) {
 
   // Valid SelfLRI is available.
@@ -105,22 +406,39 @@ bool LoopResourceInfo::LoopResourceVisitor::visit(const HLDDNode *Node) {
 
   for (auto RefIt = Node->op_ddref_begin(), E = Node->op_ddref_end();
        RefIt != E; ++RefIt) {
-    auto Ref = *RefIt;
-
-    if (!Ref->isMemRef()) {
-      continue;
-    }
-
-    bool IsFloat = Ref->getDestType()->isFPOrFPVectorTy();
-
-    if ((*RefIt)->isLval()) {
-      IsFloat ? ++SelfLRI.FPMemWrites : ++SelfLRI.IntMemWrites;
-    } else {
-      IsFloat ? ++SelfLRI.FPMemReads : ++SelfLRI.IntMemReads;
-    }
+    visit(*RefIt);
   }
 
   return true;
+}
+
+unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
+    const HLInst *HInst) const {
+
+  auto Inst = HInst->getLLVMInstruction();
+  auto InstTy = Inst->getType();
+  Type *OpTy = nullptr;
+
+  int Cost = LoopResourceInfo::OperationCost::BasicOp;
+
+  if (isa<BinaryOperator>(Inst)) {
+    Cost = TTI.getOperationCost(Inst->getOpcode(), InstTy);
+
+  } else if (auto CInst = dyn_cast<CastInst>(Inst)) {
+    OpTy = CInst->getSrcTy();
+    Cost = TTI.getOperationCost(CInst->getOpcode(), InstTy, OpTy);
+
+  } else if (isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) {
+    auto Pred = HInst->getPredicate();
+    Cost = TTI.getOperationCost(
+        CmpInst::isIntPredicate(Pred) ? Instruction::ICmp : Instruction::FCmp,
+        InstTy);
+
+  } else if (Inst->mayReadOrWriteMemory()) {
+    return LoopResourceInfo::OperationCost::MemOp;
+  }
+
+  return getNormalizedCost(Cost);
 }
 
 void LoopResourceInfo::LoopResourceVisitor::visit(const HLInst *HInst) {
@@ -130,27 +448,49 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLInst *HInst) {
     return;
   }
 
-  auto Inst = HInst->getLLVMInstruction();
-
-  if (!isa<BinaryOperator>(Inst)) {
+  // Ignore copy operation.
+  if (HInst->isCopyInst()) {
     return;
   }
 
-  bool IsFloat = HInst->getLvalDDRef()->getDestType()->isFPOrFPVectorTy();
+  auto Inst = HInst->getLLVMInstruction();
 
-  IsFloat ? ++SelfLRI.FPOps : ++SelfLRI.IntOps;
+  // Load/store/GEP accounted for in DDRefs.
+  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst) ||
+      isa<GetElementPtrInst>(Inst)) {
+    return;
+  }
+
+  unsigned Cost = getOperationCost(HInst);
+  bool IsFP = false;
+
+  if (isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) {
+    IsFP = CmpInst::isFPPredicate(HInst->getPredicate());
+  } else if (HInst->hasLval()) {
+    IsFP = HInst->getLvalDDRef()->getDestType()->isFPOrFPVectorTy();
+  }
+
+  IsFP ? SelfLRI.addFPOps(Cost) : SelfLRI.addIntOps(Cost);
 }
 
-void LoopResourceInfo::LoopResourceVisitor::addPredicateOps(unsigned Num,
-                                                           bool IsInt) {
+void LoopResourceInfo::LoopResourceVisitor::addPredicateOps(Type *Ty,
+                                                            unsigned Num) {
+  unsigned Cost = 0;
+
   // Add number of logical operations as IntOps.
-  SelfLRI.IntOps += Num - 1;
+  if (Num > 1) {
+    Cost = getNormalizedCost(TTI.getOperationCost(Instruction::And, Ty));
+    SelfLRI.addIntOps(Cost, Num - 1);
+  }
 
   // Add number of compares.
-  if (IsInt) {
-    SelfLRI.IntOps += Num;
+  if (Ty->isFPOrFPVectorTy()) {
+    Cost = getNormalizedCost(TTI.getOperationCost(Instruction::FCmp, Ty));
+    SelfLRI.addFPOps(Cost, Num);
+
   } else {
-    SelfLRI.FPOps += Num;
+    Cost = getNormalizedCost(TTI.getOperationCost(Instruction::ICmp, Ty));
+    SelfLRI.addIntOps(Cost, Num);
   }
 }
 
@@ -161,18 +501,32 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLIf *If) {
     return;
   }
 
+  // TODO: use weighed average of then and else children?
+
   // Capture the number of compare and logical operations.
-  addPredicateOps(If->getNumPredicates(),
-                 CmpInst::isIntPredicate(*If->pred_begin()));
+  addPredicateOps((*If->op_ddref_begin())->getDestType(),
+                  If->getNumPredicates());
 }
 
 void LoopResourceInfo::LoopResourceVisitor::visit(const HLLoop *Lp) {
 
-  if (SelfLRI.isUnknownBound()) {
+  auto MVTag = Lp->getMVTag();
+
+  // We only need to consider one of the multiversioned children loops when
+  // computing loop resource.
+  if (MVTag) {
+    if (VersionedLoops.count(MVTag)) {
+      return;
+    } else {
+      VersionedLoops.insert(MVTag);
+    }
+  }
+
+  if (visit(cast<HLDDNode>(Lp))) {
     // Add ztt predicates to self resource.
     if (Lp->hasZtt()) {
-      addPredicateOps(Lp->getNumZttPredicates(),
-                     CmpInst::isIntPredicate(*Lp->ztt_pred_begin()));
+      addPredicateOps((*Lp->ztt_ddref_begin())->getDestType(),
+                      Lp->getNumZttPredicates());
     }
 
     // Add child loop's preheader/postexit to parent loop's self resource.
@@ -188,7 +542,9 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLLoop *Lp) {
 
 LoopResourceInfo &LoopResourceInfo::operator+=(const LoopResourceInfo &LRI) {
   IntOps += LRI.IntOps;
+  IntOpsCost += LRI.IntOpsCost;
   FPOps += LRI.FPOps;
+  FPOpsCost += LRI.FPOpsCost;
   IntMemReads += LRI.IntMemReads;
   IntMemWrites += LRI.IntMemWrites;
   FPMemReads += LRI.FPMemReads;
@@ -199,7 +555,9 @@ LoopResourceInfo &LoopResourceInfo::operator+=(const LoopResourceInfo &LRI) {
 
 LoopResourceInfo &LoopResourceInfo::operator*=(unsigned Multiplier) {
   IntOps *= Multiplier;
+  IntOpsCost *= Multiplier;
   FPOps *= Multiplier;
+  FPOpsCost *= Multiplier;
   IntMemReads *= Multiplier;
   IntMemWrites *= Multiplier;
   FPMemReads *= Multiplier;
@@ -251,6 +609,24 @@ void LoopResourceInfo::print(formatted_raw_ostream &OS,
   // Indent at one level more than the loop nesting level.
   unsigned Depth = Lp->getNestingLevel() + 1;
 
+  if (IntOps) {
+    Lp->indent(OS, Depth);
+    OS << "Integer Operations: " << IntOps << "\n";
+  }
+  if (IntOpsCost) {
+    Lp->indent(OS, Depth);
+    OS << "Integer Operations Cost: " << IntOpsCost << "\n";
+  }
+
+  if (FPOps) {
+    Lp->indent(OS, Depth);
+    OS << "Floating Point Operations: " << FPOps << "\n";
+  }
+  if (FPOpsCost) {
+    Lp->indent(OS, Depth);
+    OS << "Floating Point Operations Cost: " << FPOpsCost << "\n";
+  }
+
   if (IntMemReads) {
     Lp->indent(OS, Depth);
     OS << "Integer Memory Reads: " << IntMemReads << "\n";
@@ -258,10 +634,6 @@ void LoopResourceInfo::print(formatted_raw_ostream &OS,
   if (IntMemWrites) {
     Lp->indent(OS, Depth);
     OS << "Integer Memory Writes: " << IntMemWrites << "\n";
-  }
-  if (IntOps) {
-    Lp->indent(OS, Depth);
-    OS << "Integer Operations: " << IntOps << "\n";
   }
   if (FPMemReads) {
     Lp->indent(OS, Depth);
@@ -271,9 +643,11 @@ void LoopResourceInfo::print(formatted_raw_ostream &OS,
     Lp->indent(OS, Depth);
     OS << "Floating Point Writes: " << FPMemWrites << "\n";
   }
-  if (FPOps) {
+
+  auto MemOpsCost = getMemOpsCost();
+  if (MemOpsCost) {
     Lp->indent(OS, Depth);
-    OS << "Floating Point Operations: " << FPOps << "\n";
+    OS << "Memory Operations Cost: " << MemOpsCost << "\n";
   }
 
   Lp->indent(OS, Depth);
@@ -340,6 +714,11 @@ const LoopResourceInfo &
 HIRLoopResource::getTotalLoopResource(const HLLoop *Loop) {
   assert(Loop && " Loop parameter is null.");
 
+  // Self and total loop resource for innermost loops are the same.
+  if (Loop->isInnermost()) {
+    return getSelfLoopResource(Loop);
+  }
+
   auto LRInfoIt = TotalResourceMap.find(Loop);
 
   // Return cached resource, if present.
@@ -368,4 +747,31 @@ void HIRLoopResource::markLoopBodyModified(const HLLoop *Loop) {
     TotalResourceMap.erase(Loop);
     Loop = Loop->getParentLoop();
   }
+}
+
+unsigned HIRLoopResource::getOperationCost(const Instruction &Inst) const {
+
+  // Special case memory operations.
+  if (Inst.mayReadOrWriteMemory()) {
+    return LoopResourceInfo::OperationCost::MemOp;
+  }
+
+  return LoopResourceInfo::LoopResourceVisitor::getNormalizedCost(
+      TTI->getUserCost(&Inst));
+}
+
+unsigned HIRLoopResource::getLLVMLoopCost(const Loop &Lp) {
+  unsigned Cost = 0;
+
+  for (auto BB : Lp.blocks()) {
+    if (LI->getLoopFor(BB) != &Lp) {
+      continue;
+    }
+
+    for (const Instruction &Inst : *BB) {
+      Cost += getOperationCost(Inst);
+    }
+  }
+
+  return Cost;
 }

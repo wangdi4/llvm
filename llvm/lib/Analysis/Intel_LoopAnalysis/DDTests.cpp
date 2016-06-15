@@ -4053,26 +4053,23 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     return nullptr;
   }
 
-  // If both are RegDDRefs
+  // If both are memory refs
   if (SrcRegDDRef && DstRegDDRef && SrcRegDDRef->isMemRef() &&
       DstRegDDRef->isMemRef()) {
+
+    // Inquire disam util to get INDEP based on type/scope based analysis.
+    DEBUG(dbgs() << "AA query: ");
+    if (queryAAIndep(SrcRegDDRef, DstRegDDRef)) {
+      DEBUG(dbgs() << "no alias\n");
+      return nullptr;
+    }
+    DEBUG(dbgs() << "may alias\n");
+
     auto SrcBaseCE = SrcRegDDRef->getBaseCE();
     auto DstBaseCE = DstRegDDRef->getBaseCE();
 
     // We check for equal base CE
     EqualBaseCE = areCEEqual(SrcBaseCE, DstBaseCE);
-
-    // Inquire disam util to get INDEP if the base ptrs are different
-    // DD_refs could be in the same symbase after merging even the memory
-    // difference are distinct
-    if (!EqualBaseCE) {
-      DEBUG(dbgs() << "AA query: ");
-      if (queryAAIndep(SrcRegDDRef, DstRegDDRef)) {
-        DEBUG(dbgs() << "no alias\n");
-        return nullptr;
-      }
-      DEBUG(dbgs() << "may alias\n");
-    }
   }
 
   // establish loop nesting levels

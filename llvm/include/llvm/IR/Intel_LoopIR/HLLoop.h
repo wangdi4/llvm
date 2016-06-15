@@ -565,7 +565,7 @@ public:
   /// \brief Checks whether SIMD directive is attached to the loop.
   bool isSIMD() const;
 
-  unsigned getMVTag() { return MVTag; }
+  unsigned getMVTag() const { return MVTag; }
 
   void setMVTag(unsigned Tag) { MVTag = Tag; }
 
