@@ -77,7 +77,12 @@ const ControlDependenceNode *ControlDependenceNode::enclosingRegion() const {
 }
 
 bool ControlDependenceNode::isLatchNode() {
-  return isChild(this);
+  if (isChild(this)) {
+    //assert a cycle is properly formed
+    assert(isParent(this));
+    return true;
+  }
+  return false;
 }
 
 ControlDependenceNode::EdgeType
@@ -122,6 +127,21 @@ ControlDependenceNode* ControlDependenceGraphBase::getLatchParent(ControlDepende
   return NULL;
 }
 #endif 
+
+//return the first non latch parent found or NULL
+ControlDependenceNode* ControlDependenceGraphBase::getNonLatchParent(ControlDependenceNode* anode, bool oneAndOnly=false) {
+  ControlDependenceNode* pcdn = nullptr;
+  if (anode->getNumParents() == 0) return pcdn;
+  for (ControlDependenceNode::node_iterator pnode = anode->parent_begin(), pend = anode->parent_end(); pnode != pend; ++pnode) {
+    if (!(*pnode)->isLatchNode()) {
+      if (oneAndOnly && pcdn) {
+        assert(false && "CDG node has more than one if parent");
+      }
+      pcdn = *pnode;
+    }
+  }
+  return pcdn;
+}
 
 void ControlDependenceGraphBase::computeDependencies(MachineFunction &F, MachinePostDominatorTree &pdt) {
   root = new ControlDependenceNode();

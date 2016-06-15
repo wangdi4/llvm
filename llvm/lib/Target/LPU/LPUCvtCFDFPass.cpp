@@ -636,7 +636,6 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
       if (!MI->isPHI()) continue;
       assert(MI->getNumOperands() == 5 && "loop header Phi can't have more than 2 inputs");
       unsigned pickSrc[2] = { 0 };
-      int phiInitIndex = -1;
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
@@ -687,7 +686,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
 }
 
 
-#if 0
+
 void LPUCvtCFDFPass::replaceIfFooterPhi() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const TargetMachine &TM = thisMF->getTarget();
@@ -698,27 +697,15 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
     MachineBasicBlock *mbb = DTN->getBlock();
     if (!mbb) continue; //root node has no bb
-    MachineLoop* mloop = MLI->getLoopFor(mbb);
-    //not inside a loop
-    if (!mloop) continue;
-    //only scan loop header
-    if (mbb != mloop->getHeader()) continue;
-    MachineBasicBlock *latchBB = mloop->getLoopLatch();
-
-    SmallVectorImpl<MachineInstr *>* predCpy = getOrInsertPredCopy(latchBB);
-
-    ControlDependenceNode *mLatch = CDG->getNode(latchBB);
-
-    assert(mLatch->isLatchNode());
-    assert(latchBB);
     MachineBasicBlock::iterator iterI = mbb->begin();
     while (iterI != mbb->end()) {
       MachineInstr *MI = iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
-      assert(MI->getNumOperands() == 5 && "loop header Phi can't have more than 2 inputs");
-      unsigned pickSrc[2] = { 0 };
-      int phiInitIndex = -1;
+      assert(MI->getNumOperands() == 5 && "TBD: can't handle if footer Phi with more that two inputs");
+
+      unsigned pickFalseReg = 0, pickTrueReg = 0;
+      MachineBasicBlock* controlBB = nullptr;
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
@@ -726,45 +713,46 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
         if (MO->isUse()) {
           //move to its incoming block operand
           ++MO;
-          //MachineBasicBlock* SrcBB = MO->getMBB();
+          MachineBasicBlock* inBB = nullptr;
           ControlDependenceNode *unode = CDG->getNode(mbb);
           CDGRegion *uregion = CDG->getRegion(unode);
           assert(uregion);
           MachineInstr* dMI = MRI->getVRegDef(Reg);
           MachineBasicBlock* DefBB = dMI->getParent();
-          //if (DefBB == mbb) continue;
-          //0 index is for init value, 1 for backedge value
-          if (MLI->getLoopFor(DefBB) != mloop) {
-            //def out side the loop
-            pickSrc[0] = Reg;
+          if (DT->dominates(DefBB, mbb)) {  //Triangle case
+            controlBB = DefBB;
+            inBB = mbb;
+          } else {  //Diamond case
+            ControlDependenceNode* defNode = CDG->getNode(DefBB);
+            ControlDependenceNode* defParent = CDG->getNonLatchParent(defNode, true);
+            assert(defParent);
+            controlBB = defParent->getBlock();
+            inBB = DefBB;
+          }
+
+          ControlDependenceNode* controlNode = CDG->getNode(controlBB);
+          ControlDependenceNode* inNode = CDG->getNode(inBB);
+          if (controlNode->isFalseChild(inNode)) {
+            pickFalseReg = Reg;
           }
           else {
-            //inside loop def must come from a switch in the latch
-            assert(DefBB == mloop->getLoopLatch() && TII.isSwitch(dMI));
-            pickSrc[1] = Reg;
+            //has to be a conditional branch
+            assert(!controlNode->isOtherChild(inNode));
+            pickTrueReg = Reg;
           }
         }
-      } //end for MO
-      unsigned pickFalseReg, pickTrueReg;
-      assert(mLatch->isChild(*DTN));
-      if (mLatch->isFalseChild(*DTN)) {
-        pickFalseReg = pickSrc[1];
-        pickTrueReg = pickSrc[0];
-      }
-      else {
-        pickTrueReg = pickSrc[1];
-        pickFalseReg = pickSrc[0];
-      }
-      unsigned predReg = (*predCpy)[0]->getOperand(0).getReg();
+      } 
+      assert(controlBB && pickFalseReg != 0 && pickTrueReg != 0);
+      MachineInstr* bi = controlBB->getFirstInstrTerminator();
+      unsigned predReg = bi->getOperand(0).getReg();
       unsigned dst = MI->getOperand(0).getReg();
       const TargetRegisterClass *TRC = MRI->getRegClass(dst);
       const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
       //generate PICK, and insert before MI
-      MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).
-        addReg(predReg).
-        addReg(pickFalseReg).addReg(pickTrueReg);
+      MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+                                                                                              addReg(pickFalseReg).
+                                                                                              addReg(pickTrueReg);
       MI->removeFromParent();
-    }
+    }//end of while(inst
   }
 }
-#endif
