@@ -317,7 +317,13 @@ namespace llvm {
         return "REGION";
       }
       else {
+#if 0
         return Node->getBlock()->getFullName();
+#else
+        std::string blkNumber = std::to_string(Node->getBlock()->getNumber());
+        std::string name = "BB#" + blkNumber;
+        return name;
+#endif
       }
     }
 
@@ -344,7 +350,13 @@ namespace llvm {
     }
 
     std::string getNodeLabel(MachineDomTreeNode *Node, MachinePostDominatorTree *Graph) {
+#if 0
       return Node->getBlock()->getFullName();
+#else
+      std::string blkNumber = std::to_string(Node->getBlock()->getNumber());
+      std::string name = "BB#" + blkNumber;
+      return name;
+#endif
     }
   };
 
