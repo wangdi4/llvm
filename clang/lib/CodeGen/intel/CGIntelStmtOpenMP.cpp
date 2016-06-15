@@ -753,6 +753,7 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     Outliner.emitOMPOrderedDirective();
     break;
   case OMPD_target:
+    CGM.setHasTargetCode();
     Outliner.emitOMPTargetDirective();
     break;
   case OMPD_task:

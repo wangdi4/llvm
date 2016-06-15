@@ -323,6 +323,13 @@ private:
   /// ElementalAttributes - This contains all attributes of elemental functions.
   llvm::StringMap<llvm::Function *, llvm::BumpPtrAllocator> ElementalAttributes;
 #endif // INTEL_SPECIFIC_CILKPLUS
+#if INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_OPENMP
+  // CQ#411303 Intel driver requires front-end to produce special file if
+  // translation unit has any target code.
+  bool HasTargetCode = false;
+#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
 
   // A set of references that have only been seen via a weakref so far. This is
   // used to remove the weak of the reference if we ever see a direct reference
@@ -941,6 +948,14 @@ public:
   /// "__apply_args", return a Function* for "__apply_args".
   llvm::Value *getBuiltinIntelLibFunction(const FunctionDecl *FD,
                                           unsigned BuiltinID);
+#if INTEL_SPECIFIC_OPENMP
+  // CQ#411303 Intel driver requires front-end to produce special file if
+  // translation unit has any target code.
+  void setHasTargetCode() { HasTargetCode = true; }
+  // Write communication file for Intel driver to notify that current module
+  // has target specific code and target compilation is required.
+  void EmitIntelDriverTempfile();
+#endif // INTEL_SPECIFIC_OPENMP
 #endif  // INTEL_CUSTOMIZATION
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".
