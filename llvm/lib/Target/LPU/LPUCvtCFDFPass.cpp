@@ -960,13 +960,18 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
             pickFalseReg = Opd->getReg();
             pickTrueReg = pickReg;
           }
+
+          unsigned newdst = MRI->createVirtualRegister(MRI->getRegClass(dst));
           //generate PICK, and insert before MI, so that new PICK is after the previously generated PICKS
-          MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+          MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), newdst).addReg(predReg).
             addReg(pickFalseReg).
             addReg(pickTrueReg);
-          //loc = pickInst;
+
+          pickReg = newdst;
         }
       }
+      const unsigned copyOpcode = TII.getCopyOpcode(TRC);
+      MachineInstr *cpyInst = BuildMI(*mbb, MI, DebugLoc(), TII.get(copyOpcode), dst).addReg(pickReg);
       MI->removeFromParent();
     }
   }
