@@ -866,6 +866,9 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
         pickReg = fallThroughReg;
       }
 
+      //either a fall through or a diamond shaple at the lowest level of if's
+      assert(fallThroughReg || visitedBB[0] && visitedBB[1]);
+
       //assume only can have one fallthrough reg in Phi's inputs
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg()) || !MO->isUse()) continue;
