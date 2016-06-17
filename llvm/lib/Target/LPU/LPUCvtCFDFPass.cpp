@@ -76,9 +76,7 @@ namespace llvm {
     void replacePhiWithPICK();
     void replaceLoopHdrPhi();
     void replaceIfFooterPhi();
-    void getPhiControlNodes(MachineInstr* PhiI);
-    void replaceIfFooterPhiWithTwoInputs(MachineInstr* MI);
-    void replaceIfFooterPhiWithTwoInputs(ControlDependenceNode* mbb, MachineInstr* MI);
+    void replace2InputsIfFooterPhi(MachineInstr* MI);
     void releaseMemory() override;
   private:
     MachineFunction *thisMF;
@@ -691,7 +689,8 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
   }
 }
 
-void LPUCvtCFDFPass::replaceIfFooterPhiWithTwoInputs(MachineInstr* MI) {
+
+void LPUCvtCFDFPass::replace2InputsIfFooterPhi(MachineInstr* MI) {
   const TargetMachine &TM = thisMF->getTarget();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
@@ -759,84 +758,6 @@ void LPUCvtCFDFPass::replaceIfFooterPhiWithTwoInputs(MachineInstr* MI) {
 }
 
 
-
-
-
-void LPUCvtCFDFPass::replaceIfFooterPhiWithTwoInputs(ControlDependenceNode* CtrlNode, MachineInstr* MI) {
-  const TargetMachine &TM = thisMF->getTarget();
-  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  unsigned pickFalseReg = 0, pickTrueReg = 0, fallThroughReg = 0;
-  MachineBasicBlock* mbb = MI->getParent();
-  MachineBasicBlock* controlBB;
-  SmallSet<unsigned, 4> srcRegs;
-  for (MIOperands MO(MI); MO.isValid(); ++MO) {
-    if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-    unsigned Reg = MO->getReg();
-    if (MO->isUse()) {
-      //move to its incoming block operand
-      ++MO;
-      MachineBasicBlock* inBB = nullptr;
-      MachineInstr* dMI = MRI->getVRegDef(Reg);
-      MachineBasicBlock* DefBB = dMI->getParent();
-      if (DT->dominates(DefBB, mbb)) {
-        //Triangle fall through case
-        controlBB = nullptr;
-        inBB = nullptr;
-        fallThroughReg = Reg;
-        srcRegs.insert(Reg);
-      }
-      else {
-        //Diamond case
-        ControlDependenceNode* defNode = CDG->getNode(DefBB);
-        ControlDependenceNode* defParent = CDG->getNonLatchParent(defNode, true);
-        assert(defParent);
-        controlBB = defParent->getBlock();
-        inBB = DefBB;
-      }
-      if (controlBB) {
-        ControlDependenceNode* controlNode = CDG->getNode(controlBB);
-        ControlDependenceNode* inNode = CDG->getNode(inBB);
-        if (controlNode->isFalseChild(inNode)) {
-          pickFalseReg = Reg;
-        }
-        else {
-          //has to be a conditional branch
-          assert(!controlNode->isOtherChild(inNode));
-          pickTrueReg = Reg;
-        }
-      }
-    }
-  }
-  assert(controlBB && (pickFalseReg != 0 || pickTrueReg != 0));
-  if (fallThroughReg != 0) {
-    if (pickFalseReg == 0) {
-      pickFalseReg = fallThroughReg;
-    }
-    else {
-      assert(pickTrueReg == 0);
-      pickTrueReg = fallThroughReg;
-    }
-  }
-  MachineInstr* bi = controlBB->getFirstInstrTerminator();
-  unsigned predReg = bi->getOperand(0).getReg();
-  unsigned dst = MI->getOperand(0).getReg();
-  const TargetRegisterClass *TRC = MRI->getRegClass(dst);
-  const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
-  //generate PICK, and insert before MI
-  MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
-    addReg(pickFalseReg).
-    addReg(pickTrueReg);
-  MI->removeFromParent();
-}
-
-
-void LPUCvtCFDFPass::getPhiControlNodes(MachineInstr* PhiI) {
-
-
-}
-
 void LPUCvtCFDFPass::replaceIfFooterPhi() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const TargetMachine &TM = thisMF->getTarget();
@@ -852,6 +773,12 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
       MachineInstr *MI = iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
+
+      //for two inputs value, we can generate better code
+      if (MI->getNumOperands() == 5) {
+        replace2InputsIfFooterPhi(MI);
+        continue;
+      }
 
       std::set<ControlDependenceNode *> InNodes;
       SmallVector<ControlDependenceNode *, 4> CtrlNodes;
