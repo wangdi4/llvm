@@ -34,6 +34,7 @@
 #include <set>
 using namespace llvm;
 
+
 #define DEBUG_TYPE "internalize"
 
 STATISTIC(NumAliases  , "Number of aliases internalized");
@@ -217,8 +218,12 @@ bool InternalizePass::runOnModule(Module &M) {
   return Changed;
 }
 
+
+
 ModulePass *llvm::createInternalizePass() { return new InternalizePass(); }
 
 ModulePass *llvm::createInternalizePass(ArrayRef<const char *> ExportList) {
   return new InternalizePass(ExportList);
 }
+
+

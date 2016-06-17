@@ -342,6 +342,7 @@ PreservedAnalyses DominatorTreeVerifierPass::run(Function &F,
 //===----------------------------------------------------------------------===//
 
 char DominatorTreeWrapperPass::ID = 0;
+
 INITIALIZE_PASS(DominatorTreeWrapperPass, "domtree",
                 "Dominator Tree Construction", true, true)
 

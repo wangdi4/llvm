@@ -21,6 +21,14 @@
 
 using namespace llvm;
 
+//  Because of the namespace-related syntax limitations of gcc, we need
+//  To hoist init out of namespace blocks. 
+char ControlDependenceGraph::ID = 0;
+//declare ControlDependenceGraph Pass
+INITIALIZE_PASS(ControlDependenceGraph, "machine-cdg",
+  "Machine Control Dependence Graph Construction", true, true)
+
+
 namespace llvm {
 
 void ControlDependenceNode::addTrue(ControlDependenceNode *Child) {
@@ -459,11 +467,6 @@ const ControlDependenceNode *ControlDependenceGraphBase::enclosingRegion(Machine
     return NULL;
   }
 }
-
-char ControlDependenceGraph::ID = 0;
-//declare ControlDependenceGraph Pass
-INITIALIZE_PASS(ControlDependenceGraph, "machine-cdg",
-  "Machine Control Dependence Graph Construction", true, true)
 
 ControlDependenceGraph::ControlDependenceGraph() : MachineFunctionPass(ID), ControlDependenceGraphBase() {
   initializeControlDependenceGraphPass(*PassRegistry::getPassRegistry());

@@ -5050,7 +5050,6 @@ INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_END(LoopStrengthReduce, "loop-reduce",
                 "Loop Strength Reduction", false, false)
 
-
 Pass *llvm::createLoopStrengthReducePass() {
   return new LoopStrengthReduce();
 }

@@ -67,6 +67,7 @@ static bool isEmptyFunction(Function *F) {
 }
 
 char GlobalDCE::ID = 0;
+
 INITIALIZE_PASS(GlobalDCE, "globaldce",
                 "Dead Global Elimination", false, false)
 

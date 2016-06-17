@@ -86,16 +86,18 @@ namespace llvm {
     DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> bb2switch;  //switch for Reg added in bb
     DenseMap<MachineBasicBlock *, SmallVectorImpl<MachineInstr *>* > bb2predcpy;
   };
-
-
-  char LPUCvtCFDFPass::ID = 0;
-  //declare LPUCvtCFDFPass Pass
-  INITIALIZE_PASS(LPUCvtCFDFPass, "lpu-cvt-cfdf", "LPU Convert Control Flow to Data Flow", true, true)
-
-  LPUCvtCFDFPass::LPUCvtCFDFPass() : MachineFunctionPass(ID) {
-    initializeLPUCvtCFDFPassPass(*PassRegistry::getPassRegistry());
-  }
 }
+
+//  Because of the namespace-related syntax limitations of gcc, we need
+//  To hoist init out of namespace blocks. 
+char LPUCvtCFDFPass::ID = 0;
+//declare LPUCvtCFDFPass Pass
+INITIALIZE_PASS(LPUCvtCFDFPass, "lpu-cvt-cfdf", "LPU Convert Control Flow to Data Flow", true, true)
+
+LPUCvtCFDFPass::LPUCvtCFDFPass() : MachineFunctionPass(ID) {
+  initializeLPUCvtCFDFPassPass(*PassRegistry::getPassRegistry());
+}
+
 
 MachineFunctionPass *llvm::createLPUCvtCFDFPass() {
   return new LPUCvtCFDFPass();

@@ -178,7 +178,6 @@ public:
 } // end anonymous namespace
 
 char &llvm::VirtRegRewriterID = VirtRegRewriter::ID;
-
 INITIALIZE_PASS_BEGIN(VirtRegRewriter, "virtregrewriter",
                       "Virtual Register Rewriter", false, false)
 INITIALIZE_PASS_DEPENDENCY(SlotIndexes)
@@ -188,6 +187,7 @@ INITIALIZE_PASS_DEPENDENCY(LiveStacks)
 INITIALIZE_PASS_DEPENDENCY(VirtRegMap)
 INITIALIZE_PASS_END(VirtRegRewriter, "virtregrewriter",
                     "Virtual Register Rewriter", false, false)
+
 
 char VirtRegRewriter::ID = 0;
 

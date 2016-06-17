@@ -649,6 +649,7 @@ struct NoTTI final : ImmutablePass, TargetTransformInfo {
 
 INITIALIZE_AG_PASS(NoTTI, TargetTransformInfo, "notti",
                    "No target information", true, true, true)
+
 char NoTTI::ID = 0;
 
 ImmutablePass *llvm::createNoTargetTransformInfoPass() {
