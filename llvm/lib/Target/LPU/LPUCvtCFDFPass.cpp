@@ -501,7 +501,9 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                   // use not enclosing def, def and use in different regions
                   //assert(use have to be a switch from the repeat handling pass, or def is a switch from the if handling pass  
                   assert(TII.isSwitch(UseMI) && MLI->getLoopFor(UseBB)->getLoopLatch() == UseBB || 
-                         TII.isSwitch(MI) && unode->isParent(dnode));
+                         TII.isSwitch(MI) && unode->isParent(dnode) ||
+                         //loop hdr Phi
+                         UseMI->isPHI() && MLI->getLoopFor(UseBB)->getHeader() == UseBB);
                 }
               }
             }
