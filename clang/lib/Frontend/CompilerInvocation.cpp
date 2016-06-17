@@ -447,6 +447,10 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
     StringRef Name = A->getValue();
     if (Name == "Accelerate")
       Opts.setVecLib(CodeGenOptions::Accelerate);
+#if INTEL_CUSTOMIZATION
+    else if (Name == "SVML")
+      Opts.setVecLib(CodeGenOptions::SVML);
+#endif // INTEL_CUSTOMIZATION
     else if (Name == "none")
       Opts.setVecLib(CodeGenOptions::NoLibrary);
     else
