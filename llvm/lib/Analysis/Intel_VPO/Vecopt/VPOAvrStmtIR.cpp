@@ -71,6 +71,7 @@ AVRExpressionIR::AVRExpressionIR(AVRAssignIR *Assign, AssignOperand Operand)
 
   Instruct = Assign->getLLVMInstruction(); // Set LLVM Instuction
   this->Operation = Instruct->getOpcode(); // Set Operation Type
+  this->setParent(Assign);                 // Set Parent
 
   // Create RHS Expression
   if (Operand == RightHand) {
@@ -81,14 +82,15 @@ AVRExpressionIR::AVRExpressionIR(AVRAssignIR *Assign, AssignOperand Operand)
 
       // Set RHS Expr to value operamd
       AvrVal = AVRUtilsIR::createAVRValueIR(StoreInstruct->getValueOperand(),
-                                            Instruct);
+                                            Instruct,
+                                            this);
       this->Operands.push_back(AvrVal);
     } else {
       for (auto Itr = Instruct->op_begin(), End = Instruct->op_end();
            Itr != End; ++Itr) {
 
         OpValue = *Itr;
-        AvrVal = AVRUtilsIR::createAVRValueIR(OpValue, Instruct);
+        AvrVal = AVRUtilsIR::createAVRValueIR(OpValue, Instruct, this);
         this->Operands.push_back(AvrVal);
       }
     }
@@ -103,11 +105,12 @@ AVRExpressionIR::AVRExpressionIR(AVRAssignIR *Assign, AssignOperand Operand)
 
       // Set LHS Expr to pointer operand
       AvrVal = AVRUtilsIR::createAVRValueIR(StoreInstruct->getPointerOperand(),
-                                            Instruct);
+                                            Instruct,
+                                            this);
     } else {
 
       OpValue = cast<Value>(Instruct);
-      AvrVal = AVRUtilsIR::createAVRValueIR(OpValue, Instruct);
+      AvrVal = AVRUtilsIR::createAVRValueIR(OpValue, Instruct, this);
     }
 
     this->Operands.push_back(AvrVal);
@@ -123,10 +126,11 @@ std::string AVRExpressionIR::getOpCodeName() const {
 }
 
 //----------AVR Value for LLVM IR Implementation----------//
-AVRValueIR::AVRValueIR(const Value *V, const Instruction *Inst)
+AVRValueIR::AVRValueIR(const Value *V, const Instruction *Inst, AVR *Parent)
     : AVRValue(AVR::AVRValueIRNode), Val(V), Instruct(Inst) {
 
   ValType = Val->getType();
+  setParent(Parent);
 }
 
 AVRValueIR *AVRValueIR::clone() const { return nullptr; }
@@ -203,6 +207,14 @@ AVRPhiIR *AVRPhiIR::clone() const { return nullptr; }
 
 void AVRPhiIR::print(formatted_raw_ostream &OS, unsigned Depth,
                      VerbosityLevel VLevel) const {
+
+  if (LHS) {
+
+    // Phi construction is complete - let base class print in pure AVR terms
+    // the internal structure.
+    AVRPhi::print(OS, Depth, VLevel);
+    return;
+  }
 
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
@@ -311,6 +323,8 @@ void AVRCallIR::codeGen() {
 AVRBranchIR::AVRBranchIR(Instruction *In, AVR *Cond)
     : AVRBranch(AVR::AVRBranchIRNode, false, Cond), Instruct(In) {
 
+  ThenBBlock = ElseBBlock = NextBBlock = nullptr;
+
   if (BranchInst *BI = dyn_cast<BranchInst>(In)) {
 
     if (BI->isConditional()) {
@@ -319,6 +333,7 @@ AVRBranchIR::AVRBranchIR(Instruction *In, AVR *Cond)
       ElseBBlock = BI->getSuccessor(1);
     } else {
       setIsConditional(false);
+      NextBBlock = BI->getSuccessor(0);
     }
   }
 }

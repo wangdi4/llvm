@@ -66,6 +66,13 @@ void AVRLoop::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << Indent << "}\n";
 }
 
+void AVRLoop::shallowPrint(formatted_raw_ostream &OS) const {
+
+  OS << "(" << getNumber() << ") "
+     << getAvrTypeName()
+     << "( IV )"; // TODO: Add IV Info
+}
+
 StringRef AVRLoop::getAvrTypeName() const { return StringRef("LOOP"); }
 
 std::string AVRLoop::getAvrValueName() const { return ""; }

@@ -102,6 +102,9 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VLevel) const override;
 
+  /// \brief Shallow-prints the AVRAssign node.
+  void shallowPrint(formatted_raw_ostream &OS) const override;
+
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;
 
@@ -170,6 +173,9 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VerbosityLevel) const override;
 
+  /// \brief Shallow-prints the AVRExpression node.
+  void shallowPrint(formatted_raw_ostream &OS) const override;
+
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;
 
@@ -226,6 +232,9 @@ public:
 
   /// \brief Returns value name of this node.
   virtual std::string getAvrValueName() const = 0;
+  /// \brief Returns whether this AVR value represents a constant value in the
+  /// underlying IR.
+  virtual bool isConstant() const = 0;
 };
 
 //----------AVR Label Node----------//
@@ -277,9 +286,29 @@ class AVRExpr : public AVR {};
 /// \brief TODO
 class AVRPhi : public AVR {
 
+public:
+
+  /// \brief A type representing an incoming value to the AVRPhi and the
+  /// AVRLabel corresponding to the basic block it originates from.
+  typedef std::pair<AVRValue*, AVRLabel*> IncomingValueTy;
+
 protected:
   AVRPhi(unsigned SCID);
   virtual ~AVRPhi() override {}
+
+  /// \brief Sets Node as the LHS AVR of this Phi operation.
+  void setLHS(AVR *Node) { LHS = Node; }
+
+  ///\brief Adds an incoming AVRValue (from an AVRLabel).
+  void addIncoming(AVRValue *AValue, AVRLabel *ALabel) {
+    IncomingValues.push_back(std::make_pair(AValue, ALabel));
+  }
+
+  /// \brief LHS Value
+  AVR *LHS;
+
+  /// \brief Incoming AVR values and their corresponding AVR labels.
+  SmallVector<IncomingValueTy, 2> IncomingValues;
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
@@ -297,11 +326,19 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VLevel) const override;
 
+  /// \brief Shallow-prints the AVRPhi node.
+  void shallowPrint(formatted_raw_ostream &OS) const override;
+
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const = 0;
+
+  /// \brief Returns the incoming values of this AVR phi.
+  const SmallVectorImpl<IncomingValueTy>& getIncomingValues() {
+    return IncomingValues;
+  }
 };
 
 //----------AVR Call Node----------//
@@ -393,6 +430,8 @@ public:
 
   /// \brief Returns number of successors to this branch.
   unsigned getNumSuccessors() const { return Successors.size(); }
+
+  const SmallVectorImpl<AVRLabel*>& getSuccessors() const { return Successors; }
 
   /// \brief Returns the condition avr for conditional branch.
   AVR *getCondition() { return Condition; }
@@ -791,6 +830,9 @@ public:
   /// \brief Prints the AVRWrn node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VLevel) const override;
+
+  /// \brief Shallow-prints the AVRWrn node.
+  void shallowPrint(formatted_raw_ostream &OS) const override;
 
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;

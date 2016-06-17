@@ -79,9 +79,10 @@ AVRExpressionIR *AVRUtilsIR::createAVRExpressionIR(AVRAssignIR *Assign,
   return new AVRExpressionIR(Assign, AOp);
 }
 
-AVRValueIR *AVRUtilsIR::createAVRValueIR(const Value *V,
-                                         const Instruction *Inst) {
-  return new AVRValueIR(V, Inst);
+AVRValueIR *AVRUtilsIR::createAVRValueIR(const Value *Val,
+                                         const Instruction *Inst,
+                                         AVR *Parent) {
+  return new AVRValueIR(Val, Inst, Parent);
 }
 
 AVRSwitchIR *AVRUtilsIR::createAVRSwitchIR(Instruction *SwitchI) {

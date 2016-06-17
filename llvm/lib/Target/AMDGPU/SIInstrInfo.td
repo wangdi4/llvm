@@ -137,11 +137,6 @@ def SIsampleb : SDSample<"AMDGPUISD::SAMPLEB">;
 def SIsampled : SDSample<"AMDGPUISD::SAMPLED">;
 def SIsamplel : SDSample<"AMDGPUISD::SAMPLEL">;
 
-def SIconstdata_ptr : SDNode<
-  "AMDGPUISD::CONST_DATA_PTR", SDTypeProfile <1, 1, [SDTCisVT<0, i64>,
-                                                     SDTCisVT<0, i64>]>
->;
-
 //===----------------------------------------------------------------------===//
 // PatFrags for FLAT instructions
 //===----------------------------------------------------------------------===//
@@ -458,6 +453,33 @@ def sopp_brtarget : Operand<OtherVT> {
 
 def const_ga : Operand<iPTR>;
 
+def InterpSlot : Operand<i32> {
+  let PrintMethod = "printInterpSlot";
+}
+
+def SendMsgMatchClass : AsmOperandClass {
+  let Name = "SendMsg";
+  let PredicateMethod = "isSendMsg";
+  let ParserMethod = "parseSendMsgOp";
+  let RenderMethod = "addImmOperands";
+}
+
+def SendMsgImm : Operand<i32> {
+  let PrintMethod = "printSendMsg";
+  let ParserMatchClass = SendMsgMatchClass;
+}
+
+def SWaitMatchClass : AsmOperandClass {
+  let Name = "SWaitCnt";
+  let RenderMethod = "addImmOperands";
+  let ParserMethod = "parseSWaitCntOps";
+}
+
+def WAIT_FLAG : Operand <i32> {
+  let ParserMatchClass = SWaitMatchClass;
+  let PrintMethod = "printWaitFlag";
+}
+
 include "SIInstrFormats.td"
 include "VIInstrFormats.td"
 
@@ -467,6 +489,7 @@ class NamedMatchClass<string CName, bit Optional = 1> : AsmOperandClass {
   let ParserMethod = "parse"#CName;
   let RenderMethod = "addImmOperands";
   let IsOptional = Optional;
+  let DefaultMethod = "default"#CName;
 }
 
 def sdwa_sel : NamedMatchClass<"SDWASel">;
@@ -3118,7 +3141,7 @@ multiclass FLAT_ATOMIC <flat op, string asm_name, RegisterClass vdst_rc,
     dag outs_noret = (outs),
     string asm_noret = asm_name#" $addr, $data"#"$slc"#"$tfe"> {
 
-  let mayLoad = 1, mayStore = 1, glc = 0, vdst = 0, AsmMatchConverter = "cvtFlatAtomic" in {
+  let mayLoad = 1, mayStore = 1, glc = 0, vdst = 0 in {
     def "" : FLAT_Pseudo <NAME, outs_noret,
                           (ins VReg_64:$addr, data_rc:$data,
                                slc:$slc, tfe:$tfe), []>,
@@ -3135,7 +3158,7 @@ multiclass FLAT_ATOMIC <flat op, string asm_name, RegisterClass vdst_rc,
                             asm_noret>;
   }
 
-  let glc = 1, hasPostISelHook = 1, AsmMatchConverter = "cvtFlatAtomic" in {
+  let glc = 1, hasPostISelHook = 1 in {
     defm _RTN : FLAT_AtomicRet_m <op, (outs vdst_rc:$vdst),
                         (ins VReg_64:$addr, data_rc:$data, slc:$slc,
                              tfe:$tfe),

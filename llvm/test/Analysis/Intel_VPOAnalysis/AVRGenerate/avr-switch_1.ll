@@ -19,8 +19,8 @@
 
 ;CHECK-NEXT: LOOP( IV )
 ;CHECK: simd.loop:
-;CHECK-NEXT: %index = phi i32 [ 0, %DIR.QUAL.LIST.END.{{[0-9]}} ], [ %indvar, %simd.loop.exit ]
-;CHECK: br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
+;CHECK-NEXT: %index = phi [0, DIR.QUAL.LIST.END.{{[0-9]}}], [%indvar, simd.loop.exit]
+;TEMP-DO-NOT-CHECK: br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
 
 ;CHECK: simd.loop.then:
 ;CHECK-NEXT: %vec.n.cast.gep = %vec.n.cast getelementptr %index
@@ -73,7 +73,7 @@
 ;CHECK: br label %simd.loop.exit
 
 ;CHECK: simd.loop.exit:
-;CHECK: %indvar = 1 add %index
+;CHECK: %indvar = %index add 1
 ;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
 
 ;CHECK: simd.end.region:

@@ -106,10 +106,6 @@ namespace llvm {
       /// 0s or 1s.  Generally DTRT for C/C++ with NaNs.
       FSETCC,
 
-      /// X86 MOVMSK{pd|ps}, extracts sign bits of two or four FP values,
-      /// result in an integer GPR.  Needs masking for scalar result.
-      FGETSIGNx86,
-
       /// X86 conditional moves. Operand 0 and operand 1 are the two values
       /// to select from. Operand 2 is the condition code, and operand 3 is the
       /// flag operand produced by a CMP or TEST instruction. It also writes a
@@ -755,6 +751,8 @@ namespace llvm {
 
     bool isCheapToSpeculateCtlz() const override;
 
+    bool hasAndNotCompare(SDValue Y) const override;
+
     /// Return the value type to use for ISD::SETCC.
     EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
                            EVT VT) const override;
@@ -1168,9 +1166,6 @@ namespace llvm {
 
     MachineBasicBlock *EmitLoweredAtomicFP(MachineInstr *I,
                                            MachineBasicBlock *BB) const;
-
-    MachineBasicBlock *EmitLoweredWinAlloca(MachineInstr *MI,
-                                              MachineBasicBlock *BB) const;
 
     MachineBasicBlock *EmitLoweredCatchRet(MachineInstr *MI,
                                            MachineBasicBlock *BB) const;

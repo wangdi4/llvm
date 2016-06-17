@@ -8,7 +8,7 @@
 ;CHECK: entry:
 ;CHECK-NEXT: %a.addr = alloca 1
 ;CHECK:      %cmp1 = icmp slt i32 %0, 32
-;CHECK-NEXT: br i1 %cmp1, label %for.body.lr.ph, label %for.end
+;TEMP-DO-NOT-CHECK-NEXT: br i1 %cmp1, label %for.body.lr.ph, label %for.end
 
 ;CHECK-NEXT: if( %cmp1 = icmp slt i32 %0, 32 )
 ;CHECK:      for.body.lr.ph:
@@ -19,7 +19,7 @@
 ;CHECK:      for.body:
 ;CHECK-NEXT: %1 = load %i
 ;CHECK:      %cmp7 = icmp eq i32 %rem, 0
-;CHECK-NEXT: br i1 %cmp7, label %if.then, label %if.else
+;TEMP-DO-NOT-CHECK-NEXT: br i1 %cmp7, label %if.then, label %if.else
 
 ;CHECK-NEXT: if( %cmp7 = icmp eq i32 %rem, 0 )
 ;CHECK:      if.then:

@@ -96,6 +96,14 @@ public:
   /// \brief Sets AvrAssign's RHS to Node.
   static void setAVRAssignRHS(AVRAssign *AvrAssign, AVR *Node);
 
+  /// \brief Sets AvrPhi's LHS to Node.
+  static void setAVRPhiLHS(AVRPhi *APhi, AVRValue *AValue);
+
+  /// \brief Add an incoming AVRValue (from AVRLabel) to an AVRPhi.
+  static void addAVRPhiIncoming(AVRPhi *APhi,
+                                AVRValue *AValue,
+                                AVRLabel *ALabel);
+
   /// \brief Add a case to the ASwitch node
   static void addCase(AVRSwitch *ASwitch);
 

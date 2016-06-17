@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/LoopRotation.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -21,6 +21,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"      // INTEL
 #include "llvm/Analysis/LoopPass.h"
+#include "llvm/Analysis/LoopPassManager.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -33,6 +34,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
@@ -43,8 +45,8 @@ using namespace llvm;
 #define DEBUG_TYPE "loop-rotate"
 
 static cl::opt<unsigned>
-RotationThreshold("rotation-max-header-size", cl::init(16), cl::Hidden,
-       cl::desc("The maximum header size for automatic loop rotation"));
+DefaultRotationThreshold("rotation-max-header-size", cl::init(16), cl::Hidden,
+       cl::desc("The default maximum header size for automatic loop rotation"));
 
 STATISTIC(NumRotated, "Number of loops rotated");
 
@@ -109,6 +111,40 @@ static void RewriteUsesOfClonedInstructions(BasicBlock *OrigHeader,
 
       // Anything else can be handled by SSAUpdater.
       SSA.RewriteUse(U);
+    }
+
+    // Replace MetadataAsValue(ValueAsMetadata(OrigHeaderVal)) uses in debug
+    // intrinsics.
+    LLVMContext &C = OrigHeader->getContext();
+    if (auto *VAM = ValueAsMetadata::getIfExists(OrigHeaderVal)) {
+      if (auto *MAV = MetadataAsValue::getIfExists(C, VAM)) {
+        for (auto UI = MAV->use_begin(), E = MAV->use_end(); UI != E; ) {
+          // Grab the use before incrementing the iterator. Otherwise, altering
+          // the Use will invalidate the iterator.
+          Use &U = *UI++;
+          DbgInfoIntrinsic *UserInst = dyn_cast<DbgInfoIntrinsic>(U.getUser());
+          if (!UserInst) continue;
+
+          // The original users in the OrigHeader are already using the original
+          // definitions.
+          BasicBlock *UserBB = UserInst->getParent();
+          if (UserBB == OrigHeader)
+            continue;
+
+          // Users in the OrigPreHeader need to use the value to which the
+          // original definitions are mapped and anything else can be handled by
+          // the SSAUpdater. To avoid adding PHINodes, check if the value is
+          // available in UserBB, if not substitute undef.
+          Value *NewVal;
+          if (UserBB == OrigPreheader)
+            NewVal = OrigPreHeaderVal;
+          else if (SSA.HasValueForBlock(UserBB))
+            NewVal = SSA.GetValueInMiddleOfBlock(UserBB);
+          else
+            NewVal = UndefValue::get(OrigHeaderVal->getType());
+          U = MetadataAsValue::get(C, ValueAsMetadata::get(NewVal));
+        }
+      }
     }
   }
 }
@@ -563,29 +599,40 @@ static bool iterativelyRotateLoop(Loop *L, unsigned MaxHeaderSize, LoopInfo *LI,
   return MadeChange;
 }
 
-/// Choose max header size based on pass parameter, options and target
-/// preferences.
-static unsigned chooseMaxHeaderSize(int SpecifiedThreshold,
-                                    bool OptForSize,
-                                    const TargetTransformInfo *TTI) {
-  if (SpecifiedThreshold == -1)
-    return RotationThreshold.getNumOccurrences() > 0
-               ? RotationThreshold
-               : TTI->getLoopRotationDefaultThreshold(OptForSize);
-  else
-    return unsigned(SpecifiedThreshold);
+LoopRotatePass::LoopRotatePass() : MaxHeaderSize(DefaultRotationThreshold) {}
+
+PreservedAnalyses LoopRotatePass::run(Loop &L, AnalysisManager<Loop> &AM) {
+  auto &FAM = AM.getResult<FunctionAnalysisManagerLoopProxy>(L).getManager();
+  Function *F = L.getHeader()->getParent();
+
+  auto *LI = FAM.getCachedResult<LoopAnalysis>(*F);
+  const auto *TTI = FAM.getCachedResult<TargetIRAnalysis>(*F);
+  auto *AC = FAM.getCachedResult<AssumptionAnalysis>(*F);
+  assert((LI && TTI && AC) && "Analyses for loop rotation not available");
+
+  // Optional analyses.
+  auto *DT = FAM.getCachedResult<DominatorTreeAnalysis>(*F);
+  auto *SE = FAM.getCachedResult<ScalarEvolutionAnalysis>(*F);
+
+  bool Changed = iterativelyRotateLoop(&L, MaxHeaderSize, LI, TTI, AC, DT, SE);
+  if (!Changed)
+    return PreservedAnalyses::all();
+  return getLoopPassPreservedAnalyses();
 }
 
 namespace {
 
-class LoopRotate : public LoopPass {
-  int SpecifiedThreshold;
+class LoopRotateLegacyPass : public LoopPass {
+  unsigned MaxHeaderSize;
 
 public:
   static char ID; // Pass ID, replacement for typeid
-  LoopRotate(int SpecifiedMaxHeaderSize = -1)
-      : LoopPass(ID), SpecifiedThreshold(SpecifiedMaxHeaderSize) {
-    initializeLoopRotatePass(*PassRegistry::getPassRegistry());
+  LoopRotateLegacyPass(int SpecifiedMaxHeaderSize = -1) : LoopPass(ID) {
+    initializeLoopRotateLegacyPassPass(*PassRegistry::getPassRegistry());
+    if (SpecifiedMaxHeaderSize == -1)
+      MaxHeaderSize = DefaultRotationThreshold;
+    else
+      MaxHeaderSize = unsigned(SpecifiedMaxHeaderSize);
   }
 
   // LCSSA form makes instruction renaming easier.
@@ -609,20 +656,20 @@ public:
     auto *SEWP = getAnalysisIfAvailable<ScalarEvolutionWrapperPass>();
     auto *SE = SEWP ? &SEWP->getSE() : nullptr;
 
-    return iterativelyRotateLoop(
-        L, chooseMaxHeaderSize(SpecifiedThreshold, F.optForSize(), TTI),
-        LI, TTI, AC, DT, SE);
+    return iterativelyRotateLoop(L, MaxHeaderSize, LI, TTI, AC, DT, SE);
   }
 };
 }
 
-char LoopRotate::ID = 0;
-INITIALIZE_PASS_BEGIN(LoopRotate, "loop-rotate", "Rotate Loops", false, false)
+char LoopRotateLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(LoopRotateLegacyPass, "loop-rotate", "Rotate Loops",
+                      false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(LoopRotate, "loop-rotate", "Rotate Loops", false, false)
+INITIALIZE_PASS_END(LoopRotateLegacyPass, "loop-rotate", "Rotate Loops",
+                    false, false)
 
 Pass *llvm::createLoopRotatePass(int MaxHeaderSize) {
-  return new LoopRotate(MaxHeaderSize);
+  return new LoopRotateLegacyPass(MaxHeaderSize);
 }

@@ -21,7 +21,7 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-AVRLoopHIR::AVRLoopHIR(const HLLoop *Lp)
+AVRLoopHIR::AVRLoopHIR(HLLoop *Lp)
     : AVRLoop(AVR::AVRLoopHIRNode) {
 
   setNestingLevel(0);     // TODO
