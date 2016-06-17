@@ -19,7 +19,6 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Analysis/LoopInfo.h"  //LPU EDIT
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -159,7 +158,6 @@ class TypePromotionTransaction;
       AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addRequired<TargetLibraryInfo>();
       AU.addRequired<TargetTransformInfo>();
-      AU.addRequired<LoopInfo>(); //LPU EDIT
     }
 
   private:
@@ -4170,14 +4168,9 @@ bool CodeGenPrepare::OptimizeExtractElementInst(Instruction *Inst) {
 
 bool CodeGenPrepare::OptimizeInst(Instruction *I, bool& ModifiedDT) {
   if (PHINode *P = dyn_cast<PHINode>(I)) {
-    LoopInfo* LI = &getAnalysis<LoopInfo>();
     // It is possible for very late stage optimizations (such as SimplifyCFG)
     // to introduce PHI nodes too late to be cleaned up.  If we detect such a
     // trivial PHI, go ahead and zap it here.
-	  if (P->getNumIncomingValues() == 1 &&   //LPU EDIT: need to preserve LCSSA Phi   
-        LI->getLoopFor(P->getIncomingBlock(0)) != LI->getLoopFor(I->getParent())) {
-      return false;
-	  }
     if (Value *V = SimplifyInstruction(P, TLI ? TLI->getDataLayout() : nullptr,
                                        TLInfo, DT)) {
       P->replaceAllUsesWith(V);

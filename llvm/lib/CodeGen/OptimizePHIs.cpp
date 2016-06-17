@@ -18,7 +18,6 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/MachineLoopInfo.h"   //LPU EDIT
 #include "llvm/IR/Function.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
@@ -43,8 +42,6 @@ namespace {
     bool runOnMachineFunction(MachineFunction &MF) override;
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<MachineLoopInfo>(); //LPU EDIT
-      AU.addPreserved<MachineLoopInfo>(); //LPU EDIT
       AU.setPreservesCFG();
       MachineFunctionPass::getAnalysisUsage(AU);
     }
@@ -93,18 +90,6 @@ bool OptimizePHIs::IsSingleValuePHICycle(MachineInstr *MI,
                                          InstrSet &PHIsInCycle) {
   assert(MI->isPHI() && "IsSingleValuePHICycle expects a PHI instruction");
   unsigned DstReg = MI->getOperand(0).getReg();
-#if 1
-  //LPU EDIT: preserve LCSSA phi
-  if (MI->getNumOperands() == 3) {
-    MachineLoopInfo *MLI = getAnalysisIfAvailable<MachineLoopInfo>();
-    if (!MLI) {
-      MLI = &(getAnalysis<MachineLoopInfo>());
-    }
-    if (MLI->getLoopFor(MI->getOperand(2).getMBB()) != MLI->getLoopFor(MI->getParent())) {
-      return false;
-    }
-  }
-#endif
 
   // See if we already saw this register.
   if (!PHIsInCycle.insert(MI).second)
