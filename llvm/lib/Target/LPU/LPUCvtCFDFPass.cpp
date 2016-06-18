@@ -285,7 +285,7 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
             assert(dRegion);
             //use, def in different region => need switch
             if (uregion != dRegion) {
-              if (DefMI->getOpcode() == TII.getPickSwitchOpcode(TRC, false/*not pick op*/)) {
+              if (TII.isSwitch(DefMI)) {
                 //def already from a switch -- can only happen if use is an immediate child of def in CDG
                 assert(dnode->isChild(unode));
                 continue;
