@@ -339,6 +339,11 @@ LPUInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
     case LPU::I16RegClassID: return LPU::PICK16;
     case LPU::I32RegClassID: return LPU::PICK32;
     case LPU::I64RegClassID: return LPU::PICK64;
+    case LPU::RI1RegClassID: return LPU::PICK1;
+    case LPU::RI8RegClassID: return LPU::PICK8;
+    case LPU::RI16RegClassID: return LPU::PICK16;
+    case LPU::RI32RegClassID: return LPU::PICK32;
+    case LPU::RI64RegClassID: return LPU::PICK64;
     }
   }
 
@@ -350,6 +355,12 @@ LPUInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
   case LPU::I16RegClassID: return LPU::SWITCH16;
   case LPU::I32RegClassID: return LPU::SWITCH32;
   case LPU::I64RegClassID: return LPU::SWITCH64;
+
+  case LPU::RI1RegClassID: return LPU::SWITCH1;
+  case LPU::RI8RegClassID: return LPU::SWITCH8;
+  case LPU::RI16RegClassID: return LPU::SWITCH16;
+  case LPU::RI32RegClassID: return LPU::SWITCH32;
+  case LPU::RI64RegClassID: return LPU::SWITCH64;
   }
 
 }
