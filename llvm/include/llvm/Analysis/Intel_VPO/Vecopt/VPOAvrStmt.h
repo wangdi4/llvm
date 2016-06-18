@@ -143,7 +143,6 @@ protected:
   /// \brief Constructor used by derived classes. Should not instantiate
   /// this object at this level.
   AVRExpression(unsigned SCID, Type *ExprType);
-  AVRExpression(unsigned SCID);
 
   /// \brief Destructor for object.
   virtual ~AVRExpression() override {}
@@ -153,7 +152,7 @@ protected:
 
 public:
   /// \brief Returns the data type of this expression
-  Type *getType() const { return ExprType; }
+  Type *getType() const { assert (ExprType && "Data type not set"); return ExprType; }
 
   /// \brief Clone method for AVRExpression.
   AVRExpression *clone() const override;
@@ -215,9 +214,12 @@ private:
   /// changest)
   // MemRefInfo *MRI;
 
-protected:
   /// \p ValType - type of this value.
   Type *ValType;
+
+protected:
+  /// Set the data type of this Value.
+  void setType(Type *DataType) { ValType = DataType; } 
 
   /// \brief Constructor used by derived classes. Should not instantiate
   /// this object at this level.
@@ -231,7 +233,7 @@ protected:
 
 public:
   /// \brief Returns the data type of this value.
-  Type *getType() const { return ValType; }
+  Type *getType() const { assert (ValType && "Data type not set"); return ValType; }
 
   /// \brief Clone method for AVRValue.
   AVRValue *clone() const override;

@@ -64,7 +64,7 @@ void AVRAssignIR::codeGen() {
 
 //----------AVR Expression for LLVM IR Implementation----------//
 AVRExpressionIR::AVRExpressionIR(AVRAssignIR *Assign, AssignOperand Operand)
-    : AVRExpression(AVR::AVRExpressionIRNode) {
+    : AVRExpression(AVR::AVRExpressionIRNode, nullptr) {
 
   AVRValueIR *AvrVal = nullptr;
   const Value *OpValue = nullptr;
@@ -72,7 +72,11 @@ AVRExpressionIR::AVRExpressionIR(AVRAssignIR *Assign, AssignOperand Operand)
   Instruct = Assign->getLLVMInstruction(); // Set LLVM Instuction
   this->Operation = Instruct->getOpcode(); // Set Operation Type
   this->setParent(Assign);                 // Set Parent
-  this->setType(Instruct->getType());      // Set the Data Type.
+
+  // Set the data type
+  const StoreInst *SI = dyn_cast<StoreInst>(Instruct);
+  Type *Ty = (SI ? SI->getValueOperand()->getType() : Instruct->getType());
+  this->setType(Ty); 
 
   // Create RHS Expression
   if (Operand == RightHand) {
@@ -144,9 +148,11 @@ void AVRValueIR::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "(" << getNumber() << ")";
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
-  case PrintDataType:
+  case PrintDataType: {
+    Type *ValType = getType();
     printSLEV(OS);
     OS << *ValType << " ";
+  }
   case PrintBase:
     Val->printAsOperand(OS, false);
     break;

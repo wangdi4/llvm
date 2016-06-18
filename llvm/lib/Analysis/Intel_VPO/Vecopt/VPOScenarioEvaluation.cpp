@@ -16,7 +16,6 @@
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
 
@@ -89,8 +88,6 @@ using namespace llvm::loopopt;
 // Step7: ...
 VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
 
-  setAWrn(AWrn);
-
 #if 1
   // FORNOW: An AVRWrn node is expected to have only one AVRLoop child
   AVRLoop *AvrLoop = nullptr;
@@ -130,19 +127,16 @@ VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
       // FORNOW: Calculate cost only for the candidate AvrLoop. We assume that
       // the rest of the code in the region will remain the same between the
       // scalar and vector versions.
-      int BestCostForALoop = CM.getCost(ALoop, 1);
+      int BestCostForALoop = getCM()->getCost(ALoop, 1);
       DEBUG(errs() << "Scalar Cost for candidate Loop = " << BestCostForALoop
                    << "\n");
+      DEBUG(ALoop->dump(PrintDataType));
 
       // VectCand represents the best way to vectorize this loop, including
       // compared to leaving it scalar (in which case VectCand in null);
       VectCand = nullptr;
 
-#ifdef USEALOOP
       VectCand = processLoop(AvrLoop, &BestCostForALoop);
-#else
-      VectCand = processLoop(AWrn, &BestCostForALoop);
-#endif
 
       // TODO: Cache the best result so far for this loop (best VF, and
       // corresponding best cost), add it to the overall cost for this scenario,
@@ -190,22 +184,16 @@ void VPOScenarioEvaluationBase::findVFCandidates(
   }
 }
 
-#ifdef USEALOOP
+//#undef USE_SLEV
+#define USE_SLEV 1
+
 VPOVecContextBase *
 VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
-#else
-VPOVecContextBase *
-VPOScenarioEvaluationBase::processLoop(AVRWrn *AvrWrn, int *BestCostForALoop) {
-#endif
   DEBUG(errs() << "Process Loop\n");
 
-// Place holder for loop-level, VF-agnostic passes.
-//
-#ifdef USEALOOP
+  // Place holder for loop-level, VF-agnostic passes.
+  //
   setLoop(ALoop);
-#else
-  setLoop(AvrWrn);
-#endif
 
   // Obtain data-dependence information and gather memory references.
   //
@@ -217,11 +205,12 @@ VPOScenarioEvaluationBase::processLoop(AVRWrn *AvrWrn, int *BestCostForALoop) {
   getDataDepInfoForLoop();
   gatherMemrefsInLoop();
 
+#ifdef USE_SLEV
   // TODO: adapt to being called on a loop.
-  getSLEVUtil().runOnAvr(AvrWrn->child_begin(), AvrWrn->child_end());
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "After SLEV analysis:\n";
-        AvrWrn->print(FOS, 1, PrintNumber));
+  getSLEVUtil().runOnAvr(AWrn->child_begin(), AWrn->child_end());
+  DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "After SLEV analysis:\n";
+        AWrn->print(FOS, 1, PrintNumber));
+#endif
 
   // Identify VF candidates
   //
@@ -240,7 +229,10 @@ VPOScenarioEvaluationBase::processLoop(AVRWrn *AvrWrn, int *BestCostForALoop) {
     VPOVecContextBase &VC = setVecContext(VF);
     int Cost = processCandidate(ALoop, VF, VC);
 
-    if (Cost < *BestCostForALoop) {
+    // FIXME: Change condition back to <; FORNOW using <= simply to avoid
+    // change of behavior resulting in not vectorizing things that our current
+    // tests expect will be vectorized.
+    if (Cost <= *BestCostForALoop) {
       *BestCostForALoop = Cost;
       BestCand = &VC;
       DEBUG(errs() << "New Best Candidate Cost = " << *BestCostForALoop
@@ -249,7 +241,7 @@ VPOScenarioEvaluationBase::processLoop(AVRWrn *AvrWrn, int *BestCostForALoop) {
   }
 
   // Clear data-structures for this loop
-  resetLoopInfo(); 
+  resetLoopInfo();
 
   // If best candidate is the original scalar one, nullptr is returned.
   return BestCand;
@@ -308,7 +300,8 @@ int VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop, unsigned int VF,
   // Calculate the cost of the current candidate
   //
   // FORNOW: The VLS Groups are not yet used by the CostModel.
-  int Cost = CM.getCost(ALoop, VF);
+  int Cost = getCM()->getCost(ALoop, VF);
+  DEBUG(errs() << "Vector Cost for candidate Loop = " << Cost << "\n");
 
   // Cleaups.
   // FORNOW: Release the groups and memrefs.  TODO (save compile time): Keep
@@ -328,62 +321,462 @@ int VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop, unsigned int VF,
   return Cost;
 }
 
+/// A helper function for converting Scalar types to vector types.
+/// If the incoming type is void, we return void. If the VF is 1, we return
+/// the scalar type (copied from LoopVectorize.cpp).
+static Type *ToVectorTy(Type *Scalar, unsigned VF) {
+  if (Scalar->isVoidTy() || VF == 1)
+    return Scalar;
+  return VectorType::get(Scalar, VF);
+}
+
+/// Check if this  pointer is consecutive (under the current scenario) and
+/// hence can be vectorized into a wide load/store).
+/// Returns:
+/// 0 - Stride is unknown or non-consecutive.
+/// 1 - Address is consecutive.
+/// -1 - Address is consecutive, and decreasing.
+/// (Same behavior as LoopVectorize::isConsecutivePtr).
+int64_t getConsecutiveStride(AVRValue *PtrOp) {
+  assert(PtrOp->getType()->isPointerTy() && "Unexpected non-ptr");
+#ifdef USE_SLEV
+  // TODO: Use instead IsPointerConsecutive, once available
+  // TODO: SLEV's isConsecutive is currently true only for stride=1; Consider
+  // covering also the stride == -1 case in SLEV's isConsecutive.
+  if (PtrOp->getSLEV().isConsecutive())
+    return 1;
+  if (!PtrOp->getSLEV().isStrided())
+    return 0;
+  // At this point we know the pointer is Strided, and non Consecutive 
+  // (i.e. Stride != 1); Remains to check if Stride == -1
+  int64_t StrideInElements =
+      PtrOp->getSLEV().getStride().getInteger().getSExtValue();
+  if (StrideInElements == -1)
+    return -1;
+  return 0;
+#else
+  // Optimistic... 
+  return 1;
+#endif
+}
+
 // CostModel Visit routine.
 // FORNOW: Only Assigns are supported.
-// TODO: Consider reductions, Calls, ...
+// TODO: Support Reductions, Inductions, Calls, Select, Compare, Branch, Phi. 
 // TODO: Move to a different module.
-void VPOCostGatherer::visit(AVRLoop *Loop) {
+void VPOCostGathererBase::visit(AVRLoop *Loop) {
   DEBUG(errs() << "visiting loop!\n");
 }
+
 // TODO: If this is an inner-loop inside the ALoop being vectorized: multiply
 // by the iteration-count
-void VPOCostGatherer::postVisit(AVRLoop *Loop) {
+void VPOCostGathererBase::postVisit(AVRLoop *Loop) {
   DEBUG(errs() << "visited loop!\n");
 }
-void VPOCostGatherer::visit(AVRAssign *Assign) {
+
+void VPOCostGathererBase::visit(AVRAssign *Assign) {
   DEBUG(errs() << "visiting assign!\n");
 }
+
 // TODO: Take blend cost into account if masked.
-void VPOCostGatherer::postVisit(AVRAssign *Assign) {
+void VPOCostGathererBase::postVisit(AVRAssign *Assign) {
   DEBUG(errs() << "visited assign!\n");
 }
-void VPOCostGatherer::visit(AVRExpression *Expr) {
+
+// Following will soon move under handling of Expr
+#if 1
+void VPOCostGathererBase::visit(AVRLabel *Label) {
+  DEBUG(errs() << "visit Label!\n");
+}
+
+void VPOCostGathererBase::visit(AVRCall *Call) {
+  DEBUG(errs() << "TODO: visit Call!\n");
+}
+
+// CHECKME: Account for reduction cost here?
+void VPOCostGathererBase::visit(AVRPhi *Phi) {
+  DEBUG(errs() << "TODO: visit Phi!\n");
+}
+
+void VPOCostGathererBase::visit(AVRBranch *Branch) {
+  DEBUG(errs() << "TODO: visit Branch!\n");
+}
+
+void VPOCostGathererBase::visit(AVRCompare *Compare) {
+  DEBUG(errs() << "TODO: visit Compare!\n");
+}
+
+void VPOCostGathererBase::visit(AVRIf *If) {
+  DEBUG(errs() << "TODO: visit If!\n");
+}
+
+void VPOCostGathererBase::visit(AVRSelect *Select) {
+  DEBUG(errs() << "TODO: visit Select!\n");
+}
+
+// Of the following, only (uniform) AVRIf should survive after perdication.
+bool VPOCostGathererBase::skipRecursion (AVR *ANode) { 
+  if (isa<AVRIf>(ANode) || isa<AVRSelect>(ANode) || isa<AVRSwitch>(ANode))
+    return true;
+  return false;
+}
+
+void VPOCostGathererBase::visit(AVR *ANode) {
+  errs() << "VPOCostModel: Unsupported AVR kind\n";
+  ANode->dump(PrintBase);
+  //llvm_unreachable("unsupported AVR kind");
+}
+#endif
+
+void VPOCostGathererBase::visit(AVRExpression *Expr) {
   DEBUG(errs() << "visiting expr!\n");
   if (Expr->isLHSExpr()) {
     // We assume that there is no operation here, just a Value
+    return;
   }
 }
-void VPOCostGatherer::postVisit(AVRExpression *Expr) {
+
+void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
+  unsigned Cost = 0;
+  Type *VectorTy;
+#ifdef USE_SLEV
+  if (Expr->getSLEV().isUniform())
+    VectorTy = Expr->getType();
+  else
+    VectorTy = ToVectorTy(Expr->getType(), VF);
+#else
+  VectorTy = ToVectorTy(Expr->getType(), VF);
+#endif
+
+  DEBUG(errs() << "visit expr: \n");
+  DEBUG(Expr->dump(PrintDataType));
   if (Expr->isLHSExpr()) {
     // FORNOW: Not contributing any cost
+    // TODO: What about costly address computations on HIR side?
     DEBUG(errs() << "visited expr: LHS: no cost contributed!\n");
-  } else {
-    DEBUG(errs() << "visited expr: RHS: add cost of operation!\n");
-    // FORNOW: Using a dummy cost. TODO: Get it from TTI.
-    LoopBodyCost += 10;
+    return;
   }
+
+  switch (Expr->getOperation()) {
+  case Instruction::GetElementPtr: {
+    DEBUG(errs() << "Query cost of getElementPtr\n");
+    // "We mark this instruction as zero-cost because the cost of GEPs in
+    // vectorized code depends on whether the corresponding memory instruction
+    // is scalarized or not. Therefore, we handle GEPs with the memory
+    // instruction cost."
+    Cost = 0;
+    break;
+  }
+
+// Currently these are separate AVRNodes, not yet an Expr under AVRAssign,
+// so following code does not yet get exercised.
+#if 1
+  case Instruction::Br: {
+    DEBUG(errs() << "Query cost of branch\n");
+    Cost = TTI.getCFInstrCost(Expr->getOperation());
+    break;
+  }
+
+  // CHECKME: account for reduction cost here?
+  case Instruction::PHI: {
+    DEBUG(errs() << "Query cost of phi\n");
+    Cost = 0;
+    break;
+  }
+
+  case Instruction::Call: {
+    DEBUG(errs() << "TODO: Query cost of call instruction\n");
+    Cost = 10;
+    break;
+  }
+
+  // TODO. Not yet supported by Codegen; Does not yet exist as an Expr.
+  case Instruction::ICmp:
+  case Instruction::FCmp: {
+    DEBUG(errs() << "TODO: Query cost of compare instruction\n");
+    Cost = 10;
+#if 0
+    Type *ValTy = Expr->getOperand(0)->getType();
+    VectorTy = ToVectorTy(ValTy, VF);
+    Cost = TTI.getCmpSelInstrCost(Expr->getOeration(), VectorTy);
+#endif
+    break;
+  }
+
+  // TODO. Not yet supported by Codegen; Does not yet exist as an Expr.
+  case Instruction::Select: {
+    DEBUG(errs() << "TODO: Query cost of select instruction\n");
+    Cost = 10;
+#if 0
+    Type *CondTy = Expr->getOperans(/*CHECKME*/)->getType();
+    CondTy = VectorType::get(CondTy, VF);
+    Cost = TTI.getCmpSelInstrCost(Expr->getOperation(), VectorTy, CondTy);
+#endif
+    break;
+  }
+#endif
+
+  case Instruction::Add:
+  case Instruction::FAdd:
+  case Instruction::Sub:
+  case Instruction::FSub:
+  case Instruction::Mul:
+  case Instruction::FMul:
+  case Instruction::UDiv:
+  case Instruction::SDiv:
+  case Instruction::FDiv:
+  case Instruction::URem:
+  case Instruction::SRem:
+  case Instruction::Shl:
+  case Instruction::LShr:
+  case Instruction::AShr:
+  case Instruction::And:
+  case Instruction::Or:
+  case Instruction::Xor: {
+    DEBUG(errs() << "Query cost of arithmetic instruction\n");
+    // "Certain instructions can be cheaper to vectorize if they have a constant
+    // second vector operand. One example of this are shifts on x86."
+    TargetTransformInfo::OperandValueKind Op1VK =
+        TargetTransformInfo::OK_AnyValue;
+    TargetTransformInfo::OperandValueKind Op2VK =
+        TargetTransformInfo::OK_AnyValue;
+    TargetTransformInfo::OperandValueProperties Op1VP =
+        TargetTransformInfo::OP_None;
+    TargetTransformInfo::OperandValueProperties Op2VP =
+        TargetTransformInfo::OP_None;
+#if 0 // TODO
+    // Look at the SLEV value of the second operand.
+    // CHECKME: operand ordering in AVR?
+    AVR *Op1 = Expr->getOperand(1);
+    // "Check for a splat of a constant or for a non uniform vector of constants."
+    // TODO: Check if it is a OK_NonUniformConstantValue; 
+    if (Op1->getSLEV().isConstant()) {
+      // TODO: get the actual constant value and check if it isPowerOf2.
+      // in case we can set Op2VP = TargetTransformInfo::OP_PowerOf2;
+      Op2VK = TargetTransformInfo::OK_UniformConstantValue;
+    }
+#endif
+    Cost = TTI.getArithmeticInstrCost(Expr->getOperation(), VectorTy, Op1VK,
+                                      Op2VK, Op1VP, Op2VP);
+    break;
+  }
+
+  case Instruction::SExt:
+  case Instruction::ZExt:
+  case Instruction::FPExt:
+  case Instruction::FPToUI:
+  case Instruction::FPToSI:
+  case Instruction::PtrToInt:
+  case Instruction::IntToPtr:
+  case Instruction::UIToFP:
+  case Instruction::SIToFP:
+  case Instruction::Trunc:
+  case Instruction::FPTrunc:
+  case Instruction::BitCast: {
+    DEBUG(errs() << "TODO: Query cost of cast instruction\n");
+    Cost = 10;
+#if 0 // TODO
+    // TODO: Look at special cases
+    AVR *Op0 = Expr->getOperand(0);
+    Type *SrcScalarTy = Op0->getType();
+    Type *SrcVecTy = ToVectorTy(SrcScalarTy, VF);
+    Cost =  TTI.getCastInstrCost(Expr->getOperation(), VectorTy, SrcVecTy);
+#endif
+    break;
+  }
+
+  case Instruction::Load:
+  case Instruction::Store: {
+    DEBUG(errs() << "TODO: Query cost of load/store instruction\n");
+
+    // 0. Get the pointer and value operands
+    bool isStore = (Expr->getOperation() == Instruction::Store ? true : false);
+    bool isLoad = (Expr->getOperation() == Instruction::Load ? true : false);
+    Type *ValTy;
+    if (isLoad) {
+      ValTy = Expr->getType();
+    } else {
+      assert(isa<AVRValue>(Expr->getOperand(0)) && "Not a Value?");
+      ValTy = cast<AVRValue>(Expr->getOperand(0))->getType();
+    }
+
+    AVR *Op;
+    if (isLoad) {
+      Op = Expr->getOperand(0);
+    } else {
+      AVR *Assign = Expr->getParent();
+      assert(isa<AVRAssign>(Assign) && "Not an Assign?");
+      AVR *LHS = cast<AVRAssign>(Assign)->getLHS();
+      assert(isa<AVRExpression>(LHS) && "Not an Expression?");
+      Op = cast<AVRExpression>(LHS)->getOperand(0);
+    }
+    assert(isa<AVRValue>(Op) && "Not an AVRValue?");
+    AVRValue *PtrOp = cast<AVRValue>(Op);
+    Type *PtrType = PtrOp->getType();
+    assert(PtrOp->getType()->isPointerTy() && "Unexpected non-ptr");
+
+    // 1. Get the Alignment (TODO)
+    // CHECKME: get it from underlying IR? (LI->getAlignemnt())
+    unsigned Alignment = 0; // CHECKME: means aligned or unknown?
+
+    // 2. Get the Address Space
+    unsigned AS = PtrType->getPointerAddressSpace();
+
+// Case 1: A scalar ld/st will be generated
+#ifdef USE_SLEV
+    if (VF == 1 || Expr->getSLEV().isUniform()) {
+#else
+    if (VF == 1) {
+#endif
+      DEBUG(errs() << "Case1: Scalar Load/Store\n");
+      Cost = TTI.getAddressComputationCost(VectorTy) +
+             TTI.getMemoryOpCost(Expr->getOperation(), VectorTy, Alignment, AS);
+      break;
+    }
+
+// TODO: Account for brodacst cost (for loads).
+// Only if the loaded value is used in an operation that will be
+// widened do we need a brodcast. So we defer this to processing of the
+// loaded value upon its use.
+// FIXME: This means we may be taking this cost multiple times at each use.
+// CHECKME: Do we want to account for this cost here or when we process the
+// used Value?
+#if 0
+    if (LI && Legal->isUniform(Ptr)) {
+      // Scalar load + broadcast
+      unsigned Cost = TTI.getAddressComputationCost(ValTy->getScalarType());
+      Cost += TTI.getMemoryOpCost(I->getOpcode(), ValTy->getScalarType(),
+                                  Alignment, AS);
+      return Cost + TTI.getShuffleCost(TargetTransformInfo::SK_Broadcast,
+                                       ValTy);
+      break;
+    }
+#endif
+
+    // Case 2: Strided access, part of VLS group
+    // TODO.
+
+    // Classify the access
+    int64_t ConsecutiveStride = getConsecutiveStride(PtrOp);
+    DEBUG(errs() << "ConsecutiveStride = " << ConsecutiveStride << "\n");
+    Type *DataTy = (cast<PointerType>(PtrType))->getElementType();
+    bool isGatherOrScatterLegal = (isLoad && TTI.isLegalMaskedGather(DataTy)) ||
+                                  (isStore && TTI.isLegalMaskedScatter(DataTy));
+
+    bool UseGatherOrScatter =
+        (ConsecutiveStride == 0) && isGatherOrScatterLegal;
+
+    bool Reverse = ConsecutiveStride < 0;
+
+// Case 3: Scalarized loads/stores
+// (for non unit-stride access without gather/scatter support)
+#if 0
+    // TODO:
+    const DataLayout &DL = I->getModule()->getDataLayout();
+    unsigned ScalarAllocatedSize = DL.getTypeAllocSize(ValTy);
+    unsigned VectorElementSize = DL.getTypeStoreSize(VectorTy) / VF;
+    bool GapInElemSize = (ScalarAllocatedSize != VectorElementSize)
+#endif
+    bool GapInElemSize = false; // FIXME
+    if ((!ConsecutiveStride && !UseGatherOrScatter) || GapInElemSize) {
+      DEBUG(errs() << "Case 2: Scalarization Cost.\n");
+      bool IsComplexComputation = isLikelyComplexAddressComputation(PtrOp);
+      Cost = 0;
+      // The cost of extracting from the value vector and pointer vector.
+      Type *PtrsVecTy = ToVectorTy(PtrOp->getType(), VF);
+      for (unsigned i = 0; i < VF; ++i) {
+        //  The cost of extracting the pointer operand.
+        Cost +=
+            TTI.getVectorInstrCost(Instruction::ExtractElement, PtrsVecTy, i);
+        // In case of STORE, the cost of ExtractElement from the vector.
+        // In case of LOAD, the cost of InsertElement into the returned vector.
+        Cost += TTI.getVectorInstrCost(isStore ? Instruction::ExtractElement
+                                               : Instruction::InsertElement,
+                                       VectorTy, i);
+      }
+
+      // The cost of the scalar loads/stores.
+      Cost +=
+          VF * TTI.getAddressComputationCost(PtrsVecTy, IsComplexComputation);
+      Cost += VF *
+              TTI.getMemoryOpCost(Expr->getOperation(), ValTy->getScalarType(),
+                                  Alignment, AS);
+      break;
+    }
+
+    // TODO: consider masking
+    bool isMaskRequired = false; // FIXME
+    Cost = TTI.getAddressComputationCost(VectorTy);
+
+    // Case 4: Non unit-stride access, using Gather/Scatter
+#ifdef USE_SLEV 
+    if (PtrOp->getSLEV().isStrided()) {
+      int64_t StrideInElements =
+          PtrOp->getSLEV().getStride().getInteger().getSExtValue();
+      DEBUG(errs() << "Stride = " << StrideInElements << "\n");
+    } else
+      DEBUG(errs() << "Stride Unknown\n");
+#endif
+
+    if (UseGatherOrScatter) {
+      DEBUG(errs() << "Case 3: GatherScatterCost.\n");
+      assert(ConsecutiveStride == 0 &&
+             "Gather/Scatter are not used for consecutive stride");
+      Cost += getGatherScatterOpCost(Expr->getOperation(), VectorTy, PtrOp,
+                                     isMaskRequired, Alignment);
+      break;
+    }
+
+    // Case 5: Wide load/stores.
+    // TODO: Take masking into account.
+    DEBUG(errs() << "Case 4: Wide Load/Store Cost.\n");
+    if (isMaskRequired)
+      Cost += TTI.getMaskedMemoryOpCost(Expr->getOperation(), VectorTy,
+                                        Alignment, AS);
+    else
+      Cost +=
+          TTI.getMemoryOpCost(Expr->getOperation(), VectorTy, Alignment, AS);
+    if (Reverse)
+      Cost += TTI.getShuffleCost(TargetTransformInfo::SK_Reverse, VectorTy, 0);
+
+    break;
+  }
+
+  default:
+    errs() << "Unsupported expression kind.\n";
+    Expr->dump(PrintDataType);
+    //llvm_unreachable("unsupported expression kind");
+  }
+
+  // Costs related to creating the operands were already counted when
+  // operands were visited. Costs related to the operation itself:
+  DEBUG(errs() << "visited expr: add cost of operation!\n");
+  DEBUG(Expr->dump(PrintDataType));
+  DEBUG(errs() << "added a cost of " << Cost << "  to LoopBodyCost\n");
+  LoopBodyCost += Cost;
 }
-// TODO: Contrinute the cost of producing this value if not already
+
+// TODO: Contribute the cost of producing this value if not already
 // available, according to the SLEV property.
-void VPOCostGatherer::visit(AVRValue *AValue) {
+void VPOCostGathererBase::visit(AVRValue *AValue) {
   DEBUG(errs() << "visiting value!\n");
 }
-void VPOCostGatherer::postVisit(AVRValue *AValue) {}
 
-// Dummy implementation; FORNOW just make sure the vector version will be
-// selected over the scalar one.
-// CHECKME: getCost() operates on a single AvrLoop. May be called several times
-// per scenario, if the region contains several candidate AvrLoops.
+void VPOCostGathererBase::postVisit(AVRValue *AValue) {}
+
+// CHECKME: getCost() operates on a single AvrLoop. In the future will be
+// called several times per scenario, if the region contains several candidate
+// AvrLoops.
 // TODO: What additional information will the costModel need?:
 // - a Map of Memrefs to the VLS Group they belong to (if any).
 // - ?
-int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF) const {
+int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF) {
   DEBUG(errs() << "getCost: VF = " << VF << "\n");
   int Cost;
 
-  DEBUG(ALoop->dump(PrintDataType));
-  VPOCostGatherer CostGatherer;
-  AVRVisitor<VPOCostGatherer> AVisitor(CostGatherer);
+  assert(TTI && "No TTI available");
+  VPOCostGathererBase &CostGatherer = getCostGatherer(VF, ALoop);
+  AVRVisitor<VPOCostGathererBase> AVisitor(CostGatherer);
   AVisitor.visit(ALoop, true, true, true);
 
   unsigned int LoopBodyCost = CostGatherer.getLoopBodyCost();

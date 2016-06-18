@@ -170,11 +170,11 @@ public:
       return Number(FloatN / RHS.FloatN);
     }
 
-    APSInt getInteger() {
+    APSInt getInteger() const {
       assert(Defined && IsInteger && "This is not an integer number");
       return IntN;
     }
-    APFloat getFloat() {
+    APFloat getFloat() const {
       assert(Defined && !IsInteger && "This is not a floating-point number");
       return FloatN;
     }

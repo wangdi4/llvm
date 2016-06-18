@@ -38,6 +38,7 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 namespace llvm {
 
@@ -58,6 +59,9 @@ class VPODriverBase : public FunctionPass {
   WRegionInfo *WR;
 
 protected:
+  /// Handle to Target Information 
+  const TargetTransformInfo *TTI;
+
   /// Handle to AVR Generate Pass
   AVRGenerateBase *AV;
 
@@ -67,7 +71,9 @@ public:
 
   /// Get a handle to the engine that explores and evaluates the 
   /// vectorization opportunities in a Region.
-  virtual VPOScenarioEvaluationBase &getScenariosEngine() = 0;
+  virtual VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AWrn) = 0;
+
+  /// Call the destcructor of the ScenariosEngine for this region. 
   virtual void resetScenariosEngineForRegion() = 0;
 };
 

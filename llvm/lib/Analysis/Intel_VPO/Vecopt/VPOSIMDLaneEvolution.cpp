@@ -1100,7 +1100,10 @@ public:
     // RHS' SLEV is the Assign's SLEV.
     assert(AAssign->hasRHS() && "Assign without an RHS");
     AVRUtils::setSLEV(AAssign, AAssign->getRHS()->getSLEV());
-    // Propagate into LHS
+    // Propagate into LHS (unless this is a STORE)
+    if (cast<AVRExpression>(AAssign->getRHS())->getOperation() ==
+        Instruction::Store)
+      return;
     SLEVPropagator Propagator;
     AVRVisitor<SLEVPropagator> AVisitor(Propagator);
     assert(AAssign->hasLHS() && "Assign without an LHS");
@@ -1497,7 +1500,7 @@ void SIMDLaneEvolutionAnalysisHIR::construct(AVRValueHIR* AValueHIR) {
     SLEVInstruction* BaseSLEV = constructSLEV(AValueHIR, *BaseCE, VectorizedDim);
     unsigned BaseSize = 100; // TODO
     SLEVAddress* AddressSlev = new SLEVAddress(BaseSLEV, BaseSize);
-    for (auto It = RDDF->canon_begin(), E = RDDF->canon_end(); It != E; ++It) {
+    for (auto It = RDDF->canon_rbegin(), E = RDDF->canon_rend(); It != E; ++It) {
       CanonExpr* DimCE = *It;
       SLEVInstruction* IndexSLEV = constructSLEV(AValueHIR, *DimCE, VectorizedDim);
       unsigned IndexSize = 100; // TODO

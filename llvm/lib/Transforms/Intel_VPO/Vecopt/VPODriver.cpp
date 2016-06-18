@@ -39,6 +39,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVectVLSAnalysis.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #define DEBUG_TYPE "VPODriver"
 
@@ -69,8 +70,8 @@ public:
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-  VPOScenarioEvaluationBase &getScenariosEngine() override {
-    ScenariosEngine = new VPOScenarioEvaluation(*DefUse);
+  VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn) override {
+    ScenariosEngine = new VPOScenarioEvaluation(AvrWrn, TTI, *DefUse);
     return *ScenariosEngine;
   }
 
@@ -110,8 +111,8 @@ public:
     return createHIRPrinterPass(OS, Banner);
   }
 
-  VPOScenarioEvaluationBase &getScenariosEngine() override {
-    ScenariosEngine = new VPOScenarioEvaluationHIR(DDA, VLS, *DefUse);
+  VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn) override {
+    ScenariosEngine = new VPOScenarioEvaluationHIR(AvrWrn, DDA, VLS, *DefUse, TTI);
     return *ScenariosEngine;
   }
 
@@ -142,6 +143,7 @@ INITIALIZE_PASS_BEGIN(VPODriver, "VPODriver", "VPO Vectorization Driver", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerate)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AvrDefUse)
 INITIALIZE_PASS_END(VPODriver, "VPODriver", "VPO Vectorization Driver", false,
                     false)
@@ -156,6 +158,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AvrDefUseHIR)
 INITIALIZE_PASS_END(VPODriverHIR, "VPODriverHIR",
                     "VPO Vectorization Driver HIR", false, false)
@@ -177,6 +180,7 @@ bool VPODriverBase::runOnFunction(Function &F) {
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
 
   for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
     AVR *Avr = &*I;
@@ -187,7 +191,7 @@ bool VPODriverBase::runOnFunction(Function &F) {
     }
 
     // Decide if/how to vectorize in terms of profitability.
-    VPOScenarioEvaluationBase &ScenariosEngine = getScenariosEngine();
+    VPOScenarioEvaluationBase &ScenariosEngine = getScenariosEngine(AvrWrn);
 
     // VC is null if it is not profitable to vectorize
     // Or if we don't support the region (it has more than one AVRLoop).
@@ -258,9 +262,11 @@ void VPODriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<AVRGenerate>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
+  AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addRequired<AvrDefUse>();
 
   AU.addPreserved<AVRGenerate>();
+  AU.addPreserved<TargetTransformInfoWrapperPass>();
   AU.addPreserved<AvrDefUse>();
 }
 
@@ -295,6 +301,7 @@ void VPODriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AVRGenerateHIR>();
   AU.addRequired<HIRVectVLSAnalysis>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
+  AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addRequired<AvrDefUseHIR>();
 
   AU.addRequiredTransitive<HIRParser>();

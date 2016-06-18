@@ -44,7 +44,7 @@ std::string AVRAssignHIR::getAvrValueName() const {
 
 //----------AVR Expression for HIR Implementation----------//
 AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand)
-  : AVRExpression(AVR::AVRExpressionHIRNode) { 
+  : AVRExpression(AVR::AVRExpressionHIRNode, nullptr) { 
 
   HLInst* HLInst = HLAssign->getHIRInstruction();
   HIRNode = HLInst;
@@ -54,8 +54,13 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
     Predicate = LLVMCmpInst->getPredicate();
   else
     Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
+
   this->setParent(HLAssign); // Set Parent
-  this->setType(LLVMInstruction->getType()); 
+
+  // Set the data type
+  const StoreInst *SI = dyn_cast<StoreInst>(LLVMInstruction);
+  Type *Ty = (SI ? SI->getValueOperand()->getType() : LLVMInstruction->getType());
+  this->setType(Ty); 
 
   if (Operand == RightHand) {
 
@@ -93,7 +98,7 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
 // TODO: set type
 AVRExpressionHIR::AVRExpressionHIR(AVRIfHIR *AIf,
                                    HLIf::const_pred_iterator& PredIt)
-  : AVRExpression(AVR::AVRExpressionHIRNode) {
+  : AVRExpression(AVR::AVRExpressionHIRNode, nullptr) {
 
   const HLIf *HIf = AIf->getCompareInstruction();
   HIRNode = nullptr; // this is an HLIf predicate - no underlying HLInst.
@@ -125,7 +130,7 @@ AVRExpressionHIR::AVRExpressionHIR(AVRIfHIR *AIf,
 // TODO: set type
 AVRExpressionHIR::AVRExpressionHIR(AVRExpressionHIR* LHS,
                                    AVRExpressionHIR* RHS)
-  : AVRExpression(AVR::AVRExpressionHIRNode) {
+  : AVRExpression(AVR::AVRExpressionHIRNode, nullptr) {
 
   HIRNode = nullptr; // no underlying HLInst.
   this->Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
@@ -152,8 +157,30 @@ std::string AVRExpressionHIR::getOpCodeName() const {
 
 //----------AVR Value for HIR Implementation----------//
 AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
-  : AVRValue(AVR::AVRValueHIRNode, DDRef->getSrcType()), Val(DDRef), HNode(Node) {
+  : AVRValue(AVR::AVRValueHIRNode, nullptr), Val(DDRef), HNode(Node) {
   setParent(Parent);
+
+  Type *DataType;
+  const CanonExpr *CE = nullptr;
+
+  if (DDRef->hasGEPInfo()) {
+    CE = DDRef->getBaseCE();
+    PointerType *BaseTy = cast<PointerType>(CE->getSrcType()); //CHECKME: getDestType?
+    Type *ElemTy = DDRef->getSrcType(); //CHECKME: getDestType?
+    // In the case of array of ints for example (int a[300]):
+    // ElemTy is i32  (int)
+    // BaseTy is [300 x i32]*  (pointer to array)
+    // We want i32* (pointer to int), so we build it:
+    DataType = ElemTy->getPointerTo(BaseTy->getPointerAddressSpace()); 
+  }
+  else {
+    // CHECKME: DDRef->getSrcType? getDestType?
+    CE = DDRef->getSingleCanonExpr();
+    assert(CE && "DDRef is empty!");
+    DataType = CE->getSrcType();
+  }
+
+  this->setType(DataType);
 }
 
 AVRValueHIR *AVRValueHIR::clone() const {
@@ -169,9 +196,11 @@ void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
       OS << "("  << getNumber() << ")";
     case PrintAvrType:
       OS << getAvrTypeName() << "{";
-    case PrintDataType:
+    case PrintDataType: {
+      Type *ValType = getType();
       printSLEV(OS);
       OS << *ValType << " ";
+    }
     case PrintBase:
       Val->print(OS,false);
       break;

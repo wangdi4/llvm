@@ -610,10 +610,10 @@ private:
         Number RStride = RHS.getStride();
         assert((LStride != Zero || RStride != Zero) && "Computes to STRIDED?");
         if (LStride == Zero)
-          LStride = One; // Stride identity to multiplication identity
+          LStride = LHS.getConstant();
         if (RStride == Zero)
-          RStride = One; // Stride identity to multiplication identity
-        setSTRIDED(LHS.getStride() * RHS.getStride());
+          RStride = RHS.getConstant();
+        setSTRIDED(LStride * RStride);
       }
       break;
     case RANDOM:

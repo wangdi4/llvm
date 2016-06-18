@@ -91,7 +91,7 @@ void AVRAssign::shallowPrint(formatted_raw_ostream &OS) const {
 StringRef AVRAssign::getAvrTypeName() const { return StringRef("ASSIGN"); }
 
 //----------AVR Expression Implementation----------//
-AVRExpression::AVRExpression(unsigned SCID) : AVR(SCID) {}
+AVRExpression::AVRExpression(unsigned SCID, Type *ExprType) : AVR(SCID), ExprType(ExprType) {}
 
 AVRExpression *AVRExpression::clone() const { return nullptr; }
 
@@ -106,7 +106,10 @@ void AVRExpression::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "(" << getNumber() << ")";
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
-  case PrintDataType:
+  case PrintDataType: {
+    Type *ExprType = getType();
+    OS << *ExprType << " ";
+  }
     printSLEV(OS);
   case PrintBase:
     if (isUnaryOperation()) {
