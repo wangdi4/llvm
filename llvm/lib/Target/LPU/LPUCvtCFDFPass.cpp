@@ -152,25 +152,36 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 }
 
 MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB) {
-  // generate and insert SWITCH in dominating block
+  // generate and insert SWITCH or copy
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
-  unsigned switchFalseReg = MRI->createVirtualRegister(TRC);
-  unsigned switchTrueReg = MRI->createVirtualRegister(TRC);
-
+  MachineInstr* result;
   MachineBasicBlock::iterator loc = cdgpBB->getFirstTerminator();
   MachineInstr* bi = loc;
-  // generate switch op
-  const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
-  MachineInstr *switchInst = BuildMI(*cdgpBB, loc,
-                                     DebugLoc(),
-                                     TII.get(switchOpcode),
-                                     switchFalseReg).addReg(switchTrueReg,
-                                     RegState::Define).
-                                     addReg(bi->getOperand(0).getReg()).
-                                     addReg(Reg);
-  return switchInst;
+  if (cdgpBB->succ_size() > 1) {
+    unsigned switchFalseReg = MRI->createVirtualRegister(TRC);
+    unsigned switchTrueReg = MRI->createVirtualRegister(TRC);
+    assert(bi->getOperand(0).isReg());
+    // generate switch op
+    const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
+    MachineInstr *switchInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII.get(switchOpcode), 
+                                                                     switchFalseReg).
+                                                                     addReg(switchTrueReg, RegState::Define).
+                                                                     addReg(bi->getOperand(0).getReg()).
+                                                                     addReg(Reg);
+    result = switchInst;
+  }
+  else {
+    assert(MLI->getLoopFor(cdgpBB)->getLoopLatch() == cdgpBB);
+    //LLVM 3.6 buggy latch with no exit edge
+    //get a wierd latch with no exit edge from LLVM 3.6 buggy loop rotation
+    const unsigned copyOpcode = TII.getCopyOpcode(TRC);
+    unsigned cpyReg = MRI->createVirtualRegister(TRC);
+    MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII.get(copyOpcode), cpyReg).addReg(Reg);
+    result = cpyInst;
+  }
+  return result;
 }
 
 
@@ -199,8 +210,26 @@ MachineInstr* LPUCvtCFDFPass::getOrInsertSWITCHForReg(unsigned Reg, MachineBasic
 SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock *cdgpBB) {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  assert(MLI->getLoopFor(cdgpBB)->getLoopLatch() == cdgpBB);
+  MachineInstr* bi;
+  MachineLoop* mloop = MLI->getLoopFor(cdgpBB);
+  assert(mloop);
+  //get the condition where the backedge is always taken
+  if (cdgpBB->succ_size() == 1) {
+    //LLVM 3.6 buggy loop latch with no exit edge from latch, fixed in 3.9
+    ControlDependenceNode* latchNode = CDG->getNode(cdgpBB);
+    //closed edge latchNode has loop hdr as control parent, 
+    //nesting loop controls its loop hdr first, then the closed latch
+    assert(latchNode->getNumParents() == 1);
+    MachineBasicBlock* ctrlBB = (*latchNode->parent_begin())->getBlock();
+
+    assert(ctrlBB);
+    bi = ctrlBB->getFirstInstrTerminator();
+  }
+  else {
+    bi = cdgpBB->getFirstInstrTerminator();
+  }
   MachineBasicBlock::iterator loc = cdgpBB->getFirstTerminator();
-  MachineInstr* bi = loc;
   unsigned predReg = bi->getOperand(0).getReg();
 
   const TargetRegisterClass *TRC = MRI->getRegClass(predReg);
@@ -224,10 +253,28 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
   ControlDependenceNode* hdrNode = CDG->getNode(lphdr);
   ControlDependenceNode* latchNode = CDG->getNode(cdgpBB);
   MachineInstr *initInst = nullptr;
-  if (latchNode->isTrueChild(hdrNode)) {
-    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
-  } else {
-    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
+  if (cdgpBB->succ_size() > 1) {
+    if (latchNode->isTrueChild(hdrNode)) {
+      initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
+    }
+    else {
+      initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
+    }
+  }
+  else {
+    //LLVM 3.6 buggy latch
+    //closed latch
+    SmallVector<MachineOperand, 4> brCond;
+    MachineBasicBlock *currTBB = nullptr, *currFBB = nullptr;
+    if (TII.AnalyzeBranch(*bi->getParent(), currTBB, currFBB, brCond, true)) {
+      assert(false && "BB branch not analyzable \n");
+    }
+    if (CDG->getNode(bi->getParent())->isTrueChild(CDG->getNode(cdgpBB))) {
+      initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
+    }
+    else {
+      initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
+    }
   }
   SmallVector<MachineInstr *, 2>* predVec = new SmallVector<MachineInstr *, 2>();
   predVec->push_back(cpyInst);
@@ -365,6 +412,11 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
     //not inside a loop
     if (!mloop) continue;
     MachineBasicBlock *latchBB = mloop->getLoopLatch();
+    //LLVM3.6 buggy latch without exit edge
+    if (latchBB->succ_size() == 1) {
+     //no SWITCH is needed is loop latch has no exit edge
+      continue;
+    }
     ControlDependenceNode *mLatch = CDG->getNode(latchBB);
     //inside a loop
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
@@ -416,16 +468,11 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                 if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
                   //rename Reg to switchFalseReg
                   newVReg = switchFalseReg;
-                }
-                else {
+                } else {
                   //rename it to switchTrueReg
                   newVReg = switchTrueReg;
                 }
                 MachineBasicBlock* lphdr = mloop->getHeader();
-                SmallVector<MachineInstr*, 8> NewPHIs;
-                MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
-                SSAUpdate.Initialize(newVReg);
-                SSAUpdate.AddAvailableValue(latchBB, newVReg);
                 // Rewrite uses that outside of the original def's block, inside the loop
                 MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
                 while (UI != MRI->use_end()) {
@@ -436,24 +483,15 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                     UseMI->getParent() == lphdr &&
                     UseMI->isPHI()) {
                     //rename loop header Phi
-                    SSAUpdate.RewriteUse(UseMO);
+                    UseMO.setReg(newVReg);
                   }
                 }
-              }
-              else {   //mloop != defLoop
+              } else {   //mloop != defLoop
                 //two possibilites: a) def dom use;  b) def !dom use;
                 //two cases: each can only have one nesting level difference
                 // 1) def inside a loop, use outside the loop as LCSSA Phi with single input
                 // 2) def outside a loop, use inside the loop, not handled here
                 //use, def in different region cross latch
-                ControlDependenceNode* useLatchNode = NULL;
-                if (MLI->getLoopFor(UseBB) != NULL) {
-                  MachineLoop* defLoop = MLI->getLoopFor(UseBB);
-                  MachineBasicBlock* useLatch = defLoop->getLoopLatch();
-                  assert(useLatch);
-                  useLatchNode = CDG->getNode(useLatch);
-                  assert(useLatchNode->isLatchNode());
-                }
                 bool isUseEnclosingDef = MLI->getLoopFor(UseBB) == NULL ||
                   MLI->getLoopFor(UseBB) == MLI->getLoopFor(mbb)->getParentLoop();
                 //only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2 which should already have been run
@@ -468,16 +506,10 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                   if (mLatch->isFalseChild(CDG->getNode(UseBB))) {
                     //rename Reg to switchFalseReg
                     newVReg = switchFalseReg;
-                  }
-                  else {
+                  } else {
                     //rename it to switchTrueReg
                     newVReg = switchTrueReg;
                   }
-                  MachineBasicBlock* lphdr = mloop->getHeader();
-                  SmallVector<MachineInstr*, 8> NewPHIs;
-                  MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
-                  SSAUpdate.Initialize(newVReg);
-                  SSAUpdate.AddAvailableValue(latchBB, newVReg);
                   // Rewrite uses that outside of the original def's block, inside the loop
                   MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
                   while (UI != MRI->use_end()) {
@@ -486,7 +518,7 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                     ++UI;
                     if (UseMI->getParent() == UseBB) {
                       //renameLCSSAPhi or other cross boundary uses
-                      SSAUpdate.RewriteUse(UseMO);
+                      UseMO.setReg(newVReg);
                     }
                   }
                 } //use enclosing def
@@ -549,23 +581,28 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
           //use, def in different region cross latch
           bool isDefEnclosingUse = MLI->getLoopFor(DefBB) == NULL ||
                                    MLI->getLoopFor(mbb)->getParentLoop() == MLI->getLoopFor(DefBB);
-                                 
+          const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+
           if (isDefEnclosingUse && DT->dominates(DefBB, mbb)) {
-            MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, latchBB);
-
-            unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
-            unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
-            MachineBasicBlock* mlphdr = mloop->getHeader();
-            unsigned newVReg;
-            if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
-              //rename Reg to switchFalseReg
-              newVReg = switchFalseReg;
+            unsigned newVReg;  
+            MachineInstr *defInstr = getOrInsertSWITCHForReg(Reg, latchBB);
+            if (TII.isSwitch(defInstr)) {
+              unsigned switchFalseReg = defInstr->getOperand(0).getReg();
+              unsigned switchTrueReg = defInstr->getOperand(1).getReg();
+              MachineBasicBlock* mlphdr = mloop->getHeader();
+              if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
+                //rename Reg to switchFalseReg
+                newVReg = switchFalseReg;
+              } else {
+                //rename it to switchTrueReg
+                newVReg = switchTrueReg;
+              }
+            } else {
+              //LLVM3.6 buggy latch
+              assert(TII.isCopy(defInstr));
+              newVReg = defInstr->getOperand(0).getReg();
             }
-            else {
-              //rename it to switchTrueReg
-              newVReg = switchTrueReg;
-            }
-
+      
             SmallVector<MachineInstr*, 8> NewPHIs;
             MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
             SSAUpdate.Initialize(newVReg);
@@ -621,36 +658,74 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
       assert(MI->getNumOperands() == 5 && "loop header Phi can't have more than 2 inputs");
       unsigned pickSrc[2] = { 0 };
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
-        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+        //if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+        if (!MO->isReg()) continue;
         unsigned Reg = MO->getReg();
         // process use at loop level
         if (MO->isUse()) {
           //move to its incoming block operand
-          ++MO;
+          //++MO;
           MachineInstr* dMI = MRI->getVRegDef(Reg);
           MachineBasicBlock* DefBB = dMI->getParent();
+          bool defInsideLoop = false;
+          if (MLI->getLoopFor(DefBB)) {
+            if (MLI->getLoopFor(DefBB) == mloop) {
+              defInsideLoop = true;
+            } else {
+              //switch dst is defined inside a loop, but used outside loop
+              MachineLoop* defLoop = MLI->getLoopFor(DefBB);
+              while (defLoop->getParentLoop()) {
+                defLoop = defLoop->getParentLoop();
+                if (defLoop == mloop) {
+                  defInsideLoop = true;
+                  break;
+                }
+              }
+            }
+          }
           //if (DefBB == mbb) continue;
           //0 index is for init value, 1 for backedge value
-          if (MLI->getLoopFor(DefBB) != mloop) {
+          if (!defInsideLoop) {
             //def out side the loop
             pickSrc[0] = Reg;
-          }
-          else {
+          } else {
+            //nothing can be assumed due to the Latch block without exit edge
             //inside loop def must come from a switch in the latch
-            assert(DefBB == mloop->getLoopLatch() && TII.isSwitch(dMI));
+            //assert(DefBB == mloop->getLoopLatch() && (TII.isSwitch(dMI)|| TII.isCopy(dMI)));
             pickSrc[1] = Reg;
           }
         }
       } //end for MO
+      assert(pickSrc[0] && pickSrc[1]);
       unsigned pickFalseReg, pickTrueReg;
-      assert(mLatch->isChild(*DTN));
-      if (mLatch->isFalseChild(*DTN)) {
-        pickFalseReg = pickSrc[1];
-        pickTrueReg = pickSrc[0];
-      }
-      else {
-        pickTrueReg = pickSrc[1];
-        pickFalseReg = pickSrc[0];
+      if (latchBB->succ_size() > 1) {
+        assert(mLatch->isChild(*DTN));
+        if (mLatch->isFalseChild(*DTN)) {
+          pickFalseReg = pickSrc[1];
+          pickTrueReg = pickSrc[0];
+        } else {
+          pickTrueReg = pickSrc[1];
+          pickFalseReg = pickSrc[0];
+        }
+      } else {
+        //LLVM 3.6 buggy latch, loop with > 1 exits
+        //LLVM 3.6 buggy loop latch with no exit edge from latch, fixed in 3.9
+        ControlDependenceNode* latchNode = CDG->getNode(latchBB);
+        assert(latchNode->getNumParents() == 1);
+        ControlDependenceNode* ctrlNode = *latchNode->parent_begin();
+        MachineInstr* bi = ctrlNode->getBlock()->getFirstInstrTerminator();
+        SmallVector<MachineOperand, 4> brCond;
+        MachineBasicBlock *currTBB = nullptr, *currFBB = nullptr;
+        if (TII.AnalyzeBranch(*bi->getParent(), currTBB, currFBB, brCond, true)) {
+          assert(false && "BB branch not analyzable \n");
+        }
+        if (CDG->getNode(bi->getParent())->isFalseChild(CDG->getNode(latchBB))) {
+          pickFalseReg = pickSrc[1];
+          pickTrueReg = pickSrc[0];
+        } else {
+          pickTrueReg = pickSrc[1];
+          pickFalseReg = pickSrc[0];
+        }
       }
       unsigned predReg = (*predCpy)[0]->getOperand(0).getReg();
       unsigned dst = MI->getOperand(0).getReg();
@@ -777,8 +852,7 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
             controlBB = nullptr;
             inBB = nullptr;
             fallThroughReg = Reg;
-          }
-          else {
+          } else {
             //Diamond case
             ControlDependenceNode* inNode = CDG->getNode(DefBB);
             ControlDependenceNode* ctrlNode = CDG->getNonLatchParent(inNode, true);
@@ -819,8 +893,7 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
                 if (inBB == TBB) {
                   pickTrueReg = Opd->getReg();
                   visitedBB[0] = inBB;
-                }
-                else if (inBB == FBB) {
+                } else if (inBB == FBB) {
                   pickFalseReg = Opd->getReg();
                   visitedBB[1] = inBB;
                 }
@@ -834,8 +907,7 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
             }
           }
         }
-      }
-      else {
+      } else {
         pickReg = fallThroughReg;
       }
 
@@ -860,8 +932,7 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
           if (ctrlNode->isTrueChild(defNode)) {
             pickTrueReg = Opd->getReg();
             pickFalseReg = pickReg;
-          }
-          else {
+          } else {
             pickFalseReg = Opd->getReg();
             pickTrueReg = pickReg;
           }
