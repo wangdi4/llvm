@@ -37,14 +37,14 @@ set(CMAKE_CONFIGURATION_TYPES ${CMAKE_CONFIGURATION_TYPES} CACHE STRING "Availab
 
 # ITT/VTune integration
 if( NOT ANDROID )
-  add_definitions( -DUSE_ITT )
-  include_directories( ${CMAKE_SOURCE_DIR}/externals/itt/include
+    add_definitions( -DUSE_ITT )
+    include_directories( ${CMAKE_SOURCE_DIR}/externals/itt/include
        ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ )
 endif( NOT ANDROID )
 
 if (NOT WIN32 AND NOT APPLE)
   # enable C++11 support in GCC 4.7 and above
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
   add_custom_target(strip
     ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh
