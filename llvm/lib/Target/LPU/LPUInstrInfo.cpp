@@ -373,6 +373,15 @@ bool LPUInstrInfo::isSwitch(MachineInstr *MI) const {
          MI->getOpcode() == LPU::SWITCH64;
 }
 
+bool LPUInstrInfo::isCopy(MachineInstr *MI) const {
+  return MI->getOpcode() == LPU::COPY1 ||
+    MI->getOpcode() == LPU::COPY8 ||
+    MI->getOpcode() == LPU::COPY16 ||
+    MI->getOpcode() == LPU::COPY32 ||
+    MI->getOpcode() == LPU::COPY64;
+}
+
+
 unsigned
 LPUInstrInfo::getCopyOpcode(const TargetRegisterClass *RC) const {
   if      (RC == &LPU::I1RegClass)  return LPU::COPY1;

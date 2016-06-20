@@ -304,6 +304,7 @@ namespace llvm {
   };
 
 
+
   template <> struct DOTGraphTraits<ControlDependenceGraph *>
     : public DefaultDOTGraphTraits {
     DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
@@ -359,6 +360,26 @@ namespace llvm {
 #endif
     }
   };
+
+
+  template <> struct DOTGraphTraits<MachineFunction *>
+      : public DefaultDOTGraphTraits {
+      DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
+
+      static std::string getGraphName(MachineFunction *Graph) {
+        return "Machine Function CFG";
+      }
+
+      std::string getNodeLabel(MachineBasicBlock *Node, MachineFunction *Graph) {
+#if 0
+        return Node->getFullName();
+#else
+        std::string blkNumber = std::to_string(Node->getNumber());
+        std::string name = "BB#" + blkNumber;
+        return name;
+#endif
+      }
+    };
 
 } // namespace llvm
 

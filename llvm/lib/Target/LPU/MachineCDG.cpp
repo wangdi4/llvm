@@ -483,6 +483,11 @@ void ControlDependenceGraph::writeDotGraph(StringRef fname) {
   GraphWriter<ControlDependenceGraph *> gwr(File, this, false);
   gwr.writeGraph();
 
+  Filename = fname.str() + "_CFG" + ".dot";
+  raw_fd_ostream File1(Filename, EC, sys::fs::F_Text);
+  GraphWriter<MachineFunction *> gwr1(File1, thisMF, false);
+  gwr1.writeGraph();
+
   MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
   Filename = fname.str() + "_PDT" + ".dot";
   raw_fd_ostream File2(Filename, EC, sys::fs::F_Text);
