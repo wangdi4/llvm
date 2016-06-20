@@ -32,6 +32,8 @@
 #include "llvm/Pass.h"
 #include "llvm/PassSupport.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
@@ -40,12 +42,19 @@
 
 using namespace llvm;
 
+#define DEBUG_TYPE "lpu-cvt-ctl-df"
+STATISTIC(NumPICKS, "Number of PICK instrucitons generated");
+STATISTIC(NumSWITCHES, "Number of SWITCH instructions generated");
+STATISTIC(NumCOPYS, "Number of COPY instructions generated");
+STATISTIC(NumINITS, "Number of LIC INITIALIZE instructions generated");
+
+
 static cl::opt<int>
 CvtCFDFPass("lpu-cvt-cf-df-pass", cl::Hidden,
                cl::desc("LPU Specific: Convert control flow to data flow pass"),
                cl::init(1));
 
-#define DEBUG_TYPE "lpu-cvt-ctl-df"
+
 
 namespace llvm {
   class LPUCvtCFDFPass : public MachineFunctionPass {
@@ -147,6 +156,13 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForRepeat();
   insertSWITCHForLoopExit();
   replacePhiWithPICK();
+  
+  std::string Filename = thisMF->getName().str() + "_stats" + ".txt";
+  std::error_code EC;
+  raw_fd_ostream File1(Filename, EC, sys::fs::F_Text);
+  errs() << "Writing '" << Filename << "'...";
+  PrintStatistics(File1);
+
   return Modified;
 
 }
@@ -170,6 +186,7 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
                                                                      addReg(switchTrueReg, RegState::Define).
                                                                      addReg(bi->getOperand(0).getReg()).
                                                                      addReg(Reg);
+    NumSWITCHES++;
     result = switchInst;
   }
   else {
@@ -179,6 +196,7 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
     const unsigned copyOpcode = TII.getCopyOpcode(TRC);
     unsigned cpyReg = MRI->createVirtualRegister(TRC);
     MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII.get(copyOpcode), cpyReg).addReg(Reg);
+    NumCOPYS++;
     result = cpyInst;
   }
   return result;
@@ -245,6 +263,7 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
 
   const unsigned copyOpcode = TII.getCopyOpcode(TRC);
   MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(),TII.get(copyOpcode), cpyReg).addReg(bi->getOperand(0).getReg());
+  NumCOPYS++;
 
   MachineBasicBlock *lphdr = MLI->getLoopFor(cdgpBB)->getHeader();
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
@@ -276,6 +295,8 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
       initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
     }
   }
+  NumINITS++;
+
   SmallVector<MachineInstr *, 2>* predVec = new SmallVector<MachineInstr *, 2>();
   predVec->push_back(cpyInst);
   predVec->push_back(initInst);
@@ -735,6 +756,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
       MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).
                                         addReg(predReg).
                                         addReg(pickFalseReg).addReg(pickTrueReg);
+      NumPICKS++;
       MI->removeFromParent();
     }
   }
@@ -802,6 +824,7 @@ void LPUCvtCFDFPass::replace2InputsIfFooterPhi(MachineInstr* MI) {
   MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
                                                                                           addReg(pickFalseReg).
                                                                                           addReg(pickTrueReg);
+  NumPICKS++;
   MI->removeFromParent();
 }
 
@@ -903,6 +926,7 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
               MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), pickReg).addReg(predReg).
                 addReg(pickFalseReg).
                 addReg(pickTrueReg);
+              NumPICKS++;
               break;
             }
           }
@@ -942,12 +966,13 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
           MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), newdst).addReg(predReg).
             addReg(pickFalseReg).
             addReg(pickTrueReg);
-
+          NumPICKS++;
           pickReg = newdst;
         }
       }
       const unsigned copyOpcode = TII.getCopyOpcode(TRC);
       MachineInstr *cpyInst = BuildMI(*mbb, MI, DebugLoc(), TII.get(copyOpcode), dst).addReg(pickReg);
+      NumCOPYS++;
       MI->removeFromParent();
     }
   }
