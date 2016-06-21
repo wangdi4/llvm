@@ -40,6 +40,7 @@
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 
 using namespace llvm;
@@ -97,7 +98,7 @@ public:
 
 
   bool addPreISel() override {
-    addPass(createLCSSAPass());
+    //addPass(createUnifyFunctionExitNodesPass());
     return false;
   }
 
@@ -117,6 +118,12 @@ public:
     addPass(createLPUCvtCFDFPass(), false);
     Banner = std::string("After LPUCvtCFDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
+	Banner = std::string("Before LPUStatistics");
+	DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+	addPass(createLPUStatisticsPass(), false);
+	Banner = std::string("After LPUStatistics");
+	DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 #else
     Banner = std::string("Before LPUConvertControlPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));

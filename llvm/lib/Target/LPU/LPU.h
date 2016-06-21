@@ -29,6 +29,7 @@ namespace llvm {
   MachineFunctionPass *createLPUConvertControlPass();
   MachineFunctionPass *createControlDepenceGraph();
   MachineFunctionPass *createLPUCvtCFDFPass();
+  MachineFunctionPass *createLPUStatisticsPass();
   MachineFunctionPass *createLPUOptDFPass();
   MachineFunctionPass *createLPUAllocUnitPass();
   MachineFunctionPass *createLPUPrologEpilogPass();

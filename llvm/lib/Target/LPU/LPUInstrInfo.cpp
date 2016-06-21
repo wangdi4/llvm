@@ -365,12 +365,50 @@ LPUInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
 
 }
 
+
+bool LPUInstrInfo::isLoad(MachineInstr *MI) const {
+	return MI->getOpcode() >= LPU::LD1 && MI->getOpcode() <= LPU::LD8X;
+}
+
+bool LPUInstrInfo::isStore(MachineInstr *MI) const {
+	return MI->getOpcode() >= LPU::ST1 && MI->getOpcode() <= LPU::ST8i;
+}
+
+bool LPUInstrInfo::isMul(MachineInstr *MI) const {
+	return MI->getOpcode() >= LPU::MUL16 && MI->getOpcode() <= LPU::MULF64i;
+}
+
+
+bool LPUInstrInfo::isDiv(MachineInstr *MI) const {
+	return MI->getOpcode() >= LPU::DIVF16 && MI->getOpcode() <= LPU::DIVU8i1;
+}
+
+bool LPUInstrInfo::isFMA(MachineInstr *MI) const {
+	return MI->getOpcode() >= LPU::FMAF16 && MI->getOpcode() <= LPU::FMAF64xi;
+}
+
+bool LPUInstrInfo::isAdd(MachineInstr *MI) const {
+	return MI->getOpcode() >= LPU::ADD16 && MI->getOpcode() <= LPU::ADDF64i;
+}
+
+bool LPUInstrInfo::isSub(MachineInstr *MI) const {
+	return MI->getOpcode() >= LPU::SUB16 && MI->getOpcode() <= LPU::SUBF64i1;
+}
+
 bool LPUInstrInfo::isSwitch(MachineInstr *MI) const {
-  return MI->getOpcode() == LPU::SWITCH1 ||
+	return MI->getOpcode() == LPU::SWITCH1 ||
          MI->getOpcode() == LPU::SWITCH8 ||
          MI->getOpcode() == LPU::SWITCH16 ||
          MI->getOpcode() == LPU::SWITCH32 ||
          MI->getOpcode() == LPU::SWITCH64;
+}
+
+bool LPUInstrInfo::isPick(MachineInstr *MI) const {
+	return MI->getOpcode() == LPU::SWITCH1 ||
+		MI->getOpcode() == LPU::PICK8 ||
+		MI->getOpcode() == LPU::PICK16 ||
+		MI->getOpcode() == LPU::PICK32 ||
+		MI->getOpcode() == LPU::PICK64;
 }
 
 bool LPUInstrInfo::isCopy(MachineInstr *MI) const {
@@ -379,6 +417,16 @@ bool LPUInstrInfo::isCopy(MachineInstr *MI) const {
     MI->getOpcode() == LPU::COPY16 ||
     MI->getOpcode() == LPU::COPY32 ||
     MI->getOpcode() == LPU::COPY64;
+}
+
+
+
+bool LPUInstrInfo::isInit(MachineInstr *MI) const {
+	return MI->getOpcode() == LPU::INIT1 ||
+		MI->getOpcode() == LPU::INIT8 ||
+		MI->getOpcode() == LPU::INIT16 ||
+		MI->getOpcode() == LPU::INIT32 ||
+		MI->getOpcode() == LPU::INIT64;
 }
 
 
