@@ -128,10 +128,6 @@ CanonExpr *CanonExprUtils::createStandAloneBlobCanonExpr(unsigned Index,
     CE->setDefinedAtLevel(Level);
   }
 
-  if (BlobUtils::isUndefBlob(Blob)) {
-    CE->setContainsUndef();
-  }
-
   return CE;
 }
 

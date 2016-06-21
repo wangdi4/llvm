@@ -358,7 +358,7 @@ void DDWalk::visit(HLDDNode *Node) {
     for (auto II = DDG.outgoing_edges_begin(*Itr),
               EE = DDG.outgoing_edges_end(*Itr);
          II != EE; ++II) {
-      const DDEdge *Edge = &(*II);
+      const DDEdge *Edge = *II;
       analyze(Edge);
     }
   }

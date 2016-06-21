@@ -16,6 +16,8 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLLOOP_H
 #define LLVM_IR_INTEL_LOOPIR_HLLOOP_H
 
+#include "llvm/ADT/SmallVector.h"
+
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
@@ -67,6 +69,12 @@ public:
   typedef reverse_child_iterator reverse_post_iterator;
   typedef const_reverse_child_iterator const_reverse_post_iterator;
 
+  typedef SmallVector<unsigned, 8> LiveInSetTy;
+  typedef LiveInSetTy LiveOutSetTy;
+
+  typedef LiveInSetTy::const_iterator const_live_in_iterator;
+  typedef LiveOutSetTy::const_iterator const_live_out_iterator;
+
 private:
   const Loop *OrigLoop;
   HLIf *Ztt;
@@ -91,6 +99,11 @@ private:
 
   // Temporary tag to mark loop as multiversioned.
   unsigned MVTag = 0;
+
+  // Set of temp symbases live into the loop.
+  LiveInSetTy LiveInSet;
+  // Set of temp symbases live out of the loop.
+  LiveOutSetTy LiveOutSet;
 
 protected:
   HLLoop(const Loop *LLVMLoop);
@@ -552,13 +565,71 @@ public:
   /// \brief Checks whether SIMD directive is attached to the loop.
   bool isSIMD() const;
 
-  unsigned getMVTag() { return MVTag; }
+  unsigned getMVTag() const { return MVTag; }
 
   void setMVTag(unsigned Tag) { MVTag = Tag; }
-	
+
   /// \brief return true if Triangular Loop
   bool isTriangularLoop() const;
-	
+
+  const_live_in_iterator live_in_begin() const { return LiveInSet.begin(); }
+  const_live_in_iterator live_in_end() const { return LiveInSet.end(); }
+
+  const_live_out_iterator live_out_begin() const { return LiveOutSet.begin(); }
+  const_live_out_iterator live_out_end() const { return LiveOutSet.end(); }
+
+  /// Returns true if loop has livein temps.
+  bool hasLiveInTemps() const { return !LiveInSet.empty(); }
+
+  /// Returns true if loop has liveout temps.
+  bool hasLiveOutTemps() const { return !LiveOutSet.empty(); }
+
+  /// Returns true if this symbase is live in to this loop.
+  bool isLiveIn(unsigned Symbase) const {
+    return std::binary_search(live_in_begin(), live_in_end(), Symbase);
+  }
+
+  /// Returns true if this symbase is live out of this loop.
+  bool isLiveOut(unsigned Symbase) const {
+    return std::binary_search(live_out_begin(), live_out_end(), Symbase);
+  }
+
+  /// Adds symbase as live into the loop.
+  void addLiveInTemp(unsigned Symbase) {
+    auto It = std::lower_bound(LiveInSet.begin(), LiveInSet.end(), Symbase);
+
+    if ((It == LiveInSet.end()) || (*It != Symbase)) {
+      LiveInSet.insert(It, Symbase);
+    }
+  }
+  
+  /// Adds symbase as live out of the loop.
+  void addLiveOutTemp(unsigned Symbase) {
+    auto It = std::lower_bound(LiveOutSet.begin(), LiveOutSet.end(), Symbase);
+
+    if ((It == LiveOutSet.end()) || (*It != Symbase)) {
+      LiveOutSet.insert(It, Symbase);
+    }
+  }
+
+  /// Removes symbase from livein set.
+  void removeLiveInTemp(unsigned Symbase) {
+    auto It = std::lower_bound(LiveInSet.begin(), LiveInSet.end(), Symbase);
+
+    if ((It != LiveInSet.end()) && (*It == Symbase)) {
+      LiveInSet.erase(It);
+    }
+  }
+
+  /// Removes symbase from liveout set.
+  void removeLiveOutTemp(unsigned Symbase) {
+    auto It = std::lower_bound(LiveOutSet.begin(), LiveOutSet.end(), Symbase);
+
+    if ((It != LiveOutSet.end()) && (*It == Symbase)) {
+      LiveOutSet.erase(It);
+    }
+  }
+
 };
 
 } // End namespace loopopt

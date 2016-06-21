@@ -47,6 +47,7 @@ public:
   typedef SmallPtrSet<const NodeTy *, 8> SCCNodesTy;
 
   struct SCC {
+    // Outermost loop's header phi is set as the root.
     const NodeTy *Root;
     SCCNodesTy Nodes;
 
@@ -60,7 +61,7 @@ public:
   typedef RegionSCCTy::const_iterator const_iterator;
 
   /// Vector of pair of begin/end indices into RegionSCCs vector.
-  typedef SmallVector<std::pair<int ,int>, 16> RegionSCCBeginTy;
+  typedef SmallVector<std::pair<int, int>, 16> RegionSCCBeginTy;
 
 private:
   /// LI - The loop information for the function we are currently analyzing.
@@ -94,7 +95,7 @@ private:
 
   /// LastSCCRegIt - Points to the last region for which we created SCCs.
   HIRRegionIdentification::const_iterator LastSCCRegIt;
-    
+
   /// CurLoop - Points to the loop being processed.
   Loop *CurLoop;
 
@@ -111,6 +112,16 @@ private:
 private:
   /// \brief Returns true if this is a potential root of a new SCC.
   bool isCandidateRootNode(const NodeTy *Node) const;
+
+  /// Returns true if \p Phi is used in a header phi contained in CurLoop.
+  bool usedInHeaderPhi(const PHINode *Phi) const;
+
+  /// Returns true if \p Inst is used outside the loop it is defined in.
+  bool isLoopLiveOut(const Instruction *Inst) const;
+ 
+  /// Returns true if any of \p Phi's operands depend directly or indirectly on
+  /// another phi defined in the same bblock as itself.
+  bool dependsOnSameBasicBlockPhi(const PHINode *Phi) const;
 
   /// \brief Returns true if this is a node of the graph.
   bool isCandidateNode(const NodeTy *Node) const;
@@ -150,6 +161,10 @@ private:
 
   /// \brief Checks that Phi is used in another phi in the SCC.
   bool isUsedInSCCPhi(const PHINode *Phi, const SCCNodesTy &NewSCC) const;
+
+  /// Used to set the outermost loop header phi amongst the nodes as the root
+  /// node.
+  void updateRoot(SCCTy &SCC, const NodeTy *NewRoot) const;
 
   /// \brief Runs Tarjan's algorithm on this node. Returns the lowlink for this
   /// node.

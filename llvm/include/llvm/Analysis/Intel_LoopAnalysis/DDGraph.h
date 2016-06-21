@@ -42,14 +42,23 @@ class HLNode;
 // This was meant to be the basis of a general graph class
 // focused on fast iteration at the cost of slow modification
 // and extra memory
-template <class GraphNode, class GraphEdge> class HIRGraph {
+template <typename GraphNode, typename GraphEdge>
+class HIRGraph {
+  typedef SmallVector<GraphEdge *, 4> GraphEdgeContainerTy;
+
+  void addImpl(GraphEdge *EdgePtr) {
+    inEdges[EdgePtr->getSink()].push_back(EdgePtr);
+    outEdges[EdgePtr->getSrc()].push_back(EdgePtr);
+  }
 
 public:
-  typedef typename std::vector<GraphEdge>::const_iterator EdgeIterator;
-  typedef std::pointer_to_unary_function<GraphEdge, GraphNode *>
+  typedef typename GraphEdgeContainerTy::const_iterator EdgeIterator;
+  typedef std::pointer_to_unary_function<GraphEdge *, GraphNode *>
       GraphNodeDerefFun;
+
   typedef mapped_iterator<EdgeIterator, GraphNodeDerefFun> children_iterator;
-  static GraphNode *SinkFun(GraphEdge E) { return E.getSink(); }
+
+  static GraphNode *SinkFun(GraphEdge *E) { return E->getSink(); }
 
   children_iterator children_begin(GraphNode *Node) {
     return map_iterator(outgoing_edges_begin(Node), GraphNodeDerefFun(SinkFun));
@@ -61,38 +70,42 @@ public:
 
   // Don't let others modify edges. We can only remove or add
   // edges
-  typename std::vector<GraphEdge>::const_iterator
+  EdgeIterator
   incoming_edges_begin(GraphNode *Node) {
-    return inEdges[Node].cbegin();
+    return inEdges[Node].begin();
   }
-  typename std::vector<GraphEdge>::const_iterator
+
+  EdgeIterator
   incoming_edges_end(GraphNode *Node) {
-    return inEdges[Node].cend();
+    return inEdges[Node].end();
   }
-  typename std::vector<GraphEdge>::const_iterator
+
+  EdgeIterator
   outgoing_edges_begin(GraphNode *Node) {
-    return outEdges[Node].cbegin();
+    return outEdges[Node].begin();
   }
-  typename std::vector<GraphEdge>::const_iterator
+
+  EdgeIterator
   outgoing_edges_end(GraphNode *Node) {
-    return outEdges[Node].cend();
+    return outEdges[Node].end();
   }
 
-  void addEdge(GraphEdge E) {
-    inEdges[E.getSink()].push_back(E);
-    outEdges[E.getSrc()].push_back(E);
+  void addEdge(const GraphEdge &E) {
+    EdgesVector.push_back(E);
+    addImpl(&EdgesVector.back());
   }
 
-  void removeEdge(GraphEdge E) {
-    // TODO
+  void addEdge(GraphEdge &&E) {
+    EdgesVector.push_back(std::move(E));
+    addImpl(&EdgesVector.back());
   }
 
   void print(raw_ostream &OS) const {
     for (auto I = outEdges.begin(), E = outEdges.end(); I != E; ++I) {
-      std::vector<GraphEdge> edges = I->second;
-      for (auto EIt = edges.begin(), EdgesEnd = edges.end(); EIt != EdgesEnd;
+      auto Edges = I->second;
+      for (auto EIt = Edges.begin(), EdgesEnd = Edges.end(); EIt != EdgesEnd;
            ++EIt) {
-        EIt->print(OS);
+        (*EIt)->print(OS);
       }
     }
   }
@@ -102,16 +115,16 @@ public:
   void clear() {
     inEdges.clear();
     outEdges.clear();
+    EdgesVector.clear();
   }
 
 private:
-  GraphNode *CurNode;
-
-  // It is assumed the common operation is to iterate over inc/out edges
+  // It is assumed the common operation is to iterate over in/out edges
   // As such, we keep edge vectors for each node, with each edge stored
   // (as a struct vs ptr) twice; once in inEdges and once in outEdges
-  std::map<GraphNode *, std::vector<GraphEdge>> inEdges;
-  std::map<GraphNode *, std::vector<GraphEdge>> outEdges;
+  std::map<GraphNode *, GraphEdgeContainerTy> inEdges;
+  std::map<GraphNode *, GraphEdgeContainerTy> outEdges;
+  std::list<GraphEdge> EdgesVector;
 };
 
 class DDEdge {

@@ -66,15 +66,15 @@ public:
 /// HIR VectorContext
 class VPOVecContextHIR : public VPOVecContextBase {
 public:
-  VPOVecContextHIR(unsigned VF, DDGraph DDG, HLLoop *L) : VPOVecContextBase(VF), DDG(DDG), Loop(L) {}
-  VPOVecContextHIR(DDGraph DDG, HLLoop *L) : DDG(DDG), Loop(L) {} 
+  VPOVecContextHIR(unsigned VF, DDGraph DDG, const HLLoop *L) : VPOVecContextBase(VF), DDG(DDG), Loop(L) {}
+  VPOVecContextHIR(DDGraph DDG, const HLLoop *L) : DDG(DDG), Loop(L) {} 
   VPOVecContextHIR(unsigned VF) : VPOVecContextBase(VF), DDG(nullptr, nullptr), Loop(nullptr) {} 
   VPOVecContextHIR() : DDG(nullptr, nullptr), Loop(nullptr) {} 
 
   /// \name Functions to get the DDG, Loop and Loop level.
   /// @{
   DDGraph getDDG() const { return DDG; }
-  HLLoop *getLoop() const { return Loop; }
+  const HLLoop *getLoop() const { return Loop; }
   unsigned getLoopLevel() const { return Loop->getNestingLevel(); }
   /// @}
 
@@ -84,7 +84,7 @@ private:
   DDGraph DDG;
 
   /// \brief The HIR Loop that is currently considered for vectorization.
-  HLLoop *Loop;
+  const HLLoop *Loop;
 };
 
 } // End namespace vpo

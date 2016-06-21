@@ -122,9 +122,17 @@ public:
   /// \brief Verifies DDRef integrity.
   virtual void verify() const;
 
-  /// \brief Returns true if DDRef temp is live out of Region
-  ///  Note: This is different from Live out of Loop
+  /// Returns true if temp DDRef is live out of Region.
+  /// Assets if this DDRef does not represent a temp.
   bool isLiveOutOfRegion() const;
+
+  /// Returns true if temp DDRef is live into parent loop.
+  /// Asserts if this DDRef does not represent a temp.
+  bool isLiveIntoParentLoop() const;
+
+  /// Returns true if temp DDRef is live out of parent loop.
+  /// Asserts if this DDRef does not represent a temp.
+  bool isLiveOutOfParentLoop() const;
 
   /// \brief  Returns ParentLoop of DDRef.
   HLLoop *getParentLoop() const;

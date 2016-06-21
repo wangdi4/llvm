@@ -29,6 +29,32 @@
 ; CHECK-NEXT: + END LOOP
 
 
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck -check-prefix=DETAIL %s
+
+; Verify loop liveins/liveouts.
+
+; DETAIL: LiveIn symbases: [[X075SYMBASE:[0-9]+]], [[COND84SYMBASE:[0-9]+]]
+; DETAIL: LiveOut symbases: [[SYMBASE2:[0-9]+]]
+; DETAIL: DO i32 i1
+; DETAIL: <BLOB> LINEAR i32 %cond84 {sb:[[COND84SYMBASE]]
+; DETAIL: <BLOB> NON-LINEAR i32 %x.075 {sb:[[X075SYMBASE]]
+
+; DETAIL: LiveIn symbases: [[COND84SYMBASE]], [[X171SYMBASE:[0-9]+]]
+; DETAIL: LiveOut symbases: [[SYMBASE2]]
+; DETAIL: DO i32 i2
+; DETAIL: <BLOB> NON-LINEAR i32 %x.171 {sb:[[X171SYMBASE]]
+
+; DETAIL: LiveIn symbases: [[COND84SYMBASE]], [[X267SYMBASE:[0-9]+]]
+; DETAIL: LiveOut symbases: [[SYMBASE2]]
+; DETAIL: DO i32 i3
+
+; DETAIL: LiveIn symbases: [[COND84SYMBASE]], [[X267SYMBASE]]
+; DETAIL: LiveOut symbases: [[SYMBASE2]]
+; DETAIL: DO i32 i4
+; DETAIL: <BLOB> LINEAR i32 %x.267{def@3} {sb:[[X267SYMBASE]]}
+
+; DETAIL: <BLOB> NON-LINEAR i32 %2 {sb:[[SYMBASE2]]}
+
 
 ;Module Before HIR; ModuleID = 'nestedloop.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -110,6 +110,115 @@ bool HIRSCCFormation::isCandidateRootNode(const NodeTy *Node) const {
   return true;
 }
 
+bool HIRSCCFormation::isLoopLiveOut(const Instruction *Inst) const {
+  auto Lp = LI->getLoopFor(Inst->getParent());
+
+  assert(Lp && "Loop is null!");
+
+  for (auto I = Inst->user_begin(), E = Inst->user_end(); I != E; ++I) {
+    auto UserInst = cast<Instruction>(*I);
+
+    // If HIRSCCFormation is recomputed after SSA deconstruction (during testing
+    // using opt, for example) we will see a liveout copy which is used outside
+    // the loop instead of a direct liveout use. This check is to make sure we
+    // form identical SCCs irrespective of when this is called.
+    if (SE->getHIRMetadata(UserInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
+      return isLoopLiveOut(UserInst);
+    }
+
+    if (!Lp->contains(UserInst->getParent())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool HIRSCCFormation::usedInHeaderPhi(const PHINode *Phi) const {
+  assert(!RI->isHeaderPhi(Phi) && "Header phi not expected!");
+
+  for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
+    auto UserPhi = dyn_cast<PHINode>(*I);
+
+    if (!UserPhi || !RI->isHeaderPhi(UserPhi)) {
+      continue;
+    }
+
+    if (!CurLoop->contains(UserPhi->getParent())) {
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+class BasicBlockPhiFinder {
+  const PHINode *BBPhi;
+  bool Found;
+
+public:
+  BasicBlockPhiFinder(const PHINode *BBPhi) : BBPhi(BBPhi), Found(false) {}
+
+  bool follow(const SCEV *SC) {
+    if (auto Blob = dyn_cast<SCEVUnknown>(SC)) {
+      auto Phi = dyn_cast<PHINode>(Blob->getValue());
+
+      if (Phi && (Phi != BBPhi) && (Phi->getParent() == BBPhi->getParent())) {
+        Found = true;
+      }
+    }
+
+    return true;
+  }
+
+  bool isDone() { return found(); }
+
+  bool found() { return Found; }
+};
+
+bool HIRSCCFormation::dependsOnSameBasicBlockPhi(const PHINode *Phi) const {
+  assert(RI->isHeaderPhi(Phi) && "Header phi expected!");
+
+  if (isConsideredLinear(Phi)) {
+    return false;
+  }
+
+  auto PhiBB = Phi->getParent();
+  bool IsSCEVable = SE->isSCEVable(Phi->getType());
+
+  BasicBlockPhiFinder BBPF(Phi);
+
+  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
+
+    auto InstOp = dyn_cast<Instruction>(Phi->getIncomingValue(I));
+
+    if (!InstOp) {
+      continue;
+    }
+
+    // Check if operand is a phi defined in the same bblock.
+    if (isa<PHINode>(InstOp) && (InstOp->getParent() == PhiBB)) {
+      return true;
+    }
+
+    if (!IsSCEVable) {
+      continue;
+    }
+
+    // Check SCEV form of operand.
+    auto SC = SE->getSCEV(const_cast<Instruction *>(InstOp));
+    visitAll(SC, BBPF);
+
+    if (BBPF.found()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   // Use is outside the loop bring processed.
@@ -152,36 +261,15 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
   // In a valid phi SCC, all phis are either header phis or used in header phis.
   auto Phi = dyn_cast<PHINode>(Node);
 
-  if (!Phi || RI->isHeaderPhi(Phi)) {
+  if (!Phi) {
     return true;
   }
 
-  // Do not involve single operand phis in SCCs.
-  if (1 == Phi->getNumIncomingValues()) {
-    return false;
+  if (RI->isHeaderPhi(Phi)) {
+    return (!isLoopLiveOut(Phi) || !dependsOnSameBasicBlockPhi(Phi));
   }
 
-  bool IsUsedInHeaderPhi = false;
-  for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
-    auto UserPhi = dyn_cast<PHINode>(*I);
-
-    if (!UserPhi || !RI->isHeaderPhi(UserPhi)) {
-      continue;
-    }
-
-    if (!CurLoop->contains(UserPhi->getParent())) {
-      continue;
-    }
-
-    IsUsedInHeaderPhi = true;
-    break;
-  }
-
-  if (!IsUsedInHeaderPhi) {
-    return false;
-  }
-
-  return true;
+  return usedInHeaderPhi(Phi);
 }
 
 HIRSCCFormation::NodeTy::const_user_iterator
@@ -410,6 +498,35 @@ bool HIRSCCFormation::isValidSCC(const SCCNodesTy &Nodes) const {
   return true;
 }
 
+void HIRSCCFormation::updateRoot(SCCTy &SCC, const NodeTy *NewRoot) const {
+
+  if (!isa<PHINode>(NewRoot)) {
+    return;
+  }
+
+  // Update blindly if NewRoot is a phi and old root is not. This avoids loop
+  // lookup for single phi SCCs.
+  if (!isa<PHINode>(SCC.Root)) {
+    SCC.Root = NewRoot;
+    return;
+  }
+
+  auto ParentBB = NewRoot->getParent();
+  auto NewLp = LI->getLoopFor(ParentBB);
+
+  // Return if NewRoot isn't a header phi.
+  if (ParentBB != NewLp->getHeader()) {
+    return;
+  }
+
+  auto OldLp = LI->getLoopFor(SCC.Root->getParent());
+
+  // If new loop contains old loop, we have found an outer loop header phi.
+  if (NewLp->contains(OldLp)) {
+    SCC.Root = NewRoot;
+  }
+}
+
 unsigned HIRSCCFormation::findSCC(const NodeTy *Node) {
   unsigned Index = GlobalNodeIndex++;
   unsigned LowLink = Index;
@@ -457,26 +574,21 @@ unsigned HIRSCCFormation::findSCC(const NodeTy *Node) {
       SCCTy NewSCC(Node);
       auto &NewSCCNodes = NewSCC.Nodes;
       const NodeTy *SCCNode;
-      bool isRootPhi = isa<PHINode>(Node);
 
       // Insert Nodes in new SCC.
       do {
         SCCNode = NodeStack.pop_back_val();
         NewSCCNodes.insert(SCCNode);
 
-        // If the root of this SCC is not a phi, it may get eliminated as an
-        // intermediate node which results in a dangling root node. To fix this
-        // we set the first phi we encounter to be the root node.
-        if (!isRootPhi && isa<PHINode>(SCCNode)) {
-          NewSCC.Root = SCCNode;
-          isRootPhi = true;
-        }
+        updateRoot(NewSCC, SCCNode);
 
         // Invalidate index so node is ignored in subsequent traverals.
         VisitedNodes[SCCNode] = 0;
       } while (SCCNode != Node);
 
-      assert(isRootPhi && "No phi found in SCC!");
+      assert(isa<PHINode>(NewSCC.Root) &&
+             RI->isHeaderPhi(cast<PHINode>(NewSCC.Root)) &&
+             "No phi found in SCC!");
 
       // Remove nodes not directly associated with the phi nodes.
       removeIntermediateNodes(NewSCCNodes);
