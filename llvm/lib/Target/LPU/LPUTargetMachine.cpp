@@ -106,7 +106,7 @@ public:
 #define DEBUG_TYPE "lpu-convert-control"
   void addPreRegAlloc() override {
     std::string Banner;
-#if 0
+#if 1
     Banner = std::string("Before Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
     addPass(createControlDepenceGraph(), false);
