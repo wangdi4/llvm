@@ -828,7 +828,7 @@ void LPUCvtCFDFPass::replace2InputsIfFooterPhi(MachineInstr* MI) {
   MI->removeFromParent();
 }
 
-
+#if 0
 void LPUCvtCFDFPass::replaceIfFooterPhi() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
   const TargetMachine &TM = thisMF->getTarget();
@@ -976,4 +976,99 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
       MI->removeFromParent();
     }
   }
+}
+#endif
+
+
+void LPUCvtCFDFPass::replaceIfFooterPhi() {
+	typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
+	const TargetMachine &TM = thisMF->getTarget();
+	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+	const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+	MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+	ControlDependenceNode *root = CDG->getRoot();
+	for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
+		MachineBasicBlock *mbb = DTN->getBlock();
+		if (!mbb) continue; //root node has no bb
+		MachineBasicBlock::iterator iterI = mbb->begin();
+		while (iterI != mbb->end()) {
+			MachineInstr *MI = iterI;
+			++iterI;
+			if (!MI->isPHI()) continue;
+
+			//for two inputs value, we can generate better code
+			if (MI->getNumOperands() == 5) {
+				replace2InputsIfFooterPhi(MI);
+				continue;
+			}
+
+			unsigned pickFalseReg = 0, pickTrueReg = 0, fallThroughReg = 0;
+			MachineBasicBlock* controlBB = nullptr;
+			unsigned dst = MI->getOperand(0).getReg();
+			const TargetRegisterClass *TRC = MRI->getRegClass(dst);
+			const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
+
+			for (MIOperands MO(MI); MO.isValid(); ++MO) {
+				if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+				unsigned Reg = MO->getReg();
+				if (MO->isUse()) {
+					//move to its incoming block operand
+					++MO;
+					MachineBasicBlock* inBB = nullptr;
+					MachineInstr* dMI = MRI->getVRegDef(Reg);
+					MachineBasicBlock* DefBB = dMI->getParent();
+					if (DT->dominates(DefBB, mbb)) {
+						//Triangle fall through case
+						controlBB = nullptr;
+						inBB = nullptr;
+						fallThroughReg = Reg;
+					}
+				}
+			}
+
+			unsigned pickReg;
+			if (fallThroughReg == 0) {
+				//start with %ign
+				pickReg = LPU::IGN;
+			} else {
+				pickReg = fallThroughReg;
+			}
+			//assume only can have one fallthrough reg in Phi's inputs
+			for (MIOperands MO(MI); MO.isValid(); ++MO) {
+				if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg()) || !MO->isUse()) continue;
+				if (MO->getReg() == fallThroughReg) continue;
+				MIOperands Opd = MO;
+				//move MO to incoming blk
+				++MO;
+				MachineBasicBlock* inBB = MO->getMBB();
+				MachineInstr *defMI = MRI->getVRegDef(Opd->getReg());
+				MachineBasicBlock* defBB = defMI->getParent();
+				ControlDependenceNode* defNode = CDG->getNode(defBB);
+				assert(defNode->getNumParents() == 1 || defNode->getNumParents() == 2);
+				ControlDependenceNode* ctrlNode = CDG->getNonLatchParent(defNode, true);
+				MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
+				MachineInstr* bi = ctrlBB->getFirstInstrTerminator();
+				unsigned predReg = bi->getOperand(0).getReg();
+				if (ctrlNode->isTrueChild(defNode)) {
+					pickTrueReg = Opd->getReg();
+					pickFalseReg = pickReg;
+				} else {
+					pickFalseReg = Opd->getReg();
+					pickTrueReg = pickReg;
+				}
+
+				unsigned newdst = MRI->createVirtualRegister(MRI->getRegClass(dst));
+				//generate PICK, and insert before MI, so that new PICK is after the previously generated PICKS
+				MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), newdst).addReg(predReg).
+					addReg(pickFalseReg).
+					addReg(pickTrueReg);
+				NumPICKS++;
+				pickReg = newdst;
+			}
+			const unsigned copyOpcode = TII.getCopyOpcode(TRC);
+			MachineInstr *cpyInst = BuildMI(*mbb, MI, DebugLoc(), TII.get(copyOpcode), dst).addReg(pickReg);
+			NumCOPYS++;
+			MI->removeFromParent();
+		}
+	}
 }
