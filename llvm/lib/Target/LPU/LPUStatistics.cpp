@@ -43,6 +43,7 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "lpu-statistics"
+
 STATISTIC(NumPICKS, "Number of PICK instrucitons generated");
 STATISTIC(NumSWITCHES, "Number of SWITCH instructions generated");
 STATISTIC(NumCOPYS, "Number of COPY instructions generated");
@@ -146,7 +147,7 @@ bool LPUStatistics::runOnMachineFunction(MachineFunction &MF) {
   std::string Filename = thisMF->getName().str() + "_stats" + ".txt";
   std::error_code EC;
   raw_fd_ostream File1(Filename, EC, sys::fs::F_Text);
-  errs() << "Writing '" << Filename << "'...";
+  DEBUG(errs() << "Writing '" << Filename << "'...");
 
 
   PrintStatistics(File1);

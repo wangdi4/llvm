@@ -29,6 +29,7 @@ INITIALIZE_PASS(ControlDependenceGraph, "machine-cdg",
   "Machine Control Dependence Graph Construction", true, true)
 
 
+#define DEBUG_TYPE "lpu-cdg-pass"
 namespace llvm {
 
 void ControlDependenceNode::addTrue(ControlDependenceNode *Child) {
@@ -332,9 +333,9 @@ void ControlDependenceGraphBase::graphForFunction(MachineFunction &F, MachinePos
   computeDependencies(F,pdt);
   //insertRegions(pdt);
   regionsForGraph(F, pdt);
-#if 0
+
   dumpRegions();
-#endif
+
 }
 
 //base on "compact representaions for control dependence, by Cytron, Ferrante, Sarkar"
@@ -420,14 +421,14 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
 void ControlDependenceGraphBase::dumpRegions() {
   for (unsigned i = 0; i < regions.size(); i++) {
     CDGRegion *r = regions[i];
-    errs() << "Region" << i << ": ";
+    DEBUG(errs() << "Region" << i << ": ");
     for (SetVector<ControlDependenceNode *>::iterator N = r->nodes.begin(), E = r->nodes.end();
       N != E; ++N) {
       ControlDependenceNode *node = *N;
       assert(node);
-      errs() << cdg2bb[node]->getFullName() << ", ";
+      DEBUG(errs() << cdg2bb[node]->getFullName() << ", ");
     }
-    errs() << "\n";
+    DEBUG(errs() << "\n");
   }
 }
 
@@ -479,7 +480,7 @@ void ControlDependenceGraph::writeDotGraph(StringRef fname) {
   std::string Filename = fname.str() + "_CDG" + ".dot";
   std::error_code EC;
 
-  errs() << "Writing '" << Filename << "'...";
+  DEBUG(errs() << "Writing '" << Filename << "'...");
 
   raw_fd_ostream File(Filename, EC, sys::fs::F_Text);
   GraphWriter<ControlDependenceGraph *> gwr(File, this, false);
