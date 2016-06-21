@@ -332,7 +332,9 @@ void ControlDependenceGraphBase::graphForFunction(MachineFunction &F, MachinePos
   computeDependencies(F,pdt);
   //insertRegions(pdt);
   regionsForGraph(F, pdt);
+#if 0
   dumpRegions();
+#endif
 }
 
 //base on "compact representaions for control dependence, by Cytron, Ferrante, Sarkar"

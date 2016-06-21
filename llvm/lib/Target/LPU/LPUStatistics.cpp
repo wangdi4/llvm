@@ -54,6 +54,8 @@ STATISTIC(NumMULS, "Number of MUL instrucitons generated");
 STATISTIC(NumDIVS, "Number of DIV instrucitons generated");
 STATISTIC(NumLOADS, "Number of LOAD instrucitons generated");
 STATISTIC(NumSTORES, "Number of STORE instrucitons generated");
+STATISTIC(NumCMPS, "Number of COMPARE instrucitons generated");
+STATISTIC(NumSHIFTS, "Number of SHIFT instrucitons generated");
 
 
 static cl::opt<int>
@@ -131,6 +133,12 @@ bool LPUStatistics::runOnMachineFunction(MachineFunction &MF) {
 		  }
 		  else if (TII.isSub(I)) {
 			  NumSUBS++;
+		  }
+		  else if (TII.isShift(I)) {
+			  NumSHIFTS++;
+		  }
+		  else if (TII.isCmp(I)) {
+			  NumCMPS++;
 		  }
 	  }
   }

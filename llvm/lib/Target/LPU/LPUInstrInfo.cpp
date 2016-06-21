@@ -395,6 +395,15 @@ bool LPUInstrInfo::isSub(MachineInstr *MI) const {
 	return MI->getOpcode() >= LPU::SUB16 && MI->getOpcode() <= LPU::SUBF64i1;
 }
 
+bool LPUInstrInfo::isShift(MachineInstr *MI) const {
+	return MI->getOpcode() >= LPU::SLL16 && MI->getOpcode() <= LPU::SLL8i1 ||
+		   MI->getOpcode() >= LPU::SRA16 && MI->getOpcode() <= LPU::SRL8i1;
+}
+
+bool LPUInstrInfo::isCmp(MachineInstr *MI) const {
+	return MI->getOpcode() >= LPU::CMPEQ1 && MI->getOpcode() <= LPU::CMPUOF64i;
+}
+
 bool LPUInstrInfo::isSwitch(MachineInstr *MI) const {
 	return MI->getOpcode() == LPU::SWITCH1 ||
          MI->getOpcode() == LPU::SWITCH8 ||

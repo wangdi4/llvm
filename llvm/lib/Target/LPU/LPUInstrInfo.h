@@ -147,6 +147,8 @@ public:
   bool isMul(MachineInstr *) const;
   bool isDiv(MachineInstr *) const;
   bool isFMA(MachineInstr *) const;
+  bool isShift(MachineInstr *) const;
+  bool isCmp(MachineInstr *) const;
 
   unsigned getCopyOpcode(const TargetRegisterClass *RC) const;
   unsigned getMoveOpcode(const TargetRegisterClass *RC) const;
