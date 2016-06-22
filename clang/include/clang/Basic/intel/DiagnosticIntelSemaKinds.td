@@ -37,11 +37,11 @@ def warn_intel_nontrivial_union_or_anon_struct_member : Warning<
   "operator|move assignment operator|destructor}2">,
   InGroup<IntelCompat>;
 def warn_lvalue_reference_bind_to_initlist : Warning<
-  "non-const lvalue reference to type %0 cannot bind to an "
+  "%select{non-const|volatile}0 lvalue reference to type %1 cannot bind to an "
   "initializer list temporary">, InGroup<IntelCompat>;
 def warn_lvalue_reference_bind_to_temporary : Warning<
-  "non-const lvalue reference %diff{to type $ cannot bind "
-  "to a temporary of type $|cannot bind to incompatible temporary}0,1">,
+  "%select{non-const|volatile}0 lvalue reference %diff{to type $ cannot bind "
+  "to a temporary of type $|cannot bind to incompatible temporary}1,2">,
   InGroup<IntelCompat>;
 // CQ#236476 - static variable is referenced in two separate routines in iclang.
 def err_static_variable_with_label_addr

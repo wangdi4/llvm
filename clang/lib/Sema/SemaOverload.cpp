@@ -502,6 +502,12 @@ void ImplicitConversionSequence::dump() const {
   if (isStdInitializerListElement())
     OS << "Worst std::initializer_list element conversion: ";
   switch (ConversionKind) {
+#if INTEL_CUSTOMIZATION
+  case PermissiveConversion:
+    OS << "Permissive standard conversion: ";
+    Standard.dump();
+    break;
+#endif // INTEL_CUSTOMIZATION
   case StandardConversion:
     OS << "Standard conversion: ";
     Standard.dump();
@@ -4465,7 +4471,12 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
   //     -- Otherwise, the reference shall be an lvalue reference to a
   //        non-volatile const type (i.e., cv1 shall be const), or the reference
   //        shall be an rvalue reference.
-  if (!isRValRef && (!T1.isConstQualified() || T1.isVolatileQualified()))
+#if INTEL_CUSTOMIZATION
+  // CQ#364712: let non-const lvalue references bind to temporaries.
+  auto InitStatus = S.GetReferenceInitStatus(
+      Init, !isRValRef, T1, T1.getQualifiers(), RefRelationship);
+  if (InitStatus == Sema::RIS_Forbidden)
+#endif // INTEL_CUSTOMIZATION
     return ICS;
 
   //       -- If the initializer expression
@@ -4502,6 +4513,11 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
     ICS.Standard.ObjCLifetimeConversionBinding = ObjCLifetimeConversion;
     ICS.Standard.CopyConstructor = nullptr;
     ICS.Standard.DeprecatedStringLiteralToCharPtr = false;
+#if INTEL_CUSTOMIZATION
+    // Mark this conversion permissive for correct overloading resolution.
+    if (InitStatus == Sema::RIS_Extension)
+      ICS.setPermissive();
+#endif // INTEL_CUSTOMIZATION
     return ICS;
   }
 
@@ -6584,6 +6600,7 @@ Sema::AddConversionCandidate(CXXConversionDecl *Conversion,
                           /*AllowObjCWritebackConversion=*/false);
 
   switch (ICS.getKind()) {
+  case ImplicitConversionSequence::PermissiveConversion: // INTEL
   case ImplicitConversionSequence::StandardConversion:
     Candidate.FinalConversion = ICS.Standard;
 

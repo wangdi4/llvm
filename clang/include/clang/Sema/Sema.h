@@ -9123,6 +9123,19 @@ public:
     Ref_Compatible
   };
 
+#if INTEL_CUSTOMIZATION
+  enum ReferenceInitStatus {
+    RIS_Allowed = 0,
+    RIS_Extension,
+    RIS_Forbidden
+  };
+
+  ReferenceInitStatus
+  GetReferenceInitStatus(Expr *Init, bool isLValueRef, QualType T,
+                         Qualifiers Quals,
+                         Sema::ReferenceCompareResult RefRelationships);
+#endif // INTEL_CUSTOMIZATION
+
   ReferenceCompareResult CompareReferenceRelationship(SourceLocation Loc,
                                                       QualType T1, QualType T2,
                                                       bool &DerivedToBase,

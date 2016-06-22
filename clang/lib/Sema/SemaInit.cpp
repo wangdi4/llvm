@@ -3778,15 +3778,7 @@ static void TryReferenceListInitialization(Sema &S,
                         TreatUnavailableAsInvalid);
   if (Sequence) {
     if (DestType->isRValueReferenceType() ||
-#if INTEL_CUSTOMIZATION
-        // CQ#364712 - allow non-const non-volatile lvalue reference bind to
-        // temporary of structure or class types in IntelMSCompat mode.
-        (!T1Quals.hasVolatile() &&
-         (T1Quals.hasConst() ||
-          (S.getLangOpts().IntelMSCompat && T1->isStructureOrClassType()))))
-#else
         (T1Quals.hasConst() && !T1Quals.hasVolatile()))
-#endif // INTEL_CUSTOMIZATION
       Sequence.AddReferenceBindingStep(cv1T1, /*bindingTemporary=*/true);
     else
       Sequence.SetFailed(
@@ -4244,6 +4236,29 @@ convertQualifiersAndValueKindIfNecessary(Sema &S,
   return Initializer->getValueKind();
 }
 
+#if INTEL_CUSTOMIZATION
+Sema::ReferenceInitStatus
+Sema::GetReferenceInitStatus(Expr *Init, bool isLValueRef, QualType T,
+                             Qualifiers Quals,
+                             Sema::ReferenceCompareResult RefRelationships) {
+  // Const non-volatile lvalue references and rvalue references are allowed.
+  if (!isLValueRef || (!Quals.hasVolatile() && Quals.hasConst()))
+    return Sema::RIS_Allowed;
+
+  // Everything else is an Intel MSVC compatibility extensions for C++.
+  if (!(getLangOpts().IntelMSCompat && getLangOpts().CPlusPlus))
+    return Sema::RIS_Forbidden;
+
+  // Non-const lvalue reference can be bound to the result of "new" statement
+  // or to temporary of compatible class type without dropping qualifiers.
+  if ((RefRelationships >= Sema::Ref_Related && T->isRecordType()) ||
+      isa<CXXNewExpr>(Init))
+    return Sema::RIS_Extension;
+
+  return Sema::RIS_Forbidden;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// \brief Reference initialization without resolving overloaded functions.
 static void TryReferenceInitializationCore(Sema &S,
                                            const InitializedEntity &Entity,
@@ -4331,7 +4346,12 @@ static void TryReferenceInitializationCore(Sema &S,
   //     - Otherwise, the reference shall be an lvalue reference to a
   //       non-volatile const type (i.e., cv1 shall be const), or the reference
   //       shall be an rvalue reference.
-  if (isLValueRef && !(T1Quals.hasConst() && !T1Quals.hasVolatile())) {
+#if INTEL_CUSTOMIZATION
+  auto InitStatus = S.GetReferenceInitStatus(Initializer, isLValueRef, T1,
+                                             T1Quals, RefRelationship);
+  // CQ#364712 - allow non-const lvalue reference bind to temporary.
+  if (InitStatus == Sema::RIS_Forbidden) {
+#endif // INTEL_CUSTOMIZATION
     if (S.Context.getCanonicalType(T2) == S.Context.OverloadTy)
       Sequence.SetFailed(InitializationSequence::FK_AddressOfOverloadFailed);
     else if (ConvOvlResult && !Sequence.getFailedCandidateSet().empty())
@@ -4339,21 +4359,11 @@ static void TryReferenceInitializationCore(Sema &S,
                         InitializationSequence::FK_ReferenceInitOverloadFailed,
                                   ConvOvlResult);
     else
-#if INTEL_CUSTOMIZATION
-      // CQ#364712 - allow non-const lvalue reference bind to temporary in
-      // IntelMsCompat mode. Don't change behaviour for volatile lvalues.
-      if (!S.getLangOpts().IntelMSCompat || T1Quals.hasVolatile() ||
-          InitCategory.isLValue() || !T1->isStructureOrClassType())
-#endif // INTEL_CUSTOMIZATION
       Sequence.SetFailed(InitCategory.isLValue()
         ? (RefRelationship == Sema::Ref_Related
              ? InitializationSequence::FK_ReferenceInitDropsQualifiers
              : InitializationSequence::FK_NonConstLValueReferenceBindingToUnrelated)
         : InitializationSequence::FK_NonConstLValueReferenceBindingToTemporary);
-#if INTEL_CUSTOMIZATION
-    // CQ#364712. Return only if an error was emitted.
-    if (Sequence.Failed())
-#endif // INTEL_CUSTOMIZATION
 
     return;
   }
@@ -6551,26 +6561,21 @@ InitializationSequence::Perform(Sema &S,
       assert(CurInit.get()->isRValue() && "not a temporary");
 
 #if INTEL_CUSTOMIZATION
-      // CQ#364712 - allow non-const lvalue reference bind to temporary in
-      // IntelMSCompat mode.
-      QualType DeclType = Entity.getType();
-      Qualifiers DeclTypeQuals = DeclType.getNonReferenceType().getQualifiers();
-
-      if (DeclType->isLValueReferenceType() && !DeclTypeQuals.hasConst() &&
-          !DeclTypeQuals.hasVolatile()) {
+      // CQ#364712 - allow non-const lvalue reference bind to temporary.
+      if (Entity.getType()->isLValueReferenceType() &&
+          (!DestType.isConstQualified() || DestType.isVolatileQualified())) {
         // If it is non-const non-volatile lvalue reference and FailureKind was
         // not set, we should emit a warning.
         if (isa<InitListExpr>(Args[0]))
           S.Diag(Kind.getLocation(),
                  diag::warn_lvalue_reference_bind_to_initlist)
-            << DeclType.getNonReferenceType()
-            << Args[0]->getSourceRange();
+              << DestType.isVolatileQualified() << DestType
+              << Args[0]->getSourceRange();
         else
           S.Diag(Kind.getLocation(),
                  diag::warn_lvalue_reference_bind_to_temporary)
-            << DeclType.getNonReferenceType()
-            << Args[0]->getType()
-            << Args[0]->getSourceRange();
+              << DestType.isVolatileQualified() << DestType
+              << Args[0]->getType() << Args[0]->getSourceRange();
       }
 #endif // INTEL_CUSTOMIZATION
 
