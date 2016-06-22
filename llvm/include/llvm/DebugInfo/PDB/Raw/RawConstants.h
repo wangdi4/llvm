@@ -10,10 +10,11 @@
 #ifndef LLVM_DEBUGINFO_PDB_RAW_PDBRAWCONSTANTS_H
 #define LLVM_DEBUGINFO_PDB_RAW_PDBRAWCONSTANTS_H
 
-#include <stdint.h>
+#include <cstdint>
 
 namespace llvm {
 namespace pdb {
+
 enum PdbRaw_ImplVer : uint32_t {
   PdbImplVC2 = 19941610,
   PdbImplVC4 = 19950623,
@@ -34,7 +35,23 @@ enum PdbRaw_DbiVer : uint32_t {
   PdbDbiV70 = 19990903,
   PdbDbiV110 = 20091201
 };
-}
-}
 
-#endif
+enum PdbRaw_TpiVer : uint32_t {
+  PdbTpiV40 = 19950410,
+  PdbTpiV41 = 19951122,
+  PdbTpiV50 = 19961031,
+  PdbTpiV70 = 19990903,
+  PdbTpiV80 = 20040203,
+};
+
+enum SpecialStream : uint32_t {
+  StreamPDB = 1,
+  StreamTPI = 2,
+  StreamDBI = 3,
+  StreamIPI = 4,
+};
+
+} // end namespace pdb
+} // end namespace llvm
+
+#endif // LLVM_DEBUGINFO_PDB_RAW_PDBRAWCONSTANTS_H

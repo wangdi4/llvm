@@ -34,6 +34,7 @@ CODEGENOPT(AsmVerbose        , 1, 0) ///< -dA, -fverbose-asm.
 CODEGENOPT(AssumeSaneOperatorNew , 1, 1) ///< implicit __attribute__((malloc)) operator new
 CODEGENOPT(Autolink          , 1, 1) ///< -fno-autolink
 CODEGENOPT(ObjCAutoRefCountExceptions , 1, 0) ///< Whether ARC should be EH-safe.
+CODEGENOPT(Backchain         , 1, 0) ///< -mbackchain
 CODEGENOPT(CoverageExtraChecksum, 1, 0) ///< Whether we need a second checksum for functions in GCNO files.
 CODEGENOPT(CoverageNoFunctionNamesInData, 1, 0) ///< Do not include function names in GCDA files.
 CODEGENOPT(CoverageExitBlockBeforeBody, 1, 0) ///< Whether to emit the exit block before the body blocks in GCNO files.
@@ -71,6 +72,8 @@ CODEGENOPT(EmitOpenCLArgMetadata , 1, 0) ///< Emit OpenCL kernel arg metadata.
 CODEGENOPT(EmulatedTLS       , 1, 0) ///< Set when -femulated-tls is enabled.
 /// \brief FP_CONTRACT mode (on/off/fast).
 ENUM_CODEGENOPT(FPContractMode, FPContractModeKind, 2, FPC_On)
+/// \brief Embed Bitcode mode (off/all/bitcode/marker).
+ENUM_CODEGENOPT(EmbedBitcode, EmbedBitcodeKind, 2, Embed_Off)
 CODEGENOPT(ForbidGuardVariables , 1, 0) ///< Issue errors if C++ guard variables
                                         ///< are required.
 CODEGENOPT(FunctionSections  , 1, 0) ///< Set when -ffunction-sections is enabled.
@@ -250,6 +253,10 @@ ENUM_CODEGENOPT(MSDebugInfoFile, MSDebugInfoFileKind, 2, MSDebugInfoNoFile)
 /// No aliasing for all pointer arguments
 CODEGENOPT(NoAliasForPtrArgs, 1, 0)
 #endif // INTEL_CUSTOMIZATION
+
+/// Number of path components to strip when emitting checks. (0 == full
+/// filename)
+VALUE_CODEGENOPT(EmitCheckPathComponentsToStrip, 32, 0)
 
 #undef CODEGENOPT
 #undef ENUM_CODEGENOPT

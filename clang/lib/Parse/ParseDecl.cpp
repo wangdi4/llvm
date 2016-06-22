@@ -28,6 +28,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/Support/ScopedPrinter.h"
 
 using namespace clang;
 
@@ -694,7 +695,6 @@ void Parser::ParseMicrosoftTypeAttributes(ParsedAttributes &attrs) {
     case tok::kw___ptr64:
     case tok::kw___w64:
     case tok::kw___ptr32:
-    case tok::kw___unaligned:
     case tok::kw___sptr:
     case tok::kw___uptr: {
       IdentifierInfo *AttrName = Tok.getIdentifierInfo();
@@ -3245,6 +3245,11 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       break;
     }
 
+    case tok::kw___unaligned:
+      isInvalid = DS.SetTypeQual(DeclSpec::TQ_unaligned, Loc, PrevSpec, DiagID,
+                                 getLangOpts());
+      break;
+
     case tok::kw___sptr:
     case tok::kw___uptr:
     case tok::kw___ptr64:
@@ -3257,7 +3262,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     case tok::kw__regcall:  // INTEL
     case tok::kw___thiscall:
     case tok::kw___vectorcall:
-    case tok::kw___unaligned:
       ParseMicrosoftTypeAttributes(DS.getAttributes());
       continue;
 
@@ -3475,12 +3479,10 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_double, Loc, PrevSpec,
                                      DiagID, Policy);
       break;
-#if INTEL_CUSTOMIZATION
-    case tok::kw__Quad:
+    case tok::kw___float128:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float128, Loc, PrevSpec,
                                      DiagID, Policy);
       break;
-#endif  // INTEL_CUSTOMIZATION
     case tok::kw_wchar_t:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_wchar, Loc, PrevSpec,
                                      DiagID, Policy);
@@ -3700,9 +3702,13 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       if (DiagID == diag::ext_duplicate_declspec)
         Diag(Tok, DiagID)
           << PrevSpec << FixItHint::CreateRemoval(Tok.getLocation());
-      else if (DiagID == diag::err_opencl_unknown_type_specifier)
-        Diag(Tok, DiagID) << PrevSpec << isStorageClass;
-      else
+      else if (DiagID == diag::err_opencl_unknown_type_specifier) {
+        const int OpenCLVer = getLangOpts().OpenCLVersion;
+        std::string VerSpec = llvm::to_string(OpenCLVer / 100) +
+                              std::string (".") +
+                              llvm::to_string((OpenCLVer % 100) / 10);
+        Diag(Tok, DiagID) << VerSpec << PrevSpec << isStorageClass;
+      } else
         Diag(Tok, DiagID) << PrevSpec;
     }
 
@@ -4486,10 +4492,8 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
+  case tok::kw___float128:
   case tok::kw_bool:
-#if INTEL_CUSTOMIZATION
-  case tok::kw__Quad:
-#endif  // INTEL_CUSTOMIZATION
   case tok::kw__Bool:
   case tok::kw__Decimal32:
   case tok::kw__Decimal64:
@@ -4563,8 +4567,8 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
+  case tok::kw___float128:
 #if INTEL_CUSTOMIZATION
-  case tok::kw__Quad:
   case tok::kw___regcall:
   case tok::kw__regcall:
 #endif  // INTEL_CUSTOMIZATION
@@ -4726,9 +4730,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#if INTEL_CUSTOMIZATION
-  case tok::kw__Quad:
-#endif  // INTEL_CUSTOMIZATION
+  case tok::kw___float128:
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -5024,6 +5026,10 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
       ParseOpenCLQualifiers(DS.getAttributes());
       break;
 
+    case tok::kw___unaligned:
+      isInvalid = DS.SetTypeQual(DeclSpec::TQ_unaligned, Loc, PrevSpec, DiagID,
+                                 getLangOpts());
+      break;
     case tok::kw___uptr:
       // GNU libc headers in C mode use '__uptr' as an identifer which conflicts
       // with the MS modifier keyword.
@@ -5043,7 +5049,6 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
     case tok::kw__regcall:  // INTEL
     case tok::kw___thiscall:
     case tok::kw___vectorcall:
-    case tok::kw___unaligned:
       if (AttrReqs & AR_DeclspecAttributesParsed) {
         ParseMicrosoftTypeAttributes(DS.getAttributes());
         continue;
@@ -5287,7 +5292,8 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
                                                 DS.getConstSpecLoc(),
                                                 DS.getVolatileSpecLoc(),
                                                 DS.getRestrictSpecLoc(),
-                                                DS.getAtomicSpecLoc()),
+                                                DS.getAtomicSpecLoc(),
+                                                DS.getUnalignedSpecLoc()),
                     DS.getAttributes(),
                     SourceLocation());
     else

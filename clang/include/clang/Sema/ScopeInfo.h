@@ -649,17 +649,18 @@ public:
   /// \brief The implicit parameter for the captured variables.
   ImplicitParamDecl *ContextParam;
   /// \brief The kind of captured region.
-  CapturedRegionKind CapRegionKind;
+  unsigned short CapRegionKind;
+  unsigned short OpenMPLevel;
 #if INTEL_SPECIFIC_CILKPLUS
   /// \brief Whether any of the capture expressions require cleanups.
   bool ExprNeedsCleanups;
 #endif // INTEL_SPECIFIC_CILKPLUS
   CapturedRegionScopeInfo(DiagnosticsEngine &Diag, Scope *S, CapturedDecl *CD,
                           RecordDecl *RD, ImplicitParamDecl *Context,
-                          CapturedRegionKind K)
+                          CapturedRegionKind K, unsigned OpenMPLevel)
     : CapturingScopeInfo(Diag, ImpCap_CapturedRegion),
       TheCapturedDecl(CD), TheRecordDecl(RD), TheScope(S),
-      ContextParam(Context), CapRegionKind(K)
+      ContextParam(Context), CapRegionKind(K), OpenMPLevel(OpenMPLevel)
 #if INTEL_SPECIFIC_CILKPLUS
       , ExprNeedsCleanups(false)
 #endif // INTEL_SPECIFIC_CILKPLUS
@@ -714,8 +715,8 @@ public:
   CilkForScopeInfo(DiagnosticsEngine &Diag, Scope *S, CapturedDecl *CD,
                    RecordDecl *RD, ImplicitParamDecl *Context,
                    const VarDecl *VD, SourceLocation Loc)
-      : CapturedRegionScopeInfo(Diag, S, CD, RD, Context, CR_CilkFor),
-        CilkForLoc(Loc), LoopControlVar(VD), InnerLoopControlVar(0) {
+      : CapturedRegionScopeInfo(Diag, S, CD, RD, Context, CR_CilkFor, 0),
+        CilkForLoc(Loc), LoopControlVar(VD), InnerLoopControlVar(nullptr) {
     Kind = SK_CilkFor;
   }
 
@@ -823,7 +824,7 @@ public:
   SIMDForScopeInfo(DiagnosticsEngine &Diag, Scope *S, CapturedDecl *CD,
                    RecordDecl *RD, ImplicitParamDecl *Context,
                    SourceLocation PragmaLoc)
-      : CapturedRegionScopeInfo(Diag, S, CD, RD, Context, CR_SIMDFor),
+      : CapturedRegionScopeInfo(Diag, S, CD, RD, Context, CR_SIMDFor, 0),
         PragmaLoc(PragmaLoc) {
     Kind = SK_SIMDFor;
   }

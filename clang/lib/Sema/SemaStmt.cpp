@@ -4198,9 +4198,9 @@ StmtResult Sema::ActOnCapturedRegionEnd(Stmt *S) {
       S = MaybeCreateExprWithCleanups(E);
     }
 #endif // INTEL_SPECIFIC_CILKPLUS
-  CapturedStmt *Res = CapturedStmt::Create(getASTContext(), S,
-                                           RSI->CapRegionKind, Captures,
-                                           CaptureInits, CD, RD);
+  CapturedStmt *Res = CapturedStmt::Create(
+      getASTContext(), S, static_cast<CapturedRegionKind>(RSI->CapRegionKind),
+      Captures, CaptureInits, CD, RD);
 
   CD->setBody(Res->getCapturedStmt());
   RD->completeDefinition();

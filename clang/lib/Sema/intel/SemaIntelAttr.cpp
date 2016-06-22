@@ -533,10 +533,13 @@ FunctionDecl *Sema::GenerateWrapperDefaultConstructor(SourceLocation Loc, CXXCon
   MarkDeclarationsReferencedInExpr(This);
   PragmaStmt *PS = new (Context) PragmaStmt(SourceLocation());
   PS->setPragmaKind(IntelPragma_SPECCALL);
-  (PS->getAttribs()).push_back(IntelPragmaAttrib(
-    CXXConstructExpr::Create(Context, FirstType, SourceLocation(),
-      ElemFun, false, llvm::ArrayRef<Expr *>(), false, false, false, false, CXXConstructExpr::CK_Complete, SourceRange()),
-    IntelPragmaExprRValue));
+  (PS->getAttribs())
+      .push_back(IntelPragmaAttrib(
+          CXXConstructExpr::Create(
+              Context, FirstType, SourceLocation(), nullptr, ElemFun, false,
+              llvm::ArrayRef<Expr *>(), false, false, false, false,
+              CXXConstructExpr::CK_Complete, SourceRange()),
+          IntelPragmaExprRValue));
   (PS->getAttribs()).push_back(IntelPragmaAttrib(
     This,
     IntelPragmaExprRValue));
@@ -593,10 +596,13 @@ FunctionDecl *Sema::GenerateWrapperCopyConstructor(SourceLocation Loc, CXXConstr
   Expr *Args[] = {Src};
   PragmaStmt *PS = new (Context) PragmaStmt(SourceLocation());
   PS->setPragmaKind(IntelPragma_SPECCALL);
-  (PS->getAttribs()).push_back(IntelPragmaAttrib(
-    CXXConstructExpr::Create(Context, FirstType, SourceLocation(),
-      ElemFun, false, llvm::ArrayRef<Expr *>(Args, 1), false, false, false, false, CXXConstructExpr::CK_Complete, SourceRange()),
-    IntelPragmaExprRValue));
+  (PS->getAttribs())
+      .push_back(IntelPragmaAttrib(
+          CXXConstructExpr::Create(
+              Context, FirstType, SourceLocation(), nullptr, ElemFun, false,
+              llvm::ArrayRef<Expr *>(Args, 1), false, false, false, false,
+              CXXConstructExpr::CK_Complete, SourceRange()),
+          IntelPragmaExprRValue));
   (PS->getAttribs()).push_back(IntelPragmaAttrib(
     This,
     IntelPragmaExprRValue));
@@ -785,10 +791,13 @@ FunctionDecl *Sema::GenerateArrayDefaultConstructor(SourceLocation Loc, CXXConst
         SourceLocation(), params[1]->getType(), VK_RValue);
   PragmaStmt *PS = new (Context) PragmaStmt(SourceLocation());
   PS->setPragmaKind(IntelPragma_SPECCALLAGG);
-  (PS->getAttribs()).push_back(IntelPragmaAttrib(
-    CXXConstructExpr::Create(Context, ArrayType, SourceLocation(),
-      ElemFun, false, llvm::ArrayRef<Expr *>(), false, false, false, false, CXXConstructExpr::CK_Complete, SourceRange()),
-    IntelPragmaExprRValue));
+  (PS->getAttribs())
+      .push_back(IntelPragmaAttrib(
+          CXXConstructExpr::Create(
+              Context, ArrayType, SourceLocation(), nullptr, ElemFun, false,
+              llvm::ArrayRef<Expr *>(), false, false, false, false,
+              CXXConstructExpr::CK_Complete, SourceRange()),
+          IntelPragmaExprRValue));
   (PS->getAttribs()).push_back(IntelPragmaAttrib(
     array_constr1,
     IntelPragmaExprRValue));
@@ -882,10 +891,13 @@ FunctionDecl *Sema::GenerateArrayCopyConstructor(SourceLocation Loc, CXXConstruc
 
   PragmaStmt *PS = new (Context) PragmaStmt(SourceLocation());
   PS->setPragmaKind(IntelPragma_SPECCALLAGG);
-  (PS->getAttribs()).push_back(IntelPragmaAttrib(
-    CXXConstructExpr::Create(Context, ArrayType, SourceLocation(),
-      ElemFun, false, llvm::ArrayRef<Expr *>(Args, 1), false, false, false, false, CXXConstructExpr::CK_Complete, SourceRange()),
-    IntelPragmaExprRValue));
+  (PS->getAttribs())
+      .push_back(IntelPragmaAttrib(
+          CXXConstructExpr::Create(
+              Context, ArrayType, SourceLocation(), nullptr, ElemFun, false,
+              llvm::ArrayRef<Expr *>(Args, 1), false, false, false, false,
+              CXXConstructExpr::CK_Complete, SourceRange()),
+          IntelPragmaExprRValue));
   (PS->getAttribs()).push_back(IntelPragmaAttrib(
     array_constr1,
     IntelPragmaExprRValue));

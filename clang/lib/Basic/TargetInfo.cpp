@@ -30,6 +30,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   BigEndian = true;
   TLSSupported = true;
   NoAsmVariants = false;
+  HasFloat128 = false;
   PointerWidth = PointerAlign = 32;
   BoolWidth = BoolAlign = 8;
   IntWidth = IntAlign = 32;
@@ -46,10 +47,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   DoubleAlign = 64;
   LongDoubleWidth = 64;
   LongDoubleAlign = 64;
-#if INTEL_CUSTOMIZATION
-  // __float128 type is disabled by default.
-  IsFloat128Enabled = false;
-#endif // INTEL_CUSTOMIZATION
+  Float128Align = 128;
   LargeArrayMinWidth = 0;
   LargeArrayAlign = 0;
   MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 0;
@@ -76,6 +74,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   FloatFormat = &llvm::APFloat::IEEEsingle;
   DoubleFormat = &llvm::APFloat::IEEEdouble;
   LongDoubleFormat = &llvm::APFloat::IEEEdouble;
+  Float128Format = &llvm::APFloat::IEEEquad;
   MCountName = "mcount";
   RegParmMax = 0;
   SSERegParmMax = 0;
@@ -227,11 +226,8 @@ TargetInfo::RealType TargetInfo::getRealTypeByWidth(unsigned BitWidth) const {
     if (&getLongDoubleFormat() == &llvm::APFloat::PPCDoubleDouble ||
         &getLongDoubleFormat() == &llvm::APFloat::IEEEquad)
       return LongDouble;
-#if INTEL_CUSTOMIZATION
-    // CQ#369183 - return proper value if __float128 is enabled.
-    if (IsFloat128Enabled)
+    if (hasFloat128Type())
       return Float128;
-#endif // INTEL_CUSTOMIZATION
     break;
   }
 
@@ -284,6 +280,10 @@ void TargetInfo::adjust(const LangOptions &Opts) {
     UseBitFieldTypeAlignment = false;
   if (Opts.ShortWChar)
     WCharType = UnsignedShort;
+  if (Opts.AlignDouble) {
+    DoubleAlign = LongLongAlign = 64;
+    LongDoubleAlign = 64;
+  }
 
   if (Opts.OpenCL) {
     // OpenCL C requires specific widths for types, irrespective of
@@ -320,8 +320,8 @@ void TargetInfo::adjust(const LangOptions &Opts) {
   }
 
 #if INTEL_CUSTOMIZATION
-  // Enable __float128 in IntelCompat modes only.
-  IsFloat128Enabled = (Opts.IntelCompat || Opts.IntelMSCompat) && Opts.Float128;
+  if ((Opts.IntelCompat || Opts.IntelMSCompat) && Opts.Float128)
+    HasFloat128 = true;
 #endif // INTEL_CUSTOMIZATION
 }
 

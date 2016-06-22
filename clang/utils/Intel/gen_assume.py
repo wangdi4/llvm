@@ -51,6 +51,9 @@ simpleMacroRegEx = re.compile(r'^#define\s+(_.*?)\s')
 # Matches "static __inline" with any number of spaces
 staticInline = re.compile(r'^static\s+__inline') 
 
+# Matches "#if !defined(_MSC_VER) || __has_feature(modules)" with any number of spaces
+guardFeature = re.compile(r'#if\s+!defined\(_MSC_VER\)\s+\|\|\s+__has_feature\(modules\)') 
+
 # Match do-while statemant.
 # In macros we need to use semicolon instead of comma in do-while cases.
 doWhile = re.compile(r'^do\s*\{(\n|.)*\}\s*while', re.M)
@@ -169,6 +172,8 @@ def main():
       print "Adding assumes to " + file
       with open(fullName, "w") as outFile:
         outFile.write(includeString);
+        counter = 0 # Counts canonical #if and #endif inside the Guards section feature 
+        guardFeatureFlag = False # Indicate of Guards section feature
         while True:
           if not line: break
           # TODO: Do better checking here
@@ -176,7 +181,20 @@ def main():
             handleFunction(line, inFile, outFile)
           elif line.startswith("#define"):
             handleMacro(line, inFile, outFile)
-          else: 
+          elif guardFeature.match(line):
+            guardFeatureFlag = True
+            while line.strip().endswith('\\'):
+              line = inFile.readline()
+          elif guardFeatureFlag and line.startswith("#if"):
+            counter += 1
+            outFile.write(line)
+          elif guardFeatureFlag and line.startswith("#endif"):
+            if counter:
+              counter -= 1
+              outFile.write(line)
+            else:
+              guardFeatureFlag = False
+          else:
             outFile.write(line)
           line = inFile.readline()
     os.remove(tempName)

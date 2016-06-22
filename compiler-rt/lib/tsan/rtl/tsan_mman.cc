@@ -63,8 +63,59 @@ Allocator *allocator() {
   return reinterpret_cast<Allocator*>(&allocator_placeholder);
 }
 
+struct GlobalProc {
+  Mutex mtx;
+  Processor *proc;
+
+  GlobalProc()
+      : mtx(MutexTypeGlobalProc, StatMtxGlobalProc)
+      , proc(ProcCreate()) {
+  }
+};
+
+static char global_proc_placeholder[sizeof(GlobalProc)] ALIGNED(64);
+GlobalProc *global_proc() {
+  return reinterpret_cast<GlobalProc*>(&global_proc_placeholder);
+}
+
+ScopedGlobalProcessor::ScopedGlobalProcessor() {
+  GlobalProc *gp = global_proc();
+  ThreadState *thr = cur_thread();
+  if (thr->proc())
+    return;
+  // If we don't have a proc, use the global one.
+  // There are currently only two known case where this path is triggered:
+  //   __interceptor_free
+  //   __nptl_deallocate_tsd
+  //   start_thread
+  //   clone
+  // and:
+  //   ResetRange
+  //   __interceptor_munmap
+  //   __deallocate_stack
+  //   start_thread
+  //   clone
+  // Ideally, we destroy thread state (and unwire proc) when a thread actually
+  // exits (i.e. when we join/wait it). Then we would not need the global proc
+  gp->mtx.Lock();
+  ProcWire(gp->proc, thr);
+}
+
+ScopedGlobalProcessor::~ScopedGlobalProcessor() {
+  GlobalProc *gp = global_proc();
+  ThreadState *thr = cur_thread();
+  if (thr->proc() != gp->proc)
+    return;
+  ProcUnwire(gp->proc, thr);
+  gp->mtx.Unlock();
+}
+
 void InitializeAllocator() {
   allocator()->Init(common_flags()->allocator_may_return_null);
+}
+
+void InitializeAllocatorLate() {
+  new(global_proc()) GlobalProc();
 }
 
 void AllocatorProcStart(Processor *proc) {
@@ -118,6 +169,7 @@ void *user_calloc(ThreadState *thr, uptr pc, uptr size, uptr n) {
 }
 
 void user_free(ThreadState *thr, uptr pc, void *p, bool signal) {
+  ScopedGlobalProcessor sgp;
   if (ctx && ctx->initialized)
     OnUserFree(thr, pc, (uptr)p, true);
   allocator()->Deallocate(&thr->proc()->alloc_cache, p);

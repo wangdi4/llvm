@@ -143,7 +143,8 @@ public:
   MachineInstr *foldMemoryOperandImpl(MachineFunction &MF, MachineInstr *MI,
                                       ArrayRef<unsigned> Ops,
                                       MachineBasicBlock::iterator InsertPt,
-                                      int FrameIndex) const override;
+                                      int FrameIndex,
+                                      LiveIntervals *LIS = nullptr) const override;
 
   bool AnalyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
                      MachineBasicBlock *&FBB,
@@ -195,7 +196,7 @@ public:
       SmallVectorImpl<MachineInstr *> &InsInstrs,
       SmallVectorImpl<MachineInstr *> &DelInstrs,
       DenseMap<unsigned, unsigned> &InstrIdxForVirtReg) const override;
-  /// useMachineCombiner - AArch64 supports MachineCombiner
+  /// AArch64 supports MachineCombiner.
   bool useMachineCombiner() const override;
 
   bool expandPostRAPseudo(MachineBasicBlock::iterator MI) const override;

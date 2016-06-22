@@ -269,6 +269,16 @@ MachineBasicBlock * R600TargetLowering::EmitInstrWithCustomInserter(
     TII->buildMovImm(*BB, I, MI->getOperand(0).getReg(),
                      MI->getOperand(1).getImm());
     break;
+  case AMDGPU::MOV_IMM_GLOBAL_ADDR: {
+    //TODO: Perhaps combine this instruction with the next if possible
+    auto MIB = TII->buildDefaultInstruction(*BB, MI, AMDGPU::MOV,
+                                 MI->getOperand(0).getReg(),
+                                 AMDGPU::ALU_LITERAL_X);
+    int Idx = TII->getOperandIdx(*MIB, AMDGPU::OpName::literal);
+    //TODO: Ugh this is rather ugly
+    MIB->getOperand(Idx) = MI->getOperand(1);
+    break;
+  }
   case AMDGPU::CONST_COPY: {
     MachineInstr *NewMI = TII->buildDefaultInstruction(*BB, MI, AMDGPU::MOV,
         MI->getOperand(0).getReg(), AMDGPU::ALU_CONST);
@@ -902,6 +912,22 @@ SDValue R600TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
   SDValue Insert = DAG.getNode(ISD::INSERT_VECTOR_ELT, DL, Op.getValueType(),
                                Vector, Value, Index);
   return vectorToVerticalVector(DAG, Insert);
+}
+
+SDValue R600TargetLowering::LowerGlobalAddress(AMDGPUMachineFunction *MFI,
+                                               SDValue Op,
+                                               SelectionDAG &DAG) const {
+
+  GlobalAddressSDNode *GSD = cast<GlobalAddressSDNode>(Op);
+  if (GSD->getAddressSpace() != AMDGPUAS::CONSTANT_ADDRESS)
+    return AMDGPUTargetLowering::LowerGlobalAddress(MFI, Op, DAG);
+
+  const DataLayout &DL = DAG.getDataLayout();
+  const GlobalValue *GV = GSD->getGlobal();
+  MVT ConstPtrVT = getPointerTy(DL, AMDGPUAS::CONSTANT_ADDRESS);
+
+  SDValue GA = DAG.getTargetGlobalAddress(GV, SDLoc(GSD), ConstPtrVT);
+  return DAG.getNode(AMDGPUISD::CONST_DATA_PTR, SDLoc(GSD), ConstPtrVT, GA);
 }
 
 SDValue R600TargetLowering::LowerTrig(SDValue Op, SelectionDAG &DAG) const {
@@ -1555,22 +1581,6 @@ SDValue R600TargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const {
   SDValue Chain = LoadNode->getChain();
   SDValue Ptr = LoadNode->getBasePtr();
 
-  // Lower loads constant address space global variable loads
-  if (LoadNode->getAddressSpace() == AMDGPUAS::CONSTANT_ADDRESS &&
-      isa<GlobalVariable>(GetUnderlyingObject(
-          LoadNode->getMemOperand()->getValue(), DAG.getDataLayout()))) {
-
-    SDValue Ptr = DAG.getZExtOrTrunc(
-        LoadNode->getBasePtr(), DL,
-        getPointerTy(DAG.getDataLayout(), AMDGPUAS::PRIVATE_ADDRESS));
-    Ptr = DAG.getNode(ISD::SRL, DL, MVT::i32, Ptr,
-        DAG.getConstant(2, DL, MVT::i32));
-    return DAG.getNode(AMDGPUISD::REGISTER_LOAD, DL, Op->getVTList(),
-                       LoadNode->getChain(), Ptr,
-                       DAG.getTargetConstant(0, DL, MVT::i32),
-                       Op.getOperand(2));
-  }
-
   if (LoadNode->getAddressSpace() == AMDGPUAS::LOCAL_ADDRESS && VT.isVector()) {
     SDValue MergedValues[2] = {
       scalarizeVectorLoad(LoadNode, DAG),
@@ -1669,6 +1679,7 @@ SDValue R600TargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const {
     EVT ElemVT = VT.getVectorElementType();
     SDValue Loads[4];
 
+    assert(NumElemVT <= 4);
     assert(NumElemVT >= StackWidth && "Stack width cannot be greater than "
                                       "vector width in load");
 
@@ -1682,11 +1693,8 @@ SDValue R600TargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const {
                              DAG.getTargetConstant(Channel, DL, MVT::i32),
                              Op.getOperand(2));
     }
-    for (unsigned i = NumElemVT; i < 4; ++i) {
-      Loads[i] = DAG.getUNDEF(ElemVT);
-    }
-    EVT TargetVT = EVT::getVectorVT(*DAG.getContext(), ElemVT, 4);
-    LoweredLoad = DAG.getBuildVector(TargetVT, DL, Loads);
+    EVT TargetVT = EVT::getVectorVT(*DAG.getContext(), ElemVT, NumElemVT);
+    LoweredLoad = DAG.getBuildVector(TargetVT, DL, makeArrayRef(Loads, NumElemVT));
   } else {
     LoweredLoad = DAG.getNode(AMDGPUISD::REGISTER_LOAD, DL, VT,
                               Chain, Ptr,
@@ -2240,6 +2248,13 @@ FoldOperand(SDNode *ParentNode, unsigned SrcIdx, SDValue &Src, SDValue &Neg,
     Src = DAG.getRegister(AMDGPU::ALU_CONST, MVT::f32);
     return true;
   }
+  case AMDGPU::MOV_IMM_GLOBAL_ADDR:
+    // Check if the Imm slot is used. Taken from below.
+    if (cast<ConstantSDNode>(Imm)->getZExtValue())
+      return false;
+    Imm = Src.getOperand(0);
+    Src = DAG.getRegister(AMDGPU::ALU_LITERAL_X, MVT::i32);
+    return true;
   case AMDGPU::MOV_IMM_I32:
   case AMDGPU::MOV_IMM_F32: {
     unsigned ImmReg = AMDGPU::ALU_LITERAL_X;

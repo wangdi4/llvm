@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -fcilkplus -emit-llvm %s -o - | FileCheck %s
 // REQUIRES: cilkplus
 
 void test_builtin() {
