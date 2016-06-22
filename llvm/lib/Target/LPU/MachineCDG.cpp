@@ -371,9 +371,8 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
       MachineBasicBlock *B = *succ;
       assert(A && B);
       unsigned T = NumRegions;
-      //???? do we need this restriction????
+      //???? do we need A==B condition????
       if (A == B || !pdt.dominates(B, A)) {
-      //if (!pdt.dominates(B, A)) {
         MachineDomTreeNode *Y= pdt.getNode(B);
         MachineDomTreeNode *StartDN = Y;
         MachineBasicBlock *L = pdt.findNearestCommonDominator(A, B);
@@ -395,10 +394,12 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
           MachineDomTreeNode *YRTailDN = pdt.getNode(YRTailBB);
           bool isYBtwnStartEnd = pdt.dominates(YRHdrDN, StartDN) &&
                                  pdt.properlyDominates(EndDN, YRTailDN);
-          if (!isYBtwnStartEnd) {
+          if (!isYBtwnStartEnd || 
+			  loopLatch && Y->getBlock() == loopLatch) {
             //modification to the original paper: latch node need to be in a seperate region by itself
-            if (YR->NewRegion <= T || loopLatch && Y->getBlock() == loopLatch) {
-              NumRegions++;
+			if (YR->NewRegion <= T || loopLatch && Y->getBlock() == loopLatch) {
+			//if (YR->NewRegion <= T) {
+			  NumRegions++;
               CDGRegion *splitRgn = new CDGRegion();
               //regions[NumRegions] = splitRgn;
               regions.push_back(splitRgn);
@@ -430,7 +431,7 @@ void ControlDependenceGraphBase::dumpRegions() {
       N != E; ++N) {
       ControlDependenceNode *node = *N;
       assert(node);
-      DEBUG(errs() << cdg2bb[node]->getFullName() << ", ");
+      DEBUG(errs() << "BB" << cdg2bb[node]->getNumber() << ", ");
     }
     DEBUG(errs() << "\n");
   }

@@ -179,7 +179,7 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
-  MachineInstr* result;
+  MachineInstr* result = nullptr;
   MachineBasicBlock::iterator loc = cdgpBB->getFirstTerminator();
   MachineInstr* bi = loc;
   if (cdgpBB->succ_size() > 1) {
@@ -278,12 +278,10 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
   if (cdgpBB->succ_size() > 1) {
     if (latchNode->isTrueChild(hdrNode)) {
       initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
-    }
-    else {
+    } else {
       initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
     }
-  }
-  else {
+  } else {
     //LLVM 3.6 buggy latch
     //closed latch
     SmallVector<MachineOperand, 4> brCond;
@@ -293,8 +291,7 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
     }
     if (CDG->getNode(bi->getParent())->isTrueChild(CDG->getNode(cdgpBB))) {
       initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
-    }
-    else {
+    } else {
       initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
     }
   }
@@ -331,7 +328,6 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
     MachineBasicBlock *mbb = DTN->getBlock();
     if (!mbb) continue; //root node has no bb
-    //if (root->isChild(*DTN)) continue;  ??????
     // process each instruction in BB
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = I;
