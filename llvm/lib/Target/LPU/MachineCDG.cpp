@@ -394,10 +394,10 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
           MachineDomTreeNode *YRTailDN = pdt.getNode(YRTailBB);
           bool isYBtwnStartEnd = pdt.dominates(YRHdrDN, StartDN) &&
                                  pdt.properlyDominates(EndDN, YRTailDN);
-          if (!isYBtwnStartEnd || 
-			  loopLatch && Y->getBlock() == loopLatch) {
-            //modification to the original paper: latch node need to be in a seperate region by itself
-			if (YR->NewRegion <= T || loopLatch && Y->getBlock() == loopLatch) {
+		  //if (!isYBtwnStartEnd || loopLatch && Y->getBlock() == loopLatch) {
+		  if (!isYBtwnStartEnd || loopLatch && Y->getBlock() == loopLatch && YR->nodes.size() > 1) {
+		  //modification to the original paper: latch node need to be in a seperate region by itself
+			if (YR->NewRegion <= T || loopLatch && Y->getBlock() == loopLatch && YR->nodes.size() > 1) {
 			//if (YR->NewRegion <= T) {
 			  NumRegions++;
               CDGRegion *splitRgn = new CDGRegion();
