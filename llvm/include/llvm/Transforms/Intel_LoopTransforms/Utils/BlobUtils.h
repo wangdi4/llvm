@@ -16,8 +16,8 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_BLOBUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_BLOBUTILS_H
 
-#include <stdint.h>
 #include "llvm/Support/Compiler.h"
+#include <stdint.h>
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
@@ -37,7 +37,7 @@ private:
   /// \brief Do not allow instantiation.
   BlobUtils() = delete;
 
-  friend class HIRParser;  
+  friend class HIRParser;
   friend class CanonExprUtils;
 
   static HIRParser *HIRP;
@@ -51,7 +51,7 @@ private:
 
   // Only used by framework to create new temp blobs.
   static BlobTy createBlob(Value *TempVal, unsigned Symbase, bool Insert,
-                               unsigned *NewBlobIndex);
+                           unsigned *NewBlobIndex);
 
   /// \brief Returns the index of Blob in the blob table. Blob is first
   /// inserted, if it isn't already present in the blob table. Index range is
@@ -60,7 +60,7 @@ private:
   /// because only the framework is allowed to create temp blobs for insertion
   /// in the blob table.
   static unsigned findOrInsertBlob(BlobTy Blob, unsigned Symbase);
- 
+
 public:
   /// \brief Returns the index of Blob in the blob table. Index range is [1,
   /// UINT_MAX]. Returns invalid value if the blob is not present in the table.
@@ -124,61 +124,65 @@ public:
   /// If blob is metadata, sets the return value in Val.
   static bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val = nullptr);
 
+  /// \brief Returns true if \p Blob represents a signed extension value.
+  /// If blob is sext, sets the return value in Val.
+  static bool isSignExtendBlob(BlobTy Blob, BlobTy *Val = nullptr);
+
   /// \brief Returns a new blob created from passed in Val.
   static BlobTy createBlob(Value *Val, bool Insert = true,
-                                      unsigned *NewBlobIndex = nullptr);
+                           unsigned *NewBlobIndex = nullptr);
 
   /// \brief Returns a new blob created from a constant value.
   static BlobTy createBlob(int64_t Val, Type *Ty, bool Insert = true,
-                                      unsigned *NewBlobIndex = nullptr);
+                           unsigned *NewBlobIndex = nullptr);
 
   /// \brief Returns a blob which represents (LHS + RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  static BlobTy createAddBlob(BlobTy LHS,
-                                         BlobTy RHS,
-                                         bool Insert = true,
-                                         unsigned *NewBlobIndex = nullptr);
+  static BlobTy createAddBlob(BlobTy LHS, BlobTy RHS, bool Insert = true,
+                              unsigned *NewBlobIndex = nullptr);
 
   /// \brief Returns a blob which represents (LHS - RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  static BlobTy createMinusBlob(BlobTy LHS,
-                                           BlobTy RHS,
-                                           bool Insert = true,
-                                           unsigned *NewBlobIndex = nullptr);
+  static BlobTy createMinusBlob(BlobTy LHS, BlobTy RHS, bool Insert = true,
+                                unsigned *NewBlobIndex = nullptr);
   /// \brief Returns a blob which represents (LHS * RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  static BlobTy createMulBlob(BlobTy LHS,
-                                         BlobTy RHS,
-                                         bool Insert = true,
-                                         unsigned *NewBlobIndex = nullptr);
+  static BlobTy createMulBlob(BlobTy LHS, BlobTy RHS, bool Insert = true,
+                              unsigned *NewBlobIndex = nullptr);
   /// \brief Returns a blob which represents (LHS / RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  static BlobTy createUDivBlob(BlobTy LHS,
-                                          BlobTy RHS,
-                                          bool Insert = true,
-                                          unsigned *NewBlobIndex = nullptr);
+  static BlobTy createUDivBlob(BlobTy LHS, BlobTy RHS, bool Insert = true,
+                               unsigned *NewBlobIndex = nullptr);
   /// \brief Returns a blob which represents (trunc Blob to Ty). If Insert is
   /// true its index is returned via NewBlobIndex argument.
-  static BlobTy createTruncateBlob(BlobTy Blob, Type *Ty,
-                                              bool Insert = true,
-                                              unsigned *NewBlobIndex = nullptr);
+  static BlobTy createTruncateBlob(BlobTy Blob, Type *Ty, bool Insert = true,
+                                   unsigned *NewBlobIndex = nullptr);
   /// \brief Returns a blob which represents (zext Blob to Ty). If Insert is
   /// true its index is returned via NewBlobIndex argument.
-  static BlobTy
-  createZeroExtendBlob(BlobTy Blob, Type *Ty, bool Insert = true,
-                       unsigned *NewBlobIndex = nullptr);
+  static BlobTy createZeroExtendBlob(BlobTy Blob, Type *Ty, bool Insert = true,
+                                     unsigned *NewBlobIndex = nullptr);
   /// \brief Returns a blob which represents (sext Blob to Ty). If Insert is
   /// true its index is returned via NewBlobIndex argument.
-  static BlobTy
-  createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert = true,
-                       unsigned *NewBlobIndex = nullptr);
+  static BlobTy createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert = true,
+                                     unsigned *NewBlobIndex = nullptr);
+
+  /// Returns a new blob with appropriate cast (SExt, ZExt, Trunc) applied on
+  /// top of \p Blob. If Insert is true its index is returned via NewBlobIndex
+  /// argument.
+  static BlobTy createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty,
+                               bool Insert = true,
+                               unsigned *NewBlobIndex = nullptr);
 
   /// \brief Returns true if Blob contains SubBlob or if Blob == SubBlob.
   static bool contains(BlobTy Blob, BlobTy SubBlob);
 
   /// \brief Returns all the temp blobs present in Blob via TempBlobs vector.
-  static void collectTempBlobs(BlobTy Blob,
-                               SmallVectorImpl<BlobTy> &TempBlobs);
+  static void collectTempBlobs(BlobTy Blob, SmallVectorImpl<BlobTy> &TempBlobs);
+
+  /// \brief Returns all the temp blobs present in blob with index \p BlobIndex
+  /// via \p TempBlobIndices vector.
+  static void collectTempBlobs(unsigned BlobIndex,
+                               SmallVectorImpl<unsigned> &TempBlobIndices);
 };
 
 } // End namespace loopopt

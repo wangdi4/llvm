@@ -239,6 +239,23 @@ public:
 
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(WRegionNode *OldW, WRegionNode *NewW);
+
+  /// \brief Removes calls to directive intrinsics from WRegionNode \p WRN.
+  /// By default, the util removes the directive intrinsic calls from the
+  /// Entry and Exit BBlocks of \p WRN. This can be extended to handle needs
+  /// of specific WRegionNode kinds.
+  /// \returns \b true if <em>one or more</em> directive intrinsics were
+  /// stripped from \em each of the entry as well as exit BasicBlocks of
+  /// \p WRN; \b false otherwise.
+  static bool stripDirectives(WRegionNode *WRN);
+
+  ///\name Clause related Utilities
+  /// @{
+
+  /// \brief get the Clause Id for the WRNAtomicKind \p kind.
+  static int getClauseIdFromAtomicKind(WRNAtomicKind Kind);
+
+  /// @}
 };
 
 

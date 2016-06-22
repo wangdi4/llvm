@@ -44,7 +44,7 @@ namespace loopopt {
 class HIRSCCFormation : public FunctionPass {
 public:
   typedef Instruction NodeTy;
-  typedef SmallPtrSet<const NodeTy *, 12> SCCNodesTy;
+  typedef SmallPtrSet<const NodeTy *, 8> SCCNodesTy;
 
   struct SCC {
     const NodeTy *Root;
@@ -55,12 +55,12 @@ public:
 
   typedef struct SCC SCCTy;
 
-  typedef SmallVector<SCCTy *, 32> RegionSCCTy;
+  typedef SmallVector<SCCTy, 32> RegionSCCTy;
   /// Iterators to iterate over regions
   typedef RegionSCCTy::const_iterator const_iterator;
 
-  /// Vector of indices into RegionSCCs vector.
-  typedef SmallVector<int, 16> RegionSCCBeginTy;
+  /// Vector of pair of begin/end indices into RegionSCCs vector.
+  typedef SmallVector<std::pair<int ,int>, 16> RegionSCCBeginTy;
 
 private:
   /// LI - The loop information for the function we are currently analyzing.
@@ -92,6 +92,9 @@ private:
   /// CurRegIt - Points to the region being processed.
   HIRRegionIdentification::const_iterator CurRegIt;
 
+  /// LastSCCRegIt - Points to the last region for which we created SCCs.
+  HIRRegionIdentification::const_iterator LastSCCRegIt;
+    
   /// CurLoop - Points to the loop being processed.
   Loop *CurLoop;
 

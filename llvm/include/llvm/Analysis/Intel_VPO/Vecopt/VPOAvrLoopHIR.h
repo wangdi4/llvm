@@ -32,12 +32,12 @@ class AVRLoopHIR : public AVRLoop {
 private:
 
   /// Pointer to HIR loop node.
-  const HLLoop *HIRLoop;
+  HLLoop *HIRLoop;
 
 protected:
 
   // Interface to create AVRLoop from LLVM Loop.
-  AVRLoopHIR(const HLLoop *Lp);
+  AVRLoopHIR(HLLoop *Lp);
 
   // AvrLoop copy constructor.
   AVRLoopHIR(AVRLoopHIR &AVROrigLoop);
@@ -45,7 +45,7 @@ protected:
   virtual ~AVRLoopHIR() override {}
 
   /// \brief Set HIR Loop.
-  void setLoop(const HLLoop *Lp) { HIRLoop = Lp; }
+  void setLoop(HLLoop *Lp) { HIRLoop = Lp; }
 
   /// Only this utility class should be use to modify/delete AVR nodes.
   friend class AVRUtilsHIR;
@@ -60,7 +60,7 @@ public:
   }
 
   /// \brief Returns HLLoop node.
-  const HLLoop *getLoop() const { return HIRLoop; }
+  HLLoop *getLoop() const { return HIRLoop; }
 
   /// \brief Prints the AvrLoop node.
   void print(formatted_raw_ostream &OS, unsigned Depth,

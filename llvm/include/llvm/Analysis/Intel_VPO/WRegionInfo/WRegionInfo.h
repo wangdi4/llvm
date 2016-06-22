@@ -72,8 +72,9 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
 
-  /// \brief Visit WRegion Graph and fill up Info based on the incoming LLVM IR.
-  void doFillUpWRegionInfo(WRegionCollection *R);
+  /// \brief Entry point for on-demand call to gather WRegion info out of the 
+  /// IR. If FromHIR==true, it walks the HIR; else, it walks the LLVM IR
+  void buildWRGraph(bool FromHIR);
 
   /// WRN Graph
   WRContainerTy *getWRGraph() const { return WRC->getWRGraph(); }

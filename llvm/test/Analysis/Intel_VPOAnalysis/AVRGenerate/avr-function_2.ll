@@ -13,13 +13,13 @@
 ;CHECK-NEXT: for.cond
 ;CHECK-NEXT: %0 = load %i
 ;CHECK-NEXT: %cmp = icmp slt i32 %0, 32
-;CHECK-NEXT: br i1 %cmp, label %for.body, label %for.end
+;TEMP-DO-NOT-CHECK-NEXT: br i1 %cmp, label %for.body, label %for.end
 
 ;CHECK-NEXT: if( %cmp = icmp slt i32 %0, 32 )
 ;CHECK:      for.body:
 ;CHECK-NEXT: %1 = load %i
 ;CHECK:      %cmp7 = icmp eq i32 %rem, 0
-;CHECK-NEXT: br i1 %cmp7, label %if.then, label %if.else
+;TEMP-DO-NOT-CHECK-NEXT: br i1 %cmp7, label %if.then, label %if.else
 
 ;CHECK-NEXT: if( %cmp7 = icmp eq i32 %rem, 0 )
 ;CHECK:      if.then:

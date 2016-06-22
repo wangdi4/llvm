@@ -660,8 +660,12 @@ void StackColoring::expungeSlotMap(DenseMap<int, int> &SlotRemap,
 }
 
 bool StackColoring::runOnMachineFunction(MachineFunction &Func) {
+#if !INTEL_CUSTOMIZATION
+  // This is ifdef'd out as a part of cherry-picking r271068.
+  // It should be deleted entirely with the next pulldown.
   if (skipFunction(*Func.getFunction()))
     return false;
+#endif // !INTEL_CUSTOMIZATION
 
   DEBUG(dbgs() << "********** Stack Coloring **********\n"
                << "********** Function: "
@@ -703,7 +707,14 @@ bool StackColoring::runOnMachineFunction(MachineFunction &Func) {
 
   // Don't continue because there are not enough lifetime markers, or the
   // stack is too small, or we are told not to optimize the slots.
+#ifdef INTEL_CUSTOMIZATION
+  // The last condition below was added to cherry-pick r271068.
+  // The "customization" can be discarded with the next pulldown.
+  if (NumMarkers < 2 || TotalSize < 16 || DisableColoring ||
+      skipFunction(*Func.getFunction())) {
+#else // !INTEL_CUSTOMIZATION
   if (NumMarkers < 2 || TotalSize < 16 || DisableColoring) {
+#endif
     DEBUG(dbgs()<<"Will not try to merge slots.\n");
     return removeAllMarkers();
   }

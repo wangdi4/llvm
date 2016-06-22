@@ -24,9 +24,6 @@
 
 #define DEBUG_TYPE "VPODriver"
 
-static cl::opt<unsigned> DefaultVL("default-vpo-vl", cl::init(4),
-                                   cl::desc("Default vector length"));
-
 using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
@@ -253,6 +250,13 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
     return;
   }
   
+
+  // TODO: Handle the case when we have a denominator
+  if (CExpr->getDenominator() != 1) {
+    IsHandled = false;
+    return;
+  }
+  
   SmallVector<unsigned, 8> BlobIndices;
   CExpr->collectBlobIndices(BlobIndices, false);
 
@@ -273,10 +277,14 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
   }
 }
 
+// TODO: Take as input a VPOVecContext that indicates which AVRLoop(s)
+// is (are) to be vectorized, as identified by the vectorization scenario
+// evaluation.
+// FORNOW there is only one AVRLoop per region, so we will re-discover
+// the same AVRLoop that the vecScenarioEvaluation had "selected".
 bool AVRCodeGenHIR::loopIsHandled() {
   AVRWrn *AWrn = nullptr;
   AVRLoop *ALoop = nullptr;
-  int VL = 0;
   unsigned int TripCount = 0;
   WRNVecLoopNode *WVecNode;
   HLLoop *Loop = nullptr;
@@ -288,6 +296,7 @@ bool AVRCodeGenHIR::loopIsHandled() {
   WVecNode = AWrn->getWrnNode();
 
   // An AVRWrn node is expected to have only one AVRLoop child
+  // FIXME?: This expectation was already checked by the VecScenarioEvaluation.
   for (auto Itr = AWrn->child_begin(), End = AWrn->child_end(); Itr != End;
        ++Itr) {
     if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
@@ -319,12 +328,10 @@ bool AVRCodeGenHIR::loopIsHandled() {
       return false;
   }
 
-  VL = AWrn->getSimdVectorLength();
-
-  // Assume the default vectorization factor when VL is 0
-  if (VL == 0)
-    VL = DefaultVL;
-
+  assert(VL >= 1);
+  if (VL == 1)
+    return false;
+  
   // Loop parent is expected to be an HLRegion
   HLRegion *Parent = dyn_cast<HLRegion>(Loop->getParent());
   if (!Parent)
@@ -374,15 +381,18 @@ bool AVRCodeGenHIR::loopIsHandled() {
 
   setALoop(ALoop);
   setTripCount(TripCount);
-  setVL(VL);
 
   DEBUG(errs() << "Handled loop\n");
   return true;
 }
 
-bool AVRCodeGenHIR::vectorize() {
+// TODO: Change all VL occurences with VF
+// TODO: Have this method take a VecContext as input, which indicates which
+// AVRLoops in the region to vectorize, and how (using what VF).
+bool AVRCodeGenHIR::vectorize(int VL) {
   bool RetVal, LoopHandled;
 
+  setVL(VL);
   LoopHandled = loopIsHandled();
   if (!LoopHandled)
     return false;
@@ -400,14 +410,53 @@ bool AVRCodeGenHIR::vectorize() {
   return RetVal;
 }
 
+void AVRCodeGenHIR::eraseIntrinsBeforeLoop() {
+  // Erase intrinsics before the Loop - the code below mimics the code
+  // to check for a SIMD loop (HLLoop::isSIMD).
+  auto FirstChild = HLNodeUtils::getFirstLexicalChild(OrigLoop->getParent(),
+                                                      OrigLoop);
+  HLContainerTy::iterator FIter(*FirstChild);
+  HLContainerTy::iterator Iter(OrigLoop);
+
+  bool FirstDirItSet = false;
+  HLContainerTy::iterator FirstDirIt;
+  HLContainerTy::iterator LoopIt(OrigLoop);
+
+  while (Iter != FIter) {
+    --Iter;
+
+    auto Inst = dyn_cast<HLInst>(Iter);
+    if (!Inst)
+      break; // Loop, IF, Switch, etc.
+
+    Intrinsic::ID IntrinID;
+    // Expecting just directives and clauses between SIMD directive and Loop.
+    if (!Inst->isIntrinCall(IntrinID) ||
+        !vpo::VPOUtils::isIntelDirectiveOrClause(IntrinID))
+      break; 
+    
+    FirstDirItSet = true;
+    FirstDirIt = Iter;
+  }
+
+  // In cases where we have other HLInsts between the SIMD related directives
+  // and HLLoop, we will hit the following assert. As a workaround for now,
+  // do not assert. These directives will be deleted by the intrinsic cleanup
+  // pass that runs later.
+  // TODO: Modify this function to look for the first/last SIMD directive
+  // before a HLLoop ignoring other HLInsts before the loop before we hit the
+  // first SIMD related directive.
+  // assert(FirstDirItSet && "Expected SIMD directive not found");
+
+  if (FirstDirItSet)
+    // Erase intrinsics and clauses before the loop
+    HLNodeUtils::erase(FirstDirIt, LoopIt);
+}
+
 bool AVRCodeGenHIR::processLoop() {
   HLLoop *LoopX = const_cast<HLLoop *>(OrigLoop);
-  HLRegion *Parent = dyn_cast<HLRegion>(OrigLoop->getParent());
-  HLContainerTy::iterator It1(Parent->child_begin());
-  HLContainerTy::iterator It2(LoopX);
 
-  // Erase intrinsics at the beginning of the region
-  HLNodeUtils::erase(It1, It2);
+  eraseIntrinsBeforeLoop();
 
   auto Begin = LoopX->child_begin();
   auto End = LoopX->child_end();
@@ -700,9 +749,9 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
 
     Ref = *Iter;
 
-    // Lval SelfBlob refs get the widened ref duing the HLInst creation
+    // Lval terminal refs get the widened ref duing the HLInst creation
     // later.
-    if (Ref->isLval() && Ref->isSelfBlob())
+    if (Ref->isLval() && Ref->isTerminalRef())
       WideOps.push_back(nullptr);
     else {
       WideRef = widenRef(Ref);

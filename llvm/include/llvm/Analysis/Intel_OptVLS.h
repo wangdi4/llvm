@@ -67,6 +67,8 @@ typedef OVLSVector<OVLSGroup*> OVLSGroupVector;
 typedef class OVLSInstruction OVLSInstruction;
 typedef OVLSVector<OVLSInstruction*> OVLSInstructionVector;
 
+typedef OVLSMap<OVLSMemref*, OVLSGroup*> OVLSMemrefToGroupMap;
+
 // AccessType: {Strided|Indexed}{Load|Store}
 class OVLSAccessType {
 private:
@@ -130,16 +132,16 @@ public:
 
 /// Defines OVLS data type which is a vector type, representing a vector of
 /// elements. A vector type requires a size (number of elements in the vector)
-/// and an element size. The kinds of instructions OVLS deals with (i.e load/store
-/// permute/shift) do not require element type such as integer, float. Knowing
-/// the element size is sufficient.
+/// and an element size in bits. The kinds of instructions OVLS deals with (
+/// i.e load/store permute/shift) do not require element type such as integer,
+/// float. Knowing the element size is sufficient.
 /// Please note that, since OVLS server works with target independent abstract
 /// instructions (OVLSInstruction), it has no restrictions on the sizes.
 /// Any size is considered as a valid size.
 /// Syntax:  < <# elements> x <element-size> >
 class OVLSType {
 private:
-  uint32_t  ElementSize;
+  uint32_t  ElementSize; // in bits
   uint32_t  NumElements;
 
 public:
@@ -160,11 +162,20 @@ public:
 	   NumElements == Rhs.NumElements;
   }
 
+  bool operator!=(OVLSType Rhs) const {
+    return ElementSize != Rhs.ElementSize ||
+	   NumElements != Rhs.NumElements;
+  }
+
+  bool isValid() const { return ElementSize != 0 && NumElements != 0; }
+
   uint32_t getElementSize() const { return ElementSize; }
   void setElementSize(uint32_t ESize) { ElementSize = ESize; }
 
   uint32_t getNumElements() const { return NumElements; }
   void setNumElements(uint32_t NElems) { NumElements = NElems; }
+
+  uint32_t getSize() const { return NumElements * ElementSize; }
 
   /// \brief prints the type as "<NumElements x ElementSize>"
   void print(OVLSostream &OS) const {
@@ -389,27 +400,40 @@ class OVLSOperand {
 
 public:
   /// An operand can be an address or a temp.
-  /// TODO: We will also need to support value.
-  enum OperandKind { OK_Address, OK_Instruction };
+enum OperandKind { OK_Address, OK_Instruction, OK_Constant };
+
+  explicit OVLSOperand(OperandKind K, OVLSType T) : Kind(K), Type(T) {}
 
   explicit OVLSOperand(OperandKind K) : Kind(K) {}
-
   OVLSOperand() {}
 
   ~OVLSOperand() {}
 
   OperandKind getKind() const { return Kind; }
-
-  virtual void print(OVLSostream &OS) const = 0;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// This method is used for debugging.
-  ///
-  virtual void dump() const = 0;
-#endif
+  OVLSType getType() const { return Type; }
 
 private:
   OperandKind Kind;
+  OVLSType Type;
+};
+
+/// OVLSConstant provides a raw bitstream to represent a constant of
+/// any type.
+class OVLSConstant : public OVLSOperand {
+private:
+  static const int32_t BitWidth = 1024;
+  uint8_t ConstValue[BitWidth / 8];
+
+public:
+  explicit OVLSConstant(OVLSType T, uint8_t *V) :
+    OVLSOperand(OK_Constant, T) {
+    assert(T.getSize() <= BitWidth && "Unsupported OVLSConstant size!");
+    memcpy(ConstValue, V, T.getSize());
+  }
+
+  static bool classof(const OVLSOperand *Operand) {
+    return Operand->getKind() == OK_Constant;
+  }
 };
 
 /// OVLSAddress{Base, Offset} represents an address that is Offset
@@ -457,12 +481,12 @@ private:
   int64_t Offset;
 };
 
-class OVLSInstruction {
+class OVLSInstruction : public OVLSOperand {
 public:
-  enum OperationCode { OC_Load, OC_Store };
+  enum OperationCode { OC_Load, OC_Store, OC_Shuffle };
 
   explicit OVLSInstruction(OperationCode OC,  OVLSType T) :
-    OPCode(OC) {
+    OVLSOperand(OK_Instruction), OPCode(OC) {
     DType = T;
     static uint64_t InstructionId = 1;
     Id = InstructionId++;
@@ -531,6 +555,71 @@ private:
 
 };
 
+/// OVLSShuffle instruction combines elements from the first two input vectors
+/// into a new vector, with the selection and ordering of elements determined
+/// by the 3rd vector, referred to as the shuffle mask. The length of the
+/// shuffle mask can be of any length that is less than or equal to the total
+/// length of the input vectors. Therefore, the length of the result vector can
+/// be of any size that is the same as the shuffle mask and the element size is
+/// the same as the element size of the first two input vectors. The shuffle
+/// mask operand is required to be a constant vector with either constant
+/// integer or undef values(-1).
+/// For input vectors of width N, mask selector can be of 0..N-1
+/// referring to the elements from the 1st input, and selector from N to 2N-1
+/// refer to the 2nd input vector.
+/// The mask value of -1 is treated as undef (meaning don't care), any value
+/// can be put in the corresponding element of the result.
+/// Second source vector can also be undef(NULL), that will mean shuffle only
+/// from one vector.
+/// Example:
+/// <result> = shuffle <4 x i32> s1, // vector indices: 0, 1, 2, 3
+///                    <4 x i32> s2, // vector indices: 4, 5, 6, 7
+///                    <uint32_t*> mask // mask values: 0, 1, 4, 5
+/// This shuffle instruction constructs an output vector of 4 elements, where
+/// the first two elements are the 1st two elements of the 1st input vector
+/// and the second two elements of the result vector are the first two elements
+/// of the 2nd input vector.
+class OVLSShuffle : public OVLSInstruction {
+
+public:
+  explicit OVLSShuffle(OVLSOperand O1, OVLSOperand O2, OVLSOperand O3) :
+    OVLSInstruction(OC_Shuffle, OVLSType(O1.getType().getElementSize(),
+                                         O3.getType().getNumElements())) {
+    assert(hasValidOperands(O1, O2, O3) &&
+           "Invalid shuffle vector instruction operand!");
+    Op1 = O1;
+    Op2 = O2;
+    Op3 = O3;
+  }
+
+  /// isValidOperands - Return true if a shufflevector instruction can be
+  /// formed with the specified operands.
+  static bool hasValidOperands(OVLSOperand O1, OVLSOperand O2, OVLSOperand Mask);
+
+  static bool classof(const OVLSInstruction *I) {
+    return I->getKind() == OC_Shuffle;
+  }
+
+  void print(OVLSostream &OS, unsigned NumSpaces) const;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const {
+    print(OVLSdbgs(), 0);
+    OVLSdbgs() << '\n';
+  }
+#endif
+
+private:
+  OVLSOperand Op1;
+  OVLSOperand Op2;
+
+  /// \p Op3 defines the shuffle mask, specifies for each element of the result
+  /// vector, which element of the two source vectors the result element gets.
+  /// Having -1 as a shuffle selector means "don't care".
+  OVLSOperand Op3;
+};
+
+
 // Printing of OVLSInstruction.
 static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSInstruction& I) {
   if (isa<OVLSLoad>(&I)) {
@@ -564,7 +653,8 @@ public:
 class OptVLSInterface {
 public:
   /// \brief getGroups() groups the memrefs that are adjacent and returns
-  /// the formed groups in \p Grps.
+  /// the formed groups in \p Grps. It also optionally returns a map in
+  /// \p MemrefToGroupMap which maps memref to the group that it belongs to.
   /// getGroups() takes a vector of OVLSMemrefs, a vector of OVLSGroups for
   /// containing the return group-vector and a vector length in bytes (which is
   /// the maximum length of the underlying vector register or any other
@@ -582,7 +672,8 @@ public:
   /// some opportunities. This can be improved in the future if needed.
   static void getGroups(const OVLSMemrefVector &Memrefs,
                         OVLSGroupVector &Grps,
-                        uint32_t VectorLength);
+                        uint32_t VectorLength,
+                        OVLSMemrefToGroupMap *MemrefToGroupMap = nullptr);
 
   /// \brief getGroupCost() returns a relative cost/benefit of performing
   /// adjacent gather/scatter optimization for a group (of gathers/scatters).

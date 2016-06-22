@@ -1521,11 +1521,22 @@ const SCEV *ScalarEvolution::getZeroExtendExpr(const SCEV *Op,
                 getSignExtendExpr(Step, Ty), L, AR->getNoWrapFlags());
           }
         }
+      }
 
-        // If the backedge is guarded by a comparison with the pre-inc value
-        // the addrec is safe. Also, if the entry is guarded by a comparison
-        // with the start value and the backedge is guarded by a comparison
-        // with the post-inc value, the addrec is safe.
+      // Normally, in the cases we can prove no-overflow via a
+      // backedge guarding condition, we can also compute a backedge
+      // taken count for the loop.  The exceptions are assumptions and
+      // guards present in the loop -- SCEV is not great at exploiting
+      // these to compute max backedge taken counts, but can still use
+      // these to prove lack of overflow.  Use this fact to avoid
+      // doing extra work that may not pay off.
+      if (!isa<SCEVCouldNotCompute>(MaxBECount) || HasGuards ||
+          !AC.assumptions().empty()) {
+        // If the backedge is guarded by a comparison with the pre-inc
+        // value the addrec is safe. Also, if the entry is guarded by
+        // a comparison with the start value and the backedge is
+        // guarded by a comparison with the post-inc value, the addrec
+        // is safe.
         if (isKnownPositive(Step)) {
           const SCEV *N = getConstant(APInt::getMinValue(BitWidth) -
                                       getUnsignedRange(Step).getUnsignedMax());
@@ -1533,7 +1544,8 @@ const SCEV *ScalarEvolution::getZeroExtendExpr(const SCEV *Op,
               (isLoopEntryGuardedByCond(L, ICmpInst::ICMP_ULT, Start, N) &&
                isLoopBackedgeGuardedByCond(L, ICmpInst::ICMP_ULT,
                                            AR->getPostIncExpr(*this), N))) {
-            // Cache knowledge of AR NUW, which is propagated to this AddRec.
+            // Cache knowledge of AR NUW, which is propagated to this
+            // AddRec.
             const_cast<SCEVAddRecExpr *>(AR)->setNoWrapFlags(SCEV::FlagNUW);
             // Return the expression with the addrec on the outside.
             return getAddRecExpr(
@@ -1547,8 +1559,9 @@ const SCEV *ScalarEvolution::getZeroExtendExpr(const SCEV *Op,
               (isLoopEntryGuardedByCond(L, ICmpInst::ICMP_UGT, Start, N) &&
                isLoopBackedgeGuardedByCond(L, ICmpInst::ICMP_UGT,
                                            AR->getPostIncExpr(*this), N))) {
-            // Cache knowledge of AR NW, which is propagated to this AddRec.
-            // Negative step causes unsigned wrap, but it still can't self-wrap.
+            // Cache knowledge of AR NW, which is propagated to this
+            // AddRec.  Negative step causes unsigned wrap, but it
+            // still can't self-wrap.
             const_cast<SCEVAddRecExpr *>(AR)->setNoWrapFlags(SCEV::FlagNW);
             // Return the expression with the addrec on the outside.
             return getAddRecExpr(
@@ -1742,11 +1755,23 @@ const SCEV *ScalarEvolution::getSignExtendExpr(const SCEV *Op,
                 getZeroExtendExpr(Step, Ty), L, AR->getNoWrapFlags());
           }
         }
+      }
 
-        // If the backedge is guarded by a comparison with the pre-inc value
-        // the addrec is safe. Also, if the entry is guarded by a comparison
-        // with the start value and the backedge is guarded by a comparison
-        // with the post-inc value, the addrec is safe.
+      // Normally, in the cases we can prove no-overflow via a
+      // backedge guarding condition, we can also compute a backedge
+      // taken count for the loop.  The exceptions are assumptions and
+      // guards present in the loop -- SCEV is not great at exploiting
+      // these to compute max backedge taken counts, but can still use
+      // these to prove lack of overflow.  Use this fact to avoid
+      // doing extra work that may not pay off.
+
+      if (!isa<SCEVCouldNotCompute>(MaxBECount) || HasGuards ||
+          !AC.assumptions().empty()) {
+        // If the backedge is guarded by a comparison with the pre-inc
+        // value the addrec is safe. Also, if the entry is guarded by
+        // a comparison with the start value and the backedge is
+        // guarded by a comparison with the post-inc value, the addrec
+        // is safe.
         ICmpInst::Predicate Pred;
         const SCEV *OverflowLimit =
             getSignedOverflowLimitForStep(Step, &Pred, this);
@@ -1762,6 +1787,7 @@ const SCEV *ScalarEvolution::getSignExtendExpr(const SCEV *Op,
               getSignExtendExpr(Step, Ty), L, AR->getNoWrapFlags());
         }
       }
+
       // If Start and Step are constants, check if we can apply this
       // transformation:
       // sext{C1,+,C2} --> C1 + sext{0,+,C2} if C1 < C2
@@ -3521,6 +3547,19 @@ const SCEV *ScalarEvolution::getSCEVForHIR(Value *Val,
   return SC;
 }
 
+const SCEV *ScalarEvolution::getSCEVAtScopeForHIR(const SCEV *SC, 
+                                                  const Loop *Lp,
+                                                  const Loop *OutermostLoop) {
+  HIRInfo.set(OutermostLoop);
+
+  SC = getSCEVAtScope(SC, Lp);
+
+  HIRInfo.reset();
+
+  return SC;
+}
+
+
 bool ScalarEvolution::isLoopZtt(const Loop *Lp, const BranchInst *ZttInst) {
 
   auto ZttCond = ZttInst->getCondition();
@@ -4806,27 +4845,33 @@ ScalarEvolution::getRange(const SCEV *S,
 }
 
 #if INTEL_CUSTOMIZATION // HIR parsing 
+unsigned ScalarEvolution::getHIRMDKindID(HIRLiveKind Kind) {
 
-const char* const llvm::HIR_LIVE_IN_STR = "in.de.ssa";
-const char* const llvm::HIR_LIVE_OUT_STR = "out.de.ssa";
-const char* const llvm::HIR_LIVE_RANGE_STR = "live.range.de.ssa";
+  // Initialize all kinds together.
+  if (!HIRLiveInID) {
+    HIRLiveInID = getContext().getMDKindID("in.de.ssa");
+    HIRLiveOutID = getContext().getMDKindID("out.de.ssa");
+    HIRLiveRangeID = getContext().getMDKindID("live.range.de.ssa");
+  }
 
-bool ScalarEvolution::isHIRLiveInCopyInst(const Instruction *Inst) const {
-  return Inst->getMetadata(HIR_LIVE_IN_STR);
+  switch(Kind) {
+  case HIRLiveKind::LiveIn: 
+      return HIRLiveInID;
+
+  case HIRLiveKind::LiveOut: 
+    return HIRLiveOutID;
+
+  case HIRLiveKind::LiveRange: 
+    return HIRLiveRangeID;
+  }
+
+  llvm_unreachable("Invalid HIRLiveKind encountered!");
 }
 
-bool ScalarEvolution::isHIRLiveOutCopyInst(const Instruction *Inst) const {
-  return Inst->getMetadata(HIR_LIVE_OUT_STR);
+MDNode *ScalarEvolution::getHIRMetadata(const Instruction *Inst, 
+                                        HIRLiveKind Kind) {
+  return Inst->getMetadata(getHIRMDKindID(Kind));
 }
-
-bool ScalarEvolution::isHIRCopyInst(const Instruction *Inst) const {
-  return isHIRLiveInCopyInst(Inst) || isHIRLiveOutCopyInst(Inst);
-}
-
-bool ScalarEvolution::isHIRLiveRangeIndicator(const Instruction *Inst) const {
-  return Inst->getMetadata(HIR_LIVE_RANGE_STR);
-}
-
 #endif // INTEL_CUSTOMIZATION
 
 ConstantRange ScalarEvolution::getRangeForAffineAR(const SCEV *Start,
@@ -5093,7 +5138,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
 
     // INTEL - Suppress traceback for instructions indicating possible live
     // range violation.
-    if (isHIRLiveRangeIndicator(I))
+    if (getHIRMetadata(I, HIRLiveKind::LiveRange))
       return getUnknown(V);
 
   } else if (ConstantInt *CI = dyn_cast<ConstantInt>(V))
@@ -5120,7 +5165,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
         if (BO->Op) {
 #if INTEL_CUSTOMIZATION // HIR parsing
           auto Inst = dyn_cast<Instruction>(BO->Op);
-          if (Inst && isHIRLiveRangeIndicator(Inst)) {
+          if (Inst && getHIRMetadata(Inst, HIRLiveKind::LiveRange)) {
             AddOps.push_back(getSCEV(Inst));
             break;
           }
@@ -5172,7 +5217,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
         if (BO->Op) {
 #if INTEL_CUSTOMIZATION // HIR parsing
           auto Inst = dyn_cast<Instruction>(BO->Op);
-          if (Inst && isHIRLiveRangeIndicator(Inst)) {
+          if (Inst && getHIRMetadata(Inst, HIRLiveKind::LiveRange)) {
             MulOps.push_back(getSCEV(Inst));
             break;
           }
@@ -5378,7 +5423,8 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
 
   case Instruction::BitCast:
     // INTEL - Suppress traceback for liveout copy instructions inserted by HIR.
-    if (!isa<Instruction>(V) || !isHIRLiveOutCopyInst(cast<Instruction>(V)))  
+    if (!isa<Instruction>(V) || 
+        !getHIRMetadata(cast<Instruction>(V), HIRLiveKind::LiveOut))  
       // BitCasts are no-op casts so we just eliminate the cast.
       if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
         return getSCEV(U->getOperand(0));
@@ -5899,6 +5945,8 @@ ScalarEvolution::BackedgeTakenInfo::BackedgeTakenInfo(
 
   if (NumExits == 1)
     return;
+
+  assert(ENT && "ExitNotTakenExtras is NULL while having more than one exit");
 
   auto &Exits = ExitNotTaken.ExtraInfo->Exits;
 
@@ -8151,6 +8199,23 @@ bool ScalarEvolution::isKnownPredicateViaSplitting(ICmpInst::Predicate Pred,
          isKnownPredicate(CmpInst::ICMP_SLT, LHS, RHS);
 }
 
+bool ScalarEvolution::isImpliedViaGuard(BasicBlock *BB,
+                                        ICmpInst::Predicate Pred,
+                                        const SCEV *LHS, const SCEV *RHS) {
+  // No need to even try if we know the module has no guards.
+  if (!HasGuards)
+    return false;
+
+  return any_of(*BB, [&](Instruction &I) {
+    using namespace llvm::PatternMatch;
+
+    Value *Condition;
+    return match(&I, m_Intrinsic<Intrinsic::experimental_guard>(
+                         m_Value(Condition))) &&
+           isImpliedCond(Pred, LHS, RHS, Condition, false);
+  });
+}
+
 /// isLoopBackedgeGuardedByCond - Test whether the backedge of the loop is
 /// protected by a conditional between LHS and RHS.  This is used to
 /// to eliminate casts.
@@ -8218,12 +8283,18 @@ ScalarEvolution::isLoopBackedgeGuardedByCond(const Loop *L,
   if (!DT.isReachableFromEntry(L->getHeader()))
     return false;
 
+  if (isImpliedViaGuard(Latch, Pred, LHS, RHS))
+    return true;
+
   for (DomTreeNode *DTN = DT[Latch], *HeaderDTN = DT[L->getHeader()];
        DTN != HeaderDTN; DTN = DTN->getIDom()) {
 
     assert(DTN && "should reach the loop header before reaching the root!");
 
     BasicBlock *BB = DTN->getBlock();
+    if (isImpliedViaGuard(BB, Pred, LHS, RHS))
+      return true;
+
     BasicBlock *PBB = BB->getSinglePredecessor();
     if (!PBB)
       continue;
@@ -8275,6 +8346,9 @@ ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
          Pair(L->getLoopPredecessor(), L->getHeader());
        Pair.first;
        Pair = getPredecessorWithUniqueSuccessorForBB(Pair.first)) {
+
+    if (isImpliedViaGuard(Pair.first, Pred, LHS, RHS))
+      return true;
 
     BranchInst *LoopEntryPredicate =
       dyn_cast<BranchInst>(Pair.first->getTerminator());
@@ -9814,13 +9888,31 @@ ScalarEvolution::ScalarEvolution(Function &F, TargetLibraryInfo &TLI,
       CouldNotCompute(new SCEVCouldNotCompute()),
       WalkingBEDominatingConds(false), ProvingSplitPredicate(false),
       ValuesAtScopes(64), LoopDispositions(64), BlockDispositions(64),
-      FirstUnknown(nullptr) {}
+      FirstUnknown(nullptr) {
+
+  // To use guards for proving predicates, we need to scan every instruction in
+  // relevant basic blocks, and not just terminators.  Doing this is a waste of
+  // time if the IR does not actually contain any calls to
+  // @llvm.experimental.guard, so do a quick check and remember this beforehand.
+  //
+  // This pessimizes the case where a pass that preserves ScalarEvolution wants
+  // to _add_ guards to the module when there weren't any before, and wants
+  // ScalarEvolution to optimize based on those guards.  For now we prefer to be
+  // efficient in lieu of being smart in that rather obscure case.
+
+  auto *GuardDecl = F.getParent()->getFunction(
+      Intrinsic::getName(Intrinsic::experimental_guard));
+  HasGuards = GuardDecl && !GuardDecl->use_empty();
+}
 
 ScalarEvolution::ScalarEvolution(ScalarEvolution &&Arg)
-    : F(Arg.F), TLI(Arg.TLI), AC(Arg.AC), DT(Arg.DT), LI(Arg.LI),
-      CouldNotCompute(std::move(Arg.CouldNotCompute)),
+    : F(Arg.F), HasGuards(Arg.HasGuards), TLI(Arg.TLI), AC(Arg.AC), DT(Arg.DT),
+      LI(Arg.LI), CouldNotCompute(std::move(Arg.CouldNotCompute)),
       ValueExprMap(std::move(Arg.ValueExprMap)),
       HIRValueExprMap(std::move(Arg.HIRValueExprMap)), // INTEL
+      HIRLiveInID(Arg.HIRLiveInID), // INTEL
+      HIRLiveOutID(Arg.HIRLiveOutID), // INTEL
+      HIRLiveRangeID(Arg.HIRLiveRangeID), // INTEL
       WalkingBEDominatingConds(false), ProvingSplitPredicate(false),
       BackedgeTakenCounts(std::move(Arg.BackedgeTakenCounts)),
       HIRBackedgeTakenCounts(std::move(Arg.HIRBackedgeTakenCounts)), // INTEL
@@ -9988,16 +10080,31 @@ void ScalarEvolution::print(raw_ostream &OS) const {
         bool First = true;
         for (auto *Iter = L; Iter; Iter = Iter->getParentLoop()) {
           if (First) {
-            OS << "\t\t" "LoopDispositions: [ ";
+            OS << "\t\t" "LoopDispositions: { ";
             First = false;
           } else {
             OS << ", ";
           }
 
-          OS << loopDispositionToStr(SE.getLoopDisposition(SV, Iter));
+          Iter->getHeader()->printAsOperand(OS, /*PrintType=*/false);
+          OS << ": " << loopDispositionToStr(SE.getLoopDisposition(SV, Iter));
         }
 
-        OS << " ]";
+        for (auto *InnerL : depth_first(L)) {
+          if (InnerL == L)
+            continue;
+          if (First) {
+            OS << "\t\t" "LoopDispositions: { ";
+            First = false;
+          } else {
+            OS << ", ";
+          }
+
+          InnerL->getHeader()->printAsOperand(OS, /*PrintType=*/false);
+          OS << ": " << loopDispositionToStr(SE.getLoopDisposition(SV, InnerL));
+        }
+
+        OS << " }";
       }
 
       OS << "\n";

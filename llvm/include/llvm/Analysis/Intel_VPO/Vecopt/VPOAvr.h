@@ -102,6 +102,15 @@ public:
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      VerbosityLevel VLevel) const = 0;
 
+  /// \brief Virtual shallow-print method. Default implementation is to call the
+  /// print() method (which is shallow for most nodes). Nodes containing other
+  /// nodes should reimplement to just print the node itself without their
+  /// contained nodes. 
+  virtual void shallowPrint(formatted_raw_ostream &OS) const {
+
+    print(OS, 0, PrintNumber);
+  }
+
   /// \brief Returns a StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const = 0;
 

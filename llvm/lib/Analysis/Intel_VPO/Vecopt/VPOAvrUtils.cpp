@@ -58,6 +58,14 @@ void AVRUtils::setAVRAssignRHS(AVRAssign *AvrAssign, AVR *Node) {
   AvrAssign->setRHS(Node);
 }
 
+void AVRUtils::setAVRPhiLHS(AVRPhi *APhi, AVRValue *AValue) {
+  APhi->setLHS(AValue);
+}
+
+void AVRUtils::addAVRPhiIncoming(AVRPhi *APhi, AVRValue *AValue, AVRLabel *ALabel) {
+  APhi->addIncoming(AValue, ALabel);
+}
+
 void AVRUtils::addCase(AVRSwitch *ASwitch) {
   ASwitch->addCase();
 }

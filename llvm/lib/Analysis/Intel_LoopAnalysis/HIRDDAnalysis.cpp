@@ -16,6 +16,8 @@
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScopedNoAliasAA.h"
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -65,7 +67,7 @@ cl::list<DDVerificationLevel> VerifyLevelList(
 
 // Disable caching behavior and rebuild graph for every request.
 static cl::opt<bool>
-    forceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
+    ForceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
 FunctionPass *llvm::createHIRDDAnalysisPass() { return new HIRDDAnalysis(); }
@@ -73,6 +75,9 @@ FunctionPass *llvm::createHIRDDAnalysisPass() { return new HIRDDAnalysis(); }
 char HIRDDAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRDDAnalysis, "hir-dd-analysis",
                       "HIR Data Dependence Analysis", false, true)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TypeBasedAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_END(HIRDDAnalysis, "hir-dd-analysis",
                     "HIR Data Dependence Analysis", false, true)
@@ -80,14 +85,27 @@ INITIALIZE_PASS_END(HIRDDAnalysis, "hir-dd-analysis",
 void HIRDDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
+  AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFramework>();
-  // scev
-  // need tbaa// or just general AA?
+
+  AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
+  AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
+  // TODO: Do we need to add scev alias analysis??
 }
 
 // \brief Because the graph is evaluated lazily, runOnFunction doesn't
 // do any analysis
 bool HIRDDAnalysis::runOnFunction(Function &F) {
+
+  AAR.reset(new AAResults(getAnalysis<TargetLibraryInfoWrapperPass>().getTLI()));
+
+  if (auto *Pass = getAnalysisIfAvailable<ScopedNoAliasAAWrapperPass>()) {
+    AAR->addAAResult(Pass->getResult());
+  }
+
+  if (auto *Pass = getAnalysisIfAvailable<TypeBasedAAWrapperPass>()) {
+    AAR->addAAResult(Pass->getResult());
+  }
 
   HIRF = &getAnalysis<HIRFramework>();
 
@@ -102,13 +120,16 @@ bool HIRDDAnalysis::runOnFunction(Function &F) {
 }
 
 void HIRDDAnalysis::markLoopBodyModified(const HLLoop *L) {
-  // TODO
+  // TODO: properly handle loop body modification
+  FunctionDDGraph.clear();
 }
 void HIRDDAnalysis::markLoopBoundsModified(const HLLoop *L) {
-  // TODO
+  // TODO: properly handle loop bounds modification
+  FunctionDDGraph.clear();
 }
 void HIRDDAnalysis::markNonLoopRegionModified(const HLRegion *R) {
-  // TODO
+  // TODO: properly handle region modification
+  FunctionDDGraph.clear();
 }
 
 DDGraph HIRDDAnalysis::getGraph(HLNode *Node, bool InputEdgesReq) {
@@ -143,8 +164,8 @@ bool HIRDDAnalysis::edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq) {
 
 // initializes direction vector used to test from Node's loop nesting level
 // to the deepest of ref1 and ref2s level
-void HIRDDAnalysis::setInputDV(DVectorTy &InputDV, HLNode *Node, DDRef *Ref1,
-                               DDRef *Ref2) {
+void HIRDDAnalysis::setInputDV(DirectionVector &InputDV, HLNode *Node,
+                               DDRef *Ref1, DDRef *Ref2) {
   HLLoop *Parent1 = dyn_cast<HLLoop>(Ref1->getHLDDNode());
   HLLoop *Parent2 = dyn_cast<HLLoop>(Ref2->getHLDDNode());
   Parent1 = Parent1 ? Parent1 : Ref1->getHLDDNode()->getLexicalParentLoop();
@@ -167,13 +188,7 @@ void HIRDDAnalysis::setInputDV(DVectorTy &InputDV, HLNode *Node, DDRef *Ref1,
   }
   assert(ShallowestLevel <= DeepestLevel && "Incorrect Input DV calculation");
 
-  for (int I = 1; I < ShallowestLevel; ++I) {
-    InputDV[I - 1] = DV::EQ;
-  }
-
-  for (int I = ShallowestLevel; I <= DeepestLevel; ++I) {
-    InputDV[I - 1] = DV::ALL;
-  }
+  InputDV.setAsInput(ShallowestLevel, DeepestLevel);
 }
 
 void HIRDDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
@@ -196,16 +211,16 @@ void HIRDDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
     for (auto Ref1 = RefVec.begin(), E = RefVec.end(); Ref1 != E; ++Ref1) {
       for (auto Ref2 = Ref1; Ref2 != E; ++Ref2) {
         if (edgeNeeded(*Ref1, *Ref2, BuildInputEdges)) {
-          DDtest DA;
-          DVectorTy inputDV;
-          DVectorTy OutputDVForward;
-          DVectorTy OutputDVBackward;
+          DDTest DA(*AAR);
+          DirectionVector InputDV;
+          DirectionVector OutputDVForward;
+          DirectionVector OutputDVBackward;
           bool IsLoopIndepDepTemp = false;
           // TODO this is incorrect, we need a direction vector of
           //= = * for 3rd level inermost loops
-          DA.setInputDV(inputDV, 1, 9);
+          InputDV.setAsInput(1, 9);
 
-          DA.findDependences(*Ref1, *Ref2, inputDV, OutputDVForward,
+          DA.findDependences(*Ref1, *Ref2, InputDV, OutputDVForward,
                              OutputDVBackward, &IsLoopIndepDepTemp);
           //  Sample code to check output:
           //  first check IsDependent
@@ -216,15 +231,16 @@ void HIRDDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
           // of obliterating edges if we request outermost loop graph then
           // innermost loop graph. If refinement is not possible, we should
           // keep the previous result cached somewhere.
-          if (OutputDVForward[0] != DV::NONE) {
-            DDEdge Edge = DDEdge(*Ref1, *Ref2, OutputDVForward, IsLoopIndepDepTemp);
-           
+          if (OutputDVForward[0] != DVKind::NONE) {
+            DDEdge Edge =
+                DDEdge(*Ref1, *Ref2, OutputDVForward, IsLoopIndepDepTemp);
+
             // DEBUG(dbgs() << "Got edge of :");
             // DEBUG(Edge.dump());
             FunctionDDGraph.addEdge(Edge);
           }
 
-          if (OutputDVBackward[0] != DV::NONE) {
+          if (OutputDVBackward[0] != DVKind::NONE) {
             DDEdge Edge = DDEdge(*Ref2, *Ref1, OutputDVBackward);
             // DEBUG(dbgs() << "Got back edge of :");
             // DEBUG(Edge.dump());
@@ -236,8 +252,35 @@ void HIRDDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
   }
 }
 
+bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
+                             unsigned InnermostNestingLevel,
+                             unsigned OutermostNestingLevel,
+                             DirectionVector &RefinedDV, bool *IsIndependent) {
+
+  bool IsDVRefined = false;
+  *IsIndependent = false;
+  RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
+
+  if (RegDDref && !(RegDDref->isTerminalRef())) {
+    DDTest DA(*AAR);
+    DirectionVector InputDV;
+    InputDV.setAsInput(InnermostNestingLevel, OutermostNestingLevel);
+    auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
+    if (Result == nullptr) {
+      *IsIndependent = true;
+      return true;
+    }
+    for (unsigned I = 1; I <= Result->getLevels(); ++I) {
+      RefinedDV[I - 1] = Result->getDirection(I);
+      IsDVRefined = true;
+    }
+  }
+
+  return IsDVRefined;
+}
+
 bool HIRDDAnalysis::graphForNodeValid(HLNode *Node) {
-  if (forceDDA)
+  if (ForceDDA)
     return false;
 
   // TODO

@@ -36,6 +36,8 @@ using namespace llvm;
 STATISTIC(NumLoadsAnalyzed, "Number of loads analyzed for combining");
 STATISTIC(NumLoadsCombined, "Number of loads combined");
 
+#define LDCOMBINE_NAME "Combine Adjacent Loads"
+
 namespace {
 struct PointerOffsetPair {
   Value *Pointer;
@@ -66,7 +68,7 @@ public:
   bool runOnBasicBlock(BasicBlock &BB) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-  const char *getPassName() const override { return "LoadCombine"; }
+  const char *getPassName() const override { return LDCOMBINE_NAME; }
   static char ID;
 
   typedef IRBuilder<TargetFolder> BuilderTy;
@@ -275,10 +277,7 @@ BasicBlockPass *llvm::createLoadCombinePass() {
   return new LoadCombine();
 }
 
-INITIALIZE_PASS_BEGIN(LoadCombine, "load-combine", "Combine Adjacent Loads",
-                      false, false)
+INITIALIZE_PASS_BEGIN(LoadCombine, "load-combine", LDCOMBINE_NAME, false, false)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
-INITIALIZE_PASS_END(LoadCombine, "load-combine", "Combine Adjacent Loads",
-                    false, false)
-
+INITIALIZE_PASS_END(LoadCombine, "load-combine", LDCOMBINE_NAME, false, false)

@@ -162,6 +162,7 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
   setPriv(nullptr);
   setLpriv(nullptr);
   setRed(nullptr);
+  setUniform(nullptr);
   setLinear(nullptr);
   setAligned(nullptr);
   setSimdlen(0);
@@ -181,6 +182,7 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN)
   setPriv(nullptr);
   setLpriv(nullptr);
   setRed(nullptr);
+  setUniform(nullptr);
   setLinear(nullptr);
   setAligned(nullptr);
   setSimdlen(0);
@@ -198,6 +200,7 @@ WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegionNode(W) {
   setPriv(W->getPriv());
   setLpriv(W->getLpriv());
   setRed(W->getRed());
+  setUniform(W->getUniform());
   setLinear(W->getLinear());
   setAligned(W->getAligned());
   setSimdlen(W->getSimdlen());
@@ -229,6 +232,11 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
       OS << Indent << "REDUCTION clause: " << RedStr << " "
          << RI->getOrig()->getName() << "\n";
     }
+  UniformClause *CU = getUniform();
+  if (CU) {
+    OS << Indent;
+    CU->print(OS);
+  }
   LinearClause *C = getLinear();
   if (C) {
     OS << Indent;
@@ -254,4 +262,79 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
   }
   printChildren(OS, Depth + 1);
   OS << Indent << "} END WRNVecLoopNode<" << getNumber() << ">\n\n";
+}
+
+//
+// Methods for WRNAtomicNode
+//
+
+// constructor
+WRNAtomicNode::WRNAtomicNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNAtomic, BB) {
+  setAtomicKind(WRNAtomicUpdate); // Default Atomic Kind is WRNAtomicUpdate
+  setHasSeqCstClause(false);
+
+  DEBUG(dbgs() << "\nCreated WRNAtomicNode<" << getNumber() << ">\n");
+}
+
+WRNAtomicNode::WRNAtomicNode(WRNAtomicNode *W) : WRegionNode(W) {
+  setAtomicKind(W->getAtomicKind());
+  setHasSeqCstClause(W->getHasSeqCstClause());
+
+  DEBUG(dbgs() << "\nCreated WRNAtomicNode<" << getNumber() << ">\n");
+}
+
+void WRNAtomicNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+
+  OS << Indent << "BEGIN WRNAtomicNode<" << getNumber() << "> {\n";
+  OS << Indent << "Atomic Kind: "
+     << VPOUtils::getClauseName(
+            WRegionUtils::getClauseIdFromAtomicKind(getAtomicKind()))
+     << "\n";
+  OS << Indent << "Seq_Cst Clause: " << (getHasSeqCstClause() ? "Yes" : "No")
+     << "\n";
+  OS << "\n" << Indent << "EntryBB:" << *getEntryBBlock();
+  OS << "\n" << Indent << "ExitBB:" << *getExitBBlock();
+  OS << "\n" << Indent << "BBlockSet dump:\n";
+
+  if (!isBBSetEmpty())
+    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
+      const BasicBlock *BB = *I;
+      OS << Indent << *BB;
+    }
+  else
+    OS << Indent << "No BBSet\n";
+
+  OS << Indent << "} END WRNAtomicNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNMasterNode
+//
+
+// constructor
+WRNMasterNode::WRNMasterNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNMaster, BB) {
+  DEBUG(dbgs() << "\nCreated WRNMasterNode <" << getNumber() << ">\n");
+}
+
+WRNMasterNode::WRNMasterNode(WRNMasterNode *W) : WRegionNode(W) {
+  DEBUG(dbgs() << "\nCreated WRNMasterNode<" << getNumber() << ">\n");
+}
+
+void WRNMasterNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "\nBEGIN WRNMasterNode<" << getNumber() << "> {\n";
+
+  if (!isBBSetEmpty())
+    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
+      const BasicBlock *BB = *I;
+      OS << Indent << *BB;
+    }
+  else
+    OS << Indent << "No BBSet\n";
+
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNMasterNode <" << getNumber() << ">\n\n";
 }

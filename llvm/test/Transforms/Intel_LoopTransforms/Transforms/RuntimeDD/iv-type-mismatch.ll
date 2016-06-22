@@ -18,9 +18,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
 
 ; CHECK: IR Dump After
-; CHECK-NOT: i1
-; CHECK-NOT: i2
-; CHECK-NOT: i3
+; CHECK-NOT: {{i1[) ]}}
+; CHECK-NOT: {{i2[) ]}}
+; CHECK-NOT: {{i3[) ]}}
 ; CHECK: + DO i1 = 0, %loop + -1, 1   <DO_LOOP>
 
 ; ModuleID = 'iv-type-mismatch.ll'

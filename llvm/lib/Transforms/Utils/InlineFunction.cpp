@@ -724,10 +724,13 @@ static void PropagateParallelLoopAccessMetadata(CallSite CS,
     Instruction *NI = dyn_cast<Instruction>(VMI->second);
     if (!NI)
       continue;
-
-    if (MDNode *PM = NI->getMetadata(LLVMContext::MD_mem_parallel_loop_access)) {
-        M = MDNode::concatenate(PM, M);
-      NI->setMetadata(LLVMContext::MD_mem_parallel_loop_access, M);
+#if INTEL_CUSTOMIZATION
+    // CQ410950: Do not reassign M, use a temporary TM
+    if (MDNode *PM 
+        = NI->getMetadata(LLVMContext::MD_mem_parallel_loop_access)) {
+        MDNode* TM = MDNode::concatenate(PM, M);
+      NI->setMetadata(LLVMContext::MD_mem_parallel_loop_access, TM);
+#endif // INTEL_CUSTOMIZATION
     } else if (NI->mayReadOrWriteMemory()) {
       NI->setMetadata(LLVMContext::MD_mem_parallel_loop_access, M);
     }
@@ -1931,7 +1934,13 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
           continue;
         }
 
-        auto CallingConv = DeoptCall->getCallingConv();
+        // The calling convention on the deoptimize call itself may be bogus,
+        // since the code we're inlining may have undefined behavior (and may
+        // never actually execute at runtime); but all
+        // @llvm.experimental.deoptimize declarations have to have the same
+        // calling convention in a well-formed module.
+        auto CallingConv = DeoptCall->getCalledFunction()->getCallingConv();
+        NewDeoptIntrinsic->setCallingConv(CallingConv);
         auto *CurBB = RI->getParent();
         RI->eraseFromParent();
 

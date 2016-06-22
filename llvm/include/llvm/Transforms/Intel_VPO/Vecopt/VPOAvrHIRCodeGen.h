@@ -16,13 +16,13 @@
 #ifndef LLVM_TRANSFORMS_VPO_VECOPT_VPOAVRHIRCODEGEN_H
 #define LLVM_TRANSFORMS_VPO_VECOPT_VPOAVRHIRCODEGEN_H
 
-#include <map>
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
+#include <map>
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace
@@ -48,8 +48,8 @@ public:
   /// The recurrence kind is taken from \p RI. \p VL - vector length of
   /// the identity vector to be created. \Ty - scalar data type, float
   /// or integer.
-  static RegDDRef *getRecurrenceIdentityVector(ReductionItem *RI,
-                                               Type *Ty, unsigned VL);
+  static RegDDRef *getRecurrenceIdentityVector(ReductionItem *RI, Type *Ty,
+                                               unsigned VL);
 
 private:
   // Reduction map
@@ -67,13 +67,14 @@ private:
 class AVRCodeGenHIR {
 public:
   AVRCodeGenHIR(AVR *Avr)
-    : Avr(Avr), ALoop(nullptr), OrigLoop(nullptr), TripCount(0), VL(0),
-      RHM(Avr) {}
+      : Avr(Avr), ALoop(nullptr), OrigLoop(nullptr), TripCount(0), VL(0),
+        RHM(Avr) {}
 
   ~AVRCodeGenHIR() {}
 
-  // Perform the actual loop widening (vectorization).
-  bool vectorize();
+  // Perform the actual loop widening (vectorization) using VL as the
+  // vectorization factor.
+  bool vectorize(int VL);
 
 private:
   AVR *Avr;
@@ -112,11 +113,11 @@ private:
   void widenNode(const HLNode *Node, HLNode *Anchor);
   RegDDRef *getVectorValue(const RegDDRef *Op);
   HLInst *widenReductionNode(const HLNode *Node, HLNode *Anchor);
+  void eraseIntrinsBeforeLoop();
   bool processLoop();
   bool isConstStrideRef(const RegDDRef *Ref, int64_t *CoeffPtr = nullptr);
 
   RegDDRef *widenRef(const RegDDRef *Ref);
-
 };
 
 } // End VPO Vectorizer Namespace

@@ -174,7 +174,8 @@ namespace OptVLS {
   // the memrefs does not exceed the group size.
   static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
                          OVLSGroupVector &OVLSGrps,
-                         unsigned VectorLength) {
+                         unsigned VectorLength,
+                         OVLSMemrefToGroupMap *MemrefToGroupMap) {
     for (MemrefDistanceMap *AdjMemrefSet : AdjMrfSetVec) {
       assert (!AdjMemrefSet->empty() && "Adjacent memref-set cannot be empty");
       MemrefDistanceMapIt AdjMemrefSetIt = (*AdjMemrefSet).begin();
@@ -215,6 +216,9 @@ namespace OptVLS {
                                       (Dist - GrpFirstMDist)/ElemSize);
 
         CurrGrp->insert(Memref, AccMask, ElementMask);
+        if (MemrefToGroupMap)
+          (*MemrefToGroupMap).insert(std::pair<OVLSMemref*, OVLSGroup*>
+                                     (Memref, CurrGrp));
       }
       OVLSGrps.push_back(CurrGrp);
     }
@@ -405,17 +409,37 @@ void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << "\n";
 }
 
+bool OVLSShuffle::hasValidOperands(OVLSOperand O1, OVLSOperand O2,
+                                   OVLSOperand Mask) {
+  // O1 and O2 must be vectors of the same type.
+  if (!O1.getType().isValid() || O1.getType() != O2.getType())
+    return false;
+
+  // Mask needs to be a vector of constants.
+  if (!Mask.getType().isValid() || !isa<OVLSConstant>(&Mask))
+    return false;
+
+  if (Mask.getType().getNumElements() >
+      (O1.getType().getNumElements() + O2.getType().getNumElements()))
+    return false;
+
+  return true;
+}
+
 // getGroups() takes a vector of OVLSMemrefs and a group size in bytes
 // (which is the the maximum length of the underlying vector register
 // or any other desired size that clients want to consider, maximum size
-// can be 64), and returs a vector of OVLSGroups. Each group contains one or more
-// OVLSMemrefs, (and each OVLSMemref is contained by 1 (and only 1) OVLSGroup)
-// in a way where having all the memrefs in OptVLSgroup (at one single point in
-// the program, the location of first memref in the group)does not violate
-// any program semantics nor any memory dependencies.
+// can be 64), and returns a vector of OVLSGroups. It also optionally returns
+// a map where each memref is mapped to the group that it belongs to. Each
+// group contains one or more OVLSMemrefs, (and each OVLSMemref is contained by
+// 1 (and only 1) OVLSGroup) in a way where having all the memrefs in
+// OptVLSgroup (at one single point in the program, the location of first
+// memref in the group)does not violate any program semantics nor any memory
+// dependencies.
 void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
                                 OVLSGroupVector &Grps,
-                                unsigned VectorLength) {
+                                unsigned VectorLength,
+                                OVLSMemrefToGroupMap *MemrefToGroupMap) {
   OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n");
 
   if (Memrefs.empty()) return;
@@ -441,7 +465,7 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
   // memref in the group)does not violate any program semantics nor any memory
   // dependencies.
   // Also, make sure the total size of the memrefs does not exceed the group size.
-  OptVLS::formGroups(AdjMemrefSetVec, Grps, VectorLength);
+  OptVLS::formGroups(AdjMemrefSetVec, Grps, VectorLength, MemrefToGroupMap);
 
   // Release memory
   for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec)

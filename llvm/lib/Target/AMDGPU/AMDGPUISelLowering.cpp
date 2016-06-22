@@ -619,7 +619,11 @@ SDValue AMDGPUTargetLowering::LowerCall(CallLoweringInfo &CLI,
   DiagnosticInfoUnsupported NoCalls(
       Fn, "unsupported call to function " + FuncName, CLI.DL.getDebugLoc());
   DAG.getContext()->diagnose(NoCalls);
-  return SDValue();
+
+  for (unsigned I = 0, E = CLI.Ins.size(); I != E; ++I)
+    InVals.push_back(DAG.getUNDEF(CLI.Ins[I].VT));
+
+  return DAG.getEntryNode();
 }
 
 SDValue AMDGPUTargetLowering::LowerDYNAMIC_STACKALLOC(SDValue Op,
@@ -787,6 +791,11 @@ SDValue AMDGPUTargetLowering::LowerGlobalAddress(AMDGPUMachineFunction* MFI,
   const GlobalValue *GV = G->getGlobal();
 
   switch (G->getAddressSpace()) {
+  case AMDGPUAS::CONSTANT_ADDRESS: {
+    MVT ConstPtrVT = getPointerTy(DL, AMDGPUAS::CONSTANT_ADDRESS);
+    SDValue GA = DAG.getTargetGlobalAddress(GV, SDLoc(G), ConstPtrVT);
+    return DAG.getNode(AMDGPUISD::CONST_DATA_PTR, SDLoc(G), ConstPtrVT, GA);
+  }
   case AMDGPUAS::LOCAL_ADDRESS: {
     // XXX: What does the value of G->getOffset() mean?
     assert(G->getOffset() == 0 &&
@@ -814,45 +823,6 @@ SDValue AMDGPUTargetLowering::LowerGlobalAddress(AMDGPUMachineFunction* MFI,
 
     return DAG.getConstant(Offset, SDLoc(Op),
                            getPointerTy(DL, AMDGPUAS::LOCAL_ADDRESS));
-  }
-  case AMDGPUAS::CONSTANT_ADDRESS: {
-    MachineFrameInfo *FrameInfo = DAG.getMachineFunction().getFrameInfo();
-    Type *EltType = GV->getValueType();
-    unsigned Size = DL.getTypeAllocSize(EltType);
-    unsigned Alignment = DL.getPrefTypeAlignment(EltType);
-
-    MVT PrivPtrVT = getPointerTy(DL, AMDGPUAS::PRIVATE_ADDRESS);
-    MVT ConstPtrVT = getPointerTy(DL, AMDGPUAS::CONSTANT_ADDRESS);
-
-    int FI = FrameInfo->CreateStackObject(Size, Alignment, false);
-    SDValue InitPtr = DAG.getFrameIndex(FI, PrivPtrVT);
-
-    const GlobalVariable *Var = cast<GlobalVariable>(GV);
-    if (!Var->hasInitializer()) {
-      // This has no use, but bugpoint will hit it.
-      return DAG.getZExtOrTrunc(InitPtr, SDLoc(Op), ConstPtrVT);
-    }
-
-    const Constant *Init = Var->getInitializer();
-    SmallVector<SDNode*, 8> WorkList;
-
-    for (SDNode::use_iterator I = DAG.getEntryNode()->use_begin(),
-                              E = DAG.getEntryNode()->use_end(); I != E; ++I) {
-      if (I->getOpcode() != AMDGPUISD::REGISTER_LOAD && I->getOpcode() != ISD::LOAD)
-        continue;
-      WorkList.push_back(*I);
-    }
-    SDValue Chain = LowerConstantInitializer(Init, GV, InitPtr, DAG.getEntryNode(), DAG);
-    for (SmallVector<SDNode*, 8>::iterator I = WorkList.begin(),
-                                           E = WorkList.end(); I != E; ++I) {
-      SmallVector<SDValue, 8> Ops;
-      Ops.push_back(Chain);
-      for (unsigned i = 1; i < (*I)->getNumOperands(); ++i) {
-        Ops.push_back((*I)->getOperand(i));
-      }
-      DAG.UpdateNodeOperands(*I, Ops);
-    }
-    return DAG.getZExtOrTrunc(InitPtr, SDLoc(Op), ConstPtrVT);
   }
   }
 

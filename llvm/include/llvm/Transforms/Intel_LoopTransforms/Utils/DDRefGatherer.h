@@ -84,8 +84,6 @@ protected:
   }
 
 public:
-  typedef SymToRefTy<RefTy> MapTy;
-
   DDRefGathererVisitor(SymToRefTy<RefTy> &SymToMemRef)
       : SymToMemRef(SymToMemRef) {}
 
@@ -214,7 +212,7 @@ struct DDRefGatherer : public DDRefGathererUtils {
   DDRefGatherer(const DDRefGatherer &) = delete;
   DDRefGatherer &operator=(const DDRefGatherer &) = delete;
 
-  typedef typename DDRefGathererVisitor<RefTy, Mode>::MapTy MapTy;
+  typedef SymToRefTy<RefTy> MapTy;
 
   static void gather(const HLNode *Node, MapTy &SymToMemRef) {
     DDRefGathererVisitor<RefTy, Mode> VImpl(SymToMemRef);
@@ -229,6 +227,7 @@ struct DDRefGatherer : public DDRefGathererUtils {
 };
 
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
+typedef DDRefGatherer<const RegDDRef, MemRefs> ConstMemRefGatherer;
 typedef DDRefGatherer<DDRef, AllRefs ^ ConstantRefs> NonConstantRefGatherer;
 }
 }

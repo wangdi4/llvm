@@ -70,12 +70,12 @@ StringRef VPOUtils::getDirectiveMetadataString(IntrinsicInst *Call) {
   return DirectiveStr;
 }
 
-bool VPOUtils::stripDirectives(Function &F) {
+bool VPOUtils::stripDirectives(BasicBlock &BB) {
   SmallVector<IntrinsicInst *, 4> IntrinsicsToRemove;
+  IntrinsicInst *IntrinCall = nullptr;
 
-  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    IntrinsicInst *IntrinCall = dyn_cast<IntrinsicInst>(&*I);
-    if (IntrinCall) {
+  for (Instruction &I : BB) {
+    if ((IntrinCall = dyn_cast<IntrinsicInst>(&I))) {
       Intrinsic::ID Id = IntrinCall->getIntrinsicID();
       if (isIntelDirectiveOrClause(Id)) {
         IntrinsicsToRemove.push_back(IntrinCall);
@@ -84,15 +84,24 @@ bool VPOUtils::stripDirectives(Function &F) {
   }
 
   // Remove the directive intrinsics.
+  // SimplifyCFG will remove any blocks that become empty.
   unsigned Idx = 0;
   for (Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
     IntrinsicsToRemove[Idx]->eraseFromParent();
   }
 
-  // SimplifyCFG will remove any blocks that become empty.
-
   // Returns true if any elimination happens.
   return Idx > 0;
+}
+
+bool VPOUtils::stripDirectives(Function &F) {
+  bool changed = false;
+
+  for (BasicBlock &BB: F) {
+    changed |= stripDirectives(BB);
+  }
+
+  return changed;
 }
 
 CallInst *VPOUtils::createMaskedGatherCall(Module *M,

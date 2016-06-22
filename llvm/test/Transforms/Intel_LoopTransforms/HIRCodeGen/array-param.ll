@@ -1,4 +1,10 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
+
+
+; Check that CG leaves HIR metadata in the old region as they become unreachable and will be removed later by simplifycfg.
+; CHECK: in.de.ssa
+; CHECK: live.range.de.ssa
+
 
 ; Verify that the gep for %A is CG'd correctly.
 ; CHECK: region:
@@ -6,6 +12,14 @@
 ; CHECK: [[IVLOAD1:%.*]] = load i64, i64* %i1.i64
 ; CHECK-NEXT: [[IVLOAD2:%.*]] = load i64, i64* %i1.i64
 ; CHECK-NEXT: getelementptr inbounds [64 x i32], [64 x i32]* %A, i64 [[IVLOAD1]], i64 [[IVLOAD2]]
+
+
+; Check that HIR metadata is cleaned up by CG when we do not generate code for the region. 
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -S | FileCheck %s -check-prefix=NOCG
+
+; NOCG-NOT: in.de.ssa
+; NOCG-NOT: live.range.de.ssa
+
 
 ; ModuleID = 'array-param.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

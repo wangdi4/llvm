@@ -27,7 +27,6 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
-#include "llvm/IR/Intel_LoopIR/IRRegion.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
@@ -583,8 +582,7 @@ void HIRRegionIdentification::createRegion(const Loop &Lp) {
     EntryBB = Lp.getHeader();
   }
 
-  IRRegion *Reg = new IRRegion(EntryBB, BBlocks);
-  IRRegions.push_back(Reg);
+  IRRegions.emplace_back(EntryBB, BBlocks);
   RegionCount++;
 }
 
@@ -655,7 +653,6 @@ bool HIRRegionIdentification::runOnFunction(Function &F) {
 }
 
 void HIRRegionIdentification::releaseMemory() {
-  IRRegion::destroyAll();
   IRRegions.clear();
 }
 
@@ -663,7 +660,7 @@ void HIRRegionIdentification::print(raw_ostream &OS, const Module *M) const {
 
   for (auto I = IRRegions.begin(), E = IRRegions.end(); I != E; ++I) {
     OS << "\nRegion " << I - IRRegions.begin() + 1 << "\n";
-    (*I)->print(OS, 3);
+    I->print(OS, 3);
     OS << "\n";
   }
 }

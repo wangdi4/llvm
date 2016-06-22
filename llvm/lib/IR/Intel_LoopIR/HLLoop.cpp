@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
@@ -164,18 +164,31 @@ HLLoop *HLLoop::cloneEmptyLoop() const {
   return NewHLLoop;
 }
 
-HLLoop *HLLoop::cloneCompleteEmptyLoop() const {
+void HLLoop::printPreheader(formatted_raw_ostream &OS, unsigned Depth,
+                            bool Detailed) const {
+  bool FirstPreInst = true;
 
-  // Call the Copy Constructor
-  HLLoop *NewHLLoop = new HLLoop(*this, nullptr, nullptr, false);
-  NewHLLoop->setNestingLevel(getNestingLevel());
-  return NewHLLoop;
+  for (auto I = pre_begin(), E = pre_end(); I != E; I++) {
+    if (FirstPreInst) {
+      indent(OS, Depth);
+      OS << "\n";
+      FirstPreInst = false;
+    }
+    I->print(OS, Depth + 1, Detailed);
+  }
 }
 
-void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth) const {
+void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
+                          bool Detailed) const {
+
+  if (!Detailed) {
+    return;
+  }
 
   indent(OS, Depth);
+
   OS << "+ Ztt: ";
+
   if (hasZtt()) {
     Ztt->printZttHeader(OS, this);
   } else {
@@ -193,27 +206,14 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth) const {
   OS << "+ NSW: " << (isNSW() ? "Yes\n" : "No\n");
 }
 
-void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
-                   bool Detailed) const {
+void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                         bool Detailed) const {
   const RegDDRef *Ref;
-  bool FirstPreInst = true;
 
-  /// Print preheader
-  for (auto I = pre_begin(), E = pre_end(); I != E; I++) {
-    if (FirstPreInst) {
-      indent(OS, Depth);
-      OS << "\n";
-      FirstPreInst = false;
-    }
-    I->print(OS, Depth + 1, Detailed);
-  }
-
-  if (Detailed) {
-    printDetails(OS, Depth);
-  }
+  printDetails(OS, Depth, Detailed);
 
   indent(OS, Depth);
-  /// Print header
+
   if (getUpperDDRef() && (isDo() || isDoMultiExit())) {
     OS << "+ DO ";
     if (Detailed) {
@@ -233,6 +233,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     OS.indent(IndentWidth);
+
     if (isDo()) {
       OS << "<DO_LOOP>";
     } else if (isDoMultiExit()) {
@@ -247,17 +248,24 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   HLDDNode::print(OS, Depth, Detailed);
+}
 
-  /// Print children
+void HLLoop::printBody(formatted_raw_ostream &OS, unsigned Depth,
+                       bool Detailed) const {
+
   for (auto I = child_begin(), E = child_end(); I != E; I++) {
     I->print(OS, Depth + 1, Detailed);
   }
+}
 
-  /// Print footer
+void HLLoop::printFooter(formatted_raw_ostream &OS, unsigned Depth) const {
   indent(OS, Depth);
   OS << "+ END LOOP\n";
+}
 
-  /// Print postexit
+void HLLoop::printPostexit(formatted_raw_ostream &OS, unsigned Depth,
+                           bool Detailed) const {
+
   for (auto I = post_begin(), E = post_end(); I != E; I++) {
     I->print(OS, Depth + 1, Detailed);
   }
@@ -266,6 +274,20 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     indent(OS, Depth);
     OS << "\n";
   }
+}
+
+void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed) const {
+
+  printPreheader(OS, Depth, Detailed);
+
+  printHeader(OS, Depth, Detailed);
+
+  printBody(OS, Depth, Detailed);
+
+  printFooter(OS, Depth);
+
+  printPostexit(OS, Depth, Detailed);
 }
 
 void HLLoop::setNumExits(unsigned NumEx) {
@@ -781,6 +803,28 @@ bool HLLoop::isSIMD() const {
                     // and Loop.
     if (I->isSIMDDirective())
       return true;
+  }
+
+  return false;
+}
+
+bool HLLoop::isTriangularLoop() const {
+
+  const CanonExpr *LB = getLowerCanonExpr();
+  const CanonExpr *UB = getUpperCanonExpr();
+  if (LB->hasIV() || UB->hasIV()) {
+    return true;
+  }
+
+  for (auto I = ztt_ddref_begin(), E1 = ztt_ddref_end(); I != E1; ++I) {
+    RegDDRef *RRef = *I;
+    for (auto Iter = RRef->canon_begin(), E2 = RRef->canon_end(); Iter != E2;
+         ++Iter) {
+      const CanonExpr *CE = *Iter;
+      if (CE->hasIV()) {
+        return true;
+      }
+    }
   }
 
   return false;

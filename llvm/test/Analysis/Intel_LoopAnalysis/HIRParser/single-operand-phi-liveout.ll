@@ -3,10 +3,10 @@
 ; Check parsing output for the loop verifying that the single operand phi liveout case(%e.sroa.3.1.lcssa) is handled properly.
 
 ; CHECK: DO i1 = 0, 47, 1   <DO_LOOP>
-; CHECK-NEXT: %e.sroa.3.1.in1 = %e.sroa.3.042;
+; CHECK-NEXT: %e.sroa.3.1 = %e.sroa.3.042;
 ; CHECK-NEXT: DO i2 = 0, i1, 1   <DO_LOOP>
-; CHECK-NEXT: %e.sroa.3.1.out = %e.sroa.3.1.in1;
-; CHECK-NEXT: %e.sroa.3.1.in1 = i1 + -1 * i2 + 1;
+; CHECK-NEXT: %e.sroa.3.1.out = %e.sroa.3.1;
+; CHECK-NEXT: %e.sroa.3.1 = i1 + -1 * i2 + 1;
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: %e.sroa.3.042 = %e.sroa.3.1.out;
 ; CHECK-NEXT: END LOOP

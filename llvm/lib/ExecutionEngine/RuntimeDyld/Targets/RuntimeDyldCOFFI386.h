@@ -46,16 +46,14 @@ public:
       report_fatal_error("Unknown symbol in relocation");
 
     Expected<StringRef> TargetNameOrErr = Symbol->getName();
-    if (!TargetNameOrErr) {
-      std::string Buf;
-      raw_string_ostream OS(Buf);
-      logAllUnhandledErrors(TargetNameOrErr.takeError(), OS, "");
-      OS.flush();
-      report_fatal_error(Buf);
-    }
+    if (!TargetNameOrErr)
+      return TargetNameOrErr.takeError();
     StringRef TargetName = *TargetNameOrErr;
 
-    auto Section = *Symbol->getSection();
+    auto SectionOrErr = Symbol->getSection();
+    if (!SectionOrErr)
+      return SectionOrErr.takeError();
+    auto Section = *SectionOrErr;
 
     uint64_t RelType = RelI->getType();
     uint64_t Offset = RelI->getOffset();

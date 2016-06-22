@@ -247,7 +247,7 @@ bool CanonExprUtils::canMergeConstants(const CanonExpr *CE1,
 
   // Check for zero condition.
   // These can be merged.
-  if ((Val1 == 0) || (Val2 == 0)) {
+  if ((IsCE1Const && Val1 == 0) || (IsCE2Const && Val2 == 0)) {
     return true;
   }
 
@@ -328,7 +328,7 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   // Process the denoms.
   int64_t Denom1 = Result->getDenominator();
   int64_t Denom2 = NewCE2->getDenominator();
-  int NewDenom = lcm(Denom1, Denom2);
+  int64_t NewDenom = lcm(Denom1, Denom2);
 
   if (NewDenom != Denom1) {
     // Do not simplify while multiplying as this is an intermediate result of
@@ -455,6 +455,8 @@ bool CanonExprUtils::hasNonLinearSemantics(unsigned DefLevel,
 CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
                                                 const CanonExpr *CE2,
                                                 bool RelaxedMode) {
+  assert(mergeable(CE1, CE2, RelaxedMode) && "CanonExprs are not mergeable");
+
   // CE1 = C1*B1*i1 + C3*i2 + ..., Level 1
   // CE2 = C2*B2
 
@@ -474,7 +476,10 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
     return nullptr;
   }
 
-  auto Term = CE2->clone();
+  std::unique_ptr<CanonExpr> Term(CE2->clone());
+
+  // It's safe to change the Term src type as CE1 and CE2 are mergeable.
+  Term->setSrcType(CE1->getSrcType());
 
   // CE2 <- CE2 * C1
   Term->multiplyByConstant(ConstCoeff);
@@ -487,14 +492,14 @@ CanonExpr *CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
 
   CE1->removeIV(Level);
   // At this point:
-  // CE1 = C3*i2 + ...
+  // CE1 = C3*i2 + ​...
   // CE2 = C1*C2 * B1*B2
 
   // Set denominator from CE1 to CE2
   Term->divide(CE1->getDenominator(), false);
 
   // CE1 = C1*C2 * B1*B2 + C3*i2 + ...
-  CanonExpr *AddResult = CanonExprUtils::add(CE1, Term, RelaxedMode);
-  CanonExprUtils::destroy(Term);
+  CanonExpr *AddResult = CanonExprUtils::add(CE1, Term.get(), RelaxedMode);
+
   return AddResult;
 }

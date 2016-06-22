@@ -29,7 +29,7 @@ class HLLoop;
 ///
 /// Sample HLIf-
 /// If( (Op1 Pred1 Op2) AND (Op3 Pred2 Op4) )
-class HLIf : public HLDDNode {
+class HLIf final : public HLDDNode {
 public:
   typedef SmallVector<PredicateTy, 2> PredicateContainerTy;
   typedef HLContainerTy ChildNodeTy;
@@ -243,6 +243,11 @@ public:
   /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
   /// based on the IsLHS flag.
   RegDDRef *removePredicateOperandDDRef(const_pred_iterator CPredI, bool IsLHS);
+
+  /// \brief Returns true if \p Node is contained inside *then* or *else* branch
+  /// of the HLIf. The \p Node should be an immediate child of the current HLIf.
+  bool isThenChild(const HLNode *Node) const;
+  bool isElseChild(const HLNode *Node) const;
 
   /// \brief Verifies HLIf integrity.
   virtual void verify() const override;

@@ -1,6 +1,6 @@
 ; Check runtime dd multiversioning for a simple case with p[i] and q[i]
 
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-details -print-after=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
 
 ; int foo(int *p, int *q, int N) {
 ;   int i;
@@ -13,6 +13,9 @@
 ; CHECK: IR Dump After
 ; CHECK: if (%N < {{[0-9]+}})
 ; CHECK: if (&((%q)[%N + -1]) >= &((%p)[0]) && &((%p)[%N + -1]) >= &((%q)[0]))
+
+; CHECK: <RVAL-REG> {{.*}} %q)[{{.*}}]{{.*}} !alias.scope [[SCOPE1:.*]] !noalias [[SCOPE2:.*]] {
+; CHECK: <LVAL-REG> {{.*}} %p)[{{.*}}]{{.*}} !alias.scope [[SCOPE2]] !noalias [[SCOPE1]] {
 
 ; ModuleID = 'ptrs.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

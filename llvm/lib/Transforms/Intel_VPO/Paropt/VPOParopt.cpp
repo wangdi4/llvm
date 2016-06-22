@@ -93,17 +93,24 @@ bool VPOParopt::runOnModule(Module &M) {
   // transformation and generate MT-code
   for (auto F : FnList) {
 
-    // Walk the W-Region Graph top-down, and create W-Region List
-    WRegionInfo &WI = getAnalysis<WRegionInfo>(*F);
+    DEBUG(dbgs() << "\n=== VPOParopt begin func: " << F->getName() <<" {\n");
 
+    DEBUG(dbgs() << "\n=== VPOParopt before DominatorTree pass\n");
     // Get Dom Tree information of the function F
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(*F).getDomTree();
 
+    DEBUG(dbgs() << "\n=== VPOParopt before ScalarEvolution pass\n");
     // Get Scalar Evolution information of the function F
     ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>(*F).getSE();
 
+    DEBUG(dbgs() << "\n=== VPOParopt before LoopInfo pass\n");
     // Get Loop information of the function F
     LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(*F).getLoopInfo();
+
+    DEBUG(dbgs() << "\n=== VPOParopt before WRegionInfo pass\n");
+    // Walk the W-Region Graph top-down, and create W-Region List
+    WRegionInfo &WI = getAnalysis<WRegionInfo>(*F);
+    WI.buildWRGraph(false); // On-demand entry for WRegionInfo pass
 
     if (WI.WRGraphIsEmpty()) {
       DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");
@@ -120,9 +127,13 @@ bool VPOParopt::runOnModule(Module &M) {
     DEBUG(errs() << "VPOParopt Pass: ");
     DEBUG(errs().write_escaped(F->getName()) << '\n');
 
+    DEBUG(dbgs() << "\n=== VPOParopt before ParoptTransformer{\n");
+
     // AUTOPAR | OPENMP | SIMD | OFFLOAD
     VPOParoptTransform VP(F, &WI, &DT, &SE, &LI, Mode);
     Changed = Changed | VP.ParoptTransformer();
+
+    DEBUG(dbgs() << "\n}=== VPOParopt after ParoptTransformer\n");
 
     // Remove calls to directive intrinsics since the LLVM back end does not
     // know how to translate them.
@@ -133,6 +144,8 @@ bool VPOParopt::runOnModule(Module &M) {
     // eliminate them.
     // FPM.add(createCFGSimplificationPass());
     // FPM.run(*F);
+
+    DEBUG(dbgs() << "\n}=== VPOParopt end func: " << F->getName() <<"\n");
   }
 
   DEBUG(dbgs() << "\n====== End VPO Paropt Pass ======\n\n");

@@ -75,7 +75,6 @@
 #ifndef INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_PREPROC_GRAPH
 #define INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_PREPROC_GRAPH
 
-
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
@@ -261,10 +260,12 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
 
   DDGraph *LoopDDGraph;
   DistPPGraph *DistG;
+  HLLoop *Loop;
   unsigned EdgeCount = 0;
   typedef DenseMap<DistPPNode *, SmallVector<const DDEdge *, 16>> EdgeNodeMapTy;
-  DistributionEdgeCreator(DDGraph *DDG, DistPPGraph *DistPreProcGraph)
-      : LoopDDGraph(DDG), DistG(DistPreProcGraph) {}
+  DistributionEdgeCreator(DDGraph *DDG, DistPPGraph *DistPreProcGraph,
+                          HLLoop *Loop)
+      : LoopDDGraph(DDG), DistG(DistPreProcGraph), Loop(Loop) {}
 
   void processOutgoingEdges(DDRef *Ref, EdgeNodeMapTy &EdgeMap) {
     DenseMap<HLNode *, DistPPNode *> &HLNodeToDistPPNode = DistG->getNodeMap();
@@ -282,6 +283,30 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
       DistPPNode *DstDistNode = DstDistPPNodeI->second;
       EdgeMap[DstDistNode].push_back(&(*Edge));
     }
+  }
+
+  bool needBackwardEdge(const DDEdge *Edge) {
+    // Need to force a backward edge in the Dist Graph?
+
+    // for t1 =
+    //        = t1
+    // DD only produce the flow (=) edge
+    if (Edge->isLoopIndependentDepTemp()) {
+      return true;
+    }
+    // Scalar temp Output Dep (*) has single edge
+    if (Edge->isOUTPUTdep()) {
+      DDRef *DDRefSrc = Edge->getSrc();
+      RegDDRef *RegRef = cast<RegDDRef>(DDRefSrc);
+      assert(RegRef && "RegDDRef expected");
+      if (RegRef->isTerminalRef()) {
+        unsigned LoopLevel = Loop->getNestingLevel();
+        if (Edge->getDVAtLevel(LoopLevel) == DVKind::ALL) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   void visit(HLDDNode *DDNode) {
@@ -314,11 +339,8 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
       SmallVectorImpl<const DDEdge *> &EdgeList = PairI->second;
 
       for (auto *Edge : EdgeList) {
-        if (Edge->isLoopIndependentDepTemp()) {
-          // Add a revsere edge because
-          // for t1 =
-          //        = t1
-          // DD only produce the flow (=) edge
+
+        if (needBackwardEdge(Edge)) {
           DistG->addEdge(
               DistPPEdge(PairI->first, SrcDistPPNode, PairI->second));
           EdgeCount++;
@@ -340,7 +362,8 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
   }
 
   DDGraph DDG = DDA->getGraph(Loop);
-  DistributionEdgeCreator EdgeCreator(&DDG, this);
+
+  DistributionEdgeCreator EdgeCreator(&DDG, this, Loop);
   HLNodeUtils::visitRange(EdgeCreator, Loop->getFirstChild(),
                           Loop->getLastChild());
 
@@ -404,4 +427,3 @@ template <> struct GraphTraits<DistPPGraph *> {
 } // llvm
 
 #endif
-

@@ -52,29 +52,31 @@ void WRegionInfo::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<WRegionCollection>();
 }
 
-void WRegionInfo::doFillUpWRegionInfo(WRegionCollection *R) {
-  DEBUG(dbgs() << "fill Up W-Region Info After WRegionCollection\n");
-}
-
 bool WRegionInfo::runOnFunction(Function &F) {
   this->Func = &F;
-
-  DEBUG(dbgs() << "\nW-Region Information Collection Start\n");
+  DEBUG(dbgs() << "\nENTER WRegionInfo::runOnFunction: " 
+               << F.getName() << "{\n");
 
   DT     = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT    = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   WRC    = &getAnalysis<WRegionCollection>();
 
-#if 1
+  DEBUG(dbgs() << "\n}EXIT WRegionInfo::runOnFunction: " 
+               << F.getName() << "\n");
+  return false;
+}
+
+void WRegionInfo::buildWRGraph(bool FromHIR) {
+  DEBUG(dbgs() << "\nENTER WRegionInfo::buildWRGraph(FromHIR=" 
+               << FromHIR <<"){\n");
+
+  WRC->buildWRGraph(FromHIR);
+
   DEBUG(dbgs() << "\nRC Size = " << WRC->getWRGraphSize() << "\n");
   for (auto I = WRC->begin(), E = WRC->end(); I != E; ++I)
     DEBUG(I->dump());
-#endif
 
-  doFillUpWRegionInfo(WRC);
-
-  DEBUG(dbgs() << "W-Region Information Collection End\n");
-  return false;
+  DEBUG(dbgs() << "\n}EXIT WRegionInfo::buildWRGraph\n");
 }
 
 void WRegionInfo::releaseMemory() {

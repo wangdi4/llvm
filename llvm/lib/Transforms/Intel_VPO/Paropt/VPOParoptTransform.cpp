@@ -25,6 +25,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptAtomics.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/Debug.h"
@@ -57,9 +61,6 @@
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
-
 #include <algorithm>
 #include <set>
 
@@ -90,9 +91,8 @@ public:
 void VPOParoptTransform::gatherWRegionNodeList() {
   DEBUG(dbgs() << "\nSTART: Gather WRegion Node List\n");
 
-  VPOWRegionVisitor WV(WRegionList);
-  WRNVisitor<VPOWRegionVisitor> WRegionGather(WV);
-  WRegionGather.forwardVisit(WI->getWRGraph());
+  VPOWRegionVisitor Visitor(WRegionList);
+  WRegionUtils::forwardVisit(Visitor, WI->getWRGraph());
 
   DEBUG(dbgs() << "\nEND: Gather WRegion Node List\n");
   return;
@@ -192,7 +192,7 @@ bool VPOParoptTransform::ParoptTransformer() {
       break;
     case WRegionNode::WRNParallelLoop:
       DEBUG(dbgs() << "\n WRegionNode::WRNParallelLoop - Transformation \n\n");
-      Changed = genLoopSchedulingCode(W); 
+      Changed = genLoopSchedulingCode(W);
       Changed |= genPrivatizationCode(W);
       Changed |= genMultiThreadedCode(W);
     case WRegionNode::WRNParallelSections:
@@ -204,13 +204,17 @@ bool VPOParoptTransform::ParoptTransformer() {
       break;
 
     // Constructs do not need to perform outlining
+    case WRegionNode::WRNAtomic:
+      DEBUG(dbgs() << "\nWRegionNode::WRNAtomic - Transformation \n\n");
+      Changed = VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
+                                               IdentTy, TidPtr);
+      break;
     case WRegionNode::WRNVecLoop:
     case WRegionNode::WRNWksLoop:
     case WRegionNode::WRNWksSections:
     case WRegionNode::WRNSection:
     case WRegionNode::WRNSingle:
     case WRegionNode::WRNMaster:
-    case WRegionNode::WRNAtomic:
     case WRegionNode::WRNBarrier:
     case WRegionNode::WRNCancel:
     case WRegionNode::WRNCritical:
@@ -223,8 +227,9 @@ bool VPOParoptTransform::ParoptTransformer() {
     }
   }
 
-  for (auto &R : WRegionList)
+  for (WRegionNode *R : WRegionList)
     delete R;
+  WRegionList.clear();
 
   return Changed;
 }
@@ -322,7 +327,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
-  DEBUG(dbgs() << "--- Parallel For LoopInfo: \n");
+  DEBUG(dbgs() << "--- Parallel For LoopInfo: \n" << *L);
   DEBUG(dbgs() << "--- Loop Preheader: " << *(L->getLoopPreheader()) << "\n");
   DEBUG(dbgs() << "--- Loop Header: " << *(L->getHeader()) << "\n");
   DEBUG(dbgs() << "--- Loop Latch: " << *(L->getLoopLatch()) << "\n\n");
@@ -613,8 +618,8 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
     ReplaceInstWithInst(ThenForkBB->getTerminator(), NewForkBI);
 
-    
-    DT->changeImmediateDominator(ForkTestCI->getParent(), 
+
+    DT->changeImmediateDominator(ForkTestCI->getParent(),
                                  ThenForkBB->getTerminator()->getSuccessor(0));
 
     // Remove the serial call to MTFn function from the program, reducing
@@ -623,7 +628,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
     // Remove calls to directive intrinsics since the LLVM back end does not
     // know how to translate them.
-    VPOUtils::stripDirectives(*MTFn);
+    WRegionUtils::stripDirectives(W);
 
     Changed = true;
   }

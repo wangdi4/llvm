@@ -460,3 +460,81 @@ AllocaInst *VPOParoptUtils::genKmpcLocforImplicitBarrier(WRegionNode *W,
       VPOParoptUtils::genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, BB, BB);
   return KmpcLoc;
 }
+
+// Generates KMPC calls to the intrinsic `IntrinsicName`.
+CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
+                                      Instruction *InsertPt,
+                                      StringRef IntrinsicName, Type *ReturnTy,
+                                      ArrayRef<Value *> Args) {
+  assert(W != nullptr && "WRegionNode is null.");
+  assert(IdentTy != nullptr && "IdentTy is null.");
+  assert(InsertPt != nullptr && "InsertPt is null.");
+  assert(!IntrinsicName.empty() && "IntrinsicName is empty.");
+
+  // Obtain Loc info
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+
+  int Flags = KMP_IDENT_KMPC;
+
+  // Before emitting the KMPC call, we need the Loc information.
+  AllocaInst *Loc = genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  DEBUG(dbgs() << __FUNCTION__ << ": Source Location Info: " << *Loc << "\n");
+
+  // At this point, we have all the function args: loc + incoming Args. We bind
+  // them together as FnArgs.
+  SmallVector<Value *, 9> FnArgs = {Loc};
+  FnArgs.append(Args.begin(), Args.end());
+
+  // Next, for return type, we use ReturnType if it is not null, otherwise we
+  // use VoidTy.
+  LLVMContext &C = F->getContext();
+  ReturnTy = (ReturnTy != nullptr) ? ReturnTy : Type::getVoidTy(C);
+
+  return genCall(M, IntrinsicName, ReturnTy, FnArgs);
+}
+
+// Private Helpers
+
+// Genetates a CallInst for a function with name `FnName`.
+CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
+                                  ArrayRef<Value *> FnArgs) {
+  assert(M != nullptr && "Module is null.");
+  assert(!FnName.empty() && "Function name is empty.");
+  assert(FunctionType::isValidReturnType(ReturnTy) && "Invalid Return Type");
+
+  // Before creating a call to the function, we first need to insert the
+  // function prototype of the intrinsic into the Module's symbol table. To
+  // create the prototype, we need the function name, Types of all the function
+  // params, and the return type. We already have the intrinsic name. We now
+  // obtain the function param types from FnArgs.
+  SmallVector<Type *, 9> ParamTypes;
+  for (Value *Arg : FnArgs) {
+    Type *ArgType = Arg->getType();
+    assert(FunctionType::isValidArgumentType(ArgType) && "Invalid Argument.");
+    ParamTypes.insert(ParamTypes.end(), ArgType);
+  }
+
+  // Now we create the function type with param and return type.
+  FunctionType *FnTy = FunctionType::get(ReturnTy, ParamTypes, false);
+
+  // Now we try to insert the function prototype into the module symbol table.
+  // But if it already exists, we just use the existing one.
+  Constant *FnC = M->getOrInsertFunction(FnName, FnTy);
+  Function *Fn = cast<Function>(FnC);
+  assert(Fn != nullptr && "Function Declaration is null.");
+
+  // We now  have the function declaration. Now generate a call to it.
+  CallInst *FnCall = CallInst::Create(Fn, FnArgs);
+  assert(FnCall != nullptr && "Failed to generate Function Call");
+
+  FnCall->setCallingConv(CallingConv::C);
+  FnCall->setTailCall(false);
+  DEBUG(dbgs() << __FUNCTION__ << ": Function call: " << *FnCall << "\n");
+
+  return FnCall;
+}
+

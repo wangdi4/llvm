@@ -55,12 +55,6 @@ namespace llvm {
   class SCEVUnknown;
   class Function;
 
-#if INTEL_CUSTOMIZATION // HIR
-  extern const char* const HIR_LIVE_IN_STR;
-  extern const char* const HIR_LIVE_OUT_STR;
-  extern const char* const HIR_LIVE_RANGE_STR;
-#endif // INTEL_CUSTOMIZATION
-
   template <> struct FoldingSetTrait<SCEV>;
   template <> struct FoldingSetTrait<SCEVPredicate>;
 
@@ -470,6 +464,12 @@ namespace llvm {
     ///
     Function &F;
 
+    /// Does the module have any calls to the llvm.experimental.guard intrinsic
+    /// at all?  If this is false, we avoid doing work that will only help if
+    /// thare are guards present in the IR.
+    ///
+    bool HasGuards;
+
     /// The target library information for the target we are targeting.
     ///
     TargetLibraryInfo &TLI;
@@ -558,6 +558,10 @@ namespace llvm {
 
     HIRInfoS HIRInfo;
 
+    // MDKind ID for HIR metadata.
+    unsigned HIRLiveInID = 0;
+    unsigned HIRLiveOutID = 0;
+    unsigned HIRLiveRangeID = 0;
 #endif  // INTEL_CUSTOMIZATION
 
     /// Mark predicate values currently being processed by isImpliedCond.
@@ -1066,6 +1070,11 @@ namespace llvm {
                                         const SCEV *FoundLHS,
                                         const SCEV *FoundRHS);
 
+    /// Return true if the condition denoted by \p LHS \p Pred \p RHS is implied
+    /// by a call to \c @llvm.experimental.guard in \p BB.
+    bool isImpliedViaGuard(BasicBlock *BB, ICmpInst::Predicate Pred,
+                           const SCEV *LHS, const SCEV *RHS);
+
     /// Test whether the condition described by Pred, LHS, and RHS is true
     /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
     /// true.
@@ -1190,21 +1199,19 @@ namespace llvm {
     LLVMContext &getContext() const { return F.getContext(); }
 
 #if INTEL_CUSTOMIZATION // HIR parsing 
-    /// isHIRLiveInCopyInst - Returns true if this instruction is a livein copy
-    /// instruction inserted by HIR framework.
-    bool isHIRLiveInCopyInst(const Instruction *Inst) const;
+    /// Lists types of HIR metadata.
+    enum HIRLiveKind {
+      LiveIn,
+      LiveOut,
+      LiveRange
+    };
 
-    /// isHIRLiveOutCopyInst - Returns true if this instruction is a liveout
-    /// copy instruction inserted by HIR framework.
-    bool isHIRLiveOutCopyInst(const Instruction *Inst) const;
+    /// Returns MDKind ID associated with this HIR metadata type.
+    unsigned getHIRMDKindID(HIRLiveKind Kind);
 
-    /// isHIRCopyInst - Returns true if this instruction is a copy instruction
-    /// inserted by HIR framework.
-    bool isHIRCopyInst(const Instruction *Inst) const; 
-
-    /// isHIRLiveRangeIndicator - Returns true if this instruction is a live
-    /// range indicator for HIR.
-    bool isHIRLiveRangeIndicator(const Instruction *Inst) const;
+    /// Returns MDNode associated with this instruction for the particular HIR
+    /// metadata type.
+    MDNode *getHIRMetadata(const Instruction *Inst, HIRLiveKind Kind);
 #endif  // INTEL_CUSTOMIZATION
 
     /// Test if values of the given type are analyzable within the SCEV
@@ -1243,6 +1250,10 @@ namespace llvm {
     /// is assumed to be the outermost loop of the loopnest. A null outermost
     /// loop specifies disabling all AddRecs.
     const SCEV *getSCEVForHIR(Value *Val, const Loop *OutermostLoop);
+
+    /// Returns a SCEVAtScope expression suitable for HIR consumption.
+    const SCEV *getSCEVAtScopeForHIR(const SCEV *SC, const Loop *Lp,
+                                     const Loop *OutermostLoop);
 #endif  // INTEL_CUSTOMIZATION
 
     const SCEV *getConstant(ConstantInt *V);

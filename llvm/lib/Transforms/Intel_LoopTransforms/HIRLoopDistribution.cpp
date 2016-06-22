@@ -18,15 +18,16 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionGraph.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
@@ -146,7 +147,7 @@ bool HIRLoopDistribution::piEdgeIsRecurrence(const HLLoop *Lp,
                                              const PiGraphEdge &Edge) const {
   for (auto DDEdgeIt = Edge.getDDEdges().begin(), End = Edge.getDDEdges().end();
        DDEdgeIt != End; ++DDEdgeIt) {
-    if ((*DDEdgeIt)->getDVAtLevel(Lp->getNestingLevel()) & DV::LT) {
+    if ((*DDEdgeIt)->getDVAtLevel(Lp->getNestingLevel()) & DVKind::LT) {
       return true;
     }
   }
@@ -162,15 +163,29 @@ void HIRLoopDistribution::distributeLoop(
     dbgs() << "LOOP DISTRIBUTION : " << DistPoints.size()
            << " way distributed\n";
   }
-
-  DDA->markLoopBodyModified(Loop);
-  Loop->getParentRegion()->setGenCode();
+  unsigned LastLoopNum = DistPoints.size();
+  unsigned Num = 0;
+  bool CopyPreHeader = true;
 
   for (PiBlockList &PList : DistPoints) {
     // Each PiBlockList forms a new loop
+    // Clone Empty Loop, but copy preheader for 1st loop and
+    // postexit for last loop
+    // TODO: Determine which loop needs  preheader/postexit
+
     HLLoop *NewLoop = Loop->cloneEmptyLoop();
+    if (CopyPreHeader) {
+      HLNodeUtils::moveAsFirstPreheaderNodes(NewLoop, Loop->pre_begin(),
+                                             Loop->pre_end());
+      CopyPreHeader = false;
+    }
+    if (++Num == LastLoopNum) {
+      HLNodeUtils::moveAsFirstPostexitNodes(NewLoop, Loop->post_begin(),
+                                            Loop->post_end());
+    }
+
     HLNodeUtils::insertBefore(Loop, NewLoop);
-    // Each piblock is comprised of multiple hlnodes
+    // Each piblock is comprised of multiple HLNodes
     for (PiBlock *PiBlk : PList) {
       for (auto NodeI = PiBlk->nodes_begin(), E = PiBlk->nodes_end();
            NodeI != E; ++NodeI) {
@@ -178,6 +193,10 @@ void HIRLoopDistribution::distributeLoop(
       }
     }
   }
+
+  Loop->getParentRegion()->setGenCode();
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
+  HIRInvalidationUtils::invalidateBody(Loop);
 
   // The loop is now empty, all its children moved into new loops
   assert(!Loop->hasChildren() &&
