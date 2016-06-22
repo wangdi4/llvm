@@ -1007,8 +1007,9 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     // identifier might be a reference to a class method and treat it as such.
     // This is only applicable to "inside initializer" context and only when we
     // sure that a function call doesn't follow (hence "l_paren" check).
-    if (getLangOpts().IntelMSCompat && Actions.IsInInitializerContext &&
-        Tok.isNot(tok::l_paren) && !Res.isInvalid() &&
+    if (getLangOpts().IntelMSCompat && !isAddressOfOperand &&
+        Actions.IsInInitializerContext && Tok.isNot(tok::l_paren) &&
+        !Res.isInvalid() &&
         (Res.get()->getStmtClass() == Stmt::DeclRefExprClass)) {
       ValueDecl *dcl = cast<DeclRefExpr>(Res.get())->getDecl();
 

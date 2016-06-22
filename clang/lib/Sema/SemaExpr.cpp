@@ -10517,10 +10517,22 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
         << OrigOp.get()->getSourceRange();
 
     // The method was named without a qualifier.
+    } else if (!DRE->getQualifier()) {
 #if INTEL_CUSTOMIZATION
     // CQ#410807: To be compatible with MS, we allow non-qualified names in
     // IntelMSCompat mode.
-    } else if (!DRE->getQualifier() && !getLangOpts().IntelMSCompat) {
+      if (getLangOpts().IntelMSCompat) {
+        if (MD->getParent()->getName().empty())
+          Diag(OpLoc, diag::warn_unqualified_pointer_member_function)
+            << op->getSourceRange();
+        else {
+          SmallString<32> Str;
+          StringRef Qual = (MD->getParent()->getName() + "::").toStringRef(Str);
+          Diag(OpLoc, diag::warn_unqualified_pointer_member_function)
+            << op->getSourceRange()
+            << FixItHint::CreateInsertion(op->getSourceRange().getBegin(), Qual);
+        }
+      } else
 #endif // INTEL_CUSTOMIZATION
       if (MD->getParent()->getName().empty())
         Diag(OpLoc, diag::err_unqualified_pointer_member_function)
