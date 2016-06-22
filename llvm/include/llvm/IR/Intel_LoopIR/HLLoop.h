@@ -105,6 +105,9 @@ private:
   // Set of temp symbases live out of the loop.
   LiveOutSetTy LiveOutSet;
 
+  // Associated !llvm.loop metadata.
+  MDNode *LoopMetadata;
+
 protected:
   HLLoop(const Loop *LLVMLoop);
   HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
@@ -166,6 +169,14 @@ protected:
   /// pretty print like ztt, innermost flag etc.
   void printDetails(formatted_raw_ostream &OS, unsigned Depth,
                     bool Detailed) const;
+
+  /// Set or replace !llvm.loop metadata.
+  void setLoopMetadata(MDNode *MD) {
+    LoopMetadata = MD;
+  }
+
+  void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
+                                 StringRef *RemoveID);
 
 public:
   /// \brief Prints preheader of loop.
@@ -628,6 +639,28 @@ public:
     if ((It != LiveOutSet.end()) && (*It == Symbase)) {
       LiveOutSet.erase(It);
     }
+  }
+
+  /// Returns !llvm.loop metadata associated with the Loop.
+  MDNode *getLoopMetadata() const {
+    return LoopMetadata;
+  }
+
+  /// \brief Add a list of metadata \p MDs to loops !llvm.loop MDNode.
+  ///
+  /// The MDNode should have the format !{!"string-identifier", Args...}
+  void addLoopMetadata(ArrayRef<MDNode *> MDs) {
+    addRemoveLoopMetadataImpl(MDs, nullptr);
+  }
+
+  /// Remove !llvm.loop metadata that starts with \p ID.
+  void removeLoopMetadata(StringRef ID) {
+    addRemoveLoopMetadataImpl({}, &ID);
+  }
+
+  /// Clear all metadata from !llvm.loop MDNode.
+  void clearLoopMetadata() {
+    setLoopMetadata(nullptr);
   }
 
 };

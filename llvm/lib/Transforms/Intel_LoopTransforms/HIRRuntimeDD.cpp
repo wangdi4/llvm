@@ -598,7 +598,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
       // Skip loops with refs where base CEs are the same, as this
       // transformation mostly for cases with different pointers.
-      if (CanonExprUtils::areEqual(S1.getBaseCE(), S2.getBaseCE())) {
+      if (CanonExprUtils::areEqual(S1.getBaseCE(), S2.getBaseCE(), true)) {
         return SAME_BASE;
       }
 
@@ -736,6 +736,8 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   ModifiedLoop->setMVTag(MVTag);
   OrigLoop->setMVTag(MVTag);
 
+  markLoopDoNotVectorize(OrigLoop);
+
   markDDRefsIndep(Context);
 
   HLRegion *ParentRegion = Context.Loop->getParentRegion();
@@ -778,6 +780,27 @@ void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
       Ref->setAAMetadata(AANodes);
     }
   }
+}
+
+void HIRRuntimeDD::markLoopDoNotVectorize(HLLoop *Loop) {
+  LLVMContext &Context = HIRUtils::getContext();
+
+  Metadata *One = ConstantAsMetadata::get(
+      ConstantInt::get(Type::getInt32Ty(Context), 1));
+
+  Metadata *MDVectorWidth[] = {
+      MDString::get(Context, "llvm.loop.vectorize.width"), One
+  };
+  Metadata *MDInterleaveCount[] = {
+      MDString::get(Context, "llvm.loop.interleave.count"), One
+  };
+
+  MDNode *MDs[] = {
+      MDNode::get(Context, MDVectorWidth),
+      MDNode::get(Context, MDInterleaveCount)
+  };
+
+  Loop->addLoopMetadata(MDs);
 }
 
 bool HIRRuntimeDD::runOnFunction(Function &F) {

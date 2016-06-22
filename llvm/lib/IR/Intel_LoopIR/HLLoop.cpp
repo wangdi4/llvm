@@ -39,7 +39,8 @@ void HLLoop::initialize() {
 // IsInnermost flag is initialized to true, please refer to the header file.
 HLLoop::HLLoop(const Loop *LLVMLoop)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false) {
+      NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
+      LoopMetadata(LLVMLoop->getLoopID()) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   SmallVector<BasicBlock *, 8> Exits;
@@ -53,7 +54,7 @@ HLLoop::HLLoop(const Loop *LLVMLoop)
 HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
                RegDDRef *StrideDDRef, unsigned NumEx)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true), IsNSW(false) {
+      NestingLevel(0), IsInnermost(true), IsNSW(false), LoopMetadata(nullptr) {
   initialize();
   setNumExits(NumEx);
 
@@ -84,7 +85,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
       IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW),
-      LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet) {
+      LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
+      LoopMetadata(HLLoopObj.LoopMetadata) {
 
   initialize();
 
@@ -109,8 +111,9 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   setStrideDDRef(HLLoopObj.getStrideDDRef()->clone());
 
   // Avoid cloning children and preheader/postexit.
-  if (!CloneChildren)
+  if (!CloneChildren) {
     return;
+  }
 
   // Assert is placed here since empty loop cloning will not use it.
   assert(GotoList && " GotoList is null.");
@@ -232,6 +235,17 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
     First = false;
   }
 
+  OS << "\n";
+
+  indent(OS, Depth);
+  OS << "+ Loop metadata:";
+  if (auto Node = getLoopMetadata()) {
+    RegDDRef::MDNodesTy Nodes = {
+        RegDDRef::MDPairTy{LLVMContext::MD_loop, Node}};
+    DDRefUtils::printMDNodes(OS, Nodes);
+  } else {
+    OS << " No";
+  }
   OS << "\n";
 }
 
@@ -857,4 +871,68 @@ bool HLLoop::isTriangularLoop() const {
   }
 
   return false;
+}
+
+void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
+                                       StringRef *RemoveID) {
+  LLVMContext &Context = HLNodeUtils::getContext();
+
+  // Reserve space for the unique identifier
+  SmallVector<Metadata *, 4> NewMDs(1);
+
+  MDNode *ExistingLoopMD = getLoopMetadata();
+  if (ExistingLoopMD) {
+    // TODO: add tests for this part of code after enabling generation of HIR
+    // for loops with pragmas.
+    for (unsigned I = 1, E = ExistingLoopMD->getNumOperands(); I < E; ++I) {
+      Metadata *RawMD = ExistingLoopMD->getOperand(I);
+      MDNode *MD = dyn_cast<MDNode>(RawMD);
+      if (!MD || MD->getNumOperands() == 0) {
+        // Unconditionally copy unknown metadata.
+        NewMDs.push_back(RawMD);
+        continue;
+      }
+
+      const MDString *Id = dyn_cast<MDString>(MD->getOperand(0));
+
+      // Do not handle non-string identifiers. Unconditionally copy metadata.
+      if (Id) {
+        StringRef IdRef = Id->getString();
+
+        // Check if the metadata will be redefined by the new one.
+        bool DoRedefine =
+            std::any_of(MDs.begin(), MDs.end(), [IdRef](MDNode *NewMD) {
+              const MDString *NewId = dyn_cast<MDString>(NewMD->getOperand(0));
+              assert(NewId && "Added metadata should contain string "
+                              "identifier as a first operand");
+
+              if (NewId->getString().equals(IdRef)) {
+                return true;
+              }
+
+              return false;
+            });
+
+        // Do not copy redefined metadata.
+        if (DoRedefine) {
+          continue;
+        }
+
+        bool DoRemove = RemoveID && IdRef.startswith(*RemoveID);
+
+        // Do not copy removed metadata.
+        if (DoRemove) {
+          continue;
+        }
+      }
+
+      NewMDs.push_back(MD);
+    }
+  }
+
+  NewMDs.append(MDs.begin(), MDs.end());
+
+  MDNode *NewLoopMD = MDNode::get(Context, NewMDs);
+  NewLoopMD->replaceOperandWith(0, NewLoopMD);
+  setLoopMetadata(NewLoopMD);
 }

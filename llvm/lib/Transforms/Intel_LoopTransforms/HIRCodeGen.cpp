@@ -1037,7 +1037,11 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *Lp) {
   BasicBlock *AfterBB = BasicBlock::Create(F->getContext(), "after" + LName, F);
 
   // latch
-  Builder->CreateCondBr(EndCond, LoopBB, AfterBB);
+  BranchInst *Br = Builder->CreateCondBr(EndCond, LoopBB, AfterBB);
+
+  if (MDNode *MD = Lp->getLoopMetadata()) {
+    Br->setMetadata(LLVMContext::MD_loop, MD);
+  }
 
   // new code goes after loop
   Builder->SetInsertPoint(AfterBB);
