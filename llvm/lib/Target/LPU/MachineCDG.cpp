@@ -137,6 +137,7 @@ ControlDependenceNode* ControlDependenceGraphBase::getLatchParent(ControlDepende
 }
 #endif 
 
+#if 0
 //return the first non latch parent found or NULL
 ControlDependenceNode* ControlDependenceGraphBase::getNonLatchParent(ControlDependenceNode* anode, bool oneAndOnly=false) {
   ControlDependenceNode* pcdn = nullptr;
@@ -151,6 +152,7 @@ ControlDependenceNode* ControlDependenceGraphBase::getNonLatchParent(ControlDepe
   }
   return pcdn;
 }
+#endif 
 
 void ControlDependenceGraphBase::computeDependencies(MachineFunction &F, MachinePostDominatorTree &pdt) {
   root = new ControlDependenceNode();

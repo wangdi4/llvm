@@ -221,7 +221,7 @@ namespace llvm {
     CDGRegion* getRegion(ControlDependenceNode *anode) {
       return cdg2rgn[anode];
     }
-    ControlDependenceNode* getNonLatchParent(ControlDependenceNode* anode, bool oneAndOnly);
+    //ControlDependenceNode* getNonLatchParent(ControlDependenceNode* anode, bool oneAndOnly);
     bool controls(MachineBasicBlock *A, MachineBasicBlock *B) const;
     bool influences(MachineBasicBlock *A, MachineBasicBlock *B) const;
     const ControlDependenceNode *enclosingRegion(MachineBasicBlock *BB) const;
