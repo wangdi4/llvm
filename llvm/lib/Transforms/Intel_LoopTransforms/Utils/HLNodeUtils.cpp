@@ -2777,14 +2777,23 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
         continue;
       }
 
+      auto UpperCE = Lp->getUpperCanonExpr();
+      int64_t UpperVal;
+
+      // Conservatively return false if upper is too big.
+      if (UpperCE->isIntConstant(&UpperVal) &&
+          ((UpperVal < 0) || (UpperVal > UINT32_MAX))) {
+        return false;
+      }
+
       // Replace IV by min or max value of upper canon depending on whether we
       // are calculating min or max and whether the coefficient is positive or
       // negative.
       if (IsMin) {
-        if (!getMaxValue(Lp->getUpperCanonExpr(), Lp, &IVMinOrMax)) {
+        if (!getMaxValue(UpperCE, Lp, &IVMinOrMax)) {
           return false;
         }
-      } else if (!getMinValue(Lp->getUpperCanonExpr(), Lp, &IVMinOrMax)) {
+      } else if (!getMinValue(UpperCE, Lp, &IVMinOrMax)) {
         return false;
       }
 
@@ -2795,8 +2804,11 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
   MinOrMax += CE->getConstant();
 
   if (CE->getDenominator() != 1) {
-    MinOrMax = CE->isSignedDiv() ? MinOrMax / CE->getDenominator()
-                                 : uint64_t(MinOrMax) / CE->getDenominator();
+    if ((MinOrMax < 0) && CE->isUnsignedDiv()) {
+      return false;
+    }
+
+    MinOrMax = MinOrMax / CE->getDenominator();
   }
 
   *Val = MinOrMax;

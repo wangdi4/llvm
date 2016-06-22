@@ -1790,6 +1790,21 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
 
   Ref->setSingleCanonExpr(CE);
 
+  int64_t UpperVal;
+
+  // If upper is negative, make it positive if it fits in signed 64 bits.
+  if (CE->isIntConstant(&UpperVal) && (UpperVal < 0)) {
+    auto SrcTy = CE->getSrcType();
+    unsigned BitWidth = SrcTy->getPrimitiveSizeInBits();
+
+    if (BitWidth < 64) {
+      // In modular arithmetic with modulus N: (a == a + N).
+      // Here N is 2 ^ bitwidth.
+      UpperVal = UpperVal + (1L << BitWidth);
+      CE->setConstant(UpperVal);
+    }
+  }
+
   // Update DDRef's symbase to blob's symbase for self-blob DDRefs.
   if (CE->isSelfBlob()) {
     Ref->setSymbase(getBlobSymbase(CE->getSingleBlobIndex()));

@@ -414,7 +414,7 @@ void HIRLocalityAnalysis::initConstTripCache(
   for (auto Iter = Loops->begin(), End = Loops->end(); Iter != End; ++Iter) {
     const HLLoop *Loop = *Iter;
 
-    int64_t TripCnt = 0;
+    uint64_t TripCnt = 0;
     bool ConstTripLoop = Loop->isConstTripLoop(&TripCnt);
 
     // If Const Trip Loop and Trip is less than Symbolic 'N'

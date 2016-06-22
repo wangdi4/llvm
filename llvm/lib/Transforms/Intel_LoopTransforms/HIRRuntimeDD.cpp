@@ -443,7 +443,7 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
        LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
     // TotalTripCount is a minimal estimation of loopnest tripcount. Non-const
     // loops are treated as they execute at least once.
-    int64_t TripCount;
+    uint64_t TripCount;
     if (LoopI->isConstTripLoop(&TripCount)) {
       TotalTripCount *= TripCount;
       if (TotalTripCount >= SmallTripCountTest) {

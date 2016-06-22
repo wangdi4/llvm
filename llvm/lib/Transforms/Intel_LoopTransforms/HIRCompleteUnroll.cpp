@@ -749,12 +749,10 @@ int64_t HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
   int64_t UpperVal = 0;
 
-  // TODO: Fix parser to always make constant bounds positive.
   if (UpperCE->isIntConstant(&UpperVal)) {
-    assert(UpperVal >= 0 && "Negative loop upper found!");
     int64_t TripCnt = UpperVal + 1;
 
-    if (TripCnt > CompleteUnrollTripThreshold) {
+    if ((TripCnt < 0) || (TripCnt > CompleteUnrollTripThreshold)) {
       return -1;
     }
 

@@ -905,6 +905,12 @@ void CanonExpr::collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices,
 }
 
 int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
+  // Dealing with negative values during unsigned division is complicated so we
+  // avoid simplification.
+  if ((Num < 0) && isUnsignedDiv()) {
+    return 1;
+  }
+
   if (CurrentGCD == -1) {
     CurrentGCD = llabs(Num);
   } else {

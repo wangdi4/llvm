@@ -213,7 +213,7 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
   OS << "+ LiveIn symbases: ";
-  for(auto I = live_in_begin(), E = live_in_end(); I != E; ++I) {
+  for (auto I = live_in_begin(), E = live_in_end(); I != E; ++I) {
     if (!First) {
       OS << ", ";
     }
@@ -227,7 +227,7 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
   OS << "+ LiveOut symbases: ";
-  for(auto I = live_out_begin(), E = live_out_end(); I != E; ++I) {
+  for (auto I = live_out_begin(), E = live_out_end(); I != E; ++I) {
     if (!First) {
       OS << ", ";
     }
@@ -716,21 +716,26 @@ bool HLLoop::isNormalized() const {
   return true;
 }
 
-bool HLLoop::isConstTripLoop(int64_t *TripCnt) const {
+bool HLLoop::isConstTripLoop(uint64_t *TripCnt) const {
 
-  bool RetVal = false;
-  CanonExpr *TripCExpr = getTripCountCanonExpr();
-  if (TripCExpr && TripCExpr->isIntConstant(TripCnt)) {
-    assert((!TripCnt || (*TripCnt != 0)) && " Zero Trip Loop found.");
-    RetVal = true;
+  int64_t TC;
+  std::unique_ptr<CanonExpr> TripCExpr(getTripCountCanonExpr());
+
+  if (TripCExpr.get() && TripCExpr->isIntConstant(&TC)) {
+    assert((TC != 0) && " Zero Trip Loop found!");
+
+    if (TripCnt) {
+      // This signed to unsigned conversion should be safe as all the negative
+      // trip counts which fit in signed 64 bits have been converted to postive
+      // integers by parser. Reinterpreting negative signed 64 values (which are
+      // outside the range) as an unsigned 64 bit value is correct for trip
+      // counts.
+      *TripCnt = TC;
+    }
+    return true;
   }
 
-  // Free the canon expr.
-  if (TripCExpr) {
-    CanonExprUtils::destroy(TripCExpr);
-  }
-
-  return RetVal;
+  return false;
 }
 
 // This will create the Ztt for the loop.

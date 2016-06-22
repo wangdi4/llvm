@@ -243,7 +243,7 @@ private:
 
   /// \brief Processes the remainder loop and determines if it necessary.
   void processRemainderLoop(HLLoop *OrigLoop, unsigned UnrollFactor,
-                            int64_t NewBound, const RegDDRef *NewRef);
+                            uint64_t NewBound, const RegDDRef *NewRef);
 
   /// \brief Updates bound DDRef by setting the correct defined at level and
   /// adding a blob DDref for the newly created temp.
@@ -252,13 +252,13 @@ private:
 
   /// \brief Creates the unrolled loop.
   HLLoop *createUnrollLoop(HLLoop *OrigLoop, unsigned UnrollFactor,
-                           int64_t NewBound, const RegDDRef *NewRef);
+                           uint64_t NewBound, const RegDDRef *NewRef);
 
   /// \brief Creates new bounds for unrolled loops.
   // NewUBInt is used for constant trip loops and NewUBRef is used for
   // non-constant trip loops. Returns true if remainder loop is needed.
   bool createNewBound(HLLoop *OrigLoop, unsigned UnrollFactor,
-                      int64_t *NewConstBound, RegDDRef **NewRef);
+                      uint64_t *NewBound, RegDDRef **NewRef);
 };
 }
 
@@ -390,7 +390,7 @@ bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
-  int64_t TripCount;
+  uint64_t TripCount;
 
   if (Loop->isConstTripLoop(&TripCount) &&
       (TripCount < MinTripCountThreshold)) {
@@ -430,19 +430,19 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, unsigned UnrollFactor) {
   // Create UB instruction before the loop 't = (Orig UB)/(UnrollFactor)' for
   // non-constant trip loops. For const trip loops calculate the bound.
   RegDDRef *NewRef = nullptr;
-  int64_t NewConstBound = 0;
+  uint64_t NewBound = 0;
   bool NeedRemainderLoop =
-      createNewBound(OrigLoop, UnrollFactor, &NewConstBound, &NewRef);
+      createNewBound(OrigLoop, UnrollFactor, &NewBound, &NewRef);
 
   // Create the unrolled main loop.
   HLLoop *UnrollLoop =
-      createUnrollLoop(OrigLoop, UnrollFactor, NewConstBound, NewRef);
+      createUnrollLoop(OrigLoop, UnrollFactor, NewBound, NewRef);
 
   processUnrollLoop(OrigLoop, UnrollLoop, UnrollFactor);
 
   // Update the OrigLoop to remainder loop.
   if (NeedRemainderLoop) {
-    processRemainderLoop(OrigLoop, UnrollFactor, NewConstBound, NewRef);
+    processRemainderLoop(OrigLoop, UnrollFactor, NewBound, NewRef);
   } else {
     HLNodeUtils::erase(OrigLoop);
   }
@@ -450,7 +450,7 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, unsigned UnrollFactor) {
   // Mark parent loop as modified, if it exists.
   if (auto ParentLoop = UnrollLoop->getParentLoop()) {
     HIRInvalidationUtils::invalidateBody(ParentLoop);
-  } else if (!NewConstBound) {
+  } else if (!NewBound) {
     // Mark region as modified as we have inserted a new instruction.
     HIRInvalidationUtils::invalidateNonLoopRegion(
         UnrollLoop->getParentRegion());
@@ -462,16 +462,15 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, unsigned UnrollFactor) {
 }
 
 bool HIRGeneralUnroll::createNewBound(HLLoop *OrigLoop, unsigned UnrollFactor,
-                                      int64_t *NewConstBound,
+                                      uint64_t *NewBound,
                                       RegDDRef **NewRef) {
 
-  int64_t TripCount;
+  uint64_t TripCount;
 
   if (OrigLoop->isConstTripLoop(&TripCount)) {
-    assert((TripCount > 0) && " TripCount cannot be zero or less.");
 
-    int64_t NewTripCount = TripCount / UnrollFactor;
-    *NewConstBound = NewTripCount - 1;
+    uint64_t NewTripCount = TripCount / UnrollFactor;
+    *NewBound = NewTripCount - 1;
 
     // Return true if UnrollFactor does not evenly divide TripCount.
     return ((NewTripCount * UnrollFactor) != TripCount);
@@ -525,7 +524,7 @@ void HIRGeneralUnroll::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
 
 HLLoop *HIRGeneralUnroll::createUnrollLoop(HLLoop *OrigLoop,
                                            unsigned UnrollFactor,
-                                           int64_t NewBound,
+                                           uint64_t NewBound,
                                            const RegDDRef *NewRef) {
 
   // TODO: Not sure if we need to add Ztt?
@@ -594,7 +593,7 @@ void HIRGeneralUnroll::processUnrollLoop(HLLoop *OrigLoop, HLLoop *UnrollLoop,
 
 void HIRGeneralUnroll::processRemainderLoop(HLLoop *OrigLoop,
                                             unsigned UnrollFactor,
-                                            int64_t NewBound,
+                                            uint64_t NewBound,
                                             const RegDDRef *NewRef) {
   // Mark Loop bounds as modified.
   HIRInvalidationUtils::invalidateBounds(OrigLoop);

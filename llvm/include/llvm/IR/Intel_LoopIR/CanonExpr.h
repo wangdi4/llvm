@@ -445,6 +445,10 @@ public:
   /// division.
   bool isSignedDiv() const { return IsSignedDiv; }
 
+  /// \brief Returns true if the division in the canon expr is an unsigned
+  /// division.
+  bool isUnsignedDiv() const { return !isSignedDiv(); }
+
   /// \brief Sets the division type which can be either signed or unsigned.
   /// This
   /// is a no-op for unit denominator.
