@@ -85,6 +85,7 @@ const ControlDependenceNode *ControlDependenceNode::enclosingRegion() const {
   }
 }
 
+#if 0
 bool ControlDependenceNode::isLatchNode() {
   if (isChild(this)) {
     //assert a cycle is properly formed
@@ -93,6 +94,7 @@ bool ControlDependenceNode::isLatchNode() {
   }
   return false;
 }
+#endif
 
 ControlDependenceNode::EdgeType
 ControlDependenceGraphBase::getEdgeType(MachineBasicBlock *A, MachineBasicBlock *B) {

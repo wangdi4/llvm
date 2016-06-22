@@ -135,7 +135,6 @@ ControlDependenceNode* LPUCvtCFDFPass::getNonLatchParent(ControlDependenceNode* 
 		MachineBasicBlock* pbb = (*pnode)->getBlock();
 		if (MLI->getLoopFor(pbb) == NULL ||
 			MLI->getLoopFor(pbb)->getLoopLatch() != pbb) {
-		//if (!(*pnode)->isLatchNode()) {
 			if (oneAndOnly && pcdn) {
 				assert(false && "CDG node has more than one if parent");
 			}
@@ -384,7 +383,8 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
                   if (numIfParent > 1) {
                     assert(false && "TBD: support multiple if parents in CDG has not been implemented yet");
                   }
-                  assert(!dnode->isLatchNode() && "latch node can't forward dominate nodes inside its own loop");
+                  assert((MLI->getLoopFor(dmbb) == NULL || MLI->getLoopFor(dmbb)->getLoopLatch() != dmbb) && 
+					      "latch node can't forward dominate nodes inside its own loop");
        
                   MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, upbb);
                   unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
@@ -590,7 +590,7 @@ void LPUCvtCFDFPass::insertSWITCHForRepeat() {
       MachineInstr *MI = I;
       if (MI->isPHI()) continue; //Pick will take care of it when replacing Phi
       //To avoid infinitive recursive since the newly add SWITCH always use Reg
-      if (TII.isSwitch(MI) && CDG->getNode(mbb)->isLatchNode()) {
+      if (TII.isSwitch(MI) && mbb == latchBB) {
         //we are workin from inner most out, no need to revisit the switch after it is inserted into the latch
         continue;
       }

@@ -109,7 +109,7 @@ namespace llvm {
     }
     bool isRegion() const { return TheBB == NULL; }
     const ControlDependenceNode *enclosingRegion() const;
-    bool isLatchNode();
+    //bool isLatchNode();
     bool isTrueChild(ControlDependenceNode *cnode) {
       return (TrueChildren.find(cnode) != true_end());
     }

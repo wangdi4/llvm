@@ -119,11 +119,7 @@ public:
     Banner = std::string("After LPUCvtCFDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-	Banner = std::string("Before LPUStatistics");
-	DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 	addPass(createLPUStatisticsPass(), false);
-	Banner = std::string("After LPUStatistics");
-	DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 #else
     Banner = std::string("Before LPUConvertControlPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
