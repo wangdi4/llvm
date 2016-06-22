@@ -230,6 +230,11 @@ bool DDRefUtils::getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
     // Diff the CanonExprs.
     CanonExpr *Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);
 
+    // Subtract operation can fail
+    if (!Result) {
+      return false;
+    }
+
     // TODO: Being conservative with Denom.
     if (Result->getDenominator() > 1) {
       CanonExprUtils::destroy(Result);
