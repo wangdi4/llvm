@@ -803,6 +803,7 @@ int64_t HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
   // If we reached here, we should be able to compute the min/max trip count of
   // this loop.
   bool HasMin = HLNodeUtils::getMinValue(UpperCE, Loop, &MinUpper);
+  (void)HasMin;
   assert(HasMin && "Could not compute min value of upper!");
 
   // MinUpper can evaluate to a negative value. For purposes of calculating
@@ -810,6 +811,7 @@ int64_t HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
   MinUpper = (MinUpper > 0) ? MinUpper : -MinUpper;
 
   bool HasMax = HLNodeUtils::getMaxValue(UpperCE, Loop, &MaxUpper);
+  (void)HasMax;
   assert(HasMax && "Could not compute max value of upper!");
 
   // Loop never executes.

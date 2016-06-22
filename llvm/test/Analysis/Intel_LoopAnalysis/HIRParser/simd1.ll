@@ -1,6 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
-; Check parsing output for the simd loop verifying that it has the simd directives prepended/appended to it
+; Check parsing output for the simd loop verifying that it has the simd directives prepended/appended to it. The begin and end directives in this case are not located in immediate loop predecessor/successor blocks.
 
 ; CHECK: @llvm.intel.directive(!7);
 ; CHECK: @llvm.intel.directive.qual.opndlist(!8,  %a,  %b,  %mask);
@@ -54,10 +54,13 @@ simd.begin.region:                                ; preds = %entry
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !8, <4 x i32> %a, <4 x i32> %b, <4 x i32> %mask)
   call void @llvm.intel.directive.qual.opnd.i32(metadata !9, i32 4)
   call void @llvm.intel.directive.qual(metadata !10)
+  br label %simd.loop.pre
+
+simd.loop.pre:                                    ; preds = %simd.begin.region
   br label %simd.loop
 
-simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
-  %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
+simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.pre
+  %index = phi i32 [ 0, %simd.loop.pre ], [ %indvar, %simd.loop.exit ]
   %maskgep = getelementptr i32, i32* %veccast.3, i32 %index
   %mask5 = load i32, i32* %maskgep
   %maskcond = icmp ne i32 %mask5, 0
@@ -79,9 +82,12 @@ simd.loop.else:                                   ; preds = %simd.loop
 simd.loop.exit:                                   ; preds = %simd.loop.else, %simd.loop.then
   %indvar = add nuw i32 1, %index
   %vlcond = icmp ult i32 %indvar, 4
-  br i1 %vlcond, label %simd.loop, label %simd.end.region
+  br i1 %vlcond, label %simd.loop, label %simd.loop.post
 
-simd.end.region:                                  ; preds = %simd.loop.exit
+simd.loop.post:                                   ; preds = simd.loop.exit
+  br label %simd.end.region
+
+simd.end.region:                                  ; preds = %simd.loop.post
   call void @llvm.intel.directive(metadata !11)
   br label %return
 

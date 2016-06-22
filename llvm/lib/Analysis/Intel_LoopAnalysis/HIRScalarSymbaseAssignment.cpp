@@ -68,9 +68,7 @@ void HIRScalarSymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
 
 void HIRScalarSymbaseAssignment::insertHIRLval(const Value *Lval,
                                                unsigned Symbase) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   ScalarLvalSymbases[Symbase] = Lval;
-#endif
 }
 
 unsigned HIRScalarSymbaseAssignment::insertBaseTemp(const Value *Temp) {
@@ -154,17 +152,11 @@ const Value *HIRScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
   if (Symbase <= getMaxScalarSymbase()) {
     RetVal = BaseTemps[getIndex(Symbase)];
   } else {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     // Symbase can be out of range for new temps created by HIR transformations.
     // These temps are registered by framework utils for printing in debug mode.
     auto It = ScalarLvalSymbases.find(Symbase);
     assert((It != ScalarLvalSymbases.end()) && "Symbase not present in map!");
     RetVal = It->second;
-#else
-    // We shouldn't reach here in prod mode. ScalarLvalSymbases is only
-    // maintained in debug mode for printing.
-    llvm_unreachable("Couldn't find base temp!");
-#endif
   }
 
   assert(RetVal && "Unexpected null value in RetVal");

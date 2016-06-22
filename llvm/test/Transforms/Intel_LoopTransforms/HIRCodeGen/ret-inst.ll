@@ -1,63 +1,11 @@
-; RUN: opt < %s -hir-avr-generate  -analyze | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
 
-; Verify Abstract Layer nodes were correctly generated from incoming HIR
+; Verify that return instruction is correctly handled by CG.
 
-;CHECK: WRN
-;CHECK: LOOP
-;CHECK: %rem = i1 srem 3
-
-;CHECK-NEXT: if (%rem == 0)
-;CHECK: {al:4}(%arr)[i1] = store i1
-;CHECK: else
-;CHECK: {al:4}(%arr)[i1] = store i1 + 2
-;CHECK-NEXT: %0 = load {al:4}(%barr)[i1]
-;CHECK-NEXT: if (%0 != 0)
-;CHECK: {al:4}(%barr)[i1] = store %0 + 1
-
-; clang -O2 -S -fno-unroll-loops -emit-llvm test.c
-; The SIMD directive was hand-inserted for WRegion formation to kick in
-; 
-; void foo(int *restrict arr, int *barr)
-; {
-;   long index;
-; 
-;   for (index = 0; index < 1024; index++) {
-;     if (index % 3) {
-;       arr[index] = index + 2;
-;       if (barr[index]) {
-;         barr[index] = ++barr[index];
-;       }
-;     }
-;     else {
-;       arr[index] = index;
-;     }
-;   }
-; }
-; 
-
-; HIR Representation:
-
-;EntryHLNode:
-;<2>       @llvm.intel.directive(!1);
-
-;HLLoop:
-;<36>      + DO i1 = 0, 1023, 1   <DO_LOOP>
-;<5>       |   %rem = i1  %  3;
-;<7>       |   if (%rem == 0)
-;<7>       |   {
-;<13>      |      (%arr)[i1] = i1;
-;<7>       |   }
-;<7>       |   else
-;<7>       |   {
-;<19>      |      (%arr)[i1] = i1 + 2;
-;<21>      |      %0 = (%barr)[i1];
-;<23>      |      if (%0 != 0)
-;<23>      |      {
-;<28>      |         (%barr)[i1] = %0 + 1;
-;<23>      |      }
-;<7>       |   }
-;<36>      + END LOOP
-;
+; CHECK: region:
+; CHECK: loop.[[LOOPNUM:[0-9]+]]:
+; CHECK: afterloop.[[LOOPNUM]]:
+; CHECK: ret void
 
 ; ModuleID = 't2.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -120,3 +68,4 @@ attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fp
 !4 = !{!"Simple C/C++ TBAA"}
 !5 = !{!"DIR.OMP.SIMD"}
 !6 = !{!"DIR.OMP.END.SIMD"}
+

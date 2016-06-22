@@ -1,5 +1,4 @@
-; REQUIRES: asserts
-; RUN: opt < %s -analyze -hir-region-identification -debug 2>&1 | FileCheck %s
+; RUN: opt < %s -analyze -hir-region-identification 2>&1 | FileCheck %s
 
 ; Check that we do not form Region for this case. The trip count of this loop is 2 (due to SSA quirk) which is outisde the i1 type range. CG generates an infinite loop for this case.
 ; CHECK-NOT: Region 1

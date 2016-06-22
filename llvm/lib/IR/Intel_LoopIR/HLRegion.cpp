@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
 
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
@@ -106,3 +107,20 @@ void HLRegion::verify() const {
   assert(getParent() == nullptr && "HLRegion should be a root node");
   HLNode::verify();
 }
+
+bool HLRegion::exitsFunction() const {
+  auto LastChild = getLastChild();
+
+  if (!LastChild) {
+    return false;
+  }
+
+  auto HInst = dyn_cast<HLInst>(LastChild);
+
+  if (!HInst) {
+    return false;
+  }
+
+  return isa<ReturnInst>(HInst->getLLVMInstruction());
+}
+
