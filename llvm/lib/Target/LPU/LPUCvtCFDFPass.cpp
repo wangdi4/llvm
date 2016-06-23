@@ -194,8 +194,7 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
                                                                      addReg(bi->getOperand(0).getReg()).
                                                                      addReg(Reg);
     result = switchInst;
-  }
-  else {
+  } else {
     assert(MLI->getLoopFor(cdgpBB)->getLoopLatch() == cdgpBB);
     //LLVM 3.6 buggy latch with no exit edge
     //get a wierd latch with no exit edge from LLVM 3.6 buggy loop rotation
@@ -214,16 +213,14 @@ MachineInstr* LPUCvtCFDFPass::getOrInsertSWITCHForReg(unsigned Reg, MachineBasic
   if (bb2switch.find(cdgpBB) == bb2switch.end()) {
     reg2switch = new DenseMap<unsigned, MachineInstr*>();
     bb2switch[cdgpBB] = reg2switch;
-  }
-  else {
+  } else {
     reg2switch = bb2switch[cdgpBB];
   }
 
   if (reg2switch->find(Reg) == reg2switch->end()) {
     defSwitchInstr = insertSWITCHForReg(Reg, cdgpBB);
     (*reg2switch)[Reg] = defSwitchInstr;
-  }
-  else {
+  } else {
     defSwitchInstr = (*reg2switch)[Reg];
   }
   
@@ -248,8 +245,7 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
 
     assert(ctrlBB);
     bi = ctrlBB->getFirstInstrTerminator();
-  }
-  else {
+  } else {
     bi = cdgpBB->getFirstInstrTerminator();
   }
   MachineBasicBlock::iterator loc = cdgpBB->getFirstTerminator();
@@ -309,8 +305,7 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::getOrInsertPredCopy(MachineBasi
   if (bb2predcpy.find(cdgpBB) == bb2predcpy.end()) {
     predcpyVec = insertPredCpy(cdgpBB);
     bb2predcpy[cdgpBB] = predcpyVec;
-  }
-  else {
+  } else {
     predcpyVec = bb2predcpy[cdgpBB];
   }
   return predcpyVec;
@@ -692,7 +687,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
             if (MLI->getLoopFor(DefBB) == mloop) {
               defInsideLoop = true;
             } else {
-              //switch dst is defined inside a loop, but used outside loop
+              //switch dst is defined in an inner loop, but used in the current loop
               MachineLoop* defLoop = MLI->getLoopFor(DefBB);
               while (defLoop->getParentLoop()) {
                 defLoop = defLoop->getParentLoop();

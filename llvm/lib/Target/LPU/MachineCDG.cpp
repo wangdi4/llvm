@@ -346,6 +346,8 @@ void ControlDependenceGraphBase::graphForFunction(MachineFunction &F, MachinePos
 //ControlDependenceNode is the link between these ADT:
 //ControlDependenceNode => MachineBasicBlock
 //ControlDependenceNode => Region
+//The original paper actually compute the week region, this algorithms enhance it to compute a strong region 
+//if the loop latch has exit edge, as most LLVM loops do,or it is a while loop
 void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePostDominatorTree &pdt) {
   typedef po_iterator<MachinePostDominatorTree*> po_pdt_iterator;
   DenseMap<MachineBasicBlock *, CDGRegion *> mbb2rgn;
@@ -371,7 +373,6 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
       MachineBasicBlock *B = *succ;
       assert(A && B);
       unsigned T = NumRegions;
-      //???? do we need A==B condition????
       if (A == B || !pdt.dominates(B, A)) {
         MachineDomTreeNode *Y= pdt.getNode(B);
         MachineDomTreeNode *StartDN = Y;
@@ -394,11 +395,9 @@ void ControlDependenceGraphBase::regionsForGraph(MachineFunction &F, MachinePost
           MachineDomTreeNode *YRTailDN = pdt.getNode(YRTailBB);
           bool isYBtwnStartEnd = pdt.dominates(YRHdrDN, StartDN) &&
                                  pdt.properlyDominates(EndDN, YRTailDN);
-		  //if (!isYBtwnStartEnd || loopLatch && Y->getBlock() == loopLatch) {
 		  if (!isYBtwnStartEnd || loopLatch && Y->getBlock() == loopLatch && YR->nodes.size() > 1) {
-		  //modification to the original paper: latch node need to be in a seperate region by itself
+			//modification to the original paper: latch node need to be in a seperate region by itself
 			if (YR->NewRegion <= T || loopLatch && Y->getBlock() == loopLatch && YR->nodes.size() > 1) {
-			//if (YR->NewRegion <= T) {
 			  NumRegions++;
               CDGRegion *splitRgn = new CDGRegion();
               //regions[NumRegions] = splitRgn;
