@@ -78,6 +78,7 @@ namespace llvm {
     void replaceLoopHdrPhi();
     void replaceIfFooterPhi();
     void replace2InputsIfFooterPhi(MachineInstr* MI);
+	void setIGN();
     void releaseMemory() override;
   private:
     MachineFunction *thisMF;
@@ -169,7 +170,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForRepeat();
   insertSWITCHForLoopExit();
   replacePhiWithPICK();
- 
+  setIGN();
   return Modified;
 
 }
@@ -913,6 +914,33 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
 		}
 	}
 }
+
+
+
+
+
+void LPUCvtCFDFPass::setIGN() {
+	typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
+	const TargetMachine &TM = thisMF->getTarget();
+	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+	const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+	MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+
+	for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+		for (MachineBasicBlock::iterator MI = BB->begin(), E = BB->end(); MI != E; ++MI) {
+			if (TII.isSwitch(MI)) {
+				for (MIOperands MO(MI); MO.isValid(); ++MO) {
+					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+					unsigned Reg = MO->getReg();
+					if (MO->isDef() && MRI->use_empty(Reg)) {
+						MI->substituteRegister(Reg, LPU::IGN, 0, TRI);
+					}
+				}
+			}
+		}
+	}
+}
+
 
 
 #if 0
