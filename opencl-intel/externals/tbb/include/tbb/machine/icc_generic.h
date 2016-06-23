@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -49,12 +49,19 @@
 #if _MSC_VER
     //TODO: any way to use same intrinsics on windows and linux?
     #pragma intrinsic(_ReadWriteBarrier)
-    #pragma intrinsic(_mm_mfence)
     #define __TBB_compiler_fence()    _ReadWriteBarrier()
-    #define __TBB_full_memory_fence() _mm_mfence()
 #else
     #define __TBB_compiler_fence()    __asm__ __volatile__("": : :"memory")
+#endif
+
+#ifndef __TBB_full_memory_fence
+#if _MSC_VER 
+    //TODO: any way to use same intrinsics on windows and linux?
+    #pragma intrinsic(_mm_mfence)
+    #define __TBB_full_memory_fence() _mm_mfence()
+#else
     #define __TBB_full_memory_fence() __asm__ __volatile__("mfence": : :"memory")
+#endif
 #endif
 
 #define __TBB_control_consistency_helper() __TBB_compiler_fence()

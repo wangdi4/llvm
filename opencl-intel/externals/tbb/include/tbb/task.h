@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -23,6 +23,7 @@
 
 #include "tbb_stddef.h"
 #include "tbb_machine.h"
+#include "tbb_profiling.h"
 #include <climits>
 
 typedef struct ___itt_caller *__itt_caller;
@@ -31,10 +32,7 @@ namespace tbb {
 
 class task;
 class task_list;
-
-#if __TBB_TASK_GROUP_CONTEXT
 class task_group_context;
-#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 // MSVC does not allow taking the address of a member that was defined
 // privately in task_base and made public in class task via a using declaration.
@@ -341,7 +339,9 @@ public:
 
 private:
     enum state {
-        may_have_children = 1
+        may_have_children = 1,
+        // the following enumerations must be the last, new 2^x values must go above
+        next_state_value, low_unused_state_bit = (next_state_value-1)*2
     };
 
     union {
@@ -523,15 +523,17 @@ private:
     template <typename T>
     void propagate_task_group_state ( T task_group_context::*mptr_state, task_group_context& src, T new_state );
 
-    //! Makes sure that the context is registered with a scheduler instance.
-    inline void finish_initialization ( internal::generic_scheduler *local_sched );
-
     //! Registers this context with the local scheduler and binds it to its parent context
     void bind_to ( internal::generic_scheduler *local_sched );
 
     //! Registers this context with the local scheduler
     void register_with ( internal::generic_scheduler *local_sched );
 
+#if __TBB_FP_CONTEXT
+    //! Copies FPU control setting from another context
+    // TODO: Consider adding #else stub in order to omit #if sections in other code
+    void copy_fp_settings( const task_group_context &src );
+#endif /* __TBB_FP_CONTEXT */
 }; // class task_group_context
 
 #endif /* __TBB_TASK_GROUP_CONTEXT */
@@ -675,13 +677,6 @@ public:
     }
 #endif /* __TBB_RECYCLE_TO_ENQUEUE */
 
-    // All depth-related methods are obsolete, and are retained for the sake
-    // of backward source compatibility only
-    intptr_t depth() const {return 0;}
-    void set_depth( intptr_t ) {}
-    void add_to_depth( int ) {}
-
-
     //------------------------------------------------------------------------
     // Spawning and blocking
     //------------------------------------------------------------------------
@@ -695,10 +690,21 @@ public:
 #endif /* TBB_USE_THREADING_TOOLS||TBB_USE_ASSERT */
     }
 
-    //! Atomically increment reference count and returns its old value.
+    //! Atomically increment reference count.
     /** Has acquire semantics */
     void increment_ref_count() {
         __TBB_FetchAndIncrementWacquire( &prefix().ref_count );
+    }
+
+    //! Atomically adds to reference count and returns its new value.
+    /** Has release-acquire semantics */
+    int add_ref_count( int count ) {
+        internal::call_itt_notify( internal::releasing, &prefix().ref_count );
+        internal::reference_count k = count+__TBB_FetchAndAddW( &prefix().ref_count, count );
+        __TBB_ASSERT( k>=0, "task's reference count underflowed" );
+        if( k==0 )
+            internal::call_itt_notify( internal::acquired, &prefix().ref_count );
+        return int(k);
     }
 
     //! Atomically decrement reference count and returns its new value.
@@ -772,7 +778,7 @@ public:
     //! sets parent task pointer to specified value
     void set_parent(task* p) {
 #if __TBB_TASK_GROUP_CONTEXT
-        __TBB_ASSERT(prefix().context == p->prefix().context, "The tasks must be in the same context");
+        __TBB_ASSERT(!p || prefix().context == p->prefix().context, "The tasks must be in the same context");
 #endif
         prefix().parent = p;
     }
@@ -931,7 +937,18 @@ public:
         *next_ptr = &task;
         next_ptr = &task.prefix().next;
     }
-
+#if __TBB_TODO
+    // TODO: add this method and implement&document the local execution ordering. See more in generic_scheduler::local_spawn
+    //! Push task onto front of list (FIFO local execution, like individual spawning in the same order).
+    void push_front( task& task ) {
+        if( empty() ) {
+            push_back(task);
+        } else {
+            task.prefix().next = first;
+            first = &task;
+        }
+    }
+#endif
     //! Pop the front task from the list.
     task& pop_front() {
         __TBB_ASSERT( !empty(), "attempt to pop item from empty task_list" );

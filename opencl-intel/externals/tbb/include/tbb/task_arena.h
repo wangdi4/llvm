@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -188,6 +188,7 @@ public:
     void enqueue( const F& f ) {
         initialize();
 #if __TBB_TASK_GROUP_CONTEXT
+        __TBB_ASSERT(my_context, NULL);
         internal_enqueue( *new( task::allocate_root(*my_context) ) internal::function_task<F>(f), 0 );
 #else
         internal_enqueue( *new( task::allocate_root() ) internal::function_task<F>(f), 0 );

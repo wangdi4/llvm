@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -44,7 +44,7 @@ namespace tbb {
 /** Adapted from Krieger, Stumm, et al. pseudocode at
     http://www.eecg.toronto.edu/parallel/pubs_abs.html#Krieger_etal_ICPP93
     @ingroup synchronization */
-class queuing_rw_mutex {
+class queuing_rw_mutex : internal::mutex_copy_deprecated_and_disabled {
 public:
     //! Construct unacquired mutex.
     queuing_rw_mutex() {

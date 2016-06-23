@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -23,6 +23,7 @@
 
 #include "parallel_for.h"
 #include "blocked_range.h"
+#include "internal/_range_iterator.h"
 #include <algorithm>
 #include <iterator>
 #include <functional>
@@ -207,6 +208,34 @@ void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end, const 
 template<typename RandomAccessIterator>
 inline void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end ) { 
     parallel_sort( begin, end, std::less< typename std::iterator_traits<RandomAccessIterator>::value_type >() );
+}
+
+//! Sorts the data in rng using the given comparator
+/** @ingroup algorithms **/
+template<typename Range, typename Compare>
+void parallel_sort(Range& rng, const Compare& comp) {
+    parallel_sort(tbb::internal::first(rng), tbb::internal::last(rng), comp);
+}
+
+//! Sorts the data in const rng using the given comparator
+/** @ingroup algorithms **/
+template<typename Range, typename Compare>
+void parallel_sort(const Range& rng, const Compare& comp) {
+    parallel_sort(tbb::internal::first(rng), tbb::internal::last(rng), comp);
+}
+
+//! Sorts the data in rng with a default comparator \c std::less<RandomAccessIterator>
+/** @ingroup algorithms **/
+template<typename Range>
+void parallel_sort(Range& rng) {
+    parallel_sort(tbb::internal::first(rng), tbb::internal::last(rng));
+}
+
+//! Sorts the data in const rng with a default comparator \c std::less<RandomAccessIterator>
+/** @ingroup algorithms **/
+template<typename Range>
+void parallel_sort(const Range& rng) {
+    parallel_sort(tbb::internal::first(rng), tbb::internal::last(rng));
 }
 
 //! Sorts the data in the range \c [begin,end) with a default comparator \c std::less<T>

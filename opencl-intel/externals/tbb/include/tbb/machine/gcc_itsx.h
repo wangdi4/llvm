@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -61,6 +61,9 @@ inline static void __TBB_machine_unlock_elided( volatile uint8_t* lk )
 #include <immintrin.h>
 
 #define __TBB_machine_is_in_transaction _xtest
+#define __TBB_machine_begin_transaction _xbegin
+#define __TBB_machine_end_transaction   _xend
+#define __TBB_machine_transaction_conflict_abort() _xabort(0xff)
 
 #else
 
@@ -79,17 +82,6 @@ inline static bool __TBB_machine_is_in_transaction()
 #endif
     return res==0;
 }
-#endif /* __TBB_TSX_INTRINSICS_PRESENT */
-
-#if TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
-
-#if __TBB_TSX_INTRINSICS_PRESENT
-
-#define __TBB_machine_begin_transaction _xbegin
-#define __TBB_machine_end_transaction   _xend
-#define __TBB_machine_transaction_conflict_abort() _xabort(0xff)
-
-#else
 
 /*!
  * Enter speculative execution mode.
@@ -129,4 +121,3 @@ inline static void __TBB_machine_transaction_conflict_abort()
 }
 
 #endif /* __TBB_TSX_INTRINSICS_PRESENT */
-#endif  // TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX

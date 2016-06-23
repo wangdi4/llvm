@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -204,7 +204,7 @@ bool  pool_free(MemoryPool *memPool, void *object);
     #include "tbb_stddef.h"
 #endif
 
-#if __TBB_CPP11_RVALUE_REF_PRESENT && !__TBB_CPP11_STD_FORWARD_BROKEN
+#if __TBB_ALLOCATOR_CONSTRUCT_VARIADIC
  #include <utility> // std::forward
 #endif
 
@@ -215,6 +215,23 @@ namespace tbb {
     #pragma warning (push)
     #pragma warning (disable: 4100)
 #endif
+
+//! @cond INTERNAL
+namespace internal {
+
+#if TBB_USE_EXCEPTIONS
+// forward declaration is for inlining prevention
+template<typename E> __TBB_NOINLINE( void throw_exception(const E &e) );
+#endif
+
+// keep throw in a separate function to prevent code bloat
+template<typename E>
+void throw_exception(const E &e) {
+    __TBB_THROW(e);
+}
+
+} // namespace internal
+//! @endcond
 
 //! Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5
 /** The members are ordered the same way they are in section 20.4.1
@@ -243,7 +260,10 @@ public:
 
     //! Allocate space for n objects.
     pointer allocate( size_type n, const void* /*hint*/ =0 ) {
-        return static_cast<pointer>( scalable_malloc( n * sizeof(value_type) ) );
+        pointer p = static_cast<pointer>( scalable_malloc( n * sizeof(value_type) ) );
+        if (!p)
+            internal::throw_exception(std::bad_alloc());
+        return p;
     }
 
     //! Free previously allocated block of memory
@@ -259,12 +279,11 @@ public:
 #if __TBB_ALLOCATOR_CONSTRUCT_VARIADIC
     template<typename U, typename... Args>
     void construct(U *p, Args&&... args)
- #if __TBB_CPP11_STD_FORWARD_BROKEN
-        { ::new((void *)p) U((args)...); }
- #else
         { ::new((void *)p) U(std::forward<Args>(args)...); }
- #endif
 #else // __TBB_ALLOCATOR_CONSTRUCT_VARIADIC
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    void construct( pointer p, value_type&& value ) { ::new((void*)(p)) value_type( std::move( value ) ); }
+#endif
     void construct( pointer p, const value_type& value ) {::new((void*)(p)) value_type(value);}
 #endif // __TBB_ALLOCATOR_CONSTRUCT_VARIADIC
     void destroy( pointer p ) {p->~value_type();}

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -21,6 +21,8 @@
 #ifndef __TBB_parallel_do_H
 #define __TBB_parallel_do_H
 
+#include "internal/_range_iterator.h"
+#include "internal/_template_helpers.h"
 #include "task.h"
 #include "aligned_space.h"
 #include <iterator>
@@ -31,26 +33,6 @@ namespace tbb {
 namespace internal {
     template<typename Body, typename Item> class parallel_do_feeder_impl;
     template<typename Body> class do_group_task;
-
-    //! Strips its template type argument from 'cv' and '&' qualifiers
-    template<typename T>
-    struct strip { typedef T type; };
-    template<typename T>
-    struct strip<T&> { typedef T type; };
-    template<typename T>
-    struct strip<const T&> { typedef T type; };
-    template<typename T>
-    struct strip<volatile T&> { typedef T type; };
-    template<typename T>
-    struct strip<const volatile T&> { typedef T type; };
-    // Most of the compilers remove cv-qualifiers from non-reference function argument types. 
-    // But unfortunately there are those that don't.
-    template<typename T>
-    struct strip<const T> { typedef T type; };
-    template<typename T>
-    struct strip<volatile T> { typedef T type; };
-    template<typename T>
-    struct strip<const volatile T> { typedef T type; };
 } // namespace internal
 //! @endcond
 
@@ -481,6 +463,16 @@ void parallel_do( Iterator first, Iterator last, const Body& body )
         );
 }
 
+template<typename Range, typename Body>
+void parallel_do(Range& rng, const Body& body) {
+    parallel_do(tbb::internal::first(rng), tbb::internal::last(rng), body);
+}
+
+template<typename Range, typename Body>
+void parallel_do(const Range& rng, const Body& body) {
+    parallel_do(tbb::internal::first(rng), tbb::internal::last(rng), body);
+}
+
 #if __TBB_TASK_GROUP_CONTEXT
 //! Parallel iteration over a range, with optional addition of more work and user-supplied context
 /** @ingroup algorithms */
@@ -491,6 +483,17 @@ void parallel_do( Iterator first, Iterator last, const Body& body, task_group_co
         return;
     internal::select_parallel_do( first, last, body, &Body::operator(), context );
 }
+
+template<typename Range, typename Body>
+void parallel_do(Range& rng, const Body& body, task_group_context& context) {
+    parallel_do(tbb::internal::first(rng), tbb::internal::last(rng), body, context);
+}
+
+template<typename Range, typename Body>
+void parallel_do(const Range& rng, const Body& body, task_group_context& context) {
+    parallel_do(tbb::internal::first(rng), tbb::internal::last(rng), body, context);
+}
+
 #endif // __TBB_TASK_GROUP_CONTEXT
 
 //@}

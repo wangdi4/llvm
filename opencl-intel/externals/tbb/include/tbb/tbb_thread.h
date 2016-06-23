@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -57,7 +57,7 @@ namespace internal {
     class tbb_thread_v3;
 }
 
-inline void swap( internal::tbb_thread_v3& t1, internal::tbb_thread_v3& t2 ); 
+inline void swap( internal::tbb_thread_v3& t1, internal::tbb_thread_v3& t2 ) __TBB_NOEXCEPT(true);
 
 namespace internal {
 
@@ -111,6 +111,12 @@ namespace internal {
 
     //! Versioned thread class.
     class tbb_thread_v3 {
+#if __TBB_IF_NO_COPY_CTOR_MOVE_SEMANTICS_BROKEN
+        // Workaround for a compiler bug: declaring the copy constructor as public
+        // enables use of the moving constructor.
+        // The definition is not provided in order to prohibit copying.
+    public:
+#endif
         tbb_thread_v3(const tbb_thread_v3&); // = delete;   // Deny access
     public:
 #if _WIN32||_WIN64
@@ -121,7 +127,7 @@ namespace internal {
 
         class id;
         //! Constructs a thread object that does not represent a thread of execution. 
-        tbb_thread_v3() : my_handle(0)
+        tbb_thread_v3() __TBB_NOEXCEPT(true) : my_handle(0)
 #if _WIN32||_WIN64
             , my_thread_id(0)
 #endif // _WIN32||_WIN64
@@ -143,24 +149,37 @@ namespace internal {
             internal_start(closure_type::start_routine, new closure_type(f,x,y));
         }
 
-        tbb_thread_v3& operator=(tbb_thread_v3& x) {
-            if (joinable()) detach();
-            my_handle = x.my_handle;
-            x.my_handle = 0;
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+        tbb_thread_v3(tbb_thread_v3&& x) __TBB_NOEXCEPT(true)
+            : my_handle(x.my_handle)
 #if _WIN32||_WIN64
-            my_thread_id = x.my_thread_id;
-            x.my_thread_id = 0;
-#endif // _WIN32||_WIN64
+            , my_thread_id(x.my_thread_id)
+#endif
+        {
+            x.internal_wipe();
+        }
+        tbb_thread_v3& operator=(tbb_thread_v3&& x) __TBB_NOEXCEPT(true) {
+            internal_move(x);
             return *this;
         }
-        void swap( tbb_thread_v3& t ) {tbb::swap( *this, t );}
-        bool joinable() const {return my_handle!=0; }
+    private:
+        tbb_thread_v3& operator=(const tbb_thread_v3& x); // = delete;
+    public:
+#else  // __TBB_CPP11_RVALUE_REF_PRESENT
+        tbb_thread_v3& operator=(tbb_thread_v3& x) {
+            internal_move(x);
+            return *this;
+        }
+#endif // __TBB_CPP11_RVALUE_REF_PRESENT
+
+        void swap( tbb_thread_v3& t ) __TBB_NOEXCEPT(true) {tbb::swap( *this, t );}
+        bool joinable() const __TBB_NOEXCEPT(true) {return my_handle!=0; }
         //! The completion of the thread represented by *this happens before join() returns.
         void __TBB_EXPORTED_METHOD join();
         //! When detach() returns, *this no longer represents the possibly continuing thread of execution.
         void __TBB_EXPORTED_METHOD detach();
         ~tbb_thread_v3() {if( joinable() ) detach();}
-        inline id get_id() const;
+        inline id get_id() const __TBB_NOEXCEPT(true);
         native_handle_type native_handle() { return my_handle; }
     
         //! The number of hardware thread contexts.
@@ -173,18 +192,33 @@ namespace internal {
             invocation. This means that changes in the process affinity mask that
             took place after this method was first invoked will not affect the
             number of worker threads in the TBB worker threads pool. **/
-        static unsigned __TBB_EXPORTED_FUNC hardware_concurrency();
+        static unsigned __TBB_EXPORTED_FUNC hardware_concurrency() __TBB_NOEXCEPT(true);
     private:
         native_handle_type my_handle; 
 #if _WIN32||_WIN64
         thread_id_type my_thread_id;
 #endif // _WIN32||_WIN64
 
+        void internal_wipe() __TBB_NOEXCEPT(true) {
+            my_handle = 0;
+#if _WIN32||_WIN64
+            my_thread_id = 0;
+#endif
+        }
+        void internal_move(tbb_thread_v3& x) __TBB_NOEXCEPT(true) {
+            if (joinable()) detach();
+            my_handle = x.my_handle;
+#if _WIN32||_WIN64
+            my_thread_id = x.my_thread_id;
+#endif // _WIN32||_WIN64
+            x.internal_wipe();
+        }
+
         /** Runs start_routine(closure) on another thread and sets my_handle to the handle of the created thread. */
         void __TBB_EXPORTED_METHOD internal_start( __TBB_NATIVE_THREAD_ROUTINE_PTR(start_routine), 
                              void* closure );
         friend void __TBB_EXPORTED_FUNC move_v3( tbb_thread_v3& t1, tbb_thread_v3& t2 );
-        friend void tbb::swap( tbb_thread_v3& t1, tbb_thread_v3& t2 ); 
+        friend void tbb::swap( tbb_thread_v3& t1, tbb_thread_v3& t2 ) __TBB_NOEXCEPT(true);
     };
         
     class tbb_thread_v3::id { 
@@ -197,14 +231,14 @@ namespace internal {
 #endif // _WIN32||_WIN64
         friend class tbb_thread_v3;
     public:
-        id() : my_id(0) {}
+        id() __TBB_NOEXCEPT(true) : my_id(0) {}
 
-        friend bool operator==( tbb_thread_v3::id x, tbb_thread_v3::id y );
-        friend bool operator!=( tbb_thread_v3::id x, tbb_thread_v3::id y );
-        friend bool operator<( tbb_thread_v3::id x, tbb_thread_v3::id y );
-        friend bool operator<=( tbb_thread_v3::id x, tbb_thread_v3::id y );
-        friend bool operator>( tbb_thread_v3::id x, tbb_thread_v3::id y );
-        friend bool operator>=( tbb_thread_v3::id x, tbb_thread_v3::id y );
+        friend bool operator==( tbb_thread_v3::id x, tbb_thread_v3::id y ) __TBB_NOEXCEPT(true);
+        friend bool operator!=( tbb_thread_v3::id x, tbb_thread_v3::id y ) __TBB_NOEXCEPT(true);
+        friend bool operator<( tbb_thread_v3::id x, tbb_thread_v3::id y ) __TBB_NOEXCEPT(true);
+        friend bool operator<=( tbb_thread_v3::id x, tbb_thread_v3::id y ) __TBB_NOEXCEPT(true);
+        friend bool operator>( tbb_thread_v3::id x, tbb_thread_v3::id y ) __TBB_NOEXCEPT(true);
+        friend bool operator>=( tbb_thread_v3::id x, tbb_thread_v3::id y ) __TBB_NOEXCEPT(true);
         
         template<class charT, class traits>
         friend std::basic_ostream<charT, traits>&
@@ -217,7 +251,7 @@ namespace internal {
         friend tbb_thread_v3::id __TBB_EXPORTED_FUNC thread_get_id_v3();
     }; // tbb_thread_v3::id
 
-    tbb_thread_v3::id tbb_thread_v3::get_id() const {
+    tbb_thread_v3::id tbb_thread_v3::get_id() const __TBB_NOEXCEPT(true) {
 #if _WIN32||_WIN64
         return id(my_thread_id);
 #else
@@ -229,27 +263,27 @@ namespace internal {
     void __TBB_EXPORTED_FUNC thread_yield_v3();
     void __TBB_EXPORTED_FUNC thread_sleep_v3(const tick_count::interval_t &i);
 
-    inline bool operator==(tbb_thread_v3::id x, tbb_thread_v3::id y)
+    inline bool operator==(tbb_thread_v3::id x, tbb_thread_v3::id y) __TBB_NOEXCEPT(true)
     {
         return x.my_id == y.my_id;
     }
-    inline bool operator!=(tbb_thread_v3::id x, tbb_thread_v3::id y)
+    inline bool operator!=(tbb_thread_v3::id x, tbb_thread_v3::id y) __TBB_NOEXCEPT(true)
     {
         return x.my_id != y.my_id;
     }
-    inline bool operator<(tbb_thread_v3::id x, tbb_thread_v3::id y)
+    inline bool operator<(tbb_thread_v3::id x, tbb_thread_v3::id y) __TBB_NOEXCEPT(true)
     {
         return x.my_id < y.my_id;
     }
-    inline bool operator<=(tbb_thread_v3::id x, tbb_thread_v3::id y)
+    inline bool operator<=(tbb_thread_v3::id x, tbb_thread_v3::id y) __TBB_NOEXCEPT(true)
     {
         return x.my_id <= y.my_id;
     }
-    inline bool operator>(tbb_thread_v3::id x, tbb_thread_v3::id y)
+    inline bool operator>(tbb_thread_v3::id x, tbb_thread_v3::id y) __TBB_NOEXCEPT(true)
     {
         return x.my_id > y.my_id;
     }
-    inline bool operator>=(tbb_thread_v3::id x, tbb_thread_v3::id y)
+    inline bool operator>=(tbb_thread_v3::id x, tbb_thread_v3::id y) __TBB_NOEXCEPT(true)
     {
         return x.my_id >= y.my_id;
     }
@@ -270,7 +304,7 @@ inline void move( tbb_thread& t1, tbb_thread& t2 ) {
     internal::move_v3(t1, t2);
 }
 
-inline void swap( internal::tbb_thread_v3& t1, internal::tbb_thread_v3& t2 ) {
+inline void swap( internal::tbb_thread_v3& t1, internal::tbb_thread_v3& t2 )  __TBB_NOEXCEPT(true) {
     tbb::tbb_thread::native_handle_type h = t1.my_handle;
     t1.my_handle = t2.my_handle;
     t2.my_handle = h;

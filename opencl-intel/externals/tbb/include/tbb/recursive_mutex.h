@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -36,7 +36,7 @@ namespace tbb {
 //! Mutex that allows recursive mutex acquisition.
 /** Mutex that allows recursive mutex acquisition.
     @ingroup synchronization */
-class recursive_mutex {
+class recursive_mutex : internal::mutex_copy_deprecated_and_disabled {
 public:
     //! Construct unacquired recursive_mutex.
     recursive_mutex() {
@@ -163,7 +163,9 @@ public:
   #if _WIN32||_WIN64
         EnterCriticalSection(&impl);
   #else
-        pthread_mutex_lock(&impl);
+        int error_code = pthread_mutex_lock(&impl);
+        if( error_code )
+            tbb::internal::handle_perror(error_code,"recursive_mutex: pthread_mutex_lock failed");
   #endif /* _WIN32||_WIN64 */
 #endif /* TBB_USE_ASSERT */
     }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -26,8 +26,7 @@
 #include "tbb_allocator.h"
 #include <cstddef>
 
-//TODO: consider more accurate method to check if need to implement <type_trais> ourself
-#if !TBB_IMPLEMENT_CPP0X
+#if __TBB_CPP11_TYPE_PROPERTIES_PRESENT || __TBB_TR1_TYPE_PROPERTIES_IN_STD_PRESENT
 #include <type_traits>
 #endif
 
@@ -322,9 +321,13 @@ namespace internal {
 
 template<typename T> struct tbb_large_object {enum { value = sizeof(T) > sizeof(void *) }; };
 
-#if TBB_IMPLEMENT_CPP0X
-// cannot use SFINAE in current compilers.  Explicitly list the types we wish to be
-// placed as-is in the pipeline input_buffers.
+// Obtain type properties in one or another way
+#if   __TBB_CPP11_TYPE_PROPERTIES_PRESENT
+template<typename T> struct tbb_trivially_copyable { enum { value = std::is_trivially_copyable<T>::value }; };
+#elif __TBB_TR1_TYPE_PROPERTIES_IN_STD_PRESENT
+template<typename T> struct tbb_trivially_copyable { enum { value = std::has_trivial_copy_constructor<T>::value }; };
+#else
+// Explicitly list the types we wish to be placed as-is in the pipeline input_buffers.
 template<typename T> struct tbb_trivially_copyable { enum { value = false }; };
 template<typename T> struct tbb_trivially_copyable <T*> { enum { value = true }; };
 template<> struct tbb_trivially_copyable <short> { enum { value = true }; };
@@ -335,13 +338,7 @@ template<> struct tbb_trivially_copyable <long> { enum { value = !tbb_large_obje
 template<> struct tbb_trivially_copyable <unsigned long> { enum { value = !tbb_large_object<long>::value }; };
 template<> struct tbb_trivially_copyable <float> { enum { value = !tbb_large_object<float>::value }; };
 template<> struct tbb_trivially_copyable <double> { enum { value = !tbb_large_object<double>::value }; };
-#else
-#if __GNUC__==4 && __GNUC_MINOR__>=4 && __GXX_EXPERIMENTAL_CXX0X__
-template<typename T> struct tbb_trivially_copyable { enum { value = std::has_trivial_copy_constructor<T>::value }; };
-#else
-template<typename T> struct tbb_trivially_copyable { enum { value = std::is_trivially_copyable<T>::value }; };
-#endif //
-#endif // TBB_IMPLEMENT_CPP0X
+#endif // Obtaining type properties
 
 template<typename T> struct is_large_object {enum { value = tbb_large_object<T>::value || !tbb_trivially_copyable<T>::value }; };
 
@@ -598,6 +595,7 @@ class filter_t {
     template<typename T_, typename V_, typename U_>
     friend filter_t<T_,U_> operator& (const filter_t<T_,V_>& , const filter_t<V_,U_>& );
 public:
+    // TODO: add move-constructors, move-assignment, etc. where C++11 is available.
     filter_t() : root(NULL) {}
     filter_t( const filter_t<T,U>& rhs ) : root(rhs.root) {
         if( root ) root->add_ref();

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -36,7 +36,7 @@ static const size_t cache_line_size = 64;
 template<typename Mutex, bool is_rw> class padded_mutex;
 
 template<typename Mutex>
-class padded_mutex<Mutex,false> {
+class padded_mutex<Mutex,false> : tbb::internal::mutex_copy_deprecated_and_disabled {
     typedef long pad_type;
     pad_type my_pad[((sizeof(Mutex)+cache_line_size-1)/cache_line_size+1)*cache_line_size/sizeof(pad_type)];
 
@@ -65,7 +65,7 @@ public:
 };
 
 template<typename Mutex>
-class padded_mutex<Mutex,true> {
+class padded_mutex<Mutex,true> : tbb::internal::mutex_copy_deprecated_and_disabled {
     typedef long pad_type;
     pad_type my_pad[((sizeof(Mutex)+cache_line_size-1)/cache_line_size+1)*cache_line_size/sizeof(pad_type)];
 

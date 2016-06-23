@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -23,7 +23,7 @@
 
 #include <new>
 #include "tbb_stddef.h"
-#if __TBB_CPP11_RVALUE_REF_PRESENT && !__TBB_CPP11_STD_FORWARD_BROKEN
+#if __TBB_ALLOCATOR_CONSTRUCT_VARIADIC
  #include <utility> // std::forward
 #endif
 
@@ -97,12 +97,11 @@ public:
 #if __TBB_ALLOCATOR_CONSTRUCT_VARIADIC
     template<typename U, typename... Args>
     void construct(U *p, Args&&... args)
- #if __TBB_CPP11_STD_FORWARD_BROKEN
-        { ::new((void *)p) U((args)...); }
- #else
         { ::new((void *)p) U(std::forward<Args>(args)...); }
- #endif
 #else // __TBB_ALLOCATOR_CONSTRUCT_VARIADIC
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    void construct( pointer p, value_type&& value ) {::new((void*)(p)) value_type(std::move(value));}
+#endif
     void construct( pointer p, const value_type& value ) {::new((void*)(p)) value_type(value);}
 #endif // __TBB_ALLOCATOR_CONSTRUCT_VARIADIC
 

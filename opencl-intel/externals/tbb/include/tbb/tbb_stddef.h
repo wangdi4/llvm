@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -23,10 +23,10 @@
 
 // Marketing-driven product version
 #define TBB_VERSION_MAJOR 4
-#define TBB_VERSION_MINOR 2
+#define TBB_VERSION_MINOR 3
 
 // Engineering-focused interface version
-#define TBB_INTERFACE_VERSION 7005
+#define TBB_INTERFACE_VERSION 8006
 #define TBB_INTERFACE_VERSION_MAJOR TBB_INTERFACE_VERSION/1000
 
 // The oldest major interface version still supported
@@ -130,22 +130,13 @@
 //! Type for an assertion handler
 typedef void(*assertion_handler_type)( const char* filename, int line, const char* expression, const char * comment );
 
-#if TBB_USE_ASSERT
-
-     #define __TBB_ASSERT_NS(predicate,message,ns) ((predicate)?((void)0) : ns::assertion_failure(__FILE__,__LINE__,#predicate,message))
-    //! Assert that x is true.
-    /** If x is false, print assertion failure message.
-        If the comment argument is not NULL, it is printed as part of the failure message.
-        The comment argument has no other effect. */
 #if __TBBMALLOC_BUILD
 namespace rml { namespace internal {
-    #define __TBB_ASSERT(predicate,message) __TBB_ASSERT_NS(predicate,message,rml::internal)
+ #define __TBB_ASSERT_RELEASE(predicate,message) ((predicate)?((void)0) : rml::internal::assertion_failure(__FILE__,__LINE__,#predicate,message))
 #else
 namespace tbb {
-    #define __TBB_ASSERT(predicate,message) __TBB_ASSERT_NS(predicate,message,tbb)
+ #define __TBB_ASSERT_RELEASE(predicate,message) ((predicate)?((void)0) : tbb::assertion_failure(__FILE__,__LINE__,#predicate,message))
 #endif
-
-    #define __TBB_ASSERT_EX __TBB_ASSERT
 
     //! Set assertion handler and return previous value of it.
     assertion_handler_type __TBB_EXPORTED_FUNC set_assertion_handler( assertion_handler_type new_handler );
@@ -161,6 +152,17 @@ namespace tbb {
 #else
 } // namespace tbb
 #endif
+
+#if TBB_USE_ASSERT
+
+    //! Assert that x is true.
+    /** If x is false, print assertion failure message.
+        If the comment argument is not NULL, it is printed as part of the failure message.
+        The comment argument has no other effect. */
+    #define __TBB_ASSERT(predicate,message) __TBB_ASSERT_RELEASE(predicate,message)
+
+    #define __TBB_ASSERT_EX __TBB_ASSERT
+
 #else /* !TBB_USE_ASSERT */
 
     //! No-op version of __TBB_ASSERT.
@@ -206,40 +208,6 @@ namespace tbb {
  * So it can be different than the value of TBB_INTERFACE_VERSION obtained at compile time.
  */
 extern "C" int __TBB_EXPORTED_FUNC TBB_runtime_interface_version();
-
-//! Dummy type that distinguishes splitting constructor from copy constructor.
-/**
- * See description of parallel_for and parallel_reduce for example usages.
- * @ingroup algorithms
- */
-class split {
-};
-
-//! Type enables transmission of splitting proportion from partitioners to range objects
-/**
- * In order to make use of such facility Range objects must implement
- * splitting constructor with this type passed and initialize static
- * constant boolean field 'is_divisible_in_proportion' with the value
- * of 'true'
- */
-class proportional_split {
-public:
-    proportional_split(size_t _left = 1, size_t _right = 1) : my_left(_left), my_right(_right) { }
-    proportional_split(split) : my_left(1), my_right(1) { }
-
-    size_t left() const { return my_left; }
-    size_t right() const { return my_right; }
-
-    void set_proportion(size_t _left, size_t _right) {
-        my_left = _left;
-        my_right = _right;
-    }
-
-    // used when range does not support proportional split
-    operator split() const { return split(); }
-private:
-    size_t my_left, my_right;
-};
 
 /**
  * @cond INTERNAL
@@ -360,27 +328,13 @@ public:
     no_copy() {}
 };
 
-//! Class for determining type of std::allocator<T>::value_type.
-template<typename T>
-struct allocator_type {
-    typedef T value_type;
-};
-
-#if _MSC_VER
-//! Microsoft std::allocator has non-standard extension that strips const from a type.
-template<typename T>
-struct allocator_type<const T> {
-    typedef T value_type;
-};
+#if TBB_DEPRECATED_MUTEX_COPYING
+class mutex_copy_deprecated_and_disabled {};
+#else
+// By default various implementations of mutexes are not copy constructible
+// and not copy assignable.
+class mutex_copy_deprecated_and_disabled : no_copy {};
 #endif
-
-//! A template to select either 32-bit or 64-bit constant as compile time, depending on machine word size.
-template <unsigned u, unsigned long long ull >
-struct select_size_t_constant {
-    //Explicit cast is needed to avoid compiler warnings about possible truncation.
-    //The value of the right size,   which is selected by ?:, is anyway not truncated or promoted.
-    static const size_t value = (size_t)((sizeof(size_t)==sizeof(u)) ? u : ull);
-};
 
 //! A function to check if passed in pointer is aligned on a specific border
 template<typename T>
@@ -414,8 +368,9 @@ inline bool is_power_of_two_factor(argument_integer_type arg, divisor_integer_ty
 }
 
 //! Utility template function to prevent "unused" warnings by various compilers.
-template<typename T>
-void suppress_unused_warning( const T& ) {}
+template<typename T1> void suppress_unused_warning( const T1& ) {}
+template<typename T1, typename T2> void suppress_unused_warning( const T1&, const T2& ) {}
+template<typename T1, typename T2, typename T3> void suppress_unused_warning( const T1&, const T2&, const T3& ) {}
 
 // Struct to be used as a version tag for inline functions.
 /** Version tag can be necessary to prevent loader on Linux from using the wrong
@@ -425,11 +380,138 @@ struct version_tag_v3 {};
 typedef version_tag_v3 version_tag;
 
 } // internal
-//! @endcond
+
+//! Dummy type that distinguishes splitting constructor from copy constructor.
+/**
+ * See description of parallel_for and parallel_reduce for example usages.
+ * @ingroup algorithms
+ */
+class split {
+};
+
+//! Type enables transmission of splitting proportion from partitioners to range objects
+/**
+ * In order to make use of such facility Range objects must implement
+ * splitting constructor with this type passed and initialize static
+ * constant boolean field 'is_splittable_in_proportion' with the value
+ * of 'true'
+ */
+class proportional_split: internal::no_assign {
+public:
+    proportional_split(size_t _left = 1, size_t _right = 1) : my_left(_left), my_right(_right) { }
+
+    size_t left() const { return my_left; }
+    size_t right() const { return my_right; }
+
+    // used when range does not support proportional split
+    operator split() const { return split(); }
+
+#if __TBB_ENABLE_RANGE_FEEDBACK
+    void set_proportion(size_t _left, size_t _right) {
+        my_left = _left;
+        my_right = _right;
+    }
+#endif
+private:
+    size_t my_left, my_right;
+};
 
 } // tbb
 
-namespace tbb { namespace internal {
+// Following is a set of classes and functions typically used in compile-time "metaprogramming".
+// TODO: move all that to a separate header
+
+#if __TBB_ALLOCATOR_TRAITS_PRESENT
+#include <memory> //for allocator_traits
+#endif
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT || _LIBCPP_VERSION
+#include <utility> // for std::move
+#endif
+
+namespace tbb {
+namespace internal {
+
+//! Class for determining type of std::allocator<T>::value_type.
+template<typename T>
+struct allocator_type {
+    typedef T value_type;
+};
+
+#if _MSC_VER
+//! Microsoft std::allocator has non-standard extension that strips const from a type.
+template<typename T>
+struct allocator_type<const T> {
+    typedef T value_type;
+};
+#endif
+
+// Ad-hoc implementation of true_type & false_type
+// Intended strictly for internal use! For public APIs (traits etc), use C++11 analogues.
+template <bool v>
+struct bool_constant {
+    static /*constexpr*/ const bool value = v;
+};
+typedef bool_constant<true> true_type;
+typedef bool_constant<false> false_type;
+
+#if __TBB_ALLOCATOR_TRAITS_PRESENT
+using std::allocator_traits;
+#else
+template<typename allocator>
+struct allocator_traits{
+    typedef tbb::internal::false_type propagate_on_container_move_assignment;
+};
+#endif
+
+//! A template to select either 32-bit or 64-bit constant as compile time, depending on machine word size.
+template <unsigned u, unsigned long long ull >
+struct select_size_t_constant {
+    //Explicit cast is needed to avoid compiler warnings about possible truncation.
+    //The value of the right size,   which is selected by ?:, is anyway not truncated or promoted.
+    static const size_t value = (size_t)((sizeof(size_t)==sizeof(u)) ? u : ull);
+};
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+using std::move;
+using std::forward;
+#elif defined(_LIBCPP_NAMESPACE)
+// libc++ defines "pre-C++11 move and forward" similarly to ours; use it to avoid name conflicts in some cases.
+using std::_LIBCPP_NAMESPACE::move;
+using std::_LIBCPP_NAMESPACE::forward;
+#else
+// It is assumed that cv qualifiers, if any, are part of the deduced type.
+template <typename T>
+T& move( T& x ) { return x; }
+template <typename T>
+T& forward( T& x ) { return x; }
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
+
+// Helper macros to simplify writing templates working with both C++03 and C++11.
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+#define  __TBB_FORWARDING_REF(A) A&&
+#else
+// It is assumed that cv qualifiers, if any, are part of a deduced type.
+// Thus this macro should not be used in public interfaces.
+#define  __TBB_FORWARDING_REF(A) A&
+#endif
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+#define __TBB_PARAMETER_PACK ...
+#define __TBB_PACK_EXPANSION(A) A...
+#else
+#define __TBB_PARAMETER_PACK 
+#define __TBB_PACK_EXPANSION(A) A
+#endif /* __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT */
+
+#if __TBB_CPP11_DECLTYPE_PRESENT
+#if __TBB_CPP11_DECLVAL_BROKEN
+// Ad-hoc implementation of std::declval
+template <class T> __TBB_FORWARDING_REF(T) declval() /*noexcept*/;
+#else
+using std::declval;
+#endif
+#endif
+
 template <bool condition>
 struct STATIC_ASSERTION_FAILED;
 
@@ -438,7 +520,9 @@ struct STATIC_ASSERTION_FAILED<false> { enum {value=1};};
 
 template<>
 struct STATIC_ASSERTION_FAILED<true>; //intentionally left undefined to cause compile time error
-}} // namespace tbb { namespace internal {
+
+//! @endcond
+}} // namespace tbb::internal
 
 #if    __TBB_STATIC_ASSERT_PRESENT
 #define __TBB_STATIC_ASSERT(condition,msg) static_assert(condition,msg)

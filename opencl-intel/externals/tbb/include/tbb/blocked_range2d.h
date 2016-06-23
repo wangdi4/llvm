@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2015 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -74,9 +74,9 @@ public:
         do_split(r, split_obj);
     }
 
-#if !TBB_DEPRECATED
+#if __TBB_USE_PROPORTIONAL_SPLIT_IN_BLOCKED_RANGES
     //! Static field to support proportional split
-    static const bool is_divisible_in_proportion = true;
+    static const bool is_splittable_in_proportion = true;
 
     blocked_range2d( blocked_range2d& r, proportional_split& proportion ) :
         my_rows(r.my_rows),
@@ -84,7 +84,7 @@ public:
     {
         do_split(r, proportion);
     }
-#endif
+#endif /* __TBB_USE_PROPORTIONAL_SPLIT_IN_BLOCKED_RANGES */
 
     template <typename Split>
     void do_split( blocked_range2d& r, Split& split_obj )
