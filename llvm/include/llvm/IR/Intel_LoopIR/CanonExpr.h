@@ -232,6 +232,9 @@ protected:
   /// Verifies that the incoming nesting level is valid for this CE, asserts otherwise.
   bool verifyNestingLevel(unsigned NestingLevel) const;
 
+  /// \brief Returns true if canon expr represents null pointer value.
+  bool isNullImpl() const;
+
 public:
   CanonExpr *clone() const;
 
@@ -326,7 +329,7 @@ public:
   /// \brief Returns true if canon expr represents any kind of constant.
   bool isConstant() const {
     return (isIntConstant() || isFPConstant() || isNull() || isMetadata() ||
-            isConstantVector());
+            isConstantVector() || isNullVector());
   }
 
   /// \brief Returns true if canon expr is a constant integer. Integer value
@@ -357,6 +360,10 @@ public:
 
   /// \brief Returns true if canon expr represents null pointer value.
   bool isNull() const;
+
+  /// \brief Returns true if canon expr represents a vector of null pointer
+  /// values.
+  bool isNullVector() const;
 
   /// \brief Returns true if this canon expr looks soemthing like (1 * %t).
   /// This is a broader check than isSelfBlob() because it allows the blob to

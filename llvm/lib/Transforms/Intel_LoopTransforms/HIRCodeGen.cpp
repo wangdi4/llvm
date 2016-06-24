@@ -560,6 +560,15 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
     return ConstantPointerNull::get(cast<PointerType>(CE->getSrcType()));
   }
 
+  if (CE->isNullVector()) {
+    auto SrcType = CE->getSrcType();
+    auto PtrType = cast<PointerType>(SrcType->getScalarType());
+
+    auto NullVal = ConstantPointerNull::get(PtrType);
+    return Builder->CreateVectorSplat(SrcType->getVectorNumElements(),
+                                      NullVal);
+  }
+
   BlobSum = sumBlobs(CE);
   IVSum = sumIV(CE);
 

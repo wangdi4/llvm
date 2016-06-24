@@ -21,6 +21,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Intel_LoopIR/HIRVerifier.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 
 #define DEBUG_TYPE "VPODriver"
 
@@ -403,6 +404,13 @@ bool AVRCodeGenHIR::vectorize(int VL) {
   RHM.mapHLNodes(cast<HLRegion>(OrigLoop->getParent()));
 
   RetVal = processLoop();
+
+  // We updated loop bounds and instructions in the loop
+  HIRInvalidationUtils::invalidateBody(OrigLoop);
+  HIRInvalidationUtils::invalidateBounds(OrigLoop);
+
+  // Intrinsic calls in the parent get deleted
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(OrigLoop);
 
   DEBUG(errs() << "\n\n\nHandled loop after: \n");
   DEBUG(OrigLoop->dump(true));

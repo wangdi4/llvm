@@ -363,11 +363,28 @@ bool CanonExpr::isFPVectorConstant(Constant **Val) const {
   return isConstantVectorImpl(Val);
 }
 
-bool CanonExpr::isNull() const {
-  bool Ret = (getSrcType()->isPointerTy() && isConstInternal());
+bool CanonExpr::isNullImpl() const {
+  bool Ret = isConstInternal();
   assert((!Ret || !getConstant()) && "Invalid pointer type canon expr!");
 
   return Ret;
+} 
+
+bool CanonExpr::isNull() const {
+  if (!getSrcType()->isPointerTy()) {
+    return false;
+  }
+
+  return isNullImpl();
+}
+
+bool CanonExpr::isNullVector() const {
+  if (!getSrcType()->isVectorTy() ||
+      !getSrcType()->isPtrOrPtrVectorTy()) {
+    return false;
+  }
+
+  return isNullImpl();
 }
 
 unsigned CanonExpr::numIVImpl(bool CheckIVPresence,
