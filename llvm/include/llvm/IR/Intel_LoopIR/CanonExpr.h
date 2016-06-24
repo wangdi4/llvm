@@ -143,9 +143,6 @@ private:
   // Capture whether we are representing signed or unsigned division.
   bool IsSignedDiv;
 
-  // The flag is set if canon expr contains UndefValue.
-  bool ContainsUndef;
-
 protected:
   CanonExpr(Type *SrcType, Type *DestType, bool IsSExt, unsigned DefLevel,
             int64_t ConstVal, int64_t Denom, bool IsSignedDiv);
@@ -193,9 +190,6 @@ protected:
   /// \brief Implements collect*BlobIndices() functionality.
   void collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
                               bool MakeUnique, bool NeedTempBlobs) const;
-
-  /// \brief Marks this canon expr as containing undefined value.
-  void setContainsUndef() { this->ContainsUndef = true; }
 
   /// \brief Returns true if the canon expr represents a constant.
   bool isConstInternal() const {
@@ -421,13 +415,7 @@ public:
   }
 
   /// \brief Returns true if this expression contains undefined terms.
-  bool containsUndef() const { return ContainsUndef; }
-  /// \brief Indicates that the canon expr does not contain undefined terms
-  /// anymore.
-  /// NOTE: Canon expr can internally maintain this flag by inspecting all the
-  /// blobs but not sure if it is worth implementing as it will unnecessarily
-  /// increase compile time.
-  void unsetContainsUndef() { ContainsUndef = false; }
+  bool containsUndef() const; 
 
   /// \brief Returns the constant additive of the canon expr.
   int64_t getConstant() const { return Const; }

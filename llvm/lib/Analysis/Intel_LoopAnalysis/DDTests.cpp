@@ -258,8 +258,7 @@ const CanonExpr *DDTest::getCoeff(const CanonExpr *CE, unsigned int IVNum,
 const CanonExpr *DDTest::getFirstCoeff(const CanonExpr *CE) {
 
   CanonExpr *CE2 = const_cast<CanonExpr *>(getCoeff(CE, 1, false));
-
-  push(CE2);
+  // No need to push(CE2) because it's done in getCoeff
   return CE2;
 }
 
@@ -268,7 +267,7 @@ const CanonExpr *DDTest::getSecondCoeff(const CanonExpr *CE) {
   // return second  coeff, 3 in this case
 
   CanonExpr *CE2 = const_cast<CanonExpr *>(getCoeff(CE, 2, false));
-  push(CE2);
+  // No need to push(CE2) because it's done in getCoeff
   return CE2;
 }
 
@@ -336,7 +335,7 @@ static const HLLoop *getSecondLoop(const CanonExpr *CE,
 
   for (auto E = CE->iv_end(); CurIVPair != E; ++CurIVPair) {
     if (CE->getIVConstCoeff(CurIVPair)) {
-      if ((NumIV++) == 2) {
+      if ((++NumIV) == 2) {
         break;
       }
     }
@@ -347,6 +346,7 @@ static const HLLoop *getSecondLoop(const CanonExpr *CE,
       return Loop;
     }
   }
+
   assert(Loop && "Loop not found for iv ");
   return nullptr;
 }
@@ -363,7 +363,6 @@ const CanonExpr *DDTest::getMinus(const CanonExpr *SrcConst,
     return nullptr;
   }
   push(CE);
-
   return CE;
 }
 
@@ -378,7 +377,6 @@ const CanonExpr *DDTest::getAdd(const CanonExpr *SrcConst,
     return nullptr;
   }
   push(CE);
-
   return CE;
 }
 
@@ -399,7 +397,6 @@ const CanonExpr *DDTest::getNegative(const CanonExpr *CE) {
   CanonExpr *CE2 = CanonExprUtils::cloneAndNegate(CE);
 
   push(CE2);
-
   return CE2;
 }
 
@@ -434,14 +431,12 @@ const CanonExpr *DDTest::getMulExpr(const CanonExpr *CE1,
   }
 
   push(CE);
-
   return CE;
 }
 
 const CanonExpr *DDTest::getConstantfromAPInt(Type *Ty, const APInt &apint) {
   CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, apint);
   push(CE);
-
   return CE;
 }
 
@@ -450,7 +445,6 @@ const CanonExpr *DDTest::getConstantWithType(Type *SrcTy, Type *DestTy,
   CanonExpr *CE =
       CanonExprUtils::createExtCanonExpr(SrcTy, DestTy, IsSExt, 0, Val, 1);
   push(CE);
-
   return CE;
 }
 
@@ -479,7 +473,6 @@ const CanonExpr *DDTest::getUDivExpr(const CanonExpr *CE1,
       CE1->getSrcType(), CE1->getDestType(), CE1->isSExt(), CVal1 / CVal2);
 
   // Note: no need to do push_back CE here because it's already done
-
   return CE;
 }
 
@@ -1986,12 +1979,17 @@ static bool isRemainderZero(const CanonExpr *Dividend,
 //
 //    (c1 - c2)/a = i
 //
-// If i is not an integer, there's no dependence.
-// If i < 0 or > UB, there's no dependence.
-// If i = 0, the direction is <= and peeling the
-// 1st iteration will break the dependence.
-// If i = UB, the direction is >= and peeling the
-// last iteration will break the dependence.
+// Src:  X[c1]; Dst:  X(c2 + a *i]
+//
+// If the dependence happens at first iteration when i = 0,
+//       the direction is >= when a > 0
+//       the direction is = when a < 0
+//       for simplicty, we will create >= because it includes =
+//   Peeling the  1st iteration will break the dependence.
+//
+// If the dependence happens at last iteration when i = UB,
+//       the direction is <=
+//   Peeling the last iteration will break the dependence.
 // Otherwise, the direction is *.
 //
 // Can prove independence. Failing that, we can sometimes refine
@@ -2039,7 +2037,8 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   if (isKnownPredicate(CmpInst::ICMP_EQ, SrcConst, DstConst)) {
     if (Level < CommonLevels) {
-      Result.DV[Level].Direction &= DVKind::LE;
+      // Srce: A[2] ; Dst: A[2*i +2];  DV should be >=
+      Result.DV[Level].Direction &= DVKind::GE;
       Result.DV[Level].PeelFirst = true;
       ++WeakZeroSIVsuccesses;
     }
@@ -2078,7 +2077,7 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
     if (isKnownPredicate(CmpInst::ICMP_EQ, NewDelta, Product)) {
       // dependences caused by last iteration
       if (Level < CommonLevels) {
-        Result.DV[Level].Direction &= DVKind::GE;
+        Result.DV[Level].Direction &= DVKind::LE;
         Result.DV[Level].PeelLast = true;
         ++WeakZeroSIVsuccesses;
       }
@@ -2121,14 +2120,18 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
 //
 //    i = (c2 - c1)/a
 //
-// If i is not an integer, there's no dependence.
-// If i < 0 or > UB, there's no dependence.
-// If i = 0, the direction is <= and peeling the
-// 1st iteration will break the dependence.
-// If i = UB, the direction is >= and peeling the
-// last iteration will break the dependence.
-// Otherwise, the direction is *.
+// Src:   X(c1 + a *i]  Dst: X[c2]
 //
+// If the dependence happens at first iteration when i = 0,
+//       the direction is = when a > 0
+//       the direction is <= when a < 0
+//       for simplicty, we will create <= because it includes =
+//   Peeling the  1st iteration will break the dependence.
+//
+// If the dependence happens at last iteration when i = UB,
+//       the direction is >=
+//   Peeling the last iteration will break the dependence.
+// Otherwise, the direction is *.
 // Can prove independence. Failing that, we can sometimes refine
 // the directions. Can sometimes show that first or last
 // iteration carries all the dependences (so worth peeling).
@@ -2240,6 +2243,7 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
 // Things of the form [c1 + a*i] and [c2 + b*j],
 // where i and j are induction variable, c1 and c2 are loop invariant,
 // and a and b are constants.
+// Likewise,   [c1] and [a*i + b*j + c2] are RDIV subscripts
 // Returns true if any possible dependence is disproved.
 // Marks the result as inconsistent.
 // Works in some cases that symbolicRDIVtest doesn't, and vice versa.
@@ -3922,7 +3926,7 @@ DDTest::~DDTest() {
   DEBUG(dbgs() << "\n ~DDTest called\n");
   for (auto I = WorkCE.begin(), E = WorkCE.end(); I != E; ++I) {
     // const CanonExpr *CE = *I;
-    // DEBUG(dbgs() << "  "; CE->dump());
+    // DEBUG(dbgs() << "CE: " << CE << " "; CE->dump());
     CanonExprUtils::destroy(const_cast<CanonExpr *>(*I));
   }
 
@@ -4049,26 +4053,23 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     return nullptr;
   }
 
-  // If both are RegDDRefs
+  // If both are memory refs
   if (SrcRegDDRef && DstRegDDRef && SrcRegDDRef->isMemRef() &&
       DstRegDDRef->isMemRef()) {
+
+    // Inquire disam util to get INDEP based on type/scope based analysis.
+    DEBUG(dbgs() << "AA query: ");
+    if (queryAAIndep(SrcRegDDRef, DstRegDDRef)) {
+      DEBUG(dbgs() << "no alias\n");
+      return nullptr;
+    }
+    DEBUG(dbgs() << "may alias\n");
+
     auto SrcBaseCE = SrcRegDDRef->getBaseCE();
     auto DstBaseCE = DstRegDDRef->getBaseCE();
 
     // We check for equal base CE
     EqualBaseCE = areCEEqual(SrcBaseCE, DstBaseCE);
-
-    // Inquire disam util to get INDEP if the base ptrs are different
-    // DD_refs could be in the same symbase after merging even the memory
-    // difference are distinct
-    if (!EqualBaseCE) {
-      DEBUG(dbgs() << "AA query: ");
-      if (queryAAIndep(SrcRegDDRef, DstRegDDRef)) {
-        DEBUG(dbgs() << "no alias\n");
-        return nullptr;
-      }
-      DEBUG(dbgs() << "may alias\n");
-    }
   }
 
   // establish loop nesting levels
@@ -4310,8 +4311,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     // Take interection of result with input dv for a particular level
     // if empty, INDEP is obtained
 
-    if (Pair[SI].Classification != Subscript::ZIV &&
-        Pair[SI].Classification != Subscript::MIV) {
+    if (Pair[SI].Classification == Subscript::SIV) {
 
       const HLLoop *IVLoop = getLoop(Pair[SI].Src, SrcLoop);
       if (IVLoop == nullptr) {
@@ -4662,9 +4662,9 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     return false;
   }
 
-  ///  Bidirectional DV is needed when scanning from L to R, it enconuters
+  ///  Bidirectional DV is needed when scanning from L to R, it encounters
   ///  a * before hitting <.
-  ///  If * is preveded by <. then no backward edge is needed.
+  ///  If * is preceeded by <. then no backward edge is needed.
   ///  Exception:  when src == dst, 1 edge is enough for self output dep.
   ///  e.g.
   ///  (= = *   =)  Yes
@@ -4863,6 +4863,22 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
   }
 
+  unsigned Levels = Result->getLevels();
+  if (Result->isPeelFirst(Levels) && Result->isReversed()) {
+    // Result coming back from weakZeroSrcSIVtest
+    // e.g. for i=0, 2
+    //        x[2*i +2] = x[2];
+    // Need special casing:
+    // Forward DV is  (=)  Backward DV is (<)
+    for (unsigned II = 1; II < Levels; ++II) {
+      ForwardDV[II - 1] = Result->getDirection(II);
+    }
+    ForwardDV[Levels - 1] = DVKind::EQ;
+    getDVForBackwardEdge(ForwardDV, BackwardDV, Levels);
+    BackwardDV[Levels - 1] = DVKind::LT;
+    return true;
+  }
+
   // How to determine whether the edge is forward or backward:
   //  (1) bidirection: both forward & backward
   //  (2) if all EQ, look at TopSort order
@@ -5001,6 +5017,9 @@ void DirectionVector::print(unsigned Levels, raw_ostream &OS) const {
       break;
     case DVKind::LE:
       OS << "<=";
+      break;
+    case DVKind::GE:
+      OS << ">=";
       break;
     case DVKind::GT:
       OS << ">";

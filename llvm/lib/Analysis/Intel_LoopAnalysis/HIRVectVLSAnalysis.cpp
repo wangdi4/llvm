@@ -225,8 +225,7 @@ void VectVLSDDRefVisitor::visit(const HLInst *Inst) {
 void HIRVectVLSAnalysis::analyzeVLSInLoop(const HLLoop *Loop) {
 
   unsigned Level = Loop->getNestingLevel();
-  HLLoop *Loop2 = const_cast<HLLoop *>(Loop);
-  DDGraph DDG = DDA->getGraph(Loop2, false);
+  DDGraph DDG = DDA->getGraph(Loop, false);
   // DEBUG(DDG.dump());
 
   // 1. Gather MemRefs in Loop
@@ -240,7 +239,7 @@ void HIRVectVLSAnalysis::analyzeVLSInLoop(const HLLoop *Loop) {
   // be colocated in the same group during the grouping process.
   // It also affects the NumElements member of all the Memrefs.
   // TODO: Consideration of dependence distance no yet implemeneted.
-  VectVLSContext VectContext(DDG, Loop2);
+  VectVLSContext VectContext(DDG, Loop);
 #if 0
   testVLSMemrefAnalysis(&VectContext, LoopMemrefs);
 #endif

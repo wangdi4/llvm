@@ -598,6 +598,12 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     for (auto const &SCCInst : PhiSCC->Nodes) {
 
       if (auto SCCPhiInst = dyn_cast<PHINode>(SCCInst)) {
+
+        // Single operand phis do not need to be processed.
+        if (1 == SCCPhiInst->getNumIncomingValues()) {
+          continue;
+        }
+
         LiveinCopyInserted =
             processPhiLiveins(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
                               Name.str()) ||

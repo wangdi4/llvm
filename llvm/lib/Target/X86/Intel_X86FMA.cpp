@@ -25,6 +25,7 @@
 #include "X86InstrInfo.h"
 #include "X86Subtarget.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/InstIterator.h"
@@ -145,6 +146,460 @@ public:
   FMADag *getDagForBestSPMatch(const FMAExprSP &SP);
 };
 
+/// This class describes the known MUL/ADD/SUB/FMA/ZERO/etc operations and
+/// utility methods for working with such operations.
+///
+/// FIXME: This class defines and uses two big static arrays describing known
+/// MUL/ADD/SUB/FMA opcodes: AVXOpcodes[] and AVX512Opcodes[]. There are some
+/// other existing tables containing the same opcodes (RegularOpcodeGroups[],
+/// IntrinOpcodeGroups[], and MemoryFoldTable3[]. See X86InstrInfo.cpp for
+/// details.). The information from all tables including the two new tables
+/// must be consolidated in one place. Also, if it is possible, then the linear
+/// search used now to find an interesting opcode in the table should be
+/// replaced with something more efficient.
+class FMAOpcodesInfo {
+public:
+  /// Enum defining the known classes of operations interesting to
+  /// FMA optimization.
+  typedef enum {
+    ADDOpc = 0,
+    SUBOpc = 1,
+    MULOpc = 2,
+    FMA213Opc = 3,
+    FMA132Opc = 4,
+    FMA231Opc = 5,
+    FMS213Opc = 6,
+    FMS132Opc = 7,
+    FMS231Opc = 8,
+    FNMA213Opc = 9,
+    FNMA132Opc = 10,
+    FNMA231Opc = 11,
+    FNMS213Opc = 12,
+    FNMS132Opc = 13,
+    FNMS231Opc = 14,
+    ZEROOpc = 15
+  } FMAOpcodeKind;
+
+  /// A structure describing one operation including a register/memory opcode,
+  /// a machine value type and an opcode kind.
+  struct FMAOpcodeDesc {
+    /// Register opcode.
+    uint16_t RegOpc;
+
+    /// Memory opcode.
+    uint16_t MemOpc;
+
+    /// Machine value type.
+    MVT VT;
+
+    /// Opcode kind.
+    unsigned OpcodeKind : 4;
+  };
+
+private:
+  /// Known AVX1/AVX2 opcodes.
+  static const FMAOpcodeDesc AVXOpcodes[];
+
+  /// Known AVX512 opcodes.
+  static const FMAOpcodeDesc AVX512Opcodes[];
+
+  /// Returns the reference to the table with opcode descriptors.
+  /// The size of the table is returned in the parameter \p OpcodesTabSize.
+  /// If the parameter \p LookForAVX512 is set to true, then the reference
+  /// to the table with AVX512 opcodes is returned. Otherwise, this method
+  /// returns a reference to the table with AVX1/AVX2 opcodes.
+  static const FMAOpcodeDesc *getOpcodesTab(bool LookForAVX512,
+                                            unsigned &OpcodesTabSize);
+
+public:
+  /// This function returns true iff the given opcode \p Opcode should be
+  /// recognized by the FMA optimization. Also, if the opcode is recognized,
+  /// then machine value type associated with the opcode is returned in \p VT,
+  /// the opcode kind is returned in \p OpcodeKind, \p IsMem is set to true if
+  /// \p Opcode is a memory opcode.
+  /// It is assumed here that all recognized opcodes can be represented as
+  /// FMA operations having 3 operands: ((MulSign)(Op1 * Op2) + (AddSign)Op3),
+  /// where the MulSign is the sign of the product of the first 2 operands
+  /// and AddSign is the sign of the 3rd operand. The MulSign and AddSign signs
+  /// are returned in the corresponding parameters \p MulSign and \p AddSign,
+  /// and each parameter is set to true iff the corresponding sign is negative.
+  /// For example, SUB(a,b) can be represented as (+a*1.0 - c). In this case
+  /// \p MulSign must be set to false, and AddSign must be set to true.
+  static bool recognizeOpcode(unsigned Opcode, bool LookForAVX512, MVT &VT,
+                              FMAOpcodeKind &OpcodeKind, bool &IsMem,
+                              bool &MulSign, bool &AddSign);
+
+  /// Returns the register form of the opcode of the given opcode kind
+  /// \p OpcodeKind and machine value type \p VT. The parameter
+  /// \p LookForAVX512 tells if the opcode should be searched among AVX512
+  /// opcodes or AVX1/AVX2 opcodes.
+  static unsigned getOpcodeOfKind(bool LookForAVX512, FMAOpcodeKind OpcodeKind,
+                                  MVT VT);
+
+  /// Returns an opcode of FMA213Opc opcode kind with the given signs of
+  /// the product of 1st and 2nd FMA operands \p MulSign and the sign of
+  /// the 3rd FMA operand \p AddSign.
+  static FMAOpcodeKind getFMA213OpcodeKind(bool MulSign, bool AddSign) {
+    if (MulSign)
+      return AddSign ? FNMS213Opc : FNMA213Opc;
+    return AddSign ? FMS213Opc : FMA213Opc;
+  }
+};
+
+const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::AVXOpcodes[] = {
+  // ADD
+  { X86::VADDSSrr,        X86::VADDSSrm,        MVT::v1f32, ADDOpc },
+  { X86::VADDSDrr,        X86::VADDSDrm,        MVT::v1f64, ADDOpc },
+  { X86::VADDPSrr,        X86::VADDPSrm,        MVT::v4f32, ADDOpc },
+  { X86::VADDPDrr,        X86::VADDPDrm,        MVT::v2f64, ADDOpc },
+  { X86::VADDPSYrr,       X86::VADDPSYrm,       MVT::v8f32, ADDOpc },
+  { X86::VADDPDYrr,       X86::VADDPDYrm,       MVT::v4f64, ADDOpc },
+  // SUB
+  { X86::VSUBSSrr,        X86::VSUBSSrm,        MVT::v1f32, SUBOpc },
+  { X86::VSUBSDrr,        X86::VSUBSDrm,        MVT::v1f64, SUBOpc },
+  { X86::VSUBPSrr,        X86::VSUBPSrm,        MVT::v4f32, SUBOpc },
+  { X86::VSUBPDrr,        X86::VSUBPDrm,        MVT::v2f64, SUBOpc },
+  { X86::VSUBPSYrr,       X86::VSUBPSYrm,       MVT::v8f32, SUBOpc },
+  { X86::VSUBPDYrr,       X86::VSUBPDYrm,       MVT::v4f64, SUBOpc },
+  // MUL
+  { X86::VMULSSrr,        X86::VMULSSrm,        MVT::v1f32, MULOpc },
+  { X86::VMULSDrr,        X86::VMULSDrm,        MVT::v1f64, MULOpc },
+  { X86::VMULPSrr,        X86::VMULPSrm,        MVT::v4f32, MULOpc },
+  { X86::VMULPDrr,        X86::VMULPDrm,        MVT::v2f64, MULOpc },
+  { X86::VMULPSYrr,       X86::VMULPSYrm,       MVT::v8f32, MULOpc },
+  { X86::VMULPDYrr,       X86::VMULPDYrm,       MVT::v4f64, MULOpc },
+  // FMA213
+  { X86::VFMADDSSr213r,   X86::VFMADDSSr213m,   MVT::v1f32, FMA213Opc },
+  { X86::VFMADDSDr213r,   X86::VFMADDSDr213m,   MVT::v1f64, FMA213Opc },
+  { X86::VFMADDPSr213r,   X86::VFMADDPSr213m,   MVT::v4f32, FMA213Opc },
+  { X86::VFMADDPDr213r,   X86::VFMADDPDr213m,   MVT::v2f64, FMA213Opc },
+  { X86::VFMADDPSr213rY,  X86::VFMADDPSr213mY,  MVT::v8f32, FMA213Opc },
+  { X86::VFMADDPDr213rY,  X86::VFMADDPDr213mY,  MVT::v4f64, FMA213Opc },
+  // FMS213
+  { X86::VFMSUBSSr213r,   X86::VFMSUBSSr213m,   MVT::v1f32, FMS213Opc },
+  { X86::VFMSUBSDr213r,   X86::VFMSUBSDr213m,   MVT::v1f64, FMS213Opc },
+  { X86::VFMSUBPSr213r,   X86::VFMSUBPSr213m,   MVT::v4f32, FMS213Opc },
+  { X86::VFMSUBPDr213r,   X86::VFMSUBPDr213m,   MVT::v2f64, FMS213Opc },
+  { X86::VFMSUBPSr213rY , X86::VFMSUBPSr213mY,  MVT::v8f32, FMS213Opc },
+  { X86::VFMSUBPDr213rY , X86::VFMSUBPDr213mY,  MVT::v4f64, FMS213Opc },
+  // FNMA213
+  { X86::VFNMADDSSr213r,  X86::VFNMADDSSr213m,  MVT::v1f32, FNMA213Opc },
+  { X86::VFNMADDSDr213r,  X86::VFNMADDSDr213m,  MVT::v1f64, FNMA213Opc },
+  { X86::VFNMADDPSr213r,  X86::VFNMADDPSr213m,  MVT::v4f32, FNMA213Opc },
+  { X86::VFNMADDPDr213r,  X86::VFNMADDPDr213m,  MVT::v2f64, FNMA213Opc },
+  { X86::VFNMADDPSr213rY, X86::VFNMADDPSr213mY, MVT::v8f32, FNMA213Opc },
+  { X86::VFNMADDPDr213rY, X86::VFNMADDPDr213mY, MVT::v4f64, FNMA213Opc },
+  // FNMS213
+  { X86::VFNMSUBSSr213r,  X86::VFNMSUBSSr213m,  MVT::v1f32, FNMS213Opc },
+  { X86::VFNMSUBSDr213r,  X86::VFNMSUBSDr213m,  MVT::v1f64, FNMS213Opc },
+  { X86::VFNMSUBPSr213r,  X86::VFNMSUBPSr213m,  MVT::v4f32, FNMS213Opc },
+  { X86::VFNMSUBPDr213r,  X86::VFNMSUBPDr213m,  MVT::v2f64, FNMS213Opc },
+  { X86::VFNMSUBPSr213rY, X86::VFNMSUBPSr213mY, MVT::v8f32, FNMS213Opc },
+  { X86::VFNMSUBPDr213rY, X86::VFNMSUBPDr213mY, MVT::v4f64, FNMS213Opc },
+  // FMA132
+  { X86::VFMADDSSr132r,   X86::VFMADDSSr132m,   MVT::v1f32, FMA132Opc },
+  { X86::VFMADDSDr132r,   X86::VFMADDSDr132m,   MVT::v1f64, FMA132Opc },
+  { X86::VFMADDPSr132r,   X86::VFMADDPSr132m,   MVT::v4f32, FMA132Opc },
+  { X86::VFMADDPDr132r,   X86::VFMADDPDr132m,   MVT::v2f64, FMA132Opc },
+  { X86::VFMADDPSr132rY,  X86::VFMADDPSr132mY,  MVT::v8f32, FMA132Opc },
+  { X86::VFMADDPDr132rY,  X86::VFMADDPDr132mY,  MVT::v4f64, FMA132Opc },
+  // FMS132
+  { X86::VFMSUBSSr132r,   X86::VFMSUBSSr132m,   MVT::v1f32, FMS132Opc },
+  { X86::VFMSUBSDr132r,   X86::VFMSUBSDr132m,   MVT::v1f64, FMS132Opc },
+  { X86::VFMSUBPSr132r,   X86::VFMSUBPSr132m,   MVT::v4f32, FMS132Opc },
+  { X86::VFMSUBPDr132r,   X86::VFMSUBPDr132m,   MVT::v2f64, FMS132Opc },
+  { X86::VFMSUBPSr132rY,  X86::VFMSUBPSr132mY,  MVT::v8f32, FMS132Opc },
+  { X86::VFMSUBPDr132rY,  X86::VFMSUBPDr132mY,  MVT::v4f64, FMS132Opc },
+  // FNMA132
+  { X86::VFNMADDSSr132r,  X86::VFNMADDSSr132m,  MVT::v1f32, FNMA132Opc },
+  { X86::VFNMADDSDr132r,  X86::VFNMADDSDr132m,  MVT::v1f64, FNMA132Opc },
+  { X86::VFNMADDPSr132r,  X86::VFNMADDPSr132m,  MVT::v4f32, FNMA132Opc },
+  { X86::VFNMADDPDr132r,  X86::VFNMADDPDr132m,  MVT::v2f64, FNMA132Opc },
+  { X86::VFNMADDPSr132rY, X86::VFNMADDPSr132mY, MVT::v8f32, FNMA132Opc },
+  { X86::VFNMADDPDr132rY, X86::VFNMADDPDr132mY, MVT::v4f64, FNMA132Opc },
+  // FNMS132
+  { X86::VFNMSUBSSr132r,  X86::VFNMSUBSSr132m,  MVT::v1f32, FNMS132Opc },
+  { X86::VFNMSUBSDr132r,  X86::VFNMSUBSDr132m,  MVT::v1f64, FNMS132Opc },
+  { X86::VFNMSUBPSr132r,  X86::VFNMSUBPSr132m,  MVT::v4f32, FNMS132Opc },
+  { X86::VFNMSUBPDr132r,  X86::VFNMSUBPDr132m,  MVT::v2f64, FNMS132Opc },
+  { X86::VFNMSUBPSr132rY, X86::VFNMSUBPSr132mY, MVT::v8f32, FNMS132Opc },
+  { X86::VFNMSUBPDr132rY, X86::VFNMSUBPDr132mY, MVT::v4f64, FNMS132Opc },
+  // FMA231
+  { X86::VFMADDSSr231r,   X86::VFMADDSSr231m,   MVT::v1f32, FMA231Opc },
+  { X86::VFMADDSDr231r,   X86::VFMADDSDr231m,   MVT::v1f64, FMA231Opc },
+  { X86::VFMADDPSr231r,   X86::VFMADDPSr231m,   MVT::v4f32, FMA231Opc },
+  { X86::VFMADDPDr231r,   X86::VFMADDPDr231m,   MVT::v2f64, FMA231Opc },
+  { X86::VFMADDPSr231rY,  X86::VFMADDPSr231mY,  MVT::v8f32, FMA231Opc },
+  { X86::VFMADDPDr231rY,  X86::VFMADDPDr231mY,  MVT::v4f64, FMA231Opc },
+  // FMS231
+  { X86::VFMSUBSSr231r,   X86::VFMSUBSSr231m,   MVT::v1f32, FMS231Opc },
+  { X86::VFMSUBSDr231r,   X86::VFMSUBSDr231m,   MVT::v1f64, FMS231Opc },
+  { X86::VFMSUBPSr231r,   X86::VFMSUBPSr231m,   MVT::v4f32, FMS231Opc },
+  { X86::VFMSUBPDr231r,   X86::VFMSUBPDr231m,   MVT::v2f64, FMS231Opc },
+  { X86::VFMSUBPSr231rY,  X86::VFMSUBPSr231mY,  MVT::v8f32, FMS231Opc },
+  { X86::VFMSUBPDr231rY,  X86::VFMSUBPDr231mY,  MVT::v4f64, FMS231Opc },
+  // FNMA231
+  { X86::VFNMADDSSr231r,  X86::VFNMADDSSr231m,  MVT::v1f32, FNMA231Opc },
+  { X86::VFNMADDSDr231r,  X86::VFNMADDSDr231m,  MVT::v1f64, FNMA231Opc },
+  { X86::VFNMADDPSr231r,  X86::VFNMADDPSr231m,  MVT::v4f32, FNMA231Opc },
+  { X86::VFNMADDPDr231r,  X86::VFNMADDPDr231m,  MVT::v2f64, FNMA231Opc },
+  { X86::VFNMADDPSr231rY, X86::VFNMADDPSr231mY, MVT::v8f32, FNMA231Opc },
+  { X86::VFNMADDPDr231rY, X86::VFNMADDPDr231mY, MVT::v4f64, FNMA231Opc },
+  // FNMS231
+  { X86::VFNMSUBSSr231r,  X86::VFNMSUBSSr231m,  MVT::v1f32, FNMS231Opc },
+  { X86::VFNMSUBSDr231r,  X86::VFNMSUBSDr231m,  MVT::v1f64, FNMS231Opc },
+  { X86::VFNMSUBPSr231r,  X86::VFNMSUBPSr231m,  MVT::v4f32, FNMS231Opc },
+  { X86::VFNMSUBPDr231r,  X86::VFNMSUBPDr231m,  MVT::v2f64, FNMS231Opc },
+  { X86::VFNMSUBPSr231rY, X86::VFNMSUBPSr231mY, MVT::v8f32, FNMS231Opc },
+  { X86::VFNMSUBPDr231rY, X86::VFNMSUBPDr231mY, MVT::v4f64, FNMS231Opc },
+};
+
+const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::AVX512Opcodes[] = {
+  // ADD
+  { X86::VADDSSZrr,         X86::VADDSSZrm,         MVT::v1f32,  ADDOpc },
+  { X86::VADDSDZrr,         X86::VADDSDZrm,         MVT::v1f64,  ADDOpc },
+  { X86::VADDPSZ128rr,      X86::VADDPSZ128rm,      MVT::v4f32,  ADDOpc },
+  { X86::VADDPDZ128rr,      X86::VADDPDZ128rm,      MVT::v2f64,  ADDOpc },
+  { X86::VADDPSZ256rr,      X86::VADDPSZ256rm,      MVT::v8f32,  ADDOpc },
+  { X86::VADDPDZ256rr,      X86::VADDPDZ256rm,      MVT::v4f64,  ADDOpc },
+  { X86::VADDPSZrr,         X86::VADDPSZrm,         MVT::v16f32, ADDOpc },
+  { X86::VADDPDZrr,         X86::VADDPDZrm,         MVT::v8f64,  ADDOpc },
+  // SUB
+  { X86::VSUBSSZrr,         X86::VSUBSSZrm,         MVT::v1f32,  SUBOpc },
+  { X86::VSUBSDZrr,         X86::VSUBSDZrm,         MVT::v1f64,  SUBOpc },
+  { X86::VSUBPSZ128rr,      X86::VSUBPSZ128rm,      MVT::v4f32,  SUBOpc },
+  { X86::VSUBPDZ128rr,      X86::VSUBPDZ128rm,      MVT::v2f64,  SUBOpc },
+  { X86::VSUBPSZ256rr,      X86::VSUBPSZ256rm,      MVT::v8f32,  SUBOpc },
+  { X86::VSUBPDZ256rr,      X86::VSUBPDZ256rm,      MVT::v4f64,  SUBOpc },
+  { X86::VSUBPSZrr,         X86::VSUBPSZrm,         MVT::v16f32, SUBOpc },
+  { X86::VSUBPDZrr,         X86::VSUBPDZrm,         MVT::v8f64,  SUBOpc },
+  // MUL
+  { X86::VMULSSZrr,         X86::VMULSSZrm,         MVT::v1f32,  MULOpc },
+  { X86::VMULSDZrr,         X86::VMULSDZrm,         MVT::v1f64,  MULOpc },
+  { X86::VMULPSZ128rr,      X86::VMULPSZ128rm,      MVT::v4f32,  MULOpc },
+  { X86::VMULPDZ128rr,      X86::VMULPDZ128rm,      MVT::v2f64,  MULOpc },
+  { X86::VMULPSZ256rr,      X86::VMULPSZ256rm,      MVT::v8f32,  MULOpc },
+  { X86::VMULPDZ256rr,      X86::VMULPDZ256rm,      MVT::v4f64,  MULOpc },
+  { X86::VMULPSZrr,         X86::VMULPSZrm,         MVT::v16f32, MULOpc },
+  { X86::VMULPDZrr,         X86::VMULPDZrm,         MVT::v8f64,  MULOpc },
+  // FMA213
+  { X86::VFMADD213SSr,      X86::VFMADD213SSm,      MVT::v1f32,  FMA213Opc },
+  { X86::VFMADD213SDr,      X86::VFMADD213SDm,      MVT::v1f64,  FMA213Opc },
+  { X86::VFMADD213PSZ128r,  X86::VFMADD213PSZ128m,  MVT::v4f32,  FMA213Opc },
+  { X86::VFMADD213PDZ128r,  X86::VFMADD213PDZ128m,  MVT::v2f64,  FMA213Opc },
+  { X86::VFMADD213PSZ256r,  X86::VFMADD213PSZ256m,  MVT::v8f32,  FMA213Opc },
+  { X86::VFMADD213PDZ256r,  X86::VFMADD213PDZ256m,  MVT::v4f64,  FMA213Opc },
+  { X86::VFMADD213PSZr,     X86::VFMADD213PSZm,     MVT::v16f32, FMA213Opc },
+  { X86::VFMADD213PDZr,     X86::VFMADD213PDZm,     MVT::v8f64,  FMA213Opc },
+  // FMS213
+  { X86::VFMSUB213SSr,      X86::VFMSUB213SSm,      MVT::v1f32,  FMS213Opc },
+  { X86::VFMSUB213SDr,      X86::VFMSUB213SDm,      MVT::v1f64,  FMS213Opc },
+  { X86::VFMSUB213PSZ128r,  X86::VFMSUB213PSZ128m,  MVT::v4f32,  FMS213Opc },
+  { X86::VFMSUB213PDZ128r,  X86::VFMSUB213PDZ128m,  MVT::v2f64,  FMS213Opc },
+  { X86::VFMSUB213PSZ256r,  X86::VFMSUB213PSZ256m,  MVT::v8f32,  FMS213Opc },
+  { X86::VFMSUB213PDZ256r,  X86::VFMSUB213PDZ256m,  MVT::v4f64,  FMS213Opc },
+  { X86::VFMSUB213PSZr,     X86::VFMSUB213PSZm,     MVT::v16f32, FMS213Opc },
+  { X86::VFMSUB213PDZr,     X86::VFMSUB213PDZm,     MVT::v8f64,  FMS213Opc },
+  // FNMA213
+  { X86::VFNMADD213SSr,     X86::VFNMADD213SSm,     MVT::v1f32,  FNMA213Opc },
+  { X86::VFNMADD213SDr,     X86::VFNMADD213SDm,     MVT::v1f64,  FNMA213Opc },
+  { X86::VFNMADD213PSZ128r, X86::VFNMADD213PSZ128m, MVT::v4f32,  FNMA213Opc },
+  { X86::VFNMADD213PDZ128r, X86::VFNMADD213PDZ128m, MVT::v2f64,  FNMA213Opc },
+  { X86::VFNMADD213PSZ256r, X86::VFNMADD213PSZ256m, MVT::v8f32,  FNMA213Opc },
+  { X86::VFNMADD213PDZ256r, X86::VFNMADD213PDZ256m, MVT::v4f64,  FNMA213Opc },
+  { X86::VFNMADD213PSZr,    X86::VFNMADD213PSZm,    MVT::v8f32,  FNMA213Opc },
+  { X86::VFNMADD213PDZr,    X86::VFNMADD213PDZm,    MVT::v4f64,  FNMA213Opc },
+  // FNMS213
+  { X86::VFNMSUB213SSr,     X86::VFNMSUB213SSm,     MVT::v1f32,  FNMS213Opc },
+  { X86::VFNMSUB213SDr,     X86::VFNMSUB213SDm,     MVT::v1f64,  FNMS213Opc },
+  { X86::VFNMSUB213PSZ128r, X86::VFNMSUB213PSZ128m, MVT::v4f32,  FNMS213Opc },
+  { X86::VFNMSUB213PDZ128r, X86::VFNMSUB213PDZ128m, MVT::v2f64,  FNMS213Opc },
+  { X86::VFNMSUB213PSZ256r, X86::VFNMSUB213PSZ256m, MVT::v8f32,  FNMS213Opc },
+  { X86::VFNMSUB213PDZ256r, X86::VFNMSUB213PDZ256m, MVT::v4f64,  FNMS213Opc },
+  { X86::VFNMSUB213PSZr,    X86::VFNMSUB213PSZm,    MVT::v16f32, FNMS213Opc },
+  { X86::VFNMSUB213PDZr,    X86::VFNMSUB213PDZm,    MVT::v8f64,  FNMS213Opc },
+  // FMA132
+  { X86::VFMADD132SSr,      X86::VFMADD132SSm,      MVT::v1f32,  FMA132Opc },
+  { X86::VFMADD132SDr,      X86::VFMADD132SDm,      MVT::v1f64,  FMA132Opc },
+  { X86::VFMADD132PSZ128r,  X86::VFMADD132PSZ128m,  MVT::v4f32,  FMA132Opc },
+  { X86::VFMADD132PDZ128r,  X86::VFMADD132PDZ128m,  MVT::v2f64,  FMA132Opc },
+  { X86::VFMADD132PSZ256r,  X86::VFMADD132PSZ256m,  MVT::v8f32,  FMA132Opc },
+  { X86::VFMADD132PDZ256r,  X86::VFMADD132PDZ256m,  MVT::v4f64,  FMA132Opc },
+  { X86::VFMADD132PSZr,     X86::VFMADD132PSZm,     MVT::v16f32, FMA132Opc },
+  { X86::VFMADD132PDZr,     X86::VFMADD132PDZm,     MVT::v8f64,  FMA132Opc },
+  // FMS132
+  { X86::VFMSUB132SSr,      X86::VFMSUB132SSm,      MVT::v1f32,  FMS132Opc },
+  { X86::VFMSUB132SDr,      X86::VFMSUB132SDm,      MVT::v1f64,  FMS132Opc },
+  { X86::VFMSUB132PSZ128r,  X86::VFMSUB132PSZ128m,  MVT::v4f32,  FMS132Opc },
+  { X86::VFMSUB132PDZ128r,  X86::VFMSUB132PDZ128m,  MVT::v2f64,  FMS132Opc },
+  { X86::VFMSUB132PSZ256r,  X86::VFMSUB132PSZ256m,  MVT::v8f32,  FMS132Opc },
+  { X86::VFMSUB132PDZ256r,  X86::VFMSUB132PDZ256m,  MVT::v4f64,  FMS132Opc },
+  { X86::VFMSUB132PSZr,     X86::VFMSUB132PSZm,     MVT::v16f32, FMS132Opc },
+  { X86::VFMSUB132PDZr,     X86::VFMSUB132PDZm,     MVT::v8f64,  FMS132Opc },
+  // FNMA132
+  { X86::VFNMADD132SSr,     X86::VFNMADD132SSm,     MVT::v1f32,  FNMA132Opc },
+  { X86::VFNMADD132SDr,     X86::VFNMADD132SDm,     MVT::v1f64,  FNMA132Opc },
+  { X86::VFNMADD132PSZ128r, X86::VFNMADD132PSZ128m, MVT::v4f32,  FNMA132Opc },
+  { X86::VFNMADD132PDZ128r, X86::VFNMADD132PDZ128m, MVT::v2f64,  FNMA132Opc },
+  { X86::VFNMADD132PSZ256r, X86::VFNMADD132PSZ256m, MVT::v8f32,  FNMA132Opc },
+  { X86::VFNMADD132PDZ256r, X86::VFNMADD132PDZ256m, MVT::v4f64,  FNMA132Opc },
+  { X86::VFNMADD132PSZr,    X86::VFNMADD132PSZm,    MVT::v8f32,  FNMA132Opc },
+  { X86::VFNMADD132PDZr,    X86::VFNMADD132PDZm,    MVT::v4f64,  FNMA132Opc },
+  // FNMS132
+  { X86::VFNMSUB132SSr,     X86::VFNMSUB132SSm,     MVT::v1f32,  FNMS132Opc },
+  { X86::VFNMSUB132SDr,     X86::VFNMSUB132SDm,     MVT::v1f64,  FNMS132Opc },
+  { X86::VFNMSUB132PSZ128r, X86::VFNMSUB132PSZ128m, MVT::v4f32,  FNMS132Opc },
+  { X86::VFNMSUB132PDZ128r, X86::VFNMSUB132PDZ128m, MVT::v2f64,  FNMS132Opc },
+  { X86::VFNMSUB132PSZ256r, X86::VFNMSUB132PSZ256m, MVT::v8f32,  FNMS132Opc },
+  { X86::VFNMSUB132PDZ256r, X86::VFNMSUB132PDZ256m, MVT::v4f64,  FNMS132Opc },
+  { X86::VFNMSUB132PSZr,    X86::VFNMSUB132PSZm,    MVT::v16f32, FNMS132Opc },
+  { X86::VFNMSUB132PDZr,    X86::VFNMSUB132PDZm,    MVT::v8f64,  FNMS132Opc },
+  // FMA231
+  { X86::VFMADD231SSr,      X86::VFMADD231SSm,      MVT::v1f32,  FMA231Opc },
+  { X86::VFMADD231SDr,      X86::VFMADD231SDm,      MVT::v1f64,  FMA231Opc },
+  { X86::VFMADD231PSZ128r,  X86::VFMADD231PSZ128m,  MVT::v4f32,  FMA231Opc },
+  { X86::VFMADD231PDZ128r,  X86::VFMADD231PDZ128m,  MVT::v2f64,  FMA231Opc },
+  { X86::VFMADD231PSZ256r,  X86::VFMADD231PSZ256m,  MVT::v8f32,  FMA231Opc },
+  { X86::VFMADD231PDZ256r,  X86::VFMADD231PDZ256m,  MVT::v4f64,  FMA231Opc },
+  { X86::VFMADD231PSZr,     X86::VFMADD231PSZm,     MVT::v16f32, FMA231Opc },
+  { X86::VFMADD231PDZr,     X86::VFMADD231PDZm,     MVT::v8f64,  FMA231Opc },
+  // FMS231
+  { X86::VFMSUB231SSr,      X86::VFMSUB231SSm,      MVT::v1f32,  FMS231Opc },
+  { X86::VFMSUB231SDr,      X86::VFMSUB231SDm,      MVT::v1f64,  FMS231Opc },
+  { X86::VFMSUB231PSZ128r,  X86::VFMSUB231PSZ128m,  MVT::v4f32,  FMS231Opc },
+  { X86::VFMSUB231PDZ128r,  X86::VFMSUB231PDZ128m,  MVT::v2f64,  FMS231Opc },
+  { X86::VFMSUB231PSZ256r,  X86::VFMSUB231PSZ256m,  MVT::v8f32,  FMS231Opc },
+  { X86::VFMSUB231PDZ256r,  X86::VFMSUB231PDZ256m,  MVT::v4f64,  FMS231Opc },
+  { X86::VFMSUB231PSZr,     X86::VFMSUB231PSZm,     MVT::v16f32, FMS231Opc },
+  { X86::VFMSUB231PDZr,     X86::VFMSUB231PDZm,     MVT::v8f64,  FMS231Opc },
+  // FNMA231
+  { X86::VFNMADD231SSr,     X86::VFNMADD231SSm,     MVT::v1f32,  FNMA231Opc },
+  { X86::VFNMADD231SDr,     X86::VFNMADD231SDm,     MVT::v1f64,  FNMA231Opc },
+  { X86::VFNMADD231PSZ128r, X86::VFNMADD231PSZ128m, MVT::v4f32,  FNMA231Opc },
+  { X86::VFNMADD231PDZ128r, X86::VFNMADD231PDZ128m, MVT::v2f64,  FNMA231Opc },
+  { X86::VFNMADD231PSZ256r, X86::VFNMADD231PSZ256m, MVT::v8f32,  FNMA231Opc },
+  { X86::VFNMADD231PDZ256r, X86::VFNMADD231PDZ256m, MVT::v4f64,  FNMA231Opc },
+  { X86::VFNMADD231PSZr,    X86::VFNMADD231PSZm,    MVT::v16f32, FNMA231Opc },
+  { X86::VFNMADD231PDZr,    X86::VFNMADD231PDZm,    MVT::v8f64,  FNMA231Opc },
+  // FNMS231
+  { X86::VFNMSUB231SSr,     X86::VFNMSUB231SSm,     MVT::v1f32,  FNMS231Opc },
+  { X86::VFNMSUB231SDr,     X86::VFNMSUB231SDm,     MVT::v1f64,  FNMS231Opc },
+  { X86::VFNMSUB231PSZ128r, X86::VFNMSUB231PSZ128m, MVT::v4f32,  FNMS231Opc },
+  { X86::VFNMSUB231PDZ128r, X86::VFNMSUB231PDZ128m, MVT::v2f64,  FNMS231Opc },
+  { X86::VFNMSUB231PSZ256r, X86::VFNMSUB231PSZ256m, MVT::v8f32,  FNMS231Opc },
+  { X86::VFNMSUB231PDZ256r, X86::VFNMSUB231PDZ256m, MVT::v4f64,  FNMS231Opc },
+  { X86::VFNMSUB231PSZr,    X86::VFNMSUB231PSZm,    MVT::v16f32, FNMS231Opc },
+  { X86::VFNMSUB231PDZr,    X86::VFNMSUB231PDZm,    MVT::v8f64,  FNMS231Opc },
+};
+
+const FMAOpcodesInfo::FMAOpcodeDesc *
+FMAOpcodesInfo::getOpcodesTab(bool LoofForAVX512, unsigned &OpcodesTabSize) {
+  const FMAOpcodeDesc *OpcodesTab;
+  if (!LoofForAVX512) {
+    OpcodesTab = AVXOpcodes;
+    OpcodesTabSize = sizeof(AVXOpcodes) / sizeof(FMAOpcodeDesc);
+  } else {
+    OpcodesTab = AVX512Opcodes;
+    OpcodesTabSize = sizeof(AVX512Opcodes) / sizeof(FMAOpcodeDesc);
+  }
+  return OpcodesTab;
+}
+
+bool FMAOpcodesInfo::recognizeOpcode(unsigned Opcode, bool LookForAVX512,
+                                     MVT &VT, FMAOpcodeKind &OpcodeKind,
+                                     bool &IsMem, bool &MulSign,
+                                     bool &AddSign) {
+  unsigned OpcodesTabSize;
+  const FMAOpcodeDesc *OpcodesTab =
+      getOpcodesTab(LookForAVX512, OpcodesTabSize);
+  for (unsigned I = 0; I < OpcodesTabSize; I++) {
+    const FMAOpcodeDesc *OD = &OpcodesTab[I];
+    if (Opcode == OD->RegOpc)
+      IsMem = false;
+    else if (Opcode == OD->MemOpc)
+      IsMem = true;
+    else
+      continue;
+    VT = OD->VT;
+    OpcodeKind = static_cast<FMAOpcodeKind>(OD->OpcodeKind);
+
+    bool IsFNMS = OpcodeKind == FNMS213Opc || OpcodeKind == FNMS132Opc ||
+                  OpcodeKind == FNMS231Opc;
+    bool IsFNMA = OpcodeKind == FNMA213Opc || OpcodeKind == FNMA132Opc ||
+                  OpcodeKind == FNMA231Opc;
+    bool IsFMS = OpcodeKind == FMS213Opc || OpcodeKind == FMS132Opc ||
+                 OpcodeKind == FMS231Opc;
+    MulSign = IsFNMS || IsFNMA;
+    AddSign = IsFNMS || IsFMS || OpcodeKind == SUBOpc;
+
+    return true;
+  }
+
+  // Regular opcodes did not match. Check ZERO opcodes below.
+  switch (Opcode) {
+  case X86::FsFLD0SS:
+    VT = MVT::v1f32;
+    break;
+  case X86::FsFLD0SD:
+    VT = MVT::v1f64;
+    break;
+  case X86::V_SET0:
+    // Choose an arbitrary vector type.
+    VT = MVT::v2f64;
+    break;
+  case X86::AVX_SET0:
+    // Choose an arbitrary vector type.
+    VT = MVT::v4f64;
+    break;
+  case X86::AVX512_512_SET0:
+    // Choose an arbitrary vector type.
+    VT = MVT::v8f64;
+    break;
+  default:
+    return false;
+  }
+  IsMem = false;
+  OpcodeKind = ZEROOpc;
+  MulSign = false;
+  AddSign = false;
+
+  return true;
+}
+
+unsigned FMAOpcodesInfo::getOpcodeOfKind(
+    bool LookForAVX512, FMAOpcodeKind OpcodeKind, MVT VT) {
+  if (OpcodeKind == ZEROOpc) {
+    MVT::SimpleValueType SVT = VT.getVectorElementType().SimpleTy;
+    assert((SVT == MVT::f32 || MVT::f64) &&
+           "Only F32 and F64 ZERO vectors/scalars are supported.");
+    switch (VT.getSizeInBits()) {
+    case 32:
+      return X86::FsFLD0SS;
+    case 64:
+      return X86::FsFLD0SD;
+    case 128:
+      return X86::V_SET0;
+    case 256:
+      return X86::AVX_SET0;
+    case 512:
+      return X86::AVX512_512_SET0;
+    default:
+      break;
+    }
+    llvm_unreachable("GlobalFMA: Cannot choose appropriate ZERO opcode.");
+  }
+
+  unsigned OpcodesTabSize;
+  const FMAOpcodeDesc *OpcodesTab =
+      getOpcodesTab(LookForAVX512, OpcodesTabSize);
+  for (unsigned I = 0; I < OpcodesTabSize; I++) {
+    const FMAOpcodeDesc *OD = &OpcodesTab[I];
+    if (OD->OpcodeKind == OpcodeKind && OD->VT == VT)
+      return OD->RegOpc;
+  }
+  llvm_unreachable("Unsupported machine value type or opcode kind.");
+}
+
 /// This class does all the optimization work, it goes through the functions,
 /// searches for the optimizable expressions and replaces then with more
 /// efficient equivalents.
@@ -200,6 +655,8 @@ private:
   static const unsigned FMAControlSkylakeFMAs = 0x4;
   static const unsigned FMAControlTargetFMAsMask = 0xFF;
   static const unsigned FMAControlForceFMAs = 0x100;
+  static const unsigned FMAControlTuneForLatency = 0x200;
+  static const unsigned FMAControlTuneForThroughput = 0x400;
 
   /// Returns true iff all of the passed features \p F are enabled
   /// by the internal switch FMAControl/"-x86-global-fma-control".
@@ -236,6 +693,24 @@ private:
   ///   t2 = a * b + c;
   void doFWS(FMABasicBlock &FMABB);
 
+  /// Generates a machine instruction and returns a reference to it.
+  /// The parameters:
+  /// \p Opcode - specifies the opcode of the new instruction.
+  /// \p DstReg - the destination virtual register.
+  /// \p MOs - Source operands of the new machine instruction.
+  /// \p DL - Debug location that should be used for the new instruction.
+  MachineInstr *genInstruction(unsigned Opcode, unsigned DstReg,
+                               const SmallVectorImpl<MachineOperand> &MOs,
+                               const DebugLoc &DL);
+
+  /// Generates a machine operand for the given FMA term \p Term.
+  /// The parameter \p InsertPointMI gives the insertion point for any
+  /// additional machine instructions that may need to be generated.
+  /// For example, a new instruction performing a load from memory may be
+  /// generated if the passed term is a memory term.
+  MachineOperand
+  generateMachineOperandForFMATerm(FMATerm &Term, MachineInstr *InsertPointMI);
+
   /// Generates output IR for the FMA expression \p Expr. The given DAG \p Dag
   /// gives the efficient version of the generated expression tree.
   /// The new instruction is inserted into the machine basic block \p MBB.
@@ -255,8 +730,30 @@ private:
   /// expression \p Expr being optimized now.
   /// The parameter \p TuneForLatency specifies if the latency aspect has
   /// the priority over the throughput.
+  /// The parameter \p TuneForThroughput specifies if the throughput aspect has
+  /// the priority over the latency.
+  /// If \p TuneForLatency and \p TuneForThroughput are both set or both unset,
+  /// then both aspects are the same important and the final decision depends
+  /// on some heuristics.
   bool isDagBetterThanInitialExpr(const FMADag &Dag, const FMAExpr &Expr,
-                                  bool TuneForLatency = true) const;
+                                  bool TuneForLatency = false,
+                                  bool TuneForThroughput = false) const;
+
+  /// For the given DAG \p Dag this method puts the latency of the dag to
+  /// \p Latency, the number of add or subtract operations to \p NumAddSub,
+  /// the number of multiply operations to \p NumMul, and the number of FMA
+  /// operations to \p NumFMA.
+  void getDagProperties(const FMADag &Dag, unsigned &Latency,
+                        unsigned &NumAddSub, unsigned &NumMul,
+                        unsigned &NumFMA) const;
+
+  /// For the given expression \p Expr this method puts the latency of the
+  /// expression to \p Latency, the number of add or subtract operations to
+  /// \p NumAddSub, the number of multiply operations to \p NumMul, and
+  /// the number of FMA operations to \p NumFMA.
+  void getExprProperties(const FMAExpr &Expr, unsigned &Latency,
+                         unsigned &NumAddSub, unsigned &NumMul,
+                         unsigned &NumFMA) const;
 };
 
 char X86GlobalFMA::ID = 0;
@@ -284,6 +781,25 @@ public:
   /// Returns true iff this FMA DAG has any node having the third operand
   /// equal to 1.0.
   bool hasPlusMinusOne() const;
+
+  /// Returns true iff the FMA DAG node \p NodeInd is a pure MUL operation,
+  /// i.e. the addend is zero and neither multiplicand is zero or one.
+  bool isMul(unsigned NodeInd) const;
+
+  /// Returns true iff the FMA DAG node \p NodeInd is a pure ADD operation,
+  /// i.e. neither of three operands is zero and one of multiplicands is equal
+  /// to one.
+  bool isAdd(unsigned NodeInd) const;
+
+  /// Returns true iff the FMA DAG node \NodeInd is an FMA operation.
+  bool isFMA(unsigned NodeInd) const;
+
+  /// Returns the latency of the expression tree starting from the node
+  /// \p NodeInd.
+  /// The parameters \p MulLatency, \p AddSubLatency, FMALatency specify
+  /// the latency of MUL, ADD-or-SUB, FMA operations.
+  unsigned getLatency(unsigned MulLatency, unsigned AddSubLatency,
+                      unsigned FMALatency, unsigned NodeInd = 0) const;
 };
 
 /// This class is derived from FMAExprSPCommon representing expressions
@@ -440,10 +956,25 @@ public:
     assert(Term && "Cannot downcast FMATerm to FMAMemoryTerm.");
     return Term;
   }
+
   /// Downcast conversion from FMATerm to FMAMemoryTerm.
   FMAMemoryTerm *castToMemoryTerm() {
     FMAMemoryTerm *Term = dyn_cast<FMAMemoryTerm>(this);
     assert(Term && "Cannot downcast FMATerm to FMAMemoryTerm.");
+    return Term;
+  }
+
+  /// Downcast conversion from FMATerm to FMASpecialTerm.
+  const FMASpecialTerm *castToSpecialTerm() const {
+    const FMASpecialTerm *Term = dyn_cast<FMASpecialTerm>(this);
+    assert(Term && "Cannot downcast FMATerm to FMASpecialTerm.");
+    return Term;
+  }
+
+  /// Downcast conversion from FMATerm to FMASpecialTerm.
+  FMASpecialTerm *castToSpecialTerm() {
+    FMASpecialTerm *Term = dyn_cast<FMASpecialTerm>(this);
+    assert(Term && "Cannot downcast FMATerm to FMASpecialTerm.");
     return Term;
   }
 
@@ -527,19 +1058,41 @@ public:
 /// constant, e.g. 0.0 or 1.0.
 class FMASpecialTerm : public FMATerm {
 private:
+  /// Unsigned representation of the value kept by this special term.
   unsigned SpecialValue;
+
+  /// The reference to the last machine instruction using this special term.
+  MachineInstr *LastUseMI;
 
 public:
   /// Creates FMAExpr for a special term 0.0 or 1.0 of the type \p VT.
   /// The parameter \p SpecialValue can be equal to either 0 or 1 values.
   FMASpecialTerm(MVT VT, unsigned SpecialValue)
-      : FMATerm(VT, 0), SpecialValue(SpecialValue) {}
+      : FMATerm(VT, 0), SpecialValue(SpecialValue), LastUseMI(nullptr) {}
 
   /// These methods override the parent implementations to identify the
   /// term properly.
   bool isZero() const override { return SpecialValue == 0; }
   bool isOne() const override { return SpecialValue == 1; }
   bool isSpecialTerm() const override { return true; }
+
+  /// Store the last MI using this special term.
+  void setLastUseMI(MachineInstr *MI) { LastUseMI = MI; }
+
+  /// The last instruction using this special term must have <kill> attribute
+  /// set for the first operand that is using this term.
+  void setIsKilledAttribute() {
+    if (LastUseMI) {
+      unsigned NumArgs = LastUseMI->getNumOperands();
+      for (unsigned I = 0; I < NumArgs; I++) {
+        MachineOperand Op = LastUseMI->getOperand(I);
+        if (Op.isReg() && Op.getReg() == Reg) {
+          Op.setIsKill(true);
+          return;
+        }
+      }
+    }
+  }
 
   /// Prints the FMA expression or term to the given stream \p OS.
   /// The parameter \p PrintAttributes specifies if the caller wants to see
@@ -549,6 +1102,9 @@ public:
     if (PrintAttributes)
       OS << " // Type: " << EVT(VT).getEVTString();
   }
+
+  // Method for type inquiry through isa, cast and dyn_cast.
+  static bool classof(const FMATerm *Term) { return Term->isSpecialTerm(); }
 };
 
 /// This class represents an FMA expression having 3 operands:
@@ -675,11 +1231,6 @@ private:
   /// can be only an FMARegisterTerm.
   void removeFromUsedTerms(FMARegisterTerm *Term);
 
-  /// This method puts 'this' node and all subexpressions to the given
-  /// set \p ExprSet. It may be needed when each expression node must be
-  /// visited only once.
-  void putExprToExprSet(std::set<const FMAExpr *> &ExprSet) const;
-
   /// Recursively walks through the expression nodes, builds sums of products
   /// for them and puts the created SPs to the given map \p ExprToSPMap.
   /// Returns the sum of products generated for 'this' FMA expression.
@@ -735,6 +1286,7 @@ public:
     assert(Index < 3 && "Operand index must be in the range 0 to 2.");
     return Operands[Index];
   };
+
   /// Returns the const operand of FMA operation with the index \p Index.
   const FMANode *getOperand(unsigned Index) const {
     assert(Index < 3 && "Operand index must be in the range 0 to 2.");
@@ -748,6 +1300,17 @@ public:
   /// FMA expression.
   const MachineInstr *getMI() const { return MI; }
 
+  /// This method puts 'this' node and all subexpressions to the given
+  /// set \p ExprSet. It may be needed when each expression node must be
+  /// visited only once.
+  void putExprToExprSet(std::set<const FMAExpr *> &ExprSet) const;
+
+  /// Returns the latency of the FMA expression tree.
+  /// The parameters \p AddSubLatency, \p MulLatency, \p FMALatency specify
+  /// the latencies of add/subtract, multiply, FMA operations.
+  unsigned getLatency(unsigned AddSubLatency, unsigned MulLatency,
+                      unsigned FMALatency) const;
+
   /// Returns the number of times the given term \p Term is used by 'this'
   /// expression and its subexpressions.
   unsigned countTermUses(const FMATerm *Term) const;
@@ -760,6 +1323,19 @@ public:
   /// Includes the given expression \p Expr into 'this' expression. It is
   /// assumed that the term defined by \p Expr is used in 'this' expression.
   void consume(FMAExpr *Expr);
+
+  /// Returns a const reference to the list containing machine instructions
+  /// consumed by this expression and that may need to be replaced by the
+  /// code generated for this expression.
+  const std::list<const MachineInstr *> &getConsumedMIs() const {
+    return ConsumedMIs;
+  }
+
+  /// Returns true iff the given register \p Reg is killed, i.e. if this
+  /// expression has the last use of this register.
+  bool isRegKilled(unsigned Reg) const {
+    return KilledRegs.find(Reg) != KilledRegs.end();
+  }
 
   /// Returns true iff 'this' FMA expression is included into some bigger
   /// FMA expression and does not show up as independent expression.
@@ -1039,6 +1615,106 @@ bool FMADag::hasPlusMinusOne() const {
   return false;
 }
 
+bool FMADag::isMul(unsigned NodeInd) const {
+  bool AIsTerm, BIsTerm, CIsTerm;
+
+  // If A is 0.0 or 1.0 then it is not a MUL operation.
+  unsigned A = getOperand(NodeInd, 0, &AIsTerm);
+  if (AIsTerm && (A == FMADagCommon::TermZERO || A == FMADagCommon::TermONE))
+    return false;
+
+  // If B is 0.0 or 1.0 then it is not a MUL operation.
+  unsigned B = getOperand(NodeInd, 1, &BIsTerm);
+  if (BIsTerm && (B == FMADagCommon::TermZERO || B == FMADagCommon::TermONE))
+    return false;
+
+  // If C is NOT 0.0 then it is not a MUL operation.
+  unsigned C = getOperand(NodeInd, 2, &CIsTerm);
+  if (!CIsTerm || C != FMADagCommon::TermZERO)
+    return false;
+
+  return true;
+}
+
+bool FMADag::isAdd(unsigned NodeInd) const {
+  bool AIsTerm, BIsTerm, CIsTerm;
+
+  // If A is 0.0 then it is not an ADD operation.
+  unsigned A = getOperand(NodeInd, 0, &AIsTerm);
+  bool AIsZero = false, AIsOne = false;
+  if (AIsTerm) {
+    AIsZero = A == FMADagCommon::TermZERO;
+    AIsOne = A == FMADagCommon::TermONE;
+  }
+  if (AIsZero)
+    return false;
+
+  // If B is 0.0 then it is not an ADD operation.
+  unsigned B = getOperand(NodeInd, 1, &BIsTerm);
+  bool BIsZero = false, BIsOne = false;
+  if (BIsTerm) {
+    BIsZero = B == FMADagCommon::TermZERO;
+    BIsOne = B == FMADagCommon::TermONE;
+  }
+  if (BIsZero)
+    return false;
+
+  // At least one of A and B must be equal to 1.0 in ADD operation.
+  if (!AIsOne && !BIsOne)
+    return false;
+
+  // If C is 0.0 then it is not an ADD operation.
+  unsigned C = getOperand(NodeInd, 2, &CIsTerm);
+  if (CIsTerm && C == FMADagCommon::TermZERO)
+    return false;
+
+  return true;
+}
+
+bool FMADag::isFMA(unsigned NodeInd) const {
+  bool AIsTerm, BIsTerm, CIsTerm;
+
+  // If A is 0.0 or 1.0 then it is not an FMA operation.
+  unsigned A = getOperand(NodeInd, 0, &AIsTerm);
+  if (AIsTerm && (A == FMADagCommon::TermZERO || A == FMADagCommon::TermONE))
+    return false;
+
+  // If B is 0.0 or 1.0 then it is not an FMA operation.
+  unsigned B = getOperand(NodeInd, 1, &BIsTerm);
+  if (BIsTerm && (B == FMADagCommon::TermZERO || B == FMADagCommon::TermONE))
+    return false;
+
+  // If C is 0.0 then it is not an FMA operation.
+  unsigned C = getOperand(NodeInd, 2, &CIsTerm);
+  if (CIsTerm && C == FMADagCommon::TermZERO)
+    return false;
+
+  return true;
+}
+
+unsigned FMADag::getLatency(unsigned MulLatency, unsigned AddSubLatency,
+                            unsigned FMALatency, unsigned NodeInd) const {
+  unsigned Latency = 0;
+  for (unsigned OpndInd = 0; OpndInd < 3; OpndInd++) {
+    bool OpndIsTerm;
+    unsigned Opnd = getOperand(NodeInd, OpndInd, &OpndIsTerm);
+    if (!OpndIsTerm)
+      Latency = std::max(
+          Latency, getLatency(MulLatency, AddSubLatency, FMALatency, Opnd));
+  }
+
+  if (isMul(NodeInd))
+    Latency += MulLatency;
+  else if (isAdd(NodeInd))
+    Latency += AddSubLatency;
+  else if (isFMA(NodeInd))
+    Latency += FMALatency;
+  else
+    llvm_unreachable("Dag has obvious inefficiencies.");
+
+  return Latency;
+}
+
 FMAExprSP *FMAExpr::generateSPRecursively(
     const FMAExpr *RootFMAExpr,
     std::map<const FMAExpr *, FMAExprSP *> &ExprToSPMap) const {
@@ -1171,6 +1847,31 @@ void FMAExpr::consume(FMAExpr *FWSExpr) {
   DEBUG(fmadbgs() << "  -->After consuming expr: " << *this << "\n");
 }
 
+unsigned FMAExpr::getLatency(unsigned AddSubLatency, unsigned MulLatency,
+                             unsigned FMALatency) const {
+  unsigned MaxOperandLatency = 0;
+  for (auto Opnd : Operands)
+    if (Opnd->isFMA()) {
+      unsigned OperandLatency =
+          Opnd->castToExpr()->getLatency(AddSubLatency, MulLatency, FMALatency);
+      MaxOperandLatency = std::max(MaxOperandLatency, OperandLatency);
+    }
+
+  if (Operands[0]->isZero() || Operands[1]->isZero())
+    // This FMA is actually a term. It adds nothing to the returned latency.
+    return MaxOperandLatency;
+
+  if (Operands[0]->isOne() || Operands[1]->isOne()) {
+    if (!Operands[2]->isZero())
+      return MaxOperandLatency + AddSubLatency;
+  } else if (Operands[2]->isZero())
+    return MaxOperandLatency + MulLatency;
+  else
+    return MaxOperandLatency + FMALatency;
+
+  return MaxOperandLatency;
+}
+
 unsigned FMAExpr::countTermUses(const FMATerm *Term) const {
   std::set<const FMAExpr *> ExprSet;
   putExprToExprSet(ExprSet);
@@ -1198,6 +1899,11 @@ private:
   /// to have quick search through already existing terms using virtual
   /// registers as keys.
   std::map<unsigned, FMARegisterTerm *> RegisterToFMARegisterTerm;
+
+  /// Special terms available in the original IR and used in the basic block
+  /// are stored into std::map to recognize such terms by their virtual
+  /// registers.
+  std::map<unsigned, FMASpecialTerm *> RegisterToFMASpecialTerm;
 
   /// This field maps terms to expressions defining those terms.
   /// For example, for any expression T1 = FMA1(...) there should be a pair
@@ -1227,8 +1933,10 @@ public:
       delete T.second;
     for (auto T : MIToFMAMemoryTerm)
       delete T.second;
-    for (auto S : SpecialTerms)
+    for (auto S : SpecialTerms) {
+      S->setIsKilledAttribute();
       delete S;
+    }
   }
 
   /// Creates an FMA term for a special/const value of the given type \p VT.
@@ -1247,6 +1955,11 @@ public:
   /// the type of the created term.
   FMAMemoryTerm *createMemoryTerm(MVT VT, const MachineInstr *MI);
 
+  /// Creates an FMA term associated with the virtual register used in
+  /// the passed machine operand \p MO. The parameter \p VT specifies
+  /// the type of the created term.
+  FMATerm *createRegisterOrSpecialTerm(MVT VT, const MachineOperand &MO);
+
   /// Creates an FMA expression for a statement like this:
   ///   \p ResTerm = \p A * \p B + \p C.
   /// Returns a reference to the created FMA expression.
@@ -1264,7 +1977,10 @@ public:
   /// Walks through all instructions in the machine basic block, finds
   /// MUL/ADD/FMA operations and creates FMA expressions (FMAExpr) for them.
   /// Returns the number of optimizable expressions found in the block.
-  unsigned findFMAs();
+  /// The parameter \p LookForAVX512 specifies the target instruction set.
+  /// If it is set to true, then this method looks for AVX512 opcodes.
+  /// Otherwise, it looks for AVX1/AVX2 opcodes.
+  unsigned parseBasicBlock(bool LookForAVX512);
 
   /// Returns a reference to FMA expression defining the given \p Term.
   FMAExpr *findDefiningFMA(const FMATerm *Term) const {
@@ -1290,8 +2006,11 @@ inline raw_ostream &operator<<(raw_ostream &OS, const FMABasicBlock &FMABB) {
 FMASpecialTerm *FMABasicBlock::createSpecialTerm(MVT VT,
                                                  unsigned SpecialValue) {
   if (SpecialValue == 0) {
+    // For 0.0 values we only check the vector size, e.g. (v2f64)0.0 can
+    // be re-used as (v4f32)0.0.
+    unsigned VTBitSize = VT.getSizeInBits();
     for (auto T : SpecialTerms)
-      if (T->isZero() && T->getVT() == VT)
+      if (T->isZero() && T->getVT().getSizeInBits() == VTBitSize)
         return T;
   } else if (SpecialValue == 1) {
     for (auto T : SpecialTerms)
@@ -1321,6 +2040,19 @@ FMARegisterTerm *FMABasicBlock::createRegisterTerm(MVT VT,
   return Term;
 }
 
+FMATerm *FMABasicBlock::createRegisterOrSpecialTerm(MVT VT,
+                                                    const MachineOperand &MO) {
+  assert(MO.isReg() && "Cannot create an FMA term for MachineOperand.");
+  unsigned Reg = MO.getReg();
+
+  // Try to find a special term associated with the virtual register Reg.
+  auto I = RegisterToFMASpecialTerm.find(Reg);
+  if (I != RegisterToFMASpecialTerm.end())
+    return I->second;
+
+  return createRegisterTerm(VT, MO);
+}
+
 FMAMemoryTerm *FMABasicBlock::createMemoryTerm(MVT VT, const MachineInstr *MI) {
   // If there is an FMA term created for this memory reference then just
   // return the existing term. Otherwise, create a new term.
@@ -1347,271 +2079,75 @@ FMAExpr *FMABasicBlock::createFMA(MVT VT, const MachineInstr *MI,
   return Expr;
 }
 
-unsigned FMABasicBlock::findFMAs() {
+unsigned FMABasicBlock::parseBasicBlock(bool LookForAVX512) {
   DEBUG(fmadbgs() << "FMA-STEP1: FIND FMA OPERATIONS:\n");
 
   for (const auto &MI : MBB) {
-    unsigned Form = 0;
-    bool AddSign = false;
-    bool MulSign = false;
-    bool IsMem = false;
     MVT VT;
+    FMAOpcodesInfo::FMAOpcodeKind OpcodeKind;
+    bool IsMem, MulSign, AddSign;
 
-    switch (MI.getOpcode()) {
-    case X86::VADDSDrm:
-      IsMem = true;
-    case X86::VADDSDrr:
-      Form = 13;
-      VT = MVT::v1f64;
-      break;
-    case X86::VADDSSrm:
-      IsMem = true;
-    case X86::VADDSSrr:
-      Form = 13;
-      VT = MVT::v1f32;
-      break;
-    case X86::VSUBSDrm:
-      IsMem = true;
-    case X86::VSUBSDrr:
-      Form = 13;
-      VT = MVT::v1f64;
-      AddSign = true;
-      break;
-    case X86::VSUBSSrm:
-      IsMem = true;
-    case X86::VSUBSSrr:
-      Form = 13;
-      VT = MVT::v1f32;
-      AddSign = true;
-      break;
-    case X86::VMULSDrm:
-      IsMem = true;
-    case X86::VMULSDrr:
-      Form = 12;
-      VT = MVT::v1f64;
-      break;
-    case X86::VMULSSrm:
-      IsMem = true;
-    case X86::VMULSSrr:
-      Form = 12;
-      VT = MVT::v1f32;
-      break;
-
-    case X86::VFMADDSDr132m:
-      IsMem = true;
-    case X86::VFMADDSDr132r:
-      Form = 132;
-      VT = MVT::v1f64;
-      break;
-    case X86::VFMADDSSr132m:
-      IsMem = true;
-    case X86::VFMADDSSr132r:
-      Form = 132;
-      VT = MVT::v1f32;
-      break;
-    case X86::VFMSUBSDr132m:
-      IsMem = true;
-    case X86::VFMSUBSDr132r:
-      Form = 132;
-      VT = MVT::v1f64;
-      AddSign = true;
-      break;
-    case X86::VFMSUBSSr132m:
-      IsMem = true;
-    case X86::VFMSUBSSr132r:
-      Form = 132;
-      VT = MVT::v1f32;
-      AddSign = true;
-      break;
-    case X86::VFNMADDSDr132m:
-      IsMem = true;
-    case X86::VFNMADDSDr132r:
-      Form = 132;
-      VT = MVT::v1f64;
-      MulSign = true;
-      break;
-    case X86::VFNMADDSSr132m:
-      IsMem = true;
-    case X86::VFNMADDSSr132r:
-      Form = 132;
-      VT = MVT::v1f32;
-      MulSign = true;
-      break;
-    case X86::VFNMSUBSDr132m:
-      IsMem = true;
-    case X86::VFNMSUBSDr132r:
-      Form = 132;
-      VT = MVT::v1f64;
-      AddSign = true;
-      MulSign = true;
-      break;
-    case X86::VFNMSUBSSr132m:
-      IsMem = true;
-    case X86::VFNMSUBSSr132r:
-      Form = 132;
-      VT = MVT::v1f32;
-      AddSign = true;
-      MulSign = true;
-      break;
-
-    case X86::VFMADDSDr213m:
-      IsMem = true;
-    case X86::VFMADDSDr213r:
-      Form = 213;
-      VT = MVT::v1f64;
-      break;
-    case X86::VFMADDSSr213m:
-      IsMem = true;
-    case X86::VFMADDSSr213r:
-      Form = 213;
-      VT = MVT::v1f32;
-      break;
-    case X86::VFMSUBSDr213m:
-      IsMem = true;
-    case X86::VFMSUBSDr213r:
-      Form = 213;
-      VT = MVT::v1f64;
-      AddSign = true;
-      break;
-    case X86::VFMSUBSSr213m:
-      IsMem = true;
-    case X86::VFMSUBSSr213r:
-      Form = 213;
-      VT = MVT::v1f32;
-      AddSign = true;
-      break;
-    case X86::VFNMADDSDr213m:
-      IsMem = true;
-    case X86::VFNMADDSDr213r:
-      Form = 213;
-      VT = MVT::v1f64;
-      MulSign = true;
-      break;
-    case X86::VFNMADDSSr213m:
-      IsMem = true;
-    case X86::VFNMADDSSr213r:
-      Form = 213;
-      VT = MVT::v1f32;
-      MulSign = true;
-      break;
-    case X86::VFNMSUBSDr213m:
-      IsMem = true;
-    case X86::VFNMSUBSDr213r:
-      Form = 213;
-      VT = MVT::v1f64;
-      AddSign = true;
-      MulSign = true;
-      break;
-    case X86::VFNMSUBSSr213m:
-      IsMem = true;
-    case X86::VFNMSUBSSr213r:
-      Form = 213;
-      VT = MVT::v1f32;
-      AddSign = true;
-      MulSign = true;
-      break;
-
-    case X86::VFMADDSDr231m:
-      IsMem = true;
-    case X86::VFMADDSDr231r:
-      Form = 231;
-      VT = MVT::v1f64;
-      break;
-    case X86::VFMADDSSr231m:
-      IsMem = true;
-    case X86::VFMADDSSr231r:
-      Form = 231;
-      VT = MVT::v1f32;
-      break;
-    case X86::VFMSUBSDr231m:
-      IsMem = true;
-    case X86::VFMSUBSDr231r:
-      Form = 231;
-      VT = MVT::v1f64;
-      AddSign = true;
-      break;
-    case X86::VFMSUBSSr231m:
-      IsMem = true;
-    case X86::VFMSUBSSr231r:
-      Form = 231;
-      VT = MVT::v1f32;
-      AddSign = true;
-      break;
-    case X86::VFNMADDSDr231m:
-      IsMem = true;
-    case X86::VFNMADDSDr231r:
-      Form = 231;
-      VT = MVT::v1f64;
-      MulSign = true;
-      break;
-    case X86::VFNMADDSSr231m:
-      IsMem = true;
-    case X86::VFNMADDSSr231r:
-      Form = 231;
-      VT = MVT::v1f32;
-      MulSign = true;
-      break;
-    case X86::VFNMSUBSDr231m:
-      IsMem = true;
-    case X86::VFNMSUBSDr231r:
-      Form = 231;
-      VT = MVT::v1f64;
-      AddSign = true;
-      MulSign = true;
-      break;
-    case X86::VFNMSUBSSr231m:
-      IsMem = true;
-    case X86::VFNMSUBSSr231r:
-      Form = 231;
-      VT = MVT::v1f32;
-      AddSign = true;
-      MulSign = true;
-      break;
-    default:
-      break;
-    }
-
-    if (Form == 0)
+    unsigned Opcode = MI.getOpcode();
+    if (!FMAOpcodesInfo::recognizeOpcode(Opcode, LookForAVX512, VT, OpcodeKind,
+                                         IsMem, MulSign, AddSign))
       continue;
 
     FMATerm *Op1, *Op2, *Op3;
     FMATerm *MemTerm = IsMem ? createMemoryTerm(VT, &MI) : nullptr;
-    switch (Form) {
-    case 12: // op1 * op2 + 0
-      Op1 = createRegisterTerm(VT, MI.getOperand(1));
-      Op2 = IsMem ? MemTerm : createRegisterTerm(VT, MI.getOperand(2));
+    switch (OpcodeKind) {
+    case FMAOpcodesInfo::MULOpc: // op1 * op2 + 0
+      Op1 = createRegisterOrSpecialTerm(VT, MI.getOperand(1));
+      Op2 = IsMem ? MemTerm : createRegisterOrSpecialTerm(VT, MI.getOperand(2));
       Op3 = createSpecialTerm(VT, 0);
       break;
-    case 13: // op1 * 1 + op3, op1 * 1 - op3
-      Op1 = createRegisterTerm(VT, MI.getOperand(1));
+    case FMAOpcodesInfo::ADDOpc: // op1 * 1 + op3
+    case FMAOpcodesInfo::SUBOpc: // op1 * 1 - op3
+      Op1 = createRegisterOrSpecialTerm(VT, MI.getOperand(1));
       Op2 = createSpecialTerm(VT, 1);
-      Op3 = IsMem ? MemTerm : createRegisterTerm(VT, MI.getOperand(2));
+      Op3 = IsMem ? MemTerm : createRegisterOrSpecialTerm(VT, MI.getOperand(2));
       break;
-    case 132: // op1 * op3 + op2,  -op1 * op3 + op2,
-              // op1 * op3 - op2,  -op1 * op3 - op2
-      Op1 = createRegisterTerm(VT, MI.getOperand(1));
-      Op2 = IsMem ? MemTerm : createRegisterTerm(VT, MI.getOperand(3));
-      Op3 = createRegisterTerm(VT, MI.getOperand(2));
+    case FMAOpcodesInfo::FMA132Opc:  // op1 * op3 + op2
+    case FMAOpcodesInfo::FMS132Opc:  // op1 * op3 - op2
+    case FMAOpcodesInfo::FNMA132Opc: // -op1 * op3 + op2
+    case FMAOpcodesInfo::FNMS132Opc: // -op1 * op3 - op2
+      Op1 = createRegisterOrSpecialTerm(VT, MI.getOperand(1));
+      Op2 = IsMem ? MemTerm : createRegisterOrSpecialTerm(VT, MI.getOperand(3));
+      Op3 = createRegisterOrSpecialTerm(VT, MI.getOperand(2));
       break;
-    case 213: // op2 * op1 + op3,  -op2 * op1 + op3,
-              // op2 * op1 - op3,  -op2 * op1 - op3
-      Op1 = createRegisterTerm(VT, MI.getOperand(2));
-      Op2 = createRegisterTerm(VT, MI.getOperand(1));
-      Op3 = IsMem ? MemTerm : createRegisterTerm(VT, MI.getOperand(3));
+    case FMAOpcodesInfo::FMA213Opc:  // op2 * op1 + op3
+    case FMAOpcodesInfo::FMS213Opc:  // op2 * op1 - op3
+    case FMAOpcodesInfo::FNMA213Opc: // -op2 * op1 + op3
+    case FMAOpcodesInfo::FNMS213Opc: // -op2 * op1 - op3
+      Op1 = createRegisterOrSpecialTerm(VT, MI.getOperand(2));
+      Op2 = createRegisterOrSpecialTerm(VT, MI.getOperand(1));
+      Op3 = IsMem ? MemTerm : createRegisterOrSpecialTerm(VT, MI.getOperand(3));
       break;
-    case 231: // op2 * op3 + op1,  -op2 * op3 + op1,
-              // op2 * op3 - op1,  -op2 * op3 - op1
-      Op1 = createRegisterTerm(VT, MI.getOperand(2));
-      Op2 = IsMem ? MemTerm : createRegisterTerm(VT, MI.getOperand(3));
-      Op3 = createRegisterTerm(VT, MI.getOperand(1));
+    case FMAOpcodesInfo::FMA231Opc:  // op2 * op3 + op1
+    case FMAOpcodesInfo::FMS231Opc:  // op2 * op3 - op1
+    case FMAOpcodesInfo::FNMA231Opc: // -op2 * op3 + op1
+    case FMAOpcodesInfo::FNMS231Opc: // -op2 * op3 - op1
+      Op1 = createRegisterOrSpecialTerm(VT, MI.getOperand(2));
+      Op2 = IsMem ? MemTerm : createRegisterOrSpecialTerm(VT, MI.getOperand(3));
+      Op3 = createRegisterOrSpecialTerm(VT, MI.getOperand(1));
       break;
     default:
       break;
     }
-    FMARegisterTerm *ResTerm = createRegisterTerm(VT, MI.getOperand(0));
-    FMAExpr *Expr = createFMA(VT, &MI, ResTerm, Op1, Op2, Op3);
-    Expr->setMulSign(MulSign);
-    Expr->setAddSign(AddSign);
+
+    if (OpcodeKind == FMAOpcodesInfo::ZEROOpc) {
+      // Put the term 0.0 to the SpecialTerms container and to the map
+      // RegisterToFMASpecialTerm, so we can recognize this special term
+      // by a virtual register.
+      FMASpecialTerm *ZeroTerm = createSpecialTerm(VT, 0);
+      RegisterToFMASpecialTerm[MI.getOperand(0).getReg()] = ZeroTerm;
+    } else {
+      // Create a new register term for the result of the FMA operation and
+      // the FMAExpr node for this operation.
+      FMARegisterTerm *ResTerm = createRegisterTerm(VT, MI.getOperand(0));
+      FMAExpr *Expr = createFMA(VT, &MI, ResTerm, Op1, Op2, Op3);
+      Expr->setMulSign(MulSign);
+      Expr->setAddSign(AddSign);
+    }
   }
   DEBUG(print(fmadbgs()));
   DEBUG(fmadbgs() << "FMA-STEP1 DONE.\n");
@@ -1693,7 +2229,7 @@ FMAExpr *FMAExpr::findFWSCandidate(FMABasicBlock &FMABB,
     if (!MRI->hasOneNonDBGUse(Reg)) {
       // A. Count the number of 'Reg' uses in IR.
       iterator_range<MachineRegisterInfo::use_nodbg_iterator> RegUses =
-        MRI->use_nodbg_operands(Reg);
+          MRI->use_nodbg_operands(Reg);
       unsigned NumRegUses = std::distance(RegUses.begin(), RegUses.end());
       DEBUG(fmadbgs() << "  The register vreg"
                       << TargetRegisterInfo::virtReg2Index(Reg) << " has "
@@ -1851,7 +2387,7 @@ bool X86GlobalFMA::optBasicBlock(MachineBasicBlock &MBB) {
   // Find MUL/ADD/SUB/FMA/etc operations in the input machine instructions
   // and create internal FMA structures for them.
   // Exit if there are not enough optimizable expressions.
-  if (FMABB.findFMAs() < 2)
+  if (FMABB.parseBasicBlock(HasAVX512) < 2)
     return false;
 
   // Run the FMA optimization and dump the debug messages if the optimization
@@ -1900,7 +2436,18 @@ bool X86GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB,
 
     DEBUG(fmadbgs() << "  CONGRATULATIONS! A searched DAG was found:\n    ");
     DEBUG(Dag->print(fmadbgs()));
-    if (!isDagBetterThanInitialExpr(*Dag, *Expr, true)) {
+
+    // FIXME: Currently, the setting of the latency vs throughput priorities
+    // is set only accordingly to the internal switch value.
+    // For some target architectures (e.g. in-order targets) the throughput
+    // aspects should be more important.
+    // Also, this place should be updated after the latency vs throughput
+    // analysis of the optimized basic block and the data dependencies analysis
+    // in the optimized expression are implemented.
+    bool TuneForLatency = checkAllFMAFeatures(FMAControlTuneForLatency);
+    bool TuneForThroughput = checkAllFMAFeatures(FMAControlTuneForThroughput);
+    if (!isDagBetterThanInitialExpr(*Dag, *Expr, TuneForLatency,
+                                    TuneForThroughput)) {
       DEBUG(fmadbgs() << "  DAG is NOT better than the initial EXPR.\n\n");
       continue;
     }
@@ -2009,20 +2556,406 @@ FMADag *FMAPatterns::getDagForBestSPMatch(const FMAExprSP &SP) {
   return nullptr;
 }
 
+MachineInstr *
+X86GlobalFMA::genInstruction(unsigned Opcode, unsigned DstReg,
+                             const SmallVectorImpl<MachineOperand> &MOs,
+                             const DebugLoc &DL) {
+  const MCInstrDesc &MCID = TII->get(Opcode);
+  MachineInstr *NewMI = MF->CreateMachineInstr(MCID, DL, true);
+  MachineInstrBuilder MIB(*MF, NewMI);
+
+  MIB.addOperand(MachineOperand::CreateReg(DstReg, true));
+  for (auto &MO : MOs)
+    MIB.addOperand(MO);
+
+  return NewMI;
+}
+
+MachineOperand X86GlobalFMA::generateMachineOperandForFMATerm(
+    FMATerm &Term, MachineInstr *InsertPointMI) {
+  unsigned Reg = Term.getReg();
+  if (Reg != 0) {
+    // Return a machine operand using virtual register created before.
+    // For FMARegisterTerm terms it must be available.
+    // For FMAMemoryTerm and FMASpecialTerm terms it could be created by some
+    // previous call of this method.
+    return MachineOperand::CreateReg(Reg, false);
+  }
+
+  MVT VT = Term.getVT();
+
+  MachineBasicBlock *MBB = InsertPointMI->getParent();
+  if (Term.isZero()) {
+    unsigned ZeroOpcode =
+        FMAOpcodesInfo::getOpcodeOfKind(HasAVX512, FMAOpcodesInfo::ZEROOpc, VT);
+    SmallVector<MachineOperand, 0> MOs;
+    const DebugLoc &DL = InsertPointMI->getDebugLoc();
+
+    Reg = InsertPointMI->getOperand(0).getReg();
+    const TargetRegisterClass *RC = MRI->getRegClass(Reg);
+    Reg = MRI->createVirtualRegister(RC);
+
+    MachineInstr *NewMI = genInstruction(ZeroOpcode, Reg, MOs, DL);
+    MBB->insert(InsertPointMI, NewMI);
+    // Store the register to the term, so the instruction generated for this
+    // special term can be re-used the next time.
+    Term.setReg(Reg);
+    return MachineOperand::CreateReg(Reg, false);
+  }
+
+  if (Term.isOne()) {
+    llvm_unreachable("Codegen for 1.0 term is not implemented yet.");
+    // TODO: generate the code for 1.0 here.
+  }
+
+  assert(Term.isMemoryTerm() && "Unexpected FMA term kind.");
+
+  // 1. Create a new register that would hold the result of the load.
+  // BTW, we could re-use the dst operand of MI here; did not do it for
+  // additional safety.
+  MachineInstr *MI =
+      const_cast<MachineInstr *>(Term.castToMemoryTerm()->getMI());
+  const TargetRegisterClass *RC = MRI->getRegClass(MI->getOperand(0).getReg());
+  Reg = MRI->createVirtualRegister(RC);
+
+  // 2. Generate a load instruction.
+  SmallVector<MachineOperand, X86::AddrNumOperands> AddrOps;
+  unsigned NumOperands = MI->getNumOperands();
+  for (unsigned I = NumOperands - X86::AddrNumOperands; I != NumOperands; I++) {
+    MachineOperand Op = MI->getOperand(I);
+    AddrOps.push_back(Op);
+  }
+  std::pair<MachineInstr::mmo_iterator, MachineInstr::mmo_iterator> MMOs =
+      MF->extractLoadMemRefs(MI->memoperands_begin(), MI->memoperands_end());
+  SmallVector<MachineInstr *, 1> NewMIs;
+  TII->loadRegFromAddr(*MF, Reg, AddrOps, RC, MMOs.first, MMOs.second, NewMIs);
+
+  // In case of FMAMemoryTerm terms the new instruction must be inserted before
+  // the original machine instruction performing the load from memory.
+  MBB->insert(MI, NewMIs[0]);
+  DEBUG(fmadbgs() << "  GENERATE NEW LOAD FROM MEM for MemTerm: " << Term
+                  << "\n    " << *NewMIs[0]);
+
+  // 3. This is the first time when the load to a virtual register was
+  // generated. Save the register to avoid the load duplication when the same
+  // term is used again.
+  Term.setReg(Reg);
+
+  // 4. Create a copy of the dst operand of the load and return it.
+  return MachineOperand::CreateReg(Reg, false);
+}
+
 void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag,
                                     FMABasicBlock &FMABB,
                                     MachineBasicBlock &MBB) {
-  // Not implemented yet.
+  MachineInstr *MI = const_cast<MachineInstr *>(Expr.getMI());
+  const DebugLoc &DL = MI->getDebugLoc();
+  const TargetRegisterClass *RC = MRI->getRegClass(MI->getOperand(0).getReg());
+
+  unsigned ResultRegs[FMADagCommon::MaxNumOfNodesInDAG];
+
+  for (unsigned NodeInd = Dag.getNumNodes() - 1; NodeInd != ~0U; NodeInd--) {
+    bool AIsTerm, BIsTerm, CIsTerm;
+    unsigned A = Dag.getOperand(NodeInd, 0, &AIsTerm);
+    unsigned B = Dag.getOperand(NodeInd, 1, &BIsTerm);
+    unsigned C = Dag.getOperand(NodeInd, 2, &CIsTerm);
+
+    SmallVector<MachineOperand, 3> MOs;
+    SmallVector<FMATerm *, 3> FMAOpnds;
+    SmallVector<unsigned, 3> FMAOpndIndices;
+
+    MVT VT = Expr.getVT();
+    bool IsAddOrSub = false, IsMul = false;
+    bool NegateResult = false, SwapAC = false;
+
+    if (AIsTerm) {
+      // If A is 0.0, then the DAG is inefficient, emit error.
+      // If A is 1.0, then the DAG is either inefficient or non-standard:
+      //   (1.0 * B + C) is non-standard; (B * 1.0 + C) would be Ok.
+      //   (1.0 * 0.0 + C) is inefficient;
+      //   (1.0 * 1.0 + C) is non-standard; (C * 1.0 + 1.0) would be Ok.
+      assert(A != FMADagCommon::TermZERO && A != FMADagCommon::TermONE &&
+             "Bad FMA DAG: the operand A cannot be equal to 0.0 or 1.0.");
+      FMATerm *Term = Expr.getUsedTermByIndex(A);
+      MOs.push_back(generateMachineOperandForFMATerm(*Term, MI));
+      FMAOpnds.push_back(Term);
+    } else {
+      MOs.push_back(MachineOperand::CreateReg(ResultRegs[A], false));
+      FMAOpnds.push_back(nullptr);
+    }
+    FMAOpndIndices.push_back(0);
+
+    if (BIsTerm) {
+      assert(B != FMADagCommon::TermZERO &&
+             "Bad FMA DAG: the operand B cannot be equal to 0.0.");
+      if (B == FMADagCommon::TermONE)
+        IsAddOrSub = true;
+      else {
+        FMATerm *Term = Expr.getUsedTermByIndex(B);
+        MOs.push_back(generateMachineOperandForFMATerm(*Term, MI));
+        FMAOpnds.push_back(Term);
+        FMAOpndIndices.push_back(1);
+      }
+    } else {
+      MOs.push_back(MachineOperand::CreateReg(ResultRegs[B], false));
+      FMAOpnds.push_back(nullptr);
+      FMAOpndIndices.push_back(1);
+    }
+
+    if (CIsTerm) {
+      if (C == FMADagCommon::TermZERO)
+        IsMul = true;
+      else {
+        FMATerm *Term = C == FMADagCommon::TermONE
+                            ? FMABB.createSpecialTerm(VT, 1)
+                            : Expr.getUsedTermByIndex(C);
+        MOs.push_back(generateMachineOperandForFMATerm(*Term, MI));
+        FMAOpnds.push_back(Term);
+        FMAOpndIndices.push_back(2);
+      }
+    } else {
+      MOs.push_back(MachineOperand::CreateReg(ResultRegs[C], false));
+      FMAOpnds.push_back(nullptr);
+      FMAOpndIndices.push_back(2);
+    }
+
+    unsigned Opcode = 0;
+    if (IsAddOrSub) {
+      // Generate ADD(A,C) or SUB(A,C).
+      // The ADD(-A,C) case is replaced with SUB(C,A), i.e. just swap A and C.
+      // The ADD(-A,-C) case is replaced with ADD(A,C), but we also remember
+      // that the result of this FMA node must be negated.
+      bool AddSign = Dag.getAddSign(NodeInd);
+      if (Dag.getMulSign(NodeInd)) {
+        if (AddSign) {
+          AddSign = false;
+          NegateResult = true;
+        } else {
+          AddSign = true;
+          SwapAC = true;
+        }
+      }
+      Opcode = FMAOpcodesInfo::getOpcodeOfKind(
+          HasAVX512, AddSign ? FMAOpcodesInfo::SUBOpc : FMAOpcodesInfo::ADDOpc,
+          VT);
+    } else if (IsMul) {
+      // Generate MUL(A,B).
+      if (!Dag.getMulSign(NodeInd))
+        Opcode = FMAOpcodesInfo::getOpcodeOfKind(HasAVX512,
+                                                 FMAOpcodesInfo::MULOpc, VT);
+      else {
+        // Instead of (0 - MUL(A,B)) it is better to have FNMA(A,B,0).
+        Opcode = FMAOpcodesInfo::getOpcodeOfKind(
+            HasAVX512, FMAOpcodesInfo::FNMA213Opc, VT);
+        FMATerm *Term = FMABB.createSpecialTerm(VT, 0);
+        MOs.push_back(generateMachineOperandForFMATerm(*Term, MI));
+        FMAOpnds.push_back(Term);
+        FMAOpndIndices.push_back(0); // dummy value, not used for special terms.
+      }
+    } else {
+      FMAOpcodesInfo::FMAOpcodeKind Kind = FMAOpcodesInfo::getFMA213OpcodeKind(
+          Dag.getMulSign(NodeInd), Dag.getAddSign(NodeInd));
+      Opcode = FMAOpcodesInfo::getOpcodeOfKind(HasAVX512, Kind, VT);
+    }
+
+    for (unsigned OpndInd = 0; OpndInd < MOs.size(); OpndInd++) {
+      unsigned Index = FMAOpndIndices[OpndInd];
+      FMATerm *Term = FMAOpnds[OpndInd];
+      if (!Term) {
+        if (Dag.isLastUse(NodeInd, Index))
+          MOs[OpndInd].setIsKill(true);
+      } else if (Expr.isRegKilled(MOs[OpndInd].getReg()) &&
+                 Dag.isLastUse(NodeInd, Index))
+        MOs[OpndInd].setIsKill(true);
+    }
+
+    if (SwapAC)
+      std::swap(MOs[0], MOs[1]);
+
+    // Create the new instruction.
+    unsigned DstReg = (NodeInd == 0 && !NegateResult)
+        ? MI->getOperand(0).getReg()
+        : MRI->createVirtualRegister(RC);
+    MachineInstr *NewMI = genInstruction(Opcode, DstReg, MOs, DL);
+
+    for (auto T : FMAOpnds) {
+      if (T && T->isSpecialTerm())
+        T->castToSpecialTerm()->setLastUseMI(NewMI);
+    }
+
+    if (NodeInd > 0)
+      ResultRegs[NodeInd] = NewMI->getOperand(0).getReg();
+
+    MBB.insert(MI, NewMI);
+    DEBUG(fmadbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NewMI);
+
+    if (NegateResult) {
+      // Currently, for the expression -R we generate SUB(0, R).
+      unsigned SubOpcode = FMAOpcodesInfo::getOpcodeOfKind(
+          HasAVX512, FMAOpcodesInfo::SUBOpc, VT);
+      FMASpecialTerm *Term = FMABB.createSpecialTerm(VT, 0);
+      MOs[0] = generateMachineOperandForFMATerm(*Term, MI);
+      MOs[1] = MachineOperand::CreateReg(NewMI->getOperand(0).getReg(), false);
+
+      NewMI = genInstruction(SubOpcode, MI->getOperand(0).getReg(), MOs, DL);
+      Term->setLastUseMI(NewMI);
+      MBB.insert(MI, NewMI);
+      DEBUG(fmadbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NewMI);
+    }
+  }
+  for (auto MIToBeDeleted : Expr.getConsumedMIs()) {
+    DEBUG(fmadbgs() << "  DELETE the MI (it is replaced): \n    "
+                    << *MIToBeDeleted);
+    MBB.erase(const_cast<MachineInstr *>(MIToBeDeleted));
+  }
+  DEBUG(fmadbgs() << "  DELETE the MI (it is replaced): \n    " << *MI);
+  MBB.erase(MI);
+}
+
+void X86GlobalFMA::getExprProperties(const FMAExpr &Expr, unsigned &Latency,
+                                     unsigned &NumAddSub, unsigned &NumMul,
+                                     unsigned &NumFMA) const {
+  NumAddSub = 0;
+  NumMul = 0;
+  NumFMA = 0;
+
+  std::set<const FMAExpr *> ExprSet;
+  Expr.putExprToExprSet(ExprSet);
+  for (auto E : ExprSet) {
+    if (E->getOperand(0)->isZero() || E->getOperand(1)->isZero())
+      // This FMA is actually a term. It adds nothing to the returned
+      // statistics.
+      continue;
+
+    if (E->getOperand(0)->isOne() || E->getOperand(1)->isOne()) {
+      if (!E->getOperand(2)->isZero())
+        NumAddSub++;
+    } else if (E->getOperand(2)->isZero())
+      NumMul++;
+    else
+      NumFMA++;
+  }
+
+  Latency = Expr.getLatency(AddSubLatency, MulLatency, FMALatency);
+}
+
+void X86GlobalFMA::getDagProperties(const FMADag &Dag,
+                                    unsigned &Latency,
+                                    unsigned &NumAddSub,
+                                    unsigned &NumMul,
+                                    unsigned &NumFMA) const {
+  NumAddSub = 0;
+  NumMul = 0;
+  NumFMA = 0;
+
+  unsigned NumNodes = Dag.getNumNodes();
+  for (unsigned NodeInd = 0; NodeInd < NumNodes; NodeInd++) {
+    bool AIsTerm, BIsTerm, CIsTerm;
+    unsigned A = Dag.getOperand(NodeInd, 0, &AIsTerm);
+    unsigned B = Dag.getOperand(NodeInd, 1, &BIsTerm);
+    unsigned C = Dag.getOperand(NodeInd, 2, &CIsTerm);
+
+    bool AIsZero = AIsTerm && A == FMADagCommon::TermZERO;
+    bool BIsZero = BIsTerm && B == FMADagCommon::TermZERO;
+    bool CIsZero = CIsTerm && C == FMADagCommon::TermZERO;
+
+    assert((!AIsZero && !BIsZero) && "DAG has obvious inefficiencies.");
+
+    bool AIsOne = AIsTerm && A == FMADagCommon::TermONE;
+    bool BIsOne = BIsTerm && B == FMADagCommon::TermONE;
+
+    if (AIsOne || BIsOne) {
+      assert(!CIsZero && "DAG has obvious inefficiencies.");
+      NumAddSub++;
+      // -A - C node requires 2 operations at the code-generation phase:
+      //   T0 = A + C; T1 = 0 - T0;
+      // Count the additional subtract operation here.
+      if (Dag.getMulSign(NodeInd) && Dag.getAddSign(NodeInd))
+        NumAddSub++;
+    } else if (CIsZero) {
+      // A*B requires 1 MUL operation at the code-generation phase.
+      // -A*B requires 1 FMA operation: -A*B+0.
+      if (Dag.getMulSign(NodeInd))
+        NumFMA++;
+      else
+        NumMul++;
+    } else
+      NumFMA++;
+  }
+  Latency = Dag.getLatency(MulLatency, AddSubLatency, FMALatency);
 }
 
 bool X86GlobalFMA::isDagBetterThanInitialExpr(const FMADag &Dag,
                                               const FMAExpr &Expr,
-                                              bool TuneForLatency) const {
+                                              bool TuneForLatency,
+                                              bool TuneForThroughput) const {
+  unsigned ELatency, ENumAddSub, ENumMul, ENumFMA;
+  unsigned DLatency, DNumAddSub, DNumMul, DNumFMA;
+
+  getDagProperties(Dag, DLatency, DNumAddSub, DNumMul, DNumFMA);
+  getExprProperties(Expr, ELatency, ENumAddSub, ENumMul, ENumFMA);
+
+  unsigned DNumOperations = DNumAddSub + DNumMul + DNumFMA;
+  unsigned ENumOperations = ENumAddSub + ENumMul + ENumFMA;
+
+  DEBUG(fmadbgs() << "  Compare DAG and initial EXPR:\n"
+                  << "    DAG has: #Operations = " << DNumOperations
+                  << ", Latency = " << DLatency << "\n"
+                  << "    EXPR has: #Operations = " << ENumOperations
+                  << ", Latency = " << ELatency << "\n");
+
+  // If the internal switch requires FMAs, then just return true.
+  // This code is placed after the printings of the DAG/Expr properties
+  // as the last may be interesting even if FMAs are forced.
   if (checkAllFMAFeatures(FMAControlForceFMAs))
     return true;
 
-  // Not implemented yet.
-  return false;
+  // Tuning for latency AND throughput means that the caller does not have
+  // strong preferences and the choice should be made heuristically.
+  if (TuneForLatency && TuneForThroughput) {
+    TuneForLatency = false;
+    TuneForThroughput = false;
+  }
+
+  if (TuneForLatency) {
+    if (DLatency == ELatency)
+      return DNumOperations < ENumOperations;
+    // If DAG has better latency, then return true even if DAG has latency
+    // that is better by just 1 clock-tick and twice bigger number
+    // of operations.
+    return (DLatency < ELatency);
+  }
+
+  if (TuneForThroughput) {
+    if (DNumOperations == ENumOperations)
+      return DLatency < ELatency;
+    // If DAG has smaller number of operations, then return true even if DAG
+    // has 1 operation less than in the initial expression and DAG has twice
+    // bigger latency than the initial expression.
+    return DNumOperations < ENumOperations;
+  }
+
+  double LatencyImprovement;
+  if (ELatency > DLatency)
+    LatencyImprovement = (double)ELatency / (double)DLatency - 1.0;
+  else
+    LatencyImprovement = -((double)DLatency / (double)ELatency - 1.0);
+
+  double ThroughputImprovement;
+  if (ENumOperations > DNumOperations)
+    ThroughputImprovement =
+      (double)ENumOperations / (double)DNumOperations - 1.0;
+  else
+    ThroughputImprovement =
+      -((double)DNumOperations / (double)ENumOperations - 1.0);
+
+  double Improvement = LatencyImprovement + ThroughputImprovement;
+  if (Improvement == 0)
+    // Prefer to have less FMAs as FMAs are less flexible when they are
+    // processed by memory-folding, coalescing and register allocation
+    // optimizations.
+    return DNumFMA < ENumFMA;
+  return LatencyImprovement + ThroughputImprovement > 0;
 }
 
 void X86GlobalFMA::doFWS(FMABasicBlock &FMABB) {

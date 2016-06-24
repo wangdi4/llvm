@@ -271,14 +271,14 @@ void PassManagerBuilder::populateFunctionPassManager(
 // Do PGO instrumentation generation or use pass as the option specified.
 void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM) {
   if (!PGOInstrGen.empty()) {
-    MPM.add(createPGOInstrumentationGenPass());
+    MPM.add(createPGOInstrumentationGenLegacyPass());
     // Add the profile lowering pass.
     InstrProfOptions Options;
     Options.InstrProfileOutput = PGOInstrGen;
     MPM.add(createInstrProfilingLegacyPass(Options));
   }
   if (!PGOInstrUse.empty())
-    MPM.add(createPGOInstrumentationUsePass(PGOInstrUse));
+    MPM.add(createPGOInstrumentationUseLegacyPass(PGOInstrUse));
 }
 void PassManagerBuilder::addFunctionSimplificationPasses(
     legacy::PassManagerBase &MPM) {
@@ -301,11 +301,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createTailCallEliminationPass()); // Eliminate tail calls
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
   MPM.add(createReassociatePass());           // Reassociate expressions
-  if (PrepareForThinLTO) {
-    MPM.add(createAggressiveDCEPass());        // Delete dead instructions
-    addInstructionCombiningPass(MPM);          // Combine silly seq's
-    return;
-  }
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
   MPM.add(createLICMPass());                  // Hoist loop invariants
@@ -460,7 +455,7 @@ void PassManagerBuilder::populateModulePassManager(
     /// not run it a second time
     addPGOInstrPasses(MPM);
     // Indirect call promotion that promotes intra-module targets only.
-    MPM.add(createPGOIndirectCallPromotionPass());
+    MPM.add(createPGOIndirectCallPromotionLegacyPass());
   }
 
   if (EnableNonLTOGlobalsModRef)
@@ -483,36 +478,13 @@ void PassManagerBuilder::populateModulePassManager(
 
   addFunctionSimplificationPasses(MPM);
 
-  // If we are planning to perform ThinLTO later, let's not bloat the code with
-  // unrolling/vectorization/... now. We'll first run the inliner + CGSCC passes
-  // during ThinLTO and perform the rest of the optimizations afterward.
-  if (PrepareForThinLTO) {
-    // Reduce the size of the IR as much as possible.
-    MPM.add(createGlobalOptimizerPass());
-    // Rename anon function to be able to export them in the summary.
-    MPM.add(createNameAnonFunctionPass());
-    return;
-  }
-
   // FIXME: This is a HACK! The inliner pass above implicitly creates a CGSCC
   // pass manager that we are specifically trying to avoid. To prevent this
   // we must insert a no-op module pass to reset the pass manager.
   MPM.add(createBarrierNoopPass());
 
-  // Scheduling LoopVersioningLICM when inlining is over, because after that
-  // we may see more accurate aliasing. Reason to run this late is that too
-  // early versioning may prevent further inlining due to increase of code
-  // size. By placing it just after inlining other optimizations which runs 
-  // later might get benefit of no-alias assumption in clone loop. 
-  if (UseLoopVersioningLICM) {
-    MPM.add(createLoopVersioningLICMPass());    // Do LoopVersioningLICM
-    MPM.add(createLICMPass());                  // Hoist loop invariants
-  }
-
-  if (!DisableUnitAtATime)
-    MPM.add(createReversePostOrderFunctionAttrsPass());
-
-  if (!DisableUnitAtATime && OptLevel > 1 && !PrepareForLTO)
+  if (!DisableUnitAtATime && OptLevel > 1 && !PrepareForLTO &&
+      !PrepareForThinLTO)
     // Remove avail extern fns and globals definitions if we aren't
     // compiling an object file for later LTO. For LTO we want to preserve
     // these so they are eligible for inlining at link-time. Note if they
@@ -524,14 +496,33 @@ void PassManagerBuilder::populateModulePassManager(
     // and saves running remaining passes on the eliminated functions.
     MPM.add(createEliminateAvailableExternallyPass());
 
-  if (PerformThinLTO) {
-    // Remove dead fns and globals. Removing unreferenced functions could lead
-    // to more opportunities for globalopt.
-    MPM.add(createGlobalDCEPass());
+  if (!DisableUnitAtATime)
+    MPM.add(createReversePostOrderFunctionAttrsPass());
+
+  // If we are planning to perform ThinLTO later, let's not bloat the code with
+  // unrolling/vectorization/... now. We'll first run the inliner + CGSCC passes
+  // during ThinLTO and perform the rest of the optimizations afterward.
+  if (PrepareForThinLTO) {
+    // Reduce the size of the IR as much as possible.
     MPM.add(createGlobalOptimizerPass());
-    // Remove dead fns and globals after globalopt.
-    MPM.add(createGlobalDCEPass());
-    addFunctionSimplificationPasses(MPM);
+    // Rename anon function to be able to export them in the summary.
+    MPM.add(createNameAnonFunctionPass());
+    return;
+  }
+
+  if (PerformThinLTO)
+    // Optimize globals now when performing ThinLTO, this enables more
+    // optimizations later.
+    MPM.add(createGlobalOptimizerPass());
+
+  // Scheduling LoopVersioningLICM when inlining is over, because after that
+  // we may see more accurate aliasing. Reason to run this late is that too
+  // early versioning may prevent further inlining due to increase of code
+  // size. By placing it just after inlining other optimizations which runs
+  // later might get benefit of no-alias assumption in clone loop.
+  if (UseLoopVersioningLICM) {
+    MPM.add(createLoopVersioningLICMPass());    // Do LoopVersioningLICM
+    MPM.add(createLICMPass());                  // Hoist loop invariants
   }
 
   if (EnableNonLTOGlobalsModRef)
@@ -707,7 +698,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // by the earlier promotion pass that promotes intra-module targets.
   // This two-step promotion is to save the compile time. For LTO, it should
   // produce the same result as if we only do promotion here.
-  PM.add(createPGOIndirectCallPromotionPass(true));
+  PM.add(createPGOIndirectCallPromotionLegacyPass(true));
 
   // Propagate constants at call sites into the functions they call.  This
   // opens opportunities for globalopt (and inlining) by substituting function

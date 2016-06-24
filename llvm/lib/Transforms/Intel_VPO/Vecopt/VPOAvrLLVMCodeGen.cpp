@@ -313,7 +313,8 @@ bool AVRCodeGen::loopIsHandled() {
   InductionDescriptor ID;
   if (!InductionDescriptor::isInductionPHI(const_cast<PHINode *>(PhiInst), SE,
                                            ID) ||
-      !(StrideValue = ID.getStepValue()) || !StrideValue->equalsInt(1)) {
+      !(StrideValue = ID.getConstIntStepValue()) ||
+      !StrideValue->equalsInt(1)) {
     return false;
   }
 

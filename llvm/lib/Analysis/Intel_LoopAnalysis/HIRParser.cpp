@@ -1164,10 +1164,6 @@ int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV) const {
 
 void HIRParser::parseConstOrDenom(const SCEVConstant *ConstSCEV, CanonExpr *CE,
                                   bool IsDenom) {
-  if (isUndefBlob(ConstSCEV)) {
-    CE->setContainsUndef();
-  }
-
   auto Const = getSCEVConstantValue(ConstSCEV);
 
   if (IsDenom) {
@@ -1248,15 +1244,94 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
   return Symbase;
 }
 
+unsigned HIRParser::processInstBlob(const Instruction *Inst,
+                                    const Instruction *BaseInst,
+                                    unsigned Symbase, unsigned NestingLevel) {
+
+  unsigned DefLevel = 0;
+  HLLoop *LCALoop = nullptr;
+
+  Loop *DefLp = LI->getLoopFor(Inst->getParent());
+  HLLoop *DefLoop = DefLp ? LF->findHLLoop(DefLp) : nullptr;
+
+  HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
+                                         : CurNode->getLexicalParentLoop();
+
+  // Set region livein and def level.
+  if (!CurRegion->containsBBlock(Inst->getParent())) {
+    CurRegion->addLiveInTemp(Symbase, Inst);
+
+  } else if (DefLoop && UseLoop &&
+             (LCALoop =
+                  HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop))) {
+    // If the current node where the blob is used and the blob definition are
+    // both in some HLLoop, the defined at level should be the lowest common
+    // ancestor loop. For example-
+    //
+    // DO i1
+    //   DO i2
+    //     t1 = ...
+    //   END DO
+    //
+    //   DO i2
+    //     A[i2] = t1; // t1 is defined at level 1 for this loop.
+    //   END DO
+    // END DO
+    //
+    DefLevel = LCALoop->getNestingLevel();
+  }
+
+  // Set loop livein/liveout as applicable.
+
+  // We only process non-SCCPhi instructions. SCC phi livein/liveouts are
+  // processed in scalar symbase assignment pass.
+  if (!isa<PHINode>(Inst) || (Inst == BaseInst)) {
+
+    // Add temp as livein into current and all parent loops till we reach LCA
+    // loop.
+    while (UseLoop && (UseLoop != LCALoop)) {
+      UseLoop->addLiveInTemp(Symbase);
+      UseLoop = UseLoop->getParentLoop();
+    }
+
+    if (DefLoop) {
+      // If this is a phi in the loop header, it should be added as a livein
+      // temp in defining loop since header phis are deconstructed as follows-
+      // Before deconstruction-
+      //
+      // L:
+      //   %t1 = phi [ %init, %step]
+      //   ... = %t1
+      // goto L:
+      //
+      //
+      // After deconstruction-
+      //
+      // %t1 = %init
+      // L:
+      //   ... = %t1
+      //   %t1 = %t1 + %step
+      // goto L:
+      //
+      if (isa<PHINode>(Inst) && (Inst->getParent() == DefLp->getHeader())) {
+        DefLoop->addLiveInTemp(Symbase);
+      }
+
+      while (DefLoop != LCALoop) {
+        DefLoop->addLiveOutTemp(Symbase);
+        DefLoop = DefLoop->getParentLoop();
+      }
+    }
+  }
+
+  return DefLevel;
+}
+
 const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
                                               CanonExpr *CE,
                                               unsigned NestingLevel) {
   unsigned DefLevel = 0;
   unsigned Index = InvalidBlobIndex;
-  Loop *Lp = nullptr;
-  HLLoop *HLoop = nullptr;
-  HLLoop *ParLoop = nullptr;
-  HLLoop *LCALoop = nullptr;
 
   auto Temp = TempBlob->getValue();
 
@@ -1274,35 +1349,9 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
     Index = findOrInsertBlob(BaseTempBlob, Symbase);
   }
 
-  // Check livein/def level of Temp.
   if (auto Inst = dyn_cast<Instruction>(Temp)) {
-    // First check whether the instruction is outisde the current region. If Lp
-    // belongs to another region, the second check will pass and we will set an
-    // incorrect DefLevel.
-    if (Inst && !CurRegion->containsBBlock(Inst->getParent())) {
-      CurRegion->addLiveInTemp(Symbase, Inst);
-
-    } else if ((ParLoop = getCurNode()->getParentLoop()) &&
-               (Lp = LI->getLoopFor(Inst->getParent())) &&
-               (HLoop = LF->findHLLoop(Lp)) &&
-               (LCALoop =
-                    HLNodeUtils::getLowestCommonAncestorLoop(ParLoop, HLoop))) {
-      // If the current node where the blob is used and the blob definition are
-      // both in some HLLoop, the defined at level should be the lowest common
-      // ancestor loop. For example-
-      //
-      // DO i1
-      //   DO i2
-      //     t1 = ...
-      //   END DO
-      //
-      //   DO i2
-      //     A[i2] = t1; // t1 is defined at level 1 for this loop.
-      //   END DO
-      // END DO
-      //
-      DefLevel = LCALoop->getNestingLevel();
-    }
+    DefLevel = processInstBlob(Inst, cast<Instruction>(BaseTemp), Symbase,
+                               NestingLevel);
   } else {
     // Blob is some global value. Global values are not marked livein.
   }
@@ -1312,13 +1361,6 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
   // Cache blob level for later reuse in population of BlobDDRefs for this
   // RegDDRef.
   cacheTempBlobLevel(Index, NestingLevel, DefLevel);
-
-  // Basically this is not so good place to handle UndefValues, but this is done
-  // here to avoid additional traverse of SCEV to found undefined its parts.
-  // TODO: Compute this on demand rather than storing the flag.
-  if (isUndefBlob(TempBlob)) {
-    CE->setContainsUndef();
-  }
 
   // Add blob symbase as required.
   RequiredSymbases.insert(Symbase);
@@ -1353,9 +1395,6 @@ bool HIRParser::parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
                           unsigned IVLevel, bool IndicateFailure) {
   int64_t Multiplier;
 
-  BlobTy NewBlob;
-  breakConstantMultiplierBlob(Blob, &Multiplier, &NewBlob);
-
   // Process and create base version of the blob.
   BlobProcessor BP(this, CE, Level);
 
@@ -1363,7 +1402,9 @@ bool HIRParser::parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
     return false;
   }
 
-  NewBlob = BP.process(NewBlob);
+  auto NewBlob = BP.process(Blob);
+  breakConstantMultiplierBlob(NewBlob, &Multiplier, &NewBlob);
+
   unsigned Index = findOrInsertBlobWrapper(NewBlob);
 
   if (IVLevel) {
@@ -1527,7 +1568,7 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
       Ret = parseBlob(SC, CE, Level, 0, IndicateFailure);
 
-    } else if (!HLNodeUtils::contains(HLoop, CurNode, false)) {
+    } else if (!HLNodeUtils::contains(HLoop, CurNode)) {
       // If the use is outside the loop, use the 'at scope'(exit value)
       // information.
 
@@ -1868,6 +1909,17 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
     If->replacePredicate(BeginPredIter, Pred);
     If->setPredicateOperandDDRef(LHSDDRef, BeginPredIter, true);
     If->setPredicateOperandDDRef(RHSDDRef, BeginPredIter, false);
+  }
+}
+
+void HIRParser::postParse(HLIf *If) {
+
+  auto PredIter = If->pred_begin();
+
+  // If 'then' is empty, move 'else' children to 'then' by inverting predicate.
+  if (!If->hasThenChildren() && (If->getNumPredicates() == 1) && (*PredIter != UNDEFINED_PREDICATE)) {
+    If->replacePredicate(PredIter, CmpInst::getInversePredicate(*PredIter));
+    HLNodeUtils::moveAsFirstChildren(If, If->else_begin(), If->else_end(), true);
   }
 }
 
@@ -2318,11 +2370,13 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
   // In some cases float* is converted into i32* before loading/storing. This
   // info is propagated into the BaseCE dest type.
-  if (auto BCInst = dyn_cast<BitCastInst>(GEPVal)) {
-    if (!SE->getHIRMetadata(BCInst, ScalarEvolution::HIRLiveKind::LiveOut) &&
-        RI->isSupported(BCInst->getOperand(0)->getType())) {
-      GEPVal = BCInst->getOperand(0);
-      DestTy = BCInst->getDestTy();
+  if (auto BCOp = dyn_cast<BitCastOperator>(GEPVal)) {
+    if ((!isa<Instruction>(BCOp) ||
+         !SE->getHIRMetadata(cast<Instruction>(BCOp),
+                             ScalarEvolution::HIRLiveKind::LiveOut)) &&
+        RI->isSupported(BCOp->getOperand(0)->getType())) {
+      GEPVal = BCOp->getOperand(0);
+      DestTy = BCOp->getDestTy();
     }
   }
 
@@ -2374,7 +2428,6 @@ RegDDRef *HIRParser::createUndefDDRef(Type *Ty) {
 
   // Add an undef blob to the CE to maintain consistency.
   parseBlob(Blob, CE, 0);
-  CE->setContainsUndef();
 
   Ref->setSingleCanonExpr(CE);
 

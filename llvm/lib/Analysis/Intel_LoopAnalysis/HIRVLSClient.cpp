@@ -92,7 +92,8 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
   for (auto II = DDG.outgoing_edges_begin(RegRef),
             EE = DDG.outgoing_edges_end(RegRef);
        II != EE; ++II) {
-    DDRef *SinkRef = II->getSink();
+    const DDEdge *Edge = *II;
+    DDRef *SinkRef = Edge->getSink();
     HLDDNode *SinkNode = SinkRef->getHLDDNode();
     // DEBUG(dbgs() << "\nmove past loc " << HNode->getTopSortNum() << ". ");
     // Assuming structured code (no labels/gotos), we rely on the topological
@@ -107,7 +108,6 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
       continue;
     }
     // Lastly: Check the dependence edge.
-    const DDEdge *Edge = &(*II);
     if (Edge->getSrc() == Edge->getSink()) {
       continue;
     }

@@ -272,7 +272,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     for (auto Edge = LoopDDGraph->outgoing_edges_begin(Ref),
               LastEdge = LoopDDGraph->outgoing_edges_end(Ref);
          Edge != LastEdge; ++Edge) {
-      HLDDNode *DstDDNode = (Edge)->getSink()->getHLDDNode();
+      HLDDNode *DstDDNode = (*Edge)->getSink()->getHLDDNode();
       auto DstDistPPNodeI = HLNodeToDistPPNode.find(DstDDNode);
       if (DstDistPPNodeI == HLNodeToDistPPNode.end()) {
         // Every hlnode in loop nest has a dist node, so this edge goes out of
@@ -281,7 +281,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
       }
       // Add ddedge to list of edges for this sink DistPPNode
       DistPPNode *DstDistNode = DstDistPPNodeI->second;
-      EdgeMap[DstDistNode].push_back(&(*Edge));
+      EdgeMap[DstDistNode].push_back(*Edge);
     }
   }
 

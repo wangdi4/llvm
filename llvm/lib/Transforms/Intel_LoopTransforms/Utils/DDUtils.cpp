@@ -23,12 +23,11 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "dd-utils"
 
-/// Returns true if any incoming/outgoing edge into Loop
-//  for a DDRef
+/// Returns true if any incoming/outgoing edge into Loop for a DDRef.
 bool DDUtils::anyEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop) {
 
   // Current logic matches one loop  only.
-  // It can be extendted later with an argument to match all
+  // It can be extended later with an argument to match all
   // the containing ParaentLoops
 
   DDRef *DDref = const_cast<DDRef *>(Ref);
@@ -36,7 +35,7 @@ bool DDUtils::anyEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop) {
             E1 = DDG.outgoing_edges_end(DDref);
        I1 != E1; ++I1) {
 
-    DDRef *DDRefSink = I1->getSink();
+    DDRef *DDRefSink = (*I1)->getSink();
     HLLoop *ParentLoop = DDRefSink->getParentLoop();
     if (ParentLoop == Loop) {
       return true;
@@ -47,7 +46,7 @@ bool DDUtils::anyEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop) {
             E1 = DDG.incoming_edges_end(DDref);
        I1 != E1; ++I1) {
 
-    DDRef *DDRefSrc = I1->getSrc();
+    DDRef *DDRefSrc = (*I1)->getSrc();
     HLLoop *ParentLoop = DDRefSrc->getParentLoop();
     if (ParentLoop == Loop) {
       return true;
@@ -91,8 +90,8 @@ bool DDUtils::canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
             E1 = DDG.outgoing_edges_end(RRef);
        I1 != E1; ++I1) {
     //  ..  = A[i]  is  RRef
-    const DDEdge *Edge = &(*I1);
-    DDRef *DDRefSink = I1->getSink();
+    const DDEdge *Edge = *I1;
+    DDRef *DDRefSink = Edge->getSink();
 
     Node = DDRefSink->getHLDDNode();
     if (Node->getParentLoop() == InnermostLoop) {
@@ -109,8 +108,8 @@ bool DDUtils::canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
             E1 = DDG.outgoing_edges_end(LRef);
        I1 != E1; ++I1) {
     //   t0  = ..    ; t0 is LRef
-    const DDEdge *Edge = &(*I1);
-    DDRef *DDRefSink = I1->getSink();
+    const DDEdge *Edge = *I1;
+    DDRef *DDRefSink = Edge->getSink();
     RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSink);
     if (!RegRef) {
       // Handles blobs later
@@ -374,12 +373,12 @@ void DDUtils::updateDDRefsLinearity(SmallVectorImpl<HLInst *> &HLInsts,
               E2 = DDG.outgoing_edges_end(LRef);
          I2 != E2; ++I2) {
 
-      const DDEdge *Edge = &(*I2);
+      const DDEdge *Edge = *I2;
       if (!Edge->isFLOWdep()) {
         continue;
       }
 
-      DDRef *DDRefSink = I2->getSink();
+      DDRef *DDRefSink = Edge->getSink();
       HLDDNode *SinkDDNode = DDRefSink->getHLDDNode();
       HLLoop *ParentLoop = SinkDDNode->getParentLoop();
       assert(ParentLoop && ParentLoop->isInnermost() &&

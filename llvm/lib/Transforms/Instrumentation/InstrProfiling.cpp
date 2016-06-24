@@ -367,6 +367,20 @@ InstrProfiling::getOrCreateRegionCounters(InstrProfIncrementInst *Inc) {
   return CounterPtr;
 }
 
+static bool needsRuntimeRegistrationOfSectionRange(const Module &M) {
+  // Don't do this for Darwin.  compiler-rt uses linker magic.
+  if (Triple(M.getTargetTriple()).isOSDarwin())
+    return false;
+
+  // Use linker script magic to get data/cnts/name start/end.
+  if (Triple(M.getTargetTriple()).isOSLinux() ||
+      Triple(M.getTargetTriple()).isOSFreeBSD() ||
+      Triple(M.getTargetTriple()).isPS4CPU())
+    return false;
+
+  return true;
+}
+
 void InstrProfiling::emitNameData() {
   std::string UncompressedData;
 
@@ -374,8 +388,10 @@ void InstrProfiling::emitNameData() {
     return;
 
   std::string CompressedNameStr;
-  collectPGOFuncNameStrings(ReferencedNames, CompressedNameStr,
-                            DoNameCompression);
+  if (auto EC = collectPGOFuncNameStrings(ReferencedNames, CompressedNameStr,
+                                          DoNameCompression)) {
+    llvm::report_fatal_error(EC.message(), false);
+  }
 
   auto &Ctx = M->getContext();
   auto *NamesVal = llvm::ConstantDataArray::getString(
@@ -389,14 +405,7 @@ void InstrProfiling::emitNameData() {
 }
 
 void InstrProfiling::emitRegistration() {
-  // Don't do this for Darwin.  compiler-rt uses linker magic.
-  if (Triple(M->getTargetTriple()).isOSDarwin())
-    return;
-
-  // Use linker script magic to get data/cnts/name start/end.
-  if (Triple(M->getTargetTriple()).isOSLinux() ||
-      Triple(M->getTargetTriple()).isOSFreeBSD() ||
-      Triple(M->getTargetTriple()).isPS4CPU())
+  if (!needsRuntimeRegistrationOfSectionRange(*M))
     return;
 
   // Construct the function.

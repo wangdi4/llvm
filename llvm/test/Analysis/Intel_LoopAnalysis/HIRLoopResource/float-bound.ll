@@ -14,6 +14,7 @@
 
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK:    Floating Point Operations: 1
+; CHECK:    Floating Point Operations Cost: 1
 ; CHECK:    Floating Point Bound
 ; CHECK: + END LOOP
 

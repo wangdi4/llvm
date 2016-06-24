@@ -67,6 +67,8 @@ typedef OVLSVector<OVLSGroup*> OVLSGroupVector;
 typedef class OVLSInstruction OVLSInstruction;
 typedef OVLSVector<OVLSInstruction*> OVLSInstructionVector;
 
+typedef OVLSMap<OVLSMemref*, OVLSGroup*> OVLSMemrefToGroupMap;
+
 // AccessType: {Strided|Indexed}{Load|Store}
 class OVLSAccessType {
 private:
@@ -651,7 +653,8 @@ public:
 class OptVLSInterface {
 public:
   /// \brief getGroups() groups the memrefs that are adjacent and returns
-  /// the formed groups in \p Grps.
+  /// the formed groups in \p Grps. It also optionally returns a map in
+  /// \p MemrefToGroupMap which maps memref to the group that it belongs to.
   /// getGroups() takes a vector of OVLSMemrefs, a vector of OVLSGroups for
   /// containing the return group-vector and a vector length in bytes (which is
   /// the maximum length of the underlying vector register or any other
@@ -669,7 +672,8 @@ public:
   /// some opportunities. This can be improved in the future if needed.
   static void getGroups(const OVLSMemrefVector &Memrefs,
                         OVLSGroupVector &Grps,
-                        uint32_t VectorLength);
+                        uint32_t VectorLength,
+                        OVLSMemrefToGroupMap *MemrefToGroupMap = nullptr);
 
   /// \brief getGroupCost() returns a relative cost/benefit of performing
   /// adjacent gather/scatter optimization for a group (of gathers/scatters).

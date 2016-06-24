@@ -750,7 +750,7 @@ namespace {
       AU.addPreserved<AndersensAAWrapperPass>();      // INTEL
       AU.addPreserved<ScalarEvolutionWrapperPass>();
       AU.addPreserved<SCEVAAWrapperPass>();
-      AU.addPreserved<DependenceAnalysis>();
+      AU.addPreserved<DependenceAnalysisWrapperPass>();
       AU.addPreservedID(BreakCriticalEdgesID);  // No critical edges added.
     }
 
