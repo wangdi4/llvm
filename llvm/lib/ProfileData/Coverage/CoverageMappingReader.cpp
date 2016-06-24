@@ -316,7 +316,7 @@ struct CovMapFuncRecordReader {
                                               const char *End) = 0;
   virtual ~CovMapFuncRecordReader() {}
   template <class IntPtrT, support::endianness Endian>
-  static std::unique_ptr<CovMapFuncRecordReader>
+  static ErrorOr<std::unique_ptr<CovMapFuncRecordReader>>
   get(coverage::CovMapVersion Version, InstrProfSymtab &P,
       std::vector<BinaryCoverageReader::ProfileMappingRecord> &R,
       std::vector<StringRef> &F);
@@ -417,7 +417,7 @@ public:
 } // end anonymous namespace
 
 template <class IntPtrT, support::endianness Endian>
-std::unique_ptr<CovMapFuncRecordReader> CovMapFuncRecordReader::get(
+ErrorOr<std::unique_ptr<CovMapFuncRecordReader>> CovMapFuncRecordReader::get(
     coverage::CovMapVersion Version, InstrProfSymtab &P,
     std::vector<BinaryCoverageReader::ProfileMappingRecord> &R,
     std::vector<StringRef> &F) {
@@ -428,7 +428,8 @@ std::unique_ptr<CovMapFuncRecordReader> CovMapFuncRecordReader::get(
         CovMapVersion::Version1, IntPtrT, Endian>>(P, R, F);
   case CovMapVersion::Version2:
     // Decompress the name data.
-    P.create(P.getNameData());
+    if (auto EC = P.create(P.getNameData()))
+      return EC;
     return llvm::make_unique<VersionedCovMapFuncRecordReader<
         CovMapVersion::Version2, IntPtrT, Endian>>(P, R, F);
   }
@@ -447,9 +448,12 @@ static std::error_code readCoverageMappingData(
   CovMapVersion Version = (CovMapVersion)CovHeader->getVersion<Endian>();
   if (Version > coverage::CovMapVersion::CurrentVersion)
     return coveragemap_error::unsupported_version;
-  std::unique_ptr<CovMapFuncRecordReader> Reader =
+  ErrorOr<std::unique_ptr<CovMapFuncRecordReader>> ReaderErrorOr =
       CovMapFuncRecordReader::get<T, Endian>(Version, ProfileNames, Records,
                                              Filenames);
+  if (auto EC = ReaderErrorOr.getError())
+    return EC;
+  auto Reader = std::move(ReaderErrorOr.get());
   for (const char *Buf = Data.data(), *End = Buf + Data.size(); Buf < End;) {
     if (std::error_code EC = Reader->readFunctionRecords(Buf, End))
       return EC;
@@ -487,6 +491,13 @@ static std::error_code loadTestingFormat(StringRef Data,
     return coveragemap_error::malformed;
   ProfileNames.create(Data.substr(0, ProfileNamesSize), Address);
   CoverageMapping = Data.substr(ProfileNamesSize);
+  // Skip the padding bytes because coverage map data has an alignment of 8.
+  if (CoverageMapping.size() < 1)
+    return coveragemap_error::truncated;
+  size_t Pad = alignmentAdjustment(CoverageMapping.data(), 8);
+  if (CoverageMapping.size() < Pad)
+    return coveragemap_error::malformed;
+  CoverageMapping = CoverageMapping.substr(Pad);
   return std::error_code();
 }
 

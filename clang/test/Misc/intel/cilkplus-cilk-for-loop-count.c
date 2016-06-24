@@ -1,8 +1,8 @@
-// RUN: %clang_cc1 -fcilkplus -emit-llvm -O2 %s -o %t-loop_count
+// RUN: %clang_cc1 -fintel-compatibility -fcilkplus -emit-llvm -O2 %s -o %t-loop_count
 // RUN: FileCheck -input-file=%t-loop_count -check-prefix=LOOP_COUNT %s
-// RUN: %clang_cc1 -fcilkplus -emit-llvm -O2 %s -o %t-loop_count2
+// RUN: %clang_cc1 -fintel-compatibility -fcilkplus -emit-llvm -O2 %s -o %t-loop_count2
 // RUN: FileCheck -input-file=%t-loop_count2 -check-prefix=LOOP_COUNT2 %s
-// RUN: %clang_cc1 -fcilkplus -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -fcilkplus -emit-llvm %s -o - | FileCheck %s
 // REQUIRES: cilkplus
 
 int foo() { return 10; }

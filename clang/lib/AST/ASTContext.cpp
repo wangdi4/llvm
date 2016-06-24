@@ -58,11 +58,7 @@ unsigned ASTContext::NumImplicitDestructors;
 unsigned ASTContext::NumImplicitDestructorsDeclared;
 
 enum FloatingRank {
-  HalfRank, FloatRank, DoubleRank, LongDoubleRank
-#if INTEL_CUSTOMIZATION
-  ,
-  Float128Rank
-#endif  // INTEL_CUSTOMIZATION
+  HalfRank, FloatRank, DoubleRank, LongDoubleRank, Float128Rank
 };
 
 RawComment *ASTContext::getRawCommentForDeclNoCache(const Decl *D) const {
@@ -741,10 +737,9 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
       DependentTemplateSpecializationTypes(this_()),
       SubstTemplateTemplateParmPacks(this_()),
       GlobalNestedNameSpecifier(nullptr), Int128Decl(nullptr),
-      UInt128Decl(nullptr), Float128StubDecl(nullptr),
-      BuiltinVaListDecl(nullptr), BuiltinMSVaListDecl(nullptr),
-      ObjCIdDecl(nullptr), ObjCSelDecl(nullptr), ObjCClassDecl(nullptr),
-      ObjCProtocolClassDecl(nullptr), BOOLDecl(nullptr),
+      UInt128Decl(nullptr), BuiltinVaListDecl(nullptr),
+      BuiltinMSVaListDecl(nullptr), ObjCIdDecl(nullptr), ObjCSelDecl(nullptr),
+      ObjCClassDecl(nullptr), ObjCProtocolClassDecl(nullptr), BOOLDecl(nullptr),
       CFConstantStringTagDecl(nullptr), CFConstantStringTypeDecl(nullptr),
       ObjCInstanceTypeDecl(nullptr), FILEDecl(nullptr), jmp_bufDecl(nullptr),
       sigjmp_bufDecl(nullptr), ucontext_tDecl(nullptr),
@@ -974,14 +969,6 @@ TypedefDecl *ASTContext::getUInt128Decl() const {
   return UInt128Decl;
 }
 
-TypeDecl *ASTContext::getFloat128StubType() const {
-  assert(LangOpts.CPlusPlus && "should only be called for c++");
-  if (!Float128StubDecl)
-    Float128StubDecl = buildImplicitRecord("__float128");
-
-  return Float128StubDecl;
-}
-
 void ASTContext::InitBuiltinType(CanQualType &R, BuiltinType::Kind K) {
   BuiltinType *Ty = new (*this, TypeAlignment) BuiltinType(K);
   R = CanQualType::CreateUnsafe(QualType(Ty, 0));
@@ -1029,6 +1016,9 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   InitBuiltinType(FloatTy,             BuiltinType::Float);
   InitBuiltinType(DoubleTy,            BuiltinType::Double);
   InitBuiltinType(LongDoubleTy,        BuiltinType::LongDouble);
+
+  // GNU extension, __float128 for IEEE quadruple precision
+  InitBuiltinType(Float128Ty,          BuiltinType::Float128);
 
   // GNU extension, 128-bit integers.
   InitBuiltinType(Int128Ty,            BuiltinType::Int128);
@@ -1091,6 +1081,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   FloatComplexTy      = getComplexType(FloatTy);
   DoubleComplexTy     = getComplexType(DoubleTy);
   LongDoubleComplexTy = getComplexType(LongDoubleTy);
+  Float128ComplexTy   = getComplexType(Float128Ty);
 
   // Builtin types for 'id', 'Class', and 'SEL'.
   InitBuiltinType(ObjCBuiltinIdTy, BuiltinType::ObjCId);
@@ -1126,16 +1117,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
 
   // half type (OpenCL 6.1.1.1) / ARM NEON __fp16
   InitBuiltinType(HalfTy, BuiltinType::Half);
-#if INTEL_CUSTOMIZATION
-  // float128 type
-  if (LangOpts.Float128) {
-    InitBuiltinType(Float128Ty, BuiltinType::Float128);
-    Float128ComplexTy = getComplexType(Float128Ty);
-  } else {
-    Float128Ty = LongDoubleTy;
-    Float128ComplexTy = LongDoubleComplexTy;
-  }
-#endif  // INTEL_CUSTOMIZATION
+
   // Builtin type used to help define __builtin_va_list.
   VaListTagDecl = nullptr;
 }
@@ -1372,11 +1354,7 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
   case BuiltinType::Float:      return Target->getFloatFormat();
   case BuiltinType::Double:     return Target->getDoubleFormat();
   case BuiltinType::LongDouble: return Target->getLongDoubleFormat();
-#if INTEL_CUSTOMIZATION
-  case BuiltinType::Float128: return LangOpts.Float128 ?
-                                      llvm::APFloat::IEEEquad
-                                      : Target->getLongDoubleFormat();
-#endif  // INTEL_CUSTOMIZATION
+  case BuiltinType::Float128:   return Target->getFloat128Format();
   }
 }
 
@@ -1675,12 +1653,6 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = Target->getHalfWidth();
       Align = Target->getHalfAlign();
       break;
-#if INTEL_CUSTOMIZATION
-    case BuiltinType::Float128:
-      Width = LangOpts.Float128 ? 128 : Target->getLongDoubleWidth();
-      Align = LangOpts.Float128 ? 128 : Target->getLongDoubleAlign();
-      break;
-#endif  // INTEL_CUSTOMIZATION
     case BuiltinType::Float:
       Width = Target->getFloatWidth();
       Align = Target->getFloatAlign();
@@ -1692,6 +1664,10 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     case BuiltinType::LongDouble:
       Width = Target->getLongDoubleWidth();
       Align = Target->getLongDoubleAlign();
+      break;
+    case BuiltinType::Float128:
+      Width = Target->getFloat128Width();
+      Align = Target->getFloat128Align();
       break;
     case BuiltinType::NullPtr:
       Width = Target->getPointerWidth(0); // C++ 3.9.1p11: sizeof(nullptr_t)
@@ -4691,9 +4667,7 @@ static FloatingRank getFloatingRank(QualType T) {
   case BuiltinType::Float:      return FloatRank;
   case BuiltinType::Double:     return DoubleRank;
   case BuiltinType::LongDouble: return LongDoubleRank;
-#if INTEL_CUSTOMIZATION
-  case BuiltinType::Float128: return Float128Rank;
-#endif  // INTEL_CUSTOMIZATION
+  case BuiltinType::Float128:   return Float128Rank;
   }
 }
 
@@ -4710,10 +4684,7 @@ QualType ASTContext::getFloatingTypeOfSizeWithinDomain(QualType Size,
     case FloatRank:      return FloatComplexTy;
     case DoubleRank:     return DoubleComplexTy;
     case LongDoubleRank: return LongDoubleComplexTy;
-#if INTEL_CUSTOMIZATION
-    case Float128Rank: return LangOpts.Float128 ?
-                              Float128ComplexTy : LongDoubleComplexTy;
-#endif  // INTEL_CUSTOMIZATION
+    case Float128Rank:   return Float128ComplexTy;
     }
   }
 
@@ -4723,10 +4694,7 @@ QualType ASTContext::getFloatingTypeOfSizeWithinDomain(QualType Size,
   case FloatRank:      return FloatTy;
   case DoubleRank:     return DoubleTy;
   case LongDoubleRank: return LongDoubleTy;
-#if INTEL_CUSTOMIZATION
-  case Float128Rank: return LangOpts.Float128 ?
-                            Float128Ty : LongDoubleTy;
-#endif  // INTEL_CUSTOMIZATION
+  case Float128Rank:   return Float128Ty;
   }
   llvm_unreachable("getFloatingRank(): illegal value for rank");
 }
@@ -5565,10 +5533,10 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
     case BuiltinType::Float:      return 'f';
     case BuiltinType::Double:     return 'd';
     case BuiltinType::LongDouble: return 'D';
+    case BuiltinType::NullPtr:    return '*'; // like char*
 #if INTEL_CUSTOMIZATION
     case BuiltinType::Float128:   return 'Q';
 #endif  // INTEL_CUSTOMIZATION
-    case BuiltinType::NullPtr:    return '*'; // like char*
 
     case BuiltinType::Half:
       // FIXME: potentially need @encodes for these!
@@ -7244,6 +7212,11 @@ QualType ASTContext::areCommonBaseCompatible(
   if (!LDecl || !RDecl)
     return QualType();
 
+  // When either LHS or RHS is a kindof type, we should return a kindof type.
+  // For example, for common base of kindof(ASub1) and kindof(ASub2), we return
+  // kindof(A).
+  bool anyKindOf = LHS->isKindOfType() || RHS->isKindOfType();
+
   // Follow the left-hand side up the class hierarchy until we either hit a
   // root or find the RHS. Record the ancestors in case we don't find it.
   llvm::SmallDenseMap<const ObjCInterfaceDecl *, const ObjCObjectType *, 4>
@@ -7278,10 +7251,12 @@ QualType ASTContext::areCommonBaseCompatible(
         anyChanges = true;
 
       // If anything in the LHS will have changed, build a new result type.
-      if (anyChanges) {
+      // If we need to return a kindof type but LHS is not a kindof type, we
+      // build a new result type.
+      if (anyChanges || LHS->isKindOfType() != anyKindOf) {
         QualType Result = getObjCInterfaceType(LHS->getInterface());
         Result = getObjCObjectType(Result, LHSTypeArgs, Protocols,
-                                   LHS->isKindOfType());
+                                   anyKindOf || LHS->isKindOfType());
         return getObjCObjectPointerType(Result);
       }
 
@@ -7326,10 +7301,12 @@ QualType ASTContext::areCommonBaseCompatible(
       if (!Protocols.empty())
         anyChanges = true;
 
-      if (anyChanges) {
+      // If we need to return a kindof type but RHS is not a kindof type, we
+      // build a new result type.
+      if (anyChanges || RHS->isKindOfType() != anyKindOf) {
         QualType Result = getObjCInterfaceType(RHS->getInterface());
         Result = getObjCObjectType(Result, RHSTypeArgs, Protocols,
-                                   RHS->isKindOfType());
+                                   anyKindOf || RHS->isKindOfType());
         return getObjCObjectPointerType(Result);
       }
 
@@ -8510,22 +8487,29 @@ static GVALinkage basicGVALinkageForFunction(const ASTContext &Context,
   return GVA_DiscardableODR;
 }
 
-static GVALinkage adjustGVALinkageForAttributes(GVALinkage L, const Decl *D) {
+static GVALinkage adjustGVALinkageForAttributes(const ASTContext &Context,
+                                                GVALinkage L, const Decl *D) {
   // See http://msdn.microsoft.com/en-us/library/xa0d9ste.aspx
   // dllexport/dllimport on inline functions.
   if (D->hasAttr<DLLImportAttr>()) {
     if (L == GVA_DiscardableODR || L == GVA_StrongODR)
       return GVA_AvailableExternally;
-  } else if (D->hasAttr<DLLExportAttr>() || D->hasAttr<CUDAGlobalAttr>()) {
+  } else if (D->hasAttr<DLLExportAttr>()) {
     if (L == GVA_DiscardableODR)
+      return GVA_StrongODR;
+  } else if (Context.getLangOpts().CUDA && Context.getLangOpts().CUDAIsDevice &&
+             D->hasAttr<CUDAGlobalAttr>()) {
+    // Device-side functions with __global__ attribute must always be
+    // visible externally so they can be launched from host.
+    if (L == GVA_DiscardableODR || L == GVA_Internal)
       return GVA_StrongODR;
   }
   return L;
 }
 
 GVALinkage ASTContext::GetGVALinkageForFunction(const FunctionDecl *FD) const {
-  return adjustGVALinkageForAttributes(basicGVALinkageForFunction(*this, FD),
-                                       FD);
+  return adjustGVALinkageForAttributes(
+      *this, basicGVALinkageForFunction(*this, FD), FD);
 }
 
 static GVALinkage basicGVALinkageForVariable(const ASTContext &Context,
@@ -8589,8 +8573,8 @@ static GVALinkage basicGVALinkageForVariable(const ASTContext &Context,
 }
 
 GVALinkage ASTContext::GetGVALinkageForVariable(const VarDecl *VD) {
-  return adjustGVALinkageForAttributes(basicGVALinkageForVariable(*this, VD),
-                                       VD);
+  return adjustGVALinkageForAttributes(
+      *this, basicGVALinkageForVariable(*this, VD), VD);
 }
 
 bool ASTContext::DeclMustBeEmitted(const Decl *D) {
@@ -8702,8 +8686,25 @@ CallingConv ASTContext::getDefaultCallingConvention(bool IsVariadic,
   if (IsCXXMethod)
     return ABI->getDefaultMethodCallConv(IsVariadic);
 
-  if (LangOpts.MRTD && !IsVariadic) return CC_X86StdCall;
-
+  switch (LangOpts.getDefaultCallingConv()) {
+  case LangOptions::DCC_None:
+    break;
+  case LangOptions::DCC_CDecl:
+    return CC_C;
+  case LangOptions::DCC_FastCall:
+    if (getTargetInfo().hasFeature("sse2"))
+      return CC_X86FastCall;
+    break;
+  case LangOptions::DCC_StdCall:
+    if (!IsVariadic)
+      return CC_X86StdCall;
+    break;
+  case LangOptions::DCC_VectorCall:
+    // __vectorcall cannot be applied to variadic functions.
+    if (!IsVariadic)
+      return CC_X86VectorCall;
+    break;
+  }
   return Target->getDefaultCallingConv(TargetInfo::CCMT_Unknown);
 }
 
@@ -8783,10 +8784,8 @@ QualType ASTContext::getRealTypeForBitwidth(unsigned DestWidth) const {
     return DoubleTy;
   case TargetInfo::LongDouble:
     return LongDoubleTy;
-#if INTEL_CUSTOMIZATION
   case TargetInfo::Float128:
-    return getLangOpts().Float128 ? Float128Ty : QualType();
-#endif  // INTEL_CUSTOMIZATION
+    return Float128Ty;
   case TargetInfo::NoFloat:
     return QualType();
   }

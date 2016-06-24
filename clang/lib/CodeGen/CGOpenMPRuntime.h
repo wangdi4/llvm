@@ -93,9 +93,12 @@ struct OMPTaskDataTy final {
   SmallVector<const Expr *, 4> FirstprivateVars;
   SmallVector<const Expr *, 4> FirstprivateCopies;
   SmallVector<const Expr *, 4> FirstprivateInits;
+  SmallVector<const Expr *, 4> LastprivateVars;
+  SmallVector<const Expr *, 4> LastprivateCopies;
   SmallVector<std::pair<OpenMPDependClauseKind, const Expr *>, 4> Dependences;
   llvm::PointerIntPair<llvm::Value *, 1, bool> Final;
   llvm::PointerIntPair<llvm::Value *, 1, bool> Schedule;
+  llvm::PointerIntPair<llvm::Value *, 1, bool> Priority;
   unsigned NumberOfParts = 0;
   bool Tied = true;
   bool Nogroup = false;
@@ -453,6 +456,7 @@ private:
     llvm::Value *NewTaskNewTaskTTy = nullptr;
     LValue TDBase;
     RecordDecl *KmpTaskTQTyRD = nullptr;
+    llvm::Value *TaskDupFn = nullptr;
   };
   /// Emit task region for the task directive. The task region is emitted in
   /// several steps:
@@ -625,9 +629,9 @@ public:
   virtual bool isDynamic(OpenMPScheduleClauseKind ScheduleKind) const;
 
   virtual void emitForDispatchInit(CodeGenFunction &CGF, SourceLocation Loc,
-                                   OpenMPScheduleClauseKind SchedKind,
-                                   unsigned IVSize, bool IVSigned,
-                                   bool Ordered, llvm::Value *UB,
+                                   const OpenMPScheduleTy &ScheduleKind,
+                                   unsigned IVSize, bool IVSigned, bool Ordered,
+                                   llvm::Value *UB,
                                    llvm::Value *Chunk = nullptr);
 
   /// \brief Call the appropriate runtime routine to initialize it before start
@@ -639,7 +643,7 @@ public:
   ///
   /// \param CGF Reference to current CodeGenFunction.
   /// \param Loc Clang source location.
-  /// \param SchedKind Schedule kind, specified by the 'schedule' clause.
+  /// \param ScheduleKind Schedule kind, specified by the 'schedule' clause.
   /// \param IVSize Size of the iteration variable in bits.
   /// \param IVSigned Sign of the interation variable.
   /// \param Ordered true if loop is ordered, false otherwise.
@@ -655,10 +659,9 @@ public:
   /// For the default (nullptr) value, the chunk 1 will be used.
   ///
   virtual void emitForStaticInit(CodeGenFunction &CGF, SourceLocation Loc,
-                                 OpenMPScheduleClauseKind SchedKind,
+                                 const OpenMPScheduleTy &ScheduleKind,
                                  unsigned IVSize, bool IVSigned, bool Ordered,
-                                 Address IL, Address LB,
-                                 Address UB, Address ST,
+                                 Address IL, Address LB, Address UB, Address ST,
                                  llvm::Value *Chunk = nullptr);
 
   ///
@@ -1010,6 +1013,13 @@ public:
                                              const OMPExecutableDirective &D,
                                              const Expr *IfCond,
                                              const Expr *Device);
+
+  /// Marks function \a Fn with properly mangled versions of vector functions.
+  /// \param FD Function marked as 'declare simd'.
+  /// \param Fn LLVM function that must be marked with 'declare simd'
+  /// attributes.
+  virtual void emitDeclareSimdFunction(const FunctionDecl *FD,
+                                       llvm::Function *Fn);
 };
 
 } // namespace CodeGen

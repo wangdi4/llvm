@@ -920,6 +920,10 @@ private:
       Contexts.back().IsExpression = false;
     } else if (Current.is(TT_LambdaArrow) || Current.is(Keywords.kw_assert)) {
       Contexts.back().IsExpression = Style.Language == FormatStyle::LK_Java;
+    } else if (Current.Previous &&
+               Current.Previous->is(TT_CtorInitializerColon)) {
+      Contexts.back().IsExpression = true;
+      Contexts.back().InCtorInitializer = true;
     } else if (Current.isOneOf(tok::r_paren, tok::greater, tok::comma)) {
       for (FormatToken *Previous = Current.Previous;
            Previous && Previous->isOneOf(tok::star, tok::amp);
@@ -927,10 +931,6 @@ private:
         Previous->Type = TT_PointerOrReference;
       if (Line.MustBeDeclaration && !Contexts.front().InCtorInitializer)
         Contexts.back().IsExpression = false;
-    } else if (Current.Previous &&
-               Current.Previous->is(TT_CtorInitializerColon)) {
-      Contexts.back().IsExpression = true;
-      Contexts.back().InCtorInitializer = true;
     } else if (Current.is(tok::kw_new)) {
       Contexts.back().CanBeExpression = false;
     } else if (Current.isOneOf(tok::semi, tok::exclaim)) {
@@ -2174,7 +2174,7 @@ bool TokenAnnotator::spaceRequiredBefore(const AnnotatedLine &Line,
   if (!Style.SpaceBeforeAssignmentOperators &&
       Right.getPrecedence() == prec::Assignment)
     return false;
-  if (Right.is(tok::coloncolon) && Left.isNot(tok::l_brace))
+  if (Right.is(tok::coloncolon) && !Left.isOneOf(tok::l_brace, tok::comment))
     return (Left.is(TT_TemplateOpener) &&
             Style.Standard == FormatStyle::LS_Cpp03) ||
            !(Left.isOneOf(tok::identifier, tok::l_paren, tok::r_paren,

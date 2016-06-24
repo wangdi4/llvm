@@ -274,7 +274,7 @@ KEYWORD(int                         , KEYALL)
 KEYWORD(long                        , KEYALL)
 KEYWORD(register                    , KEYALL)
 #if INTEL_CUSTOMIZATION
-KEYWORD(restrict                    , KEYRESTRICT)
+KEYWORD(restrict                    , KEYC99|KEYRESTRICT)
 #else
 KEYWORD(restrict                    , KEYC99)
 #endif  // INTEL_CUSTOMIZATION
@@ -375,9 +375,9 @@ KEYWORD(co_yield                    , KEYCOROUTINES)
 // GNU Extensions (in impl-reserved namespace)
 #if INTEL_CUSTOMIZATION
 // CQ#374317 - do not recognize _Decimal keywords in non-GNU mode.
-KEYWORD(_Decimal32                  , KEYDECIMAL)
-KEYWORD(_Decimal64                  , KEYDECIMAL)
-KEYWORD(_Decimal128                 , KEYDECIMAL)
+KEYWORD(_Decimal32                  , KEYNOINTELALL|KEYDECIMAL)
+KEYWORD(_Decimal64                  , KEYNOINTELALL|KEYDECIMAL)
+KEYWORD(_Decimal128                 , KEYNOINTELALL|KEYDECIMAL)
 #endif // INTEL_CUSTOMIZATION
 KEYWORD(__null                      , KEYCXX)
 KEYWORD(__alignof                   , KEYALL)
@@ -389,8 +389,9 @@ KEYWORD(__builtin_offsetof          , KEYALL)
 TYPE_TRAIT_2(__builtin_types_compatible_p, TypeCompatible, KEYNOCXX)
 KEYWORD(__builtin_va_arg            , KEYALL)
 KEYWORD(__extension__               , KEYALL)
+KEYWORD(__float128                  , KEYALL)
 KEYWORD(__imag                      , KEYALL)
-KEYWORD(__int128                    , KEYNOINT128) // INTEL
+KEYWORD(__int128                    , KEYNOINTELALL|KEYNOINT128) // INTEL
 KEYWORD(__label__                   , KEYALL)
 KEYWORD(__real                      , KEYALL)
 KEYWORD(__thread                    , KEYALL)
@@ -413,9 +414,8 @@ KEYWORD(_Cilk_sync                  , KEYCILKPLUS)
 KEYWORD(_Cilk_for                   , KEYCILKPLUS)
 #endif  // INTEL_SPECIFIC_CILKPLUS
 #if INTEL_CUSTOMIZATION
-KEYWORD(_Quad                       , 0)
-// CQ#367834 - __float128 should be an alias for _Quad.
-ALIAS("__float128"    , _Quad       , 0)
+// CQ#367834 - Make _Quad an alias for __float128
+ALIAS("_Quad"    , __float128       , 0)
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
 KEYWORD(__bases                     , KEYBASES)
 KEYWORD(__direct_bases              , KEYBASES)
@@ -518,7 +518,7 @@ KEYWORD(__vectorcall                , KEYALL)
 #ifdef INTEL_CUSTOMIZATION
 // CQ#368488 - keyword fixes for iclang.
 // CQ#367651 - keyword fix for xmain.
-KEYWORD(__unaligned                 , KEYALL)
+KEYWORD(__unaligned                 , KEYMS|KEYINTELALL)
 #else
 KEYWORD(__unaligned                 , KEYMS)
 #endif // INTEL_CUSTOMIZATION
@@ -653,7 +653,7 @@ ALIAS("_int64"           , __int64    , KEYMS)
 ALIAS("__wchar_t"        , wchar_t    , KEYMS)
 #if INTEL_CUSTOMIZATION
 // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
-ALIAS("_asm"             , asm        , KEYMS | KEYMSASM)
+ALIAS("_asm"             , asm        , KEYMS|KEYMSASM)
 #else
 ALIAS("_asm"             , asm        , KEYMS)
 #endif // INTEL_CUSTOMIZATION

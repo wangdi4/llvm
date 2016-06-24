@@ -806,6 +806,7 @@ unsigned SIInstrInfo::calculateLDSSpillAddress(MachineBasicBlock &MBB,
 void SIInstrInfo::insertWaitStates(MachineBasicBlock &MBB,
                                    MachineBasicBlock::iterator MI,
                                    int Count) const {
+  DebugLoc DL = MBB.findDebugLoc(MI);
   while (Count > 0) {
     int Arg;
     if (Count >= 8)
@@ -813,7 +814,7 @@ void SIInstrInfo::insertWaitStates(MachineBasicBlock &MBB,
     else
       Arg = Count - 1;
     Count -= 8;
-    BuildMI(MBB, MI, MI->getDebugLoc(), get(AMDGPU::S_NOP))
+    BuildMI(MBB, MI, DL, get(AMDGPU::S_NOP))
             .addImm(Arg);
   }
 }
@@ -1487,16 +1488,6 @@ bool SIInstrInfo::verifyInstruction(const MachineInstr *MI,
   int Src0Idx = AMDGPU::getNamedOperandIdx(Opcode, AMDGPU::OpName::src0);
   int Src1Idx = AMDGPU::getNamedOperandIdx(Opcode, AMDGPU::OpName::src1);
   int Src2Idx = AMDGPU::getNamedOperandIdx(Opcode, AMDGPU::OpName::src2);
-
-  // Make sure we don't have SCC live-ins to basic blocks.  moveToVALU assumes
-  // all SCC users are in the same blocks as their defs.
-  const MachineBasicBlock *MBB = MI->getParent();
-  if (MI == &MBB->front()) {
-    if (MBB->isLiveIn(AMDGPU::SCC)) {
-      ErrInfo = "scc register cannot be live across blocks.";
-      return false;
-    }
-  }
 
   // Make sure the number of operands is correct.
   const MCInstrDesc &Desc = get(Opcode);

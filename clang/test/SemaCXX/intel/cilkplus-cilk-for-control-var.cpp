@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++11 -fcilkplus -fsyntax-only -Wall -Wno-unused-variable -verify %s
+// RUN: %clang_cc1 -std=c++11 -fintel-compatibility -fcilkplus -fsyntax-only -Wall -Wno-unused-variable -verify %s
 // REQUIRES: cilkplus
 void func1(const int &i);
 void func2(int &i);

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -fsyntax-only -verify %s
+// RUN: %clang_cc1 -fcilkplus -fintel-compatibility -fsyntax-only -verify %s
 // REQUIRES: cilkplus
 
 extern int array[];
