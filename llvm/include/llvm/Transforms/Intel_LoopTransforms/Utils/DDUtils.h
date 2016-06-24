@@ -45,6 +45,7 @@ private:
                                   HLLoop *InnermostLoop,
                                   SmallVectorImpl<HLInst *> &PostLoopInsts,
                                   HLInst **StoreInst, DDGraph DDG);
+
   /// \brief Return true if a corresponding load is found
   static bool findLoadInst(const DDRef *RRef,
                            SmallVectorImpl<HLInst *> &PreLoopInsts,
@@ -96,3 +97,10 @@ public:
 } // End namespace llvm
 
 #endif
+
+// TODO:
+// 1.Passing a DDGraph object is very expensive, try to use DDGraph& instead;
+// 2.
+// 3.
+// 4.
+// 5.

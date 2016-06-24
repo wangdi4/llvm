@@ -259,7 +259,7 @@ public:
         break;
       }
     }
-    DV.print(Level, FOS);
+    DV.print(FOS, Level);
     FOS << " \n";
     // todo
   }

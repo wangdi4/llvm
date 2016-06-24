@@ -1229,6 +1229,7 @@ void CanonExpr::verify(unsigned NestingLevel) const {
   for (auto I = BlobCoeffs.begin(), E = BlobCoeffs.end(); I != E; ++I) {
     BlobTy B = BlobUtils::getBlob(I->Index);
     (void)B;
+
     auto BScalTy = B->getType()->getScalarType();
     (void)BScalTy;
 

@@ -4857,8 +4857,8 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
 
     if (ForwardDV[0] != DVKind::NONE || BackwardDV[0] != DVKind::NONE) {
       // If either forward or backward DV is filled, okay to return
-      DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(Levels, dbgs()));
-      DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(Levels, dbgs()));
+      DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
+      DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs(), Levels));
       return true;
     }
   }
@@ -4903,9 +4903,9 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       ForwardDV[LTGTLevel - 1] = BackwardDV[LTGTLevel - 1] = DVKind::LT;
     }
     DEBUG(dbgs() << "\nforward DV: ";
-          ForwardDV.print(Result->getLevels(), dbgs()));
+          ForwardDV.print(dbgs(), Result->getLevels()));
     DEBUG(dbgs() << "\nbackward DV: ";
-          ForwardDV.print(Result->getLevels(), dbgs()));
+          ForwardDV.print(dbgs(), Result->getLevels()));
     return true;
   }
 
@@ -4930,9 +4930,9 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       }
     }
     DEBUG(dbgs() << "\nforward DV: ";
-          ForwardDV.print(Result->getLevels(), dbgs()));
+          ForwardDV.print(dbgs(), Result->getLevels()));
     DEBUG(dbgs() << "\nbackward DV: ";
-          BackwardDV.print(Result->getLevels(), dbgs()));
+          BackwardDV.print(dbgs(), Result->getLevels()));
     return true;
   }
 
@@ -4952,9 +4952,9 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   DEBUG(dbgs() << "\nforward DV: ";
-        ForwardDV.print(Result->getLevels(), dbgs()));
+        ForwardDV.print(dbgs(), Result->getLevels()));
   DEBUG(dbgs() << "\nbackward DV: ";
-        BackwardDV.print(Result->getLevels(), dbgs()));
+        BackwardDV.print(dbgs(), Result->getLevels()));
 
   return true;
 }
@@ -4996,7 +4996,8 @@ void DirectionVector::setZero() {
   fill(DVKind::NONE);
 }
 
-void DirectionVector::print(unsigned Levels, raw_ostream &OS) const {
+void DirectionVector::print(raw_ostream &OS, unsigned Levels,
+                            bool ShowLevelDetail) const {
   const DirectionVector &DV = *this;
   if (DV[0] == DVKind::NONE) {
     OS << "nil\n";
@@ -5005,6 +5006,10 @@ void DirectionVector::print(unsigned Levels, raw_ostream &OS) const {
 
   OS << "(";
   for (unsigned II = 1; II <= Levels; ++II) {
+    if (ShowLevelDetail) {
+      OS << II << ": ";
+    }
+
     switch (DV[II - 1]) {
     case DVKind::ALL:
       OS << "*";
@@ -5032,12 +5037,16 @@ void DirectionVector::print(unsigned Levels, raw_ostream &OS) const {
       break;
     default:
       break;
-    }
+    } // end:switch
     if (II != Levels) {
       OS << " ";
     }
   }
   OS << ")\n";
+}
+
+void DirectionVector::print(raw_ostream &OS, bool ShowLevelDetail) const {
+  print(OS, getLastLevel(), ShowLevelDetail);
 }
 
 /// Is  DV all ( = = = .. =)?

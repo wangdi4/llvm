@@ -31,7 +31,7 @@ FunctionPass *createHIRPrinterPass(raw_ostream &OS, const std::string &Banner);
 /// createHIRCodeGenPass - This creates a pass that generates LLVM IR from HIR.
 FunctionPass *createHIRCodeGenPass();
 
-/// createOptPredicatePass - This creates a pass that performs OptPredicate 
+/// createOptPredicatePass - This creates a pass that performs OptPredicate
 /// transformation on HIR.
 FunctionPass *createHIROptPredicatePass(int Threshold = -1);
 
@@ -47,8 +47,8 @@ FunctionPass *createHIRLoopDistributionPass(bool FormPerfectNest = true);
 /// Interchange
 FunctionPass *createHIRLoopInterchangePass();
 
-/// createHIRDummyTransformationPass - This creates a dummy pass that is used
-/// for debugging purposes.
+/// createHIRRuntimeDDPass - This creates a HIR Loop pass that is used
+/// for Runtime DD transformation
 FunctionPass *createHIRRuntimeDDPass();
 
 /// createHIRDummyTransformationPass - This creates a dummy pass that is used
@@ -58,6 +58,10 @@ FunctionPass *createHIRDummyTransformationPass();
 /// createHIRGeneralUnrollPass - This creates a pass that performs general
 /// unrolling for larger trip count HIR loops.
 FunctionPass *createHIRGeneralUnrollPass();
+
+/// createHIRLoopReversalPass - This creates a HIR Loop pass that performs Loop
+/// Reversal
+FunctionPass *createHIRLoopReversalPass();
 
 /// createHIRParDirInsertPass - This creates a pass that injects
 /// directives for auto parallelization loops.

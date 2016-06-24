@@ -713,8 +713,8 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
   // safe reduction.
   // We plan to avoid demand driven DD refining DV.
 
-  DEBUG(dbgs() << "\n\tStart, End level\n"
-               << OutmostNestingLevel << " " << InnermostNestingLevel);
+  DEBUG(dbgs() << "\n\tStart, End level\n" << OutmostNestingLevel << " "
+               << InnermostNestingLevel);
 
   //  Set refineDV as false for now (last argument) until we see kernels
   //  that really need to refine DV.

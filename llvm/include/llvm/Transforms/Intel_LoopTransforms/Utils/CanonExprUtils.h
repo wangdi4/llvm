@@ -20,6 +20,7 @@
 #include <stdint.h>
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 #include <set>
 
@@ -58,7 +59,8 @@ private:
   /// \brief Calculates the lcm of two positive inputs.
   static int64_t lcm(int64_t A, int64_t B);
 
-  /// \brief Creates a non-linear self blob canon expr from the passed in \p Val.
+  /// \brief Creates a non-linear self blob canon expr from the passed in \p
+  /// Val.
   /// The new blob is associated with symbase. New temp blobs from values are
   /// only created by framework.
   static CanonExpr *createSelfBlobCanonExpr(Value *Val, unsigned Symbase);
@@ -68,7 +70,7 @@ private:
   static CanonExpr *createMetadataCanonExpr(MetadataAsValue *Val);
 
   /// \brief Returns a standalone blob canon expr. Level is the defined
-  /// at level for the blob. 
+  /// at level for the blob.
   static CanonExpr *createStandAloneBlobCanonExpr(unsigned Index,
                                                   unsigned Level);
 
@@ -104,7 +106,7 @@ public:
                                        int64_t Const = 0, int64_t Denom = 1,
                                        bool IsSignedDiv = false);
 
-  /// \brief Returns a new linear CanonExpr created from APInt Value. 
+  /// \brief Returns a new linear CanonExpr created from APInt Value.
   static CanonExpr *createCanonExpr(Type *Ty, const APInt &APVal);
 
   /// \brief Returns a self-blob canon expr. Level is the defined at level for

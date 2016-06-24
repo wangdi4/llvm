@@ -103,7 +103,11 @@ inline const DVKind &operator|=(DVKind &Lhs, DVKind Rhs) {
 
 struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
   // Print DV from level 1 to Level
-  void print(unsigned Level, raw_ostream &OS) const;
+  void print(raw_ostream &OS, unsigned Level,
+             bool ShowLevelDetail = false) const;
+
+  // Print the entire DirectionVector
+  void print(raw_ostream &OS, bool ShowLevelDetail = false) const;
 
   /// Is  DV all ( = = = .. =)?
   bool isEQ() const;
