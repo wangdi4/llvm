@@ -92,6 +92,13 @@ public:
   /// \brief  Enables Perfect Loop Nests
   /// Takes care of simple cases that are needed for Interchange
   static bool enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG);
+  /// \brief  Checks if a LvalRef has 1 single use in a loop
+  static bool singleUseInLoop(RegDDRef *LvalRef, HLLoop *Loop, DDGraph DDG);
+  /// \brief  Checks if a DDRef is a valid reduction. It needs to match
+  /// the symbase as well
+  static bool isValidReductionDDRef(RegDDRef *RRef, HLLoop *Loop,
+                                    unsigned FirstSymbase,
+                                    bool *LastReductionInst, DDGraph DDG);
 };
 } // End namespace loopopt
 } // End namespace llvm

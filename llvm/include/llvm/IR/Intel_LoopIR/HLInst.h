@@ -80,12 +80,6 @@ public:
 
   /// \brief Returns the underlying Instruction.
   const Instruction *getLLVMInstruction() const { return Inst; }
-  /// \brief Returns true if this node is part of safe reduction chain.
-  bool isSafeRedn() const { return SafeRednSucc != 0; };
-
-  /// \brief Returns the safe reduction successor of this node in the chain.
-  HLInst *getSafeRednSucc() const { return SafeRednSucc; };
-  void setSafeRednSucc(HLInst *Succ) { SafeRednSucc = Succ; }
 
   /// \brief Returns true if the underlying instruction has an lval.
   bool hasLval() const;
@@ -213,6 +207,9 @@ public:
   /// \brief Checks whether the instruction is a call to SIMD Directive,
   /// i.e., intel_directive call with the right metadata.
   bool isSIMDDirective() const;
+
+  /// \brief Checks if the Opcode is a reduction and returns OpCode
+  bool isReductionOp(unsigned *OpCode) const;
 };
 
 } // End namespace loopopt

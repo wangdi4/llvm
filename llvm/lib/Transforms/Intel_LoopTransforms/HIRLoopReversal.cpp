@@ -66,6 +66,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -318,7 +319,7 @@ struct HIRLoopReversal::CollectDDInfo final : public HLNodeVisitorBase {
   bool getCollectionAborted(void) const { return HasInvalidDV; }
 
   void visit(const HLInst *Inst) {
-    if (Inst->isSafeRedn()) { // Ignore SafeReduction!
+    if (HLR->SRA->isSafeReduction(Inst)) { // Ignore SafeReduction!
       return;
     }
 
@@ -373,6 +374,7 @@ HIRLoopReversal::HIRLoopReversal(void) : HIRTransformPass(ID) {
 void HIRLoopReversal::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFramework>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
   AU.setPreservesAll();
 }
 
@@ -494,6 +496,8 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
 
   // Obtain Analysis Result(s)
   DDA = &getAnalysis<HIRDDAnalysis>();
+  SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+
   // TODO:
   // Re-Build DDA on demand if needed
 
@@ -694,6 +698,7 @@ bool HIRLoopReversal::isLegal(const HLLoop *Lp) {
 
   // Get DDGraph
   DDGraph DDG = DDA->getGraph(Lp2, false);
+  SRA->computeSafeReductionChains(Lp2);
   // Check the DDG:
   // DEBUG(dbgs() << "Dump the Full DDGraph:\n"; DDG.dump(););
 

@@ -27,6 +27,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -96,6 +97,7 @@ struct MarkedCanonExpr {
 class HIRLoopReversal : public HIRTransformPass {
 private:
   HIRDDAnalysis *DDA;                   // Data-Dependence Analysis Result
+  HIRSafeReductionAnalysis *SRA;
   SmallVector<MarkedCanonExpr, 8> CEAV; // Vector of MarkedCanonExpr
   struct CollectDDInfo;                 // CollectDDInfo Forward Declaration
   unsigned LoopLevel = 0;               // Current Loop's Level
