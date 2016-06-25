@@ -74,7 +74,16 @@ public:
 
   // Perform the actual loop widening (vectorization) using VL as the
   // vectorization factor.
-  bool vectorize(int VL);
+  bool vectorize(unsigned int VF);
+
+  // Check if loop is currently suported by AVRCodeGen. If \p VF is 0 ignore 
+  // it (which means that checks such as whether the trip count is evenly
+  // divisible by VF will not be done).  
+  bool loopIsHandled(unsigned int VF);
+
+  // Return the cost of remainder loop code, if a remainder loop is needed.
+  int getRemainderLoopCost(HLLoop *Loop, unsigned int VF, 
+                           unsigned int &TripCount); 
 
 private:
   AVR *Avr;
@@ -109,7 +118,10 @@ private:
 
   // Check for currently handled loops. Initial implementations
   // punts on seeing any control flow.
-  bool loopIsHandled();
+  // The output parameter \p TripCount holds the tripCount of the loop if it is
+  // a constant, zero otherwise.
+  bool loopIsHandledImpl(int64_t &TripCount);
+
   void widenNode(const HLNode *Node, HLNode *Anchor);
   RegDDRef *getVectorValue(const RegDDRef *Op);
   HLInst *widenReductionNode(const HLNode *Node, HLNode *Anchor);

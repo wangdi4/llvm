@@ -66,27 +66,39 @@ using namespace llvm::loopopt;
 // CHECKME: A different flow for different optimization levels?
 //
 // Implementation stages (for innermost loop vectorization):
-// Step0 [current]: Incorporate the VLS Memref analysis and VLS Group analysis
+// Step0 [done]: Incorporate the VLS Memref analysis and VLS Group analysis
 //        into the vectorizer.
 //        "evaluate" a single given/default VF candidate (dummy evaluation);
 //        No AVR changes.
 //        No Compile-time considerations.
 //        No changes in the behavior of the vectorizer.
-// Step1: Really evaluate a single given/default VF candidate (via TTI costs);
+// Step1: [done] Really evaluate a single given/default VF candidate (via TTI costs);
 //        Still no AVR changes.
 //        Still no Compile-time considerations.
 //        VLSGroups ignored in cost analysis.
 //        Given the default VF, the Vectorizer may now decide not to vectorize.
-// Step2: Evaluate several VF candidates;
+// Step2: [current] Evaluate several VF candidates;
 //        Still no Compile-time considerations.
 //        Still no AVR changes.
-// Step3: Refine the skeleton: Optimize (minimize) processing across VF
-//        candidates (for Compile time).
+// Step3: Fill remaining holes in the cost evaluation
 // Step4: Take into account VLSGroups in cost evaluation.
 // Step5: Prepare mechanism to allow changing the AVR.
 // Step6: Incorporate passes that may change the AVR.
+// Step7: Refine the skeleton: Optimize (minimize) processing across VF
+//        candidates (for Compile time).
 // Step7: ...
-VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
+VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
+
+  // Set the default VF according to any directives or user compiler switches,
+  // or otherwise set it to 1.
+  ForceVF = AWrn->getSimdVectorLength();
+  DEBUG(errs() << "VF = " << ForceVF << " DefaultVF = " << DefaultVF << "\n");
+  if (ForceVF == 0) {
+    ForceVF = DefaultVF;
+  }
+  int initialVF = ForceVF ? ForceVF : 1;
+  DEBUG(errs() << "Set dummy vectCand with VF = " << initialVF << "\n");
+  VPOVecContextBase VectCand(initialVF); 
 
 #if 1
   // FORNOW: An AVRWrn node is expected to have only one AVRLoop child
@@ -95,7 +107,7 @@ VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
        ++Itr) {
     if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
       if (AvrLoop)
-        return nullptr;
+        return VectCand;
 
       AvrLoop = TempALoop;
     }
@@ -103,7 +115,7 @@ VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
 
   // Check that we have an AVRLoop
   if (!AvrLoop)
-    return nullptr;
+    return VectCand; 
 #endif
 
   // Loop over search space of candidates within AWrn. In the future this will
@@ -111,8 +123,6 @@ VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
   // FORNOW: we expect to encounter only a single ALoop in AWrn.
   // So FORNOW: A region has a single innermost loop, and therefore a single
   // scenario: Scenario == a single AvrLoop considered for vectoriztion
-
-  VPOVecContextBase *VectCand;
 
   // TODO: CostOfBestScenario = 0;
   // TODO: foreach Scenario:
@@ -122,19 +132,30 @@ VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
     {
       setALoop(AvrLoop);
 
+      // VectCand represents the best way to vectorize this loop, including
+      // compared to leaving it scalar (in which case VectCand in null);
+
+      // Check if widening stage supports this loop. If ForceVF is zero, 
+      // isLoopHandled will not check if a remainder loop is needed.
+      // FORNOW: If this loop is not supported, return a dummy VC; In the 
+      // future we should continue to next candidate loop in region.
+      if (!loopIsHandled(ForceVF))
+        return VectCand;
+
+      int BestCostForALoop = 0;
       // Get the scalar cost for this loop.
+      // (No need to compute the cost if ForceVF is set to a VF forced by the 
+      // user).
       //
       // FORNOW: Calculate cost only for the candidate AvrLoop. We assume that
       // the rest of the code in the region will remain the same between the
       // scalar and vector versions.
-      int BestCostForALoop = getCM()->getCost(ALoop, 1);
+      if (ForceVF == 0) {
+        BestCostForALoop = getCM()->getCost(ALoop, 1);
+      }
       DEBUG(errs() << "Scalar Cost for candidate Loop = " << BestCostForALoop
                    << "\n");
       DEBUG(ALoop->dump(PrintDataType));
-
-      // VectCand represents the best way to vectorize this loop, including
-      // compared to leaving it scalar (in which case VectCand in null);
-      VectCand = nullptr;
 
       VectCand = processLoop(AvrLoop, &BestCostForALoop);
 
@@ -161,25 +182,16 @@ VPOVecContextBase *VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
 // vector regsiters supported by the target.
 void VPOScenarioEvaluationBase::findVFCandidates(
     VFsVector &VFCandidates) const {
-  int VF = 0;
-  int MinVF, MaxVF;
-  VF = AWrn->getSimdVectorLength();
-  DEBUG(errs() << "VF = " << VF << " DefaultVF = " << DefaultVF << "\n");
-  // FORNOW: Assume the default vectorization factor when VF is 0
-  // FORNOW: We consider a single candidate.
-  // CHECKME: DefaultVF OK for LLVMIR path?
-  if (VF == 0) {
-    MinVF = DefaultVF;
-    MaxVF = DefaultVF;
+  unsigned int MinVF, MaxVF;
+  if (ForceVF == 0) {
+    MinVF = 2;   // FIXME
+    MaxVF = 64;  // FIXME
   } else {
-    MinVF = VF;
-    MaxVF = VF;
+    MinVF = ForceVF;
+    MaxVF = ForceVF;
   }
 
-  // FORNOW: We consider a single VF.
-  assert(MinVF == MaxVF && "No support for multiple VF candidates.");
-  // (FORNOW: iterate once:)
-  for (VF = MinVF; VF <= MaxVF; VF *= 2) {
+  for (unsigned int VF = MinVF; VF <= MaxVF; VF *= 2) {
     VFCandidates.push_back(VF);
   }
 }
@@ -187,7 +199,7 @@ void VPOScenarioEvaluationBase::findVFCandidates(
 //#undef USE_SLEV
 #define USE_SLEV 1
 
-VPOVecContextBase *
+VPOVecContextBase
 VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
   DEBUG(errs() << "Process Loop\n");
 
@@ -219,14 +231,14 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
 
   // Evaluate each VF candidate
   //
-  VPOVecContextBase *BestCand = nullptr;
+  VPOVecContextBase BestCand(1);
   for (auto &VF : VFCandidates) {
 
     DEBUG(errs() << "Evaluate candidate with VF = " << VF << "\n");
     // Currently VecContext is used to hold underlying-IR level information
     // required for some of the analyses in processCandidates (namely, for VLS
     // grouping).
-    VPOVecContextBase &VC = setVecContext(VF);
+    VPOVecContextBase VC = setVecContext(VF);
     int Cost = processCandidate(ALoop, VF, VC);
 
     // FIXME: Change condition back to <; FORNOW using <= simply to avoid
@@ -234,7 +246,7 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
     // tests expect will be vectorized.
     if (Cost <= *BestCostForALoop) {
       *BestCostForALoop = Cost;
-      BestCand = &VC;
+      BestCand = VC;
       DEBUG(errs() << "New Best Candidate Cost = " << *BestCostForALoop
                    << " for VF = " << VF << " \n");
     }
@@ -298,9 +310,13 @@ int VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop, unsigned int VF,
   VLSInfo->analyzeVLSGroupsInLoop(VLSMrfs, VLSGrps);
 
   // Calculate the cost of the current candidate
+  // (No need to calculate cost if the user forced a specific VF).
   //
   // FORNOW: The VLS Groups are not yet used by the CostModel.
-  int Cost = getCM()->getCost(ALoop, VF);
+  int Cost = 0; 
+  if (ForceVF == 0) { 
+    Cost = getCM()->getCost(ALoop, VF);
+  } 
   DEBUG(errs() << "Vector Cost for candidate Loop = " << Cost << "\n");
 
   // Cleaups.
@@ -371,22 +387,22 @@ void VPOCostGathererBase::visit(AVRLoop *Loop) {
 // TODO: If this is an inner-loop inside the ALoop being vectorized: multiply
 // by the iteration-count
 void VPOCostGathererBase::postVisit(AVRLoop *Loop) {
-  DEBUG(errs() << "visited loop!\n");
+  //DEBUG(errs() << "visited loop!\n");
 }
 
 void VPOCostGathererBase::visit(AVRAssign *Assign) {
-  DEBUG(errs() << "visiting assign!\n");
+  //DEBUG(errs() << "visiting assign!\n");
 }
 
 // TODO: Take blend cost into account if masked.
 void VPOCostGathererBase::postVisit(AVRAssign *Assign) {
-  DEBUG(errs() << "visited assign!\n");
+  //DEBUG(errs() << "visited assign!\n");
 }
 
 // Following will soon move under handling of Expr
 #if 1
 void VPOCostGathererBase::visit(AVRLabel *Label) {
-  DEBUG(errs() << "visit Label!\n");
+  //DEBUG(errs() << "visit Label!\n");
 }
 
 void VPOCostGathererBase::visit(AVRCall *Call) {
@@ -429,7 +445,7 @@ void VPOCostGathererBase::visit(AVR *ANode) {
 #endif
 
 void VPOCostGathererBase::visit(AVRExpression *Expr) {
-  DEBUG(errs() << "visiting expr!\n");
+  //DEBUG(errs() << "visiting expr!\n");
   if (Expr->isLHSExpr()) {
     // We assume that there is no operation here, just a Value
     return;
@@ -453,13 +469,13 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
   if (Expr->isLHSExpr()) {
     // FORNOW: Not contributing any cost
     // TODO: What about costly address computations on HIR side?
-    DEBUG(errs() << "visited expr: LHS: no cost contributed!\n");
+    // DEBUG(errs() << "visited expr: LHS: no cost contributed!\n");
     return;
   }
 
   switch (Expr->getOperation()) {
   case Instruction::GetElementPtr: {
-    DEBUG(errs() << "Query cost of getElementPtr\n");
+    // DEBUG(errs() << "Query cost of getElementPtr\n");
     // "We mark this instruction as zero-cost because the cost of GEPs in
     // vectorized code depends on whether the corresponding memory instruction
     // is scalarized or not. Therefore, we handle GEPs with the memory
@@ -587,7 +603,7 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
 
   case Instruction::Load:
   case Instruction::Store: {
-    DEBUG(errs() << "TODO: Query cost of load/store instruction\n");
+    //DEBUG(errs() << "TODO: Query cost of load/store instruction\n");
 
     // 0. Get the pointer and value operands
     bool isStore = (Expr->getOperation() == Instruction::Store ? true : false);
@@ -759,7 +775,7 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
 // TODO: Contribute the cost of producing this value if not already
 // available, according to the SLEV property.
 void VPOCostGathererBase::visit(AVRValue *AValue) {
-  DEBUG(errs() << "visiting value!\n");
+  //DEBUG(errs() << "visiting value!\n");
 }
 
 void VPOCostGathererBase::postVisit(AVRValue *AValue) {}
@@ -774,17 +790,23 @@ int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF) {
   DEBUG(errs() << "getCost: VF = " << VF << "\n");
   int Cost;
 
+  // Calculate LoopBody Cost 
   assert(TTI && "No TTI available");
   VPOCostGathererBase &CostGatherer = getCostGatherer(VF, ALoop);
   AVRVisitor<VPOCostGathererBase> AVisitor(CostGatherer);
   AVisitor.visit(ALoop, true, true, true);
-
   unsigned int LoopBodyCost = CostGatherer.getLoopBodyCost();
+
+  // Calculate OutOfLoop Costs. 
+  unsigned int LoopCount;
+  unsigned int RemainderLoopCost = getRemainderLoopCost(ALoop, VF, LoopCount);
+  DEBUG(errs() << "RemainderLoopCost = " << RemainderLoopCost
+               << " LoopCount = " << LoopCount << "\n");
+  CostGatherer.addOutOfLoopCost(RemainderLoopCost);
   unsigned int OutOfLoopCost = CostGatherer.getOutOfLoopCost();
   DEBUG(errs() << "LoopBodyCost = " << LoopBodyCost
                << " OutOfLoopCost = " << OutOfLoopCost << "\n");
-  // FIXME: Take the LoopCount if available.
-  // TODO: Consider remainder-loop etc. costs...
-  Cost = (LoopBodyCost * 100 / VF) + OutOfLoopCost;
+  if (LoopCount <= 0) LoopCount = 100;
+  Cost = (LoopBodyCost * LoopCount / VF) + OutOfLoopCost;
   return Cost;
 }

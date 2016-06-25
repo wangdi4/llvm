@@ -73,7 +73,7 @@ public:
   /// vectorization opportunities in a Region.
   virtual VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AWrn) = 0;
 
-  /// Call the destcructor of the ScenariosEngine for this region. 
+  /// Call the destructor of the ScenariosEngine for this region. 
   virtual void resetScenariosEngineForRegion() = 0;
 };
 

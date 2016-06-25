@@ -282,10 +282,9 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
 // evaluation.
 // FORNOW there is only one AVRLoop per region, so we will re-discover
 // the same AVRLoop that the vecScenarioEvaluation had "selected".
-bool AVRCodeGenHIR::loopIsHandled() {
+bool AVRCodeGenHIR::loopIsHandledImpl(int64_t &ConstTripCount) {
   AVRWrn *AWrn = nullptr;
   AVRLoop *ALoop = nullptr;
-  unsigned int TripCount = 0;
   WRNVecLoopNode *WVecNode;
   HLLoop *Loop = nullptr;
 
@@ -328,10 +327,6 @@ bool AVRCodeGenHIR::loopIsHandled() {
       return false;
   }
 
-  assert(VL >= 1);
-  if (VL == 1)
-    return false;
-  
   // Loop parent is expected to be an HLRegion
   HLRegion *Parent = dyn_cast<HLRegion>(Loop->getParent());
   if (!Parent)
@@ -371,16 +366,24 @@ bool AVRCodeGenHIR::loopIsHandled() {
     return false;
 
   // TripCount is (Upper -Lower)/Stride + 1.
-  int64_t ConstTripCount = (int64_t)((UBConst - LBConst) / StepConst) + 1;
-
-  // Check for positive trip count and that  trip count is a multiple of vector
-  // length.
-  // No remainder loop is generated currently.
-  if (ConstTripCount <= 0 || ConstTripCount % VL)
-    return false;
+  ConstTripCount = (int64_t)((UBConst - LBConst) / StepConst) + 1;
 
   setALoop(ALoop);
-  setTripCount(TripCount);
+  return true;
+}
+
+bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
+  int64_t ConstTripCount = 0;
+  if (!loopIsHandledImpl(ConstTripCount))
+    return false;
+
+  // Check for positive trip count and that trip count is a multiple of vector
+  // length.
+  // No remainder loop is generated currently.
+  if (ConstTripCount <= 0 || (VF && ConstTripCount % VF))
+    return false;
+
+  setTripCount((unsigned int)ConstTripCount);
 
   DEBUG(errs() << "Handled loop\n");
   return true;
@@ -389,11 +392,14 @@ bool AVRCodeGenHIR::loopIsHandled() {
 // TODO: Change all VL occurences with VF
 // TODO: Have this method take a VecContext as input, which indicates which
 // AVRLoops in the region to vectorize, and how (using what VF).
-bool AVRCodeGenHIR::vectorize(int VL) {
+bool AVRCodeGenHIR::vectorize(unsigned int VL) {
   bool RetVal, LoopHandled;
 
   setVL(VL);
-  LoopHandled = loopIsHandled();
+  assert(VL >= 1);
+  if (VL == 1)
+    return false;
+  LoopHandled = loopIsHandled(VL);
   if (!LoopHandled)
     return false;
 
@@ -401,13 +407,27 @@ bool AVRCodeGenHIR::vectorize(int VL) {
   DEBUG(OrigLoop->dump(true));
 
   RHM.mapHLNodes(cast<HLRegion>(OrigLoop->getParent()));
-
+ 
   RetVal = processLoop();
 
   DEBUG(errs() << "\n\n\nHandled loop after: \n");
   DEBUG(OrigLoop->dump(true));
 
   return RetVal;
+}
+
+int AVRCodeGenHIR::getRemainderLoopCost(HLLoop *Loop, unsigned int VF, 
+                                        unsigned int &ConstTripCount) {
+  ConstTripCount = TripCount;
+  // Check for positive trip count and that trip count is a multiple of vector
+  // length. Otherwise a remainder loop is needed. Since CG currently does not
+  // support remainder loops, return a dummy high cost to make sure this VF will
+  // not be selected as vectorization factor.
+  if (TripCount == 0 || TripCount % VF) {
+    return 1000;
+  }
+
+  return 0;
 }
 
 void AVRCodeGenHIR::eraseIntrinsBeforeLoop() {

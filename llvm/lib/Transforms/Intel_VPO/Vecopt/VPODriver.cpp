@@ -190,29 +190,40 @@ bool VPODriverBase::runOnFunction(Function &F) {
       continue;
     }
 
-    // Decide if/how to vectorize in terms of profitability.
     VPOScenarioEvaluationBase &ScenariosEngine = getScenariosEngine(AvrWrn);
 
-    // VC is null if it is not profitable to vectorize
-    // Or if we don't support the region (it has more than one AVRLoop).
-    VPOVecContextBase *VC = ScenariosEngine.getBestCandidate(AvrWrn);
-    if (!VC) {
-      DEBUG(errs() << "VPODriver: Scenarios engine returned a null pointer");
-      continue;
-    }
-
-    // FORNOW: We pass CodeGen only the selected VF, since currently AvrWrn
-    // contains only a single ALoop. TODO: Pass the entire context (VC) to
-    // AvrCGNode.
-    int VF = VC->getVectFactor();
 
     if (AvrWrn->getWrnNode()->getIsFromHIR() == false) {
       AVRCodeGen AvrCGNode(Avr, SC, LI, &F);
+      assert(isa<VPOScenarioEvaluation>(ScenariosEngine));
+      VPOScenarioEvaluation *LLVMIRScenariosEngine = 
+         cast<VPOScenarioEvaluation>(&ScenariosEngine); 
+      LLVMIRScenariosEngine->setCG(&AvrCGNode);
+
+      // Decide if/how to vectorize in terms of profitability.
+      VPOVecContextBase VC = ScenariosEngine.getBestCandidate(AvrWrn);
+
+      // FORNOW: We pass CodeGen only the selected VF, since currently AvrWrn
+      // contains only a single ALoop. 
+      int VF = VC.getVectFactor();
+      DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF << "\n");
 
       // Widen selected candidate
       ret_val = ret_val | AvrCGNode.vectorize(VF);
     } else {
       AVRCodeGenHIR AvrCGNode(Avr);
+      assert(isa<VPOScenarioEvaluationHIR>(ScenariosEngine));
+      VPOScenarioEvaluationHIR *HIRScenariosEngine = 
+         cast<VPOScenarioEvaluationHIR>(&ScenariosEngine); 
+      HIRScenariosEngine->setCG(&AvrCGNode);
+
+      // Decide if/how to vectorize in terms of profitability.
+      VPOVecContextBase VC = ScenariosEngine.getBestCandidate(AvrWrn);
+
+      // FORNOW: We pass CodeGen only the selected VF, since currently AvrWrn
+      // contains only a single ALoop.
+      int VF = VC.getVectFactor();
+      DEBUG(errs() << "VPODriver: Scenarios engine selected VF " << VF << "\n");
 
       // Widen selected candidate
       ret_val = ret_val | AvrCGNode.vectorize(VF);
