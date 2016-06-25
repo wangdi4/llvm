@@ -32,7 +32,7 @@ private:
   /// \brief Do not allow instantiation
   HIRLoopTransformUtils() = delete;
 
-  friend class HIRLoopReversal;
+  friend class reversal::HIRLoopReversal;
 
 public:
   // *** HIR-Loop-Reversal-Related Section ***
