@@ -32,7 +32,34 @@ private:
   /// \brief Do not allow instantiation
   HIRLoopTransformUtils() = delete;
 
-  friend class reversal::HIRLoopReversal;
+  /// \brief Updates bound DDRef by setting the correct defined at level and
+  /// adding a blob DDref for the newly created temp.
+  static void updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
+                               unsigned DefLevel);
+
+  /// Returns true if unrolling \p OrigLoop by UnrollOrVecFactor requires a
+  /// remainder loop. It also creates new bounds for unrolled loops.
+  /// \p NewBound is used to return new upper bound for constant trip loops
+  /// \p  NewUBRef is used for non-constant trip loops.
+  static bool isRemainderLoopNeeded(HLLoop *OrigLoop,
+                                    unsigned UnrollOrVecFactor,
+                                    uint64_t *NewBound, RegDDRef **NewRef);
+
+  /// \brief Creates a new loop for unrolling or vectorization. \p NewBound
+  /// contains the new upper bound if the original loop is a constant trip
+  /// count. For a original non-constant trip count loop, the new upper bound
+  /// is specified in \p NewRef.
+  static HLLoop *createUnrollOrVecLoop(HLLoop *OrigLoop,
+                                       unsigned UnrollOrVecFactor,
+                                       uint64_t NewBound,
+                                       const RegDDRef *NewRef);
+
+  /// \brief Processes the remainder loop for general unrolling and
+  /// vectorization. The loop passed in \p OrigLoop is set up to be
+  /// the remainder loop with lowerbound set using \p NewBound or
+  /// \p NewRef.
+  static void processRemainderLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
+                                   uint64_t NewBound, const RegDDRef *NewRef);
 
 public:
   // *** HIR-Loop-Reversal-Related Section ***
@@ -69,6 +96,17 @@ public:
       HIRDDAnalysis &DDAnalysis, // INPUT: client provides a HIRDDAnalysis
       bool &LoopReversed // OUTPUT: true if the loop is successfully reversed
       );
+
+  /// This function creates and returns a  new loop that will be used as the
+  ///  main loop for unrolling or vectorization(current clients). The bounds
+  /// for this newly created loop are set appropriately using the bounds of
+  /// \p OrigLoop and \p UnrollOrVecFactor. If a remainder loop is needed,
+  /// \p NeedRemainderLoop is set to true and the bounds of \p OrigLoop are
+  /// updated appropriately. Client is responsible for deleting OrigLoop if
+  /// a remainder loop is not needed.
+  static HLLoop *setupMainAndRemainderLoops(HLLoop *OrigLoop,
+                                            unsigned UnrollOrVecFactor,
+                                            bool &NeedRemainderLoop);
 };
 
 } // End namespace loopopt
