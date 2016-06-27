@@ -164,20 +164,18 @@ public:
                                                     StructType *IdentTy,
                                                     BasicBlock *BB);
 
-    /// \brief Generates KMPC runtime call to the function \p IntrinsicName with
-    /// arguments Loc(obtained using \p IdentTy) and \p Args. The function inserts Instructions in
-    /// the IR for obtaining Loc, before the \p InsertPt, and inserts the
-    /// function prototype into the module symbol table. But it does not insert
-    /// the final KMPC call.
-    /// \param IdentTy and \p InsertPt are used to obtain Loc needed by the
+    /// \brief Generates KMPC runtime call to the function \p IntrinsicName
+    /// with arguments Loc(obtained using \p IdentTy), Tid (Obtained using \p
+    /// TidPtr), and \p Args. The function inserts Instructions into the IR for
+    /// obtaining Loc and Tid, before the \p InsertPt, and inserts the function
+    /// prototype into the module symbol table. But it does not insert the final
     /// KMPC call.
-    /// \param IntrinsicName is the name of the function.
-    /// \param ReturnTy is the return type of the function.
-    /// \param Args arguments for the function call.
-    /// \returns the generated CallInst.
-    static CallInst *genKmpcCall(WRegionNode *W, StructType *IdentTy,
-                                 Instruction *InsertPt, StringRef IntrinsicName,
-                                 Type *ReturnTy, ArrayRef<Value *> Args);
+    /// \returns The generated CallInst.
+    static CallInst *genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
+                                        AllocaInst *TidPtr,
+                                        Instruction *InsertPt,
+                                        StringRef IntrinsicName, Type *ReturnTy,
+                                        ArrayRef<Value *> Args);
 
   private:
     ///  \name Private constructor and destructor to disable instantiation.
@@ -188,12 +186,27 @@ public:
 
     /// @}
 
+    /// \brief Generates KMPC runtime call to the function \p IntrinsicName
+    /// with arguments Loc(obtained using \p IdentTy) and \p Args. The function
+    /// inserts Instructions into the IR for obtaining Loc, before the \p
+    /// InsertPt, and inserts the function prototype into the module symbol
+    /// table. But it does not insert the final KMPC call.
+    /// \param IdentTy and \p InsertPt are used to obtain Loc needed by the
+    /// KMPC call.
+    /// \param IntrinsicName is the name of the function.
+    /// \param ReturnTy is the return type of the function.
+    /// \param Args arguments for the function call.
+    /// \returns the generated CallInst.
+    static CallInst *genKmpcCall(WRegionNode *W, StructType *IdentTy,
+                                 Instruction *InsertPt, StringRef IntrinsicName,
+                                 Type *ReturnTy, ArrayRef<Value *> Args);
+
     /// \brief Generates a call to the function \p FnName.
     /// If the function is not already declared in the module \p M, then it is
     /// declared here. Otherwise, the existing declaration is used.
     /// \param M Module for which the call is generated.
     /// \param FnName Name of the function.
-    /// \param ReturnTy Return type of the function.
+    /// \param ReturnTy Return type of the function. 
     /// \param FnArgs Arguments for the function call.
     static CallInst *genCall(Module *M, StringRef FnName, Type *ReturnTy,
                              ArrayRef<Value *> FnArgs);

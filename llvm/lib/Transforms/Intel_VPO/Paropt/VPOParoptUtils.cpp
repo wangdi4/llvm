@@ -461,6 +461,37 @@ AllocaInst *VPOParoptUtils::genKmpcLocforImplicitBarrier(WRegionNode *W,
   return KmpcLoc;
 }
 
+// Generates a KMPC call to IntrinsicName with Tid obtained using TidPtr.
+CallInst *
+VPOParoptUtils::genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
+                                   AllocaInst *TidPtr, Instruction *InsertPt,
+                                   StringRef IntrinsicName, Type *ReturnTy,
+                                   ArrayRef<Value *> Args) {
+  assert(W != nullptr && "WRegionNode is null.");
+  assert(IdentTy != nullptr && "IdentTy is null.");
+  assert(InsertPt != nullptr && "InsertPt is null.");
+  assert(!IntrinsicName.empty() && "IntrinsicName is empty.");
+  assert(TidPtr != nullptr && "TidPtr is null.");
+
+  // The KMPC call is of form:
+  //     __kmpc_atomic_<type>(loc, tid, args).
+  // We have the Intrinsic name, its return type and other function args. The
+  // loc argument is obtained using the IdentTy struct inside genKmpcCall. But
+  // we need a valid Tid, which we can load into memory using TidPtr.
+  LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
+  LoadTid->setAlignment(4);
+
+  // Now compile all the function arguments together.
+  SmallVector<Value*, 3> FnArgs = {LoadTid};
+  FnArgs.append(Args.begin(), Args.end());
+
+  // Now try to generate the KMPC call.
+  return VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, IntrinsicName,
+                                     ReturnTy, FnArgs);
+}
+
+// Private Helpers
+
 // Generates KMPC calls to the intrinsic `IntrinsicName`.
 CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
                                       Instruction *InsertPt,
@@ -482,7 +513,7 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
 
   // Before emitting the KMPC call, we need the Loc information.
   AllocaInst *Loc = genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
-  DEBUG(dbgs() << __FUNCTION__ << ": Source Location Info: " << *Loc << "\n");
+  DEBUG(dbgs() << __FUNCTION__ << ": Loc: " << *Loc << "\n");
 
   // At this point, we have all the function args: loc + incoming Args. We bind
   // them together as FnArgs.
@@ -497,7 +528,6 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
   return genCall(M, IntrinsicName, ReturnTy, FnArgs);
 }
 
-// Private Helpers
 
 // Genetates a CallInst for a function with name `FnName`.
 CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
