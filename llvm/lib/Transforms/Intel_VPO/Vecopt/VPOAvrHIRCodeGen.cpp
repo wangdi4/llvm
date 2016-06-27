@@ -339,6 +339,10 @@ bool AVRCodeGenHIR::loopIsHandled() {
     return false;
 
   // Live out for reduction only
+  // TODO - HIR added support for recognizing reductions and we now
+  // mark loops with self reductions as vectorizable. However, we do
+  // not handle these in code generation. The check below will mark
+  // these cases as not handled for now.
   for (auto LiveOut : Parent->live_out())
     if (!RHM.isReductionVariable(LiveOut.second))
       return false;

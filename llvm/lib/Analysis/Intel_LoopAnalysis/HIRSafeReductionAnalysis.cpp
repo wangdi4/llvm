@@ -221,9 +221,15 @@ bool HIRSafeReductionAnalysis::isValidSR(RegDDRef *LRef, HLLoop *Loop,
     return false;
   }
 
-  for (auto I = DDG.outgoing_edges_begin(LRef),
-            E = DDG.outgoing_edges_end(LRef);
-       I != E; ++I) {
+  auto I = DDG.outgoing_edges_begin(LRef);
+  auto E = DDG.outgoing_edges_end(LRef);
+
+  // No outgoing edges
+  if (I == E) {
+    return false;
+  }
+
+  for ( ; I != E; ++I) {
     const DDEdge *Edge = *I;
     if (!Edge->isFLOWdep()) {
       return false;
