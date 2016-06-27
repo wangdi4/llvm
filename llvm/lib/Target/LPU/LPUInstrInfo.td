@@ -417,12 +417,12 @@ multiclass StOp<string opStr, RegisterClass RC, ValueType opType,
     def Xi : FMTGEN<
       (outs),
       (ins ADDR_RX:$addr, Operand<opType>:$data),
-      !strconcat(opStr, "x\t%ign, $addr, $data"),
+      !strconcat(opStr, "x\t$addr, $data, %ign"),
       [(store (opType immNode:$data), ADDR_RX:$addr)]>;
     def X : FMTGEN<
       (outs),
       (ins ADDR_RX:$addr, RC:$data),
-      !strconcat(opStr, "x\t%ign, $addr, $data"),
+      !strconcat(opStr, "x\t$addr, $data, %ign"),
       [(store opType:$data, ADDR_RX:$addr)]>;
   }
 
@@ -430,22 +430,22 @@ multiclass StOp<string opStr, RegisterClass RC, ValueType opType,
     def Di : FMTGEN<
       (outs),
       (ins ADDR_RI:$addr, Operand<opType>:$data),
-      !strconcat(opStr, "d\t%ign, $addr, $data"),
+      !strconcat(opStr, "d\t$addr, $data, %ign"),
       [(store (opType immNode:$data), ADDR_RI:$addr)]>;
     def D : FMTGEN<
       (outs),
       (ins ADDR_RI:$addr, RC:$data),
-      !strconcat(opStr, "d\t%ign, $addr, $data"),
+      !strconcat(opStr, "d\t$addr, $data, %ign"),
       [(store opType:$data, ADDR_RI:$addr)]>;
     def Ri : FMTGEN<
       (outs),
       (ins ADDR_RR:$addr, Operand<opType>:$data),
-      !strconcat(opStr, "d\t%ign, $addr, $data"),
+      !strconcat(opStr, "d\t$addr, $data, %ign"),
       [(store (opType immNode:$data), ADDR_RR:$addr)]>;
     def R : FMTGEN<
       (outs),
       (ins ADDR_RR:$addr, RC:$data),
-      !strconcat(opStr, "d\t%ign, $addr, $data"),
+      !strconcat(opStr, "d\t$addr, $data, %ign"),
       [(store opType:$data, ADDR_RR:$addr)]>;
   }
 
@@ -453,12 +453,12 @@ multiclass StOp<string opStr, RegisterClass RC, ValueType opType,
     def i : FMTGEN<
       (outs),
       (ins ADDR_R:$addr, Operand<opType>:$data),
-      !strconcat(opStr, "\t%ign, $addr, $data"),
+      !strconcat(opStr, "\t$addr, $data, %ign"),
       [(store (opType immNode:$data), ADDR_R:$addr)]>;
     def "" : FMTGEN<
       (outs),
       (ins ADDR_R:$addr, RC:$data),
-      !strconcat(opStr, "\t%ign, $addr, $data"),
+      !strconcat(opStr, "\t$addr, $data, %ign"),
       [(store opType:$data, ADDR_R:$addr)]>;
   }
 }
