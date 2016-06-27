@@ -44,6 +44,12 @@ const TargetRegisterClass* LPUMachineFunctionInfo::licRCFromGenRC(const TargetRe
   else if (RC == &LPU::I16RegClass) return &LPU::CI16RegClass;
   else if (RC == &LPU::I32RegClass) return &LPU::CI32RegClass;
   else if (RC == &LPU::I64RegClass) return &LPU::CI64RegClass;
+  else if (RC == &LPU::RI0RegClass)  return &LPU::CI0RegClass;
+  else if (RC == &LPU::RI1RegClass)  return &LPU::CI1RegClass;
+  else if (RC == &LPU::RI8RegClass)  return &LPU::CI8RegClass;
+  else if (RC == &LPU::RI16RegClass) return &LPU::CI16RegClass;
+  else if (RC == &LPU::RI32RegClass) return &LPU::CI32RegClass;
+  else if (RC == &LPU::RI64RegClass) return &LPU::CI64RegClass;
   return NULL;
 }
 

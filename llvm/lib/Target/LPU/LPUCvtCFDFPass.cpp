@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <map>
+#include <deque>
 #include "LPU.h"
 #include "InstPrinter/LPUInstPrinter.h"
 #include "LPUInstrInfo.h"
@@ -44,6 +44,7 @@ static cl::opt<int>
 CvtCFDFPass("lpu-cvt-cf-df-pass", cl::Hidden,
                cl::desc("LPU Specific: Convert control flow to data flow pass"),
                cl::init(1));
+
 
 #define DEBUG_TYPE "lpu-cvt-cf-df-pass"
 
@@ -199,9 +200,9 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
     assert(MLI->getLoopFor(cdgpBB)->getLoopLatch() == cdgpBB);
     //LLVM 3.6 buggy latch with no exit edge
     //get a wierd latch with no exit edge from LLVM 3.6 buggy loop rotation
-    const unsigned copyOpcode = TII.getCopyOpcode(TRC);
+    const unsigned moveOpcode = TII.getMoveOpcode(TRC);
     unsigned cpyReg = MRI->createVirtualRegister(TRC);
-    MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII.get(copyOpcode), cpyReg).addReg(Reg);
+    MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(Reg);
     result = cpyInst;
   }
   return result;
@@ -263,8 +264,8 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
   unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
 #endif
 
-  const unsigned copyOpcode = TII.getCopyOpcode(TRC);
-  MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(),TII.get(copyOpcode), cpyReg).addReg(bi->getOperand(0).getReg());
+  const unsigned moveOpcode = TII.getMoveOpcode(TRC);
+  MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(),TII.get(moveOpcode), cpyReg).addReg(bi->getOperand(0).getReg());
   MachineBasicBlock *lphdr = MLI->getLoopFor(cdgpBB)->getHeader();
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
   const unsigned InitOpcode = TII.getInitOpcode(TRC);
@@ -679,8 +680,6 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
         unsigned Reg = MO->getReg();
         // process use at loop level
         if (MO->isUse()) {
-          //move to its incoming block operand
-          //++MO;
           MachineInstr* dMI = MRI->getVRegDef(Reg);
           MachineBasicBlock* DefBB = dMI->getParent();
           bool defInsideLoop = false;
@@ -908,37 +907,59 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
 					addReg(pickTrueReg);
 				pickReg = newdst;
 			}
-			const unsigned copyOpcode = TII.getCopyOpcode(TRC);
-			MachineInstr *cpyInst = BuildMI(*mbb, MI, DebugLoc(), TII.get(copyOpcode), dst).addReg(pickReg);
+			const unsigned moveOpcode = TII.getMoveOpcode(TRC);
+			MachineInstr *cpyInst = BuildMI(*mbb, MI, DebugLoc(), TII.get(moveOpcode), dst).addReg(pickReg);
 			MI->removeFromParent();
 		}
 	}
 }
 
 
-
-
-
 void LPUCvtCFDFPass::setIGN() {
-	typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
-	const TargetMachine &TM = thisMF->getTarget();
-	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-	const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
-	MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-
-	for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
-		for (MachineBasicBlock::iterator MI = BB->begin(), E = BB->end(); MI != E; ++MI) {
-			if (TII.isSwitch(MI)) {
-				for (MIOperands MO(MI); MO.isValid(); ++MO) {
-					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-					unsigned Reg = MO->getReg();
-					if (MO->isDef() && MRI->use_empty(Reg)) {
-						MI->substituteRegister(Reg, LPU::IGN, 0, TRI);
-					}
-				}
-			}
-		}
-	}
+  const TargetMachine &TM = thisMF->getTarget();
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
+  std::deque<unsigned> renameQueue;
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+    for (MachineBasicBlock::iterator MI = BB->begin(), E = BB->end(); MI != E; ++MI) {
+      if (TII.isPick(MI) || TII.isSwitch(MI)) {
+        for (MIOperands MO(MI); MO.isValid(); ++MO) {
+          if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+          unsigned Reg = MO->getReg();
+          if (MO->isDef() && MRI->use_empty(Reg) && TII.isSwitch(MI)) {
+            MI->substituteRegister(Reg, LPU::IGN, 0, TRI);
+          } else {
+            renameQueue.push_back(Reg);
+          }
+        }
+      }
+    }
+  }
+  while (!renameQueue.empty()) {
+    unsigned dReg = renameQueue.front();
+    renameQueue.pop_front();
+    MachineInstr *DefMI = MRI->getVRegDef(dReg);
+    if (!DefMI ) continue;
+    //if (TII.isLoad(DefMI) || TII.isStore(DefMI)) continue;
+    const TargetRegisterClass *TRC = MRI->getRegClass(dReg);
+    const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(MRI->getRegClass(dReg));
+    assert(new_LIC_RC && "unknown LPU register class");
+    unsigned phyReg = LMFI->allocateLIC(new_LIC_RC);
+    DefMI->substituteRegister(dReg, phyReg, 0, TRI);
+    MachineRegisterInfo::use_iterator UI = MRI->use_begin(dReg);
+    while (UI != MRI->use_end()) {
+      MachineOperand &UseMO = *UI;
+      ++UI;
+      UseMO.setReg(phyReg);
+    }
+    for (MIOperands MO(DefMI); MO.isValid(); ++MO) {
+      if (!MO->isReg() || !MO->isUse() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+      unsigned Reg = MO->getReg();
+      renameQueue.push_back(Reg);
+    }
+  }
 }
 
 
