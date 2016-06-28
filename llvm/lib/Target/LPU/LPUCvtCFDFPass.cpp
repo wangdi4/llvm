@@ -45,6 +45,11 @@ CvtCFDFPass("lpu-cvt-cf-df-pass", cl::Hidden,
                cl::desc("LPU Specific: Convert control flow to data flow pass"),
                cl::init(1));
 
+static cl::opt<int>
+RunSXU("lpu-run-sxu", cl::Hidden,
+	cl::desc("LPU Specific: run on sequential unit"),
+	cl::init(0));
+
 
 #define DEBUG_TYPE "lpu-cvt-cf-df-pass"
 
@@ -79,7 +84,8 @@ namespace llvm {
     void replaceLoopHdrPhi();
     void replaceIfFooterPhi();
     void replace2InputsIfFooterPhi(MachineInstr* MI);
-	void setIGN();
+	  void assignLicForDF();
+	  void removeBranch();
     void releaseMemory() override;
   private:
     MachineFunction *thisMF;
@@ -128,7 +134,6 @@ void LPUCvtCFDFPass::replacePhiWithPICK() {
   replaceIfFooterPhi();
 }
 
-
 //return the first non latch parent found or NULL
 ControlDependenceNode* LPUCvtCFDFPass::getNonLatchParent(ControlDependenceNode* anode, bool oneAndOnly ) {
 	ControlDependenceNode* pcdn = nullptr;
@@ -145,8 +150,6 @@ ControlDependenceNode* LPUCvtCFDFPass::getNonLatchParent(ControlDependenceNode* 
 	}
 	return pcdn;
 } 
-
-
 
 
 bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
@@ -171,7 +174,10 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForRepeat();
   insertSWITCHForLoopExit();
   replacePhiWithPICK();
-  setIGN();
+  assignLicForDF();
+  if (!RunSXU) {
+    removeBranch();
+  }
   return Modified;
 
 }
@@ -915,7 +921,7 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
 }
 
 
-void LPUCvtCFDFPass::setIGN() {
+void LPUCvtCFDFPass::assignLicForDF() {
   const TargetMachine &TM = thisMF->getTarget();
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
@@ -923,7 +929,7 @@ void LPUCvtCFDFPass::setIGN() {
   LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
   std::deque<unsigned> renameQueue;
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
-    for (MachineBasicBlock::iterator MI = BB->begin(), E = BB->end(); MI != E; ++MI) {
+    for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
       if (TII.isPick(MI) || TII.isSwitch(MI)) {
         for (MIOperands MO(MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
@@ -963,6 +969,25 @@ void LPUCvtCFDFPass::setIGN() {
 }
 
 
+
+void LPUCvtCFDFPass::removeBranch() {
+	const TargetMachine &TM = thisMF->getTarget();
+	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+	const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+	MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+	LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
+	std::deque<unsigned> renameQueue;
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+    MachineBasicBlock::iterator iterMI = BB->begin();
+    while (iterMI != BB->end()) {
+      MachineInstr* MI = iterMI;
+      ++iterMI;
+      if (MI->isBranch()) {
+        MI->removeFromParent();
+      }
+    }
+  }
+}
 
 #if 0
 void LPUCvtCFDFPass::replaceIfFooterPhi() {

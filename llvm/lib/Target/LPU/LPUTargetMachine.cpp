@@ -107,14 +107,17 @@ public:
   void addPreRegAlloc() override {
     std::string Banner;
 #if 1
-    Banner = std::string("Before Machine CDG Pass");
+    Banner = std::string("Before Machine Block Placement Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
+	addBlockPlacement();
+	Banner = std::string("After Machine Block Placement Pass");
+	DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
     addPass(createControlDepenceGraph(), false);
     Banner = std::string("After Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
-    Banner = std::string("Before LPUCvtCFDFPass");
-    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
     addPass(createLPUCvtCFDFPass(), false);
     Banner = std::string("After LPUCvtCFDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
