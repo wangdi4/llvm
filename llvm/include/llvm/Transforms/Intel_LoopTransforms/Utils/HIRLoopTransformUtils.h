@@ -39,27 +39,28 @@ private:
 
   /// Returns true if unrolling \p OrigLoop by UnrollOrVecFactor requires a
   /// remainder loop. It also creates new bounds for unrolled loops.
-  /// \p NewBound is used to return new upper bound for constant trip loops
-  /// \p  NewUBRef is used for non-constant trip loops.
+  /// \p NewTripCountP is used to return new loop trip count for constant trip
+  /// loops \p  NewTCRef is used for non-constant trip loops.
   static bool isRemainderLoopNeeded(HLLoop *OrigLoop,
                                     unsigned UnrollOrVecFactor,
-                                    uint64_t *NewBound, RegDDRef **NewRef);
+                                    uint64_t *NewTripCountP, RegDDRef **NewTCRef);
 
-  /// \brief Creates a new loop for unrolling or vectorization. \p NewBound
-  /// contains the new upper bound if the original loop is a constant trip
-  /// count. For a original non-constant trip count loop, the new upper bound
-  /// is specified in \p NewRef.
+  /// \brief Creates a new loop for unrolling or vectorization. \p NewTripCount
+  /// contains the new loop trip count if the original loop is a constant trip
+  /// count. For a original non-constant trip count loop, the new loop trip
+  /// count is specified in \p NewTCRef.
   static HLLoop *createUnrollOrVecLoop(HLLoop *OrigLoop,
                                        unsigned UnrollOrVecFactor,
-                                       uint64_t NewBound,
-                                       const RegDDRef *NewRef);
+                                       uint64_t NewTripCount,
+                                       const RegDDRef *NewTCRef, bool VecMode);
 
   /// \brief Processes the remainder loop for general unrolling and
   /// vectorization. The loop passed in \p OrigLoop is set up to be
-  /// the remainder loop with lowerbound set using \p NewBound or
-  /// \p NewRef.
+  /// the remainder loop with lowerbound set using \p NewTripCount or
+  /// \p NewTCRef.
   static void processRemainderLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
-                                   uint64_t NewBound, const RegDDRef *NewRef);
+                                   uint64_t NewTripCount,
+                                   const RegDDRef *NewTCRef);
 
 public:
   // *** HIR-Loop-Reversal-Related Section ***
@@ -103,10 +104,15 @@ public:
   /// \p OrigLoop and \p UnrollOrVecFactor. If a remainder loop is needed,
   /// \p NeedRemainderLoop is set to true and the bounds of \p OrigLoop are
   /// updated appropriately. Client is responsible for deleting OrigLoop if
-  /// a remainder loop is not needed.
+  /// a remainder loop is not needed. \p VecMode specifies whether the
+  /// client is vectorizer - which is used to set loop bounds and stride
+  /// appropriately as vectorizer uses \p UnrollOrVecFactor as stride whereas
+  /// unroller users a stride of 1. The default client is assumed to be the
+  /// unroller.
   static HLLoop *setupMainAndRemainderLoops(HLLoop *OrigLoop,
                                             unsigned UnrollOrVecFactor,
-                                            bool &NeedRemainderLoop);
+                                            bool &NeedRemainderLoop,
+                                            bool VecMode = false);
 };
 
 } // End namespace loopopt

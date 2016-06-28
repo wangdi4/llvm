@@ -67,8 +67,8 @@ private:
 class AVRCodeGenHIR {
 public:
   AVRCodeGenHIR(AVR *Avr)
-      : Avr(Avr), ALoop(nullptr), OrigLoop(nullptr), TripCount(0), VL(0),
-        RHM(Avr) {}
+      : Avr(Avr), ALoop(nullptr), OrigLoop(nullptr), MainLoop(nullptr),
+        NeedRemainderLoop(false), TripCount(0), VL(0), RHM(Avr) {}
 
   ~AVRCodeGenHIR() {}
 
@@ -82,11 +82,19 @@ private:
   // AVRLoop in AVR region
   AVRLoop *ALoop;
 
-  // Original HIR loop corresponding to this Avr region
+  // Original HIR loop corresponding to this Avr region, if a remainder loop is
+  // needed after vectorization, the original loop is used as the remainder loop
+  // after updating loop bounds.
   HLLoop *OrigLoop;
 
-  // Loop trip count
-  unsigned int TripCount;
+  // Main vector loop
+  HLLoop *MainLoop;
+
+  // Is a remainder loop needed?
+  bool NeedRemainderLoop;
+
+  // Loop trip count if constant. Set to zero for non-constant trip count loops.
+  uint64_t TripCount;
 
   // Vector factor or vector length to use. Each scalar instruction is widened
   // to operate on this number of operands.
@@ -104,15 +112,17 @@ private:
 
   void setALoop(AVRLoop *L) { ALoop = L; }
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
-  void setTripCount(unsigned int TC) { TripCount = TC; }
+  void setMainLoop(HLLoop *L) { MainLoop = L; }
+  void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }
+  void setTripCount(uint64_t TC) { TripCount = TC; }
   void setVL(int V) { VL = V; }
 
   // Check for currently handled loops. Initial implementations
   // punts on seeing any control flow.
   bool loopIsHandled();
-  void widenNode(const HLNode *Node, HLNode *Anchor);
+  void widenNode(const HLNode *Node);
   RegDDRef *getVectorValue(const RegDDRef *Op);
-  HLInst *widenReductionNode(const HLNode *Node, HLNode *Anchor);
+  HLInst *widenReductionNode(const HLNode *Node);
   void eraseIntrinsBeforeLoop();
   bool processLoop();
   bool isConstStrideRef(const RegDDRef *Ref, int64_t *CoeffPtr = nullptr);

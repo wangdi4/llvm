@@ -59,15 +59,15 @@ bool HIRLoopTransformUtils::checkAndReverseLoop(
 
 bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
                                                   unsigned UnrollOrVecFactor,
-                                                  uint64_t *NewBound,
-                                                  RegDDRef **NewRef) {
+                                                  uint64_t *NewTripCountP,
+                                                  RegDDRef **NewTCRef) {
 
   uint64_t TripCount;
 
   if (OrigLoop->isConstTripLoop(&TripCount)) {
 
     uint64_t NewTripCount = TripCount / UnrollOrVecFactor;
-    *NewBound = NewTripCount - 1;
+    *NewTripCountP = NewTripCount;
 
     // Return true if UnrollOrVecFactor does not evenly divide TripCount.
     return ((NewTripCount * UnrollOrVecFactor) != TripCount);
@@ -104,7 +104,7 @@ bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
     TempInst = HLNodeUtils::createCopyInst(Ref, "tgu");
   }
   HLNodeUtils::insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
-  *NewRef = TempInst->getLvalDDRef();
+  *NewTCRef = TempInst->getLvalDDRef();
 
   return true;
 }
@@ -122,24 +122,44 @@ void HIRLoopTransformUtils::updateBoundDDRef(RegDDRef *BoundRef,
 
 HLLoop *HIRLoopTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
                                                      unsigned UnrollOrVecFactor,
-                                                     uint64_t NewBound,
-                                                     const RegDDRef *NewRef) {
+                                                     uint64_t NewTripCount,
+                                                     const RegDDRef *NewTCRef,
+                                                     bool VecMode) {
 
   // TODO: Not sure if we need to add Ztt?
   // Currently the clone utility handles it.
   HLLoop *NewLoop = OrigLoop->cloneEmptyLoop();
-  NewLoop->setNumExits((OrigLoop->getNumExits() - 1) * UnrollOrVecFactor + 1);
+
+  // Number of exits do not change due to vectorization
+  if (!VecMode) {
+    NewLoop->setNumExits((OrigLoop->getNumExits() - 1) * UnrollOrVecFactor + 1);
+  }
 
   HLNodeUtils::insertBefore(OrigLoop, NewLoop);
 
   // Update the loop upper bound.
-  if (NewBound != 0) {
+  if (NewTripCount != 0) {
+    uint64_t NewBound;
+
+    // For vectorizer mode, upper bound needs to be multiplied by
+    // UnrollOrVecFactor since it is used as the stride
+    NewBound = VecMode ? (NewTripCount * UnrollOrVecFactor) : NewTripCount;
+
+    // Subtract 1.
+    NewBound = NewBound - 1;
+
     NewLoop->getUpperCanonExpr()->setConstant(NewBound);
   } else {
 
     // Create 't-1' as new UB.
-    assert(NewRef && " New Ref is null.");
-    RegDDRef *NewUBRef = NewRef->clone();
+    assert(NewTCRef && " New Ref is null.");
+    RegDDRef *NewUBRef = NewTCRef->clone();
+
+    // For vectorizer mode, upper bound needs to be multiplied by
+    // UnrollOrVecFactor since it is used as the stride
+    if (VecMode) {
+      NewUBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
+    }
 
     // Subtract 1.
     NewUBRef->getSingleCanonExpr()->addConstant(-1);
@@ -148,7 +168,7 @@ HLLoop *HIRLoopTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
 
     // Sets defined at level of bound ref to (nesting level - 1) as the UB temp
     // is defined just before the loop.
-    updateBoundDDRef(NewUBRef, NewRef->getSelfBlobIndex(),
+    updateBoundDDRef(NewUBRef, NewTCRef->getSelfBlobIndex(),
                      OrigLoop->getNestingLevel() - 1);
 
     // Generate the Ztt.
@@ -159,32 +179,38 @@ HLLoop *HIRLoopTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
   assert(NewLoop->getParentRegion() && " Loop does not have a parent region.");
   NewLoop->getParentRegion()->setGenCode();
 
+  // Vectorization uses UnrollOrVecFactor as stride
+  if (VecMode) {
+    NewLoop->getStrideDDRef()->getSingleCanonExpr()->setConstant(
+        UnrollOrVecFactor);
+  }
+
   return NewLoop;
 }
 
 void HIRLoopTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
                                                  unsigned UnrollOrVecFactor,
-                                                 uint64_t NewBound,
-                                                 const RegDDRef *NewRef) {
+                                                 uint64_t NewTripCount,
+                                                 const RegDDRef *NewTCRef) {
   // Mark Loop bounds as modified.
   HIRInvalidationUtils::invalidateBounds(OrigLoop);
 
   // Modify the LB of original loop.
-  if (NewBound) {
+  if (NewTripCount) {
     // OrigLoop is a const-trip loop.
     RegDDRef *OrigLBRef = OrigLoop->getLowerDDRef();
     CanonExpr *LBCE = OrigLBRef->getSingleCanonExpr();
-    LBCE->setConstant((NewBound + 1) * UnrollOrVecFactor);
+    LBCE->setConstant(NewTripCount * UnrollOrVecFactor);
   } else {
 
     // Non-constant trip loop, lb = (UnrollOrVecFactor)*t.
-    RegDDRef *NewLBRef = NewRef->clone();
+    RegDDRef *NewLBRef = NewTCRef->clone();
     NewLBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
 
     OrigLoop->setLowerDDRef(NewLBRef);
     // Sets the defined at level of new LB to (nesting level - 1) as the LB temp
     // is defined just before the loop.
-    updateBoundDDRef(NewLBRef, NewRef->getSelfBlobIndex(),
+    updateBoundDDRef(NewLBRef, NewTCRef->getSelfBlobIndex(),
                      OrigLoop->getNestingLevel() - 1);
 
     OrigLoop->createZtt(false);
@@ -195,25 +221,26 @@ void HIRLoopTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
 }
 
 HLLoop *HIRLoopTransformUtils::setupMainAndRemainderLoops(
-    HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop) {
+    HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
+    bool VecMode) {
   // Extract Ztt and add it outside the loop.
   OrigLoop->extractZtt();
 
   // Create UB instruction before the loop 't = (Orig UB)/(UnrollOrVecFactor)'
   // for non-constant trip loops. For const trip loops calculate the bound.
-  RegDDRef *NewRef = nullptr;
-  uint64_t NewBound = 0;
-  NeedRemainderLoop =
-      isRemainderLoopNeeded(OrigLoop, UnrollOrVecFactor, &NewBound, &NewRef);
+  RegDDRef *NewTCRef = nullptr;
+  uint64_t NewTripCount = 0;
+  NeedRemainderLoop = isRemainderLoopNeeded(OrigLoop, UnrollOrVecFactor,
+                                            &NewTripCount, &NewTCRef);
 
   // Create the main loop.
-  HLLoop *MainLoop =
-      createUnrollOrVecLoop(OrigLoop, UnrollOrVecFactor, NewBound, NewRef);
+  HLLoop *MainLoop = createUnrollOrVecLoop(OrigLoop, UnrollOrVecFactor,
+                                           NewTripCount, NewTCRef, VecMode);
 
   // Update the OrigLoop to remainder loop by setting bounds appropriately if
   // remainder loop is needed.
   if (NeedRemainderLoop) {
-    processRemainderLoop(OrigLoop, UnrollOrVecFactor, NewBound, NewRef);
+    processRemainderLoop(OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef);
   }
 
   // Mark parent for invalidation
