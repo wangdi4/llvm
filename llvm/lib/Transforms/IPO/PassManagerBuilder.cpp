@@ -863,7 +863,7 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
 void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
   if (!(RunLoopOpts || RunLoopOptFrameworkOnly) || (OptLevel < 2) ||
-      PrepareForLTO || PrepareForThinLTO) {
+      (SizeLevel != 0) || PrepareForLTO || PrepareForThinLTO) {
     return;
   }
 
