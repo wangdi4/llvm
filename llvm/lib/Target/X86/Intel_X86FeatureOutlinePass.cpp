@@ -378,7 +378,12 @@ FeatureBitset FeatureOutliner::getAssumedFeatures(BasicBlock *BB,
     CallInst *Call = dyn_cast<CallInst>(I);
     if (!Call)
       continue;
-    
+
+    // If the call is marked as ignore for feature outlining, skip
+    // until fix in feature outlining is in place.
+    if (Call->getMetadata("ignore_for_intel_feature_outlining"))
+      continue;
+
     // If we have a call to a function that has vector parameters,
     // or returns a vector then the block can use the instruction
     // set implied by the vector width
