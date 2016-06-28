@@ -7237,6 +7237,10 @@ def err_incorrect_defaulted_exception_spec : Error<
   "copy constructor|move constructor|copy assignment operator|move assignment "
   "operator|destructor}0 does not match the "
   "calculated one">;
+// if INTEL_CUSTOMIZATION
+def warn_incorrect_defaulted_exception_spec : Warning<
+  err_incorrect_defaulted_exception_spec.Text>, InGroup<IntelCompat>;
+// endif // INTEL_CUSTOMIZATION
 def err_incorrect_defaulted_constexpr : Error<
   "defaulted definition of %select{default constructor|copy constructor|"
   "move constructor|copy assignment operator|move assignment operator}0 "
