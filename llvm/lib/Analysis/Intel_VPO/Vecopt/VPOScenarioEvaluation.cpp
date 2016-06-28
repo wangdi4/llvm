@@ -196,8 +196,8 @@ void VPOScenarioEvaluationBase::findVFCandidates(
   }
 }
 
-//#undef USE_SLEV
-#define USE_SLEV 1
+#undef USE_EXPERIMENTAL_CODE
+// #define USE_EXPERIMENTAL_CODE 1
 
 VPOVecContextBase
 VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
@@ -217,7 +217,7 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
   getDataDepInfoForLoop();
   gatherMemrefsInLoop();
 
-#ifdef USE_SLEV
+#ifdef USE_EXPERIMENTAL_CODE
   // TODO: adapt to being called on a loop.
   getSLEVUtil().runOnAvr(AWrn->child_begin(), AWrn->child_end());
   DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "After SLEV analysis:\n";
@@ -355,7 +355,7 @@ static Type *ToVectorTy(Type *Scalar, unsigned VF) {
 /// (Same behavior as LoopVectorize::isConsecutivePtr).
 int64_t getConsecutiveStride(AVRValue *PtrOp) {
   assert(PtrOp->getType()->isPointerTy() && "Unexpected non-ptr");
-#ifdef USE_SLEV
+#ifdef USE_EXPERIMENTAL_CODE
   // TODO: Use instead IsPointerConsecutive, once available
   // TODO: SLEV's isConsecutive is currently true only for stride=1; Consider
   // covering also the stride == -1 case in SLEV's isConsecutive.
@@ -455,7 +455,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
 void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
   unsigned Cost = 0;
   Type *VectorTy;
-#ifdef USE_SLEV
+#ifdef USE_EXPERIMENTAL_CODE
   if (Expr->getSLEV().isUniform())
     VectorTy = Expr->getType();
   else
@@ -639,7 +639,7 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
     unsigned AS = PtrType->getPointerAddressSpace();
 
 // Case 1: A scalar ld/st will be generated
-#ifdef USE_SLEV
+#ifdef USE_EXPERIMENTAL_CODE
     if (VF == 1 || Expr->getSLEV().isUniform()) {
 #else
     if (VF == 1) {
@@ -725,7 +725,7 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
     Cost = TTI.getAddressComputationCost(VectorTy);
 
     // Case 4: Non unit-stride access, using Gather/Scatter
-#ifdef USE_SLEV 
+#ifdef USE_EXPERIMENTAL_CODE 
     if (PtrOp->getSLEV().isStrided()) {
       int64_t StrideInElements =
           PtrOp->getSLEV().getStride().getInteger().getSExtValue();
