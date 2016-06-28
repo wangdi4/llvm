@@ -1,15 +1,13 @@
-; Check to see that the llvm.exp.v4f32 intrinsic is translated to svml.
+; Check to see that __svml_expf4 is translated to the high accuracy svml variant.
 
 ; RUN: opt -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @foo
-; CHECK: call <4 x float> @__svml_expf4
+; CHECK: call <4 x float> @__svml_expf4_ha
 ; CHECK: ret
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
-
-@.str = private unnamed_addr constant [6 x i8] c"%.2f\0A\00", align 1
 
 ; Function Attrs: nounwind uwtable
 define void @foo(float* nocapture %array) #0 {
@@ -23,7 +21,7 @@ vector.body:                                      ; preds = %vector.body, %entry
   %broadcast.splat7 = shufflevector <4 x i32> %broadcast.splatinsert6, <4 x i32> undef, <4 x i32> zeroinitializer
   %induction8 = add <4 x i32> %broadcast.splat7, <i32 0, i32 1, i32 2, i32 3>
   %1 = sitofp <4 x i32> %induction8 to <4 x float>
-  %2 = call <4 x float> @llvm.exp.v4f32(<4 x float> %1)
+  %2 = call <4 x float> @__svml_expf4(<4 x float> %1)
   %3 = getelementptr inbounds float, float* %array, i64 %index
   %4 = bitcast float* %3 to <4 x float>*
   store <4 x float> %2, <4 x float>* %4, align 4
@@ -36,7 +34,7 @@ for.end:                                          ; preds = %vector.body
 }
 
 ; Function Attrs: nounwind readnone
-declare <4 x float> @llvm.exp.v4f32(<4 x float>) #3
+declare <4 x float> @__svml_expf4(<4 x float>) #3
 
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #3 = { nounwind readnone }

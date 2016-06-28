@@ -69,8 +69,8 @@ public:
 
   /// \brief Returns a new AVRValueHIR node.
   static AVRValueHIR *createAVRValueHIR(RegDDRef *DDRef,
-                                        HLInst *HLInstruct,
-                                        AVRExpressionHIR *Parent);
+                                        HLNode *HNode,
+                                        AVR *Parent);
 
   /// \brief Returns a new AVRSwitchHIR node.
   static AVRSwitchHIR *createAVRSwitchHIR(HLSwitch *HSwitch);

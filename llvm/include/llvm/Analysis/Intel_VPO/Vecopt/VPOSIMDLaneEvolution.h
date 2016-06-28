@@ -11,12 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_ANALYSIS_VPO_SLEV_H
-#define LLVM_ANALYSIS_VPO_SLEV_H
+#ifndef LLVM_ANALYSIS_VPO_SLEV_ANALYSIS_H
+#define LLVM_ANALYSIS_VPO_SLEV_ANALYSIS_H
 
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOSLEV.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/APFloat.h"
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPODefUse.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOCFG.h"
@@ -33,29 +32,24 @@ namespace vpo {  // VPO Vectorizer Namespace
 
 typedef SmallPtrSet<AVR*, 2> AvrSetTy;
 
-enum SLEVKind {
-  BOTTOM,   /// No SLEV information
-  CONSTANT, /// Compile-time constant
-  UNIFORM,  /// All elements in vector are identical
-  STRIDED,  /// Elements are in a compile-time constant stride
-  RANDOM,   /// TOP, no evolution between SIMD lanes.
-};
+class SIMDLaneEvolutionAnalysisBase;
+class SIMDLaneEvolutionAnalysis;
+class SIMDLaneEvolutionAnalysisHIR;
 
-class SIMDLaneEvolutionBase;
-class SIMDLaneEvolution;
-class SIMDLaneEvolutionHIR;
+/// \brief This class is both a SLEV value and the basis for computing it from
+/// other SLEVs based on some specific internal structure.
+/// The way a specific SLEVInstruction depends on others is modelled by the
+/// various derived classes, which abstract away the concrete details of the
+/// actual instructions the SLEVInstructions represent.
+class SLEVInstruction : public SLEV {
 
-/// \brief This class both holds a SIMD lane evolution state and is the basis
-/// for computing it from other SLEVs based on some specific internal structure.
-/// The way a specific SLEV depends on others is modelled by the various derived
-/// classes, which abstract away the concrete details of the actual instructions
-/// the SLEVs represent.
-class SLEV {
+public:
+
+  typedef SmallPtrSet<SLEVInstruction*, 2> SLEVUsersTy;
 
 protected:
 
   enum SubtypeTy {
-    SLEVValueTy,
     SLEVAddTy,
     SLEVAddressTy,
     SLEVCmpTy,
@@ -69,106 +63,12 @@ protected:
     SLEVUseTy,
   };
 
-public:
-
-  typedef SmallPtrSet<SLEV*, 2> SLEVUsersTy;
-
-  /// A class used by SLEVs for representing and operating on the numeric
-  /// values SLEV manipulates (representing constant values and strides).
-  class Number {
-  private:
-    bool Defined;
-    bool IsInteger;
-    APSInt IntN;
-    APFloat FloatN;
-  public:
-    Number() :
-        Defined(false), IsInteger(false), IntN(APSInt::getAllOnesValue(32)),
-        FloatN(APFloat::getAllOnesValue(32)) {}
-    Number(const APSInt& N) : Defined(true),
-                              IsInteger(true),
-                              IntN(N),
-                              FloatN(APFloat::getAllOnesValue(32)) {}
-    Number(const APFloat& N) : Defined(true),
-                               IsInteger(true),
-                               IntN(APSInt::getAllOnesValue(32)),
-                               FloatN(N) {}
-    Number(const Number& O) : Defined(O.Defined),
-                              IsInteger(O.IsInteger), 
-                              IntN(O.IntN),
-                              FloatN(O.FloatN) {}
-    void print(raw_ostream& OS) const;
-    bool operator==(const Number &O) const;
-    bool operator!=(const Number &O) const { return !(*this == O); }
-    Number operator+(const Number &RHS) const;
-    Number operator-(const Number &RHS) const;
-    Number operator*(const Number &RHS) const;
-    Number operator/(const Number &RHS) const;
-    APSInt getInteger() {
-      assert(Defined && IsInteger && "This is not an integer number");
-      return IntN;
-    }
-    APFloat getFloat() {
-      assert(Defined && !IsInteger && "This is not a floating-point number");
-      return FloatN;
-    }
-  };
-
-  static const Number Zero;
-  static const Number One;
-
-private:
-
-  const SubtypeTy Subtype;
-
-  /// The computed kind of this SLEV.
-  SLEVKind Kind;
-
-  /// The compile-time numeric value related to this SLEV.
-  Number NumericValue;
-
-  /// Is SLEV tainted by control-flow divergence.
-  bool IsTainted;
-
-  /// SLEVs which would be affected by changes to this one.
-  SLEVUsersTy Users;
-
-  /// If set, this SLEV turning non-uniform causes control-flow divergence.
-  bool IsBranchCondition;
-
-  /// The AVR this SLEV (optionally) is attached to.
-  AVR* Avr;
-
-  void setBranchCondition() { IsBranchCondition = true; }
-
-  void setAVR(AVR* A) { Avr = A; }
-
-  static unsigned long long NextId;
-  unsigned long long Id;
-
-  void assignId() { Id = NextId++; }
-
-  friend SIMDLaneEvolutionBase;
-  friend SIMDLaneEvolution;
-  friend SIMDLaneEvolutionHIR;
-
-protected:
-
   /// \brief Calculate this SLEV's value in a derived-specific logic.
-  virtual void calculate() {}
+  virtual void calculate() = 0;
 
   void markTainted() { IsTainted = true; }
 
-  void printValue(raw_ostream& OS) const {
-    OS << SLEVKINDSTR[Kind];
-    if (Kind == SLEVKind::CONSTANT || Kind == SLEVKind::STRIDED) {
-      OS << "<";
-      NumericValue.print(OS);
-      OS << ">";
-    }
-  }
-
-  virtual bool hasStructure() const { return false; }
+  virtual bool hasStructure() const = 0;
 
   /// \brief A derived-specific print of the complex structure of the SLEV
   /// expression. Implementors should recurse into the printStructure of
@@ -178,201 +78,53 @@ protected:
     printValue(OS);
   }
 
-  SLEV(SubtypeTy St) : Subtype(St) {
+  SLEVInstruction(SubtypeTy St) : Subtype(St) {
     assignId();
     IsTainted = false;
     IsBranchCondition = false;
     Avr = nullptr;
-    setBOTTOM();
   }
 
-  /// \brief Constructor for SLEV kinds that do not take a numeric value.
-  SLEV(SubtypeTy St, SLEVKind SK) : SLEV(St) {
-    switch(SK) {
-    case BOTTOM:
-      break;
-    case UNIFORM:
-      setUNIFORM();
-      break;
-    case RANDOM:
-      setRANDOM();
-      break;
-    default:
-      llvm_unreachable("SLEV kind requires a numeric value");
-    }
-  }
+private:
 
-  /// \brief Cconstructor for SLEV kinds that take a numeric value.
-  SLEV(SubtypeTy St, SLEVKind SK, const Number& N) : SLEV(St) {
-    switch(SK) {
-    case CONSTANT:
-      setCONSTANT(N);
-      break;
-    case STRIDED:
-      setSTRIDED(N);
-      break;
-    default:
-      llvm_unreachable("SLEV kind does not require a numeric value");
-    }
-  }
+  const SubtypeTy Subtype;
+
+  /// SLEVs which would be affected by changes to this one.
+  SLEVUsersTy Users;
+
+  /// The AVR this SLEV (optionally) is attached to.
+  AVR* Avr;
+
+  void setAVR(AVR* A) { Avr = A; }
+
+  static unsigned long long NextId;
+  unsigned long long Id;
+
+  void assignId() { Id = NextId++; }
+
+  /// Is SLEV tainted by control-flow divergence.
+  bool IsTainted;
+
+  /// If set, this SLEV turning non-uniform causes control-flow divergence.
+  bool IsBranchCondition;
+
+  void setBranchCondition() { IsBranchCondition = true; }
+
+  friend SIMDLaneEvolutionAnalysisBase;
+  friend SIMDLaneEvolutionAnalysis;
+  friend SIMDLaneEvolutionAnalysisHIR;
 
 public:
 
   SubtypeTy getSubtype() const { return Subtype; }
 
-  /// \brief Method for supporting type inquiry.
-  static bool classof(const SLEV *Node) {
-    return (Node->getSubtype() == SLEVValueTy);
-  }
-
   const SLEVUsersTy& getUsers() const { return Users; }
 
-  void addUser(SLEV* User) {
+  void addUser(SLEVInstruction* User) {
     Users.insert(User);
   }
 
   AVR* getAVR() const { return Avr; }
-
-  SLEV() : SLEV(SLEVValueTy) {}
-
-  /// \brief Constructor for SLEV kinds that do not take a numeric value.
-  SLEV(SLEVKind SK) : SLEV(SLEVValueTy, SK) {}
-
-  /// \brief Constructor for SLEV kinds that take a numeric value.
-  SLEV(SLEVKind SK, const Number& N) : SLEV(SLEVValueTy, SK, N) {}
-
-  SLEV(const SLEV& Other) : SLEV(SLEVValueTy) {
-    Kind = Other.Kind;
-    NumericValue = Other.NumericValue;
-    IsTainted = Other.IsTainted;
-    Users = Other.Users;
-    IsBranchCondition = Other.IsBranchCondition;
-    Avr = Other.Avr;
-  }
-
-  SLEV getValue() {
-    SLEV Copy;
-    Copy.copyValue(*this);
-    return Copy;
-  }
-
-  virtual ~SLEV() {}
-
-  void copyValue(const SLEV& Other) {
-    Kind = Other.Kind;
-    NumericValue = Other.NumericValue;
-  }
-
-  void setBOTTOM() {
-    Kind = SLEVKind::BOTTOM;
-    NumericValue = Number();
-  }
-
-  void setCONSTANT(Number C) {
-    Kind = SLEVKind::CONSTANT;
-    NumericValue = C;
-  }
-
-  void setUNIFORM() {
-    Kind = SLEVKind::UNIFORM;
-    NumericValue = Number(); // Undefine is universal unit.
-  }
-
-  void setSTRIDED(Number C) {
-    Kind = SLEVKind::STRIDED;
-    NumericValue = C;
-  }
-
-  void setRANDOM() {
-    Kind = SLEVKind::RANDOM;
-    NumericValue = Number();
-  }
-
-  bool operator==(const SLEV& O) {
-    return Kind == O.Kind && NumericValue == O.NumericValue;
-  }
-
-  bool operator!=(const SLEV& O) { return !(*this == O); }
-
-  SLEVKind getKind() const { return Kind; }
-
-  const Number& getConstant() const {
-    static Number Undef;
-    if (isBOTTOM())
-      return Undef;
-    assert(isConstant() && "Cannot get constant for non-constant");
-    return NumericValue;
-  }
-
-  const Number& getStride() const {
-    static Number Undef;
-    if (isBOTTOM())
-      return Undef;
-    assert(isStrided() && "Cannot get stride for non-strided");
-    if (isUniform())
-      return Zero; // The stride of any Uniform is zero.
-    return NumericValue;
-  }
-
-  /// \brief This is the SLEV lattice least upper bound operation.
-  static SLEV join(const SLEV &A, const SLEV &B) {
-    const SLEV *Low = A.Kind <= B.Kind ? &A : &B;
-    const SLEV *High = A.Kind <= B.Kind ? &B : &A;
-    switch (Low->Kind) {
-    case BOTTOM:
-      return *High;
-    case CONSTANT:
-      switch (High->Kind) {
-      case CONSTANT:
-        if (Low->NumericValue != High->NumericValue)
-          return SLEV(UNIFORM); // Two different CONSTANTs.
-        // Fallthrough
-      case UNIFORM:
-        return *High; // Two equal CONSTANTS, or CONSTANT V UNIFORM.
-      default:
-        break;
-      }
-      break;
-    case UNIFORM:
-      if (High->Kind == UNIFORM)
-        return *High;
-      break;
-    case STRIDED:
-      if (High->Kind == STRIDED && Low->NumericValue == High->NumericValue)
-        return *High; // Two equal STRIDED.
-    default:
-      break;
-    }
-
-    // Couldn't find a lesser upper bound than RANDOM.
-    return SLEV(RANDOM);
-  }
-
-  bool isBOTTOM() const {
-    return Kind == SLEVKind::BOTTOM;
-  }
-
-  bool isConstant() const {
-    return Kind == SLEVKind::CONSTANT;
-  }
-
-  bool isUniform() const {
-    switch (Kind) {
-    case SLEVKind::CONSTANT:
-    case SLEVKind::UNIFORM:
-      return true;
-    default:
-      return false;
-    }
-  }
-
-  bool isSTRIDED() const {
-    return Kind == SLEVKind::STRIDED;
-  }
-
-  bool isRANDOM() const {
-    return Kind == SLEVKind::RANDOM;
-  }
 
   bool isTainted() const {
     return IsTainted;
@@ -382,35 +134,32 @@ public:
   /// condition and is known to be non-UNIFORM (a BOTTOM SLEV isn't, since it
   /// is not known to be anything).
   bool isDivergingControlFlow() const {
-    return IsBranchCondition && Kind > UNIFORM;
+    return IsBranchCondition && getKind() > UNIFORM;
   }
 
-  /// \brief Convenience method for determining the special case of stride 1.
-  bool isConsecutive() const {
-    return Kind == SLEVKind::STRIDED && NumericValue == One;
+  /*
+  SLEVInstruction(const SLEVInstruction& Other) : SLEV(Other) {
+    IsTainted = Other.IsTainted;
+    Users = Other.Users;
+    IsBranchCondition = Other.IsBranchCondition;
+    Avr = Other.Avr;
   }
-
-  /// \brief Convenience method for determining if the lanes have a constant
-  /// stride, including a stride of zero.
-  /// If you're interested if finding if the SLEV's Kind is STRIDED use
-  /// isSTRIDED().
-  bool isStrided() const {
-    switch (Kind) {
-    case SLEVKind::CONSTANT:
-    case SLEVKind::UNIFORM:
-    case SLEVKind::STRIDED:
-      return true;
-    default:
-      return false;
-    }
-  }
+  */
 
   /// \brief Taint this SLEV's value in a derived-specific logic.
-  virtual void taint(const void* IRU, std::set<SLEV*>& affected) {}
+  virtual void taint(const void* IRU, std::set<SLEVInstruction*>& affected) {}
 
-  static const char* SLEVKINDSTR[SLEVKind::RANDOM + 1];
+  /// \brief Utility method for collecting dynamically-allocated SLEVs. Since
+  /// SLEVs are not necessarily the (sole) owners of their sub-SLEVs this method
+  /// allows collecting them all into a set for single, safe deletion without
+  /// getting into sub-SLEV ownership questions.
+  /// This method should add to the set the object itself and any SLEV they have
+  /// access to unless that SLEV will be deleted as part as the object's dtor.
+  virtual void collectGarbage(std::set<SLEVInstruction*>& Repo) {
+    Repo.insert(this);
+  }
 
-  /// \brief Print a SLEV, either by as an expression or evaluated to its value.
+  /// \brief Print a SLEV, either as an expression or evaluated to its value.
   void print(raw_ostream& OS, bool eval) const {
     OS << "{" << Id << "|";
     if (IsTainted)
@@ -426,14 +175,6 @@ public:
     OS << "}";
   }
 
-  /// \brief Utility method for collecting dynamically-allocated SLEVs. Since
-  /// SLEVs are not necessarily the (sole) owners of their sub-SLEVs this method
-  /// allows collecting them all into a set for single, safe deletion without
-  /// getting into sub-SLEV ownership questions.
-  /// This method should add to the set the object itself and any SLEV they have
-  /// access to unless that SLEV will be deleted as part as the object's dtor.
-  virtual void collectGarbage(std::set<SLEV*>& Repo) { Repo.insert(this); }
-
   /// \brief Print the SLEV structure (if it has one) and its evaluated value.
   void print(raw_ostream& OS) const {
     if (hasStructure()) {
@@ -443,12 +184,11 @@ public:
     print(OS, true);
   }
 
-  void dump() const { print(dbgs()); }
 };
 
 /// \brief This SLEV calculates to a predefined value (one of the roots of the
 /// analysis.
-class SLEVPredefined : public SLEV {
+class SLEVPredefined : public SLEVInstruction {
 
 private:
 
@@ -457,11 +197,12 @@ private:
 public:
 
   /// \brief Method for supporting type inquiry.
-  static bool classof(const SLEV *Node) {
+  static bool classof(const SLEVInstruction *Node) {
     return (Node->getSubtype() == SLEVPredefinedTy);
   }
 
-  SLEVPredefined(const SLEV& S) : SLEV(SLEVPredefinedTy), Predefined(S) {}
+  SLEVPredefined(const SLEV& S) :
+      SLEVInstruction(SLEVPredefinedTy), Predefined(S) {}
 
   /// \brief Calculate this SLEV's value based on the current values of
   /// its dependecies.
@@ -474,20 +215,20 @@ public:
 
 /// \brief This SLEV is used by unary operations whose semantics take their
 /// single argument's SLEV.
-class SLEVIdentity : public SLEV {
+class SLEVIdentity : public SLEVInstruction {
 
 private:
 
-  SLEV& Source;
+  SLEVInstruction& Source;
 
 public:
 
   /// \brief Method for supporting type inquiry.
-  static bool classof(const SLEV *Node) {
+  static bool classof(const SLEVInstruction *Node) {
     return (Node->getSubtype() == SLEVIdentityTy);
   }
 
-  SLEVIdentity(SLEV& S) : SLEV(SLEVIdentityTy), Source(S) { S.addUser(this); }
+  SLEVIdentity(SLEVInstruction& S) : SLEVInstruction(SLEVIdentityTy), Source(S) { S.addUser(this); }
 
   /// \brief Calculate this SLEV's value based on the current values of
   /// its dependecies.
@@ -495,7 +236,7 @@ public:
     copyValue(Source);
   }
 
-  void taint(const void* IRU, std::set<SLEV*>& affected) override {
+  void taint(const void* IRU, std::set<SLEVInstruction*>& affected) override {
     Source.taint(IRU, affected);
     if (Source.isTainted())
       markTainted();
@@ -509,29 +250,29 @@ public:
     OS << ")";
   }
 
-  void collectGarbage(std::set<SLEV*>& Repo) override {
-    SLEV::collectGarbage(Repo);
+  void collectGarbage(std::set<SLEVInstruction*>& Repo) override {
+    SLEVInstruction::collectGarbage(Repo);
     Source.collectGarbage(Repo);
   }
 };
 
 /// \class This SLEV is UNIFORM iff all its dependencies are, otherwise RANDOM.
-class SLEVPreserveUniformity : public SLEV {
+class SLEVPreserveUniformity : public SLEVInstruction {
 
 private:
 
-  SmallPtrSet<SLEV*, 2> Dependencies;
+  SmallPtrSet<SLEVInstruction*, 2> Dependencies;
 
 public:
 
   /// \brief Method for supporting type inquiry.
-  static bool classof(const SLEV *Node) {
+  static bool classof(const SLEVInstruction *Node) {
     return (Node->getSubtype() == SLEVPreserveUniformityTy);
   }
 
-  SLEVPreserveUniformity() : SLEV(SLEVPreserveUniformityTy) {}
+  SLEVPreserveUniformity() : SLEVInstruction(SLEVPreserveUniformityTy) {}
 
-  void addDependency(SLEV* S) { 
+  void addDependency(SLEVInstruction* S) { 
     Dependencies.insert(S);
     S->addUser(this);
   }
@@ -539,7 +280,7 @@ public:
   /// \brief Calculate this SLEV's value based on the current values of
   /// its dependecies.
   void calculate() override {
-    for (SLEV* S : Dependencies) {
+    for (SLEVInstruction* S : Dependencies) {
       if (S->isBOTTOM()) {
         setBOTTOM();
         return;
@@ -553,8 +294,8 @@ public:
     }
   }
 
-  void taint(const void* IRU, std::set<SLEV*>& affected) override {
-    for (SLEV* S : Dependencies) {
+  void taint(const void* IRU, std::set<SLEVInstruction*>& affected) override {
+    for (SLEVInstruction* S : Dependencies) {
       S->taint(IRU, affected);
       if (S->isTainted())
         markTainted();
@@ -566,7 +307,7 @@ public:
   void printStructure(raw_ostream& OS) const override {
     OS << "(all-uniform ";
     bool First = true;
-    for (SLEV* S : Dependencies) {
+    for (SLEVInstruction* S : Dependencies) {
       if (!First)
         OS << " ";
       S->print(OS, false);
@@ -575,37 +316,37 @@ public:
     OS << ")";
   }
 
-  void collectGarbage(std::set<SLEV*>& Repo) override {
-    SLEV::collectGarbage(Repo);
-    for (SLEV* D : Dependencies)
+  void collectGarbage(std::set<SLEVInstruction*>& Repo) override {
+    SLEVInstruction::collectGarbage(Repo);
+    for (SLEVInstruction* D : Dependencies)
       D->collectGarbage(Repo);
   }
 };
 
-class SLEVAddress : public SLEV {
+class SLEVAddress : public SLEVInstruction {
 
 private:
 
-  SLEV* Base;
+  SLEVInstruction* Base;
 
   unsigned BaseSize;
 
-  SmallVector<SLEV*, 3> Indexes;
+  SmallVector<SLEVInstruction*, 3> Indexes;
   SmallVector<unsigned, 3> IndexSizes;
 
 public:
 
   /// \brief Method for supporting type inquiry.
-  static bool classof(const SLEV *Node) {
+  static bool classof(const SLEVInstruction *Node) {
     return (Node->getSubtype() == SLEVAddressTy);
   }
 
-  SLEVAddress(SLEV* B, unsigned BS) :
-      SLEV(SLEVAddressTy), Base(B), BaseSize(BS) {
+  SLEVAddress(SLEVInstruction* B, unsigned BS) :
+      SLEVInstruction(SLEVAddressTy), Base(B), BaseSize(BS) {
     Base->addUser(this);
   }
 
-  void addIndex(SLEV* S, unsigned BS) {
+  void addIndex(SLEVInstruction* S, unsigned BS) {
     Indexes.push_back(S);
     IndexSizes.push_back(BS);
     S->addUser(this);
@@ -623,7 +364,7 @@ public:
     // TODO accurately.
     unsigned NumIndexes = Indexes.size();
     for (unsigned Position = 0; Position < NumIndexes; ++Position) {
-      SLEV* S = Indexes[Position];
+      SLEVInstruction* S = Indexes[Position];
       if (S->isBOTTOM()) {
         setBOTTOM();
         return;
@@ -640,11 +381,11 @@ public:
     setUNIFORM();
   }
 
-  void taint(const void* IRU, std::set<SLEV*>& affected) override {
+  void taint(const void* IRU, std::set<SLEVInstruction*>& affected) override {
     Base->taint(IRU, affected);
     if (Base->isTainted())
         markTainted();
-    for (SLEV* S : Indexes) {
+    for (SLEVInstruction* S : Indexes) {
       S->taint(IRU, affected);
       if (S->isTainted())
         markTainted();
@@ -656,35 +397,37 @@ public:
   void printStructure(raw_ostream& OS) const override {
     OS << "(gep ";
     Base->print(OS, false);
-    for (SLEV* S : Indexes) {
+    for (SLEVInstruction* S : Indexes) {
       OS << " ";
       S->print(OS, false);
     }
     OS << ")";
   }
 
-  void collectGarbage(std::set<SLEV*>& Repo) override {
-    SLEV::collectGarbage(Repo);
+  void collectGarbage(std::set<SLEVInstruction*>& Repo) override {
+    SLEVInstruction::collectGarbage(Repo);
     Base->collectGarbage(Repo);
-    for (SLEV* I : Indexes)
+    for (SLEVInstruction* I : Indexes)
       I->collectGarbage(Repo);
   }
 };
 
-class SLEVLoad : public SLEV {
+class SLEVLoad : public SLEVInstruction {
 
 private:
 
-  SLEV* Address;
+  SLEVInstruction* Address;
 
 public:
 
   /// \brief Method for supporting type inquiry.
-  static bool classof(const SLEV *Node) {
+  static bool classof(const SLEVInstruction *Node) {
     return (Node->getSubtype() == SLEVLoadTy);
   }
 
-  SLEVLoad(SLEV* A) : SLEV(SLEVLoadTy), Address(A) { A->addUser(this); }
+  SLEVLoad(SLEVInstruction* A) : SLEVInstruction(SLEVLoadTy), Address(A) {
+    A->addUser(this);
+  }
 
   /// \brief Calculate this SLEV's value based on the current values of
   /// its dependecies.
@@ -697,26 +440,26 @@ public:
       setRANDOM();
   }
 
-  void taint(const void* IRU, std::set<SLEV*>& affected) override {
+  void taint(const void* IRU, std::set<SLEVInstruction*>& affected) override {
     Address->taint(IRU, affected);
     if (Address->isTainted())
       markTainted();
   }
 
-  void collectGarbage(std::set<SLEV*>& Repo) override {
-    SLEV::collectGarbage(Repo);
+  void collectGarbage(std::set<SLEVInstruction*>& Repo) override {
+    SLEVInstruction::collectGarbage(Repo);
     Address->collectGarbage(Repo);
   }
 };
 
-class SLEVAdd : public SLEV {
+class SLEVAdd : public SLEVInstruction {
 
 private:
 
   static SLEVKind Conversion[RANDOM + 1][RANDOM + 1];
 
-  SLEV &LHS;
-  SLEV &RHS;
+  SLEVInstruction &LHS;
+  SLEVInstruction &RHS;
 
   void calculate() override {
     SLEVKind CalculatedKind = Conversion[LHS.getKind()][RHS.getKind()];
@@ -741,18 +484,19 @@ private:
 public:
 
   /// \brief Method for supporting type inquiry.
-  static bool classof(const SLEV *Node) {
+  static bool classof(const SLEVInstruction *Node) {
     return (Node->getSubtype() == SLEVAddTy);
   }
 
-  void taint(const void* IRU, std::set<SLEV*>& affected) override {
+  void taint(const void* IRU, std::set<SLEVInstruction*>& affected) override {
     LHS.taint(IRU, affected);
     RHS.taint(IRU, affected);
     if (LHS.isTainted() || RHS.isTainted())
       markTainted();
   }
 
-  SLEVAdd(SLEV& L, SLEV& R) : SLEV(SLEVAddTy), LHS(L), RHS(R) {
+  SLEVAdd(SLEVInstruction& L, SLEVInstruction& R)
+      : SLEVInstruction(SLEVAddTy), LHS(L), RHS(R) {
     L.addUser(this);
     R.addUser(this);
   }
@@ -767,21 +511,21 @@ public:
     OS << ")";
   }
 
-  void collectGarbage(std::set<SLEV*>& Repo) override {
-    SLEV::collectGarbage(Repo);
+  void collectGarbage(std::set<SLEVInstruction*>& Repo) override {
+    SLEVInstruction::collectGarbage(Repo);
     LHS.collectGarbage(Repo);
     RHS.collectGarbage(Repo);
   }
 };
 
-class SLEVSub : public SLEV {
+class SLEVSub : public SLEVInstruction {
 
 private:
 
   static SLEVKind Conversion[RANDOM + 1][RANDOM + 1];
 
-  SLEV &LHS;
-  SLEV &RHS;
+  SLEVInstruction &LHS;
+  SLEVInstruction &RHS;
 
   void calculate() override {
     SLEVKind CalculatedKind = Conversion[LHS.getKind()][RHS.getKind()];
@@ -806,18 +550,19 @@ private:
 public:
 
   /// \brief Method for supporting type inquiry.
-  static bool classof(const SLEV *Node) {
+  static bool classof(const SLEVInstruction *Node) {
     return (Node->getSubtype() == SLEVSubTy);
   }
 
-  void taint(const void* IRU, std::set<SLEV*>& affected) override {
+  void taint(const void* IRU, std::set<SLEVInstruction*>& affected) override {
     LHS.taint(IRU, affected);
     RHS.taint(IRU, affected);
     if (LHS.isTainted() || RHS.isTainted())
       markTainted();
   }
 
-  SLEVSub(SLEV& L, SLEV& R) : SLEV(SLEVSubTy), LHS(L), RHS(R) {
+  SLEVSub(SLEVInstruction& L, SLEVInstruction& R)
+      : SLEVInstruction(SLEVSubTy), LHS(L), RHS(R) {
     L.addUser(this);
     R.addUser(this);
   }
@@ -832,21 +577,21 @@ public:
     OS << ")";
   }
 
-  void collectGarbage(std::set<SLEV*>& Repo) override {
-    SLEV::collectGarbage(Repo);
+  void collectGarbage(std::set<SLEVInstruction*>& Repo) override {
+    SLEVInstruction::collectGarbage(Repo);
     LHS.collectGarbage(Repo);
     RHS.collectGarbage(Repo);
   }
 };
 
-class SLEVMul : public SLEV {
+class SLEVMul : public SLEVInstruction {
 
 private:
 
   static SLEVKind Conversion[RANDOM + 1][RANDOM + 1];
 
-  SLEV &LHS;
-  SLEV &RHS;
+  SLEVInstruction &LHS;
+  SLEVInstruction &RHS;
 
   void calculate() override {
     SLEVKind CalculatedKind = Conversion[LHS.getKind()][RHS.getKind()];
@@ -860,7 +605,16 @@ private:
       setUNIFORM();
       break;
     case STRIDED:
-      setSTRIDED(LHS.getStride() * RHS.getStride());
+      {
+        Number LStride = LHS.getStride();
+        Number RStride = RHS.getStride();
+        assert((LStride != Zero || RStride != Zero) && "Computes to STRIDED?");
+        if (LStride == Zero)
+          LStride = LHS.getConstant();
+        if (RStride == Zero)
+          RStride = RHS.getConstant();
+        setSTRIDED(LStride * RStride);
+      }
       break;
     case RANDOM:
       setRANDOM();
@@ -871,18 +625,19 @@ private:
 public:
 
   /// \brief Method for supporting type inquiry.
-  static bool classof(const SLEV *Node) {
+  static bool classof(const SLEVInstruction *Node) {
     return (Node->getSubtype() == SLEVMulTy);
   }
 
-  void taint(const void* IRU, std::set<SLEV*>& affected) override {
+  void taint(const void* IRU, std::set<SLEVInstruction*>& affected) override {
     LHS.taint(IRU, affected);
     RHS.taint(IRU, affected);
     if (LHS.isTainted() || RHS.isTainted())
       markTainted();
   }
 
-  SLEVMul(SLEV& L, SLEV& R) : SLEV(SLEVMulTy), LHS(L), RHS(R) {
+  SLEVMul(SLEVInstruction& L, SLEVInstruction& R)
+      : SLEVInstruction(SLEVMulTy), LHS(L), RHS(R) {
     L.addUser(this);
     R.addUser(this);
   }
@@ -897,21 +652,21 @@ public:
     OS << ")";
   }
 
-  void collectGarbage(std::set<SLEV*>& Repo) override {
-    SLEV::collectGarbage(Repo);
+  void collectGarbage(std::set<SLEVInstruction*>& Repo) override {
+    SLEVInstruction::collectGarbage(Repo);
     LHS.collectGarbage(Repo);
     RHS.collectGarbage(Repo);
   }
 };
 
-class SLEVDiv : public SLEV {
+class SLEVDiv : public SLEVInstruction {
 
 private:
 
   static SLEVKind Conversion[RANDOM + 1][RANDOM + 1];
 
-  SLEV &LHS;
-  SLEV &RHS;
+  SLEVInstruction &LHS;
+  SLEVInstruction &RHS;
 
   void calculate() override {
     SLEVKind CalculatedKind = Conversion[LHS.getKind()][RHS.getKind()];
@@ -935,18 +690,19 @@ private:
 public:
 
   /// \brief Method for supporting type inquiry.
-  static bool classof(const SLEV *Node) {
+  static bool classof(const SLEVInstruction *Node) {
     return (Node->getSubtype() == SLEVDivTy);
   }
 
-  void taint(const void* IRU, std::set<SLEV*>& affected) override {
+  void taint(const void* IRU, std::set<SLEVInstruction*>& affected) override {
     LHS.taint(IRU, affected);
     RHS.taint(IRU, affected);
     if (LHS.isTainted() || RHS.isTainted())
       markTainted();
   }
 
-  SLEVDiv(SLEV& L, SLEV& R) : SLEV(SLEVDivTy), LHS(L), RHS(R) {
+  SLEVDiv(SLEVInstruction& L, SLEVInstruction& R)
+      : SLEVInstruction(SLEVDivTy), LHS(L), RHS(R) {
     L.addUser(this);
     R.addUser(this);
   }
@@ -961,21 +717,21 @@ public:
     OS << ")";
   }
 
-  void collectGarbage(std::set<SLEV*>& Repo) override {
-    SLEV::collectGarbage(Repo);
+  void collectGarbage(std::set<SLEVInstruction*>& Repo) override {
+    SLEVInstruction::collectGarbage(Repo);
     LHS.collectGarbage(Repo);
     RHS.collectGarbage(Repo);
   }
 };
 
-class SLEVCmp : public SLEV {
+class SLEVCmp : public SLEVInstruction {
 
 private:
 
   static SLEVKind Conversion[RANDOM + 1][RANDOM + 1];
 
-  SLEV &LHS;
-  SLEV &RHS;
+  SLEVInstruction &LHS;
+  SLEVInstruction &RHS;
 
   void calculate() override {
     // TODO : logic should take into accout the compare operator and any
@@ -1002,18 +758,19 @@ private:
 public:
 
   /// \brief Method for supporting type inquiry.
-  static bool classof(const SLEV *Node) {
+  static bool classof(const SLEVInstruction *Node) {
     return (Node->getSubtype() == SLEVCmpTy);
   }
 
-  void taint(const void* IRU, std::set<SLEV*>& affected) override {
+  void taint(const void* IRU, std::set<SLEVInstruction*>& affected) override {
     LHS.taint(IRU, affected);
     RHS.taint(IRU, affected);
     if (LHS.isTainted() || RHS.isTainted())
       markTainted();
   }
 
-  SLEVCmp(SLEV& L, SLEV& R) : SLEV(SLEVCmpTy), LHS(L), RHS(R) {
+  SLEVCmp(SLEVInstruction& L, SLEVInstruction& R)
+      : SLEVInstruction(SLEVCmpTy), LHS(L), RHS(R) {
     L.addUser(this);
     R.addUser(this);
   }
@@ -1028,22 +785,22 @@ public:
     OS << ")";
   }
 
-  void collectGarbage(std::set<SLEV*>& Repo) override {
-    SLEV::collectGarbage(Repo);
+  void collectGarbage(std::set<SLEVInstruction*>& Repo) override {
+    SLEVInstruction::collectGarbage(Repo);
     LHS.collectGarbage(Repo);
     RHS.collectGarbage(Repo);
   }
 };
 
-class SLEVUse : public SLEV {
+class SLEVUse : public SLEVInstruction {
 
 private:
 
-  SmallPtrSet<SLEV*, 2> ReachingSLEVs;
+  SmallPtrSet<SLEVInstruction*, 2> ReachingSLEVs;
 
   SmallPtrSet<const void*, 2> IRUses;
 
-  void taint(const void* IRUse, std::set<SLEV*>& affected) override {
+  void taint(const void* IRUse, std::set<SLEVInstruction*>& affected) override {
     if (IRUses.count(IRUse)) {
       markTainted();
       affected.insert(this);
@@ -1053,22 +810,24 @@ private:
 public:
 
   /// \brief Method for supporting type inquiry.
-  static bool classof(const SLEV *Node) {
+  static bool classof(const SLEVInstruction *Node) {
     return (Node->getSubtype() == SLEVUseTy);
   }
 
   /// \brief Construct an empty Blend, to be added incoming SLEVs.
-  SLEVUse() : SLEV(SLEVUseTy) {}
+  SLEVUse() : SLEVInstruction(SLEVUseTy) {}
 
   /// \brief Add a reaching SLEV to this SLEV.
-  void addReaching(SLEV* S, const void* IRUse) {
+  void addReaching(SLEVInstruction* S, const void* IRUse) {
     assert(S && "Reaching SLEV is null");
     ReachingSLEVs.insert(S);
     S->addUser(this);
     IRUses.insert(IRUse);
   }
 
-  const SmallPtrSetImpl<SLEV*>& getReachingSLEVs() { return ReachingSLEVs; }
+  const SmallPtrSetImpl<SLEVInstruction*>& getReachingSLEVs() {
+    return ReachingSLEVs;
+  }
 
   void calculate() override {
     /// If the SLEV was marked as tainted by control flow divergence then this
@@ -1083,7 +842,7 @@ public:
     /// best SLEV classification we can safely give it is the join of all the
     /// reaching SLEVs.
     SLEV Join(BOTTOM);
-    for (auto* ReachingSLEV : ReachingSLEVs)
+    for (SLEVInstruction* ReachingSLEV : ReachingSLEVs)
       Join.copyValue(join(Join, *ReachingSLEV));
     copyValue(Join);
   }
@@ -1092,26 +851,50 @@ public:
 
   void printStructure(raw_ostream& OS) const override {
     OS << "(blend";
-    for (auto* ReachingSLEV : ReachingSLEVs) {
+    for (SLEVInstruction* ReachingSLEV : ReachingSLEVs) {
       OS << " ";
       ReachingSLEV->print(OS, true);
     }
     OS << ")";
   }
 
-  void collectGarbage(std::set<SLEV*>& Repo) override {
-    SLEV::collectGarbage(Repo);
-    for (SLEV* R : ReachingSLEVs)
-      if (!Repo.count(R)) // break use loops
-        R->collectGarbage(Repo);
+  void collectGarbage(std::set<SLEVInstruction*>& Repo) override {
+    SLEVInstruction::collectGarbage(Repo);
+    for (SLEVInstruction* ReachingSLEV : ReachingSLEVs)
+      if (!Repo.count(ReachingSLEV)) // break use loops
+        ReachingSLEV->collectGarbage(Repo);
   }
 };
 
-/// \brief This class implements SIMD lane evolution on AVR programs.
+/// \brief Utility class for printing an opaque underlying IR variable.
+class IRValuePrinterBase {
+public:
+  virtual void print(formatted_raw_ostream& OS, const void* Val) const = 0;
+};
+
+/// \brief Concrete class for printing LLVM-IR underlying variables.
+class IRValuePrinter : public IRValuePrinterBase {
+public:
+  void print(formatted_raw_ostream& OS, const void* Val) const override {
+    OS << *(const Value*)Val;
+  }
+};
+
+/// \brief Concrete class for printing HIR underlying variables.
+class IRValuePrinterHIR : public IRValuePrinterBase {
+public:
+  void print(formatted_raw_ostream& OS, const void* Val) const override {
+    ((const DDRef*)Val)->print(OS, true);
+  }
+};
+
+/// \brief This class implements SIMD lane evolution analysis for AVR programs.
 ///
 /// This class depends on its concrete subclasses to produce the
 /// IR-independent information it relies on (CFG, Dom/Postdom, Def-Use).
-class SIMDLaneEvolutionBase : public FunctionPass {
+class SIMDLaneEvolutionAnalysisBase {
+
+  friend class SIMDLaneEvolutionAnalysisUtilBase;
 
 public:
 
@@ -1148,22 +931,15 @@ public:
     AvrBasicBlock* BasicBlock;
     AvrBasicBlock* PostDominator;
     InfluencedBBsTy InfluencedBasicBlocks;
-    friend SIMDLaneEvolutionBase;
+    friend SIMDLaneEvolutionAnalysisBase;
   };
 
 private:
 
-  /// \brief Reset all internal data structures.
-  void reset();
-
   /// \brief Calculate the Influence Region of a branch condition AVR.
   InfluenceRegion calculateInfluenceRegion(AVR* Avr);
 
-  /// \brief A pointer to the AVR program to analyze. Provided by derived class.
-  AVRGenerateBase* AV = nullptr;
-
   /// \brief A pointer to the AVR CFG of the AVR program being analyzed.
-  /// Provided by derived class.
   AvrCFGBase* CFG = nullptr;
 
   /// \brief A pointer to the AVR Dominator Tree for the AVR program being
@@ -1180,19 +956,9 @@ private:
 
 protected:
 
-  /// \brief Utility class for printing an opaque underlying IR variable.
-  class IRValuePrinterBase {
-  public:
-    virtual void print(formatted_raw_ostream& OS, const void* Val) const = 0;
-  };
+  DenseMap<AVR*, SLEVInstruction*> SLEVs;
 
-  /// \bried Printer for underlying IR variables.
-  /// Provided by derived class.
-  IRValuePrinterBase* ValuePrinter = nullptr;
-
-  DenseMap<const AVR*, SLEV*> SLEVs;
-
-  std::vector<SLEV*>* FirstCalcQueue = nullptr;
+  std::vector<SLEVInstruction*>* FirstCalcQueue = nullptr;
 
   /// SLEVUse's may be constructed before all their reaching SLEVs are. This
   /// table tracks them for completion at the end of construction.
@@ -1201,17 +967,11 @@ protected:
 
   /// Iteratively one set holds the changed from the previous iteration and
   /// the other holds the new changed values from the current iteration.
-  typedef SmallPtrSet<SLEV*, 5> AffectedSLEVsTy;
+  typedef SmallPtrSet<SLEVInstruction*, 5> AffectedSLEVsTy;
   AffectedSLEVsTy Affected1;
   AffectedSLEVsTy Affected2;
   AffectedSLEVsTy *AffectedNew; // Set of SLEVs affected by current iteration
   AffectedSLEVsTy *AffectedOld; // The other AffectedSLEVsTy
-
-  /// \brief Perform SLEV analysis on a given AVR program.
-  void runOnAvr(AVRGenerateBase* A,
-                AvrCFGBase* C,
-                AvrDefUseBase* DU,
-                IRValuePrinterBase* VP);
 
   const AvrDefUseBase* getDefUse() const { return DefUseBase; }
   
@@ -1228,15 +988,15 @@ protected:
   }
 
   /// \brief Set the SLEV of an AVR.
-  void setSLEV(AVR* Avr, SLEV* Slev);
+  void setSLEV(AVR* Avr, SLEVInstruction* Slev);
 
   /// \brief The main computation function of the analysis: performs the data
   /// flow and reflects its effects over the control-flow.
-  void calculate(SLEV* Slev);
+  void calculate(SLEVInstruction* Slev);
 
   /// \brief Handle the effect of this SLEV's control divergence on the SLEVs
   /// in its Influence Region (See documentation for a detailed explanation).
-  void handleControlDivergence(SLEV* Slev);
+  void handleControlDivergence(SLEVInstruction* Slev);
 
   void findPartiallyKillingPath(AvrBasicBlock* ConditionBB,
                                 AvrBasicBlock* DefBB,
@@ -1267,7 +1027,7 @@ protected:
       const std::set<AvrCFGBase::PathTy>& Rights,
       const SmallPtrSet<const AvrBasicBlock*, 3>& Except) const;
 
-  SIMDLaneEvolutionBase(char &ID);
+  SIMDLaneEvolutionAnalysisBase(AvrDefUseBase* DUBase);
 
   /// \brief Utility function for constructing the (given) binary operation
   /// SLEV for AVRExpressions.
@@ -1295,7 +1055,10 @@ protected:
 
 public:
 
-  virtual ~SIMDLaneEvolutionBase() { reset(); }
+  virtual ~SIMDLaneEvolutionAnalysisBase();
+
+  /// \brief Perform SLEV analysis on a given AVR program.
+  void runOnAvr(AvrItr Begin, AvrItr End, IRValuePrinterBase* VP);
 
   virtual void construct(AVRExpression* AExpr);
   virtual void construct(AVRValueIR* AValueIR) { llvm_unreachable("Base"); }
@@ -1313,7 +1076,7 @@ public:
   virtual void entering(AVRLoopHIR *ALoopHIR) { llvm_unreachable("Base"); }
   virtual void exiting(AVRLoopHIR *ALoopHIR) { llvm_unreachable("Base"); }
 
-  void print(raw_ostream &OS, const Module* = nullptr) const override;
+  void print(raw_ostream &OS) const;
 
   static APSInt toAPSInt(int64_t Val) {
     APInt IntVal(64, Val); // int64_t, so bitwidth = 64 bit
@@ -1321,11 +1084,36 @@ public:
   }
 };
 
-class SIMDLaneEvolution : public SIMDLaneEvolutionBase {
+/// \brief Base class of a utility for running the analysis. This class creates
+/// a (concrete) analysis object, runs the analysis and returns it as read-only.
+/// Using these utility classes is the only way to run the analysis.
+class SIMDLaneEvolutionAnalysisUtilBase {
 
 private:
 
-  DenseMap<const Value*, SLEV*> Value2SLEV;
+  IRValuePrinterBase& ValuePrinterBase;
+
+protected:
+
+  SIMDLaneEvolutionAnalysisUtilBase(IRValuePrinterBase& VPB)
+      : ValuePrinterBase(VPB) {}
+
+  virtual SIMDLaneEvolutionAnalysisBase* createAnalysis() = 0;
+
+public:
+
+  void runOnAvr(AvrItr Begin, AvrItr End);
+};
+
+/// \brief IR-based SLEV analysis.
+class SIMDLaneEvolutionAnalysis : public SIMDLaneEvolutionAnalysisBase {
+
+  friend class SIMDLaneEvolutionAnalysisUtil;
+  friend class SIMDLaneEvolution;
+
+private:
+
+  DenseMap<const Value*, SLEVInstruction*> Value2SLEV;
 
   AvrDefUse* DefUse;
 
@@ -1334,7 +1122,7 @@ private:
   }
 
   /// \brief During SLEV construction, this is vector candidate loop.
-  AVRLoopIR* VectorCandidate;
+  AVRLoopIR* VectorCandidate = nullptr;
 
   /// \brief During SLEV construction, this is the induction variable that
   /// induces a linear stride in the vector candidate loop.
@@ -1342,22 +1130,61 @@ private:
 
   /// \brief During SLEV construction, this is the condition of the vector
   /// candidate loop's latch.
-  AVRCompare* LatchCondition;
+  AVRCompare* LatchCondition = nullptr;
+
+  SIMDLaneEvolutionAnalysis(AvrDefUse* DU) :
+      SIMDLaneEvolutionAnalysisBase(DU), DefUse(DU) {};
 
 protected:
 
   typedef AvrDefUseBase::VarReachingAvrsMapTy ReachingAvrsTy;
 
-  SLEV* constructValueSLEV(const Value* Val,
-                           const ReachingAvrsTy& ReachingVars);
+  SLEVInstruction* constructValueSLEV(const Value* Val,
+                                      const ReachingAvrsTy& ReachingVars);
 
-  /// \brief Concrete class for printing LLVM-IR underlying variables.
-  class IRValuePrinter : public IRValuePrinterBase {
-  public:
-    void print(formatted_raw_ostream& OS, const void* Val) const override {
-      OS << *(const Value*)Val;
-    }
-  };
+public:
+
+  virtual ~SIMDLaneEvolutionAnalysis() {}
+
+  void construct(AVRValueIR* AValueIR) override;
+  void construct(AVRPhiIR *APhiIR) override;
+  void construct(AVRLabelIR *ALabelIR) override;
+  void construct(AVRCallIR *ACallIR) override;
+  void construct(AVRReturnIR *AReturnIR) override;
+  void construct(AVRSelect *ASelect) override;
+  void construct(AVRCompareIR *ACompareIR) override;
+  void construct(AVRBranchIR *ABranchIR) override;
+  void construct(AVRIfIR *AIfIR) override;
+  void entering(AVRLoopIR *ALoopIR) override;
+  void exiting(AVRLoopIR *ALoopIR) override;
+};
+
+/// \brief IR-based utility for running the analysis.
+class SIMDLaneEvolutionAnalysisUtil : public SIMDLaneEvolutionAnalysisUtilBase {
+
+private:
+
+  AvrDefUse& DefUse;
+  IRValuePrinter ValuePrinter;
+
+protected:
+
+  SIMDLaneEvolutionAnalysisBase* createAnalysis() override {
+    return new SIMDLaneEvolutionAnalysis(&DefUse);
+  }
+
+public:
+
+  SIMDLaneEvolutionAnalysisUtil(AvrDefUse& DU)
+      : SIMDLaneEvolutionAnalysisUtilBase(ValuePrinter), DefUse(DU) {}
+};
+
+/// \brief IR-based function-level pass SLEV analysis.
+class SIMDLaneEvolution : public FunctionPass {
+
+private:
+
+  SIMDLaneEvolutionAnalysisBase* SLEV = nullptr;
 
 public:
 
@@ -1378,17 +1205,12 @@ public:
 
   bool runOnFunction(Function &F) override;
 
-  void construct(AVRValueIR* AValueIR) override;
-  void construct(AVRPhiIR *APhiIR) override;
-  void construct(AVRLabelIR *ALabelIR) override;
-  void construct(AVRCallIR *ACallIR) override;
-  void construct(AVRReturnIR *AReturnIR) override;
-  void construct(AVRSelect *ASelect) override;
-  void construct(AVRCompareIR *ACompareIR) override;
-  void construct(AVRBranchIR *ABranchIR) override;
-  void construct(AVRIfIR *AIfIR) override;
-  void entering(AVRLoopIR *ALoopIR) override;
-  void exiting(AVRLoopIR *ALoopIR) override;
+  void print(raw_ostream &OS, const Module* = nullptr) const override {
+    if (SLEV)
+      SLEV->print(OS);
+    else
+      OS << "No SLEV information available\n";
+  }
 };
 
 /// \brief Utility class keeping a DDRef -> AVRValue mapping only for Defs.
@@ -1409,23 +1231,79 @@ public:
   void visit(AVRValueHIR* AValueHIR);
 };
 
-class SIMDLaneEvolutionHIR : public SIMDLaneEvolutionBase {
+/// \brief HIR-based SLEV analysis.
+class SIMDLaneEvolutionAnalysisHIR : public SIMDLaneEvolutionAnalysisBase {
+
+  friend class SIMDLaneEvolutionAnalysisUtilHIR;
+  friend class SIMDLaneEvolutionHIR;
 
 private:
+
+  SIMDLaneEvolutionAnalysisHIR(AvrDefUseHIR* DU) :
+      SIMDLaneEvolutionAnalysisBase(DU), DefUseHIR(DU) {}
 
   AvrDefUseHIR* DefUseHIR;
 
   DDRef2AVR D2A;
+  
+protected:
+
+public:
+
+  virtual ~SIMDLaneEvolutionAnalysisHIR() {}
+
+  /// \brief Utility function that constructs a SLEV for a single blob.
+  /// @param AValueHIR The AVRValue whose RegDDRef contains the blob.
+  /// @return The constructed SLEV
+  SLEVInstruction* constructSLEV(AVRValueHIR* AValueHIR, unsigned BlobIndex);
+
+  /// \brief Utility function that onstructs a SLEV for a single canon-expr
+  /// @param AValueHIR The AVRValue whose RegDDRef contains the canon-expr.
+  /// @return The constructed SLEV
+  SLEVInstruction* constructSLEV(AVRValueHIR* AValueHIR, CanonExpr& CE,
+                                 unsigned VectorizedDim);
+
+  void construct(AVRValueHIR* AValueHIR) override;
+  void entering(AVRLoopHIR *ALoopHIR) override;
+  void exiting(AVRLoopHIR *ALoopHIR) override;
+
+  /// \brief Visitor function for SCEV expressions. Used for constructing SLEVs
+  /// for nested blobs.
+  bool follow(const SCEV *SC) {
+    return !isDone();
+  }
+
+  /// \brief Visitor function for SCEV expressions. Used for constructing SLEVs
+  /// for nested blobs.
+  bool isDone() const { return false; }
+};
+
+/// \brief HIR-based utility for running the analysis.
+class SIMDLaneEvolutionAnalysisUtilHIR : public SIMDLaneEvolutionAnalysisUtilBase {
+
+private:
+
+  AvrDefUseHIR& DefUse;
+  IRValuePrinterHIR ValuePrinter;
 
 protected:
 
-  /// \brief Concrete class for printing HIR underlying variables.
-  class IRValuePrinterHIR : public IRValuePrinterBase {
-  public:
-    void print(formatted_raw_ostream& OS, const void* Val) const override {
-      ((const DDRef*)Val)->print(OS, true);
-    }
-  };
+  SIMDLaneEvolutionAnalysisBase* createAnalysis() override {
+    return new SIMDLaneEvolutionAnalysisHIR(&DefUse);
+  }
+
+public:
+
+  SIMDLaneEvolutionAnalysisUtilHIR(AvrDefUseHIR& DU)
+      : SIMDLaneEvolutionAnalysisUtilBase(ValuePrinter), DefUse(DU) {}
+};
+
+/// \brief HIR-based function-level pass SLEV analysis.
+class SIMDLaneEvolutionHIR : public FunctionPass {
+
+private:
+
+  SIMDLaneEvolutionAnalysisBase* SLEV = nullptr;
 
 public:
 
@@ -1446,42 +1324,23 @@ public:
 
   bool runOnFunction(Function &F) override;
 
-  /// \brief Utility function that constructs a SLEV for a single blob.
-  /// @param AValueHIR The AVRValue whose RegDDRef contains the blob.
-  /// @return The constructed SLEV
-  SLEV* constructSLEV(AVRValueHIR* AValueHIR, unsigned BlobIndex);
-
-  /// \brief Utility function that onstructs a SLEV for a single canon-expr
-  /// @param AValueHIR The AVRValue whose RegDDRef contains the canon-expr.
-  /// @return The constructed SLEV
-  SLEV* constructSLEV(AVRValueHIR* AValueHIR, CanonExpr& CE,
-                      unsigned VectorizedDim);
-
-  void construct(AVRValueHIR* AValueHIR) override;
-  void entering(AVRLoopHIR *ALoopHIR) override;
-  void exiting(AVRLoopHIR *ALoopHIR) override;
-
-  /// \brief Visitor function for SCEV expressions. Used for constructing SLEVs
-  /// for nested blobs.
-  bool follow(const SCEV *SC) {
-    return !isDone();
+  void print(raw_ostream &OS, const Module* = nullptr) const override {
+    if (SLEV)
+      SLEV->print(OS);
+    else
+      OS << "No SLEV information available\n";
   }
-
-  /// \brief Visitor function for SCEV expressions. Used for constructing SLEVs
-  /// for nested blobs.
-  bool isDone() const { return false; }
-
 };
 
 } // End VPO Vectorizer Namespace
 
 /// \brief User-based graph traits for SLEVs.
-template <> struct GraphTraits<vpo::SLEV*> {
-  typedef vpo::SLEV NodeType;
-  typedef vpo::SLEV::SLEVUsersTy::iterator ChildIteratorType;
-  typedef standard_df_iterator<vpo::SLEV *> nodes_iterator;
+template <> struct GraphTraits<vpo::SLEVInstruction*> {
+  typedef vpo::SLEVInstruction NodeType;
+  typedef vpo::SLEVInstruction::SLEVUsersTy::iterator ChildIteratorType;
+  typedef standard_df_iterator<vpo::SLEVInstruction *> nodes_iterator;
 
-  static NodeType *getEntryNode(vpo::SLEV *N) {
+  static NodeType *getEntryNode(vpo::SLEVInstruction *N) {
     return N;
   }
 
@@ -1492,20 +1351,20 @@ template <> struct GraphTraits<vpo::SLEV*> {
     return N->getUsers().end();
   }
 
-  static nodes_iterator nodes_begin(vpo::SLEV *N) {
+  static nodes_iterator nodes_begin(vpo::SLEVInstruction *N) {
     return nodes_iterator(N, true);
   }
 
-  static nodes_iterator nodes_end(vpo::SLEV *N) {
+  static nodes_iterator nodes_end(vpo::SLEVInstruction *N) {
     return nodes_iterator(N, false);
   }
 
 #if INTEL_CUSTOMIZATION
-  static nodes_iterator nodes_begin(vpo::SLEV **N) {
+  static nodes_iterator nodes_begin(vpo::SLEVInstruction **N) {
     return nodes_iterator(*N, true);
   }
 
-  static nodes_iterator nodes_end(vpo::SLEV **N) {
+  static nodes_iterator nodes_end(vpo::SLEVInstruction **N) {
     return nodes_iterator(*N, false);
   }
 #endif //INTEL_CUSTOMIZATON
@@ -1513,4 +1372,4 @@ template <> struct GraphTraits<vpo::SLEV*> {
 
 } // End LLVM Namespace 
 
-#endif  // LLVM_ANALYSIS_VPO_AVR_SLEV_H
+#endif // LLVM_ANALYSIS_VPO_SLEV_ANALYSIS_H

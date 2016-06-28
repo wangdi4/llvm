@@ -2372,36 +2372,6 @@ bool llvm::ComputeMultiple(Value *V, unsigned Base, Value *&Multiple,
   return false;
 }
 
-#if INTEL_CUSTOMIZATION
-/// \brief Check call has the following signature:
-/// a) call should have 3 arguments.
-/// b) argument 1 should be floating point.
-/// c) arguments 2 and 3 should be pointers to floating point.
-/// d) does not matter that call arguments match return.
-/// If all these conditions are met then return ValidIntrinsicID
-/// else return not_intrinsic.
-Intrinsic::ID
-checkFloatBinaryFloatPtrSignature(ImmutableCallSite ICS,
-                                  Intrinsic::ID ValidIntrinsicID) {
-  if (ICS.getNumArgOperands() != 3)
-    return Intrinsic::not_intrinsic;
-
-  Type *ArgOneType   = ICS.getArgOperand(0)->getType();
-  Type *ArgTwoType   = ICS.getArgOperand(1)->getType();
-  Type *ArgThreeType = ICS.getArgOperand(2)->getType();
-
-  if (!ArgOneType->isFPOrFPVectorTy() ||
-      !ArgTwoType->isPtrOrPtrVectorTy() ||
-      !ArgTwoType->getPointerElementType()->isFPOrFPVectorTy() ||
-      !ArgThreeType->isPtrOrPtrVectorTy() ||
-      !ArgThreeType->getPointerElementType()->isFPOrFPVectorTy()) {
-    return Intrinsic::not_intrinsic;
-  }
-
-  return ValidIntrinsicID;
-}
-#endif // INTEL_CUSTOMIZATION
-
 Intrinsic::ID llvm::getIntrinsicForCallSite(ImmutableCallSite ICS,
                                             const TargetLibraryInfo *TLI) {
   const Function *F = ICS.getCalledFunction();
@@ -2501,11 +2471,6 @@ Intrinsic::ID llvm::getIntrinsicForCallSite(ImmutableCallSite ICS,
   case LibFunc::powf:
   case LibFunc::powl:
     return Intrinsic::pow;
-#if INTEL_CUSTOMIZATION
-  case LibFunc::sincos:
-  case LibFunc::sincosf:
-    return checkFloatBinaryFloatPtrSignature(ICS, Intrinsic::sincos);
-#endif // INTEL_CUSTOMIZATION
   case LibFunc::sqrt:
   case LibFunc::sqrtf:
   case LibFunc::sqrtl:

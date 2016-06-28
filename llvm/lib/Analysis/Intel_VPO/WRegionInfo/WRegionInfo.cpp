@@ -30,8 +30,6 @@ using namespace llvm::vpo;
 
 INITIALIZE_PASS_BEGIN(WRegionInfo, "vpo-wrninfo", 
                                    "VPO Work-Region Information", false, true)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionCollection)
 INITIALIZE_PASS_END(WRegionInfo, "vpo-wrninfo", 
                                  "VPO Work-Region Information", false, true)
@@ -47,30 +45,28 @@ WRegionInfo::WRegionInfo() : FunctionPass(ID) {
 
 void WRegionInfo::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
   AU.addRequiredTransitive<WRegionCollection>();
 }
 
 bool WRegionInfo::runOnFunction(Function &F) {
-  this->Func = &F;
   DEBUG(dbgs() << "\nENTER WRegionInfo::runOnFunction: " 
                << F.getName() << "{\n");
-
-  DT     = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  PDT    = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-  WRC    = &getAnalysis<WRegionCollection>();
+  Func = &F;
+  WRC  = &getAnalysis<WRegionCollection>();
+  DT   = WRC->getDomTree();   // propagate analysis results
+  LI   = WRC->getLoopInfo();
+  SE   = WRC->getSE();
 
   DEBUG(dbgs() << "\n}EXIT WRegionInfo::runOnFunction: " 
                << F.getName() << "\n");
   return false;
 }
 
-void WRegionInfo::buildWRGraph(bool FromHIR) {
-  DEBUG(dbgs() << "\nENTER WRegionInfo::buildWRGraph(FromHIR=" 
-               << FromHIR <<"){\n");
+void WRegionInfo::buildWRGraph(WRegionCollection::InputIRKind IR) {
+  DEBUG(dbgs() << "\nENTER WRegionInfo::buildWRGraph(InpuIR=" 
+               << IR <<"){\n");
 
-  WRC->buildWRGraph(FromHIR);
+  WRC->buildWRGraph(IR);
 
   DEBUG(dbgs() << "\nRC Size = " << WRC->getWRGraphSize() << "\n");
   for (auto I = WRC->begin(), E = WRC->end(); I != E; ++I)

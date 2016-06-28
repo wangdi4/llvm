@@ -47,10 +47,8 @@ using namespace llvm::vpo;
 
 INITIALIZE_PASS_BEGIN(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                       false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(LCSSA)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
 INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                     false)
@@ -65,10 +63,8 @@ VPOParopt::VPOParopt() : ModulePass(ID) {
 }
 
 void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequiredID(LoopSimplifyID);
   AU.addRequiredID(LCSSAID);
-  AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<WRegionInfo>();
 }
 
@@ -95,22 +91,9 @@ bool VPOParopt::runOnModule(Module &M) {
 
     DEBUG(dbgs() << "\n=== VPOParopt begin func: " << F->getName() <<" {\n");
 
-    DEBUG(dbgs() << "\n=== VPOParopt before DominatorTree pass\n");
-    // Get Dom Tree information of the function F
-    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(*F).getDomTree();
-
-    DEBUG(dbgs() << "\n=== VPOParopt before ScalarEvolution pass\n");
-    // Get Scalar Evolution information of the function F
-    ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>(*F).getSE();
-
-    DEBUG(dbgs() << "\n=== VPOParopt before LoopInfo pass\n");
-    // Get Loop information of the function F
-    LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(*F).getLoopInfo();
-
-    DEBUG(dbgs() << "\n=== VPOParopt before WRegionInfo pass\n");
     // Walk the W-Region Graph top-down, and create W-Region List
     WRegionInfo &WI = getAnalysis<WRegionInfo>(*F);
-    WI.buildWRGraph(false); // On-demand entry for WRegionInfo pass
+    WI.buildWRGraph(WRegionCollection::LLVMIR);
 
     if (WI.WRGraphIsEmpty()) {
       DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");
@@ -130,7 +113,8 @@ bool VPOParopt::runOnModule(Module &M) {
     DEBUG(dbgs() << "\n=== VPOParopt before ParoptTransformer{\n");
 
     // AUTOPAR | OPENMP | SIMD | OFFLOAD
-    VPOParoptTransform VP(F, &WI, &DT, &SE, &LI, Mode);
+    VPOParoptTransform VP(F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
+                          Mode);
     Changed = Changed | VP.ParoptTransformer();
 
     DEBUG(dbgs() << "\n}=== VPOParopt after ParoptTransformer\n");
