@@ -76,7 +76,7 @@ protected:
         return spirvDesc;
     }
     // Parses FE Compiler return structure and decodes llvm::Module.
-    llvm::ErrorOr<llvm::Module*> ExtractModule(Intel::OpenCL::ClangFE::IOCLFEBinaryResult* pResult);
+    llvm::ErrorOr<std::unique_ptr<llvm::Module>> ExtractModule(Intel::OpenCL::ClangFE::IOCLFEBinaryResult* pResult);
 protected:
     Intel::OpenCL::ClangFE::IOCLFEBinaryResult* m_binary_result;
 private:
