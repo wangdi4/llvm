@@ -19,7 +19,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Intel_LoopIR/HIRVerifier.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
 
@@ -728,10 +727,6 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node) {
   INode = dyn_cast<HLInst>(Node);
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
-
-#if DEBUG
-  HIRVerifier::verifyAll();
-#endif
 
   DEBUG(errs() << "DDRef ");
   DEBUG(INode->dump());
