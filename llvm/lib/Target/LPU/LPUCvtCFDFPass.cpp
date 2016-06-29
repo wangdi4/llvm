@@ -86,6 +86,7 @@ namespace llvm {
     void replace2InputsIfFooterPhi(MachineInstr* MI);
 	  void assignLicForDF();
 	  void removeBranch();
+    unsigned findSwitchingDstForReg(unsigned Reg, MachineBasicBlock* mbb);
     void releaseMemory() override;
   private:
     MachineFunction *thisMF;
@@ -215,6 +216,29 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
 }
 
 
+unsigned LPUCvtCFDFPass::findSwitchingDstForReg(unsigned Reg, MachineBasicBlock* mbb) {
+  if (bb2switch.find(mbb) == bb2switch.end()) {
+    return 0;
+  }
+  DenseMap<unsigned, MachineInstr *>* reg2switch = bb2switch[mbb];
+  if (reg2switch->find(Reg) == reg2switch->end()) {
+    return 0;
+  }
+  MachineInstr *defSwitchInstr = (*reg2switch)[Reg];
+  unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
+  unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  if (MRI->use_empty(switchFalseReg)) {
+    return switchFalseReg;
+  }
+  else if (MRI->use_empty(switchTrueReg)) {
+    return switchTrueReg;
+  }
+  return 0;
+}
+
+
+
 MachineInstr* LPUCvtCFDFPass::getOrInsertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB) {
   MachineInstr *defSwitchInstr = nullptr;
   DenseMap<unsigned, MachineInstr *>* reg2switch = nullptr;
@@ -334,7 +358,8 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
     // process each instruction in BB
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = I;
-      if (MI->isPHI()) continue; //care about forks, not joints
+      //loop header phi forward input is a kind of fork
+      //if (MI->isPHI()) continue; //care about forks, not joints
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
@@ -372,12 +397,13 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
                   //mbb is a loop latch node, use inside a loop will be take care of in HandleUseInLopp
                   continue;
                 }
-				if (MLI->getLoopFor(upbb) &&
-					MLI->getLoopFor(upbb)->getLoopLatch() == upbb) {
+                if (MLI->getLoopFor(upbb) &&
+                  MLI->getLoopFor(upbb)->getLoopLatch() == upbb) {
                   //no need to conside backedge for if-statements handling
                   continue;
                 }
-                if (DT->dominates(dmbb, upbb)) { //including dmbb itself
+                if (DT->dominates(dmbb, upbb)) 
+                { //including dmbb itself
                   numIfParent++;
                   if (numIfParent > 1) {
                     assert(false && "TBD: support multiple if parents in CDG has not been implemented yet");
@@ -526,11 +552,12 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                   unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
                   MachineBasicBlock* mlphdr = mloop->getHeader();
                   unsigned newVReg;
+                  assert(latchBB->succ_size() > 1);
                   if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
-                    //rename Reg to switchFalseReg
+                    //rename Reg to switchTrueReg
                     newVReg = switchTrueReg;
                   } else {
-                    //rename it to switchTrueReg
+                    //rename it to switchFalseReg
                     newVReg = switchFalseReg;
                   }
                   // Rewrite uses that outside of the original def's block, inside the loop
@@ -807,6 +834,13 @@ void LPUCvtCFDFPass::replace2InputsIfFooterPhi(MachineInstr* MI) {
   }
   assert(controlBB && (pickFalseReg != 0 || pickTrueReg != 0));
   if (fallThroughReg != 0) {
+    MachineInstr* dMI = MRI->getVRegDef(fallThroughReg);
+    MachineBasicBlock* DefBB = dMI->getParent();
+    unsigned switchingDef = findSwitchingDstForReg(fallThroughReg, DefBB);
+    if (switchingDef) {
+      fallThroughReg = switchingDef;
+    }
+
     if (pickFalseReg == 0) {
       pickFalseReg = fallThroughReg;
     } else {
@@ -880,6 +914,12 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
 				pickReg = LPU::IGN;
 			} else {
 				pickReg = fallThroughReg;
+        MachineInstr* dMI = MRI->getVRegDef(fallThroughReg);
+        MachineBasicBlock* DefBB = dMI->getParent();
+        unsigned switchingDef = findSwitchingDstForReg(fallThroughReg, DefBB);
+        if (switchingDef) {
+          pickReg = switchingDef;
+        }
 			}
 			//assume only can have one fallthrough reg in Phi's inputs
 			for (MIOperands MO(MI); MO.isValid(); ++MO) {
