@@ -526,12 +526,12 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                   unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
                   MachineBasicBlock* mlphdr = mloop->getHeader();
                   unsigned newVReg;
-                  if (mLatch->isFalseChild(CDG->getNode(UseBB))) {
+                  if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
                     //rename Reg to switchFalseReg
-                    newVReg = switchFalseReg;
+                    newVReg = switchTrueReg;
                   } else {
                     //rename it to switchTrueReg
-                    newVReg = switchTrueReg;
+                    newVReg = switchFalseReg;
                   }
                   // Rewrite uses that outside of the original def's block, inside the loop
                   MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
