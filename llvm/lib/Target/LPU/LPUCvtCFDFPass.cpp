@@ -48,7 +48,7 @@ CvtCFDFPass("lpu-cvt-cf-df-pass", cl::Hidden,
 static cl::opt<int>
 RunSXU("lpu-run-sxu", cl::Hidden,
 	cl::desc("LPU Specific: run on sequential unit"),
-	cl::init(0));
+	cl::init(1));
 
 
 #define DEBUG_TYPE "lpu-cvt-cf-df-pass"
