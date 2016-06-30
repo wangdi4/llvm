@@ -214,6 +214,7 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
     const unsigned moveOpcode = TII.getMoveOpcode(TRC);
     unsigned cpyReg = MRI->createVirtualRegister(TRC);
     MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(Reg);
+    cpyInst->setFlag(MachineInstr::NonSequential);
     result = cpyInst;
   }
   return result;
@@ -313,6 +314,7 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
     } else {
       initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
     }
+    initInst->setFlag(MachineInstr::NonSequential);
   } else {
     //LLVM 3.6 buggy latch
     //closed latch
@@ -326,6 +328,7 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
     } else {
       initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
     }
+    initInst->setFlag(MachineInstr::NonSequential);
   }
   SmallVector<MachineInstr *, 2>* predVec = new SmallVector<MachineInstr *, 2>();
   predVec->push_back(cpyInst);
@@ -962,6 +965,7 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
 			}
 			const unsigned moveOpcode = TII.getMoveOpcode(TRC);
 			MachineInstr *cpyInst = BuildMI(*mbb, MI, DebugLoc(), TII.get(moveOpcode), dst).addReg(pickReg);
+      cpyInst->setFlag(MachineInstr::NonSequential);
 			MI->removeFromParent();
 		}
 	}
