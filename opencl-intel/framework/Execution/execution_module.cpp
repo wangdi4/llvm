@@ -1140,7 +1140,11 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
     const size_t pszOrigin[3] = {szOffset, 0 , 0};
     const size_t pszRegion[3] = {szCb, 1, 1};
 
-    Command* pWriteBufferCmd = new WriteBufferCommand(pCommandQueue, m_pOclEntryPoints, bBlocking, pBuffer, pszOrigin, pszRegion, cpSrcData);
+    const size_t largeBufferThreshold = 1024 * 1024;
+    // If the buffer big enough, there is no dependencies and it is blocking command then copy immediately.
+    const bool avoidBlock = (szCb > largeBufferThreshold) && (0 == uNumEventsInWaitList);
+
+    Command* pWriteBufferCmd = new WriteBufferCommand(pCommandQueue, m_pOclEntryPoints, avoidBlock ? CL_FALSE : bBlocking, pBuffer, pszOrigin, pszRegion, cpSrcData);
     if (NULL == pWriteBufferCmd)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -1153,7 +1157,7 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         return  errVal;
     }
 
-    errVal = pWriteBufferCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pWriteBufferCmd->EnqueueSelf(avoidBlock ? bBlocking : CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         pWriteBufferCmd->CommandDone();
