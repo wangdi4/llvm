@@ -1,3 +1,0 @@
-REVIEWBOARD_URL = 'http://nnopencl-ocl-jenkins-01.inn.intel.com/rb/'
-REPOSITORY = 'OpenCL /src'
-TARGET_GROUPS="opencl"
