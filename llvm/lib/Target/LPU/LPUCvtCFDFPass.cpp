@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <deque>
+#include <stack>
 #include "LPU.h"
 #include "InstPrinter/LPUInstPrinter.h"
 #include "LPUInstrInfo.h"
@@ -48,7 +49,7 @@ CvtCFDFPass("lpu-cvt-cf-df-pass", cl::Hidden,
 static cl::opt<int>
 RunSXU("lpu-run-sxu", cl::Hidden,
 	cl::desc("LPU Specific: run on sequential unit"),
-	cl::init(1));
+	cl::init(0));
 
 
 #define DEBUG_TYPE "lpu-cvt-cf-df-pass"
@@ -86,6 +87,7 @@ namespace llvm {
     void replace2InputsIfFooterPhi(MachineInstr* MI);
 	  void assignLicForDF();
 	  void removeBranch();
+    void linearizeCFG();
     unsigned findSwitchingDstForReg(unsigned Reg, MachineBasicBlock* mbb);
     void releaseMemory() override;
   private:
@@ -178,6 +180,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   assignLicForDF();
   if (!RunSXU) {
     removeBranch();
+    linearizeCFG();
   }
   return Modified;
 
@@ -1028,6 +1031,33 @@ void LPUCvtCFDFPass::removeBranch() {
     }
   }
 }
+
+
+
+void LPUCvtCFDFPass::linearizeCFG() {
+  typedef po_iterator<MachineBasicBlock *> po_mbb_iterator;
+  MachineBasicBlock *root = thisMF->begin();
+  std::stack<MachineBasicBlock *> mbbStack;
+  for (po_mbb_iterator mbb = po_mbb_iterator::begin(root), END = po_mbb_iterator::end(root); mbb != END; ++mbb) {
+    mbbStack.push(*mbb);
+  }
+  MachineBasicBlock *x = mbbStack.top();
+  assert(x == root);
+  mbbStack.pop();
+  while (!mbbStack.empty()) {
+    MachineBasicBlock* mbb = mbbStack.top();
+    mbbStack.pop();
+    MachineBasicBlock::succ_iterator SI = x->succ_begin();
+    while (SI != x->succ_end()) {
+      SI = x->removeSuccessor(SI);
+    }
+    x->addSuccessor(mbb);
+    x = mbb;
+  }
+}
+
+
+
 
 #if 0
 void LPUCvtCFDFPass::replaceIfFooterPhi() {
