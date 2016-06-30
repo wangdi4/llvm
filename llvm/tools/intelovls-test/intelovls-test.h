@@ -110,6 +110,13 @@ public:
     return (DataType->getNumElements() == (CLMrf->DataType)->getNumElements());
   }
 
+  // TODO: Return the location of this in the code. Should reflect the relative
+  // ordering between all Memrefs sent to the VLS engine by this client.
+  // FIXME: For now just returning the MemrefID.
+  unsigned getLocation() const {
+    return getMemrefId(); //FIXME
+  }
+
 private:
   char MId;
   VectorType *DataType;   // Data type for the memref

@@ -515,3 +515,50 @@ bool OptVLSInterface::getSequence(const OVLSGroup& Group,
 
   return true;
 }
+
+// The members of Group can be either vectorized individually using a 
+// gather/scatter each, or can be vectorized together with their neighbors 
+// in the Group using wide loads/stores and shuffles. This function 
+// returns the minimum cost between these two options (i.e. the absolute
+// cost of the best way to vectorize this Group).
+int64_t OptVLSInterface::getGroupCost(const OVLSGroup& Group,
+                                      const OVLSCostModelAnalysis& CM) {
+  int64_t Cost = 0; 
+
+  // 1. Obtain the cost of vectorizing this group using wide loads/stores 
+  // + shuffle-sequence
+  OVLSInstructionVector InstVector;
+  if (getSequence(Group, InstVector)) {
+    for (OVLSInstruction *I : InstVector) {
+      OVLSdbgs() << *I;
+      int64_t C = CM.getInstructionCost(I);
+      //OVLSdbgs() << "Cost = " << C << "\n";
+      Cost += C;
+    }
+  }
+ 
+  // 2. Obtain the cost of vectorizing this group using gathers/scatters.
+  // If gathers/scatters are not supported the cost is 0.
+  int64_t GatherScatterCost = 0;
+  const OVLSMemrefVector &MemrefVec = Group.getGroupsMemrefs(); 
+  for (OVLSMemref *Memref : MemrefVec) {
+    int64_t C = CM.getGatherScatterOpCost(*Memref);
+    //OVLSdbgs() << "Cost = " << C << "\n";
+    GatherScatterCost += C;
+  }
+  //OVLSdbgs() << "Shuffle Cost = " << Cost << "\n";
+  //OVLSdbgs() << "Gather/Scatter Cost = " << GatherScatterCost << "\n";
+
+  // 3. Return the minimum of the two costs.
+  if (GatherScatterCost && GatherScatterCost <= Cost)
+    Cost = GatherScatterCost;
+
+  // Both gathers/scatters and shuffles not supported; return some high dummy 
+  // cost. TODO: Instead, return the gather/scatter scalarization cost.
+  if (Cost == 0)
+    Cost = 
+      MemrefVec.size() * Group.getFirstMemref()->getType().getNumElements();  
+
+  return Cost;
+}
+

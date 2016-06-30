@@ -264,14 +264,18 @@ public:
   virtual bool isAConstDistanceFrom(const OVLSMemref& Memref,
                                     int64_t *Dist) = 0;
 
-  // Returns true if this and Memref have the same number of elements.
+  /// \brief Returns true if this and Memref have the same number of elements.
   virtual bool haveSameNumElements(const OVLSMemref& Memref) = 0;
 
-  // Returns true if this can move to the location of Memref. This means it
-  // does not violate any program/control flow semantics nor any memory
-  // dependencies. I.e., this is still alive at the location of Memref and
-  // there are no loads/stores of this in between the location of this and the
-  // location of Memref.
+  /// \brief Returns true if this can move to the location of \p Memref. This 
+  /// means it does not violate any program/control flow semantics nor any 
+  /// memory dependencies. I.e., this is still alive at the location of 
+  /// \p Memref and there are no loads/stores that may alias with this in 
+  /// between the location of this and the location of \p Memref.
+  /// In order for the canMoveTo answers to remain valid upon actually 
+  /// committing the moves by the server, the server is expected to only move
+  /// loads up towards the first load, and move stores down towards the last 
+  /// store (based on the getLocation function).
   virtual bool canMoveTo(const OVLSMemref& Memref) = 0;
 
   /// \brief Returns true if this is a strided access and it has a constant
@@ -280,6 +284,10 @@ public:
   /// Inverting the return value does not invert the functionality(false does
   /// not mean that it has a variable stride)
   virtual bool hasAConstStride(int64_t *Stride) = 0;
+
+  /// \brief Return the location of this in the code. The location should be
+  /// relative to other Memrefs sent by the client to the VLS engine. 
+  virtual unsigned getLocation() const = 0; 
 
 private:
   unsigned Id;          // A unique Id, helps debugging.
@@ -358,6 +366,8 @@ public:
   // Currently, a group is formed only if the members have the same number
   // of elements.
   uint32_t getNumElems() const { return MemrefVec[0]->getType().getNumElements(); }
+
+  const OVLSMemrefVector &getGroupsMemrefs() const { return MemrefVec; }
 
   void print(OVLSostream &OS, unsigned SpaceCount) const;
 
@@ -528,6 +538,8 @@ public:
     Src = S;
   }
 
+  OVLSAddress getSrc() const { return Src; }
+
   static bool classof(const OVLSInstruction *I) {
     return I->getKind() == OC_Load;
   }
@@ -647,6 +659,9 @@ public:
   /// the OVLS clients to help getting the target-specific instruction cost.
   virtual uint64_t getInstructionCost(const OVLSInstruction *I) const = 0;
 
+  /// \brief Returns target-specific cost for loading/storing \p Mrf
+  /// using a gather/scatter.
+  virtual uint64_t getGatherScatterOpCost(const OVLSMemref &Mrf) const = 0;
 };
 
 // OptVLS public Interface class that operates on OptVLS Abstract types.
@@ -680,6 +695,11 @@ public:
   /// Adj. gather/scatter optimization replaces a set of gathers/scatters by a
   /// set of contiguous loads/stores followed by a sequence of shuffle
   /// instructions.
+  /// FIXME: Currently returns the *minimum* between these two costs rather 
+  /// than returning the cost of the one *relative* to the other. This is also
+  /// how the the vectorizer client currently uses this routine: it assumes 
+  /// that this routine provides the absolute cost of the best way to vectorize
+  /// this group.
   static int64_t getGroupCost(const OVLSGroup& Group,
                               const OVLSCostModelAnalysis& CM);
 

@@ -43,6 +43,7 @@ class DDRefUtils;
 
 typedef SmallVector<RegDDRef *, 16> LoopMemrefsVector;
 typedef LoopMemrefsVector::iterator LoopMemrefsIt;
+typedef SmallDenseMap<const RegDDRef *, OVLSMemref *, 16> HIRToVLSMemrefsMap;
 
 /// Holds information about the current context underwhich the memrefs will be
 /// analyzed, namely the specific loop that is being considered, the DDG
@@ -182,6 +183,21 @@ public:
 
     *Stride = getConstStride();
     return true;
+  }
+ 
+  /// \brief Return the location of this in the code. The location should be
+  /// relative to other Memrefs sent to the VLS engine. Here it is obtained
+  /// by the topological sort number. Assuming structured code 
+  /// (no labels/gotos), we rely on the topological sort number to reflect 
+  /// the relative ordering between the different OVLSMemref accesses. 
+  /// This assumption may only hold within straight line code segments;
+  /// indeed the vectorizer will only send the VLS engine Mrfs that all reside
+  /// in the same straight line code segement.
+  unsigned getLocation() const {
+    const RegDDRef *Ref = getRef();
+    assert(Ref);
+    const HLDDNode *DDNode = Ref->getHLDDNode();
+    return DDNode->getTopSortNum();
   }
 
   /// \brief Checks if \p Ref can be moved to the location of \p AtRef.

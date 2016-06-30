@@ -148,7 +148,8 @@ void HIRVectVLSAnalysis::testVLSMemrefAnalysis(VectVLSContext *VectContext,
 // NumberOfElements (this will be set later per VF).
 void HIRVectVLSAnalysis::getVLSMemrefs(VectVLSContext &VectContext,
                                        LoopMemrefsVector &RefVec,
-                                       OVLSMemrefVector &Mrfs) {
+                                       OVLSMemrefVector *Mrfs,
+                                       HIRToVLSMemrefsMap *MemrefsMap) {
 
   for (auto &Ref : RefVec) {
     // DEBUG(dbgs() << "\nExamine Ref "; Ref->dump());
@@ -161,13 +162,17 @@ void HIRVectVLSAnalysis::getVLSMemrefs(VectVLSContext &VectContext,
       // TODO: Try indexed
       // FORNOW: Access Remains unknown.
     }
-    Mrfs.push_back((OVLSMemref *)Mrf);
+    if (Mrfs)
+      Mrfs->push_back((OVLSMemref *)Mrf);
+    if (MemrefsMap)
+      (*MemrefsMap).insert(std::make_pair(Ref, Mrf));
   }
 }
 
 void HIRVectVLSAnalysis::computeVLSGroups(const OVLSMemrefVector &Memrefs,
                                           VectVLSContext &VectContext,
-                                          OVLSGroupVector &Grps) {
+                                          OVLSGroupVector &Grps,
+                                          OVLSMemrefToGroupMap *MemrefToGroupMap) {
 
   unsigned GroupSize = MAX_VECTOR_LENGTH; // CHECKME
   unsigned Level = VectContext.getLoopLevel();
@@ -189,7 +194,7 @@ void HIRVectVLSAnalysis::computeVLSGroups(const OVLSMemrefVector &Memrefs,
     CLMrf->setNumElements(VF);
   }
 
-  OptVLSInterface::getGroups(Memrefs, Grps, GroupSize);
+  OptVLSInterface::getGroups(Memrefs, Grps, GroupSize, MemrefToGroupMap);
 }
 
 class VectVLSDDRefVisitor final : public HLNodeVisitorBase {
@@ -244,7 +249,7 @@ void HIRVectVLSAnalysis::analyzeVLSInLoop(const HLLoop *Loop) {
   testVLSMemrefAnalysis(&VectContext, LoopMemrefs);
 #endif
   OVLSMemrefVector LoopVLSMrfs;
-  getVLSMemrefs(VectContext, LoopMemrefs, LoopVLSMrfs);
+  getVLSMemrefs(VectContext, LoopMemrefs, &LoopVLSMrfs, nullptr);
 
   // To roughly emulate the vectorizer driver we would want to apply the
   // following for each candidate VF. Here we use only one VF.
@@ -283,11 +288,12 @@ void HIRVectVLSAnalysis::gatherMemrefsInLoop(HLLoop *Loop,
 // Utility to analyze HIR memrefs
 void HIRVectVLSAnalysis::analyzeVLSMemrefsInLoop(VectVLSContext &VectContext,
                                                  LoopMemrefsVector &LoopMemrefs,
-                                                 OVLSMemrefVector &Mrfs) {
+                                                 OVLSMemrefVector &Mrfs,
+                                                 HIRToVLSMemrefsMap &MemrefsMap) {
 
   DEBUG(dbgs() << "\nVLS: analyze memrefs\n");
 
-  getVLSMemrefs(VectContext, LoopMemrefs, Mrfs);
+  getVLSMemrefs(VectContext, LoopMemrefs, &Mrfs, &MemrefsMap);
 }
 
 // Only used when debugHIRVectVLS is on.

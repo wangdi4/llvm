@@ -70,8 +70,10 @@ public:
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-  VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn) override {
-    ScenariosEngine = new VPOScenarioEvaluation(AvrWrn, TTI, *DefUse);
+  VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn, 
+                                                Function &F) override {
+    ScenariosEngine = new VPOScenarioEvaluation(AvrWrn, *TTI, F.getContext(), 
+                                                *DefUse);
     return *ScenariosEngine;
   }
 
@@ -111,8 +113,9 @@ public:
     return createHIRPrinterPass(OS, Banner);
   }
 
-  VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn) override {
-    ScenariosEngine = new VPOScenarioEvaluationHIR(AvrWrn, DDA, VLS, *DefUse, TTI);
+  VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn, Function &F) override {
+    ScenariosEngine = new VPOScenarioEvaluationHIR(AvrWrn, DDA, VLS, *DefUse, 
+                                                   *TTI, F.getContext());
     return *ScenariosEngine;
   }
 
@@ -190,7 +193,7 @@ bool VPODriverBase::runOnFunction(Function &F) {
       continue;
     }
 
-    VPOScenarioEvaluationBase &ScenariosEngine = getScenariosEngine(AvrWrn);
+    VPOScenarioEvaluationBase &ScenariosEngine = getScenariosEngine(AvrWrn, F);
 
 
     if (AvrWrn->getWrnNode()->getIsFromHIR() == false) {

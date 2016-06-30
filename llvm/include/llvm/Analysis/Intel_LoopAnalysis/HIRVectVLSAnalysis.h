@@ -52,14 +52,16 @@ public:
   void markLoopBodyModified(const HLLoop *Loop) override;
 
   /// \brief Given a vector of memory references in \p Memrefs, this function
-  /// creates an HIRVLSCLientMemref object for each of them to represent
+  /// creates an HIRVLSClientMemref object for each of them to represent
   /// information about the access pattern of the memory reference, in an IR
   /// independent way, as required for VLS grouping analysis.
   /// \param VecContext holds the vectorization context underwhich the
   /// \p MemRefs are analyzed.
   /// \param [out] Mrfs holds the HIRVLSClientMemrefs created by this function.
+  /// \param [out] MemrefsMap holds the mapping from each memref in \p MemRefs
+  /// to its respective HIRVLSClientMemref object.
   void getVLSMemrefs(VectVLSContext &VectContext, LoopMemrefsVector &MemRefs,
-                     OVLSMemrefVector &Mrfs);
+                     OVLSMemrefVector *Mrfs, HIRToVLSMemrefsMap *MemrefsMap);
 
   /// \brief Find groups of neighbouring memory references.
   /// \param Memrefs holds the memory references that this function will
@@ -67,8 +69,11 @@ public:
   /// \param VecContext holds the vectorization context underwhich the
   /// \p Memrefs are analyzed.
   /// \param [out] Grps holds the VLS Groups that are found by this function.
+  /// \param [out] MemrefToGroupMap holds a mapping from each Memref in 
+  /// \p Memrefs to the group in \p Grps that it belongs to.
   void computeVLSGroups(const OVLSMemrefVector &Memrefs,
-                        VectVLSContext &VectContext, OVLSGroupVector &Grps);
+                        VectVLSContext &VectContext, OVLSGroupVector &Grps,
+                        OVLSMemrefToGroupMap *MemrefToGroupMap = nullptr);
 
   /// \brief Utility that analyzes HIR memory references relative to a context 
   /// (loop, VF) given in \p VectContext and provides an OVLSMemref interface 
@@ -77,11 +82,14 @@ public:
   /// \param VectContext holds the vectorization context underwhich the
   /// \p LoopMemrefs are analyzed (namely, loop and VF).
   /// \param [out] Mrfs holds the HIRVLSClientMemrefs created by this function.
+  /// \param [out] MemrefsMap holds a mapping from memrefs in \p LoopMemrefs
+  /// to their respective HIRVLSClientMemref objects.
   // TODO: Provide a VF-agnostic utility, as well as a utility that refines
   // grouping given a VF.
   void analyzeVLSMemrefsInLoop(VectVLSContext &VectContext,
                                LoopMemrefsVector &LoopMemrefs,
-                               OVLSMemrefVector &Mrfs);
+                               OVLSMemrefVector &Mrfs,
+                               HIRToVLSMemrefsMap &MemrefsMap);
 
   /// \brief Utility that gathers HIR memory references in \p Loop.
   /// \param [out] LoopMemrefsVector holds the HIR memrefs gathered by this 

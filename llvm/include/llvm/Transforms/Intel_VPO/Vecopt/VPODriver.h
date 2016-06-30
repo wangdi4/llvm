@@ -71,7 +71,8 @@ public:
 
   /// Get a handle to the engine that explores and evaluates the 
   /// vectorization opportunities in a Region.
-  virtual VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AWrn) = 0;
+  virtual VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AWrn, 
+                                                        Function &F) = 0;
 
   /// Call the destructor of the ScenariosEngine for this region. 
   virtual void resetScenariosEngineForRegion() = 0;

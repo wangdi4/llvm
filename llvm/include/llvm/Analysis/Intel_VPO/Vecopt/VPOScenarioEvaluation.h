@@ -21,6 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVectVLSAnalysis.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
+#include "llvm/Analysis/Intel_OptVLSClientUtils.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecContext.h"
@@ -35,6 +36,158 @@ typedef SmallVector<unsigned int, 6> VFsVector;
 typedef VFsVector::iterator LoopVFsIt;
 
 class VPOVecContextBase;
+
+
+// ----------------- VPOVLSInfo ------------------ //
+/// \brief Utilities for Vector-Load-Store (VLS) Optimization Analysis:
+/// gather information about the memory accesses in the Loop and the proximity
+/// relations between them.
+class VPOVLSInfoBase {
+public:
+  /// Discriminator for LLVM-style RTTI (dyn_cast<> et al.)
+  enum VPOVLSInfoKind {
+    VPOVLSK_LLVMIR,
+    VPOVLSK_HIR
+  };
+
+protected:
+  /// \brief Mapping from Memrefs to the VLS-Groups they belong to.
+  /// A memref that has a mapping to a VLS group is usually a strided or an
+  /// indexed memory reference, that can be either vectorized individually
+  /// using a gather/scatter, or can be vectorized together with its neighbors 
+  /// in the VLS-Group using wide loads/stores and shuffles. 
+  OVLSMemrefToGroupMap MemrefToGroupMap;
+
+private:
+  const VPOVLSInfoKind Kind;
+
+public:
+  VPOVLSInfoBase(VPOVLSInfoKind K) : Kind(K) {}
+  virtual ~VPOVLSInfoBase() { MemrefToGroupMap.clear(); }
+
+  /// \brief Analyze the loop memory references with respect to VectorContext.
+  /// \param [out] VLSMrfs holds objects that can provide services
+  /// about these memory references (such as information on access-pattern,
+  /// distances, safety of moving).
+  virtual void analyzeVLSMemrefsInLoop(OVLSMemrefVector &VLSMrfs) = 0;
+
+  /// \name Helpers to find the VLS Group that a memref belongs to. We have
+  /// a mapping from underlying-IR accesses to their respective OVLSMemref
+  /// object, and from the latter to the VLS Group it is a member in.
+  /// @{
+  virtual OVLSMemref *getVLSMemrefInfoForAccess(const AVRValue *Ptr) = 0;
+  virtual OVLSGroup *getVLSGroupInfoForVLSMemref(OVLSMemref *Mrf) = 0;
+  virtual OVLSGroup *getVLSGroupInfoForAccess(const AVRValue *Ptr) = 0;
+  /// }@
+
+  /// Analyze proximity between the memory references given in \p VLSMrfs.
+  /// \param [out] VLSGrps holds the proximity groups found.
+  virtual void analyzeVLSGroupsInLoop(OVLSMemrefVector &VLSMrfs,
+                                      OVLSGroupVector &VLSGrps) = 0;
+
+  VPOVLSInfoKind getKind() const { return Kind; }
+};
+
+/// LLVMIR VLSInfo. Currently an empty implmentation.
+// TODO.
+class VPOVLSInfo : public VPOVLSInfoBase {
+public:
+  VPOVLSInfo() : VPOVLSInfoBase(VPOVLSK_LLVMIR) {}
+  ~VPOVLSInfo() {}
+
+  void analyzeVLSMemrefsInLoop(OVLSMemrefVector &VLSMrfs) override {}
+
+  OVLSMemref *getVLSMemrefInfoForAccess(const AVRValue *Ptr) override { 
+    return nullptr; 
+  }
+  OVLSGroup *getVLSGroupInfoForVLSMemref(OVLSMemref *Mrf) override {
+    return nullptr;
+  }
+  OVLSGroup *getVLSGroupInfoForAccess(const AVRValue *Ptr) override {
+    return nullptr;
+  }
+
+  void analyzeVLSGroupsInLoop(OVLSMemrefVector &VLSMrfs,
+                              OVLSGroupVector &VLSGrps) override {}
+
+  static bool classof(const VPOVLSInfoBase *VLSInfo) {
+    return VLSInfo->getKind() == VPOVLSK_LLVMIR;
+  }
+};
+
+/// HIR VLSInfo.
+class VPOVLSInfoHIR : public VPOVLSInfoBase {
+private:
+  HIRVectVLSAnalysis *VLS;
+
+  /// Information about the Vectorization Context currently considered, namely
+  /// the loop, Vectorization Factor, and data dependence graph.
+  VPOVecContextHIR *VC;
+
+  /// The memory references of the loop in the underlying IR (HIR RegDDRefs).
+  LoopMemrefsVector *LoopMemrefs;
+
+  /// A mapping from the underlying IR Memrefs (HIR RegDDRefs) to their 
+  /// respective OVLSMemref objects (the result of HIR-level memory access
+  /// pattern analysis; to be used by the VLS-group analysis).
+  HIRToVLSMemrefsMap MemrefsMap;
+
+public:
+  VPOVLSInfoHIR(HIRVectVLSAnalysis *VLS, VPOVecContextHIR *VC,
+                LoopMemrefsVector &Refs)
+      : VPOVLSInfoBase(VPOVLSK_HIR), VLS(VLS), VC(VC), LoopMemrefs(&Refs) {}
+  ~VPOVLSInfoHIR() { MemrefsMap.clear(); }
+
+  void analyzeVLSMemrefsInLoop(OVLSMemrefVector &VLSMrfs) override {
+    assert(VC && "VectorContext not set.");
+    VLS->analyzeVLSMemrefsInLoop(*VC, *LoopMemrefs, VLSMrfs, MemrefsMap);
+  }
+
+  OVLSMemref *getVLSMemrefInfoForAccess(const AVRValue *Ptr) override {
+    assert(isa<AVRValueHIR>(Ptr) && "not AVRValueHIR?");
+    const AVRValueHIR *ConstHIRPtr = cast<AVRValueHIR>(Ptr);
+    AVRValueHIR *HIRPtr = const_cast<AVRValueHIR *>(ConstHIRPtr);
+    RegDDRef *Ref = (cast<AVRValueHIR>(HIRPtr))->getValue();
+    assert(Ref && "no RegDDRef for AVRValueHIR");
+    return getVLSMemrefInfoForAccess(Ref);
+  }
+
+  OVLSGroup *getVLSGroupInfoForVLSMemref(OVLSMemref *Mrf) override {
+    auto MemrefToGroupIt = MemrefToGroupMap.find(Mrf);
+    OVLSGroup *Grp = nullptr;
+    if (MemrefToGroupIt != MemrefToGroupMap.end()) 
+      Grp = MemrefToGroupIt->second; 
+    return Grp;
+  }
+
+  OVLSGroup *getVLSGroupInfoForAccess(const AVRValue *Ptr) override {
+    OVLSMemref *Mrf = getVLSMemrefInfoForAccess(Ptr);
+    assert(Mrf && "No OVLSMemref object found for Ptr");
+    OVLSGroup *Grp = getVLSGroupInfoForVLSMemref(Mrf);
+    return Grp;
+  }
+
+  void analyzeVLSGroupsInLoop(OVLSMemrefVector &VLSMrfs,
+                              OVLSGroupVector &VLSGrps) override {
+    assert(VC && "VectorContext not set.");
+    VLS->computeVLSGroups(VLSMrfs, *VC, VLSGrps, &MemrefToGroupMap);
+  }
+
+  static bool classof(const VPOVLSInfoBase *VLSInfo) {
+    return VLSInfo->getKind() == VPOVLSK_HIR;
+  }
+
+private:
+  OVLSMemref *getVLSMemrefInfoForAccess(const RegDDRef *Ref) {
+    auto MemRefIt = MemrefsMap.find(Ref);
+    if (MemRefIt == MemrefsMap.end())
+      return nullptr;
+    OVLSMemref *Mrf = MemRefIt->second;
+    assert(Mrf && " VLSMemref info not found for Ref.");
+    return Mrf; 
+  }
+};
+
 
 // ----------------- VPOCostModelGatherer ------------------ //
 /// \brief Visitor Class for accumulating the cost of an AVR Loop.
@@ -71,6 +224,7 @@ public:
     LoopBodyCost = 0;
     OutOfLoopCost = 0;
   }
+  virtual ~VPOCostGathererBase() {}
 
   /// \name Get the costs associated with vectorizing the AvrLoop currently
   /// under consideration.
@@ -124,17 +278,34 @@ public:
   // In HIR this probably translates to checking that we have an evolution
   // only in one dimension (i.e. in one subscript).
   virtual bool isLikelyComplexAddressComputation(AVRValue *Ptr) = 0;
+
+  /// \brief Return a handle to the results of VLS analysis: namely a mapping
+  /// from loads/stores to the VLS Group (Group of neighbouring loads/stores)
+  /// they belong to. The cost gatherer needs to take that into account when
+  /// computing the cost of vectorizing a load/store: the cost of vectorizing
+  /// neighboring loads/stores together as a group (using continguous vector
+  /// loads/stores and optimized shuffle sequences) may be better then the
+  /// cost of vectorizing each of them seperately using gathers/scatters. 
+  virtual VPOVLSInfoBase *getVLSInfo() const = 0;
+
+  /// \brief Return a handle to the TTI cost-model utility that provides
+  /// the costs for the building blocks of the optimized code sequences
+  /// for vectorizing a VLS Group (Group of neighbouring loads/stores).
+  virtual OVLSTTICostModel *getVLSCostModel() const = 0;
 };
 
 /// LLVMIR CostGatherer
 class VPOCostGatherer : public VPOCostGathererBase {
 public:
   VPOCostGatherer(const TargetTransformInfo &TTI, unsigned int VF,
-                  AVRLoop *ALoop)
-      : VPOCostGathererBase(TTI, VF, ALoop) {
+                  AVRLoop *ALoop, OVLSTTICostModelLLVMIR *TTICM, 
+                  VPOVLSInfo *VLSInfo)
+      : VPOCostGathererBase(TTI, VF, ALoop), TTICM(TTICM), VLSInfo(VLSInfo) {
     assert(isa<AVRLoopIR>(*ALoop) && "Loop not set.");
   }
+  ~VPOCostGatherer() {}
 
+  // CHECKME: Can we rely on having the underlying LLVM value available?
   int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy, AVRValue *Ptr,
                              bool VariableMask, unsigned Alignment) override {
     assert(isa<AVRValueIR>(Ptr) && "not AVRValueIR?");
@@ -151,16 +322,29 @@ public:
   bool isLikelyComplexAddressComputation(AVRValue *Ptr) {
     return false; // FIXME.
   }
+
+  VPOVLSInfoBase *getVLSInfo() const { return VLSInfo; }
+
+  OVLSTTICostModel *getVLSCostModel() const override {
+    assert(TTICM && "No CostModel set for VLS");
+    return TTICM;
+  }
+
+private:
+  OVLSTTICostModelLLVMIR *TTICM;
+  VPOVLSInfo *VLSInfo;
 };
 
 /// HIR CostGatherer
 class VPOCostGathererHIR : public VPOCostGathererBase {
 public:
   VPOCostGathererHIR(const TargetTransformInfo &TTI, unsigned int VF,
-                     AVRLoop *ALoop)
-      : VPOCostGathererBase(TTI, VF, ALoop) {
+                     AVRLoop *ALoop, OVLSTTICostModelHIR *TTICM, 
+                     VPOVLSInfoHIR *VLSInfo)
+      : VPOCostGathererBase(TTI, VF, ALoop), TTICM(TTICM), VLSInfo(VLSInfo) {
     assert(isa<AVRLoopHIR>(*ALoop) && "Loop not set.");
   }
+  ~VPOCostGathererHIR() {}
 
   // TODO: Need to figure out if the gather/scatter indices can fit in 32bit;
   // Also, need to introduce a new TTI API that takes in as input the index
@@ -170,16 +354,43 @@ public:
   // For a random access, such as A[B[i]], check that the type of B[i] time VF
   // fits in 32bit. For a strided access, check that the stride times VF fits
   // in 32bit.
+  //
+  // Alternatively, find the respective underlying LLVM Value.
+  // CHECKME: Can we rely on having the underlying LLVM value available?
   int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy, AVRValue *Ptr,
                              bool VariableMask, unsigned Alignment) override {
-    return VF; // FIXME
+    // Obtain the LLVMIR Pointer Value
+    assert(isa<AVRValueHIR>(Ptr) && "not AVRValueHIR?");
+    const HLNode *Node = (cast<AVRValueHIR>(Ptr))->getNode();
+    const HLInst *INode = dyn_cast<HLInst>(Node);
+    const Instruction *CurInst = INode->getLLVMInstruction();
+    Instruction *I = const_cast<Instruction *>(CurInst);
+    StoreInst *SI = dyn_cast<StoreInst>(I);
+    LoadInst *LI = dyn_cast<LoadInst>(I);
+    Value *PtrVal = SI ? SI->getPointerOperand() : LI->getPointerOperand();
+
+    // Call the TTI routine
+    return TTI.getGatherScatterOpCost(Opcode, SrcVTy, PtrVal, VariableMask,
+                                      Alignment);
   }
 
   // TODO.
   bool isLikelyComplexAddressComputation(AVRValue *Ptr) {
     return false; // FIXME.
   }
+
+  VPOVLSInfoBase *getVLSInfo() const { return VLSInfo; }
+
+  OVLSTTICostModel *getVLSCostModel() const override {
+    assert(TTICM && "No CostModel set for VLS");
+    return TTICM;
+  }
+
+private:
+  OVLSTTICostModelHIR *TTICM;
+  VPOVLSInfoHIR *VLSInfo;
 };
+
 
 // ----------------- VPOCostModel ------------------ //
 /// \brief CostModel Utilities for evaluation of vectorization profitability.
@@ -195,10 +406,10 @@ protected:
   AVRWrn *AWrn;
 
   /// \brief A handle to Target Information
-  const TargetTransformInfo *TTI;
+  const TargetTransformInfo &TTI;
 
 public:
-  VPOCostModelBase(AVRWrn *AWrn, const TargetTransformInfo *TTI)
+  VPOCostModelBase(AVRWrn *AWrn, const TargetTransformInfo &TTI)
       : AWrn(AWrn), TTI(TTI) {}
 
   /// \brief Calculate a cost for the given \p ALoop assuming the Vectorization
@@ -210,32 +421,39 @@ public:
   // want to encode the results of the CostModel, namely, which ALoops in the
   // region to vectorize and using which VFs (directly/explicitely in the
   // AVR?...)
-  int getCost(AVRLoop *ALoop, unsigned int VF);
+  int getCost(AVRLoop *ALoop, unsigned int VF, VPOVLSInfoBase *VLSInfo);
 
-  virtual VPOCostGathererBase &getCostGatherer(unsigned int VF,
-                                               AVRLoop *ALoop) = 0;
+  virtual VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop, 
+                                               VPOVLSInfoBase *VLSInfo) = 0;
 
   // \brief Obtain the cost of aligning the loop trip count to the \p VF
   virtual int getRemainderLoopCost(AVRLoop *ALoop, unsigned int VF,
                                    unsigned int &ConstTripCount) = 0;
 };
 
-/// LLVMIR CostMddel
+/// LLVMIR CostModel
 class VPOCostModel : public VPOCostModelBase {
 public:
-  VPOCostModel(AVRWrn *AWrn, const TargetTransformInfo *TTI)
-      : VPOCostModelBase(AWrn, TTI), CG(nullptr){
+  VPOCostModel(AVRWrn *AWrn, const TargetTransformInfo &TTI, 
+               LLVMContext &LLVMCntxt)
+      : VPOCostModelBase(AWrn, TTI), CG(nullptr), VLSCostModel(TTI, LLVMCntxt) {
     CostGatherer = nullptr;
   }
 
   void setCG(AVRCodeGen *LLVMIRCG) { CG = LLVMIRCG; } 
 
-  VPOCostGathererBase &getCostGatherer(unsigned int VF,
-                                       AVRLoop *ALoop) override {
-    assert(TTI && "no TTI Info");
+  VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop, 
+                                       VPOVLSInfoBase *VLSInfo) override {
+    if (VLSInfo == nullptr) {
+      CostGatherer = new VPOCostGatherer(TTI, VF, ALoop, nullptr, nullptr);
+      return CostGatherer;
+    }
+    assert(isa<VPOVLSInfo>(*VLSInfo) && "VLSInfo not an LLVMIR VLSInfo");
+    VPOVLSInfo *VLSInfoLLVMIR = cast<VPOVLSInfo>(VLSInfo);
     // Pass the underlying LLVMIR Loop instead
-    CostGatherer = new VPOCostGatherer(*TTI, VF, ALoop);
-    return *CostGatherer;
+    CostGatherer = new VPOCostGatherer(TTI, VF, ALoop, &VLSCostModel, 
+                                       VLSInfoLLVMIR);
+    return CostGatherer;
   }
 
   int getRemainderLoopCost(AVRLoop *ALoop, unsigned int VF,
@@ -252,24 +470,32 @@ public:
 private:
   VPOCostGatherer *CostGatherer;
   AVRCodeGen *CG;
+  OVLSTTICostModelLLVMIR VLSCostModel;
 };
 
 /// HIR CostModel
 class VPOCostModelHIR : public VPOCostModelBase {
 public:
-  VPOCostModelHIR(AVRWrn *AWrn, const TargetTransformInfo *TTI) 
-      : VPOCostModelBase(AWrn, TTI), CG(nullptr) {
+  VPOCostModelHIR(AVRWrn *AWrn, const TargetTransformInfo &TTI, 
+                  LLVMContext &LLVMCntxt) 
+      : VPOCostModelBase(AWrn, TTI), CG(nullptr), VLSCostModel(TTI, LLVMCntxt) {
     CostGatherer = nullptr;
   }
 
   void setCG(AVRCodeGenHIR *HIRCG) { CG = HIRCG; } 
 
-  VPOCostGathererBase &getCostGatherer(unsigned int VF,
-                                       AVRLoop *ALoop) override {
-    assert(TTI && "no TTI Info");
+  VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop,
+                                       VPOVLSInfoBase *VLSInfo) override {
+    if (VLSInfo == nullptr) {
+      CostGatherer = new VPOCostGathererHIR(TTI, VF, ALoop, nullptr, nullptr);
+      return CostGatherer;
+    }
+    assert(isa<VPOVLSInfoHIR>(*VLSInfo) && "VLSInfo not a VLSInfoHIR");
+    VPOVLSInfoHIR *VLSInfoHIR = cast<VPOVLSInfoHIR>(VLSInfo);
     // Pass the underlying HLLoop instead
-    CostGatherer = new VPOCostGathererHIR(*TTI, VF, ALoop);
-    return *CostGatherer;
+    CostGatherer = new VPOCostGathererHIR(TTI, VF, ALoop, &VLSCostModel, 
+                                          VLSInfoHIR);
+    return CostGatherer;
   }
 
   int getRemainderLoopCost(AVRLoop *ALoop, unsigned int VF, 
@@ -286,7 +512,9 @@ public:
 private:
   VPOCostGathererHIR *CostGatherer;
   AVRCodeGenHIR *CG;
+  OVLSTTICostModelHIR VLSCostModel;
 };
+
 
 // ----------------- VPODataDepInfo ------------------ //
 /// \brief Information on Data Dependences in a loop.
@@ -312,69 +540,6 @@ public:
   DDGraph getDDG() const { return DDG; }
 };
 
-// ----------------- VPOVLSInfo ------------------ //
-/// \brief Utilities for Vector-Load-Store (VLS) Optimization Analysis:
-/// gather information about the memory accesses in the Loop and the proximity
-/// relations between them.
-class VPOVLSInfoBase {
-public:
-  VPOVLSInfoBase() {}
-  virtual ~VPOVLSInfoBase() {}
-
-  /// Analyze the loop memory references with respect to VectorContext.
-  /// \param [out] VLSMrfs holds objects that can provide services
-  /// about these memory references (such as information on access-pattern,
-  /// distances, safety of moving).
-  virtual void analyzeVLSMemrefsInLoop(OVLSMemrefVector &VLSMrfs) = 0;
-
-  /// Analyze proximity between the memory references given in \p VLSMrfs.
-  /// \param [out] VLSGrps holds the proximity groups found.
-  virtual void analyzeVLSGroupsInLoop(OVLSMemrefVector &VLSMrfs,
-                                      OVLSGroupVector &VLSGrps) = 0;
-};
-
-/// LLVMIR VLSInfo. Currently an empty implmentation.
-// TODO.
-class VPOVLSInfo : public VPOVLSInfoBase {
-public:
-  VPOVLSInfo() : VPOVLSInfoBase() {}
-  ~VPOVLSInfo() {}
-
-  void analyzeVLSMemrefsInLoop(OVLSMemrefVector &VLSMrfs) override {}
-  void analyzeVLSGroupsInLoop(OVLSMemrefVector &VLSMrfs,
-                              OVLSGroupVector &VLSGrps) override {}
-};
-
-/// HIR VLSInfo.
-class VPOVLSInfoHIR : public VPOVLSInfoBase {
-private:
-  HIRVectVLSAnalysis *VLS;
-
-  /// Information about the Vectorization Context currently considered, namely
-  /// the loop, Vectorization Factor, and data dependence graph.
-  VPOVecContextHIR *VC;
-
-  /// The memory references of the loop (in HIR).
-  // CHECKME: Introduce a base-level abstraction for the loop memrefs?
-  LoopMemrefsVector *LoopMemrefs;
-
-public:
-  VPOVLSInfoHIR(HIRVectVLSAnalysis *VLS, VPOVecContextHIR *VC,
-                LoopMemrefsVector &Refs)
-      : VLS(VLS), VC(VC), LoopMemrefs(&Refs) {}
-  ~VPOVLSInfoHIR() {}
-
-  void analyzeVLSMemrefsInLoop(OVLSMemrefVector &VLSMrfs) override {
-    assert(VC && "VectorContext not set.");
-    VLS->analyzeVLSMemrefsInLoop(*VC, *LoopMemrefs, VLSMrfs);
-  }
-
-  void analyzeVLSGroupsInLoop(OVLSMemrefVector &VLSMrfs,
-                              OVLSGroupVector &VLSGrps) override {
-    assert(VC && "VectorContext not set.");
-    VLS->computeVLSGroups(VLSMrfs, *VC, VLSGrps);
-  }
-};
 
 // ----------------- VPOScenarioEvaluation ------------------ //
 /// \brief Manage exploration of vectorization candidates within a region.
@@ -391,10 +556,13 @@ private:
 
 protected:
   /// Handle to Target Information
-  const TargetTransformInfo *TTI;
+  const TargetTransformInfo &TTI;
 
   /// AVR Region at hand.
   AVRWrn *AWrn;
+
+  /// \brief A handle to the LLVM Context
+  LLVMContext &LLVMCntxt; 
 
   /// Vectorization Factor (VF) forced by a directive or compiler switch.
   /// Set to 0 if no VF is enforced.
@@ -409,8 +577,8 @@ private:
 
 public:
   VPOScenarioEvaluationBase(ScenarioEvaluationKind K, AVRWrn *AWrn, 
-                            const TargetTransformInfo *TTI)
-      : Kind(K), TTI(TTI), AWrn(AWrn), ForceVF(0) {}
+                            const TargetTransformInfo &TTI, LLVMContext &C)
+      : Kind(K), TTI(TTI), AWrn(AWrn), LLVMCntxt(C), ForceVF(0) {}
 
   virtual ~VPOScenarioEvaluationBase() {}
 
@@ -484,10 +652,10 @@ private:
   AVRCodeGen *CG;
 
 public:
-  VPOScenarioEvaluation(AVRWrn *AvrWrn, const TargetTransformInfo *TTI,
-                        AvrDefUse &DU)
-      : VPOScenarioEvaluationBase(SCEK_LLVMIR, AvrWrn, TTI), SLEVUtil(DU), CM(AWrn, TTI), CG(nullptr) {}
-  ~VPOScenarioEvaluation() {}
+  VPOScenarioEvaluation(AVRWrn *AvrWrn, const TargetTransformInfo &TTI, 
+                        LLVMContext &C, AvrDefUse &DU)
+      : VPOScenarioEvaluationBase(SCEK_LLVMIR, AvrWrn, TTI, C), SLEVUtil(DU), 
+        CM(AWrn, TTI, C), CG(nullptr) {}
 
   /// Obtain a handle to AVRCodeGen utilities
   void setCG(AVRCodeGen *LLVMIRCG) { CG = LLVMIRCG; } 
@@ -525,7 +693,10 @@ public:
 
   void resetLoopInfo() override { return; }
 
-  VPOCostModelBase *getCM() { CM.setCG(CG); return &CM; }
+  VPOCostModelBase *getCM() override { 
+    CM.setCG(CG); 
+    return &CM; 
+  }
 
   static bool classof(const VPOScenarioEvaluationBase *EvaluationEngine) {
     return EvaluationEngine->getKind() == SCEK_LLVMIR;
@@ -568,9 +739,9 @@ private:
 public:
   VPOScenarioEvaluationHIR(AVRWrn *AvrWrn, HIRDDAnalysis *DDA,
                            HIRVectVLSAnalysis *VLS, AvrDefUseHIR &DU,
-                           const TargetTransformInfo *TTI)
-      : VPOScenarioEvaluationBase(SCEK_HIR, AvrWrn, TTI), DDA(DDA), VLS(VLS),
-        SLEVUtil(DU), CM(AWrn, TTI), CG(nullptr), Loop(nullptr) {}
+                           const TargetTransformInfo &TTI, LLVMContext &C)
+      : VPOScenarioEvaluationBase(SCEK_HIR, AvrWrn, TTI, C), DDA(DDA), VLS(VLS),
+        SLEVUtil(DU), CM(AWrn, TTI, C), CG(nullptr), Loop(nullptr) {}
   ~VPOScenarioEvaluationHIR() {}
 
   void setCG(AVRCodeGenHIR *HIRCG) { CG = HIRCG; } 
@@ -635,7 +806,10 @@ public:
 
   void resetLoopInfo() override { LoopMemrefs.clear(); }
 
-  VPOCostModelBase *getCM() { CM.setCG(CG); return &CM; }
+  VPOCostModelBase *getCM() override { 
+    CM.setCG(CG); 
+    return &CM; 
+  }
 
   static bool classof(const VPOScenarioEvaluationBase *EvaluationEngine) {
     return EvaluationEngine->getKind() == SCEK_HIR;
