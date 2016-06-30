@@ -346,6 +346,63 @@ public:
   }
 };
 
+//
+// WRNOrderedNode
+//
+// #pragma omp ordered 
+//
+class WRNOrderedNode : public WRegionNode {
+
+public:
+  WRNOrderedNode(BasicBlock *BB);
+  WRNOrderedNode(WRNOrderedNode *W);
+
+  void print(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNOrdered;
+  }
+};
+
+//
+// WRNSinglerNode
+//
+// #pragma omp single 
+//
+class WRNSingleNode : public WRegionNode {
+
+public:
+  WRNSingleNode(BasicBlock *BB);
+  WRNSingleNode(WRNSingleNode *W);
+
+  void print(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNSingle;
+  }
+};
+
+//
+// WRNCriticalNode
+//
+// #pragma omp critical 
+//
+class WRNCriticalNode : public WRegionNode {
+
+public:
+  WRNCriticalNode(BasicBlock *BB);
+  WRNCriticalNode(WRNCriticalNode *W);
+
+  void print(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNCritical;
+  }
+};
+
 } // End namespace vpo
 
 } // End namespace llvm
