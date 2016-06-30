@@ -205,6 +205,7 @@ MachineInstr* LPUCvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
                                                                      addReg(switchTrueReg, RegState::Define).
                                                                      addReg(bi->getOperand(0).getReg()).
                                                                      addReg(Reg);
+    switchInst->setFlag(MachineInstr::NonSequential);
     result = switchInst;
   } else {
     assert(MLI->getLoopFor(cdgpBB)->getLoopLatch() == cdgpBB);
@@ -786,6 +787,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
       MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).
                                         addReg(predReg).
                                         addReg(pickFalseReg).addReg(pickTrueReg);
+      pickInst->setFlag(MachineInstr::NonSequential);
       MI->removeFromParent();
     }
   }
@@ -860,6 +862,7 @@ void LPUCvtCFDFPass::replace2InputsIfFooterPhi(MachineInstr* MI) {
   MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
                                                                                           addReg(pickFalseReg).
                                                                                           addReg(pickTrueReg);
+  pickInst->setFlag(MachineInstr::NonSequential);
   MI->removeFromParent();
 }
 
@@ -952,8 +955,9 @@ void LPUCvtCFDFPass::replaceIfFooterPhi() {
 				unsigned newdst = MRI->createVirtualRegister(MRI->getRegClass(dst));
 				//generate PICK, and insert before MI, so that new PICK is after the previously generated PICKS
 				MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), newdst).addReg(predReg).
-					addReg(pickFalseReg).
-					addReg(pickTrueReg);
+					                                                                                         addReg(pickFalseReg).
+					                                                                                         addReg(pickTrueReg);
+        pickInst->setFlag(MachineInstr::NonSequential);
 				pickReg = newdst;
 			}
 			const unsigned moveOpcode = TII.getMoveOpcode(TRC);
