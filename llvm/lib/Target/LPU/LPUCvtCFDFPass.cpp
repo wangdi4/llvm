@@ -49,7 +49,7 @@ CvtCFDFPass("lpu-cvt-cf-df-pass", cl::Hidden,
 static cl::opt<int>
 RunSXU("lpu-run-sxu", cl::Hidden,
 	cl::desc("LPU Specific: run on sequential unit"),
-	cl::init(1));
+	cl::init(0));
 
 
 #define DEBUG_TYPE "lpu-cvt-cf-df-pass"
@@ -85,8 +85,8 @@ namespace llvm {
     void replaceLoopHdrPhi();
     void replaceIfFooterPhi();
     void replace2InputsIfFooterPhi(MachineInstr* MI);
-	  void assignLicForDF();
-	  void removeBranch();
+	void assignLicForDF();
+	void removeBranch();
     void linearizeCFG();
     unsigned findSwitchingDstForReg(unsigned Reg, MachineBasicBlock* mbb);
     void releaseMemory() override;
@@ -1017,7 +1017,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
       renameQueue.push_back(Reg);
     }
   }
-
+#if 0
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
       bool allLics = true;
@@ -1034,6 +1034,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
       }
     }
   }
+#endif
 }
 
 
@@ -1068,16 +1069,16 @@ void LPUCvtCFDFPass::linearizeCFG() {
   }
   MachineBasicBlock *x = mbbStack.top();
   assert(x == root);
+  MachineBasicBlock::succ_iterator SI = root->succ_begin();
+  while (SI != root->succ_end()) {
+	  SI = root->removeSuccessor(SI);
+  }
   mbbStack.pop();
   while (!mbbStack.empty()) {
     MachineBasicBlock* mbb = mbbStack.top();
     mbbStack.pop();
-    MachineBasicBlock::succ_iterator SI = x->succ_begin();
-    while (SI != x->succ_end()) {
-      SI = x->removeSuccessor(SI);
-    }
-    x->addSuccessor(mbb);
-    x = mbb;
+	root->splice(root->end(), mbb, mbb->begin(), mbb->end());
+	mbb->eraseFromParent();
   }
 }
 
