@@ -49,7 +49,7 @@ CvtCFDFPass("lpu-cvt-cf-df-pass", cl::Hidden,
 static cl::opt<int>
 RunSXU("lpu-run-sxu", cl::Hidden,
 	cl::desc("LPU Specific: run on sequential unit"),
-	cl::init(0));
+	cl::init(1));
 
 
 #define DEBUG_TYPE "lpu-cvt-cf-df-pass"
@@ -1015,6 +1015,23 @@ void LPUCvtCFDFPass::assignLicForDF() {
       if (!MO->isReg() || !MO->isUse() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
       unsigned Reg = MO->getReg();
       renameQueue.push_back(Reg);
+    }
+  }
+
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+    for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
+      bool allLics = true;
+      for (MIOperands MO(MI); MO.isValid(); ++MO) {
+        if (!MO->isReg()) continue;
+        unsigned Reg = MO->getReg();
+        if (Reg < LPU::CI0_0 || Reg > LPU::CI64_1023) {
+          allLics = false;
+          break;
+        }
+      }
+      if (allLics) {
+        MI->setFlag(MachineInstr::NonSequential);
+      }
     }
   }
 }
