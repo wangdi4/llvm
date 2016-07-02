@@ -303,8 +303,7 @@ namespace llvm {
     }
   };
 
-
-
+ 
   template <> struct DOTGraphTraits<ControlDependenceGraph *>
     : public DefaultDOTGraphTraits {
     DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
@@ -360,6 +359,26 @@ namespace llvm {
 #endif
     }
   };
+
+
+    template <> struct DOTGraphTraits<MachineDominatorTree *>
+      : public DefaultDOTGraphTraits {
+      DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
+
+      static std::string getGraphName(MachineDominatorTree *Graph) {
+        return "Machine Post Dominator Tree";
+      }
+
+      std::string getNodeLabel(MachineDomTreeNode *Node, MachineDominatorTree *Graph) {
+#if 0
+        return Node->getBlock()->getFullName();
+#else
+        std::string blkNumber = std::to_string(Node->getBlock()->getNumber());
+        std::string name = "BB#" + blkNumber;
+        return name;
+#endif
+      }
+    };
 
 
   template <> struct DOTGraphTraits<MachineFunction *>

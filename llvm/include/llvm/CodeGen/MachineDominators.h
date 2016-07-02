@@ -338,6 +338,18 @@ template <> struct GraphTraits<MachineDominatorTree*>
   static NodeType *getEntryNode(MachineDominatorTree *DT) {
     return DT->getRootNode();
   }
+  //LPU EDIT: add iterator to dump the dot file
+  typedef df_iterator<MachineDomTreeNode*> nodes_iterator;
+  static nodes_iterator nodes_begin(MachineDominatorTree *N) {
+    if (getEntryNode(N))
+      return df_begin(getEntryNode(N));
+    else
+      return df_end(getEntryNode(N));
+  }
+
+  static nodes_iterator nodes_end(MachineDominatorTree *N) {
+    return df_end(getEntryNode(N));
+  }
 };
 
 }
