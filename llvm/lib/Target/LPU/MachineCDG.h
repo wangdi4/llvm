@@ -366,7 +366,7 @@ namespace llvm {
       DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
 
       static std::string getGraphName(MachineDominatorTree *Graph) {
-        return "Machine Post Dominator Tree";
+        return "Machine Dominator Tree";
       }
 
       std::string getNodeLabel(MachineDomTreeNode *Node, MachineDominatorTree *Graph) {
