@@ -77,7 +77,9 @@ namespace intel{
           if (Val == From) Val = To;
           Indices.push_back(Val);
         }
-        Replacement = GetElementPtrInst::Create(Pointer, ArrayRef<Value*>(Indices));
+        // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+        // (not using type from pointer as this functionality is planned to be removed.
+        Replacement = GetElementPtrInst::Create(nullptr, Pointer, ArrayRef<Value*>(Indices));
 
       } else if ( CEx->getOpcode() == Instruction::ExtractValue ) {
         Value *Agg = CEx->getOperand(0);
@@ -267,8 +269,13 @@ namespace intel{
         size_t uiArraySize = DL.getTypeAllocSize(pLclBuff->getType()->getElementType());
         assert(0 != uiArraySize && "zero array size!");
         // Now retrieve to the offset of the local buffer
+        // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+        // (not using type from pointer as this functionality is planned to be removed.
         GetElementPtrInst *pLocalAddr =
-          GetElementPtrInst::Create(pLocalMem, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), currLocalOffset), "", pFirstInst);
+          GetElementPtrInst::Create(
+                  nullptr,
+                  pLocalMem,
+                  ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32),currLocalOffset), "", pFirstInst);
 
         // Now add bitcast to required/original pointer type
         CastInst *pPointerCast = CastInst::CreatePointerCast(pLocalAddr, pLclBuff->getType(), "", pFirstInst);

@@ -349,7 +349,9 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   for (unsigned i=0; i< NumElem; ++i) {
     V_STAT(m_unresolvedLoadCtr++;)
     Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
-    Instruction *GEP = GetElementPtrInst::Create(Ptr, Idx, "vload", caller);
+    // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+    // (not using type from pointer as this functionality is planned to be removed.
+    Instruction *GEP = GetElementPtrInst::Create(nullptr, Ptr, Idx, "vload", caller);
     Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
     Instruction *loader = new LoadInst(GEP, "vload", false, align, caller);
     Instruction* inserter = InsertElementInst::Create(
@@ -470,7 +472,9 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   for (unsigned i=0; i< NumElem; ++i) {
     V_STAT(m_unresolvedStoreCtr++;)
     Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
-    Instruction *GEP = GetElementPtrInst::Create(Ptr, Idx, "vstore", caller);
+    // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+    // (not using type from pointer as this functionality is planned to be removed.
+    Instruction *GEP = GetElementPtrInst::Create(nullptr, Ptr, Idx, "vstore", caller);
     Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
     Instruction *DataElem = ExtractElementInst::Create(Data, Idx, "exData", caller);
     Instruction *storer = new StoreInst(DataElem, GEP, false, align, caller);

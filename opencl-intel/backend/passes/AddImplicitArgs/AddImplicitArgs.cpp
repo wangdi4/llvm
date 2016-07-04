@@ -178,8 +178,10 @@ namespace intel{
         Value *pLocalMem = pCallArgs[ImplicitArgsUtils::IA_SLM_BUFFER];
         std::string ValName("pLocalMem_");
         ValName += pCallee->getName();
+        // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+        // (not using type from pointer as this functionality is planned to be removed.
         Value *pNewLocalMem = GetElementPtrInst::Create(
-          pLocalMem, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), directLocalSize), ValName, pCall);
+          nullptr, pLocalMem, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), directLocalSize), ValName, pCall);
         pCallArgs[ImplicitArgsUtils::IA_SLM_BUFFER] = pNewLocalMem;
 
         // Memory leak in here. Who deletes this ? Seriously!

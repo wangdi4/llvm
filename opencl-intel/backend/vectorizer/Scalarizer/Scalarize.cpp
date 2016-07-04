@@ -908,7 +908,14 @@ void ScalarizeFunction::scalarizeInstruction(GetElementPtrInst *GI) {
     // Generate new (scalar) instructions
     Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
     for (unsigned dup = 0; dup < numElements; dup++) {
-      newScalarizedInsts[dup] = GetElementPtrInst::Create(multiPtrOperand[dup], makeArrayRef(Idx), GI->getName(), GI);
+      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+      // (not using type from pointer as this functionality is planned to be removed.
+      newScalarizedInsts[dup] = GetElementPtrInst::Create(
+              nullptr,
+              multiPtrOperand[dup],
+              makeArrayRef(Idx),
+              GI->getName(),
+              GI);
     }
 
     // Add new value/s to SCM
@@ -982,9 +989,13 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
     for (unsigned dup = 0; dup < numDupElements; dup++)
     {
       Constant *laneVal = ConstantInt::get(indexType, dup);
-      Value *pGEP = GetElementPtrInst::Create(operandBase, laneVal, "GEP_lane", LI);
+      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+      // (not using type from pointer as this functionality is planned to be removed.
+      Value *pGEP = GetElementPtrInst::Create(nullptr, operandBase, laneVal, "GEP_lane", LI);
       Value *pIndex = BinaryOperator::CreateMul(operand->getOperand(1), elementNumVal, "GEPIndex_s", LI);
-      pGEP = GetElementPtrInst::Create(pGEP, pIndex, "GEP_s", LI);
+      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+      // (not using type from pointer as this functionality is planned to be removed.
+      pGEP = GetElementPtrInst::Create(nullptr, pGEP, pIndex, "GEP_s", LI);
       newScalarizedInsts[dup] = new LoadInst(pGEP, LI->getName(), LI);
     }
 
@@ -1060,9 +1071,13 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
     for (unsigned dup = 0; dup < numDupElements; dup++)
     {
       Constant *laneVal = ConstantInt::get(indexType, dup);
-      Value *pGEP = GetElementPtrInst::Create(operandBase, laneVal, "GEP_s", SI);
+      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+      // (not using type from pointer as this functionality is planned to be removed.
+      Value *pGEP = GetElementPtrInst::Create(nullptr, operandBase, laneVal, "GEP_s", SI);
       Value *pIndex = BinaryOperator::CreateMul(operand1->getOperand(1), elementNumVal, "GEPIndex_s", SI);
-      pGEP = GetElementPtrInst::Create(pGEP, pIndex, "GEP_s", SI);
+      // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+      // (not using type from pointer as this functionality is planned to be removed.
+      pGEP = GetElementPtrInst::Create(nullptr, pGEP, pIndex, "GEP_s", SI);
       new StoreInst(operand0[dup], pGEP, SI);
     }
 

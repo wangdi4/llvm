@@ -166,8 +166,10 @@ namespace intel {
                                                     idx_it != idx_end; idx_it++) {
             idxList.push_back(*idx_it);
           }
+          // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+          // (not using type from pointer as this functionality is planned to be removed.
           GetElementPtrInst *pNewGEP = 
-                  GetElementPtrInst::Create(pPrevValue, idxList,
+                  GetElementPtrInst::Create(nullptr, pPrevValue, idxList,
                                             pInstr->getName(), pInstr);
           pNewGEP->setIsInBounds(pGepInstr->isInBounds());
           pNewInstr = pNewGEP;

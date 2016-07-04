@@ -323,7 +323,9 @@ void PrintfAdder::addDebugPrintImpl(Function *F, debug_print_args& print_args, I
   Constant * printFuncConst = currentModule->getOrInsertFunction("printf", prtFuncType);
   Function * printFunc = dyn_cast<Function>(printFuncConst);
   std::vector<Value*> inputIters(2, ConstantInt::get(Type::getInt32Ty(F->getContext()), 0));
-  Instruction *strPtr = GetElementPtrInst::Create(newGV, ArrayRef<Value*>(inputIters), "", loc);
+  // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
+  // (not using type from pointer as this functionality is planned to be removed.
+  Instruction *strPtr = GetElementPtrInst::Create(nullptr, newGV, ArrayRef<Value*>(inputIters), "", loc);
   //if (strPtr->getType() != strType ) {
   //  strPtr = new BitCastInst(strPtr, strType, "ptrTypeCast", loc);
   //}
