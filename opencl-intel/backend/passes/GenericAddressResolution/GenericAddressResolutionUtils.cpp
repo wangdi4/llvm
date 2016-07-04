@@ -167,7 +167,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
   }
 
   void assocDebugLocWith(Instruction *pNew, const Instruction *pOld) {
-    if (!pOld->getDebugLoc().isUnknown()) {
+    if (pOld->getDebugLoc()) {
       pNew->setDebugLoc(pOld->getDebugLoc());
     }
   }
@@ -299,8 +299,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                    Module *pModule, LLVMContext *pLLVMContext) {
 
     assert(pModule && pLLVMContext && "emitWarning parameters are invalid!");
-
     Intel::MetaDataUtils mdUtils(pModule);
+
     if (mdUtils.empty_ModuleInfoList()) {
         mdUtils.addModuleInfoListItem(Intel::ModuleInfoMetaDataHandle(Intel::ModuleInfoMetaData::get()));
     }
@@ -310,7 +310,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     // Print-out the message ...
     DEBUG(
       dbgs() << "WARNING: " << warning << ": line# ";
-      if (pInstr && !pInstr->getDebugLoc().isUnknown()) {
+      if (pInstr && pInstr->getDebugLoc()) {
         unsigned lineNo = pInstr->getDebugLoc().getLine();
         dbgs() << lineNo << "\n";
         // ... and record to metadata

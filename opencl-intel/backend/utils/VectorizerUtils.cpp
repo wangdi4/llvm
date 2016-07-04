@@ -18,14 +18,14 @@ namespace intel{
 using namespace llvm;
 
 void VectorizerUtils::SetDebugLocBy(Instruction *I, const Instruction *setBy) {
-  if (!setBy->getDebugLoc().isUnknown()) {
+  if (setBy->getDebugLoc()) {
     I->setDebugLoc(setBy->getDebugLoc());
   }
 }
 
 void VectorizerUtils::SetDebugLocBy(std::vector<Instruction *> &insts,
                                     Instruction *setBy) {
-  if (!setBy->getDebugLoc().isUnknown()) {
+  if (setBy->getDebugLoc()) {
     const DebugLoc &dbgloc = setBy->getDebugLoc();
     for (unsigned i=0; i<insts.size(); ++i) {
       insts[i]->setDebugLoc(dbgloc);

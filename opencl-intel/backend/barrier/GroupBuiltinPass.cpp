@@ -375,7 +375,7 @@ namespace intel {
       assert(pNewCall && "Couldn't create CALL instruction!");
       pNewCall->setAttributes(pWgCallInst->getAttributes());
       pNewCall->setCallingConv(pWgCallInst->getCallingConv());
-      if (!pWgCallInst->getDebugLoc().isUnknown()) {
+      if (pWgCallInst->getDebugLoc()) {
         pNewCall->setDebugLoc(pWgCallInst->getDebugLoc());
       }
 

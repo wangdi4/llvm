@@ -1260,7 +1260,7 @@ void Prefetch::insertPF (Instruction *I, Loop *L, int PFType,
   CallInst *callInst = CallInst::Create(new_f, ArrayRef<Value*>(args), "", I);
 
   // set debug info
-  if (!I->getDebugLoc().isUnknown()) {
+  if (I->getDebugLoc()) {
     addr->setDebugLoc(I->getDebugLoc());
     callInst->setDebugLoc(I->getDebugLoc());
   }
@@ -1817,7 +1817,7 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
   CallInst *callInst = CallInst::Create(new_f, ArrayRef<Value*>(args), "", I);
 
   // set debug info
-  if (!I->getDebugLoc().isUnknown()) {
+  if (I->getDebugLoc()) {
     callInst->setDebugLoc(I->getDebugLoc());
   }
 
