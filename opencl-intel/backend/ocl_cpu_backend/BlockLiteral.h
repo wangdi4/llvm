@@ -148,11 +148,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   private:
     ////////////////////////////////////////////////////////////////
     /// hide default ctor
-    BlockLiteral() LLVM_DELETED_FUNCTION;
+    BlockLiteral() = delete;
     /// hide copy ctor
-    BlockLiteral(const BlockLiteral& s) LLVM_DELETED_FUNCTION;
+    BlockLiteral(const BlockLiteral& s) = delete;
     /// hide assignment
-    void operator =(BlockLiteral&) LLVM_DELETED_FUNCTION;
+    void operator =(BlockLiteral&) = delete ;
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

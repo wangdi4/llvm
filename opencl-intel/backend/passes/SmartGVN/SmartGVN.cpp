@@ -28,6 +28,7 @@ File Name:  SmartGVN.cpp
 #include <llvm/IR/Dominators.h>
 #include <llvm/Analysis/Passes.h>
 #include <llvm/Analysis/MemoryDependenceAnalysis.h>
+#include <llvm/Analysis/BasicAliasAnalysis.h>
 #include <llvm/Support/CommandLine.h>
 
 using namespace llvm;
@@ -66,7 +67,7 @@ bool SmartGVN::runOnModule(Module &M)
 
   { // With NoLoads option on - it will not hoist loads out of the loops.
     legacy::PassManager pm;
-    pm.add(llvm::createBasicAliasAnalysisPass());
+    pm.add(llvm::createBasicAAWrapperPass());
     pm.add(new llvm::DominatorTreeWrapperPass());
     pm.add(new llvm::MemoryDependenceAnalysis());
     pm.add(llvm::createGVNPass(GVNNoLoads));

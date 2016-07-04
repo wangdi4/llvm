@@ -587,7 +587,7 @@ namespace Validation
         {
             throw Exception::ValidationExceptionBase("Failed to parse IR");
         }
-        llvm::Module* pModule = *pModuleOrError;
+        llvm::Module* pModule = (*pModuleOrError).release();
         spContext->m_DL = new llvm::DataLayout(pModule);
         //checking whehter we need source or byte-level recording
         MD5 md5((unsigned char*)const_cast<void*>(pBinary), uiBinarySize);

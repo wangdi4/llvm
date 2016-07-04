@@ -282,7 +282,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
   PM.add(createBuiltInAttributesImportPass());
 
-  PM.add(llvm::createBasicAliasAnalysisPass());
+  PM.add(llvm::createBasicAAWrapperPass());
   PM.add(createOCLAliasAnalysisPass());
 #ifndef __APPLE__
   if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
@@ -352,7 +352,7 @@ static void populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM,
   PM.add(llvm::createUnifyFunctionExitNodesPass());
 
 
-  PM.add(llvm::createBasicAliasAnalysisPass());
+  PM.add(llvm::createBasicAAWrapperPass());
   PM.add(createOCLAliasAnalysisPass());
 
   // Should be called before vectorizer!

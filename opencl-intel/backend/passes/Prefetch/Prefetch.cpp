@@ -1357,7 +1357,7 @@ bool Prefetch::runOnFunction(Function &F) {
   m_pi8 = PointerType::get(m_i8, 0);
   m_void = Type::getVoidTy(*context);
 
-  SCEVExpander SCEVE(*m_SE, "prefetch");
+  SCEVExpander SCEVE(*m_SE, F.getParent()->getDataLayout(), "prefetch");
   m_ADRExpander = &SCEVE;
 
   bool modified = autoPrefetch(F);

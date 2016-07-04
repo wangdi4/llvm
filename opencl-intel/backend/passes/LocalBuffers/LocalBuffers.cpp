@@ -138,7 +138,11 @@ namespace intel{
         Value *C2 = CEx->getOperand(1);
         if (C1 == From) C1 = To;
         if (C2 == From) C2 = To;
-        Replacement = CmpInst::Create((Instruction::OtherOps)CEx->getOpcode(), CEx->getPredicate(), C1, C2);
+        Replacement = CmpInst::Create(
+                (Instruction::OtherOps)CEx->getOpcode(),
+                (llvm::CmpInst::Predicate)CEx->getPredicate(),
+                C1,
+                C2);
 
       } else {
         assert(0 && "Unknown ConstantExpr type!");

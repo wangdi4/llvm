@@ -70,7 +70,7 @@ extern "C" void LLVMLinkInInterpreterPluggable() {
 ///
 ExecutionEngine *InterpreterPluggable::create(std::unique_ptr<Module> M, std::string* ErrStr) {
     // Tell this Module to materialize everything and release the GVMaterializer.
-    if (std::error_code err = M->materializeAllPermanently()) {
+    if (std::error_code err = M->materializeAll()) {
         // We got an error, just return 0
         return nullptr;
     }
@@ -144,7 +144,7 @@ static bool IsLoweringPossible(Instruction& I)
 {
     if(I.getOpcode() == Instruction::Call)
     {
-        CallSite CS = cast<Value>(&I);
+        CallSite CS (cast<Value>(&I));
         // Check to see if this is an intrinsic function call...
         Function *F = CS.getCalledFunction();
         if (F && F->isDeclaration())

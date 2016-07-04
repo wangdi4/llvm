@@ -22,6 +22,7 @@ File Name:  WorkGroupBuiltinsNames.h
 #include <string>
 #include "FunctionDescriptor.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/DerivedTypes.h"
 
 namespace Validation{
 
