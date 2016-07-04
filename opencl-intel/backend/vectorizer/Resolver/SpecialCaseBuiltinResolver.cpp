@@ -46,9 +46,10 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
 
   for (Module::iterator it = M.begin(), e = M.end(); it!=e; ++it) {
     std::string curFuncName = it->getName().str();
+    Function* f = &*it;
     if (m_runtimeServices->needSpecialCaseResolving(curFuncName)) {
-      fakeFunctions.push_back(it);
-      fillWrapper(it , curFuncName);
+      fakeFunctions.push_back(f);
+      fillWrapper(f , curFuncName);
       changed =true;
     }
   }
@@ -92,13 +93,14 @@ void SpecialCaseBuiltinResolver::obtainArguments(Function *F, const FunctionType
   Function::arg_iterator argE = F->arg_end();
   unsigned resolvedFuncArgInd = 0;
   for ( ;argIt != argE; ++argIt ) {
-    ArrayType *arrType = dyn_cast<ArrayType>(argIt->getType());
+    Argument* arg = &*argIt;
+    ArrayType *arrType = dyn_cast<ArrayType>(arg->getType());
     if (arrType) {
       // incase wrapper argument is array of vectors than we extract the vectors
       // and pass each one separately to the true builtin
       unsigned nElts = arrType->getNumElements();
       for (unsigned i=0; i<nElts; ++i) {
-        ExtractValueInst *EVI = ExtractValueInst::Create(argIt, i, "extract_param", loc);
+        ExtractValueInst *EVI = ExtractValueInst::Create(arg, i, "extract_param", loc);
         Type *desiredType = resolvedFuncType->getParamType(resolvedFuncArgInd);
         Value *curArg = VectorizerUtils::getCastedArgIfNeeded(EVI, desiredType, loc);
         resolvedArgs.push_back(curArg);
@@ -106,7 +108,7 @@ void SpecialCaseBuiltinResolver::obtainArguments(Function *F, const FunctionType
       }
     } else {
       Type *desiredType = resolvedFuncType->getParamType(resolvedFuncArgInd);
-      Value *curArg = VectorizerUtils::getCastedArgIfNeeded(argIt, desiredType, loc);
+      Value *curArg = VectorizerUtils::getCastedArgIfNeeded(arg, desiredType, loc);
       resolvedArgs.push_back(curArg);
       resolvedFuncArgInd++;
     }

@@ -228,7 +228,9 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   // For each basic block, add up its weight
-  for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
+  for (Function::iterator BBIter = F.begin(), BBEndIter = F.end(); BBIter != BBEndIter; ++BBIter) {
+
+    BasicBlock* const BB = &*BBIter;
 
     bool discardPhis = false;
     bool discardTerminator = false;
@@ -258,7 +260,8 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
     float Probability = ProbMap.lookup(BB);
 
     // And now, sum up all the instructions
-    for (BasicBlock::iterator I = BB->begin(), IE=BB->end(); I != IE; ++I){
+    for (BasicBlock::iterator IIter = BB->begin(), IE=BB->end(); IIter != IE; ++IIter){
+      Instruction* const I = &*IIter;
       if (discardPhis && dyn_cast<PHINode>(I))
         continue;
       if (discardTerminator &&  dyn_cast<TerminatorInst>(I))
@@ -379,8 +382,9 @@ Type* WeightedInstCounter::estimateDominantType(Function &F, DenseMap<Loop*, int
   DenseMap<Type*, float> countMap;
 
   // For each type, count how many times it is the first operand of a binop.
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
-  for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  for (Function::iterator BBIter = F.begin(), BBEndIter = F.end(); BBIter != BBEndIter; ++BBIter) {
+    BasicBlock* const BB = &*BBIter;
     int TripCount = 1;
     if (Loop* ContainingLoop = LI->getLoopFor(BB))
       TripCount = IterMap.lookup(ContainingLoop);
@@ -797,7 +801,8 @@ void WeightedInstCounter::
   // reached, all decisions need to go "its way".
   // This code makes all sorts of silly assumptions.
 
-  for (Function::iterator BB = F.begin(), BE = F.end(); BB != BE; BB++) {
+  for (Function::iterator BBIter = F.begin(), BBEndIter = F.end(); BBIter != BBEndIter; BBIter++) {
+    BasicBlock* const BB = &*BBIter;
     PostDominanceFrontier::iterator iter = PDF->find(BB);
     // It's actually possible that a BB has no PDF (as opposed to an empty one)
     // This happens for infinite loops. If this is the case,
@@ -1117,8 +1122,10 @@ void WeightedInstCounter::estimateDataDependence(Function &F,
   // LoadInst seems to make intuitive sense, but in fact also counts loads from allocas.
   // Why would there even be allocas at this stage? Because of soa builtins that return
   // results through local pointers. Oops.
-  for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
-    for (BasicBlock::iterator I = BB->begin(), IE = BB->end(); I != IE; ++I) {
+  for (Function::iterator BBIter = F.begin(), BBEndIter = F.end(); BBIter != BBEndIter; ++BBIter) {
+    BasicBlock* const BB = &*BBIter;
+    for (BasicBlock::iterator IIter = BB->begin(), IEndIter = BB->end(); IIter != IEndIter; ++IIter) {
+      Instruction* const I = &*IIter;
       if (dyn_cast<GetElementPtrInst>(I))
         DataUsers.push_back(I);
     }

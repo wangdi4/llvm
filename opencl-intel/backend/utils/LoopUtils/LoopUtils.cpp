@@ -189,7 +189,7 @@ void fillInternalFuncUsers(Module &m, const OpenclRuntime *rt,
   std::set<Function *> internalFuncs;
   for (Module::iterator fit = m.begin(), fe = m.end(); fit != fe; ++fit)
     if (!fit->isDeclaration())
-      internalFuncs.insert(fit);
+      internalFuncs.insert(&*fit);
   fillFuncUsersSet(internalFuncs, userFuncs);
 }
 
@@ -199,7 +199,7 @@ void fillAtomicBuiltinUsers(Module &m, const OpenclRuntime *rt,
   for (Module::iterator fit = m.begin(), fe = m.end(); fit != fe; ++fit) {
     std::string name = fit->getName().str();
     if (rt->isAtomicBuiltin(name))
-      atomicFuncs.insert(fit);
+      atomicFuncs.insert(&*fit);
   }
   fillFuncUsersSet(atomicFuncs, userFuncs);
 }
@@ -210,7 +210,7 @@ void fillWorkItemPipeBuiltinUsers(Module &m, const OpenclRuntime *rt,
   for (Module::iterator fit = m.begin(), fe = m.end(); fit != fe; ++fit) {
     std::string name = fit->getName().str();
     if (rt->isWorkItemPipeBuiltin(name))
-      pipeFuncs.insert(fit);
+      pipeFuncs.insert(&*fit);
   }
   fillFuncUsersSet(pipeFuncs, userFuncs);
 }
@@ -266,7 +266,7 @@ loopRegion createLoop(BasicBlock *head, BasicBlock *latch, Value *begin,
   PHINode *indVar =
       head->empty()
           ? PHINode::Create(indTy, 2, name + "ind_var", head)
-          : PHINode::Create(indTy, 2, name + "ind_var", head->begin());
+          : PHINode::Create(indTy, 2, name + "ind_var", &*head->begin());
 
   // Increment induction variable.
   BinaryOperator *incIndVar = BinaryOperator::Create(

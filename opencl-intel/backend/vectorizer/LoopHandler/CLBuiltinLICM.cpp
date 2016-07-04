@@ -54,7 +54,7 @@ void CLBuiltinLICM::ScanLoop(DomTreeNode *N) {
   // are already hoisted.
   if (!LoopUtils::inSubLoop(m_curLoop, BB)) {
     for (BasicBlock::iterator II = BB->begin(), E = BB->end(); II != E;) {
-      Instruction *I = II++;
+      Instruction *I = &*II; II++;
       if (CallInst *CI = dyn_cast<CallInst>(I)) {
         m_changed |= hoistCLBuiltin(CI);
       }

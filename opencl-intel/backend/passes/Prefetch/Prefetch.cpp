@@ -611,7 +611,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
     for (BasicBlock::iterator II = BB->begin(), IE = BB->end();
         II != IE; ++II) {
       Value *addr = NULL;
-      Instruction *I = II;
+      Instruction *I = &*II;
 
       if (I->getType()->isVectorTy())
         m_isVectorized.insert(L);

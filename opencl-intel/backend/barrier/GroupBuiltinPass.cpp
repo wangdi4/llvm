@@ -282,7 +282,7 @@ namespace intel {
 
       // Collect info about caller function (where the call resides)
       Function *pFunc = pWgCallInst->getParent()->getParent();
-      Instruction *pFirstInstr = pFunc->getEntryBlock().begin();
+      Instruction *pFirstInstr = &*pFunc->getEntryBlock().begin();
       // Mark the function as visited.
       if (visitedFunctions.insert(pFunc)) {
         // This is the first time we visit this function.

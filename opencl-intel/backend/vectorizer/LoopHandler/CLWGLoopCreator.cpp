@@ -257,10 +257,11 @@ CallInst *CLWGLoopCreator::createEECall() {
   unsigned i=0;
   for(Function::arg_iterator argIt = m_F->arg_begin(), argE = m_F->arg_end();
       argIt != argE; ++argIt, ++i) {
+    Value* arg = &*argIt;
     // Sanity: checks that early exit function has the same argument types.
-    assert(argIt->getType() == m_F->getFunctionType()->getParamType(i) &&
+    assert(arg->getType() == m_F->getFunctionType()->getParamType(i) &&
         "mismatch types between function and Eearly exit");
-    args.push_back(argIt);
+    args.push_back(arg);
   }
 
   // Return a call in the new entry block.
@@ -271,7 +272,7 @@ CallInst *CLWGLoopCreator::createEECall() {
 void CLWGLoopCreator::handleUniformEE(BasicBlock *retBlock) {
   // Obtain uniform early exit condition.
   // If it is equal to 0 jump to return block.
-  Instruction *loc = ++BasicBlock::iterator(m_EECall);
+  Instruction *loc = &*(++BasicBlock::iterator(m_EECall));
   unsigned uniInd = CLWGBoundDecoder::getUniformIndex();
   Instruction *uniEECond = ExtractValueInst::Create(m_EECall, uniInd, "", loc);
   Value *truncCond =
@@ -512,7 +513,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   Function::arg_iterator argIt = m_F->arg_begin();
   Function::arg_iterator argE = m_F->arg_end();
   for (; argIt != argE; ++argIt, ++VArgIt) {
-    valueMap[VArgIt] = argIt;
+    valueMap[&*VArgIt] = &*argIt;
   }
   // [LLVM 3.6 UPGRADE] Assuming the following maping will update references
   // in metadata from vector to scalar part correctly.
@@ -526,7 +527,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   CloneFunctionInto(m_F, m_vectorFunc, valueMap, true, returns, "vector_func");
   for(Function::iterator bbit = m_vectorFunc->begin(),
       bbe = m_vectorFunc->end(); bbit != bbe; ++bbit){
-    BasicBlock *clonedBB = dyn_cast<BasicBlock>(valueMap[bbit]);
+    BasicBlock *clonedBB = dyn_cast<BasicBlock>(valueMap[&*bbit]);
     clonedBB->moveBefore(BB);
   }
 
@@ -544,7 +545,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   }
   m_vectorRet = dyn_cast<ReturnInst>(valueMap[m_vectorRet]);
   BasicBlock *vectorEntryBlock =
-      dyn_cast<BasicBlock>(valueMap[m_vectorFunc->begin()]);
+      dyn_cast<BasicBlock>(valueMap[&*(m_vectorFunc->begin())]);
   // copy stats from vector function to scalar function
   intel::Statistic::copyFunctionStats(*m_vectorFunc, *m_F);
   // Get hold of the entry to the scalar section in the vectorized function...

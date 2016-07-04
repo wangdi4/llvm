@@ -289,7 +289,7 @@ void LoopWIAnalysis::ScanLoop(DomTreeNode *N) {
     // Avoid analyzing original header phi nodes thar were already analyzed.
     BasicBlock::iterator I = BB == m_header ?
                   (BasicBlock::iterator)BB->getFirstNonPHI() : BB->begin();
-    for (BasicBlock::iterator E = BB->end(); I != E; I++) calculate_dep(I);
+    for (BasicBlock::iterator E = BB->end(); I != E; I++) calculate_dep(&*I);
   }
 
   // Go over blocks recursively according to Dominator tree.

@@ -134,7 +134,7 @@ namespace intel {
     m_pAllocaValues = &m_pDataPerValue->getAllocaValuesToHandle(&F);
     m_pCrossBarrierValues = &m_pDataPerValue->getUniformValuesToHandle(&F);
 
-    Instruction* pInsertBefore = F.getEntryBlock().begin();
+    Instruction* pInsertBefore = &*F.getEntryBlock().begin();
     if (m_isNativeDBG) {
       // Move alloca instructions for locals/parameters for debugging purposes
       for (TValueVector::iterator vi = m_pAllocaValues->begin(), ve = m_pAllocaValues->end();
@@ -158,7 +158,7 @@ namespace intel {
     }
 
     //Fix cross barrier uniform values
-    fixCrossBarrierValues(F.begin()->begin());
+    fixCrossBarrierValues(&*F.begin()->begin());
 
     //Replace sync instructions with internal loop over WI ID
     replaceSyncInstructions();
@@ -688,7 +688,7 @@ namespace intel {
           // LocalId = 0
           // currSB = 0
           // currBarrier = id
-          IRBuilder<> B(pPreSyncBB->begin());
+          IRBuilder<> B(&*pPreSyncBB->begin());
           unsigned NumDimsToZero = getNumDims();
           assert(
               (!m_isNativeDBG || NumDimsToZero == MaxNumDims) &&
@@ -756,7 +756,7 @@ namespace intel {
     pBarrierKeyValues->m_TheFunction = pFunc;
     unsigned NumDims = computeNumDim(pFunc);
     pBarrierKeyValues->m_NumDims = NumDims;
-    Instruction* pInsertBefore = pFunc->getEntryBlock().begin();
+    Instruction* pInsertBefore = &*pFunc->getEntryBlock().begin();
     //Add currBarrier alloca
     pBarrierKeyValues->m_pCurrBarrierId = new AllocaInst(Type::getInt32Ty(*m_pContext),
       "pCurrBarrier", pInsertBefore);
@@ -929,7 +929,7 @@ namespace intel {
            Value *&Val = FuncToBaseGID[Key];
            if (!Val) {
              Val = m_util.createGetBaseGlobalId(Dim,
-                                                pFunc->getEntryBlock().begin());
+                                                &*pFunc->getEntryBlock().begin());
            }
            BaseGID = Val;
         } else

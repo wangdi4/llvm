@@ -397,7 +397,7 @@ Value *CLStreamSampler::getStreamSize(unsigned width) {
   if (Instruction *tripCountInst = dyn_cast<Instruction>(m_tripCount)) {
     assert(tripCountInst != tripCountInst->getParent()->getTerminator() &&
         "trip count can not be the termiantor of a block");
-    loc = ++(BasicBlock::iterator(tripCountInst));
+    loc = &*(++(BasicBlock::iterator(tripCountInst)));
   }
   Value *streamSize = BinaryOperator::Create(Instruction::Mul, m_tripCount,
                                              widthConst, "stream_size", loc);

@@ -117,7 +117,7 @@ namespace intel {
   }
 
   SYNC_TYPE BarrierUtils::getSynchronizeType(BasicBlock *pBB) {
-    return getSynchronizeType(pBB->begin());
+    return getSynchronizeType(&*pBB->begin());
   }
 
   TInstructionVector& BarrierUtils::getAllSynchronizeInstructuons() {

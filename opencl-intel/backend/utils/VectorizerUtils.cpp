@@ -668,7 +668,7 @@ Value *VectorizerUtils::isInsertEltExtend(Instruction *I, Type *realType) {
   // Reconstruct the vector right after the original insert element.
   assert(I != I->getParent()->getTerminator() &&
       "insert element can not be a terminator of basic block");
-  Instruction *loc = (++BasicBlock::iterator(I));
+  Instruction *loc = &*(++BasicBlock::iterator(I));
   Value *gatherdVals = UndefValue::get(realType);
   LLVMContext &context = val->getContext();
   for (unsigned i=0; i<destNelts; ++i) {

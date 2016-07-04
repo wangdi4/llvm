@@ -43,7 +43,7 @@ bool FuncResolver::runOnFunction(Function &F) {
   std::vector<CallInst*> calls;
 
   for (Function::iterator it = F.begin(), e = F.end(); it != e; ++it) {
-    packPredicatedLoads(it);
+    packPredicatedLoads(&*it);
   }
 
   // Collect call instructions inspect
@@ -642,7 +642,7 @@ void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
 
   //Prepare second parameter
   FunctionType *LibFuncTy = LibFunc->getFunctionType();
-  Instruction *loc = currFunc->getEntryBlock().begin();
+  Instruction *loc = &*currFunc->getEntryBlock().begin();
   PointerType *ptrTy = dyn_cast<PointerType>(LibFuncTy->getParamType(1));
   V_ASSERT(ptrTy && "bad signature");
   Type *elTy = ptrTy->getElementType();

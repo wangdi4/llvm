@@ -579,7 +579,7 @@ namespace intel {
                                   src_arg_it++, new_arg_it++) {
         new_arg_it->setName(src_arg_it->getName());
         // Map original formal arguments to resolved ones 
-        VMap[src_arg_it] = new_arg_it;
+        VMap[&*src_arg_it] = &*new_arg_it;
       }
       SmallVector<ReturnInst*, 8> Returns;
       CloneDebugInfoMetadata(pNewFunc, pCallee, VMap);
@@ -599,9 +599,9 @@ namespace intel {
         assert(pOrigPtrType && IS_ADDR_SPACE_GENERIC(pOrigPtrType->getAddressSpace()) &&
                "Argument of original function should be a GAS pointer!");
         // Produce and insert bitcast
-        CastInst *pNewBitCast = CastInst::CreatePointerCast(new_arg_it, pOrigPtrType,
+        CastInst *pNewBitCast = CastInst::CreatePointerCast(&*new_arg_it, pOrigPtrType,
                                                    new_arg_it->getName(),
-                                                   pNewFunc->getEntryBlock().begin());
+                                                   &*pNewFunc->getEntryBlock().begin());
         // Replace usages of the argument with those of bitcast
         SmallVector<Instruction*,16> uses;
         for (Value::user_iterator user_it = new_arg_it->user_begin(), 
@@ -613,7 +613,7 @@ namespace intel {
           }
         }
         for (unsigned idx = 0; idx < uses.size(); idx++) {
-          uses[idx]->replaceUsesOfWith(new_arg_it, pNewBitCast);
+          uses[idx]->replaceUsesOfWith(&*new_arg_it, pNewBitCast);
         }
       }     // iteration through arguments    
     }       // new function cloning

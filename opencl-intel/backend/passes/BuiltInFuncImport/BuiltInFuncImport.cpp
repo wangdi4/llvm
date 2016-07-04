@@ -90,7 +90,7 @@ namespace intel {
 
     // Find all "root" functions.
     for (Module::iterator it = m_pModule->begin(), e = m_pModule->end(); it != e; ++it) {
-      Function *pDstFunc = it;
+      Function *pDstFunc = &*it;
       std::string funcName = pDstFunc->getName().str();
       if (pDstFunc->isDeclaration()) {
         Function* pSrcFunc = FindFunctionBodyInModules(funcName);
@@ -111,7 +111,7 @@ namespace intel {
       Module::GlobalListType &lstGlobals = (*pSourceModuleIter)->getGlobalList();
       // Iterate over all globals in source module and check if any needs to be imported
       for (Module::GlobalListType::iterator it = lstGlobals.begin(), e = lstGlobals.end(); it != e; ++it) {
-        GlobalVariable* pGlobalVal = it;
+        GlobalVariable* pGlobalVal = &*it;
         if (m_valueMap.count(pGlobalVal)) {
           // Global variable is already mapped to destination module
           continue;
@@ -141,7 +141,7 @@ namespace intel {
          pSourceModuleIter++) {
       // Iterate over all functions in source module and check if any needs to be imported
       for (Module::iterator it = (*pSourceModuleIter)->begin(), e = (*pSourceModuleIter)->end(); it != e; ++it) {
-        Function *pSrcFunc = it;
+        Function *pSrcFunc = &*it;
         // iterating only by function definitions or materialazible functions
         if ((!pSrcFunc->isDeclaration() || pSrcFunc->isMaterializable())) {
           Function* pDstFunction = m_pModule->getFunction(pSrcFunc->getName());
@@ -202,7 +202,7 @@ namespace intel {
         // Copy the name over.
         itDst->setName(itSrc->getName());
         // Add a mapping to our mapping.
-        m_valueMap[itSrc] = itDst;
+        m_valueMap[&*itSrc] = &*itDst;
         // Add mapping of argument types.
       }
 
@@ -227,7 +227,7 @@ namespace intel {
 
       // There is no need to map the arguments anymore.
       for (Function::arg_iterator it = pSrcFunction->arg_begin(), e = pSrcFunction->arg_end(); it != e; ++it) {
-        m_valueMap.erase(it);
+        m_valueMap.erase(&*it);
       }
     }
   }

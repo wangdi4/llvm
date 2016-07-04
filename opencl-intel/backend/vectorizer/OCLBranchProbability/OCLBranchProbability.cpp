@@ -40,6 +40,7 @@ namespace intel {
     // CONSECUTIVE ? UNIFORM and one of the successor's terminator is a return instruction
     //                        - the other successor gets high priority
     for (Function::iterator bb = F.begin(), bbe = F.end(); bb != bbe ; ++bb) {
+      BasicBlock* I = &*bb;
       TerminatorInst* term = bb->getTerminator();
       BranchInst* br = dyn_cast<BranchInst>(term);
 

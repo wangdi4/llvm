@@ -615,7 +615,7 @@ void NEATPlugIn::callFunction( Function *F,
 
             ExecutionContext &CallingSF = m_pECStack->back();
             NEATExecutionContext &SF = m_NECStack.back();
-            if (Instruction *I = CallingSF.CurInst) {
+            if (Instruction *I = &*CallingSF.CurInst) {
                 // if not void return type
                 if (!I->getType()->isVoidTy())
                     SetValue(I, Result, SF);
@@ -643,11 +643,12 @@ void NEATPlugIn::callFunction( Function *F,
     for (Function::arg_iterator AI = F->arg_begin(), E = F->arg_end();
         AI != E; ++AI)
     {
+        Argument *A = &*AI;
         // if exist NEATValue which matches argument of function
         // then add it to NEAT context. we are going to work with it
-        if(ArgVals.find(AI) != ArgVals.end())
+        if(ArgVals.find(A) != ArgVals.end())
         {
-            SetValue(AI, (*ArgVals.find(AI)).second, NSF);
+            SetValue(A, (*ArgVals.find(A)).second, NSF);
         }
     }
 }
@@ -888,7 +889,7 @@ void NEATPlugIn::handlePostFunctionRun()
     if (elemDesc.GetType() != _TYPE_DM_)                                  \
             throw Exception::InvalidArgument("Pointer type in data doesn't match kernel input type");       \
     neatVal.PointerVal = buffer->GetDataPtr();\
-    out_NEATArgValues[arg_it] = neatVal;\
+    out_NEATArgValues[&*arg_it] = neatVal;\
     break;}\
 
 static void _CreateNEATBufferContainerByPtr(
@@ -924,7 +925,7 @@ static void _CreateNEATBufferContainerByPtr(
         }
     case Type::StructTyID:
         neatVal.PointerVal = buffer->GetDataPtr();
-        out_NEATArgValues[arg_it] = neatVal;
+        out_NEATArgValues[&*arg_it] = neatVal;
         break;
     case Type::PointerTyID:
        throw Exception::InvalidArgument("Do not support buffers of pointers");
@@ -943,7 +944,7 @@ static void _CreateNEATBufferContainerByPtr(
         throw Exception::InvalidArgument("Number of elements in input buffer doesn't match kernel argument length");   \
     BufferAccessor<NEATValue> ba(*currBuffer);                          \
     neatVal.NEATVal = ba.GetElem(0,0);                                  \
-    out_NEATArgValues[arg_it] = neatVal;                                \
+    out_NEATArgValues[&*arg_it] = neatVal;                                \
     break;}
 
 void llvm::CreateNEATBufferContainerMap( Function *in_F,
@@ -963,6 +964,7 @@ void llvm::CreateNEATBufferContainerMap( Function *in_F,
         arg_it != in_F->arg_end() && buf < numOfArguments;
         ++arg_it, ++buf)
     {
+        Argument* arg = &*arg_it;
         IMemoryObject* currMemObj = in_BC.GetMemoryObject(buf);
 
         if(Image::GetImageName() == currMemObj->GetName() )
@@ -974,7 +976,7 @@ void llvm::CreateNEATBufferContainerMap( Function *in_F,
         {   // buffer
             Buffer * currBuffer = static_cast<Buffer*>(currMemObj);
             BufferDesc buffDsc = GetBufferDescription(currMemObj->GetMemoryObjectDesc());
-            const Type *Ty = arg_it->getType();
+            const Type *Ty = arg->getType();
             TypeDesc elemDesc = buffDsc.GetElementDescription();
 
             switch(Ty->getTypeID())
@@ -998,7 +1000,7 @@ void llvm::CreateNEATBufferContainerMap( Function *in_F,
                     {
                         neatVal.NEATVec[i] = ba.GetElem(0,i);
                     }
-                    out_NEATArgValues[arg_it] = neatVal;
+                    out_NEATArgValues[arg] = neatVal;
                     break;
                 }
                 // If vector contains integer types - skip it.
@@ -1983,9 +1985,10 @@ void NEATPlugIn::visitCallSite( CallSite CS )
     Function::arg_iterator AI = CalledF->arg_begin(), AE = CalledF->arg_end();
     for (CallSite::arg_iterator i = CS.arg_begin(),
         e = CS.arg_end(); (i != e) || (AI != AE); ++AI, ++i) {
+            Argument* A = &*AI;
             // use the NEAT supported arguments only
-            if(m_NTD.IsNEATSupported(AI->getType())) {
-                ArgVals[AI] = getOperandValue(*i, SF);
+            if(m_NTD.IsNEATSupported(A->getType())) {
+                ArgVals[A] = getOperandValue(*i, SF);
             }
     }
     callFunction(CalledF, ArgVals);
@@ -2028,7 +2031,7 @@ void NEATPlugIn::execute_shuffle(Function *F,
                  NEATGenericValue& Result,
                  const OCLBuiltinParser::ArgVector& ArgList){
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const Type *Ty0 = arg0->getType();
     if(!m_NTD.IsNEATSupported(Ty0)) return;
 
@@ -2051,9 +2054,9 @@ void NEATPlugIn::execute_shuffle2(Function *F,
                  NEATGenericValue& Result,
                  const OCLBuiltinParser::ArgVector& ArgList){
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const Type *Ty0 = arg0->getType();
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
     const Type *Ty1 = arg1->getType();
     if((!m_NTD.IsNEATSupported(Ty0)) || (!m_NTD.IsNEATSupported(Ty1))) return;
 
@@ -2080,9 +2083,9 @@ void NEATPlugIn::execute_atomic_xchg(Function *F,
                  NEATGenericValue& Result,
                  const OCLBuiltinParser::ArgVector& ArgList){
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const Type *Ty0 = arg0->getType();
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
     const Type *Ty1 = arg1->getType();
     if((!m_NTD.IsNEATSupported(Ty0)) || (!m_NTD.IsNEATSupported(Ty1))) return;
 
@@ -2100,9 +2103,9 @@ void NEATPlugIn::execute_cross(Function *F,
                  NEATGenericValue& Result,
                  const OCLBuiltinParser::ArgVector& ArgList){
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
     const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);
 
     const Type *Ty0 = arg0->getType();
@@ -2133,9 +2136,9 @@ void NEATPlugIn::execute_step(Function *F,
                  NEATGenericValue& Result,
                  const OCLBuiltinParser::ArgVector& ArgList){
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
     const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);
 
     const Type *Ty0 = arg0->getType();
@@ -2171,11 +2174,11 @@ void NEATPlugIn::execute_smoothstep(Function *F,
                  NEATGenericValue& Result,
                  const OCLBuiltinParser::ArgVector& ArgList){
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
     const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);
-    Value *arg2 = Fit++;
+    Value *arg2 = &*Fit++;
     const NEATGenericValue& ValArg2 = GetArg(arg2, ArgVals);
 
     const Type *Ty0 = arg0->getType();
@@ -2216,11 +2219,11 @@ void NEATPlugIn::execute_clamp(Function *F,
                  NEATGenericValue& Result,
                  const OCLBuiltinParser::ArgVector& ArgList){
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
     const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);
-    Value *arg2 = Fit++;
+    Value *arg2 = &*Fit++;
     const NEATGenericValue& ValArg2 = GetArg(arg2, ArgVals);
 
     const Type *Ty0 = arg0->getType();
@@ -2342,7 +2345,7 @@ void NEATPlugIn::execute_vload ## n(Function *F,                                
     GenericValue ValArg0 = GetGenericArg(0);                                            \
     size_t offset = ValArg0.IntVal.getZExtValue();                                      \
     Fit++;                                                                              \
-    Value *arg1 = Fit++;                                                                \
+    Value *arg1 = &*Fit++;                                                                \
     const Type *Ty1 = arg1->getType();                                                  \
     if(!m_NTD.IsNEATSupported(Ty1)) return;                                             \
     const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);                            \
@@ -2373,7 +2376,7 @@ void NEATPlugIn::execute_v##name##mode(Function *F,                             
                                      const OCLBuiltinParser::ArgVector& ArgList)            \
 {                                                                                           \
     Function::arg_iterator Fit = F->arg_begin();                                            \
-    Value *arg0 = Fit++;                                                                    \
+    Value *arg0 = &*Fit++;                                                                    \
     const Type *Ty0 = arg0->getType();                                                      \
     if(!m_NTD.IsNEATSupported(Ty0)) return;                                                  \
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);                                \
@@ -2408,7 +2411,7 @@ EXECUTE_VSTORE_HALF(_half_rtn)
     NEATGenericValue& Result,                                                           \
     const OCLBuiltinParser::ArgVector& ArgList) {                                       \
     Function::arg_iterator Fit = F->arg_begin();                                        \
-    Value *arg0 = Fit++;                                                                \
+    Value *arg0 = &*Fit++;                                                                \
     const Type *Ty2 = arg0->getType();                                                  \
     if(!m_NTD.IsNEATSupported(Ty2)) return;                                             \
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);                            \
@@ -2456,7 +2459,7 @@ void NEATPlugIn::execute_vstore ## n(Function *F,                               
                                 NEATGenericValue& Result,                               \
                                 const OCLBuiltinParser::ArgVector& ArgList) {           \
     Function::arg_iterator Fit = F->arg_begin();                                        \
-    Value *arg0 = Fit++;                                                                \
+    Value *arg0 = &*Fit++;                                                                \
     const Type *Ty0 = arg0->getType();                                                  \
     if(!m_NTD.IsNEATSupported(Ty0)) return;                                             \
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);                            \
@@ -2464,7 +2467,7 @@ void NEATPlugIn::execute_vstore ## n(Function *F,                               
     GenericValue ValArg1 = GetGenericArg(1);                                            \
     size_t offset = ValArg1.IntVal.getZExtValue();                                      \
     Fit++;                                                                              \
-    Value *arg2 = Fit++;                                                                \
+    Value *arg2 = &*Fit++;                                                                \
     const NEATGenericValue& ValArg2 = GetArg(arg2, ArgVals);                            \
     NEATValue* p = (NEATValue*) NGVTOP(ValArg2);                                        \
     const Type *Ty2 = arg2->getType();                                                  \
@@ -2505,7 +2508,7 @@ void NEATPlugIn::execute_convert_float ## n(Function *F,                    \
             const OCLBuiltinParser::ArgVector& ArgList)                     \
 {                                                                           \
     Function::arg_iterator Fit = F->arg_begin();                            \
-    Value* arg = Fit++;                                                     \
+    Value* arg = &*Fit++;                                                     \
     const Type *Ty = arg->getType();                                        \
     const VectorType *VTy = cast<VectorType>(Ty);                           \
     const Type *ElemTy = VTy->getElementType();                             \
@@ -2575,7 +2578,7 @@ void NEATPlugIn::execute_convert_float(Function *F,
     const OCLBuiltinParser::ArgVector& ArgList)
 {
     Function::arg_iterator Fit = F->arg_begin();
-    Value* arg = Fit++;
+    Value* arg = &*Fit++;
     GenericValue argVal = GetGenericArg(0);
     const Type *Ty = arg->getType();
     if (Ty->isDoubleTy())
@@ -2635,7 +2638,7 @@ void NEATPlugIn::execute_convert_float(Function *F,
     const OCLBuiltinParser::ArgVector& ArgList)                             \
     {                                                                       \
         Function::arg_iterator Fit = F->arg_begin();                        \
-        Value* arg = Fit++;                                                 \
+        Value* arg = &*Fit++;                                                 \
         const Type *Ty = arg->getType();                                    \
         const VectorType *VTy = cast<VectorType>(Ty);                       \
         const Type *ElemTy = VTy->getElementType();                         \
@@ -2702,7 +2705,7 @@ void NEATPlugIn::execute_convert_double(Function *F,
                                        const OCLBuiltinParser::ArgVector& ArgList)
 {
     Function::arg_iterator Fit = F->arg_begin();
-    Value* arg = Fit++;
+    Value* arg = &*Fit++;
     const Type *Ty = arg->getType();
     if (Ty->isFloatTy())
     {
@@ -2747,7 +2750,7 @@ void NEATPlugIn::execute_async_work_group_copy(Function *F,
                                        const OCLBuiltinParser::ArgVector& ArgList)
 {
     Function::arg_iterator Fit = F->arg_begin();
-    Value* arg0 = Fit++;
+    Value* arg0 = &*Fit++;
 
     const Type *Ty = arg0->getType();
     const PointerType *PTy = dyn_cast<PointerType>(Ty);
@@ -2756,7 +2759,7 @@ void NEATPlugIn::execute_async_work_group_copy(Function *F,
     if(!m_NTD.IsNEATSupported(ETy)) return;
 
     const NEATGenericValue dst = GetArg(arg0, ArgVals);
-    Value* arg1 = Fit++;
+    Value* arg1 = &*Fit++;
     const NEATGenericValue src = GetArg(arg1, ArgVals);
     GenericValue num_gentypes = GetGenericArg(2);
 
@@ -2785,7 +2788,7 @@ void NEATPlugIn::execute_async_work_group_strided_copy(Function *F,
                                                const OCLBuiltinParser::ArgVector& ArgList)
 {
     Function::arg_iterator Fit = F->arg_begin();
-    Value* arg0 = Fit++;
+    Value* arg0 = &*Fit++;
 
     const Type *Ty = arg0->getType();
     const PointerType *PTy = dyn_cast<PointerType>(Ty);
@@ -2794,7 +2797,7 @@ void NEATPlugIn::execute_async_work_group_strided_copy(Function *F,
     if(!m_NTD.IsNEATSupported(ETy)) return;
 
     const NEATGenericValue dst = GetArg(arg0, ArgVals);
-    Value* arg1 = Fit++;
+    Value* arg1 = &*Fit++;
     const NEATGenericValue src = GetArg(arg1, ArgVals);
     GenericValue num_gentypes = GetGenericArg(2);
     uint64_t stride = GetGenericArg(3).IntVal.getZExtValue();
@@ -2838,9 +2841,9 @@ void NEATPlugIn::execute_async_work_group_strided_copy(Function *F,
 
 #define RELATIONAL_TWO_ARGS(FuncName) \
     Function::arg_iterator Fit = F->arg_begin();\
-    Value* arg0 = Fit++;\
+    Value* arg0 = &*Fit++;\
     const NEATGenericValue x = GetArg(arg0, ArgVals);\
-    Value* arg1 = Fit++;\
+    Value* arg1 = &*Fit++;\
     const NEATGenericValue y = GetArg(arg1, ArgVals);\
     const Type *Ty = arg0->getType();\
     if (Ty->isFloatTy()) {\
@@ -2869,7 +2872,7 @@ void NEATPlugIn::execute_async_work_group_strided_copy(Function *F,
 
 #define RELATIONAL_ONE_ARG(FuncName) \
     Function::arg_iterator Fit = F->arg_begin();\
-    Value* arg0 = Fit++;\
+    Value* arg0 = &*Fit++;\
     const NEATGenericValue x = GetArg(arg0, ArgVals);\
     const Type *Ty = arg0->getType();\
     if (Ty->isFloatTy()) {\
@@ -2999,15 +3002,15 @@ void NEATPlugIn::execute_bitselect(Function *F,
                                    const OCLBuiltinParser::ArgVector& ArgList)
 {
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const Type *Ty = arg0->getType();
     if(!m_NTD.IsNEATSupported(Ty)) return;
     // all three input values or vectors should have the same type (and size for vectors)
 
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
     const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);
-    Value *arg2 = Fit++;
+    Value *arg2 = &*Fit++;
     const NEATGenericValue& ValArg2 = GetArg(arg2, ArgVals);
 
     if(Ty != arg1->getType() || Ty != arg2->getType())
@@ -3039,9 +3042,9 @@ void NEATPlugIn::execute_select(Function *F,
                                const OCLBuiltinParser::ArgVector& ArgList)
 {
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const Type *Ty = arg0->getType();
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
 
     if(!m_NTD.IsNEATSupported(Ty)) return;
 
@@ -3091,7 +3094,7 @@ void NEATPlugIn::execute_ilogb(Function *F,
                                const OCLBuiltinParser::ArgVector& ArgList)
 {
     Function::arg_iterator Fit = F->arg_begin();
-    Value* arg0 = Fit++;
+    Value* arg0 = &*Fit++;
     const NEATGenericValue x = GetArg(arg0, ArgVals);
     const Type *Ty = arg0->getType();
     if (Ty->isFloatTy()) {
@@ -3127,7 +3130,7 @@ void execute_lgamma_r(Function *F,
                       NEATGenericValue& Result,
                       const OCLBuiltinParser::ArgVector& ArgList){
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
 
     const Type *Ty0 = arg0->getType();
@@ -3167,9 +3170,9 @@ void execute_remquo(Function *F,
                       NEATGenericValue& Result,
                       const OCLBuiltinParser::ArgVector& ArgList){
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
     const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);
 
     const Type *Ty0 = arg0->getType();
@@ -3215,7 +3218,7 @@ void NEATPlugIn::execute_nan(Function *F,
                                const OCLBuiltinParser::ArgVector& ArgList)
 {
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     GenericValue ValArg = GetGenericArg(0);
     const Type *Ty = arg0->getType();
     if (Ty->isIntegerTy()) {
@@ -3330,11 +3333,11 @@ void execute_mix(Function *F,
                  NEATGenericValue& Result,
                  const OCLBuiltinParser::ArgVector& ArgList){
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
     const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);
-    Value *arg2 = Fit++;
+    Value *arg2 = &*Fit++;
     const NEATGenericValue& ValArg2 = GetArg(arg2, ArgVals);
 
     const Type *Ty0 = arg0->getType();
@@ -3376,7 +3379,7 @@ void execute_frexp(Function *F,
                  NEATGenericValue& Result,
                  const OCLBuiltinParser::ArgVector& ArgList){
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
 
     const Type *Ty0 = arg0->getType();
@@ -3418,11 +3421,11 @@ void NEATPlugIn::execute_ldexp(Function *F,
 
 
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
 
     GenericValue ValArg1 = GetGenericArg(1);
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
 
     const Type *Ty0 = arg0->getType();
     const Type *Ty1 = arg1->getType();
@@ -3480,11 +3483,11 @@ void NEATPlugIn::execute_pown(Function *F,
 
 
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
 
     GenericValue ValArg1 = GetGenericArg(1);
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
 
     const Type *Ty0 = arg0->getType();
     const Type *Ty1 = arg1->getType();
@@ -3532,11 +3535,11 @@ void NEATPlugIn::execute_rootn(Function *F,
 
 
     Function::arg_iterator Fit = F->arg_begin();
-    Value *arg0 = Fit++;
+    Value *arg0 = &*Fit++;
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
 
     GenericValue ValArg1 = GetGenericArg(1);
-    Value *arg1 = Fit++;
+    Value *arg1 = &*Fit++;
 
     const Type *Ty0 = arg0->getType();
     const Type *Ty1 = arg1->getType();
@@ -3586,8 +3589,8 @@ void NEATPlugIn::execute_rootn(Function *F,
                  const OCLBuiltinParser::ArgVector& ArgList)                \
 {                                                                           \
     Function::arg_iterator Fit = F->arg_begin();                            \
-    Value *arg0 = Fit++;                                                    \
-    Value *arg1 = Fit++;                                                    \
+    Value *arg0 = &*Fit++;                                                    \
+    Value *arg1 = &*Fit++;                                                    \
     const Type *Ty0 = arg0->getType();                                      \
     const Type *Ty1 = arg1->getType();                                      \
     if(!(m_NTD.IsNEATSupported(Ty0) && m_NTD.IsNEATSupported(Ty1))) return; \
@@ -3724,7 +3727,7 @@ else{\
 /// macro Extracts function argument and its NEATGenericValue from NEAT context
 /// @param idx - number of function argument
 #define GET_ARG(idx)\
-    Value * const Arg ## idx = Fit++;\
+    Value * const Arg ## idx = &*Fit++;\
     std::map<Value *, NEATGenericValue>::const_iterator it ## idx =\
     ArgVals.find(Arg ## idx);\
     assert ( it ## idx != ArgVals.end());\

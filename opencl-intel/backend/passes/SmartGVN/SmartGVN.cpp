@@ -61,7 +61,7 @@ bool SmartGVN::runOnModule(Module &M)
       // Ignore declarations.
       if (i->isDeclaration()) continue;
 
-      GVNNoLoads = GVNNoLoads || isNoLoadsCandidate(i);
+      GVNNoLoads = GVNNoLoads || isNoLoadsCandidate(&*i);
     }
   }
 
@@ -85,15 +85,16 @@ bool SmartGVN::isNoLoadsCandidate(Function *func)
   // 2. This basic block has a lot of instructions with long live-interval
   // variables, which are loaded from memory.
   for (Function::iterator i = func->begin(), e = func->end(); i != e; ++i) {
-    if (Loop *L = LI.getLoopFor(i)) {
+    BasicBlock* BB = &*i;
+    if (Loop *L = LI.getLoopFor(BB)) {
       if (L->getBlocks().size() <= 2) {
         // Number of instructions in the loop
         size_t numOfInstructions = i->getInstList().size();
         // count number of loads nodes to estimate number of "live variables"
         unsigned int numOfLoadNodes = 0;
-        for (BasicBlock::iterator bbi = i->begin(), bbe = i->end(); bbi != bbe;
+        for (BasicBlock::iterator bbi = BB->begin(), bbe = BB->end(); bbi != bbe;
              ++bbi) {
-          if (isa<LoadInst>(bbi)) {
+          if (isa<LoadInst>(&*bbi)) {
             ++numOfLoadNodes;
           }
         }

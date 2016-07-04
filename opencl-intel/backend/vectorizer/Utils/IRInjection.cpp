@@ -173,8 +173,9 @@ private:
   }
 
   void MapGlobalVars(std::unique_ptr<Module> &newM) {
-    for (Module::const_global_iterator I = newM->global_begin(),
-         E = newM->global_end(); I != E; ++I) {
+    for (Module::const_global_iterator It = newM->global_begin(),
+         E = newM->global_end(); It != E; ++It) {
+      GlobalVariable const *I = &*It;
       GlobalVariable *GV = m_M->getGlobalVariable(I->getName(), true);
       if (!GV) {
         GV = new GlobalVariable(*m_M,
@@ -194,23 +195,25 @@ private:
 
   void MapFuncDecl(std::unique_ptr<Module> &newM) {
     // Loop over the functions in the module, making external functions as before
-    for (Module::const_iterator I = newM->begin(), E = newM->end();
-         I != E; ++I) {
-      errs() << "  will map decl for: " << I->getName() << "\n";
-      Function *curF = m_M->getFunction(I->getName());
+    for (Module::const_iterator FIt = newM->begin(), E = newM->end();
+         FIt != E; ++FIt) {
+      Function const *F = &*FIt;
+      errs() << "  will map decl for: " << F->getName() << "\n";
+      Function *curF = m_M->getFunction(F->getName());
       if (!curF) {
         errs() << "    funtion is not in module - will create new one\n";
-        curF = Function::Create(cast<FunctionType>(I->getType()->getElementType()),
-                       I->getLinkage(), I->getName(), m_M);
+        curF = Function::Create(cast<FunctionType>(F->getType()->getElementType()),
+                       F->getLinkage(), F->getName(), m_M);
       }
-      curF->copyAttributesFrom(I);
-      m_VMap[I] = curF;
+      curF->copyAttributesFrom(F);
+      m_VMap[F] = curF;
     }
   }
 
   void InitializeGlobalVars(std::unique_ptr<Module> &newM) {
-    for (Module::const_global_iterator I = newM->global_begin(),
-         E = newM->global_end(); I != E; ++I) {
+    for (Module::const_global_iterator It = newM->global_begin(),
+         E = newM->global_end(); It != E; ++It) {
+     GlobalVariable const *I = &*It;
      GlobalVariable *GV = cast<GlobalVariable>(m_VMap[I]);
      if (I->hasInitializer())
        GV->setInitializer(MapValue(I->getInitializer(), m_VMap));
@@ -219,7 +222,8 @@ private:
 
 
   void replaceFuncImpl(std::unique_ptr<Module> &newM) {
-    for (Module::iterator F = m_M->begin(), E = m_M->end(); F != E; ++F) {
+    for (Module::iterator FIt = m_M->begin(), E = m_M->end(); FIt != E; ++FIt) {
+      Function *F = &*FIt;
       Function *newF = getNewFunc(newM, F);
       if (!newF || newF->isDeclaration()) continue;
 
@@ -228,8 +232,8 @@ private:
       F->deleteBody();
       for (Function::arg_iterator J = F->arg_begin(), I = newF->arg_begin();
            J != F->arg_end();) {
-        I->setName(J->getName());
-        m_VMap[I++] = J++;
+        (&*I)->setName((&*J)->getName());
+        m_VMap[&*(I++)] = &*(J++);
       }
       SmallVector<ReturnInst*, 8> Returns;  // Ignore returns cloned.
 
@@ -255,16 +259,18 @@ private:
 
   void fixOpaquePtrs(std::unique_ptr<Module> &newM) {
     for (Module::iterator newF = newM->begin(), E = newM->end(); newF != E; ++newF) {
-      Function *F = cast<Function>(m_VMap[newF]);
+      Function *F = cast<Function>(m_VMap[&*newF]);
 
       unsigned argInd = 0;
-      for (Function::arg_iterator J = F->arg_begin(), I = newF->arg_begin();
-          J != F->arg_end(); ++I, ++J, ++argInd){
+      for (Function::arg_iterator JIt = F->arg_begin(), IIt = newF->arg_begin();
+          JIt != F->arg_end(); ++IIt, ++JIt, ++argInd){
+        Argument *J = &*JIt;
+        Argument *I = &*IIt;
         if (I->getType() != J->getType()) {
           auto argUsers = std::vector<User*>(J->user_begin(), J->user_end());
 	  // ToDo:: construct something with size here.
           if (argUsers.size()) {
-            Value *cast = CastInst::CreatePointerCast(J, I->getType(), "arg_cast", F->getEntryBlock().begin());
+            Value *cast = CastInst::CreatePointerCast(J, I->getType(), "arg_cast", &*F->getEntryBlock().begin());
             for (User *u : argUsers) {
               u->replaceUsesOfWith(J, cast);
             }

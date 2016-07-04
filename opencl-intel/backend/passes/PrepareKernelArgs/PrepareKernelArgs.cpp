@@ -335,13 +335,13 @@ namespace intel{
     Function::arg_iterator DestI = pWrapper->arg_begin();
     DestI->setName("pUniformArgs");
     DestI->addAttr(NoAlias);
-    Argument *pArgsBuffer = DestI++;
+    Argument *pArgsBuffer = &*(DestI++);
     DestI->setName("pWGID");
     DestI->addAttr(NoAlias);
-    Argument *pArgGID = DestI++;
+    Argument *pArgGID = &*(DestI++);
     DestI->setName("RuntimeHandle");
     DestI->addAttr(NoAlias);
-    Argument *RuntimeContext = DestI++;
+    Argument *RuntimeContext = &*(DestI++);
     assert(DestI == pWrapper->arg_end() && "Expected to be past last arg");
 
     // Create wrapper function

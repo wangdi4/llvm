@@ -78,12 +78,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     // Find all prefetch builtin function calls and keep them
     for (Module::iterator FI = M.begin(), FE = M.end(); FI != FE; ++FI) {
-      Function *F = FI;
+      Function *F = &*FI;
       for (Function::iterator BI = F->begin(), BE = F->end(); BI != BE; ++BI) {
-        BasicBlock *BB = BI;
+        BasicBlock *BB = &*BI;
         for (BasicBlock::iterator II = BB->begin(), IE = BB->end(); II != IE;
              ++II) {
-          Instruction *I = II;
+          Instruction *I = &*II;
           CallInst* pCallInst;
           if ((pCallInst = dyn_cast<CallInst>(I)) != NULL &&
               pCallInst->getCalledFunction()) {

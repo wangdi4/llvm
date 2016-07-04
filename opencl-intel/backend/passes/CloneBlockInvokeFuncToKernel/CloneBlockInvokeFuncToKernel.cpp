@@ -63,7 +63,7 @@ static Function *createKernelCallingBlock(Function *pBlock,
                               I != E;
                               ++I, ++DestI) {
       I->setName(DestI->getName());
-      params.push_back(I);
+      params.push_back(&*I);
   }
   // create CallInst to block
   CallInst* call = builder.CreateCall(pBlock, ArrayRef<Value*>(params));
@@ -90,7 +90,7 @@ static bool canBlockInvokeFunctionBeEnqueued(Function *F)
 
   // check 1st arg is NOT struct return attribute
   // In this case block returns struct - not acceptable for enqueue
-  Argument* Arg1= F->arg_begin();
+  Argument* Arg1= &*F->arg_begin();
   if ( Arg1->hasStructRetAttr() )
     return false;
 
@@ -116,8 +116,8 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     // then it may be enqueued in enqueue_kernel() BIs as kernel
     // and we need to create kernel from the block invoke function
     if(BlockUtils::isBlockInvokeFunction(*F) &&
-       canBlockInvokeFunctionBeEnqueued(F))
-      blockInvokeFuncs.push_back(F);
+       canBlockInvokeFunctionBeEnqueued(&*F))
+      blockInvokeFuncs.push_back(&*F);
   }
 
   // obtain node with kernels
@@ -238,11 +238,11 @@ size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
 {
   // get 1st and only argument
   Function::arg_iterator ai = F->arg_begin();
-  Argument* blockLiteralPtr  = ai;
+  Argument* blockLiteralPtr  = &*ai;
   // workaround for blocks returning struct
   if ( blockLiteralPtr->hasStructRetAttr() ) {
       ++ai;
-      blockLiteralPtr = ai;
+      blockLiteralPtr = &*ai;
   }
 
   // if no uses return default size

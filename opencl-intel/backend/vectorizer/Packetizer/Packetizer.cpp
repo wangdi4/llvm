@@ -300,7 +300,7 @@ void PacketizeFunction::postponePHINodesAfterExtracts() {
     for (Function::iterator it = m_currFunc->begin(), e = m_currFunc->end();
       it != e; ++it) { // each BB
 
-        BasicBlock* BB = it;
+        BasicBlock* BB = &*it;
         // duplicate a vector of pointers to the instructions of BB,
         // to safely iterate over the instructions.
         // infact, we only need the phi-nodes.
@@ -368,7 +368,7 @@ void PacketizeFunction::postponePHINodesAfterExtracts() {
                 BasicBlock* incomingBlock = phi->getIncomingBlock(i);
                 Instruction* loc = NULL;
                 if (instIncoming) {
-                  loc = ++BasicBlock::iterator(instIncoming);
+                  loc = &*(++BasicBlock::iterator(instIncoming));
                 }
                 else {
                   loc = incomingBlock->getTerminator();
@@ -1856,7 +1856,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
   if (LibFunc->getReturnType()->isVoidTy() && CI->getType()->isVectorTy()) {
     VectorType *vTy = cast<VectorType>(CI->getType());
     unsigned numElements = vTy->getNumElements();
-    Instruction *loc = m_currFunc->getEntryBlock().begin();
+    Instruction *loc = &*(m_currFunc->getEntryBlock().begin());
     for (unsigned i=0; i<numElements; ++i) {
       PointerType *ptrTy = dyn_cast<PointerType>(LibFuncTy->getParamType(newArgs.size()));
       V_ASSERT(ptrTy && "bad signature");
@@ -2473,11 +2473,11 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
       V_ASSERT(false && "Terminator should exist at this point!");
       return duplicateNonPacketizableInst(EI);
     }
-    location = ++BasicBlock::iterator(location);
+    location = &*(++BasicBlock::iterator(location));
   } else {
     // If vector value is not an instruction, it must be global value
     // insert shuffles at function beginning.
-    location = m_currFunc->getEntryBlock().begin();
+    location = &*(m_currFunc->getEntryBlock().begin());
   }
   // Obtain the packetized version of the vector input (actually multiple vectors)
   SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> inputOperands;
@@ -2709,7 +2709,7 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
     funcArgs.push_back(pLoadAddr);
   }
 
-  Builder.SetInsertPoint(m_currFunc->getEntryBlock().begin());
+  Builder.SetInsertPoint(&*(m_currFunc->getEntryBlock().begin()));
   for (unsigned int i = 0; i < numDestVectors; ++i) {
     // Create the destination vectors that will contain the transposed matrix
     AllocaInst* alloca = Builder.CreateAlloca(destVecType);

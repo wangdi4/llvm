@@ -81,7 +81,7 @@ namespace intel{
 
     // Find globals that appear in the origin kernel as local variables and add update mapping accordingly
     for ( Module::GlobalListType::iterator it = lstGlobals.begin(), e = lstGlobals.end(); it != e; ++it ) {
-      GlobalValue* pVal = it;
+      GlobalValue* pVal = &*it;
 
       const PointerType* TP = cast<PointerType>(pVal->getType());
       if(TP->getAddressSpace() != CompilationUtils::LOCL_VALUE_ADDRESS_SPACE) {

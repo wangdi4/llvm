@@ -104,7 +104,7 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
     for ( Module::const_iterator fi = M->begin(), fe = M->end(); fi != fe; ++fi ) {
       if (fi->isDeclaration()) continue;
       OS << fi->getName().str() << "\n";
-      for (const_inst_iterator ii = inst_begin(fi), ie = inst_end(fi); ii != ie; ++ii) {
+      for (const_inst_iterator ii = inst_begin(&*fi), ie = inst_end(&*fi); ii != ie; ++ii) {
         const Value* val = &*ii;
         bool  bSoaAllocaRelated = const_cast<SoaAllocaAnalysis*>(this)->isSoaAllocaRelated(val);
         bool  bSoaAllocaScalarRelated = const_cast<SoaAllocaAnalysis*>(this)->isSoaAllocaScalarRelated(val);

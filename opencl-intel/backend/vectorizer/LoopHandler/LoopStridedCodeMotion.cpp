@@ -101,7 +101,8 @@ void LoopStridedCodeMotion::ScanLoop(DomTreeNode *N) {
 
   // We don't process instruction in sub-loops.
   if (!LoopUtils::inSubLoop(m_curLoop, BB)) {
-    for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; I++) {
+    for (BasicBlock::iterator IIt = BB->begin(), EIt = BB->end(); IIt != EIt; IIt++) {
+      Instruction* I = &*IIt;
       // Avoid moving original header phi nodes or latch entries.
       if (m_headerPhiLatchEntries.count(I) || m_headerPhi.count(I)) continue;
 

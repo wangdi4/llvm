@@ -91,10 +91,11 @@ void CLWGLoopBoundaries::collectWIUniqueFuncUsers(Module &M) {
   // First obtain all the atomic/pipe functions in the module.
   std::set<Function *> wiUniqueFuncs;
   for (Module::iterator fit = M.begin(), fe = M.end(); fit != fe; ++fit){
-    std::string name = fit->getName().str();
+    Function* f = &*fit;
+    std::string name = f->getName().str();
     if (m_clRtServices->isAtomicBuiltin(name) ||
         (OclVersion::CL_VER_2_0 <= m_oclVersion && m_clRtServices->isWorkItemPipeBuiltin(name))){
-       wiUniqueFuncs.insert(fit);
+       wiUniqueFuncs.insert(f);
     }
   }
   // Obtain all the recursive users of the atomic/pipe functions.
@@ -120,7 +121,8 @@ bool CLWGLoopBoundaries::isUniformByOps(Instruction *I) {
 
 void CLWGLoopBoundaries::CollcectBlockData(BasicBlock *BB) {
   // Run over all instructions in the block (excluding the terminator)
-  for (BasicBlock::iterator I=BB->begin(), E= --(BB->end()); I!=E ; ++I) {
+  for (BasicBlock::iterator BBIter=BB->begin(), BBEndIter= --(BB->end()); BBIter!=BBEndIter ; ++BBIter) {
+    Instruction *I = &*BBIter;
     if (CallInst *CI = dyn_cast<CallInst>(I)) {
       Function *F = CI->getCalledFunction();
       // If the function is defined in the module than it is not uniform.
@@ -247,7 +249,9 @@ void CLWGLoopBoundaries::recoverInstructions (VMap &valueMap, VVec &roots,
   // Mapping the function argumets.
   for(Function::arg_iterator argIt = m_F->arg_begin(), argE = m_F->arg_end(),
       newArgIt = newF->arg_begin(); argIt != argE; ++argIt, ++newArgIt) {
-    valueMap[argIt] = newArgIt;
+    Value* arg = &*argIt;
+    Value* newArg = &*newArgIt;
+    valueMap[arg] = newArg;
   }
 
   // Adding all Instructions leading to the boundry to reconstruct set.
@@ -281,7 +285,8 @@ void CLWGLoopBoundaries::recoverInstructions (VMap &valueMap, VVec &roots,
   // each instruction to the operands in the new function. The order of the
   // original function ensures the corretness of the order of the inserted
   // Instructions.
-  for (BasicBlock::iterator I=entry->begin(), E=entry->end(); I!=E ; ++I) {
+  for (BasicBlock::iterator IIter=entry->begin(), E=entry->end(); IIter!=E ; ++IIter) {
+    Instruction* I = &*IIter;
     if (valueMap.count(I)) {
       Instruction *clone = cast<Instruction>(valueMap[I]);
       BB->getInstList().push_back(clone);

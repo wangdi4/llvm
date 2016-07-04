@@ -86,11 +86,11 @@ namespace intel {
   }
 
   void BarrierInFunction::AddBarrierCallsToFunctionBody(Function *pFunc) {
-    BasicBlock *pFirstBB = pFunc->begin();
+    BasicBlock *pFirstBB = &*pFunc->begin();
     assert( pFirstBB && "function has no basic block!" );
     assert( pred_begin(pFirstBB) == pred_end(pFirstBB) &&
       "function first basic block has predecessor!" );
-    Instruction *pFirstInst = pFirstBB->begin();
+    Instruction *pFirstInst = &*pFirstBB->begin();
     assert( !dyn_cast<PHINode>(pFirstInst) && "first instruction is a PHINode" );
 
     // Add dummyBarrier call before pFirstInst

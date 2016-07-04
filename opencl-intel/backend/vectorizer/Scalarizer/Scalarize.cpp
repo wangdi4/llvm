@@ -1134,7 +1134,7 @@ void ScalarizeFunction::handleScalarRetVector(CallInst* callerInst, SmallVectorI
   unsigned numElements = cast<VectorType>(callerInst->getType())->getNumElements();
   SmallVector<Value*, 16> newExtractInsts;
   // Break result vector into scalars.
-  Instruction* nextInst = ++BasicBlock::iterator(clone);
+  Instruction* nextInst = &*(++BasicBlock::iterator(clone));
   for (unsigned i = 0; i < numElements; i++)
   {
     // Creating fake extract call that mimics extract element instruction.
@@ -1243,7 +1243,7 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
     {
       BasicBlock::iterator insertLocation(origInstruction);
       ++insertLocation;
-      locationInst = insertLocation;
+      locationInst = &*insertLocation;
       // If the insert location is PHI, move the insert location to after all PHIs is the block
       if (isa<PHINode>(locationInst)) {
         locationInst = locationInst->getParent()->getFirstNonPHI();
@@ -1492,13 +1492,17 @@ void ScalarizeFunction::resolveDeferredInstructions()
       ++insertLocation;
       // If the insert location is PHI, move the insert location to after all PHIs is the block
       if (isa<PHINode>(insertLocation)) {
-        insertLocation = insertLocation->getParent()->getFirstNonPHI();
+        insertLocation = BasicBlock::iterator((&*insertLocation)->getParent()->getFirstNonPHI());
       }
 
       for (unsigned i = 0; i < width; i++)
       {
         Value *constIndex = ConstantInt::get(Type::getInt32Ty(context()), i);
-        Instruction *EE = ExtractElementInst::Create(vectorInst, constIndex, "scalar", insertLocation);
+        Instruction *EE = ExtractElementInst::Create(
+                vectorInst,
+                constIndex,
+                "scalar",
+                &*insertLocation);
         VectorizerUtils::SetDebugLocBy(EE, vectorInst);
         newInsts[i] = EE;
       }

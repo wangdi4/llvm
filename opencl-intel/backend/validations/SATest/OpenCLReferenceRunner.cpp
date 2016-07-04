@@ -827,13 +827,14 @@ static std::vector<const GlobalVariable *> getLocalVariables(llvm::Module* pModu
    for (Module::const_global_iterator I = pModule->global_begin(), E = pModule->global_end();
        I != E; ++I)
    {
+       GlobalVariable const *GV = &*I;
        const uint32_t LOCAL_MEMORY_ADDR_SPACE = 3;
        // if global variable belongs to address space == LOCAL_MEMORY_ADDR_SPACE
        // then it is local
        if(I->getType()->getAddressSpace() == LOCAL_MEMORY_ADDR_SPACE)
        {
-            DEBUG(dbgs() << "local variable:\n " << *I << "\n");
-            locList.push_back(I);
+            DEBUG(dbgs() << "local variable:\n " << *GV << "\n");
+            locList.push_back(GV);
        }
    }
     return locList;

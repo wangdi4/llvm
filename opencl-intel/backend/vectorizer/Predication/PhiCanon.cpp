@@ -28,7 +28,8 @@ bool PhiCanon::runOnFunction(Function &F) {
   bool changed = false;
 
   // find all multi entry blocks
-  for (Function::iterator bb = F.begin(); bb != F.end(); ++bb) {
+  for (Function::iterator bbit = F.begin(); bbit != F.end(); ++bbit) {
+    BasicBlock* bb = &*bbit;
     if (std::distance(pred_begin(bb), pred_end(bb)) > 2) {
       changed = true;
       bb_to_fix.push_back(bb);
@@ -45,8 +46,8 @@ bool PhiCanon::runOnFunction(Function &F) {
   V_ASSERT(!verifyFunction(F) && "I broke this module");
 
   // Check that we actually were able to remove all multi-entry phi
-  for (Function::iterator bb = F.begin(); bb != F.end(); ++bb) {
-    V_ASSERT(std::distance(pred_begin(bb), pred_end(bb)) < 3 &&
+  for (Function::iterator bbit = F.begin(); bbit != F.end(); ++bbit) {
+    V_ASSERT(std::distance(pred_begin(&*bbit), pred_end(&*bbit)) < 3 &&
            "Phi canon failed");
   }
 
@@ -233,7 +234,7 @@ BasicBlock* PhiCanon::makeNewPhiBB(BasicBlock* toFix,
     if (v0 != v1) {
       // Move them to a new PHI in the new block
       PHINode* phi_new = PHINode::Create(
-        phi->getType(), 2, "new_phi", new_bb->begin());
+        phi->getType(), 2, "new_phi", &*new_bb->begin());
       phi_new->addIncoming(v0, prev0);
       phi_new->addIncoming(v1, prev1);
 

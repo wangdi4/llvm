@@ -115,7 +115,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                           func_it_end = pModule->end();
                           func_it != func_it_end; func_it++) {
       if (!func_it->isDeclaration()) {
-        functionCache.insert(func_it);
+        functionCache.insert(&*func_it);
       }
     }
 

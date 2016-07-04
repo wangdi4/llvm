@@ -92,7 +92,7 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
         unsigned NDInfoId = ImplicitArgAccessorFuncList[I].ArgSecondaryId;
         assert(NDInfoId == NDInfo::BLOCK2KERNEL_MAPPER ||
                NDInfoId == NDInfo::RUNTIME_INTERFACE);
-        IRBuilder<> Builder(CallingF->getEntryBlock().begin());
+        IRBuilder<> Builder(&*CallingF->getEntryBlock().begin());
         Val =
             IAA.GenerateGetFromWorkInfo(NDInfoId, ImplicitArgs.first, Builder);
       } break;

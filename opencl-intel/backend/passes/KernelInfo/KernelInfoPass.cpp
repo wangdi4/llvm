@@ -101,7 +101,7 @@ namespace intel {
 
     size_t currLength = 0;
     for (Function::iterator i = pFunc->begin(), e = pFunc->end(); i != e; ++i) {
-      currLength += i->size() * getExecutionEstimation(LI.getLoopDepth(i));
+      currLength += i->size() * getExecutionEstimation(LI.getLoopDepth(&*i));
     }
     return currLength;
   }

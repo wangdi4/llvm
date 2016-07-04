@@ -396,7 +396,7 @@ namespace intel {
 
     //Run on all functions in module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
-      Function* pFunc = fi;
+      Function* pFunc = &*fi;
       if ( pFunc->isDeclaration() ) {
         //Skip non defined functions
         continue;

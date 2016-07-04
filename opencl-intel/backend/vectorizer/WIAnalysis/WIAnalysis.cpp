@@ -529,7 +529,7 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
     }
 
     for (BasicBlock::iterator I = defBlk->begin(), E = defBlk->end(); I != E; ++I) {
-      Instruction *defInst = I;
+      Instruction *defInst = &*I;
 
       // If defInst is random then its randomness will propagate to its usages
       // in the regular way and no control flow info propagation is needed

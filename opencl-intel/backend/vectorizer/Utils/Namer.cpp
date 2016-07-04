@@ -117,7 +117,8 @@ void nameByInstType::RenameValues(Function &F) {
   unsigned bbInd = 0;
   for (Function::iterator bbit = F.begin(), bbe = F.end(); bbit != bbe; ++bbit) {
     if(bbit->getName() == "") bbit->setName(toString("BB",bbInd++));
-    for (BasicBlock::iterator I = bbit->begin(), E = bbit->end(); I!=E; ++I){
+    for (BasicBlock::iterator IIt = bbit->begin(), E = bbit->end(); IIt!=E; ++IIt){
+      Instruction* I = &*IIt;
       if (I->getType()->isVoidTy()) continue;
       if (I->getName() != "") continue;
 

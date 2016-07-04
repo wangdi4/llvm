@@ -60,7 +60,7 @@ namespace intel {
 		m_pSizeT = IntegerType::get(*m_pLLVMContext, pointerSizeInBits);
 
 		for (Module::iterator mi = M.begin(), me = M.end(); mi != me;) {
-			Function * pFunc = mi++;
+			Function * pFunc = &*(mi++);
 
 			// OCL built-ins must not be defined in the module at the moment the pass is running
 			if (!pFunc || !pFunc->isDeclaration()) continue;
@@ -204,11 +204,11 @@ namespace intel {
 
 		Function::ArgumentListType::iterator firstArg = pFunc->getArgumentList().begin();
 		Function::ArgumentListType::iterator secondArg = ++(pFunc->getArgumentList().begin());
-		params.push_back(firstArg);
+		params.push_back(&*firstArg);
 
 		// For 1-dim workgroup - return get_local_id(0)
 		// <3-dimensional Linear-ID> % get local_size(0)
-		Value *linid = secondArg;
+		Value *linid = &*secondArg;
 		if (linid->getType() != local_size_0->getType())
 			linid = CastInst::CreateIntegerCast(linid, local_size_0->getType(), false, "linid", entry);
 		Instruction *lid0 = BinaryOperator::CreateURem(linid, local_size_0, "lid0", entry);

@@ -32,7 +32,8 @@ namespace intel{
 
     // for each function
     Module::FunctionListType &FL = M.getFunctionList();
-    for (Module::iterator fn = FL.begin(), fne = FL.end(); fn != fne; ++fn){
+    for (Module::iterator fnIt = FL.begin(), fne = FL.end(); fnIt != fne; ++fnIt){
+      Function *fn = &*fnIt;
       if(DetectRecursionInFunction(fn)){
         mdUtils.getOrInsertFunctionsInfoItem(fn)->setHasRecursion(true);
         m_recursionExists = true;

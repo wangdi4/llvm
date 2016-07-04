@@ -348,7 +348,7 @@ namespace intel {
     }
     // TODO: add comment
     AllocaInst *buf_alloca_inst = new AllocaInst(buf_arr_type, "temp_arg_buf",
-      pCall->getParent()->getParent()->getEntryBlock().begin());
+      &*pCall->getParent()->getParent()->getEntryBlock().begin());
 
     // Generate instructions to store the operands into the argument buffer
     //
@@ -562,7 +562,7 @@ namespace intel {
       ArrayType *localbuf_arr_type = ArrayType::get(getLocalMemBufType(), numLocalBuffers);
       // issue alloca for array
       AllocaInst *localbuf_alloca_inst = new AllocaInst(localbuf_arr_type, "localmem_arg_buf",
-        pCall->getParent()->getParent()->getEntryBlock().begin());
+        &*pCall->getParent()->getParent()->getEntryBlock().begin());
       // helper int type
       Type* int32_type = IntegerType::get(*m_pLLVMContext, 32);
       // parse argument with local buf sizes
@@ -702,7 +702,7 @@ void ResolveWICall::clearPerFunctionCache() {
 }
 
 Value *ResolveWICall::getOrCreateBlock2KernelMapper() {
-  IRBuilder<> Builder(m_F->getEntryBlock().begin());
+  IRBuilder<> Builder(&*m_F->getEntryBlock().begin());
   if (!m_Block2KernelMapper)
     m_Block2KernelMapper = m_IAA->GenerateGetFromWorkInfo(
         NDInfo::BLOCK2KERNEL_MAPPER, m_pWorkInfo, Builder);
@@ -710,7 +710,7 @@ Value *ResolveWICall::getOrCreateBlock2KernelMapper() {
 }
 
 Value *ResolveWICall::getOrCreateRuntimeInterface() {
-  IRBuilder<> Builder(m_F->getEntryBlock().begin());
+  IRBuilder<> Builder(&*m_F->getEntryBlock().begin());
   if (!m_RuntimeInterface)
     m_RuntimeInterface = m_IAA->GenerateGetFromWorkInfo(
         NDInfo::RUNTIME_INTERFACE, m_pWorkInfo, Builder);

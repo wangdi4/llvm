@@ -61,7 +61,7 @@ namespace intel {
     }
 
     Value * val = iData->sinInst->getArgOperand(0);
-    Instruction* pEntryPoint = (iData->cosInst)->getParent()->getParent()->getEntryBlock().begin();
+    Instruction* pEntryPoint = &*(iData->cosInst)->getParent()->getParent()->getEntryBlock().begin();
     AllocaInst * cos = new AllocaInst(val->getType(), 0, "cosPtr",pEntryPoint);
 
     reflection::FunctionDescriptor fd;

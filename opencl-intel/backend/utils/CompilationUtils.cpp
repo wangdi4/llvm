@@ -134,7 +134,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       --prev;
     }
 
-    Instruction* pInst = it;
+    Instruction* pInst = &*it;
     pInst->removeFromParent();
     delete pInst;
 
@@ -165,32 +165,32 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // Retrieve all the implicit arguments which are not NULL
 
       if ( NULL != ppLocalMem ) {
-          *ppLocalMem = DestI;
+          *ppLocalMem = &*DestI;
       }
       ++DestI;
 
       if ( NULL != ppWorkDim ) {
-          *ppWorkDim = DestI;
+          *ppWorkDim = &*DestI;
       }
       ++DestI;
 
       if ( NULL != ppWGId ) {
-          *ppWGId = DestI;
+          *ppWGId = &*DestI;
       }
       ++DestI;
 
       if ( NULL != ppBaseGlbId ) {
-          *ppBaseGlbId = DestI;
+          *ppBaseGlbId = &*DestI;
       }
       ++DestI;
 
       if ( NULL != ppSpecialBuf ) {
-          *ppSpecialBuf = DestI;
+          *ppSpecialBuf = &*DestI;
       }
       ++DestI;
 
       if ( NULL != ppRunTimeHandle ) {
-          *ppRunTimeHandle = DestI;
+          *ppRunTimeHandle = &*DestI;
       }
       ++DestI;
       assert(DestI == pFunc->arg_end());
@@ -364,7 +364,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 #endif
       curArg.access = CL_KERNEL_ARG_ACCESS_NONE;
 
-      llvm::Argument* pArg = arg_it;
+      llvm::Argument* pArg = &*arg_it;
       // Set argument sizes and offsets
       switch (arg_it->getType()->getTypeID())
       {
@@ -715,7 +715,7 @@ Function *CompilationUtils::AddMoreArgsToFunc(
   }
   // Set new arguments` names
   for (unsigned I = 0, E = NewNames.size(); I < E; ++I, ++NewI) {
-    Argument *A = NewI;
+    Argument *A = &*NewI;
     A->setName(NewNames[I]);
     if (!NewAttrs.empty() && !NewAttrs[I].isEmpty())
       A->addAttr(NewAttrs[I]);
@@ -732,7 +732,7 @@ Function *CompilationUtils::AddMoreArgsToFunc(
                               NI = NewF->arg_begin(), NE = NewF->arg_end();
        I != E; ++I, ++NI) {
     // Replace the users to the new version.
-    I->replaceAllUsesWith(NI);
+    I->replaceAllUsesWith(&*NI);
   }
   SpliceDebugInfo(F, NewF);
   return NewF;

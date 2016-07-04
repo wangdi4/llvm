@@ -154,19 +154,20 @@ void ChooseVectorizationDimension::countLoadStores(WIAnalysis* wi, BasicBlock* B
   int& goodLoadStores, int& badLoadStores, int dim) {
   goodLoadStores = badLoadStores = 0;
   for (BasicBlock::iterator it = BB->begin(), e = BB->end(); it != e; ++it) {
+    Instruction* I = &*it;
     Value* pointerOperand = NULL;
-    if (LoadInst* load = dyn_cast<LoadInst>(it)) {
+    if (LoadInst* load = dyn_cast<LoadInst>(I)) {
       pointerOperand = load->getPointerOperand();
     }
-    else if (StoreInst* store = dyn_cast<StoreInst>(it)) {
+    else if (StoreInst* store = dyn_cast<StoreInst>(I)) {
       pointerOperand = store->getPointerOperand();
     }
 
     if (pointerOperand) { // it is either a load or a store
-      if (wi->whichDepend(it) == WIAnalysis::UNIFORM) {
+      if (wi->whichDepend(I) == WIAnalysis::UNIFORM) {
         goodLoadStores++; // uniform ops are always good.
       }
-      else if (it->getType()->isVectorTy()) {
+      else if (I->getType()->isVectorTy()) {
         badLoadStores++; // non-uniform vector ops are bad.
       }
       else {
@@ -289,7 +290,7 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
 
   // now analyse the results for each BB.
   for (Function::iterator it = F.begin(), e = F.end(); it != e; ++ it) {
-    BasicBlock* currBlock = it;
+    BasicBlock* currBlock = &*it;
     for (unsigned int dim = 0; dim < MAX_WORK_DIM; dim++) {
       if (dimValid[dim] && totalDims > 1) {
         countLoadStores(wi[dim], currBlock, goodLoadStores[dim], badLoadStores[dim], dim);
