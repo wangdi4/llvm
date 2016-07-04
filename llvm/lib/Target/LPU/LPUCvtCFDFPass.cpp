@@ -101,6 +101,7 @@ namespace llvm {
     DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> bb2switch;  //switch for Reg added in bb
     DenseMap<MachineBasicBlock *, SmallVectorImpl<MachineInstr *>* > bb2predcpy;
     DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> bb2pick;  //switch for Reg added in bb
+    std::set<MachineInstr *> multiInputsPick;
   };
 }
 
@@ -125,6 +126,13 @@ void LPUCvtCFDFPass::releaseMemory() {
     DenseMap<unsigned, MachineInstr *>* reg2switch = itm->getSecond();
     ++itm;
     delete reg2switch;
+  }
+
+  DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> ::iterator itmp = bb2pick.begin();
+  while (itmp != bb2pick.end()) {
+    DenseMap<unsigned, MachineInstr *>* reg2pick = itmp->getSecond();
+    ++itmp;
+    delete reg2pick;
   }
 
   DenseMap<MachineBasicBlock *, SmallVectorImpl<MachineInstr *> *> ::iterator itmv = bb2predcpy.begin();
@@ -1092,148 +1100,6 @@ void LPUCvtCFDFPass::linearizeCFG() {
   }
 }
 
-#if 0
-void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
-	typedef po_iterator<MachineBasicBlock *> po_cfg_iterator;
-	const TargetMachine &TM = thisMF->getTarget();
-	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-	const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
-	MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-	MachineBasicBlock *root = thisMF->begin();
-	for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
-		MachineBasicBlock* mbb = *itermbb;
-		MachineBasicBlock::iterator iterI = mbb->begin();
-		while (iterI != mbb->end()) {
-			MachineInstr *MI = iterI;
-			++iterI;
-			if (!MI->isPHI()) continue;
-
-			//for two inputs value, we can generate better code
-			if (MI->getNumOperands() == 5) {
-				replace2InputsIfFooterPhi(MI);
-				continue;
-			}
-
-			std::list<MachineBasicBlock *> CtrlBBs;
-			CtrlBBs.clear();
-			unsigned pickReg = 0;
-			MachineBasicBlock *topCtrlBB = nullptr;
-			for (MIOperands MO(MI); MO.isValid(); ++MO) {
-				if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-				if (MO->isUse()) {
-					//move to its incoming block operand
-					++MO;
-					if (DT->dominates(MO->getMBB(), mbb)) {
-						assert(!topCtrlBB || topCtrlBB == MO->getMBB());
-						topCtrlBB = MO->getMBB();
-					}	else {
-						MachineBasicBlock* inBB = MO->getMBB();
-						ControlDependenceNode* inNode = CDG->getNode(inBB);
-						ControlDependenceNode* ctrlNode = getNonLatchParent(inNode);
-						MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
-						if (DT->dominates(ctrlBB, mbb)) {
-							assert(!topCtrlBB || topCtrlBB == ctrlBB);
-							topCtrlBB = ctrlBB;
-						}	else {
-							CtrlBBs.push_back(ctrlBB);
-						}
-					}
-				}
-			}
-			assert(topCtrlBB);
-			ControlDependenceNode* topCtrlNode = CDG->getNode(topCtrlBB);
-			std::deque<MachineBasicBlock *> CtrlParents;
-			CtrlParents.push_back(topCtrlBB);
-			//control nodes forms linear parentship
-			unsigned pickFalseReg = 0, pickTrueReg = 0;
-			while (!CtrlBBs.empty()) {
-				std::list<MachineBasicBlock *>::iterator iterBB = CtrlBBs.begin();
-				while (iterBB != CtrlBBs.end()) {
-					MachineBasicBlock* ctrlBB = *iterBB;
-					++iterBB;
-					ControlDependenceNode* ctrlNode = CDG->getNode(ctrlBB);
-					if (ctrlBB == topCtrlBB) {
-						CtrlBBs.remove(ctrlBB);
-					}	else if (ctrlNode->isParent(topCtrlNode)) {
-						topCtrlBB = ctrlBB;
-						topCtrlNode = ctrlNode;
-						CtrlBBs.remove(ctrlBB);
-						CtrlParents.push_back(ctrlBB);
-					}
-				}
-			}
-			unsigned dst = MI->getOperand(0).getReg();
-			const TargetRegisterClass *TRC = MRI->getRegClass(dst);
-			const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
-			//reconstruct sequence of 2 inputs phi
-			while (!CtrlParents.empty()) {
-				MachineBasicBlock* ctrlBB = CtrlParents.back();
-				CtrlParents.pop_back();
-				for (MIOperands MO(MI); MO.isValid(); ++MO) {
-					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-					unsigned Reg = MO->getReg();
-					if (MO->isUse()) {
-						//move to its incoming block operand
-						++MO;
-						MachineBasicBlock* inBB = MO->getMBB();
-						if (inBB == ctrlBB) {
-							SmallVector<MachineOperand, 4> Cond; // For AnalyzeBranch.
-							Cond.clear();
-							MachineBasicBlock *TBB = nullptr, *FBB = nullptr; // For AnalyzeBranch
-							if (TII.AnalyzeBranch(*ctrlBB, TBB, FBB, Cond, false)) {
-								assert(false);
-							}
-							if (mbb == TBB) {
-								assert(pickTrueReg == 0);
-								pickTrueReg = Reg;
-							}	else {
-								//assert(mbb == FBB);
-								assert(pickFalseReg == 0);
-								pickFalseReg = Reg;
-							}
-						}	else if (CDG->getNode(inBB)->isParent(CDG->getNode(ctrlBB))) {
-							ControlDependenceNode* inNode = CDG->getNode(inBB);
-							ControlDependenceNode* ctrlNode = CDG->getNode(ctrlBB);
-							if (ctrlNode->isFalseChild(inNode)) {
-								pickFalseReg = Reg;
-							}	else {
-								assert(ctrlNode->isTrueChild(inNode));
-								pickTrueReg = Reg;
-							}
-						}
-					}
-					if (pickTrueReg && pickFalseReg) break;
-				} //end of MO
-
-				assert(pickTrueReg && pickFalseReg);
-				MachineInstr* bi = ctrlBB->getFirstInstrTerminator();
-				unsigned predReg = bi->getOperand(0).getReg();
-				//generate PICK, and insert before MI
-				pickReg = MRI->createVirtualRegister(MRI->getRegClass(dst));
-				MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), pickReg).addReg(predReg).
-					addReg(pickFalseReg).
-					addReg(pickTrueReg);
-				ControlDependenceNode* ctrlParent = getNonLatchParent(CDG->getNode(ctrlBB));
-				if (ctrlParent) {
-					ControlDependenceNode* ctrlNode = CDG->getNode(ctrlBB);
-					if (ctrlParent->isFalseChild(ctrlNode)) {
-						pickFalseReg = pickReg;
-						pickTrueReg = 0;
-					}	else {
-						assert(ctrlParent->isTrueChild(ctrlNode));
-						pickTrueReg = pickReg;
-						pickFalseReg = 0;
-					}
-				}
-			} //end of CtrlParents.empty()
-			const unsigned moveOpcode = TII.getMoveOpcode(TRC);
-			MachineInstr *cpyInst = BuildMI(*mbb, MI, DebugLoc(), TII.get(moveOpcode), dst).addReg(pickReg);
-			cpyInst->setFlag(MachineInstr::NonSequential);
-			MI->removeFromParent();
-		} //end of inst
-	} //end of blk
-}
-#endif
 
 
 MachineInstr* LPUCvtCFDFPass::PatchOrInsertPickAtFork(
@@ -1282,10 +1148,27 @@ MachineInstr* LPUCvtCFDFPass::PatchOrInsertPickAtFork(
     MO.substVirtReg(Reg, 0, TRI);
     MachineRegisterInfo *MRI = &thisMF->getRegInfo();
     MachineInstr *DefMI = MRI->getVRegDef(Reg);
-    if (TII.isPick(DefMI) && DefMI->getParent() == pickInstr->getParent()) {
+    //if (TII.isPick(DefMI) && DefMI->getParent() == pickInstr->getParent()) {
+    if (multiInputsPick.find(DefMI) != multiInputsPick.end()) {
       //make sure input src is before the pick
-      pickInstr->removeFromParent();
-      DefMI->getParent()->insertAfter(DefMI, pickInstr);
+      assert(DefMI->getParent() == pickInstr->getParent());
+      bool needReorder = false;
+      MachineBasicBlock::iterator iterI = pickInstr->getParent()->begin();
+      while (iterI != pickInstr->getParent()->end()) {
+        MachineInstr* MI = iterI;
+        if (MI == pickInstr) {
+          needReorder = true;
+          break;
+        }
+        if (MI == DefMI) {
+          break;
+        }
+        ++iterI;
+      }
+      if (needReorder) {
+        pickInstr->removeFromParent();
+        DefMI->getParent()->insertAfter(DefMI, pickInstr);
+      }
     }
     patched = true;
   }
@@ -1316,7 +1199,8 @@ MachineInstr* LPUCvtCFDFPass::insertPICKForReg(MachineBasicBlock* ctrlBB, unsign
   MachineInstr *pickInst = BuildMI(*phi->getParent(), phi, DebugLoc(), TII.get(pickOpcode), pickReg).addReg(predReg).
     addReg(pickFalseReg).
     addReg(pickTrueReg);
-
+  pickInst->setFlag(MachineInstr::NonSequential);
+  multiInputsPick.insert(pickInst);
   return pickInst;
 }
 
@@ -1375,6 +1259,8 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
         replace2InputsIfFooterPhi(MI);
         continue;
       }
+
+      multiInputsPick.clear();
       unsigned dst = MI->getOperand(0).getReg();
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
