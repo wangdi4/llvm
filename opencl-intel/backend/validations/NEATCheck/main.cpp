@@ -26,7 +26,7 @@ Example: “ACCUATE 3.2434”, “INTERVAL 322.34 234.4”
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include "llvm/Support/CommandLine.h"
+
 #include "Exception.h"
 #include "VectorWidth.h"
 #include "DataType.h"
@@ -37,6 +37,8 @@ Example: “ACCUATE 3.2434”, “INTERVAL 322.34 234.4”
 #include <cassert>
 #include "IMemoryObject.h"
 #include "Buffer.h"
+
+#include "llvm/Support/CommandLine.h"
 
 using namespace std;
 using namespace llvm;

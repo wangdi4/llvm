@@ -17,6 +17,8 @@ File Name:  ComparisonResults.cpp
 \*****************************************************************************/
 #include "ComparisonResults.h"
 
+#include <algorithm>
+
 using namespace Validation;
 
 void ComparisonResults::AddMismatch(const MismatchedVal& in_Val)

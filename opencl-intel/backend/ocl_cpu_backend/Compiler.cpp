@@ -17,7 +17,6 @@ File Name:  Compiler.cpp
 \*****************************************************************************/
 #define NOMINMAX
 #include "cl_types.h"
-#include "cl_config.h"
 #include "cpu_dev_limits.h"
 #include "Compiler.h"
 #include "Optimizer.h"
@@ -29,8 +28,6 @@ File Name:  Compiler.cpp
 #include "CompilationUtils.h"
 #include "MetaDataApi.h"
 #include "common_clang.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PrettyStackTrace.h"
@@ -39,7 +36,6 @@ File Name:  Compiler.cpp
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Argument.h"
