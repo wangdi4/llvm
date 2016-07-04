@@ -23,7 +23,6 @@
 #include <llvm/ADT/Twine.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Module.h>
-#include <llvm/PassManager.h>
 
 #include <stdint.h>
 

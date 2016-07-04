@@ -12,6 +12,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/LegacyPassManager.h"
 
 #include <vector>
 
@@ -54,7 +55,7 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
   V_PRINT(SpecialCaseBuiltinResolver, "finished filling wrappers\n");
 
   if (changed){
-    PassManager mpm1;
+    legacy::PassManager mpm1;
     // Register inliner
     Pass *inlinerPass = createFunctionInliningPass(4096);
     mpm1.add(inlinerPass);
@@ -74,7 +75,7 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
 
   // running instcombine on affected kernels
   if (changed) {
-    FunctionPassManager fpm(&M);
+    legacy::FunctionPassManager fpm(&M);
     fpm.add(createInstructionCombiningPass());
     SmallPtrSet<Function*, 8>::iterator it = m_changedKernels.begin();
     SmallPtrSet<Function*, 8>::iterator e  = m_changedKernels.end();

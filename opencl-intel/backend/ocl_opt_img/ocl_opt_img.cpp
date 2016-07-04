@@ -1,8 +1,8 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/PassManager.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/CommandLine.h"
@@ -47,7 +47,7 @@ void InitOCLOpt(llvm::LLVMContext& context)
     initializeOCLPasses(Registry);
 }
 
-void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
+void InitOCLPasses( llvm::LLVMContext& context, llvm::legacy::PassManager& passMgr )
 {
   //---=== Post Command Line Initialization ===---
   // Obtain the runtime modules (either from input, or generate empty ones)

@@ -23,8 +23,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/Passes.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/IR/Verifier.h"
@@ -102,7 +104,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 /// createStandardModulePasses - Add the standard module passes.  This is
 /// expected to be run after the standard function passes.
 static inline void
-createStandardLLVMPasses(llvm::PassManagerBase *PM,
+createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
                          unsigned OptLevel,
                          bool UnitAtATime,
                          bool UnrollLoops,
@@ -124,7 +126,7 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
   PM->add(llvm::createCFGSimplificationPass());    // Clean up after IPCP & DAE
 
   if (UnitAtATime)
-    PM->add(llvm::createFunctionAttrsPass()); // Set readonly/readnone attrs
+    PM->add(llvm::createInferFunctionAttrsLegacyPass()); // Set readonly/readnone attrs
   if (OptLevel > 2)
     PM->add(llvm::createArgumentPromotionPass()); // Scalarize uninlined fn args
 
@@ -206,7 +208,7 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
   PM->add(llvm::createUnifyFunctionExitNodesPass());
 }
 
-static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
+static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        llvm::Module *M,
                                        SmallVector<Module*, 2> & pRtlModuleList,
                                        unsigned OptLevel,
@@ -316,7 +318,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   PM.add(createDetectRecursionPass());
 }
 
-static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
+static void populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM,
                                         llvm::Module *M,
                                         SmallVector<Module*, 2> & pRtlModuleList,
                                         unsigned OptLevel,

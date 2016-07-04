@@ -11,7 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetaDataApi.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include <string>
 #include <math.h>
 
@@ -127,7 +127,7 @@ namespace intel {
     Intel::MetaDataUtils mdUtils(&M);
     KernelInfoPass* pKernelInfoPass = new KernelInfoPass(&mdUtils);
 
-    llvm::FunctionPassManager FPM(&M);
+    llvm::legacy::FunctionPassManager FPM(&M);
     FPM.add(pKernelInfoPass);
 
     // Get all kernels

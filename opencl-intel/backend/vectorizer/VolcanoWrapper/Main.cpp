@@ -11,9 +11,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OclTune.h"
 
 #include "llvm/Pass.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
+#include "llvm/InitializePasses.h"
 
 // Placeholders for debug log files
 FILE * prtFile;
@@ -104,7 +105,7 @@ bool Vectorizer::runOnModule(Module &M)
 
   // Create the vectorizer core pass that will do the vectotrization work.
   VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig);
-  FunctionPassManager vectPM(&M);
+  legacy::FunctionPassManager vectPM(&M);
   vectPM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
   vectPM.add(vectCore);
 
@@ -186,7 +187,7 @@ bool Vectorizer::runOnModule(Module &M)
   mdUtils.save(M.getContext());
 
   {
-    PassManager mpm;
+    legacy::PassManager mpm;
     mpm.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
     mpm.add(createSpecialCaseBuiltinResolverPass());
     mpm.run(M);

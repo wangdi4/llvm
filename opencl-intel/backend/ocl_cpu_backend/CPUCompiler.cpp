@@ -44,7 +44,7 @@ File Name:  CPUCompiler.cpp
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
@@ -417,9 +417,8 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     }
 
     // Build up all of the passes that we want to do to the module.
-    PassManager pm;
-    llvm::formatted_raw_ostream fos(out);
-    pTargetMachine->addPassesToEmitFile(pm, fos, TargetMachine::CGFT_AssemblyFile, /*DisableVerify*/ true);
+    llvm::legacy::PassManager pm;
+    pTargetMachine->addPassesToEmitFile(pm, out, TargetMachine::CGFT_AssemblyFile, /*DisableVerify*/ true);
     pm.run(*pModule);
 }
 

@@ -21,7 +21,7 @@ File Name:  SmartGVN.cpp
 #include <OCLPassSupport.h>
 
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/PassManager.h>
+#include <llvm/IR/LegacyPassManager.h>
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/DataLayout.h>
@@ -65,8 +65,7 @@ bool SmartGVN::runOnModule(Module &M)
   }
 
   { // With NoLoads option on - it will not hoist loads out of the loops.
-    PassManager pm;
-    pm.add(new DataLayoutPass());
+    legacy::PassManager pm;
     pm.add(llvm::createBasicAliasAnalysisPass());
     pm.add(new llvm::DominatorTreeWrapperPass());
     pm.add(new llvm::MemoryDependenceAnalysis());
