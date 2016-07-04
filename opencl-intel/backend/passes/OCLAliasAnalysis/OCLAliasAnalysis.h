@@ -9,6 +9,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __OCL_ALIAS_ANALYSIS_H__
 
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/ScopedNoAliasAA.h"
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+#include "llvm/Analysis/ObjCARCAliasAnalysis.h"
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
+#include "llvm/Analysis/CFLAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -18,30 +25,20 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 using namespace llvm;
 
 namespace intel {
-  struct OCLAliasAnalysis : public ImmutablePass, public AliasAnalysis {
 
-    static char ID;
+  struct OCLAliasAnalysis;
 
-    OCLAliasAnalysis();
+  struct OCLAAResults : public AAResults {
 
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AliasAnalysis::getAnalysisUsage(AU);
-      AU.addRequired<AliasAnalysis>();
-    }
+    OCLAAResults();
 
     virtual void initializePass() {
-      InitializeAliasAnalysis(this);
     }
 
-    virtual AliasResult alias(const Location &LocA, const Location &LocB);
+    virtual AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB);
 
-    virtual bool pointsToConstantMemory(const Location &Loc, bool OrLocal = false);
+    virtual bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal = false);
 
-    virtual void *getAdjustedAnalysisPointer(const void *ID) {
-      if (ID == &AliasAnalysis::ID)
-        return (AliasAnalysis*)this;
-      return this;
-    }
 
     virtual void deleteValue (Value *V);
     virtual void copyValue (Value *From, Value *To);
@@ -52,11 +49,11 @@ namespace intel {
       // OCLAAACallbackVH - A CallbackVH to arrange for OCLAliasAnalysis to be
       // notified whenever a Value is deleted.
       class OCLAAACallbackVH : public CallbackVH {
-        OCLAliasAnalysis *OCLAA;
+        OCLAAResults *OCLAAR;
         void deleted() override;
         void allUsesReplacedWith(Value *New) override;
       public:
-        OCLAAACallbackVH(Value *V, OCLAliasAnalysis *OCLAA = nullptr);
+        OCLAAACallbackVH(Value *V, OCLAAResults *OCLAAR = nullptr);
       };
 
       // Helper class to hold the result of address space resolution
@@ -104,5 +101,26 @@ namespace intel {
 
       int m_disjointAddressSpaces;
   };
+
+  struct OCLAliasAnalysis : public FunctionPass {
+    std::unique_ptr<OCLAAResults> OCLAAR;
+    static char ID;
+
+    OCLAliasAnalysis();
+
+    virtual void *getAdjustedAnalysisPointer(const void *ID) {
+      if (ID == &OCLAliasAnalysis::ID)
+        return (OCLAliasAnalysis*)this;
+      return this;
+    }
+    OCLAAResults &getOCLAAResults() { return *OCLAAR; }
+    const OCLAAResults &getOCLAAResults() const { return *OCLAAR; }
+
+    bool runOnFunction(Function &F) override;
+
+    void getAnalysisUsage(AnalysisUsage &AU) const override;
+  };
+
+  FunctionPass *createOCLAliasAnalysisPass();
 }
 #endif
