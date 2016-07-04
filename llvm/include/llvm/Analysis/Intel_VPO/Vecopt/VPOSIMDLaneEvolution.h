@@ -939,6 +939,12 @@ private:
   /// \brief Calculate the Influence Region of a branch condition AVR.
   InfluenceRegion calculateInfluenceRegion(AVR* Avr);
 
+  /// \brief Analysis range - begin
+  AvrItr Begin;
+
+  /// \brief Analysis range - end
+  AvrItr End;
+  
   /// \brief A pointer to the AVR CFG of the AVR program being analyzed.
   AvrCFGBase* CFG = nullptr;
 
@@ -976,6 +982,10 @@ protected:
   const AvrDefUseBase* getDefUse() const { return DefUseBase; }
   
   const AvrCFGBase* getCFG() const { return CFG; }
+
+  AvrDominatorTree* getDominatorTree() { return DominatorTree; }
+
+  AvrDominatorTree* getPostDominatorTree() { return PostDominatorTree; }
 
   /// \brief Predefined SLEVs function as triggers to the whole analysis, so
   /// creating them is normally followed by pushing them into the first-calc
@@ -1058,7 +1068,9 @@ public:
   virtual ~SIMDLaneEvolutionAnalysisBase();
 
   /// \brief Perform SLEV analysis on a given AVR program.
-  void runOnAvr(AvrItr Begin, AvrItr End, IRValuePrinterBase* VP);
+  void runOnAvr(AvrItr B, AvrItr E, IRValuePrinterBase* VP);
+
+  const AvrCFGBase* getCFG() { return CFG; }
 
   virtual void construct(AVRExpression* AExpr);
   virtual void construct(AVRValueIR* AValueIR) { llvm_unreachable("Base"); }

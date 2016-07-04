@@ -156,10 +156,6 @@ std::string AVRExpressionHIR::getAvrValueName() const {
   return "";
 }
 
-std::string AVRExpressionHIR::getOpCodeName() const {
-  return Instruction::getOpcodeName(Opcode);
-}
-
 //----------AVR Value for HIR Implementation----------//
 AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
   : AVRValue(AVR::AVRValueHIRNode, nullptr), Val(DDRef), HNode(Node) {

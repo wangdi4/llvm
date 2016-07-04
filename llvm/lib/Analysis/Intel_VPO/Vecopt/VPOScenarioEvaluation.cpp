@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOPredicator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
@@ -30,6 +31,9 @@ static cl::opt<unsigned> EnableVectVLS("enable-vect-vls", cl::init(1),
 using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
+
+#undef USE_EXPERIMENTAL_CODE
+//#define USE_EXPERIMENTAL_CODE 1
 
 // Given a region that contains loops/loop-nest, decide which of the loops
 // (or combinations of loops) to vectorize, and how.
@@ -142,8 +146,10 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
       // isLoopHandled will not check if a remainder loop is needed.
       // FORNOW: If this loop is not supported, return a dummy VC; In the 
       // future we should continue to next candidate loop in region.
+#ifndef USE_EXPERIMENTAL_CODE
       if (!loopIsHandled(ForceVF))
         return VectCand;
+#endif
 
       int BestCostForALoop = 0;
       // Get the scalar cost for this loop.
@@ -199,9 +205,6 @@ void VPOScenarioEvaluationBase::findVFCandidates(
   }
 }
 
-#undef USE_EXPERIMENTAL_CODE
-// #define USE_EXPERIMENTAL_CODE 1
-
 VPOVecContextBase
 VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
   DEBUG(errs() << "Process Loop\n");
@@ -225,6 +228,9 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
   getSLEVUtil().runOnAvr(AWrn->child_begin(), AWrn->child_end());
   DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "After SLEV analysis:\n";
         AWrn->print(FOS, 1, PrintNumber));
+
+  VPOPredicator Predicator;
+  Predicator.runOnAvr(VPOScenarioEvaluationBase::ALoop);
 #endif
 
   // Identify VF candidates

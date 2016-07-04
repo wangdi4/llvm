@@ -41,6 +41,7 @@ enum VerbosityLevel { PrintBase, PrintDataType, PrintAvrType, PrintNumber };
 enum AssignOperand { RightHand, LeftHand };
 
 class AVRLoop;
+class AVRPredicate;
 
 /// \brief Abstract Vector Representation Node base class
 ///
@@ -70,6 +71,9 @@ private:
   /// Slev - SIMD lane evolution classification of this AVR node.
   SLEV Slev;
 
+  /// Predicate - The AVR node that is the predicate masking this one.
+  AVRPredicate* Predicate;
+
   /// \brief Destroys all objects of this class. Only called after Vectorizer
   /// phase code generation.
   static void destroyAll();
@@ -87,6 +91,9 @@ protected:
 
   /// \brief Sets the lexical parent of this AVR.
   void setParent(AVR *ParentNode) { Parent = ParentNode; }
+
+  /// \brief Sets the predicate for this AVR.
+  void setPredicate(AVRPredicate *P) { Predicate = P; }
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
@@ -128,13 +135,16 @@ public:
 
   /// \brief Returns the value name of this node.
   /// The string will be w.r.t to underlying IR.
-  virtual std::string getAvrValueName() const = 0;
+  virtual std::string getAvrValueName() const { return "ANON"; };
 
   /// \brief Returns the Avr nodes's unique ID number
   unsigned getNumber() const { return Number; }
 
   /// \brief Returns the Avr nodes's SLEV data.
   SLEV getSLEV() const { return Slev; }
+
+  /// \brief Returns the Avr nodes's predicating Avr node.
+  AVRPredicate* getPredicate() const { return Predicate; }
 
   /// \brief Code generation for AVR.
   virtual void codeGen();

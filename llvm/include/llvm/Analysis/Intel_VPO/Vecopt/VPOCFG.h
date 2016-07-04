@@ -51,19 +51,67 @@ private:
   }
   static void unlink(AvrBasicBlock& Source, AvrBasicBlock& Dest) {
 
+    bool found = false;
     for (auto It = Source.Successors.begin(), End = Source.Successors.end();
          It != End;
          ++It) {
-      if (*It == &Dest)
+      if (*It == &Dest) {
         Source.Successors.erase(It);
+        found = true;
+        break;
+      }
     }
+    if (!found)
+      llvm_unreachable("Dest is not a successor of Source");
+    found = false;
 
     for (auto It = Dest.Predecessors.begin(), End = Dest.Predecessors.end();
          It != End;
          ++It) {
-      if (*It == &Source)
+      if (*It == &Source) {
         Dest.Predecessors.erase(It);
+        found = true;
+        break;
+      }
     }
+    if (!found)
+      llvm_unreachable("Source is not a predecessor of Dest");
+  }
+  static void unlink(AvrBasicBlock& ABB) {
+
+    for (auto I1 = ABB.Successors.begin(), E1 = ABB.Successors.end();
+         I1 != E1; ++I1) {
+      bool found = false;
+      auto& Preds = (*I1)->Predecessors;
+      for (auto I2 = Preds.begin(), E2 = Preds.end(); I2 != E2; ++I2) {
+        if (*I2 == &ABB) {
+          Preds.erase(I2);
+          found = true;
+          break;
+        }
+      }
+      if (!found)
+        llvm_unreachable("Block not found in one of its successor's predecessors");
+    }
+
+    for (auto I1 = ABB.Predecessors.begin(), E1 = ABB.Predecessors.end();
+         I1 != E1;
+         ++I1) {
+      bool found = false;
+      auto& Succs = (*I1)->Successors;
+      for (auto I2 = Succs.begin(), E2 = Succs.end(); I2 != E2; ++I2) {
+        if (*I2 == &ABB) {
+          Succs.erase(I2);
+          found = true;
+          break;
+        }
+      }
+      if (!found)
+        llvm_unreachable("Block not found in one of its predecessor's successors");
+    }
+
+    ABB.Successors.clear();
+    ABB.Predecessors.clear();
   }
 
   InstructionsTy Instructions;
@@ -108,9 +156,6 @@ public:
   }
 
   bool isSuccessorOf(AvrBasicBlock* Other) const {
-    // TODO - this would be simpler if Predecessors was a set.
-    // Do we really need to keep the order of insertion between
-    // successors/predecessors?
     for (AvrBasicBlock* Predecessor : Predecessors)
       if (Predecessor == Other)
         return true;
@@ -144,6 +189,7 @@ public:
 
   AvrCFGBase(AvrItr Begin, AvrItr End,
              const std::string& T,
+             bool Deep = true,
              bool Compress = false);
 
   virtual ~AvrCFGBase();
@@ -211,11 +257,6 @@ public:
   void print(raw_ostream &OS) const;
 
   void printDot(raw_ostream &O, bool ShortNames = false);
-
-protected:
-
-  /// \brief Create a CFG for an AVR program.
-  void runOnAvr(AvrItr Begin, AvrItr End, bool Compress);
 
 private:
 
@@ -288,11 +329,9 @@ private:
   /// to correctly behave as Def reaching from the phi's predecessor.
   DenseMap<AVRLabel*, SmallPtrSet<AvrBasicBlock*, 5>> PendingIncomingPHIValues;
 
-  /// \brief Utility class hiding the AVR visit functions used for graph
-  /// construction in an inner.
-  class Visitor {
+  class BuilderBase {
 
-  private:
+  protected:
 
     AvrCFGBase& CFG;
 
@@ -311,27 +350,50 @@ private:
 
     SmallPtrSet<AvrBasicBlock*, 2> CurrentPredecessors;
 
+    BuilderBase(AvrCFGBase& C, AvrBasicBlock* CurrentPredecessor = nullptr);
+
+    // Common construction methods
+
+    void construct(AVRCall *ACall);
+    void construct(AVRBackEdge *ABackEdge);
+    void construct(AVREntry *AEntry);
+    void construct(AVRReturn *AReturn);
+    void construct(AVRSelect *ASelect);
+    void construct(AVRCompare *ACompare);
+    void construct(AVRLabel *ALabel);
+    void construct(AVRBranch *ABranch);
+
   public:
 
-    Visitor(AvrCFGBase& C, AvrBasicBlock* CurrentPredecessor = nullptr);
+    virtual ~BuilderBase() {}
 
     const SmallPtrSetImpl<AvrBasicBlock*>& getPredecessors() {
       return CurrentPredecessors;
     }
+  };
+
+  /// \brief Utility class hiding the AVR visit functions used for graph
+  /// construction in an inner class.
+  class DeepBuilder : public BuilderBase {
+
+  public:
+    
+    DeepBuilder(AvrCFGBase& C, AvrBasicBlock* CurrentPredecessor = nullptr) :
+        BuilderBase(C, CurrentPredecessor) {}
 
     /// Visit Functions
     void visit(AVR* ANode) {}
     void visit(AVRValue* AValue);
     void postVisit(AVRExpression* AExpr);
     void visit(AVRPhi *APhi);
-    void visit(AVRCall *ACall);
-    void visit(AVRBackEdge *ABackEdge);
-    void visit(AVREntry *AEntry);
-    void visit(AVRReturn *AReturn);
-    void visit(AVRSelect *ASelect);
-    void visit(AVRCompare *ACompare);
-    void visit(AVRLabel *ALabel);
-    void visit(AVRBranch *ABranch);
+    void visit(AVRCall *ACall) { construct(ACall); }
+    void visit(AVRBackEdge *ABackEdge) { construct(ABackEdge); }
+    void visit(AVREntry *AEntry) { construct(AEntry); }
+    void visit(AVRReturn *AReturn) { construct(AReturn); }
+    void visit(AVRSelect *ASelect) { construct(ASelect); }
+    void visit(AVRCompare *ACompare) { construct(ACompare); }
+    void visit(AVRLabel *ALabel) { construct(ALabel); }
+    void visit(AVRBranch *ABranch) { construct(ABranch); }
     void visit(AVRIf *AIf);
     void visit(AVRSwitch *ASwitch);
     void visit(AVRLoopHIR *ALoopHIR);
@@ -344,6 +406,44 @@ private:
               isa<AVRLoopHIR>(ANode)); // We recurse using separate visitors
     }
   };
+
+  class ShallowBuilder : public BuilderBase {
+
+  public:
+
+    ShallowBuilder(AvrCFGBase& C, AvrBasicBlock* CurrentPredecessor = nullptr) :
+        BuilderBase(C, CurrentPredecessor) {}
+
+    /// Visit Functions
+    void visit(AVR* ANode) {}
+    void visit(AVRAssign *AAssign);
+    void visit(AVRPhi *APhi);
+    void visit(AVRCall *ACall) { construct(ACall); }
+    void visit(AVRBackEdge *ABackEdge) { construct(ABackEdge); }
+    void visit(AVREntry *AEntry) { construct(AEntry); }
+    void visit(AVRReturn *AReturn) { construct(AReturn); }
+    void visit(AVRSelect *ASelect) { construct(ASelect); }
+    void visit(AVRCompare *ACompare) { construct(ACompare); }
+    void visit(AVRLabel *ALabel) { construct(ALabel); }
+    void visit(AVRBranch *ABranch) { construct(ABranch); }
+    void visit(AVRIf *AIf);
+    void visit(AVRSwitch *ASwitch);
+    void visit(AVRLoop *ALoop);
+    void postVisit(AVR* ANode) {}
+    bool isDone() { return false; }
+    bool skipRecursion(AVR *ANode) {
+      return (isa<AVRIf>(ANode) ||     // We recurse using separate visitors
+              isa<AVRSwitch>(ANode) || // We recurse using separate visitors
+              isa<AVRPhi>(ANode) ||    // Phi values handled by Phi visit
+              isa<AVRLoop>(ANode)); // We recurse using separate visitors
+    }
+  };
+
+protected:
+
+  /// \brief Create a CFG for an AVR program.
+  void runOnAvr(AvrItr Begin, AvrItr End, bool Deep, bool Compress);
+
 };
 
 /// \brief AVR CFG analysis variant for LLVM-IR.

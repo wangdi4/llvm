@@ -40,13 +40,63 @@ AVRWrn *AVRUtils::createAVRWrn(WRNVecLoopNode *WrnSimdNode) {
   return new AVRWrn(WrnSimdNode);
 }
 
+AVRPredicate *AVRUtils::createAVRPredicate() {
+  return new AVRPredicate();
+}
+
+AVRAssign *AVRUtils::createAVRAssign() {
+  return new AVRAssign(AVR::AVRAssignNode);
+}
+
+AVRValue *AVRUtils::createAVRValue(Constant *ConstVal) {
+  return new AVRValue(ConstVal);
+}
+
+AVRValue *AVRUtils::createAVRValue(AVRExpression *ReachingDef) {
+  return new AVRValue(ReachingDef);
+}
+
+AVRExpression *AVRUtils::createAVRExpression(Type *ValType,
+                                             const SmallVectorImpl<AVR*>& Operands,
+                                             unsigned Operation,
+                                             CmpInst::Predicate Predicate) {
+  return new AVRExpression(ValType, Operands, Operation, Predicate);
+}
+
 AVRBranch *AVRUtils::createAVRBranch(AVRLabel *Successor) {
   return new AVRBranch(Successor);
 }
 
 AVRNOP *AVRUtils::createAVRNOP() { return new AVRNOP(); }
 
+AVRBlock *AVRUtils::createAVRBlock() {
+  return new AVRBlock();
+}
+
 // Modification Utilities
+
+void AVRUtils::addSuccessor(AVRBlock* Block, AVRBlock* Successor) {
+  assert(Block && "Block is null");
+  assert(Successor && "Successor is null");
+  Block->addSuccessor(Successor);
+}
+
+void AVRUtils:: addSchedulingConstraint(AVRBlock* Block, AVRBlock* Constraint) {
+  assert(Block && "Block is null");
+  assert(Constraint && "Constraint is null");
+  Block->addSchedulingConstraint(Constraint);
+}
+
+void AVRUtils::setPredicate(AVR *Avr, AVRPredicate* Predicate) {
+  Avr->setPredicate(Predicate);
+}
+
+/// \brief Add an incoming AVRValue (from AVRLabel) to an AVRPhi.
+void AVRUtils::addAVRPredicateIncoming(AVRPredicate *APredicate,
+                                       AVRPredicate *IncomingPredicate,
+                                       AVR *IncomingCondition) {
+  APredicate->addIncoming(IncomingPredicate, IncomingCondition);
+}
 
 void AVRUtils::setAVRAssignLHS(AVRAssign *AvrAssign, AVR *Node) {
   AvrAssign->setLHS(Node);
@@ -74,6 +124,10 @@ void AVRUtils::setZeroTripTest(AVRLoop *ALoop, AVRIf *IfZtt) {
 
 void AVRUtils::setSLEV(AVR *Avr, const SLEV& Slev) {
   Avr->Slev.copyValue(Slev);
+}
+
+void AVRUtils::setBlockCondition(AVRBlock* ABlock, AVR *Avr) {
+  ABlock->setCondition(Avr);
 }
 
 // Insertion Utilities
@@ -168,6 +222,8 @@ void AVRUtils::insertFirstChild(AVR *Parent, AVR *Node) {
     return insertFirstChild(FunNode, Node);
   else if (AVRWrn *WrNode = dyn_cast<AVRWrn>(Parent))
     return insertFirstChild(WrNode, Node);
+  else if (AVRBlock *Blockode = dyn_cast<AVRBlock>(Parent))
+    return insertFirstChild(Blockode, Node);
   llvm_unreachable("Unable to resolve Parent node!");
 }
 
@@ -178,6 +234,8 @@ void AVRUtils::insertLastChild(AVR *Parent, AVR *Node) {
     return insertLastChild(FunNode, Node);
   else if (AVRWrn *WrNode = dyn_cast<AVRWrn>(Parent))
     return insertLastChild(WrNode, Node);
+  else if (AVRBlock *Blockode = dyn_cast<AVRBlock>(Parent))
+    return insertLastChild(Blockode, Node);
   llvm_unreachable("Unable to resolve Parent node!");
 }
 
@@ -234,6 +292,25 @@ void AVRUtils::insertFirstChildren(AVRWrn *Parent,
 }
 
 void AVRUtils::insertLastChildren(AVRWrn *Parent,
+                                  AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->Children, NodeContainer, Parent->child_end());
+}
+
+void AVRUtils::insertFirstChild(AVRBlock *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->Children, Parent->child_begin(), Node);
+}
+
+void AVRUtils::insertLastChild(AVRBlock *Parent, AVR *Node) {
+  insertSingleton(Parent, Parent->Children, Parent->child_end(), Node);
+}
+
+void AVRUtils::insertFirstChildren(AVRBlock *Parent,
+                                   AVRContainerTy *NodeContainer) {
+  insertSequence(Parent, Parent->Children, NodeContainer,
+                 Parent->child_begin());
+}
+
+void AVRUtils::insertLastChildren(AVRBlock *Parent,
                                   AVRContainerTy *NodeContainer) {
   insertSequence(Parent, Parent->Children, NodeContainer, Parent->child_end());
 }
@@ -598,6 +675,22 @@ void AVRUtils::moveAsLastPostexitChildren(AVRLoop *ALoop, AvrItr First,
   insertSequence(ALoop, ALoop->Children, &TempContainer, InsertionPosition);
 }
 
+void AVRUtils::moveAsLastChildren(AVRBlock *ABlock, AvrItr First, AvrItr Last) {
+
+  AVRContainerTy TempContainer;
+  AVR *Begin = &*First, *End = &*Last;
+
+  if (First->getParent() != Last->getParent()) {
+
+    if(!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable("Coudlnt resolve common lexical parent for avr sequence!");
+  }
+
+  AvrItr InsertionPosition = ABlock->child_end();
+  removeInternal(AvrItr(Begin), AvrItr(End), &TempContainer, false);
+  insertSequence(ABlock, ABlock->Children, &TempContainer, InsertionPosition);
+}
+
 // Removal Utilities
 
 void AVRUtils::destroy(AVR *Avr) { Avr->destroy(); }
@@ -609,6 +702,25 @@ AVRContainerTy *AVRUtils::removeInternal(AvrItr Begin, AvrItr End,
   // Find the current container which holds Node.
   AVRContainerTy *OrigContainer = AVRUtils::getAvrContainer(&*Begin);
   assert(OrigContainer && "Container missing for node removal!");
+  assert(AVRUtils::getAvrContainer(&*End) == OrigContainer &&
+         "Range exceeds a single container");
+
+  // Removing avr nodes with switch parents requires the updating of
+  // internal separators used to specify switch cases within the
+  // children container.
+  // This code fixes the case pointers when removing a range.
+  if (AVRSwitch *ASwitch = dyn_cast<AVRSwitch>(Begin->getParent())) {
+    AvrItr Stop = End; // range is exclusive, i.e. [Begin, End], so
+    Stop++;            // we iterate until End's successor.
+    for (AvrItr Current = Begin; Current != Stop; ++Current) {
+      for (unsigned Case = 0, NumCases = ASwitch->getNumCases();
+           Case < NumCases; ++Case) {
+
+        if (ASwitch->CaseBegin[Case] == Current)
+          ASwitch->CaseBegin[Case] = std::next(Current);
+      }
+    }
+  }
 
   // Removal of Avr or Avr sequence doenst require move to new location.
   if (!MoveContainer) {
@@ -710,7 +822,10 @@ AVRContainerTy *AVRUtils::getAvrContainer(AVR *Node) {
     return &(AWrn->Children);
   } else if (AVRSwitch *ASwitch = dyn_cast<AVRSwitch>(Parent)) {
     return &(ASwitch->Children);
+  } else if (AVRBlock *ABlock = dyn_cast<AVRBlock>(Parent)) {
+    return &(ABlock->Children);
   }
+
 
   llvm_unreachable("VPO: Avr node missing parent container!");
 }
@@ -763,6 +878,8 @@ AVRContainerTy *AVRUtils::getChildrenContainer(AVR *Parent, AvrItr Child) {
     return &WrnNode->Children;
   } else if (AVRSwitch *SwitchNode = dyn_cast<AVRSwitch>(Parent)) {
     return &SwitchNode->Children;
+  } else if (AVRBlock *BlockNode = dyn_cast<AVRBlock>(Parent)) {
+    return &BlockNode->Children;
   } else if (AVRIf *IfNode = dyn_cast<AVRIf>(Parent)) {
 
     if (IfNode->isThenChild(Node))

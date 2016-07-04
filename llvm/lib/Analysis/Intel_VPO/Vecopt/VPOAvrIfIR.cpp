@@ -54,6 +54,8 @@ void AVRIfIR::print(formatted_raw_ostream &OS, unsigned Depth,
     printSLEV(OS);
   case PrintBase:
     OS << getAvrTypeName();
+    if (getPredicate())
+      OS << " /P" << getPredicate()->getNumber() << "/ ";
     OS << "( ";
     OS << Condition->getAvrValueName();
     OS << " )\n";

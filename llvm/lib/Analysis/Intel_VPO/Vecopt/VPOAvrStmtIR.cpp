@@ -126,10 +126,6 @@ AVRExpressionIR *AVRExpressionIR::clone() const { return nullptr; }
 
 std::string AVRExpressionIR::getAvrValueName() const { return ""; }
 
-std::string AVRExpressionIR::getOpCodeName() const {
-  return Instruct->getOpcodeName();
-}
-
 //----------AVR Value for LLVM IR Implementation----------//
 AVRValueIR::AVRValueIR(const Value *V, const Instruction *Inst, AVR *Parent)
     : AVRValue(AVR::AVRValueIRNode, V->getType()), Val(V), Instruct(Inst) {

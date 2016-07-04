@@ -109,9 +109,6 @@ public:
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const override;
-
-  /// \brief Retuurns the Opcode name of this expression's operation.
-  virtual std::string getOpCodeName() const override;
 };
 
 //----------AVR Value Node for LLVM IR----------//

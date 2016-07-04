@@ -40,6 +40,8 @@ void AVRIfHIR::print(formatted_raw_ostream &OS, unsigned Depth,
   case PrintDataType:
     printSLEV(OS);
   case PrintBase:
+    if (getPredicate())
+      OS << " /P" << getPredicate()->getNumber() << "/ ";
     CompareInstruction->printHeader(OS, 0);
     OS << Indent << "{\n";
     break;
