@@ -35,6 +35,10 @@
 namespace llvm {
 
 class formatted_raw_ostream;
+class TargetTransformInfo;
+class Instruction;
+class Loop;
+class LoopInfo;
 
 namespace loopopt {
 
@@ -50,28 +54,29 @@ private:
   enum LoopResourceBound { Memory, FP, Int, Unknown };
 
   unsigned IntOps;
+  unsigned IntOpsCost;
   unsigned FPOps;
+  unsigned FPOpsCost;
   unsigned IntMemReads;
   unsigned IntMemWrites;
   unsigned FPMemReads;
   unsigned FPMemWrites;
   LoopResourceBound Bound;
 
-  /// Costs based on type of operation.
-  // TODO: Tune for specific targets later.
-  static const unsigned IntCost = 1;
-  static const unsigned FPCost = 2;
-  static const unsigned MemCost = 2;
-
 public:
   LoopResourceInfo()
-      : IntOps(0), FPOps(0), IntMemReads(0), IntMemWrites(0), FPMemReads(0),
-        FPMemWrites(0), Bound(LoopResourceBound::Unknown) {}
+      : IntOps(0), IntOpsCost(0), FPOps(0), FPOpsCost(0), IntMemReads(0),
+        IntMemWrites(0), FPMemReads(0), FPMemWrites(0),
+        Bound(LoopResourceBound::Unknown) {}
 
   LoopResourceInfo(const LoopResourceInfo &LRI)
-      : IntOps(LRI.IntOps), FPOps(LRI.FPOps), IntMemReads(LRI.IntMemReads),
+      : IntOps(LRI.IntOps), IntOpsCost(LRI.IntOpsCost), FPOps(LRI.FPOps),
+        FPOpsCost(LRI.FPOpsCost), IntMemReads(LRI.IntMemReads),
         IntMemWrites(LRI.IntMemWrites), FPMemReads(LRI.FPMemReads),
         FPMemWrites(LRI.FPMemWrites), Bound(LRI.Bound) {}
+
+  /// Costs metrics of operations.
+  enum OperationCost { FreeOp = 0, BasicOp = 1, ExpensiveOp = 2, MemOp = 4 };
 
   /// Visitor to compute resource.
   struct LoopResourceVisitor;
@@ -86,13 +91,17 @@ public:
   unsigned getNumIntMemOps() const { return IntMemReads + IntMemWrites; }
 
   /// Returns the cost of integer memory operations.
-  unsigned getIntMemOpsCost() const { return IntCost * getNumIntMemOps(); }
+  unsigned getIntMemOpsCost() const {
+    return OperationCost::MemOp * getNumIntMemOps();
+  }
 
   /// Returns the number of FP memory operations.
   unsigned getNumFPMemOps() const { return FPMemReads + FPMemWrites; }
 
   /// Returns the cost of FP memory operations.
-  unsigned getFPMemOpsCost() const { return FPCost * getNumFPMemOps(); }
+  unsigned getFPMemOpsCost() const {
+    return OperationCost::MemOp * getNumFPMemOps();
+  }
 
   /// Returns the total number of memory references.
   unsigned getNumMemOps() const { return getNumIntMemOps() + getNumFPMemOps(); }
@@ -106,13 +115,13 @@ public:
   unsigned getNumIntOps() const { return IntOps; }
 
   /// Returns the cost of integer operations.
-  unsigned getIntOpsCost() const { return IntCost * getNumIntOps(); }
+  unsigned getIntOpsCost() const { return IntOpsCost; }
 
   /// Returns the number of FP operations.
   unsigned getNumFPOps() const { return FPOps; }
 
   /// Returns the cost of FP operations.
-  unsigned getFPOpsCost() const { return FPCost * getNumFPOps(); }
+  unsigned getFPOpsCost() const { return FPOpsCost; }
 
   /// Returns the cost of integer and FP operations.
   unsigned getNumIntAndFPOps() const { return getNumIntOps() + getNumFPOps(); }
@@ -120,6 +129,11 @@ public:
   /// Returns the cost of integer and FP operations.
   unsigned getIntAndFPOpsCost() const {
     return getIntOpsCost() + getFPOpsCost();
+  }
+
+  /// Returns the cost of integer, FP and memory operations.
+  unsigned getTotalCost() const {
+    return getIntAndFPOpsCost() + getMemOpsCost();
   }
 
   /// Returns true if loop resource is memory bound.
@@ -146,12 +160,27 @@ public:
   /// Multiplies loop resource.
   LoopResourceInfo &operator*=(unsigned Multiplier);
 
+  /// Adds \p Num integer operations each with a cost of \p Cost.
+  void addIntOps(unsigned Cost, unsigned Num = 1) {
+    IntOps += Num;
+    IntOpsCost += (Cost * Num);
+  }
+
+  /// Adds \p Num FP operations each with a cost of \p Cost.
+  void addFPOps(unsigned Cost, unsigned Num = 1) {
+    FPOps += Num;
+    FPOpsCost += (Cost * Num);
+  }
+
   /// Prints the loop resource.
   void print(formatted_raw_ostream &OS, const HLLoop *Lp) const;
 };
 
 class HIRLoopResource final : public HIRAnalysisPass {
 private:
+  const LoopInfo *LI;
+  const TargetTransformInfo *TTI;
+
   /// Maintains self resource information for loops.
   DenseMap<const HLLoop *, LoopResourceInfo> SelfResourceMap;
 
@@ -162,13 +191,17 @@ private:
   /// is set, we only compute the self resource.
   const LoopResourceInfo &computeLoopResource(const HLLoop *Lp, bool SelfOnly);
 
+  /// Returns the cost of an LLVM instruction.
+  unsigned getOperationCost(const Instruction &Inst) const;
+
 protected:
   /// Prints analyis results for loop.
   virtual void print(formatted_raw_ostream &OS, const HLLoop *Lp) override;
 
 public:
   HIRLoopResource()
-      : HIRAnalysisPass(ID, HIRAnalysisPass::HIRLoopResourceVal) {}
+      : HIRAnalysisPass(ID, HIRAnalysisPass::HIRLoopResourceVal), TTI(nullptr) {
+  }
   static char ID;
 
   bool runOnFunction(Function &F) override;
@@ -176,6 +209,9 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const;
 
   void releaseMemory() override;
+
+  /// Returns pointer to TargetTransformInfo analysis.
+  const TargetTransformInfo *getTTI() const { return TTI; }
 
   /// \brief This method will mark the loop and all its parent loops as
   /// modified. If loop changes, resources of the loop and all its parents loops
@@ -191,6 +227,10 @@ public:
   /// NOTE: Children loop's resouce is added assuming a trip count of one. No
   /// multiplier is involved.
   const LoopResourceInfo &getTotalLoopResource(const HLLoop *Loop);
+
+  /// Returns the cost of a LLVM loop excluding sub-loops. The cost is computed
+  /// using the same metrics as LoopResourceInfo.
+  unsigned getLLVMLoopCost(const Loop &Lp);
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HIRAnalysisPass *AP) {

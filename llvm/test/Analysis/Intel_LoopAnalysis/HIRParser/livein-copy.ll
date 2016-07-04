@@ -5,7 +5,7 @@
 ; CHECK-NEXT: NumExits: 1
 ; CHECK-NEXT: Innermost: Yes
 ; CHECK-NEXT: NSW: Yes
-; CHECK-NEXT: DO i64 i3
+; CHECK: DO i64 i3
 
 ; Check parsing output for the loop verifying that there is no inconsistency in parsing livein copies, i.e. lval and rval have identical canon expr.
 ; CHECK: %l.061 = %M + 5

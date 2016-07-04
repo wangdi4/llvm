@@ -63,14 +63,20 @@ private:
   /// Func - The function we are analyzing.
   Function *Func;
 
+  /// Loop info analysis.
+  LoopInfo *LI;
+
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
 
-  /// RI - Region Identification analysis.
+  /// RI - Region identification analysis.
   HIRRegionIdentification *RI;
 
-  /// SCCF - SCCFormation analysis.
+  /// SCCF - SCC formation analysis.
   HIRSCCFormation *SCCF;
+
+  /// LF - Loop formation analysis.
+  HIRLoopFormation *LF;
 
   /// BaseTemps - Temps used to represent a set of scalar values which are
   /// assigned the same symbase.
@@ -88,12 +94,21 @@ private:
   /// values created by HIR transformations as well.
   SmallDenseMap<unsigned, const Value *, 64> ScalarLvalSymbases;
 
+private:
+  /// Populates region liveout instruction as loop liveout in its parent loops.
+  void populateLoopLiveouts(const Instruction *Inst, unsigned Symbase) const;
+
   /// \brief Populates liveout Values for the region pointed to by RegIt.
   void populateRegionLiveouts(HIRRegionIdentification::iterator RegIt);
 
   /// \brief Processes operands of Phi to determine if they are region liveout.
   bool processRegionPhiLivein(HIRRegionIdentification::iterator RegIt,
                               const PHINode *Phi, unsigned Symbase);
+
+  /// Populates loop liveins/liveouts based on SCC phi instructions. IsRoot
+  /// indicates whether this is the root instruction of the SCC.
+  void populateLoopSCCPhiLiveinLiveouts(const Instruction *SCCInst,
+                                        unsigned Symbase, bool IsRoot);
 
   /// \brief Populates livein Values from the phi nodes present in the region.
   void populateRegionPhiLiveins(HIRRegionIdentification::iterator RegIt);

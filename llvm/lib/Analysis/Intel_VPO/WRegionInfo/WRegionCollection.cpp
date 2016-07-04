@@ -41,7 +41,6 @@ INITIALIZE_PASS_BEGIN(WRegionCollection, "vpo-wrncollection",
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LCSSA)
 INITIALIZE_PASS_END(WRegionCollection, "vpo-wrncollection",
                     "VPO Work-Region Collection", false, true)
 
@@ -58,8 +57,8 @@ WRegionCollection::WRegionCollection() : FunctionPass(ID) {
 void WRegionCollection::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<DominatorTreeWrapperPass>();
-  AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<ScalarEvolutionWrapperPass>();
 }
 
 template <class T> void WRStack<T>::push(T X) {
@@ -229,24 +228,27 @@ bool WRegionCollection::runOnFunction(Function &F) {
                << F.getName() << "{\n");
   this->Func = &F;
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
   DEBUG(dbgs() << "\n}EXIT WRegionCollection::runOnFunction: "
                << F.getName() << "\n");
   return false;
 }
 
-void WRegionCollection::buildWRGraph(bool FromHIR) {
-  DEBUG(dbgs() << "\nENTER WRegionCollection::buildWRGraph(FromHIR=" 
-               << FromHIR <<"){\n");
-  if (FromHIR) {
+void WRegionCollection::buildWRGraph(InputIRKind IR) {
+  DEBUG(dbgs() << "\nENTER WRegionCollection::buildWRGraph(InputIR=" 
+               << IR <<"){\n");
+  if (IR == HIR) {
     // TODO: move buildWRGraphFromHIR() from WRegionUtils to WRegionCollection
     //       after Vectorizer's HIR mode starts using this new interface
     WRGraph = WRegionUtils::buildWRGraphFromHIR();
-  } else {
+  } else if (IR == LLVMIR) {
     buildWRGraphFromLLVMIR(*Func);
+  } else {
+    llvm_unreachable("Unknown InputIRKind");
   }
+
   DEBUG(dbgs() << "\n} EXIT WRegionCollection::buildWRGraph\n");
 }
 

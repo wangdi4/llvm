@@ -14,6 +14,7 @@
 
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK:    Integer Operations: 2
+; CHECK:    Integer Operations Cost: 2
 ; CHECK:    Integer Bound
 ; CHECK: + END LOOP
 

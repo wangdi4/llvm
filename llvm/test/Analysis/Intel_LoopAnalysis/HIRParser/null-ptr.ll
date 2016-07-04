@@ -1,17 +1,15 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the null pointer is parsed correctly as a scalar zero value.
-; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
-; CHECK-NEXT: %0 = {al:8}(%A)[i1]
-; CHECK-NEXT: if (&((%0)[0]) == 0)
-; CHECK-NEXT: {
-; CHECK-NEXT: }
-; CHECK-NEXT: else
-; CHECK-NEXT: {
-; CHECK-NEXT: %1 = {al:4}(%0)[i1]
-; CHECK-NEXT: {al:4}(%B)[i1] = %1
-; CHECK-NEXT: }
-; CHECK-NEXT: END LOOP
+
+; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: |   %0 = {al:8}(%A)[i1];
+; CHECK: |   if (&((%0)[0]) != 0)
+; CHECK: |   {
+; CHECK: |      %1 = {al:4}(%0)[i1];
+; CHECK: |      {al:4}(%B)[i1] = %1;
+; CHECK: |   }
+; CHECK: + END LOOP
 
 
 ; ModuleID = 'null-ptr.c'

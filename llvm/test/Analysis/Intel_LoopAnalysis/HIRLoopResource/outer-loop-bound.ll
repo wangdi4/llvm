@@ -25,11 +25,14 @@
 ; Check the loop resource for i1 and i2 loop.
 
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; CHECK:    Integer Operations: 1
+; CHECK:    Integer Operations: 3
+; CHECK:    Integer Operations Cost: 2
 ; CHECK:    Integer Bound
 ; CHECK:     + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK:    |   Integer Operations: 6
+; CHECK:    |   Integer Operations Cost: 6
 ; CHECK:    |   Integer Memory Reads: 2
-; CHECK:    |   Integer Operations: 1
+; CHECK:    |   Memory Operations Cost: 8
 ; CHECK:    |   Memory Bound
 ; CHECK:     + END LOOP
 ; CHECK: + END LOOP
@@ -39,12 +42,16 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-loop-resource -hir-print-total-resource | FileCheck -check-prefix=TOTAL %s
 
 ; TOTAL: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
+; TOTAL:    Integer Operations: 9
+; TOTAL:    Integer Operations Cost: 8
 ; TOTAL:    Integer Memory Reads: 2
-; TOTAL:    Integer Operations: 2 
+; TOTAL:    Memory Operations Cost: 8
 ; TOTAL:    Memory Bound
 ; TOTAL:     + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; TOTAL:    |   Integer Operations: 6
+; TOTAL:    |   Integer Operations Cost: 6
 ; TOTAL:    |   Integer Memory Reads: 2
-; TOTAL:    |   Integer Operations: 1
+; TOTAL:    |   Memory Operations Cost: 8
 ; TOTAL:    |   Memory Bound
 ; TOTAL:     + END LOOP
 ; TOTAL: + END LOOP

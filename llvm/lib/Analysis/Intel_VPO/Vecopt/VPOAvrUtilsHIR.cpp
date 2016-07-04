@@ -81,13 +81,20 @@ AVRExpressionHIR *AVRUtilsHIR::createAVRExpressionHIR(AVRExpressionHIR* LHS,
 }
 
 AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(RegDDRef *DDRef,
-                                            HLInst *HLInstruct,
-                                            AVRExpressionHIR *Parent) {
-  return new AVRValueHIR(DDRef, HLInstruct, Parent);
+                                            HLNode *HNode,
+                                            AVR *Parent) {
+  return new AVRValueHIR(DDRef, HNode, Parent);
 }
 
 AVRSwitchHIR *AVRUtilsHIR::createAVRSwitchHIR(HLSwitch *HSwitch) {
-  return new AVRSwitchHIR(HSwitch);
+
+  AVRSwitchHIR *ASwitchHIR = new AVRSwitchHIR(HSwitch);
+
+  ASwitchHIR->ConditionValue = createAVRValueHIR(HSwitch->getConditionDDRef(),
+                                                 HSwitch,
+                                                 ASwitchHIR);
+
+  return ASwitchHIR;
 }
 
 AVRUnreachableHIR *AVRUtilsHIR::createAVRUnreachableHIR(HLNode *HUnreach) {

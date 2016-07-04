@@ -22,11 +22,9 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 AVRIfHIR::AVRIfHIR(HLIf *CompInst)
-  : AVRIf(AVR::AVRIfHIRNode), CompareInstruction(CompInst) {}
+    : AVRIf(AVR::AVRIfHIRNode), CompareInstruction(CompInst) {}
 
-AVRIfHIR *AVRIfHIR::clone() const {
-  return nullptr;
-}
+AVRIfHIR *AVRIfHIR::clone() const { return nullptr; }
 
 void AVRIfHIR::print(formatted_raw_ostream &OS, unsigned Depth,
                      VerbosityLevel VLevel) const {
@@ -36,14 +34,15 @@ void AVRIfHIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print AVR If Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "("  << getNumber() << ")";
-    case PrintAvrType:
-    case PrintDataType:
-    case PrintBase:
-      CompareInstruction->printHeader(OS, 0);
-      OS << Indent << "{\n";
-      break;
+  case PrintNumber:
+    OS << "(" << getNumber() << ")";
+  case PrintAvrType:
+  case PrintDataType:
+    printSLEV(OS);
+  case PrintBase:
+    CompareInstruction->printHeader(OS, 0);
+    OS << Indent << "{\n";
+    break;
   default:
     llvm_unreachable("Unknown Avr Print Verbosity!");
   }
@@ -51,9 +50,6 @@ void AVRIfHIR::print(formatted_raw_ostream &OS, unsigned Depth,
   AVRIf::print(OS, Depth, VLevel);
 }
 
-std::string AVRIfHIR::getAvrValueName() const {
-  return "";
-}
+std::string AVRIfHIR::getAvrValueName() const { return ""; }
 
-void AVRIfHIR::codeGen() {
-}
+void AVRIfHIR::codeGen() {}

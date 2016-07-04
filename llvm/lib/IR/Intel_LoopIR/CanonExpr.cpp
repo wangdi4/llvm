@@ -36,8 +36,7 @@ CanonExpr::CanonExpr(Type *SrcType, Type *DestType, bool IsSExt,
                      unsigned DefLevel, int64_t ConstVal, int64_t Denom,
                      bool IsSignedDiv)
     : SrcTy(SrcType), DestTy(DestType), IsSExt(IsSExt),
-      DefinedAtLevel(DefLevel), Const(ConstVal), IsSignedDiv(IsSignedDiv),
-      ContainsUndef(false) {
+      DefinedAtLevel(DefLevel), Const(ConstVal), IsSignedDiv(IsSignedDiv) {
   assert(CanonExprUtils::isValidDefLevel(DefLevel) && "Invalid def level!");
 
   Objs.insert(this);
@@ -52,7 +51,7 @@ CanonExpr::CanonExpr(const CanonExpr &CE)
     : SrcTy(CE.SrcTy), DestTy(CE.DestTy), IsSExt(CE.IsSExt),
       DefinedAtLevel(CE.DefinedAtLevel), IVCoeffs(CE.IVCoeffs),
       BlobCoeffs(CE.BlobCoeffs), Const(CE.Const), Denominator(CE.Denominator),
-      IsSignedDiv(CE.IsSignedDiv), ContainsUndef(CE.ContainsUndef) {
+      IsSignedDiv(CE.IsSignedDiv) {
 
   Objs.insert(this);
 }
@@ -1250,4 +1249,14 @@ void CanonExpr::verify(unsigned NestingLevel) const {
 
 void std::default_delete<CanonExpr>::operator()(CanonExpr *CE) const {
   CanonExprUtils::destroy(CE);
+}
+
+bool CanonExpr::containsUndef() const {
+  SmallVector<unsigned, 8> Indices;
+
+  collectTempBlobIndices(Indices, false);
+
+  return std::any_of(Indices.begin(), Indices.end(), [](unsigned BlobIndex) {
+    return BlobUtils::isUndefBlob(BlobUtils::getBlob(BlobIndex));
+  });
 }

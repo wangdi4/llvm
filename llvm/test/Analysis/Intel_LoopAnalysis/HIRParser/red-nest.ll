@@ -20,12 +20,42 @@
 ; CHECK: END LOOP
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-parser -hir-details -hir-cost-model-throttling=0 | FileCheck -check-prefix=DETAIL %s
-; Check that %t.034 is correctly set to non-linear in the i2 loop.
 
+; Check loop livein/liveouts symbases.
+
+; Collect region liveout symbases.
+; DETAIL: LiveOuts:
+; DETAIL-DAG: %r.035.out(sym:[[LIVEOUT1:[0-9]+]])
+; DETAIL-DAG: %t.034.out1(sym:[[LIVEOUT2:[0-9]+]])
+
+; DETAIL-NOT: DO i
+; Collect i1 loop liveins.
+; DETAIL: LiveIn symbases: [[I1LIVEIN1:[0-9]+]], [[I1LIVEIN2:[0-9]+]]
+
+; Check that region liveouts are the same as i1 loop's liveouts.
+; DETAIL: LiveOut symbases:
+; DETAIL-DAG: [[LIVEOUT1]]
+; DETAIL-DAG: [[LIVEOUT2]]
+
+; Check that i2 loop shares a livein with i1 loop.
+; DETAIL: LiveIn symbases: [[I1LIVEIN2]]
+
+; Collect i2 loop liveouts.
+; DETAIL-NEXT: LiveOut symbases: [[I1LIVEIN2]], [[I2LIVEOUT1:[0-9]+]], [[I2LIVEOUT2:[0-9]+]]
+ 
+; Check that %t.034 is correctly set as livein and non-linear in the i2 loop.
 ; DETAIL: DO i64 i2
 ; DETAIL: %t.034.out = %t.034
-; DETAIL-NEXT: <LVAL-REG> NON-LINEAR i32 %t.034.out 
-; DETAIL-NEXT: <RVAL-REG> NON-LINEAR i32 %t.034 
+; DETAIL-NEXT: <LVAL-REG> NON-LINEAR i32 %t.034.out {sb:[[I2LIVEOUT1]]}
+; DETAIL-NEXT: <RVAL-REG> NON-LINEAR i32 %t.034 {sb:[[I1LIVEIN2]]}
+
+; Check that %0 is marked as live out of i2 loop.
+; DETAIL: %0 = {al:4}(@A)[0][i2][i1]
+; DETAIL-NEXT: <LVAL-REG> NON-LINEAR i32 %0 {sb:[[I2LIVEOUT2]]}
+
+; Check that %r.035 is correctly set as livein to i1 loop.
+; DETAIL: %r.035.out = %r.035
+; DETAIL: <RVAL-REG> NON-LINEAR i32 %r.035 {sb:[[I1LIVEIN1]]}
 
 
 ; ModuleID = 'red_nest2.c'

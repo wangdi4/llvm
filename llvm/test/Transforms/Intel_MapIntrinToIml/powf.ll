@@ -1,9 +1,9 @@
-; Check to see that the llvm.pow.v4f32 intrinsic is translated to svml.
+; Check to see that __svml_powf4 is translated to the high accuracy svml variant.
 
 ; RUN: opt -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @foo
-; CHECK: call <4 x float> @__svml_powf4
+; CHECK: call <4 x float> @__svml_powf4_ha
 ; CHECK: ret
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -22,7 +22,7 @@ vector.body:                                      ; preds = %vector.body, %entry
   %2 = getelementptr inbounds float, float* %array3, i64 %index
   %3 = bitcast float* %2 to <4 x float>*
   %wide.load11 = load <4 x float>, <4 x float>* %3, align 4
-  %4 = call <4 x float> @llvm.pow.v4f32(<4 x float> %wide.load, <4 x float> %wide.load11)
+  %4 = call <4 x float> @__svml_powf4(<4 x float> %wide.load, <4 x float> %wide.load11)
   %5 = getelementptr inbounds float, float* %array, i64 %index
   %6 = bitcast float* %5 to <4 x float>*
   store <4 x float> %4, <4 x float>* %6, align 4
@@ -41,7 +41,7 @@ entry:
 }
 
 ; Function Attrs: nounwind readnone
-declare <4 x float> @llvm.pow.v4f32(<4 x float>, <4 x float>) #2
+declare <4 x float> @__svml_powf4(<4 x float>, <4 x float>) #2
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #1 = { norecurse nounwind readnone uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="true" "use-soft-float"="false" }

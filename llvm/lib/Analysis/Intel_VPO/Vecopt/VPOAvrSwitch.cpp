@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrSwitch.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
 
 #define DEBUG_TYPE "avr-switch-node"
 
@@ -128,9 +129,10 @@ void AVRSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
       OS << "(" << getNumber() << ") ";
     case PrintAvrType:
     case PrintDataType:
+      printSLEV(OS);
     case PrintBase:
       OS << getAvrTypeName() << "(";
-      printConditionValueName(OS);
+      getCondition()->print(OS, 0, VLevel);
       OS <<")" << "{\n";
 
       // Print Switch Cases
@@ -160,6 +162,13 @@ void AVRSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << Indent << "}\n";
 
   Depth++;
+}
+
+void AVRSwitch::shallowPrint(formatted_raw_ostream &OS) const {
+
+  OS << "(" << getNumber() << ") ";
+  printSLEV(OS);
+  OS << "SWITCH (" << getCondition()->getNumber() << ")";
 }
 
 StringRef AVRSwitch::getAvrTypeName() const {

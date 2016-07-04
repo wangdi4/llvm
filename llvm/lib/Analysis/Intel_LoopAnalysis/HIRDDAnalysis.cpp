@@ -97,7 +97,8 @@ void HIRDDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 // do any analysis
 bool HIRDDAnalysis::runOnFunction(Function &F) {
 
-  AAR.reset(new AAResults(getAnalysis<TargetLibraryInfoWrapperPass>().getTLI()));
+  AAR.reset(
+      new AAResults(getAnalysis<TargetLibraryInfoWrapperPass>().getTLI()));
 
   if (auto *Pass = getAnalysisIfAvailable<ScopedNoAliasAAWrapperPass>()) {
     AAR->addAAResult(Pass->getResult());
@@ -119,29 +120,37 @@ bool HIRDDAnalysis::runOnFunction(Function &F) {
   return false;
 }
 
-void HIRDDAnalysis::markLoopBodyModified(const HLLoop *L) {
-  // TODO: properly handle loop body modification
-  FunctionDDGraph.clear();
-}
-void HIRDDAnalysis::markLoopBoundsModified(const HLLoop *L) {
-  // TODO: properly handle loop bounds modification
-  FunctionDDGraph.clear();
-}
-void HIRDDAnalysis::markNonLoopRegionModified(const HLRegion *R) {
-  // TODO: properly handle region modification
-  FunctionDDGraph.clear();
+void HIRDDAnalysis::markLoopBodyModified(const HLLoop *Loop) {
+  invalidateGraph(Loop, false);
 }
 
-DDGraph HIRDDAnalysis::getGraph(HLNode *Node, bool InputEdgesReq) {
+void HIRDDAnalysis::markLoopBoundsModified(const HLLoop *Loop) {
+  invalidateGraph(Loop, true);
+}
+
+void HIRDDAnalysis::markNonLoopRegionModified(const HLRegion *Region) {
+  ValidationMap[Region] = GraphState::Invalid;
+}
+
+DDGraph HIRDDAnalysis::getGraphImpl(const HLNode *Node, bool InputEdgesReq) {
   // conservatively assume input edges are always invalid
-  if (InputEdgesReq || !graphForNodeValid(Node)) {
-    rebuildGraph(Node, InputEdgesReq);
+  GraphState State;
+  if (ForceDDA || InputEdgesReq ||
+      (State = ValidationMap[Node]) != GraphState::Valid) {
+
+    // Clean whole graph if a graph is requested for invalid Node.
+    if (State == GraphState::Invalid) {
+      FunctionDDGraph.clear();
+      ValidationMap.clear();
+    }
+
+    buildGraph(Node, InputEdgesReq);
   }
   return DDGraph(Node, &FunctionDDGraph);
 }
 
 void HIRDDAnalysis::releaseMemory() {
-  GraphValidityMap.clear();
+  ValidationMap.clear();
   FunctionDDGraph.clear();
 }
 
@@ -156,8 +165,9 @@ bool HIRDDAnalysis::edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq) {
   RegDDRef *RegRef1 = dyn_cast<RegDDRef>(Ref1);
   RegDDRef *RegRef2 = dyn_cast<RegDDRef>(Ref2);
 
-  if ((RegRef1 && RegRef1->isLval()) || (RegRef2 && RegRef2->isLval()))
+  if ((RegRef1 && RegRef1->isLval()) || (RegRef2 && RegRef2->isLval())) {
     return true;
+  }
 
   return InputEdgesReq;
 }
@@ -175,8 +185,9 @@ void HIRDDAnalysis::setInputDV(DirectionVector &InputDV, HLNode *Node,
   int Level2 = Parent2 ? Parent2->getNestingLevel() : 0;
   int DeepestLevel = std::max(Level1, Level2);
 
-  if (DeepestLevel == 0)
+  if (DeepestLevel == 0) {
     DeepestLevel = 1;
+  }
 
   int ShallowestLevel = 0;
   if (HLLoop *L = dyn_cast<HLLoop>(Node)) {
@@ -191,26 +202,97 @@ void HIRDDAnalysis::setInputDV(DirectionVector &InputDV, HLNode *Node,
   InputDV.setAsInput(ShallowestLevel, DeepestLevel);
 }
 
-void HIRDDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
-  // Visits all dd refs in Node and fills in the symbase to ref vector
-  // map based on symbase field of encountered dd refs. Does not assign
-  // symbase, assumes symbase of ddrefs is valid
-  NonConstantRefGatherer::MapTy RefMap;
-  NonConstantRefGatherer::gather(Node, RefMap);
+class HIRDDAnalysis::GraphStateUpdater final : public HLNodeVisitorBase {
+  decltype(HIRDDAnalysis::ValidationMap) &ValidityMapRef;
+  GraphState State;
+public:
+  GraphStateUpdater(decltype(HIRDDAnalysis::ValidationMap) &ValidityMapRef,
+                      GraphState State)
+      : ValidityMapRef(ValidityMapRef), State(State) {}
 
-  DEBUG(dbgs() << "Building graph for:\n");
-  DEBUG(NonConstantRefGatherer::dump(RefMap));
+  void visit(const HLLoop *Loop) {
+    ValidityMapRef[Loop] = State;
+  }
+
+  void visit(const HLRegion *Region) {
+    ValidityMapRef[Region] = State;
+  }
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+};
+
+void HIRDDAnalysis::invalidateGraph(const HLLoop *Loop,
+                                    bool InvalidateInnerLoops) {
+
+  if (InvalidateInnerLoops) {
+    GraphStateUpdater Visitor(ValidationMap, GraphState::Invalid);
+    HLNodeUtils::visit(Visitor, Loop);
+  }
+
+  const HLLoop *Node = Loop;
+  const HLLoop *PrevNode = nullptr;
+
+  do {
+    ValidationMap[Node] = GraphState::Invalid;
+    PrevNode = Node;
+  } while ((Node = Node->getParentLoop()));
+
+  ValidationMap[PrevNode->getParentRegion()] = GraphState::Invalid;
+}
+
+const HLNode *HIRDDAnalysis::getDDRefRegionLoopContainer(const DDRef *Ref) {
+  const HLNode *Node = Ref->getHLDDNode();
+  const HLLoop *ParentLoop = Node->getLexicalParentLoop();
+  if (ParentLoop) {
+    return ParentLoop;
+  }
+
+  return Node->getParentRegion();
+}
+
+bool HIRDDAnalysis::isEdgeValid(const DDRef *Ref1, const DDRef *Ref2) {
+  auto RefParent1 = getDDRefRegionLoopContainer(Ref1);
+  auto RefParent2 = getDDRefRegionLoopContainer(Ref2);
+  return ValidationMap[RefParent1] == GraphState::Valid &&
+         ValidationMap[RefParent2] == GraphState::Valid;
+}
+
+void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
+  assert((isa<HLRegion>(Node) || isa<HLLoop>(Node)) &&
+         "Node should be HLLoop or HLRegion");
+
+  DEBUG(dbgs() << "rebuildGraph() for:\n");
   DEBUG(Node->dump());
+
+  NonConstantRefGatherer::MapTy RefMap;
+
+  if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
+    NonConstantRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(),
+                                        RefMap);
+  } else {
+    NonConstantRefGatherer::gather(Node, RefMap);
+  }
+
+  DEBUG(dbgs() << "References:\n");
+  DEBUG(NonConstantRefGatherer::dump(RefMap));
+
   // pairwise testing among all refs sharing a symbase
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
        SymVecPair != Last; ++SymVecPair) {
     auto &RefVec = SymVecPair->second;
-    if (RefVec.size() < 2)
+    if (RefVec.size() < 2) {
       continue;
+    }
 
-    for (auto Ref1 = RefVec.begin(), E = RefVec.end(); Ref1 != E; ++Ref1) {
-      for (auto Ref2 = Ref1; Ref2 != E; ++Ref2) {
-        if (edgeNeeded(*Ref1, *Ref2, BuildInputEdges)) {
+    for (auto Ref1I = RefVec.begin(), E = RefVec.end(); Ref1I != E; ++Ref1I) {
+      DDRef *Ref1 = *Ref1I;
+
+      for (auto Ref2I = Ref1I; Ref2I != E; ++Ref2I) {
+        DDRef *Ref2 = *Ref2I;
+
+        if (edgeNeeded(Ref1, Ref2, BuildInputEdges) &&
+            !isEdgeValid(Ref1, Ref2)) {
           DDTest DA(*AAR);
           DirectionVector InputDV;
           DirectionVector OutputDVForward;
@@ -218,9 +300,9 @@ void HIRDDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
           bool IsLoopIndepDepTemp = false;
           // TODO this is incorrect, we need a direction vector of
           //= = * for 3rd level inermost loops
-          InputDV.setAsInput(1, 9);
+          InputDV.setAsInput();
 
-          DA.findDependences(*Ref1, *Ref2, InputDV, OutputDVForward,
+          DA.findDependences(Ref1, Ref2, InputDV, OutputDVForward,
                              OutputDVBackward, &IsLoopIndepDepTemp);
           //  Sample code to check output:
           //  first check IsDependent
@@ -233,23 +315,26 @@ void HIRDDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
           // keep the previous result cached somewhere.
           if (OutputDVForward[0] != DVKind::NONE) {
             DDEdge Edge =
-                DDEdge(*Ref1, *Ref2, OutputDVForward, IsLoopIndepDepTemp);
+                DDEdge(Ref1, Ref2, OutputDVForward, IsLoopIndepDepTemp);
 
             // DEBUG(dbgs() << "Got edge of :");
             // DEBUG(Edge.dump());
-            FunctionDDGraph.addEdge(Edge);
+            FunctionDDGraph.addEdge(std::move(Edge));
           }
 
           if (OutputDVBackward[0] != DVKind::NONE) {
-            DDEdge Edge = DDEdge(*Ref2, *Ref1, OutputDVBackward);
+            DDEdge Edge = DDEdge(Ref2, Ref1, OutputDVBackward);
             // DEBUG(dbgs() << "Got back edge of :");
             // DEBUG(Edge.dump());
-            FunctionDDGraph.addEdge(Edge);
+            FunctionDDGraph.addEdge(std::move(Edge));
           }
         }
       }
     }
   }
+
+  GraphStateUpdater Visitor(ValidationMap, GraphState::Valid);
+  HLNodeUtils::visit(Visitor, Node);
 }
 
 bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
@@ -279,13 +364,14 @@ bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
   return IsDVRefined;
 }
 
-bool HIRDDAnalysis::graphForNodeValid(HLNode *Node) {
-  if (ForceDDA)
+bool HIRDDAnalysis::graphForNodeValid(const HLNode *Node) {
+  if (ForceDDA) {
     return false;
+  }
 
-  // TODO
-  return false;
+  return ValidationMap[Node] == GraphState::Valid;
 }
+
 void HIRDDAnalysis::print(raw_ostream &OS, const Module *M) const {
   OS << "DD graph for function:\n";
   FunctionDDGraph.print(OS);
@@ -295,7 +381,7 @@ void HIRDDAnalysis::print(raw_ostream &OS, const Module *M) const {
 void HIRDDAnalysis::GraphVerifier::visit(HLRegion *Region) {
   if (CurLevel == DDVerificationLevel::Region &&
       !CurDDA->graphForNodeValid(Region)) {
-    CurDDA->rebuildGraph(Region, false);
+    CurDDA->buildGraph(Region, false);
   }
 }
 
@@ -303,7 +389,7 @@ void HIRDDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
   if (Loop->getNestingLevel() == CurLevel ||
       (Loop->isInnermost() && CurLevel == DDVerificationLevel::Innermost)) {
     if (!CurDDA->graphForNodeValid(Loop)) {
-      CurDDA->rebuildGraph(Loop, false);
+      CurDDA->buildGraph(Loop, false);
     }
   }
 }

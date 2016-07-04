@@ -140,7 +140,8 @@ struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
   // e.g. DV.initInput(3,3)
   // will fill in (= = *)
   // which is testing for innermost loop only
-  void setAsInput(const unsigned int StartLevel, const unsigned int EndLevel);
+  void setAsInput(const unsigned int StartLevel = 1,
+                  const unsigned int EndLevel = MaxLoopNestLevel);
 
   // Construct all 0
   void setZero();

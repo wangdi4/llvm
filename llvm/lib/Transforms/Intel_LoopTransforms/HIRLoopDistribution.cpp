@@ -357,7 +357,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
       // Once split, the two loops are non vectorizable. If legality was
       // the only concern, we can iterate over all dd edges indirectly by
       // looking at distppedges whos src/sink are in piblock
-      if (piEdgeIsRecurrence(Lp, *EdgeIt)) {
+      if (piEdgeIsRecurrence(Lp, *(*EdgeIt))) {
         DistPoints.push_back(CurLoopPiBlkList);
         CurLoopPiBlkList.clear();
         break;

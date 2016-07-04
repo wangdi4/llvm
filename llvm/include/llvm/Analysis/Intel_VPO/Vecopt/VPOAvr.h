@@ -28,6 +28,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOSLEV.h"
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace
@@ -66,6 +67,9 @@ private:
   /// Number - Unique ID for AVR node.
   unsigned Number;
 
+  /// Slev - SIMD lane evolution classification of this AVR node.
+  SLEV Slev;
+
   /// \brief Destroys all objects of this class. Only called after Vectorizer
   /// phase code generation.
   static void destroyAll();
@@ -86,6 +90,14 @@ protected:
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
+
+  /// \brief Utility function for printing only known SLEVs.
+  void printSLEV(formatted_raw_ostream &OS) const {
+    if (getSLEV().isBOTTOM())
+      return;
+    getSLEV().printValue(OS);
+    OS << " ";
+  }
 
 public:
   /// Virtual Clone Method
@@ -120,6 +132,9 @@ public:
 
   /// \brief Returns the Avr nodes's unique ID number
   unsigned getNumber() const { return Number; }
+
+  /// \brief Returns the Avr nodes's SLEV data.
+  SLEV getSLEV() const { return Slev; }
 
   /// \brief Code generation for AVR.
   virtual void codeGen();

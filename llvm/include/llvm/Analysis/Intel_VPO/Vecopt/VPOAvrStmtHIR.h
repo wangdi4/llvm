@@ -137,16 +137,13 @@ private:
   /// Val - The HIR RegDDref for this AVR Value
   RegDDRef *Val;
 
-  /// HLInstruct - Underlying HLNode which produced this value.
-  HLInst *HLInstruct;
-
-  /// ValType - The data type of this Value.
-  Type *ValType;
+  /// HLNode - Underlying HLNode which produced this value.
+  HLNode *HNode;
 
 protected:
   /// \brief Constructs an AVRValueHIR node for the operand in HLInst node
   ///  specified by DDRef.
-  AVRValueHIR(RegDDRef *DDRef, HLInst *Inst, AVRExpressionHIR *Parent);
+  AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent);
 
   /// \brief Destructor for this object.
   virtual ~AVRValueHIR() {}
@@ -173,8 +170,8 @@ public:
   /// \brief Returns the RegDDRef associated with this node.
   RegDDRef *getValue() { return Val; }
 
-  /// \brief Returns the HLInst associated with this node.
-  HLInst *getInstruction() { return HLInstruct; }
+  /// \brief Returns the HLNode associated with this node.
+  HLNode *getNode() { return HNode; }
 
   /// \brief Returns whether the associated RegDDRef is a constant.
   bool isConstant() const override { return Val->isConstant(); }

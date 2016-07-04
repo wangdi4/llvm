@@ -1,4 +1,5 @@
-//==---- MapIntrinToIml.cpp - Replace intrinsics with IML call -*- C++ -*---==//
+//==--- MapIntrinToIml.cpp - Legalize svml calls and apply IMF -*- C++ -*---==//
+//                           attributes.
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -17,13 +18,9 @@
 // ===--------------------------------------------------------------------=== //
 ///
 /// \file
-/// This pass consumes llvm intrinsics and maps them to libm calls or svml.
-/// For vector calls, this pass also performs type legalization for when
-/// partial registers are used or when the logical vector length exceeds the
-/// true vector length of the target architecture. The type legalization
-/// adjusts vector lengths of the svml calls and those instructions that are
-/// users of them. The rest of the legalization is left to ISD-level type
-/// legalization.
+/// This pass does two things:
+///   1) Consumes svml calls emitted by the vectorizer and legalizes them.
+///   2) Refines the svml calls based in the imf attributes.
 ///
 // ===--------------------------------------------------------------------=== //
 
@@ -50,22 +47,22 @@ using namespace llvm::vpo;
 
 static cl::opt<bool> RunSvmlStressMode(
     "svml-trans-stress-mode", cl::init(false), cl::Hidden,
-    cl::desc("Scalarize vector intrinsic instead of calling svml."));
+    cl::desc("Scalarize svml calls."));
 
 MapIntrinToIml::MapIntrinToIml() : FunctionPass(ID) {}
 
 // The idea of this pass is simple and involves these steps:
-// 1) Find vectorized math library related intrinsic calls, or scalar
-//    intrinsics.
-// 2) Get the IMF attributes in the form of LLVM Attributes from the call.
+// 1) Find svml calls.
+// 2) Get the IMF attributes in the form of LLVM Attributes from the call
+//    arguments.
 // 3) Map each call Attribute to an ImfAttr struct, building a list of
 //    attribute value pairs <char* attr_name, char* attr_value> that can be
 //    used by the get_library_function_name() function found in libiml_attr.
-//    This is the external interface used to do the actual mapping of
-//    intrinsics to SVML/libm functions. The ImfAttr struct is populated using
-//    the strings below for attribute names. The value of the attribute is
-//    just a string also. libiml_attr will then select the appropriate SVML/libm
-//    function based on the function name and attributes.
+//    This is the external interface used to do the actual mapping of math
+//    library calls to legal SVML/libm functions. The ImfAttr struct is
+//    populated using the strings below for attribute names. The value of the
+//    attribute is just a string also. libiml_attr will then select the
+//    appropriate SVML/libm function based on the function name and attributes.
 //
 // valid_attributes_names defined in iml_accuracy_interface.c in libiml_attr.a.
 //
@@ -81,50 +78,6 @@ MapIntrinToIml::MapIntrinToIml() : FunctionPass(ID) {}
 // "max-error"
 // "precision"
 // "valid-status-bits"
-
-bool MapIntrinToIml::parseIntrinsicName(StringRef IntrinName,
-                                        StringRef &FuncName,
-                                        TargetLibraryInfo *TLI) {
-  // This function extracts the math function name from the intrinsic call.
-  //
-  // Example:
-  //
-  // llvm.sin.v4f32
-  //
-  // FuncName = sin
-  //
-  // The caller then uses this information to query the IML interface.
-
-  StringRef IntrinPrefix = "llvm.";
-
-  size_t Idx = IntrinName.find(IntrinPrefix, 0);
-
-  // Not an intrinsic call. By definition, all LLVM intrinsics start with
-  // "llvm.".
-  if (Idx == StringRef::npos)
-    return false;
-
-  // Skip past the "llvm." prefix.
-  StringRef RemainFuncName =
-      IntrinName.substr(Idx + IntrinPrefix.size(), StringRef::npos);
-
-  // We should find another '.' delimiter for math calls that serves as the
-  // separator for the type information. If not, return unsuccessfully, and
-  // find the next intrinsic call.
-  Idx = RemainFuncName.find(".", 0);
-  if (Idx == StringRef::npos)
-    return false;
-
-  // Checking the LibFunc entries serves as an additional filter so that we
-  // do not process intrinsics such as "llvm.lifetime.start", etc.
-  LibFunc::Func LF;
-  FuncName = RemainFuncName.substr(0, Idx);
-  bool IsLibFunc = TLI->getLibFunc(FuncName, LF);
-  if (!IsLibFunc)
-    return false;
-
-  return true;
-}
 
 void MapIntrinToIml::addAttributeToList(ImfAttr **List, ImfAttr **Tail,
                                         ImfAttr *Attr) {
@@ -187,6 +140,7 @@ void MapIntrinToIml::splitArgs(
     SmallVectorImpl<Value *> &Args,
     SmallVectorImpl<SmallVector<Value *, 8>> &NewArgs, unsigned NumRet,
     unsigned TargetVL) {
+
   DEBUG(dbgs() << "Splitting Args to match legal VL:\n");
   NewArgs.resize(NumRet);
 
@@ -236,8 +190,8 @@ void MapIntrinToIml::splitArgs(
   }
 }
 
-void MapIntrinToIml::createImfAttributeList(IntrinsicInst *II,
-                                            ImfAttr **List) {
+void MapIntrinToIml::createImfAttributeList(CallInst *CI, ImfAttr **List) {
+
   // Tail of the linked list of IMF attributes. The head of the list is
   // passed in from the caller via the List parameter.
   ImfAttr *Tail = nullptr;
@@ -246,52 +200,66 @@ void MapIntrinToIml::createImfAttributeList(IntrinsicInst *II,
   // the IML interface.
 
   const StringRef ImfPrefix = "imf-";
-  const AttributeSet Attrs = II->getAttributes();
-  unsigned Slot = ~0U;
-  for (unsigned I = 0, E = Attrs.getNumSlots(); I != E; ++I) {
-    if (Attrs.getSlotIndex(I) == AttributeSet::FunctionIndex) {
-      Slot = I;
-      break;
+  const AttributeSet Attrs = CI->getAttributes().getFnAttributes();
+
+  if (Attrs.hasAttributes(AttributeSet::FunctionIndex)) {
+
+    // The index that attributes for returns, parameters, and functions are
+    // stored is called the slot, even though an AttrIndex (e.g.,
+    // AttributeSet::FunctionIndex) can be used to look up the corresponding
+    // attributes. Essentially, the AttrIndex is mapped to a slot where the
+    // attributes are stored. This code gets the appropriate slot for where
+    // the function attributes are stored so that it can be iterated through.
+    unsigned NumSlots = Attrs.getNumSlots();
+    unsigned Slot = ~0U;
+    for (unsigned I = 0; I < NumSlots; I++) {
+      uint64_t Index = Attrs.getSlotIndex(I);
+      if (Index == AttributeSet::FunctionIndex) {
+        Slot = I;
+        break;
+      }
     }
-  }
 
-  AttributeSet::iterator FAIt = Attrs.begin(Slot);
-  AttributeSet::iterator FAEnd = Attrs.end(Slot);
-  for (; FAIt != FAEnd; ++FAIt) {
-    // Attributes will be of the form:
-    //
-    // "imf-max-error"="0.6"
-    //
-    std::string AttrStr = FAIt->getAsString();
-    size_t EqualIdx = AttrStr.find("=");
-    if (EqualIdx == std::string::npos)
-      continue;
+    assert(Slot != ~0U && "Could not find function attributes for call site");
 
-    // Ignore leading and trailing quotes, and '='
-    std::string AttrName = AttrStr.substr(1, EqualIdx - 2);
-    size_t QuoteIdx = AttrStr.rfind('"');
-    if (QuoteIdx == std::string::npos)
-      continue;
+    AttributeSet::iterator FAIt = Attrs.begin(Slot);
+    AttributeSet::iterator FAEnd = Attrs.end(Slot);
+    for (; FAIt != FAEnd; ++FAIt) {
+      // Attributes will be of the form:
+      //
+      // "imf-max-error"="0.5"
+      //
+      std::string AttrStr = FAIt->getAsString();
+      size_t EqualIdx = AttrStr.find("=");
+      if (EqualIdx == std::string::npos)
+        continue;
 
-    std::string AttrValue =
-        AttrStr.substr(EqualIdx + 2, QuoteIdx - (EqualIdx + 2));
+      // Ignore leading and trailing quotes, and '='
+      std::string AttrName = AttrStr.substr(1, EqualIdx - 2);
+      size_t QuoteIdx = AttrStr.rfind('"');
+      if (QuoteIdx == std::string::npos)
+        continue;
 
-    // Make sure this is an IMF attribute by looking for the prefix of
-    // "imf-".
-    if (AttrName.find(ImfPrefix) != 0)
-      continue;
-    AttrName = AttrName.substr(ImfPrefix.size(), std::string::npos);
+      std::string AttrValue =
+          AttrStr.substr(EqualIdx + 2, QuoteIdx - (EqualIdx + 2));
 
-    if (isValidIMFAttribute(AttrName)) {
-      ImfAttr *Attribute = new ImfAttr();
-      char *Name = new char[AttrName.length() + 1];
-      std::strcpy(Name, AttrName.c_str());
-      char *Value = new char[AttrValue.length() + 1];
-      std::strcpy(Value, AttrValue.c_str());
-      Attribute->name = Name;
-      Attribute->value = Value;
-      Attribute->next = nullptr;
-      addAttributeToList(List, &Tail, Attribute);
+      // Make sure this is an IMF attribute by looking for the prefix of
+      // "imf-".
+      if (AttrName.find(ImfPrefix) != 0)
+        continue;
+      AttrName = AttrName.substr(ImfPrefix.size(), std::string::npos);
+
+      if (isValidIMFAttribute(AttrName)) {
+        ImfAttr *Attribute = new ImfAttr();
+        char *Name = new char[AttrName.length() + 1];
+        std::strcpy(Name, AttrName.c_str());
+        char *Value = new char[AttrValue.length() + 1];
+        std::strcpy(Value, AttrValue.c_str());
+        Attribute->name = Name;
+        Attribute->value = Value;
+        Attribute->next = nullptr;
+        addAttributeToList(List, &Tail, Attribute);
+      }
     }
   }
 
@@ -332,7 +300,7 @@ void MapIntrinToIml::addAlwaysInlineAttribute(CallInst *CI) {
 FunctionType *
 MapIntrinToIml::legalizeFunctionTypes(FunctionType *FT,
                                       SmallVectorImpl<Value *> &Args,
-                                      unsigned TargetVL, LibFunc::Func &LF) {
+                                      unsigned TargetVL, StringRef FuncName) {
   // New type legalized argument types.
   SmallVector<Type *, 8> NewArgTypes;
 
@@ -355,7 +323,7 @@ MapIntrinToIml::legalizeFunctionTypes(FunctionType *FT,
   // Adjust original vector return type to the legal vector width.
   // Insert the svml function declaration.
   if (VectorReturn) {
-    unsigned TypeVL = LF == LibFunc::sincos ? TargetVL * 2 : TargetVL;
+    unsigned TypeVL = isSinCosCall(FuncName) ? TargetVL * 2 : TargetVL;
     ReturnType = VectorType::get(VectorReturn->getElementType(), TypeVL);
   }
 
@@ -363,10 +331,11 @@ MapIntrinToIml::legalizeFunctionTypes(FunctionType *FT,
   return LegalFT;
 }
 
-void MapIntrinToIml::generateSvmlCalls(
+void MapIntrinToIml::generateMathLibCalls(
     unsigned NumRet, Constant *Func,
     SmallVectorImpl<SmallVector<Value *, 8>> &Args,
     SmallVectorImpl<Instruction *> &Calls, Instruction **InsertPt) {
+
   // Insert the new shuffle instructions that split the original vector
   // parameter and generate the call to the svml function.
   for (unsigned I = 0; I < NumRet; I++) {
@@ -384,10 +353,11 @@ void MapIntrinToIml::generateSvmlCalls(
   }
 }
 
-Instruction *
-MapIntrinToIml::combineSvmlCallResults(unsigned NumRet,
-                                       SmallVectorImpl<Instruction *> &WorkList,
-                                       Instruction **InsertPt) {
+Instruction*
+MapIntrinToIml::combineCallResults(unsigned NumRet,
+                                   SmallVectorImpl<Instruction *> &WorkList,
+                                   Instruction **InsertPt) {
+
   // The initial number of elements for the first shuffle is NumElems. As we
   // go, this number is adjusted up for the increasing size of vectors used in
   // the shuffles. See notes in loop below.
@@ -401,7 +371,7 @@ MapIntrinToIml::combineSvmlCallResults(unsigned NumRet,
   // the svml calls. This is necessary for type legalization where NumRet > 1.
   // For example, for logical VL=16, target VL=4:
   //
-  // First, %1 (original intrinsic arg) is split via splitArgs() call above
+  // First, %1 (original call arg) is split via splitArgs() call above
   // using shuffles. After the svml calls, the results are combined to form a
   // vector of the logical vector length.
   //
@@ -428,7 +398,7 @@ MapIntrinToIml::combineSvmlCallResults(unsigned NumRet,
   // %final = shufflevector <8 x float> %comb.1, <8 x float> %comb.2,
   //          <16 x i32> <0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15>
   //
-  // %final then replaces the users of the original intrinsic. The remainder of
+  // %final then replaces the users of the original call. The remainder of
   // instructions are left to CodeGen to type legalize.
 
   while (NumRegs > 1) {
@@ -500,20 +470,18 @@ LoadStoreMode MapIntrinToIml::getLoadStoreModeForArg(AttributeSet &AS,
   }
 }
 
-// TODO: For now, we assume LoadStoreMode is the same for each arg.
-// This will need to change because it's possible that the memory
-// reference pattern is different for each one.
-void MapIntrinToIml::generateSinCosStore(IntrinsicInst *VectorIntrin,
+void MapIntrinToIml::generateSinCosStore(CallInst *VectorCall,
                                          Instruction *ResultVector,
                                          unsigned NumElemsToStore,
                                          unsigned TargetVL,
                                          unsigned StorePtrIdx,
                                          Instruction **InsertPt) {
+
   // For __svml_sincos calls, the result vector is always 2x that of the input
   // vector.
   unsigned NumResultVectors = 2;
 
-  AttributeSet AttrList = VectorIntrin->getAttributes();
+  AttributeSet AttrList = VectorCall->getAttributes();
   // For Arg 2, I = 0. Attributes are at position 2
   // For Arg 3, I = 1. Attributes are at position 3
 
@@ -526,7 +494,7 @@ void MapIntrinToIml::generateSinCosStore(IntrinsicInst *VectorIntrin,
 
     // This represents the address to where we will store the sin/cos results.
     // Either arg 2 or 3 from the vector sincos call.
-    Value *SvmlArg = VectorIntrin->getArgOperand(I + 1);
+    Value *SvmlArg = VectorCall->getArgOperand(I + 1);
 
     // Shuffle out the sin/cos results from the return vector of the svml call.
     // This is necessary since we have a 2 x VL wide return vector.
@@ -563,7 +531,7 @@ void MapIntrinToIml::generateSinCosStore(IntrinsicInst *VectorIntrin,
         *InsertPt = ElemToStore;
 
         // Extract the pointer from the vector of pointers argument from the
-        // intrinsic call.
+        // original call.
         Twine ExtractNamePtr = ResultName + ".elem.ptr";
         ExtractElementInst *ElemToStorePtr =
             ExtractElementInst::Create(SvmlArg, ElmIdxPtr, ExtractNamePtr);
@@ -577,10 +545,10 @@ void MapIntrinToIml::generateSinCosStore(IntrinsicInst *VectorIntrin,
       }
     } else if (Mode == UNIT_STRIDE) {
       // Generate unit stride store. Here, we just need to extract the 1st
-      // address of the argument vector from the intrinsic because this will
+      // address of the argument vector from the original call because this will
       // represent the base address for the vector store. If there are multiple
-      // returns, the index into the pointer of vectors on the intrinsic arg
-      // needs to advance by the number of elements being stored. E.g.,
+      // returns, the index into the pointer of vectors on the call arg needs
+      // to advance by the number of elements being stored. E.g.,
       //
       // call void @llvm.sincos.v8f32.p0v8f32.p0v8f32(
       //   <8 x float> %wide.load,
@@ -634,8 +602,9 @@ bool MapIntrinToIml::isLessThanFullVector(Type *ValType, Type *LegalType) {
 }
 
 void MapIntrinToIml::generateNewArgsFromPartialVectors(
-    IntrinsicInst *II, FunctionType *FT, unsigned TargetVL,
+    CallInst *CI, FunctionType *FT, unsigned TargetVL,
     SmallVectorImpl<Value *> &NewArgs, Instruction **InsertPt) {
+
   // This function builds a new argument list for the svml function call by
   // finding any arguments that are less than full vector and duplicating the
   // low order elements into the upper part of a new vector register. If the
@@ -643,9 +612,9 @@ void MapIntrinToIml::generateNewArgsFromPartialVectors(
 
   for (unsigned I = 0; I < FT->getNumParams(); ++I) {
 
-    // Type of the parameter on the intrinsic, which can be driven by the user
-    // specifying an explicit vectorlength.
-    Value *NewArg = II->getArgOperand(I);
+    // Type of the parameter on the math lib call, which can be driven by the
+    // user specifying an explicit vectorlength.
+    Value *NewArg = CI->getArgOperand(I);
     VectorType *VecArgType = dyn_cast<VectorType>(NewArg->getType());
 
     // The type of the parameter if using the full register specified through
@@ -680,7 +649,7 @@ void MapIntrinToIml::generateNewArgsFromPartialVectors(
       Value *Undef = UndefValue::get(VecArgType);
       Value *Mask = ConstantVector::get(Splat);
       ShuffleVectorInst *ShuffleInst = new ShuffleVectorInst(
-          II->getArgOperand(I), Undef, Mask, "shuffle.dup");
+          CI->getArgOperand(I), Undef, Mask, "shuffle.dup");
       ShuffleInst->insertBefore(*InsertPt);
       *InsertPt = ShuffleInst;
       NewArg = ShuffleInst;
@@ -746,33 +715,31 @@ Instruction *MapIntrinToIml::extractElemsFromVector(Value *Reg,
 // - this is ok because __svml_sincos expects two pointers for each sin/cos
 //   result.
 //
-// For cases 1 and 3, we unfortunately need special logic to determine the
-// correct intrinsic type information. sincos is void, but the incoming vector
-// intrinsic will be transformed to an svml call that returns a 2x wide vector
-// based on the type of the 1st argument of the intrinsic signature. For ilogb,
-// the number of elements returned is the number of elements indicated by the
-// 1st argument since it is 2x the size of the return. Case 2 will work as is.
+// For cases 1 and 3, we unfortunately need special logic to determine the 
+// correct call type information. sincos is void, but the incoming vector call
+// will be transformed to an svml call that returns a 2x wide vector based on
+// the type of the 1st argument of the call signature. For ilogb, the number
+// of elements returned is the number of elements indicated by the 1st argument
+// since it is 2x the size of the return. Case 2 will work as is.
 
-VectorType *MapIntrinToIml::getIntrinsicType(IntrinsicInst *Intrin) {
+VectorType *MapIntrinToIml::getCallType(CallInst *CI) {
 
-  Intrinsic::ID ID = Intrin->getIntrinsicID();
+  Function *CalledFunc = CI->getCalledFunction();
+  StringRef FuncName = CalledFunc->getName();
+  if (isSinCosCall(FuncName)) {
+    return dyn_cast<VectorType>(CI->getArgOperand(0)->getType());
+  }
 
-DEBUG(dbgs() << "Intrin: " << *Intrin << "\n");
-  if (ID == Intrinsic::sincos)
-    return dyn_cast<VectorType>(Intrin->getArgOperand(0)->getType());
-
-  FunctionType *IntrinFT = Intrin->getFunctionType();
-  Type *IntrinRetType = IntrinFT->getReturnType();
-  return dyn_cast<VectorType>(IntrinRetType);
+  FunctionType *CallFT = CI->getFunctionType();
+  Type *CallRetType = CallFT->getReturnType();
+  return dyn_cast<VectorType>(CallRetType);
 }
 
-void MapIntrinToIml::scalarizeVectorIntrinsic(IntrinsicInst *II,
-                                              StringRef LibFuncName,
-                                              unsigned VL, Type *ElemType) {
+void MapIntrinToIml::scalarizeVectorCall(CallInst *CI, StringRef LibFuncName,
+                                         unsigned LogicalVL, Type *ElemType) {
   SmallVector<Type *, 4> FTArgTypes;
-  StringRef LibFuncVariantName;
 
-  FunctionType *IntrinFT = II->getFunctionType();
+  FunctionType *IntrinFT = CI->getFunctionType();
   Type *RetType = IntrinFT->getReturnType();
   if (VectorType *VecRetType = dyn_cast<VectorType>(RetType)) {
     RetType = VecRetType->getElementType();
@@ -787,22 +754,20 @@ void MapIntrinToIml::scalarizeVectorIntrinsic(IntrinsicInst *II,
     }
   }
 
-  if (ElemType->isFloatTy()) {
-    Twine LibFuncStr = LibFuncName + "f";
-    LibFuncVariantName = LibFuncStr.str();
-  } else if (ElemType->isDoubleTy()) {
-    LibFuncVariantName = LibFuncName;
-  }
+  StringRef ScalarLibFuncName = getScalarFunctionName(LibFuncName, LogicalVL);
+
+  DEBUG(dbgs() << "Scalarizing call to '" << LibFuncName << "' with '"
+               << ScalarLibFuncName << "'");
 
   FunctionType *FT = FunctionType::get(RetType, FTArgTypes, false);
-  Constant *FCache = M->getOrInsertFunction(LibFuncVariantName, FT);
+  Constant *FCache = M->getOrInsertFunction(ScalarLibFuncName, FT);
   SmallVector<Value *, 4> CallResults;
 
-  for (unsigned I = 0; I < VL; ++I) {
+  for (unsigned I = 0; I < LogicalVL; ++I) {
     SmallVector<Value *, 4> ScalarCallArgs;
 
-    for (unsigned J = 0; J < II->getNumArgOperands(); ++J) {
-      Value *Parm = II->getArgOperand(J);
+    for (unsigned J = 0; J < CI->getNumArgOperands(); ++J) {
+      Value *Parm = CI->getArgOperand(J);
       VectorType *VecParmType = dyn_cast<VectorType>(Parm->getType());
 
       if (VecParmType) {
@@ -810,7 +775,7 @@ void MapIntrinToIml::scalarizeVectorIntrinsic(IntrinsicInst *II,
             ConstantInt::get(Type::getInt32Ty(Func->getContext()), I);
 
         ExtractElementInst *Extract =
-            ExtractElementInst::Create(II->getOperand(J), Index, "arg", II);
+            ExtractElementInst::Create(CI->getOperand(J), Index, "arg", CI);
 
         Parm = Extract;
       }
@@ -819,37 +784,93 @@ void MapIntrinToIml::scalarizeVectorIntrinsic(IntrinsicInst *II,
     }
 
     CallInst *ScalarCall = CallInst::Create(FCache, ScalarCallArgs);
-    ScalarCall->insertBefore(II);
+    ScalarCall->insertBefore(CI);
     CallResults.push_back(ScalarCall);
   }
 
   if (!RetType->isVoidTy()) {
-    // If this is not a void intrinsic then there will be users of the call
+    // If this is not a void function call then there will be users of the call
     // results. Insert each scalar call instruction (this corresponds to an
-    // SSA temp) into a vector and replace the original vector intrinsic call's
-    // users.
+    // SSA temp) into a vector and replace the original vector call's users.
 
     Value *InsertVector =
-        UndefValue::get(II->getFunctionType()->getReturnType());
+        UndefValue::get(CI->getFunctionType()->getReturnType());
 
     for (unsigned I = 0; I < CallResults.size(); ++I) {
       Constant *Index =
           ConstantInt::get(Type::getInt32Ty(Func->getContext()), I);
       InsertVector = InsertElementInst::Create(InsertVector, CallResults[I],
-                                               Index, "ins", II);
+                                               Index, "ins", CI);
     }
 
-    // Find the instructions that are using the intrinsic results and replace
-    // with the vector that has all of the scalar call results.
-    II->replaceAllUsesWith(InsertVector);
+    // Find the instructions that are using the call results and replace with
+    // the vector that has all of the scalar call results.
+    CI->replaceAllUsesWith(InsertVector);
   }
 }
 
+bool MapIntrinToIml::isSinCosCall(StringRef FuncName) {
+  return FuncName.startswith("__svml_sincos");
+}
+
+const char* MapIntrinToIml::findX86Variant(CallInst *CI, StringRef FuncName,
+                                           unsigned LogicalVL,
+                                           unsigned TargetVL) {
+
+  StringRef DataType;
+  std::string TargetVLString = std::to_string(TargetVL);
+
+  // Use the generic parent function name emitted by the vectorizer to lookup
+  // the proper variant. E.g., "__svml_sinf4" -> "__svml_sinf4_ha",
+  // "__svml_sinf4" -> "__svml_sinf4_ep". The selection process uses the IMF
+  // attributes to find the appropriate variant. The function name used for
+  // the lookup is based on the legal target vector length. This is important
+  // to remember since the input function (FuncName) could be a logical vector
+  // that is larger.
+  Twine TempFuncName = "__svml_" + getScalarFunctionName(FuncName, LogicalVL) +
+                       Twine(TargetVL);
+  std::string TempFuncNameRef = TempFuncName.str();
+  char *ParentFuncName = new char[TempFuncNameRef.length() + 1];
+  std::strcpy(ParentFuncName, TempFuncNameRef.c_str());
+
+  DEBUG(dbgs() << "Input Function: " << FuncName << "\n");
+  DEBUG(dbgs() << "Legal Function: " << TempFuncName << "\n");
+
+  ImfAttr *AttrList = nullptr;
+  createImfAttributeList(CI, &AttrList);
+
+  // External libiml_attr interface that returns the SVML/libm variant if the
+  // parent function and IMF attributes match. Return NULL otherwise.
+  const char *VariantFuncName =
+    get_library_function_name(ParentFuncName, AttrList);
+
+  // No longer need the IMF attribute list at this point, so free up the memory.
+  // Note: this does not remove the attributes from the instruction, only the
+  // internal data structure used to query the iml interface.
+  deleteAttributeList(&AttrList);
+
+  return VariantFuncName;
+}
+
+StringRef MapIntrinToIml::getScalarFunctionName(StringRef FuncName,
+                                                unsigned LogicalVL) {
+
+  // Incoming FuncName is something like '__svml_sinf4'. Removing the '__svml_'
+  // prefix and logical vl from the end yields the scalar lib name.
+  StringRef Prefix = "__svml_";
+  StringRef LogicalVLStr = APInt(32, LogicalVL).toString(10, false);
+  StringRef ScalarFuncName = FuncName.substr(Prefix.size());
+  ScalarFuncName = ScalarFuncName.drop_back(LogicalVLStr.size());
+
+  return ScalarFuncName;
+}
+
 bool MapIntrinToIml::runOnFunction(Function &F) {
+
   DEBUG(dbgs() << "\nExecuting MapIntrinToIml ...\n\n");
   if (RunSvmlStressMode) {
-    DEBUG(dbgs() << "Stress Testing Mode Invoked - intrinsic calls will be "
-                    "scalarized");
+    DEBUG(dbgs() << "Stress Testing Mode Invoked - svml calls will be "
+                    "scalarized\n");
   }
 
   Func = &F;
@@ -860,276 +881,262 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
   TargetTransformInfo *TTI =
       &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
 
-  TargetLibraryInfo *TLI =
-      &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-
   const DataLayout DL = M->getDataLayout();
 
-  // Will be populated with the intrinsics that will be replaced with svml
-  // calls.
+  Triple *T = new Triple(M->getTargetTriple());
+  bool X86Target = (T->getArch() == Triple::x86 ||
+                    T->getArch() == Triple::x86_64);
+
+  // Will be populated with the call instructions that will be replaced with
+  // legalized/refined svml calls.
   SmallVector<Instruction *, 4> InstToRemove;
 
+  // Keep track of calls that have already been translated so we don't consider
+  // them again.
+  SmallPtrSet<CallInst*, 4> InstToTranslate;
+
   // Dirty becomes true (LLVM IR is modified) under two circumstances:
-  // 1) A candidate vector math intrinsic is found and is replaced with an
-  //    svml/libm variant.
-  // 2) A candidate vector math intrinsic is found, is not replaced by an
-  //    svml/libm variant, but is scalarized.
+  // 1) A candidate vector math call is found and is replaced with an svml
+  //    variant.
+  // 2) A candidate vector math call is found, is not replaced by an svml
+  //    variant, but is scalarized.
   bool Dirty = false; // LLVM IR not yet modified
 
-  // Begin searching for vector intrinsics that are candidates for translation
-  // to svml/libm.
+  // Begin searching for calls that are candidates for legalization and/or
+  // refinement based on IMF attributes attached to the call.
   for (inst_iterator Inst = inst_begin(F), InstEnd = inst_end(F);
        Inst != InstEnd; ++Inst) {
 
-    // Attempt to find an SVML/libm variant for all intrinsic calls and let
-    // libiml_attr worry about those functions that do not have any SVML/libm
-    // variants. It will simply return a NULL pointer if a variant is not found.
-    // This way we don't need to check any specific intrinsic IDs. If a vector
-    // math intrinsic is found but not replaced by an svml/libm variant, the
-    // intrinsic is scalarized. Dirty stays false if this check fails since
-    // a vector intrinsic is not found.
-    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(&*Inst)) {
-
-      StringRef FuncName;
-      if (!parseIntrinsicName(II->getCalledFunction()->getName(), FuncName,
-                              TLI))
-        continue;
-
-      unsigned ScalarBitWidth = 0;
-      StringRef DataType;
-      LibFunc::Func LF;
-      TLI->getLibFunc(FuncName, LF);
-
-      VectorType *IntrinType = getIntrinsicType(II);
-
-      // Translation of scalar intrinsics is not yet supported. This check will
-      // be removed when libm support is added, and the code will be refactored
-      // so that there are separate code paths for vector(svml) and scalar(libm)
-      // functionality. As of now, the code below assumes svml translation only.
-      if (!IntrinType)
-        continue;
-
-      unsigned LogicalVL = IntrinType->getNumElements();
-      Type *ElemType = IntrinType->getElementType();
-
-      // Need to go through DataLayout in cases where we have pointer types to
-      // get the correct pointer bit size.
-      ScalarBitWidth = DL.getTypeSizeInBits(ElemType);
-
-      // Translation for float versions of svml variants require an 'f' to
-      // be part of the name. e.g., sinf vs. sin for double.
-      if (ElemType->isFloatTy())
-        DataType = "f";
-
-      // Get the number of svml calls that will be required, indicated by
-      // NumRet. NumRet is determined by getting the vector type info from the
-      // intrinsic signature. See notes in getIntrinsicType() for more
-      // information.
-      unsigned TargetVL = 0;
-      unsigned NumRet =
-          calculateNumReturns(TTI, ScalarBitWidth, LogicalVL, &TargetVL);
-
-      std::string TargetVLString = std::to_string(TargetVL);
-
-      // Construct the function name that will be used to look up the proper
-      // SVML/libm variant (the parent function).
-      Twine TempFuncName = "__svml_" + FuncName + DataType + TargetVLString;
-      std::string TempFuncNameRef = TempFuncName.str();
-      char *ParentFuncName = new char[TempFuncNameRef.length() + 1];
-      std::strcpy(ParentFuncName, TempFuncNameRef.c_str());
-
-      DEBUG(dbgs() << "Parent Function: " << ParentFuncName << "\n");
-
-      ImfAttr *AttrList = nullptr;
-      createImfAttributeList(II, &AttrList);
-
-      // External libiml_attr interface that returns the SVML/libm variant if
-      // the parent function and IMF attributes match. Return NULL otherwise.
-      const char *VariantFuncName =
-          get_library_function_name(ParentFuncName, AttrList);
-
-      // No longer need the IMF attribute list at this point, so free up the
-      // memory. Note: this does not remove the attributes from the instruction,
-      // only the internal data structure used to query the iml interface.
-      deleteAttributeList(&AttrList);
-
-      // An svml/libm variant was found for the vector intrinsic, so replace
-      // the intrinsic with the new svml/libm calls. Set Dirty to true since
-      // the LLVM IR is modified.
-      if (VariantFuncName && !RunSvmlStressMode) {
-        StringRef VariantFuncNameRef = StringRef(VariantFuncName);
-        DEBUG(dbgs() << "IML Variant: " << VariantFuncNameRef << "\n\n");
-
-        // Original arguments to the vector intrinsic.
-        SmallVector<Value *, 8> Args;
-
-        FunctionType *FT;
-
-        if (LF == LibFunc::sincos) {
-          // We have to do some special handling for sincos calls because we
-          // must transform the widened intrinsic form of
-          // 'void sincos(<vl x type>, <vl x type*>, <vl x type*>)' to
-          // '<vl x 2 x type> __svml_sincos(<vl x type>)'
-          Args.push_back(II->getArgOperand(0));
-          VectorType *RetType =
-              VectorType::getDoubleElementsVectorType(IntrinType);
-          FT = FunctionType::get(RetType, IntrinType, false);
-        } else {
-          unsigned NumArgs = II->getNumArgOperands();
-          for (unsigned I = 0; I < NumArgs; I++) {
-            Value *Arg = II->getArgOperand(I);
-            Args.push_back(Arg);
-          }
-          FT = II->getFunctionType();
-        }
-
-        // FT will point to the legal FunctionType based on target register
-        // size requirements. This FunctionType is used to create the call
-        // to the svml function.
-        FT = legalizeFunctionTypes(FT, Args, TargetVL, LF);
-        Constant *FCache = M->getOrInsertFunction(VariantFuncNameRef, FT);
-        Instruction *InsertPt = II;
-
-        // WorkList contains the instructions that are the results of svml
-        // calls. This could be the call instructions themselves, or the
-        // results of shuffles for calls to sincos or calls to functions
-        // where the result is less than full vector.
-        SmallVector<Instruction *, 8> WorkList;
-
-        if (NumRet > 1) {
-          // NewArgs contains the type legalized parameters that are split in
-          // splitArgs(). These are the results of shuffle instructions.
-          SmallVector<SmallVector<Value *, 8>, 8> NewArgs;
-          splitArgs(Args, NewArgs, NumRet, TargetVL);
-
-          generateSvmlCalls(NumRet, FCache, NewArgs, WorkList, &InsertPt);
-
-          if (LF != LibFunc::sincos) {
-            // There will be no users of sincos because it's a void function.
-            // Because of this, we have to generate the store instructions
-            // explicitly. See generateSinCosStore().
-            Instruction *FinalResult =
-                combineSvmlCallResults(NumRet, WorkList, &InsertPt);
-            II->replaceAllUsesWith(FinalResult);
-          }
-        } else {
-          // NumRet = 1
-
-          // Type legalization still needs to happen for NumRet = 1 when
-          // dealing with less than full vector cases.
-          // generateNewArgsFromPartialVectors() duplicates the low elements
-          // into the upper part of the vector so the svml call operates on
-          // safe values. But, the duplicate results are not needed, so shuffle
-          // out the ones we want and then replace the users of the function
-          // call with the shuffle. This work is done via
-          // extractElemsFromVector().
-          //
-          // Assuming target register width of xmm (128-bit) and user
-          // specifying explicit vl=2:
-          //
-          // Before Transformation:
-          //
-          // %7 = sitofp <2 x i32> %induction3.1 to <2 x float>
-          // %8 = call <2 x float> @llvm.cos.v2f32(<2 x float> %7)
-          //
-          // %9 = getelementptr inbounds [128 x float], [128 x float]* %array,
-          //                             i64 0, i64 %index.next
-          //
-          // %10 = bitcast float* %9 to <2 x float>*
-          // store <2 x float> %8, <2 x float>* %10, align 8
-          //
-          // After Transformation:
-          //
-          // %1 = sitofp <2 x i32> %induction27 to <2 x float>
-          //
-          // duplicate low order elements via
-          // generateNewArgsFromPartialVectors()
-          // %dup = shufflevector <2 x float> %1, <2 x float> undef,
-          //                      <4 x i32> <i32 0, i32 1, i32 0, i32 1>
-          //
-          // %vcall = call <4 x float> @__svml_cosf4_ha(<4 x float> %dup)
-          //
-          // shuffle out the results that are needed via
-          // extractElemsFromVector()
-          // %part = shufflevector <4 x float> %vcall, <4 x float> undef,
-          //                       <2 x i32> <i32 0, i32 1>
-          //
-          // %2 = getelementptr inbounds float, float* %array, i64 %index
-          // %3 = bitcast float* %2 to <2 x float>*
-          // store <2 x float> %part, <2 x float>* %3, align 4
-
-          SmallVector<Value *, 8> NewArgs;
-          generateNewArgsFromPartialVectors(II, FT, TargetVL, NewArgs,
-                                            &InsertPt);
-
-          CallInst *NewCI = CallInst::Create(FCache, NewArgs, "vcall");
-          Instruction *CallResult = NewCI;
-          NewCI->insertAfter(InsertPt);
-
-          if (LF != LibFunc::sincos) {
-            bool LessThanFullVector = isLessThanFullVector(
-                II->getFunctionType()->getReturnType(), FT->getReturnType());
-
-            if (LessThanFullVector) {
-              // sincos requires a special extraction because it has a double
-              // wide return register and returns void. This is dealt with in
-              // generateSinCosStore().
-              //
-              // Extract the number of elements specified by the partial vector
-              // return type of the intrinsic (indicated by LogicalVL). The
-              // NewCI return type will indicate the size of the vector
-              // extracted from. Start extracting from position 0.
-              CallResult = extractElemsFromVector(NewCI, 0, LogicalVL);
-              CallResult->insertAfter(NewCI);
-            }
-
-            II->replaceAllUsesWith(CallResult);
-          } else {
-            WorkList.push_back(NewCI);
-          }
-        }
-
-        if (LF == LibFunc::sincos) {
-          unsigned StorePtrIdx = 0;
-          // For partial register cases, we only want to extract the partial
-          // number of elements from the results. Otherwise, extract the full
-          // legal register width number of elements.
-          unsigned NumElemsToStore =
-              LogicalVL < TargetVL ? LogicalVL : TargetVL;
-          for (unsigned I = 0; I < NumRet; ++I) {
-            InsertPt = WorkList[I];
-            generateSinCosStore(II, WorkList[I], NumElemsToStore, TargetVL,
-                                StorePtrIdx, &InsertPt);
-            StorePtrIdx += NumElemsToStore;
-          }
-        }
-
-        InstToRemove.push_back(II);
-        Dirty = true; // LLVM-IR has been changed because we found an svml/libm
-                      // variant.
-      } else {
-        // TODO: If for some reason svml call translation failed, it is possible
-        // that the vector intrinsic left in the LLVM IR will not be recognized
-        // by the back-end. To prevent this, scalarize the vector intrinsic
-        // call. Calls to vector intrinsics that already exist in LLVM do not
-        // have to go through this interface since they can be scalarized at the
-        // ISD level, but any new intrinsics added will not have back-end
-        // support. Thus, for consistency sake, just handle all scalarization of
-        // svml translation failures here. Also scalarize when running in
-        // stress test mode. Since the LLVM IR is modified, set Dirty to true.
-
-        scalarizeVectorIntrinsic(II, TLI->getName(LF), LogicalVL, ElemType);
-        InstToRemove.push_back(II);
-        Dirty = true; // LLVM-IR has been changed because the vector intrinsic
-                      // was replaced with scalar calls.
-
-        DEBUG(dbgs() << "\n\n");
-      }
+    // Find incoming svml calls and insert them into a map. These are candidates
+    // for legalization and application of IMF attributes. This check can later
+    // be extended to include scalar (libm) candidates.
+    CallInst *CI = dyn_cast<CallInst>(&*Inst);
+    // Handle only those svml calls that have explicitly defined vector types as
+    // returns/arguments. E.g., cases where the user writes intrinsics directly
+    // have been known to use pointers to structs of __m128 types. These are not
+    // supported as of now.
+    if (CI && CI->getCalledFunction() && getCallType(CI)) {
+      StringRef FuncName = CI->getCalledFunction()->getName();
+      if (FuncName.startswith("__svml"))
+        InstToTranslate.insert(CI);
     }
   }
 
-  // Remove the old intrinsic calls since they have been replaced with the
-  // svml/libm calls or the intrinsic has been scalarized.
+  SmallPtrSet<CallInst*, 4>::iterator CallInstIt = InstToTranslate.begin();
+  SmallPtrSet<CallInst*, 4>::iterator CallInstEnd = InstToTranslate.end();
+  for (; CallInstIt != CallInstEnd; ++CallInstIt) {
+
+    CallInst *CI = cast<CallInst>(*CallInstIt);
+    DEBUG(dbgs() << "Call Inst: " << *CI << "\n");
+
+    StringRef FuncName = CI->getCalledFunction()->getName();
+    unsigned ScalarBitWidth = 0;
+
+    // The function call is only inserted into the candidates map
+    // (InstToTranslate) when it is known the return/arguments are explicitly
+    // vector typed. Thus, here it is known that getCallType(CI) will return
+    // a vector type.
+    VectorType *VecCallType = getCallType(CI);
+
+    unsigned LogicalVL = VecCallType->getNumElements();
+    Type *ElemType = VecCallType->getElementType();
+
+    // Need to go through DataLayout in cases where we have pointer types to
+    // get the correct pointer bit size.
+    ScalarBitWidth = DL.getTypeSizeInBits(ElemType);
+
+    // Get the number of library calls that will be required, indicated by
+    // NumRet. NumRet is determined by getting the vector type info from the
+    // call signature. See notes in getCallType() for more information.
+    unsigned TargetVL = 0;
+    unsigned NumRet =
+        calculateNumReturns(TTI, ScalarBitWidth, LogicalVL, &TargetVL);
+
+    const char *VariantFuncName = nullptr;
+
+    if (X86Target) {
+      VariantFuncName = findX86Variant(CI, FuncName, LogicalVL, TargetVL);
+    }
+
+    // An alternate math library function was found for the original call, so
+    // replace the original call with the new call. Set Dirty to true since
+    // the LLVM IR is modified. Scalarize the call when:
+    // 1) an appropriate math library function is not found through querying
+    //    the function selection interface.
+    // 2) the pass is running in stress testing mode.
+    if (VariantFuncName && !RunSvmlStressMode) {
+      StringRef VariantFuncNameRef = StringRef(VariantFuncName);
+      DEBUG(dbgs() << "Function Variant: " << VariantFuncNameRef << "\n\n");
+
+      // Original arguments to the vector call.
+      SmallVector<Value *, 8> Args;
+
+      FunctionType *FT;
+
+      if (X86Target && isSinCosCall(FuncName)) {
+        // We have to do some special handling for sincos calls on X86
+        // because 'void sincos(<vl x type>, <vl x type*>, <vl x type*>)'
+        // must be transformed to:
+        // '<vl x 2 x type> __svml_sincos(<vl x type>)'
+        Args.push_back(CI->getArgOperand(0));
+        VectorType *RetType =
+            VectorType::getDoubleElementsVectorType(VecCallType);
+        FT = FunctionType::get(RetType, VecCallType, false);
+      } else {
+        unsigned NumArgs = CI->getNumArgOperands();
+        for (unsigned I = 0; I < NumArgs; I++) {
+          Value *Arg = CI->getArgOperand(I);
+          Args.push_back(Arg);
+        }
+        FT = CI->getFunctionType();
+      }
+
+      // FT will point to the legal FunctionType based on target register
+      // size requirements. This FunctionType is used to create the call
+      // to the svml function.
+      FT = legalizeFunctionTypes(FT, Args, TargetVL, FuncName);
+      Constant *FCache = M->getOrInsertFunction(VariantFuncNameRef, FT);
+      Instruction *InsertPt = CI;
+
+      // WorkList contains the instructions that are the results of math
+      // library calls. This could be the call instructions themselves, or
+      // the results of shuffles for cases like calls to sincos, or calls to
+      // functions that are less than full vector.
+      SmallVector<Instruction *, 8> WorkList;
+
+      if (NumRet > 1) {
+
+        // NumRet > 1 means that multiple library calls are required to
+        // support the vector length of the call.
+
+        // NewArgs contains the type legalized parameters that are split in
+        // splitArgs(). These are the results of shuffle instructions.
+        SmallVector<SmallVector<Value *, 8>, 8> NewArgs;
+        splitArgs(Args, NewArgs, NumRet, TargetVL);
+
+        generateMathLibCalls(NumRet, FCache, NewArgs, WorkList, &InsertPt);
+
+        if (!isSinCosCall(FuncName)) {
+          // There will be no users of sincos because it's a void function.
+          // Because of this, we have to generate the store instructions
+          // explicitly. See generateSinCosStore().
+          Instruction *FinalResult =
+              combineCallResults(NumRet, WorkList, &InsertPt);
+          CI->replaceAllUsesWith(FinalResult);
+        }
+      } else {
+        // NumRet = 1
+
+        // Type legalization still needs to happen for NumRet = 1 when
+        // dealing with less than full vector cases.
+        // generateNewArgsFromPartialVectors() duplicates the low elements
+        // into the upper part of the vector so the math library call operates
+        // on safe values. But, the duplicate results are not needed, so
+        // shuffle out the ones we want and then replace the users of the
+        // function call with the shuffle. This work is done via
+        // extractElemsFromVector().
+        //
+        // Assuming target register width of 128-bit and user specifying
+        // explicit vl=2:
+        //
+        // Before Transformation:
+        //
+        // %7 = sitofp <2 x i32> %induction3.1 to <2 x float>
+        // %8 = call <2 x float> @__svml_cosf2(<2 x float> %7)
+        //
+        // %9 = getelementptr inbounds [128 x float], [128 x float]* %array,
+        //                             i64 0, i64 %index.next
+        //
+        // %10 = bitcast float* %9 to <2 x float>*
+        // store <2 x float> %8, <2 x float>* %10, align 8
+        //
+        // After Transformation:
+        //
+        // %1 = sitofp <2 x i32> %induction27 to <2 x float>
+        //
+        // duplicate low order elements via
+        // generateNewArgsFromPartialVectors()
+        // %dup = shufflevector <2 x float> %1, <2 x float> undef,
+        //                      <4 x i32> <i32 0, i32 1, i32 0, i32 1>
+        //
+        // Example call here is to X86 svml.
+        // %vcall = call <4 x float> @__svml_cosf4_ha(<4 x float> %dup)
+        //
+        // shuffle out the results that are needed via
+        // extractElemsFromVector()
+        // %part = shufflevector <4 x float> %vcall, <4 x float> undef,
+        //                       <2 x i32> <i32 0, i32 1>
+        //
+        // %2 = getelementptr inbounds float, float* %array, i64 %index
+        // %3 = bitcast float* %2 to <2 x float>*
+        // store <2 x float> %part, <2 x float>* %3, align 4
+        SmallVector<Value *, 8> NewArgs;
+        generateNewArgsFromPartialVectors(CI, FT, TargetVL, NewArgs,
+                                          &InsertPt);
+
+        CallInst *NewCI = CallInst::Create(FCache, NewArgs, "vcall");
+        Instruction *CallResult = NewCI;
+        NewCI->insertAfter(InsertPt);
+
+        if (!isSinCosCall(FuncName)) {
+          bool LessThanFullVector = isLessThanFullVector(
+              CI->getFunctionType()->getReturnType(), FT->getReturnType());
+
+          if (LessThanFullVector) {
+            // sincos requires a special extraction because it has a double
+            // wide return register. This is dealt with in
+            // generateSinCosStore().
+            //
+            // Extract the number of elements specified by the partial vector
+            // return type of the call (indicated by LogicalVL). The NewCI
+            // return type will indicate the size of the vector extracted from.
+            // Start extracting from position 0.
+            CallResult = extractElemsFromVector(NewCI, 0, LogicalVL);
+            CallResult->insertAfter(NewCI);
+          }
+
+          CI->replaceAllUsesWith(CallResult);
+        } else {
+          WorkList.push_back(NewCI);
+        }
+      }
+
+      if (X86Target && isSinCosCall(FuncName)) {
+        unsigned StorePtrIdx = 0;
+        // For partial register cases, we only want to extract the partial
+        // number of elements from the results. Otherwise, extract the full
+        // legal register width number of elements.
+        unsigned NumElemsToStore =
+            LogicalVL < TargetVL ? LogicalVL : TargetVL;
+        for (unsigned I = 0; I < NumRet; ++I) {
+          InsertPt = WorkList[I];
+          generateSinCosStore(CI, WorkList[I], NumElemsToStore, TargetVL,
+                              StorePtrIdx, &InsertPt);
+          StorePtrIdx += NumElemsToStore;
+        }
+      }
+
+      InstToRemove.push_back(CI);
+      Dirty = true; // LLVM-IR has been changed because we replaced the
+                    // original call with a legalized/refined one.
+    } else {
+      // TODO: If for some reason the call translation failed, it is possible
+      // that the lib call left in the LLVM IR is not legal and will not be
+      // found when linking against the math library. To prevent a link error,
+      // scalarize the vector math call. Also scalarize when running in stress
+      // test mode. Since the LLVM IR is modified, set Dirty to true.
+
+      scalarizeVectorCall(CI, FuncName, LogicalVL, ElemType);
+      InstToRemove.push_back(CI);
+      Dirty = true; // LLVM-IR has been changed because the original vector call
+                    // was replaced with scalar calls.
+
+      DEBUG(dbgs() << "\n\n");
+    }
+  }
+
+  // Remove the old math library calls since they have been replaced with the
+  // legalized library calls or they have been scalarized.
   for (auto *Inst : InstToRemove) {
     Inst->eraseFromParent();
   }
