@@ -1241,7 +1241,7 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
       MachineInstr *MI = iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
-#if 0
+#if 1
       //for two inputs value, we can generate better code
       if (MI->getNumOperands() == 5) {
         replace2InputsIfFooterPhi(MI);
