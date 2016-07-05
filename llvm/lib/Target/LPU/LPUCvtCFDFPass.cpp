@@ -433,8 +433,10 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
                   if (numIfParent > 1) {
                     assert(false && "TBD: support multiple if parents in CDG has not been implemented yet");
                   }
-                  assert((MLI->getLoopFor(dmbb) == NULL || MLI->getLoopFor(dmbb)->getLoopLatch() != dmbb) && 
-					      "latch node can't forward dominate nodes inside its own loop");
+                  assert((MLI->getLoopFor(dmbb) == NULL || 
+                          MLI->getLoopFor(dmbb) != MLI->getLoopFor(upbb) ||
+                          MLI->getLoopFor(dmbb)->getLoopLatch() != dmbb) && 
+					                "latch node can't forward dominate nodes inside its own loop");
        
                   MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, upbb);
                   unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
