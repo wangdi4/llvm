@@ -1040,16 +1040,28 @@ void LPUCvtCFDFPass::assignLicForDF() {
       renameQueue.push_back(Reg);
     }
   }
-#if 0
+
+#if 1
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
-      bool allLics = true;
+			unsigned schedClass = MI->getDesc().getSchedClass();
+			if (!schedClass) continue;
+
+			bool allLics = true;
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
-        if (!MO->isReg()) continue;
-        unsigned Reg = MO->getReg();
-        if (Reg < LPU::CI0_0 || Reg > LPU::CI64_1023) {
-          allLics = false;
-          break;
+        if (!MO->isReg()) {
+          if (MO->isImm() || MO->isCImm() || MO->isFPImm()) {
+            continue;
+          } else {
+            allLics = false;
+            break;
+          }
+        } else {
+          unsigned Reg = MO->getReg();
+          if (Reg < LPU::CI0_0 || Reg > LPU::CI64_1023) {
+            allLics = false;
+            break;
+          }
         }
       }
       if (allLics) {
