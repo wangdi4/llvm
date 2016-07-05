@@ -664,12 +664,6 @@ _mm_storer_ps(private float *p, __m128 a)
 #define _mm_prefetch(a, sel) (__builtin_prefetch((void *)(a), 0, (sel)))
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_stream_pi(private __m64 *p, __m64 a)
-{
-  __builtin_ia32_movntq(p, a);
-}
-
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_stream_ps(private float *p, __m128 a)
 {
   __builtin_ia32_movntps(p, a);

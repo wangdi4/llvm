@@ -31,11 +31,19 @@
 #include <xmmintrin.h>
 
 typedef double __m128d __attribute__((__vector_size__(16)));
+#ifdef __OPENCL__
+typedef long __m128i __attribute__((__vector_size__(16)));
+#else
 typedef long long __m128i __attribute__((__vector_size__(16)));
+#endif
 
 /* Type defines.  */
 typedef double __v2df __attribute__ ((__vector_size__ (16)));
+#ifdef __OPENCL__
+typedef long __v2di __attribute__ ((__vector_size__ (16)));
+#else
 typedef long long __v2di __attribute__ ((__vector_size__ (16)));
+#endif
 typedef short __v8hi __attribute__((__vector_size__(16)));
 typedef char __v16qi __attribute__((__vector_size__(16)));
 
@@ -390,12 +398,6 @@ _mm_cvtepi32_pd(__m128i a)
   return __builtin_ia32_cvtdq2pd((__v4si)a);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_cvtpd_epi32(__m128d a)
-{
-  return __builtin_ia32_cvtpd2dq(a);
-}
-
 static __inline__ int __attribute__((__always_inline__, __nodebug__))
 _mm_cvtsd_si32(__m128d a)
 {
@@ -729,24 +731,6 @@ _mm_mullo_epi16(__m128i a, __m128i b)
   return (__m128i)((__v8hi)a * (__v8hi)b);
 }
 
-static __inline__ __m64 __attribute__((__always_inline__, __nodebug__))
-_mm_mul_su32(__m64 a, __m64 b)
-{
-  return __builtin_ia32_pmuludq((__v2si)a, (__v2si)b);
-}
-
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_mul_epu32(__m128i a, __m128i b)
-{
-  return __builtin_ia32_pmuludq128((__v4si)a, (__v4si)b);
-}
-
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_sad_epu8(__m128i a, __m128i b)
-{
-  return __builtin_ia32_psadbw128((__v16qi)a, (__v16qi)b);
-}
-
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_sub_epi8(__m128i a, __m128i b)
 {
@@ -873,18 +857,6 @@ _mm_sll_epi32(__m128i a, __m128i count)
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_slli_epi64(__m128i a, int count)
-{
-  return __builtin_ia32_psllqi128(a, count);
-}
-
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_sll_epi64(__m128i a, __m128i count)
-{
-  return __builtin_ia32_psllq128(a, count);
-}
-
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_srai_epi16(__m128i a, int count)
 {
   return (__m128i)__builtin_ia32_psrawi128((__v8hi)a, count);
@@ -954,18 +926,6 @@ static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_srl_epi32(__m128i a, __m128i count)
 {
   return (__m128i)__builtin_ia32_psrld128((__v4si)a, (__v4si)count);
-}
-
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_srli_epi64(__m128i a, int count)
-{
-  return __builtin_ia32_psrlqi128(a, count);
-}
-
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
-_mm_srl_epi64(__m128i a, __m128i count)
-{
-  return __builtin_ia32_psrlq128(a, count);
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -1126,7 +1086,11 @@ _mm_set_epi64x(long long q1, long long q0)
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_set_epi64(__m64 q1, __m64 q0)
 {
+#ifdef __OPENCL__
+  return (__m128i){ (long)q0, (long)q1 };
+#else
   return (__m128i){ (long long)q0, (long long)q1 };
+#endif
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -1156,7 +1120,11 @@ _mm_set1_epi64x(long long q)
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_set1_epi64(__m64 q)
 {
-  return (__m128i){ (long long)q, (long long)q };
+#ifdef __OPENCL__
+  return (__m128i) { (long)q, (long)q };
+#else
+  return (__m128i) { (long long)q, (long long)q };
+#endif // __OPENCL__
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -1180,7 +1148,11 @@ _mm_set1_epi8(char b)
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_setr_epi64(__m64 q0, __m64 q1)
 {
-  return (__m128i){ (long long)q0, (long long)q1 };
+#ifdef __OPENCL__
+  return (__m128i) { (long)q0, (long)q1 };
+#else
+  return (__m128i) { (long long)q0, (long long)q1 };
+#endif // __OPENCL__
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -1238,12 +1210,6 @@ static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_stream_pd(private double *p, __m128d a)
 {
   __builtin_ia32_movntpd(p, a);
-}
-
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_stream_si128(__private __m128i *p, __m128i a)
-{
-  __builtin_ia32_movntdq(p, a);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
@@ -1388,7 +1354,11 @@ _mm_movepi64_pi64(__m128i a)
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_movpi64_pi64(__m64 a)
 {
-  return (__m128i){ (long long)a, 0 };
+#ifdef __OPENCL__
+  return (__m128i) { (long)a, 0 };
+#else
+  return (__m128i) { (long long)a, 0 };
+#endif // __OPENCL__
 }
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
