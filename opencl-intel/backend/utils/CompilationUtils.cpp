@@ -664,24 +664,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return StringRef();
   }
 
-  static const MDNode *findSubprogram(const DebugInfoFinder &finder,
-                                      const Function *pFunc) {
-    for (DISubprogram const& subprog : finder.subprograms()) {
-      if (subprog.describes(pFunc))
-        return subprog;
-    }
-    return NULL;
-  }
-  static void SpliceDebugInfo(Function *SrcF, Function *DstF) {
-    Module *M = SrcF->getParent();
-    assert(M == DstF->getParent());
-    DebugInfoFinder Finder;
-    Finder.processModule(*M);
-    if (const MDNode *SubProgramNode = findSubprogram(Finder, SrcF)) {
-      DISubprogram(SubProgramNode).replaceFunction(DstF);
-    }
-  }
-
 Function *CompilationUtils::AddMoreArgsToFunc(
     Function *F, ArrayRef<Type *> NewTypes, ArrayRef<const char *> NewNames,
     ArrayRef<AttributeSet> NewAttrs, StringRef Prefix, bool IsKernel) {
@@ -734,7 +716,8 @@ Function *CompilationUtils::AddMoreArgsToFunc(
     // Replace the users to the new version.
     I->replaceAllUsesWith(&*NI);
   }
-  SpliceDebugInfo(F, NewF);
+  NewF->setSubprogram(F->getSubprogram());
+  F->setSubprogram(nullptr);
   return NewF;
 }
 
