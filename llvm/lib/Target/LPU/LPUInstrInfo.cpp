@@ -428,6 +428,13 @@ bool LPUInstrInfo::isCopy(MachineInstr *MI) const {
     MI->getOpcode() == LPU::COPY64;
 }
 
+bool LPUInstrInfo::isMOV(MachineInstr *MI) const {
+  return MI->getOpcode() == LPU::MOV1 ||
+    MI->getOpcode() == LPU::MOV8 ||
+    MI->getOpcode() == LPU::MOV16 ||
+    MI->getOpcode() == LPU::MOV32 ||
+    MI->getOpcode() == LPU::MOV64;
+}
 
 
 bool LPUInstrInfo::isInit(MachineInstr *MI) const {

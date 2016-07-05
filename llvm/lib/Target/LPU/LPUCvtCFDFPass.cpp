@@ -92,6 +92,7 @@ namespace llvm {
   	void removeBranch();
     void linearizeCFG();
     unsigned findSwitchingDstForReg(unsigned Reg, MachineBasicBlock* mbb);
+    void handleAllConstantInputs();
     void releaseMemory() override;
   private:
     MachineFunction *thisMF;
@@ -194,6 +195,7 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForRepeat();
   insertSWITCHForLoopExit();
   replacePhiWithPICK();
+  handleAllConstantInputs();
   assignLicForDF();
   if (!RunSXU) {
     removeBranch();
@@ -1057,6 +1059,56 @@ void LPUCvtCFDFPass::assignLicForDF() {
   }
 #endif
 }
+
+
+void LPUCvtCFDFPass::handleAllConstantInputs() {
+  const TargetMachine &TM = thisMF->getTarget();
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  
+  LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
+  std::deque<unsigned> renameQueue;
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+    MachineBasicBlock::iterator iterMI = BB->begin();
+    while(iterMI != BB->end()) {
+      MachineInstr* MI = iterMI;
+      ++iterMI;      
+      if (!TII.isMOV(MI)) continue;
+
+      bool allConst = true;
+      for (MIOperands MO(MI); MO.isValid(); ++MO) {
+        if (MO->isReg() && MO->isDef()) continue;
+        if (!MO->isImm() && !MO->isCImm() && !MO->isFPImm()) {
+            allConst = false;
+            break;
+        }
+      }
+      if (allConst) {
+        const TargetRegisterClass *TRC = MRI->getRegClass(MI->getOperand(0).getReg());
+        ControlDependenceNode* mNode = CDG->getNode(BB);
+        ControlDependenceNode* ctrlNode = getNonLatchParent(mNode, true);
+        unsigned switchFalse = LPU::IGN, switchTrue = LPU::IGN;
+        if (ctrlNode) {
+          if (ctrlNode->isFalseChild(mNode)) {
+            switchFalse = MI->getOperand(0).getReg();
+          } else {
+            switchTrue = MI->getOperand(0).getReg();
+          }
+          MachineInstr* bi = ctrlNode->getBlock()->getFirstTerminator();
+          assert(bi->getOperand(0).isReg());
+          unsigned predReg = bi->getOperand(0).getReg();
+          const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
+          MachineInstr *switchInst = BuildMI(*BB, MI, DebugLoc(), TII.get(switchOpcode), switchFalse).addReg(switchTrue, RegState::Define).
+                                                                                                        addReg(predReg).addOperand(MI->getOperand(1));
+          MI->removeFromParent();
+          switchInst->setFlag(MachineInstr::NonSequential);
+        }
+      }
+    }
+  }
+}
+
 
 
 

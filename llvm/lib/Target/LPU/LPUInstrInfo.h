@@ -138,6 +138,7 @@ public:
   unsigned getPickSwitchOpcode(const TargetRegisterClass *RC, bool isPick) const;
   bool isSwitch(MachineInstr *) const;
   bool isCopy(MachineInstr *) const;
+  bool isMOV(MachineInstr *) const;
   bool isPick(MachineInstr *) const;
   bool isInit(MachineInstr *) const;
   bool isLoad(MachineInstr *) const;
