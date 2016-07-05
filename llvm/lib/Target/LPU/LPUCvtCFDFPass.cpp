@@ -318,6 +318,7 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::insertPredCpy(MachineBasicBlock
 
   const unsigned moveOpcode = TII.getMoveOpcode(TRC);
   MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(),TII.get(moveOpcode), cpyReg).addReg(bi->getOperand(0).getReg());
+  cpyInst->setFlag(MachineInstr::NonSequential);
   MachineBasicBlock *lphdr = MLI->getLoopFor(cdgpBB)->getHeader();
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
   const unsigned InitOpcode = TII.getInitOpcode(TRC);
@@ -1238,13 +1239,13 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
       MachineInstr *MI = iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
-
+#if 0
       //for two inputs value, we can generate better code
       if (MI->getNumOperands() == 5) {
         replace2InputsIfFooterPhi(MI);
         continue;
       }
-
+#endif
       multiInputsPick.clear();
       unsigned dst = MI->getOperand(0).getReg();
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
@@ -1289,6 +1290,12 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
           assert(DT->dominates(inBB, mbb));
           if (!ctrlBB) {
             //fall through
+            MachineInstr* dMI = MRI->getVRegDef(Reg);
+            MachineBasicBlock* DefBB = dMI->getParent();
+            unsigned switchingDef = findSwitchingDstForReg(Reg, DefBB);
+            if (switchingDef) {
+              Reg = switchingDef;
+            }
             PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, MI, dst);
           }
         }
