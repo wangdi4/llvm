@@ -1152,23 +1152,8 @@ MachineInstr* LPUCvtCFDFPass::PatchOrInsertPickAtFork(
     if (multiInputsPick.find(DefMI) != multiInputsPick.end()) {
       //make sure input src is before the pick
       assert(DefMI->getParent() == pickInstr->getParent());
-      bool needReorder = false;
-      MachineBasicBlock::iterator iterI = pickInstr->getParent()->begin();
-      while (iterI != pickInstr->getParent()->end()) {
-        MachineInstr* MI = iterI;
-        if (MI == pickInstr) {
-          needReorder = true;
-          break;
-        }
-        if (MI == DefMI) {
-          break;
-        }
-        ++iterI;
-      }
-      if (needReorder) {
-        pickInstr->removeFromParent();
-        DefMI->getParent()->insertAfter(DefMI, pickInstr);
-      }
+      pickInstr->removeFromParent();
+      DefMI->getParent()->insertAfter(DefMI, pickInstr); 
     }
     patched = true;
   }
