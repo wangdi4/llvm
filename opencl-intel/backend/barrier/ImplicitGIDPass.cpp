@@ -99,27 +99,30 @@ void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
 
     // Prepare to create debug metadata for implicit gid variables
     //
-    DIDescriptor scope;
+    DIScope *scope = nullptr;
     DebugLoc loc;
-    getBBScope(entry_block, scope, loc);
-
-    DIType gid_di_type = getOrCreateUlongDIType();
+    getBBScope(entry_block, &scope, loc);
 
     for (unsigned i = 0; i <= 2; ++i) {
       // Create implicit local variables to hold the gids
       //
+      DIBuilder *diBuilder = m_pDIB.get();
       Twine gid_name = Twine("__ocl_dbg_gid") + Twine(i);
       AllocaInst *gid_alloca = new AllocaInst(
           IntegerType::getInt64Ty(*m_pContext), 0, gid_name, insert_before);
-      DIVariable div = m_pDIB->createLocalVariable(
-          dwarf::DW_TAG_auto_variable, scope, StringRef(gid_name.str()),
-          DIFile(0), 1, gid_di_type, true, DIDescriptor::FlagArtificial, 0);
+      auto File = diBuilder->createFile("", "");
+      DILocalVariable *div = diBuilder->createAutoVariable(
+          scope, StringRef(gid_name.str()),
+        File, 1, getOrCreateUlongDIType(), true, DINode::FlagArtificial);
+
       // LLVM 3.6 UPGRADE: TODO: uncomment the line below if the new DIVariable
       // does need dwarf::DW_OP_deref expression
       Instruction *gid_declare =
-          m_pDIB->insertDeclare(gid_alloca, div,
-                                //m_pDIB->createExpression(dwarf::DW_OP_deref),
-                                m_pDIB->createExpression(),
+        diBuilder->insertDeclare(gid_alloca,
+                                div,
+                                //diBuilder->createExpression(dwarf::DW_OP_deref),
+                                diBuilder->createExpression(),
+                                gid_alloca->getDebugLoc(),
                                 insert_before);
       gid_declare->setDebugLoc(loc);
       if (!functionHasBarriers) {
@@ -140,17 +143,17 @@ void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
     }
 }
 
-bool ImplicitGlobalIdPass::getBBScope(const BasicBlock& BB, DIDescriptor& scope_out, DebugLoc& loc_out)
+bool ImplicitGlobalIdPass::getBBScope(const BasicBlock& BB, DIScope** scope_out, DebugLoc& loc_out)
 {
     for (BasicBlock::const_iterator BI = BB.begin(), BE = BB.end(); BI != BE; ++BI)
     {
         DebugLoc loc = BI->getDebugLoc();
-        if (loc.isUnknown())
+        if (!loc)
             continue;
         LLVMContext &context = BI->getContext();
-        DIDescriptor scope(loc.getScope(context));
-        if (scope.isLexicalBlock() || scope.isSubprogram()) {
-            scope_out = scope;
+        DIScope *scope = dyn_cast_or_null<DIScope>(loc.getScope());
+        if (scope && (dyn_cast_or_null<DILexicalBlock>(scope) || dyn_cast_or_null<DISubprogram>(scope))) {
+            *scope_out = scope;
             loc_out = loc;
             return true;
         }
@@ -158,15 +161,16 @@ bool ImplicitGlobalIdPass::getBBScope(const BasicBlock& BB, DIDescriptor& scope_
     return false;
 }
 
-DIType const& ImplicitGlobalIdPass::getOrCreateUlongDIType() const
+DIType * ImplicitGlobalIdPass::getOrCreateUlongDIType() const
 {
-    for ( DIType const& t: m_DbgInfoFinder.types()) {
-        if (t.getName() == "long unsigned int") {
+    for ( auto const& t: m_DbgInfoFinder.types()) {
+        if (t->getName() == "long unsigned int") {
             return t;
         }
     }
     // If the type wasn't found, create it now
-    return m_pDIB->createBasicType("long unsigned int", 64, 64, dwarf::DW_ATE_unsigned);
+    DIBuilder *diBuilder = m_pDIB.get();
+    return diBuilder->createBasicType("long unsigned int", 64, 64, dwarf::DW_ATE_unsigned);
 }
 
 
