@@ -18,6 +18,9 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#define __private
+#define private
+#include "cl_types3.h"
 #include "cl_image_declaration.h"
 
 // calback functions types definitions
@@ -61,7 +64,7 @@ typedef void (*__SOA4_Image_I_COORD_CBK) (__private void*, int4, int4, __private
 typedef void (*__SOA8_Image_I_COORD_CBK) (__private void*, int8, int8, __private int8*, __private int8*);
 
 
-__Image_I_COORD_CBK const constant coord_translate_i_callback[CBK_ARRAY_SIZE] = {
+__Image_I_COORD_CBK const coord_translate_i_callback[CBK_ARRAY_SIZE] = {
     trans_coord_int_UNDEFINED,
     trans_coord_int_UNDEFINED,
     trans_coord_int_UNDEFINED,
@@ -128,7 +131,7 @@ __Image_I_COORD_CBK const constant coord_translate_i_callback[CBK_ARRAY_SIZE] = 
     trans_coord_int_UNDEFINED
 };    //the list of integer coordinate translation callback
 
-__SOA4_Image_I_COORD_CBK const constant soa4_coord_translate_i_callback[CBK_ARRAY_SIZE] = {
+__SOA4_Image_I_COORD_CBK const soa4_coord_translate_i_callback[CBK_ARRAY_SIZE] = {
     soa4_trans_coord_int_UNDEFINED,
     soa4_trans_coord_int_UNDEFINED,
     soa4_trans_coord_int_UNDEFINED,
@@ -195,7 +198,7 @@ __SOA4_Image_I_COORD_CBK const constant soa4_coord_translate_i_callback[CBK_ARRA
     soa4_trans_coord_int_UNDEFINED
 };    //the list of soa4 integer coordinate translation callback
 
-__SOA8_Image_I_COORD_CBK const constant soa8_coord_translate_i_callback[CBK_ARRAY_SIZE] = {
+__SOA8_Image_I_COORD_CBK const soa8_coord_translate_i_callback[CBK_ARRAY_SIZE] = {
     soa8_trans_coord_int_UNDEFINED,
     soa8_trans_coord_int_UNDEFINED,
     soa8_trans_coord_int_UNDEFINED,
