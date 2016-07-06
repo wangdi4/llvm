@@ -368,24 +368,23 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
     // * Insert stoppoint calls
     // * Insert function exit builtins before returns
     //
-    for (Function::iterator block_iter = pFunc->begin();
-         block_iter != pFunc->end(); ++block_iter) {
-        for (BasicBlock::iterator instr_iter = block_iter->begin();
-             instr_iter != block_iter->end(); ++instr_iter) {
+    for (auto &BB : *pFunc) {
+        for (auto &I : BB) {
+            auto pInst = &I;
             // To insert stoppoints:
             // - Find the current C line for this instruction
             // - If the line was found and it's greater ( greater because we don't want
             //   to stop on declaration of variable imported by block scope) than the previous
             //   saved C line, insert a stoppoint.
             //
-            unsigned cur_c_lineno = getCLinenoFromDbgMetadata(instr_iter);
+            unsigned cur_c_lineno = getCLinenoFromDbgMetadata(pInst);
             if (cur_c_lineno != 0) {
                 // Currently this will insert a stoppoint also for
                 // declarations in the beginning of a function, including
                 // declarations of function arguments.
                 //
                 if (cur_c_lineno > prev_c_lineno){
-                    insertDbgStoppointCall(instr_iter, fContext);
+                    insertDbgStoppointCall(pInst, fContext);
                     prev_c_lineno = cur_c_lineno;
                 }
             }
@@ -396,14 +395,14 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
             // 2. Return instruction, before which a builtin call will be
             //    inserted.
             //
-            if (DbgDeclareInst * dbgDeclareInst = dyn_cast<DbgDeclareInst>(instr_iter)) {
+            if (DbgDeclareInst * dbgDeclareInst = dyn_cast<DbgDeclareInst>(pInst)) {
                 // The new call is inserted before the existing call, and
                 // the existing call is scheduled for removal.
                 //
                 insertDbgDeclaraLocalCall(dbgDeclareInst, fContext);
                 instrs_to_remove.push_back(dbgDeclareInst);
             }
-            else if (ReturnInst* ret_instr = dyn_cast<ReturnInst>(instr_iter)) {
+            else if (ReturnInst* ret_instr = dyn_cast<ReturnInst>(pInst)) {
                 insertDbgExitFunctionCall(ret_instr, pFunc, fContext);
             }
         }
@@ -420,8 +419,8 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
 
 Value* DebugInfoPass::extractSubprogramDescriptorMetadata(Function* pFunc)
 {
-    for (DISubprogram const & subprogDIE : m_DbgInfoFinder.subprograms()) {
-        if (subprogDIE.describes(pFunc)) {
+    for (auto subprogDIE : m_DbgInfoFinder.subprograms()) {
+        if (subprogDIE->describes(pFunc)) {
             return makeAddressValueFromPointer(subprogDIE);
         }
     }
@@ -463,12 +462,12 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
 
     // Generate the builtin call for each global var in the module
     //
-    for (DIGlobalVariable const & diGlobalVar : m_DbgInfoFinder.global_variables()) {
-	
+    for (auto diGlobalVar : m_DbgInfoFinder.global_variables()) {
+
         // Take the var address from the metadata as a Value, and bitcast it
         // to i8*.
         assert(diGlobalVar.Verify());
-        Value* var_ref = diGlobalVar.getGlobal();
+        Value* var_ref = diGlobalVar->getVariable();
 
         // Some special globals are inserted by clang with a non-pointer value
         // (for example samplers). We currently don't know how to handle them.
@@ -502,8 +501,8 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
 unsigned DebugInfoPass::getCLinenoFromDbgMetadata(Instruction* instr)
 {
     if (MDNode* mdn = instr->getMetadata("dbg")) {
-        DILocation di_loc(mdn);
-        return di_loc.getLineNumber();
+        DebugLoc di_loc(mdn);
+        return di_loc.getLine();
     }
     return 0;
 }
