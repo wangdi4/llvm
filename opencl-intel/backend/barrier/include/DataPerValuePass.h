@@ -200,7 +200,7 @@ namespace intel {
     /// This holds WIRelatedValue analysis pass
     WIRelatedValue *m_pWIRelatedValue;
     /// This holds DataLayout of processed module
-    const DataLayout &m_pDL;
+    const DataLayout *m_pDL;
 
     // Analysis Data for pass user
     /// This holds a map between function and its values of Group-A

@@ -27,7 +27,7 @@ namespace intel {
   OCL_INITIALIZE_PASS_END(DataPerValue, "B-ValueAnalysis", "Barrier Pass - Collect Data per Value", false, true)
 
   DataPerValue::DataPerValue()
-    : ModulePass(ID), m_pSyncInstructions(NULL), m_pDL(0)
+    : ModulePass(ID), m_pSyncInstructions(nullptr), m_pDL(nullptr)
   {
     initializeDataPerValuePass(*llvm::PassRegistry::getPassRegistry());
   }
@@ -41,7 +41,7 @@ namespace intel {
     m_util.init(&M);
 
     // obtain DataLayout of the module
-    m_pDL = M.getDataLayout();
+    m_pDL = &M.getDataLayout();
     assert( m_pDL && "Failed to obtain instance of DataLayout!" );
 
     // Find and sort all connected function into disjointed groups
@@ -342,8 +342,8 @@ namespace intel {
 
     //TODO: check what is better to use for alignment?
     //unsigned int alignment = m_pDL->getABITypeAlignment(pType);
-    unsigned int alignment = (allocaAlignment) ? allocaAlignment : m_pDL.getPrefTypeAlignment(pType);
-    unsigned int sizeInBits = m_pDL.getTypeSizeInBits(pType);
+    unsigned int alignment = (allocaAlignment) ? allocaAlignment : m_pDL->getPrefTypeAlignment(pType);
+    unsigned int sizeInBits = m_pDL->getTypeSizeInBits(pType);
 
     Type *pElementType = pType;
     VectorType* pVecType = dyn_cast<VectorType>(pType);
@@ -351,7 +351,7 @@ namespace intel {
       pElementType = pVecType->getElementType();
     }
     assert(!isa<VectorType>(pElementType) && "element type of a vector is another vector!");
-    if ( m_pDL.getTypeSizeInBits(pElementType) == 1 ) {
+    if ( m_pDL->getTypeSizeInBits(pElementType) == 1 ) {
       //we have a Value with base type i1
       m_oneBitElementValues.insert(pVal);
       //We will extend i1 to i32 before storing to special buffer.
