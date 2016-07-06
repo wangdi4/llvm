@@ -20,10 +20,6 @@
 
 #if !defined (__MIC__) && !defined(__MIC2__)
 
-
-// Enable double support. It is needed for declarations from intrin.h
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
-
 #define __OPENCL__
 #include <intrin.h>
 

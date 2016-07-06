@@ -20,7 +20,6 @@
 
 #if !defined (__MIC__) && !defined(__MIC2__)
 
-#pragma OPENCL EXTENSION cl_khr_fp64         : enable
 #pragma OPENCL EXTENSION cl_khr_depth_images : enable
 
 #define __OPENCL__
