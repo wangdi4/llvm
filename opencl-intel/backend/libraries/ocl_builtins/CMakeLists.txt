@@ -233,8 +233,7 @@ endif()
 set (LLVM_LINK_PARAMS -f)
 
 # llc parameters
-# "-stack-alignment" and "-force-align-stack" options should be in consistency with EngineBuilder options in Compiler.cpp
-set (LLC_PARAMS -filetype=obj -stack-alignment=32 -force-align-stack)
+set (LLC_PARAMS -filetype=obj)
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
   set (LLC_PARAMS ${LLC_PARAMS} -code-model=default -relocation-model=static)
 else (CMAKE_SIZEOF_VOID_P EQUAL 4)
