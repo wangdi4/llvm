@@ -479,27 +479,26 @@ static void dropSubprogramDI (Function * func) {
   diFinder.processModule(*func->getParent());
   std::unique_ptr<DIBuilder> diBuilder;
 
-  for (DICompileUnit compileUnit : diFinder.compile_units()) {
+  for (DICompileUnit *compileUnit : diFinder.compile_units()) {
     bool found = false;
     // Prepare operands for a new subprogram list excluding the specified subprogram
     SmallVector<Metadata*, 16> operands;
-    DIArray oldSubprogList(compileUnit.getSubprograms());
+    DISubprogramArray oldSubprogList(compileUnit->getSubprograms());
 
-    for (unsigned i = 0; i < oldSubprogList.getNumElements(); i++) {
-      assert(oldSubprogList.getElement(i).isSubprogram() && "Must be a DISuprogram descriptor");
-      DISubprogram diSubprog(oldSubprogList.getElement(i).get());
-      assert(diSubprog.Verify() && "FIXME: This is not a correct way to extract a DISubprogram!");
-      if (diSubprog.describes(func)) {
+    for (auto diSubprogram : oldSubprogList) {
+      assert(diSubprogram->isSubprogram() && "Must be a DISuprogram descriptor");
+      assert(diSubprogram->Verify() && "FIXME: This is not a correct way to extract a DISubprogram!");
+      if (diSubprogram->describes(func)) {
         found = true;
       } else {
-        operands.push_back(oldSubprogList.getElement(i));
+        operands.push_back(diSubprogram);
       }
     }
 
     if (found) {
       // Replace the old subprogram list MD node w\ the new one
       if(!diBuilder) diBuilder.reset(new DIBuilder(*func->getParent()));
-      compileUnit.replaceSubprograms(diBuilder->getOrCreateArray(operands));
+      compileUnit->replaceSubprograms(MDTuple::get(func->getContext(), operands));
     }
   }
 }
