@@ -80,6 +80,7 @@ namespace llvm {
       AU.setPreservesAll();
       MachineFunctionPass::getAnalysisUsage(AU);
     }
+		void insertSWITCHForOperand(MachineOperand& MO, MachineBasicBlock* mbb, MachineInstr* phiIn = nullptr);
     void insertSWITCHForIf();
     void insertSWITCHForRepeat();
     void insertSWITCHForLoopExit();
@@ -370,6 +371,100 @@ SmallVectorImpl<MachineInstr *>* LPUCvtCFDFPass::getOrInsertPredCopy(MachineBasi
   return predcpyVec;
 }
 
+
+
+void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBlock* mbb, MachineInstr* phiIn) {
+	const TargetMachine &TM = thisMF->getTarget();
+	const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+	const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+	MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+	if (!MO.isReg() || !TargetRegisterInfo::isVirtualRegister(MO.getReg())) return;
+	unsigned Reg = MO.getReg();
+	// process uses
+	if (MO.isUse()) {
+		ControlDependenceNode *unode = CDG->getNode(mbb);
+		CDGRegion *uregion = CDG->getRegion(unode);
+		assert(uregion);
+		MachineInstr *DefMI = MRI->getVRegDef(Reg);
+		const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+
+		if (DefMI && (DefMI->getParent() != mbb)) { // live into MI BB
+			MachineBasicBlock *dmbb = DefMI->getParent();
+			ControlDependenceNode *dnode = CDG->getNode(dmbb);
+			CDGRegion *dRegion = CDG->getRegion(dnode);
+			assert(dRegion);
+			//use, def in different region => need switch
+			if (uregion != dRegion) {
+				if (TII.isSwitch(DefMI)) {
+					//def already from a switch -- can only happen if use is an immediate child of def in CDG
+					//assert(dnode->isChild(unode) || MI->isPHI());
+					return;
+				}
+
+				unsigned numIfParent = 0;
+				for (ControlDependenceNode::node_iterator uparent = unode->parent_begin(), uparent_end = unode->parent_end();
+					uparent != uparent_end; ++uparent) {
+					ControlDependenceNode *upnode = *uparent;
+					MachineBasicBlock *upbb = upnode->getBlock();
+					if (!upbb) {
+						//this is tipical define inside loop, used outside loop on the main execution path
+						continue;
+					}
+					if (mbb == upbb) {
+						//mbb is a loop latch node, use inside a loop will be take care of in HandleUseInLopp
+						continue;
+					}
+					if (MLI->getLoopFor(upbb) &&
+						MLI->getLoopFor(upbb)->getLoopLatch() == upbb) {
+						//no need to conside backedge for if-statements handling
+						continue;
+					}
+					if (DT->dominates(dmbb, upbb))
+					{ //including dmbb itself
+						numIfParent++;
+						if (numIfParent > 1) {
+							assert(false && "TBD: support multiple if parents in CDG has not been implemented yet");
+						}
+						assert((MLI->getLoopFor(dmbb) == NULL ||
+							MLI->getLoopFor(dmbb) != MLI->getLoopFor(upbb) ||
+							MLI->getLoopFor(dmbb)->getLoopLatch() != dmbb) &&
+							"latch node can't forward dominate nodes inside its own loop");
+
+						MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, upbb);
+						unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
+						unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
+						unsigned newVReg;
+						if (upnode->isFalseChild(unode)) {
+							//rename Reg to switchFalseReg
+							newVReg = switchFalseReg;
+						}
+						else {
+							//rename it to switchTrueReg
+							newVReg = switchTrueReg;
+						}
+						if (phiIn) {
+							MO.setReg(newVReg);
+						}
+						else {
+							MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+							while (UI != MRI->use_end()) {
+								MachineOperand &UseMO = *UI;
+								MachineInstr *UseMI = UseMO.getParent();
+								++UI;
+								if (UseMI->getParent() == mbb) {
+									assert(mbb != upbb);
+									UseMO.setReg(newVReg);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+
 //focus on uses
 void LPUCvtCFDFPass::insertSWITCHForIf() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
@@ -385,91 +480,55 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
     // process each instruction in BB
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = I;
-      //loop header phi forward input is a kind of fork
-      //if (MI->isPHI()) continue; //care about forks, not joints
-      for (MIOperands MO(MI); MO.isValid(); ++MO) {
-        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-        unsigned Reg = MO->getReg();
-        // process uses
-        if (MO->isUse()) {
-          ControlDependenceNode *unode = CDG->getNode(mbb);
-          CDGRegion *uregion = CDG->getRegion(unode);
-          assert(uregion);
-          MachineInstr *DefMI = MRI->getVRegDef(Reg);
-          const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
-      
-          if (DefMI && (DefMI->getParent() != mbb)) { // live into MI BB
-            MachineBasicBlock *dmbb = DefMI->getParent();
-            ControlDependenceNode *dnode = CDG->getNode(dmbb);
-            CDGRegion *dRegion = CDG->getRegion(dnode);
-            assert(dRegion);
-            //use, def in different region => need switch
-            if (uregion != dRegion) {
-              if (TII.isSwitch(DefMI)) {
-                //def already from a switch -- can only happen if use is an immediate child of def in CDG
-                assert(dnode->isChild(unode));
-                continue;
-              }
-
-              unsigned numIfParent = 0;
-              for (ControlDependenceNode::node_iterator uparent = unode->parent_begin(), uparent_end = unode->parent_end();
-                uparent != uparent_end; ++uparent) {
-                ControlDependenceNode *upnode = *uparent;
-                MachineBasicBlock *upbb = upnode->getBlock();
-                if (!upbb) {
-                  //this is tipical define inside loop, used outside loop on the main execution path
-                  continue;
-                }
-                if (mbb == upbb) {
-                  //mbb is a loop latch node, use inside a loop will be take care of in HandleUseInLopp
-                  continue;
-                }
-                if (MLI->getLoopFor(upbb) &&
-                  MLI->getLoopFor(upbb)->getLoopLatch() == upbb) {
-                  //no need to conside backedge for if-statements handling
-                  continue;
-                }
-                if (DT->dominates(dmbb, upbb)) 
-                { //including dmbb itself
-                  numIfParent++;
-                  if (numIfParent > 1) {
-                    assert(false && "TBD: support multiple if parents in CDG has not been implemented yet");
-                  }
-                  assert((MLI->getLoopFor(dmbb) == NULL || 
-                          MLI->getLoopFor(dmbb) != MLI->getLoopFor(upbb) ||
-                          MLI->getLoopFor(dmbb)->getLoopLatch() != dmbb) && 
-					                "latch node can't forward dominate nodes inside its own loop");
-       
-                  MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, upbb);
-                  unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
-                  unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
-                  unsigned newVReg;
-                  if (upnode->isFalseChild(unode)) {
-                    //rename Reg to switchFalseReg
-                    newVReg = switchFalseReg;
-                  } else {
-                    //rename it to switchTrueReg
-                    newVReg = switchTrueReg;
-                  }
-
-                  MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
-                  while (UI != MRI->use_end()) {
-                    MachineOperand &UseMO = *UI;
-                    MachineInstr *UseMI = UseMO.getParent();
-                    ++UI;
-
-                    if (UseMI->getParent() == mbb) {
-                      assert(mbb != upbb);
-                      UseMO.setReg(newVReg);
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }//end of for operand
+			//loop header phi forward input is a kind of fork
+			//if (MI->isPHI()) continue; //care about forks, not joints
+			for (MIOperands MO(MI); MO.isValid(); ++MO) {
+				insertSWITCHForOperand(*MO, mbb);
+			}
     }//end of for MI
+		for (MachineBasicBlock::succ_iterator isucc = mbb->succ_begin(); isucc != mbb->succ_end(); ++isucc) {
+			MachineBasicBlock* succBB = *isucc;
+			for (MachineBasicBlock::iterator iPhi = succBB->begin(); iPhi != succBB->end(); ++iPhi) {
+				if (!iPhi->isPHI()) {
+					break;
+				}
+				for (MIOperands MO(iPhi); MO.isValid(); ++MO) {
+					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+					unsigned Reg = MO->getReg();
+					// process uses
+					if (MO->isUse()) {
+					  MachineOperand& mOpnd = *MO;
+						++MO;
+						if (MO->getMBB() == mbb) {
+							if (mbb->succ_size() == 1 || 
+								  mbb->succ_size() == 2 && MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getLoopLatch() == mbb) {
+								insertSWITCHForOperand(mOpnd, mbb, iPhi);
+							}	else {
+								//mbb itself is a fork
+								MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, mbb);
+								unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
+								unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
+								unsigned newVReg;
+
+								SmallVector<MachineOperand, 4> Cond; // For AnalyzeBranch.
+								Cond.clear();
+								MachineBasicBlock *TBB = nullptr, *FBB = nullptr; // For AnalyzeBranch
+								const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+								if (TII.AnalyzeBranch(*mbb, TBB, FBB, Cond, false)) {
+									assert(false && "LPU: failed to analysis conditional branch");
+								}
+								if (succBB == TBB) {
+									newVReg = switchTrueReg;
+								}	else {
+									newVReg = switchFalseReg;
+								}
+								mOpnd.setReg(newVReg);
+							}
+						}
+					}
+				}
+			}
+		}
   }//end of for DTN(mbb)
 }
 
@@ -606,7 +665,7 @@ void LPUCvtCFDFPass::insertSWITCHForLoopExit() {
                   //assert(use have to be a switch from the repeat handling pass, or def is a switch from the if handling pass  
                   ControlDependenceNode* unode = CDG->getNode(UseBB);
                   ControlDependenceNode* dnode = CDG->getNode(mbb);
-                  assert(TII.isSwitch(UseMI) && MLI->getLoopFor(UseBB)->getLoopLatch() == UseBB || 
+                  assert(TII.isSwitch(UseMI) || 
                          TII.isSwitch(MI) && unode->isParent(dnode) ||
                          //loop hdr Phi generated by SSAUpdater in handling repeat case
                          UseMI->isPHI());
@@ -1305,7 +1364,7 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
       MachineInstr *MI = iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
-#if 1
+#if 0
       //for two inputs value, we can generate better code
       if (MI->getNumOperands() == 5) {
         replace2InputsIfFooterPhi(MI);
