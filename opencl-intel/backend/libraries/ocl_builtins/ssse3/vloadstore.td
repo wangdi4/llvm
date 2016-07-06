@@ -557,7 +557,7 @@ OclBuiltinImpl __ocl_double2ToHalf2_rtz2 = OclBuiltinImpl<__ocl_double2ToHalf2_r
 OclBuiltinImpl __ocl_double2ToHalf2_rte2 = OclBuiltinImpl<__ocl_double2ToHalf2_rte, [v2f64], 0, [{
     //cl_ulong sign = (u.u >> 48) & 0x8000;
     //double x = fabs(f);
-    double2 temp = as_double2(_mm_srli_epi64(__builtin_astype($Arg0VarName,__m128i), 48));
+    double2 temp = as_double2(as_long2($Arg0VarName) >> (long2)(48));
     double2 signs = as_double2(as_long2(temp) & as_long2((int4)x8000));
     double2 absParam = as_double2(as_long2($Arg0VarName) & (long2)x7fffffffffffffff);
 
@@ -570,7 +570,7 @@ OclBuiltinImpl __ocl_double2ToHalf2_rte2 = OclBuiltinImpl<__ocl_double2ToHalf2_r
 
     double2 eq0 = _mm_cmpneq_pd(absParam, absParam);
     double2 eq = as_double2(as_long2(absParam) & as_long2(eq0));
-    eq = as_double2(_mm_srli_epi64(__builtin_astype(eq,__m128i), 42));
+    eq = as_double2(as_long2(eq) >> (long2)(42));
     eq = as_double2(as_long2(eq) & as_long2((int4)x7fff));
     eq = as_double2(as_long2(eq) | as_long2((int4)x0200));
     eq = as_double2(as_long2(eq) | as_long2(signs));
@@ -637,7 +637,7 @@ OclBuiltinImpl __ocl_double2ToHalf2_rte2 = OclBuiltinImpl<__ocl_double2ToHalf2_r
     res = (tmp  + absParam); //x
     res = (res - tmp); //u
     res = (res * as_double2((long2)x00f0000000000000));
-    res = as_double2(_mm_srli_epi64(__builtin_astype(res,__m128i), 42));
+    res = as_double2(as_long2(res) >> (long2)(42));
     res = as_double2(as_long2(res) | as_long2(signs));
     res = as_double2(~as_long2(dflt) & as_long2(res));
     eq = as_double2(as_long2(eq) | as_long2(res));
