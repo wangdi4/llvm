@@ -312,7 +312,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
     list (APPEND TMP_FILES ${TMP_RTL})
   endforeach (FILE)
   
-  if(NOT (${C_FILES} STREQUAL "IGNORE"))
+  if(NOT ("${C_FILES}" STREQUAL "IGNORE"))
     foreach (FILE ${C_FILES})
       compile( "${CLANG_C_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
       list (APPEND TMP_FILES ${TMP_RTL})
@@ -489,7 +489,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   list (APPEND OCL_20_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
 
   # build .rtl file out of OCL code (by clang) and copy it to install directory
-  add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} ${C_SOURCE_FILES} ${OCL_20_SOURCE_FILES})
+  add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} "${C_SOURCE_FILES}" ${OCL_20_SOURCE_FILES})
 
   # build .rtl (and .o) files out of OCL image callbacks (by clang) and copy to install directory
   add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB OUTPUT_OCL_IMAGE_CALLBACK_OBJ ${TARGET_NAME}_img_cbk ${TARGET_DIR} ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} IGNORE ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
@@ -548,6 +548,7 @@ list (APPEND OCL_20_SOURCE_FILES
 
 list (APPEND C_SOURCE_FILES
   ${CL_BUILTIN_SOURCE_DIR}/cbk_helper.c
+  ${CL_BUILTIN_SOURCE_DIR}/intrinsics.c
   )
 
 

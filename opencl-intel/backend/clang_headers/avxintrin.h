@@ -870,6 +870,9 @@ _mm256_storeu_si256(__m256i *p, __m256i a)
   __builtin_ia32_storedqu256((__private char *)(char *)p, (__v32qi)a);
 }
 
+__m256d __attribute__((__always_inline__, __nodebug__))
+_mm256_maskload_pd(double const *p, __m256i m);
+
 static __inline __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_maskload_ps(float const *p, __m128i m)
 {
@@ -888,6 +891,9 @@ _mm256_maskstore_ps(float *p, __m256i m, __m256 a)
 {
   __builtin_ia32_maskstoreps256((__private __v8sf *)(__v8sf *)p, (__v8si)m, (__v8sf)a);
 }
+
+void __attribute__((__always_inline__, __nodebug__))
+_mm256_maskstore_pd(double *p, __m256i m, __m256d a);
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm_maskstore_ps(float *p, __m128i m, __m128 a)

@@ -136,6 +136,9 @@ _mm_mullo_epi32 (__m128i __V1, __m128i __V2)
   return (__m128i) ((__v4si)__V1 * (__v4si)__V2);
 }
 
+__m128i __attribute__((__always_inline__, __nodebug__))
+_mm_mul_epi32(__m128i __V1, __m128i __V2);
+
 /* SSE4 Floating Point Dot Product Instructions.  */
 #define _mm_dp_ps(X, Y, M) __extension__ ({ \
   __m128 __X = (X); \
