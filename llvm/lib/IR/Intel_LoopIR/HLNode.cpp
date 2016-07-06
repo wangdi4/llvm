@@ -250,3 +250,14 @@ void HLNode::verify() const {
   assert((isa<HLRegion>(this) || getParent() != nullptr) &&
          "Non-Region HLNode should have a parent node");
 }
+
+unsigned HLNode::getMinTopSortNum() const {
+  auto Lp = dyn_cast<HLLoop>(this);
+
+  if (Lp && Lp->hasPreheader()) {
+    return Lp->pre_begin()->getTopSortNum(); 
+  }
+
+  return getTopSortNum();
+}
+

@@ -435,8 +435,8 @@ void AVRCodeGenHIR::eraseIntrinsBeforeLoop() {
   // assert(FirstDirItSet && "Expected SIMD directive not found");
 
   if (FirstDirItSet)
-    // Erase intrinsics and clauses before the loop
-    HLNodeUtils::erase(FirstDirIt, LoopIt);
+    // Remove intrinsics and clauses before the loop
+    HLNodeUtils::remove(FirstDirIt, LoopIt);
 }
 
 bool AVRCodeGenHIR::processLoop() {
@@ -463,7 +463,7 @@ bool AVRCodeGenHIR::processLoop() {
 
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
   if (!NeedRemainderLoop) {
-    HLNodeUtils::erase(OrigLoop);
+    HLNodeUtils::remove(OrigLoop);
   }
 
   return true;

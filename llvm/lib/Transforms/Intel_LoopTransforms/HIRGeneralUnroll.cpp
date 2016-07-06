@@ -374,7 +374,8 @@ bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
 
   uint64_t TripCount;
 
-  if (Loop->isConstTripLoop(&TripCount) &&
+  if ((Loop->isConstTripLoop(&TripCount) ||
+       (TripCount = Loop->getMaxTripCountEstimate())) &&
       (TripCount < MinTripCountThreshold)) {
     return false;
   }
@@ -417,7 +418,7 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, unsigned UnrollFactor) {
 
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
   if (!NeedRemainderLoop) {
-    HLNodeUtils::erase(OrigLoop);
+    HLNodeUtils::remove(OrigLoop);
   }
 
   DEBUG(dbgs() << "\n\t Transformed GeneralUnroll Loops No:"

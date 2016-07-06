@@ -229,8 +229,12 @@ protected:
     return IsMathAdd ? (getDenominator() * Coeff) : Coeff;
   }
 
-  /// Verifies that the incoming nesting level is valid for this CE, asserts otherwise.
+  /// Verifies that the incoming nesting level is valid for this CE, asserts
+  /// otherwise.
   bool verifyNestingLevel(unsigned NestingLevel) const;
+
+  /// Verifies that all IVs contained in CE are valid, asserts otherwise.
+  bool verifyIVs(unsigned NestingLevel) const;
 
   /// \brief Returns true if canon expr represents null pointer value.
   bool isNullImpl() const;
@@ -422,7 +426,7 @@ public:
   }
 
   /// \brief Returns true if this expression contains undefined terms.
-  bool containsUndef() const; 
+  bool containsUndef() const;
 
   /// \brief Returns the constant additive of the canon expr.
   int64_t getConstant() const { return Const; }
@@ -650,11 +654,9 @@ namespace std {
 
 // default_delete<CanonExpr> is a helper for destruction CanonExpr objects to
 // support std::unique_ptr<CanonExpr>.
-template <>
-struct default_delete<llvm::loopopt::CanonExpr> {
+template <> struct default_delete<llvm::loopopt::CanonExpr> {
   void operator()(llvm::loopopt::CanonExpr *CE) const;
 };
-
 }
 
 #endif

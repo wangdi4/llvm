@@ -258,8 +258,7 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
 
     // The relaxed mode is safe here as we know that upper bound is always non
     // negative
-    assert(!BoundCE->isTrunc() &&
-           "Truncations are not supported");
+    assert(!BoundCE->isTrunc() && "Truncations are not supported");
 
     bool Ret;
     if (BoundCE->getDenominator() == 1 &&
@@ -341,11 +340,8 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
 
         IVBlobExpr->addBlob(IVBlobIndex, CE->getIVConstCoeff(Level));
 
-        bool IsKnownNonZero =
-            HLNodeUtils::isKnownPositive(IVBlobExpr.get(), InnermostLoop) ||
-            HLNodeUtils::isKnownNegative(IVBlobExpr.get(), InnermostLoop);
-
-        if (!IsKnownNonZero) {
+        if (!HLNodeUtils::isKnownPositiveOrNegative(IVBlobExpr.get(),
+                                                    InnermostLoop)) {
           return BLOB_IV_COEFF;
         }
       }
@@ -530,8 +526,8 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   }
 
   // Check the loopnest for applicability
-  for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop;
-       LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
+  for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop; LoopI != LoopE;
+       LoopI = LoopI->getParentLoop()) {
     if (!LoopI->isDo()) {
       return NON_DO_LOOP;
     }
@@ -785,20 +781,16 @@ void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
 void HIRRuntimeDD::markLoopDoNotVectorize(HLLoop *Loop) {
   LLVMContext &Context = HIRUtils::getContext();
 
-  Metadata *One = ConstantAsMetadata::get(
-      ConstantInt::get(Type::getInt32Ty(Context), 1));
+  Metadata *One =
+      ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Context), 1));
 
   Metadata *MDVectorWidth[] = {
-      MDString::get(Context, "llvm.loop.vectorize.width"), One
-  };
+      MDString::get(Context, "llvm.loop.vectorize.width"), One};
   Metadata *MDInterleaveCount[] = {
-      MDString::get(Context, "llvm.loop.interleave.count"), One
-  };
+      MDString::get(Context, "llvm.loop.interleave.count"), One};
 
-  MDNode *MDs[] = {
-      MDNode::get(Context, MDVectorWidth),
-      MDNode::get(Context, MDInterleaveCount)
-  };
+  MDNode *MDs[] = {MDNode::get(Context, MDVectorWidth),
+                   MDNode::get(Context, MDInterleaveCount)};
 
   Loop->addLoopMetadata(MDs);
 }

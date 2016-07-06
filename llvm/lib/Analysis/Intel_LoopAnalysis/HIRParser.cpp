@@ -2574,9 +2574,6 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   if (IsPhase1) {
     Level = CurLevel;
 
-    if (HInst->isInPreheaderOrPostexit()) {
-      --Level;
-    }
   } else {
     Level = Phase2Level;
     auto OuterLoop = HInst->getOutermostParentLoop();

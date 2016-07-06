@@ -1211,16 +1211,22 @@ bool CanonExpr::convertTruncStandAloneBlob(Type *Ty) {
   return castStandAloneBlob(Ty, false);
 }
 
-bool CanonExpr::verifyNestingLevel(unsigned NestingLevel) const {
-  assert((!isLinearAtLevel() ||
-          (getDefinedAtLevel() < NestingLevel || isProperLinear())) &&
-         "CE is undefined at the attached level or should be non-linear.");
-
+bool CanonExpr::verifyIVs(unsigned NestingLevel) const {
   // Verify that there are no undefined IVs.
   for (auto I = iv_begin(), E = iv_end(); I != E; ++I) {
     assert((!(getLevel(I) > NestingLevel) || !hasIVConstCoeff(I)) &&
            "The RegDDRef with IV is attached outside of the loop");
   }
+
+  return true;
+}
+
+bool CanonExpr::verifyNestingLevel(unsigned NestingLevel) const {
+  assert((!isLinearAtLevel() ||
+          (getDefinedAtLevel() < NestingLevel || isProperLinear())) &&
+         "CE is undefined at the attached level or should be non-linear.");
+
+  verifyIVs(NestingLevel);
 
   return true;
 }

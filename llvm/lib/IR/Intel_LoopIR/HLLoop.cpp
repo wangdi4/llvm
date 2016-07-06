@@ -40,7 +40,7 @@ void HLLoop::initialize() {
 HLLoop::HLLoop(const Loop *LLVMLoop)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
-      LoopMetadata(LLVMLoop->getLoopID()) {
+      LoopMetadata(LLVMLoop->getLoopID()), MaxTripCountEstimate(0) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   SmallVector<BasicBlock *, 8> Exits;
@@ -54,7 +54,8 @@ HLLoop::HLLoop(const Loop *LLVMLoop)
 HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
                RegDDRef *StrideDDRef, unsigned NumEx)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true), IsNSW(false), LoopMetadata(nullptr) {
+      NestingLevel(0), IsInnermost(true), IsNSW(false), LoopMetadata(nullptr),
+      MaxTripCountEstimate(0) {
   initialize();
   setNumExits(NumEx);
 
@@ -86,7 +87,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
       IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW),
       LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
-      LoopMetadata(HLLoopObj.LoopMetadata) {
+      LoopMetadata(HLLoopObj.LoopMetadata),
+      MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate) {
 
   initialize();
 
@@ -141,6 +143,29 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
     HLNode *NewHLNode = PostIter->clone();
     HLNodeUtils::insertAsLastPostexitNode(this, NewHLNode);
   }
+}
+
+HLLoop &HLLoop::operator=(HLLoop &&Lp) {
+  OrigLoop = Lp.OrigLoop;
+  IVType = Lp.IVType;
+  IsNSW = Lp.IsNSW;
+  LoopMetadata = Lp.LoopMetadata;
+  MaxTripCountEstimate = Lp.MaxTripCountEstimate;
+
+  // LiveInSet/LiveOutSet do not need to be moved as they depend on the lexical
+  // order of HLLoops which remains the same as before.
+
+  removeZtt();
+
+  if (Lp.hasZtt()) {
+    setZtt(Lp.removeZtt());
+  }
+
+  setLowerDDRef(Lp.removeLowerDDRef());
+  setUpperDDRef(Lp.removeUpperDDRef());
+  setStrideDDRef(Lp.removeStrideDDRef());
+
+  return *this;
 }
 
 HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList,
@@ -283,12 +308,17 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
       OS << "<DO_MULTI_EXIT_LOOP>";
     }
 
-    OS << "\n";
   } else if (!getUpperDDRef() || isUnknown()) {
-    OS << "+ UNKNOWN LOOP i" << NestingLevel << "\n";
+    OS << "+ UNKNOWN LOOP i" << NestingLevel;
   } else {
     llvm_unreachable("Unexpected loop type!");
   }
+
+  if (MaxTripCountEstimate) {
+    OS << "  <MAX_TC_EST = " << MaxTripCountEstimate << ">";
+  }
+
+  OS << "\n";
 
   HLDDNode::print(OS, Depth, Detailed);
 }
@@ -799,6 +829,10 @@ void HLLoop::extractPreheaderAndPostexit() {
   extractPreheader();
   extractPostexit();
 }
+
+void HLLoop::removePreheader() { HLNodeUtils::remove(pre_begin(), pre_end()); }
+
+void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
 
 void HLLoop::verify() const {
   HLDDNode::verify();
