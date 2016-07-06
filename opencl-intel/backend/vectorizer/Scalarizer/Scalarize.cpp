@@ -29,7 +29,7 @@ OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 
-ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(ID), m_rtServices(NULL)
+ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(ID), m_rtServices(nullptr), m_pDL(nullptr)
 {
   initializeScalarizeFunctionPass(*llvm::PassRegistry::getPassRegistry());
 
@@ -73,7 +73,7 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
 
   // obtain TagetData of the module
-  m_pDL = &getAnalysisIfAvailable<DataLayoutPass>()->getDataLayout();
+  m_pDL = &F.getParent()->getDataLayout();
 
   // Prepare data structures for scalarizing a new function
   m_scalarizableRootsMap.clear();
@@ -964,8 +964,8 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
     SCMEntry *newEntry = getSCMEntry(LI);
 
     // Get additional info from instruction
-    unsigned int vectorSize = m_pDL.getTypeAllocSize(dataType);
-    unsigned int elementSize = m_pDL.getTypeAllocSize(dataType->getElementType());
+    unsigned int vectorSize = m_pDL->getTypeAllocSize(dataType);
+    unsigned int elementSize = m_pDL->getTypeAllocSize(dataType->getElementType());
     V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
       "vector size should be a multiply of element size");
     unsigned numElements = vectorSize/elementSize;
@@ -1043,8 +1043,8 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
   VectorType *dataType = dyn_cast<VectorType>(SI->getOperand(indexData)->getType());
   if (isScalarizableLoadStoreType(dataType) && m_pDL) {
     // Get additional info from instruction
-    unsigned int vectorSize = m_pDL.getTypeAllocSize(dataType);
-    unsigned int elementSize = m_pDL.getTypeAllocSize(dataType->getElementType());
+    unsigned int vectorSize = m_pDL->getTypeAllocSize(dataType);
+    unsigned int elementSize = m_pDL->getTypeAllocSize(dataType->getElementType());
     V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
       "vector size should be a multiply of element size");
     unsigned numElements = vectorSize/elementSize;

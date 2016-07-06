@@ -24,7 +24,7 @@ OCL_INITIALIZE_PASS_BEGIN(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP 
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP instructions", false, false)
 
-  SimplifyGEP::SimplifyGEP() : FunctionPass(ID),
+  SimplifyGEP::SimplifyGEP() : FunctionPass(ID), m_pDL(nullptr),
     OCLSTAT_INIT(Simplified_Multi_Indices_GEPs,
                 "Simplified multi indices GEP instructions",
                 m_kernelStats),
@@ -37,7 +37,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
   bool SimplifyGEP::runOnFunction(Function &F) {
     // obtain TagetData of the module
-    m_pDL = &getAnalysisIfAvailable<DataLayoutPass>()->getDataLayout();
+    m_pDL = &F.getParent()->getDataLayout();
 
     // Obtain WIAnalysis of the function
     m_depAnalysis = &getAnalysis<WIAnalysis>();
@@ -68,7 +68,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
     // Iterate over all instructions and search PhiNode instructions
     for(auto &BB : F) {
-      for (BasicBlock::iterator ii = BB.begin(), ie = BB.getFirstNonPHI(); ii != ie; ++ii) {
+      for (BasicBlock::iterator ii = BB.begin(), ie = BasicBlock::iterator(BB.getFirstNonPHI()); ii != ie; ++ii) {
         // searching only PhiNode instruction (inside loops) with GEP entries.
         PHINode *pPhiNode = dyn_cast<PHINode>(&*ii);
         V_ASSERT(pPhiNode && "Reached non PHINode, should exit the for before this happens!");
@@ -427,8 +427,8 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
         // No DataLayout cannot apply this SimplifyGEP approach!
         return false;
       }
-      unsigned int vectorSize = m_pDL.getTypeAllocSize(baseType);
-      unsigned int elementSize = m_pDL.getTypeAllocSize(cast<VectorType>(baseType)->getElementType());
+      unsigned int vectorSize = m_pDL->getTypeAllocSize(baseType);
+      unsigned int elementSize = m_pDL->getTypeAllocSize(cast<VectorType>(baseType)->getElementType());
       V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
         "vector size should be a multiply of element size");
       arraySizes.push_back(vectorSize/elementSize);

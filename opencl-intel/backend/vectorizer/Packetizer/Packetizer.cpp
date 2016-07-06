@@ -56,7 +56,7 @@ OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
 
 PacketizeFunction::PacketizeFunction(bool SupportScatterGather,
-                                     unsigned int vectorizationDimension) : FunctionPass(ID),
+                                     unsigned int vectorizationDimension) : FunctionPass(ID), m_pDL(nullptr),
   OCLSTAT_INIT(GEP_With_2_Indices,
   "Loads and stores of an address with exactly two indices",
   m_kernelStats),
@@ -159,7 +159,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
 {
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
-  m_pDL = &getAnalysis<DataLayoutPass>().getDataLayout();
+  m_pDL = &F.getParent()->getDataLayout();
 
   m_currFunc = &F;
   m_moduleContext = &(m_currFunc->getContext());
@@ -1424,11 +1424,11 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
         gepArg1Dep == WIAnalysis::CONSECUTIVE &&
         fieldConstantInt && !fieldConstantInt->isNegative()) {
       // Make sure this actually is a struct field access
-      uint64_t structAllocSize = m_pDL.getTypeAllocSize(structType);
+      uint64_t structAllocSize = m_pDL->getTypeAllocSize(structType);
       uint64_t fieldIndex = fieldConstantInt->getZExtValue();
       Type* fieldType = structType->getElementType(fieldIndex);
-      uint64_t fieldSize = m_pDL.getTypeStoreSize(fieldType);
-      uint64_t fieldOffset = m_pDL.getStructLayout(structType)->getElementOffset(fieldIndex);
+      uint64_t fieldSize = m_pDL->getTypeStoreSize(fieldType);
+      uint64_t fieldOffset = m_pDL->getStructLayout(structType)->getElementOffset(fieldIndex);
       // make sure struct is not too large for current packet width and
       // that the resulting field addresses are aligned to fieldSize (or
       // we can't express them as array indices).

@@ -23,7 +23,7 @@ namespace intel {
     static char ID;
     /// ctor
     CloneBlockInvokeFuncToKernel()
-      : llvm::ModulePass(ID), m_pModule(0), m_pContext(0), m_pTD(0)
+      : llvm::ModulePass(ID), m_pModule(0), m_pContext(0), m_pTD(nullptr)
     {}
 
     /// main function
@@ -34,7 +34,7 @@ namespace intel {
 
       llvm::Module      *m_pModule;
       llvm::LLVMContext *m_pContext;
-      const llvm::DataLayout &m_pTD;
+      const llvm::DataLayout *m_pTD;
 
   }; // struct CloneBlockInvokeFuncToKernel
 

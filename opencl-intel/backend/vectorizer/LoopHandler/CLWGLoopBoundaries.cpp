@@ -900,6 +900,7 @@ bool CLWGLoopBoundaries::isComparePredicateInclusive(CmpInst::Predicate p) {
 
 bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value **bound,
                                Value *tid, bool EETrueSide, TIDDescVec& eeVec){
+  DataLayout TD(m_M);
   unsigned TIDInd = isUniform(cmp->getOperand(0)) ? 1 : 0;
   assert(isUniform(cmp->getOperand(1-TIDInd)) && // tid is compared to uniform
          !isUniform(cmp->getOperand(TIDInd)) &&  // tid is not uniform
@@ -944,7 +945,7 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value **bound,
       if (!constBound) {
         Instruction *instBound = dyn_cast<Instruction>(*bound);
         if (instBound) {
-          constBound = ConstantFoldInstruction(instBound);
+          constBound = ConstantFoldInstruction(instBound, TD);
         }
       }
 

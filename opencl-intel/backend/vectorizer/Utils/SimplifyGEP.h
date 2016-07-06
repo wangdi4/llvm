@@ -89,7 +89,7 @@ namespace intel {
     /// @brief pointer to work-item analysis performed for this function
     WIAnalysis *m_depAnalysis;
     /// @brief This holds DataLayout of processed module
-    const DataLayout &m_pDL;
+    const DataLayout *m_pDL;
 
     Statistic::ActiveStatsT m_kernelStats;
     Statistic Simplified_Multi_Indices_GEPs;

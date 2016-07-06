@@ -1,4 +1,4 @@
-
+/*==================================================================================
 Copyright (c) 2012, Intel Corporation
 Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
@@ -261,7 +261,7 @@ private:
   bool UseScatterGather;
 
   /// @brief This holds DataLayout of processed module
-  const DataLayout &m_pDL;
+  const DataLayout *m_pDL;
 
 };
 
