@@ -214,10 +214,12 @@ set (CLANG_CL_COMMON_COMPILER_FLAGS
   -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign
   )
 
-# options for clang to compile OpenCL 1.2 & 2.0 code
-set (CLANG_CL12_COMPILER_PARAMS
-  ${CLANG_CL_COMMON_COMPILER_FLAGS} ${CLANG_OCL_12_COMPILER_FLAGS}
+set (CLANG_C_COMPILER_PARAMS
+  -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
+  -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/cl_headers/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
   )
+
+# options for clang to compile OpenCL 1.2 & 2.0 code
 set (CLANG_CL20_COMPILER_PARAMS
   ${CLANG_CL_COMMON_COMPILER_FLAGS} ${CLANG_OCL_20_COMPILER_FLAGS}
   )
@@ -246,9 +248,9 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 #------------------- Utility functions ---------------------------
 
 #
-# Compile single OpenCL source file
+# Compile single source file
 #
-# compile_ocl( COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
+# compile( COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
 #
 #   COMPILE_OPTIONS - compile options for clang
 #   OUTPUT_FILE_VAR - output, contains full path to object file
@@ -257,7 +259,7 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 #   OUTPUT_DIR      - directory for output file
 #
 
-function( compile_ocl COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
+function( compile COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
 
   get_filename_component (NAME ${INPUT_FILE} NAME_WE )
   set (OUTPUT_FILE ${NAME}${OCL_OUTPUT_EXTENSION} )
@@ -277,12 +279,12 @@ function( compile_ocl COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR
 
   set (${OUTPUT_FILE_VAR} ${OUTPUT_DIR}/${OUTPUT_FILE} PARENT_SCOPE )
 
-endfunction( compile_ocl )
+endfunction( compile )
 
 #
 # add OpenCL library built from set of OpenCL source files
 #
-# add_ocl_library( OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_DIR FILES_OCL_12 ...FILES... )
+# add_ocl_library( OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_DIR C_FILES ...FILES... )
 #
 #   OUTPUT_FILE_VAR             - output, contains generated library (rtl file)
 #   PRECOMPILED_OUTPUT_FILE_VAR - output, contains generated library (obj file)
@@ -293,11 +295,11 @@ endfunction( compile_ocl )
 #   USE_OPT                     - Optimize output library with llvm opt tool
 #   ENABLE_PRECOMPILE           - enable precompiling (to native machine code)
 #   OUTPUT_DIR                  - output directory for the intermediate files
-#   FILES_OCL_12                - input file list to compile as OpenCL C 1.2 (may be set to "IGNORE")
+#   C_FILES                     - input file list to compile as C99 (may be set to "IGNORE")
 #   FILES                       - input file list to compile as OpenCL C 2.0
 #
 
-function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAME TARGET_DIR ARCH PROC USE_OPT ENABLE_PRECOMPILE BI_LIB_NAME OUTPUT_DIR FILES_OCL_12 )
+function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAME TARGET_DIR ARCH PROC USE_OPT ENABLE_PRECOMPILE BI_LIB_NAME OUTPUT_DIR C_FILES )
 
   if (${ARGC} LESS 10)
     message (FATAL_ERROR "add_ocl_library(${TARGET_NAME}) - no sources given")
@@ -312,13 +314,13 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
   # Compile all files and prepare a 'TMP_FILES' list of .rtl files
   foreach (FILE ${ARGN})
     message (STATUS "add_ocl_library compiling ${FILE}")
-    compile_ocl( "${CLANG_CL20_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
+    compile( "${CLANG_CL20_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
     list (APPEND TMP_FILES ${TMP_RTL})
   endforeach (FILE)
   
-  if(NOT (${FILES_OCL_12} STREQUAL "IGNORE"))
-    foreach (FILE ${FILES_OCL_12})
-      compile_ocl( "${CLANG_CL12_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
+  if(NOT (${C_FILES} STREQUAL "IGNORE"))
+    foreach (FILE ${C_FILES})
+      compile( "${CLANG_C_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
       list (APPEND TMP_FILES ${TMP_RTL})
     endforeach (FILE)   
   endif()
@@ -495,7 +497,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   list (APPEND OCL_20_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
 
   # build .rtl file out of OCL code (by clang) and copy it to install directory
-  add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_12_SOURCE_FILES} ${OCL_20_SOURCE_FILES})
+  add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} ${C_SOURCE_FILES} ${OCL_20_SOURCE_FILES})
 
   # build .rtl (and .o) files out of OCL image callbacks (by clang) and copy to install directory
   add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB OUTPUT_OCL_IMAGE_CALLBACK_OBJ ${TARGET_NAME}_img_cbk ${TARGET_DIR} ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} IGNORE ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
@@ -552,8 +554,8 @@ list (APPEND OCL_20_SOURCE_FILES
   pipe_functions.c
   )
 
-list (APPEND OCL_12_SOURCE_FILES
-  cbk_helper.c
+list (APPEND C_SOURCE_FILES
+  ${CL_BUILTIN_SOURCE_DIR}/cbk_helper.c
   )
 
 
@@ -572,12 +574,6 @@ set (SAVE_OCL_20_SOURCE_FILES ${OCL_20_SOURCE_FILES})
 unset (OCL_20_SOURCE_FILES)
 foreach (FILE ${SAVE_OCL_20_SOURCE_FILES})
   list (APPEND OCL_20_SOURCE_FILES ${CL_BUILTIN_SOURCE_DIR}/${FILE})
-endforeach (FILE)
-
-set (SAVE_OCL_12_SOURCE_FILES ${OCL_12_SOURCE_FILES})
-unset (OCL_12_SOURCE_FILES)
-foreach (FILE ${SAVE_OCL_12_SOURCE_FILES})
-  list (APPEND OCL_12_SOURCE_FILES ${CL_BUILTIN_SOURCE_DIR}/${FILE})
 endforeach (FILE)
 
 set (SAVE_HEADER_FILES ${HEADER_FILES})
