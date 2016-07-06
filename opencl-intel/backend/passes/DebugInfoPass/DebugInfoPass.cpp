@@ -466,7 +466,6 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
 
         // Take the var address from the metadata as a Value, and bitcast it
         // to i8*.
-        assert(diGlobalVar.Verify());
         Value* var_ref = diGlobalVar->getVariable();
 
         // Some special globals are inserted by clang with a non-pointer value
