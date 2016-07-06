@@ -1,7 +1,5 @@
 set (TARGET_DIR ${SHARED_RTL_NAME})
 
-message (STATUS "Building target:   ${TARGET_NAME_SHARED}")
-
 # intermediate directory for OpenCL compilation/link
 set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 
@@ -21,7 +19,6 @@ set (PROC core2)
 # Compile all files and prepare a 'TMP_FILES' list of .rtl files
 foreach (FILE ${OCL_TABLEGEN_SOURCE})
   compile( "${CLANG_CL20_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${INTERMEDIATE_OUTPUT_DIR})
-  message (STATUS "compile returned: ${TMP_RTL}")
   list (APPEND TMP_FILES ${TMP_RTL})
 endforeach (FILE)
 
@@ -31,8 +28,6 @@ add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
   DEPENDS ${LLVM_LINK} ${TMP_FILES}
   VERBATIM
   )
-
-message (STATUS "Outputting direct ${OUTPUT_FILE}")
 
 set (TARGET_DEPENDENCIES ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE})
 

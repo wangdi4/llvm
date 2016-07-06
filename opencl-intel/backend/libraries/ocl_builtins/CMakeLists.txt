@@ -74,11 +74,9 @@ add_subdirectory (utils/TableGen)
 
 # remember OCL builtins source dir
 set (CL_BUILTIN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-message (STATUS "Built-ins sources are in: ${CL_BUILTIN_SOURCE_DIR}")
 
 # target directory for OCL .rtl, and .dll/.so of SVML library
 set (BUILTINS_INSTALL_DIR ${OCL_TOOLS_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-message (STATUS "Built-ins libraries will be in: ${BUILTINS_INSTALL_DIR}")
 
 # global headers
 if (DEFINED OCL_CLANG_HEADERS)
@@ -89,7 +87,6 @@ endif()
 if (NOT EXISTS ${CLANG_HEADERS})
   message (FATAL_ERROR "Cannot find Clang headers (${CLANG_HEADERS})!")
 endif()
-message (STATUS "Clang headers are in: ${CLANG_HEADERS}")
 
 if (DEFINED OCL_GLOBAL_INCLUDE)
   set (IMPORT_DIR ${OCL_GLOBAL_INCLUDE})
@@ -99,7 +96,6 @@ endif ()
 if (NOT EXISTS ${IMPORT_DIR})
   message (FATAL_ERROR "Cannot find OCL headers (${IMPORT_DIR})!")
 endif()
-message (STATUS "Global headers are in: ${IMPORT_DIR}")
 
 # svml directories
 set (SVML_DLL_DIR ${CL_BUILTIN_SOURCE_DIR}/bin/svml/${PLATFORM})
@@ -108,7 +104,6 @@ if (NOT EXISTS ${SVML_DLL_DIR})
 endif()
 set (SVML_NAME_PREFIX __ocl_svml_)
 set (SDE_NAME_PREFIX __sde_svml_)
-message (STATUS "SVML binary dir: ${SVML_DLL_DIR}")
 
 if(APPLE)
   set(OCL_HOST_CLANG /System/Library/Frameworks/OpenCL.framework/Libraries/openclc)
@@ -313,7 +308,6 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
 
   # Compile all files and prepare a 'TMP_FILES' list of .rtl files
   foreach (FILE ${ARGN})
-    message (STATUS "add_ocl_library compiling ${FILE}")
     compile( "${CLANG_CL20_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
     list (APPEND TMP_FILES ${TMP_RTL})
   endforeach (FILE)
@@ -479,8 +473,6 @@ endfunction(tblgenoclblt)
 function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   set (TARGET_NAME ${TARGET_NAME_PREFIX}${ARCH})
-
-  message (STATUS "Building target:   ${TARGET_NAME}")
 
   # intermediate directory for OpenCL compilation/link
   set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
