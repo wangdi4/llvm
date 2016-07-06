@@ -267,8 +267,7 @@ function( compile COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
     DEPENDS ${HEADER_FILES} ${OPT_DEP}
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
     WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
-    COMMENT "OCL Compiling ${INPUT_FILE}: ${CLANG} ${COMPILE_OPTIONS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}"
-    COMMENT "OCL Optimize  ${OUTPUT_FILE}: ${OPT}  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}"
+    COMMENT "Compiling ${INPUT_FILE}"
     VERBATIM
     )
 
@@ -322,7 +321,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
   if(${USE_OPT})
     # link OpenCL image callback library (adding also intrinsic BI IR )
     add_custom_command (OUTPUT ${OUTPUT_FILE}_noopt
-      COMMENT "OCL Linking -o ${OUTPUT_FILE}_noopt"
+      COMMENT "Linking ${OUTPUT_FILE}_noopt"
       COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_FILE}_noopt ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       VERBATIM
@@ -337,7 +336,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
       # link image callback rtl (${OUTPUT_FILE}_noopt) with this TMP_LINKED_RTL_OUTPUT
       # 
       add_custom_command (OUTPUT ${TMP_LINKED_RTL_OUTPUT}
-        COMMENT "OCL Linking tmp rtl -o ${TMP_LINKED_RTL}"
+        COMMENT "Linking tmp rtl ${TMP_LINKED_RTL}"
         COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${TMP_LINKED_RTL_OUTPUT} ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${BUILTINS_INSTALL_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
         DEPENDS ${LLVM_LINK} ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${TARGET_NAME_SHARED}
         VERBATIM
@@ -346,7 +345,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
     endif()
 
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
-      COMMENT "Opt optimizing ${OUTPUT_FILE}_noopt"
+      COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
       COMMAND ${OPT} ${OUTPUT_FILE}_noopt -generic-addr-static-resolution -o ${OUTPUT_FILE}_noopt
       COMMAND ${OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${RTL_TO_LINK} -arch=${ARCH} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       DEPENDS ${OPT_DEP} ${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
@@ -355,7 +354,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
   else()
     # link OpenCL library (adding also BI IR for vectorizer)
     add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
-      COMMENT "OCL Linking ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}"
+      COMMENT "Linking ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}"
       COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       VERBATIM
@@ -377,7 +376,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
     endif ()
 
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${PRECOMPILED_OUTPUT_FILE}
-      COMMENT "OCL Building Static Object ${PRECOMPILED_OUTPUT_FILE}"
+      COMMENT "Building static object ${PRECOMPILED_OUTPUT_FILE}"
       COMMAND ${LLC} ${LLC_PARAMS} ${MATTR} -mcpu=${PROC} -o ${BUILTINS_INSTALL_DIR}/${PRECOMPILED_OUTPUT_FILE} < ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       DEPENDS ${LLC} ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       VERBATIM
@@ -452,7 +451,7 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN OFN)
         #COMMAND ${OCL-TBLGEN} ${ARGN} -gen-ocl-Exclude=true -gen-ocl-Prefix="__cl_" -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
         COMMAND ${OCL-TBLGEN} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
         DEPENDS ${OCL-TBLGEN-DEP} ${depend_tds}
-        COMMENT "Generating ${OFN}..."
+        COMMENT "Generating ${OFN}"
         )
     set_source_files_properties(${OUTPUT_DIR}/${OFN} PROPERTIES GENERATED 1)
     set(${OUTPUT_VAR} ${OUTPUT_DIR}/${OFN} PARENT_SCOPE)
