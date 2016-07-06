@@ -39,18 +39,18 @@ namespace intel{
   /// Register pass to for opt
   OCL_INITIALIZE_PASS(PrepareKernelArgs, "prepare-kernel-args", "changes the way arguments are passed to kernels", false, false)
 
-  PrepareKernelArgs::PrepareKernelArgs() : ModulePass(ID) {
+    PrepareKernelArgs::PrepareKernelArgs() : ModulePass(ID), m_DL(nullptr) {
     initializeImplicitArgsAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 
   bool PrepareKernelArgs::runOnModule(Module &M) {
-    m_DL = M.getDataLayout();
+    m_DL = &M.getDataLayout();
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
     Intel::MetaDataUtils mdUtils(&M);
     m_mdUtils = &mdUtils;
     m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-    m_PtrSizeInBytes = M.getDataLayout()->getPointerSize(0);
+    m_PtrSizeInBytes = M.getDataLayout().getPointerSize(0);
     m_IAA->initDuringRun(m_PtrSizeInBytes * 8);
     m_SizetTy = IntegerType::get(*m_pLLVMContext, m_PtrSizeInBytes*8);
     m_I32Ty = Type::getInt32Ty(*m_pLLVMContext);
@@ -143,7 +143,7 @@ namespace intel{
           unsigned VecSize = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
           if (VecSize != 1 && VectorType::isValidElementType(EltTy))
             EltTy = VectorType::get(EltTy, VecSize);
-          Alignment = llvm::NextPowerOf2(m_DL.getTypeAllocSize(EltTy) - 1);
+          Alignment = llvm::NextPowerOf2(m_DL->getTypeAllocSize(EltTy) - 1);
         }
         Allocation->setAlignment(Alignment);
         pArg = builder.CreatePointerCast(Allocation, callIt->getType());
@@ -197,7 +197,7 @@ namespace intel{
       currOffset = arguments.back().offset_in_bytes +
                    TypeAlignment::getSize(arguments.back());
       currOffset = ImplicitArgsUtils::getAdjustedAlignment(
-          currOffset, m_DL.getPointerABIAlignment());
+          currOffset, m_DL->getPointerABIAlignment());
     }
     // Handle implicit arguments
     // Set to the Work Group Info implicit arg, as soon as it is known. Used for

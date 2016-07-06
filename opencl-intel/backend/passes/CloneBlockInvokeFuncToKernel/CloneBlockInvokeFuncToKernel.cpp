@@ -101,7 +101,7 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
 {
   m_pModule = &M;
   m_pContext = &M.getContext();
-  m_pTD = M.getDataLayout();
+  m_pTD = &M.getDataLayout();
   if(!m_pTD)
     return false;
   Intel::MetaDataUtils MDU(&M);
@@ -278,7 +278,7 @@ size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
 #endif
 
     //block_literal itself
-    return static_cast<size_t>(m_pTD.getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
+    return static_cast<size_t>(m_pTD->getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
   }
 
   assert(0 && "did not find bitcast to struct");

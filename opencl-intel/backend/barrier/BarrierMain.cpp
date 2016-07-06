@@ -45,8 +45,6 @@ namespace intel {
   bool BarrierMain::runOnModule(Module &M) {
     legacy::PassManager barrierModulePM;
 
-    //Register DataLayout to the pass manager
-    barrierModulePM.add(new llvm::DataLayoutPass());
     barrierModulePM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
 
     if( m_debugType == None ) {

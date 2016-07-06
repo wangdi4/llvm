@@ -140,7 +140,7 @@ namespace intel {
                            ObjCBlockElementsNumWithoutContext + spirCapturedValueIdx) };
 
       Instruction* objcCapturedGEP =
-        GetElementPtrInst::Create(objcContextPtr, objcCapturedGEPIndices,
+        GetElementPtrInst::Create(nullptr, objcContextPtr, objcCapturedGEPIndices,
                                   "objc.block.captured", spirCapturedGEP);
       spirCapturedGEP->replaceAllUsesWith(objcCapturedGEP);
       spirCapturedGEP->eraseFromParent();
@@ -160,7 +160,7 @@ namespace intel {
 
     LLVMContext & ctx = M.getContext();
     Function * parentFunc = spirBlockBindCI->getParent()->getParent();
-    Instruction * insertBefore = parentFunc->getEntryBlock().getFirstInsertionPt();
+    Instruction * insertBefore = &*(parentFunc->getEntryBlock().getFirstInsertionPt());
 
     // Create a packed block structure type like in the example below;
     // <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, ... #CapturedContextTypes }>
@@ -179,7 +179,7 @@ namespace intel {
     // @__block_descriptor = internal constant { i64, i64 } { i64 #Reserved, i64 #Size }
     const DataLayout & DL = M.getDataLayout();
     uint64_t objcSizeOfBlock =
-      DL->getTypeAllocSize(objcBlockContextTy);
+      DL.getTypeAllocSize(objcBlockContextTy);
 
     Constant * objcBlockDescrInitElements[2] = {
       ConstantInt::get(m_int64Ty, 0),                // reserved
@@ -195,14 +195,14 @@ namespace intel {
     // %objc.block = alloca <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, ... #CapturedContextTypes }>
     AllocaInst * objcBlockAlloca =
       new AllocaInst(objcBlockContextTy, "objc.block", insertBefore);
-    objcBlockAlloca->setAlignment(DL->getPrefTypeAlignment(objcBlockContextTy));
+    objcBlockAlloca->setAlignment(DL.getPrefTypeAlignment(objcBlockContextTy));
     // Initialize invoke, block descriptor, and context elements; others aren't used
     // by OpenCL CPU BE
     // 1. Store invoke passed to spir_block_bind to Objective-C block
     Value * objcInvokeGEPIndices[2] = { ConstantInt::get(m_int32Ty, 0),
                                         ConstantInt::get(m_int32Ty, 3) };
     Instruction* objcInvokePtr =
-      GetElementPtrInst::Create(objcBlockAlloca, objcInvokeGEPIndices,
+      GetElementPtrInst::Create(nullptr, objcBlockAlloca, objcInvokeGEPIndices,
                                 "objc.block.invoke", insertBefore);
     new StoreInst(spirBlockInvoke, objcInvokePtr, insertBefore);
 
@@ -210,7 +210,7 @@ namespace intel {
     Value * objcBlockDescrGEPIndices[2] = { ConstantInt::get(m_int32Ty, 0),
                                             ConstantInt::get(m_int32Ty, 4) };
     Instruction* objcBlockDescrPtr =
-      GetElementPtrInst::Create(objcBlockAlloca, objcBlockDescrGEPIndices,
+      GetElementPtrInst::Create(nullptr, objcBlockAlloca, objcBlockDescrGEPIndices,
                                 "objc.block.descriptor", insertBefore);
     new StoreInst(objcBlockDescrGV, objcBlockDescrPtr, insertBefore);
 
@@ -280,10 +280,10 @@ namespace intel {
     // The invoke function must have an argument which is a pointer to opencl.block type
     // but it actually might be the second argument if this invoke returns a struct
     auto aIter = invokeFunc->arg_begin();
-    Argument * invokeArgument = aIter;
+    Argument * invokeArgument = &*aIter;
     // Skip struct return
     if (invokeArgument->hasStructRetAttr())
-      invokeArgument = ++aIter;
+      invokeArgument = &*++aIter;
 
     // Get pointer to Objective-C context
     PointerType * objcBlockContextPtrTy =

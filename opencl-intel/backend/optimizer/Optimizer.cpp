@@ -224,7 +224,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 #endif
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
 
-  PM.add(new llvm::DataLayoutPass());
   PM.add(createOclSyncFunctionAttrsPass());
   PM.add(createPrintfArgumentsPromotionPass());
   if (isOcl20) {
@@ -335,7 +334,6 @@ static void populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM,
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
 #endif
-  PM.add(new llvm::DataLayoutPass());
   PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
   PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 

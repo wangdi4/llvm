@@ -311,7 +311,7 @@ namespace intel {
   Value* ResolveWICall::updatePrintf(CallInst *pCall) {
 
     assert( m_pRuntimeHandle && "Context pointer m_pRuntimeHandle created as expected" );
-    const DataLayout &DL = *m_pModule->getDataLayout();
+    const DataLayout &DL = m_pModule->getDataLayout();
 
     // Find out the buffer size required to store all the arguments.
     // Note: CallInst->getNumOperands() returns the number of operands in
@@ -411,9 +411,9 @@ namespace intel {
 
   void ResolveWICall::updatePrefetch(llvm::CallInst *pCall) {
 
-    DataLayout const& DL = *m_pModule->getDataLayout();
+    DataLayout const& DL = m_pModule->getDataLayout();
 
-    unsigned int uiSizeT = m_pModule->getDataLayout().getPointerSizeInBits(0);
+    unsigned int uiSizeT = DL.getPointerSizeInBits(0);
 
     // Create new call instruction with extended parameters
     SmallVector<Value*, 4> params;
