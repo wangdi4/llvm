@@ -454,7 +454,6 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult
     // serialize to LLVM bitcode
     llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
     llvm::WriteBitcodeToFile(pModule, ir_ostream);
-    ir_ostream.flush();
 
     pResult->setLog(errorMsg);
     pResult->setIRType(IR_TYPE_COMPILED_OBJECT);
