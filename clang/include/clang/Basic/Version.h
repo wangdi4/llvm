@@ -39,6 +39,24 @@
   CLANG_MAKE_VERSION_STRING(CLANG_VERSION_MAJOR,CLANG_VERSION_MINOR)
 #endif
 
+#if INTEL_CUSTOMIZATION
+  // CQ374831: define GNU_VERSION_STRING
+
+#if defined __GNUC__ && defined __GNUC_MINOR__
+
+#ifdef __GNUC_PATCHLEVEL__
+/// \brief A string that describes the gnu version number, e.g., "1.0".
+#define GNU_MAKE_VERSION_STRING(X,Y,Z) CLANG_MAKE_VERSION_STRING2(X.Y.Z)
+#define GNU_VERSION_STRING \
+  GNU_MAKE_VERSION_STRING(__GNUC__,__GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+#else
+#define GNU_MAKE_VERSION_STRING(X,y) CLANG_MAKE_VERSION_STRING2(X.Y)
+#define GNU_VERSION_STRING \
+  GNU_MAKE_VERSION_STRING(__GNUC__,__GNUC_MINOR__)
+#endif // __GNUC_PATCHLEVEL__
+#endif // defined __GNUC__ && defined __GNUC_PATCHLEVEL__
+#endif // INTEL_CUSTOMIZATION
+
 namespace clang {
   /// \brief Retrieves the repository path (e.g., Subversion path) that
   /// identifies the particular Clang branch, tag, or trunk from which this
@@ -86,6 +104,9 @@ namespace clang {
   ///
   /// Version string for iclang: cfe_iclangC/tr60450
   std::string getIClangFullCPPVersion();
+#else // if !GNU_VERSION_STRING
+  /// Version string for xmain: cq374831
+  std::string getXMainFullCPPVersion();
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
 }

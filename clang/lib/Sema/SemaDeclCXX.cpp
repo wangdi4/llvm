@@ -5513,8 +5513,14 @@ void Sema::CheckExplicitlyDefaultedMemberExceptionSpec(
     Context.getFunctionType(Context.VoidTy, None, EPI));
 
   // Ensure that it matches.
+#if INTEL_CUSTOMIZATION
+  // CQ#381833: in IntelCompat mode incorrect defaulted exception specification
+  // causes a warning.
   CheckEquivalentExceptionSpec(
-    PDiag(diag::err_incorrect_defaulted_exception_spec)
+    PDiag(getLangOpts().IntelCompat
+              ? diag::warn_incorrect_defaulted_exception_spec
+              : diag::err_incorrect_defaulted_exception_spec)
+#endif // INTEL_CUSTOMIZATION
       << getSpecialMember(MD), PDiag(),
     ImplicitType, SourceLocation(),
     SpecifiedType, MD->getLocation());
@@ -7469,6 +7475,31 @@ NamespaceDecl *Sema::getOrCreateStdNamespace() {
   return getStdNamespace();
 }
 
+#if INTEL_CUSTOMIZATION
+/// CQ#374762: Helpers for predefined namespace __cxxabiv1
+NamespaceDecl *Sema::getCXXAbiV1Namespace() const {
+  return cast_or_null<NamespaceDecl>(
+      CXXAbiV1Namespace.get(Context.getExternalSource()));
+}
+
+/// Retrieve the special "__cxxabiv1" namespace, which may require us to
+/// implicitly define the namespace.
+NamespaceDecl *Sema::getOrCreateCXXAbiV1Namespace() {
+  if (!CXXAbiV1Namespace) {
+    // The "__cxxabiv1" namespace has not yet been defined, so build one
+    // implicitly.
+    CXXAbiV1Namespace = NamespaceDecl::Create(
+        Context, Context.getTranslationUnitDecl(),
+        /*Inline=*/false, SourceLocation(), SourceLocation(),
+        &PP.getIdentifierTable().get("__cxxabiv1"),
+        /*PrevDecl=*/nullptr);
+    getCXXAbiV1Namespace()->setImplicit(true);
+  }
+
+  return getCXXAbiV1Namespace();
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool Sema::isStdInitializerList(QualType Ty, QualType *Element) {
   assert(getLangOpts().CPlusPlus &&
          "Looking for std::initializer_list outside of C++.");
@@ -7687,6 +7718,18 @@ Decl *Sema::ActOnUsingDirective(Scope *S,
       R.addDecl(getOrCreateStdNamespace());
       R.resolveKind();
     } 
+#if INTEL_CUSTOMIZATION
+    // Fix for CQ#374762: Allow "using namespace = __cxxabiv1;"
+    // even if "__cxxabiv1" hasn't been defined yet, for GCC compatibility.
+    else if (getLangOpts().IntelCompat &&
+             (!Qualifier ||
+              Qualifier->getKind() == NestedNameSpecifier::Global) &&
+             NamespcName->isStr("__cxxabiv1")) {
+      Diag(IdentLoc, diag::warn_using_undefined_namespace) << "__cxxabiv1";
+      R.addDecl(getOrCreateCXXAbiV1Namespace());
+      R.resolveKind();
+    }
+#endif // INTEL_CUSTOMIZATION
     // Otherwise, attempt typo correction.
     else TryNamespaceTypoCorrection(*this, R, S, SS, IdentLoc, NamespcName);
   }
@@ -8824,6 +8867,22 @@ Decl *Sema::ActOnNamespaceAliasDef(Scope *S, SourceLocation NamespaceLoc,
     return nullptr;
 
   if (R.empty()) {
+#if INTEL_CUSTOMIZATION
+    R.clear();
+    // Fix for CQ#374762: Allow "namespace <name> = __cxxabiv1;"
+    // even if "__cxxabiv1" hasn't been defined yet, for GCC compatibility.
+
+    NestedNameSpecifier *Qualifier = nullptr;
+    if (SS.isSet())
+      Qualifier = SS.getScopeRep();
+    if (getLangOpts().IntelCompat &&
+        (!Qualifier || Qualifier->getKind() == NestedNameSpecifier::Global) &&
+        Ident->isStr("__cxxabiv1")) {
+      Diag(IdentLoc, diag::warn_using_undefined_namespace) << "__cxxabiv1";
+      R.addDecl(getOrCreateCXXAbiV1Namespace());
+      R.resolveKind();
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (!TryNamespaceTypoCorrection(*this, R, S, SS, IdentLoc, Ident)) {
       Diag(IdentLoc, diag::err_expected_namespace_name) << SS.getRange();
       return nullptr;

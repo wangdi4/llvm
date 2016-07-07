@@ -535,7 +535,10 @@ KEYWORD(__global                    , KEYOPENCL)
 KEYWORD(__local                     , KEYOPENCL)
 KEYWORD(__constant                  , KEYOPENCL)
 KEYWORD(__private                   , KEYOPENCL)
-KEYWORD(__generic                   , KEYOPENCL)
+#if INTEL_CUSTOMIZATION
+// CQ381345: OpenCL is not supported in Intel compatibility mode.
+KEYWORD(__generic                   , KEYNOCXX)
+#endif //INTEL_CUSTOMIZATION
 ALIAS("global", __global            , KEYOPENCL)
 ALIAS("local", __local              , KEYOPENCL)
 ALIAS("constant", __constant        , KEYOPENCL)

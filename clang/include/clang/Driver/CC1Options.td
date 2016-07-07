@@ -655,6 +655,8 @@ def no_friend_injection : Flag<["--"], "no_friend_injection">,
 // if INTEL_SPECIFIC_OPENMP
 def fintel_openmp : Flag<["-"], "fintel-openmp">,
   HelpText<"Enable emitting of Intel specific OpenMP code">;
+def fintel_driver_tempfile_name_EQ : Joined<["-"], "fintel-driver-tempfile-name=">,
+  HelpText<"Name of the file for communication between front-end and driver.">;
 // endif INTEL_SPECIFIC_OPENMP
 def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
   HelpText<"Set default MS calling convention">;

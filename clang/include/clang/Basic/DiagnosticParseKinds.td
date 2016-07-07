@@ -113,6 +113,8 @@ def err_duplicate_default_assoc : Error<
 def note_previous_default_assoc : Note<
   "previous default generic association is here">;
 
+def err_no_arith_type : Error <"expression must have an arithmetic type">; // INTEL
+
 def ext_c11_alignment : Extension<
   "%0 is a C11-specific feature">, InGroup<C11>;
 
@@ -482,6 +484,11 @@ def warn_dangling_else : Warning<
   InGroup<DanglingElse>;
 def err_expected_member_or_base_name : Error<
   "expected class member or base class name">;
+// if INTEL_CUSTOMIZATION
+// CQ408231
+def warn_missing_template_parameters : Warning<
+  "missing parameter for template class '%0'">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_expected_lbrace_after_base_specifiers : Error<
   "expected '{' after base class list">;
 def err_missing_end_of_definition : Error<

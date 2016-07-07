@@ -736,6 +736,12 @@ public:
   /// \<initializer_list>.
   ClassTemplateDecl *StdInitializerList;
 
+#if INTEL_CUSTOMIZATION
+  /// CQ#374762: The C++ "__cxxabiv1" namespace, where the standard library
+  /// resides.
+  LazyDeclPtr CXXAbiV1Namespace;
+#endif // INTEL_CUSTOMIZATION
+
   /// \brief The C++ "type_info" declaration, which is defined in \<typeinfo>.
   RecordDecl *CXXTypeInfoDecl;
 
@@ -4429,6 +4435,8 @@ public:
 
   NamespaceDecl *getStdNamespace() const;
   NamespaceDecl *getOrCreateStdNamespace();
+  NamespaceDecl *getCXXAbiV1Namespace() const;   // INTEL 
+  NamespaceDecl *getOrCreateCXXAbiV1Namespace(); // INTEL
 
   CXXRecordDecl *getStdBadAlloc() const;
 
@@ -9115,6 +9123,19 @@ public:
     Ref_Compatible
   };
 
+#if INTEL_CUSTOMIZATION
+  enum ReferenceInitStatus {
+    RIS_Allowed = 0,
+    RIS_Extension,
+    RIS_Forbidden
+  };
+
+  ReferenceInitStatus
+  GetReferenceInitStatus(Expr *Init, bool isLValueRef, QualType T,
+                         Qualifiers Quals,
+                         Sema::ReferenceCompareResult RefRelationships);
+#endif // INTEL_CUSTOMIZATION
+
   ReferenceCompareResult CompareReferenceRelationship(SourceLocation Loc,
                                                       QualType T1, QualType T2,
                                                       bool &DerivedToBase,
@@ -10084,6 +10105,15 @@ public:
   // Emitting members of dllexported classes is delayed until the class
   // (including field initializers) is fully parsed.
   SmallVector<CXXRecordDecl*, 4> DelayedDllExportClasses;
+
+#if INTEL_CUSTOMIZATION
+  // CQ#410807: To be compatible with MS, we should parse initializers
+  // differently (always assuming that an identifier might be a reference to a
+  // class method). To do this in every situation and not add an additional
+  // argument to every function, we should remember that we are inside
+  // initializer parsing.
+  bool IsInInitializerContext = false;
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// \brief RAII object that enters a new expression evaluation context.

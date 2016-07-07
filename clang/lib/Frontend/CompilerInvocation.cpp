@@ -1638,6 +1638,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);
 #if INTEL_SPECIFIC_OPENMP
   Opts.IntelOpenMP = Args.hasArg(OPT_fintel_openmp);
+  Opts.IntelDriverTempfileName =
+      Args.getLastArgValue(OPT_fintel_driver_tempfile_name_EQ);
 #endif // INTEL_SPECIFIC_OPENMP
   Opts.Restrict =
       Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);

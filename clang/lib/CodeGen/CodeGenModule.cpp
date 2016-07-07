@@ -526,7 +526,13 @@ void CodeGenModule::Release() {
     if (getLangOpts().IntelMSCompat)
       EmitMSDebugInfoMetadata();
   }
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_OPENMP
+  // CQ#411303 Intel driver requires front-end to produce special file if
+  // translation unit has any target code.
+  if (HasTargetCode)
+    EmitIntelDriverTempfile();
+#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
   if (getCodeGenOpts().EmitGcovArcs || getCodeGenOpts().EmitGcovNotes)
     EmitCoverageFile();
 
@@ -2558,6 +2564,14 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
     llvm::MDNode *Node = llvm::MDNode::get(Context, Args);         //***INTEL 
     GlobalsRestrict->addOperand(Node);                             //***INTEL 
   }                                                                //***INTEL 
+#if INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_OPENMP
+  // CQ#411303 Intel driver requires front-end to produce special file if
+  // translation unit has any target code.
+  if (D->hasAttr<OMPDeclareTargetDeclAttr>())
+    setHasTargetCode();
+#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
 
   // Set the llvm linkage type as appropriate.
   llvm::GlobalValue::LinkageTypes Linkage =
@@ -3001,6 +3015,14 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalDtor(Fn, DA->getPriority());
   if (D->hasAttr<AnnotateAttr>())
     AddGlobalAnnotations(D, Fn);
+#if INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_OPENMP
+  // CQ#411303 Intel driver requires front-end to produce special file if
+  // translation unit has any target code.
+  if (D->hasAttr<OMPDeclareTargetDeclAttr>())
+    setHasTargetCode();
+#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_OPENMP
 }
 
 void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
@@ -4254,6 +4276,38 @@ void CodeGenModule::EmitMSDebugInfoMetadata() {
   AddLLVMDbgMetadata(TheModule, "llvm.dbg.ms.pdb",
                      getCodeGenOpts().MSOutputPdbFile);
 }
+
+#if INTEL_SPECIFIC_OPENMP
+void CodeGenModule::EmitIntelDriverTempfile() {
+  // Communication file should be generated only during host complication.
+  if (!getLangOpts().IntelCompat ||
+      !getLangOpts().IntelOpenMP ||
+      getLangOpts().IntelDriverTempfileName.empty() ||
+      getLangOpts().OpenMPIsDevice)
+    return;
+
+  StringRef MainFileName;
+  auto &SM = Context.getSourceManager();
+  if (const auto *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
+    MainFileName = MainFile->getName();
+  }
+  if (MainFileName.empty())
+    return;
+
+  std::error_code EC;
+  llvm::raw_fd_ostream Out(getLangOpts().IntelDriverTempfileName, EC,
+                           llvm::sys::fs::F_None);
+
+  Out << "\xEF\xBB\xBF"; // BOM UTF-8 file marker.
+  Out << "<compiler_to_driver_communication>\n";
+
+  // FIXME check possible target and generate target specific nodes.
+  // For now hardcode GEN as a target.
+  Out << "<gfx_offload_src>" << MainFileName <<"</gfx_offload_src>\n";
+
+  Out << "</compiler_to_driver_communication>";
+}
+#endif // INTEL_SPECIFIC_OPENMP
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenModule::EmitCoverageFile() {

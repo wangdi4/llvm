@@ -526,6 +526,10 @@ bool DeclSpec::SetStorageClassSpec(Sema &S, SCS SC, SourceLocation Loc,
     case SCS_extern:
     case SCS_private_extern:
     case SCS_static:
+#if INTEL_CUSTOMIZATION
+      // CQ381345: OpenCL is not supported in Intel compatibility mode.
+      if (!S.getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
       if (S.getLangOpts().OpenCLVersion < 120) {
         DiagID   = diag::err_opencl_unknown_type_specifier;
         PrevSpec = getSpecifierName(SC);

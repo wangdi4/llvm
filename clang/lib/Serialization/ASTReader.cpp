@@ -4725,6 +4725,13 @@ bool ASTReader::ParseLanguageOptions(const RecordData &Record,
   }
 
   LangOpts.OMPHostIRFile = ReadString(Record, Idx);
+#if INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_OPENMP
+  // CQ#411303 Intel driver requires front-end to produce special file if
+  // translation unit has any target code.
+  LangOpts.IntelDriverTempfileName = ReadString(Record, Idx);
+#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
 
   return Listener.ReadLanguageOptions(LangOpts, Complain,
                                       AllowCompatibleDifferences);

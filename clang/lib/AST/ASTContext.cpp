@@ -8449,17 +8449,6 @@ static GVALinkage basicGVALinkageForFunction(const ASTContext &Context,
     break;
   }
 
-#if INTEL_CUSTOMIZATION
-  // CQ#369830 - static declarations are treated differently.
-  // For a function definition, if it has ever been declared static, set
-  // internal linkage for C.
-  const LangOptions &Opts = Context.getLangOpts();
-  if (Opts.IntelCompat && !(Opts.CPlusPlus || Opts.ObjC1 || Opts.ObjC2)) {
-    for (const FunctionDecl *Prev = FD; Prev; Prev = Prev->getPreviousDecl())
-      if (Prev->getStorageClass() == SC_Static)
-        return GVA_Internal;
-  }
-#endif // INTEL_CUSTOMIZATION
   if (!FD->isInlined())
     return External;
 
@@ -8497,6 +8486,20 @@ static GVALinkage adjustGVALinkageForAttributes(const ASTContext &Context,
   } else if (D->hasAttr<DLLExportAttr>()) {
     if (L == GVA_DiscardableODR)
       return GVA_StrongODR;
+#if INTEL_CUSTOMIZATION
+  } else if (const auto *FD = dyn_cast<FunctionDecl>(D)) {
+    // CQ#369830 - static declarations are treated differently.
+    //   In C language for a function that has ever been declared static,
+    //   set internal linkage.
+    // CQ#382093 - static + __declspec(dllimport) cause error in BE.
+    //   Don't affect functions with dllimport/dllexport attributes.
+    const LangOptions &Opts = Context.getLangOpts();
+    if (Opts.IntelCompat && !(Opts.CPlusPlus || Opts.ObjC1 || Opts.ObjC2)) {
+      for (const FunctionDecl *Prev = FD; Prev; Prev = Prev->getPreviousDecl())
+        if (Prev->getStorageClass() == SC_Static)
+          return GVA_Internal;
+    }
+#endif // INTEL_CUSTOMIZATION
   } else if (Context.getLangOpts().CUDA && Context.getLangOpts().CUDAIsDevice &&
              D->hasAttr<CUDAGlobalAttr>()) {
     // Device-side functions with __global__ attribute must always be

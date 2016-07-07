@@ -141,6 +141,13 @@ public:
   /// host code generation.
   std::string OMPHostIRFile;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_OPENMP
+  /// \brief Name of the file for communication between front-end and driver.
+  std::string IntelDriverTempfileName;
+#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
+
   LangOptions();
 
   // Define accessors/mutators for language options of enumeration type.

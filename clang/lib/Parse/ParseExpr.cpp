@@ -1001,6 +1001,25 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
       return ParseCastExpression(isUnaryExpression, isAddressOfOperand,
                                  NotCastExpr, isTypeCast);
     }
+
+#if INTEL_CUSTOMIZATION
+    // CQ#410807: To be compatible with MS, we should always assume that an
+    // identifier might be a reference to a class method and treat it as such.
+    // This is only applicable to "inside initializer" context and only when we
+    // sure that a function call doesn't follow (hence "l_paren" check).
+    if (getLangOpts().IntelMSCompat && !isAddressOfOperand &&
+        Actions.IsInInitializerContext && Tok.isNot(tok::l_paren) &&
+        !Res.isInvalid() &&
+        (Res.get()->getStmtClass() == Stmt::DeclRefExprClass)) {
+      ValueDecl *dcl = cast<DeclRefExpr>(Res.get())->getDecl();
+
+      if (dyn_cast<FunctionDecl>(dcl) && dcl->isCXXClassMember()) {
+        Res = Actions.ActOnUnaryOp(getCurScope(), ILoc, tok::amp, Res.get());
+        return Res;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+
     break;
   }
   case tok::char_constant:     // constant: character-constant
@@ -1030,6 +1049,14 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
   case tok::kw__Generic:   // primary-expression: generic-selection [C11 6.5.1]
     Res = ParseGenericSelectionExpression();
     break;
+  case tok::kw___generic:
+#if INTEL_CUSTOMIZATION
+    // CQ381345: Parse Intel generic selection expression
+    if (getLangOpts().IntelCompat) {
+      Res = ParseIntelGenericSelectionExpression();
+      break;
+    }
+#endif // INTEL_CUSTOMIZATION
   case tok::kw___builtin_va_arg:
   case tok::kw___builtin_offsetof:
   case tok::kw___builtin_choose_expr:
@@ -2736,6 +2763,206 @@ ExprResult Parser::ParseGenericSelectionExpression() {
                                            ControllingExpr.get(),
                                            Types, Exprs);
 }
+
+#if INTEL_CUSTOMIZATION
+    // CQ381345: Parse Intel generic selection expression
+
+/// ParseIntelGenericSelectionExpression scans the Intel extension __generic
+/// operator, which is  variant of C99 type-generic function macros.
+/// The form of the macro reference is:
+///
+///    __generic(x, [y], [z], fnc-d, fnc-f, fnc-l, fnc-cd, fnc-cf, fnc-cl)
+///
+/// where x and the optional y and z are the arguments with which a type-generic
+/// function is called, and the remaining 6 arguments are the names of functions
+/// from which is selected the actual function to be called. (The suffixes with
+/// which the function names are supplied here correspond to function parameter
+/// types: double, float, long double, double _Complex, float _Complex, long
+/// double _Complex, respectively. The order is fixed.) Function names may be
+/// omitted.
+///
+/// For example, tgmath.h may have the following macros defined:
+///
+///   #define sin(x) __generic(x,,, sin, sinf, sinl, csin, csinf, csinl)(x)
+///   #define fmax(x,y) __generic(x, y,, fmax, fmaxf, fmaxl,,,)(x, y)
+///   #define conjg(x) __generic(x,,, ,,, conjg, conjgf, conjgl)(x)
+///
+/// Note that sin and conjg take only one argument, that fmax has no forms
+/// that accept complex arguments, and that conjg has no forms that accept real
+/// arguments.
+///
+ExprResult Parser::ParseIntelGenericSelectionExpression() {
+  assert(Tok.is(tok::kw___generic) && "_Generic keyword expected");
+
+  ConsumeToken();
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  if (T.expectAndConsume()) {
+    SkipUntil(tok::r_paren, StopAtSemi);
+    return ExprError();
+  }
+
+  auto ArgType = getTypeOfControllingExpr();
+  if (ArgType.isNull()) {
+    SkipUntil(tok::r_paren, StopAtSemi);
+    return ExprError();
+  }
+
+  if (!getTypeOfPossibleControllingExpr(ArgType)) {
+    SkipUntil(tok::r_paren, StopAtSemi);
+    return ExprError();
+  }
+
+  if (!getTypeOfPossibleControllingExpr(ArgType)) {
+    SkipUntil(tok::r_paren, StopAtSemi);
+    return ExprError();
+  }
+
+  if (ExpectAndConsume(tok::comma)) {
+    SkipUntil(tok::r_paren, StopAtSemi);
+    return ExprError();
+  }
+
+  int ArgNumber = 0;
+  const Type *BT = ArgType.getTypePtr();
+  if (ArgType->isComplexType())
+    BT = ArgType->getAs<ComplexType>()->getElementType().getTypePtr();
+
+  switch (cast<BuiltinType>(BT)->getKind()) {
+  case BuiltinType::Double:
+    ArgNumber = 4;
+    break;
+  case BuiltinType::Float:
+    ArgNumber = 5;
+    break;
+  case BuiltinType::LongDouble:
+    ArgNumber = 6;
+    break;
+  default:
+    ArgNumber = -1;
+  }
+  if (ArgType->isComplexType())
+    ArgNumber += 3;
+
+  ExprResult ExprRes;
+  for (int AN = 4; AN <= 9; AN++) {
+    if (Tok.isOneOf(tok::comma, tok::r_paren)) {
+      // Missing expression
+      if (AN == ArgNumber || (Tok.is(tok::l_paren) && AN < ArgNumber))
+        // There is no specific function corresponding to the type
+        Diag(Tok.getLocation(), diag::err_expected_expression);
+    } else {
+      ExprResult ER(
+          Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression()));
+      if (AN == ArgNumber) 
+        ExprRes = ER;
+    }
+    if (AN < 9 && ExpectAndConsume(tok::comma)) {
+      SkipUntil(tok::r_paren, StopAtSemi);
+      return ExprError();
+    }
+  }
+
+  T.consumeClose();
+  if (T.getCloseLocation().isInvalid())
+    return ExprError();
+
+  return ExprRes;
+}
+
+/// getTypeOfControllingExpr scans an expression (beginning at the current token)
+/// that is an argument to a type-generic function.  Do not evaluate the
+/// expression; just determine its floating or complex type, converting
+/// an integral type to double, and return the type.
+QualType Parser::getTypeOfControllingExpr() {
+  // The controlling expression of a generic selection is not evaluated
+  EnterExpressionEvaluationContext Unevaluated(Actions, Sema::Unevaluated);
+  SourceLocation KeyLoc = Tok.getLocation();
+  QualType Res;
+  auto ControllingExpr =
+    Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
+  if (ControllingExpr.isInvalid()) {
+    SkipUntil(tok::r_paren, StopAtSemi);
+    return Res;
+  }
+  auto T = ControllingExpr.get()->getType();
+  if (!T->isScalarType()) {
+    Diag(KeyLoc, diag::err_no_arith_type);
+    return Res;
+  }
+  if (T->isIntegerType())
+    Res = Actions.getASTContext().DoubleTy;
+  else if (T->isFloatingType())
+    Res = T;
+  else
+    Diag(KeyLoc, diag::err_no_arith_type);
+  return Res;
+}
+
+/// getTypeOfPossibleControllingExpr scans an optional expression (beginning at
+/// the current token) that is an argument to a type-generic function.  Do not
+/// evaluate the expression; just determine its type, and adjust the composite
+/// type in &QT accordingly.  Return false if there is an error.
+bool Parser::getTypeOfPossibleControllingExpr(QualType &QT) {
+  ConsumeToken();
+
+  // The controlling expression of a generic selection is not evaluated
+  if (Tok.isOneOf(tok::comma, tok::l_brace))
+    return true;
+
+  SourceLocation KeyLoc = Tok.getLocation();
+  EnterExpressionEvaluationContext Unevaluated(Actions, Sema::Unevaluated);
+  auto ControllingExpr =
+    Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
+  if (ControllingExpr.isInvalid()) {
+    SkipUntil(tok::r_paren, StopAtSemi);
+    return false;
+  }
+
+  auto NQT = ControllingExpr.get()->getType();
+
+  if (NQT->isIntegerType()) {
+    NQT = Actions.getASTContext().DoubleTy;
+  } else if (!NQT->isFloatingType()) {
+    Diag(KeyLoc, diag::err_no_arith_type);
+    return false;
+  }
+
+  if (QT.getTypePtr() == NQT.getTypePtr())
+    return true;
+
+  const BuiltinType *NBT, *QBT;
+  bool IsCompQT = QT->isComplexType();
+  if (IsCompQT)
+    QBT = QT->getAs<ComplexType>()->getElementType()->getAs<BuiltinType>();
+  else
+    QBT = QT->getAs<BuiltinType>();
+
+  if (NQT->isComplexType())
+    NBT = NQT->getAs<ComplexType>()->getElementType()->getAs<BuiltinType>();
+  else
+    NBT = NQT->getAs<BuiltinType>();
+
+  switch (NBT->getKind()) {
+  case BuiltinType::Float:
+    break;
+  case BuiltinType::Double:
+    if (QBT->getKind() == BuiltinType::Float) {
+      QT = NQT;
+    }
+    break;
+  default:
+    QT = NQT;
+  }
+
+  if ((IsCompQT && !QT->isComplexType()) ||
+      (!IsCompQT && !QT->isComplexType() && NQT->isComplexType())) {
+    ASTContext &Context = Actions.getASTContext(); 
+    QT = Context.getComplexType(QT);
+  }
+  return true;
+}
+
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Parse A C++1z fold-expression after the opening paren and optional
 /// left-hand-side expression.

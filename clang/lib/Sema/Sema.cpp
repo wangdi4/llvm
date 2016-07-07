@@ -274,10 +274,13 @@ void Sema::Initialize() {
     PushOnScopeChains(Context.getBuiltinVaListDecl(), TUScope);
 
 #if INTEL_CUSTOMIZATION
-  // Fix for CQ#367961: clang does not support automatically-aligned dynamic
-  // allocation via <aligned_new> header.
   if (PP.getLangOpts().IntelCompat && PP.getLangOpts().CPlusPlus) {
     auto *StdNamespace = getOrCreateStdNamespace();
+    if (StdNamespace->isImplicit())
+      PushOnScopeChains(StdNamespace, TUScope);
+
+    // Fix for CQ#367961: clang does not support automatically-aligned dynamic
+    // allocation via <aligned_new> header.
     auto *AlignValT = &Context.Idents.get("align_val_t");
     LookupResult R(*this, AlignValT, SourceLocation(), LookupTagName);
     LookupQualifiedName(R, StdNamespace);
@@ -293,8 +296,22 @@ void Sema::Initialize() {
                                       /*NumNegativeBits=*/0);
       StdNamespace->addDecl(AlignValTTy);
     }
-    if (StdNamespace->isImplicit())
-      PushOnScopeChains(StdNamespace, TUScope);
+
+    // Fix for CQ#374800: For gcc compatibility sake, we should recognize
+    // "std::type_info" even without inclusion of <typeinfo> header. This should
+    // happen on Linux only, as in MS mode even open-source clang recognizes
+    // "type_info" (but not std::type_info!)
+    if (!PP.getLangOpts().MSVCCompat) {
+      auto *TypeInfo = &Context.Idents.get("type_info");
+      R.setLookupName(TypeInfo);
+      LookupQualifiedName(R, StdNamespace);
+      if (R.empty()) {
+        auto *TypeInfoTy =
+          CXXRecordDecl::Create(Context, TTK_Class, StdNamespace,
+                                SourceLocation(), SourceLocation(), TypeInfo);
+        StdNamespace->addDecl(TypeInfoTy);
+      }
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 }

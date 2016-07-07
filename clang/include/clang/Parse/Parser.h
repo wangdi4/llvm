@@ -1699,7 +1699,16 @@ private:
   ExprResult ParseStringLiteralExpression(bool AllowUserDefinedLiteral = false);
 
   ExprResult ParseGenericSelectionExpression();
-  
+
+#if INTEL_CUSTOMIZATION
+  // CQ#381345: Parse Intel generic selection expressioon
+  bool  getTypeOfPossibleControllingExpr(QualType &T);
+
+  QualType getTypeOfControllingExpr();
+
+  ExprResult ParseIntelGenericSelectionExpression();
+#endif // INTEL_CUSTOMIZATION
+
   ExprResult ParseObjCBoolLiteral();
 
   ExprResult ParseFoldExpression(ExprResult LHS, BalancedDelimiterTracker &T);
@@ -1826,9 +1835,18 @@ private:  //***INTEL
   ///         assignment-expression
   ///         '{' ...
   ExprResult ParseInitializer() {
+#if INTEL_CUSTOMIZATION
+    ExprResult res;
+    Actions.IsInInitializerContext = true;
+
     if (Tok.isNot(tok::l_brace))
-      return ParseAssignmentExpression();
-    return ParseBraceInitializer();
+      res = ParseAssignmentExpression();
+    else
+      res = ParseBraceInitializer();
+
+    Actions.IsInInitializerContext = false;
+    return res;
+#endif // INTEL_CUSTOMIZATION
   }
   bool MayBeDesignationStart();
   ExprResult ParseBraceInitializer();

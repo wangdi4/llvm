@@ -1229,6 +1229,14 @@ def warn_weak_template_vtable : Warning<
 def ext_using_undefined_std : ExtWarn<
   "using directive refers to implicitly-defined namespace 'std'">;
   
+// if INTEL_CUSTOMIZATION
+// Fix for CQ374762: Retrieve a namespace, which may require us to
+// implicitly define.
+def warn_using_undefined_namespace : Warning<
+    "namespace '%0' is not defined">,
+    InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
+
 // C++ exception specifications
 def err_exception_spec_in_typedef : Error<
   "exception specifications are not allowed in %select{typedefs|type aliases}0">;
@@ -5444,6 +5452,10 @@ def ext_typecheck_addrof_void : Extension<
   "ISO C forbids taking the address of an expression of type 'void'">;
 def err_unqualified_pointer_member_function : Error<
   "must explicitly qualify name of member function when taking its address">;
+// if INTEL_CUSTOMIZATION
+def warn_unqualified_pointer_member_function : Warning<
+  err_unqualified_pointer_member_function.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_invalid_form_pointer_member_function : Error<
   "cannot create a non-constant pointer to member function">;
 def err_address_of_function_with_pass_object_size_params: Error<
@@ -7225,6 +7237,10 @@ def err_incorrect_defaulted_exception_spec : Error<
   "copy constructor|move constructor|copy assignment operator|move assignment "
   "operator|destructor}0 does not match the "
   "calculated one">;
+// if INTEL_CUSTOMIZATION
+def warn_incorrect_defaulted_exception_spec : Warning<
+  err_incorrect_defaulted_exception_spec.Text>, InGroup<IntelCompat>;
+// endif // INTEL_CUSTOMIZATION
 def err_incorrect_defaulted_constexpr : Error<
   "defaulted definition of %select{default constructor|copy constructor|"
   "move constructor|copy assignment operator|move assignment operator}0 "
