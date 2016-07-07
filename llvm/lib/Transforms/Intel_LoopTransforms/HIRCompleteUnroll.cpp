@@ -894,8 +894,8 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop,
   }
 
   // Ignore loops which have switch or function calls for unrolling.
-  if (HLNodeUtils::hasSwitchOrCall(Loop->getFirstChild(), Loop->getLastChild(),
-                                   false)) {
+  if (HLNodeUtils::hasSwitchOrCall<false>(Loop->getFirstChild(),
+                                          Loop->getLastChild())) {
     return false;
   }
 

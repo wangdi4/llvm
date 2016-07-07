@@ -1893,7 +1893,7 @@ struct NodeCounter final : public HLNodeVisitorBase {
   void postVisit(HLNode *) {}
 };
 
-// The visitor that sets TopSortNums and LexicalLastTopSortNum from MinNum
+// The visitor that sets TopSortNums and MaxTopSortNum from MinNum
 // with a fixed Step. If set, the numbering will be started AfterNode.
 //
 // Force:
@@ -2457,37 +2457,6 @@ const HLLoop *HLNodeUtils::getParentLoopwithLevel(unsigned Level,
     }
   }
   return nullptr;
-}
-
-// Switch-Call Visitor to check if Switch or Call exists.
-struct SwitchCallVisitor final : public HLNodeVisitorBase {
-  bool IsSwitch, IsCall;
-
-  void visit(const HLSwitch *Switch) { IsSwitch = true; }
-
-  void visit(const HLInst *Inst) {
-    if (Inst->isCallInst()) {
-      IsCall = true;
-    }
-  }
-
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *) {}
-  bool isDone() const override { return (IsSwitch || IsCall); }
-  SwitchCallVisitor() : IsSwitch(false), IsCall(false) {}
-};
-
-bool HLNodeUtils::hasSwitchOrCall(const HLNode *NodeStart,
-                                  const HLNode *NodeEnd,
-                                  bool RecurseInsideLoops) {
-  assert(NodeStart && NodeEnd && " Node Start/End is null.");
-  SwitchCallVisitor SCVisit;
-  if (RecurseInsideLoops) {
-    HLNodeUtils::visitRange<true, true>(SCVisit, NodeStart, NodeEnd);
-  } else {
-    HLNodeUtils::visitRange<true, false>(SCVisit, NodeStart, NodeEnd);
-  }
-  return (SCVisit.IsSwitch || SCVisit.IsCall);
 }
 
 bool HLNodeUtils::isMinValue(VALType ValType) {
