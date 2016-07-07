@@ -46,6 +46,7 @@ private:
   void emitClausesStringsTable(raw_ostream &OS);
   void emitDirectivesIdsTable(raw_ostream &OS);
   void emitClausesIdsTable(raw_ostream &OS);
+  std::string genDirectiveClauseEnumString(StringRef DCString);
 
 public:
   DirectivesEmitter(RecordKeeper &R) : Records(R) {}
@@ -54,6 +55,18 @@ public:
   void run(raw_ostream &OS);
 };
 } // End anonymous namespace
+
+/// \brief Generate the enum string for directives and clauses.
+std::string
+DirectivesEmitter::genDirectiveClauseEnumString(StringRef DCString) {
+  SmallVector<StringRef, 4> StringParts;
+  DCString.split(StringParts, '.');
+  std::string DCEnum = StringParts[0];
+  for (unsigned Idx = 1; Idx < StringParts.size(); Idx++) {
+    DCEnum = DCEnum + "_" + StringParts[Idx].str();
+  }
+  return DCEnum;
+}
 
 /// \brief Emit the enumerations for parallel/vector directives.
 /// E.g., things like the begin/end of a simd loop, parallel region, etc.
@@ -68,7 +81,8 @@ void DirectivesEmitter::emitDirectivesEnums(raw_ostream &OS) {
   for (const auto &D : Records.getDefs()) {
     if (D.second->isSubClassOf(DirectiveClass)) {
       std::string DirectiveName = D.first;
-      StringRef DirectiveEnum = StringRef(DirectiveName);
+      StringRef DirectiveString = StringRef(DirectiveName);
+      std::string DirectiveEnum = genDirectiveClauseEnumString(DirectiveString);
       OS << "  " << DirectiveEnum << ",\n";
     }
   }
@@ -88,7 +102,8 @@ void DirectivesEmitter::emitClausesEnums(raw_ostream &OS) {
   for (const auto &D : Records.getDefs()) {
     if (D.second->isSubClassOf(ClauseClass)) {
       std::string ClauseName = D.first;
-      StringRef ClauseEnum = StringRef(ClauseName);
+      StringRef ClauseString = StringRef(ClauseName);
+      std::string ClauseEnum = genDirectiveClauseEnumString(ClauseString);
       OS << "  " << ClauseEnum << ",\n";
     }
   }
@@ -108,13 +123,8 @@ void DirectivesEmitter::emitDirectivesStringsTable(raw_ostream &OS) {
   for (const auto &D : Records.getDefs()) {
     if (D.second->isSubClassOf(DirectiveClass)) {
       std::string DirectiveName = D.first;
-      StringRef DirectiveEnum = StringRef(DirectiveName);
-      SmallVector<StringRef, 4> StringParts;
-      DirectiveEnum.split(StringParts, '_');
-      std::string DirectiveString = StringParts[0];
-      for (unsigned Idx = 1; Idx < StringParts.size(); Idx++) {
-        DirectiveString = DirectiveString + "." + StringParts[Idx].str();
-      }
+      StringRef DirectiveString = StringRef(DirectiveName);
+      std::string DirectiveEnum = genDirectiveClauseEnumString(DirectiveString);
       OS << "  { " << DirectiveEnum << ",\n";
       OS << "    \"" << DirectiveString << "\" },\n";
     }
@@ -135,13 +145,8 @@ void DirectivesEmitter::emitDirectivesIdsTable(raw_ostream &OS) {
   for (const auto &D : Records.getDefs()) {
     if (D.second->isSubClassOf(DirectiveClass)) {
       std::string DirectiveName = D.first;
-      StringRef DirectiveEnum = StringRef(DirectiveName);
-      SmallVector<StringRef, 4> StringParts;
-      DirectiveEnum.split(StringParts, '_');
-      std::string DirectiveString = StringParts[0];
-      for (unsigned Idx = 1; Idx < StringParts.size(); Idx++) {
-        DirectiveString = DirectiveString + "." + StringParts[Idx].str();
-      }
+      StringRef DirectiveString = StringRef(DirectiveName);
+      std::string DirectiveEnum = genDirectiveClauseEnumString(DirectiveString);
       OS << "  { \"" << DirectiveString << "\",\n";
       OS << "    " << DirectiveEnum << " },\n";
     }
@@ -161,13 +166,8 @@ void DirectivesEmitter::emitClausesStringsTable(raw_ostream &OS) {
   for (const auto &D : Records.getDefs()) {
     if (D.second->isSubClassOf(ClauseClass)) {
       std::string ClauseName = D.first;
-      StringRef ClauseEnum = StringRef(ClauseName);
-      SmallVector<StringRef, 4> StringParts;
-      ClauseEnum.split(StringParts, '_');
-      std::string ClauseString = StringParts[0];
-      for (unsigned Idx = 1; Idx < StringParts.size(); Idx++) {
-        ClauseString = ClauseString + "." + StringParts[Idx].str();
-      }
+      StringRef ClauseString = StringRef(ClauseName);
+      std::string ClauseEnum = genDirectiveClauseEnumString(ClauseString);
       OS << "  { " << ClauseEnum << ",\n";
       OS << "    \"" << ClauseString << "\" },\n";
     }
@@ -187,13 +187,8 @@ void DirectivesEmitter::emitClausesIdsTable(raw_ostream &OS) {
   for (const auto &D : Records.getDefs()) {
     if (D.second->isSubClassOf(ClauseClass)) {
       std::string ClauseName = D.first;
-      StringRef ClauseEnum = StringRef(ClauseName);
-      SmallVector<StringRef, 4> StringParts;
-      ClauseEnum.split(StringParts, '_');
-      std::string ClauseString = StringParts[0];
-      for (unsigned Idx = 1; Idx < StringParts.size(); Idx++) {
-        ClauseString = ClauseString + "." + StringParts[Idx].str();
-      }
+      StringRef ClauseString = StringRef(ClauseName);
+      std::string ClauseEnum = genDirectiveClauseEnumString(ClauseString);
       OS << "  { \"" << ClauseString << "\",\n";
       OS << "    " << ClauseEnum << " },\n";
     }
