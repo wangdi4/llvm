@@ -477,15 +477,15 @@ VPOParoptUtils::genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
   //     __kmpc_atomic_<type>(loc, tid, args).
   // We have the Intrinsic name, its return type and other function args. The
   // loc argument is obtained using the IdentTy struct inside genKmpcCall. But
-  // we need a valid Tid, which we can load into memory using TidPtr.
+  // we need a valid Tid, which we can load from memory using TidPtr.
   LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
   LoadTid->setAlignment(4);
 
-  // Now compile all the function arguments together.
+  // Now bundle all the function arguments together.
   SmallVector<Value*, 3> FnArgs = {LoadTid};
   FnArgs.append(Args.begin(), Args.end());
 
-  // Now try to generate the KMPC call.
+  // And then try to generate the KMPC call.
   return VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, IntrinsicName,
                                      ReturnTy, FnArgs);
 }

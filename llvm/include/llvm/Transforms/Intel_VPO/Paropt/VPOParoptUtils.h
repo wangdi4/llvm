@@ -170,6 +170,13 @@ public:
     /// obtaining Loc and Tid, before the \p InsertPt, and inserts the function
     /// prototype into the module symbol table. But it does not insert the final
     /// KMPC call.
+    /// \param TidPtr is the AllocaInst for Tid.
+    /// \param IdentTy and \p InsertPt are used to obtain Loc needed by the
+    /// KMPC call.
+    /// \param IntrinsicName is the name of the function.
+    /// \param ReturnTy is the return type of the function.
+    /// \param Args arguments for the function call.
+    ///
     /// \returns The generated CallInst.
     static CallInst *genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
                                         AllocaInst *TidPtr,
@@ -196,6 +203,7 @@ public:
     /// \param IntrinsicName is the name of the function.
     /// \param ReturnTy is the return type of the function.
     /// \param Args arguments for the function call.
+    ///
     /// \returns the generated CallInst.
     static CallInst *genKmpcCall(WRegionNode *W, StructType *IdentTy,
                                  Instruction *InsertPt, StringRef IntrinsicName,
@@ -206,8 +214,10 @@ public:
     /// declared here. Otherwise, the existing declaration is used.
     /// \param M Module for which the call is generated.
     /// \param FnName Name of the function.
-    /// \param ReturnTy Return type of the function. 
+    /// \param ReturnTy Return type of the function.
     /// \param FnArgs Arguments for the function call.
+    ///
+    /// \returns the generated CallInst.
     static CallInst *genCall(Module *M, StringRef FnName, Type *ReturnTy,
                              ArrayRef<Value *> FnArgs);
     };
