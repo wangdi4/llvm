@@ -28,6 +28,11 @@ using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
 
+static cl::opt<bool>
+  DisableStressTest("disable-vpo-stress-test", cl::init(true),
+                    cl::Hidden,
+                    cl::desc("Disable VPO Vectorizer Stress Testing"));
+
 static RegDDRef *getConstantSplatDDRef(Constant *ConstVal, unsigned VL) {
   Constant *ConstVec = ConstantVector::getSplat(VL, ConstVal);
   if (isa<ConstantDataVector>(ConstVec))
@@ -133,9 +138,9 @@ ReductionHIRMngr::getRecurrenceIdentityVector(ReductionItem *RedItem,
 
 // TBD - once we update to the latest loopopt sources, make use of
 // getStrideAtLevel utility
-bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, int64_t *CoeffPtr) {
-  unsigned NestingLevel = OrigLoop->getNestingLevel();
-
+bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref,
+                                     unsigned NestingLevel,
+                                     int64_t *CoeffPtr) {
   if (Ref->isTerminalRef())
     return false;
 
@@ -175,12 +180,15 @@ class HandledCheck final : public HLNodeVisitorBase {
 private:
   bool IsHandled;
   unsigned LoopLevel;
+  bool UnitStrideRefSeen;
+  bool MemRefSeen;
 
   void visitRegDDRef(RegDDRef *RegDD);
   void visitCanonExpr(CanonExpr *CExpr);
 
 public:
-  HandledCheck(unsigned Level) : IsHandled(true), LoopLevel(Level) {}
+  HandledCheck(unsigned Level) : IsHandled(true), LoopLevel(Level),
+    UnitStrideRefSeen(false), MemRefSeen(false) {}
 
   void visit(HLDDNode *Node);
 
@@ -190,6 +198,8 @@ public:
 
   bool isDone() const override { return (!IsHandled); }
   bool isHandled() { return IsHandled; }
+  bool getUnitStrideRefSeen() { return UnitStrideRefSeen; }
+  bool getMemRefSeen() { return MemRefSeen; }
 };
 } // End anonymous namespace
 
@@ -217,6 +227,12 @@ void HandledCheck::visit(HLDDNode *Node) {
 // visitRegDDRef - Visits RegDDRef to visit the Canon Exprs
 // present inside it.
 void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
+  int64_t IVConstCoeff;
+
+  if (AVRCodeGenHIR::isConstStrideRef(RegDD, LoopLevel, &IVConstCoeff) &&
+      IVConstCoeff == 1)
+    UnitStrideRefSeen = true;
+
   // Visit CanonExprs inside the RegDDRefs
   for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
        ++Iter) {
@@ -225,6 +241,8 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
   // Visit GEP Base
   if (RegDD->hasGEPInfo()) {
+    MemRefSeen = true;
+
     // Addressof computation not supported for now.
     if (RegDD->isAddressOf()) {
       IsHandled = false;
@@ -337,6 +355,8 @@ bool AVRCodeGenHIR::loopIsHandled() {
     setTripCount((uint64_t) ConstTripCount);
   }
 
+  bool UnitStrideSeen = false;
+  bool MemRefSeen = false;
   for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
        ++Itr) {
     if (!isa<AVRAssignHIR>(Itr))
@@ -348,7 +368,20 @@ bool AVRCodeGenHIR::loopIsHandled() {
     HLNodeUtils::visit(NodeCheck, INode);
     if (!NodeCheck.isHandled())
       return false;
+
+    if (NodeCheck.getUnitStrideRefSeen())
+      UnitStrideSeen = true;
+
+    if (NodeCheck.getMemRefSeen())
+      MemRefSeen = true;
   }
+
+  // If we are not in stress testing mode, only vectorize when some
+  // unit stride refs are seen. Still vectorize the case when no mem refs
+  // are seen. Remove this check once vectorizer cost model is fully
+  // implemented.
+  if (DisableStressTest && MemRefSeen && !UnitStrideSeen)
+    return false;
 
   // Loop parent is expected to be an HLRegion
   HLRegion *Parent = dyn_cast<HLRegion>(Loop->getParent());
@@ -507,7 +540,8 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
   }
 
   // For unit stride ref, nothing else to do
-  if (isConstStrideRef(Ref, &IVConstCoeff) && IVConstCoeff == 1)
+  if (isConstStrideRef(Ref, OrigLoop->getNestingLevel(), &IVConstCoeff) &&
+      IVConstCoeff == 1)
     return WideRef;
 
   // For cases other than unit stride refs, we need to widen the induction

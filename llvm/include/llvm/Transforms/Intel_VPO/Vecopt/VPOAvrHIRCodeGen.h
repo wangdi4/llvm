@@ -76,6 +76,12 @@ public:
   // vectorization factor.
   bool vectorize(int VL);
 
+  // Return true if \p Ref is a constant stride reference at loop
+  // nesting level \p Level. Return stride coefficient in \p CoeffPtr
+  // if not null.
+  static bool isConstStrideRef(const RegDDRef *Ref, 
+                               unsigned Level,
+                               int64_t *CoeffPtr = nullptr);
 private:
   AVR *Avr;
 
@@ -125,8 +131,6 @@ private:
   HLInst *widenReductionNode(const HLNode *Node);
   void eraseIntrinsBeforeLoop();
   bool processLoop();
-  bool isConstStrideRef(const RegDDRef *Ref, int64_t *CoeffPtr = nullptr);
-
   RegDDRef *widenRef(const RegDDRef *Ref);
 };
 
