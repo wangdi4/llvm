@@ -43,6 +43,11 @@ class LPUAllocUnitPass : public MachineFunctionPass {
 public:
   static char ID;
   LPUAllocUnitPass() : MachineFunctionPass(ID) {
+    // TBD(jsukha): Special case: unknown schedule class causes
+    // problems.  Currently, LLVM "COPY" statements introduced by
+    // other phases fall into this category.
+    IIToFU[0] = LPU::FUNCUNIT::VIR;
+    
     IIToFU[LPU::Sched::IIPseudo ] = LPU::FUNCUNIT::ALU;
     IIToFU[LPU::Sched::IIVir    ] = LPU::FUNCUNIT::VIR;
     IIToFU[LPU::Sched::IIALU    ] = LPU::FUNCUNIT::ALU;
@@ -135,6 +140,15 @@ bool LPUAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
         // non-const and >3, but on an ALU otherwise?)
         unsigned schedClass = MI->getDesc().getSchedClass();
         unsigned unit = IIToFU[schedClass];
+
+
+        if (schedClass == 0) {
+          // Print a warning message for instructions with unknown
+          // schedule class.
+          DEBUG(errs() << "WARNING: Encountered machine instruction " << *MI << " with unknown schedule class. Assigning to virtual unit.\n");
+        }
+
+        DEBUG(errs() << "MI " << *MI << ": schedClass " << schedClass << " maps to unit " << unit << "\n");
         BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(LPU::UNIT)).
           addImm(unit);
         isSequential = (unit == LPU::FUNCUNIT::SXU);
