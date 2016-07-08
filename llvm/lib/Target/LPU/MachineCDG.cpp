@@ -110,12 +110,32 @@ ControlDependenceGraphBase::getEdgeType(MachineBasicBlock *A, MachineBasicBlock 
     return ControlDependenceNode::OTHER;
   } else if (!FBB && !Cond.empty() && TBB) { 
     //branch followed by a fall through
-    if (TBB == B) return ControlDependenceNode::TRUE;
-    else return ControlDependenceNode::FALSE;
+		if (TBB == B) {
+			if (A->getFirstTerminator()->getOpcode() == LPU::BT)
+				return ControlDependenceNode::TRUE;
+			else
+				return ControlDependenceNode::FALSE;
+		} else {
+			if (A->getFirstTerminator()->getOpcode() == LPU::BT)
+				return ControlDependenceNode::FALSE;	
+			else 
+				return ControlDependenceNode::TRUE;
+		}
   } else if (TBB && !Cond.empty() && FBB) {
     // a two-way branch
-    if (TBB == B) return ControlDependenceNode::TRUE;
-    else return ControlDependenceNode::FALSE;
+		if (TBB == B) {
+			if (A->getFirstTerminator()->getOpcode() == LPU::BT) {
+				return ControlDependenceNode::TRUE;
+			} else {
+				return ControlDependenceNode::FALSE;
+			}
+		} else {
+			if (A->getFirstTerminator()->getOpcode() == LPU::BT) {
+				return ControlDependenceNode::FALSE;
+			}	else {
+				return ControlDependenceNode::TRUE;
+			}
+		}
   } else {
     assert(false && "unexpected case");
   }

@@ -221,6 +221,7 @@ namespace llvm {
     CDGRegion* getRegion(ControlDependenceNode *anode) {
       return cdg2rgn[anode];
     }
+		ControlDependenceNode::EdgeType getEdgeType(MachineBasicBlock *, MachineBasicBlock *);
     //ControlDependenceNode* getNonLatchParent(ControlDependenceNode* anode, bool oneAndOnly);
     bool controls(MachineBasicBlock *A, MachineBasicBlock *B) const;
     bool influences(MachineBasicBlock *A, MachineBasicBlock *B) const;
@@ -236,7 +237,7 @@ namespace llvm {
     DenseMap<ControlDependenceNode *, MachineBasicBlock *> cdg2bb;
     SmallDenseMap<ControlDependenceNode *, CDGRegion *> cdg2rgn;
     SmallVector<CDGRegion *, 64> regions;
-    ControlDependenceNode::EdgeType getEdgeType(MachineBasicBlock *, MachineBasicBlock *);
+   
     void computeDependencies(MachineFunction &F, MachinePostDominatorTree &pdt);
     void insertRegions(MachinePostDominatorTree &pdt);
   };
