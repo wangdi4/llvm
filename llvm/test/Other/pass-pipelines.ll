@@ -3,10 +3,10 @@
 ; legacy pass manager doesn't introduce unexpected structural changes in the
 ; pass pipeline.
 ;
-; INTEL - Disabled Intel Andersen's Alias Analysis so as to not break
-; INTEL - the pass pipeline this is trying to check for.
+; INTEL - Disabled Intel Andersen's Alias Analysis and loopopt so as to not
+; INTEL - break the pass pipeline this is trying to check for.
 ; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
-; RUN:     -enable-andersen=false -O2 %s 2>&1 \
+; RUN:     -enable-andersen=false -O2 -loopopt=false %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O2
 ;
 ; In the first pipeline there should just be a function pass manager, no other
