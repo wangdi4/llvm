@@ -486,7 +486,7 @@ static void dropSubprogramDI (Function * func) {
     DISubprogramArray oldSubprogList(compileUnit->getSubprograms());
 
     for (auto diSubprogram : oldSubprogList) {
-      assert(dyn_cast_or_null<DISubprogram>(diSubprogram) && "Must be a DISuprogram descriptor");
+      assert(dyn_cast<DISubprogram>(diSubprogram) && "Must be a DISuprogram descriptor");
       if (diSubprogram->describes(func)) {
         found = true;
       } else {

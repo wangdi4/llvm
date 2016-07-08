@@ -5,6 +5,9 @@ if(WIN32)
     # This change was added in order to support the 15.33 GFX driver
     # CPU runtime (version 3.0) installation with the new SDK
     # TODO - undo this when OclCpuDebugging.dll is added to the driver
+    # As discussed with VPG (CORC-1070) OclCpuDebugging.dll won't be a part of the driver,
+    # "This increases footprint of the driver and don't bring value to iGFX driver product.
+    # This library should be distributed as part of SDK which is targeted for developers not final users."
     set(TARGET_NAME OclCpuDebugging3)
 else(WIN32)
     set(TARGET_NAME OclCpuDebugging)

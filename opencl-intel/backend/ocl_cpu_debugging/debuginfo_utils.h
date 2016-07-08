@@ -38,9 +38,9 @@ namespace llvm {
     class DIType;
 }
 
-std::string DescribeVarType(const llvm::DIType& di_type,
+std::string DescribeVarType(const llvm::DIType* di_type,
                             const llvm::DITypeIdentifierMap & typeIdentifierMap);
-std::string DescribeVarValue(const llvm::DIType& di_type, void* addr,
+std::string DescribeVarValue(const llvm::DIType* di_type, void* addr,
                              const llvm::DITypeIdentifierMap & typeIdentifierMap,
                              std::string type_name = "");
 

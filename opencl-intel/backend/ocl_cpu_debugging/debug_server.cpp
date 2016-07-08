@@ -182,14 +182,14 @@ struct FunctionStackFrame
             : addr(addr_), description(description_), expression(expression_)
         {
             if (expression) {
-              DIExpression di_expr(expression);
-              assert(di_expr.Verify() && "DIExpression is expected");
-              unsigned N = di_expr.getNumElements();
+              assert(dyn_cast<DIExpression>(expression) && "DIExpression is expected");
+              const DIExpression* di_expr = cast<DIExpression>(expression);
+              unsigned N = di_expr->getNumElements();
               for (unsigned i = 0; i < N; ++i) {
-                uint64_t Element = di_expr.getElement(i);
+                uint64_t Element = di_expr->getElement(i);
                 if (Element == dwarf::DW_OP_plus) {
                   uint64_t a = reinterpret_cast<uint64_t>(addr);
-                  a += di_expr.getElement(++i);
+                  a += di_expr->getElement(++i);
                   addr = reinterpret_cast<void*>(a);
                 } else if (Element == dwarf::DW_OP_deref) {
                   addr = *(reinterpret_cast<void**>(addr));
@@ -324,7 +324,7 @@ struct DebugServer::DebugServerImpl
     VarsMapping CollectVarsInScope(
         const DIScope& scope, const FunctionStackFrame& stackframe);
     VarsMapping CollectVarsInLexicalBlock(
-        DILexicalBlock block, const FunctionStackFrame& stackframe);
+        const DILexicalBlock& block, const FunctionStackFrame& stackframe);
     VarDescription CreateVarDescription(
         const FunctionStackFrame::VarDeclInfo& var_info);
 
@@ -438,17 +438,19 @@ void DebugServer::DebugServerImpl::SendStackTraceInfo()
     msg_to_client.set_type(ServerToClientMessage::STACK_TRACE_INFO);
 
     for (FunctionStack::iterator i = m_stack.begin(); i != m_stack.end(); ++i) {
-        DISubprogram subprogram_descriptor(i->function_metadata);
-        string function_name = subprogram_descriptor.getName().str();
-        ServerToClientMessage::StackFrameInfo* frameinfo = 
+        assert(dyn_cast<DISubprogram>(i->function_metadata) && "DISubprogram is expected");
+        const DISubprogram* subprogram_descriptor = cast<DISubprogram>(i->function_metadata);
+        string function_name = subprogram_descriptor->getName().str();
+        ServerToClientMessage::StackFrameInfo* frameinfo =
             msg_to_client.mutable_stack_trace_info_msg()->add_frames();
         frameinfo->set_func_name(function_name);
         LineInfo* call_line_info = frameinfo->mutable_call_line();
 
         if (i->calling_line_metadata) {
-            DILocation loc(i->calling_line_metadata);
-            call_line_info->set_file(loc.getFilename());
-            call_line_info->set_lineno(loc.getLineNumber());
+            assert(dyn_cast<DILocation>(i->calling_line_metadata) && "DILocation is expected");
+            const DILocation* loc = cast<DILocation>(i->calling_line_metadata);
+            call_line_info->set_file(loc->getFilename());
+            call_line_info->set_lineno(loc->getLine());
         }
         else {
             call_line_info->set_file("<unknown>");
@@ -626,14 +628,14 @@ VarsMapping DebugServer::DebugServerImpl::CollectVisibleVars(
 
     assert(line_metadata->getNumOperands() == 1);
     if (const MDNode* scope = dyn_cast<const MDNode>(line_metadata->getOperand(0))) {
-        DILexicalBlock descriptor(scope);
-        if (descriptor.isLexicalBlock()) {
-            visiblevars = CollectVarsInLexicalBlock(descriptor, stackframe);
+        if (dyn_cast<DILexicalBlock>(scope)) {
+            auto descriptor = cast<DILexicalBlock>(scope);
+            visiblevars = CollectVarsInLexicalBlock(*descriptor, stackframe);
         }
         else {
-            DIScope descriptor(scope);
-            assert(descriptor.isSubprogram());
-            visiblevars = CollectVarsInScope(descriptor, stackframe);
+            assert(dyn_cast<DISubprogram>(scope) && dyn_cast<DIScope>(scope));
+            const DIScope* descriptor = cast<DIScope>(scope);
+            visiblevars = CollectVarsInScope(*descriptor, stackframe);
         }
     }
     else
@@ -647,21 +649,19 @@ VarsMapping DebugServer::DebugServerImpl::CollectVisibleVars(
 
 
 VarsMapping DebugServer::DebugServerImpl::CollectVarsInLexicalBlock(
-    DILexicalBlock block, const FunctionStackFrame& stackframe)
+    const DILexicalBlock& block, const FunctionStackFrame& stackframe)
 {
     VarsMapping myvars = CollectVarsInScope(block, stackframe);
 
     // Look up declarations in the parent (context) of this block
     //
     VarsMapping parent_vars;
-    DIScope block_context = block.getContext();
-    if (block_context.isLexicalBlock()) {
-        const MDNode* context_mdnode = static_cast<const MDNode*>(block_context);
-        DILexicalBlock parent_block(context_mdnode);
-        parent_vars = CollectVarsInLexicalBlock(parent_block, stackframe);
+    DIScope* block_context = block.getScope();
+    if (auto parent_block = dyn_cast<DILexicalBlock>(block_context)) {
+        parent_vars = CollectVarsInLexicalBlock(*parent_block, stackframe);
     }
-    else if (block_context.isSubprogram()) {
-        parent_vars = CollectVarsInScope(block_context, stackframe);
+    else if (auto parent_subprogram = dyn_cast<DISubprogram>(block_context)) {
+        parent_vars = CollectVarsInScope(*parent_subprogram, stackframe);
     }
     else {
         assert(0);
@@ -700,17 +700,17 @@ VarsMapping DebugServer::DebugServerImpl::CollectVarsInScope(
         if (!i->expression) // if this is a global variable declaration
             continue;
 
-        DIVariable var_di(i->description);
-        assert(var_di.isVariable());
+        assert(dyn_cast<DIVariable>(i->description) && "DIVariable is expected");
+        const DIVariable* var_di = cast<DIVariable>(i->description);
 
         // Find the context scope of the declaration
         //
-        DIScope var_scope = var_di.getContext();
+        DIScope* var_scope = var_di->getScope();
         MDNode* var_scope_md = static_cast<MDNode*>(var_scope);
 
         // Is this the same block as the one we're collecting from?
         //
-        if (static_cast<MDNode*>(scope) == var_scope_md) {
+        if (cast<MDNode>(&scope) == var_scope_md) {
             VarDescription var_description = CreateVarDescription(*i);
             myvars[var_description.name] = var_description;
         }
@@ -742,22 +742,24 @@ VarDescription DebugServer::DebugServerImpl::CreateVarDescription(const Function
     string var_name_str;
     // [LLVM 3.6 UPGRADE] FIXME: Initialize m_typeIdentifierMap from a llvm::Module
     // See DebugInfoFinder::InitializeTypeMap for a reference
-    DIType di_type;
+    DIType* di_type = nullptr;
 
     if (!var_info.expression) { // if this is a global variable declaration
-        DIGlobalVariable di_global_type(var_info.description);
-        var_name_str = di_global_type.getName().str();
-        di_type = di_global_type.getType().resolve(m_typeIdentifierMap);
+        assert(dyn_cast<DIGlobalVariable>(var_info.description) && "DIGlobalVariable is expected");
+        const DIGlobalVariable* di_global_type = cast<DIGlobalVariable>(var_info.description);
+        var_name_str = di_global_type->getName().str();
+        di_type = di_global_type->getType().resolve(m_typeIdentifierMap);
     }
     else {
-        DIVariable di_local_type(var_info.description);
-        var_name_str = di_local_type.getName().str();
-        di_type = di_local_type.getType().resolve(m_typeIdentifierMap);
+        assert(dyn_cast<DIVariable>(var_info.description) && "DIVariable is expected");
+        const DIVariable* di_local_type = cast<DIVariable>(var_info.description);
+        var_name_str = di_local_type->getName().str();
+        di_type = di_local_type->getType().resolve(m_typeIdentifierMap);
     }
 
     string var_type_str = DescribeVarType(di_type, m_typeIdentifierMap);
     string var_value_str = DescribeVarValue(di_type, var_info.addr, m_typeIdentifierMap, var_type_str);
-    VarTypeDescriptor var_type_descriptor = GenerateVarTypeDescriptor(di_type, m_typeIdentifierMap);
+    VarTypeDescriptor var_type_descriptor = GenerateVarTypeDescriptor(*di_type, m_typeIdentifierMap);
     
     return VarDescription(
         var_name_str, 
@@ -906,10 +908,11 @@ void DebugServer::WaitForStartCommand()
 
 void DebugServer::Stoppoint(const MDNode* line_metadata)
 {
-    DILocation loc(line_metadata);
-    StringRef file = loc.getFilename();
-    StringRef dir = loc.getDirectory();
-    unsigned lineno = loc.getLineNumber();
+  assert(dyn_cast<DILocation>(line_metadata) && "DILocation is expected");
+    const DILocation* loc = dyn_cast<DILocation>(line_metadata);
+    StringRef file  = loc->getFilename();
+    StringRef dir   = loc->getDirectory();
+    unsigned lineno = loc->getLine();
 
 #ifdef _WIN32
     // Resolve full path.
