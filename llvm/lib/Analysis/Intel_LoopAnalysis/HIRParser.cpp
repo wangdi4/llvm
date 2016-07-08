@@ -1246,13 +1246,14 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
 
 unsigned HIRParser::processInstBlob(const Instruction *Inst,
                                     const Instruction *BaseInst,
-                                    unsigned Symbase, unsigned NestingLevel) {
+                                    unsigned Symbase) {
 
   unsigned DefLevel = 0;
-  HLLoop *LCALoop = nullptr;
+  bool IsRegionLivein = false;
 
-  Loop *DefLp = LI->getLoopFor(Inst->getParent());
-  HLLoop *DefLoop = DefLp ? LF->findHLLoop(DefLp) : nullptr;
+  Loop *DefLp = nullptr;
+  HLLoop *DefLoop = nullptr;
+  HLLoop *LCALoop = nullptr;
 
   HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
                                          : CurNode->getLexicalParentLoop();
@@ -1260,8 +1261,12 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   // Set region livein and def level.
   if (!CurRegion->containsBBlock(Inst->getParent())) {
     CurRegion->addLiveInTemp(Symbase, Inst);
+    IsRegionLivein = true;
 
-  } else if (DefLoop && UseLoop &&
+    // We need to lookup DefLoop before UseLoop here as it is used later for
+    // livein/liveout analysis.
+  } else if ((DefLp = LI->getLoopFor(Inst->getParent())) &&
+             (DefLoop = LF->findHLLoop(DefLp)) && UseLoop &&
              (LCALoop =
                   HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop))) {
     // If the current node where the blob is used and the blob definition are
@@ -1283,44 +1288,53 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
 
   // Set loop livein/liveout as applicable.
 
-  // We only process non-SCCPhi instructions. SCC phi livein/liveouts are
-  // processed in scalar symbase assignment pass.
-  if (!isa<PHINode>(Inst) || (Inst == BaseInst)) {
+  // For livein/liveout analysis we need to set defining loop based on BaseInst
+  // as it represents Inst in HIR.
+  if (!IsRegionLivein && (Inst != BaseInst)) {
+    DefLp = LI->getLoopFor(BaseInst->getParent());
+    assert(DefLp && "Defining loop of BaseInst is null!");
+    DefLoop = LF->findHLLoop(DefLp);
+    assert(DefLoop && "Defining HLLoop of BaseInst is null!");
 
-    // Add temp as livein into current and all parent loops till we reach LCA
-    // loop.
-    while (UseLoop && (UseLoop != LCALoop)) {
-      UseLoop->addLiveInTemp(Symbase);
-      UseLoop = UseLoop->getParentLoop();
+    if (UseLoop) {
+      LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
+    }
+  }
+
+  // Add temp as livein into current and all parent loops till we reach LCA
+  // loop.
+  while (UseLoop && (UseLoop != LCALoop)) {
+    UseLoop->addLiveInTemp(Symbase);
+    UseLoop = UseLoop->getParentLoop();
+  }
+
+  if (DefLoop) {
+    // If this is a phi in the loop header, it should be added as a livein
+    // temp in defining loop since header phis are deconstructed as follows-
+    // Before deconstruction-
+    //
+    // L:
+    //   %t1 = phi [ %init, %step]
+    //   ... = %t1
+    // goto L:
+    //
+    //
+    // After deconstruction-
+    //
+    // %t1 = %init
+    // L:
+    //   ... = %t1
+    //   %t1 = %t1 + %step
+    // goto L:
+    //
+    if (isa<PHINode>(BaseInst) &&
+        (BaseInst->getParent() == DefLp->getHeader())) {
+      DefLoop->addLiveInTemp(Symbase);
     }
 
-    if (DefLoop) {
-      // If this is a phi in the loop header, it should be added as a livein
-      // temp in defining loop since header phis are deconstructed as follows-
-      // Before deconstruction-
-      //
-      // L:
-      //   %t1 = phi [ %init, %step]
-      //   ... = %t1
-      // goto L:
-      //
-      //
-      // After deconstruction-
-      //
-      // %t1 = %init
-      // L:
-      //   ... = %t1
-      //   %t1 = %t1 + %step
-      // goto L:
-      //
-      if (isa<PHINode>(Inst) && (Inst->getParent() == DefLp->getHeader())) {
-        DefLoop->addLiveInTemp(Symbase);
-      }
-
-      while (DefLoop != LCALoop) {
-        DefLoop->addLiveOutTemp(Symbase);
-        DefLoop = DefLoop->getParentLoop();
-      }
+    while (DefLoop != LCALoop) {
+      DefLoop->addLiveOutTemp(Symbase);
+      DefLoop = DefLoop->getParentLoop();
     }
   }
 
@@ -1350,8 +1364,7 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
   }
 
   if (auto Inst = dyn_cast<Instruction>(Temp)) {
-    DefLevel = processInstBlob(Inst, cast<Instruction>(BaseTemp), Symbase,
-                               NestingLevel);
+    DefLevel = processInstBlob(Inst, cast<Instruction>(BaseTemp), Symbase);
   } else {
     // Blob is some global value. Global values are not marked livein.
   }
@@ -1932,9 +1945,11 @@ void HIRParser::postParse(HLIf *If) {
   auto PredIter = If->pred_begin();
 
   // If 'then' is empty, move 'else' children to 'then' by inverting predicate.
-  if (!If->hasThenChildren() && (If->getNumPredicates() == 1) && (*PredIter != UNDEFINED_PREDICATE)) {
+  if (!If->hasThenChildren() && (If->getNumPredicates() == 1) &&
+      (*PredIter != UNDEFINED_PREDICATE)) {
     If->replacePredicate(PredIter, CmpInst::getInversePredicate(*PredIter));
-    HLNodeUtils::moveAsFirstChildren(If, If->else_begin(), If->else_end(), true);
+    HLNodeUtils::moveAsFirstChildren(If, If->else_begin(), If->else_end(),
+                                     true);
   }
 }
 
