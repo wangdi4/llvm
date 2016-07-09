@@ -221,7 +221,7 @@ namespace llvm {
     CDGRegion* getRegion(ControlDependenceNode *anode) {
       return cdg2rgn[anode];
     }
-		ControlDependenceNode::EdgeType getEdgeType(MachineBasicBlock *, MachineBasicBlock *);
+		ControlDependenceNode::EdgeType getEdgeType(MachineBasicBlock*, MachineBasicBlock*, bool confirmAnalysiable = false);
     //ControlDependenceNode* getNonLatchParent(ControlDependenceNode* anode, bool oneAndOnly);
     bool controls(MachineBasicBlock *A, MachineBasicBlock *B) const;
     bool influences(MachineBasicBlock *A, MachineBasicBlock *B) const;

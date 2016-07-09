@@ -113,6 +113,10 @@ INITIALIZE_PASS(LPUCvtCFDFPass, "lpu-cvt-cfdf", "LPU Convert Control Flow to Dat
 
 LPUCvtCFDFPass::LPUCvtCFDFPass() : MachineFunctionPass(ID) {
   initializeLPUCvtCFDFPassPass(*PassRegistry::getPassRegistry());
+	bb2switch.clear();
+	bb2pick.clear();
+	bb2predcpy.clear();
+	multiInputsPick.clear();
 }
 
 
@@ -502,7 +506,7 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
 								unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
 								unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
 								unsigned newVReg;
-								if (CDG->getEdgeType(mbb, succBB) == ControlDependenceNode::TRUE) {
+								if (CDG->getEdgeType(mbb, succBB, true) == ControlDependenceNode::TRUE) {
 									newVReg = switchTrueReg;
 								}	else {
 									newVReg = switchFalseReg;
@@ -835,7 +839,7 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
         assert(latchNode->getNumParents() == 1);
         ControlDependenceNode* ctrlNode = *latchNode->parent_begin();
         MachineInstr* bi = ctrlNode->getBlock()->getFirstInstrTerminator();
-        if (CDG->getEdgeType(bi->getParent(), latchBB) == ControlDependenceNode::FALSE) {
+        if (CDG->getEdgeType(bi->getParent(), latchBB, true) == ControlDependenceNode::FALSE) {
           pickFalseReg = pickSrc[1];
           pickTrueReg = pickSrc[0];
         } else {
@@ -1135,7 +1139,7 @@ void LPUCvtCFDFPass::assignPICKSrcForReg(unsigned &pickFalseReg, unsigned &pickT
   else {
     MachineBasicBlock* mbb = phi->getParent();
     //assert(DT->dominates(ctrlBB, mbb));
-		if (CDG->getEdgeType(ctrlBB, mbb) == ControlDependenceNode::TRUE) {
+		if (CDG->getEdgeType(ctrlBB, mbb, true) == ControlDependenceNode::TRUE) {
       pickTrueReg = Reg;
       pickFalseReg = LPU::IGN;
     } else {
