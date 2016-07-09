@@ -322,13 +322,6 @@ bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
   }
 
   HLNode *WriteNode = SrcRef->getHLDDNode();
-  HLNode *ReadNode = SinkRef->getHLDDNode();
-
-  // Only self reduction for now
-  if (WriteNode != ReadNode) {
-    return false;
-  }
-
   auto Inst = dyn_cast<HLInst>(WriteNode);
 
   if (!Inst) {
@@ -399,13 +392,14 @@ void DDWalk::visit(HLDDNode *Node) {
   // For all DDREFs
   for (auto Itr = Node->ddref_begin(), End = Node->ddref_end(); Itr != End;
        ++Itr) {
-    if ((*Itr)->isConstant()) {
-      continue;
-    }
+    auto Ref = *Itr;
+    auto II = DDG.outgoing_edges_begin(Ref), EE = DDG.outgoing_edges_end(Ref);
+
+    assert((Ref->isLval() || !Ref->isConstant() || II == EE) &&
+           "Constant DDREF is not expected to have any DD edges");
+
     // For all outgoing edges.
-    for (auto II = DDG.outgoing_edges_begin(*Itr),
-              EE = DDG.outgoing_edges_end(*Itr);
-         II != EE; ++II) {
+    for (; II != EE; ++II) {
       const DDEdge *Edge = *II;
       analyze(Edge);
     }
