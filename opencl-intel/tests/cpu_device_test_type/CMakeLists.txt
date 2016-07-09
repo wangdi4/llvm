@@ -88,7 +88,7 @@ install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
 # Copy *.xml cfg files which defines the options of the test to appropriate test directory in 'Release' area.
 install(FILES cfg_win.xml cfg_linux.xml DESTINATION ${CREATE_DIR_NAME}/cpu_device_test)
 
-set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang/cl_headers)
+set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang)
 
 set( INPUT_FILE test.cl )
 set( OUTPUT_FILE test.bc )

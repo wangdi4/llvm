@@ -91,7 +91,7 @@ install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
 install(FILES cfg_win.xml cfg_linux.xml DESTINATION ${CREATE_DIR_NAME}/framework_test)
 install(FILES framework_test_type.pm DESTINATION ${CREATE_DIR_NAME})
 
-set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang/cl_headers)
+set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang)
 
 set( INPUT_FILE test.cl )
 set( SPIR_OUTPUT_FILE test.bc )

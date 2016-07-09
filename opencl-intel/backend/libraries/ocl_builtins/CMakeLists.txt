@@ -210,13 +210,13 @@ set (CLANG_OCL_12_COMPILER_FLAGS
 
 set (CLANG_CL_COMMON_COMPILER_FLAGS
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
-  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/cl_headers/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h
+  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h
   -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign
   )
 
 set (CLANG_C_COMPILER_PARAMS
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
-  -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/cl_headers/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
+  -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
   )
 
 # options for clang to compile OpenCL 1.2 & 2.0 code

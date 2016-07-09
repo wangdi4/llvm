@@ -72,7 +72,7 @@ set (
 )
 endif()
 
-set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang/cl_headers )
+set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang )
 
 add_custom_command( TARGET ${TARGET}
   POST_BUILD

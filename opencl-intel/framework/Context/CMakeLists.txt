@@ -20,7 +20,7 @@ if (NOT WIN32)
 endif(NOT WIN32)
 
 include_directories( 
-            ${LLVM_INCLUDE_DIRS}/cclang/cl_headers
+            ${LLVM_INCLUDE_DIRS}/cclang
             ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
             ${CMAKE_SOURCE_DIR}/utils/CLElfLib 
             ${LLVM_INCLUDE_DIRS}/cclang

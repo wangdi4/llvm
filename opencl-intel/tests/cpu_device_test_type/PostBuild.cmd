@@ -34,6 +34,6 @@ copy %TARGET_NAME%.xsd %MTV_LOCAL_IMPORT_DIR% >> %PLATFORM_NAME%\%CONFIG_NAME%\c
 
 REM -------- Build tests file ------------
 @echo Building test.bc
-%MTV_LOCAL_BIN_DIR%\clc.exe -x cl test.cl -I %MTV_LOCAL_BIN_DIR%\fe_include -emit-llvm-bc -S -include opencl_.h -O3 -o %MTV_LOCAL_BIN_DIR%\test.bc
+%MTV_LOCAL_BIN_DIR%\clc.exe -x cl test.cl -I %MTV_LOCAL_BIN_DIR%\fe_include -emit-llvm-bc -S -include opencl-c.h -O3 -o %MTV_LOCAL_BIN_DIR%\test.bc
 
-%MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX%\clc.exe -x cl test.cl -I %MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX%\fe_include -emit-llvm-bc -S -include opencl_.h -O3 -o %MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX%\test.bc
+%MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX%\clc.exe -x cl test.cl -I %MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX%\fe_include -emit-llvm-bc -S -include opencl-c.h -O3 -o %MTV_LOCAL_BIN_DIR%.%DEST_DIR_SUFIX%\test.bc
