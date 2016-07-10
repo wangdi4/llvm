@@ -484,7 +484,7 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
     return false;
   }
 
-  // DEBUG(dbgs() << "HIR LoopReversal on Function : " << F.getName() << "\n");
+  DEBUG(dbgs() << "HIR LoopReversal on Function : " << F.getName() << "\n");
 
   // Gather ALL Innermost Loops as Candidates, use 64 increment
   SmallVector<HLLoop *, 64> CandidateLoops;
@@ -832,7 +832,7 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
   // 1.1 Get Loop's UpperBound (UB)
   CanonExpr *UBCE = Lp->getUpperCanonExpr();
   // DEBUG(::dump(UBCE, "Loop's UpperBound (UB) CE:"););
-  DEBUG(dbgs() << "UBCEDenom: " << UBCE->getDenominator() << "\n");
+  // DEBUG(dbgs() << "UBCEDenom: " << UBCE->getDenominator() << "\n");
 
   //=== 2 Do Loop Reversal Transformation for each MarkedCE  ===
   // For-each MCE in Collection:
