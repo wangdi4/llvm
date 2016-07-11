@@ -26,11 +26,6 @@ RuntimeServices("runtime",
                   cl::desc("Runtime services type (ocl/dx/apple/rs)"),
                   cl::value_desc("runtime_type"), cl::init("ocl"));
 
-static cl::opt<bool>
-MicPasses("mic-passes",
-                 cl::desc("Include optimization passes specific for MIC achitecture."));
-
-
 extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
 extern "C" Pass* createBuiltInImportPass(const char* CPUName);
 
