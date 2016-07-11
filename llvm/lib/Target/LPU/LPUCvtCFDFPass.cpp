@@ -919,10 +919,8 @@ void LPUCvtCFDFPass::assignLicForDF() {
 
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
-			unsigned schedClass = MI->getDesc().getSchedClass();
-			if (!schedClass) continue;
-
-			bool allLics = true;
+      unsigned schedClass = MI->getDesc().getSchedClass();
+      bool allLics = true;
       for (MIOperands MO(MI); MO.isValid(); ++MO) {
         if (!MO->isReg()) {
           if (MO->isImm() || MO->isCImm() || MO->isFPImm()) {
@@ -939,7 +937,23 @@ void LPUCvtCFDFPass::assignLicForDF() {
           }
         }
       }
-      if (allLics) {
+
+      // Check for instructions where all the uses are constants.
+      // These instructions shouldn't be moved on to dataflow units,
+      // because they keep firing infinitely.
+      bool allImmediateUses = true;
+      for (MIOperands MO(MI); MO.isValid(); ++MO) {
+        // Skip defs.
+        if (MO->isReg() && MO->isDef())
+          continue;
+        if (!(MO->isImm() || MO->isCImm() || MO->isFPImm())) {
+          allImmediateUses = false;
+          break;
+        }
+      }
+      
+      //      DEBUG(errs() << "Machine ins " << *MI << ": allLics = " << allLics << ", allImmediateUses = " << allImmediateUses << "\n");
+      if (allLics && !allImmediateUses) {
         MI->setFlag(MachineInstr::NonSequential);
       }
     }
