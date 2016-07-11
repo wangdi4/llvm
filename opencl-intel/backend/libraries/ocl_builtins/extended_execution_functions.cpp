@@ -16,9 +16,9 @@
 #define MAX_VAR_ARGS_COUNT (32)
 
 ////////// - externals used for accessing values from kernel's implicit args
-extern void* readonly __get_device_command_manager(void);
-extern void* readonly __get_block_to_kernel_mapper(void);
-extern void* readonly __get_runtime_handle(void);
+extern void* __attribute__((const)) __get_device_command_manager(void);
+extern void* __attribute__((const)) __get_block_to_kernel_mapper(void);
+extern void* __attribute__((const)) __get_runtime_handle(void);
 
 ////////// - externals to get access to ndrange opaque struct
 // setters
@@ -27,10 +27,14 @@ extern void __set_global_work_offset(ndrange_t *, size_t index, size_t offset);
 extern void __set_global_work_size(ndrange_t *, size_t index, size_t size);
 extern void __set_local_work_size(ndrange_t *, size_t index, size_t size);
 // getters
-extern size_t readonly __get_work_dimension(const ndrange_t *);
-extern size_t readonly __get_global_work_offset(const ndrange_t *, size_t index);
-extern size_t readonly __get_global_work_size(const ndrange_t *, size_t index);
-extern size_t readonly __get_local_work_size(const ndrange_t *, size_t index);
+extern size_t __attribute__((const)) __attribute__((always_inline))
+    __get_work_dimension(const ndrange_t *);
+extern size_t __attribute__((const)) __attribute__((always_inline))
+    __get_global_work_offset(const ndrange_t *, size_t index);
+extern size_t __attribute__((const)) __attribute__((always_inline))
+    __get_global_work_size(const ndrange_t *, size_t index);
+extern size_t __attribute__((const)) __attribute__((always_inline))
+    __get_local_work_size(const ndrange_t *, size_t index);
 
 ////////// - enqueue_kernel
 extern int ocl20_enqueue_kernel_events(
@@ -81,15 +85,15 @@ int __attribute__((always_inline)) __attribute__((overloadable))
 }
 
 ////////// - get_default_queue
-extern queue_t readonly ocl20_get_default_queue(void *DCM);
-queue_t const_func __attribute__((always_inline))  __attribute__((overloadable))
+extern queue_t __attribute__((const)) ocl20_get_default_queue(void *DCM);
+queue_t __attribute__((const)) __attribute__((always_inline))  __attribute__((overloadable))
     get_default_queue(void) {
   void* DCM = __get_device_command_manager();
   return ocl20_get_default_queue(DCM);
 }
 
 ////////// - ndrange_1D, ndrange_2D, ndrange_3D
-ndrange_t const_func __attribute__((overloadable))
+ndrange_t __attribute__((const)) __attribute__((overloadable))
     ndrange_1D(size_t global_work_offset, size_t global_work_size,
                size_t local_work_size) {
   ndrange_t T;
@@ -99,32 +103,32 @@ ndrange_t const_func __attribute__((overloadable))
   __set_local_work_size(&T, /*dimension*/ 0, /*size*/ local_work_size);
   return T;
 }
-ndrange_t const_func __attribute__((overloadable))
+ndrange_t __attribute__((const)) __attribute__((overloadable))
   ndrange_1D(size_t global_work_size) {
   size_t global_work_offset = 0;
   size_t local_work_size = 0;
   return ndrange_1D(global_work_offset, global_work_size, local_work_size);
 }
-ndrange_t const_func __attribute__((overloadable))
+ndrange_t __attribute__((const)) __attribute__((overloadable))
     __attribute__((always_inline))
     ndrange_1D(size_t global_work_size, size_t local_work_size) {
   size_t global_work_offset = 0;
   return ndrange_1D(global_work_offset, global_work_size, local_work_size);
 }
 
-ndrange_t const_func __attribute__((overloadable))
+ndrange_t __attribute__((const)) __attribute__((overloadable))
     __attribute__((always_inline)) ndrange_2D(const size_t global_work_size[2]) {
   size_t global_work_offset[2] = { 0, 0 };
   size_t local_work_size[2] = { 0, 0 };
   return ndrange_2D(global_work_offset, global_work_size, local_work_size);
 }
-ndrange_t const_func __attribute__((overloadable))
+ndrange_t __attribute__((const)) __attribute__((overloadable))
     __attribute__((always_inline))
     ndrange_2D(const size_t global_work_size[2], const size_t local_work_size[2]) {
   size_t global_work_offset[2]= { 0, 0 };
   return ndrange_2D(global_work_offset, global_work_size, local_work_size);
 }
-ndrange_t const_func __attribute__((overloadable))
+ndrange_t __attribute__((const))  __attribute__((overloadable))
     __attribute__((always_inline))
     ndrange_2D(const size_t global_work_offset[2], const size_t global_work_size[2],
                const size_t local_work_size[2]) {
@@ -139,19 +143,19 @@ ndrange_t const_func __attribute__((overloadable))
   return T;
 }
 
-ndrange_t const_func __attribute__((overloadable))
+ndrange_t __attribute__((const)) __attribute__((overloadable))
     __attribute__((always_inline)) ndrange_3D(const size_t global_work_size[3]) {
   size_t global_work_offset[3] = { 0, 0, 0 };
   size_t local_work_size[3] = { 0, 0, 0 };
   return ndrange_3D(global_work_offset, global_work_size, local_work_size);
 }
-ndrange_t const_func __attribute__((overloadable))
+ndrange_t __attribute__((const))  __attribute__((overloadable))
     __attribute__((always_inline))
     ndrange_3D(const size_t global_work_size[3], const size_t local_work_size[3]) {
   size_t global_work_offset[3] = { 0, 0, 0 };
   return ndrange_3D(global_work_offset, global_work_size, local_work_size);
 }
-ndrange_t const_func __attribute__((overloadable))
+ndrange_t __attribute__((const)) __attribute__((overloadable))
     __attribute__((always_inline))
     ndrange_3D(const size_t global_work_offset[3], const size_t global_work_size[3],
                const size_t local_work_size[3]) {
@@ -284,16 +288,16 @@ bool __attribute__((overloadable)) __attribute__((always_inline)) is_valid_event
 }
 
 ////////// - get_kernel_work_group_size
-extern uint readonly
+extern uint __attribute__((const))
 ocl20_get_kernel_wg_size(private void *block, void *DCM, void *B2K);
 uint __attribute__((overloadable)) __attribute__((always_inline))
-    readonly get_kernel_work_group_size(void (^block)(void)) {
+    __attribute__((const)) get_kernel_work_group_size(void (^block)(void)) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   return ocl20_get_kernel_wg_size(block, DCM, B2K);
 }
 uint __attribute__((overloadable)) __attribute__((always_inline))
-    readonly get_kernel_work_group_size(void (^block)(local void *, ...)) {
+    __attribute__((const)) get_kernel_work_group_size(void (^block)(local void *, ...)) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   return ocl20_get_kernel_wg_size(block, DCM, B2K);

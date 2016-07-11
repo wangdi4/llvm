@@ -79,10 +79,12 @@ static cl::opt<bool>
   cl::desc("Exclude pre-defined subset of built-ins"), cl::init(false));
 
 #define GENOCL_WARNING(X)  do { } while (0)
-//#define GENOCL_WARNING(X)                                                         \
-//  do { errs() << (GenOCLBuiltinWerror ? "ERROR: " : "WARNING: ") << X;            \
-//    if (GenOCLBuiltinWerror) report_fatal_error("Warning is reported as error."); \
-//  } while (0)
+/*
+#define GENOCL_WARNING(X)                                                         \
+  do { errs() << (GenOCLBuiltinWerror ? "ERROR: " : "WARNING: ") << X;            \
+    if (GenOCLBuiltinWerror) report_fatal_error("Warning is reported as error."); \
+  } while (0)
+*/
 
 /// OclType
 OclType::OclType(const OclBuiltinDB& DB, const Record* R)

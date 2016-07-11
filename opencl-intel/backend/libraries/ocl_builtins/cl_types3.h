@@ -73,7 +73,5 @@ typedef double double8 __attribute__((ext_vector_type(8)));
 typedef double double16 __attribute__((ext_vector_type(16)));
 
 typedef unsigned int size_t;
-typedef struct _cl_image_format_t {
-  unsigned int image_channel_order;
-  unsigned int image_channel_data_type;
-} cl_image_format_t;
+
+#include "cl_image_format_t.h"

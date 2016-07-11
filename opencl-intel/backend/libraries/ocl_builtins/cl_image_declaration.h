@@ -46,6 +46,7 @@
 #define MIRRORED_TRUE_LINEAR        0x29
 
 #include "cl_types2.h"
+#include "cl_image_format_t.h"
 
 #define IMG_FUNC_EXPORT
 #define MAX_WORK_DIM 3

@@ -266,4 +266,5 @@ struct double2_svml
 {
 	 double2 a;
 };
+
 #endif
