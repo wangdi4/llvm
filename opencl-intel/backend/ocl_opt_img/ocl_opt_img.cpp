@@ -76,7 +76,7 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::legacy::PassManager& passM
   }
   
   //Always add the BuiltinLibInfo Pass to the Pass Manager
-  passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, ""));
+  passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, "ocl"));
   //add the BIImport Pass to the Pass Manager
   passMgr.add(createBuiltInImportPass(arch.c_str()));
 }
