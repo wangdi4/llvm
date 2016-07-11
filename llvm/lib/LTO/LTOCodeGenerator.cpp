@@ -120,6 +120,7 @@ void LTOCodeGenerator::initializeLTOPasses() {
   initializeMemCpyOptPass(R);
   initializeDCEPass(R);
   initializeCFGSimplifyPassPass(R);
+  initializeWholeProgramAnalysisPass(R);  // INTEL
 }
 
 bool LTOCodeGenerator::addModule(LTOModule *Mod) {

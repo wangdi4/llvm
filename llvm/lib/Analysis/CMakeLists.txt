@@ -37,6 +37,7 @@ add_llvm_library(LLVMAnalysis
   Intel_SNode.cpp
   Intel_OptVLS.cpp
   Intel_VectorVariant.cpp
+  Intel_WP.cpp
 #endif     // INTEL_CUSTOMIZATION
   Interval.cpp
   IntervalPartition.cpp
