@@ -27,6 +27,7 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineSSAUpdater.h"
+#include "llvm/CodeGen/SlotIndexes.h"
 #include "llvm/Pass.h"
 #include "llvm/PassSupport.h"
 #include "llvm/Support/Debug.h"
@@ -199,6 +200,12 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   insertSWITCHForLoopExit();
   replacePhiWithPICK();
   handleAllConstantInputs();
+#if 0
+	{
+	  errs() << "LPUCvtCFDFPass before LIC allocation" << ":\n";
+		MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
+	}
+#endif
   assignLicForDF();
   if (!RunSXU) {
     removeBranch();
@@ -869,6 +876,8 @@ void LPUCvtCFDFPass::assignLicForDF() {
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
   std::deque<unsigned> renameQueue;
+	renameQueue.clear();
+
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
       if (TII.isPick(MI) || TII.isSwitch(MI)) {
@@ -908,7 +917,6 @@ void LPUCvtCFDFPass::assignLicForDF() {
     }
   }
 
-#if 1
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
 			unsigned schedClass = MI->getDesc().getSchedClass();
@@ -936,7 +944,6 @@ void LPUCvtCFDFPass::assignLicForDF() {
       }
     }
   }
-#endif
 }
 
 

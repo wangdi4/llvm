@@ -132,10 +132,15 @@ namespace llvm {
 
   private:
     MachineBasicBlock *TheBB;
-    std::set<ControlDependenceNode *> Parents;
-    std::set<ControlDependenceNode *> TrueChildren;
-    std::set<ControlDependenceNode *> FalseChildren;
-    std::set<ControlDependenceNode *> OtherChildren;
+		struct Node_Compare {
+			bool operator () (const ControlDependenceNode* A, const ControlDependenceNode* B) const {
+				return A->getBlock()->getNumber() < B->getBlock()->getNumber();
+			}
+		};
+    std::set<ControlDependenceNode *, Node_Compare> Parents;
+    std::set<ControlDependenceNode *, Node_Compare> TrueChildren;
+    std::set<ControlDependenceNode *, Node_Compare> FalseChildren;
+    std::set<ControlDependenceNode *, Node_Compare> OtherChildren;
 
     friend class ControlDependenceGraphBase;
 
@@ -156,7 +161,10 @@ namespace llvm {
     void removeOther(ControlDependenceNode *Child);
     void removeParent(ControlDependenceNode *Child);
 
-    ControlDependenceNode() : TheBB(NULL) {}
+    ControlDependenceNode() : TheBB(NULL) {
+			clearAllChildren();
+			clearAllParents();
+		}
     ControlDependenceNode(MachineBasicBlock *bb) : TheBB(bb) {}
   };
 
@@ -190,7 +198,11 @@ namespace llvm {
  
   class ControlDependenceGraphBase {
   public:
-    ControlDependenceGraphBase() : root(NULL) {}
+    ControlDependenceGraphBase() : root(NULL) {
+			nodes.clear();
+			bb2cdg.clear();
+			cdg2bb.clear();
+		}
     virtual ~ControlDependenceGraphBase() { releaseMemory(); }
     virtual void releaseMemory() {
       for (ControlDependenceNode::node_iterator n = nodes.begin(), e = nodes.end();
