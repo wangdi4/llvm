@@ -368,7 +368,7 @@ bool CanonExpr::isNullImpl() const {
   assert((!Ret || !getConstant()) && "Invalid pointer type canon expr!");
 
   return Ret;
-} 
+}
 
 bool CanonExpr::isNull() const {
   if (!getSrcType()->isPointerTy()) {
@@ -379,8 +379,7 @@ bool CanonExpr::isNull() const {
 }
 
 bool CanonExpr::isNullVector() const {
-  if (!getSrcType()->isVectorTy() ||
-      !getSrcType()->isPtrOrPtrVectorTy()) {
+  if (!getSrcType()->isVectorTy() || !getSrcType()->isPtrOrPtrVectorTy()) {
     return false;
   }
 
@@ -922,11 +921,6 @@ void CanonExpr::collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices,
 }
 
 int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
-  // Dealing with negative values during unsigned division is complicated so we
-  // avoid simplification.
-  if ((Num < 0) && isUnsignedDiv()) {
-    return 1;
-  }
 
   if (CurrentGCD == -1) {
     CurrentGCD = llabs(Num);
@@ -938,18 +932,18 @@ int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
 }
 
 void CanonExpr::simplify() {
-  int64_t Denom = 0, C0 = 0, NumeratorGCD = -1, CommonGCD = 0;
+  int64_t Denom = 0, NumeratorGCD = -1, CommonGCD = 0;
 
   // Nothing to simplify...
   if ((Denom = getDenominator()) == 1) {
     return;
   }
 
+  int64_t C0 = getConstant();
+
   // Cannot simplify any further.
-  if ((C0 = getConstant()) == 1) {
+  if ((C0 == 1) || (C0 == -1)) {
     return;
-  } else if (C0) {
-    NumeratorGCD = simplifyGCDHelper(NumeratorGCD, C0);
   }
 
   // Calculate gcd of all the iv and blob coefficients.
@@ -959,8 +953,19 @@ void CanonExpr::simplify() {
     }
     NumeratorGCD = simplifyGCDHelper(NumeratorGCD, I->Coeff);
   }
+
   for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
     NumeratorGCD = simplifyGCDHelper(NumeratorGCD, I->Coeff);
+  }
+
+  // Dealing with constant negative numerator during unsigned division is
+  // complicated so we avoid simplification.
+  if ((NumeratorGCD == -1) && (C0 < 0) && isUnsignedDiv()) {
+    return;
+  }
+
+  if (C0) {
+    NumeratorGCD = simplifyGCDHelper(NumeratorGCD, C0);
   }
 
   CommonGCD = simplifyGCDHelper(NumeratorGCD, Denom);
