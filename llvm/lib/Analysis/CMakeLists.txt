@@ -85,7 +85,7 @@ add_llvm_library(LLVMAnalysis
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
   )
 
-add_dependencies(LLVMAnalysis intrinsics_gen intel_directives_gen)
+add_dependencies(LLVMAnalysis intrinsics_gen intel_directives_gen intel_svml_gen)
 
 add_subdirectory(Intel_LoopAnalysis)
 add_subdirectory(Intel_VPO)

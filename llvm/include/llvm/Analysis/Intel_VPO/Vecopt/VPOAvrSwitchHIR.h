@@ -38,6 +38,9 @@ private:
   /// Condition - DDref which represents switch condition
   RegDDRef *Condition;
 
+  /// Condition - A value wrapping Condition.
+  AVRValue* ConditionValue = nullptr;
+
 protected:
   /// \brief Constructs an AVRSwitchHIR object from given HIR switch
   /// instruction.
@@ -67,12 +70,14 @@ public:
     return Node->getAVRID() == AVR::AVRSwitchHIRNode;
   }
 
+  /// \brief Return the AVRValue wrapping the condition DDRef.
+  AVRValue *getCondition() const override {
+    assert(ConditionValue && "Condition retrieved before initialized");
+    return ConditionValue;
+  }
+
   /// \brief Returns the number of operands for this instruction.
   unsigned getNumOperands() const;
-
-  /// \brief Returns a constant StringRef for the codition of the switch.
-  virtual void
-  printConditionValueName(formatted_raw_ostream &OS) const override;
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const override;

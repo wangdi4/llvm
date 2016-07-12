@@ -469,6 +469,35 @@ void AvrCFGBase::Visitor::visit(AVRIf* AIf) {
 }
 
 void AvrCFGBase::Visitor::visit(AVRSwitch* ASwitch) {
+
+  AvrBasicBlock* CurrentPredecessor = nullptr;
+
+  setNextInstruction(getOrCreateInstruction(ASwitch->getCondition()));
+
+  CurrentPredecessor = *CurrentPredecessors.begin();
+  clearCurrentPredecessors();
+
+  unsigned NumCases = ASwitch->getNumCases();
+  for (unsigned I = 1; I <= NumCases; ++I) {
+
+    // Recurse into case.
+    AvrCFGBase::Visitor CaseCFGVisitor(CFG, CurrentPredecessor);
+    AVRVisitor<AvrCFGBase::Visitor> CaseVisitor(CaseCFGVisitor);
+    CaseVisitor.forwardVisit(ASwitch->case_child_begin(I),
+                             ASwitch->case_child_end(I), true, true);
+    // Set any dangling predecessors of the case as predecessors.
+    CurrentPredecessors.insert(CaseCFGVisitor.CurrentPredecessors.begin(),
+                               CaseCFGVisitor.CurrentPredecessors.end());
+  }
+
+  // Recurse into default case.
+  AvrCFGBase::Visitor DefaultCFGVisitor(CFG, CurrentPredecessor);
+  AVRVisitor<AvrCFGBase::Visitor> DefaultVisitor(DefaultCFGVisitor);
+  DefaultVisitor.forwardVisit(ASwitch->default_case_child_begin(),
+                           ASwitch->default_case_child_end(), true, true);
+  // Set any dangling predecessors of the case as predecessors.
+  CurrentPredecessors.insert(DefaultCFGVisitor.CurrentPredecessors.begin(),
+                             DefaultCFGVisitor.CurrentPredecessors.end());
 }
 
 void AvrCFGBase::Visitor::visit(AVRLoopHIR *ALoopHIR) {
@@ -500,52 +529,39 @@ void AvrCFGBase::Visitor::visit(AVRLoopHIR *ALoopHIR) {
   setCurrentPredecessor(Latch);
 }
 
-AvrCFGBase::AvrCFGBase(char &ID) : FunctionPass(ID) {
-  reset();
-}
-
-void AvrCFGBase::reset() {
-
-  if (!BasicBlocks.empty()) {
-
-    // Delete any existing basic block in the CFG.
-    SmallVector<AvrBasicBlock*, 8> Worklist;
-    assert(Entry && "No entry for last constructed CFG");
-    Worklist.push_back(Entry);
-    while (!Worklist.empty()) {
-      AvrBasicBlock* BB = Worklist.back();
-      Worklist.pop_back();
-      for (AvrBasicBlock* Successor : BB->Successors)
-        if (Successor != BB) {
-          Worklist.push_back(Successor);
-        }
-      deleteBasicBlock(BB, false);
-    }
-  }
-  BasicBlocks.clear();
-
-  Title = "";
+AvrCFGBase::AvrCFGBase(AvrItr Begin, AvrItr End,
+                       const std::string& T,
+                       bool Compress) : Title(T) {
+  
   Entry = nullptr;
   Exit = nullptr;
   Size = 0;
+
+  runOnAvr(Begin, End, Compress);
 }
 
-void AvrCFGBase::runOnAvr(AVRGenerateBase& AV, const std::string& T, bool Compress) {
+AvrCFGBase::~AvrCFGBase() {
 
-  reset();
-
-  Title = T;
-
-  if (AV.isAbstractLayerEmpty()) {
-    return;
+  // Delete any existing basic block in the CFG.
+  SmallVector<AvrBasicBlock*, 8> Worklist;
+  assert(Entry && "No entry for last constructed CFG");
+  Worklist.push_back(Entry);
+  while (!Worklist.empty()) {
+    AvrBasicBlock* BB = Worklist.back();
+    Worklist.pop_back();
+    for (AvrBasicBlock* Successor : BB->Successors)
+      if (Successor != BB) {
+        Worklist.push_back(Successor);
+      }
+    deleteBasicBlock(BB, false);
   }
+}
+
+void AvrCFGBase::runOnAvr(AvrItr Begin, AvrItr End, bool Compress) {
 
   // Create a temporary entry node. We remove this node after construction
   // if it is empty and its only successor has no other predecessors.
   Entry = createBasicBlock();
-
-  AvrItr Begin = AV.begin();
-  AvrItr End = AV.end();
 
   // Walk down the AVR tree and generate the CFG.
   Visitor CFGVisitor(*this, Entry);
@@ -636,7 +652,7 @@ void AvrCFGBase::compress() {
   }
 }
 
-void AvrCFGBase::print(raw_ostream &OS, const Module *M) const {
+void AvrCFGBase::print(raw_ostream &OS) const {
 
   static std::string Indent(TabLength, ' ');
 
@@ -786,7 +802,7 @@ INITIALIZE_PASS_END(AvrCFG, "avr-cfg",
 
 char AvrCFG::ID = 0;
 
-AvrCFG::AvrCFG() : AvrCFGBase(ID) {
+AvrCFG::AvrCFG() : FunctionPass(ID) {
 }
 
 AvrCFG::~AvrCFG() {
@@ -796,9 +812,22 @@ bool AvrCFG::runOnFunction(Function &F) {
 
   AVRGenerate& AV = getAnalysis<AVRGenerate>();
 
-  runOnAvr(AV, F.getName());
+  if (AV.isAbstractLayerEmpty())
+    return false;
+
+  CFG = new AvrCFGBase(AV.begin(), AV.end(), F.getName(), true);
 
   return false;
+}
+
+void AvrCFG::print(raw_ostream &OS, const Module *M) const {
+
+  if (!CFG) {
+    OS << "AVR CFG is empty\n";
+    return;
+  }
+
+  CFG->print(OS);
 }
 
 FunctionPass *llvm::createAvrCFGPass() {
@@ -815,7 +844,7 @@ INITIALIZE_PASS_END(AvrCFGHIR, "avr-cfg-hir",
 
 char AvrCFGHIR::ID = 0;
 
-AvrCFGHIR::AvrCFGHIR() : AvrCFGBase(ID) {
+AvrCFGHIR::AvrCFGHIR() : FunctionPass(ID) {
 }
 
 AvrCFGHIR::~AvrCFGHIR() {
@@ -825,9 +854,22 @@ bool AvrCFGHIR::runOnFunction(Function &F) {
 
   AVRGenerateHIR& AV = getAnalysis<AVRGenerateHIR>();
 
-  runOnAvr(AV, F.getName());
+  if (AV.isAbstractLayerEmpty())
+    return false;
+
+  CFG = new AvrCFGBase(AV.begin(), AV.end(), F.getName(), true);
 
   return false;
+}
+
+void AvrCFGHIR::print(raw_ostream &OS, const Module *M) const {
+
+  if (!CFG) {
+    OS << "AVR CFG is empty\n";
+    return;
+  }
+
+  CFG->print(OS);
 }
 
 FunctionPass *llvm::createAvrCFGHIRPass() {

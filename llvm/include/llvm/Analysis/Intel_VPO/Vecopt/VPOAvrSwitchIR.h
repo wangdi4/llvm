@@ -31,6 +31,9 @@ private:
   /// Instruct - Underyling LLVM IR switch instruction.
   Instruction *Instruct;
 
+  /// Condition - A value wrapping the IR condition value.
+  AVRValue* ConditionValue = nullptr;
+
 protected:
   /// \brief Constructs an AVRSwitchIR object from given switch instruction.
   AVRSwitchIR(Instruction *SwitchIn);
@@ -56,12 +59,14 @@ public:
     return Node->getAVRID() == AVR::AVRSwitchIRNode;
   }
 
+  /// \brief Return the AVRValue wrapping the condition DDRef.
+  AVRValue *getCondition() const override {
+    assert(ConditionValue && "Condition retrieved before initialized");
+    return ConditionValue;
+  }
+
   /// \brief Returns the number of operands for this instruction.
   unsigned getNumOperands() const;
-
-  /// \brief Returns a constant StringRef for the codition of the switch.
-  virtual void
-  printConditionValueName(formatted_raw_ostream &OS) const override;
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const override;

@@ -22,6 +22,8 @@
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace
 
+class AVRValue;
+
 /// \brief This avr node represents a switch found in IR. There are two derived
 /// classes for this object. AVRSwitchIR for switches found in LLVM IR and
 /// AVRSwitchHIR for switches found in HIR.
@@ -98,6 +100,9 @@ protected:
   friend class AVRUtils;
 
 public:
+  /// \brief Returns the value to which the cases relate.
+  virtual AVRValue *getCondition() const = 0;
+
   /// \brief Returns the number of cases switch contains excluding the default
   /// case.
   unsigned getNumCases() const { return CaseBegin.size(); }
@@ -260,8 +265,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VLevel) const override;
 
-  /// \brief Returns a constant StringRef for the codition of the switch.
-  virtual void printConditionValueName(formatted_raw_ostream &OS) const = 0;
+  /// \brief Shallow-prints the AvrSwtich node.
+  void shallowPrint(formatted_raw_ostream &OS) const override;
 
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;

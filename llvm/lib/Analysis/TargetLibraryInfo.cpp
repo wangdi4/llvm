@@ -23,6 +23,8 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                           "No vector functions library"),
                clEnumValN(TargetLibraryInfoImpl::Accelerate, "Accelerate",
                           "Accelerate framework"),
+               clEnumValN(TargetLibraryInfoImpl::SVML, "SVML",
+                          "Intel SVML library"),
                clEnumValEnd));
 
 const char *const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] = {
@@ -1087,6 +1089,17 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     addVectorizableFunctions(VecFuncs);
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case SVML: {
+    const VecDesc VecFuncs[] = {
+#define GET_SVML_VARIANTS
+#include "llvm/IR/Intel_SVML.gen"
+#undef GET_SVML_VARIANTS
+    };
+    addVectorizableFunctions(VecFuncs);
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case NoLibrary:
     break;
   }

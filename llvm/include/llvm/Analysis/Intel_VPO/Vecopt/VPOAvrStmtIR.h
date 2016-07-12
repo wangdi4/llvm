@@ -129,9 +129,6 @@ private:
   /// \p Val - The LLVM IR Value for this operand.
   const Value *Val;
 
-  /// \p ValType - LLVM type of this value.
-  Type *ValType;
-
   /// \p Instruct - LLVM instruction containing the operand which
   /// this AVR Value represents.
   const Instruction *Instruct;
