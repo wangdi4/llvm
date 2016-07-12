@@ -669,6 +669,9 @@ public:
   uint64_t getMaxTripCountEstimate() const { return MaxTripCountEstimate; }
 
   void setMaxTripCountEstimate(uint64_t MaxTC) { MaxTripCountEstimate = MaxTC; }
+
+  // \brief Marks loop to do not vectorize.
+  void markDoNotVectorize();
 };
 
 } // End namespace loopopt

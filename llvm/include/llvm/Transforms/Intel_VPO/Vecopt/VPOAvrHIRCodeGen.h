@@ -130,7 +130,7 @@ private:
   RegDDRef *getVectorValue(const RegDDRef *Op);
   HLInst *widenReductionNode(const HLNode *Node);
   void eraseIntrinsBeforeLoop();
-  bool processLoop();
+  void processLoop();
   RegDDRef *widenRef(const RegDDRef *Ref);
 };
 

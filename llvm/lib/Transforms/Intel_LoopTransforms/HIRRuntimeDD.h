@@ -196,9 +196,6 @@ private:
 
   // \brief Marks all DDRefs independent across groups.
   static void markDDRefsIndep(HLLoop *Loop);
-
-  // \brief Marks \p Loop to do not vectorize.
-  static void markLoopDoNotVectorize(HLLoop *Loop);
 };
 
 }

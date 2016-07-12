@@ -770,7 +770,7 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   ModifiedLoop->setMVTag(MVTag);
   OrigLoop->setMVTag(MVTag);
 
-  markLoopDoNotVectorize(OrigLoop);
+  OrigLoop->markDoNotVectorize();
 
   markDDRefsIndep(ModifiedLoop);
 
@@ -818,23 +818,6 @@ void HIRRuntimeDD::markDDRefsIndep(HLLoop *Loop) {
       Ref->setAAMetadata(AANodes);
     }
   }
-}
-
-void HIRRuntimeDD::markLoopDoNotVectorize(HLLoop *Loop) {
-  LLVMContext &Context = HIRUtils::getContext();
-
-  Metadata *One =
-      ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Context), 1));
-
-  Metadata *MDVectorWidth[] = {
-      MDString::get(Context, "llvm.loop.vectorize.width"), One};
-  Metadata *MDInterleaveCount[] = {
-      MDString::get(Context, "llvm.loop.interleave.count"), One};
-
-  MDNode *MDs[] = {MDNode::get(Context, MDVectorWidth),
-                   MDNode::get(Context, MDInterleaveCount)};
-
-  Loop->addLoopMetadata(MDs);
 }
 
 bool HIRRuntimeDD::runOnFunction(Function &F) {

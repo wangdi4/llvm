@@ -407,7 +407,7 @@ bool AVRCodeGenHIR::loopIsHandled() {
 // TODO: Have this method take a VecContext as input, which indicates which
 // AVRLoops in the region to vectorize, and how (using what VF).
 bool AVRCodeGenHIR::vectorize(int VL) {
-  bool RetVal, LoopHandled;
+  bool LoopHandled;
 
   setVL(VL);
   LoopHandled = loopIsHandled();
@@ -419,14 +419,14 @@ bool AVRCodeGenHIR::vectorize(int VL) {
 
   RHM.mapHLNodes(cast<HLRegion>(OrigLoop->getParent()));
 
-  RetVal = processLoop();
+  processLoop();
 
   DEBUG(errs() << "\n\n\nHandled loop after: \n");
   DEBUG(MainLoop->dump(true));
   if (NeedRemainderLoop)
     DEBUG(OrigLoop->dump(true));
 
-  return RetVal;
+  return true;
 }
 
 void AVRCodeGenHIR::eraseIntrinsBeforeLoop() {
@@ -472,7 +472,7 @@ void AVRCodeGenHIR::eraseIntrinsBeforeLoop() {
     HLNodeUtils::remove(FirstDirIt, LoopIt);
 }
 
-bool AVRCodeGenHIR::processLoop() {
+void AVRCodeGenHIR::processLoop() {
   eraseIntrinsBeforeLoop();
 
   // Setup main and remainder loops
@@ -494,12 +494,14 @@ bool AVRCodeGenHIR::processLoop() {
     widenNode(AvrAssign->getHIRInstruction());
   }
 
+  MainLoop->markDoNotVectorize();
+
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
-  if (!NeedRemainderLoop) {
+  if (NeedRemainderLoop) {
+    OrigLoop->markDoNotVectorize();
+  } else {
     HLNodeUtils::remove(OrigLoop);
   }
-
-  return true;
 }
 
 RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {

@@ -975,3 +975,24 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
   NewLoopMD->replaceOperandWith(0, NewLoopMD);
   setLoopMetadata(NewLoopMD);
 }
+
+void HLLoop::markDoNotVectorize() {
+  LLVMContext &Context = HIRUtils::getContext();
+
+  Metadata *One = ConstantAsMetadata::get(
+      ConstantInt::get(Type::getInt32Ty(Context), 1));
+
+  Metadata *MDVectorWidth[] = {
+      MDString::get(Context, "llvm.loop.vectorize.width"), One
+  };
+  Metadata *MDInterleaveCount[] = {
+      MDString::get(Context, "llvm.loop.interleave.count"), One
+  };
+
+  MDNode *MDs[] = {
+      MDNode::get(Context, MDVectorWidth),
+      MDNode::get(Context, MDInterleaveCount)
+  };
+
+  addLoopMetadata(MDs);
+}
