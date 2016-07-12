@@ -837,14 +837,14 @@ void PassManagerBuilder::addEarlyLTOOptimizationPasses(
   // whole-program devirtualization and bitset lowering.
   PM.add(createGlobalDCEPass());
 
+  // Apply whole-program devirtualization and virtual constant propagation.
+  PM.add(createWholeProgramDevirtPass());
+
 #if INTEL_CUSTOMIZATION
   // Whole Program Analysis
   if (EnableWPA)
     PM.add(createWholeProgramAnalysisPass());
 #endif // INTEL_CUSTOMIZATION
-
-  // Apply whole-program devirtualization and virtual constant propagation.
-  PM.add(createWholeProgramDevirtPass());
 }
 
 void PassManagerBuilder::addLateLTOOptimizationPasses(

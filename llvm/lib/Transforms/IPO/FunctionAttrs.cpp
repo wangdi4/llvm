@@ -26,6 +26,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Analysis/Intel_WP.h"                  // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -1079,6 +1080,8 @@ struct PostOrderFunctionAttrsLegacyPass : public CallGraphSCCPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
+    AU.addPreserved<WholeProgramAnalysis>();               // INTEL
+    AU.addUsedIfAvailable<WholeProgramAnalysis>();         // INTEL
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     getAAResultsAnalysisUsage(AU);
@@ -1131,6 +1134,17 @@ bool PostOrderFunctionAttrsLegacyPass::runOnSCC(CallGraphSCC &SCC) {
       continue;
     }
 
+#if INTEL_CUSTOMIZATION
+  // Treat “main” as non-recursive function if there are no uses
+  // when whole-program-safe is true.
+  if (F->getName() == "main" && F->use_empty()) {
+    auto *WPA = getAnalysisIfAvailable<WholeProgramAnalysis>(); 
+    if (WPA && WPA->isWholeProgramSafe()) {
+      Changed |= setDoesNotRecurse(*F);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
     SCCNodes.insert(F);
   }
 
@@ -1170,6 +1184,7 @@ struct ReversePostOrderFunctionAttrs : public ModulePass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
+    AU.addPreserved<WholeProgramAnalysis>(); // INTEL
     AU.addRequired<CallGraphWrapperPass>();
   }
 };

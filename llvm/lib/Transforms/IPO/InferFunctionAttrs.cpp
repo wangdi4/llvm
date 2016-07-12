@@ -9,6 +9,7 @@
 
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_WP.h"                 // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/IR/Function.h"
@@ -975,6 +976,7 @@ struct InferFunctionAttrsLegacyPass : public ModulePass {
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addPreserved<WholeProgramAnalysis>();               // INTEL
     AU.addRequired<TargetLibraryInfoWrapperPass>();
   }
 
