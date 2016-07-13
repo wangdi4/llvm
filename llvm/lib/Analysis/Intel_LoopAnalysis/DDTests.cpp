@@ -4770,59 +4770,45 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       return false;
     }
 
-    if (HLNodeUtils::strictlyDominates(SrcHIR, DstHIR)) {
+    if (HLNodeUtils::dominates(SrcHIR, DstHIR)) {
       if (IsFlow) {
-        // if src can reach Dst lexically then
+        // If src can reach Dst lexically
         //   assuming 2 level loop
         // a)  x = ;
         //       = x ;
         //   set flow (= =)
         //       anti (< *)
-        if (!IsReversed) {
-          for (unsigned II = 1; II <= Levels; ++II) {
-            ForwardDV[II - 1] = DVKind::EQ;
+
+        for (unsigned II = 1; II <= Levels; ++II) {
+          ForwardDV[II - 1] = DVKind::EQ;
+        }
+        // Suppress ANTI (< ) edge to save Compile time for
+        // StrictlyDominates case.
+        // Instead, set a flag as below
+        // Most Transformations would have to scan and drop this kind
+        // of Anti Dep
+        if (SrcHIR == DstHIR) {
+          BackwardDV[0] = DVKind::LT;
+          for (unsigned II = 2; II <= Levels; ++II) {
+            BackwardDV[II - 1] = DVKind::ALL;
           }
-          // Suppress ANTI (< ) edge to save Compile time
-          // Instead, set a flag as below
-          // Most Transformations would have to scan and drop this kind
-          // of Anti Dep
-          // backwardDV[0] = DVElement::LT;
-          // for (unsigned II = 2; II <= Levels; ++II) {
-          //  backwardDV[II - 1] = DVElement::ALL;
-          // }
-        } else {
-          for (unsigned II = 1; II <= Levels; ++II) {
-            BackwardDV[II - 1] = DVKind::EQ;
-          }
-          // Suppress ANTI (< ) edge for now until it's really needed
-          // forwardDV[0] = DVElement::LT;
-          // for (unsigned II = 2; II <= Levels; ++II) {
-          //  forwardDV[II - 1] = DVElement::ALL;
-          // }
         }
         *IsLoopIndepDepTemp = true;
-
       } else if (IsAnti) {
         // b)    = x ;
         //     x =  ;
-        //   set anti (=< *)
-        //       flow (< *)
+        //   1. single nest:
+        //      anti (=)
+        //      flow (<)
+        //   2. Multi nests
+        //      anti (=   =)
+        //      flow (=<  *)
 
-        if (!IsReversed) {
-          for (unsigned II = 1; II <= Levels; ++II) {
-            if (II == 1) {
-              ForwardDV[II - 1] = DVKind::LE;
-            } else {
-              ForwardDV[II - 1] = DVKind::ALL;
-            }
-          }
-          for (unsigned II = 1; II <= Levels; ++II) {
-            if (II == 1) {
-              BackwardDV[II - 1] = DVKind::LT;
-            } else {
-              BackwardDV[II - 1] = DVKind::ALL;
-            }
-          }
+        for (unsigned II = 1; II <= Levels; ++II) {
+          ForwardDV[II - 1] = DVKind::EQ;
+        }
+        if (Levels == 1) {
+          BackwardDV[0] = DVKind::LT;
         } else {
           for (unsigned II = 1; II <= Levels; ++II) {
             if (II == 1) {
@@ -4831,27 +4817,17 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
               BackwardDV[II - 1] = DVKind::ALL;
             }
           }
-          for (unsigned II = 1; II <= Levels; ++II) {
-            if (II == 1) {
-              ForwardDV[II - 1] = DVKind::LT;
-            } else {
-              ForwardDV[II - 1] = DVKind::ALL;
-            }
-          }
         }
       } else {
         // c) output when x = ;
         //                x = ;
         //    one edge (*) from Src to sink is sufficient
-        if (!IsReversed) {
-          for (unsigned II = 1; II <= Levels; ++II) {
-            ForwardDV[II - 1] = DVKind::ALL;
-          }
-        } else {
-          for (unsigned II = 1; II <= Levels; ++II) {
-            BackwardDV[II - 1] = DVKind::ALL;
-          }
+        for (unsigned II = 1; II <= Levels; ++II) {
+          ForwardDV[II - 1] = DVKind::ALL;
         }
+      }
+      if (IsReversed) {
+        BackwardDV.swap(ForwardDV);
       }
     }
 
