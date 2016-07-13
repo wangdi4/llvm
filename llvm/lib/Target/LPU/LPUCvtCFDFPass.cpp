@@ -132,6 +132,7 @@ void LPUCvtCFDFPass::releaseMemory() {
     ++itm;
     delete reg2switch;
   }
+	bb2switch.clear();
 
   DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> ::iterator itmp = bb2pick.begin();
   while (itmp != bb2pick.end()) {
@@ -139,6 +140,7 @@ void LPUCvtCFDFPass::releaseMemory() {
     ++itmp;
     delete reg2pick;
   }
+	bb2pick.clear();
 
   DenseMap<MachineBasicBlock *, SmallVectorImpl<MachineInstr *> *> ::iterator itmv = bb2predcpy.begin();
   while (itmv != bb2predcpy.end()) {
@@ -146,6 +148,7 @@ void LPUCvtCFDFPass::releaseMemory() {
     ++itmv;
     delete instrv;
   }
+	bb2predcpy.clear();
 }
 
 
