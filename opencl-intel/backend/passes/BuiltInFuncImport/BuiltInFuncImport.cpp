@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BuiltInFuncImport.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+
 #include <llvm/IR/Module.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/Transforms/Utils/Cloning.h>
@@ -58,6 +59,7 @@ namespace intel {
         break;
       }
     }
+
     ImportGlobalVariablesInitializations();
     ImportFunctionDefinitions();
 
@@ -359,9 +361,20 @@ namespace intel {
       if(!pInstCall) continue;
       Function* pCalledFunc = pInstCall->getCalledFunction();
       if(!pCalledFunc){
-        // This case can occur only if CallInst is calling something other than LLVM function.
-        // Thus, no need to handle this case - function casting is not allowed (and not expected!)
-        continue;
+        // This case can occur only if CallInst is calling something other than LLVM function,
+        // meaning the call is indirect. We need to check if a called value is ConstantExpr that can
+        // use the function defined in source module.
+        if (auto CE = dyn_cast<ConstantExpr>(pInstCall->getCalledValue())) {
+          assert((CE->getNumOperands() == 1) && "No support for more than 1 operand!");
+          Value* CEOperand = CE->getOperand(0);
+          if (auto CEFuncOperand = dyn_cast<Function>(CEOperand))
+            pCalledFunc = CEFuncOperand;
+          else
+            continue;
+        }
+        else {
+          continue;
+        }
       }
 
       if(visitedSet.count(pCalledFunc)) continue;
@@ -396,7 +409,7 @@ namespace intel {
 
   bool BIImport::IsSrcValUsedInModule(Value *pVal) {
     // Given value is assumed to be part of source module
-    assert(pVal && "Given vlaue pointer is a NULL");
+    assert(pVal && "Given value pointer is a NULL");
     // Iterate over value usages and check if any is part "needed to import" function
     for (Value::user_iterator it = pVal->materialized_user_begin(), e = pVal->user_end(); it != e; ++it) {
       User* user = *it;

@@ -345,8 +345,8 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
 
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
-      COMMAND ${OPT} ${OUTPUT_FILE}_noopt -generic-addr-static-resolution -o ${OUTPUT_FILE}_noopt
-      COMMAND ${OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${RTL_TO_LINK} -arch=${ARCH} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+      COMMAND ${OPT} ${OUTPUT_FILE}_noopt -generic-addr-static-resolution -o ${OUTPUT_FILE}_noopt_gas
+      COMMAND ${OPT} ${OUTPUT_FILE}_noopt_gas ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${RTL_TO_LINK} -arch=${ARCH} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       DEPENDS ${OPT_DEP} ${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
       VERBATIM
       )
