@@ -2277,6 +2277,14 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
 const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
 
   while (auto TempGEPOp = dyn_cast<GEPOperator>(GEPOp->getPointerOperand())) {
+    const GetElementPtrInst *GEPInst;
+
+    // Do not trace back to live range instructions.
+    if ((GEPInst = dyn_cast<GetElementPtrInst>(TempGEPOp)) &&
+        SE->getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) {
+      break;
+    }
+
     GEPOp = TempGEPOp;
   }
 
@@ -2356,7 +2364,8 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
     }
 
     FirstGEP = false;
-  } while ((TempGEPOp = dyn_cast<GEPOperator>(TempGEPOp->getPointerOperand())));
+  } while ((TempGEPOp != BaseGEPOp) &&
+           (TempGEPOp = dyn_cast<GEPOperator>(TempGEPOp->getPointerOperand())));
 
   Ref->setInBounds(GEPOp->isInBounds());
 

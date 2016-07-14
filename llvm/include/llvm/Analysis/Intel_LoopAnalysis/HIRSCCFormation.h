@@ -123,6 +123,9 @@ private:
   /// another phi defined in the same bblock as itself.
   bool dependsOnSameBasicBlockPhi(const PHINode *Phi) const;
 
+  /// Returns true if this is a single trip loop.
+  bool isSingleTripLoop(Loop *Lp) const;
+
   /// \brief Returns true if this is a node of the graph.
   bool isCandidateNode(const NodeTy *Node) const;
 
