@@ -196,6 +196,40 @@ namespace intel {
       assert(pDstFunction != NULL && "function must be mapped to function");
       assert(pDstFunction->isDeclaration() && "destination function is not a declaration");
 
+      bool byValFlag = false; // indicates that pSrcFunction function has a byval parameter.
+
+      for(auto &Arg : pSrcFunction->args())
+        if (Arg.hasByValAttr())
+          byValFlag = true;
+
+      // for byval functions we take some additional actions
+      if (byValFlag) {
+        // When we have a case when pSrcFunction has a byval parameter it means the following:
+        //
+        // Frontend generated a definition with a byval parameter in one module, for instance:
+        // define double @_Z18convert_uchar8_satDv8_j(<8 x i32>* byval nocapture readonly align 32) {...}
+        // and a declaration in another module like this one:
+        // declare double @_Z18convert_uchar8_satDv8_j(<8 x i32>).
+        // The module with declaration perform calls according to the decl:
+        // %call = tail call double @_Z18convert_uchar8_satDv8_j(<8 x i32> %val_x)
+        // But if we import the definition we can no longer call the function like we did above.
+        //
+        // llvm-link solves this problem by creating a ConstantExpr bitcast for function pointer type, for example:
+        // %call = tail call double bitcast (double (<8 x i32>*)* @_Z18convert_uchar8_satDv8_j to double (<8 x i32>)*)(<8 x i32> %val_x)
+        // Here we basically do the same thing.
+        Function *NF = Function::Create(pSrcFunction->getFunctionType(),
+                                        GlobalVariable::LinkOnceODRLinkage,
+                                        pSrcFunction->getName(),
+                                        pDstFunction->getParent());
+
+        // Now redirect all uses of pDstFunction with NF
+        pDstFunction->replaceAllUsesWith(ConstantExpr::getBitCast(NF, pDstFunction->getType()));
+        pDstFunction->eraseFromParent();
+        NF->takeName(pSrcFunction);
+
+        // then pretend like the problem with byval functions never existed.
+        pDstFunction = NF;
+      }
       // Go through and convert function arguments over, remembering the mapping.
       Function::arg_iterator itDst = pDstFunction->arg_begin();
       Function::arg_iterator itSrc = pSrcFunction->arg_begin();
@@ -203,9 +237,7 @@ namespace intel {
       for (; itSrc != eSrc; ++itSrc, ++itDst) {
         // Copy the name over.
         itDst->setName(itSrc->getName());
-        // Add a mapping to our mapping.
         m_valueMap[&*itSrc] = &*itDst;
-        // Add mapping of argument types.
       }
 
       // Clone the body of the function into the dest function.
