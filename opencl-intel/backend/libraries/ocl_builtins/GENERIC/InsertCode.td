@@ -382,17 +382,17 @@ def __ocl_load_transpose_char4x8_common_avx2 :  insert_code  <"\n"#
 "    xyzwIn = __builtin_shufflevector (xyzwIn, dummy,                                  // x0 x1 x2 x3 y0 y1 y2 y3 z0 z1 z2 z3 w0 w1 w2 w3 | x4 x5 x6 x7 y4 y5 y6 y7 z4 z5 z6 z7 w4 w5 w6 w7\n"#
 "          0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15,\n"#
 "          16, 20, 24, 28, 17, 21, 25, 29, 18, 22, 26, 30, 19, 23, 27, 31);\n"#
-"    xyzwIn = as_ocl_char32((as_int8(xyzwIn)).s04152637);                               // x0 x1 x2 x3 x4 x5 x6 x7 y0 y1 y2 y3 y4 y5 y6 y7 | z0 z1 z2 z3 z4 z5 z6 z7 w0 w1 w2 w3 w4 w5 w6 w7\n"#
+"    xyzwIn = as_ocl_char32((__builtin_astype(xyzwIn, int8)).s04152637);                // x0 x1 x2 x3 x4 x5 x6 x7 y0 y1 y2 y3 y4 y5 y6 y7 | z0 z1 z2 z3 z4 z5 z6 z7 w0 w1 w2 w3 w4 w5 w6 w7\n"#
 "    ocl_char32 xz = __builtin_shufflevector (xyzwIn, dummy,                            // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D | z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D\n"#
 "          0, 32, 1, 33, 2, 34, 3, 35, 4, 36, 5, 37, 6, 38, 7, 39,\n"#
 "          16, 48, 17, 49, 18, 50, 19, 51, 20, 52, 21, 53, 22, 54, 23, 55);\n"#
 "    ocl_char32 yw = __builtin_shufflevector (xyzwIn, dummy,                            // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D | w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D\n"#
 "         8, 40, 9, 41, 10, 42, 11, 43, 12, 44, 13, 45, 14, 46, 15, 47,\n"#
 "         24, 56, 25, 57, 26, 58, 27, 59, 28, 60, 29, 61, 30, 62, 31, 63);\n"#
-"    char16 x = as_char16((as_int8(xz)).lo);                                           // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D\n"#
-"    char16 y = as_char16((as_int8(yw)).lo);                                           // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D\n"#
-"    char16 z = as_char16((as_int8(xz)).hi);                                           // z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D\n"#
-"    char16 w = as_char16((as_int8(yw)).hi);                                           // w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D\n"#
+"    char16 x = as_char16((__builtin_astype(xz, int8)).lo);                             // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D\n"#
+"    char16 y = as_char16((__builtin_astype(yw, int8)).lo);                             // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D\n"#
+"    char16 z = as_char16((__builtin_astype(xz, int8)).hi);                             // z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D\n"#
+"    char16 w = as_char16((__builtin_astype(yw, int8)).hi);                             // w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D\n"#
 "    *Arg1 = x.s02468ACE;\n"#
 "    *Arg2 = y.s02468ACE;\n"#
 "    *Arg3 = z.s02468ACE;\n"#
@@ -433,10 +433,10 @@ def __ocl_transpose_store_char4x8_common_avx2:  insert_code<"\n"#
 "    yw = __builtin_shufflevector (yw, dummy,                                          // y0 y1 y2 y3 y4 y5 y6 y7  D  D  D  D  D  D  D  D | w0 w1 w2 w3 w4 w5 w6 w7  D  D  D  D  D  D  D  D\n"#
 "          0, 2, 4, 6, 8, 10, 12, 14, 0, 0, 0, 0, 0, 0, 0, 0,\n"#
 "          16, 18, 20, 22, 24, 26, 28, 30, 0, 0, 0, 0, 0, 0, 0, 0);\n"#
-"    ocl_char32 txyzw = __builtin_shufflevector (xz, yw,                                // x0 y0 x1 y1 x2 y2 x3 y3 x4 y4 x5 y5 x6 y6 x7 y7 | z0 w0 z1 w1 z2 w2 z3 w3 z4 w4 z5 w5 z6 w6 z7 w7\n"#
+"    ocl_char32 txyzw = __builtin_shufflevector (xz, yw,                               // x0 y0 x1 y1 x2 y2 x3 y3 x4 y4 x5 y5 x6 y6 x7 y7 | z0 w0 z1 w1 z2 w2 z3 w3 z4 w4 z5 w5 z6 w6 z7 w7\n"#
 "          0, 32, 1, 33, 2, 34, 3, 35, 4, 36, 5, 37, 6, 38, 7, 39,\n"#
 "          16, 48, 17, 49, 18, 50, 19, 51, 20, 52, 21, 53, 22, 54, 23, 55);\n"#
-"    txyzw = as_ocl_char32((as_int8(txyzw)).s01452367);                                 // x0 y0 x1 y1 x2 y2 x3 y3 z0 w0 z1 w1 z2 w2 z3 w3 | x4 y4 x5 y5 x6 y6 x7 y7 z4 w4 z5 w5 z6 w6 z7 w7\n"#
+"    txyzw = as_ocl_char32((__builtin_astype(txyzw, int8)).s01452367);                 // x0 y0 x1 y1 x2 y2 x3 y3 z0 w0 z1 w1 z2 w2 z3 w3 | x4 y4 x5 y5 x6 y6 x7 y7 z4 w4 z5 w5 z6 w6 z7 w7\n"#
 "    txyzw = __builtin_shufflevector (txyzw, dummy,                                    // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7\n"#
 "          0, 1, 8, 9, 2, 3, 10, 11, 4, 5, 12, 13, 6, 7, 14, 15,\n"#
 "          16, 17, 24, 25, 18, 19, 26, 27, 20, 21, 28, 29, 22, 23, 30, 31);\n"#

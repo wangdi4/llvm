@@ -30,7 +30,7 @@ OclBuiltinImpl transpose_store_char4x8_avx2 = OclBuiltinImpl<__ocl_transpose_sto
     #{__ocl_transpose_store_char4x8_common_avx2}#
     // We store "int8", meaning we store the full matrix in a single store
     __private int* tmpStoreAdd = (__private int*)$Arg0VarName;
-    vstore8(as_int8(xyzw), 0, tmpStoreAdd);
+    vstore8(__builtin_astype(xyzw, int8), 0, tmpStoreAdd);
   }]>;
 
 OclBuiltinImpl transpose_gather_char4x8_avx2 = OclBuiltinImpl<__ocl_gather_transpose4x8, [v4i8],  0, [{
