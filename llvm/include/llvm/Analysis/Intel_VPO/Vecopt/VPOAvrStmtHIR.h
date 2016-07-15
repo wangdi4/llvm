@@ -166,9 +166,6 @@ public:
 
   /// \brief Returns the HLNode associated with this node.
   HLNode *getNode() { return HNode; }
-
-  /// \brief Returns whether the associated RegDDRef is a constant.
-  bool isConstant() const override { return Val->isConstant(); }
 };
 
 //----------AVR Label Node for HIR----------//

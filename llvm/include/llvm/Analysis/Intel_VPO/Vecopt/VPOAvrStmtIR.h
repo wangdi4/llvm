@@ -117,11 +117,6 @@ public:
 /// See AVRValue class for more information.
 class AVRValueIR : public AVRValue {
 
-public:
-
-  /// \brief Returns whether the associated RegDDRef is a constant.
-  bool isConstant() const override { return isa<Constant>(Val); }
-
 private:
   /// \p Val - The LLVM IR Value for this operand.
   const Value *Val;

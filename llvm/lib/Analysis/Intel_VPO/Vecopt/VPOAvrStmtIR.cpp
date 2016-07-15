@@ -130,6 +130,9 @@ std::string AVRExpressionIR::getAvrValueName() const { return ""; }
 AVRValueIR::AVRValueIR(const Value *V, const Instruction *Inst, AVR *Parent)
     : AVRValue(AVR::AVRValueIRNode, V->getType()), Val(V), Instruct(Inst) {
 
+  if (const Constant *Const = dyn_cast<Constant>(V)) 
+    setConstant(Const);
+
   setParent(Parent);
 }
 

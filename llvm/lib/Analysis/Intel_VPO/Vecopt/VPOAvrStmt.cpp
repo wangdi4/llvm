@@ -197,19 +197,21 @@ void AVRExpression::shallowPrint(formatted_raw_ostream &OS) const {
 StringRef AVRExpression::getAvrTypeName() const { return StringRef("EXPR"); }
 
 //----------AVR Value Implementation----------//
+
 AVRValue::AVRValue(Constant *ConstVal) : AVR(AVR::AVRValueNode) {
 
   this->ConstVal = ConstVal;
   ValType = ConstVal->getType();
 }
 
-AVRValue::AVRValue(AVRExpression *ReachingDef) : AVR(AVR::AVRValueNode),
-                                                 ValType(ReachingDef->getType()) {
+AVRValue::AVRValue(AVRExpression *ReachingDef)
+    : AVR(AVR::AVRValueNode), ValType(ReachingDef->getType()) {
 
   ReachingDefs.insert(ReachingDef);
 }
 
-AVRValue::AVRValue(unsigned SCID, Type *ValType) : AVR(SCID), ValType(ValType) {}
+AVRValue::AVRValue(unsigned SCID, Type *ValType)
+    : AVR(SCID), ValType(ValType) {}
 
 AVRValue *AVRValue::clone() const { return nullptr; }
 

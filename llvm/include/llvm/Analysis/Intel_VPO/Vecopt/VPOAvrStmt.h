@@ -263,12 +263,12 @@ private:
   /// for pure AVR values, i.e. AVRValues with no underlying IR.
   SmallPtrSet<AVRExpression*, 1> ReachingDefs;
 
-  /// \p ConstVal - The constant value this value refers to.
-  Constant* ConstVal = nullptr;
-
   /// \p ValType - type of this value.
   Type *ValType;
-
+ 
+  /// \p ConstVal - The constant value this value refers to.
+  const Constant *ConstVal = nullptr;
+ 
 protected:
   /// Set the data type of this Value.
   void setType(Type *DataType) { ValType = DataType; } 
@@ -283,6 +283,9 @@ protected:
   /// \brief Constructor used by derived classes. Should not instantiate
   /// this object at this level.
   AVRValue(unsigned SCID, Type *ValType);
+
+  // \brief Set the constant value for this AVRValue 
+  void setConstant(const Constant *Const) { ConstVal = Const; }
 
   /// \brief Destructor for this object.
   virtual ~AVRValue() override {}
@@ -312,7 +315,10 @@ public:
 
   /// \brief Returns whether this AVR value represents a constant value in the
   /// underlying IR.
-  virtual bool isConstant() const { return false; }
+  virtual bool isConstant() const { return ConstVal != nullptr; }
+
+  /// \brief Returns the constant value for this AVR value
+  virtual const Constant* getConstant() const { return ConstVal; }
 };
 
 //----------AVR Label Node----------//
