@@ -364,8 +364,8 @@ namespace intel {
         // This case can occur only if CallInst is calling something other than LLVM function,
         // meaning the call is indirect. We need to check if a called value is ConstantExpr that can
         // use the function defined in source module.
-        if (auto CE = dyn_cast<ConstantExpr>(pInstCall->getCalledValue())) {
-          assert((CE->getNumOperands() == 1) && "No support for more than 1 operand!");
+        auto CE = dyn_cast<ConstantExpr>(pInstCall->getCalledValue());
+        if (CE && CE->getOpcode() == Instruction::BitCast) {
           Value* CEOperand = CE->getOperand(0);
           if (auto CEFuncOperand = dyn_cast<Function>(CEOperand))
             pCalledFunc = CEFuncOperand;
