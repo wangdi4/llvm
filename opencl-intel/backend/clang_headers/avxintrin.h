@@ -38,7 +38,11 @@ typedef signed char __v32qs __attribute__((__vector_size__(32)));
 
 typedef float __m256 __attribute__ ((__vector_size__ (32)));
 typedef double __m256d __attribute__((__vector_size__(32)));
+#ifdef __OPENCL__
+typedef long __m256i __attribute__((__vector_size__(32)));
+#else
 typedef long long __m256i __attribute__((__vector_size__(32)));
+#endif
 
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
