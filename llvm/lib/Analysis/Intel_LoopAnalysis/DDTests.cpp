@@ -4760,7 +4760,11 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
 
     if (!IsSrcRval && IsDstRval) {
-      IsFlow = true;
+      if (DstNum == SrcNum) {
+        IsAnti = true;
+      } else {
+        IsFlow = true;
+      }
     } else if (IsSrcRval && !IsDstRval) {
       IsAnti = true;
     } else if (!IsSrcRval && !IsDstRval) {
@@ -4776,9 +4780,8 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
         //   assuming 2 level loop
         // a)  x = ;
         //       = x ;
+        //
         //   set flow (= =)
-        //       anti (< *)
-
         for (unsigned II = 1; II <= Levels; ++II) {
           ForwardDV[II - 1] = DVKind::EQ;
         }
@@ -4787,12 +4790,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
         // Instead, set a flag as below
         // Most Transformations would have to scan and drop this kind
         // of Anti Dep
-        if (SrcHIR == DstHIR) {
-          BackwardDV[0] = DVKind::LT;
-          for (unsigned II = 2; II <= Levels; ++II) {
-            BackwardDV[II - 1] = DVKind::ALL;
-          }
-        }
+
         *IsLoopIndepDepTemp = true;
       } else if (IsAnti) {
         // b)    = x ;
