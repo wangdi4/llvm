@@ -514,7 +514,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
   
   // If the DDREF has a widened counterpart, return the same after setting
   // SrcType/DestType appropriately.
-  if (Ref->isTerminalRef()) {
+  if (Ref->isSelfBlob()) {
     if (WidenMap.find(Ref->getSymbase()) != WidenMap.end()) {
       auto WInst = WidenMap[Ref->getSymbase()];
       // TODO - look into reusing instead of cloning (Pankaj's suggestion)
