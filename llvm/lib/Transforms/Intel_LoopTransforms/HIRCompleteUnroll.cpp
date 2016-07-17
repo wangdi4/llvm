@@ -914,6 +914,10 @@ void HIRCompleteUnroll::transformLoops() {
 
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
+    // Generate code for the parent region and invalidate parent
+    Loop->getParentRegion()->setGenCode();
+    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
+
     transformLoop(Loop, Loop, TripValues);
   }
 }
@@ -996,7 +1000,6 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
     TripValues.pop_back();
   }
 
-  Loop->getParentRegion()->setGenCode();
   HLNodeUtils::remove(Loop);
 }
 
