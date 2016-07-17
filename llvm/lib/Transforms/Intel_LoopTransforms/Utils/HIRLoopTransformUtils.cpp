@@ -125,9 +125,6 @@ HLLoop *HIRLoopTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
                                                      uint64_t NewTripCount,
                                                      const RegDDRef *NewTCRef,
                                                      bool VecMode) {
-
-  // TODO: Not sure if we need to add Ztt?
-  // Currently the clone utility handles it.
   HLLoop *NewLoop = OrigLoop->cloneEmptyLoop();
 
   // Number of exits do not change due to vectorization
@@ -225,6 +222,9 @@ HLLoop *HIRLoopTransformUtils::setupMainAndRemainderLoops(
     bool VecMode) {
   // Extract Ztt and add it outside the loop.
   OrigLoop->extractZtt();
+
+  // Extract preheader and postexit
+  OrigLoop->extractPreheaderAndPostexit();
 
   // Create UB instruction before the loop 't = (Orig UB)/(UnrollOrVecFactor)'
   // for non-constant trip loops. For const trip loops calculate the bound.
