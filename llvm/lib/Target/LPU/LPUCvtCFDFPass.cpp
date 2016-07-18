@@ -51,6 +51,22 @@ RunSXU("lpu-run-sxu", cl::Hidden,
 	cl::init(0));
 
 
+// Flag for controlling code that deals with memory ordering.
+//
+//   0: No extra code added at all for ordering.  Often incorrect.
+//   1: Linear ordering of all memops.  Dumb but should be correct.
+//   2: Intra-basic-block.   Stores inside a basic block are totally ordered.
+//                           Loads ordered between the stores, but
+//                           unorderd with respect to each other.
+//                           No reordering across basic blocks.
+//   3: Aggressive.  Reordering allowed based on other compiler info.
+//
+static cl::opt<int>
+OrderMemops("lpu-order-memops", cl::Hidden,
+            cl::desc("LPU Specific: Order memory operations"),
+            cl::init(0));
+
+
 #define DEBUG_TYPE "lpu-cvt-cf-df-pass"
 
 namespace llvm {
@@ -94,6 +110,28 @@ namespace llvm {
     unsigned findSwitchingDstForReg(unsigned Reg, MachineBasicBlock* mbb);
     void handleAllConstantInputs();
     void releaseMemory() override;
+
+
+    // TBD(jsukha): Experimental code for ordering of memory ops.
+    void addMemoryOrderingConstraints();
+
+    // Helper methods:
+
+    // Create a new OLD/OST instruction, to replace an existing LD /
+    // ST instruction.
+    //  issued_reg is the register to define as the extra output
+    //  ready_reg is the register which is the extra input
+    MachineInstr* convert_memop_ins(MachineInstr* memop,
+                                    unsigned new_opcode,
+                                    const LPUInstrInfo& TII,
+                                    unsigned issued_reg,
+                                    unsigned ready_reg);
+    
+    void createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsigned>& blockToMemIn,
+                                 DenseMap<MachineBasicBlock*, unsigned>& blockToMemOut);
+    
+                                        
+    
   private:
     MachineFunction *thisMF;
     MachineDominatorTree *DT;
@@ -198,6 +236,17 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     return false;
   }
 #endif
+
+  // TBD(jsukha): Experimental code to add dependencies for memory
+  // operations.
+  //
+  // This step should run before the main dataflow conversion because
+  // it introduces extra dependencies through virtual registers than
+  // the dataflow conversion must also deal with.
+  if (OrderMemops > 0) {
+    addMemoryOrderingConstraints();
+  }
+  
   insertSWITCHForIf();
   insertSWITCHForRepeat();
   insertSWITCHForLoopExit();
@@ -1245,5 +1294,257 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
       MI->removeFromParent();
     }
   } //end of bb
+}
+
+
+MachineInstr* LPUCvtCFDFPass::convert_memop_ins(MachineInstr* MI,
+                                                unsigned new_opcode,
+                                                const LPUInstrInfo& TII,
+                                                unsigned issued_reg,
+                                                unsigned ready_reg) {
+  MachineInstr* new_inst = NULL;
+  DEBUG(errs() << "We want convert this instruction.\n");
+  for (unsigned i = 0; i < MI->getNumOperands(); ++i) {
+    MachineOperand& MO = MI->getOperand(i);
+    DEBUG(errs() << "  Operand " << i << ": " << MO << "\n");
+  }
+
+  // Alternative implementation would be:
+  //  1. Build an "copy" of the existing instruction,
+  //  2. Remove the operands from the clonsed instruction.
+  //  3. Add new ones, in the right order.
+  //
+  // This operation doesn't work, because the cloned instruction gets created
+  // with too few operands. 
+  //
+  // MachineInstr* new_inst = thisMF->CloneMachineInstr(MI);
+  // BB->insert(iterMI, new_inst);
+  // new_inst->setDesc(TII.get(new_opcode));
+  // int k = MI->getNumOperands() - 1;
+  // while (k >= 0) {
+  //   new_inst->RemoveOperand(k);
+  //   k--;
+  // }
+  new_inst = BuildMI(*MI->getParent(),
+                     MI,
+                     MI->getDebugLoc(),
+                     TII.get(new_opcode));
+
+  unsigned opidx = 0;
+  // Create dummy operands for this instruction.
+  MachineOperand issued_op = MachineOperand::CreateReg(issued_reg, true);
+  MachineOperand ready_op = MachineOperand::CreateReg(ready_reg, false);
+
+  // 1. Add all the defs to the new instruction first.
+  while(opidx < MI->getNumOperands()) {
+    MachineOperand& MO = MI->getOperand(opidx);
+    if (!MO.isDef())
+      break;
+    new_inst->addOperand(MO);
+    opidx++;
+  }
+
+  // 2. Add issued flag.
+  new_inst->addOperand(issued_op);
+  // Then add the remaining operands.
+  while (opidx < MI->getNumOperands()) {
+    MachineOperand& MO = MI->getOperand(opidx);
+    new_inst->addOperand(MO);
+    opidx++;
+  }
+  // 3. Finally, add the ready flag.
+  new_inst->addOperand(ready_op);
+
+  // 4. Now copy over remaining state in MI:
+  //      Flags
+  //      MemRefs.
+  //
+  // Ideally, we'd be able to just call this function instead,
+  // but with a different opcode that reserves more space for
+  // operands. 
+  //   MachineInstr(MachineFunction &, const MachineInstr &);
+  new_inst->setFlags(MI->getFlags());
+  new_inst->setMemRefs(MI->memoperands_begin(),
+                       MI->memoperands_end());
+
+  DEBUG(errs() << "   Convert to ins: " << *new_inst << "\n");
+
+  for (unsigned i = 0; i < new_inst->getNumOperands(); ++i) {
+    MachineOperand& MO = new_inst->getOperand(i);
+    DEBUG(errs() << "  Operand " << i << ": " << MO << "\n");
+  }
+
+  DEBUG(errs() << "   Original ins modified: " << *MI << "\n");
+  
+  return new_inst;
+}
+
+
+// Insert all the definitions of mem_in for each block,
+// either as:
+//   1. PHI from our predecessors, if multiple predecessors
+//   2. Direct initialization, if 1 predecessor
+//   3. mov of a constant, if 0 predecessors.
+//
+void LPUCvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsigned>& blockToMemIn,
+                                             DenseMap<MachineBasicBlock*, unsigned>& blockToMemOut) {
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+
+    MachineBasicBlock* BBptr = &(*BB);
+
+    assert(blockToMemIn.find(BBptr) != blockToMemIn.end());
+    unsigned mem_in_reg = blockToMemIn[BBptr];
+
+    if (BB->pred_size() > 1) {
+      // Case 1: Insert a PHI of the mem_out registers from all the
+      // predecessors.
+      MachineInstrBuilder mbuilder = BuildMI(*BB,
+                                             BB->getFirstNonPHI(),
+                                             DebugLoc(),
+                                             TII.get(TargetOpcode::PHI),
+                                             mem_in_reg);
+                                     
+      // Scan the predecessors, and add the PHI value for each.
+      for (MachineBasicBlock::pred_iterator PI = BB->pred_begin();
+           PI != BB->pred_end();
+           ++PI) {
+        assert(blockToMemIn.find(*PI) != blockToMemIn.end());
+        unsigned target_out_reg = blockToMemOut[*PI];
+        mbuilder.addReg(target_out_reg);
+        mbuilder.addMBB(*PI);
+      }
+    }
+    else if (BB->pred_size() == 1) {
+      // Case 2: Only one predecessor.  Just use the mem_out register
+      // from the predecessor directly.
+      MachineBasicBlock::pred_iterator PI = BB->pred_begin();
+      MachineBasicBlock* PIptr = *PI;
+      assert(blockToMemIn.find(PIptr) != blockToMemIn.end());
+      unsigned target_out_reg = blockToMemOut[PIptr];
+
+      // Add in the mov of the register from the previous block.
+      BuildMI(*BB,
+              BB->getFirstNonPHI(),
+              DebugLoc(),
+              TII.get(LPU::MOV1),
+              mem_in_reg).addReg(target_out_reg);
+    }
+    else {
+      assert(BB->pred_size() == 0);
+      // Case 3: No predecessors.  Generate a simple mov of a
+      // constant, to handle the initialization.
+
+      // Add in the mov of the register from the previous block.
+      BuildMI(*BB,
+              BB->getFirstNonPHI(),
+              DebugLoc(),
+              TII.get(LPU::MOV1),
+              mem_in_reg).addImm(1);
+    }
+
+    DEBUG(errs() << "After createMemInRegisterDefs: " << *BB << "\n");
+  }
+}
+                                                 
+
+
+
+void LPUCvtCFDFPass::addMemoryOrderingConstraints() {
+  assert((OrderMemops == 1) && "Only linear memory ordering implemented now.");
+  const TargetMachine &TM = thisMF->getTarget();
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
+
+  DenseMap<MachineBasicBlock*, unsigned> blockToMemIn;
+  DenseMap<MachineBasicBlock*, unsigned> blockToMemOut;
+  
+  // The register class we are going to use for all the memory-op
+  // dependencies.  Technically they could be I0, but I don't know how
+  // happy LLVM will be with that.
+  const TargetRegisterClass* memop_RC = &LPU::I1RegClass;
+
+  DEBUG(errs() << "Before addMemoryOrderingConstraints");
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+
+    // Create a virtual register for the block input.
+    unsigned mem_in_reg = MRI->createVirtualRegister(memop_RC);
+    // TBD: I need an "invalid" virtual register number.  Is "IGN" a
+    // good one?
+    unsigned mem_out_reg = LPU::IGN;
+
+    unsigned current_mem_reg = mem_in_reg;
+    unsigned next_mem_reg = LPU::IGN;
+
+    MachineBasicBlock::iterator iterMI = BB->begin();
+    while (iterMI != BB->end()) {
+      MachineInstr* MI = iterMI;
+      DEBUG(errs() << "Found instruction: " << *MI << "\n");
+
+      unsigned current_opcode = MI->getOpcode();
+      unsigned converted_opcode = TII.get_ordered_opcode_for_LDST(current_opcode);
+
+      if (current_opcode != converted_opcode) {
+        // TBD(jsukha): For now, we are just going to create a linear
+        // chain of dependencies for memory instructions within a
+        // basic block.
+        //
+        // We will want to optimize this implementation further, but
+        // this is the simple version for now.
+        
+        next_mem_reg = MRI->createVirtualRegister(memop_RC);
+        
+        convert_memop_ins(MI,
+                          converted_opcode,
+                          TII,
+                          next_mem_reg,
+                          current_mem_reg);
+        
+        // Erase the old instruction.
+        iterMI = BB->erase(iterMI);
+
+        // Advance the chain.
+        current_mem_reg = next_mem_reg;
+        next_mem_reg = LPU::IGN;
+      }
+      else {
+        ++iterMI;
+      }
+    }
+
+    // Now that the block has ended, create the mem_out register.
+    // and connect "current_mem_reg" to "next_mem_reg".
+    //
+    // TBD(jsukha): For now, I'm just going to do this operation
+    // with a mov1.  I don't know if some other instruction will be
+    // better.
+    mem_out_reg = MRI->createVirtualRegister(memop_RC);
+
+    // This operation creates an instruction before the terminating
+    // instruction in the block that moves the contents of the last
+    // "issued" flag in the block into the mem_out register.
+    MachineInstr* mem_out_def = BuildMI(*BB,
+                                        BB->getFirstTerminator(),
+                                        DebugLoc(),
+                                        TII.get(LPU::MOV1),
+                                        mem_out_reg).addReg(current_mem_reg);
+
+    DEBUG(errs() << "Inserted mem_out_def instruction " << *mem_out_def << "\n");
+
+    // Save mem_in_reg and mem_out_reg for each block into a DenseMap,
+    // so that we can create a PHI instruction as an input to the
+    // block.
+    blockToMemIn[BB] = mem_in_reg;
+    blockToMemOut[BB] = mem_out_reg;
+
+    DEBUG(errs() << "After memop conversion of function: " << *BB << "\n");
+  }
+
+  // Another walk over basic blocks: add in definitions for mem_in
+  // register for each block, based on predecessors.
+  createMemInRegisterDefs(blockToMemIn, blockToMemOut);
 }
  
