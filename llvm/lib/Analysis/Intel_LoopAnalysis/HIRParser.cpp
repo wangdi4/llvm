@@ -1029,25 +1029,27 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
   }
 
   // Now we look for identical or stricter wrap flags on NewAddRec.
+  // Disabling this check because ScalarEvolution is very conservative in
+  // propagating wrap flags.
 
   // If OrigAddRec has NUW, NewAddRec should have it too.
-  if (OrigAddRec->getNoWrapFlags(SCEV::FlagNUW) &&
-      !(WrapFlags & SCEV::FlagNUW)) {
-    return false;
-  }
-
+  //if (OrigAddRec->getNoWrapFlags(SCEV::FlagNUW) &&
+  //    !(WrapFlags & SCEV::FlagNUW)) {
+  //  return false;
+  //}
+  //
   // If OrigAddRec has NSW, NewAddRec should have it too.
-  if (OrigAddRec->getNoWrapFlags(SCEV::FlagNSW) &&
-      !(WrapFlags & SCEV::FlagNSW)) {
-    return false;
-  }
-
+  //if (OrigAddRec->getNoWrapFlags(SCEV::FlagNSW) &&
+  //    !(WrapFlags & SCEV::FlagNSW)) {
+  //  return false;
+  //}
+  //
   // If OrigAddRec has NW, NewAddRec can cover it with any of NUW, NSW or NW.
-  if (OrigAddRec->getNoWrapFlags(SCEV::FlagNW) &&
-      !(WrapFlags &
-        (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW | SCEV::FlagNW))) {
-    return false;
-  }
+  //if (OrigAddRec->getNoWrapFlags(SCEV::FlagNW) &&
+  //    !(WrapFlags &
+  //      (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW | SCEV::FlagNW))) {
+  //  return false;
+  //}
 
   if (Mul) {
     *ConstMultiplier = const_cast<SCEVConstant *>(Mul);
@@ -1234,8 +1236,9 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
   }
 
   auto OldTempBlob = SE->getUnknown(const_cast<Value *>(OldTemp));
-  auto TempBlob = SE->getUnknown(const_cast<Value *>(Temp));
-  auto Index = updateBlob(OldTempBlob, TempBlob, Symbase);
+  auto BaseTemp = ScalarSA->getBaseScalar(Symbase);
+  auto NewTempBlob = SE->getUnknown(const_cast<Value *>(BaseTemp));
+  auto Index = updateBlob(OldTempBlob, NewTempBlob, Symbase);
 
   if (BlobIndex) {
     *BlobIndex = Index;
@@ -1653,6 +1656,7 @@ CanonExpr *HIRParser::parseAsBlob(const Value *Val, unsigned Level) {
 CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
   CanonExpr *CE = nullptr;
   bool EnableCastHiding = IsTop;
+  const Value *OrigVal = Val;
 
   // Parse as blob if the type is not SCEVable.
   // This is currently for handling floating types.
@@ -1694,9 +1698,12 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
 
     if (!parseRecursive(SC, CE, Level, IsTop, !EnableCastHiding, true)) {
       CanonExprUtils::destroy(CE);
-      CE = parseAsBlob(Val, Level);
+      CE = parseAsBlob(OrigVal, Level);
     }
   }
+
+  assert((CE->getDestType() == OrigVal->getType()) &&
+         "CE and Val types do not match!");
 
   return CE;
 }

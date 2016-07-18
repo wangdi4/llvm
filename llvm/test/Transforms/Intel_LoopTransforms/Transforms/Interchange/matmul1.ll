@@ -5,7 +5,6 @@
 ; RUN: opt -O2  -loopopt  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 1 3 2 )  
-; XFAIL: *
 ; Disable test now because safe-reduction is not ready
 
 ; ModuleID = 'matmul.ll'

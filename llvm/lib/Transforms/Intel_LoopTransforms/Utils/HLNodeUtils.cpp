@@ -1836,8 +1836,16 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
     return;
   }
 
-  unsigned PrevNum = 0;
+  unsigned PrevNum = 0, NumCases = 0;
   auto ParentLoop = dyn_cast<HLLoop>(Parent);
+
+  // We need to special case insertion of nodes at the begining and end of the
+  // switch container because the default case is located at the beginning of
+  // the link list even though it is the lexically cast case.
+  auto ParentSwitch = dyn_cast<HLSwitch>(Parent);
+  if (ParentSwitch) {
+    NumCases = ParentSwitch->getNumCases();
+  }
 
   if (Container.begin() != First) {
     // If we inserted nodes after the loop preheader, the previous num is loop's
@@ -1855,6 +1863,11 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
 
       PrevNum = PrevNode ? PrevNode->getMaxTopSortNum()
                          : Parent->getParent()->getTopSortNum();
+      // If we inserted at the begining of the default case of switch, the
+      // lexically previous node is last child of switch's last case.
+    } else if (ParentSwitch && (NumCases > 0) &&
+               ParentSwitch->hasDefaultCaseChildren()) {
+      PrevNum = ParentSwitch->getLastCaseChild(NumCases)->getTopSortNum();
     } else {
       PrevNum = Parent->getTopSortNum();
     }
@@ -1862,10 +1875,15 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
 
   unsigned NextNum = 0;
 
-  // The last node inserted is the last preheader node, so the next num should
+  // If the last node inserted is the last preheader node, the next num should
   // be loop's top sort num.
   if (ParentLoop && (Last == ParentLoop->pre_end())) {
     NextNum = Parent->getTopSortNum();
+    // If the last node inserted is the last child of last case of switch, the
+    // next node comes from default case of switch.
+  } else if (ParentSwitch && (NumCases > 0) && (Last == Container.end()) &&
+             ParentSwitch->hasDefaultCaseChildren()) {
+    NextNum = ParentSwitch->getFirstDefaultCaseChild()->getMinTopSortNum();
   } else if (Container.end() != Last) {
     NextNum = Last->getMinTopSortNum();
   }
