@@ -229,7 +229,7 @@ bool HIRSafeReductionAnalysis::isValidSR(RegDDRef *LRef, HLLoop *Loop,
     return false;
   }
 
-  for ( ; I != E; ++I) {
+  for (; I != E; ++I) {
     const DDEdge *Edge = *I;
     if (!Edge->isFLOWdep()) {
       return false;
@@ -308,6 +308,14 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
         break;
       }
       if (Inst == SinkInst) {
+        break;
+      }
+      // if SinkInst (s3) strictly dominates Inst(s4),
+      // then s2 is no longer a valid 1st stmt of the cycle.
+      // e.g.    s2:   x = y
+      //         s3:   z = w
+      //         s4:   w = x + z
+      if (HLNodeUtils::strictlyDominates(SinkInst, Inst)) {
         break;
       }
       Inst = SinkInst;
