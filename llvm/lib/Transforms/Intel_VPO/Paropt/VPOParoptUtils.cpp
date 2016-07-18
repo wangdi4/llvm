@@ -568,3 +568,109 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
   return FnCall;
 }
 
+// This function generates a call to query the current thread if it is a master
+// thread. Or, generates a call to end_master callfor the team of threads.
+//   %master = call @__kmpc_master(%ident_t* %loc, i32 %tid)
+//      or
+//   call void @__kmpc_end_master(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(WRegionNode *W, 
+                            StructType *IdentTy, Value *Tid, 
+                            Instruction *InsertPt, bool IsMasterStart) {
+
+  BasicBlock  *B = W->getEntryBBlock();
+  Function    *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type *RetTy = NULL;
+  StringRef FnName;
+
+  if (IsMasterStart) {
+    FnName = "__kmpc_master"; 
+    RetTy = Type::getInt32Ty(C);
+  }
+  else {
+    FnName = "__kmpc_end_master"; 
+    RetTy = Type::getVoidTy(C);
+  }
+
+  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadTid->setAlignment(4);
+
+  // Now bundle all the function arguments together.
+  SmallVector<Value *, 3> FnArgs = {LoadTid};
+
+  CallInst *MasterOrEndCall = VPOParoptUtils::genKmpcCall(W,
+                                IdentTy, InsertPt, FnName, RetTy, FnArgs);
+  return MasterOrEndCall;
+}
+
+// This function generates calls to guard the single thread execution for the
+// single/end single region.
+//
+//   call single = @__kmpc_single(%ident_t* %loc, i32 %tid)
+//      or
+//   call void @__kmpc_end_single(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcSingleOrEndSingleCall(WRegionNode *W,
+                            StructType *IdentTy, Value *Tid,
+                            Instruction *InsertPt, bool IsSingleStart) {
+
+  BasicBlock  *B = W->getEntryBBlock();
+  Function    *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type *RetTy = NULL;
+  StringRef FnName;
+
+  if (IsSingleStart) {
+    FnName = "__kmpc_single";
+    RetTy = Type::getInt32Ty(C);
+  }
+  else {
+    FnName = "__kmpc_end_single";
+    RetTy = Type::getVoidTy(C);
+  }
+
+  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadTid->setAlignment(4);
+
+  // Now bundle all the function arguments together.
+  SmallVector<Value *, 3> FnArgs = {LoadTid};
+
+  CallInst *SingleOrEndCall = VPOParoptUtils::genKmpcCall(W,
+                                IdentTy, InsertPt, FnName, RetTy, FnArgs);
+  return SingleOrEndCall;
+}
+
+// This function generates calls to guard the ordered thread execution for the
+// ordered/end ordered region.
+//
+//   call void @__kmpc_ordered(%ident_t* %loc, i32 %tid)
+//      or
+//   call void @__kmpc_end_ordered(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
+                            StructType *IdentTy, Value *Tid,
+                            Instruction *InsertPt, bool IsOrderedStart) {
+
+  BasicBlock  *B = W->getEntryBBlock();
+  Function    *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type *RetTy = Type::getVoidTy(C);
+
+  StringRef FnName;
+
+  if (IsOrderedStart)
+    FnName = "__kmpc_ordered";
+  else
+    FnName = "__kmpc_end_ordered";
+
+  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadTid->setAlignment(4);
+
+  // Now bundle all the function arguments together.
+  SmallVector<Value *, 3> FnArgs = {LoadTid};
+
+  CallInst *OrderedOrEndCall = VPOParoptUtils::genKmpcCall(W, 
+                                 IdentTy, InsertPt, FnName, RetTy, FnArgs);
+  return OrderedOrEndCall;
+}

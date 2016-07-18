@@ -82,6 +82,7 @@ bool VPOParopt::runOnModule(Module &M) {
     // TODO: need Front-End to set F->hasOpenMPDirective()
     if (F->isDeclaration()) // if(!F->hasOpenMPDirective()))
       continue;
+    DEBUG(dbgs() << "\n=== VPOParopt func: " << F->getName() <<" {\n");
     FnList.push_back(&*F);
   }
 
