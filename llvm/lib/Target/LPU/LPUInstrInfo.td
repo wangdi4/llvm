@@ -420,30 +420,30 @@ multiclass StOp<string opStr, RegisterClass RC, ValueType opType,
       !strconcat(opStr, "x\t$addr, $data, %ign"),
       [(store (opType immNode:$data), ADDR_RX:$addr)]>;
     def X : FMTGEN<
-      (outs),
+      (outs),    
       (ins ADDR_RX:$addr, RC:$data),
-      !strconcat(opStr, "x\t$addr, $data, %ign"),
+      !strconcat(opStr, "x\t$addr, $data"),
       [(store opType:$data, ADDR_RX:$addr)]>;
   }
 
   let Predicates = [HasDispl], Itinerary = itin in {
     def Di : FMTGEN<
-      (outs),
+      (outs),        
       (ins ADDR_RI:$addr, Operand<opType>:$data),
       !strconcat(opStr, "d\t$addr, $data, %ign"),
       [(store (opType immNode:$data), ADDR_RI:$addr)]>;
     def D : FMTGEN<
-      (outs),
+      (outs),            
       (ins ADDR_RI:$addr, RC:$data),
       !strconcat(opStr, "d\t$addr, $data, %ign"),
       [(store opType:$data, ADDR_RI:$addr)]>;
     def Ri : FMTGEN<
-      (outs),
+      (outs),                
       (ins ADDR_RR:$addr, Operand<opType>:$data),
       !strconcat(opStr, "d\t$addr, $data, %ign"),
       [(store (opType immNode:$data), ADDR_RR:$addr)]>;
     def R : FMTGEN<
-      (outs),
+      (outs),                    
       (ins ADDR_RR:$addr, RC:$data),
       !strconcat(opStr, "d\t$addr, $data, %ign"),
       [(store opType:$data, ADDR_RR:$addr)]>;
@@ -451,17 +451,121 @@ multiclass StOp<string opStr, RegisterClass RC, ValueType opType,
 
   let Itinerary = itin in {
     def i : FMTGEN<
-      (outs),
+      (outs),                        
       (ins ADDR_R:$addr, Operand<opType>:$data),
       !strconcat(opStr, "\t$addr, $data, %ign"),
       [(store (opType immNode:$data), ADDR_R:$addr)]>;
     def "" : FMTGEN<
-      (outs),
+      (outs),                            
       (ins ADDR_R:$addr, RC:$data),
       !strconcat(opStr, "\t$addr, $data, %ign"),
       [(store opType:$data, ADDR_R:$addr)]>;
   }
 }
+
+// TBD(jsukha): Even uglier hack to defined "ordered" memory
+// instructions, i.e., the equivalent LD/ST instructions as above,
+// except with two additional operands.
+//
+// One extra argument is an output($issued flag),
+// and one extra argument is an input ($ready flag).
+//
+// There might be a nice way to change the definition
+// of the existing load/store operations, to do the same thing,
+// and/or define more macros to eliminate duplicated code between
+// these two cases. But this hack is what I could figure out for now.
+
+multiclass OLdOp<string opStr, RegisterClass RC, ValueType opType,
+           InstrItinClass itin = IILD> {
+  let Predicates = [HasIndex], Itinerary = itin in {
+    def X : FMTGEN< // indexed reg+reg
+      (outs RC:$dst, I0:$issued),
+      (ins ADDR_RX:$addr, I0:$ready),
+      !strconcat(opStr, "x\t$dst, $addr, $issued, $ready"),
+      []>;
+  }
+
+  let Predicates = [HasDispl], Itinerary = itin in {
+    def D : FMTGEN< // normal literal displacement form (val+k)
+      (outs RC:$dst, I0:$issued),
+      (ins ADDR_RI:$addr, I0:$ready),
+      !strconcat(opStr, "d\t$dst, $addr, $issued, $ready"),
+      []>;
+    def R : FMTGEN< // non-indexed reg+reg
+      (outs RC:$dst, I0:$issued),    
+      (ins ADDR_RR:$addr, I0:$ready),
+      !strconcat(opStr, "d\t$dst, $addr, $issued, $ready"),
+      []>;
+  }
+
+  let Itinerary = itin in {
+    def I : FMTGEN<  // e.g. ld of literal address - ld rx,sym
+      (outs RC:$dst, I0:$issued),
+      (ins ADDR_I:$addr, I0:$ready),
+      !strconcat(opStr, "\t$dst, $addr, $issued, $ready"),
+      []>;
+    def "" : FMTGEN< // normal basereg form
+      (outs RC:$dst, I0:$issued),
+      (ins ADDR_R:$addr, I0:$ready),
+      !strconcat(opStr, "\t$dst, $addr, $issued, $ready"),
+      []>;
+    }
+}
+
+
+
+multiclass OStOp<string opStr, RegisterClass RC, ValueType opType,
+           SDNode immNode, InstrItinClass itin = IIST> {
+  let Predicates = [HasIndex], Itinerary = itin in {
+    def Xi : FMTGEN<
+      (outs I0:$issued),
+      (ins ADDR_RX:$addr, Operand<opType>:$data, I0:$ready),
+      !strconcat(opStr, "x\t$addr, $data, $issued, $ready"),
+      []>;
+    def X : FMTGEN<
+      (outs I0:$issued),    
+      (ins ADDR_RX:$addr, RC:$data, I0:$ready),
+      !strconcat(opStr, "x\t$addr, $data, $issued, $ready"),
+      []>;
+  }
+
+  let Predicates = [HasDispl], Itinerary = itin in {
+    def Di : FMTGEN<
+      (outs I0:$issued),        
+      (ins ADDR_RI:$addr, Operand<opType>:$data, I0:$ready),
+      !strconcat(opStr, "d\t$addr, $data, $issued, $ready"),
+      []>;
+    def D : FMTGEN<
+      (outs I0:$issued),            
+      (ins ADDR_RI:$addr, RC:$data, I0:$ready),
+      !strconcat(opStr, "d\t$addr, $data, $issued, $ready"),
+      []>;
+    def Ri : FMTGEN<
+      (outs I0:$issued),            
+      (ins ADDR_RR:$addr, Operand<opType>:$data,  I0:$ready),
+      !strconcat(opStr, "d\t$addr, $data, $issued, $ready"),
+      []>;
+    def R : FMTGEN<
+      (outs I0:$issued),    
+      (ins ADDR_RR:$addr, RC:$data, I0:$ready),
+      !strconcat(opStr, "d\t$addr, $data, $issued, $ready"),
+      []>;
+  }
+
+  let Itinerary = itin in {
+      def i : FMTGEN<
+        (outs I0:$issued),    
+        (ins ADDR_R:$addr, Operand<opType>:$data, I0:$ready),
+        !strconcat(opStr, "\t$addr, $data, $issued, $ready"),
+        []>;
+      def "" : FMTGEN<
+        (outs I0:$issued),    
+        (ins ADDR_R:$addr, RC:$data, I0:$ready),
+        !strconcat(opStr, "\t$addr, $data, $issued, $ready"),
+        []>;
+  }
+}
+
 
 let isBranch=1, isTerminator=1, Itinerary = IICtl in {
   // Branch true
@@ -918,6 +1022,15 @@ defm LD32f : LdOp<"ld32",  I32, f32>;
 defm LD64  : LdOp<"ld64",  I64, i64>;
 defm LD64f : LdOp<"ld64",  I64, f64>;
 
+defm OLD1   : OLdOp<"ld8",   I1,  i1>;
+defm OLD8   : OLdOp<"ld8",   I8,  i8>;
+defm OLD16  : OLdOp<"ld16",  I16, i16>;
+defm OLD16f : OLdOp<"ld16",  I16, f16>;
+defm OLD32  : OLdOp<"ld32",  I32, i32>;
+defm OLD32f : OLdOp<"ld32",  I32, f32>;
+defm OLD64  : OLdOp<"ld64",  I64, i64>;
+defm OLD64f : OLdOp<"ld64",  I64, f64>;
+
 defm ST1   : StOp<"st8",   I1,  i1,  imm>;
 defm ST8   : StOp<"st8",   I8,  i8,  imm>;
 defm ST16  : StOp<"st16",  I16, i16, imm>;
@@ -926,6 +1039,15 @@ defm ST32  : StOp<"st32",  I32, i32, imm>;
 defm ST32f : StOp<"st32",  I32, f32, fpimm>;
 defm ST64  : StOp<"st64",  I64, i64, imm>;
 defm ST64f : StOp<"st64",  I64, f64, fpimm>;
+
+defm OST1   : OStOp<"st8",   I1,  i1,  imm>;
+defm OST8   : OStOp<"st8",   I8,  i8,  imm>;
+defm OST16  : OStOp<"st16",  I16, i16, imm>;
+defm OST16f : OStOp<"st16",  I16, f16, fpimm>;
+defm OST32  : OStOp<"st32",  I32, i32, imm>;
+defm OST32f : OStOp<"st32",  I32, f32, fpimm>;
+defm OST64  : OStOp<"st64",  I64, i64, imm>;
+defm OST64f : OStOp<"st64",  I64, f64, fpimm>;
 
 multiclass CopyOp<string opStr, RegisterClass RC,
            InstrItinClass itin = IIVir> {

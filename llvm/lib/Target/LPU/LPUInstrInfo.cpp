@@ -365,6 +365,32 @@ LPUInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
 
 }
 
+
+// Convert opcode of LD/ST into a corresponding opcode for OLD/OST.
+// Returns current_opcode if it is not a LD or ST.
+unsigned
+LPUInstrInfo::get_ordered_opcode_for_LDST(unsigned current_opcode)  const {
+  // HACK: this code relies on the (possibly fragile) assumption that
+  // (a) we have exactly one ordered store operation for every normal
+  // store opcode, and (b) that the difference between the ordered and
+  // non-ordered version of these opcodes is always a constant.
+  //
+  // If either of these conditions are violated, e.g., because there
+  // is some other new instruction that starts with OLD or OST, then
+  // bad things will happen...
+  if ((current_opcode >= LPU::ST1) &&  (current_opcode <= LPU::ST8i)) {
+    return current_opcode + (LPU::OST1 - LPU::ST1);
+  }
+  else if ((current_opcode >= LPU::LD1) && (current_opcode <= LPU::LD8X)) {
+    // Analogous hack for LD operations. 
+    return current_opcode + (LPU::OLD1 - LPU::LD1);
+  }
+  else {
+    return current_opcode;
+  }
+}
+
+
 bool LPUInstrInfo::isLoad(MachineInstr *MI) const {
 	return MI->getOpcode() >= LPU::LD1 && MI->getOpcode() <= LPU::LD8X;
 }
@@ -477,4 +503,3 @@ LPUInstrInfo::getInitOpcode(const TargetRegisterClass *RC) const {
   else
     llvm_unreachable("Unknown Target LIC class!");
 }
-

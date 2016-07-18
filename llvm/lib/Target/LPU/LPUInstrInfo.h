@@ -135,6 +135,10 @@ public:
                         const SmallVectorImpl<MachineOperand> &Cond,
                         DebugLoc DL) const override;
 
+  // Convert opcode of LD/ST into a corresponding opcode for OLD/OST.
+  // Returns current_opcode if it is not a LD or ST.
+  unsigned get_ordered_opcode_for_LDST(unsigned current_opcode) const;
+  
   unsigned getPickSwitchOpcode(const TargetRegisterClass *RC, bool isPick) const;
   bool isSwitch(MachineInstr *) const;
   bool isCopy(MachineInstr *) const;
