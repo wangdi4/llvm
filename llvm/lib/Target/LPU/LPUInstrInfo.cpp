@@ -365,7 +365,6 @@ LPUInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC,
 
 }
 
-
 bool LPUInstrInfo::isLoad(MachineInstr *MI) const {
 	return MI->getOpcode() >= LPU::LD1 && MI->getOpcode() <= LPU::LD8X;
 }
@@ -413,7 +412,7 @@ bool LPUInstrInfo::isSwitch(MachineInstr *MI) const {
 }
 
 bool LPUInstrInfo::isPick(MachineInstr *MI) const {
-	return MI->getOpcode() == LPU::SWITCH1 ||
+        return MI->getOpcode() == LPU::PICK1 ||
 		MI->getOpcode() == LPU::PICK8 ||
 		MI->getOpcode() == LPU::PICK16 ||
 		MI->getOpcode() == LPU::PICK32 ||
@@ -478,3 +477,4 @@ LPUInstrInfo::getInitOpcode(const TargetRegisterClass *RC) const {
   else
     llvm_unreachable("Unknown Target LIC class!");
 }
+
