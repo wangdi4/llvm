@@ -178,12 +178,40 @@ public:
     /// \param Args arguments for the function call.
     ///
     /// \returns The generated CallInst.
-    static CallInst *genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
+    static CallInst* genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
                                         AllocaInst *TidPtr,
                                         Instruction *InsertPt,
                                         StringRef IntrinsicName, Type *ReturnTy,
                                         ArrayRef<Value *> Args);
 
+    /// \brief This function generates a call to query if the current thread 
+    /// is master thread or a call to end_master for the team of threads.
+    ///   call master = @__kmpc_master(%ident_t* %loc, i32 %tid)
+    ///      or
+    ///   call void @__kmpc_end_master(%ident_t* %loc, i32 %tid)
+    static CallInst* genKmpcMasterOrEndMasterCall(WRegionNode *W, 
+                       StructType *IdentTy, Value *Tid, Instruction *InsertPt, 
+                       bool IsMasterStart);
+
+    /// \brief This function generates a call to guard single-region is 
+    /// executed by one of threads in the enclosing thread team.
+    ///
+    ///   call single = @__kmpc_single(%ident_t* %loc, i32 %tid)
+    ///      or
+    ///   call void @__kmpc_end_single(%ident_t* %loc, i32 %tid)
+    static CallInst* genKmpcSingleOrEndSingleCall(WRegionNode *W,
+                       StructType *IdentTy, Value *Tid, Instruction *InsertPt,
+                       bool IsSingleStart);
+
+    /// \Brief This function generates calls to guard the ordered thread 
+    /// execution for the ordered/end ordered region.
+    ///
+    ///   call void @__kmpc_ordered(%ident_t* %loc, i32 %tid)
+    ///      or
+    ///   call void @__kmpc_end_ordered(%ident_t* %loc, i32 %tid)
+    static CallInst* genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
+                       StructType *IdentTy, Value *Tid,
+                       Instruction *InsertPt, bool IsOrderedStart);
   private:
     ///  \name Private constructor and destructor to disable instantiation.
     /// @{
