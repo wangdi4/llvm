@@ -863,7 +863,9 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
 void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
   if (!(RunLoopOpts || RunLoopOptFrameworkOnly) || (OptLevel < 2) ||
-      (SizeLevel != 0) || PrepareForLTO || PrepareForThinLTO) {
+      (SizeLevel != 0) || PrepareForLTO || 
+      // FIXME: workaround to disable loopopt in ThinLTO mode.
+      ModuleSummary) {
     return;
   }
 
