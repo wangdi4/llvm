@@ -218,8 +218,7 @@ typedef TypedBiList::const_iterator TypedBiIter;
       }
     }
     //enable double extentions in clang
-    std::string code = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
-    code.append("#pragma OPENCL EXTENSION cl_khr_depth_images : enable\n");
+    std::string code = "#pragma OPENCL EXTENSION cl_khr_depth_images : enable\n";
     typedbiList.sort(isLess);
     TypedBiIter typeit, typee = typedbiList.end();
     for(typeit = typedbiList.begin(); typeit != typee ; ++typeit)

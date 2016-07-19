@@ -192,10 +192,6 @@ kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  \
   RunFunctionTest(NAME_VEC(name,double,16),XSTR(NATIVE_##name##_DOUBLE(16)),16,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
   //TODO: once convert_int3(long3) implemented uncomment vec 3 and delete the temporary one
 
-#if !defined (__ANDROID__) // Android OS doesn't support fp64
-const char Pragma[] = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable";
-#endif
-
 //runs a kernel and check it's results vs targetULP
 template <typename T>
 void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,cl_context& context,cl_command_queue& queue,T** pBuff,int numBuffs,size_t& stBuffSize,bool& bResult,int target_ulp){
@@ -217,8 +213,8 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
   char *kernelCode = new char[strlen(ocl_test_program) +10];
   sprintf(kernelCode, "\n%s\n", ocl_test_program);
 #else
-  char *kernelCode = new char[strlen(ocl_test_program) + strlen(Pragma)+10];
-  sprintf(kernelCode, "%s\n%s\n", Pragma,  ocl_test_program);
+  char *kernelCode = new char[strlen(ocl_test_program) + 10];
+  sprintf(kernelCode, "%s\n", ocl_test_program);
 #endif
 	try{
 	// create program with source

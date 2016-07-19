@@ -38,10 +38,6 @@ endif()
 
 if (WIN32)
 
-    link_directories( "$ENV{ICPP_COMPILER12}/compiler/lib/${ICC_PLATFORM}" )
-
-    project( ${TARGET_NAME} )
-
     add_library( ${TARGET_NAME} SHARED
         ${TARGET_SOURCE_FILES}
         ${TARGET_HEADER_FILES}
