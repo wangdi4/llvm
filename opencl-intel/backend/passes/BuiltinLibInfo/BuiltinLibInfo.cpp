@@ -7,12 +7,17 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "BuiltinLibInfo.h"
 #include "OCLPassSupport.h"
-#include "llvm/IR/Module.h"
+
+#include <llvm/IR/Module.h>
+#include <llvm/Support/MemoryBuffer.h>
 
 using namespace llvm;
 
 extern "C" {
-    llvm::Pass* createBuiltinLibInfoPass(llvm::SmallVector<llvm::Module*, 2> builtinsList, std::string type) {
+    llvm::Pass* createBuiltinLibInfoPass(
+      llvm::SmallVector<llvm::Module*, 2> builtinsList,
+      SmallVector<MemoryBuffer*, 2> builtinsBufferList,
+      std::string type) {
     intel::BuiltinLibInfo::RuntimeServicesTypes rtType = intel::BuiltinLibInfo::RTS_OCL;
     if(type == "ocl") {
       rtType = intel::BuiltinLibInfo::RTS_OCL;
@@ -31,7 +36,7 @@ extern "C" {
       rtType = intel::BuiltinLibInfo::RTS_OSX;
 #endif
     }
-    return new intel::BuiltinLibInfo(builtinsList, rtType);
+    return new intel::BuiltinLibInfo(builtinsList, builtinsBufferList, rtType);
   }
 
   intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList);
@@ -46,10 +51,13 @@ namespace intel{
 
   OCL_INITIALIZE_PASS(BuiltinLibInfo, "builtin-lib-info", "Builtin Library Info", false, false)
 
-  BuiltinLibInfo::BuiltinLibInfo(SmallVector<Module*, 2> builtinsList, RuntimeServicesTypes type) :
-    ImmutablePass(ID) {
+  BuiltinLibInfo::BuiltinLibInfo(
+    SmallVector<Module*, 2> builtinsList,
+    SmallVector<MemoryBuffer*, 2> builtinsBufferList,
+    RuntimeServicesTypes type) : ImmutablePass(ID) {
 
     m_BIModuleList = builtinsList;
+    m_BIModuleBufferList = builtinsBufferList;
 
     initializeBuiltinLibInfoPass(*PassRegistry::getPassRegistry());
 

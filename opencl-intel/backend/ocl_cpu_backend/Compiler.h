@@ -177,6 +177,9 @@ public:
     // Returns a list of pointers to the RTL libraries
     virtual llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() const = 0;
 
+    // Returns a list of RTL libraries bitcode buffers
+    virtual llvm::SmallVector<llvm::MemoryBuffer*, 2> GetBuiltinBufferList() const = 0;
+
     // Get function definition from a Module by its name
     bool FindFunctionBodyInModules(std::string &FName,
                                llvm::Module const *bifModule,
@@ -189,7 +192,9 @@ public:
     virtual void SetObjectCache(ObjectCodeCache* pCache) = 0;
 
 protected:
-    void LoadBuiltinModules(BuiltinLibrary* pLibrary, llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const;
+    void LoadBuiltinModules(BuiltinLibrary* pLibrary,
+                            llvm::SmallVector<llvm::MemoryBuffer*, 2>& builtinsBuffers,
+                            llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const;
 
 protected:
     llvm::LLVMContext*       m_pLLVMContext;

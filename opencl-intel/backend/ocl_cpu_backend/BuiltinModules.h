@@ -20,6 +20,8 @@ File Name:  BuiltinModules.h
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Errno.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/LLVMContext.h"
 #include <assert.h>
 #include <string>
 #include <memory>
@@ -27,26 +29,24 @@ File Name:  BuiltinModules.h
 #include "CPUDetect.h"
 #include "IDynamicFunctionsResolver.h"
 
-namespace llvm
-{
-class Module;
-class LLVMContext;
-}
-
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinModules
 {
 public:
-    BuiltinModules(llvm::SmallVector<llvm::Module*, 2> builtinsModules);
+    BuiltinModules(
+      llvm::SmallVector<llvm::MemoryBuffer*, 2> builtinsBuffers,
+      llvm::SmallVector<llvm::Module*, 2>  builtinsModules);
     ~BuiltinModules();
 
     llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() { return m_BuiltinsModules; }
+    llvm::SmallVector<llvm::MemoryBuffer*, 2> GetBuiltinBufferList() { return m_BuiltinsBuffers; }
 
 private:
     int m_cpuId;
 
     llvm::SmallVector<llvm::Module*, 2> m_BuiltinsModules;
+    llvm::SmallVector<llvm::MemoryBuffer*, 2> m_BuiltinsBuffers;
 };
 
 class BuiltinLibrary : public IDynamicFunctionsResolver

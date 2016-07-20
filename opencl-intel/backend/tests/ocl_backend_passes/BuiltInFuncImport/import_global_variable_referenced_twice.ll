@@ -1,4 +1,6 @@
-; RUN: opt -runtimelib=%s.1.rtl,%s.2.rtl -builtin-import -verify %s -S | FileCheck %s
+; RUN: llvm-as %s.1.rtl -o %s.1.rtl.bc
+; RUN: llvm-as %s.2.rtl -o %s.2.rtl.bc
+; RUN: opt -runtimelib=%s.1.rtl.bc,%s.2.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ;*****************************************************************************
 ; This test checks that the BuiltInFuncImport pass imports a global variable

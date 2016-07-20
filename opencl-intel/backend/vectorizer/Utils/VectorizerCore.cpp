@@ -17,6 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 #include <iomanip>
 #include <sstream>
@@ -31,7 +32,10 @@ extern "C" FunctionPass* createPredicator();
 extern "C" FunctionPass* createSimplifyGEPPass();
 extern "C" FunctionPass* createPacketizerPass(bool, unsigned int);
 extern "C" intel::ChooseVectorizationDimension* createChooseVectorizationDimension();
-extern "C" Pass* createBuiltinLibInfoPass(llvm::SmallVector<llvm::Module*, 2> pRtlModuleList, std::string type);
+extern "C" Pass* createBuiltinLibInfoPass(
+  llvm::SmallVector<llvm::Module*, 2> pRtlModuleList,
+  SmallVector<MemoryBuffer*, 2> builtinsBufferList,
+  std::string type);
 
 extern "C" FunctionPass* createAppleWIDepPrePacketizationPass();
 #ifndef __APPLE__
@@ -123,7 +127,10 @@ bool VectorizerCore::runOnFunction(Function &F) {
   // Function-wide (preparations)
   {
     legacy::FunctionPassManager fpm1(M);
-    fpm1.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
+    fpm1.add(createBuiltinLibInfoPass(
+      getAnalysis<BuiltinLibInfo>().getBuiltinModules(),
+      getAnalysis<BuiltinLibInfo>().getBuiltinModuleBuffers(),
+      ""));
 
     // Register lowerswitch
     fpm1.add(createLowerSwitchPass());
@@ -215,7 +222,10 @@ bool VectorizerCore::runOnFunction(Function &F) {
   {
     legacy::FunctionPassManager fpm2(M);
     BuiltinLibInfo* pBuiltinInfoPass = (BuiltinLibInfo*)
-      createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "");
+      createBuiltinLibInfoPass(
+        getAnalysis<BuiltinLibInfo>().getBuiltinModules(),
+        getAnalysis<BuiltinLibInfo>().getBuiltinModuleBuffers(),
+        "");
     pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(m_packetWidth);
     fpm2.add(pBuiltinInfoPass);
 

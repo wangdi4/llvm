@@ -233,9 +233,10 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     {
         BuiltinLibrary* pLibrary = BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(m_CpuId);
 
-        llvm::SmallVector<llvm::Module*, 2> bltnFuncList;
-        LoadBuiltinModules(pLibrary, bltnFuncList);
-        m_pBuiltinModule = new BuiltinModules(bltnFuncList);
+        llvm::SmallVector<llvm::MemoryBuffer*, 2> bltnFuncBufferList;
+        llvm::SmallVector<llvm::Module*, 2> bltnFuncModuleList;
+        LoadBuiltinModules(pLibrary, bltnFuncBufferList, bltnFuncModuleList);
+        m_pBuiltinModule = new BuiltinModules(bltnFuncBufferList, bltnFuncModuleList);
     }
 
     // Create the listener that allows Amplifier to profile OpenCL kernels
@@ -375,6 +376,11 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     return pExecEngine;
 }
 
+llvm::SmallVector<llvm::MemoryBuffer*, 2> CPUCompiler::GetBuiltinBufferList() const
+{
+    return m_pBuiltinModule->GetBuiltinBufferList();
+}
+
 llvm::SmallVector<llvm::Module*, 2> CPUCompiler::GetBuiltinModuleList() const
 {
     return m_pBuiltinModule->GetBuiltinModuleList();
@@ -413,7 +419,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     if (ec)
     {
         throw Exceptions::CompilerException(
-			std::string("Failed to open the target file for dump: error code:") + ec.message());
+        std::string("Failed to open the target file for dump: error code:") + ec.message());
     }
 
     // Build up all of the passes that we want to do to the module.

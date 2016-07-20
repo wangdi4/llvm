@@ -13,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 using namespace llvm;
 
@@ -29,7 +30,10 @@ extern "C" {
   //void* createWIRelatedValuePass();
   //void* createDataPerValuePass();
   void* createBarrierPass(bool isNativeDebug);
-  Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
+  Pass* createBuiltinLibInfoPass(
+    SmallVector<Module*, 2> builtinsList,
+    SmallVector<MemoryBuffer*, 2> builtinsBufferList,
+    std::string type);
 
   void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
 }
@@ -45,7 +49,10 @@ namespace intel {
   bool BarrierMain::runOnModule(Module &M) {
     legacy::PassManager barrierModulePM;
 
-    barrierModulePM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
+    barrierModulePM.add(createBuiltinLibInfoPass(
+      getAnalysis<BuiltinLibInfo>().getBuiltinModules(),
+      getAnalysis<BuiltinLibInfo>().getBuiltinModuleBuffers(),
+      ""));
 
     if( m_debugType == None ) {
       //In DBG mode do not run extra llvm optimizations

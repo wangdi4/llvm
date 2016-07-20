@@ -33,6 +33,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 extern "C"{
 
@@ -66,7 +67,10 @@ llvm::ModulePass *createModuleCleanupPass(bool SpareOnlyWrappers);
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
 llvm::ModulePass *createPrepareKernelArgsPass();
-llvm::Pass *createBuiltinLibInfoPass(SmallVector<Module*, 2> pRtlModuleList, std::string type);
+llvm::Pass *createBuiltinLibInfoPass(
+  SmallVector<Module*, 2> pRtlModuleList,
+  SmallVector<MemoryBuffer*, 2> builtinsBufferList,
+  std::string type);
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createDuplicateCalledKernelsPass();
@@ -211,6 +215,7 @@ createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
 static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        llvm::Module *M,
                                        SmallVector<Module*, 2> & pRtlModuleList,
+                                       SmallVector<MemoryBuffer*, 2> & pRtlBufferList,
                                        unsigned OptLevel,
                                        const intel::OptimizerConfig *pConfig,
                                        bool isOcl20,
@@ -278,7 +283,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     }
     PM.add(createGenericAddressStaticResolutionPass());
   }
-  PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
+  PM.add(createBuiltinLibInfoPass(pRtlModuleList, pRtlBufferList, ""));
   PM.add(createBuiltInAttributesImportPass());
 
   PM.add(llvm::createBasicAAWrapperPass());
@@ -320,6 +325,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 static void populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM,
                                         llvm::Module *M,
                                         SmallVector<Module*, 2> & pRtlModuleList,
+                                        SmallVector<MemoryBuffer*, 2> & pRtlBufferList,
                                         unsigned OptLevel,
                                         const intel::OptimizerConfig *pConfig,
                                         std::vector<std::string> &UndefinedExternals,
@@ -334,7 +340,7 @@ static void populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM,
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
 #endif
-  PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
+  PM.add(createBuiltinLibInfoPass(pRtlModuleList, pRtlBufferList, ""));
   PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 
   if (isOcl20) {
@@ -595,7 +601,8 @@ Optimizer::~Optimizer()
 }
 
 Optimizer::Optimizer( llvm::Module* pModule,
-                      SmallVector<llvm::Module*, 2> pRtlModuleList,
+                      llvm::SmallVector<llvm::Module*, 2> pRtlModuleList,
+                      llvm::SmallVector<llvm::MemoryBuffer*, 2> pRtlBufferList,
                       const intel::OptimizerConfig* pConfig) :
     m_pModule(pModule)
 {
@@ -617,13 +624,13 @@ Optimizer::Optimizer( llvm::Module* pModule,
                            *pModule) >= OclVersion::CL_VER_2_0;
   bool UnrollLoops = true;
   // Add passes which will run unconditionally
-  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, pRtlModuleList, OptLevel, pConfig,
-                             isOcl20, UnrollLoops);
+  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, pRtlModuleList, pRtlBufferList,
+                             OptLevel, pConfig, isOcl20, UnrollLoops);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and hasRecursion()
   // will return false
-  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, pRtlModuleList, OptLevel,
-                              pConfig, m_undefinedExternalFunctions, isOcl20,
+  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, pRtlModuleList, pRtlBufferList,
+                              OptLevel, pConfig, m_undefinedExternalFunctions, isOcl20,
                               UnrollLoops);
 }
 

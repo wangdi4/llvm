@@ -7,6 +7,9 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/ExecutionEngine/ObjectMemoryBuffer.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 
 #include "llvm/opt.h"
 #include "InitializePasses.h"
@@ -17,7 +20,7 @@ using namespace llvm;
 
 static cl::list<std::string>
 RuntimeLib(cl::CommaSeparated, "runtimelib",
-                  cl::desc("Runtime declarations (bitCode) libraries (comma separated)"),
+                  cl::desc("Runtime declarations (bitcode) libraries (comma separated)"),
                   cl::value_desc("filename1,filename2"));
 
 // BIImport pass resolves svml calls of "shared" functions:
@@ -28,7 +31,10 @@ arch("arch",
             cl::desc("CPU architecture name for svml library"),
             cl::value_desc("CPU architecture type string"), cl::init(""));
 
-extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
+extern "C" Pass* createBuiltinLibInfoPass(
+  SmallVector<Module*, 2> builtinsList,
+  SmallVector<MemoryBuffer*, 2> builtinsBufferList,
+  std::string type);
 extern "C" Pass* createBuiltInImportPass(const char* CPUName);
 extern "C" llvm::ModulePass *createGenericAddressStaticResolutionPass();
 
@@ -47,36 +53,63 @@ void InitOCLOpt(llvm::LLVMContext& context)
     initializeOCLPasses(Registry);
 }
 
+static void GenerateEmptyModuleAndBuffer(Module* &module, MemoryBuffer* &buffer, llvm::LLVMContext& context)
+{
+  module = new Module("empty", context);
+  // serialize to LLVM bitcode
+  llvm::SmallVector<char, 1024>* moduleBuffer = new llvm::SmallVector<char, 1024>();
+  llvm::raw_svector_ostream ir_ostream(*moduleBuffer);
+  llvm::WriteBitcodeToFile(module, ir_ostream);
+  buffer = new ObjectMemoryBuffer(std::move(*moduleBuffer));
+}
+
 void InitOCLPasses( llvm::LLVMContext& context, llvm::legacy::PassManager& passMgr )
 {
   //---=== Post Command Line Initialization ===---
   // Obtain the runtime modules (either from input, or generate empty ones)
   llvm::SmallVector<Module*, 2> runtimeModuleList;
+  llvm::SmallVector<MemoryBuffer*, 2> runtimeBufferList;
 
   if (RuntimeLib.size() != 0) {
       for (unsigned i = 0; i != RuntimeLib.size(); ++i)
       {
           if (RuntimeLib[i] == "") {
-              runtimeModuleList.push_back(new Module("empty", context));
+              Module* empty = nullptr;
+              MemoryBuffer* emptyBuffer = nullptr;
+              GenerateEmptyModuleAndBuffer(empty, emptyBuffer, context);
+              runtimeModuleList.push_back(empty);
+              runtimeBufferList.push_back(emptyBuffer);
           }
           else {
               llvm::SMDiagnostic Err;
               std::unique_ptr<llvm::Module> runtimeModule = llvm::getLazyIRFileModule(RuntimeLib[i], Err, context);
               if (!runtimeModule) {
-                    errs() << "Runtime error reading IR from \"" << RuntimeLib[i] << "\":\n";
-                    Err.print("Error: ", errs());
-                    exit(1);
+                  errs() << "Runtime error reading IR from \"" << RuntimeLib[i] << "\":\n";
+                  Err.print("Error: ", errs());
+                  exit(1);
               }
               runtimeModuleList.push_back(runtimeModule.release());
+              llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> rtlBufferOrErr = llvm::MemoryBuffer::getFile(RuntimeLib[i]);
+              if (!rtlBufferOrErr)
+              {
+                  errs() << "Runtime error reading file from \"" << RuntimeLib[i] << "\":\n";
+                  errs() << "Error: " << rtlBufferOrErr.getError().message();
+                  exit(1);
+              }
+              runtimeBufferList.push_back(rtlBufferOrErr.get().release());
           }
       }
   }
   else {
-      runtimeModuleList.push_back(new Module("empty", context));
+      Module* empty = nullptr;
+      MemoryBuffer* emptyBuffer = nullptr;
+      GenerateEmptyModuleAndBuffer(empty, emptyBuffer, context);
+      runtimeModuleList.push_back(empty);
+      runtimeBufferList.push_back(emptyBuffer);
   }
-  
+
   //Always add the BuiltinLibInfo Pass to the Pass Manager
-  passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, "ocl"));
+  passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, runtimeBufferList, "ocl"));
   //add the BIImport Pass to the Pass Manager
   passMgr.add(createBuiltInImportPass(arch.c_str()));
 }

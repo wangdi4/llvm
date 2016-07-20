@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 #include <map>
 #include <string>
@@ -34,6 +35,7 @@ class Optimizer
 public:
     Optimizer( llvm::Module* pModule,
                llvm::SmallVector<llvm::Module*, 2> pRtlModuleList,
+               llvm::SmallVector<llvm::MemoryBuffer*, 2> pRtlBufferList,
                const intel::OptimizerConfig* pConfig);
 
     ~Optimizer();

@@ -21,12 +21,19 @@ File Name:  BuiltinModules.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-BuiltinModules::BuiltinModules(llvm::SmallVector<llvm::Module*, 2> builtinsModules):
-    m_BuiltinsModules(builtinsModules)
+BuiltinModules::BuiltinModules(
+  llvm::SmallVector<llvm::MemoryBuffer*, 2> builtinsBuffers,
+  llvm::SmallVector<llvm::Module*, 2> builtinsModules) :
+    m_BuiltinsModules(builtinsModules), m_BuiltinsBuffers(builtinsBuffers)
 {
 }
 
-BuiltinModules::~BuiltinModules() { }
+BuiltinModules::~BuiltinModules() {
+  for (auto module : m_BuiltinsModules)
+    delete module;
+  for (auto buffer : m_BuiltinsBuffers)
+    delete buffer;
+}
 
 BuiltinLibrary::BuiltinLibrary(const Intel::CPUId &cpuId):
     m_cpuId(cpuId),
@@ -36,6 +43,7 @@ BuiltinLibrary::BuiltinLibrary(const Intel::CPUId &cpuId):
 }
 
 BuiltinLibrary::~BuiltinLibrary()
-{ }
+{
+}
 
 }}}
