@@ -538,9 +538,11 @@ int64_t OptVLSInterface::getGroupCost(const OVLSGroup& Group,
   }
  
   // 2. Obtain the cost of vectorizing this group using gathers/scatters.
-  // If gathers/scatters are not supported the cost is 0.
+  // FORNOW: If gathers/scatters are not supported the cost is 0.
+  // TODO: We want to return the cost of the scalarized gathers/scatters
+  // if they are not supported, instead of zero.
   int64_t GatherScatterCost = 0;
-  const OVLSMemrefVector &MemrefVec = Group.getGroupsMemrefs(); 
+  const OVLSMemrefVector &MemrefVec = Group.getMemrefVec(); 
   for (OVLSMemref *Memref : MemrefVec) {
     int64_t C = CM.getGatherScatterOpCost(*Memref);
     //OVLSdbgs() << "Cost = " << C << "\n";
@@ -554,7 +556,9 @@ int64_t OptVLSInterface::getGroupCost(const OVLSGroup& Group,
     Cost = GatherScatterCost;
 
   // Both gathers/scatters and shuffles not supported; return some high dummy 
-  // cost. TODO: Instead, return the gather/scatter scalarization cost.
+  // cost. TODO: Instead, return the scalarization cost.
+  // Once the cost utilities are fully implemented we don't expect to get a 
+  // zero cost.
   if (Cost == 0)
     Cost = 
       MemrefVec.size() * Group.getFirstMemref()->getType().getNumElements();  
