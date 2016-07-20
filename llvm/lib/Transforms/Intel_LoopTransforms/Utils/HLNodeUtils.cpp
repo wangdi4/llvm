@@ -2523,14 +2523,14 @@ bool HLNodeUtils::isKnownNonZero(VALType ValType, int64_t Val) {
 HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
                                                      const CanonExpr *BoundCE,
                                                      int64_t &Val) {
-  DEBUG(dbgs() << "\n\t in getMaxMinCoeffVal: input args " << BlobIdx
-               << BoundCE->getSingleBlobCoeff() << " "
-               << BoundCE->getSingleBlobIndex() << " "
-               << BoundCE->getConstant());
-
   if (BoundCE->numBlobs() != 1 || BoundCE->hasIV()) {
     return VALType::IsUnknown;
   }
+
+  DEBUG(dbgs() << "\n\t in getMaxMinBlobValue: input args " << BlobIdx
+               << BoundCE->getSingleBlobCoeff() << " "
+               << BoundCE->getSingleBlobIndex() << " "
+               << BoundCE->getConstant());
 
   auto BoundCoeff = BoundCE->getSingleBlobCoeff();
   auto BoundBlobIdx = BoundCE->getSingleBlobIndex();
