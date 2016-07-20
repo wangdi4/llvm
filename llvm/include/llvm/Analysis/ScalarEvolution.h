@@ -1254,6 +1254,13 @@ namespace llvm {
     /// Returns a SCEVAtScope expression suitable for HIR consumption.
     const SCEV *getSCEVAtScopeForHIR(const SCEV *SC, const Loop *Lp,
                                      const Loop *OutermostLoop);
+
+    /// Clears HIR relates SCEV caches.
+    void clearHIRCache() {
+      HIRValueExprMap.clear();
+      HIRBackedgeTakenCounts.clear();
+    }
+
 #endif  // INTEL_CUSTOMIZATION
 
     const SCEV *getConstant(ConstantInt *V);

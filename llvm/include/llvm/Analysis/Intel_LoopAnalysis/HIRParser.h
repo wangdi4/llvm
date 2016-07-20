@@ -184,7 +184,7 @@ private:
 
   /// Phase1 parser functions
   /// parse(HLInst *, ...) is the only function used during phase2.
-  void parse(HLRegion *Reg) { CurRegion = Reg; }
+  void parse(HLRegion *Reg); 
   void postParse(HLRegion *Reg) {}
 
   void parse(HLLoop *HLoop);

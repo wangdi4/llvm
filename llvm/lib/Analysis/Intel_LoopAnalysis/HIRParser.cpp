@@ -1820,7 +1820,7 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
     if (BitWidth < 64) {
       // In modular arithmetic with modulus N: (a == a + N).
       // Here N is 2 ^ bitwidth.
-      UpperVal = UpperVal + (1L << BitWidth);
+      UpperVal = UpperVal + (1ULL << BitWidth);
       CE->setConstant(UpperVal);
     }
   }
@@ -1833,6 +1833,12 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
   }
 
   return Ref;
+}
+
+void HIRParser::parse(HLRegion *Reg) { 
+  CurRegion = Reg; 
+  // HIR cache built for another region may not be valid for this one.
+  SE->clearHIRCache();
 }
 
 void HIRParser::parse(HLLoop *HLoop) {
