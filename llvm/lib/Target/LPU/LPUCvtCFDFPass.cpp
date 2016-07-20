@@ -453,7 +453,13 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
 					return;
 				}
 
+				SmallVector<MachineInstr*, 8> NewPHIs;
+				MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
+				const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+				unsigned pickVReg = MRI->createVirtualRegister(TRC);
+				SSAUpdate.Initialize(pickVReg);
 				unsigned numIfParent = 0;
+				unsigned newVReg;
 				for (ControlDependenceNode::node_iterator uparent = unode->parent_begin(), uparent_end = unode->parent_end();
 					uparent != uparent_end; ++uparent) {
 					ControlDependenceNode *upnode = *uparent;
@@ -471,12 +477,9 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
 						//no need to conside backedge for if-statements handling
 						continue;
 					}
-					if (DT->dominates(dmbb, upbb))
-					{ //including dmbb itself
+					if (DT->dominates(dmbb, upbb)) 	{ //including dmbb itself
 						numIfParent++;
-						if (numIfParent > 1) {
-							assert(false && "TBD: support multiple if parents in CDG has not been implemented yet");
-						}
+						
 						assert((MLI->getLoopFor(dmbb) == NULL ||
 							MLI->getLoopFor(dmbb) != MLI->getLoopFor(upbb) ||
 							MLI->getLoopFor(dmbb)->getLoopLatch() != dmbb) &&
@@ -485,28 +488,35 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
 						MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, upbb);
 						unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
 						unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
-						unsigned newVReg;
 						if (upnode->isFalseChild(unode)) {
 							//rename Reg to switchFalseReg
 							newVReg = switchFalseReg;
-						}
-						else {
+						}	else {
 							//rename it to switchTrueReg
 							newVReg = switchTrueReg;
 						}
-						if (phiIn) {
-							MO.setReg(newVReg);
-						}
-						else {
-							MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
-							while (UI != MRI->use_end()) {
-								MachineOperand &UseMO = *UI;
-								MachineInstr *UseMI = UseMO.getParent();
-								++UI;
-								if (UseMI->getParent() == mbb) {
-									assert(mbb != upbb);
-									UseMO.setReg(newVReg);
-								}
+						SSAUpdate.AddAvailableValue(upbb, newVReg);	
+					}
+				} //end of for (parent
+
+				if (phiIn) {
+					if (numIfParent == 1) {
+						MO.setReg(newVReg);
+					}	else if (numIfParent > 1) {
+						SSAUpdate.RewriteUse(MO);
+					}
+				}
+				else {
+					MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+					while (UI != MRI->use_end()) {
+						MachineOperand &UseMO = *UI;
+						MachineInstr *UseMI = UseMO.getParent();
+						++UI;
+						if (UseMI->getParent() == mbb) {
+							if (numIfParent == 1) {
+								UseMO.setReg(newVReg);
+							}	else if (numIfParent > 1) {
+								SSAUpdate.RewriteUse(UseMO);
 							}
 						}
 					}
