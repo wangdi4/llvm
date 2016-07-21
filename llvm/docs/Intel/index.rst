@@ -12,6 +12,7 @@ Xmain
    LoopTransforms/index
    VPO/index
    Analysis/index
+   CodeGen/index
 
 Introduction
 ============
@@ -58,4 +59,7 @@ Major Components
 
 :doc:`Analysis <Analysis/index>`
    Describes the xmain projects under Analysis.
+
+:doc:`CodeGen <CodeGen/index>`
+   Container for CodeGen documents.
 
