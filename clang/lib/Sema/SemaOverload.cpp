@@ -2825,6 +2825,9 @@ bool Sema::CheckPointerConversion(Expr *From, QualType ToType,
     else if (FromType->isAnyPointerType() &&
              ToType->isIntegralOrEnumerationType())
       Kind = CK_PointerToIntegral;
+    else if (FromType->isIntegralOrEnumerationType() &&
+             ToType->isIntegralOrEnumerationType())
+      Kind = CK_IntegralCast;
   }
 #endif
   if (const PointerType *ToPtrType = ToType->getAs<PointerType>()) {
