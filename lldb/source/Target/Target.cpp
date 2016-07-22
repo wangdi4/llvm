@@ -68,45 +68,47 @@ Target::GetStaticBroadcasterClass ()
     return class_name;
 }
 
-Target::Target(Debugger &debugger, const ArchSpec &target_arch, const lldb::PlatformSP &platform_sp, bool is_dummy_target) :
-    TargetProperties (this),
-    Broadcaster (debugger.GetBroadcasterManager(), Target::GetStaticBroadcasterClass().AsCString()),
-    ExecutionContextScope (),
-    m_debugger (debugger),
-    m_platform_sp (platform_sp),
-    m_mutex (Mutex::eMutexTypeRecursive), 
-    m_arch (target_arch),
-    m_images (this),
-    m_section_load_history (),
-    m_breakpoint_list (false),
-    m_internal_breakpoint_list (true),
-    m_watchpoint_list (),
-    m_process_sp (),
-    m_search_filter_sp (),
-    m_image_search_paths (ImageSearchPathsChanged, this),
-    m_ast_importer_sp (),
-    m_source_manager_ap(),
-    m_stop_hooks (),
-    m_stop_hook_next_id (0),
-    m_valid (true),
-    m_suppress_stop_hooks (false),
-    m_is_dummy_target(is_dummy_target)
+Target::Target(Debugger &debugger, const ArchSpec &target_arch, const lldb::PlatformSP &platform_sp,
+               bool is_dummy_target)
+    : TargetProperties(this),
+      Broadcaster(debugger.GetBroadcasterManager(), Target::GetStaticBroadcasterClass().AsCString()),
+      ExecutionContextScope(),
+      m_debugger(debugger),
+      m_platform_sp(platform_sp),
+      m_mutex(),
+      m_arch(target_arch),
+      m_images(this),
+      m_section_load_history(),
+      m_breakpoint_list(false),
+      m_internal_breakpoint_list(true),
+      m_watchpoint_list(),
+      m_process_sp(),
+      m_search_filter_sp(),
+      m_image_search_paths(ImageSearchPathsChanged, this),
+      m_ast_importer_sp(),
+      m_source_manager_ap(),
+      m_stop_hooks(),
+      m_stop_hook_next_id(0),
+      m_valid(true),
+      m_suppress_stop_hooks(false),
+      m_is_dummy_target(is_dummy_target)
 
 {
-    SetEventName (eBroadcastBitBreakpointChanged, "breakpoint-changed");
-    SetEventName (eBroadcastBitModulesLoaded, "modules-loaded");
-    SetEventName (eBroadcastBitModulesUnloaded, "modules-unloaded");
-    SetEventName (eBroadcastBitWatchpointChanged, "watchpoint-changed");
-    SetEventName (eBroadcastBitSymbolsLoaded, "symbols-loaded");
+    SetEventName(eBroadcastBitBreakpointChanged, "breakpoint-changed");
+    SetEventName(eBroadcastBitModulesLoaded, "modules-loaded");
+    SetEventName(eBroadcastBitModulesUnloaded, "modules-unloaded");
+    SetEventName(eBroadcastBitWatchpointChanged, "watchpoint-changed");
+    SetEventName(eBroadcastBitSymbolsLoaded, "symbols-loaded");
 
     CheckInWithManager();
 
-    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_OBJECT));
+    Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_OBJECT));
     if (log)
-        log->Printf ("%p Target::Target()", static_cast<void*>(this));
+        log->Printf("%p Target::Target()", static_cast<void *>(this));
     if (m_arch.IsValid())
     {
-        LogIfAnyCategoriesSet(LIBLLDB_LOG_TARGET, "Target::Target created with architecture %s (%s)", m_arch.GetArchitectureName(), m_arch.GetTriple().getTriple().c_str());
+        LogIfAnyCategoriesSet(LIBLLDB_LOG_TARGET, "Target::Target created with architecture %s (%s)",
+                              m_arch.GetArchitectureName(), m_arch.GetTriple().getTriple().c_str());
     }
 }
 
@@ -169,8 +171,8 @@ Target::CleanupProcess ()
     m_breakpoint_list.ClearAllBreakpointSites();
     m_internal_breakpoint_list.ClearAllBreakpointSites();
     // Disable watchpoints just on the debugger side.
-    Mutex::Locker locker;
-    this->GetWatchpointList().GetListMutex(locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    this->GetWatchpointList().GetListMutex(lock);
     DisableAllWatchpoints(false);
     ClearAllWatchpointHitCounts();
     ClearAllWatchpointHistoricValues();
@@ -273,7 +275,7 @@ Target::SetREPL (lldb::LanguageType language, lldb::REPLSP repl_sp)
 void
 Target::Destroy()
 {
-    Mutex::Locker locker (m_mutex);
+    std::lock_guard<std::recursive_mutex> guard(m_mutex);
     m_valid = false;
     DeleteCurrentProcess ();
     m_platform_sp.reset();
@@ -707,14 +709,13 @@ CheckIfWatchpointsExhausted(Target *target, Error &error)
 {
     uint32_t num_supported_hardware_watchpoints;
     Error rc = target->GetProcessSP()->GetWatchpointSupportInfo(num_supported_hardware_watchpoints);
-    if (rc.Success())
+    if (num_supported_hardware_watchpoints == 0)
     {
-        uint32_t num_current_watchpoints = target->GetWatchpointList().GetSize();
-        if (num_current_watchpoints >= num_supported_hardware_watchpoints)
-            error.SetErrorStringWithFormat("number of supported hardware watchpoints (%u) has been reached",
-                                           num_supported_hardware_watchpoints);
+        error.SetErrorStringWithFormat ("Target supports (%u) hardware watchpoint slots.\n",
+                    num_supported_hardware_watchpoints);
+        return false;
     }
-    return false;
+    return true;
 }
 
 // See also Watchpoint::SetWatchpointType(uint32_t type) and
@@ -748,13 +749,16 @@ Target::CreateWatchpoint(lldb::addr_t addr, size_t size, const CompilerType *typ
         error.SetErrorStringWithFormat ("invalid watchpoint type: %d", kind);
     }
 
+    if (!CheckIfWatchpointsExhausted (this, error))
+        return wp_sp;
+
     // Currently we only support one watchpoint per address, with total number
     // of watchpoints limited by the hardware which the inferior is running on.
 
     // Grab the list mutex while doing operations.
     const bool notify = false;   // Don't notify about all the state changes we do on creating the watchpoint.
-    Mutex::Locker locker;
-    this->GetWatchpointList().GetListMutex(locker);
+    std::unique_lock<std::recursive_mutex> lock;
+    this->GetWatchpointList().GetListMutex(lock);
     WatchpointSP matched_sp = m_watchpoint_list.FindByAddress(addr);
     if (matched_sp)
     {
@@ -796,11 +800,9 @@ Target::CreateWatchpoint(lldb::addr_t addr, size_t size, const CompilerType *typ
         // Remove the said watchpoint from the list maintained by the target instance.
         m_watchpoint_list.Remove (wp_sp->GetID(), true);
         // See if we could provide more helpful error message.
-        if (!CheckIfWatchpointsExhausted(this, error))
-        {
-            if (!OptionGroupWatchpoint::IsWatchSizeSupported(size))
-                error.SetErrorStringWithFormat("watch size of %" PRIu64 " is not supported", (uint64_t)size);
-        }
+        if (!OptionGroupWatchpoint::IsWatchSizeSupported(size))
+            error.SetErrorStringWithFormat("watch size of %" PRIu64 " is not supported", (uint64_t)size);
+
         wp_sp.reset();
     }
     else
@@ -2836,10 +2838,10 @@ Target::Install (ProcessLaunchInfo *launch_info)
                 const size_t num_images = modules.GetSize();
                 for (size_t idx = 0; idx < num_images; ++idx)
                 {
-                    const bool is_main_executable = idx == 0;
                     ModuleSP module_sp(modules.GetModuleAtIndex(idx));
                     if (module_sp)
                     {
+                        const bool is_main_executable = module_sp == GetExecutableModule();
                         FileSpec local_file (module_sp->GetFileSpec());
                         if (local_file)
                         {
@@ -3433,7 +3435,7 @@ g_properties[] =
     { "debug-file-search-paths"            , OptionValue::eTypeFileSpecList, false, 0                       , nullptr, nullptr, "List of directories to be searched when locating debug symbol files." },
     { "clang-module-search-paths"          , OptionValue::eTypeFileSpecList, false, 0                       , nullptr, nullptr, "List of directories to be searched when locating modules for Clang." },
     { "auto-import-clang-modules"          , OptionValue::eTypeBoolean   , false, true                      , nullptr, nullptr, "Automatically load Clang modules referred to by the program." },
-    { "auto-apply-fixits"                  , OptionValue::eTypeBoolean   , false, true                      , nullptr, nullptr, "Automatically apply fixit hints to expressions." },
+    { "auto-apply-fixits"                  , OptionValue::eTypeBoolean   , false, true                      , nullptr, nullptr, "Automatically apply fix-it hints to expressions." },
     { "notify-about-fixits"                , OptionValue::eTypeBoolean   , false, true                      , nullptr, nullptr, "Print the fixed expression text." },
     { "max-children-count"                 , OptionValue::eTypeSInt64    , false, 256                       , nullptr, nullptr, "Maximum number of children to expand in any level of depth." },
     { "max-string-summary-length"          , OptionValue::eTypeSInt64    , false, 1024                      , nullptr, nullptr, "Maximum number of characters to show when using %s in summary strings." },
