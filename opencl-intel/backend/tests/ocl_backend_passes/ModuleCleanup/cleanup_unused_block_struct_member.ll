@@ -6,7 +6,7 @@
 
 @_NSConcreteGlobalBlock = external global i8*
 @.str = private unnamed_addr constant [9 x i8] c"i12@?0i8\00", align 1
-@__block_descriptor_tmp = internal constant { i64, i64, i8*, i8* } { i64 0, i64 32, i8* getelementptr inbounds ([9 x i8]* @.str, i32 0, i32 0), i8* null }
+@__block_descriptor_tmp = internal constant { i64, i64, i8*, i8* } { i64 0, i64 32, i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0), i8* null }
 
 define spir_kernel void @block_typedef_reassign(i32 addrspace(1)* %res) nounwind {
   ret void

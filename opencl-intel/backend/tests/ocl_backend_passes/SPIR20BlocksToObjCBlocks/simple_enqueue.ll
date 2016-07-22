@@ -81,7 +81,7 @@ declare spir_func void @_Z10ndrange_1Dm(%struct.ndrange_t* sret, i64) #1
 define internal spir_func void @__host_kernel_block_invoke(i8* %.block_descriptor) #0 {
   %1 = bitcast i8* %.block_descriptor to <{ float addrspace(1)* }>*
   %2 = getelementptr inbounds <{ float addrspace(1)* }>, <{ float addrspace(1)* }>* %1, i32 0, i32 0
-  %3 = load float addrspace(1)** %2, align 8
+  %3 = load float addrspace(1)*, float addrspace(1)** %2, align 8
   call spir_func void @device_kernel(float addrspace(1)* %3)
   ret void
 }

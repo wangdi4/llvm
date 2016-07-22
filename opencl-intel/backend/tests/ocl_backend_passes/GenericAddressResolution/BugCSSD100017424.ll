@@ -17,7 +17,7 @@ entry:
   %call = tail call i64 @_Z12get_local_idj(i32 0) nounwind readnone
   %add.ptr = getelementptr inbounds i32, i32 addrspace(3)* %destMemory, i64 %call
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %oldValues, i64 %call
-  %0 = load i32 addrspace(1)* %arrayidx, align 4, !tbaa !1
+  %0 = load i32, i32 addrspace(1)* %arrayidx, align 4, !tbaa !1
   tail call void @_Z12atomic_storePVU3AS3ii(i32 addrspace(3)* %add.ptr, i32 %0) nounwind
   ret void
 }

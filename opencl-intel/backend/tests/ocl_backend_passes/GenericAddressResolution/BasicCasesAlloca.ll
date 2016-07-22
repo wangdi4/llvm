@@ -24,7 +24,7 @@
 ; CHECK: %40 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen3, align 4
 ; CHECK: %41 = bitcast i32 addrspace(4)* %40 to i8 addrspace(4)*
 ; CHECK: %call7 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %41)
-; CHECK: %54 = load float addrspace(4)** %pGen4, align 4
+; CHECK: %54 = load float addrspace(4)*, float addrspace(4)** %pGen4, align 4
 ; CHECK: %add.ptr = getelementptr inbounds float, float addrspace(4)* %54, i32 10
 ; CHECK: %call16 = call float @_Z5fractfPU3AS4f(float %53, float addrspace(4)* %add.ptr)
 ; CHECK: store float %call16, float* %res, align 4
@@ -35,7 +35,7 @@
 ; CHECK: %a13 = addrspacecast i32 addrspace(1)* %a12 to i32 addrspace(4)*
 ; CHECK: %a.addr = alloca i32 addrspace(4)*, align 4
 ; CHECK: store i32 addrspace(4)* %a13, i32 addrspace(4)** %a.addr, align 4
-; CHECK: %0 = load i32 addrspace(4)** %a.addr, align 4
+; CHECK: %0 = load i32 addrspace(4)*, i32 addrspace(4)** %a.addr, align 4
 ; CHECK: %arrayidx = getelementptr inbounds i32, i32 addrspace(4)* %0, i32 0
 ; CHECK: store i32 0, i32 addrspace(4)* %arrayidx, align 4
 ; CHECK: ret
@@ -45,7 +45,7 @@
 ; CHECK: %a13 = addrspacecast i32 addrspace(3)* %a12 to i32 addrspace(4)*
 ; CHECK: %a.addr = alloca i32 addrspace(4)*, align 4
 ; CHECK: store i32 addrspace(4)* %a13, i32 addrspace(4)** %a.addr, align 4
-; CHECK: %0 = load i32 addrspace(4)** %a.addr, align 4
+; CHECK: %0 = load i32 addrspace(4)*, i32 addrspace(4)** %a.addr, align 4
 ; CHECK: %arrayidx = getelementptr inbounds i32, i32 addrspace(4)* %0, i32 0
 ; CHECK: store i32 0, i32 addrspace(4)* %arrayidx, align 4
 ; CHECK: ret
@@ -66,10 +66,10 @@ define void @test1(i32 addrspace(4)* %a) nounwind {
 entry:
   %a.addr = alloca i32 addrspace(4)*, align 4
   store i32 addrspace(4)* %a, i32 addrspace(4)** %a.addr, align 4
-  %0 = load i32 addrspace(4)** %a.addr, align 4
+  %0 = load i32 addrspace(4)*, i32 addrspace(4)** %a.addr, align 4
   %arrayidx = getelementptr inbounds i32, i32 addrspace(4)* %0, i32 0
   store i32 0, i32 addrspace(4)* %arrayidx, align 4
-  %1 = load i32 addrspace(4)** %a.addr, align 4
+  %1 = load i32 addrspace(4)*, i32 addrspace(4)** %a.addr, align 4
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(4)* %1, i32 1
   store i32 1, i32 addrspace(4)* %arrayidx1, align 4
   ret void
@@ -129,19 +129,19 @@ entry:
   %4 = load i32 addrspace(1)*, i32 addrspace(1)** %pGlobal.addr, align 4
   %5 = addrspacecast i32 addrspace(1)* %4 to i32 addrspace(4)*
   store i32 addrspace(4)* %5, i32 addrspace(4)** %pGen1, align 4
-  %6 = load i32 addrspace(4)** %pGen1, align 4
+  %6 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen1, align 4
   %arrayidx = getelementptr inbounds i32, i32 addrspace(4)* %6, i32 2
   store i32 2, i32 addrspace(4)* %arrayidx, align 4
   %7 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen1, align 4
   %8 = addrspacecast i32 addrspace(4)* %7 to i32 addrspace(1)*
   store i32 addrspace(1)* %8, i32 addrspace(1)** %pGlobal1, align 4
-  %9 = load i32 addrspace(1)** %pGlobal1, align 4
+  %9 = load i32 addrspace(1)*, i32 addrspace(1)** %pGlobal1, align 4
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %9, i32 3
   store i32 3, i32 addrspace(1)* %arrayidx1, align 4
   %10 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen1, align 4
   %11 = addrspacecast i32 addrspace(4)* %10 to i32 addrspace(3)*
   store i32 addrspace(3)* %11, i32 addrspace(3)** %pLocal1, align 4
-  %12 = load i32 addrspace(3)** %pLocal1, align 4
+  %12 = load i32 addrspace(3)*, i32 addrspace(3)** %pLocal1, align 4
   %arrayidx2 = getelementptr inbounds i32, i32 addrspace(3)* %12, i32 4
   store i32 4, i32 addrspace(3)* %arrayidx2, align 4
   %13 = load float, float* %param.addr, align 4
@@ -161,7 +161,7 @@ if.else:                                          ; preds = %entry
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
-  %18 = load i32 addrspace(4)** %pGen1, align 4
+  %18 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen1, align 4
   %arrayidx3 = getelementptr inbounds i32, i32 addrspace(4)* %18, i32 5
   store i32 5, i32 addrspace(4)* %arrayidx3, align 4
   %19 = load i32 addrspace(1)*, i32 addrspace(1)** %pGlobal.addr, align 4
@@ -169,7 +169,7 @@ if.end:                                           ; preds = %if.else, %if.then
   store i32 addrspace(4)* %20, i32 addrspace(4)** %pGen1, align 4
   %21 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen1, align 4
   store i32 addrspace(4)* %21, i32 addrspace(4)** %pGen2, align 4
-  %22 = load i32 addrspace(4)** %pGen2, align 4
+  %22 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen2, align 4
   %arrayidx4 = getelementptr inbounds i32, i32 addrspace(4)* %22, i32 6
   store i32 6, i32 addrspace(4)* %arrayidx4, align 4
   %23 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen2, align 4
@@ -178,7 +178,7 @@ if.end:                                           ; preds = %if.else, %if.then
   %25 = load i32, i32* %intGen2, align 4
   %26 = inttoptr i32 %25 to i32 addrspace(4)*
   store i32 addrspace(4)* %26, i32 addrspace(4)** %pGen3, align 4
-  %27 = load i32 addrspace(4)** %pGen3, align 4
+  %27 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen3, align 4
   %arrayidx5 = getelementptr inbounds i32, i32 addrspace(4)* %27, i32 7
   store i32 7, i32 addrspace(4)* %arrayidx5, align 4
   %28 = load i32 addrspace(1)*, i32 addrspace(1)** %pGlobal.addr, align 4
@@ -187,7 +187,7 @@ if.end:                                           ; preds = %if.else, %if.then
   %31 = addrspacecast i32 addrspace(3)* %30 to i32 addrspace(4)*
   %call = call i32 addrspace(4)* @test2(i32 addrspace(4)* %29, i32 addrspace(4)* %31)
   store i32 addrspace(4)* %call, i32 addrspace(4)** %pGen5, align 4
-  %32 = load i32 addrspace(4)** %pGen5, align 4
+  %32 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen5, align 4
   %arrayidx6 = getelementptr inbounds i32, i32 addrspace(4)* %32, i32 8
   store i32 8, i32 addrspace(4)* %arrayidx6, align 4
   %33 = load i32 addrspace(1)*, i32 addrspace(1)** %pGlobal.addr, align 4
@@ -203,7 +203,7 @@ if.end:                                           ; preds = %if.else, %if.then
   br i1 %tobool8, label %if.then9, label %if.end11
 
 if.then9:                                         ; preds = %if.end
-  %39 = load i32 addrspace(4)** %pGen3, align 4
+  %39 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen3, align 4
   %arrayidx10 = getelementptr inbounds i32, i32 addrspace(4)* %39, i32 9
   store i32 9, i32 addrspace(4)* %arrayidx10, align 4
   br label %if.end11
@@ -215,10 +215,10 @@ if.end11:                                         ; preds = %if.then9, %if.end
   br i1 %cmp, label %if.then12, label %if.end15
 
 if.then12:                                        ; preds = %if.end11
-  %42 = load i32 addrspace(4)** %pGen3, align 4
+  %42 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen3, align 4
   %arrayidx13 = getelementptr inbounds i32, i32 addrspace(4)* %42, i32 8
-  %43 = load i32 addrspace(4)* %arrayidx13, align 4
-  %44 = load i32 addrspace(4)** %pGen1, align 4
+  %43 = load i32, i32 addrspace(4)* %arrayidx13, align 4
+  %44 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen1, align 4
   %arrayidx14 = getelementptr inbounds i32, i32 addrspace(4)* %44, i32 10
   store i32 %43, i32 addrspace(4)* %arrayidx14, align 4
   br label %if.end15
@@ -227,8 +227,8 @@ if.end15:                                         ; preds = %if.then12, %if.end1
   %45 = load i32 addrspace(1)*, i32 addrspace(1)** %pGlobal.addr, align 4
   %46 = addrspacecast i32 addrspace(1)* %45 to float addrspace(4)*
   store float addrspace(4)* %46, float addrspace(4)** %pGen4, align 4
-  %47 = load float* %param.addr, align 4
-  %48 = load float addrspace(4)** %pGen4, align 4
+  %47 = load float, float* %param.addr, align 4
+  %48 = load float addrspace(4)*, float addrspace(4)** %pGen4, align 4
   %add.ptr = getelementptr inbounds float, float addrspace(4)* %48, i32 10
   %call16 = call float @_Z5fractfPU3AS4f(float %47, float addrspace(4)* %add.ptr)
   store float %call16, float* %res, align 4

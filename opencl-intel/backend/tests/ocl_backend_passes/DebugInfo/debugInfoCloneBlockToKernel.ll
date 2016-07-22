@@ -31,7 +31,7 @@ target triple = "spir64-unknown-unknown"
 
 @_NSConcreteGlobalBlock = external global i8*
 @.str = private unnamed_addr addrspace(2) constant [6 x i8] c"v8@?0\00", align 1
-@__block_descriptor_tmp = internal constant { i64, i64, i8 addrspace(2)*, i8 addrspace(2)* } { i64 0, i64 32, i8 addrspace(2)* getelementptr inbounds ([6 x i8] addrspace(2)* @.str, i32 0, i32 0), i8 addrspace(2)* null }
+@__block_descriptor_tmp = internal constant { i64, i64, i8 addrspace(2)*, i8 addrspace(2)* } { i64 0, i64 32, i8 addrspace(2)* getelementptr inbounds ([6 x i8], [6 x i8] addrspace(2)* @.str, i32 0, i32 0), i8 addrspace(2)* null }
 @__block_literal_global = internal constant { i8**, i32, i32, i8*, %struct.__block_descriptor* } { i8** @_NSConcreteGlobalBlock, i32 1342177280, i32 0, i8* bitcast (void (i8*)* @__ker_block_invoke to i8*), %struct.__block_descriptor* bitcast ({ i64, i64, i8 addrspace(2)*, i8 addrspace(2)* }* @__block_descriptor_tmp to %struct.__block_descriptor*) }, align 8
 
 ; Function Attrs: nounwind

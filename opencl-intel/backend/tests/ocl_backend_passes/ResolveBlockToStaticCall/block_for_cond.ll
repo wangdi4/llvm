@@ -26,7 +26,7 @@ target triple = "x86_64-pc-win32"
 
 @_NSConcreteStackBlock = external global i8*
 @.str = private unnamed_addr constant [9 x i8] c"i12@?0i8\00", align 1
-@__block_descriptor_tmp = internal constant { i64, i64, i8*, i8* } { i64 0, i64 36, i8* getelementptr inbounds ([9 x i8]* @.str, i32 0, i32 0), i8* null }
+@__block_descriptor_tmp = internal constant { i64, i64, i8*, i8* } { i64 0, i64 36, i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0), i8* null }
 
 define void @block_for_cond(i32 addrspace(1)* %res) nounwind {
 entry:
@@ -49,7 +49,7 @@ entry:
   %block.descriptor = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor.10*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor.10*, i32 }>* %block, i32 0, i32 4
   store %struct.__block_descriptor.10* bitcast ({ i64, i64, i8*, i8* }* @__block_descriptor_tmp to %struct.__block_descriptor.10*), %struct.__block_descriptor.10** %block.descriptor
   %block.captured = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor.10*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor.10*, i32 }>* %block, i32 0, i32 5
-  %0 = load i32* %multiplier, align 4
+  %0 = load i32, i32* %multiplier, align 4
   store i32 %0, i32* %block.captured, align 4
   %1 = bitcast <{ i8*, i32, i32, i8*, %struct.__block_descriptor.10*, i32 }>* %block to i32 (i32)*
   store i32 (i32)* %1, i32 (i32)** %kernelBlock, align 8
@@ -58,7 +58,7 @@ entry:
   store i32 %conv, i32* %tid, align 4
   %2 = load i32, i32* %tid, align 4
   %idxprom = sext i32 %2 to i64
-  %3 = load i32 addrspace(1)** %res.addr, align 8
+  %3 = load i32 addrspace(1)*, i32 addrspace(1)** %res.addr, align 8
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %3, i64 %idxprom
   store i32 39, i32 addrspace(1)* %arrayidx, align 4
   store i32 0, i32* %i, align 4
@@ -81,9 +81,9 @@ for.cond:                                         ; preds = %for.inc, %entry
 for.body:                                         ; preds = %for.cond
   %10 = load i32, i32* %tid, align 4
   %idxprom3 = sext i32 %10 to i64
-  %11 = load i32 addrspace(1)** %res.addr, align 8
+  %11 = load i32 addrspace(1)*, i32 addrspace(1)** %res.addr, align 8
   %arrayidx4 = getelementptr inbounds i32, i32 addrspace(1)* %11, i64 %idxprom3
-  %12 = load i32 addrspace(1)* %arrayidx4, align 4
+  %12 = load i32, i32 addrspace(1)* %arrayidx4, align 4
   %dec = add nsw i32 %12, -1
   store i32 %dec, i32 addrspace(1)* %arrayidx4, align 4
   br label %for.inc
@@ -103,9 +103,9 @@ entry:
   %num.addr = alloca i32, align 4
   store i32 %num, i32* %num.addr, align 4
   %block = bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor.10*, i32 }>*
-  %0 = load i32* %num.addr, align 4
+  %0 = load i32, i32* %num.addr, align 4
   %block.capture.addr = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor.10*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor.10*, i32 }>* %block, i32 0, i32 5
-  %1 = load i32* %block.capture.addr, align 4
+  %1 = load i32, i32* %block.capture.addr, align 4
   %mul = mul nsw i32 %0, %1
   ret i32 %mul
 }

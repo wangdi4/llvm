@@ -11,7 +11,7 @@ entry:
 ;; new func
 ;;char arg1 - expected alignment: 1
 ; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %pUniformArgs, i32 0
-; CHECK-NEXT: %explicit_0 = load i8* [[ARG0_BUFF_INDEX]], align 1
+; CHECK-NEXT: %explicit_0 = load i8, i8* [[ARG0_BUFF_INDEX]], align 1
 ;;implicit args
 ;; call original func
 ; CHECK: call void @__t1_separated_args(i8 %explicit_0, [[IMPLICIT_ARGS:[a-zA-Z0-9]+]]

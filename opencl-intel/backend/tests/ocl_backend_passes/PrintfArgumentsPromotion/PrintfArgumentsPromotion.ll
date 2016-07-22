@@ -18,7 +18,7 @@ target triple = "spir64-unknonw-unknown"
 
 ; Function Attrs: nounwind
 define spir_func void @printf_test() #0 {
-  %1 = tail call spir_func i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* getelementptr inbounds ([32 x i8] addrspace(2)* @.str, i64 0, i64 0), <2 x i8> <i8 1, i8 2>, <3 x i16> <i16 1, i16 2, i16 3>, <4 x half> <half 0xH3C00, half 0xH4000, half 0xH4200, half 0xH4400>, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>) #1
+  %1 = tail call spir_func i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* getelementptr inbounds ([32 x i8], [32 x i8] addrspace(2)* @.str, i64 0, i64 0), <2 x i8> <i8 1, i8 2>, <3 x i16> <i16 1, i16 2, i16 3>, <4 x half> <half 0xH3C00, half 0xH4000, half 0xH4200, half 0xH4400>, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>) #1
   ret void
 }
 

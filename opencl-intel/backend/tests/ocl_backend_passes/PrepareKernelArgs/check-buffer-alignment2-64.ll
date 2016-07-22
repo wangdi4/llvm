@@ -32,7 +32,7 @@ entry:
 
 ;; char arg5 - alignment: 1 - in pUniformArgs 16+16=32 is aligned to 32
 ; CHECK-NEXT: [[ARG4_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %pUniformArgs, i32 32
-; CHECK-NEXT: %explicit_4 = load i8* [[ARG4_BUFF_INDEX]], align 1
+; CHECK-NEXT: %explicit_4 = load i8, i8* [[ARG4_BUFF_INDEX]], align 1
 
 ;; int* arg6 - alignment: 8 - in pUniformArgs 32+1=33 is aligned to 40
 ; CHECK-NEXT: [[ARG5_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %pUniformArgs, i32 40

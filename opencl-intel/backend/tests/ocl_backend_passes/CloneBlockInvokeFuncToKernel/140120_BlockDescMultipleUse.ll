@@ -17,10 +17,10 @@ entry:
   %block = bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>*
   store <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>* %block, <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>** %block.addr, align 8
   %block.capture.addr = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>* %block, i32 0, i32 5
-  %1 = load i64* %block.capture.addr, align 8
+  %1 = load i64, i64* %block.capture.addr, align 8
   %block.capture.addr1 = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>* %block, i32 0, i32 7
-  %2 = load i32* %block.capture.addr1, align 4
+  %2 = load i32, i32* %block.capture.addr1, align 4
   %block.capture.addr2 = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>* %block, i32 0, i32 6
-  %3 = load i32 addrspace(1)** %block.capture.addr2, align 8
+  %3 = load i32 addrspace(1)*, i32 addrspace(1)** %block.capture.addr2, align 8
   ret void
 }

@@ -11,7 +11,7 @@ entry:
 ;; new func
 ;;char arg1 - alignment: 1  (no bitcast from i8* to i8*)
 ; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %pUniformArgs, i32 0
-; CHECK-NEXT: %explicit_0 = load i8* [[ARG0_BUFF_INDEX]], align 1
+; CHECK-NEXT: %explicit_0 = load i8, i8* [[ARG0_BUFF_INDEX]], align 1
 
 ;; char2 arg2 - alignment: 2 - in pUniformArgs 0+1 = 1 is aligned to 2
 ; CHECK-NEXT: [[ARG1_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %pUniformArgs, i32 2

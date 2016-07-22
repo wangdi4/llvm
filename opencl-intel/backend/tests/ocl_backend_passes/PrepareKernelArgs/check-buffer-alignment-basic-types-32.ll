@@ -21,7 +21,7 @@ entry:
 
 ;;char arg3 - alignment: 1 - in pUniformArgs 4+4=8 is aligned to 8
 ; CHECK-NEXT: [[ARG2_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %pUniformArgs, i32 8
-; CHECK-NEXT: %explicit_2 = load i8* [[ARG2_BUFF_INDEX]], align 1
+; CHECK-NEXT: %explicit_2 = load i8, i8* [[ARG2_BUFF_INDEX]], align 1
 
 ;;int arg4 - alignment: 4 - in pUniformArgs 8+1=9 is aligned to 12
 ; CHECK-NEXT: [[ARG3_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %pUniformArgs, i32 12

@@ -6,9 +6,9 @@ define void @A(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) n
 entry:
   %call = tail call i64 @_Z12get_local_idj(i32 1) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %call
-  %0 = load i32 addrspace(1)* %arrayidx, align 1
+  %0 = load i32, i32 addrspace(1)* %arrayidx, align 1
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %A, i64 %call
-  %1 = load i32 addrspace(1)* %arrayidx1, align 1
+  %1 = load i32, i32 addrspace(1)* %arrayidx1, align 1
   %add = add nsw i32 %1, %0
   store i32 %add, i32 addrspace(1)* %arrayidx1, align 1
   ret void
@@ -20,9 +20,9 @@ define void @__Vectorized_.A(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* n
 entry:
   %call = tail call i64 @_Z12get_local_idj(i32 1) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %call
-  %0 = load i32 addrspace(1)* %arrayidx, align 1
+  %0 = load i32, i32 addrspace(1)* %arrayidx, align 1
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %A, i64 %call
-  %1 = load i32 addrspace(1)* %arrayidx1, align 1
+  %1 = load i32, i32 addrspace(1)* %arrayidx1, align 1
   %add = add nsw i32 %1, %0
   store i32 %add, i32 addrspace(1)* %arrayidx1, align 1
   ret void

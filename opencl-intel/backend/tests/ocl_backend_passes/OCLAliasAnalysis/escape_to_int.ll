@@ -30,7 +30,7 @@ entry:
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %out, i64 %idxprom
   store i32 333, i32 addrspace(1)* %arrayidx, align 4
   %arrayidx3 = getelementptr inbounds i32, i32 addrspace(3)* %in, i64 %idxprom
-  %1 = load i32 addrspace(3)* %arrayidx3, align 4
+  %1 = load i32, i32 addrspace(3)* %arrayidx3, align 4
   %sub = add nsw i32 %1, -333
   %2 = inttoptr i64 %conv1 to i32*
   %add.ptr = getelementptr inbounds i32, i32* %2, i64 2

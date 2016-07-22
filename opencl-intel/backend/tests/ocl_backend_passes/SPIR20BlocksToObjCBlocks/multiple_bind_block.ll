@@ -62,7 +62,7 @@ define internal spir_func void @__multiple_bind_block_block_invoke(i8* nocapture
 entry:
   %block = bitcast i8* %.block_descriptor to <{ i32 addrspace(1)* }>*
   %block.capture.addr = getelementptr inbounds <{ i32 addrspace(1)* }>, <{ i32 addrspace(1)* }>* %block, i32 0, i32 0
-  %0 = load i32 addrspace(1)** %block.capture.addr, align 8, !tbaa !14
+  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %block.capture.addr, align 8, !tbaa !14
   store i32 2, i32 addrspace(1)* %0, align 4, !tbaa !10
   ret void
 }

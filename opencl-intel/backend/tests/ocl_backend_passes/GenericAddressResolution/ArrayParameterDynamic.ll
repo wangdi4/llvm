@@ -19,7 +19,7 @@ target triple = "i686-pc-win32"
 define i32 addrspace(4)* @test2(i32 addrspace(4)* addrspace(4)* %p1, i32 addrspace(4)* addrspace(4)* %p2) nounwind {
 entry:
   %arrayidx = getelementptr inbounds i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %p1, i32 5
-  %0 = load i32 addrspace(4)* addrspace(4)* %arrayidx, align 4
+  %0 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %arrayidx, align 4
   %1 = bitcast i32 addrspace(4)* %0 to i8 addrspace(4)*
   %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %1)
   %tobool = icmp ne i8 addrspace(1)* %call, null
@@ -27,12 +27,12 @@ entry:
 
 if.then:                                          ; preds = %entry
   %arrayidx1 = getelementptr inbounds i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %p1, i32 6
-  %2 = load i32 addrspace(4)* addrspace(4)* %arrayidx1, align 4
+  %2 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %arrayidx1, align 4
   br label %return
 
 if.end:                                           ; preds = %entry
   %arrayidx2 = getelementptr inbounds i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %p2, i32 7
-  %3 = load i32 addrspace(4)* addrspace(4)* %arrayidx2, align 4
+  %3 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %arrayidx2, align 4
   br label %return
 
 return:                                           ; preds = %if.end, %if.then

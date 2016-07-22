@@ -11,9 +11,9 @@ entry:
   %num.addr = alloca i32, align 4
   store i32 37, i32* %num.addr, align 4
   %block = bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor.10*, i32 }>*
-  %0 = load i32* %num.addr, align 4
+  %0 = load i32, i32* %num.addr, align 4
   %block.capture.addr = getelementptr inbounds <{ i8*, i32, i32, i8*, %struct.__block_descriptor.10*, i32 }>, <{ i8*, i32, i32, i8*, %struct.__block_descriptor.10*, i32 }>* %block, i32 0, i32 5
-  %1 = load i32* %block.capture.addr, align 4
+  %1 = load i32, i32* %block.capture.addr, align 4
   %mul = mul nsw i32 %0, %1
   ret void
 }

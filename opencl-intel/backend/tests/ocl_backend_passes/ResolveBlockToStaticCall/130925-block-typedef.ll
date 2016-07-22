@@ -28,11 +28,11 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 @_NSConcreteGlobalBlock = external global i8*
 @.str = private unnamed_addr constant [9 x i8] c"i12@?0i8\00", align 1
-@__block_descriptor_tmp = internal constant { i64, i64, i8*, i8* } { i64 0, i64 32, i8* getelementptr inbounds ([9 x i8]* @.str, i32 0, i32 0), i8* null }
+@__block_descriptor_tmp = internal constant { i64, i64, i8*, i8* } { i64 0, i64 32, i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0), i8* null }
 @__block_literal_global = internal constant { i8**, i32, i32, i8*, %struct.__block_descriptor.103* } { i8** @_NSConcreteGlobalBlock, i32 1342177280, i32 0, i8* bitcast (i32 (i8*, i32)* @__block_typedef_reassign_block_invoke to i8*), %struct.__block_descriptor.103* bitcast ({ i64, i64, i8*, i8* }* @__block_descriptor_tmp to %struct.__block_descriptor.103*) }, align 8
-@__block_descriptor_tmp1 = internal constant { i64, i64, i8*, i8* } { i64 0, i64 32, i8* getelementptr inbounds ([9 x i8]* @.str, i32 0, i32 0), i8* null }
+@__block_descriptor_tmp1 = internal constant { i64, i64, i8*, i8* } { i64 0, i64 32, i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0), i8* null }
 @__block_literal_global2 = internal constant { i8**, i32, i32, i8*, %struct.__block_descriptor.103* } { i8** @_NSConcreteGlobalBlock, i32 1342177280, i32 0, i8* bitcast (i32 (i8*, i32)* @__block_typedef_reassign_block_invoke_2 to i8*), %struct.__block_descriptor.103* bitcast ({ i64, i64, i8*, i8* }* @__block_descriptor_tmp1 to %struct.__block_descriptor.103*) }, align 8
-@__block_descriptor_tmp3 = internal constant { i64, i64, i8*, i8* } { i64 0, i64 32, i8* getelementptr inbounds ([9 x i8]* @.str, i32 0, i32 0), i8* null }
+@__block_descriptor_tmp3 = internal constant { i64, i64, i8*, i8* } { i64 0, i64 32, i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0), i8* null }
 @__block_literal_global4 = internal constant { i8**, i32, i32, i8*, %struct.__block_descriptor.103* } { i8** @_NSConcreteGlobalBlock, i32 1342177280, i32 0, i8* bitcast (i32 (i8*, i32)* @__block_typedef_reassign_block_invoke_3 to i8*), %struct.__block_descriptor.103* bitcast ({ i64, i64, i8*, i8* }* @__block_descriptor_tmp3 to %struct.__block_descriptor.103*) }, align 8
 
 define spir_kernel void @block_typedef_reassign(i32 addrspace(1)* %res) nounwind {
@@ -48,7 +48,7 @@ entry:
   store i32 %conv, i32* %tid, align 4
   %0 = load i32, i32* %tid, align 4
   %idxprom = sext i32 %0 to i64
-  %1 = load i32 addrspace(1)** %res.addr, align 8
+  %1 = load i32 addrspace(1)*, i32 addrspace(1)** %res.addr, align 8
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %1, i64 %idxprom
   store i32 -1, i32 addrspace(1)* %arrayidx, align 4
   store i32 (i32)* bitcast ({ i8**, i32, i32, i8*, %struct.__block_descriptor.103* }* @__block_literal_global to i32 (i32)*), i32 (i32)** %b, align 8
@@ -88,7 +88,7 @@ entry:
   %sub = sub nsw i32 %21, 6
   %22 = load i32, i32* %tid, align 4
   %idxprom6 = sext i32 %22 to i64
-  %23 = load i32 addrspace(1)** %res.addr, align 8
+  %23 = load i32 addrspace(1)*, i32 addrspace(1)** %res.addr, align 8
   %arrayidx7 = getelementptr inbounds i32, i32 addrspace(1)* %23, i64 %idxprom6
   store i32 %sub, i32 addrspace(1)* %arrayidx7, align 4
   ret void

@@ -6,11 +6,11 @@ define void @D(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) n
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %call
-  %0 = load i32 addrspace(1)* %arrayidx, align 1
+  %0 = load i32, i32 addrspace(1)* %arrayidx, align 1
   %conv = sitofp i32 %0 to float
   %call1 = tail call float @_Z3sinf(float %conv) nounwind readnone
   %arrayidx2 = getelementptr inbounds i32, i32 addrspace(1)* %A, i64 %call
-  %1 = load i32 addrspace(1)* %arrayidx2, align 1
+  %1 = load i32, i32 addrspace(1)* %arrayidx2, align 1
   %conv3 = sitofp i32 %1 to float
   %add = fadd float %call1, %conv3
   %conv4 = fptosi float %add to i32

@@ -6,9 +6,9 @@ define void @A(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) n
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %call
-  %0 = load i32 addrspace(1)* %arrayidx, align 1
+  %0 = load i32, i32 addrspace(1)* %arrayidx, align 1
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %A, i64 %call
-  %1 = load i32 addrspace(1)* %arrayidx1, align 1
+  %1 = load i32, i32 addrspace(1)* %arrayidx1, align 1
   %add = add nsw i32 %1, %0
   store i32 %add, i32 addrspace(1)* %arrayidx1, align 1
   ret void
@@ -21,7 +21,7 @@ entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %0 = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %call
   %ptrTypeCast = bitcast i32 addrspace(1)* %0 to <4 x i32> addrspace(1)*
-  %1 = load <4 x i32> addrspace(1)* %ptrTypeCast, align 1
+  %1 = load <4 x i32>, <4 x i32> addrspace(1)* %ptrTypeCast, align 1
   %2 = getelementptr inbounds i32, i32 addrspace(1)* %A, i64 %call
   %ptrTypeCast4 = bitcast i32 addrspace(1)* %2 to <4 x i32> addrspace(1)*
   %3 = load <4 x i32>, <4 x i32> addrspace(1)* %ptrTypeCast4, align 1

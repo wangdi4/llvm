@@ -22,13 +22,13 @@ entry:
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds i32, i32 addrspace(3)* %in, i64 %idxprom
-  %0 = load i32 addrspace(3)* %arrayidx, align 4
+  %0 = load i32, i32 addrspace(3)* %arrayidx, align 4
   %cmp3 = icmp sgt i32 %0, 0
   br i1 %cmp3, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
   %arrayidx5 = getelementptr inbounds i32, i32 addrspace(1)* %out, i64 %idxprom
-  %.pre = load i32 addrspace(1)* %arrayidx5, align 4
+  %.pre = load i32, i32 addrspace(1)* %arrayidx5, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.body

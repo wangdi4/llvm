@@ -133,7 +133,7 @@ if.end11:                                         ; preds = %if.then9, %if.end
 
 if.then12:                                        ; preds = %if.end11
   %arrayidx13 = getelementptr inbounds i32, i32 addrspace(4)* %12, i32 8
-  %15 = load i32 addrspace(4)* %arrayidx13, align 4
+  %15 = load i32, i32 addrspace(4)* %arrayidx13, align 4
   %arrayidx14 = getelementptr inbounds i32, i32 addrspace(4)* %7, i32 10
   store i32 %15, i32 addrspace(4)* %arrayidx14, align 4
   br label %if.end15

@@ -38,7 +38,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 ; Function Attrs: nounwind
 define spir_kernel void @mykernel() #0 {
-  call spir_func void @f1(i8 addrspace(3)* getelementptr inbounds ([100 x i8] addrspace(3)* @mykernel.x, i32 0, i32 0)), !dbg !33
+  call spir_func void @f1(i8 addrspace(3)* getelementptr inbounds ([100 x i8], [100 x i8] addrspace(3)* @mykernel.x, i32 0, i32 0)), !dbg !33
   ret void, !dbg !34
 }
 

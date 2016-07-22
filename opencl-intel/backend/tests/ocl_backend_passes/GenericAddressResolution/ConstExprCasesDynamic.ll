@@ -63,7 +63,7 @@ declare spir_func i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)*) #1
 
 ; Function Attrs: nounwind
 define spir_kernel void @const_gep(i32 addrspace(1)* %dst) #0 {
-  %1 = call spir_func i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* bitcast (i32 addrspace(4)* getelementptr inbounds (i32 addrspace(4)* addrspacecast (i32 addrspace(3)* getelementptr inbounds ([5 x i32] addrspace(3)* @const_gep.loc, i32 0, i32 0) to i32 addrspace(4)*), i64 2) to i8 addrspace(4)*)) #2
+  %1 = call spir_func i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* bitcast (i32 addrspace(4)* getelementptr inbounds (i32, i32 addrspace(4)* addrspacecast (i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_gep.loc, i32 0, i32 0) to i32 addrspace(4)*), i64 2) to i8 addrspace(4)*)) #2
   %2 = bitcast i8 addrspace(3)* %1 to i32 addrspace(3)*
   ret void
 }
@@ -73,7 +73,7 @@ declare spir_func i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)*) #1
 
 ; Function Attrs: nounwind
 define spir_kernel void @const_select(i32 addrspace(1)* %dst) #0 {
-  %1 = call spir_func i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* bitcast (i32 addrspace(4)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(4)* addrspacecast (i32 addrspace(3)* getelementptr inbounds ([5 x i32] addrspace(3)* @const_select.loc1, i32 0, i32 0) to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(3)* getelementptr inbounds ([5 x i32] addrspace(3)* @const_select.loc2, i32 0, i32 0) to i32 addrspace(4)*)) to i8 addrspace(4)*)) #2
+  %1 = call spir_func i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* bitcast (i32 addrspace(4)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(4)* addrspacecast (i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_select.loc1, i32 0, i32 0) to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_select.loc2, i32 0, i32 0) to i32 addrspace(4)*)) to i8 addrspace(4)*)) #2
   %2 = bitcast i8* %1 to i32*
   ret void
 }

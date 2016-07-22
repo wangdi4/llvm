@@ -13,7 +13,7 @@ define void @A(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) n
 entry:
   %gid = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %gid
-  %0 = load i32 addrspace(1)* %arrayidx, align 1
+  %0 = load i32, i32 addrspace(1)* %arrayidx, align 1
   %call = call i32 @foo(i32 %0) readnone nounwind
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %A, i64 %gid
   store i32 %call, i32 addrspace(1)* %arrayidx1, align 1

@@ -65,7 +65,7 @@ entry:
   %var_addr = addrspacecast [100 x i8] addrspace(3)* @mykernel.x to i8*, !dbg_declare_inst !30
   call void @__opencl_dbg_declare_global(i8* %var_addr, i64 6721800, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   call void @__opencl_dbg_stoppoint(i64 6705624, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
-  call void @f1(i8 addrspace(3)* getelementptr inbounds ([100 x i8] addrspace(3)* @mykernel.x, i32 0, i32 0)), !dbg !33
+  call void @f1(i8 addrspace(3)* getelementptr inbounds ([100 x i8], [100 x i8] addrspace(3)* @mykernel.x, i32 0, i32 0)), !dbg !33
   call void @__opencl_dbg_stoppoint(i64 6705768, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   call void @__opencl_dbg_exit_function(i64 6704936, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   ret void, !dbg !35

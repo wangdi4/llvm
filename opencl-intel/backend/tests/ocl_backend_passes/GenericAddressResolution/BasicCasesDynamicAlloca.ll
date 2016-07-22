@@ -203,8 +203,8 @@ if.end11:                                         ; preds = %if.then9, %if.end8
   %42 = load i32 addrspace(1)*, i32 addrspace(1)** %pGlobal.addr, align 4
   %43 = addrspacecast i32 addrspace(1)* %42 to float addrspace(4)*
   store float addrspace(4)* %43, float addrspace(4)** %pGen4, align 4
-  %44 = load float* %param.addr, align 4
-  %45 = load float addrspace(4)** %pGen4, align 4
+  %44 = load float, float* %param.addr, align 4
+  %45 = load float addrspace(4)*, float addrspace(4)** %pGen4, align 4
   %add.ptr = getelementptr inbounds float, float addrspace(4)* %45, i32 10
   %call12 = call float @_Z5fractfPU3AS4f(float %44, float addrspace(4)* %add.ptr)
   store float %call12, float* %res, align 4

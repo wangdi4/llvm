@@ -78,32 +78,32 @@ if.else:                                          ; preds = %for.body
 
 if.end:                                           ; preds = %if.else, %if.then
   %arrayidx3 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
-  %2 = load i32 addrspace(4)** %arrayidx3, align 4
+  %2 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx3, align 4
   store i32 %i.0, i32 addrspace(4)* %2, align 4
   %arrayidx4 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
-  %3 = load i32 addrspace(4)** %arrayidx4, align 4
+  %3 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx4, align 4
   call void @test1(i32 addrspace(4)* %3)
   %arrayidx5 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
-  %4 = load i32 addrspace(4)** %arrayidx5, align 4
+  %4 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx5, align 4
   %add = add nsw i32 %i.0, 1
   %arrayidx6 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %add
-  %5 = load i32 addrspace(4)** %arrayidx6, align 4
+  %5 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx6, align 4
   %call = call i32 addrspace(4)* @test2(i32 addrspace(4)* %4, i32 addrspace(4)* %5)
   %arrayidx7 = getelementptr inbounds i32, i32 addrspace(4)* %call, i32 8
   store i32 8, i32 addrspace(4)* %arrayidx7, align 4
   %arrayidx8 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
-  %6 = load i32 addrspace(4)** %arrayidx8, align 4
+  %6 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx8, align 4
   %7 = addrspacecast i32 addrspace(4)* %6 to i32 addrspace(1)*
   %arrayidx9 = getelementptr inbounds i32, i32 addrspace(1)* %7, i32 3
   store i32 3, i32 addrspace(1)* %arrayidx9, align 4
   %arrayidx10 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
-  %8 = load i32 addrspace(4)** %arrayidx10, align 4
+  %8 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx10, align 4
   %9 = ptrtoint i32 addrspace(4)* %8 to i32
   %10 = inttoptr i32 %9 to i32 addrspace(4)*
   %arrayidx11 = getelementptr inbounds i32, i32 addrspace(4)* %10, i32 7
   store i32 7, i32 addrspace(4)* %arrayidx11, align 4
   %arrayidx12 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
-  %11 = load i32 addrspace(4)** %arrayidx12, align 4
+  %11 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx12, align 4
   %12 = bitcast i32 addrspace(4)* %11 to i8 addrspace(4)*
   %call13 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %12)
   %13 = bitcast i8 addrspace(1)* %call13 to i32 addrspace(1)*
@@ -117,23 +117,23 @@ if.then15:                                        ; preds = %if.end
 
 if.end17:                                         ; preds = %if.then15, %if.end
   %arrayidx18 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
-  %14 = load i32 addrspace(4)** %arrayidx18, align 4
+  %14 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx18, align 4
   %add19 = add nsw i32 %i.0, 1
   %arrayidx20 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %add19
-  %15 = load i32 addrspace(4)** %arrayidx20, align 4
+  %15 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx20, align 4
   %cmp21 = icmp eq i32 addrspace(4)* %14, %15
   br i1 %cmp21, label %if.then22, label %if.end25
 
 if.then22:                                        ; preds = %if.end17
   %arrayidx23 = getelementptr inbounds i32, i32 addrspace(4)* %10, i32 8
-  %16 = load i32 addrspace(4)* %arrayidx23, align 4
+  %16 = load i32, i32 addrspace(4)* %arrayidx23, align 4
   %arrayidx24 = getelementptr inbounds i32, i32 addrspace(4)* %10, i32 10
   store i32 %16, i32 addrspace(4)* %arrayidx24, align 4
   br label %if.end25
 
 if.end25:                                         ; preds = %if.then22, %if.end17
   %arrayidx26 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
-  %17 = load i32 addrspace(4)** %arrayidx26, align 4
+  %17 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx26, align 4
   %18 = bitcast i32 addrspace(4)* %17 to float addrspace(4)*
   %add.ptr27 = getelementptr inbounds float, float addrspace(4)* %18, i32 10
   %call28 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr27)
