@@ -1,4 +1,4 @@
-; RUN: opt -mic-passes -inst-to-func-call -S %s -o %t.ll
+; RUN: opt -inst-to-func-call -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ; CHECK: @sample_test
