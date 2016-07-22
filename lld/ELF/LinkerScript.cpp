@@ -19,6 +19,7 @@
 #include "InputSection.h"
 #include "OutputSections.h"
 #include "ScriptParser.h"
+#include "Strings.h"
 #include "SymbolTable.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/ELF.h"
@@ -34,8 +35,6 @@ using namespace lld;
 using namespace lld::elf;
 
 ScriptConfiguration *elf::ScriptConfig;
-
-static bool matchStr(StringRef S, StringRef T);
 
 // This is an operator-precedence parser to parse and evaluate
 // a linker script expression. For each linker script arithmetic
@@ -188,7 +187,7 @@ uint64_t ExprParser::parseExpr() { return parseExpr1(parsePrimary(), 0); }
 template <class ELFT>
 StringRef LinkerScript<ELFT>::getOutputSection(InputSectionBase<ELFT> *S) {
   for (SectionRule &R : Opt.Sections)
-    if (matchStr(R.SectionPattern, S->getSectionName()))
+    if (globMatch(R.SectionPattern, S->getSectionName()))
       return R.Dest;
   return "";
 }
@@ -201,18 +200,9 @@ bool LinkerScript<ELFT>::isDiscarded(InputSectionBase<ELFT> *S) {
 template <class ELFT>
 bool LinkerScript<ELFT>::shouldKeep(InputSectionBase<ELFT> *S) {
   for (StringRef Pat : Opt.KeptSections)
-    if (matchStr(Pat, S->getSectionName()))
+    if (globMatch(Pat, S->getSectionName()))
       return true;
   return false;
-}
-
-template <class ELFT>
-static OutputSectionBase<ELFT> *
-findSection(ArrayRef<OutputSectionBase<ELFT> *> V, StringRef Name) {
-  for (OutputSectionBase<ELFT> *Sec : V)
-    if (Sec->getName() == Name)
-      return Sec;
-  return nullptr;
 }
 
 template <class ELFT>
@@ -239,23 +229,27 @@ void LinkerScript<ELFT>::assignAddresses(
       continue;
     }
 
-    OutputSectionBase<ELFT> *Sec = findSection<ELFT>(Sections, Cmd.SectionName);
-    if (!Sec)
-      continue;
+    // Find all the sections with required name. There can be more than
+    // ont section with such name, if the alignment, flags or type
+    // attribute differs.
+    for (OutputSectionBase<ELFT> *Sec : Sections) {
+      if (Sec->getName() != Cmd.SectionName)
+        continue;
 
-    if ((Sec->getFlags() & SHF_TLS) && Sec->getType() == SHT_NOBITS) {
-      uintX_t TVA = Dot + ThreadBssOffset;
-      TVA = alignTo(TVA, Sec->getAlign());
-      Sec->setVA(TVA);
-      ThreadBssOffset = TVA - Dot + Sec->getSize();
-      continue;
-    }
+      if ((Sec->getFlags() & SHF_TLS) && Sec->getType() == SHT_NOBITS) {
+        uintX_t TVA = Dot + ThreadBssOffset;
+        TVA = alignTo(TVA, Sec->getAlignment());
+        Sec->setVA(TVA);
+        ThreadBssOffset = TVA - Dot + Sec->getSize();
+        continue;
+      }
 
-    if (Sec->getFlags() & SHF_ALLOC) {
-      Dot = alignTo(Dot, Sec->getAlign());
-      Sec->setVA(Dot);
-      Dot += Sec->getSize();
-      continue;
+      if (Sec->getFlags() & SHF_ALLOC) {
+        Dot = alignTo(Dot, Sec->getAlignment());
+        Sec->setVA(Dot);
+        Dot += Sec->getSize();
+        continue;
+      }
     }
   }
 }
@@ -291,30 +285,6 @@ int LinkerScript<ELFT>::compareSections(StringRef A, StringRef B) {
   if (I == INT_MAX && J == INT_MAX)
     return 0;
   return I < J ? -1 : 1;
-}
-
-// Returns true if S matches T. S can contain glob meta-characters.
-// The asterisk ('*') matches zero or more characacters, and the question
-// mark ('?') matches one character.
-static bool matchStr(StringRef S, StringRef T) {
-  for (;;) {
-    if (S.empty())
-      return T.empty();
-    if (S[0] == '*') {
-      S = S.substr(1);
-      if (S.empty())
-        // Fast path. If a pattern is '*', it matches anything.
-        return true;
-      for (size_t I = 0, E = T.size(); I < E; ++I)
-        if (matchStr(S, T.substr(I)))
-          return true;
-      return false;
-    }
-    if (T.empty() || (S[0] != T[0] && S[0] != '?'))
-      return false;
-    S = S.substr(1);
-    T = T.substr(1);
-  }
 }
 
 class elf::ScriptParser : public ScriptParserBase {

@@ -1260,7 +1260,7 @@ __kmp_barrier(enum barrier_type bt, int gtid, int is_split, size_t reduce_size,
     } else { // Team is serialized.
         status = 0;
         if (__kmp_tasking_mode != tskm_immediate_exec) {
-#if OMP_41_ENABLED
+#if OMP_45_ENABLED
             if ( this_thr->th.th_task_team != NULL ) {
                 void *itt_sync_obj = NULL;
 #if USE_ITT_NOTIFY
@@ -1395,7 +1395,7 @@ __kmp_join_barrier(int gtid)
     KMP_DEBUG_ASSERT(this_thr == team->t.t_threads[tid]);
     KA_TRACE(10, ("__kmp_join_barrier: T#%d(%d:%d) arrived at join barrier\n", gtid, team_id, tid));
 
-#if OMPT_SUPPORT 
+#if OMPT_SUPPORT
 #if OMPT_TRACE
     if (ompt_enabled &&
         ompt_callbacks.ompt_callback(ompt_event_barrier_begin)) {

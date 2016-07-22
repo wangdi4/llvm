@@ -469,6 +469,8 @@ class OpenMPCodeOutliner {
   void emitOMPHintClause(const OMPHintClause *) {}
   void emitOMPDistScheduleClause(const OMPDistScheduleClause *) {}
   void emitOMPDefaultmapClause(const OMPDefaultmapClause *) {}
+  void emitOMPToClause(const OMPToClause *) {}
+  void emitOMPFromClause(const OMPFromClause *) {}
 
 public:
   OpenMPCodeOutliner(CodeGenFunction &CGF)

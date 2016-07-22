@@ -602,9 +602,9 @@ static bool IsValidForIncrement(Sema &S, Expr *Increment,
                                 SourceLocation &RHSLoc, bool IsCilkFor) {
   Increment = Increment->IgnoreParens();
   if (ExprWithCleanups *E = dyn_cast<ExprWithCleanups>(Increment))
-    Increment = E->getSubExpr();
+    Increment = E->getSubExpr()->IgnoreParens();
   if (CXXBindTemporaryExpr *E = dyn_cast<CXXBindTemporaryExpr>(Increment))
-    Increment = E->getSubExpr();
+    Increment = E->getSubExpr()->IgnoreParens();
 
   // Simple increment or decrement -- always OK
   if (UnaryOperator *U = dyn_cast<UnaryOperator>(Increment)) {
@@ -630,7 +630,7 @@ static bool IsValidForIncrement(Sema &S, Expr *Increment,
   // In the case of += or -=, whether built-in or overloaded, we need to check
   // the type of the right-hand side. In that case, RHS will be set to a
   // non-null value.
-  Expr *RHS = 0;
+  Expr *RHS = nullptr;
   // Direction is 1 if the operator is +=, -1 if it is -=
   int Direction = 0;
   StringRef OperatorName;
@@ -1328,8 +1328,10 @@ static bool CommonActOnForStmt(Sema &S, SourceLocation ForLoc,
     // The case (a) is handled above in BuildBinOp, but (b,c) must be checked
     // explicitly, since Limit and Stride were built in a different evaluation
     // context.
-    S.ExprNeedsCleanups |= Limit->hasNonTrivialCall(S.Context);
-    S.ExprNeedsCleanups |= StrideExpr->hasNonTrivialCall(S.Context);
+    if (Limit->hasNonTrivialCall(S.Context))
+      S.Cleanup.setExprNeedsCleanups(true);
+    if (StrideExpr->hasNonTrivialCall(S.Context))
+      S.Cleanup.setExprNeedsCleanups(true);
 
     LoopCount = S.MakeFullExpr(LoopCount.get()).get();
   }
@@ -3530,12 +3532,20 @@ ExprResult Sema::ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
           ImpCastExprToType(CalcExpr.get(), Context.VoidTy, CK_ToVoid).get();
       if (CKind == CEANBuiltinExpr::ReduceAnyZero ||
           CKind == CEANBuiltinExpr::ReduceAnyNonZero) {
-        FullExprArg Cond = MakeFullExpr(BuildBinOp(
-            S, SourceLocation(), BO_EQ, RetVal,
-            ActOnIntegerConstant(SourceLocation(), 1).get()).get());
-        Stmt *IfStmt = ActOnIfStmt(SourceLocation(), Cond, 0,
-                                   new (Context) BreakStmt(SourceLocation()),
-                                   SourceLocation(), 0).get();
+        FullExprArg Cond = MakeFullExpr(
+            CheckBooleanCondition(
+                SourceLocation(),
+                BuildBinOp(S, SourceLocation(), BO_EQ, RetVal,
+                           ActOnIntegerConstant(SourceLocation(), 1).get())
+                    .get())
+                .get());
+        Stmt *IfStmt =
+            ActOnIfStmt(SourceLocation(), /*IsConstexpr=*/false,
+                        ActOnCondition(S, SourceLocation(), Cond.get(),
+                                       ConditionKind::Boolean),
+                        new (Context) BreakStmt(SourceLocation()),
+                        SourceLocation(), nullptr)
+                .get();
         Stmt *Stmts[] = { Body, IfStmt };
         Body = new (Context) CompoundStmt(Context, llvm::makeArrayRef(Stmts),
                                           SourceLocation(), SourceLocation());
@@ -4501,7 +4511,8 @@ StmtResult Sema::BuildCilkForStmt(SourceLocation CilkForLoc,
       AdjustExpr = BuildBinOp(CurScope, VarLoc, BO_AddAssign,
                               InnerVarExpr.get(), Step);
       if (!AdjustExpr.isInvalid()) {
-        ExprNeedsCleanups |= Step->hasNonTrivialCall(Context);
+        if (Step->hasNonTrivialCall(Context))
+          Cleanup.setExprNeedsCleanups(true);
         AdjustExpr = MaybeCreateExprWithCleanups(AdjustExpr);
       }
       // FIXME: Should mark the CilkForDecl as invalid?
@@ -4518,7 +4529,8 @@ StmtResult Sema::BuildCilkForStmt(SourceLocation CilkForLoc,
   Result->setInnerLoopControlVar(FSI->InnerLoopControlVar);
   Result->setInnerLoopVarAdjust(AdjustExpr.get());
 
-  ExprNeedsCleanups = FSI->ExprNeedsCleanups;
+  if (FSI->ExprNeedsCleanups)
+    Cleanup.setExprNeedsCleanups(true);
 
   PopExpressionEvaluationContext();
   PopDeclContext();
@@ -4614,7 +4626,8 @@ StmtResult Sema::BuildSIMDForStmt(SourceLocation PragmaLoc,
                                             LoopStride, LoopControlVar, ForLoc,
                                             LParenLoc, RParenLoc);
 
-  ExprNeedsCleanups = FSI->ExprNeedsCleanups;
+  if (FSI->ExprNeedsCleanups)
+    Cleanup.setExprNeedsCleanups(true);
   PopExpressionEvaluationContext();
   PopDeclContext();
   // Pop the compound scope we inserted implicitly.

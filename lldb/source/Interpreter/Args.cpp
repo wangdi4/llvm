@@ -83,19 +83,22 @@ Args::~Args ()
 }
 
 void
-Args::Dump (Stream *s)
+Args::Dump (Stream &s, const char *label_name) const
 {
+    if (!label_name)
+        return;
+
     const size_t argc = m_argv.size();
     for (size_t i=0; i<argc; ++i)
     {
-        s->Indent();
+        s.Indent();
         const char *arg_cstr = m_argv[i];
         if (arg_cstr)
-            s->Printf("argv[%zi]=\"%s\"\n", i, arg_cstr);
+            s.Printf("%s[%zi]=\"%s\"\n", label_name, i, arg_cstr);
         else
-            s->Printf("argv[%zi]=NULL\n", i);
+            s.Printf("%s[%zi]=NULL\n", label_name, i);
     }
-    s->EOL();
+    s.EOL();
 }
 
 bool
@@ -575,8 +578,8 @@ Args::ParseOptions (Options &options)
             }
         }
     }
-    Mutex::Locker options_locker(NULL);
-    OptionParser::Prepare(options_locker);
+    std::unique_lock<std::mutex> lock;
+    OptionParser::Prepare(lock);
     int val;
     while (1)
     {
@@ -1218,8 +1221,8 @@ Args::ParseAliasOptions (Options &options,
         }
     }
 
-    Mutex::Locker options_locker(NULL);
-    OptionParser::Prepare(options_locker);
+    std::unique_lock<std::mutex> lock;
+    OptionParser::Prepare(lock);
     int val;
     while (1)
     {
@@ -1396,8 +1399,8 @@ Args::ParseArgsForCompletion
         }
     }
 
-    Mutex::Locker options_locker(NULL);
-    OptionParser::Prepare(options_locker);
+    std::unique_lock<std::mutex> lock;
+    OptionParser::Prepare(lock);
     OptionParser::EnableError(false);
 
     int val;

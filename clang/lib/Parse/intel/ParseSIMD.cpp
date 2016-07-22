@@ -585,7 +585,7 @@ StmtResult Parser::ParseSIMDDirective() {
     } else {
       ExprResult E = ParseExpression();
       if (!E.isInvalid())
-        E = Actions.ActOnBooleanCondition(getCurScope(), ForLoc, E.get());
+        E = Actions.CheckBooleanCondition(ForLoc, E.get());
       SecondPart = Actions.MakeFullExpr(E.get(), ForLoc);
 
       if (Tok.isNot(tok::semi)) {

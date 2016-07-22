@@ -1646,7 +1646,7 @@ ProcessGDBRemote::HandleStopReplySequence ()
 void
 ProcessGDBRemote::ClearThreadIDList ()
 {
-    Mutex::Locker locker(m_thread_list_real.GetMutex());
+    std::lock_guard<std::recursive_mutex> guard(m_thread_list_real.GetMutex());
     m_thread_ids.clear();
     m_thread_pcs.clear();
 }
@@ -1696,7 +1696,7 @@ ProcessGDBRemote::UpdateThreadPCsFromStopReplyThreadsValue (std::string &value)
 bool
 ProcessGDBRemote::UpdateThreadIDList ()
 {
-    Mutex::Locker locker(m_thread_list_real.GetMutex());
+    std::lock_guard<std::recursive_mutex> guard(m_thread_list_real.GetMutex());
 
     if (m_jthreadsinfo_sp)
     {
@@ -1840,7 +1840,7 @@ ProcessGDBRemote::UpdateThreadList (ThreadList &old_thread_list, ThreadList &new
                     }
                 }
             }
-            new_thread_list.AddThread(thread_sp);
+            new_thread_list.AddThreadSortedByIndexID (thread_sp);
         }
     }
 
@@ -1944,7 +1944,7 @@ ProcessGDBRemote::SetThreadStopInfo (lldb::tid_t tid,
             // m_thread_list_real does have its own mutex, but we need to
             // hold onto the mutex between the call to m_thread_list_real.FindThreadByID(...)
             // and the m_thread_list_real.AddThread(...) so it doesn't change on us
-            Mutex::Locker locker (m_thread_list_real.GetMutex ());
+            std::lock_guard<std::recursive_mutex> guard(m_thread_list_real.GetMutex());
             thread_sp = m_thread_list_real.FindThreadByProtocolID(tid, false);
 
             if (!thread_sp)
@@ -2059,7 +2059,8 @@ ProcessGDBRemote::SetThreadStopInfo (lldb::tid_t tid,
                             {
                                 WatchpointSP wp_sp;
                                 ArchSpec::Core core = GetTarget().GetArchitecture().GetCore();
-                                if (core >= ArchSpec::kCore_mips_first && core <= ArchSpec::kCore_mips_last)
+                                if ((core >= ArchSpec::kCore_mips_first && core <= ArchSpec::kCore_mips_last) ||
+                                    (core >= ArchSpec::eCore_arm_generic && core <= ArchSpec::eCore_arm_aarch64))
                                     wp_sp = GetTarget().GetWatchpointList().FindByAddress(wp_hit_addr);
                                 if (!wp_sp)
                                     wp_sp = GetTarget().GetWatchpointList().FindByAddress(wp_addr);
@@ -2440,7 +2441,8 @@ ProcessGDBRemote::SetThreadStopInfo (StringExtractor& stop_packet)
                 }
                 else if (key.compare("threads") == 0)
                 {
-                    Mutex::Locker locker(m_thread_list_real.GetMutex());
+                    std::lock_guard<std::recursive_mutex> guard(m_thread_list_real.GetMutex());
+
                     m_thread_ids.clear();
                     // A comma separated list of all threads in the current
                     // process that includes the thread for this stop reply
@@ -2663,7 +2665,8 @@ ProcessGDBRemote::SetThreadStopInfo (StringExtractor& stop_packet)
 void
 ProcessGDBRemote::RefreshStateAfterStop ()
 {
-    Mutex::Locker locker(m_thread_list_real.GetMutex());
+    std::lock_guard<std::recursive_mutex> guard(m_thread_list_real.GetMutex());
+
     m_thread_ids.clear();
     m_thread_pcs.clear();
     // Set the thread stop info. It might have a "threads" key whose value is
@@ -2818,7 +2821,7 @@ ProcessGDBRemote::DoDestroy ()
                 ThreadList &threads = GetThreadList();
 
                 {
-                    Mutex::Locker locker(threads.GetMutex());
+                    std::lock_guard<std::recursive_mutex> guard(threads.GetMutex());
 
                     size_t num_threads = threads.GetSize();
                     for (size_t i = 0; i < num_threads; i++)
@@ -2853,7 +2856,7 @@ ProcessGDBRemote::DoDestroy ()
                     // have to run the risk of letting those threads proceed a bit.
 
                     {
-                        Mutex::Locker locker(threads.GetMutex());
+                        std::lock_guard<std::recursive_mutex> guard(threads.GetMutex());
 
                         size_t num_threads = threads.GetSize();
                         for (size_t i = 0; i < num_threads; i++)
@@ -3307,7 +3310,8 @@ ProcessGDBRemote::EnableBreakpointSite (BreakpointSite *bp_site)
     if (m_gdb_comm.SupportsGDBStoppointPacket(eBreakpointSoftware) && (!bp_site->HardwareRequired()))
     {
         // Try to send off a software breakpoint packet ($Z0)
-        if (m_gdb_comm.SendGDBStoppointTypePacket(eBreakpointSoftware, true, addr, bp_op_size) == 0)
+        uint8_t error_no = m_gdb_comm.SendGDBStoppointTypePacket(eBreakpointSoftware, true, addr, bp_op_size);
+        if (error_no == 0)
         {
             // The breakpoint was placed successfully
             bp_site->SetEnabled(true);
@@ -3323,7 +3327,13 @@ ProcessGDBRemote::EnableBreakpointSite (BreakpointSite *bp_site)
         // with the error code.  If they are now unsupported, then we would like to fall through
         // and try another form of breakpoint.
         if (m_gdb_comm.SupportsGDBStoppointPacket(eBreakpointSoftware))
+        {
+            if (error_no != UINT8_MAX)
+                error.SetErrorStringWithFormat("error: %d sending the breakpoint request", errno);
+            else
+                error.SetErrorString("error sending the breakpoint request");
             return error;
+        }
 
         // We reach here when software breakpoints have been found to be unsupported. For future
         // calls to set a breakpoint, we will not attempt to set a breakpoint with a type that is
@@ -3340,7 +3350,8 @@ ProcessGDBRemote::EnableBreakpointSite (BreakpointSite *bp_site)
     if (m_gdb_comm.SupportsGDBStoppointPacket(eBreakpointHardware))
     {
         // Try to send off a hardware breakpoint packet ($Z1)
-        if (m_gdb_comm.SendGDBStoppointTypePacket(eBreakpointHardware, true, addr, bp_op_size) == 0)
+        uint8_t error_no = m_gdb_comm.SendGDBStoppointTypePacket(eBreakpointHardware, true, addr, bp_op_size);
+        if (error_no == 0)
         {
             // The breakpoint was placed successfully
             bp_site->SetEnabled(true);
@@ -3352,7 +3363,13 @@ ProcessGDBRemote::EnableBreakpointSite (BreakpointSite *bp_site)
         if (m_gdb_comm.SupportsGDBStoppointPacket(eBreakpointHardware))
         {
             // Unable to set this hardware breakpoint
-            error.SetErrorString("failed to set hardware breakpoint (hardware breakpoint resources might be exhausted or unavailable)");
+            if (error_no != UINT8_MAX)
+                error.SetErrorStringWithFormat("error: %d sending the hardware breakpoint request "
+                                               "(hardware breakpoint resources might be exhausted or unavailable)",
+                                               error_no);
+            else
+                error.SetErrorString("error sending the hardware breakpoint request (hardware breakpoint resources "
+                                     "might be exhausted or unavailable)");
             return error;
         }
 
@@ -4859,11 +4876,10 @@ ProcessGDBRemote::LoadModules (LoadedModuleInfoList &module_list)
                     found = true;
             }
 
-            if (!found)
+            // The main executable will never be included in libraries-svr4, don't remove it
+            if (!found && loaded_module.get() != target.GetExecutableModulePointer())
             {
-                lldb_private::ObjectFile * obj = loaded_module->GetObjectFile ();
-                if (obj && obj->GetType () != ObjectFile::Type::eTypeExecutable)
-                    removed_modules.Append (loaded_module);
+                removed_modules.Append (loaded_module);
             }
         }
 

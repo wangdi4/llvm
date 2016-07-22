@@ -716,105 +716,100 @@ Process::Process(lldb::TargetSP target_sp, ListenerSP listener_sp) :
     // defaulting to using the Host's UnixSignals.
 }
 
-Process::Process(lldb::TargetSP target_sp, ListenerSP listener_sp, const UnixSignalsSP &unix_signals_sp) :
-    ProcessProperties (this),
-    UserID (LLDB_INVALID_PROCESS_ID),
-    Broadcaster ((target_sp->GetDebugger().GetBroadcasterManager()), Process::GetStaticBroadcasterClass().AsCString()),
-    m_target_sp (target_sp),
-    m_public_state (eStateUnloaded),
-    m_private_state (eStateUnloaded),
-    m_private_state_broadcaster(nullptr, "lldb.process.internal_state_broadcaster"),
-    m_private_state_control_broadcaster(nullptr, "lldb.process.internal_state_control_broadcaster"),
-    m_private_state_listener_sp (Listener::MakeListener("lldb.process.internal_state_listener")),
-    m_mod_id (),
-    m_process_unique_id(0),
-    m_thread_index_id (0),
-    m_thread_id_to_index_id_map (),
-    m_exit_status (-1),
-    m_exit_string (),
-    m_exit_status_mutex(),
-    m_thread_mutex (Mutex::eMutexTypeRecursive),
-    m_thread_list_real (this),
-    m_thread_list (this),
-    m_extended_thread_list (this),
-    m_extended_thread_stop_id (0),
-    m_queue_list (this),
-    m_queue_list_stop_id (0),
-    m_notifications (),
-    m_image_tokens (),
-    m_listener_sp (listener_sp),
-    m_breakpoint_site_list (),
-    m_dynamic_checkers_ap (),
-    m_unix_signals_sp (unix_signals_sp),
-    m_abi_sp (),
-    m_process_input_reader (),
-    m_stdio_communication ("process.stdio"),
-    m_stdio_communication_mutex (Mutex::eMutexTypeRecursive),
-    m_stdin_forward (false),
-    m_stdout_data (),
-    m_stderr_data (),
-    m_profile_data_comm_mutex (Mutex::eMutexTypeRecursive),
-    m_profile_data (),
-    m_iohandler_sync (0),
-    m_memory_cache (*this),
-    m_allocated_memory_cache (*this),
-    m_should_detach (false),
-    m_next_event_action_ap(),
-    m_public_run_lock (),
-    m_private_run_lock (),
-    m_stop_info_override_callback(nullptr),
-    m_finalizing (false),
-    m_finalize_called (false),
-    m_clear_thread_plans_on_stop (false),
-    m_force_next_event_delivery (false),
-    m_last_broadcast_state (eStateInvalid),
-    m_destroy_in_process (false),
-    m_can_interpret_function_calls(false),
-    m_warnings_issued (),
-    m_can_jit(eCanJITDontKnow)
+Process::Process(lldb::TargetSP target_sp, ListenerSP listener_sp, const UnixSignalsSP &unix_signals_sp)
+    : ProcessProperties(this),
+      UserID(LLDB_INVALID_PROCESS_ID),
+      Broadcaster((target_sp->GetDebugger().GetBroadcasterManager()), Process::GetStaticBroadcasterClass().AsCString()),
+      m_target_sp(target_sp),
+      m_public_state(eStateUnloaded),
+      m_private_state(eStateUnloaded),
+      m_private_state_broadcaster(nullptr, "lldb.process.internal_state_broadcaster"),
+      m_private_state_control_broadcaster(nullptr, "lldb.process.internal_state_control_broadcaster"),
+      m_private_state_listener_sp(Listener::MakeListener("lldb.process.internal_state_listener")),
+      m_mod_id(),
+      m_process_unique_id(0),
+      m_thread_index_id(0),
+      m_thread_id_to_index_id_map(),
+      m_exit_status(-1),
+      m_exit_string(),
+      m_exit_status_mutex(),
+      m_thread_mutex(),
+      m_thread_list_real(this),
+      m_thread_list(this),
+      m_extended_thread_list(this),
+      m_extended_thread_stop_id(0),
+      m_queue_list(this),
+      m_queue_list_stop_id(0),
+      m_notifications(),
+      m_image_tokens(),
+      m_listener_sp(listener_sp),
+      m_breakpoint_site_list(),
+      m_dynamic_checkers_ap(),
+      m_unix_signals_sp(unix_signals_sp),
+      m_abi_sp(),
+      m_process_input_reader(),
+      m_stdio_communication("process.stdio"),
+      m_stdio_communication_mutex(),
+      m_stdin_forward(false),
+      m_stdout_data(),
+      m_stderr_data(),
+      m_profile_data_comm_mutex(),
+      m_profile_data(),
+      m_iohandler_sync(0),
+      m_memory_cache(*this),
+      m_allocated_memory_cache(*this),
+      m_should_detach(false),
+      m_next_event_action_ap(),
+      m_public_run_lock(),
+      m_private_run_lock(),
+      m_stop_info_override_callback(nullptr),
+      m_finalizing(false),
+      m_finalize_called(false),
+      m_clear_thread_plans_on_stop(false),
+      m_force_next_event_delivery(false),
+      m_last_broadcast_state(eStateInvalid),
+      m_destroy_in_process(false),
+      m_can_interpret_function_calls(false),
+      m_warnings_issued(),
+      m_run_thread_plan_lock(),
+      m_can_jit(eCanJITDontKnow)
 {
-    CheckInWithManager ();
+    CheckInWithManager();
 
-    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_OBJECT));
+    Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_OBJECT));
     if (log)
-        log->Printf ("%p Process::Process()", static_cast<void*>(this));
+        log->Printf("%p Process::Process()", static_cast<void *>(this));
 
     if (!m_unix_signals_sp)
         m_unix_signals_sp = std::make_shared<UnixSignals>();
 
-    SetEventName (eBroadcastBitStateChanged, "state-changed");
-    SetEventName (eBroadcastBitInterrupt, "interrupt");
-    SetEventName (eBroadcastBitSTDOUT, "stdout-available");
-    SetEventName (eBroadcastBitSTDERR, "stderr-available");
-    SetEventName (eBroadcastBitProfileData, "profile-data-available");
+    SetEventName(eBroadcastBitStateChanged, "state-changed");
+    SetEventName(eBroadcastBitInterrupt, "interrupt");
+    SetEventName(eBroadcastBitSTDOUT, "stdout-available");
+    SetEventName(eBroadcastBitSTDERR, "stderr-available");
+    SetEventName(eBroadcastBitProfileData, "profile-data-available");
 
-    m_private_state_control_broadcaster.SetEventName (eBroadcastInternalStateControlStop  , "control-stop"  );
-    m_private_state_control_broadcaster.SetEventName (eBroadcastInternalStateControlPause , "control-pause" );
-    m_private_state_control_broadcaster.SetEventName (eBroadcastInternalStateControlResume, "control-resume");
+    m_private_state_control_broadcaster.SetEventName(eBroadcastInternalStateControlStop, "control-stop");
+    m_private_state_control_broadcaster.SetEventName(eBroadcastInternalStateControlPause, "control-pause");
+    m_private_state_control_broadcaster.SetEventName(eBroadcastInternalStateControlResume, "control-resume");
 
-    m_listener_sp->StartListeningForEvents (this,
-                                      eBroadcastBitStateChanged |
-                                      eBroadcastBitInterrupt |
-                                      eBroadcastBitSTDOUT |
-                                      eBroadcastBitSTDERR |
-                                      eBroadcastBitProfileData);
+    m_listener_sp->StartListeningForEvents(this, eBroadcastBitStateChanged | eBroadcastBitInterrupt |
+                                                     eBroadcastBitSTDOUT | eBroadcastBitSTDERR |
+                                                     eBroadcastBitProfileData);
 
     m_private_state_listener_sp->StartListeningForEvents(&m_private_state_broadcaster,
-                                                     eBroadcastBitStateChanged |
-                                                     eBroadcastBitInterrupt);
+                                                         eBroadcastBitStateChanged | eBroadcastBitInterrupt);
 
-    m_private_state_listener_sp->StartListeningForEvents(&m_private_state_control_broadcaster,
-                                                     eBroadcastInternalStateControlStop |
-                                                     eBroadcastInternalStateControlPause |
-                                                     eBroadcastInternalStateControlResume);
+    m_private_state_listener_sp->StartListeningForEvents(
+        &m_private_state_control_broadcaster, eBroadcastInternalStateControlStop | eBroadcastInternalStateControlPause |
+                                                  eBroadcastInternalStateControlResume);
     // We need something valid here, even if just the default UnixSignalsSP.
-    assert (m_unix_signals_sp && "null m_unix_signals_sp after initialization");
+    assert(m_unix_signals_sp && "null m_unix_signals_sp after initialization");
 
     // Allow the platform to override the default cache line size
-    OptionValueSP value_sp =
-        m_collection_sp->GetPropertyAtIndex(nullptr, true, ePropertyMemCacheLineSize)->GetValue();
+    OptionValueSP value_sp = m_collection_sp->GetPropertyAtIndex(nullptr, true, ePropertyMemCacheLineSize)->GetValue();
     uint32_t platform_cache_line_size = target_sp->GetPlatform()->GetDefaultMemoryCacheLineSize();
-    if (! value_sp->OptionWasSet() && platform_cache_line_size != 0)
+    if (!value_sp->OptionWasSet() && platform_cache_line_size != 0)
         value_sp->SetUInt64Value(platform_cache_line_size);
 }
 
@@ -1153,7 +1148,7 @@ Process::HandleProcessStateChangedEvent (const EventSP &event_sp,
                 // Lock the thread list so it doesn't change on us, this is the scope for the locker:
                 {
                     ThreadList &thread_list = process_sp->GetThreadList();
-                    Mutex::Locker locker (thread_list.GetMutex());
+                    std::lock_guard<std::recursive_mutex> guard(thread_list.GetMutex());
 
                     ThreadSP curr_thread (thread_list.GetSelectedThread());
                     ThreadSP thread;
@@ -1422,7 +1417,7 @@ Process::IsRunning () const
 int
 Process::GetExitStatus ()
 {
-    Mutex::Locker locker (m_exit_status_mutex);
+    std::lock_guard<std::mutex> guard(m_exit_status_mutex);
 
     if (m_public_state.GetValue() == eStateExited)
         return m_exit_status;
@@ -1432,7 +1427,7 @@ Process::GetExitStatus ()
 const char *
 Process::GetExitDescription ()
 {
-    Mutex::Locker locker (m_exit_status_mutex);
+    std::lock_guard<std::mutex> guard(m_exit_status_mutex);
 
     if (m_public_state.GetValue() == eStateExited && !m_exit_string.empty())
         return m_exit_string.c_str();
@@ -1443,7 +1438,7 @@ bool
 Process::SetExitStatus (int status, const char *cstr)
 {
     // Use a mutex to protect setting the exit status.
-    Mutex::Locker locker (m_exit_status_mutex);
+    std::lock_guard<std::mutex> guard(m_exit_status_mutex);
 
     Log *log(lldb_private::GetLogIfAnyCategoriesSet (LIBLLDB_LOG_STATE | LIBLLDB_LOG_PROCESS));
     if (log)
@@ -1550,7 +1545,7 @@ Process::UpdateThreadListIfNeeded ()
         const StateType state = GetPrivateState();
         if (StateIsStoppedState (state, true))
         {
-            Mutex::Locker locker (m_thread_list.GetMutex ());
+            std::lock_guard<std::recursive_mutex> guard(m_thread_list.GetMutex());
             // m_thread_list does have its own mutex, but we need to
             // hold onto the mutex between the call to UpdateThreadList(...)
             // and the os->UpdateThreadList(...) so it doesn't change on us
@@ -1794,7 +1789,7 @@ Process::SetPrivateState (StateType new_state)
     if (log)
         log->Printf("Process::SetPrivateState (%s)", StateAsCString(new_state));
 
-    Mutex::Locker thread_locker(m_thread_list.GetMutex());
+    std::lock_guard<std::recursive_mutex> thread_guard(m_thread_list.GetMutex());
     std::lock_guard<std::recursive_mutex> guard(m_private_state.GetMutex());
 
     const StateType old_state = m_private_state.GetValueNoLock ();
@@ -2530,11 +2525,21 @@ Process::ReadMemoryFromInferior (addr_t addr, void *buf, size_t size, Error &err
 }
 
 uint64_t
-Process::ReadUnsignedIntegerFromMemory (lldb::addr_t vm_addr, size_t integer_byte_size, uint64_t fail_value, Error &error)
+Process::ReadUnsignedIntegerFromMemory(lldb::addr_t vm_addr, size_t integer_byte_size, uint64_t fail_value,
+                                       Error &error)
 {
     Scalar scalar;
     if (ReadScalarIntegerFromMemory(vm_addr, integer_byte_size, false, scalar, error))
         return scalar.ULongLong(fail_value);
+    return fail_value;
+}
+
+int64_t
+Process::ReadSignedIntegerFromMemory(lldb::addr_t vm_addr, size_t integer_byte_size, int64_t fail_value, Error &error)
+{
+    Scalar scalar;
+    if (ReadScalarIntegerFromMemory(vm_addr, integer_byte_size, true, scalar, error))
+        return scalar.SLongLong(fail_value);
     return fail_value;
 }
 
@@ -3461,7 +3466,7 @@ Process::CompleteAttach ()
     m_os_ap.reset(OperatingSystem::FindPlugin(this, nullptr));
     // Figure out which one is the executable, and set that in our target:
     const ModuleList &target_modules = GetTarget().GetImages();
-    Mutex::Locker modules_locker(target_modules.GetMutex());
+    std::lock_guard<std::recursive_mutex> guard(target_modules.GetMutex());
     size_t num_modules = target_modules.GetSize();
     ModuleSP new_executable_module_sp;
     
@@ -3678,7 +3683,7 @@ Process::StopForDestroyOrDetach(lldb::EventSP &exit_event_sp)
             StateType private_state = m_private_state.GetValue();
             if (private_state != eStateStopped)
             {
-                return error;
+                return Error("Attempt to stop the target in order to detach timed out. State = %s", StateAsCString(GetState()));
             }
         }
     }
@@ -4083,7 +4088,7 @@ Process::ResumePrivateStateThread ()
 void
 Process::StopPrivateStateThread ()
 {
-    if (PrivateStateThreadIsValid ())
+    if (m_private_state_thread.IsJoinable ())
         ControlPrivateStateThread (eBroadcastInternalStateControlStop);
     else
     {
@@ -4105,21 +4110,23 @@ Process::ControlPrivateStateThread (uint32_t signal)
     if (log)
         log->Printf ("Process::%s (signal = %d)", __FUNCTION__, signal);
 
-    // Signal the private state thread. First we should copy this is case the
-    // thread starts exiting since the private state thread will NULL this out
-    // when it exits
+    // Signal the private state thread
+    if (m_private_state_thread.IsJoinable())
     {
-        HostThread private_state_thread(m_private_state_thread);
-        if (private_state_thread.IsJoinable())
-        {
-            if (log)
-                log->Printf ("Sending control event of type: %d.", signal);
-            // Send the control event and wait for the receipt or for the private state
-            // thread to exit
-            std::shared_ptr<EventDataReceipt> event_receipt_sp(new EventDataReceipt());
-            m_private_state_control_broadcaster.BroadcastEvent(signal, event_receipt_sp);
+        // Broadcast the event.
+        // It is important to do this outside of the if below, because
+        // it's possible that the thread state is invalid but that the
+        // thread is waiting on a control event instead of simply being
+        // on its way out (this should not happen, but it apparently can).
+        if (log)
+            log->Printf ("Sending control event of type: %d.", signal);
+        std::shared_ptr<EventDataReceipt> event_receipt_sp(new EventDataReceipt());
+        m_private_state_control_broadcaster.BroadcastEvent(signal, event_receipt_sp);
 
-            bool receipt_received = false;
+        // Wait for the event receipt or for the private state thread to exit
+        bool receipt_received = false;
+        if (PrivateStateThreadIsValid())
+        {
             while (!receipt_received)
             {
                 bool timed_out = false;
@@ -4132,22 +4139,23 @@ Process::ControlPrivateStateThread (uint32_t signal)
                 if (!receipt_received)
                 {
                     // Check if the private state thread is still around. If it isn't then we are done waiting
-                    if (!m_private_state_thread.IsJoinable())
-                        break; // Private state thread exited, we are done
+                    if (!PrivateStateThreadIsValid())
+                        break; // Private state thread exited or is exiting, we are done
                 }
             }
+        }
 
-            if (signal == eBroadcastInternalStateControlStop)
-            {
-                thread_result_t result = NULL;
-                private_state_thread.Join(&result);
-            }
-        }
-        else
+        if (signal == eBroadcastInternalStateControlStop)
         {
-            if (log)
-                log->Printf ("Private state thread already dead, no need to signal it to stop.");
+            thread_result_t result = NULL;
+            m_private_state_thread.Join(&result);
+            m_private_state_thread.Reset();
         }
+    }
+    else
+    {
+        if (log)
+            log->Printf("Private state thread already dead, no need to signal it to stop.");
     }
 }
 
@@ -4441,7 +4449,6 @@ Process::RunPrivateStateThread (bool is_secondary_thread)
     // try to change it on the way out.
     if (!is_secondary_thread)
         m_public_run_lock.SetStopped();
-    m_private_state_thread.Reset();
     return NULL;
 }
 
@@ -4783,7 +4790,7 @@ Process::CalculateExecutionContext (ExecutionContext &exe_ctx)
 void
 Process::AppendSTDOUT (const char * s, size_t len)
 {
-    Mutex::Locker locker (m_stdio_communication_mutex);
+    std::lock_guard<std::recursive_mutex> guard(m_stdio_communication_mutex);
     m_stdout_data.append (s, len);
     BroadcastEventIfUnique (eBroadcastBitSTDOUT, new ProcessEventData (shared_from_this(), GetState()));
 }
@@ -4791,7 +4798,7 @@ Process::AppendSTDOUT (const char * s, size_t len)
 void
 Process::AppendSTDERR (const char * s, size_t len)
 {
-    Mutex::Locker locker (m_stdio_communication_mutex);
+    std::lock_guard<std::recursive_mutex> guard(m_stdio_communication_mutex);
     m_stderr_data.append (s, len);
     BroadcastEventIfUnique (eBroadcastBitSTDERR, new ProcessEventData (shared_from_this(), GetState()));
 }
@@ -4799,7 +4806,7 @@ Process::AppendSTDERR (const char * s, size_t len)
 void
 Process::BroadcastAsyncProfileData(const std::string &one_profile_data)
 {
-    Mutex::Locker locker (m_profile_data_comm_mutex);
+    std::lock_guard<std::recursive_mutex> guard(m_profile_data_comm_mutex);
     m_profile_data.push_back(one_profile_data);
     BroadcastEventIfUnique (eBroadcastBitProfileData, new ProcessEventData (shared_from_this(), GetState()));
 }
@@ -4807,7 +4814,7 @@ Process::BroadcastAsyncProfileData(const std::string &one_profile_data)
 size_t
 Process::GetAsyncProfileData (char *buf, size_t buf_size, Error &error)
 {
-    Mutex::Locker locker(m_profile_data_comm_mutex);
+    std::lock_guard<std::recursive_mutex> guard(m_profile_data_comm_mutex);
     if (m_profile_data.empty())
         return 0;
     
@@ -4842,7 +4849,7 @@ Process::GetAsyncProfileData (char *buf, size_t buf_size, Error &error)
 size_t
 Process::GetSTDOUT (char *buf, size_t buf_size, Error &error)
 {
-    Mutex::Locker locker(m_stdio_communication_mutex);
+    std::lock_guard<std::recursive_mutex> guard(m_stdio_communication_mutex);
     size_t bytes_available = m_stdout_data.size();
     if (bytes_available > 0)
     {
@@ -4869,7 +4876,7 @@ Process::GetSTDOUT (char *buf, size_t buf_size, Error &error)
 size_t
 Process::GetSTDERR (char *buf, size_t buf_size, Error &error)
 {
-    Mutex::Locker locker(m_stdio_communication_mutex);
+    std::lock_guard<std::recursive_mutex> gaurd(m_stdio_communication_mutex);
     size_t bytes_available = m_stderr_data.size();
     if (bytes_available > 0)
     {
@@ -5191,6 +5198,8 @@ Process::RunThreadPlan(ExecutionContext &exe_ctx, lldb::ThreadPlanSP &thread_pla
                        const EvaluateExpressionOptions &options, DiagnosticManager &diagnostic_manager)
 {
     ExpressionResults return_value = eExpressionSetupError;
+    
+    std::lock_guard<std::mutex> run_thread_plan_locker(m_run_thread_plan_lock);
 
     if (!thread_plan_sp)
     {
@@ -5219,7 +5228,7 @@ Process::RunThreadPlan(ExecutionContext &exe_ctx, lldb::ThreadPlanSP &thread_pla
 
     // We need to change some of the thread plan attributes for the thread plan runner.  This will restore them
     // when we are done:
-    
+        
     RestorePlanState thread_plan_restorer(thread_plan_sp);
     
     // We rely on the thread plan we are running returning "PlanCompleted" if when it successfully completes.
@@ -6105,7 +6114,7 @@ Process::RunThreadPlan(ExecutionContext &exe_ctx, lldb::ThreadPlanSP &thread_pla
             if (GetThreadList().SetSelectedThreadByIndexID (selected_tid) && selected_stack_id.IsValid())
             {
                 // We were able to restore the selected thread, now restore the frame:
-                Mutex::Locker lock(GetThreadList().GetMutex());
+                std::lock_guard<std::recursive_mutex> guard(GetThreadList().GetMutex());
                 StackFrameSP old_frame_sp = GetThreadList().GetSelectedThread()->GetFrameWithStackID(selected_stack_id);
                 if (old_frame_sp)
                     GetThreadList().GetSelectedThread()->SetSelectedFrame(old_frame_sp.get());
@@ -6210,7 +6219,7 @@ Process::GetThreadStatus (Stream &strm,
     std::vector<lldb::tid_t> thread_id_array;
     //Scope for thread list locker;
     {
-        Mutex::Locker locker (GetThreadList().GetMutex());
+        std::lock_guard<std::recursive_mutex> guard(GetThreadList().GetMutex());
         ThreadList &curr_thread_list = GetThreadList();
         num_threads = curr_thread_list.GetSize();
         uint32_t idx;
@@ -6596,12 +6605,6 @@ Process::AdvanceAddressToNextBranchInstruction (Address default_stop_addr, Addre
         {
             retval = next_branch_insn_address;
         }
-    }
-
-    if (disassembler_sp)
-    {
-        // FIXME: The DisassemblerLLVMC has a reference cycle and won't go away if it has any active instructions.
-        disassembler_sp->GetInstructionList().Clear();
     }
 
     return retval;

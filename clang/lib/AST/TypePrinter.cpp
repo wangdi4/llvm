@@ -112,7 +112,8 @@ namespace {
   };
 }
 
-static void AppendTypeQualList(raw_ostream &OS, unsigned TypeQuals, bool C99) {
+static void AppendTypeQualList(raw_ostream &OS, unsigned TypeQuals,
+                               bool HasRestrictKeyword) {
   bool appendSpace = false;
   if (TypeQuals & Qualifiers::Const) {
     OS << "const";
@@ -125,7 +126,7 @@ static void AppendTypeQualList(raw_ostream &OS, unsigned TypeQuals, bool C99) {
   }
   if (TypeQuals & Qualifiers::Restrict) {
     if (appendSpace) OS << ' ';
-    if (C99) {
+    if (HasRestrictKeyword) {
       OS << "restrict";
     } else {
       OS << "__restrict";
@@ -439,7 +440,8 @@ void TypePrinter::printConstantArrayAfter(const ConstantArrayType *T,
                                           raw_ostream &OS) {
   OS << '[';
   if (T->getIndexTypeQualifiers().hasQualifiers()) {
-    AppendTypeQualList(OS, T->getIndexTypeCVRQualifiers(), Policy.LangOpts.C99);
+    AppendTypeQualList(OS, T->getIndexTypeCVRQualifiers(),
+                       Policy.Restrict);
     OS << ' ';
   }
 
@@ -472,7 +474,7 @@ void TypePrinter::printVariableArrayAfter(const VariableArrayType *T,
                                           raw_ostream &OS) {
   OS << '[';
   if (T->getIndexTypeQualifiers().hasQualifiers()) {
-    AppendTypeQualList(OS, T->getIndexTypeCVRQualifiers(), Policy.LangOpts.C99);
+    AppendTypeQualList(OS, T->getIndexTypeCVRQualifiers(), Policy.Restrict);
     OS << ' ';
   }
 
@@ -672,7 +674,7 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
     if (T->getNumParams())
       OS << ", ";
     OS << "...";
-  } else if (T->getNumParams() == 0 && !Policy.LangOpts.CPlusPlus) {
+  } else if (T->getNumParams() == 0 && Policy.UseVoidForZeroParams) {
     // Do not emit int() if we have a proto, emit 'int(void)'.
     OS << "void";
   }
@@ -725,7 +727,7 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
     case CC_SpirFunction:
     case CC_SpirKernel:
 #if INTEL_CUSTOMIZATION
-      if (Policy.LangOpts.IntelCompat && Info.getCC() == CC_X86RegCall)
+      if (Policy.IntelCompat && Info.getCC() == CC_X86RegCall)
         OS << " __attribute__((regcall))";
 #endif // INTEL_CUSTOMIZATION
       // Do nothing. These CCs are not available as attributes.
@@ -750,7 +752,7 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
 
   if (unsigned quals = T->getTypeQuals()) {
     OS << ' ';
-    AppendTypeQualList(OS, quals, Policy.LangOpts.C99);
+    AppendTypeQualList(OS, quals, Policy.Restrict);
   }
 
   switch (T->getRefQualifier()) {
@@ -971,13 +973,9 @@ void TypePrinter::printTag(TagDecl *D, raw_ostream &OS) {
 
   bool HasKindDecoration = false;
 
-  // bool SuppressTagKeyword
-  //   = Policy.LangOpts.CPlusPlus || Policy.SuppressTagKeyword;
-
   // We don't print tags unless this is an elaborated type.
   // In C, we just assume every RecordType is an elaborated type.
-  if (!(Policy.LangOpts.CPlusPlus || Policy.SuppressTagKeyword ||
-        D->getTypedefNameForAnonDecl())) {
+  if (!Policy.SuppressTagKeyword && !D->getTypedefNameForAnonDecl()) {
     HasKindDecoration = true;
     OS << D->getKindName();
     OS << ' ';
@@ -1615,7 +1613,7 @@ void Qualifiers::print(raw_ostream &OS, const PrintingPolicy& Policy,
 
   unsigned quals = getCVRQualifiers();
   if (quals) {
-    AppendTypeQualList(OS, quals, Policy.LangOpts.C99);
+    AppendTypeQualList(OS, quals, Policy.Restrict);
     addSpace = true;
   }
   if (hasUnaligned()) {
