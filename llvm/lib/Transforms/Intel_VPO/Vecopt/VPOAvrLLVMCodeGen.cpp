@@ -91,7 +91,7 @@ static Value* buildReductionTail(Value *VectorVal,
     Value *Hi = Builder.CreateExtractElement(VectorVal, Builder.getInt32(1), "Hi");
     return Builder.CreateBinOp(BOpcode, Lo, Hi, "Reduced");
   }
-  SmallVector<int, 16> LoMask, HiMask;
+  SmallVector<uint32_t, 16> LoMask, HiMask;
   for (unsigned i = 0; i < VL / 2; ++i)
     LoMask.push_back(i);
   for (unsigned i = VL / 2; i < VL; ++i)

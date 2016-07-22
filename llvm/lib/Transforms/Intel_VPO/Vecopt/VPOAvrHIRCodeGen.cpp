@@ -647,7 +647,7 @@ static HLInst * buildReductionTail(HLContainerTy& InstContainer,
     InstContainer.push_back(Combine);
     return Combine;
   }
-  SmallVector<int, 16> LoMask, HiMask;
+  SmallVector<uint32_t, 16> LoMask, HiMask;
   for (unsigned i = 0; i < VL/2; ++i)
     LoMask.push_back(i);
   for (unsigned i = VL/2; i < VL; ++i)

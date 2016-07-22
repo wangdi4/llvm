@@ -526,7 +526,7 @@ HLInst *HLNodeUtils::createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
 }
 
 HLInst *HLNodeUtils::CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
-                                             ArrayRef<int> Mask,
+                                             ArrayRef<uint32_t> Mask,
                                              const Twine &Name,
                                              RegDDRef *LvalRef) {
   assert(OpRef1->getDestType()->isVectorTy() &&

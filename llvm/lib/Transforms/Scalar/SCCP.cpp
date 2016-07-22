@@ -1278,11 +1278,11 @@ void SCCPSolver::Solve() {
 /// conservatively, as "(zext i8 X -> i32) & 0xFF00" must always return zero,
 /// even if X isn't defined.
 bool SCCPSolver::ResolvedUndefsIn(Function &F) {
-  for (Function::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-    if (!BBExecutable.count(&*BB))
+  for (BasicBlock &BB : F) {
+    if (!BBExecutable.count(&BB))
       continue;
 
-    for (Instruction &I : *BB) {
+    for (Instruction &I : BB) {
       // Look for instructions which produce undef values.
       if (I.getType()->isVoidTy()) continue;
 
@@ -1420,10 +1420,10 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
 
         // Shifting by the bitwidth or more is undefined.
         if (Op1LV.isConstant()) {
-          auto *ShiftAmt = Op1LV.getConstantInt();
-          if (ShiftAmt->getLimitedValue() >=
-              ShiftAmt->getType()->getScalarSizeInBits())
-            break;
+          if (auto *ShiftAmt = Op1LV.getConstantInt())
+            if (ShiftAmt->getLimitedValue() >=
+                ShiftAmt->getType()->getScalarSizeInBits())
+              break;
         }
 
         // undef >>a X -> all ones
@@ -1437,10 +1437,10 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
 
         // Shifting by the bitwidth or more is undefined.
         if (Op1LV.isConstant()) {
-          auto *ShiftAmt = Op1LV.getConstantInt();
-          if (ShiftAmt->getLimitedValue() >=
-              ShiftAmt->getType()->getScalarSizeInBits())
-            break;
+          if (auto *ShiftAmt = Op1LV.getConstantInt())
+            if (ShiftAmt->getLimitedValue() >=
+                ShiftAmt->getType()->getScalarSizeInBits())
+              break;
         }
 
         // undef << X -> 0
@@ -1506,7 +1506,7 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
     // Check to see if we have a branch or switch on an undefined value.  If so
     // we force the branch to go one way or the other to make the successor
     // values live.  It doesn't really matter which way we force it.
-    TerminatorInst *TI = BB->getTerminator();
+    TerminatorInst *TI = BB.getTerminator();
     if (BranchInst *BI = dyn_cast<BranchInst>(TI)) {
       if (!BI->isConditional()) continue;
       if (!getValueState(BI->getCondition()).isUndefined())
@@ -1516,7 +1516,7 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
       // false.
       if (isa<UndefValue>(BI->getCondition())) {
         BI->setCondition(ConstantInt::getFalse(BI->getContext()));
-        markEdgeExecutable(&*BB, TI->getSuccessor(1));
+        markEdgeExecutable(&BB, TI->getSuccessor(1));
         return true;
       }
 
@@ -1538,7 +1538,7 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
       // the first constant.
       if (isa<UndefValue>(SI->getCondition())) {
         SI->setCondition(SI->case_begin().getCaseValue());
-        markEdgeExecutable(&*BB, SI->case_begin().getCaseSuccessor());
+        markEdgeExecutable(&BB, SI->case_begin().getCaseSuccessor());
         return true;
       }
 
@@ -1579,12 +1579,12 @@ static bool runSCCP(Function &F, const DataLayout &DL,
   // delete their contents now.  Note that we cannot actually delete the blocks,
   // as we cannot modify the CFG of the function.
 
-  for (Function::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-    if (!Solver.isBlockExecutable(&*BB)) {
-      DEBUG(dbgs() << "  BasicBlock Dead:" << *BB);
+  for (BasicBlock &BB : F) {
+    if (!Solver.isBlockExecutable(&BB)) {
+      DEBUG(dbgs() << "  BasicBlock Dead:" << BB);
 
       ++NumDeadBlocks;
-      NumInstRemoved += removeAllNonTerminatorAndEHPadInstructions(&*BB);
+      NumInstRemoved += removeAllNonTerminatorAndEHPadInstructions(&BB);
 
       MadeChanges = true;
       continue;
@@ -1593,7 +1593,7 @@ static bool runSCCP(Function &F, const DataLayout &DL,
     // Iterate over all of the instructions in a function, replacing them with
     // constants if we have found them to be of constant values.
     //
-    for (BasicBlock::iterator BI = BB->begin(), E = BB->end(); BI != E; ) {
+    for (BasicBlock::iterator BI = BB.begin(), E = BB.end(); BI != E;) {
       Instruction *Inst = &*BI++;
       if (Inst->getType()->isVoidTy() || isa<TerminatorInst>(Inst))
         continue;
@@ -1630,7 +1630,10 @@ PreservedAnalyses SCCPPass::run(Function &F, AnalysisManager<Function> &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   if (!runSCCP(F, DL, &TLI))
     return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
+
+  auto PA = PreservedAnalyses();
+  PA.preserve<GlobalsAA>();
+  return PA;
 }
 
 namespace {
@@ -1639,7 +1642,8 @@ namespace {
 /// SCCP Class - This class uses the SCCPSolver to implement a per-function
 /// Sparse Conditional Constant Propagator.
 ///
-struct SCCPLegacyPass : public FunctionPass {
+class SCCPLegacyPass : public FunctionPass {
+public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
@@ -1758,8 +1762,8 @@ static bool runIPSCCP(Module &M, const DataLayout &DL,
 
     DEBUG(dbgs() << "RESOLVING UNDEFS\n");
     ResolvedUndefs = false;
-    for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F)
-      ResolvedUndefs |= Solver.ResolvedUndefsIn(*F);
+    for (Function &F : M)
+      ResolvedUndefs |= Solver.ResolvedUndefsIn(F);
   }
 
   bool MadeChanges = false;
@@ -1769,13 +1773,13 @@ static bool runIPSCCP(Module &M, const DataLayout &DL,
   //
   SmallVector<BasicBlock*, 512> BlocksToErase;
 
-  for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
-    if (F->isDeclaration())
+  for (Function &F : M) {
+    if (F.isDeclaration())
       continue;
 
-    if (Solver.isBlockExecutable(&F->front())) {
-      for (Function::arg_iterator AI = F->arg_begin(), E = F->arg_end();
-           AI != E; ++AI) {
+    if (Solver.isBlockExecutable(&F.front())) {
+      for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end(); AI != E;
+           ++AI) {
         if (AI->use_empty() || AI->getType()->isStructTy()) continue;
 
         // TODO: Could use getStructLatticeValueFor to find out if the entire
@@ -1795,7 +1799,7 @@ static bool runIPSCCP(Module &M, const DataLayout &DL,
       }
     }
 
-    for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
+    for (Function::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
       if (!Solver.isBlockExecutable(&*BB)) {
         DEBUG(dbgs() << "  BasicBlock Dead:" << *BB);
 
@@ -1805,7 +1809,7 @@ static bool runIPSCCP(Module &M, const DataLayout &DL,
 
         MadeChanges = true;
 
-        if (&*BB != &F->front())
+        if (&*BB != &F.front())
           BlocksToErase.push_back(&*BB);
         continue;
       }
@@ -1887,7 +1891,7 @@ static bool runIPSCCP(Module &M, const DataLayout &DL,
       }
 
       // Finally, delete the basic block.
-      F->getBasicBlockList().erase(DeadBB);
+      F.getBasicBlockList().erase(DeadBB);
     }
     BlocksToErase.clear();
   }
@@ -1906,18 +1910,17 @@ static bool runIPSCCP(Module &M, const DataLayout &DL,
 
   // TODO: Process multiple value ret instructions also.
   const DenseMap<Function*, LatticeVal> &RV = Solver.getTrackedRetVals();
-  for (DenseMap<Function*, LatticeVal>::const_iterator I = RV.begin(),
-       E = RV.end(); I != E; ++I) {
-    Function *F = I->first;
-    if (I->second.isOverdefined() || F->getReturnType()->isVoidTy())
+  for (const auto &I : RV) {
+    Function *F = I.first;
+    if (I.second.isOverdefined() || F->getReturnType()->isVoidTy())
       continue;
 
     // We can only do this if we know that nothing else can call the function.
     if (!F->hasLocalLinkage() || AddressTakenFunctions.count(F))
       continue;
 
-    for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB)
-      if (ReturnInst *RI = dyn_cast<ReturnInst>(BB->getTerminator()))
+    for (BasicBlock &BB : *F)
+      if (ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator()))
         if (!isa<UndefValue>(RI->getOperand(0)))
           ReturnsToZap.push_back(RI);
   }
@@ -1962,7 +1965,8 @@ namespace {
 /// IPSCCP Class - This class implements interprocedural Sparse Conditional
 /// Constant Propagation.
 ///
-struct IPSCCPLegacyPass : public ModulePass {
+class IPSCCPLegacyPass : public ModulePass {
+public:
   static char ID;
 
   IPSCCPLegacyPass() : ModulePass(ID) {

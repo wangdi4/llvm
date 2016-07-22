@@ -17,6 +17,7 @@
 
 #include "llvm/Target/TargetRecip.h"
 #include "llvm/MC/MCTargetOptions.h"
+#include "llvm/MC/MCAsmInfo.h"
 
 namespace llvm {
   class MachineFunction;
@@ -97,14 +98,15 @@ namespace llvm {
           GuaranteedTailCallOpt(false),            // INTEL
           IntelLibIRCAllowed(false),               // INTEL
           StackAlignmentOverride(0),               // INTEL
-          StackSymbolOrdering(true), EnableFastISel(false),
-          UseInitArray(false), DisableIntegratedAS(false),
-          CompressDebugSections(false), FunctionSections(false),
+          StackSymbolOrdering(true), EnableFastISel(false), UseInitArray(false),
+          DisableIntegratedAS(false), CompressDebugSections(false),
+          RelaxELFRelocations(false), FunctionSections(false),
           DataSections(false), UniqueSectionNames(true), TrapUnreachable(false),
           EmulatedTLS(false), FloatABIType(FloatABI::Default),
           AllowFPOpFusion(FPOpFusion::Standard), Reciprocals(TargetRecip()),
           JTType(JumpTable::Single), ThreadModel(ThreadModel::POSIX),
-          EABIVersion(EABI::Default), DebuggerTuning(DebuggerKind::Default) {}
+          EABIVersion(EABI::Default), DebuggerTuning(DebuggerKind::Default),
+          ExceptionModel(ExceptionHandling::None) {}
 
     /// PrintMachineCode - This flag is enabled when the -print-machineinstrs
     /// option is specified on the command line, and should enable debugging
@@ -197,6 +199,8 @@ namespace llvm {
     /// Compress DWARF debug sections.
     unsigned CompressDebugSections : 1;
 
+    unsigned RelaxELFRelocations : 1;
+
     /// Emit functions into separate sections.
     unsigned FunctionSections : 1;
 
@@ -255,6 +259,9 @@ namespace llvm {
     /// Which debugger to tune for.
     DebuggerKind DebuggerTuning;
 
+    /// What exception model to use
+    ExceptionHandling ExceptionModel;
+
     /// Machine level options.
     MCTargetOptions MCOptions;
   };
@@ -284,6 +291,7 @@ inline bool operator==(const TargetOptions &LHS,
     ARE_EQUAL(ThreadModel) &&
     ARE_EQUAL(EABIVersion) &&
     ARE_EQUAL(DebuggerTuning) &&
+    ARE_EQUAL(ExceptionModel) &&
     ARE_EQUAL(MCOptions);
 #undef ARE_EQUAL
 }
