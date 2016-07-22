@@ -262,6 +262,7 @@ class DwarfDebug : public DebugHandlerBase {
   /// DWARF5 Experimental Options
   /// @{
   bool HasDwarfAccelTables;
+  bool HasAppleExtensionAttributes;
   bool HasSplitDwarf;
 
   /// Separated Dwarf Variables
@@ -506,6 +507,10 @@ public:
   /// Returns whether or not to emit tables that dwarf consumers can
   /// use to accelerate lookup.
   bool useDwarfAccelTables() const { return HasDwarfAccelTables; }
+
+  bool useAppleExtensionAttributes() const {
+    return HasAppleExtensionAttributes;
+  }
 
   /// Returns whether or not to change the current debug info for the
   /// split dwarf proposal support.

@@ -156,17 +156,15 @@ void ReassociatePass::BuildRankMap(
     DEBUG(dbgs() << "Calculated Rank[" << I->getName() << "] = " << i << "\n");
   }
 
-  for (ReversePostOrderTraversal<Function*>::rpo_iterator I = RPOT.begin(),
-         E = RPOT.end(); I != E; ++I) {
-    BasicBlock *BB = *I;
+  for (BasicBlock *BB : RPOT) {
     unsigned BBRank = RankMap[BB] = ++i << 16;
 
     // Walk the basic block, adding precomputed ranks for any instructions that
     // we cannot move.  This ensures that the ranks for these instructions are
     // all different in the block.
-    for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I)
-      if (mayBeMemoryDependent(*I))
-        ValueRankMap[&*I] = ++BBRank;
+    for (Instruction &I : *BB)
+      if (mayBeMemoryDependent(I))
+        ValueRankMap[&I] = ++BBRank;
   }
 }
 
@@ -1029,7 +1027,7 @@ Value *ReassociatePass::RemoveFactorFromExpression(Value *V, Value *Factor) {
         }
     } else if (ConstantFP *FC1 = dyn_cast<ConstantFP>(Factor)) {
       if (ConstantFP *FC2 = dyn_cast<ConstantFP>(Factors[i].Op)) {
-        APFloat F1(FC1->getValueAPF());
+        const APFloat &F1 = FC1->getValueAPF();
         APFloat F2(FC2->getValueAPF());
         F2.changeSign();
         if (F1.compare(F2) == APFloat::cmpEqual) {
@@ -2174,7 +2172,7 @@ void ReassociatePass::ReassociateExpression(BinaryOperator *I) {
   RewriteExprTree(I, Ops);
 }
 
-PreservedAnalyses ReassociatePass::run(Function &F) {
+PreservedAnalyses ReassociatePass::run(Function &F, FunctionAnalysisManager &) {
   // Reassociate needs for each instruction to have its operands already
   // processed, so we first perform a RPOT of the basic blocks so that
   // when we process a basic block, all its dominators have been processed
@@ -2228,8 +2226,12 @@ PreservedAnalyses ReassociatePass::run(Function &F) {
   RankMap.clear();
   ValueRankMap.clear();
 
-  if (MadeChange)
-    return PreservedAnalyses::none();
+  if (MadeChange) {
+    // FIXME: This should also 'preserve the CFG'.
+    auto PA = PreservedAnalyses();
+    PA.preserve<GlobalsAA>();
+    return PA;
+  }
 
   return PreservedAnalyses::all();
 }
@@ -2247,7 +2249,8 @@ namespace {
       if (skipFunction(F))
         return false;
 
-      auto PA = Impl.run(F);
+      FunctionAnalysisManager DummyFAM;
+      auto PA = Impl.run(F, DummyFAM);
       return !PA.areAllPreserved();
     }
 

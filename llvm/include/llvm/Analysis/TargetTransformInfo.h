@@ -280,9 +280,14 @@ public:
     /// loop body even when the number of loop iterations is not known at
     /// compile time).
     bool Runtime;
+    /// Allow generation of a loop remainder (extra iterations after unroll).
+    bool AllowRemainder;
     /// Allow emitting expensive instructions (such as divisions) when computing
     /// the trip count of a loop for runtime unrolling.
     bool AllowExpensiveTripCount;
+    /// Apply loop unroll on any kind of loop
+    /// (mainly to loops that fail runtime unrolling).
+    bool Force;
   };
 
   /// \brief Get target-customized preferences for the generic loop unrolling
@@ -439,6 +444,10 @@ public:
 
   /// \return The width of the largest scalar or vector register type.
   unsigned getRegisterBitWidth(bool Vector) const;
+
+  /// \return The bitwidth of the largest vector type that should be used to
+  /// load/store in the given address space.
+  unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const;
 
   /// \return The size of a cache line in bytes.
   unsigned getCacheLineSize() const;
@@ -661,6 +670,7 @@ public:
                             Type *Ty) = 0;
   virtual unsigned getNumberOfRegisters(bool Vector) = 0;
   virtual unsigned getRegisterBitWidth(bool Vector) = 0;
+  virtual unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) = 0;
   virtual unsigned getCacheLineSize() = 0;
   virtual unsigned getPrefetchDistance() = 0;
   virtual unsigned getMinPrefetchStride() = 0;
@@ -847,6 +857,11 @@ public:
   unsigned getRegisterBitWidth(bool Vector) override {
     return Impl.getRegisterBitWidth(Vector);
   }
+
+  unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) override {
+    return Impl.getLoadStoreVecRegBitWidth(AddrSpace);
+  }
+
   unsigned getCacheLineSize() override {
     return Impl.getCacheLineSize();
   }
@@ -998,7 +1013,7 @@ public:
     return *this;
   }
 
-  Result run(const Function &F);
+  Result run(const Function &F, AnalysisManager<Function> &);
 
 private:
   friend AnalysisInfoMixin<TargetIRAnalysis>;

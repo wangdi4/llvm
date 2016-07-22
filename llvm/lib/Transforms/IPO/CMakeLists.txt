@@ -20,7 +20,7 @@ add_llvm_library(LLVMipo
   Inliner.cpp
   Internalize.cpp
   LoopExtractor.cpp
-  LowerBitSets.cpp
+  LowerTypeTests.cpp
   MergeFunctions.cpp
   PartialInlining.cpp
   PassManagerBuilder.cpp

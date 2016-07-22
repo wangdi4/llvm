@@ -637,7 +637,7 @@ public:
 
   /// \brief Creates a new ShuffleVector instruction
   static HLInst *CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
-                                         ArrayRef<int> Mask,
+                                         ArrayRef<uint32_t> Mask,
                                          const Twine &Name = "shuffle",
                                          RegDDRef *LvalRef = nullptr);
 
