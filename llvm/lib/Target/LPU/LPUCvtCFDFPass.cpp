@@ -247,8 +247,8 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     addMemoryOrderingConstraints();
   }
   
-  insertSWITCHForRepeat();
 	insertSWITCHForIf();
+	insertSWITCHForRepeat();
   insertSWITCHForLoopExit();
   replacePhiWithPICK();
   handleAllConstantInputs();
