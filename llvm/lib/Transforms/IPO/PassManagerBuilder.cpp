@@ -124,7 +124,7 @@ static cl::opt<bool> RunVecClone("enable-vec-clone",
   cl::desc("Run Vector Function Cloning"));
 
 // INTEL - HIR passes
-static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
+static cl::opt<bool> RunLoopOpts("loopopt", cl::init(true), cl::Hidden,
                                  cl::desc("Runs loop optimization passes"));
 
 static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only", 
