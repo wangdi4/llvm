@@ -132,8 +132,8 @@ entry:
   %tmp12 = load <4 x float>, <4 x float>* %color1.addr         ; <<4 x float>> [#uses=1]
   %tmp13 = load <4 x float>, <4 x float>* %color2.addr         ; <<4 x float>> [#uses=1]
   %call14 = call <4 x float> @evaluatePixel(<2 x float> %tmp10, <2 x float> %tmp11, <4 x float> %tmp12, <4 x float> %tmp13) ; <<4 x float>> [#uses=1]
-  %tmp15 = load i32* %index                       ; <i32> [#uses=1]
-  %tmp16 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp15 = load i32, i32* %index                       ; <i32> [#uses=1]
+  %tmp16 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp16, i32 %tmp15 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call14, <4 x float> addrspace(1)* %arrayidx
   ret void

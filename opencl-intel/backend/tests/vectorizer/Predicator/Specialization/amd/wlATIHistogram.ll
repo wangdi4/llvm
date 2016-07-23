@@ -57,7 +57,7 @@ for.body:		; preds = %for.cond
 	%mul = mul i32 %tmp5, %tmp6		; <i32> [#uses=1]
 	%tmp7 = load i32, i32* %i		; <i32> [#uses=1]
 	%add = add i32 %mul, %tmp7		; <i32> [#uses=1]
-	%tmp8 = load i8 addrspace(3)** %sharedArray.addr		; <i8 addrspace(3)*> [#uses=1]
+	%tmp8 = load i8 addrspace(3)*, i8 addrspace(3)** %sharedArray.addr		; <i8 addrspace(3)*> [#uses=1]
 	%arrayidx = getelementptr i8, i8 addrspace(3)* %tmp8, i32 %add		; <i8 addrspace(3)*> [#uses=1]
 	store i8 0, i8 addrspace(3)* %arrayidx
 	br label %for.inc
@@ -85,18 +85,18 @@ for.body16:		; preds = %for.cond12
 	%mul20 = mul i32 %tmp18, %tmp19		; <i32> [#uses=1]
 	%tmp21 = load i32, i32* %i11		; <i32> [#uses=1]
 	%add22 = add i32 %mul20, %tmp21		; <i32> [#uses=1]
-	%tmp23 = load i32 addrspace(1)** %data.addr		; <i32 addrspace(1)*> [#uses=1]
+	%tmp23 = load i32 addrspace(1)*, i32 addrspace(1)** %data.addr		; <i32 addrspace(1)*> [#uses=1]
 	%arrayidx24 = getelementptr i32, i32 addrspace(1)* %tmp23, i32 %add22		; <i32 addrspace(1)*> [#uses=1]
-	%tmp25 = load i32 addrspace(1)* %arrayidx24		; <i32> [#uses=1]
+	%tmp25 = load i32, i32 addrspace(1)* %arrayidx24		; <i32> [#uses=1]
 	store i32 %tmp25, i32* %value
 	%tmp26 = load i32, i32* %localId		; <i32> [#uses=1]
 	%tmp27 = load i32, i32* %BIN_SIZE.addr		; <i32> [#uses=1]
 	%mul28 = mul i32 %tmp26, %tmp27		; <i32> [#uses=1]
 	%tmp29 = load i32, i32* %value		; <i32> [#uses=1]
 	%add30 = add i32 %mul28, %tmp29		; <i32> [#uses=1]
-	%tmp31 = load i8 addrspace(3)** %sharedArray.addr		; <i8 addrspace(3)*> [#uses=1]
+	%tmp31 = load i8 addrspace(3)*, i8 addrspace(3)** %sharedArray.addr		; <i8 addrspace(3)*> [#uses=1]
 	%arrayidx32 = getelementptr i8, i8 addrspace(3)* %tmp31, i32 %add30		; <i8 addrspace(3)*> [#uses=2]
-	%tmp33 = load i8 addrspace(3)* %arrayidx32		; <i8> [#uses=1]
+	%tmp33 = load i8, i8 addrspace(3)* %arrayidx32		; <i8> [#uses=1]
 	%inc34 = add i8 %tmp33, 1		; <i8> [#uses=1]
 	store i8 %inc34, i8 addrspace(3)* %arrayidx32
 	br label %for.inc35
@@ -144,9 +144,9 @@ for.body54:		; preds = %for.cond50
 	%add62 = add i32 %mul58, %mul61		; <i32> [#uses=1]
 	%tmp63 = load i32, i32* %localId		; <i32> [#uses=1]
 	%add64 = add i32 %add62, %tmp63		; <i32> [#uses=1]
-	%tmp65 = load i8 addrspace(3)** %sharedArray.addr		; <i8 addrspace(3)*> [#uses=1]
+	%tmp65 = load i8 addrspace(3)*, i8 addrspace(3)** %sharedArray.addr		; <i8 addrspace(3)*> [#uses=1]
 	%arrayidx66 = getelementptr i8, i8 addrspace(3)* %tmp65, i32 %add64		; <i8 addrspace(3)*> [#uses=1]
-	%tmp67 = load i8 addrspace(3)* %arrayidx66		; <i8> [#uses=1]
+	%tmp67 = load i8, i8 addrspace(3)* %arrayidx66		; <i8> [#uses=1]
 	%conv = zext i8 %tmp67 to i32		; <i32> [#uses=1]
 	%add68 = add i32 %tmp55, %conv		; <i32> [#uses=1]
 	store i32 %add68, i32* %binCount
@@ -168,9 +168,9 @@ for.end72:		; preds = %for.cond50
 	%add79 = add i32 %mul75, %mul78		; <i32> [#uses=1]
 	%tmp80 = load i32, i32* %localId		; <i32> [#uses=1]
 	%add81 = add i32 %add79, %tmp80		; <i32> [#uses=1]
-	%tmp82 = load i32 addrspace(1)** %binResult.addr		; <i32 addrspace(1)*> [#uses=1]
+	%tmp82 = load i32 addrspace(1)*, i32 addrspace(1)** %binResult.addr		; <i32 addrspace(1)*> [#uses=1]
 	%arrayidx83 = getelementptr i32, i32 addrspace(1)* %tmp82, i32 %add81		; <i32 addrspace(1)*> [#uses=1]
-	%tmp84 = load i32* %binCount		; <i32> [#uses=1]
+	%tmp84 = load i32, i32* %binCount		; <i32> [#uses=1]
 	store i32 %tmp84, i32 addrspace(1)* %arrayidx83
 	br label %for.inc85
 

@@ -32,13 +32,13 @@ entry:
 	store i32 %call2, i32* %gid
 	%call3 = call i32 @_Z14get_local_sizej(i32 0)		; <i32> [#uses=1]
 	store i32 %call3, i32* %localSize
-	%tmp = load i32* %tid		; <i32> [#uses=1]
-	%tmp4 = load <4 x i32> addrspace(3)** %sdata.addr		; <<4 x i32> addrspace(3)*> [#uses=1]
+	%tmp = load i32, i32* %tid		; <i32> [#uses=1]
+	%tmp4 = load <4 x i32> addrspace(3)*, <4 x i32> addrspace(3)** %sdata.addr		; <<4 x i32> addrspace(3)*> [#uses=1]
 	%arrayidx = getelementptr <4 x i32>, <4 x i32> addrspace(3)* %tmp4, i32 %tmp		; <<4 x i32> addrspace(3)*> [#uses=1]
-	%tmp5 = load i32* %gid		; <i32> [#uses=1]
-	%tmp6 = load <4 x i32> addrspace(1)** %input.addr		; <<4 x i32> addrspace(1)*> [#uses=1]
+	%tmp5 = load i32, i32* %gid		; <i32> [#uses=1]
+	%tmp6 = load <4 x i32> addrspace(1)*, <4 x i32> addrspace(1)** %input.addr		; <<4 x i32> addrspace(1)*> [#uses=1]
 	%arrayidx7 = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %tmp6, i32 %tmp5		; <<4 x i32> addrspace(1)*> [#uses=1]
-	%tmp8 = load <4 x i32> addrspace(1)* %arrayidx7		; <<4 x i32>> [#uses=1]
+	%tmp8 = load <4 x i32>, <4 x i32> addrspace(1)* %arrayidx7		; <<4 x i32>> [#uses=1]
 	store <4 x i32> %tmp8, <4 x i32> addrspace(3)* %arrayidx
 	call void @_Z7barrierm(i32 1)
 	%tmp10 = load i32, i32* %localSize		; <i32> [#uses=1]
@@ -58,16 +58,16 @@ for.body:		; preds = %for.cond
 	br i1 %cmp14, label %if.then, label %if.end
 
 if.then:		; preds = %for.body
-	%tmp15 = load i32* %tid		; <i32> [#uses=1]
-	%tmp16 = load <4 x i32> addrspace(3)** %sdata.addr		; <<4 x i32> addrspace(3)*> [#uses=1]
+	%tmp15 = load i32, i32* %tid		; <i32> [#uses=1]
+	%tmp16 = load <4 x i32> addrspace(3)*, <4 x i32> addrspace(3)** %sdata.addr		; <<4 x i32> addrspace(3)*> [#uses=1]
 	%arrayidx17 = getelementptr <4 x i32>, <4 x i32> addrspace(3)* %tmp16, i32 %tmp15		; <<4 x i32> addrspace(3)*> [#uses=2]
-	%tmp18 = load <4 x i32> addrspace(3)* %arrayidx17		; <<4 x i32>> [#uses=1]
-	%tmp19 = load i32* %tid		; <i32> [#uses=1]
-	%tmp20 = load i32* %s		; <i32> [#uses=1]
+	%tmp18 = load <4 x i32>, <4 x i32> addrspace(3)* %arrayidx17		; <<4 x i32>> [#uses=1]
+	%tmp19 = load i32, i32* %tid		; <i32> [#uses=1]
+	%tmp20 = load i32, i32* %s		; <i32> [#uses=1]
 	%add = add i32 %tmp19, %tmp20		; <i32> [#uses=1]
-	%tmp21 = load <4 x i32> addrspace(3)** %sdata.addr		; <<4 x i32> addrspace(3)*> [#uses=1]
+	%tmp21 = load <4 x i32> addrspace(3)*, <4 x i32> addrspace(3)** %sdata.addr		; <<4 x i32> addrspace(3)*> [#uses=1]
 	%arrayidx22 = getelementptr <4 x i32>, <4 x i32> addrspace(3)* %tmp21, i32 %add		; <<4 x i32> addrspace(3)*> [#uses=1]
-	%tmp23 = load <4 x i32> addrspace(3)* %arrayidx22		; <<4 x i32>> [#uses=1]
+	%tmp23 = load <4 x i32>, <4 x i32> addrspace(3)* %arrayidx22		; <<4 x i32>> [#uses=1]
 	%add24 = add <4 x i32> %tmp18, %tmp23		; <<4 x i32>> [#uses=1]
 	store <4 x i32> %add24, <4 x i32> addrspace(3)* %arrayidx17
 	br label %if.end
@@ -88,12 +88,12 @@ for.end:		; preds = %for.cond
 	br i1 %cmp27, label %if.then28, label %if.end35
 
 if.then28:		; preds = %for.end
-	%tmp29 = load i32* %bid		; <i32> [#uses=1]
-	%tmp30 = load <4 x i32> addrspace(1)** %output.addr		; <<4 x i32> addrspace(1)*> [#uses=1]
+	%tmp29 = load i32, i32* %bid		; <i32> [#uses=1]
+	%tmp30 = load <4 x i32> addrspace(1)*, <4 x i32> addrspace(1)** %output.addr		; <<4 x i32> addrspace(1)*> [#uses=1]
 	%arrayidx31 = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %tmp30, i32 %tmp29		; <<4 x i32> addrspace(1)*> [#uses=1]
-	%tmp32 = load <4 x i32> addrspace(3)** %sdata.addr		; <<4 x i32> addrspace(3)*> [#uses=1]
+	%tmp32 = load <4 x i32> addrspace(3)*, <4 x i32> addrspace(3)** %sdata.addr		; <<4 x i32> addrspace(3)*> [#uses=1]
 	%arrayidx33 = getelementptr <4 x i32>, <4 x i32> addrspace(3)* %tmp32, i32 0		; <<4 x i32> addrspace(3)*> [#uses=1]
-	%tmp34 = load <4 x i32> addrspace(3)* %arrayidx33		; <<4 x i32>> [#uses=1]
+	%tmp34 = load <4 x i32>, <4 x i32> addrspace(3)* %arrayidx33		; <<4 x i32>> [#uses=1]
 	store <4 x i32> %tmp34, <4 x i32> addrspace(1)* %arrayidx31
 	br label %if.end35
 

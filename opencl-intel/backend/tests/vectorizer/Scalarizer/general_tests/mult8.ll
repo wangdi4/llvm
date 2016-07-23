@@ -21,7 +21,7 @@ define void @func_clz_func_mul24(float addrspace(1)* nocapture %in, <8 x float> 
   %2 = sitofp i32 %1 to float                     ; <float> [#uses=1]
   %3 = insertelement <8 x float> undef, float %2, i32 0 ; <<8 x float>> [#uses=1]
   %4 = getelementptr inbounds float, float addrspace(1)* %in, i32 %1 ; <float addrspace(1)*> [#uses=1]
-  %5 = load float addrspace(1)* %4                ; <float> [#uses=1]
+  %5 = load float, float addrspace(1)* %4                ; <float> [#uses=1]
   %6 = insertelement <8 x float> %3, float %5, i32 1 ; <<8 x float>> [#uses=1]
   %7 = insertelement <8 x float> %6, float 1.000000e+000, i32 2 ; <<8 x float>> [#uses=1]
   %8 = insertelement <8 x float> %7, float 2.300000e+001, i32 3 ; <<8 x float>> [#uses=1]

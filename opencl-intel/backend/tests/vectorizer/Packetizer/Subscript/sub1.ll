@@ -18,7 +18,7 @@ define void @kernel(i32* nocapture %A) nounwind {
   %2 = mul nsw i32 %1, 7
   %3 = sext i32 %2 to i64
   %4 = getelementptr inbounds i32, i32* %A, i64 %3
-  %5 = load i32* %4, align 4, !tbaa !0
+  %5 = load i32, i32* %4, align 4, !tbaa !0
   %6 = add nsw i32 %5, 3
   store i32 %6, i32* %4, align 4, !tbaa !0
   ret void

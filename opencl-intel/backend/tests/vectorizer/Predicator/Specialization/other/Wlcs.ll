@@ -66,7 +66,7 @@ bb.nph72:                                         ; preds = %._crit_edge73, %bb.
   %tmp167172 = or i64 %tmp164, 3
   %scevgep295 = getelementptr float, float addrspace(1)* %str1, i64 %tmp167172
   %scevgep300 = getelementptr float, float addrspace(1)* %str1, i64 %tmp164
-  %12 = load float addrspace(1)* %scevgep300, align 4
+  %12 = load float, float addrspace(1)* %scevgep300, align 4
   %13 = insertelement <4 x float> undef, float %12, i32 0
   %14 = shufflevector <4 x float> %13, <4 x float> undef, <4 x i32> zeroinitializer
   %15 = load float, float addrspace(1)* %scevgep299, align 4
@@ -153,7 +153,7 @@ bb.nph65:                                         ; preds = %24
 ._crit_edge315:                                   ; preds = %35
   %tmp16 = add i64 %indvar13, 1
   %scevgep93.phi.trans.insert = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %cmp, i64 0, i64 %tmp16
-  %.pre = load <4 x i32>* %scevgep93.phi.trans.insert, align 16
+  %.pre = load <4 x i32>, <4 x i32>* %scevgep93.phi.trans.insert, align 16
   br label %35
 
 bb.nph68:                                         ; preds = %24
@@ -201,7 +201,7 @@ bb.nph68:                                         ; preds = %24
 ._crit_edge314:                                   ; preds = %49
   %tmp = add i64 %indvar5, 1
   %scevgep106.phi.trans.insert = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %cmp, i64 0, i64 %tmp
-  %.pre316 = load <4 x i32>* %scevgep106.phi.trans.insert, align 16
+  %.pre316 = load <4 x i32>, <4 x i32>* %scevgep106.phi.trans.insert, align 16
   br label %49
 
 bb.nph70.loopexit:                                ; preds = %35
@@ -258,7 +258,7 @@ bb.nph70:                                         ; preds = %bb.nph70.loopexit17
   %scevgep112 = getelementptr [32 x i32], [32 x i32]* @Lcs.iterator_cmp, i64 0, i64 %tmp73
   %tmp74 = add i64 %tmp67, 19
   %scevgep110 = getelementptr [32 x i32], [32 x i32]* @Lcs.iterator_cmp, i64 0, i64 %tmp74
-  %64 = load i32 addrspace(1)* %scevgep133, align 4
+  %64 = load i32, i32 addrspace(1)* %scevgep133, align 4
   %65 = add nsw i32 %64, 1
   %66 = load i32, i32 addrspace(1)* %scevgep137, align 4
   %67 = add nsw i32 %66, 1
@@ -284,10 +284,10 @@ bb.nph70:                                         ; preds = %bb.nph70.loopexit17
 
 ; <label>:86                                      ; preds = %63
   %scevgep117 = getelementptr [32 x i32], [32 x i32]* @Lcs.iterator_cmp, i64 0, i64 %tmp67
-  %87 = load i32* %scevgep117, align 4
+  %87 = load i32, i32* %scevgep117, align 4
   %88 = sext i32 %87 to i64
   %89 = getelementptr inbounds [48 x i32], [48 x i32]* %cmp_id, i64 0, i64 %88
-  %90 = load i32* %89, align 4
+  %90 = load i32, i32* %89, align 4
   %91 = icmp eq i32 %90, 0
   br i1 %91, label %92, label %94
 
@@ -301,7 +301,7 @@ bb.nph70:                                         ; preds = %bb.nph70.loopexit17
   %95 = load i32, i32* %scevgep119, align 4
   %96 = sext i32 %95 to i64
   %97 = getelementptr inbounds [48 x i32], [48 x i32]* %cmp_id, i64 0, i64 %96
-  %98 = load i32* %97, align 4
+  %98 = load i32, i32* %97, align 4
   %99 = icmp eq i32 %98, 0
   br i1 %99, label %100, label %102
 
@@ -315,7 +315,7 @@ bb.nph70:                                         ; preds = %bb.nph70.loopexit17
   %103 = load i32, i32* %scevgep121, align 4
   %104 = sext i32 %103 to i64
   %105 = getelementptr inbounds [48 x i32], [48 x i32]* %cmp_id, i64 0, i64 %104
-  %106 = load i32* %105, align 4
+  %106 = load i32, i32* %105, align 4
   %107 = icmp eq i32 %106, 0
   br i1 %107, label %108, label %110
 
@@ -329,7 +329,7 @@ bb.nph70:                                         ; preds = %bb.nph70.loopexit17
   %111 = load i32, i32* %scevgep123, align 4
   %112 = sext i32 %111 to i64
   %113 = getelementptr inbounds [48 x i32], [48 x i32]* %cmp_id, i64 0, i64 %112
-  %114 = load i32* %113, align 4
+  %114 = load i32, i32* %113, align 4
   %115 = icmp eq i32 %114, 0
   br i1 %115, label %117, label %116
 
@@ -345,10 +345,10 @@ bb.nph70:                                         ; preds = %bb.nph70.loopexit17
 ; <label>:119                                     ; preds = %63
   %tmp68 = add i64 %tmp67, 16
   %scevgep116 = getelementptr [32 x i32], [32 x i32]* @Lcs.iterator_cmp, i64 0, i64 %tmp68
-  %120 = load i32* %scevgep116, align 4
+  %120 = load i32, i32* %scevgep116, align 4
   %121 = sext i32 %120 to i64
   %122 = getelementptr inbounds [48 x i32], [48 x i32]* %cmp_id, i64 0, i64 %121
-  %123 = load i32* %122, align 4
+  %123 = load i32, i32* %122, align 4
   %124 = icmp eq i32 %123, 0
   br i1 %124, label %125, label %127
 
@@ -362,7 +362,7 @@ bb.nph70:                                         ; preds = %bb.nph70.loopexit17
   %128 = load i32, i32* %scevgep114, align 4
   %129 = sext i32 %128 to i64
   %130 = getelementptr inbounds [48 x i32], [48 x i32]* %cmp_id, i64 0, i64 %129
-  %131 = load i32* %130, align 4
+  %131 = load i32, i32* %130, align 4
   %132 = icmp eq i32 %131, 0
   br i1 %132, label %133, label %135
 
@@ -376,7 +376,7 @@ bb.nph70:                                         ; preds = %bb.nph70.loopexit17
   %136 = load i32, i32* %scevgep112, align 4
   %137 = sext i32 %136 to i64
   %138 = getelementptr inbounds [48 x i32], [48 x i32]* %cmp_id, i64 0, i64 %137
-  %139 = load i32* %138, align 4
+  %139 = load i32, i32* %138, align 4
   %140 = icmp eq i32 %139, 0
   br i1 %140, label %141, label %143
 
@@ -390,7 +390,7 @@ bb.nph70:                                         ; preds = %bb.nph70.loopexit17
   %144 = load i32, i32* %scevgep110, align 4
   %145 = sext i32 %144 to i64
   %146 = getelementptr inbounds [48 x i32], [48 x i32]* %cmp_id, i64 0, i64 %145
-  %147 = load i32* %146, align 4
+  %147 = load i32, i32* %146, align 4
   %148 = icmp eq i32 %147, 0
   br i1 %148, label %150, label %149
 

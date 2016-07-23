@@ -24,7 +24,7 @@ if.then:                                          ; preds = %entry
   %arrayidx6 = getelementptr inbounds i64, i64* %A, i64 12
   store i64 2, i64* %arrayidx6, align 8
   %arrayidx8 = getelementptr inbounds i64, i64* %A, i64 1
-  %tmp9 = load i64* %arrayidx8, align 8
+  %tmp9 = load i64, i64* %arrayidx8, align 8
   %tobool10 = icmp eq i64 %tmp9, 0
   br i1 %tobool10, label %if.else, label %if.then11
 

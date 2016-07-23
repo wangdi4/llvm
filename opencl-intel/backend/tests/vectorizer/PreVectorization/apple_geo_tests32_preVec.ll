@@ -16,10 +16,10 @@ define void @_Z5crossDv3_fS__test(<3 x float>*, <3 x float>*, <3 x float>*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr <3 x float>, <3 x float>* %0, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg = load <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
+  %load_arg = load <3 x float>, <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
   %shuf_cast = shufflevector <3 x float> %load_arg, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %arg_ptr1 = getelementptr <3 x float>, <3 x float>* %1, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg2 = load <3 x float>* %arg_ptr1        ; <<3 x float>> [#uses=1]
+  %load_arg2 = load <3 x float>, <3 x float>* %arg_ptr1        ; <<3 x float>> [#uses=1]
   %shuf_cast3 = shufflevector <3 x float> %load_arg2, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call <4 x float> @_Z5crossDv3_fS_(<4 x float> %shuf_cast, <4 x float> %shuf_cast3) ; <<4 x float>> [#uses=1]
   %shuf_cast4 = shufflevector <4 x float> %call, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2> ; <<3 x float>> [#uses=1]
@@ -42,9 +42,9 @@ define void @_Z5crossDv4_fS__test(<4 x float>*, <4 x float>*, <4 x float>*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr <4 x float>, <4 x float>* %0, i32 %gid ; <<4 x float>*> [#uses=1]
-  %load_arg = load <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
+  %load_arg = load <4 x float>, <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
   %arg_ptr1 = getelementptr <4 x float>, <4 x float>* %1, i32 %gid ; <<4 x float>*> [#uses=1]
-  %load_arg2 = load <4 x float>* %arg_ptr1        ; <<4 x float>> [#uses=1]
+  %load_arg2 = load <4 x float>, <4 x float>* %arg_ptr1        ; <<4 x float>> [#uses=1]
   %call = call <4 x float> @_Z5crossDv4_fS_(<4 x float> %load_arg, <4 x float> %load_arg2) ; <<4 x float>> [#uses=1]
   %ret_ptr = getelementptr <4 x float>, <4 x float>* %2, i32 %gid ; <<4 x float>*> [#uses=1]
   store <4 x float> %call, <4 x float>* %ret_ptr
@@ -63,9 +63,9 @@ define void @_Z13fast_distanceff_test(float*, float*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr float, float* %0, i32 %gid    ; <float*> [#uses=1]
-  %load_arg = load float* %arg_ptr                ; <float> [#uses=1]
+  %load_arg = load float, float* %arg_ptr                ; <float> [#uses=1]
   %arg_ptr1 = getelementptr float, float* %1, i32 %gid   ; <float*> [#uses=1]
-  %load_arg2 = load float* %arg_ptr1              ; <float> [#uses=1]
+  %load_arg2 = load float, float* %arg_ptr1              ; <float> [#uses=1]
   %call = call float @_Z13fast_distanceff(float %load_arg, float %load_arg2) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %2, i32 %gid    ; <float*> [#uses=1]
   store float %call, float* %ret_ptr
@@ -84,10 +84,10 @@ define void @_Z13fast_distanceDv2_fS__test(<2 x float>*, <2 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr <2 x float>, <2 x float>* %0, i32 %gid ; <<2 x float>*> [#uses=1]
-  %load_arg = load <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
+  %load_arg = load <2 x float>, <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
   %shuf_cast = shufflevector <2 x float> %load_arg, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef> ; <<4 x float>> [#uses=1]
   %arg_ptr1 = getelementptr <2 x float>, <2 x float>* %1, i32 %gid ; <<2 x float>*> [#uses=1]
-  %load_arg2 = load <2 x float>* %arg_ptr1        ; <<2 x float>> [#uses=1]
+  %load_arg2 = load <2 x float>, <2 x float>* %arg_ptr1        ; <<2 x float>> [#uses=1]
   %shuf_cast3 = shufflevector <2 x float> %load_arg2, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call float @_Z13fast_distanceDv2_fS_(<4 x float> %shuf_cast, <4 x float> %shuf_cast3) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %2, i32 %gid    ; <float*> [#uses=1]
@@ -107,10 +107,10 @@ define void @_Z13fast_distanceDv3_fS__test(<3 x float>*, <3 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr <3 x float>, <3 x float>* %0, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg = load <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
+  %load_arg = load <3 x float>, <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
   %shuf_cast = shufflevector <3 x float> %load_arg, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %arg_ptr1 = getelementptr <3 x float>, <3 x float>* %1, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg2 = load <3 x float>* %arg_ptr1        ; <<3 x float>> [#uses=1]
+  %load_arg2 = load <3 x float>, <3 x float>* %arg_ptr1        ; <<3 x float>> [#uses=1]
   %shuf_cast3 = shufflevector <3 x float> %load_arg2, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call float @_Z13fast_distanceDv3_fS_(<4 x float> %shuf_cast, <4 x float> %shuf_cast3) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %2, i32 %gid    ; <float*> [#uses=1]
@@ -130,9 +130,9 @@ define void @_Z13fast_distanceDv4_fS__test(<4 x float>*, <4 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr <4 x float>, <4 x float>* %0, i32 %gid ; <<4 x float>*> [#uses=1]
-  %load_arg = load <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
+  %load_arg = load <4 x float>, <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
   %arg_ptr1 = getelementptr <4 x float>, <4 x float>* %1, i32 %gid ; <<4 x float>*> [#uses=1]
-  %load_arg2 = load <4 x float>* %arg_ptr1        ; <<4 x float>> [#uses=1]
+  %load_arg2 = load <4 x float>, <4 x float>* %arg_ptr1        ; <<4 x float>> [#uses=1]
   %call = call float @_Z13fast_distanceDv4_fS_(<4 x float> %load_arg, <4 x float> %load_arg2) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %2, i32 %gid    ; <float*> [#uses=1]
   store float %call, float* %ret_ptr
@@ -151,9 +151,9 @@ define void @_Z8distanceff_test(float*, float*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr float, float* %0, i32 %gid    ; <float*> [#uses=1]
-  %load_arg = load float* %arg_ptr                ; <float> [#uses=1]
+  %load_arg = load float, float* %arg_ptr                ; <float> [#uses=1]
   %arg_ptr1 = getelementptr float, float* %1, i32 %gid   ; <float*> [#uses=1]
-  %load_arg2 = load float* %arg_ptr1              ; <float> [#uses=1]
+  %load_arg2 = load float, float* %arg_ptr1              ; <float> [#uses=1]
   %call = call float @_Z8distanceff(float %load_arg, float %load_arg2) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %2, i32 %gid    ; <float*> [#uses=1]
   store float %call, float* %ret_ptr
@@ -172,7 +172,7 @@ define void @_Z6lengthf_test(float*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr float, float* %0, i32 %gid    ; <float*> [#uses=1]
-  %load_arg = load float* %arg_ptr                ; <float> [#uses=1]
+  %load_arg = load float, float* %arg_ptr                ; <float> [#uses=1]
   %call = call float @_Z6lengthf(float %load_arg)  ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %1, i32 %gid    ; <float*> [#uses=1]
   store float %call, float* %ret_ptr
@@ -191,10 +191,10 @@ define void @_Z8distanceDv2_fS__test(<2 x float>*, <2 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr <2 x float>, <2 x float>* %0, i32 %gid ; <<2 x float>*> [#uses=1]
-  %load_arg = load <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
+  %load_arg = load <2 x float>, <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
   %shuf_cast = shufflevector <2 x float> %load_arg, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef> ; <<4 x float>> [#uses=1]
   %arg_ptr1 = getelementptr <2 x float>, <2 x float>* %1, i32 %gid ; <<2 x float>*> [#uses=1]
-  %load_arg2 = load <2 x float>* %arg_ptr1        ; <<2 x float>> [#uses=1]
+  %load_arg2 = load <2 x float>, <2 x float>* %arg_ptr1        ; <<2 x float>> [#uses=1]
   %shuf_cast3 = shufflevector <2 x float> %load_arg2, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call float @_Z8distanceDv2_fS_(<4 x float> %shuf_cast, <4 x float> %shuf_cast3) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %2, i32 %gid    ; <float*> [#uses=1]
@@ -214,7 +214,7 @@ define void @_Z6lengthDv2_f_test(<2 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <2 x float>, <2 x float>* %0, i32 %gid ; <<2 x float>*> [#uses=1]
-  %load_arg = load <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
+  %load_arg = load <2 x float>, <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
   %shuf_cast = shufflevector <2 x float> %load_arg, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call float @_Z6lengthDv2_f(<4 x float> %shuf_cast) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %1, i32 %gid    ; <float*> [#uses=1]
@@ -234,10 +234,10 @@ define void @_Z8distanceDv3_fS__test(<3 x float>*, <3 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr <3 x float>, <3 x float>* %0, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg = load <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
+  %load_arg = load <3 x float>, <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
   %shuf_cast = shufflevector <3 x float> %load_arg, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %arg_ptr1 = getelementptr <3 x float>, <3 x float>* %1, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg2 = load <3 x float>* %arg_ptr1        ; <<3 x float>> [#uses=1]
+  %load_arg2 = load <3 x float>, <3 x float>* %arg_ptr1        ; <<3 x float>> [#uses=1]
   %shuf_cast3 = shufflevector <3 x float> %load_arg2, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call float @_Z8distanceDv3_fS_(<4 x float> %shuf_cast, <4 x float> %shuf_cast3) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %2, i32 %gid    ; <float*> [#uses=1]
@@ -257,7 +257,7 @@ define void @_Z6lengthDv3_f_test(<3 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <3 x float>, <3 x float>* %0, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg = load <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
+  %load_arg = load <3 x float>, <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
   %shuf_cast = shufflevector <3 x float> %load_arg, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call float @_Z6lengthDv3_f(<4 x float> %shuf_cast) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %1, i32 %gid    ; <float*> [#uses=1]
@@ -277,9 +277,9 @@ define void @_Z8distanceDv4_fS__test(<4 x float>*, <4 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr <4 x float>, <4 x float>* %0, i32 %gid ; <<4 x float>*> [#uses=1]
-  %load_arg = load <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
+  %load_arg = load <4 x float>, <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
   %arg_ptr1 = getelementptr <4 x float>, <4 x float>* %1, i32 %gid ; <<4 x float>*> [#uses=1]
-  %load_arg2 = load <4 x float>* %arg_ptr1        ; <<4 x float>> [#uses=1]
+  %load_arg2 = load <4 x float>, <4 x float>* %arg_ptr1        ; <<4 x float>> [#uses=1]
   %call = call float @_Z8distanceDv4_fS_(<4 x float> %load_arg, <4 x float> %load_arg2) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %2, i32 %gid    ; <float*> [#uses=1]
   store float %call, float* %ret_ptr
@@ -298,7 +298,7 @@ define void @_Z6lengthDv4_f_test(<4 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <4 x float>, <4 x float>* %0, i32 %gid ; <<4 x float>*> [#uses=1]
-  %load_arg = load <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
+  %load_arg = load <4 x float>, <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
   %call = call float @_Z6lengthDv4_f(<4 x float> %load_arg) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %1, i32 %gid    ; <float*> [#uses=1]
   store float %call, float* %ret_ptr
@@ -317,9 +317,9 @@ define void @_Z3dotff_test(float*, float*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr float, float* %0, i32 %gid    ; <float*> [#uses=1]
-  %load_arg = load float* %arg_ptr                ; <float> [#uses=1]
+  %load_arg = load float, float* %arg_ptr                ; <float> [#uses=1]
   %arg_ptr1 = getelementptr float, float* %1, i32 %gid   ; <float*> [#uses=1]
-  %load_arg2 = load float* %arg_ptr1              ; <float> [#uses=1]
+  %load_arg2 = load float, float* %arg_ptr1              ; <float> [#uses=1]
   %call = call float @_Z3dotff(float %load_arg, float %load_arg2) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %2, i32 %gid    ; <float*> [#uses=1]
   store float %call, float* %ret_ptr
@@ -338,10 +338,10 @@ define void @_Z3dotDv2_fS__test(<2 x float>*, <2 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr <2 x float>, <2 x float>* %0, i32 %gid ; <<2 x float>*> [#uses=1]
-  %load_arg = load <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
+  %load_arg = load <2 x float>, <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
   %shuf_cast = shufflevector <2 x float> %load_arg, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef> ; <<4 x float>> [#uses=1]
   %arg_ptr1 = getelementptr <2 x float>, <2 x float>* %1, i32 %gid ; <<2 x float>*> [#uses=1]
-  %load_arg2 = load <2 x float>* %arg_ptr1        ; <<2 x float>> [#uses=1]
+  %load_arg2 = load <2 x float>, <2 x float>* %arg_ptr1        ; <<2 x float>> [#uses=1]
   %shuf_cast3 = shufflevector <2 x float> %load_arg2, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call float @_Z3dotDv2_fS_(<4 x float> %shuf_cast, <4 x float> %shuf_cast3) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %2, i32 %gid    ; <float*> [#uses=1]
@@ -361,10 +361,10 @@ define void @_Z3dotDv3_fS__test(<3 x float>*, <3 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr <3 x float>, <3 x float>* %0, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg = load <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
+  %load_arg = load <3 x float>, <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
   %shuf_cast = shufflevector <3 x float> %load_arg, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %arg_ptr1 = getelementptr <3 x float>, <3 x float>* %1, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg2 = load <3 x float>* %arg_ptr1        ; <<3 x float>> [#uses=1]
+  %load_arg2 = load <3 x float>, <3 x float>* %arg_ptr1        ; <<3 x float>> [#uses=1]
   %shuf_cast3 = shufflevector <3 x float> %load_arg2, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call float @_Z3dotDv3_fS_(<4 x float> %shuf_cast, <4 x float> %shuf_cast3) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %2, i32 %gid    ; <float*> [#uses=1]
@@ -384,9 +384,9 @@ define void @_Z3dotff4_test(<4 x float>*, <4 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=3]
   %arg_ptr = getelementptr <4 x float>, <4 x float>* %0, i32 %gid ; <<4 x float>*> [#uses=1]
-  %load_arg = load <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
+  %load_arg = load <4 x float>, <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
   %arg_ptr1 = getelementptr <4 x float>, <4 x float>* %1, i32 %gid ; <<4 x float>*> [#uses=1]
-  %load_arg2 = load <4 x float>* %arg_ptr1        ; <<4 x float>> [#uses=1]
+  %load_arg2 = load <4 x float>, <4 x float>* %arg_ptr1        ; <<4 x float>> [#uses=1]
   %call = call float @_Z3dotff4(<4 x float> %load_arg, <4 x float> %load_arg2) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %2, i32 %gid    ; <float*> [#uses=1]
   store float %call, float* %ret_ptr
@@ -405,7 +405,7 @@ define void @_Z11fast_lengthf_test(float*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr float, float* %0, i32 %gid    ; <float*> [#uses=1]
-  %load_arg = load float* %arg_ptr                ; <float> [#uses=1]
+  %load_arg = load float, float* %arg_ptr                ; <float> [#uses=1]
   %call = call float @_Z11fast_lengthf(float %load_arg) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %1, i32 %gid    ; <float*> [#uses=1]
   store float %call, float* %ret_ptr
@@ -424,7 +424,7 @@ define void @_Z11fast_lengthDv2_f_test(<2 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <2 x float>, <2 x float>* %0, i32 %gid ; <<2 x float>*> [#uses=1]
-  %load_arg = load <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
+  %load_arg = load <2 x float>, <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
   %shuf_cast = shufflevector <2 x float> %load_arg, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call float @_Z11fast_lengthDv2_f(<4 x float> %shuf_cast) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %1, i32 %gid    ; <float*> [#uses=1]
@@ -444,7 +444,7 @@ define void @_Z11fast_lengthDv3_f_test(<3 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <3 x float>, <3 x float>* %0, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg = load <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
+  %load_arg = load <3 x float>, <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
   %shuf_cast = shufflevector <3 x float> %load_arg, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call float @_Z11fast_lengthDv3_f(<4 x float> %shuf_cast) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %1, i32 %gid    ; <float*> [#uses=1]
@@ -464,7 +464,7 @@ define void @_Z11fast_lengthDv4_f_test(<4 x float>*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <4 x float>, <4 x float>* %0, i32 %gid ; <<4 x float>*> [#uses=1]
-  %load_arg = load <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
+  %load_arg = load <4 x float>, <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
   %call = call float @_Z11fast_lengthDv4_f(<4 x float> %load_arg) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %1, i32 %gid    ; <float*> [#uses=1]
   store float %call, float* %ret_ptr
@@ -483,7 +483,7 @@ define void @_Z14fast_normalizef_test(float*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr float, float* %0, i32 %gid    ; <float*> [#uses=1]
-  %load_arg = load float* %arg_ptr                ; <float> [#uses=1]
+  %load_arg = load float, float* %arg_ptr                ; <float> [#uses=1]
   %call = call float @_Z14fast_normalizef(float %load_arg) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %1, i32 %gid    ; <float*> [#uses=1]
   store float %call, float* %ret_ptr
@@ -502,7 +502,7 @@ define void @_Z14fast_normalizeDv2_f_test(<2 x float>*, <2 x float>*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <2 x float>, <2 x float>* %0, i32 %gid ; <<2 x float>*> [#uses=1]
-  %load_arg = load <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
+  %load_arg = load <2 x float>, <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
   %shuf_cast = shufflevector <2 x float> %load_arg, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call <4 x float> @_Z14fast_normalizeDv2_f(<4 x float> %shuf_cast) ; <<4 x float>> [#uses=1]
   %shuf_cast1 = shufflevector <4 x float> %call, <4 x float> undef, <2 x i32> <i32 0, i32 1> ; <<2 x float>> [#uses=1]
@@ -523,7 +523,7 @@ define void @_Z14fast_normalizeDv3_f_test(<3 x float>*, <3 x float>*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <3 x float>, <3 x float>* %0, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg = load <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
+  %load_arg = load <3 x float>, <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
   %shuf_cast = shufflevector <3 x float> %load_arg, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call <4 x float> @_Z14fast_normalizeDv3_f(<4 x float> %shuf_cast) ; <<4 x float>> [#uses=1]
   %shuf_cast1 = shufflevector <4 x float> %call, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2> ; <<3 x float>> [#uses=1]
@@ -544,7 +544,7 @@ define void @_Z14fast_normalizef4_test(<4 x float>*, <4 x float>*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <4 x float>, <4 x float>* %0, i32 %gid ; <<4 x float>*> [#uses=1]
-  %load_arg = load <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
+  %load_arg = load <4 x float>, <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
   %call = call <4 x float> @_Z14fast_normalizef4(<4 x float> %load_arg) ; <<4 x float>> [#uses=1]
   %ret_ptr = getelementptr <4 x float>, <4 x float>* %1, i32 %gid ; <<4 x float>*> [#uses=1]
   store <4 x float> %call, <4 x float>* %ret_ptr
@@ -563,7 +563,7 @@ define void @_Z9normalizef_test(float*, float*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr float, float* %0, i32 %gid    ; <float*> [#uses=1]
-  %load_arg = load float* %arg_ptr                ; <float> [#uses=1]
+  %load_arg = load float, float* %arg_ptr                ; <float> [#uses=1]
   %call = call float @_Z9normalizef(float %load_arg) ; <float> [#uses=1]
   %ret_ptr = getelementptr float, float* %1, i32 %gid    ; <float*> [#uses=1]
   store float %call, float* %ret_ptr
@@ -582,7 +582,7 @@ define void @_Z9normalizeDv2_f_test(<2 x float>*, <2 x float>*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <2 x float>, <2 x float>* %0, i32 %gid ; <<2 x float>*> [#uses=1]
-  %load_arg = load <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
+  %load_arg = load <2 x float>, <2 x float>* %arg_ptr          ; <<2 x float>> [#uses=1]
   %shuf_cast = shufflevector <2 x float> %load_arg, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call <4 x float> @_Z9normalizeDv2_f(<4 x float> %shuf_cast) ; <<4 x float>> [#uses=1]
   %shuf_cast1 = shufflevector <4 x float> %call, <4 x float> undef, <2 x i32> <i32 0, i32 1> ; <<2 x float>> [#uses=1]
@@ -603,7 +603,7 @@ define void @_Z9normalizeDv3_f_test(<3 x float>*, <3 x float>*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <3 x float>, <3 x float>* %0, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg = load <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
+  %load_arg = load <3 x float>, <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
   %shuf_cast = shufflevector <3 x float> %load_arg, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %call = call <4 x float> @_Z9normalizeDv3_f(<4 x float> %shuf_cast) ; <<4 x float>> [#uses=1]
   %shuf_cast1 = shufflevector <4 x float> %call, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2> ; <<3 x float>> [#uses=1]
@@ -624,7 +624,7 @@ define void @_Z9normalizeDv4_f_test(<4 x float>*, <4 x float>*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <4 x float>, <4 x float>* %0, i32 %gid ; <<4 x float>*> [#uses=1]
-  %load_arg = load <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
+  %load_arg = load <4 x float>, <4 x float>* %arg_ptr          ; <<4 x float>> [#uses=1]
   %call = call <4 x float> @_Z9normalizeDv4_f(<4 x float> %load_arg) ; <<4 x float>> [#uses=1]
   %ret_ptr = getelementptr <4 x float>, <4 x float>* %1, i32 %gid ; <<4 x float>*> [#uses=1]
   store <4 x float> %call, <4 x float>* %ret_ptr
@@ -643,10 +643,10 @@ define void @__ci_gamma_scalar_SPI_test(<3 x float>*, float*, <3 x float>*) {
 entry:
   %gid = call i32 @_Z13get_global_idj(i32 0)           ; <i32> [#uses=2]
   %arg_ptr = getelementptr <3 x float>, <3 x float>* %0, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg = load <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
+  %load_arg = load <3 x float>, <3 x float>* %arg_ptr          ; <<3 x float>> [#uses=1]
   %shuf_cast = shufflevector <3 x float> %load_arg, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef> ; <<4 x float>> [#uses=1]
   %arg_ptr1 = getelementptr float, float* %1, i32 %gid ; <<3 x float>*> [#uses=1]
-  %load_arg2 = load float* %arg_ptr1          ; <<3 x float>> [#uses=1]
+  %load_arg2 = load float, float* %arg_ptr1          ; <<3 x float>> [#uses=1]
   %call = call <4 x float> @__ci_gamma_scalar_SPI(<4 x float> %shuf_cast, float %load_arg2) ; <<4 x float>> [#uses=1]
   %shuf_cast1 = shufflevector <4 x float> %call, <4 x float> undef, <3 x i32> <i32 0, i32 1, i32 2> ; <<3 x float>> [#uses=1]
   %ret_ptr = getelementptr <3 x float>, <3 x float>* %2, i32 %gid ; <<3 x float>*> [#uses=1]

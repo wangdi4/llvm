@@ -21,7 +21,7 @@ declare i64 @_Z12get_local_idj(i64) nounwind readnone
 define void @main1(float * %memA, float * nocapture %memB, i32 %i1, i32 %i2) nounwind {
 entry:
   %arrayidx = getelementptr float, float * %memA, i32 %i1
-  %A = load float * %arrayidx, align 4
+  %A = load float , float * %arrayidx, align 4
   %arrayidx1 = getelementptr float, float * %memB, i32 %i1
   store float %A, float * %arrayidx1, align 4
   ret void
@@ -42,7 +42,7 @@ entry:
 define void @main2([4 x float] * %memA, float * nocapture %memB, i32 %i1, i32 %i2) nounwind {
 entry:
   %arrayidx = getelementptr [4 x float], [4 x float] * %memA, i32 %i1, i32 %i2
-  %A = load float * %arrayidx, align 4
+  %A = load float , float * %arrayidx, align 4
   %arrayidx1 = getelementptr float, float * %memB, i32 %i1
   store float %A, float * %arrayidx1, align 4
   ret void
@@ -64,7 +64,7 @@ entry:
 define void @main3([4 x float] * %memA, float * nocapture %memB, i32 %i1, i64 %i2) nounwind {
 entry:
   %arrayidx = getelementptr [4 x float], [4 x float] * %memA, i32 %i1, i64 %i2
-  %A = load float * %arrayidx, align 4
+  %A = load float , float * %arrayidx, align 4
   %arrayidx1 = getelementptr float, float * %memB, i32 %i1
   store float %A, float * %arrayidx1, align 4
   ret void
@@ -88,7 +88,7 @@ define void @main4([4 x float] * %memA, float * nocapture %memB, i32 %i1, i32 %i
 entry:
   %i3 = call i32 @_Z13get_global_idj(i32 0) 
   %arrayidx = getelementptr [4 x float], [4 x float] * %memA, i32 %i1, i32 %i3
-  %A = load float * %arrayidx, align 4
+  %A = load float , float * %arrayidx, align 4
   %arrayidx1 = getelementptr float, float * %memB, i32 %i1
   store float %A, float * %arrayidx1, align 4
   ret void
@@ -112,7 +112,7 @@ define void @main5([4 x float] * %memA, float * nocapture %memB, i32 %i1, i32 %i
 entry:
   %i3 = call i64 @_Z12get_local_idj(i64 0) 
   %arrayidx = getelementptr [4 x float], [4 x float] * %memA, i32 %i1, i64 %i3
-  %A = load float * %arrayidx, align 4
+  %A = load float , float * %arrayidx, align 4
   %arrayidx1 = getelementptr float, float * %memB, i32 %i1
   store float %A, float * %arrayidx1, align 4
   ret void
@@ -139,7 +139,7 @@ define void @main6([4 x float] * %memA, float * nocapture %memB, i32 %i1, i32 %i
 entry:
   %i3 = call i32 @_Z13get_global_idj(i32 0) 
   %arrayidx = getelementptr [4 x float], [4 x float] * %memA, i32 %i3, i32 %i1
-  %A = load float * %arrayidx, align 4
+  %A = load float , float * %arrayidx, align 4
   %arrayidx1 = getelementptr float, float * %memB, i32 %i1
   store float %A, float * %arrayidx1, align 4
   ret void
@@ -166,7 +166,7 @@ define void @main7([4 x float] * %memA, float * nocapture %memB, i64 %i1, i32 %i
 entry:
   %i3 = call i64 @_Z12get_local_idj(i64 0) 
   %arrayidx = getelementptr [4 x float], [4 x float] * %memA, i64 %i3, i64 %i1
-  %A = load float * %arrayidx, align 4
+  %A = load float , float * %arrayidx, align 4
   %arrayidx1 = getelementptr float, float * %memB, i64 %i1
   store float %A, float * %arrayidx1, align 4
   ret void
@@ -189,7 +189,7 @@ define void @main8([4 x float] * %memA, float * nocapture %memB, i32 %i1, i32 %i
 entry:
   %i3 = call i64 @_Z12get_local_idj(i64 0) 
   %arrayidx = getelementptr [4 x float], [4 x float] * %memA, i64 %i3, i32 %i1
-  %A = load float * %arrayidx, align 4
+  %A = load float , float * %arrayidx, align 4
   %arrayidx1 = getelementptr float, float * %memB, i32 %i1
   store float %A, float * %arrayidx1, align 4
   ret void

@@ -90,7 +90,7 @@ entry:
   %mul = mul i32 %call1, %width
   %add = add i32 %mul, %call
   %arrayidx = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %seedArray, i32 %add
-  %tmp5 = load <4 x i32> addrspace(1)* %arrayidx, align 16
+  %tmp5 = load <4 x i32>, <4 x i32> addrspace(1)* %arrayidx, align 16
   %shr = lshr <4 x i32> %tmp5, <i32 30, i32 30, i32 30, i32 30>
   %xor = xor <4 x i32> %tmp5, %shr
   %mul49 = mul <4 x i32> %xor, <i32 1812433253, i32 1812433253, i32 1812433253, i32 1812433253>
@@ -315,7 +315,7 @@ for.end:                                          ; preds = %sw.epilog
 
 for.body273.lr.ph:                                ; preds = %for.end
   %arrayidx276.phi.trans.insert = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0
-  %tmp277.pre = load <4 x i32>* %arrayidx276.phi.trans.insert, align 16
+  %tmp277.pre = load <4 x i32>, <4 x i32>* %arrayidx276.phi.trans.insert, align 16
   br label %for.body273
 
 for.body273:                                      ; preds = %for.body273, %for.body273.lr.ph
@@ -325,7 +325,7 @@ for.body273:                                      ; preds = %for.body273, %for.b
   %div282 = fdiv <4 x float> %call278, <float 0x41F0000000000000, float 0x41F0000000000000, float 0x41F0000000000000, float 0x41F0000000000000>
   %add284 = add i32 %storemerge26, 1
   %arrayidx286 = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 %add284
-  %tmp287 = load <4 x i32>* %arrayidx286, align 16
+  %tmp287 = load <4 x i32>, <4 x i32>* %arrayidx286, align 16
   %call288 = call <4 x float> @__convert_float4_uint4(<4 x i32> %tmp287) nounwind
   %div292 = fdiv <4 x float> %call288, <float 0x41F0000000000000, float 0x41F0000000000000, float 0x41F0000000000000, float 0x41F0000000000000>
   %call295 = call <4 x float> @__logf4(<4 x float> %div282) nounwind

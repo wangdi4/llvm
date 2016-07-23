@@ -20,15 +20,15 @@ entry:
   %mul = mul i64 %call2, %call1
   %add = add i64 %mul, %call
   %arrayidx = getelementptr i32, i32 addrspace(1)* %early_exit, i64 %add
-  %0 = load i32 addrspace(1)* %arrayidx, align 4
+  %0 = load i32, i32 addrspace(1)* %arrayidx, align 4
   %cmp = icmp eq i32 %0, 2147483647
   br i1 %cmp, label %if.else, label %if.then
 
 if.then:                                          ; preds = %entry
   %arrayidx4 = getelementptr float, float addrspace(1)* %in_select_arg1, i64 %add
-  %1 = load float addrspace(1)* %arrayidx4, align 4
+  %1 = load float, float addrspace(1)* %arrayidx4, align 4
   %arrayidx5 = getelementptr float, float addrspace(1)* %in_select_arg2, i64 %add
-  %2 = load float addrspace(1)* %arrayidx5, align 4
+  %2 = load float, float addrspace(1)* %arrayidx5, align 4
   %call7 = tail call float @_Z6selectffi(float %1, float %2, i32 1) #2
   %mul8 = fmul float %call7, %call7
   %arrayidx9 = getelementptr float, float addrspace(1)* %out_dets, i64 %add

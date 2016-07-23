@@ -29,9 +29,9 @@ entry:
   %add = add i32 %mul15, %rem
   %add19 = add i32 %add, %shl
   %arrayidx = getelementptr i32, i32 addrspace(1)* %theArray, i32 %add
-  %tmp23 = load i32 addrspace(1)* %arrayidx, align 4
+  %tmp23 = load i32, i32 addrspace(1)* %arrayidx, align 4
   %arrayidx27 = getelementptr i32, i32 addrspace(1)* %theArray, i32 %add19
-  %tmp28 = load i32 addrspace(1)* %arrayidx27, align 4
+  %tmp28 = load i32, i32 addrspace(1)* %arrayidx27, align 4
   %and31 = and i32 %stage, 31
   %1 = shl i32 1, %and31
   %rem381 = and i32 %call, %1

@@ -16,9 +16,9 @@ define void @math_kernel2(<2 x float> addrspace(1)* nocapture %out, <2 x float> 
   %sext = shl i64 %1, 32
   %2 = ashr i64 %sext, 32
   %3 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %in1, i64 %2
-  %4 = load <2 x float> addrspace(1)* %3, align 8
+  %4 = load <2 x float>, <2 x float> addrspace(1)* %3, align 8
   %5 = getelementptr inbounds <2 x i32>, <2 x i32> addrspace(1)* %in2, i64 %2
-  %6 = load <2 x i32> addrspace(1)* %5, align 8
+  %6 = load <2 x i32>, <2 x i32> addrspace(1)* %5, align 8
   %tmp8 = bitcast <2 x float> %4 to <1 x double>
   %tmp7 = extractelement <1 x double> %tmp8, i32 0
   %tmp5 = bitcast <2 x i32> %6 to <1 x double>

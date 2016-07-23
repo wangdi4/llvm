@@ -43,12 +43,12 @@ for.cond3:                                        ; preds = %for.inc, %for.body
 for.body8:                                        ; preds = %for.cond3
   %tmp9 = load i64, i64* %i                            ; <i64> [#uses=1]
   %add = add nsw i64 %tmp9, 10                    ; <i64> [#uses=1]
-  %tmp10 = load i64** %A.addr                     ; <i64*> [#uses=1]
+  %tmp10 = load i64*, i64** %A.addr                     ; <i64*> [#uses=1]
   %arrayidx = getelementptr inbounds i64, i64* %tmp10, i64 %add ; <i64*> [#uses=1]
-  %tmp11 = load i64* %arrayidx                    ; <i64> [#uses=1]
-  %tmp12 = load i64* %i                           ; <i64> [#uses=1]
+  %tmp11 = load i64, i64* %arrayidx                    ; <i64> [#uses=1]
+  %tmp12 = load i64, i64* %i                           ; <i64> [#uses=1]
   %xor = xor i64 %tmp12, 90                       ; <i64> [#uses=1]
-  %tmp13 = load i64** %A.addr                     ; <i64*> [#uses=1]
+  %tmp13 = load i64*, i64** %A.addr                     ; <i64*> [#uses=1]
   %arrayidx14 = getelementptr inbounds i64, i64* %tmp13, i64 %xor ; <i64*> [#uses=1]
   store i64 %tmp11, i64* %arrayidx14
   br label %for.inc
@@ -62,10 +62,10 @@ for.inc:                                          ; preds = %for.body8
 for.end:                                          ; preds = %for.cond3
   %call16 = call i32 @_Z12get_local_idj(i32 0)         ; <i32> [#uses=1]
   %conv17 = zext i32 %call16 to i64               ; <i64> [#uses=1]
-  %tmp18 = load i64* %i                           ; <i64> [#uses=1]
-  %tmp19 = load i64** %B.addr                     ; <i64*> [#uses=1]
+  %tmp18 = load i64, i64* %i                           ; <i64> [#uses=1]
+  %tmp19 = load i64*, i64** %B.addr                     ; <i64*> [#uses=1]
   %arrayidx20 = getelementptr inbounds i64, i64* %tmp19, i64 %tmp18 ; <i64*> [#uses=2]
-  %tmp21 = load i64* %arrayidx20                  ; <i64> [#uses=1]
+  %tmp21 = load i64, i64* %arrayidx20                  ; <i64> [#uses=1]
   %xor22 = xor i64 %tmp21, %conv17                ; <i64> [#uses=1]
   store i64 %xor22, i64* %arrayidx20
   br label %for.inc23

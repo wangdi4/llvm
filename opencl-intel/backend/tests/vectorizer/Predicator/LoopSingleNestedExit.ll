@@ -21,7 +21,7 @@ entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %b, i32 %call
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i32 %call
-  %.pre = load float addrspace(1)* %arrayidx, align 4
+  %.pre = load float, float addrspace(1)* %arrayidx, align 4
   br label %while.cond
 
 while.cond:                                       ; preds = %while.body, %entry
@@ -76,7 +76,7 @@ entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %b, i32 %call
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i32 %call
-  %.pre = load float addrspace(1)* %arrayidx, align 4
+  %.pre = load float, float addrspace(1)* %arrayidx, align 4
   br label %while.cond
 
 while.cond:                                       ; preds = %while.body, %entry

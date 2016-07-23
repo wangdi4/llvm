@@ -401,19 +401,19 @@ if.end90:                                         ; preds = %if.then83, %if.end7
 define void @calPriceVega(<4 x float> addrspace(1)* %attrib, i32 %noOfSum, i32 %width, <4 x i32> addrspace(1)* %randArray, <4 x float> addrspace(1)* %priceSamples, <4 x float> addrspace(1)* %pathDeriv, ...) nounwind {
 entry:
   %temp.i = alloca [8 x <4 x i32>], align 16
-  %tmp1 = load <4 x float> addrspace(1)* %attrib, align 16
+  %tmp1 = load <4 x float>, <4 x float> addrspace(1)* %attrib, align 16
   %arrayidx4 = getelementptr <4 x float>, <4 x float> addrspace(1)* %attrib, i32 1
-  %tmp5 = load <4 x float> addrspace(1)* %arrayidx4, align 16
+  %tmp5 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx4, align 16
   %arrayidx8 = getelementptr <4 x float>, <4 x float> addrspace(1)* %attrib, i32 2
-  %tmp9 = load <4 x float> addrspace(1)* %arrayidx8, align 16
+  %tmp9 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx8, align 16
   %arrayidx12 = getelementptr <4 x float>, <4 x float> addrspace(1)* %attrib, i32 3
-  %tmp13 = load <4 x float> addrspace(1)* %arrayidx12, align 16
+  %tmp13 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx12, align 16
   %arrayidx16 = getelementptr <4 x float>, <4 x float> addrspace(1)* %attrib, i32 4
-  %tmp17 = load <4 x float> addrspace(1)* %arrayidx16, align 16
+  %tmp17 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx16, align 16
   %arrayidx20 = getelementptr <4 x float>, <4 x float> addrspace(1)* %attrib, i32 5
-  %tmp21 = load <4 x float> addrspace(1)* %arrayidx20, align 16
+  %tmp21 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx20, align 16
   %arrayidx24 = getelementptr <4 x float>, <4 x float> addrspace(1)* %attrib, i32 6
-  %tmp25 = load <4 x float> addrspace(1)* %arrayidx24, align 16
+  %tmp25 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx24, align 16
   %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %call28 = call i32 @_Z13get_global_idj(i32 1) nounwind
   %mul = mul i32 %call28, %width
@@ -423,7 +423,7 @@ entry:
 
 for.body.lr.ph:                                   ; preds = %entry
   %arrayidx63 = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %randArray, i32 %add
-  %tmp64 = load <4 x i32> addrspace(1)* %arrayidx63, align 16
+  %tmp64 = load <4 x i32>, <4 x i32> addrspace(1)* %arrayidx63, align 16
   %0 = bitcast [8 x <4 x i32>]* %temp.i to i8*
   %arraydecay.i = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp.i, i32 0, i32 0
   %arrayidx90.i = getelementptr [8 x <4 x i32>], [8 x <4 x i32>]* %temp.i, i32 0, i32 1

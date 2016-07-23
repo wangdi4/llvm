@@ -16,7 +16,7 @@ entry:
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds double, double addrspace(1)* %in, i64 %idxprom
-  %0 = load double addrspace(1)* %arrayidx, align 128
+  %0 = load double, double addrspace(1)* %arrayidx, align 128
   %add.ptr = getelementptr inbounds double, double addrspace(1)* %out2, i64 %idxprom
   %call1 = tail call double @_Z6sincosdPU3AS1d(double %0, double addrspace(1)* %add.ptr) nounwind
   %arrayidx3 = getelementptr inbounds double, double addrspace(1)* %out, i64 %idxprom
@@ -35,7 +35,7 @@ entry:
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds <16 x double>, <16 x double> addrspace(1)* %in, i64 %idxprom
-  %0 = load <16 x double> addrspace(1)* %arrayidx, align 128
+  %0 = load <16 x double>, <16 x double> addrspace(1)* %arrayidx, align 128
   %add.ptr = getelementptr inbounds <16 x double>, <16 x double> addrspace(1)* %out2, i64 %idxprom
   %call1 = tail call <16 x double> @_Z6sincosDv16_dPU3AS1S_(<16 x double> %0, <16 x double> addrspace(1)* %add.ptr) nounwind
   %arrayidx3 = getelementptr inbounds <16 x double>, <16 x double> addrspace(1)* %out, i64 %idxprom
@@ -54,7 +54,7 @@ entry:
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds double, double addrspace(1)* %in, i64 %idxprom
-  %0 = load double addrspace(1)* %arrayidx, align 128
+  %0 = load double, double addrspace(1)* %arrayidx, align 128
   %add.ptr = getelementptr inbounds double, double addrspace(1)* %out2, i64 %idxprom
   %call1 = tail call double @_Z13native_sincosdPU3AS1d(double %0, double addrspace(1)* %add.ptr) nounwind
   %arrayidx3 = getelementptr inbounds double, double addrspace(1)* %out, i64 %idxprom
@@ -73,7 +73,7 @@ entry:
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds <16 x double>, <16 x double> addrspace(1)* %in, i64 %idxprom
-  %0 = load <16 x double> addrspace(1)* %arrayidx, align 128
+  %0 = load <16 x double>, <16 x double> addrspace(1)* %arrayidx, align 128
   %add.ptr = getelementptr inbounds <16 x double>, <16 x double> addrspace(1)* %out2, i64 %idxprom
   %call1 = tail call <16 x double> @_Z13native_sincosDv16_dPU3AS1S_(<16 x double> %0, <16 x double> addrspace(1)* %add.ptr) nounwind
   %arrayidx3 = getelementptr inbounds <16 x double>, <16 x double> addrspace(1)* %out, i64 %idxprom

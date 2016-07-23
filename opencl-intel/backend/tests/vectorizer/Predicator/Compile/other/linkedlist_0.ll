@@ -24,7 +24,7 @@ bb1:                                              ; preds = %entry
 
 bb3:                                              ; preds = %bb1
   %3 = bitcast i8* %1 to %struct.LLIST*           ; <%struct.LLIST*> [#uses=2]
-  %4 = load %struct.LLIST** %p, align 8           ; <%struct.LLIST*> [#uses=1]
+  %4 = load %struct.LLIST*, %struct.LLIST** %p, align 8           ; <%struct.LLIST*> [#uses=1]
   %5 = getelementptr inbounds i8, i8* %1, i64 8       ; <i8*> [#uses=1]
   %6 = bitcast i8* %5 to %struct.LLIST**          ; <%struct.LLIST**> [#uses=1]
   store %struct.LLIST* %4, %struct.LLIST** %6, align 8

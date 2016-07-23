@@ -30,13 +30,13 @@ entry:
   %mul9 = mul i32 %call1, %width
   %add11 = add i32 %mul9, %call
   %arrayidx13 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %input, i32 %add11
-  %tmp14 = load <4 x i8> addrspace(1)* %arrayidx13, align 4
+  %tmp14 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx13, align 4
   store <4 x i8> %tmp14, <4 x i8> addrspace(3)* %arrayidx, align 4
   call void @_Z7barrierm(i32 1) nounwind
   %mul25 = mul i32 %call, %height
   %add26 = add i32 %call1, %mul25
   %arrayidx29 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %output, i32 %add26
-  %tmp33 = load <4 x i8> addrspace(3)* %arrayidx, align 4
+  %tmp33 = load <4 x i8>, <4 x i8> addrspace(3)* %arrayidx, align 4
   store <4 x i8> %tmp33, <4 x i8> addrspace(1)* %arrayidx29, align 4
   ret void
 }
@@ -76,7 +76,7 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %mul = mul i32 %storemerge120, %width
   %add = add i32 %mul, %call
   %arrayidx = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %input, i32 %add
-  %tmp16 = load <4 x i8> addrspace(1)* %arrayidx, align 4
+  %tmp16 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx, align 4
   %tmp17 = extractelement <4 x i8> %tmp16, i32 0
   %conv = uitofp i8 %tmp17 to float
   %0 = insertelement <4 x float> undef, float %conv, i32 0
@@ -143,7 +143,7 @@ for.body92:                                       ; preds = %for.body92.lr.ph, %
   %mul98 = mul i32 %storemerge15, %width
   %add99 = add i32 %mul98, %call
   %arrayidx105 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %input, i32 %add99
-  %tmp106 = load <4 x i8> addrspace(1)* %arrayidx105, align 4
+  %tmp106 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx105, align 4
   %tmp107 = extractelement <4 x i8> %tmp106, i32 0
   %conv108 = uitofp i8 %tmp107 to float
   %8 = insertelement <4 x float> undef, float %conv108, i32 0
@@ -164,7 +164,7 @@ for.body92:                                       ; preds = %for.body92.lr.ph, %
   %mul151 = fmul <4 x float> %splat149, %tmp1567811
   %sub152 = fsub <4 x float> %sub146, %mul151
   %arrayidx161 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %output, i32 %add99
-  %tmp162 = load <4 x i8> addrspace(1)* %arrayidx161, align 4
+  %tmp162 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx161, align 4
   %tmp163 = extractelement <4 x i8> %tmp162, i32 0
   %conv164 = uitofp i8 %tmp163 to float
   %12 = insertelement <4 x float> undef, float %conv164, i32 0

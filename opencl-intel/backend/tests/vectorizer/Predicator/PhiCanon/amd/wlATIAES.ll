@@ -72,10 +72,10 @@ entry:
   store <4 x i8> <i8 1, i8 0, i8 0, i8 0>, <4 x i8>* %arrayidx22, align 4
   %arrayidx27 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %block0, i32 %call3
   %arrayidx30 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %input, i32 %add8
-  %tmp31 = load <4 x i8> addrspace(1)* %arrayidx30, align 4
+  %tmp31 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx30, align 4
   store <4 x i8> %tmp31, <4 x i8> addrspace(3)* %arrayidx27, align 4
   %arrayidx38 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %roundKey, i32 %call3
-  %tmp39 = load <4 x i8> addrspace(1)* %arrayidx38, align 4
+  %tmp39 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx38, align 4
   %xor = xor <4 x i8> %tmp31, %tmp39
   store <4 x i8> %xor, <4 x i8> addrspace(3)* %arrayidx27, align 4
   %cmp2.i = icmp eq i32 %call3, 0
@@ -92,22 +92,22 @@ for.cond:                                         ; preds = %for.end615, %entry
   %tmp1.i = extractelement <4 x i8> %tmp50, i32 0
   %idxprom.i = zext i8 %tmp1.i to i32
   %arrayidx.i = getelementptr i8, i8 addrspace(1)* %SBox, i32 %idxprom.i
-  %tmp3.i = load i8 addrspace(1)* %arrayidx.i, align 1
+  %tmp3.i = load i8, i8 addrspace(1)* %arrayidx.i, align 1
   %1 = insertelement <4 x i8> undef, i8 %tmp3.i, i32 0
   %tmp5.i = extractelement <4 x i8> %tmp50, i32 1
   %idxprom7.i = zext i8 %tmp5.i to i32
   %arrayidx8.i = getelementptr i8, i8 addrspace(1)* %SBox, i32 %idxprom7.i
-  %tmp9.i = load i8 addrspace(1)* %arrayidx8.i, align 1
+  %tmp9.i = load i8, i8 addrspace(1)* %arrayidx8.i, align 1
   %2 = insertelement <4 x i8> %1, i8 %tmp9.i, i32 1
   %tmp11.i = extractelement <4 x i8> %tmp50, i32 2
   %idxprom13.i = zext i8 %tmp11.i to i32
   %arrayidx14.i = getelementptr i8, i8 addrspace(1)* %SBox, i32 %idxprom13.i
-  %tmp15.i = load i8 addrspace(1)* %arrayidx14.i, align 1
+  %tmp15.i = load i8, i8 addrspace(1)* %arrayidx14.i, align 1
   %3 = insertelement <4 x i8> %2, i8 %tmp15.i, i32 2
   %tmp17.i = extractelement <4 x i8> %tmp50, i32 3
   %idxprom19.i = zext i8 %tmp17.i to i32
   %arrayidx20.i = getelementptr i8, i8 addrspace(1)* %SBox, i32 %idxprom19.i
-  %tmp21.i = load i8 addrspace(1)* %arrayidx20.i, align 1
+  %tmp21.i = load i8, i8 addrspace(1)* %arrayidx20.i, align 1
   %4 = insertelement <4 x i8> %3, i8 %tmp21.i, i32 3
   store <4 x i8> %4, <4 x i8> addrspace(3)* %arrayidx27, align 4
   br i1 %cmp2.i, label %shiftRows.exit, label %for.body.i.preheader
@@ -336,12 +336,12 @@ for.body315:                                      ; preds = %for.body, %for.body
   %tmp62275110 = phi i8 [ %tmp58744.xor21425.7, %for.body ], [ %xor6045, %for.body315 ]
   %tmp62376109 = phi i8 [ %tmp58742.xor27822.7, %for.body ], [ %xor6106, %for.body315 ]
   %arrayidx322 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %block0, i32 %storemerge7113
-  %tmp323 = load <4 x i8> addrspace(3)* %arrayidx322, align 4
+  %tmp323 = load <4 x i8>, <4 x i8> addrspace(3)* %arrayidx322, align 4
   %tmp324 = extractelement <4 x i8> %tmp323, i32 0
   %sub329 = sub i32 %storemerge7113, %call3
   %rem333 = and i32 %sub329, 3
   %arrayidx335 = getelementptr [4 x <4 x i8>], [4 x <4 x i8>]* %galiosCoeff, i32 0, i32 %rem333
-  %tmp336 = load <4 x i8>* %arrayidx335, align 4
+  %tmp336 = load <4 x i8>, <4 x i8>* %arrayidx335, align 4
   %tmp337 = extractelement <4 x i8> %tmp336, i32 0
   %and347 = and i8 %tmp337, 1
   %cmp348 = icmp eq i8 %and347, 0
@@ -552,7 +552,7 @@ for.end615:                                       ; preds = %for.body315
   %mul633 = shl i32 %storemerge, 2
   %add635 = add i32 %mul633, %call3
   %arrayidx637 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %roundKey, i32 %add635
-  %tmp638 = load <4 x i8> addrspace(1)* %arrayidx637, align 4
+  %tmp638 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx637, align 4
   %xor639 = xor <4 x i8> %tmp631, %tmp638
   store <4 x i8> %xor639, <4 x i8> addrspace(3)* %arrayidx27, align 4
   %inc642 = add i32 %storemerge, 1
@@ -563,7 +563,7 @@ for.end643:                                       ; preds = %shiftRows.exit
   %mul670 = shl i32 %rounds, 2
   %add672 = add i32 %call3, %mul670
   %arrayidx674 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %roundKey, i32 %add672
-  %tmp675 = load <4 x i8> addrspace(1)* %arrayidx674, align 4
+  %tmp675 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx674, align 4
   %xor676 = xor <4 x i8> %tmp51.lcssa.i, %tmp675
   store <4 x i8> %xor676, <4 x i8> addrspace(1)* %arrayidx664, align 4
   ret void
@@ -621,12 +621,12 @@ entry:
   store <4 x i8> <i8 9, i8 0, i8 0, i8 0>, <4 x i8>* %arrayidx22, align 4
   %arrayidx27 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %block0, i32 %call3
   %arrayidx30 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %input, i32 %add8
-  %tmp31 = load <4 x i8> addrspace(1)* %arrayidx30, align 4
+  %tmp31 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx30, align 4
   store <4 x i8> %tmp31, <4 x i8> addrspace(3)* %arrayidx27, align 4
   %mul37 = shl i32 %rounds, 2
   %add39 = add i32 %call3, %mul37
   %arrayidx41 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %roundKey, i32 %add39
-  %tmp42 = load <4 x i8> addrspace(1)* %arrayidx41, align 4
+  %tmp42 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx41, align 4
   %xor = xor <4 x i8> %tmp31, %tmp42
   %cmp2.i = icmp eq i32 %call3, 0
   %arrayidx66 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %block1, i32 %call3
@@ -663,22 +663,22 @@ shiftRowsInv.exit:                                ; preds = %shiftRowsInv.exit.l
   %tmp1.i = extractelement <4 x i8> %tmp51.lcssa.i, i32 0
   %idxprom.i = zext i8 %tmp1.i to i32
   %arrayidx.i = getelementptr i8, i8 addrspace(1)* %SBox, i32 %idxprom.i
-  %tmp3.i = load i8 addrspace(1)* %arrayidx.i, align 1
+  %tmp3.i = load i8, i8 addrspace(1)* %arrayidx.i, align 1
   %1 = insertelement <4 x i8> undef, i8 %tmp3.i, i32 0
   %tmp5.i32 = extractelement <4 x i8> %tmp51.lcssa.i, i32 1
   %idxprom7.i = zext i8 %tmp5.i32 to i32
   %arrayidx8.i = getelementptr i8, i8 addrspace(1)* %SBox, i32 %idxprom7.i
-  %tmp9.i = load i8 addrspace(1)* %arrayidx8.i, align 1
+  %tmp9.i = load i8, i8 addrspace(1)* %arrayidx8.i, align 1
   %2 = insertelement <4 x i8> %1, i8 %tmp9.i, i32 1
   %tmp11.i = extractelement <4 x i8> %tmp51.lcssa.i, i32 2
   %idxprom13.i = zext i8 %tmp11.i to i32
   %arrayidx14.i = getelementptr i8, i8 addrspace(1)* %SBox, i32 %idxprom13.i
-  %tmp15.i = load i8 addrspace(1)* %arrayidx14.i, align 1
+  %tmp15.i = load i8, i8 addrspace(1)* %arrayidx14.i, align 1
   %3 = insertelement <4 x i8> %2, i8 %tmp15.i, i32 2
   %tmp17.i = extractelement <4 x i8> %tmp51.lcssa.i, i32 3
   %idxprom19.i = zext i8 %tmp17.i to i32
   %arrayidx20.i = getelementptr i8, i8 addrspace(1)* %SBox, i32 %idxprom19.i
-  %tmp21.i = load i8 addrspace(1)* %arrayidx20.i, align 1
+  %tmp21.i = load i8, i8 addrspace(1)* %arrayidx20.i, align 1
   %4 = insertelement <4 x i8> %3, i8 %tmp21.i, i32 3
   store <4 x i8> %4, <4 x i8> addrspace(3)* %arrayidx27, align 4
   br i1 %cmp, label %for.end646, label %for.body
@@ -689,7 +689,7 @@ for.body:                                         ; preds = %shiftRowsInv.exit
   %mul72 = shl i32 %storemerge, 2
   %add74 = add i32 %mul72, %call3
   %arrayidx76 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %roundKey, i32 %add74
-  %tmp77 = load <4 x i8> addrspace(1)* %arrayidx76, align 4
+  %tmp77 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx76, align 4
   %xor78 = xor <4 x i8> %tmp70, %tmp77
   store <4 x i8> %xor78, <4 x i8> addrspace(3)* %arrayidx66, align 4
   call void @_Z7barrierm(i32 1) nounwind
@@ -896,12 +896,12 @@ for.body334:                                      ; preds = %for.body, %for.body
   %tmp64175111 = phi i8 [ %tmp60644.xor23325.7, %for.body ], [ %xor6235, %for.body334 ]
   %tmp64276110 = phi i8 [ %tmp60642.xor29722.7, %for.body ], [ %xor6296, %for.body334 ]
   %arrayidx341 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %block1, i32 %storemerge7114
-  %tmp342 = load <4 x i8> addrspace(3)* %arrayidx341, align 4
+  %tmp342 = load <4 x i8>, <4 x i8> addrspace(3)* %arrayidx341, align 4
   %tmp343 = extractelement <4 x i8> %tmp342, i32 0
   %sub348 = sub i32 %storemerge7114, %call3
   %rem352 = and i32 %sub348, 3
   %arrayidx354 = getelementptr [4 x <4 x i8>], [4 x <4 x i8>]* %galiosCoeff, i32 0, i32 %rem352
-  %tmp355 = load <4 x i8>* %arrayidx354, align 4
+  %tmp355 = load <4 x i8>, <4 x i8>* %arrayidx354, align 4
   %tmp356 = extractelement <4 x i8> %tmp355, i32 0
   %and366 = and i8 %tmp356, 1
   %cmp367 = icmp eq i8 %and366, 0
@@ -1111,7 +1111,7 @@ for.end634:                                       ; preds = %for.body334
 for.end646:                                       ; preds = %shiftRowsInv.exit
   %arrayidx667 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %output, i32 %add8
   %arrayidx674 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %roundKey, i32 %call3
-  %tmp675 = load <4 x i8> addrspace(1)* %arrayidx674, align 4
+  %tmp675 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx674, align 4
   %xor676 = xor <4 x i8> %4, %tmp675
   store <4 x i8> %xor676, <4 x i8> addrspace(1)* %arrayidx667, align 4
   ret void

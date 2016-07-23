@@ -79,63 +79,63 @@ for.cond21.preheader:                             ; preds = %for.cond21.preheade
   %tmp134621 = phi i32 [ %add, %entry ], [ %add44, %for.cond21.preheader.for.cond21.preheader_crit_edge ]
   %arrayidx = getelementptr [8 x float], [8 x float]* %acc, i32 0, i32 %storemerge322
   %arrayidx37 = getelementptr float, float addrspace(1)* %input, i32 %tmp134621
-  %tmp38 = load float addrspace(1)* %arrayidx37, align 4
+  %tmp38 = load float, float addrspace(1)* %arrayidx37, align 4
   %mul39 = fmul float %tmp32.pre, %tmp38
   %add40 = fadd float %arrayidx.promoted, %mul39
   %add29.135 = or i32 %mul, 1
   %arrayidx31.1 = getelementptr float, float addrspace(1)* %dct, i32 %add29.135
-  %tmp32.1 = load float addrspace(1)* %arrayidx31.1, align 4
+  %tmp32.1 = load float, float addrspace(1)* %arrayidx31.1, align 4
   %add35.1 = add i32 %tmp134621, 1
   %arrayidx37.1 = getelementptr float, float addrspace(1)* %input, i32 %add35.1
-  %tmp38.1 = load float addrspace(1)* %arrayidx37.1, align 4
+  %tmp38.1 = load float, float addrspace(1)* %arrayidx37.1, align 4
   %mul39.1 = fmul float %tmp32.1, %tmp38.1
   %add40.1 = fadd float %add40, %mul39.1
   %add29.236 = or i32 %mul, 2
   %arrayidx31.2 = getelementptr float, float addrspace(1)* %dct, i32 %add29.236
-  %tmp32.2 = load float addrspace(1)* %arrayidx31.2, align 4
+  %tmp32.2 = load float, float addrspace(1)* %arrayidx31.2, align 4
   %add35.2 = add i32 %tmp134621, 2
   %arrayidx37.2 = getelementptr float, float addrspace(1)* %input, i32 %add35.2
-  %tmp38.2 = load float addrspace(1)* %arrayidx37.2, align 4
+  %tmp38.2 = load float, float addrspace(1)* %arrayidx37.2, align 4
   %mul39.2 = fmul float %tmp32.2, %tmp38.2
   %add40.2 = fadd float %add40.1, %mul39.2
   %add29.337 = or i32 %mul, 3
   %arrayidx31.3 = getelementptr float, float addrspace(1)* %dct, i32 %add29.337
-  %tmp32.3 = load float addrspace(1)* %arrayidx31.3, align 4
+  %tmp32.3 = load float, float addrspace(1)* %arrayidx31.3, align 4
   %add35.3 = add i32 %tmp134621, 3
   %arrayidx37.3 = getelementptr float, float addrspace(1)* %input, i32 %add35.3
-  %tmp38.3 = load float addrspace(1)* %arrayidx37.3, align 4
+  %tmp38.3 = load float, float addrspace(1)* %arrayidx37.3, align 4
   %mul39.3 = fmul float %tmp32.3, %tmp38.3
   %add40.3 = fadd float %add40.2, %mul39.3
   %add29.438 = or i32 %mul, 4
   %arrayidx31.4 = getelementptr float, float addrspace(1)* %dct, i32 %add29.438
-  %tmp32.4 = load float addrspace(1)* %arrayidx31.4, align 4
+  %tmp32.4 = load float, float addrspace(1)* %arrayidx31.4, align 4
   %add35.4 = add i32 %tmp134621, 4
   %arrayidx37.4 = getelementptr float, float addrspace(1)* %input, i32 %add35.4
-  %tmp38.4 = load float addrspace(1)* %arrayidx37.4, align 4
+  %tmp38.4 = load float, float addrspace(1)* %arrayidx37.4, align 4
   %mul39.4 = fmul float %tmp32.4, %tmp38.4
   %add40.4 = fadd float %add40.3, %mul39.4
   %add29.539 = or i32 %mul, 5
   %arrayidx31.5 = getelementptr float, float addrspace(1)* %dct, i32 %add29.539
-  %tmp32.5 = load float addrspace(1)* %arrayidx31.5, align 4
+  %tmp32.5 = load float, float addrspace(1)* %arrayidx31.5, align 4
   %add35.5 = add i32 %tmp134621, 5
   %arrayidx37.5 = getelementptr float, float addrspace(1)* %input, i32 %add35.5
-  %tmp38.5 = load float addrspace(1)* %arrayidx37.5, align 4
+  %tmp38.5 = load float, float addrspace(1)* %arrayidx37.5, align 4
   %mul39.5 = fmul float %tmp32.5, %tmp38.5
   %add40.5 = fadd float %add40.4, %mul39.5
   %add29.640 = or i32 %mul, 6
   %arrayidx31.6 = getelementptr float, float addrspace(1)* %dct, i32 %add29.640
-  %tmp32.6 = load float addrspace(1)* %arrayidx31.6, align 4
+  %tmp32.6 = load float, float addrspace(1)* %arrayidx31.6, align 4
   %add35.6 = add i32 %tmp134621, 6
   %arrayidx37.6 = getelementptr float, float addrspace(1)* %input, i32 %add35.6
-  %tmp38.6 = load float addrspace(1)* %arrayidx37.6, align 4
+  %tmp38.6 = load float, float addrspace(1)* %arrayidx37.6, align 4
   %mul39.6 = fmul float %tmp32.6, %tmp38.6
   %add40.6 = fadd float %add40.5, %mul39.6
   %add29.741 = or i32 %mul, 7
   %arrayidx31.7 = getelementptr float, float addrspace(1)* %dct, i32 %add29.741
-  %tmp32.7 = load float addrspace(1)* %arrayidx31.7, align 4
+  %tmp32.7 = load float, float addrspace(1)* %arrayidx31.7, align 4
   %add35.7 = add i32 %tmp134621, 7
   %arrayidx37.7 = getelementptr float, float addrspace(1)* %input, i32 %add35.7
-  %tmp38.7 = load float addrspace(1)* %arrayidx37.7, align 4
+  %tmp38.7 = load float, float addrspace(1)* %arrayidx37.7, align 4
   %mul39.7 = fmul float %tmp32.7, %tmp38.7
   %add40.7 = fadd float %add40.6, %mul39.7
   store float %add40.7, float* %arrayidx, align 4
@@ -146,41 +146,41 @@ for.cond21.preheader:                             ; preds = %for.cond21.preheade
 for.cond21.preheader.for.cond21.preheader_crit_edge: ; preds = %for.cond21.preheader
   %add44 = add i32 %tmp134621, %width
   %arrayidx.phi.trans.insert = getelementptr [8 x float], [8 x float]* %acc, i32 0, i32 %inc47
-  %arrayidx.promoted.pre = load float* %arrayidx.phi.trans.insert, align 4
+  %arrayidx.promoted.pre = load float, float* %arrayidx.phi.trans.insert, align 4
   br label %for.cond21.preheader
 
 for.end48:                                        ; preds = %for.cond21.preheader
   %acc23 = bitcast [8 x float]* %acc to i8*
   %arrayidx53 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %mul
-  %tmp56 = load float* %.array, align 4
+  %tmp56 = load float, float* %.array, align 4
   store float %tmp56, float addrspace(3)* %arrayidx53, align 4
   %add587 = or i32 %mul, 1
   %arrayidx59 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add587
-  %tmp62 = load float* %.array5, align 4
+  %tmp62 = load float, float* %.array5, align 4
   store float %tmp62, float addrspace(3)* %arrayidx59, align 4
   %add648 = or i32 %mul, 2
   %arrayidx65 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add648
-  %tmp68 = load float* %.array6, align 4
+  %tmp68 = load float, float* %.array6, align 4
   store float %tmp68, float addrspace(3)* %arrayidx65, align 4
   %add709 = or i32 %mul, 3
   %arrayidx71 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add709
-  %tmp74 = load float* %.array7, align 4
+  %tmp74 = load float, float* %.array7, align 4
   store float %tmp74, float addrspace(3)* %arrayidx71, align 4
   %add7610 = or i32 %mul, 4
   %arrayidx77 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add7610
-  %tmp80 = load float* %.array8, align 4
+  %tmp80 = load float, float* %.array8, align 4
   store float %tmp80, float addrspace(3)* %arrayidx77, align 4
   %add8211 = or i32 %mul, 5
   %arrayidx83 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add8211
-  %tmp86 = load float* %.array9, align 4
+  %tmp86 = load float, float* %.array9, align 4
   store float %tmp86, float addrspace(3)* %arrayidx83, align 4
   %add8812 = or i32 %mul, 6
   %arrayidx89 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add8812
-  %tmp92 = load float* %.array10, align 4
+  %tmp92 = load float, float* %.array10, align 4
   store float %tmp92, float addrspace(3)* %arrayidx89, align 4
   %add9413 = or i32 %mul, 7
   %arrayidx95 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add9413
-  %tmp98 = load float* %.array11, align 4
+  %tmp98 = load float, float* %.array11, align 4
   store float %tmp98, float addrspace(3)* %arrayidx95, align 4
   call void @_Z7barrierm(i32 1) nounwind
   call void @llvm.memset.p0i8.i32(i8* %acc23, i8 0, i32 32, i32 4, i1 false)
@@ -200,42 +200,42 @@ for.cond121.preheader:                            ; preds = %for.cond121.prehead
   %add147516 = phi i32 [ 0, %for.end48 ], [ %add147, %for.cond121.preheader.for.cond121.preheader_crit_edge ]
   %arrayidx127 = getelementptr [8 x float], [8 x float]* %acc, i32 0, i32 %storemerge17
   %arrayidx132 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add147516
-  %tmp133 = load float addrspace(3)* %arrayidx132, align 4
+  %tmp133 = load float, float addrspace(3)* %arrayidx132, align 4
   %mul140 = fmul float %tmp133, %tmp139.pre
   %add141 = fadd float %arrayidx127.promoted, %mul140
   %add131.142 = or i32 %add147516, 1
   %arrayidx132.1 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add131.142
-  %tmp133.1 = load float addrspace(3)* %arrayidx132.1, align 4
+  %tmp133.1 = load float, float addrspace(3)* %arrayidx132.1, align 4
   %mul140.1 = fmul float %tmp133.1, %tmp139.1.pre
   %add141.1 = fadd float %add141, %mul140.1
   %add131.243 = or i32 %add147516, 2
   %arrayidx132.2 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add131.243
-  %tmp133.2 = load float addrspace(3)* %arrayidx132.2, align 4
+  %tmp133.2 = load float, float addrspace(3)* %arrayidx132.2, align 4
   %mul140.2 = fmul float %tmp133.2, %tmp139.2.pre
   %add141.2 = fadd float %add141.1, %mul140.2
   %add131.344 = or i32 %add147516, 3
   %arrayidx132.3 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add131.344
-  %tmp133.3 = load float addrspace(3)* %arrayidx132.3, align 4
+  %tmp133.3 = load float, float addrspace(3)* %arrayidx132.3, align 4
   %mul140.3 = fmul float %tmp133.3, %tmp139.3.pre
   %add141.3 = fadd float %add141.2, %mul140.3
   %add131.445 = or i32 %add147516, 4
   %arrayidx132.4 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add131.445
-  %tmp133.4 = load float addrspace(3)* %arrayidx132.4, align 4
+  %tmp133.4 = load float, float addrspace(3)* %arrayidx132.4, align 4
   %mul140.4 = fmul float %tmp133.4, %tmp139.4.pre
   %add141.4 = fadd float %add141.3, %mul140.4
   %add131.546 = or i32 %add147516, 5
   %arrayidx132.5 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add131.546
-  %tmp133.5 = load float addrspace(3)* %arrayidx132.5, align 4
+  %tmp133.5 = load float, float addrspace(3)* %arrayidx132.5, align 4
   %mul140.5 = fmul float %tmp133.5, %tmp139.5.pre
   %add141.5 = fadd float %add141.4, %mul140.5
   %add131.647 = or i32 %add147516, 6
   %arrayidx132.6 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add131.647
-  %tmp133.6 = load float addrspace(3)* %arrayidx132.6, align 4
+  %tmp133.6 = load float, float addrspace(3)* %arrayidx132.6, align 4
   %mul140.6 = fmul float %tmp133.6, %tmp139.6.pre
   %add141.6 = fadd float %add141.5, %mul140.6
   %add131.748 = or i32 %add147516, 7
   %arrayidx132.7 = getelementptr [64 x float], [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add131.748
-  %tmp133.7 = load float addrspace(3)* %arrayidx132.7, align 4
+  %tmp133.7 = load float, float addrspace(3)* %arrayidx132.7, align 4
   %mul140.7 = fmul float %tmp133.7, %tmp139.7.pre
   %add141.7 = fadd float %add141.6, %mul140.7
   store float %add141.7, float* %arrayidx127, align 4
@@ -246,7 +246,7 @@ for.cond121.preheader:                            ; preds = %for.cond121.prehead
 for.cond121.preheader.for.cond121.preheader_crit_edge: ; preds = %for.cond121.preheader
   %add147 = add i32 %add147516, 8
   %arrayidx127.phi.trans.insert = getelementptr [8 x float], [8 x float]* %acc, i32 0, i32 %inc150
-  %arrayidx127.promoted.pre = load float* %arrayidx127.phi.trans.insert, align 4
+  %arrayidx127.promoted.pre = load float, float* %arrayidx127.phi.trans.insert, align 4
   br label %for.cond121.preheader
 
 for.end151:                                       ; preds = %for.cond121.preheader
@@ -254,35 +254,35 @@ for.end151:                                       ; preds = %for.cond121.prehead
   %mul157 = mul i32 %add155, %width
   %add160 = add i32 %mul157, %mul18
   %arrayidx164 = getelementptr float, float addrspace(1)* %output, i32 %add160
-  %tmp167 = load float* %.array, align 4
+  %tmp167 = load float, float* %.array, align 4
   store float %tmp167, float addrspace(1)* %arrayidx164, align 4
   %add169 = add i32 %add160, 1
   %arrayidx171 = getelementptr float, float addrspace(1)* %output, i32 %add169
-  %tmp174 = load float* %.array5, align 4
+  %tmp174 = load float, float* %.array5, align 4
   store float %tmp174, float addrspace(1)* %arrayidx171, align 4
   %add176 = add i32 %add160, 2
   %arrayidx178 = getelementptr float, float addrspace(1)* %output, i32 %add176
-  %tmp181 = load float* %.array6, align 4
+  %tmp181 = load float, float* %.array6, align 4
   store float %tmp181, float addrspace(1)* %arrayidx178, align 4
   %add183 = add i32 %add160, 3
   %arrayidx185 = getelementptr float, float addrspace(1)* %output, i32 %add183
-  %tmp188 = load float* %.array7, align 4
+  %tmp188 = load float, float* %.array7, align 4
   store float %tmp188, float addrspace(1)* %arrayidx185, align 4
   %add190 = add i32 %add160, 4
   %arrayidx192 = getelementptr float, float addrspace(1)* %output, i32 %add190
-  %tmp195 = load float* %.array8, align 4
+  %tmp195 = load float, float* %.array8, align 4
   store float %tmp195, float addrspace(1)* %arrayidx192, align 4
   %add197 = add i32 %add160, 5
   %arrayidx199 = getelementptr float, float addrspace(1)* %output, i32 %add197
-  %tmp202 = load float* %.array9, align 4
+  %tmp202 = load float, float* %.array9, align 4
   store float %tmp202, float addrspace(1)* %arrayidx199, align 4
   %add204 = add i32 %add160, 6
   %arrayidx206 = getelementptr float, float addrspace(1)* %output, i32 %add204
-  %tmp209 = load float* %.array10, align 4
+  %tmp209 = load float, float* %.array10, align 4
   store float %tmp209, float addrspace(1)* %arrayidx206, align 4
   %add211 = add i32 %add160, 7
   %arrayidx213 = getelementptr float, float addrspace(1)* %output, i32 %add211
-  %tmp216 = load float* %.array11, align 4
+  %tmp216 = load float, float* %.array11, align 4
   store float %tmp216, float addrspace(1)* %arrayidx213, align 4
   ret void
 }
@@ -307,9 +307,9 @@ entry:
   %mul11 = mul i32 %mul, %div
   %add = add i32 %mul11, %call2
   %arrayidx = getelementptr <8 x float>, <8 x float> addrspace(1)* %dct, i32 %call4
-  %tmp15 = load <8 x float> addrspace(1)* %arrayidx, align 32
+  %tmp15 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
   %arrayidx18 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add
-  %tmp19 = load <8 x float> addrspace(1)* %arrayidx18, align 32
+  %tmp19 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx18, align 32
   %mul20 = fmul <8 x float> %tmp15, %tmp19
   %tmp22 = extractelement <8 x float> %mul20, i32 0
   %tmp24 = extractelement <8 x float> %mul20, i32 1
@@ -329,7 +329,7 @@ entry:
   %tmp45 = insertelement <8 x float> undef, float %add43, i32 0
   %add48 = add i32 %add, %div
   %arrayidx55 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add48
-  %tmp56 = load <8 x float> addrspace(1)* %arrayidx55, align 32
+  %tmp56 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx55, align 32
   %mul57 = fmul <8 x float> %tmp15, %tmp56
   %tmp59 = extractelement <8 x float> %mul57, i32 0
   %tmp61 = extractelement <8 x float> %mul57, i32 1
@@ -349,7 +349,7 @@ entry:
   %tmp82 = insertelement <8 x float> %tmp45, float %add80, i32 1
   %add85 = add i32 %add48, %div
   %arrayidx92 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add85
-  %tmp93 = load <8 x float> addrspace(1)* %arrayidx92, align 32
+  %tmp93 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx92, align 32
   %mul94 = fmul <8 x float> %tmp15, %tmp93
   %tmp96 = extractelement <8 x float> %mul94, i32 0
   %tmp98 = extractelement <8 x float> %mul94, i32 1
@@ -369,7 +369,7 @@ entry:
   %tmp119 = insertelement <8 x float> %tmp82, float %add117, i32 2
   %add122 = add i32 %add85, %div
   %arrayidx129 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add122
-  %tmp130 = load <8 x float> addrspace(1)* %arrayidx129, align 32
+  %tmp130 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx129, align 32
   %mul131 = fmul <8 x float> %tmp15, %tmp130
   %tmp133 = extractelement <8 x float> %mul131, i32 0
   %tmp135 = extractelement <8 x float> %mul131, i32 1
@@ -389,7 +389,7 @@ entry:
   %tmp156 = insertelement <8 x float> %tmp119, float %add154, i32 3
   %add159 = add i32 %add122, %div
   %arrayidx166 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add159
-  %tmp167 = load <8 x float> addrspace(1)* %arrayidx166, align 32
+  %tmp167 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx166, align 32
   %mul168 = fmul <8 x float> %tmp15, %tmp167
   %tmp170 = extractelement <8 x float> %mul168, i32 0
   %tmp172 = extractelement <8 x float> %mul168, i32 1
@@ -409,7 +409,7 @@ entry:
   %tmp193 = insertelement <8 x float> %tmp156, float %add191, i32 4
   %add196 = add i32 %add159, %div
   %arrayidx203 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add196
-  %tmp204 = load <8 x float> addrspace(1)* %arrayidx203, align 32
+  %tmp204 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx203, align 32
   %mul205 = fmul <8 x float> %tmp15, %tmp204
   %tmp207 = extractelement <8 x float> %mul205, i32 0
   %tmp209 = extractelement <8 x float> %mul205, i32 1
@@ -429,7 +429,7 @@ entry:
   %tmp230 = insertelement <8 x float> %tmp193, float %add228, i32 5
   %add233 = add i32 %add196, %div
   %arrayidx240 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add233
-  %tmp241 = load <8 x float> addrspace(1)* %arrayidx240, align 32
+  %tmp241 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx240, align 32
   %mul242 = fmul <8 x float> %tmp15, %tmp241
   %tmp244 = extractelement <8 x float> %mul242, i32 0
   %tmp246 = extractelement <8 x float> %mul242, i32 1
@@ -449,7 +449,7 @@ entry:
   %tmp267 = insertelement <8 x float> %tmp230, float %add265, i32 6
   %add270 = add i32 %add233, %div
   %arrayidx277 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add270
-  %tmp278 = load <8 x float> addrspace(1)* %arrayidx277, align 32
+  %tmp278 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx277, align 32
   %mul279 = fmul <8 x float> %tmp15, %tmp278
   %tmp281 = extractelement <8 x float> %mul279, i32 0
   %tmp283 = extractelement <8 x float> %mul279, i32 1
@@ -470,7 +470,7 @@ entry:
   %arrayidx307 = getelementptr [8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @DCT_VECTOR_cllocal_inter, i32 0, i32 %call4
   store <8 x float> %tmp304, <8 x float> addrspace(3)* %arrayidx307, align 32
   call void @_Z7barrierm(i32 1) nounwind
-  %tmp311 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @DCT_VECTOR_cllocal_inter, i32 0, i32 0), align 32
+  %tmp311 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @DCT_VECTOR_cllocal_inter, i32 0, i32 0), align 32
   %tmp315 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
   %mul316 = fmul <8 x float> %tmp311, %tmp315
   %tmp318 = extractelement <8 x float> %mul316, i32 0
@@ -489,7 +489,7 @@ entry:
   %tmp338 = extractelement <8 x float> %mul316, i32 7
   %add339 = fadd float %add336, %tmp338
   %tmp341 = insertelement <8 x float> undef, float %add339, i32 0
-  %tmp342 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @DCT_VECTOR_cllocal_inter, i32 0, i32 1), align 32
+  %tmp342 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @DCT_VECTOR_cllocal_inter, i32 0, i32 1), align 32
   %mul347 = fmul <8 x float> %tmp342, %tmp315
   %tmp349 = extractelement <8 x float> %mul347, i32 0
   %tmp351 = extractelement <8 x float> %mul347, i32 1
@@ -635,10 +635,10 @@ entry:
   %mul11 = mul i32 %mul, %div
   %add = add i32 %mul11, %call2
   %arrayidx = getelementptr <8 x float>, <8 x float> addrspace(1)* %dct, i32 %call4
-  %tmp15 = load <8 x float> addrspace(1)* %arrayidx, align 32
+  %tmp15 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
   %tmp16 = shufflevector <8 x float> %tmp15, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %arrayidx19 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add
-  %tmp20 = load <8 x float> addrspace(1)* %arrayidx19, align 32
+  %tmp20 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx19, align 32
   %tmp21 = shufflevector <8 x float> %tmp20, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %call22 = call float @__dotf4(<4 x float> %tmp16, <4 x float> %tmp21) nounwind
   %tmp26 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
@@ -652,7 +652,7 @@ entry:
   %tmp43 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
   %tmp44 = shufflevector <8 x float> %tmp43, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %arrayidx47 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add39
-  %tmp48 = load <8 x float> addrspace(1)* %arrayidx47, align 32
+  %tmp48 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx47, align 32
   %tmp49 = shufflevector <8 x float> %tmp48, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %call50 = call float @__dotf4(<4 x float> %tmp44, <4 x float> %tmp49) nounwind
   %tmp54 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
@@ -666,7 +666,7 @@ entry:
   %tmp71 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
   %tmp72 = shufflevector <8 x float> %tmp71, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %arrayidx75 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add67
-  %tmp76 = load <8 x float> addrspace(1)* %arrayidx75, align 32
+  %tmp76 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx75, align 32
   %tmp77 = shufflevector <8 x float> %tmp76, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %call78 = call float @__dotf4(<4 x float> %tmp72, <4 x float> %tmp77) nounwind
   %tmp82 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
@@ -680,7 +680,7 @@ entry:
   %tmp99 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
   %tmp100 = shufflevector <8 x float> %tmp99, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %arrayidx103 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add95
-  %tmp104 = load <8 x float> addrspace(1)* %arrayidx103, align 32
+  %tmp104 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx103, align 32
   %tmp105 = shufflevector <8 x float> %tmp104, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %call106 = call float @__dotf4(<4 x float> %tmp100, <4 x float> %tmp105) nounwind
   %tmp110 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
@@ -694,7 +694,7 @@ entry:
   %tmp127 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
   %tmp128 = shufflevector <8 x float> %tmp127, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %arrayidx131 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add123
-  %tmp132 = load <8 x float> addrspace(1)* %arrayidx131, align 32
+  %tmp132 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx131, align 32
   %tmp133 = shufflevector <8 x float> %tmp132, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %call134 = call float @__dotf4(<4 x float> %tmp128, <4 x float> %tmp133) nounwind
   %tmp138 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
@@ -708,7 +708,7 @@ entry:
   %tmp155 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
   %tmp156 = shufflevector <8 x float> %tmp155, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %arrayidx159 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add151
-  %tmp160 = load <8 x float> addrspace(1)* %arrayidx159, align 32
+  %tmp160 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx159, align 32
   %tmp161 = shufflevector <8 x float> %tmp160, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %call162 = call float @__dotf4(<4 x float> %tmp156, <4 x float> %tmp161) nounwind
   %tmp166 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
@@ -722,7 +722,7 @@ entry:
   %tmp183 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
   %tmp184 = shufflevector <8 x float> %tmp183, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %arrayidx187 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add179
-  %tmp188 = load <8 x float> addrspace(1)* %arrayidx187, align 32
+  %tmp188 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx187, align 32
   %tmp189 = shufflevector <8 x float> %tmp188, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %call190 = call float @__dotf4(<4 x float> %tmp184, <4 x float> %tmp189) nounwind
   %tmp194 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
@@ -736,7 +736,7 @@ entry:
   %tmp211 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
   %tmp212 = shufflevector <8 x float> %tmp211, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %arrayidx215 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add207
-  %tmp216 = load <8 x float> addrspace(1)* %arrayidx215, align 32
+  %tmp216 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx215, align 32
   %tmp217 = shufflevector <8 x float> %tmp216, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %call218 = call float @__dotf4(<4 x float> %tmp212, <4 x float> %tmp217) nounwind
   %tmp222 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
@@ -872,7 +872,7 @@ for.cond75.preheader:                             ; preds = %entry, %for.end109
   %storemerge324 = phi i32 [ 0, %entry ], [ %inc115, %for.end109 ]
   %add112623 = phi i32 [ %add, %entry ], [ %add112, %for.end109 ]
   %arrayidx97.phi.trans.insert = getelementptr float, float addrspace(1)* %input, i32 %add112623
-  %tmp98.pre = load float addrspace(1)* %arrayidx97.phi.trans.insert, align 4
+  %tmp98.pre = load float, float addrspace(1)* %arrayidx97.phi.trans.insert, align 4
   br label %for.cond79.preheader
 
 for.cond79.preheader:                             ; preds = %for.cond75.preheader, %for.cond79.preheader
@@ -880,65 +880,65 @@ for.cond79.preheader:                             ; preds = %for.cond75.preheade
   %add172821 = phi i32 [ 0, %for.cond75.preheader ], [ %add103, %for.cond79.preheader ]
   %add85 = add i32 %add172821, %storemerge324
   %arrayidx = getelementptr [64 x float], [64 x float]* %inter, i32 0, i32 %add85
-  %arrayidx.promoted = load float* %arrayidx, align 4
+  %arrayidx.promoted = load float, float* %arrayidx, align 4
   %arrayidx91 = getelementptr float, float addrspace(1)* %dct, i32 %add172821
-  %tmp92 = load float addrspace(1)* %arrayidx91, align 4
+  %tmp92 = load float, float addrspace(1)* %arrayidx91, align 4
   %mul99 = fmul float %tmp92, %tmp98.pre
   %add100 = fadd float %arrayidx.promoted, %mul99
   %add89.127 = or i32 %add172821, 1
   %arrayidx91.1 = getelementptr float, float addrspace(1)* %dct, i32 %add89.127
-  %tmp92.1 = load float addrspace(1)* %arrayidx91.1, align 4
+  %tmp92.1 = load float, float addrspace(1)* %arrayidx91.1, align 4
   %add95.1 = add i32 %add112623, 1
   %arrayidx97.1 = getelementptr float, float addrspace(1)* %input, i32 %add95.1
-  %tmp98.1 = load float addrspace(1)* %arrayidx97.1, align 4
+  %tmp98.1 = load float, float addrspace(1)* %arrayidx97.1, align 4
   %mul99.1 = fmul float %tmp92.1, %tmp98.1
   %add100.1 = fadd float %add100, %mul99.1
   %add89.228 = or i32 %add172821, 2
   %arrayidx91.2 = getelementptr float, float addrspace(1)* %dct, i32 %add89.228
-  %tmp92.2 = load float addrspace(1)* %arrayidx91.2, align 4
+  %tmp92.2 = load float, float addrspace(1)* %arrayidx91.2, align 4
   %add95.2 = add i32 %add112623, 2
   %arrayidx97.2 = getelementptr float, float addrspace(1)* %input, i32 %add95.2
-  %tmp98.2 = load float addrspace(1)* %arrayidx97.2, align 4
+  %tmp98.2 = load float, float addrspace(1)* %arrayidx97.2, align 4
   %mul99.2 = fmul float %tmp92.2, %tmp98.2
   %add100.2 = fadd float %add100.1, %mul99.2
   %add89.329 = or i32 %add172821, 3
   %arrayidx91.3 = getelementptr float, float addrspace(1)* %dct, i32 %add89.329
-  %tmp92.3 = load float addrspace(1)* %arrayidx91.3, align 4
+  %tmp92.3 = load float, float addrspace(1)* %arrayidx91.3, align 4
   %add95.3 = add i32 %add112623, 3
   %arrayidx97.3 = getelementptr float, float addrspace(1)* %input, i32 %add95.3
-  %tmp98.3 = load float addrspace(1)* %arrayidx97.3, align 4
+  %tmp98.3 = load float, float addrspace(1)* %arrayidx97.3, align 4
   %mul99.3 = fmul float %tmp92.3, %tmp98.3
   %add100.3 = fadd float %add100.2, %mul99.3
   %add89.430 = or i32 %add172821, 4
   %arrayidx91.4 = getelementptr float, float addrspace(1)* %dct, i32 %add89.430
-  %tmp92.4 = load float addrspace(1)* %arrayidx91.4, align 4
+  %tmp92.4 = load float, float addrspace(1)* %arrayidx91.4, align 4
   %add95.4 = add i32 %add112623, 4
   %arrayidx97.4 = getelementptr float, float addrspace(1)* %input, i32 %add95.4
-  %tmp98.4 = load float addrspace(1)* %arrayidx97.4, align 4
+  %tmp98.4 = load float, float addrspace(1)* %arrayidx97.4, align 4
   %mul99.4 = fmul float %tmp92.4, %tmp98.4
   %add100.4 = fadd float %add100.3, %mul99.4
   %add89.531 = or i32 %add172821, 5
   %arrayidx91.5 = getelementptr float, float addrspace(1)* %dct, i32 %add89.531
-  %tmp92.5 = load float addrspace(1)* %arrayidx91.5, align 4
+  %tmp92.5 = load float, float addrspace(1)* %arrayidx91.5, align 4
   %add95.5 = add i32 %add112623, 5
   %arrayidx97.5 = getelementptr float, float addrspace(1)* %input, i32 %add95.5
-  %tmp98.5 = load float addrspace(1)* %arrayidx97.5, align 4
+  %tmp98.5 = load float, float addrspace(1)* %arrayidx97.5, align 4
   %mul99.5 = fmul float %tmp92.5, %tmp98.5
   %add100.5 = fadd float %add100.4, %mul99.5
   %add89.632 = or i32 %add172821, 6
   %arrayidx91.6 = getelementptr float, float addrspace(1)* %dct, i32 %add89.632
-  %tmp92.6 = load float addrspace(1)* %arrayidx91.6, align 4
+  %tmp92.6 = load float, float addrspace(1)* %arrayidx91.6, align 4
   %add95.6 = add i32 %add112623, 6
   %arrayidx97.6 = getelementptr float, float addrspace(1)* %input, i32 %add95.6
-  %tmp98.6 = load float addrspace(1)* %arrayidx97.6, align 4
+  %tmp98.6 = load float, float addrspace(1)* %arrayidx97.6, align 4
   %mul99.6 = fmul float %tmp92.6, %tmp98.6
   %add100.6 = fadd float %add100.5, %mul99.6
   %add89.733 = or i32 %add172821, 7
   %arrayidx91.7 = getelementptr float, float addrspace(1)* %dct, i32 %add89.733
-  %tmp92.7 = load float addrspace(1)* %arrayidx91.7, align 4
+  %tmp92.7 = load float, float addrspace(1)* %arrayidx91.7, align 4
   %add95.7 = add i32 %add112623, 7
   %arrayidx97.7 = getelementptr float, float addrspace(1)* %input, i32 %add95.7
-  %tmp98.7 = load float addrspace(1)* %arrayidx97.7, align 4
+  %tmp98.7 = load float, float addrspace(1)* %arrayidx97.7, align 4
   %mul99.7 = fmul float %tmp92.7, %tmp98.7
   %add100.7 = fadd float %add100.6, %mul99.7
   store float %add100.7, float* %arrayidx, align 4
@@ -969,72 +969,72 @@ for.body131:                                      ; preds = %for.cond128.prehead
   %arrayidx136 = getelementptr float, float addrspace(1)* %output, i32 %add134
   store float 0.000000e+00, float addrspace(1)* %arrayidx136, align 4
   %arrayidx151 = getelementptr float, float addrspace(1)* %dct, i32 %add172716
-  %tmp152 = load float addrspace(1)* %arrayidx151, align 4
+  %tmp152 = load float, float addrspace(1)* %arrayidx151, align 4
   %arrayidx157 = getelementptr [64 x float], [64 x float]* %inter, i32 0, i32 %add166913
-  %tmp158 = load float* %arrayidx157, align 4
+  %tmp158 = load float, float* %arrayidx157, align 4
   %mul159 = fmul float %tmp152, %tmp158
   %add160 = fadd float %mul159, 0.000000e+00
   store float %add160, float addrspace(1)* %arrayidx136, align 4
   %add149.134 = or i32 %add172716, 1
   %arrayidx151.1 = getelementptr float, float addrspace(1)* %dct, i32 %add149.134
-  %tmp152.1 = load float addrspace(1)* %arrayidx151.1, align 4
+  %tmp152.1 = load float, float addrspace(1)* %arrayidx151.1, align 4
   %add155.135 = or i32 %add166913, 1
   %arrayidx157.1 = getelementptr [64 x float], [64 x float]* %inter, i32 0, i32 %add155.135
-  %tmp158.1 = load float* %arrayidx157.1, align 4
+  %tmp158.1 = load float, float* %arrayidx157.1, align 4
   %mul159.1 = fmul float %tmp152.1, %tmp158.1
   %add160.1 = fadd float %add160, %mul159.1
   store float %add160.1, float addrspace(1)* %arrayidx136, align 4
   %add149.236 = or i32 %add172716, 2
   %arrayidx151.2 = getelementptr float, float addrspace(1)* %dct, i32 %add149.236
-  %tmp152.2 = load float addrspace(1)* %arrayidx151.2, align 4
+  %tmp152.2 = load float, float addrspace(1)* %arrayidx151.2, align 4
   %add155.237 = or i32 %add166913, 2
   %arrayidx157.2 = getelementptr [64 x float], [64 x float]* %inter, i32 0, i32 %add155.237
-  %tmp158.2 = load float* %arrayidx157.2, align 4
+  %tmp158.2 = load float, float* %arrayidx157.2, align 4
   %mul159.2 = fmul float %tmp152.2, %tmp158.2
   %add160.2 = fadd float %add160.1, %mul159.2
   store float %add160.2, float addrspace(1)* %arrayidx136, align 4
   %add149.338 = or i32 %add172716, 3
   %arrayidx151.3 = getelementptr float, float addrspace(1)* %dct, i32 %add149.338
-  %tmp152.3 = load float addrspace(1)* %arrayidx151.3, align 4
+  %tmp152.3 = load float, float addrspace(1)* %arrayidx151.3, align 4
   %add155.339 = or i32 %add166913, 3
   %arrayidx157.3 = getelementptr [64 x float], [64 x float]* %inter, i32 0, i32 %add155.339
-  %tmp158.3 = load float* %arrayidx157.3, align 4
+  %tmp158.3 = load float, float* %arrayidx157.3, align 4
   %mul159.3 = fmul float %tmp152.3, %tmp158.3
   %add160.3 = fadd float %add160.2, %mul159.3
   store float %add160.3, float addrspace(1)* %arrayidx136, align 4
   %add149.440 = or i32 %add172716, 4
   %arrayidx151.4 = getelementptr float, float addrspace(1)* %dct, i32 %add149.440
-  %tmp152.4 = load float addrspace(1)* %arrayidx151.4, align 4
+  %tmp152.4 = load float, float addrspace(1)* %arrayidx151.4, align 4
   %add155.441 = or i32 %add166913, 4
   %arrayidx157.4 = getelementptr [64 x float], [64 x float]* %inter, i32 0, i32 %add155.441
-  %tmp158.4 = load float* %arrayidx157.4, align 4
+  %tmp158.4 = load float, float* %arrayidx157.4, align 4
   %mul159.4 = fmul float %tmp152.4, %tmp158.4
   %add160.4 = fadd float %add160.3, %mul159.4
   store float %add160.4, float addrspace(1)* %arrayidx136, align 4
   %add149.542 = or i32 %add172716, 5
   %arrayidx151.5 = getelementptr float, float addrspace(1)* %dct, i32 %add149.542
-  %tmp152.5 = load float addrspace(1)* %arrayidx151.5, align 4
+  %tmp152.5 = load float, float addrspace(1)* %arrayidx151.5, align 4
   %add155.543 = or i32 %add166913, 5
   %arrayidx157.5 = getelementptr [64 x float], [64 x float]* %inter, i32 0, i32 %add155.543
-  %tmp158.5 = load float* %arrayidx157.5, align 4
+  %tmp158.5 = load float, float* %arrayidx157.5, align 4
   %mul159.5 = fmul float %tmp152.5, %tmp158.5
   %add160.5 = fadd float %add160.4, %mul159.5
   store float %add160.5, float addrspace(1)* %arrayidx136, align 4
   %add149.644 = or i32 %add172716, 6
   %arrayidx151.6 = getelementptr float, float addrspace(1)* %dct, i32 %add149.644
-  %tmp152.6 = load float addrspace(1)* %arrayidx151.6, align 4
+  %tmp152.6 = load float, float addrspace(1)* %arrayidx151.6, align 4
   %add155.645 = or i32 %add166913, 6
   %arrayidx157.6 = getelementptr [64 x float], [64 x float]* %inter, i32 0, i32 %add155.645
-  %tmp158.6 = load float* %arrayidx157.6, align 4
+  %tmp158.6 = load float, float* %arrayidx157.6, align 4
   %mul159.6 = fmul float %tmp152.6, %tmp158.6
   %add160.6 = fadd float %add160.5, %mul159.6
   store float %add160.6, float addrspace(1)* %arrayidx136, align 4
   %add149.746 = or i32 %add172716, 7
   %arrayidx151.7 = getelementptr float, float addrspace(1)* %dct, i32 %add149.746
-  %tmp152.7 = load float addrspace(1)* %arrayidx151.7, align 4
+  %tmp152.7 = load float, float addrspace(1)* %arrayidx151.7, align 4
   %add155.747 = or i32 %add166913, 7
   %arrayidx157.7 = getelementptr [64 x float], [64 x float]* %inter, i32 0, i32 %add155.747
-  %tmp158.7 = load float* %arrayidx157.7, align 4
+  %tmp158.7 = load float, float* %arrayidx157.7, align 4
   %mul159.7 = fmul float %tmp152.7, %tmp158.7
   %add160.7 = fadd float %add160.6, %mul159.7
   store float %add160.7, float addrspace(1)* %arrayidx136, align 4
@@ -1071,7 +1071,7 @@ for.cond12.preheader:                             ; preds = %entry, %for.end
   %storemerge315 = phi i32 [ 0, %entry ], [ %inc59, %for.end ]
   %add56514 = phi i32 [ %add, %entry ], [ %add56, %for.end ]
   %arrayidx21 = getelementptr <8 x float>, <8 x float> addrspace(1)* %input, i32 %add56514
-  %tmp22 = load <8 x float> addrspace(1)* %arrayidx21, align 32
+  %tmp22 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx21, align 32
   br label %for.body15
 
 for.cond62.preheader:                             ; preds = %for.end
@@ -1108,7 +1108,7 @@ for.body15:                                       ; preds = %for.cond12.preheade
   %storemerge413 = phi i32 [ 0, %for.cond12.preheader ], [ %inc, %for.body15 ]
   %add52612 = phi i32 [ 0, %for.cond12.preheader ], [ %add52, %for.body15 ]
   %arrayidx = getelementptr <8 x float>, <8 x float> addrspace(1)* %dct, i32 %storemerge413
-  %tmp18 = load <8 x float> addrspace(1)* %arrayidx, align 32
+  %tmp18 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx, align 32
   %mul23 = fmul <8 x float> %tmp18, %tmp22
   %add26 = add i32 %add52612, %storemerge315
   %arrayidx27 = getelementptr [64 x float], [64 x float]* %acc, i32 0, i32 %add26
@@ -1147,9 +1147,9 @@ for.cond88.preheader:                             ; preds = %for.cond62.preheade
 
 for.body91:                                       ; preds = %for.body91, %for.cond88.preheader
   %storemerge18 = phi i32 [ 0, %for.cond88.preheader ], [ %inc131, %for.body91 ]
-  %tmp95 = load <8 x float> addrspace(1)* %arrayidx94, align 32
+  %tmp95 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx94, align 32
   %arrayidx98 = getelementptr [8 x <8 x float>], [8 x <8 x float>]* %inter, i32 0, i32 %storemerge18
-  %tmp99 = load <8 x float>* %arrayidx98, align 32
+  %tmp99 = load <8 x float>, <8 x float>* %arrayidx98, align 32
   %mul100 = fmul <8 x float> %tmp95, %tmp99
   %add103 = add i32 %storemerge18, %add13579
   %arrayidx105 = getelementptr float, float addrspace(1)* %output, i32 %add103

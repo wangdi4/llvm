@@ -37,11 +37,11 @@ for.body:                                         ; preds = %for.cond
   br i1 %tobool, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
-  %tmp3 = load i64* %i                            ; <i64> [#uses=1]
-  %tmp4 = load i64** %A.addr                      ; <i64*> [#uses=1]
+  %tmp3 = load i64, i64* %i                            ; <i64> [#uses=1]
+  %tmp4 = load i64*, i64** %A.addr                      ; <i64*> [#uses=1]
   %arrayidx = getelementptr inbounds i64, i64* %tmp4, i64 %tmp3 ; <i64*> [#uses=1]
-  %tmp5 = load i64* %arrayidx                     ; <i64> [#uses=1]
-  %tmp6 = load i64* %sum                          ; <i64> [#uses=1]
+  %tmp5 = load i64, i64* %arrayidx                     ; <i64> [#uses=1]
+  %tmp6 = load i64, i64* %sum                          ; <i64> [#uses=1]
   %add = add nsw i64 %tmp6, %tmp5                 ; <i64> [#uses=1]
   store i64 %add, i64* %sum
   br label %if.end
@@ -66,18 +66,18 @@ for.cond10:                                       ; preds = %for.inc45, %for.end
   br i1 %cmp13, label %for.body14, label %for.end48
 
 for.body14:                                       ; preds = %for.cond10
-  %tmp15 = load i64* %i9                          ; <i64> [#uses=1]
-  %tmp16 = load i64** %A.addr                     ; <i64*> [#uses=1]
+  %tmp15 = load i64, i64* %i9                          ; <i64> [#uses=1]
+  %tmp16 = load i64*, i64** %A.addr                     ; <i64*> [#uses=1]
   %arrayidx17 = getelementptr inbounds i64, i64* %tmp16, i64 %tmp15 ; <i64*> [#uses=1]
-  %tmp18 = load i64* %arrayidx17                  ; <i64> [#uses=1]
+  %tmp18 = load i64, i64* %arrayidx17                  ; <i64> [#uses=1]
   %tobool19 = icmp ne i64 %tmp18, 0               ; <i1> [#uses=1]
   br i1 %tobool19, label %land.lhs.true, label %if.else
 
 land.lhs.true:                                    ; preds = %for.body14
-  %tmp20 = load i64* %i9                          ; <i64> [#uses=1]
-  %tmp21 = load i64** %B.addr                     ; <i64*> [#uses=1]
+  %tmp20 = load i64, i64* %i9                          ; <i64> [#uses=1]
+  %tmp21 = load i64*, i64** %B.addr                     ; <i64*> [#uses=1]
   %arrayidx22 = getelementptr inbounds i64, i64* %tmp21, i64 %tmp20 ; <i64*> [#uses=1]
-  %tmp23 = load i64* %arrayidx22                  ; <i64> [#uses=1]
+  %tmp23 = load i64, i64* %arrayidx22                  ; <i64> [#uses=1]
   %tobool24 = icmp ne i64 %tmp23, 0               ; <i1> [#uses=1]
   br i1 %tobool24, label %land.lhs.true25, label %if.else
 
@@ -87,11 +87,11 @@ land.lhs.true25:                                  ; preds = %land.lhs.true
   br i1 %cmp27, label %if.then28, label %if.else
 
 if.then28:                                        ; preds = %land.lhs.true25
-  %tmp29 = load i64* %i9                          ; <i64> [#uses=1]
-  %tmp30 = load i64** %B.addr                     ; <i64*> [#uses=1]
+  %tmp29 = load i64, i64* %i9                          ; <i64> [#uses=1]
+  %tmp30 = load i64*, i64** %B.addr                     ; <i64*> [#uses=1]
   %arrayidx31 = getelementptr inbounds i64, i64* %tmp30, i64 %tmp29 ; <i64*> [#uses=1]
-  %tmp32 = load i64* %arrayidx31                  ; <i64> [#uses=1]
-  %tmp33 = load i64* %sum                         ; <i64> [#uses=1]
+  %tmp32 = load i64, i64* %arrayidx31                  ; <i64> [#uses=1]
+  %tmp33 = load i64, i64* %sum                         ; <i64> [#uses=1]
   %add34 = add nsw i64 %tmp33, %tmp32             ; <i64> [#uses=1]
   store i64 %add34, i64* %sum
   br label %if.end44
@@ -100,12 +100,12 @@ if.else:                                          ; preds = %land.lhs.true25, %l
   %tmp35 = load i64, i64* %sum                         ; <i64> [#uses=1]
   %add36 = add nsw i64 %tmp35, 1                  ; <i64> [#uses=1]
   store i64 %add36, i64* %sum
-  %tmp37 = load i64* %i9                          ; <i64> [#uses=1]
-  %tmp38 = load i64** %B.addr                     ; <i64*> [#uses=1]
+  %tmp37 = load i64, i64* %i9                          ; <i64> [#uses=1]
+  %tmp38 = load i64*, i64** %B.addr                     ; <i64*> [#uses=1]
   %arrayidx39 = getelementptr inbounds i64, i64* %tmp38, i64 %tmp37 ; <i64*> [#uses=1]
-  %tmp40 = load i64* %arrayidx39                  ; <i64> [#uses=1]
-  %tmp41 = load i64* %i9                          ; <i64> [#uses=1]
-  %tmp42 = load i64** %A.addr                     ; <i64*> [#uses=1]
+  %tmp40 = load i64, i64* %arrayidx39                  ; <i64> [#uses=1]
+  %tmp41 = load i64, i64* %i9                          ; <i64> [#uses=1]
+  %tmp42 = load i64*, i64** %A.addr                     ; <i64*> [#uses=1]
   %arrayidx43 = getelementptr inbounds i64, i64* %tmp42, i64 %tmp41 ; <i64*> [#uses=1]
   store i64 %tmp40, i64* %arrayidx43
   br label %if.end44

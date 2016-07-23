@@ -18,7 +18,7 @@ target triple = "i686-pc-win32"
 define void @udiv(float addrspace(1)* nocapture %in, float addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
   %2 = getelementptr inbounds float, float addrspace(1)* %in, i32 1 ; <float addrspace(1)*> [#uses=1]
-  %3 = load float addrspace(1)* %2                ; <float> [#uses=1]
+  %3 = load float, float addrspace(1)* %2                ; <float> [#uses=1]
   %4 = fptoui float %3 to i8                      ; <i8> [#uses=1]
   %5 = insertelement <8 x i8> undef, i8 %4, i32 0 ; <<8 x i8>> [#uses=1]
   %6 = shufflevector <8 x i8> %5, <8 x i8> undef, <8 x i32> zeroinitializer ; <<8 x i8>> [#uses=1]

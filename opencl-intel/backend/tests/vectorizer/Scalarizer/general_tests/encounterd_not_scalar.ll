@@ -21,7 +21,7 @@ target triple = "i686-pc-win32"
 define void @encountered_not_scal_variable(<2 x float> addrspace(1)* nocapture %in, float addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
   %2 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %in, i32 1 ; <<2 x float> addrspace(1)*> [#uses=1]
-  %3 = load <2 x float> addrspace(1)* %2          ; <<2 x float>> [#uses=2]
+  %3 = load <2 x float>, <2 x float> addrspace(1)* %2          ; <<2 x float>> [#uses=2]
   %4 = tail call float @_Z8distanceU8__vector2fS_(<2 x float> %3, <2 x float> <float 3.140000e+002, float 3.140000e+002>) nounwind ; <float> [#uses=2]
   %5 = fmul float %4, 2.000000e+000               ; <float> [#uses=1]
   %6 = tail call float @_Z3dotU8__vector2fS_(<2 x float> %3, <2 x float> <float 3.140000e+002, float 3.140000e+002>) nounwind ; <float> [#uses=1]

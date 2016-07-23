@@ -28,7 +28,7 @@ define void @mask_unif_data(i32* nocapture %A) nounwind {
 ; <label>:3                                       ; preds = %0
   %4 = zext i32 %1 to i64
   %5 = getelementptr inbounds i32, i32* %A, i64 %4
-  %6 = load i32* %5, align 4, !tbaa !0   ;;;  LOAD BEFORE STORE - THIS IS OPTIMIZED OUT. NO LOAD IN HERE.
+  %6 = load i32, i32* %5, align 4, !tbaa !0   ;;;  LOAD BEFORE STORE - THIS IS OPTIMIZED OUT. NO LOAD IN HERE.
   %7 = add nsw i32 %6, 3
   store i32 7, i32* %5, align 4, !tbaa !0
   br label %8

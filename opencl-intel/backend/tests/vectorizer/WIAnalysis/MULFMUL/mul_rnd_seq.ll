@@ -9,7 +9,7 @@ define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* noca
 bb.nph:
   %0 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %1 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %0
-  %2 = load i32 addrspace(1)* %1, align 4
+  %2 = load i32, i32 addrspace(1)* %1, align 4
   br label %3
 
 ; <label>:3                                       ; preds = %3, %bb.nph

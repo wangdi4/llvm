@@ -119,7 +119,7 @@ for.body:                                         ; preds = %for.cond
   %tmp61 = load i32, i32* %index                       ; <i32> [#uses=2]
   %inc = add nsw i32 %tmp61, 1                    ; <i32> [#uses=1]
   store i32 %inc, i32* %index
-  %tmp62 = load float** %pDist.addr               ; <float*> [#uses=1]
+  %tmp62 = load float*, float** %pDist.addr               ; <float*> [#uses=1]
   %arrayidx = getelementptr inbounds float, float* %tmp62, i32 %tmp61 ; <float*> [#uses=1]
   store float %neg60, float* %arrayidx
   br label %for.inc
@@ -241,7 +241,7 @@ for.body:                                         ; preds = %for.cond
   %tmp64 = load i32, i32* %index                       ; <i32> [#uses=2]
   %inc = add nsw i32 %tmp64, 1                    ; <i32> [#uses=1]
   store i32 %inc, i32* %index
-  %tmp65 = load float** %pDist.addr               ; <float*> [#uses=1]
+  %tmp65 = load float*, float** %pDist.addr               ; <float*> [#uses=1]
   %arrayidx = getelementptr inbounds float, float* %tmp65, i32 %tmp64 ; <float*> [#uses=1]
   store float %conv63, float* %arrayidx
   br label %for.inc
@@ -358,7 +358,7 @@ for.body:                                         ; preds = %for.cond
   %tmp59 = load i32, i32* %index                       ; <i32> [#uses=2]
   %inc = add nsw i32 %tmp59, 1                    ; <i32> [#uses=1]
   store i32 %inc, i32* %index
-  %tmp60 = load float** %pDist.addr               ; <float*> [#uses=1]
+  %tmp60 = load float*, float** %pDist.addr               ; <float*> [#uses=1]
   %arrayidx = getelementptr inbounds float, float* %tmp60, i32 %tmp59 ; <float*> [#uses=1]
   store float %add58, float* %arrayidx
   br label %for.inc
@@ -446,35 +446,35 @@ entry:
   store i32 %pathN, i32* %pathN.addr
   %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %optionid
-  %tmp = load i32* %optionid                      ; <i32> [#uses=1]
-  %tmp1 = load %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
+  %tmp = load i32, i32* %optionid                      ; <i32> [#uses=1]
+  %tmp1 = load %0 addrspace(1)*, %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds %0, %0 addrspace(1)* %tmp1, i32 %tmp ; <%0 addrspace(1)*> [#uses=1]
   %tmp2 = getelementptr inbounds %0, %0 addrspace(1)* %arrayidx, i32 0, i32 2 ; <float addrspace(1)*> [#uses=1]
-  %tmp3 = load float addrspace(1)* %tmp2          ; <float> [#uses=1]
+  %tmp3 = load float, float addrspace(1)* %tmp2          ; <float> [#uses=1]
   store float %tmp3, float* %T
-  %tmp5 = load i32* %optionid                     ; <i32> [#uses=1]
-  %tmp6 = load %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
+  %tmp5 = load i32, i32* %optionid                     ; <i32> [#uses=1]
+  %tmp6 = load %0 addrspace(1)*, %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
   %arrayidx7 = getelementptr inbounds %0, %0 addrspace(1)* %tmp6, i32 %tmp5 ; <%0 addrspace(1)*> [#uses=1]
   %tmp8 = getelementptr inbounds %0, %0 addrspace(1)* %arrayidx7, i32 0, i32 3 ; <float addrspace(1)*> [#uses=1]
-  %tmp9 = load float addrspace(1)* %tmp8          ; <float> [#uses=1]
+  %tmp9 = load float, float addrspace(1)* %tmp8          ; <float> [#uses=1]
   store float %tmp9, float* %R
-  %tmp11 = load i32* %optionid                    ; <i32> [#uses=1]
-  %tmp12 = load %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
+  %tmp11 = load i32, i32* %optionid                    ; <i32> [#uses=1]
+  %tmp12 = load %0 addrspace(1)*, %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
   %arrayidx13 = getelementptr inbounds %0, %0 addrspace(1)* %tmp12, i32 %tmp11 ; <%0 addrspace(1)*> [#uses=1]
   %tmp14 = getelementptr inbounds %0, %0 addrspace(1)* %arrayidx13, i32 0, i32 0 ; <float addrspace(1)*> [#uses=1]
-  %tmp15 = load float addrspace(1)* %tmp14        ; <float> [#uses=1]
+  %tmp15 = load float, float addrspace(1)* %tmp14        ; <float> [#uses=1]
   store float %tmp15, float* %S
-  %tmp17 = load i32* %optionid                    ; <i32> [#uses=1]
-  %tmp18 = load %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
+  %tmp17 = load i32, i32* %optionid                    ; <i32> [#uses=1]
+  %tmp18 = load %0 addrspace(1)*, %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
   %arrayidx19 = getelementptr inbounds %0, %0 addrspace(1)* %tmp18, i32 %tmp17 ; <%0 addrspace(1)*> [#uses=1]
   %tmp20 = getelementptr inbounds %0, %0 addrspace(1)* %arrayidx19, i32 0, i32 1 ; <float addrspace(1)*> [#uses=1]
-  %tmp21 = load float addrspace(1)* %tmp20        ; <float> [#uses=1]
+  %tmp21 = load float, float addrspace(1)* %tmp20        ; <float> [#uses=1]
   store float %tmp21, float* %X
-  %tmp23 = load i32* %optionid                    ; <i32> [#uses=1]
-  %tmp24 = load %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
+  %tmp23 = load i32, i32* %optionid                    ; <i32> [#uses=1]
+  %tmp24 = load %0 addrspace(1)*, %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
   %arrayidx25 = getelementptr inbounds %0, %0 addrspace(1)* %tmp24, i32 %tmp23 ; <%0 addrspace(1)*> [#uses=1]
   %tmp26 = getelementptr inbounds %0, %0 addrspace(1)* %arrayidx25, i32 0, i32 4 ; <float addrspace(1)*> [#uses=1]
-  %tmp27 = load float addrspace(1)* %tmp26        ; <float> [#uses=1]
+  %tmp27 = load float, float addrspace(1)* %tmp26        ; <float> [#uses=1]
   store float %tmp27, float* %V
   %tmp29 = load float, float* %R                         ; <float> [#uses=1]
   %conv = fpext float %tmp29 to double            ; <double> [#uses=1]
@@ -837,8 +837,8 @@ for.end340:                                       ; preds = %for.cond260
   %cmp356 = fcmp oeq float 0.000000e+000, %conv355 ; <i1> [#uses=1]
   %sel357 = select i1 %cmp356, float 1.000000e+000, float %conv355 ; <float> [#uses=0]
   %div358 = fdiv float %mul353, %conv355          ; <float> [#uses=1]
-  %tmp359 = load i32* %optionid                   ; <i32> [#uses=1]
-  %tmp360 = load %struct.anon addrspace(1)** %pOptionValue.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp359 = load i32, i32* %optionid                   ; <i32> [#uses=1]
+  %tmp360 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pOptionValue.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %arrayidx361 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp360, i32 %tmp359 ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp362 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %arrayidx361, i32 0, i32 0 ; <float addrspace(1)*> [#uses=1]
   store float %div358, float addrspace(1)* %tmp362
@@ -875,8 +875,8 @@ for.end340:                                       ; preds = %for.cond260
   %sel393 = select i1 %cmp392, double 1.000000e+000, double %conv391 ; <double> [#uses=0]
   %div394 = fdiv double %mul387, %conv391         ; <double> [#uses=1]
   %conv395 = fptrunc double %div394 to float      ; <float> [#uses=1]
-  %tmp396 = load i32* %optionid                   ; <i32> [#uses=1]
-  %tmp397 = load %struct.anon addrspace(1)** %pOptionValue.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp396 = load i32, i32* %optionid                   ; <i32> [#uses=1]
+  %tmp397 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pOptionValue.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %arrayidx398 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp397, i32 %tmp396 ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp399 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %arrayidx398, i32 0, i32 1 ; <float addrspace(1)*> [#uses=1]
   store float %conv395, float addrspace(1)* %tmp399
@@ -921,35 +921,35 @@ entry:
   store i32 %pathN, i32* %pathN.addr
   %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %optionid
-  %tmp = load i32* %optionid                      ; <i32> [#uses=1]
-  %tmp1 = load %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
+  %tmp = load i32, i32* %optionid                      ; <i32> [#uses=1]
+  %tmp1 = load %0 addrspace(1)*, %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds %0, %0 addrspace(1)* %tmp1, i32 %tmp ; <%0 addrspace(1)*> [#uses=1]
   %tmp2 = getelementptr inbounds %0, %0 addrspace(1)* %arrayidx, i32 0, i32 2 ; <float addrspace(1)*> [#uses=1]
-  %tmp3 = load float addrspace(1)* %tmp2          ; <float> [#uses=1]
+  %tmp3 = load float, float addrspace(1)* %tmp2          ; <float> [#uses=1]
   store float %tmp3, float* %T
-  %tmp5 = load i32* %optionid                     ; <i32> [#uses=1]
-  %tmp6 = load %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
+  %tmp5 = load i32, i32* %optionid                     ; <i32> [#uses=1]
+  %tmp6 = load %0 addrspace(1)*, %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
   %arrayidx7 = getelementptr inbounds %0, %0 addrspace(1)* %tmp6, i32 %tmp5 ; <%0 addrspace(1)*> [#uses=1]
   %tmp8 = getelementptr inbounds %0, %0 addrspace(1)* %arrayidx7, i32 0, i32 3 ; <float addrspace(1)*> [#uses=1]
-  %tmp9 = load float addrspace(1)* %tmp8          ; <float> [#uses=1]
+  %tmp9 = load float, float addrspace(1)* %tmp8          ; <float> [#uses=1]
   store float %tmp9, float* %R
-  %tmp11 = load i32* %optionid                    ; <i32> [#uses=1]
-  %tmp12 = load %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
+  %tmp11 = load i32, i32* %optionid                    ; <i32> [#uses=1]
+  %tmp12 = load %0 addrspace(1)*, %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
   %arrayidx13 = getelementptr inbounds %0, %0 addrspace(1)* %tmp12, i32 %tmp11 ; <%0 addrspace(1)*> [#uses=1]
   %tmp14 = getelementptr inbounds %0, %0 addrspace(1)* %arrayidx13, i32 0, i32 0 ; <float addrspace(1)*> [#uses=1]
-  %tmp15 = load float addrspace(1)* %tmp14        ; <float> [#uses=1]
+  %tmp15 = load float, float addrspace(1)* %tmp14        ; <float> [#uses=1]
   store float %tmp15, float* %S
-  %tmp17 = load i32* %optionid                    ; <i32> [#uses=1]
-  %tmp18 = load %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
+  %tmp17 = load i32, i32* %optionid                    ; <i32> [#uses=1]
+  %tmp18 = load %0 addrspace(1)*, %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
   %arrayidx19 = getelementptr inbounds %0, %0 addrspace(1)* %tmp18, i32 %tmp17 ; <%0 addrspace(1)*> [#uses=1]
   %tmp20 = getelementptr inbounds %0, %0 addrspace(1)* %arrayidx19, i32 0, i32 1 ; <float addrspace(1)*> [#uses=1]
-  %tmp21 = load float addrspace(1)* %tmp20        ; <float> [#uses=1]
+  %tmp21 = load float, float addrspace(1)* %tmp20        ; <float> [#uses=1]
   store float %tmp21, float* %X
-  %tmp23 = load i32* %optionid                    ; <i32> [#uses=1]
-  %tmp24 = load %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
+  %tmp23 = load i32, i32* %optionid                    ; <i32> [#uses=1]
+  %tmp24 = load %0 addrspace(1)*, %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
   %arrayidx25 = getelementptr inbounds %0, %0 addrspace(1)* %tmp24, i32 %tmp23 ; <%0 addrspace(1)*> [#uses=1]
   %tmp26 = getelementptr inbounds %0, %0 addrspace(1)* %arrayidx25, i32 0, i32 4 ; <float addrspace(1)*> [#uses=1]
-  %tmp27 = load float addrspace(1)* %tmp26        ; <float> [#uses=1]
+  %tmp27 = load float, float addrspace(1)* %tmp26        ; <float> [#uses=1]
   store float %tmp27, float* %V
   %tmp29 = load float, float* %R                         ; <float> [#uses=1]
   %tmp30 = load float, float* %V                         ; <float> [#uses=1]
@@ -977,11 +977,11 @@ for.cond:                                         ; preds = %for.inc, %entry
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %tmp46 = load i32* %pos                         ; <i32> [#uses=1]
-  %tmp47 = load float addrspace(1)** %pSamples.addr ; <float addrspace(1)*> [#uses=1]
+  %tmp46 = load i32, i32* %pos                         ; <i32> [#uses=1]
+  %tmp47 = load float addrspace(1)*, float addrspace(1)** %pSamples.addr ; <float addrspace(1)*> [#uses=1]
   %arrayidx48 = getelementptr inbounds float, float addrspace(1)* %tmp47, i32 %tmp46 ; <float addrspace(1)*> [#uses=1]
-  %tmp49 = load float addrspace(1)* %arrayidx48   ; <float> [#uses=1]
-  %tmp50 = load float* %VBySqrtT                  ; <float> [#uses=1]
+  %tmp49 = load float, float addrspace(1)* %arrayidx48   ; <float> [#uses=1]
+  %tmp50 = load float, float* %VBySqrtT                  ; <float> [#uses=1]
   %mul51 = fmul float %tmp49, %tmp50              ; <float> [#uses=1]
   %tmp52 = load float, float* %MuByT                     ; <float> [#uses=1]
   %add = fadd float %mul51, %tmp52                ; <float> [#uses=1]
@@ -1033,8 +1033,8 @@ for.end:                                          ; preds = %for.cond
   %cmp84 = fcmp oeq float 0.000000e+000, %conv    ; <i1> [#uses=1]
   %sel = select i1 %cmp84, float 1.000000e+000, float %conv ; <float> [#uses=0]
   %div = fdiv float %mul82, %conv                 ; <float> [#uses=1]
-  %tmp85 = load i32* %optionid                    ; <i32> [#uses=1]
-  %tmp86 = load %struct.anon addrspace(1)** %pOptionValue.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp85 = load i32, i32* %optionid                    ; <i32> [#uses=1]
+  %tmp86 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pOptionValue.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %arrayidx87 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp86, i32 %tmp85 ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp88 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %arrayidx87, i32 0, i32 0 ; <float addrspace(1)*> [#uses=1]
   store float %div, float addrspace(1)* %tmp88
@@ -1071,8 +1071,8 @@ for.end:                                          ; preds = %for.cond
   %sel119 = select i1 %cmp118, double 1.000000e+000, double %conv117 ; <double> [#uses=0]
   %div120 = fdiv double %mul113, %conv117         ; <double> [#uses=1]
   %conv121 = fptrunc double %div120 to float      ; <float> [#uses=1]
-  %tmp122 = load i32* %optionid                   ; <i32> [#uses=1]
-  %tmp123 = load %struct.anon addrspace(1)** %pOptionValue.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp122 = load i32, i32* %optionid                   ; <i32> [#uses=1]
+  %tmp123 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pOptionValue.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %arrayidx124 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp123, i32 %tmp122 ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp125 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %arrayidx124, i32 0, i32 1 ; <float addrspace(1)*> [#uses=1]
   store float %conv121, float addrspace(1)* %tmp125

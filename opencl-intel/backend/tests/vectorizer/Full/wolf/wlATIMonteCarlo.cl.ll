@@ -358,7 +358,7 @@ sw.bb120:                                         ; preds = %for.body
   store <4 x i32> %tmp121, <4 x i32>* %r1
   %arraydecay = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay, i32 0 ; <<4 x i32>*> [#uses=1]
-  %tmp122 = load <4 x i32>* %arrayidx             ; <<4 x i32>> [#uses=1]
+  %tmp122 = load <4 x i32>, <4 x i32>* %arrayidx             ; <<4 x i32>> [#uses=1]
   store <4 x i32> %tmp122, <4 x i32>* %r2
   %tmp123 = load <4 x i32>, <4 x i32>* %state2               ; <<4 x i32>> [#uses=1]
   store <4 x i32> %tmp123, <4 x i32>* %a
@@ -371,7 +371,7 @@ sw.bb125:                                         ; preds = %for.body
   store <4 x i32> %tmp126, <4 x i32>* %r1
   %arraydecay127 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx128 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay127, i32 1 ; <<4 x i32>*> [#uses=1]
-  %tmp129 = load <4 x i32>* %arrayidx128          ; <<4 x i32>> [#uses=1]
+  %tmp129 = load <4 x i32>, <4 x i32>* %arrayidx128          ; <<4 x i32>> [#uses=1]
   store <4 x i32> %tmp129, <4 x i32>* %r2
   %tmp130 = load <4 x i32>, <4 x i32>* %state3               ; <<4 x i32>> [#uses=1]
   store <4 x i32> %tmp130, <4 x i32>* %a
@@ -384,7 +384,7 @@ sw.bb132:                                         ; preds = %for.body
   store <4 x i32> %tmp133, <4 x i32>* %r1
   %arraydecay134 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx135 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay134, i32 2 ; <<4 x i32>*> [#uses=1]
-  %tmp136 = load <4 x i32>* %arrayidx135          ; <<4 x i32>> [#uses=1]
+  %tmp136 = load <4 x i32>, <4 x i32>* %arrayidx135          ; <<4 x i32>> [#uses=1]
   store <4 x i32> %tmp136, <4 x i32>* %r2
   %tmp137 = load <4 x i32>, <4 x i32>* %state4               ; <<4 x i32>> [#uses=1]
   store <4 x i32> %tmp137, <4 x i32>* %a
@@ -422,10 +422,10 @@ sw.epilog:                                        ; preds = %sw.default, %sw.bb1
   %tmp159 = load i32, i32* %fifteen                    ; <i32> [#uses=1]
   %shl = shl i32 %tmp158, %tmp159                 ; <i32> [#uses=1]
   %xor160 = xor i32 %xor156, %shl                 ; <i32> [#uses=1]
-  %tmp161 = load i32* %i                          ; <i32> [#uses=1]
+  %tmp161 = load i32, i32* %i                          ; <i32> [#uses=1]
   %arraydecay162 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx163 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay162, i32 %tmp161 ; <<4 x i32>*> [#uses=2]
-  %tmp164 = load <4 x i32>* %arrayidx163          ; <<4 x i32>> [#uses=1]
+  %tmp164 = load <4 x i32>, <4 x i32>* %arrayidx163          ; <<4 x i32>> [#uses=1]
   %tmp165 = insertelement <4 x i32> %tmp164, i32 %xor160, i32 0 ; <<4 x i32>> [#uses=1]
   store <4 x i32> %tmp165, <4 x i32>* %arrayidx163
   %tmp166 = load <4 x i32>, <4 x i32>* %a                    ; <<4 x i32>> [#uses=1]
@@ -448,10 +448,10 @@ sw.epilog:                                        ; preds = %sw.default, %sw.bb1
   %tmp183 = load i32, i32* %fifteen                    ; <i32> [#uses=1]
   %shl184 = shl i32 %tmp182, %tmp183              ; <i32> [#uses=1]
   %xor185 = xor i32 %xor180, %shl184              ; <i32> [#uses=1]
-  %tmp186 = load i32* %i                          ; <i32> [#uses=1]
+  %tmp186 = load i32, i32* %i                          ; <i32> [#uses=1]
   %arraydecay187 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx188 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay187, i32 %tmp186 ; <<4 x i32>*> [#uses=2]
-  %tmp189 = load <4 x i32>* %arrayidx188          ; <<4 x i32>> [#uses=1]
+  %tmp189 = load <4 x i32>, <4 x i32>* %arrayidx188          ; <<4 x i32>> [#uses=1]
   %tmp190 = insertelement <4 x i32> %tmp189, i32 %xor185, i32 1 ; <<4 x i32>> [#uses=1]
   store <4 x i32> %tmp190, <4 x i32>* %arrayidx188
   %tmp191 = load <4 x i32>, <4 x i32>* %a                    ; <<4 x i32>> [#uses=1]
@@ -474,10 +474,10 @@ sw.epilog:                                        ; preds = %sw.default, %sw.bb1
   %tmp208 = load i32, i32* %fifteen                    ; <i32> [#uses=1]
   %shl209 = shl i32 %tmp207, %tmp208              ; <i32> [#uses=1]
   %xor210 = xor i32 %xor205, %shl209              ; <i32> [#uses=1]
-  %tmp211 = load i32* %i                          ; <i32> [#uses=1]
+  %tmp211 = load i32, i32* %i                          ; <i32> [#uses=1]
   %arraydecay212 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx213 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay212, i32 %tmp211 ; <<4 x i32>*> [#uses=2]
-  %tmp214 = load <4 x i32>* %arrayidx213          ; <<4 x i32>> [#uses=1]
+  %tmp214 = load <4 x i32>, <4 x i32>* %arrayidx213          ; <<4 x i32>> [#uses=1]
   %tmp215 = insertelement <4 x i32> %tmp214, i32 %xor210, i32 2 ; <<4 x i32>> [#uses=1]
   store <4 x i32> %tmp215, <4 x i32>* %arrayidx213
   %tmp216 = load <4 x i32>, <4 x i32>* %a                    ; <<4 x i32>> [#uses=1]
@@ -500,10 +500,10 @@ sw.epilog:                                        ; preds = %sw.default, %sw.bb1
   %tmp233 = load i32, i32* %fifteen                    ; <i32> [#uses=1]
   %shl234 = shl i32 %tmp232, %tmp233              ; <i32> [#uses=1]
   %xor235 = xor i32 %xor230, %shl234              ; <i32> [#uses=1]
-  %tmp236 = load i32* %i                          ; <i32> [#uses=1]
+  %tmp236 = load i32, i32* %i                          ; <i32> [#uses=1]
   %arraydecay237 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx238 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay237, i32 %tmp236 ; <<4 x i32>*> [#uses=2]
-  %tmp239 = load <4 x i32>* %arrayidx238          ; <<4 x i32>> [#uses=1]
+  %tmp239 = load <4 x i32>, <4 x i32>* %arrayidx238          ; <<4 x i32>> [#uses=1]
   %tmp240 = insertelement <4 x i32> %tmp239, i32 %xor235, i32 3 ; <<4 x i32>> [#uses=1]
   store <4 x i32> %tmp240, <4 x i32>* %arrayidx238
   br label %for.inc
@@ -517,25 +517,25 @@ for.inc:                                          ; preds = %sw.epilog
 for.end:                                          ; preds = %for.cond
   %arraydecay243 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx244 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay243, i32 0 ; <<4 x i32>*> [#uses=1]
-  %tmp245 = load <4 x i32>* %arrayidx244          ; <<4 x i32>> [#uses=1]
+  %tmp245 = load <4 x i32>, <4 x i32>* %arrayidx244          ; <<4 x i32>> [#uses=1]
   %tmp246 = extractelement <4 x i32> %tmp245, i32 0 ; <i32> [#uses=1]
   %conv = uitofp i32 %tmp246 to float             ; <float> [#uses=1]
   %vecinit247 = insertelement <4 x float> undef, float %conv, i32 0 ; <<4 x float>> [#uses=1]
   %arraydecay248 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx249 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay248, i32 0 ; <<4 x i32>*> [#uses=1]
-  %tmp250 = load <4 x i32>* %arrayidx249          ; <<4 x i32>> [#uses=1]
+  %tmp250 = load <4 x i32>, <4 x i32>* %arrayidx249          ; <<4 x i32>> [#uses=1]
   %tmp251 = extractelement <4 x i32> %tmp250, i32 1 ; <i32> [#uses=1]
   %conv252 = uitofp i32 %tmp251 to float          ; <float> [#uses=1]
   %vecinit253 = insertelement <4 x float> %vecinit247, float %conv252, i32 1 ; <<4 x float>> [#uses=1]
   %arraydecay254 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx255 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay254, i32 0 ; <<4 x i32>*> [#uses=1]
-  %tmp256 = load <4 x i32>* %arrayidx255          ; <<4 x i32>> [#uses=1]
+  %tmp256 = load <4 x i32>, <4 x i32>* %arrayidx255          ; <<4 x i32>> [#uses=1]
   %tmp257 = extractelement <4 x i32> %tmp256, i32 2 ; <i32> [#uses=1]
   %conv258 = uitofp i32 %tmp257 to float          ; <float> [#uses=1]
   %vecinit259 = insertelement <4 x float> %vecinit253, float %conv258, i32 2 ; <<4 x float>> [#uses=1]
   %arraydecay260 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx261 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay260, i32 0 ; <<4 x i32>*> [#uses=1]
-  %tmp262 = load <4 x i32>* %arrayidx261          ; <<4 x i32>> [#uses=1]
+  %tmp262 = load <4 x i32>, <4 x i32>* %arrayidx261          ; <<4 x i32>> [#uses=1]
   %tmp263 = extractelement <4 x i32> %tmp262, i32 3 ; <i32> [#uses=1]
   %conv264 = uitofp i32 %tmp263 to float          ; <float> [#uses=1]
   %vecinit265 = insertelement <4 x float> %vecinit259, float %conv264, i32 3 ; <<4 x float>> [#uses=1]
@@ -554,25 +554,25 @@ for.end:                                          ; preds = %for.cond
   store <4 x float> %div, <4 x float>* %temp1
   %arraydecay275 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx276 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay275, i32 1 ; <<4 x i32>*> [#uses=1]
-  %tmp277 = load <4 x i32>* %arrayidx276          ; <<4 x i32>> [#uses=1]
+  %tmp277 = load <4 x i32>, <4 x i32>* %arrayidx276          ; <<4 x i32>> [#uses=1]
   %tmp278 = extractelement <4 x i32> %tmp277, i32 0 ; <i32> [#uses=1]
   %conv279 = uitofp i32 %tmp278 to float          ; <float> [#uses=1]
   %vecinit280 = insertelement <4 x float> undef, float %conv279, i32 0 ; <<4 x float>> [#uses=1]
   %arraydecay281 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx282 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay281, i32 1 ; <<4 x i32>*> [#uses=1]
-  %tmp283 = load <4 x i32>* %arrayidx282          ; <<4 x i32>> [#uses=1]
+  %tmp283 = load <4 x i32>, <4 x i32>* %arrayidx282          ; <<4 x i32>> [#uses=1]
   %tmp284 = extractelement <4 x i32> %tmp283, i32 1 ; <i32> [#uses=1]
   %conv285 = uitofp i32 %tmp284 to float          ; <float> [#uses=1]
   %vecinit286 = insertelement <4 x float> %vecinit280, float %conv285, i32 1 ; <<4 x float>> [#uses=1]
   %arraydecay287 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx288 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay287, i32 1 ; <<4 x i32>*> [#uses=1]
-  %tmp289 = load <4 x i32>* %arrayidx288          ; <<4 x i32>> [#uses=1]
+  %tmp289 = load <4 x i32>, <4 x i32>* %arrayidx288          ; <<4 x i32>> [#uses=1]
   %tmp290 = extractelement <4 x i32> %tmp289, i32 2 ; <i32> [#uses=1]
   %conv291 = uitofp i32 %tmp290 to float          ; <float> [#uses=1]
   %vecinit292 = insertelement <4 x float> %vecinit286, float %conv291, i32 2 ; <<4 x float>> [#uses=1]
   %arraydecay293 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx294 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay293, i32 1 ; <<4 x i32>*> [#uses=1]
-  %tmp295 = load <4 x i32>* %arrayidx294          ; <<4 x i32>> [#uses=1]
+  %tmp295 = load <4 x i32>, <4 x i32>* %arrayidx294          ; <<4 x i32>> [#uses=1]
   %tmp296 = extractelement <4 x i32> %tmp295, i32 3 ; <i32> [#uses=1]
   %conv297 = uitofp i32 %tmp296 to float          ; <float> [#uses=1]
   %vecinit298 = insertelement <4 x float> %vecinit292, float %conv297, i32 3 ; <<4 x float>> [#uses=1]
@@ -620,8 +620,8 @@ for.end:                                          ; preds = %for.cond
   store <4 x float> %mul331, <4 x float>* %tmp332
   %arraydecay333 = getelementptr inbounds [8 x <4 x i32>], [8 x <4 x i32>]* %temp, i32 0, i32 0 ; <<4 x i32>*> [#uses=1]
   %arrayidx334 = getelementptr inbounds <4 x i32>, <4 x i32>* %arraydecay333, i32 2 ; <<4 x i32>*> [#uses=1]
-  %tmp335 = load <4 x i32>* %arrayidx334          ; <<4 x i32>> [#uses=1]
-  %tmp336 = load <4 x i32>** %nextRand.addr       ; <<4 x i32>*> [#uses=1]
+  %tmp335 = load <4 x i32>, <4 x i32>* %arrayidx334          ; <<4 x i32>> [#uses=1]
+  %tmp336 = load <4 x i32>*, <4 x i32>** %nextRand.addr       ; <<4 x i32>*> [#uses=1]
   store <4 x i32> %tmp335, <4 x i32>* %tmp336
   ret void
 }
@@ -872,33 +872,33 @@ entry:
   store <4 x i32> addrspace(1)* %randArray, <4 x i32> addrspace(1)** %randArray.addr
   store <4 x float> addrspace(1)* %priceSamples, <4 x float> addrspace(1)** %priceSamples.addr
   store <4 x float> addrspace(1)* %pathDeriv, <4 x float> addrspace(1)** %pathDeriv.addr
-  %tmp = load <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp, i32 0 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp1 = load <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
+  %tmp1 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp1, <4 x float>* %strikePrice
-  %tmp3 = load <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp3 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx4 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp3, i32 1 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp5 = load <4 x float> addrspace(1)* %arrayidx4 ; <<4 x float>> [#uses=1]
+  %tmp5 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx4 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp5, <4 x float>* %c1
-  %tmp7 = load <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp7 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx8 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp7, i32 2 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp9 = load <4 x float> addrspace(1)* %arrayidx8 ; <<4 x float>> [#uses=1]
+  %tmp9 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx8 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp9, <4 x float>* %c2
-  %tmp11 = load <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp11 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx12 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp11, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp13 = load <4 x float> addrspace(1)* %arrayidx12 ; <<4 x float>> [#uses=1]
+  %tmp13 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx12 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp13, <4 x float>* %c3
-  %tmp15 = load <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp15 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx16 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp15, i32 4 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp17 = load <4 x float> addrspace(1)* %arrayidx16 ; <<4 x float>> [#uses=1]
+  %tmp17 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx16 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp17, <4 x float>* %initPrice
-  %tmp19 = load <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp19 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx20 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp19, i32 5 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp21 = load <4 x float> addrspace(1)* %arrayidx20 ; <<4 x float>> [#uses=1]
+  %tmp21 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx20 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp21, <4 x float>* %sigma
-  %tmp23 = load <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp23 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %attrib.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx24 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp23, i32 6 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp25 = load <4 x float> addrspace(1)* %arrayidx24 ; <<4 x float>> [#uses=1]
+  %tmp25 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx24 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp25, <4 x float>* %timeStep
   %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %xPos
@@ -938,9 +938,9 @@ entry:
   %mul = mul i32 %tmp59, %tmp60                   ; <i32> [#uses=1]
   %tmp61 = load i32, i32* %xPos                        ; <i32> [#uses=1]
   %add = add i32 %mul, %tmp61                     ; <i32> [#uses=1]
-  %tmp62 = load <4 x i32> addrspace(1)** %randArray.addr ; <<4 x i32> addrspace(1)*> [#uses=1]
+  %tmp62 = load <4 x i32> addrspace(1)*, <4 x i32> addrspace(1)** %randArray.addr ; <<4 x i32> addrspace(1)*> [#uses=1]
   %arrayidx63 = getelementptr inbounds <4 x i32>, <4 x i32> addrspace(1)* %tmp62, i32 %add ; <<4 x i32> addrspace(1)*> [#uses=1]
-  %tmp64 = load <4 x i32> addrspace(1)* %arrayidx63 ; <<4 x i32>> [#uses=1]
+  %tmp64 = load <4 x i32>, <4 x i32> addrspace(1)* %arrayidx63 ; <<4 x i32>> [#uses=1]
   store <4 x i32> %tmp64, <4 x i32>* %nextRand
   store i32 1, i32* %i
   br label %for.cond
@@ -1083,7 +1083,7 @@ for.end:                                          ; preds = %for.cond
   %tmp170 = load i32, i32* %xPos                       ; <i32> [#uses=1]
   %add171 = add i32 %mul169, %tmp170              ; <i32> [#uses=1]
   %mul172 = mul i32 %add171, 2                    ; <i32> [#uses=1]
-  %tmp173 = load <4 x float> addrspace(1)** %priceSamples.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp173 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %priceSamples.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx174 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp173, i32 %mul172 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %tmp166, <4 x float> addrspace(1)* %arrayidx174
   %tmp175 = load <4 x float>, <4 x float>* %price2             ; <<4 x float>> [#uses=1]
@@ -1094,7 +1094,7 @@ for.end:                                          ; preds = %for.cond
   %add180 = add i32 %mul178, %tmp179              ; <i32> [#uses=1]
   %mul181 = mul i32 %add180, 2                    ; <i32> [#uses=1]
   %add182 = add i32 %mul181, 1                    ; <i32> [#uses=1]
-  %tmp183 = load <4 x float> addrspace(1)** %priceSamples.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp183 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %priceSamples.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx184 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp183, i32 %add182 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %tmp175, <4 x float> addrspace(1)* %arrayidx184
   %tmp185 = load <4 x float>, <4 x float>* %pathDeriv1         ; <<4 x float>> [#uses=1]
@@ -1104,7 +1104,7 @@ for.end:                                          ; preds = %for.cond
   %tmp189 = load i32, i32* %xPos                       ; <i32> [#uses=1]
   %add190 = add i32 %mul188, %tmp189              ; <i32> [#uses=1]
   %mul191 = mul i32 %add190, 2                    ; <i32> [#uses=1]
-  %tmp192 = load <4 x float> addrspace(1)** %pathDeriv.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp192 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %pathDeriv.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx193 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp192, i32 %mul191 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %tmp185, <4 x float> addrspace(1)* %arrayidx193
   %tmp194 = load <4 x float>, <4 x float>* %pathDeriv2         ; <<4 x float>> [#uses=1]
@@ -1115,7 +1115,7 @@ for.end:                                          ; preds = %for.cond
   %add199 = add i32 %mul197, %tmp198              ; <i32> [#uses=1]
   %mul200 = mul i32 %add199, 2                    ; <i32> [#uses=1]
   %add201 = add i32 %mul200, 1                    ; <i32> [#uses=1]
-  %tmp202 = load <4 x float> addrspace(1)** %pathDeriv.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp202 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %pathDeriv.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx203 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp202, i32 %add201 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %tmp194, <4 x float> addrspace(1)* %arrayidx203
   ret void

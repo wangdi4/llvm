@@ -25,7 +25,7 @@ bb:                                               ; preds = %entry
 
 bb1:                                              ; preds = %bb
   %3 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %1, i64 0, i32 1 ; <%struct.LLIST**> [#uses=1]
-  %4 = load %struct.LLIST** %3, align 8           ; <%struct.LLIST*> [#uses=1]
+  %4 = load %struct.LLIST*, %struct.LLIST** %3, align 8           ; <%struct.LLIST*> [#uses=1]
   store %struct.LLIST* %4, %struct.LLIST** %p, align 8
   %5 = bitcast %struct.LLIST* %1 to i8*           ; <i8*> [#uses=1]
   tail call void @free(i8* %5) nounwind

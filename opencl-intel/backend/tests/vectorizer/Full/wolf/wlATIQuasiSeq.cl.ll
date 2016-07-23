@@ -41,11 +41,11 @@ if.then:                                          ; preds = %entry
   %mul = mul i32 %tmp3, 32                        ; <i32> [#uses=1]
   %tmp4 = load i32, i32* %local_id                     ; <i32> [#uses=1]
   %add = add i32 %mul, %tmp4                      ; <i32> [#uses=1]
-  %tmp5 = load i32 addrspace(1)** %input.addr     ; <i32 addrspace(1)*> [#uses=1]
+  %tmp5 = load i32 addrspace(1)*, i32 addrspace(1)** %input.addr     ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp5, i32 %add ; <i32 addrspace(1)*> [#uses=1]
-  %tmp6 = load i32 addrspace(1)* %arrayidx        ; <i32> [#uses=1]
-  %tmp7 = load i32* %local_id                     ; <i32> [#uses=1]
-  %tmp8 = load i32 addrspace(3)** %shared.addr    ; <i32 addrspace(3)*> [#uses=1]
+  %tmp6 = load i32, i32 addrspace(1)* %arrayidx        ; <i32> [#uses=1]
+  %tmp7 = load i32, i32* %local_id                     ; <i32> [#uses=1]
+  %tmp8 = load i32 addrspace(3)*, i32 addrspace(3)** %shared.addr    ; <i32 addrspace(3)*> [#uses=1]
   %arrayidx9 = getelementptr inbounds i32, i32 addrspace(3)* %tmp8, i32 %tmp7 ; <i32 addrspace(3)*> [#uses=1]
   store i32 %tmp6, i32 addrspace(3)* %arrayidx9
   br label %if.end
@@ -72,10 +72,10 @@ for.body:                                         ; preds = %for.cond
   %and = and i32 %tmp18, %tmp19                   ; <i32> [#uses=1]
   %tmp20 = load i32, i32* %k                           ; <i32> [#uses=1]
   %shr = lshr i32 %and, %tmp20                    ; <i32> [#uses=1]
-  %tmp21 = load i32* %k                           ; <i32> [#uses=1]
-  %tmp22 = load i32 addrspace(3)** %shared.addr   ; <i32 addrspace(3)*> [#uses=1]
+  %tmp21 = load i32, i32* %k                           ; <i32> [#uses=1]
+  %tmp22 = load i32 addrspace(3)*, i32 addrspace(3)** %shared.addr   ; <i32 addrspace(3)*> [#uses=1]
   %arrayidx23 = getelementptr inbounds i32, i32 addrspace(3)* %tmp22, i32 %tmp21 ; <i32 addrspace(3)*> [#uses=1]
-  %tmp24 = load i32 addrspace(3)* %arrayidx23     ; <i32> [#uses=1]
+  %tmp24 = load i32, i32 addrspace(3)* %arrayidx23     ; <i32> [#uses=1]
   %mul25 = mul i32 %shr, %tmp24                   ; <i32> [#uses=1]
   %tmp26 = load i32, i32* %temp                        ; <i32> [#uses=1]
   %xor = xor i32 %tmp26, %mul25                   ; <i32> [#uses=1]
@@ -94,8 +94,8 @@ for.end:                                          ; preds = %for.cond
   br i1 %cmp29, label %if.then31, label %if.else
 
 if.then31:                                        ; preds = %for.end
-  %tmp32 = load i32* %global_id                   ; <i32> [#uses=1]
-  %tmp33 = load float addrspace(1)** %output.addr ; <float addrspace(1)*> [#uses=1]
+  %tmp32 = load i32, i32* %global_id                   ; <i32> [#uses=1]
+  %tmp33 = load float addrspace(1)*, float addrspace(1)** %output.addr ; <float addrspace(1)*> [#uses=1]
   %arrayidx34 = getelementptr inbounds float, float addrspace(1)* %tmp33, i32 %tmp32 ; <float addrspace(1)*> [#uses=1]
   store float 0.000000e+000, float addrspace(1)* %arrayidx34
   br label %if.end42
@@ -107,8 +107,8 @@ if.else:                                          ; preds = %for.end
   %cmp38 = fcmp oeq float 0.000000e+000, %call37  ; <i1> [#uses=1]
   %sel = select i1 %cmp38, float 1.000000e+000, float %call37 ; <float> [#uses=0]
   %div = fdiv float %conv36, %call37              ; <float> [#uses=1]
-  %tmp39 = load i32* %global_id                   ; <i32> [#uses=1]
-  %tmp40 = load float addrspace(1)** %output.addr ; <float addrspace(1)*> [#uses=1]
+  %tmp39 = load i32, i32* %global_id                   ; <i32> [#uses=1]
+  %tmp40 = load float addrspace(1)*, float addrspace(1)** %output.addr ; <float addrspace(1)*> [#uses=1]
   %arrayidx41 = getelementptr inbounds float, float addrspace(1)* %tmp40, i32 %tmp39 ; <float addrspace(1)*> [#uses=1]
   store float %div, float addrspace(1)* %arrayidx41
   br label %if.end42

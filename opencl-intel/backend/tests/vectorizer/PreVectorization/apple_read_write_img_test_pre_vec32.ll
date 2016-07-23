@@ -22,7 +22,7 @@ define void @read_2d_ff_test(%struct._image2d_t addrspace(1)* %img, i32 %smp, <2
 entry:
   %ind = call i32 @_Z13get_global_idj(i32 0)
   %src_ptr = getelementptr  <2 x float>,  <2 x float>* %crd, i32 %ind
-  %src_val = load <2 x float>* %src_ptr 
+  %src_val = load <2 x float>, <2 x float>* %src_ptr
   %src_extend = shufflevector <2 x float> %src_val, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
   %x = call <4 x float> @read_2d_ff(%struct._image2d_t addrspace(1)* %img, i32 %smp, <4 x float> %src_extend) 
   %dst_ptr = getelementptr  <4 x float>,  <4 x float>* %dst, i32 %ind
@@ -40,7 +40,7 @@ define void @read_3d_ff_test(%struct._image3d_t addrspace(1)* %img, i32 %smp, <3
 entry:
   %ind = call i32 @_Z13get_global_idj(i32 0)
   %src_ptr = getelementptr  <3 x float>,  <3 x float>* %crd, i32 %ind
-  %src_val = load <3 x float>* %src_ptr 
+  %src_val = load <3 x float>, <3 x float>* %src_ptr
   %src_extend = shufflevector <3 x float> %src_val, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
   %x = call <4 x float> @read_3d_ff(%struct._image3d_t addrspace(1)* %img, i32 %smp, <4 x float> %src_extend) 
   %dst_ptr = getelementptr  <4 x float>,  <4 x float>* %dst, i32 %ind
@@ -61,7 +61,7 @@ entry:
   %crdvec_xy = insertelement <2 x i32> %crdvec_x, i32 %ycrd, i32 1
   %crdvec_xy_extend = shufflevector <2 x i32> %crdvec_xy, <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
   %colors_ptr = getelementptr  <4 x float>,  <4 x float>* %colors, i32 %ind
-  %colors_val = load <4 x float>* %colors_ptr 
+  %colors_val = load <4 x float>, <4 x float>* %colors_ptr
   call void @__write_imagef_2d(%struct._image2d_t addrspace(1)* %img, <4 x i32> %crdvec_xy_extend, <4 x float> %colors_val)
   ret void
 }

@@ -10,7 +10,7 @@ target triple = "i686-pc-win32"
 define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %1
-  %3 = load i32 addrspace(1)* %2, align 4
+  %3 = load i32, i32 addrspace(1)* %2, align 4
   %4 = add nsw i32 %3, -8
   %5 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %1
   store i32 %4, i32 addrspace(1)* %5, align 4

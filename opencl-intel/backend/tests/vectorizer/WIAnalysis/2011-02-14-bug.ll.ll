@@ -14,7 +14,7 @@ declare i32 @_Z13get_global_idj(i32)
 define i32 @func(float* nocapture %A) nounwind {
 entry:
   %0 = getelementptr inbounds float, float* %A, i64 5    ; <float*> [#uses=1]
-  %1 = load float* %0, align 4                    ; <float> [#uses=1]
+  %1 = load float, float* %0, align 4                    ; <float> [#uses=1]
   %2 = fcmp ogt float %1, 3.000000e+00            ; <i1> [#uses=1]
   br i1 %2, label %bb, label %return
 

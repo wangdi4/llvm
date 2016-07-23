@@ -22,10 +22,10 @@ for.body14.preheader:                             ; preds = %entry
 for.body14:                                       ; preds = %for.body14.preheader, %for.inc45
   %storemerge7 = phi i64 [ %inc47, %for.inc45 ], [ 0, %for.body14.preheader ]
   %arrayidx17 = getelementptr inbounds i64, i64* %A, i64 %storemerge7
-  %tmp18 = load i64* %arrayidx17, align 8
+  %tmp18 = load i64, i64* %arrayidx17, align 8
   %tobool19 = icmp eq i64 %tmp18, 0
   %arrayidx39.phi.trans.insert = getelementptr inbounds i64, i64* %B, i64 %storemerge7
-  %tmp40.pre = load i64* %arrayidx39.phi.trans.insert, align 8
+  %tmp40.pre = load i64, i64* %arrayidx39.phi.trans.insert, align 8
   br i1 %tobool19, label %if.else, label %land.lhs.true
 
 land.lhs.true:                                    ; preds = %for.body14

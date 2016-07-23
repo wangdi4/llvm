@@ -22,7 +22,7 @@ entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %0 = sext i32 %call to i64
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i64 %0
-  %tmp2 = load float addrspace(1)* %arrayidx, align 4
+  %tmp2 = load float, float addrspace(1)* %arrayidx, align 4
   %cmp = icmp sgt i32 %arg1, 3
   br i1 %cmp, label %if.then, label %if.end18
 

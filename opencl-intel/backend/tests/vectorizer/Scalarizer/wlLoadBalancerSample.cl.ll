@@ -84,7 +84,7 @@ for.body:                                         ; preds = %for.cond
   %mul = mul i32 %tmp25, %tmp26                   ; <i32> [#uses=1]
   %tmp27 = load i32, i32* %i                           ; <i32> [#uses=1]
   %add28 = add nsw i32 %mul, %tmp27               ; <i32> [#uses=1]
-  %tmp29 = load i32 addrspace(1)** %outArray.addr ; <i32 addrspace(1)*> [#uses=1]
+  %tmp29 = load i32 addrspace(1)*, i32 addrspace(1)** %outArray.addr ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp29, i32 %add28 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %tmp24, i32 addrspace(1)* %arrayidx
   br label %for.inc
@@ -172,9 +172,9 @@ for.body:                                         ; preds = %for.cond
   %mul = mul i32 %tmp25, %tmp26                   ; <i32> [#uses=1]
   %tmp27 = load i32, i32* %i                           ; <i32> [#uses=1]
   %add28 = add nsw i32 %mul, %tmp27               ; <i32> [#uses=1]
-  %tmp29 = load i32 addrspace(1)** %outArray.addr ; <i32 addrspace(1)*> [#uses=1]
+  %tmp29 = load i32 addrspace(1)*, i32 addrspace(1)** %outArray.addr ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp29, i32 %add28 ; <i32 addrspace(1)*> [#uses=2]
-  %tmp30 = load i32 addrspace(1)* %arrayidx       ; <i32> [#uses=1]
+  %tmp30 = load i32, i32 addrspace(1)* %arrayidx       ; <i32> [#uses=1]
   %mul31 = mul i32 %tmp30, %tmp24                 ; <i32> [#uses=1]
   store i32 %mul31, i32 addrspace(1)* %arrayidx
   br label %for.inc
@@ -257,15 +257,15 @@ for.body:                                         ; preds = %for.cond
   %mul = mul i32 %tmp24, %tmp25                   ; <i32> [#uses=1]
   %tmp26 = load i32, i32* %i                           ; <i32> [#uses=1]
   %add27 = add nsw i32 %mul, %tmp26               ; <i32> [#uses=1]
-  %tmp28 = load i32 addrspace(1)** %inArray.addr  ; <i32 addrspace(1)*> [#uses=1]
+  %tmp28 = load i32 addrspace(1)*, i32 addrspace(1)** %inArray.addr  ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp28, i32 %add27 ; <i32 addrspace(1)*> [#uses=1]
-  %tmp29 = load i32 addrspace(1)* %arrayidx       ; <i32> [#uses=1]
-  %tmp30 = load i32* %gid                         ; <i32> [#uses=1]
-  %tmp31 = load i32* %prevElements                ; <i32> [#uses=1]
+  %tmp29 = load i32, i32 addrspace(1)* %arrayidx       ; <i32> [#uses=1]
+  %tmp30 = load i32, i32* %gid                         ; <i32> [#uses=1]
+  %tmp31 = load i32, i32* %prevElements                ; <i32> [#uses=1]
   %mul32 = mul i32 %tmp30, %tmp31                 ; <i32> [#uses=1]
   %tmp33 = load i32, i32* %i                           ; <i32> [#uses=1]
   %add34 = add nsw i32 %mul32, %tmp33             ; <i32> [#uses=1]
-  %tmp35 = load i32 addrspace(1)** %outArray.addr ; <i32 addrspace(1)*> [#uses=1]
+  %tmp35 = load i32 addrspace(1)*, i32 addrspace(1)** %outArray.addr ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx36 = getelementptr inbounds i32, i32 addrspace(1)* %tmp35, i32 %add34 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %tmp29, i32 addrspace(1)* %arrayidx36
   br label %for.inc

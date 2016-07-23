@@ -19,7 +19,7 @@ define void @main1([7 x <2 x i1>] * %memA, i1 * nocapture %memB, i32 %i1, i32 %i
 entry:
   %i2 = call i32 @_Z13get_global_idj(i32 0)
   %arrayidx = getelementptr [7 x <2 x i1>], [7 x <2 x i1>] * %memA, i32 %i1, i32 %i2, i32 %i3
-  %A = load i1 * %arrayidx, align 4
+  %A = load i1, i1 * %arrayidx, align 4
   %arrayidx1 = getelementptr i1, i1 * %memB, i32 %i1
   store i1 %A, i1 * %arrayidx1, align 4
   ret void
@@ -32,7 +32,7 @@ entry:
 ; CHECK-NEXT:   [[addIndex2:%[a-zA-Z0-9]+]] = add nuw i32 [[mulIndex1]], %i3
 ; CHECK-NEXT:   [[ptrTypeCast:%[a-zA-Z0-9]+]] = bitcast [7 x <2 x i1>]* %memA to i1*
 ; CHECK-NEXT:   [[simplifiedGEP:%[a-zA-Z0-9]+]] = getelementptr i1, i1* [[ptrTypeCast]], i32 [[addIndex2]]
-; CHECK-NEXT:   %A = load i1* [[simplifiedGEP]], align 4
+; CHECK-NEXT:   %A = load i1, i1* [[simplifiedGEP]], align 4
 ; CHECK-NEXT:   %arrayidx1 = getelementptr i1, i1* %memB, i32 %i1
 ; CHECK-NEXT:   store i1 %A, i1* %arrayidx1, align 4
 ; CHECK-NEXT: ret void
@@ -42,7 +42,7 @@ define void @main2([5 x <3 x float>] * %memA, float * nocapture %memB, i32 %i1, 
 entry:
   %i2 = call i32 @_Z13get_global_idj(i32 0)
   %arrayidx = getelementptr [5 x <3 x float>], [5 x <3 x float>] * %memA, i32 %i1, i32 %i2, i32 %i3
-  %A = load float * %arrayidx, align 4
+  %A = load float, float * %arrayidx, align 4
   %arrayidx1 = getelementptr float, float * %memB, i32 %i1
   store float %A, float * %arrayidx1, align 4
   ret void
@@ -55,7 +55,7 @@ entry:
 ; CHECK-NEXT:   [[addIndex2:%[a-zA-Z0-9]+]] = add nuw i32 [[mulIndex1]], %i3
 ; CHECK-NEXT:   [[ptrTypeCast:%[a-zA-Z0-9]+]] = bitcast [5 x <3 x float>]* %memA to float*
 ; CHECK-NEXT:   [[simplifiedGEP:%[a-zA-Z0-9]+]] = getelementptr float, float* [[ptrTypeCast]], i32 [[addIndex2]]
-; CHECK-NEXT:   %A = load float* [[simplifiedGEP]], align 4
+; CHECK-NEXT:   %A = load float, float* [[simplifiedGEP]], align 4
 ; CHECK-NEXT:   %arrayidx1 = getelementptr float, float* %memB, i32 %i1
 ; CHECK-NEXT:   store float %A, float* %arrayidx1, align 4
 ; CHECK-NEXT: ret void

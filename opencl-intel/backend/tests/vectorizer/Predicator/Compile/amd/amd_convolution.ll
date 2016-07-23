@@ -195,16 +195,16 @@ for.body85:		; preds = %for.cond81
 	%tmp103 = load i32, i32* %i		; <i32> [#uses=1]
 	%add104 = add i32 %mul102, %tmp103		; <i32> [#uses=1]
 	store i32 %add104, i32* %index
-	%tmp105 = load float* %sumFX		; <float> [#uses=1]
-	%tmp106 = load i32* %index		; <i32> [#uses=1]
-	%tmp107 = load i32 addrspace(1)** %input.addr		; <i32 addrspace(1)*> [#uses=1]
+	%tmp105 = load float, float* %sumFX		; <float> [#uses=1]
+	%tmp106 = load i32, i32* %index		; <i32> [#uses=1]
+	%tmp107 = load i32 addrspace(1)*, i32 addrspace(1)** %input.addr		; <i32 addrspace(1)*> [#uses=1]
 	%arrayidx = getelementptr i32, i32 addrspace(1)* %tmp107, i32 %tmp106		; <i32 addrspace(1)*> [#uses=1]
-	%tmp108 = load i32 addrspace(1)* %arrayidx		; <i32> [#uses=1]
+	%tmp108 = load i32, i32 addrspace(1)* %arrayidx		; <i32> [#uses=1]
 	%conv = uitofp i32 %tmp108 to float		; <float> [#uses=1]
-	%tmp109 = load i32* %maskIndex		; <i32> [#uses=1]
-	%tmp110 = load float addrspace(1)** %mask.addr		; <float addrspace(1)*> [#uses=1]
+	%tmp109 = load i32, i32* %maskIndex		; <i32> [#uses=1]
+	%tmp110 = load float addrspace(1)*, float addrspace(1)** %mask.addr		; <float addrspace(1)*> [#uses=1]
 	%arrayidx111 = getelementptr float, float addrspace(1)* %tmp110, i32 %tmp109		; <float addrspace(1)*> [#uses=1]
-	%tmp112 = load float addrspace(1)* %arrayidx111		; <float> [#uses=1]
+	%tmp112 = load float, float addrspace(1)* %arrayidx111		; <float> [#uses=1]
 	%mul113 = fmul float %conv, %tmp112		; <float> [#uses=1]
 	%add114 = fadd float %tmp105, %mul113		; <float> [#uses=1]
 	store float %add114, float* %sumFX
@@ -229,10 +229,10 @@ for.end119:		; preds = %for.cond
 	%tmp120 = load float, float* %sumFX		; <float> [#uses=1]
 	%add121 = fadd float %tmp120, 5.000000e-001		; <float> [#uses=1]
 	store float %add121, float* %sumFX
-	%tmp122 = load i32* %tid		; <i32> [#uses=1]
-	%tmp123 = load float addrspace(1)** %output.addr		; <float addrspace(1)*> [#uses=1]
+	%tmp122 = load i32, i32* %tid		; <i32> [#uses=1]
+	%tmp123 = load float addrspace(1)*, float addrspace(1)** %output.addr		; <float addrspace(1)*> [#uses=1]
 	%arrayidx124 = getelementptr float, float addrspace(1)* %tmp123, i32 %tmp122		; <float addrspace(1)*> [#uses=1]
-	%tmp125 = load float* %sumFX		; <float> [#uses=1]
+	%tmp125 = load float, float* %sumFX		; <float> [#uses=1]
 	store float %tmp125, float addrspace(1)* %arrayidx124
 	ret void
 }

@@ -15,9 +15,9 @@ define void @kern(float %Shading, float %T, i32* nocapture %raystart, i32* nocap
 ; <label>:0
   %1 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %2 = getelementptr inbounds i32, i32* %raystart, i32 %1
-  %3 = load i32* %2
+  %3 = load i32, i32* %2
   %4 = getelementptr inbounds i32, i32* %raylen, i32 %1
-  %5 = load i32* %4
+  %5 = load i32, i32* %4
   br label %.outer
 
 .outer:                                           ; preds = %18, %0
@@ -36,10 +36,10 @@ define void @kern(float %Shading, float %T, i32* nocapture %raystart, i32* nocap
 
 ; <label>:8                                       ; preds = %6
   %scevgep = getelementptr i128, i128* %raytemplate, i32 %raypos.0
-  %9 = load i128* %scevgep
+  %9 = load i128, i128* %scevgep
   %10 = trunc i128 %9 to i32
   %11 = getelementptr inbounds i32, i32* %visible, i32 %10
-  %12 = load i32* %11
+  %12 = load i32, i32* %11
   %13 = icmp eq i32 %12, 0
   br i1 %13, label %.backedge, label %14
 
@@ -49,7 +49,7 @@ define void @kern(float %Shading, float %T, i32* nocapture %raystart, i32* nocap
 
 ; <label>:14                                      ; preds = %8
   %15 = getelementptr inbounds float, float* %opacity, i32 %10
-  %16 = load float* %15
+  %16 = load float, float* %15
   %17 = fcmp oeq float %16, 0.000000e+000
   br i1 %17, label %.backedge, label %18
 

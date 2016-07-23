@@ -13,7 +13,7 @@ define void @explicit1(float addrspace(1)* nocapture %X, float addrspace(1)* noc
 ; CHECK: ret
   %1 = tail call i64 @_Z13get_global_idj(i64 0) nounwind
   %2 = getelementptr inbounds float, float addrspace(1)* %X, i64 %1
-  %3 = load float addrspace(1)* %2
+  %3 = load float, float addrspace(1)* %2
   %4 = fadd float %3, 1.000000e+00
   %5 = getelementptr inbounds float, float addrspace(1)* %Y, i64 %1
   store float %4, float addrspace(1)* %5
@@ -26,7 +26,7 @@ define void @explicit2(i1 addrspace(1)* nocapture %X, i1 addrspace(1)* nocapture
 ; CHECK: ret
   %1 = tail call i64 @_Z13get_global_idj(i64 0) nounwind
   %2 = getelementptr inbounds i1, i1 addrspace(1)* %X, i64 %1
-  %3 = load i1 addrspace(1)* %2
+  %3 = load i1, i1 addrspace(1)* %2
   %4 = add i1 %3, 1
   %5 = getelementptr inbounds i1, i1 addrspace(1)* %Y, i64 %1
   store i1 %4, i1 addrspace(1)* %5
@@ -39,7 +39,7 @@ define void @preserve1(float addrspace(1)* nocapture %X, float addrspace(1)* noc
 ; CHECK: ret
   %1 = tail call i64 @_Z13get_global_idj(i64 0) nounwind
   %2 = getelementptr inbounds float, float addrspace(1)* %X, i64 %1
-  %3 = load float addrspace(1)* %2, align 4
+  %3 = load float, float addrspace(1)* %2, align 4
   %4 = fadd float %3, 1.000000e+00
   %5 = getelementptr inbounds float, float addrspace(1)* %Y, i64 %1
   store float %4, float addrspace(1)* %5, align 4
@@ -52,7 +52,7 @@ define void @preserve2(float addrspace(1)* nocapture %X, float addrspace(1)* noc
 ; CHECK: ret
   %1 = tail call i64 @_Z13get_global_idj(i64 0) nounwind
   %2 = getelementptr inbounds float, float addrspace(1)* %X, i64 %1
-  %3 = load float addrspace(1)* %2, align 64
+  %3 = load float, float addrspace(1)* %2, align 64
   %4 = fadd float %3, 1.000000e+00
   %5 = getelementptr inbounds float, float addrspace(1)* %Y, i64 %1
   store float %4, float addrspace(1)* %5, align 64

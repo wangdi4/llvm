@@ -12,7 +12,7 @@ define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* noca
   %2 = mul nsw i32 %1, 11
   %3 = add nsw i32 %2, 100
   %4 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %1
-  %5 = load i32 addrspace(1)* %4, align 4
+  %5 = load i32, i32 addrspace(1)* %4, align 4
   %6 = mul nsw i32 %5, 7
   %7 = add nsw i32 %6, -12
   %8 = icmp eq i32 %7, 0

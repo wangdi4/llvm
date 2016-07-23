@@ -32,7 +32,7 @@ if.end:                                           ; preds = %entry
   %sext = shl i64 %sub, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %input, i64 %idxprom
-  %0 = load float addrspace(1)* %arrayidx, align 4
+  %0 = load float, float addrspace(1)* %arrayidx, align 4
   %arrayidx4 = getelementptr inbounds float, float addrspace(1)* %res, i64 %idxprom
   store float %0, float addrspace(1)* %arrayidx4, align 4
   br label %return

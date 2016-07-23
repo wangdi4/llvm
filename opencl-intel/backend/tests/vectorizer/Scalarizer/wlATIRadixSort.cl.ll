@@ -51,7 +51,7 @@ for.body:                                         ; preds = %for.cond
   %mul = mul i32 %tmp3, 256                       ; <i32> [#uses=1]
   %tmp4 = load i32, i32* %i                            ; <i32> [#uses=1]
   %add = add i32 %mul, %tmp4                      ; <i32> [#uses=1]
-  %tmp5 = load i16 addrspace(3)** %sharedArray.addr ; <i16 addrspace(3)*> [#uses=1]
+  %tmp5 = load i16 addrspace(3)*, i16 addrspace(3)** %sharedArray.addr ; <i16 addrspace(3)*> [#uses=1]
   %arrayidx = getelementptr inbounds i16, i16 addrspace(3)* %tmp5, i32 %add ; <i16 addrspace(3)*> [#uses=1]
   store i16 0, i16 addrspace(3)* %arrayidx
   br label %for.inc
@@ -77,9 +77,9 @@ for.body12:                                       ; preds = %for.cond9
   %mul15 = mul i32 %tmp14, 256                    ; <i32> [#uses=1]
   %tmp16 = load i32, i32* %i8                          ; <i32> [#uses=1]
   %add17 = add i32 %mul15, %tmp16                 ; <i32> [#uses=1]
-  %tmp18 = load i32 addrspace(1)** %unsortedData.addr ; <i32 addrspace(1)*> [#uses=1]
+  %tmp18 = load i32 addrspace(1)*, i32 addrspace(1)** %unsortedData.addr ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx19 = getelementptr inbounds i32, i32 addrspace(1)* %tmp18, i32 %add17 ; <i32 addrspace(1)*> [#uses=1]
-  %tmp20 = load i32 addrspace(1)* %arrayidx19     ; <i32> [#uses=1]
+  %tmp20 = load i32, i32 addrspace(1)* %arrayidx19     ; <i32> [#uses=1]
   store i32 %tmp20, i32* %value
   %tmp21 = load i32, i32* %value                       ; <i32> [#uses=1]
   %tmp22 = load i32, i32* %shiftCount.addr             ; <i32> [#uses=1]
@@ -90,9 +90,9 @@ for.body12:                                       ; preds = %for.cond9
   %mul24 = mul i32 %tmp23, 256                    ; <i32> [#uses=1]
   %tmp25 = load i32, i32* %value                       ; <i32> [#uses=1]
   %add26 = add i32 %mul24, %tmp25                 ; <i32> [#uses=1]
-  %tmp27 = load i16 addrspace(3)** %sharedArray.addr ; <i16 addrspace(3)*> [#uses=1]
+  %tmp27 = load i16 addrspace(3)*, i16 addrspace(3)** %sharedArray.addr ; <i16 addrspace(3)*> [#uses=1]
   %arrayidx28 = getelementptr inbounds i16, i16 addrspace(3)* %tmp27, i32 %add26 ; <i16 addrspace(3)*> [#uses=2]
-  %tmp29 = load i16 addrspace(3)* %arrayidx28     ; <i16> [#uses=1]
+  %tmp29 = load i16, i16 addrspace(3)* %arrayidx28     ; <i16> [#uses=1]
   %inc30 = add i16 %tmp29, 1                      ; <i16> [#uses=1]
   store i16 %inc30, i16 addrspace(3)* %arrayidx28
   br label %for.inc31
@@ -127,12 +127,12 @@ for.body40:                                       ; preds = %for.cond37
   %mul51 = mul i32 %tmp50, 256                    ; <i32> [#uses=1]
   %tmp52 = load i32, i32* %i36                         ; <i32> [#uses=1]
   %add53 = add i32 %mul51, %tmp52                 ; <i32> [#uses=1]
-  %tmp54 = load i16 addrspace(3)** %sharedArray.addr ; <i16 addrspace(3)*> [#uses=1]
+  %tmp54 = load i16 addrspace(3)*, i16 addrspace(3)** %sharedArray.addr ; <i16 addrspace(3)*> [#uses=1]
   %arrayidx55 = getelementptr inbounds i16, i16 addrspace(3)* %tmp54, i32 %add53 ; <i16 addrspace(3)*> [#uses=1]
-  %tmp56 = load i16 addrspace(3)* %arrayidx55     ; <i16> [#uses=1]
+  %tmp56 = load i16, i16 addrspace(3)* %arrayidx55     ; <i16> [#uses=1]
   %conv = zext i16 %tmp56 to i32                  ; <i32> [#uses=1]
-  %tmp57 = load i32* %bucketPos                   ; <i32> [#uses=1]
-  %tmp58 = load i32 addrspace(1)** %buckets.addr  ; <i32 addrspace(1)*> [#uses=1]
+  %tmp57 = load i32, i32* %bucketPos                   ; <i32> [#uses=1]
+  %tmp58 = load i32 addrspace(1)*, i32 addrspace(1)** %buckets.addr  ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx59 = getelementptr inbounds i32, i32 addrspace(1)* %tmp58, i32 %tmp57 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %conv, i32 addrspace(1)* %arrayidx59
   br label %for.inc60
@@ -200,16 +200,16 @@ for.body:                                         ; preds = %for.cond
   %tmp8 = load i32, i32* %i                            ; <i32> [#uses=1]
   %add9 = add i32 %add, %tmp8                     ; <i32> [#uses=1]
   store i32 %add9, i32* %bucketPos
-  %tmp10 = load i32* %bucketPos                   ; <i32> [#uses=1]
-  %tmp11 = load i32 addrspace(1)** %prescanedBuckets.addr ; <i32 addrspace(1)*> [#uses=1]
+  %tmp10 = load i32, i32* %bucketPos                   ; <i32> [#uses=1]
+  %tmp11 = load i32 addrspace(1)*, i32 addrspace(1)** %prescanedBuckets.addr ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp11, i32 %tmp10 ; <i32 addrspace(1)*> [#uses=1]
-  %tmp12 = load i32 addrspace(1)* %arrayidx       ; <i32> [#uses=1]
+  %tmp12 = load i32, i32 addrspace(1)* %arrayidx       ; <i32> [#uses=1]
   %conv = trunc i32 %tmp12 to i16                 ; <i16> [#uses=1]
   %tmp13 = load i32, i32* %localId                     ; <i32> [#uses=1]
   %mul14 = mul i32 %tmp13, 256                    ; <i32> [#uses=1]
   %tmp15 = load i32, i32* %i                           ; <i32> [#uses=1]
   %add16 = add i32 %mul14, %tmp15                 ; <i32> [#uses=1]
-  %tmp17 = load i16 addrspace(3)** %sharedBuckets.addr ; <i16 addrspace(3)*> [#uses=1]
+  %tmp17 = load i16 addrspace(3)*, i16 addrspace(3)** %sharedBuckets.addr ; <i16 addrspace(3)*> [#uses=1]
   %arrayidx18 = getelementptr inbounds i16, i16 addrspace(3)* %tmp17, i32 %add16 ; <i16 addrspace(3)*> [#uses=1]
   store i16 %conv, i16 addrspace(3)* %arrayidx18
   br label %for.inc
@@ -235,9 +235,9 @@ for.body26:                                       ; preds = %for.cond22
   %mul29 = mul i32 %tmp28, 256                    ; <i32> [#uses=1]
   %tmp30 = load i32, i32* %i21                         ; <i32> [#uses=1]
   %add31 = add i32 %mul29, %tmp30                 ; <i32> [#uses=1]
-  %tmp32 = load i32 addrspace(1)** %unsortedData.addr ; <i32 addrspace(1)*> [#uses=1]
+  %tmp32 = load i32 addrspace(1)*, i32 addrspace(1)** %unsortedData.addr ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx33 = getelementptr inbounds i32, i32 addrspace(1)* %tmp32, i32 %add31 ; <i32 addrspace(1)*> [#uses=1]
-  %tmp34 = load i32 addrspace(1)* %arrayidx33     ; <i32> [#uses=1]
+  %tmp34 = load i32, i32 addrspace(1)* %arrayidx33     ; <i32> [#uses=1]
   store i32 %tmp34, i32* %value
   %tmp35 = load i32, i32* %value                       ; <i32> [#uses=1]
   %tmp36 = load i32, i32* %shiftCount.addr             ; <i32> [#uses=1]
@@ -248,20 +248,20 @@ for.body26:                                       ; preds = %for.cond22
   %mul39 = mul i32 %tmp38, 256                    ; <i32> [#uses=1]
   %tmp40 = load i32, i32* %value                       ; <i32> [#uses=1]
   %add41 = add i32 %mul39, %tmp40                 ; <i32> [#uses=1]
-  %tmp42 = load i16 addrspace(3)** %sharedBuckets.addr ; <i16 addrspace(3)*> [#uses=1]
+  %tmp42 = load i16 addrspace(3)*, i16 addrspace(3)** %sharedBuckets.addr ; <i16 addrspace(3)*> [#uses=1]
   %arrayidx43 = getelementptr inbounds i16, i16 addrspace(3)* %tmp42, i32 %add41 ; <i16 addrspace(3)*> [#uses=1]
-  %tmp44 = load i16 addrspace(3)* %arrayidx43     ; <i16> [#uses=1]
+  %tmp44 = load i16, i16 addrspace(3)* %arrayidx43     ; <i16> [#uses=1]
   %conv45 = zext i16 %tmp44 to i32                ; <i32> [#uses=1]
   store i32 %conv45, i32* %index
   %tmp46 = load i32, i32* %globalId                    ; <i32> [#uses=1]
   %mul47 = mul i32 %tmp46, 256                    ; <i32> [#uses=1]
   %tmp48 = load i32, i32* %i21                         ; <i32> [#uses=1]
   %add49 = add i32 %mul47, %tmp48                 ; <i32> [#uses=1]
-  %tmp50 = load i32 addrspace(1)** %unsortedData.addr ; <i32 addrspace(1)*> [#uses=1]
+  %tmp50 = load i32 addrspace(1)*, i32 addrspace(1)** %unsortedData.addr ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx51 = getelementptr inbounds i32, i32 addrspace(1)* %tmp50, i32 %add49 ; <i32 addrspace(1)*> [#uses=1]
-  %tmp52 = load i32 addrspace(1)* %arrayidx51     ; <i32> [#uses=1]
-  %tmp53 = load i32* %index                       ; <i32> [#uses=1]
-  %tmp54 = load i32 addrspace(1)** %sortedData.addr ; <i32 addrspace(1)*> [#uses=1]
+  %tmp52 = load i32, i32 addrspace(1)* %arrayidx51     ; <i32> [#uses=1]
+  %tmp53 = load i32, i32* %index                       ; <i32> [#uses=1]
+  %tmp54 = load i32 addrspace(1)*, i32 addrspace(1)** %sortedData.addr ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx55 = getelementptr inbounds i32, i32 addrspace(1)* %tmp54, i32 %tmp53 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %tmp52, i32 addrspace(1)* %arrayidx55
   %tmp56 = load i32, i32* %index                       ; <i32> [#uses=1]
@@ -271,7 +271,7 @@ for.body26:                                       ; preds = %for.cond22
   %mul60 = mul i32 %tmp59, 256                    ; <i32> [#uses=1]
   %tmp61 = load i32, i32* %value                       ; <i32> [#uses=1]
   %add62 = add i32 %mul60, %tmp61                 ; <i32> [#uses=1]
-  %tmp63 = load i16 addrspace(3)** %sharedBuckets.addr ; <i16 addrspace(3)*> [#uses=1]
+  %tmp63 = load i16 addrspace(3)*, i16 addrspace(3)** %sharedBuckets.addr ; <i16 addrspace(3)*> [#uses=1]
   %arrayidx64 = getelementptr inbounds i16, i16 addrspace(3)* %tmp63, i32 %add62 ; <i16 addrspace(3)*> [#uses=1]
   store i16 %conv58, i16 addrspace(3)* %arrayidx64
   br label %for.inc65

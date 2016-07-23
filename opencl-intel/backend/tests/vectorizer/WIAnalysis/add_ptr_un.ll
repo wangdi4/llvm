@@ -11,7 +11,7 @@ define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* noca
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = add nsw i32 %1, 1
   %3 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %2
-  %4 = load i32 addrspace(1)* %3, align 4
+  %4 = load i32, i32 addrspace(1)* %3, align 4
   %5 = add nsw i32 %4, 2
   %6 = icmp sgt i32 %5, 10
   br i1 %6, label %7, label %10

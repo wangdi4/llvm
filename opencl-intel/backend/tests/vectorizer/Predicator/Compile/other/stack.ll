@@ -12,7 +12,7 @@ target triple = "x86_64-linux-gnu"
 define void @push(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 

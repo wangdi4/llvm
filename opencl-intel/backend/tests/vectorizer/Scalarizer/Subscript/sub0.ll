@@ -24,7 +24,7 @@ define void @kernel(<2 x i32>* nocapture %A) nounwind {
   %4 = mul nsw i32 %1, 7
   %5 = sext i32 %4 to i64
   %6 = getelementptr inbounds <2 x i32>, <2 x i32>* %A, i64 %5
-  %7 = load <2 x i32>* %6, align 4, !tbaa !0
+  %7 = load <2 x i32>, <2 x i32>* %6, align 4, !tbaa !0
   %8 = add nsw <2 x i32> %7, <i32 3, i32 3>
   store <2 x i32> %8, <2 x i32>* %6, align 4, !tbaa !0
   br label %9

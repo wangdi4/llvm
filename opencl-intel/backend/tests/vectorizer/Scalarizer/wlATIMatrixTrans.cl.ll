@@ -49,15 +49,15 @@ entry:
   %mul = mul i32 %tmp, %tmp4                      ; <i32> [#uses=1]
   %tmp5 = load i32, i32* %globalIdx                    ; <i32> [#uses=1]
   %add = add i32 %mul, %tmp5                      ; <i32> [#uses=1]
-  %tmp6 = load float addrspace(1)** %input.addr   ; <float addrspace(1)*> [#uses=1]
+  %tmp6 = load float addrspace(1)*, float addrspace(1)** %input.addr   ; <float addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %tmp6, i32 %add ; <float addrspace(1)*> [#uses=1]
-  %tmp7 = load float addrspace(1)* %arrayidx      ; <float> [#uses=1]
-  %tmp8 = load i32* %localIdy                     ; <i32> [#uses=1]
-  %tmp9 = load i32* %blockSize.addr               ; <i32> [#uses=1]
+  %tmp7 = load float, float addrspace(1)* %arrayidx      ; <float> [#uses=1]
+  %tmp8 = load i32, i32* %localIdy                     ; <i32> [#uses=1]
+  %tmp9 = load i32, i32* %blockSize.addr               ; <i32> [#uses=1]
   %mul10 = mul i32 %tmp8, %tmp9                   ; <i32> [#uses=1]
   %tmp11 = load i32, i32* %localIdx                    ; <i32> [#uses=1]
   %add12 = add i32 %mul10, %tmp11                 ; <i32> [#uses=1]
-  %tmp13 = load float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
+  %tmp13 = load float addrspace(3)*, float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
   %arrayidx14 = getelementptr inbounds float, float addrspace(3)* %tmp13, i32 %add12 ; <float addrspace(3)*> [#uses=1]
   store float %tmp7, float addrspace(3)* %arrayidx14
   call void @_Z7barrierm(i32 1)
@@ -89,12 +89,12 @@ entry:
   %tmp41 = load i32, i32* %localIdx                    ; <i32> [#uses=1]
   %add42 = add i32 %mul40, %tmp41                 ; <i32> [#uses=1]
   store i32 %add42, i32* %sourceIndex
-  %tmp43 = load i32* %sourceIndex                 ; <i32> [#uses=1]
-  %tmp44 = load float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
+  %tmp43 = load i32, i32* %sourceIndex                 ; <i32> [#uses=1]
+  %tmp44 = load float addrspace(3)*, float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
   %arrayidx45 = getelementptr inbounds float, float addrspace(3)* %tmp44, i32 %tmp43 ; <float addrspace(3)*> [#uses=1]
-  %tmp46 = load float addrspace(3)* %arrayidx45   ; <float> [#uses=1]
-  %tmp47 = load i32* %targetIndex                 ; <i32> [#uses=1]
-  %tmp48 = load float addrspace(1)** %output.addr ; <float addrspace(1)*> [#uses=1]
+  %tmp46 = load float, float addrspace(3)* %arrayidx45   ; <float> [#uses=1]
+  %tmp47 = load i32, i32* %targetIndex                 ; <i32> [#uses=1]
+  %tmp48 = load float addrspace(1)*, float addrspace(1)** %output.addr ; <float addrspace(1)*> [#uses=1]
   %arrayidx49 = getelementptr inbounds float, float addrspace(1)* %tmp48, i32 %tmp47 ; <float addrspace(1)*> [#uses=1]
   store float %tmp46, float addrspace(1)* %arrayidx49
   ret void

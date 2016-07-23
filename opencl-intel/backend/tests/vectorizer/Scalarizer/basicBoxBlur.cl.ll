@@ -279,10 +279,10 @@ for.body123:                                      ; preds = %for.cond116
   %tmp124 = load i32, i32* %leftIndex                  ; <i32> [#uses=1]
   %tmp125 = load i32, i32* %x                          ; <i32> [#uses=1]
   %add126 = add i32 %tmp124, %tmp125              ; <i32> [#uses=1]
-  %tmp127 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp127 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp127, i32 %add126 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp128 = load <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
-  %tmp129 = load <4 x float>* %firstBlockAccumulator ; <<4 x float>> [#uses=1]
+  %tmp128 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
+  %tmp129 = load <4 x float>, <4 x float>* %firstBlockAccumulator ; <<4 x float>> [#uses=1]
   %add130 = fadd <4 x float> %tmp129, %tmp128     ; <<4 x float>> [#uses=1]
   store <4 x float> %add130, <4 x float>* %firstBlockAccumulator
   br label %for.inc
@@ -320,8 +320,8 @@ for.end138:                                       ; preds = %for.cond
   %cmp149 = fcmp oeq <4 x float> zeroinitializer, %splat148 ; <<4 x i1>> [#uses=1]
   %sel150 = select <4 x i1> %cmp149, <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, <4 x float> %splat148 ; <<4 x float>> [#uses=0]
   %div151 = fdiv <4 x float> %tmp145, %splat148   ; <<4 x float>> [#uses=1]
-  %tmp152 = load i32* %sourceIndex                ; <i32> [#uses=1]
-  %tmp153 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp152 = load i32, i32* %sourceIndex                ; <i32> [#uses=1]
+  %tmp153 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx154 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp153, i32 %tmp152 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div151, <4 x float> addrspace(1)* %arrayidx154
   %tmp155 = load <4 x float>, <4 x float>* %firstBlockAccumulator ; <<4 x float>> [#uses=1]
@@ -396,22 +396,22 @@ for.cond207:                                      ; preds = %for.inc233, %for.bo
   br i1 %cmp212, label %for.body214, label %for.end236
 
 for.body214:                                      ; preds = %for.cond207
-  %tmp215 = load i32* %tmpIndex1                  ; <i32> [#uses=1]
-  %tmp216 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp215 = load i32, i32* %tmpIndex1                  ; <i32> [#uses=1]
+  %tmp216 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx217 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp216, i32 %tmp215 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp218 = load <4 x float> addrspace(1)* %arrayidx217 ; <<4 x float>> [#uses=1]
-  %tmp219 = load <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
+  %tmp218 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx217 ; <<4 x float>> [#uses=1]
+  %tmp219 = load <4 x float>, <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
   %sub220 = fsub <4 x float> %tmp219, %tmp218     ; <<4 x float>> [#uses=1]
   store <4 x float> %sub220, <4 x float>* %colorAccumulator
   %tmp221 = load i32, i32* %width.addr                 ; <i32> [#uses=1]
   %tmp222 = load i32, i32* %tmpIndex1                  ; <i32> [#uses=1]
   %add223 = add i32 %tmp222, %tmp221              ; <i32> [#uses=1]
   store i32 %add223, i32* %tmpIndex1
-  %tmp224 = load i32* %tmpIndex2                  ; <i32> [#uses=1]
-  %tmp225 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp224 = load i32, i32* %tmpIndex2                  ; <i32> [#uses=1]
+  %tmp225 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx226 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp225, i32 %tmp224 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp227 = load <4 x float> addrspace(1)* %arrayidx226 ; <<4 x float>> [#uses=1]
-  %tmp228 = load <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
+  %tmp227 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx226 ; <<4 x float>> [#uses=1]
+  %tmp228 = load <4 x float>, <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
   %add229 = fadd <4 x float> %tmp228, %tmp227     ; <<4 x float>> [#uses=1]
   store <4 x float> %add229, <4 x float>* %colorAccumulator
   %tmp230 = load i32, i32* %width.addr                 ; <i32> [#uses=1]
@@ -434,8 +434,8 @@ for.end236:                                       ; preds = %for.cond207
   %cmp241 = fcmp oeq <4 x float> zeroinitializer, %splat240 ; <<4 x i1>> [#uses=1]
   %sel242 = select <4 x i1> %cmp241, <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, <4 x float> %splat240 ; <<4 x float>> [#uses=0]
   %div243 = fdiv <4 x float> %tmp237, %splat240   ; <<4 x float>> [#uses=1]
-  %tmp244 = load i32* %sourceIndex                ; <i32> [#uses=1]
-  %tmp245 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp244 = load i32, i32* %sourceIndex                ; <i32> [#uses=1]
+  %tmp245 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx246 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp245, i32 %tmp244 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div243, <4 x float> addrspace(1)* %arrayidx246
   %tmp247 = load i32, i32* %sourceIndex                ; <i32> [#uses=1]
@@ -476,21 +476,21 @@ for.cond263:                                      ; preds = %for.inc287, %for.en
   br i1 %cmp268, label %for.body270, label %for.end290
 
 for.body270:                                      ; preds = %for.cond263
-  %tmp271 = load i32* %tmpIndex1                  ; <i32> [#uses=1]
-  %tmp272 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp271 = load i32, i32* %tmpIndex1                  ; <i32> [#uses=1]
+  %tmp272 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx273 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp272, i32 %tmp271 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp274 = load <4 x float> addrspace(1)* %arrayidx273 ; <<4 x float>> [#uses=1]
-  %tmp275 = load <4 x float>* %firstBlockAccumulator ; <<4 x float>> [#uses=1]
+  %tmp274 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx273 ; <<4 x float>> [#uses=1]
+  %tmp275 = load <4 x float>, <4 x float>* %firstBlockAccumulator ; <<4 x float>> [#uses=1]
   %sub276 = fsub <4 x float> %tmp275, %tmp274     ; <<4 x float>> [#uses=1]
   store <4 x float> %sub276, <4 x float>* %firstBlockAccumulator
   %tmp277 = load i32, i32* %tmpIndex1                  ; <i32> [#uses=1]
   %inc278 = add i32 %tmp277, 1                    ; <i32> [#uses=1]
   store i32 %inc278, i32* %tmpIndex1
-  %tmp279 = load i32* %tmpIndex2                  ; <i32> [#uses=1]
-  %tmp280 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp279 = load i32, i32* %tmpIndex2                  ; <i32> [#uses=1]
+  %tmp280 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx281 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp280, i32 %tmp279 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp282 = load <4 x float> addrspace(1)* %arrayidx281 ; <<4 x float>> [#uses=1]
-  %tmp283 = load <4 x float>* %firstBlockAccumulator ; <<4 x float>> [#uses=1]
+  %tmp282 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx281 ; <<4 x float>> [#uses=1]
+  %tmp283 = load <4 x float>, <4 x float>* %firstBlockAccumulator ; <<4 x float>> [#uses=1]
   %add284 = fadd <4 x float> %tmp283, %tmp282     ; <<4 x float>> [#uses=1]
   store <4 x float> %add284, <4 x float>* %firstBlockAccumulator
   %tmp285 = load i32, i32* %tmpIndex2                  ; <i32> [#uses=1]
@@ -520,8 +520,8 @@ for.end290:                                       ; preds = %for.cond263
   %cmp302 = fcmp oeq <4 x float> zeroinitializer, %splat301 ; <<4 x i1>> [#uses=1]
   %sel303 = select <4 x i1> %cmp302, <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, <4 x float> %splat301 ; <<4 x float>> [#uses=0]
   %div304 = fdiv <4 x float> %tmp298, %splat301   ; <<4 x float>> [#uses=1]
-  %tmp305 = load i32* %sourceIndex                ; <i32> [#uses=1]
-  %tmp306 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp305 = load i32, i32* %sourceIndex                ; <i32> [#uses=1]
+  %tmp306 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx307 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp306, i32 %tmp305 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div304, <4 x float> addrspace(1)* %arrayidx307
   %tmp308 = load <4 x float>, <4 x float>* %firstBlockAccumulator ; <<4 x float>> [#uses=1]
@@ -572,22 +572,22 @@ for.cond334:                                      ; preds = %for.inc360, %for.bo
   br i1 %cmp339, label %for.body341, label %for.end363
 
 for.body341:                                      ; preds = %for.cond334
-  %tmp342 = load i32* %tmpIndex1                  ; <i32> [#uses=1]
-  %tmp343 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp342 = load i32, i32* %tmpIndex1                  ; <i32> [#uses=1]
+  %tmp343 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx344 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp343, i32 %tmp342 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp345 = load <4 x float> addrspace(1)* %arrayidx344 ; <<4 x float>> [#uses=1]
-  %tmp346 = load <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
+  %tmp345 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx344 ; <<4 x float>> [#uses=1]
+  %tmp346 = load <4 x float>, <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
   %sub347 = fsub <4 x float> %tmp346, %tmp345     ; <<4 x float>> [#uses=1]
   store <4 x float> %sub347, <4 x float>* %colorAccumulator
   %tmp348 = load i32, i32* %width.addr                 ; <i32> [#uses=1]
   %tmp349 = load i32, i32* %tmpIndex1                  ; <i32> [#uses=1]
   %add350 = add i32 %tmp349, %tmp348              ; <i32> [#uses=1]
   store i32 %add350, i32* %tmpIndex1
-  %tmp351 = load i32* %tmpIndex2                  ; <i32> [#uses=1]
-  %tmp352 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp351 = load i32, i32* %tmpIndex2                  ; <i32> [#uses=1]
+  %tmp352 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx353 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp352, i32 %tmp351 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp354 = load <4 x float> addrspace(1)* %arrayidx353 ; <<4 x float>> [#uses=1]
-  %tmp355 = load <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
+  %tmp354 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx353 ; <<4 x float>> [#uses=1]
+  %tmp355 = load <4 x float>, <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
   %add356 = fadd <4 x float> %tmp355, %tmp354     ; <<4 x float>> [#uses=1]
   store <4 x float> %add356, <4 x float>* %colorAccumulator
   %tmp357 = load i32, i32* %width.addr                 ; <i32> [#uses=1]
@@ -610,8 +610,8 @@ for.end363:                                       ; preds = %for.cond334
   %cmp368 = fcmp oeq <4 x float> zeroinitializer, %splat367 ; <<4 x i1>> [#uses=1]
   %sel369 = select <4 x i1> %cmp368, <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, <4 x float> %splat367 ; <<4 x float>> [#uses=0]
   %div370 = fdiv <4 x float> %tmp364, %splat367   ; <<4 x float>> [#uses=1]
-  %tmp371 = load i32* %sourceIndex                ; <i32> [#uses=1]
-  %tmp372 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp371 = load i32, i32* %sourceIndex                ; <i32> [#uses=1]
+  %tmp372 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx373 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp372, i32 %tmp371 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div370, <4 x float> addrspace(1)* %arrayidx373
   %tmp374 = load i32, i32* %sourceIndex                ; <i32> [#uses=1]
@@ -719,10 +719,10 @@ if.end442:                                        ; preds = %if.then441, %if.end
   %mul445 = mul i32 %tmp443, %tmp444              ; <i32> [#uses=1]
   %tmp446 = load i32, i32* %w                          ; <i32> [#uses=1]
   %add447 = add i32 %mul445, %tmp446              ; <i32> [#uses=1]
-  %tmp448 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp448 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx449 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp448, i32 %add447 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp450 = load <4 x float> addrspace(1)* %arrayidx449 ; <<4 x float>> [#uses=1]
-  %tmp451 = load <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
+  %tmp450 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx449 ; <<4 x float>> [#uses=1]
+  %tmp451 = load <4 x float>, <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
   %add452 = fadd <4 x float> %tmp451, %tmp450     ; <<4 x float>> [#uses=1]
   store <4 x float> %add452, <4 x float>* %colorAccumulator
   br label %for.inc453
@@ -755,7 +755,7 @@ for.end460:                                       ; preds = %for.cond410
   %mul470 = mul i32 %tmp468, %tmp469              ; <i32> [#uses=1]
   %tmp471 = load i32, i32* %column397                  ; <i32> [#uses=1]
   %add472 = add i32 %mul470, %tmp471              ; <i32> [#uses=1]
-  %tmp473 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp473 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx474 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp473, i32 %add472 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div467, <4 x float> addrspace(1)* %arrayidx474
   br label %for.inc475
@@ -858,10 +858,10 @@ if.end544:                                        ; preds = %if.then543, %for.bo
   %mul547 = mul i32 %tmp545, %tmp546              ; <i32> [#uses=1]
   %tmp548 = load i32, i32* %w536                       ; <i32> [#uses=1]
   %add549 = add i32 %mul547, %tmp548              ; <i32> [#uses=1]
-  %tmp550 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp550 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx551 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp550, i32 %add549 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp552 = load <4 x float> addrspace(1)* %arrayidx551 ; <<4 x float>> [#uses=1]
-  %tmp553 = load <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
+  %tmp552 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx551 ; <<4 x float>> [#uses=1]
+  %tmp553 = load <4 x float>, <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
   %add554 = fadd <4 x float> %tmp553, %tmp552     ; <<4 x float>> [#uses=1]
   store <4 x float> %add554, <4 x float>* %colorAccumulator
   br label %for.inc555
@@ -894,7 +894,7 @@ for.end562:                                       ; preds = %for.cond514
   %mul572 = mul i32 %tmp570, %tmp571              ; <i32> [#uses=1]
   %tmp573 = load i32, i32* %column496                  ; <i32> [#uses=1]
   %add574 = add i32 %mul572, %tmp573              ; <i32> [#uses=1]
-  %tmp575 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp575 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx576 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp575, i32 %add574 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div569, <4 x float> addrspace(1)* %arrayidx576
   br label %for.inc577
@@ -1018,10 +1018,10 @@ if.end663:                                        ; preds = %if.then660, %if.end
   %mul666 = mul i32 %tmp664, %tmp665              ; <i32> [#uses=1]
   %tmp667 = load i32, i32* %w647                       ; <i32> [#uses=1]
   %add668 = add i32 %mul666, %tmp667              ; <i32> [#uses=1]
-  %tmp669 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp669 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx670 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp669, i32 %add668 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp671 = load <4 x float> addrspace(1)* %arrayidx670 ; <<4 x float>> [#uses=1]
-  %tmp672 = load <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
+  %tmp671 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx670 ; <<4 x float>> [#uses=1]
+  %tmp672 = load <4 x float>, <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
   %add673 = fadd <4 x float> %tmp672, %tmp671     ; <<4 x float>> [#uses=1]
   store <4 x float> %add673, <4 x float>* %colorAccumulator
   br label %for.inc674
@@ -1054,7 +1054,7 @@ for.end681:                                       ; preds = %for.cond625
   %mul691 = mul i32 %tmp689, %tmp690              ; <i32> [#uses=1]
   %tmp692 = load i32, i32* %column603                  ; <i32> [#uses=1]
   %add693 = add i32 %mul691, %tmp692              ; <i32> [#uses=1]
-  %tmp694 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp694 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx695 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp694, i32 %add693 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div688, <4 x float> addrspace(1)* %arrayidx695
   br label %for.inc696
@@ -1157,10 +1157,10 @@ if.end765:                                        ; preds = %if.then764, %for.bo
   %mul768 = mul i32 %tmp766, %tmp767              ; <i32> [#uses=1]
   %tmp769 = load i32, i32* %w757                       ; <i32> [#uses=1]
   %add770 = add i32 %mul768, %tmp769              ; <i32> [#uses=1]
-  %tmp771 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp771 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx772 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp771, i32 %add770 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp773 = load <4 x float> addrspace(1)* %arrayidx772 ; <<4 x float>> [#uses=1]
-  %tmp774 = load <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
+  %tmp773 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx772 ; <<4 x float>> [#uses=1]
+  %tmp774 = load <4 x float>, <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
   %add775 = fadd <4 x float> %tmp774, %tmp773     ; <<4 x float>> [#uses=1]
   store <4 x float> %add775, <4 x float>* %colorAccumulator
   br label %for.inc776
@@ -1193,7 +1193,7 @@ for.end783:                                       ; preds = %for.cond735
   %mul793 = mul i32 %tmp791, %tmp792              ; <i32> [#uses=1]
   %tmp794 = load i32, i32* %column720                  ; <i32> [#uses=1]
   %add795 = add i32 %mul793, %tmp794              ; <i32> [#uses=1]
-  %tmp796 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp796 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx797 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp796, i32 %add795 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div790, <4 x float> addrspace(1)* %arrayidx797
   br label %for.inc798
@@ -1317,10 +1317,10 @@ if.end884:                                        ; preds = %if.then883, %if.end
   %mul887 = mul i32 %tmp885, %tmp886              ; <i32> [#uses=1]
   %tmp888 = load i32, i32* %w868                       ; <i32> [#uses=1]
   %add889 = add i32 %mul887, %tmp888              ; <i32> [#uses=1]
-  %tmp890 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp890 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx891 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp890, i32 %add889 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp892 = load <4 x float> addrspace(1)* %arrayidx891 ; <<4 x float>> [#uses=1]
-  %tmp893 = load <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
+  %tmp892 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx891 ; <<4 x float>> [#uses=1]
+  %tmp893 = load <4 x float>, <4 x float>* %colorAccumulator   ; <<4 x float>> [#uses=1]
   %add894 = fadd <4 x float> %tmp893, %tmp892     ; <<4 x float>> [#uses=1]
   store <4 x float> %add894, <4 x float>* %colorAccumulator
   br label %for.inc895
@@ -1353,7 +1353,7 @@ for.end902:                                       ; preds = %for.cond846
   %mul912 = mul i32 %tmp910, %tmp911              ; <i32> [#uses=1]
   %tmp913 = load i32, i32* %column831                  ; <i32> [#uses=1]
   %add914 = add i32 %mul912, %tmp913              ; <i32> [#uses=1]
-  %tmp915 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp915 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx916 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp915, i32 %add914 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div909, <4 x float> addrspace(1)* %arrayidx916
   br label %for.inc917
@@ -1466,10 +1466,10 @@ if.end996:                                        ; preds = %if.then993, %for.bo
   %mul999 = mul i32 %tmp997, %tmp998              ; <i32> [#uses=1]
   %tmp1000 = load i32, i32* %w985                      ; <i32> [#uses=1]
   %add1001 = add i32 %mul999, %tmp1000            ; <i32> [#uses=1]
-  %tmp1002 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp1002 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx1003 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp1002, i32 %add1001 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp1004 = load <4 x float> addrspace(1)* %arrayidx1003 ; <<4 x float>> [#uses=1]
-  %tmp1005 = load <4 x float>* %colorAccumulator  ; <<4 x float>> [#uses=1]
+  %tmp1004 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx1003 ; <<4 x float>> [#uses=1]
+  %tmp1005 = load <4 x float>, <4 x float>* %colorAccumulator  ; <<4 x float>> [#uses=1]
   %add1006 = fadd <4 x float> %tmp1005, %tmp1004  ; <<4 x float>> [#uses=1]
   store <4 x float> %add1006, <4 x float>* %colorAccumulator
   br label %for.inc1007
@@ -1502,7 +1502,7 @@ for.end1014:                                      ; preds = %for.cond963
   %mul1024 = mul i32 %tmp1022, %tmp1023           ; <i32> [#uses=1]
   %tmp1025 = load i32, i32* %column945                 ; <i32> [#uses=1]
   %add1026 = add i32 %mul1024, %tmp1025           ; <i32> [#uses=1]
-  %tmp1027 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp1027 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx1028 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp1027, i32 %add1026 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div1021, <4 x float> addrspace(1)* %arrayidx1028
   br label %for.inc1029
@@ -1615,10 +1615,10 @@ if.end1108:                                       ; preds = %if.then1105, %for.b
   %mul1111 = mul i32 %tmp1109, %tmp1110           ; <i32> [#uses=1]
   %tmp1112 = load i32, i32* %w1097                     ; <i32> [#uses=1]
   %add1113 = add i32 %mul1111, %tmp1112           ; <i32> [#uses=1]
-  %tmp1114 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp1114 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx1115 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp1114, i32 %add1113 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp1116 = load <4 x float> addrspace(1)* %arrayidx1115 ; <<4 x float>> [#uses=1]
-  %tmp1117 = load <4 x float>* %colorAccumulator  ; <<4 x float>> [#uses=1]
+  %tmp1116 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx1115 ; <<4 x float>> [#uses=1]
+  %tmp1117 = load <4 x float>, <4 x float>* %colorAccumulator  ; <<4 x float>> [#uses=1]
   %add1118 = fadd <4 x float> %tmp1117, %tmp1116  ; <<4 x float>> [#uses=1]
   store <4 x float> %add1118, <4 x float>* %colorAccumulator
   br label %for.inc1119
@@ -1651,7 +1651,7 @@ for.end1126:                                      ; preds = %for.cond1075
   %mul1136 = mul i32 %tmp1134, %tmp1135           ; <i32> [#uses=1]
   %tmp1137 = load i32, i32* %column1053                ; <i32> [#uses=1]
   %add1138 = add i32 %mul1136, %tmp1137           ; <i32> [#uses=1]
-  %tmp1139 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp1139 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx1140 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp1139, i32 %add1138 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div1133, <4 x float> addrspace(1)* %arrayidx1140
   br label %for.inc1141
@@ -1785,10 +1785,10 @@ if.end1237:                                       ; preds = %if.then1234, %if.en
   %mul1240 = mul i32 %tmp1238, %tmp1239           ; <i32> [#uses=1]
   %tmp1241 = load i32, i32* %w1218                     ; <i32> [#uses=1]
   %add1242 = add i32 %mul1240, %tmp1241           ; <i32> [#uses=1]
-  %tmp1243 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp1243 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx1244 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp1243, i32 %add1242 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp1245 = load <4 x float> addrspace(1)* %arrayidx1244 ; <<4 x float>> [#uses=1]
-  %tmp1246 = load <4 x float>* %colorAccumulator  ; <<4 x float>> [#uses=1]
+  %tmp1245 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx1244 ; <<4 x float>> [#uses=1]
+  %tmp1246 = load <4 x float>, <4 x float>* %colorAccumulator  ; <<4 x float>> [#uses=1]
   %add1247 = fadd <4 x float> %tmp1246, %tmp1245  ; <<4 x float>> [#uses=1]
   store <4 x float> %add1247, <4 x float>* %colorAccumulator
   br label %for.inc1248
@@ -1821,7 +1821,7 @@ for.end1255:                                      ; preds = %for.cond1196
   %mul1265 = mul i32 %tmp1263, %tmp1264           ; <i32> [#uses=1]
   %tmp1266 = load i32, i32* %column1174                ; <i32> [#uses=1]
   %add1267 = add i32 %mul1265, %tmp1266           ; <i32> [#uses=1]
-  %tmp1268 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp1268 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx1269 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp1268, i32 %add1267 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div1262, <4 x float> addrspace(1)* %arrayidx1269
   br label %for.inc1270

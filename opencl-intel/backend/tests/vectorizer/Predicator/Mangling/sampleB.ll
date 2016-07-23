@@ -19,9 +19,9 @@ entry:
   store i64 %n, i64* %n.addr
   store i64* %A, i64** %A.addr
   store i64* %B, i64** %B.addr
-  %tmp = load i64** %B.addr                       ; <i64*> [#uses=1]
+  %tmp = load i64*, i64** %B.addr                       ; <i64*> [#uses=1]
   %arrayidx = getelementptr inbounds i64, i64* %tmp, i64 0 ; <i64*> [#uses=1]
-  %tmp1 = load i64* %arrayidx                     ; <i64> [#uses=1]
+  %tmp1 = load i64, i64* %arrayidx                     ; <i64> [#uses=1]
   %tobool = icmp ne i64 %tmp1, 0                  ; <i1> [#uses=1]
   br i1 %tobool, label %if.then, label %if.else
 
@@ -44,9 +44,9 @@ for.body:                                         ; preds = %for.cond
   %tmp7 = load i64*, i64** %B.addr                      ; <i64*> [#uses=1]
   %idxprom = sext i32 %tmp6 to i64                ; <i64> [#uses=1]
   %arrayidx8 = getelementptr inbounds i64, i64* %tmp7, i64 %idxprom ; <i64*> [#uses=1]
-  %tmp9 = load i64* %arrayidx8                    ; <i64> [#uses=1]
-  %tmp10 = load i32* %i                           ; <i32> [#uses=1]
-  %tmp11 = load i64** %A.addr                     ; <i64*> [#uses=1]
+  %tmp9 = load i64, i64* %arrayidx8                    ; <i64> [#uses=1]
+  %tmp10 = load i32, i32* %i                           ; <i32> [#uses=1]
+  %tmp11 = load i64*, i64** %A.addr                     ; <i64*> [#uses=1]
   %idxprom12 = sext i32 %tmp10 to i64             ; <i64> [#uses=1]
   %arrayidx13 = getelementptr inbounds i64, i64* %tmp11, i64 %idxprom12 ; <i64*> [#uses=1]
   store i64 %tmp9, i64* %arrayidx13
@@ -87,8 +87,8 @@ if.end:                                           ; preds = %for.body23
   %tmp29 = load i64*, i64** %B.addr                     ; <i64*> [#uses=1]
   %idxprom30 = sext i32 %mul to i64               ; <i64> [#uses=1]
   %arrayidx31 = getelementptr inbounds i64, i64* %tmp29, i64 %idxprom30 ; <i64*> [#uses=1]
-  %tmp32 = load i64* %arrayidx31                  ; <i64> [#uses=1]
-  %tmp33 = load i32* %i16                         ; <i32> [#uses=1]
+  %tmp32 = load i64, i64* %arrayidx31                  ; <i64> [#uses=1]
+  %tmp33 = load i32, i32* %i16                         ; <i32> [#uses=1]
   %add34 = add nsw i32 %tmp33, 4                  ; <i32> [#uses=1]
   %tmp35 = load i64*, i64** %A.addr                     ; <i64*> [#uses=1]
   %idxprom36 = sext i32 %add34 to i64             ; <i64> [#uses=1]

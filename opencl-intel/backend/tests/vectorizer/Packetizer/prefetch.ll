@@ -20,7 +20,7 @@ entry:
   call void @_Z8prefetchPKU3AS1fm(float addrspace(1)* %add.ptr, i64 1) nounwind
   %idxprom = sext i32 %conv to i64
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %A, i64 %idxprom
-  %0 = load float addrspace(1)* %arrayidx, align 4
+  %0 = load float, float addrspace(1)* %arrayidx, align 4
   %mul = fmul float %0, 2.000000e+00
   %idxprom1 = sext i32 %conv to i64
   %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %B, i64 %idxprom1
@@ -49,7 +49,7 @@ if.then:                                          ; preds = %entry
 if.end:                                           ; preds = %if.then, %entry
   %idxprom = sext i32 %conv to i64
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %A, i64 %idxprom
-  %0 = load float addrspace(1)* %arrayidx, align 4
+  %0 = load float, float addrspace(1)* %arrayidx, align 4
   %mul = fmul float %0, 2.000000e+00
   %idxprom2 = sext i32 %conv to i64
   %arrayidx3 = getelementptr inbounds float, float addrspace(1)* %B, i64 %idxprom2

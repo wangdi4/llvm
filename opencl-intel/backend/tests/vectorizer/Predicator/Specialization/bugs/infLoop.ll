@@ -64,7 +64,7 @@ for.body.lr.ph.split:                             ; preds = %for.body.lr.ph
 if.then.us8:                                      ; preds = %for.body.lr.ph.split, %if.end40.us20
   %indvars.iv48 = phi i64 [ %indvars.iv.next49, %if.end40.us20 ], [ %0, %for.body.lr.ph.split ]
   %arrayidx.us7 = getelementptr inbounds float, float addrspace(1)* %gpfAsset, i64 %indvars.iv48
-  %4 = load float addrspace(1)* %arrayidx.us7, align 4
+  %4 = load float, float addrspace(1)* %arrayidx.us7, align 4
   %cmp12.us9 = fcmp ogt float %4, 0.000000e+00
   br i1 %cmp12.us9, label %if.end40.us20, label %if.else.us10
 
@@ -88,7 +88,7 @@ for.body.lr.ph.split.split:                       ; preds = %for.body.lr.ph.spli
 if.then.us29:                                     ; preds = %for.body.lr.ph.split.split, %if.end40.us41
   %indvars.iv50 = phi i64 [ %indvars.iv.next51, %if.end40.us41 ], [ %0, %for.body.lr.ph.split.split ]
   %arrayidx.us28 = getelementptr inbounds float, float addrspace(1)* %gpfAsset, i64 %indvars.iv50
-  %6 = load float addrspace(1)* %arrayidx.us28, align 4
+  %6 = load float, float addrspace(1)* %arrayidx.us28, align 4
   %cmp12.us30 = fcmp ogt float %6, 0.000000e+00
   br i1 %cmp12.us30, label %if.end40.us41, label %if.else.us31
 
@@ -109,7 +109,7 @@ if.end40.us41:                                    ; preds = %if.else.us31, %if.t
 if.then:                                          ; preds = %for.body.lr.ph.split.split, %if.end40
   %indvars.iv = phi i64 [ %indvars.iv.next, %if.end40 ], [ %0, %for.body.lr.ph.split.split ]
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %gpfAsset, i64 %indvars.iv
-  %8 = load float addrspace(1)* %arrayidx, align 4
+  %8 = load float, float addrspace(1)* %arrayidx, align 4
   %cmp12 = fcmp ogt float %8, 0.000000e+00
   br i1 %cmp12, label %if.end40, label %if.else
 
@@ -170,9 +170,9 @@ for.body.lr.ph:                                   ; preds = %cond.end
 for.body:                                         ; preds = %for.body.lr.ph, %for.inc
   %indvars.iv = phi i64 [ %0, %for.body.lr.ph ], [ %indvars.iv.next, %for.inc ]
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %gpfAsset, i64 %indvars.iv
-  %2 = load float addrspace(1)* %arrayidx, align 4
+  %2 = load float, float addrspace(1)* %arrayidx, align 4
   %arrayidx8 = getelementptr inbounds float, float addrspace(1)* %gpfBarrier, i64 %indvars.iv
-  %3 = load float addrspace(1)* %arrayidx8, align 4
+  %3 = load float, float addrspace(1)* %arrayidx8, align 4
   %add = fadd float %cond14, %3
   %sub = fsub float %3, %cond20
   br i1 %tobool, label %if.else.thread, label %if.then
@@ -277,9 +277,9 @@ for.body.lr.ph.i:                                 ; preds = %cond.end.i
 for.body.i:                                       ; preds = %for.inc.i, %for.body.lr.ph.i
   %indvars.iv.i = phi i64 [ %0, %for.body.lr.ph.i ], [ %indvars.iv.next.i, %for.inc.i ]
   %arrayidx.i = getelementptr inbounds float, float addrspace(1)* %gpfAsset, i64 %indvars.iv.i
-  %2 = load float addrspace(1)* %arrayidx.i, align 4
+  %2 = load float, float addrspace(1)* %arrayidx.i, align 4
   %arrayidx8.i = getelementptr inbounds float, float addrspace(1)* %gpfBarrier, i64 %indvars.iv.i
-  %3 = load float addrspace(1)* %arrayidx8.i, align 4
+  %3 = load float, float addrspace(1)* %arrayidx8.i, align 4
   %add.i = fadd float %cond14.i, %3
   %sub.i = fsub float %3, %cond20.i
   br i1 %tobool.i, label %if.else.thread.i, label %if.then.i
@@ -402,9 +402,9 @@ for.body.lr.ph.i:                                 ; preds = %cond.end.i
 for.body.i:                                       ; preds = %for.inc.i, %for.body.lr.ph.i
   %indvars.iv.i = phi i64 [ %0, %for.body.lr.ph.i ], [ %indvars.iv.next.i, %for.inc.i ]
   %arrayidx.i = getelementptr inbounds float, float addrspace(1)* %gpfAsset, i64 %indvars.iv.i
-  %2 = load float addrspace(1)* %arrayidx.i, align 4
+  %2 = load float, float addrspace(1)* %arrayidx.i, align 4
   %arrayidx8.i = getelementptr inbounds float, float addrspace(1)* %gpfBarrier, i64 %indvars.iv.i
-  %3 = load float addrspace(1)* %arrayidx8.i, align 4
+  %3 = load float, float addrspace(1)* %arrayidx8.i, align 4
   %add.i = fadd float %cond14.i, %3
   %sub.i = fsub float %3, %cond20.i
   br i1 %tobool.i, label %if.else.thread.i, label %if.then.i

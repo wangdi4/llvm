@@ -237,9 +237,9 @@ entry:
   %mul = mul i32 %tmp, %tmp3                      ; <i32> [#uses=1]
   %tmp4 = load i32, i32* %xPos                         ; <i32> [#uses=1]
   %add = add i32 %mul, %tmp4                      ; <i32> [#uses=1]
-  %tmp5 = load <4 x float> addrspace(1)** %randArray.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp5 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %randArray.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp5, i32 %add ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp6 = load <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
+  %tmp6 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp6, <4 x float>* %inRand
   %tmp8 = load <4 x float>, <4 x float>* %inRand               ; <<4 x float>> [#uses=1]
   %mul9 = fmul <4 x float> <float 1.000000e+001, float 1.000000e+001, float 1.000000e+001, float 1.000000e+001>, %tmp8 ; <<4 x float>> [#uses=1]
@@ -332,7 +332,7 @@ entry:
   %mul84 = mul i32 %tmp82, %tmp83                 ; <i32> [#uses=1]
   %tmp85 = load i32, i32* %xPos                        ; <i32> [#uses=1]
   %add86 = add i32 %mul84, %tmp85                 ; <i32> [#uses=1]
-  %tmp87 = load <4 x float> addrspace(1)** %call.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp87 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %call.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx88 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp87, i32 %add86 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %sub81, <4 x float> addrspace(1)* %arrayidx88
   %tmp89 = load <4 x float>, <4 x float>* %d1                  ; <<4 x float>> [#uses=1]
@@ -353,7 +353,7 @@ entry:
   %mul102 = mul i32 %tmp100, %tmp101              ; <i32> [#uses=1]
   %tmp103 = load i32, i32* %xPos                       ; <i32> [#uses=1]
   %add104 = add i32 %mul102, %tmp103              ; <i32> [#uses=1]
-  %tmp105 = load <4 x float> addrspace(1)** %put.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp105 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %put.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx106 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp105, i32 %add104 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %sub99, <4 x float> addrspace(1)* %arrayidx106
   ret void
@@ -491,9 +491,9 @@ entry:
   %mul = mul i32 %tmp, %tmp3                      ; <i32> [#uses=1]
   %tmp4 = load i32, i32* %xPos                         ; <i32> [#uses=1]
   %add = add i32 %mul, %tmp4                      ; <i32> [#uses=1]
-  %tmp5 = load float addrspace(1)** %randArray.addr ; <float addrspace(1)*> [#uses=1]
+  %tmp5 = load float addrspace(1)*, float addrspace(1)** %randArray.addr ; <float addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %tmp5, i32 %add ; <float addrspace(1)*> [#uses=1]
-  %tmp6 = load float addrspace(1)* %arrayidx      ; <float> [#uses=1]
+  %tmp6 = load float, float addrspace(1)* %arrayidx      ; <float> [#uses=1]
   store float %tmp6, float* %inRand
   %tmp8 = load float, float* %inRand                     ; <float> [#uses=1]
   %mul9 = fmul float 1.000000e+001, %tmp8         ; <float> [#uses=1]
@@ -586,7 +586,7 @@ entry:
   %mul84 = mul i32 %tmp82, %tmp83                 ; <i32> [#uses=1]
   %tmp85 = load i32, i32* %xPos                        ; <i32> [#uses=1]
   %add86 = add i32 %mul84, %tmp85                 ; <i32> [#uses=1]
-  %tmp87 = load float addrspace(1)** %call.addr   ; <float addrspace(1)*> [#uses=1]
+  %tmp87 = load float addrspace(1)*, float addrspace(1)** %call.addr   ; <float addrspace(1)*> [#uses=1]
   %arrayidx88 = getelementptr inbounds float, float addrspace(1)* %tmp87, i32 %add86 ; <float addrspace(1)*> [#uses=1]
   store float %sub81, float addrspace(1)* %arrayidx88
   %tmp89 = load float, float* %d1                        ; <float> [#uses=1]
@@ -607,7 +607,7 @@ entry:
   %mul102 = mul i32 %tmp100, %tmp101              ; <i32> [#uses=1]
   %tmp103 = load i32, i32* %xPos                       ; <i32> [#uses=1]
   %add104 = add i32 %mul102, %tmp103              ; <i32> [#uses=1]
-  %tmp105 = load float addrspace(1)** %put.addr   ; <float addrspace(1)*> [#uses=1]
+  %tmp105 = load float addrspace(1)*, float addrspace(1)** %put.addr   ; <float addrspace(1)*> [#uses=1]
   %arrayidx106 = getelementptr inbounds float, float addrspace(1)* %tmp105, i32 %add104 ; <float addrspace(1)*> [#uses=1]
   store float %sub99, float addrspace(1)* %arrayidx106
   ret void

@@ -31,11 +31,11 @@ define void @multi(i32* nocapture %A, i32 %f) nounwind {
   store i32 %5, i32* %A, align 4, !tbaa !0
   %6 = sext i32 %1 to i64
   %7 = getelementptr inbounds i32, i32* %A, i64 %6
-  %8 = load i32* %7, align 4, !tbaa !0
+  %8 = load i32, i32* %7, align 4, !tbaa !0
   %9 = add nsw i32 %8, %1
   store i32 %9, i32* %7, align 4, !tbaa !0
   %10 = getelementptr inbounds i32, i32* %A, i64 3
-  %11 = load i32* %10, align 4, !tbaa !0
+  %11 = load i32, i32* %10, align 4, !tbaa !0
   %12 = add nsw i32 %11, %1
   store i32 %12, i32* %10, align 4, !tbaa !0
   br label %13
@@ -46,12 +46,12 @@ define void @multi(i32* nocapture %A, i32 %f) nounwind {
 
 ; <label>:15                                      ; preds = %13
   %16 = getelementptr inbounds i32, i32* %A, i64 3
-  %17 = load i32* %16, align 4, !tbaa !0
+  %17 = load i32, i32* %16, align 4, !tbaa !0
   %18 = add nsw i32 %17, 9
   store i32 %18, i32* %16, align 4, !tbaa !0
   %19 = sext i32 %1 to i64
   %20 = getelementptr inbounds i32, i32* %A, i64 %19
-  %21 = load i32* %20, align 4, !tbaa !0
+  %21 = load i32, i32* %20, align 4, !tbaa !0
   %22 = add nsw i32 %21, %1
   store i32 %22, i32* %20, align 4, !tbaa !0
   %23 = load i32, i32* %16, align 4, !tbaa !0

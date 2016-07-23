@@ -16,7 +16,7 @@ define void @PhiCanonCase6(i32 %arg1, i32 %arg2, float addrspace(1)* nocapture %
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i32 %call
-  %tmp2 = load float addrspace(1)* %arrayidx, align 4
+  %tmp2 = load float, float addrspace(1)* %arrayidx, align 4
   %cmp = icmp sgt i32 %arg1, 3
   br i1 %cmp, label %if.then, label %if.end11
 

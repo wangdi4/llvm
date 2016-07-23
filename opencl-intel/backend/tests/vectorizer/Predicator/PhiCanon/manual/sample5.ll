@@ -29,7 +29,7 @@ for.body12.us:                                    ; preds = %for.body12.lr.ph.us
   %storemerge16.us = phi i64 [ 0, %for.body12.lr.ph.us ], [ %inc.us, %for.body12.us ]
   %tmp2435.us = phi i64 [ %add.us, %for.body12.lr.ph.us ], [ %add18.us, %for.body12.us ]
   %arrayidx15.us = getelementptr inbounds i64, i64* %A, i64 %storemerge16.us
-  %tmp16.us = load i64* %arrayidx15.us, align 8
+  %tmp16.us = load i64, i64* %arrayidx15.us, align 8
   %add18.us = add nsw i64 %tmp16.us, %tmp2435.us
   %inc.us = add nsw i64 %storemerge16.us, 1
   %cmp11.us = icmp slt i64 %inc.us, %div
@@ -39,7 +39,7 @@ for.body12.lr.ph.us:                              ; preds = %for.body12.lr.ph.us
   %storemerge9.us = phi i64 [ %inc22.us, %for.inc20.us ], [ 0, %for.body12.lr.ph.us.preheader ]
   %tmp2428.us = phi i64 [ %add18.us, %for.inc20.us ], [ 0, %for.body12.lr.ph.us.preheader ]
   %arrayidx.us = getelementptr inbounds i64, i64* %B, i64 %storemerge9.us
-  %tmp4.us = load i64* %arrayidx.us, align 8
+  %tmp4.us = load i64, i64* %arrayidx.us, align 8
   %add.us = add nsw i64 %tmp4.us, %tmp2428.us
   br label %for.body12.us
 

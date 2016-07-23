@@ -23,13 +23,13 @@ entry:
   store i32 %buffer_size, i32* %buffer_size.addr
   %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %tid
-  %tmp = load i32* %tid                           ; <i32> [#uses=1]
-  %tmp1 = load i32 addrspace(1)** %input.addr     ; <i32 addrspace(1)*> [#uses=1]
+  %tmp = load i32, i32* %tid                           ; <i32> [#uses=1]
+  %tmp1 = load i32 addrspace(1)*, i32 addrspace(1)** %input.addr     ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp1, i32 %tmp ; <i32 addrspace(1)*> [#uses=1]
-  %tmp2 = load i32 addrspace(1)* %arrayidx        ; <i32> [#uses=1]
+  %tmp2 = load i32, i32 addrspace(1)* %arrayidx        ; <i32> [#uses=1]
   %add = add nsw i32 %tmp2, 1                     ; <i32> [#uses=1]
-  %tmp3 = load i32* %tid                          ; <i32> [#uses=1]
-  %tmp4 = load i32 addrspace(1)** %output.addr    ; <i32 addrspace(1)*> [#uses=1]
+  %tmp3 = load i32, i32* %tid                          ; <i32> [#uses=1]
+  %tmp4 = load i32 addrspace(1)*, i32 addrspace(1)** %output.addr    ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx5 = getelementptr inbounds i32, i32 addrspace(1)* %tmp4, i32 %tmp3 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %add, i32 addrspace(1)* %arrayidx5
   ret void

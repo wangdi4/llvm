@@ -13,7 +13,7 @@ declare i64 @_Z12get_local_idj(i64) nounwind readnone
 ; CHECK-NOT:  %arrayidx = getelementptr float, float * %memA
 ; CHECK:      %uniformGEP = getelementptr float, float* %memA, i32 %uidx
 ; CHECK-NEXT: %divergentGEP = getelementptr float, float* %uniformGEP, i32 %didx
-; CHECK-NEXT: %orig = load float* %divergentGEP
+; CHECK-NEXT: %orig = load float, float* %divergentGEP
 
 define void @idxsum.basic(float * %memA, float %factor, i32 %uidx) nounwind {
 entry:
@@ -21,7 +21,7 @@ entry:
   %didx = mul i32 %cidx, %uidx
   %sum = add i32 %didx, %uidx
   %arrayidx = getelementptr float, float * %memA, i32 %sum
-  %orig = load float * %arrayidx, align 4
+  %orig = load float , float * %arrayidx, align 4
   %mod  = fmul float %orig, %factor
   store float %mod, float * %arrayidx, align 4
   ret void
@@ -38,7 +38,7 @@ entry:
 ; CHECK-NEXT: %divergentIdx = add i64 %didx{{[01]?}}, %didx{{[01]?}}
 ; CHECK-NEXT: %uniformGEP = getelementptr float, float* %memA, i64 %uniformIdx
 ; CHECK-NEXT: %divergentGEP = getelementptr float, float* %uniformGEP, i64 %divergentIdx
-; CHECK-NEXT: %orig = load float* %divergentGEP
+; CHECK-NEXT: %orig = load float, float* %divergentGEP
 
 define void @idxsum.chain.0(float * %memA, float %factor, i64 %uidx0, i64 %uidx1) nounwind {
 entry:
@@ -49,7 +49,7 @@ entry:
   %sum1 = add i64 %didx1, %uidx1
   %sum = add i64 %sum0, %sum1
   %arrayidx = getelementptr float, float * %memA, i64 %sum
-  %orig = load float * %arrayidx, align 4
+  %orig = load float , float * %arrayidx, align 4
   %mod  = fmul float %orig, %factor
   store float %mod, float * %arrayidx, align 4
   ret void
@@ -65,7 +65,7 @@ entry:
 ; CHECK-NEXT: %divergentIdx = add i32 %didx{{[01]?}}, %didx{{[01]?}}
 ; CHECK-NEXT: %uniformGEP = getelementptr float, float* %memA, i32 %uniformIdx
 ; CHECK-NEXT: %divergentGEP = getelementptr float, float* %uniformGEP, i32 %divergentIdx
-; CHECK-NEXT: %orig = load float* %divergentGEP
+; CHECK-NEXT: %orig = load float, float* %divergentGEP
 
 define void @idxsum.chain.1(float * %memA, float %factor, i32 %uidx0, i32 %uidx1) nounwind {
 entry:
@@ -77,7 +77,7 @@ entry:
   %sum = add i32 %sum0, %sum1
   %sext.sum = sext i32 %sum to i64
   %arrayidx = getelementptr float, float * %memA, i64 %sext.sum
-  %orig = load float * %arrayidx, align 4
+  %orig = load float , float * %arrayidx, align 4
   %mod  = fmul float %orig, %factor
   store float %mod, float * %arrayidx, align 4
   ret void
@@ -93,7 +93,7 @@ entry:
 ; CHECK:      %divergentIdx = add i32 %didx{{[01]?}}, %didx{{[01]?}}
 ; CHECK-NEXT: %uniformGEP = getelementptr float, float* %memA, i64 %usum
 ; CHECK-NEXT: %divergentGEP = getelementptr float, float* %uniformGEP, i32 %divergentIdx
-; CHECK-NEXT: %orig = load float* %divergentGEP
+; CHECK-NEXT: %orig = load float, float* %divergentGEP
 
 define void @idxsum.chain.2(float * %memA, float %factor, i64 %uidx0, i64 %uidx1) nounwind {
 entry:
@@ -105,7 +105,7 @@ entry:
   %sext.dsum = sext i32 %dsum to i64
   %sum = add i64 %usum, %sext.dsum
   %arrayidx = getelementptr float, float * %memA, i64 %sum
-  %orig = load float * %arrayidx, align 4
+  %orig = load float , float * %arrayidx, align 4
   %mod  = fmul float %orig, %factor
   store float %mod, float * %arrayidx, align 4
   ret void
@@ -125,7 +125,7 @@ entry:
   %cidx = call i32 @_Z13get_global_idj(i32 0)
   %sum = add i32 %cidx, %uidx
   %arrayidx = getelementptr float, float * %memA, i32 %sum
-  %orig = load float * %arrayidx, align 4
+  %orig = load float , float * %arrayidx, align 4
   %mod  = fmul float %orig, %factor
   store float %mod, float * %arrayidx, align 4
   ret void

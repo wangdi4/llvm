@@ -56,9 +56,9 @@ bb.nph6:                                          ; preds = %0
 
 bb.nph:                                           ; preds = %19, %bb.nph
   %offset.01 = phi i32 [ %96, %bb.nph ], [ %3, %19 ] ; <i32> [#uses=6]
-  %23 = load float addrspace(1)* %coef            ; <float> [#uses=1]
+  %23 = load float, float addrspace(1)* %coef            ; <float> [#uses=1]
   %24 = getelementptr inbounds float, float addrspace(1)* %src, i32 %offset.01 ; <float addrspace(1)*> [#uses=4]
-  %25 = load float addrspace(1)* %24              ; <float> [#uses=1]
+  %25 = load float, float addrspace(1)* %24              ; <float> [#uses=1]
   %26 = fmul float %23, %25                       ; <float> [#uses=2]
   %27 = getelementptr inbounds float, float addrspace(1)* %dest, i32 %offset.01 ; <float addrspace(1)*> [#uses=4]
   store float %26, float addrspace(1)* %27
@@ -80,9 +80,9 @@ bb.nph:                                           ; preds = %19, %bb.nph
   %41 = or i32 %offset.01, 3                      ; <i32> [#uses=2]
   %42 = getelementptr inbounds float, float addrspace(1)* %dest, i32 %41 ; <float addrspace(1)*> [#uses=4]
   store float %40, float addrspace(1)* %42
-  %43 = load float addrspace(1)* %7               ; <float> [#uses=1]
+  %43 = load float, float addrspace(1)* %7               ; <float> [#uses=1]
   %44 = getelementptr inbounds float, float addrspace(1)* %src, i32 %31 ; <float addrspace(1)*> [#uses=4]
-  %45 = load float addrspace(1)* %44              ; <float> [#uses=1]
+  %45 = load float, float addrspace(1)* %44              ; <float> [#uses=1]
   %46 = fmul float %43, %45                       ; <float> [#uses=1]
   %47 = fadd float %26, %46                       ; <float> [#uses=2]
   store float %47, float addrspace(1)* %27
@@ -101,9 +101,9 @@ bb.nph:                                           ; preds = %19, %bb.nph
   %58 = fmul float %56, %57                       ; <float> [#uses=1]
   %59 = fadd float %40, %58                       ; <float> [#uses=2]
   store float %59, float addrspace(1)* %42
-  %60 = load float addrspace(1)* %11              ; <float> [#uses=1]
+  %60 = load float, float addrspace(1)* %11              ; <float> [#uses=1]
   %61 = getelementptr inbounds float, float addrspace(1)* %src, i32 %36 ; <float addrspace(1)*> [#uses=4]
-  %62 = load float addrspace(1)* %61              ; <float> [#uses=1]
+  %62 = load float, float addrspace(1)* %61              ; <float> [#uses=1]
   %63 = fmul float %60, %62                       ; <float> [#uses=1]
   %64 = fadd float %47, %63                       ; <float> [#uses=2]
   store float %64, float addrspace(1)* %27
@@ -122,9 +122,9 @@ bb.nph:                                           ; preds = %19, %bb.nph
   %75 = fmul float %73, %74                       ; <float> [#uses=1]
   %76 = fadd float %59, %75                       ; <float> [#uses=2]
   store float %76, float addrspace(1)* %42
-  %77 = load float addrspace(1)* %15              ; <float> [#uses=1]
+  %77 = load float, float addrspace(1)* %15              ; <float> [#uses=1]
   %78 = getelementptr inbounds float, float addrspace(1)* %src, i32 %41 ; <float addrspace(1)*> [#uses=4]
-  %79 = load float addrspace(1)* %78              ; <float> [#uses=1]
+  %79 = load float, float addrspace(1)* %78              ; <float> [#uses=1]
   %80 = fmul float %77, %79                       ; <float> [#uses=1]
   %81 = fadd float %64, %80                       ; <float> [#uses=1]
   store float %81, float addrspace(1)* %27
@@ -196,13 +196,13 @@ bb.nph6:                                          ; preds = %0
 
 bb.nph:                                           ; preds = %.preheader, %bb.nph
   %offset.01 = phi i32 [ %117, %bb.nph ], [ %1, %.preheader ] ; <i32> [#uses=3]
-  %21 = load float addrspace(1)* %coef            ; <float> [#uses=1]
+  %21 = load float, float addrspace(1)* %coef            ; <float> [#uses=1]
   %22 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %src, i32 %offset.01 ; <<4 x float> addrspace(1)*> [#uses=16]
-  %23 = load <4 x float> addrspace(1)* %22        ; <<4 x float>> [#uses=1]
+  %23 = load <4 x float>, <4 x float> addrspace(1)* %22        ; <<4 x float>> [#uses=1]
   %24 = extractelement <4 x float> %23, i32 0     ; <float> [#uses=1]
   %25 = fmul float %21, %24                       ; <float> [#uses=2]
   %26 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %dest, i32 %offset.01 ; <<4 x float> addrspace(1)*> [#uses=17]
-  %27 = load <4 x float> addrspace(1)* %26        ; <<4 x float>> [#uses=1]
+  %27 = load <4 x float>, <4 x float> addrspace(1)* %26        ; <<4 x float>> [#uses=1]
   %28 = insertelement <4 x float> %27, float %25, i32 0 ; <<4 x float>> [#uses=2]
   store <4 x float> %28, <4 x float> addrspace(1)* %26
   %29 = load float, float addrspace(1)* %3               ; <float> [#uses=1]
@@ -355,9 +355,9 @@ bb.nph6:                                          ; preds = %0
 
 bb.nph:                                           ; preds = %.preheader, %bb.nph
   %offset.01 = phi i32 [ %93, %bb.nph ], [ %1, %.preheader ] ; <i32> [#uses=3]
-  %21 = load float addrspace(1)* %coef            ; <float> [#uses=1]
+  %21 = load float, float addrspace(1)* %coef            ; <float> [#uses=1]
   %22 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %src, i32 %offset.01 ; <<4 x float> addrspace(1)*> [#uses=4]
-  %23 = load <4 x float> addrspace(1)* %22        ; <<4 x float>> [#uses=4]
+  %23 = load <4 x float>, <4 x float> addrspace(1)* %22        ; <<4 x float>> [#uses=4]
   %24 = extractelement <4 x float> %23, i32 0     ; <float> [#uses=1]
   %25 = fmul float %21, %24                       ; <float> [#uses=1]
   %26 = load float, float addrspace(1)* %3               ; <float> [#uses=1]
@@ -373,7 +373,7 @@ bb.nph:                                           ; preds = %.preheader, %bb.nph
   %36 = fmul float %34, %35                       ; <float> [#uses=1]
   %37 = fadd float %33, %36                       ; <float> [#uses=1]
   %38 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %dest, i32 %offset.01 ; <<4 x float> addrspace(1)*> [#uses=5]
-  %39 = load <4 x float> addrspace(1)* %38        ; <<4 x float>> [#uses=1]
+  %39 = load <4 x float>, <4 x float> addrspace(1)* %38        ; <<4 x float>> [#uses=1]
   %40 = insertelement <4 x float> %39, float %37, i32 0 ; <<4 x float>> [#uses=2]
   store <4 x float> %40, <4 x float> addrspace(1)* %38
   %41 = load float, float addrspace(1)* %6               ; <float> [#uses=1]
@@ -481,7 +481,7 @@ bb.nph:                                           ; preds = %0
   %25 = tail call i32 @get_global_size(i32 0) nounwind ; <i32> [#uses=1]
   %26 = add i32 %25, %1                           ; <i32> [#uses=3]
   %27 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %src, i32 %26 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %28 = load <4 x float> addrspace(1)* %27        ; <<4 x float>> [#uses=4]
+  %28 = load <4 x float>, <4 x float> addrspace(1)* %27        ; <<4 x float>> [#uses=4]
   %29 = shufflevector <4 x float> %28, <4 x float> undef, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
   %30 = fmul <4 x float> %9, %29                  ; <<4 x float>> [#uses=1]
   %31 = shufflevector <4 x float> %28, <4 x float> undef, <4 x i32> <i32 1, i32 1, i32 1, i32 1> ; <<4 x float>> [#uses=1]
@@ -498,7 +498,7 @@ bb.nph:                                           ; preds = %0
   %41 = tail call i32 @get_global_size(i32 0) nounwind ; <i32> [#uses=1]
   %42 = add i32 %41, %26                          ; <i32> [#uses=3]
   %43 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %src, i32 %42 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %44 = load <4 x float> addrspace(1)* %43        ; <<4 x float>> [#uses=4]
+  %44 = load <4 x float>, <4 x float> addrspace(1)* %43        ; <<4 x float>> [#uses=4]
   %45 = shufflevector <4 x float> %44, <4 x float> undef, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
   %46 = fmul <4 x float> %9, %45                  ; <<4 x float>> [#uses=1]
   %47 = shufflevector <4 x float> %44, <4 x float> undef, <4 x i32> <i32 1, i32 1, i32 1, i32 1> ; <<4 x float>> [#uses=1]
@@ -515,7 +515,7 @@ bb.nph:                                           ; preds = %0
   %57 = tail call i32 @get_global_size(i32 0) nounwind ; <i32> [#uses=1]
   %58 = add i32 %57, %42                          ; <i32> [#uses=2]
   %59 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %src, i32 %58 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %60 = load <4 x float> addrspace(1)* %59        ; <<4 x float>> [#uses=4]
+  %60 = load <4 x float>, <4 x float> addrspace(1)* %59        ; <<4 x float>> [#uses=4]
   %61 = shufflevector <4 x float> %60, <4 x float> undef, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
   %62 = fmul <4 x float> %9, %61                  ; <<4 x float>> [#uses=1]
   %63 = shufflevector <4 x float> %60, <4 x float> undef, <4 x i32> <i32 1, i32 1, i32 1, i32 1> ; <<4 x float>> [#uses=1]
@@ -572,7 +572,7 @@ bb.nph:                                           ; preds = %0
   %25 = tail call i32 @get_global_size(i32 0) nounwind ; <i32> [#uses=1]
   %26 = add i32 %25, %1                           ; <i32> [#uses=2]
   %27 = getelementptr inbounds <8 x float>, <8 x float> addrspace(1)* %src, i32 %26 ; <<8 x float> addrspace(1)*> [#uses=1]
-  %28 = load <8 x float> addrspace(1)* %27        ; <<8 x float>> [#uses=4]
+  %28 = load <8 x float>, <8 x float> addrspace(1)* %27        ; <<8 x float>> [#uses=4]
   %29 = shufflevector <8 x float> %28, <8 x float> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 4, i32 4, i32 4, i32 4> ; <<8 x float>> [#uses=1]
   %30 = fmul <8 x float> %9, %29                  ; <<8 x float>> [#uses=1]
   %31 = shufflevector <8 x float> %28, <8 x float> undef, <8 x i32> <i32 1, i32 1, i32 1, i32 1, i32 5, i32 5, i32 5, i32 5> ; <<8 x float>> [#uses=1]

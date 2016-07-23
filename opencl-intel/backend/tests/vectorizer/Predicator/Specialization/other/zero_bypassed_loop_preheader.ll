@@ -24,7 +24,7 @@ BB0:
   %trunc.10.0 = trunc i64 %call.10.0 to i32
   %sext.10.0 = sext i32 %trunc.10.0 to i64
   %getelementptr.14.0 = getelementptr inbounds i32, i32* %arg1, i64 %sext.10.0
-  %load.10.0 = load i32* %getelementptr.14.0, align 4, !tbaa !0
+  %load.10.0 = load i32, i32* %getelementptr.14.0, align 4, !tbaa !0
   %icmp.10.0 = icmp slt i32 %trunc.10.0, 50
   br i1 %icmp.10.0, label %BB1, label %BB7
 
@@ -36,7 +36,7 @@ BB2:                                              ; preds = %BB1
   %add.10.0 = add nsw i32 %trunc.10.0, 5
   %sext.10.1 = sext i32 %add.10.0 to i64
   %getelementptr.14.1 = getelementptr inbounds i32, i32* %arg0, i64 %sext.10.1
-  %load.10.1 = load i32* %getelementptr.14.1, align 4, !tbaa !0
+  %load.10.1 = load i32, i32* %getelementptr.14.1, align 4, !tbaa !0
   %sext.10.2 = sext i32 %load.10.1 to i64
   br label %BB3
 
@@ -47,7 +47,7 @@ BB3:                                              ; preds = %BB2, %BB1
 BB4:                                              ; preds = %BB5, %BB3
   %phi.10.1 = phi i64 [ %add.10.1, %BB5 ], [ %phi.10.0, %BB3 ]
   %getelementptr.14.2 = getelementptr inbounds i32, i32* %arg0, i64 %phi.10.1
-  %load.10.2 = load i32* %getelementptr.14.2, align 4, !tbaa !0
+  %load.10.2 = load i32, i32* %getelementptr.14.2, align 4, !tbaa !0
   %icmp.10.2 = icmp eq i32 %load.10.2, %load.10.0
   br i1 %icmp.10.2, label %BB6, label %BB5
 

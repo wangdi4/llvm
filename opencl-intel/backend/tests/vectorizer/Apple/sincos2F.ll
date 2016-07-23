@@ -37,7 +37,7 @@
      %sext = shl i64 %1, 32
      %2 = ashr exact i64 %sext, 32
      %3 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %in, i64 %2
-     %4 = load <2 x float> addrspace(1)* %3, align 8, !tbaa !4
+     %4 = load <2 x float>, <2 x float> addrspace(1)* %3, align 8, !tbaa !4
      %5 = getelementptr inbounds <2 x float>, <2 x float> addrspace(1)* %out2, i64 %2
      %6 = bitcast <2 x float> %4 to double
      %7 = tail call <4 x float> @_Z6sincosDv2_fPU3AS1S_(double %6, <2 x float> addrspace(1)* %5) nounwind

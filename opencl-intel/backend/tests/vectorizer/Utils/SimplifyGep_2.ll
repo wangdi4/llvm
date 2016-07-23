@@ -22,7 +22,7 @@ declare i64 @_Z12get_local_idj(i64) nounwind readnone
 define void @main2([4 x float] * %memA, float * nocapture %memB, i32 %i1, i32 %i2) nounwind {
 entry:
   %arrayidx = getelementptr [4 x float], [4 x float] * %memA, i32 %i1, i32 %i2
-  %A = load float * %arrayidx, align 4
+  %A = load float , float * %arrayidx, align 4
   %arrayidx1 = getelementptr float, float * %memB, i32 %i1
   store float %A, float * %arrayidx1, align 4
   ret void

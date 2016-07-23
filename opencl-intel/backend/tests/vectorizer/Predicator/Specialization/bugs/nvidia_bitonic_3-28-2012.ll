@@ -40,20 +40,20 @@ bb.nph11:
   %add.ptr7 = getelementptr inbounds i32, i32 addrspace(1)* %d_SrcVal, i32 %add
   %add.ptr13 = getelementptr inbounds i32, i32 addrspace(1)* %d_DstKey, i32 %add
   %add.ptr19 = getelementptr inbounds i32, i32 addrspace(1)* %d_DstVal, i32 %add
-  %tmp21 = load i32 addrspace(1)* %add.ptr, align 4
+  %tmp21 = load i32, i32 addrspace(1)* %add.ptr, align 4
   %arrayidx24 = getelementptr inbounds [1024 x i32], [1024 x i32] addrspace(3)* @opencl_bitonicSortLocal1_local_l_key, i32 0, i32 %call1
   store i32 %tmp21, i32 addrspace(3)* %arrayidx24, align 4
-  %tmp27 = load i32 addrspace(1)* %add.ptr7, align 4
+  %tmp27 = load i32, i32 addrspace(1)* %add.ptr7, align 4
   %arrayidx30 = getelementptr inbounds [1024 x i32], [1024 x i32] addrspace(3)* @opencl_bitonicSortLocal1_local_l_val, i32 0, i32 %call1
   store i32 %tmp27, i32 addrspace(3)* %arrayidx30, align 4
   %add.ptr.sum = add i32 %add, 512
   %arrayidx32 = getelementptr inbounds i32, i32 addrspace(1)* %d_SrcKey, i32 %add.ptr.sum
-  %tmp33 = load i32 addrspace(1)* %arrayidx32, align 4
+  %tmp33 = load i32, i32 addrspace(1)* %arrayidx32, align 4
   %add35 = add i32 %call1, 512
   %arrayidx36 = getelementptr inbounds [1024 x i32], [1024 x i32] addrspace(3)* @opencl_bitonicSortLocal1_local_l_key, i32 0, i32 %add35
   store i32 %tmp33, i32 addrspace(3)* %arrayidx36, align 4
   %arrayidx38 = getelementptr inbounds i32, i32 addrspace(1)* %d_SrcVal, i32 %add.ptr.sum
-  %tmp39 = load i32 addrspace(1)* %arrayidx38, align 4
+  %tmp39 = load i32, i32 addrspace(1)* %arrayidx38, align 4
   %arrayidx42 = getelementptr inbounds [1024 x i32], [1024 x i32] addrspace(3)* @opencl_bitonicSortLocal1_local_l_val, i32 0, i32 %add35
   store i32 %tmp39, i32 addrspace(3)* %arrayidx42, align 4
   %call44 = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
@@ -84,8 +84,8 @@ for.body59:                                       ; preds = %ComparatorLocal.exi
   %add75 = add i32 %sub66, %stride.07
   %arrayidx76 = getelementptr inbounds [1024 x i32], [1024 x i32] addrspace(3)* @opencl_bitonicSortLocal1_local_l_key, i32 0, i32 %add75
   %arrayidx80 = getelementptr inbounds [1024 x i32], [1024 x i32] addrspace(3)* @opencl_bitonicSortLocal1_local_l_val, i32 0, i32 %add75
-  %tmp1.i = load i32 addrspace(3)* %arrayidx69, align 4
-  %tmp3.i = load i32 addrspace(3)* %arrayidx76, align 4
+  %tmp1.i = load i32, i32 addrspace(3)* %arrayidx69, align 4
+  %tmp3.i = load i32, i32 addrspace(3)* %arrayidx76, align 4
   %cmp.i = icmp ugt i32 %tmp1.i, %tmp3.i
   %cmp5.itmp = xor i1 %cmp.i, %cmp51
   br i1 %cmp5.itmp, label %if.end.i, label %if.then.i
@@ -133,8 +133,8 @@ for.body96:                                       ; preds = %ComparatorLocal.exi
   %add114 = add i32 %sub105, %stride91.03
   %arrayidx115 = getelementptr inbounds [1024 x i32], [1024 x i32] addrspace(3)* @opencl_bitonicSortLocal1_local_l_key, i32 0, i32 %add114
   %arrayidx119 = getelementptr inbounds [1024 x i32], [1024 x i32] addrspace(3)* @opencl_bitonicSortLocal1_local_l_val, i32 0, i32 %add114
-  %tmp1.i1 = load i32 addrspace(3)* %arrayidx108, align 4
-  %tmp3.i2 = load i32 addrspace(3)* %arrayidx115, align 4
+  %tmp1.i1 = load i32, i32 addrspace(3)* %arrayidx108, align 4
+  %tmp3.i2 = load i32, i32 addrspace(3)* %arrayidx115, align 4
   %cmp.i3 = icmp ugt i32 %tmp1.i1, %tmp3.i2
   %conv.i4 = zext i1 %cmp.i3 to i32
   %cmp5.i5 = icmp eq i32 %conv.i4, %and89
@@ -164,10 +164,10 @@ for.end124:                                       ; preds = %ComparatorLocal.exi
   store i32 %tmp128, i32 addrspace(1)* %add.ptr13, align 4
   %tmp134 = load i32, i32 addrspace(3)* %arrayidx30, align 4
   store i32 %tmp134, i32 addrspace(1)* %add.ptr19, align 4
-  %tmp140 = load i32 addrspace(3)* %arrayidx36, align 4
+  %tmp140 = load i32, i32 addrspace(3)* %arrayidx36, align 4
   %arrayidx142 = getelementptr inbounds i32, i32 addrspace(1)* %d_DstKey, i32 %add.ptr.sum
   store i32 %tmp140, i32 addrspace(1)* %arrayidx142, align 4
-  %tmp146 = load i32 addrspace(3)* %arrayidx42, align 4
+  %tmp146 = load i32, i32 addrspace(3)* %arrayidx42, align 4
   %arrayidx148 = getelementptr inbounds i32, i32 addrspace(1)* %d_DstVal, i32 %add.ptr.sum
   store i32 %tmp146, i32 addrspace(1)* %arrayidx148, align 4
   ret void

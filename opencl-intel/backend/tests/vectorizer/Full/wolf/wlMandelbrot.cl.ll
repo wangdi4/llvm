@@ -154,8 +154,8 @@ for.end:                                          ; preds = %land.end
   %cmp83 = icmp eq i32 0, %tmp82                  ; <i1> [#uses=1]
   %sel84 = select i1 %cmp83, i32 1, i32 %tmp82    ; <i32> [#uses=1]
   %div85 = udiv i32 %mul81, %sel84                ; <i32> [#uses=1]
-  %tmp86 = load i32* %tid                         ; <i32> [#uses=1]
-  %tmp87 = load i32 addrspace(1)** %mandelbrotImage.addr ; <i32 addrspace(1)*> [#uses=1]
+  %tmp86 = load i32, i32* %tid                         ; <i32> [#uses=1]
+  %tmp87 = load i32 addrspace(1)*, i32 addrspace(1)** %mandelbrotImage.addr ; <i32 addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp87, i32 %tmp86 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %div85, i32 addrspace(1)* %arrayidx
   ret void

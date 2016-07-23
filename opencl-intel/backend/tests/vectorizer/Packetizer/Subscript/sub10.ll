@@ -33,7 +33,7 @@ Entry4:                                       ; preds = %Entry3
   %4 = shl i64 %1, 1
   %5 = add i64 %4, %a
   %6 = getelementptr inbounds i32, i32* %A, i64 %5
-  %7 = load i32* %6, align 1, !tbaa !0
+  %7 = load i32, i32* %6, align 1, !tbaa !0
   %8 = add i32 %7, 3
   store i32 %8, i32* %6, align 1, !tbaa !0
   br label %Entry5

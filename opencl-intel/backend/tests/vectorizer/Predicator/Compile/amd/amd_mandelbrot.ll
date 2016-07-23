@@ -145,10 +145,10 @@ for.inc:		; preds = %for.body
 	br label %for.cond
 
 for.end:		; preds = %land.lhs.true, %for.cond
-	%tmp77 = load i32* %tid		; <i32> [#uses=1]
-	%tmp78 = load i32 addrspace(1)** %mandelbrotImage.addr		; <i32 addrspace(1)*> [#uses=1]
+	%tmp77 = load i32, i32* %tid		; <i32> [#uses=1]
+	%tmp78 = load i32 addrspace(1)*, i32 addrspace(1)** %mandelbrotImage.addr		; <i32 addrspace(1)*> [#uses=1]
 	%arrayidx = getelementptr i32, i32 addrspace(1)* %tmp78, i32 %tmp77		; <i32 addrspace(1)*> [#uses=1]
-	%tmp79 = load i32* %iter		; <i32> [#uses=1]
+	%tmp79 = load i32, i32* %iter		; <i32> [#uses=1]
 	%mul80 = mul i32 255, %tmp79		; <i32> [#uses=1]
 	%tmp81 = load i32, i32* %maxIterations.addr		; <i32> [#uses=2]
 	%cmp82 = icmp ne i32 %tmp81, 0		; <i1> [#uses=1]

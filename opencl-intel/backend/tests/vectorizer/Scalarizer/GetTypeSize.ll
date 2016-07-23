@@ -13,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @func1(i64* %A, <3 x i32>* %C) nounwind {
 entry:
   %addr1 = getelementptr <3 x i32>, <3 x i32>* %C, i32 1
-  %x = load <3 x i32>* %addr1
+  %x = load <3 x i32>, <3 x i32>* %addr1
   br label %BB1
 
 BB1:
@@ -39,7 +39,7 @@ end:
 define void @func2(i64* %A, <2 x i1>* %C) nounwind {
 entry:
   %addr1 = getelementptr <2 x i1>, <2 x i1>* %C, i32 1
-  %x = load <2 x i1>* %addr1
+  %x = load <2 x i1>, <2 x i1>* %addr1
   br label %BB1
 
 BB1:

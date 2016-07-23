@@ -36,12 +36,12 @@ define spir_kernel void @check_fake(i32 addrspace(1)* %in, i32 addrspace(1)* %ou
   store i32 addrspace(1)* %18, i32 addrspace(1)** %2, align 8
   %19 = load i32, i32* %gid, align 4
   %20 = sext i32 %19 to i64
-  %21 = load i32 addrspace(1)** %1, align 8
+  %21 = load i32 addrspace(1)*, i32 addrspace(1)** %1, align 8
   %22 = getelementptr inbounds i32, i32 addrspace(1)* %21, i64 %20
-  %23 = load i32 addrspace(1)* %22, align 4
-  %24 = load i32* %gid, align 4
+  %23 = load i32, i32 addrspace(1)* %22, align 4
+  %24 = load i32, i32* %gid, align 4
   %25 = sext i32 %24 to i64
-  %26 = load i32 addrspace(1)** %2, align 8
+  %26 = load i32 addrspace(1)*, i32 addrspace(1)** %2, align 8
   %27 = getelementptr inbounds i32, i32 addrspace(1)* %26, i64 %25
   store i32 %23, i32 addrspace(1)* %27, align 4
   ret void

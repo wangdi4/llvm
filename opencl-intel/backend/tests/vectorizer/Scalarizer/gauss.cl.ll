@@ -73,9 +73,9 @@ for.body:                                         ; preds = %for.cond
   %tmp18 = load <2 x float>, <2 x float>* %ReadPixelLoc        ; <<2 x float>> [#uses=1]
   %call19 = call <4 x float> @_Z11read_imagefP10_image2d_tjDv2_f(%struct._image2d_t* %tmp17, i32 1, <2 x float> %tmp18) ; <<4 x float>> [#uses=1]
   store <4 x float> %call19, <4 x float>* %temp
-  %tmp20 = load i32* %i                           ; <i32> [#uses=1]
+  %tmp20 = load i32, i32* %i                           ; <i32> [#uses=1]
   %arrayidx = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp20 ; <float addrspace(1)*> [#uses=1]
-  %tmp21 = load float addrspace(1)* %arrayidx     ; <float> [#uses=1]
+  %tmp21 = load float, float addrspace(1)* %arrayidx     ; <float> [#uses=1]
   %tmp22 = insertelement <4 x float> undef, float %tmp21, i32 0 ; <<4 x float>> [#uses=2]
   %splat23 = shufflevector <4 x float> %tmp22, <4 x float> %tmp22, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
   %tmp24 = load <4 x float>, <4 x float>* %temp                ; <<4 x float>> [#uses=1]
@@ -83,10 +83,10 @@ for.body:                                         ; preds = %for.cond
   %tmp26 = load <4 x float>, <4 x float>* %colAccum            ; <<4 x float>> [#uses=1]
   %add27 = fadd <4 x float> %tmp26, %mul25        ; <<4 x float>> [#uses=1]
   store <4 x float> %add27, <4 x float>* %colAccum
-  %tmp28 = load i32* %i                           ; <i32> [#uses=1]
+  %tmp28 = load i32, i32* %i                           ; <i32> [#uses=1]
   %arrayidx29 = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp28 ; <float addrspace(1)*> [#uses=1]
-  %tmp30 = load float addrspace(1)* %arrayidx29   ; <float> [#uses=1]
-  %tmp31 = load float* %weightAccum               ; <float> [#uses=1]
+  %tmp30 = load float, float addrspace(1)* %arrayidx29   ; <float> [#uses=1]
+  %tmp31 = load float, float* %weightAccum               ; <float> [#uses=1]
   %add32 = fadd float %tmp31, %tmp30              ; <float> [#uses=1]
   store float %add32, float* %weightAccum
   %tmp33 = load float, float* %floatIndex                ; <float> [#uses=1]
@@ -212,14 +212,14 @@ if.end:                                           ; preds = %if.then, %for.body
   store float %sub24, float* %val
   %tmp25 = load float, float* %val                       ; <float> [#uses=1]
   %call26 = call float @_Z3maxff(float %tmp25, float 0.000000e+000) ; <float> [#uses=1]
-  %tmp27 = load i32* %i                           ; <i32> [#uses=1]
+  %tmp27 = load i32, i32* %i                           ; <i32> [#uses=1]
   %arrayidx = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp27 ; <float addrspace(1)*> [#uses=1]
   store float %call26, float addrspace(1)* %arrayidx
-  %tmp28 = load i32* %i                           ; <i32> [#uses=1]
+  %tmp28 = load i32, i32* %i                           ; <i32> [#uses=1]
   %arrayidx29 = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp28 ; <float addrspace(1)*> [#uses=1]
-  %tmp30 = load float addrspace(1)* %arrayidx29   ; <float> [#uses=1]
+  %tmp30 = load float, float addrspace(1)* %arrayidx29   ; <float> [#uses=1]
   %call31 = call float @_Z3minff(float %tmp30, float 1.000000e+000) ; <float> [#uses=1]
-  %tmp32 = load i32* %i                           ; <i32> [#uses=1]
+  %tmp32 = load i32, i32* %i                           ; <i32> [#uses=1]
   %arrayidx33 = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp32 ; <float addrspace(1)*> [#uses=1]
   store float %call31, float addrspace(1)* %arrayidx33
   br label %for.inc
@@ -331,7 +331,7 @@ for.body30:                                       ; preds = %for.cond24
   %tmp38 = load i32, i32* %index                       ; <i32> [#uses=2]
   %inc = add i32 %tmp38, 1                        ; <i32> [#uses=1]
   store i32 %inc, i32* %index
-  %tmp39 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp39 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp39, i32 %tmp38 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call37, <4 x float> addrspace(1)* %arrayidx
   br label %for.inc

@@ -44,10 +44,10 @@ entry:
   %tmp3 = load <4 x float>, <4 x float>* %.compoundliteral2    ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp3, <4 x float>* %kZero
   store float 0x3EE4F8B580000000, float* %EPSILON
-  %tmp6 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp6 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp7 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp6, i32 0, i32 3 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp8 = load <4 x float> addrspace(2)* %tmp7    ; <<4 x float>> [#uses=1]
-  %tmp9 = load <4 x float>* %kOne                 ; <<4 x float>> [#uses=1]
+  %tmp8 = load <4 x float>, <4 x float> addrspace(2)* %tmp7    ; <<4 x float>> [#uses=1]
+  %tmp9 = load <4 x float>, <4 x float>* %kOne                 ; <<4 x float>> [#uses=1]
   %call = call <4 x float> @_Z4stepU8__vector4fS_(<4 x float> %tmp8, <4 x float> %tmp9) ; <<4 x float>> [#uses=1]
   store <4 x float> %call, <4 x float>* %flag1
   %tmp10 = load float, float* %EPSILON                   ; <float> [#uses=1]
@@ -58,9 +58,9 @@ entry:
   %tmp15 = insertelement <4 x float> undef, float %tmp14, i32 0 ; <<4 x float>> [#uses=2]
   %splat = shufflevector <4 x float> %tmp15, <4 x float> %tmp15, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
   %add = fadd <4 x float> %tmp13, %splat          ; <<4 x float>> [#uses=1]
-  %tmp16 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp16 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp17 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp16, i32 0, i32 4 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp18 = load <4 x float> addrspace(2)* %tmp17  ; <<4 x float>> [#uses=1]
+  %tmp18 = load <4 x float>, <4 x float> addrspace(2)* %tmp17  ; <<4 x float>> [#uses=1]
   %call19 = call <4 x float> @_Z4stepU8__vector4fS_(<4 x float> %add, <4 x float> %tmp18) ; <<4 x float>> [#uses=1]
   %mul = fmul <4 x float> %call12, %call19        ; <<4 x float>> [#uses=1]
   %tmp20 = load <4 x float>, <4 x float>* %flag1               ; <<4 x float>> [#uses=1]
@@ -68,10 +68,10 @@ entry:
   store <4 x float> %mul21, <4 x float>* %flag1
   %tmp23 = load <4 x float>, <4 x float>* %kZero               ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp23, <4 x float>* %B
-  %tmp26 = load <4 x float>* %color.addr          ; <<4 x float>> [#uses=1]
-  %tmp27 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp26 = load <4 x float>, <4 x float>* %color.addr          ; <<4 x float>> [#uses=1]
+  %tmp27 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp28 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp27, i32 0, i32 4 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp29 = load <4 x float> addrspace(2)* %tmp28  ; <<4 x float>> [#uses=3]
+  %tmp29 = load <4 x float>, <4 x float> addrspace(2)* %tmp28  ; <<4 x float>> [#uses=3]
   %cmp = fcmp oeq <4 x float> zeroinitializer, %tmp29 ; <<4 x i1>> [#uses=1]
   %sel = select <4 x i1> %cmp, <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, <4 x float> %tmp29 ; <<4 x float>> [#uses=0]
   %div = fdiv <4 x float> %tmp26, %tmp29          ; <<4 x float>> [#uses=1]
@@ -83,20 +83,20 @@ entry:
   %tmp32 = load <4 x float>, <4 x float>* %C                   ; <<4 x float>> [#uses=1]
   %mul33 = fmul <4 x float> %tmp31, %tmp32        ; <<4 x float>> [#uses=1]
   store <4 x float> %mul33, <4 x float>* %D
-  %tmp34 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp34 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp35 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp34, i32 0, i32 4 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp36 = load <4 x float> addrspace(2)* %tmp35  ; <<4 x float>> [#uses=1]
-  %tmp37 = load <4 x float>* %D                   ; <<4 x float>> [#uses=1]
+  %tmp36 = load <4 x float>, <4 x float> addrspace(2)* %tmp35  ; <<4 x float>> [#uses=1]
+  %tmp37 = load <4 x float>, <4 x float>* %D                   ; <<4 x float>> [#uses=1]
   %mul38 = fmul <4 x float> %tmp37, %tmp36        ; <<4 x float>> [#uses=1]
   store <4 x float> %mul38, <4 x float>* %D
   %tmp39 = load <4 x float>, <4 x float>* %B                   ; <<4 x float>> [#uses=1]
   %tmp40 = load <4 x float>, <4 x float>* %D                   ; <<4 x float>> [#uses=1]
   %mul41 = fmul <4 x float> %tmp40, %tmp39        ; <<4 x float>> [#uses=1]
   store <4 x float> %mul41, <4 x float>* %D
-  %tmp42 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp42 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp43 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp42, i32 0, i32 6 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp44 = load <4 x float> addrspace(2)* %tmp43  ; <<4 x float>> [#uses=1]
-  %tmp45 = load <4 x float>* %D                   ; <<4 x float>> [#uses=1]
+  %tmp44 = load <4 x float>, <4 x float> addrspace(2)* %tmp43  ; <<4 x float>> [#uses=1]
+  %tmp45 = load <4 x float>, <4 x float>* %D                   ; <<4 x float>> [#uses=1]
   %mul46 = fmul <4 x float> %tmp45, %tmp44        ; <<4 x float>> [#uses=1]
   store <4 x float> %mul46, <4 x float>* %D
   %tmp48 = load <4 x float>, <4 x float>* %B                   ; <<4 x float>> [#uses=1]
@@ -106,12 +106,12 @@ entry:
   %tmp51 = load <4 x float>, <4 x float>* %T1                  ; <<4 x float>> [#uses=1]
   %add52 = fadd <4 x float> %tmp51, %tmp50        ; <<4 x float>> [#uses=1]
   store <4 x float> %add52, <4 x float>* %T1
-  %tmp54 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp54 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp55 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp54, i32 0, i32 7 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp56 = load <4 x float> addrspace(2)* %tmp55  ; <<4 x float>> [#uses=1]
-  %tmp57 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp56 = load <4 x float>, <4 x float> addrspace(2)* %tmp55  ; <<4 x float>> [#uses=1]
+  %tmp57 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp58 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp57, i32 0, i32 4 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp59 = load <4 x float> addrspace(2)* %tmp58  ; <<4 x float>> [#uses=1]
+  %tmp59 = load <4 x float>, <4 x float> addrspace(2)* %tmp58  ; <<4 x float>> [#uses=1]
   %mul60 = fmul <4 x float> %tmp56, %tmp59        ; <<4 x float>> [#uses=1]
   store <4 x float> %mul60, <4 x float>* %T2
   %tmp61 = load <4 x float>, <4 x float>* %C                   ; <<4 x float>> [#uses=1]
@@ -122,10 +122,10 @@ entry:
   %tmp65 = load <4 x float>, <4 x float>* %T1                  ; <<4 x float>> [#uses=1]
   %sub66 = fsub <4 x float> %tmp65, %tmp64        ; <<4 x float>> [#uses=1]
   store <4 x float> %sub66, <4 x float>* %T1
-  %tmp68 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp68 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp69 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp68, i32 0, i32 5 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp70 = load <4 x float> addrspace(2)* %tmp69  ; <<4 x float>> [#uses=1]
-  %tmp71 = load <4 x float>* %T1                  ; <<4 x float>> [#uses=1]
+  %tmp70 = load <4 x float>, <4 x float> addrspace(2)* %tmp69  ; <<4 x float>> [#uses=1]
+  %tmp71 = load <4 x float>, <4 x float>* %T1                  ; <<4 x float>> [#uses=1]
   %mul72 = fmul <4 x float> %tmp70, %tmp71        ; <<4 x float>> [#uses=1]
   store <4 x float> %mul72, <4 x float>* %T3
   %tmp73 = load <4 x float>, <4 x float>* %B                   ; <<4 x float>> [#uses=1]
@@ -148,9 +148,9 @@ entry:
   %sub87 = fsub <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, %tmp86 ; <<4 x float>> [#uses=1]
   %tmp88 = load <4 x float>, <4 x float>* %color.addr          ; <<4 x float>> [#uses=1]
   %call89 = call <4 x float> @_Z4fabsU8__vector4f(<4 x float> %tmp88) ; <<4 x float>> [#uses=1]
-  %tmp90 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp90 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp91 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp90, i32 0, i32 3 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp92 = load <4 x float> addrspace(2)* %tmp91  ; <<4 x float>> [#uses=1]
+  %tmp92 = load <4 x float>, <4 x float> addrspace(2)* %tmp91  ; <<4 x float>> [#uses=1]
   %call93 = call <4 x float> @_Z3powU8__vector4fS_(<4 x float> %call89, <4 x float> %tmp92) ; <<4 x float>> [#uses=1]
   %mul94 = fmul <4 x float> %sub87, %call93       ; <<4 x float>> [#uses=1]
   %tmp95 = load <4 x float>, <4 x float>* %outColor            ; <<4 x float>> [#uses=1]
@@ -183,47 +183,47 @@ entry:
   %temp2 = alloca <4 x float>, align 16           ; <<4 x float>*> [#uses=3]
   store <4 x float> %color, <4 x float>* %color.addr
   store %struct.anon addrspace(2)* %pArgs, %struct.anon addrspace(2)** %pArgs.addr
-  %tmp = load <4 x float>* %color.addr            ; <<4 x float>> [#uses=1]
-  %tmp1 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp = load <4 x float>, <4 x float>* %color.addr            ; <<4 x float>> [#uses=1]
+  %tmp1 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp2 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp1, i32 0, i32 0 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp3 = load <4 x float> addrspace(2)* %tmp2    ; <<4 x float>> [#uses=1]
+  %tmp3 = load <4 x float>, <4 x float> addrspace(2)* %tmp2    ; <<4 x float>> [#uses=1]
   %sub = fsub <4 x float> %tmp, %tmp3             ; <<4 x float>> [#uses=1]
-  %tmp4 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp4 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp5 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp4, i32 0, i32 8 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp6 = load <4 x float> addrspace(2)* %tmp5    ; <<4 x float>> [#uses=3]
+  %tmp6 = load <4 x float>, <4 x float> addrspace(2)* %tmp5    ; <<4 x float>> [#uses=3]
   %cmp = fcmp oeq <4 x float> zeroinitializer, %tmp6 ; <<4 x i1>> [#uses=1]
   %sel = select <4 x i1> %cmp, <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, <4 x float> %tmp6 ; <<4 x float>> [#uses=0]
   %div = fdiv <4 x float> %sub, %tmp6             ; <<4 x float>> [#uses=1]
   store <4 x float> %div, <4 x float>* %ratio
-  %tmp8 = load <4 x float>* %color.addr           ; <<4 x float>> [#uses=1]
-  %tmp9 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp8 = load <4 x float>, <4 x float>* %color.addr           ; <<4 x float>> [#uses=1]
+  %tmp9 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp10 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp9, i32 0, i32 2 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp11 = load <4 x float> addrspace(2)* %tmp10  ; <<4 x float>> [#uses=1]
+  %tmp11 = load <4 x float>, <4 x float> addrspace(2)* %tmp10  ; <<4 x float>> [#uses=1]
   %call = call <4 x float> @_Z4stepU8__vector4fS_(<4 x float> %tmp8, <4 x float> %tmp11) ; <<4 x float>> [#uses=1]
-  %tmp12 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp12 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp13 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp12, i32 0, i32 0 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp14 = load <4 x float> addrspace(2)* %tmp13  ; <<4 x float>> [#uses=1]
-  %tmp15 = load <4 x float>* %color.addr          ; <<4 x float>> [#uses=1]
+  %tmp14 = load <4 x float>, <4 x float> addrspace(2)* %tmp13  ; <<4 x float>> [#uses=1]
+  %tmp15 = load <4 x float>, <4 x float>* %color.addr          ; <<4 x float>> [#uses=1]
   %call16 = call <4 x float> @_Z4stepU8__vector4fS_(<4 x float> %tmp14, <4 x float> %tmp15) ; <<4 x float>> [#uses=1]
   %mul = fmul <4 x float> %call, %call16          ; <<4 x float>> [#uses=1]
   store <4 x float> %mul, <4 x float>* %flag1
-  %tmp18 = load <4 x float>* %flag1               ; <<4 x float>> [#uses=1]
-  %tmp19 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp18 = load <4 x float>, <4 x float>* %flag1               ; <<4 x float>> [#uses=1]
+  %tmp19 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp20 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp19, i32 0, i32 9 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp21 = load <4 x float> addrspace(2)* %tmp20  ; <<4 x float>> [#uses=1]
+  %tmp21 = load <4 x float>, <4 x float> addrspace(2)* %tmp20  ; <<4 x float>> [#uses=1]
   %mul22 = fmul <4 x float> %tmp18, %tmp21        ; <<4 x float>> [#uses=1]
   %tmp23 = load <4 x float>, <4 x float>* %ratio               ; <<4 x float>> [#uses=1]
   %mul24 = fmul <4 x float> %mul22, %tmp23        ; <<4 x float>> [#uses=1]
   store <4 x float> %mul24, <4 x float>* %outColor
-  %tmp27 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp27 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp28 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp27, i32 0, i32 9 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp29 = load <4 x float> addrspace(2)* %tmp28  ; <<4 x float>> [#uses=1]
+  %tmp29 = load <4 x float>, <4 x float> addrspace(2)* %tmp28  ; <<4 x float>> [#uses=1]
   %sub30 = fsub <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, %tmp29 ; <<4 x float>> [#uses=1]
   store <4 x float> %sub30, <4 x float>* %temp2
-  %tmp31 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp31 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp32 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp31, i32 0, i32 10 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp33 = load <4 x float> addrspace(2)* %tmp32  ; <<4 x float>> [#uses=1]
-  %tmp34 = load <4 x float>* %temp2               ; <<4 x float>> [#uses=1]
+  %tmp33 = load <4 x float>, <4 x float> addrspace(2)* %tmp32  ; <<4 x float>> [#uses=1]
+  %tmp34 = load <4 x float>, <4 x float>* %temp2               ; <<4 x float>> [#uses=1]
   %mul35 = fmul <4 x float> %tmp33, %tmp34        ; <<4 x float>> [#uses=1]
   store <4 x float> %mul35, <4 x float>* %temp
   %tmp36 = load <4 x float>, <4 x float>* %color.addr          ; <<4 x float>> [#uses=1]
@@ -240,9 +240,9 @@ entry:
   %tmp44 = load <4 x float>, <4 x float>* %temp2               ; <<4 x float>> [#uses=1]
   %mul45 = fmul <4 x float> %tmp43, %tmp44        ; <<4 x float>> [#uses=1]
   store <4 x float> %mul45, <4 x float>* %temp
-  %tmp46 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp46 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp47 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp46, i32 0, i32 10 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp48 = load <4 x float> addrspace(2)* %tmp47  ; <<4 x float>> [#uses=1]
+  %tmp48 = load <4 x float>, <4 x float> addrspace(2)* %tmp47  ; <<4 x float>> [#uses=1]
   %sub49 = fsub <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, %tmp48 ; <<4 x float>> [#uses=1]
   %tmp50 = load <4 x float>, <4 x float>* %temp                ; <<4 x float>> [#uses=1]
   %mul51 = fmul <4 x float> %tmp50, %sub49        ; <<4 x float>> [#uses=1]
@@ -280,10 +280,10 @@ entry:
   %tmp = load <4 x float>, <4 x float>* %.compoundliteral      ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp, <4 x float>* %kOne
   store float 0x3EE4F8B580000000, float* %EPSILON
-  %tmp4 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp4 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp5 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp4, i32 0, i32 2 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp6 = load <4 x float> addrspace(2)* %tmp5    ; <<4 x float>> [#uses=1]
-  %tmp7 = load <4 x float>* %color.addr           ; <<4 x float>> [#uses=1]
+  %tmp6 = load <4 x float>, <4 x float> addrspace(2)* %tmp5    ; <<4 x float>> [#uses=1]
+  %tmp7 = load <4 x float>, <4 x float>* %color.addr           ; <<4 x float>> [#uses=1]
   %call = call <4 x float> @_Z4stepU8__vector4fS_(<4 x float> %tmp6, <4 x float> %tmp7) ; <<4 x float>> [#uses=1]
   %tmp8 = load <4 x float>, <4 x float>* %color.addr           ; <<4 x float>> [#uses=1]
   %tmp9 = load <4 x float>, <4 x float>* %kOne                 ; <<4 x float>> [#uses=1]
@@ -300,16 +300,16 @@ entry:
   %tmp16 = load <4 x float>, <4 x float>* %outColor            ; <<4 x float>> [#uses=1]
   %mul17 = fmul <4 x float> %tmp16, %call15       ; <<4 x float>> [#uses=1]
   store <4 x float> %mul17, <4 x float>* %outColor
-  %tmp18 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp18 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp19 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp18, i32 0, i32 0 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp20 = load <4 x float> addrspace(2)* %tmp19  ; <<4 x float>> [#uses=1]
-  %tmp21 = load float* %EPSILON                   ; <float> [#uses=1]
+  %tmp20 = load <4 x float>, <4 x float> addrspace(2)* %tmp19  ; <<4 x float>> [#uses=1]
+  %tmp21 = load float, float* %EPSILON                   ; <float> [#uses=1]
   %tmp22 = insertelement <4 x float> undef, float %tmp21, i32 0 ; <<4 x float>> [#uses=2]
   %splat = shufflevector <4 x float> %tmp22, <4 x float> %tmp22, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
   %add = fadd <4 x float> %tmp20, %splat          ; <<4 x float>> [#uses=1]
-  %tmp23 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp23 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp24 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp23, i32 0, i32 2 ; <<4 x float> addrspace(2)*> [#uses=1]
-  %tmp25 = load <4 x float> addrspace(2)* %tmp24  ; <<4 x float>> [#uses=1]
+  %tmp25 = load <4 x float>, <4 x float> addrspace(2)* %tmp24  ; <<4 x float>> [#uses=1]
   %call26 = call <4 x float> @_Z4stepU8__vector4fS_(<4 x float> %add, <4 x float> %tmp25) ; <<4 x float>> [#uses=1]
   %tmp27 = load <4 x float>, <4 x float>* %outColor            ; <<4 x float>> [#uses=1]
   %mul28 = fmul <4 x float> %tmp27, %call26       ; <<4 x float>> [#uses=1]
@@ -496,7 +496,7 @@ if.then:                                          ; preds = %entry
   %tmp103 = shufflevector <4 x float> %tmp102, <4 x float> undef, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
   %tmp104 = load <4 x float>, <4 x float>* %shadow             ; <<4 x float>> [#uses=1]
   %sub = fsub <4 x float> %tmp103, %tmp104        ; <<4 x float>> [#uses=1]
-  %tmp105 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp105 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp106 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp105, i32 0, i32 0 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %sub, <4 x float> addrspace(1)* %tmp106
   %tmp107 = load <4 x float>, <4 x float>* %midtone            ; <<4 x float>> [#uses=1]
@@ -504,7 +504,7 @@ if.then:                                          ; preds = %entry
   %tmp109 = insertelement <4 x float> undef, float %tmp108, i32 0 ; <<4 x float>> [#uses=2]
   %splat = shufflevector <4 x float> %tmp109, <4 x float> %tmp109, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
   %sub110 = fsub <4 x float> %tmp107, %splat      ; <<4 x float>> [#uses=1]
-  %tmp111 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp111 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp112 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp111, i32 0, i32 1 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %sub110, <4 x float> addrspace(1)* %tmp112
   %tmp113 = load <4 x float>, <4 x float>* %hilight            ; <<4 x float>> [#uses=1]
@@ -512,7 +512,7 @@ if.then:                                          ; preds = %entry
   %tmp115 = load <4 x float>, <4 x float>* %lower              ; <<4 x float>> [#uses=1]
   %tmp116 = shufflevector <4 x float> %tmp115, <4 x float> undef, <4 x i32> <i32 2, i32 2, i32 2, i32 2> ; <<4 x float>> [#uses=1]
   %add117 = fadd <4 x float> %sub114, %tmp116     ; <<4 x float>> [#uses=1]
-  %tmp118 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp118 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp119 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp118, i32 0, i32 2 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %add117, <4 x float> addrspace(1)* %tmp119
   br label %if.end
@@ -520,182 +520,182 @@ if.then:                                          ; preds = %entry
 if.else:                                          ; preds = %entry
   %tmp120 = load <4 x float>, <4 x float>* %shadow             ; <<4 x float>> [#uses=1]
   %mul121 = fmul <4 x float> <float -1.000000e+000, float -1.000000e+000, float -1.000000e+000, float -1.000000e+000>, %tmp120 ; <<4 x float>> [#uses=1]
-  %tmp122 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp122 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp123 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp122, i32 0, i32 0 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %mul121, <4 x float> addrspace(1)* %tmp123
   %tmp124 = load <4 x float>, <4 x float>* %hilight            ; <<4 x float>> [#uses=1]
   %mul125 = fmul <4 x float> <float -1.000000e+000, float -1.000000e+000, float -1.000000e+000, float -1.000000e+000>, %tmp124 ; <<4 x float>> [#uses=1]
-  %tmp126 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp126 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp127 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp126, i32 0, i32 2 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %mul125, <4 x float> addrspace(1)* %tmp127
-  %tmp128 = load <4 x float>* %midtone            ; <<4 x float>> [#uses=1]
-  %tmp129 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp128 = load <4 x float>, <4 x float>* %midtone            ; <<4 x float>> [#uses=1]
+  %tmp129 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp130 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp129, i32 0, i32 2 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp131 = load <4 x float> addrspace(1)* %tmp130 ; <<4 x float>> [#uses=1]
-  %tmp132 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp131 = load <4 x float>, <4 x float> addrspace(1)* %tmp130 ; <<4 x float>> [#uses=1]
+  %tmp132 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp133 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp132, i32 0, i32 0 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp134 = load <4 x float> addrspace(1)* %tmp133 ; <<4 x float>> [#uses=1]
+  %tmp134 = load <4 x float>, <4 x float> addrspace(1)* %tmp133 ; <<4 x float>> [#uses=1]
   %add135 = fadd <4 x float> %tmp131, %tmp134     ; <<4 x float>> [#uses=1]
   %div136 = fdiv <4 x float> %add135, <float 2.000000e+000, float 2.000000e+000, float 2.000000e+000, float 2.000000e+000> ; <<4 x float>> [#uses=1]
   %sub137 = fsub <4 x float> %tmp128, %div136     ; <<4 x float>> [#uses=1]
-  %tmp138 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp138 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp139 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp138, i32 0, i32 1 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %sub137, <4 x float> addrspace(1)* %tmp139
-  %tmp140 = load <4 x float>* %kZero              ; <<4 x float>> [#uses=1]
-  %tmp141 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp140 = load <4 x float>, <4 x float>* %kZero              ; <<4 x float>> [#uses=1]
+  %tmp141 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp142 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp141, i32 0, i32 0 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp143 = load <4 x float> addrspace(1)* %tmp142 ; <<4 x float>> [#uses=1]
+  %tmp143 = load <4 x float>, <4 x float> addrspace(1)* %tmp142 ; <<4 x float>> [#uses=1]
   %call144 = call <4 x float> @_Z3maxU8__vector4fS_(<4 x float> %tmp140, <4 x float> %tmp143) ; <<4 x float>> [#uses=1]
-  %tmp145 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp145 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp146 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp145, i32 0, i32 0 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call144, <4 x float> addrspace(1)* %tmp146
-  %tmp147 = load <4 x float>* %kOne               ; <<4 x float>> [#uses=1]
-  %tmp148 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp147 = load <4 x float>, <4 x float>* %kOne               ; <<4 x float>> [#uses=1]
+  %tmp148 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp149 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp148, i32 0, i32 2 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp150 = load <4 x float> addrspace(1)* %tmp149 ; <<4 x float>> [#uses=1]
+  %tmp150 = load <4 x float>, <4 x float> addrspace(1)* %tmp149 ; <<4 x float>> [#uses=1]
   %add151 = fadd <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, %tmp150 ; <<4 x float>> [#uses=1]
   %call152 = call <4 x float> @_Z3minU8__vector4fS_(<4 x float> %tmp147, <4 x float> %add151) ; <<4 x float>> [#uses=1]
-  %tmp153 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp153 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp154 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp153, i32 0, i32 2 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call152, <4 x float> addrspace(1)* %tmp154
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
-  %tmp155 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp155 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp156 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp155, i32 0, i32 2 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp157 = load <4 x float> addrspace(1)* %tmp156 ; <<4 x float>> [#uses=1]
-  %tmp158 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp157 = load <4 x float>, <4 x float> addrspace(1)* %tmp156 ; <<4 x float>> [#uses=1]
+  %tmp158 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp159 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp158, i32 0, i32 0 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp160 = load <4 x float> addrspace(1)* %tmp159 ; <<4 x float>> [#uses=1]
+  %tmp160 = load <4 x float>, <4 x float> addrspace(1)* %tmp159 ; <<4 x float>> [#uses=1]
   %sub161 = fsub <4 x float> %tmp157, %tmp160     ; <<4 x float>> [#uses=1]
-  %tmp162 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp162 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp163 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp162, i32 0, i32 8 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %sub161, <4 x float> addrspace(1)* %tmp163
-  %tmp164 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp164 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp165 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp164, i32 0, i32 8 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp166 = load <4 x float> addrspace(1)* %tmp165 ; <<4 x float>> [#uses=1]
+  %tmp166 = load <4 x float>, <4 x float> addrspace(1)* %tmp165 ; <<4 x float>> [#uses=1]
   %tmp167 = extractelement <4 x float> %tmp166, i32 0 ; <float> [#uses=1]
   %tmp168 = load float, float* %EPSILON                  ; <float> [#uses=1]
   %cmp = fcmp olt float %tmp167, %tmp168          ; <i1> [#uses=1]
   br i1 %cmp, label %if.then169, label %if.end175
 
 if.then169:                                       ; preds = %if.end
-  %tmp170 = load float* %EPSILON                  ; <float> [#uses=1]
-  %tmp171 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp170 = load float, float* %EPSILON                  ; <float> [#uses=1]
+  %tmp171 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp172 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp171, i32 0, i32 8 ; <<4 x float> addrspace(1)*> [#uses=2]
-  %tmp173 = load <4 x float> addrspace(1)* %tmp172 ; <<4 x float>> [#uses=1]
+  %tmp173 = load <4 x float>, <4 x float> addrspace(1)* %tmp172 ; <<4 x float>> [#uses=1]
   %tmp174 = insertelement <4 x float> %tmp173, float %tmp170, i32 0 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp174, <4 x float> addrspace(1)* %tmp172
   br label %if.end175
 
 if.end175:                                        ; preds = %if.then169, %if.end
-  %tmp176 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp176 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp177 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp176, i32 0, i32 8 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp178 = load <4 x float> addrspace(1)* %tmp177 ; <<4 x float>> [#uses=1]
+  %tmp178 = load <4 x float>, <4 x float> addrspace(1)* %tmp177 ; <<4 x float>> [#uses=1]
   %tmp179 = extractelement <4 x float> %tmp178, i32 1 ; <float> [#uses=1]
   %tmp180 = load float, float* %EPSILON                  ; <float> [#uses=1]
   %cmp181 = fcmp olt float %tmp179, %tmp180       ; <i1> [#uses=1]
   br i1 %cmp181, label %if.then182, label %if.end188
 
 if.then182:                                       ; preds = %if.end175
-  %tmp183 = load float* %EPSILON                  ; <float> [#uses=1]
-  %tmp184 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp183 = load float, float* %EPSILON                  ; <float> [#uses=1]
+  %tmp184 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp185 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp184, i32 0, i32 8 ; <<4 x float> addrspace(1)*> [#uses=2]
-  %tmp186 = load <4 x float> addrspace(1)* %tmp185 ; <<4 x float>> [#uses=1]
+  %tmp186 = load <4 x float>, <4 x float> addrspace(1)* %tmp185 ; <<4 x float>> [#uses=1]
   %tmp187 = insertelement <4 x float> %tmp186, float %tmp183, i32 1 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp187, <4 x float> addrspace(1)* %tmp185
   br label %if.end188
 
 if.end188:                                        ; preds = %if.then182, %if.end175
-  %tmp189 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp189 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp190 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp189, i32 0, i32 8 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp191 = load <4 x float> addrspace(1)* %tmp190 ; <<4 x float>> [#uses=1]
+  %tmp191 = load <4 x float>, <4 x float> addrspace(1)* %tmp190 ; <<4 x float>> [#uses=1]
   %tmp192 = extractelement <4 x float> %tmp191, i32 2 ; <float> [#uses=1]
   %tmp193 = load float, float* %EPSILON                  ; <float> [#uses=1]
   %cmp194 = fcmp olt float %tmp192, %tmp193       ; <i1> [#uses=1]
   br i1 %cmp194, label %if.then195, label %if.end201
 
 if.then195:                                       ; preds = %if.end188
-  %tmp196 = load float* %EPSILON                  ; <float> [#uses=1]
-  %tmp197 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp196 = load float, float* %EPSILON                  ; <float> [#uses=1]
+  %tmp197 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp198 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp197, i32 0, i32 8 ; <<4 x float> addrspace(1)*> [#uses=2]
-  %tmp199 = load <4 x float> addrspace(1)* %tmp198 ; <<4 x float>> [#uses=1]
+  %tmp199 = load <4 x float>, <4 x float> addrspace(1)* %tmp198 ; <<4 x float>> [#uses=1]
   %tmp200 = insertelement <4 x float> %tmp199, float %tmp196, i32 2 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp200, <4 x float> addrspace(1)* %tmp198
   br label %if.end201
 
 if.end201:                                        ; preds = %if.then195, %if.end188
-  %tmp202 = load <4 x float>* %kZero              ; <<4 x float>> [#uses=1]
-  %tmp203 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp202 = load <4 x float>, <4 x float>* %kZero              ; <<4 x float>> [#uses=1]
+  %tmp203 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp204 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp203, i32 0, i32 10 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %tmp202, <4 x float> addrspace(1)* %tmp204
-  %tmp205 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp205 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp206 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp205, i32 0, i32 8 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp207 = load <4 x float> addrspace(1)* %tmp206 ; <<4 x float>> [#uses=1]
+  %tmp207 = load <4 x float>, <4 x float> addrspace(1)* %tmp206 ; <<4 x float>> [#uses=1]
   %tmp208 = extractelement <4 x float> %tmp207, i32 0 ; <float> [#uses=1]
   %cmp209 = fcmp oeq float %tmp208, 1.000000e+000 ; <i1> [#uses=1]
   br i1 %cmp209, label %if.then210, label %if.end215
 
 if.then210:                                       ; preds = %if.end201
-  %tmp211 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp211 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp212 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp211, i32 0, i32 10 ; <<4 x float> addrspace(1)*> [#uses=2]
-  %tmp213 = load <4 x float> addrspace(1)* %tmp212 ; <<4 x float>> [#uses=1]
+  %tmp213 = load <4 x float>, <4 x float> addrspace(1)* %tmp212 ; <<4 x float>> [#uses=1]
   %tmp214 = insertelement <4 x float> %tmp213, float 1.000000e+000, i32 0 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp214, <4 x float> addrspace(1)* %tmp212
   br label %if.end215
 
 if.end215:                                        ; preds = %if.then210, %if.end201
-  %tmp216 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp216 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp217 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp216, i32 0, i32 8 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp218 = load <4 x float> addrspace(1)* %tmp217 ; <<4 x float>> [#uses=1]
+  %tmp218 = load <4 x float>, <4 x float> addrspace(1)* %tmp217 ; <<4 x float>> [#uses=1]
   %tmp219 = extractelement <4 x float> %tmp218, i32 1 ; <float> [#uses=1]
   %cmp220 = fcmp oeq float %tmp219, 1.000000e+000 ; <i1> [#uses=1]
   br i1 %cmp220, label %if.then221, label %if.end226
 
 if.then221:                                       ; preds = %if.end215
-  %tmp222 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp222 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp223 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp222, i32 0, i32 10 ; <<4 x float> addrspace(1)*> [#uses=2]
-  %tmp224 = load <4 x float> addrspace(1)* %tmp223 ; <<4 x float>> [#uses=1]
+  %tmp224 = load <4 x float>, <4 x float> addrspace(1)* %tmp223 ; <<4 x float>> [#uses=1]
   %tmp225 = insertelement <4 x float> %tmp224, float 1.000000e+000, i32 1 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp225, <4 x float> addrspace(1)* %tmp223
   br label %if.end226
 
 if.end226:                                        ; preds = %if.then221, %if.end215
-  %tmp227 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp227 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp228 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp227, i32 0, i32 8 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp229 = load <4 x float> addrspace(1)* %tmp228 ; <<4 x float>> [#uses=1]
+  %tmp229 = load <4 x float>, <4 x float> addrspace(1)* %tmp228 ; <<4 x float>> [#uses=1]
   %tmp230 = extractelement <4 x float> %tmp229, i32 2 ; <float> [#uses=1]
   %cmp231 = fcmp oeq float %tmp230, 1.000000e+000 ; <i1> [#uses=1]
   br i1 %cmp231, label %if.then232, label %if.end237
 
 if.then232:                                       ; preds = %if.end226
-  %tmp233 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp233 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp234 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp233, i32 0, i32 10 ; <<4 x float> addrspace(1)*> [#uses=2]
-  %tmp235 = load <4 x float> addrspace(1)* %tmp234 ; <<4 x float>> [#uses=1]
+  %tmp235 = load <4 x float>, <4 x float> addrspace(1)* %tmp234 ; <<4 x float>> [#uses=1]
   %tmp236 = insertelement <4 x float> %tmp235, float 1.000000e+000, i32 2 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp236, <4 x float> addrspace(1)* %tmp234
   br label %if.end237
 
 if.end237:                                        ; preds = %if.then232, %if.end226
   store float 0x3F8EB851E0000000, float* %tolerance
-  %tmp239 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp239 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp240 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp239, i32 0, i32 1 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp241 = load <4 x float> addrspace(1)* %tmp240 ; <<4 x float>> [#uses=1]
-  %tmp242 = load <4 x float>* %kMaxConst          ; <<4 x float>> [#uses=1]
+  %tmp241 = load <4 x float>, <4 x float> addrspace(1)* %tmp240 ; <<4 x float>> [#uses=1]
+  %tmp242 = load <4 x float>, <4 x float>* %kMaxConst          ; <<4 x float>> [#uses=1]
   %mul243 = fmul <4 x float> %tmp242, <float 1.000000e+002, float 1.000000e+002, float 1.000000e+002, float 1.000000e+002> ; <<4 x float>> [#uses=3]
   %cmp244 = fcmp oeq <4 x float> zeroinitializer, %mul243 ; <<4 x i1>> [#uses=1]
   %sel = select <4 x i1> %cmp244, <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, <4 x float> %mul243 ; <<4 x float>> [#uses=0]
   %div245 = fdiv <4 x float> %tmp241, %mul243     ; <<4 x float>> [#uses=1]
   %mul246 = fmul <4 x float> %div245, <float 0xBFE62DE000000000, float 0xBFE62DE000000000, float 0xBFE62DE000000000, float 0xBFE62DE000000000> ; <<4 x float>> [#uses=1]
   %call247 = call <4 x float> @_Z3expU8__vector4f(<4 x float> %mul246) ; <<4 x float>> [#uses=1]
-  %tmp248 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp248 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp249 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp248, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call247, <4 x float> addrspace(1)* %tmp249
   %tmp251 = load <4 x float>, <4 x float>* %kZero              ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp251, <4 x float>* %flagGamma
-  %tmp252 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp252 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp253 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp252, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp254 = load <4 x float> addrspace(1)* %tmp253 ; <<4 x float>> [#uses=1]
+  %tmp254 = load <4 x float>, <4 x float> addrspace(1)* %tmp253 ; <<4 x float>> [#uses=1]
   %tmp255 = extractelement <4 x float> %tmp254, i32 0 ; <float> [#uses=1]
   %cmp256 = fcmp oeq float %tmp255, 1.000000e+000 ; <i1> [#uses=1]
   br i1 %cmp256, label %if.then257, label %if.end260
@@ -707,9 +707,9 @@ if.then257:                                       ; preds = %if.end237
   br label %if.end260
 
 if.end260:                                        ; preds = %if.then257, %if.end237
-  %tmp261 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp261 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp262 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp261, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp263 = load <4 x float> addrspace(1)* %tmp262 ; <<4 x float>> [#uses=1]
+  %tmp263 = load <4 x float>, <4 x float> addrspace(1)* %tmp262 ; <<4 x float>> [#uses=1]
   %tmp264 = extractelement <4 x float> %tmp263, i32 1 ; <float> [#uses=1]
   %cmp265 = fcmp oeq float %tmp264, 1.000000e+000 ; <i1> [#uses=1]
   br i1 %cmp265, label %if.then266, label %if.end269
@@ -721,9 +721,9 @@ if.then266:                                       ; preds = %if.end260
   br label %if.end269
 
 if.end269:                                        ; preds = %if.then266, %if.end260
-  %tmp270 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp270 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp271 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp270, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp272 = load <4 x float> addrspace(1)* %tmp271 ; <<4 x float>> [#uses=1]
+  %tmp272 = load <4 x float>, <4 x float> addrspace(1)* %tmp271 ; <<4 x float>> [#uses=1]
   %tmp273 = extractelement <4 x float> %tmp272, i32 2 ; <float> [#uses=1]
   %cmp274 = fcmp oeq float %tmp273, 1.000000e+000 ; <i1> [#uses=1]
   br i1 %cmp274, label %if.then275, label %if.end278
@@ -738,28 +738,28 @@ if.end278:                                        ; preds = %if.then275, %if.end
   store <4 x float> <float 0x3F847AE140000000, float 0x3F847AE140000000, float 0x3F847AE140000000, float 0x3F847AE140000000>, <4 x float>* %.compoundliteral280
   %tmp281 = load <4 x float>, <4 x float>* %.compoundliteral280 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp281, <4 x float>* %stepTmp
-  %tmp282 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp282 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp283 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp282, i32 0, i32 8 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp284 = load <4 x float> addrspace(1)* %tmp283 ; <<4 x float>> [#uses=1]
-  %tmp285 = load <4 x float>* %stepTmp            ; <<4 x float>> [#uses=1]
+  %tmp284 = load <4 x float>, <4 x float> addrspace(1)* %tmp283 ; <<4 x float>> [#uses=1]
+  %tmp285 = load <4 x float>, <4 x float>* %stepTmp            ; <<4 x float>> [#uses=1]
   %call286 = call <4 x float> @_Z4stepU8__vector4fS_(<4 x float> %tmp284, <4 x float> %tmp285) ; <<4 x float>> [#uses=1]
   %tmp287 = load <4 x float>, <4 x float>* %flagGamma          ; <<4 x float>> [#uses=1]
   %add288 = fadd <4 x float> %call286, %tmp287    ; <<4 x float>> [#uses=1]
-  %tmp289 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp289 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp290 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp289, i32 0, i32 9 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %add288, <4 x float> addrspace(1)* %tmp290
-  %tmp291 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp291 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp292 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp291, i32 0, i32 9 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp293 = load <4 x float> addrspace(1)* %tmp292 ; <<4 x float>> [#uses=1]
-  %tmp294 = load <4 x float>* %kZero              ; <<4 x float>> [#uses=1]
-  %tmp295 = load <4 x float>* %kOne               ; <<4 x float>> [#uses=1]
+  %tmp293 = load <4 x float>, <4 x float> addrspace(1)* %tmp292 ; <<4 x float>> [#uses=1]
+  %tmp294 = load <4 x float>, <4 x float>* %kZero              ; <<4 x float>> [#uses=1]
+  %tmp295 = load <4 x float>, <4 x float>* %kOne               ; <<4 x float>> [#uses=1]
   %call296 = call <4 x float> @_Z5clampU8__vector4fS_S_(<4 x float> %tmp293, <4 x float> %tmp294, <4 x float> %tmp295) ; <<4 x float>> [#uses=1]
-  %tmp297 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp297 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp298 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp297, i32 0, i32 9 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call296, <4 x float> addrspace(1)* %tmp298
-  %tmp299 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp299 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp300 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp299, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp301 = load <4 x float> addrspace(1)* %tmp300 ; <<4 x float>> [#uses=1]
+  %tmp301 = load <4 x float>, <4 x float> addrspace(1)* %tmp300 ; <<4 x float>> [#uses=1]
   %tmp302 = extractelement <4 x float> %tmp301, i32 0 ; <float> [#uses=1]
   %tmp303 = load float, float* %tolerance                ; <float> [#uses=1]
   %add304 = fadd float 1.000000e+000, %tmp303     ; <float> [#uses=1]
@@ -767,9 +767,9 @@ if.end278:                                        ; preds = %if.then275, %if.end
   br i1 %cmp305, label %land.lhs.true, label %if.else319
 
 land.lhs.true:                                    ; preds = %if.end278
-  %tmp306 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp306 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp307 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp306, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp308 = load <4 x float> addrspace(1)* %tmp307 ; <<4 x float>> [#uses=1]
+  %tmp308 = load <4 x float>, <4 x float> addrspace(1)* %tmp307 ; <<4 x float>> [#uses=1]
   %tmp309 = extractelement <4 x float> %tmp308, i32 0 ; <float> [#uses=1]
   %tmp310 = load float, float* %tolerance                ; <float> [#uses=1]
   %sub311 = fsub float 1.000000e+000, %tmp310     ; <float> [#uses=1]
@@ -777,25 +777,25 @@ land.lhs.true:                                    ; preds = %if.end278
   br i1 %cmp312, label %if.then313, label %if.else319
 
 if.then313:                                       ; preds = %land.lhs.true
-  %tmp314 = load float* %EPSILON                  ; <float> [#uses=1]
-  %tmp315 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp314 = load float, float* %EPSILON                  ; <float> [#uses=1]
+  %tmp315 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp316 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp315, i32 0, i32 4 ; <<4 x float> addrspace(1)*> [#uses=2]
-  %tmp317 = load <4 x float> addrspace(1)* %tmp316 ; <<4 x float>> [#uses=1]
+  %tmp317 = load <4 x float>, <4 x float> addrspace(1)* %tmp316 ; <<4 x float>> [#uses=1]
   %tmp318 = insertelement <4 x float> %tmp317, float %tmp314, i32 0 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp318, <4 x float> addrspace(1)* %tmp316
   br label %if.end342
 
 if.else319:                                       ; preds = %land.lhs.true, %if.end278
-  %tmp320 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp320 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp321 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp320, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp322 = load <4 x float> addrspace(1)* %tmp321 ; <<4 x float>> [#uses=1]
+  %tmp322 = load <4 x float>, <4 x float> addrspace(1)* %tmp321 ; <<4 x float>> [#uses=1]
   %tmp323 = extractelement <4 x float> %tmp322, i32 0 ; <float> [#uses=3]
   %cmp324 = fcmp oeq float 0.000000e+000, %tmp323 ; <i1> [#uses=1]
   %sel325 = select i1 %cmp324, float 1.000000e+000, float %tmp323 ; <float> [#uses=0]
   %div326 = fdiv float 1.000000e+000, %tmp323     ; <float> [#uses=1]
-  %tmp327 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp327 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp328 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp327, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp329 = load <4 x float> addrspace(1)* %tmp328 ; <<4 x float>> [#uses=1]
+  %tmp329 = load <4 x float>, <4 x float> addrspace(1)* %tmp328 ; <<4 x float>> [#uses=1]
   %tmp330 = extractelement <4 x float> %tmp329, i32 0 ; <float> [#uses=1]
   %sub331 = fsub float %tmp330, 1.000000e+000     ; <float> [#uses=3]
   %cmp332 = fcmp oeq float 0.000000e+000, %sub331 ; <i1> [#uses=1]
@@ -804,17 +804,17 @@ if.else319:                                       ; preds = %land.lhs.true, %if.
   %add335 = fadd float 1.000000e+000, %div334     ; <float> [#uses=1]
   %mul336 = fmul float 0x3FE62DE000000000, %add335 ; <float> [#uses=1]
   %call337 = call float @_Z3expf(float %mul336)   ; <float> [#uses=1]
-  %tmp338 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp338 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp339 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp338, i32 0, i32 4 ; <<4 x float> addrspace(1)*> [#uses=2]
-  %tmp340 = load <4 x float> addrspace(1)* %tmp339 ; <<4 x float>> [#uses=1]
+  %tmp340 = load <4 x float>, <4 x float> addrspace(1)* %tmp339 ; <<4 x float>> [#uses=1]
   %tmp341 = insertelement <4 x float> %tmp340, float %call337, i32 0 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp341, <4 x float> addrspace(1)* %tmp339
   br label %if.end342
 
 if.end342:                                        ; preds = %if.else319, %if.then313
-  %tmp343 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp343 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp345 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp343, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp346 = load <4 x float> addrspace(1)* %tmp345 ; <<4 x float>> [#uses=1]
+  %tmp346 = load <4 x float>, <4 x float> addrspace(1)* %tmp345 ; <<4 x float>> [#uses=1]
   %tmp347 = extractelement <4 x float> %tmp346, i32 1 ; <float> [#uses=1]
   %tmp348 = load float, float* %tolerance                ; <float> [#uses=1]
   %add349 = fadd float 1.000000e+000, %tmp348     ; <float> [#uses=1]
@@ -822,9 +822,9 @@ if.end342:                                        ; preds = %if.else319, %if.the
   br i1 %cmp350, label %land.lhs.true351, label %if.else365
 
 land.lhs.true351:                                 ; preds = %if.end342
-  %tmp352 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp352 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp353 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp352, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp354 = load <4 x float> addrspace(1)* %tmp353 ; <<4 x float>> [#uses=1]
+  %tmp354 = load <4 x float>, <4 x float> addrspace(1)* %tmp353 ; <<4 x float>> [#uses=1]
   %tmp355 = extractelement <4 x float> %tmp354, i32 1 ; <float> [#uses=1]
   %tmp356 = load float, float* %tolerance                ; <float> [#uses=1]
   %sub357 = fsub float 1.000000e+000, %tmp356     ; <float> [#uses=1]
@@ -832,25 +832,25 @@ land.lhs.true351:                                 ; preds = %if.end342
   br i1 %cmp358, label %if.then359, label %if.else365
 
 if.then359:                                       ; preds = %land.lhs.true351
-  %tmp360 = load float* %EPSILON                  ; <float> [#uses=1]
-  %tmp361 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp360 = load float, float* %EPSILON                  ; <float> [#uses=1]
+  %tmp361 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp362 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp361, i32 0, i32 4 ; <<4 x float> addrspace(1)*> [#uses=2]
-  %tmp363 = load <4 x float> addrspace(1)* %tmp362 ; <<4 x float>> [#uses=1]
+  %tmp363 = load <4 x float>, <4 x float> addrspace(1)* %tmp362 ; <<4 x float>> [#uses=1]
   %tmp364 = insertelement <4 x float> %tmp363, float %tmp360, i32 1 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp364, <4 x float> addrspace(1)* %tmp362
   br label %if.end388
 
 if.else365:                                       ; preds = %land.lhs.true351, %if.end342
-  %tmp366 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp366 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp367 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp366, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp368 = load <4 x float> addrspace(1)* %tmp367 ; <<4 x float>> [#uses=1]
+  %tmp368 = load <4 x float>, <4 x float> addrspace(1)* %tmp367 ; <<4 x float>> [#uses=1]
   %tmp369 = extractelement <4 x float> %tmp368, i32 1 ; <float> [#uses=3]
   %cmp370 = fcmp oeq float 0.000000e+000, %tmp369 ; <i1> [#uses=1]
   %sel371 = select i1 %cmp370, float 1.000000e+000, float %tmp369 ; <float> [#uses=0]
   %div372 = fdiv float 1.000000e+000, %tmp369     ; <float> [#uses=1]
-  %tmp373 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp373 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp374 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp373, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp375 = load <4 x float> addrspace(1)* %tmp374 ; <<4 x float>> [#uses=1]
+  %tmp375 = load <4 x float>, <4 x float> addrspace(1)* %tmp374 ; <<4 x float>> [#uses=1]
   %tmp376 = extractelement <4 x float> %tmp375, i32 1 ; <float> [#uses=1]
   %sub377 = fsub float %tmp376, 1.000000e+000     ; <float> [#uses=3]
   %cmp378 = fcmp oeq float 0.000000e+000, %sub377 ; <i1> [#uses=1]
@@ -859,17 +859,17 @@ if.else365:                                       ; preds = %land.lhs.true351, %
   %add381 = fadd float 1.000000e+000, %div380     ; <float> [#uses=1]
   %mul382 = fmul float 0x3FE62DE000000000, %add381 ; <float> [#uses=1]
   %call383 = call float @_Z3expf(float %mul382)   ; <float> [#uses=1]
-  %tmp384 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp384 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp385 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp384, i32 0, i32 4 ; <<4 x float> addrspace(1)*> [#uses=2]
-  %tmp386 = load <4 x float> addrspace(1)* %tmp385 ; <<4 x float>> [#uses=1]
+  %tmp386 = load <4 x float>, <4 x float> addrspace(1)* %tmp385 ; <<4 x float>> [#uses=1]
   %tmp387 = insertelement <4 x float> %tmp386, float %call383, i32 1 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp387, <4 x float> addrspace(1)* %tmp385
   br label %if.end388
 
 if.end388:                                        ; preds = %if.else365, %if.then359
-  %tmp389 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp389 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp390 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp389, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp391 = load <4 x float> addrspace(1)* %tmp390 ; <<4 x float>> [#uses=1]
+  %tmp391 = load <4 x float>, <4 x float> addrspace(1)* %tmp390 ; <<4 x float>> [#uses=1]
   %tmp392 = extractelement <4 x float> %tmp391, i32 2 ; <float> [#uses=1]
   %tmp393 = load float, float* %tolerance                ; <float> [#uses=1]
   %add394 = fadd float 1.000000e+000, %tmp393     ; <float> [#uses=1]
@@ -877,9 +877,9 @@ if.end388:                                        ; preds = %if.else365, %if.the
   br i1 %cmp395, label %land.lhs.true396, label %if.else410
 
 land.lhs.true396:                                 ; preds = %if.end388
-  %tmp397 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp397 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp398 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp397, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp399 = load <4 x float> addrspace(1)* %tmp398 ; <<4 x float>> [#uses=1]
+  %tmp399 = load <4 x float>, <4 x float> addrspace(1)* %tmp398 ; <<4 x float>> [#uses=1]
   %tmp400 = extractelement <4 x float> %tmp399, i32 2 ; <float> [#uses=1]
   %tmp401 = load float, float* %tolerance                ; <float> [#uses=1]
   %sub402 = fsub float 1.000000e+000, %tmp401     ; <float> [#uses=1]
@@ -887,25 +887,25 @@ land.lhs.true396:                                 ; preds = %if.end388
   br i1 %cmp403, label %if.then404, label %if.else410
 
 if.then404:                                       ; preds = %land.lhs.true396
-  %tmp405 = load float* %EPSILON                  ; <float> [#uses=1]
-  %tmp406 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp405 = load float, float* %EPSILON                  ; <float> [#uses=1]
+  %tmp406 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp407 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp406, i32 0, i32 4 ; <<4 x float> addrspace(1)*> [#uses=2]
-  %tmp408 = load <4 x float> addrspace(1)* %tmp407 ; <<4 x float>> [#uses=1]
+  %tmp408 = load <4 x float>, <4 x float> addrspace(1)* %tmp407 ; <<4 x float>> [#uses=1]
   %tmp409 = insertelement <4 x float> %tmp408, float %tmp405, i32 2 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp409, <4 x float> addrspace(1)* %tmp407
   br label %if.end433
 
 if.else410:                                       ; preds = %land.lhs.true396, %if.end388
-  %tmp411 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp411 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp412 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp411, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp413 = load <4 x float> addrspace(1)* %tmp412 ; <<4 x float>> [#uses=1]
+  %tmp413 = load <4 x float>, <4 x float> addrspace(1)* %tmp412 ; <<4 x float>> [#uses=1]
   %tmp414 = extractelement <4 x float> %tmp413, i32 2 ; <float> [#uses=3]
   %cmp415 = fcmp oeq float 0.000000e+000, %tmp414 ; <i1> [#uses=1]
   %sel416 = select i1 %cmp415, float 1.000000e+000, float %tmp414 ; <float> [#uses=0]
   %div417 = fdiv float 1.000000e+000, %tmp414     ; <float> [#uses=1]
-  %tmp418 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp418 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp419 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp418, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp420 = load <4 x float> addrspace(1)* %tmp419 ; <<4 x float>> [#uses=1]
+  %tmp420 = load <4 x float>, <4 x float> addrspace(1)* %tmp419 ; <<4 x float>> [#uses=1]
   %tmp421 = extractelement <4 x float> %tmp420, i32 2 ; <float> [#uses=1]
   %sub422 = fsub float %tmp421, 1.000000e+000     ; <float> [#uses=3]
   %cmp423 = fcmp oeq float 0.000000e+000, %sub422 ; <i1> [#uses=1]
@@ -914,49 +914,49 @@ if.else410:                                       ; preds = %land.lhs.true396, %
   %add426 = fadd float 1.000000e+000, %div425     ; <float> [#uses=1]
   %mul427 = fmul float 0x3FE62DE000000000, %add426 ; <float> [#uses=1]
   %call428 = call float @_Z3expf(float %mul427)   ; <float> [#uses=1]
-  %tmp429 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp429 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp430 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp429, i32 0, i32 4 ; <<4 x float> addrspace(1)*> [#uses=2]
-  %tmp431 = load <4 x float> addrspace(1)* %tmp430 ; <<4 x float>> [#uses=1]
+  %tmp431 = load <4 x float>, <4 x float> addrspace(1)* %tmp430 ; <<4 x float>> [#uses=1]
   %tmp432 = insertelement <4 x float> %tmp431, float %call428, i32 2 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp432, <4 x float> addrspace(1)* %tmp430
   br label %if.end433
 
 if.end433:                                        ; preds = %if.else410, %if.then404
-  %tmp434 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp434 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp435 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp434, i32 0, i32 4 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp436 = load <4 x float> addrspace(1)* %tmp435 ; <<4 x float>> [#uses=1]
+  %tmp436 = load <4 x float>, <4 x float> addrspace(1)* %tmp435 ; <<4 x float>> [#uses=1]
   %call437 = call <4 x float> @_Z4fabsU8__vector4f(<4 x float> %tmp436) ; <<4 x float>> [#uses=1]
-  %tmp438 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp438 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp439 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp438, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp440 = load <4 x float> addrspace(1)* %tmp439 ; <<4 x float>> [#uses=1]
+  %tmp440 = load <4 x float>, <4 x float> addrspace(1)* %tmp439 ; <<4 x float>> [#uses=1]
   %call441 = call <4 x float> @_Z3powU8__vector4fS_(<4 x float> %call437, <4 x float> %tmp440) ; <<4 x float>> [#uses=1]
-  %tmp442 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp442 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp443 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp442, i32 0, i32 5 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call441, <4 x float> addrspace(1)* %tmp443
-  %tmp444 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp444 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp445 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp444, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp446 = load <4 x float> addrspace(1)* %tmp445 ; <<4 x float>> [#uses=3]
+  %tmp446 = load <4 x float>, <4 x float> addrspace(1)* %tmp445 ; <<4 x float>> [#uses=3]
   %cmp447 = fcmp oeq <4 x float> zeroinitializer, %tmp446 ; <<4 x i1>> [#uses=1]
   %sel448 = select <4 x i1> %cmp447, <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, <4 x float> %tmp446 ; <<4 x float>> [#uses=0]
   %div449 = fdiv <4 x float> <float 0x3FE62DE000000000, float 0x3FE62DE000000000, float 0x3FE62DE000000000, float 0x3FE62DE000000000>, %tmp446 ; <<4 x float>> [#uses=1]
   %call450 = call <4 x float> @_Z3expU8__vector4f(<4 x float> %div449) ; <<4 x float>> [#uses=1]
-  %tmp451 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp451 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp452 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp451, i32 0, i32 6 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call450, <4 x float> addrspace(1)* %tmp452
-  %tmp453 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp453 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp454 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp453, i32 0, i32 3 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp455 = load <4 x float> addrspace(1)* %tmp454 ; <<4 x float>> [#uses=1]
-  %tmp456 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp455 = load <4 x float>, <4 x float> addrspace(1)* %tmp454 ; <<4 x float>> [#uses=1]
+  %tmp456 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp457 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp456, i32 0, i32 5 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp458 = load <4 x float> addrspace(1)* %tmp457 ; <<4 x float>> [#uses=1]
+  %tmp458 = load <4 x float>, <4 x float> addrspace(1)* %tmp457 ; <<4 x float>> [#uses=1]
   %mul459 = fmul <4 x float> %tmp455, %tmp458     ; <<4 x float>> [#uses=1]
-  %tmp460 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp460 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp461 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp460, i32 0, i32 4 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp462 = load <4 x float> addrspace(1)* %tmp461 ; <<4 x float>> [#uses=3]
+  %tmp462 = load <4 x float>, <4 x float> addrspace(1)* %tmp461 ; <<4 x float>> [#uses=3]
   %cmp463 = fcmp oeq <4 x float> zeroinitializer, %tmp462 ; <<4 x i1>> [#uses=1]
   %sel464 = select <4 x i1> %cmp463, <4 x float> <float 1.000000e+000, float 1.000000e+000, float 1.000000e+000, float 1.000000e+000>, <4 x float> %tmp462 ; <<4 x float>> [#uses=0]
   %div465 = fdiv <4 x float> %mul459, %tmp462     ; <<4 x float>> [#uses=1]
-  %tmp466 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp466 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp467 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp466, i32 0, i32 7 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %div465, <4 x float> addrspace(1)* %tmp467
   ret void
@@ -1031,14 +1031,14 @@ entry:
   store %struct.anon addrspace(2)* %pArgs, %struct.anon addrspace(2)** %pArgs.addr
   %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid0_curPix
-  %tmp = load i32* %gid0_curPix                   ; <i32> [#uses=1]
-  %tmp1 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp = load i32, i32* %gid0_curPix                   ; <i32> [#uses=1]
+  %tmp1 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp1, i32 %tmp ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp2 = load <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
-  %tmp3 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp2 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
+  %tmp3 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %call4 = call <4 x float> @evPix(<4 x float> %tmp2, %struct.anon addrspace(2)* %tmp3) ; <<4 x float>> [#uses=1]
-  %tmp5 = load i32* %gid0_curPix                  ; <i32> [#uses=1]
-  %tmp6 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp5 = load i32, i32* %gid0_curPix                  ; <i32> [#uses=1]
+  %tmp6 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx7 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp6, i32 %tmp5 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call4, <4 x float> addrspace(1)* %arrayidx7
   ret void
@@ -1079,14 +1079,14 @@ for.cond:                                         ; preds = %for.inc, %entry
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %tmp7 = load i32* %index                        ; <i32> [#uses=1]
-  %tmp8 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp7 = load i32, i32* %index                        ; <i32> [#uses=1]
+  %tmp8 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp8, i32 %tmp7 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp9 = load <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
-  %tmp10 = load %struct.anon addrspace(2)** %args.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp9 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
+  %tmp10 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %args.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %call11 = call <4 x float> @evPix(<4 x float> %tmp9, %struct.anon addrspace(2)* %tmp10) ; <<4 x float>> [#uses=1]
-  %tmp12 = load i32* %index                       ; <i32> [#uses=1]
-  %tmp13 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp12 = load i32, i32* %index                       ; <i32> [#uses=1]
+  %tmp13 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx14 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp13, i32 %tmp12 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call11, <4 x float> addrspace(1)* %arrayidx14
   br label %for.inc

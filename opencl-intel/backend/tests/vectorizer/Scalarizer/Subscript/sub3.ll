@@ -20,7 +20,7 @@ define void @kernel(<2 x float>* nocapture %A) nounwind {
   %2 = mul nsw i32 %1, 7
   %3 = sext i32 %2 to i64
   %4 = getelementptr inbounds <2 x float>, <2 x float>* %A, i64 %3
-  %5 = load <2 x float>* %4, align 4, !tbaa !0
+  %5 = load <2 x float>, <2 x float>* %4, align 4, !tbaa !0
   %6 = fadd <2 x float> %5, <float 3.0, float 3.0>
   store <2 x float> %6, <2 x float>* %4, align 4, !tbaa !0
   ret void

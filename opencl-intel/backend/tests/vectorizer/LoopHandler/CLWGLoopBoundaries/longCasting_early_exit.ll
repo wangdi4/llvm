@@ -29,7 +29,7 @@ entry:
 
 if.then:                                          ; preds = %entry
   %arrayidx = getelementptr inbounds i64, i64 addrspace(1)* %gl, i64 %conv1
-  %0 = load i64 addrspace(1)* %arrayidx, align 8
+  %0 = load i64, i64 addrspace(1)* %arrayidx, align 8
   %mul = shl nsw i64 %0, 1
   store i64 %mul, i64 addrspace(1)* %arrayidx, align 8
   br label %if.end

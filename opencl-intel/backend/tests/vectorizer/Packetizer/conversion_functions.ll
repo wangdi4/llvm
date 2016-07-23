@@ -17,9 +17,9 @@ define void @test_fptrunc(float addrspace(3)* %memA, double addrspace(1)* nocapt
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float, float addrspace(3)* %memA, i32 %call
-  %0 = load float addrspace(3)* %arrayidx, align 4
+  %0 = load float, float addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds double, double addrspace(1)* %memB, i32 %call
-  %1 = load double addrspace(1)* %arrayidx1, align 4
+  %1 = load double, double addrspace(1)* %arrayidx1, align 4
   %trunc = fptrunc double %1 to float
   %add = fadd float %0, %trunc
   %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %memC, i32 %call
@@ -36,9 +36,9 @@ define void @test_fpext(double addrspace(3)* %memA, float addrspace(1)* nocaptur
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds double, double addrspace(3)* %memA, i32 %call
-  %0 = load double addrspace(3)* %arrayidx, align 4
+  %0 = load double, double addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
-  %1 = load float addrspace(1)* %arrayidx1, align 4
+  %1 = load float, float addrspace(1)* %arrayidx1, align 4
   %ext = fpext float %1 to double
   %add = fadd double %0, %ext
   %arrayidx2 = getelementptr inbounds double, double addrspace(1)* %memC, i32 %call
@@ -55,9 +55,9 @@ define void @test_trunc(i32 addrspace(3)* %memA, i64 addrspace(1)* nocapture %me
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(3)* %memA, i32 %call
-  %0 = load i32 addrspace(3)* %arrayidx, align 4
+  %0 = load i32, i32 addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds i64, i64 addrspace(1)* %memB, i32 %call
-  %1 = load i64 addrspace(1)* %arrayidx1, align 4
+  %1 = load i64, i64 addrspace(1)* %arrayidx1, align 4
   %tr = trunc i64 %1 to i32
   %add = add i32 %0, %tr
   %arrayidx2 = getelementptr inbounds i32, i32 addrspace(1)* %memC, i32 %call
@@ -74,9 +74,9 @@ define void @test_sext(i64 addrspace(3)* %memA, i32 addrspace(1)* nocapture %mem
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i64, i64 addrspace(3)* %memA, i32 %call
-  %0 = load i64 addrspace(3)* %arrayidx, align 4
+  %0 = load i64, i64 addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %memB, i32 %call
-  %1 = load i32 addrspace(1)* %arrayidx1, align 4
+  %1 = load i32, i32 addrspace(1)* %arrayidx1, align 4
   %ext = sext i32 %1 to i64
   %add = add i64 %0, %ext
   %arrayidx2 = getelementptr inbounds i64, i64 addrspace(1)* %memC, i32 %call
@@ -93,9 +93,9 @@ define void @test_zext(i64 addrspace(3)* %memA, i32 addrspace(1)* nocapture %mem
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i64, i64 addrspace(3)* %memA, i32 %call
-  %0 = load i64 addrspace(3)* %arrayidx, align 4
+  %0 = load i64, i64 addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %memB, i32 %call
-  %1 = load i32 addrspace(1)* %arrayidx1, align 4
+  %1 = load i32, i32 addrspace(1)* %arrayidx1, align 4
   %ext = zext i32 %1 to i64
   %add = add i64 %0, %ext
   %arrayidx2 = getelementptr inbounds i64, i64 addrspace(1)* %memC, i32 %call
@@ -112,9 +112,9 @@ define void @test_fptosi(i32 addrspace(3)* %memA, float addrspace(1)* nocapture 
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(3)* %memA, i32 %call
-  %0 = load i32 addrspace(3)* %arrayidx, align 4
+  %0 = load i32, i32 addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
-  %1 = load float addrspace(1)* %arrayidx1, align 4
+  %1 = load float, float addrspace(1)* %arrayidx1, align 4
   %to = fptosi float %1 to i32
   %add = add i32 %0, %to
   %arrayidx2 = getelementptr inbounds i32, i32 addrspace(1)* %memC, i32 %call
@@ -131,9 +131,9 @@ define void @test_fptoui(i32 addrspace(3)* %memA, float addrspace(1)* nocapture 
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(3)* %memA, i32 %call
-  %0 = load i32 addrspace(3)* %arrayidx, align 4
+  %0 = load i32, i32 addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float, float addrspace(1)* %memB, i32 %call
-  %1 = load float addrspace(1)* %arrayidx1, align 4
+  %1 = load float, float addrspace(1)* %arrayidx1, align 4
   %to = fptoui float %1 to i32
   %add = add i32 %0, %to
   %arrayidx2 = getelementptr inbounds i32, i32 addrspace(1)* %memC, i32 %call
@@ -150,9 +150,9 @@ define void @test_uitofp(float addrspace(3)* %memA, i32 addrspace(1)* nocapture 
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float, float addrspace(3)* %memA, i32 %call
-  %0 = load float addrspace(3)* %arrayidx, align 4
+  %0 = load float, float addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %memB, i32 %call
-  %1 = load i32 addrspace(1)* %arrayidx1, align 4
+  %1 = load i32, i32 addrspace(1)* %arrayidx1, align 4
   %to = uitofp i32 %1 to float
   %add = fadd float %0, %to
   %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %memC, i32 %call
@@ -169,9 +169,9 @@ define void @test_sitofp(float addrspace(3)* %memA, i32 addrspace(1)* nocapture 
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float, float addrspace(3)* %memA, i32 %call
-  %0 = load float addrspace(3)* %arrayidx, align 4
+  %0 = load float, float addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %memB, i32 %call
-  %1 = load i32 addrspace(1)* %arrayidx1, align 4
+  %1 = load i32, i32 addrspace(1)* %arrayidx1, align 4
   %to = sitofp i32 %1 to float
   %add = fadd float %0, %to
   %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %memC, i32 %call
@@ -192,9 +192,9 @@ define void @test_bitcast(float addrspace(3)* %memA, i32 addrspace(1)* nocapture
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float, float addrspace(3)* %memA, i32 %call
-  %0 = load float addrspace(3)* %arrayidx, align 4
+  %0 = load float, float addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %memB, i32 %call
-  %1 = load i32 addrspace(1)* %arrayidx1, align 4
+  %1 = load i32, i32 addrspace(1)* %arrayidx1, align 4
   %to = bitcast i32 %1 to float
   %add = fadd float %0, %to
   %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %memC, i32 %call

@@ -11,7 +11,7 @@ bb.nph:
   %0 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %1 = mul nsw i32 %0, 7
   %2 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %1
-  %3 = load i32 addrspace(1)* %2, align 4
+  %3 = load i32, i32 addrspace(1)* %2, align 4
   %4 = add nsw i32 %3, 12
   br label %5
 

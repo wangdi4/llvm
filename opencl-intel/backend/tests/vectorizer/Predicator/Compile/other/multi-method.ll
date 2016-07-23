@@ -10,7 +10,7 @@
 define void @push(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 
@@ -29,7 +29,7 @@ return:                                           ; preds = %entry
 define void @push1(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 
@@ -47,7 +47,7 @@ return:                                           ; preds = %entry
 define void @push2(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 
@@ -65,7 +65,7 @@ return:                                           ; preds = %entry
 define void @push3(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 
@@ -83,7 +83,7 @@ return:                                           ; preds = %entry
 define void @push4(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 
@@ -101,7 +101,7 @@ return:                                           ; preds = %entry
 define void @push5(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 
@@ -119,7 +119,7 @@ return:                                           ; preds = %entry
 define void @push6(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 
@@ -137,7 +137,7 @@ return:                                           ; preds = %entry
 define void @push7(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 
@@ -155,7 +155,7 @@ return:                                           ; preds = %entry
 define void @push8(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 
@@ -173,7 +173,7 @@ return:                                           ; preds = %entry
 define void @push9(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 
@@ -192,7 +192,7 @@ return:                                           ; preds = %entry
 define void @push10(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 
@@ -210,7 +210,7 @@ return:                                           ; preds = %entry
 define void @push11(%struct.STACK* nocapture %ps, i32 %x) nounwind {
 entry:
   %0 = getelementptr inbounds %struct.STACK, %struct.STACK* %ps, i64 0, i32 0 ; <i32*> %[#uses=2]
-  %1 = load i32* %0, align 4                      ; <i32> [#uses=3]
+  %1 = load i32, i32* %0, align 4                      ; <i32> [#uses=3]
   %2 = icmp eq i32 %1, 10000                      ; <i1> [#uses=1]
   br i1 %2, label %return, label %bb
 

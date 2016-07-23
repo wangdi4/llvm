@@ -226,8 +226,8 @@ if.then:                                          ; preds = %land.lhs.true
   %tmp29 = load i32, i32* %gaussOrSinc.addr            ; <i32> [#uses=1]
   %tmp30 = load float, float* %twirlAngle.addr           ; <float> [#uses=1]
   %call31 = call <4 x float> @evaluatePixel(%struct._image2d_t* %tmp22, <2 x float> %call26, float %tmp27, <2 x float> %tmp28, i32 %tmp29, float %tmp30) ; <<4 x float>> [#uses=1]
-  %tmp32 = load i32* %index                       ; <i32> [#uses=1]
-  %tmp33 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp32 = load i32, i32* %index                       ; <i32> [#uses=1]
+  %tmp33 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp33, i32 %tmp32 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call31, <4 x float> addrspace(1)* %arrayidx
   br label %if.end

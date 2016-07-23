@@ -35,8 +35,8 @@ for.body:                                         ; preds = %for.cond
   %tmp2 = load i64*, i64** %A.addr                      ; <i64*> [#uses=1]
   %idxprom = zext i32 %call to i64                ; <i64> [#uses=1]
   %arrayidx = getelementptr inbounds i64, i64* %tmp2, i64 %idxprom ; <i64*> [#uses=1]
-  %tmp3 = load i64* %arrayidx                     ; <i64> [#uses=1]
-  %tmp4 = load i64* %sum                          ; <i64> [#uses=1]
+  %tmp3 = load i64, i64* %arrayidx                     ; <i64> [#uses=1]
+  %tmp4 = load i64, i64* %sum                          ; <i64> [#uses=1]
   %add = add nsw i64 %tmp4, %tmp3                 ; <i64> [#uses=1]
   store i64 %add, i64* %sum
   br label %for.inc
@@ -58,11 +58,11 @@ for.cond8:                                        ; preds = %for.inc19, %for.end
   br i1 %cmp11, label %for.body12, label %for.end22
 
 for.body12:                                       ; preds = %for.cond8
-  %tmp13 = load i64* %i7                          ; <i64> [#uses=1]
-  %tmp14 = load i64** %B.addr                     ; <i64*> [#uses=1]
+  %tmp13 = load i64, i64* %i7                          ; <i64> [#uses=1]
+  %tmp14 = load i64*, i64** %B.addr                     ; <i64*> [#uses=1]
   %arrayidx15 = getelementptr inbounds i64, i64* %tmp14, i64 %tmp13 ; <i64*> [#uses=1]
-  %tmp16 = load i64* %arrayidx15                  ; <i64> [#uses=1]
-  %tmp17 = load i64* %sum                         ; <i64> [#uses=1]
+  %tmp16 = load i64, i64* %arrayidx15                  ; <i64> [#uses=1]
+  %tmp17 = load i64, i64* %sum                         ; <i64> [#uses=1]
   %add18 = add nsw i64 %tmp17, %tmp16             ; <i64> [#uses=1]
   store i64 %add18, i64* %sum
   br label %for.inc19
@@ -74,8 +74,8 @@ for.inc19:                                        ; preds = %for.body12
   br label %for.cond8
 
 for.end22:                                        ; preds = %for.cond8
-  %tmp23 = load i64* %sum                         ; <i64> [#uses=1]
-  %tmp24 = load i64** %B.addr                     ; <i64*> [#uses=1]
+  %tmp23 = load i64, i64* %sum                         ; <i64> [#uses=1]
+  %tmp24 = load i64*, i64** %B.addr                     ; <i64*> [#uses=1]
   %arrayidx25 = getelementptr inbounds i64, i64* %tmp24, i64 0 ; <i64*> [#uses=1]
   store i64 %tmp23, i64* %arrayidx25
   ret void

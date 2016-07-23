@@ -52,13 +52,13 @@ entry:
   store <4 x float> addrspace(1)* %output, <4 x float> addrspace(1)** %output.addr
   %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid0_curPixel
-  %tmp = load i32* %gid0_curPixel                 ; <i32> [#uses=1]
-  %tmp1 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp = load i32, i32* %gid0_curPixel                 ; <i32> [#uses=1]
+  %tmp1 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp1, i32 %tmp ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp2 = load <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
+  %tmp2 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
   %call3 = call <4 x float> @evaluatePixel(<4 x float> %tmp2) ; <<4 x float>> [#uses=1]
-  %tmp4 = load i32* %gid0_curPixel                ; <i32> [#uses=1]
-  %tmp5 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp4 = load i32, i32* %gid0_curPixel                ; <i32> [#uses=1]
+  %tmp5 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx6 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp5, i32 %tmp4 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call3, <4 x float> addrspace(1)* %arrayidx6
   ret void
@@ -108,13 +108,13 @@ for.cond:                                         ; preds = %for.inc, %entry
   br i1 %cmp13, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %tmp14 = load i32* %index                       ; <i32> [#uses=1]
-  %tmp15 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp14 = load i32, i32* %index                       ; <i32> [#uses=1]
+  %tmp15 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp15, i32 %tmp14 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp16 = load <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
+  %tmp16 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
   %call17 = call <4 x float> @evaluatePixel(<4 x float> %tmp16) ; <<4 x float>> [#uses=1]
-  %tmp18 = load i32* %index                       ; <i32> [#uses=1]
-  %tmp19 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp18 = load i32, i32* %index                       ; <i32> [#uses=1]
+  %tmp19 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx20 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp19, i32 %tmp18 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call17, <4 x float> addrspace(1)* %arrayidx20
   br label %for.inc

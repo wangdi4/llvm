@@ -12,7 +12,7 @@ define void @simpleBranch(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* noc
   %id = tail call i32 @_Z13get_global_idj(i32 0) nounwind
 
   %in1 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %id
-  %in2 = load i32 addrspace(1)* %in1, align 4
+  %in2 = load i32, i32 addrspace(1)* %in1, align 4
 
   %cmp = icmp slt i32 %id, %in2 
   br i1 %cmp, label %true, label %false

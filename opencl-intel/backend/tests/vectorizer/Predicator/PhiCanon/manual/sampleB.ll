@@ -34,7 +34,7 @@ for.body.preheader:                               ; preds = %for.cond.preheader
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
   %arrayidx8 = getelementptr inbounds i64, i64* %B, i64 %indvars.iv
-  %tmp9 = load i64* %arrayidx8, align 8
+  %tmp9 = load i64, i64* %arrayidx8, align 8
   %arrayidx13 = getelementptr inbounds i64, i64* %A, i64 %indvars.iv
   store i64 %tmp9, i64* %arrayidx13, align 8
   %indvars.iv.next = add i64 %indvars.iv, 1
@@ -54,7 +54,7 @@ for.body23:                                       ; preds = %for.cond17
 if.end:                                           ; preds = %for.body23
   %1 = shl i64 %indvars.iv10, 1
   %arrayidx31 = getelementptr inbounds i64, i64* %B, i64 %1
-  %tmp32 = load i64* %arrayidx31, align 8
+  %tmp32 = load i64, i64* %arrayidx31, align 8
   %2 = add nsw i64 %indvars.iv10, 4
   %arrayidx37 = getelementptr inbounds i64, i64* %A, i64 %2
   store i64 %tmp32, i64* %arrayidx37, align 8

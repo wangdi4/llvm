@@ -47,28 +47,28 @@ entry:
   %tmp12 = load i32, i32* %step.addr                   ; <i32> [#uses=1]
   %add13 = add i32 %tmp11, %tmp12                 ; <i32> [#uses=1]
   store i32 %add13, i32* %match
-  %tmp15 = load i32* %pair                        ; <i32> [#uses=1]
-  %tmp16 = load float addrspace(1)** %tArray.addr ; <float addrspace(1)*> [#uses=1]
+  %tmp15 = load i32, i32* %pair                        ; <i32> [#uses=1]
+  %tmp16 = load float addrspace(1)*, float addrspace(1)** %tArray.addr ; <float addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %tmp16, i32 %tmp15 ; <float addrspace(1)*> [#uses=1]
-  %tmp17 = load float addrspace(1)* %arrayidx     ; <float> [#uses=1]
+  %tmp17 = load float, float addrspace(1)* %arrayidx     ; <float> [#uses=1]
   store float %tmp17, float* %T1
-  %tmp19 = load i32* %match                       ; <i32> [#uses=1]
-  %tmp20 = load float addrspace(1)** %tArray.addr ; <float addrspace(1)*> [#uses=1]
+  %tmp19 = load i32, i32* %match                       ; <i32> [#uses=1]
+  %tmp20 = load float addrspace(1)*, float addrspace(1)** %tArray.addr ; <float addrspace(1)*> [#uses=1]
   %arrayidx21 = getelementptr inbounds float, float addrspace(1)* %tmp20, i32 %tmp19 ; <float addrspace(1)*> [#uses=1]
-  %tmp22 = load float addrspace(1)* %arrayidx21   ; <float> [#uses=1]
+  %tmp22 = load float, float addrspace(1)* %arrayidx21   ; <float> [#uses=1]
   store float %tmp22, float* %T2
   %tmp23 = load float, float* %T1                        ; <float> [#uses=1]
   %tmp24 = load float, float* %T2                        ; <float> [#uses=1]
   %add25 = fadd float %tmp23, %tmp24              ; <float> [#uses=1]
-  %tmp26 = load i32* %pair                        ; <i32> [#uses=1]
-  %tmp27 = load float addrspace(1)** %tArray.addr ; <float addrspace(1)*> [#uses=1]
+  %tmp26 = load i32, i32* %pair                        ; <i32> [#uses=1]
+  %tmp27 = load float addrspace(1)*, float addrspace(1)** %tArray.addr ; <float addrspace(1)*> [#uses=1]
   %arrayidx28 = getelementptr inbounds float, float addrspace(1)* %tmp27, i32 %tmp26 ; <float addrspace(1)*> [#uses=1]
   store float %add25, float addrspace(1)* %arrayidx28
   %tmp29 = load float, float* %T1                        ; <float> [#uses=1]
   %tmp30 = load float, float* %T2                        ; <float> [#uses=1]
   %sub = fsub float %tmp29, %tmp30                ; <float> [#uses=1]
-  %tmp31 = load i32* %match                       ; <i32> [#uses=1]
-  %tmp32 = load float addrspace(1)** %tArray.addr ; <float addrspace(1)*> [#uses=1]
+  %tmp31 = load i32, i32* %match                       ; <i32> [#uses=1]
+  %tmp32 = load float addrspace(1)*, float addrspace(1)** %tArray.addr ; <float addrspace(1)*> [#uses=1]
   %arrayidx33 = getelementptr inbounds float, float addrspace(1)* %tmp32, i32 %tmp31 ; <float addrspace(1)*> [#uses=1]
   store float %sub, float addrspace(1)* %arrayidx33
   ret void

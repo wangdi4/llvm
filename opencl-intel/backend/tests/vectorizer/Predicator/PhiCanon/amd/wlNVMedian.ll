@@ -43,7 +43,7 @@ entry:
 
 if.then:                                          ; preds = %entry
   %arrayidx24 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %uc4Source, i32 %add
-  %tmp25 = load <4 x i8> addrspace(1)* %arrayidx24, align 4
+  %tmp25 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx24, align 4
   br label %if.end
 
 if.end:                                           ; preds = %entry, %if.then
@@ -70,7 +70,7 @@ if.then46:                                        ; preds = %if.then31
   %call53 = call i32 @__mul24_1u32(i32 %call51, i32 %call52) nounwind
   %add54 = add i32 %call53, %add
   %arrayidx56 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %uc4Source, i32 %add54
-  %tmp57 = load <4 x i8> addrspace(1)* %arrayidx56, align 4
+  %tmp57 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx56, align 4
   store <4 x i8> %tmp57, <4 x i8> addrspace(3)* %arrayidx49, align 4
   br label %if.end63
 
@@ -105,7 +105,7 @@ if.then81:                                        ; preds = %land.lhs.true78
   %add91 = add i32 %call87, -1
   %sub92 = add i32 %add91, %call90
   %arrayidx94 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %uc4Source, i32 %sub92
-  %tmp95 = load <4 x i8> addrspace(1)* %arrayidx94, align 4
+  %tmp95 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx94, align 4
   store <4 x i8> %tmp95, <4 x i8> addrspace(3)* %arrayidx84, align 4
   br label %if.end100
 
@@ -145,7 +145,7 @@ if.then117:                                       ; preds = %land.lhs.true114
   %add129 = add i32 %call125, -1
   %sub130 = add i32 %add129, %call128
   %arrayidx132 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %uc4Source, i32 %sub130
-  %tmp133 = load <4 x i8> addrspace(1)* %arrayidx132, align 4
+  %tmp133 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx132, align 4
   store <4 x i8> %tmp133, <4 x i8> addrspace(3)* %arrayidx120, align 4
   br label %if.end226
 
@@ -184,7 +184,7 @@ if.then162:                                       ; preds = %land.lhs.true155
   %call172 = call i32 @__mul24_1u32(i32 %add170, i32 %call171) nounwind
   %add173 = add i32 %call172, %call168
   %arrayidx175 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %uc4Source, i32 %add173
-  %tmp176 = load <4 x i8> addrspace(1)* %arrayidx175, align 4
+  %tmp176 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx175, align 4
   store <4 x i8> %tmp176, <4 x i8> addrspace(3)* %arrayidx165, align 4
   br label %if.end181
 
@@ -227,7 +227,7 @@ if.then202:                                       ; preds = %land.lhs.true195
   %call214 = call i32 @__mul24_1u32(i32 %add212, i32 %call213) nounwind
   %add215 = add i32 %call214, %call210
   %arrayidx217 = getelementptr <4 x i8>, <4 x i8> addrspace(1)* %uc4Source, i32 %add215
-  %tmp218 = load <4 x i8> addrspace(1)* %arrayidx217, align 4
+  %tmp218 = load <4 x i8>, <4 x i8> addrspace(1)* %arrayidx217, align 4
   store <4 x i8> %tmp218, <4 x i8> addrspace(3)* %arrayidx205, align 4
   br label %if.end226
 
@@ -256,7 +256,7 @@ for.body:                                         ; preds = %if.end226, %for.bod
   %call248 = call i32 @_Z12get_local_idj(i32 0) nounwind
   %add249 = add i32 %call248, %call247
   %arrayidx257 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %uc4LocalData, i32 %add249
-  %tmp258 = load <4 x i8> addrspace(3)* %arrayidx257, align 4
+  %tmp258 = load <4 x i8>, <4 x i8> addrspace(3)* %arrayidx257, align 4
   %tmp259 = extractelement <4 x i8> %tmp258, i32 0
   %conv = uitofp i8 %tmp259 to float
   %cmp260 = fcmp olt float %0, %conv
@@ -271,7 +271,7 @@ for.body:                                         ; preds = %if.end226, %for.bod
   %cmp290 = fcmp olt float %2, %conv289
   %conv291 = zext i1 %cmp290 to i32
   %arrayidx301 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %uc4LocalData, i32 %inc
-  %tmp302 = load <4 x i8> addrspace(3)* %arrayidx301, align 4
+  %tmp302 = load <4 x i8>, <4 x i8> addrspace(3)* %arrayidx301, align 4
   %tmp303 = extractelement <4 x i8> %tmp302, i32 0
   %conv304 = uitofp i8 %tmp303 to float
   %cmp305 = fcmp olt float %0, %conv304
@@ -286,7 +286,7 @@ for.body:                                         ; preds = %if.end226, %for.bod
   %cmp336 = fcmp olt float %2, %conv335
   %conv337 = zext i1 %cmp336 to i32
   %arrayidx347 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %uc4LocalData, i32 %inc330
-  %tmp348 = load <4 x i8> addrspace(3)* %arrayidx347, align 4
+  %tmp348 = load <4 x i8>, <4 x i8> addrspace(3)* %arrayidx347, align 4
   %tmp349 = extractelement <4 x i8> %tmp348, i32 0
   %conv350 = uitofp i8 %tmp349 to float
   %cmp351 = fcmp olt float %0, %conv350
@@ -301,7 +301,7 @@ for.body:                                         ; preds = %if.end226, %for.bod
   %conv382 = zext i1 %cmp381 to i32
   %add387 = add i32 %add249, %iLocalPixPitch
   %arrayidx396 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %uc4LocalData, i32 %add387
-  %tmp397 = load <4 x i8> addrspace(3)* %arrayidx396, align 4
+  %tmp397 = load <4 x i8>, <4 x i8> addrspace(3)* %arrayidx396, align 4
   %tmp398 = extractelement <4 x i8> %tmp397, i32 0
   %conv399 = uitofp i8 %tmp398 to float
   %cmp400 = fcmp olt float %0, %conv399
@@ -316,7 +316,7 @@ for.body:                                         ; preds = %if.end226, %for.bod
   %cmp431 = fcmp olt float %2, %conv430
   %conv432 = zext i1 %cmp431 to i32
   %arrayidx442 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %uc4LocalData, i32 %inc425
-  %tmp443 = load <4 x i8> addrspace(3)* %arrayidx442, align 4
+  %tmp443 = load <4 x i8>, <4 x i8> addrspace(3)* %arrayidx442, align 4
   %tmp444 = extractelement <4 x i8> %tmp443, i32 0
   %conv445 = uitofp i8 %tmp444 to float
   %cmp446 = fcmp olt float %0, %conv445
@@ -331,7 +331,7 @@ for.body:                                         ; preds = %if.end226, %for.bod
   %cmp477 = fcmp olt float %2, %conv476
   %conv478 = zext i1 %cmp477 to i32
   %arrayidx488 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %uc4LocalData, i32 %inc471
-  %tmp489 = load <4 x i8> addrspace(3)* %arrayidx488, align 4
+  %tmp489 = load <4 x i8>, <4 x i8> addrspace(3)* %arrayidx488, align 4
   %tmp490 = extractelement <4 x i8> %tmp489, i32 0
   %conv491 = uitofp i8 %tmp490 to float
   %cmp492 = fcmp olt float %0, %conv491
@@ -346,7 +346,7 @@ for.body:                                         ; preds = %if.end226, %for.bod
   %conv523 = zext i1 %cmp522 to i32
   %add528 = add i32 %add387, %iLocalPixPitch
   %arrayidx537 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %uc4LocalData, i32 %add528
-  %tmp538 = load <4 x i8> addrspace(3)* %arrayidx537, align 4
+  %tmp538 = load <4 x i8>, <4 x i8> addrspace(3)* %arrayidx537, align 4
   %tmp539 = extractelement <4 x i8> %tmp538, i32 0
   %conv540 = uitofp i8 %tmp539 to float
   %cmp541 = fcmp olt float %0, %conv540
@@ -361,7 +361,7 @@ for.body:                                         ; preds = %if.end226, %for.bod
   %cmp572 = fcmp olt float %2, %conv571
   %conv573 = zext i1 %cmp572 to i32
   %arrayidx583 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %uc4LocalData, i32 %inc566
-  %tmp584 = load <4 x i8> addrspace(3)* %arrayidx583, align 4
+  %tmp584 = load <4 x i8>, <4 x i8> addrspace(3)* %arrayidx583, align 4
   %tmp585 = extractelement <4 x i8> %tmp584, i32 0
   %conv586 = uitofp i8 %tmp585 to float
   %cmp587 = fcmp olt float %0, %conv586
@@ -376,7 +376,7 @@ for.body:                                         ; preds = %if.end226, %for.bod
   %cmp618 = fcmp olt float %2, %conv617
   %conv619 = zext i1 %cmp618 to i32
   %arrayidx629 = getelementptr <4 x i8>, <4 x i8> addrspace(3)* %uc4LocalData, i32 %inc612
-  %tmp630 = load <4 x i8> addrspace(3)* %arrayidx629, align 4
+  %tmp630 = load <4 x i8>, <4 x i8> addrspace(3)* %arrayidx629, align 4
   %tmp631 = extractelement <4 x i8> %tmp630, i32 0
   %conv632 = uitofp i8 %tmp631 to float
   %cmp633 = fcmp olt float %0, %conv632

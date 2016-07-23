@@ -32,7 +32,7 @@ for.end.us:                                       ; preds = %for.body8.us
   %call16.us = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv17.us = zext i32 %call16.us to i64
   %arrayidx20.us = getelementptr inbounds i64, i64* %B, i64 %storemerge8.us
-  %tmp21.us = load i64* %arrayidx20.us, align 8
+  %tmp21.us = load i64, i64* %arrayidx20.us, align 8
   %xor22.us = xor i64 %tmp21.us, %conv17.us
   store i64 %xor22.us, i64* %arrayidx20.us, align 8
   %inc25.us = add nsw i64 %storemerge8.us, 1
@@ -62,7 +62,7 @@ for.end:                                          ; preds = %for.end.preheader, 
   %call16 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv17 = zext i32 %call16 to i64
   %arrayidx20 = getelementptr inbounds i64, i64* %B, i64 %storemerge8
-  %tmp21 = load i64* %arrayidx20, align 8
+  %tmp21 = load i64, i64* %arrayidx20, align 8
   %xor22 = xor i64 %tmp21, %conv17
   store i64 %xor22, i64* %arrayidx20, align 8
   %inc25 = add nsw i64 %storemerge8, 1

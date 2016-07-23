@@ -20,7 +20,7 @@ entry:
 
 bb1:                                              ; preds = %bb4
   %1 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %5, i64 0, i32 0 ; <i32*> [#uses=1]
-  %2 = load i32* %1, align 8                      ; <i32> [#uses=1]
+  %2 = load i32, i32* %1, align 8                      ; <i32> [#uses=1]
   %3 = icmp eq i32 %2, %i                         ; <i1> [#uses=1]
   br i1 %3, label %bb6, label %bb3
 

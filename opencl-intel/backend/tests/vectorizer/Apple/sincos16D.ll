@@ -53,11 +53,11 @@
      %sext = shl i64 %3, 32
      %4 = ashr exact i64 %sext, 32
      %5 = getelementptr inbounds <16 x double>, <16 x double> addrspace(1)* %in, i64 %4
-     %6 = load <16 x double> addrspace(1)* %5, align 128, !tbaa !4
+     %6 = load <16 x double>, <16 x double> addrspace(1)* %5, align 128, !tbaa !4
      %7 = getelementptr inbounds <16 x double>, <16 x double> addrspace(1)* %out2, i64 %4
      store <16 x double> %6, <16 x double>* %2, align 128
      call void @_Z6sincosDv16_dPU3AS1S_(<16 x double>* sret %1, <16 x double>* byval align 128 %2, <16 x double> addrspace(1)* %7) nounwind
-     %8 = load <16 x double>* %1, align 128
+     %8 = load <16 x double>, <16 x double>* %1, align 128
      %9 = getelementptr inbounds <16 x double>, <16 x double> addrspace(1)* %out, i64 %4
      store <16 x double> %8, <16 x double> addrspace(1)* %9, align 128, !tbaa !4
      ret void

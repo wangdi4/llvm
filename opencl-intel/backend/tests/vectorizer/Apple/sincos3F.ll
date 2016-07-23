@@ -59,7 +59,7 @@
      %12 = getelementptr inbounds float, float addrspace(1)* %out, i64 %6
      %13 = bitcast <4 x float> %11 to <2 x double>
      call void @_Z7vstore3Dv3_fmPU3AS1f(<2 x double> %13, i64 0, float addrspace(1)* %12) nounwind
-     %14 = load <4 x float>* %9, align 16
+     %14 = load <4 x float>, <4 x float>* %9, align 16
      %15 = getelementptr inbounds float, float addrspace(1)* %out2, i64 %6
      %16 = bitcast <4 x float> %14 to <2 x double>
      call void @_Z7vstore3Dv3_fmPU3AS1f(<2 x double> %16, i64 0, float addrspace(1)* %15) nounwind
@@ -86,7 +86,7 @@
      .thread3:                                         ; preds = %LeafBlock1
      %20 = mul i64 %1, 3
      %21 = getelementptr inbounds float, float addrspace(1)* %in, i64 %20
-     %22 = load float addrspace(1)* %21, align 4, !tbaa !6
+     %22 = load float, float addrspace(1)* %21, align 4, !tbaa !6
      %23 = insertelement <3 x float> undef, float %22, i32 0
      %24 = insertelement <3 x float> %23, float 0x7FF8000000000000, i32 1
      %25 = insertelement <3 x float> %24, float 0x7FF8000000000000, i32 2
@@ -99,11 +99,11 @@
      .thread:                                          ; preds = %LeafBlock
      %29 = mul i64 %1, 3
      %30 = getelementptr inbounds float, float addrspace(1)* %in, i64 %29
-     %31 = load float addrspace(1)* %30, align 4, !tbaa !6
+     %31 = load float, float addrspace(1)* %30, align 4, !tbaa !6
      %32 = insertelement <3 x float> undef, float %31, i32 0
      %33 = add i64 %29, 1
      %34 = getelementptr inbounds float, float addrspace(1)* %in, i64 %33
-     %35 = load float addrspace(1)* %34, align 4, !tbaa !6
+     %35 = load float, float addrspace(1)* %34, align 4, !tbaa !6
      %36 = insertelement <3 x float> %32, float %35, i32 1
      %37 = insertelement <3 x float> %36, float 0x7FF8000000000000, i32 2
      %38 = shufflevector <3 x float> %37, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>

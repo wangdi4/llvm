@@ -31,8 +31,8 @@ entry:
   store float %rangeSigma, float* %rangeSigma.addr
   store i32 %colorize, i32* %colorize.addr
   store %struct.anon addrspace(1)* %pArgs, %struct.anon addrspace(1)** %pArgs.addr
-  %tmp = load i32* %colorize.addr                 ; <i32> [#uses=1]
-  %tmp1 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp = load i32, i32* %colorize.addr                 ; <i32> [#uses=1]
+  %tmp1 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp2 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp1, i32 0, i32 0 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %tmp, i32 addrspace(1)* %tmp2
   %tmp3 = load <2 x float>, <2 x float>* %spatialSigma.addr    ; <<2 x float>> [#uses=1]
@@ -56,13 +56,13 @@ if.then:                                          ; preds = %land.lhs.true
   %cmp13 = fcmp oeq float 0.000000e+000, %mul12   ; <i1> [#uses=1]
   %sel = select i1 %cmp13, float 1.000000e+000, float %mul12 ; <float> [#uses=0]
   %div = fdiv float 1.000000e+000, %mul12         ; <float> [#uses=1]
-  %tmp14 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp14 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp15 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp14, i32 0, i32 1 ; <float addrspace(1)*> [#uses=1]
   store float %div, float addrspace(1)* %tmp15
   br label %if.end
 
 if.else:                                          ; preds = %land.lhs.true, %entry
-  %tmp16 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp16 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp17 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp16, i32 0, i32 1 ; <float addrspace(1)*> [#uses=1]
   store float 1.000000e+000, float addrspace(1)* %tmp17
   br label %if.end
@@ -80,13 +80,13 @@ if.then20:                                        ; preds = %if.end
   %cmp25 = fcmp oeq float 0.000000e+000, %mul24   ; <i1> [#uses=1]
   %sel26 = select i1 %cmp25, float 1.000000e+000, float %mul24 ; <float> [#uses=0]
   %div27 = fdiv float 1.000000e+000, %mul24       ; <float> [#uses=1]
-  %tmp28 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp28 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp29 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp28, i32 0, i32 2 ; <float addrspace(1)*> [#uses=1]
   store float %div27, float addrspace(1)* %tmp29
   br label %if.end33
 
 if.else30:                                        ; preds = %if.end
-  %tmp31 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp31 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp32 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp31, i32 0, i32 2 ; <float addrspace(1)*> [#uses=1]
   store float 1.000000e+000, float addrspace(1)* %tmp32
   br label %if.end33
@@ -97,7 +97,7 @@ if.end33:                                         ; preds = %if.else30, %if.then
   %mul36 = fmul float 0x40012B0200000000, %tmp35  ; <float> [#uses=1]
   %call = call float @_Z4ceilf(float %mul36)      ; <float> [#uses=1]
   %conv = fptosi float %call to i32               ; <i32> [#uses=1]
-  %tmp37 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp37 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp38 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp37, i32 0, i32 3 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %conv, i32 addrspace(1)* %tmp38
   %tmp39 = load <2 x float>, <2 x float>* %spatialSigma.addr   ; <<2 x float>> [#uses=1]
@@ -105,7 +105,7 @@ if.end33:                                         ; preds = %if.else30, %if.then
   %mul41 = fmul float 0x40012B0200000000, %tmp40  ; <float> [#uses=1]
   %call42 = call float @_Z4ceilf(float %mul41)    ; <float> [#uses=1]
   %conv43 = fptosi float %call42 to i32           ; <i32> [#uses=1]
-  %tmp44 = load %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
+  %tmp44 = load %struct.anon addrspace(1)*, %struct.anon addrspace(1)** %pArgs.addr ; <%struct.anon addrspace(1)*> [#uses=1]
   %tmp45 = getelementptr inbounds %struct.anon, %struct.anon addrspace(1)* %tmp44, i32 0, i32 4 ; <i32 addrspace(1)*> [#uses=1]
   store i32 %conv43, i32 addrspace(1)* %tmp45
   ret void
@@ -169,24 +169,24 @@ entry:
   %tmp = bitcast [4 x float]* %dst to i8*         ; <i8*> [#uses=1]
   call void @llvm.memset.p0i8.i32(i8* %tmp, i8 0, i32 16, i32 4, i1 false)
   store float 0.000000e+000, float* %scale
-  %tmp3 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp3 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp4 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp3, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp5 = load i32 addrspace(2)* %tmp4            ; <i32> [#uses=1]
-  %tmp6 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp5 = load i32, i32 addrspace(2)* %tmp4            ; <i32> [#uses=1]
+  %tmp6 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp7 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp6, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp8 = load i32 addrspace(2)* %tmp7            ; <i32> [#uses=1]
-  %tmp9 = load <2 x i32>* %outCrd.addr            ; <<2 x i32>> [#uses=1]
+  %tmp8 = load i32, i32 addrspace(2)* %tmp7            ; <i32> [#uses=1]
+  %tmp9 = load <2 x i32>, <2 x i32>* %outCrd.addr            ; <<2 x i32>> [#uses=1]
   %tmp10 = extractelement <2 x i32> %tmp9, i32 0  ; <i32> [#uses=1]
   %call = call i32 @_Z3minii(i32 %tmp8, i32 %tmp10) ; <i32> [#uses=1]
   %sub = sub i32 %tmp5, %call                     ; <i32> [#uses=1]
   store i32 %sub, i32* %negOffsetX
-  %tmp12 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp12 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp13 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp12, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp14 = load i32 addrspace(2)* %tmp13          ; <i32> [#uses=1]
-  %tmp15 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp14 = load i32, i32 addrspace(2)* %tmp13          ; <i32> [#uses=1]
+  %tmp15 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp16 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp15, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp17 = load i32 addrspace(2)* %tmp16          ; <i32> [#uses=1]
-  %tmp18 = load <2 x i32>* %imgSize.addr          ; <<2 x i32>> [#uses=1]
+  %tmp17 = load i32, i32 addrspace(2)* %tmp16          ; <i32> [#uses=1]
+  %tmp18 = load <2 x i32>, <2 x i32>* %imgSize.addr          ; <<2 x i32>> [#uses=1]
   %tmp19 = extractelement <2 x i32> %tmp18, i32 0 ; <i32> [#uses=1]
   %tmp20 = load <2 x i32>, <2 x i32>* %outCrd.addr           ; <<2 x i32>> [#uses=1]
   %tmp21 = extractelement <2 x i32> %tmp20, i32 0 ; <i32> [#uses=1]
@@ -195,24 +195,24 @@ entry:
   %call24 = call i32 @_Z3minii(i32 %tmp17, i32 %sub23) ; <i32> [#uses=1]
   %sub25 = sub i32 %tmp14, %call24                ; <i32> [#uses=1]
   store i32 %sub25, i32* %posOffsetX
-  %tmp27 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp27 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp28 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp27, i32 0, i32 4 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp29 = load i32 addrspace(2)* %tmp28          ; <i32> [#uses=1]
-  %tmp30 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp29 = load i32, i32 addrspace(2)* %tmp28          ; <i32> [#uses=1]
+  %tmp30 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp31 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp30, i32 0, i32 4 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp32 = load i32 addrspace(2)* %tmp31          ; <i32> [#uses=1]
-  %tmp33 = load <2 x i32>* %outCrd.addr           ; <<2 x i32>> [#uses=1]
+  %tmp32 = load i32, i32 addrspace(2)* %tmp31          ; <i32> [#uses=1]
+  %tmp33 = load <2 x i32>, <2 x i32>* %outCrd.addr           ; <<2 x i32>> [#uses=1]
   %tmp34 = extractelement <2 x i32> %tmp33, i32 1 ; <i32> [#uses=1]
   %call35 = call i32 @_Z3minii(i32 %tmp32, i32 %tmp34) ; <i32> [#uses=1]
   %sub36 = sub i32 %tmp29, %call35                ; <i32> [#uses=1]
   store i32 %sub36, i32* %negOffsetY
-  %tmp38 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp38 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp39 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp38, i32 0, i32 4 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp40 = load i32 addrspace(2)* %tmp39          ; <i32> [#uses=1]
-  %tmp41 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp40 = load i32, i32 addrspace(2)* %tmp39          ; <i32> [#uses=1]
+  %tmp41 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp42 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp41, i32 0, i32 4 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp43 = load i32 addrspace(2)* %tmp42          ; <i32> [#uses=1]
-  %tmp44 = load <2 x i32>* %imgSize.addr          ; <<2 x i32>> [#uses=1]
+  %tmp43 = load i32, i32 addrspace(2)* %tmp42          ; <i32> [#uses=1]
+  %tmp44 = load <2 x i32>, <2 x i32>* %imgSize.addr          ; <<2 x i32>> [#uses=1]
   %tmp45 = extractelement <2 x i32> %tmp44, i32 1 ; <i32> [#uses=1]
   %tmp46 = load <2 x i32>, <2 x i32>* %outCrd.addr           ; <<2 x i32>> [#uses=1]
   %tmp47 = extractelement <2 x i32> %tmp46, i32 1 ; <i32> [#uses=1]
@@ -221,9 +221,9 @@ entry:
   %call50 = call i32 @_Z3minii(i32 %tmp43, i32 %sub49) ; <i32> [#uses=1]
   %sub51 = sub i32 %tmp40, %call50                ; <i32> [#uses=1]
   store i32 %sub51, i32* %posOffsetY
-  %tmp53 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp53 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp54 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp53, i32 0, i32 4 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp55 = load i32 addrspace(2)* %tmp54          ; <i32> [#uses=1]
+  %tmp55 = load i32, i32 addrspace(2)* %tmp54          ; <i32> [#uses=1]
   %neg = sub i32 0, %tmp55                        ; <i32> [#uses=1]
   %tmp56 = load i32, i32* %negOffsetY                  ; <i32> [#uses=1]
   %add = add nsw i32 %neg, %tmp56                 ; <i32> [#uses=1]
@@ -231,19 +231,19 @@ entry:
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc257, %entry
-  %tmp57 = load i32* %y                           ; <i32> [#uses=1]
-  %tmp58 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp57 = load i32, i32* %y                           ; <i32> [#uses=1]
+  %tmp58 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp59 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp58, i32 0, i32 4 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp60 = load i32 addrspace(2)* %tmp59          ; <i32> [#uses=1]
-  %tmp61 = load i32* %posOffsetY                  ; <i32> [#uses=1]
+  %tmp60 = load i32, i32 addrspace(2)* %tmp59          ; <i32> [#uses=1]
+  %tmp61 = load i32, i32* %posOffsetY                  ; <i32> [#uses=1]
   %sub62 = sub i32 %tmp60, %tmp61                 ; <i32> [#uses=1]
   %cmp = icmp sle i32 %tmp57, %sub62              ; <i1> [#uses=1]
   br i1 %cmp, label %for.body, label %for.end260
 
 for.body:                                         ; preds = %for.cond
-  %tmp64 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp64 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp65 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp64, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp66 = load i32 addrspace(2)* %tmp65          ; <i32> [#uses=1]
+  %tmp66 = load i32, i32 addrspace(2)* %tmp65          ; <i32> [#uses=1]
   %neg67 = sub i32 0, %tmp66                      ; <i32> [#uses=1]
   %tmp68 = load i32, i32* %negOffsetX                  ; <i32> [#uses=1]
   %add69 = add nsw i32 %neg67, %tmp68             ; <i32> [#uses=1]
@@ -251,11 +251,11 @@ for.body:                                         ; preds = %for.cond
   br label %for.cond70
 
 for.cond70:                                       ; preds = %for.inc253, %for.body
-  %tmp71 = load i32* %x                           ; <i32> [#uses=1]
-  %tmp72 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp71 = load i32, i32* %x                           ; <i32> [#uses=1]
+  %tmp72 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp73 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp72, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp74 = load i32 addrspace(2)* %tmp73          ; <i32> [#uses=1]
-  %tmp75 = load i32* %posOffsetX                  ; <i32> [#uses=1]
+  %tmp74 = load i32, i32 addrspace(2)* %tmp73          ; <i32> [#uses=1]
+  %tmp75 = load i32, i32* %posOffsetX                  ; <i32> [#uses=1]
   %sub76 = sub i32 %tmp74, %tmp75                 ; <i32> [#uses=1]
   %cmp77 = icmp sle i32 %tmp71, %sub76            ; <i1> [#uses=1]
   br i1 %cmp77, label %for.body78, label %for.end256
@@ -279,9 +279,9 @@ for.body78:                                       ; preds = %for.cond70
   %add93 = add nsw i32 %mul, %mul92               ; <i32> [#uses=1]
   %neg94 = sub i32 0, %add93                      ; <i32> [#uses=1]
   %conv = sitofp i32 %neg94 to float              ; <float> [#uses=1]
-  %tmp95 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp95 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp96 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp95, i32 0, i32 1 ; <float addrspace(2)*> [#uses=1]
-  %tmp97 = load float addrspace(2)* %tmp96        ; <float> [#uses=1]
+  %tmp97 = load float, float addrspace(2)* %tmp96        ; <float> [#uses=1]
   %mul98 = fmul float %conv, %tmp97               ; <float> [#uses=1]
   %call99 = call float @_Z3expf(float %mul98)     ; <float> [#uses=1]
   store float %call99, float* %wD
@@ -305,9 +305,9 @@ for.body107:                                      ; preds = %for.cond103
   %mul117 = mul i32 4, %add116                    ; <i32> [#uses=1]
   %tmp118 = load i32, i32* %ch                         ; <i32> [#uses=1]
   %add119 = add nsw i32 %mul117, %tmp118          ; <i32> [#uses=1]
-  %tmp120 = load float addrspace(1)** %inputImage.addr ; <float addrspace(1)*> [#uses=1]
+  %tmp120 = load float addrspace(1)*, float addrspace(1)** %inputImage.addr ; <float addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %tmp120, i32 %add119 ; <float addrspace(1)*> [#uses=1]
-  %tmp121 = load float addrspace(1)* %arrayidx    ; <float> [#uses=1]
+  %tmp121 = load float, float addrspace(1)* %arrayidx    ; <float> [#uses=1]
   store float %tmp121, float* %origSrc
   %tmp122 = load <2 x i32>, <2 x i32>* %imgSize.addr         ; <<2 x i32>> [#uses=1]
   %tmp123 = extractelement <2 x i32> %tmp122, i32 0 ; <i32> [#uses=1]
@@ -320,21 +320,21 @@ for.body107:                                      ; preds = %for.cond103
   %mul130 = mul i32 4, %add129                    ; <i32> [#uses=1]
   %tmp131 = load i32, i32* %ch                         ; <i32> [#uses=1]
   %add132 = add nsw i32 %mul130, %tmp131          ; <i32> [#uses=1]
-  %tmp133 = load float addrspace(1)** %inputImage.addr ; <float addrspace(1)*> [#uses=1]
+  %tmp133 = load float addrspace(1)*, float addrspace(1)** %inputImage.addr ; <float addrspace(1)*> [#uses=1]
   %arrayidx134 = getelementptr inbounds float, float addrspace(1)* %tmp133, i32 %add132 ; <float addrspace(1)*> [#uses=1]
-  %tmp135 = load float addrspace(1)* %arrayidx134 ; <float> [#uses=1]
-  %tmp136 = load i32* %ch                         ; <i32> [#uses=1]
+  %tmp135 = load float, float addrspace(1)* %arrayidx134 ; <float> [#uses=1]
+  %tmp136 = load i32, i32* %ch                         ; <i32> [#uses=1]
   %arraydecay = getelementptr inbounds [4 x float], [4 x float]* %curVal, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx137 = getelementptr inbounds float, float* %arraydecay, i32 %tmp136 ; <float*> [#uses=1]
   store float %tmp135, float* %arrayidx137
-  %tmp138 = load float* %origSrc                  ; <float> [#uses=1]
-  %tmp139 = load i32* %ch                         ; <i32> [#uses=1]
+  %tmp138 = load float, float* %origSrc                  ; <float> [#uses=1]
+  %tmp139 = load i32, i32* %ch                         ; <i32> [#uses=1]
   %arraydecay140 = getelementptr inbounds [4 x float], [4 x float]* %curVal, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx141 = getelementptr inbounds float, float* %arraydecay140, i32 %tmp139 ; <float*> [#uses=1]
-  %tmp142 = load float* %arrayidx141              ; <float> [#uses=1]
+  %tmp142 = load float, float* %arrayidx141              ; <float> [#uses=1]
   %sub143 = fsub float %tmp138, %tmp142           ; <float> [#uses=1]
   %call144 = call float @_Z4fabsf(float %sub143)  ; <float> [#uses=1]
-  %tmp145 = load i32* %ch                         ; <i32> [#uses=1]
+  %tmp145 = load i32, i32* %ch                         ; <i32> [#uses=1]
   %arraydecay146 = getelementptr inbounds [4 x float], [4 x float]* %difference, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx147 = getelementptr inbounds float, float* %arraydecay146, i32 %tmp145 ; <float*> [#uses=1]
   store float %call144, float* %arrayidx147
@@ -347,9 +347,9 @@ for.inc:                                          ; preds = %for.body107
   br label %for.cond103
 
 for.end:                                          ; preds = %for.cond103
-  %tmp150 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp150 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp151 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp150, i32 0, i32 0 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp152 = load i32 addrspace(2)* %tmp151        ; <i32> [#uses=1]
+  %tmp152 = load i32, i32 addrspace(2)* %tmp151        ; <i32> [#uses=1]
   %tobool = icmp ne i32 %tmp152, 0                ; <i1> [#uses=1]
   br i1 %tobool, label %if.then, label %if.else
 
@@ -359,25 +359,25 @@ if.then:                                          ; preds = %for.end
   store float 0.000000e+000, float* %arrayidx154
   %arraydecay155 = getelementptr inbounds [4 x float], [4 x float]* %difference, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx156 = getelementptr inbounds float, float* %arraydecay155, i32 0 ; <float*> [#uses=1]
-  %tmp157 = load float* %arrayidx156              ; <float> [#uses=1]
+  %tmp157 = load float, float* %arrayidx156              ; <float> [#uses=1]
   %arraydecay158 = getelementptr inbounds [4 x float], [4 x float]* %difference, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx159 = getelementptr inbounds float, float* %arraydecay158, i32 0 ; <float*> [#uses=1]
-  %tmp160 = load float* %arrayidx159              ; <float> [#uses=1]
+  %tmp160 = load float, float* %arrayidx159              ; <float> [#uses=1]
   %mul161 = fmul float %tmp157, %tmp160           ; <float> [#uses=1]
   %arraydecay162 = getelementptr inbounds [4 x float], [4 x float]* %difference, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx163 = getelementptr inbounds float, float* %arraydecay162, i32 1 ; <float*> [#uses=1]
-  %tmp164 = load float* %arrayidx163              ; <float> [#uses=1]
+  %tmp164 = load float, float* %arrayidx163              ; <float> [#uses=1]
   %arraydecay165 = getelementptr inbounds [4 x float], [4 x float]* %difference, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx166 = getelementptr inbounds float, float* %arraydecay165, i32 1 ; <float*> [#uses=1]
-  %tmp167 = load float* %arrayidx166              ; <float> [#uses=1]
+  %tmp167 = load float, float* %arrayidx166              ; <float> [#uses=1]
   %mul168 = fmul float %tmp164, %tmp167           ; <float> [#uses=1]
   %add169 = fadd float %mul161, %mul168           ; <float> [#uses=1]
   %arraydecay170 = getelementptr inbounds [4 x float], [4 x float]* %difference, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx171 = getelementptr inbounds float, float* %arraydecay170, i32 2 ; <float*> [#uses=1]
-  %tmp172 = load float* %arrayidx171              ; <float> [#uses=1]
+  %tmp172 = load float, float* %arrayidx171              ; <float> [#uses=1]
   %arraydecay173 = getelementptr inbounds [4 x float], [4 x float]* %difference, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx174 = getelementptr inbounds float, float* %arraydecay173, i32 2 ; <float*> [#uses=1]
-  %tmp175 = load float* %arrayidx174              ; <float> [#uses=1]
+  %tmp175 = load float, float* %arrayidx174              ; <float> [#uses=1]
   %mul176 = fmul float %tmp172, %tmp175           ; <float> [#uses=1]
   %add177 = fadd float %add169, %mul176           ; <float> [#uses=1]
   store float %add177, float* %diffLum
@@ -386,53 +386,53 @@ if.then:                                          ; preds = %for.end
 if.else:                                          ; preds = %for.end
   %arraydecay178 = getelementptr inbounds [4 x float], [4 x float]* %difference, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx179 = getelementptr inbounds float, float* %arraydecay178, i32 0 ; <float*> [#uses=1]
-  %tmp180 = load float* %arrayidx179              ; <float> [#uses=1]
+  %tmp180 = load float, float* %arrayidx179              ; <float> [#uses=1]
   %mul181 = fmul float %tmp180, 0x3FD4FC5040000000 ; <float> [#uses=1]
   %arraydecay182 = getelementptr inbounds [4 x float], [4 x float]* %difference, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx183 = getelementptr inbounds float, float* %arraydecay182, i32 1 ; <float*> [#uses=1]
-  %tmp184 = load float* %arrayidx183              ; <float> [#uses=1]
+  %tmp184 = load float, float* %arrayidx183              ; <float> [#uses=1]
   %mul185 = fmul float %tmp184, 0x3FE4FB7EA0000000 ; <float> [#uses=1]
   %add186 = fadd float %mul181, %mul185           ; <float> [#uses=1]
   %arraydecay187 = getelementptr inbounds [4 x float], [4 x float]* %difference, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx188 = getelementptr inbounds float, float* %arraydecay187, i32 2 ; <float*> [#uses=1]
-  %tmp189 = load float* %arrayidx188              ; <float> [#uses=1]
+  %tmp189 = load float, float* %arrayidx188              ; <float> [#uses=1]
   %mul190 = fmul float %tmp189, 0x3F90CB2960000000 ; <float> [#uses=1]
   %add191 = fadd float %add186, %mul190           ; <float> [#uses=1]
   store float %add191, float* %diffLum
   %arraydecay193 = getelementptr inbounds [4 x float], [4 x float]* %curVal, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx194 = getelementptr inbounds float, float* %arraydecay193, i32 0 ; <float*> [#uses=1]
-  %tmp195 = load float* %arrayidx194              ; <float> [#uses=1]
+  %tmp195 = load float, float* %arrayidx194              ; <float> [#uses=1]
   %mul196 = fmul float %tmp195, 0x3FD4FC5040000000 ; <float> [#uses=1]
   %arraydecay197 = getelementptr inbounds [4 x float], [4 x float]* %curVal, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx198 = getelementptr inbounds float, float* %arraydecay197, i32 1 ; <float*> [#uses=1]
-  %tmp199 = load float* %arrayidx198              ; <float> [#uses=1]
+  %tmp199 = load float, float* %arrayidx198              ; <float> [#uses=1]
   %mul200 = fmul float %tmp199, 0x3FE4FB7EA0000000 ; <float> [#uses=1]
   %add201 = fadd float %mul196, %mul200           ; <float> [#uses=1]
   %arraydecay202 = getelementptr inbounds [4 x float], [4 x float]* %curVal, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx203 = getelementptr inbounds float, float* %arraydecay202, i32 2 ; <float*> [#uses=1]
-  %tmp204 = load float* %arrayidx203              ; <float> [#uses=1]
+  %tmp204 = load float, float* %arrayidx203              ; <float> [#uses=1]
   %mul205 = fmul float %tmp204, 0x3F90CB2960000000 ; <float> [#uses=1]
   %add206 = fadd float %add201, %mul205           ; <float> [#uses=1]
   store float %add206, float* %curLum
-  %tmp207 = load float* %curLum                   ; <float> [#uses=1]
+  %tmp207 = load float, float* %curLum                   ; <float> [#uses=1]
   %arraydecay208 = getelementptr inbounds [4 x float], [4 x float]* %curVal, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx209 = getelementptr inbounds float, float* %arraydecay208, i32 2 ; <float*> [#uses=2]
   store float %tmp207, float* %arrayidx209
-  %tmp210 = load float* %arrayidx209              ; <float> [#uses=1]
+  %tmp210 = load float, float* %arrayidx209              ; <float> [#uses=1]
   %arraydecay211 = getelementptr inbounds [4 x float], [4 x float]* %curVal, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx212 = getelementptr inbounds float, float* %arraydecay211, i32 1 ; <float*> [#uses=2]
   store float %tmp210, float* %arrayidx212
-  %tmp213 = load float* %arrayidx212              ; <float> [#uses=1]
+  %tmp213 = load float, float* %arrayidx212              ; <float> [#uses=1]
   %arraydecay214 = getelementptr inbounds [4 x float], [4 x float]* %curVal, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx215 = getelementptr inbounds float, float* %arraydecay214, i32 0 ; <float*> [#uses=1]
   store float %tmp213, float* %arrayidx215
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
-  %tmp217 = load float* %diffLum                  ; <float> [#uses=1]
-  %tmp218 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp217 = load float, float* %diffLum                  ; <float> [#uses=1]
+  %tmp218 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp219 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp218, i32 0, i32 2 ; <float addrspace(2)*> [#uses=1]
-  %tmp220 = load float addrspace(2)* %tmp219      ; <float> [#uses=1]
+  %tmp220 = load float, float addrspace(2)* %tmp219      ; <float> [#uses=1]
   %neg221 = fsub float -0.000000e+000, %tmp220    ; <float> [#uses=1]
   %mul222 = fmul float %tmp217, %neg221           ; <float> [#uses=1]
   %call223 = call float @_Z3expf(float %mul222)   ; <float> [#uses=1]
@@ -446,18 +446,18 @@ for.cond226:                                      ; preds = %for.inc244, %if.end
   br i1 %cmp228, label %for.body230, label %for.end247
 
 for.body230:                                      ; preds = %for.cond226
-  %tmp231 = load i32* %ch225                      ; <i32> [#uses=1]
+  %tmp231 = load i32, i32* %ch225                      ; <i32> [#uses=1]
   %arraydecay232 = getelementptr inbounds [4 x float], [4 x float]* %curVal, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx233 = getelementptr inbounds float, float* %arraydecay232, i32 %tmp231 ; <float*> [#uses=1]
-  %tmp234 = load float* %arrayidx233              ; <float> [#uses=1]
-  %tmp235 = load float* %wD                       ; <float> [#uses=1]
+  %tmp234 = load float, float* %arrayidx233              ; <float> [#uses=1]
+  %tmp235 = load float, float* %wD                       ; <float> [#uses=1]
   %mul236 = fmul float %tmp234, %tmp235           ; <float> [#uses=1]
   %tmp237 = load float, float* %wR                       ; <float> [#uses=1]
   %mul238 = fmul float %mul236, %tmp237           ; <float> [#uses=1]
-  %tmp239 = load i32* %ch225                      ; <i32> [#uses=1]
+  %tmp239 = load i32, i32* %ch225                      ; <i32> [#uses=1]
   %arraydecay240 = getelementptr inbounds [4 x float], [4 x float]* %dst, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx241 = getelementptr inbounds float, float* %arraydecay240, i32 %tmp239 ; <float*> [#uses=2]
-  %tmp242 = load float* %arrayidx241              ; <float> [#uses=1]
+  %tmp242 = load float, float* %arrayidx241              ; <float> [#uses=1]
   %add243 = fadd float %tmp242, %mul238           ; <float> [#uses=1]
   store float %add243, float* %arrayidx241
   br label %for.inc244
@@ -500,32 +500,32 @@ for.end260:                                       ; preds = %for.cond
   store float %div, float* %tmp_scale
   %arraydecay265 = getelementptr inbounds [4 x float], [4 x float]* %dst, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx266 = getelementptr inbounds float, float* %arraydecay265, i32 0 ; <float*> [#uses=1]
-  %tmp267 = load float* %arrayidx266              ; <float> [#uses=1]
-  %tmp268 = load float* %tmp_scale                ; <float> [#uses=1]
+  %tmp267 = load float, float* %arrayidx266              ; <float> [#uses=1]
+  %tmp268 = load float, float* %tmp_scale                ; <float> [#uses=1]
   %mul269 = fmul float %tmp267, %tmp268           ; <float> [#uses=1]
   %tmp270 = load <4 x float>, <4 x float>* %dst1               ; <<4 x float>> [#uses=1]
   %tmp271 = insertelement <4 x float> %tmp270, float %mul269, i32 0 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp271, <4 x float>* %dst1
   %arraydecay272 = getelementptr inbounds [4 x float], [4 x float]* %dst, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx273 = getelementptr inbounds float, float* %arraydecay272, i32 1 ; <float*> [#uses=1]
-  %tmp274 = load float* %arrayidx273              ; <float> [#uses=1]
-  %tmp275 = load float* %tmp_scale                ; <float> [#uses=1]
+  %tmp274 = load float, float* %arrayidx273              ; <float> [#uses=1]
+  %tmp275 = load float, float* %tmp_scale                ; <float> [#uses=1]
   %mul276 = fmul float %tmp274, %tmp275           ; <float> [#uses=1]
   %tmp277 = load <4 x float>, <4 x float>* %dst1               ; <<4 x float>> [#uses=1]
   %tmp278 = insertelement <4 x float> %tmp277, float %mul276, i32 1 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp278, <4 x float>* %dst1
   %arraydecay279 = getelementptr inbounds [4 x float], [4 x float]* %dst, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx280 = getelementptr inbounds float, float* %arraydecay279, i32 2 ; <float*> [#uses=1]
-  %tmp281 = load float* %arrayidx280              ; <float> [#uses=1]
-  %tmp282 = load float* %tmp_scale                ; <float> [#uses=1]
+  %tmp281 = load float, float* %arrayidx280              ; <float> [#uses=1]
+  %tmp282 = load float, float* %tmp_scale                ; <float> [#uses=1]
   %mul283 = fmul float %tmp281, %tmp282           ; <float> [#uses=1]
   %tmp284 = load <4 x float>, <4 x float>* %dst1               ; <<4 x float>> [#uses=1]
   %tmp285 = insertelement <4 x float> %tmp284, float %mul283, i32 2 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp285, <4 x float>* %dst1
   %arraydecay286 = getelementptr inbounds [4 x float], [4 x float]* %dst, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx287 = getelementptr inbounds float, float* %arraydecay286, i32 3 ; <float*> [#uses=1]
-  %tmp288 = load float* %arrayidx287              ; <float> [#uses=1]
-  %tmp289 = load float* %tmp_scale                ; <float> [#uses=1]
+  %tmp288 = load float, float* %arrayidx287              ; <float> [#uses=1]
+  %tmp289 = load float, float* %tmp_scale                ; <float> [#uses=1]
   %mul290 = fmul float %tmp288, %tmp289           ; <float> [#uses=1]
   %tmp291 = load <4 x float>, <4 x float>* %dst1               ; <<4 x float>> [#uses=1]
   %tmp292 = insertelement <4 x float> %tmp291, float %mul290, i32 3 ; <<4 x float>> [#uses=1]
@@ -585,31 +585,31 @@ entry:
   %tmp4 = load <2 x i32>, <2 x i32>* %outCrd.addr            ; <<2 x i32>> [#uses=1]
   %tmp5 = extractelement <2 x i32> %tmp4, i32 0   ; <i32> [#uses=1]
   %add = add nsw i32 %mul, %tmp5                  ; <i32> [#uses=1]
-  %tmp6 = load <4 x float> addrspace(1)** %inputImage.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp6 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %inputImage.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp6, i32 %add ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp7 = load <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
+  %tmp7 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp7, <4 x float>* %origSrc
   %tmp9 = load <4 x float>, <4 x float>* %kZero                ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp9, <4 x float>* %dst
   store float 0.000000e+000, float* %scale
-  %tmp13 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp13 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp14 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp13, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp15 = load i32 addrspace(2)* %tmp14          ; <i32> [#uses=1]
-  %tmp16 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp15 = load i32, i32 addrspace(2)* %tmp14          ; <i32> [#uses=1]
+  %tmp16 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp17 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp16, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp18 = load i32 addrspace(2)* %tmp17          ; <i32> [#uses=1]
-  %tmp19 = load <2 x i32>* %outCrd.addr           ; <<2 x i32>> [#uses=1]
+  %tmp18 = load i32, i32 addrspace(2)* %tmp17          ; <i32> [#uses=1]
+  %tmp19 = load <2 x i32>, <2 x i32>* %outCrd.addr           ; <<2 x i32>> [#uses=1]
   %tmp20 = extractelement <2 x i32> %tmp19, i32 0 ; <i32> [#uses=1]
   %call = call i32 @_Z3minii(i32 %tmp18, i32 %tmp20) ; <i32> [#uses=1]
   %sub = sub i32 %tmp15, %call                    ; <i32> [#uses=1]
   store i32 %sub, i32* %negOffsetX
-  %tmp22 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp22 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp23 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp22, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp24 = load i32 addrspace(2)* %tmp23          ; <i32> [#uses=1]
-  %tmp25 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp24 = load i32, i32 addrspace(2)* %tmp23          ; <i32> [#uses=1]
+  %tmp25 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp26 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp25, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp27 = load i32 addrspace(2)* %tmp26          ; <i32> [#uses=1]
-  %tmp28 = load <2 x i32>* %imgSize.addr          ; <<2 x i32>> [#uses=1]
+  %tmp27 = load i32, i32 addrspace(2)* %tmp26          ; <i32> [#uses=1]
+  %tmp28 = load <2 x i32>, <2 x i32>* %imgSize.addr          ; <<2 x i32>> [#uses=1]
   %tmp29 = extractelement <2 x i32> %tmp28, i32 0 ; <i32> [#uses=1]
   %tmp30 = load <2 x i32>, <2 x i32>* %outCrd.addr           ; <<2 x i32>> [#uses=1]
   %tmp31 = extractelement <2 x i32> %tmp30, i32 0 ; <i32> [#uses=1]
@@ -618,24 +618,24 @@ entry:
   %call34 = call i32 @_Z3minii(i32 %tmp27, i32 %sub33) ; <i32> [#uses=1]
   %sub35 = sub i32 %tmp24, %call34                ; <i32> [#uses=1]
   store i32 %sub35, i32* %posOffsetX
-  %tmp37 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp37 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp38 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp37, i32 0, i32 4 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp39 = load i32 addrspace(2)* %tmp38          ; <i32> [#uses=1]
-  %tmp40 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp39 = load i32, i32 addrspace(2)* %tmp38          ; <i32> [#uses=1]
+  %tmp40 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp41 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp40, i32 0, i32 4 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp42 = load i32 addrspace(2)* %tmp41          ; <i32> [#uses=1]
-  %tmp43 = load <2 x i32>* %outCrd.addr           ; <<2 x i32>> [#uses=1]
+  %tmp42 = load i32, i32 addrspace(2)* %tmp41          ; <i32> [#uses=1]
+  %tmp43 = load <2 x i32>, <2 x i32>* %outCrd.addr           ; <<2 x i32>> [#uses=1]
   %tmp44 = extractelement <2 x i32> %tmp43, i32 1 ; <i32> [#uses=1]
   %call45 = call i32 @_Z3minii(i32 %tmp42, i32 %tmp44) ; <i32> [#uses=1]
   %sub46 = sub i32 %tmp39, %call45                ; <i32> [#uses=1]
   store i32 %sub46, i32* %negOffsetY
-  %tmp48 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp48 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp49 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp48, i32 0, i32 4 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp50 = load i32 addrspace(2)* %tmp49          ; <i32> [#uses=1]
-  %tmp51 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp50 = load i32, i32 addrspace(2)* %tmp49          ; <i32> [#uses=1]
+  %tmp51 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp52 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp51, i32 0, i32 4 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp53 = load i32 addrspace(2)* %tmp52          ; <i32> [#uses=1]
-  %tmp54 = load <2 x i32>* %imgSize.addr          ; <<2 x i32>> [#uses=1]
+  %tmp53 = load i32, i32 addrspace(2)* %tmp52          ; <i32> [#uses=1]
+  %tmp54 = load <2 x i32>, <2 x i32>* %imgSize.addr          ; <<2 x i32>> [#uses=1]
   %tmp55 = extractelement <2 x i32> %tmp54, i32 1 ; <i32> [#uses=1]
   %tmp56 = load <2 x i32>, <2 x i32>* %outCrd.addr           ; <<2 x i32>> [#uses=1]
   %tmp57 = extractelement <2 x i32> %tmp56, i32 1 ; <i32> [#uses=1]
@@ -644,9 +644,9 @@ entry:
   %call60 = call i32 @_Z3minii(i32 %tmp53, i32 %sub59) ; <i32> [#uses=1]
   %sub61 = sub i32 %tmp50, %call60                ; <i32> [#uses=1]
   store i32 %sub61, i32* %posOffsetY
-  %tmp63 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp63 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp64 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp63, i32 0, i32 4 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp65 = load i32 addrspace(2)* %tmp64          ; <i32> [#uses=1]
+  %tmp65 = load i32, i32 addrspace(2)* %tmp64          ; <i32> [#uses=1]
   %neg = sub i32 0, %tmp65                        ; <i32> [#uses=1]
   %tmp66 = load i32, i32* %negOffsetY                  ; <i32> [#uses=1]
   %add67 = add nsw i32 %neg, %tmp66               ; <i32> [#uses=1]
@@ -654,19 +654,19 @@ entry:
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc177, %entry
-  %tmp68 = load i32* %y                           ; <i32> [#uses=1]
-  %tmp69 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp68 = load i32, i32* %y                           ; <i32> [#uses=1]
+  %tmp69 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp70 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp69, i32 0, i32 4 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp71 = load i32 addrspace(2)* %tmp70          ; <i32> [#uses=1]
-  %tmp72 = load i32* %posOffsetY                  ; <i32> [#uses=1]
+  %tmp71 = load i32, i32 addrspace(2)* %tmp70          ; <i32> [#uses=1]
+  %tmp72 = load i32, i32* %posOffsetY                  ; <i32> [#uses=1]
   %sub73 = sub i32 %tmp71, %tmp72                 ; <i32> [#uses=1]
   %cmp = icmp sle i32 %tmp68, %sub73              ; <i1> [#uses=1]
   br i1 %cmp, label %for.body, label %for.end180
 
 for.body:                                         ; preds = %for.cond
-  %tmp75 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp75 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp76 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp75, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp77 = load i32 addrspace(2)* %tmp76          ; <i32> [#uses=1]
+  %tmp77 = load i32, i32 addrspace(2)* %tmp76          ; <i32> [#uses=1]
   %neg78 = sub i32 0, %tmp77                      ; <i32> [#uses=1]
   %tmp79 = load i32, i32* %negOffsetX                  ; <i32> [#uses=1]
   %add80 = add nsw i32 %neg78, %tmp79             ; <i32> [#uses=1]
@@ -674,11 +674,11 @@ for.body:                                         ; preds = %for.cond
   br label %for.cond81
 
 for.cond81:                                       ; preds = %for.inc, %for.body
-  %tmp82 = load i32* %x                           ; <i32> [#uses=1]
-  %tmp83 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp82 = load i32, i32* %x                           ; <i32> [#uses=1]
+  %tmp83 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp84 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp83, i32 0, i32 3 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp85 = load i32 addrspace(2)* %tmp84          ; <i32> [#uses=1]
-  %tmp86 = load i32* %posOffsetX                  ; <i32> [#uses=1]
+  %tmp85 = load i32, i32 addrspace(2)* %tmp84          ; <i32> [#uses=1]
+  %tmp86 = load i32, i32* %posOffsetX                  ; <i32> [#uses=1]
   %sub87 = sub i32 %tmp85, %tmp86                 ; <i32> [#uses=1]
   %cmp88 = icmp sle i32 %tmp82, %sub87            ; <i1> [#uses=1]
   br i1 %cmp88, label %for.body89, label %for.end
@@ -701,9 +701,9 @@ for.body89:                                       ; preds = %for.cond81
   %tmp104 = load <2 x i32>, <2 x i32>* %v3                   ; <<2 x i32>> [#uses=1]
   %tmp105 = extractelement <2 x i32> %tmp104, i32 0 ; <i32> [#uses=1]
   %add106 = add nsw i32 %mul103, %tmp105          ; <i32> [#uses=1]
-  %tmp107 = load <4 x float> addrspace(1)** %inputImage.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp107 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %inputImage.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx108 = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp107, i32 %add106 ; <<4 x float> addrspace(1)*> [#uses=1]
-  %tmp109 = load <4 x float> addrspace(1)* %arrayidx108 ; <<4 x float>> [#uses=1]
+  %tmp109 = load <4 x float>, <4 x float> addrspace(1)* %arrayidx108 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp109, <4 x float>* %curVal
   %tmp110 = load <4 x float>, <4 x float>* %origSrc            ; <<4 x float>> [#uses=1]
   %tmp111 = load <4 x float>, <4 x float>* %curVal             ; <<4 x float>> [#uses=1]
@@ -719,15 +719,15 @@ for.body89:                                       ; preds = %for.cond81
   %add121 = add nsw i32 %mul117, %mul120          ; <i32> [#uses=1]
   %neg122 = sub i32 0, %add121                    ; <i32> [#uses=1]
   %conv = sitofp i32 %neg122 to float             ; <float> [#uses=1]
-  %tmp123 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp123 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp124 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp123, i32 0, i32 1 ; <float addrspace(2)*> [#uses=1]
-  %tmp125 = load float addrspace(2)* %tmp124      ; <float> [#uses=1]
+  %tmp125 = load float, float addrspace(2)* %tmp124      ; <float> [#uses=1]
   %mul126 = fmul float %conv, %tmp125             ; <float> [#uses=1]
   %call127 = call float @_Z3expf(float %mul126)   ; <float> [#uses=1]
   store float %call127, float* %wD
-  %tmp129 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp129 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp130 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp129, i32 0, i32 0 ; <i32 addrspace(2)*> [#uses=1]
-  %tmp131 = load i32 addrspace(2)* %tmp130        ; <i32> [#uses=1]
+  %tmp131 = load i32, i32 addrspace(2)* %tmp130        ; <i32> [#uses=1]
   %tobool = icmp ne i32 %tmp131, 0                ; <i1> [#uses=1]
   br i1 %tobool, label %if.then, label %if.else
 
@@ -765,10 +765,10 @@ if.else:                                          ; preds = %for.body89
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
-  %tmp154 = load float* %diffLum                  ; <float> [#uses=1]
-  %tmp155 = load %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
+  %tmp154 = load float, float* %diffLum                  ; <float> [#uses=1]
+  %tmp155 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %tmp156 = getelementptr inbounds %struct.anon, %struct.anon addrspace(2)* %tmp155, i32 0, i32 2 ; <float addrspace(2)*> [#uses=1]
-  %tmp157 = load float addrspace(2)* %tmp156      ; <float> [#uses=1]
+  %tmp157 = load float, float addrspace(2)* %tmp156      ; <float> [#uses=1]
   %neg158 = fsub float -0.000000e+000, %tmp157    ; <float> [#uses=1]
   %mul159 = fmul float %tmp154, %neg158           ; <float> [#uses=1]
   %call160 = call float @_Z3expf(float %mul159)   ; <float> [#uses=1]
@@ -865,8 +865,8 @@ entry:
   %tmp16 = load <2 x i32>, <2 x i32>* %imgSize               ; <<2 x i32>> [#uses=1]
   %tmp17 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %call18 = call <4 x float> @evaluatePixel(<4 x float> addrspace(1)* %tmp14, <2 x i32> %tmp15, <2 x i32> %tmp16, %struct.anon addrspace(2)* %tmp17) ; <<4 x float>> [#uses=1]
-  %tmp19 = load i32* %index                       ; <i32> [#uses=1]
-  %tmp20 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp19 = load i32, i32* %index                       ; <i32> [#uses=1]
+  %tmp20 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp20, i32 %tmp19 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call18, <4 x float> addrspace(1)* %arrayidx
   ret void
@@ -915,8 +915,8 @@ entry:
   %tmp16 = load <2 x i32>, <2 x i32>* %imgSize               ; <<2 x i32>> [#uses=1]
   %tmp17 = load %struct.anon addrspace(2)*, %struct.anon addrspace(2)** %pArgs.addr ; <%struct.anon addrspace(2)*> [#uses=1]
   %call18 = call <4 x float> @evaluatePixelScalar(float addrspace(1)* %conv, <2 x i32> %tmp15, <2 x i32> %tmp16, %struct.anon addrspace(2)* %tmp17) ; <<4 x float>> [#uses=1]
-  %tmp19 = load i32* %index                       ; <i32> [#uses=1]
-  %tmp20 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp19 = load i32, i32* %index                       ; <i32> [#uses=1]
+  %tmp20 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp20, i32 %tmp19 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call18, <4 x float> addrspace(1)* %arrayidx
   ret void
@@ -1018,7 +1018,7 @@ for.body34:                                       ; preds = %for.cond29
   %tmp43 = load i32, i32* %index                       ; <i32> [#uses=2]
   %inc = add nsw i32 %tmp43, 1                    ; <i32> [#uses=1]
   store i32 %inc, i32* %index
-  %tmp44 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp44 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp44, i32 %tmp43 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call42, <4 x float> addrspace(1)* %arrayidx
   br label %for.inc
@@ -1139,7 +1139,7 @@ for.body34:                                       ; preds = %for.cond29
   %tmp43 = load i32, i32* %index                       ; <i32> [#uses=2]
   %inc = add nsw i32 %tmp43, 1                    ; <i32> [#uses=1]
   store i32 %inc, i32* %index
-  %tmp44 = load <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
+  %tmp44 = load <4 x float> addrspace(1)*, <4 x float> addrspace(1)** %output.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %arrayidx = getelementptr inbounds <4 x float>, <4 x float> addrspace(1)* %tmp44, i32 %tmp43 ; <<4 x float> addrspace(1)*> [#uses=1]
   store <4 x float> %call42, <4 x float> addrspace(1)* %arrayidx
   br label %for.inc

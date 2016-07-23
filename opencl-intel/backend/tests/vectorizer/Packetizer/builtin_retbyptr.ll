@@ -27,7 +27,7 @@ entry:
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds <4 x double>, <4 x double> addrspace(1)* %in, i64 %idxprom
-  %0 = load <4 x double> addrspace(1)* %arrayidx, align 32
+  %0 = load <4 x double>, <4 x double> addrspace(1)* %arrayidx, align 32
   %scalar = extractelement <4 x double> %0, i32 0
   %scalar2 = extractelement <4 x double> %0, i32 1
   %scalar3 = extractelement <4 x double> %0, i32 2
@@ -79,7 +79,7 @@ entry:
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds <4 x double>, <4 x double> addrspace(1)* %in, i64 %idxprom
-  %0 = load <4 x double> addrspace(1)* %arrayidx, align 32
+  %0 = load <4 x double>, <4 x double> addrspace(1)* %arrayidx, align 32
   %scalar = extractelement <4 x double> %0, i32 0
   %scalar2 = extractelement <4 x double> %0, i32 1
   %scalar3 = extractelement <4 x double> %0, i32 2
