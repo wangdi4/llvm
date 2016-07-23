@@ -32,9 +32,9 @@ define void @wg_test_uniform(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* n
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i32 %call
-  %0 = load i32 addrspace(1)* %arrayidx, align 1
+  %0 = load i32, i32 addrspace(1)* %arrayidx, align 1
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %b, i32 %call
-  %1 = load i32 addrspace(1)* %arrayidx1, align 1
+  %1 = load i32, i32 addrspace(1)* %arrayidx1, align 1
   %cmp = icmp sgt i32 %0, %1
   %conv = zext i1 %cmp to i32
   %call2 = tail call i32 @_Z14work_group_alli(i32 %conv) nounwind readnone
@@ -77,7 +77,7 @@ entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %0 = getelementptr inbounds i32, i32 addrspace(1)* %a, i32 %call
   %ptrTypeCast = bitcast i32 addrspace(1)* %0 to <4 x i32> addrspace(1)*
-  %1 = load <4 x i32> addrspace(1)* %ptrTypeCast, align 1
+  %1 = load <4 x i32>, <4 x i32> addrspace(1)* %ptrTypeCast, align 1
   %2 = getelementptr inbounds i32, i32 addrspace(1)* %b, i32 %call
   %ptrTypeCast9 = bitcast i32 addrspace(1)* %2 to <4 x i32> addrspace(1)*
   %3 = load <4 x i32>, <4 x i32> addrspace(1)* %ptrTypeCast9, align 1

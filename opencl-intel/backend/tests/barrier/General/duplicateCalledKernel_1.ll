@@ -45,12 +45,12 @@ entry:
   store i32 %conv, i32* %x, align 4, !dbg !20
   %0 = load i32, i32* %x, align 4, !dbg !21
   %idxprom = sext i32 %0 to i64, !dbg !21
-  %1 = load float addrspace(1)** %b.addr, align 8, !dbg !21
+  %1 = load float addrspace(1)*, float addrspace(1)** %b.addr, align 8, !dbg !21
   %arrayidx = getelementptr inbounds float, float addrspace(1)* %1, i64 %idxprom, !dbg !21
-  %2 = load float addrspace(1)* %arrayidx, align 4, !dbg !21
-  %3 = load i32* %x, align 4, !dbg !21
+  %2 = load float, float addrspace(1)* %arrayidx, align 4, !dbg !21
+  %3 = load i32, i32* %x, align 4, !dbg !21
   %idxprom1 = sext i32 %3 to i64, !dbg !21
-  %4 = load float addrspace(1)** %a.addr, align 8, !dbg !21
+  %4 = load float addrspace(1)*, float addrspace(1)** %a.addr, align 8, !dbg !21
   %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %4, i64 %idxprom1, !dbg !21
   store float %2, float addrspace(1)* %arrayidx2, align 4, !dbg !21
   ret void, !dbg !22

@@ -50,7 +50,7 @@ L2:
 ; CHECK-NOT: @_Z7barrierj
 ; CHECK: %BaseGlobalId_0 = call i32 @get_base_global_id.(i32 0)
 ; CHECK: %pLocalId_0 = getelementptr inbounds [3 x i32], [3 x i32]* %pLocalIdValues, i32 0, i32 0
-; CHECK: %LocalId_0 = load i32* %pLocalId_0
+; CHECK: %LocalId_0 = load i32, i32* %pLocalId_0
 ; CHECK: br label %L2
 ; CHECK: L2:                                               ; preds = %L1
 ; CHECK: %LocalId_01 = load i32, i32* %pLocalId_0

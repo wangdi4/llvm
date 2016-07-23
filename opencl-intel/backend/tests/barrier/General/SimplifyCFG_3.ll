@@ -43,7 +43,7 @@ BB_79:                                      ; preds = %BB_72, %BB_70
   br i1 %.pr, label %BB_80, label %BB_83
 
 BB_80:                                      ; preds = %BB_79
-  %load1 = load volatile float addrspace(3)* %buffPtr, align 4
+  %load1 = load volatile float, float addrspace(3)* %buffPtr, align 4
   %ptr1 = getelementptr inbounds float, float addrspace(1)* %out, i64 4
   store float %load1, float addrspace(1)* %ptr1, align 4
   ret void

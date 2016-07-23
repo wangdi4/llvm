@@ -53,7 +53,7 @@ if.then:                                          ; preds = %for.body
   %conv12 = sext i32 %mul to i64
   %add14 = add i64 %conv12, %call
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %isums, i64 %add14
-  %1 = load i32 addrspace(1)* %arrayidx, align 4
+  %1 = load i32, i32 addrspace(1)* %arrayidx, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body

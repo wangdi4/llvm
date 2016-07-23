@@ -27,7 +27,7 @@ define void @wg_test_broadcast(i32 addrspace(1)* nocapture %a, i32 addrspace(1)*
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i32 %call
-  %0 = load i32 addrspace(1)* %arrayidx, align 1
+  %0 = load i32, i32 addrspace(1)* %arrayidx, align 1
   %call1 = tail call i32 @_Z20work_group_broadcastij(i32 %0, i32 2) nounwind
   %arrayidx2 = getelementptr inbounds i32, i32 addrspace(1)* %b, i32 %call
   store i32 %call1, i32 addrspace(1)* %arrayidx2, align 1
