@@ -781,7 +781,7 @@ void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
 }
 
 bool HIRRuntimeDD::runOnFunction(Function &F) {
-  if (DisableRuntimeDD) {
+  if (DisableRuntimeDD || skipFunction(F)) {
     return false;
   }
 

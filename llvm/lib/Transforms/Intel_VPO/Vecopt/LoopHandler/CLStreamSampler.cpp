@@ -44,6 +44,9 @@ CLStreamSampler::CLStreamSampler() : LoopPass(ID), m_rtServices(NULL) {
 }
 
 bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
+  if (skipLoop(L))
+    return false;
+
   //errs() << "CLStreamSampler on " << L->getHeader()->getNameStr() << "\n";
   if (!L->isLoopSimplifyForm()) return false;
 

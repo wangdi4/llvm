@@ -276,7 +276,7 @@ FunctionPass *llvm::createHIRGeneralUnrollPass() {
 
 bool HIRGeneralUnroll::runOnFunction(Function &F) {
   // Skip if DisableHIRGeneralUnroll is enabled
-  if (DisableHIRGeneralUnroll) {
+  if (DisableHIRGeneralUnroll || skipFunction(F)) {
     DEBUG(dbgs() << "HIR LOOP General Unroll Transformation Disabled \n");
     return false;
   }

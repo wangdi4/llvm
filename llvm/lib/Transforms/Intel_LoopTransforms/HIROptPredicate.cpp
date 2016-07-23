@@ -182,6 +182,9 @@ FunctionPass *llvm::createHIROptPredicatePass(int Threshold) {
 }
 
 bool HIROptPredicate::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   DEBUG(dbgs() << "Opt Predicate for Function : " << F.getName() << "\n");
 
   DD = &getAnalysis<HIRDDAnalysis>();

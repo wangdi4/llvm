@@ -97,6 +97,9 @@ void VectorizerCore::setScalarFunc(Function* F) {
 }
 
 bool VectorizerCore::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   // Before doing anything set default return values, function was not vectorized
   // width of 0.
   m_isFunctionVectorized = false;

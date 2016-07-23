@@ -208,6 +208,9 @@ FunctionPass *llvm::createHIRLoopInterchangePass() {
 }
 
 bool HIRLoopInterchange::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   DEBUG(dbgs() << "Loop Interchange for Function : " << F.getName() << "\n");
 
   this->F = &F;
