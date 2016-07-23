@@ -39,6 +39,11 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Utils/Local.h"
+#if INTEL_CUSTOMIZATION
+// CQ381541: IMF attributes support
+#include "clang/Basic/LangOptions.h"
+#include "llvm/ADT/StringSet.h"
+#endif // INTEL_CUSTOMIZATION
 using namespace clang;
 using namespace CodeGen;
 
@@ -1690,6 +1695,32 @@ void CodeGenModule::ConstructAttributeList(
     HasAnyX86InterruptAttr = TargetDecl->hasAttr<AnyX86InterruptAttr>();
     HasOptnone = TargetDecl->hasAttr<OptimizeNoneAttr>();
   }
+
+#if INTEL_CUSTOMIZATION
+  // CQ381541: IMF attributes support
+  if (getLangOpts().IntelCompat &&
+      (getLangOpts().ImfFuncSet.find(Name) != getLangOpts().ImfFuncSet.end())) {
+    llvm::StringSet<> FuncOwnAttrs;
+    auto it = getLangOpts().ImfAttrFuncMap.find(Name);
+    if (it != getLangOpts().ImfAttrFuncMap.end()) {
+      // the function has it's own set of attributes
+      for (auto &it_at : it->second) {
+        FuncAttrs.addAttribute("imf-" + it_at.first().str(), it_at.second);
+        FuncOwnAttrs.insert(it_at.first());
+      }
+    }
+    if (!getLangOpts().ImfFuncSet.empty()) {
+      for (auto &it_at : getLangOpts().ImfAttrMap) {
+        if (FuncOwnAttrs.empty() ||
+            (FuncOwnAttrs.find(it_at.first()) == FuncOwnAttrs.end())) {
+          // no specific attributes for this function OR such attribute so far.
+          FuncAttrs.addAttribute("imf-" + it_at.first().str(), it_at.second);
+        }
+      }
+    }
+    FuncOwnAttrs.clear();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // OptimizeNoneAttr takes precedence over -Os or -Oz. No warning needed.
   if (!HasOptnone) {

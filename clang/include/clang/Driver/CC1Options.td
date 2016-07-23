@@ -651,6 +651,8 @@ def friend_injection : Flag<["--"], "friend_injection">,
   HelpText<"Inject friend functions into the enclosing namespace.">;
 def no_friend_injection : Flag<["--"], "no_friend_injection">,
   HelpText<"Do not inject friend functions into the enclosing namespace.">;
+// IMF attributes support (CQ381541)
+def fintel_imf_attr_EQ : Joined<["-"], "mGLOB_imf_attr=">;
 // endif INTEL_CUSTOMIZATION
 // if INTEL_SPECIFIC_OPENMP
 def fintel_openmp : Flag<["-"], "fintel-openmp">,
