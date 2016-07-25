@@ -465,11 +465,11 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
 					ControlDependenceNode *upnode = *uparent;
 					MachineBasicBlock *upbb = upnode->getBlock();
 					if (!upbb) {
-						//this is tipical define inside loop, used outside loop on the main execution path
+						//this is typical define inside loop, used outside loop on the main execution path
 						continue;
 					}
 					if (mbb == upbb) {
-						//mbb is a loop latch node, use inside a loop will be take care of in HandleUseInLopp
+						//mbb is a loop latch node, use inside a loop will be take care of in HandleUseInLoop
 						continue;
 					}
 					if (MLI->getLoopFor(upbb) &&
@@ -1021,6 +1021,7 @@ void LPUCvtCFDFPass::handleAllConstantInputs() {
   
   std::deque<unsigned> renameQueue;
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+		MachineBasicBlock* mbb = BB;
     MachineBasicBlock::iterator iterMI = BB->begin();
     while(iterMI != BB->end()) {
       MachineInstr* MI = iterMI;
@@ -1038,23 +1039,73 @@ void LPUCvtCFDFPass::handleAllConstantInputs() {
       if (allConst) {
         const TargetRegisterClass *TRC = MRI->getRegClass(MI->getOperand(0).getReg());
         ControlDependenceNode* mNode = CDG->getNode(BB);
-        ControlDependenceNode* ctrlNode = getNonLatchParent(mNode, true);
-        unsigned switchFalse = LPU::IGN, switchTrue = LPU::IGN;
-        if (ctrlNode) {
-          if (ctrlNode->isFalseChild(mNode)) {
-            switchFalse = MI->getOperand(0).getReg();
-          } else {
-            switchTrue = MI->getOperand(0).getReg();
-          }
-          MachineInstr* bi = ctrlNode->getBlock()->getFirstTerminator();
-          assert(bi->getOperand(0).isReg());
-          unsigned predReg = bi->getOperand(0).getReg();
-          const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
-          MachineInstr *switchInst = BuildMI(*BB, MI, DebugLoc(), TII.get(switchOpcode), switchFalse).addReg(switchTrue, RegState::Define).
-                                                                                                        addReg(predReg).addOperand(MI->getOperand(1));
-          MI->removeFromParent();
-          switchInst->setFlag(MachineInstr::NonSequential);
-        }
+				MachineInstr *pickInst = nullptr;
+				MachineInstr *switchInst = nullptr;
+				const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false);
+				const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true);
+				unsigned pickFalseReg = LPU::IGN, pickTrueReg = LPU::IGN;
+				unsigned switchFalse = LPU::IGN, switchTrue = LPU::IGN;
+				int parentN = 0;
+				for (ControlDependenceNode::node_iterator uparent = mNode->parent_begin(), uparent_end = mNode->parent_end();
+					uparent != uparent_end; ++uparent) {
+					ControlDependenceNode *upnode = *uparent;
+					MachineBasicBlock *upbb = upnode->getBlock();
+					if (!upbb) {
+						//this is typical define inside loop, used outside loop on the main execution path
+						continue;
+					}
+					if (mbb == upbb) {
+						//mbb is a loop latch node, use inside a loop will be taken care of in HandleUseInLoop
+						continue;
+					}
+					if (MLI->getLoopFor(upbb) &&
+						MLI->getLoopFor(upbb)->getLoopLatch() == upbb) {
+						//no need to conside backedge for if-statements handling
+						continue;
+					}
+					++parentN;
+					MachineInstr* bi = upnode->getBlock()->getFirstTerminator();
+					assert(bi->getOperand(0).isReg());
+					unsigned predReg = bi->getOperand(0).getReg();
+					unsigned pickReg = 0;
+					if (parentN == 1) {
+						if (upnode->isFalseChild(mNode)) {
+							switchFalse = MI->getOperand(0).getReg();
+						}	else {
+							switchTrue = MI->getOperand(0).getReg();
+						}
+						switchInst = BuildMI(*BB, MI, DebugLoc(), TII.get(switchOpcode), switchFalse).addReg(switchTrue, RegState::Define).
+							addReg(predReg).addOperand(MI->getOperand(1));
+						switchInst->setFlag(MachineInstr::NonSequential);
+					}	else {
+						if (parentN == 2) {
+							unsigned renameReg = MRI->createVirtualRegister(TRC);
+							unsigned index = (switchFalse == LPU::IGN) ? 1 : 0;
+							switchInst->getOperand(index).setReg(renameReg);
+							pickTrueReg = renameReg;
+							pickFalseReg = renameReg;
+						}
+						pickReg = MRI->createVirtualRegister(TRC);
+						if (upnode->isFalseChild(mNode)) {
+							pickInst = BuildMI(*BB, MI, DebugLoc(), TII.get(pickOpcode), pickReg).addReg(predReg).
+								addOperand(MI->getOperand(1)).
+								addReg(pickTrueReg);
+						}	else {
+							pickInst = BuildMI(*BB, MI, DebugLoc(), TII.get(pickOpcode), pickReg).addReg(predReg).
+								addReg(pickFalseReg).
+								addOperand(MI->getOperand(1));
+						}
+						pickInst->setFlag(MachineInstr::NonSequential);
+						pickFalseReg = pickReg;
+						pickTrueReg = pickReg;
+					}
+				}
+				if (pickInst) {
+					pickInst->getOperand(0).setReg(MI->getOperand(0).getReg());
+				}
+				if (switchInst) {
+					MI->removeFromParent();
+				}
       }
     }
   }
