@@ -151,12 +151,14 @@ else()
   set (LLC OCL_HOST_LLC)
 endif()
 
-# LLVM triple is per OS and Arch (keep consistent with SetTargetTriple() in Compiler.cpp)
+# LLVM triple is per OS and Arch (keep consistent with Materializer),
+# also, note that -elf postfix is added to windows triples later in the file.
+# adding "-elf" postfix to the triple for Win32 to codegen ELF with llc later (to be consistent with Backend Materializer)
 if (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set (TRIPLE i686-pc-win32-gnu)
+    set (TRIPLE i686-pc-win32-msvc-gnu-elf)
   else ()
-    set (TRIPLE x86_64-pc-win32-gnu)
+    set (TRIPLE x86_64-pc-win32-gnu-elf)
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 else (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -224,10 +226,6 @@ set (LLVM_OPT_PARAMS -verify -scalarrepl -functionattrs)
 
 # images optimization options
 set (LLVM_IMAGES_OPT_PARAMS -verify -builtin-import -builtin-call-to-inst -verify -O3)
-# adding "-elf" postfix to the triple for Win32 to codegen ELF with llc later (to be consistent with Backend Materializer)
-if (WIN32)
-  set (LLVM_IMAGES_OPT_PARAMS ${LLVM_IMAGES_OPT_PARAMS} -mtriple=${TRIPLE}-elf)
-endif()
 
 # llvm-link parameters
 set (LLVM_LINK_PARAMS -f)

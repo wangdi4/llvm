@@ -335,8 +335,6 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     // Exclude FMA instructions when FP_CONTRACT is disabled
     std::vector<std::string> cpuFeatures(m_forcedCpuFeatures);
 
-    UpdateTargetTriple(pModule);
-
     std::unique_ptr<llvm::Module> pModuleUniquePtr(pModule);
     llvm::EngineBuilder builder(std::move(pModuleUniquePtr));
     builder.setEngineKind(llvm::EngineKind::JIT);

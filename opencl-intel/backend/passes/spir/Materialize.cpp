@@ -6,16 +6,16 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "Materialize.h"
-#include <cstdio>
+#include "MetaDataApi.h"
+#include "OCLPassSupport.h"
+#include "CompilationUtils.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Target/TargetMachine.h"
 
-#include "MetaDataApi.h"
-#include "OCLPassSupport.h"
-#include "CompilationUtils.h"
+#include <cstdio>
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -25,11 +25,8 @@ namespace intel {
 // Supported target triples.
 const char *PC_LIN64 = "x86_64-pc-linux";       // Used for RH64/SLES64.
 const char *PC_LIN32 = "i686-pc-linux";         // Used for Android.
-const char *PC_WIN32 = "i686-pc-win32-msvc";    // Win 32 bit.
-const char *PC_WIN64 = "x86_64-pc-win32";       // Win 64 bit.
-
-// Command line option used for cross compilation.
-const char *CROSS_SWITCH = "-target-triple";
+const char *PC_WIN32 = "i686-pc-win32-msvc-gnu-elf";    // Win 32 bit.
+const char *PC_WIN64 = "x86_64-pc-win32-gnu-elf";       // Win 64 bit.
 
 // Basic block functors, to be applied on each block in the module.
 // 1. Replaces calling conventions in calling sites.
@@ -105,7 +102,23 @@ llvm::ModulePass *createSpirMaterializer(){
   return new intel::SpirMaterializer();
 }
 
-void  materializeSpirDataLayout(llvm::Module& M) {
+void UpdateTargetTriple(llvm::Module *pModule)
+{
+  std::string triple = pModule->getTargetTriple();
+
+  //Force ELF codegen on Windows (MCJIT does not support COFF format)
+  if (((triple.find("win32") != std::string::npos) || (triple.find("windows") != std::string::npos))
+    && triple.find("-elf") == std::string::npos) {
+    pModule->setTargetTriple(triple + "-elf");    // transforms:
+                                                  // x86_64-pc-win32
+                                                  // i686-pc-win32
+                                                  // to:
+                                                  // x86_64-pc-win32-elf
+                                                  // i686-pc-win32-elf
+  }
+}
+
+void materializeSpirDataLayout(llvm::Module& M) {
   llvm::StringRef Triple(M.getTargetTriple());
   if (!Triple.startswith("spir"))
     return;
@@ -126,12 +139,21 @@ void  materializeSpirDataLayout(llvm::Module& M) {
 #endif
   M.setTargetTriple(Triple);
 
-  // Adjusting the datalayout, to fit the new (materialized) triple.
-  EngineBuilder builder;
-  TargetMachine* TM = builder.selectTarget(); // guess native
+  // Since we codegen ELF only, we can't let MCJIT to guess native platform as it will be COFF on Win.
+  // We could've easily hardcoded data layouts here and get away with it ('til next upgrade).
+  // To solve this problem once and for all (hopefully) and avoid MCJIT assertion
+  // regarding DataLayout mismatch between module's and the one produced via EngineBuilder in CPUCompiler.cpp
+  // we'll perform the following trick:
+  //
+  // Create a dummy module with a correct target triple (-elf) and create EngineBuilder from it.
+  // Then we set datalayout of our module to the correct one produced by TargetMachine.
+  std::unique_ptr<Module> dummyModule(new Module("empty", M.getContext()));
+  dummyModule.get()->setTargetTriple(M.getTargetTriple());
+  UpdateTargetTriple(dummyModule.get());
+  EngineBuilder builder(std::move(dummyModule));
+  TargetMachine* TM = builder.selectTarget();
   // That's how MCJIT does when being created.
   M.setDataLayout(TM->createDataLayout());
 }
 
 }
-

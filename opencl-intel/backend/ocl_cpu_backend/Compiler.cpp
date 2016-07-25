@@ -483,8 +483,6 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
 
         builtinsModules.push_back(pModuleSvmlShared);
     }
-
-    UpdateTargetTriple(pModule);
 }
 
 bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const
@@ -586,19 +584,4 @@ const std::string Compiler::GetBitcodeTargetTriple( const void* pBinary,
     return strTargetTriple;
 }
 
-void UpdateTargetTriple(llvm::Module *pModule)
-{
-  std::string triple = pModule->getTargetTriple();
-
-  //Force ELF codegen on Windows (MCJIT does not support COFF format)
-  if ((triple.find("win32") != std::string::npos)
-        && triple.find("-elf") == std::string::npos) {
-    pModule->setTargetTriple(triple + "-elf");    // transforms:
-                                                  // x86_64-pc-win32
-                                                  // i686-pc-win32
-                                                  // to:
-                                                  // x86_64-pc-win32-elf
-                                                  // i686-pc-win32-elf
-  }
-}
 }}}
