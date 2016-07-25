@@ -1,6 +1,7 @@
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.ll -runtime=apple -CLBltnResolve %t.bc -S -o %t1.ll
+; RUN: llvm-as %p/../Full/apple_only_dcls32.ll -o %p/../Full/apple_only_dcls32.ll.bc
+; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.ll.bc -runtime=apple -CLBltnResolve %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 
