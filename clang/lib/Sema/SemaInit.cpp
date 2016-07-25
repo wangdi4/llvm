@@ -2011,8 +2011,8 @@ static DesignatedInitExpr *CloneDesignatedInitExpr(Sema &SemaRef,
   SmallVector<Expr*, 4> IndexExprs(NumIndexExprs);
   for (unsigned I = 0; I < NumIndexExprs; ++I)
     IndexExprs[I] = DIE->getSubExpr(I + 1);
-  return DesignatedInitExpr::Create(SemaRef.Context, DIE->designators_begin(),
-                                    DIE->size(), IndexExprs,
+  return DesignatedInitExpr::Create(SemaRef.Context, DIE->designators(),
+                                    IndexExprs,
                                     DIE->getEqualOrColonLoc(),
                                     DIE->usesGNUSyntax(), DIE->getInit());
 }
@@ -2872,7 +2872,7 @@ ExprResult Sema::ActOnDesignatedInitializer(Designation &Desig,
 
   DesignatedInitExpr *DIE
     = DesignatedInitExpr::Create(Context,
-                                 Designators.data(), Designators.size(),
+                                 Designators,
                                  InitExpressions, Loc, GNUSyntax,
                                  Init.getAs<Expr>());
 
@@ -3778,15 +3778,7 @@ static void TryReferenceListInitialization(Sema &S,
                         TreatUnavailableAsInvalid);
   if (Sequence) {
     if (DestType->isRValueReferenceType() ||
-#if INTEL_CUSTOMIZATION
-        // CQ#364712 - allow non-const non-volatile lvalue reference bind to
-        // temporary of structure or class types in IntelMSCompat mode.
-        (!T1Quals.hasVolatile() &&
-         (T1Quals.hasConst() ||
-          (S.getLangOpts().IntelMSCompat && T1->isStructureOrClassType()))))
-#else
         (T1Quals.hasConst() && !T1Quals.hasVolatile()))
-#endif // INTEL_CUSTOMIZATION
       Sequence.AddReferenceBindingStep(cv1T1, /*bindingTemporary=*/true);
     else
       Sequence.SetFailed(
@@ -4244,6 +4236,29 @@ convertQualifiersAndValueKindIfNecessary(Sema &S,
   return Initializer->getValueKind();
 }
 
+#if INTEL_CUSTOMIZATION
+Sema::ReferenceInitStatus
+Sema::GetReferenceInitStatus(Expr *Init, bool isLValueRef, QualType T,
+                             Qualifiers Quals,
+                             Sema::ReferenceCompareResult RefRelationships) {
+  // Const non-volatile lvalue references and rvalue references are allowed.
+  if (!isLValueRef || (!Quals.hasVolatile() && Quals.hasConst()))
+    return Sema::RIS_Allowed;
+
+  // Everything else is an Intel MSVC compatibility extensions for C++.
+  if (!(getLangOpts().IntelMSCompat && getLangOpts().CPlusPlus))
+    return Sema::RIS_Forbidden;
+
+  // Non-const lvalue reference can be bound to the result of "new" statement
+  // or to temporary of compatible class type without dropping qualifiers.
+  if ((RefRelationships >= Sema::Ref_Related && T->isRecordType()) ||
+      isa<CXXNewExpr>(Init))
+    return Sema::RIS_Extension;
+
+  return Sema::RIS_Forbidden;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// \brief Reference initialization without resolving overloaded functions.
 static void TryReferenceInitializationCore(Sema &S,
                                            const InitializedEntity &Entity,
@@ -4331,7 +4346,12 @@ static void TryReferenceInitializationCore(Sema &S,
   //     - Otherwise, the reference shall be an lvalue reference to a
   //       non-volatile const type (i.e., cv1 shall be const), or the reference
   //       shall be an rvalue reference.
-  if (isLValueRef && !(T1Quals.hasConst() && !T1Quals.hasVolatile())) {
+#if INTEL_CUSTOMIZATION
+  auto InitStatus = S.GetReferenceInitStatus(Initializer, isLValueRef, T1,
+                                             T1Quals, RefRelationship);
+  // CQ#364712 - allow non-const lvalue reference bind to temporary.
+  if (InitStatus == Sema::RIS_Forbidden) {
+#endif // INTEL_CUSTOMIZATION
     if (S.Context.getCanonicalType(T2) == S.Context.OverloadTy)
       Sequence.SetFailed(InitializationSequence::FK_AddressOfOverloadFailed);
     else if (ConvOvlResult && !Sequence.getFailedCandidateSet().empty())
@@ -4339,21 +4359,11 @@ static void TryReferenceInitializationCore(Sema &S,
                         InitializationSequence::FK_ReferenceInitOverloadFailed,
                                   ConvOvlResult);
     else
-#if INTEL_CUSTOMIZATION
-      // CQ#364712 - allow non-const lvalue reference bind to temporary in
-      // IntelMsCompat mode. Don't change behaviour for volatile lvalues.
-      if (!S.getLangOpts().IntelMSCompat || T1Quals.hasVolatile() ||
-          InitCategory.isLValue() || !T1->isStructureOrClassType())
-#endif // INTEL_CUSTOMIZATION
       Sequence.SetFailed(InitCategory.isLValue()
         ? (RefRelationship == Sema::Ref_Related
              ? InitializationSequence::FK_ReferenceInitDropsQualifiers
              : InitializationSequence::FK_NonConstLValueReferenceBindingToUnrelated)
         : InitializationSequence::FK_NonConstLValueReferenceBindingToTemporary);
-#if INTEL_CUSTOMIZATION
-    // CQ#364712. Return only if an error was emitted.
-    if (Sequence.Failed())
-#endif // INTEL_CUSTOMIZATION
 
     return;
   }
@@ -4865,8 +4875,8 @@ static void checkIndirectCopyRestoreSource(Sema &S, Expr *src) {
   // If isWeakAccess to true, there will be an implicit 
   // load which requires a cleanup.
   if (S.getLangOpts().ObjCAutoRefCount && isWeakAccess)
-    S.ExprNeedsCleanups = true;
-  
+    S.Cleanup.setExprNeedsCleanups(true);
+
   if (iik == IIK_okay) return;
 
   S.Diag(src->getExprLoc(), diag::err_arc_nonlocal_writeback)
@@ -5239,6 +5249,17 @@ void InitializationSequence::InitializeFrom(Sema &S,
     else
       TryUserDefinedConversion(S, DestType, Kind, Initializer, *this,
                                TopLevelOfInitList);
+#if INTEL_CUSTOMIZATION
+    // CQ#364712 - in MSVC compatibility mode also try constructor
+    // initialization because MSVC allows 2 user defined conversions in a row in
+    // this case.
+    if (S.getLangOpts().IntelCompat && S.getLangOpts().IntelMSCompat &&
+        Kind.getKind() == InitializationKind::IK_Copy && Failed()) {
+      setSequenceKind(NormalSequence);
+      TryConstructorInitialization(S, Entity, Kind, Args,
+                                   DestType, *this);
+    }
+#endif // INTEL_CUSTOMIZATION
     return;
   }
 
@@ -5617,8 +5638,8 @@ static ExprResult CopyObject(Sema &S,
   SmallVector<Expr*, 8> ConstructorArgs;
   CurInit.get(); // Ownership transferred into MultiExprArg, below.
 
-  S.CheckConstructorAccess(Loc, Constructor, Entity,
-                           Best->FoundDecl.getAccess(), IsExtraneousCopy);
+  S.CheckConstructorAccess(Loc, Constructor, Best->FoundDecl, Entity,
+                           IsExtraneousCopy);
 
   if (IsExtraneousCopy) {
     // If this is a totally extraneous copy for C++03 reference
@@ -5701,7 +5722,7 @@ static void CheckCXX98CompatAccessibleCopy(Sema &S,
   switch (OR) {
   case OR_Success:
     S.CheckConstructorAccess(Loc, cast<CXXConstructorDecl>(Best->Function),
-                             Entity, Best->FoundDecl.getAccess(), Diag);
+                             Best->FoundDecl, Entity, Diag);
     // FIXME: Check default arguments as far as that's possible.
     break;
 
@@ -5827,7 +5848,6 @@ PerformConstructorInitialization(Sema &S,
 
   if (isExplicitTemporary(Entity, Kind, NumArgs)) {
     // An explicitly-constructed temporary, e.g., X(1, 2).
-    S.MarkFunctionReferenced(Loc, Constructor);
     if (S.DiagnoseUseOfDecl(Constructor, Loc))
       return ExprError();
 
@@ -5839,8 +5859,16 @@ PerformConstructorInitialization(Sema &S,
       ? SourceRange(LBraceLoc, RBraceLoc)
       : Kind.getParenRange();
 
+    if (auto *Shadow = dyn_cast<ConstructorUsingShadowDecl>(
+            Step.Function.FoundDecl.getDecl())) {
+      Constructor = S.findInheritingConstructor(Loc, Constructor, Shadow);
+      if (S.DiagnoseUseOfDecl(Constructor, Loc))
+        return ExprError();
+    }
+    S.MarkFunctionReferenced(Loc, Constructor);
+
     CurInit = new (S.Context) CXXTemporaryObjectExpr(
-        S.Context, Step.Function.FoundDecl, Constructor, TSInfo,
+        S.Context, Constructor, TSInfo,
         ConstructorArgs, ParenOrBraceRange, HadMultipleCandidates,
         IsListInitialization, IsStdInitListInitialization,
         ConstructorInitRequiresZeroInit);
@@ -5893,8 +5921,7 @@ PerformConstructorInitialization(Sema &S,
     return ExprError();
 
   // Only check access if all of that succeeded.
-  S.CheckConstructorAccess(Loc, Constructor, Entity,
-                           Step.Function.FoundDecl.getAccess());
+  S.CheckConstructorAccess(Loc, Constructor, Step.Function.FoundDecl, Entity);
   if (S.DiagnoseUseOfDecl(Step.Function.FoundDecl, Loc))
     return ExprError();
 
@@ -6280,6 +6307,22 @@ static void CheckForNullPointerDereference(Sema &S, const Expr *E) {
   }
 }
 
+MaterializeTemporaryExpr *
+Sema::CreateMaterializeTemporaryExpr(QualType T, Expr *Temporary,
+                                     bool BoundToLvalueReference) {
+  auto MTE = new (Context)
+      MaterializeTemporaryExpr(T, Temporary, BoundToLvalueReference);
+
+  // Order an ExprWithCleanups for lifetime marks.
+  //
+  // TODO: It'll be good to have a single place to check the access of the
+  // destructor and generate ExprWithCleanups for various uses. Currently these
+  // are done in both CreateMaterializeTemporaryExpr and MaybeBindToTemporary,
+  // but there may be a chance to merge them.
+  Cleanup.setExprNeedsCleanups(false);
+  return MTE;
+}
+
 ExprResult
 InitializationSequence::Perform(Sema &S,
                                 const InitializedEntity &Entity,
@@ -6540,26 +6583,21 @@ InitializationSequence::Perform(Sema &S,
       assert(CurInit.get()->isRValue() && "not a temporary");
 
 #if INTEL_CUSTOMIZATION
-      // CQ#364712 - allow non-const lvalue reference bind to temporary in
-      // IntelMSCompat mode.
-      QualType DeclType = Entity.getType();
-      Qualifiers DeclTypeQuals = DeclType.getNonReferenceType().getQualifiers();
-
-      if (DeclType->isLValueReferenceType() && !DeclTypeQuals.hasConst() &&
-          !DeclTypeQuals.hasVolatile()) {
+      // CQ#364712 - allow non-const lvalue reference bind to temporary.
+      if (Entity.getType()->isLValueReferenceType() &&
+          (!DestType.isConstQualified() || DestType.isVolatileQualified())) {
         // If it is non-const non-volatile lvalue reference and FailureKind was
         // not set, we should emit a warning.
         if (isa<InitListExpr>(Args[0]))
           S.Diag(Kind.getLocation(),
                  diag::warn_lvalue_reference_bind_to_initlist)
-            << DeclType.getNonReferenceType()
-            << Args[0]->getSourceRange();
+              << DestType.isVolatileQualified() << DestType
+              << Args[0]->getSourceRange();
         else
           S.Diag(Kind.getLocation(),
                  diag::warn_lvalue_reference_bind_to_temporary)
-            << DeclType.getNonReferenceType()
-            << Args[0]->getType()
-            << Args[0]->getSourceRange();
+              << DestType.isVolatileQualified() << DestType
+              << Args[0]->getType() << Args[0]->getSourceRange();
       }
 #endif // INTEL_CUSTOMIZATION
 
@@ -6568,7 +6606,7 @@ InitializationSequence::Perform(Sema &S,
         return ExprError();
 
       // Materialize the temporary into memory.
-      MaterializeTemporaryExpr *MTE = new (S.Context) MaterializeTemporaryExpr(
+      MaterializeTemporaryExpr *MTE = S.CreateMaterializeTemporaryExpr(
           Entity.getType().getNonReferenceType(), CurInit.get(),
           Entity.getType()->isLValueReferenceType());
 
@@ -6588,7 +6626,7 @@ InitializationSequence::Perform(Sema &S,
            MTE->getType()->isObjCLifetimeType()) ||
           (MTE->getStorageDuration() == SD_Automatic &&
            MTE->getType().isDestructedType()))
-        S.ExprNeedsCleanups = true;
+        S.Cleanup.setExprNeedsCleanups(true);
 
       CurInit = MTE;
       break;
@@ -6635,8 +6673,8 @@ InitializationSequence::Perform(Sema &S,
         if (CurInit.isInvalid())
           return ExprError();
 
-        S.CheckConstructorAccess(Kind.getLocation(), Constructor, Entity,
-                                 FoundFn.getAccess());
+        S.CheckConstructorAccess(Kind.getLocation(), Constructor, FoundFn,
+                                 Entity);
         if (S.DiagnoseUseOfDecl(FoundFn, Kind.getLocation()))
           return ExprError();
 
@@ -6980,9 +7018,9 @@ InitializationSequence::Perform(Sema &S,
         << CurInit.get()->getSourceRange();
 
       // Materialize the temporary into memory.
-      MaterializeTemporaryExpr *MTE = new (S.Context)
-          MaterializeTemporaryExpr(CurInit.get()->getType(), CurInit.get(),
-                                   /*BoundToLvalueReference=*/false);
+      MaterializeTemporaryExpr *MTE = S.CreateMaterializeTemporaryExpr(
+          CurInit.get()->getType(), CurInit.get(),
+          /*BoundToLvalueReference=*/false);
 
       // Maybe lifetime-extend the array temporary's subobjects to match the
       // entity's lifetime.
@@ -7398,17 +7436,20 @@ bool InitializationSequence::Diagnose(Sema &S,
             isa<CXXConstructorDecl>(S.CurContext)) {
           // This is implicit default initialization of a member or
           // base within a constructor. If no viable function was
-          // found, notify the user that she needs to explicitly
+          // found, notify the user that they need to explicitly
           // initialize this base/member.
           CXXConstructorDecl *Constructor
             = cast<CXXConstructorDecl>(S.CurContext);
+          const CXXRecordDecl *InheritedFrom = nullptr;
+          if (auto Inherited = Constructor->getInheritedConstructor())
+            InheritedFrom = Inherited.getShadowDecl()->getNominatedBaseClass();
           if (Entity.getKind() == InitializedEntity::EK_Base) {
             S.Diag(Kind.getLocation(), diag::err_missing_default_ctor)
-              << (Constructor->getInheritedConstructor() ? 2 :
-                  Constructor->isImplicit() ? 1 : 0)
+              << (InheritedFrom ? 2 : Constructor->isImplicit() ? 1 : 0)
               << S.Context.getTypeDeclType(Constructor->getParent())
               << /*base=*/0
-              << Entity.getType();
+              << Entity.getType()
+              << InheritedFrom;
 
             RecordDecl *BaseDecl
               = Entity.getBaseSpecifier()->getType()->getAs<RecordType>()
@@ -7417,11 +7458,11 @@ bool InitializationSequence::Diagnose(Sema &S,
               << S.Context.getTagDeclType(BaseDecl);
           } else {
             S.Diag(Kind.getLocation(), diag::err_missing_default_ctor)
-              << (Constructor->getInheritedConstructor() ? 2 :
-                  Constructor->isImplicit() ? 1 : 0)
+              << (InheritedFrom ? 2 : Constructor->isImplicit() ? 1 : 0)
               << S.Context.getTypeDeclType(Constructor->getParent())
               << /*member=*/1
-              << Entity.getName();
+              << Entity.getName()
+              << InheritedFrom;
             S.Diag(Entity.getDecl()->getLocation(),
                    diag::note_member_declared_at);
 

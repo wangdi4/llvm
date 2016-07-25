@@ -22,14 +22,6 @@
 using namespace clang;
 using namespace CodeGen;
 
-static LValue emitLoadOfPointerLValue(CodeGenFunction &CGF, Address PtrAddr,
-                                      QualType Ty) {
-  AlignmentSource Source;
-  CharUnits Align = CGF.getNaturalPointeeTypeAlignment(Ty, &Source);
-  return CGF.MakeAddrLValue(Address(CGF.Builder.CreateLoad(PtrAddr), Align),
-                            Ty->getPointeeType(), Source);
-}
-
 static llvm::Value *emitIntelOpenMPDefaultConstructor(CodeGenModule &CGM,
                                                       const VarDecl *Private) {
   QualType Ty = Private->getType();
@@ -59,8 +51,8 @@ static llvm::Value *emitIntelOpenMPDefaultConstructor(CodeGenModule &CGM,
   auto *Init = Private->getInit();
   if (Init && !CGF.isTrivialInitializer(Init)) {
     CodeGenFunction::RunCleanupsScope Scope(CGF);
-    LValue ArgLVal =
-        emitLoadOfPointerLValue(CGF, CGF.GetAddrOfLocalVar(&Dst), PtrTy);
+    LValue ArgLVal = CGF.EmitLoadOfPointerLValue(CGF.GetAddrOfLocalVar(&Dst),
+                                                 PtrTy->getAs<PointerType>());
     CGF.EmitAnyExprToMem(Init, ArgLVal.getAddress(), Ty.getQualifiers(),
                          /*IsInitializer=*/true);
     CGF.Builder.CreateStore(ArgLVal.getPointer(), CGF.ReturnValue);
@@ -99,8 +91,8 @@ static llvm::Value *emitIntelOpenMPDestructor(CodeGenModule &CGM,
                     SourceLocation());
   if (Ty.isDestructedType() != QualType::DK_none) {
     CodeGenFunction::RunCleanupsScope Scope(CGF);
-    LValue ArgLVal =
-        emitLoadOfPointerLValue(CGF, CGF.GetAddrOfLocalVar(&Dst), PtrTy);
+    LValue ArgLVal = CGF.EmitLoadOfPointerLValue(CGF.GetAddrOfLocalVar(&Dst),
+                                                 PtrTy->getAs<PointerType>());
     CGF.emitDestroy(ArgLVal.getAddress(), Ty,
                     CGF.getDestroyer(Ty.isDestructedType()),
                     CGF.needsEHCleanup(Ty.isDestructedType()));
@@ -122,6 +114,13 @@ enum OMPAtomicClause {
 };
 /// Class used for emission of Intel-specific intrinsics for OpenMP code.
 class OpenMPCodeOutliner {
+  struct ArraySectionDataTy final {
+    llvm::Value *LowerBound = nullptr;
+    llvm::Value *Length = nullptr;
+    llvm::Value *Stride = nullptr;
+    llvm::Value *VLASize = nullptr;
+  };
+  typedef llvm::SmallVector<ArraySectionDataTy, 4> ArraySectionTy;
   CodeGenFunction &CGF;
   StringRef End;
   bool WithListEnd = true;
@@ -131,10 +130,120 @@ class OpenMPCodeOutliner {
   llvm::Function *IntelListClause = nullptr;
   llvm::LLVMContext &C;
   llvm::SmallVector<llvm::Value *, 16> Args;
+  /*--- Process array section expression ---*/
+  /// Emit an address of the base of OMPArraySectionExpr and fills data for
+  /// array sections.
+  ArraySectionDataTy emitArraySectionData(const OMPArraySectionExpr *E) {
+    ArraySectionDataTy Data;
+    auto &C = CGF.getContext();
+    if (auto *LowerBound = E->getLowerBound()) {
+      Data.LowerBound = CGF.EmitScalarConversion(
+          CGF.EmitScalarExpr(LowerBound), LowerBound->getType(),
+          C.getSizeType(), LowerBound->getExprLoc());
+    } else
+      Data.LowerBound = llvm::ConstantInt::getNullValue(CGF.SizeTy);
+    QualType BaseTy = OMPArraySectionExpr::getBaseOriginalType(
+        E->getBase()->IgnoreParenImpCasts());
+    if (auto *Length = E->getLength()) {
+      Data.Length = CGF.EmitScalarConversion(CGF.EmitScalarExpr(Length),
+                                             Length->getType(), C.getSizeType(),
+                                             Length->getExprLoc());
+    } else {
+      llvm::APSInt ConstLength;
+      if (auto *VAT = C.getAsVariableArrayType(BaseTy)) {
+        Length = VAT->getSizeExpr();
+        if (Length->isIntegerConstantExpr(ConstLength, C))
+          Length = nullptr;
+      } else {
+        auto *CAT = C.getAsConstantArrayType(BaseTy);
+        ConstLength = CAT->getSize();
+      }
+      llvm::Value *LengthVal;
+      if (Length) {
+        LengthVal = CGF.EmitScalarConversion(
+            CGF.EmitScalarExpr(Length), Length->getType(), C.getSizeType(),
+            Length->getExprLoc());
+      } else {
+        LengthVal =
+            llvm::ConstantInt::get(CGF.SizeTy, ConstLength.getExtValue());
+      }
+      Data.Length = CGF.Builder.CreateSub(LengthVal, Data.LowerBound);
+    }
+    Data.Stride = llvm::ConstantInt::get(CGF.SizeTy, /*V=*/1);
+    return Data;
+  }
+  Address emitOMPArraySectionExpr(const OMPArraySectionExpr *E,
+                                  ArraySectionTy &AS) {
+    const Expr *Base = E->getBase()->IgnoreParenImpCasts();
+    AS.push_back(emitArraySectionData(E));
+    while (auto *ASE = dyn_cast<OMPArraySectionExpr>(Base)) {
+      E = ASE;
+      Base = E->getBase()->IgnoreParenImpCasts();
+      AS.insert(AS.begin(), emitArraySectionData(E));
+    }
+    QualType BaseTy = Base->getType();
+    Address BaseAddr = CGF.EmitLValue(Base).getAddress();
+    if (BaseTy->isVariablyModifiedType()) {
+      for (unsigned I = 0, E = AS.size(); I < E; ++I) {
+        if (const ArrayType *AT = BaseTy->getAsArrayTypeUnsafe()) {
+          BaseTy = AT->getElementType();
+          llvm::Value *Size = nullptr;
+          if (auto *VAT = dyn_cast<VariableArrayType>(AT)) {
+            Size = CGF.EmitScalarConversion(
+                CGF.EmitScalarExpr(VAT->getSizeExpr()),
+                VAT->getSizeExpr()->getType(), CGF.getContext().getSizeType(),
+                SourceLocation());
+          } else if (auto *CAT = dyn_cast<ConstantArrayType>(AT))
+            Size = llvm::ConstantInt::get(CGF.SizeTy, CAT->getSize());
+          else
+            Size = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+          AS[I].VLASize = Size;
+        } else {
+          assert((BaseTy->isPointerType()));
+          BaseTy = BaseTy->getPointeeType();
+          AS[I].VLASize = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+        }
+      }
+    }
+    return BaseAddr;
+  }
+  /*--- Process array section expression ---*/
+
+  void addArg(llvm::Value *Val) { Args.push_back(Val); }
   void addArg(StringRef Str) {
     Args.push_back(llvm::MetadataAsValue::get(C, llvm::MDString::get(C, Str)));
   }
-  void addArg(llvm::Value *Val) { Args.push_back(Val); }
+  void addArg(const Expr *E) {
+    if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
+      ArraySectionTy AS;
+      Address Base = emitOMPArraySectionExpr(
+          cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts()), AS);
+      addArg("QUAL.OPND.ARRSECT");
+      addArg(Base.getPointer());
+      addArg(llvm::ConstantInt::get(CGF.SizeTy, AS.size()));
+      // If VLASize of the first element is not nullptr, we have sizes for all
+      // dimensions of variably modified type.
+      if (AS.begin()->VLASize) {
+        addArg("QUAL.OPND.ARRSIZE");
+        for (auto &V : AS) {
+          assert(V.VLASize);
+          Args.push_back(V.VLASize);
+        }
+      }
+      for (auto &V : AS) {
+        assert(V.LowerBound);
+        Args.push_back(V.LowerBound);
+        assert(V.Length);
+        Args.push_back(V.Length);
+        assert(V.Stride);
+        Args.push_back(V.Stride);
+      }
+      return;
+    }
+    assert(E->isGLValue());
+    addArg(CGF.EmitLValue(E).getPointer());
+  }
+
   void emitDirective() {
     CGF.EmitRuntimeCall(IntelDirective, Args);
     Args.clear();
@@ -158,9 +267,8 @@ class OpenMPCodeOutliner {
 
   void emitOMPSharedClause(const OMPSharedClause *Cl) {
     addArg("QUAL.OMP.SHARED");
-    for (auto *E : Cl->varlists()) {
-      addArg(CGF.EmitLValue(E).getPointer());
-    }
+    for (auto *E : Cl->varlists())
+      addArg(E);
     emitListClause();
   }
   void emitOMPPrivateClause(const OMPPrivateClause *Cl) {
@@ -171,7 +279,7 @@ class OpenMPCodeOutliner {
       auto *Init = Private->getInit();
       if (Init || Private->getType().isDestructedType())
         addArg("QUAL.OPND.NONPOD");
-      addArg(CGF.EmitLValue(E).getPointer());
+      addArg(E);
       if (Init || Private->getType().isDestructedType()) {
         addArg(emitIntelOpenMPDefaultConstructor(CGF.CGM, Private));
         addArg(emitIntelOpenMPDestructor(CGF.CGM, Private));
@@ -197,7 +305,7 @@ class OpenMPCodeOutliner {
     }
     addArg(Linear);
     for (auto *E : Cl->varlists())
-      addArg(CGF.EmitLValue(E).getPointer());
+      addArg(E);
     addArg(Cl->getStep() ? CGF.EmitScalarExpr(Cl->getStep())
                          : CGF.Builder.getInt32(1));
     emitListClause();
@@ -282,7 +390,7 @@ class OpenMPCodeOutliner {
         break;
       }
       addArg(Op);
-      addArg(CGF.EmitLValue(E).getPointer());
+      addArg(E);
       emitListClause();
       ++I;
     }
@@ -294,6 +402,36 @@ class OpenMPCodeOutliner {
       emitOpndClause();
     } else
       emitSimpleClause();
+  }
+  void emitOMPMapClause(const OMPMapClause *Cl) {
+    StringRef Op;
+    switch (Cl->getMapType()) {
+    case OMPC_MAP_alloc:
+      Op = "QUAL.OMP.MAP.ALLOC";
+      break;
+    case OMPC_MAP_to:
+      Op = "QUAL.OMP.MAP.TO";
+      break;
+    case OMPC_MAP_from:
+      Op = "QUAL.OMP.MAP.FROM";
+      break;
+    case OMPC_MAP_tofrom:
+    case OMPC_MAP_unknown:
+      Op = "QUAL.OMP.MAP.TOFROM";
+      break;
+    case OMPC_MAP_delete:
+      Op = "QUAL.OMP.MAP.DELETE";
+      break;
+    case OMPC_MAP_release:
+      Op = "QUAL.OMP.MAP.RELEASE";
+      break;
+    case OMPC_MAP_always:
+      llvm_unreachable("Unexpected mapping type");
+    }
+    addArg(Op);
+    for (auto *E : Cl->varlists())
+      addArg(E);
+    emitListClause();
   }
   void emitOMPIfClause(const OMPIfClause *) {}
   void emitOMPFinalClause(const OMPFinalClause *) {}
@@ -322,7 +460,6 @@ class OpenMPCodeOutliner {
   void emitOMPDeviceClause(const OMPDeviceClause *) {}
   void emitOMPThreadsClause(const OMPThreadsClause *) {}
   void emitOMPSIMDClause(const OMPSIMDClause *) {}
-  void emitOMPMapClause(const OMPMapClause *) {}
   void emitOMPNumTeamsClause(const OMPNumTeamsClause *) {}
   void emitOMPThreadLimitClause(const OMPThreadLimitClause *) {}
   void emitOMPPriorityClause(const OMPPriorityClause *) {}
@@ -332,6 +469,8 @@ class OpenMPCodeOutliner {
   void emitOMPHintClause(const OMPHintClause *) {}
   void emitOMPDistScheduleClause(const OMPDistScheduleClause *) {}
   void emitOMPDefaultmapClause(const OMPDefaultmapClause *) {}
+  void emitOMPToClause(const OMPToClause *) {}
+  void emitOMPFromClause(const OMPFromClause *) {}
 
 public:
   OpenMPCodeOutliner(CodeGenFunction &CGF)
@@ -428,6 +567,11 @@ public:
     addArg("DIR.OMP.ORDERED");
     emitDirective();
   }
+  void emitOMPTargetDirective() {
+    End = "DIR.OMP.END.TARGET";
+    addArg("DIR.OMP.TARGET");
+    emitDirective();
+  }
   OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses) {
     for (auto *C : Clauses) {
       switch (C->getClauseKind()) {
@@ -436,6 +580,7 @@ public:
     emit##Class(cast<Class>(C));                                               \
     break;
 #include "clang/Basic/OpenMPKinds.def"
+      case OMPC_uniform:
       case OMPC_threadprivate:
       case OMPC_unknown:
         llvm_unreachable("Clause not allowed");
@@ -609,6 +754,10 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     DumpClauses = false;
     Outliner.emitOMPOrderedDirective();
     break;
+  case OMPD_target:
+    CGM.setHasTargetCode();
+    Outliner.emitOMPTargetDirective();
+    break;
   case OMPD_task:
   case OMPD_for:
   case OMPD_sections:
@@ -618,7 +767,6 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_taskwait:
   case OMPD_taskgroup:
   case OMPD_flush:
-  case OMPD_target:
   case OMPD_teams:
   case OMPD_cancel:
   case OMPD_target_data:
@@ -634,6 +782,8 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
     break;
+  case OMPD_declare_target:
+  case OMPD_end_declare_target:
   case OMPD_threadprivate:
   case OMPD_declare_reduction:
   case OMPD_declare_simd:

@@ -200,6 +200,39 @@ int main(int argc, char **argv) {
 #pragma omp ordered
     n2 = n1;
   }
+  int N = 10;
+  const int M = 10;
+  long input1[N];
+  long **input2 = 0;
+  long result[M][M][N];
+// CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.TARGET")
+// CHECK-NEXT: [[N:%.+]] = load i32, i32* [[N_ADDR:%.+]],
+// CHECK-NEXT: [[NS:%.+]] = sext i32 [[N]] to i64
+// CHECK-NEXT: [[N1:%.+]] = load i32, i32* [[N_ADDR]]
+// CHECK-NEXT: [[N1S:%.+]] = sext i32 [[N1]] to i64
+// CHECK-NEXT: [[N2:%.+]] = load i32, i32* [[N_ADDR]]
+// CHECK-NEXT: [[N2S:%.+]] = sext i32 [[N2]] to i64
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.MAP.TO", metadata !"QUAL.OPND.ARRSECT", i64* %{{.+}}, i64 1, metadata !"QUAL.OPND.ARRSIZE", i64 [[N1S]], i64 2, i64 [[NS]], i64 1, metadata !"QUAL.OPND.ARRSECT", i64*** %{{.+}}, i64 2, i64 0, i64 [[N2S]], i64 1, i64 0, i64 10, i64 1)
+// CHECK-NEXT: [[N:%.+]] = load i32, i32* [[N_ADDR]]
+// CHECK-NEXT: [[NS:%.+]] = sext i32 [[N]] to i64
+// CHECK-NEXT: [[SIZE:%.+]] = sub i64 [[NS]], 0
+// CHECK-NEXT: [[N1:%.+]] = load i32, i32* [[N_ADDR]]
+// CHECK-NEXT: [[N1S:%.+]] = sext i32 [[N1]] to i64
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.MAP.FROM", metadata !"QUAL.OPND.ARRSECT", i64* %{{.+}}, i64 3, metadata !"QUAL.OPND.ARRSIZE", i64 10, i64 10, i64 [[N1S]], i64 2, i64 8, i64 1, i64 0, i64 10, i64 1, i64 0, i64 [[SIZE]], i64 1)
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK: load i64, i64*
+// CHECK: store i64
+// CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.TARGET")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+#pragma omp target map(to : input1[2:N], input2[0:N][:M]) map(from : result[2:][:M][0:])
+#pragma omp parallel for
+  for (int i = 0; i < N; i++)
+    result[i][i][i] = input1[i] + input2[i][i];
+
   return 0;
 }
 

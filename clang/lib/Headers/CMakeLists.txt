@@ -5,19 +5,18 @@ set(modified_files
   avx2intrin.h
   avx512bwintrin.h
   avx512cdintrin.h
+  avx512dqintrin.h
   avx512erintrin.h
   avx512fintrin.h
   avx512ifmaintrin.h
   avx512ifmavlintrin.h
   avx512pfintrin.h
-  avx512vlbwintrin.h
-  avx512vlintrin.h
-  avx512vlcdintrin.h
-  avx512dqintrin.h
-  avx512vldqintrin.h
   avx512vbmiintrin.h
   avx512vbmivlintrin.h
-  pkuintrin.h
+  avx512vlbwintrin.h
+  avx512vlcdintrin.h
+  avx512vldqintrin.h
+  avx512vlintrin.h
   avxintrin.h
   bmi2intrin.h
   bmiintrin.h
@@ -32,6 +31,8 @@ set(modified_files
   mm_malloc.h
   mwaitxintrin.h
   nmmintrin.h
+  opencl-c.h
+  pkuintrin.h
   pmmintrin.h
   popcntintrin.h
   prfchwintrin.h
@@ -40,21 +41,21 @@ set(modified_files
   shaintrin.h
   smmintrin.h
   tmmintrin.h
-  __wmmintrin_aes.h
   wmmintrin.h
+  __wmmintrin_aes.h
   __wmmintrin_pclmul.h
-  xtestintrin.h
   x86intrin.h
+  xmmintrin.h
+  xsavecintrin.h
   xsaveintrin.h
   xsaveoptintrin.h
-  xsavecintrin.h
   xsavesintrin.h  
-  xmmintrin.h
+  xtestintrin.h
   )
 
 set(special_files
   __x86intrin_features.h
-  Intrin.h
+  intrin.h
   )
 
 set(orig_files
@@ -62,6 +63,7 @@ set(orig_files
   ammintrin.h
   arm_acle.h
   __clang_cuda_cmath.h
+  __clang_cuda_intrinsics.h
   __clang_cuda_math_forward_declares.h
   __clang_cuda_runtime_wrapper.h
   cpuid.h
@@ -91,7 +93,6 @@ set(orig_files
   varargs.h
   vecintrin.h
   xopintrin.h
-  xtestintrin.h
   )
 
 set(intel_files ${modified_files} ${special_files})

@@ -22,6 +22,7 @@
 #if INTEL_CUSTOMIZATION
 #include "clang/Basic/intel/PragmaSIMD.h"
 #endif  // INTEL_CUSTOMIZATION
+#include "clang/Sema/CleanupInfo.h"
 #include "clang/Sema/Ownership.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
@@ -520,8 +521,11 @@ public:
     /// \brief Retrieve the capture type for this capture, which is effectively
     /// the type of the non-static data member in the lambda/block structure
     /// that would store this capture.
-    QualType getCaptureType() const { return CaptureType; }
-    
+    QualType getCaptureType() const {
+      assert(!isThisCapture());
+      return CaptureType;
+    }
+
     Expr *getInitExpr() const {
       assert(!isVLATypeCapture() && "no init expression for type capture");
       return static_cast<Expr *>(InitExprAndCaptureKind.getPointer());
@@ -566,7 +570,10 @@ public:
                                /*Cpy*/ nullptr));
   }
 
-  void addThisCapture(bool isNested, SourceLocation Loc, QualType CaptureType,
+  // Note, we do not need to add the type of 'this' since that is always
+  // retrievable from Sema::getCurrentThisType - and is also encoded within the
+  // type of the corresponding FieldDecl.
+  void addThisCapture(bool isNested, SourceLocation Loc,
                       Expr *Cpy, bool ByCopy);
 
   /// \brief Determine whether the C++ 'this' is captured.
@@ -941,7 +948,7 @@ public:
   bool ExplicitParams;
 
   /// \brief Whether any of the capture expressions requires cleanups.
-  bool ExprNeedsCleanups;
+  CleanupInfo Cleanup;
 
   /// \brief Whether the lambda contains an unexpanded parameter pack.
   bool ContainsUnexpandedParameterPack;
@@ -989,7 +996,7 @@ public:
   LambdaScopeInfo(DiagnosticsEngine &Diag)
     : CapturingScopeInfo(Diag, ImpCap_None), Lambda(nullptr),
       CallOperator(nullptr), NumExplicitCaptures(0), Mutable(false),
-      ExplicitParams(false), ExprNeedsCleanups(false),
+      ExplicitParams(false), Cleanup{},
       ContainsUnexpandedParameterPack(false), AutoTemplateParameterDepth(0),
       GLTemplateParameterList(nullptr) {
     Kind = SK_Lambda;
@@ -1127,9 +1134,9 @@ void FunctionScopeInfo::recordUseOfWeak(const ExprT *E, bool IsRead) {
 
 inline void
 CapturingScopeInfo::addThisCapture(bool isNested, SourceLocation Loc,
-                                   QualType CaptureType, Expr *Cpy,
+                                   Expr *Cpy,
                                    const bool ByCopy) {
-  Captures.push_back(Capture(Capture::ThisCapture, isNested, Loc, CaptureType,
+  Captures.push_back(Capture(Capture::ThisCapture, isNested, Loc, QualType(),
                              Cpy, ByCopy));
   CXXThisCaptureIndex = Captures.size();
 }

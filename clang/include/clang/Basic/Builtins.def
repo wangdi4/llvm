@@ -505,6 +505,7 @@ BUILTIN(__builtin_vscanf,  "icC*a",      "FS:0:")
 BUILTIN(__builtin_vfscanf, "iv*cC*a",  "FS:1:")
 BUILTIN(__builtin_vsscanf, "icC*cC*a", "FS:1:")
 #endif // INTEL_CUSTOMIZATION
+BUILTIN(__builtin_thread_pointer, "v*", "nc")
 
 // GCC exception builtins
 BUILTIN(__builtin_eh_return, "vzv*", "r") // FIXME: Takes intptr_t, not size_t!
@@ -949,7 +950,7 @@ BUILTIN(__debugbreak, "v",   "n")
 #if INTEL_CUSTOMIZATION
 // CQ#373187: __assume is always enabled in ICC mode.
 LANGBUILTIN(__assume, "vb",  "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-#endif
+#endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(__debugbreak,     "v",   "n", ALL_MS_LANGUAGES)
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 LANGBUILTIN(__exception_code, "ULi", "n", ALL_MS_LANGUAGES)
@@ -959,13 +960,17 @@ LANGBUILTIN(_exception_info,  "v*",  "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__abnormal_termination, "i", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_abnormal_termination,  "i", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__GetExceptionInfo, "v*.", "ntu", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedCompareExchange, "LiLiD*LiLi", "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedCompareExchangePointer, "v*v*D*v*v*", "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedDecrement,       "LiLiD*",     "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedExchangeAdd,     "LiLiD*Li",   "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedExchange,        "LiLiD*Li",   "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedExchangePointer, "v*v*D*v*",   "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedIncrement,       "LiLiD*",     "n", ALL_MS_LANGUAGES)
+#if INTEL_CUSTOMIZATION
+// CQ#374782: In icc, these builtins are availble on Linux as well. Also,
+// pointer arguments are non-volatile. We do the same.
+LANGBUILTIN(_InterlockedCompareExchange, "LiLiD*LiLi", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedCompareExchangePointer, "v*v*D*v*v*", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedDecrement,       "LiLiD*",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedExchangeAdd,     "LiLiD*Li",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedExchange,        "LiLiD*Li",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedExchangePointer, "v*v*D*v*",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedIncrement,       "LiLiD*",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+#endif // INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 // CQ#368488 - builtins fixes for iclang.
 BUILTIN(__noop,       "i.",  "n")
@@ -1562,6 +1567,11 @@ LANGBUILTIN(work_group_commit_write_pipe, "v.", "tn", OCLC_LANG)
 
 LANGBUILTIN(get_pipe_num_packets, "Ui.", "tn", OCLC_LANG)
 LANGBUILTIN(get_pipe_max_packets, "Ui.", "tn", OCLC_LANG)
+
+// OpenCL v2.0 s6.13.9 - Address space qualifier functions.
+LANGBUILTIN(to_global, "v*v*", "tn", OCLC_LANG)
+LANGBUILTIN(to_local, "v*v*", "tn", OCLC_LANG)
+LANGBUILTIN(to_private, "v*v*", "tn", OCLC_LANG)
 
 #undef BUILTIN
 #undef LIBBUILTIN

@@ -1,5 +1,6 @@
 // RUN: %clang_cc1 -fintel-compatibility -triple=x86_64-apple-darwin -emit-llvm -verify -o - %s | FileCheck %s
 //***INTEL: pragma data_seg test
+// XFAIL: *
 
 // CHECK: target
 void www();

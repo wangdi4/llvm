@@ -2097,7 +2097,8 @@ static bool isArraySizeVLA(Sema &S, Expr *ArraySize, llvm::APSInt &SizeVal) {
   } Diagnoser;
 
   return S.VerifyIntegerConstantExpression(ArraySize, &SizeVal, Diagnoser,
-                                           S.LangOpts.GNUMode).isInvalid();
+                                           S.LangOpts.GNUMode ||
+                                           S.LangOpts.OpenCL).isInvalid();
 }
 
 /// \brief Build an array type.
@@ -2712,8 +2713,8 @@ void Sema::diagnoseIgnoredQualifiers(unsigned DiagID, unsigned Quals,
     { "const", DeclSpec::TQ_const, ConstQualLoc },
     { "volatile", DeclSpec::TQ_volatile, VolatileQualLoc },
     { "restrict", DeclSpec::TQ_restrict, RestrictQualLoc },
-    { "_Atomic", DeclSpec::TQ_atomic, AtomicQualLoc },
-    { "__unaligned", DeclSpec::TQ_unaligned, UnalignedQualLoc }
+    { "__unaligned", DeclSpec::TQ_unaligned, UnalignedQualLoc },
+    { "_Atomic", DeclSpec::TQ_atomic, AtomicQualLoc }
   };
 
   SmallString<32> QualStr;
@@ -3854,7 +3855,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     case DeclaratorChunk::BlockPointer:
       // If blocks are disabled, emit an error.
       if (!LangOpts.Blocks)
-        S.Diag(DeclType.Loc, diag::err_blocks_disable);
+        S.Diag(DeclType.Loc, diag::err_blocks_disable) << LangOpts.OpenCL;
 
       // Handle pointer nullability.
       inferPointerNullability(SimplePointerKind::BlockPointer,
@@ -5480,11 +5481,13 @@ static bool handleObjCOwnershipTypeAttr(TypeProcessingState &state,
     }
 
     // Otherwise, if the qualifiers actually conflict, pull sugar off
-    // until we reach a type that is directly qualified.
+    // and remove the ObjCLifetime qualifiers.
     if (previousLifetime != lifetime) {
-      // This should always terminate: the canonical type is
-      // qualified, so some bit of sugar must be hiding it.
-      while (!underlyingType.Quals.hasObjCLifetime()) {
+      // It's possible to have multiple local ObjCLifetime qualifiers. We
+      // can't stop after we reach a type that is directly qualified.
+      const Type *prevTy = nullptr;
+      while (!prevTy || prevTy != underlyingType.Ty) {
+        prevTy = underlyingType.Ty;
         underlyingType = underlyingType.getSingleStepDesugaredType();
       }
       underlyingType.Quals.removeObjCLifetime();
@@ -5965,10 +5968,11 @@ bool Sema::checkObjCKindOfType(QualType &type, SourceLocation loc) {
 
   // Rebuild the "equivalent" type, which pushes __kindof down into
   // the object type.
-  QualType equivType = Context.getObjCObjectType(objType->getBaseType(),
-                                                 objType->getTypeArgsAsWritten(),
-                                                 objType->getProtocols(),
-                                                 /*isKindOf=*/true);
+  // There is no need to apply kindof on an unqualified id type.
+  QualType equivType = Context.getObjCObjectType(
+      objType->getBaseType(), objType->getTypeArgsAsWritten(),
+      objType->getProtocols(),
+      /*isKindOf=*/objType->isObjCUnqualifiedId() ? false : true);
 
   // If we started with an object pointer type, rebuild it.
   if (ptrType) {

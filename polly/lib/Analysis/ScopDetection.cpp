@@ -296,10 +296,57 @@ bool ScopDetection::addOverApproximatedRegion(Region *AR,
 
   // All loops in the region have to be overapproximated too if there
   // are accesses that depend on the iteration count.
+
+  BoxedLoopsSetTy ARBoxedLoopsSet;
+
   for (BasicBlock *BB : AR->blocks()) {
     Loop *L = LI->getLoopFor(BB);
-    if (AR->contains(L))
+    if (AR->contains(L)) {
       Context.BoxedLoopsSet.insert(L);
+      ARBoxedLoopsSet.insert(L);
+    }
+  }
+
+  // Reject if the surrounding loop does not entirely contain the nonaffine
+  // subregion.
+  // This can happen because a region can contain BBs that have no path to the
+  // exit block (Infinite loops, UnreachableInst), but such blocks are never
+  // part of a loop.
+  //
+  // _______________
+  // | Loop Header | <-----------.
+  // ---------------             |
+  //        |                    |
+  // _______________       ______________
+  // | RegionEntry |-----> | RegionExit |----->
+  // ---------------       --------------
+  //        |
+  // _______________
+  // | EndlessLoop | <--.
+  // ---------------    |
+  //       |            |
+  //       \------------/
+  //
+  // In the example above, the loop (LoopHeader,RegionEntry,RegionExit) is
+  // neither entirely contained in the region RegionEntry->RegionExit
+  // (containing RegionEntry,EndlessLoop) nor is the region entirely contained
+  // in the loop.
+  // The block EndlessLoop is contained is in the region because
+  // Region::contains tests whether it is not dominated by RegionExit. This is
+  // probably to not having to query the PostdominatorTree.
+  // Instead of an endless loop, a dead end can also be formed by
+  // UnreachableInst. This case is already caught by isErrorBlock(). We hence
+  // only have to test whether there is an endless loop not contained in the
+  // surrounding loop.
+  BasicBlock *BBEntry = AR->getEntry();
+  Loop *L = LI->getLoopFor(BBEntry);
+  while (L && AR->contains(L))
+    L = L->getParentLoop();
+  if (L) {
+    for (const auto *ARBoxedLoop : ARBoxedLoopsSet)
+      if (!L->contains(ARBoxedLoop))
+        return invalid<ReportLoopOverlapWithNonAffineSubRegion>(
+            Context, /*Assert=*/true, L, AR);
   }
 
   return (AllowNonAffineSubLoops || Context.BoxedLoopsSet.empty());
@@ -452,7 +499,7 @@ bool ScopDetection::isValidCallInst(CallInst &CI,
   Function *CalledFunction = CI.getCalledFunction();
 
   // Indirect calls are not supported.
-  if (CalledFunction == 0)
+  if (CalledFunction == nullptr)
     return false;
 
   if (AllowModrefCall) {
@@ -1288,7 +1335,6 @@ bool ScopDetection::isProfitableRegion(DetectionContext &Context) const {
   if (PollyProcessUnprofitable)
     return true;
 
-  errs() << "Context: " << Context.CurRegion << "\n";
   // We can probably not do a lot on scops that only write or only read
   // data.
   if (!Context.hasStores || !Context.hasLoads)
@@ -1382,6 +1428,13 @@ void ScopDetection::emitMissedRemarks(const Function &F) {
 }
 
 bool ScopDetection::isReducibleRegion(Region &R, DebugLoc &DbgLoc) const {
+  /// @brief Enum for coloring BBs in Region.
+  ///
+  /// WHITE - Unvisited BB in DFS walk.
+  /// GREY - BBs which are currently on the DFS stack for processing.
+  /// BLACK - Visited and completely processed BB.
+  enum Color { WHITE, GREY, BLACK };
+
   BasicBlock *REntry = R.getEntry();
   BasicBlock *RExit = R.getExit();
   // Map to match the color of a BasicBlock during the DFS walk.
@@ -1395,10 +1448,10 @@ bool ScopDetection::isReducibleRegion(Region &R, DebugLoc &DbgLoc) const {
 
   // Initialize the map for all BB with WHITE color.
   for (auto *BB : R.blocks())
-    BBColorMap[BB] = ScopDetection::WHITE;
+    BBColorMap[BB] = WHITE;
 
   // Process the entry block of the Region.
-  BBColorMap[CurrBB] = ScopDetection::GREY;
+  BBColorMap[CurrBB] = GREY;
   DFSStack.push(std::make_pair(CurrBB, 0));
 
   while (!DFSStack.empty()) {
@@ -1419,15 +1472,15 @@ bool ScopDetection::isReducibleRegion(Region &R, DebugLoc &DbgLoc) const {
         continue;
 
       // WHITE indicates an unvisited BB in DFS walk.
-      if (BBColorMap[SuccBB] == ScopDetection::WHITE) {
+      if (BBColorMap[SuccBB] == WHITE) {
         // Push the current BB and the index of the next child to be visited.
         DFSStack.push(std::make_pair(CurrBB, I + 1));
         // Push the next BB to be processed.
         DFSStack.push(std::make_pair(SuccBB, 0));
         // First time the BB is being processed.
-        BBColorMap[SuccBB] = ScopDetection::GREY;
+        BBColorMap[SuccBB] = GREY;
         break;
-      } else if (BBColorMap[SuccBB] == ScopDetection::GREY) {
+      } else if (BBColorMap[SuccBB] == GREY) {
         // GREY indicates a loop in the control flow.
         // If the destination dominates the source, it is a natural loop
         // else, an irreducible control flow in the region is detected.
@@ -1442,7 +1495,7 @@ bool ScopDetection::isReducibleRegion(Region &R, DebugLoc &DbgLoc) const {
     // If all children of current BB have been processed,
     // then mark that BB as fully processed.
     if (AdjacentBlockIndex == NSucc)
-      BBColorMap[CurrBB] = ScopDetection::BLACK;
+      BBColorMap[CurrBB] = BLACK;
   }
 
   return true;
@@ -1494,40 +1547,12 @@ bool ScopDetection::runOnFunction(llvm::Function &F) {
   return false;
 }
 
-bool ScopDetection::isNonAffineSubRegion(const Region *SubR,
-                                         const Region *ScopR) const {
-  const DetectionContext *DC = getDetectionContext(ScopR);
-  assert(DC && "ScopR is no valid region!");
-  return DC->NonAffineSubRegionSet.count(SubR);
-}
-
-const ScopDetection::DetectionContext *
+ScopDetection::DetectionContext *
 ScopDetection::getDetectionContext(const Region *R) const {
   auto DCMIt = DetectionContextMap.find(getBBPairForRegion(R));
   if (DCMIt == DetectionContextMap.end())
     return nullptr;
   return &DCMIt->second;
-}
-
-const ScopDetection::BoxedLoopsSetTy *
-ScopDetection::getBoxedLoops(const Region *R) const {
-  const DetectionContext *DC = getDetectionContext(R);
-  assert(DC && "ScopR is no valid region!");
-  return &DC->BoxedLoopsSet;
-}
-
-const MapInsnToMemAcc *
-ScopDetection::getInsnToMemAccMap(const Region *R) const {
-  const DetectionContext *DC = getDetectionContext(R);
-  assert(DC && "ScopR is no valid region!");
-  return &DC->InsnToMemAcc;
-}
-
-const InvariantLoadsSetTy *
-ScopDetection::getRequiredInvariantLoads(const Region *R) const {
-  const DetectionContext *DC = getDetectionContext(R);
-  assert(DC && "ScopR is no valid region!");
-  return &DC->RequiredILS;
 }
 
 const RejectLog *ScopDetection::lookupRejectionLog(const Region *R) const {

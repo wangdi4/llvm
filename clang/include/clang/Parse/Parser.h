@@ -855,6 +855,8 @@ private:
   /// Should only be used in Objective-C language modes.
   bool isObjCInstancetype() {
     assert(getLangOpts().ObjC1);
+    if (Tok.isAnnotation())
+      return false;
     if (!Ident_instancetype)
       Ident_instancetype = PP.getIdentifierInfo("instancetype");
     return Tok.getIdentifierInfo() == Ident_instancetype;
@@ -1699,7 +1701,16 @@ private:
   ExprResult ParseStringLiteralExpression(bool AllowUserDefinedLiteral = false);
 
   ExprResult ParseGenericSelectionExpression();
-  
+
+#if INTEL_CUSTOMIZATION
+  // CQ#381345: Parse Intel generic selection expressioon
+  bool  getTypeOfPossibleControllingExpr(QualType &T);
+
+  QualType getTypeOfControllingExpr();
+
+  ExprResult ParseIntelGenericSelectionExpression();
+#endif // INTEL_CUSTOMIZATION
+
   ExprResult ParseObjCBoolLiteral();
 
   ExprResult ParseFoldExpression(ExprResult LHS, BalancedDelimiterTracker &T);
@@ -1810,8 +1821,8 @@ private:  //***INTEL
 
   //===--------------------------------------------------------------------===//
   // C++ if/switch/while condition expression.
-  bool ParseCXXCondition(ExprResult &ExprResult, Decl *&DeclResult,
-                         SourceLocation Loc, bool ConvertToBoolean);
+  Sema::ConditionResult ParseCXXCondition(SourceLocation Loc,
+                                          Sema::ConditionKind CK);
 
   //===--------------------------------------------------------------------===//
   // C++ Coroutines
@@ -1826,9 +1837,18 @@ private:  //***INTEL
   ///         assignment-expression
   ///         '{' ...
   ExprResult ParseInitializer() {
+#if INTEL_CUSTOMIZATION
+    ExprResult res;
+    Actions.IsInInitializerContext = true;
+
     if (Tok.isNot(tok::l_brace))
-      return ParseAssignmentExpression();
-    return ParseBraceInitializer();
+      res = ParseAssignmentExpression();
+    else
+      res = ParseBraceInitializer();
+
+    Actions.IsInInitializerContext = false;
+    return res;
+#endif // INTEL_CUSTOMIZATION
   }
   bool MayBeDesignationStart();
   ExprResult ParseBraceInitializer();
@@ -1902,10 +1922,9 @@ private:  //***INTEL
                                     unsigned ScopeFlags);
   void ParseCompoundStatementLeadingPragmas();
   StmtResult ParseCompoundStatementBody(bool isStmtExpr = false);
-  bool ParseParenExprOrCondition(ExprResult &ExprResult,
-                                 Decl *&DeclResult,
+  bool ParseParenExprOrCondition(Sema::ConditionResult &CondResult,
                                  SourceLocation Loc,
-                                 bool ConvertToBoolean);
+                                 Sema::ConditionKind CK);
   StmtResult ParseIfStatement(SourceLocation *TrailingElseLoc);
   StmtResult ParseSwitchStatement(SourceLocation *TrailingElseLoc);
   StmtResult ParseWhileStatement(SourceLocation *TrailingElseLoc);

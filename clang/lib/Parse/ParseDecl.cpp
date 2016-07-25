@@ -965,6 +965,13 @@ void Parser::ParseAvailabilityAttribute(IdentifierInfo &Availability,
     return;
   }
   IdentifierLoc *Platform = ParseIdentifierLoc();
+  // Canonicalize platform name from "macosx" to "macos".
+  if (Platform->Ident && Platform->Ident->getName() == "macosx")
+    Platform->Ident = PP.getIdentifierInfo("macos");
+  // Canonicalize platform name from "macosx_app_extension" to
+  // "macos_app_extension".
+  if (Platform->Ident && Platform->Ident->getName() == "macosx_app_extension")
+    Platform->Ident = PP.getIdentifierInfo("macos_app_extension");
 
   // Parse the ',' following the platform name.
   if (ExpectAndConsume(tok::comma)) {
@@ -2437,6 +2444,24 @@ bool Parser::ParseImplicitInt(DeclSpec &DS, CXXScopeSpec *SS,
     return false;
   }
 
+  if (getLangOpts().CPlusPlus && (!SS || SS->isEmpty()) &&
+      getLangOpts().MSVCCompat) {
+    // Lookup of an unqualified type name has failed in MSVC compatibility mode.
+    // Give Sema a chance to recover if we are in a template with dependent base
+    // classes.
+    if (ParsedType T = Actions.ActOnMSVCUnknownTypeName(
+            *Tok.getIdentifierInfo(), Tok.getLocation(),
+            DSC == DSC_template_type_arg)) {
+      const char *PrevSpec;
+      unsigned DiagID;
+      DS.SetTypeSpecType(DeclSpec::TST_typename, Loc, PrevSpec, DiagID, T,
+                         Actions.getASTContext().getPrintingPolicy());
+      DS.SetRangeEnd(Tok.getLocation());
+      ConsumeToken();
+      return false;
+    }
+  }
+
   // Otherwise, if we don't consume this token, we are going to emit an
   // error anyway.  Try to recover from various common problems.  Check
   // to see if this was a reference to a tag name without a tag specified.
@@ -2819,7 +2844,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
   bool AttrsLastTime = false;
   ParsedAttributesWithRange attrs(AttrFactory);
   // We use Sema's policy to get bool macros right.
-  const PrintingPolicy &Policy = Actions.getPrintingPolicy();
+  PrintingPolicy Policy = Actions.getPrintingPolicy();
   while (1) {
     bool isInvalid = false;
     bool isStorageClass = false;
@@ -3143,16 +3168,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       ParsedType TypeRep =
         Actions.getTypeName(*Tok.getIdentifierInfo(),
                             Tok.getLocation(), getCurScope());
-
-      // MSVC: If we weren't able to parse a default template argument, and it's
-      // just a simple identifier, create a DependentNameType.  This will allow
-      // us to defer the name lookup to template instantiation time, as long we
-      // forge a NestedNameSpecifier for the current context.
-      if (!TypeRep && DSContext == DSC_template_type_arg &&
-          getLangOpts().MSVCCompat && getCurScope()->isTemplateParamScope()) {
-        TypeRep = Actions.ActOnDelayedDefaultTemplateArg(
-            *Tok.getIdentifierInfo(), Tok.getLocation());
-      }
 
       // If this is not a typedef name, don't parse it as part of the declspec,
       // it must be an implicit int or an error.
@@ -3620,6 +3635,22 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       ParseDecltypeSpecifier(DS);
       continue;
 
+    case tok::annot_pragma_pack:
+      HandlePragmaPack();
+      continue;
+
+    case tok::annot_pragma_ms_pragma:
+      HandlePragmaMSPragma();
+      continue;
+
+    case tok::annot_pragma_ms_vtordisp:
+      HandlePragmaMSVtorDisp();
+      continue;
+
+    case tok::annot_pragma_ms_pointers_to_members:
+      HandlePragmaMSPointersToMembers();
+      continue;
+
     case tok::kw___underlying_type:
       ParseUnderlyingTypeSpecifier(DS);
       continue;
@@ -3647,6 +3678,10 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
 
     // OpenCL qualifiers:
     case tok::kw___generic:
+#if INTEL_CUSTOMIZATION
+      // CQ381345: OpenCL is not supported in Intel compatibility mode.
+      if (!Actions.getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
       // generic address space is introduced only in OpenCL v2.0
       // see OpenCL C Spec v2.0 s6.5.5
       if (Actions.getLangOpts().OpenCLVersion < 200) {
@@ -4601,6 +4636,11 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::less:
     return getLangOpts().ObjC1;
 
+#if INTEL_CUSTOMIZATION
+    // CQ381345: OpenCL is not supported in Intel compatibility mode.
+  case tok::kw___generic:
+    return !getLangOpts().IntelCompat;
+#endif // INTEL_CUSTOMIZATION
   case tok::kw___cdecl:
   case tok::kw___stdcall:
   case tok::kw___fastcall:
@@ -4622,7 +4662,6 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw___local:
   case tok::kw___global:
   case tok::kw___constant:
-  case tok::kw___generic:
   case tok::kw___read_only:
   case tok::kw___read_write:
   case tok::kw___write_only:
@@ -4784,6 +4823,11 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
     return !DisambiguatingWithExpression ||
            !isStartOfObjCClassMessageMissingOpenBracket();
 
+#if INTEL_CUSTOMIZATION
+    // CQ381345: OpenCL is not supported in Intel compatibility mode.
+  case tok::kw___generic:
+    return !getLangOpts().IntelCompat;
+#endif // INTEL_CUSTOMIZATION
   case tok::kw___declspec:
   case tok::kw___cdecl:
   case tok::kw___stdcall:
@@ -4811,7 +4855,6 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw___local:
   case tok::kw___global:
   case tok::kw___constant:
-  case tok::kw___generic:
   case tok::kw___read_only:
   case tok::kw___read_write:
   case tok::kw___write_only:
@@ -4998,11 +5041,16 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
       break;
 
     // OpenCL qualifiers:
+#if INTEL_CUSTOMIZATION
+    case tok::kw___generic:
+      // CQ381345: OpenCL is not supported in Intel compatibility mode.
+      assert (!getLangOpts().IntelCompat &&
+              "OpenCL is not supported in Intel compatibility mode.");
+#endif // INTEL_CUSTOMIZATION 
     case tok::kw___private:
     case tok::kw___global:
     case tok::kw___local:
     case tok::kw___constant:
-    case tok::kw___generic:
     case tok::kw___read_only:
     case tok::kw___write_only:
     case tok::kw___read_write:

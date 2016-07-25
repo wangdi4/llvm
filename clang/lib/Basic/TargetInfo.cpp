@@ -318,6 +318,11 @@ void TargetInfo::adjust(const LangOptions &Opts) {
     FloatFormat = &llvm::APFloat::IEEEsingle;
     LongDoubleFormat = &llvm::APFloat::IEEEquad;
   }
+
+#if INTEL_CUSTOMIZATION
+  if ((Opts.IntelCompat || Opts.IntelMSCompat) && Opts.Float128)
+    HasFloat128 = true;
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool TargetInfo::initFeatureMap(

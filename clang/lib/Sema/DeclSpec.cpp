@@ -526,6 +526,10 @@ bool DeclSpec::SetStorageClassSpec(Sema &S, SCS SC, SourceLocation Loc,
     case SCS_extern:
     case SCS_private_extern:
     case SCS_static:
+#if INTEL_CUSTOMIZATION
+      // CQ381345: OpenCL is not supported in Intel compatibility mode.
+      if (!S.getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
       if (S.getLangOpts().OpenCLVersion < 120) {
         DiagID   = diag::err_opencl_unknown_type_specifier;
         PrevSpec = getSpecifierName(SC);
@@ -811,8 +815,8 @@ bool DeclSpec::SetTypeQual(TQ T, SourceLocation Loc, const char *&PrevSpec,
   case TQ_const:    TQ_constLoc = Loc; return false;
   case TQ_restrict: TQ_restrictLoc = Loc; return false;
   case TQ_volatile: TQ_volatileLoc = Loc; return false;
-  case TQ_atomic:   TQ_atomicLoc = Loc; return false;
   case TQ_unaligned: TQ_unalignedLoc = Loc; return false;
+  case TQ_atomic:   TQ_atomicLoc = Loc; return false;
   }
 
   llvm_unreachable("Unknown type qualifier!");

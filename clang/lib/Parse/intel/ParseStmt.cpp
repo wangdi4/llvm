@@ -173,7 +173,7 @@ StmtResult Parser::ParseCilkForStmt() {
     } else {
       ExprResult E = ParseExpression();
       if (!E.isInvalid())
-        E = Actions.ActOnBooleanCondition(getCurScope(), CilkForLoc, E.get());
+        E = Actions.CheckBooleanCondition(CilkForLoc, E.get());
       SecondPart = Actions.MakeFullExpr(E.get(), CilkForLoc);
 
       if (Tok.isNot(tok::semi)) {

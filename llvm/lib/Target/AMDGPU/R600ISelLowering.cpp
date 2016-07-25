@@ -30,17 +30,60 @@
 
 using namespace llvm;
 
-R600TargetLowering::R600TargetLowering(TargetMachine &TM,
-                                       const AMDGPUSubtarget &STI)
+R600TargetLowering::R600TargetLowering(const TargetMachine &TM,
+                                       const R600Subtarget &STI)
     : AMDGPUTargetLowering(TM, STI), Gen(STI.getGeneration()) {
-  addRegisterClass(MVT::v4f32, &AMDGPU::R600_Reg128RegClass);
   addRegisterClass(MVT::f32, &AMDGPU::R600_Reg32RegClass);
-  addRegisterClass(MVT::v4i32, &AMDGPU::R600_Reg128RegClass);
   addRegisterClass(MVT::i32, &AMDGPU::R600_Reg32RegClass);
   addRegisterClass(MVT::v2f32, &AMDGPU::R600_Reg64RegClass);
   addRegisterClass(MVT::v2i32, &AMDGPU::R600_Reg64RegClass);
+  addRegisterClass(MVT::v4f32, &AMDGPU::R600_Reg128RegClass);
+  addRegisterClass(MVT::v4i32, &AMDGPU::R600_Reg128RegClass);
 
   computeRegisterProperties(STI.getRegisterInfo());
+
+  // Legalize loads and stores to the private address space.
+  setOperationAction(ISD::LOAD, MVT::i32, Custom);
+  setOperationAction(ISD::LOAD, MVT::v2i32, Custom);
+  setOperationAction(ISD::LOAD, MVT::v4i32, Custom);
+
+  // EXTLOAD should be the same as ZEXTLOAD. It is legal for some address
+  // spaces, so it is custom lowered to handle those where it isn't.
+  for (MVT VT : MVT::integer_valuetypes()) {
+    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i1, Promote);
+    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i8, Custom);
+    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i16, Custom);
+
+    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i1, Promote);
+    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i8, Custom);
+    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i16, Custom);
+
+    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i1, Promote);
+    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i8, Custom);
+    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i16, Custom);
+  }
+
+  // Workaround for LegalizeDAG asserting on expansion of i1 vector loads.
+  setLoadExtAction(ISD::EXTLOAD, MVT::v2i32, MVT::v2i1, Expand);
+  setLoadExtAction(ISD::SEXTLOAD, MVT::v2i32, MVT::v2i1, Expand);
+  setLoadExtAction(ISD::ZEXTLOAD, MVT::v2i32, MVT::v2i1, Expand);
+
+  setLoadExtAction(ISD::EXTLOAD, MVT::v4i32, MVT::v4i1, Expand);
+  setLoadExtAction(ISD::SEXTLOAD, MVT::v4i32, MVT::v4i1, Expand);
+  setLoadExtAction(ISD::ZEXTLOAD, MVT::v4i32, MVT::v4i1, Expand);
+
+
+  setOperationAction(ISD::STORE, MVT::i8, Custom);
+  setOperationAction(ISD::STORE, MVT::i32, Custom);
+  setOperationAction(ISD::STORE, MVT::v2i32, Custom);
+  setOperationAction(ISD::STORE, MVT::v4i32, Custom);
+
+  setTruncStoreAction(MVT::i32, MVT::i8, Custom);
+  setTruncStoreAction(MVT::i32, MVT::i16, Custom);
+
+  // Workaround for LegalizeDAG asserting on expansion of i1 vector stores.
+  setTruncStoreAction(MVT::v2i32, MVT::v2i1, Expand);
+  setTruncStoreAction(MVT::v4i32, MVT::v4i1, Expand);
 
   // Set condition code actions
   setCondCodeAction(ISD::SETO,   MVT::f32, Expand);
@@ -72,10 +115,6 @@ R600TargetLowering::R600TargetLowering(TargetMachine &TM,
   setOperationAction(ISD::BRCOND, MVT::Other, Custom);
 
   setOperationAction(ISD::FSUB, MVT::f32, Expand);
-
-  setOperationAction(ISD::INTRINSIC_VOID, MVT::Other, Custom);
-  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::Other, Custom);
-  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::i1, Custom);
 
   setOperationAction(ISD::SELECT_CC, MVT::f32, Custom);
   setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
@@ -122,37 +161,6 @@ R600TargetLowering::R600TargetLowering(TargetMachine &TM,
 
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::Other, Expand);
 
-
-  // Legalize loads and stores to the private address space.
-  setOperationAction(ISD::LOAD, MVT::i32, Custom);
-  setOperationAction(ISD::LOAD, MVT::v2i32, Custom);
-  setOperationAction(ISD::LOAD, MVT::v4i32, Custom);
-
-  // EXTLOAD should be the same as ZEXTLOAD. It is legal for some address
-  // spaces, so it is custom lowered to handle those where it isn't.
-  for (MVT VT : MVT::integer_valuetypes()) {
-    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i1, Promote);
-    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i8, Custom);
-    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i16, Custom);
-
-    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i1, Promote);
-    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i8, Custom);
-    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i16, Custom);
-
-    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i1, Promote);
-    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i8, Custom);
-    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i16, Custom);
-  }
-
-  setOperationAction(ISD::STORE, MVT::i8, Custom);
-  setOperationAction(ISD::STORE, MVT::i32, Custom);
-  setOperationAction(ISD::STORE, MVT::v2i32, Custom);
-  setOperationAction(ISD::STORE, MVT::v4i32, Custom);
-  setTruncStoreAction(MVT::i32, MVT::i8, Custom);
-  setTruncStoreAction(MVT::i32, MVT::i16, Custom);
-
-  setOperationAction(ISD::LOAD, MVT::i32, Custom);
-  setOperationAction(ISD::LOAD, MVT::v4i32, Custom);
   setOperationAction(ISD::FrameIndex, MVT::i32, Custom);
 
   setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v2i32, Custom);
@@ -164,12 +172,6 @@ R600TargetLowering::R600TargetLowering(TargetMachine &TM,
   setOperationAction(ISD::INSERT_VECTOR_ELT, MVT::v2f32, Custom);
   setOperationAction(ISD::INSERT_VECTOR_ELT, MVT::v4i32, Custom);
   setOperationAction(ISD::INSERT_VECTOR_ELT, MVT::v4f32, Custom);
-
-  setTargetDAGCombine(ISD::FP_ROUND);
-  setTargetDAGCombine(ISD::FP_TO_SINT);
-  setTargetDAGCombine(ISD::EXTRACT_VECTOR_ELT);
-  setTargetDAGCombine(ISD::SELECT_CC);
-  setTargetDAGCombine(ISD::INSERT_VECTOR_ELT);
 
   // We don't have 64-bit shifts. Thus we need either SHX i64 or SHX_PARTS i32
   //  to be Legal/Custom in order to avoid library calls.
@@ -188,6 +190,17 @@ R600TargetLowering::R600TargetLowering(TargetMachine &TM,
   }
 
   setSchedulingPreference(Sched::Source);
+
+
+  setTargetDAGCombine(ISD::FP_ROUND);
+  setTargetDAGCombine(ISD::FP_TO_SINT);
+  setTargetDAGCombine(ISD::EXTRACT_VECTOR_ELT);
+  setTargetDAGCombine(ISD::SELECT_CC);
+  setTargetDAGCombine(ISD::INSERT_VECTOR_ELT);
+}
+
+const R600Subtarget *R600TargetLowering::getSubtarget() const {
+  return static_cast<const R600Subtarget *>(Subtarget);
 }
 
 static inline bool isEOP(MachineBasicBlock::iterator I) {
@@ -199,8 +212,7 @@ MachineBasicBlock * R600TargetLowering::EmitInstrWithCustomInserter(
   MachineFunction * MF = BB->getParent();
   MachineRegisterInfo &MRI = MF->getRegInfo();
   MachineBasicBlock::iterator I = *MI;
-  const R600InstrInfo *TII =
-      static_cast<const R600InstrInfo *>(Subtarget->getInstrInfo());
+  const R600InstrInfo *TII = getSubtarget()->getInstrInfo();
 
   switch (MI->getOpcode()) {
   default:
@@ -957,7 +969,7 @@ SDValue R600TargetLowering::LowerTrig(SDValue Op, SelectionDAG &DAG) const {
   SDValue TrigVal = DAG.getNode(TrigNode, DL, VT,
       DAG.getNode(ISD::FADD, DL, VT, FractPart,
         DAG.getConstantFP(-0.5, DL, MVT::f32)));
-  if (Gen >= AMDGPUSubtarget::R700)
+  if (Gen >= R600Subtarget::R700)
     return TrigVal;
   // On R600 hw, COS/SIN input must be between -Pi and Pi.
   return DAG.getNode(ISD::FMUL, DL, VT, TrigVal,
@@ -1068,7 +1080,7 @@ SDValue R600TargetLowering::LowerFPTOUINT(SDValue Op, SelectionDAG &DAG) const {
 }
 
 SDValue R600TargetLowering::LowerImplicitParameter(SelectionDAG &DAG, EVT VT,
-                                                   SDLoc DL,
+                                                   const SDLoc &DL,
                                                    unsigned DwordOffset) const {
   unsigned ByteOffset = DwordOffset * 4;
   PointerType * PtrType = PointerType::get(VT.getTypeForEVT(*DAG.getContext()),
@@ -1430,8 +1442,7 @@ SDValue R600TargetLowering::LowerSTORE(SDValue Op, SelectionDAG &DAG) const {
 
   // Lowering for indirect addressing
   const MachineFunction &MF = DAG.getMachineFunction();
-  const AMDGPUFrameLowering *TFL =
-      static_cast<const AMDGPUFrameLowering *>(Subtarget->getFrameLowering());
+  const R600FrameLowering *TFL = getSubtarget()->getFrameLowering();
   unsigned StackWidth = TFL->getStackWidth(MF);
 
   Ptr = stackPtrToRegIndex(Ptr, StackWidth, DAG);
@@ -1668,8 +1679,7 @@ SDValue R600TargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const {
 
   // Lowering for indirect addressing
   const MachineFunction &MF = DAG.getMachineFunction();
-  const AMDGPUFrameLowering *TFL =
-      static_cast<const AMDGPUFrameLowering *>(Subtarget->getFrameLowering());
+  const R600FrameLowering *TFL = getSubtarget()->getFrameLowering();
   unsigned StackWidth = TFL->getStackWidth(MF);
 
   Ptr = stackPtrToRegIndex(Ptr, StackWidth, DAG);
@@ -1722,7 +1732,7 @@ SDValue R600TargetLowering::LowerBRCOND(SDValue Op, SelectionDAG &DAG) const {
 SDValue R600TargetLowering::lowerFrameIndex(SDValue Op,
                                             SelectionDAG &DAG) const {
   MachineFunction &MF = DAG.getMachineFunction();
-  const AMDGPUFrameLowering *TFL = Subtarget->getFrameLowering();
+  const R600FrameLowering *TFL = getSubtarget()->getFrameLowering();
 
   FrameIndexSDNode *FIN = cast<FrameIndexSDNode>(Op);
 
@@ -1738,12 +1748,9 @@ SDValue R600TargetLowering::lowerFrameIndex(SDValue Op,
 /// every function is a kernel function, but in the future we should use
 /// separate calling conventions for kernel and non-kernel functions.
 SDValue R600TargetLowering::LowerFormalArguments(
-                                      SDValue Chain,
-                                      CallingConv::ID CallConv,
-                                      bool isVarArg,
-                                      const SmallVectorImpl<ISD::InputArg> &Ins,
-                                      SDLoc DL, SelectionDAG &DAG,
-                                      SmallVectorImpl<SDValue> &InVals) const {
+    SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
+    const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &DL,
+    SelectionDAG &DAG, SmallVectorImpl<SDValue> &InVals) const {
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), ArgLocs,
                  *DAG.getContext());
@@ -1922,10 +1929,9 @@ static SDValue ReorganizeVector(SelectionDAG &DAG, SDValue VectorEntry,
                             NewBldVec);
 }
 
-
-SDValue R600TargetLowering::OptimizeSwizzle(SDValue BuildVector,
-                                            SDValue Swz[4], SelectionDAG &DAG,
-                                            SDLoc DL) const {
+SDValue R600TargetLowering::OptimizeSwizzle(SDValue BuildVector, SDValue Swz[4],
+                                            SelectionDAG &DAG,
+                                            const SDLoc &DL) const {
   assert(BuildVector.getOpcode() == ISD::BUILD_VECTOR);
   // Old -> New swizzle values
   DenseMap<unsigned, unsigned> SwizzleRemap;
@@ -2174,13 +2180,14 @@ SDValue R600TargetLowering::PerformDAGCombine(SDNode *N,
   return AMDGPUTargetLowering::PerformDAGCombine(N, DCI);
 }
 
-static bool
-FoldOperand(SDNode *ParentNode, unsigned SrcIdx, SDValue &Src, SDValue &Neg,
-            SDValue &Abs, SDValue &Sel, SDValue &Imm, SelectionDAG &DAG) {
-  const R600InstrInfo *TII =
-      static_cast<const R600InstrInfo *>(DAG.getSubtarget().getInstrInfo());
+bool R600TargetLowering::FoldOperand(SDNode *ParentNode, unsigned SrcIdx,
+                                     SDValue &Src, SDValue &Neg, SDValue &Abs,
+                                     SDValue &Sel, SDValue &Imm,
+                                     SelectionDAG &DAG) const {
+  const R600InstrInfo *TII = getSubtarget()->getInstrInfo();
   if (!Src.isMachineOpcode())
     return false;
+
   switch (Src.getMachineOpcode()) {
   case AMDGPU::FNEG_R600:
     if (!Neg.getNode())
@@ -2305,14 +2312,13 @@ FoldOperand(SDNode *ParentNode, unsigned SrcIdx, SDValue &Src, SDValue &Neg,
   }
 }
 
-
 /// \brief Fold the instructions after selecting them
 SDNode *R600TargetLowering::PostISelFolding(MachineSDNode *Node,
                                             SelectionDAG &DAG) const {
-  const R600InstrInfo *TII =
-      static_cast<const R600InstrInfo *>(DAG.getSubtarget().getInstrInfo());
+  const R600InstrInfo *TII = getSubtarget()->getInstrInfo();
   if (!Node->isMachineOpcode())
     return Node;
+
   unsigned Opcode = Node->getMachineOpcode();
   SDValue FakeOp;
 

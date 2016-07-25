@@ -1104,6 +1104,7 @@ void ASTWriter::WriteBlockInfoBlock() {
   RECORD(DECL_CXX_RECORD);
   RECORD(DECL_CXX_METHOD);
   RECORD(DECL_CXX_CONSTRUCTOR);
+  RECORD(DECL_CXX_INHERITED_CONSTRUCTOR);
   RECORD(DECL_CXX_DESTRUCTOR);
   RECORD(DECL_CXX_CONVERSION);
   RECORD(DECL_ACCESS_SPEC);
@@ -1378,6 +1379,13 @@ uint64_t ASTWriter::WriteControlBlock(Preprocessor &PP,
     AddString(T.getTriple(), Record);
 
   AddString(LangOpts.OMPHostIRFile, Record);
+#if INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_OPENMP
+  // CQ#411303 Intel driver requires front-end to produce special file if
+  // translation unit has any target code.
+  AddString(LangOpts.IntelDriverTempfileName, Record);
+#endif // INTEL_SPECIFIC_OPENMP
+#endif // INTEL_CUSTOMIZATION
 
   Stream.EmitRecord(LANGUAGE_OPTIONS, Record);
 
@@ -2187,30 +2195,29 @@ void ASTWriter::WritePreprocessor(const Preprocessor &PP, bool IsModule) {
 
     // Write out any exported module macros.
     bool EmittedModuleMacros = false;
-    if (IsModule) {
-      auto Leafs = PP.getLeafModuleMacros(Name);
-      SmallVector<ModuleMacro*, 8> Worklist(Leafs.begin(), Leafs.end());
-      llvm::DenseMap<ModuleMacro*, unsigned> Visits;
-      while (!Worklist.empty()) {
-        auto *Macro = Worklist.pop_back_val();
+    // We write out exported module macros for PCH as well.
+    auto Leafs = PP.getLeafModuleMacros(Name);
+    SmallVector<ModuleMacro*, 8> Worklist(Leafs.begin(), Leafs.end());
+    llvm::DenseMap<ModuleMacro*, unsigned> Visits;
+    while (!Worklist.empty()) {
+      auto *Macro = Worklist.pop_back_val();
 
-        // Emit a record indicating this submodule exports this macro.
-        ModuleMacroRecord.push_back(
-            getSubmoduleID(Macro->getOwningModule()));
-        ModuleMacroRecord.push_back(getMacroRef(Macro->getMacroInfo(), Name));
-        for (auto *M : Macro->overrides())
-          ModuleMacroRecord.push_back(getSubmoduleID(M->getOwningModule()));
+      // Emit a record indicating this submodule exports this macro.
+      ModuleMacroRecord.push_back(
+          getSubmoduleID(Macro->getOwningModule()));
+      ModuleMacroRecord.push_back(getMacroRef(Macro->getMacroInfo(), Name));
+      for (auto *M : Macro->overrides())
+        ModuleMacroRecord.push_back(getSubmoduleID(M->getOwningModule()));
 
-        Stream.EmitRecord(PP_MODULE_MACRO, ModuleMacroRecord);
-        ModuleMacroRecord.clear();
+      Stream.EmitRecord(PP_MODULE_MACRO, ModuleMacroRecord);
+      ModuleMacroRecord.clear();
 
-        // Enqueue overridden macros once we've visited all their ancestors.
-        for (auto *M : Macro->overrides())
-          if (++Visits[M] == M->getNumOverridingMacros())
-            Worklist.push_back(M);
+      // Enqueue overridden macros once we've visited all their ancestors.
+      for (auto *M : Macro->overrides())
+        if (++Visits[M] == M->getNumOverridingMacros())
+          Worklist.push_back(M);
 
-        EmittedModuleMacros = true;
-      }
+      EmittedModuleMacros = true;
     }
 
     if (Record.empty() && !EmittedModuleMacros)
@@ -5654,10 +5661,6 @@ void ASTWriter::CompletedTagDefinition(const TagDecl *D) {
 static bool isImportedDeclContext(ASTReader *Chain, const Decl *D) {
   if (D->isFromASTFile())
     return true;
-
-  // If we've not loaded any modules, this can't be imported.
-  if (!Chain || !Chain->getModuleManager().size())
-    return false;
 
   // The predefined __va_list_tag struct is imported if we imported any decls.
   // FIXME: This is a gross hack.

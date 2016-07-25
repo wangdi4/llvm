@@ -142,6 +142,7 @@ static IMAKind ClassifyImplicitMemberAccess(Sema &SemaRef,
     AbstractInstanceResult = IMA_Abstract;
     break;
 
+  case Sema::DiscardedStatement:
   case Sema::ConstantEvaluated:
   case Sema::PotentiallyEvaluated:
   case Sema::PotentiallyEvaluatedIfUsed:
@@ -225,6 +226,10 @@ static void diagnoseInstanceReference(Sema &SemaRef,
     SemaRef.Diag(Loc, diag::err_invalid_non_static_member_use)
       << nameInfo.getName() << Range;
   else
+#if INTEL_CUSTOMIZATION
+    // CQ374723: allow reference to non-static method if it is function template
+    if (!SemaRef.getLangOpts().IntelCompat || !isa<FunctionTemplateDecl>(Rep))
+#endif // INTEL_CUSTOMIZATION
     SemaRef.Diag(Loc, diag::err_member_call_without_object)
       << Range;
 }
@@ -1792,6 +1797,7 @@ BuildFieldReferenceExpr(Sema &S, Expr *BaseExpr, bool IsArrow,
   // Build a reference to a private copy for non-static data members in
   // non-static member functions, privatized by OpenMP constructs.
   if (S.getLangOpts().OpenMP && IsArrow &&
+      !S.CurContext->isDependentContext() &&
       isa<CXXThisExpr>(Base.get()->IgnoreParenImpCasts())) {
     if (auto *PrivateCopy = S.IsOpenMPCapturedDecl(Field))
       return S.getOpenMPCapturedExpr(PrivateCopy, VK, OK, OpLoc);

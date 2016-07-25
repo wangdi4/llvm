@@ -819,7 +819,7 @@ void ASTContext::AddDeallocation(void (*Callback)(void*), void *Data) {
 
 void
 ASTContext::setExternalSource(IntrusiveRefCntPtr<ExternalASTSource> Source) {
-  ExternalSource = Source;
+  ExternalSource = std::move(Source);
 }
 
 void ASTContext::PrintStats() const {
@@ -5207,7 +5207,7 @@ std::string ASTContext::getObjCEncodingForBlock(const BlockExpr *Expr) const {
   SourceLocation Loc;
   CharUnits PtrSize = getTypeSizeInChars(VoidPtrTy);
   CharUnits ParmOffset = PtrSize;
-  for (auto PI : Decl->params()) {
+  for (auto PI : Decl->parameters()) {
     QualType PType = PI->getType();
     CharUnits sz = getObjCEncodingTypeSize(PType);
     if (sz.isZero())
@@ -5222,7 +5222,7 @@ std::string ASTContext::getObjCEncodingForBlock(const BlockExpr *Expr) const {
   
   // Argument types.
   ParmOffset = PtrSize;
-  for (auto PVDecl : Decl->params()) {
+  for (auto PVDecl : Decl->parameters()) {
     QualType PType = PVDecl->getOriginalType(); 
     if (const ArrayType *AT =
           dyn_cast<ArrayType>(PType->getCanonicalTypeInternal())) {
@@ -5250,7 +5250,7 @@ bool ASTContext::getObjCEncodingForFunctionDecl(const FunctionDecl *Decl,
   getObjCEncodingForType(Decl->getReturnType(), S);
   CharUnits ParmOffset;
   // Compute size of all parameters.
-  for (auto PI : Decl->params()) {
+  for (auto PI : Decl->parameters()) {
     QualType PType = PI->getType();
     CharUnits sz = getObjCEncodingTypeSize(PType);
     if (sz.isZero())
@@ -5264,7 +5264,7 @@ bool ASTContext::getObjCEncodingForFunctionDecl(const FunctionDecl *Decl,
   ParmOffset = CharUnits::Zero();
 
   // Argument types.
-  for (auto PVDecl : Decl->params()) {
+  for (auto PVDecl : Decl->parameters()) {
     QualType PType = PVDecl->getOriginalType();
     if (const ArrayType *AT =
           dyn_cast<ArrayType>(PType->getCanonicalTypeInternal())) {
@@ -8449,17 +8449,6 @@ static GVALinkage basicGVALinkageForFunction(const ASTContext &Context,
     break;
   }
 
-#if INTEL_CUSTOMIZATION
-  // CQ#369830 - static declarations are treated differently.
-  // For a function definition, if it has ever been declared static, set
-  // internal linkage for C.
-  const LangOptions &Opts = Context.getLangOpts();
-  if (Opts.IntelCompat && !(Opts.CPlusPlus || Opts.ObjC1 || Opts.ObjC2)) {
-    for (const FunctionDecl *Prev = FD; Prev; Prev = Prev->getPreviousDecl())
-      if (Prev->getStorageClass() == SC_Static)
-        return GVA_Internal;
-  }
-#endif // INTEL_CUSTOMIZATION
   if (!FD->isInlined())
     return External;
 
@@ -8497,6 +8486,20 @@ static GVALinkage adjustGVALinkageForAttributes(const ASTContext &Context,
   } else if (D->hasAttr<DLLExportAttr>()) {
     if (L == GVA_DiscardableODR)
       return GVA_StrongODR;
+#if INTEL_CUSTOMIZATION
+  } else if (const auto *FD = dyn_cast<FunctionDecl>(D)) {
+    // CQ#369830 - static declarations are treated differently.
+    //   In C language for a function that has ever been declared static,
+    //   set internal linkage.
+    // CQ#382093 - static + __declspec(dllimport) cause error in BE.
+    //   Don't affect functions with dllimport/dllexport attributes.
+    const LangOptions &Opts = Context.getLangOpts();
+    if (Opts.IntelCompat && !(Opts.CPlusPlus || Opts.ObjC1 || Opts.ObjC2)) {
+      for (const FunctionDecl *Prev = FD; Prev; Prev = Prev->getPreviousDecl())
+        if (Prev->getStorageClass() == SC_Static)
+          return GVA_Internal;
+    }
+#endif // INTEL_CUSTOMIZATION
   } else if (Context.getLangOpts().CUDA && Context.getLangOpts().CUDAIsDevice &&
              D->hasAttr<CUDAGlobalAttr>()) {
     // Device-side functions with __global__ attribute must always be
@@ -8549,15 +8552,19 @@ static GVALinkage basicGVALinkageForVariable(const ASTContext &Context,
     return GVA_DiscardableODR;
 #endif // INTEL_CUSTOMIZATION
 
+  GVALinkage StrongLinkage = GVA_StrongExternal;
+  if (VD->isInline())
+    StrongLinkage = GVA_DiscardableODR;
+
   switch (VD->getTemplateSpecializationKind()) {
   case TSK_Undeclared:
-    return GVA_StrongExternal;
+    return StrongLinkage;
 
   case TSK_ExplicitSpecialization:
     return Context.getTargetInfo().getCXXABI().isMicrosoft() &&
                    VD->isStaticDataMember()
                ? GVA_StrongODR
-               : GVA_StrongExternal;
+               : StrongLinkage;
 
   case TSK_ExplicitInstantiationDefinition:
     return GVA_StrongODR;

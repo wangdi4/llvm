@@ -46,9 +46,8 @@ GenerateDwarfTypeUnits("generate-type-units", cl::Hidden,
 
 DIEDwarfExpression::DIEDwarfExpression(const AsmPrinter &AP, DwarfUnit &DU,
                                        DIELoc &DIE)
-    : DwarfExpression(*AP.MF->getSubtarget().getRegisterInfo(),
-                      AP.getDwarfDebug()->getDwarfVersion()),
-      AP(AP), DU(DU), DIE(DIE) {}
+    : DwarfExpression(AP.getDwarfDebug()->getDwarfVersion()), AP(AP), DU(DU),
+      DIE(DIE) {}
 
 void DIEDwarfExpression::EmitOp(uint8_t Op, const char* Comment) {
   DU.addUInt(DIE, dwarf::DW_FORM_data1, Op);
@@ -59,7 +58,8 @@ void DIEDwarfExpression::EmitSigned(int64_t Value) {
 void DIEDwarfExpression::EmitUnsigned(uint64_t Value) {
   DU.addUInt(DIE, dwarf::DW_FORM_udata, Value);
 }
-bool DIEDwarfExpression::isFrameRegister(unsigned MachineReg) {
+bool DIEDwarfExpression::isFrameRegister(const TargetRegisterInfo &TRI,
+                                         unsigned MachineReg) {
   return MachineReg == TRI.getFrameRegister(*AP.MF);
 }
 
@@ -368,14 +368,16 @@ void DwarfUnit::addSourceLine(DIE &Die, const DINamespace *NS) {
 bool DwarfUnit::addRegisterOpPiece(DIELoc &TheDie, unsigned Reg,
                                    unsigned SizeInBits, unsigned OffsetInBits) {
   DIEDwarfExpression Expr(*Asm, *this, TheDie);
-  Expr.AddMachineRegPiece(Reg, SizeInBits, OffsetInBits);
+  Expr.AddMachineRegPiece(*Asm->MF->getSubtarget().getRegisterInfo(), Reg,
+                          SizeInBits, OffsetInBits);
   return true;
 }
 
 bool DwarfUnit::addRegisterOffset(DIELoc &TheDie, unsigned Reg,
                                   int64_t Offset) {
   DIEDwarfExpression Expr(*Asm, *this, TheDie);
-  return Expr.AddMachineRegIndirect(Reg, Offset);
+  return Expr.AddMachineRegIndirect(*Asm->MF->getSubtarget().getRegisterInfo(),
+                                    Reg, Offset);
 }
 
 /* Byref variables, in Blocks, are declared by the programmer as "SomeType
@@ -899,6 +901,11 @@ void DwarfUnit::constructTypeDIE(DIE &Buffer, const DISubroutineType *CTy) {
        Language == dwarf::DW_LANG_ObjC))
     addFlag(Buffer, dwarf::DW_AT_prototyped);
 
+  // Add a DW_AT_calling_convention if this has an explicit convention.
+  if (CTy->getCC() && CTy->getCC() != dwarf::DW_CC_normal)
+    addUInt(Buffer, dwarf::DW_AT_calling_convention, dwarf::DW_FORM_data1,
+            CTy->getCC());
+
   if (CTy->isLValueReference())
     addFlag(Buffer, dwarf::DW_AT_reference);
 
@@ -1205,9 +1212,16 @@ void DwarfUnit::applySubprogramAttributes(const DISubprogram *SP, DIE &SPDie,
        Language == dwarf::DW_LANG_ObjC))
     addFlag(SPDie, dwarf::DW_AT_prototyped);
 
+  unsigned CC = 0;
   DITypeRefArray Args;
-  if (const DISubroutineType *SPTy = SP->getType())
+  if (const DISubroutineType *SPTy = SP->getType()) {
     Args = SPTy->getTypeArray();
+    CC = SPTy->getCC();
+  }
+
+  // Add a DW_AT_calling_convention if this has an explicit convention.
+  if (CC && CC != dwarf::DW_CC_normal)
+    addUInt(SPDie, dwarf::DW_AT_calling_convention, dwarf::DW_FORM_data1, CC);
 
   // Add a return type. If this is a type like a C/C++ void type we don't add a
   // return type.
@@ -1242,11 +1256,13 @@ void DwarfUnit::applySubprogramAttributes(const DISubprogram *SP, DIE &SPDie,
   if (!SP->isLocalToUnit())
     addFlag(SPDie, dwarf::DW_AT_external);
 
-  if (SP->isOptimized())
-    addFlag(SPDie, dwarf::DW_AT_APPLE_optimized);
+  if (DD->useAppleExtensionAttributes()) {
+    if (SP->isOptimized())
+      addFlag(SPDie, dwarf::DW_AT_APPLE_optimized);
 
-  if (unsigned isa = Asm->getISAEncoding())
-    addUInt(SPDie, dwarf::DW_AT_APPLE_isa, dwarf::DW_FORM_flag, isa);
+    if (unsigned isa = Asm->getISAEncoding())
+      addUInt(SPDie, dwarf::DW_AT_APPLE_isa, dwarf::DW_FORM_flag, isa);
+  }
 
   if (SP->isLValueReference())
     addFlag(SPDie, dwarf::DW_AT_reference);
