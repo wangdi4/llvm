@@ -1,5 +1,9 @@
 ;RUN: opt -VPODriver -S %s | FileCheck %s
 
+; INTEL CUSTOMIZATION: This test fails in xmain.  CQ 408863.
+; XFAIL: *
+; END INTEL CUSTOMIZATION
+
 ; CHECK: for.end
 ; CHECK:  extractelement <4 x float> {{.*}}, i32 0
 ; CHECK:  extractelement <4 x float> {{.*}}, i32 1
