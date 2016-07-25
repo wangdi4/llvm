@@ -11,6 +11,8 @@
 #define PROFILE_INSTRPROFILING_H_
 
 #include "InstrProfilingPort.h"
+
+#define INSTR_PROF_VISIBILITY COMPILER_RT_VISIBILITY
 #include "InstrProfData.inc"
 
 enum ValueKind {
@@ -61,6 +63,8 @@ const char *__llvm_profile_begin_names(void);
 const char *__llvm_profile_end_names(void);
 uint64_t *__llvm_profile_begin_counters(void);
 uint64_t *__llvm_profile_end_counters(void);
+ValueProfNode *__llvm_profile_begin_vnodes();
+ValueProfNode *__llvm_profile_end_vnodes();
 
 /*!
  * \brief Clear profile counters to zero.
@@ -155,7 +159,7 @@ uint64_t __llvm_profile_get_data_size(const __llvm_profile_data *Begin,
                                       const __llvm_profile_data *End);
 
 /*!
- * This variable is defined in InstrProfilingRuntime.c as a hidden
+ * This variable is defined in InstrProfilingRuntime.cc as a hidden
  * symbol. Its main purpose is to enable profile runtime user to
  * bypass runtime initialization code -- if the client code explicitly
  * define this variable, then InstProfileRuntime.o won't be linked in.
@@ -164,13 +168,7 @@ uint64_t __llvm_profile_get_data_size(const __llvm_profile_data *Begin,
  * affect runtime initialization decision of the main program.
  */
 COMPILER_RT_VISIBILITY extern int __llvm_profile_runtime;
-/*! 
- * This variable is defined in InstrProfilingFile.c. Its visibility is
- * not hidden so that instrumented shared libraries and the main program
- * can share the raw data file with the same name.
- */
-extern int __llvm_profile_OwnsFilename;
-extern const char *__llvm_profile_CurrentFilename;
+
 /*!
  * This variable is defined in InstrProfiling.c. Its main purpose is to
  * encode the raw profile version value and other format related information
@@ -179,7 +177,7 @@ extern const char *__llvm_profile_CurrentFilename;
  * depending on user option.  Since we don't support mixing FE and IR based
  * data in the same raw profile data file (in other words, shared libs and
  * main program are expected to be instrumented in the same way), there is
- * no need for this variale to be hidden.
+ * no need for this variable to be hidden.
  */
 extern uint64_t __llvm_profile_raw_version;
 

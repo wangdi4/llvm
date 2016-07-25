@@ -17,11 +17,6 @@ namespace clang {
 namespace tidy {
 namespace matchers {
 
-AST_MATCHER_P(Expr, ignoringImplicit,
-              ast_matchers::internal::Matcher<Expr>, InnerMatcher) {
-  return InnerMatcher.matches(*Node.IgnoreImplicit(), Finder, Builder);
-}
-
 AST_MATCHER(BinaryOperator, isRelationalOperator) {
   return Node.isRelationalOp();
 }
@@ -44,6 +39,8 @@ AST_MATCHER(RecordDecl, isTriviallyDefaultConstructible) {
   return utils::type_traits::recordIsTriviallyDefaultConstructible(
       Node, Finder->getASTContext());
 }
+
+AST_MATCHER(FieldDecl, isBitfield) { return Node.isBitField(); }
 
 } // namespace matchers
 } // namespace tidy

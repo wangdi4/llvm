@@ -130,6 +130,63 @@ class GuardWideningImpl {
   bool widenCondCommon(Value *Cond0, Value *Cond1, Instruction *InsertPt,
                        Value *&Result);
 
+  /// Represents a range check of the form \c Base + \c Offset u< \c Length,
+  /// with the constraint that \c Length is not negative.  \c CheckInst is the
+  /// pre-existing instruction in the IR that computes the result of this range
+  /// check.
+  class RangeCheck {
+    Value *Base;
+    ConstantInt *Offset;
+    Value *Length;
+    ICmpInst *CheckInst;
+
+  public:
+    explicit RangeCheck(Value *Base, ConstantInt *Offset, Value *Length,
+                        ICmpInst *CheckInst)
+        : Base(Base), Offset(Offset), Length(Length), CheckInst(CheckInst) {}
+
+    void setBase(Value *NewBase) { Base = NewBase; }
+    void setOffset(ConstantInt *NewOffset) { Offset = NewOffset; }
+
+    Value *getBase() const { return Base; }
+    ConstantInt *getOffset() const { return Offset; }
+    const APInt &getOffsetValue() const { return getOffset()->getValue(); }
+    Value *getLength() const { return Length; };
+    ICmpInst *getCheckInst() const { return CheckInst; }
+
+    void print(raw_ostream &OS, bool PrintTypes = false) {
+      OS << "Base: ";
+      Base->printAsOperand(OS, PrintTypes);
+      OS << " Offset: ";
+      Offset->printAsOperand(OS, PrintTypes);
+      OS << " Length: ";
+      Length->printAsOperand(OS, PrintTypes);
+    }
+
+    LLVM_DUMP_METHOD void dump() {
+      print(dbgs());
+      dbgs() << "\n";
+    }
+  };
+
+  /// Parse \p CheckCond into a conjunction (logical-and) of range checks; and
+  /// append them to \p Checks.  Returns true on success, may clobber \c Checks
+  /// on failure.
+  bool parseRangeChecks(Value *CheckCond, SmallVectorImpl<RangeCheck> &Checks) {
+    SmallPtrSet<Value *, 8> Visited;
+    return parseRangeChecks(CheckCond, Checks, Visited);
+  }
+
+  bool parseRangeChecks(Value *CheckCond, SmallVectorImpl<RangeCheck> &Checks,
+                        SmallPtrSetImpl<Value *> &Visited);
+
+  /// Combine the checks in \p Checks into a smaller set of checks and append
+  /// them into \p CombinedChecks.  Return true on success (i.e. all of checks
+  /// in \p Checks were combined into \p CombinedChecks).  Clobbers \p Checks
+  /// and \p CombinedChecks on success and on failure.
+  bool combineRangeChecks(SmallVectorImpl<RangeCheck> &Checks,
+                          SmallVectorImpl<RangeCheck> &CombinedChecks);
+
   /// Can we compute the logical AND of \p Cond0 and \p Cond1 for the price of
   /// computing only one of the two expressions?
   bool isWideningCondProfitable(Value *Cond0, Value *Cond1) {
@@ -356,23 +413,54 @@ bool GuardWideningImpl::widenCondCommon(Value *Cond0, Value *Cond1,
     if (match(Cond0, m_ICmp(Pred0, m_Value(LHS), m_ConstantInt(RHS0))) &&
         match(Cond1, m_ICmp(Pred1, m_Specific(LHS), m_ConstantInt(RHS1)))) {
 
-      // TODO: This logic should be generalized and refactored into a new
-      // Constant::getEquivalentICmp helper.
-      if (Pred0 == ICmpInst::ICMP_NE && RHS0->isZero())
-        Pred0 = ICmpInst::ICMP_UGT;
-      if (Pred1 == ICmpInst::ICMP_NE && RHS1->isZero())
-        Pred1 = ICmpInst::ICMP_UGT;
+      ConstantRange CR0 =
+          ConstantRange::makeExactICmpRegion(Pred0, RHS0->getValue());
+      ConstantRange CR1 =
+          ConstantRange::makeExactICmpRegion(Pred1, RHS1->getValue());
 
-      if (Pred0 == ICmpInst::ICMP_UGT && Pred1 == ICmpInst::ICMP_UGT) {
+      // SubsetIntersect is a subset of the actual mathematical intersection of
+      // CR0 and CR1, while SupersetIntersect is a superset of the actual
+      // mathematical intersection.  If these two ConstantRanges are equal, then
+      // we know we were able to represent the actual mathematical intersection
+      // of CR0 and CR1, and can use the same to generate an icmp instruction.
+      //
+      // Given what we're doing here and the semantics of guards, it would
+      // actually be correct to just use SubsetIntersect, but that may be too
+      // aggressive in cases we care about.
+      auto SubsetIntersect = CR0.inverse().unionWith(CR1.inverse()).inverse();
+      auto SupersetIntersect = CR0.intersectWith(CR1);
+
+      APInt NewRHSAP;
+      CmpInst::Predicate Pred;
+      if (SubsetIntersect == SupersetIntersect &&
+          SubsetIntersect.getEquivalentICmp(Pred, NewRHSAP)) {
         if (InsertPt) {
-          ConstantInt *NewRHS =
-              RHS0->getValue().ugt(RHS1->getValue()) ? RHS0 : RHS1;
-          Result = new ICmpInst(InsertPt, ICmpInst::ICMP_UGT, LHS, NewRHS,
-                                "wide.chk");
+          ConstantInt *NewRHS = ConstantInt::get(Cond0->getContext(), NewRHSAP);
+          Result = new ICmpInst(InsertPt, Pred, LHS, NewRHS, "wide.chk");
         }
-
         return true;
       }
+    }
+  }
+
+  {
+    SmallVector<GuardWideningImpl::RangeCheck, 4> Checks, CombinedChecks;
+    if (parseRangeChecks(Cond0, Checks) && parseRangeChecks(Cond1, Checks) &&
+        combineRangeChecks(Checks, CombinedChecks)) {
+      if (InsertPt) {
+        Result = nullptr;
+        for (auto &RC : CombinedChecks) {
+          makeAvailableAt(RC.getCheckInst(), InsertPt);
+          if (Result)
+            Result = BinaryOperator::CreateAnd(RC.getCheckInst(), Result, "",
+                                               InsertPt);
+          else
+            Result = RC.getCheckInst();
+        }
+
+        Result->setName("wide.chk");
+      }
+      return true;
     }
   }
 
@@ -387,6 +475,181 @@ bool GuardWideningImpl::widenCondCommon(Value *Cond0, Value *Cond1,
 
   // We were not able to compute Cond0 AND Cond1 for the price of one.
   return false;
+}
+
+bool GuardWideningImpl::parseRangeChecks(
+    Value *CheckCond, SmallVectorImpl<GuardWideningImpl::RangeCheck> &Checks,
+    SmallPtrSetImpl<Value *> &Visited) {
+  if (!Visited.insert(CheckCond).second)
+    return true;
+
+  using namespace llvm::PatternMatch;
+
+  {
+    Value *AndLHS, *AndRHS;
+    if (match(CheckCond, m_And(m_Value(AndLHS), m_Value(AndRHS))))
+      return parseRangeChecks(AndLHS, Checks) &&
+             parseRangeChecks(AndRHS, Checks);
+  }
+
+  auto *IC = dyn_cast<ICmpInst>(CheckCond);
+  if (!IC || !IC->getOperand(0)->getType()->isIntegerTy() ||
+      (IC->getPredicate() != ICmpInst::ICMP_ULT &&
+       IC->getPredicate() != ICmpInst::ICMP_UGT))
+    return false;
+
+  Value *CmpLHS = IC->getOperand(0), *CmpRHS = IC->getOperand(1);
+  if (IC->getPredicate() == ICmpInst::ICMP_UGT)
+    std::swap(CmpLHS, CmpRHS);
+
+  auto &DL = IC->getModule()->getDataLayout();
+
+  GuardWideningImpl::RangeCheck Check(
+      CmpLHS, cast<ConstantInt>(ConstantInt::getNullValue(CmpRHS->getType())),
+      CmpRHS, IC);
+
+  if (!isKnownNonNegative(Check.getLength(), DL))
+    return false;
+
+  // What we have in \c Check now is a correct interpretation of \p CheckCond.
+  // Try to see if we can move some constant offsets into the \c Offset field.
+
+  bool Changed;
+  auto &Ctx = CheckCond->getContext();
+
+  do {
+    Value *OpLHS;
+    ConstantInt *OpRHS;
+    Changed = false;
+
+#ifndef NDEBUG
+    auto *BaseInst = dyn_cast<Instruction>(Check.getBase());
+    assert((!BaseInst || DT.isReachableFromEntry(BaseInst->getParent())) &&
+           "Unreachable instruction?");
+#endif
+
+    if (match(Check.getBase(), m_Add(m_Value(OpLHS), m_ConstantInt(OpRHS)))) {
+      Check.setBase(OpLHS);
+      APInt NewOffset = Check.getOffsetValue() + OpRHS->getValue();
+      Check.setOffset(ConstantInt::get(Ctx, NewOffset));
+      Changed = true;
+    } else if (match(Check.getBase(),
+                     m_Or(m_Value(OpLHS), m_ConstantInt(OpRHS)))) {
+      unsigned BitWidth = OpLHS->getType()->getScalarSizeInBits();
+      APInt KnownZero(BitWidth, 0), KnownOne(BitWidth, 0);
+      computeKnownBits(OpLHS, KnownZero, KnownOne, DL);
+      if ((OpRHS->getValue() & KnownZero) == OpRHS->getValue()) {
+        Check.setBase(OpLHS);
+        APInt NewOffset = Check.getOffsetValue() + OpRHS->getValue();
+        Check.setOffset(ConstantInt::get(Ctx, NewOffset));
+        Changed = true;
+      }
+    }
+  } while (Changed);
+
+  Checks.push_back(Check);
+  return true;
+}
+
+bool GuardWideningImpl::combineRangeChecks(
+    SmallVectorImpl<GuardWideningImpl::RangeCheck> &Checks,
+    SmallVectorImpl<GuardWideningImpl::RangeCheck> &RangeChecksOut) {
+  unsigned OldCount = Checks.size();
+  while (!Checks.empty()) {
+    // Pick all of the range checks with a specific base and length, and try to
+    // merge them.
+    Value *CurrentBase = Checks.front().getBase();
+    Value *CurrentLength = Checks.front().getLength();
+
+    SmallVector<GuardWideningImpl::RangeCheck, 3> CurrentChecks;
+
+    auto IsCurrentCheck = [&](GuardWideningImpl::RangeCheck &RC) {
+      return RC.getBase() == CurrentBase && RC.getLength() == CurrentLength;
+    };
+
+    std::copy_if(Checks.begin(), Checks.end(),
+                 std::back_inserter(CurrentChecks), IsCurrentCheck);
+    Checks.erase(remove_if(Checks, IsCurrentCheck), Checks.end());
+
+    assert(CurrentChecks.size() != 0 && "We know we have at least one!");
+
+    if (CurrentChecks.size() < 3) {
+      RangeChecksOut.insert(RangeChecksOut.end(), CurrentChecks.begin(),
+                            CurrentChecks.end());
+      continue;
+    }
+
+    // CurrentChecks.size() will typically be 3 here, but so far there has been
+    // no need to hard-code that fact.
+
+    std::sort(CurrentChecks.begin(), CurrentChecks.end(),
+              [&](const GuardWideningImpl::RangeCheck &LHS,
+                  const GuardWideningImpl::RangeCheck &RHS) {
+      return LHS.getOffsetValue().slt(RHS.getOffsetValue());
+    });
+
+    // Note: std::sort should not invalidate the ChecksStart iterator.
+
+    ConstantInt *MinOffset = CurrentChecks.front().getOffset(),
+                *MaxOffset = CurrentChecks.back().getOffset();
+
+    unsigned BitWidth = MaxOffset->getValue().getBitWidth();
+    if ((MaxOffset->getValue() - MinOffset->getValue())
+            .ugt(APInt::getSignedMinValue(BitWidth)))
+      return false;
+
+    APInt MaxDiff = MaxOffset->getValue() - MinOffset->getValue();
+    const APInt &HighOffset = MaxOffset->getValue();
+    auto OffsetOK = [&](const GuardWideningImpl::RangeCheck &RC) {
+      return (HighOffset - RC.getOffsetValue()).ult(MaxDiff);
+    };
+
+    if (MaxDiff.isMinValue() ||
+        !std::all_of(std::next(CurrentChecks.begin()), CurrentChecks.end(),
+                     OffsetOK))
+      return false;
+
+    // We have a series of f+1 checks as:
+    //
+    //   I+k_0 u< L   ... Chk_0
+    //   I_k_1 u< L   ... Chk_1
+    //   ...
+    //   I_k_f u< L   ... Chk_(f+1)
+    //
+    //     with forall i in [0,f): k_f-k_i u< k_f-k_0  ... Precond_0
+    //          k_f-k_0 u< INT_MIN+k_f                 ... Precond_1
+    //          k_f != k_0                             ... Precond_2
+    //
+    // Claim:
+    //   Chk_0 AND Chk_(f+1)  implies all the other checks
+    //
+    // Informal proof sketch:
+    //
+    // We will show that the integer range [I+k_0,I+k_f] does not unsigned-wrap
+    // (i.e. going from I+k_0 to I+k_f does not cross the -1,0 boundary) and
+    // thus I+k_f is the greatest unsigned value in that range.
+    //
+    // This combined with Ckh_(f+1) shows that everything in that range is u< L.
+    // Via Precond_0 we know that all of the indices in Chk_0 through Chk_(f+1)
+    // lie in [I+k_0,I+k_f], this proving our claim.
+    //
+    // To see that [I+k_0,I+k_f] is not a wrapping range, note that there are
+    // two possibilities: I+k_0 u< I+k_f or I+k_0 >u I+k_f (they can't be equal
+    // since k_0 != k_f).  In the former case, [I+k_0,I+k_f] is not a wrapping
+    // range by definition, and the latter case is impossible:
+    //
+    //   0-----I+k_f---I+k_0----L---INT_MAX,INT_MIN------------------(-1)
+    //   xxxxxx             xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    //
+    // For Chk_0 to succeed, we'd have to have k_f-k_0 (the range highlighted
+    // with 'x' above) to be at least >u INT_MIN.
+
+    RangeChecksOut.emplace_back(CurrentChecks.front());
+    RangeChecksOut.emplace_back(CurrentChecks.back());
+  }
+
+  assert(RangeChecksOut.size() <= OldCount && "We pessimized!");
+  return RangeChecksOut.size() != OldCount;
 }
 
 PreservedAnalyses GuardWideningPass::run(Function &F,

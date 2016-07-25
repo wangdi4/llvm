@@ -798,6 +798,15 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
 
     // Case 4: Non unit-stride access, using Gather/Scatter
     //
+#ifdef USE_EXPERIMENTAL_CODE 
+    if (PtrOp->getSLEV().isStrided()) {
+      int64_t StrideInElements =
+          PtrOp->getSLEV().getStride().getInteger().getSExtValue();
+      DEBUG(errs() << "Stride = " << StrideInElements << "\n");
+    } else
+      DEBUG(errs() << "Stride Unknown\n");
+#endif
+
     if (UseGatherOrScatter) {
       DEBUG(errs() << "Case 3: GatherScatterCost.\n");
       assert(ConsecutiveStride == 0 &&

@@ -11,6 +11,8 @@ Xmain
    LoopAnalysis/index
    LoopTransforms/index
    VPO/index
+   Analysis/index
+   CodeGen/index
 
 Introduction
 ============
@@ -54,4 +56,10 @@ Major Components
 
 :doc:`VPO <VPO/index>`
    Describes the VPO vectorizer.
+
+:doc:`Analysis <Analysis/index>`
+   Describes the xmain projects under Analysis.
+
+:doc:`CodeGen <CodeGen/index>`
+   Container for CodeGen documents.
 

@@ -154,15 +154,19 @@ define void @atomic_fetch_nand16(i16 %x) nounwind {
 }
 
 define void @atomic_fetch_max16(i16 %x) nounwind {
+; X64-LABEL:   atomic_fetch_max16
+; X32-LABEL:   atomic_fetch_max16
   %t1 = atomicrmw max  i16* @sc16, i16 %x acquire
-; X64:       movw    ;INTEL
-; X64:       subw    ;INTEL
+; X64:       movw
+; X64:       movw
+; X64:       subw
 ; X64:       cmov
 ; X64:       lock
 ; X64:       cmpxchgw
 
-; X32:       movw    ;INTEL
-; X32:       subw    ;INTEL
+; X32:       movw
+; X32:       movw
+; X32:       subw
 ; X32:       cmov
 ; X32:       lock
 ; X32:       cmpxchgw
@@ -172,15 +176,19 @@ define void @atomic_fetch_max16(i16 %x) nounwind {
 }
 
 define void @atomic_fetch_min16(i16 %x) nounwind {
+; X64-LABEL:   atomic_fetch_min16
+; X32-LABEL:   atomic_fetch_min16
   %t1 = atomicrmw min  i16* @sc16, i16 %x acquire
-; X64:       movw    ;INTEL
-; X64:       subw    ;INTEL
+; X64:       movw
+; X64:       movw
+; X64:       subw
 ; X64:       cmov
 ; X64:       lock
 ; X64:       cmpxchgw
 
-; X32:       movw    ;INTEL
-; X32:       subw    ;INTEL
+; X32:       movw
+; X32:       movw
+; X32:       subw
 ; X32:       cmov
 ; X32:       lock
 ; X32:       cmpxchgw
@@ -190,15 +198,19 @@ define void @atomic_fetch_min16(i16 %x) nounwind {
 }
 
 define void @atomic_fetch_umax16(i16 %x) nounwind {
+; X64-LABEL:   atomic_fetch_umax16
+; X32-LABEL:   atomic_fetch_umax16
   %t1 = atomicrmw umax i16* @sc16, i16 %x acquire
-; X64:       movw     ;INTEL
-; X64:       subw     ;INTEL 
+; X64:       movw
+; X64:       movw
+; X64:       subw
 ; X64:       cmov
 ; X64:       lock
 ; X64:       cmpxchgw
 
-; X32:       movw     ;INTEL
-; X32:       subw     ;INTEL
+; X32:       movw
+; X32:       movw
+; X32:       subw
 ; X32:       cmov
 ; X32:       lock
 ; X32:       cmpxchgw
@@ -208,15 +220,19 @@ define void @atomic_fetch_umax16(i16 %x) nounwind {
 }
 
 define void @atomic_fetch_umin16(i16 %x) nounwind {
+; X64-LABEL:   atomic_fetch_umin16
+; X32-LABEL:   atomic_fetch_umin16
   %t1 = atomicrmw umin i16* @sc16, i16 %x acquire
-; X64:       movw      ;INTEL
-; X64:       subw      ;INTEL
+; X64:       movw
+; X64:       movw
+; X64:       subw
 ; X64:       cmov
 ; X64:       lock
 ; X64:       cmpxchgw
 
-; X32:       movw      ;INTEL
-; X32:       subw      ;INTEL    
+; X32:       movw
+; X32:       movw
+; X32:       subw
 ; X32:       cmov
 ; X32:       lock
 ; X32:       cmpxchgw
