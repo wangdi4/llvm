@@ -135,26 +135,26 @@ namespace intel {
 
   bool BIImport::runOnModule(Module &M) {
     BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
-    auto runtimeModuleBufferList = BLI.getBuiltinModuleBuffers();
+    auto rtlModuleBufferList = BLI.getBuiltinModuleBuffers();
 
-    if (runtimeModuleBufferList.empty()) {
+    if (rtlModuleBufferList.empty()) {
       // If there are no builtin modules, then nothing can be imported.
       return false;
     }
 
     // Copy buffers containing builtins bitcode so we could safely delete functions bodies
-    // in order to achieve fast materializing before linking.
+    // in order to achieve faster materializing prior to linking.
     // The lifetime of these copies is limitied to this function.
 
-    vector<unique_ptr<MemoryBuffer>> runtimeModuleBufferListCopy;
-    for (auto rtlBuffer : runtimeModuleBufferList)
+    vector<unique_ptr<MemoryBuffer>> rtlModuleBufferListCopy;
+    for (auto rtlBuffer : rtlModuleBufferList)
     {
-      auto trlBufferCopy = MemoryBuffer::getMemBufferCopy(rtlBuffer->getBuffer(), rtlBuffer->getBufferIdentifier());
-      runtimeModuleBufferListCopy.push_back(std::move(trlBufferCopy));
+      auto rtlBufferCopy = MemoryBuffer::getMemBufferCopy(rtlBuffer->getBuffer(), rtlBuffer->getBufferIdentifier());
+      rtlModuleBufferListCopy.push_back(std::move(rtlBufferCopy));
     }
 
-    vector<unique_ptr<Module>> runtimeModulesList;
-    for (auto &runtimeBuffer : runtimeModuleBufferListCopy)
+    vector<unique_ptr<Module>> rtlModulesList;
+    for (auto &runtimeBuffer : rtlModuleBufferListCopy)
     {
       // We could use getLazyIRModule to be able to handle not only bitcode
       // as it handles both bitcode and assembly, but it is internal to IRReader.cpp.
@@ -166,12 +166,12 @@ namespace intel {
       }
       else
       {
-        runtimeModulesList.push_back(std::move(spModuleOrErr.get()));
+        rtlModulesList.push_back(std::move(spModuleOrErr.get()));
       }
     }
 
-    for (auto &Mod : runtimeModulesList)
-      m_runtimeModuleList.push_back(Mod.get());
+    for (auto &rtlModule : rtlModulesList)
+      m_runtimeModuleList.push_back(rtlModule.get());
 
     bool changed = false;
 
@@ -210,7 +210,9 @@ namespace intel {
     }
 
     // nuke the unused functions so we can materializeAll() quickly
-    auto CleanUnused = [](Module *src_module, const Module* dst_module, SmallVector<Module*, 2> runtimeModuleList)
+    auto CleanUnused = [](Module *src_module,
+                          const Module* dst_module,
+                          SmallVector<Module*, 2>runtimeModuleList)
     {
       // Linker by default imports all globals, hence the functions that are stored
       // as fp pointer there. To workaround this we delete unneeded GVs from src_module.
@@ -258,15 +260,17 @@ namespace intel {
 
     Linker ld(M);
 
-    for (auto &rtlModule : runtimeModulesList)
+    for (auto &rtlModule : rtlModulesList)
     {
+      // the flag Linker::OverrideFromSrc is needed as globals
+      // can have initializers in both modules.
       if (ld.linkInModule(std::move(rtlModule), Linker::OverrideFromSrc))
       {
         assert(false && "Error linking builtin module!");
       }
     }
 
-    runtimeModulesList.clear();
+    rtlModulesList.clear();
 
     return changed;
   }
