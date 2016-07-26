@@ -72,7 +72,7 @@ bool VPOParopt::runOnModule(Module &M) {
 
   bool Changed = false;
 
-  VPOParoptMode Mode;
+  VPOParoptMode Mode = OMPPAR;
 
   /// \brief As new functions to be added, so we need to prepare the
   /// list of functions we want to work on in advance.

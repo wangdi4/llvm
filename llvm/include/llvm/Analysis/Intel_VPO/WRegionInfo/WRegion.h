@@ -384,17 +384,25 @@ public:
   }
 };
 
-//
-// WRNCriticalNode
-//
-// #pragma omp critical 
-//
+/// WRegion Node for OMP Critical Directive.
+/// \code
+///    #pragma omp critical [(name)]
+/// \endcode
+/// Where `name` is an optional parameter provided by the user as an identifier
+/// for the critical section. Internally, it is used as suffix in the name of
+/// the lock variable used for the critical section.
 class WRNCriticalNode : public WRegionNode {
+private:
+  SmallString<64> UserLockName; ///< Lock name provided by the user.
+
+protected:
+  void setUserLockName(StringRef LN) { UserLockName = LN; }
 
 public:
   WRNCriticalNode(BasicBlock *BB);
   WRNCriticalNode(WRNCriticalNode *W);
 
+  StringRef getUserLockName() const { return UserLockName.str(); }
   void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.

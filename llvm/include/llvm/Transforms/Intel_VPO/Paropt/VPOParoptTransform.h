@@ -134,11 +134,11 @@ private:
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
 
-  /// Generate code for master/end master construct and update LLVM 
+  /// Generate code for master/end master construct and update LLVM
   /// control-flow and dominator tree accordingly
   bool genMasterThreadCode(WRegionNode *W);
 
-  /// Generate code for single/end single construct and update LLVM 
+  /// Generate code for single/end single construct and update LLVM
   /// control-flow and dominator tree accordingly
   bool genSingleThreadCode(WRegionNode *W);
 
@@ -146,6 +146,9 @@ private:
   /// region execution order
   bool genOrderedThreadCode(WRegionNode *W);
 
+  /// \brief Generates code for the OpenMP critical construct:
+  /// #pragma omp critical [(name)]
+  bool genCriticalCode(WRNCriticalNode *CriticalNode);
 };
 
 } /// namespace vpo

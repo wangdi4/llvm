@@ -226,6 +226,9 @@ bool VPOParoptTransform::ParoptTransformer() {
     case WRegionNode::WRNBarrier:
     case WRegionNode::WRNCancel:
     case WRegionNode::WRNCritical:
+      DEBUG(dbgs() << "\nWRegionNode::WRNCritical - Transformation \n\n");
+      Changed = genCriticalCode(dyn_cast<WRNCriticalNode>(W));
+      break;
     case WRegionNode::WRNFlush:
       break;
     case WRegionNode::WRNOrdered:
@@ -997,3 +1000,33 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
 
   return Changed;
 }
+
+// Generates code for the OpenMP critical construct.
+bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
+  assert(CriticalNode != nullptr && "Critical node is null.");
+
+  assert(IdentTy != nullptr && "IdentTy is null.");
+  assert(TidPtr != nullptr && "TidPtr is null.");
+
+  StringRef LockNameSuffix = CriticalNode->getUserLockName();
+
+  bool CriticalCallsInserted =
+      LockNameSuffix.empty()
+          ? VPOParoptUtils::genKmpcCriticalSection(CriticalNode, IdentTy,
+                                                   TidPtr)
+          : VPOParoptUtils::genKmpcCriticalSection(CriticalNode, IdentTy,
+                                                   TidPtr, LockNameSuffix);
+
+  DEBUG(dbgs() << __FUNCTION__ << ": Handling of Critical Node: "
+               << (CriticalCallsInserted ? "Successful" : "Failed") << ".\n");
+
+  assert(CriticalCallsInserted && "Failed to create critical section. \n");
+
+  // Remove calls to directive intrinsics since the LLVM back end does not
+  // know how to translate them.
+  if (CriticalCallsInserted)
+    WRegionUtils::stripDirectives(CriticalNode);
+
+  return CriticalCallsInserted;
+}
+
