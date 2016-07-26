@@ -818,7 +818,9 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
       if (CurSCEV == SC) {
         return CurInst;
       }
-    } else if (isReplacable(SC, CurSCEV, IsTruncation, IsNegation,
+      // Original instruction should dominate the current instruction.
+    } else if (HIRP->DT->dominates(CurInst, HIRP->getCurInst()) &&
+               isReplacable(SC, CurSCEV, IsTruncation, IsNegation,
                             ConstMultiplier, Additive)) {
       return CurInst;
     }
@@ -1033,19 +1035,19 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
   // propagating wrap flags.
 
   // If OrigAddRec has NUW, NewAddRec should have it too.
-  //if (OrigAddRec->getNoWrapFlags(SCEV::FlagNUW) &&
+  // if (OrigAddRec->getNoWrapFlags(SCEV::FlagNUW) &&
   //    !(WrapFlags & SCEV::FlagNUW)) {
   //  return false;
   //}
   //
   // If OrigAddRec has NSW, NewAddRec should have it too.
-  //if (OrigAddRec->getNoWrapFlags(SCEV::FlagNSW) &&
+  // if (OrigAddRec->getNoWrapFlags(SCEV::FlagNSW) &&
   //    !(WrapFlags & SCEV::FlagNSW)) {
   //  return false;
   //}
   //
   // If OrigAddRec has NW, NewAddRec can cover it with any of NUW, NSW or NW.
-  //if (OrigAddRec->getNoWrapFlags(SCEV::FlagNW) &&
+  // if (OrigAddRec->getNoWrapFlags(SCEV::FlagNW) &&
   //    !(WrapFlags &
   //      (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW | SCEV::FlagNW))) {
   //  return false;
@@ -1835,8 +1837,8 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
   return Ref;
 }
 
-void HIRParser::parse(HLRegion *Reg) { 
-  CurRegion = Reg; 
+void HIRParser::parse(HLRegion *Reg) {
+  CurRegion = Reg;
   // HIR cache built for another region may not be valid for this one.
   SE->clearHIRCache();
 }
