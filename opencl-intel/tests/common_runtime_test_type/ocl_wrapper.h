@@ -242,6 +242,10 @@ void createImage3D(cl_mem* image3D, cl_context context, cl_mem_flags flags, cons
 void createProgramWithSource(cl_program* program, cl_context context,	cl_uint count, const char **programSource,
 	const size_t *lengths);
 
+// createProgramWithIL - calls and validates clCreateProgramWithIL
+// uses programSource which is actual kernel source
+void createProgramWithIL(cl_program* program, cl_context context, const char *programSource, size_t lengths);
+
 // createProgramWithSourceFromKernelName - calls and validates clCreateProgramWithSource
 // uses clFileName
 void createProgramWithSourceFromKernelName(cl_program* program, cl_context context, 
@@ -264,9 +268,21 @@ void createAndBuildProgramWithSource(const char* sFileName, cl_program* program,
 	cl_uint num_devices, const cl_device_id *device_list, const char *options, void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), 
 	void *user_data);
 
+// createAndBuildProgramWithSourceIL - calls and validates clCreateProgramWithIL and clBuildProgram using kernel file name
+void createAndBuildProgramWithSourceIL(const char* sFileName, cl_program* program, cl_context context, 
+	cl_uint num_devices, const cl_device_id *device_list, const char *options, void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), 
+	void *user_data);
+
 // createAndBuildProgramWithStringSource - calls and validates clCreateBuffer clCreateProgramWithSource and clBuildProgram using kernel source
 void createAndBuildProgramWithStringSource(const char* kernelSource, cl_program* program, cl_context context,
 	cl_uint num_devices, const cl_device_id *device_list, const char *options, 
+	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), 
+	void *user_data);
+
+// createAndBuildProgramWithILSource - calls and validates clCreateBuffer clCreateProgramWithIL and clBuildProgram using kernel source
+void createAndBuildProgramWithILSource(const char* kernelSource, size_t length,
+    cl_program* program, cl_context context, cl_uint num_devices,
+    const cl_device_id *device_list, const char *options, 
 	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), 
 	void *user_data);
 
@@ -307,6 +323,10 @@ void validateQueuedOrSubmitted(cl_event clevent);
 // waitForEvents - calls and validates clWaitForEvents
 void waitForEvents(cl_uint num_events, const cl_event *event_list);
 
+// enqueueSVMMigrateMem - calls and validates clEnqueueSVMMigrateMem
+void enqueueSVMMigrateMem(cl_command_queue command_queue, cl_uint num_svm_pointers, const void **svm_pointers,
+    const size_t *sizes, cl_mem_migration_flags flags, cl_uint num_events_in_wait_list,
+    const cl_event *event_wait_list, cl_event *event);
 // enqueueMapBuffer - calls and validates clEnqueueMapBuffer
 template<typename T>
 void enqueueMapBuffer(T** arrayToMap, cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_map, 
@@ -424,6 +444,9 @@ void setUpContextProgramQueuesForSingelDevice(OpenCLDescriptor& ocl_descriptor, 
 
 //	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
 void setUpContextProgramQueuesFromStringSource(OpenCLDescriptor& ocl_descriptor, const char* kernelSource);
+
+//	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
+void setUpContextProgramQueuesFromILSource(OpenCLDescriptor& ocl_descriptor, const char* kernelSource);
 
 //	executeSetAndExecuteKernels - for both CPU and GPU devices creates and sets kernels with arguments
 //		cl_mem input

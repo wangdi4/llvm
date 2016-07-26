@@ -304,6 +304,21 @@ void createProgramWithSource(cl_program* program, cl_context context,	cl_uint co
 	ASSERT_NE((cl_program)0, *program) << "clCreateProgramWithSource returned 0 as program value";
 }
 
+// createProgramWithIL - calls and validates clCreateProgramWithIL
+// uses programSource which is actual kernel source
+void createProgramWithIL(cl_program* program, cl_context context, const char *programSource, size_t length)
+{
+	if(NULL ==program || NULL ==programSource){
+		ASSERT_TRUE(false) << "Null argument provided";
+	}
+	cl_int errcode_ret = CL_SUCCESS;
+	
+	*program = clCreateProgramWithIL (context, programSource, length, &errcode_ret);
+	
+	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateProgramWithSource failed";
+	ASSERT_NE((cl_program)0, *program) << "clCreateProgramWithSource returned 0 as program value";
+}
+
 // createProgramWithSourceFromKernelName - calls and validates clCreateProgramWithSource
 // uses clFileName
 void createProgramWithSourceFromKernelName(cl_program* program, cl_context context, 
@@ -407,6 +422,27 @@ void createAndBuildProgramWithSource(const char* sFileName, cl_program* program,
 	}
 }
 
+// createAndBuildProgramWithSourceIL - calls and validates clCreateBuffer clCreateProgramWithIL and clBuildProgram using kernel file name
+void createAndBuildProgramWithSourceIL(const char* sFileName, cl_program* program, cl_context context,
+	cl_uint num_devices, const cl_device_id *device_list, const char *options, 
+	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),  void *user_data)
+{
+	if(NULL==sFileName || NULL==program || NULL==device_list){
+		ASSERT_TRUE(false) << "Null argument provided";
+	}
+	cl_int errcode_ret = CL_SUCCESS;
+	const char* kernelSource = NULL;
+	// read kernels file
+	ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, sFileName));
+	ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithILSource(kernelSource, sizeof(kernelSource) / sizeof(char), program, context, num_devices, device_list, options, pfn_notify,
+		user_data));
+	if(NULL!=kernelSource)
+	{
+		delete[] kernelSource;
+		kernelSource = NULL;
+	}
+}
+
 // createAndBuildProgramWithStringSource - calls and validates clCreateBuffer clCreateProgramWithSource and clBuildProgram using kernel source
 void createAndBuildProgramWithStringSource(const char* kernelSource, cl_program* program, cl_context context,
 	cl_uint num_devices, const cl_device_id *device_list, const char *options, 
@@ -416,6 +452,20 @@ void *user_data)
 	// create program
 	ASSERT_NO_FATAL_FAILURE(createProgramWithSource(program, context,	
 		1, &kernelSource, NULL));
+
+	// build program
+	ASSERT_NO_FATAL_FAILURE( buildProgram (program, num_devices, device_list, options, pfn_notify, user_data));
+}
+
+// createAndBuildProgramWithILSource - calls and validates clCreateBuffer clCreateProgramWithIL and clBuildProgram using kernel source
+void createAndBuildProgramWithILSource(const char* kernelSource, size_t length,
+    cl_program* program, cl_context context, cl_uint num_devices,
+    const cl_device_id *device_list, const char *options, 
+	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), 
+void *user_data)
+{
+	// create program
+	ASSERT_NO_FATAL_FAILURE(createProgramWithIL(program, context, kernelSource, length));
 
 	// build program
 	ASSERT_NO_FATAL_FAILURE( buildProgram (program, num_devices, device_list, options, pfn_notify, user_data));
@@ -527,6 +577,15 @@ void createKernelsInProgram(cl_program program, cl_uint num_kernels, cl_kernel *
 void setKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void *arg_value)
 {
 	ASSERT_EQ(CL_SUCCESS, clSetKernelArg (kernel, arg_index, arg_size, arg_value)) << "clSetKernelArg failed";
+}
+
+// enqueueSVMMigrateMem - calls and validates clEnqueueSVMMigrateMem
+void enqueueSVMMigrateMem(cl_command_queue command_queue, cl_uint num_svm_pointers, const void **svm_pointers,
+    const size_t *sizes, cl_mem_migration_flags flags, cl_uint num_events_in_wait_list,
+    const cl_event *event_wait_list, cl_event *event)
+{
+    ASSERT_EQ(CL_SUCCESS, clEnqueueSVMMigrateMem(command_queue, num_svm_pointers, svm_pointers, sizes, flags,
+        num_events_in_wait_list, event_wait_list, event)) << "clEnqueueSVMMigrateMem failed";
 }
 
 // enqueueNDRangeKernel - calls and validates clEnqueueNDRangeKernel
@@ -797,6 +856,28 @@ void setUpContextProgramQueuesFromStringSource(OpenCLDescriptor& ocl_descriptor,
 
 	//	create and build program
 	ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithStringSource(kernelSource, &ocl_descriptor.program, ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
+
+	// create queues
+	for(int i=0; i<2; ++i)
+	{
+		// create queue
+		ASSERT_NO_FATAL_FAILURE(createCommandQueue(&ocl_descriptor.queues[i], ocl_descriptor.context, ocl_descriptor.devices[i], 0));
+	}
+}
+
+//	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
+void setUpContextProgramQueuesFromILSource(OpenCLDescriptor& ocl_descriptor, const char* kernelSource)
+{
+	// get pltfrom and device ids
+	ASSERT_NO_FATAL_FAILURE(getCPUGPUDevicesIfNotCreated(ocl_descriptor));
+	// cpu is at index 0, gpu is at index 1
+
+	// create context
+	cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)ocl_descriptor.platforms[0], 0};
+	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 2, ocl_descriptor.devices, NULL, NULL));
+
+	//	create and build program
+	ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSourceIL(kernelSource, &ocl_descriptor.program, ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
 
 	// create queues
 	for(int i=0; i<2; ++i)
