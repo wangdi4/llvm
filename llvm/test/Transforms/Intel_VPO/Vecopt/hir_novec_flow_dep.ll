@@ -12,6 +12,7 @@
 ;  
 ; RUN: opt -hir-ssa-deconstruction -hir-parser -hir-dd-analysis -hir-vec-dir-insert -disable-hir-vec-dir-insert=false -print-after=hir-vec-dir-insert -S -debug < %s 2>&1 | FileCheck %s
 ; HIR Test.
+; REQUIRES: asserts
 ; CHECK: unsafe to vectorize
 ; CHECK-NOT: @llvm.intel.directive(!1)
 ; ModuleID = 'j3.c'
