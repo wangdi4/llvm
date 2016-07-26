@@ -173,6 +173,13 @@ namespace intel {
     for (auto &rtlModule : rtlModulesList)
       m_runtimeModuleList.push_back(rtlModule.get());
 
+    // Copy target triple from dst module to avoid linker warnings
+    for (auto &rtlModule : rtlModulesList)
+    {
+      rtlModule.get()->setTargetTriple(M.getTargetTriple());
+      rtlModule.get()->setDataLayout(M.getDataLayout());
+    }
+
     bool changed = false;
 
     std::function<void(Function*)> Explore = [&](Function *pRoot) -> void
