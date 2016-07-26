@@ -42,15 +42,15 @@ class OCL21: public CommonRuntime{};
 
 TEST_F(OCL21, clCreateProgramWithIL01)
 {
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "vector4_d.spir12_64"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "kernels/vector4_d.spir12_64"));
 
     const char * kernelSource = NULL;
-	ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "vector4_d.spir12_64"));
+	ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "kernels/vector4_d.spir12_64"));
 
     void * il = NULL;
     size_t ret;
 
-    ASSERT_NO_FATAL_FAILURE(ocl_descriptor.program, CL_PROGRAM_IL, sizeof(void *), &il, &ret);
+    getProgramInfo(ocl_descriptor.program, CL_PROGRAM_IL, sizeof(void *), &il, &ret);
     ASSERT_EQ(sizeof(void *), ret);
     ASSERT_EQ(sizeof(kernelSource), sizeof(il));
 
@@ -59,4 +59,90 @@ TEST_F(OCL21, clCreateProgramWithIL01)
         delete[] kernelSource;
         kernelSource = NULL;
     }
+}
+
+//|	TEST: OCL21.clEnqeueuSVMMigrateMem01
+//|
+//|	Purpose
+//|	-------
+//|	
+//| Verify the ability to migrate SVM mem to the same device more than once
+//|	
+//|	Method
+//|	------
+//|
+//|	1. Create a shared context
+//|	2. Allocate SVM memory
+//| 3. Migrate SVM memory to the same device more than once
+//|
+//|	Pass criteria
+//|	-------------
+//|
+//|	Verify that CL_SUCCESS return codes are returned
+//|
+TEST_F(OCL21, clEnqueueSVMMigrateMem01)
+{
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
+
+    size_t size[2] = { 1024, 1024 };
+    void * svmp[2];
+
+    svmp[0] = clSVMAlloc(ocl_descriptor.context, NULL, size[0], 0);
+    svmp[1] = clSVMAlloc(ocl_descriptor.context, NULL, size[1], 0);
+
+    ASSERT_FALSE(svmp[0] == NULL) << "clSVMAlloc failed";
+    ASSERT_FALSE(svmp[1] == NULL) << "clSVMAlloc failed";
+
+    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 2, (const void **)svmp, (const size_t *)size, NULL, 0, NULL, NULL);
+    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 2, (const void **)svmp, (const size_t *)size, NULL, 0, NULL, NULL);
+
+    clSVMFree(ocl_descriptor.context, svmp[0]);
+    clSVMFree(ocl_descriptor.context, svmp[1]);
+}
+
+//|	TEST: OCL21.clEnqeueuSVMMigrateMem02
+//|
+//|	Purpose
+//|	-------
+//|	
+//| Verify the ability to migrate part of SVM allocation
+//|	
+//|	Method
+//|	------
+//|
+//|	1. Create a shared context
+//|	2. Allocate SVM memory
+//| 3. Migrate different parts of SVM allocations to different devices
+//|
+//|	Pass criteria
+//|	-------------
+//|
+//|	Verify that CL_SUCCESS return codes are returned
+//|
+TEST_F(OCL21, clEnqueueSVMMigrateMem02)
+{
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
+
+    const size_t size[2] = { 1024, 1024 };
+    void * svmp[2];
+
+    svmp[0] = clSVMAlloc(ocl_descriptor.context, NULL, size[0], 0);
+    svmp[1] = clSVMAlloc(ocl_descriptor.context, NULL, size[1], 0);
+
+    ASSERT_FALSE(svmp[0] == NULL) << "clSVMAlloc failed";
+    ASSERT_FALSE(svmp[1] == NULL) << "clSVMAlloc failed";
+
+    const size_t sizes[2] = { size[0] / 2, size[1] / 2 };
+    const void ** ptrs[4] = {
+        (const void **)svmp[0], (const void **)(svmp[0] + sizes[0]),
+        (const void **)svmp[1], (const void **)(svmp[1] + sizes[1])
+    };
+    enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1, ptrs[0], (const size_t *)&sizes[0], NULL, 0, NULL, NULL);
+    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1, ptrs[1], (const size_t *)&sizes[0], NULL, 0, NULL, NULL);
+
+    enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1, ptrs[2], (const size_t *)&sizes[1], NULL, 0, NULL, NULL);
+    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1, ptrs[3], (const size_t *)&sizes[1], NULL, 0, NULL, NULL);
+
+    clSVMFree(ocl_descriptor.context, svmp[0]);
+    clSVMFree(ocl_descriptor.context, svmp[1]);
 }
