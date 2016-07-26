@@ -63,13 +63,21 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
     llvm_unreachable("Unexpected Atomic Kind");
   }
 
-  // TODO: If not handled, then generate critical section here.
+  if (!handled)
+    handled =
+        VPOParoptUtils::genKmpcCriticalSection(AtomicNode, IdentTy, TidPtr);
+
+  assert(handled == true && "Handling of AtomicNode failed.\n");
 
   if (handled) {
     bool directivesCleared = WRegionUtils::stripDirectives(AtomicNode);
     assert(directivesCleared &&
            "Unable to strip directives from WRNAtomicNode.");
+
+    DEBUG(dbgs() << __FUNCTION__ << ": Handling of AtomicNode successful.\n");
   }
+  else
+    DEBUG(dbgs() << __FUNCTION__ << ": Handling of AtomicNode failed.\n");
 
   return handled;
 }

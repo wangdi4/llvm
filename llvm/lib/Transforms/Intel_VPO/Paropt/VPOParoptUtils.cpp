@@ -461,6 +461,66 @@ AllocaInst *VPOParoptUtils::genKmpcLocforImplicitBarrier(WRegionNode *W,
   return KmpcLoc;
 }
 
+// Generates a critical section around the middle BasicBlocks of `W`
+// by emitting calls to `__kmpc_critical` before `BeginInst`, and
+// `__kmpc_end_critical` after `EndInst`.
+bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
+                                            AllocaInst *TidPtr,
+                                            const StringRef &LockNameSuffix) {
+  assert(W != nullptr && "WRegionNode is null.");
+  assert(IdentTy != nullptr && "IdentTy is null.");
+  assert(TidPtr != nullptr && "TidPtr is null.");
+
+  unsigned NumBBs = W->getBBSetSize();
+  assert(NumBBs >= 3 &&
+         "Critical Node is expected to have at least 3 BBlocks.");
+
+  // W should have entry and exit BBlocks with the directive
+  // intrinsic calls, and some middle BBlocks. We intend on inserting the
+  // critical calls at the places marked below:
+  //
+  //    EntryBB:
+  //      call void @llvm.intel.directive(metadata !"DIR.OMP.CRITICAL")
+  //      call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  // +------< begin critical >
+  // |    br label %BB1
+  // |
+  // |  BB1:
+  // |    ...
+  // |  ...
+  // |    br label %ExitBB
+  // |
+  // |  ExitBB:
+  // |    call void @llvm.intel.directive(metadata !"DIR.OMP.END.CRITICAL")
+  // |    call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  // +------< end critical >
+  //      br label %..
+
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *ExitBB = W->getExitBBlock();
+  assert(EntryBB->size() >= 3 && "Entry BBlock has invalid size.");
+  assert(ExitBB->size() >= 3 && "Exit BBlock has invalid size.");
+
+  // BeginInst: `br label %BB1` (EntryBB) in the above example.
+  Instruction *BeginInst = &(*(EntryBB->rbegin()));
+  // EndInst: `call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")`
+  // (ExitBB) in the above example.
+  Instruction *EndInst = &(*(++(ExitBB->rbegin())));
+
+  assert(BeginInst != nullptr && "BeginInst is null.");
+  assert(EndInst != nullptr && "EndInst is null.");
+
+  return genKmpcCriticalSection(W, IdentTy, TidPtr, BeginInst, EndInst,
+                                LockNameSuffix);
+}
+
+// Wraps the above function for case when the caller does not provide a lock
+// name suffix, and uses a default lock name suffix.
+bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
+                                            AllocaInst *TidPtr) {
+  return genKmpcCriticalSection(W, IdentTy, TidPtr, "");
+}
+
 // Generates a KMPC call to IntrinsicName with Tid obtained using TidPtr.
 CallInst *
 VPOParoptUtils::genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
@@ -490,7 +550,114 @@ VPOParoptUtils::genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
                                      ReturnTy, FnArgs);
 }
 
-// Private Helpers
+// This function generates a call to query the current thread if it is a master
+// thread. Or, generates a call to end_master callfor the team of threads.
+//   %master = call @__kmpc_master(%ident_t* %loc, i32 %tid)
+//      or
+//   call void @__kmpc_end_master(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(WRegionNode *W,
+                            StructType *IdentTy, Value *Tid,
+                            Instruction *InsertPt, bool IsMasterStart) {
+
+  BasicBlock  *B = W->getEntryBBlock();
+  Function    *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type *RetTy = nullptr;
+  StringRef FnName;
+
+  if (IsMasterStart) {
+    FnName = "__kmpc_master";
+    RetTy = Type::getInt32Ty(C);
+  }
+  else {
+    FnName = "__kmpc_end_master";
+    RetTy = Type::getVoidTy(C);
+  }
+
+  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadTid->setAlignment(4);
+
+  // Now bundle all the function arguments together.
+  SmallVector<Value *, 3> FnArgs = {LoadTid};
+
+  CallInst *MasterOrEndCall = VPOParoptUtils::genKmpcCall(W,
+                                IdentTy, InsertPt, FnName, RetTy, FnArgs);
+  return MasterOrEndCall;
+}
+
+// This function generates calls to guard the single thread execution for the
+// single/end single region.
+//
+//   call single = @__kmpc_single(%ident_t* %loc, i32 %tid)
+//      or
+//   call void @__kmpc_end_single(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcSingleOrEndSingleCall(WRegionNode *W,
+                            StructType *IdentTy, Value *Tid,
+                            Instruction *InsertPt, bool IsSingleStart) {
+
+  BasicBlock  *B = W->getEntryBBlock();
+  Function    *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type *RetTy = nullptr;
+  StringRef FnName;
+
+  if (IsSingleStart) {
+    FnName = "__kmpc_single";
+    RetTy = Type::getInt32Ty(C);
+  }
+  else {
+    FnName = "__kmpc_end_single";
+    RetTy = Type::getVoidTy(C);
+  }
+
+  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadTid->setAlignment(4);
+
+  // Now bundle all the function arguments together.
+  SmallVector<Value *, 3> FnArgs = {LoadTid};
+
+  CallInst *SingleOrEndCall = VPOParoptUtils::genKmpcCall(W,
+                                IdentTy, InsertPt, FnName, RetTy, FnArgs);
+  return SingleOrEndCall;
+}
+
+// This function generates calls to guard the ordered thread execution for the
+// ordered/end ordered region.
+//
+//   call void @__kmpc_ordered(%ident_t* %loc, i32 %tid)
+//      or
+//   call void @__kmpc_end_ordered(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
+                            StructType *IdentTy, Value *Tid,
+                            Instruction *InsertPt, bool IsOrderedStart) {
+
+  BasicBlock  *B = W->getEntryBBlock();
+  Function    *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type *RetTy = Type::getVoidTy(C);
+
+  StringRef FnName;
+
+  if (IsOrderedStart)
+    FnName = "__kmpc_ordered";
+  else
+    FnName = "__kmpc_end_ordered";
+
+  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadTid->setAlignment(4);
+
+  // Now bundle all the function arguments together.
+  SmallVector<Value *, 3> FnArgs = {LoadTid};
+
+  CallInst *OrderedOrEndCall = VPOParoptUtils::genKmpcCall(W,
+                                 IdentTy, InsertPt, FnName, RetTy, FnArgs);
+  return OrderedOrEndCall;
+}
+
+// Private helper methods for generation of a KMPC call.
 
 // Generates KMPC calls to the intrinsic `IntrinsicName`.
 CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
@@ -568,109 +735,144 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
   return FnCall;
 }
 
-// This function generates a call to query the current thread if it is a master
-// thread. Or, generates a call to end_master callfor the team of threads.
-//   %master = call @__kmpc_master(%ident_t* %loc, i32 %tid)
-//      or
-//   call void @__kmpc_end_master(%ident_t* %loc, i32 %tid)
-CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(WRegionNode *W, 
-                            StructType *IdentTy, Value *Tid, 
-                            Instruction *InsertPt, bool IsMasterStart) {
+// Private helper methods for generation of a critical section.
 
-  BasicBlock  *B = W->getEntryBBlock();
-  Function    *F = B->getParent();
-  LLVMContext &C = F->getContext();
+// Creates a prefix for the name of the lock var to be used in KMPC critical
+// calls.
+SmallString<64> VPOParoptUtils::getKmpcCriticalLockNamePrefix(WRegionNode *W) {
 
-  Type *RetTy = NULL;
-  StringRef FnName;
+  assert(W != nullptr && "WRegionNode is null.");
 
-  if (IsMasterStart) {
-    FnName = "__kmpc_master"; 
-    RetTy = Type::getInt32Ty(C);
+  if (isa<WRNAtomicNode>(W))
+    return SmallString<64>("_kmpc_atomic_");
+
+  // For Critical, the lock name is determined based on OS and architecture.
+  BasicBlock *BB = W->getEntryBBlock();
+  assert(BB && "WRegionNode has no Entry BB.");
+  Function *F = BB->getParent();
+  assert(F != nullptr && "BB has no parent Function");
+  Module *M = F->getParent();
+  assert(M != nullptr && "Function has no parent Module");
+
+  Triple TargetTriple(M->getTargetTriple());
+
+  if (TargetTriple.isOSWindows()) {
+    Triple::ArchType Arch = TargetTriple.getArch();
+    if (Arch == Triple::x86)
+      return SmallString<64>("_$vcomp$critsect$");
+
+    if (Arch == Triple::x86_64)
+      return SmallString<64>("$vcomp$critsect$");
+
+    // TODO: Check if we need to check for other architectures here.
   }
-  else {
-    FnName = "__kmpc_end_master"; 
-    RetTy = Type::getVoidTy(C);
-  }
 
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
-
-  // Now bundle all the function arguments together.
-  SmallVector<Value *, 3> FnArgs = {LoadTid};
-
-  CallInst *MasterOrEndCall = VPOParoptUtils::genKmpcCall(W,
-                                IdentTy, InsertPt, FnName, RetTy, FnArgs);
-  return MasterOrEndCall;
+  // TODO: Check if we need to check for Architectre/ OS types here.
+  return SmallString<64>(".gomp_critical_user_");
 }
 
-// This function generates calls to guard the single thread execution for the
-// single/end single region.
-//
-//   call single = @__kmpc_single(%ident_t* %loc, i32 %tid)
-//      or
-//   call void @__kmpc_end_single(%ident_t* %loc, i32 %tid)
-CallInst *VPOParoptUtils::genKmpcSingleOrEndSingleCall(WRegionNode *W,
-                            StructType *IdentTy, Value *Tid,
-                            Instruction *InsertPt, bool IsSingleStart) {
 
-  BasicBlock  *B = W->getEntryBBlock();
-  Function    *F = B->getParent();
-  LLVMContext &C = F->getContext();
+// Returns the lock variable to be used in KMPC critical calls.
+GlobalVariable *
+VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
+                                       const StringRef &LockNameSuffix) {
 
-  Type *RetTy = NULL;
-  StringRef FnName;
+  assert(W != nullptr && "WRegionNode is null.");
 
-  if (IsSingleStart) {
-    FnName = "__kmpc_single";
-    RetTy = Type::getInt32Ty(C);
+  // We first get the lock name prefix for the lock var based on the target.
+  SmallString<64> LockName = getKmpcCriticalLockNamePrefix(W);
+  LockName += LockNameSuffix;
+  LockName += ".var";
+
+  DEBUG(dbgs() << __FUNCTION__ << ": Lock name:" << LockName << ".\n");
+
+  // Now, the type for lock variable is an array of eight 32-bit integers.
+  BasicBlock *BB = W->getEntryBBlock();
+  assert(BB && "WRegionNode has no Entry BB.");
+  Function *F = BB->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = M->getContext();
+
+  ArrayType *LockVarTy = ArrayType::get(Type::getInt32Ty(C), 8);
+
+  // See if a lock object already exists, if so, reuse it.
+  GlobalVariable *GV =
+      M->getGlobalVariable(LockName);
+  if (GV != nullptr) {
+    DEBUG(dbgs() << __FUNCTION__ << ": Reusing existig lock var: " << *GV
+                 << ".\n");
+
+    assert(GV->getType()->getContainedType(0) == LockVarTy &&
+           "Lock variable name conflicts with an existing variable.");
+    return GV;
   }
-  else {
-    FnName = "__kmpc_end_single";
-    RetTy = Type::getVoidTy(C);
-  }
 
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  // Otherwise, Create a new lock object. CommonLinkage is used so that multiple
+  // lock variables with the same name (across modules) get merged into a single
+  // one at link time.
+  GV = new GlobalVariable(*M, LockVarTy, false, GlobalValue::CommonLinkage,
+                          ConstantAggregateZero::get(LockVarTy), LockName);
 
-  // Now bundle all the function arguments together.
-  SmallVector<Value *, 3> FnArgs = {LoadTid};
+  assert(GV != nullptr && "Unable to generate Kmpc critical lock var.");
+  DEBUG(dbgs() << __FUNCTION__ << ": Lock var generated: " << *GV << ".\n");
 
-  CallInst *SingleOrEndCall = VPOParoptUtils::genKmpcCall(W,
-                                IdentTy, InsertPt, FnName, RetTy, FnArgs);
-  return SingleOrEndCall;
+  return GV;
 }
 
-// This function generates calls to guard the ordered thread execution for the
-// ordered/end ordered region.
-//
-//   call void @__kmpc_ordered(%ident_t* %loc, i32 %tid)
-//      or
-//   call void @__kmpc_end_ordered(%ident_t* %loc, i32 %tid)
-CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
-                            StructType *IdentTy, Value *Tid,
-                            Instruction *InsertPt, bool IsOrderedStart) {
+// Generates a critical section around Instructions `begin` and `end`.
+bool VPOParoptUtils::genKmpcCriticalSectionImpl(
+    WRegionNode *W, StructType *IdentTy, AllocaInst *TidPtr,
+    Instruction *BeginInst, Instruction *EndInst, GlobalVariable *LockVar) {
 
-  BasicBlock  *B = W->getEntryBBlock();
-  Function    *F = B->getParent();
-  LLVMContext &C = F->getContext();
+  assert(W != nullptr && "WRegionNode is null.");
+  assert(IdentTy != nullptr && "IdentTy is null.");
+  assert(TidPtr != nullptr && "TidPtr is null.");
+  assert(BeginInst != nullptr && "BeginInst is null.");
+  assert(EndInst != nullptr && "EndInst is null.");
+  assert(LockVar != nullptr && "LockVar is null.");
 
-  Type *RetTy = Type::getVoidTy(C);
+  CallInst *BeginCritical =
+      genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, "__kmpc_critical",
+                         nullptr, {LockVar});
+  assert(BeginCritical != nullptr && "Could not call __kmpc_critical");
 
-  StringRef FnName;
+  if (BeginCritical == nullptr)
+      return false;
 
-  if (IsOrderedStart)
-    FnName = "__kmpc_ordered";
-  else
-    FnName = "__kmpc_end_ordered";
+  CallInst *EndCritical =
+      genKmpcCallWithTid(W, IdentTy, TidPtr, EndInst, "__kmpc_end_critical",
+                         nullptr, {LockVar});
+  assert(EndCritical != nullptr && "Could not call __kmpc_end_critical");
 
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  if (BeginCritical == nullptr)
+      return false;
 
-  // Now bundle all the function arguments together.
-  SmallVector<Value *, 3> FnArgs = {LoadTid};
+  // Now insert the calls in the IR.
+  BeginCritical->insertBefore(BeginInst);
+  EndCritical->insertAfter(EndInst);
 
-  CallInst *OrderedOrEndCall = VPOParoptUtils::genKmpcCall(W, 
-                                 IdentTy, InsertPt, FnName, RetTy, FnArgs);
-  return OrderedOrEndCall;
+  DEBUG(dbgs() << __FUNCTION__ << ": Critical Section generated.\n");
+  return true;
+}
+
+// Generates a critical section around Instructions `BeginInst` and `Endinst`,
+// by emitting calls to `__kmpc_critical` before `BeginInst`, and
+// `__kmpc_end_critical` after `EndInst`.
+bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
+                                            AllocaInst *TidPtr,
+                                            Instruction *BeginInst,
+                                            Instruction *EndInst,
+                                            const StringRef& LockNameSuffix) {
+  assert(W != nullptr && "WRegionNode is null.");
+  assert(IdentTy != nullptr && "IdentTy is null.");
+  assert(TidPtr != nullptr && "TidPtr is null.");
+  assert(BeginInst != nullptr && "BeginInst is null.");
+  assert(EndInst != nullptr && "EndInst is null.");
+
+  // Generate the Lock object for critical section.
+  GlobalVariable *Lock = genKmpcCriticalLockVar(W, LockNameSuffix);
+  assert(Lock != nullptr && "Could not create critical section lock variable.");
+
+  return genKmpcCriticalSectionImpl(W, IdentTy, TidPtr, BeginInst, EndInst,
+                                    Lock);
 }

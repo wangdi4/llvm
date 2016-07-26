@@ -206,6 +206,7 @@ private:
   /// otherwise.
   static bool handleAtomicCapture(WRNAtomicNode *AtomicNode,
                                   StructType *IdentTy, AllocaInst *TidPtr);
+
   /// @}
 
   /// \name Methods for identifying the op and opnds for Atomic update and
