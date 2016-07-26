@@ -1058,11 +1058,15 @@ void LPUCvtCFDFPass::handleAllConstantInputs() {
 						//mbb is a loop latch node, use inside a loop will be taken care of in HandleUseInLoop
 						continue;
 					}
+					//TBD::can't skip loop latch upbb, llvm 3.6 put "mov 0.0000" inside a loop as manifested in
+					// 022-regression/t006_HACCmk_v0_O2.s
+#if 0
 					if (MLI->getLoopFor(upbb) &&
 						MLI->getLoopFor(upbb)->getLoopLatch() == upbb) {
 						//no need to conside backedge for if-statements handling
 						continue;
 					}
+#endif
 					++parentN;
 					MachineInstr* bi = upnode->getBlock()->getFirstTerminator();
 					assert(bi->getOperand(0).isReg());
