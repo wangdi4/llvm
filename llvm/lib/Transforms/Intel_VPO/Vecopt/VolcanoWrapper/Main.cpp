@@ -555,6 +555,9 @@ Function* Vectorizer::createFunctionToVectorize(Function& originalFunction,
 
 bool Vectorizer::runOnModule(Module &M)
 {
+  if (skipModule(M))
+    return false;
+
   V_PRINT(wrapper, "\nEntered Vectorizer Wrapper!\n");
 
   // set isVectorized and proper number of kernels to zero, 
@@ -835,6 +838,8 @@ public:
     AU.addRequired<VectorizableLoopsAnalysis>();
   }
   virtual bool runOnFunction(Function &F) {
+    if (skipFunction(F))
+      return false;
     assert(!verifyFunction(F) && "I broke this module");
     VectorizableLoopsAnalysis* VLA = &getAnalysis<VectorizableLoopsAnalysis>();
     assert(VLA && "Unable to get vectorizable-loops analysis");
@@ -980,6 +985,8 @@ public:
     AU.addRequired<VectorizableLoopsAnalysis>();
   }
   virtual bool runOnFunction(Function &F) {
+    if (skipFunction(F))
+      return false;
     VectorizableLoopsAnalysis* VLA = &getAnalysis<VectorizableLoopsAnalysis>();
     assert(VLA && "Unable to get vectorizable-loops analysis");
     bool anyChangeMade = false;
@@ -1033,6 +1040,8 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
   }
   virtual bool runOnFunction(Function &F) {
+    if (skipFunction(F))
+      return false;
     bool Modified = false;
     // For each argument stored to an alloca, replace all uses of that alloca
     // with the argument. We'll let standard cleanup passes remove the now

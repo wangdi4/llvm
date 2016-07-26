@@ -24,6 +24,9 @@ CLBuiltinLICM::CLBuiltinLICM() : LoopPass(ID), m_rtServices(NULL) {
 }
 
 bool CLBuiltinLICM::runOnLoop(Loop *L, LPPassManager &LPM) {
+  if (skipLoop(L))
+    return false;
+
   //errs() << "CLBuiltinLICM on " << L->getHeader()->getNameStr() << "\n";
   if (!L->isLoopSimplifyForm()) return false;
 

@@ -46,6 +46,23 @@ int main() {
     Fp = getFunc(511 - I);
     for (J = 0; J < 2000 - I; J++)
       Fp();
+#ifdef STRESS
+    Fp = getFunc(I);
+    for (J = 0; J < 2000 - I; J++)
+      Fp();
+
+    Fp = getFunc(I);
+    for (J = 0; J < 2000 - I; J++)
+      Fp();
+
+    Fp = getFunc(I);
+    for (J = 0; J < 2000 - I; J++)
+      Fp();
+
+    Fp = getFunc(I);
+    for (J = 0; J < 2000 - I; J++)
+      Fp();
+#endif
   }
 #ifdef CALL_SHARED
   shared_entry();
@@ -309,7 +326,7 @@ int main() {
 // CHECK-NEXT:	[ 0, foo_1_2_2_2_2_2_1_2_2, 749 ]
 // CHECK-NEXT:	[ 0, foo_1_2_2_2_2_2_2_1_1, 748 ]
 // CHECK-NEXT:	[ 0, foo_1_2_2_2_2_2_2_1_2, 747 ]
-// CHECK-NEXT:	[ 0, foo_1_2_2_2_2_2_2_2_1, 746 ]
+// CHECK-NEXT:	[ 0, foo
 // CHECK-NEXT:	[ 1, foo_2_2_2_2_2_2_2_2_2, 2000 ]
 // CHECK-NEXT:	[ 1, foo_2_2_2_2_2_2_2_2_1, 1999 ]
 // CHECK-NEXT:	[ 1, foo_2_2_2_2_2_2_2_1_2, 1998 ]
@@ -564,7 +581,7 @@ int main() {
 // CHECK-NEXT:	[ 1, foo_2_1_1_1_1_1_2_1_1, 1749 ]
 // CHECK-NEXT:	[ 1, foo_2_1_1_1_1_1_1_2_2, 1748 ]
 // CHECK-NEXT:	[ 1, foo_2_1_1_1_1_1_1_2_1, 1747 ]
-// CHECK-NEXT:	[ 1, foo_2_1_1_1_1_1_1_1_2, 1746 ]
+// CHECK-NEXT:	[ 1, foo
 
 // SHARED-LABEL:  shared_entry:
 // SHARED:	[ 0, foo_1_1_1_1_1_1_1_1_1, 1000 ]
@@ -821,7 +838,7 @@ int main() {
 // SHARED-NEXT:	[ 0, foo_1_2_2_2_2_2_1_2_2, 749 ]
 // SHARED-NEXT:	[ 0, foo_1_2_2_2_2_2_2_1_1, 748 ]
 // SHARED-NEXT:	[ 0, foo_1_2_2_2_2_2_2_1_2, 747 ]
-// SHARED-NEXT:	[ 0, foo_1_2_2_2_2_2_2_2_1, 746 ]
+// SHARED-NEXT:	[ 0, foo
 // SHARED-NEXT:	[ 1, foo_2_2_2_2_2_2_2_2_2, 2000 ]
 // SHARED-NEXT:	[ 1, foo_2_2_2_2_2_2_2_2_1, 1999 ]
 // SHARED-NEXT:	[ 1, foo_2_2_2_2_2_2_2_1_2, 1998 ]
@@ -1076,4 +1093,4 @@ int main() {
 // SHARED-NEXT:	[ 1, foo_2_1_1_1_1_1_2_1_1, 1749 ]
 // SHARED-NEXT:	[ 1, foo_2_1_1_1_1_1_1_2_2, 1748 ]
 // SHARED-NEXT:	[ 1, foo_2_1_1_1_1_1_1_2_1, 1747 ]
-// SHARED-NEXT:	[ 1, foo_2_1_1_1_1_1_1_1_2, 1746 ]
+// SHARED-NEXT:	[ 1, foo

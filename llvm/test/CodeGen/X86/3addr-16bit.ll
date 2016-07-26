@@ -11,8 +11,8 @@ entry:
 ; 32BIT:     incl                                 ;INTEL
 
 ; 64BIT-LABEL:     t1:
-; 64BIT-NOT: movw %si, %ax                        ;INTEL
-; 64BIT:     movl %esi, %eax                      ;INTEL
+; 64BIT-NOT: movw %si, %ax
+; 64BIT:     movl %esi, %eax
 ; 64BIT-NEXT:     incl %eax                       ;INTEL
   %0 = icmp eq i16 %k, %c                         ; <i1> [#uses=1]
   %1 = add i16 %k, 1                              ; <i16> [#uses=3]
@@ -34,10 +34,10 @@ entry:
 ; 32BIT:     decl                                 ;INTEL
 
 ; 64BIT-LABEL:     t2:
-; 64BIT-NOT: movw %si, %ax                        ;INTEL
-; 64BIT:     movl %esi, %eax                      ;INTEL
+; 64BIT-NOT: movw %si, %ax
+; 64BIT:     movl %esi, %eax
 ; 64BIT-NEXT:     decl %eax                       ;INTEL
-; 64BIT:     movzwl %ax                           ;INTEL
+; 64BIT:     movzwl %ax
   %0 = icmp eq i16 %k, %c                         ; <i1> [#uses=1]
   %1 = add i16 %k, -1                             ; <i16> [#uses=3]
   br i1 %0, label %bb, label %bb1
@@ -60,8 +60,8 @@ entry:
 ; 32BIT:     addl $2                              ;INTEL
 
 ; 64BIT-LABEL:     t3:
-; 64BIT-NOT: movw %si, %ax                        ;INTEL
-; 64BIT:     movl %esi, %eax                      ;INTEL
+; 64BIT-NOT: movw %si, %ax
+; 64BIT:     movl %esi, %eax
 ; 64BIT-NEXT:     addl $2, %eax                   ;INTEL
   %0 = add i16 %k, 2                              ; <i16> [#uses=3]
   %1 = icmp eq i16 %k, %c                         ; <i1> [#uses=1]
@@ -84,8 +84,8 @@ entry:
 ; 32BIT:     addl                                 ;INTEL
 
 ; 64BIT-LABEL:     t4:
-; 64BIT-NOT: movw %si, %ax                        ;INTEL
-; 64BIT:     movl %esi, %eax                      ;INTEL
+; 64BIT-NOT: movw %si, %ax
+; 64BIT:     movl %esi, %eax
 ; 64BIT-NEXT:     addl %edi, %eax                 ;INTEL
   %0 = add i16 %k, %c                             ; <i16> [#uses=3]
   %1 = icmp eq i16 %k, %c                         ; <i1> [#uses=1]

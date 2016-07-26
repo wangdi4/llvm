@@ -55,6 +55,9 @@ ScalarizeFunction::~ScalarizeFunction()
 
 bool ScalarizeFunction::runOnFunction(Function &F)
 {
+  if (skipFunction(F))
+    return false;
+
   // Scalarization is done only on functions which return void (kernels)
   if (!F.getReturnType()->isVoidTy())  {
     return false;

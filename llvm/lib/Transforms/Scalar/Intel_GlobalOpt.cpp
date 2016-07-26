@@ -199,6 +199,9 @@ bool NonLTOGlobalOpt::processInternalGlobal(GlobalVariable *GV,
 
 // Promotes the global variables into registers if it is legal.
 bool NonLTOGlobalOpt::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   bool Changed = false;
   Module *M = F.getParent();
 

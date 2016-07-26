@@ -806,7 +806,7 @@ void STIAsmWriter::emitBytes(size_t size, const char* data) {
 }
 
 void STIAsmWriter::emitFill(size_t size, const uint8_t byte) {
-  ASM()->OutStreamer->EmitFill(size, byte);
+  ASM()->OutStreamer->emitFill(size, byte);
 }
 
 void STIAsmWriter::emitComment(StringRef comment) {

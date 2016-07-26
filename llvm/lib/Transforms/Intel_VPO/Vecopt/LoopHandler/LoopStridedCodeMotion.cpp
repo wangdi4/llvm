@@ -36,6 +36,9 @@ LoopStridedCodeMotion::LoopStridedCodeMotion() : LoopPass(ID) {
 // this pass assumes LICM ran before it, moved loop invariant values
 // outside of the loop.
 bool LoopStridedCodeMotion::runOnLoop(Loop *L, LPPassManager &LPM) {
+  if (skipLoop(L))
+    return false;
+
   //if (counter++ != getIntEnvVarVal("STRIDED_COUNTER")) return false;
   //errs() << "\n\nLoopStridedCodeMotion on " << L->getHeader()->getNameStr() << "\n";
   //errs() << "input: " << *(L->getHeader()->getParent());

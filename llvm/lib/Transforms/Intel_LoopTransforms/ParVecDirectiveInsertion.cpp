@@ -32,6 +32,9 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 bool ParVecDirectiveInsertion::runOnFunction(Function &Func) {
+  if (skipFunction(Func))
+    return false;
+
   auto PVA = &getAnalysis<HIRParVecAnalysis>();
 
   // Analyze for all regions. Due to the on-demand nature of ParVecAnalysis,

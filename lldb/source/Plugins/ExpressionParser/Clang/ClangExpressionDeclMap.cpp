@@ -1260,7 +1260,16 @@ ClangExpressionDeclMap::FindExternalVisibleDecls (NameSearchContext &context,
                 bool variable_found = false;
                 for (CompilerDecl decl : found_decls)
                 {
-                    var = decl.GetAsVariable();
+                    for (size_t vi = 0, ve = vars->GetSize(); vi != ve; ++vi)
+                    {
+                        VariableSP candidate_var = vars->GetVariableAtIndex(vi);
+                        if (candidate_var->GetDecl() == decl)
+                        {
+                            var = candidate_var;
+                            break;
+                        }
+                    }
+
                     if (var)
                     {
                         variable_found = true;
@@ -1503,9 +1512,12 @@ ClangExpressionDeclMap::FindExternalVisibleDecls (NameSearchContext &context,
                     {
                         if (llvm::isa<clang::FunctionDecl>(decl))
                         {
-                            clang::NamedDecl *copied_decl = llvm::cast<FunctionDecl>(m_ast_importer_sp->CopyDecl(m_ast_context, &decl->getASTContext(), decl));
-                            context.AddNamedDecl(copied_decl);
-                            context.m_found.function_with_type_info = true;
+                            clang::NamedDecl *copied_decl = llvm::cast_or_null<FunctionDecl>(m_ast_importer_sp->CopyDecl(m_ast_context, &decl->getASTContext(), decl));
+                            if (copied_decl)
+                            {
+                                context.AddNamedDecl(copied_decl);
+                                context.m_found.function_with_type_info = true;
+                            }
                         }
                     }
                 }

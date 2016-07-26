@@ -128,6 +128,9 @@ INITIALIZE_PASS_END(VPOCFGRestructuring, "vpo-cfg-restructuring",
 char VPOCFGRestructuring::ID = 0;
 
 bool VPOCFGRestructuring::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 

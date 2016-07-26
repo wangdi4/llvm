@@ -48,7 +48,7 @@ using namespace llvm::vpo;
 INITIALIZE_PASS_BEGIN(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
-INITIALIZE_PASS_DEPENDENCY(LCSSA)
+INITIALIZE_PASS_DEPENDENCY(LCSSAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
 INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                     false)
@@ -69,6 +69,8 @@ void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool VPOParopt::runOnModule(Module &M) {
+  if (skipModule(M))
+    return false;
 
   bool Changed = false;
 
