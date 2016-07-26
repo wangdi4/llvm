@@ -75,8 +75,6 @@ HLInst *HLInst::clone() const {
   return cloneImpl(nullptr, nullptr);
 }
 
-bool HLInst::isCallInst() const { return (isa<CallInst>(Inst)); }
-
 bool HLInst::isCopyInst() const {
 
   if (auto BCInst = dyn_cast<BitCastInst>(Inst)) {

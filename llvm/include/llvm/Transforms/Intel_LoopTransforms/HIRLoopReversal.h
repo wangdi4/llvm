@@ -98,6 +98,7 @@ class HIRLoopReversal : public HIRTransformPass {
 private:
   HIRDDAnalysis *DDA;                   // Data-Dependence Analysis Result
   HIRSafeReductionAnalysis *SRA;
+  HIRLoopStatistics *HLS;
   SmallVector<MarkedCanonExpr, 8> CEAV; // Vector of MarkedCanonExpr
   struct CollectDDInfo;                 // CollectDDInfo Forward Declaration
   unsigned LoopLevel = 0;               // Current Loop's Level
@@ -155,7 +156,9 @@ public:
   bool runOnLoop(
       HLLoop *Lp,     // INPUT + OUTPUT: a given loop
       bool DoReverse, // INPUT: true to reverse the loop if the loop is suitable
-      HIRDDAnalysis &HDDA, // INPUT: Exiting HIRDDAnalysis
+      HIRDDAnalysis &DDA, // INPUT: Existing HIRDDAnalysis
+      HIRSafeReductionAnalysis &SRA, // INPUT: Existing HIRSafeReductionAnalysis
+      HIRLoopStatistics &LS, // INPUT: Existing HIRLoopStatistics
       bool &LoopReversed   // OUTPUT: true if the loop is successfully reversed
       );
 

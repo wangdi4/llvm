@@ -211,10 +211,12 @@ public:
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFramework>();
     AU.addRequiredTransitive<HIRLoopResource>();
+    AU.addRequiredTransitive<HIRLoopStatistics>();
   }
 
 private:
   HIRLoopResource *HLR;
+  HIRLoopStatistics *HLS;
 
   bool IsUnrollTriggered;
 
@@ -249,6 +251,7 @@ INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "hir-general-unroll",
                       "HIR General Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResource)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRGeneralUnroll, "hir-general-unroll",
                     "HIR General Unroll", false, false)
 
@@ -266,6 +269,7 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "General unrolling for Function : " << F.getName() << "\n");
 
   HLR = &getAnalysis<HIRLoopResource>();
+  HLS = &getAnalysis<HIRLoopStatistics>();
 
   IsUnrollTriggered = false;
 
@@ -386,9 +390,9 @@ bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
 bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop,
                                     unsigned *UnrollFactor) const {
 
-  // Ignore loops which have switch or function calls for unrolling.
-  if (HLNodeUtils::hasSwitchOrCall(Loop->getFirstChild(),
-                                   Loop->getLastChild())) {
+  const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
+
+  if (LS.hasSwitches() || LS.hasCalls()) {
     return false;
   }
 

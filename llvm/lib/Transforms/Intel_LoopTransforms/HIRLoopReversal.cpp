@@ -97,61 +97,6 @@ const unsigned DefaultReadWeight = 1;         // default Weight for a Read is 1
 const unsigned DefaultWriteWeight = 2;        // default Weight for a Write is 2
 const unsigned DefaultShortTripThreshold = 4; // default short trip threshold
 
-// LoopStatistics Visitor to Count Node of Various Types in The Given Loop
-struct LoopStatistics final : public HLNodeVisitorBase {
-  unsigned NumCalls, NumLabels, NumGotos, NumSwitches, NumIfs, NumNodes,
-      NumLoops;
-
-  void visit(const HLLoop *Loop) { NumLoops++; }
-  void visit(const HLSwitch *Switch) { NumSwitches++; }
-  void visit(const HLLabel *Label) { NumLabels++; }
-  void visit(const HLGoto *Goto) { NumGotos++; }
-  void visit(const HLIf *If) { NumIfs++; }
-  void visit(const HLNode *Node) { NumNodes++; }
-  void visit(const HLInst *Inst) {
-    if (Inst->isCallInst()) {
-      NumCalls++;
-    }
-  }
-
-  void postVisit(const HLNode *) {}
-  bool isDone() const override { return (NumCalls || NumLabels || NumGotos); }
-
-  LoopStatistics()
-      : NumCalls(0), NumLabels(0), NumGotos(0), NumSwitches(0), NumIfs(0),
-        NumNodes(0), NumLoops(0) {}
-
-#ifndef NDEBUG
-  /// \brief Print the LoopStatistics Info
-  LLVM_DUMP_METHOD
-  void dump(void) {
-    dbgs() << "LoopStatistics Info Dump: \n"
-           << "  # Calls: " << NumCalls << "\n"
-           << "  # Labels: " << NumLabels << "\n"
-           << "  # Gotos: " << NumGotos << "\n"
-           << "  # Switches: " << NumSwitches << "\n"
-           << "  # Nodes: " << NumNodes << "\n"
-           << "  # Loops: " << NumLoops << "\n";
-  }
-#endif
-
-  // Getters:
-  unsigned getNumCalls(void) const { return NumCalls; }
-  unsigned getNumLabels(void) const { return NumLabels; }
-  unsigned getNumGotos(void) const { return NumGotos; }
-  unsigned getNumSwitches(void) const { return NumSwitches; }
-  unsigned getNumNodes(void) const { return NumNodes; }
-  unsigned getNumLoops(void) const { return NumLoops; }
-
-  // Boolean Getters:
-  bool hasCall(void) const { return (NumCalls > 0); }
-  bool hasLabel(void) const { return (NumLabels > 0); }
-  bool hasGoto(void) const { return (NumGotos > 0); }
-  bool hasSwitch(void) const { return (NumSwitches > 0); }
-  bool hasNode(void) const { return (NumNodes > 0); }
-  bool hasLoop(void) const { return (NumLoops > 0); }
-};
-
 ///\brief Collect all suitable MarkedCanonExprs on MemRef type of DDReg from the
 /// given loop.
 class MarkedCECollector final : public HLNodeVisitorBase {
@@ -287,6 +232,8 @@ INITIALIZE_PASS_BEGIN(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRLoopReversal, "hir-loop-reversal", "HIR Loop Reversal",
                     false, false)
 
@@ -375,6 +322,7 @@ void HIRLoopReversal::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFramework>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+  AU.addRequiredTransitive<HIRLoopStatistics>();
   AU.setPreservesAll();
 }
 
@@ -497,6 +445,7 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
   // Obtain Analysis Result(s)
   DDA = &getAnalysis<HIRDDAnalysis>();
   SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+  HLS = &getAnalysis<HIRLoopStatistics>();
 
   // TODO:
   // Re-Build DDA on demand if needed
@@ -552,11 +501,11 @@ bool HIRLoopReversal::isApplicable(HLLoop *Lp) {
   // - No function call
   // - No label
   // - No goto
-  LoopStatistics LS;
-  HLNodeUtils::visitRange(LS, Lp->getFirstChild(), Lp->getLastChild());
+  const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
 
+  
   // DEBUG(LS.dump(););
-  if (LS.hasCall() || LS.hasGoto() || LS.hasLabel()) {
+  if (LS.hasCalls() || LS.hasGotos() || LS.hasLabels()) {
     return false;
   }
 
@@ -958,6 +907,8 @@ bool HIRLoopReversal::runOnLoop(
     HLLoop *Lp,          // INPUT + OUTPUT PARAM: a given loop
     bool DoReverse,      // INPUT PARAM: true to reverse if the loop is suitable
     HIRDDAnalysis &HDDA, // INPUT PARAM: an existing HIRDDAnalysis
+    HIRSafeReductionAnalysis &HSRA, 
+    HIRLoopStatistics &LS, 
     bool &LoopReversed   // OUTPUT PARAM: true if the loop is successfully
                          // reversed
     ) {
@@ -966,10 +917,9 @@ bool HIRLoopReversal::runOnLoop(
          "HIRLoopReversal.runOnLoop(.) assert -- Loop can't be nullptr\n");
 
   // Obtain DDA Analysis Result from Parameter
-  // (Expect it be a valid DDA)
   DDA = &HDDA;
-  // TODO:
-  // - Rebuild DDA on demand if it is null.
+  SRA = &HSRA; 
+  HLS = &LS;
 
   // 1. Check if the loop is suitable for reversal
   bool ReversibleLoop = isReversible(Lp);

@@ -129,11 +129,14 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRLoopStatistics>();
   }
 
 private:
   class CanonExprVisitor;
   class ProfitabilityAnalyzer;
+
+  HIRLoopStatistics *HLS;
 
   /// Storage for loops which will be transformed.
   /// Only outermost loops to be transformed will be stored.
@@ -615,6 +618,7 @@ char HIRCompleteUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCompleteUnroll, "hir-complete-unroll",
                       "HIR Complete Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRCompleteUnroll, "hir-complete-unroll",
                     "HIR Complete Unroll", false, false)
 
@@ -638,6 +642,8 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
   if (CompleteUnrollTripThreshold == 0) {
     return false;
   }
+
+  HLS = &getAnalysis<HIRLoopStatistics>();
 
   // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;
@@ -893,9 +899,9 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop,
     return false;
   }
 
-  // Ignore loops which have switch or function calls for unrolling.
-  if (HLNodeUtils::hasSwitchOrCall<false>(Loop->getFirstChild(),
-                                          Loop->getLastChild())) {
+  const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
+
+  if (LS.hasSwitches() || LS.hasCalls()) {
     return false;
   }
 

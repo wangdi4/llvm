@@ -13,11 +13,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "hir-looptransform-utils"
@@ -46,7 +46,11 @@ bool HIRLoopTransformUtils::checkAndReverseLoop(
     HLLoop *Lp,     // INPUT + OUTPUT: a given loop
     bool DoReverse, // INPUT: client's intention to reverse the loop if the loop
                     // is suitable
-    HIRDDAnalysis &DDAnalysis, // INPUT: client provides a HIRDDAnalysis
+    HIRDDAnalysis &DDA, // INPUT: client provides a HIRDDAnalysis
+    HIRSafeReductionAnalysis
+        &SRA, // INPUT: client provides a HIRSafeReductionAnalysis
+    HIRLoopStatistics
+        &LS,           // INPUT: client provides a HIRLoopStatistics analysis
     bool &LoopReversed // OUTPUT: true if the loop is successfully reversed
     ) {
 
@@ -54,7 +58,7 @@ bool HIRLoopTransformUtils::checkAndReverseLoop(
   HIRLoopReversal ReversalPass;
 
   // 2.Call to runOnLoop(.)
-  return ReversalPass.runOnLoop(Lp, DoReverse, DDAnalysis, LoopReversed);
+  return ReversalPass.runOnLoop(Lp, DoReverse, DDA, SRA, LS, LoopReversed);
 }
 
 bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,

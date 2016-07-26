@@ -29,6 +29,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopResource.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRVectVLSAnalysis.h"
 
@@ -102,7 +103,8 @@ private:
 
   // There should be all available analysis
   typedef AnalysisSet<HIRDDAnalysis, HIRLocalityAnalysis, HIRLoopResource,
-                      HIRSafeReductionAnalysis, HIRVectVLSAnalysis>
+                      HIRLoopStatistics, HIRSafeReductionAnalysis,
+                      HIRVectVLSAnalysis>
       ForEachAnalysis;
 
   /// \brief Do not allow instantiation.

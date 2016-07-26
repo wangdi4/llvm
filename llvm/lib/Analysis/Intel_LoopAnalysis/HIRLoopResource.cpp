@@ -390,7 +390,7 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const RegDDRef *Ref) {
 
       // Add cost of stride multiplication.
       Cost = getNormalizedCost(TTI.getOperationCost(
-          isPowerOf2_64(Stride) ? Instruction::LShr : Instruction::Mul,
+          isPowerOf2_64(Stride) ? Instruction::Shl : Instruction::Mul,
           (*CEI)->getDestType()));
       SelfLRI.addIntOps(Cost);
     }
@@ -738,7 +738,7 @@ void HIRLoopResource::markLoopBodyModified(const HLLoop *Loop) {
   // Remove current loop's self resource from the cache.
   SelfResourceMap.erase(Loop);
 
-  // Remove current and parent loops total resouce from the cache.
+  // Remove current and parent loops total resource from the cache.
   while (Loop) {
     TotalResourceMap.erase(Loop);
     Loop = Loop->getParentLoop();

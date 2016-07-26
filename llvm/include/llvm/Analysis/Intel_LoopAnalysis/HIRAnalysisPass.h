@@ -31,7 +31,7 @@ class HLLoop;
 
 /// \brief - All HIR analysis passes should derive from this class.
 ///
-/// Pass setup requirements (see HIRCompleteUnroll.cpp for ref)-
+/// Pass setup requirements (see HIRDDAnalysis.cpp for ref)-
 ///
 /// - Define under Intel_LoopAnalysiss directory.
 /// - Use the INITIALIZE_PASS* macros for initialization.
@@ -60,6 +60,7 @@ public:
     HIRDDAnalysisVal,
     HIRLocalityAnalysisVal,
     HIRLoopResourceVal,
+    HIRLoopStatisticsVal,
     HIRSafeReductionAnalysisVal,
     HIRVectVLSAnalysisVal,
     // Should be kept last

@@ -195,7 +195,7 @@ public:
   bool isCopyInst() const;
 
   /// \brief Returns true if this is a call instruction.
-  bool isCallInst() const;
+  bool isCallInst() const { return isa<CallInst>(Inst); }
 
   /// \brief Verifies HLInst integrity.
   virtual void verify() const override;

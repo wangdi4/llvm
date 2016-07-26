@@ -418,42 +418,6 @@ private:
   static bool getMinMaxValueImpl(const CanonExpr *CE, const HLNode *ParentNode,
                                  bool IsMin, bool IsExact, int64_t &Val);
 
-  // Checks if *IF* or *Switch* or *Call* statement is present inside HIR tree.
-  template <bool SearchIf, bool SearchSwitch, bool SearchCall>
-  struct NodeKindVisitor final : public HLNodeVisitorBase {
-    bool Found;
-
-    static_assert(SearchIf || SearchSwitch || SearchCall,
-                  "At least one flag should be true");
-
-    void visit(const HLIf *If) {
-      if (SearchIf) {
-        Found = true;
-      }
-    }
-
-    void visit(const HLSwitch *Switch) {
-      if (SearchSwitch) {
-        Found = true;
-      }
-    }
-
-    void visit(const HLInst *Inst) {
-      if (SearchCall && Inst->isCallInst()) {
-        Found = true;
-      }
-    }
-
-    void visit(const HLNode *Node) {}
-    void postVisit(const HLNode *) {}
-
-    bool isDone() const override {
-      return Found;
-    }
-
-    NodeKindVisitor() : Found(false) {}
-  };
-
 public:
   /// \brief Returns the first dummy instruction of the function.
   static Instruction *getFirstDummyInst() { return FirstDummyInst; }
@@ -1151,29 +1115,6 @@ public:
     static_assert(std::is_const<typename std::remove_pointer<T>::type>::value,
                   "Type of SmallVector parameter should be const HLLoop *.");
     gatherAllLoops(const_cast<HLNode *>(Node), Loops);
-  }
-
-  /// \brief Returns true if HLSwitch or HLCall exists between NodeStart and
-  /// NodeEnd. RecurseInsideLoops flag denotes if we want to check switch
-  /// or call inside nested loops. Usually, this flag is used to for
-  /// optimizations where checks have already been made for child loops.
-  template <bool RecurseInsideLoops = true>
-  static bool hasSwitchOrCall(const HLNode *NodeStart, const HLNode *NodeEnd) {
-    assert(NodeStart && NodeEnd && " Node Start/End is null.");
-    NodeKindVisitor<false, true, true> SCVisit;
-    HLNodeUtils::visitRange<true, RecurseInsideLoops>(SCVisit, NodeStart,
-                                                      NodeEnd);
-    return SCVisit.isDone();
-  }
-
-  template <bool RecurseInsideLoops = true>
-  static bool hasSwitchOrCallOrIf(const HLNode *NodeStart,
-                                  const HLNode *NodeEnd) {
-    assert(NodeStart && NodeEnd && " Node Start/End is null.");
-    NodeKindVisitor<true, true, true> SCVisit;
-    HLNodeUtils::visitRange<true, RecurseInsideLoops>(SCVisit, NodeStart,
-                                                      NodeEnd);
-    return SCVisit.isDone();
   }
 
   /// \brief Updates Loop properties (Bounds, etc) based on input Permutations

@@ -133,8 +133,9 @@ STATISTIC(OuterLoopsMultiversioned,
 
 struct HIRRuntimeDD::LoopAnalyzer final : public HLNodeVisitorBase {
   SmallVector<LoopContext, 16> LoopContexts;
+  HIRRuntimeDD *RDD;
 
-  LoopAnalyzer() : SkipNode(nullptr) {}
+  LoopAnalyzer(HIRRuntimeDD *RDD) : RDD(RDD), SkipNode(nullptr) {}
 
   void visit(HLNode *) {}
   void postVisit(HLNode *) {}
@@ -143,7 +144,7 @@ struct HIRRuntimeDD::LoopAnalyzer final : public HLNodeVisitorBase {
     LoopContext Context;
     DEBUG(dbgs() << "Runtime DD for loop " << Loop->getNumber() << ":\n");
 
-    RuntimeDDResult Result = HIRRuntimeDD::computeTests(Loop, Context);
+    RuntimeDDResult Result = RDD->computeTests(Loop, Context);
     if (Result == OK) {
       SkipNode = Loop;
 
@@ -390,6 +391,7 @@ char HIRRuntimeDD::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
 
 FunctionPass *llvm::createHIRRuntimeDDPass() { return new HIRRuntimeDD(); }
@@ -436,8 +438,9 @@ bool HIRRuntimeDD::isProfitable(const HLLoop *Loop) {
     return true;
   }
 
-  return !HLNodeUtils::hasSwitchOrCallOrIf(Loop->getFirstChild(),
-                                           Loop->getLastChild());
+  const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
+
+  return (!LS.hasCalls() && !LS.hasSwitches() && !LS.hasIfs());
 }
 
 RuntimeDDResult HIRRuntimeDD::processLoopnest(
@@ -825,9 +828,10 @@ bool HIRRuntimeDD::runOnFunction(Function &F) {
     return false;
   }
 
+  HLS = &getAnalysis<HIRLoopStatistics>();
   DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
 
-  LoopAnalyzer LA;
+  LoopAnalyzer LA(this);
   HLNodeUtils::visitAll(LA);
 
   if (LA.LoopContexts.size() == 0) {

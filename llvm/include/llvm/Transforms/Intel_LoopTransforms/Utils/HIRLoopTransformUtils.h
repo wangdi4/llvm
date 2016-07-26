@@ -25,6 +25,10 @@ namespace llvm {
 
 namespace loopopt {
 
+class HIRDDAnalysis;
+class HIRSafeReductionAnalysis;
+class HIRLoopStatistics;
+
 /// \brief Defines HIRLoopTransformationUtils class.
 /// It contains static member functions to analyze and transform a loop.
 class HIRLoopTransformUtils : public HIRUtils {
@@ -43,7 +47,8 @@ private:
   /// loops \p  NewTCRef is used for non-constant trip loops.
   static bool isRemainderLoopNeeded(HLLoop *OrigLoop,
                                     unsigned UnrollOrVecFactor,
-                                    uint64_t *NewTripCountP, RegDDRef **NewTCRef);
+                                    uint64_t *NewTripCountP,
+                                    RegDDRef **NewTCRef);
 
   /// \brief Creates a new loop for unrolling or vectorization. \p NewTripCount
   /// contains the new loop trip count if the original loop is a constant trip
@@ -94,7 +99,11 @@ public:
       bool DoReverse, // INPUT: client's intention to reverse the loop if the
                       // loop
                       // is suitable
-      HIRDDAnalysis &DDAnalysis, // INPUT: client provides a HIRDDAnalysis
+      HIRDDAnalysis &DDA, // INPUT: client provides a HIRDDAnalysis
+      HIRSafeReductionAnalysis
+          &SRA, // INPUT: client provides a HIRSafeReductionAnalysis
+      HIRLoopStatistics
+          &LS,           // INPUT: client provides a HIRLoopStatistics analysis
       bool &LoopReversed // OUTPUT: true if the loop is successfully reversed
       );
 
