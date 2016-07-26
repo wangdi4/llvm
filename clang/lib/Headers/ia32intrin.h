@@ -80,4 +80,6 @@ __rdtscp(unsigned int *__A) {
 
 #define _rdtsc() __rdtsc()
 
+#define _rdpmc(A) __rdpmc(A)
+
 #endif /* __IA32INTRIN_H */

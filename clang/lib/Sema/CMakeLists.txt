@@ -5,10 +5,10 @@ set(LLVM_LINK_COMPONENTS
 if( INTEL_CUSTOMIZATION )
   add_subdirectory(intel)
   set(LIBS clangSemaIntel)
+endif()
 
-  if (MSVC)
-    set_source_files_properties(SemaExpr.cpp PROPERTIES COMPILE_FLAGS /bigobj)
-  endif()
+if (MSVC)
+  set_source_files_properties(SemaExpr.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 endif()
 
 add_clang_library(clangSema

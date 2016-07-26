@@ -505,6 +505,7 @@ BUILTIN(__builtin_vscanf,  "icC*a",      "FS:0:")
 BUILTIN(__builtin_vfscanf, "iv*cC*a",  "FS:1:")
 BUILTIN(__builtin_vsscanf, "icC*cC*a", "FS:1:")
 #endif // INTEL_CUSTOMIZATION
+BUILTIN(__builtin_thread_pointer, "v*", "nc")
 
 // GCC exception builtins
 BUILTIN(__builtin_eh_return, "vzv*", "r") // FIXME: Takes intptr_t, not size_t!
@@ -1566,6 +1567,11 @@ LANGBUILTIN(work_group_commit_write_pipe, "v.", "tn", OCLC_LANG)
 
 LANGBUILTIN(get_pipe_num_packets, "Ui.", "tn", OCLC_LANG)
 LANGBUILTIN(get_pipe_max_packets, "Ui.", "tn", OCLC_LANG)
+
+// OpenCL v2.0 s6.13.9 - Address space qualifier functions.
+LANGBUILTIN(to_global, "v*v*", "tn", OCLC_LANG)
+LANGBUILTIN(to_local, "v*v*", "tn", OCLC_LANG)
+LANGBUILTIN(to_private, "v*v*", "tn", OCLC_LANG)
 
 #undef BUILTIN
 #undef LIBBUILTIN

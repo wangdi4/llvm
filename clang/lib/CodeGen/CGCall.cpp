@@ -39,6 +39,11 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Utils/Local.h"
+#if INTEL_CUSTOMIZATION
+// CQ381541: IMF attributes support
+#include "clang/Basic/LangOptions.h"
+#include "llvm/ADT/StringSet.h"
+#endif // INTEL_CUSTOMIZATION
 using namespace clang;
 using namespace CodeGen;
 
@@ -148,7 +153,8 @@ arrangeLLVMFunctionInfo(CodeGenTypes &CGT, bool instanceMethod,
                         CanQual<FunctionProtoType> FTP,
                         const FunctionDecl *FD) {
   SmallVector<FunctionProtoType::ExtParameterInfo, 16> paramInfos;
-  RequiredArgs required = RequiredArgs::forPrototypePlus(FTP, prefix.size());
+  RequiredArgs Required =
+      RequiredArgs::forPrototypePlus(FTP, prefix.size(), FD);
   // FIXME: Kill copy.
   appendParameterTypes(CGT, prefix, paramInfos, FTP, FD);
   CanQualType resultType = FTP->getReturnType().getUnqualifiedType();
@@ -156,7 +162,7 @@ arrangeLLVMFunctionInfo(CodeGenTypes &CGT, bool instanceMethod,
   return CGT.arrangeLLVMFunctionInfo(resultType, instanceMethod,
                                      /*chainCall=*/false, prefix,
                                      FTP->getExtInfo(), paramInfos,
-                                     required);
+                                     Required);
 }
 
 /// Arrange the argument and result information for a value of the
@@ -253,6 +259,15 @@ CodeGenTypes::arrangeCXXMethodDeclaration(const CXXMethodDecl *MD) {
   return arrangeFreeFunctionType(prototype, MD);
 }
 
+bool CodeGenTypes::inheritingCtorHasParams(
+    const InheritedConstructor &Inherited, CXXCtorType Type) {
+  // Parameters are unnecessary if we're constructing a base class subobject
+  // and the inherited constructor lives in a virtual base.
+  return Type == Ctor_Complete ||
+         !Inherited.getShadowDecl()->constructsVirtualBase() ||
+         !Target.getCXXABI().hasConstructorVariants();
+  }
+
 const CGFunctionInfo &
 CodeGenTypes::arrangeCXXStructorDeclaration(const CXXMethodDecl *MD,
                                             StructorType Type) {
@@ -261,9 +276,16 @@ CodeGenTypes::arrangeCXXStructorDeclaration(const CXXMethodDecl *MD,
   SmallVector<FunctionProtoType::ExtParameterInfo, 16> paramInfos;
   argTypes.push_back(GetThisType(Context, MD->getParent()));
 
+  bool PassParams = true;
+
   GlobalDecl GD;
   if (auto *CD = dyn_cast<CXXConstructorDecl>(MD)) {
     GD = GlobalDecl(CD, toCXXCtorType(Type));
+
+    // A base class inheriting constructor doesn't get forwarded arguments
+    // needed to construct a virtual base (or base class thereof).
+    if (auto Inherited = CD->getInheritedConstructor())
+      PassParams = inheritingCtorHasParams(Inherited, toCXXCtorType(Type));
   } else {
     auto *DD = dyn_cast<CXXDestructorDecl>(MD);
     GD = GlobalDecl(DD, toCXXDtorType(Type));
@@ -272,12 +294,14 @@ CodeGenTypes::arrangeCXXStructorDeclaration(const CXXMethodDecl *MD,
   CanQual<FunctionProtoType> FTP = GetFormalType(MD);
 
   // Add the formal parameters.
-  appendParameterTypes(*this, argTypes, paramInfos, FTP, MD);
+  if (PassParams)
+    appendParameterTypes(*this, argTypes, paramInfos, FTP, MD);
 
   TheCXXABI.buildStructorSignature(MD, Type, argTypes);
 
   RequiredArgs required =
-      (MD->isVariadic() ? RequiredArgs(argTypes.size()) : RequiredArgs::All);
+      (PassParams && MD->isVariadic() ? RequiredArgs(argTypes.size())
+                                      : RequiredArgs::All);
 
   FunctionType::ExtInfo extInfo = FTP->getExtInfo();
   CanQualType resultType = TheCXXABI.HasThisReturn(GD)
@@ -348,7 +372,7 @@ CodeGenTypes::arrangeCXXConstructorCall(const CallArgList &args,
     ArgTypes.push_back(Context.getCanonicalParamType(Arg.Ty));
 
   CanQual<FunctionProtoType> FPT = GetFormalType(D);
-  RequiredArgs Required = RequiredArgs::forPrototypePlus(FPT, 1 + ExtraArgs);
+  RequiredArgs Required = RequiredArgs::forPrototypePlus(FPT, 1 + ExtraArgs, D);
   GlobalDecl GD(D, CtorKind);
   CanQualType ResultType = TheCXXABI.HasThisReturn(GD)
                                ? ArgTypes.front()
@@ -411,7 +435,7 @@ CodeGenTypes::arrangeObjCMessageSendSignature(const ObjCMethodDecl *MD,
   argTys.push_back(Context.getCanonicalParamType(receiverType));
   argTys.push_back(Context.getCanonicalParamType(Context.getObjCSelType()));
   // FIXME: Kill copy?
-  for (const auto *I : MD->params()) {
+  for (const auto *I : MD->parameters()) {
     argTys.push_back(Context.getCanonicalParamType(I->getType()));
   }
 
@@ -565,10 +589,11 @@ CodeGenTypes::arrangeBlockFunctionDeclaration(const FunctionProtoType *proto,
   auto paramInfos = getExtParameterInfosForCall(proto, 1, params.size());
   auto argTypes = getArgTypesForDeclaration(Context, params);
 
-  return arrangeLLVMFunctionInfo(GetReturnType(proto->getReturnType()),
-                                 /*instanceMethod*/ false, /*chainCall*/ false,
-                                 argTypes, proto->getExtInfo(), paramInfos,
-                                 RequiredArgs::forPrototypePlus(proto, 1));
+  return arrangeLLVMFunctionInfo(
+      GetReturnType(proto->getReturnType()),
+      /*instanceMethod*/ false, /*chainCall*/ false, argTypes,
+      proto->getExtInfo(), paramInfos,
+      RequiredArgs::forPrototypePlus(proto, 1, nullptr));
 }
 
 const CGFunctionInfo &
@@ -1670,6 +1695,32 @@ void CodeGenModule::ConstructAttributeList(
     HasAnyX86InterruptAttr = TargetDecl->hasAttr<AnyX86InterruptAttr>();
     HasOptnone = TargetDecl->hasAttr<OptimizeNoneAttr>();
   }
+
+#if INTEL_CUSTOMIZATION
+  // CQ381541: IMF attributes support
+  if (getLangOpts().IntelCompat &&
+      (getLangOpts().ImfFuncSet.find(Name) != getLangOpts().ImfFuncSet.end())) {
+    llvm::StringSet<> FuncOwnAttrs;
+    auto it = getLangOpts().ImfAttrFuncMap.find(Name);
+    if (it != getLangOpts().ImfAttrFuncMap.end()) {
+      // the function has it's own set of attributes
+      for (auto &it_at : it->second) {
+        FuncAttrs.addAttribute("imf-" + it_at.first().str(), it_at.second);
+        FuncOwnAttrs.insert(it_at.first());
+      }
+    }
+    if (!getLangOpts().ImfFuncSet.empty()) {
+      for (auto &it_at : getLangOpts().ImfAttrMap) {
+        if (FuncOwnAttrs.empty() ||
+            (FuncOwnAttrs.find(it_at.first()) == FuncOwnAttrs.end())) {
+          // no specific attributes for this function OR such attribute so far.
+          FuncAttrs.addAttribute("imf-" + it_at.first().str(), it_at.second);
+        }
+      }
+    }
+    FuncOwnAttrs.clear();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // OptimizeNoneAttr takes precedence over -Os or -Oz. No warning needed.
   if (!HasOptnone) {
@@ -2904,23 +2955,15 @@ void CodeGenFunction::EmitDelegateCallArg(CallArgList &args,
 
   QualType type = param->getType();
 
-  // For the most part, we just need to load the alloca, except:
-  // 1) aggregate r-values are actually pointers to temporaries, and
-  // 2) references to non-scalars are pointers directly to the aggregate.
-  // I don't know why references to scalars are different here.
-  if (const ReferenceType *ref = type->getAs<ReferenceType>()) {
-    if (!hasScalarEvaluationKind(ref->getPointeeType()))
-      return args.add(RValue::getAggregate(local), type);
-
-    // Locals which are references to scalars are represented
-    // with allocas holding the pointer.
-    return args.add(RValue::get(Builder.CreateLoad(local)), type);
-  }
-
   assert(!isInAllocaArgument(CGM.getCXXABI(), type) &&
          "cannot emit delegate call arguments for inalloca arguments!");
 
-  args.add(convertTempToRValue(local, type, loc), type);
+  // For the most part, we just need to load the alloca, except that
+  // aggregate r-values are actually pointers to temporaries.
+  if (type->isReferenceType())
+    args.add(RValue::get(Builder.CreateLoad(local)), type);
+  else
+    args.add(convertTempToRValue(local, type, loc), type);
 }
 
 static bool isProvablyNull(llvm::Value *addr) {
@@ -3232,11 +3275,11 @@ void CodeGenFunction::EmitCallArgs(
     bool IsVariadic = CalleeDecl ? CalleeDecl->isVariadic() : false; // INTEL
     for (int I = ArgTypes.size() - 1; I >= 0; --I) {
       CallExpr::const_arg_iterator Arg = ArgRange.begin() + I;
+      MaybeEmitImplicitObjectSize(I, *Arg);
       EmitCallArg(Args, *Arg, ArgTypes[I],                              // INTEL
                   IsVariadic && I >= (int)CalleeDecl->getNumParams ()); // INTEL
       EmitNonNullArgCheck(Args.back().RV, ArgTypes[I], (*Arg)->getExprLoc(),
                           CalleeDecl, ParamsToSkip + I);
-      MaybeEmitImplicitObjectSize(I, *Arg);
     }
 
     // Un-reverse the arguments we just evaluated so they match up with the LLVM

@@ -36,7 +36,7 @@ int g() {
 
 // CHECK-DAG: declare dllimport i32 @f1
 // CHECK-DAG: define internal i32 @f2
-// CHECK-DAG: define internal i32 @f3
+// CHECK-DAG: define {{.*}}dllexport i32 @f3
 // CHECK-DAG: define internal i32 @f4
 // CHECK-DAG: declare dllimport i32 @f5
 // CHECK-DAG: declare dllimport i32 @f6
