@@ -216,6 +216,8 @@ TEST_F(ClangCompilerTestType, Test_SpirvWithFP64AndImages) {
         // First 5 mandatory words
         spv::MagicNumber, SPIRVVersion, 0, 0, 0,
         // Common capabilities
+        SPIRVOpCapability, spv::CapabilitySampled1D,
+        SPIRVOpCapability, spv::CapabilitySampledBuffer,
         SPIRVOpCapability, spv::CapabilityImageBasic,
         SPIRVOpCapability, spv::CapabilityImageReadWrite,
         SPIRVOpCapability, spv::CapabilityFloat64,
@@ -273,18 +275,6 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
 
 // test what a module requiring images is rejected by a device which doesn't support images
 TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
-    // Hand made SPIR-V module
-    std::uint32_t const spvBC[] = {
-        // First 5 mandatory words
-        spv::MagicNumber, SPIRVVersion, 0, 0, 0,
-        // Common capabilities
-        SPIRVOpCapability, spv::CapabilityImageBasic,
-        SPIRVOpCapability, spv::CapabilityImageReadWrite,
-        // Memory model
-        SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
-    };
-    auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
-
     CLANG_DEV_INFO devInfo = {
         "",   // extensions
         false, // images support
@@ -297,9 +287,25 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
     int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
     ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
 
-    err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
-    ASSERT_EQ(CL_INVALID_PROGRAM, err)
-        << "Unexpected retcode for a device w\\o image support.\n";
+    std::uint32_t imageCapabilities[] = {spv::CapabilitySampled1D,
+        spv::CapabilitySampledBuffer, spv::CapabilityImageBasic,
+        spv::CapabilityImageReadWrite};
+    for (auto IC : imageCapabilities) {
+		// Hand made SPIR-V module
+		std::uint32_t const spvBC[] = {
+			// First 5 mandatory words
+			spv::MagicNumber, SPIRVVersion, 0, 0, 0,
+			// Image capability
+			SPIRVOpCapability, IC,
+			// Memory model
+			SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
+		};
+		auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+
+        err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
+        ASSERT_EQ(CL_INVALID_PROGRAM, err)
+            << "Unexpected retcode for a device w\\o image support.\n";
+    }
 }
 
 int main(int argc, char** argv)
