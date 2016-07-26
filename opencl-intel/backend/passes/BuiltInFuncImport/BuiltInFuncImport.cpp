@@ -216,10 +216,9 @@ namespace intel {
       Explore(&func);
     }
 
-    // nuke the unused functions so we can materializeAll() quickly
-    auto CleanUnused = [](Module *src_module,
-                          const Module* dst_module,
-                          SmallVector<Module*, 2>runtimeModuleList)
+    // nuke the unused globals so we can materializeAll() quickly
+    auto CleanUnusedGlobals = [](Module *src_module,
+      SmallVector<Module*, 2>runtimeModuleList)
     {
       // Linker by default imports all globals, hence the functions that are stored
       // as fp pointer there. To workaround this we delete unneeded GVs from src_module.
@@ -241,7 +240,11 @@ namespace intel {
           }
         }
       }
+    };
 
+    // nuke the unused functions so we can materializeAll() quickly
+    auto CleanUnusedFunctions = [](Module *src_module)
+    {
       for (auto I = src_module->begin(), E = src_module->end(); I != E; )
       {
         auto *F = &(*I++);
@@ -256,10 +259,33 @@ namespace intel {
     };
 
     for (auto rtlModule : m_runtimeModuleList)
-    {
-      CleanUnused(rtlModule, &M, m_runtimeModuleList);
+      CleanUnusedGlobals(rtlModule, m_runtimeModuleList);
 
-      verifyModule(*rtlModule, &errs());
+    // Collect the functions mentioned in the globals.
+    TFunctionsVec glbsFuncList;
+    for (auto rtlModule : m_runtimeModuleList)
+      for (auto &GV : rtlModule->globals())
+        if (GV.hasInitializer())
+          if (auto CA = dyn_cast<ConstantArray>(GV.getInitializer()))
+            for (auto &operand : CA->operands())
+            {
+              auto func = dyn_cast<Function>(operand);
+              if (!func->isDeclaration())
+                glbsFuncList.push_back(func);
+            }
+
+    // Explore those functions
+    for (auto func : glbsFuncList)
+    {
+      func->materialize();
+      Explore(func);
+    }
+
+    for (auto rtlModule : m_runtimeModuleList)
+    {
+      CleanUnusedFunctions(rtlModule);
+
+      assert(!verifyModule(*rtlModule, &errs()) && "I broke this module!");
     }
 
     for (auto rtlModule : m_runtimeModuleList)
