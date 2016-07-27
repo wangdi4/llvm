@@ -43,7 +43,7 @@ namespace intel {
     : ModulePass(ID), m_cpuPrefix(CPUPrefix)
   { }
 
-  Function* BIImport::FindFunctionBodyInModules(const std::string& funcName)
+  Function* BIImport::FindFunctionBodyInModules(const std::string& funcName) const
   {
     for (auto rtModule : m_runtimeModuleList)
     {
@@ -60,7 +60,7 @@ namespace intel {
 
   // this function replaces keyword "shared" in the builtin name by current CPU prefix, for example:
   // if CPU is l9, __ocl_svml_shared_acos1f to be changed to __ocl_svml_l9_acos1f
-  static void UpdateSvmlBuiltinName(Function* fn, const char* pCPUPrefix)
+  void BIImport::UpdateSvmlBuiltinName(Function* fn, const char* pCPUPrefix) const
   {
     llvm::StringRef fName = fn->getName();
     if (fName.startswith("__ocl_svml_shared"))
@@ -71,7 +71,7 @@ namespace intel {
     }
   }
 
-  void BIImport::GetCalledFunctions(const Function* pFunc, TFunctionsVec& calledFuncs)
+  void BIImport::GetCalledFunctions(const Function* pFunc, TFunctionsVec& calledFuncs) const
   {
     TFunctionsSet visitedSet;
 
@@ -117,20 +117,45 @@ namespace intel {
     return v->materialized_use_begin() == v->use_end();
   }
 
-  void BIImport::CleanUnusedFunctions()
+  // nuke the unused globals so we could materializeAll() quickly
+  void BIImport::CleanUnusedGlobalsInitializers (Module *src_module) const
   {
-    for (auto rtlModule : m_runtimeModuleList)
-      for (auto I = rtlModule->begin(), E = rtlModule->end(); I != E; )
-      {
-        auto *F = &(*I++);
-        if (F->isDeclaration() || F->isMaterializable())
+    // Linker by default imports all globals, hence the functions that are stored
+    // as fp pointer there. To workaround this we delete unneeded GVs from src_module.
+    for (auto &GV : src_module->globals())
+    {
+      if (GV.hasInitializer()) {
+        bool has_materialized_uses_in_rt_modules = false;
+        for (auto M : m_runtimeModuleList)
         {
-          if (materialized_use_empty(F))
-          {
-            F->eraseFromParent();
-          }
+          auto srsGv = M->getGlobalVariable(GV.getName());
+          if (srsGv && !materialized_use_empty(srsGv))
+            has_materialized_uses_in_rt_modules |= true;
+        }
+        if (!has_materialized_uses_in_rt_modules) {
+          Constant *Init = GV.getInitializer();
+          GV.setInitializer(nullptr);
+          if (isSafeToDestroyConstant(Init))
+            Init->destroyConstant();
         }
       }
+    }
+  }
+
+  // nuke the unused functions so we could materializeAll() quickly
+  void BIImport::CleanUnusedFunctionsBodies (Module *src_module) const
+  {
+    for (auto I = src_module->begin(), E = src_module->end(); I != E; )
+    {
+      auto *F = &(*I++);
+      if (F->isDeclaration() || F->isMaterializable())
+      {
+        if (materialized_use_empty(F))
+        {
+          F->deleteBody();
+        }
+      }
+    }
   }
 
   bool BIImport::runOnModule(Module &M) {
@@ -216,50 +241,9 @@ namespace intel {
       Explore(&func);
     }
 
-    // nuke the unused globals so we can materializeAll() quickly
-    auto CleanUnusedGlobals = [](Module *src_module,
-      SmallVector<Module*, 2>runtimeModuleList)
-    {
-      // Linker by default imports all globals, hence the functions that are stored
-      // as fp pointer there. To workaround this we delete unneeded GVs from src_module.
-      for (auto &GV : src_module->globals())
-      {
-        if (GV.hasInitializer()) {
-          bool has_materialized_uses_in_rt_modules = false;
-          for (auto M : runtimeModuleList)
-          {
-            auto srsGv = M->getGlobalVariable(GV.getName());
-            if (srsGv && !materialized_use_empty(srsGv))
-              has_materialized_uses_in_rt_modules |= true;
-          }
-          if (!has_materialized_uses_in_rt_modules) {
-            Constant *Init = GV.getInitializer();
-            GV.setInitializer(nullptr);
-            if (isSafeToDestroyConstant(Init))
-              Init->destroyConstant();
-          }
-        }
-      }
-    };
-
-    // nuke the unused functions so we can materializeAll() quickly
-    auto CleanUnusedFunctions = [](Module *src_module)
-    {
-      for (auto I = src_module->begin(), E = src_module->end(); I != E; )
-      {
-        auto *F = &(*I++);
-        if (F->isDeclaration() || F->isMaterializable())
-        {
-          if (materialized_use_empty(F))
-          {
-            F->deleteBody();
-          }
-        }
-      }
-    };
-
+    // nuke the unused globals so we could materializeAll() quickly
     for (auto rtlModule : m_runtimeModuleList)
-      CleanUnusedGlobals(rtlModule, m_runtimeModuleList);
+      CleanUnusedGlobalsInitializers(rtlModule);
 
     // Collect the functions mentioned in the globals.
     TFunctionsVec glbsFuncList;
@@ -281,16 +265,14 @@ namespace intel {
       Explore(func);
     }
 
+    // nuke the unused functions so we could materializeAll() quickly
     for (auto rtlModule : m_runtimeModuleList)
-    {
-      CleanUnusedFunctions(rtlModule);
-
-      assert(!verifyModule(*rtlModule, &errs()) && "I broke this module!");
-    }
+      CleanUnusedFunctionsBodies(rtlModule);
 
     for (auto rtlModule : m_runtimeModuleList)
       rtlModule->materializeAll();
 
+    // now perform the linking itself
     Linker ld(M);
 
     for (auto &rtlModule : rtlModulesList)

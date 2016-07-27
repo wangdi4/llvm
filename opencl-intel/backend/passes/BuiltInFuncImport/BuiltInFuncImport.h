@@ -50,20 +50,31 @@ namespace intel {
     }
 
   protected:
-    /// @brief Deletes functions with empty materialized users list
-    void CleanUnusedFunctions();
+    /// @brief nuke the unused globals so we could materializeAll() quickly
+    /// @param [IN] src_module RTL module to process
+    void CleanUnusedGlobalsInitializers(Module *src_module) const;
+
+    /// @brief nuke the unused functions so we could materializeAll() quickly
+    /// @param [IN] src_module RTL module to process
+    void CleanUnusedFunctionsBodies(Module *src_module) const;
+
+    /// @brief update svml function names from shared libraries to reflect cpu prefix
+    /// @param [IN] fn function to process
+    /// @param [IN] pCPUPrefix prefix that will replace 'shared' substr
+    void UpdateSvmlBuiltinName(Function* fn, const char* pCPUPrefix) const;
 
     /// @brief Get all the functions called by given function.
     /// @param [IN] pFunc The given function.
     /// @param [OUT] calledFuncs The list of all functions called by pFunc.
-    void GetCalledFunctions(const Function* pFunc, TFunctionsVec& calledFuncs);
+    void GetCalledFunctions(const Function* pFunc, TFunctionsVec& calledFuncs) const;
 
     /// @brief Find functions in the list of RTL builtin modules
     /// @param [IN] funcName name of the function to find
     /// @return found function, it is either materialized or materialazible, or nullptr otherwise
-    Function* FindFunctionBodyInModules(const std::string& funcName);
+    Function* FindFunctionBodyInModules(const std::string& funcName) const;
 
   protected:
+    /// holds cpu perfix that would replace 'shared' substr in svml funcs
     const std::string m_cpuPrefix;
 
     /// Source module list - contains the source functions to import
