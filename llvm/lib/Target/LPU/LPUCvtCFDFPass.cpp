@@ -248,11 +248,7 @@ void LPUCvtCFDFPass::releaseMemory() {
 
 void LPUCvtCFDFPass::replacePhiWithPICK() {
   replaceLoopHdrPhi();
-#if 0
-  replaceIfFooterPhi();
-#else
   replaceIfFooterPhiSeq();
-#endif
 }
 
 //return the first non latch parent found or NULL
@@ -901,55 +897,50 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
       MachineInstr *MI = iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
-      assert(MI->getNumOperands() == 5 && "loop header Phi can't have more than 2 inputs");
-      unsigned pickSrc[2] = { 0 };
-      for (MIOperands MO(MI); MO.isValid(); ++MO) {
-        //if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+      //assert(MI->getNumOperands() == 5 && "loop header Phi can't have more than 2 inputs");
+			unsigned numUse = 0;
+			MachineOperand* backEdgeInput = nullptr;
+			MachineOperand* initInput = nullptr;
+			unsigned numOpnd = 0;
+			unsigned backEdgeIndex = 0;
+			unsigned dst = MI->getOperand(0).getReg();
+      for (MIOperands MO(MI); MO.isValid(); ++MO, ++numOpnd) {
         if (!MO->isReg()) continue;
         unsigned Reg = MO->getReg();
         // process use at loop level
         if (MO->isUse()) {
-          MachineInstr* dMI = MRI->getVRegDef(Reg);
-          MachineBasicBlock* DefBB = dMI->getParent();
-          bool defInsideLoop = false;
-          if (MLI->getLoopFor(DefBB)) {
-            if (MLI->getLoopFor(DefBB) == mloop) {
-              defInsideLoop = true;
-            } else {
-              //switch dst is defined in an inner loop, but used in the current loop
-              MachineLoop* defLoop = MLI->getLoopFor(DefBB);
-              while (defLoop->getParentLoop()) {
-                defLoop = defLoop->getParentLoop();
-                if (defLoop == mloop) {
-                  defInsideLoop = true;
-                  break;
-                }
-              }
-            }
-          }
-          //if (DefBB == mbb) continue;
-          //0 index is for init value, 1 for backedge value
-          if (!defInsideLoop) {
-            //def out side the loop
-            pickSrc[0] = Reg;
-          } else {
-            //nothing can be assumed due to the Latch block without exit edge
-            //inside loop def must come from a switch in the latch
-            //assert(DefBB == mloop->getLoopLatch() && (TII.isSwitch(dMI)|| TII.isCopy(dMI)));
-            pickSrc[1] = Reg;
-          }
+					++numUse;
+					MachineOperand& mOpnd = *MO;
+					++MO;
+					++numOpnd;
+					MachineBasicBlock* inBB = MO->getMBB();
+					if (inBB == latchBB) {
+						backEdgeInput = &mOpnd;
+						backEdgeIndex = numOpnd - 1;
+					}	else {
+						initInput = &mOpnd;
+					}
         }
       } //end for MO
-      assert(pickSrc[0] && pickSrc[1]);
-      unsigned pickFalseReg, pickTrueReg;
+			if (numUse > 2) {
+				//loop hdr phi has more than 2 inputs
+				initInput = &MI->getOperand(0);
+				const TargetRegisterClass *TRC = MRI->getRegClass(MI->getOperand(0).getReg());
+				unsigned renameReg = MRI->createVirtualRegister(TRC);
+				initInput->setReg(renameReg);
+				MI->RemoveOperand(backEdgeIndex);
+				MI->RemoveOperand(backEdgeIndex);
+			}
+			MachineOperand* pickFalse;
+			MachineOperand* pickTrue;
       if (latchBB->succ_size() > 1) {
         assert(mLatch->isChild(*DTN));
         if (mLatch->isFalseChild(*DTN)) {
-          pickFalseReg = pickSrc[1];
-          pickTrueReg = pickSrc[0];
+          pickFalse = backEdgeInput;
+          pickTrue = initInput;
         } else {
-          pickTrueReg = pickSrc[1];
-          pickFalseReg = pickSrc[0];
+          pickTrue = backEdgeInput;
+          pickFalse = initInput;
         }
       } else {
         //LLVM 3.6 buggy latch, loop with > 1 exits
@@ -959,23 +950,36 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
         ControlDependenceNode* ctrlNode = *latchNode->parent_begin();
         MachineInstr* bi = ctrlNode->getBlock()->getFirstInstrTerminator();
         if (CDG->getEdgeType(bi->getParent(), latchBB, true) == ControlDependenceNode::FALSE) {
-          pickFalseReg = pickSrc[1];
-          pickTrueReg = pickSrc[0];
+					pickFalse = backEdgeInput;
+					pickTrue = initInput;
         } else {
-          pickTrueReg = pickSrc[1];
-          pickFalseReg = pickSrc[0];
+					pickTrue = backEdgeInput;
+          pickFalse = initInput;
         }
       }
       unsigned predReg = (*predCpy)[0]->getOperand(0).getReg();
-      unsigned dst = MI->getOperand(0).getReg();
       const TargetRegisterClass *TRC = MRI->getRegClass(dst);
       const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
       //generate PICK, and insert before MI
-      MachineInstr *pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).
-                                        addReg(predReg).
-                                        addReg(pickFalseReg).addReg(pickTrueReg);
-      pickInst->setFlag(MachineInstr::NonSequential);
-      MI->removeFromParent();
+			MachineInstr *pickInst = nullptr;
+			if (pickFalse->isReg() && pickTrue->isReg()) {
+				pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+					                  addReg(pickFalse->getReg()).addReg(pickTrue->getReg());
+			}	else if (pickFalse->isReg()) {
+				pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+					                  addReg(pickFalse->getReg()).addOperand(*pickTrue);
+			}	else if (pickTrue->isReg()) {
+				pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+														addOperand(*pickFalse).addReg(pickTrue->getReg());
+			}	else {
+				pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+				                  	addOperand(*pickFalse).addOperand(*pickTrue);
+			}
+      
+			pickInst->setFlag(MachineInstr::NonSequential);
+			if (numUse == 2) {
+				MI->removeFromParent();
+			}
     }
   }
 }
