@@ -293,6 +293,9 @@ void createProgramWithBinary(cl_program* program, cl_context context, cl_uint nu
 // createKernel - calls and validates clCreateKernel
 void createKernel(cl_kernel* kernel , cl_program program, const char *kernel_name);
 
+// cloneKernel - calls and validates clCloneKernel
+void cloneKernel(cl_kernel* new_kernel, cl_kernel source_kernel);
+
 // createKernelsInProgram - calls and validates clCreateKernelsInProgram
 void createKernelsInProgram(cl_program program, cl_uint num_kernels, cl_kernel *kernels, cl_uint *num_kernels_ret);
 

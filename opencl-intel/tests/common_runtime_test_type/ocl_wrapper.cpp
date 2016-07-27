@@ -351,6 +351,7 @@ void buildProgram (cl_program* program, cl_uint num_devices, const cl_device_id 
             cl_build_status build_status;
             // check which device failed in build
             cl_uint chosen_device;
+            bool chosen = false;
             for (chosen_device = 0; chosen_device < num_devices; chosen_device++)
             {
                 logStatus = clGetProgramBuildInfo(*program, device_list[chosen_device], CL_PROGRAM_BUILD_STATUS, sizeof(build_status), &build_status, NULL);
@@ -359,27 +360,25 @@ void buildProgram (cl_program* program, cl_uint num_devices, const cl_device_id 
                 if (build_status != CL_BUILD_SUCCESS)
                 {
                     // found a failing device
-                    break;
+                    chosen = true;
+                    //	prints build fail log
+                    char * buildLog = NULL;
+                    size_t buildLogSize = 0;
+                    logStatus = clGetProgramBuildInfo(*program, device_list[chosen_device], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, &buildLogSize);
+
+                    buildLog = (char*) malloc(buildLogSize);
+                    memset(buildLog, 0, buildLogSize);
+
+                    logStatus = clGetProgramBuildInfo(*program, device_list[chosen_device], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL);
+
+                    std::cout << " \n\t\t\tBUILD LOG for device #" << chosen_device << "\n";
+                    std::cout << " ************************************************\n";
+                    std::cout << buildLog << std::endl;
+                    std::cout << " ************************************************\n";
+                    free(buildLog);
                 }
             }
-
-            ASSERT_TRUE(chosen_device < num_devices)  << "All devices reported build success while clBuildProgram reported failure";
-
-			//	prints build fail log
-			char * buildLog = NULL;
-			size_t buildLogSize = 0;
-			logStatus = clGetProgramBuildInfo(*program, device_list[chosen_device], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, &buildLogSize);
-
-			buildLog = (char*) malloc(buildLogSize);
-			memset(buildLog, 0, buildLogSize);
-
-			logStatus = clGetProgramBuildInfo(*program, device_list[chosen_device], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL);
-
-			std::cout << " \n\t\t\tBUILD LOG\n";
-			std::cout << " ************************************************\n";
-			std::cout << buildLog << std::endl;
-			std::cout << " ************************************************\n";
-			free(buildLog);
+            ASSERT_TRUE(chosen)  << "All devices reported build success while clBuildProgram reported failure";
 		}
 	}
 	ASSERT_EQ(CL_SUCCESS, errcode_ret)  << "clBuildProgram failed";
@@ -565,6 +564,18 @@ void createKernel(cl_kernel* kernel , cl_program program, const char *kernel_nam
 	*kernel = clCreateKernel (program, kernel_name, &errcode_ret);
 	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateKernel failed";
 	ASSERT_NE((cl_kernel)0, *kernel) << "clCreateKernel returned 0 as kernel value";
+}
+
+// cloneKernel - calls and validates clCloneKernel
+void cloneKernel(cl_kernel* new_kernel, cl_kernel source_kernel)
+{
+    if(NULL==new_kernel){
+        ASSERT_TRUE(false) << "Null argument provided";
+    }
+    cl_int errcode_ret = CL_SUCCESS;
+    *new_kernel = clCloneKernel(source_kernel, &errcode_ret);
+    ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCloneKernel failed";
+    ASSERT_NE((cl_kernel)0, *new_kernel) << "clCloneKernel returned 0 as kernel value";
 }
 
 // createKernelsInProgram - calls and validates clCreateKernelsInProgram
