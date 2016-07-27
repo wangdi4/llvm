@@ -55,10 +55,10 @@ RunSXU("lpu-run-sxu", cl::Hidden,
 //
 //   0: No extra code added at all for ordering.  Often incorrect.
 //   1: Linear ordering of all memops.  Dumb but should be correct.
-//   2: Intra-basic-block.   Stores inside a basic block are totally ordered.
-//                           Loads ordered between the stores, but
-//                           unorderd with respect to each other.
-//                           No reordering across basic blocks.
+//   2: Wavefront.   Stores inside a basic block are totally ordered.
+//                   Loads ordered between the stores, but
+//                   unordered with respect to each other.
+//                   No reordering across basic blocks.
 //   3: Aggressive.  Reordering allowed based on other compiler info.
 //
 static cl::opt<int>
@@ -66,6 +66,17 @@ OrderMemops("lpu-order-memops", cl::Hidden,
             cl::desc("LPU Specific: Order memory operations"),
             cl::init(0));
 
+
+// The register class we are going to use for all the memory-op
+// dependencies.  Technically they could be I0, but I don't know how
+// happy LLVM will be with that.
+const TargetRegisterClass* MemopRC = &LPU::I1RegClass;
+
+
+// Width of vectors we are using for memory op calculations.
+// TBD(jsukha): As far as I know, this value only affects performance,
+// not correctness? 
+#define MEMDEP_VEC_WIDTH 8
 
 #define DEBUG_TYPE "lpu-cvt-cf-df-pass"
 
@@ -126,7 +137,52 @@ namespace llvm {
                                     const LPUInstrInfo& TII,
                                     unsigned issued_reg,
                                     unsigned ready_reg);
-    
+
+    // Create a dependency chain in virtual registers through the
+    // basic block BB.
+    //
+    //   mem_in_reg is the virtual register number being used as
+    //   input, i.e., the "source" for all the memory ops in this
+    //   block.
+    //
+    //   This function returns the virtual register that is the "sink"
+    //   of all the memory operations in this block.  The returned
+    //   register might be the same as the source "mem_in_reg" if
+    //   there are no memory operations in this block.
+    //
+    // This method also converts the LD/ST instructions into OLD/OST
+    // instructions, as they are encountered.
+    //
+    // linear version of this function links all memory operations in
+    // the block together in a single chain.
+    //
+    unsigned convert_block_memops_linear(MachineFunction::iterator& BB,
+                                         unsigned mem_in_reg);
+
+    // Wavefront version.   Same conceptual functionality as linear version,
+    // but more optimized.
+    //
+    // Only serializes stores in a block, but allows loads to occur in
+    // parallel between stores.
+    unsigned convert_block_memops_wavefront(MachineFunction::iterator& BB,
+                                            unsigned mem_in_reg);
+
+    // Merge all the .i1 registers stored in "current_wavefront" into
+    // a single output register.
+    // Returns the output register, or "input_mem_reg" if
+    // current_wavefront is empty.
+    //
+    // Note that this method has several side-effects:
+    //  (a) It inserts the merge instructions after
+    //      instruction MI in BB, or before the last terminator in the
+    //      block if MI == NULL, and
+    //  (b) It clears current_wavefront.
+    unsigned merge_dependency_signals(MachineFunction::iterator& BB,
+                                      MachineInstr* MI,
+                                      SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
+                                      unsigned input_mem_reg);
+
+      
     void createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsigned>& blockToMemIn,
                                  DenseMap<MachineBasicBlock*, unsigned>& blockToMemOut);
     
@@ -1494,84 +1550,259 @@ void LPUCvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsign
                                                  
 
 
+unsigned LPUCvtCFDFPass::convert_block_memops_linear(MachineFunction::iterator& BB,
+                                                     unsigned mem_in_reg) 
+
+{
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  
+  unsigned current_mem_reg = mem_in_reg;
+  
+  MachineBasicBlock::iterator iterMI = BB->begin();
+  while (iterMI != BB->end()) {
+    MachineInstr* MI = iterMI;
+    DEBUG(errs() << "Found instruction: " << *MI << "\n");
+
+    unsigned current_opcode = MI->getOpcode();
+    unsigned converted_opcode = TII.get_ordered_opcode_for_LDST(current_opcode);
+
+    if (current_opcode != converted_opcode) {
+      // TBD(jsukha): For now, we are just going to create a linear
+      // chain of dependencies for memory instructions within a
+      // basic block.
+      //
+      // We will want to optimize this implementation further, but
+      // this is the simple version for now.
+      unsigned next_mem_reg = MRI->createVirtualRegister(MemopRC);
+
+      convert_memop_ins(MI,
+                        converted_opcode,
+                        TII,
+                        next_mem_reg,
+                        current_mem_reg);
+
+      // Erase the old instruction.
+      iterMI = BB->erase(iterMI);
+
+      // Advance the chain.
+      current_mem_reg = next_mem_reg;
+    }
+    else {
+      ++iterMI;
+    }
+  }
+
+  return current_mem_reg;
+}
+
+
+unsigned LPUCvtCFDFPass::merge_dependency_signals(MachineFunction::iterator& BB,
+                                                  MachineInstr* MI,
+                                                  SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
+                                                  unsigned input_mem_reg) {
+
+  if (current_wavefront->size() > 0) {
+    const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+    MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+
+    DEBUG(errs() << "Merging dependency signals from " << current_wavefront->size() << " register " << "\n");
+
+    // BFS-like algorithm for merging the registers together.
+    // Merge consecutive pairs of dependency signals together, 
+    // and push the output into "next_level".
+    SmallVector<unsigned, MEMDEP_VEC_WIDTH> tmp_buffer;
+    SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_level;
+    SmallVector<unsigned, MEMDEP_VEC_WIDTH>* next_level;
+
+    current_level = current_wavefront;
+    next_level = &tmp_buffer;
+
+    while (current_level->size() > 1) {
+      assert(next_level->size() == 0);
+      for (unsigned i = 0; i < current_level->size(); i+=2) {
+        // Merge current_level[i] and current_level[i+1] into
+        // next_level[i/2]
+        if ((i+1) < current_level->size()) {
+
+          // Even case: we have a pair to merge.  Create a virtual
+          // register + instruction to do the merge.
+          unsigned next_out_reg = MRI->createVirtualRegister(MemopRC);
+          MachineInstr* new_inst;
+          if (MI) {
+            new_inst = BuildMI(*MI->getParent(),
+                               MI,
+                               MI->getDebugLoc(),
+                               TII.get(LPU::MERGE1),
+                               next_out_reg).addImm(0).addReg((*current_level)[i]).addReg((*current_level)[i+1]);
+          }
+          else {
+            // Adding a merge at the end of the block.
+            new_inst = BuildMI(*BB,
+                               BB->getFirstTerminator(),
+                               DebugLoc(),
+                               TII.get(LPU::MERGE1),
+                               next_out_reg).addImm(0).addReg((*current_level)[i]).addReg((*current_level)[i+1]);
+          }
+          DEBUG(errs() << "Inserted dependecy merge instruction " << *new_inst << "\n");
+          next_level->push_back(next_out_reg);
+        }
+        else {
+          // In an odd case, just pass register through to next level.
+          next_level->push_back((*current_level)[i]);
+        }
+      }
+
+      // Swap next and current.
+      SmallVector<unsigned, MEMDEP_VEC_WIDTH>* tmp = current_level;
+      current_level = next_level;
+      next_level = tmp;
+      next_level->clear();
+
+      DEBUG(errs() << "Current level size is now " << current_level->size() << "\n");
+      DEBUG(errs() << "Next level size is now " << next_level->size() << "\n");
+    }
+
+    assert(current_level->size() == 1);
+    unsigned ans = (*current_level)[0];
+
+    // Clear both vectors, just to be certain.
+    current_level->clear();
+    next_level->clear();
+    
+    return ans;
+  }
+  else {
+    return input_mem_reg;
+  }
+}
+
+
+
+unsigned LPUCvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterator& BB,
+                                                        unsigned mem_in_reg) 
+{
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+
+  unsigned current_mem_reg = mem_in_reg;
+  SmallVector<unsigned, MEMDEP_VEC_WIDTH> current_wavefront;
+  current_wavefront.clear();
+  DEBUG(errs() << "Wavefront memory ordering for block " << BB << "\n");
+  
+  MachineBasicBlock::iterator iterMI = BB->begin();
+  while (iterMI != BB->end()) {
+    MachineInstr* MI = iterMI;
+    DEBUG(errs() << "Found instruction: " << *MI << "\n");
+
+    unsigned current_opcode = MI->getOpcode();
+    unsigned converted_opcode = TII.get_ordered_opcode_for_LDST(current_opcode);
+
+    bool is_store = TII.isStore(MI);
+
+    if (current_opcode != converted_opcode) {
+      // Create a register for the "issued" output of this memory
+      // operation.
+      unsigned next_out_reg = MRI->createVirtualRegister(MemopRC);
+
+      if (is_store) {
+        // If there were any loads in the last interval, merge all
+        // their outputs into one output, and change the latest
+        // source.
+        if (current_wavefront.size() > 0) {
+          current_mem_reg = merge_dependency_signals(BB,
+                                                     MI,
+                                                     &current_wavefront,
+                                                     current_mem_reg);
+          assert(current_wavefront.size() == 0);
+        }
+      }
+      else {
+        // Just a load. Build up the set of load outputs that we
+        // depend on.
+        assert(TII.isLoad(MI));
+        current_wavefront.push_back(next_out_reg);
+      }
+
+      convert_memop_ins(MI,
+                        converted_opcode,
+                        TII,
+                        next_out_reg,
+                        current_mem_reg);
+
+      if (is_store) {
+        current_mem_reg = next_out_reg;
+      }
+      
+      // Erase the old instruction.
+      iterMI = BB->erase(iterMI);
+    }
+    else {
+      ++iterMI;
+    }
+  }
+
+  // Sink any loads at the end of the block to the end of the block.
+  current_mem_reg = merge_dependency_signals(BB,
+                                             NULL,
+                                             &current_wavefront,
+                                             current_mem_reg);
+
+  return current_mem_reg;
+}
+
+
 
 void LPUCvtCFDFPass::addMemoryOrderingConstraints() {
-  assert((OrderMemops == 1) && "Only linear memory ordering implemented now.");
+
   const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 
   DenseMap<MachineBasicBlock*, unsigned> blockToMemIn;
   DenseMap<MachineBasicBlock*, unsigned> blockToMemOut;
   
-  // The register class we are going to use for all the memory-op
-  // dependencies.  Technically they could be I0, but I don't know how
-  // happy LLVM will be with that.
-  const TargetRegisterClass* memop_RC = &LPU::I1RegClass;
 
   DEBUG(errs() << "Before addMemoryOrderingConstraints");
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
 
     // Create a virtual register for the block input.
-    unsigned mem_in_reg = MRI->createVirtualRegister(memop_RC);
-    // TBD: I need an "invalid" virtual register number.  Is "IGN" a
-    // good one?
-    unsigned mem_out_reg = LPU::IGN;
+    unsigned mem_in_reg = MRI->createVirtualRegister(MemopRC);
+    unsigned last_mem_reg;
 
-    unsigned current_mem_reg = mem_in_reg;
-    unsigned next_mem_reg = LPU::IGN;
+    // Link all the memory ops in BB together.
+    // Return the name of the last output register (which could be
+    // mem_in_reg).
 
-    MachineBasicBlock::iterator iterMI = BB->begin();
-    while (iterMI != BB->end()) {
-      MachineInstr* MI = iterMI;
-      DEBUG(errs() << "Found instruction: " << *MI << "\n");
+    if (OrderMemops == 2) {
+      last_mem_reg = convert_block_memops_wavefront(BB,
+                                                    mem_in_reg);
+    }
+    else if (OrderMemops == 1) {
+      last_mem_reg = convert_block_memops_linear(BB,
+                                                 mem_in_reg);
 
-      unsigned current_opcode = MI->getOpcode();
-      unsigned converted_opcode = TII.get_ordered_opcode_for_LDST(current_opcode);
-
-      if (current_opcode != converted_opcode) {
-        // TBD(jsukha): For now, we are just going to create a linear
-        // chain of dependencies for memory instructions within a
-        // basic block.
-        //
-        // We will want to optimize this implementation further, but
-        // this is the simple version for now.
-        
-        next_mem_reg = MRI->createVirtualRegister(memop_RC);
-        
-        convert_memop_ins(MI,
-                          converted_opcode,
-                          TII,
-                          next_mem_reg,
-                          current_mem_reg);
-        
-        // Erase the old instruction.
-        iterMI = BB->erase(iterMI);
-
-        // Advance the chain.
-        current_mem_reg = next_mem_reg;
-        next_mem_reg = LPU::IGN;
-      }
-      else {
-        ++iterMI;
-      }
+    }
+    else {
+      // ERROR: unsupported memory ordering. 
+      assert(((OrderMemops ==1) || (OrderMemops == 2))
+             && "Only linear and wavefront memory ordering implemented now.");
     }
 
-    // Now that the block has ended, create the mem_out register.
-    // and connect "current_mem_reg" to "next_mem_reg".
-    //
-    // TBD(jsukha): For now, I'm just going to do this operation
-    // with a mov1.  I don't know if some other instruction will be
-    // better.
-    mem_out_reg = MRI->createVirtualRegister(memop_RC);
+    // Create a last (virtual) register for the output of the block.
+    unsigned mem_out_reg = MRI->createVirtualRegister(MemopRC);
 
     // This operation creates an instruction before the terminating
     // instruction in the block that moves the contents of the last
     // "issued" flag in the block into the mem_out register.
+    //
+    // TBD(jsukha): For now, I'm just going to do this operation
+    // with a mov1.  I don't know if some other instruction will be
+    // better.
     MachineInstr* mem_out_def = BuildMI(*BB,
                                         BB->getFirstTerminator(),
                                         DebugLoc(),
                                         TII.get(LPU::MOV1),
-                                        mem_out_reg).addReg(current_mem_reg);
+                                        mem_out_reg).addReg(last_mem_reg);
 
     DEBUG(errs() << "Inserted mem_out_def instruction " << *mem_out_def << "\n");
 
@@ -1583,7 +1814,7 @@ void LPUCvtCFDFPass::addMemoryOrderingConstraints() {
 
     DEBUG(errs() << "After memop conversion of function: " << *BB << "\n");
   }
-
+  
   // Another walk over basic blocks: add in definitions for mem_in
   // register for each block, based on predecessors.
   createMemInRegisterDefs(blockToMemIn, blockToMemOut);
