@@ -123,7 +123,6 @@ class OpenMPCodeOutliner {
   typedef llvm::SmallVector<ArraySectionDataTy, 4> ArraySectionTy;
   CodeGenFunction &CGF;
   StringRef End;
-  bool WithListEnd = true;
   llvm::Function *IntelDirective = nullptr;
   llvm::Function *IntelSimpleClause = nullptr;
   llvm::Function *IntelOpndClause = nullptr;
@@ -488,10 +487,8 @@ public:
     if (!End.empty()) {
       addArg(End);
       emitDirective();
-      if (WithListEnd) {
-        addArg("DIR.QUAL.LIST.END");
-        emitDirective();
-      }
+      addArg("DIR.QUAL.LIST.END");
+      emitDirective();
     }
   }
   void emitOMPParallelDirective() {
@@ -510,7 +507,6 @@ public:
     emitDirective();
   }
   void emitOMPAtomicDirective(OMPAtomicClause ClauseKind) {
-    WithListEnd = false;
     End = "DIR.OMP.END.ATOMIC";
     addArg("DIR.OMP.ATOMIC");
     emitDirective();
@@ -544,25 +540,21 @@ public:
     emitSimpleClause();
   }
   void emitOMPSingleDirective() {
-    WithListEnd = false;
     End = "DIR.OMP.END.SINGLE";
     addArg("DIR.OMP.SINGLE");
     emitDirective();
   }
   void emitOMPMasterDirective() {
-    WithListEnd = false;
     End = "DIR.OMP.END.MASTER";
     addArg("DIR.OMP.MASTER");
     emitDirective();
   }
   void emitOMPCriticalDirective() {
-    WithListEnd = false;
     End = "DIR.OMP.END.CRITICAL";
     addArg("DIR.OMP.CRITICAL");
     emitDirective();
   }
   void emitOMPOrderedDirective() {
-    WithListEnd = false;
     End = "DIR.OMP.END.ORDERED";
     addArg("DIR.OMP.ORDERED");
     emitDirective();
@@ -714,7 +706,6 @@ public:
 void CodeGenFunction::EmitIntelOpenMPDirective(
     const OMPExecutableDirective &S) {
   OpenMPCodeOutliner Outliner(*this);
-  bool DumpClauses = true;
   switch (S.getDirectiveKind()) {
   case OMPD_parallel:
     Outliner.emitOMPParallelDirective();
@@ -726,7 +717,6 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     Outliner.emitOMPSIMDDirective();
     break;
   case OMPD_atomic: {
-    DumpClauses = false;
     bool IsSeqCst = S.hasClausesOfKind<OMPSeqCstClause>();
     OMPAtomicClause ClauseKind = IsSeqCst ? OMP_update_seq_cst : OMP_update;
     if (S.hasClausesOfKind<OMPReadClause>())
@@ -739,19 +729,15 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     break;
   }
   case OMPD_single:
-    DumpClauses = false;
     Outliner.emitOMPSingleDirective();
     break;
   case OMPD_master:
-    DumpClauses = false;
     Outliner.emitOMPMasterDirective();
     break;
   case OMPD_critical:
-    DumpClauses = false;
     Outliner.emitOMPCriticalDirective();
     break;
   case OMPD_ordered:
-    DumpClauses = false;
     Outliner.emitOMPOrderedDirective();
     break;
   case OMPD_target:
@@ -790,8 +776,7 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_unknown:
     llvm_unreachable("Wrong OpenMP directive");
   }
-  if (DumpClauses)
-    Outliner << S.clauses();
+  Outliner << S.clauses();
   if (S.hasAssociatedStmt()) {
     InlinedOpenMPRegionRAII Region(*this, S);
     CapturedStmtInfo->EmitBody(*this, S.getAssociatedStmt());
