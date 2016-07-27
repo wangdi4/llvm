@@ -228,7 +228,7 @@ set (LLVM_OPT_PARAMS -verify -scalarrepl -functionattrs)
 set (LLVM_IMAGES_OPT_PARAMS -verify -builtin-import -builtin-call-to-inst -verify -O3)
 
 # llvm-link parameters
-set (LLVM_LINK_PARAMS -f)
+set (LLVM_LINK_PARAMS -suppress-warnings)
 
 # llc parameters
 set (LLC_PARAMS -filetype=obj)
