@@ -134,8 +134,8 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
 
     const size_t sizes[2] = { size[0] / 2, size[1] / 2 };
     const void ** ptrs[4] = {
-        (const void **)svmp[0], (const void **)(svmp[0] + sizes[0]),
-        (const void **)svmp[1], (const void **)(svmp[1] + sizes[1])
+        (const void **)svmp[0], (const void **)((size_t *)svmp[0] + sizes[0]),
+        (const void **)svmp[1], (const void **)((size_t *)svmp[1] + sizes[1])
     };
     enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1, ptrs[0], (const size_t *)&sizes[0], NULL, 0, NULL, NULL);
     enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1, ptrs[1], (const size_t *)&sizes[0], NULL, 0, NULL, NULL);
