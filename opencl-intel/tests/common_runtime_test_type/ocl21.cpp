@@ -146,3 +146,50 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
     clSVMFree(ocl_descriptor.context, svmp[0]);
     clSVMFree(ocl_descriptor.context, svmp[1]);
 }
+
+//|	TEST: OCL21.clCloneKernel01
+//|
+//|	Purpose
+//|	-------
+//|	
+//|	Verify the ability to clone kernel objects for all kernel functions in a shared program
+//|
+//|	Method
+//|	------
+//|
+//|	1. Build program with source of 10 kernels on both CPU and GPU
+//|	2. Create 10 kernels for that program (will create for both CPU and GPU)
+//| 3. Clone all kernels
+//|	
+//|	Pass criteria
+//|	-------------
+//|
+//|	Verify that valid non-zero kernel objects are returned
+//|
+TEST_F(OCL21, clCloneKernel01) 
+{ 
+	// create OpenCL queues, program and context
+	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
+
+	cl_kernel kernels[10];
+    cl_kernel copied[10];
+	for(int i=0; i<10; ++i)
+	{
+		std::stringstream ss;
+		ss << "kernel_" << i;
+		// create kernels
+		kernels[i] = 0;
+		ASSERT_NO_FATAL_FAILURE(createKernel(&kernels[i], ocl_descriptor.program, ss.str().c_str()));
+	}
+
+    for(int i=0; i<10; ++i)
+    {
+        ASSERT_NO_FATAL_FAILURE(cloneKernel(&copied[i], kernels[i]));
+    }
+
+	for(int i=0; i<10; ++i)
+	{
+		clReleaseKernel(kernels[i]);
+        clReleaseKernel(copied[i]);
+	}
+}
