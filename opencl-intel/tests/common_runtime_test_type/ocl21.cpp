@@ -1,5 +1,5 @@
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -11,11 +11,13 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#include <cstring>
 #include "common_runtime_tests.h"
+#include "ocl21.h"
 
 class OCL21: public CommonRuntime{};
 
@@ -23,10 +25,10 @@ class OCL21: public CommonRuntime{};
 //|
 //|	Purpose
 //|	-------
-//|	
-//| Verify the ability to create program with il for shared context 
+//|
+//| Verify the ability to create program with IL for shared context
 //| Verify the ability to get IL from program
-//|	
+//|
 //|	Method
 //|	------
 //|
@@ -42,22 +44,21 @@ class OCL21: public CommonRuntime{};
 
 TEST_F(OCL21, clCreateProgramWithIL01)
 {
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "kernels/vector4_d.spir12_64"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "vector4_d.spir12_64"));
 
-    const char * kernelSource = NULL;
-	ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "kernels/vector4_d.spir12_64"));
+    const char * kernelSource = nullptr;
+	ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "vector4_d.spir12_64"));
 
-    void * il = NULL;
-    size_t ret;
+    void * il = nullptr;
+    size_t ret = 0;
 
     getProgramInfo(ocl_descriptor.program, CL_PROGRAM_IL, sizeof(void *), &il, &ret);
     ASSERT_EQ(sizeof(void *), ret);
-    ASSERT_EQ(sizeof(kernelSource), sizeof(il));
 
-    if (kernelSource != NULL)
+    if (kernelSource != nullptr)
     {
         delete[] kernelSource;
-        kernelSource = NULL;
+        kernelSource = nullptr;
     }
 }
 
@@ -65,9 +66,9 @@ TEST_F(OCL21, clCreateProgramWithIL01)
 //|
 //|	Purpose
 //|	-------
-//|	
+//|
 //| Verify the ability to migrate SVM mem to the same device more than once
-//|	
+//|
 //|	Method
 //|	------
 //|
@@ -84,17 +85,41 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem01)
 {
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
 
-    size_t size[2] = { 1024, 1024 };
-    void * svmp[2];
+    const size_t nsizes[2] = { 1024, 1024 };
+    const size_t bsizes[2] = { nsizes[0] * sizeof(int), nsizes[1] * sizeof(int) };
+    void * svmp[2] = { nullptr, nullptr };
+    int * refp[2] = { nullptr, nullptr };
 
-    svmp[0] = clSVMAlloc(ocl_descriptor.context, NULL, size[0], 0);
-    svmp[1] = clSVMAlloc(ocl_descriptor.context, NULL, size[1], 0);
+    refp[0] = new int[nsizes[0]];
+    refp[1] = new int[nsizes[1]];
 
-    ASSERT_FALSE(svmp[0] == NULL) << "clSVMAlloc failed";
-    ASSERT_FALSE(svmp[1] == NULL) << "clSVMAlloc failed";
+    ASSERT_FALSE(refp[0] == nullptr) << "new int[] failed";
+    ASSERT_FALSE(refp[1] == nullptr) << "new int[] failed";
 
-    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 2, (const void **)svmp, (const size_t *)size, NULL, 0, NULL, NULL);
-    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 2, (const void **)svmp, (const size_t *)size, NULL, 0, NULL, NULL);
+    svmp[0] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)nullptr, bsizes[0], 0);
+    svmp[1] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)nullptr, bsizes[1], 0);
+
+    ASSERT_FALSE(svmp[0] == nullptr) << "clSVMAlloc failed";
+    ASSERT_FALSE(svmp[1] == nullptr) << "clSVMAlloc failed";
+
+    fillMemory((int *)refp[0], nsizes[0], 0);
+    fillMemory((int *)refp[1], nsizes[1], 0);
+
+    fillMemory((int *)svmp[0], nsizes[0], 0);
+    fillMemory((int *)svmp[1], nsizes[1], 0);
+
+    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 2,
+        (const void **)svmp, (const size_t *)bsizes,
+        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
+    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 2,
+        (const void **)svmp, (const size_t *)bsizes,
+        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
+
+    ASSERT_TRUE(memcmp(refp[0], svmp[0], bsizes[0]) == 0) << "svmp[0] corrupted";
+    ASSERT_TRUE(memcmp(refp[1], svmp[1], bsizes[1]) == 0) << "svmp[1] corrupted";
+
+    delete[] refp[0];
+    delete[] refp[1];
 
     clSVMFree(ocl_descriptor.context, svmp[0]);
     clSVMFree(ocl_descriptor.context, svmp[1]);
@@ -104,9 +129,9 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem01)
 //|
 //|	Purpose
 //|	-------
-//|	
+//|
 //| Verify the ability to migrate part of SVM allocation
-//|	
+//|
 //|	Method
 //|	------
 //|
@@ -123,25 +148,49 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
 {
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
 
-    const size_t size[2] = { 1024, 1024 };
-    void * svmp[2];
+    const size_t nsizes[2] = { 1024, 1024 };
+    const size_t bsizes[2] = { nsizes[0] * sizeof(int), nsizes[1] * sizeof(int) };
+    const size_t hbsizes[2] = { bsizes[0] / 2, bsizes[1] / 2 };
+    void * svmp[2] = { nullptr, nullptr };
+    int * refp[2] = { nullptr, nullptr };
 
-    svmp[0] = clSVMAlloc(ocl_descriptor.context, NULL, size[0], 0);
-    svmp[1] = clSVMAlloc(ocl_descriptor.context, NULL, size[1], 0);
+    refp[0] = new int[nsizes[0]];
+    refp[1] = new int[nsizes[1]];
 
-    ASSERT_FALSE(svmp[0] == NULL) << "clSVMAlloc failed";
-    ASSERT_FALSE(svmp[1] == NULL) << "clSVMAlloc failed";
+    ASSERT_FALSE(refp[0] == nullptr) << "new int[] failed";
+    ASSERT_FALSE(refp[1] == nullptr) << "new int[] failed";
 
-    const size_t sizes[2] = { size[0] / 2, size[1] / 2 };
-    const void ** ptrs[4] = {
-        (const void **)svmp[0], (const void **)((size_t *)svmp[0] + sizes[0]),
-        (const void **)svmp[1], (const void **)((size_t *)svmp[1] + sizes[1])
-    };
-    enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1, ptrs[0], (const size_t *)&sizes[0], NULL, 0, NULL, NULL);
-    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1, ptrs[1], (const size_t *)&sizes[0], NULL, 0, NULL, NULL);
+    svmp[0] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)nullptr, bsizes[0], 0);
+    svmp[1] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)nullptr, bsizes[1], 0);
 
-    enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1, ptrs[2], (const size_t *)&sizes[1], NULL, 0, NULL, NULL);
-    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1, ptrs[3], (const size_t *)&sizes[1], NULL, 0, NULL, NULL);
+    ASSERT_FALSE(svmp[0] == nullptr) << "clSVMAlloc failed";
+    ASSERT_FALSE(svmp[1] == nullptr) << "clSVMAlloc failed";
+
+    fillMemory((int *)refp[0], nsizes[0], 0);
+    fillMemory((int *)refp[1], nsizes[1], 0);
+
+    fillMemory((int *)svmp[0], nsizes[0], 0);
+    fillMemory((int *)svmp[1], nsizes[1], 0);
+
+    enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
+        (const void **)svmp[0], (const size_t *)&hbsizes[0],
+        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
+    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
+        (const void **)((char *)svmp[0] + hbsizes[0]), (const size_t *)&hbsizes[0],
+        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
+
+    enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
+        (const void **)svmp[1], (const size_t *)&hbsizes[1],
+        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
+    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
+        (const void **)((char *)svmp[1] + hbsizes[1]), (const size_t *)&hbsizes[1],
+        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
+
+    ASSERT_TRUE(memcmp(refp[0], svmp[0], bsizes[0]) == 0) << "svmp[0] corrupted";
+    ASSERT_TRUE(memcmp(refp[1], svmp[1], bsizes[1]) == 0) << "svmp[1] corrupted";
+
+    delete[] refp[0];
+    delete[] refp[1];
 
     clSVMFree(ocl_descriptor.context, svmp[0]);
     clSVMFree(ocl_descriptor.context, svmp[1]);
@@ -151,7 +200,7 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
 //|
 //|	Purpose
 //|	-------
-//|	
+//|
 //|	Verify the ability to clone kernel objects for all kernel functions in a shared program
 //|
 //|	Method
@@ -160,14 +209,14 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
 //|	1. Build program with source of 10 kernels on both CPU and GPU
 //|	2. Create 10 kernels for that program (will create for both CPU and GPU)
 //| 3. Clone all kernels
-//|	
+//|
 //|	Pass criteria
 //|	-------------
 //|
 //|	Verify that valid non-zero kernel objects are returned
 //|
-TEST_F(OCL21, clCloneKernel01) 
-{ 
+TEST_F(OCL21, clCloneKernel01)
+{
 	// create OpenCL queues, program and context
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
 
@@ -192,4 +241,56 @@ TEST_F(OCL21, clCloneKernel01)
 		clReleaseKernel(kernels[i]);
         clReleaseKernel(copied[i]);
 	}
+}
+
+//|	TEST: OCL21.clGetKernelSubGroupInfo01
+//|
+//|	Purpose
+//|	-------
+//|
+//|	Verify the ability to get kernel subgroup info
+//|
+//|	Method
+//|	------
+//|
+//|	1. Build program from IL
+//|	2. Validate
+//|
+//|	Pass criteria
+//|	-------------
+//|
+//|	Verify that valid non-zero kernel objects are returned
+//|
+TEST_F(OCL21, clGetKernelSubGroupInfo01)
+{
+	// create OpenCL queues, program and context
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "vector4_d.spir12_64"));
+    
+    cl_kernel kernel = 0;
+    createKernel(&kernel, ocl_descriptor.program, "vector4_d");
+
+    size_t cl_kernel_max_num_sub_groups = 0;
+    size_t ret_size = 0;
+    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[0], CL_KERNEL_MAX_NUM_SUB_GROUPS,
+        0, nullptr, sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups, &ret_size);
+    ASSERT_EQ(sizeof(cl_kernel_max_num_sub_groups), ret_size);
+
+    size_t local_size[3] = { 10, 10, 10 };
+    ret_size = 0;
+    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[0], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+        sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups,
+        sizeof(local_size), local_size, &ret_size);
+    ASSERT_GT(local_size[0], 0);
+    ASSERT_EQ(local_size[1], 1);
+    ASSERT_EQ(local_size[2], 1);
+
+    local_size[0] = local_size[1] = local_size[2] = 10;
+    ret_size = 0;
+    size_t wrong_cl_kernel_max_num_sub_groups = cl_kernel_max_num_sub_groups + 10;
+    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[0], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+        sizeof(wrong_cl_kernel_max_num_sub_groups), &wrong_cl_kernel_max_num_sub_groups,
+        sizeof(local_size), local_size, &ret_size);
+    ASSERT_EQ(local_size[0], 0);
+    ASSERT_EQ(local_size[1], 0);
+    ASSERT_EQ(local_size[2], 0);
 }
