@@ -1055,8 +1055,6 @@ public:
 
   const SmallPtrSetImpl<AVRBlock*>& getSchedConstraints() { return SchedConstraints; }
 
-  // CFG Iterators
-
   SmallVectorImpl<AVRBlock*>::const_iterator pred_begin() const { return Predecessors.begin(); }
   SmallVectorImpl<AVRBlock*>::const_iterator pred_end() const { return Predecessors.end(); }
   SmallVectorImpl<AVRBlock*>::const_iterator succ_begin() const { return Successors.begin(); }

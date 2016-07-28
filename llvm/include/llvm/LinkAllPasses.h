@@ -268,6 +268,7 @@ namespace {
       (void) llvm::createAvrCFGHIRPass();
       (void) llvm::createSIMDLaneEvolutionPass();
       (void) llvm::createSIMDLaneEvolutionHIRPass();
+      (void) llvm::createVectorGraphInfoPass();
 
       // VPO Parallelizer Passes
       (void) llvm::createVPOParoptPass();

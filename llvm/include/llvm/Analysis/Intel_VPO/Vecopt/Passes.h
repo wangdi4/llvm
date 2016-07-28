@@ -52,6 +52,9 @@ FunctionPass *createSIMDLaneEvolutionPass();
 /// SIMD lane evolution of an AVR program.
 FunctionPass *createSIMDLaneEvolutionHIRPass();
 
+///
+FunctionPass *createVectorGraphInfoPass();
+
 }
 
 #endif // LLVM_ANALYSIS_VPO_PASSES_H

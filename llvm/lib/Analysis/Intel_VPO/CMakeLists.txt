@@ -44,6 +44,10 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   Vecopt/VPOSIMDLaneEvolution.cpp
   Vecopt/VPOPredicator.cpp
   Vecopt/VPOScenarioEvaluation.cpp
+
+  Vecopt/VectorGraph.cpp
+  Vecopt/VectorGraphUtils.cpp
+  Vecopt/VectorGraphInfo.cpp
 )
 
 add_dependencies(LLVMIntel_VPOAnalysis intrinsics_gen)
