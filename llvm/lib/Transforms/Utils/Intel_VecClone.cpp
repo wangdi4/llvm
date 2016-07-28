@@ -186,18 +186,23 @@ Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
   Function* Clone = Function::Create(CloneFuncType, F.getLinkage(),
                                      VariantName, F.getParent());
 
-  // Copy all the attributes from the scalar function to its vector version
-  // except for the vector variant attributes.
-  Clone->copyAttributesFrom(&F);
+  // Remove vector variant attributes from the original function. They are
+  // not needed for the cloned function and it prevents any attempts at
+  // trying to clone the function again in case the pass is called more than
+  // once.
   AttrBuilder AB;
-  for (auto Attr : getVectorVariantAttributes(*Clone)) {
+  for (auto Attr : getVectorVariantAttributes(F)) {
     AB.addAttribute(Attr);
   }
-  AttributeSet AttrsToRemove = AttributeSet::get(Clone->getContext(),
+  AttributeSet AttrsToRemove = AttributeSet::get(F.getContext(),
                                                  AttributeSet::FunctionIndex,
                                                  AB);
 
-  Clone->removeAttributes(AttributeSet::FunctionIndex, AttrsToRemove);
+  F.removeAttributes(AttributeSet::FunctionIndex, AttrsToRemove);
+
+  // Copy all the attributes from the scalar function to its vector version
+  // except for the vector variant attributes.
+  Clone->copyAttributesFrom(&F);
 
   // Remove incompatible argument attributes (applied to the scalar argument,
   // does not apply to its vector counterpart).
