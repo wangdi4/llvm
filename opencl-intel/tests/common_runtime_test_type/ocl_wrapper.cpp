@@ -400,6 +400,15 @@ void getProgramBuildInfo(cl_program program, cl_device_id device, cl_program_bui
 	ASSERT_EQ(CL_SUCCESS, errcode_ret)  << "clGetProgramBuildInfo failed";
 }
 
+void getKernelSubGroupInfo(cl_kernel kernel, cl_device_id device, cl_kernel_sub_group_info param_name,
+    size_t input_value_size, const void *input_value, size_t param_value_size,
+    void *param_value, size_t *param_value_size_ret)
+{
+    cl_int errcode_ret = clGetKernelSubGroupInfo(kernel, device, param_name, input_value_size, input_value,
+        param_value_size, param_value, param_value_size_ret);
+    ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clGetKernelSubGroupInfo failed";
+}
+
 // createAndBuildProgramWithSource - calls and validates clCreateBuffer clCreateProgramWithSource and clBuildProgram using kernel file name
 void createAndBuildProgramWithSource(const char* sFileName, cl_program* program, cl_context context,
 	cl_uint num_devices, const cl_device_id *device_list, const char *options, 

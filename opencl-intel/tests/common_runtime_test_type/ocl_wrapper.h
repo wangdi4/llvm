@@ -263,6 +263,11 @@ void getProgramInfo(cl_program program, cl_program_info param_name,
 void getProgramBuildInfo(cl_program program, cl_device_id device, cl_program_build_info param_name,
 	size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 
+// getKernelSubGroupInfo - calls and validate clGetKernelSubGroupInfo
+void getKernelSubGroupInfo(cl_kernel kernel, cl_device_id device, cl_kernel_sub_group_info param_name,
+    size_t input_value_size, const void *input_value, size_t param_value_size,
+    void *param_value, size_t *param_value_size_ret);
+
 // createAndBuildProgramWithSource - calls and validates clCreateProgramWithSource and clBuildProgram using kernel file name
 void createAndBuildProgramWithSource(const char* sFileName, cl_program* program, cl_context context, 
 	cl_uint num_devices, const cl_device_id *device_list, const char *options, void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), 
