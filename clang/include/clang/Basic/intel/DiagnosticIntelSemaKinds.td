@@ -77,6 +77,10 @@ def warn_default_arg_makes_ctor_special : Warning<
 def ext_intel_member_typedef_redefinition : ExtWarn<
   "class member typedef redefinition is an Intel extension">,
   InGroup<IntelCompat>;
+// CQ#377518 - allow integer typedef redefinition in IntelMSCompat mode.
+def warn_int_typedef_redefinition_ignored : ExtWarn<
+  "integer typedef redefinition%diff{ ($ vs $)|}0,1 is an Intel extension">,
+  InGroup<IntelCompat>;
 // CQ#377372 - allow to redefine extern inline functions in C++ mode
 def ext_intel_redefinition_extern_inline : ExtWarn<
   "redefinition of a 'extern inline' function %0 in "
