@@ -9,6 +9,14 @@ include (../../cmake_utils/CMakeFuncs.txt)
 
 set( TARGET common_runtime_test_type )
 
+#ensure we are using the frontend LLVM tools
+if( NOT DEFINED LLVM_PATH_FE )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for fronted using LLVM_PATH_FE parameter to CMAKE" )
+endif()
+
+set(LLVM_PATH ${LLVM_PATH_FE})
+find_package(LLVM REQUIRED)
+
 if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID )
    set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
    set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/native/bin/llvm-spirv")
@@ -59,7 +67,7 @@ endif(BUILD_X64)
 
 set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang/cl_headers)
 
-set( INPUT_FILE vector4_d.cl )
+set( INPUT_FILE kernels/vector4_d.cl )
 set( SPIR_OUTPUT_FILE vector4_d.bc )
 set( SPIRV_OUTPUT_FILE vector4_d.spv )
 
@@ -83,7 +91,7 @@ add_custom_command( TARGET ${TARGET}
   VERBATIM
 )
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE} DESTINATION tests/common_runtime_test_type )
 
 file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )
 # Copy *.py *.xml and *.xsd from current directory to appropriate test directory in 'Release' area.
