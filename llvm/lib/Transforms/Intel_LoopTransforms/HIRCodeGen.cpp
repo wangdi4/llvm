@@ -551,57 +551,57 @@ Value *HIRCodeGen::CGVisitor::createCmpInst(CmpInst::Predicate P, Value *LHS,
 Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   Value *BlobSum = nullptr, *IVSum = nullptr, *C0Value = nullptr,
         *DenomVal = nullptr;
+  auto SrcType = CE->getSrcType();
 
   DEBUG(dbgs() << "cg for CE ");
   DEBUG(CE->dump());
   DEBUG(dbgs() << "\n");
 
   if (CE->isNull()) {
-    return ConstantPointerNull::get(cast<PointerType>(CE->getSrcType()));
+    return ConstantPointerNull::get(cast<PointerType>(SrcType));
   }
 
   if (CE->isNullVector()) {
-    auto SrcType = CE->getSrcType();
     auto PtrType = cast<PointerType>(SrcType->getScalarType());
 
     auto NullVal = ConstantPointerNull::get(PtrType);
-    return Builder->CreateVectorSplat(SrcType->getVectorNumElements(),
-                                      NullVal);
+    return Builder->CreateVectorSplat(SrcType->getVectorNumElements(), NullVal);
   }
 
   BlobSum = sumBlobs(CE);
   IVSum = sumIV(CE);
 
+  // Broadcast scalar value if needed
+  if (SrcType->isVectorTy()) {
+    if (BlobSum && !(BlobSum->getType()->isVectorTy())) {
+      BlobSum =
+          Builder->CreateVectorSplat(SrcType->getVectorNumElements(), BlobSum);
+    }
+    if (IVSum && !(IVSum->getType()->isVectorTy())) {
+      IVSum =
+          Builder->CreateVectorSplat(SrcType->getVectorNumElements(), IVSum);
+    }
+  }
+
   int64_t C0 = CE->getConstant();
   int64_t Denom = CE->getDenominator();
 
-  Type *Ty = CE->getSrcType();
   // TODO I dunno about htis more specially a pointer?
   // ie [i32 X 10] for type of base ptr what type to use?
   if (C0) {
-    if (isa<CompositeType>(Ty)) {
+    if (isa<CompositeType>(SrcType)) {
       // We should be generating a GEP for a pointer base with an offset. For
       // struct types, we need to follow the structure layout.
       assert("Pointer base with offset not handled!");
-      // Ty = IntegerType::get(F->getContext(), Ty->getPrimitiveSizeInBits());
+      // SrcType = IntegerType::get(F->getContext(),
+      // SrcType->getPrimitiveSizeInBits());
     }
-    C0Value = ConstantInt::getSigned(Ty, C0);
+    C0Value = ConstantInt::getSigned(SrcType, C0);
   }
 
   // combine the blob, const, and ivs into one value
   Value *Res = nullptr;
   if (BlobSum && IVSum) {
-    auto BlobTy = BlobSum->getType();
-    auto IVTy = IVSum->getType();
-
-    // Broadcast scalar value
-    if (BlobTy->isVectorTy() && !IVTy->isVectorTy()) {
-      IVSum = Builder->CreateVectorSplat(BlobTy->getVectorNumElements(), IVSum);
-    } else if (!BlobTy->isVectorTy() && IVTy->isVectorTy()) {
-      BlobSum =
-          Builder->CreateVectorSplat(IVTy->getVectorNumElements(), BlobSum);
-    }
-
     Res = Builder->CreateAdd(BlobSum, IVSum);
   } else {
     Res = IVSum ? IVSum : BlobSum;
@@ -616,11 +616,11 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
     // assert c0 is 0. no iv no blob
     if (CE->hasIV() || CE->hasBlob() || C0 != 0)
       llvm_unreachable("failed to cg IV or blob");
-    Res = ConstantInt::getSigned(Ty, C0);
+    Res = ConstantInt::getSigned(SrcType, C0);
   }
 
   if (Denom != 1) {
-    DenomVal = ConstantInt::getSigned(Ty, Denom);
+    DenomVal = ConstantInt::getSigned(SrcType, Denom);
 
     if (CE->isSignedDiv()) {
       Res = Builder->CreateSDiv(Res, DenomVal);

@@ -10,6 +10,7 @@ VPO Vectorizer
 
    SIMDLaneEvolution/index
    Predication/index
+   Misc/index
 
 Introduction
 ============
@@ -201,6 +202,9 @@ Vectorizer Passes
 
 **Predication**
    Describes the Predication transformation: :doc:`Predication <Predication/index>`
+
+**Miscellaneous**
+   Describes miscellaneous issues encountered: :doc:`Miscellaneous <Misc/index>`
 
 **Memory Access Pattern Analysis and its dependence on SLEV**
   Memory reference analysis pass will perform the necessary setting of access 
