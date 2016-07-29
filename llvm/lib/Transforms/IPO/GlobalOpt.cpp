@@ -1826,6 +1826,7 @@ static bool processInternalGlobal(
       !GV->isExternallyInitialized() &&
       allNonInstructionUsersCanBeMadeInstructions(GV) &&
       GS.AccessingFunction->doesNotRecurse() &&
+      !GS.AccessingFunction->callsFunctionThatReturnsTwice() && // INTEL
       isPointerValueDeadOnEntryToFunction(GS.AccessingFunction, GV,
                                           LookupDomTree)) {
     DEBUG(dbgs() << "LOCALIZING GLOBAL: " << *GV << "\n");

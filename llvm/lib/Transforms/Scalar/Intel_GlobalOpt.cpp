@@ -205,6 +205,11 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
   bool Changed = false;
   Module *M = F.getParent();
 
+  // The intel-GlobalOpt should abort if the ReturnsTwice functions such as
+  // setjmp are present.
+  if (F.callsFunctionThatReturnsTwice())
+    return Changed;
+
   for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B) {
     for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I) {
       if (dyn_cast<FenceInst>(I))
