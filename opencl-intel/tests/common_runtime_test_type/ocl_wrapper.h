@@ -287,8 +287,8 @@ void createAndBuildProgramWithStringSource(const char* kernelSource, cl_program*
 // createAndBuildProgramWithILSource - calls and validates clCreateBuffer clCreateProgramWithIL and clBuildProgram using kernel source
 void createAndBuildProgramWithILSource(const char* kernelSource, size_t length,
     cl_program* program, cl_context context, cl_uint num_devices,
-    const cl_device_id *device_list, const char *options, 
-	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), 
+    const cl_device_id *device_list, const char *options,
+	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
 	void *user_data);
 
 //createProgramWithBinary - calls and validates clCreateProgramWithBinary

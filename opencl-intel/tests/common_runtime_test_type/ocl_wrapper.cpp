@@ -270,7 +270,7 @@ void createImage3D(cl_mem* image3D, cl_context context, cl_mem_flags flags, cons
 		ASSERT_TRUE(false) << "Null argument provided";
 	}
 	cl_int errcode_ret = CL_SUCCESS;
-	*image3D = clCreateImage3D (context, flags, image_format, image_width, image_height, image_depth, 
+	*image3D = clCreateImage3D (context, flags, image_format, image_width, image_height, image_depth,
 		image_row_pitch, image_slice_pitch, host_ptr, &errcode_ret);
 	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateImage3D failed";
 	ASSERT_NE((cl_mem)0, *image3D) << "clCreateImage3D returned 0 as image3D value";
@@ -299,7 +299,7 @@ void createProgramWithSource(cl_program* program, cl_context context,	cl_uint co
 	cl_int errcode_ret = CL_SUCCESS;
 	
 	*program = clCreateProgramWithSource (context, 1, programSource, NULL, &errcode_ret);
-	
+
 	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateProgramWithSource failed";
 	ASSERT_NE((cl_program)0, *program) << "clCreateProgramWithSource returned 0 as program value";
 }
@@ -312,9 +312,9 @@ void createProgramWithIL(cl_program* program, cl_context context, const char *pr
 		ASSERT_TRUE(false) << "Null argument provided";
 	}
 	cl_int errcode_ret = CL_SUCCESS;
-	
+
 	*program = clCreateProgramWithIL (context, programSource, length, &errcode_ret);
-	
+
 	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateProgramWithSource failed";
 	ASSERT_NE((cl_program)0, *program) << "clCreateProgramWithSource returned 0 as program value";
 }
@@ -468,8 +468,8 @@ void *user_data)
 // createAndBuildProgramWithILSource - calls and validates clCreateBuffer clCreateProgramWithIL and clBuildProgram using kernel source
 void createAndBuildProgramWithILSource(const char* kernelSource, size_t length,
     cl_program* program, cl_context context, cl_uint num_devices,
-    const cl_device_id *device_list, const char *options, 
-	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), 
+    const cl_device_id *device_list, const char *options,
+	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
 void *user_data)
 {
 	// create program
