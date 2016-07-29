@@ -24,6 +24,6 @@ void fillMemory(T* ptr, size_t n, T base)
    T cur = base;
    for (size_t i = 0; i < n; ++i)
    {
-        ptr[i] = cur = getNextValue(cur); 
+        ptr[i] = cur = getNextValue(cur);
    }
 }

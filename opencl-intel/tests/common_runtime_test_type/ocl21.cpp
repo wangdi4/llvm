@@ -14,7 +14,7 @@
 //
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
-
+#include <cstdio>
 #include <cstring>
 #include "common_runtime_tests.h"
 #include "ocl21.h"
@@ -44,10 +44,10 @@ class OCL21: public CommonRuntime{};
 
 TEST_F(OCL21, clCreateProgramWithIL01)
 {
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "vector4_d.spir12_64"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "vector4_d.spv"));
 
     const char * kernelSource = nullptr;
-	ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "vector4_d.spir12_64"));
+	ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "vector4_d.spv"));
 
     void * il = nullptr;
     size_t ret = 0;
@@ -172,9 +172,15 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
     fillMemory((int *)svmp[0], nsizes[0], 0);
     fillMemory((int *)svmp[1], nsizes[1], 0);
 
+    printf("%p %u\n", svmp[0], hbsizes[0]);
+    printf("%p %u\n", (char *)svmp[0] + hbsizes[0], hbsizes[0]);
+
+    printf("%p %u\n", svmp[1], hbsizes[1]);
+    printf("%p %u\n", (char *)svmp[1] + hbsizes[1], hbsizes[1]);
+
     enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
         (const void **)svmp[0], (const size_t *)&hbsizes[0],
-        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
+        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr); 
     enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
         (const void **)((char *)svmp[0] + hbsizes[0]), (const size_t *)&hbsizes[0],
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
@@ -263,9 +269,9 @@ TEST_F(OCL21, clCloneKernel01)
 //|
 TEST_F(OCL21, clGetKernelSubGroupInfo01)
 {
-	// create OpenCL queues, program and context
+    // create OpenCL queues, program and context
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "vector4_d.spir12_64"));
-    
+
     cl_kernel kernel = 0;
     createKernel(&kernel, ocl_descriptor.program, "vector4_d");
 

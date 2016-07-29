@@ -9,6 +9,16 @@ include (../../cmake_utils/CMakeFuncs.txt)
 
 set( TARGET common_runtime_test_type )
 
+if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID )
+   set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
+   set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/native/bin/llvm-spirv")
+else()
+   set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}" )
+   set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/bin/llvm-spirv")
+endif()
+
+set( CLANG "${TOOLS_BINARY_DIR}/clang" )
+
 include_directories( ../../externals/gtest/include
                      ${CL_API_HEADERS}
                      ${CMAKE_CURRENT_SOURCE_DIR}/common )
@@ -34,6 +44,46 @@ if (NOT WIN32 AND NOT ANDROID)
 endif (NOT WIN32 AND NOT ANDROID)
 
 set( CREATE_DIR_NAME tests/common_runtime_test_type )
+
+if (BUILD_X64)
+set (
+  SPIR_OPT
+  -triple spir64-unknown-unknown -cl-kernel-arg-info -D __x86_64__
+)
+else (BUILD_X64)
+set (
+  SPIR_OPT
+  -triple spir-unknown-unknown -cl-kernel-arg-info -D __i386__
+)
+endif(BUILD_X64)
+
+set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang/cl_headers)
+
+set( INPUT_FILE vector4_d.cl )
+set( SPIR_OUTPUT_FILE vector4_d.bc )
+set( SPIRV_OUTPUT_FILE vector4_d.spv )
+
+add_custom_command( TARGET ${TARGET}
+  POST_BUILD
+  COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
+  ${SPIR_OPT}
+  -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
+  MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  COMMENT "Generate spir binary files for framework_test_type:  ${SPIR_OUTPUT_FILE}"
+  VERBATIM
+)
+
+add_custom_command( TARGET ${TARGET}
+  POST_BUILD
+  COMMAND ${SPIRV_CONVERTER} -o ${SPIRV_OUTPUT_FILE} ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
+  DEPENDS ${SPIR_OUTPUT_FILE}
+  COMMENT "Generate spirv binary files for framework_test_type:  ${SPIRV_OUTPUT_FILE}"
+  VERBATIM
+)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
 
 file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )
 # Copy *.py *.xml and *.xsd from current directory to appropriate test directory in 'Release' area.
