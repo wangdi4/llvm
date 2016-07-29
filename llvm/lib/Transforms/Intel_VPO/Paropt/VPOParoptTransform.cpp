@@ -120,16 +120,24 @@ bool VPOParoptTransform::ParoptTransformer() {
   //   char      *psource;
   // } ident_t;
   //
-  // The bits that the flags field can hold are defined as KMP_IDENT_* before
+  // The bits that the flags field can hold are defined as KMP_IDENT_* before.
   //
-  Type *IdentFieldTy[] = {Type::getInt32Ty(C),    // reserved_1
-                          Type::getInt32Ty(C),    // flags
-                          Type::getInt32Ty(C),    // reserved_2
-                          Type::getInt32Ty(C),    // reserved_3
-                          Type::getInt8PtrTy(C)}; // *psource
-
-  IdentTy = StructType::create(ArrayRef<Type *>(IdentFieldTy, 5), "ident_t",
-                               false); // isPacked = false
+  // Note: IdentTy needs to be an anonymous struct. This is because if we use
+  // a named struct type, then different Types are created for each function
+  // encountered. For example, consider a module with two functions `foo1()`
+  // and `foo2()`. When handling foo1(), a named struct type `ident_t` would
+  // be created and used for generating function declarations and calls for
+  // KMPC routines such as `__kmpc_global_thread_num(ident_t*)`. When it comes
+  // to handling `foo2()`, a new named IdentTy would be created, say
+  // `ident_t.0`, but when trying to emit a call to `__kmpc_global_thread_num`,
+  // there would be a type mismatch between the expected argument type in the
+  // declaration (ident_t *) and actual type of the argument (ident_t.0 *).
+  IdentTy = StructType::get(C, {Type::getInt32Ty(C),   // reserved_1
+                                Type::getInt32Ty(C),   // flags
+                                Type::getInt32Ty(C),   // reserved_2
+                                Type::getInt32Ty(C),   // reserved_3
+                                Type::getInt8PtrTy(C)} // *psource
+                            );
 
   StringRef S = F->getName();
 
@@ -698,7 +706,7 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
-  AllocaInst *KmpcLoc = VPOParoptUtils::genKmpcLocfromDebugLoc(
+  GlobalVariable *KmpcLoc = VPOParoptUtils::genKmpcLocfromDebugLoc(
       F, CI, IdentTy, KMP_IDENT_KMPC, EntryBB, ExitBB);
 
   CallSite CS(CI);

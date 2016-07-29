@@ -54,7 +54,8 @@ CallInst *VPOParoptUtils::genKmpcBeginCall(Function *F, Instruction *AI,
 
   int Flags = KMP_IDENT_KMPC;
 
-  AllocaInst *KmpcLoc = genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
+  GlobalVariable *KmpcLoc =
+      genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
 
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
 
@@ -87,7 +88,8 @@ CallInst *VPOParoptUtils::genKmpcEndCall(Function *F, Instruction *AI,
 
   int Flags = KMP_IDENT_KMPC;
 
-  AllocaInst *KmpcLoc = genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
+  GlobalVariable *KmpcLoc =
+      genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
 
   Constant *FnC = M->getOrInsertFunction("__kmpc_end", Type::getVoidTy(C),
                                          PointerType::getUnqual(IdentTy), NULL);
@@ -119,7 +121,8 @@ CallInst *VPOParoptUtils::genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
 
   int Flags = KMP_IDENT_KMPC;
 
-  AllocaInst *Loc = genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  GlobalVariable *Loc =
+      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
   FunctionType *FnForkTestTy = FunctionType::get(
       Type::getInt32Ty(C), PointerType::getUnqual(IdentTy), false);
@@ -168,7 +171,8 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
   Type *IntTy = Type::getInt32Ty(C);
 
   int Flags = KMP_IDENT_KMPC;
-  AllocaInst *Loc = genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  GlobalVariable *Loc =
+      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
   DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
@@ -227,7 +231,8 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
 
   Type *IntTy = Type::getInt32Ty(C);
 
-  AllocaInst *Loc = genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  GlobalVariable *Loc =
+      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
   DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
   Type *InitParamsTy[] = {PointerType::getUnqual(IdentTy), IntTy};
@@ -270,7 +275,8 @@ CallInst *VPOParoptUtils::genKmpcGlobalThreadNumCall(Function *F,
 
   int Flags = KMP_IDENT_KMPC;
 
-  AllocaInst *KmpcLoc = genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
+  GlobalVariable *KmpcLoc =
+      genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
 
   FunctionType *FnGetTidTy = FunctionType::get(
       Type::getInt32Ty(C), PointerType::getUnqual(IdentTy), false);
@@ -295,13 +301,13 @@ CallInst *VPOParoptUtils::genKmpcGlobalThreadNumCall(Function *F,
 
 // This function collects path, file name, line, column information for
 // generating kmpc_location struct needed for OpenMP runtime library
-AllocaInst *VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
-                                                   StructType *IdentTy,
-                                                   int Flags, BasicBlock *BS,
-                                                   BasicBlock *BE) {
+GlobalVariable *
+VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
+                                       StructType *IdentTy, int Flags,
+                                       BasicBlock *BS, BasicBlock *BE) {
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();
-  std::string KmpLoc;
+  std::string LocString;
 
   StringRef Path("");
   StringRef File("unknown");
@@ -328,82 +334,72 @@ AllocaInst *VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
   }
 
   // Source location string for OpenMP runtime library call
-  // KmpLoc = ";pathfilename;routinename;sline;eline;;"
+  // LocString = ";pathfilename;routinename;sline;eline;;"
   switch (VpoEmitSourceLocation) {
 
-  case 0:
-    KmpLoc = ";unknown;unknown;0;0;;\00";
-    break;
-
   case 1:
-    KmpLoc = ";unknown;" + FnName.str() + ";" + std::to_string(SLine) + ";" +
-             std::to_string(ELine) + ";;\00";
+    LocString = (";unknown;" + FnName + ";" + Twine(SLine) + ";" +
+                 Twine(ELine) + ";;\00")
+                    .str();
     break;
 
   case 2:
-    KmpLoc = ";" + Path.str() + "/" + File.str() + ";" + FnName.str() + ";" +
-             std::to_string(SLine) + ";" + std::to_string(ELine) + ";;\00";
+    LocString = (";" + Path + "/" + File + ";" + FnName + ";" + Twine(SLine) +
+                 ";" + Twine(ELine) + ";;\00")
+                    .str();
     break;
+
+  case 0:
   default:
-    KmpLoc = ";unknown;unknown;0;0;;\00";
+    LocString = ";unknown;unknown;0;0;;\00";
     break;
   }
 
-  StringRef Loc = StringRef(KmpLoc);
-
-  // Type Definitions
-  ArrayType *LocStrTy = ArrayType::get(Type::getInt8Ty(C), Loc.str().size());
-
-  // String Constant Definitions
-  Constant *LocStrDef = ConstantDataArray::getString(C, Loc.str(), false);
-
-  // Global Variable Definitions
-  Constant *VarLoc = new GlobalVariable(
-      *M, LocStrTy, false, GlobalValue::PrivateLinkage, LocStrDef,
-      ".KmpcLoc." + std::to_string(SLine) + '.' + std::to_string(ELine));
-
   // Constant Definitions
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-  ConstantInt *ValueOne = ConstantInt::get(Type::getInt32Ty(C), 1);
-  ConstantInt *ValueFour = ConstantInt::get(Type::getInt32Ty(C), 4);
-
   ConstantInt *ValueFlags = ConstantInt::get(Type::getInt32Ty(C), Flags);
 
-  DEBUG(dbgs() << "\nSource Location Info: " << Loc << "\n");
+  // Define the type of loc string. It is an array of i8/char type.
+  ArrayType *LocStringTy = ArrayType::get(Type::getInt8Ty(C), LocString.size());
 
+  // Create a global variable containing the loc string. Example:
+  // @.source.0.0.9 = private unnamed_addr constant [22 x i8]
+  // c";unknown;unknown;0;0;;"
+  Constant *LocStringInit = ConstantDataArray::getString(C, LocString, false);
+  GlobalVariable *LocStringVar = new GlobalVariable(
+      *M, LocStringTy, true, GlobalValue::PrivateLinkage, LocStringInit,
+      ".source." + Twine(SLine) + "." + Twine(ELine));
+  // Allows merging of variables with same content.
+  LocStringVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+
+  DEBUG(dbgs() << "\nSource Location Info: " << LocString << "\n");
+
+  // Get a pointer to the global variable containing loc string.
   Constant *Zeros[] = {ValueZero, ValueZero};
-  Constant *LocStrRef = ConstantExpr::getGetElementPtr(LocStrTy, VarLoc, Zeros);
+  Constant *LocStringPtr =
+      ConstantExpr::getGetElementPtr(LocStringTy, LocStringVar, Zeros);
 
-  // Global Variable Definitions
-  // VarLoc->setInitializer(LocStrRef);
+  // We now have values of all loc struct elements.
+  // IdentTy:       {i32,   i32,    i32,    i32,    i8*         }
+  // Loc struct:    {0,     Flags,  0,      0,      LocStringPtr}
+  // So, we finally create a global variable to hold the struct. Example:
+  // @.kmpc_loc.0.0.10 = private unnamed_addr constant { i32, i32, i32, i32, i8*
+  // } { i32 0, i32 2, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22
+  // x i8]* @.source.0.0.9, i32 0, i32 0) }
+  Constant *StructInit = ConstantStruct::get(
+      IdentTy, {ValueZero, ValueFlags, ValueZero, ValueZero, LocStringPtr});
+  GlobalVariable *KmpcLoc = new GlobalVariable(
+      *M, IdentTy, true, GlobalValue::PrivateLinkage, StructInit,
+      ".kmpc_loc." + Twine(SLine) + "." + Twine(ELine));
+  // Allows merging of variables with same content.
+  KmpcLoc->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
 
-  AllocaInst *KmpcLoc = new AllocaInst(IdentTy, "loc.addr." + 
-                                       std::to_string(SLine) + "." + 
-                                       std::to_string(ELine), AI);
-  KmpcLoc->setAlignment(8);
-
-  GetElementPtrInst *FlagsPtr = GetElementPtrInst::Create(
-      IdentTy, KmpcLoc, {ValueZero, ValueOne},
-      "flags." + std::to_string(SLine) + "." + std::to_string(ELine), AI);
-
-  StoreInst *InitFlags = new StoreInst(ValueFlags, FlagsPtr, false, AI);
-
-  InitFlags->setAlignment(4);
-
-  GetElementPtrInst *PSrcPtr = GetElementPtrInst::Create(
-      IdentTy, KmpcLoc, {ValueZero, ValueFour},
-      "psource." + std::to_string(SLine) + "." + std::to_string(ELine), AI);
-
-  StoreInst *InitPsource = new StoreInst(LocStrRef, PSrcPtr, false, AI);
-  InitPsource->setAlignment(8);
   return KmpcLoc;
 }
 
 // Generate source location information for Explicit barrier
-AllocaInst *VPOParoptUtils::genKmpcLocforExplicitBarrier(Function *F,
-                                                         Instruction *AI,
-                                                         StructType *IdentTy,
-                                                         BasicBlock *BB) {
+GlobalVariable *VPOParoptUtils::genKmpcLocforExplicitBarrier(
+    Function *F, Instruction *AI, StructType *IdentTy, BasicBlock *BB) {
   int Flags = KMP_IDENT_KMPC | KMP_IDENT_BARRIER_EXPL; // bits 0x2 | 0x20
 
 #if 0
@@ -411,17 +407,15 @@ AllocaInst *VPOParoptUtils::genKmpcLocforExplicitBarrier(Function *F,
     flags |= KMP_IDENT_CLOMP;  // bit 0x4
 #endif
 
-  AllocaInst *KmpcLoc =
+  GlobalVariable *KmpcLoc =
       VPOParoptUtils::genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, BB, BB);
   return KmpcLoc;
 }
 
 // Generate source location information for Implicit barrier
-AllocaInst *VPOParoptUtils::genKmpcLocforImplicitBarrier(WRegionNode *W,
-                                                         Function *F,
-                                                         Instruction *AI,
-                                                         StructType *IdentTy,
-                                                         BasicBlock *BB) {
+GlobalVariable *VPOParoptUtils::genKmpcLocforImplicitBarrier(
+    WRegionNode *W, Function *F, Instruction *AI, StructType *IdentTy,
+    BasicBlock *BB) {
   int Flags = 0;
 
   switch (W->getWRegionKindID()) {
@@ -456,7 +450,7 @@ AllocaInst *VPOParoptUtils::genKmpcLocforImplicitBarrier(WRegionNode *W,
     Flags |= KMP_IDENT_CLOMP;  // bit 0x4
 #endif
 
-  AllocaInst *KmpcLoc =
+  GlobalVariable *KmpcLoc =
       VPOParoptUtils::genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, BB, BB);
   return KmpcLoc;
 }
@@ -679,7 +673,8 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
   int Flags = KMP_IDENT_KMPC;
 
   // Before emitting the KMPC call, we need the Loc information.
-  AllocaInst *Loc = genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+  GlobalVariable *Loc =
+      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
   DEBUG(dbgs() << __FUNCTION__ << ": Loc: " << *Loc << "\n");
 
   // At this point, we have all the function args: loc + incoming Args. We bind

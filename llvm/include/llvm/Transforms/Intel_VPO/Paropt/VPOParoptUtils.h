@@ -128,9 +128,10 @@ public:
                                      Instruction *InsertPt);
 
     /// \brief Generate source location information from Instruction DebugLoc
-    static AllocaInst* genKmpcLocfromDebugLoc(Function *F, Instruction *AI, 
-                                              StructType *IdentTy, int Flags, 
-                                              BasicBlock *BS, BasicBlock *BE);
+    static GlobalVariable *genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
+                                                  StructType *IdentTy,
+                                                  int Flags, BasicBlock *BS,
+                                                  BasicBlock *BE);
 
     /// \brief Generate a call to notify the runtime system that the static 
     /// loop scheduling is started 
@@ -152,17 +153,17 @@ public:
                                        Value *Tid, Instruction *InsertPt);
 
     /// \brief Generate source location information for Explicit barrier
-    static AllocaInst* genKmpcLocforExplicitBarrier(Function *F, 
-                                                    Instruction *InsertPt, 
-                                                    StructType *IdentTy, 
-                                                    BasicBlock *BB);
+    static GlobalVariable *genKmpcLocforExplicitBarrier(Function *F,
+                                                        Instruction *InsertPt,
+                                                        StructType *IdentTy,
+                                                        BasicBlock *BB);
 
     /// \brief Generate source location information for Implicit barrier
-    static AllocaInst* genKmpcLocforImplicitBarrier(WRegionNode *W,
-                                                    Function *F,
-                                                    Instruction *InsertPt,
-                                                    StructType *IdentTy,
-                                                    BasicBlock *BB);
+    static GlobalVariable *genKmpcLocforImplicitBarrier(WRegionNode *W,
+                                                        Function *F,
+                                                        Instruction *InsertPt,
+                                                        StructType *IdentTy,
+                                                        BasicBlock *BB);
 
     /// \brief Generates a critical section surrounding all the inner
     /// BasicBlocks of the WRegionNode \p W. The function works only on
@@ -249,16 +250,17 @@ public:
 
     /// \brief Generates KMPC runtime call to the function \p IntrinsicName
     /// with arguments Loc(obtained using \p IdentTy), Tid (Obtained using \p
-    /// TidPtr), and \p Args. The function inserts Instructions into the IR for
-    /// obtaining Loc and Tid, before the \p InsertPt, and inserts the function
-    /// prototype into the module symbol table. But it does not insert the final
-    /// KMPC call.
+    /// TidPtr), and \p Args.
     /// \param TidPtr is the AllocaInst for Tid.
     /// \param IdentTy and \p InsertPt are used to obtain Loc needed by the
     /// KMPC call.
     /// \param IntrinsicName is the name of the function.
     /// \param ReturnTy is the return type of the function.
     /// \param Args arguments for the function call.
+    /// Note: The function inserts a LoadInst for getting Tid, into the IR
+    /// (before the \p InsertPt), and inserts the function prototype for the
+    /// KMPC intrinsic \p IntrinsicName into the module symbol table. But it
+    /// does not insert the KMPC call into the IR.
     ///
     /// \returns The generated CallInst.
     static CallInst *genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
@@ -280,10 +282,7 @@ private:
     /// @{
 
     /// \brief Generates KMPC runtime call to the function \p IntrinsicName
-    /// with arguments Loc(obtained using \p IdentTy) and \p Args. The function
-    /// inserts Instructions into the IR for obtaining Loc, before the \p
-    /// InsertPt, and inserts the function prototype into the module symbol
-    /// table. But it does not insert the final KMPC call.
+    /// with arguments Loc(obtained using \p IdentTy) and \p Args.
     /// \param IdentTy and \p InsertPt are used to obtain Loc needed by the
     /// KMPC call.
     /// \param IntrinsicName is the name of the function.

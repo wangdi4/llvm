@@ -19,7 +19,7 @@ define void @add_1(i32* nocapture %num) {
 entry:
 ; ALL-NOT: call void @llvm.intel.directive(metadata !"DIR.OMP.CRITICAL")
 ; ALL-NOT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-; ALL: call void @__kmpc_critical(%ident_t* %{{[^\s]*}}, i32 %{{[^\s]*}}, [8 x i32]* @[[LOCK]])
+; ALL: call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* @{{[^\s]*}}, i32 %{{[^\s]*}}, [8 x i32]* @[[LOCK]])
   call void @llvm.intel.directive(metadata !"DIR.OMP.CRITICAL")
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 
@@ -30,7 +30,7 @@ entry:
   %add = add nsw i32 %0, 1
   store i32 %add, i32* %num, align 4
 
-; ALL: call void @__kmpc_end_critical(%ident_t* %{{[^\s]+}}, i32 %{{[^\s]+}}, [8 x i32]* @[[LOCK]])
+; ALL: call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }* @{{[^\s]+}}, i32 %{{[^\s]+}}, [8 x i32]* @[[LOCK]])
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.CRITICAL")
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 ; ALL-NOT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.CRITICAL")
