@@ -356,11 +356,6 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop) const {
 
 bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
 
-  // TODO: Preheader and PostExit not handled currently.
-  if (Loop->hasPreheader() || Loop->hasPostexit()) {
-    return false;
-  }
-
   if (!Loop->hasChildren()) {
     return false;
   }

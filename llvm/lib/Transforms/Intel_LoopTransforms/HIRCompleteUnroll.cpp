@@ -358,6 +358,7 @@ void HIRCompleteUnroll::CanonExprVisitor::processCanonExpr(CanonExpr *CExpr) {
 ///// ProfitabilityAnalyzer Visitor Start
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
+
   HLNodeUtils::visitRange<true, false>(*this, CurLoop->child_begin(),
                                        CurLoop->child_end());
 
@@ -365,14 +366,24 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
   auto It = HCU.AvgTripCount.find(CurLoop);
   assert((It != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
 
-  // Check if the loop is small enough to assign trip count worth of
-  // profitability (for eliminating loop control) and give it higher chance of
-  // unrolling.
+  // Check if the loop is small enough to assign some extra profitability to it
+  // (for eliminating loop control) and give it higher chance of unrolling.
   if (isSmallLoop()) {
-    ProfitabilityIndex += It->second;
+    // Capping extra profitability at an arbitrary constant.
+    ProfitabilityIndex += std::min(4u, It->second);
   }
 
   scale(It->second);
+
+  // Add ztt's profitability. 
+  if (CurLoop->hasZtt()) {
+    for (auto RefIt = CurLoop->ztt_ddref_begin(), E = CurLoop->ztt_ddref_end();
+         RefIt != E; ++RefIt) {
+      processRef(*RefIt);
+    }
+    // Increment index by number of predicates eliminated.
+    ProfitabilityIndex += CurLoop->getNumZttPredicates();
+  }
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::isSmallLoop() const {

@@ -174,6 +174,9 @@ HLLoop *HIRLoopTransformUtils::createUnrollOrVecLoop(HLLoop *OrigLoop,
 
     // Generate the Ztt.
     NewLoop->createZtt(false);
+
+    // Update unrolled/vectorized loop's trip count estimate.
+    NewLoop->setMaxTripCountEstimate(NewLoop->getMaxTripCountEstimate() / UnrollOrVecFactor);
   }
 
   // Set the code gen for modified region
@@ -215,6 +218,9 @@ void HIRLoopTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
                      OrigLoop->getNestingLevel() - 1);
 
     OrigLoop->createZtt(false);
+
+    // Update remainder loop's trip count estimate.
+    OrigLoop->setMaxTripCountEstimate(UnrollOrVecFactor - 1);
   }
 
   DEBUG(dbgs() << "\n Remainder Loop \n");
