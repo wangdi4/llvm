@@ -11,7 +11,7 @@
 ; CHECK: ret
 
 ; CHECK: @const_select
-; CHECK: %0 = load i32 addrspace(3)* select (i1 icmp ne (i32 ptrtoint ([5 x i32], i32 addrspace(3)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_select.loc1, i32 0, i32 0), i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_select.loc2, i32 0, i32 0)), align 4
+; CHECK: %0 = load i32, i32 addrspace(3)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_select.loc1, i32 0, i32 0), i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_select.loc2, i32 0, i32 0)), align 4
 ; CHECK: ret
 
 ; CHECK-NOT: !opencl.compiler.2_0.gen_addr_space_pointer_warnings

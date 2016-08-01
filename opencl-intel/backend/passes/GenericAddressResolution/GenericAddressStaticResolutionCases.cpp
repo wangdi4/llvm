@@ -16,6 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/GlobalValue.h>
 #include <llvm/IR/InstIterator.h>
+#include <llvm/IR/Operator.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/IR/ValueMap.h>
 #include <llvm/Transforms/Utils/Cloning.h>
@@ -661,8 +662,10 @@ namespace intel {
               for (unsigned idx = 1; idx < pCE->getNumOperands(); idx++) {
                 operands.push_back(pCE->getOperand(idx));
               }
-              return pCE->getWithOperands(operands, 
-                                          PointerType::get(pPtrType->getElementType(), space));
+              auto *GEPO = cast<GEPOperator>(pCE);
+              return ConstantExpr::getGetElementPtr(
+                GEPO->getSourceElementType(), operands[0], ((ArrayRef<Constant*>)operands).slice(1),
+                GEPO->isInBounds(), false);
             }
             break;
           case Instruction::Select : {
