@@ -219,8 +219,10 @@ private:
   /// The HLNode visitor that recursively marks HLNodes as invalid.
   class GraphStateUpdater;
 
-  /// Returns parent Loop or Region for the \p Ref.
-  static const HLNode *getDDRefRegionLoopContainer(const DDRef *Ref);
+  /// Returns tuple where the first value is a parent Loop or Region for \p Ref
+  /// and the second is true or false whether the parent node is HLLoop.
+  static std::tuple<const HLNode *, bool>
+  getDDRefRegionLoopContainer(const DDRef *Ref);
 
   /// Returns true if the nodes between \p RefParent1 and \p RefParent2 are
   /// still valid and should not be constructed again.
