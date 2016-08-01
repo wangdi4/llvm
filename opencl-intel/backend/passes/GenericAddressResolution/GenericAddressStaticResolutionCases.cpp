@@ -665,7 +665,7 @@ namespace intel {
               auto *GEPO = cast<GEPOperator>(pCE);
               return ConstantExpr::getGetElementPtr(
                 GEPO->getSourceElementType(), operands[0], ((ArrayRef<Constant*>)operands).slice(1),
-                GEPO->isInBounds(), false);
+                GEPO->isInBounds());
             }
             break;
           case Instruction::Select : {
