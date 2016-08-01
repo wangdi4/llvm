@@ -194,7 +194,7 @@ __m128i cvt_to_norm(__m128i i4Val, __m128 f4Mul, __m128 lowLimit)
 //
 // return: vector, that contains all zeros if corresponding pixel is outside the boundaries
 //         or all ones otherwise
-int8 __attribute__((overloadable)) soa8_isInsideBoundsInt(image2d_t image, int8 coord_x, int8 coord_y)
+int8 __attribute__((overloadable)) soa8_isInsideBoundsInt(__read_only image2d_t image, int8 coord_x, int8 coord_y)
 {
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     int8 upper_x = (int8)(pImage->dimSub1[0]);
@@ -212,13 +212,23 @@ int8 __attribute__((overloadable)) soa8_isInsideBoundsInt(image2d_t image, int8 
     return res;
 }
 
+int8 __attribute__((overloadable)) soa8_isInsideBoundsInt(__write_only image2d_t image, int8 coord_x, int8 coord_y)
+{
+  return soa8_isInsideBoundsInt(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y);
+}
+
+int8 __attribute__((overloadable)) soa8_isInsideBoundsInt(__read_write image2d_t image, int8 coord_x, int8 coord_y)
+{
+  return soa8_isInsideBoundsInt(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y);
+}
+
 // Extract the pointer to a specific pixels inside the image
 //
 // @param image: the image object
 // @param coord: (x,y) coordinates of the pixel inside the image
 //
 // return: pointer to the begining of the pixel in memory
-void __attribute__((overloadable)) soa8_extract_pixel_pointer_quad(image2d_t image, int8 coord_x, int8 coord_y, __private void* pData,
+void __attribute__((overloadable)) soa8_extract_pixel_pointer_quad(__read_only image2d_t image, int8 coord_x, int8 coord_y, __private void* pData,
                                    __private void** p0, __private void** p1, __private void** p2, __private void** p3, __private void** p4, __private void** p5, __private void** p6, __private void** p7)
 {
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
@@ -238,6 +248,12 @@ void __attribute__((overloadable)) soa8_extract_pixel_pointer_quad(image2d_t ima
     *p6 = (__private char*)pData + ocoord.s6;
     *p7 = (__private char*)pData + ocoord.s7;
     return;
+}
+
+void __attribute__((overloadable)) soa8_extract_pixel_pointer_quad(__read_write image2d_t image, int8 coord_x, int8 coord_y, __private void* pData,
+                                   __private void** p0, __private void** p1, __private void** p2, __private void** p3, __private void** p4, __private void** p5, __private void** p6, __private void** p7)
+{
+    soa8_extract_pixel_pointer_quad(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y, pData, p0, p1, p2, p3, p4, p5, p6, p7);
 }
 
 void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8(__private void* p0, __private void* p1, __private void* p2, __private void* p3, __private void* p4, __private void* p5, __private void* p6, __private void* p7, 
@@ -273,7 +289,7 @@ void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8_oob(int8 i
 //
 // return: vector, that contains all zeros if corresponding pixel is outside the boundaries
 //         or all ones otherwise
-int4 __attribute__((overloadable)) soa4_isInsideBoundsInt(image2d_t image, int4 coord_x, int4 coord_y)
+int4 __attribute__((overloadable)) soa4_isInsideBoundsInt(__read_only image2d_t image, int4 coord_x, int4 coord_y)
 {
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     int4 upper_x = (int4)(pImage->dimSub1[0]);
@@ -291,13 +307,23 @@ int4 __attribute__((overloadable)) soa4_isInsideBoundsInt(image2d_t image, int4 
     return res;
 }
 
+int4 __attribute__((overloadable)) soa4_isInsideBoundsInt(__write_only image2d_t image, int4 coord_x, int4 coord_y)
+{
+    return soa4_isInsideBoundsInt(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y);
+}
+
+int4 __attribute__((overloadable)) soa4_isInsideBoundsInt(__read_write image2d_t image, int4 coord_x, int4 coord_y)
+{
+    return soa4_isInsideBoundsInt(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y);
+}
+
 // Extract the pointer to a specific pixel inside the image
 //
 // @param image: the image object
 // @param coord: (x,y) coordinates of the pixel inside the image
 //
 // return: pointer to the begining of the pixel in memory
-void __attribute__((overloadable)) soa4_extract_pixel_pointer_quad(image2d_t image, int4 coord_x, int4 coord_y, __private void* pData, __private void** p1, __private void** p2, __private void** p3, __private void** p4)
+void __attribute__((overloadable)) soa4_extract_pixel_pointer_quad(__read_only image2d_t image, int4 coord_x, int4 coord_y, __private void* pData, __private void** p1, __private void** p2, __private void** p3, __private void** p4)
 {
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     uint4 offset_x = (uint4)(pImage->offset[0]);
@@ -312,6 +338,11 @@ void __attribute__((overloadable)) soa4_extract_pixel_pointer_quad(image2d_t ima
     *p3 = (__private char*)pData + ocoord.s2;
     *p4 = (__private char*)pData + ocoord.s3;
     return;
+}
+
+void __attribute__((overloadable)) soa4_extract_pixel_pointer_quad(__read_write image2d_t image, int4 coord_x, int4 coord_y, __private void* pData, __private void** p1, __private void** p2, __private void** p3, __private void** p4)
+{
+    soa4_extract_pixel_pointer_quad(__builtin_astype(image, __read_only image2d_t), coord_x, coord_y, pData, p1, p2, p3, p4);
 }
 
 void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8(__private void* pPixel_0, __private void* pPixel_1, __private void* pPixel_2, __private void* pPixel_3, 
