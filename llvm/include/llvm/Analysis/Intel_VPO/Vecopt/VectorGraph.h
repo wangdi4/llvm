@@ -1,17 +1,29 @@
+//===-- VectorGraph.h -------------------------------------------*- C++ -*-===//
+//
+//   Copyright (C) 2016 Intel Corporation. All rights reserved.
+//
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file defines the vector graph nodes built for loop vectorization.
+///
+//===----------------------------------------------------------------------===//
 #ifndef LLVM_ANALYSIS_VECTOR_GRAPH_H
 #define LLVM_ANALYSIS_VECTOR_GRAPH_H
 
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/CFG.h"
+#include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
-#include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/FormattedStream.h"
 
 #define TabLength 2
 
@@ -20,7 +32,7 @@ namespace llvm { // LLVM Namespace
 class Loop;
 class SCEV;
 
-namespace vpo {  // VPO Vectorizer Namespace
+namespace vpo { // VPO Vectorizer Namespace
 
 class VGLoop;
 class VGBlock;
@@ -45,10 +57,10 @@ private:
   unsigned Number;
 
   /// Slev - SIMD lane evolution classification of this AVR node.
-  //SLEV Slev;
+  // SLEV Slev;
 
   /// Predicate - The AVR node that is the predicate masking this one.
-  VGPredicate* Predicate;
+  VGPredicate *Predicate;
 
   /// \brief Destroys all objects of this class. Only called after Vectorizer
   /// phase code generation.
@@ -72,7 +84,8 @@ protected:
   /// \brief Sets the predicate for this node.
   void setPredicate(VGPredicate *P) { Predicate = P; }
 
-  /// Only this utility class should be used to modify/delete vector graph nodes.
+  /// Only this utility class should be used to modify/delete vector graph
+  /// nodes.
   friend class VectorGraphUtils;
 
 public:
@@ -93,10 +106,10 @@ public:
   unsigned getNumber() const { return Number; }
 
   /// \brief Returns the Avr nodes's SLEV data.
-  //SLEV getSLEV() const { return Slev; }
+  // SLEV getSLEV() const { return Slev; }
 
   /// \brief Returns the Avr nodes's predicating Avr node.
-  VGPredicate* getPredicate() const { return Predicate; }
+  VGPredicate *getPredicate() const { return Predicate; }
 
   /// \brief Returns the immediate lexical parent of the AVR.
   VGNode *getParent() const { return Parent; }
@@ -111,11 +124,7 @@ public:
   unsigned getVGID() const { return SubClassID; }
 
   /// VectorGraphNode Subclass Kinds
-  enum VectorGraphNodeVal {
-    VGLoopNode,
-    VGBlockNode,
-    VGPredicateNode
-  };
+  enum VectorGraphNodeVal { VGLoopNode, VGBlockNode, VGPredicateNode };
 };
 } // End VPO Vectorizer Namspace
 
@@ -232,42 +241,42 @@ public:
     return Node->getVGID() == VGNode::VGLoopNode;
   }
 
-  /// \brief 
+  /// \brief
   void print(formatted_raw_ostream &OS, unsigned Depth) const override;
 
   /// \brief Prints the type name of this avr.
   void printNodeKind(formatted_raw_ostream &OS) const override;
 
-  /// \brief Creates a clone of this vector graph 
+  /// \brief Creates a clone of this vector graph
   VGLoop *clone() const override;
-
 };
 
 /// \brief
 class VGBlock final : public VGNode {
 
 private:
-  SmallVector<VGBlock*, 2> Predecessors;
-  SmallVector<VGBlock*, 2> Successors;
-  SmallPtrSet<VGBlock*, 2> SchedConstraints;
+  SmallVector<VGBlock *, 2> Predecessors;
+  SmallVector<VGBlock *, 2> Successors;
+  SmallPtrSet<VGBlock *, 2> SchedConstraints;
 
   // Use BBlock handle to access instructions.
   BasicBlock *BBlock;
 
-  /// Condition - pointer to the instruction  which generates the true/false bit for
+  /// Condition - pointer to the instruction  which generates the true/false bit
+  /// for
   /// that selects between (the two) successors.
   Instruction *Condition;
 
   void setCondition(Instruction *C) { Condition = C; }
 
-  void addSuccessor(VGBlock* Successor) {
+  void addSuccessor(VGBlock *Successor) {
     assert(Successor && "Null successor?");
     Successors.push_back(Successor);
     Successor->Predecessors.push_back(this);
     Successor->addSchedulingConstraint(this);
   }
 
-  void addSchedulingConstraint(VGBlock* Block) {
+  void addSchedulingConstraint(VGBlock *Block) {
     SchedConstraints.insert(Block);
   }
 
@@ -278,22 +287,38 @@ protected:
   friend class VectorGraphUtils;
 
 public:
-  const SmallVectorImpl<VGBlock*>& getPredecessors() const { return Predecessors; }
-  const SmallVectorImpl<VGBlock*>& getSuccessors() const { return Successors; }
-  const SmallPtrSetImpl<VGBlock*>& getSchedConstraints() { return SchedConstraints; }
+  const SmallVectorImpl<VGBlock *> &getPredecessors() const {
+    return Predecessors;
+  }
+  const SmallVectorImpl<VGBlock *> &getSuccessors() const { return Successors; }
+  const SmallPtrSetImpl<VGBlock *> &getSchedConstraints() {
+    return SchedConstraints;
+  }
 
-  SmallVectorImpl<VGBlock*>::const_iterator pred_begin() const { return Predecessors.begin(); }
-  SmallVectorImpl<VGBlock*>::const_iterator pred_end() const { return Predecessors.end(); }
-  SmallVectorImpl<VGBlock*>::const_iterator succ_begin() const { return Successors.begin(); }
-  SmallVectorImpl<VGBlock*>::const_iterator succ_end() const { return Successors.end(); }
-  SmallVectorImpl<VGBlock*>::iterator pred_begin() { return Predecessors.begin(); }
-  SmallVectorImpl<VGBlock*>::iterator pred_end() { return Predecessors.end(); }
-  SmallVectorImpl<VGBlock*>::iterator succ_begin() { return Successors.begin(); }
-  SmallVectorImpl<VGBlock*>::iterator succ_end() { return Successors.end(); }
+  SmallVectorImpl<VGBlock *>::const_iterator pred_begin() const {
+    return Predecessors.begin();
+  }
+  SmallVectorImpl<VGBlock *>::const_iterator pred_end() const {
+    return Predecessors.end();
+  }
+  SmallVectorImpl<VGBlock *>::const_iterator succ_begin() const {
+    return Successors.begin();
+  }
+  SmallVectorImpl<VGBlock *>::const_iterator succ_end() const {
+    return Successors.end();
+  }
+  SmallVectorImpl<VGBlock *>::iterator pred_begin() {
+    return Predecessors.begin();
+  }
+  SmallVectorImpl<VGBlock *>::iterator pred_end() { return Predecessors.end(); }
+  SmallVectorImpl<VGBlock *>::iterator succ_begin() {
+    return Successors.begin();
+  }
+  SmallVectorImpl<VGBlock *>::iterator succ_end() { return Successors.end(); }
 
-  unsigned getSuccessorOrdinal(VGBlock* Successor) {
+  unsigned getSuccessorOrdinal(VGBlock *Successor) {
     unsigned Ordinal = 0;
-    for (VGBlock* VBlock : Successors) {
+    for (VGBlock *VBlock : Successors) {
       if (Successor == VBlock)
         return Ordinal;
       ++Ordinal;
@@ -316,12 +341,12 @@ public:
   void printNodeKind(formatted_raw_ostream &OS) const override;
 };
 
-/// \breif 
+/// \breif
 class VGPredicate : public VGNode {
 public:
   /// \brief A type representing an incoming value to the AVRPredicate and the
   /// AVRLabel corresponding to the basic block it originates from.
-  typedef std::pair<VGPredicate*, VGNode*> IncomingTy;
+  typedef std::pair<VGPredicate *, VGNode *> IncomingTy;
 
 private:
   /// \brief Incoming AVR values and their corresponding AVR labels.
@@ -352,12 +377,143 @@ public:
   void printNodeKind(formatted_raw_ostream &OS) const override;
 
   /// \brief Returns the incoming values of this AVR predicate.
-  const SmallVectorImpl<IncomingTy>& getIncoming() {
+  const SmallVectorImpl<IncomingTy> &getIncoming() {
     return IncomingPredicates;
   }
 };
-
 } // End VPO Vectorizer Namespace
+
+template <class GraphT, class GT = GraphTraits<GraphT>>
+class standard_df_iterator
+    : public std::iterator<std::forward_iterator_tag, typename GT::NodeType> {
+private:
+  df_iterator<GraphT> impl;
+
+  standard_df_iterator() {}
+
+public:
+  typedef std::iterator<std::forward_iterator_tag, typename GT::NodeType> super;
+
+  standard_df_iterator(const GraphT &G, bool Begin)
+      : impl(Begin ? df_iterator<GraphT>::begin(G)
+                   : df_iterator<GraphT>::end(G)) {}
+
+  typename super::reference operator*() const { return *(*impl); }
+
+  bool operator==(const standard_df_iterator &x) const {
+    return impl == x.impl;
+  }
+
+  bool operator!=(const standard_df_iterator &x) const { return !(*this == x); }
+
+  standard_df_iterator &operator++() { // Preincrement
+    impl++;
+    return *this;
+  }
+
+  standard_df_iterator operator++(int) { // Postincrement
+    standard_df_iterator tmp = *this;
+    ++*this;
+    return tmp;
+  }
+};
+
+template <> struct GraphTraits<vpo::VGBlock *> {
+  typedef vpo::VGBlock NodeType;
+  typedef SmallVectorImpl<vpo::VGBlock *>::iterator ChildIteratorType;
+  typedef standard_df_iterator<vpo::VGBlock *> nodes_iterator;
+
+  static NodeType *getEntryNode(vpo::VGBlock *N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return N->succ_begin();
+  }
+  static inline ChildIteratorType child_end(NodeType *N) {
+    return N->succ_end();
+  }
+
+  static nodes_iterator nodes_begin(vpo::VGBlock *N) {
+    return nodes_iterator(N, true);
+  }
+
+  static nodes_iterator nodes_end(vpo::VGBlock *N) {
+    return nodes_iterator(N, false);
+  }
+};
+
+template <> struct GraphTraits<Inverse<vpo::VGBlock *>> {
+  typedef vpo::VGBlock NodeType;
+  typedef SmallVectorImpl<vpo::VGBlock *>::iterator ChildIteratorType;
+  typedef standard_df_iterator<vpo::VGBlock *> nodes_iterator;
+
+  static NodeType *getEntryNode(Inverse<vpo::VGBlock *> G) { return G.Graph; }
+
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return N->pred_begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeType *N) {
+    return N->pred_end();
+  }
+
+  static nodes_iterator nodes_begin(vpo::VGBlock *N) {
+    return nodes_iterator(N, true);
+  }
+
+  static nodes_iterator nodes_end(vpo::VGBlock *N) {
+    return nodes_iterator(N, false);
+  }
+};
+
+template <> struct GraphTraits<const vpo::VGBlock *> {
+  typedef const vpo::VGBlock NodeType;
+  typedef SmallVectorImpl<vpo::VGBlock *>::const_iterator ChildIteratorType;
+  typedef standard_df_iterator<const vpo::VGBlock *> nodes_iterator;
+
+  static NodeType *getEntryNode(const vpo::VGBlock *N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return N->succ_begin();
+  }
+  static inline ChildIteratorType child_end(NodeType *N) {
+    return N->succ_end();
+  }
+
+  static nodes_iterator nodes_begin(const vpo::VGBlock *N) {
+    return nodes_iterator(N, true);
+  }
+
+  static nodes_iterator nodes_end(const vpo::VGBlock *N) {
+    return nodes_iterator(N, false);
+  }
+};
+
+template <> struct GraphTraits<Inverse<const vpo::VGBlock *>> {
+  typedef const vpo::VGBlock NodeType;
+  typedef SmallVectorImpl<vpo::VGBlock *>::const_iterator ChildIteratorType;
+  typedef standard_df_iterator<const vpo::VGBlock *> nodes_iterator;
+
+  static NodeType *getEntryNode(Inverse<const vpo::VGBlock *> G) {
+    return G.Graph;
+  }
+
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return N->pred_begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeType *N) {
+    return N->pred_end();
+  }
+
+  static nodes_iterator nodes_begin(const vpo::VGBlock *N) {
+    return nodes_iterator(N, true);
+  }
+
+  static nodes_iterator nodes_end(const vpo::VGBlock *N) {
+    return nodes_iterator(N, false);
+  }
+};
+
 } // End LLVM Namespace
 
 #endif // LLVM_ANALYSIS_VPO_AVR_H
