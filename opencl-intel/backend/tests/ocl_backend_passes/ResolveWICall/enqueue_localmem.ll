@@ -10,7 +10,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 define void @enqueue_kernel_localmem(%opencl.queue_t addrspace(1)* %q, %struct.ndrange_t* %nd, void (i8 addrspace(3)*, ...)* %b, i32 %localMem1, i32 %localMem2) nounwind {
 ; CHECK: call i32 @ocl20_enqueue_kernel_localmem
-  %call = call i32 (%opencl.queue_t addrspace(1)*, i32, %struct.ndrange_t*, void (i8 addrspace(3)*, ...)*, i32, ...)* @_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz(%opencl.queue_t addrspace(1)* %q, i32 0, %struct.ndrange_t* %nd, void (i8 addrspace(3)*, ...)* %b, i32 %localMem1, i32 %localMem2)
+  %call = call i32 (%opencl.queue_t addrspace(1)*, i32, %struct.ndrange_t*, void (i8 addrspace(3)*, ...)*, i32, ...) @_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz(%opencl.queue_t addrspace(1)* %q, i32 0, %struct.ndrange_t* %nd, void (i8 addrspace(3)*, ...)* %b, i32 %localMem1, i32 %localMem2)
   ret void
 }
 
