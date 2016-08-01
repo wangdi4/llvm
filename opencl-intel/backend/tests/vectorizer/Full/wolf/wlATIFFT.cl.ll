@@ -10,7 +10,7 @@ target triple = "i686-pc-win32"
 @opencl_kfft_local_lds = internal addrspace(3) global [2176 x float] zeroinitializer, align 4 ; <[2176 x float] addrspace(3)*> [#uses=2]
 @opencl_kfft_locals = appending global [2 x i8*] [i8* addrspacecast ([2176 x float] addrspace(3)* @opencl_kfft_local_lds to i8*), i8* null], section "llvm.metadata" ; <[2 x i8*]*> [#uses=1]
 @opencl_kfft_parameters = appending global [85 x i8] c"float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *\00", section "llvm.metadata" ; <[85 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, float addrspace(1)*)* @kfft to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] [i32 1, i32 64, i32 1, i32 1], i8* bitcast ([2 x i8*]* @opencl_kfft_locals to i8*), i8* getelementptr inbounds ([85 x i8]* @opencl_kfft_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, float addrspace(1)*)* @kfft to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] [i32 1, i32 64, i32 1, i32 1], i8* bitcast ([2 x i8*]* @opencl_kfft_locals to i8*), i8* getelementptr inbounds ([85 x i8], [85 x i8]* @opencl_kfft_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define float @k_sincos(i32 %i, float* %cretp) nounwind alwaysinline {
@@ -3438,7 +3438,7 @@ entry:
   store i32 %tmp8, i32* %me.addr.i
   store float addrspace(1)* %tmp9, float addrspace(1)** %gr.addr.i
   store float addrspace(1)* %tmp10, float addrspace(1)** %gi.addr.i
-  store float addrspace(3)* getelementptr inbounds ([2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i
+  store float addrspace(3)* getelementptr inbounds ([2176 x float], [2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i
   %tmp.i = load float addrspace(1)*, float addrspace(1)** %gr.addr.i   ; <float addrspace(1)*> [#uses=1]
   %tmp1.i = load i32, i32* %me.addr.i                  ; <i32> [#uses=1]
   %shl.i = shl i32 %tmp1.i, 2                     ; <i32> [#uses=1]
@@ -3881,7 +3881,7 @@ entry:
   call void @_Z7barrierm(i32 1) nounwind
   %tmp11 = load i32, i32* %me                          ; <i32> [#uses=1]
   store i32 %tmp11, i32* %me.addr.i814
-  store float addrspace(3)* getelementptr inbounds ([2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i815
+  store float addrspace(3)* getelementptr inbounds ([2176 x float], [2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i815
   %tmp.i845 = load float addrspace(3)*, float addrspace(3)** %lds.addr.i815 ; <float addrspace(3)*> [#uses=1]
   %tmp1.i846 = load i32, i32* %me.addr.i814            ; <i32> [#uses=1]
   %tmp2.i847 = load i32, i32* %me.addr.i814            ; <i32> [#uses=1]
@@ -4532,7 +4532,7 @@ kfft_pass2.exit:                                  ; preds = %k_sincos.exit527.i,
   call void @_Z7barrierm(i32 1) nounwind
   %tmp12 = load i32, i32* %me                          ; <i32> [#uses=1]
   store i32 %tmp12, i32* %me.addr.i400
-  store float addrspace(3)* getelementptr inbounds ([2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i401
+  store float addrspace(3)* getelementptr inbounds ([2176 x float], [2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i401
   %tmp.i431 = load float addrspace(3)*, float addrspace(3)** %lds.addr.i401 ; <float addrspace(3)*> [#uses=1]
   %tmp1.i432 = load i32, i32* %me.addr.i400            ; <i32> [#uses=1]
   %tmp2.i433 = load i32, i32* %me.addr.i400            ; <i32> [#uses=1]
@@ -5180,7 +5180,7 @@ kfft_pass3.exit:                                  ; preds = %k_sincos.exit524.i,
   call void @_Z7barrierm(i32 1) nounwind
   %tmp13 = load i32, i32* %me                          ; <i32> [#uses=1]
   store i32 %tmp13, i32* %me.addr.i166
-  store float addrspace(3)* getelementptr inbounds ([2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i167
+  store float addrspace(3)* getelementptr inbounds ([2176 x float], [2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i167
   %tmp.i197 = load float addrspace(3)*, float addrspace(3)** %lds.addr.i167 ; <float addrspace(3)*> [#uses=1]
   %tmp1.i198 = load i32, i32* %me.addr.i166            ; <i32> [#uses=1]
   %and.i199 = and i32 %tmp1.i198, 3               ; <i32> [#uses=1]
@@ -5837,7 +5837,7 @@ kfft_pass4.exit:                                  ; preds = %k_sincos.exit530.i,
   %tmp15 = load float addrspace(1)*, float addrspace(1)** %gr          ; <float addrspace(1)*> [#uses=1]
   %tmp16 = load float addrspace(1)*, float addrspace(1)** %gi          ; <float addrspace(1)*> [#uses=1]
   store i32 %tmp14, i32* %me.addr.i17
-  store float addrspace(3)* getelementptr inbounds ([2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i18
+  store float addrspace(3)* getelementptr inbounds ([2176 x float], [2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i18
   store float addrspace(1)* %tmp15, float addrspace(1)** %gr.addr.i19
   store float addrspace(1)* %tmp16, float addrspace(1)** %gi.addr.i20
   %tmp.i43 = load float addrspace(3)*, float addrspace(3)** %lds.addr.i18 ; <float addrspace(3)*> [#uses=1]

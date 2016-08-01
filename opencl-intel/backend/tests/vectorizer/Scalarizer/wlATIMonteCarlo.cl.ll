@@ -9,7 +9,7 @@ target triple = "i686-pc-win32"
 
 @opencl_calPriceVega_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_calPriceVega_parameters = appending global [184 x i8] c"float4 __attribute__((address_space(1))) *, int, int, uint4 __attribute__((address_space(1))) *, float4 __attribute__((address_space(1))) *, float4 __attribute__((address_space(1))) *\00", section "llvm.metadata" ; <[184 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<4 x float> addrspace(1)*, i32, i32, <4 x i32> addrspace(1)*, <4 x float> addrspace(1)*, <4 x float> addrspace(1)*)* @calPriceVega to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_calPriceVega_locals to i8*), i8* getelementptr inbounds ([184 x i8]* @opencl_calPriceVega_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<4 x float> addrspace(1)*, i32, i32, <4 x i32> addrspace(1)*, <4 x float> addrspace(1)*, <4 x float> addrspace(1)*)* @calPriceVega to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_calPriceVega_locals to i8*), i8* getelementptr inbounds ([184 x i8], [184 x i8]* @opencl_calPriceVega_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define void @lshift128(<4 x i32> %input, i32 %shift, <4 x i32>* %output) nounwind {

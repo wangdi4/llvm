@@ -19,7 +19,7 @@ target triple = "i686-pc-win32"
 @opencl_evaluateDependents_parameters = appending global [24 x i8] c"uint const, float const\00", section "llvm.metadata" ; <[24 x i8]*> [#uses=1]
 @opencl_gauss_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_gauss_parameters = appending global [71 x i8] c"__rd image2d_t, float4 __attribute__((address_space(1))) *, uint const\00", section "llvm.metadata" ; <[71 x i8]*> [#uses=1]
-@opencl_metadata = appending global [3 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float, float addrspace(1)*)* @getWeightsSize to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_getWeightsSize_locals to i8*), i8* getelementptr inbounds ([55 x i8]* @opencl_getWeightsSize_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (i32, float)* @evaluateDependents to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_evaluateDependents_locals to i8*), i8* getelementptr inbounds ([24 x i8]* @opencl_evaluateDependents_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (%struct._image2d_t*, <4 x float> addrspace(1)*, i32)* @gauss to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_gauss_locals to i8*), i8* getelementptr inbounds ([71 x i8]* @opencl_gauss_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[3 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [3 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float, float addrspace(1)*)* @getWeightsSize to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_getWeightsSize_locals to i8*), i8* getelementptr inbounds ([55 x i8], [55 x i8]* @opencl_getWeightsSize_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (i32, float)* @evaluateDependents to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_evaluateDependents_locals to i8*), i8* getelementptr inbounds ([24 x i8], [24 x i8]* @opencl_evaluateDependents_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (%struct._image2d_t*, <4 x float> addrspace(1)*, i32)* @gauss to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_gauss_locals to i8*), i8* getelementptr inbounds ([71 x i8], [71 x i8]* @opencl_gauss_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[3 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define <4 x float> @evaluatePixel(%struct._image2d_t* %inputImage, <2 x float> %outCrd) nounwind {
@@ -74,7 +74,7 @@ for.body:                                         ; preds = %for.cond
   %call19 = call <4 x float> @_Z11read_imagefP10_image2d_tjU8__vector2f(%struct._image2d_t* %tmp17, i32 1, <2 x float> %tmp18) ; <<4 x float>> [#uses=1]
   store <4 x float> %call19, <4 x float>* %temp
   %tmp20 = load i32, i32* %i                           ; <i32> [#uses=1]
-  %arrayidx = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp20 ; <float addrspace(1)*> [#uses=1]
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float], [101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp20 ; <float addrspace(1)*> [#uses=1]
   %tmp21 = load float, float addrspace(1)* %arrayidx     ; <float> [#uses=1]
   %tmp22 = insertelement <4 x float> undef, float %tmp21, i32 0 ; <<4 x float>> [#uses=2]
   %splat23 = shufflevector <4 x float> %tmp22, <4 x float> %tmp22, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
@@ -84,7 +84,7 @@ for.body:                                         ; preds = %for.cond
   %add27 = fadd <4 x float> %tmp26, %mul25        ; <<4 x float>> [#uses=1]
   store <4 x float> %add27, <4 x float>* %colAccum
   %tmp28 = load i32, i32* %i                           ; <i32> [#uses=1]
-  %arrayidx29 = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp28 ; <float addrspace(1)*> [#uses=1]
+  %arrayidx29 = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float], [101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp28 ; <float addrspace(1)*> [#uses=1]
   %tmp30 = load float, float addrspace(1)* %arrayidx29   ; <float> [#uses=1]
   %tmp31 = load float, float* %weightAccum               ; <float> [#uses=1]
   %add32 = fadd float %tmp31, %tmp30              ; <float> [#uses=1]
@@ -213,14 +213,14 @@ if.end:                                           ; preds = %if.then, %for.body
   %tmp25 = load float, float* %val                       ; <float> [#uses=1]
   %call26 = call float @_Z3maxff(float %tmp25, float 0.000000e+000) ; <float> [#uses=1]
   %tmp27 = load i32, i32* %i                           ; <i32> [#uses=1]
-  %arrayidx = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp27 ; <float addrspace(1)*> [#uses=1]
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float], [101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp27 ; <float addrspace(1)*> [#uses=1]
   store float %call26, float addrspace(1)* %arrayidx
   %tmp28 = load i32, i32* %i                           ; <i32> [#uses=1]
-  %arrayidx29 = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp28 ; <float addrspace(1)*> [#uses=1]
+  %arrayidx29 = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float], [101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp28 ; <float addrspace(1)*> [#uses=1]
   %tmp30 = load float, float addrspace(1)* %arrayidx29   ; <float> [#uses=1]
   %call31 = call float @_Z3minff(float %tmp30, float 1.000000e+000) ; <float> [#uses=1]
   %tmp32 = load i32, i32* %i                           ; <i32> [#uses=1]
-  %arrayidx33 = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp32 ; <float addrspace(1)*> [#uses=1]
+  %arrayidx33 = getelementptr inbounds float, float addrspace(1)* getelementptr inbounds ([101 x float], [101 x float] addrspace(1)* @weights, i32 0, i32 0), i32 %tmp32 ; <float addrspace(1)*> [#uses=1]
   store float %call31, float addrspace(1)* %arrayidx33
   br label %for.inc
 

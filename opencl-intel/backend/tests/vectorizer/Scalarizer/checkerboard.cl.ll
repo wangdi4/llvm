@@ -9,7 +9,7 @@ target triple = "i686-pc-win32"
 
 @opencl_checkerboard2D_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_checkerboard2D_parameters = appending global [85 x i8] c"float4 __attribute__((address_space(1))) *, float2 const, float4 const, float4 const\00", section "llvm.metadata" ; <[85 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<4 x float> addrspace(1)*, <2 x float>, <4 x float>, <4 x float>)* @checkerboard2D to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_checkerboard2D_locals to i8*), i8* getelementptr inbounds ([85 x i8]* @opencl_checkerboard2D_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<4 x float> addrspace(1)*, <2 x float>, <4 x float>, <4 x float>)* @checkerboard2D to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_checkerboard2D_locals to i8*), i8* getelementptr inbounds ([85 x i8], [85 x i8]* @opencl_checkerboard2D_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define <4 x float> @evaluatePixel(<2 x float> %outCrd, <2 x float> %checkerSize, <4 x float> %color1, <4 x float> %color2) nounwind {

@@ -20,7 +20,7 @@ target triple = "i686-pc-win32"
 @opencl_DCT_CPU_parameters = appending global [140 x i8] c"float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, uint const\00", section "llvm.metadata" ; <[140 x i8]*> [#uses=1]
 @opencl_DCT_CPU_VECTOR_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_DCT_CPU_VECTOR_parameters = appending global [142 x i8] c"float __attribute__((address_space(1))) *, float8 __attribute__((address_space(1))) *, float8 __attribute__((address_space(1))) *, uint const\00", section "llvm.metadata" ; <[142 x i8]*> [#uses=1]
-@opencl_metadata = appending global [5 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32)* @DCT to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([2 x i8*]* @opencl_DCT_locals to i8*), i8* getelementptr inbounds ([140 x i8]* @opencl_DCT_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (<8 x float> addrspace(1)*, <8 x float> addrspace(1)*, <8 x float> addrspace(1)*, i32)* @DCT_VECTOR to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([2 x i8*]* @opencl_DCT_VECTOR_locals to i8*), i8* getelementptr inbounds ([143 x i8]* @opencl_DCT_VECTOR_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (<8 x float> addrspace(1)*, <8 x float> addrspace(1)*, <8 x float> addrspace(1)*, i32)* @DCT_VECTOR_DOT to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([2 x i8*]* @opencl_DCT_VECTOR_DOT_locals to i8*), i8* getelementptr inbounds ([143 x i8]* @opencl_DCT_VECTOR_DOT_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32)* @DCT_CPU to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_DCT_CPU_locals to i8*), i8* getelementptr inbounds ([140 x i8]* @opencl_DCT_CPU_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, <8 x float> addrspace(1)*, <8 x float> addrspace(1)*, i32)* @DCT_CPU_VECTOR to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_DCT_CPU_VECTOR_locals to i8*), i8* getelementptr inbounds ([142 x i8]* @opencl_DCT_CPU_VECTOR_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[5 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [5 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32)* @DCT to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([2 x i8*]* @opencl_DCT_locals to i8*), i8* getelementptr inbounds ([140 x i8], [140 x i8]* @opencl_DCT_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (<8 x float> addrspace(1)*, <8 x float> addrspace(1)*, <8 x float> addrspace(1)*, i32)* @DCT_VECTOR to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([2 x i8*]* @opencl_DCT_VECTOR_locals to i8*), i8* getelementptr inbounds ([143 x i8], [143 x i8]* @opencl_DCT_VECTOR_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (<8 x float> addrspace(1)*, <8 x float> addrspace(1)*, <8 x float> addrspace(1)*, i32)* @DCT_VECTOR_DOT to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([2 x i8*]* @opencl_DCT_VECTOR_DOT_locals to i8*), i8* getelementptr inbounds ([143 x i8], [143 x i8]* @opencl_DCT_VECTOR_DOT_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32)* @DCT_CPU to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_DCT_CPU_locals to i8*), i8* getelementptr inbounds ([140 x i8], [140 x i8]* @opencl_DCT_CPU_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, <8 x float> addrspace(1)*, <8 x float> addrspace(1)*, i32)* @DCT_CPU_VECTOR to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_DCT_CPU_VECTOR_locals to i8*), i8* getelementptr inbounds ([142 x i8], [142 x i8]* @opencl_DCT_CPU_VECTOR_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[5 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define void @DCT(float addrspace(1)* %output, float addrspace(1)* %input, float addrspace(1)* %dct, i32 %width) nounwind {
@@ -144,56 +144,56 @@ for.end42:                                        ; preds = %for.cond
   %tmp47 = load float, float* %arrayidx46                ; <float> [#uses=1]
   %tmp48 = load i32, i32* %idx                         ; <i32> [#uses=1]
   %add49 = add i32 %tmp48, 0                      ; <i32> [#uses=1]
-  %arrayidx50 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add49 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx50 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add49 ; <float addrspace(3)*> [#uses=1]
   store float %tmp47, float addrspace(3)* %arrayidx50
   %arraydecay51 = getelementptr inbounds [8 x float], [8 x float]* %acc, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx52 = getelementptr inbounds float, float* %arraydecay51, i32 1 ; <float*> [#uses=1]
   %tmp53 = load float, float* %arrayidx52                ; <float> [#uses=1]
   %tmp54 = load i32, i32* %idx                         ; <i32> [#uses=1]
   %add55 = add i32 %tmp54, 1                      ; <i32> [#uses=1]
-  %arrayidx56 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add55 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx56 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add55 ; <float addrspace(3)*> [#uses=1]
   store float %tmp53, float addrspace(3)* %arrayidx56
   %arraydecay57 = getelementptr inbounds [8 x float], [8 x float]* %acc, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx58 = getelementptr inbounds float, float* %arraydecay57, i32 2 ; <float*> [#uses=1]
   %tmp59 = load float, float* %arrayidx58                ; <float> [#uses=1]
   %tmp60 = load i32, i32* %idx                         ; <i32> [#uses=1]
   %add61 = add i32 %tmp60, 2                      ; <i32> [#uses=1]
-  %arrayidx62 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add61 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx62 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add61 ; <float addrspace(3)*> [#uses=1]
   store float %tmp59, float addrspace(3)* %arrayidx62
   %arraydecay63 = getelementptr inbounds [8 x float], [8 x float]* %acc, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx64 = getelementptr inbounds float, float* %arraydecay63, i32 3 ; <float*> [#uses=1]
   %tmp65 = load float, float* %arrayidx64                ; <float> [#uses=1]
   %tmp66 = load i32, i32* %idx                         ; <i32> [#uses=1]
   %add67 = add i32 %tmp66, 3                      ; <i32> [#uses=1]
-  %arrayidx68 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add67 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx68 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add67 ; <float addrspace(3)*> [#uses=1]
   store float %tmp65, float addrspace(3)* %arrayidx68
   %arraydecay69 = getelementptr inbounds [8 x float], [8 x float]* %acc, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx70 = getelementptr inbounds float, float* %arraydecay69, i32 4 ; <float*> [#uses=1]
   %tmp71 = load float, float* %arrayidx70                ; <float> [#uses=1]
   %tmp72 = load i32, i32* %idx                         ; <i32> [#uses=1]
   %add73 = add i32 %tmp72, 4                      ; <i32> [#uses=1]
-  %arrayidx74 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add73 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx74 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add73 ; <float addrspace(3)*> [#uses=1]
   store float %tmp71, float addrspace(3)* %arrayidx74
   %arraydecay75 = getelementptr inbounds [8 x float], [8 x float]* %acc, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx76 = getelementptr inbounds float, float* %arraydecay75, i32 5 ; <float*> [#uses=1]
   %tmp77 = load float, float* %arrayidx76                ; <float> [#uses=1]
   %tmp78 = load i32, i32* %idx                         ; <i32> [#uses=1]
   %add79 = add i32 %tmp78, 5                      ; <i32> [#uses=1]
-  %arrayidx80 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add79 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx80 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add79 ; <float addrspace(3)*> [#uses=1]
   store float %tmp77, float addrspace(3)* %arrayidx80
   %arraydecay81 = getelementptr inbounds [8 x float], [8 x float]* %acc, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx82 = getelementptr inbounds float, float* %arraydecay81, i32 6 ; <float*> [#uses=1]
   %tmp83 = load float, float* %arrayidx82                ; <float> [#uses=1]
   %tmp84 = load i32, i32* %idx                         ; <i32> [#uses=1]
   %add85 = add i32 %tmp84, 6                      ; <i32> [#uses=1]
-  %arrayidx86 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add85 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx86 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add85 ; <float addrspace(3)*> [#uses=1]
   store float %tmp83, float addrspace(3)* %arrayidx86
   %arraydecay87 = getelementptr inbounds [8 x float], [8 x float]* %acc, i32 0, i32 0 ; <float*> [#uses=1]
   %arrayidx88 = getelementptr inbounds float, float* %arraydecay87, i32 7 ; <float*> [#uses=1]
   %tmp89 = load float, float* %arrayidx88                ; <float> [#uses=1]
   %tmp90 = load i32, i32* %idx                         ; <i32> [#uses=1]
   %add91 = add i32 %tmp90, 7                      ; <i32> [#uses=1]
-  %arrayidx92 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add91 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx92 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add91 ; <float addrspace(3)*> [#uses=1]
   store float %tmp89, float addrspace(3)* %arrayidx92
   call void @_Z7barrierm(i32 1)
   store i32 0, i32* %ind94
@@ -245,7 +245,7 @@ for.body118:                                      ; preds = %for.cond115
   %tmp119 = load i32, i32* %index1                     ; <i32> [#uses=1]
   %tmp120 = load i32, i32* %n2                         ; <i32> [#uses=1]
   %add121 = add i32 %tmp119, %tmp120              ; <i32> [#uses=1]
-  %arrayidx122 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add121 ; <float addrspace(3)*> [#uses=1]
+  %arrayidx122 = getelementptr inbounds float, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @opencl_DCT_local_inter, i32 0, i32 0), i32 %add121 ; <float addrspace(3)*> [#uses=1]
   %tmp123 = load float, float addrspace(3)* %arrayidx122 ; <float> [#uses=1]
   %tmp124 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp125 = load i32, i32* %n2                         ; <i32> [#uses=1]
@@ -740,14 +740,14 @@ entry:
   store i32 %tmp305, i32* %idx
   %tmp306 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp307 = load i32, i32* %idx                        ; <i32> [#uses=1]
-  %arrayidx308 = getelementptr inbounds <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 0), i32 %tmp307 ; <<8 x float> addrspace(3)*> [#uses=1]
+  %arrayidx308 = getelementptr inbounds <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 0), i32 %tmp307 ; <<8 x float> addrspace(3)*> [#uses=1]
   store <8 x float> %tmp306, <8 x float> addrspace(3)* %arrayidx308
   call void @_Z7barrierm(i32 1)
   %tmp309 = load i32, i32* %i                          ; <i32> [#uses=1]
   store i32 %tmp309, i32* %k2
   %tmp310 = load i32, i32* %k2                         ; <i32> [#uses=1]
   store i32 %tmp310, i32* %index2
-  %tmp311 = load <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 0) ; <<8 x float>> [#uses=1]
+  %tmp311 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 0) ; <<8 x float>> [#uses=1]
   %tmp312 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp313 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
   %arrayidx314 = getelementptr inbounds <8 x float>, <8 x float> addrspace(1)* %tmp313, i32 %tmp312 ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -780,7 +780,7 @@ entry:
   %tmp340 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp341 = insertelement <8 x float> %tmp340, float %add339, i32 0 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp341, <8 x float>* %acc
-  %tmp342 = load <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 1) ; <<8 x float>> [#uses=1]
+  %tmp342 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 1)
   %tmp343 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp344 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
   %arrayidx345 = getelementptr inbounds <8 x float>, <8 x float> addrspace(1)* %tmp344, i32 %tmp343 ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -813,7 +813,7 @@ entry:
   %tmp371 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp372 = insertelement <8 x float> %tmp371, float %add370, i32 1 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp372, <8 x float>* %acc
-  %tmp373 = load <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 2) ; <<8 x float>> [#uses=1]
+  %tmp373 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 2)
   %tmp374 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp375 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
   %arrayidx376 = getelementptr inbounds <8 x float>, <8 x float> addrspace(1)* %tmp375, i32 %tmp374 ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -846,7 +846,7 @@ entry:
   %tmp402 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp403 = insertelement <8 x float> %tmp402, float %add401, i32 2 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp403, <8 x float>* %acc
-  %tmp404 = load <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 3) ; <<8 x float>> [#uses=1]
+  %tmp404 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 3)
   %tmp405 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp406 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
   %arrayidx407 = getelementptr inbounds <8 x float>, <8 x float> addrspace(1)* %tmp406, i32 %tmp405 ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -879,7 +879,7 @@ entry:
   %tmp433 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp434 = insertelement <8 x float> %tmp433, float %add432, i32 3 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp434, <8 x float>* %acc
-  %tmp435 = load <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 4) ; <<8 x float>> [#uses=1]
+  %tmp435 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 4)
   %tmp436 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp437 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
   %arrayidx438 = getelementptr inbounds <8 x float>, <8 x float> addrspace(1)* %tmp437, i32 %tmp436 ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -912,7 +912,7 @@ entry:
   %tmp464 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp465 = insertelement <8 x float> %tmp464, float %add463, i32 4 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp465, <8 x float>* %acc
-  %tmp466 = load <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 5) ; <<8 x float>> [#uses=1]
+  %tmp466 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 5)
   %tmp467 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp468 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
   %arrayidx469 = getelementptr inbounds <8 x float>, <8 x float> addrspace(1)* %tmp468, i32 %tmp467 ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -945,7 +945,7 @@ entry:
   %tmp495 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp496 = insertelement <8 x float> %tmp495, float %add494, i32 5 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp496, <8 x float>* %acc
-  %tmp497 = load <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 6) ; <<8 x float>> [#uses=1]
+  %tmp497 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 6)
   %tmp498 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp499 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
   %arrayidx500 = getelementptr inbounds <8 x float>, <8 x float> addrspace(1)* %tmp499, i32 %tmp498 ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -978,7 +978,7 @@ entry:
   %tmp526 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp527 = insertelement <8 x float> %tmp526, float %add525, i32 6 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp527, <8 x float>* %acc
-  %tmp528 = load <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 7) ; <<8 x float>> [#uses=1]
+  %tmp528 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter, i32 0, i32 7)
   %tmp529 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp530 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
   %arrayidx531 = getelementptr inbounds <8 x float>, <8 x float> addrspace(1)* %tmp530, i32 %tmp529 ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1319,14 +1319,14 @@ entry:
   store i32 %tmp233, i32* %idx
   %tmp234 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp235 = load i32, i32* %idx                        ; <i32> [#uses=1]
-  %arrayidx236 = getelementptr inbounds <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 0), i32 %tmp235 ; <<8 x float> addrspace(3)*> [#uses=1]
+  %arrayidx236 = getelementptr inbounds <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 0), i32 %tmp235 ; <<8 x float> addrspace(3)*> [#uses=1]
   store <8 x float> %tmp234, <8 x float> addrspace(3)* %arrayidx236
   call void @_Z7barrierm(i32 2)
   %tmp237 = load i32, i32* %i                          ; <i32> [#uses=1]
   store i32 %tmp237, i32* %k2
   %tmp238 = load i32, i32* %k2                         ; <i32> [#uses=1]
   store i32 %tmp238, i32* %index2
-  %tmp239 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 0) ; <<8 x float>> [#uses=1]
+  %tmp239 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 0) ; <<8 x float>> [#uses=1]
   %tmp240 = shufflevector <8 x float> %tmp239, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %tmp241 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp242 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1334,7 +1334,7 @@ entry:
   %tmp244 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx243 ; <<8 x float>> [#uses=1]
   %tmp245 = shufflevector <8 x float> %tmp244, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %call246 = call float @_Z3dotU8__vector4fS_(<4 x float> %tmp240, <4 x float> %tmp245) ; <float> [#uses=1]
-  %tmp247 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 0) ; <<8 x float>> [#uses=1]
+  %tmp247 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 0) ; <<8 x float>> [#uses=1]
   %tmp248 = shufflevector <8 x float> %tmp247, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7> ; <<4 x float>> [#uses=1]
   %tmp249 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp250 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1346,7 +1346,7 @@ entry:
   %tmp256 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp257 = insertelement <8 x float> %tmp256, float %add255, i32 0 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp257, <8 x float>* %acc
-  %tmp258 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 1) ; <<8 x float>> [#uses=1]
+  %tmp258 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 1) ; <<8 x float>> [#uses=1]
   %tmp259 = shufflevector <8 x float> %tmp258, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %tmp260 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp261 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1354,7 +1354,7 @@ entry:
   %tmp263 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx262 ; <<8 x float>> [#uses=1]
   %tmp264 = shufflevector <8 x float> %tmp263, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %call265 = call float @_Z3dotU8__vector4fS_(<4 x float> %tmp259, <4 x float> %tmp264) ; <float> [#uses=1]
-  %tmp266 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 1) ; <<8 x float>> [#uses=1]
+  %tmp266 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 1) ; <<8 x float>> [#uses=1]
   %tmp267 = shufflevector <8 x float> %tmp266, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7> ; <<4 x float>> [#uses=1]
   %tmp268 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp269 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1366,7 +1366,7 @@ entry:
   %tmp275 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp276 = insertelement <8 x float> %tmp275, float %add274, i32 1 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp276, <8 x float>* %acc
-  %tmp277 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 2) ; <<8 x float>> [#uses=1]
+  %tmp277 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 2) ; <<8 x float>> [#uses=1]
   %tmp278 = shufflevector <8 x float> %tmp277, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %tmp279 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp280 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1374,7 +1374,7 @@ entry:
   %tmp282 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx281 ; <<8 x float>> [#uses=1]
   %tmp283 = shufflevector <8 x float> %tmp282, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %call284 = call float @_Z3dotU8__vector4fS_(<4 x float> %tmp278, <4 x float> %tmp283) ; <float> [#uses=1]
-  %tmp285 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 2) ; <<8 x float>> [#uses=1]
+  %tmp285 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 2) ; <<8 x float>> [#uses=1]
   %tmp286 = shufflevector <8 x float> %tmp285, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7> ; <<4 x float>> [#uses=1]
   %tmp287 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp288 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1386,7 +1386,7 @@ entry:
   %tmp294 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp295 = insertelement <8 x float> %tmp294, float %add293, i32 2 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp295, <8 x float>* %acc
-  %tmp296 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 3) ; <<8 x float>> [#uses=1]
+  %tmp296 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 3) ; <<8 x float>> [#uses=1]
   %tmp297 = shufflevector <8 x float> %tmp296, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %tmp298 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp299 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1394,7 +1394,7 @@ entry:
   %tmp301 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx300 ; <<8 x float>> [#uses=1]
   %tmp302 = shufflevector <8 x float> %tmp301, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %call303 = call float @_Z3dotU8__vector4fS_(<4 x float> %tmp297, <4 x float> %tmp302) ; <float> [#uses=1]
-  %tmp304 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 3) ; <<8 x float>> [#uses=1]
+  %tmp304 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 3) ; <<8 x float>> [#uses=1]
   %tmp305 = shufflevector <8 x float> %tmp304, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7> ; <<4 x float>> [#uses=1]
   %tmp306 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp307 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1406,7 +1406,7 @@ entry:
   %tmp313 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp314 = insertelement <8 x float> %tmp313, float %add312, i32 3 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp314, <8 x float>* %acc
-  %tmp315 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 4) ; <<8 x float>> [#uses=1]
+  %tmp315 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 4) ; <<8 x float>> [#uses=1]
   %tmp316 = shufflevector <8 x float> %tmp315, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %tmp317 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp318 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1414,7 +1414,7 @@ entry:
   %tmp320 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx319 ; <<8 x float>> [#uses=1]
   %tmp321 = shufflevector <8 x float> %tmp320, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %call322 = call float @_Z3dotU8__vector4fS_(<4 x float> %tmp316, <4 x float> %tmp321) ; <float> [#uses=1]
-  %tmp323 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 4) ; <<8 x float>> [#uses=1]
+  %tmp323 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 4) ; <<8 x float>> [#uses=1]
   %tmp324 = shufflevector <8 x float> %tmp323, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7> ; <<4 x float>> [#uses=1]
   %tmp325 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp326 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1426,7 +1426,7 @@ entry:
   %tmp332 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp333 = insertelement <8 x float> %tmp332, float %add331, i32 4 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp333, <8 x float>* %acc
-  %tmp334 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 5) ; <<8 x float>> [#uses=1]
+  %tmp334 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 5) ; <<8 x float>> [#uses=1]
   %tmp335 = shufflevector <8 x float> %tmp334, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %tmp336 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp337 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1434,7 +1434,7 @@ entry:
   %tmp339 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx338 ; <<8 x float>> [#uses=1]
   %tmp340 = shufflevector <8 x float> %tmp339, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %call341 = call float @_Z3dotU8__vector4fS_(<4 x float> %tmp335, <4 x float> %tmp340) ; <float> [#uses=1]
-  %tmp342 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 5) ; <<8 x float>> [#uses=1]
+  %tmp342 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 5) ; <<8 x float>> [#uses=1]
   %tmp343 = shufflevector <8 x float> %tmp342, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7> ; <<4 x float>> [#uses=1]
   %tmp344 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp345 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1446,7 +1446,7 @@ entry:
   %tmp351 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp352 = insertelement <8 x float> %tmp351, float %add350, i32 5 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp352, <8 x float>* %acc
-  %tmp353 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 6) ; <<8 x float>> [#uses=1]
+  %tmp353 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 6) ; <<8 x float>> [#uses=1]
   %tmp354 = shufflevector <8 x float> %tmp353, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %tmp355 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp356 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1454,7 +1454,7 @@ entry:
   %tmp358 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx357 ; <<8 x float>> [#uses=1]
   %tmp359 = shufflevector <8 x float> %tmp358, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %call360 = call float @_Z3dotU8__vector4fS_(<4 x float> %tmp354, <4 x float> %tmp359) ; <float> [#uses=1]
-  %tmp361 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 6) ; <<8 x float>> [#uses=1]
+  %tmp361 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 6) ; <<8 x float>> [#uses=1]
   %tmp362 = shufflevector <8 x float> %tmp361, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7> ; <<4 x float>> [#uses=1]
   %tmp363 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp364 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1466,7 +1466,7 @@ entry:
   %tmp370 = load <8 x float>, <8 x float>* %acc                ; <<8 x float>> [#uses=1]
   %tmp371 = insertelement <8 x float> %tmp370, float %add369, i32 6 ; <<8 x float>> [#uses=1]
   store <8 x float> %tmp371, <8 x float>* %acc
-  %tmp372 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 7) ; <<8 x float>> [#uses=1]
+  %tmp372 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 7) ; <<8 x float>> [#uses=1]
   %tmp373 = shufflevector <8 x float> %tmp372, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %tmp374 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp375 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]
@@ -1474,7 +1474,7 @@ entry:
   %tmp377 = load <8 x float>, <8 x float> addrspace(1)* %arrayidx376 ; <<8 x float>> [#uses=1]
   %tmp378 = shufflevector <8 x float> %tmp377, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3> ; <<4 x float>> [#uses=1]
   %call379 = call float @_Z3dotU8__vector4fS_(<4 x float> %tmp373, <4 x float> %tmp378) ; <float> [#uses=1]
-  %tmp380 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 7) ; <<8 x float>> [#uses=1]
+  %tmp380 = load <8 x float>, <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>], [8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter, i32 0, i32 7) ; <<8 x float>> [#uses=1]
   %tmp381 = shufflevector <8 x float> %tmp380, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7> ; <<4 x float>> [#uses=1]
   %tmp382 = load i32, i32* %index2                     ; <i32> [#uses=1]
   %tmp383 = load <8 x float> addrspace(1)*, <8 x float> addrspace(1)** %dct.addr ; <<8 x float> addrspace(1)*> [#uses=1]

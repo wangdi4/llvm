@@ -8,7 +8,7 @@ target triple = "x86_64-pc-win32"
 
 @opencl_math_kernel2_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata"
 @opencl_math_kernel2_parameters = appending global [129 x i8] c"float2 __attribute__((address_space(1))) *, float2 __attribute__((address_space(1))) *, int2 __attribute__((address_space(1))) *\00", section "llvm.metadata"
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<2 x float> addrspace(1)*, <2 x float> addrspace(1)*, <2 x i32> addrspace(1)*)* @math_kernel2 to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_math_kernel2_locals to i8*), i8* getelementptr inbounds ([129 x i8]* @opencl_math_kernel2_parameters, i32 0, i32 0) }>], section "llvm.metadata"
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<2 x float> addrspace(1)*, <2 x float> addrspace(1)*, <2 x i32> addrspace(1)*)* @math_kernel2 to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_math_kernel2_locals to i8*), i8* getelementptr inbounds ([129 x i8], [129 x i8]* @opencl_math_kernel2_parameters, i32 0, i32 0) }>], section "llvm.metadata"
 
 define void @math_kernel2(<2 x float> addrspace(1)* nocapture %out, <2 x float> addrspace(1)* nocapture %in1, <2 x i32> addrspace(1)* nocapture %in2) nounwind {
 

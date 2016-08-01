@@ -9,7 +9,7 @@ target triple = "i686-pc-win32"
 
 @opencl_basicBoxBlur_CPU_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_basicBoxBlur_CPU_parameters = appending global [124 x i8] c"float4 __attribute__((address_space(1))) *, float4 __attribute__((address_space(1))) *, uint const, uint const, float const\00", section "llvm.metadata" ; <[124 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<4 x float> addrspace(1)*, <4 x float> addrspace(1)*, i32, i32, float)* @basicBoxBlur_CPU to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_basicBoxBlur_CPU_locals to i8*), i8* getelementptr inbounds ([124 x i8]* @opencl_basicBoxBlur_CPU_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<4 x float> addrspace(1)*, <4 x float> addrspace(1)*, i32, i32, float)* @basicBoxBlur_CPU to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_basicBoxBlur_CPU_locals to i8*), i8* getelementptr inbounds ([124 x i8], [124 x i8]* @opencl_basicBoxBlur_CPU_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define void @basicBoxBlur_CPU(<4 x float> addrspace(1)* %input, <4 x float> addrspace(1)* %output, i32 %width, i32 %height, float %radius) nounwind {

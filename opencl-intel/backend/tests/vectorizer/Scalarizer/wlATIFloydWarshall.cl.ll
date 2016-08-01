@@ -9,7 +9,7 @@ target triple = "i686-pc-win32"
 
 @opencl_floydWarshallPass_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_floydWarshallPass_parameters = appending global [139 x i8] c"unsigned int __attribute__((address_space(1))) *, unsigned int __attribute__((address_space(1))) *, unsigned int const, unsigned int const\00", section "llvm.metadata" ; <[139 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32, i32)* @floydWarshallPass to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_floydWarshallPass_locals to i8*), i8* getelementptr inbounds ([139 x i8]* @opencl_floydWarshallPass_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (i32 addrspace(1)*, i32 addrspace(1)*, i32, i32)* @floydWarshallPass to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_floydWarshallPass_locals to i8*), i8* getelementptr inbounds ([139 x i8], [139 x i8]* @opencl_floydWarshallPass_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define void @floydWarshallPass(i32 addrspace(1)* %pathDistanceBuffer, i32 addrspace(1)* %pathBuffer, i32 %width, i32 %pass) nounwind {

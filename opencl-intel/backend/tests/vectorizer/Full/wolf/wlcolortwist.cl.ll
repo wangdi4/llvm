@@ -10,7 +10,7 @@ target triple = "i686-pc-win32"
 
 @opencl_wlcolortwistKernel_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_wlcolortwistKernel_parameters = appending global [84 x i8] c"__rd image2d_t, __wr image2d_t, float __attribute__((address_space(1))), uint const\00", section "llvm.metadata" ; <[84 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (%struct._image2d_t*, %struct._image2d_t*, float, i32)* @wlcolortwistKernel to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_wlcolortwistKernel_locals to i8*), i8* getelementptr inbounds ([84 x i8]* @opencl_wlcolortwistKernel_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (%struct._image2d_t*, %struct._image2d_t*, float, i32)* @wlcolortwistKernel to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_wlcolortwistKernel_locals to i8*), i8* getelementptr inbounds ([84 x i8], [84 x i8]* @opencl_wlcolortwistKernel_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define <4 x float> @processPixel(%struct._image2d_t* %inputImage, <2 x i32> %curCord, float %scaling) nounwind {

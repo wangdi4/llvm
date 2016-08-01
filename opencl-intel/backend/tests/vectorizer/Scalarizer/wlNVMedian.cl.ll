@@ -11,7 +11,7 @@ target triple = "i686-pc-win32"
 @ckMedian.fMaxBound = internal constant [3 x float] [float 2.550000e+002, float 2.550000e+002, float 2.550000e+002], align 4 ; <[3 x float]*> [#uses=1]
 @opencl_ckMedian_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_ckMedian_parameters = appending global [152 x i8] c"uchar4 __attribute__((address_space(1))) *, unsigned int __attribute__((address_space(1))) *, uchar4 __attribute__((address_space(3))) *, int, int, int\00", section "llvm.metadata" ; <[152 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<4 x i8> addrspace(1)*, i32 addrspace(1)*, <4 x i8> addrspace(3)*, i32, i32, i32)* @ckMedian to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_ckMedian_locals to i8*), i8* getelementptr inbounds ([152 x i8]* @opencl_ckMedian_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<4 x i8> addrspace(1)*, i32 addrspace(1)*, <4 x i8> addrspace(3)*, i32, i32, i32)* @ckMedian to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_ckMedian_locals to i8*), i8* getelementptr inbounds ([152 x i8], [152 x i8]* @opencl_ckMedian_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define void @ckMedian(<4 x i8> addrspace(1)* %uc4Source, i32 addrspace(1)* %uiDest, <4 x i8> addrspace(3)* %uc4LocalData, i32 %iLocalPixPitch, i32 %uiImageWidth, i32 %uiDevImageHeight) nounwind {

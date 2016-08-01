@@ -8,7 +8,7 @@ target triple = "i686-pc-win32"
 
 @opencl_simpleConvolution_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata"
 @opencl_simpleConvolution_parameters = appending global [153 x i8] c"float __attribute__((address_space(1))) *, uint __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, uint2 const, uint2 const\00", section "llvm.metadata"
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, i32 addrspace(1)*, float addrspace(1)*, <2 x i32>, <2 x i32>)* @simpleConvolution to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_simpleConvolution_locals to i8*), i8* getelementptr inbounds ([153 x i8]* @opencl_simpleConvolution_parameters, i32 0, i32 0) }>], section "llvm.metadata"
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, i32 addrspace(1)*, float addrspace(1)*, <2 x i32>, <2 x i32>)* @simpleConvolution to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_simpleConvolution_locals to i8*), i8* getelementptr inbounds ([153 x i8], [153 x i8]* @opencl_simpleConvolution_parameters, i32 0, i32 0) }>], section "llvm.metadata"
 
 define void @simpleConvolution(float addrspace(1)* nocapture %output, i32 addrspace(1)* nocapture %input, float addrspace(1)* nocapture %mask, <2 x i32> %inputDimensions, <2 x i32> %maskDimensions) nounwind {
 ; <label>:0

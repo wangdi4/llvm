@@ -10,7 +10,7 @@ target triple = "i686-pc-win32"
 
 @opencl_twirl2D_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_twirl2D_parameters = appending global [123 x i8] c"__rd image2d_t, float4 __attribute__((address_space(1))) *, int2 const, float const, float2 const, uint const, float const\00", section "llvm.metadata" ; <[123 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (%struct._image2d_t*, <4 x float> addrspace(1)*, <2 x i32>, float, <2 x float>, i32, float)* @twirl2D to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_twirl2D_locals to i8*), i8* getelementptr inbounds ([123 x i8]* @opencl_twirl2D_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (%struct._image2d_t*, <4 x float> addrspace(1)*, <2 x i32>, float, <2 x float>, i32, float)* @twirl2D to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_twirl2D_locals to i8*), i8* getelementptr inbounds ([123 x i8], [123 x i8]* @opencl_twirl2D_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 define <4 x float> @evaluatePixel(%struct._image2d_t* %inputImage, <2 x float> %outCrd, float %radius, <2 x float> %center, i32 %gaussOrSinc, float %twirlAngle) nounwind {
 entry:

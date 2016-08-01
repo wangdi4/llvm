@@ -1,6 +1,6 @@
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.ll -runtime=apple -AppleWIDepPrePack %t.bc -S -o %t1.ll
+; RUN: opt -runtimelib %p/../Full/apple_only_dcls32.bc -runtime=apple -AppleWIDepPrePack %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; XFAIL: *
 

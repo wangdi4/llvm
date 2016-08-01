@@ -9,7 +9,7 @@ target triple = "i686-pc-win32"
 
 @opencl_ScanLargeArrays_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_ScanLargeArrays_parameters = appending global [195 x i8] c"float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, float __attribute__((address_space(3))) *, uint const, uint const, float __attribute__((address_space(1))) *\00", section "llvm.metadata" ; <[195 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, float addrspace(1)*, float addrspace(3)*, i32, i32, float addrspace(1)*)* @ScanLargeArrays to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_ScanLargeArrays_locals to i8*), i8* getelementptr inbounds ([195 x i8]* @opencl_ScanLargeArrays_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, float addrspace(1)*, float addrspace(3)*, i32, i32, float addrspace(1)*)* @ScanLargeArrays to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_ScanLargeArrays_locals to i8*), i8* getelementptr inbounds ([195 x i8], [195 x i8]* @opencl_ScanLargeArrays_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define void @ScanLargeArrays(float addrspace(1)* %output, float addrspace(1)* %input, float addrspace(3)* %block, i32 %block_size, i32 %length, float addrspace(1)* %sumBuffer) nounwind {

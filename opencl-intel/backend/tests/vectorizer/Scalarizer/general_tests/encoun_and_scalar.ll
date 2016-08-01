@@ -20,7 +20,7 @@ target triple = "i686-pc-win32"
 
 @opencl_encountered_not_scal_variable_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_encountered_not_scal_variable_parameters = appending global [62 x i8] c"uchar4 *, uchar4 *, uchar __attribute__((address_space(1))) *\00", section "llvm.metadata" ; <[62 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<4 x i8>*, <4 x i8>*, i8 addrspace(1)*)* @encountered_not_scal_variable to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_encountered_not_scal_variable_locals to i8*), i8* getelementptr inbounds ([62 x i8]* @opencl_encountered_not_scal_variable_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<4 x i8>*, <4 x i8>*, i8 addrspace(1)*)* @encountered_not_scal_variable to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_encountered_not_scal_variable_locals to i8*), i8* getelementptr inbounds ([62 x i8], [62 x i8]* @opencl_encountered_not_scal_variable_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 define void @encountered_not_scal_variable(<4 x i8>* nocapture %in1, <4 x i8>* nocapture %in2, i8 addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
@@ -47,10 +47,10 @@ declare <4 x i8> @_Z5rhaddU8__vector4hS_(<4 x i8>, <4 x i8>)
 ;CHECK: [[NAME3:%scalar[0-9]+]] = extractelement 
 ;CHECK: [[NAME4:%scalar[0-9]+]] = extractelement 
 
-;CHECK:  {{.*}} mul i8 [[NAME1]]
-;CHECK:  {{.*}} mul i8 [[NAME2]]
-;CHECK:  {{.*}} mul i8 [[NAME3]]
-;CHECK:  {{.*}} mul i8 [[NAME4]]
+;CHECK:  {{.*}} mul i8 {{.*}}[[NAME1]]
+;CHECK:  {{.*}} mul i8 {{.*}}[[NAME2]]
+;CHECK:  {{.*}} mul i8 {{.*}}[[NAME3]]
+;CHECK:  {{.*}} mul i8 {{.*}}[[NAME4]]
 
 ;CHECK {{.*}}@_Z5rhaddhh{{.*}}[[NAME1]]
 ;CHECK {{.*}}@_Z5rhaddhh{{.*}}[[NAME2]]

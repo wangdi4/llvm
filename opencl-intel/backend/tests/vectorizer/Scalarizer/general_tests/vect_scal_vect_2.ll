@@ -16,7 +16,7 @@ target triple = "i686-pc-win32"
 
 @opencl_func_abs_diff_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_func_abs_diff_parameters = appending global [88 x i8] c"double __attribute__((address_space(1))) *, double4 __attribute__((address_space(1))) *\00", section "llvm.metadata" ; <[88 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (double addrspace(1)*, <4 x double> addrspace(1)*)* @func_abs_diff to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_func_abs_diff_locals to i8*), i8* getelementptr inbounds ([88 x i8]* @opencl_func_abs_diff_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (double addrspace(1)*, <4 x double> addrspace(1)*)* @func_abs_diff to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_func_abs_diff_locals to i8*), i8* getelementptr inbounds ([88 x i8], [88 x i8]* @opencl_func_abs_diff_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 define void @func_abs_diff(double addrspace(1)* nocapture %in, <4 x double> addrspace(1)* nocapture %out) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=3]
@@ -51,10 +51,10 @@ define void @func_abs_diff(double addrspace(1)* nocapture %in, <4 x double> addr
 declare i32 @_Z13get_global_idj(i32)
 
 
-;CHECK: [[NAME1:%[1-9]+]] = load double {{.*}}
-;CHECK: [[NAME2:%[1-9]+]] = load double {{.*}}
-;CHECK: [[NAME3:%[1-9]+]] = load double {{.*}}
-;CHECK: [[NAME4:%[1-9]+]] = load double {{.*}}
+;CHECK: [[NAME1:%[1-9]+]] = load double, {{.*}}
+;CHECK: [[NAME2:%[1-9]+]] = load double, {{.*}}
+;CHECK: [[NAME3:%[1-9]+]] = load double, {{.*}}
+;CHECK: [[NAME4:%[1-9]+]] = load double, {{.*}}
 
 
 ;CHECK: [[NAME5:%[1-9]+]] = fadd double [[NAME1]]

@@ -63,7 +63,7 @@ target triple = "i686-pc-win32"
 @opencl_applyLut_parameters = appending global [143 x i8] c"uint, uint, ushort __attribute__((address_space(1))) *, ushort __attribute__((address_space(1))) *, ushort __attribute__((address_space(1))) *\00", section "llvm.metadata" ; <[143 x i8]*> [#uses=1]
 @opencl_tcc_scalar_unroll2_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_tcc_scalar_unroll2_parameters = appending global [250 x i8] c"ushort const __attribute__((address_space(1))) *, ushort const __attribute__((address_space(1))) *, ushort __attribute__((address_space(1))) *, ushort __attribute__((address_space(1))) *, size_t const, uchar const __attribute__((address_space(2))) *\00", section "llvm.metadata" ; <[250 x i8]*> [#uses=1]
-@opencl_metadata = appending global [6 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (i32, i32, i32, i32, i32, i32, i16 addrspace(1)*, i16 addrspace(1)*)* @calculateHistogram to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_calculateHistogram_locals to i8*), i8* getelementptr inbounds ([123 x i8]* @opencl_calculateHistogram_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (i32, i32, i32, i32, i32, i32, i32, i16 addrspace(1)*, i16 addrspace(1)*)* @gatherHistograms to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_gatherHistograms_locals to i8*), i8* getelementptr inbounds ([129 x i8]* @opencl_gatherHistograms_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (i32, i32, i32, i32, i32, i32, i32, i16 addrspace(1)*, i16 addrspace(1)*)* @gatherHistograms_vector to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_gatherHistograms_vector_locals to i8*), i8* getelementptr inbounds ([129 x i8]* @opencl_gatherHistograms_vector_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (i32, i32, i16 addrspace(1)*, %struct.anon addrspace(1)*, %struct.anon addrspace(1)*, %struct.anon addrspace(1)*, i16 addrspace(1)*)* @generateOutputHistogram to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_generateOutputHistogram_locals to i8*), i8* getelementptr inbounds ([231 x i8]* @opencl_generateOutputHistogram_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (i32, i32, i16 addrspace(1)*, i16 addrspace(1)*, i16 addrspace(1)*)* @applyLut to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_applyLut_locals to i8*), i8* getelementptr inbounds ([143 x i8]* @opencl_applyLut_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (i16 addrspace(1)*, i16 addrspace(1)*, i16 addrspace(1)*, i16 addrspace(1)*, i32, i8 addrspace(2)*)* @tcc_scalar_unroll2 to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_tcc_scalar_unroll2_locals to i8*), i8* getelementptr inbounds ([250 x i8]* @opencl_tcc_scalar_unroll2_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[6 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [6 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (i32, i32, i32, i32, i32, i32, i16 addrspace(1)*, i16 addrspace(1)*)* @calculateHistogram to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_calculateHistogram_locals to i8*), i8* getelementptr inbounds ([123 x i8], [123 x i8]* @opencl_calculateHistogram_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (i32, i32, i32, i32, i32, i32, i32, i16 addrspace(1)*, i16 addrspace(1)*)* @gatherHistograms to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_gatherHistograms_locals to i8*), i8* getelementptr inbounds ([129 x i8], [129 x i8]* @opencl_gatherHistograms_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (i32, i32, i32, i32, i32, i32, i32, i16 addrspace(1)*, i16 addrspace(1)*)* @gatherHistograms_vector to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_gatherHistograms_vector_locals to i8*), i8* getelementptr inbounds ([129 x i8], [129 x i8]* @opencl_gatherHistograms_vector_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (i32, i32, i16 addrspace(1)*, %struct.anon addrspace(1)*, %struct.anon addrspace(1)*, %struct.anon addrspace(1)*, i16 addrspace(1)*)* @generateOutputHistogram to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_generateOutputHistogram_locals to i8*), i8* getelementptr inbounds ([231 x i8], [231 x i8]* @opencl_generateOutputHistogram_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (i32, i32, i16 addrspace(1)*, i16 addrspace(1)*, i16 addrspace(1)*)* @applyLut to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_applyLut_locals to i8*), i8* getelementptr inbounds ([143 x i8], [143 x i8]* @opencl_applyLut_parameters, i32 0, i32 0) }>, %opencl_metadata_type <{ i8* bitcast (void (i16 addrspace(1)*, i16 addrspace(1)*, i16 addrspace(1)*, i16 addrspace(1)*, i32, i8 addrspace(2)*)* @tcc_scalar_unroll2 to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_tcc_scalar_unroll2_locals to i8*), i8* getelementptr inbounds ([250 x i8], [250 x i8]* @opencl_tcc_scalar_unroll2_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[6 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define void @kernelMemset(i8 addrspace(1)* %dst, i32 %size, i8 zeroext %val) nounwind {
@@ -983,10 +983,10 @@ for.cond:                                         ; preds = %for.inc, %entry
 
 for.body:                                         ; preds = %for.cond
   %tmp1 = load i32, i32* %i                            ; <i32> [#uses=1]
-  %arrayidx = getelementptr inbounds i16, i16* getelementptr inbounds ([8 x i16]* @g_pui16BrCorrBrightX, i32 0, i32 0), i32 %tmp1 ; <i16*> [#uses=1]
+  %arrayidx = getelementptr inbounds i16, i16* getelementptr inbounds ([8 x i16], [8 x i16]* @g_pui16BrCorrBrightX, i32 0, i32 0), i32 %tmp1 ; <i16*> [#uses=1]
   %tmp2 = load i16, i16* %arrayidx                     ; <i16> [#uses=1]
   %tmp3 = load i32, i32* %i                            ; <i32> [#uses=1]
-  %arrayidx4 = getelementptr inbounds i16, i16* getelementptr inbounds ([8 x i16]* @g_pui16BrCorrDarkX, i32 0, i32 0), i32 %tmp3 ; <i16*> [#uses=1]
+  %arrayidx4 = getelementptr inbounds i16, i16* getelementptr inbounds ([8 x i16], [8 x i16]* @g_pui16BrCorrDarkX, i32 0, i32 0), i32 %tmp3 ; <i16*> [#uses=1]
   %tmp5 = load i16, i16* %arrayidx4                    ; <i16> [#uses=1]
   %call = call zeroext i16 @AlphaBlendRound_Alpha8Bit(i16 zeroext %tmp2, i16 zeroext %tmp5, i16 zeroext 127) ; <i16> [#uses=1]
   %tmp6 = load i32, i32* %i                            ; <i32> [#uses=1]
@@ -996,10 +996,10 @@ for.body:                                         ; preds = %for.cond
   %arrayidx9 = getelementptr inbounds i16, i16* %arraydecay, i32 %tmp6 ; <i16*> [#uses=1]
   store i16 %call, i16* %arrayidx9
   %tmp10 = load i32, i32* %i                           ; <i32> [#uses=1]
-  %arrayidx11 = getelementptr inbounds i16, i16* getelementptr inbounds ([8 x i16]* @g_pui16BrCorrBrightY, i32 0, i32 0), i32 %tmp10 ; <i16*> [#uses=1]
+  %arrayidx11 = getelementptr inbounds i16, i16* getelementptr inbounds ([8 x i16], [8 x i16]* @g_pui16BrCorrBrightY, i32 0, i32 0), i32 %tmp10 ; <i16*> [#uses=1]
   %tmp12 = load i16, i16* %arrayidx11                  ; <i16> [#uses=1]
   %tmp13 = load i32, i32* %i                           ; <i32> [#uses=1]
-  %arrayidx14 = getelementptr inbounds i16, i16* getelementptr inbounds ([8 x i16]* @g_pui16BrCorrDarkY, i32 0, i32 0), i32 %tmp13 ; <i16*> [#uses=1]
+  %arrayidx14 = getelementptr inbounds i16, i16* getelementptr inbounds ([8 x i16], [8 x i16]* @g_pui16BrCorrDarkY, i32 0, i32 0), i32 %tmp13 ; <i16*> [#uses=1]
   %tmp15 = load i16, i16* %arrayidx14                  ; <i16> [#uses=1]
   %call16 = call zeroext i16 @AlphaBlendRound_Alpha8Bit(i16 zeroext %tmp12, i16 zeroext %tmp15, i16 zeroext 127) ; <i16> [#uses=1]
   %tmp17 = load i32, i32* %i                           ; <i32> [#uses=1]
@@ -3465,7 +3465,7 @@ if.then:                                          ; preds = %entry
   %arraydecay13 = getelementptr inbounds [8 x i16], [8 x i16]* %destDarkPoint, i32 0, i32 0 ; <i16*> [#uses=1]
   %tmp14 = load i16 addrspace(1)*, i16 addrspace(1)** %pHistogram    ; <i16 addrspace(1)*> [#uses=1]
   %tmp15 = load i32, i32* %histNumPixels               ; <i32> [#uses=1]
-  call void @FindPoint(i16* getelementptr inbounds ([8 x i16]* @g_pui16HistDarkX, i32 0, i32 0), i16* getelementptr inbounds ([8 x i16]* @g_pui16HistDarkY, i32 0, i32 0), i16* %arraydecay, i16* %arraydecay13, i16 addrspace(1)* %tmp14, i32 %tmp15)
+  call void @FindPoint(i16* getelementptr inbounds ([8 x i16], [8 x i16]* @g_pui16HistDarkX, i32 0, i32 0), i16* getelementptr inbounds ([8 x i16], [8 x i16]* @g_pui16HistDarkY, i32 0, i32 0), i16* %arraydecay, i16* %arraydecay13, i16 addrspace(1)* %tmp14, i32 %tmp15)
   %call16 = call i32 @_Z13get_global_idj(i32 1)        ; <i32> [#uses=1]
   %conv17 = trunc i32 %call16 to i16              ; <i16> [#uses=1]
   store i16 %conv17, i16* %ID2
@@ -3473,7 +3473,7 @@ if.then:                                          ; preds = %entry
   %arraydecay19 = getelementptr inbounds [8 x i16], [8 x i16]* %destBrightPoint, i32 0, i32 0 ; <i16*> [#uses=1]
   %tmp20 = load i16 addrspace(1)*, i16 addrspace(1)** %pHistogram    ; <i16 addrspace(1)*> [#uses=1]
   %tmp21 = load i32, i32* %histNumPixels               ; <i32> [#uses=1]
-  call void @FindPoint(i16* getelementptr inbounds ([8 x i16]* @g_pui16HistBrightX, i32 0, i32 0), i16* getelementptr inbounds ([8 x i16]* @g_pui16HistBrightY, i32 0, i32 0), i16* %arraydecay18, i16* %arraydecay19, i16 addrspace(1)* %tmp20, i32 %tmp21)
+  call void @FindPoint(i16* getelementptr inbounds ([8 x i16], [8 x i16]* @g_pui16HistBrightX, i32 0, i32 0), i16* getelementptr inbounds ([8 x i16], [8 x i16]* @g_pui16HistBrightY, i32 0, i32 0), i16* %arraydecay18, i16* %arraydecay19, i16 addrspace(1)* %tmp20, i32 %tmp21)
   store i32 0, i32* %i
   br label %for.cond
 
@@ -3523,7 +3523,7 @@ for.end:                                          ; preds = %for.cond
   %tmp51 = load i16, i16* %brightImageFactor           ; <i16> [#uses=1]
   %arraydecay52 = getelementptr inbounds [8 x i16], [8 x i16]* %histFinalPoint, i32 0, i32 0 ; <i16*> [#uses=1]
   %arraydecay53 = getelementptr inbounds [8 x i16], [8 x i16]* %destFinalPoint, i32 0, i32 0 ; <i16*> [#uses=1]
-  call void @CorrectSlopes(i16 zeroext %tmp51, i16* %arraydecay52, i16* %arraydecay53, i16* getelementptr inbounds ([8 x i16]* @generateOutputHistogram.rangeMask, i32 0, i32 0))
+  call void @CorrectSlopes(i16 zeroext %tmp51, i16* %arraydecay52, i16* %arraydecay53, i16* getelementptr inbounds ([8 x i16], [8 x i16]* @generateOutputHistogram.rangeMask, i32 0, i32 0))
   br label %if.end
 
 if.end:                                           ; preds = %for.end, %entry

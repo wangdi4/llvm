@@ -9,7 +9,7 @@ target triple = "i686-pc-win32"
 
 @opencl_mandelbrotClassic_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_mandelbrotClassic_parameters = appending global [76 x i8] c"int __attribute__((address_space(1))) *, float const, uint const, int const\00", section "llvm.metadata" ; <[76 x i8]*> [#uses=1]
-@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (i32 addrspace(1)*, float, i32, i32)* @mandelbrotClassic to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_mandelbrotClassic_locals to i8*), i8* getelementptr inbounds ([76 x i8]* @opencl_mandelbrotClassic_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
+@opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (i32 addrspace(1)*, float, i32, i32)* @mandelbrotClassic to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_mandelbrotClassic_locals to i8*), i8* getelementptr inbounds ([76 x i8], [76 x i8]* @opencl_mandelbrotClassic_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 ; CHECK: ret
 define void @mandelbrotClassic(i32 addrspace(1)* %mandelbrotImage, float %scale, i32 %maxIterations, i32 %width) nounwind {
