@@ -94,6 +94,10 @@ private:
   /// values created by HIR transformations as well.
   SmallDenseMap<unsigned, const Value *, 64> ScalarLvalSymbases;
 
+  /// Symbase assigned to non-constant rvals which do not create data
+  /// dependencies.
+  unsigned GenericRvalSymbase;
+
 private:
   /// Populates region liveout instruction as loop liveout in its parent loops.
   void populateLoopLiveouts(const Instruction *Inst, unsigned Symbase) const;
@@ -153,11 +157,12 @@ private:
                                         const IRRegion &IRReg, bool Assign,
                                         const Value **OldBaseScalar);
 
-  /// \brief Sets current Function as a generic value to represent loop uppers.
-  /// This is a hack to set a generic loop upper symbase which does not
-  /// conflict with anything in the region as the loop upper is parsed from
-  /// loop's BackEdgeTakenCount which may not have any Value associated with it.
-  void setGenericLoopUpperSymbase();
+  /// \brief Sets current Function as a generic value to represent loop uppers
+  /// and non self-blob temp rvals. This is a hack to set a generic loop upper
+  /// symbase which does not conflict with anything in the region as the loop
+  /// upper is parsed from loop's BackEdgeTakenCount which may not have any
+  /// Value associated with it.
+  void initGenericRvalSymbase();
 
 public:
   static char ID; // Pass identification
@@ -179,8 +184,8 @@ public:
   /// \brief Returns the max symbase assigned to any scalar.
   unsigned getMaxScalarSymbase() const;
 
-  /// \brief Returns a generic Val to represent loop uppers.
-  const Value *getGenericLoopUpperVal() const;
+  /// Returns generic rval symbase.
+  unsigned getGenericRvalSymbase() const { return GenericRvalSymbase; }
 
   /// \brief Returns true if this scalar is a constant.
   bool isConstant(const Value *Scalar) const;

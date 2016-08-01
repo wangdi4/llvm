@@ -1774,18 +1774,18 @@ RegDDRef *HIRParser::createStrideDDRef(Type *IVType) {
 RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
                                       Type *IVType) {
   const Value *Val;
-
+  unsigned Symbase = 0;
   clearTempBlobLevelMap();
 
   if (auto ConstSCEV = dyn_cast<SCEVConstant>(BETC)) {
     Val = ConstSCEV->getValue();
+    Symbase = getOrAssignSymbase(Val);
   } else if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(BETC)) {
     Val = UnknownSCEV->getValue();
+    Symbase = getOrAssignSymbase(Val);
   } else {
-    Val = ScalarSA->getGenericLoopUpperVal();
+    Symbase = ScalarSA->getGenericRvalSymbase();
   }
-
-  auto Symbase = getOrAssignSymbase(Val);
 
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
   auto CE = CanonExprUtils::createCanonExpr(IVType);
@@ -2533,6 +2533,11 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
     }
 
   } else {
+    // Assign a generic symbase to non self-blob rvals to avoid unnecessary dd
+    // edges.
+    if (!IsLval) {
+      Ref->setSymbase(ScalarSA->getGenericRvalSymbase());
+    }
     populateBlobDDRefs(Ref);
   }
 

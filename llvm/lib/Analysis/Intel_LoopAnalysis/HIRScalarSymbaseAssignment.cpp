@@ -53,7 +53,8 @@ FunctionPass *llvm::createHIRScalarSymbaseAssignmentPass() {
   return new HIRScalarSymbaseAssignment();
 }
 
-HIRScalarSymbaseAssignment::HIRScalarSymbaseAssignment() : FunctionPass(ID) {
+HIRScalarSymbaseAssignment::HIRScalarSymbaseAssignment()
+    : FunctionPass(ID), GenericRvalSymbase(0) {
   initializeHIRScalarSymbaseAssignmentPass(*PassRegistry::getPassRegistry());
 }
 
@@ -167,12 +168,8 @@ unsigned HIRScalarSymbaseAssignment::getMaxScalarSymbase() const {
   return BaseTemps.size() + ConstantSymbase;
 }
 
-void HIRScalarSymbaseAssignment::setGenericLoopUpperSymbase() {
-  assignTempSymbase(Func);
-}
-
-const Value *HIRScalarSymbaseAssignment::getGenericLoopUpperVal() const {
-  return Func;
+void HIRScalarSymbaseAssignment::initGenericRvalSymbase() {
+  GenericRvalSymbase = assignTempSymbase(Func);
 }
 
 const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
@@ -466,8 +463,8 @@ bool HIRScalarSymbaseAssignment::runOnFunction(Function &F) {
   RI = &getAnalysis<HIRRegionIdentification>();
   LF = &getAnalysis<HIRLoopFormation>();
 
-  // Assign a generic symbase representing loop uppers.
-  setGenericLoopUpperSymbase();
+  // Assign a generic symbase.
+  initGenericRvalSymbase();
 
   for (auto RegIt = RI->begin(), EndRegIt = RI->end(); RegIt != EndRegIt;
        ++RegIt) {
