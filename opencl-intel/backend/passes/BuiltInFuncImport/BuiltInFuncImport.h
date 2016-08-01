@@ -54,7 +54,7 @@ namespace intel {
     /// @param [IN] src_module RTL module to process
     void CleanUnusedGlobalsInitializers(Module *src_module) const;
 
-    /// @brief nuke the unused functions so we could materializeAll() quickly
+    /// @brief nuke the unused functions bodies so we could materializeAll() quickly
     /// @param [IN] src_module RTL module to process
     void CleanUnusedFunctionsBodies(Module *src_module) const;
 
@@ -74,11 +74,14 @@ namespace intel {
     Function* FindFunctionBodyInModules(const std::string& funcName) const;
 
   protected:
-    /// holds cpu perfix that would replace 'shared' substr in svml funcs
+    /// @brief holds cpu perfix that would replace 'shared' substr in svml funcs
     const std::string m_cpuPrefix;
 
-    /// Source module list - contains the source functions to import
+    /// @brief Source module list - contains the source functions to import
     SmallVector<Module*, 2> m_runtimeModuleList;
+
+    /// @brief holds original source module functions
+    TFunctionsSet m_UserModuleFunctions;
   };
 
 } //namespace Intel {

@@ -167,6 +167,9 @@ namespace intel {
       return false;
     }
 
+    // Initialize members
+    m_UserModuleFunctions.clear();
+
     // Copy buffers containing builtins bitcode so we could safely delete functions bodies
     // in order to achieve faster materializing prior to linking.
     // The lifetime of these copies is limitied to this function.
@@ -204,6 +207,11 @@ namespace intel {
       rtlModule.get()->setTargetTriple(M.getTargetTriple());
       rtlModule.get()->setDataLayout(M.getDataLayout());
     }
+
+    // Remember user module function pointers, so we could set linkonce_odr
+    // to only imported functions.
+    for (auto &F : M)
+      m_UserModuleFunctions.insert(&F);
 
     bool changed = false;
 
@@ -286,6 +294,11 @@ namespace intel {
     }
 
     rtlModulesList.clear();
+
+    // Allow removal of function from module after it is inlined
+    for (auto &F : M)
+      if (!m_UserModuleFunctions.count(&F) && !F.isDeclaration())
+        F.setLinkage(GlobalVariable::LinkOnceODRLinkage);
 
     return changed;
   }
