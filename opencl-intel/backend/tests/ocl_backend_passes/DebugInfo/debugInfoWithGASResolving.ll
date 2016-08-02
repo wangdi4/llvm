@@ -2,7 +2,7 @@
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ;; This test was generated using the following cl code with this command:
-;;  clang -cc1 -x cl -emit-llvm -g -O0 -cl-std=CL2.0
+;;  clang.exe -cc1 -cl-std=CL2.0 -x cl -emit-llvm -triple=spir64-unknown-unknown -debug-info-kind=limited  -O0 -D__OPENCL_C_VERSION__=200 -o - ker.cl -I llvm\install\include\cclang -include opencl-c.h -include opencl-c-intel.h
 ;;
 ;;==========================================
 ;;int func(__generic int* pInt)
@@ -21,77 +21,77 @@
 ; CHECK: {{0x2e\\00func\\00func\\00\\001\\000\\001\\000\\000\\00256\\000\\002.*@_Z4funcPi}}
 
 ; ModuleID = '/tmp/ker.cl'
-target datalayout = "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
-target triple = "spir-unknown-unknown"
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target triple = "spir64-unknown-unknown"
 
 ; Function Attrs: nounwind
-define spir_func i32 @func(i32 addrspace(4)* %pInt) #0 {
-  %1 = alloca i32 addrspace(4)*, align 4
-  store i32 addrspace(4)* %pInt, i32 addrspace(4)** %1, align 4
-  call void @llvm.dbg.declare(metadata i32 addrspace(4)** %1, metadata !25, metadata !26), !dbg !27
-  %2 = load i32 addrspace(4)*, i32 addrspace(4)** %1, align 4, !dbg !28
-  %3 = load i32, i32 addrspace(4)* %2, align 4, !dbg !28
-  ret i32 %3, !dbg !28
+define spir_func i32 @func(i32 addrspace(4)* %pInt) #0 !dbg !4 {
+entry:
+  %pInt.addr = alloca i32 addrspace(4)*, align 8
+  store i32 addrspace(4)* %pInt, i32 addrspace(4)** %pInt.addr, align 8
+  call void @llvm.dbg.declare(metadata i32 addrspace(4)** %pInt.addr, metadata !23, metadata !24), !dbg !25
+  %0 = load i32 addrspace(4)*, i32 addrspace(4)** %pInt.addr, align 8, !dbg !26
+  %1 = load i32, i32 addrspace(4)* %0, align 4, !dbg !26
+  ret i32 %1, !dbg !26
 }
 
 ; Function Attrs: nounwind readnone
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 ; Function Attrs: nounwind
-define spir_kernel void @invoke_func() #0 {
+define spir_kernel void @invoke_func() #0 !dbg !10 {
+entry:
   %integer = alloca i32, align 4
-  call void @llvm.dbg.declare(metadata i32* %integer, metadata !29, metadata !26), !dbg !30
-  store i32 42, i32* %integer, align 4, !dbg !30
-  %1 = addrspacecast i32* %integer to i32 addrspace(4)*, !dbg !31
-  %2 = call spir_func i32 @func(i32 addrspace(4)* %1), !dbg !31
-  store i32 %2, i32* %integer, align 4, !dbg !31
-  ret void, !dbg !32
+  call void @llvm.dbg.declare(metadata i32* %integer, metadata !27, metadata !24), !dbg !28
+  store i32 42, i32* %integer, align 4, !dbg !28
+  %0 = addrspacecast i32* %integer to i32 addrspace(4)*, !dbg !29
+  %call = call spir_func i32 @func(i32 addrspace(4)* %0), !dbg !29
+  store i32 %call, i32* %integer, align 4, !dbg !29
+  ret void, !dbg !30
 }
 
-attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind readnone }
 
 !llvm.dbg.cu = !{!0}
-!opencl.kernels = !{!14}
-!llvm.module.flags = !{!20, !21}
+!opencl.kernels = !{!13}
+!llvm.module.flags = !{!19, !20}
 !opencl.enable.FP_CONTRACT = !{}
-!opencl.spir.version = !{!22}
-!opencl.ocl.version = !{!23}
 !opencl.used.extensions = !{!2}
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!2}
-!llvm.ident = !{!24}
+!llvm.ident = !{!21}
+!opencl.spir.version = !{!22, !22}
+!opencl.ocl.version = !{!22, !22}
 
-!0 = !{!"0x11\0012\00clang version 3.6.0 (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-clang 83869a5aa2cc8e6efb5dab84d4f034a88fa5515f) (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-llvm 50546c308a35b18ee2afb43648a5c2b0e414227f)\000\00\000\00\001", !1, !2, !2, !3, !2, !2} ; [ DW_TAG_compile_unit ] [/tmp//tmp/<stdin>] [DW_LANG_C99]
-!1 = !{!"/tmp/<stdin>", !"/tmp"}
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 3.8.1 (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-clang 5e5f31ff4099022445ddc9519bdd4c03b14193bd) (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-llvm 6fe444928badc9c60eafb8d750910014ec4a8ece)", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2, subprograms: !3)
+!1 = !DIFile(filename: "D:\5Ctemp\5C<stdin>", directory: "D:\5Cetyurin\5Copencl\5Csrc\5Cbackend\5Ctests\5Cocl_backend_passes\5CDebugInfo")
 !2 = !{}
-!3 = !{!4, !11}
-!4 = !{!"0x2e\00func\00func\00\001\000\001\000\000\00256\000\002", !5, !6, !7, null, i32 (i32 addrspace(4)*)* @func, null, null, !2} ; [ DW_TAG_subprogram ] [line 1] [def] [scope 2] [func]
-!5 = !{!"/tmp/ker.cl", !"/tmp"}
-!6 = !{!"0x29", !5}                               ; [ DW_TAG_file_type ] [/tmp//tmp/ker.cl]
-!7 = !{!"0x15\00\000\000\000\000\000\000", null, null, null, !8, null, null, null} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
-!8 = !{!9, !10}
-!9 = !{!"0x24\00int\000\0032\0032\000\000\005", null, null} ; [ DW_TAG_base_type ] [int] [line 0, size 32, align 32, offset 0, enc DW_ATE_signed]
-!10 = !{!"0xf\00\000\0032\0032\000\000", null, null, !9} ; [ DW_TAG_pointer_type ] [line 0, size 32, align 32, offset 0] [from int]
-!11 = !{!"0x2e\00invoke_func\00invoke_func\00\005\000\001\000\000\000\000\006", !5, !6, !12, null, void ()* @invoke_func, null, null, !2} ; [ DW_TAG_subprogram ] [line 5] [def] [scope 6] [invoke_func]
-!12 = !{!"0x15\00\000\000\000\000\000\000", null, null, null, !13, null, null, null} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
-!13 = !{null}
-!14 = !{void ()* @invoke_func, !15, !16, !17, !18, !19}
-!15 = !{!"kernel_arg_addr_space"}
-!16 = !{!"kernel_arg_access_qual"}
-!17 = !{!"kernel_arg_type"}
-!18 = !{!"kernel_arg_base_type"}
-!19 = !{!"kernel_arg_type_qual"}
-!20 = !{i32 2, !"Dwarf Version", i32 4}
-!21 = !{i32 2, !"Debug Info Version", i32 2}
-!22 = !{i32 1, i32 2}
-!23 = !{i32 2, i32 0}
-!24 = !{!"clang version 3.6.0 (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-clang 83869a5aa2cc8e6efb5dab84d4f034a88fa5515f) (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-llvm 50546c308a35b18ee2afb43648a5c2b0e414227f)"}
-!25 = !{!"0x101\00pInt\0016777217\000", !4, !6, !10} ; [ DW_TAG_arg_variable ] [pInt] [line 1]
-!26 = !{!"0x102"}                                 ; [ DW_TAG_expression ]
-!27 = !DILocation(line: 1, scope: !4)
-!28 = !DILocation(line: 3, scope: !4)
-!29 = !{!"0x100\00integer\007\000", !11, !6, !9}  ; [ DW_TAG_auto_variable ] [integer] [line 7]
-!30 = !DILocation(line: 7, scope: !11)
-!31 = !DILocation(line: 8, scope: !11)
-!32 = !DILocation(line: 9, scope: !11)
+!3 = !{!4, !10}
+!4 = distinct !DISubprogram(name: "func", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 2, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!5 = !DIFile(filename: "D:\5Ctemp\5CdebugInfoWithGASResolving.cl", directory: "D:\5Cetyurin\5Copencl\5Csrc\5Cbackend\5Ctests\5Cocl_backend_passes\5CDebugInfo")
+!6 = !DISubroutineType(types: !7)
+!7 = !{!8, !9}
+!8 = !DIBasicType(name: "int", size: 32, align: 32, encoding: DW_ATE_signed)
+!9 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !8, size: 64, align: 64)
+!10 = distinct !DISubprogram(name: "invoke_func", scope: !5, file: !5, line: 5, type: !11, isLocal: false, isDefinition: true, scopeLine: 6, isOptimized: false, variables: !2)
+!11 = !DISubroutineType(types: !12)
+!12 = !{null}
+!13 = !{void ()* @invoke_func, !14, !15, !16, !17, !18}
+!14 = !{!"kernel_arg_addr_space"}
+!15 = !{!"kernel_arg_access_qual"}
+!16 = !{!"kernel_arg_type"}
+!17 = !{!"kernel_arg_base_type"}
+!18 = !{!"kernel_arg_type_qual"}
+!19 = !{i32 2, !"Dwarf Version", i32 4}
+!20 = !{i32 2, !"Debug Info Version", i32 3}
+!21 = !{!"clang version 3.8.1 (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-clang 5e5f31ff4099022445ddc9519bdd4c03b14193bd) (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-llvm 6fe444928badc9c60eafb8d750910014ec4a8ece)"}
+!22 = !{i32 2, i32 0}
+!23 = !DILocalVariable(name: "pInt", arg: 1, scope: !4, file: !5, line: 1, type: !9)
+!24 = !DIExpression()
+!25 = !DILocation(line: 1, scope: !4)
+!26 = !DILocation(line: 3, scope: !4)
+!27 = !DILocalVariable(name: "integer", scope: !10, file: !5, line: 7, type: !8)
+!28 = !DILocation(line: 7, scope: !10)
+!29 = !DILocation(line: 8, scope: !10)
+!30 = !DILocation(line: 9, scope: !10)
