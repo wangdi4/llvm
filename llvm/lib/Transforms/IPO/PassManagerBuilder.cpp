@@ -338,6 +338,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #if INTEL_CUSTOMIZATION
   if (OptLevel >= 2 && EnableNonLTOGlobalVarOpt && EnableAndersen) {
     MPM.add(createNonLTOGlobalOptimizerPass());
+    MPM.add(createPromoteMemoryToRegisterPass());
   }
 #endif // INTEL_CUSTOMIZATION
 
