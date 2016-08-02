@@ -1,4 +1,4 @@
-; RUN: llvm-as %p/WGBuiltins64.ll.bc -o %t.WGBuiltins64.ll.bc
+; RUN: llvm-as %p/WGBuiltins64.ll -o %t.WGBuiltins64.ll.bc
 ; RUN: opt -runtimelib=%t.WGBuiltins64.ll.bc -B-GroupBuiltins -verify -S < %s | FileCheck %s
 
 ;;****************************************************************************
