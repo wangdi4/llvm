@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;CHECK: ret void
 
 define void @kernel(i32* nocapture %A, i64 %k) nounwind {
-  %1 = tail call i32 (...)* @_Z13get_global_idj(i32 0) nounwind
+  %1 = tail call i32 (...) @_Z13get_global_idj(i32 0) nounwind
   %2 = icmp sgt i32 %1, 70
   br i1 %2, label %3, label %8
 

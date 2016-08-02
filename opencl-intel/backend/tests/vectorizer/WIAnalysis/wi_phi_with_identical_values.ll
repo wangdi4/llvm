@@ -16,7 +16,7 @@ entry:
   br i1 %cmp, label %if.then, label %phi-split-bb
 
 if.then:                                          ; preds = %entry
-  %call1 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* getelementptr inbounds ([13 x i8], [13 x i8] addrspace(2)* @.str, i32 0, i32 0)) #4
+  %call1 = tail call i32 (i8 addrspace(2)*, ...) @printf(i8 addrspace(2)* getelementptr inbounds ([13 x i8], [13 x i8] addrspace(2)* @.str, i32 0, i32 0)) #4
   br label %phi-split-bb
 
 phi-split-bb:                                     ; preds = %entry, %if.then

@@ -105,7 +105,7 @@ entry:
   store i32 %width, i32* %width.addr
   store i32 %height, i32* %height.addr
   store float %radius, float* %radius.addr
-  %call = call i32 (...)* @_Z12get_work_dimv()         ; <i32> [#uses=1]
+  %call = call i32 (...) @_Z12get_work_dimv()         ; <i32> [#uses=1]
   store i32 %call, i32* %dims
   %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %globalIdx
@@ -232,12 +232,12 @@ if.end79:                                         ; preds = %if.then74, %if.end6
   %mul87 = mul i32 %add83, %add86                 ; <i32> [#uses=1]
   %conv88 = sitofp i32 %mul87 to float            ; <float> [#uses=1]
   store float %conv88, float* %denominator
-  %call90 = call i32 (...)* @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
+  %call90 = call i32 (...) @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
   %conv91 = sitofp i32 %call90 to float           ; <float> [#uses=1]
   %tmp92 = insertelement <4 x float> undef, float %conv91, i32 0 ; <<4 x float>> [#uses=2]
   %splat = shufflevector <4 x float> %tmp92, <4 x float> %tmp92, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
   store <4 x float> %splat, <4 x float>* %colorAccumulator
-  %call94 = call i32 (...)* @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
+  %call94 = call i32 (...) @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
   %conv95 = sitofp i32 %call94 to float           ; <float> [#uses=1]
   %tmp96 = insertelement <4 x float> undef, float %conv95, i32 0 ; <<4 x float>> [#uses=2]
   %splat97 = shufflevector <4 x float> %tmp96, <4 x float> %tmp96, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
@@ -659,7 +659,7 @@ for.cond398:                                      ; preds = %for.inc475, %for.bo
   br i1 %cmp401, label %for.body403, label %for.end478
 
 for.body403:                                      ; preds = %for.cond398
-  %call404 = call i32 (...)* @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
+  %call404 = call i32 (...) @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
   %conv405 = sitofp i32 %call404 to float         ; <float> [#uses=1]
   %tmp406 = insertelement <4 x float> undef, float %conv405, i32 0 ; <<4 x float>> [#uses=2]
   %splat407 = shufflevector <4 x float> %tmp406, <4 x float> %tmp406, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
@@ -807,7 +807,7 @@ for.cond498:                                      ; preds = %for.inc577, %for.bo
   br i1 %cmp503, label %for.body505, label %for.end580
 
 for.body505:                                      ; preds = %for.cond498
-  %call506 = call i32 (...)* @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
+  %call506 = call i32 (...) @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
   %conv507 = sitofp i32 %call506 to float         ; <float> [#uses=1]
   %tmp508 = insertelement <4 x float> undef, float %conv507, i32 0 ; <<4 x float>> [#uses=2]
   %splat509 = shufflevector <4 x float> %tmp508, <4 x float> %tmp508, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
@@ -955,7 +955,7 @@ for.cond607:                                      ; preds = %for.inc696, %for.bo
   br i1 %cmp614, label %for.body616, label %for.end699
 
 for.body616:                                      ; preds = %for.cond607
-  %call617 = call i32 (...)* @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
+  %call617 = call i32 (...) @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
   %conv618 = sitofp i32 %call617 to float         ; <float> [#uses=1]
   %tmp619 = insertelement <4 x float> undef, float %conv618, i32 0 ; <<4 x float>> [#uses=2]
   %splat620 = shufflevector <4 x float> %tmp619, <4 x float> %tmp619, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
@@ -1106,7 +1106,7 @@ for.cond721:                                      ; preds = %for.inc798, %for.bo
   br i1 %cmp724, label %for.body726, label %for.end801
 
 for.body726:                                      ; preds = %for.cond721
-  %call727 = call i32 (...)* @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
+  %call727 = call i32 (...) @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
   %conv728 = sitofp i32 %call727 to float         ; <float> [#uses=1]
   %tmp729 = insertelement <4 x float> undef, float %conv728, i32 0 ; <<4 x float>> [#uses=2]
   %splat730 = shufflevector <4 x float> %tmp729, <4 x float> %tmp729, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
@@ -1254,7 +1254,7 @@ for.cond832:                                      ; preds = %for.inc917, %for.bo
   br i1 %cmp835, label %for.body837, label %for.end920
 
 for.body837:                                      ; preds = %for.cond832
-  %call838 = call i32 (...)* @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
+  %call838 = call i32 (...) @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
   %conv839 = sitofp i32 %call838 to float         ; <float> [#uses=1]
   %tmp840 = insertelement <4 x float> undef, float %conv839, i32 0 ; <<4 x float>> [#uses=2]
   %splat841 = shufflevector <4 x float> %tmp840, <4 x float> %tmp840, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
@@ -1412,7 +1412,7 @@ for.cond947:                                      ; preds = %for.inc1029, %for.b
   br i1 %cmp952, label %for.body954, label %for.end1032
 
 for.body954:                                      ; preds = %for.cond947
-  %call955 = call i32 (...)* @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
+  %call955 = call i32 (...) @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
   %conv956 = sitofp i32 %call955 to float         ; <float> [#uses=1]
   %tmp957 = insertelement <4 x float> undef, float %conv956, i32 0 ; <<4 x float>> [#uses=2]
   %splat958 = shufflevector <4 x float> %tmp957, <4 x float> %tmp957, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
@@ -1561,7 +1561,7 @@ for.cond1057:                                     ; preds = %for.inc1141, %for.b
   br i1 %cmp1064, label %for.body1066, label %for.end1144
 
 for.body1066:                                     ; preds = %for.cond1057
-  %call1067 = call i32 (...)* @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
+  %call1067 = call i32 (...) @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
   %conv1068 = sitofp i32 %call1067 to float       ; <float> [#uses=1]
   %tmp1069 = insertelement <4 x float> undef, float %conv1068, i32 0 ; <<4 x float>> [#uses=2]
   %splat1070 = shufflevector <4 x float> %tmp1069, <4 x float> %tmp1069, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
@@ -1719,7 +1719,7 @@ for.cond1178:                                     ; preds = %for.inc1270, %for.b
   br i1 %cmp1185, label %for.body1187, label %for.end1273
 
 for.body1187:                                     ; preds = %for.cond1178
-  %call1188 = call i32 (...)* @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
+  %call1188 = call i32 (...) @make_float4(double 0.000000e+000, double 0.000000e+000, double 0.000000e+000, double 0.000000e+000) ; <i32> [#uses=1]
   %conv1189 = sitofp i32 %call1188 to float       ; <float> [#uses=1]
   %tmp1190 = insertelement <4 x float> undef, float %conv1189, i32 0 ; <<4 x float>> [#uses=2]
   %splat1191 = shufflevector <4 x float> %tmp1190, <4 x float> %tmp1190, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]

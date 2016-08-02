@@ -78,7 +78,7 @@ bb1:                                              ; preds = %bb1, %entry
   %3 = load i32, i32* %2, align 8                      ; <i32> [#uses=1]
   %4 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %n_addr.04, i64 0, i32 1 ; <%struct.LLIST**> [#uses=2]
   %5 = load %struct.LLIST*, %struct.LLIST** %4, align 8           ; <%struct.LLIST*> [#uses=1]
-  %6 = tail call i32 (i8*, ...)* @printf(i8* noalias getelementptr inbounds ([16 x i8], [16 x i8]* @.str1, i64 0, i64 0), %struct.LLIST* %n_addr.04, %struct.LLIST* %5, i32 %3) nounwind ; <i32> [#uses=0]
+  %6 = tail call i32 (i8*, ...) @printf(i8* noalias getelementptr inbounds ([16 x i8], [16 x i8]* @.str1, i64 0, i64 0), %struct.LLIST* %n_addr.04, %struct.LLIST* %5, i32 %3) nounwind ; <i32> [#uses=0]
   %7 = load %struct.LLIST*, %struct.LLIST** %4, align 8           ; <%struct.LLIST*> [#uses=2]
   %8 = icmp eq %struct.LLIST* %7, null            ; <i1> [#uses=1]
   br i1 %8, label %return, label %bb1
@@ -214,7 +214,7 @@ bb1.i26:                                          ; preds = %bb1.i26, %list_add.
   %38 = load i32, i32* %37, align 8                    ; <i32> [#uses=1]
   %39 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %n_addr.04.i25, i64 0, i32 1 ; <%struct.LLIST**> [#uses=2]
   %40 = load %struct.LLIST*, %struct.LLIST** %39, align 8         ; <%struct.LLIST*> [#uses=1]
-  %41 = call i32 (i8*, ...)* @printf(i8* noalias getelementptr inbounds ([16 x i8], [16 x i8]* @.str1, i64 0, i64 0), %struct.LLIST* %n_addr.04.i25, %struct.LLIST* %40, i32 %38) nounwind ; <i32> [#uses=0]
+  %41 = call i32 (i8*, ...) @printf(i8* noalias getelementptr inbounds ([16 x i8], [16 x i8]* @.str1, i64 0, i64 0), %struct.LLIST* %n_addr.04.i25, %struct.LLIST* %40, i32 %38) nounwind ; <i32> [#uses=0]
   %42 = load %struct.LLIST*, %struct.LLIST** %39, align 8         ; <%struct.LLIST*> [#uses=2]
   %43 = icmp eq %struct.LLIST* %42, null          ; <i1> [#uses=1]
   br i1 %43, label %bb.i20, label %bb1.i26
@@ -329,7 +329,7 @@ bb1.i2:                                           ; preds = %bb1.i2, %list_remov
   %84 = load i32, i32* %83, align 8                    ; <i32> [#uses=1]
   %85 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %n_addr.04.i, i64 0, i32 1 ; <%struct.LLIST**> [#uses=2]
   %86 = load %struct.LLIST*, %struct.LLIST** %85, align 8         ; <%struct.LLIST*> [#uses=1]
-  %87 = call i32 (i8*, ...)* @printf(i8* noalias getelementptr inbounds ([16 x i8], [16 x i8]* @.str1, i64 0, i64 0), %struct.LLIST* %n_addr.04.i, %struct.LLIST* %86, i32 %84) nounwind ; <i32> [#uses=0]
+  %87 = call i32 (i8*, ...) @printf(i8* noalias getelementptr inbounds ([16 x i8], [16 x i8]* @.str1, i64 0, i64 0), %struct.LLIST* %n_addr.04.i, %struct.LLIST* %86, i32 %84) nounwind ; <i32> [#uses=0]
   %88 = load %struct.LLIST*, %struct.LLIST** %85, align 8         ; <%struct.LLIST*> [#uses=2]
   %89 = icmp eq %struct.LLIST* %88, null          ; <i1> [#uses=1]
   br i1 %89, label %list_print.exit, label %bb1.i2

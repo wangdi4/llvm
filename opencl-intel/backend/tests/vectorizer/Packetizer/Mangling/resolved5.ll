@@ -21,7 +21,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @multi(i32* nocapture %A, i32 %f) nounwind {
-  %1 = tail call i32 (...)* @_Z13get_global_idj(i32 0) nounwind
+  %1 = tail call i32 (...) @_Z13get_global_idj(i32 0) nounwind
   %2 = icmp sgt i32 %1, 3
   br i1 %2, label %3, label %13
 

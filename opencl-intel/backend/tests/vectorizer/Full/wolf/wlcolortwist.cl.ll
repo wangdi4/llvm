@@ -54,7 +54,7 @@ entry:
   %tmp21 = load <4 x float>, <4 x float>* %outputColor         ; <<4 x float>> [#uses=1]
   %tmp22 = extractelement <4 x float> %tmp21, i32 3 ; <float> [#uses=1]
   %conv23 = fpext float %tmp22 to double          ; <double> [#uses=1]
-  %call24 = call i32 (...)* @make_float4(double %conv, double %conv17, double %conv20, double %conv23) ; <i32> [#uses=1]
+  %call24 = call i32 (...) @make_float4(double %conv, double %conv17, double %conv20, double %conv23) ; <i32> [#uses=1]
   %conv25 = sitofp i32 %call24 to float           ; <float> [#uses=1]
   %tmp26 = insertelement <4 x float> undef, float %conv25, i32 0 ; <<4 x float>> [#uses=2]
   %splat = shufflevector <4 x float> %tmp26, <4 x float> %tmp26, <4 x i32> zeroinitializer ; <<4 x float>> [#uses=1]
@@ -84,7 +84,7 @@ entry:
   store i32 %buffer_size, i32* %buffer_size.addr
   %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   %call1 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
-  %call2 = call i32 (...)* @make_int2(i32 %call, i32 %call1) ; <i32> [#uses=1]
+  %call2 = call i32 (...) @make_int2(i32 %call, i32 %call1) ; <i32> [#uses=1]
   %tmp = insertelement <2 x i32> undef, i32 %call2, i32 0 ; <<2 x i32>> [#uses=2]
   %splat = shufflevector <2 x i32> %tmp, <2 x i32> %tmp, <2 x i32> zeroinitializer ; <<2 x i32>> [#uses=1]
   store <2 x i32> %splat, <2 x i32>* %curCrd

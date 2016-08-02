@@ -47,7 +47,7 @@ entry:
   store i32 %width, i32* %width.addr
   store i32 %height, i32* %height.addr
   store i32 %buffer_size, i32* %buffer_size.addr
-  %call = call i32 (...)* @_Z12get_work_dimv()         ; <i32> [#uses=1]
+  %call = call i32 (...) @_Z12get_work_dimv()         ; <i32> [#uses=1]
   store i32 %call, i32* %dims
   %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %globalIdx
@@ -293,7 +293,7 @@ entry:
   store i32 %width, i32* %width.addr
   store i32 %height, i32* %height.addr
   store i32 %buffer_size, i32* %buffer_size.addr
-  %call = call i32 (...)* @_Z12get_work_dimv()         ; <i32> [#uses=1]
+  %call = call i32 (...) @_Z12get_work_dimv()         ; <i32> [#uses=1]
   store i32 %call, i32* %dims
   %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %globalIdx
@@ -881,7 +881,7 @@ entry:
   store i8 0, i8* %bottomEdge
   store i8 0, i8* %leftEdge
   store i8 0, i8* %rightEdge
-  %call = call i32 (...)* @_Z12get_work_dimv()         ; <i32> [#uses=1]
+  %call = call i32 (...) @_Z12get_work_dimv()         ; <i32> [#uses=1]
   store i32 %call, i32* %dims
   %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %globalIdx

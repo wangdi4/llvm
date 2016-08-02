@@ -20,7 +20,7 @@ entry:
   br i1 %cmp, label %if.then, label %for.body
 
 if.then:                                          ; preds = %entry
-  %call1 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* getelementptr inbounds ([13 x i8], [13 x i8] addrspace(2)* @.str, i32 0, i32 0)) #4
+  %call1 = tail call i32 (i8 addrspace(2)*, ...) @printf(i8 addrspace(2)* getelementptr inbounds ([13 x i8], [13 x i8] addrspace(2)* @.str, i32 0, i32 0)) #4
   br label %for.body
 
 for.body:                                         ; preds = %entry, %if.then, %for.body

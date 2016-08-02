@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;CHECK: ret void
 
 define void @kernel(i32* nocapture %A) nounwind {
-  %1 = tail call i32 (...)* @_Z13get_global_idj(i32 0) nounwind
+  %1 = tail call i32 (...) @_Z13get_global_idj(i32 0) nounwind
   %2 = mul nsw i32 %1, 7
   %3 = sext i32 %2 to i64
   %4 = getelementptr inbounds i32, i32* %A, i64 %3

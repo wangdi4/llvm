@@ -30,7 +30,7 @@ bb1:                                              ; preds = %bb1, %entry
   %3 = load i32, i32* %2, align 8                      ; <i32> [#uses=1]
   %4 = getelementptr inbounds %struct.LLIST, %struct.LLIST* %n_addr.04, i64 0, i32 1 ; <%struct.LLIST**> [#uses=2]
   %5 = load %struct.LLIST*, %struct.LLIST** %4, align 8           ; <%struct.LLIST*> [#uses=1]
-  %6 = tail call i32 (i8*, ...)* @printf(i8* noalias getelementptr inbounds ([16 x i8], [16 x i8]* @.str1, i64 0, i64 0), %struct.LLIST* %n_addr.04, %struct.LLIST* %5, i32 %3) nounwind ; <i32> [#uses=0]
+  %6 = tail call i32 (i8*, ...) @printf(i8* noalias getelementptr inbounds ([16 x i8], [16 x i8]* @.str1, i64 0, i64 0), %struct.LLIST* %n_addr.04, %struct.LLIST* %5, i32 %3) nounwind ; <i32> [#uses=0]
   %7 = load %struct.LLIST*, %struct.LLIST** %4, align 8           ; <%struct.LLIST*> [#uses=2]
   %8 = icmp eq %struct.LLIST* %7, null            ; <i1> [#uses=1]
   br i1 %8, label %return, label %bb1

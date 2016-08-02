@@ -77,7 +77,7 @@ entry:
   store <4 x float> zeroinitializer, <4 x float>* %.compoundliteral
   %tmp = load <4 x float>, <4 x float>* %.compoundliteral      ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp, <4 x float>* %floatZero
-  %call = call i32 (...)* @_Z12get_work_dimv()         ; <i32> [#uses=1]
+  %call = call i32 (...) @_Z12get_work_dimv()         ; <i32> [#uses=1]
   store i32 %call, i32* %dims
   %call3 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call3, i32* %globalIdx
@@ -410,7 +410,7 @@ entry:
   store <4 x float> zeroinitializer, <4 x float>* %.compoundliteral
   %tmp = load <4 x float>, <4 x float>* %.compoundliteral      ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp, <4 x float>* %floatZero
-  %call = call i32 (...)* @_Z12get_work_dimv()         ; <i32> [#uses=1]
+  %call = call i32 (...) @_Z12get_work_dimv()         ; <i32> [#uses=1]
   store i32 %call, i32* %dims
   %call3 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call3, i32* %globalIdx
@@ -2399,7 +2399,7 @@ entry:
   store i8 0, i8* %bottomEdge
   store i8 0, i8* %leftEdge
   store i8 0, i8* %rightEdge
-  %call = call i32 (...)* @_Z12get_work_dimv()         ; <i32> [#uses=1]
+  %call = call i32 (...) @_Z12get_work_dimv()         ; <i32> [#uses=1]
   store i32 %call, i32* %dims
   %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %globalIdx
