@@ -211,7 +211,8 @@ namespace intel {
     // Remember user module function pointers, so we could set linkonce_odr
     // to only imported functions.
     for (auto &F : M)
-      m_UserModuleFunctions.insert(&F);
+      if (!F.isDeclaration())
+        m_UserModuleFunctions.insert(&F);
 
     bool changed = false;
 
