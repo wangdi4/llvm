@@ -33,7 +33,7 @@ entry:
 declare <3 x i8> @_Z21convert_char3_sat_rteDv3_i(<3 x i32> %x)
 
 
-; CHECK:  define linkonce_odr <3 x i8> @_Z21convert_char3_sat_rteDv3_i(<3 x i32> %x)
-; CHECK:  define linkonce_odr <3 x i8> @_Z17convert_char3_satDv3_i(<3 x i32> %x)
-; CHECK:  define linkonce_odr <3 x i8> @_Z18convert_short3_satDv3_i(<3 x i32> %x)
+; CHECK-DAG:  define linkonce_odr <3 x i8> @_Z21convert_char3_sat_rteDv3_i(<3 x i32> %x)
+; CHECK-DAG:  define linkonce_odr <3 x i8> @_Z17convert_char3_satDv3_i(<3 x i32> %x)
+; CHECK-DAG:  define linkonce_odr <3 x i8> @_Z18convert_short3_satDv3_i(<3 x i32> %x)
 

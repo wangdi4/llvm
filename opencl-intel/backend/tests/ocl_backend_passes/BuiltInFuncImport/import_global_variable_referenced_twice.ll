@@ -26,5 +26,5 @@ entry:
     ret <4 x double> %call02
 }
 
-; CHECK: define linkonce_odr <4 x double> @module_1_function(<4 x double> %in)
-; CHECK: define linkonce_odr <4 x double> @module_2_function(<4 x double> %in)
+; CHECK-DAG: define linkonce_odr <4 x double> @module_1_function(<4 x double> %in)
+; CHECK-DAG: define linkonce_odr <4 x double> @module_2_function(<4 x double> %in)

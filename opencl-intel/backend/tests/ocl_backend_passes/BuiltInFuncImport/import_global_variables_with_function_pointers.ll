@@ -23,5 +23,5 @@ entry:
 
 declare i8 addrspace(2)* @call_coord_translate_i_callback(i32 %samplerIndex)
 
-; CHECK:  define linkonce_odr i8 addrspace(2)* @call_coord_translate_i_callback(i32 %samplerIndex)
-; CHECK:  define linkonce_odr <4 x i32> @_Z25trans_coord_int_UNDEFINEDPvDv4_i(i8* nocapture %image, <4 x i32> %coord)
+; CHECK-DAG:  define linkonce_odr i8 addrspace(2)* @call_coord_translate_i_callback(i32 %samplerIndex)
+; CHECK-DAG:  define linkonce_odr <4 x i32> @_Z25trans_coord_int_UNDEFINEDPvDv4_i(i8* nocapture %image, <4 x i32> %coord)

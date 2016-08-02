@@ -26,9 +26,9 @@ entry:
 }
 
 ; CHECK: define i8* @test_bgra8888
-; CHECK-DAG: define i8* @_Z11read_imagef14ocl_image2d_ro11ocl_samplerDv2_i
-; CHECK-DAG: define i8* @call_coord_translate_i_callback
-; CHECK-DAG: define <4 x i32> @_Z41trans_coord_int_CLAMPTOEDGE_FALSE_NEARESTPvDv4_i
-; CHECK-DAG: define <4 x i32> @_Z25trans_coord_int_UNDEFINEDPvDv4_i
-; CHECK-DAG: define <4 x i32> @_Z3maxDv4_iS_
-; CHECK-DAG: define <4 x i32> @_Z3minDv4_iS_
+; CHECK-DAG: define linkonce_odr i8* @_Z11read_imagef14ocl_image2d_ro11ocl_samplerDv2_i
+; CHECK-DAG: define linkonce_odr i8* @call_coord_translate_i_callback
+; CHECK-DAG: define linkonce_odr <4 x i32> @_Z41trans_coord_int_CLAMPTOEDGE_FALSE_NEARESTPvDv4_i
+; CHECK-DAG: define linkonce_odr <4 x i32> @_Z25trans_coord_int_UNDEFINEDPvDv4_i
+; CHECK-DAG: define linkonce_odr <4 x i32> @_Z3maxDv4_iS_
+; CHECK-DAG: define linkonce_odr <4 x i32> @_Z3minDv4_iS_
