@@ -455,6 +455,12 @@ public:
   /// this DDRef.
   void addBlobDDRef(unsigned Index, unsigned Level = NonLinearLevel);
 
+  /// \brief Returns the blob DDRef with this \p Index attached to this RegDDRef.
+  /// It returns null is the blob DDRef is not found.
+  BlobDDRef *getBlobDDRef(unsigned Index);
+
+  const BlobDDRef *getBlobDDRef(unsigned Index) const;
+
   /// \brief Removes and returns blob DDRef corresponding to CBlobI iterator.
   BlobDDRef *removeBlobDDRef(const_blob_iterator CBlobI);
 
