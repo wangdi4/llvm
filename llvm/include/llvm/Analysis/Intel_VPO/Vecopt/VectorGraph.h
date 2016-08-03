@@ -187,6 +187,19 @@ private:
   /// Loop lower bound
   SCEV *LowerBound;
 
+  /// Entry - entry node to the CFG. Typically the first AVR encountered by
+  /// iterating the given AVR range for which a CFGInstruction exists, unless
+  /// that AVR is not a true entry (i.e. has a predecessor), in which
+  /// case this is an empty basic block.
+  VGBlock* Entry;
+
+  /// Exit - exit node of the CFG, either a real AVR or, if the CFG happens
+  /// to have multiple exit nodes, an empty basic block.
+  VGBlock* Exit;
+
+  /// Size - the number of nodes in the CFG.
+  unsigned int Size;
+
 protected:
   VGLoop(Loop *Lp);
   virtual ~VGLoop() override {}
@@ -218,7 +231,7 @@ public:
   VGNode *getFirstChild();
 
   /// \brief Returns the first child if it exists, otherwise returns null.
-  const VGNode *getFirstChild() const {
+  VGNode *getFirstChild() const {
     return const_cast<VGLoop *>(this)->getFirstChild();
   }
 
@@ -226,7 +239,7 @@ public:
   VGNode *getLastChild();
 
   /// \brief Returns const pointer to last child if it exisits.
-  const VGNode *getLastChild() const {
+  VGNode *getLastChild() const {
     return const_cast<VGLoop *>(this)->getLastChild();
   }
 
@@ -240,6 +253,15 @@ public:
   static bool classof(const VGNode *Node) {
     return Node->getVGID() == VGNode::VGLoopNode;
   }
+
+  // For now, since we are working with innermost loops only, we can assume
+  // other nodes in the graph are VGBlock*. This will need to be changed to
+  // VGNode* once we start dealing with multiple loop levels.
+  VGBlock* getEntry() const { return cast<VGBlock>(getFirstChild()); }
+
+  VGBlock* getExit() const { return cast<VGBlock>(getLastChild()); }
+
+  unsigned int getSize() const { return Size; }
 
   /// \brief
   void print(formatted_raw_ostream &OS, unsigned Depth) const override;
@@ -339,6 +361,8 @@ public:
 
   /// \brief Prints the type name of this avr.
   void printNodeKind(formatted_raw_ostream &OS) const override;
+
+  BasicBlock* getBasicBlock() { return BBlock; }
 };
 
 /// \breif
@@ -511,6 +535,62 @@ template <> struct GraphTraits<Inverse<const vpo::VGBlock *>> {
 
   static nodes_iterator nodes_end(const vpo::VGBlock *N) {
     return nodes_iterator(N, false);
+  }
+};
+
+template <> struct GraphTraits<vpo::VGLoop *>
+  : public GraphTraits<vpo::VGBlock *> {
+
+  static NodeType *getEntryNode(vpo::VGLoop *VGL) {
+    return VGL->getEntry();
+  }
+
+  static nodes_iterator nodes_begin(vpo::VGLoop *VGL) {
+    return nodes_iterator(getEntryNode(VGL), true);
+  }
+
+  static nodes_iterator nodes_end(vpo::VGLoop *VGL) {
+    return nodes_iterator(getEntryNode(VGL), false);
+  }
+
+  static unsigned size(vpo::VGLoop *VGL) {
+    return VGL->getSize();
+  }
+};
+
+template <> struct GraphTraits<Inverse<vpo::VGLoop *> >
+  : public GraphTraits<Inverse<vpo::VGBlock *> > {
+
+  static NodeType *getEntryNode(Inverse<vpo::VGLoop *> VGL) {
+    return VGL.Graph->getExit();
+  }
+};
+
+template <> struct GraphTraits<const vpo::VGLoop *>
+  : public GraphTraits<const vpo::VGBlock *> {
+
+  static NodeType *getEntryNode(const vpo::VGLoop *VGL) {
+    return VGL->getEntry();
+  }
+
+  static nodes_iterator nodes_begin(const vpo::VGLoop *VGL) {
+    return nodes_iterator(getEntryNode(VGL), true);
+  }
+
+  static nodes_iterator nodes_end(const vpo::VGLoop *VGL) {
+    return nodes_iterator(getEntryNode(VGL), false);
+  }
+
+  static unsigned size(const vpo::VGLoop *VGL) {
+    return VGL->getSize();
+  }
+};
+
+template <> struct GraphTraits<Inverse<const vpo::VGLoop *> >
+  : public GraphTraits<Inverse<const vpo::VGBlock *> > {
+
+  static NodeType *getEntryNode(Inverse<const vpo::VGLoop *> VGL) {
+    return VGL.Graph->getExit();
   }
 };
 
