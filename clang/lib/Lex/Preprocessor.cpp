@@ -535,6 +535,10 @@ void Preprocessor::EndSourceFile() {
   // Notify the client that we reached the end of the source file.
   if (Callbacks)
     Callbacks->EndOfMainFile();
+#if INTEL_CUSTOMIZATION
+  if (!WrapperFilename.empty())
+    llvm::sys::fs::remove(WrapperFilename);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //===----------------------------------------------------------------------===//

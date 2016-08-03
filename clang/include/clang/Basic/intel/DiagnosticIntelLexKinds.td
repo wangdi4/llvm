@@ -42,4 +42,13 @@ def warn_missing_fnmacro_args_replaced_by_empty : Warning<
 def warn_pp_line_invalid_filename : Warning<
   "expected a file name">,
   InGroup<UnknownPragmas>;
+
+def err_bad_import_value : Error<
+  "bad attribute value in #import directive">;
+
+def err_typelib_not_found : Error<
+  "could not determine header file for this typelib">;
+
+def err_import_exec : Error<
+  "could not process #import directive with %0">;
 }
