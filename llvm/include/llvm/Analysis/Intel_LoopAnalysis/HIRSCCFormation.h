@@ -44,14 +44,14 @@ namespace loopopt {
 class HIRSCCFormation : public FunctionPass {
 public:
   typedef Instruction NodeTy;
-  typedef SmallPtrSet<const NodeTy *, 8> SCCNodesTy;
+  typedef SmallPtrSet<NodeTy *, 8> SCCNodesTy;
 
   struct SCC {
     // Outermost loop's header phi is set as the root.
-    const NodeTy *Root;
+    NodeTy *Root;
     SCCNodesTy Nodes;
 
-    SCC(const NodeTy *R) : Root(R) {}
+    SCC(NodeTy *R) : Root(R) {}
   };
 
   typedef struct SCC SCCTy;
@@ -88,7 +88,7 @@ private:
   SmallDenseMap<const NodeTy *, unsigned, 64> VisitedNodes;
 
   /// NodeStack - Running stack of nodes visited during a call to findSCC().
-  SmallVector<const NodeTy *, 32> NodeStack;
+  SmallVector<NodeTy *, 32> NodeStack;
 
   /// CurRegIt - Points to the region being processed.
   HIRRegionIdentification::const_iterator CurRegIt;
@@ -118,7 +118,7 @@ private:
 
   /// Returns true if \p Inst is used outside the loop it is defined in.
   bool isLoopLiveOut(const Instruction *Inst) const;
- 
+
   /// Returns true if any of \p Phi's operands depend directly or indirectly on
   /// another phi defined in the same bblock as itself.
   bool dependsOnSameBasicBlockPhi(const PHINode *Phi) const;
@@ -130,21 +130,20 @@ private:
   bool isCandidateNode(const NodeTy *Node) const;
 
   /// \brief Returns the next successor of Node in the graph.
-  NodeTy::const_user_iterator
-  getNextSucc(const NodeTy *Node, NodeTy::const_user_iterator PrevSucc) const;
+  NodeTy::user_iterator getNextSucc(NodeTy *Node,
+                                    NodeTy::user_iterator PrevSucc) const;
 
   /// \brief Returns the first successor of Node in the graph.
-  NodeTy::const_user_iterator getFirstSucc(const NodeTy *Node) const;
+  NodeTy::user_iterator getFirstSucc(NodeTy *Node) const;
 
   /// \brief Returns the last successor of Node in the graph.
-  NodeTy::const_user_iterator getLastSucc(const NodeTy *Node) const;
+  NodeTy::user_iterator getLastSucc(NodeTy *Node) const;
 
-  /// \brief Removes intermediate nodes of the SCC. Intermediate nodes are the
-  /// ones which do not appear in any phi contained in the SCC. Although they
-  /// are part of the SCC they are not strongly associated with the phis. They
-  /// should not be assigned the same symbase as they can be live(used) at the
-  /// same time as other nodes in the SCC.
-  void removeIntermediateNodes(SCCNodesTy &CurSCC);
+  /// \brief Removes non-phi nodes which are not the same type as the root of
+  /// the phi. These are encountered when tracing through casts. Only single-use
+  /// nodes are allowed here so we know that they only appear in the SCC and
+  /// thus cannot cause live-range issues.
+  void removeIntermediateNodes(SCCTy &CurSCC) const;
 
   /// \brief Sets the RegionSCCBegin iterator for a new region.
   void setRegionSCCBegin();
@@ -160,18 +159,18 @@ private:
 
   /// \brief Checks the validity of an SCC w.r.t assigning the same symbase to
   /// all its nodes.
-  bool isValidSCC(const SCCNodesTy &Nodes) const;
+  bool isValidSCC(const SCCTy &CurSCC) const;
 
   /// \brief Checks that Phi is used in another phi in the SCC.
-  bool isUsedInSCCPhi(const PHINode *Phi, const SCCNodesTy &NewSCC) const;
+  static bool isUsedInSCCPhi(PHINode *Phi, const SCCNodesTy &NewSCC);
 
   /// Used to set the outermost loop header phi amongst the nodes as the root
   /// node.
-  void updateRoot(SCCTy &SCC, const NodeTy *NewRoot) const;
+  void updateRoot(SCCTy &SCC, NodeTy *NewRoot) const;
 
   /// \brief Runs Tarjan's algorithm on this node. Returns the lowlink for this
   /// node.
-  unsigned findSCC(const NodeTy *Node);
+  unsigned findSCC(NodeTy *Node);
 
   /// \brief Forms SCCs for non-linear loop header phis in the regions.
   void formRegionSCCs();

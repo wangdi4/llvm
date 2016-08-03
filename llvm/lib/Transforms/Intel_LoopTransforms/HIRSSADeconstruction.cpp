@@ -102,19 +102,20 @@ private:
   /// \brief Returns a copy of Val.
   Instruction *createCopy(Value *Val, StringRef Name, bool IsLivein) const;
 
-  /// \brief Inserts copy of Val at the end of BB.
-  void insertCopyAsLastInst(Value *Val, BasicBlock *BB, StringRef Name);
+  /// \brief Inserts livein copy of Val at the end of BB.
+  void insertLiveInCopy(Value *Val, BasicBlock *BB, StringRef Name);
 
-  /// \brief Inserts copy of Inst at the first insertion point of BB.
-  Instruction *insertCopyAsFirstInst(Instruction *Inst, BasicBlock *BB,
-                                     StringRef Name);
+  /// \brief Inserts liveout copy of Inst at the first insertion point of BB if
+  /// Inst is a phi or immediately after Inst.
+  Instruction *insertLiveOutCopy(Instruction *Inst, BasicBlock *BB,
+                                 StringRef Name);
 
   /// \brief Constructs name to be used for Val.
   StringRef constructName(const Value *Val, SmallString<32> &Name);
 
   /// \brief Returns the SCC this phi belongs to, if any, otherwise returns
   /// null.
-  const HIRSCCFormation::SCCTy *getPhiSCC(const PHINode *Phi) const;
+  const HIRSCCFormation::SCCTy *getPhiSCC(PHINode *Phi) const;
 
   /// \brief Returns true if OrigPredBB has an alternate reaching path to Phi
   /// other than the immediate successor. This means that adding a livein copy
@@ -138,13 +139,16 @@ private:
   /// standalone phi.
   bool liveoutCopyRequired(const PHINode *StandAlonePhi) const;
 
-  /// \brief Inserts copies of Phi if it has uses live outside the SCC and
-  /// replaces the liveout uses with the copy. If SCCNodes is null, Phi is
+  /// \brief Inserts copies of Inst if it has uses live outside the SCC and
+  /// replaces the liveout uses with the copy. If SCCNodes is null, Inst is
   /// treated as a standalone phi and this is needed to handle a special case
   /// described in the function definition.
-  void processPhiLiveouts(PHINode *Phi,
-                          const HIRSCCFormation::SCCNodesTy *SCCNodes,
-                          StringRef Name);
+  void processLiveouts(Instruction *Inst,
+                       const HIRSCCFormation::SCCNodesTy *SCCNodes,
+                       StringRef Name);
+
+  /// Returns true if SCC contains only one non-phi instruction.
+  bool isSingleNonPhiSCC(const HIRSCCFormation::SCCTy &CurSCC);
 
   /// \brief Deconstructs phi by inserting copies.
   void deconstructPhi(PHINode *Phi);
@@ -205,35 +209,33 @@ Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
   return CInst;
 }
 
-void HIRSSADeconstruction::insertCopyAsLastInst(Value *Val, BasicBlock *BB,
-                                                StringRef Name) {
-  // Create a copy.
+void HIRSSADeconstruction::insertLiveInCopy(Value *Val, BasicBlock *BB,
+                                            StringRef Name) {
   auto CopyInst = createCopy(Val, Name, true);
 
-  // Insert at the end of BB.
   CopyInst->insertBefore(BB->getTerminator());
 
-  // Indicate that we have modified the IR by inserting a copy.
   ModifiedIR = true;
 }
 
-Instruction *HIRSSADeconstruction::insertCopyAsFirstInst(Instruction *Inst,
-                                                         BasicBlock *BB,
-                                                         StringRef Name) {
-  // Create a copy.
+Instruction *HIRSSADeconstruction::insertLiveOutCopy(Instruction *Inst,
+                                                     BasicBlock *BB,
+                                                     StringRef Name) {
   auto CopyInst = createCopy(Inst, Name, false);
 
-  // Insert at the first insertion point of BB.
-  CopyInst->insertBefore(&*(BB->getFirstInsertionPt()));
+  if (isa<PHINode>(Inst)) {
+    CopyInst->insertBefore(&*(BB->getFirstInsertionPt()));
+  } else {
+    CopyInst->insertAfter(Inst);
+  }
 
-  // Indicate that we have modified the IR by inserting a copy.
   ModifiedIR = true;
 
   return CopyInst;
 }
 
 const HIRSCCFormation::SCCTy *
-HIRSSADeconstruction::getPhiSCC(const PHINode *Phi) const {
+HIRSSADeconstruction::getPhiSCC(PHINode *Phi) const {
   for (auto SCCIt = SCCF->begin(CurRegIt), E = SCCF->end(CurRegIt); SCCIt != E;
        ++SCCIt) {
 
@@ -368,8 +370,9 @@ bool HIRSSADeconstruction::liveoutCopyRequired(
   return false;
 }
 
-void HIRSSADeconstruction::processPhiLiveouts(
-    PHINode *Phi, const HIRSCCFormation::SCCNodesTy *SCCNodes, StringRef Name) {
+void HIRSSADeconstruction::processLiveouts(
+    Instruction *Inst, const HIRSCCFormation::SCCNodesTy *SCCNodes,
+    StringRef Name) {
 
   Instruction *CopyInst = nullptr;
   bool CopyRequired = false;
@@ -380,6 +383,8 @@ void HIRSSADeconstruction::processPhiLiveouts(
   // replaced by the copy.
   // 2) The uses outside the current loop need to be replaced by the copy.
   if (!SCCNodes) {
+    auto Phi = cast<PHINode>(Inst);
+
     if (!RI->isHeaderPhi(Phi)) {
       return;
     }
@@ -389,7 +394,7 @@ void HIRSSADeconstruction::processPhiLiveouts(
     }
   }
 
-  for (auto UserIt = Phi->user_begin(), EndIt = Phi->user_end();
+  for (auto UserIt = Inst->user_begin(), EndIt = Inst->user_end();
        UserIt != EndIt;) {
     assert(isa<Instruction>(*UserIt) && "Use is not an instruction!");
     auto UserInst = cast<Instruction>(*UserIt);
@@ -416,7 +421,7 @@ void HIRSSADeconstruction::processPhiLiveouts(
 
     // Insert copy, if it doesn't exist.
     if (!CopyInst) {
-      CopyInst = insertCopyAsFirstInst(Phi, Phi->getParent(), Name);
+      CopyInst = insertLiveOutCopy(Inst, Inst->getParent(), Name);
     }
 
     // Replace liveout use by copy.
@@ -555,7 +560,7 @@ bool HIRSSADeconstruction::processPhiLiveins(
     }
 
     // Insert copy.
-    insertCopyAsLastInst(PhiOp, PredBB, Name);
+    insertLiveInCopy(PhiOp, PredBB, Name);
     Ret = true;
   }
 
@@ -578,6 +583,19 @@ StringRef HIRSSADeconstruction::constructName(const Value *Val,
   return VOS.str();
 }
 
+bool HIRSSADeconstruction::isSingleNonPhiSCC(
+    const HIRSCCFormation::SCCTy &CurSCC) {
+  unsigned Count = 0;
+
+  for (auto Inst : CurSCC.Nodes) {
+    if (!isa<PHINode>(Inst)) {
+      Count++;
+    }
+  }
+
+  return (Count == 1);
+}
+
 void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
   SmallString<32> Name;
 
@@ -592,10 +610,11 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     ProcessedSCCs.insert(PhiSCC);
 
     bool LiveinCopyInserted = false;
+    bool IsSingleNonPhiSCC = isSingleNonPhiSCC(*PhiSCC);
 
     constructName(PhiSCC->Root, Name);
 
-    for (auto const &SCCInst : PhiSCC->Nodes) {
+    for (auto SCCInst : PhiSCC->Nodes) {
 
       if (auto SCCPhiInst = dyn_cast<PHINode>(SCCInst)) {
 
@@ -605,30 +624,29 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
         }
 
         LiveinCopyInserted =
-            processPhiLiveins(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
-                              Name.str()) ||
+            processPhiLiveins(SCCPhiInst, &PhiSCC->Nodes, Name.str()) ||
             LiveinCopyInserted;
 
-        // TODO: Find a test case where a non-phi instruction in an SCC is live
-        // outside the region and is not the lexically last statement of the
-        // SCC. The current code doesn't handle this case.
-        processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
-                           Name.str());
+        processLiveouts(SCCPhiInst, &PhiSCC->Nodes, Name.str());
 
       } else {
 
+        if (!IsSingleNonPhiSCC) {
+          processLiveouts(SCCInst, &PhiSCC->Nodes, Name.str());
+        }
+
         // Attach live range type metadata to suppress SCEV traceback.
-        attachMetadata(const_cast<Instruction *>(SCCInst), Name.str(),
+        attachMetadata(SCCInst, Name.str(),
                        ScalarEvolution::HIRLiveKind::LiveRange);
         // Tell SCEV to reparse the instruction.
-        SE->forgetValue(const_cast<Instruction *>(SCCInst));
+        SE->forgetValue(SCCInst);
       }
     }
 
     if (LiveinCopyInserted) {
       // Attach metadata to the root node to connect the SCC to its livein
       // copies.
-      attachMetadata(const_cast<Instruction *>(PhiSCC->Root), Name.str(),
+      attachMetadata(PhiSCC->Root, Name.str(),
                      ScalarEvolution::HIRLiveKind::LiveIn);
     }
 
@@ -668,7 +686,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     attachMetadata(Phi, Name.str(), ScalarEvolution::HIRLiveKind::LiveIn);
 
     processPhiLiveins(Phi, nullptr, Name.str());
-    processPhiLiveouts(Phi, nullptr, Name.str());
+    processLiveouts(Phi, nullptr, Name.str());
   }
 }
 

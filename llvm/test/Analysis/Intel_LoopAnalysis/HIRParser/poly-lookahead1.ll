@@ -2,26 +2,29 @@
 
 ; Check parsing output for the loop verifying that the we are able to handle IV multiplications resulting in polynomial SCEVs by looking ahead.
 
-; CHECK: DO i1 = 0, 47
-; CHECK-NEXT: %n.addr.038.out = %n.addr.038;
-; CHECK-NEXT: %qb.041.out1 = %qb.041;
-; CHECK-NEXT: %indvars.iv42.out = %indvars.iv42;
-; CHECK-NEXT: %indvars.iv44.out = %indvars.iv44;
-; CHECK: %2 = i1 + -1  *  i1 + -2;
-; CHECK-NEXT: %qb.135 = %qb.041.out1;
-; CHECK-NEXT: DO i2 = 0, (i1 + -1)/u3
-; CHECK-NEXT: %qb.135.out = %qb.135;
-; CHECK-NEXT: %9 = i1 + -1  *  (-1 + (-1 * %indvars.iv54)) * i2 + %n.addr.038.out + -1;
-; CHECK-NEXT: %qb.135 = (-1 + (-1 * %indvars.iv54)) * i2 + -1 * trunc.i33.i32((%2 /u 2)) + %indvars.iv44.out + %n.addr.038.out + %qb.135.out  +  %9;
-; CHECK-NEXT: %11 = -1 * i1  +  %indvars.iv52 * i2 + %n.addr.038.out;
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %qb.041 = %qb.135;
-; CHECK-NEXT: %n.addr.038 = %11;
-; CHECK: %indvars.iv42 = %indvars.iv42  +  -6 * i1 + -12;
-; CHECK-NEXT: %indvars.iv44 = %indvars.iv44  +  %indvars.iv42.out;
-; CHECK-NEXT: %indvars.iv54 = i1;
-; CHECK-NEXT: %indvars.iv52 = -1 * i1 + -1;
-; CHECK-NEXT: END LOOP
+; CHECK: + DO i1 = 0, 47, 1   <DO_LOOP>
+; CHECK: |   %n.addr.038.out = %n.addr.038;
+; CHECK: |   %qb.041.out1 = %qb.041;
+; CHECK: |   %indvars.iv42.out = %indvars.iv42;
+; CHECK: |   %indvars.iv44.out = %indvars.iv44;
+; CHECK: |
+; CHECK: |      %2 = i1 + -1  *  i1 + -2;
+; CHECK: |      %qb.135 = %qb.041.out1;
+; CHECK: |   + DO i2 = 0, (i1 + -1)/u3, 1   <DO_LOOP>
+; CHECK: |   |   %qb.135.out = %qb.135;
+; CHECK: |   |   %9 = i1 + -1  *  (-1 + (-1 * %indvars.iv54)) * i2 + %n.addr.038.out + -1;
+; CHECK: |   |   %qb.135 = (-1 + (-1 * %indvars.iv54)) * i2 + -1 * trunc.i33.i32((%2 /u 2)) + %indvars.iv44.out + %n.addr.038.out + %qb.135.out  +  %9;
+; CHECK: |   |   %11 = -1 * i1  +  %indvars.iv52 * i2 + %n.addr.038.out;
+; CHECK: |   + END LOOP
+; CHECK: |      %qb.041 = %qb.135;
+; CHECK: |      %n.addr.038 = %11;
+; CHECK: |
+; CHECK: |   %qb.041.out = %qb.041;
+; CHECK: |   %indvars.iv42 = %indvars.iv42  +  -6 * i1 + -12;
+; CHECK: |   %indvars.iv44 = %indvars.iv44  +  %indvars.iv42.out;
+; CHECK: |   %indvars.iv54 = i1;
+; CHECK: |   %indvars.iv52 = -1 * i1 + -1;
+; CHECK: + END LOOP
 
 
 ;Module Before HIR; ModuleID = 'non-affine.c'

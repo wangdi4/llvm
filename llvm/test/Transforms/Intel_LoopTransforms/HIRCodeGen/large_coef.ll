@@ -2,11 +2,12 @@
 ; RUN: opt -S -hir-ssa-deconstruction -hir-cg -force-hir-cg %s | FileCheck %s
 ; Crash in CG on following region 
 ;          BEGIN REGION { }
-;<13>         + DO i1 = 0, smax(-2, (-1 + (-1 * %0))) + %0 + 1, 1   <DO_LOOP>
-;<5>          |   %2 = (%1)[-1 * i1 + %0 + -1];
-;<7>          |   %or = %2  ||  4294967296 * %ret.011;
-;<8>          |   %ret.011 = %or  %  %w;
-;<13>         + END LOOP
+;<15>            + DO i1 = 0, %0 + smax(-2, (-1 + (-1 * %0))) + 1, 1   <DO_LOOP>
+;<2>             |   %ret.011.out = %ret.011;
+;<6>             |   %2 = {al:4}(%1)[-1 * i1 + %0 + -1];
+;<8>             |   %or = %2  ||  4294967296 * %ret.011.out;
+;<9>             |   %ret.011 = %or  %  %w;
+;<15>            + END LOOP
 ;          END REGION
 
 ; Framework considers %shl = shl i64 %ret.011, 32

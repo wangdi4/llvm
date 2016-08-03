@@ -9,6 +9,8 @@
 ;         s  +=  a[i];
 ;     }
 ;     d[j] = d[j] +s ;
+; This test requires temp cleanup to identify reduction in the last loop.
+; XFAIL: *
 ; REQUIRES: asserts
 ; RUN: opt < %s -loop-simplify  -hir-ssa-deconstruction | opt -analyze -force-hir-safe-reduction-analysis  -hir-safe-reduction-analysis | FileCheck %s
 ; CHECK:   Safe Reduction:

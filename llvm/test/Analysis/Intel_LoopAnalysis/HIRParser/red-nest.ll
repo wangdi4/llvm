@@ -4,20 +4,21 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-complete-unroll -print-before=hir-complete-unroll -hir-cost-model-throttling=0 2>&1 | FileCheck %s
 
 ; Check parsing output for reduction chain in the loopnest
-; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
-; CHECK-SAME: DO_LOOP
-; CHECK: DO i2 = 0, zext.i32.i64((-1 + %m))
-; CHECK-SAME: DO_LOOP
-; CHECK-NEXT: %t.034.out = %t.034
-; CHECK-NEXT: %0 = {al:4}(@A)[0][i2][i1]
-; CHECK-NEXT: %1 = {al:4}(@B)[0][i2][i1]
-; CHECK-NEXT: %t.034 = %0 + %t.034.out  +  %1
-; CHECK-NEXT: %call = @foo1(%0 + %t.034.out)
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %r.035 = %0 + %t.034.out
-; CHECK: %t.034.out1 = %t.034
-; CHECK-NEXT: %r.035.out = %r.035
-; CHECK: END LOOP
+; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %m)), 1   <DO_LOOP>
+; CHECK: |   |   %0 = {al:4}(@A)[0][i2][i1];
+; CHECK: |   |   %t.034 = %0  +  %t.034;
+; CHECK: |   |   %t.034.out = %t.034;
+; CHECK: |   |   %1 = {al:4}(@B)[0][i2][i1];
+; CHECK: |   |   %t.034 = %t.034  +  %1;
+; CHECK: |   |   %call = @foo1(%t.034.out);
+; CHECK: |   + END LOOP
+; CHECK: |      %r.035 = %t.034.out;
+; CHECK: |
+; CHECK: |   %t.034.out1 = %t.034;
+; CHECK: |   %r.035.out = %r.035;
+; CHECK: + END LOOP
+
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-parser -hir-details -hir-cost-model-throttling=0 | FileCheck -check-prefix=DETAIL %s
 
@@ -41,17 +42,13 @@
 ; DETAIL: LiveIn symbases: [[I1LIVEIN2]]
 
 ; Collect i2 loop liveouts.
-; DETAIL-NEXT: LiveOut symbases: [[I1LIVEIN2]], [[I2LIVEOUT1:[0-9]+]], [[I2LIVEOUT2:[0-9]+]]
+; DETAIL-NEXT: LiveOut symbases: [[I1LIVEIN2]], [[I2LIVEOUT1:[0-9]+]]
  
 ; Check that %t.034 is correctly set as livein and non-linear in the i2 loop.
 ; DETAIL: DO i64 i2
 ; DETAIL: %t.034.out = %t.034
 ; DETAIL-NEXT: <LVAL-REG> NON-LINEAR i32 %t.034.out {sb:[[I2LIVEOUT1]]}
 ; DETAIL-NEXT: <RVAL-REG> NON-LINEAR i32 %t.034 {sb:[[I1LIVEIN2]]}
-
-; Check that %0 is marked as live out of i2 loop.
-; DETAIL: %0 = {al:4}(@A)[0][i2][i1]
-; DETAIL-NEXT: <LVAL-REG> NON-LINEAR i32 %0 {sb:[[I2LIVEOUT2]]}
 
 ; Check that %r.035 is correctly set as livein to i1 loop.
 ; DETAIL: %r.035.out = %r.035

@@ -64,27 +64,17 @@
 ; Expected output before Loop Reversal
 ; Note: %add1 is actually the temp t
 ; 
-;          BEGIN REGION { }
-;<32>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<33>         |   + DO i2 = 0, 4, 1   <DO_LOOP>
-;<5>          |   |   %t.033.out = %t.033;
-;<8>          |   |   %1 = {al:4}(%A)[-1 * i2 + 100];
-;<10>         |   |   %t.033 = %1 + %t.033.out  +  1;
-;<15>         |   |   {al:4}(%B)[-2 * i2 + 50] = %1 + %t.033.out + 2;
-;<33>         |   + END LOOP
-;<25>         |   {al:4}(%A)[-1 * i1 + 10] = %t.033;
-;<32>         + END LOOP
-;          END REGION
-;
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 4, 1   <DO_LOOP>
 ; BEFORE:     |   + DO i2 = 0, 4, 1   <DO_LOOP>
-; BEFORE:     |   |   %t.033.out = %t.033;
 ; BEFORE:     |   |   %1 = {al:4}(%A)[-1 * i2 + 100];
-; BEFORE:     |   |   %t.033 = %1 + %t.033.out  +  1;
-; BEFORE:     |   |   {al:4}(%B)[-2 * i2 + 50] = %1 + %t.033.out + 2;
+; BEFORE:     |   |   %t.033 = %1  +  %t.033;
+; BEFORE:     |   |   %t.033.out1 = %t.033;
+; BEFORE:     |   |   %t.033 = %t.033  +  1;
+; BEFORE:     |   |   %t.033.out = %t.033;
+; BEFORE:     |   |   {al:4}(%B)[-2 * i2 + 50] = %t.033.out1 + 2;
 ; BEFORE:     |   + END LOOP
-; BEFORE:     |   {al:4}(%A)[-1 * i1 + 10] = %t.033;
+; BEFORE:     |   {al:4}(%A)[-1 * i1 + 10] = %t.033.out;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
@@ -96,28 +86,18 @@
 ; === -------------------------------------- ===
 ; Expected output AFTER	 Loop Reversal
 ; Note: %add1 is actually the temp t
-; 
-;          BEGIN REGION { }
-;<32>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<33>         |   + DO i2 = 0, 4, 1   <DO_LOOP>
-;<5>          |   |   %t.033.out = %t.033;
-;<8>          |   |   %1 = {al:4}(%A)[-1 * i2 + 100];
-;<10>         |   |   %t.033 = %1 + %t.033.out  +  1;
-;<15>         |   |   {al:4}(%B)[-2 * i2 + 50] = %1 + %t.033.out + 2;
-;<33>         |   + END LOOP
-;<25>         |   {al:4}(%A)[-1 * i1 + 10] = %t.033;
-;<32>         + END LOOP
-;          END REGION
 ;
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 4, 1   <DO_LOOP>
 ; AFTER:     |   + DO i2 = 0, 4, 1   <DO_LOOP>
-; AFTER:     |   |   %t.033.out = %t.033;
 ; AFTER:     |   |   %1 = {al:4}(%A)[-1 * i2 + 100];
-; AFTER:     |   |   %t.033 = %1 + %t.033.out  +  1;
-; AFTER:     |   |   {al:4}(%B)[-2 * i2 + 50] = %1 + %t.033.out + 2;
+; AFTER:     |   |   %t.033 = %1  +  %t.033;
+; AFTER:     |   |   %t.033.out1 = %t.033;
+; AFTER:     |   |   %t.033 = %t.033  +  1;
+; AFTER:     |   |   %t.033.out = %t.033;
+; AFTER:     |   |   {al:4}(%B)[-2 * i2 + 50] = %t.033.out1 + 2;
 ; AFTER:     |   + END LOOP
-; AFTER:     |   {al:4}(%A)[-1 * i1 + 10] = %t.033;
+; AFTER:     |   {al:4}(%A)[-1 * i1 + 10] = %t.033.out;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;
