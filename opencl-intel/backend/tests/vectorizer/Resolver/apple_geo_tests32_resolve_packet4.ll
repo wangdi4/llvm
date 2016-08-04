@@ -1,7 +1,7 @@
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-as %p/../Full/apple_only_dcls32.ll -o %t/apple_only_dcls32.ll.bc
-; RUN: opt -runtimelib=%t/apple_only_dcls32.ll.bc -runtime=apple -CLBltnResolve %t.bc -S -o %t1.ll
+; RUN: llvm-as %p/../Full/apple_only_dcls32.ll -o %t.apple_only_dcls32.ll.bc
+; RUN: opt -runtimelib=%t.apple_only_dcls32.ll.bc -runtime=apple -CLBltnResolve %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'c:\work\geo_tests32_preVec.ll'
