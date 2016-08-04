@@ -35,7 +35,7 @@ typedef DDRefGrouping::RefGroupTy<RegDDRef> RefGroupTy;
 typedef DDRefGrouping::RefGroupMapTy<RegDDRef> RefGroupMapTy;
 
 const unsigned ExpectedNumberOfTests = 8;
-const unsigned SmallTripCountTest = 12;
+const unsigned SmallTripCountTest = 16;
 
 enum RuntimeDDResult {
   OK,
@@ -51,6 +51,7 @@ enum RuntimeDDResult {
   BLOB_IV_COEFF,
   SAME_BASE,
   NON_DO_LOOP,
+  NON_PROFITABLE,
 };
 
 // The struct represents a segment of memory. It is used to construct checks
@@ -130,7 +131,6 @@ public:
 
 struct LoopContext {
   HLLoop *Loop;
-  RefGroupMapTy Groups;
   llvm::SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
   bool GenTripCountTest;
 
@@ -168,6 +168,9 @@ private:
 
   struct LoopAnalyzer;
 
+  /// Returns true if \p Loop is considered as profitable for multiversioning.
+  static bool isProfitable(const HLLoop *Loop);
+
   // \brief The method processes each IV segment and updates bounds according to
   // a specified loopnest.
   // It also fills the applicability vector for the further use.
@@ -192,8 +195,9 @@ private:
   static void generateDDTest(LoopContext &Context);
 
   // \brief Marks all DDRefs independent across groups.
-  static void markDDRefsIndep(LoopContext &Context);
+  static void markDDRefsIndep(HLLoop *Loop);
 };
+
 }
 }
 }

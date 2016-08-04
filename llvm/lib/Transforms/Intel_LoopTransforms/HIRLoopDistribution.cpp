@@ -196,12 +196,11 @@ void HIRLoopDistribution::distributeLoop(
 
   Loop->getParentRegion()->setGenCode();
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
-  HIRInvalidationUtils::invalidateBody(Loop);
 
   // The loop is now empty, all its children moved into new loops
   assert(!Loop->hasChildren() &&
          "Loop Distribution failed to account for all Loop Children");
-  HLNodeUtils::erase(Loop);
+  HLNodeUtils::remove(Loop);
 }
 
 // Form perfect loop candidates by grouping stmt only piblocks

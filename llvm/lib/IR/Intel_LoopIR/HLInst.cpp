@@ -14,13 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IntrinsicInst.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -359,7 +359,7 @@ bool HLInst::isFake(const RegDDRef *Ref) const {
 
   return false;
 }
-          
+
 unsigned HLInst::getNumOperands() const { return getNumOperandsInternal(); }
 
 unsigned HLInst::getNumOperandsInternal() const {
@@ -466,3 +466,28 @@ bool HLInst::isSIMDDirective() const {
   return true;
 }
 
+bool HLInst::isReductionOp(unsigned *OpCode) const {
+
+  bool IsReductionOp = false;
+  *OpCode = 0;
+  const Instruction *LLVMInst = getLLVMInstruction();
+  if (isa<BinaryOperator>(LLVMInst)) {
+    *OpCode = LLVMInst->getOpcode();
+    // Start with these initially
+    switch (*OpCode) {
+    case Instruction::FAdd:
+    case Instruction::FSub:
+    case Instruction::FMul:
+    case Instruction::Add:
+    case Instruction::Sub:
+    case Instruction::And:
+    case Instruction::Or:
+    case Instruction::Xor:
+      IsReductionOp = true;
+      break;
+    default:
+      break;
+    }
+  }
+  return IsReductionOp;
+}

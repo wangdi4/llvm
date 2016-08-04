@@ -1,20 +1,22 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
-; Check parsing output for the simd loop verifying that it has the simd directives prepended to it
-; CHECK: @llvm.intel.directive(!7)
-; CHECK-NEXT: @llvm.intel.directive.qual.opndlist(!8,  %a,  %b,  %mask)
-; CHECK-NEXT: @llvm.intel.directive.qual.opnd.i32(!9,  4)
-; CHECK-NEXT: @llvm.intel.directive.qual(!10)
-; CHECK-NEXT: DO i1 = 0, 3
-; CHECK-NEXT: %mask5 = (%veccast.3)[i1]
-; CHECK-NEXT: if (%mask5 != 0)
-; CHECK-NEXT: {
-; CHECK-NEXT: %0 = {al:4}(%veccast.1)[i1]
-; CHECK-NEXT: %1 = {al:4}(%veccast.2)[i1]
-; CHECK-NEXT: (%veccast)[i1] = %0 + %1
-; CHECK-NEXT: }
-; CHECK-NEXT: END LOOP
+; Check parsing output for the simd loop verifying that it has the simd directives prepended/appended to it
 
+; CHECK: @llvm.intel.directive(!7);
+; CHECK: @llvm.intel.directive.qual.opndlist(!8,  %a,  %b,  %mask);
+; CHECK: @llvm.intel.directive.qual.opnd.i32(!9,  4);
+; CHECK: @llvm.intel.directive.qual(!10);
+; CHECK: + DO i1 = 0, 3, 1   <DO_LOOP>
+; CHECK: |   %mask5 = (%veccast.3)[i1];
+; CHECK: |   if (%mask5 != 0)
+; CHECK: |   {
+; CHECK: |      %0 = {al:4}(%veccast.1)[i1];
+; CHECK: |      %1 = {al:4}(%veccast.2)[i1];
+; CHECK: |      (%veccast)[i1] = %0 + %1;
+; CHECK: |   }
+; CHECK: + END LOOP
+; CHECK: @llvm.intel.directive(!12);
+; CHECK: goto return;
 
 ; ModuleID = 'simd.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -66,7 +66,12 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
 
     // Set Operands
     unsigned NumRvalOps = HLInst->getNumOperands();
-    for (unsigned Idx = 1; Idx < NumRvalOps; ++Idx) {
+    unsigned Idx;
+
+    // RVAL operands start at index 1 if HLInst has LVAL and 0 otherwise
+    Idx = HLInst->hasLval() ? 1 : 0;
+
+    for ( ; Idx < NumRvalOps; ++Idx) {
 
       RegDDRef *DDRef =  HLInst->getOperandDDRef(Idx);
       AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(DDRef, HLInst, this);

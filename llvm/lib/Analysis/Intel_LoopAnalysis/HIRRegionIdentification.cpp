@@ -31,6 +31,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
@@ -348,9 +350,11 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   // Within the same loop, conditional branches not dominating its successor and
   // the successor not post-dominating the branch indicates presence of a goto
   // in HLLoop.
-  if (((RI.LI->getLoopFor(Succ0) == &Lp) && !RI.DT->dominates(ParentBB, Succ0) &&
+  if (((RI.LI->getLoopFor(Succ0) == &Lp) &&
+       !RI.DT->dominates(ParentBB, Succ0) &&
        !RI.PDT->dominates(Succ0, ParentBB)) ||
-      ((RI.LI->getLoopFor(Succ1) == &Lp) && !RI.DT->dominates(ParentBB, Succ1) &&
+      ((RI.LI->getLoopFor(Succ1) == &Lp) &&
+       !RI.DT->dominates(ParentBB, Succ1) &&
        !RI.PDT->dominates(Succ1, ParentBB))) {
     DEBUG(dbgs()
           << "LOOPOPT_OPTREPORT: Loop throttled due to presence of goto.\n");
@@ -473,20 +477,20 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
 
   // TODO: move into a separate function.
   // Check instructions inside the loop.
-  for (auto I = Lp.block_begin(), E = Lp.block_end(); I != E; ++I) {
+  for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
 
     // Skip this bblock as it has been checked by an inner loop.
-    if (!Lp.empty() && LI->getLoopFor(*I) != (&Lp)) {
+    if (!Lp.empty() && LI->getLoopFor(*BB) != (&Lp)) {
       continue;
     }
 
-    if ((*I)->isLandingPad()) {
+    if ((*BB)->isLandingPad()) {
       DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
                       "supported.\n");
       return false;
     }
 
-    Term = (*I)->getTerminator();
+    Term = (*BB)->getTerminator();
 
     if (isa<IndirectBrInst>(Term)) {
       DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Indirect branches currently not "
@@ -500,22 +504,21 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
       return false;
     }
 
-    for (auto InstIt = (*I)->begin(), EndIt = (*I)->end(); InstIt != EndIt;
-         ++InstIt) {
+    for (const Instruction &Inst : **BB) {
 
-      if (InstIt->isAtomic()) {
+      if (Inst.isAtomic()) {
         DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Atomic instructions are currently "
                         "not supported.\n");
         return false;
       }
 
-      if (InstIt->getType()->isVectorTy()) {
+      if (Inst.getType()->isVectorTy()) {
         DEBUG(dbgs()
               << "LOOPOPT_OPTREPORT: Vector types currently not supported.\n");
         return false;
       }
 
-      if (containsUnsupportedTy(&*InstIt)) {
+      if (containsUnsupportedTy(&Inst)) {
         return false;
       }
     }
@@ -528,35 +531,96 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   return true;
 }
 
-bool HIRRegionIdentification::isSIMDLoop(const Loop &Lp) const {
-  BasicBlock *PreheaderBB = Lp.getLoopPreheader();
-
-  // Check if the first instruction is a SIMD directive.
-  auto FirstInst = PreheaderBB->begin();
-  auto IntrinInst = dyn_cast<IntrinsicInst>(FirstInst);
+bool HIRRegionIdentification::isSIMDDirective(const Instruction *Inst,
+                                              bool BeginDir) {
+  auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
 
   if (!IntrinInst) {
     return false;
   }
 
-  Value *Op = IntrinInst->getOperand(0);
-  MetadataAsValue *MDVal = dyn_cast<MetadataAsValue>(Op);
-
-  if (!MDVal) {
+  if (!vpo::VPOUtils::isIntelDirective(IntrinInst->getIntrinsicID())) {
     return false;
   }
 
-  auto MD = dyn_cast<MDNode>(MDVal->getMetadata());
+  StringRef DirStr = vpo::VPOUtils::getDirectiveMetadataString(
+      const_cast<IntrinsicInst *>(IntrinInst));
 
-  if (!MD || (MD->getNumOperands() != 1)) {
+  int DirID = vpo::VPOUtils::getDirectiveID(DirStr);
+
+  return BeginDir ? (DirID == DIR_OMP_SIMD) : (DirID == DIR_OMP_END_SIMD);
+}
+
+bool HIRRegionIdentification::containsSIMDDirective(const BasicBlock *BB,
+                                                    bool BeginDir) {
+  for (auto &Inst : *BB) {
+    if (isSIMDDirective(&Inst, BeginDir)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+BasicBlock *HIRRegionIdentification::findSIMDDirective(BasicBlock *BB,
+                                                       bool BeginDir) {
+
+  for (; BB != nullptr;) {
+    if (containsSIMDDirective(BB, BeginDir)) {
+      return BB;
+    }
+    BB = BeginDir ? BB->getSinglePredecessor() : BB->getSingleSuccessor();
+  }
+
+  return nullptr;
+}
+
+void HIRRegionIdentification::addBBlocks(
+    const BasicBlock *BeginBB, const BasicBlock *EndBB,
+    IRRegion::RegionBBlocksTy &RegBBlocks) const {
+
+  for (auto TempBB = BeginBB;; TempBB = TempBB->getSingleSuccessor()) {
+    RegBBlocks.insert(TempBB);
+
+    if (TempBB == EndBB) {
+      break;
+    }
+  }
+}
+
+bool HIRRegionIdentification::isSIMDLoop(const Loop &Lp,
+                                         IRRegion::RegionBBlocksTy *RegBBlocks,
+                                         BasicBlock **RegEntryBB,
+                                         BasicBlock **RegExitBB) const {
+
+  BasicBlock *ExitBB = Lp.getExitBlock();
+
+  if (!ExitBB) {
     return false;
   }
 
-  MDString *MDStr = dyn_cast<MDString>(MD->getOperand(0));
+  BasicBlock *PreheaderBB = Lp.getLoopPreheader();
+  BasicBlock *BeginBB = findSIMDDirective(PreheaderBB, true);
 
-  // TODO: Replace string literal with the defined value when it is available.
-  if (!MDStr || !(MDStr->getString().equals("DIR.OMP.SIMD"))) {
+  if (!BeginBB) {
     return false;
+  }
+
+  BasicBlock *EndBB = findSIMDDirective(ExitBB, false);
+
+  assert(EndBB && "Could not find SIMD END Directive!");
+
+  if (RegBBlocks) {
+    addBBlocks(BeginBB, PreheaderBB, *RegBBlocks);
+    addBBlocks(ExitBB, EndBB, *RegBBlocks);
+  }
+
+  if (RegEntryBB) {
+    *RegEntryBB = BeginBB;
+  }
+
+  if (RegExitBB) {
+    *RegExitBB = EndBB;
   }
 
   return true;
@@ -572,17 +636,19 @@ void HIRRegionIdentification::createRegion(const Loop &Lp) {
 
   IRRegion::RegionBBlocksTy BBlocks(Lp.getBlocks().begin(),
                                     Lp.getBlocks().end());
-  BasicBlock *EntryBB = nullptr;
 
-  if (isSIMDLoop(Lp)) {
-    // Include preheader in the region as it contains SIMD directives.
-    EntryBB = Lp.getLoopPreheader();
-    BBlocks.insert(EntryBB);
-  } else {
+  BasicBlock *EntryBB = nullptr, *ExitBB = nullptr;
+
+  if (!isSIMDLoop(Lp, &BBlocks, &EntryBB, &ExitBB)) {
     EntryBB = Lp.getHeader();
   }
 
   IRRegions.emplace_back(EntryBB, BBlocks);
+
+  if (ExitBB) {
+    IRRegions.back().setExitBBlock(ExitBB);
+  }
+
   RegionCount++;
 }
 
@@ -652,9 +718,7 @@ bool HIRRegionIdentification::runOnFunction(Function &F) {
   return false;
 }
 
-void HIRRegionIdentification::releaseMemory() {
-  IRRegions.clear();
-}
+void HIRRegionIdentification::releaseMemory() { IRRegions.clear(); }
 
 void HIRRegionIdentification::print(raw_ostream &OS, const Module *M) const {
 

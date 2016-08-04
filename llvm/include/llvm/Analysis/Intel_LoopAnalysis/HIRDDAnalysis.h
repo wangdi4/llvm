@@ -237,6 +237,7 @@ private:
 
   void buildGraph(const HLNode *Node, bool BuildInputEdges);
 
+  // TODO: consider per-region graph instead of per-function graph.
   // full dd graph
   DDGraphTy FunctionDDGraph;
 

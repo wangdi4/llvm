@@ -108,6 +108,11 @@ BasicBlock *IRRegion::getPredBBlock() const {
 BasicBlock *IRRegion::getSuccBBlock() const {
   auto SuccI = succ_begin(ExitBBlock);
 
+  // Exit bblock can be a function return bblock.
+  if (SuccI == succ_end(ExitBBlock)) {
+    return nullptr;
+  }
+
   /// In some cases the exit bblock is also the loop latch, so the successor
   /// can be the loop header. We need to skip it, if that is the case.
   if (BBlocks.count(*SuccI)) {

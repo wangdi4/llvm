@@ -19,6 +19,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassSupport.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "vpo-def-use"
 
@@ -402,6 +403,11 @@ void AvrDefUseHIR::visit(AVRValueHIR *AValueHIR) {
 
     // Skip dependencies to DDRefs that are neither blobs or self-blobs.
     if (!(isa<BlobDDRef>(DDRef) || (SelfBlob && SelfBlob->isSelfBlob())))
+      continue;
+
+    // Skip dependencies outside TopLevelLoop
+    auto HLoop = TopLevelLoop->getLoop();
+    if (!HLNodeUtils::contains(HLoop, DDRef->getHLDDNode()))
       continue;
 
     // Skip dependencies to DDRefs whose using AVR is a Def.

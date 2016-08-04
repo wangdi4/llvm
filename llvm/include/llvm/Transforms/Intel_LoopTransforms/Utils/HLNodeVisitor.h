@@ -18,13 +18,13 @@
 
 #include "llvm/Support/Compiler.h"
 
+#include "llvm/IR/Intel_LoopIR/HLGoto.h"
+#include "llvm/IR/Intel_LoopIR/HLIf.h"
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
+#include "llvm/IR/Intel_LoopIR/HLLabel.h"
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
 #include "llvm/IR/Intel_LoopIR/HLSwitch.h"
-#include "llvm/IR/Intel_LoopIR/HLLabel.h"
-#include "llvm/IR/Intel_LoopIR/HLGoto.h"
-#include "llvm/IR/Intel_LoopIR/HLInst.h"
-#include "llvm/IR/Intel_LoopIR/HLIf.h"
-#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 
 namespace llvm {
 
@@ -127,8 +127,7 @@ private:
       Visitor.visit(Reg);
 
       if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
-        Ret = visitRange(Reg->child_begin(), Reg->child_end());
-        if (Ret) {
+        if (visitRange(Reg->child_begin(), Reg->child_end())) {
           return true;
         }
 
@@ -157,32 +156,39 @@ private:
       }
     } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
 
-      Visitor.visit(Loop);
-
-      if (Recursive && RecurseInsideLoops && !Visitor.skipRecursion(Node) &&
-          !Visitor.isDone()) {
+      // Visit preheader
+      if (Recursive) {
         Ret = Forward ? visitRange(Loop->pre_begin(), Loop->pre_end())
                       : visitRange(Loop->post_begin(), Loop->post_end());
 
         if (Ret) {
           return true;
         }
+      }
 
-        Ret = visitRange(Loop->child_begin(), Loop->child_end());
+      // Visit loop
+      Visitor.visit(Loop);
 
-        if (Ret) {
+      if (Recursive && !Visitor.isDone()) {
+
+        // Visit body
+        if (RecurseInsideLoops && !Visitor.skipRecursion(Node) &&
+            visitRange(Loop->child_begin(), Loop->child_end())) {
           return true;
         }
 
+        // PostVisit loop
+        Visitor.postVisit(Loop);
+
+        // Visit postexit
         Ret = Forward ? visitRange(Loop->post_begin(), Loop->post_end())
                       : visitRange(Loop->pre_begin(), Loop->pre_end());
 
         if (Ret) {
           return true;
         }
-
-        Visitor.postVisit(Loop);
       }
+
     } else if (auto Switch = dyn_cast<HLSwitch>(Node)) {
 
       Visitor.visit(Switch);
@@ -315,8 +321,7 @@ private:
 ///       5-10) calls V.postVisit(IF2) // after IF body visits.
 ///     5-11) calls V.postVisit(L1) // exisint from outermost loop
 ///
-template <typename HV, bool Forward = true>
-class HLInnerToOuterLoopVisitor {
+template <typename HV, bool Forward = true> class HLInnerToOuterLoopVisitor {
 private:
   HV &Visitor;
 
@@ -327,11 +332,12 @@ private:
   /// \brief Contains the core logic to recurse as deep in the loop nest
   /// as possible first, and then on the way back visit the loop and loop body
   /// nodes. Returns true to indicate that early termination has occurred.
-  template <typename NodeTy, typename = IsHLNodeTy<NodeTy> >
-  bool visitRecurseInsideLoops(NodeTy *Node){
+  template <typename NodeTy, typename = IsHLNodeTy<NodeTy>>
+  bool visitRecurseInsideLoops(NodeTy *Node) {
     if (auto Reg = dyn_cast<HLRegion>(Node)) {
       if (!Visitor.skipRecursion(Node) && !Visitor.isDone()) {
-        if (visitRangeRecurseInsideLoops(Reg->child_begin(),Reg->child_end())) {
+        if (visitRangeRecurseInsideLoops(Reg->child_begin(),
+                                         Reg->child_end())) {
           return true;
         }
       }
@@ -339,8 +345,8 @@ private:
       if (!Visitor.skipRecursion(Node) && !Visitor.isDone()) {
         auto Begin1 = Forward ? If->then_begin() : If->else_begin();
         auto Begin2 = Forward ? If->else_begin() : If->then_begin();
-        auto End1   = Forward ? If->then_end()   : If->else_end();
-        auto End2   = Forward ? If->else_end()   : If->then_end();
+        auto End1 = Forward ? If->then_end() : If->else_end();
+        auto End2 = Forward ? If->else_end() : If->then_end();
         if (visitRangeRecurseInsideLoops(Begin1, End1)) {
           return true;
         }
@@ -357,8 +363,8 @@ private:
                                          Loop->child_end())) {
           return true;
         }
-        Visitor.visit(Loop);  // Visit first as the parent of nodes whose
-                              // parent loop is this one.
+        Visitor.visit(Loop); // Visit first as the parent of nodes whose
+                             // parent loop is this one.
         if (!Visitor.isDone()) {
           return true;
         }
@@ -403,8 +409,8 @@ private:
   /// on HLIf and HLSwitch. Recursion inside loop is handled by
   /// visitRecurseInsideLoops(). Returns true to indicate that early
   /// termination has occurred.
-  template <typename NodeTy, typename = IsHLNodeTy<NodeTy> >
-  bool visit(NodeTy *Node){
+  template <typename NodeTy, typename = IsHLNodeTy<NodeTy>>
+  bool visit(NodeTy *Node) {
     if (isa<HLRegion>(Node)) {
       llvm_unreachable("HLRegion node unexpected!");
     } else if (auto If = dyn_cast<HLIf>(Node)) {
@@ -412,8 +418,8 @@ private:
       if (!Visitor.skipRecursion(Node) && !Visitor.isDone()) {
         auto Begin1 = Forward ? If->then_begin() : If->else_begin();
         auto Begin2 = Forward ? If->else_begin() : If->then_begin();
-        auto End1   = Forward ? If->then_end()   : If->else_end();
-        auto End2   = Forward ? If->else_end()   : If->then_end();
+        auto End1 = Forward ? If->then_end() : If->else_end();
+        auto End2 = Forward ? If->else_end() : If->then_end();
         if (visitRange(Begin1, End1)) {
           return true;
         }
@@ -423,16 +429,16 @@ private:
       }
       Visitor.postVisit(If);
     } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
-      auto Begin1 = Forward ? Loop->pre_begin()  : Loop->post_begin();
+      auto Begin1 = Forward ? Loop->pre_begin() : Loop->post_begin();
       auto Begin2 = Forward ? Loop->post_begin() : Loop->pre_begin();
-      auto End1   = Forward ? Loop->pre_end()    : Loop->post_end();
-      auto End2   = Forward ? Loop->post_end()   : Loop->pre_end();
+      auto End1 = Forward ? Loop->pre_end() : Loop->post_end();
+      auto End2 = Forward ? Loop->post_end() : Loop->pre_end();
       if (visitRange(Begin1, End1)) {
         return true;
       }
-      Visitor.postVisit(Loop);  // visit the loop node as part of parent loop's
-                                // body node, also after all it's body bodes are
-                                // processed.
+      Visitor.postVisit(Loop); // visit the loop node as part of parent loop's
+                               // body node, also after all it's body bodes are
+                               // processed.
       if (!Visitor.isDone()) {
         return true;
       }
@@ -481,7 +487,7 @@ private:
   /// \brief Visits HLNodes in the forward/backward direction in the range
   /// [begin, end). Returns true to indicate that early termination has
   /// occurred.
-  template <typename NodeTy, typename = IsHLNodeTy<NodeTy> >
+  template <typename NodeTy, typename = IsHLNodeTy<NodeTy>>
   bool visitRangeRecurseInsideLoops(ilist_iterator<NodeTy> Begin,
                                     ilist_iterator<NodeTy> End) {
     if (Forward) {
@@ -491,8 +497,7 @@ private:
           return true;
         }
       }
-    }
-    else {
+    } else {
       std::reverse_iterator<decltype(Begin)> RI(End);
       std::reverse_iterator<decltype(End)> RE(Begin);
       for (auto I = RI, Next = I, E = RE; I != E; I = Next) {
@@ -508,7 +513,7 @@ private:
   /// \brief Visits HLNodes in the forward/backward direction in the range
   /// [begin, end). Returns true to indicate that early termination has
   /// occurred.
-  template <typename NodeTy, typename = IsHLNodeTy<NodeTy> >
+  template <typename NodeTy, typename = IsHLNodeTy<NodeTy>>
   bool visitRange(ilist_iterator<NodeTy> Begin, ilist_iterator<NodeTy> End) {
     if (Forward) {
       for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
@@ -517,8 +522,7 @@ private:
           return true;
         }
       }
-    }
-    else {
+    } else {
       std::reverse_iterator<decltype(Begin)> RI(End);
       std::reverse_iterator<decltype(End)> RE(Begin);
       for (auto I = RI, Next = I, E = RE; I != E; I = Next) {

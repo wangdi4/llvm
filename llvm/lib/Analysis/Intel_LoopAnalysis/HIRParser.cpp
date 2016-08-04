@@ -1029,25 +1029,27 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
   }
 
   // Now we look for identical or stricter wrap flags on NewAddRec.
+  // Disabling this check because ScalarEvolution is very conservative in
+  // propagating wrap flags.
 
   // If OrigAddRec has NUW, NewAddRec should have it too.
-  if (OrigAddRec->getNoWrapFlags(SCEV::FlagNUW) &&
-      !(WrapFlags & SCEV::FlagNUW)) {
-    return false;
-  }
-
+  //if (OrigAddRec->getNoWrapFlags(SCEV::FlagNUW) &&
+  //    !(WrapFlags & SCEV::FlagNUW)) {
+  //  return false;
+  //}
+  //
   // If OrigAddRec has NSW, NewAddRec should have it too.
-  if (OrigAddRec->getNoWrapFlags(SCEV::FlagNSW) &&
-      !(WrapFlags & SCEV::FlagNSW)) {
-    return false;
-  }
-
+  //if (OrigAddRec->getNoWrapFlags(SCEV::FlagNSW) &&
+  //    !(WrapFlags & SCEV::FlagNSW)) {
+  //  return false;
+  //}
+  //
   // If OrigAddRec has NW, NewAddRec can cover it with any of NUW, NSW or NW.
-  if (OrigAddRec->getNoWrapFlags(SCEV::FlagNW) &&
-      !(WrapFlags &
-        (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW | SCEV::FlagNW))) {
-    return false;
-  }
+  //if (OrigAddRec->getNoWrapFlags(SCEV::FlagNW) &&
+  //    !(WrapFlags &
+  //      (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW | SCEV::FlagNW))) {
+  //  return false;
+  //}
 
   if (Mul) {
     *ConstMultiplier = const_cast<SCEVConstant *>(Mul);
@@ -1234,8 +1236,9 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
   }
 
   auto OldTempBlob = SE->getUnknown(const_cast<Value *>(OldTemp));
-  auto TempBlob = SE->getUnknown(const_cast<Value *>(Temp));
-  auto Index = updateBlob(OldTempBlob, TempBlob, Symbase);
+  auto BaseTemp = ScalarSA->getBaseScalar(Symbase);
+  auto NewTempBlob = SE->getUnknown(const_cast<Value *>(BaseTemp));
+  auto Index = updateBlob(OldTempBlob, NewTempBlob, Symbase);
 
   if (BlobIndex) {
     *BlobIndex = Index;
@@ -1246,13 +1249,14 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
 
 unsigned HIRParser::processInstBlob(const Instruction *Inst,
                                     const Instruction *BaseInst,
-                                    unsigned Symbase, unsigned NestingLevel) {
+                                    unsigned Symbase) {
 
   unsigned DefLevel = 0;
-  HLLoop *LCALoop = nullptr;
+  bool IsRegionLivein = false;
 
-  Loop *DefLp = LI->getLoopFor(Inst->getParent());
-  HLLoop *DefLoop = DefLp ? LF->findHLLoop(DefLp) : nullptr;
+  Loop *DefLp = nullptr;
+  HLLoop *DefLoop = nullptr;
+  HLLoop *LCALoop = nullptr;
 
   HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
                                          : CurNode->getLexicalParentLoop();
@@ -1260,8 +1264,12 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   // Set region livein and def level.
   if (!CurRegion->containsBBlock(Inst->getParent())) {
     CurRegion->addLiveInTemp(Symbase, Inst);
+    IsRegionLivein = true;
 
-  } else if (DefLoop && UseLoop &&
+    // We need to lookup DefLoop before UseLoop here as it is used later for
+    // livein/liveout analysis.
+  } else if ((DefLp = LI->getLoopFor(Inst->getParent())) &&
+             (DefLoop = LF->findHLLoop(DefLp)) && UseLoop &&
              (LCALoop =
                   HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop))) {
     // If the current node where the blob is used and the blob definition are
@@ -1283,44 +1291,53 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
 
   // Set loop livein/liveout as applicable.
 
-  // We only process non-SCCPhi instructions. SCC phi livein/liveouts are
-  // processed in scalar symbase assignment pass.
-  if (!isa<PHINode>(Inst) || (Inst == BaseInst)) {
+  // For livein/liveout analysis we need to set defining loop based on BaseInst
+  // as it represents Inst in HIR.
+  if (!IsRegionLivein && (Inst != BaseInst)) {
+    DefLp = LI->getLoopFor(BaseInst->getParent());
+    assert(DefLp && "Defining loop of BaseInst is null!");
+    DefLoop = LF->findHLLoop(DefLp);
+    assert(DefLoop && "Defining HLLoop of BaseInst is null!");
 
-    // Add temp as livein into current and all parent loops till we reach LCA
-    // loop.
-    while (UseLoop && (UseLoop != LCALoop)) {
-      UseLoop->addLiveInTemp(Symbase);
-      UseLoop = UseLoop->getParentLoop();
+    if (UseLoop) {
+      LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
+    }
+  }
+
+  // Add temp as livein into current and all parent loops till we reach LCA
+  // loop.
+  while (UseLoop && (UseLoop != LCALoop)) {
+    UseLoop->addLiveInTemp(Symbase);
+    UseLoop = UseLoop->getParentLoop();
+  }
+
+  if (DefLoop) {
+    // If this is a phi in the loop header, it should be added as a livein
+    // temp in defining loop since header phis are deconstructed as follows-
+    // Before deconstruction-
+    //
+    // L:
+    //   %t1 = phi [ %init, %step]
+    //   ... = %t1
+    // goto L:
+    //
+    //
+    // After deconstruction-
+    //
+    // %t1 = %init
+    // L:
+    //   ... = %t1
+    //   %t1 = %t1 + %step
+    // goto L:
+    //
+    if (isa<PHINode>(BaseInst) &&
+        (BaseInst->getParent() == DefLp->getHeader())) {
+      DefLoop->addLiveInTemp(Symbase);
     }
 
-    if (DefLoop) {
-      // If this is a phi in the loop header, it should be added as a livein
-      // temp in defining loop since header phis are deconstructed as follows-
-      // Before deconstruction-
-      //
-      // L:
-      //   %t1 = phi [ %init, %step]
-      //   ... = %t1
-      // goto L:
-      //
-      //
-      // After deconstruction-
-      //
-      // %t1 = %init
-      // L:
-      //   ... = %t1
-      //   %t1 = %t1 + %step
-      // goto L:
-      //
-      if (isa<PHINode>(Inst) && (Inst->getParent() == DefLp->getHeader())) {
-        DefLoop->addLiveInTemp(Symbase);
-      }
-
-      while (DefLoop != LCALoop) {
-        DefLoop->addLiveOutTemp(Symbase);
-        DefLoop = DefLoop->getParentLoop();
-      }
+    while (DefLoop != LCALoop) {
+      DefLoop->addLiveOutTemp(Symbase);
+      DefLoop = DefLoop->getParentLoop();
     }
   }
 
@@ -1350,8 +1367,7 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
   }
 
   if (auto Inst = dyn_cast<Instruction>(Temp)) {
-    DefLevel = processInstBlob(Inst, cast<Instruction>(BaseTemp), Symbase,
-                               NestingLevel);
+    DefLevel = processInstBlob(Inst, cast<Instruction>(BaseTemp), Symbase);
   } else {
     // Blob is some global value. Global values are not marked livein.
   }
@@ -1640,6 +1656,7 @@ CanonExpr *HIRParser::parseAsBlob(const Value *Val, unsigned Level) {
 CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
   CanonExpr *CE = nullptr;
   bool EnableCastHiding = IsTop;
+  const Value *OrigVal = Val;
 
   // Parse as blob if the type is not SCEVable.
   // This is currently for handling floating types.
@@ -1681,9 +1698,12 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
 
     if (!parseRecursive(SC, CE, Level, IsTop, !EnableCastHiding, true)) {
       CanonExprUtils::destroy(CE);
-      CE = parseAsBlob(Val, Level);
+      CE = parseAsBlob(OrigVal, Level);
     }
   }
+
+  assert((CE->getDestType() == OrigVal->getType()) &&
+         "CE and Val types do not match!");
 
   return CE;
 }
@@ -1790,6 +1810,21 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
 
   Ref->setSingleCanonExpr(CE);
 
+  int64_t UpperVal;
+
+  // If upper is negative, make it positive if it fits in signed 64 bits.
+  if (CE->isIntConstant(&UpperVal) && (UpperVal < 0)) {
+    auto SrcTy = CE->getSrcType();
+    unsigned BitWidth = SrcTy->getPrimitiveSizeInBits();
+
+    if (BitWidth < 64) {
+      // In modular arithmetic with modulus N: (a == a + N).
+      // Here N is 2 ^ bitwidth.
+      UpperVal = UpperVal + (1ULL << BitWidth);
+      CE->setConstant(UpperVal);
+    }
+  }
+
   // Update DDRef's symbase to blob's symbase for self-blob DDRefs.
   if (CE->isSelfBlob()) {
     Ref->setSymbase(getBlobSymbase(CE->getSingleBlobIndex()));
@@ -1798,6 +1833,12 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
   }
 
   return Ref;
+}
+
+void HIRParser::parse(HLRegion *Reg) { 
+  CurRegion = Reg; 
+  // HIR cache built for another region may not be valid for this one.
+  SE->clearHIRCache();
 }
 
 void HIRParser::parse(HLLoop *HLoop) {
@@ -1917,9 +1958,11 @@ void HIRParser::postParse(HLIf *If) {
   auto PredIter = If->pred_begin();
 
   // If 'then' is empty, move 'else' children to 'then' by inverting predicate.
-  if (!If->hasThenChildren() && (If->getNumPredicates() == 1) && (*PredIter != UNDEFINED_PREDICATE)) {
+  if (!If->hasThenChildren() && (If->getNumPredicates() == 1) &&
+      (*PredIter != UNDEFINED_PREDICATE)) {
     If->replacePredicate(PredIter, CmpInst::getInversePredicate(*PredIter));
-    HLNodeUtils::moveAsFirstChildren(If, If->else_begin(), If->else_end(), true);
+    HLNodeUtils::moveAsFirstChildren(If, If->else_begin(), If->else_end(),
+                                     true);
   }
 }
 
@@ -2247,6 +2290,14 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
 const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
 
   while (auto TempGEPOp = dyn_cast<GEPOperator>(GEPOp->getPointerOperand())) {
+    const GetElementPtrInst *GEPInst;
+
+    // Do not trace back to live range instructions.
+    if ((GEPInst = dyn_cast<GetElementPtrInst>(TempGEPOp)) &&
+        SE->getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) {
+      break;
+    }
+
     GEPOp = TempGEPOp;
   }
 
@@ -2326,7 +2377,8 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
     }
 
     FirstGEP = false;
-  } while ((TempGEPOp = dyn_cast<GEPOperator>(TempGEPOp->getPointerOperand())));
+  } while ((TempGEPOp != BaseGEPOp) &&
+           (TempGEPOp = dyn_cast<GEPOperator>(TempGEPOp->getPointerOperand())));
 
   Ref->setInBounds(GEPOp->isInBounds());
 
@@ -2559,9 +2611,6 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   if (IsPhase1) {
     Level = CurLevel;
 
-    if (HInst->isInPreheaderOrPostexit()) {
-      --Level;
-    }
   } else {
     Level = Phase2Level;
     auto OuterLoop = HInst->getOutermostParentLoop();

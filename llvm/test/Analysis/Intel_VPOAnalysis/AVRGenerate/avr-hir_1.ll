@@ -102,6 +102,7 @@ for.inc:                                          ; preds = %if.then, %if.else, 
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.inc
+  call void @llvm.intel.directive(metadata !6)
   ret void
 }
 
@@ -118,3 +119,4 @@ attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fp
 !3 = !{!"omnipotent char", !4, i64 0}
 !4 = !{!"Simple C/C++ TBAA"}
 !5 = !{!"DIR.OMP.SIMD"}
+!6 = !{!"DIR.OMP.END.SIMD"}

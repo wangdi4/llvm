@@ -1,6 +1,6 @@
 ; Check runtime dd multiversioning for a case p[const*i + const] and q[const*i + const]
 
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -S -disable-hir-runtime-dd-cost-model < %s 2>&1 | FileCheck %s
 
 ; int foo(int *p, int *q, int N) {
 ;   int i;

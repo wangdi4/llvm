@@ -60,6 +60,7 @@ public:
     HIRDDAnalysisVal,
     HIRLocalityAnalysisVal,
     HIRLoopResourceVal,
+    HIRSafeReductionAnalysisVal,
     HIRVectVLSAnalysisVal,
     // Should be kept last
     HIRPassCountVal

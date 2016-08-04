@@ -120,7 +120,7 @@ static cl::opt<bool> RunVecClone("enable-vec-clone",
   cl::desc("Run Vector Function Cloning"));
 
 // INTEL - HIR passes
-static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
+static cl::opt<bool> RunLoopOpts("loopopt", cl::init(true), cl::Hidden,
                                  cl::desc("Runs loop optimization passes"));
 
 static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only", 
@@ -859,7 +859,8 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
 
 void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
-  if (!(RunLoopOpts || RunLoopOptFrameworkOnly) || (OptLevel < 2)) {
+  if (!(RunLoopOpts || RunLoopOptFrameworkOnly) || (OptLevel < 2) ||
+      (SizeLevel != 0) || PrepareForLTO || PerformThinLTO) {
     return;
   }
 
@@ -878,6 +879,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRRuntimeDDPass());
     PM.add(createHIRLoopDistributionPass(false));
     PM.add(createHIRLoopInterchangePass());
+    PM.add(createHIRLoopReversalPass());
     PM.add(createHIRCompleteUnrollPass());
     PM.add(createHIRVecDirInsertPass(OptLevel == 3));
     PM.add(createVPODriverHIRPass());

@@ -196,6 +196,9 @@ public:
 
   /// \brief Verifies HLRegion integrity.
   virtual void verify() const override;
+
+  /// Returns true if the last child of the region is a return instruction.
+  bool exitsFunction() const;
 };
 
 } // End namespace loopopt

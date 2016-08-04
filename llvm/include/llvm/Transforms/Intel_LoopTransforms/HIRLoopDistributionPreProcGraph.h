@@ -204,21 +204,17 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
 
   DistributionNodeCreator(DistPPGraph *G) : DGraph(G), CurDistPPNode(nullptr) {}
 
-  void visitDistPPNode(HLNode *HNode) {
-    DistPPNode *DNode = nullptr;
+  void visitDistPPNode(HLNode *HNode, HLNode *ParentNode = nullptr) {
 
     // if CurDistPPNode is set it means we are visiting
     // children of an hlnode. Our distPPNode should be
     // our parent hlnode's distPPNode, which is CurDistPPNode
-    if (CurDistPPNode) {
-      DNode = CurDistPPNode;
-    } else {
-      DNode = new DistPPNode(HNode, DGraph);
-      CurDistPPNode = DNode;
-      DGraph->addNode(DNode);
+    if (!CurDistPPNode) {
+      CurDistPPNode = new DistPPNode(ParentNode ? ParentNode : HNode, DGraph);
+      DGraph->addNode(CurDistPPNode);
     }
 
-    addToNodeMap(DNode, HNode);
+    addToNodeMap(CurDistPPNode, HNode);
   }
 
   void postVisitDistPPNode(HLNode *HNode) {
@@ -230,7 +226,12 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   }
 
   void visit(HLLoop *L) { visitDistPPNode(L); }
-  void postVisit(HLLoop *L) { postVisitDistPPNode(L); }
+  void postVisit(HLLoop *L) {
+    if (!L->hasPostexit()) {
+      postVisitDistPPNode(L);
+    }
+  }
+
   void visit(HLIf *If) { visitDistPPNode(If); }
   void postVisit(HLIf *If) { postVisitDistPPNode(If); }
 
@@ -239,9 +240,25 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   void visit(HLInst *I) {
     if (isa<CallInst>(I->getLLVMInstruction())) {
       DGraph->setInvalid("Cannot distribute loops with calls");
+      return;
     }
-    visitDistPPNode(I);
-    postVisitDistPPNode(I);
+    HLLoop *ParentLoop = I->getParentLoop();
+
+    if (ParentLoop && ParentLoop->hasPreheader() &&
+        (ParentLoop->getFirstPreheaderNode() == I)) {
+      // Use loop for the DistPPNode starting from the first preheader node.
+      visitDistPPNode(I, ParentLoop);
+    } else {
+      visitDistPPNode(I);
+    }
+
+    if (ParentLoop && ParentLoop->hasPostexit() &&
+        (ParentLoop->getLastPostexitNode() == I)) {
+      // Reset DistPPNode at the last postexit node.
+      postVisitDistPPNode(ParentLoop);
+    } else {
+      postVisitDistPPNode(I);
+    }
   }
 
   void visit(const HLLabel *L) {
