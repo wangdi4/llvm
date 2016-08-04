@@ -1081,7 +1081,11 @@ void LPUCvtCFDFPass::assignLicForDF() {
           }
         } else {
           unsigned Reg = MO->getReg();
-          if (Reg < LPU::CI0_0 || Reg > LPU::CI64_1023) {
+
+          // Note: this avoids magic constants, but requires that the LIC
+          // virtual registers be defined at the end of the enum in
+          // LPUGenRegisterInfo.inc.
+          if (Reg < LPU::CI0_0 || Reg >= LPU::NUM_TARGET_REGS) {
             allLics = false;
             break;
           }

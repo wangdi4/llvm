@@ -10,6 +10,9 @@
 #include "LPUMachineFunctionInfo.h"
 #include "LPURegisterInfo.h"
 
+#define GET_REGINFO_ENUM
+#include "LPUGenRegisterInfo.inc"
+
 using namespace llvm;
 
 struct LPUMachineFunctionInfo::Info {
@@ -28,7 +31,7 @@ void LPUMachineFunctionInfo::anchor() { }
 LPUMachineFunctionInfo::LPUMachineFunctionInfo(MachineFunction &MF)
     : FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {
   info = new Info;
-  info->licDepth.resize(8192 /*LPU::NUM_TARGET_REGS*/, -1);
+  info->licDepth.resize(LPU::NUM_TARGET_REGS, -1);
   info->nextRegIndexInClass.resize(32 /* register class count*/, 0);
 }
 
@@ -72,6 +75,7 @@ unsigned LPUMachineFunctionInfo::allocateLIC(const TargetRegisterClass* RC) {
 
   unsigned lic = RC->getRegister(index);
 
+  assert(lic < info->licDepth.capacity() && "Invalid LPU register number");
   info->licDepth[lic] = 0;
   return lic;
 }
