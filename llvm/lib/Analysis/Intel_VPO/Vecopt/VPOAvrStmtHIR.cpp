@@ -86,12 +86,12 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
 
   if (Operand == LeftHand) {
 
+    IsLHSExpr = true;
     RegDDRef *DDRef = HLInst->getLvalDDRef();
     if (DDRef) {
 
       AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(DDRef, HLInst, this);
       this->Operands.push_back(AvrVal);
-      IsLHSExpr = true;
     }
     else
       DEBUG(dbgs() << "NO LHS\n"); // TODO: is this reachable (IsLHSExpr = ?)?

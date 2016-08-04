@@ -422,8 +422,8 @@ bool VPOCostGathererBase::skipRecursion (AVR *ANode) {
 }
 
 void VPOCostGathererBase::visit(AVR *ANode) {
-  errs() << "VPOCostModel: Unsupported AVR kind\n";
-  ANode->dump(PrintBase);
+  DEBUG(errs() << "VPOCostModel: Unsupported AVR kind\n");
+  DEBUG(ANode->dump(PrintBase));
   //llvm_unreachable("unsupported AVR kind");
 }
 #endif
@@ -743,8 +743,8 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
   }
 
   default:
-    errs() << "Unsupported expression kind.\n";
-    Expr->dump(PrintDataType);
+    DEBUG(errs() << "Unsupported expression kind.\n");
+    DEBUG(Expr->dump(PrintDataType));
     //llvm_unreachable("unsupported expression kind");
   }
 
