@@ -4662,6 +4662,8 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     return false;
   }
 
+  unsigned Levels = Result->getLevels();
+
   ///  Bidirectional DV is needed when scanning from L to R, it encounters
   ///  a * before hitting <.
   ///  If * is preceeded by <. then no backward edge is needed.
@@ -4677,7 +4679,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  <> Level
   unsigned LTGTLevel = 0;
   if (SrcDDRef != DstDDRef) {
-    for (unsigned II = 1; II <= Result->getLevels(); ++II) {
+    for (unsigned II = 1; II <= Levels; ++II) {
       DVKind Direction = Result->getDirection(II);
       if (Direction == DVKind::LT) {
         break;
@@ -4704,6 +4706,29 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
   }
 
+  bool IsSrcRval = true;
+  bool IsDstRval = true;
+
+  HLNode *SrcHIR = SrcDDRef->getHLDDNode();
+  HLNode *DstHIR = DstDDRef->getHLDDNode();
+  assert(SrcHIR && "SrcHIR not null expected");
+  assert(DstHIR && "DstHIR not null expected");
+
+  unsigned SrcNum = SrcHIR->getTopSortNum();
+  unsigned DstNum = DstHIR->getTopSortNum();
+
+  if (RegDDRef *RegRef = dyn_cast<RegDDRef>(SrcDDRef)) {
+    if (RegRef->isLval()) {
+      IsSrcRval = false;
+    }
+  }
+
+  if (RegDDRef *RegRef = dyn_cast<RegDDRef>(DstDDRef)) {
+    if (RegRef->isLval()) {
+      IsDstRval = false;
+    }
+  }
+
   if (IsTemp) {
 
     // DV for Scalar temps could be refined. Calls to DA.depends
@@ -4711,11 +4736,8 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     // It's a fast return because temps are classifed as non-linear.
     // result DV is all * at this stage
 
-    bool IsSrcRval = true;
-    bool IsDstRval = true;
     bool IsFlow = false;
     bool IsAnti = false;
-    unsigned Levels = Result->getLevels();
 
     if (SrcDDRef == DstDDRef) {
       // Skip self output dep for temp for now.
@@ -4727,35 +4749,13 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     //  Make SrcDDRef to be one that comes first in lexical order
     //  and switch DVs when reversed.
 
-    HLDDNode *SrcDDNode = SrcDDRef->getHLDDNode();
-    HLDDNode *DstDDNode = DstDDRef->getHLDDNode();
-    HLNode *SrcHIR = SrcDDNode;
-    assert(SrcHIR && "SrcHIR not null expected");
-
-    unsigned SrcNum = SrcHIR->getTopSortNum();
-
-    HLNode *DstHIR = DstDDNode;
-    assert(DstHIR && "DstHIR not null expected");
-    unsigned DstNum = DstHIR->getTopSortNum();
-
     bool IsReversed = false;
     DEBUG(dbgs() << " src/dst num " << SrcNum << " " << DstNum);
-
-    if (RegDDRef *RegRef = dyn_cast<RegDDRef>(SrcDDRef)) {
-      if (RegRef->isLval()) {
-        IsSrcRval = false;
-      }
-    }
-
-    if (RegDDRef *RegRef = dyn_cast<RegDDRef>(DstDDRef)) {
-      if (RegRef->isLval()) {
-        IsDstRval = false;
-      }
-    }
 
     if (DstNum < SrcNum || ((DstNum == SrcNum) && IsDstRval && !IsSrcRval)) {
       std::swap(SrcDDRef, DstDDRef);
       std::swap(SrcHIR, DstHIR);
+      std::swap(SrcNum, DstNum);
       IsReversed = true;
     }
 
@@ -4837,7 +4837,6 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
   }
 
-  unsigned Levels = Result->getLevels();
   if (Result->isPeelFirst(Levels) && Result->isReversed()) {
     // Result coming back from weakZeroSrcSIVtest
     // e.g. for i=0, 2
@@ -4865,48 +4864,37 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     // Need to reverse one of the DV
     // e.g. one edge is ( * < >), the other shoud be (* > <)
 
-    for (unsigned II = 1; II <= Result->getLevels(); ++II) {
+    for (unsigned II = 1; II <= Levels; ++II) {
       // Computed from Src -> Dst (Forward edge)
       ForwardDV[II - 1] = Result->getDirection(II);
     }
-    getDVForBackwardEdge(ForwardDV, BackwardDV, Result->getLevels());
+    getDVForBackwardEdge(ForwardDV, BackwardDV, Levels);
     if (LTGTLevel) {
       // e.g. (= <> < =)
       // Forward  edge DV: (= < < =)
       // Backward edge DV: (= < > =)
       ForwardDV[LTGTLevel - 1] = BackwardDV[LTGTLevel - 1] = DVKind::LT;
     }
-    DEBUG(dbgs() << "\nforward DV: ";
-          ForwardDV.print(dbgs(), Result->getLevels()));
-    DEBUG(dbgs() << "\nbackward DV: ";
-          ForwardDV.print(dbgs(), Result->getLevels()));
+    DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
+    DEBUG(dbgs() << "\nbackward DV: "; ForwardDV.print(dbgs(), Levels));
     return true;
   }
 
   if (Result->isLoopIndependent()) {
     // (2) DV are all =
-    HLDDNode *SrcDDNode = SrcDDRef->getHLDDNode();
-    HLDDNode *DstDDNode = DstDDRef->getHLDDNode();
-    HLNode *SrcHIR = dyn_cast<HLNode>(SrcDDNode);
-    HLNode *DstHIR = dyn_cast<HLNode>(DstDDNode);
-    assert(SrcHIR && DstHIR && "SrcHIR & DstHIR expected");
 
-    unsigned SrcNum = SrcHIR->getTopSortNum();
-    unsigned DstNum = DstHIR->getTopSortNum();
     DEBUG(dbgs() << "\nTopSortNum: " << SrcNum << " " << DstNum);
     if (SrcNum <= DstNum) {
-      for (unsigned II = 1; II <= Result->getLevels(); ++II) {
+      for (unsigned II = 1; II <= Levels; ++II) {
         ForwardDV[II - 1] = Result->getDirection(II);
       }
     } else {
-      for (unsigned II = 1; II <= Result->getLevels(); ++II) {
+      for (unsigned II = 1; II <= Levels; ++II) {
         BackwardDV[II - 1] = Result->getDirection(II);
       }
     }
-    DEBUG(dbgs() << "\nforward DV: ";
-          ForwardDV.print(dbgs(), Result->getLevels()));
-    DEBUG(dbgs() << "\nbackward DV: ";
-          BackwardDV.print(dbgs(), Result->getLevels()));
+    DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
+    DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs(), Levels));
     return true;
   }
 
@@ -4914,21 +4902,41 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   //     Srce->Dest
 
   if (!Result->isReversed()) {
-    for (unsigned II = 1; II <= Result->getLevels(); ++II) {
+    for (unsigned II = 1; II <= Levels; ++II) {
       ForwardDV[II - 1] = Result->getDirection(II);
     }
   }
   //  Dest->Srce
   else {
-    for (unsigned II = 1; II <= Result->getLevels(); ++II) {
+    for (unsigned II = 1; II <= Levels; ++II) {
       BackwardDV[II - 1] = Result->getDirection(II);
+    }
+
+    // A forward edge (=) is needed here
+    // do i1
+    //    do i2
+    //      a(-i1 + i2 + 25)=   (Src
+    //    end
+    //     = a(-i1 +25)         (Dst
+    // end
+    // This is done mostly for Loop Dist.
+    // Problem only shows up with single backward edge.
+    // For other loop Transformations, single edge of <= should be sufficent.
+    // Only needed for non-temps. Actually, for temps, if it comes here,
+    // The DV would be a *.
+
+    if ((!IsDstRval || !IsSrcRval) && (DstNum > SrcNum) && !IsTemp &&
+        (SrcLevels != Levels) && BackwardDV[Levels - 1] == DVKind::LE) {
+      for (unsigned II = 1; II < Levels; ++II) {
+        ForwardDV[II - 1] = Result->getDirection(II);
+      }
+      ForwardDV[Levels - 1] = DVKind::EQ;
+      BackwardDV[Levels - 1] = DVKind::LT;
     }
   }
 
-  DEBUG(dbgs() << "\nforward DV: ";
-        ForwardDV.print(dbgs(), Result->getLevels()));
-  DEBUG(dbgs() << "\nbackward DV: ";
-        BackwardDV.print(dbgs(), Result->getLevels()));
+  DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
+  DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs(), Levels));
 
   return true;
 }
