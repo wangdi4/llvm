@@ -79,8 +79,8 @@ bool VectorizerUtils::isOpaquePtrPair(Type *x, Type *y)
 }
 
 Value *VectorizerUtils::RootInputArgumentBySignature(Value *arg, unsigned int paramNum, CallInst *CI) {
-  assert(paramNum <= CI->getNumOperands() && "Requested type of parameter that does not exist");
-  if (paramNum > CI->getNumOperands())
+  assert(paramNum <= CI->getNumArgOperands() && "Requested type of parameter that does not exist");
+  if (paramNum > CI->getNumArgOperands())
     return NULL;
 
   // Get the (reflection) type from the mangled name

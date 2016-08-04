@@ -1768,7 +1768,7 @@ void PacketizeFunction::packetizedMemsetSoaAllocaDerivedInst(CallInst *CI) {
   // need to fix the operands: size and alignment by multiply them with m_packetWidth.
   const unsigned int sizeIndex = 2;
   const unsigned int alignmentIndex = 3;
-  unsigned int numOperands = CI->getNumOperands();
+  unsigned int numOperands = CI->getNumArgOperands();
   // Iterate over all operands and replace them
   for (unsigned op = 0; op < numOperands; ++op) {
     if (op == sizeIndex) {
