@@ -134,6 +134,8 @@ namespace llvm {
     MachineBasicBlock *TheBB;
 		struct Node_Compare {
 			bool operator () (const ControlDependenceNode* A, const ControlDependenceNode* B) const {
+				if (A->getBlock() == NULL) return true;
+				if (B->getBlock() == NULL) return false;
 				return A->getBlock()->getNumber() < B->getBlock()->getNumber();
 			}
 		};

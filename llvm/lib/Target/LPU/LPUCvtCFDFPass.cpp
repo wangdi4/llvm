@@ -897,7 +897,6 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
       MachineInstr *MI = iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
-      //assert(MI->getNumOperands() == 5 && "loop header Phi can't have more than 2 inputs");
 			unsigned numUse = 0;
 			MachineOperand* backEdgeInput = nullptr;
 			MachineOperand* initInput = nullptr;
@@ -906,7 +905,6 @@ void LPUCvtCFDFPass::replaceLoopHdrPhi() {
 			unsigned dst = MI->getOperand(0).getReg();
       for (MIOperands MO(MI); MO.isValid(); ++MO, ++numOpnd) {
         if (!MO->isReg()) continue;
-        unsigned Reg = MO->getReg();
         // process use at loop level
         if (MO->isUse()) {
 					++numUse;
