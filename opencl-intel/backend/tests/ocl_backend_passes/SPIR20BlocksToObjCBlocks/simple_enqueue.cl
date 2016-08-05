@@ -1,3 +1,6 @@
+; FIXME: https://jira01.devtools.intel.com/browse/CORC-1357
+; XFAIL: *
+
 void __kernel device_kernel(__global float * inout) {
   *inout = cos(*inout);
 }

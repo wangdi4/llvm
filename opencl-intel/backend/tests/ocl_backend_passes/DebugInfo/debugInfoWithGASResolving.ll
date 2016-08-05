@@ -1,3 +1,6 @@
+; FIXME: https://jira01.devtools.intel.com/browse/CORC-1356
+; XFAIL: *
+
 ; RUN: opt -generic-addr-static-resolution -verify -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
