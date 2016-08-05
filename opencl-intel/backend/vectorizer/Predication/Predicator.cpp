@@ -2173,10 +2173,10 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
   // into the second half (which is a brand new BB)
   BasicBlock* allOnesBeginBB = ucfEntryBB;
   // Note that the allOnesBeginBB is actually is UCF entry
-  BasicBlock * postEntryBB = SplitBlock(allOnesBeginBB, firstPredOrTerm);
+  BasicBlock * postEntryBB = SplitBlock(allOnesBeginBB, firstPredOrTerm, m_DT, m_LI);
   m_ucfInter2Entry[postEntryBB] = ucfEntryBB;
   // Split exit BB at the terminator instruction.
-  BasicBlock* allOnesEndBB = SplitBlock(ucfExitBB, ucfExitBB->getTerminator());
+  BasicBlock* allOnesEndBB = SplitBlock(ucfExitBB, ucfExitBB->getTerminator(), m_DT, m_LI);
   m_ucfEntry2Exit[ucfEntryBB] = allOnesEndBB;
   m_ucfExit2Entry[allOnesEndBB] = ucfEntryBB;
 
