@@ -7,6 +7,9 @@
 ;;    the enqueue_kernel built-in.
 ;;***************************************************************************************
 ;;
+; FIXME: https://jira01.devtools.intel.com/browse/CORC-1357
+; XFAIL: *
+
 ;; RUN: opt -S -spir20-to-objc-blocks -runtimelib=%S/extended_execution_functions.rtl -builtin-import --verify < %s | FileCheck %s
 
 ;; ModuleID = './simple_enqueue.cl'
