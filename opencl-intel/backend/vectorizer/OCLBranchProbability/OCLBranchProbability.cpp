@@ -87,7 +87,8 @@ namespace intel {
       // Update the weights if needed
       for (unsigned i=0; i < br->getNumSuccessors(); ++i) {
         if (weights[i] != NormalWeight)
-          m_BPI->setEdgeProbability(I, i, BranchProbability::getRaw(weights[i]));
+          m_BPI->setEdgeProbability(I, i,
+            BranchProbability::getBranchProbability(weights[i], TakenWeight + NonTakenWeight));
       }
     }
     return false;
