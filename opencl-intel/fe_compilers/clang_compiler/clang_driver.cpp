@@ -166,6 +166,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
     // Add current directory
     optionsEx << " -I" << GetCurrentDir();
     optionsEx << " -mstackrealign";
+    optionsEx << " -D__ENDIAN_LITTLE__=1";
 
     if(m_sDeviceInfo.bImageSupport)
     {
