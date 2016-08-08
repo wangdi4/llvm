@@ -37,10 +37,11 @@ public:
 
 protected:
   /// Contains all the switch cases' children. The default case is always the
-  /// first one.
+  /// last one.
   ChildNodeTy Children;
   /// Iterators pointing to beginning of switch cases.
   SmallVector<case_child_iterator, 5> CaseBegin;
+  case_child_iterator DefaultCaseBegin;
 
   /// ConditionRef represents the switch conditon.
   HLSwitch(RegDDRef *ConditionRef);

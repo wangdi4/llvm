@@ -26,6 +26,8 @@ using namespace llvm::loopopt;
 HLSwitch::HLSwitch(RegDDRef *ConditionRef) : HLDDNode(HLNode::HLSwitchVal) {
   unsigned NumOp;
 
+  DefaultCaseBegin = Children.end();
+
   /// This call is to get around calling virtual functions in the constructor.
   NumOp = getNumOperandsInternal();
 
@@ -41,6 +43,7 @@ HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj, GotoContainerTy *GotoList,
   RegDDRef *Ref;
 
   CaseBegin.resize(HLSwitchObj.getNumCases(), Children.end());
+  DefaultCaseBegin = Children.end();
   RegDDRefs.resize(getNumOperandsInternal(), nullptr);
 
   /// Clone switch condition DDRef
@@ -148,7 +151,7 @@ void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
 HLSwitch::case_child_iterator
 HLSwitch::case_child_begin_internal(unsigned CaseNum) {
   if (CaseNum == 0) {
-    return Children.begin();
+    return DefaultCaseBegin;
   } else {
     return CaseBegin[CaseNum - 1];
   }
@@ -161,8 +164,10 @@ HLSwitch::case_child_begin_internal(unsigned CaseNum) const {
 
 HLSwitch::case_child_iterator
 HLSwitch::case_child_end_internal(unsigned CaseNum) {
-  if (CaseNum == getNumCases()) {
+  if (CaseNum == 0) {
     return Children.end();
+  } else if (CaseNum == getNumCases()) {
+    return DefaultCaseBegin;
   } else {
     return CaseBegin[CaseNum];
   }
@@ -175,8 +180,10 @@ HLSwitch::case_child_end_internal(unsigned CaseNum) const {
 
 HLSwitch::reverse_case_child_iterator
 HLSwitch::case_child_rbegin_internal(unsigned CaseNum) {
-  if (CaseNum == getNumCases()) {
+  if (CaseNum == 0) {
     return Children.rbegin();
+  } else if (CaseNum == getNumCases()) {
+    return reverse_case_child_iterator(DefaultCaseBegin);
   } else {
     return reverse_case_child_iterator(CaseBegin[CaseNum]);
   }
@@ -190,7 +197,7 @@ HLSwitch::case_child_rbegin_internal(unsigned CaseNum) const {
 HLSwitch::reverse_case_child_iterator
 HLSwitch::case_child_rend_internal(unsigned CaseNum) {
   if (CaseNum == 0) {
-    return Children.rend();
+    return reverse_case_child_iterator(DefaultCaseBegin);
   } else {
     return reverse_case_child_iterator(CaseBegin[CaseNum - 1]);
   }
@@ -268,7 +275,7 @@ RegDDRef *HLSwitch::removeCaseValueDDRef(unsigned CaseNum) {
 void HLSwitch::addCase(RegDDRef *ValueRef) {
   unsigned NumOp;
 
-  CaseBegin.push_back(Children.end());
+  CaseBegin.push_back(DefaultCaseBegin);
 
   NumOp = getNumOperandsInternal();
   RegDDRefs.resize(NumOp, nullptr);

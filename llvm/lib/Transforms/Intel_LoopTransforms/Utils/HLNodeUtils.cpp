@@ -1054,11 +1054,17 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
     if (UpdateSeparator) {
       // CaseNum is set to -1 by insertBefore(). It is a bit wasteful but
       // functionally correct to check all the cases.
-      unsigned E = (CaseNum == -1) ? Switch->getNumCases() : CaseNum;
+      // If CaseNum is 0 it's required to update all separators, as default
+      // separator is the last one by implementation.
+      bool UpdateAll = (CaseNum == -1 || CaseNum == 0);
+      unsigned E = UpdateAll ? Switch->getNumCases() : CaseNum;
       for (unsigned I = 0; I < E; ++I) {
         if (Pos == Switch->CaseBegin[I]) {
           Switch->CaseBegin[I] = std::prev(Pos, Count);
         }
+      }
+      if (UpdateAll && Pos == Switch->DefaultCaseBegin) {
+        Switch->DefaultCaseBegin = std::prev(Pos, Count);
       }
     }
 
@@ -1194,7 +1200,7 @@ void HLNodeUtils::insertAsChildImpl(HLSwitch *Switch,
                                     unsigned CaseNum, bool isFirstChild) {
   insertImpl(Switch, isFirstChild ? Switch->case_child_begin_internal(CaseNum)
                                   : Switch->case_child_end_internal(CaseNum),
-             OrigContainer, First, Last, (CaseNum != 0), false, CaseNum);
+             OrigContainer, First, Last, true, false, CaseNum);
 }
 
 void HLNodeUtils::insertAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node) {
@@ -1364,6 +1370,9 @@ void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
       if (First == Switch->CaseBegin[I]) {
         Switch->CaseBegin[I] = Last;
       }
+    }
+    if (First == Switch->DefaultCaseBegin) {
+      Switch->DefaultCaseBegin = Last;
     }
 
   } else {
@@ -1737,6 +1746,9 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
             break;
           }
         }
+        if (TempSucc == &*(Switch->DefaultCaseBegin)) {
+          IsSeparator = true;
+        }
 
         if (!IsSeparator) {
           Succ = TempSucc;
@@ -1839,11 +1851,6 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
   unsigned PrevNum = 0;
   auto ParentLoop = dyn_cast<HLLoop>(Parent);
 
-  // We need to special case insertion of nodes at the begining and end of the
-  // switch container because the default case is located at the beginning of
-  // the link list even though it is the lexically cast case.
-  auto ParentSwitch = dyn_cast<HLSwitch>(Parent);
-
   if (Container.begin() != First) {
     // If we inserted nodes after the loop preheader, the previous num is loop's
     // top sort num.
@@ -1851,9 +1858,6 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
       PrevNum = ParentLoop->getTopSortNum();
       // If we inserted at the begining of the first non-default switch case,
       // switch is the lexically previous node.
-    } else if (ParentSwitch &&
-               (First == ParentSwitch->default_case_child_end())) {
-      PrevNum = ParentSwitch->getTopSortNum();
     } else {
       PrevNum = getPrevLinkListNode(&*First)->getMaxTopSortNum();
     }
@@ -1865,12 +1869,6 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
 
       PrevNum = PrevNode ? PrevNode->getMaxTopSortNum()
                          : Parent->getParent()->getTopSortNum();
-      // If we inserted at the begining of the default case of switch and the
-      // switch has children in other cases then the lexically previous node
-      // comes from the last node in the linklist.
-    } else if (ParentSwitch && ParentSwitch->hasDefaultCaseChildren() &&
-               (ParentSwitch->default_case_child_end() != Container.end())) {
-      PrevNum = (&Container.back())->getMaxTopSortNum();
     } else {
       PrevNum = Parent->getTopSortNum();
     }
@@ -1882,13 +1880,6 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
   // be loop's top sort num.
   if (ParentLoop && (Last == ParentLoop->pre_end())) {
     NextNum = Parent->getTopSortNum();
-    // If the last node inserted is the last (non-default) case child of
-    // switch and the switch has default case children then the lexically next
-    // node comes from first default case child.
-  } else if (ParentSwitch && ParentSwitch->hasDefaultCaseChildren() &&
-             (ParentSwitch->default_case_child_end() != Container.end()) &&
-             (Last == Container.end())) {
-    NextNum = ParentSwitch->getFirstDefaultCaseChild()->getMinTopSortNum();
   } else if (Container.end() != Last) {
     NextNum = Last->getMinTopSortNum();
   }
