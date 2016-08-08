@@ -21,6 +21,7 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/InlineCost.h"
+#include "llvm/Analysis/Intel_AggInline.h"             // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/DataLayout.h"
@@ -81,6 +82,7 @@ Inliner::Inliner(char &ID, bool InsertLifetime)
 void Inliner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<InlineAggressiveAnalysis>();               // INTEL
   getAAResultsAnalysisUsage(AU);
   CallGraphSCCPass::getAnalysisUsage(AU);
 }

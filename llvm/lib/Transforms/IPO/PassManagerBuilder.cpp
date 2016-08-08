@@ -18,6 +18,7 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CFLAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_AggInline.h"  // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_WP.h"  // INTEL
 #include "llvm/Analysis/Passes.h"
@@ -161,6 +162,11 @@ static cl::opt<bool> EnableIndirectCallConv("enable-ind-call-conv",
 // Whole Program Analysis
 static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
     cl::init(true), cl::Hidden, cl::desc("Enable Whole Program Analysis"));
+
+// Inline Aggressive Analysis
+static cl::opt<bool> 
+    EnableInlineAggAnalysis("enable-inline-aggressive-analysis",
+    cl::init(true), cl::Hidden, cl::desc("Enable Inline Aggressive Analysis"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableNonLTOGlobalsModRef(
@@ -745,6 +751,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   }
   if (EnableIndirectCallConv && EnableAndersen) {
     PM.add(createIndirectCallConvPass()); // Indirect Call Conv
+  }
+  if (EnableInlineAggAnalysis) {
+    PM.add(createInlineAggressiveAnalysisPass()); // Aggressive Inline
   }
 #endif // INTEL_CUSTOMIZATION
 

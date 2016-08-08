@@ -32,6 +32,7 @@ add_llvm_library(LLVMAnalysis
   InstCount.cpp
   InstructionSimplify.cpp
 #ifdef INTEL_CUSTOMIZATION
+  Intel_AggInline.cpp
   Intel_Andersens.cpp
   Intel_Directives.cpp
   Intel_SNode.cpp

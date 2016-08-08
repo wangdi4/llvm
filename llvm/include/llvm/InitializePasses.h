@@ -168,6 +168,7 @@ void initializeIfConverterPass(PassRegistry&);
 void initializeInductiveRangeCheckEliminationPass(PassRegistry&);
 void initializeIndVarSimplifyPass(PassRegistry&);
 void initializeInferFunctionAttrsLegacyPassPass(PassRegistry&);
+void initializeInlineAggressiveAnalysisPass(PassRegistry&); // INTEL
 void initializeInlineCostAnalysisPass(PassRegistry&);
 void initializeInstructionCombiningPassPass(PassRegistry&);
 void initializeInstCountPass(PassRegistry&);

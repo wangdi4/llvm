@@ -15,6 +15,7 @@
 #define LLVM_ANALYSIS_INLINECOST_H
 
 #include "llvm/Analysis/CallGraphSCCPass.h" // INTEL 
+#include "llvm/Analysis/Intel_AggInline.h"  // INTEL
 #include <cassert>
 #include <climits>
 
@@ -33,6 +34,7 @@ namespace InlineConstants {
   const int CallPenalty = 25;
   const int LastCallToStaticBonus = -15000;
   const int SecondToLastCallToStaticBonus = -410; // INTEL
+  const int AggressiveInlineCallBonus = -5000;    // INTEL
   const int ColdccPenalty = 2000;
   const int NoreturnPenalty = 10000;
   /// Do not inline functions which allocate this many bytes on the stack
@@ -66,6 +68,7 @@ typedef enum {
    InlrEmptyFunction,
    InlrDoubleLocalCall, 
    InlrVectorBonus,
+   InlrAggInline,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
@@ -214,6 +217,7 @@ public:
 /// inlining the callsite. It is an expensive, heavyweight call.
 InlineCost getInlineCost(CallSite CS, int DefaultThreshold,
                          TargetTransformInfo &CalleeTTI,
+                         InlineAggressiveAnalysis &AggI,     // INTEL  
                          AssumptionCacheTracker *ACT);
 
 /// \brief Get an InlineCost with the callee explicitly specified.
@@ -223,6 +227,7 @@ InlineCost getInlineCost(CallSite CS, int DefaultThreshold,
 //
 InlineCost getInlineCost(CallSite CS, Function *Callee, int DefaultThreshold,
                          TargetTransformInfo &CalleeTTI,
+                         InlineAggressiveAnalysis &AggI,     // INTEL  
                          AssumptionCacheTracker *ACT);
 
 int computeThresholdFromOptLevels(unsigned OptLevel, unsigned SizeOptLevel);

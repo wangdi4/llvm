@@ -60,7 +60,12 @@ public:
   InlineCost getInlineCost(CallSite CS) override {
     Function *Callee = CS.getCalledFunction();
     TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
-    return llvm::getInlineCost(CS, DefaultThreshold, TTI, ACT);
+
+#if INTEL_CUSTOMIZATION
+    InlineAggressiveAnalysis &AggI = getAnalysis<InlineAggressiveAnalysis>();
+#endif // INTEL_CUSTOMIZATION
+
+    return llvm::getInlineCost(CS, DefaultThreshold, TTI, AggI, ACT); // INTEL
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;
@@ -79,6 +84,7 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(InlineAggressiveAnalysis)          // INTEL
 INITIALIZE_PASS_END(SimpleInliner, "inline",
                 "Function Integration/Inlining", false, false)
 
@@ -101,5 +107,6 @@ bool SimpleInliner::runOnSCC(CallGraphSCC &SCC) {
 
 void SimpleInliner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addRequired<InlineAggressiveAnalysis>();            // INTEL
   Inliner::getAnalysisUsage(AU);
 }
