@@ -22,6 +22,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/Intel_WP.h"          // INTEL
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/Constant.h"
@@ -52,6 +53,12 @@ namespace {
   ///
   class DAE : public ModulePass {
   public:
+
+#if INTEL_CUSTOMIZATION
+    void getAnalysisUsage(AnalysisUsage &AU) const override {
+      AU.addPreserved<WholeProgramAnalysis>();
+    }
+#endif // INTEL_CUSTOMIZATION
 
     /// Struct that represents (part of) either a return value or a function
     /// argument.  Used so that arguments and return values can be used

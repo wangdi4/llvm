@@ -398,7 +398,6 @@ bool InlineAggressiveAnalysis::trackUsesofAllocatedGlobalVariables(
         setAggInlInfoForCallSite(CS1);
         continue;
       }
-      errs() << *U1 << "\n";
 
       // Process all uses if user has multiple uses.
       for (User *U2 : U1->users()) {
@@ -534,7 +533,8 @@ bool InlineAggressiveAnalysis::runOnModule(Module &M) {
     }
 
   }
-  errs() << " Total inst" << TotalInstCount << "\n";
+  if (InlineAggressiveTrace)
+    errs() << " Total inst: " << TotalInstCount << "\n";
     
   if (AllocRtn == nullptr) {
     if (InlineAggressiveTrace) {

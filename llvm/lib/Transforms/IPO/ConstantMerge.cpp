@@ -22,6 +22,7 @@
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_WP.h"     // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -51,6 +52,12 @@ namespace {
     // Return the alignment of the global, including converting the default
     // alignment to a concrete value.
     unsigned getAlignment(GlobalVariable *GV) const;
+
+#if INTEL_CUSTOMIZATION
+    void getAnalysisUsage(AnalysisUsage &AU) const override {
+      AU.addPreserved<WholeProgramAnalysis>();
+    }
+#endif // INTEL_CUSTOMIZATION
 
   };
 }

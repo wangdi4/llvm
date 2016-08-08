@@ -15,6 +15,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/Intel_WP.h"                     // INTEL
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
@@ -46,6 +47,7 @@ namespace {
       AU.addPreserved<UnifyFunctionExitNodes>();
       AU.addPreservedID(LowerSwitchID);
       AU.addPreservedID(LowerInvokePassID);
+      AU.addPreserved<WholeProgramAnalysis>();               // INTEL
     }
   };
 }  // end of anonymous namespace
