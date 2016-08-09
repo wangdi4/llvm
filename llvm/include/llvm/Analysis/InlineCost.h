@@ -217,7 +217,7 @@ public:
 /// inlining the callsite. It is an expensive, heavyweight call.
 InlineCost getInlineCost(CallSite CS, int DefaultThreshold,
                          TargetTransformInfo &CalleeTTI,
-                         InlineAggressiveAnalysis &AggI,     // INTEL  
+                         InlineAggressiveAnalysis *AggI,     // INTEL  
                          AssumptionCacheTracker *ACT);
 
 /// \brief Get an InlineCost with the callee explicitly specified.
@@ -227,7 +227,7 @@ InlineCost getInlineCost(CallSite CS, int DefaultThreshold,
 //
 InlineCost getInlineCost(CallSite CS, Function *Callee, int DefaultThreshold,
                          TargetTransformInfo &CalleeTTI,
-                         InlineAggressiveAnalysis &AggI,     // INTEL  
+                         InlineAggressiveAnalysis *AggI,     // INTEL  
                          AssumptionCacheTracker *ACT);
 
 int computeThresholdFromOptLevels(unsigned OptLevel, unsigned SizeOptLevel);

@@ -107,7 +107,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   int Threshold;
 
   // INTEL    Aggressive Analysis
-  InlineAggressiveAnalysis &AI;           // INTEL
+  InlineAggressiveAnalysis *AI;           // INTEL
 
   int Cost;
 
@@ -220,7 +220,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
 
 public:
   CallAnalyzer(const TargetTransformInfo &TTI, AssumptionCacheTracker *ACT,
-               InlineAggressiveAnalysis &AI,       // INTEL
+               InlineAggressiveAnalysis *AI,       // INTEL
                Function &Callee, int Threshold, CallSite CSArg)
     : TTI(TTI), ACT(ACT), F(Callee), CandidateCS(CSArg), Threshold(Threshold),
         AI(AI),            // INTEL
@@ -1439,7 +1439,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   }
 
   // Use InlineAggressiveAnalysis to expose uses of global ptrs 
-  if (AI.isCallInstInAggInlList(CS)) {
+  if (AI != nullptr && AI->isCallInstInAggInlList(CS)) {
     Cost += InlineConstants::AggressiveInlineCallBonus;
     YesReasonVector.push_back(InlrAggInline);
   }
@@ -1692,7 +1692,7 @@ static bool functionsHaveCompatibleAttributes(Function *Caller,
 
 InlineCost llvm::getInlineCost(CallSite CS, int DefaultThreshold,
                                TargetTransformInfo &CalleeTTI,
-                               InlineAggressiveAnalysis &AI,   // INTEL
+                               InlineAggressiveAnalysis *AI,   // INTEL
                                AssumptionCacheTracker *ACT) {
   return getInlineCost(CS, CS.getCalledFunction(), DefaultThreshold, CalleeTTI,
                        AI, ACT);    // INTEL
@@ -1724,7 +1724,7 @@ int llvm::getColdThreshold() { return ColdThreshold; }
 InlineCost llvm::getInlineCost(CallSite CS, Function *Callee,
                                int DefaultThreshold,
                                TargetTransformInfo &CalleeTTI,
-                               InlineAggressiveAnalysis &AI,    // INTEL 
+                               InlineAggressiveAnalysis *AI,    // INTEL 
                                AssumptionCacheTracker *ACT) {
 
   // Cannot inline indirect calls.

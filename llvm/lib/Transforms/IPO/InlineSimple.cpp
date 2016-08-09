@@ -62,7 +62,7 @@ public:
     TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
 
 #if INTEL_CUSTOMIZATION
-    InlineAggressiveAnalysis &AggI = getAnalysis<InlineAggressiveAnalysis>();
+    InlineAggressiveAnalysis *AggI = getAnalysisIfAvailable<InlineAggressiveAnalysis>();
 #endif // INTEL_CUSTOMIZATION
 
     return llvm::getInlineCost(CS, DefaultThreshold, TTI, AggI, ACT); // INTEL
@@ -107,6 +107,6 @@ bool SimpleInliner::runOnSCC(CallGraphSCC &SCC) {
 
 void SimpleInliner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetTransformInfoWrapperPass>();
-  AU.addRequired<InlineAggressiveAnalysis>();            // INTEL
+  AU.addUsedIfAvailable<InlineAggressiveAnalysis>();            // INTEL
   Inliner::getAnalysisUsage(AU);
 }

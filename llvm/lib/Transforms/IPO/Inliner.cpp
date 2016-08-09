@@ -82,7 +82,7 @@ Inliner::Inliner(char &ID, bool InsertLifetime)
 void Inliner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addRequired<InlineAggressiveAnalysis>();               // INTEL
+  AU.addUsedIfAvailable<InlineAggressiveAnalysis>();               // INTEL
   getAAResultsAnalysisUsage(AU);
   CallGraphSCCPass::getAnalysisUsage(AU);
 }
