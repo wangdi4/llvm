@@ -630,6 +630,9 @@ def femit_class_debug_always : Flag<["-"], "femit-class-debug-always">,
   HelpText<"Enable emitting debug info for all class methods">;
 def fno_emit_class_debug_always : Flag<["-"], "fno-emit-class-debug-always">,
   HelpText<"Disable emitting debug info for all class methods">;
+// CQ#366796 - support '--no_expr_source_pos' option.
+def no_expr_source_pos : Flag<["--"], "no_expr_source_pos">,
+  HelpText<"Disable emitting debug source positions for expressions">;
 // CQ#369692 - support for '-fargument-noalias' option.
 def fargument_noalias : Flag<["-"], "fargument-noalias">,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
@@ -651,6 +654,8 @@ def friend_injection : Flag<["--"], "friend_injection">,
   HelpText<"Inject friend functions into the enclosing namespace.">;
 def no_friend_injection : Flag<["--"], "no_friend_injection">,
   HelpText<"Do not inject friend functions into the enclosing namespace.">;
+// IMF attributes support (CQ381541)
+def fintel_imf_attr_EQ : Joined<["-"], "mGLOB_imf_attr=">;
 // endif INTEL_CUSTOMIZATION
 // if INTEL_SPECIFIC_OPENMP
 def fintel_openmp : Flag<["-"], "fintel-openmp">,

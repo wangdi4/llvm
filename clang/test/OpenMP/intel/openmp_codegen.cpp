@@ -94,105 +94,133 @@ int main(int argc, char **argv) {
   n1 = 0;
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
 // CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.UPDATE")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: add nsw i64 %{{.+}}, 1
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic
   ++n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
 // CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.UPDATE")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: add nsw i64 %{{.+}}, 1
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic update
   ++n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
 // CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.READ")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic read
   n2 = n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
 // CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.WRITE")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: store i64 1, i64*
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic write
   n1 = 1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
 // CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.CAPTURE")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: add nsw i64 %{{.+}}, 1
 // CHECK-NEXT: store i64
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic capture
   n2 = ++n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
 // CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.UPDATE.SEQ_CST")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: add nsw i64 %{{.+}}, 1
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic seq_cst
   ++n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
 // CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.UPDATE.SEQ_CST")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: add nsw i64 %{{.+}}, 1
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic seq_cst update
   ++n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
 // CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.READ.SEQ_CST")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic read, seq_cst
   n2 = n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
 // CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.WRITE.SEQ_CST")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: store i64 1, i64*
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic write seq_cst
   n1 = 1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
 // CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.CAPTURE.SEQ_CST")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: add nsw i64 %{{.+}}, 1
 // CHECK-NEXT: store i64
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic seq_cst, capture
   n2 = ++n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.CRITICAL")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.CRITICAL")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp critical
   n2 = n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.MASTER")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.MASTER")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp master
   n2 = n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.SINGLE")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.SINGLE")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp single
   n2 = n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
 // CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.ORDERED")
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.ORDERED")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ORDERED")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp parallel for ordered

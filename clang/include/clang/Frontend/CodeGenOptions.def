@@ -196,6 +196,8 @@ CODEGENOPT(DebugExplicitImport, 1, 0)  ///< Whether or not debug info should
 // CQ#368123
 CODEGENOPT(EmitClassDebugAlways, 1, 1) ///< Whether or not to emit debug info
                                        ///< for all class members.
+CODEGENOPT(NoExprSourcePos, 1, 0) ///< Whether or not to emit debug source
+                                  ///< positions for expressions.
 #endif // INTEL_CUSTOMIZATION
 
 CODEGENOPT(EmitLLVMUseLists, 1, 0) ///< Control whether to serialize use-lists.

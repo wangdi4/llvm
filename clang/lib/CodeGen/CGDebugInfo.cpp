@@ -97,6 +97,13 @@ void ApplyDebugLocation::init(SourceLocation TemporaryLocation,
 
 ApplyDebugLocation::ApplyDebugLocation(CodeGenFunction &CGF, const Expr *E)
     : CGF(&CGF) {
+#if INTEL_CUSTOMIZATION
+  // CQ#366796 - support for '--no_expr_source_pos' option.
+  if (CGF.CGM.getCodeGenOpts().NoExprSourcePos) {
+    this->CGF = nullptr;
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   init(E->getExprLoc());
 }
 

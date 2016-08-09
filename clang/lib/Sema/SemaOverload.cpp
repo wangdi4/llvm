@@ -2825,6 +2825,9 @@ bool Sema::CheckPointerConversion(Expr *From, QualType ToType,
     else if (FromType->isAnyPointerType() &&
              ToType->isIntegralOrEnumerationType())
       Kind = CK_PointerToIntegral;
+    else if (FromType->isIntegralOrEnumerationType() &&
+             ToType->isIntegralOrEnumerationType())
+      Kind = CK_IntegralCast;
   }
 #endif
   if (const PointerType *ToPtrType = ToType->getAs<PointerType>()) {
@@ -6600,7 +6603,6 @@ Sema::AddConversionCandidate(CXXConversionDecl *Conversion,
                           /*AllowObjCWritebackConversion=*/false);
 
   switch (ICS.getKind()) {
-  case ImplicitConversionSequence::PermissiveConversion: // INTEL
   case ImplicitConversionSequence::StandardConversion:
     Candidate.FinalConversion = ICS.Standard;
 
@@ -6628,6 +6630,7 @@ Sema::AddConversionCandidate(CXXConversionDecl *Conversion,
     }
     break;
 
+  case ImplicitConversionSequence::PermissiveConversion: // INTEL
   case ImplicitConversionSequence::BadConversion:
     Candidate.Viable = false;
     Candidate.FailureKind = ovl_fail_bad_final_conversion;

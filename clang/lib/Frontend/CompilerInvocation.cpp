@@ -795,6 +795,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   // CQ#368123 - support '-f[no-]emit-class-debug-always' options.
   Opts.EmitClassDebugAlways = Args.hasFlag(
       OPT_femit_class_debug_always, OPT_fno_emit_class_debug_always, true);
+  // CQ#366796 - support for '--no_expr_source_pos' option.
+  Opts.NoExprSourcePos = Args.hasArg(OPT_no_expr_source_pos);
   // CQ#369692 - support for '-fargument-noalias' option.
   Opts.NoAliasForPtrArgs = Args.hasArg(OPT_fargument_noalias);
 #endif // INTEL_CUSTOMIZATION
@@ -1633,6 +1635,77 @@ static Visibility parseVisibility(Arg *arg, ArgList &args,
   return DefaultVisibility;
 }
 
+#if INTEL_CUSTOMIZATION
+//CQ#381541: The list of IMF candidate functions.
+static void FillImfFuncSet(llvm::StringSet<> &ImfFuncSet) {
+  static const char *initArr[] = {
+    "acos",         "acosf",       "acosl",       "acosdl",      "acosh",
+    "acoshf",       "acoshl",      "asin",        "asinf",       "asinl",
+    "asindl",       "asinh",       "asinhf",      "asinhl",      "creal",
+    "crealf",       "creall",      "cimag",       "cimagf",      "cimagl",
+    "cabs",         "cabsf",       "cabsl",       "cacos",       "cacosf",
+    "cacosl",       "cacosh",      "cacoshf",     "cacoshl",     "carg",
+    "cargf",        "cargl",       "casin",       "casinf",      "casinl",
+    "casinh",       "casinhf",     "casinhl",     "catan",       "catanf",
+    "catanl",       "catanh",      "catanhf",     "catanhl",     "conj",
+    "conjf",        "conjl",       "cbrt",        "cbrtf",       "cbrtl",
+    "cdfnorminv",   "cdfnorminvf", "cdfnorm",     "cdfnormf",    "erfcinv",
+    "erfcinvf",     "ceil",        "ceilf",       "ceill",       "cos",
+    "cosf",         "cosl",        "cosld",       "cosh",        "coshf",
+    "coshl",        "trunc",       "truncf",      "truncl",      "round",
+    "roundf",       "roundl",      "exp",         "expl",        "expf",
+    "exp2",         "exp2f",       "exp2l",       "expm1",       "expm1f",
+    "expm1l",       "fabs",        "fabsf",       "floor",       "floorf",
+    "floorl",       "fmod",        "fmodf",       "fmodl",       "gamma",
+    "gammaf",       "gammal",      "gamma_r",     "gammaf_r",    "gammal_r",
+    "hypot",        "hypotf",      "hypotl",      "ilogb",       "ilogbf",
+    "ilogbl",       "invsqrt",     "invsqrtf",    "invsqrtl",    "j0",
+    "j0f",          "j0l",         "j1",          "j1f",         "j1l",
+    "jn",           "jnf",         "jnl",         "lgamma",      "lgammaf",
+    "lgammal",      "lgamma_r",    "lgammaf_r",   "lgammal_r",   "llrint",
+    "llrintf",      "llrintl",     "llround",     "llroundf",    "llroundl",
+    "log",          "logf",        "logl",        "log10",       "log10f",
+    "log10l",       "log1p",       "log1pf",      "log1pl",      "log2",
+    "log2f",        "log2l",       "logb",        "logbf",       "logbl",
+    "lrint",        "lrintf",      "lrintl",      "lround",      "lroundf",
+    "lroundl",      "fdim",        "fdimf",       "fdiml",       "fma",
+    "fmaf",         "fmal",        "fmax",        "fmaxf",       "fmaxl",
+    "fmin",         "fminf",       "fminl",       "pow",         "powf",
+    "powl",         "remainder",   "remainderf",  "remainderl",  "remquo",
+    "remquof",      "remquol",     "rint",        "rintf",       "rintl",
+    "nearbyint",    "nearbyintf",  "nearbyintl",  "nextafter",   "nextafterf",
+    "nextafterl",   "nexttoward",  "nexttowardf", "nexttowardl", "scalb",
+    "scalbf",       "scalbl",      "scalbln",     "scalblnf",    "scalblnl",
+    "scalbn",       "scalbnf",     "scalbnl",     "significand", "significandf",
+    "significandl", "sin",         "sinf",        "sinl",        "sindl",
+    "sinh",         "sinhf",       "sinhl",       "sincos",      "sincosf",
+    "sincosl",      "sincosd",     "sincosdf",    "sincosdl",    "sqrt",
+    "sqrtf",        "sqrtl",       "tgamma",      "tgammaf",     "tgammal",
+    "y0",           "y0f",         "y0l",         "y1",          "y1f",
+    "y1l",          "yn",          "ynf",         "ynl",         "tan",
+    "tanf",         "tanl",        "tanh",        "tanhf",       "tanhl",
+    "ldexp",        "ldexpf",      "ldexpl",      "modf",        "modff",
+    "modfl",        "copysign",    "copysignf",   "copysignl",   "frexp",
+    "frexpf",       "frexpl",      "ccos",        "ccosf",       "ccosl",
+    "ccosh",        "ccoshf",      "ccoshl",      "sinhcosh",    "sinhcoshf",
+    "sinhcoshl",    "cis",         "cisf",        "cisl",        "cisd",
+    "cisdf",        "cisdl",       "cexp",        "cexpf",       "cexpl",
+    "cexp2",        "cexp2f",      "cexp2l",      "cexp10l",     "clog",
+    "clogf",        "clogl",       "clog10",      "clog10f",     "clog10l",
+    "clog2",        "clog2f",      "clog2l",      "cpow",        "cpowf",
+    "cpowl",        "cproj",       "cprojf",      "cprojl",      "csin",
+    "csinf",        "csinl",       "csinh",       "csinhf",      "csinhl",
+    "csqrt",        "csqrtf",      "csqrtl",      "ctan",        "ctanf",
+    "ctanl",        "ctanh",       "ctanhf",      "ctanhl",      "erf",
+    "erff",         "erfl",        "erfc",        "erfcf",       "erfcl",
+    "erfcx",        "erfcxf",      "erfinv",      "erfinvf",     "erfinvl"
+  };
+  for(auto & it : initArr) {
+    ImfFuncSet.insert(it);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                           const TargetOptions &TargetOpts,
                           PreprocessorOptions &PPOpts,
@@ -1720,6 +1793,53 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
   Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);
+  // CQ381541: Parse IMF attributes
+  if (Opts.IntelCompat && Args.hasArg(OPT_fintel_imf_attr_EQ)) {
+    bool ImfFuncSetFilled = false;
+    StringRef IMFAttrs = Args.getLastArgValue(OPT_fintel_imf_attr_EQ);
+    SmallVector<StringRef, 8> IMFAttrArr;
+    IMFAttrs.split(IMFAttrArr, ' ');
+    for (size_t i = 0; i < IMFAttrArr.size(); ++i) {
+      SmallVector<StringRef, 3> IMFAttrElement;
+      IMFAttrArr[i].split(IMFAttrElement, ':');
+      if (IMFAttrElement.size() == 2) {
+        // fill the list of IMF functions if not done yet.
+        if (!ImfFuncSetFilled) {
+          ImfFuncSetFilled = true;
+          FillImfFuncSet(Opts.ImfFuncSet);
+        }
+        std::pair<LangOptions::IMFAttrMap::iterator, bool> res =
+            Opts.ImfAttrMap.insert(
+                std::make_pair(IMFAttrElement[0], IMFAttrElement[1]));
+        if (!res.second) {
+          // there is an attribute in the list. update it.
+          res.first->second = IMFAttrElement[1];
+        }
+      } else if (IMFAttrElement.size() == 3) {
+        SmallVector<StringRef, 30> FuncList;
+        IMFAttrElement[2].split(FuncList, ',');
+        for (size_t k = 0; k < FuncList.size(); ++k) {
+          auto it = Opts.ImfAttrFuncMap.find(FuncList[k]);
+          if (it != Opts.ImfAttrFuncMap.end()) {
+            // the function is already in the map. add options to it.
+            std::pair<LangOptions::IMFAttrMap::iterator, bool> res =
+                it->second.insert(
+                    std::make_pair(IMFAttrElement[0], IMFAttrElement[1]));
+            if (!res.second) {
+              res.first->second = IMFAttrElement[1];
+            }
+          } else {
+            // the first appearence of the function in the imf attributes.
+            LangOptions::IMFAttrMap NewMap;
+            NewMap.insert(
+                std::make_pair(IMFAttrElement[0], IMFAttrElement[1]));
+            Opts.ImfAttrFuncMap.insert(
+                std::make_pair(FuncList[k], std::move(NewMap)));
+          }
+        }
+      }
+    }
+  }
 #if INTEL_SPECIFIC_OPENMP
   Opts.IntelOpenMP = Args.hasArg(OPT_fintel_openmp);
   Opts.IntelDriverTempfileName =
