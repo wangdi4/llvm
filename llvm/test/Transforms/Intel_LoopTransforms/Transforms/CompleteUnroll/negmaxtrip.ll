@@ -8,12 +8,12 @@
 ; HIR
 ; BEGIN REGION { }
 ;   DO i1 = 0, 44, 1   <DO_LOOP>
-;   %ucs.promoted37 = {al:4}(@ucs)[0];
+;   %ucs.promoted37 = (@ucs)[0];
 ;   %0 = %ucs.promoted37;
 ;   + DO i2 = 0, -1 * i1 + 42, 1   <DO_LOOP>
 ;     %0 = %0  +  -1 * i1 + -1 * i2 + 54;
 ;   + END LOOP
-;   {al:4}(@ucs)[0] = %0;
+;   (@ucs)[0] = %0;
 ;   %t.029 = i1;
 ;   %t.029.out = %t.029;
 ;   END LOOP

@@ -3,7 +3,7 @@
 ; Check parsing output for the loop verifying that non header phi base '%C.addr.0' is handled correctly.
 ; CHECK: DO i1 = 0, 9
 ; CHECK-NEXT: DO i2 = 0, 9
-; CHECK-NEXT: {al:4}(%C.addr.0)[i1][i2] = i1 + i2
+; CHECK-NEXT: (%C.addr.0)[i1][i2] = i1 + i2
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END LOOP
 

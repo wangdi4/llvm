@@ -9,9 +9,9 @@
 ; CHECK-NEXT: %a.addr.014.out = %a.addr.014
 ; CHECK-NEXT: %output.1 = %b
 ; CHECK-NEXT: i1 > 77
-; CHECK: {al:4}(%A)[i1] = %a.addr.014
+; CHECK: (%A)[i1] = %a.addr.014
 ; CHECK-NEXT: %output.1 = %a.addr.014.out
-; CHECK: {al:4}(%B)[i1] = %output.1
+; CHECK: (%B)[i1] = %output.1
 ; CHECK-NEXT: END LOOP
 
 

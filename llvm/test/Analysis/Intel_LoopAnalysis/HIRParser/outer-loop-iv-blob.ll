@@ -6,30 +6,29 @@
 ; flags for now.
 
 ; CHECK: + DO i1 = 0, 78, 1   <DO_LOOP>
-; CHECK: |   %9 = {al:4}(%qu)[0][-1 * i1 + 80];
-; CHECK: |   %10 = {al:8}(%qu)[0][74];
+; CHECK: |   %9 = (%qu)[0][-1 * i1 + 80];
+; CHECK: |   %10 = (%qu)[0][74];
 ; CHECK: |   if (%9 != %10)
 ; CHECK: |   {
-; CHECK: |      {al:4}(%ka)[0] = -1 * i1 + 80;
+; CHECK: |      (%ka)[0] = -1 * i1 + 80;
 ; CHECK: |
 ; CHECK: |         %indvars.iv92 = -1 * i1 + 80;
 ; CHECK: |      + DO i2 = 0, i1 + -42, 1   <DO_LOOP>
 ; CHECK: |      |   %13 = zext.i32.i64(i2 + -1);
 ; CHECK: |      |   %inc.lcssa80 = -1 * i1 + 80;
+; CHECK: |      |
 ; CHECK: |      |   + DO i3 = 0, zext.i32.i64((-1 + (-1 * trunc.i64.i32(%indvars.iv96)) + %indvars.iv92)), 1   <DO_LOOP>
-; CHECK: |      |   |   {al:4}(%qu)[0][-1 * i1 + i3 + 81] = -1 * i1 + i2 + 80;
-; CHECK: |      |   |   %16 = {al:4}(%qu)[0][-1 * i1 + i3 + 80];
-; CHECK: |      |   |   %17 = {al:4}(%qu)[0][-1 * i1 + i3 + 79];
-; CHECK: |      |   |   {al:4}(%qu)[0][-1 * i1 + i3 + 79] = -1 * %16 + %17;
+; CHECK: |      |   |   (%qu)[0][-1 * i1 + i3 + 81] = -1 * i1 + i2 + 80;
+; CHECK: |      |   |   %16 = (%qu)[0][-1 * i1 + i3 + 80];
+; CHECK: |      |   |   %17 = (%qu)[0][-1 * i1 + i3 + 79];
+; CHECK: |      |   |   (%qu)[0][-1 * i1 + i3 + 79] = -1 * %16 + %17;
 ; CHECK: |      |   + END LOOP
 ; CHECK: |      |      %inc.lcssa80 = -1 * i1 + %13 + 81;
-; CHECK: |      |
 ; CHECK: |      |   %indvars.iv.next93 = -1 * i1 + i2 + 80  +  1;
 ; CHECK: |      |   %indvars.iv92 = -1 * i1 + i2 + 81;
 ; CHECK: |      + END LOOP
-; CHECK: |         {al:4}(%j8)[0] = %inc.lcssa80;
-; CHECK: |         {al:4}(%ka)[0] = %indvars.iv.next93;
-; CHECK: |
+; CHECK: |         (%j8)[0] = %inc.lcssa80;
+; CHECK: |         (%ka)[0] = %indvars.iv.next93;
 ; CHECK: |   }
 ; CHECK: |   %indvars.iv96 = -1 * i1 + 79;
 ; CHECK: + END LOOP

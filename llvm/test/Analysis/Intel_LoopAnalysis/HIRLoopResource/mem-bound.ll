@@ -6,9 +6,9 @@
 
 ; HIR-
 ; + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
-; |   %0 = {al:4}(%B)[i1];
-; |   %1 = {al:4}(%C)[i1];
-; |   {al:4}(%A)[i1] = %0 + %1;
+; |   %0 = (%B)[i1];
+; |   %1 = (%C)[i1];
+; |   (%A)[i1] = %0 + %1;
 ; + END LOOP
 
 ; Check the loop resource and verify that it is memory bound.

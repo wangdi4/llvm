@@ -50,13 +50,13 @@
 ; 
 ;          BEGIN REGION { }
 ;<15>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<8>          |   {al:4}(%A)[-2 * i1 + 100] = 3 * i1 + 4;
+;<8>          |   (%A)[-2 * i1 + 100] = 3 * i1 + 4;
 ;<15>         + END LOOP
 ;          END REGION
 ;
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 4, 1   <DO_LOOP>
-; BEFORE:     |   {al:4}(%A)[-2 * i1 + 100] = 3 * i1 + 4;
+; BEFORE:     |   (%A)[-2 * i1 + 100] = 3 * i1 + 4;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
@@ -68,13 +68,13 @@
 ; 
 ;          BEGIN REGION { modified }
 ;<15>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<8>          |   {al:4}(%A)[2 * i1 + 92] = -3 * i1 + 16;
+;<8>          |   (%A)[2 * i1 + 92] = -3 * i1 + 16;
 ;<15>         + END LOOP
 ;          END REGION
 ;
 ; AFTER:   BEGIN REGION { modified }
 ; AFTER:      + DO i1 = 0, 4, 1   <DO_LOOP>
-; AFTER:      |   {al:4}(%A)[2 * i1 + 92] = -3 * i1 + 16;
+; AFTER:      |   (%A)[2 * i1 + 92] = -3 * i1 + 16;
 ; AFTER:      + END LOOP
 ; AFTER:   END REGION
 ;

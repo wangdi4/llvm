@@ -7,15 +7,15 @@
 
 
 ; CHECK: + DO i1 = 0, 11, 1   <DO_LOOP>
-; CHECK: |   %2 = {al:4}(@size)[0][i1];
+; CHECK: |   %2 = (@size)[0][i1];
 ; CHECK: |   %1 = &((%1)[%2]);
 ; CHECK: |   %retval.0.i = 0;
 ; CHECK: |   if (&((%1)[0]) <= &((@allocbuf)[1][0]))
 ; CHECK: |   {
-; CHECK: |      {al:8}(@allocp)[0] = &((%1)[0]);
+; CHECK: |      (@allocp)[0] = &((%1)[0]);
 ; CHECK: |      %retval.0.i = &((%1)[-1 * sext.i32.i64(%2)]);
 ; CHECK: |   }
-; CHECK: |   {al:8}(%p)[0][i1] = &((%retval.0.i)[0]);
+; CHECK: |   (%p)[0][i1] = &((%retval.0.i)[0]);
 ; CHECK: + END LOOP
 
 source_filename = "kr_097.c"

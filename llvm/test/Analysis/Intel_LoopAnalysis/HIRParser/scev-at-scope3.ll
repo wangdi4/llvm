@@ -9,6 +9,7 @@
 ; CHECK-NEXT: |      + DO i2 = 0, (umax(4, %0) + -2)/u3, 1   <DO_LOOP>
 ; CHECK-NEXT: |      |   %add23 = 3 * i2 + 1  +  3;
 ; CHECK-NEXT: |      + END LOOP
+; CHECK-NEXT: |
 ; CHECK-NEXT: |      %add23.lcssa94 = %add23;
 ; CHECK-NEXT: |   }
 ; CHECK-NEXT: |   %0 = i1 + 2;

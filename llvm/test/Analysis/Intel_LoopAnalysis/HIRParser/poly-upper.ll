@@ -7,7 +7,7 @@
 ; CHECK-NEXT: if (%k.020 > 0)
 ; CHECK-NEXT: {
 ; CHECK-NEXT: DO i2 = 0, zext.i32.i64((-1 + %indvars.iv23.out)),
-; CHECK-NEXT: {al:4}(%A)[i2] = i2;
+; CHECK-NEXT: (%A)[i2] = i2;
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: }
 ; CHECK-NEXT: %indvars.iv23 = %indvars.iv23  +  i1 + 1

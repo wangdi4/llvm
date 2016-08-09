@@ -1,15 +1,17 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loopnest verifying that there is not self-recursive definition.
-; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
-; CHECK-NEXT: %.pre = {al:4}(%A)[i1]
-; CHECK-NEXT: %0 = %.pre
-; CHECK-NEXT: DO i2 = 0, zext.i32.i64((-1 + %n))
-; CHECK-NEXT: %1 = {al:4}(%B)[i2]
-; CHECK-NEXT: %0 = %0  +  %1
-; CHECK-NEXT: {al:4}(%A)[i1] = %0
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: END LOOP
+; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: |   %.pre = (%A)[i1];
+; CHECK: |   %0 = %.pre;
+; CHECK: |
+; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: |   |   %1 = (%B)[i2];
+; CHECK: |   |   %0 = %0  +  %1;
+; CHECK: |   |   (%A)[i1] = %0;
+; CHECK: |   + END LOOP
+; CHECK: + END LOOP
+
 
 ; Check that every instance of %0 is parsed as a non-linear self blob.
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck -check-prefix=DETAIL %s
@@ -20,7 +22,7 @@
 ; DETAIL: %0 = %0  +  %1
 ; DETAIL: NON-LINEAR i32 %0
 ; DETAIL: NON-LINEAR i32 %0
-; DETAIL: {al:4}(%A)[i1] = %0
+; DETAIL: (%A)[i1] = %0
 ; DETAIL: NON-LINEAR i32 %0
 
 

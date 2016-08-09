@@ -2,7 +2,7 @@
 
 ; Check parsing output for the loop verifying that ptr iv initialized using array element is parsed with the correct number of dimensions.
 ; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: {al:4}(@A)[0][i1 + 10] = i1
+; CHECK-NEXT: (@A)[0][i1 + 10] = i1
 ; CHECK-NEXT: END LOOP
 
 

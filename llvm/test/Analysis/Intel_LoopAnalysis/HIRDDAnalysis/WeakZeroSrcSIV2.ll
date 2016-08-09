@@ -3,7 +3,7 @@
 ;      A[i] = i; }
 ; RUN:  opt < %s  -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s 
 ; CHECK: 'HIR Data Dependence Analysis' 
-; CHECK-DAG:  (%A)[100] --> {al:4}(%A)[i1 + 1] ANTI (<=)
+; CHECK-DAG:  (%A)[100] --> (%A)[i1 + 1] ANTI (<=)
 ;
 ; ModuleID = 'WeakZeroSrcSIV2.c'
 source_filename = "WeakZeroSrcSIV2.c"

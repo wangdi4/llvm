@@ -18,7 +18,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-parser -hir-dd-analysis -hir-vec-dir-insert -print-after=hir-vec-dir-insert -S < %s 2>&1 | FileCheck %s
 ; HIR Test.
 ; CHECK: @llvm.intel.directive(!1)
-; CHECK-NEXT: DO i1 = 0, 1023, 1   <DO_LOOP>
+; CHECK: DO i1 = 0, 1023, 1   <DO_LOOP>
 ; ModuleID = 'j4.c'
 source_filename = "j4.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

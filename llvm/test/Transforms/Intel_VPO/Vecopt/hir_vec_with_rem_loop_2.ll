@@ -15,11 +15,11 @@
 ;
 ; HIR Test.
 ; CHECK: %tgu = 
-; CHECK-NEXT: DO i1 = 0, 4 * %tgu + -1, 4
-; CHECK: {al:4}(<4 x i32>*)(@arr)[0][i1] = i1 + 
+; CHECK: DO i1 = 0, 4 * %tgu + -1, 4
+; CHECK: (<4 x i32>*)(@arr)[0][i1] = i1 + 
 ; CHECK: END LOOP
-; CHECK-NEXT: DO i1 = 4 * %tgu,{{.*}}, 1   <DO_LOOP>
-; CHECK: {al:4}(@arr)[0][i1] = i1 + 
+; CHECK: DO i1 = 4 * %tgu,{{.*}}, 1   <DO_LOOP>
+; CHECK: (@arr)[0][i1] = i1 + 
 ; CHECK: END LOOP
 ; ModuleID = 'rem3.ll'
 source_filename = "rem3.c"

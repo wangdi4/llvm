@@ -67,14 +67,14 @@
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 4, 1   <DO_LOOP>
 ; BEFORE:     |   + DO i2 = 0, 4, 1   <DO_LOOP>
-; BEFORE:     |   |   %1 = {al:4}(%A)[-1 * i2 + 100];
+; BEFORE:     |   |   %1 = (%A)[-1 * i2 + 100];
 ; BEFORE:     |   |   %t.033 = %1  +  %t.033;
 ; BEFORE:     |   |   %t.033.out1 = %t.033;
 ; BEFORE:     |   |   %t.033 = %t.033  +  1;
 ; BEFORE:     |   |   %t.033.out = %t.033;
-; BEFORE:     |   |   {al:4}(%B)[-2 * i2 + 50] = %t.033.out1 + 2;
+; BEFORE:     |   |   (%B)[-2 * i2 + 50] = %t.033.out1 + 2;
 ; BEFORE:     |   + END LOOP
-; BEFORE:     |   {al:4}(%A)[-1 * i1 + 10] = %t.033.out;
+; BEFORE:     |   (%A)[-1 * i1 + 10] = %t.033.out;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
@@ -90,14 +90,14 @@
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 4, 1   <DO_LOOP>
 ; AFTER:     |   + DO i2 = 0, 4, 1   <DO_LOOP>
-; AFTER:     |   |   %1 = {al:4}(%A)[-1 * i2 + 100];
+; AFTER:     |   |   %1 = (%A)[-1 * i2 + 100];
 ; AFTER:     |   |   %t.033 = %1  +  %t.033;
 ; AFTER:     |   |   %t.033.out1 = %t.033;
 ; AFTER:     |   |   %t.033 = %t.033  +  1;
 ; AFTER:     |   |   %t.033.out = %t.033;
-; AFTER:     |   |   {al:4}(%B)[-2 * i2 + 50] = %t.033.out1 + 2;
+; AFTER:     |   |   (%B)[-2 * i2 + 50] = %t.033.out1 + 2;
 ; AFTER:     |   + END LOOP
-; AFTER:     |   {al:4}(%A)[-1 * i1 + 10] = %t.033.out;
+; AFTER:     |   (%A)[-1 * i1 + 10] = %t.033.out;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;

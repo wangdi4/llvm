@@ -4,46 +4,46 @@
 
 ; CHECK: Dump Before HIR General Unroll
 
-; CHECK: |      %fs.promoted = {al:4}(%fs)[0];
+; CHECK: |      %fs.promoted = (%fs)[0];
 ; CHECK: |      %add21136 = %fs.promoted;
 ; CHECK: |   + DO i2 = 0, zext.i32.i64((4 + (-1 * trunc.i64.i32(%indvars.iv169)))), 1   <DO_LOOP>  <MAX_TC_EST = 42>
-; CHECK: |   |   %4 = {al:4}(%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
-; CHECK: |   |   {al:4}(%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %4;
-; CHECK: |   |   %5 = {al:4}(%n)[0][-1 * i1 + i2 + 58];
+; CHECK: |   |   %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
+; CHECK: |   |   (%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %4;
+; CHECK: |   |   %5 = (%n)[0][-1 * i1 + i2 + 58];
 ; CHECK: |   |   %add21136 = -1 * i1 + i2 + %5 + 58  +  %add21136;
 ; CHECK: |   + END LOOP
-; CHECK: |      {al:4}(%fs)[0] = %add21136;
+; CHECK: |      (%fs)[0] = %add21136;
 
 ; CHECK: Dump After HIR General Unroll
 
-; CHECK: |      %fs.promoted = {al:4}(%fs)[0];
+; CHECK: |      %fs.promoted = (%fs)[0];
 ; CHECK: |      %add21136 = %fs.promoted;
 ; CHECK: |      %tgu = (zext.i32.i64((4 + (-1 * trunc.i64.i32(%indvars.iv169)))) + 1)/u4;
 ; CHECK: |      + DO i2 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10>
-; CHECK: |      |   %4 = {al:4}(%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
-; CHECK: |      |   {al:4}(%ti)[0][-1 * i1 + 4 * i2 + 58][-1 * i1 + 4 * i2 + 58] = %4;
-; CHECK: |      |   %5 = {al:4}(%n)[0][-1 * i1 + 4 * i2 + 58];
+; CHECK: |      |   %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
+; CHECK: |      |   (%ti)[0][-1 * i1 + 4 * i2 + 58][-1 * i1 + 4 * i2 + 58] = %4;
+; CHECK: |      |   %5 = (%n)[0][-1 * i1 + 4 * i2 + 58];
 ; CHECK: |      |   %add21136 = -1 * i1 + 4 * i2 + %5 + 58  +  %add21136;
-; CHECK: |      |   %4 = {al:4}(%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
-; CHECK: |      |   {al:4}(%ti)[0][-1 * i1 + 4 * i2 + 59][-1 * i1 + 4 * i2 + 59] = %4;
-; CHECK: |      |   %5 = {al:4}(%n)[0][-1 * i1 + 4 * i2 + 59];
+; CHECK: |      |   %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
+; CHECK: |      |   (%ti)[0][-1 * i1 + 4 * i2 + 59][-1 * i1 + 4 * i2 + 59] = %4;
+; CHECK: |      |   %5 = (%n)[0][-1 * i1 + 4 * i2 + 59];
 ; CHECK: |      |   %add21136 = -1 * i1 + 4 * i2 + %5 + 59  +  %add21136;
-; CHECK: |      |   %4 = {al:4}(%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
-; CHECK: |      |   {al:4}(%ti)[0][-1 * i1 + 4 * i2 + 60][-1 * i1 + 4 * i2 + 60] = %4;
-; CHECK: |      |   %5 = {al:4}(%n)[0][-1 * i1 + 4 * i2 + 60];
+; CHECK: |      |   %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
+; CHECK: |      |   (%ti)[0][-1 * i1 + 4 * i2 + 60][-1 * i1 + 4 * i2 + 60] = %4;
+; CHECK: |      |   %5 = (%n)[0][-1 * i1 + 4 * i2 + 60];
 ; CHECK: |      |   %add21136 = -1 * i1 + 4 * i2 + %5 + 60  +  %add21136;
-; CHECK: |      |   %4 = {al:4}(%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
-; CHECK: |      |   {al:4}(%ti)[0][-1 * i1 + 4 * i2 + 61][-1 * i1 + 4 * i2 + 61] = %4;
-; CHECK: |      |   %5 = {al:4}(%n)[0][-1 * i1 + 4 * i2 + 61];
+; CHECK: |      |   %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
+; CHECK: |      |   (%ti)[0][-1 * i1 + 4 * i2 + 61][-1 * i1 + 4 * i2 + 61] = %4;
+; CHECK: |      |   %5 = (%n)[0][-1 * i1 + 4 * i2 + 61];
 ; CHECK: |      |   %add21136 = -1 * i1 + 4 * i2 + %5 + 61  +  %add21136;
 ; CHECK: |      + END LOOP
 ; CHECK: |      + DO i2 = 4 * %tgu, zext.i32.i64((4 + (-1 * trunc.i64.i32(%indvars.iv169)))), 1   <DO_LOOP>  <MAX_TC_EST = 3>
-; CHECK: |      |   %4 = {al:4}(%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
-; CHECK: |      |   {al:4}(%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %4;
-; CHECK: |      |   %5 = {al:4}(%n)[0][-1 * i1 + i2 + 58];
+; CHECK: |      |   %4 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
+; CHECK: |      |   (%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %4;
+; CHECK: |      |   %5 = (%n)[0][-1 * i1 + i2 + 58];
 ; CHECK: |      |   %add21136 = -1 * i1 + i2 + %5 + 58  +  %add21136;
 ; CHECK: |      + END LOOP
-; CHECK: |      {al:4}(%fs)[0] = %add21136;
+; CHECK: |      (%fs)[0] = %add21136;
 
 
 ; ModuleID = 't47.c'

@@ -2,7 +2,7 @@
 
 ; Check parsing output for the loop verifying that the store which has a phi base with a pointer to array type is parsed correctly.
 ; CHECK: DO i1 = 0, %N + -1
-; CHECK-NEXT: {al:8}(%struc.bc)[i1][2][3] = undef;
+; CHECK-NEXT: (%struc.bc)[i1][2][3] = undef;
 ; CHECK-NEXT:  END LOOP
 
 ; ModuleID = 'bugpoint-reduced-simplified.bc'

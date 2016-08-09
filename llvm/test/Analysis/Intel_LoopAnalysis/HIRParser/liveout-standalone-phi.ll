@@ -1,13 +1,14 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that we create a liveout copy for standalone phi %k.0 which is live outside the loop.
-; CHECK: DO i1 = 0, 44
-; CHECK-NEXT: %k.0 = 0
-; CHECK-NEXT: DO i2 = 0, -1 * i1 + 46
-; CHECK-NEXT: %k.0.out = %k.0
-; CHECK-NEXT: %k.0 = -1 * i2 + 46
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: END LOOP
+; CHECK: + DO i1 = 0, 44, 1   <DO_LOOP>
+; CHECK: |   %k.0 = 0;
+; CHECK: |
+; CHECK: |   + DO i2 = 0, -1 * i1 + 46, 1   <DO_LOOP>
+; CHECK: |   |   %k.0.out = %k.0;
+; CHECK: |   |   %k.0 = -1 * i2 + 46;
+; CHECK: |   + END LOOP
+; CHECK: + END LOOP
 
 
 ;Module Before HIR; ModuleID = 'live-out-stand-alone-phi.cpp'

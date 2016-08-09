@@ -77,9 +77,9 @@
 ;          BEGIN REGION { }
 ;<88>         + DO i1 = 0, 9, 1   <DO_LOOP>
 ;<3>          |   %rem = i1 + 1  %  3;
-;<10>         |   %3 = {al:8}(%A)[trunc.i64.i32(%indvars.iv175) + %rem + -1];
-;<12>         |   %4 = {al:4}(%3)[i1 + %rem];
-;<14>         |   {al:4}(%0)[i1 + 1] = %4;
+;<10>         |   %3 = (%A)[trunc.i64.i32(%indvars.iv175) + %rem + -1];
+;<12>         |   %4 = (%3)[i1 + %rem];
+;<14>         |   (%0)[i1 + 1] = %4;
 ;<88>         + END LOOP
 ;          END REGION
 ;
@@ -87,8 +87,8 @@
 ;          BEGIN REGION { }
 ;<89>         + DO i1 = 0, 9, 1   <DO_LOOP>
 ;<24>         |   %rem22 = i1 + 1  %  3;
-;<30>         |   %11 = {al:4}(%6)[i1 + %rem22];
-;<32>         |   {al:4}(%7)[i1 + 1] = %11;
+;<30>         |   %11 = (%6)[i1 + %rem22];
+;<32>         |   (%7)[i1 + 1] = %11;
 ;<89>         + END LOOP
 ;          END REGION
 ;
@@ -96,19 +96,19 @@
 ;          BEGIN REGION { }
 ;<90>         + DO i1 = 0, 9, 1   <DO_LOOP>
 ;<42>         |   %rem47 = i1 + 1  %  3;
-;<48>         |   %18 = {al:4}(%13)[i1 + %rem47];
-;<50>         |   {al:4}(%14)[i1 + 1] = %18;
+;<48>         |   %18 = (%13)[i1 + %rem47];
+;<50>         |   (%14)[i1 + 1] = %18;
 ;<90>         + END LOOP
 ;          END REGION
 ;
 ; Loop3: (<>, *)
 ;          BEGIN REGION { }
 ;<91>         + DO i1 = 0, 9, 1   <DO_LOOP>
-;<60>         |   %20 = {al:8}(%A)[i1 + 1];
+;<60>         |   %20 = (%A)[i1 + 1];
 ;<92>         |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ;<65>         |   |   %rem72 = i2 + 1  %  3;
-;<71>         |   |   %24 = {al:4}(%19)[i2 + %rem72];
-;<73>         |   |   {al:4}(%20)[i2 + 1] = %24;
+;<71>         |   |   %24 = (%19)[i2 + %rem72];
+;<73>         |   |   (%20)[i2 + 1] = %24;
 ;<92>         |   + END LOOP
 ;<83>         |   %19 = &((%20)[0]);
 ;<91>         + END LOOP
@@ -123,9 +123,9 @@
 ;          BEGIN REGION { }
 ; BEFORE:         + DO i1 = 0, 9, 1   <DO_LOOP>
 ; BEFORE:      |   %rem = i1 + 1  %  3;
-; BEFORE:     |   %3 = {al:8}(%A)[trunc.i64.i32(%indvars.iv175) + %rem + -1];
-; BEFORE:     |   %4 = {al:4}(%3)[i1 + %rem];
-; BEFORE:     |   {al:4}(%0)[i1 + 1] = %4;
+; BEFORE:     |   %3 = (%A)[trunc.i64.i32(%indvars.iv175) + %rem + -1];
+; BEFORE:     |   %4 = (%3)[i1 + %rem];
+; BEFORE:     |   (%0)[i1 + 1] = %4;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
@@ -133,8 +133,8 @@
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
 ; BEFORE:     |   %rem22 = i1 + 1  %  3;
-; BEFORE:     |   %11 = {al:4}(%6)[i1 + %rem22];
-; BEFORE:     |   {al:4}(%7)[i1 + 1] = %11;
+; BEFORE:     |   %11 = (%6)[i1 + %rem22];
+; BEFORE:     |   (%7)[i1 + 1] = %11;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
@@ -142,19 +142,19 @@
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
 ; BEFORE:     |   %rem47 = i1 + 1  %  3;
-; BEFORE:     |   %18 = {al:4}(%13)[i1 + %rem47];
-; BEFORE:     |   {al:4}(%14)[i1 + 1] = %18;
+; BEFORE:     |   %18 = (%13)[i1 + %rem47];
+; BEFORE:     |   (%14)[i1 + 1] = %18;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
 ; Loop3: (<>, *)
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   %20 = {al:8}(%A)[i1 + 1];
+; BEFORE:     |   %20 = (%A)[i1 + 1];
 ; BEFORE:     |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ; BEFORE:     |   |   %rem72 = i2 + 1  %  3;
-; BEFORE:     |   |   %24 = {al:4}(%19)[i2 + %rem72];
-; BEFORE:     |   |   {al:4}(%20)[i2 + 1] = %24;
+; BEFORE:     |   |   %24 = (%19)[i2 + %rem72];
+; BEFORE:     |   |   (%20)[i2 + 1] = %24;
 ; BEFORE:     |   + END LOOP
 ; BEFORE:     |   %19 = &((%20)[0]);
 ; BEFORE:     + END LOOP
@@ -171,35 +171,35 @@
 ;          BEGIN REGION { }
 ;<88>         + DO i1 = 0, 9, 1   <DO_LOOP>
 ;<3>          |   %rem = i1 + 1  %  3;
-;<10>         |   %3 = {al:8}(%A)[trunc.i64.i32(%indvars.iv175) + %rem + -1];
-;<12>         |   %4 = {al:4}(%3)[i1 + %rem];
-;<14>         |   {al:4}(%0)[i1 + 1] = %4;
+;<10>         |   %3 = (%A)[trunc.i64.i32(%indvars.iv175) + %rem + -1];
+;<12>         |   %4 = (%3)[i1 + %rem];
+;<14>         |   (%0)[i1 + 1] = %4;
 ;<88>         + END LOOP
 ;          END REGION
 ;
 ;          BEGIN REGION { }
 ;<89>         + DO i1 = 0, 9, 1   <DO_LOOP>
 ;<24>         |   %rem22 = i1 + 1  %  3;
-;<30>         |   %11 = {al:4}(%6)[i1 + %rem22];
-;<32>         |   {al:4}(%7)[i1 + 1] = %11;
+;<30>         |   %11 = (%6)[i1 + %rem22];
+;<32>         |   (%7)[i1 + 1] = %11;
 ;<89>         + END LOOP
 ;          END REGION
 ;
 ;          BEGIN REGION { }
 ;<90>         + DO i1 = 0, 9, 1   <DO_LOOP>
 ;<42>         |   %rem47 = i1 + 1  %  3;
-;<48>         |   %18 = {al:4}(%13)[i1 + %rem47];
-;<50>         |   {al:4}(%14)[i1 + 1] = %18;
+;<48>         |   %18 = (%13)[i1 + %rem47];
+;<50>         |   (%14)[i1 + 1] = %18;
 ;<90>         + END LOOP
 ;          END REGION
 ;
 ;          BEGIN REGION { }
 ;<91>         + DO i1 = 0, 9, 1   <DO_LOOP>
-;<60>         |   %20 = {al:8}(%A)[i1 + 1];
+;<60>         |   %20 = (%A)[i1 + 1];
 ;<92>         |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ;<65>         |   |   %rem72 = i2 + 1  %  3;
-;<71>         |   |   %24 = {al:4}(%19)[i2 + %rem72];
-;<73>         |   |   {al:4}(%20)[i2 + 1] = %24;
+;<71>         |   |   %24 = (%19)[i2 + %rem72];
+;<73>         |   |   (%20)[i2 + 1] = %24;
 ;<92>         |   + END LOOP
 ;<83>         |   %19 = &((%20)[0]);
 ;<91>         + END LOOP
@@ -214,9 +214,9 @@
 ;          BEGIN REGION { }
 ; AFTER:         + DO i1 = 0, 9, 1   <DO_LOOP>
 ; AFTER:      |   %rem = i1 + 1  %  3;
-; AFTER:     |   %3 = {al:8}(%A)[trunc.i64.i32(%indvars.iv175) + %rem + -1];
-; AFTER:     |   %4 = {al:4}(%3)[i1 + %rem];
-; AFTER:     |   {al:4}(%0)[i1 + 1] = %4;
+; AFTER:     |   %3 = (%A)[trunc.i64.i32(%indvars.iv175) + %rem + -1];
+; AFTER:     |   %4 = (%3)[i1 + %rem];
+; AFTER:     |   (%0)[i1 + 1] = %4;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;
@@ -224,8 +224,8 @@
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
 ; AFTER:     |   %rem22 = i1 + 1  %  3;
-; AFTER:     |   %11 = {al:4}(%6)[i1 + %rem22];
-; AFTER:     |   {al:4}(%7)[i1 + 1] = %11;
+; AFTER:     |   %11 = (%6)[i1 + %rem22];
+; AFTER:     |   (%7)[i1 + 1] = %11;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;
@@ -233,19 +233,19 @@
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
 ; AFTER:     |   %rem47 = i1 + 1  %  3;
-; AFTER:     |   %18 = {al:4}(%13)[i1 + %rem47];
-; AFTER:     |   {al:4}(%14)[i1 + 1] = %18;
+; AFTER:     |   %18 = (%13)[i1 + %rem47];
+; AFTER:     |   (%14)[i1 + 1] = %18;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;
 ; Loop3: (<>, *)
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   %20 = {al:8}(%A)[i1 + 1];
+; AFTER:     |   %20 = (%A)[i1 + 1];
 ; AFTER:     |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ; AFTER:     |   |   %rem72 = i2 + 1  %  3;
-; AFTER:     |   |   %24 = {al:4}(%19)[i2 + %rem72];
-; AFTER:     |   |   {al:4}(%20)[i2 + 1] = %24;
+; AFTER:     |   |   %24 = (%19)[i2 + %rem72];
+; AFTER:     |   |   (%20)[i2 + 1] = %24;
 ; AFTER:     |   + END LOOP
 ; AFTER:     |   %19 = &((%20)[0]);
 ; AFTER:     + END LOOP

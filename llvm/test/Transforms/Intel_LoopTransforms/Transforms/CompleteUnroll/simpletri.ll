@@ -4,12 +4,12 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -print-after=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: %0 = {al:8}(%B)[0]
-; CHECK-NEXT: %1 = {al:4}(%0)[1]
-; CHECK-NEXT: %2 = {al:8}(%A)[1]
-; CHECK-NEXT: {al:4}(%2)[0] = %1
-; CHECK: %1 = {al:4}(%0)[2]
-; CHECK: %2 = {al:8}(%A)[2]
+; CHECK: %0 = (%B)[0]
+; CHECK-NEXT: %1 = (%0)[1]
+; CHECK-NEXT: %2 = (%A)[1]
+; CHECK-NEXT: (%2)[0] = %1
+; CHECK: %1 = (%0)[2]
+; CHECK: %2 = (%A)[2]
 ; CHECK: END REGION
 
 ; Source Code

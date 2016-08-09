@@ -3,7 +3,7 @@
 ; Check parsing output for the loop verifying that a GEP (polynomial) blob is parsed correctly.
 ; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
 ; CHECK-NEXT: %p.addr.07 = &((%p.addr.07)[i1])
-; CHECK-NEXT: {al:4}(%p.addr.07)[0] = i1
+; CHECK-NEXT: (%p.addr.07)[0] = i1
 ; CHECK-NEXT: END LOOP
 
 

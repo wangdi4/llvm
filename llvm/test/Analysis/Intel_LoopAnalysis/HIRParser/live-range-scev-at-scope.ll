@@ -13,20 +13,22 @@
 
 ; Check parsing output for the loop verifying that %2 is parsed as a blob outside i4 loop. The SCEV of %2 is an AddRec in terms of %x.267. Propagating this information outside the loop leads to live range violation as %x.267 is updated in i3 loop.
 
-; CHECK:      + DO i1 = 0, %cond84 + -1, 1   <DO_LOOP>
-; CHECK-NEXT: |   %x.171 = %x.075;
-; CHECK-NEXT: |   + DO i2 = 0, %cond84 + -1, 1   <DO_LOOP>
-; CHECK-NEXT: |   |   %x.267 = %x.171;
-; CHECK-NEXT: |   |   + DO i3 = 0, %cond84 + -1, 1   <DO_LOOP>
-; CHECK-NEXT: |   |   |   + DO i4 = 0, %cond84 + -1, 1   <DO_LOOP>
-; CHECK-NEXT: |   |   |   |   %2 = (%cond84 * %cond84)  +  (%cond84 * %cond84) * i4 + %x.267;
-; CHECK-NEXT: |   |   |   + END LOOP
-; CHECK-NEXT: |   |   |   %x.267 = %2;
-; CHECK-NEXT: |   |   + END LOOP
-; CHECK-NEXT: |   |   %x.171 = %2;
-; CHECK-NEXT: |   + END LOOP
-; CHECK-NEXT: |   %x.075 = %2;
-; CHECK-NEXT: + END LOOP
+; CHECK: + DO i1 = 0, %cond84 + -1, 1   <DO_LOOP>
+; CHECK: |   %x.171 = %x.075;
+; CHECK: |
+; CHECK: |   + DO i2 = 0, %cond84 + -1, 1   <DO_LOOP>
+; CHECK: |   |   %x.267 = %x.171;
+; CHECK: |   |
+; CHECK: |   |   + DO i3 = 0, %cond84 + -1, 1   <DO_LOOP>
+; CHECK: |   |   |   + DO i4 = 0, %cond84 + -1, 1   <DO_LOOP>
+; CHECK: |   |   |   |   %2 = (%cond84 * %cond84)  +  (%cond84 * %cond84) * i4 + %x.267;
+; CHECK: |   |   |   + END LOOP
+; CHECK: |   |   |   %x.267 = %2;
+; CHECK: |   |   + END LOOP
+; CHECK: |   |   %x.171 = %2;
+; CHECK: |   + END LOOP
+; CHECK: |   %x.075 = %2;
+; CHECK: + END LOOP
 
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck -check-prefix=DETAIL %s

@@ -2,15 +2,16 @@
 
 ; Check parsing output for the loop verifying that the we are able to handle IV multiplications resulting in polynomial SCEVs by looking ahead.
 
-; CHECK: DO i1 = 0, 69
-; CHECK-NEXT: DO i2 = 0, zext.i32.i64((39 + (-1 * trunc.i64.i32(%indvars.iv22))))
-; CHECK-NEXT: %0 = i1 + i2 + 3  *  i1 + 3
-; CHECK-NEXT: %1 = {al:4}(%A)[i1 + i2 + 3]
-; CHECK-NEXT: %2 = trunc.i64.i32(%0)
-; CHECK-NEXT: {al:4}(%A)[i1 + i2 + 3] = %1 + %2
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %indvars.iv22 = i1 + 4;
-; CHECK-NEXT: END LOOP
+; CHECK: + DO i1 = 0, 69, 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, zext.i32.i64((39 + (-1 * trunc.i64.i32(%indvars.iv22)))), 1   <DO_LOOP>
+; CHECK: |   |   %0 = i1 + i2 + 3  *  i1 + 3;
+; CHECK: |   |   %1 = (%A)[i1 + i2 + 3];
+; CHECK: |   |   %2 = trunc.i64.i32(%0);
+; CHECK: |   |   (%A)[i1 + i2 + 3] = %1 + %2;
+; CHECK: |   + END LOOP
+; CHECK: |
+; CHECK: |   %indvars.iv22 = i1 + 4;
+; CHECK: + END LOOP
 
 
 ;Module Before HIR; ModuleID = 'poly-lookahead.c'

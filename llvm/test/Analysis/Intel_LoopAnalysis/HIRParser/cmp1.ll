@@ -6,18 +6,18 @@
 ; Check parsing output for the loop verifying that the compare instruction is parsed correctly.
 ; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   %small.030.out = %small.030;
-; CHECK: |   %0 = {al:4}(%A)[i1];
-; CHECK: |   %1 = {al:4}(%B)[i1];
+; CHECK: |   %0 = (%A)[i1];
+; CHECK: |   %1 = (%B)[i1];
 ; CHECK: |   %cmp3 = %0 < %1;
 ; CHECK: |   %tobool = %small.030.out != 0;
 ; CHECK: |   %small.030 = %cmp3  ||  %tobool;
 ; CHECK: |   if (%small.030 == 0)
 ; CHECK: |   {
-; CHECK: |      {al:4}(%B)[i1] = %0;
+; CHECK: |      (%B)[i1] = %0;
 ; CHECK: |   }
 ; CHECK: |   else
 ; CHECK: |   {
-; CHECK: |      {al:4}(%A)[i1] = %1;
+; CHECK: |      (%A)[i1] = %1;
 ; CHECK: |   }
 ; CHECK: + END LOOP
 

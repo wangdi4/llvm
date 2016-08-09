@@ -3,7 +3,7 @@
 ; Check parsing output for the loop verifying that loop's upper was converted to positive value by parser.
 
 ; CHECK: + DO i1 = 0, 253, 1   <DO_LOOP>
-; CHECK: |   {al:1}(%A)[i1] = i1;
+; CHECK: |   (%A)[i1] = i1;
 ; CHECK: + END LOOP
 
 

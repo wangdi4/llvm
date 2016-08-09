@@ -8,26 +8,26 @@
 ; CHECK: default:
 ; CHECK: |      if (%p.0702 == 6)
 ; CHECK: |      {
-; CHECK: |         {al:2}(@ua)[0][i1] = -32768;
-; CHECK: |         {al:2}(@sa)[0][i1] = -32768;
+; CHECK: |         (@ua)[0][i1] = -32768;
+; CHECK: |         (@sa)[0][i1] = -32768;
 ; CHECK: |      }
 ; CHECK: |      else
 ; CHECK: |      {
-; CHECK: |         {al:2}(@ua)[0][i1] = 0;
-; CHECK: |         {al:2}(@sa)[0][i1] = 0;
+; CHECK: |         (@ua)[0][i1] = 0;
+; CHECK: |         (@sa)[0][i1] = 0;
 ; CHECK: |      }
 
 ; CHECK: Dump After HIR OptPredicate
 
 ; CHECK: DO i1
 ; CHECK: |   default:
-; CHECK: |      {al:2}(@ua)[0][i1] = -32768;
-; CHECK: |      {al:2}(@sa)[0][i1] = -32768;
+; CHECK: |      (@ua)[0][i1] = -32768;
+; CHECK: |      (@sa)[0][i1] = -32768;
 
 ; CHECK: DO i1
 ; CHECK: |   default:
-; CHECK: |      {al:2}(@ua)[0][i1] = 0;
-; CHECK: |      {al:2}(@sa)[0][i1] = 0;
+; CHECK: |      (@ua)[0][i1] = 0;
+; CHECK: |      (@sa)[0][i1] = 0;
 
 
 ; ModuleID = 'martyn2b.c'

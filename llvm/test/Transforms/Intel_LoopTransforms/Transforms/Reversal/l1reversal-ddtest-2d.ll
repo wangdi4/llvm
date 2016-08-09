@@ -184,71 +184,71 @@
 ; Loop0: 
 ;          BEGIN REGION { }
 ;<117>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<4>          |   %2 = {al:4}(%A)[%indvars.iv359 + -1][i1];
-;<7>          |   {al:4}(%A)[%indvars.iv359][i1 + 1] = %2 + 1;
+;<4>          |   %2 = (%A)[%indvars.iv359 + -1][i1];
+;<7>          |   (%A)[%indvars.iv359][i1 + 1] = %2 + 1;
 ;<117>        + END LOOP
 ;          END REGION
 ;
 ; Loop1:
 ;          BEGIN REGION { }
 ;<118>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<17>         |   %4 = {al:4}(%A)[%indvars.iv351 + -1][i1 + 1];
-;<20>         |   {al:4}(%A)[%indvars.iv351][i1 + 1] = %4 + 1;
+;<17>         |   %4 = (%A)[%indvars.iv351 + -1][i1 + 1];
+;<20>         |   (%A)[%indvars.iv351][i1 + 1] = %4 + 1;
 ;<118>        + END LOOP
 ;          END REGION
 ;
 ; Loop2:
 ;          BEGIN REGION { }
 ;<119>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<31>         |   %6 = {al:4}(%A)[%indvars.iv344 + -1][i1 + 2];
-;<34>         |   {al:4}(%A)[%indvars.iv344][i1 + 1] = %6 + 1;
+;<31>         |   %6 = (%A)[%indvars.iv344 + -1][i1 + 2];
+;<34>         |   (%A)[%indvars.iv344][i1 + 1] = %6 + 1;
 ;<119>        + END LOOP
 ;          END REGION
 ;
 ; Loop3:
 ;          BEGIN REGION { }
 ;<120>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<44>         |   {al:4}(%A)[%indvars.iv338][i1 + 1] = i1 + %.pre + 1;
+;<44>         |   (%A)[%indvars.iv338][i1 + 1] = i1 + %.pre + 1;
 ;<120>        + END LOOP
 ;          END REGION
 ;
 ; Loop4:
 ;          BEGIN REGION { }
 ;<121>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<55>         |   %8 = {al:4}(%A)[%indvars.iv331][i1 + 1];
-;<57>         |   {al:4}(%A)[%indvars.iv331][i1 + 1] = %8 + 1;
+;<55>         |   %8 = (%A)[%indvars.iv331][i1 + 1];
+;<57>         |   (%A)[%indvars.iv331][i1 + 1] = %8 + 1;
 ;<121>        + END LOOP
 ;          END REGION
 ;
 ; Loop5:
 ;          BEGIN REGION { }
 ;<122>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<68>         |   %9 = {al:4}(%A)[%indvars.iv325][i1 + 2];
-;<71>         |   {al:4}(%A)[%indvars.iv325][i1 + 1] = %9 + 1;
+;<68>         |   %9 = (%A)[%indvars.iv325][i1 + 2];
+;<71>         |   (%A)[%indvars.iv325][i1 + 1] = %9 + 1;
 ;<122>        + END LOOP
 ;          END REGION
 ;
 ; Loop6:
 ;          BEGIN REGION { }
 ;<123>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<81>         |   %11 = {al:4}(%A)[%indvars.iv319 + 1][i1];
-;<84>         |   {al:4}(%A)[%indvars.iv319][i1 + 1] = %11 + 1;
+;<81>         |   %11 = (%A)[%indvars.iv319 + 1][i1];
+;<84>         |   (%A)[%indvars.iv319][i1 + 1] = %11 + 1;
 ;<123>        + END LOOP
 ;          END REGION
 ;
 ; Loop7:
 ;          BEGIN REGION { }
 ;<124>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<94>         |   %12 = {al:4}(%A)[%indvars.iv312 + 1][i1 + 1];
-;<97>         |   {al:4}(%A)[%indvars.iv312][i1 + 1] = %12 + 1;
+;<94>         |   %12 = (%A)[%indvars.iv312 + 1][i1 + 1];
+;<97>         |   (%A)[%indvars.iv312][i1 + 1] = %12 + 1;
 ;<124>        + END LOOP
 ;          END REGION
 ;
 ; Loop8:
 ;          BEGIN REGION { }
 ;<125>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<108>        |   %13 = {al:4}(%A)[%indvars.iv306 + 1][i1 + 2];
-;<111>        |   {al:4}(%A)[%indvars.iv306][i1 + 1] = %13 + 1;
+;<108>        |   %13 = (%A)[%indvars.iv306 + 1][i1 + 2];
+;<111>        |   (%A)[%indvars.iv306][i1 + 1] = %13 + 1;
 ;<125>        + END LOOP
 ;          END REGION
 ;
@@ -258,71 +258,71 @@
 ; Loop0: 
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   %2 = {al:4}(%A)[%indvars.iv359 + -1][i1];
-; BEFORE:     |   {al:4}(%A)[%indvars.iv359][i1 + 1] = %2 + 1;
+; BEFORE:     |   %2 = (%A)[%indvars.iv359 + -1][i1];
+; BEFORE:     |   (%A)[%indvars.iv359][i1 + 1] = %2 + 1;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
 ; Loop1:
 ; BEFORE:   BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   %4 = {al:4}(%A)[%indvars.iv351 + -1][i1 + 1];
-; BEFORE:     |   {al:4}(%A)[%indvars.iv351][i1 + 1] = %4 + 1;
+; BEFORE:     |   %4 = (%A)[%indvars.iv351 + -1][i1 + 1];
+; BEFORE:     |   (%A)[%indvars.iv351][i1 + 1] = %4 + 1;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
 ; Loop2:
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   %6 = {al:4}(%A)[%indvars.iv344 + -1][i1 + 2];
-; BEFORE:     |   {al:4}(%A)[%indvars.iv344][i1 + 1] = %6 + 1;
+; BEFORE:     |   %6 = (%A)[%indvars.iv344 + -1][i1 + 2];
+; BEFORE:     |   (%A)[%indvars.iv344][i1 + 1] = %6 + 1;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
 ; Loop3:
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   {al:4}(%A)[%indvars.iv338][i1 + 1] = i1 + %.pre + 1;
+; BEFORE:     |   (%A)[%indvars.iv338][i1 + 1] = i1 + %.pre + 1;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
 ; Loop4:
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   %8 = {al:4}(%A)[%indvars.iv331][i1 + 1];
-; BEFORE:     |   {al:4}(%A)[%indvars.iv331][i1 + 1] = %8 + 1;
+; BEFORE:     |   %8 = (%A)[%indvars.iv331][i1 + 1];
+; BEFORE:     |   (%A)[%indvars.iv331][i1 + 1] = %8 + 1;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
 ; Loop5:
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   %9 = {al:4}(%A)[%indvars.iv325][i1 + 2];
-; BEFORE:     |   {al:4}(%A)[%indvars.iv325][i1 + 1] = %9 + 1;
+; BEFORE:     |   %9 = (%A)[%indvars.iv325][i1 + 2];
+; BEFORE:     |   (%A)[%indvars.iv325][i1 + 1] = %9 + 1;
 ; BEFORE:      + END LOOP
 ;          END REGION
 ;
 ; Loop6:
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   %11 = {al:4}(%A)[%indvars.iv319 + 1][i1];
-; BEFORE:     |   {al:4}(%A)[%indvars.iv319][i1 + 1] = %11 + 1;
+; BEFORE:     |   %11 = (%A)[%indvars.iv319 + 1][i1];
+; BEFORE:     |   (%A)[%indvars.iv319][i1 + 1] = %11 + 1;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
 ; Loop7:
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   %12 = {al:4}(%A)[%indvars.iv312 + 1][i1 + 1];
-; BEFORE:     |   {al:4}(%A)[%indvars.iv312][i1 + 1] = %12 + 1;
+; BEFORE:     |   %12 = (%A)[%indvars.iv312 + 1][i1 + 1];
+; BEFORE:     |   (%A)[%indvars.iv312][i1 + 1] = %12 + 1;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
 ; Loop8:
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   %13 = {al:4}(%A)[%indvars.iv306 + 1][i1 + 2];
-; BEFORE:     |   {al:4}(%A)[%indvars.iv306][i1 + 1] = %13 + 1;
+; BEFORE:     |   %13 = (%A)[%indvars.iv306 + 1][i1 + 2];
+; BEFORE:     |   (%A)[%indvars.iv306][i1 + 1] = %13 + 1;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
@@ -335,71 +335,71 @@
 ; Loop0: 
 ;          BEGIN REGION { }
 ;<117>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<4>          |   %2 = {al:4}(%A)[%indvars.iv359 + -1][i1];
-;<7>          |   {al:4}(%A)[%indvars.iv359][i1 + 1] = %2 + 1;
+;<4>          |   %2 = (%A)[%indvars.iv359 + -1][i1];
+;<7>          |   (%A)[%indvars.iv359][i1 + 1] = %2 + 1;
 ;<117>        + END LOOP
 ;          END REGION
 ;
 ; Loop1:
 ;          BEGIN REGION { }
 ;<118>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<17>         |   %4 = {al:4}(%A)[%indvars.iv351 + -1][i1 + 1];
-;<20>         |   {al:4}(%A)[%indvars.iv351][i1 + 1] = %4 + 1;
+;<17>         |   %4 = (%A)[%indvars.iv351 + -1][i1 + 1];
+;<20>         |   (%A)[%indvars.iv351][i1 + 1] = %4 + 1;
 ;<118>        + END LOOP
 ;          END REGION
 ;
 ; Loop2:
 ;          BEGIN REGION { }
 ;<119>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<31>         |   %6 = {al:4}(%A)[%indvars.iv344 + -1][i1 + 2];
-;<34>         |   {al:4}(%A)[%indvars.iv344][i1 + 1] = %6 + 1;
+;<31>         |   %6 = (%A)[%indvars.iv344 + -1][i1 + 2];
+;<34>         |   (%A)[%indvars.iv344][i1 + 1] = %6 + 1;
 ;<119>        + END LOOP
 ;          END REGION
 ;
 ; Loop3:
 ;          BEGIN REGION { }
 ;<120>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<44>         |   {al:4}(%A)[%indvars.iv338][i1 + 1] = i1 + %.pre + 1;
+;<44>         |   (%A)[%indvars.iv338][i1 + 1] = i1 + %.pre + 1;
 ;<120>        + END LOOP
 ;          END REGION
 ;
 ; Loop4:
 ;          BEGIN REGION { }
 ;<121>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<55>         |   %8 = {al:4}(%A)[%indvars.iv331][i1 + 1];
-;<57>         |   {al:4}(%A)[%indvars.iv331][i1 + 1] = %8 + 1;
+;<55>         |   %8 = (%A)[%indvars.iv331][i1 + 1];
+;<57>         |   (%A)[%indvars.iv331][i1 + 1] = %8 + 1;
 ;<121>        + END LOOP
 ;          END REGION
 ;
 ; Loop5:
 ;          BEGIN REGION { }
 ;<122>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<68>         |   %9 = {al:4}(%A)[%indvars.iv325][i1 + 2];
-;<71>         |   {al:4}(%A)[%indvars.iv325][i1 + 1] = %9 + 1;
+;<68>         |   %9 = (%A)[%indvars.iv325][i1 + 2];
+;<71>         |   (%A)[%indvars.iv325][i1 + 1] = %9 + 1;
 ;<122>        + END LOOP
 ;          END REGION
 ;
 ; Loop6:
 ;          BEGIN REGION { }
 ;<123>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<81>         |   %11 = {al:4}(%A)[%indvars.iv319 + 1][i1];
-;<84>         |   {al:4}(%A)[%indvars.iv319][i1 + 1] = %11 + 1;
+;<81>         |   %11 = (%A)[%indvars.iv319 + 1][i1];
+;<84>         |   (%A)[%indvars.iv319][i1 + 1] = %11 + 1;
 ;<123>        + END LOOP
 ;          END REGION
 ;
 ; Loop7:
 ;          BEGIN REGION { }
 ;<124>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<94>         |   %12 = {al:4}(%A)[%indvars.iv312 + 1][i1 + 1];
-;<97>         |   {al:4}(%A)[%indvars.iv312][i1 + 1] = %12 + 1;
+;<94>         |   %12 = (%A)[%indvars.iv312 + 1][i1 + 1];
+;<97>         |   (%A)[%indvars.iv312][i1 + 1] = %12 + 1;
 ;<124>        + END LOOP
 ;          END REGION
 ;
 ; Loop8:
 ;          BEGIN REGION { }
 ;<125>        + DO i1 = 0, 9, 1   <DO_LOOP>
-;<108>        |   %13 = {al:4}(%A)[%indvars.iv306 + 1][i1 + 2];
-;<111>        |   {al:4}(%A)[%indvars.iv306][i1 + 1] = %13 + 1;
+;<108>        |   %13 = (%A)[%indvars.iv306 + 1][i1 + 2];
+;<111>        |   (%A)[%indvars.iv306][i1 + 1] = %13 + 1;
 ;<125>        + END LOOP
 ;          END REGION
 ;
@@ -409,71 +409,71 @@
 ; Loop0: 
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   %2 = {al:4}(%A)[%indvars.iv359 + -1][i1];
-; AFTER:     |   {al:4}(%A)[%indvars.iv359][i1 + 1] = %2 + 1;
+; AFTER:     |   %2 = (%A)[%indvars.iv359 + -1][i1];
+; AFTER:     |   (%A)[%indvars.iv359][i1 + 1] = %2 + 1;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;
 ; Loop1:
 ; AFTER:   BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   %4 = {al:4}(%A)[%indvars.iv351 + -1][i1 + 1];
-; AFTER:     |   {al:4}(%A)[%indvars.iv351][i1 + 1] = %4 + 1;
+; AFTER:     |   %4 = (%A)[%indvars.iv351 + -1][i1 + 1];
+; AFTER:     |   (%A)[%indvars.iv351][i1 + 1] = %4 + 1;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;
 ; Loop2:
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   %6 = {al:4}(%A)[%indvars.iv344 + -1][i1 + 2];
-; AFTER:     |   {al:4}(%A)[%indvars.iv344][i1 + 1] = %6 + 1;
+; AFTER:     |   %6 = (%A)[%indvars.iv344 + -1][i1 + 2];
+; AFTER:     |   (%A)[%indvars.iv344][i1 + 1] = %6 + 1;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;
 ; Loop3:
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   {al:4}(%A)[%indvars.iv338][i1 + 1] = i1 + %.pre + 1;
+; AFTER:     |   (%A)[%indvars.iv338][i1 + 1] = i1 + %.pre + 1;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;
 ; Loop4:
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   %8 = {al:4}(%A)[%indvars.iv331][i1 + 1];
-; AFTER:     |   {al:4}(%A)[%indvars.iv331][i1 + 1] = %8 + 1;
+; AFTER:     |   %8 = (%A)[%indvars.iv331][i1 + 1];
+; AFTER:     |   (%A)[%indvars.iv331][i1 + 1] = %8 + 1;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;
 ; Loop5:
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   %9 = {al:4}(%A)[%indvars.iv325][i1 + 2];
-; AFTER:     |   {al:4}(%A)[%indvars.iv325][i1 + 1] = %9 + 1;
+; AFTER:     |   %9 = (%A)[%indvars.iv325][i1 + 2];
+; AFTER:     |   (%A)[%indvars.iv325][i1 + 1] = %9 + 1;
 ; AFTER:      + END LOOP
 ;          END REGION
 ;
 ; Loop6:
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   %11 = {al:4}(%A)[%indvars.iv319 + 1][i1];
-; AFTER:     |   {al:4}(%A)[%indvars.iv319][i1 + 1] = %11 + 1;
+; AFTER:     |   %11 = (%A)[%indvars.iv319 + 1][i1];
+; AFTER:     |   (%A)[%indvars.iv319][i1 + 1] = %11 + 1;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;
 ; Loop7:
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   %12 = {al:4}(%A)[%indvars.iv312 + 1][i1 + 1];
-; AFTER:     |   {al:4}(%A)[%indvars.iv312][i1 + 1] = %12 + 1;
+; AFTER:     |   %12 = (%A)[%indvars.iv312 + 1][i1 + 1];
+; AFTER:     |   (%A)[%indvars.iv312][i1 + 1] = %12 + 1;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;
 ; Loop8:
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   %13 = {al:4}(%A)[%indvars.iv306 + 1][i1 + 2];
-; AFTER:     |   {al:4}(%A)[%indvars.iv306][i1 + 1] = %13 + 1;
+; AFTER:     |   %13 = (%A)[%indvars.iv306 + 1][i1 + 2];
+; AFTER:     |   (%A)[%indvars.iv306][i1 + 1] = %13 + 1;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ; 

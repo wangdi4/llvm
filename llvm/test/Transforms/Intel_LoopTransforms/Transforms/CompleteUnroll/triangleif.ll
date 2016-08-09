@@ -5,16 +5,16 @@
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: if (1 > 2)
-; CHECK: %0 = {al:8}(%B)[0]
-; CHECK: %1 = {al:4}(%0)[1]
-; CHECK: {al:4}(%2)[0] = %1
+; CHECK: %0 = (%B)[0]
+; CHECK: %1 = (%0)[1]
+; CHECK: (%2)[0] = %1
 ; CHECK: else
-; CHECK: %3 = {al:8}(%A)[1]
-; CHECK-NEXT: {al:4}(%3)[0] = 1
+; CHECK: %3 = (%A)[1]
+; CHECK-NEXT: (%3)[0] = 1
 ; CHECK: if (3 > 2)
-; CHECK: %2 = {al:8}(%A)[2]
+; CHECK: %2 = (%A)[2]
 ; CHECK: else
-; CHECK: {al:4}(%3)[1] = 3
+; CHECK: (%3)[1] = 3
 ; CHECK: END REGION
 
 ; Source Code

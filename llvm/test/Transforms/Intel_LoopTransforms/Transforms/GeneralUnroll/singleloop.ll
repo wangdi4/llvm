@@ -8,7 +8,7 @@
 ; CHECK: DO i1 = 0, 34, 1
 ; CHECK: (@a)[0][8 * {{.*}}(%n) * i1 + 7 * {{.*}}(%n)] 
 ; CHECK: END LOOP
-; CHECK-NEXT: DO i1 = 280, 283, 1
+; CHECK: DO i1 = 280, 283, 1
 ; CHECK: (@a)[0][i1]
 ; CHECK-NEXT: END LOOP
 

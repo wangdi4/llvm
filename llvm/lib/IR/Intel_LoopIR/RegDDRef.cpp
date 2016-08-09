@@ -264,8 +264,8 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
           OS << "{vol}";
         }
 
-        if (auto Alignment = getAlignment()) {
-          OS << "{al:" << Alignment << "}";
+        if (Detailed && getAlignment()) {
+          OS << "{al:" << getAlignment() << "}";
         }
       }
 

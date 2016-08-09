@@ -4,17 +4,17 @@
 
 ; Original HIR-
 ; + DO i1 = 0, smax(3, %n) + -3, 1   <DO_LOOP>
-; |   %0 = {al:4}(%p3)[i1 + 1];
-; |   {al:4}(%p3)[i1] = %0;
-; |   %1 = {al:4}(%p1)[(-4 * i1 + 4 * sext.i32.i64(%n) + -8)/u4];
-; |   %2 = {al:4}(%p3)[i1 + 1];
+; |   %0 = (%p3)[i1 + 1];
+; |   (%p3)[i1] = %0;
+; |   %1 = (%p1)[(-4 * i1 + 4 * sext.i32.i64(%n) + -8)/u4];
+; |   %2 = (%p3)[i1 + 1];
 ; + END LOOP
 
 ; CHECK: + DO i1 = 0, smax(3, %n) + -3, 1   <DO_LOOP>
-; CHECK: |   %0 = {al:4}(%p3)[i1 + 1];
-; CHECK: |   {al:4}(%p3)[i1] = %0;
-; CHECK: |   %1 = {al:4}(%p1)[-1 * i1 + sext.i32.i64(%n) + -2];
-; CHECK: |   %2 = {al:4}(%p3)[i1 + 1];
+; CHECK: |   %0 = (%p3)[i1 + 1];
+; CHECK: |   (%p3)[i1] = %0;
+; CHECK: |   %1 = (%p1)[-1 * i1 + sext.i32.i64(%n) + -2];
+; CHECK: |   %2 = (%p3)[i1 + 1];
 ; CHECK: + END LOOP
 
 define i32 @t_run_test(i32* %p1, i32 %n, i32* %p3) {

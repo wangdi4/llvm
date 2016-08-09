@@ -63,17 +63,17 @@
 ; 
 ;          BEGIN REGION { }
 ;<16>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<4>          |   %1 = {al:4}(%A)[-1 * i1 + 100];
+;<4>          |   %1 = (%A)[-1 * i1 + 100];
 ;<5>          |   %add1 = %1  +  2;
-;<9>          |   {al:4}(%B)[-2 * i1 + 50] = %1 + 2;
+;<9>          |   (%B)[-2 * i1 + 50] = %1 + 2;
 ;<16>         + END LOOP
 ;          END REGION
 ;
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 4, 1   <DO_LOOP>
-; BEFORE:     |   %1 = {al:4}(%A)[-1 * i1 + 100];
+; BEFORE:     |   %1 = (%A)[-1 * i1 + 100];
 ; BEFORE:     |   %add1 = %1  +  2;
-; BEFORE:     |   {al:4}(%B)[-2 * i1 + 50] = %1 + 2;
+; BEFORE:     |   (%B)[-2 * i1 + 50] = %1 + 2;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
 ;
@@ -87,17 +87,17 @@
 ; 
 ;          BEGIN REGION { }
 ;<16>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<4>          |   %1 = {al:4}(%A)[-1 * i1 + 100];
+;<4>          |   %1 = (%A)[-1 * i1 + 100];
 ;<5>          |   %add1 = %1  +  2;
-;<9>          |   {al:4}(%B)[-2 * i1 + 50] = %1 + 2;
+;<9>          |   (%B)[-2 * i1 + 50] = %1 + 2;
 ;<16>         + END LOOP
 ;          END REGION
 ;
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 4, 1   <DO_LOOP>
-; AFTER:     |   %1 = {al:4}(%A)[-1 * i1 + 100];
+; AFTER:     |   %1 = (%A)[-1 * i1 + 100];
 ; AFTER:     |   %add1 = %1  +  2;
-; AFTER:     |   {al:4}(%B)[-2 * i1 + 50] = %1 + 2;
+; AFTER:     |   (%B)[-2 * i1 + 50] = %1 + 2;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
 ;

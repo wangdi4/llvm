@@ -49,13 +49,13 @@
 ; 
 ;          BEGIN REGION { }
 ;<11>            + DO i1 = 0, 255, 1   <DO_LOOP>
-;<4>             |   {al:1}(@window)[0][-1 * i1 + 255] = -1 * i1 + 255;
+;<4>             |   (@window)[0][-1 * i1 + 255] = -1 * i1 + 255;
 ;<11>            + END LOOP
 ;          END REGION
 ; 
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:        + DO i1 = 0, 255, 1   <DO_LOOP>
-; BEFORE:        |   {al:1}(@window)[0][-1 * i1 + 255] = -1 * i1 + 255;
+; BEFORE:        |   (@window)[0][-1 * i1 + 255] = -1 * i1 + 255;
 ; BEFORE:        + END LOOP
 ; BEFORE:  END REGION
 ;
@@ -67,14 +67,14 @@
 ; 
 ;          BEGIN REGION { modified }
 ;<11>            + DO i1 = 0, 255, 1   <DO_LOOP>
-;<4>             |   {al:1}(@window)[0][i1] = i1;
+;<4>             |   (@window)[0][i1] = i1;
 ;<11>            + END LOOP
 ;          END REGION
 ;
 ;
 ; AFTER:   BEGIN REGION { modified }
 ; AFTER:         + DO i1 = 0, 255, 1   <DO_LOOP>
-; AFTER:         |   {al:1}(@window)[0][i1] = i1;
+; AFTER:         |   (@window)[0][i1] = i1;
 ; AFTER:         + END LOOP
 ; AFTER:   END REGION
 ;

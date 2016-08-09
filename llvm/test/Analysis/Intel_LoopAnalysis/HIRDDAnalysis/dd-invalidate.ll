@@ -12,16 +12,16 @@
 
 ; CHECK: HIR Data Dependence Analysis
 ; CHECK-DAG: [[SRC1:[0-9]+]]:[[DST1:[0-9]+]] %0 --> %0 FLOW
-; CHECK-DAG: [[SRC2:[0-9]+]]:[[DST2:[0-9]+]] {al:4}(%B)[i1 + i2] --> {al:4}(%A)[i2][i1] ANTI
-; CHECK-DAG: [[SRC3:[0-9]+]]:[[DST3:[0-9]+]] {al:4}(%A)[i2][i1] --> {al:4}(%B)[i1 + i2] FLOW
+; CHECK-DAG: [[SRC2:[0-9]+]]:[[DST2:[0-9]+]] (%B)[i1 + i2] --> (%A)[i2][i1] ANTI
+; CHECK-DAG: [[SRC3:[0-9]+]]:[[DST3:[0-9]+]] (%A)[i2][i1] --> (%B)[i1 + i2] FLOW
 
 ; CHECK: IR Dump After HIR Loop Interchange
 ; CHECK: (%A)[i1][i2]
 
 ; CHECK: HIR Data Dependence Analysis
 ; CHECK-DAG: [[SRC1]]:[[DST1]] %0 --> %0 FLOW
-; CHECK-DAG: (%B)[i1 + i2] --> {al:4}(%A)[i2][i1] ANTI
-; CHECK-DAG: (%A)[i2][i1] --> {al:4}(%B)[i1 + i2] FLOW
+; CHECK-DAG: (%B)[i1 + i2] --> (%A)[i2][i1] ANTI
+; CHECK-DAG: (%A)[i2][i1] --> (%B)[i1 + i2] FLOW
 ; CHECK-NOT: [[SRC2]]:[[DST2]]
 ; CHECK-NOT: [[SRC3]]:[[DST3]]
 

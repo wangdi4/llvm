@@ -3,7 +3,7 @@
 ; Check that we are able to compute the max trip count estimate of the loop.
 
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 31>
-; CHECK: |   {al:8}(@A)[0][-1 * i1 + 30] = i1;
+; CHECK: |   (@A)[0][-1 * i1 + 30] = i1;
 ; CHECK: + END LOOP
 
 

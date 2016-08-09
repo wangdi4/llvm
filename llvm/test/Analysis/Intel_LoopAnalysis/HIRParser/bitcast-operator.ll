@@ -2,9 +2,9 @@
 
 ; Check parsing output for the loop verifying that the gep with bitcast operator is parsed cleanly..
 ; CHECK: + DO i1 = 0, 100, 1   <DO_LOOP>
-; CHECK: |   %0 = {al:8}(i32*)(@A)[0][2];
+; CHECK: |   %0 = (i32*)(@A)[0][2];
 ; CHECK: |   %conv = sitofp.i64.float(i1);
-; CHECK: |   {al:8}(@A)[0][2 * i1 + 2] = %conv;
+; CHECK: |   (@A)[0][2 * i1 + 2] = %conv;
 ; CHECK: + END LOOP
 
 

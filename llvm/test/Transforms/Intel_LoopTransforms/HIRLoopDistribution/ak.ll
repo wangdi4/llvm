@@ -20,7 +20,7 @@
 ; CHECK: (@A)[0][i1 + 1][i2 + 1] = 
 ; CHECK-NEXT: END LOOP
 
-; CHECK-NEXT: DO i2 = 0, 99998, 1
+; CHECK: DO i2 = 0, 99998, 1
 ; CHECK: (@A)[0][i1 + 1][i2] 
 ; CHECK: END LOOP
 ; CHECK-NEXT: END LOOP

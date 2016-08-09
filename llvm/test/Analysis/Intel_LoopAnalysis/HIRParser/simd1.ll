@@ -10,8 +10,8 @@
 ; CHECK: |   %mask5 = (%veccast.3)[i1];
 ; CHECK: |   if (%mask5 != 0)
 ; CHECK: |   {
-; CHECK: |      %0 = {al:4}(%veccast.1)[i1];
-; CHECK: |      %1 = {al:4}(%veccast.2)[i1];
+; CHECK: |      %0 = (%veccast.1)[i1];
+; CHECK: |      %1 = (%veccast.2)[i1];
 ; CHECK: |      (%veccast)[i1] = %0 + %1;
 ; CHECK: |   }
 ; CHECK: + END LOOP

@@ -6,10 +6,10 @@
 ; Check parsing output for reduction chain in the loopnest
 ; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %m)), 1   <DO_LOOP>
-; CHECK: |   |   %0 = {al:4}(@A)[0][i2][i1];
+; CHECK: |   |   %0 = (@A)[0][i2][i1];
 ; CHECK: |   |   %t.034 = %0  +  %t.034;
 ; CHECK: |   |   %t.034.out = %t.034;
-; CHECK: |   |   %1 = {al:4}(@B)[0][i2][i1];
+; CHECK: |   |   %1 = (@B)[0][i2][i1];
 ; CHECK: |   |   %t.034 = %t.034  +  %1;
 ; CHECK: |   |   %call = @foo1(%t.034.out);
 ; CHECK: |   + END LOOP

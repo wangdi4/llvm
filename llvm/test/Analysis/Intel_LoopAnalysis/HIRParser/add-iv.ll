@@ -2,7 +2,7 @@
 
 ; Check parsing output for the loop verifying that the addIV() operation for GEP is performed successfully.
 ; CHECK: DO i1 = 0, %vn.0.vn.0. + -1
-; CHECK-NEXT: {vol}{al:4}(%p)[(1 + %vn.0.vn.0.) * i1] = 1
+; CHECK-NEXT: {vol}(%p)[(1 + %vn.0.vn.0.) * i1] = 1
 ; CHECK-NEXT: END LOOP
 
 

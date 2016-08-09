@@ -4,7 +4,7 @@
 
 ; CHECK: + DO i1 = 0, 9, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, i1 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 9>
-; CHECK: |   |   {al:8}(@A)[0][i1 + i2] = i1 + i2;
+; CHECK: |   |   (@A)[0][i1 + i2] = i1 + i2;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 

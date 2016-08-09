@@ -3,7 +3,7 @@
 ; Check that parsing is update to handle base temp update from add1165.lcssa1750.lcssa -> add1165.lcssa1750 successfully.
 ; CHECK: %add1165.lcssa1750 = 0.000000e+00;
 ; CHECK: %add1165.lcssa1750 = undef;
-; CHECK: {al:8}(@ety2_.zz)[0] = %add1165.lcssa1750;
+; CHECK: (@ety2_.zz)[0] = %add1165.lcssa1750;
 
 
 ; ModuleID = 'bugpoint-reduced-simplified.bc'

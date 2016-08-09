@@ -2,12 +2,12 @@
 
 ; Check parsing output for the loop verifying that the compare instruction is parsed correctly.
 ; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
-; CHECK-NEXT: %0 = {al:4}(%A)[i1]
-; CHECK-NEXT: %1 = {al:4}(%B)[i1]
+; CHECK-NEXT: %0 = (%A)[i1]
+; CHECK-NEXT: %1 = (%B)[i1]
 ; CHECK-NEXT: %cmp3 = %0 < %1
 ; CHECK-NEXT: if (%0 < %1)
-; CHECK: {al:4}(%A)[i1] = %1
-; CHECK: {al:4}(%B)[i1] = %0
+; CHECK: (%A)[i1] = %1
+; CHECK: (%B)[i1] = %0
 ; CHECK: END LOOP
 
 

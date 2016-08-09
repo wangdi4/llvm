@@ -3,7 +3,7 @@
 ; Check parsing output for the loop
 ; CHECK: DO i1 = 0, 8
 ; CHECK-NEXT: %i.05.out = %i.05;
-; CHECK-NEXT: {al:4}(%A)[%i.05.out] = %i.05.out
+; CHECK-NEXT: (%A)[%i.05.out] = %i.05.out
 ; CHECK-NEXT: %i.05 = %i.05  /  2
 ; CHECK-NEXT: END LOOP
 

@@ -195,14 +195,15 @@ HLLoop *HLLoop::cloneEmptyLoop() const {
 
 void HLLoop::printPreheader(formatted_raw_ostream &OS, unsigned Depth,
                             bool Detailed) const {
-  bool FirstPreInst = true;
+  auto Parent = getParent();
+
+  // If a previous node exists, add a newline.
+  if (Parent && (this != HLNodeUtils::getFirstLexicalChild(Parent, this))) {
+    indent(OS, Depth);
+    OS << "\n";
+  }
 
   for (auto I = pre_begin(), E = pre_end(); I != E; I++) {
-    if (FirstPreInst) {
-      indent(OS, Depth);
-      OS << "\n";
-      FirstPreInst = false;
-    }
     I->print(OS, Depth + 1, Detailed);
   }
 }
@@ -343,7 +344,10 @@ void HLLoop::printPostexit(formatted_raw_ostream &OS, unsigned Depth,
     I->print(OS, Depth + 1, Detailed);
   }
 
-  if (hasPostexit()) {
+  auto Parent = getParent();
+
+  // If a next node exists, add a newline.
+  if (Parent && (this != HLNodeUtils::getLastLexicalChild(Parent, this))) {
     indent(OS, Depth);
     OS << "\n";
   }

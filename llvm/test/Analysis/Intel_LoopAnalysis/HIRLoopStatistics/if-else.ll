@@ -7,10 +7,10 @@
 ; |   if (i1 > 77)
 ; |   {
 ; |      %a.addr.014 = %a.addr.014  +  1;
-; |      {al:4}(%A)[i1] = %a.addr.014;
+; |      (%A)[i1] = %a.addr.014;
 ; |      %output.1 = %a.addr.014.out;
 ; |   }
-; |   {al:4}(%B)[i1] = %output.1;
+; |   (%B)[i1] = %output.1;
 ; + END LOOP
 
 ; Verify that if in the loop is included in loop statistics.

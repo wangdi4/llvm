@@ -4,7 +4,7 @@
 
 ; CHECK: + DO i1 = 0, 4294967294, 1   <DO_LOOP>
 ; CHECK: |   %and = i1  &&  1023;
-; CHECK: |   {al:4}(@A)[0][%and] = i1;
+; CHECK: |   (@A)[0][%and] = i1;
 ; CHECK: + END LOOP
 
 

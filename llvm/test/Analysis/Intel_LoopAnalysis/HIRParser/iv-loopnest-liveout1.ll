@@ -2,14 +2,15 @@
 
 ; Check parsing output for the loop verifying that the IV lievout case is handled properly.
 
-; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: %j.0.lcssa = 0
-; CHECK-NEXT: DO i2 = 0, %n + -1
-; CHECK-NEXT: {al:4}(%A)[i1] = i2
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %j.0.lcssa = %n
-; CHECK: %ret.05 = %ret.05  +  %j.0.lcssa
-; CHECK-NEXT: END LOOP
+; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
+; CHECK: |   %j.0.lcssa = 0;
+; CHECK: |
+; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>
+; CHECK: |   |   (%A)[i1] = i2;
+; CHECK: |   + END LOOP
+; CHECK: |      %j.0.lcssa = %n;
+; CHECK: |   %ret.05 = %ret.05  +  %j.0.lcssa;
+; CHECK: + END LOOP
 
 
 ; ModuleID = 'iv-loopnest-liveout.ll'
