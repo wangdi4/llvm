@@ -114,7 +114,11 @@ using namespace llvm::loopopt::runtimedd;
 
 static cl::opt<bool> DisableRuntimeDD("disable-" OPT_SWITCH, cl::init(false),
                                       cl::Hidden,
-                                      cl::desc("Disable " OPT_DESCR));
+                                      cl::desc("Disable " OPT_DESCR "."));
+
+static cl::opt<bool>
+    DisableCostModel("disable-" OPT_SWITCH "-cost-model", cl::init(false),
+                     cl::Hidden, cl::desc("Disable " OPT_DESCR " cost model."));
 
 static cl::opt<unsigned>
     MaximumNumberOfTests(OPT_SWITCH "-max-tests",
@@ -138,6 +142,7 @@ struct HIRRuntimeDD::LoopAnalyzer final : public HLNodeVisitorBase {
   void visit(HLLoop *Loop) {
     LoopContext Context;
     DEBUG(dbgs() << "Runtime DD for loop " << Loop->getNumber() << ":\n");
+
     RuntimeDDResult Result = HIRRuntimeDD::computeTests(Loop, Context);
     if (Result == OK) {
       SkipNode = Loop;
@@ -258,8 +263,7 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
 
     // The relaxed mode is safe here as we know that upper bound is always non
     // negative
-    assert(!BoundCE->isTrunc() &&
-           "Truncations are not supported");
+    assert(!BoundCE->isTrunc() && "Truncations are not supported");
 
     bool Ret;
     if (BoundCE->getDenominator() == 1 &&
@@ -317,6 +321,21 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
         continue;
       }
 
+      unsigned IVBlobIndex;
+      int64_t IVConstCoeff;
+      CE->getIVCoeff(Level, &IVBlobIndex, &IVConstCoeff);
+
+      // Profitability check:
+      // This pass helps Vectorization of inner loops and Loop Interchange
+      // of loopnests.
+      // For Vectorization we skip loops with non-unit stride DDRefs as it will
+      // usually result in gather/scatter generation.
+      // For Loop Interchange we treat them as profitable.
+      if (!DisableCostModel && OuterLoop == InnermostLoop &&
+          (IVConstCoeff != 1 || IVBlobIndex != InvalidBlobIndex)) {
+        return NON_PROFITABLE;
+      }
+
       const CanonExpr *UpperBoundCE = LoopI->getUpperCanonExpr();
 
       // Check if CE and UpperBoundCE are mergeable and check if UpperBoundCE
@@ -333,19 +352,15 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
              "represented as a blob if Upper is mergeable or can be represented"
              " as a blob");
 
-      auto IVBlobIndex = CE->getIVBlobCoeff(Level);
       if (IVBlobIndex != InvalidBlobIndex) {
         std::unique_ptr<CanonExpr> IVBlobExpr(
             CanonExprUtils::createExtCanonExpr(
                 CE->getSrcType(), CE->getDestType(), CE->isSExt()));
 
-        IVBlobExpr->addBlob(IVBlobIndex, CE->getIVConstCoeff(Level));
+        IVBlobExpr->addBlob(IVBlobIndex, IVConstCoeff);
 
-        bool IsKnownNonZero =
-            HLNodeUtils::isKnownPositive(IVBlobExpr.get(), InnermostLoop) ||
-            HLNodeUtils::isKnownNegative(IVBlobExpr.get(), InnermostLoop);
-
-        if (!IsKnownNonZero) {
+        if (!HLNodeUtils::isKnownPositiveOrNegative(IVBlobExpr.get(),
+                                                    InnermostLoop)) {
           return BLOB_IV_COEFF;
         }
       }
@@ -408,11 +423,22 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Multiple groups with the same base CE";
   case NON_DO_LOOP:
     return "Non DO loops are not supported";
+  case NON_PROFITABLE:
+    return "Loop considered non-profitable";
   default:
     llvm_unreachable("Unexpected give up reason");
   }
 }
 #endif
+
+bool HIRRuntimeDD::isProfitable(const HLLoop *Loop) {
+  if (DisableCostModel) {
+    return true;
+  }
+
+  return !HLNodeUtils::hasSwitchOrCallOrIf(Loop->getFirstChild(),
+                                           Loop->getLastChild());
+}
 
 RuntimeDDResult HIRRuntimeDD::processLoopnest(
     const HLLoop *OuterLoop, const HLLoop *InnermostLoop,
@@ -443,7 +469,7 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
        LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
     // TotalTripCount is a minimal estimation of loopnest tripcount. Non-const
     // loops are treated as they execute at least once.
-    int64_t TripCount;
+    uint64_t TripCount;
     if (LoopI->isConstTripLoop(&TripCount)) {
       TotalTripCount *= TripCount;
       if (TotalTripCount >= SmallTripCountTest) {
@@ -523,6 +549,14 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     return ALREADY_MV;
   }
 
+  if (!Loop->hasChildren()) {
+    return NO_OPPORTUNITIES;
+  }
+
+  if (!isProfitable(Loop)) {
+    return NON_PROFITABLE;
+  }
+
   const HLLoop *InnermostLoop = Loop;
   if (!Loop->isInnermost() &&
       !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop)) {
@@ -530,8 +564,8 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   }
 
   // Check the loopnest for applicability
-  for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop;
-       LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
+  for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop; LoopI != LoopE;
+       LoopI = LoopI->getParentLoop()) {
     if (!LoopI->isDo()) {
       return NON_DO_LOOP;
     }
@@ -542,7 +576,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   }
 
   MemRefGatherer::MapTy RefMap;
-  RefGroupMapTy &Groups = Context.Groups;
+  RefGroupMapTy Groups;
 
   // Gather references which are only inside a loop, excepting loop bounds,
   // pre-header and post-exit.
@@ -598,7 +632,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
       // Skip loops with refs where base CEs are the same, as this
       // transformation mostly for cases with different pointers.
-      if (CanonExprUtils::areEqual(S1.getBaseCE(), S2.getBaseCE())) {
+      if (CanonExprUtils::areEqual(S1.getBaseCE(), S2.getBaseCE(), true)) {
         return SAME_BASE;
       }
 
@@ -687,10 +721,10 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   //   <PostExit>
   // }
 
-  HLLoop *OrigLoop = Context.Loop->clone();
-  HLLoop *ModifiedLoop = Context.Loop;
+  HLLoop *OrigLoop = Context.Loop;
+  HLLoop *ModifiedLoop = Context.Loop->clone();
 
-  HLNodeUtils::insertAfter(ModifiedLoop, OrigLoop);
+  HLNodeUtils::insertBefore(OrigLoop, ModifiedLoop);
 
   HLLabel *OrigLabel = HLNodeUtils::createHLLabel("mv.orig");
   HLNodeUtils::insertBefore(OrigLoop, OrigLabel);
@@ -736,18 +770,24 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   ModifiedLoop->setMVTag(MVTag);
   OrigLoop->setMVTag(MVTag);
 
-  markDDRefsIndep(Context);
+  OrigLoop->markDoNotVectorize();
+
+  markDDRefsIndep(ModifiedLoop);
 
   HLRegion *ParentRegion = Context.Loop->getParentRegion();
   assert(ParentRegion && "Processed loop is not attached.");
   ParentRegion->setGenCode(true);
 
-  HIRInvalidationUtils::invalidateBody(Context.Loop);
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Context.Loop);
 }
 
-void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
-  RefGroupMapTy &Groups = Context.Groups;
+void HIRRuntimeDD::markDDRefsIndep(HLLoop *Loop) {
+  MemRefGatherer::MapTy RefMap;
+  MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), RefMap);
+  MemRefGatherer::sort(RefMap);
+
+  RefGroupMapTy Groups;
+  DDRefGrouping::createGroups(Groups, RefMap, isGroupMemRefMatchForRTDD);
 
   auto Size = Groups.size();
   MDBuilder MDB(HIRUtils::getContext());
@@ -781,7 +821,7 @@ void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
 }
 
 bool HIRRuntimeDD::runOnFunction(Function &F) {
-  if (DisableRuntimeDD) {
+  if (DisableRuntimeDD || skipFunction(F)) {
     return false;
   }
 

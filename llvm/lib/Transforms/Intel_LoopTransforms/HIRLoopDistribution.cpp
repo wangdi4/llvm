@@ -196,12 +196,11 @@ void HIRLoopDistribution::distributeLoop(
 
   Loop->getParentRegion()->setGenCode();
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
-  HIRInvalidationUtils::invalidateBody(Loop);
 
   // The loop is now empty, all its children moved into new loops
   assert(!Loop->hasChildren() &&
          "Loop Distribution failed to account for all Loop Children");
-  HLNodeUtils::erase(Loop);
+  HLNodeUtils::remove(Loop);
 }
 
 // Form perfect loop candidates by grouping stmt only piblocks
@@ -389,7 +388,7 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
 
   this->F = &F;
 
-  if (DisableDist) {
+  if (DisableDist || skipFunction(F)) {
     if (OptReportLevel >= 3) {
       dbgs() << "LOOP DISTRIBUTION: Transform disabled \n";
     }

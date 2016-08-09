@@ -229,8 +229,15 @@ protected:
     return IsMathAdd ? (getDenominator() * Coeff) : Coeff;
   }
 
-  /// Verifies that the incoming nesting level is valid for this CE, asserts otherwise.
+  /// Verifies that the incoming nesting level is valid for this CE, asserts
+  /// otherwise.
   bool verifyNestingLevel(unsigned NestingLevel) const;
+
+  /// Verifies that all IVs contained in CE are valid, asserts otherwise.
+  bool verifyIVs(unsigned NestingLevel) const;
+
+  /// \brief Returns true if canon expr represents null pointer value.
+  bool isNullImpl() const;
 
 public:
   CanonExpr *clone() const;
@@ -326,7 +333,7 @@ public:
   /// \brief Returns true if canon expr represents any kind of constant.
   bool isConstant() const {
     return (isIntConstant() || isFPConstant() || isNull() || isMetadata() ||
-            isConstantVector());
+            isConstantVector() || isNullVector());
   }
 
   /// \brief Returns true if canon expr is a constant integer. Integer value
@@ -357,6 +364,10 @@ public:
 
   /// \brief Returns true if canon expr represents null pointer value.
   bool isNull() const;
+
+  /// \brief Returns true if canon expr represents a vector of null pointer
+  /// values.
+  bool isNullVector() const;
 
   /// \brief Returns true if this canon expr looks soemthing like (1 * %t).
   /// This is a broader check than isSelfBlob() because it allows the blob to
@@ -415,7 +426,7 @@ public:
   }
 
   /// \brief Returns true if this expression contains undefined terms.
-  bool containsUndef() const; 
+  bool containsUndef() const;
 
   /// \brief Returns the constant additive of the canon expr.
   int64_t getConstant() const { return Const; }
@@ -444,6 +455,10 @@ public:
   /// \brief Returns true if the division in the canon expr is a signed
   /// division.
   bool isSignedDiv() const { return IsSignedDiv; }
+
+  /// \brief Returns true if the division in the canon expr is an unsigned
+  /// division.
+  bool isUnsignedDiv() const { return !isSignedDiv(); }
 
   /// \brief Sets the division type which can be either signed or unsigned.
   /// This
@@ -639,11 +654,9 @@ namespace std {
 
 // default_delete<CanonExpr> is a helper for destruction CanonExpr objects to
 // support std::unique_ptr<CanonExpr>.
-template <>
-struct default_delete<llvm::loopopt::CanonExpr> {
+template <> struct default_delete<llvm::loopopt::CanonExpr> {
   void operator()(llvm::loopopt::CanonExpr *CE) const;
 };
-
 }
 
 #endif

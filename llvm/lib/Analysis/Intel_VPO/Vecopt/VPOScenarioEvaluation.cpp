@@ -462,8 +462,8 @@ bool VPOCostGathererBase::skipRecursion (AVR *ANode) {
 }
 
 void VPOCostGathererBase::visit(AVR *ANode) {
-  errs() << "VPOCostModel: Unsupported AVR kind\n";
-  ANode->dump(PrintBase);
+  DEBUG(errs() << "VPOCostModel: Unsupported AVR kind\n");
+  DEBUG(ANode->dump(PrintBase));
   //llvm_unreachable("unsupported AVR kind");
 }
 #endif
@@ -718,6 +718,12 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
     int64_t StrideInBytes;
     if (Mrf && Mrf->hasAConstStride(&StrideInBytes)) {
       unsigned ElemSize = DataTy->getPrimitiveSizeInBits() / 8;
+      if (DataTy->isPointerTy()) {
+        // Avoid div-by-zero for pulldown purpose.
+        // TODO: Load can be a pointer. What do we do?
+        Cost = 0;
+        break; 
+      }
       StrideInElements = StrideInBytes / ElemSize;
       if ((StrideInElements == 1) || (StrideInElements == -1))
         ConsecutiveStride = StrideInElements;
@@ -833,8 +839,8 @@ void VPOCostGathererBase::postVisit(AVRExpression *Expr) {
   }
 
   default:
-    errs() << "Unsupported expression kind.\n";
-    Expr->dump(PrintDataType);
+    DEBUG(errs() << "Unsupported expression kind.\n");
+    DEBUG(Expr->dump(PrintDataType));
     //llvm_unreachable("unsupported expression kind");
   }
 

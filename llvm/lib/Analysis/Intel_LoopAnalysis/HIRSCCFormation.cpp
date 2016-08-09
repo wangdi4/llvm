@@ -219,6 +219,21 @@ bool HIRSCCFormation::dependsOnSameBasicBlockPhi(const PHINode *Phi) const {
   return false;
 }
 
+bool HIRSCCFormation::isSingleTripLoop(Loop *Lp) const {
+  if (!SE->hasLoopInvariantBackedgeTakenCount(Lp)) {
+    return false;
+  }
+
+  const SCEV *BETC = SE->getBackedgeTakenCount(Lp);
+  auto ConstSCEV = dyn_cast<SCEVConstant>(BETC);
+
+  if (!ConstSCEV) {
+    return false;
+  }
+
+  return ConstSCEV->getValue()->isZero();
+}
+
 bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   // Use is outside the loop bring processed.
@@ -255,6 +270,14 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   // Ignore linear uses.
   if (isConsideredLinear(Node)) {
+    return false;
+  }
+
+  auto Lp = LI->getLoopFor(Node->getParent());
+
+  // LLVM sometimes converts zero-trip loops to single trip loops. SSA
+  // deconstruction cannot handle SCCs for such loops so we suppress them.
+  if (isSingleTripLoop(Lp)) {
     return false;
   }
 
@@ -634,6 +657,12 @@ void HIRSCCFormation::formRegionSCCs() {
       }
 
       CurLoop = LI->getLoopFor(BB);
+
+      // LLVM sometimes converts zero-trip loops to single trip loops. SSA
+      // deconstruction cannot handle SCCs for such loops so we suppress them.
+      if (isSingleTripLoop(CurLoop)) {
+        continue;
+      }
 
       // Iterate through the phi nodes in the header.
       for (auto I = BB->begin(); isa<PHINode>(I); ++I) {

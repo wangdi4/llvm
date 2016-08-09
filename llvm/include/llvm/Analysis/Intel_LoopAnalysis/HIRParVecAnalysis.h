@@ -21,14 +21,15 @@
 #ifndef INTEL_LOOPANALYSIS_PVA_H
 #define INTEL_LOOPANALYSIS_PVA_H
 
-#include "llvm/Pass.h"
-#include "llvm/IR/DebugLoc.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/DebugLoc.h"
+#include "llvm/Pass.h"
 
 namespace llvm {
 namespace loopopt {
 
 class HIRDDAnalysis;
+class HIRSafeReductionAnalysis;
 class DDEdge;
 class HLRegion;
 class HLLoop;
@@ -40,7 +41,6 @@ class HLSwitch;
 class ParVecInfo {
 
 public:
-
   enum AnalysisMode {
     None,
     Parallel,                     // Parallelization analysis only
@@ -63,7 +63,6 @@ public:
   };
 
 private:
-
   // Per-loop data for ParVec analysis
   HLLoop *HLoop;
 
@@ -112,7 +111,6 @@ private:
   void printIndent(raw_ostream &OS, bool ZeroBase) const;
 
 public:
-
   ParVecInfo(AnalysisMode Mode, HLLoop *HLoop);
 
   // Field accessors
@@ -173,7 +171,7 @@ public:
   }
 
   /// \brief Main analysis function.
-  void analyze(HLLoop *Loop, HIRDDAnalysis *DDA);
+  void analyze(HLLoop *Loop, HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA);
 
   /// \brief Print the analysis result.
   void print(raw_ostream &OS, bool WithLoop = true) const;
@@ -181,7 +179,8 @@ public:
   /// \brief Main accessor for the ParVecInfo.
   static ParVecInfo *get(AnalysisMode Mode,
                          DenseMap<HLLoop *, ParVecInfo *> &InfoMap,
-                         HIRDDAnalysis *DDA, HLLoop *Loop) {
+                         HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA,
+                         HLLoop *Loop) {
 
     auto Info = InfoMap[Loop];
 
@@ -191,7 +190,7 @@ public:
     //       to deal with such situation.
 
     if (!Info->isDone())
-      Info->analyze(Loop, DDA);
+      Info->analyze(Loop, DDA, SRA);
 
     return Info;
   }
@@ -221,13 +220,12 @@ public:
 class HIRParVecAnalysis : public FunctionPass {
 
 private:
-
   bool Enabled;
   HIRDDAnalysis *DDA;
+  HIRSafeReductionAnalysis *SRA;
   DenseMap<HLLoop *, ParVecInfo *> InfoMap;
 
 public:
-
   HIRParVecAnalysis() : FunctionPass(ID), Enabled(false) {
     initializeHIRParVecAnalysisPass(*PassRegistry::getPassRegistry());
     InfoMap.clear();

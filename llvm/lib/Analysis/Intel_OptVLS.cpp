@@ -110,6 +110,150 @@ void OVLSGroup::dump() const {
 #endif
 
 namespace OptVLS {
+  class GraphNode;
+  /// Represents a range of bits using a bit-location of the leftmost bit and
+  /// a number of consecutive bits immediately to the right that are included
+  /// in the range. {0, 0} means undefined bit-range.
+  struct BitRange {
+    uint32_t BIndex;
+    uint32_t NumBits;
+
+    // Increment BitIndex by NumBits.
+    BitRange& operator++() {
+      BIndex += NumBits;
+      return *this;
+    }
+  };
+
+  /// print BitRange as "BitIndex : NumBits"
+  static inline OVLSostream &operator<<(OVLSostream &OS,
+                                        const BitRange &BR) {
+    OS << BR.BIndex << ":" << BR.NumBits;
+    return OS;
+  }
+
+  /// Edge represents a move of a specified bit-range 'BR' from 'Src' GraphNode.
+  /// Src can be nullptr, which means an undefined source. For an undefined
+  /// source, BR still represents a valid bitrange. A bit-range with an
+  /// undefined source is used to represent a gap in the destination GraphNode.
+  struct Edge {
+    GraphNode *Src;
+    BitRange BR;
+  };
+
+  /// GraphNode can be thought of as a result of some logical instruction
+  /// (mainly rearrangement instruction such as shift, shuffle, etc) on
+  /// its ‘IncomingEdges’(/source bit-ranges). These ‘IncomingEdges’
+  /// particularly show which source bit-range maps to which bit-index of this
+  /// (which helps defining (/elaborates on) the logical instruction semantics).
+  /// A ‘GraphNode’ basically allows us to define an expected behavior
+  /// (/semantic) first which then evolves into a particular valid OVLSinstruction
+  /// ‘Inst’ if there is any for that semantic. A node is allowed to have any
+  /// permutation of bit-ranges coming from a maximum of two source nodes.
+  class GraphNode {
+    /// Provides a unique id to each instruction node. It helps printing
+    /// tracable node information.
+    uint32_t Id;
+
+    /// Initially when a GraphNode is created, Inst can be nullptr
+    /// which means undefined instruction. An undefined instruction can
+    /// still have valid IncomingEdges which would define the semantics of
+    /// this logical instruction (GraphNode), helps specifying the actual
+    /// instruction later.
+    /// A GraphNode is also used for holding the result of a load/store
+    /// instruction, in such case, Inst should point to a valid load/store
+    /// instruction.
+    OVLSInstruction *Inst;
+
+    /// A ‘GraphNode’ is a result of some logical instruction on its incoming
+    /// edges where ‘IncomingEdges’ contains that result. The output value of
+    /// the GraphNode is the concatenation of the source bit-ranges which shows
+    /// which source bit-range maps to which bit index of this node. Depending
+    /// on the order of the edges (in IncomingEdges) that bitindex gets
+    /// determined. Multiple edges can be drawn between two nodes with different
+    /// bit ranges. When there are no edges to a certain bit-index, a dummy edge
+    /// (an edge with Src=nullptr) gets inserted into IncomingEdges to represent
+    /// the whole. IncomingEdges for a memory instruction can be empty.
+    OVLSVector<Edge *> IncomingEdges;
+
+  public:
+    explicit GraphNode(OVLSInstruction *I) : Inst(I) {
+      static uint32_t NodeId = 1;
+      Id = NodeId++;
+    }
+
+    ~GraphNode() {
+      for (Edge *E : IncomingEdges)
+        delete E;
+    }
+
+    typedef OVLSVector<Edge*>::iterator iterator;
+    inline iterator                begin() { return IncomingEdges.begin(); }
+    inline iterator                end  () { return IncomingEdges.end();   }
+
+    uint32_t getId() const { return Id; }
+
+    // print GraphNode;
+    void print(OVLSostream &OS, uint32_t NumSpaces) const {
+      uint32_t Counter = 0;
+      while (Counter++ != NumSpaces)
+          OS << " ";
+      OS << "V" << Id << ":";
+
+      // print the associated instruction.
+      if (Inst)
+        if (isa<OVLSLoad>(Inst)) OS << " Load ";
+
+      // print the incoming edges as [BIndex] = Srd-Id[BR].
+      uint32_t CurrentBitIndex = 0;
+      for (Edge *E : IncomingEdges) {
+        BitRange SrcBR = E->BR;
+        OS << " [" << CurrentBitIndex << "] " << "= V";
+        OS << E->Src->getId() << "[" << SrcBR << "] ";
+        CurrentBitIndex += SrcBR.NumBits;
+      }
+    }
+    /// FIXME
+    void isValid() {}
+  };
+
+  typedef OVLSVector<GraphNode*> GraphNodeVector;
+  /// This directed graph is used to automatically build the network (of
+  /// required instructions) of computing the result of a set of adjacent
+  /// gathers from a set of contiguous loads. In this directed graph, an edge
+  /// represents a move of a bit-range, and a node can be thought of as a logical
+  /// operation on incoming bit-ranges and corresponding result.
+  ///
+  /// NEXT: describe how the graph is used to automatically compute the
+  /// rearrangement instructions.
+  class Graph {
+    /// When a node is created, it gets pushed into the NodeVector. Therefore,
+    /// nodes in the NodeVector don't maintain any order. A destination node could
+    /// appear before a source node in the NodeVector.
+    GraphNodeVector Nodes;
+
+  public:
+    ~Graph() {
+      for (GraphNode *N : Nodes)
+        delete N;
+    }
+    void insert(GraphNode *N) {
+      Nodes.push_back(N);
+    }
+
+    // print the nodes.
+    void print(OVLSostream &OS, uint32_t NumSpaces) const {
+      for (uint32_t i = 0; i < Nodes.size(); ++i) {
+        Nodes[i]->print(OS, NumSpaces + 2);
+        printf("\n");
+      }
+    }
+
+    GraphNode* getNode(uint32_t Id) const {
+      return Nodes[Id];
+    }
+  };
+
   static void dumpOVLSGroupVector(OVLSostream &OS, const OVLSGroupVector &Grps) {
     OS << "\n  Printing Groups- Total Groups " << Grps.size() << "\n";
     unsigned GroupId = 1;

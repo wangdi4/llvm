@@ -374,6 +374,7 @@ void initializeHIRFrameworkPass(PassRegistry&);
 void initializeHIRDDAnalysisPass(PassRegistry&);
 void initializeHIRLocalityAnalysisPass(PassRegistry&);
 void initializeHIRLoopResourcePass(PassRegistry&);
+void initializeHIRSafeReductionAnalysisPass(PassRegistry&);
 void initializeHIRSSADeconstructionPass(PassRegistry&);
 void initializeHIRParVecAnalysisPass(PassRegistry&);
 void initializeHIRParDirInsertPass(PassRegistry&);
@@ -386,6 +387,7 @@ void initializeHIRLoopDistributionPass(PassRegistry&);
 void initializeHIRGeneralUnrollPass(PassRegistry&);
 void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRRuntimeDDPass(PassRegistry&);
+void initializeHIRLoopReversalPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
 // VPO WRegion Passes

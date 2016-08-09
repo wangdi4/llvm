@@ -19,14 +19,19 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Intel_LoopIR/HIRVerifier.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
 
 #define DEBUG_TYPE "VPODriver"
 
 using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
+
+static cl::opt<bool>
+  DisableStressTest("disable-vpo-stress-test", cl::init(true),
+                    cl::Hidden,
+                    cl::desc("Disable VPO Vectorizer Stress Testing"));
 
 static RegDDRef *getConstantSplatDDRef(Constant *ConstVal, unsigned VL) {
   Constant *ConstVec = ConstantVector::getSplat(VL, ConstVal);
@@ -133,9 +138,9 @@ ReductionHIRMngr::getRecurrenceIdentityVector(ReductionItem *RedItem,
 
 // TBD - once we update to the latest loopopt sources, make use of
 // getStrideAtLevel utility
-bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, int64_t *CoeffPtr) {
-  unsigned NestingLevel = OrigLoop->getNestingLevel();
-
+bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref,
+                                     unsigned NestingLevel,
+                                     int64_t *CoeffPtr) {
   if (Ref->isTerminalRef())
     return false;
 
@@ -175,12 +180,15 @@ class HandledCheck final : public HLNodeVisitorBase {
 private:
   bool IsHandled;
   unsigned LoopLevel;
+  bool UnitStrideRefSeen;
+  bool MemRefSeen;
 
   void visitRegDDRef(RegDDRef *RegDD);
   void visitCanonExpr(CanonExpr *CExpr);
 
 public:
-  HandledCheck(unsigned Level) : IsHandled(true), LoopLevel(Level) {}
+  HandledCheck(unsigned Level) : IsHandled(true), LoopLevel(Level),
+    UnitStrideRefSeen(false), MemRefSeen(false) {}
 
   void visit(HLDDNode *Node);
 
@@ -190,6 +198,8 @@ public:
 
   bool isDone() const override { return (!IsHandled); }
   bool isHandled() { return IsHandled; }
+  bool getUnitStrideRefSeen() { return UnitStrideRefSeen; }
+  bool getMemRefSeen() { return MemRefSeen; }
 };
 } // End anonymous namespace
 
@@ -217,6 +227,12 @@ void HandledCheck::visit(HLDDNode *Node) {
 // visitRegDDRef - Visits RegDDRef to visit the Canon Exprs
 // present inside it.
 void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
+  int64_t IVConstCoeff;
+
+  if (AVRCodeGenHIR::isConstStrideRef(RegDD, LoopLevel, &IVConstCoeff) &&
+      IVConstCoeff == 1)
+    UnitStrideRefSeen = true;
+
   // Visit CanonExprs inside the RegDDRefs
   for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
        ++Iter) {
@@ -225,6 +241,8 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
   // Visit GEP Base
   if (RegDD->hasGEPInfo()) {
+    MemRefSeen = true;
+
     // Addressof computation not supported for now.
     if (RegDD->isAddressOf()) {
       IsHandled = false;
@@ -282,15 +300,17 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr) {
 // evaluation.
 // FORNOW there is only one AVRLoop per region, so we will re-discover
 // the same AVRLoop that the vecScenarioEvaluation had "selected".
-bool AVRCodeGenHIR::loopIsHandledImpl(int64_t &ConstTripCount) {
+bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
   AVRWrn *AWrn = nullptr;
   AVRLoop *ALoop = nullptr;
   WRNVecLoopNode *WVecNode;
   HLLoop *Loop = nullptr;
 
   // We expect avr to be a AVRWrn node
-  if (!(AWrn = dyn_cast<AVRWrn>(Avr)))
+  if (!(AWrn = dyn_cast<AVRWrn>(Avr))) {
+    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - expected AVRWrn node\n");
     return false;
+  }
 
   WVecNode = AWrn->getWrnNode();
 
@@ -299,25 +319,61 @@ bool AVRCodeGenHIR::loopIsHandledImpl(int64_t &ConstTripCount) {
   for (auto Itr = AWrn->child_begin(), End = AWrn->child_end(); Itr != End;
        ++Itr) {
     if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
-      if (ALoop)
+      if (ALoop) {
+        DEBUG(errs() << 
+              "VPO_OPTREPORT: Loop not handled - expected one AVRLoop child\n");
         return false;
+      }
 
       ALoop = TempALoop;
     }
   }
 
   // Check that we have an AVRLoop
-  if (!ALoop)
+  if (!ALoop) {
+    DEBUG(errs() << 
+          "VPO_OPTREPORT: Loop not handled - AVRLoop child not found\n");
     return false;
+  }
 
   Loop = WVecNode->getHLLoop();
   assert(Loop && "Null HLLoop.");
   setOrigLoop(Loop);
 
+  // Only handle normalized loops
+  if (!OrigLoop->isNormalized()) {
+    DEBUG(errs() << 
+          "VPO_OPTREPORT: Loop not handled - loop not in normalized form\n");
+    return false;
+  }
+
+  // We are working with normalized loops, trip count is loop UpperBound + 1.
+  auto UBRef = Loop->getUpperDDRef();
+  int64_t UBConst;
+
+  if (UBRef->isIntConstant(&UBConst)) {
+    auto ConstTripCount = UBConst + 1;
+
+    // Check that main vector loop will have atleast one iteration
+    if (ConstTripCount < VF) {
+      DEBUG(errs() << 
+            "VPO_OPTREPORT: Loop not handled - zero iteration main loop\n");
+      return false;
+    }
+
+    // Set constant trip count
+    setTripCount((uint64_t) ConstTripCount);
+  }
+
+  bool UnitStrideSeen = false;
+  bool MemRefSeen = false;
   for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
        ++Itr) {
-    if (!isa<AVRAssignHIR>(Itr))
+    if (!isa<AVRAssignHIR>(Itr)) {
+      DEBUG(errs() << 
+            "VPO_OPTREPORT: Loop not handled - only AVRAssign is supported\n");
       return false;
+    }
 
     HandledCheck NodeCheck(OrigLoop->getNestingLevel());
     HLDDNode *INode = cast<AVRAssignHIR>(Itr)->getHIRInstruction();
@@ -325,65 +381,53 @@ bool AVRCodeGenHIR::loopIsHandledImpl(int64_t &ConstTripCount) {
     HLNodeUtils::visit(NodeCheck, INode);
     if (!NodeCheck.isHandled())
       return false;
+
+    if (NodeCheck.getUnitStrideRefSeen())
+      UnitStrideSeen = true;
+
+    if (NodeCheck.getMemRefSeen())
+      MemRefSeen = true;
   }
 
-  // Loop parent is expected to be an HLRegion
+  // If we are not in stress testing mode, only vectorize when some
+  // unit stride refs are seen. Still vectorize the case when no mem refs
+  // are seen. Remove this check once vectorizer cost model is fully
+  // implemented.
+  if (DisableStressTest && MemRefSeen && !UnitStrideSeen) {
+    DEBUG(errs() << 
+          "VPO_OPTREPORT: Loop not handled - all mem refs non unit-stride\n");
+    return false;
+  }
+
+  // TODO - Explicit reduction implementation needs to be extended for
+  // cases where the parent is not a region - while I look into how to
+  // do this, I am retaining the restriction for the parent to be a
+  // region for reduction support for now.
   HLRegion *Parent = dyn_cast<HLRegion>(Loop->getParent());
-  if (!Parent)
-    return false;
 
-  // Live out for reduction only
-  for (auto LiveOut : Parent->live_out())
-    if (!RHM.isReductionVariable(LiveOut.second))
+  // TODO - HIR added support for recognizing reductions and we now
+  // mark loops with self reductions as vectorizable. However, we do
+  // not handle these in code generation. The check below will mark
+  // these cases as not handled for now.
+  if (Parent) {
+    // Live out for reduction only
+    for (auto LiveOut : Parent->live_out())
+      if (!RHM.isReductionVariable(LiveOut.second)) {
+        DEBUG(errs() << 
+              "VPO_OPTREPORT: Loop not handled - liveouts not supported\n");
+        return false;
+      }
+  }
+  else {
+    // No loop live out support for now.
+    if (Loop->hasLiveOutTemps()) {
+      DEBUG(errs() << 
+            "VPO_OPTREPORT: Loop not handled - liveouts not supported\n");
       return false;
-
-  // Check for unit stride and constant trip count
-  const RegDDRef *UBRef = Loop->getUpperDDRef();
-  assert(UBRef && " Loop UpperBound not found.");
-
-  const RegDDRef *LBRef = Loop->getLowerDDRef();
-  assert(LBRef && " Loop LowerBound not found.");
-
-  const RegDDRef *StrideRef = Loop->getStrideDDRef();
-  assert(StrideRef && " Loop Stride not found.");
-
-  // Check if UB is Constant or not.
-  int64_t UBConst;
-  if (!UBRef->isIntConstant(&UBConst))
-    return false;
-
-  // Check if LB is Constant or not.
-  int64_t LBConst;
-  if (!LBRef->isIntConstant(&LBConst))
-    return false;
-
-  // Check if StepVal is Constant or not.
-  int64_t StepConst;
-  if (!StrideRef->isIntConstant(&StepConst))
-    return false;
-
-  if (StepConst != 1)
-    return false;
-
-  // TripCount is (Upper -Lower)/Stride + 1.
-  ConstTripCount = (int64_t)((UBConst - LBConst) / StepConst) + 1;
+    }
+  }
 
   setALoop(ALoop);
-  return true;
-}
-
-bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
-  int64_t ConstTripCount = 0;
-  if (!loopIsHandledImpl(ConstTripCount))
-    return false;
-
-  // Check for positive trip count and that trip count is a multiple of vector
-  // length.
-  // No remainder loop is generated currently.
-  if (ConstTripCount <= 0 || (VF && ConstTripCount % VF))
-    return false;
-
-  setTripCount((unsigned int)ConstTripCount);
 
   DEBUG(errs() << "Handled loop\n");
   return true;
@@ -393,12 +437,14 @@ bool AVRCodeGenHIR::loopIsHandled(unsigned int VF) {
 // TODO: Have this method take a VecContext as input, which indicates which
 // AVRLoops in the region to vectorize, and how (using what VF).
 bool AVRCodeGenHIR::vectorize(unsigned int VL) {
-  bool RetVal, LoopHandled;
+  bool LoopHandled;
 
   setVL(VL);
   assert(VL >= 1);
-  if (VL == 1)
+  if (VL == 1) {
+    DEBUG(errs() << "VPO_OPTREPORT: Loop not handled - VL is 1\n");
     return false;
+  }
   LoopHandled = loopIsHandled(VL);
   if (!LoopHandled)
     return false;
@@ -406,14 +452,16 @@ bool AVRCodeGenHIR::vectorize(unsigned int VL) {
   DEBUG(errs() << "Handled loop before vec codegen: \n");
   DEBUG(OrigLoop->dump(true));
 
-  RHM.mapHLNodes(cast<HLRegion>(OrigLoop->getParent()));
+  RHM.mapHLNodes(OrigLoop->getParentRegion());
  
-  RetVal = processLoop();
+  processLoop();
 
   DEBUG(errs() << "\n\n\nHandled loop after: \n");
-  DEBUG(OrigLoop->dump(true));
+  DEBUG(MainLoop->dump(true));
+  if (NeedRemainderLoop)
+    DEBUG(OrigLoop->dump(true));
 
-  return RetVal;
+  return true;
 }
 
 int AVRCodeGenHIR::getRemainderLoopCost(HLLoop *Loop, unsigned int VF, 
@@ -469,33 +517,40 @@ void AVRCodeGenHIR::eraseIntrinsBeforeLoop() {
   // assert(FirstDirItSet && "Expected SIMD directive not found");
 
   if (FirstDirItSet)
-    // Erase intrinsics and clauses before the loop
-    HLNodeUtils::erase(FirstDirIt, LoopIt);
+    // Remove intrinsics and clauses before the loop
+    HLNodeUtils::remove(FirstDirIt, LoopIt);
 }
 
-bool AVRCodeGenHIR::processLoop() {
-  HLLoop *LoopX = const_cast<HLLoop *>(OrigLoop);
-
+void AVRCodeGenHIR::processLoop() {
   eraseIntrinsBeforeLoop();
 
-  auto Begin = LoopX->child_begin();
-  auto End = LoopX->child_end();
+  // Setup main and remainder loops
+  bool NeedRemainderLoop = false;
+  auto MainLoop = 
+    HIRLoopTransformUtils::setupMainAndRemainderLoops(OrigLoop,
+                                                      VL,
+                                                      NeedRemainderLoop,
+                                                      true /* VecMode */);
+
+  setNeedRemainderLoop(NeedRemainderLoop);
+  setMainLoop(MainLoop);
 
   for (auto Iter = ALoop->child_begin(), EndItr = ALoop->child_end();
        Iter != EndItr; ++Iter) {
     AVRAssignHIR *AvrAssign;
 
     AvrAssign = cast<AVRAssignHIR>(Iter);
-    widenNode(AvrAssign->getHIRInstruction(), &*Begin);
+    widenNode(AvrAssign->getHIRInstruction());
   }
 
-  // Get rid of the scalar children
-  HLNodeUtils::erase(Begin, End);
+  MainLoop->markDoNotVectorize();
 
-  // Mark region for HIR code generation
-  LoopX->getParentRegion()->setGenCode();
-  LoopX->getStrideDDRef()->getSingleCanonExpr()->setConstant((int64_t)VL);
-  return true;
+  // If a remainder loop is not needed get rid of the OrigLoop at this point.
+  if (NeedRemainderLoop) {
+    OrigLoop->markDoNotVectorize();
+  } else {
+    HLNodeUtils::remove(OrigLoop);
+  }
 }
 
 RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
@@ -508,7 +563,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
   
   // If the DDREF has a widened counterpart, return the same after setting
   // SrcType/DestType appropriately.
-  if (Ref->isTerminalRef()) {
+  if (Ref->isSelfBlob()) {
     if (WidenMap.find(Ref->getSymbase()) != WidenMap.end()) {
       auto WInst = WidenMap[Ref->getSymbase()];
       // TODO - look into reusing instead of cloning (Pankaj's suggestion)
@@ -536,7 +591,8 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
   }
 
   // For unit stride ref, nothing else to do
-  if (isConstStrideRef(Ref, &IVConstCoeff) && IVConstCoeff == 1)
+  if (isConstStrideRef(Ref, OrigLoop->getNestingLevel(), &IVConstCoeff) &&
+      IVConstCoeff == 1)
     return WideRef;
 
   // For cases other than unit stride refs, we need to widen the induction
@@ -686,7 +742,7 @@ const RegDDRef *ReductionHIRMngr::getReductionValuePtr(ReductionItem *RI) {
   return Initializers[RI];
 }
 
-HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node, HLNode *Anchor) {
+HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node) {
   const HLInst *INode = cast<HLInst>(Node);
   const Instruction *CurInst = INode->getLLVMInstruction();
 
@@ -720,7 +776,7 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node, HLNode *Anchor) {
 
   HLInst *RedOpVecInst = HLNodeUtils::createCopyInst(IdentityVec, "RedOp");
 
-  HLNodeUtils::insertBefore(const_cast<HLLoop *>(OrigLoop), RedOpVecInst);
+  HLNodeUtils::insertBefore(MainLoop, RedOpVecInst);
 
   // Create a wide reduction instruction
   HLInst *WideInst =
@@ -747,19 +803,15 @@ HLInst *AVRCodeGenHIR::widenReductionNode(const HLNode *Node, HLNode *Anchor) {
                                                  ""/* Name */,
                                                  RedOp->clone()));
 
-  HLNodeUtils::insertAfter(OrigLoop, &Tail);
+  HLNodeUtils::insertAfter(MainLoop, &Tail);
   return WideInst;
 }
 
-void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
+void AVRCodeGenHIR::widenNode(const HLNode *Node) {
   const HLInst *INode;
   INode = dyn_cast<HLInst>(Node);
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
-
-#if DEBUG
-  HIRVerifier::verifyAll();
-#endif
 
   DEBUG(errs() << "DDRef ");
   DEBUG(INode->dump());
@@ -789,7 +841,7 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
 
   if (auto BOp = dyn_cast<BinaryOperator>(CurInst)) {
     if (RHM.isReductionVariable(CurInst))
-      WideInst = widenReductionNode(Node, Anchor);
+      WideInst = widenReductionNode(Node);
     else
       WideInst = HLNodeUtils::createBinaryHLInst(
         BOp->getOpcode(), WideOps[1], WideOps[2],
@@ -826,5 +878,5 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
   if (InsertInMap)
     WidenMap[INode->getLvalDDRef()->getSymbase()] = WideInst;
 
-  HLNodeUtils::insertBefore(Anchor, WideInst);
+  HLNodeUtils::insertAsLastChild(MainLoop, WideInst);
 }

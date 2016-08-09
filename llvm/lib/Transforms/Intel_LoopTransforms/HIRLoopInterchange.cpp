@@ -48,6 +48,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDUtils.h"
@@ -83,12 +84,14 @@ public:
     AU.addRequiredTransitive<HIRFramework>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.addRequiredTransitive<HIRLocalityAnalysis>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
   }
 
 private:
   Function *F;
   HIRDDAnalysis *DDA;
   HIRLocalityAnalysis *LA;
+  HIRSafeReductionAnalysis *SRA;
   bool AnyLoopInterchanged;
   unsigned OutmostNestingLevel;
   unsigned InnermostNestingLevel;
@@ -100,6 +103,7 @@ private:
   SmallVector<LoopLocalityPair, MaxLoopNestLevel> LoopLocality;
   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation;
   SmallVector<HLLoop *, MaxLoopNestLevel> NearByPerm;
+  SmallVector<const HLLoop *, 5> PerfectLoopsEnabled;
   SmallVector<DirectionVector, 16> DVs;
 
   bool shouldInterchange(const HLLoop *);
@@ -129,6 +133,7 @@ INITIALIZE_PASS_BEGIN(HIRLoopInterchange, "hir-loop-interchange",
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_END(HIRLoopInterchange, "hir-loop-interchange",
                     "HIR Loop Interchange", false, false)
 
@@ -142,13 +147,16 @@ static bool isBlockingCandidate(const HLLoop *Loop) {
 struct HIRLoopInterchange::CollectCandidateLoops final
     : public HLNodeVisitorBase {
 
+  HIRLoopInterchange *LIP;
   SmallVectorImpl<CandidateLoopPair> &CandidateLoops;
   HIRDDAnalysis *DDA;
   HLNode *SkipNode;
 
-  CollectCandidateLoops(SmallVectorImpl<CandidateLoopPair> &CandidateLoops,
+  CollectCandidateLoops(HIRLoopInterchange *LoopIP,
+                        SmallVectorImpl<CandidateLoopPair> &CandidateLoops,
                         HIRDDAnalysis *DDA)
-      : CandidateLoops(CandidateLoops), DDA(DDA), SkipNode(nullptr) {}
+      : LIP(LoopIP), CandidateLoops(CandidateLoops), DDA(DDA),
+        SkipNode(nullptr) {}
 
   void visit(HLLoop *Loop) {
     // Gather perfect loop nests
@@ -181,6 +189,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
         DEBUG(dbgs() << "is NearPerfect Loop:\n");
         DEBUG(dbgs(); Loop->dump());
         DDGraph DDG = DDA->getGraph(Loop, false);
+
         if (DDUtils::enablePerfectLoopNest(const_cast<HLLoop *>(InnermostLoop),
                                            DDG)) {
           CandidateLoops.push_back(
@@ -188,8 +197,9 @@ struct HIRLoopInterchange::CollectCandidateLoops final
 
           DEBUG(dbgs() << "Perfect Loopnest enabled\n");
           DEBUG(dbgs(); Loop->dump());
-
-          HIRInvalidationUtils::invalidateBody(InnermostLoop);
+          // Save & invalidate later to avoid DDRebuild and safe reduction map
+          // released
+          LIP->PerfectLoopsEnabled.push_back(InnermostLoop);
         }
       }
       SkipNode = Loop;
@@ -208,16 +218,21 @@ FunctionPass *llvm::createHIRLoopInterchangePass() {
 }
 
 bool HIRLoopInterchange::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   DEBUG(dbgs() << "Loop Interchange for Function : " << F.getName() << "\n");
 
   this->F = &F;
   DDA = &getAnalysis<HIRDDAnalysis>();
   LA = &getAnalysis<HIRLocalityAnalysis>();
+  SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+
   AnyLoopInterchanged = false;
 
   // 1) Walk all loops, look for outer loops that are perfectly nested
 
-  CollectCandidateLoops CCL(CandidateLoops, DDA);
+  CollectCandidateLoops CCL(this, CandidateLoops, DDA);
   HLNodeUtils::visitAll(CCL);
 
   for (auto &Iter : CandidateLoops) {
@@ -229,10 +244,17 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
 
     if (shouldInterchange(Loop) && getPermutation(Loop)) {
       transformLoop(Loop);
+    } else {
+      if (std::find(PerfectLoopsEnabled.begin(), PerfectLoopsEnabled.end(),
+                    Loop) != PerfectLoopsEnabled.end()) {
+
+        HIRInvalidationUtils::invalidateBody(Loop);
+      }
     }
   }
 
   CandidateLoops.clear();
+  PerfectLoopsEnabled.clear();
 
   return AnyLoopInterchanged;
 }
@@ -523,7 +545,8 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
   void visit(const HLDDNode *DDNode) {
 
     const HLInst *Inst = dyn_cast<HLInst>(DDNode);
-    if (Inst && Inst->isSafeRedn()) {
+    if (Inst && LIP.SRA->isSafeReduction(Inst)) {
+      DEBUG(dbgs() << "\n\tIs Safe Red");
       return;
     }
     for (auto I = DDNode->ddref_begin(), E = DDNode->ddref_end(); I != E; ++I) {
@@ -555,7 +578,7 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
           bool IsIndep;
           bool IsDVRefined =
               LIP.DDA->refineDV(SrcDDRef, DstDDRef, LIP.InnermostNestingLevel,
-                                 LIP.OutmostNestingLevel, RefinedDV, &IsIndep);
+                                LIP.OutmostNestingLevel, RefinedDV, &IsIndep);
           if (IsIndep) {
             continue;
           }
@@ -713,16 +736,20 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
   // safe reduction.
   // We plan to avoid demand driven DD refining DV.
 
+  HLLoop *Lp = const_cast<HLLoop *>(Loop);
   DEBUG(dbgs() << "\n\tStart, End level\n"
                << OutmostNestingLevel << " " << InnermostNestingLevel);
+
+  SRA->computeSafeReductionChains(Lp);
 
   //  Set refineDV as false for now (last argument) until we see kernels
   //  that really need to refine DV.
 
   // The following visitor will gather DVs from DDG and push them into
   // HIRLoopInterchange::DVs;
-  CollectDDInfo CDD(*this, Loop, false);
-  HLNodeUtils::visit(CDD, Loop);
+
+  CollectDDInfo CDD(*this, Lp, false);
+  HLNodeUtils::visit(CDD, Lp);
 
   // If edges are selected,
   // there are dependencies to check out w.r.t to interchange order

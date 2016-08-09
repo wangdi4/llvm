@@ -236,7 +236,7 @@ namespace {
       (void) llvm::createHIRLoopResourcePass();
       (void) llvm::createHIRParVecAnalysisPass();
       (void) llvm::createHIRVectVLSAnalysisPass();
-
+      (void) llvm::createHIRSafeReductionAnalysisPass();
       (void) llvm::createHIRSSADeconstructionPass();
       (void) llvm::createHIRLoopInterchangePass();
       (void) llvm::createHIROptPredicatePass();
@@ -245,6 +245,7 @@ namespace {
       (void) llvm::createHIRParDirInsertPass();
       (void) llvm::createHIRVecDirInsertPass();
       (void) llvm::createHIRLoopDistributionPass();
+      (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
 

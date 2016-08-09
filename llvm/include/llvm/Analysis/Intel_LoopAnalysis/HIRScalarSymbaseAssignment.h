@@ -105,10 +105,8 @@ private:
   bool processRegionPhiLivein(HIRRegionIdentification::iterator RegIt,
                               const PHINode *Phi, unsigned Symbase);
 
-  /// Populates loop liveins/liveouts based on SCC phi instructions. IsRoot
-  /// indicates whether this is the root instruction of the SCC.
-  void populateLoopSCCPhiLiveinLiveouts(const Instruction *SCCInst,
-                                        unsigned Symbase, bool IsRoot);
+  /// Populates loop liveouts based on SCC phi instructions.
+  void populateLoopSCCPhiLiveouts(const Instruction *SCCInst, unsigned Symbase);
 
   /// \brief Populates livein Values from the phi nodes present in the region.
   void populateRegionPhiLiveins(HIRRegionIdentification::iterator RegIt);

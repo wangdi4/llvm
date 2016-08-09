@@ -204,6 +204,11 @@ public:
   /// \brief Returns the number of this node in the topological sort order.
   unsigned getTopSortNum() const { return TopSortNum; }
 
+  /// \brief Returns the minimum topological sort number across its children.
+  /// Minimum top sort num differs from normal top sort num for loops which have
+  /// preheader nodes.
+  unsigned getMinTopSortNum() const;
+
   /// \brief Returns the maximum topological sort number across its children.
   unsigned getMaxTopSortNum() const { return MaxTopSortNum; }
 

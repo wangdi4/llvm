@@ -184,7 +184,7 @@ private:
 
   /// Phase1 parser functions
   /// parse(HLInst *, ...) is the only function used during phase2.
-  void parse(HLRegion *Reg) { CurRegion = Reg; }
+  void parse(HLRegion *Reg); 
   void postParse(HLRegion *Reg) {}
 
   void parse(HLLoop *HLoop);
@@ -255,7 +255,7 @@ private:
   /// Adds \p Inst in region livein set and loop livein/liveout sets as
   /// applicable and returns its def level.
   unsigned processInstBlob(const Instruction *Inst, const Instruction *BaseInst,
-                           unsigned Symbase, unsigned NestingLevel);
+                           unsigned Symbase);
 
   /// \brief Performs necessary processing for adding TempBlob to CE. This
   /// includes updating the defined at level of CE, adding an entry in the blob

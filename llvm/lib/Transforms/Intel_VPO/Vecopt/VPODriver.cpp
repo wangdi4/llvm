@@ -175,6 +175,8 @@ FunctionPass *llvm::createVPODriverPass() { return new VPODriver(); }
 FunctionPass *llvm::createVPODriverHIRPass() { return new VPODriverHIR(); }
 
 bool VPODriverBase::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
 
   bool ret_val = false;
 

@@ -338,6 +338,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #if INTEL_CUSTOMIZATION
   if (OptLevel >= 2 && EnableNonLTOGlobalVarOpt && EnableAndersen) {
     MPM.add(createNonLTOGlobalOptimizerPass());
+    MPM.add(createPromoteMemoryToRegisterPass());
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -858,7 +859,8 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
 
 void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
-  if (!(RunLoopOpts || RunLoopOptFrameworkOnly) || (OptLevel < 2)) {
+  if (!(RunLoopOpts || RunLoopOptFrameworkOnly) || (OptLevel < 2) ||
+      (SizeLevel != 0) || PrepareForLTO || PerformThinLTO) {
     return;
   }
 
@@ -877,6 +879,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRRuntimeDDPass());
     PM.add(createHIRLoopDistributionPass(false));
     PM.add(createHIRLoopInterchangePass());
+    PM.add(createHIRLoopReversalPass());
     PM.add(createHIRCompleteUnrollPass());
     PM.add(createHIRVecDirInsertPass(OptLevel == 3));
     PM.add(createVPODriverHIRPass());

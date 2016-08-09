@@ -105,20 +105,29 @@ private:
   // Set of temp symbases live out of the loop.
   LiveOutSetTy LiveOutSet;
 
+  // Associated !llvm.loop metadata.
+  MDNode *LoopMetadata;
+
+  uint64_t MaxTripCountEstimate;
+
 protected:
   HLLoop(const Loop *LLVMLoop);
   HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
          RegDDRef *StrideDDRef, unsigned NumEx);
-
-  /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
-  /// tries to access and destroy the nodes if we don't clear them out here.
-  virtual ~HLLoop() override { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
   /// CloneChildren parameter denotes if we want to clone
   /// children and preheader/postexit.
   HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
          LabelMapTy *LabelMap, bool CloneChildren);
+
+  /// Move assignment operator used by HLNodeUtils::permuteLoopNests() to move
+  /// loop properties from Lp to this loop.
+  HLLoop &operator=(HLLoop &&Lp);
+
+  /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
+  /// tries to access and destroy the nodes if we don't clear them out here.
+  virtual ~HLLoop() override { Children.clearAndLeakNodesUnsafely(); }
 
   friend class HLNodeUtils;
   friend class HIRParser; // accesses ZTT
@@ -166,6 +175,11 @@ protected:
   /// pretty print like ztt, innermost flag etc.
   void printDetails(formatted_raw_ostream &OS, unsigned Depth,
                     bool Detailed) const;
+
+  /// Set or replace !llvm.loop metadata.
+  void setLoopMetadata(MDNode *MD) { LoopMetadata = MD; }
+
+  void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef *RemoveID);
 
 public:
   /// \brief Prints preheader of loop.
@@ -339,7 +353,7 @@ public:
 
   /// \brief Returns true if this is a constant trip count loop and sets the
   /// trip count in TripCnt parameter only if the loop is constant trip loop.
-  bool isConstTripLoop(int64_t *TripCnt = nullptr) const;
+  bool isConstTripLoop(uint64_t *TripCnt = nullptr) const;
 
   /// \brief Returns true if this is a do loop.
   bool isDo() const {
@@ -426,6 +440,9 @@ public:
   /// present.
   void extractPreheader();
 
+  /// Removes loop preheader nodes.
+  void removePreheader();
+
   /// Postexit iterator methods
   post_iterator post_begin() { return PostexitBegin; }
   const_post_iterator post_begin() const { return PostexitBegin; }
@@ -470,6 +487,9 @@ public:
   /// \brief Moves preheader nodes before the loop and postexit nodes after the
   /// loop. Ztt is extracted first, if present.
   void extractPreheaderAndPostexit();
+
+  /// Removes loop postexit nodes.
+  void removePostexit();
 
   /// Children iterator methods
   child_iterator child_begin() { return pre_end(); }
@@ -602,7 +622,7 @@ public:
       LiveInSet.insert(It, Symbase);
     }
   }
-  
+
   /// Adds symbase as live out of the loop.
   void addLiveOutTemp(unsigned Symbase) {
     auto It = std::lower_bound(LiveOutSet.begin(), LiveOutSet.end(), Symbase);
@@ -630,6 +650,28 @@ public:
     }
   }
 
+  /// Returns !llvm.loop metadata associated with the Loop.
+  MDNode *getLoopMetadata() const { return LoopMetadata; }
+
+  /// \brief Add a list of metadata \p MDs to loops !llvm.loop MDNode.
+  ///
+  /// The MDNode should have the format !{!"string-identifier", Args...}
+  void addLoopMetadata(ArrayRef<MDNode *> MDs) {
+    addRemoveLoopMetadataImpl(MDs, nullptr);
+  }
+
+  /// Remove !llvm.loop metadata that starts with \p ID.
+  void removeLoopMetadata(StringRef ID) { addRemoveLoopMetadataImpl({}, &ID); }
+
+  /// Clear all metadata from !llvm.loop MDNode.
+  void clearLoopMetadata() { setLoopMetadata(nullptr); }
+
+  uint64_t getMaxTripCountEstimate() const { return MaxTripCountEstimate; }
+
+  void setMaxTripCountEstimate(uint64_t MaxTC) { MaxTripCountEstimate = MaxTC; }
+
+  // \brief Marks loop to do not vectorize.
+  void markDoNotVectorize();
 };
 
 } // End namespace loopopt

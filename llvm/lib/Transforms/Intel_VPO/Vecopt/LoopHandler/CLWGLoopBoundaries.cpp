@@ -54,6 +54,9 @@ CLWGLoopBoundaries::~CLWGLoopBoundaries()
 }
 
 bool CLWGLoopBoundaries::runOnModule(Module &M) {
+  if (skipModule(M))
+    return false;
+
   bool changed = false;
 
   Intel::MetaDataUtils mdUtils(&M);

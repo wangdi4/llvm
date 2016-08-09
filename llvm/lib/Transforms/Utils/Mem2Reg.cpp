@@ -15,6 +15,7 @@
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/Intel_Andersens.h"    // INTEL
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
@@ -87,6 +88,7 @@ struct PromoteLegacyPass : public FunctionPass {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.setPreservesCFG();
+    AU.addPreserved<AndersensAAWrapperPass>();     // INTEL
   }
   };
 }  // end of anonymous namespace
@@ -97,6 +99,7 @@ INITIALIZE_PASS_BEGIN(PromoteLegacyPass, "mem2reg", "Promote Memory to "
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)    // INTEL
 INITIALIZE_PASS_END(PromoteLegacyPass, "mem2reg", "Promote Memory to Register",
                     false, false)
 

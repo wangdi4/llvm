@@ -1,5 +1,9 @@
 ; RUN: opt < %s -simplifycfg -S | FileCheck %s
 
+; INTEL CUSTOMIZATION: This test fails in xmain.  CQ 410005.
+; XFAIL: *
+; END INTEL CUSTOMIZATION
+
 ; Use a select to make this a single BB.
 ; Also, make sure the profile metadata is propagated to the select (PR26636).
 

@@ -528,10 +528,6 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLLoop *Lp) {
       addPredicateOps((*Lp->ztt_ddref_begin())->getDestType(),
                       Lp->getNumZttPredicates());
     }
-
-    // Add child loop's preheader/postexit to parent loop's self resource.
-    HLNodeUtils::visitRange(*this, Lp->pre_begin(), Lp->pre_end());
-    HLNodeUtils::visitRange(*this, Lp->post_begin(), Lp->post_end());
   }
 
   // No need to process children loops in self-only mode.

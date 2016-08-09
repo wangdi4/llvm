@@ -384,9 +384,14 @@ void DDUtils::updateDDRefsLinearity(SmallVectorImpl<HLInst *> &HLInsts,
       assert(ParentLoop && ParentLoop->isInnermost() &&
              "Unexpected stmt outside loop");
       RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSink);
-      assert(RegRef->isTerminalRef() && "Unexpected memrefs");
+      CanonExpr *SinkCE = nullptr;
 
-      CanonExpr *SinkCE = RegRef->getSingleCanonExpr();
+      if (RegRef) {
+        assert(RegRef->isTerminalRef() && "Unexpected memrefs");
+        SinkCE = RegRef->getSingleCanonExpr();
+      } else {
+        SinkCE = cast<BlobDDRef>(DDRefSink)->getMutableCanonExpr();
+      }
       // There might be defs which are non-linear encountered here,
       // update it anyway
       SinkCE->setNonLinear();
@@ -482,6 +487,57 @@ bool DDUtils::enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG) {
   // Call Util to update the temp DDRefs from linear-at-level to non-linear
   updateDDRefsLinearity(PreLoopInsts, DDG);
   updateDDRefsLinearity(PostLoopInsts, DDG);
+
+  return true;
+}
+
+///  Is single use of LvalRef in loop?  Counts blobs as well
+
+bool DDUtils::singleUseInLoop(RegDDRef *LvalRef, HLLoop *Loop, DDGraph DDG) {
+
+  assert(LvalRef && LvalRef->isLval() && "DDRef must be lval");
+  assert(Loop && "Loop  must be supplied");
+
+  unsigned NumUse = 0;
+  for (auto I1 = DDG.outgoing_edges_begin(LvalRef),
+            E1 = DDG.outgoing_edges_end(LvalRef);
+       I1 != E1; ++I1) {
+
+    DDRef *DDRefSink = (*I1)->getSink();
+
+    // Skip Sink outside loop, including prehdr/postexit
+    if (!(HLNodeUtils::contains(Loop, DDRefSink->getHLDDNode()))) {
+      continue;
+    }
+
+    RegDDRef *RefSink = dyn_cast<RegDDRef>(DDRefSink);
+    if ((!RefSink || RefSink->isRval()) && ++NumUse > 1) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/// Checks if a DDRef is part of a reduction. Must match with input Symbase
+///
+bool DDUtils::isValidReductionDDRef(RegDDRef *RRef, HLLoop *Loop,
+                                    unsigned FirstSymbase,
+                                    bool *LastReductionInst, DDGraph DDG) {
+  *LastReductionInst = false;
+  CanonExpr *CE = RRef->getSingleCanonExpr();
+  if (!CE->isNonLinear()) {
+    return false;
+  }
+  if (RRef->isLval()) {
+    if (!singleUseInLoop(RRef, Loop, DDG)) {
+      return false;
+    }
+    if (RRef->getSymbase() == FirstSymbase) {
+      *LastReductionInst = true;
+      return true;
+    }
+  }
 
   return true;
 }
