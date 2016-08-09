@@ -71,7 +71,6 @@ namespace intel{
 
   Function* PrepareKernelArgs::createWrapper(Function* pFunc) {
     // Create new function's argument type list
-    // The new function receives one argument: i8* pBuffer
     std::vector<llvm::Type *> newArgsVec;
     // The new function receives the following arguments:
     // i8* pBuffer
@@ -363,6 +362,7 @@ namespace intel{
 
     // Change name of old function
     pFunc->setName("__" + pFunc->getName() + "_separated_args");
+
     // Make sure old function always inlined
     // We want to do inlining pass after PrepareKernelArgs pass to gain performance
     pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
