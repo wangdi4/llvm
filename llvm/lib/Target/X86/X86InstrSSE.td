@@ -4007,6 +4007,7 @@ defm PAVGB   : PDI_binop_all<0xE0, "pavgb", X86avg, v16i8, v32i8,
 defm PAVGW   : PDI_binop_all<0xE3, "pavgw", X86avg, v8i16, v16i16,
                              SSE_INTALU_ITINS_P, 1, NoVLX_Or_NoBWI>;
 
+// Intrinsic forms
 defm PMADDWD : PDI_binop_all_int<0xF5, "pmaddwd", int_x86_sse2_pmadd_wd,
                                  int_x86_avx2_pmadd_wd, SSE_PMADD, 1>;
 
