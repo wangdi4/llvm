@@ -91,7 +91,7 @@ namespace llvm {
     }
 
     bool runOnMachineFunction(MachineFunction &MF) override;
-	ControlDependenceNode* getNonLatchParent(ControlDependenceNode* anode, bool oneAndOnly = false);
+	ControlDependenceNode* getNonLatchParent(ControlDependenceNode* anode, bool &oneAndOnly);
     MachineInstr* insertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB);
     MachineInstr* getOrInsertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgBB);
     MachineInstr* insertPICKForReg(MachineBasicBlock* ctrlBB, unsigned Reg, MachineBasicBlock* inBB, MachineInstr* phi, unsigned pickReg = 0);
@@ -252,7 +252,7 @@ void LPUCvtCFDFPass::replacePhiWithPICK() {
 }
 
 //return the first non latch parent found or NULL
-ControlDependenceNode* LPUCvtCFDFPass::getNonLatchParent(ControlDependenceNode* anode, bool oneAndOnly ) {
+ControlDependenceNode* LPUCvtCFDFPass::getNonLatchParent(ControlDependenceNode* anode, bool &oneAndOnly ) {
 	ControlDependenceNode* pcdn = nullptr;
 	if (anode->getNumParents() == 0) return pcdn;
 	for (ControlDependenceNode::node_iterator pnode = anode->parent_begin(), pend = anode->parent_end(); pnode != pend; ++pnode) {
@@ -261,7 +261,10 @@ ControlDependenceNode* LPUCvtCFDFPass::getNonLatchParent(ControlDependenceNode* 
 		if (MLI->getLoopFor(pbb) == NULL ||
 			MLI->getLoopFor(pbb)->getLoopLatch() != pbb) {
 			if (oneAndOnly && pcdn) {
-				assert(false && "CDG node has more than one if parent");
+				DEBUG(errs() << "WARNING: CDG node has more than one if parents\n");
+				//assert(false && "CDG node has more than one if parent");
+				oneAndOnly = false;
+				return nullptr;
 			}
 			pcdn = *pnode;
 		}
@@ -1007,22 +1010,57 @@ void LPUCvtCFDFPass::assignLicForDF() {
       }
     }
   }
+
   while (!renameQueue.empty()) {
     unsigned dReg = renameQueue.front();
     renameQueue.pop_front();
     MachineInstr *DefMI = MRI->getVRegDef(dReg);
     if (!DefMI ) continue;
     //if (TII.isLoad(DefMI) || TII.isStore(DefMI)) continue;
-    const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(MRI->getRegClass(dReg));
+		const TargetRegisterClass *TRC = MRI->getRegClass(dReg);
+    const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(TRC);
     assert(new_LIC_RC && "unknown LPU register class");
     unsigned phyReg = LMFI->allocateLIC(new_LIC_RC);
-    DefMI->substituteRegister(dReg, phyReg, 0, TRI);
+#if 1
+		if (DefMI->isPHI()) {
+			//encounter unhandled phi def, create move from virtual to physical
+			const unsigned moveOpcode = TII.getMoveOpcode(TRC);
+			MachineInstr *cpyInst = BuildMI(*DefMI->getParent(), 
+				                              DefMI->getParent()->getFirstNonPHI(), 
+				                              DebugLoc(), TII.get(moveOpcode), phyReg).addReg(dReg);
+			//cpyInst->setFlag(MachineInstr::NonSequential);
+		}	else {
+			DefMI->substituteRegister(dReg, phyReg, 0, TRI);
+		}
+#else
+		DefMI->substituteRegister(dReg, phyReg, 0, TRI);
+#endif
     MachineRegisterInfo::use_iterator UI = MRI->use_begin(dReg);
     while (UI != MRI->use_end()) {
       MachineOperand &UseMO = *UI;
       ++UI;
-      UseMO.setReg(phyReg);
+			MachineInstr* phiInstr = UseMO.getParent();
+			if (phiInstr->isPHI()) {
+				//encounter unhandled phi use, create move from physical to virtual in its incoming BB
+				for (unsigned i = 0; i < phiInstr->getNumOperands(); i++) {
+					if (&phiInstr->getOperand(i) == &UseMO) {
+						MachineBasicBlock* inBB = phiInstr->getOperand(i + 1).getMBB();
+						const unsigned moveOpcode = TII.getMoveOpcode(TRC);
+						unsigned inReg = MRI->createVirtualRegister(TRC);
+						MachineInstr *cpyInst = BuildMI(*inBB,
+							                              inBB->getFirstInstrTerminator(),
+							                              DebugLoc(), TII.get(moveOpcode), inReg).addReg(phyReg);
+						UseMO.setReg(inReg);
+						//cpyInst->setFlag(MachineInstr::NonSequential);
+					}
+				}
+			}	else {
+				UseMO.setReg(phyReg);
+			}
     }
+		
+		if (DefMI->isPHI()) continue;
+
     for (MIOperands MO(DefMI); MO.isValid(); ++MO) {
       if (!MO->isReg() || !MO->isUse() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
       unsigned Reg = MO->getReg();
@@ -1333,11 +1371,44 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
   MachineBasicBlock *root = thisMF->begin();
   for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
     MachineBasicBlock* mbb = *itermbb;
+		ControlDependenceNode* mnode = CDG->getNode(mbb);
+		bool oneAndOnly = true;
+		if (getNonLatchParent(mnode, oneAndOnly) == nullptr && 
+			  !oneAndOnly &&
+			  mbb->instr_begin()->isPHI()) {
+			DEBUG(errs() << "WARNING: force runing on SXU.\n");
+			RunSXU = true;
+			continue;
+		}
+		bool bypassBB = false;
     MachineBasicBlock::iterator iterI = mbb->begin();
     while (iterI != mbb->end()) {
       MachineInstr *MI = iterI;
       ++iterI;
       if (!MI->isPHI()) continue;
+			for (MIOperands MO(MI); MO.isValid() && !bypassBB; ++MO) {
+				if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+				if (MO->isUse()) {
+					unsigned Reg = MO->getReg();
+					//move to its incoming block operand
+					++MO;
+					MachineBasicBlock* inBB = MO->getMBB();
+					do {
+						ControlDependenceNode* inNode = CDG->getNode(inBB);
+						ControlDependenceNode* ctrlNode = nullptr;
+						bool oneAndOnly = true;
+						ctrlNode = getNonLatchParent(inNode, oneAndOnly);
+						if (ctrlNode == nullptr && !oneAndOnly) {
+							bypassBB = true;
+							break;
+						}	
+						if (ctrlNode == nullptr) break;
+						MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
+						inBB = ctrlBB;
+					} while (!DT->dominates(inBB, mbb));
+				}
+			}
+			if (bypassBB) break;
 
       multiInputsPick.clear();
       unsigned dst = MI->getOperand(0).getReg();
@@ -1364,7 +1435,8 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
           while (!DT->dominates(inBB, mbb)) {
             ControlDependenceNode* inNode = CDG->getNode(inBB);
             ControlDependenceNode* ctrlNode = nullptr;
-            ctrlNode = getNonLatchParent(inNode);
+						bool oneAndOnly = false;
+            ctrlNode = getNonLatchParent(inNode, oneAndOnly);
             ctrlBB = ctrlNode->getBlock();
             unsigned pickReg = 0;
             if (DT->dominates(ctrlBB, mbb)) {
