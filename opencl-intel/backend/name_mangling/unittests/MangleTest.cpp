@@ -153,6 +153,15 @@ static void replaceCL20AtomicTypes(std::string& s){
   replaceAll(s, "memory_order",  "int");
 }
 
+static void fixImageTypeNames(std::string& s){
+  // drop ocl_ prefix
+  replaceAll(s, "ocl_image",   "image");
+  // drop access qualifier
+  replaceAll(s, "_ro",  "");
+  replaceAll(s, "_wo",  "");
+  replaceAll(s, "_rw",  "");
+}
+
 //returns true, if the following function prototypes are semantically the same
 //(the itanium standard allows attributes to be order insensitive)
 static bool isSematicallyEqual(const std::string& l, const std::string& r){
@@ -175,6 +184,8 @@ static bool isSematicallyEqual(const std::string& l, const std::string& r){
   replaceCL20AtomicTypes(left);
   replaceCL20AtomicTypes(right);
   //if they have different length at this point, they can't be semantically the same
+  fixImageTypeNames(left);
+  fixImageTypeNames(right);
   if (left.length() != right.length())
     return false;
   //after removing/replacing semantically equivalences, the strings might be

@@ -42,6 +42,11 @@ public:
     //NOTE! we don't use  DUPLICANT_STR here, since primitive strings are
     //shorter or less then the DUPLICANT_STR itself.
     m_stream << reflection::mangledPrimitiveString(t->getPrimitive());
+#ifdef SUBSTITUTE_OPENCL_TYPES
+    if (t->getPrimitive() >= reflection::PRIMITIVE_STRUCT_FIRST &&
+        t->getPrimitive() <= reflection::PRIMITIVE_LAST)
+      m_dupList.push_back((reflection::ParamType*)t);
+#endif
   }
 
   void visit(const reflection::PointerType* p) {

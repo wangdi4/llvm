@@ -11,6 +11,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ParameterType.h"
 #include <string>
 
+// Current implementation in open source has OpenCL types substitution enabled.
+// Originally I tried to fix the test w/o modifying clang behavior, but it will
+// require additional processing SPIR 1.2 code that doesn't substitue OpenCL
+// types. Once we drop support for old SPIR format in favor of SPIR-V format we
+// can enable this macro.
+//#define SUBSTITUTE_OPENCL_TYPES 1
+
 namespace reflection {
 
   const char* mangledPrimitiveString(TypePrimitiveEnum primitive);

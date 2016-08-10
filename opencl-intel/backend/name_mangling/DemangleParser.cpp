@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "DemangleParser.h"
+#include "Utils.h"
 #include <assert.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -99,13 +100,37 @@ namespace reflection {
   DemangleParser::DemangleParser(TypeVector& parameters)
     : m_parameters(parameters), m_currentIndex(0), m_error(false) {
       m_imageTypeNameTranslate["ocl_image1d"] = PRIMITIVE_IMAGE_1D_T;
+      m_imageTypeNameTranslate["ocl_image1d_ro"] = PRIMITIVE_IMAGE_1D_RO_T;
+      m_imageTypeNameTranslate["ocl_image1d_wo"] = PRIMITIVE_IMAGE_1D_WO_T;
+      m_imageTypeNameTranslate["ocl_image1d_rw"] = PRIMITIVE_IMAGE_1D_RW_T;
       m_imageTypeNameTranslate["ocl_image2d"] = PRIMITIVE_IMAGE_2D_T;
+      m_imageTypeNameTranslate["ocl_image2d_ro"] = PRIMITIVE_IMAGE_2D_RO_T;
+      m_imageTypeNameTranslate["ocl_image2d_wo"] = PRIMITIVE_IMAGE_2D_WO_T;
+      m_imageTypeNameTranslate["ocl_image2d_rw"] = PRIMITIVE_IMAGE_2D_RW_T;
       m_imageTypeNameTranslate["ocl_image2ddepth"] = PRIMITIVE_IMAGE_2D_DEPTH_T;
+      m_imageTypeNameTranslate["ocl_image2d_depth_ro"] = PRIMITIVE_IMAGE_2D_DEPTH_RO_T;
+      m_imageTypeNameTranslate["ocl_image2d_depth_wo"] = PRIMITIVE_IMAGE_2D_DEPTH_WO_T;
+      m_imageTypeNameTranslate["ocl_image2d_depth_rw"] = PRIMITIVE_IMAGE_2D_DEPTH_RW_T;
       m_imageTypeNameTranslate["ocl_image3d"] = PRIMITIVE_IMAGE_3D_T;
+      m_imageTypeNameTranslate["ocl_image3d_ro"] = PRIMITIVE_IMAGE_3D_RO_T;
+      m_imageTypeNameTranslate["ocl_image3d_wo"] = PRIMITIVE_IMAGE_3D_WO_T;
+      m_imageTypeNameTranslate["ocl_image3d_rw"] = PRIMITIVE_IMAGE_3D_RW_T;
       m_imageTypeNameTranslate["ocl_image1dbuffer"] = PRIMITIVE_IMAGE_1D_BUFFER_T;
+      m_imageTypeNameTranslate["ocl_image1d_buffer_ro"] = PRIMITIVE_IMAGE_1D_BUFFER_RO_T;
+      m_imageTypeNameTranslate["ocl_image1d_buffer_wo"] = PRIMITIVE_IMAGE_1D_BUFFER_WO_T;
+      m_imageTypeNameTranslate["ocl_image1d_buffer_rw"] = PRIMITIVE_IMAGE_1D_BUFFER_RW_T;
       m_imageTypeNameTranslate["ocl_image1darray"] = PRIMITIVE_IMAGE_1D_ARRAY_T;
+      m_imageTypeNameTranslate["ocl_image1d_array_ro"] = PRIMITIVE_IMAGE_1D_ARRAY_RO_T;
+      m_imageTypeNameTranslate["ocl_image1d_array_wo"] = PRIMITIVE_IMAGE_1D_ARRAY_WO_T;
+      m_imageTypeNameTranslate["ocl_image1d_array_rw"] = PRIMITIVE_IMAGE_1D_ARRAY_RW_T;
       m_imageTypeNameTranslate["ocl_image2darray"] = PRIMITIVE_IMAGE_2D_ARRAY_T;
+      m_imageTypeNameTranslate["ocl_image2d_array_ro"] = PRIMITIVE_IMAGE_2D_ARRAY_RO_T;
+      m_imageTypeNameTranslate["ocl_image2d_array_wo"] = PRIMITIVE_IMAGE_2D_ARRAY_WO_T;
+      m_imageTypeNameTranslate["ocl_image2d_array_rw"] = PRIMITIVE_IMAGE_2D_ARRAY_RW_T;
       m_imageTypeNameTranslate["ocl_image2darraydepth"] = PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T;
+      m_imageTypeNameTranslate["ocl_image2d_array_depth_ro"] = PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_RO_T;
+      m_imageTypeNameTranslate["ocl_image2d_array_depth_wo"] = PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_WO_T;
+      m_imageTypeNameTranslate["ocl_image2d_array_depth_rw"] = PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_RW_T;
       m_imageTypeNameTranslate["ocl_event"] = PRIMITIVE_EVENT_T;
       m_imageTypeNameTranslate["ocl_clkevent"] = PRIMITIVE_CLK_EVENT_T;
       m_imageTypeNameTranslate["ocl_queue"] = PRIMITIVE_QUEUE_T;
@@ -361,7 +386,13 @@ namespace reflection {
     std::map<std::string, TypePrimitiveEnum>::iterator itr = m_imageTypeNameTranslate.find(typeName);
     if (itr != m_imageTypeNameTranslate.end()) {
       // We have a special Primitive Type
+#ifdef SUBSTITUTE_OPENCL_TYPES
+      RefParamType refImageType = createPrimitiveType(itr->second);
+      m_signList.push_back(refImageType);
+      return refImageType;
+#else
       return createPrimitiveType(itr->second);
+#endif
     }
 
     ParamType* pUserDefined = new UserDefinedType(typeName);
