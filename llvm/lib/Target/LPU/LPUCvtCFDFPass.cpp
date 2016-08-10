@@ -585,15 +585,23 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
 //focus on uses
 void LPUCvtCFDFPass::insertSWITCHForIf() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
-
+	std::set<MachineBasicBlock*> visitedBB;
   ControlDependenceNode *root = CDG->getRoot();
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
     MachineBasicBlock *mbb = DTN->getBlock();
     if (!mbb) continue; //root node has no bb
+		visitedBB.insert(mbb);
     // process each instruction in BB
-  
     for (MachineBasicBlock::succ_iterator isucc = mbb->succ_begin(); isucc != mbb->succ_end(); ++isucc) {
       MachineBasicBlock* succBB = *isucc;
+			ControlDependenceNode* succNode = CDG->getNode(succBB);
+			//phi in succNode has been processed or generated before
+			if (visitedBB.find(succBB) != visitedBB.end()) {
+				bool oneAndOnly = true;
+				if (getNonLatchParent(succNode, oneAndOnly) == nullptr) {
+					if (!oneAndOnly) continue;
+				}
+			}
 #if 0
 			if (MLI->getLoopFor(mbb) && 
 				  MLI->getLoopFor(mbb)->getLoopLatch() == mbb && 
@@ -994,6 +1002,18 @@ void LPUCvtCFDFPass::assignLicForDF() {
   LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
   std::deque<unsigned> renameQueue;
 	renameQueue.clear();
+	std::set<unsigned> pinedVReg;
+	for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+		for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
+			if (MI->isPHI()) {
+				for (MIOperands MO(MI); MO.isValid(); ++MO) {
+					if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+					unsigned Reg = MO->getReg();
+					pinedVReg.insert(Reg);
+				}
+			}
+		}
+	}
 
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
@@ -1004,7 +1024,7 @@ void LPUCvtCFDFPass::assignLicForDF() {
           if (MO->isDef() && MRI->use_empty(Reg) && TII.isSwitch(MI)) {
             MI->substituteRegister(Reg, LPU::IGN, 0, TRI);
           } else {
-            renameQueue.push_back(Reg);
+            renameQueue.push_back(Reg);	
           }
         }
       }
@@ -1016,51 +1036,32 @@ void LPUCvtCFDFPass::assignLicForDF() {
     renameQueue.pop_front();
     MachineInstr *DefMI = MRI->getVRegDef(dReg);
     if (!DefMI ) continue;
+		if (DefMI->isPHI()) continue;
     //if (TII.isLoad(DefMI) || TII.isStore(DefMI)) continue;
 		const TargetRegisterClass *TRC = MRI->getRegClass(dReg);
     const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(TRC);
     assert(new_LIC_RC && "unknown LPU register class");
     unsigned phyReg = LMFI->allocateLIC(new_LIC_RC);
-#if 1
-		if (DefMI->isPHI()) {
-			//encounter unhandled phi def, create move from virtual to physical
-			const unsigned moveOpcode = TII.getMoveOpcode(TRC);
-			MachineInstr *cpyInst = BuildMI(*DefMI->getParent(), 
-				                              DefMI->getParent()->getFirstNonPHI(), 
-				                              DebugLoc(), TII.get(moveOpcode), phyReg).addReg(dReg);
-			//cpyInst->setFlag(MachineInstr::NonSequential);
-		}	else {
-			DefMI->substituteRegister(dReg, phyReg, 0, TRI);
+
+		if (TII.isSwitch(DefMI)) {
+			unsigned trueReg = DefMI->getOperand(1).getReg();
+			unsigned falseReg = DefMI->getOperand(0).getReg();
+			if (pinedVReg.find(trueReg) != pinedVReg.end() || pinedVReg.find(falseReg) != pinedVReg.end()) {
+                DefMI->clearFlag(MachineInstr::NonSequential);
+				continue;
+			}
 		}
-#else
+		
 		DefMI->substituteRegister(dReg, phyReg, 0, TRI);
-#endif
+
     MachineRegisterInfo::use_iterator UI = MRI->use_begin(dReg);
     while (UI != MRI->use_end()) {
       MachineOperand &UseMO = *UI;
       ++UI;
 			MachineInstr* phiInstr = UseMO.getParent();
-			if (phiInstr->isPHI()) {
-				//encounter unhandled phi use, create move from physical to virtual in its incoming BB
-				for (unsigned i = 0; i < phiInstr->getNumOperands(); i++) {
-					if (&phiInstr->getOperand(i) == &UseMO) {
-						MachineBasicBlock* inBB = phiInstr->getOperand(i + 1).getMBB();
-						const unsigned moveOpcode = TII.getMoveOpcode(TRC);
-						unsigned inReg = MRI->createVirtualRegister(TRC);
-						MachineInstr *cpyInst = BuildMI(*inBB,
-							                              inBB->getFirstInstrTerminator(),
-							                              DebugLoc(), TII.get(moveOpcode), inReg).addReg(phyReg);
-						UseMO.setReg(inReg);
-						//cpyInst->setFlag(MachineInstr::NonSequential);
-					}
-				}
-			}	else {
-				UseMO.setReg(phyReg);
-			}
+			UseMO.setReg(phyReg);
     }
 		
-		if (DefMI->isPHI()) continue;
-
     for (MIOperands MO(DefMI); MO.isValid(); ++MO) {
       if (!MO->isReg() || !MO->isUse() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
       unsigned Reg = MO->getReg();
@@ -1106,10 +1107,10 @@ void LPUCvtCFDFPass::assignLicForDF() {
         }
       }
       
-      //      DEBUG(errs() << "Machine ins " << *MI << ": allLics = " << allLics << ", allImmediateUses = " << allImmediateUses << "\n");
+      //DEBUG(errs() << "Machine ins " << *MI << ": allLics = " << allLics << ", allImmediateUses = " << allImmediateUses << "\n");
       if (allLics && !allImmediateUses) {
         MI->setFlag(MachineInstr::NonSequential);
-      }
+			}	
     }
   }
 }
@@ -1393,7 +1394,6 @@ void LPUCvtCFDFPass::replaceIfFooterPhiSeq() {
 			for (MIOperands MO(MI); MO.isValid() && !bypassBB; ++MO) {
 				if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
 				if (MO->isUse()) {
-					unsigned Reg = MO->getReg();
 					//move to its incoming block operand
 					++MO;
 					MachineBasicBlock* inBB = MO->getMBB();
