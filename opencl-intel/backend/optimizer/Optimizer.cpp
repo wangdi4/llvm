@@ -57,7 +57,6 @@ llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBuiltInImportPass(const char* CPUName);
-llvm::ModulePass* createBuiltInAttributesImportPass();
 llvm::ImmutablePass * createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
@@ -284,7 +283,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     PM.add(createGenericAddressStaticResolutionPass());
   }
   PM.add(createBuiltinLibInfoPass(pRtlModuleList, pRtlBufferList, ""));
-  PM.add(createBuiltInAttributesImportPass());
 
   PM.add(llvm::createBasicAAWrapperPass());
   PM.add(createOCLAliasAnalysisPass());
