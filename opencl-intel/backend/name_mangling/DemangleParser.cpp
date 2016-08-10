@@ -253,18 +253,21 @@ namespace reflection {
       return RefParamType();
     }
     PointerType* pPointer = new PointerType(pType);
-    if (attrQualifier != ATTR_NONE) {
-      pPointer->addAttribute(attrQualifier);
-    }
-    if (attrAddressSpace != ATTR_NONE) {
-      pPointer->addAttribute(attrAddressSpace);
-    }
-    RefParamType refPointer(pPointer);
     //Push pointer type to end of sign list
     //It is important to do this after parsing the pointee type
     //in case the pointee is a non-primitive type, it should
     //be pushed first to the sign list.
-    m_signList.push_back(refPointer);
+    m_signList.push_back(new PointerType(*pPointer));
+    if (attrQualifier != ATTR_NONE) {
+      pPointer->addAttribute(attrQualifier);
+    }
+    assert(attrAddressSpace != ATTR_NONE && "No addr space.");
+    if (attrAddressSpace != ATTR_PRIVATE) {
+      pPointer->addAttribute(attrAddressSpace);
+    }
+    RefParamType refPointer(pPointer);
+    if (attrQualifier != ATTR_NONE || attrAddressSpace != ATTR_PRIVATE)
+      m_signList.push_back(new PointerType(*pPointer));
     return refPointer;
   }
 

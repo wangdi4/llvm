@@ -55,6 +55,9 @@ public:
       m_stream << getMangledAttribute(p->getAttributes()[i]);
     }
     p->getPointee()->accept(this);
+    if (p->getAttributes().size())
+      m_dupList.push_back((reflection::ParamType *)new reflection::PointerType(
+          p->getPointee()));
     m_dupList.push_back((reflection::ParamType*)p);
   }
 
