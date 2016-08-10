@@ -53,8 +53,13 @@ using namespace Intel::OpenCL::DeviceBackend;
 #endif
 
 /// @brief bitcode filenames, used in CompilationService tests
-#define FILE_BC_WITH_KERNELS            "bitcodeWithKernels.bc"
-#define FILE_BC_NO_KERNELS              "bitcodeNoKernels.bc"
+#if defined _M_X64 || defined __x86_64__
+#define FILE_BC_WITH_KERNELS            "bitcodeWithKernels_64.bc"
+#define FILE_BC_NO_KERNELS              "bitcodeNoKernels_64.bc"
+#else
+#define FILE_BC_WITH_KERNELS            "bitcodeWithKernels_32.bc"
+#define FILE_BC_NO_KERNELS              "bitcodeNoKernels_32.bc"
+#endif
 #define FILE_BC_NOISE                   "bitcodeNoise.bc"
 
 /// @brief options parameters, used in FactoryMethods tests
