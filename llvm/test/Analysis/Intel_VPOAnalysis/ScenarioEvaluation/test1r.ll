@@ -12,7 +12,7 @@
 
 ; TODO: Only runs in debug mode
 ; REQUIRES: asserts
-; RUN: opt < %s -O2 -S -loopopt -debug 2>&1 | FileCheck %s
+; RUN: opt < %s -O2 -S -loopopt -disable-hir-loop-reversal -debug 2>&1 | FileCheck %s
 ;
 ; CHECK: Consecutive Stride = -1
 ; CHECK: Case 4: Wide Load/Store Cost
