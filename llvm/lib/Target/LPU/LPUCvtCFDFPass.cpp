@@ -585,64 +585,52 @@ void LPUCvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
 //focus on uses
 void LPUCvtCFDFPass::insertSWITCHForIf() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
-	std::set<MachineBasicBlock*> visitedBB;
   ControlDependenceNode *root = CDG->getRoot();
-  for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
-    MachineBasicBlock *mbb = DTN->getBlock();
-    if (!mbb) continue; //root node has no bb
-		visitedBB.insert(mbb);
-    // process each instruction in BB
-    for (MachineBasicBlock::succ_iterator isucc = mbb->succ_begin(); isucc != mbb->succ_end(); ++isucc) {
-      MachineBasicBlock* succBB = *isucc;
+	for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
+		MachineBasicBlock *mbb = DTN->getBlock();
+		if (!mbb) continue; //root node has no bb
+		// process each instruction in BB
+		for (MachineBasicBlock::succ_iterator isucc = mbb->succ_begin(); isucc != mbb->succ_end(); ++isucc) {
+			MachineBasicBlock* succBB = *isucc;
 			ControlDependenceNode* succNode = CDG->getNode(succBB);
 			//phi in succNode has been processed or generated before
-			if (visitedBB.find(succBB) != visitedBB.end()) {
-				bool oneAndOnly = true;
-				if (getNonLatchParent(succNode, oneAndOnly) == nullptr) {
-					if (!oneAndOnly) continue;
+			if (!succNode->isParent(*DTN)) {
+				for (MachineBasicBlock::iterator iPhi = succBB->begin(); iPhi != succBB->end(); ++iPhi) {
+					if (!iPhi->isPHI()) {
+						break;
+					}
+					for (MIOperands MO(iPhi); MO.isValid(); ++MO) {
+						if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+						unsigned Reg = MO->getReg();
+						// process uses
+						if (MO->isUse()) {
+							MachineOperand& mOpnd = *MO;
+							++MO;
+							if (MO->getMBB() == mbb) {
+								if (mbb->succ_size() == 1 ||
+									(mbb->succ_size() == 2 && MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getLoopLatch() == mbb)) {
+									insertSWITCHForOperand(mOpnd, mbb, iPhi);
+								}
+								else {
+									//mbb itself is a fork
+									MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, mbb);
+									unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
+									unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
+									unsigned newVReg;
+									if (CDG->getEdgeType(mbb, succBB, true) == ControlDependenceNode::TRUE) {
+										newVReg = switchTrueReg;
+									}
+									else {
+										assert(CDG->getEdgeType(mbb, succBB, true) == ControlDependenceNode::FALSE);
+										newVReg = switchFalseReg;
+									}
+									mOpnd.setReg(newVReg);
+								}
+							}
+						}
+					}
 				}
 			}
-#if 0
-			if (MLI->getLoopFor(mbb) && 
-				  MLI->getLoopFor(mbb)->getLoopLatch() == mbb && 
-				  MLI->getLoopFor(mbb)->getHeader() == succBB) {
-				continue;
-			}
-#endif
-      for (MachineBasicBlock::iterator iPhi = succBB->begin(); iPhi != succBB->end(); ++iPhi) {
-        if (!iPhi->isPHI()) {
-          break;
-        }
-        for (MIOperands MO(iPhi); MO.isValid(); ++MO) {
-          if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-          unsigned Reg = MO->getReg();
-          // process uses
-          if (MO->isUse()) {
-            MachineOperand& mOpnd = *MO;
-            ++MO;
-            if (MO->getMBB() == mbb) {
-              if (mbb->succ_size() == 1 || 
-                  ( mbb->succ_size() == 2 && MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getLoopLatch() == mbb)) {
-                insertSWITCHForOperand(mOpnd, mbb, iPhi);
-              }	else {
-                //mbb itself is a fork
-                MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, mbb);
-                unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
-                unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
-                unsigned newVReg;
-                if (CDG->getEdgeType(mbb, succBB, true) == ControlDependenceNode::TRUE) {
-                  newVReg = switchTrueReg;
-                }	else {
-									assert(CDG->getEdgeType(mbb, succBB, true) == ControlDependenceNode::FALSE);
-                  newVReg = switchFalseReg;
-                }
-                mOpnd.setReg(newVReg);
-              }
-            }
-          }
-        }
-      }
-
 			for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
 				MachineInstr *MI = I;
 				//loop header phi forward input is a kind of fork
@@ -651,8 +639,8 @@ void LPUCvtCFDFPass::insertSWITCHForIf() {
 					insertSWITCHForOperand(*MO, mbb);
 				}
 			}//end of for MI
-    }
-  }//end of for DTN(mbb)
+		}
+	}//end of for DTN(mbb)
 }
 
 
@@ -1058,7 +1046,6 @@ void LPUCvtCFDFPass::assignLicForDF() {
     while (UI != MRI->use_end()) {
       MachineOperand &UseMO = *UI;
       ++UI;
-			MachineInstr* phiInstr = UseMO.getParent();
 			UseMO.setReg(phyReg);
     }
 		
