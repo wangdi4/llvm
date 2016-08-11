@@ -412,6 +412,7 @@ void initializeVPODriverPass(PassRegistry&);
 void initializeVPODriverHIRPass(PassRegistry&);
 void initializeVPODirectiveCleanupPass(PassRegistry&);
 void initializeVectorGraphInfoPass(PassRegistry&);
+void initializeVectorGraphPredicatorPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeLoopDistributePass(PassRegistry&);
 void initializeSjLjEHPreparePass(PassRegistry&);

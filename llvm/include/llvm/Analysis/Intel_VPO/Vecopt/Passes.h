@@ -55,6 +55,7 @@ FunctionPass *createSIMDLaneEvolutionHIRPass();
 ///
 FunctionPass *createVectorGraphInfoPass();
 
+FunctionPass *createVectorGraphPredicatorPass();
 }
 
 #endif // LLVM_ANALYSIS_VPO_PASSES_H

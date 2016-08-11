@@ -62,22 +62,20 @@ public:
 
   // Modification Utilities
 
-  /*
   /// \brief set Avr nodes's predicate.
   static void setPredicate(VGNode *Node, VGPredicate* Predicate);
 
   /// \brief Add an incoming AVRValue (from AVRLabel) to an AVRPhi.
   static void addVGPredicateIncoming(VGPredicate *APredicate,
                                      VGPredicate *IncomingPredicate,
-                                     VGNode *IncomingCondition);
+                                     Value *IncomingCondition);
 
 
-  static void setBlockCondition(VGBlock* ABlock, VGNode *Node);
+  static void setBlockCondition(VGBlock* ABlock, Value *C);
 
   static void addSuccessor(VGBlock* Block, VGBlock* Successor);
 
   static void addSchedulingConstraint(VGBlock* Block, VGBlock* Constraint);
-  */
 
   // Insertion Utilities
 

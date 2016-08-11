@@ -25,19 +25,18 @@ VGPredicate *VectorGraphUtils::createVGPredicate() {
 
 // Modification Utilities
 
-/*
 void VectorGraphUtils::setPredicate(VGNode *Node, VGPredicate* Predicate) {
   Node->setPredicate(Predicate);
 }
 
 void VectorGraphUtils::addVGPredicateIncoming(VGPredicate *VPredicate,
                                                VGPredicate *IncomingPredicate,
-                                               VGNode *IncomingCondition) {
+                                               Value *IncomingCondition) {
   VPredicate->addIncoming(IncomingPredicate, IncomingCondition);
 }
 
-void VectorGraphUtils::setBlockCondition(VGBlock* VBlock, VGNode *Node) {
-  VBlock->setCondition(Node);
+void VectorGraphUtils::setBlockCondition(VGBlock* VBlock, Value *C) {
+  VBlock->setCondition(C);
 }
 
 void VectorGraphUtils::addSuccessor(VGBlock* Block, VGBlock* Successor) {
@@ -51,7 +50,6 @@ void VectorGraphUtils::addSchedulingConstraint(VGBlock* Block, VGBlock* Constrai
   assert(Constraint && "Constraint is null");
   Block->addSchedulingConstraint(Constraint);
 }
-*/
 
 // Insertion Utilities
 

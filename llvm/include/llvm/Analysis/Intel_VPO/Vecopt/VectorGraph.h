@@ -21,9 +21,11 @@
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
+#include <map>
 
 #define TabLength 2
 
@@ -175,6 +177,8 @@ private:
   /// LLVM Loop
   const Loop *LLoop;
 
+  VGBlock *LoopLatch;
+
   /// Children - Contains the children basic blocks of this loop.
   ChildNodeTy Children;
 
@@ -207,6 +211,15 @@ protected:
   friend class VectorGraphUtils;
 
 public:
+
+  /// CFG building class members
+  // quick lookup for LLVM basic block to VGBlock
+  std::map<BasicBlock*, VGBlock*> BlockMap;
+
+  void addSuccessors(Loop *Lp, VGBlock*);
+  VGBlock* getOrInsertBlock(Loop *Lp, BasicBlock *BB);
+  void insertLoopExitBlock(Loop *Lp);
+
   /// Loop Children Iterators
 
   child_iterator child_begin() { return Children.begin(); }
@@ -226,6 +239,7 @@ public:
   LoopNodesRange nodes() { return LoopNodesRange(child_begin(), child_end()); }
 
   /// Children access Methods
+  VGBlock* getLoopLatch() { return LoopLatch; }
 
   /// \brief Returns the first child if it exists, otherwise returns null.
   VGNode *getFirstChild();
@@ -263,6 +277,8 @@ public:
 
   unsigned int getSize() const { return Size; }
 
+  const Loop* getLoop() { return LLoop; }
+
   /// \brief
   void print(formatted_raw_ostream &OS, unsigned Depth) const override;
 
@@ -287,9 +303,9 @@ private:
   /// Condition - pointer to the instruction  which generates the true/false bit
   /// for
   /// that selects between (the two) successors.
-  Instruction *Condition;
+  Value *Condition;
 
-  void setCondition(Instruction *C) { Condition = C; }
+  void setCondition(Value *C) { Condition = C; }
 
   void addSuccessor(VGBlock *Successor) {
     assert(Successor && "Null successor?");
@@ -359,18 +375,46 @@ public:
   /// \brief Prints the AVR Unreachable node.
   void print(formatted_raw_ostream &OS, unsigned Depth) const override;
 
+  /// \brief Prints the AVR Unreachable node.
+  void print(raw_ostream &OS, unsigned Depth) const;
+
   /// \brief Prints the type name of this avr.
   void printNodeKind(formatted_raw_ostream &OS) const override;
 
+  /// \brief Prints the type name of this avr.
+  void printNodeKind(raw_ostream &OS) const;
+
+  void printAsOperand(raw_ostream &OS, bool PrintType) const {
+    print(OS, 0);
+  }
+
   BasicBlock* getBasicBlock() { return BBlock; }
+
+  /// \brief Answer whether a VGBlock affects the control flow. This is true iff
+  /// it is the terminator of a basic block with more than one successor.
+  bool hasBranchCondition() const {
+    if (Successors.size() < 2)
+      return false; // Control flow from BasicBlock is not conditioned.
+    return true;
+  }
+
+  Value* getBranchCondition() {
+    if (hasBranchCondition()) {
+      TerminatorInst *TermInst = BBlock->getTerminator();
+      if (BranchInst *BrInst = dyn_cast<BranchInst>(TermInst)) {
+        return BrInst->getCondition();
+      }
+    }
+    return nullptr;
+  }
 };
 
-/// \breif
+/// \brief
 class VGPredicate : public VGNode {
 public:
   /// \brief A type representing an incoming value to the AVRPredicate and the
-  /// AVRLabel corresponding to the basic block it originates from.
-  typedef std::pair<VGPredicate *, VGNode *> IncomingTy;
+  /// VGNode corresponding to the basic block it originates from.
+  typedef std::pair<VGPredicate *, Value *> IncomingTy;
 
 private:
   /// \brief Incoming AVR values and their corresponding AVR labels.
@@ -380,8 +424,8 @@ private:
   virtual ~VGPredicate() override {}
 
   ///\brief Adds an incoming AVRPredicate when some condition holds.
-  void addIncoming(VGPredicate *VPredicate, Instruction *Condition) {
-    // IncomingPredicates.push_back(std::make_pair(VPredicate, Condition));
+  void addIncoming(VGPredicate *VPredicate, Value *Condition) {
+    IncomingPredicates.push_back(std::make_pair(VPredicate, Condition));
   }
 
   friend class VectorGraphUtils;

@@ -48,6 +48,7 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   Vecopt/VectorGraph.cpp
   Vecopt/VectorGraphUtils.cpp
   Vecopt/VectorGraphInfo.cpp
+  Vecopt/VectorGraphPredicator.cpp
 )
 
 add_dependencies(LLVMIntel_VPOAnalysis intrinsics_gen)

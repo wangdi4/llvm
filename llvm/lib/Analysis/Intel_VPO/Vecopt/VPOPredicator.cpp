@@ -239,7 +239,7 @@ public:
 template <> struct GraphTraits<vpo::AVRBlock*> {
   typedef vpo::AVRBlock NodeType;
   typedef SmallVectorImpl<AVRBlock*>::iterator ChildIteratorType;
-  typedef standard_df_iterator<vpo::AVRBlock *> nodes_iterator;
+  typedef standard_df_iterator2<vpo::AVRBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(vpo::AVRBlock *N) {
     return N;
@@ -264,7 +264,7 @@ template <> struct GraphTraits<vpo::AVRBlock*> {
 template <> struct GraphTraits<Inverse<vpo::AVRBlock*> > {
   typedef vpo::AVRBlock NodeType;
   typedef SmallVectorImpl<AVRBlock*>::iterator ChildIteratorType;
-  typedef standard_df_iterator<vpo::AVRBlock *> nodes_iterator;
+  typedef standard_df_iterator2<vpo::AVRBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(Inverse<vpo::AVRBlock *> G) {
     return G.Graph;
@@ -290,7 +290,7 @@ template <> struct GraphTraits<Inverse<vpo::AVRBlock*> > {
 template <> struct GraphTraits<const vpo::AVRBlock*> {
   typedef const vpo::AVRBlock NodeType;
   typedef SmallVectorImpl<AVRBlock*>::const_iterator ChildIteratorType;
-  typedef standard_df_iterator<const vpo::AVRBlock *> nodes_iterator;
+  typedef standard_df_iterator2<const vpo::AVRBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(const vpo::AVRBlock *N) {
     return N;
@@ -315,7 +315,7 @@ template <> struct GraphTraits<const vpo::AVRBlock*> {
 template <> struct GraphTraits<Inverse<const vpo::AVRBlock*> > {
   typedef const vpo::AVRBlock NodeType;
   typedef SmallVectorImpl<AVRBlock*>::const_iterator ChildIteratorType;
-  typedef standard_df_iterator<const vpo::AVRBlock *> nodes_iterator;
+  typedef standard_df_iterator2<const vpo::AVRBlock *> nodes_iterator;
 
   static NodeType *getEntryNode(Inverse<const vpo::AVRBlock *> G) {
     return G.Graph;

@@ -270,6 +270,7 @@ namespace {
       (void) llvm::createSIMDLaneEvolutionPass();
       (void) llvm::createSIMDLaneEvolutionHIRPass();
       (void) llvm::createVectorGraphInfoPass();
+      (void) llvm::createVectorGraphPredicatorPass();
 
       // VPO Parallelizer Passes
       (void) llvm::createVPOParoptPass();

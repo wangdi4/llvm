@@ -31,4 +31,5 @@ void llvm::initializeIntel_VPOAnalysis(PassRegistry &Registry) {
   initializeSIMDLaneEvolutionPass(Registry);
   initializeSIMDLaneEvolutionHIRPass(Registry);
   initializeVectorGraphInfoPass(Registry);
+  initializeVectorGraphPredicatorPass(Registry); 
 }

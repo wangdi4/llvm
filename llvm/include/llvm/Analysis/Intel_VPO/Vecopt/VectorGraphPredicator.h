@@ -1,0 +1,73 @@
+//===-- VectorGraphPredicator.h ---------------------------------*- C++ -*-===//
+//
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
+//
+//   Source file:
+//   ------------
+//   VectorGraphPredicator.h -- Defines the Vector Graph Predication analysis.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef LLVM_TRANSFORMS_VPO_VGPREDICATOR_H
+#define LLVM_TRANSFORMS_VPO_VGPREDICATOR_H
+
+#include "llvm/Pass.h"
+#include "llvm/ADT/GraphTraits.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VectorGraph.h"
+
+namespace llvm {
+
+namespace vpo {
+
+class VectorGraphInfo;
+class VGLoop;
+class VGBlock;
+class VGSESERegion;
+
+/// \brief Template specialization of the standard LLVM dominator tree utility
+/// for VGBlock CFGs.
+class VGDominatorTree : public DominatorTreeBase<VGBlock> {
+
+public:
+
+  VGDominatorTree(bool isPostDom) :
+      DominatorTreeBase<VGBlock>(isPostDom) {}
+
+  virtual ~VGDominatorTree() {}
+};
+
+class VectorGraphPredicator : public FunctionPass {
+
+public:
+
+  /// Pass Identification
+  static char ID;
+
+  VectorGraphPredicator();
+
+  bool runOnFunction(Function &F);
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+  void runOnAvr(VGLoop* ALoop);
+
+private:
+
+  VectorGraphInfo *VGI;
+
+  void predicateLoop(VGLoop* ALoop);
+  void handleVGSESERegion(const VGSESERegion *Region, VGLoop* ALoop);
+  void predicate(VGBlock* Entry);
+  //void removeCFG(AVRBlock* Entry);
+};
+
+} // End namespace vpo
+
+} // End namespace llvm
+
+#endif // LLVM_TRANSFORMS_VPO_VGPREDICATOR_H
