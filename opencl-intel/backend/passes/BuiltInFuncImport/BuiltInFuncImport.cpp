@@ -301,6 +301,28 @@ namespace intel {
       if (!m_UserModuleFunctions.count(&F) && !F.isDeclaration())
         F.setLinkage(GlobalVariable::LinkOnceODRLinkage);
 
+    // At link time we have a shared.rtl (with common built-ins) compiled for
+    // SSE and target.rtl compiled for SSE, AVX or AVX2. Built-ins from
+    // shared.rtl and target.rtl will have different "target-cpu" and
+    // "target-features" function attributes, so CodeGen will generate SSE code
+    // for shared built-ins and AVX2 for target ones. These built-ins will have
+    // different ABI, producing incorrect results at run-time.
+    //
+    // We need to remove these attributes and allow CodeGen to generate all
+    // built-ins for a single (target) architecture.
+    const char *TargetAttrs[] = {"target-cpu", "target-features"};
+
+    AttributeSet IgnoreAttrs;
+    for (auto A : TargetAttrs) {
+      IgnoreAttrs = IgnoreAttrs.addAttribute(
+          M.getContext(), AttributeSet::FunctionIndex, A);
+
+    }
+
+    for (auto &F : M) {
+      F.removeAttributes(AttributeSet::FunctionIndex, IgnoreAttrs);
+    }
+
     return changed;
   }
 
