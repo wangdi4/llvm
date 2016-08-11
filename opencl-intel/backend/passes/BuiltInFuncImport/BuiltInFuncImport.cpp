@@ -310,6 +310,9 @@ namespace intel {
     //
     // We need to remove these attributes and allow CodeGen to generate all
     // built-ins for a single (target) architecture.
+    //
+    // This also fixes an issue with inlining, where built-ins with different
+    // targets cannot be inlined together.
     const char *TargetAttrs[] = {"target-cpu", "target-features"};
 
     AttributeSet IgnoreAttrs;
