@@ -85,13 +85,17 @@ OCL_INITIALIZE_PASS(CloneBlockInvokeFuncToKernel, "cloneblockinvokefunctokernel"
 
 static bool canBlockInvokeFunctionBeEnqueued(Function *F)
 {
-  if(!F->getReturnType()->isVoidTy())
+  if (!F->getReturnType()->isVoidTy())
     return false;
 
-  // check 1st arg is NOT struct return attribute
+  // Check that the Function has at least one argument.
+  if (F->arg_empty())
+    return false;
+  // First arg must be i8* %.block_descriptor
+  // Check 1st arg is NOT struct return attribute
   // In this case block returns struct - not acceptable for enqueue
   Argument* Arg1= F->arg_begin();
-  if ( Arg1->hasStructRetAttr() )
+  if (Arg1->hasStructRetAttr() || Arg1->getName() != ".block_descriptor")
     return false;
 
   return true;
