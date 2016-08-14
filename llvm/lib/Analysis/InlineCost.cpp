@@ -1281,13 +1281,15 @@ static bool forgivableCondition(TerminatorInst* TI) {
 } 
 
 //
-// Return 'true' if this is a double callsite worth inlining. The criteria
-// are: 
+// Return 'true' if this is a double callsite worth inlining.
+//   (This is one of multiple double callsite heuristics.)
+//
+// The criteria for this heuristic are:
 //  (1) Must have exactly two calls to the function in the caller 
 //  (2) The callee must have a single outer loop 
 //  (3) That loop's basic blocks must have a relatively large successor count
 //
-static bool worthyDoubleCallSite(CallSite &CS) {
+static bool worthyDoubleCallSite1(CallSite &CS) {
    Function *Caller = CS.getCaller(); 
    Function *Callee = CS.getCalledFunction(); 
    // Look for 2 calls of the callee in the caller. 
@@ -1328,6 +1330,81 @@ static bool worthyDoubleCallSite(CallSite &CS) {
    } 
    return (100 * SuccCount / BBCount) > InlineConstants::BasicBlockSuccRatio;
 } 
+
+//
+// Return 'true' if the Function F has a Loop L whose trip count will be
+// constant after F is inlined.
+//
+static bool boundConstArg(Function *F, Loop *L) {
+  auto EB = L->getExitingBlock(); 
+  if (EB == nullptr) 
+    return false;
+  auto BI = dyn_cast<BranchInst>(EB->getTerminator());
+  if (!BI || !BI->isConditional())
+    return false;
+  auto ICmp = dyn_cast<ICmpInst>(BI->getCondition());
+  if (!ICmp)
+    return false;
+  for (unsigned i = 0, e = ICmp->getNumOperands(); i != e; ++i) {
+    auto Arg = dyn_cast<Argument>(ICmp->getOperand(i));
+    if (!Arg)
+      continue;
+    unsigned ArgNo = Arg->getArgNo();
+    for (Use &U : F->uses()) {
+      if (auto CS = ImmutableCallSite(U.getUser())) {
+        if (!CS)
+          return false;
+        if (!CS.isCallee(&U))
+          return false;
+        auto I = CS.getInstruction();
+        if (!isa<Constant>(I->getOperand(ArgNo)))
+          return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+//
+// Return 'true' if the Function F has a Loop L whose two inner most loops
+// have trip counts that will be constant after F is inlined.
+//
+static bool hasConstTripCountArg(Function *F, Loop *L) {
+  if (L->empty() && L->getParentLoop()
+    && boundConstArg(F, L) && boundConstArg(F, L->getParentLoop()))
+    return true;
+  for (auto LB = L->begin(), LE = L->end(); LB != LE; ++LB)
+    if (hasConstTripCountArg(F, *LB))
+      return true;
+  return false;
+}
+
+//
+// Return 'true' if this is a double callsite worth inlining.
+//   (This is one of multiple double callsite heuristics.)
+//
+// The criteria for this heuristic are:
+//  (1) Must have exactly two calls to the function
+//  (2) Must be only one loop nest
+//  (3) The inner two loops of that nest must have a loop bound that
+//      will be a constant after inlining is applied
+//
+static bool worthyDoubleCallSite2(CallSite &CS) {
+  Function *Callee = CS.getCalledFunction();
+  DominatorTree DT = DominatorTree(*Callee);
+  LoopInfo LI = LoopInfo(DT);
+  return std::distance(LI.begin(), LI.end()) == 1
+    && hasConstTripCountArg(Callee, *(LI.begin()));
+}
+
+//
+// Return 'true' if this is a double callsite worth inlining.
+//
+static bool worthyDoubleCallSite(CallSite &CS)
+{
+  return worthyDoubleCallSite1(CS) || worthyDoubleCallSite2(CS);
+}
 
 #endif // INTEL_CUSTOMIZATION
 
