@@ -105,9 +105,6 @@ public:
   /// \brief Destroys the passed in DDRef.
   static void destroy(DDRef *Ref);
 
-  /// \brief Returns a new symbase.
-  static unsigned getNewSymbase();
-
   /// \brief Returns true if the two DDRefs, Ref1 and Ref2, are equal.
   /// IgnoreDestType parameter is only used for base destination type comparison
   /// of RegDDRef. This parameter is ignored in all other cases.

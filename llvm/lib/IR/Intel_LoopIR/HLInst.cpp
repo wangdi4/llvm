@@ -35,14 +35,14 @@ void HLInst::initialize() {
 }
 
 HLInst::HLInst(Instruction *In)
-    : HLDDNode(HLNode::HLInstVal), Inst(In), SafeRednSucc(nullptr),
+    : HLDDNode(HLNode::HLInstVal), Inst(In),
       CmpOrSelectPred(PredicateTy::FCMP_TRUE) {
   assert(Inst && "LLVM Instruction for HLInst cannot be null!");
   initialize();
 }
 
 HLInst::HLInst(const HLInst &HLInstObj)
-    : HLDDNode(HLInstObj), Inst(HLInstObj.Inst), SafeRednSucc(nullptr),
+    : HLDDNode(HLInstObj), Inst(HLInstObj.Inst),
       CmpOrSelectPred(HLInstObj.CmpOrSelectPred) {
 
   unsigned NumOp, Count = 0;
@@ -228,30 +228,6 @@ bool HLInst::hasLval() const {
           isa<StoreInst>(Inst));
 }
 
-RegDDRef *HLInst::getOperandDDRef(unsigned OperandNum) {
-  assert(OperandNum < getNumOperands() && "Operand is out of range!");
-  return getOperandDDRefImpl(OperandNum);
-}
-
-const RegDDRef *HLInst::getOperandDDRef(unsigned OperandNum) const {
-  return const_cast<HLInst *>(this)->getOperandDDRef(OperandNum);
-}
-
-void HLInst::setOperandDDRef(RegDDRef *Ref, unsigned OperandNum) {
-  assert(OperandNum < getNumOperands() && "Operand is out of range!");
-  setOperandDDRefImpl(Ref, OperandNum);
-}
-
-RegDDRef *HLInst::removeOperandDDRef(unsigned OperandNum) {
-  auto TRef = getOperandDDRef(OperandNum);
-
-  if (TRef) {
-    setOperandDDRef(nullptr, OperandNum);
-  }
-
-  return TRef;
-}
-
 RegDDRef *HLInst::getLvalDDRef() {
   if (hasLval()) {
     return cast<RegDDRef>(getOperandDDRefImpl(0));
@@ -307,34 +283,6 @@ RegDDRef *HLInst::removeRvalDDRef() {
   setRvalDDRef(nullptr);
 
   return TRef;
-}
-
-void HLInst::addFakeDDRef(RegDDRef *RDDRef) {
-  assert(RDDRef && "Cannot add null fake DDRef!");
-
-  RegDDRefs.push_back(RDDRef);
-  setNode(RDDRef, this);
-}
-
-void HLInst::removeFakeDDRef(RegDDRef *RDDRef) {
-  HLDDNode *Node;
-
-  (void)Node;
-  assert(RDDRef && "Cannot remove null fake DDRef!");
-  assert(RDDRef->isFake() && "RDDRef is not a fake DDRef!");
-  assert((Node = RDDRef->getHLDDNode()) && isa<HLInst>(Node) &&
-         (cast<HLInst>(Node) == this) &&
-         "RDDRef does not belong to this HLInst!");
-
-  for (auto I = fake_ddref_begin(), E = fake_ddref_end(); I != E; I++) {
-    if ((*I) == RDDRef) {
-      setNode(RDDRef, nullptr);
-      RegDDRefs.erase(I);
-      return;
-    }
-  }
-
-  llvm_unreachable("Unexpected condition!");
 }
 
 bool HLInst::isLval(const RegDDRef *Ref) const {

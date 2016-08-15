@@ -303,7 +303,7 @@ private:
         // Blobs represented by an scevunknown whose value is an instruction
         // are represented by load and stores to a memory location corresponding
         // to the blob's symbase. Blobs are always rvals, and so loaded
-        unsigned BlobSymbase = BlobUtils::findBlobSymbase(S);
+        unsigned BlobSymbase = BlobUtils::findTempBlobSymbase(S);
 
         // SCEVExpander can create its own SCEVs as intermediates which are
         // then expanded. One example is expandAddToGep which replaces

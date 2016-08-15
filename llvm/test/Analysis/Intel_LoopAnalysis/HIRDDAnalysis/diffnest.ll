@@ -11,12 +11,8 @@
 ;  S2 -> S1 flow (<)  
 ; RUN:  opt < %s    -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s 
 ; CHECK: 'HIR Data Dependence Analysis'
-; CHECK-DAG:    (@xk)[0][-1 * i1 + i2 + 26] 
-; CHECK-SAME:   (@xk)[0][-1 * i1 + 26]
-; CHECK-SAME:   ANTI (=)
-; CHECK-DAG:   (@xk)[0][-1 * i1 + 26] 
-; CHECK-SAME:  (@xk)[0][-1 * i1 + i2 + 26]
-; CHECK-SAME:   FLOW (<)
+; CHECK-DAG:  (@xk)[0][-1 * i1 + i2 + 26] --> (@xk)[0][-1 * i1 + 26] ANTI (=)
+; CHECK-DAG:  (@xk)[0][-1 * i1 + 26] --> (@xk)[0][-1 * i1 + i2 + 26] FLOW (<)
 ;
 ;
 ; ModuleID = 'diffloopnests.c'

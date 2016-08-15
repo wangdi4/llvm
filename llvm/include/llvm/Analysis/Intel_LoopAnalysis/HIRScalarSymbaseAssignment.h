@@ -89,11 +89,6 @@ private:
   /// SSADeconstruction pass) to symbase.
   StringMap<unsigned> StrSymbaseMap;
 
-  /// ScalarLvalSymbases - Maps symbases to scalar lvals. This is only used for
-  /// printing lval DDRefs. To dump HIR correctly it needs to be updated for new
-  /// values created by HIR transformations as well.
-  SmallDenseMap<unsigned, const Value *, 64> ScalarLvalSymbases;
-
   /// Symbase assigned to non-constant rvals which do not create data
   /// dependencies.
   unsigned GenericRvalSymbase;
@@ -173,10 +168,6 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
-
-  /// \brief Registers new lval/symbase pairs created by HIR transformations.
-  /// Only used for printing.
-  void insertHIRLval(const Value *Lval, unsigned Symbase);
 
   /// \brief Returns the scalar associated with symbase.
   const Value *getBaseScalar(unsigned Symbase) const;

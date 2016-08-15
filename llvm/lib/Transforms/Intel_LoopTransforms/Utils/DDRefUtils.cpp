@@ -92,18 +92,11 @@ void DDRefUtils::destroy(DDRef *Ref) { Ref->destroy(); }
 
 void DDRefUtils::destroyAll() { DDRef::destroyAll(); }
 
-unsigned DDRefUtils::getNewSymbase() {
-  return getHIRFramework()->getNewSymbase();
-}
-
 RegDDRef *DDRefUtils::createSelfBlobRef(Value *Temp) {
-  unsigned Symbase = DDRefUtils::getNewSymbase();
+  unsigned Symbase = getHIRFramework()->getNewSymbase();
 
   // Create a non-linear self-blob canon expr.
   auto CE = CanonExprUtils::createSelfBlobCanonExpr(Temp, Symbase);
-
-  // Register new lval with HIRFramework for printing.
-  getHIRFramework()->insertHIRLval(Temp, Symbase);
 
   // Create a RegDDRef with the new symbase and canon expr.
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
@@ -259,7 +252,7 @@ bool DDRefUtils::getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
 
 RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, unsigned Level) {
   auto CE = CanonExprUtils::createSelfBlobCanonExpr(Index, Level);
-  unsigned Symbase = BlobUtils::getBlobSymbase(Index);
+  unsigned Symbase = BlobUtils::getTempBlobSymbase(Index);
 
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
   Ref->setSingleCanonExpr(CE);

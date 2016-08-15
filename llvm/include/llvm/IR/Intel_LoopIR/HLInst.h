@@ -28,13 +28,12 @@ namespace loopopt {
 
 class RegDDRef;
 
-/// \brief High level node representing a LLVM instruction
+/// High level node representing a LLVM instruction
 class HLInst final : public HLDDNode {
 private:
   // Neither the pointer nor the Instruction object pointed to can be modified
   // once HLInst has been constructed.
   const Instruction *const Inst;
-  HLInst *SafeRednSucc;
   // Only used for Cmp and Select instructions.
   PredicateTy CmpOrSelectPred;
 
@@ -42,173 +41,129 @@ protected:
   explicit HLInst(Instruction *In);
   virtual ~HLInst() override {}
 
-  /// \brief Copy constructor used by cloning.
+  /// Copy constructor used by cloning.
   HLInst(const HLInst &HLInstObj);
 
   friend class HLNodeUtils;
 
-  /// \brief Implements getNumOperands() functionality.
+  /// Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
 
-  /// \brief Implements isInPreheader*()/isInPostexit*() functionality.
+  /// Implements isInPreheader*()/isInPostexit*() functionality.
   bool isInPreheaderPostexitImpl(bool Preheader) const;
 
-  /// \brief Initializes some of the members to bring the object in a sane
-  /// state.
+  /// Initializes some of the members to bring the object in a sane state.
   void initialize();
 
-  /// \brief Clone Implementation
+  /// Clone Implementation
   /// This function ignores the GotoList and LabelMap parameter.
   /// Returns cloned Inst.
   HLInst *cloneImpl(GotoContainerTy *GotoList,
                     LabelMapTy *LabelMap) const override;
 
-  /// \brief Returns true if there is a separator that we can print between
-  /// operands of this instruction. Prints the separators if Print is true.
+  /// Returns true if there is a separator that we can print between operands of
+  /// this instruction. Prints the separators if Print is true.
   bool checkSeparator(formatted_raw_ostream &OS, bool Print) const;
 
-  /// \brief Prints the beginning Opcode equivalent for this instruction.
+  /// Prints the beginning Opcode equivalent for this instruction.
   void printBeginOpcode(formatted_raw_ostream &OS, bool HasSeparator) const;
 
-  /// \brief Prints the ending Opcode equivalent for this instruction.
+  /// Prints the ending Opcode equivalent for this instruction.
   void printEndOpcode(formatted_raw_ostream &OS) const;
 
 public:
-  /// \brief Prints HLInst.
+  /// Prints HLInst.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
 
-  /// \brief Returns the underlying Instruction.
+  /// Returns the underlying Instruction.
   const Instruction *getLLVMInstruction() const { return Inst; }
 
-  /// \brief Returns true if the underlying instruction has an lval.
-  bool hasLval() const;
-  /// \brief Returns true if the underlying instruction has a single rval.
-  bool hasRval() const;
+  /// Returns true if the underlying instruction has an lval.
+  virtual bool hasLval() const override;
+  /// Returns true if the underlying instruction has a single rval.
+  virtual bool hasRval() const override;
 
-  const Value *getOperandValue(unsigned OperandNum);
+  /// Returns the lval DDRef of this node.
+  virtual RegDDRef *getLvalDDRef() override;
+  virtual const RegDDRef *getLvalDDRef() const override;
+  /// Sets/replaces the lval DDRef of this node.
+  virtual void setLvalDDRef(RegDDRef *RDDRef) override;
+  /// Removes and returns the lval DDRef of this node.
+  virtual RegDDRef *removeLvalDDRef() override;
 
-  /// \brief Returns the DDRef associated with the Nth operand (starting with
-  /// 0).
-  RegDDRef *getOperandDDRef(unsigned OperandNum);
-  const RegDDRef *getOperandDDRef(unsigned OperandNum) const;
-  /// \brief Sets the DDRef associated with the Nth operand (starting with 0).
-  void setOperandDDRef(RegDDRef *Ref, unsigned OperandNum);
-  /// \brief Removes and returns the DDRef associated with the Nth operand
-  /// (starting with 0).
-  RegDDRef *removeOperandDDRef(unsigned OperandNum);
+  /// Returns the single rval DDRef of this node.
+  virtual RegDDRef *getRvalDDRef() override;
+  virtual const RegDDRef *getRvalDDRef() const override;
+  /// Sets/replaces the single rval DDRef of this node.
+  virtual void setRvalDDRef(RegDDRef *Ref) override;
+  /// Removes and returns the single rval DDRef of this node.
+  virtual RegDDRef *removeRvalDDRef() override;
 
-  /// \brief Returns the lval DDRef of this node.
-  RegDDRef *getLvalDDRef();
-  const RegDDRef *getLvalDDRef() const;
-  /// \brief Sets the lval DDRef of this node.
-  void setLvalDDRef(RegDDRef *RDDRef);
-  /// \brief Removes and returns the lval DDRef of this node.
-  RegDDRef *removeLvalDDRef();
-
-  /// \brief Returns the single rval DDRef of this node.
-  RegDDRef *getRvalDDRef();
-  const RegDDRef *getRvalDDRef() const;
-  /// \brief Sets the single rval DDRef of this node.
-  void setRvalDDRef(RegDDRef *Ref);
-  /// \brief Removes and returns the single rval DDRef of this node.
-  RegDDRef *removeRvalDDRef();
-
-  /// \brief Adds an extra RegDDRef which does not correspond to lval or any
-  /// operand. This DDRef is not used for code generation but might be used for
-  /// exposing DD edges. TODO: more on this later...
-  void addFakeDDRef(RegDDRef *RDDRef);
-
-  /// \brief Removes a previously inserted fake DDRef.
-  void removeFakeDDRef(RegDDRef *RDDRef);
-
-  /// Rval operand DDRef iterator methods
-  ddref_iterator rval_op_ddref_begin() {
-    return hasLval() ? op_ddref_begin() + 1 : op_ddref_begin();
-  }
-  const_ddref_iterator rval_op_ddref_begin() const {
-    return const_cast<HLInst *>(this)->rval_op_ddref_begin();
-  }
-  ddref_iterator rval_op_ddref_end() { return op_ddref_end(); }
-  const_ddref_iterator rval_op_ddref_end() const {
-    return const_cast<HLInst *>(this)->rval_op_ddref_end();
-  }
-
-  reverse_ddref_iterator rval_op_ddref_rbegin() { return op_ddref_rbegin(); }
-  const_reverse_ddref_iterator rval_op_ddref_rbegin() const {
-    return const_cast<HLInst *>(this)->rval_op_ddref_rbegin();
-  }
-  reverse_ddref_iterator rval_op_ddref_rend() {
-    return hasLval() ? op_ddref_rend() - 1 : op_ddref_rend();
-  }
-  const_reverse_ddref_iterator rval_op_ddref_rend() const {
-    return const_cast<HLInst *>(this)->rval_op_ddref_rend();
-  }
-
-  /// \brief Returns true if Ref is the lval DDRef of this node.
+  /// Returns true if Ref is the lval DDRef of this node.
   virtual bool isLval(const RegDDRef *Ref) const override;
 
-  /// \brief Returns true if Ref is a rval DDRef of this node.
+  /// Returns true if Ref is a rval DDRef of this node.
   virtual bool isRval(const RegDDRef *Ref) const override;
 
-  /// \brief Returns true if Ref is a fake DDRef attached to this node.
+  /// Returns true if Ref is a fake DDRef attached to this node.
   virtual bool isFake(const RegDDRef *Ref) const override;
 
-  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
     return Node->getHLNodeID() == HLNode::HLInstVal;
   }
 
-  /// clone() - Create a copy of 'this' HLInst that is identical in all
-  /// ways except the following:
+  /// clone() - Create a copy of 'this' HLInst that is identical in all ways
+  /// except the following:
   ///   * The HLInst has no parent
   ///   * Safe Reduction Successor is set to nullptr
   HLInst *clone() const override;
 
-  /// \brief Returns the number of operands this HLInst is supposed to have.
+  /// Returns the number of operands this HLInst is supposed to have.
   /// If lval is present, it becomes the 0th operand.
   unsigned getNumOperands() const override;
 
-  /// \brief Returns true if this is in a loop's preheader.
+  /// Returns true if this is in a loop's preheader.
   bool isInPreheader() const;
-  /// \brief Returns true if this is in a loop's postexit.
+  /// Returns true if this is in a loop's postexit.
   bool isInPostexit() const;
-  /// \brief Returns true if this is in a loop's preheader or postexit.
+  /// Returns true if this is in a loop's preheader or postexit.
   bool isInPreheaderOrPostexit() const;
 
-  /// \brief Returns predicate for select instruction.
+  /// Returns predicate for select instruction.
   PredicateTy getPredicate() const {
     assert((isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) &&
            "This instruction does not contain a predicate!");
     return CmpOrSelectPred;
   }
 
-  /// \brief Sets predicate for select instruction.
+  /// Sets predicate for select instruction.
   void setPredicate(PredicateTy Pred) {
     assert((isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) &&
            "This instruction does not contain a predicate!");
     CmpOrSelectPred = Pred;
   }
 
-  /// \brief Retuns true if this is a bitcast instruction with identical src and
-  /// dest types. These are generally inserted by SSA deconstruction pass.
+  /// Retuns true if this is a bitcast instruction with identical src and dest
+  /// types. These are generally inserted by SSA deconstruction pass.
   bool isCopyInst() const;
 
-  /// \brief Returns true if this is a call instruction.
+  /// Returns true if this is a call instruction.
   bool isCallInst() const { return isa<CallInst>(Inst); }
 
-  /// \brief Verifies HLInst integrity.
+  /// Verifies HLInst integrity.
   virtual void verify() const override;
 
-  /// \brief Checks whether the instruction is a call to intrinsic
-  /// If so, IntrinID is populated back.
+  /// Checks whether the instruction is a call to intrinsic If so, IntrinID is
+  /// populated back.
   bool isIntrinCall(Intrinsic::ID &IntrinID) const;
 
-  /// \brief Checks whether the instruction is a call to SIMD Directive,
-  /// i.e., intel_directive call with the right metadata.
+  /// Checks whether the instruction is a call to SIMD Directive, i.e.,
+  /// intel_directive call with the right metadata.
   bool isSIMDDirective() const;
 
-  /// \brief Checks if the Opcode is a reduction and returns OpCode
+  /// Checks if the Opcode is a reduction and returns OpCode
   bool isReductionOp(unsigned *OpCode) const;
 };
 

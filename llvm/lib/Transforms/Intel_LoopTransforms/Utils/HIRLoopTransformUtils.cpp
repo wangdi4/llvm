@@ -101,7 +101,7 @@ bool HIRLoopTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
     // Use the same canon expr to generate the division.
     TripCE->divide(UnrollOrVecFactor, true);
 
-    Ref->setSymbase(DDRefUtils::getNewSymbase());
+    Ref->setSymbase(getHIRFramework()->getNewSymbase());
 
     Ref->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel() - 1);
 
@@ -117,7 +117,7 @@ void HIRLoopTransformUtils::updateBoundDDRef(RegDDRef *BoundRef,
                                              unsigned BlobIndex,
                                              unsigned DefLevel) {
   // Overwrite symbase to a newly created one to avoid unnecessary DD edges.
-  BoundRef->setSymbase(DDRefUtils::getNewSymbase());
+  BoundRef->setSymbase(getHIRFramework()->getNewSymbase());
 
   // Add blob DDRef for the temp in UB.
   BoundRef->addBlobDDRef(BlobIndex, DefLevel);

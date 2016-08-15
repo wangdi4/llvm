@@ -28,7 +28,7 @@ namespace llvm {
 
 namespace loopopt {
 
-/// \brief This analysis is the public interface for the HIR framework.
+/// This analysis is the public interface for the HIR framework.
 ///
 /// The overall sequence of building the HIR is as follows-
 ///
@@ -54,24 +54,11 @@ public:
   typedef HLContainerTy::const_reverse_iterator const_reverse_iterator;
 
 private:
-  // Expose insertHIRLval()/getNewSymbase().
-  friend class CanonExprUtils;
-  friend class DDRefUtils;
-
   /// HIRP - parser for the function.
   HIRParser *HIRP;
 
   /// SA - symbase assignment for the function.
   HIRSymbaseAssignment *SA;
-
-
-  /// \brief Registers new lval/symbase pairs created by HIR transformations.
-  /// Only used for printing.
-  void insertHIRLval(const Value *Lval, unsigned Symbase) {
-    HIRP->insertHIRLval(Lval, Symbase);
-  }
-
-  unsigned getNewSymbase() { return SA->getNewSymbase(); }
 
   void estimateMaxTripCounts() const;
 
@@ -100,16 +87,29 @@ public:
     return HIRP->hir_crend();
   }
 
-  /// \brief Returns Function object.
+  /// Returns true if \p HInst is a livein copy.
+  bool isLiveinCopy(const HLInst *HInst) {
+    return HIRP->isLiveinCopy(HInst);
+  }
+
+  /// Returns true if \p HInst is a liveout copy.
+  bool isLiveoutCopy(const HLInst *HInst) {
+    return HIRP->isLiveoutCopy(HInst);
+  }
+
+  /// Returns a brand new symbase.
+  unsigned getNewSymbase() { return SA->getNewSymbase(); }
+
+  /// Returns Function object.
   Function &getFunction() const { return HIRP->getFunction(); }
   
-  /// \brief Returns Module object.
+  /// Returns Module object.
   Module &getModule() const { return HIRP->getModule(); }
 
-  /// \brief Returns LLVMContext object.
+  /// Returns LLVMContext object.
   LLVMContext &getContext() const { return HIRP->getContext(); }
 
-  /// \brief Returns DataLayout object.
+  /// Returns DataLayout object.
   const DataLayout &getDataLayout() const { return HIRP->getDataLayout(); }
 };
 

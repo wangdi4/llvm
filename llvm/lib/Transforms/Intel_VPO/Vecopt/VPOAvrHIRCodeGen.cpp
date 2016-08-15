@@ -642,7 +642,7 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     CE->collectTempBlobIndices(BlobIndices, false);
 
     for (auto &BI : BlobIndices) {
-      auto OldSymbase = BlobUtils::getBlobSymbase(BI);
+      auto OldSymbase = BlobUtils::getTempBlobSymbase(BI);
       
       if (WidenMap.find(OldSymbase) != WidenMap.end()) {
         auto WInst1 = WidenMap[OldSymbase];

@@ -183,7 +183,7 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
 }
 
 bool CanonExpr::isSelfBlob() const {
-  return (isStandAloneBlob() &&
+  return ((getSrcType() == getDestType()) && isStandAloneBlob() &&
           BlobUtils::isTempBlob(BlobUtils::getBlob(getSingleBlobIndex())));
 }
 
@@ -832,6 +832,37 @@ void CanonExpr::replaceBlob(unsigned OldIndex, unsigned NewIndex) {
   if (!found) {
     assert("Old blob index not found!");
   }
+}
+
+bool CanonExpr::replaceTempBlob(unsigned OldTempIndex, unsigned NewTempIndex) {
+  assert(BlobUtils::isTempBlob(BlobUtils::getBlob(OldTempIndex)) &&
+         "Old Index is not a temp!");
+  assert(BlobUtils::isTempBlob(BlobUtils::getBlob(NewTempIndex)) &&
+         "New Index is not a temp!");
+
+  // Keeps a map of old blob to new blob.
+  SmallVector<std::pair<blob_iterator, unsigned>, 8> BlobMap;
+
+  for (auto BIt = blob_begin(), End = blob_end(); BIt != End; ++BIt) {
+    if (BIt->Index == OldTempIndex) {
+      BlobMap.push_back(std::make_pair(BIt, NewTempIndex));
+      continue;
+    }
+    unsigned NewBlobIndex;
+
+    if (BlobUtils::substituteTempBlob(BIt->Index, OldTempIndex, NewTempIndex,
+                                      NewBlobIndex)) {
+      BlobMap.push_back(std::make_pair(BIt, NewBlobIndex));
+    }
+  }
+
+  for (auto BPair : BlobMap) {
+    auto Coeff = getBlobCoeff(BPair.first);
+    BlobCoeffs.erase(BPair.first);
+    addBlob(BPair.second, Coeff);
+  }
+
+  return !BlobMap.empty();
 }
 
 void CanonExpr::clear() {

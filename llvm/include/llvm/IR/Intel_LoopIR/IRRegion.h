@@ -115,6 +115,15 @@ public:
     assert(Ret.second && "Liveout value already exists!");
   }
 
+  void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
+    auto It = LiveOutSet.find(OldSymbase);
+    assert((It != LiveOutSet.end()) && "Old liveout temp not found!");
+
+    auto Temp = It->second;
+    LiveOutSet.erase(It);
+    addLiveOutTemp(Temp, NewSymbase);
+  }
+    
   /// \brief Returns true if this symbase is live in to this region.
   bool isLiveIn(unsigned Symbase) const { return LiveInSet.count(Symbase); }
 

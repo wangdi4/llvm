@@ -581,6 +581,12 @@ public:
     return BlobCoeffs[0].Coeff;
   }
 
+  /// Replaces existing single blob index with \p NewIndex.
+  void replaceSingleBlobIndex(unsigned NewIndex) {
+    assert((numBlobs() == 1) && "Canon expr does not contain single blob!");
+    BlobCoeffs[0].Index = NewIndex;
+  }
+
   /// \brief Sets the blob coefficient.
   void setBlobCoeff(unsigned Index, int64_t Coeff);
   /// \brief Iterator version of setBlobCoeff().
@@ -600,6 +606,10 @@ public:
 
   /// \brief Replaces an old blob with a new one (including blob IV coeffs).
   void replaceBlob(unsigned OldIndex, unsigned NewIndex);
+
+  /// Replaces temp blob with \p OldIndex by new temp blob with \p NewIndex, if
+  /// it exists in CE. Returns true if it is replaced.
+  bool replaceTempBlob(unsigned OldIndex, unsigned NewIndex);
 
   /// \brief Clears everything from the CanonExpr except Type. Denominator is
   /// set to 1.

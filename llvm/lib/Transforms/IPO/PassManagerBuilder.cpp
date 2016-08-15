@@ -871,6 +871,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   }
 
   PM.add(createHIRSSADeconstructionPass());
+  // This is expected to be the first pass in the HIR pipeline as it cleans up
+  // unnecessary temps from the HIR and doesn't invalidate any analysis. It is
+  // considered a part of the framework and therefore ran unconditionally.
+  PM.add(createHIRTempCleanupPass());
 
   if (!RunLoopOptFrameworkOnly) {
     PM.add(createHIRParDirInsertPass());

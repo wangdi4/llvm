@@ -59,6 +59,92 @@ void HLDDNode::setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum) {
   RegDDRefs[OperandNum] = Ref;
 }
 
+RegDDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) {
+  assert(OperandNum < getNumOperands() && "Operand is out of range!");
+  return getOperandDDRefImpl(OperandNum);
+}
+
+const RegDDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) const {
+  return const_cast<HLDDNode *>(this)->getOperandDDRef(OperandNum);
+}
+
+void HLDDNode::setOperandDDRef(RegDDRef *Ref, unsigned OperandNum) {
+  assert(OperandNum < getNumOperands() && "Operand is out of range!");
+  setOperandDDRefImpl(Ref, OperandNum);
+}
+
+RegDDRef *HLDDNode::removeOperandDDRef(unsigned OperandNum) {
+  auto TRef = getOperandDDRef(OperandNum);
+
+  if (TRef) {
+    setOperandDDRef(nullptr, OperandNum);
+  }
+
+  return TRef;
+}
+
+void HLDDNode::addFakeDDRef(RegDDRef *RDDRef) {
+  assert(RDDRef && "Cannot add null fake DDRef!");
+  assert(isa<HLInst>(this) && "Fake DDRef can only be attached to a HLInst!");
+
+  RegDDRefs.push_back(RDDRef);
+  setNode(RDDRef, this);
+}
+
+void HLDDNode::removeFakeDDRef(RegDDRef *RDDRef) {
+  assert(RDDRef && "Cannot remove null fake DDRef!");
+  assert(RDDRef->isFake() && "RDDRef is not a fake DDRef!");
+  assert(isa<HLInst>(this) && "Fake DDRef can only be attached to a HLInst!");
+  assert((this == RDDRef->getHLDDNode()) &&
+         "RDDRef does not belong to this HLInst!");
+
+  for (auto I = fake_ddref_begin(), E = fake_ddref_end(); I != E; I++) {
+    if ((*I) == RDDRef) {
+      setNode(RDDRef, nullptr);
+      RegDDRefs.erase(I);
+      return;
+    }
+  }
+
+  llvm_unreachable("Unexpected condition!");
+}
+
+void HLDDNode::replaceOperandDDRef(RegDDRef *ExistingRef, RegDDRef *NewRef) {
+  assert(ExistingRef && "ExistingRef is null!");
+  assert(NewRef && "NewRef is null!");
+  unsigned OpNum = 0;
+
+  for (auto RefIt = op_ddref_begin(), EndIt = op_ddref_end(); RefIt != EndIt;
+       ++RefIt, ++OpNum) {
+    if (*RefIt == ExistingRef) {
+      setOperandDDRef(NewRef, OpNum);
+      return;
+    }
+  }
+
+  llvm_unreachable("ExistingRef not found!");
+}
+
+void HLDDNode::replaceFakeDDRef(RegDDRef *ExistingRef, RegDDRef *NewRef) {
+  assert(ExistingRef && "ExistingRef is null!");
+  assert(NewRef && "NewRef is null!");
+
+  removeFakeDDRef(ExistingRef);
+  addFakeDDRef(NewRef);
+}
+
+void HLDDNode::replaceOperandOrFakeDDRef(RegDDRef *ExistingRef,
+                                         RegDDRef *NewRef) {
+  assert(ExistingRef && "ExistingRef is null!");
+  assert(NewRef && "NewRef is null!");
+
+  if (ExistingRef->isFake()) {
+    replaceFakeDDRef(ExistingRef, NewRef);
+  } else {
+    replaceOperandDDRef(ExistingRef, NewRef);
+  }
+}
+
 void HLDDNode::print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed) const {
   if (Detailed) {
@@ -93,9 +179,9 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
       IsZttDDRef = *I ? cast<HLLoop>(this)->isZttOperandDDRef(*I) : false;
     }
 
-    IsZttDDRef ? (void)(OS << "<ZTT-REG> ") : ((*I) && isLval(*I))
-                                                  ? (void)(OS << "<LVAL-REG> ")
-                                                  : (void)(OS << "<RVAL-REG> ");
+    IsZttDDRef ? (void)(OS << "<ZTT-REG> ")
+               : ((*I) && isLval(*I)) ? (void)(OS << "<LVAL-REG> ")
+                                      : (void)(OS << "<RVAL-REG> ");
 
     (*I) ? (*I)->print(OS, true) : (void)(OS << *I);
 
@@ -147,4 +233,3 @@ bool HLDDNode::isLiveIntoParentLoop(unsigned SB) const {
 bool HLDDNode::isLiveOutOfParentLoop(unsigned SB) const {
   return getLexicalParentLoop()->isLiveOut(SB);
 }
-

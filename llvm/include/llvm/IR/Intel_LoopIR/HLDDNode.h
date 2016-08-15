@@ -28,7 +28,7 @@ class BasicBlock;
 
 namespace loopopt {
 
-/// \brief Base class for high level nodes which can contain DDRefs.
+/// Base class for high level nodes which can contain DDRefs.
 class HLDDNode : public HLNode {
 public:
   /// SmallVector of 5 should be enough for most HLDDNodes.
@@ -49,32 +49,32 @@ protected:
 
   friend class HLNodeUtils;
 
-  /// \brief Copy Constructor
+  /// Copy Constructor
   HLDDNode(const HLDDNode &HLDDNodeObj);
 
   /// The DDRef indices correspond to the operand number in the instruction
   /// with the first DDRef being for lval, if applicable.
   RegDDRefTy RegDDRefs;
 
-  /// \brief Sets HLDDNode for Ref.
+  /// Sets HLDDNode for Ref.
   static void setNode(RegDDRef *Ref, HLDDNode *HNode);
 
-  /// \brief Implements get*OperandDDRef() functionality.
+  /// Implements get*OperandDDRef() functionality.
   RegDDRef *getOperandDDRefImpl(unsigned OperandNum) const;
-  /// \brief Implements set*OperandDDRef() functionality.
+  /// Implements set*OperandDDRef() functionality.
   void setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum);
 
-  /// \brief Virtual Clone Implementation
+  /// Virtual Clone Implementation
   /// This function populates the GotoList with Goto branches
   /// and LabelMap with Old and New Labels.
   virtual HLDDNode *cloneImpl(GotoContainerTy *GotoList,
                               LabelMapTy *LabelMap) const override = 0;
 
 public:
-  /// \brief Prints HLInst.
+  /// Prints HLInst.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
-  /// \brief Prints list of attached Reg and Blob DD Refs
+  /// Prints list of attached Reg and Blob DD Refs
   void printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// DDRef iterator methods. This traversal includes fake DDRefs as well.
@@ -138,12 +138,35 @@ public:
     return const_cast<HLDDNode *>(this)->fake_ddref_rend();
   }
 
-  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
     return (Node->getHLNodeID() == HLNode::HLLoopVal) ||
            (Node->getHLNodeID() == HLNode::HLIfVal) ||
            (Node->getHLNodeID() == HLNode::HLInstVal) ||
            (Node->getHLNodeID() == HLNode::HLSwitchVal);
+  }
+
+  /// Rval operand DDRef iterator methods
+  ddref_iterator rval_op_ddref_begin() {
+    return hasLval() ? op_ddref_begin() + 1 : op_ddref_begin();
+  }
+  const_ddref_iterator rval_op_ddref_begin() const {
+    return const_cast<HLDDNode *>(this)->rval_op_ddref_begin();
+  }
+  ddref_iterator rval_op_ddref_end() { return op_ddref_end(); }
+  const_ddref_iterator rval_op_ddref_end() const {
+    return const_cast<HLDDNode *>(this)->rval_op_ddref_end();
+  }
+
+  reverse_ddref_iterator rval_op_ddref_rbegin() { return op_ddref_rbegin(); }
+  const_reverse_ddref_iterator rval_op_ddref_rbegin() const {
+    return const_cast<HLDDNode *>(this)->rval_op_ddref_rbegin();
+  }
+  reverse_ddref_iterator rval_op_ddref_rend() {
+    return hasLval() ? op_ddref_rend() - 1 : op_ddref_rend();
+  }
+  const_reverse_ddref_iterator rval_op_ddref_rend() const {
+    return const_cast<HLDDNode *>(this)->rval_op_ddref_rend();
   }
 
   /// DDRef acess methods
@@ -152,32 +175,93 @@ public:
   /// DDRefs).
   unsigned getNumDDRefs() const { return RegDDRefs.size(); }
 
-  /// \brief Virtual Clone method
+  /// Virtual Clone method
   virtual HLDDNode *clone() const override = 0;
 
-  /// \brief Returns the number of operands (and lval, if applicable) this node
-  /// is supposed to have.
+  /// Returns the number of operands (and lval, if applicable) this node is
+  /// supposed to have.
   virtual unsigned getNumOperands() const = 0;
 
-  /// \brief Verifies DDRefs attached to the node.
+  /// Verifies DDRefs attached to the node.
   virtual void verify() const override;
 
-  /// \brief Returns true if Ref is the lval DDRef of this node.
-  /// Default implementation returns false as only HLInst can contain lval DDRef.
-  virtual bool isLval(const RegDDRef *Ref) const { 
+  /// Returns true if node has an lval.
+  virtual bool hasLval() const { return false; }
+
+  /// Returns true if the node has a single rval.
+  virtual bool hasRval() const { return false; }
+
+  /// Returns true if Ref is the lval DDRef of this node.
+  /// Default implementation returns false as only HLInst can contain lval
+  /// DDRef.
+  virtual bool isLval(const RegDDRef *Ref) const {
     assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
     return false;
   }
 
-  /// \brief Returns true if Ref is a rval DDRef of this node.
+  /// Returns true if Ref is a rval DDRef of this node.
   virtual bool isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
 
-  /// \brief Returns true if Ref is a fake DDRef attached to this node.
-  /// Default implementation returns false as only HLInst can contain fake DDRefs.
-  virtual bool isFake(const RegDDRef *Ref) const { 
+  /// Returns true if Ref is a fake DDRef attached to this node.
+  /// Default implementation returns false as only HLInst can contain fake
+  /// DDRefs.
+  virtual bool isFake(const RegDDRef *Ref) const {
     assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
     return false;
   }
+
+  /// Returns the DDRef associated with the Nth operand (starting with 0).
+  RegDDRef *getOperandDDRef(unsigned OperandNum);
+  const RegDDRef *getOperandDDRef(unsigned OperandNum) const;
+  /// Sets/replaces the DDRef associated with the Nth operand (starting with 0).
+  void setOperandDDRef(RegDDRef *Ref, unsigned OperandNum);
+
+  /// Replaces existing operand DDRef with \p NewRef.
+  void replaceOperandDDRef(RegDDRef *ExistingRef, RegDDRef *NewRef);
+  /// Removes and returns the DDRef associated with the Nth operand (starting
+  /// with 0).
+  RegDDRef *removeOperandDDRef(unsigned OperandNum);
+
+  /// Returns the lval DDRef of this node. Returns null if it doesn't exist.
+  virtual RegDDRef *getLvalDDRef() { return nullptr; }
+  virtual const RegDDRef *getLvalDDRef() const { return nullptr; }
+
+  /// Sets/replaces the lval DDRef of this node.
+  virtual void setLvalDDRef(RegDDRef *RDDRef) {
+    llvm_unreachable("Node doesn't have an lval!");
+  }
+  /// Removes and returns the lval DDRef of this node.
+  virtual RegDDRef *removeLvalDDRef() {
+    llvm_unreachable("Node doesn't have an lval!");
+  }
+
+  /// Returns the single rval DDRef of this node. Returns null if it doesn't
+  /// exist.
+  virtual RegDDRef *getRvalDDRef() { return nullptr; }
+  virtual const RegDDRef *getRvalDDRef() const { return nullptr; }
+
+  /// Sets/replaces the single rval DDRef of this node.
+  virtual void setRvalDDRef(RegDDRef *Ref) {
+    llvm_unreachable("Node doesn't have an rval!");
+  }
+  /// Removes and returns the single rval DDRef of this node.
+  virtual RegDDRef *removeRvalDDRef() {
+    llvm_unreachable("Node doesn't have an rval!");
+  }
+
+  /// Adds an extra RegDDRef which does not correspond to lval or any operand.
+  /// This DDRef is not used for code generation but might be used for exposing
+  /// DD edges. TODO: more on this later...
+  void addFakeDDRef(RegDDRef *RDDRef);
+
+  /// Removes a previously inserted fake DDRef.
+  void removeFakeDDRef(RegDDRef *RDDRef);
+
+  /// Replaces existing fake DDRef with \p NewRef.
+  void replaceFakeDDRef(RegDDRef *ExistingRef, RegDDRef *NewRef);
+
+  /// Replaces existing operand/fake DDRef with \p NewRef.
+  void replaceOperandOrFakeDDRef(RegDDRef *ExistingRef, RegDDRef *NewRef);
 
   /// Returns true if symbase is live out of region.
   bool isLiveOutOfRegion(unsigned SB) const {
@@ -185,7 +269,7 @@ public:
   }
 
   /// Returns true if symbase is live into parent loop.
-  bool isLiveIntoParentLoop(unsigned SB) const; 
+  bool isLiveIntoParentLoop(unsigned SB) const;
 
   /// Returns true if symbase is live out of parent loop.
   bool isLiveOutOfParentLoop(unsigned SB) const;

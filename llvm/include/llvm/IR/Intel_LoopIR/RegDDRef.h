@@ -145,7 +145,12 @@ protected:
   }
 
   /// \brief Implements getBase*Type() functionality.
-  Type *getBaseTypeImpl(bool IsSrc) const;
+  Type *getBaseTypeImpl(bool IsSrc) const {
+    if (hasGEPInfo()) {
+      return IsSrc ? getBaseCE()->getSrcType() : getBaseCE()->getDestType();
+    }
+    return nullptr;
+  }
 
   /// \brief Used by updateBlobDDRefs() to remove BlobDDRefs which are not
   /// needed anymore. The required blobs are passed in through BlobIndices. The
@@ -179,24 +184,30 @@ public:
   /// For example, for a 2 dimensional GEP DDRef whose src base type is [7 x
   /// [101 x float]]*, we will return float.
   /// TODO: extend to handle struct types.
-  Type *getSrcType() const override;
+  Type *getSrcType() const override { return getTypeImpl(true); }
   /// \brief Returns the dest element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose dest base type is [7 x
   /// [101 x int32]]*, we will return int32.
   /// TODO: extend to handle struct types.
-  Type *getDestType() const override;
+  Type *getDestType() const override { return getTypeImpl(false); }
 
   /// \brief Returns the src type of the base CanonExpr for GEP DDRefs, returns
   /// null for non-GEP DDRefs.
-  Type *getBaseSrcType() const;
+  Type *getBaseSrcType() const { return getBaseTypeImpl(true); }
   /// \brief Sets the src type of base CE of GEP DDRefs.
-  void setBaseSrcType(Type *SrcTy);
+  void setBaseSrcType(Type *SrcTy) {
+    assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
+    getBaseCE()->setSrcType(SrcTy);
+  }
 
   /// \brief Returns the dest type of the base CanonExpr for GEP DDRefs, returns
   /// null for non-GEP DDRefs.
-  Type *getBaseDestType() const;
+  Type *getBaseDestType() const { return getBaseTypeImpl(false); }
   /// \brief Sets the dest type of base CE of GEP DDRefs.
-  void setBaseDestType(Type *DestTy);
+  void setBaseDestType(Type *DestTy) {
+    assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
+    getBaseCE()->setDestType(DestTy);
+  }
 
   /// \brief Returns the canonical form of the subscript base.
   CanonExpr *getBaseCE() { return getGEPInfo()->BaseCE; }
@@ -389,7 +400,14 @@ public:
   ///      RegDDRef is Memory Reference - A[i]
   ///      RegDDRef is a Pointer Reference - *p
   /// Else returns true for cases like DDRef - 2*i and M+N.
-  bool isTerminalRef() const;
+  bool isTerminalRef() const {
+    if (!hasGEPInfo()) {
+      assert(isSingleCanonExpr() &&
+             "Terminal ref has more than one dimension!");
+      return true;
+    }
+    return false;
+  }
 
   /// \brief Returns true if the DDRef is structurally invariant at \p Level.
   /// Note!: It does not check data-dependences, so there may be cases where
@@ -399,11 +417,8 @@ public:
   /// for (i=0; i<10; i++) { A[i] = A[5] + i;}
   bool isStructurallyInvariantAtLevel(unsigned Level) const;
 
-  /// \brief Adds a dimension to the DDRef. Stride can be null for a scalar.
-  void addDimension(CanonExpr *Canon, CanonExpr *Stride);
-
   /// \brief Returns true if the DDRef is a memory reference
-  bool isMemRef() const;
+  bool isMemRef() const { return hasGEPInfo() && !isAddressOf(); }
 
   /// \brief Returns true if the DDRef represents a self-blob like (1 * %t). In
   /// addition DDRef's symbase should be the same as %t's symbase. This is so
@@ -416,7 +431,10 @@ public:
   bool containsUndef() const override;
 
   /// \brief Adds a dimension to the DDRef.
-  void addDimension(CanonExpr *IndexCE);
+  void addDimension(CanonExpr *IndexCE) {
+    assert(IndexCE && "IndexCE is null!");
+    CanonExprs.push_back(IndexCE);
+  }
 
   /// \brief Returns the stride in number of bytes for specified dimension.
   /// This is computed on the fly. DimensionNum must be within
@@ -440,13 +458,26 @@ public:
 
   /// \brief Removes a dimension from the DDRef. DimensionNum's range is
   /// [1, getNumDimensions()] with 1 representing the lowest dimension.
-  void removeDimension(unsigned DimensionNum);
+  void removeDimension(unsigned DimensionNum) {
+    assert(isDimensionValid(DimensionNum) && "DimensionNum is out of range!");
+    assert((getNumDimensions() > 1) && "Attempt to remove the only dimension!");
+
+    CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
+  }
 
   /// \brief Returns the index of the blob represented by this self-blob DDRef.
   unsigned getSelfBlobIndex() const {
     assert(isSelfBlob() && "DDRef is not a self blob!");
     return getSingleCanonExpr()->getSingleBlobIndex();
   }
+
+  /// Replaces existing self blob index with \p NewIndex.
+  void replaceSelfBlobIndex(unsigned NewIndex);
+
+  /// Converts a terminal lval ref into a self blob ref using its symbase.
+  /// For example, if we have t1 = t2 + t3, where t1's canonical form is (1 * t2
+  /// + 1 * t3), it will be converted to 1 * t1.
+  void makeSelfBlob();
 
   /// \brief Adds a blob DDRef to this DDRef.
   void addBlobDDRef(BlobDDRef *BlobRef);
@@ -455,17 +486,24 @@ public:
   /// this DDRef.
   void addBlobDDRef(unsigned Index, unsigned Level = NonLinearLevel);
 
-  /// \brief Returns the blob DDRef with this \p Index attached to this RegDDRef.
-  /// It returns null is the blob DDRef is not found.
+  /// \brief Returns the blob DDRef with \p Index attached to this RegDDRef.
+  /// It returns null if the blob DDRef is not found.
   BlobDDRef *getBlobDDRef(unsigned Index);
-
   const BlobDDRef *getBlobDDRef(unsigned Index) const;
 
   /// \brief Removes and returns blob DDRef corresponding to CBlobI iterator.
   BlobDDRef *removeBlobDDRef(const_blob_iterator CBlobI);
 
+  /// Replaces temp blob with \p OldIndex by new temp blob with \p NewIndex, if
+  /// it exists in DDRef. Returns true if it is replaced.
+  bool replaceTempBlob(unsigned OldIndex, unsigned NewIndex);
+
   /// \brief Removes all blob DDRefs attached to this DDRef.
   void removeAllBlobDDRefs();
+
+  /// Returns true if there is a use of temp blob with \p Index in the DDRef.
+  /// IsSelfBlob is set to true if the DDRef is a self blob.
+  bool usesTempBlob(unsigned Index, bool *IsSelfBlob = nullptr) const;
 
   /// \brief Collects all the unique temp blobs present in the DDRef by visiting
   /// all the contained canon exprs.

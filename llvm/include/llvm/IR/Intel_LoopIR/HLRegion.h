@@ -125,6 +125,11 @@ public:
     IRReg.addLiveOutTemp(Temp, Symbase);
   }
 
+  /// Replaces \p OldSymbase by \p NewSymbase as the new liveout temp.
+  void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
+    IRReg.replaceLiveOutTemp(OldSymbase, NewSymbase);
+  }
+
   /// \brief Returns true if this symbase is live in to this region.
   bool isLiveIn(unsigned Symbase) const { return IRReg.isLiveIn(Symbase); }
 

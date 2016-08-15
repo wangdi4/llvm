@@ -650,6 +650,12 @@ public:
     }
   }
 
+  void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
+    assert(isLiveOut(OldSymbase) && "OldSymbase is not liveout!");
+    removeLiveOutTemp(OldSymbase);
+    addLiveOutTemp(NewSymbase);
+  }
+
   /// Returns !llvm.loop metadata associated with the Loop.
   MDNode *getLoopMetadata() const { return LoopMetadata; }
 

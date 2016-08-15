@@ -45,6 +45,7 @@ private:
   /// \brief Make class uncopyable.
   void operator=(const HIRUtils &) = delete;
 
+  // Needed for access to setHIRFramework().
   friend class HIRFramework;
 
   static HIRFramework *HIRF;

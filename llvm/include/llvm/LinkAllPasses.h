@@ -239,6 +239,7 @@ namespace {
       (void) llvm::createHIRVectVLSAnalysisPass();
       (void) llvm::createHIRSafeReductionAnalysisPass();
       (void) llvm::createHIRSSADeconstructionPass();
+      (void) llvm::createHIRTempCleanupPass();
       (void) llvm::createHIRLoopInterchangePass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();

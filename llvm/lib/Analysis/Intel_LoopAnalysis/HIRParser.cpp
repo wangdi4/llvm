@@ -111,10 +111,6 @@ const Instruction *HIRParser::getCurInst() const {
   llvm_unreachable("Unexpected CurNode type!");
 }
 
-void HIRParser::insertHIRLval(const Value *Lval, unsigned Symbase) {
-  ScalarSA->insertHIRLval(Lval, Symbase);
-}
-
 bool HIRParser::foundInBlobTable(unsigned Symbase) const {
   for (auto &BlobPair : BlobTable) {
     if (BlobPair.second == Symbase) {
@@ -162,7 +158,7 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
       return BlobIndex;
     }
 
-    return ReturnSymbase ? getBlobSymbase(It->second) : It->second;
+    return ReturnSymbase ? getTempBlobSymbase(It->second) : It->second;
   }
 
   if (Insert) {
@@ -172,10 +168,17 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
 
     BlobTable.push_back(std::make_pair(Blob, Symbase));
 
+    unsigned Index = BlobTable.size();
     // Store blob ptr and index mapping for faster lookup.
-    BlobToIndexMap.insert(std::make_pair(Blob, BlobTable.size()));
+    BlobToIndexMap.insert(std::make_pair(Blob, Index));
 
-    return BlobTable.size();
+    // Store symbase to blob index mapping for faster lookup.
+    if (Symbase > ConstantSymbase) {
+      auto Ret = SymbaseToIndexMap.insert(std::make_pair(Symbase, Index));
+      assert(Ret.second && "Duplicate insertion in symbase to index map!");
+    }
+
+    return Index;
   }
 
   return ReturnSymbase ? InvalidSymbase : InvalidBlobIndex;
@@ -185,8 +188,32 @@ unsigned HIRParser::findBlob(BlobTy Blob) {
   return findOrInsertBlobImpl(Blob, InvalidSymbase, false, false);
 }
 
-unsigned HIRParser::findBlobSymbase(BlobTy Blob) {
+unsigned HIRParser::findTempBlobSymbase(BlobTy Blob) {
   return findOrInsertBlobImpl(Blob, InvalidSymbase, false, true);
+}
+
+unsigned HIRParser::findTempBlobIndex(unsigned Symbase) const {
+  auto It = SymbaseToIndexMap.find(Symbase);
+
+  return (It != SymbaseToIndexMap.end()) ? It->second : InvalidBlobIndex;
+}
+
+unsigned HIRParser::findOrInsertTempBlobIndex(unsigned Symbase) {
+
+  auto It = SymbaseToIndexMap.find(Symbase);
+
+  if (It != SymbaseToIndexMap.end()) {
+    return It->second;
+  }
+  // Some lvals may not be parsed as blobs during parsing, insert them as blobs
+  // now.
+  assert((Symbase < getMaxScalarSymbase()) &&
+         "Blob index for symbase not found!");
+
+  auto Val = ScalarSA->getBaseScalar(Symbase);
+  auto Blob = SE->getUnknown(const_cast<Value *>(Val));
+
+  return findOrInsertBlob(Blob, Symbase);
 }
 
 unsigned HIRParser::findOrInsertBlob(BlobTy Blob, unsigned Symbase) {
@@ -203,9 +230,12 @@ BlobTy HIRParser::getBlob(unsigned Index) const {
   return BlobTable[Index - 1].first;
 }
 
-unsigned HIRParser::getBlobSymbase(unsigned Index) const {
+unsigned HIRParser::getTempBlobSymbase(unsigned Index) const {
   assert(isBlobIndexValid(Index) && "Index is out of bounds!");
-  return BlobTable[Index - 1].second;
+  auto Symbase = BlobTable[Index - 1].second;
+
+  assert(Symbase != InvalidSymbase && "Blob is not a temp!");
+  return Symbase;
 }
 
 bool HIRParser::isBlobIndexValid(unsigned Index) const {
@@ -534,6 +564,38 @@ bool HIRParser::isNestedBlob(BlobTy Blob) const {
   Collector.visitAll(Blob);
 
   return NBC.isNestedBlob();
+}
+
+bool HIRParser::substituteTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
+                                   unsigned NewTempIndex,
+                                   unsigned &NewBlobIndex) {
+  auto OldTempBlob = getBlob(OldTempIndex);
+  auto NewTempBlob = getBlob(NewTempIndex);
+
+  assert(isTempBlob(OldTempBlob) && "Old Index is not a temp!");
+  assert(isTempBlob(NewTempBlob) && "New Index is not a temp!");
+
+  if (BlobIndex == OldTempIndex) {
+    NewBlobIndex = NewTempIndex;
+    return true;
+  }
+
+  auto OldBlob = getBlob(BlobIndex);
+
+  ValueToValueMap Map;
+
+  Map.insert(std::make_pair(cast<SCEVUnknown>(OldTempBlob)->getValue(),
+                            cast<SCEVUnknown>(NewTempBlob)->getValue()));
+
+  auto NewBlob = SCEVParameterRewriter::rewrite(getBlob(BlobIndex), *SE, Map);
+
+  if (OldBlob == NewBlob) {
+    NewBlobIndex = BlobIndex;
+    return false;
+  }
+
+  NewBlobIndex = findOrInsertBlob(NewBlob, InvalidSymbase);
+  return true;
 }
 
 unsigned HIRParser::getMaxScalarSymbase() const {
@@ -1065,7 +1127,18 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
 }
 
 void HIRParser::printScalar(raw_ostream &OS, unsigned Symbase) const {
-  ScalarSA->getBaseScalar(Symbase)->printAsOperand(OS, false);
+
+  if (Symbase < getMaxScalarSymbase()) {
+    ScalarSA->getBaseScalar(Symbase)->printAsOperand(OS, false);
+    return;
+  }
+
+  unsigned Index = findTempBlobIndex(Symbase);
+  auto Blob = getBlob(Index);
+
+  assert(isa<SCEVUnknown>(Blob) && "Unexpected blob type!");
+
+  cast<SCEVUnknown>(Blob)->getValue()->printAsOperand(OS, false);
 }
 
 void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
@@ -1829,7 +1902,7 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
 
   // Update DDRef's symbase to blob's symbase for self-blob DDRefs.
   if (CE->isSelfBlob()) {
-    Ref->setSymbase(getBlobSymbase(CE->getSingleBlobIndex()));
+    Ref->setSymbase(getTempBlobSymbase(CE->getSingleBlobIndex()));
   } else {
     populateBlobDDRefs(Ref);
   }
@@ -2515,7 +2588,7 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
   Ref->setSingleCanonExpr(CE);
 
   if (CE->isSelfBlob()) {
-    unsigned SB = getBlobSymbase(CE->getSingleBlobIndex());
+    unsigned SB = getTempBlobSymbase(CE->getSingleBlobIndex());
 
     // Update rval DDRef's symbase to blob's symbase for self-blob DDRefs.
     if (!IsLval) {
@@ -2589,6 +2662,18 @@ RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
   }
 
   return Ref;
+}
+
+bool HIRParser::isLiveinCopy(const HLInst *HInst) {
+  return HInst->isCopyInst() &&
+         SE->getHIRMetadata(HInst->getLLVMInstruction(),
+                            ScalarEvolution::HIRLiveKind::LiveIn);
+}
+
+bool HIRParser::isLiveoutCopy(const HLInst *HInst) {
+  return HInst->isCopyInst() &&
+         SE->getHIRMetadata(HInst->getLLVMInstruction(),
+                            ScalarEvolution::HIRLiveKind::LiveOut);
 }
 
 unsigned HIRParser::getNumRvalOperands(HLInst *HInst) {
@@ -2759,6 +2844,7 @@ void HIRParser::releaseMemory() {
   RequiredSymbases.clear();
   BlobTable.clear();
   BlobToIndexMap.clear();
+  SymbaseToIndexMap.clear();
 }
 
 void HIRParser::print(raw_ostream &OS, const Module *M) const {

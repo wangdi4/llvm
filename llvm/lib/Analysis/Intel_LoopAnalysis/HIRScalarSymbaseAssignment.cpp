@@ -67,11 +67,6 @@ void HIRScalarSymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<HIRLoopFormation>();
 }
 
-void HIRScalarSymbaseAssignment::insertHIRLval(const Value *Lval,
-                                               unsigned Symbase) {
-  ScalarLvalSymbases[Symbase] = Lval;
-}
-
 unsigned HIRScalarSymbaseAssignment::insertBaseTemp(const Value *Temp) {
   BaseTemps.push_back(Temp);
 
@@ -146,21 +141,12 @@ unsigned HIRScalarSymbaseAssignment::getOrAssignTempSymbase(const Value *Temp) {
 }
 
 const Value *HIRScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
-  const Value *RetVal = nullptr;
-
   assert((Symbase > ConstantSymbase) && "Symbase is out of range!");
+  assert((Symbase <= getMaxScalarSymbase()) && "Symbase is out of range!");
 
-  if (Symbase <= getMaxScalarSymbase()) {
-    RetVal = BaseTemps[getIndex(Symbase)];
-  } else {
-    // Symbase can be out of range for new temps created by HIR transformations.
-    // These temps are registered by framework utils for printing in debug mode.
-    auto It = ScalarLvalSymbases.find(Symbase);
-    assert((It != ScalarLvalSymbases.end()) && "Symbase not present in map!");
-    RetVal = It->second;
-  }
+  auto RetVal = BaseTemps[getIndex(Symbase)];
 
-  assert(RetVal && "Unexpected null value in RetVal");
+  assert(RetVal && "Unexpected null value for symbase!");
   return RetVal;
 }
 
@@ -479,7 +465,6 @@ void HIRScalarSymbaseAssignment::releaseMemory() {
   BaseTemps.clear();
   TempSymbaseMap.clear();
   StrSymbaseMap.clear();
-  ScalarLvalSymbases.clear();
 }
 
 void HIRScalarSymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
