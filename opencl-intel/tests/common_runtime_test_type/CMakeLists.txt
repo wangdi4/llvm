@@ -67,9 +67,9 @@ endif(BUILD_X64)
 
 set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang/cl_headers)
 
-set( INPUT_FILE kernels/vector4_d.cl )
-set( SPIR_OUTPUT_FILE vector4_d.bc )
-set( SPIRV_OUTPUT_FILE vector4_d.spv )
+set( INPUT_FILE kernels/subgroups.cl )
+set( SPIR_OUTPUT_FILE subgroups.bc )
+set( SPIRV_OUTPUT_FILE subgroups.spv )
 
 add_custom_command( TARGET ${TARGET}
   POST_BUILD
