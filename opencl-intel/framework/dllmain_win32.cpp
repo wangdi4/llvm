@@ -18,6 +18,7 @@
 #endif //BUILD_EXPERIMENTAL_21
 #endif
 
+#ifdef _DEBUG
 #ifdef _MSC_VER
 static int AvoidMessageBoxHook(int ReportType, char *Message, int *Return) {
 	// Set *Return to the retry code for the return value of _CrtDbgReport:
@@ -29,7 +30,6 @@ static int AvoidMessageBoxHook(int ReportType, char *Message, int *Return) {
 	return 1;
 }
 #endif
-
 
 static void DisableSystemDialogsOnCrash() {
 #ifdef _MSC_VER
@@ -45,6 +45,7 @@ static void DisableSystemDialogsOnCrash() {
 		SEM_NOOPENFILEERRORBOX);
 	_set_error_mode(_OUT_TO_STDERR);
 }
+#endif // _DEBUG
 
 
 BOOL APIENTRY DllMain( HMODULE hModule,
