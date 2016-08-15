@@ -56,6 +56,7 @@ set(modified_files
 set(special_files
   __x86intrin_features.h
   intrin.h
+  vadefs.h
   )
 
 set(orig_files
@@ -89,7 +90,6 @@ set(orig_files
   tbmintrin.h
   tgmath.h
   unwind.h
-  vadefs.h
   varargs.h
   vecintrin.h
   xopintrin.h
