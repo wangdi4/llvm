@@ -21,25 +21,25 @@
 
 class OCL21: public CommonRuntime{};
 
-//|	TEST: OCL21.clCreateProgramWithIL01
+//| TEST: OCL21.clCreateProgramWithIL01
 //|
-//|	Purpose
-//|	-------
+//| Purpose
+//| -------
 //|
-//| Verify the ability to create program with IL for shared context
-//| Verify the ability to get IL from program
+//|    Verify the ability to create program with IL for shared context
+//|    Verify the ability to get IL from program
 //|
-//|	Method
-//|	------
+//| Method
+//| ------
 //|
-//|	1. Create a program with IL for shared context
-//|	2. Build program
-//| 3. Get IL from program
+//| 1. Create a program with IL for shared context
+//| 2. Build program
+//|    3. Get IL from program
 //|
-//|	Pass criteria
-//|	-------------
+//| Pass criteria
+//| -------------
 //|
-//|	Verify that valid non-zero program object are returned and build successfull
+//| Verify that valid non-zero program object are returned and build successfull
 //|
 
 TEST_F(OCL21, clCreateProgramWithIL01)
@@ -47,7 +47,7 @@ TEST_F(OCL21, clCreateProgramWithIL01)
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
 
     const char * kernelSource = nullptr;
-	ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "subgroups.spv"));
+    ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "subgroups.spv"));
 
     void * il = nullptr;
     size_t ret = 0;
@@ -62,24 +62,24 @@ TEST_F(OCL21, clCreateProgramWithIL01)
     }
 }
 
-//|	TEST: OCL21.clEnqeueuSVMMigrateMem01
+//| TEST: OCL21.clEnqeueuSVMMigrateMem01
 //|
-//|	Purpose
-//|	-------
+//| Purpose
+//| -------
 //|
 //| Verify the ability to migrate SVM mem to the same device more than once
 //|
-//|	Method
-//|	------
+//| Method
+//| ------
 //|
-//|	1. Create a shared context
-//|	2. Allocate SVM memory
+//| 1. Create a shared context
+//| 2. Allocate SVM memory
 //| 3. Migrate SVM memory to the same device more than once
 //|
-//|	Pass criteria
-//|	-------------
+//| Pass criteria
+//| -------------
 //|
-//|	Verify that CL_SUCCESS return codes are returned
+//| Verify that CL_SUCCESS return codes are returned
 //|
 TEST_F(OCL21, clEnqueueSVMMigrateMem01)
 {
@@ -125,24 +125,24 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem01)
     clSVMFree(ocl_descriptor.context, svmp[1]);
 }
 
-//|	TEST: OCL21.clEnqeueuSVMMigrateMem02
+//| TEST: OCL21.clEnqeueuSVMMigrateMem02
 //|
-//|	Purpose
-//|	-------
+//| Purpose
+//| -------
 //|
 //| Verify the ability to migrate part of SVM allocation
 //|
-//|	Method
-//|	------
+//| Method
+//| ------
 //|
-//|	1. Create a shared context
-//|	2. Allocate SVM memory
+//| 1. Create a shared context
+//| 2. Allocate SVM memory
 //| 3. Migrate different parts of SVM allocations to different devices
 //|
-//|	Pass criteria
-//|	-------------
+//| Pass criteria
+//| -------------
 //|
-//|	Verify that CL_SUCCESS return codes are returned
+//| Verify that CL_SUCCESS return codes are returned
 //|
 TEST_F(OCL21, clEnqueueSVMMigrateMem02)
 {
@@ -172,15 +172,12 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
     fillMemory((int *)svmp[0], nsizes[0], 0);
     fillMemory((int *)svmp[1], nsizes[1], 0);
 
-    printf("%p %u\n", svmp[0], hbsizes[0]);
-    printf("%p %u\n", (char *)svmp[0] + hbsizes[0], hbsizes[0]);
-
-    printf("%p %u\n", svmp[1], hbsizes[1]);
-    printf("%p %u\n", (char *)svmp[1] + hbsizes[1], hbsizes[1]);
-
+    enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
+        (const void **)svmp[0], (const size_t *)&bsizes[0],
+        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
     enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
         (const void **)svmp[0], (const size_t *)&hbsizes[0],
-        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr); 
+        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
     enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
         (const void **)((char *)svmp[0] + hbsizes[0]), (const size_t *)&hbsizes[0],
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
@@ -202,70 +199,70 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
     clSVMFree(ocl_descriptor.context, svmp[1]);
 }
 
-//|	TEST: OCL21.clCloneKernel01
+//| TEST: OCL21.clCloneKernel01
 //|
-//|	Purpose
-//|	-------
+//| Purpose
+//| -------
 //|
-//|	Verify the ability to clone kernel objects for all kernel functions in a shared program
+//| Verify the ability to clone kernel objects for all kernel functions in a shared program
 //|
-//|	Method
-//|	------
+//| Method
+//| ------
 //|
-//|	1. Build program with source of 10 kernels on both CPU and GPU
-//|	2. Create 10 kernels for that program (will create for both CPU and GPU)
+//| 1. Build program with source of 10 kernels on both CPU and GPU
+//| 2. Create 10 kernels for that program (will create for both CPU and GPU)
 //| 3. Clone all kernels
 //|
-//|	Pass criteria
-//|	-------------
+//| Pass criteria
+//| -------------
 //|
-//|	Verify that valid non-zero kernel objects are returned
+//| Verify that valid non-zero kernel objects are returned
 //|
 TEST_F(OCL21, clCloneKernel01)
 {
-	// create OpenCL queues, program and context
-	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
+    // create OpenCL queues, program and context
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
 
-	cl_kernel kernels[10];
+    cl_kernel kernels[10];
     cl_kernel copied[10];
-	for(int i=0; i<10; ++i)
-	{
-		std::stringstream ss;
-		ss << "kernel_" << i;
-		// create kernels
-		kernels[i] = 0;
-		ASSERT_NO_FATAL_FAILURE(createKernel(&kernels[i], ocl_descriptor.program, ss.str().c_str()));
-	}
+    for(int i=0; i<10; ++i)
+    {
+        std::stringstream ss;
+        ss << "kernel_" << i;
+        // create kernels
+        kernels[i] = 0;
+        ASSERT_NO_FATAL_FAILURE(createKernel(&kernels[i], ocl_descriptor.program, ss.str().c_str()));
+    }
 
     for(int i=0; i<10; ++i)
     {
         ASSERT_NO_FATAL_FAILURE(cloneKernel(&copied[i], kernels[i]));
     }
 
-	for(int i=0; i<10; ++i)
-	{
-		clReleaseKernel(kernels[i]);
+    for(int i=0; i<10; ++i)
+    {
+        clReleaseKernel(kernels[i]);
         clReleaseKernel(copied[i]);
-	}
+    }
 }
 
-//|	TEST: OCL21.clGetKernelSubGroupInfo01
+//| TEST: OCL21.clGetKernelSubGroupInfo01
 //|
-//|	Purpose
-//|	-------
+//| Purpose
+//| -------
 //|
-//|	Verify the ability to get kernel subgroup info
+//| Verify the ability to get kernel subgroup info
 //|
-//|	Method
-//|	------
+//| Method
+//| ------
 //|
-//|	1. Build program from IL
-//|	2. Validate
+//| 1. Build program from IL
+//| 2. Validate
 //|
-//|	Pass criteria
-//|	-------------
+//| Pass criteria
+//| -------------
 //|
-//|	Verify that valid non-zero kernel objects are returned
+//| Verify that valid non-zero kernel objects are returned
 //|
 TEST_F(OCL21, clGetKernelSubGroupInfo01)
 {
@@ -301,23 +298,23 @@ TEST_F(OCL21, clGetKernelSubGroupInfo01)
     ASSERT_EQ(local_size[2], 0);
 }
 
-//|	TEST: OCL21.clGetKernelSubGroupInfo02
+//| TEST: OCL21.clGetKernelSubGroupInfo02
 //|
-//|	Purpose
-//|	-------
+//| Purpose
+//| -------
 //|
-//|	Verify the ability to get kernel subgroup info
+//| Verify the ability to get kernel subgroup info
 //|
-//|	Method
-//|	------
+//| Method
+//| ------
 //|
-//|	1. Build program from IL
-//|	2. Validate
+//| 1. Build program from IL
+//| 2. Validate
 //|
-//|	Pass criteria
-//|	-------------
+//| Pass criteria
+//| -------------
 //|
-//|	Verify that valid non-zero kernel objects are returned
+//| Verify that valid non-zero kernel objects are returned
 //|
 TEST_F(OCL21, clGetKernelSubGroupInfo02)
 {
