@@ -155,4 +155,32 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t
 ocl20_get_kernel_preferred_wg_size_multiple_local(void *block,
                                                   IDeviceCommandManager *,
                                                   const IBlockToKernelMapper *);
+
+///@brief externals to get access to ndrange opaque struct
+/// setters
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void
+__set_work_dimension(_ndrange_t * T, size_t dimension);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void
+__set_global_work_offset(_ndrange_t * T, size_t index, size_t offset);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void
+__set_global_work_size(_ndrange_t * T, size_t index, size_t size);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void
+__set_local_work_size(_ndrange_t * T, size_t index, size_t size);
+
+/// getters
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE size_t
+__get_work_dimension(const _ndrange_t * T);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE size_t
+__get_global_work_offset(const _ndrange_t * T, size_t index);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE size_t
+__get_global_work_size(const _ndrange_t * T, size_t index);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE size_t
+__get_local_work_size(const _ndrange_t * T, size_t index);
+
 #endif
