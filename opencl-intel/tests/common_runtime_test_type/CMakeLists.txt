@@ -53,15 +53,19 @@ endif (NOT WIN32 AND NOT ANDROID)
 
 set( CREATE_DIR_NAME tests/common_runtime_test_type )
 
+set( SPIR_OPT -cl-kernel-arg-info -cl-std=CL2.0 -Dcl_khr_subgroups=1 -D__OPENCL_C_VERSION__=200 -D__OPENCL_VERSION__=200 )
+
 if (BUILD_X64)
-set (
+list (
+  APPEND
   SPIR_OPT
-  -triple spir64-unknown-unknown -cl-kernel-arg-info -D __x86_64__
+  -triple spir64-unknown-unknown -D __x86_64__
 )
 else (BUILD_X64)
-set (
+list (
+  APPEND
   SPIR_OPT
-  -triple spir-unknown-unknown -cl-kernel-arg-info -D __i386__
+  -triple spir-unknown-unknown -D __i386__
 )
 endif(BUILD_X64)
 
