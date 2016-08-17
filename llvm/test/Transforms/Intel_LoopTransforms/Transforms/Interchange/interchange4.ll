@@ -20,7 +20,7 @@
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 2 3 4 5 1 )  
 ; CHECK: Interchanged:
-; CHECK-SAME:  ( 3 4 5 2 )  
+; CHECK-SAME:  ( 1 3 4 5 2 )  
 ;
 
 ; ModuleID = 'interchange4.c'

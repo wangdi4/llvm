@@ -386,6 +386,8 @@ void HLLoop::addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2) {
 
   const_ztt_pred_iterator LastIt = std::prev(ztt_pred_end());
 
+  RegDDRefs.resize(getNumOperandsInternal(), nullptr);
+
   /// Move the RegDDRefs to loop.
   setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(LastIt, true),
                               LastIt, true);

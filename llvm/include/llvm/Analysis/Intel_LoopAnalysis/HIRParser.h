@@ -300,7 +300,15 @@ private:
   CanonExpr *parse(const Value *Val, unsigned Level, bool IsTop = true);
 
   /// Parses the i1 condition associated with conditional branches and select
-  /// instructions.
+  /// instructions and returns predicates in \p Preds and DDRefs in \p Refs. \p
+  /// AllowMultiplePreds indicates whether we should break '&&' conditions into
+  /// different predicates.
+  void parseCompare(const Value *Cond, unsigned Level,
+                    SmallVectorImpl<PredicateTy> &Preds,
+                    SmallVectorImpl<RegDDRef *> &Refs, bool AllowMultiplePreds);
+
+  /// Parses the i1 condition associated with conditional branches and select
+  /// instructions into a single predicate.
   void parseCompare(const Value *Cond, unsigned Level, CmpInst::Predicate *Pred,
                     RegDDRef **LHSDDRef, RegDDRef **RHSDDRef);
 

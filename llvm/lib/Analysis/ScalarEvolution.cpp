@@ -3556,7 +3556,8 @@ const SCEV *ScalarEvolution::getSCEVAtScopeForHIR(const SCEV *SC,
 }
 
 
-bool ScalarEvolution::isLoopZtt(const Loop *Lp, const BranchInst *ZttInst) {
+bool ScalarEvolution::isLoopZtt(const Loop *Lp, const BranchInst *ZttInst, 
+                                bool Inverse) {
 
   auto ZttCond = ZttInst->getCondition();
 
@@ -3588,24 +3589,28 @@ bool ScalarEvolution::isLoopZtt(const Loop *Lp, const BranchInst *ZttInst) {
 
   LHS = getMinusSCEV(Start, Stride);
 
+  if (isImpliedCond(Pred, LHS, RHS, ZttCond, Inverse)) {
+    return true;
+  }
+
   // We do not know signedness of IV, so we perform both signed and unsigned
   // comparisons. This can be a potential stability issue. Need a test case for
   // investigation. Alternative is to use NoWrap flags which is less accurate so
   // it will miss some cases.
   if ((Pred == ICmpInst::ICMP_EQ) || (Pred == ICmpInst::ICMP_NE)) {
     if (isKnownPositive(Stride)) {
-      return (isImpliedCond(ICmpInst::ICMP_ULT, LHS, RHS, ZttCond, false) ||
-              isImpliedCond(ICmpInst::ICMP_SLT, LHS, RHS, ZttCond, false));
+      return (isImpliedCond(ICmpInst::ICMP_ULT, LHS, RHS, ZttCond, Inverse) ||
+              isImpliedCond(ICmpInst::ICMP_SLT, LHS, RHS, ZttCond, Inverse));
     }
     else {
       assert(isKnownNegative(Stride) && 
              "Stride it not known to be positive or negative!");
-      return (isImpliedCond(ICmpInst::ICMP_UGT, LHS, RHS, ZttCond, false) ||
-              isImpliedCond(ICmpInst::ICMP_SGT, LHS, RHS, ZttCond, false));
+      return (isImpliedCond(ICmpInst::ICMP_UGT, LHS, RHS, ZttCond, Inverse) ||
+              isImpliedCond(ICmpInst::ICMP_SGT, LHS, RHS, ZttCond, Inverse));
     }
   }      
 
-  return isImpliedCond(Pred, LHS, RHS, ZttCond, false);
+  return false;
 }
 
 // This class is used to recreate original SCEV form of a value given the HIR

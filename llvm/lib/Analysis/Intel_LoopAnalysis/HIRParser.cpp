@@ -1963,49 +1963,82 @@ void HIRParser::postParse(HLLoop *HLoop) {
 }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,
-                             PredicateTy *Pred, RegDDRef **LHSDDRef,
-                             RegDDRef **RHSDDRef) {
+                             SmallVectorImpl<PredicateTy> &Preds,
+                             SmallVectorImpl<RegDDRef *> &Refs,
+                             bool AllowMultiplePreds) {
 
   if (auto CInst = dyn_cast<CmpInst>(Cond)) {
 
     // Suppress traceback if CInst's operand's type is not supported.
     if (RI->isSupported(CInst->getOperand(0)->getType()) &&
         RI->isSupported(CInst->getOperand(1)->getType())) {
-      *Pred = CInst->getPredicate();
 
-      *LHSDDRef = createRvalDDRef(CInst, 0, Level);
-      *RHSDDRef = createRvalDDRef(CInst, 1, Level);
+      Preds.push_back(CInst->getPredicate());
+
+      Refs.push_back(createRvalDDRef(CInst, 0, Level));
+      Refs.push_back(createRvalDDRef(CInst, 1, Level));
 
       return;
     }
   }
 
+  const BinaryOperator *BOp = nullptr;
+
+  if (AllowMultiplePreds && (BOp = dyn_cast<BinaryOperator>(Cond)) &&
+      (BOp->getOpcode() == Instruction::And)) {
+    auto Op1 = BOp->getOperand(0);
+    auto Op2 = BOp->getOperand(1);
+
+    // Do not bring in '&&' conditions from outside the region.
+    if (CurRegion->containsBBlock(BOp->getParent()) &&
+        RI->isSupported(Op1->getType()) && RI->isSupported(Op2->getType())) {
+      parseCompare(Op1, Level, Preds, Refs, true);
+      parseCompare(Op2, Level, Preds, Refs, true);
+      return;
+    }
+  }
+
   if (isa<UndefValue>(Cond)) {
-    *Pred = UNDEFINED_PREDICATE;
+    Preds.push_back(UNDEFINED_PREDICATE);
+    Refs.push_back(createUndefDDRef(Cond->getType()));
+    Refs.push_back(createUndefDDRef(Cond->getType()));
+
   } else if (auto ConstVal = dyn_cast<Constant>(Cond)) {
     if (ConstVal->isOneValue()) {
-      *Pred = PredicateTy::FCMP_TRUE;
+      Preds.push_back(PredicateTy::FCMP_TRUE);
     } else if (ConstVal->isZeroValue()) {
-      *Pred = PredicateTy::FCMP_FALSE;
+      Preds.push_back(PredicateTy::FCMP_FALSE);
     } else {
       llvm_unreachable("Unexpected conditional branch value");
     }
-  } else {
-    // TODO: Add parsing of predicates linked with && and ||
-    assert(Cond->getType()->isIntegerTy(1) && "Cond should be an i1 type");
-    *Pred = PredicateTy::ICMP_NE;
-    *LHSDDRef = createScalarDDRef(Cond, Level);
-    *RHSDDRef = DDRefUtils::createConstDDRef(Cond->getType(), 0);
-    return;
-  }
+    Refs.push_back(createUndefDDRef(Cond->getType()));
+    Refs.push_back(createUndefDDRef(Cond->getType()));
 
-  *LHSDDRef = createUndefDDRef(Cond->getType());
-  *RHSDDRef = createUndefDDRef(Cond->getType());
+  } else {
+    assert(Cond->getType()->isIntegerTy(1) && "Cond should be an i1 type");
+    Preds.push_back(PredicateTy::ICMP_NE);
+    Refs.push_back(createScalarDDRef(Cond, Level));
+    Refs.push_back(DDRefUtils::createConstDDRef(Cond->getType(), 0));
+  }
+}
+
+void HIRParser::parseCompare(const Value *Cond, unsigned Level,
+                             PredicateTy *Pred, RegDDRef **LHSDDRef,
+                             RegDDRef **RHSDDRef) {
+  SmallVector<PredicateTy, 1> Preds;
+  SmallVector<RegDDRef *, 1> Refs;
+
+  parseCompare(Cond, Level, Preds, Refs, false);
+  assert((Preds.size() == 1) && "Single predicate expected!");
+
+  *Pred = Preds[0];
+  *LHSDDRef = Refs[0];
+  *RHSDDRef = Refs[1];
 }
 
 void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
-  PredicateTy Pred;
-  RegDDRef *LHSDDRef, *RHSDDRef;
+  SmallVector<PredicateTy, 4> Preds;
+  SmallVector<RegDDRef *, 8> Refs;
 
   setCurNode(If);
 
@@ -2015,16 +2048,30 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
   auto BeginPredIter = If->pred_begin();
   auto IfCond = cast<BranchInst>(SrcBB->getTerminator())->getCondition();
 
-  parseCompare(IfCond, CurLevel, &Pred, &LHSDDRef, &RHSDDRef);
+  parseCompare(IfCond, CurLevel, Preds, Refs, true);
+  assert(!Preds.empty() && "No predicates found for compare instruction!");
+  assert((Refs.size() == (2 * Preds.size())) &&
+         "Mismatch between number of predicates and DDRefs!");
 
   if (HLoop) {
-    HLoop->replaceZttPredicate(BeginPredIter, Pred);
-    HLoop->setZttPredicateOperandDDRef(LHSDDRef, BeginPredIter, true);
-    HLoop->setZttPredicateOperandDDRef(RHSDDRef, BeginPredIter, false);
+    if (LF->requiresZttInversion(HLoop)) {
+      Preds[0] = CmpInst::getInversePredicate(Preds[0]);
+      assert((Preds.size() == 1) &&
+             "Single predicate expected for inversion candidates!");
+    }
+
+    HLoop->replaceZttPredicate(BeginPredIter, Preds[0]);
+    HLoop->setZttPredicateOperandDDRef(Refs[0], BeginPredIter, true);
+    HLoop->setZttPredicateOperandDDRef(Refs[1], BeginPredIter, false);
   } else {
-    If->replacePredicate(BeginPredIter, Pred);
-    If->setPredicateOperandDDRef(LHSDDRef, BeginPredIter, true);
-    If->setPredicateOperandDDRef(RHSDDRef, BeginPredIter, false);
+    If->replacePredicate(BeginPredIter, Preds[0]);
+    If->setPredicateOperandDDRef(Refs[0], BeginPredIter, true);
+    If->setPredicateOperandDDRef(Refs[1], BeginPredIter, false);
+  }
+
+  for (unsigned I = 1, E = Preds.size(); I < E; ++I) {
+    HLoop ? HLoop->addZttPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1])
+          : If->addPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1]);
   }
 }
 

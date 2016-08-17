@@ -164,7 +164,7 @@ bool HIRLoopFormation::isNonNegativeNSWIV(const Instruction *Inst) const {
 }
 
 bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp,
-                                    const PHINode *IVPhi) const {
+                                       const PHINode *IVPhi) const {
 
   auto IVType = IVPhi->getType();
 
@@ -206,7 +206,6 @@ bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp,
 
   return false;
 }
-
 
 void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
   Value *Cond;
@@ -251,14 +250,17 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
   HLoop->setNSW(IsNSW);
 }
 
-bool HIRLoopFormation::populatedPreheaderPostexitNodes(HLLoop *HLoop,
-                                                       HLIf *IfParent) {
+bool HIRLoopFormation::populatedPreheaderPostexitNodes(
+    HLLoop *HLoop, HLIf *IfParent, bool PredicateInversion) {
 
-  auto PreBegIt = IfParent->then_begin();
+  auto PreBegIt =
+      !PredicateInversion ? IfParent->then_begin() : IfParent->else_begin();
   auto PreEndIt = HLoop->getIterator();
 
   auto PostBegIt = std::next(HLoop->getIterator());
-  auto PostEndIt = IfParent->then_end();
+  auto PostEndIt =
+      !PredicateInversion ? IfParent->then_end() : IfParent->else_end();
+  ;
 
   bool HasPreheader = (PreBegIt != PreEndIt);
   bool HasPostexit = (PostBegIt != PostEndIt);
@@ -281,9 +283,10 @@ bool HIRLoopFormation::populatedPreheaderPostexitNodes(HLLoop *HLoop,
   return true;
 }
 
-void HIRLoopFormation::setZtt(HLLoop *HLoop) const {
+void HIRLoopFormation::setZtt(HLLoop *HLoop) {
 
   auto Lp = HLoop->getLLVMLoop();
+  bool PredicateInversion = false;
 
   // Return if trip count is a constant.
   if (isa<SCEVConstant>(SE->getBackedgeTakenCount(Lp))) {
@@ -303,35 +306,39 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) const {
     return;
   }
 
-  // The loop may be in the else case. HLIf requires predicate inversion in this
-  // case which isn't handled so we bail out for now.
-  // TODO: handle predicate inversion.
-  if (IfParent->getFirstElseChild()) {
-    return;
+  if (IfParent->hasElseChildren()) {
+    if (IfParent->hasThenChildren()) {
+      return;
+    }
+    PredicateInversion = true;
   }
 
   auto IfBB = HIR->getSrcBBlock(IfParent);
   auto IfBrInst = cast<BranchInst>(IfBB->getTerminator());
 
-  if (!SE->isLoopZtt(Lp, IfBrInst)) {
+  if (!SE->isLoopZtt(Lp, IfBrInst, PredicateInversion)) {
     return;
   }
 
   // This function retuns false if the condition is acting like a ztt but cannot
   // be set as one due to presence of non-HLInst nodes so we need to bail out.
-  if (!populatedPreheaderPostexitNodes(HLoop, IfParent)) {
+  if (!populatedPreheaderPostexitNodes(HLoop, IfParent, PredicateInversion)) {
     return;
   }
 
-  // If should only contain loop now.
-  assert((IfParent->getNumThenChildren() == 1) &&
-         !IfParent->hasElseChildren() &&
+  // IfParent should only contain the loop now.
+  assert(((!PredicateInversion && (IfParent->getNumThenChildren() == 1)) ||
+          (PredicateInversion && (IfParent->getNumElseChildren() == 1))) &&
          "Something went wrong during ztt recognition!");
 
   HLNodeUtils::moveBefore(IfParent, HLoop);
   HLNodeUtils::remove(IfParent);
 
   HLoop->setZtt(IfParent);
+
+  if (PredicateInversion) {
+    InvertedZttLoops.insert(HLoop);
+  }
 }
 
 void HIRLoopFormation::formLoops() {
@@ -397,7 +404,10 @@ bool HIRLoopFormation::runOnFunction(Function &F) {
   return false;
 }
 
-void HIRLoopFormation::releaseMemory() { Loops.clear(); }
+void HIRLoopFormation::releaseMemory() { 
+  Loops.clear();
+  InvertedZttLoops.clear();
+}
 
 void HIRLoopFormation::print(raw_ostream &OS, const Module *M) const {
   HIR->print(OS, M);
