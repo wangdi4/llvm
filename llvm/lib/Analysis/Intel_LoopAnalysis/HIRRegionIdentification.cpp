@@ -370,6 +370,11 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp) const {
     return false;
   }
 
+  // SIMD loops should not be throttled.
+  if (isSIMDLoop(Lp)) {
+    return false;
+  }
+
   // Restrict checks to innermost loops for now. This can be expanded later.
   if (!Lp.empty()) {
     return false;
