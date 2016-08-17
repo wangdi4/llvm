@@ -23,6 +23,7 @@
 
 #include "llvm/Analysis/Intel_OptVLS.h"
 #define DEBUG_TYPE "ovls"
+#include <deque>
 
 using namespace llvm;
 
@@ -114,21 +115,31 @@ namespace OptVLS {
   /// Represents a range of bits using a bit-location of the leftmost bit and
   /// a number of consecutive bits immediately to the right that are included
   /// in the range. {0, 0} means undefined bit-range.
-  struct BitRange {
+  class BitRange {
     uint32_t BIndex;
     uint32_t NumBits;
+
+  public:
+    BitRange(uint32_t BI, uint32_t NBits) {
+      assert(BI % BYTE == 0 && "BitIndex in a BitRange needs to be divisible by a byte size!!!");
+      assert(NBits % BYTE == 0 && "NumBits in a BitRange needs to be divisible by a byte size!!!");
+      BIndex = BI;
+      NumBits = NBits;
+    }
 
     // Increment BitIndex by NumBits.
     BitRange& operator++() {
       BIndex += NumBits;
       return *this;
     }
+    uint32_t getNumBits() const { return NumBits; }
+    uint32_t getBitIndex() const { return BIndex; }
   };
 
-  /// print BitRange as "BitIndex : NumBits"
+  /// print BitRange as "Start_BitIndex : End_BitIndex"
   static inline OVLSostream &operator<<(OVLSostream &OS,
                                         const BitRange &BR) {
-    OS << BR.BIndex << ":" << BR.NumBits;
+    OS << BR.getBitIndex() << ":" << BR.getBitIndex() + BR.getNumBits() - 1;
     return OS;
   }
 
@@ -136,9 +147,17 @@ namespace OptVLS {
   /// Src can be nullptr, which means an undefined source. For an undefined
   /// source, BR still represents a valid bitrange. A bit-range with an
   /// undefined source is used to represent a gap in the destination GraphNode.
-  struct Edge {
+  class Edge {
+  private:
     GraphNode *Src;
     BitRange BR;
+
+  public:
+    Edge(GraphNode *S, BitRange BRange) : Src(S), BR(BRange) {
+      BR = BitRange(BRange.getBitIndex(), BRange.getNumBits());
+    }
+    GraphNode* getSource() const { return Src; }
+    BitRange getBitRange() const { return BR; }
   };
 
   /// GraphNode can be thought of as a result of some logical instruction
@@ -176,10 +195,14 @@ namespace OptVLS {
     /// the whole. IncomingEdges for a memory instruction can be empty.
     OVLSVector<Edge *> IncomingEdges;
 
+    /// Current total number of incoming bits from IncomingEdges.
+    uint32_t TotalIncomingEdgeBits;
+
   public:
     explicit GraphNode(OVLSInstruction *I) : Inst(I) {
       static uint32_t NodeId = 1;
       Id = NodeId++;
+      TotalIncomingEdgeBits = 0;
     }
 
     ~GraphNode() {
@@ -192,6 +215,11 @@ namespace OptVLS {
     inline iterator                end  () { return IncomingEdges.end();   }
 
     uint32_t getId() const { return Id; }
+    OVLSInstruction* getInstruction() const { return Inst; }
+    bool isALoad() const { return Inst && isa<OVLSLoad>(Inst); }
+
+    // Returns the current total number of incoming bits.
+    uint32_t size() const { return TotalIncomingEdgeBits; }
 
     // print GraphNode;
     void print(OVLSostream &OS, uint32_t NumSpaces) const {
@@ -201,21 +229,53 @@ namespace OptVLS {
       OS << "V" << Id << ":";
 
       // print the associated instruction.
-      if (Inst)
-        if (isa<OVLSLoad>(Inst)) OS << " Load ";
+      if (isALoad())
+        OS << " Load ";
 
-      // print the incoming edges as [BIndex] = Srd-Id[BR].
+      OS << "\n";
+      // print the incoming edges as [BR] = Srd-Id[BR].
       uint32_t CurrentBitIndex = 0;
       for (Edge *E : IncomingEdges) {
-        BitRange SrcBR = E->BR;
-        OS << " [" << CurrentBitIndex << "] " << "= V";
-        OS << E->Src->getId() << "[" << SrcBR << "] ";
-        CurrentBitIndex += SrcBR.NumBits;
+        Counter = 0;
+        while (Counter++ != NumSpaces)
+          OS << " ";
+
+        BitRange SrcBR = E->getBitRange();
+        BitRange DstBR = BitRange(CurrentBitIndex, SrcBR.getNumBits());
+        OS << " [" << DstBR << "] " << "= V";
+        if (E->getSource()) {
+          OS << E->getSource()->getId();
+          OS << "[" << SrcBR << "]\n";
+        } else
+          OS << "UnDef";
+
+        CurrentBitIndex += SrcBR.getNumBits();
       }
     }
-    /// FIXME
-    void isValid() {}
-  };
+
+    // Assigns an edge 'E' to the BIndex if BIndex is available,
+    // If BIndex is larger than the current bit index, it fills up the gap by
+    // creating a dummy edge. This function does not allow overwriting an edge,
+    // it throws an exception in such case.
+    void addAnIncomingEdge(uint32_t BIndex, Edge *E) {
+      assert(E != nullptr && "Invalid Edge!!!");
+      assert(BIndex >= TotalIncomingEdgeBits && "Overwriting an (element)edge is not allowed!!!");
+
+      if (BIndex > TotalIncomingEdgeBits) {
+        // BIndex is larger than the current bit-index, create a dummy edge
+        // to fillup the gap.
+        uint32_t GapSize = (BIndex - TotalIncomingEdgeBits);
+
+        Edge *Gap = new Edge(nullptr, BitRange(0, GapSize));
+        IncomingEdges.push_back(Gap);
+        TotalIncomingEdgeBits += GapSize;
+      }
+
+      IncomingEdges.push_back(E);
+      // Update current bit-index.
+      TotalIncomingEdgeBits += E->getBitRange().getNumBits();
+    }
+  }; // end of GraphNode
 
   typedef OVLSVector<GraphNode*> GraphNodeVector;
   /// This directed graph is used to automatically build the network (of
@@ -241,18 +301,130 @@ namespace OptVLS {
       Nodes.push_back(N);
     }
 
-    // print the nodes.
+    // Return nodes in a topological order.
+    // FIXME: Current topological traversal is very inefficient, support a
+    // linear time topological walk by adding a member of a vector of outgoing
+    // edges to the GraphNode.
+    void getTopSortedNodes(GraphNodeVector& TopSortedNodes) const {
+      std::deque<GraphNode *> NodesToProcess;
+      OVLSSmallPtrSet<const GraphNode *> ProcessedNodes;
+
+      // Get the nodes with no incoming edges.
+      for (GraphNode *Node : Nodes) {
+        if (Node->begin() == Node->end()) {
+          TopSortedNodes.push_back(Node);
+          ProcessedNodes.insert(Node);
+        }
+        else
+          NodesToProcess.push_back(Node);
+      }
+
+      // Get the nodes if its producers are processed.
+      while (!NodesToProcess.empty()) {
+        GraphNode *Node = NodesToProcess.front();
+        NodesToProcess.pop_front();
+
+        // check if its producers are processed
+        bool ProducersProcessed = true;
+        for (GraphNode::iterator I = Node->begin(), E = Node->end(); I != E; ++I) {
+          GraphNode *Parent = (*I)->getSource();
+          if (!ProcessedNodes.count(Parent)) {
+            ProducersProcessed = false;
+            break;
+          }
+        }
+
+        if (ProducersProcessed) {
+          // Its producers are already processed, so process the node.
+          TopSortedNodes.push_back(Node);
+          ProcessedNodes.insert(Node);
+        }
+        else
+          // Its producers are not processed yet, push the node back to the stack
+          NodesToProcess.push_back(Node);
+      }
+    }
+
+    // Print the nodes in a topological order. It prints a node only if its
+    // producers are printed.
     void print(OVLSostream &OS, uint32_t NumSpaces) const {
-      for (uint32_t i = 0; i < Nodes.size(); ++i) {
-        Nodes[i]->print(OS, NumSpaces + 2);
-        printf("\n");
+      GraphNodeVector TopSortedNodes;
+      getTopSortedNodes(TopSortedNodes);
+
+      for (GraphNode *N : TopSortedNodes) {
+        N->print(OS, NumSpaces + 2);
+        OS << "\n";
+      }
+    }
+
+    /// Returns false if verification fails. Verification fails if total number
+    /// of gathers in the \p Group does not match the total number of gather-nodes
+    /// (nodes with the incoming edges) in this(graph). Verification also fails
+    /// if number of bytes in a gather-node does not match the number of bytes
+    /// of the correspondent gather in the group. We find this correspondence
+    /// assuming the order of the gathers in a group is the same as in G).
+    /// This function should only be called right after load-generation before
+    /// any other optimization of the graph, otherwise, it will produce incorrect
+    /// result.
+    /// FIXME: Support scatters, masked gathers;
+    bool verifyInitialGraph(const OVLSGroup& Group) {
+      // This initial graph is considered to be invalid for a group of scatters.
+      if (!Group.hasGathers())
+        return false;
+
+      uint32_t TotalGatherNodes = 0;
+      for (GraphNode *N : Nodes) {
+        // This initial graph has only two kinds of nodes, nodes for loads and
+        // nodes for final gather results. Therefore, a node that is not a load
+        // is a gather.
+        if (!N->isALoad()) {
+          // Found a gather-result-node
+          OVLSMemref *Gather = Group.getMemref(TotalGatherNodes);
+          // FIXME: currently assuming all elements are masked on elements.
+          // Support masked gather.
+          if (N->size() != Gather->getType().getSize())
+            // Size of the gather-node does not match the size of the actual
+            // gather memref.
+            return false;
+
+          // One way to verify that the elements are loaded for unmasked
+          // gather is to verify there are no gaps
+          for (GraphNode::iterator I = N->begin(), E = N->end(); I != E; ++I)
+            if (!(*I)->getSource())
+              return false;
+
+          TotalGatherNodes++;
+        }
+      }
+
+      if (TotalGatherNodes != Group.size())
+        return false;
+
+      return true;
+    }
+
+    // Currently returns only the load instructions.
+    // Visit the graph in a topological order and push the load
+    // instructions into the InstVector.
+    // FIXME: Once getShuffles() is in, this function should return
+    // all the other instructions as well. At that time, an instruction
+    // can not be null, so an assertion should be thrown.
+    void getInstructions(OVLSInstructionVector &InstVector) {
+      GraphNodeVector TopSortedNodes;
+      getTopSortedNodes(TopSortedNodes);
+
+      for (GraphNode *N : TopSortedNodes) {
+        OVLSInstruction *I = N->getInstruction();
+        if (I && isa<OVLSLoad>(I))
+          InstVector.push_back(I);
       }
     }
 
     GraphNode* getNode(uint32_t Id) const {
+      assert(Id < Nodes.size() && "Invalid Id!!!");
       return Nodes[Id];
     }
-  };
+  }; // end of class Graph
 
   static void dumpOVLSGroupVector(OVLSostream &OS, const OVLSGroupVector &Grps) {
     OS << "\n  Printing Groups- Total Groups " << Grps.size() << "\n";
@@ -479,11 +651,25 @@ namespace OptVLS {
   /// This function returns a vector of contiguous loads for a group of
   /// gathers that has a constant stride using a greedy approach. This default
   /// approach generates a contiguous vector load for each i-th elements.
+  /// It also returns a mapping of the load-elements to the gather-elements
+  /// using a directed graph. Each node in the graph represents either a load or
+  /// a gather and each edge shows which loaded elements contribute to which
+  /// gather results.
+  /// FIXME: Support masked gathers.
   static void getDefaultLoads(const OVLSGroup& Group,
-                              OVLSInstructionVector &InstVector) {
+                              Graph &G) {
     int64_t Stride = 0;
     if (!Group.hasGathers() || !Group.hasAConstStride(Stride))
       assert("Unexpected Group!!!");
+
+    // Create a graph-node for each gather-result.
+    for (OVLSGroup::const_iterator I = Group.begin(),
+                                   E = Group.end(); I != E; ++I) {
+      // At this point, we don't know the desired instruction/opcode,
+      // initialize it(associated OVLSInstruction) to nullptr.
+      GraphNode *GatherNode = new GraphNode(nullptr);
+      G.insert(GatherNode);
+    }
 
     // Generate load mask
     uint64_t ElementMask = Group.getElementMask();
@@ -499,19 +685,44 @@ namespace OptVLS {
     }
     OVLSType LoadType = OVLSType(ElemSize, NumElemsInALoad);
 
-    int32_t MemrefVectorLength = Group.getNumElems();
+    uint32_t NumElems = Group.getNumElems();
 
     OVLSMemref *GrpFirstMemref = Group.getFirstMemref();
 
-    while (MemrefVectorLength-- > 0) {
+    uint32_t IthElem = 0;
+    while (IthElem < NumElems) {
+      // Generate a load for loading the contiguous bytes created by each
+      // i-th accesses of the adjacent gathers.
       OVLSOperand *Src = new OVLSAddress(GrpFirstMemref, Offset);
       OVLSInstruction *MemInst = new OVLSLoad(LoadType, *Src, ElementMask);
-      InstVector.push_back(MemInst);
-      Offset += Stride;
-    }
-  }
 
-} // end of namespace
+      // Create a graph-node for a load.
+      GraphNode *LoadNode = new GraphNode(MemInst);
+      G.insert(LoadNode);
+
+      // Draw edges from the load elements that show which load element
+      // contributes to which gather element.
+      EMask = ElementMask;
+      uint32_t GSIndex = 0;
+      BitRange LoadBR = BitRange(0, ElemSize);
+      while (EMask) {
+        if (EMask & 1) {
+          // A gather element is loaded, draw an edge from this element
+          // to its correspondent gather-element.
+          GraphNode *GatherNode = G.getNode(GSIndex);
+          Edge *E = new Edge(LoadNode, LoadBR);
+          GatherNode->addAnIncomingEdge(IthElem * ElemSize, E);
+        }
+        ++LoadBR;
+        EMask >>= 1;
+        GSIndex++;
+      }
+
+      Offset += Stride;
+      IthElem++;
+    }
+  } // end of getDefaultLoads
+} // end of OptVLS namespace
 
 void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
 
@@ -651,11 +862,26 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
 // Right now, it only generates the load sequence, shuffle sequence are not
 // supported.
 bool OptVLSInterface::getSequence(const OVLSGroup& Group,
-				  OVLSInstructionVector& InstVector) {
+                                  OVLSInstructionVector& InstVector) {
   if (!OptVLS::isSupported(Group))
     return false;
 
-  OptVLS::getDefaultLoads(Group, InstVector);
+  OptVLS::Graph G;
 
+  OptVLS::getDefaultLoads(Group, G);
+
+  /// At this point, we have generated loads (to load the contiguous chunks of
+  /// memory created by the \p Group of gathers) and a graph that shows which
+  /// loaded elements contribute to which gather results (gather-node) by drawing
+  /// edges from load-nodes(nodes with load instruction) to gather-result-nodes(nodes
+  /// with null instruction).
+  /// To ensure that we are on the right track of producing the gather results,
+  /// make sure the graph contains a node for each gather in the group with
+  /// number of bytes (matches the number of bytes of the gather in the group)
+  /// coming from no other nodes than load nodes.
+  if (!G.verifyInitialGraph(Group))
+    return false;
+
+  G.getInstructions(InstVector);
   return true;
 }

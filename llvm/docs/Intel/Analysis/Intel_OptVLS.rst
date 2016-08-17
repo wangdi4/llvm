@@ -318,6 +318,12 @@ This section describes more details for each interface function and abstract typ
      the loaded data, and final gather results, and edges between loaded and gather results show which loaded
      elements contribute to which gather results.
 
+     This initial graph represents doing all rearrangement in 1 logic operation for each gather result.  In most cases,
+     no single instruction exists that can do such logical operations.  It is the responsibility of genShuffles() to
+     expand the graph, breaking such complex logical operations into multiple simpler logical operations for which
+     instructions exist. The rest of the content talks about how genShuffles() does this graph expansion that results
+     in efficient and legal rearrangement instruction sequences.
+
      This is how the initial graph looks like coming out of the load-generator for the above example,
      load-nodes:{V2, V3}, gather-nodes{V0, V1}:
 
@@ -325,13 +331,13 @@ This section describes more details for each interface function and abstract typ
 
    digraph Initial_Graph {
 
-      V2 -> V0[weight="0:63"];
+      V2 -> V0[label="0:63",weight="0:63"];
 
-      V2 -> V1[weight="64:127"];
+      V2 -> V1[label="64:127",weight="64:127"];
 
-      V3 -> V0[weight="0:63"];
+      V3 -> V0[label="0:63",weight="0:63"];
 
-      V3 -> V1[weight="64:127"];
+      V3 -> V1[label="64:127",weight="64:127"];
    }
 
 ...
@@ -339,16 +345,20 @@ This section describes more details for each interface function and abstract typ
      And, this is how it gets printed by OptVLS-server:
 
      Initial Graph:
-       V0: [0] = V2[0:64],  [64] = V3[0:64]
-
-       V1: [0] = V2[64:64], [64] = V3[64:64]
-
-       V2: Load
 
        V3: Load
 
+       V4: Load
 
-     FIXME: Print the nodes in a topological order and print the bit-range as StartBitIndex : EndBitIndex
+       V1:
+        [0:63] = V3[0:63]
+
+        [64:127] = V4[0:63]
+
+       V2:
+        [0:63] = V3[64:127]
+
+        [64:127] = V4[64:127]
 
      Below shows the auxiliary data-structures that help building this graph:
 
