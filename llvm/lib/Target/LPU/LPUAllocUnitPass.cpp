@@ -145,10 +145,12 @@ bool LPUAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
         if (schedClass == 0) {
           // Print a warning message for instructions with unknown
           // schedule class.
-          DEBUG(errs() << "WARNING: Encountered machine instruction " << *MI << " with unknown schedule class. Assigning to virtual unit.\n");
+          DEBUG(errs() << "WARNING: Encountered machine instruction " <<
+                *MI << " with unknown schedule class. Assigning to virtual unit.\n");
         }
 
-        DEBUG(errs() << "MI " << *MI << ": schedClass " << schedClass << " maps to unit " << unit << "\n");
+        DEBUG(errs() << "MI " << *MI << ": schedClass " << schedClass <<
+              " maps to unit " << unit << "\n");
         BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(LPU::UNIT)).
           addImm(unit);
         isSequential = (unit == LPU::FUNCUNIT::SXU);
@@ -158,6 +160,17 @@ bool LPUAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
         isSequential = true;
       }
 
+    }
+
+    // If we are NOT ending the block on the sequential unit, add a unit switch
+    // so that the successive block (and in particular, the label starting
+    // the block) will be on the sxu, even if later instructions are not.
+    // (Basically, block boundaries represent flow control, and flow control
+    // MUST be on the sequential unit...)
+    if (!isSequential) {
+      BuildMI(*BB, BB->end(), BB->end()->getDebugLoc(), TII.get(LPU::UNIT)).
+        addImm(LPU::FUNCUNIT::SXU);
+      isSequential = true;
     }
 
   }
