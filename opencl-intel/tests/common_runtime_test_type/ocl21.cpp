@@ -16,6 +16,7 @@
 // problem reports or change requests be submitted to it directly
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 #include "common_runtime_tests.h"
 #include "ocl21.h"
 
@@ -172,16 +173,20 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
     fillMemory((int *)svmp[0], nsizes[0], 0);
     fillMemory((int *)svmp[1], nsizes[1], 0);
 
+    std::cout << "Starting migrate first half of svmp[0] to CPU..." << std::endl;
     enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
         (const void **)&(svmp[0]), (const size_t *)&(hbsizes[0]),
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
+    std::cout << "Starting migrate second half of svmp[0] to GPU..." << std::endl;
     enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
         (const void **)((char *)&(svmp[0]) + hbsizes[0]), (const size_t *)&(hbsizes[0]),
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
 
+    std::cout << "Starting migrate first half of svmp[1] to CPU..." << std::endl;
     enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
         (const void **)&(svmp[1]), (const size_t *)&(hbsizes[1]),
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
+    std::cout << "Starting migrate second half of svmp[1] to GPU..." << std::endl;
     enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
         (const void **)((char *)&(svmp[1]) + hbsizes[1]), (const size_t *)&(hbsizes[1]),
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
@@ -220,8 +225,8 @@ TEST_F(OCL21, clCloneKernel01)
     // create OpenCL queues, program and context
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
 
-    cl_kernel kernels[10];
-    cl_kernel copied[10];
+    cl_kernel kernels[10] = { (cl_kernel)nullptr };
+    cl_kernel copied[10] = { (cl_kernel)nullptr };
     for(int i=0; i<10; ++i)
     {
         std::stringstream ss;
@@ -319,7 +324,7 @@ TEST_F(OCL21, clGetKernelSubGroupInfo02)
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
 
     cl_kernel kernel = 0;
-   createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
+    createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
 
     size_t cl_kernel_max_num_sub_groups = 0;
     size_t ret_size = 0;
