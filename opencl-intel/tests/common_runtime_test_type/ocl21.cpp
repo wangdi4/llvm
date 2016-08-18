@@ -173,20 +173,17 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
     fillMemory((int *)svmp[1], nsizes[1], 0);
 
     enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
-        (const void **)svmp[0], (const size_t *)&(bsizes[0]),
-        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
-    enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
-        (const void **)svmp[0], (const size_t *)&(hbsizes[0]),
+        (const void **)&(svmp[0]), (const size_t *)&(hbsizes[0]),
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
     enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
-        (const void **)((char *)svmp[0] + hbsizes[0]), (const size_t *)&(hbsizes[0]),
+        (const void **)((char *)&(svmp[0]) + hbsizes[0]), (const size_t *)&(hbsizes[0]),
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
 
     enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
-        (const void **)svmp[1], (const size_t *)&(hbsizes[1]),
+        (const void **)&(svmp[1]), (const size_t *)&(hbsizes[1]),
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
     enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
-        (const void **)((char *)svmp[1] + hbsizes[1]), (const size_t *)&(hbsizes[1]),
+        (const void **)((char *)&(svmp[1]) + hbsizes[1]), (const size_t *)&(hbsizes[1]),
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
 
     ASSERT_TRUE(memcmp(refp[0], svmp[0], bsizes[0]) == 0) << "svmp[0] corrupted";
