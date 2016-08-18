@@ -95,6 +95,30 @@ add_custom_command( TARGET ${TARGET}
   VERBATIM
 )
 
+set( INPUT_FILE kernels/simple_kernels.cl )
+set( SPIR_OUTPUT_FILE simple_kernels.bc )
+set( SPIRV_OUTPUT_FILE simple_kernels.spv )
+
+add_custom_command( TARGET ${TARGET}
+  POST_BUILD
+  COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
+  ${SPIR_OPT}
+  -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
+  MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  COMMENT "Generate spir binary files for framework_test_type:  ${SPIR_OUTPUT_FILE}"
+  VERBATIM
+)
+
+add_custom_command( TARGET ${TARGET}
+  POST_BUILD
+  COMMAND ${SPIRV_CONVERTER} -o ${SPIRV_OUTPUT_FILE} ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
+  DEPENDS ${SPIR_OUTPUT_FILE}
+  COMMENT "Generate spirv binary files for framework_test_type:  ${SPIRV_OUTPUT_FILE}"
+  VERBATIM
+)
+
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE} DESTINATION tests/common_runtime_test_type )
 
 file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )

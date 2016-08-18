@@ -315,8 +315,8 @@ void createProgramWithIL(cl_program* program, cl_context context, const char *pr
 
 	*program = clCreateProgramWithIL (context, programSource, length, &errcode_ret);
 
-	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateProgramWithSource failed";
-	ASSERT_NE((cl_program)0, *program) << "clCreateProgramWithSource returned 0 as program value";
+	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateProgramWithIL failed";
+	ASSERT_NE((cl_program)0, *program) << "clCreateProgramWithIL returned 0 as program value";
 }
 
 // createProgramWithSourceFromKernelName - calls and validates clCreateProgramWithSource
