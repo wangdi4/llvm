@@ -195,6 +195,7 @@ private:
 
   AliasResult aliasCheck(const Value *V1, uint64_t V1Size, AAMDNodes V1AATag,
                          const Value *V2, uint64_t V2Size, AAMDNodes V2AATag);
+  const Value* getBaseValue(const Value *V1); // INTEL
 };
 
 /// Analysis pass providing a never-invalidated alias analysis result.
