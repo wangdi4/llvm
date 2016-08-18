@@ -96,7 +96,7 @@ struct MarkedCanonExpr {
 // HIRLoopReversal Pass Declaration
 class HIRLoopReversal : public HIRTransformPass {
 private:
-  HIRDDAnalysis *DDA;                   // Data-Dependence Analysis Result
+  HIRDDAnalysis *DDA; // Data-Dependence Analysis Result
   HIRSafeReductionAnalysis *SRA;
   HIRLoopStatistics *HLS;
   SmallVector<MarkedCanonExpr, 8> CEAV; // Vector of MarkedCanonExpr
@@ -148,7 +148,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const;
 
   /// \brief handle command-line arguments
-  bool handleCmdlineArgs(void);
+  bool handleCmdlineArgs(Function &F);
 
   // *** Interface to external utility  ***
 
@@ -156,10 +156,10 @@ public:
   bool runOnLoop(
       HLLoop *Lp,     // INPUT + OUTPUT: a given loop
       bool DoReverse, // INPUT: true to reverse the loop if the loop is suitable
-      HIRDDAnalysis &DDA, // INPUT: Existing HIRDDAnalysis
+      HIRDDAnalysis &DDA,            // INPUT: Existing HIRDDAnalysis
       HIRSafeReductionAnalysis &SRA, // INPUT: Existing HIRSafeReductionAnalysis
-      HIRLoopStatistics &LS, // INPUT: Existing HIRLoopStatistics
-      bool &LoopReversed   // OUTPUT: true if the loop is successfully reversed
+      HIRLoopStatistics &LS,         // INPUT: Existing HIRLoopStatistics
+      bool &LoopReversed // OUTPUT: true if the loop is successfully reversed
       );
 
 private:

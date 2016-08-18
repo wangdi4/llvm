@@ -410,9 +410,11 @@ bool HIRLoopReversal::doLoopCollection(HLLoop *Lp) {
 }
 
 ///\brief A dedicated routine to handle all command-line arguments.
-bool HIRLoopReversal::handleCmdlineArgs(void) {
+bool HIRLoopReversal::handleCmdlineArgs(Function &F) {
   // 1. Skip the Pass if DisableHIRLoopReversal flag is enabled
-  if (DisableHIRLoopReversal) {
+  // or
+  // support opt-bisect via skipFunction() call
+  if (DisableHIRLoopReversal || skipFunction(F)) {
     DEBUG(dbgs() << "HIR Loop Reversal Transformation Disabled through "
                     "DisableHIRLoopReversal flag\n");
     return false;
@@ -427,7 +429,7 @@ bool HIRLoopReversal::runOnFunction(Function &F) {
   // 0. Sanity+Setup
 
   // process cmdline argument(s)
-  bool CmdLineOptions = handleCmdlineArgs();
+  bool CmdLineOptions = handleCmdlineArgs(F);
   if (!CmdLineOptions) {
     return false;
   }
@@ -503,7 +505,6 @@ bool HIRLoopReversal::isApplicable(HLLoop *Lp) {
   // - No goto
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
 
-  
   // DEBUG(LS.dump(););
   if (LS.hasCalls() || LS.hasGotos() || LS.hasLabels()) {
     return false;
@@ -846,7 +847,8 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
       }
 
       // DEBUG(::dump(UBCEClone, "UBCEClone [AFTER]: "));
-      // Note: the CastToStandaloneBlob is may NOT necessarily return true, and
+      // Note: the CastToStandaloneBlob is may NOT necessarily return true,
+      // and
       // it is not an error if not!
       // assert(CastToStandaloneBlob &&
       //      "Expect castToStandAloneBlob() to be always succeed\n");
@@ -907,10 +909,9 @@ bool HIRLoopReversal::runOnLoop(
     HLLoop *Lp,          // INPUT + OUTPUT PARAM: a given loop
     bool DoReverse,      // INPUT PARAM: true to reverse if the loop is suitable
     HIRDDAnalysis &HDDA, // INPUT PARAM: an existing HIRDDAnalysis
-    HIRSafeReductionAnalysis &HSRA, 
-    HIRLoopStatistics &LS, 
-    bool &LoopReversed   // OUTPUT PARAM: true if the loop is successfully
-                         // reversed
+    HIRSafeReductionAnalysis &HSRA, HIRLoopStatistics &LS,
+    bool &LoopReversed // OUTPUT PARAM: true if the loop is successfully
+                       // reversed
     ) {
   // 0.Sanity
   assert(Lp &&
@@ -918,7 +919,7 @@ bool HIRLoopReversal::runOnLoop(
 
   // Obtain DDA Analysis Result from Parameter
   DDA = &HDDA;
-  SRA = &HSRA; 
+  SRA = &HSRA;
   HLS = &LS;
 
   // 1. Check if the loop is suitable for reversal
