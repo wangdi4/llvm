@@ -95,6 +95,8 @@ add_custom_command( TARGET ${TARGET}
   VERBATIM
 )
 
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SPIRV_OUTPUT_FILE} DESTINATION tests/common_runtime_test_type )
+
 set( INPUT_FILE kernels/simple_kernels.cl )
 set( SPIR_OUTPUT_FILE simple_kernels.bc )
 set( SPIRV_OUTPUT_FILE simple_kernels.spv )
