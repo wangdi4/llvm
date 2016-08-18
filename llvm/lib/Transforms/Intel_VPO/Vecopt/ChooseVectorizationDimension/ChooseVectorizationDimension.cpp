@@ -176,6 +176,9 @@ void ChooseVectorizationDimension::setFinalDecision(int dim, bool canUnitWorkGro
 }
 
 bool ChooseVectorizationDimension::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   V_ASSERT(m_scalarFunc && "missing scalar function");
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");

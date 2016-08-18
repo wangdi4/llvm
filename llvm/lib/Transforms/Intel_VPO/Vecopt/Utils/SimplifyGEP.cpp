@@ -36,6 +36,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
   }
 
   bool SimplifyGEP::runOnFunction(Function &F) {
+    if (skipFunction(F))
+      return false;
+
     // obtain TagetData of the module
     m_pDL = &F.getParent()->getDataLayout();
 

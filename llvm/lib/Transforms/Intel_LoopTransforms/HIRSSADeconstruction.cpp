@@ -714,6 +714,9 @@ void HIRSSADeconstruction::deconstructSSAForRegions() {
 }
 
 bool HIRSSADeconstruction::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();

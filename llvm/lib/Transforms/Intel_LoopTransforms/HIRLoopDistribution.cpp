@@ -388,7 +388,7 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
 
   this->F = &F;
 
-  if (DisableDist) {
+  if (DisableDist || skipFunction(F)) {
     if (OptReportLevel >= 3) {
       dbgs() << "LOOP DISTRIBUTION: Transform disabled \n";
     }

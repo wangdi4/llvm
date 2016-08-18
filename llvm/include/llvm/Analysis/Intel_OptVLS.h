@@ -33,6 +33,7 @@
 #define LLVM_ANALYSIS_INTEL_OPTVLS_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Casting.h"
@@ -43,6 +44,9 @@ namespace llvm {
 // OptVLS data structures
 template <typename T>
 class OVLSVector : public SmallVector<T, 8> {};
+
+template <typename T>
+class OVLSSmallPtrSet : public SmallPtrSet<T, 2> {};
 
 template <typename KeyT, typename ValueT>
 class OVLSMap : public std::multimap<KeyT, ValueT> {};
@@ -299,6 +303,10 @@ public:
   inline iterator                begin() { return MemrefVec.begin(); }
   inline iterator                end  () { return MemrefVec.end();   }
 
+  typedef OVLSMemrefVector::const_iterator const_iterator;
+  inline const_iterator          begin() const { return MemrefVec.begin(); }
+  inline const_iterator          end  () const { return MemrefVec.end();   }
+
   // Returns true if the group is empty.
   bool empty() const {
     return MemrefVec.empty();
@@ -327,10 +335,18 @@ public:
     return AccType.isGather();
   }
 
+  // Returns the total number of memrefs that this group contains.
+  uint32_t size() const { return MemrefVec.size(); }
+
   // Return the first OVLSMemref of this group.
   OVLSMemref* getFirstMemref() const {
     if (!MemrefVec.empty()) return MemrefVec[0];
     return nullptr;
+  }
+
+  OVLSMemref* getMemref(uint32_t Id) const {
+    assert(Id < MemrefVec.size() && "Invalid MemrefId!!!\n");
+    return MemrefVec[Id];
   }
 
   /// \brief Return true and the constant stride in \p ConstStride if all of the

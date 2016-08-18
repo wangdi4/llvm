@@ -639,7 +639,7 @@ FunctionPass *llvm::createHIRCompleteUnrollPass() {
 
 bool HIRCompleteUnroll::runOnFunction(Function &F) {
   // Skip if DisableHIRCompleteUnroll is enabled
-  if (DisableHIRCompleteUnroll) {
+  if (DisableHIRCompleteUnroll || skipFunction(F)) {
     DEBUG(dbgs() << "HIR LOOP Complete Unroll Transformation Disabled \n");
     return false;
   }

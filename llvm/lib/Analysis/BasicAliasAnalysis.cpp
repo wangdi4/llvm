@@ -1446,6 +1446,25 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, uint64_t PNSize,
   return Alias;
 }
 
+#if INTEL_CUSTOMIZATION
+// Returns the base address if the incoming value is GEP instruction.
+// If the incomming value is bitcast, it further checks the casted
+// value is GEP instruction or not.
+const Value* BasicAAResult::getBaseValue(const Value *V1)
+{
+  const Value *BaseOperand1 = nullptr;
+  if (const GEPOperator *GEP1 = dyn_cast<GEPOperator>(V1))
+    BaseOperand1 = GEP1->getPointerOperand();
+  else if (Operator::getOpcode(V1) == Instruction::BitCast ||
+           Operator::getOpcode(V1) == Instruction::AddrSpaceCast) {
+    BaseOperand1 = cast<Operator>(V1)->getOperand(0);
+    if (const GEPOperator *GEP1 = dyn_cast<GEPOperator>(BaseOperand1)) 
+      BaseOperand1 = GEP1->getPointerOperand();
+  }
+  return BaseOperand1;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Provides a bunch of ad-hoc rules to disambiguate in common cases, such as
 /// array references.
 AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
@@ -1466,19 +1485,8 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
   // since V2 is applied with stripPointerCasts. The V2 will be changed if
   // all the indices of GEP is 0.
 
-  const Value *BaseOperand1 = nullptr;
-  if (const GEPOperator *GEP1 = dyn_cast<GEPOperator>(V1))
-    BaseOperand1 = GEP1->getPointerOperand();
-  else if (Operator::getOpcode(V1) == Instruction::BitCast ||
-           Operator::getOpcode(V1) == Instruction::AddrSpaceCast)
-    BaseOperand1 = cast<Operator>(V1)->getOperand(0);
-
-  const Value *BaseOperand2 = nullptr;
-  if (const GEPOperator *GEP2 = dyn_cast<GEPOperator>(V2))
-    BaseOperand2 = GEP2->getPointerOperand();
-  else if (Operator::getOpcode(V2) == Instruction::BitCast ||
-           Operator::getOpcode(V2) == Instruction::AddrSpaceCast)
-    BaseOperand2 = cast<Operator>(V2)->getOperand(0);
+  const Value *BaseOperand1 = getBaseValue(V1);
+  const Value *BaseOperand2 = getBaseValue(V2);
 
   if (BaseOperand1 == BaseOperand2 && BaseOperand1 != nullptr)
     SameOperand = true;

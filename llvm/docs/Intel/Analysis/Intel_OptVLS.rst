@@ -22,44 +22,36 @@ Here is an example of this optimization:
     const int j = n[k];
     double p = x[j  ];
     double q = x[j + 1];
-    double r = x[j + 2];
-    double s = x[j + 3];
     ...
   }
 
 One possible scenario of the loads from multiple consecutive iterations could be thought of laid out in the
-linear memory space of x such as: p1 q1 r1 s1 ... p3 q3 r3 s3 ... p2 q2 r2 s2 ... p4 q4 r4 s4 ...
+linear memory space of x such as: p1 q1 ... p2 q2 ...
 
-A naive vectorization will generate 4 gathers for the four indirect memory references. With vector length 4, it
-will try to load p(p1, p2, p3, p4) using one gather, q(q1, q2, q3, q4) using another gather and so on.
+A naive vectorization will generate 2 gathers for the two indirect memory references. With vector length 2,
+it will try to load p(p1, p2) using one gather, q(q1, q2) using another gather and so on.
 
 Pseudo vector code:
 
 .. code-block:: none
 
-  for.body: // vector length is 4
+  for.body: // vector length is 2
     ...
     %nidx = getelementptr inbounds ..@n, i64 0, i64 %k
     // a contiguous load is generated for n[k]
-    %j_v   = @llvm.masked.load.v4i32(nidx, ..);
+    %j_v   = @llvm.masked.load.v2i64(nidx, ..);
 
     %gather1address = getelementptr(@x,   %j_v);
     %gather2address = getelementptr(@x+1, %j_v);
-    %gather3address = getelementptr(@x+2, %j_v);
-    %gather3address = getelementptr(@x+3, %j_v);
 
-    // four gathers are generated for four indirect accesses x[j], x[j+1], x[j+2], x[j+3]
-    // gathering p1, p2, p3, p4
-    %p_v = @llvm.masked.gather.v16f32(%gather1address, ..);
+    // two gathers are generated for two indirect accesses x[j], x[j+1]
 
-    // gathering q1, q2, q3, q4
-    %q_v = @llvm.masked.gather.v16f32(%gather2address, ..);
+    // gather-1 gathering p1, p2
+    %p_v = call <2 x double> @llvm.masked.gather.v2f64(%gather1address, ..);
 
-    // gathering r1, r2, r3, r4
-    %r_v = @llvm.masked.gather.v16f32(%gather3address, ..);
+    // gather-2 gathering q1, q2
+    %q_v = call <2 x double> @llvm.masked.gather.v2f64(%gather2address, ..);
 
-    // gathering s1, s2, s3, s4
-    %s_v = @llvm.masked.gather.v16f32(%gather4address, ..);
     ...
 
 As we can see adjacent gathers/scatters access a piece-wise contiguous range of memory, we can issue a contiguous
@@ -71,43 +63,20 @@ Optimized pseudo vector code:
 
 .. code-block::  none
 
-  for.body: // vector length is 4
+  for.body: // vector length is 2
     ...
-    // load p1 q1 r1 s1
-    %1 = @llvm.masked.load.v4f64(&x[n[k]], ..);
+    // load p1 q1
+    %1 = @llvm.masked.load.v2f64(&x[n[k]], ..);
 
-    // load p2 q2 r2 s2
-    %2 = @llvm.masked.load.v4f64(&x[n[k+1]], ..);
+    // load p2 q2
+    %2 = @llvm.masked.load.v2f64(&x[n[k+1]], ..);
 
-    // load p3 q3 r3 s3
-    %3 = @llvm.masked.load.v4f64(&x[n[k+2]], ..);
+    // move p1 p2 to %p_v
+    %p_v = shufflevector <2 x f64> %1, <2 x f64> %2, <2 x i32> <i32 0, i32 0>;
 
-    // load p4 q4 r4 s4
-    %4 = @llvm.masked.load.v4f64((&x[n[k+3]], ..);
+    // move q1 q2 to %q_v
+    %q_v = shufflevector <2 x f64> %1, <2 x f64> %2, <2 x i32> <i32 1, i32 1>;
 
-    // move p1 q1 p3 q3 to %5
-    %5 = shufflevector <4 x f64> %1, <4 x f64> %3, <4 x i32> <i32 0, i32 1, i32 4, i32 5>;
-
-    // move p2 q2 p4 q4 to %6
-    %6 = shufflevector <4 x f64> %2, <4 x f64> %4, <4 x i32> <i32 0, i32 1, i32 4, i32 5>;
-
-    // move p1 p2 p3 p4 to %p_v
-    %p_v = shufflevector <4 x f64> %5, <4 x f64> %6, <4 x i32> <i32 0, i32 4, i32 2, i32 6>;
-
-    // move q1 q2 q3 q4 to %q_v
-    %q_v = shufflevector <4 x f64> %5, <4 x f64> %6, <4 x i32> <i32 1, i32 5, i32 3, i32 7>;
-
-    // move q1 r1 q3 s3
-    %7 = shufflevector <4 x f64> %1, <4 x f64> %3, <4 x i32> <i32 2, i32 3, i32 6, i32 7>;
-
-    // move q2 r2 q4 s4
-    %8 = shufflevector <4 x f64> %2, <4 x f64> %4, <4 x i32> <i32 2, i32 3, i32 6, i32 7>;
-
-    // move q3 q2 q3 q4
-    %r_v = shufflevector <4 x f64> %7, <4 x f64> %8, <4 x i32> <i32 0, i32 4, i32 2, i32 6>;
-
-    // move r1 r2 r3 r4
-    %s_v = shufflevector <4 x f64> %7, <4 x f64> %8, <4 x i32> <i32 1, i32 5, i32 3, i32 7>;
     ...
 
 OptVLS is designed to follow the client-server model. The server is responsible for doing the optimization on a set
@@ -179,13 +148,30 @@ OptVLS public interface class:
                           uint32_t VectorLength,
                           OVLSGroupVector &Grps,
                           OVLSMemrefToGroupMap *MemrefToGroupMap = nullptr);
+
+    static bool getSequence(const OVLSGroup& Group,
+                            OVLSInstructionVector& InstVector);
   };
 
 ... A quick description of the public member functions is as follows:
-getGroups(..) .  Takes a set of OVLSMemrefs and a vector length that is the maximum
+
+getGroups(..) -  Takes a set of OVLSMemrefs and a vector length that is the maximum
 allowed vector register size (in bytes) on the underlying architecture. Returns a set of OVLSGroups
 where each group contains the OVLSMemrefs that are adjacent and a mapping from OVLSMemref
 to an OVLSGroup.
+
+getSequence(..) - In order to get an optimized instruction sequence for a set of adjacent memrefs(gather/scatter)
+client needs to provide an OVLSGroup comprising the set of adjacent memrefs. getSequence() then returns
+true and a vector containing the instruction sequence in InstVector. It returns false if it is unable to
+generate an optimized sequence. The way to generate the OVLSGroup is to call the getGroups() with the set of
+adjacent memrefs which would return a vector containing OVLSGroups. There might be more than one OVLSGroup for
+the specified set of memrefs. In that case, getSequence() is supposed to be called for each of them in turn.
+The sequence returned here is topologically-ordered where the producer instructions appear before the consumer
+instructions. At this point, this sequence has been OptVLS-optimized, i.e. the sequence has been replaced multiple
+gathers/scatters by a faster sequence of instructions that uses only loads/stores and register/register rearrangement
+instructions. Each instruction in this OptVLS-optimized sequence is an abstract OVLSInstruction which needs to be
+converted to an LLVM-IR instruction by the client.
+
 
 Section 4: How to use OptVLS in a compiler by writing an OptVLS client
 ======================================================================
@@ -270,13 +256,13 @@ Section 5: Implementation Details
 
 This section describes more details for each interface function and abstract type.
 
-#. getGroups()
+1. getGroups()
 
-  #. The input vector length is the maximum allowed vector size in the underlying architecture.
+  a) The input vector length is the maximum allowed vector size in the underlying architecture.
      This determines how many adjacent memrefs can be put together in a group. In addition, it
      tells us how many memrefs can be processed at a time using a single vector register.
 
-  #. Currently, grouping is done using a greedy algorithm. It sorts out the memrefs based
+  b) Currently, grouping is done using a greedy algorithm. It sorts out the memrefs based
      on their distance from the base address. Then it keeps putting the memref starting at
      the lowest address until the group is full. Doing it this way, it's possible for a memref
      to be put in a group where it has a bigger distance between memrefs than if it were put
@@ -287,11 +273,11 @@ This section describes more details for each interface function and abstract typ
 
        memref2- distance from base is 4 bytes
 
-       memref3 distance from base is 12 bytes
+       memref3- distance from base is 12 bytes
 
-       memref4 distance from base is 16 bytes
+       memref4- distance from base is 16 bytes
 
-       memref5 distance from base is 20 bytes
+       memref5- distance from base is 20 bytes
 
      The best grouping should be:
         Group1: memref1, memref2
@@ -304,6 +290,169 @@ This section describes more details for each interface function and abstract typ
         Group2: memref4, memref5
 
 
-  #. canMoveTo()- FIXME: We are still discussing whether it's the server or the client is responsible
+  c) canMoveTo()- FIXME: We are still discussing whether it's the server or the client is responsible
                    for code placement, which will affect this interface.
 
+2. GetSequence()
+
+  Optimized sequence generation for a group of gathers is split into two parts:
+
+  a) Generate loads - This part is very straightforward, it generates loads to load each contiguous chunk
+     of memory created by a group of adjacent gathers.
+
+     For our example, the following two loads get generated
+
+     %1 = mask.load.64.2 (<Base:0xf7ced0 Offset:0>, 11)
+
+     %2 = mask.load.64.2 (<Base:0xf7ced0 Offset:32>, 11)
+
+  b) Generate shuffles - The result of (a) is that the elements of each gather have been loaded but are distributed
+     across multiple registers. In order to produce the actual gather-output, we need to move (/rearrange) all those
+     distributed elements (of each gather) back to the single destination register where the gather is expected to
+     have deposited them. To maximize speedup, the challenge is to generate efficient code for the rearrangement.
+
+     genShuffles() uses a directed graph to automatically find an efficient sequence of rearrangement instructions.
+     In this directed graph, an edge represents a move of a source bit-range, and a node can be thought of as the
+     result of some logical rearrangement of those incoming bit-ranges/edges. An initial version of the graph gets
+     drawn by the load-generator and is passed to the genShuffles() as an input. Initially, it only has nodes for
+     the loaded data, and final gather results, and edges between loaded and gather results show which loaded
+     elements contribute to which gather results.
+
+     This initial graph represents doing all rearrangement in 1 logic operation for each gather result.  In most cases,
+     no single instruction exists that can do such logical operations.  It is the responsibility of genShuffles() to
+     expand the graph, breaking such complex logical operations into multiple simpler logical operations for which
+     instructions exist. The rest of the content talks about how genShuffles() does this graph expansion that results
+     in efficient and legal rearrangement instruction sequences.
+
+     This is how the initial graph looks like coming out of the load-generator for the above example,
+     load-nodes:{V2, V3}, gather-nodes{V0, V1}:
+
+.. graphviz::
+
+   digraph Initial_Graph {
+
+      V2 -> V0[label="0:63",weight="0:63"];
+
+      V2 -> V1[label="64:127",weight="64:127"];
+
+      V3 -> V0[label="0:63",weight="0:63"];
+
+      V3 -> V1[label="64:127",weight="64:127"];
+   }
+
+...
+
+     And, this is how it gets printed by OptVLS-server:
+
+     Initial Graph:
+
+       V3: Load
+
+       V4: Load
+
+       V1:
+        [0:63] = V3[0:63]
+
+        [64:127] = V4[0:63]
+
+       V2:
+        [0:63] = V3[64:127]
+
+        [64:127] = V4[64:127]
+
+     Below shows the auxiliary data-structures that help building this graph:
+
+
+.. code-block::  c++
+
+  /// Represents a range of bits using a bit-location of the leftmost bit and
+  /// a number of consecutive bits immediately to the right that are included
+  /// in the range. {0, 0} means undefined bit-range.
+  ///
+  struct BitRange {
+    uint32_t BIndex;
+    uint32_t NumBits;
+    ...
+  };
+
+  /// Edge represents a move of a specified bit-range 'BR' from 'Src' GraphNode.
+  /// 'Src' can be nullptr, which means an undefined source. For an undefined
+  /// source, BR still represents a valid bitrange. A bit-range with an undefined
+  /// source is used to represent a gap in the destination GraphNode.
+  ///
+  struct Edge {
+    GraphNode *Src;
+    BitRange BR;
+  };
+
+  /// GraphNode can be thought of as a result of some logical instruction
+  /// (mainly rearrangement instruction such as shift, shuffle, etc) on
+  /// its ‘IncomingEdges’(/source bit-ranges). These ‘IncomingEdges’
+  /// particularly show which source bit-range maps to which bit-index of this (which helps
+  /// defining (/elaborates on) the logical instruction semantics). A ‘GraphNode’ basically
+  /// allows us to define an expected behavior (/semantic) first which then evolves into a
+  /// particular valid OVLSinstruction ‘Inst’ if there is any for that semantic.
+  ...
+  class GraphNode {
+    /// Provides a unique id to each instruction node. It helps printing
+    /// tracable node information.
+    uint32_t Id;
+
+    /// Initially when a GraphNode is created, Inst can be nullptr
+    /// which means undefined instruction. An undefined instruction can
+    /// still have valid IncomingEdges which would define the semantics of
+    /// this logical instruction (GraphNode), helps specifying the actual
+    /// instruction later.
+    /// A GraphNode is also used for holding the result of a load/store
+    /// instruction, in such case, Inst should point to a valid load/store
+    /// instruction.
+    OVLSInstruction *Inst;
+
+    /// A ‘GraphNode’ is a result of some logical instruction on its incoming edges where ‘IncomingEdges’
+    /// contains that result. The output value of the GraphNode is the concatenation of the source bit-ranges
+    /// which shows which source bit-range maps to which bit index of this node. Depending on the order of the edges
+    /// (in IncomingEdges) that bitindex gets determined. Multiple edges can be drawn between two nodes with
+    /// different bit ranges. When there are no edges to a certain bit-index, a dummy edge
+    /// (an edge with Src=nullptr) gets inserted into IncomingEdges to represent the whole.
+    /// IncomingEdges for a memory instruction can be empty.
+    OVLSVector<Edge *> IncomingEdges;
+  };
+
+  /// This directed graph is used to automatically build the network (of
+  /// required instructions) of computing the result of a set of adjacent
+  /// gathers from a set of contiguous loads. In this directed graph, an edge
+  /// represents a move of a bit-range, and a node can be thought of as a result
+  /// of some logical operation on its incoming (edges/)bit-ranges.
+  ///
+  /// NEXT: describe how the graph is used to automatically compute the
+  /// rearrangement instructions.
+  class Graph {
+    /// When a node is created, it gets pushed into the NodeVector. Therefore,
+    /// nodes in the NodeVector don't maintain any order. A destination node could
+    /// appear before a source node in the NodeVector.
+    GraphNodeVector Nodes;
+    ...
+  };
+
+...
+
+     While the initial graph shows how bit fields from loads need to be rearranged to produce each gather result, the logical
+     operations needed to do the rearrangement may not correspond to any real single machine instructions or LLVM-IR(/OVLS)-Instructions.
+     A valid instruction generally have maximum 2 inputs, and this initial graph allows any number of inputs to feed a gather result,
+     thus it would take many real 2-input instruction to compute each final output result.  The first job of genShuffles() is to
+     simplify the graph so it can be optimized. We simplify the graph by splitting nodes recursively until each node has no more
+     than two source nodes. Each step of the recursive split replaces a single node by 3 nodes, where 2 nodes each have half the
+     inputs on the original node, and those two nodes feed the third node. Once this has been done for all nodes we have transformed
+     the initial graph into a new graph where every node operates on maximum 2 sources. These nodes are now quite similar to instructions
+     (they have 1/2 inputs and 1 output), though they are not quite instructions yet because we haven't yet found precise instructions
+     (including opcodes and immediate values) that perform the needed operations.
+
+
+     Before trying to find the exact (opcodes/) instructions we perform an additional optimization step that attempts to exploit
+     data parallelism available in the rearrangement operations. We do this by merging similar nodes, which we do by test-merging
+     different combination of nodes that have the same sources. A merge is deemed successful, if an instruction(/a set of instructions)
+     exits that performs the merged function and that instruction has minimum instruction cost. Minimum instruction cost is determined
+     by server querying back to the client and asking for a cost of the instructions. The client is responsible for using the TTI cost-model
+     (or something better) that gives us a target specific instruction cost.
+
+     NEXT: provide more details on the instruction cost, merging, instruction generation and complete the example.
