@@ -168,7 +168,7 @@ bool LPUAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
     // (Basically, block boundaries represent flow control, and flow control
     // MUST be on the sequential unit...)
     if (!isSequential) {
-      BuildMI(*BB, BB->end(), BB->end()->getDebugLoc(), TII.get(LPU::UNIT)).
+      BuildMI(*BB, BB->end(), DebugLoc(), TII.get(LPU::UNIT)).
         addImm(LPU::FUNCUNIT::SXU);
       isSequential = true;
     }
