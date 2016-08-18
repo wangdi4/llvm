@@ -44,10 +44,10 @@ class OCL21: public CommonRuntime{};
 
 TEST_F(OCL21, clCreateProgramWithIL01)
 {
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "simple_kernels.spv"));
 
     const char * kernelSource = nullptr;
-    ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "subgroups.spv"));
+    ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, "simple_kernels.spv"));
 
     void * il = nullptr;
     size_t ret = 0;
