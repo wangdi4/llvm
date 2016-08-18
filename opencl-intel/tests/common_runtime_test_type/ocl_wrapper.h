@@ -274,8 +274,8 @@ void createAndBuildProgramWithSource(const char* sFileName, cl_program* program,
 	void *user_data);
 
 // createAndBuildProgramWithSourceIL - calls and validates clCreateProgramWithIL and clBuildProgram using kernel file name
-void createAndBuildProgramWithSourceIL(const char* sFileName, cl_program* program, cl_context context, 
-	cl_uint num_devices, const cl_device_id *device_list, const char *options, void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), 
+void createAndBuildProgramWithSourceIL(const char* sFileName, cl_program* program, cl_context context,
+	cl_uint num_devices, const cl_device_id *device_list, const char *options, void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
 	void *user_data);
 
 // createAndBuildProgramWithStringSource - calls and validates clCreateBuffer clCreateProgramWithSource and clBuildProgram using kernel source
@@ -289,7 +289,7 @@ void createAndBuildProgramWithILSource(const char* kernelSource, size_t length,
     cl_program* program, cl_context context, cl_uint num_devices,
     const cl_device_id *device_list, const char *options,
 	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
-	void *user_data);
+    void *user_data);
 
 //createProgramWithBinary - calls and validates clCreateProgramWithBinary
 void createProgramWithBinary(cl_program* program, cl_context context, cl_uint num_devices, const cl_device_id *device_list, const size_t *lengths,
