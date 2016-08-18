@@ -26,15 +26,15 @@ class OCL21: public CommonRuntime{};
 //| Purpose
 //| -------
 //|
-//|    Verify the ability to create program with IL for shared context
-//|    Verify the ability to get IL from program
+//| Verify the ability to create program with IL for shared context
+//| Verify the ability to get IL from program
 //|
 //| Method
 //| ------
 //|
 //| 1. Create a program with IL for shared context
 //| 2. Build program
-//|    3. Get IL from program
+//| 3. Get IL from program
 //|
 //| Pass criteria
 //| -------------
