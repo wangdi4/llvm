@@ -58,8 +58,8 @@ protected:
   /// Clone Implementation
   /// This function ignores the GotoList and LabelMap parameter.
   /// Returns cloned Inst.
-  HLInst *cloneImpl(GotoContainerTy *GotoList,
-                    LabelMapTy *LabelMap) const override;
+  HLInst *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                    HLNodeMapper *NodeMapper) const override;
 
   /// Returns true if there is a separator that we can print between operands of
   /// this instruction. Prints the separators if Print is true.
@@ -118,7 +118,7 @@ public:
   /// except the following:
   ///   * The HLInst has no parent
   ///   * Safe Reduction Successor is set to nullptr
-  HLInst *clone() const override;
+  HLInst *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 
   /// Returns the number of operands this HLInst is supposed to have.
   /// If lval is present, it becomes the 0th operand.

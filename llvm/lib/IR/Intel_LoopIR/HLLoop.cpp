@@ -81,8 +81,7 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
       "should be all defined or all undefined");
 }
 
-HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
-               LabelMapTy *LabelMap, bool CloneChildren)
+HLLoop::HLLoop(const HLLoop &HLLoopObj)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
       IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW),
@@ -111,38 +110,6 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   setLowerDDRef(HLLoopObj.getLowerDDRef()->clone());
   setUpperDDRef(HLLoopObj.getUpperDDRef()->clone());
   setStrideDDRef(HLLoopObj.getStrideDDRef()->clone());
-
-  // Avoid cloning children and preheader/postexit.
-  if (!CloneChildren) {
-    return;
-  }
-
-  // Assert is placed here since empty loop cloning will not use it.
-  assert(GotoList && " GotoList is null.");
-  assert(LabelMap && " LabelMap is null.");
-
-  /// Loop over children, preheader and postexit
-  for (auto PreIter = HLLoopObj.pre_begin(), PreIterEnd = HLLoopObj.pre_end();
-       PreIter != PreIterEnd; ++PreIter) {
-    HLNode *NewHLNode = PreIter->clone();
-    HLNodeUtils::insertAsLastPreheaderNode(this, NewHLNode);
-  }
-
-  // Clone the children.
-  // The goto target label's will not be updated and would be done by caller.
-  for (auto ChildIter = HLLoopObj.child_begin(),
-            ChildIterEnd = HLLoopObj.child_end();
-       ChildIter != ChildIterEnd; ++ChildIter) {
-    HLNode *NewHLNode = cloneBaseImpl(&*ChildIter, GotoList, LabelMap);
-    HLNodeUtils::insertAsLastChild(this, NewHLNode);
-  }
-
-  for (auto PostIter = HLLoopObj.post_begin(),
-            PostIterEnd = HLLoopObj.post_end();
-       PostIter != PostIterEnd; ++PostIter) {
-    HLNode *NewHLNode = PostIter->clone();
-    HLNodeUtils::insertAsLastPostexitNode(this, NewHLNode);
-  }
 }
 
 HLLoop &HLLoop::operator=(HLLoop &&Lp) {
@@ -168,29 +135,51 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   return *this;
 }
 
-HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList,
-                          LabelMapTy *LabelMap) const {
+HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                          HLNodeMapper *NodeMapper) const {
 
   // Call the Copy Constructor
-  HLLoop *NewHLLoop = new HLLoop(*this, GotoList, LabelMap, true);
+  HLLoop *NewHLLoop = new HLLoop(*this);
+
+  // Assert is placed here since empty loop cloning will not use it.
+  assert(GotoList && " GotoList is null.");
+  assert(LabelMap && " LabelMap is null.");
+
+  /// Loop over children, preheader and postexit
+  for (auto PreIter = this->pre_begin(), PreIterEnd = this->pre_end();
+       PreIter != PreIterEnd; ++PreIter) {
+    HLNode *NewHLNode =
+        cloneBaseImpl(&*PreIter, nullptr, nullptr, NodeMapper);
+    HLNodeUtils::insertAsLastPreheaderNode(NewHLLoop, NewHLNode);
+  }
+
+  // Clone the children.
+  // The goto target label's will not be updated and would be done by caller.
+  for (auto ChildIter = this->child_begin(), ChildIterEnd = this->child_end();
+       ChildIter != ChildIterEnd; ++ChildIter) {
+    HLNode *NewHLNode =
+        cloneBaseImpl(&*ChildIter, GotoList, LabelMap, NodeMapper);
+    HLNodeUtils::insertAsLastChild(NewHLLoop, NewHLNode);
+  }
+
+  for (auto PostIter = this->post_begin(),
+            PostIterEnd = this->post_end();
+       PostIter != PostIterEnd; ++PostIter) {
+    HLNode *NewHLNode =
+        cloneBaseImpl(&*PostIter, nullptr, nullptr, NodeMapper);
+    HLNodeUtils::insertAsLastPostexitNode(NewHLLoop, NewHLNode);
+  }
 
   return NewHLLoop;
 }
 
-HLLoop *HLLoop::clone() const {
-
-  HLContainerTy NContainer;
-  HLNodeUtils::cloneSequence(&NContainer, this);
-  HLLoop *NewLoop = cast<HLLoop>(NContainer.remove(NContainer.begin()));
-  return NewLoop;
+HLLoop *HLLoop::clone(HLNodeMapper *NodeMapper) const {
+  return cast<HLLoop>(HLNode::clone(NodeMapper));
 }
 
 HLLoop *HLLoop::cloneEmptyLoop() const {
-
   // Call the Copy Constructor
-  HLLoop *NewHLLoop = new HLLoop(*this, nullptr, nullptr, false);
-
-  return NewHLLoop;
+  return new HLLoop(*this);
 }
 
 void HLLoop::printPreheader(formatted_raw_ostream &OS, unsigned Depth,

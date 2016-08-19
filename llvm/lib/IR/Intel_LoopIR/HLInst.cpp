@@ -61,18 +61,14 @@ HLInst::HLInst(const HLInst &HLInstObj)
   }
 }
 
-HLInst *HLInst::cloneImpl(GotoContainerTy *GotoList,
-                          LabelMapTy *LabelMap) const {
+HLInst *HLInst::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                          HLNodeMapper *NodeMapper) const {
   // Call the Copy Constructor
-  HLInst *NewHLInst = new HLInst(*this);
-
-  return NewHLInst;
+  return new HLInst(*this);
 }
 
-HLInst *HLInst::clone() const {
-
-  // Call the clone implementation.
-  return cloneImpl(nullptr, nullptr);
+HLInst *HLInst::clone(HLNodeMapper *NodeMapper) const {
+  return cast<HLInst>(cloneBaseImpl(this, nullptr, nullptr, NodeMapper));
 }
 
 bool HLInst::isCopyInst() const {

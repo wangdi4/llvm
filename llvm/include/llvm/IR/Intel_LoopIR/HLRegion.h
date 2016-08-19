@@ -69,8 +69,8 @@ protected:
 
   /// \brief Clone Implementation
   /// Do not support Region cloning.
-  HLRegion *cloneImpl(GotoContainerTy *GotoList,
-                      LabelMapTy *LabelMap) const override;
+  HLRegion *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                      HLNodeMapper *NodeMapper) const override;
 
   // Returns contained IRRegion.
   IRRegion &getIRRegion() { return IRReg; }
@@ -197,7 +197,7 @@ public:
 
   /// clone() - Do not support Cloning of Region.
   /// This is LLVM Unreachable code.
-  HLRegion *clone() const override;
+  HLRegion *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 
   /// \brief Verifies HLRegion integrity.
   virtual void verify() const override;

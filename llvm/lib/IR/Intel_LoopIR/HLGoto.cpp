@@ -31,8 +31,8 @@ HLGoto::HLGoto(const HLGoto &HLGotoObj)
     : HLNode(HLGotoObj), TargetBBlock(HLGotoObj.TargetBBlock),
       TargetLabel(HLGotoObj.TargetLabel) {}
 
-HLGoto *HLGoto::cloneImpl(GotoContainerTy *GotoList,
-                          LabelMapTy *LabelMap) const {
+HLGoto *HLGoto::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                          HLNodeMapper *NodeMapper) const {
 
   // Call Copy constructor
   HLGoto *NewHLGoto = new HLGoto(*this);
@@ -44,7 +44,10 @@ HLGoto *HLGoto::cloneImpl(GotoContainerTy *GotoList,
   return NewHLGoto;
 }
 
-HLGoto *HLGoto::clone() const { return cloneImpl(nullptr, nullptr); }
+HLGoto *HLGoto::clone(HLNodeMapper *NodeMapper) const {
+  return cast<HLGoto>(
+      HLNode::cloneBaseImpl(this, nullptr, nullptr, NodeMapper));
+}
 
 void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth,
                    bool Detailed) const {

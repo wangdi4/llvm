@@ -73,7 +73,7 @@ protected:
   virtual ~HLIf() override { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
-  HLIf(const HLIf &HLIfObj, GotoContainerTy *GotoList, LabelMapTy *LabelMap);
+  HLIf(const HLIf &HLIfObj);
 
   friend class HLNodeUtils;
   /// Required to access setParent() for loop's ztt.
@@ -97,8 +97,8 @@ protected:
   /// \brief Clone Implementation
   /// This function populates the GotoList with Goto branching within the
   /// cloned If and LabelMap with Old and New Labels. Returns a cloned If.
-  HLIf *cloneImpl(GotoContainerTy *GotoList,
-                  LabelMapTy *LabelMap) const override;
+  HLIf *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                  HLNodeMapper *NodeMapper) const override;
 
   /// \brief Implements print*Header() functionality. Loop parameter tells
   /// whether we are printing a ZTT or a regular HLIf.
@@ -201,7 +201,7 @@ public:
   ///   * The HLIf has no parent
   /// This method will automatically update the goto branches with new labels
   /// inside the cloned If.
-  HLIf *clone() const override;
+  HLIf *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 
   /// \brief Prints HLIf header only: if (...condition...)
   void printHeader(formatted_raw_ostream &OS, unsigned Depth) const;

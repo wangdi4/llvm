@@ -51,8 +51,7 @@ protected:
   virtual ~HLSwitch() override { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
-  HLSwitch(const HLSwitch &HLSwitchObj, GotoContainerTy *GotoList,
-           LabelMapTy *LabelMap);
+  HLSwitch(const HLSwitch &HLSwitchObj);
 
   friend class HLNodeUtils;
 
@@ -97,8 +96,8 @@ protected:
   /// \brief Clone Implementation
   /// This function populates the GotoList with Goto branching within the
   /// cloned Switch and LabelMap with Old and New Labels. Returns cloned Switch.
-  HLSwitch *cloneImpl(GotoContainerTy *GotoList,
-                      LabelMapTy *LabelMap) const override;
+  HLSwitch *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                      HLNodeMapper *NodeMapper) const override;
 
 public:
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
@@ -115,7 +114,7 @@ public:
   ///   * The Switch has no parent
   /// This method will automatically update the goto branches with new labels
   /// inside the cloned Switch.
-  HLSwitch *clone() const override;
+  HLSwitch *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 
   /// \brief Returns the number of operands this node is supposed to have.
   unsigned getNumOperands() const override { return getNumOperandsInternal(); }

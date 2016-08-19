@@ -54,8 +54,8 @@ protected:
   /// This function populates the LabelMap with the old Label (Before cloning)
   /// and new Label (After cloning).
   /// GotoList is ignored for this implementation. Returns the cloned Label.
-  HLLabel *cloneImpl(GotoContainerTy *GotoList,
-                     LabelMapTy *LabelMap) const override;
+  HLLabel *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                     HLNodeMapper *NodeMapper) const override;
 
 public:
   /// \brief Prints HLLabel.
@@ -79,7 +79,7 @@ public:
   /// clone() - Create a copy of 'this' HLLabel that is identical in all
   /// ways except the following:
   ///   * The HLLabel has no parent
-  HLLabel *clone() const override;
+  HLLabel *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 };
 
 } // End namespace loopopt

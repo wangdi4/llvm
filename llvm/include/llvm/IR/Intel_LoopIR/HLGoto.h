@@ -46,8 +46,8 @@ protected:
   /// This function populates the GotoList with the cloned Goto only if
   /// the target label is internal. LabelMap is ignored for this
   /// implementation. Returns the cloned Goto.
-  HLGoto *cloneImpl(GotoContainerTy *GotoList,
-                    LabelMapTy *LabelMap) const override;
+  HLGoto *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                    HLNodeMapper *NodeMapper) const override;
 
 public:
   /// \brief Prints HLGoto.
@@ -76,7 +76,7 @@ public:
   /// clone() - Create a copy of 'this' HLGoto that is identical in all
   /// ways except the following:
   ///   * The HLGoto has no parent
-  HLGoto *clone() const override;
+  HLGoto *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 
   /// \brief Verifies HLGoto integrity.
   virtual void verify() const override;

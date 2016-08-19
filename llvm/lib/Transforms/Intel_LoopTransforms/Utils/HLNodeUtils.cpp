@@ -820,18 +820,19 @@ struct HLNodeUtils::CloneVisitor final : public HLNodeVisitorBase {
   HLContainerTy *CloneContainer;
   GotoContainerTy *GotoList;
   LabelMapTy *LabelMap;
+  HLNodeMapper *NodeMapper;
 
   CloneVisitor(HLContainerTy *Container, GotoContainerTy *GList,
-               LabelMapTy *LMap)
-      : CloneContainer(Container), GotoList(GList), LabelMap(LMap) {}
+               LabelMapTy *LMap, HLNodeMapper *NodeMapper)
+      : CloneContainer(Container), GotoList(GList), LabelMap(LMap),
+        NodeMapper(NodeMapper) {}
 
   void visit(const HLNode *Node) {
-    CloneContainer->push_back(Node->cloneImpl(GotoList, LabelMap));
+    CloneContainer->push_back(
+        HLNode::cloneBaseImpl(Node, GotoList, LabelMap, NodeMapper));
   }
 
   void postVisit(const HLNode *Node) {}
-
-  void postVisitUpdate() { updateGotos(GotoList, LabelMap); }
 };
 
 void HLNodeUtils::updateGotos(GotoContainerTy *GotoList, LabelMapTy *LabelMap) {
@@ -848,34 +849,24 @@ void HLNodeUtils::updateGotos(GotoContainerTy *GotoList, LabelMapTy *LabelMap) {
 }
 
 void HLNodeUtils::cloneSequenceImpl(HLContainerTy *CloneContainer,
-                                    const HLNode *Node1, const HLNode *Node2) {
+                                    const HLNode *Node1, const HLNode *Node2,
+                                    HLNodeMapper *NodeMapper) {
 
   GotoContainerTy GotoList;
   LabelMapTy LabelMap;
 
   // Check for Node2 as nullptr or a single node
   if (!Node2 || (Node1 == Node2)) {
-    CloneContainer->push_back(Node1->cloneImpl(&GotoList, &LabelMap));
+    CloneContainer->push_back(
+        HLNode::cloneBaseImpl(Node1, &GotoList, &LabelMap, NodeMapper));
     updateGotos(&GotoList, &LabelMap);
     return;
   }
 
-  HLNodeUtils::CloneVisitor CloneVisit(CloneContainer, &GotoList, &LabelMap);
+  HLNodeUtils::CloneVisitor CloneVisit(CloneContainer, &GotoList, &LabelMap,
+                                       NodeMapper);
   visitRange<false>(CloneVisit, Node1, Node2);
-  CloneVisit.postVisitUpdate();
-}
-
-// Used for cloning a sequence of nodes from Node1 to Node2.
-void HLNodeUtils::cloneSequence(HLContainerTy *CloneContainer,
-                                const HLNode *Node1, const HLNode *Node2) {
-  assert(Node1 && !isa<HLRegion>(Node1) &&
-         " Node1 - Region Cloning is not allowed.");
-  assert((!Node2 || !isa<HLRegion>(Node2)) &&
-         " Node 2 - Region Cloning is not allowed.");
-  assert(CloneContainer && " Clone Container is null.");
-  assert((!Node2 || (Node1->getParent() == Node2->getParent())) &&
-         " Parent of Node1 and Node2 don't match.");
-  cloneSequenceImpl(CloneContainer, Node1, Node2);
+  updateGotos(&GotoList, &LabelMap);
 }
 
 /// \brief Helper for updating loop info during insertion/removal.
@@ -3251,4 +3242,26 @@ const HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(const HLLoop *Lp1,
 HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2) {
   return const_cast<HLLoop *>(getLowestCommonAncestorLoop(
       static_cast<const HLLoop *>(Lp1), static_cast<const HLLoop *>(Lp2)));
+}
+
+class LabelRemapVisitor final : public HLNodeVisitorBase {
+  const HLNodeMapper &Mapper;
+
+public:
+  LabelRemapVisitor(const HLNodeMapper &Mapper) : Mapper(Mapper) {}
+
+  void visit(HLGoto *Goto) {
+    if (!Goto->isExternal()) {
+      Goto->setTargetLabel(Mapper.getMapped(Goto->getTargetLabel()));
+    }
+  }
+
+  void visit(HLNode *) {}
+  void postVisit(HLNode *) {}
+};
+
+void HLNodeUtils::remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,
+                              HLNode *End) {
+  LabelRemapVisitor Visitor(Mapper);
+  visitRange(Visitor, Begin, End);
 }

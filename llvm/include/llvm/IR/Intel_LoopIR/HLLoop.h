@@ -118,8 +118,7 @@ protected:
   /// \brief Copy constructor used by cloning.
   /// CloneChildren parameter denotes if we want to clone
   /// children and preheader/postexit.
-  HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
-         LabelMapTy *LabelMap, bool CloneChildren);
+  HLLoop(const HLLoop &HLLoopObj);
 
   /// Move assignment operator used by HLNodeUtils::permuteLoopNests() to move
   /// loop properties from Lp to this loop.
@@ -168,8 +167,8 @@ protected:
   /// \brief Clone Implementation
   /// This function populates the GotoList with Goto branches within the
   /// cloned loop and LabelMap with Old and New Labels. Returns a cloned loop.
-  HLLoop *cloneImpl(GotoContainerTy *GotoList,
-                    LabelMapTy *LabelMap) const override;
+  HLLoop *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
+                    HLNodeMapper *NodeMapper) const override;
 
   /// \brief Used to print members of the loop which are otherwise hidden in
   /// pretty print like ztt, innermost flag etc.
@@ -567,7 +566,7 @@ public:
   ///     insertion/removal utilities.
   /// This method will automatically update the goto branches with new labels
   /// inside the cloned loop.
-  HLLoop *clone() const override;
+  HLLoop *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 
   /// \brief - Clones the original loop without any of the children, preheader
   /// and postexit nodes. This routines copies all the original loop properties

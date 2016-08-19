@@ -64,12 +64,6 @@ protected:
   /// Implements set*OperandDDRef() functionality.
   void setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum);
 
-  /// Virtual Clone Implementation
-  /// This function populates the GotoList with Goto branches
-  /// and LabelMap with Old and New Labels.
-  virtual HLDDNode *cloneImpl(GotoContainerTy *GotoList,
-                              LabelMapTy *LabelMap) const override = 0;
-
 public:
   /// Prints HLInst.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
@@ -174,9 +168,6 @@ public:
   /// Returns total number of DDRefs attached to this node (including fake
   /// DDRefs).
   unsigned getNumDDRefs() const { return RegDDRefs.size(); }
-
-  /// Virtual Clone method
-  virtual HLDDNode *clone() const override = 0;
 
   /// Returns the number of operands (and lval, if applicable) this node is
   /// supposed to have.

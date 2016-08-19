@@ -200,7 +200,8 @@ private:
   /// \brief Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
   static void cloneSequenceImpl(HLContainerTy *CloneContainer,
-                                const HLNode *Node1, const HLNode *Node2);
+                                const HLNode *Node1, const HLNode *Node2,
+                                HLNodeMapper *NodeMapper);
 
   /// \brief Returns successor of Node assuming control flows in strict lexical
   /// order (by ignoring jumps(gotos)).
@@ -667,12 +668,25 @@ public:
                                           const Twine &Name = "extract",
                                           RegDDRef *LvalRef = nullptr);
 
-  /// \brief Creates a clones sequence from Node1 to Node2, including both
-  /// the nodes and all the nodes in between them. If Node2 is null or Node1
-  /// equals Node2, then the utility just clones Node1 and inserts into the
-  /// CloneContainer. This utility does not support Region cloning.
+  /// Creates a clones sequence from Node1 to Node2, including both the nodes
+  /// and all the nodes in between them. If Node2 is null or Node1 equals
+  /// Node2, then the utility just clones Node1 and inserts into the
+  /// CloneContainer. If \p NodeMapper is not null, every node will be mapped
+  /// to the cloned node. This is used for accessing clones having original
+  /// node pointers.
+  /// This utility does not support Region cloning.
   static void cloneSequence(HLContainerTy *CloneContainer, const HLNode *Node1,
-                            const HLNode *Node2 = nullptr);
+                            const HLNode *Node2 = nullptr,
+                            HLNodeMapper *NodeMapper = nullptr) {
+    assert(Node1 && !isa<HLRegion>(Node1) &&
+           " Node1 - Region Cloning is not allowed.");
+    assert((!Node2 || !isa<HLRegion>(Node2)) &&
+           " Node 2 - Region Cloning is not allowed.");
+    assert(CloneContainer && " Clone Container is null.");
+    assert((!Node2 || (Node1->getParent() == Node2->getParent())) &&
+           " Parent of Node1 and Node2 don't match.");
+    cloneSequenceImpl(CloneContainer, Node1, Node2, NodeMapper);
+  }
 
   /// \brief Visits the passed in HLNode.
   template <bool Recursive = true, bool RecurseInsideLoops = true,
@@ -1243,6 +1257,10 @@ public:
   /// \brief return true if positive or negative.
   static bool isKnownPositiveOrNegative(const CanonExpr *CE,
                                         const HLNode *ParentNode = nullptr);
+
+  /// Updates target HLLabel in every HLGoto node according to the mapping.
+  static void remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,
+                               HLNode *End);
 };
 
 } // End namespace loopopt
