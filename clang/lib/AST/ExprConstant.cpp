@@ -6999,10 +6999,11 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
 
   case Builtin::BIstrlen:
     // A call to strlen is not a constant expression.
-    if (Info.getLangOpts().CPlusPlus11)
+    if (Info.getLangOpts().CPlusPlus11 && // INTEL
+        !Info.getLangOpts().IntelCompat) // INTEL
       Info.CCEDiag(E, diag::note_constexpr_invalid_function)
         << /*isConstexpr*/0 << /*isConstructor*/0 << "'strlen'";
-    else
+    else if (!Info.getLangOpts().CPlusPlus11) // INTEL
       Info.CCEDiag(E, diag::note_invalid_subexpr_in_const_expr);
     // Fall through.
   case Builtin::BI__builtin_strlen: {
