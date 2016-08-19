@@ -53,7 +53,7 @@ endif (NOT WIN32 AND NOT ANDROID)
 
 set( CREATE_DIR_NAME tests/common_runtime_test_type )
 
-set( SPIR_OPT -cl-kernel-arg-info -cl-std=CL2.0 -Dcl_khr_subgroups=1 -D__OPENCL_C_VERSION__=200 -D__OPENCL_VERSION__=200 )
+set( SPIR_OPT -cl-kernel-arg-info -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200 -D__OPENCL_VERSION__=200 )
 
 if (BUILD_X64)
 list (
@@ -79,7 +79,7 @@ add_custom_command( TARGET ${TARGET}
   POST_BUILD
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
-  ${SPIR_OPT}
+  ${SPIR_OPT} -Dcl_khr_subgroups
   -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
