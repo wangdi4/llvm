@@ -102,6 +102,9 @@ private:
   /// \brief Returns a copy of Val.
   Instruction *createCopy(Value *Val, StringRef Name, bool IsLivein) const;
 
+  /// Returns true if Inst is a livein copy for IV update: i = i + 1.
+  bool isIVUpdateLiveInCopy(Instruction *Inst) const;
+
   /// \brief Inserts livein copy of Val at the end of BB.
   void insertLiveInCopy(Value *Val, BasicBlock *BB, StringRef Name);
 
@@ -209,11 +212,49 @@ Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
   return CInst;
 }
 
+bool HIRSSADeconstruction::isIVUpdateLiveInCopy(Instruction *Inst) const {
+
+  if (!isa<BitCastInst>(Inst) || !SE->isSCEVable(Inst->getType())) {
+    return false;
+  }
+
+  if (!SE->getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn)) {
+    return false;
+  }
+
+  auto ParentBB = Inst->getParent();
+  auto ParentLp = LI->getLoopFor(ParentBB);
+
+  // We are only interested in the IV update copy in the loop latch.
+  if (!ParentLp || (ParentLp->getLoopLatch() != ParentBB)) {
+    return false;
+  }
+
+  return isa<SCEVAddRecExpr>(SE->getSCEV(Inst));
+}
+
 void HIRSSADeconstruction::insertLiveInCopy(Value *Val, BasicBlock *BB,
                                             StringRef Name) {
   auto CopyInst = createCopy(Val, Name, true);
 
-  CopyInst->insertBefore(BB->getTerminator());
+  auto InsertionPoint = BB->getTerminator()->getIterator();
+
+  // We need to keep IV update copies last in the bblock or we may encounter a
+  // live-range issue when IV is parsed as a blob in one of the non-linear
+  // values. 
+  // The following loop moves the insertion point to point to first IV update
+  // copy.
+  for (auto FirstInst = BB->begin(); InsertionPoint != FirstInst;) {
+    auto PrevInst = std::prev(InsertionPoint);
+
+    if (!isIVUpdateLiveInCopy(&*PrevInst)) {
+      break;
+    }
+
+    InsertionPoint = PrevInst;
+  }
+
+  CopyInst->insertBefore(&*InsertionPoint);
 
   ModifiedIR = true;
 }
