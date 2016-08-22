@@ -71,19 +71,9 @@ int64_t CanonExprUtils::gcd(int64_t A, int64_t B) {
     return 1;
   }
 
-  // Calculate the GCD.
-  // Works only for positive inputs.
-  int64_t GCD = A;
+  auto GCD = APIntOps::GreatestCommonDivisor(APInt(64, A), APInt(64, B));
 
-  while (GCD != B) {
-    if (GCD > B) {
-      GCD = GCD - B;
-    } else {
-      B = B - GCD;
-    }
-  }
-
-  return GCD;
+  return GCD.getZExtValue();
 }
 
 // Internal Method that calculates the lcm of two positive integers
