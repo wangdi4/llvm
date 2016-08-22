@@ -3,22 +3,9 @@
 #include "cl_cpu_detect.h"
 #include "cl_config.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include "FrameworkTest.h"
 #include <memory>
 #include <stdlib.h>
-
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
-#if defined(_WIN32)
-#define SETENV(NAME,VALUE)      (_putenv_s(NAME,VALUE) == 0)
-#define UNSETENV(NAME)          (_putenv_s(NAME,"") == 0)
-#else
-#define SETENV(NAME,VALUE)      (setenv(NAME,VALUE,1) == 0)
-#define UNSETENV(NAME)          (unsetenv(NAME) == 0)
-#endif
 
 using namespace Intel::OpenCL::Utils;
 

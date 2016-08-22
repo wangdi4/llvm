@@ -16,22 +16,8 @@
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <gtest/gtest.h>
 #include "FrameworkTest.h"
-
-#if defined(_WIN32)
-#define SETENV(NAME,VALUE)      (_putenv_s(NAME,VALUE) == 0)
-#define UNSETENV(NAME)          (_putenv_s(NAME,"") == 0)
-#else
-#define SETENV(NAME,VALUE)      (setenv(NAME,VALUE,1) == 0)
-#define UNSETENV(NAME)          (unsetenv(NAME) == 0)
-#endif
-
-
-
-
-
 
 #define CL_CONFIG_GL_DIRECTX_INTEROP "CL_CONFIG_GL_DIRECTX_INTEROP"
 
