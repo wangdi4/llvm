@@ -478,13 +478,52 @@ bool HIRSCCFormation::isProfitableSCC(const SCCNodesTy &Nodes) const {
   return true;
 }
 
+bool HIRSCCFormation::hasMultipleNonPhiSCCUses(NodeTy *Node,
+                                               const SCCNodesTy &Nodes) const {
+  NodeTy *SCCUserNode = nullptr;
+
+  // Use in multiple non-phi nodes can lead to live-range issues which SSA
+  // deconstruction cannot handle.
+  // This SCC contains multiple cycles instead of a single simple cycle that we
+  // are looking for.
+  // Ref- https://en.wikipedia.org/wiki/Cycle_(graph_theory)
+  for (auto UserIt = Node->user_begin(), E = Node->user_end(); UserIt != E;
+       ++UserIt) {
+    if (isa<PHINode>(*UserIt)) {
+      continue;
+    }
+
+    auto UserNode = cast<NodeTy>(*UserIt);
+
+    // After deconstruction the uses will be substituted by the liveout copy so
+    // check its uses.
+    if (SE->getHIRMetadata(UserNode, ScalarEvolution::HIRLiveKind::LiveOut)) {
+      return hasMultipleNonPhiSCCUses(UserNode, Nodes);
+    }
+
+    if (Nodes.count(UserNode)) {
+      if (SCCUserNode && SCCUserNode != UserNode) {
+        return true;
+      }
+      SCCUserNode = UserNode;
+    }
+  }
+
+  return false;
+}
+
 bool HIRSCCFormation::isValidSCC(const SCCTy &CurSCC) const {
-  SmallPtrSet<const BasicBlock *, 12> BBlocks;
+  SmallPtrSet<BasicBlock *, 12> BBlocks;
   Type *RootTy = CurSCC.Root->getType();
+  auto NodeCount = CurSCC.Nodes.size();
 
-  for (auto const &Inst : CurSCC.Nodes) {
+  for (auto Node : CurSCC.Nodes) {
 
-    auto Phi = dyn_cast<PHINode>(Inst);
+    if ((NodeCount > 2) && hasMultipleNonPhiSCCUses(Node, CurSCC.Nodes)) {
+      return false;
+    }
+
+    auto Phi = dyn_cast<PHINode>(Node);
 
     if (!Phi) {
       continue;
@@ -497,7 +536,7 @@ bool HIRSCCFormation::isValidSCC(const SCCTy &CurSCC) const {
       return false;
     }
 
-    auto ParentBB = Inst->getParent();
+    auto ParentBB = Node->getParent();
 
     if (BBlocks.count(ParentBB)) {
       // If any two phis in the SCC have the same bblock parent then we

@@ -840,29 +840,53 @@ bool CanonExpr::replaceTempBlob(unsigned OldTempIndex, unsigned NewTempIndex) {
   assert(BlobUtils::isTempBlob(BlobUtils::getBlob(NewTempIndex)) &&
          "New Index is not a temp!");
 
-  // Keeps a map of old blob to new blob.
-  SmallVector<std::pair<blob_iterator, unsigned>, 8> BlobMap;
+  bool Replaced = false;
+  unsigned NewBlobIndex;
 
-  for (auto BIt = blob_begin(), End = blob_end(); BIt != End; ++BIt) {
-    if (BIt->Index == OldTempIndex) {
-      BlobMap.push_back(std::make_pair(BIt, NewTempIndex));
+  // Replace in IV blobs coeffs.
+  for (auto &IV : IVCoeffs) {
+    if (IV.Index == InvalidBlobIndex) {
       continue;
     }
-    unsigned NewBlobIndex;
 
-    if (BlobUtils::substituteTempBlob(BIt->Index, OldTempIndex, NewTempIndex,
+    if (IV.Index == OldTempIndex) {
+      IV.Index = NewTempIndex;
+      Replaced = true;
+
+    } else if (BlobUtils::replaceTempBlob(IV.Index, OldTempIndex, NewTempIndex,
                                       NewBlobIndex)) {
-      BlobMap.push_back(std::make_pair(BIt, NewBlobIndex));
+      IV.Index = NewBlobIndex;
+      Replaced = true;
     }
   }
 
-  for (auto BPair : BlobMap) {
-    auto Coeff = getBlobCoeff(BPair.first);
-    BlobCoeffs.erase(BPair.first);
-    addBlob(BPair.second, Coeff);
+  // Replace in blobs.
+  BlobCoeffsTy NewBlobs;
+
+  auto RemovePred = [&](BlobIndexToCoeff &BC) {
+    if (BC.Index == OldTempIndex) {
+      NewBlobs.emplace_back(NewTempIndex, BC.Coeff);
+      return (Replaced = true);
+    }
+
+    if (BlobUtils::replaceTempBlob(BC.Index, OldTempIndex, NewTempIndex,
+                                      NewBlobIndex)) {
+      NewBlobs.emplace_back(NewBlobIndex, BC.Coeff);
+      return (Replaced = true);
+    }
+
+    return false;
+  };
+
+  BlobCoeffs.erase(
+      std::remove_if(BlobCoeffs.begin(), BlobCoeffs.end(), RemovePred),
+      BlobCoeffs.end());
+
+  for (auto &Blob : NewBlobs) {
+    addBlob(Blob.Index, Blob.Coeff);
   }
 
-  return !BlobMap.empty();
+  return Replaced;
 }
 
 void CanonExpr::clear() {

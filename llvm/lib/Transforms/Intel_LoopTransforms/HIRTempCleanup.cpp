@@ -250,6 +250,7 @@ void TempSubstituter::visit(HLDDNode *Node) {
 
         if (!Temp.isSubstitutable() ||
             ((ParentLoop = Node->getParentLoop()) &&
+            // TODO: Extend to handle inner loop uses.
              !HLNodeUtils::contains(ParentLoop, Temp.getDefInst()))) {
           Temp.markInvalid();
 

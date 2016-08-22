@@ -566,9 +566,9 @@ bool HIRParser::isNestedBlob(BlobTy Blob) const {
   return NBC.isNestedBlob();
 }
 
-bool HIRParser::substituteTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
-                                   unsigned NewTempIndex,
-                                   unsigned &NewBlobIndex) {
+bool HIRParser::replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
+                                unsigned NewTempIndex,
+                                unsigned &NewBlobIndex) {
   auto OldTempBlob = getBlob(OldTempIndex);
   auto NewTempBlob = getBlob(NewTempIndex);
 

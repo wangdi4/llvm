@@ -157,6 +157,9 @@ private:
   /// \brief Returns true if forming this SCC results in a cleaner HIR.
   bool isProfitableSCC(const SCCNodesTy &Nodes) const;
 
+  /// Returns true if Node has multiple non-phi uses in the SCC.
+  bool hasMultipleNonPhiSCCUses(NodeTy *Node, const SCCNodesTy &Nodes) const;
+
   /// \brief Checks the validity of an SCC w.r.t assigning the same symbase to
   /// all its nodes.
   bool isValidSCC(const SCCTy &CurSCC) const;

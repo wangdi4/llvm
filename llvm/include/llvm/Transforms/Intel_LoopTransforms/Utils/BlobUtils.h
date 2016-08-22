@@ -256,14 +256,14 @@ public:
   static void collectTempBlobs(unsigned BlobIndex,
                                SmallVectorImpl<unsigned> &TempBlobIndices);
 
-  /// Substitutes \p OldTempIndex by \p NewTempIndex in \p BlobIndex and returns
+  /// Replaces \p OldTempIndex by \p NewTempIndex in \p BlobIndex and returns
   /// the new blob in \p NewBlobIndex. Returns true if substitution was
   /// performed.
-  static bool substituteTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
-                                 unsigned NewTempIndex,
-                                 unsigned &NewBlobIndex) {
-    return getHIRParser()->substituteTempBlob(BlobIndex, OldTempIndex,
-                                              NewTempIndex, NewBlobIndex);
+  static bool replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
+                              unsigned NewTempIndex,
+                              unsigned &NewBlobIndex) {
+    return getHIRParser()->replaceTempBlob(BlobIndex, OldTempIndex,
+                                           NewTempIndex, NewBlobIndex);
   }
 };
 

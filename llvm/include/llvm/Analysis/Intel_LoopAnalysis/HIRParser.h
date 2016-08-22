@@ -507,10 +507,9 @@ private:
   /// Collects and returns temp blobs present inside Blob.
   void collectTempBlobs(BlobTy Blob, SmallVectorImpl<BlobTy> &TempBlobs) const;
 
-  /// Substitutes \p OldTempIndex by \p NewTempIndex in \p BlobIndex and returns
-  /// the new blob in \p NewBlobIndex. Returns true if substitution was
-  /// performed.
-  bool substituteTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
+  /// Replaces \p OldTempIndex by \p NewTempIndex in \p BlobIndex and returns
+  /// the new blob in \p NewBlobIndex. Returns true if blob was replaced.
+  bool replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
                           unsigned NewTempIndex, unsigned &NewBlobIndex);
 
   /// Returns the max symbase assigned to any temp.
