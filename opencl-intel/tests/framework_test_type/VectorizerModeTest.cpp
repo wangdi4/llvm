@@ -1,6 +1,7 @@
 #include "CL/cl.h"
 #include "cl_types.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include "FrameworkTest.h"
 #include <gtest/gtest.h>
 #include "cl_device_api.h"
@@ -12,8 +13,8 @@
 //#define DEBUGGING_DEATH_TEST
 
 #if defined(_WIN32)
-#define SETENV(NAME,VALUE)      (SetEnvironmentVariableA(NAME,VALUE) != 0)
-#define UNSETENV(NAME)          (SetEnvironmentVariableA(NAME,NULL) != 0)
+#define SETENV(NAME,VALUE)      (_putenv_s(NAME,VALUE) == 0)
+#define UNSETENV(NAME)          (_putenv_s(NAME,"") == 0)
 #else
 #define SETENV(NAME,VALUE)      (setenv(NAME,VALUE,1) == 0)
 #define UNSETENV(NAME)          (unsetenv(NAME) == 0)
@@ -42,7 +43,7 @@ static bool deathTestSuccess()
 static bool setVectorizerMode(std::string const& mode)
 {
     bool bResult = true;
-    if(mode.length() > 0)
+    if (mode.length() > 0)
         bResult = SETENV(CL_CONFIG_CPU_VECTORIZER_MODE, mode.c_str());
     else
         UNSETENV(CL_CONFIG_CPU_VECTORIZER_MODE);
@@ -144,7 +145,7 @@ static bool vectorizerModeTest(std::string const& mode)
         delete []pDevices;
         return deathTestFailure();
     }
-    printf("context = %d\n", (std::size_t)context);
+    printf("context = %zd\n", (std::size_t)context);
 
     bResult = BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, NULL, &clProg);
     if (!bResult)
@@ -179,6 +180,7 @@ static bool vectorizerModeTest(std::string const& mode)
             if(actualMsg != expectedMsg)
             {
                 printf("\nERROR: %s was not supposed to be vectorized - log indicates otherwise!\n", kernelName.c_str());
+                printf("Log:\n%s\n\n", strLog.c_str());
                 return deathTestFailure();
             }
         }
@@ -193,6 +195,7 @@ static bool vectorizerModeTest(std::string const& mode)
             if(actualMsg != expectedMsg)
             {
                 printf("\nERROR: %s was supposed to be vectorized%s\n", kernelName.c_str(), vecWidthMsg.c_str());
+                printf("Log:\n%s\n\n", strLog.c_str());
                 return deathTestFailure();
             }
         }

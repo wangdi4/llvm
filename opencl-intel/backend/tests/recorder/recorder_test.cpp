@@ -1,6 +1,7 @@
 #include "CL/cl.h"
 #include "gtest/gtest.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include "FrameworkTest.h"
 #include "cl_utils.h"
 #include "cl_sys_info.h"
@@ -239,8 +240,8 @@ static void setRecorderEnvVars(){
   std::string recorderFullName(Intel::OpenCL::Utils::GetFullModuleNameForLoad(recorderName));
 
 #ifdef _WIN32
-  SetEnvironmentVariable(BE_PLUGIN, recorderFullName.c_str());
-  SetEnvironmentVariable(BE_PREFIX, PREFIX);
+  _putenv_s(BE_PLUGIN, recorderFullName.c_str());
+  _putenv_s(BE_PREFIX, PREFIX);
 #else
   setenv(BE_PLUGIN, recorderFullName.c_str(), 1);
   setenv(BE_PREFIX, PREFIX, 1);
