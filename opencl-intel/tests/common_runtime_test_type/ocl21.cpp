@@ -54,6 +54,7 @@ TEST_F(OCL21, clCreateProgramWithIL01)
     size_t ret = 0;
 
     getProgramInfo(ocl_descriptor.program, CL_PROGRAM_IL, sizeof(void *), &il, &ret);
+
     ASSERT_EQ(sizeof(void *), ret);
 
     if (kernelSource != nullptr)
@@ -177,18 +178,19 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
     enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
         (const void **)&(svmp[0]), (const size_t *)&(hbsizes[0]),
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
-    std::cout << "Starting migrate second half of svmp[0] to GPU..." << std::endl;
-    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
-        (const void **)((char *)&(svmp[0]) + hbsizes[0]), (const size_t *)&(hbsizes[0]),
+    std::cout << "Starting migrate second half of svmp[0] to CPU..." << std::endl;
+    size_t little_size = 1;
+    enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
+        (const void **)((char *)&(svmp[0]) + 1), (const size_t *)&(little_size),
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
 
-    std::cout << "Starting migrate first half of svmp[1] to CPU..." << std::endl;
+    std::cout << "Starting migrate first half of svmp[1] to GPU..." << std::endl;
     enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
         (const void **)&(svmp[1]), (const size_t *)&(hbsizes[1]),
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
     std::cout << "Starting migrate second half of svmp[1] to GPU..." << std::endl;
     enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
-        (const void **)((char *)&(svmp[1]) + hbsizes[1]), (const size_t *)&(hbsizes[1]),
+        (const void **)((char *)&(svmp[1]) + 1), (const size_t *)&(little_size),
         (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
 
     ASSERT_TRUE(memcmp(refp[0], svmp[0], bsizes[0]) == 0) << "svmp[0] corrupted";
