@@ -255,26 +255,40 @@ namespace llvm {
     // currently recognize.
     enum SeqType {
       UNKNOWN = 0,
-      SEQUENCE = 1,
+      REPEAT = 1,
       REDUCTION = 2,
-      PARLOOP_MEM_DEP = 3,
-      INVALID = 4, 
+      STRIDE = 3, 
+      PARLOOP_MEM_DEP = 4, 
+      INVALID = 5, 
     };
 
     MachineInstr* pickInst;
     MachineInstr* switchInst;
 
-    // Pointer to the list of transforming instructions for this
-    // sequence candidate.
+    // The transforming body is either a single instruction, or a list
+    // of instructions.
+    //
+    // (For now, the list is only used for PARLOOP_MEM_DEP.
+    //  All the other cases expect 0 or 1 instructions). 
+    MachineInstr* transformInst;
     SmallVectorImpl< MachineInstr* >* transformBody;
     SeqType stype;
+
+    // We will save away the channel info for faster processing later.
+    unsigned top;
+    unsigned bottom;
+    MachineOperand* stride_op;
 
   LPUSeqCandidate(MachineInstr* pickI,
                   MachineInstr* switchI)
       : pickInst(pickI)
       , switchInst(switchI)
+      , transformInst(NULL)
       , transformBody(NULL)
       , stype(UNKNOWN)
+      , top(0)
+      , bottom(0)
+      , stride_op(NULL)
     {
     }
 
@@ -289,6 +303,7 @@ namespace llvm {
   struct LPUSeqLoopInfo {
     LPUSeqHeader header;
     SmallVector<LPUSeqCandidate, 12> candidates;
+    std::set<unsigned> repeat_channels;
 
     LPUSeqLoopInfo() {
     }
