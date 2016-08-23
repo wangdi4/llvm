@@ -872,13 +872,13 @@ void setUpContextProgramQueuesFromStringSource(OpenCLDescriptor& ocl_descriptor,
 
 	// create context
 	cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)ocl_descriptor.platforms[0], 0};
-	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 2, ocl_descriptor.devices, NULL, NULL));
+	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 1, &(ocl_descriptor.devices[1]), NULL, NULL));
 
 	//	create and build program
-	ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithStringSource(kernelSource, &ocl_descriptor.program, ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
+	ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithStringSource(kernelSource, &ocl_descriptor.program, ocl_descriptor.context, 1, &(ocl_descriptor.devices[1]), NULL, NULL, NULL));
 
 	// create queues
-	for(int i=0; i<2; ++i)
+	for(int i=1; i<2; ++i)
 	{
 		// create queue
 		ASSERT_NO_FATAL_FAILURE(createCommandQueue(&ocl_descriptor.queues[i], ocl_descriptor.context, ocl_descriptor.devices[i], 0));
