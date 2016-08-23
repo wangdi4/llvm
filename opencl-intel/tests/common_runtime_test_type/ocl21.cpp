@@ -271,20 +271,20 @@ TEST_F(OCL21, clCloneKernel01)
 TEST_F(OCL21, clGetKernelSubGroupInfo01)
 {
     // create OpenCL queues, program and context
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromStringSource(ocl_descriptor, "subgroups.cl"));
 
     cl_kernel kernel = 0;
     createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
 
     size_t cl_kernel_max_num_sub_groups = 0;
     size_t ret_size = 0;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[0], CL_KERNEL_MAX_NUM_SUB_GROUPS,
+    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_MAX_NUM_SUB_GROUPS,
         0, nullptr, sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups, &ret_size);
     ASSERT_EQ(sizeof(cl_kernel_max_num_sub_groups), ret_size);
 
     size_t local_size[3] = { 10, 10, 10 };
     ret_size = 0;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[0], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
         sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups,
         sizeof(local_size), local_size, &ret_size);
     ASSERT_GT(local_size[0], 0);
@@ -294,7 +294,7 @@ TEST_F(OCL21, clGetKernelSubGroupInfo01)
     local_size[0] = local_size[1] = local_size[2] = 10;
     ret_size = 0;
     size_t wrong_cl_kernel_max_num_sub_groups = cl_kernel_max_num_sub_groups + 10;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[0], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
         sizeof(wrong_cl_kernel_max_num_sub_groups), &wrong_cl_kernel_max_num_sub_groups,
         sizeof(local_size), local_size, &ret_size);
     ASSERT_EQ(local_size[0], 0);
@@ -323,20 +323,20 @@ TEST_F(OCL21, clGetKernelSubGroupInfo01)
 TEST_F(OCL21, clGetKernelSubGroupInfo02)
 {
     // create OpenCL queues, program and context
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromStringSource(ocl_descriptor, "subgroups.cl"));
 
     cl_kernel kernel = 0;
     createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
 
     size_t cl_kernel_max_num_sub_groups = 0;
     size_t ret_size = 0;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[0], CL_KERNEL_MAX_NUM_SUB_GROUPS,
+    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_MAX_NUM_SUB_GROUPS,
         0, nullptr, sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups, &ret_size);
     ASSERT_EQ(sizeof(cl_kernel_max_num_sub_groups), ret_size);
 
     size_t local_size[3] = { 10, 10, 10 };
     ret_size = 0;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[0], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
         sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups,
         sizeof(local_size), local_size, &ret_size);
     ASSERT_GT(local_size[0], 0);
@@ -346,7 +346,7 @@ TEST_F(OCL21, clGetKernelSubGroupInfo02)
     local_size[0] = local_size[1] = local_size[2] = 10;
     ret_size = 0;
     size_t wrong_cl_kernel_max_num_sub_groups = cl_kernel_max_num_sub_groups + 10;
-    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[0], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
         sizeof(wrong_cl_kernel_max_num_sub_groups), &wrong_cl_kernel_max_num_sub_groups,
         sizeof(local_size), local_size, &ret_size);
     ASSERT_EQ(local_size[0], 0);
