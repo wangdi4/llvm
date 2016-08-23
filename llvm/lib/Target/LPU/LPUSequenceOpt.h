@@ -228,6 +228,7 @@ namespace llvm {
     unsigned pickerChannel;
     unsigned switcherChannel;
 
+
     LPUSeqHeader()
       : pickerInit(NULL)
       , pickerMov1(NULL)
@@ -305,7 +306,16 @@ namespace llvm {
     SmallVector<LPUSeqCandidate, 12> candidates;
     std::set<unsigned> repeat_channels;
 
-    LPUSeqLoopInfo() {
+    // The index into the candidate array where matches to the uses in
+    // the compare are located, if there are any such matches.
+    //  -1 indicates no match. 
+    int cmp0_idx;
+    int cmp1_idx;
+
+    LPUSeqLoopInfo()
+    : cmp0_idx(-1)
+    , cmp1_idx(-1)
+    {
     }
 
     ~LPUSeqLoopInfo() {}

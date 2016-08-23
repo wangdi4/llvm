@@ -105,6 +105,10 @@ public:
   //
   // Print header
   void seq_debug_print_header(LPUSeqHeader& header);
+
+  // Print the information out of a sequence candidate.
+  void seq_debug_print_candidate(LPUSeqCandidate& x);
+  
   //
   // Print loop info. 
   void seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops);
@@ -220,9 +224,45 @@ void LPUOptDFPass::seq_debug_print_header(LPUSeqHeader& header) {
   else {
     DEBUG(errs() << " No compareInst\n");
   }
-
-
 }
+
+void LPUOptDFPass::
+seq_debug_print_candidate(LPUSeqCandidate& x) {
+
+  DEBUG(errs() << " pick = " << *x.pickInst);
+  DEBUG(errs() << " switch = " << *x.switchInst);
+  if (x.transformInst) {
+    DEBUG(errs() << " transform = " << *x.transformInst << "\n");
+  }
+  switch (x.stype) {
+  case LPUSeqCandidate::SeqType::UNKNOWN:
+    DEBUG(errs() << "UNKNOWN type" << "\n");
+    break;
+  case LPUSeqCandidate::SeqType::REPEAT:
+    DEBUG(errs() << "REPEAT: top = " << x.top
+          << ", bottom = " << x.bottom << "\n");
+    break;
+  case LPUSeqCandidate::SeqType::REDUCTION:
+    DEBUG(errs() << "REDUCTION: top = " << x.top
+          << ", bottom = " << x.bottom << "\n");
+    break;
+  case LPUSeqCandidate::SeqType::STRIDE:
+    DEBUG(errs() << "STRIDE: top = " << x.top
+          << ", bottom = " << x.bottom << "\n");
+    DEBUG(errs() << "stride op = " << *x.stride_op << "\n");
+    break;
+  case LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP:
+    DEBUG(errs() << "PARLOOP_MEM_DEP: top = " << x.top
+          << ", bottom = " << x.bottom << "\n");
+    DEBUG(errs() << "stride op = " << *x.stride_op << "\n");
+    break;
+  case LPUSeqCandidate::SeqType::INVALID:
+    DEBUG(errs() << "INVALID sequence type \n");
+    break;
+  }
+  DEBUG(errs() << "\n");
+}
+
 
 bool LPUOptDFPass::seq_is_picker_init_inst(MachineRegisterInfo* MRI,
                                            MachineInstr* MI,
@@ -347,6 +387,12 @@ bool LPUOptDFPass::seq_identify_header(MachineInstr* MI,
     }
     DEBUG(errs() << "Found compare instruction " << compareInst << "\n");
 
+
+    if (compareInst->getNumOperands() != 3) {
+      DEBUG(errs() << " Stop. compare inst without 3 operands???" << "\n");
+      return false;
+    }
+
     // Finally, if we made it here, success!  Initialize the header.
     header->init(MI,
                  pickerMov1,
@@ -357,6 +403,8 @@ bool LPUOptDFPass::seq_identify_header(MachineInstr* MI,
   }
   return false;
 }
+
+
 
 
 void LPUOptDFPass::
@@ -373,45 +421,21 @@ seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
     DEBUG(errs() << current_loop.candidates.size() << " pairs]\n");
     seq_debug_print_header(current_loop.header);
 
-    // Dump the pick/switch pairs that we found.
-    for (auto it = current_loop.candidates.begin();
-         it != current_loop.candidates.end();
-         ++it) {
+    // Print matches to cmp0 and cmp1 uses, if they exist.
+    if (current_loop.cmp0_idx >= 0) {
 
-      LPUSeqCandidate& x = *it;
-      DEBUG(errs() << " pick = " << *x.pickInst);
-      DEBUG(errs() << " switch = " << *x.switchInst);
-      if (x.transformInst) {
-        DEBUG(errs() << " transform = " << *x.transformInst << "\n");
-      }
-                
-      switch (x.stype) {
-      case LPUSeqCandidate::SeqType::UNKNOWN:
-        DEBUG(errs() << "UNKNOWN type" << "\n");
-        break;
-      case LPUSeqCandidate::SeqType::REPEAT:
-        DEBUG(errs() << "REPEAT: top = " << x.top
-              << ", bottom = " << x.bottom << "\n");
-        break;
-      case LPUSeqCandidate::SeqType::REDUCTION:
-        DEBUG(errs() << "REDUCTION: top = " << x.top
-              << ", bottom = " << x.bottom << "\n");
-        break;
-      case LPUSeqCandidate::SeqType::STRIDE:
-        DEBUG(errs() << "STRIDE: top = " << x.top
-              << ", bottom = " << x.bottom << "\n");
-        DEBUG(errs() << "stride op = " << *x.stride_op << "\n");
-        break;
-      case LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP:
-        DEBUG(errs() << "PARLOOP_MEM_DEP: top = " << x.top
-              << ", bottom = " << x.bottom << "\n");
-        DEBUG(errs() << "stride op = " << *x.stride_op << "\n");
-        break;
-      case LPUSeqCandidate::SeqType::INVALID:
-        DEBUG(errs() << "INVALID sequence type \n");
-        break;
-      }
-      DEBUG(errs() << "\n");
+      DEBUG(errs() << "cmp0 matches candidate: \n");
+      seq_debug_print_candidate(current_loop.candidates[current_loop.cmp0_idx]);
+    }
+    else {
+      DEBUG(errs() << "No cmp0_idx\n");
+    }
+    if (current_loop.cmp1_idx >= 1) {
+      DEBUG(errs() << "cmp1 matches candidate: \n");
+      seq_debug_print_candidate(current_loop.candidates[current_loop.cmp1_idx]);
+    }
+    else {
+      DEBUG(errs() << "No cmp1_idx\n");
     }
 
     DEBUG(errs() << "Repeat channels: ");
@@ -421,6 +445,16 @@ seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
       DEBUG(errs() << " " << *it);
     }
     DEBUG(errs() << "\n");
+
+    DEBUG(errs() << "\n** All candidates **\n");
+    // Dump the pick/switch pairs that we found.
+    for (auto it = current_loop.candidates.begin();
+         it != current_loop.candidates.end();
+         ++it) {
+      LPUSeqCandidate& x = *it;
+      seq_debug_print_candidate(x);
+    }
+
     DEBUG(errs() << "*****************\n");
   }
   DEBUG(errs() << "************************\n");  
@@ -780,6 +814,33 @@ seq_classify_stride(LPUSeqCandidate& x,
 }
 
 
+// Look for a match between bottom and the cmp0/cmp1 channels.
+// If we find a match, save the result in the current loop.
+//
+// Returns true if we found a match, false otherwise.
+inline bool update_header_cmp_channels(LPUSeqLoopInfo& current_loop,
+                                       int loop_idx,
+                                       unsigned bottom, 
+                                       unsigned cmp0_channel,
+                                       unsigned cmp1_channel) {
+  if (bottom == cmp0_channel) {
+    if (current_loop.cmp0_idx >= 0) {
+      DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp0\n");
+      return false;
+    }
+    current_loop.cmp0_idx = loop_idx;
+    return true;
+  }
+  else if (bottom == cmp1_channel) {
+    if (current_loop.cmp1_idx >= 0) {
+      DEBUG(errs() << "WARNING: Finding duplicate seq def for cmp1. Ignoring\n");
+      return false;
+    }
+    current_loop.cmp1_idx = loop_idx;
+    return true;
+  }
+  return false;
+}
 
 // Classify all the candidate sequences in the loops we found.
 
@@ -791,6 +852,16 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
     for (unsigned i = 0; i < loops->size(); ++i) {
       LPUSeqLoopInfo& current_loop = (*loops)[i];
       current_loop.repeat_channels.clear();
+
+
+      assert(current_loop.header.compareInst);
+
+      // Look up the registers in the compare instruction, if there
+      // are any.
+      MachineOperand& cmpuse0 = current_loop.header.compareInst->getOperand(1);
+      MachineOperand& cmpuse1 = current_loop.header.compareInst->getOperand(2);
+      unsigned cmp0_channel = (cmpuse0.isReg() ? cmpuse0.getReg() : 0);
+      unsigned cmp1_channel = (cmpuse1.isReg() ? cmpuse1.getReg() : 0);
       
       SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> classified;
       SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> remaining;
@@ -809,7 +880,7 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
           remaining.push_back(x);
         }
         else {
-          classified.push_back(x);          
+          classified.push_back(x);
         }
       }
 
@@ -818,20 +889,32 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
       DEBUG(errs() << "Current loop candidates: "
             << current_loop.candidates.size() << "\n");
 
+      
       // Move the classified candidates over into the current loop.
+      // Along the way, look for matches with the operands in the
+      // compare.
       current_loop.candidates.clear();
-      current_loop.candidates.insert(current_loop.candidates.end(),
-                                     classified.begin(),
-                                     classified.end());
+
+
+      for (int i = 0; i < (int)classified.size(); ++i) {
+        LPUSeqCandidate& x = classified[i];
+        update_header_cmp_channels(current_loop,
+                                   i,
+                                   x.bottom,
+                                   cmp0_channel,
+                                   cmp1_channel);
+        current_loop.candidates.push_back(x);
+      }
       classified.clear();
+
 
       DEBUG(errs() << "After: Classified candidates: " << classified.size() << "\n");
       DEBUG(errs() << "After: Remaining candidates: " << remaining.size() << "\n");
       DEBUG(errs() << "After: Current loop candidates: "
             << current_loop.candidates.size() << "\n");
 
-      SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> unknown;
       // Second pass: look for stride operations.
+      int loop_idx = current_loop.candidates.size();
       for (auto it = remaining.begin();
            it != remaining.end();
            ++it) {
@@ -850,6 +933,14 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
         }
         else {
           current_loop.candidates.push_back(x);
+          // Again, look for a match with this sequence and the
+          // compare instruction.
+          update_header_cmp_channels(current_loop,
+                                     loop_idx,
+                                     x.bottom,
+                                     cmp0_channel,
+                                     cmp1_channel);
+          loop_idx++;
         }
       }
 
