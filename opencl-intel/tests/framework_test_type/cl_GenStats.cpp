@@ -169,7 +169,7 @@ bool cl_GenStats() {
 
   bool res = true;
 
-  if (!SETENV("VOLCANO_STATS", "") ||
+  if (!SETENV("VOLCANO_STATS", "Vectorizer") ||
       !SETENV("VOLCANO_IR_FILE_BASE_NAME", "StatFile")) {
     printf ("ERROR: GenStat: Can't set stat environment variables. Test FAILED\n");
     return false;
