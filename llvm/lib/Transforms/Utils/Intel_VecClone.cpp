@@ -1663,6 +1663,10 @@ bool VecClone::runOnModule(Module &M) {
       // Remove the old scalar allocas associated with vector parameters since
       // these have now been replaced with vector ones.
       removeScalarAllocasForVectorParams(VectorParmMap);
+
+      for (auto *Parm : VectorParmMap) {
+        delete Parm;
+      }
       VectorParmMap.clear();
 
       // If this is the masked vector variant, insert the mask condition and

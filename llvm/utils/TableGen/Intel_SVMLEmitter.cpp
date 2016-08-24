@@ -63,41 +63,32 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
     if (S.second->isSubClassOf(SvmlVariantClass)) {
       std::string SvmlVariantNameStr = S.first;
 
-      Twine SvmlVariantNameDoublePrec = SvmlVariantNameStr;
-      Twine SvmlVariantNameSinglePrec = Twine(SvmlVariantNameStr) + "f";
-
       // Emit double precision variants.
       for (unsigned VL = 2; VL <= MaxVL; VL *= 2) {
-        Twine FullNameDoublePrec = "__svml_" + SvmlVariantNameDoublePrec +
-                                   Twine(VL);
-        OS << "{\"" << SvmlVariantNameDoublePrec << "\", ";
-        OS << "\"" << FullNameDoublePrec << "\", " << VL << "},\n";
+        OS << "{\"" << SvmlVariantNameStr << "\", ";
+        OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "\", "
+           << VL << "},\n";
       }
 
       // Emit single precision variants.
       for (unsigned VL = 2; VL <= MaxVL; VL *= 2) {
-        Twine FullNameSinglePrec = "__svml_" + SvmlVariantNameSinglePrec +
-                                   Twine(VL);
-        OS << "{\"" << SvmlVariantNameSinglePrec << "\", ";
-        OS << "\"" << FullNameSinglePrec << "\", " << VL << "},\n";
+        OS << "{\"" << SvmlVariantNameStr << "f" << "\", ";
+        OS << "\"" << "__svml_" << SvmlVariantNameStr << "f" << VL << "\", "
+           << VL << "},\n";
       }
 
       // Some functions can be in scalar intrinsic form, so a mapping between
       // the intrinsic and svml variants is needed.
       if (SvmlVariantNameStr == "pow") {
         for (unsigned VL = 2; VL <= MaxVL; VL *= 2) {
-          Twine IntrinsicName = "llvm." + Twine(SvmlVariantNameStr) + ".f64";
-          OS << "{\"" << IntrinsicName << "\", ";
-          Twine FullNameDoublePrec = "__svml_" + SvmlVariantNameDoublePrec +
-                                     Twine(VL);
-          OS << "\"" << FullNameDoublePrec << "\", " << VL << "},\n";
+          OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f64" << "\", ";
+          OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "\", " << VL
+             << "},\n";
         }
         for (unsigned VL = 2; VL <= MaxVL; VL *= 2) {
-          Twine IntrinsicName = "llvm." + Twine(SvmlVariantNameStr) + ".f32";
-          OS << "{\"" << IntrinsicName << "\", ";
-          Twine FullNameSinglePrec = "__svml_" + SvmlVariantNameSinglePrec +
-                                     Twine(VL);
-          OS << "\"" << FullNameSinglePrec << "\", " << VL << "},\n";
+          OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f32" << "\", ";
+          OS << "\"" << "__svml_" << SvmlVariantNameStr << "f" << VL << "\", "
+             << VL << "},\n";
         }
       }
     }
