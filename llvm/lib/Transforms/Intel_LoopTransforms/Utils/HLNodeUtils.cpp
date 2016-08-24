@@ -792,8 +792,6 @@ HLInst *HLNodeUtils::createCall(Function *Func,
   unsigned NumArgs = CallArgs.size();
   HLInst *HInst;
   SmallVector<Value *, 8> Args;
-  const Twine NewName(HasReturn ? Name.isTriviallyEmpty() ? "dummy" : Name
-                                : "");
 
   for (unsigned I = 0; I < NumArgs; I++) {
     MetadataAsValue *Val = nullptr;
@@ -801,7 +799,8 @@ HLInst *HLNodeUtils::createCall(Function *Func,
                        ? cast<Value>(Val)
                        : UndefValue::get(CallArgs[I]->getDestType()));
   }
-  auto InstVal = DummyIRBuilder->CreateCall(Func, Args, NewName);
+  auto InstVal = DummyIRBuilder->CreateCall(
+      Func, Args, HasReturn ? (Name.isTriviallyEmpty() ? "dummy" : Name) : "");
   if (HasReturn) {
     //    HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
     HInst = createLvalHLInst(InstVal, LvalRef);
@@ -3261,7 +3260,7 @@ public:
 };
 
 void HLNodeUtils::remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,
-                              HLNode *End) {
+                                   HLNode *End) {
   LabelRemapVisitor Visitor(Mapper);
   visitRange(Visitor, Begin, End);
 }

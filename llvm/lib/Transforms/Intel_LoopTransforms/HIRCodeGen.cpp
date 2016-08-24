@@ -656,7 +656,7 @@ Value *HIRCodeGen::CGVisitor::visitScalar(RegDDRef *Ref) {
 
   // Lvals must be stored into
   std::string TempName = getTempName(Ref);
-  AllocaInst *Alloca = getNamedValue(Twine(TempName), Ref->getDestType());
+  AllocaInst *Alloca = getNamedValue(TempName, Ref->getDestType());
 
   // For lvals return address of temp
   return Alloca;

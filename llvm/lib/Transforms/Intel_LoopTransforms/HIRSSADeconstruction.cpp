@@ -191,9 +191,8 @@ FunctionPass *llvm::createHIRSSADeconstructionPass() {
 void HIRSSADeconstruction::attachMetadata(
     Instruction *Inst, StringRef Name,
     ScalarEvolution::HIRLiveKind Kind) const {
-  Twine NewName(Name, ".de.ssa");
-
-  Metadata *Args[] = {MDString::get(Inst->getContext(), NewName.str())};
+  Metadata *Args[] = {
+      MDString::get(Inst->getContext(), (Name + ".de.ssa").str())};
   MDNode *Node = MDNode::get(Inst->getContext(), Args);
 
   Inst->setMetadata(SE->getHIRMDKindID(Kind), Node);
@@ -201,10 +200,8 @@ void HIRSSADeconstruction::attachMetadata(
 
 Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
                                               bool IsLivein) const {
-  Twine NewName(Name, (IsLivein ? ".in" : ".out"));
-
-  auto CInst =
-      CastInst::Create(Instruction::BitCast, Val, Val->getType(), NewName);
+  auto CInst = CastInst::Create(Instruction::BitCast, Val, Val->getType(),
+                                Name + (IsLivein ? ".in" : ".out"));
 
   attachMetadata(CInst, Name, IsLivein ? ScalarEvolution::HIRLiveKind::LiveIn
                                        : ScalarEvolution::HIRLiveKind::LiveOut);
@@ -241,7 +238,7 @@ void HIRSSADeconstruction::insertLiveInCopy(Value *Val, BasicBlock *BB,
 
   // We need to keep IV update copies last in the bblock or we may encounter a
   // live-range issue when IV is parsed as a blob in one of the non-linear
-  // values. 
+  // values.
   // The following loop moves the insertion point to point to first IV update
   // copy.
   for (auto FirstInst = BB->begin(); InsertionPoint != FirstInst;) {
