@@ -22,6 +22,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDUtils.h"
@@ -137,6 +138,7 @@ void HIRSafeReductionAnalysis::identifySafeReduction(HLLoop *Loop) {
   }
 
   DDGraph DDG = DDA->getGraph(Loop, false);
+
   identifySingleStatementReduction(Loop, DDG);
   identifySafeReductionChain(Loop, DDG);
 }
@@ -186,6 +188,8 @@ void HIRSafeReductionAnalysis::identifySingleStatementReduction(HLLoop *Loop,
       continue;
     }
 
+    // For stmt like s1 = (s1 + n2) * n3
+    // It will bail out here
     SingleStmtReduction = false;
     if (FirstRvalSB == 0 &&
         !findFirstRedStmt(Loop, Inst, &SingleStmtReduction, &FirstRvalSB,
@@ -256,6 +260,39 @@ bool HIRSafeReductionAnalysis::isValidSR(RegDDRef *LRef, HLLoop *Loop,
   return true;
 }
 
+//  Check for  valid temps
+//  These are not safe reductions:
+//  s = 2 * s  +  ..
+//  s = n * s  +  ..
+//  s = 2 * s * i  +  ..
+bool HIRSafeReductionAnalysis::isRedTemp(CanonExpr *CE, BlobTy TempBlob) {
+
+  bool Found = false;
+
+  for (auto I = CE->iv_begin(), E = CE->iv_end(); I != E; ++I) {
+    unsigned BlobIdx = CE->getIVBlobCoeff(I);
+    if (BlobIdx == InvalidBlobIndex) {
+      continue;
+    }
+    auto Blob = BlobUtils::getBlob(BlobIdx);
+    if (BlobUtils::contains(Blob, TempBlob)) {
+      return false;
+    }
+  }
+
+  for (auto I = CE->blob_begin(), E = CE->blob_end(); I != E; ++I) {
+    auto Blob = BlobUtils::getBlob(CE->getBlobIndex(I));
+    if (BlobUtils::contains(Blob, TempBlob)) {
+      if (Found || (Blob != TempBlob) || (CE->getBlobCoeff(I) != 1)) {
+        return false;
+      }
+      Found = true;
+    }
+  }
+  assert(Found && "Blob not found!");
+  return true;
+}
+
 void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
                                                           DDGraph DDG) {
 
@@ -296,17 +333,43 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
     RedInsts.push_back(Inst);
     HLInst *SinkInst = nullptr;
     DDRef *SinkDDRef = nullptr;
+    BlobDDRef *PrevSinkDDRef = nullptr;
 
     while (true) {
+
       RegDDRef *LRef = Inst->getLvalDDRef();
       if (!isValidSR(LRef, Loop, &SinkInst, &SinkDDRef, ReductionOpCode, DDG)) {
         break;
+      }
+      //  Integer sum can occur as blobs
+      //   sum =  10 * sum + ..
+      //  Only needs to check for PrevSinkDDRef because the logic in
+      //  findFirstRedStmt (refer to comments) requires the first stmt
+      //  to be in this form:   s1 = (1 + 2*n) + s0
+
+      if (PrevSinkDDRef) {
+        RegDDRef *RedDDRef = PrevSinkDDRef->getParentDDRef();
+        if (RedDDRef) {
+          // Various test cases have shown memref will not be hit here
+          // Bail out anyway
+          if (!RedDDRef->isTerminalRef()) {
+            break;
+          }
+          auto Blob = BlobUtils::getBlob(PrevSinkDDRef->getBlobIndex());
+
+          CanonExpr *CE = RedDDRef->getSingleCanonExpr();
+
+          if (!isRedTemp(CE, Blob)) {
+            break;
+          }
+        }
       }
       if (FirstRvalSB == SinkDDRef->getSymbase()) {
         DEBUG(dbgs() << "\nSafe Reduction chain found\n");
         setSafeRedChainList(RedInsts, Loop);
         break;
       }
+
       if (Inst == SinkInst) {
         break;
       }
@@ -319,6 +382,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(HLLoop *Loop,
         break;
       }
       Inst = SinkInst;
+      PrevSinkDDRef = dyn_cast<BlobDDRef>(SinkDDRef);
       RedInsts.push_back(Inst);
     }
   }
@@ -345,6 +409,14 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(HLLoop *Loop, HLInst *Inst,
   //  S3: t3 = t2 + a[i];
   //  Look for incoming flow edge (<) into S1.
   //  S3 needs to be a reduction stmt
+  //
+  //  The code below loops thru the RHS ddref, and checks if  there is only
+  //  1 incoming edge from stmts below. So stmt like this (integer)
+  //  s1 =  (n * 4 +  s0) + tx
+  //  The ddref encountered is only tx.
+  //  Later,  isValidSR will check if the reduction temp on LHS has
+  //  only single use through DD edge
+  //  TODO:  This will be handled later.
 
   unsigned ReductionOpCodeSave = 0;
   *SingleStmtReduction = false;
@@ -363,6 +435,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(HLLoop *Loop, HLInst *Inst,
     if (!RRef || RRef->isMemRef()) {
       continue;
     }
+
     for (auto I = DDG.incoming_edges_begin(RRef),
               E = DDG.incoming_edges_end(RRef);
          I != E; ++I) {
@@ -407,6 +480,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(HLLoop *Loop, HLInst *Inst,
       return true;
     }
   }
+
   return false;
 }
 
