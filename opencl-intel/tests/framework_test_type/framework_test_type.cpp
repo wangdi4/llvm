@@ -357,6 +357,10 @@ TEST(FrameworkTestType, Test_TBB)
     EXPECT_TRUE(TBBTest());
 }
 
+TEST(FrameworkTestType, Test_saturated_conversion_NaN_test)
+{
+    EXPECT_TRUE(saturated_conversion_NaN_test());
+}
 
 TEST(FrameworkTestType, Test_clLocalStructTest)
 {

@@ -75,23 +75,38 @@ code Promote_sat_rtn = [{
   }];
 
 code fclamp_then_call_nonsat_conv = [{
-    $Arg0VarName = clamp($Arg0VarName, as_float_min_$ReturnBaseType, as_float_max_$ReturnBaseType);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    $Arg0VarName = clamp($Arg0VarName_with_NaN, as_float_min_$ReturnBaseType, as_float_max_$ReturnBaseType);
     return convert_$ReturnType( convert_int$Suffix($Arg0VarName) );
   }];
 code fclamp_then_call_nonsat_conv_rte = [{
-    $Arg0VarName = clamp($Arg0VarName, as_float_min_$ReturnBaseType, as_float_max_$ReturnBaseType);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    $Arg0VarName = clamp($Arg0VarName_with_NaN, as_float_min_$ReturnBaseType, as_float_max_$ReturnBaseType);
     return convert_$ReturnType( convert_int$Suffix_rte($Arg0VarName) );
   }];
 code fclamp_then_call_nonsat_conv_rtz = [{
-    $Arg0VarName = clamp($Arg0VarName, as_float_min_$ReturnBaseType, as_float_max_$ReturnBaseType);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    $Arg0VarName = clamp($Arg0VarName_with_NaN, as_float_min_$ReturnBaseType, as_float_max_$ReturnBaseType);
     return convert_$ReturnType( convert_int$Suffix_rtz($Arg0VarName) );
   }];
 code fclamp_then_call_nonsat_conv_rtp = [{
-    $Arg0VarName = clamp($Arg0VarName, as_float_min_$ReturnBaseType, as_float_max_$ReturnBaseType);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    $Arg0VarName = clamp($Arg0VarName_with_NaN, as_float_min_$ReturnBaseType, as_float_max_$ReturnBaseType);
     return convert_$ReturnType( convert_int$Suffix_rtp($Arg0VarName) );
   }];
 code fclamp_then_call_nonsat_conv_rtn = [{
-    $Arg0VarName = clamp($Arg0VarName, as_float_min_$ReturnBaseType, as_float_max_$ReturnBaseType);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    $Arg0VarName = clamp($Arg0VarName_with_NaN, as_float_min_$ReturnBaseType, as_float_max_$ReturnBaseType);
     return convert_$ReturnType( convert_int$Suffix_rtn($Arg0VarName) );
   }];
 
@@ -196,23 +211,38 @@ OclBuiltinImpl ssse3_v8i32_expand_conv_i16_sat = OclBuiltinImpl<convert_i16_sat,
 // convert_ushortn - floats & doubles
 // promote to int
 OclBuiltinImpl ssse3_conv_u16_sat = OclBuiltinImpl<convert_u16_sat, conv_sat_ssse3_fp_dp_types, 0, [{
-    uint$Suffix t = convert_uint$Suffix_sat($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    uint$Suffix t = convert_uint$Suffix_sat($Arg0VarName_with_NaN);
     return convert_$ReturnType_sat(t);
   }]>;
 OclBuiltinImpl ssse3_conv_u16_sat_rte = OclBuiltinImpl<convert_u16_sat_rte, conv_sat_ssse3_fp_dp_types, 0, [{
-    uint$Suffix t = convert_uint$Suffix_sat_rte($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    uint$Suffix t = convert_uint$Suffix_sat_rte($Arg0VarName_with_NaN);
     return convert_$ReturnType_sat(t);
   }]>;
 OclBuiltinImpl ssse3_conv_u16_sat_rtz = OclBuiltinImpl<convert_u16_sat_rtz, conv_sat_ssse3_fp_dp_types, 0, [{
-    uint$Suffix t = convert_uint$Suffix_sat_rtz($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    uint$Suffix t = convert_uint$Suffix_sat_rtz($Arg0VarName_with_NaN);
     return convert_$ReturnType_sat(t);
   }]>;
 OclBuiltinImpl ssse3_conv_u16_sat_rtp = OclBuiltinImpl<convert_u16_sat_rtp, conv_sat_ssse3_fp_dp_types, 0, [{
-    uint$Suffix t = convert_uint$Suffix_sat_rtp($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    uint$Suffix t = convert_uint$Suffix_sat_rtp($Arg0VarName_with_NaN);
     return convert_$ReturnType_sat(t);
   }]>;
 OclBuiltinImpl ssse3_conv_u16_sat_rtn = OclBuiltinImpl<convert_u16_sat_rtn, conv_sat_ssse3_fp_dp_types, 0, [{
-    uint$Suffix t = convert_uint$Suffix_sat_rtn($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    uint$Suffix t = convert_uint$Suffix_sat_rtn($Arg0VarName_with_NaN);
     return convert_$ReturnType_sat(t);
   }]>;
 
@@ -230,9 +260,12 @@ OclBuiltinImpl ssse3_v8i32_expand_conv_u16_sat = OclBuiltinImpl<convert_u16_sat,
 \*****************************************************************/
 // convert intn - floats
 code ssse3_convert_float_to_int_sat = [{
-    $ReturnType outRangePos = $Arg0VarName >= as_float(maxInt32);
-    $ReturnType outRangeNeg = as_float(minInt32) >= $Arg0VarName;
-    $ReturnType inRange = ~(outRangeNeg | outRangePos) & convert_$ReturnType($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    $ReturnType outRangePos = $Arg0VarName_with_NaN >= as_float(maxInt32);
+    $ReturnType outRangeNeg = as_float(minInt32) >= $Arg0VarName_with_NaN;
+    $ReturnType inRange = ~(outRangeNeg | outRangePos) & convert_$ReturnType($Arg0VarName_with_NaN);
     outRangePos = outRangePos & generic_max_int;
     outRangeNeg = outRangeNeg & generic_min_int;
     return inRange | outRangePos | outRangeNeg;

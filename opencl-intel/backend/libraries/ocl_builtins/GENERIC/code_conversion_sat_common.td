@@ -45,233 +45,383 @@ code u2s_u2u_down_sat = [{
 
 // f32-to-X conversion
 code fp2signed_flat_sat = [{
-    return __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2signed_flat_sat_rte = [{
-    return __ocl_svml_$Target_cvtfptoi32$rtnsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi32$rtnsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2signed_flat_sat_rtz = [{
-    return __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2signed_flat_sat_rtp = [{
-    return __ocl_svml_$Target_cvtfptoi32$upsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi32$upsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2signed_flat_sat_rtn = [{
-    return __ocl_svml_$Target_cvtfptoi32$downsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi32$downsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 
 code fp2unsigned_flat_sat = [{
-    return __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2unsigned_flat_sat_rte = [{
-    return __ocl_svml_$Target_cvtfptou32$rtnsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou32$rtnsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2unsigned_flat_sat_rtz = [{
-    return __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2unsigned_flat_sat_rtp = [{
-    return __ocl_svml_$Target_cvtfptou32$upsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou32$upsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2unsigned_flat_sat_rtn = [{
-    return __ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 
 code fp2signed_down_sat = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName)),
+              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
   }];
 code fp2signed_down_sat_rte = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$rtnsat$SVMLSuffix($Arg0VarName)),
+              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$rtnsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
   }];
 code fp2signed_down_sat_rtz = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName)),
+              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$rtzsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
   }];
 code fp2signed_down_sat_rtp = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$upsat$SVMLSuffix($Arg0VarName)),
+              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$upsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
   }];
 code fp2signed_down_sat_rtn = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$downsat$SVMLSuffix($Arg0VarName)),
+              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi32$downsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
   }];
 
 code fp2unsigned_down_sat = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
               as_$Arg0igentype(
-                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName)),
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName_with_NaN)),
                   ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code fp2unsigned_down_sat_rte = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
               as_$Arg0igentype(
-                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$rtnsat$SVMLSuffix($Arg0VarName)),
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$rtnsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code fp2unsigned_down_sat_rtz = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
               as_$Arg0igentype(
-                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName)),
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$rtzsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code fp2unsigned_down_sat_rtp = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
               as_$Arg0igentype(
-                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$upsat$SVMLSuffix($Arg0VarName)),
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$upsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code fp2unsigned_down_sat_rtn = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
               as_$Arg0igentype(
-                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix($Arg0VarName)),
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou32$downsat$SVMLSuffix($Arg0VarName_with_NaN)),
                      ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 
 code fp2unsigned_up_sat = [{
-    return __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2unsigned_up_sat_rte = [{
-    return __ocl_svml_$Target_cvtfptou64$rtnsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou64$rtnsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2unsigned_up_sat_rtz = [{
-    return __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2unsigned_up_sat_rtp = [{
-    return __ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2unsigned_up_sat_rtn = [{
-    return __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 
 code fp2signed_up_sat = [{
-    return __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2signed_up_sat_rte = [{
-    return __ocl_svml_$Target_cvtfptoi64$rtnsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi64$rtnsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2signed_up_sat_rtz = [{
-    return __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2signed_up_sat_rtp = [{
-    return __ocl_svml_$Target_cvtfptoi64$upsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi64$upsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code fp2signed_up_sat_rtn = [{
-    return __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 
 // f64-to-X conversion
 code dp2signed_flat_sat = [{
-    return __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code dp2signed_flat_sat_rte = [{
-    return __ocl_svml_$Target_cvtfptoi64$rtnsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi64$rtnsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code dp2signed_flat_sat_rtz = [{
-    return __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code dp2signed_flat_sat_rtp = [{
-    return __ocl_svml_$Target_cvtfptoi64$upsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi64$upsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code dp2signed_flat_sat_rtn = [{
-    return __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 
 code dp2unsigned_flat_sat = [{
-    return __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code dp2unsigned_flat_sat_rte = [{
-    return __ocl_svml_$Target_cvtfptou64$rtnsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou64$rtnsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code dp2unsigned_flat_sat_rtz = [{
-    return __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code dp2unsigned_flat_sat_rtp = [{
-    return __ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 code dp2unsigned_flat_sat_rtn = [{
-    return __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName);
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
+    return __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName_with_NaN);
   }];
 
 code dp2signed_down_sat = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName)),
+              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
   }];
 code dp2signed_down_sat_rte = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$rtnsat$SVMLSuffix($Arg0VarName)),
+              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$rtnsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
   }];
 code dp2signed_down_sat_rtz = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName)),
+              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$rtzsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
   }];
 code dp2signed_down_sat_rtp = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$upsat$SVMLSuffix($Arg0VarName)),
+              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$upsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
   }];
 code dp2signed_down_sat_rtn = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
-              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName)),
+              clamp(as_$Arg0igentype( __ocl_svml_$Target_cvtfptoi64$downsat$SVMLSuffix($Arg0VarName_with_NaN)),
                     ($Arg0igentype)generic_min_$ReturnBaseType, ($Arg0igentype)generic_max_$ReturnBaseType)));
   }];
 
 code dp2unsigned_down_sat = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
               as_$Arg0igentype(
-                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName)),
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName_with_NaN)),
                       ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code dp2unsigned_down_sat_rte = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
               as_$Arg0igentype(
-                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$rtnsat$SVMLSuffix($Arg0VarName)),
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$rtnsat$SVMLSuffix($Arg0VarName_with_NaN)),
                       ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code dp2unsigned_down_sat_rtz = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
               as_$Arg0igentype(
-                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName)),
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$rtzsat$SVMLSuffix($Arg0VarName_with_NaN)),
                       ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code dp2unsigned_down_sat_rtp = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
               as_$Arg0igentype(
-                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix($Arg0VarName)),
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$upsat$SVMLSuffix($Arg0VarName_with_NaN)),
                       ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 code dp2unsigned_down_sat_rtn = [{
+    const $Arg0igentype mask = isnan($Arg0VarName);
+    const $Arg0Type zeros = ($Arg0Type)0.0f;
+    $Arg0Type $Arg0VarName_with_NaN = select($Arg0VarName, zeros, mask);
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symigentype_$ReturnSymigentype(
               as_$Arg0igentype(
-                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName)),
+                clamp(as_$Arg0ugentype( __ocl_svml_$Target_cvtfptou64$downsat$SVMLSuffix($Arg0VarName_with_NaN)),
                       ($Arg0ugentype)generic_min_$ReturnBaseType, ($Arg0ugentype)generic_max_$ReturnBaseType))));
   }];
 
