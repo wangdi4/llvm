@@ -167,7 +167,28 @@ public:
   getSingleDef(unsigned Reg, const MachineRegisterInfo *MRI);
   MachineInstr*
   getSingleUse(unsigned Reg, const MachineRegisterInfo *MRI);
-  
+
+
+  // The final check to see if we can transform the loop control
+  // variable on a loop, and then transform the loop. 
+  bool seq_try_transform_loop(LPUSeqLoopInfo& loop);
+
+  // The hard work of the try_transform method. 
+  void seq_do_transform_loop(LPUSeqLoopInfo& loop,
+                             LPUSeqCandidate& indvarCandidate,
+                             unsigned indvar_opcode);
+
+  // Tries to compute a matching sequence opcode for the pair of a
+  // comparison instruction and the transform instruction.
+  //
+  // Returns true if we found a match, and false otherwise.  If true,
+  // then *indvar_opcode is the opcode of the new sequence instruction
+  // that we will use.
+  bool seq_compute_matching_seq_opcode(MachineInstr* compareInst,
+                                       MachineInstr* transformInst,
+                                       unsigned* indvar_opcode);
+
+
 private:
   MachineFunction *thisMF;
 };
@@ -623,13 +644,24 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
     DEBUG(errs() << "After classification: \n");
     seq_print_loop_info(&loops);
 
-    
     if (seq_opt_level > 1) {
       // Actually do the transforms.
       // 
       // TBD(jsukha): Fill in the code that does the sequence
       // transformations.
       DEBUG(errs() << "TBD: Performing sequence optimizations\n");
+
+      int num_transformed = 0;
+      for (auto it = loops.begin();
+           it != loops.end();
+           ++it) {
+        LPUSeqLoopInfo& loop = *it;
+        bool success = seq_try_transform_loop(loop);
+        if (success)
+          num_transformed++;
+      }
+      DEBUG(errs() << "Done with seq opt. Transformed "
+            <<  num_transformed << " loops\n");
     }
   }
   else {
@@ -801,6 +833,7 @@ seq_classify_stride(LPUSeqCandidate& x,
           x.bottom = bottom_channel;
           x.stride_op = &stride_op;
           x.stype = LPUSeqCandidate::SeqType::STRIDE;
+          x.transformInst = def_bottom;
           return LPUSeqCandidate::SeqType::STRIDE;
         }
       }
@@ -959,3 +992,118 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
     }
   }
 }
+
+
+bool 
+LPUOptDFPass::
+seq_try_transform_loop(LPUSeqLoopInfo& loop) {
+
+  // Found a valid induction variable. 
+  // True if induction variable (i.e., first argument in the compare)
+  // is a stride candidate.
+  bool found_indvar =
+    ((loop.cmp0_idx >= 0) &&
+     loop.candidates[loop.cmp0_idx].stype == LPUSeqCandidate::SeqType::STRIDE);
+  if (!found_indvar) {
+    DEBUG(errs() << "Seq transform failed: invalid induction variable.\n");
+    return false;
+  }
+
+  LPUSeqCandidate& indvarCandidate = loop.candidates[loop.cmp0_idx];
+  
+  // Found a valid loop bound.
+  // This can either be a repeated channel, or an immediate.
+  bool found_bound_channel = 
+    ((loop.cmp1_idx >= 0) &&
+     loop.candidates[loop.cmp1_idx].stype == LPUSeqCandidate::SeqType::REPEAT);
+  bool found_bound_imm =
+    ((loop.cmp1_idx == -1) &&
+     loop.header.compareInst->getOperand(2).isImm());
+  bool found_bound = found_bound_channel || found_bound_imm;
+  
+  if (!found_bound) {
+    DEBUG(errs() << "Seq transform failed: possible non-constant loop.\n");
+    return false;
+  }
+
+  // Now, look at the opcodes for the stride instruction and the the
+  // compare instruction.  If they don't line up, then
+
+
+  // Compute a matching opcode for the compare and transformation
+  // instruction.  
+  unsigned indvar_opcode = 0;
+  if (seq_compute_matching_seq_opcode(loop.header.compareInst,
+                                      indvarCandidate.transformInst,
+                                      &indvar_opcode)) {
+    DEBUG(errs() << "Can do sequence transform of induction variable!\n");
+
+    seq_do_transform_loop(loop,
+                          indvarCandidate,
+                          indvar_opcode);
+    
+    return true;
+  }
+  return false;
+}
+
+
+
+
+// TBD(jsukha): FIX ME!
+//
+// NOTE: This method hard-codes two specific pairs of (compare,
+// transform) opcode pairs for the sequence optimization.
+//
+// These values are hard-coded so that we can get some of our
+// initial test examples working.  
+//
+// But we eventually need to allow for a larger set of matching pairs.
+//
+bool
+LPUOptDFPass::
+seq_compute_matching_seq_opcode(MachineInstr* compareInst,
+                                MachineInstr* transformInst,
+                                unsigned* indvar_opcode) {
+  unsigned ciOp = compareInst->getOpcode();
+  unsigned tOp = transformInst->getOpcode();
+
+  switch (ciOp) {
+  case LPU::CMPNE32i:
+    if (tOp == LPU::ADD32i) {
+      *indvar_opcode = LPU::SEQSNE32;
+      return true;
+    }
+    break;
+
+  case LPU::CMPLTS64:
+    if (tOp == LPU::ADD64) {
+      *indvar_opcode = LPU::SEQSLTS64;
+      return true;
+    }
+    
+  default:
+    // No match. return false. 
+    return false;
+  };
+
+  return false;
+}
+
+
+void
+LPUOptDFPass::
+seq_do_transform_loop(LPUSeqLoopInfo& loop,
+                      LPUSeqCandidate& indvarCandidate, 
+                      unsigned indvar_opcode) {
+  // TBD(jsukha): Implement me!
+  //
+  // We need to use the information in "loop" and "indvarCandidate" to
+  // replace the loop control with a sequence.  (Step 3 in the
+  // description in LPUSequenceOpt.h).
+  //
+  // Then, once that is done, replacing the remaining dependent
+  // sequence candidates, and cleanup (Steps 4 and 5).
+  DEBUG(errs() << "Sequence transform not implemented yet...\n");
+}
+

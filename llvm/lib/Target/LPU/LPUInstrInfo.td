@@ -1179,15 +1179,15 @@ def ONCOUNT0 : FMTGEN<  // TODO: something to reflect state
   []> { let Itinerary = IIVir; }
 
 def SEQC64 : FMTGEN<  // TODO: something to reflect state
-  (outs I64:$val, I1:$pred),
+  (outs I64:$val, I1:$pred, I1:$first, I1:$last),
   (ins I64:$base, I64:$count, I64:$stride),
-  "seqc64\t$val, $pred, $base, $count, $stride",
+  "seqc64\t$val, $pred, $first, $last, $base, $count, $stride",
   []> { let Itinerary = IIALU; }
 
 def SEQS64 : FMTGEN<  // TODO: something to reflect state
-  (outs I64:$val, I1:$pred),
+  (outs I64:$val, I1:$pred, I1:$first, I1:$last),
   (ins I64:$base, I64:$bound, I64:$stride),
-  "seqs64\t$val, $pred, $base, $bound, $stride",
+  "seqs64\t$val, $pred, $first, $last, $base, $bound, $stride",
   []> { let Itinerary = IIALU; }
 
 def REPEAT64 : FMTGEN<  // TODO: something to reflect state
@@ -1195,6 +1195,30 @@ def REPEAT64 : FMTGEN<  // TODO: something to reflect state
   (ins I1:$pred, I64:$in),
   "repeat64\t$out, $pred, $in",
   []> { let Itinerary = IIALU; }
+
+//**************************************************************
+// TBD(jsukha): FIX ME!
+//
+// I added these two sequence opcodes manually because these
+// are the ones I need to get the two test examples I have 
+// working.
+//
+// We eventually want something nicer here. 
+//
+def SEQSNE32 : FMTGEN<  // TODO: something to reflect state
+  (outs I64:$val, I1:$pred, I1:$first, I1:$last),
+  (ins I64:$base, I64:$bound, I64:$stride),
+  "seqs64\t$val, $pred, $first, $last, $base, $bound, $stride",
+  []> { let Itinerary = IIALU; }
+
+def SEQSLTS64 : FMTGEN<  // TODO: something to reflect state
+  (outs I64:$val, I1:$pred, I1:$first, I1:$last),
+  (ins I64:$base, I64:$bound, I64:$stride),
+  "seqs64\t$val, $pred, $first, $last, $base, $bound, $stride",
+  []> { let Itinerary = IIALU; }
+  
+//  
+//**************************************************************
 
 
 multiclass Init<RegisterClass RC, ValueType opType, list<Predicate> preds> {
