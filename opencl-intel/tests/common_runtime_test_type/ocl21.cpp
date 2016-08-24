@@ -276,7 +276,7 @@ TEST_F(OCL21, clCloneKernel01)
 TEST_F(OCL21, clGetKernelSubGroupInfo01)
 {
     // create OpenCL queues, program and context
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromStringSource(ocl_descriptor, "subgroups.cl"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
 
     cl_kernel kernel = 0;
     createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
@@ -331,7 +331,7 @@ TEST_F(OCL21, clGetKernelSubGroupInfo01)
 TEST_F(OCL21, clGetKernelSubGroupInfo02)
 {
     // create OpenCL queues, program and context
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromStringSource(ocl_descriptor, "subgroups.cl"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
 
     cl_kernel kernel = 0;
     createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
@@ -383,7 +383,7 @@ TEST_F(OCL21, clGetKernelSubGroupInfo02)
 TEST_F(OCL21, clGetKernelSubGroupInfo03)
 {
     // create OpenCL queues, program and context
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromStringSource(ocl_descriptor, "subgroups.cl"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromILSource(ocl_descriptor, "subgroups.spv"));
 
     cl_kernel kernel = 0;
     createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
