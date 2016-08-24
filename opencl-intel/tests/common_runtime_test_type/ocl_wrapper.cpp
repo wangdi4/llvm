@@ -627,8 +627,6 @@ void createUserEvent(cl_event* user_event, cl_context context)
 	*user_event = clCreateUserEvent(context, &errcode_ret);
 	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateUserEvent failed";
 	ASSERT_NE((cl_event)0, *user_event) << "clCreateUserEvent returned 0 as event value";
-
-	
 }
 
 // createSampler - calls and validates clCreateSampler

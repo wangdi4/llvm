@@ -255,18 +255,23 @@ TEST_F(OCL21, clCloneKernel01)
 //| Purpose
 //| -------
 //|
-//| Verify the ability to get kernel subgroup info
+//| Verify that clGetKernelSubGroupInfo cannot generate local size for more
+//| than CL_KERNEL_MAX_NUM_SUB_GROUPS subgroups
 //|
 //| Method
 //| ------
 //|
 //| 1. Build program from IL
-//| 2. Validate
+//| 2. Get count=CL_KERNEL_MAX_NUM_SUB_GROUPS using clGetKernelSubGroupInfo
+//| 3. Generate local_size for `count` subgroups
+//| 4. Validate that local_size[0] > 0, local_size[1] = 1 and local_size[2] = 1
+//| 5. Generate local_size for `count` + 10 subgroups
+//| 6. Validate that local_size[0] = 0, local_size[1] = 0 and local_size[2] = 0
 //|
 //| Pass criteria
 //| -------------
 //|
-//| Verify that valid non-zero kernel objects are returned
+//| All assertions passed
 //|
 TEST_F(OCL21, clGetKernelSubGroupInfo01)
 {
@@ -313,7 +318,10 @@ TEST_F(OCL21, clGetKernelSubGroupInfo01)
 //| ------
 //|
 //| 1. Build program from IL
-//| 2. Validate
+//| 2. Get count=CL_KERNEL_MAX_NUM_SUB_GROUPS
+//| 3. Get local_size for `count` subgroups
+//| 4. Get sub_group_count for local_size
+//| 5. Validate that sub_group_count = count
 //|
 //| Pass criteria
 //| -------------
@@ -343,13 +351,112 @@ TEST_F(OCL21, clGetKernelSubGroupInfo02)
     ASSERT_EQ(local_size[1], 1);
     ASSERT_EQ(local_size[2], 1);
 
-    local_size[0] = local_size[1] = local_size[2] = 10;
     ret_size = 0;
-    size_t wrong_cl_kernel_max_num_sub_groups = cl_kernel_max_num_sub_groups + 10;
+    size_t sub_group_count = 0;
+    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE,
+        sizeof(local_size), local_size,
+        sizeof(sub_group_count), &sub_group_count, &ret_size);
+    ASSERT_EQ(sub_group_count, cl_kernel_max_num_sub_groups);
+}
+
+//| TEST: OCL21.clGetKernelSubGroupInfo03
+//|
+//| Purpose
+//| -------
+//|
+//| Verify the ability to get kernel subgroup info
+//|
+//| Method
+//| ------
+//|
+//| 1. Build program from IL
+//| 2. Get size = CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE
+//| 3. Get count = CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE
+//| 4. Execute kernel
+//| 5. Validate data from kernel
+//|
+//| Pass criteria
+//| -------------
+//|
+//| Verify that valid non-zero kernel objects are returned
+//|
+TEST_F(OCL21, clGetKernelSubGroupInfo03)
+{
+    // create OpenCL queues, program and context
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueuesFromStringSource(ocl_descriptor, "subgroups.cl"));
+
+    cl_kernel kernel = 0;
+    createKernel(&kernel, ocl_descriptor.program, "sub_groups_main");
+
+    cl_mem sub_group_size_buffer = nullptr;
+    cl_mem max_sub_group_size_buffer = nullptr;
+    cl_mem num_sub_groups_buffer = nullptr;
+
+    size_t cl_kernel_max_num_sub_groups = 0;
+    size_t ret_size = 0;
+    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_MAX_NUM_SUB_GROUPS,
+        0, nullptr, sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups, &ret_size);
+    ASSERT_EQ(sizeof(cl_kernel_max_num_sub_groups), ret_size);
+
+    size_t local_size[3] = { 1, 1, 1 };
+    ret_size = 0;
     getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
-        sizeof(wrong_cl_kernel_max_num_sub_groups), &wrong_cl_kernel_max_num_sub_groups,
+        sizeof(cl_kernel_max_num_sub_groups), &cl_kernel_max_num_sub_groups,
         sizeof(local_size), local_size, &ret_size);
-    ASSERT_EQ(local_size[0], 0);
-    ASSERT_EQ(local_size[1], 0);
-    ASSERT_EQ(local_size[2], 0);
+    ASSERT_GT(local_size[0], 0);
+    ASSERT_EQ(local_size[1], 1);
+    ASSERT_EQ(local_size[2], 1);
+
+    size_t cl_kernel_max_sub_group_size_for_ndrange = 0;
+    ret_size = 0;
+    getKernelSubGroupInfo(kernel, ocl_descriptor.devices[1], CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,
+        sizeof(local_size), local_size, sizeof(cl_kernel_max_sub_group_size_for_ndrange),
+        &cl_kernel_max_sub_group_size_for_ndrange, &ret_size);
+
+    size_t global_size[3] = { 100, 1, 1 };
+    size_t buffer_size = global_size[0] * sizeof(cl_uint);
+
+    createBuffer(&sub_group_size_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr);
+    createBuffer(&max_sub_group_size_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr);
+    createBuffer(&num_sub_groups_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, buffer_size, nullptr);
+
+    size_t pattern = 0;
+    enqueueFillBuffer(ocl_descriptor.queues[0], sub_group_size_buffer, &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr);
+    enqueueFillBuffer(ocl_descriptor.queues[0], max_sub_group_size_buffer, &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr);
+    enqueueFillBuffer(ocl_descriptor.queues[0], num_sub_groups_buffer, &pattern, sizeof(pattern), 0, buffer_size, 0, nullptr, nullptr);
+
+    setKernelArg(kernel, 0, buffer_size, sub_group_size_buffer);
+    setKernelArg(kernel, 1, buffer_size, max_sub_group_size_buffer);
+    setKernelArg(kernel, 2, buffer_size, num_sub_groups_buffer);
+
+    enqueueNDRangeKernel(ocl_descriptor.queues[1], kernel, 3, nullptr, global_size, local_size, 0, nullptr, nullptr);
+
+    cl_uint *ptr = nullptr;
+    enqueueMapBuffer(&ptr, ocl_descriptor.queues[0], sub_group_size_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr);
+    for (size_t i = 0; i < global_size[0]; ++i) {
+        ASSERT_GE(cl_kernel_max_sub_group_size_for_ndrange, ptr[i]);
+    }
+    enqueueUnmapMemObject(ocl_descriptor.queues[0], sub_group_size_buffer, ptr, 0, nullptr, nullptr);
+
+    ptr = nullptr;
+    enqueueMapBuffer(&ptr, ocl_descriptor.queues[0], max_sub_group_size_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr);
+    for (size_t i = 0; i < global_size[0]; ++i) {
+        ASSERT_EQ(cl_kernel_max_sub_group_size_for_ndrange, ptr[i]);
+    }
+    enqueueUnmapMemObject(ocl_descriptor.queues[0], max_sub_group_size_buffer, ptr, 0, nullptr, nullptr);
+
+    ptr = nullptr;
+    enqueueMapBuffer(&ptr, ocl_descriptor.queues[0], num_sub_groups_buffer, CL_TRUE, CL_MAP_READ, 0, buffer_size, 0, nullptr, nullptr);
+    for (size_t i = 0; i < global_size[0]; ++i) {
+        ASSERT_EQ(ptr[i], cl_kernel_max_num_sub_groups);
+    }
+    enqueueUnmapMemObject(ocl_descriptor.queues[0], num_sub_groups_buffer, ptr, 0, nullptr, nullptr);
+
+    finish(ocl_descriptor.queues[0]);
+    finish(ocl_descriptor.queues[1]);
+
+    clReleaseKernel(kernel);
+    clReleaseMemObject(sub_group_size_buffer);
+    clReleaseMemObject(max_sub_group_size_buffer);
+    clReleaseMemObject(num_sub_groups_buffer);
 }
