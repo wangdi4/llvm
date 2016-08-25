@@ -271,7 +271,7 @@ TEST(DemangleTest, AsyncGropuCpy){
 
 
 TEST(MangleTest, clk_event){
-  const std::string s = "_Z14enqueue_kernelPK12ocl_clkeventP12ocl_clkevent";
+  const std::string s = "_Z14enqueue_kernelPK12ocl_clkeventS_";
   FunctionDescriptor fd = demangle(s.c_str());
   ASSERT_EQ(s, mangle(fd));
 }
@@ -280,7 +280,7 @@ TEST(DemangleTest, block){
   char const* names[] = {
     "_Z14enqueue_kernelU13block_pointerFvvE",
     "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS412ocl_clkeventPU3AS412ocl_clkeventU13block_pointerFvPU3AS3vzEjz",
-    "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK12ocl_clkeventP12ocl_clkeventU13block_pointerFvPU3AS3vzEjz"
+    "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK12ocl_clkeventS0_U13block_pointerFvPU3AS3vzEjz"
   };
 
   for(char const* name : names) {
@@ -535,7 +535,7 @@ TEST(DemangleTest, doubleDup7){
     demangle("_Z3fooPDv4_fS_S0_");
   ASSERT_FALSE(fd.isNull());
   ASSERT_EQ(
-    std::string("foo(__private float4 *, float4, __private float4 *)")
+    std::string("foo(float4 *, float4, float4 *)")
     , fd.toString()
   );
 }
@@ -545,9 +545,9 @@ TEST(DemangleTest, doubleDup8){
     demangle("_Z3fooPiPjPcPhPfPdS_S0_S1_S2_S3_S4_Dv4_iDv4_jDv4_cDv4_hDv4_fDv4_dS5_S6_S7_S8_S9_SA_");
   ASSERT_FALSE(fd.isNull());
   ASSERT_EQ(
-    std::string("foo(__private int *, __private uint *, __private char *, __private uchar *, __private float *, "
-    "__private double *, __private int *, __private uint *, __private char *, __private uchar *, __private float *, "
-    "__private double *, int4, uint4, char4, uchar4, float4, double4, int4, uint4, char4, uchar4, float4, double4)")
+    std::string("foo(int *, uint *, char *, uchar *, float *, "
+    "double *, int *, uint *, char *, uchar *, float *, "
+    "double *, int4, uint4, char4, uchar4, float4, double4, int4, uint4, char4, uchar4, float4, double4)")
     , fd.toString()
   );
 }
@@ -555,7 +555,7 @@ TEST(DemangleTest, doubleDup8){
 TEST(DemangleTest, doubleDup9){
   FunctionDescriptor fd = demangle("_Z3fooP4sFooS0_S_");
   ASSERT_FALSE(fd.isNull());
-  ASSERT_EQ(std::string("foo(__private sFoo *, __private sFoo *, sFoo)"), fd.toString());
+  ASSERT_EQ(std::string("foo(sFoo *, sFoo *, sFoo)"), fd.toString());
 }
 
 
