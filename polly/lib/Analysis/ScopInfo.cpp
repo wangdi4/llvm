@@ -869,7 +869,9 @@ void MemoryAccess::dump() const { print(errs()); }
 __isl_give isl_pw_aff *MemoryAccess::getPwAff(const SCEV *E) {
   auto *Stmt = getStatement();
   PWACtx PWAC = Stmt->getParent()->getPwAff(E, Stmt->getEntryBlock());
-  InvalidDomain = isl_set_union(InvalidDomain, PWAC.second);
+  isl_set *StmtDom = isl_set_reset_tuple_id(getStatement()->getDomain());
+  isl_set *NewInvalidDom = isl_set_intersect(StmtDom, PWAC.second);
+  InvalidDomain = isl_set_union(InvalidDomain, NewInvalidDom);
   return PWAC.first;
 }
 
@@ -1772,6 +1774,8 @@ void Scop::createParameterId(const SCEV *Parameter) {
     }
   }
 
+  ParameterName = getIslCompatibleName("", ParameterName, "");
+
   auto *Id = isl_id_alloc(getIslCtx(), ParameterName.c_str(),
                           const_cast<void *>((const void *)Parameter));
   ParameterIds[Parameter] = Id;
@@ -1939,8 +1943,8 @@ void Scop::buildInvariantEquivalenceClasses() {
     }
 
     ClassRep = LInst;
-    InvariantEquivClasses.emplace_back(PointerSCEV, MemoryAccessList(), nullptr,
-                                       Ty);
+    InvariantEquivClasses.emplace_back(
+        InvariantEquivClassTy{PointerSCEV, MemoryAccessList(), nullptr, Ty});
   }
 }
 
@@ -2244,6 +2248,10 @@ bool Scop::buildDomains(Region *R, DominatorTree &DT, LoopInfo &LI) {
   return true;
 }
 
+// If the loop is nonaffine/boxed, return the first non-boxed surrounding loop
+// for Polly. If the loop is affine, return the loop itself. Do not call
+// `getSCEVAtScope()` on the result of `getFirstNonBoxedLoopFor()`, as we need
+// to analyze the memory accesses of the nonaffine/boxed loops.
 static Loop *getFirstNonBoxedLoopFor(BasicBlock *BB, LoopInfo &LI,
                                      const BoxedLoopsSetTy &BoxedLoops) {
   auto *L = LI.getLoopFor(BB);
@@ -3050,7 +3058,7 @@ void Scop::init(AliasAnalysis &AA, AssumptionCache &AC, DominatorTree &DT,
 
   // Remove empty statements.
   // Exit early in case there are no executable statements left in this scop.
-  simplifySCoP(false, DT, LI);
+  simplifySCoP(false);
   if (Stmts.empty())
     return;
 
@@ -3082,7 +3090,7 @@ void Scop::init(AliasAnalysis &AA, AssumptionCache &AC, DominatorTree &DT,
 
   hoistInvariantLoads();
   verifyInvariantLoads();
-  simplifySCoP(true, DT, LI);
+  simplifySCoP(true);
 
   // Check late for a feasible runtime context because profitability did not
   // change.
@@ -3120,7 +3128,7 @@ Scop::~Scop() {
   }
 
   for (const auto &IAClass : InvariantEquivClasses)
-    isl_set_free(std::get<2>(IAClass));
+    isl_set_free(IAClass.ExecutionContext);
 
   // Explicitly release all Scop objects and the underlying isl objects before
   // we relase the isl context.
@@ -3153,7 +3161,7 @@ void Scop::updateAccessDimensionality() {
       Access->updateDimensionality();
 }
 
-void Scop::simplifySCoP(bool AfterHoisting, DominatorTree &DT, LoopInfo &LI) {
+void Scop::simplifySCoP(bool AfterHoisting) {
   for (auto StmtIt = Stmts.begin(), StmtEnd = Stmts.end(); StmtIt != StmtEnd;) {
     ScopStmt &Stmt = *StmtIt;
 
@@ -3202,10 +3210,10 @@ InvariantEquivClassTy *Scop::lookupInvariantEquivClass(Value *Val) {
   Type *Ty = LInst->getType();
   const SCEV *PointerSCEV = SE->getSCEV(LInst->getPointerOperand());
   for (auto &IAClass : InvariantEquivClasses) {
-    if (PointerSCEV != std::get<0>(IAClass) || Ty != std::get<3>(IAClass))
+    if (PointerSCEV != IAClass.IdentifyingPointer || Ty != IAClass.AccessType)
       continue;
 
-    auto &MAs = std::get<1>(IAClass);
+    auto &MAs = IAClass.InvariantAccesses;
     for (auto *MA : MAs)
       if (MA->getAccessInstruction() == Val)
         return &IAClass;
@@ -3323,7 +3331,7 @@ void Scop::addInvariantLoads(ScopStmt &Stmt, InvariantAccessesTy &InvMAs) {
 
     bool Consolidated = false;
     for (auto &IAClass : InvariantEquivClasses) {
-      if (PointerSCEV != std::get<0>(IAClass) || Ty != std::get<3>(IAClass))
+      if (PointerSCEV != IAClass.IdentifyingPointer || Ty != IAClass.AccessType)
         continue;
 
       // If the pointer and the type is equal check if the access function wrt.
@@ -3331,7 +3339,7 @@ void Scop::addInvariantLoads(ScopStmt &Stmt, InvariantAccessesTy &InvMAs) {
       // parameter values and these can be different for distinct part of the
       // SCoP. If this happens we cannot consolidate the loads but need to
       // create a new invariant load equivalence class.
-      auto &MAs = std::get<1>(IAClass);
+      auto &MAs = IAClass.InvariantAccesses;
       if (!MAs.empty()) {
         auto *LastMA = MAs.front();
 
@@ -3351,7 +3359,7 @@ void Scop::addInvariantLoads(ScopStmt &Stmt, InvariantAccessesTy &InvMAs) {
       Consolidated = true;
 
       // Unify the execution context of the class and this statement.
-      isl_set *&IAClassDomainCtx = std::get<2>(IAClass);
+      isl_set *&IAClassDomainCtx = IAClass.ExecutionContext;
       if (IAClassDomainCtx)
         IAClassDomainCtx =
             isl_set_coalesce(isl_set_union(IAClassDomainCtx, MACtx));
@@ -3365,8 +3373,8 @@ void Scop::addInvariantLoads(ScopStmt &Stmt, InvariantAccessesTy &InvMAs) {
 
     // If we did not consolidate MA, thus did not find an equivalence class
     // for it, we create a new one.
-    InvariantEquivClasses.emplace_back(PointerSCEV, MemoryAccessList{MA}, MACtx,
-                                       Ty);
+    InvariantEquivClasses.emplace_back(
+        InvariantEquivClassTy{PointerSCEV, MemoryAccessList{MA}, MACtx, Ty});
   }
 
   isl_set_free(DomainCtx);
@@ -3791,12 +3799,13 @@ void Scop::print(raw_ostream &OS) const {
   OS.indent(4) << "Max Loop Depth:  " << getMaxLoopDepth() << "\n";
   OS.indent(4) << "Invariant Accesses: {\n";
   for (const auto &IAClass : InvariantEquivClasses) {
-    const auto &MAs = std::get<1>(IAClass);
+    const auto &MAs = IAClass.InvariantAccesses;
     if (MAs.empty()) {
-      OS.indent(12) << "Class Pointer: " << *std::get<0>(IAClass) << "\n";
+      OS.indent(12) << "Class Pointer: " << *IAClass.IdentifyingPointer << "\n";
     } else {
       MAs.front()->print(OS);
-      OS.indent(12) << "Execution Context: " << std::get<2>(IAClass) << "\n";
+      OS.indent(12) << "Execution Context: " << IAClass.ExecutionContext
+                    << "\n";
     }
   }
   OS.indent(4) << "}\n";
@@ -4264,8 +4273,11 @@ bool ScopInfoWrapperPass::runOnFunction(Function &F) {
       continue;
 
     ScopBuilder SB(R, AC, AA, DL, DT, LI, SD, SE);
+    std::unique_ptr<Scop> S = SB.getScop();
+    if (!S)
+      continue;
     bool Inserted =
-        RegionToScopMap.insert(std::make_pair(R, SB.getScop())).second;
+        RegionToScopMap.insert(std::make_pair(R, std::move(S))).second;
     assert(Inserted && "Building Scop for the same region twice!");
     (void)Inserted;
   }

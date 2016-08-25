@@ -27,7 +27,9 @@
 #include "sanitizer_libc.h"
 #include "sanitizer_mutex.h"
 #include "sanitizer_placement_new.h"
+#include "sanitizer_procmaps.h"
 #include "sanitizer_stacktrace.h"
+#include "sanitizer_symbolizer.h"
 
 namespace __sanitizer {
 
@@ -171,9 +173,16 @@ void *MmapAlignedOrDie(uptr size, uptr alignment, const char *mem_type) {
 void *MmapFixedNoReserve(uptr fixed_addr, uptr size, const char *name) {
   // FIXME: is this really "NoReserve"? On Win32 this does not matter much,
   // but on Win64 it does.
-  (void)name; // unsupported
-  void *p = VirtualAlloc((LPVOID)fixed_addr, size,
-      MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+  (void)name;  // unsupported
+#if !SANITIZER_GO && SANITIZER_WINDOWS64
+  // On asan/Windows64, use MEM_COMMIT would result in error
+  // 1455:ERROR_COMMITMENT_LIMIT.
+  // Asan uses exception handler to commit page on demand.
+  void *p = VirtualAlloc((LPVOID)fixed_addr, size, MEM_RESERVE, PAGE_READWRITE);
+#else
+  void *p = VirtualAlloc((LPVOID)fixed_addr, size, MEM_RESERVE | MEM_COMMIT,
+                         PAGE_READWRITE);
+#endif
   if (p == 0)
     Report("ERROR: %s failed to "
            "allocate %p (%zd) bytes at %p (error code: %d)\n",
@@ -181,9 +190,11 @@ void *MmapFixedNoReserve(uptr fixed_addr, uptr size, const char *name) {
   return p;
 }
 
+// Memory space mapped by 'MmapFixedOrDie' must have been reserved by
+// 'MmapFixedNoAccess'.
 void *MmapFixedOrDie(uptr fixed_addr, uptr size) {
   void *p = VirtualAlloc((LPVOID)fixed_addr, size,
-      MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+      MEM_COMMIT, PAGE_READWRITE);
   if (p == 0) {
     char mem_type[30];
     internal_snprintf(mem_type, sizeof(mem_type), "memory at address 0x%zx",
@@ -201,7 +212,7 @@ void *MmapNoReserveOrDie(uptr size, const char *mem_type) {
 void *MmapFixedNoAccess(uptr fixed_addr, uptr size, const char *name) {
   (void)name; // unsupported
   void *res = VirtualAlloc((LPVOID)fixed_addr, size,
-                           MEM_RESERVE | MEM_COMMIT, PAGE_NOACCESS);
+                           MEM_RESERVE, PAGE_NOACCESS);
   if (res == 0)
     Report("WARNING: %s failed to "
            "mprotect %p (%zd) bytes at %p (error code: %d)\n",
@@ -709,7 +720,7 @@ void BufferedStackTrace::SlowUnwindStack(uptr pc, u32 max_depth) {
   // FIXME: CaptureStackBackTrace might be too slow for us.
   // FIXME: Compare with StackWalk64.
   // FIXME: Look at LLVMUnhandledExceptionFilter in Signals.inc
-  size = CaptureStackBackTrace(2, Min(max_depth, kStackTraceMax),
+  size = CaptureStackBackTrace(1, Min(max_depth, kStackTraceMax),
                                (void**)trace, 0);
   if (size == 0)
     return;
@@ -724,6 +735,9 @@ void BufferedStackTrace::SlowUnwindStackWithContext(uptr pc, void *context,
   CONTEXT ctx = *(CONTEXT *)context;
   STACKFRAME64 stack_frame;
   memset(&stack_frame, 0, sizeof(stack_frame));
+
+  InitializeDbgHelpIfNeeded();
+
   size = 0;
 #if defined(_WIN64)
   int machine_type = IMAGE_FILE_MACHINE_AMD64;
@@ -870,6 +884,10 @@ bool IsProcessRunning(pid_t pid) {
 }
 
 int WaitForProcess(pid_t pid) { return -1; }
+
+// FIXME implement on this platform.
+void GetMemoryProfile(fill_profile_f cb, uptr *stats, uptr stats_size) { }
+
 
 }  // namespace __sanitizer
 

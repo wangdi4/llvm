@@ -12,6 +12,7 @@
 
 #include "Config.h"
 #include "Relocations.h"
+#include "Thunks.h"
 #include "lld/Core/LLVM.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/TinyPtrVector.h"
@@ -31,6 +32,7 @@ template <class ELFT> class OutputSectionBase;
 // This corresponds to a section of an input file.
 template <class ELFT> class InputSectionBase {
 protected:
+  typedef typename ELFT::Chdr Elf_Chdr;
   typedef typename ELFT::Rel Elf_Rel;
   typedef typename ELFT::Rela Elf_Rela;
   typedef typename ELFT::Shdr Elf_Shdr;
@@ -114,29 +116,8 @@ public:
   uint32_t Live : 1;
 };
 
-// Usually sections are copied to the output as atomic chunks of data,
-// but some special types of sections are split into small pieces of data
-// and each piece is copied to a different place in the output.
-// This class represents such special sections.
-template <class ELFT> class SplitInputSection : public InputSectionBase<ELFT> {
-  typedef typename ELFT::Shdr Elf_Shdr;
-  typedef typename ELFT::uint uintX_t;
-
-public:
-  SplitInputSection(ObjectFile<ELFT> *File, const Elf_Shdr *Header,
-                    typename InputSectionBase<ELFT>::Kind SectionKind);
-
-  // Splittable sections are handled as a sequence of data
-  // rather than a single large blob of data.
-  std::vector<SectionPiece> Pieces;
-
-  // Returns the SectionPiece at a given input section offset.
-  SectionPiece *getSectionPiece(uintX_t Offset);
-  const SectionPiece *getSectionPiece(uintX_t Offset) const;
-};
-
 // This corresponds to a SHF_MERGE section of an input file.
-template <class ELFT> class MergeInputSection : public SplitInputSection<ELFT> {
+template <class ELFT> class MergeInputSection : public InputSectionBase<ELFT> {
   typedef typename ELFT::uint uintX_t;
   typedef typename ELFT::Sym Elf_Sym;
   typedef typename ELFT::Shdr Elf_Shdr;
@@ -155,23 +136,38 @@ public:
 
   void finalizePieces();
 
+  // Splittable sections are handled as a sequence of data
+  // rather than a single large blob of data.
+  std::vector<SectionPiece> Pieces;
+
+  // Returns the SectionPiece at a given input section offset.
+  SectionPiece *getSectionPiece(uintX_t Offset);
+  const SectionPiece *getSectionPiece(uintX_t Offset) const;
+
 private:
   llvm::DenseMap<uintX_t, uintX_t> OffsetMap;
   llvm::DenseSet<uintX_t> LiveOffsets;
 };
 
+struct EhSectionPiece : public SectionPiece {
+  EhSectionPiece(size_t Off, ArrayRef<uint8_t> Data, unsigned FirstRelocation)
+      : SectionPiece(Off, Data), FirstRelocation(FirstRelocation) {}
+  unsigned FirstRelocation;
+};
+
 // This corresponds to a .eh_frame section of an input file.
-template <class ELFT> class EhInputSection : public SplitInputSection<ELFT> {
+template <class ELFT> class EhInputSection : public InputSectionBase<ELFT> {
 public:
   typedef typename ELFT::Shdr Elf_Shdr;
   typedef typename ELFT::uint uintX_t;
   EhInputSection(ObjectFile<ELFT> *F, const Elf_Shdr *Header);
   static bool classof(const InputSectionBase<ELFT> *S);
   void split();
+  template <class RelTy> void split(ArrayRef<RelTy> Rels);
 
-  // Translate an offset in the input section to an offset in the output
-  // section.
-  uintX_t getOffset(uintX_t Offset) const;
+  // Splittable sections are handled as a sequence of data
+  // rather than a single large blob of data.
+  std::vector<EhSectionPiece> Pieces;
 
   // Relocation section that refer to this one.
   const Elf_Shdr *RelocSection = nullptr;
@@ -207,8 +203,8 @@ public:
 
   // Register thunk related to the symbol. When the section is written
   // to a mmap'ed file, target is requested to write an actual thunk code.
-  // Now thunks is supported for MIPS target only.
-  void addThunk(SymbolBody &Body);
+  // Now thunks is supported for MIPS and ARM target only.
+  void addThunk(const Thunk<ELFT> *T);
 
   // The offset of synthetic thunk code from beginning of this section.
   uint64_t getThunkOff() const;
@@ -229,7 +225,7 @@ private:
   // Used by ICF.
   uint64_t GroupId = 0;
 
-  llvm::TinyPtrVector<const SymbolBody *> Thunks;
+  llvm::TinyPtrVector<const Thunk<ELFT> *> Thunks;
 };
 
 // MIPS .reginfo section provides information on the registers used by the code

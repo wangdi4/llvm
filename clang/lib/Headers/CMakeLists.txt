@@ -20,6 +20,7 @@ set(modified_files
   avxintrin.h
   bmi2intrin.h
   bmiintrin.h
+  clflushoptintrin.h
   emmintrin.h
   f16cintrin.h
   fmaintrin.h

@@ -33,6 +33,7 @@
 #include "clang/Frontend/CodeGenOptions.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/Attributes.h"
+#include "llvm/IR/CallingConv.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
@@ -49,8 +50,8 @@ using namespace CodeGen;
 
 /***/
 
-static unsigned ClangCallConvToLLVMCallConv(ASTContext &C,    // INTEL
-                                            CallingConv CC) { // INTEL
+unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(ASTContext &C,    // INTEL
+						   CallingConv CC) { // INTEL
   switch (CC) {
   default: return llvm::CallingConv::C;
   case CC_X86StdCall: return llvm::CallingConv::X86_StdCall;
@@ -66,10 +67,10 @@ static unsigned ClangCallConvToLLVMCallConv(ASTContext &C,    // INTEL
   // TODO: Add support for __vectorcall to LLVM.
   case CC_X86VectorCall: return llvm::CallingConv::X86_VectorCall;
   case CC_SpirFunction: return llvm::CallingConv::SPIR_FUNC;
-  case CC_SpirKernel:                        // INTEL
+  case CC_OpenCLKernel:                      // INTEL
     if (C.getLangOpts().IntelCompat)         // INTEL
       return llvm::CallingConv::X86_RegCall; // INTEL
-    return llvm::CallingConv::SPIR_KERNEL;   // INTEL
+    return CGM.getTargetCodeGenInfo().getOpenCLKernelCallingConv(); // INTEL
   case CC_PreserveMost: return llvm::CallingConv::PreserveMost;
   case CC_PreserveAll: return llvm::CallingConv::PreserveAll;
   case CC_Swift: return llvm::CallingConv::Swift;
@@ -1776,6 +1777,8 @@ void CodeGenModule::ConstructAttributeList(
                            llvm::toStringRef(CodeGenOpts.SoftFloat));
     FuncAttrs.addAttribute("stack-protector-buffer-size",
                            llvm::utostr(CodeGenOpts.SSPBufferSize));
+    FuncAttrs.addAttribute("no-signed-zeros-fp-math",
+                           llvm::toStringRef(CodeGenOpts.NoSignedZeros));
 
     if (CodeGenOpts.StackRealignment)
       FuncAttrs.addAttribute("stackrealign");
