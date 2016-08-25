@@ -298,13 +298,30 @@ namespace llvm {
         delete transformBody;
       }
     }
+
+    // Accessor functions for important 
+
+    inline MachineOperand* get_pick_top_op() const {
+      return &pickInst->getOperand(0);
+    }
+
+    inline MachineOperand* get_pick_input_op() const {
+      return &pickInst->getOperand(2);
+    }
+
+
+
+    
   };
 
 
   struct LPUSeqLoopInfo {
     LPUSeqHeader header;
     SmallVector<LPUSeqCandidate, 12> candidates;
-    std::set<unsigned> repeat_channels;
+
+    // A map from repeat channel register to the index in
+    // "repeat_candidates" where we found the candidate.
+    DenseMap<unsigned, int> repeat_channels;
 
     // The index into the candidate array where matches to the uses in
     // the compare are located, if there are any such matches.

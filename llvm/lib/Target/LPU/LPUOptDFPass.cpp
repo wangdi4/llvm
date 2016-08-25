@@ -47,6 +47,7 @@ OptDFPass("lpu-opt-df-pass", cl::Hidden,
 
 #define DEBUG_TYPE "lpu-opt-df"
 
+const TargetRegisterClass* SeqPredRC = &LPU::CI1RegClass;
 
 // Flag for enabling sequence optimizations.
 //
@@ -147,14 +148,14 @@ public:
   //  SeqType::REPEAT
   //  SeqType::REDUCTION
   LPUSeqCandidate::SeqType
-  seq_classify_repeat_or_reduction(LPUSeqCandidate& x,
-                                   std::set<unsigned>& repeat_channels);
+  seq_classify_repeat_or_reduction(LPUSeqCandidate& x);
+
 
   // Check whether this candidate sequence matches a "stride" type.
   // This pass uses the 
   LPUSeqCandidate::SeqType
   seq_classify_stride(LPUSeqCandidate& x,
-                      const std::set<unsigned>& repeat_channels);
+                      const DenseMap<unsigned, int>& repeat_channels);
 
   // Classify all the candidate sequences in the loops we found.
   void
@@ -463,7 +464,9 @@ seq_print_loop_info(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
     for (auto it = current_loop.repeat_channels.begin();
          it != current_loop.repeat_channels.end();
          ++it) {
-      DEBUG(errs() << " " << *it);
+      unsigned reg = it->getFirst();
+      DEBUG(errs() << "(Reg= " << reg
+            << ", idx= " << it->getSecond() << ") ");
     }
     DEBUG(errs() << "\n");
 
@@ -709,8 +712,7 @@ LPUOptDFPass::getSingleUse(unsigned Reg,
 
 LPUSeqCandidate::SeqType
 LPUOptDFPass::
-seq_classify_repeat_or_reduction(LPUSeqCandidate& x,
-                                 std::set<unsigned>& repeat_channels) {
+seq_classify_repeat_or_reduction(LPUSeqCandidate& x) {
   assert(x.pickInst && x.switchInst);
 
   // Example: 
@@ -741,8 +743,6 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x,
       x.transformInst = NULL;
       x.top = top_channel;
       x.bottom = bottom_channel;
-      // Save the channel into our list of repeat channels.
-      repeat_channels.insert(bottom_channel);
       return LPUSeqCandidate::SeqType::REPEAT;
     } 
 
@@ -781,7 +781,7 @@ seq_classify_repeat_or_reduction(LPUSeqCandidate& x,
 LPUSeqCandidate::SeqType
 LPUOptDFPass::
 seq_classify_stride(LPUSeqCandidate& x,
-                    const std::set<unsigned>& repeat_channels) {
+                    const DenseMap<unsigned, int>& repeat_channels) {
   assert(x.pickInst && x.switchInst);
   MachineOperand& bottom_op = x.switchInst->getOperand(3);
   MachineOperand& top_op = x.pickInst->getOperand(0);
@@ -828,7 +828,8 @@ seq_classify_stride(LPUSeqCandidate& x,
         MachineOperand& stride_op = def_bottom->getOperand(stride_idx);
         if (stride_op.isImm() ||
             (stride_op.isReg() &&
-             repeat_channels.count(stride_op.getReg()) > 0)) {
+             (repeat_channels.find(stride_op.getReg())
+              != repeat_channels.end()))) {
           x.top = top_channel;
           x.bottom = bottom_channel;
           x.stride_op = &stride_op;
@@ -886,7 +887,6 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
       LPUSeqLoopInfo& current_loop = (*loops)[i];
       current_loop.repeat_channels.clear();
 
-
       assert(current_loop.header.compareInst);
 
       // Look up the registers in the compare instruction, if there
@@ -895,9 +895,10 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
       MachineOperand& cmpuse1 = current_loop.header.compareInst->getOperand(2);
       unsigned cmp0_channel = (cmpuse0.isReg() ? cmpuse0.getReg() : 0);
       unsigned cmp1_channel = (cmpuse1.isReg() ? cmpuse1.getReg() : 0);
-      
+
       SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> classified;
       SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> remaining;
+      SmallVector<LPUSeqCandidate, SEQ_VEC_WIDTH> repeat_candidates;
 
       // First pass: look for repeat / reduction.
       for (auto it = current_loop.candidates.begin();
@@ -906,10 +907,26 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
         LPUSeqCandidate& x = *it;
         LPUSeqCandidate::SeqType stype;
 
-        stype = seq_classify_repeat_or_reduction(x,
-                                                 current_loop.repeat_channels);
+        stype = seq_classify_repeat_or_reduction(x);
 
-        if (stype == LPUSeqCandidate::SeqType::UNKNOWN) {
+        if (stype == LPUSeqCandidate::SeqType::REPEAT) {
+          // Save the channel into our list and map of repeat
+          // candidates.    The index in this
+          // repeat_candidate vector will be the same as the
+          // index in the final vector. 
+          int idx = repeat_candidates.size();
+          repeat_candidates.push_back(x);
+          current_loop.repeat_channels[x.bottom] = idx;
+
+          // Look for a match for this repeat in the comparison
+          // channels.
+          update_header_cmp_channels(current_loop,
+                                     idx,
+                                     x.bottom,
+                                     cmp0_channel,
+                                     cmp1_channel);
+        }
+        else if (stype == LPUSeqCandidate::SeqType::UNKNOWN) {
           remaining.push_back(x);
         }
         else {
@@ -917,26 +934,37 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
         }
       }
 
+      DEBUG(errs() << "Repeat candidates: " << repeat_candidates.size() << "\n");
       DEBUG(errs() << "Classified candidates: " << classified.size() << "\n");
       DEBUG(errs() << "Remaining candidates: " << remaining.size() << "\n");
       DEBUG(errs() << "Current loop candidates: "
             << current_loop.candidates.size() << "\n");
 
       
-      // Move the classified candidates over into the current loop.
-      // Along the way, look for matches with the operands in the
-      // compare.
+      // Move the repeat and classified candidates over into the
+      // current loop.  Along the way, look for matches with the
+      // operands in the compare.
       current_loop.candidates.clear();
 
+      // Move all the repeats back into candidates.
+      current_loop.candidates.insert(current_loop.candidates.end(),
+                                     repeat_candidates.begin(),
+                                     repeat_candidates.end());
+      repeat_candidates.clear();
 
+      // Next, move each of the classified candidates into the
+      // candidates.
       for (int i = 0; i < (int)classified.size(); ++i) {
         LPUSeqCandidate& x = classified[i];
+
+        int idx = current_loop.candidates.size();
+        current_loop.candidates.push_back(x);
         update_header_cmp_channels(current_loop,
-                                   i,
+                                   idx, 
                                    x.bottom,
                                    cmp0_channel,
                                    cmp1_channel);
-        current_loop.candidates.push_back(x);
+
       }
       classified.clear();
 
@@ -946,8 +974,7 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
       DEBUG(errs() << "After: Current loop candidates: "
             << current_loop.candidates.size() << "\n");
 
-      // Second pass: look for stride operations.
-      int loop_idx = current_loop.candidates.size();
+      // Second pass: look for strides in the remaining candidates.
       for (auto it = remaining.begin();
            it != remaining.end();
            ++it) {
@@ -965,6 +992,7 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
           classified.push_back(x);
         }
         else {
+          int loop_idx = current_loop.candidates.size();
           current_loop.candidates.push_back(x);
           // Again, look for a match with this sequence and the
           // compare instruction.
@@ -973,7 +1001,6 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
                                      x.bottom,
                                      cmp0_channel,
                                      cmp1_channel);
-          loop_idx++;
         }
       }
 
@@ -1091,11 +1118,19 @@ seq_compute_matching_seq_opcode(MachineInstr* compareInst,
 }
 
 
+
+
+
 void
 LPUOptDFPass::
 seq_do_transform_loop(LPUSeqLoopInfo& loop,
                       LPUSeqCandidate& indvarCandidate, 
                       unsigned indvar_opcode) {
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
+  const LPUInstrInfo &TII =
+    *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  
   // TBD(jsukha): Implement me!
   //
   // We need to use the information in "loop" and "indvarCandidate" to
@@ -1105,5 +1140,146 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
   // Then, once that is done, replacing the remaining dependent
   // sequence candidates, and cleanup (Steps 4 and 5).
   DEBUG(errs() << "Sequence transform not implemented yet...\n");
+
+  // First, convert the loop control variable.
+  // This step takes the following set of instructions:
+  //
+  //      <picker>  = INIT1 0
+  //      <picker>  = MOV1 <switcher>
+  //      <bottom_i> = add[n] <top_i> <top_s>
+  //
+  // *    <top_i> = PICK[n] <picker>, <in_i>, <loopBack_i>
+  // *    <out_i>, <loopBack_i> = SWITCH[n] <switcher>, <bottom_i>
+  // *    <switcher>    = CMP[*] <bottom_i>, <top_b>
+  //
+  //      <top_b> = PICK[n] <picker>, <in_b>, <loopBack_b>
+  //      <out_b>, <loopBack_b> = SWITCH[n] <switcher>, <top_b>
+  //
+  //      <top_s> = PICK[n] <picker>, <in_i>, <loopBack_s>
+  //      <out_s>, <loopBack_s> = SWITCH[n] <switcher>, <top_s>
+  //
+  //
+  // and replaces it with:
+  //
+  //
+  //      <picker>  = INIT1 0
+  //      <picker>  = MOV1 <switcher>
+  //      <bottom_i> = add[n] <top_i> <top_s>
+  //
+  // *    seq[*][n] <top_i>, %ign, %ign, <last_i>, 
+  //                <in_i>, <in_b>, <in_s>
+  // *    %ign, <out_i> = switch[n] <last_i>, <bottom_i>
+  // *    <switcher> = not1 <last_i>
+  //
+  //      <top_b> = PICK[n] <picker>, <in_b>, <loopBack_b>
+  //      <out_b>, <loopBack_b> = SWITCH[n] <switcher>, <top_b>
+  //
+  //      <top_s> = PICK[n] <picker>, <in_i>, <loopBack_s>
+  //      <out_s>, <loopBack_s> = SWITCH[n] <switcher>, <top_s>
+  //
+  //
+  // There is also a variant of this transformation:
+  // If <out_i> == %ign, then we don't need the switch. 
+  // Then, this transformation eliminates one use of <bottom_i>.
+  //
+  //  *    seq[*][n] <top_i>, %ign, %ign, <last_i>, 
+  //  *               <in_i>, <in_b>, <in_s>
+  //  *    <switcher> = not1 <last_i>
+  //
+  // If this use was the last use of <bottom_i>, then we should
+  // simplify, (by deleting add[n], and transitively, any instruction
+  // defining a reg where the add[n] was the only use).
+  //
+  // Note that <in_b> or <in_s> might be literals or other channels.
+  // 
+
+  assert(indvarCandidate.pickInst);
+  MachineBasicBlock* BB = indvarCandidate.pickInst->getParent();
+
+  unsigned top_i = indvarCandidate.top;
+  assert(top_i == indvarCandidate.get_pick_top_op()->getReg());
+
+  // <in_i> may or may not be an immediate, but it must come from the
+  // pick.
+  MachineOperand* in_i_op = indvarCandidate.get_pick_input_op();
+  
+  // Find a matching operand for <in_b>.  It either comes from a
+  // corresponding repeat input, or the second argument to the
+  // compare.  Note that we can't always pick it straight from the
+  // compare unless it is an immediate, because that channel has a
+  // value for every loop iteration.
+  MachineOperand* in_b_op;
+  bool bound_is_imm;
+  if (loop.cmp1_idx >= 0) {
+    LPUSeqCandidate& bound_rep = loop.candidates[loop.cmp1_idx];
+    assert(bound_rep.stype == LPUSeqCandidate::SeqType::REPEAT);
+    in_b_op = bound_rep.get_pick_input_op();
+    bound_is_imm = false;
+  }
+  else {
+    in_b_op = &loop.header.compareInst->getOperand(2);
+    assert(in_b_op->isImm());
+    bound_is_imm = true;
+  }
+
+  assert(indvarCandidate.transformInst);
+
+  // For stride, first look in the induction variable candidate op.
+  // If this stride op is a LIC (instead of an immediate), we will
+  // need to look up the input of the matching repeat instead.
+  MachineOperand* in_s_op = indvarCandidate.stride_op;
+  if (in_s_op->isReg()) {
+    unsigned bottom_s_reg = in_s_op->getReg();
+    if (loop.repeat_channels.find(bottom_s_reg) !=
+        loop.repeat_channels.end()) {
+      int stride_idx = loop.repeat_channels[bottom_s_reg];
+      assert((0 <= stride_idx) << (stride_idx < loop.candidates.size()));
+      LPUSeqCandidate& stride_rep = loop.candidates[stride_idx];
+      in_s_op = stride_rep.get_pick_input_op();
+    }
+    else {
+      // We should have matched the register for this stride op with a
+      // repeat earlier.
+      DEBUG(errs() << "ERROR: can't find repeat channel for stride...\n");
+      assert(0);
+    }
+  }
+
+  unsigned pred_reg = LPU::IGN;
+  unsigned first_reg = LPU::IGN;
+  unsigned last_reg =  LMFI->allocateLIC(SeqPredRC);
+
+  MachineInstr* seq_inst = BuildMI(*BB,
+                                   indvarCandidate.pickInst,
+                                   indvarCandidate.pickInst->getDebugLoc(),
+                                   TII.get(indvar_opcode),
+                                   indvarCandidate.top).
+    addReg(pred_reg, RegState::Define).
+    addReg(first_reg, RegState::Define).
+    addReg(last_reg, RegState::Define).
+    addOperand(*in_i_op).
+    addOperand(*in_b_op).
+    addOperand(*in_s_op);
+
+  MachineInstr* switcher_def_inst =
+    BuildMI(*BB,
+            seq_inst,
+            indvarCandidate.pickInst->getDebugLoc(),
+            TII.get(LPU::NOT1),
+            loop.header.switcherChannel).
+    addReg(last_reg);
+
+  DEBUG(errs() << "Adding a new sequence instruction "
+        << *seq_inst << "\n");
+  DEBUG(errs() << "Adding a new switcher def inst "
+        << *switcher_def_inst << "\n");
+
+  DEBUG(errs() << "After seq add: how many defs of top "
+        << indvarCandidate.top << "\n");
+  for (auto def_it = MRI->def_instr_begin(indvarCandidate.top);
+       def_it != MRI->def_instr_end();
+       ++def_it) {
+    DEBUG(errs() <<  *def_it << "\n");
+  }
 }
 
