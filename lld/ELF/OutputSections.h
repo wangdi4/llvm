@@ -24,8 +24,7 @@ namespace lld {
 namespace elf {
 
 class SymbolBody;
-struct SectionPiece;
-struct Version;
+struct EhSectionPiece;
 template <class ELFT> class SymbolTable;
 template <class ELFT> class SymbolTableSection;
 template <class ELFT> class StringTableSection;
@@ -39,18 +38,6 @@ template <class ELFT> class ObjectFile;
 template <class ELFT> class SharedFile;
 template <class ELFT> class SharedSymbol;
 template <class ELFT> class DefinedRegular;
-
-template <class ELFT>
-static inline typename ELFT::uint getAddend(const typename ELFT::Rel &Rel) {
-  return 0;
-}
-
-template <class ELFT>
-static inline typename ELFT::uint getAddend(const typename ELFT::Rela &Rel) {
-  return Rel.r_addend;
-}
-
-bool isValidCIdentifier(StringRef S);
 
 // This represents a section in an output file.
 // Different sub classes represent different types of sections. Some contain
@@ -79,12 +66,9 @@ public:
   void setSize(uintX_t Val) { Header.sh_size = Val; }
   uintX_t getFlags() const { return Header.sh_flags; }
   uintX_t getFileOff() const { return Header.sh_offset; }
-  uintX_t getAlignment() const {
-    // The ELF spec states that a value of 0 means the section has no alignment
-    // constraits.
-    return std::max<uintX_t>(Header.sh_addralign, 1);
-  }
+  uintX_t getAlignment() const { return Header.sh_addralign; }
   uint32_t getType() const { return Header.sh_type; }
+
   void updateAlignment(uintX_t Alignment) {
     if (Alignment > Header.sh_addralign)
       Header.sh_addralign = Alignment;
@@ -277,12 +261,15 @@ class VersionDefinitionSection final : public OutputSectionBase<ELFT> {
   typedef typename ELFT::Verdef Elf_Verdef;
   typedef typename ELFT::Verdaux Elf_Verdaux;
 
-  unsigned FileDefNameOff;
-
 public:
   VersionDefinitionSection();
   void finalize() override;
   void writeTo(uint8_t *Buf) override;
+
+private:
+  void writeOne(uint8_t *Buf, uint32_t Index, StringRef Name, size_t NameOff);
+
+  unsigned FileDefNameOff;
 };
 
 // The .gnu.version section specifies the required version of each symbol in the
@@ -385,8 +372,8 @@ private:
 };
 
 struct CieRecord {
-  SectionPiece *Piece = nullptr;
-  std::vector<SectionPiece *> FdePieces;
+  EhSectionPiece *Piece = nullptr;
+  std::vector<EhSectionPiece *> FdePieces;
 };
 
 // Output section for .eh_frame.
@@ -412,12 +399,12 @@ private:
   void addSectionAux(EhInputSection<ELFT> *S, llvm::ArrayRef<RelTy> Rels);
 
   template <class RelTy>
-  CieRecord *addCie(SectionPiece &Piece, EhInputSection<ELFT> *Sec,
-                    ArrayRef<RelTy> &Rels);
+  CieRecord *addCie(EhSectionPiece &Piece, EhInputSection<ELFT> *Sec,
+                    ArrayRef<RelTy> Rels);
 
   template <class RelTy>
-  bool isFdeLive(SectionPiece &Piece, EhInputSection<ELFT> *Sec,
-                 ArrayRef<RelTy> &Rels);
+  bool isFdeLive(EhSectionPiece &Piece, EhInputSection<ELFT> *Sec,
+                 ArrayRef<RelTy> Rels);
 
   uintX_t getFdePc(uint8_t *Buf, size_t Off, uint8_t Enc);
 
@@ -426,8 +413,6 @@ private:
 
   // CIE records are uniquified by their contents and personality functions.
   llvm::DenseMap<std::pair<ArrayRef<uint8_t>, SymbolBody *>, CieRecord> CieMap;
-
-  bool Finalized = false;
 };
 
 template <class ELFT>
@@ -673,6 +658,36 @@ template <class ELFT> struct Out {
   static OutputSectionBase<ELFT> *ProgramHeaders;
 };
 
+template <bool Is64Bits> struct SectionKey {
+  typedef typename std::conditional<Is64Bits, uint64_t, uint32_t>::type uintX_t;
+  StringRef Name;
+  uint32_t Type;
+  uintX_t Flags;
+  uintX_t Alignment;
+};
+
+// This class knows how to create an output section for a given
+// input section. Output section type is determined by various
+// factors, including input section's sh_flags, sh_type and
+// linker scripts.
+template <class ELFT> class OutputSectionFactory {
+  typedef typename ELFT::Shdr Elf_Shdr;
+  typedef typename ELFT::uint uintX_t;
+  typedef typename elf::SectionKey<ELFT::Is64Bits> Key;
+
+public:
+  std::pair<OutputSectionBase<ELFT> *, bool> create(InputSectionBase<ELFT> *C,
+                                                    StringRef OutsecName);
+
+  OutputSectionBase<ELFT> *lookup(StringRef Name, uint32_t Type, uintX_t Flags);
+
+private:
+  Key createKey(InputSectionBase<ELFT> *C, StringRef OutsecName);
+
+  llvm::SmallDenseMap<Key, OutputSectionBase<ELFT> *> Map;
+  std::vector<std::unique_ptr<OutputSectionBase<ELFT>>> OwningSections;
+};
+
 template <class ELFT> BuildIdSection<ELFT> *Out<ELFT>::BuildId;
 template <class ELFT> DynamicSection<ELFT> *Out<ELFT>::Dynamic;
 template <class ELFT> EhFrameHeader<ELFT> *Out<ELFT>::EhFrameHdr;
@@ -704,4 +719,15 @@ template <class ELFT> OutputSectionBase<ELFT> *Out<ELFT>::ProgramHeaders;
 } // namespace elf
 } // namespace lld
 
-#endif // LLD_ELF_OUTPUT_SECTIONS_H
+namespace llvm {
+template <bool Is64Bits> struct DenseMapInfo<lld::elf::SectionKey<Is64Bits>> {
+  typedef typename lld::elf::SectionKey<Is64Bits> Key;
+
+  static Key getEmptyKey();
+  static Key getTombstoneKey();
+  static unsigned getHashValue(const Key &Val);
+  static bool isEqual(const Key &LHS, const Key &RHS);
+};
+}
+
+#endif

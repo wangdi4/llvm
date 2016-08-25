@@ -69,7 +69,7 @@ private:
 };
 
 // Returns "(internal)", "foo.a(bar.o)" or "baz.o".
-std::string getFilename(InputFile *F);
+std::string getFilename(const InputFile *F);
 
 template <typename ELFT> class ELFFileBase : public InputFile {
 public:
@@ -143,8 +143,6 @@ public:
 
   const Elf_Shdr *getSymbolTable() const { return this->Symtab; };
 
-  void traceUndefined(StringRef Name);
-
   // Get MIPS GP0 value defined by this file. This value represents the gp value
   // used to create the relocatable object and required to support
   // R_MIPS_GPREL16 / R_MIPS_GPREL32 relocations.
@@ -154,12 +152,17 @@ public:
   // st_name of the symbol.
   std::vector<std::pair<const DefinedRegular<ELFT> *, unsigned>> KeptLocalSyms;
 
+  // SymbolBodies and Thunks for sections in this file are allocated
+  // using this buffer.
+  llvm::BumpPtrAllocator Alloc;
+
 private:
   void initializeSections(llvm::DenseSet<StringRef> &ComdatGroups);
   void initializeSymbols();
   InputSectionBase<ELFT> *getRelocTarget(const Elf_Shdr &Sec);
   InputSectionBase<ELFT> *createInputSection(const Elf_Shdr &Sec);
 
+  bool shouldMerge(const Elf_Shdr &Sec);
   SymbolBody *createSymbolBody(const Elf_Sym *Sym);
 
   // List of all sections defined by this file.
@@ -173,7 +176,6 @@ private:
   // MIPS .MIPS.options section defined by this file.
   std::unique_ptr<MipsOptionsInputSection<ELFT>> MipsOptions;
 
-  llvm::BumpPtrAllocator Alloc;
   llvm::SpecificBumpPtrAllocator<InputSection<ELFT>> IAlloc;
   llvm::SpecificBumpPtrAllocator<MergeInputSection<ELFT>> MAlloc;
   llvm::SpecificBumpPtrAllocator<EhInputSection<ELFT>> EHAlloc;

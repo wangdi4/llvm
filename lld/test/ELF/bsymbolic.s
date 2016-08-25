@@ -25,6 +25,10 @@ nop
 
 .globl do
 .type do,@function
-do: 
+do:
 callq foo@PLT
 callq bar@PLT
+
+.weak zed
+.protected zed
+.quad zed

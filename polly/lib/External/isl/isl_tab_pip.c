@@ -1,6 +1,7 @@
 /*
  * Copyright 2008-2009 Katholieke Universiteit Leuven
  * Copyright 2010      INRIA Saclay
+ * Copyright 2016      Sven Verdoolaege
  *
  * Use of this software is governed by the MIT license
  *
@@ -18,6 +19,7 @@
 #include <isl_mat_private.h>
 #include <isl_vec_private.h>
 #include <isl_aff_private.h>
+#include <isl_constraint_private.h>
 #include <isl_options_private.h>
 #include <isl_config.h>
 
@@ -89,8 +91,9 @@ struct isl_context_op {
 	/* return index of a div that corresponds to "div" */
 	int (*get_div)(struct isl_context *context, struct isl_tab *tab,
 			struct isl_vec *div);
-	/* add div "div" to context and return non-negativity */
-	int (*add_div)(struct isl_context *context, struct isl_vec *div);
+	/* insert div "div" to context at "pos" and return non-negativity */
+	isl_bool (*insert_div)(struct isl_context *context, int pos,
+		__isl_keep isl_vec *div);
 	int (*detect_equalities)(struct isl_context *context,
 			struct isl_tab *tab);
 	/* return row index of "best" split */
@@ -108,11 +111,17 @@ struct isl_context_op {
 	/* invalidate context */
 	void (*invalidate)(struct isl_context *context);
 	/* free context */
-	void (*free)(struct isl_context *context);
+	__isl_null struct isl_context *(*free)(struct isl_context *context);
 };
 
+/* Shared parts of context representation.
+ *
+ * "n_unknown" is the number of final unknown integer divisions
+ * in the input domain.
+ */
 struct isl_context {
 	struct isl_context_op *op;
+	int n_unknown;
 };
 
 struct isl_context_lex {
@@ -1858,10 +1867,11 @@ static int tab_has_valid_sample(struct isl_tab *tab, isl_int *ineq, int eq)
 	return i < tab->n_sample;
 }
 
-/* Add a div specified by "div" to the tableau "tab" and return
- * 1 if the div is obviously non-negative.
+/* Insert a div specified by "div" to the tableau "tab" at position "pos" and
+ * return isl_bool_true if the div is obviously non-negative.
  */
-static int context_tab_add_div(struct isl_tab *tab, struct isl_vec *div,
+static isl_bool context_tab_insert_div(struct isl_tab *tab, int pos,
+	__isl_keep isl_vec *div,
 	int (*add_ineq)(void *user, isl_int *), void *user)
 {
 	int i;
@@ -1869,9 +1879,9 @@ static int context_tab_add_div(struct isl_tab *tab, struct isl_vec *div,
 	struct isl_mat *samples;
 	int nonneg;
 
-	r = isl_tab_add_div(tab, div, add_ineq, user);
+	r = isl_tab_insert_div(tab, pos, div, add_ineq, user);
 	if (r < 0)
-		return -1;
+		return isl_bool_error;
 	nonneg = tab->var[r].is_nonneg;
 	tab->var[r].frozen = 1;
 
@@ -1879,13 +1889,17 @@ static int context_tab_add_div(struct isl_tab *tab, struct isl_vec *div,
 			tab->n_sample, 1 + tab->n_var);
 	tab->samples = samples;
 	if (!samples)
-		return -1;
+		return isl_bool_error;
 	for (i = tab->n_outside; i < samples->n_row; ++i) {
 		isl_seq_inner_product(div->el + 1, samples->row[i],
 			div->size - 1, &samples->row[i][samples->n_col - 1]);
 		isl_int_fdiv_q(samples->row[i][samples->n_col - 1],
 			       samples->row[i][samples->n_col - 1], div->el[0]);
 	}
+	tab->samples = isl_mat_move_cols(tab->samples, 1 + pos,
+					1 + tab->n_var - 1, 1);
+	if (!tab->samples)
+		return isl_bool_error;
 
 	return nonneg;
 }
@@ -1895,22 +1909,34 @@ static int context_tab_add_div(struct isl_tab *tab, struct isl_vec *div,
  * need to add an extra div.  In the context tableau, we also
  * need to express the meaning of the div.
  * Return the index of the div or -1 if anything went wrong.
+ *
+ * The new integer division is added before any unknown integer
+ * divisions in the context to ensure that it does not get
+ * equated to some linear combination involving unknown integer
+ * divisions.
  */
 static int add_div(struct isl_tab *tab, struct isl_context *context,
-	struct isl_vec *div)
+	__isl_keep isl_vec *div)
 {
 	int r;
-	int nonneg;
+	int pos;
+	isl_bool nonneg;
+	struct isl_tab *context_tab = context->op->peek_tab(context);
 
-	if ((nonneg = context->op->add_div(context, div)) < 0)
+	if (!tab || !context_tab)
+		goto error;
+
+	pos = context_tab->n_var - context->n_unknown;
+	if ((nonneg = context->op->insert_div(context, pos, div)) < 0)
 		goto error;
 
 	if (!context->op->is_ok(context))
 		goto error;
 
+	pos = tab->n_var - context->n_unknown;
 	if (isl_tab_extend_vars(tab, 1) < 0)
 		goto error;
-	r = isl_tab_allocate_var(tab);
+	r = isl_tab_insert_var(tab, pos);
 	if (r < 0)
 		goto error;
 	if (nonneg)
@@ -1918,7 +1944,7 @@ static int add_div(struct isl_tab *tab, struct isl_context *context,
 	tab->var[r].frozen = 1;
 	tab->n_div++;
 
-	return tab->n_div - 1;
+	return tab->n_div - 1 - context->n_unknown;
 error:
 	context->op->invalidate(context);
 	return -1;
@@ -2000,7 +2026,7 @@ static int add_parametric_cut(struct isl_tab *tab, int row,
 	if (!div)
 		return -1;
 
-	n = tab->n_div;
+	n = tab->n_div - context->n_unknown;
 	d = context->op->get_div(context, tab, div);
 	isl_vec_free(div);
 	if (d < 0)
@@ -2393,24 +2419,25 @@ static int context_lex_get_div(struct isl_context *context, struct isl_tab *tab,
 	return get_div(tab, context, div);
 }
 
-/* Add a div specified by "div" to the context tableau and return
- * 1 if the div is obviously non-negative.
- * context_tab_add_div will always return 1, because all variables
+/* Insert a div specified by "div" to the context tableau at position "pos" and
+ * return isl_bool_true if the div is obviously non-negative.
+ * context_tab_add_div will always return isl_bool_true, because all variables
  * in a isl_context_lex tableau are non-negative.
  * However, if we are using a big parameter in the context, then this only
  * reflects the non-negativity of the variable used to _encode_ the
  * div, i.e., div' = M + div, so we can't draw any conclusions.
  */
-static int context_lex_add_div(struct isl_context *context, struct isl_vec *div)
+static isl_bool context_lex_insert_div(struct isl_context *context, int pos,
+	__isl_keep isl_vec *div)
 {
 	struct isl_context_lex *clex = (struct isl_context_lex *)context;
-	int nonneg;
-	nonneg = context_tab_add_div(clex->tab, div,
+	isl_bool nonneg;
+	nonneg = context_tab_insert_div(clex->tab, pos, div,
 					context_lex_add_ineq_wrap, context);
 	if (nonneg < 0)
-		return -1;
+		return isl_bool_error;
 	if (clex->tab->M)
-		return 0;
+		return isl_bool_false;
 	return nonneg;
 }
 
@@ -2569,11 +2596,14 @@ static void context_lex_invalidate(struct isl_context *context)
 	clex->tab = NULL;
 }
 
-static void context_lex_free(struct isl_context *context)
+static __isl_null struct isl_context *context_lex_free(
+	struct isl_context *context)
 {
 	struct isl_context_lex *clex = (struct isl_context_lex *)context;
 	isl_tab_free(clex->tab);
 	free(clex);
+
+	return NULL;
 }
 
 struct isl_context_op isl_context_lex_op = {
@@ -2585,7 +2615,7 @@ struct isl_context_op isl_context_lex_op = {
 	context_lex_ineq_sign,
 	context_lex_test_ineq,
 	context_lex_get_div,
-	context_lex_add_div,
+	context_lex_insert_div,
 	context_lex_detect_equalities,
 	context_lex_best_split,
 	context_lex_is_empty,
@@ -3088,6 +3118,9 @@ static int last_non_zero_var_col(struct isl_tab *tab, isl_int *p)
  * that is one or negative one, we use it to kill a column
  * in the main tableau.  Otherwise, we discard the tentatively
  * added row.
+ * This tentative addition of equality constraints turns
+ * on the undo facility of the tableau.  Turn it off again
+ * at the end, assuming it was turned off to begin with.
  *
  * Return 0 on success and -1 on failure.
  */
@@ -3096,7 +3129,11 @@ static int propagate_equalities(struct isl_context_gbr *cgbr,
 {
 	int i;
 	struct isl_vec *eq = NULL;
+	isl_bool needs_undo;
 
+	needs_undo = isl_tab_need_undo(tab);
+	if (needs_undo < 0)
+		goto error;
 	eq = isl_vec_alloc(tab->mat->ctx, 1 + tab->n_var);
 	if (!eq)
 		goto error;
@@ -3139,6 +3176,8 @@ static int propagate_equalities(struct isl_context_gbr *cgbr,
 			goto error;
 	}
 
+	if (!needs_undo)
+		isl_tab_clear_undo(tab);
 	isl_vec_free(eq);
 
 	return 0;
@@ -3188,29 +3227,32 @@ static int context_gbr_get_div(struct isl_context *context, struct isl_tab *tab,
 	return get_div(tab, context, div);
 }
 
-static int context_gbr_add_div(struct isl_context *context, struct isl_vec *div)
+static isl_bool context_gbr_insert_div(struct isl_context *context, int pos,
+	__isl_keep isl_vec *div)
 {
 	struct isl_context_gbr *cgbr = (struct isl_context_gbr *)context;
 	if (cgbr->cone) {
-		int k;
+		int r, n_div, o_div;
+
+		n_div = isl_basic_map_dim(cgbr->cone->bmap, isl_dim_div);
+		o_div = cgbr->cone->n_var - n_div;
 
 		if (isl_tab_extend_cons(cgbr->cone, 3) < 0)
-			return -1;
+			return isl_bool_error;
 		if (isl_tab_extend_vars(cgbr->cone, 1) < 0)
-			return -1;
-		if (isl_tab_allocate_var(cgbr->cone) <0)
-			return -1;
+			return isl_bool_error;
+		if ((r = isl_tab_insert_var(cgbr->cone, pos)) <0)
+			return isl_bool_error;
 
-		cgbr->cone->bmap = isl_basic_map_extend_space(cgbr->cone->bmap,
-			isl_basic_map_get_space(cgbr->cone->bmap), 1, 0, 2);
-		k = isl_basic_map_alloc_div(cgbr->cone->bmap);
-		if (k < 0)
-			return -1;
-		isl_seq_cpy(cgbr->cone->bmap->div[k], div->el, div->size);
-		if (isl_tab_push(cgbr->cone, isl_tab_undo_bmap_div) < 0)
-			return -1;
+		cgbr->cone->bmap = isl_basic_map_insert_div(cgbr->cone->bmap,
+						    r - o_div, div);
+		if (!cgbr->cone->bmap)
+			return isl_bool_error;
+		if (isl_tab_push_var(cgbr->cone, isl_tab_undo_bmap_div,
+				    &cgbr->cone->var[r]) < 0)
+			return isl_bool_error;
 	}
-	return context_tab_add_div(cgbr->tab, div,
+	return context_tab_insert_div(cgbr->tab, pos, div,
 					context_gbr_add_ineq_wrap, context);
 }
 
@@ -3329,13 +3371,16 @@ static void context_gbr_invalidate(struct isl_context *context)
 	cgbr->tab = NULL;
 }
 
-static void context_gbr_free(struct isl_context *context)
+static __isl_null struct isl_context *context_gbr_free(
+	struct isl_context *context)
 {
 	struct isl_context_gbr *cgbr = (struct isl_context_gbr *)context;
 	isl_tab_free(cgbr->tab);
 	isl_tab_free(cgbr->shifted);
 	isl_tab_free(cgbr->cone);
 	free(cgbr);
+
+	return NULL;
 }
 
 struct isl_context_op isl_context_gbr_op = {
@@ -3347,7 +3392,7 @@ struct isl_context_op isl_context_gbr_op = {
 	context_gbr_ineq_sign,
 	context_gbr_test_ineq,
 	context_gbr_get_div,
-	context_gbr_add_div,
+	context_gbr_insert_div,
 	context_gbr_detect_equalities,
 	context_gbr_best_split,
 	context_gbr_is_empty,
@@ -3359,7 +3404,7 @@ struct isl_context_op isl_context_gbr_op = {
 	context_gbr_free,
 };
 
-static struct isl_context *isl_context_gbr_alloc(struct isl_basic_set *dom)
+static struct isl_context *isl_context_gbr_alloc(__isl_keep isl_basic_set *dom)
 {
 	struct isl_context_gbr *cgbr;
 
@@ -3386,15 +3431,34 @@ error:
 	return NULL;
 }
 
-static struct isl_context *isl_context_alloc(struct isl_basic_set *dom)
+/* Allocate a context corresponding to "dom".
+ * The representation specific fields are initialized by
+ * isl_context_lex_alloc or isl_context_gbr_alloc.
+ * The shared "n_unknown" field is initialized to the number
+ * of final unknown integer divisions in "dom".
+ */
+static struct isl_context *isl_context_alloc(__isl_keep isl_basic_set *dom)
 {
+	struct isl_context *context;
+	int first;
+
 	if (!dom)
 		return NULL;
 
 	if (dom->ctx->opt->context == ISL_CONTEXT_LEXMIN)
-		return isl_context_lex_alloc(dom);
+		context = isl_context_lex_alloc(dom);
 	else
-		return isl_context_gbr_alloc(dom);
+		context = isl_context_gbr_alloc(dom);
+
+	if (!context)
+		return NULL;
+
+	first = isl_basic_set_first_unknown_div(dom);
+	if (first < 0)
+		return context->op->free(context);
+	context->n_unknown = isl_basic_set_dim(dom, isl_dim_div) - first;
+
+	return context;
 }
 
 /* Construct an isl_sol_map structure for accumulating the solution.
@@ -4107,7 +4171,7 @@ error:
  * because they will be added one by one in the given order
  * during the construction of the solution map.
  */
-static struct isl_sol *basic_map_partial_lexopt_base(
+static struct isl_sol *basic_map_partial_lexopt_base_sol(
 	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
 	__isl_give isl_set **empty, int max,
 	struct isl_sol *(*init)(__isl_keep isl_basic_map *bmap,
@@ -4152,9 +4216,9 @@ error:
 /* Base case of isl_tab_basic_map_partial_lexopt, after removing
  * some obvious symmetries.
  *
- * We call basic_map_partial_lexopt_base and extract the results.
+ * We call basic_map_partial_lexopt_base_sol and extract the results.
  */
-static __isl_give isl_map *basic_map_partial_lexopt_base_map(
+static __isl_give isl_map *basic_map_partial_lexopt_base(
 	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
 	__isl_give isl_set **empty, int max)
 {
@@ -4162,8 +4226,8 @@ static __isl_give isl_map *basic_map_partial_lexopt_base_map(
 	struct isl_sol *sol;
 	struct isl_sol_map *sol_map;
 
-	sol = basic_map_partial_lexopt_base(bmap, dom, empty, max,
-					    &sol_map_init);
+	sol = basic_map_partial_lexopt_base_sol(bmap, dom, empty, max,
+						&sol_map_init);
 	if (!sol)
 		return NULL;
 	sol_map = (struct isl_sol_map *) sol;
@@ -4173,6 +4237,74 @@ static __isl_give isl_map *basic_map_partial_lexopt_base_map(
 		*empty = isl_set_copy(sol_map->empty);
 	sol_free(&sol_map->sol);
 	return result;
+}
+
+/* Return a count of the number of occurrences of the "n" first
+ * variables in the inequality constraints of "bmap".
+ */
+static __isl_give int *count_occurrences(__isl_keep isl_basic_map *bmap,
+	int n)
+{
+	int i, j;
+	isl_ctx *ctx;
+	int *occurrences;
+
+	if (!bmap)
+		return NULL;
+	ctx = isl_basic_map_get_ctx(bmap);
+	occurrences = isl_calloc_array(ctx, int, n);
+	if (!occurrences)
+		return NULL;
+
+	for (i = 0; i < bmap->n_ineq; ++i) {
+		for (j = 0; j < n; ++j) {
+			if (!isl_int_is_zero(bmap->ineq[i][1 + j]))
+				occurrences[j]++;
+		}
+	}
+
+	return occurrences;
+}
+
+/* Do all of the "n" variables with non-zero coefficients in "c"
+ * occur in exactly a single constraint.
+ * "occurrences" is an array of length "n" containing the number
+ * of occurrences of each of the variables in the inequality constraints.
+ */
+static int single_occurrence(int n, isl_int *c, int *occurrences)
+{
+	int i;
+
+	for (i = 0; i < n; ++i) {
+		if (isl_int_is_zero(c[i]))
+			continue;
+		if (occurrences[i] != 1)
+			return 0;
+	}
+
+	return 1;
+}
+
+/* Do all of the "n" initial variables that occur in inequality constraint
+ * "ineq" of "bmap" only occur in that constraint?
+ */
+static int all_single_occurrence(__isl_keep isl_basic_map *bmap, int ineq,
+	int n)
+{
+	int i, j;
+
+	for (i = 0; i < n; ++i) {
+		if (isl_int_is_zero(bmap->ineq[ineq][1 + i]))
+			continue;
+		for (j = 0; j < bmap->n_ineq; ++j) {
+			if (j == ineq)
+				continue;
+			if (!isl_int_is_zero(bmap->ineq[j][1 + i]))
+				return 0;
+		}
+	}
+
+	return 1;
 }
 
 /* Structure used during detection of parallel constraints.
@@ -4203,7 +4335,8 @@ static int constraint_equal(const void *entry, const void *val)
  * Note that the coefficients of the existentially quantified
  * variables need to be zero since the existentially quantified
  * of the result are usually not the same as those of the input.
- * the isl_dim_out and isl_dim_div dimensions.
+ * Furthermore, check that each of the input variables that occur
+ * in those constraints does not occur in any other constraint.
  * If so, return 1 and return the row indices of the two constraints
  * in *first and *second.
  */
@@ -4212,6 +4345,7 @@ static int parallel_constraints(__isl_keep isl_basic_map *bmap,
 {
 	int i;
 	isl_ctx *ctx;
+	int *occurrences = NULL;
 	struct isl_hash_table *table = NULL;
 	struct isl_hash_table_entry *entry;
 	struct isl_constraint_equal_info info;
@@ -4225,6 +4359,9 @@ static int parallel_constraints(__isl_keep isl_basic_map *bmap,
 
 	info.n_in = isl_basic_map_dim(bmap, isl_dim_param) +
 		    isl_basic_map_dim(bmap, isl_dim_in);
+	occurrences = count_occurrences(bmap, info.n_in);
+	if (info.n_in && !occurrences)
+		goto error;
 	info.bmap = bmap;
 	n_out = isl_basic_map_dim(bmap, isl_dim_out);
 	n_div = isl_basic_map_dim(bmap, isl_dim_div);
@@ -4236,6 +4373,9 @@ static int parallel_constraints(__isl_keep isl_basic_map *bmap,
 		if (isl_seq_first_non_zero(info.val, n_out) < 0)
 			continue;
 		if (isl_seq_first_non_zero(info.val + n_out, n_div) >= 0)
+			continue;
+		if (!single_occurrence(info.n_in, bmap->ineq[i] + 1,
+					occurrences))
 			continue;
 		hash = isl_seq_get_hash(info.val, info.n_out);
 		entry = isl_hash_table_find(ctx, table, hash,
@@ -4253,10 +4393,12 @@ static int parallel_constraints(__isl_keep isl_basic_map *bmap,
 	}
 
 	isl_hash_table_free(ctx, table);
+	free(occurrences);
 
 	return i < bmap->n_ineq;
 error:
 	isl_hash_table_free(ctx, table);
+	free(occurrences);
 	return -1;
 }
 
@@ -4523,12 +4665,6 @@ static __isl_give isl_map *basic_map_partial_lexopt(
 	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
 	__isl_give isl_set **empty, int max);
 
-union isl_lex_res {
-	void *p;
-	isl_map *map;
-	isl_pw_multi_aff *pma;
-};
-
 /* This function is called from basic_map_partial_lexopt_symm.
  * The last variable of "bmap" and "dom" corresponds to the minimum
  * of the bounds in "cst".  "map_space" is the space of the original
@@ -4538,14 +4674,13 @@ union isl_lex_res {
  * We recursively call basic_map_partial_lexopt and then plug in
  * the definition of the minimum in the result.
  */
-static __isl_give union isl_lex_res basic_map_partial_lexopt_symm_map_core(
+static __isl_give isl_map *basic_map_partial_lexopt_symm_core(
 	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
 	__isl_give isl_set **empty, int max, __isl_take isl_mat *cst,
 	__isl_take isl_space *map_space, __isl_take isl_space *set_space)
 {
 	isl_map *opt;
 	isl_set *min_expr;
-	union isl_lex_res res;
 
 	min_expr = set_minimum(isl_basic_set_get_space(dom), isl_mat_copy(cst));
 
@@ -4560,215 +4695,54 @@ static __isl_give union isl_lex_res basic_map_partial_lexopt_symm_map_core(
 	opt = split_domain(opt, min_expr, cst);
 	opt = isl_map_reset_space(opt, map_space);
 
-	res.map = opt;
-	return res;
+	return opt;
 }
 
-/* Given a basic map with at least two parallel constraints (as found
- * by the function parallel_constraints), first look for more constraints
- * parallel to the two constraint and replace the found list of parallel
- * constraints by a single constraint with as "input" part the minimum
- * of the input parts of the list of constraints.  Then, recursively call
- * basic_map_partial_lexopt (possibly finding more parallel constraints)
- * and plug in the definition of the minimum in the result.
+/* Extract a domain from "bmap" for the purpose of computing
+ * a lexicographic optimum.
  *
- * More specifically, given a set of constraints
+ * This function is only called when the caller wants to compute a full
+ * lexicographic optimum, i.e., without specifying a domain.  In this case,
+ * the caller is not interested in the part of the domain space where
+ * there is no solution and the domain can be initialized to those constraints
+ * of "bmap" that only involve the parameters and the input dimensions.
+ * This relieves the parametric programming engine from detecting those
+ * inequalities and transferring them to the context.  More importantly,
+ * it ensures that those inequalities are transferred first and not
+ * intermixed with inequalities that actually split the domain.
  *
- *	a x + b_i(p) >= 0
- *
- * Replace this set by a single constraint
- *
- *	a x + u >= 0
- *
- * with u a new parameter with constraints
- *
- *	u <= b_i(p)
- *
- * Any solution to the new system is also a solution for the original system
- * since
- *
- *	a x >= -u >= -b_i(p)
- *
- * Moreover, m = min_i(b_i(p)) satisfies the constraints on u and can
- * therefore be plugged into the solution.
+ * If the caller does not require the absence of existentially quantified
+ * variables in the result (i.e., if ISL_OPT_QE is not set in "flags"),
+ * then the actual domain of "bmap" can be used.  This ensures that
+ * the domain does not need to be split at all just to separate out
+ * pieces of the domain that do not have a solution from piece that do.
+ * This domain cannot be used in general because it may involve
+ * (unknown) existentially quantified variables which will then also
+ * appear in the solution.
  */
-static union isl_lex_res basic_map_partial_lexopt_symm(
-	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
-	__isl_give isl_set **empty, int max, int first, int second,
-	__isl_give union isl_lex_res (*core)(__isl_take isl_basic_map *bmap,
-					    __isl_take isl_basic_set *dom,
-					    __isl_give isl_set **empty,
-					    int max, __isl_take isl_mat *cst,
-					    __isl_take isl_space *map_space,
-					    __isl_take isl_space *set_space))
+static __isl_give isl_basic_set *extract_domain(__isl_keep isl_basic_map *bmap,
+	unsigned flags)
 {
-	int i, n, k;
-	int *list = NULL;
-	unsigned n_in, n_out, n_div;
-	isl_ctx *ctx;
-	isl_vec *var = NULL;
-	isl_mat *cst = NULL;
-	isl_space *map_space, *set_space;
-	union isl_lex_res res;
+	int n_div;
+	int n_out;
 
-	map_space = isl_basic_map_get_space(bmap);
-	set_space = empty ? isl_basic_set_get_space(dom) : NULL;
-
-	n_in = isl_basic_map_dim(bmap, isl_dim_param) +
-	       isl_basic_map_dim(bmap, isl_dim_in);
-	n_out = isl_basic_map_dim(bmap, isl_dim_all) - n_in;
-
-	ctx = isl_basic_map_get_ctx(bmap);
-	list = isl_alloc_array(ctx, int, bmap->n_ineq);
-	var = isl_vec_alloc(ctx, n_out);
-	if ((bmap->n_ineq && !list) || (n_out && !var))
-		goto error;
-
-	list[0] = first;
-	list[1] = second;
-	isl_seq_cpy(var->el, bmap->ineq[first] + 1 + n_in, n_out);
-	for (i = second + 1, n = 2; i < bmap->n_ineq; ++i) {
-		if (isl_seq_eq(var->el, bmap->ineq[i] + 1 + n_in, n_out))
-			list[n++] = i;
+	n_div = isl_basic_map_dim(bmap, isl_dim_div);
+	n_out = isl_basic_map_dim(bmap, isl_dim_out);
+	bmap = isl_basic_map_copy(bmap);
+	if (ISL_FL_ISSET(flags, ISL_OPT_QE)) {
+		bmap = isl_basic_map_drop_constraints_involving_dims(bmap,
+							isl_dim_div, 0, n_div);
+		bmap = isl_basic_map_drop_constraints_involving_dims(bmap,
+							isl_dim_out, 0, n_out);
 	}
-
-	cst = isl_mat_alloc(ctx, n, 1 + n_in);
-	if (!cst)
-		goto error;
-
-	for (i = 0; i < n; ++i)
-		isl_seq_cpy(cst->row[i], bmap->ineq[list[i]], 1 + n_in);
-
-	bmap = isl_basic_map_cow(bmap);
-	if (!bmap)
-		goto error;
-	for (i = n - 1; i >= 0; --i)
-		if (isl_basic_map_drop_inequality(bmap, list[i]) < 0)
-			goto error;
-
-	bmap = isl_basic_map_add_dims(bmap, isl_dim_in, 1);
-	bmap = isl_basic_map_extend_constraints(bmap, 0, 1);
-	k = isl_basic_map_alloc_inequality(bmap);
-	if (k < 0)
-		goto error;
-	isl_seq_clr(bmap->ineq[k], 1 + n_in);
-	isl_int_set_si(bmap->ineq[k][1 + n_in], 1);
-	isl_seq_cpy(bmap->ineq[k] + 1 + n_in + 1, var->el, n_out);
-	bmap = isl_basic_map_finalize(bmap);
-
-	n_div = isl_basic_set_dim(dom, isl_dim_div);
-	dom = isl_basic_set_add_dims(dom, isl_dim_set, 1);
-	dom = isl_basic_set_extend_constraints(dom, 0, n);
-	for (i = 0; i < n; ++i) {
-		k = isl_basic_set_alloc_inequality(dom);
-		if (k < 0)
-			goto error;
-		isl_seq_cpy(dom->ineq[k], cst->row[i], 1 + n_in);
-		isl_int_set_si(dom->ineq[k][1 + n_in], -1);
-		isl_seq_clr(dom->ineq[k] + 1 + n_in + 1, n_div);
-	}
-
-	isl_vec_free(var);
-	free(list);
-
-	return core(bmap, dom, empty, max, cst, map_space, set_space);
-error:
-	isl_space_free(map_space);
-	isl_space_free(set_space);
-	isl_mat_free(cst);
-	isl_vec_free(var);
-	free(list);
-	isl_basic_set_free(dom);
-	isl_basic_map_free(bmap);
-	res.p = NULL;
-	return res;
+	return isl_basic_map_domain(bmap);
 }
 
-static __isl_give isl_map *basic_map_partial_lexopt_symm_map(
-	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
-	__isl_give isl_set **empty, int max, int first, int second)
-{
-	return basic_map_partial_lexopt_symm(bmap, dom, empty, max,
-		    first, second, &basic_map_partial_lexopt_symm_map_core).map;
-}
-
-/* Recursive part of isl_tab_basic_map_partial_lexopt, after detecting
- * equalities and removing redundant constraints.
- *
- * We first check if there are any parallel constraints (left).
- * If not, we are in the base case.
- * If there are parallel constraints, we replace them by a single
- * constraint in basic_map_partial_lexopt_symm and then call
- * this function recursively to look for more parallel constraints.
- */
-static __isl_give isl_map *basic_map_partial_lexopt(
-	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
-	__isl_give isl_set **empty, int max)
-{
-	int par = 0;
-	int first, second;
-
-	if (!bmap)
-		goto error;
-
-	if (bmap->ctx->opt->pip_symmetry)
-		par = parallel_constraints(bmap, &first, &second);
-	if (par < 0)
-		goto error;
-	if (!par)
-		return basic_map_partial_lexopt_base_map(bmap, dom, empty, max);
-	
-	return basic_map_partial_lexopt_symm_map(bmap, dom, empty, max,
-						 first, second);
-error:
-	isl_basic_set_free(dom);
-	isl_basic_map_free(bmap);
-	return NULL;
-}
-
-/* Compute the lexicographic minimum (or maximum if "max" is set)
- * of "bmap" over the domain "dom" and return the result as a map.
- * If "empty" is not NULL, then *empty is assigned a set that
- * contains those parts of the domain where there is no solution.
- * If "bmap" is marked as rational (ISL_BASIC_MAP_RATIONAL),
- * then we compute the rational optimum.  Otherwise, we compute
- * the integral optimum.
- *
- * We perform some preprocessing.  As the PILP solver does not
- * handle implicit equalities very well, we first make sure all
- * the equalities are explicitly available.
- *
- * We also add context constraints to the basic map and remove
- * redundant constraints.  This is only needed because of the
- * way we handle simple symmetries.  In particular, we currently look
- * for symmetries on the constraints, before we set up the main tableau.
- * It is then no good to look for symmetries on possibly redundant constraints.
- */
-struct isl_map *isl_tab_basic_map_partial_lexopt(
-		struct isl_basic_map *bmap, struct isl_basic_set *dom,
-		struct isl_set **empty, int max)
-{
-	if (empty)
-		*empty = NULL;
-	if (!bmap || !dom)
-		goto error;
-
-	isl_assert(bmap->ctx,
-	    isl_basic_map_compatible_domain(bmap, dom), goto error);
-
-	if (isl_basic_set_dim(dom, isl_dim_all) == 0)
-		return basic_map_partial_lexopt(bmap, dom, empty, max);
-
-	bmap = isl_basic_map_intersect_domain(bmap, isl_basic_set_copy(dom));
-	bmap = isl_basic_map_detect_equalities(bmap);
-	bmap = isl_basic_map_remove_redundancies(bmap);
-
-	return basic_map_partial_lexopt(bmap, dom, empty, max);
-error:
-	isl_basic_set_free(dom);
-	isl_basic_map_free(bmap);
-	return NULL;
-}
+#undef TYPE
+#define TYPE	isl_map
+#undef SUFFIX
+#define SUFFIX
+#include "isl_tab_lexopt_templ.c"
 
 struct isl_sol_for {
 	struct isl_sol	sol;
@@ -5381,33 +5355,75 @@ error:
 	sol->sol.error = 1;
 }
 
-/* Given a basic map "dom" that represents the context and an affine
- * matrix "M" that maps the dimensions of the context to the
- * output variables, construct an isl_pw_multi_aff with a single
- * cell corresponding to "dom" and affine expressions copied from "M".
+/* Set the affine expressions in "ma" according to the rows in "M", which
+ * are defined over the local space "ls".
+ * The matrix "M" may have extra (zero) columns beyond the number
+ * of variables in "ls".
  */
-static void sol_pma_add(struct isl_sol_pma *sol,
-	__isl_take isl_basic_set *dom, __isl_take isl_mat *M)
+static __isl_give isl_multi_aff *set_from_affine_matrix(
+	__isl_take isl_multi_aff *ma, __isl_take isl_local_space *ls,
+	__isl_take isl_mat *M)
 {
-	int i;
-	isl_local_space *ls;
+	int i, dim;
 	isl_aff *aff;
-	isl_multi_aff *maff;
-	isl_pw_multi_aff *pma;
 
-	maff = isl_multi_aff_alloc(isl_pw_multi_aff_get_space(sol->pma));
-	ls = isl_basic_set_get_local_space(dom);
+	if (!ma || !ls || !M)
+		goto error;
+
+	dim = isl_local_space_dim(ls, isl_dim_all);
 	for (i = 1; i < M->n_row; ++i) {
 		aff = isl_aff_alloc(isl_local_space_copy(ls));
 		if (aff) {
 			isl_int_set(aff->v->el[0], M->row[0][0]);
-			isl_seq_cpy(aff->v->el + 1, M->row[i], M->n_col);
+			isl_seq_cpy(aff->v->el + 1, M->row[i], 1 + dim);
 		}
 		aff = isl_aff_normalize(aff);
-		maff = isl_multi_aff_set_aff(maff, i - 1, aff);
+		ma = isl_multi_aff_set_aff(ma, i - 1, aff);
 	}
 	isl_local_space_free(ls);
 	isl_mat_free(M);
+
+	return ma;
+error:
+	isl_local_space_free(ls);
+	isl_mat_free(M);
+	isl_multi_aff_free(ma);
+	return NULL;
+}
+
+/* Given a basic map "dom" that represents the context and an affine
+ * matrix "M" that maps the dimensions of the context to the
+ * output variables, construct an isl_pw_multi_aff with a single
+ * cell corresponding to "dom" and affine expressions copied from "M".
+ *
+ * Note that the description of the initial context may have involved
+ * existentially quantified variables, in which case they also appear
+ * in "dom".  These need to be removed before creating the affine
+ * expression because an affine expression cannot be defined in terms
+ * Since newly added integer divisions are inserted before these
+ * existentially quantified variables, they are still in the final
+ * positions and the corresponding final columns "M" are zero
+ * because align_context_divs adds the existentially quantified
+ * variables of the context to the main tableau without any constraints and
+ * any equality constraints that are added later on can only serve
+ * to eliminate these existentially quantified variables.
+ */
+static void sol_pma_add(struct isl_sol_pma *sol,
+	__isl_take isl_basic_set *dom, __isl_take isl_mat *M)
+{
+	isl_local_space *ls;
+	isl_multi_aff *maff;
+	isl_pw_multi_aff *pma;
+	int n_div, n_known;
+
+	n_div = isl_basic_set_dim(dom, isl_dim_div);
+	n_known = n_div - sol->sol.context->n_unknown;
+
+	maff = isl_multi_aff_alloc(isl_pw_multi_aff_get_space(sol->pma));
+	ls = isl_basic_set_get_local_space(dom);
+	ls = isl_local_space_drop_dims(ls, isl_dim_div,
+					n_known, n_div - n_known);
+	maff = set_from_affine_matrix(maff, ls, M);
 	dom = isl_basic_set_simplify(dom);
 	dom = isl_basic_set_finalize(dom);
 	pma = isl_pw_multi_aff_alloc(isl_set_from_basic_set(dom), maff);
@@ -5486,9 +5502,9 @@ error:
 /* Base case of isl_tab_basic_map_partial_lexopt, after removing
  * some obvious symmetries.
  *
- * We call basic_map_partial_lexopt_base and extract the results.
+ * We call basic_map_partial_lexopt_base_sol and extract the results.
  */
-static __isl_give isl_pw_multi_aff *basic_map_partial_lexopt_base_pma(
+static __isl_give isl_pw_multi_aff *basic_map_partial_lexopt_base_pw_multi_aff(
 	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
 	__isl_give isl_set **empty, int max)
 {
@@ -5496,8 +5512,8 @@ static __isl_give isl_pw_multi_aff *basic_map_partial_lexopt_base_pma(
 	struct isl_sol *sol;
 	struct isl_sol_pma *sol_pma;
 
-	sol = basic_map_partial_lexopt_base(bmap, dom, empty, max,
-					    &sol_pma_init);
+	sol = basic_map_partial_lexopt_base_sol(bmap, dom, empty, max,
+						&sol_pma_init);
 	if (!sol)
 		return NULL;
 	sol_pma = (struct isl_sol_pma *) sol;
@@ -5655,7 +5671,7 @@ error:
 	return NULL;
 }
 
-static __isl_give isl_pw_multi_aff *basic_map_partial_lexopt_pma(
+static __isl_give isl_pw_multi_aff *basic_map_partial_lexopt_pw_multi_aff(
 	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
 	__isl_give isl_set **empty, int max);
 
@@ -5668,7 +5684,8 @@ static __isl_give isl_pw_multi_aff *basic_map_partial_lexopt_pma(
  * We recursively call basic_map_partial_lexopt and then plug in
  * the definition of the minimum in the result.
  */
-static __isl_give union isl_lex_res basic_map_partial_lexopt_symm_pma_core(
+static __isl_give isl_pw_multi_aff *
+basic_map_partial_lexopt_symm_core_pw_multi_aff(
 	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
 	__isl_give isl_set **empty, int max, __isl_take isl_mat *cst,
 	__isl_take isl_space *map_space, __isl_take isl_space *set_space)
@@ -5676,13 +5693,12 @@ static __isl_give union isl_lex_res basic_map_partial_lexopt_symm_pma_core(
 	isl_pw_multi_aff *opt;
 	isl_pw_aff *min_expr_pa;
 	isl_set *min_expr;
-	union isl_lex_res res;
 
 	min_expr = set_minimum(isl_basic_set_get_space(dom), isl_mat_copy(cst));
 	min_expr_pa = set_minimum_pa(isl_basic_set_get_space(dom),
 					isl_mat_copy(cst));
 
-	opt = basic_map_partial_lexopt_pma(bmap, dom, empty, max);
+	opt = basic_map_partial_lexopt_pw_multi_aff(bmap, dom, empty, max);
 
 	if (empty) {
 		*empty = split(*empty,
@@ -5693,93 +5709,11 @@ static __isl_give union isl_lex_res basic_map_partial_lexopt_symm_pma_core(
 	opt = split_domain_pma(opt, min_expr_pa, min_expr, cst);
 	opt = isl_pw_multi_aff_reset_space(opt, map_space);
 
-	res.pma = opt;
-	return res;
+	return opt;
 }
 
-static __isl_give isl_pw_multi_aff *basic_map_partial_lexopt_symm_pma(
-	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
-	__isl_give isl_set **empty, int max, int first, int second)
-{
-	return basic_map_partial_lexopt_symm(bmap, dom, empty, max,
-		    first, second, &basic_map_partial_lexopt_symm_pma_core).pma;
-}
-
-/* Recursive part of isl_basic_map_partial_lexopt_pw_multi_aff, after detecting
- * equalities and removing redundant constraints.
- *
- * We first check if there are any parallel constraints (left).
- * If not, we are in the base case.
- * If there are parallel constraints, we replace them by a single
- * constraint in basic_map_partial_lexopt_symm_pma and then call
- * this function recursively to look for more parallel constraints.
- */
-static __isl_give isl_pw_multi_aff *basic_map_partial_lexopt_pma(
-	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
-	__isl_give isl_set **empty, int max)
-{
-	int par = 0;
-	int first, second;
-
-	if (!bmap)
-		goto error;
-
-	if (bmap->ctx->opt->pip_symmetry)
-		par = parallel_constraints(bmap, &first, &second);
-	if (par < 0)
-		goto error;
-	if (!par)
-		return basic_map_partial_lexopt_base_pma(bmap, dom, empty, max);
-	
-	return basic_map_partial_lexopt_symm_pma(bmap, dom, empty, max,
-						 first, second);
-error:
-	isl_basic_set_free(dom);
-	isl_basic_map_free(bmap);
-	return NULL;
-}
-
-/* Compute the lexicographic minimum (or maximum if "max" is set)
- * of "bmap" over the domain "dom" and return the result as a piecewise
- * multi-affine expression.
- * If "empty" is not NULL, then *empty is assigned a set that
- * contains those parts of the domain where there is no solution.
- * If "bmap" is marked as rational (ISL_BASIC_MAP_RATIONAL),
- * then we compute the rational optimum.  Otherwise, we compute
- * the integral optimum.
- *
- * We perform some preprocessing.  As the PILP solver does not
- * handle implicit equalities very well, we first make sure all
- * the equalities are explicitly available.
- *
- * We also add context constraints to the basic map and remove
- * redundant constraints.  This is only needed because of the
- * way we handle simple symmetries.  In particular, we currently look
- * for symmetries on the constraints, before we set up the main tableau.
- * It is then no good to look for symmetries on possibly redundant constraints.
- */
-__isl_give isl_pw_multi_aff *isl_basic_map_partial_lexopt_pw_multi_aff(
-	__isl_take isl_basic_map *bmap, __isl_take isl_basic_set *dom,
-	__isl_give isl_set **empty, int max)
-{
-	if (empty)
-		*empty = NULL;
-	if (!bmap || !dom)
-		goto error;
-
-	isl_assert(bmap->ctx,
-	    isl_basic_map_compatible_domain(bmap, dom), goto error);
-
-	if (isl_basic_set_dim(dom, isl_dim_all) == 0)
-		return basic_map_partial_lexopt_pma(bmap, dom, empty, max);
-
-	bmap = isl_basic_map_intersect_domain(bmap, isl_basic_set_copy(dom));
-	bmap = isl_basic_map_detect_equalities(bmap);
-	bmap = isl_basic_map_remove_redundancies(bmap);
-
-	return basic_map_partial_lexopt_pma(bmap, dom, empty, max);
-error:
-	isl_basic_set_free(dom);
-	isl_basic_map_free(bmap);
-	return NULL;
-}
+#undef TYPE
+#define TYPE	isl_pw_multi_aff
+#undef SUFFIX
+#define SUFFIX	_pw_multi_aff
+#include "isl_tab_lexopt_templ.c"

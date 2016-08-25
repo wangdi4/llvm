@@ -12,7 +12,6 @@
 
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringSet.h"
 #include "llvm/Support/ELF.h"
 
 #include <vector>
@@ -33,13 +32,20 @@ enum ELFKind {
 
 enum class BuildIdKind { None, Fnv1, Md5, Sha1, Hexstring };
 
+enum class UnresolvedPolicy { NoUndef, Error, Warn, Ignore };
+
+struct SymbolVersion {
+  llvm::StringRef Name;
+  bool IsExternCpp;
+};
+
 // This struct contains symbols version definition that
 // can be found in version script if it is used for link.
-struct Version {
-  Version(llvm::StringRef Name) : Name(Name) {}
+struct VersionDefinition {
+  VersionDefinition(llvm::StringRef Name, size_t Id) : Name(Name), Id(Id) {}
   llvm::StringRef Name;
-  llvm::StringRef Parent;
-  std::vector<llvm::StringRef> Globals;
+  size_t Id;
+  std::vector<SymbolVersion> Globals;
   size_t NameOff; // Offset in string table.
 };
 
@@ -60,13 +66,12 @@ struct Configuration {
   llvm::StringRef OutputFile;
   llvm::StringRef SoName;
   llvm::StringRef Sysroot;
-  llvm::StringSet<> TraceSymbol;
   std::string RPath;
-  std::vector<Version> SymbolVersions;
+  std::vector<VersionDefinition> VersionDefinitions;
   std::vector<llvm::StringRef> DynamicList;
   std::vector<llvm::StringRef> SearchPaths;
   std::vector<llvm::StringRef> Undefined;
-  std::vector<llvm::StringRef> VersionScriptGlobals;
+  std::vector<SymbolVersion> VersionScriptGlobals;
   std::vector<uint8_t> BuildIdVector;
   bool AllowMultipleDefinition;
   bool AsNeeded = false;
@@ -80,14 +85,13 @@ struct Configuration {
   bool EhFrameHdr;
   bool EnableNewDtags;
   bool ExportDynamic;
+  bool FatalWarnings;
   bool GcSections;
   bool GnuHash = false;
   bool ICF;
   bool Mips64EL = false;
   bool NoGnuUnique;
-  bool NoUndefined;
   bool NoUndefinedVersion;
-  bool NoinhibitExec;
   bool Pic;
   bool Pie;
   bool PrintGcSections;
@@ -102,7 +106,6 @@ struct Configuration {
   bool Threads;
   bool Trace;
   bool Verbose;
-  bool VersionScriptGlobalByDefault = true;
   bool WarnCommon;
   bool ZCombreloc;
   bool ZExecStack;
@@ -110,10 +113,13 @@ struct Configuration {
   bool ZNow;
   bool ZOrigin;
   bool ZRelro;
+  UnresolvedPolicy UnresolvedSymbols;
   BuildIdKind BuildId = BuildIdKind::None;
   ELFKind EKind = ELFNoneKind;
+  uint16_t DefaultSymbolVersion = llvm::ELF::VER_NDX_GLOBAL;
   uint16_t EMachine = llvm::ELF::EM_NONE;
   uint64_t EntryAddr = -1;
+  uint64_t ImageBase;
   unsigned LtoJobs;
   unsigned LtoO;
   unsigned Optimize;

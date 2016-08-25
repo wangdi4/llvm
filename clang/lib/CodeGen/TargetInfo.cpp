@@ -372,6 +372,14 @@ TargetCodeGenInfo::getDependentLibraryOption(llvm::StringRef Lib,
   Opt += Lib;
 }
 
+unsigned TargetCodeGenInfo::getOpenCLKernelCallingConv() const {
+  return llvm::CallingConv::C;
+}
+
+unsigned TargetCodeGenInfo::getOpenCLImageAddrSpace(CodeGen::CodeGenModule &CGM) const {
+  return CGM.getContext().getTargetAddressSpace(LangAS::opencl_global);
+}
+
 static bool isEmptyRecord(ASTContext &Context, QualType T, bool AllowArrays);
 
 /// isEmptyField - Return true iff a the field is "empty", that is it
@@ -6828,9 +6836,13 @@ public:
     : TargetCodeGenInfo(new DefaultABIInfo(CGT)) {}
   void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                            CodeGen::CodeGenModule &M) const override;
+  unsigned getOpenCLKernelCallingConv() const override;
+  unsigned getOpenCLImageAddrSpace(CodeGen::CodeGenModule &CGM) const override;
 };
 
 }
+
+static void appendOpenCLVersionMD (CodeGen::CodeGenModule &CGM);
 
 void AMDGPUTargetCodeGenInfo::setTargetAttributes(
   const Decl *D,
@@ -6853,8 +6865,18 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
     if (NumSGPR != 0)
       F->addFnAttr("amdgpu_num_sgpr", llvm::utostr(NumSGPR));
   }
+
+  appendOpenCLVersionMD(M);
 }
 
+
+unsigned AMDGPUTargetCodeGenInfo::getOpenCLKernelCallingConv() const {
+  return llvm::CallingConv::AMDGPU_KERNEL;
+}
+
+unsigned AMDGPUTargetCodeGenInfo::getOpenCLImageAddrSpace(CodeGen::CodeGenModule &CGM) const {
+  return CGM.getContext().getTargetAddressSpace(LangAS::opencl_constant);
+}
 
 //===----------------------------------------------------------------------===//
 // SPARC v8 ABI Implementation.
@@ -7485,9 +7507,8 @@ void XCoreTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
   SmallStringEnc Enc;
   if (getTypeString(Enc, D, CGM, TSC)) {
     llvm::LLVMContext &Ctx = CGM.getModule().getContext();
-    llvm::SmallVector<llvm::Metadata *, 2> MDVals;
-    MDVals.push_back(llvm::ConstantAsMetadata::get(GV));
-    MDVals.push_back(llvm::MDString::get(Ctx, Enc.str()));
+    llvm::Metadata *MDVals[] = {llvm::ConstantAsMetadata::get(GV),
+                                llvm::MDString::get(Ctx, Enc.str())};
     llvm::NamedMDNode *MD =
       CGM.getModule().getOrInsertNamedMetadata("xcore.typestrings");
     MD->addOperand(llvm::MDNode::get(Ctx, MDVals));
@@ -7505,6 +7526,7 @@ public:
     : TargetCodeGenInfo(new DefaultABIInfo(CGT)) {}
   void emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
                     CodeGen::CodeGenModule &M) const override;
+  unsigned getOpenCLKernelCallingConv() const override;
 };
 } // End anonymous namespace.
 
@@ -7522,6 +7544,13 @@ void SPIRTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
   llvm::NamedMDNode *SPIRVerMD =
       M.getOrInsertNamedMetadata("opencl.spir.version");
   SPIRVerMD->addOperand(llvm::MDNode::get(Ctx, SPIRVerElts));
+  appendOpenCLVersionMD(CGM);
+}
+
+static void appendOpenCLVersionMD (CodeGen::CodeGenModule &CGM) {
+  llvm::LLVMContext &Ctx = CGM.getModule().getContext();
+  llvm::Type *Int32Ty = llvm::Type::getInt32Ty(Ctx);
+  llvm::Module &M = CGM.getModule();
   // SPIR v2.0 s2.13 - The OpenCL version used by the module is stored in the
   // opencl.ocl.version named metadata node.
   llvm::Metadata *OCLVerElts[] = {
@@ -7532,6 +7561,10 @@ void SPIRTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
   llvm::NamedMDNode *OCLVerMD =
       M.getOrInsertNamedMetadata("opencl.ocl.version");
   OCLVerMD->addOperand(llvm::MDNode::get(Ctx, OCLVerElts));
+}
+
+unsigned SPIRTargetCodeGenInfo::getOpenCLKernelCallingConv() const {
+  return llvm::CallingConv::SPIR_KERNEL;
 }
 
 static bool appendType(SmallStringEnc &Enc, QualType QType,

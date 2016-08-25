@@ -62,6 +62,7 @@ static std::pair<ELFKind, uint16_t> parseEmulation(StringRef S) {
       StringSwitch<std::pair<ELFKind, uint16_t>>(S)
           .Case("aarch64linux", {ELF64LEKind, EM_AARCH64})
           .Case("armelf_linux_eabi", {ELF32LEKind, EM_ARM})
+          .Case("elf32_x86_64", {ELF32LEKind, EM_X86_64})
           .Case("elf32btsmip", {ELF32BEKind, EM_MIPS})
           .Case("elf32ltsmip", {ELF32LEKind, EM_MIPS})
           .Case("elf32ppc", {ELF32BEKind, EM_PPC})
@@ -89,7 +90,8 @@ LinkerDriver::getArchiveMembers(MemoryBufferRef MB) {
       check(Archive::create(MB), "failed to parse archive");
 
   std::vector<MemoryBufferRef> V;
-  for (const ErrorOr<Archive::Child> &COrErr : File->children()) {
+  Error Err;
+  for (const ErrorOr<Archive::Child> &COrErr : File->children(Err)) {
     Archive::Child C = check(COrErr, "could not get the child of the archive " +
                                          File->getFileName());
     MemoryBufferRef MBRef =
@@ -98,6 +100,8 @@ LinkerDriver::getArchiveMembers(MemoryBufferRef MB) {
                   File->getFileName());
     V.push_back(MBRef);
   }
+  if (Err)
+    Error(Err);
 
   // Take ownership of memory buffers created for members of thin archives.
   for (std::unique_ptr<MemoryBuffer> &MB : File->takeThinBuffers())
@@ -147,9 +151,10 @@ void LinkerDriver::addFile(StringRef Path) {
 
 Optional<MemoryBufferRef> LinkerDriver::readFile(StringRef Path) {
   auto MBOrErr = MemoryBuffer::getFile(Path);
-  error(MBOrErr, "cannot open " + Path);
-  if (HasError)
+  if (auto EC = MBOrErr.getError()) {
+    error(EC, "cannot open " + Path);
     return None;
+  }
   std::unique_ptr<MemoryBuffer> &MB = *MBOrErr;
   MemoryBufferRef MBRef = MB->getMemBufferRef();
   OwningMBs.push_back(std::move(MB)); // take MB ownership
@@ -296,6 +301,25 @@ void LinkerDriver::main(ArrayRef<const char *> ArgsArr) {
   }
 }
 
+static UnresolvedPolicy getUnresolvedSymbolOption(opt::InputArgList &Args) {
+  if (Args.hasArg(OPT_noinhibit_exec))
+    return UnresolvedPolicy::Warn;
+  if (Args.hasArg(OPT_no_undefined) || hasZOption(Args, "defs"))
+    return UnresolvedPolicy::NoUndef;
+  if (Config->Relocatable)
+    return UnresolvedPolicy::Ignore;
+
+  if (auto *Arg = Args.getLastArg(OPT_unresolved_symbols)) {
+    StringRef S = Arg->getValue();
+    if (S == "ignore-all" || S == "ignore-in-object-files")
+      return UnresolvedPolicy::Ignore;
+    if (S == "ignore-in-shared-libs" || S == "report-all")
+      return UnresolvedPolicy::Error;
+    error("unknown --unresolved-symbols value: " + S);
+  }
+  return UnresolvedPolicy::Error;
+}
+
 // Initializes Config members by the command line options.
 void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   for (auto *Arg : Args.filtered(OPT_L))
@@ -325,13 +349,11 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   Config->EhFrameHdr = Args.hasArg(OPT_eh_frame_hdr);
   Config->EnableNewDtags = !Args.hasArg(OPT_disable_new_dtags);
   Config->ExportDynamic = Args.hasArg(OPT_export_dynamic);
+  Config->FatalWarnings = Args.hasArg(OPT_fatal_warnings);
   Config->GcSections = Args.hasArg(OPT_gc_sections);
   Config->ICF = Args.hasArg(OPT_icf);
   Config->NoGnuUnique = Args.hasArg(OPT_no_gnu_unique);
-  Config->NoUndefined =
-      Args.hasArg(OPT_no_undefined) || hasZOption(Args, "defs");
   Config->NoUndefinedVersion = Args.hasArg(OPT_no_undefined_version);
-  Config->NoinhibitExec = Args.hasArg(OPT_noinhibit_exec);
   Config->Pie = Args.hasArg(OPT_pie);
   Config->PrintGcSections = Args.hasArg(OPT_print_gc_sections);
   Config->Relocatable = Args.hasArg(OPT_relocatable);
@@ -412,6 +434,8 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   for (auto *Arg : Args.filtered(OPT_undefined))
     Config->Undefined.push_back(Arg->getValue());
 
+  Config->UnresolvedSymbols = getUnresolvedSymbolOption(Args);
+
   if (auto *Arg = Args.getLastArg(OPT_dynamic_list))
     if (Optional<MemoryBufferRef> Buffer = readFile(Arg->getValue()))
       parseDynamicList(*Buffer);
@@ -419,13 +443,9 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   for (auto *Arg : Args.filtered(OPT_export_dynamic_symbol))
     Config->DynamicList.push_back(Arg->getValue());
 
-  if (auto *Arg = Args.getLastArg(OPT_version_script)) {
+  if (auto *Arg = Args.getLastArg(OPT_version_script))
     if (Optional<MemoryBufferRef> Buffer = readFile(Arg->getValue()))
       parseVersionScript(*Buffer);
-  }
-
-  for (auto *Arg : Args.filtered(OPT_trace_symbol))
-    Config->TraceSymbol.insert(Arg->getValue());
 }
 
 void LinkerDriver::createFiles(opt::InputArgList &Args) {
@@ -492,7 +512,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
   LinkerScript<ELFT> LS;
   Script<ELFT>::X = &LS;
 
-  Config->Rela = ELFT::Is64Bits;
+  Config->Rela = ELFT::Is64Bits || Config->EMachine == EM_X86_64;
   Config->Mips64EL =
       (Config->EMachine == EM_MIPS && Config->EKind == ELF64LEKind);
 
@@ -505,11 +525,26 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
   if (Config->OutputFile.empty())
     Config->OutputFile = "a.out";
 
+  // Handle --trace-symbol.
+  for (auto *Arg : Args.filtered(OPT_trace_symbol))
+    Symtab.trace(Arg->getValue());
+
   // Set either EntryAddr (if S is a number) or EntrySym (otherwise).
   if (!Config->Entry.empty()) {
     StringRef S = Config->Entry;
     if (S.getAsInteger(0, Config->EntryAddr))
       Config->EntrySym = Symtab.addUndefined(S);
+  }
+
+  // Initialize Config->ImageBase.
+  if (auto *Arg = Args.getLastArg(OPT_image_base)) {
+    StringRef S = Arg->getValue();
+    if (S.getAsInteger(0, Config->ImageBase))
+      error(Arg->getSpelling() + ": number expected, but got " + S);
+    else if ((Config->ImageBase % Target->PageSize) != 0)
+      warning(Arg->getSpelling() + ": address isn't multiple of page size");
+  } else {
+    Config->ImageBase = Config->Pic ? 0 : Target->DefaultImageBase;
   }
 
   for (std::unique_ptr<InputFile> &F : Files)
@@ -521,7 +556,6 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
   Symtab.scanShlibUndefined();
   Symtab.scanDynamicList();
   Symtab.scanVersionScript();
-  Symtab.traceDefined();
 
   Symtab.addCombinedLtoObject();
   if (HasError)
