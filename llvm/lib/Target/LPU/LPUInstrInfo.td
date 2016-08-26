@@ -944,28 +944,14 @@ defm CMPUOF32 : CmpOpC<"cmpuof32", setuo,  I32, f32, fpimm, [HasF32], IICmpF>;
 defm CMPUOF64 : CmpOpC<"cmpuof64", setuo,  I64, f64, fpimm, [HasF64], IICmpF>;
 
 
-// Drop?
-// todo: def BSEL8
-// todo: def BSEL16
-// todo: def BSEL32
-// todo: def BSEL64
-
 multiclass BSelectOp<string opStr, RegisterClass RC, ValueType opType, SDNode immNode,InstrItinClass itin = NoItinerary> {
-   let Itinerary = itin in {
+  let Itinerary = itin in {
+    // BSEL - Only allow constant 1st operand, so CSA network only needs to support
+    // 2 operand input boxes.
     def "": FMTGEN<
-      (outs Operand<opType>:$dst),
-      (ins RC:$sel, RC:$v0, RC:$v1),
-      !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
-      []>;
-    def i : FMTGEN<
-      (outs Operand<opType>:$dst),
+      (outs RC:$dst),
       (ins Operand<opType>:$sel, RC:$v0, RC:$v1),
-      !strconcat(opStr, "\tdst, $sel, $v0, $v1"),
-      []>;
-    def iri : FMTGEN<
-      (outs Operand<opType>:$dst),
-      (ins Operand<opType>:$sel, RC:$v0, Operand<opType>:$imm1),
-      !strconcat(opStr, "\tdst, $sel, $v0, $imm1"),
+      !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
       []>;
   }
 }
@@ -973,11 +959,8 @@ multiclass BSelectOp<string opStr, RegisterClass RC, ValueType opType, SDNode im
 defm BSEL1    :BSelectOp <"bsel1",   I1, i1, imm>;
 defm BSEL8    :BSelectOp <"bsel8",   I8, i8, imm>;
 defm BSEL16   :BSelectOp <"bsel16",  I16, i16, imm>;
-defm BSEL16f  :BSelectOp <"bsel16",  I16, f16, fpimm>;
 defm BSEL32   :BSelectOp <"bsel32",  I32, i32, imm>;
-defm BSEL32f  :BSelectOp <"bsel32",  I32, f32, fpimm>;
 defm BSEL64   :BSelectOp <"bsel64",  I64, i64, imm>;
-defm BSEL64f  :BSelectOp <"bsel64",  I64, f64, fpimm>; 
 
 def LAND1 : FMTGEN<
   (outs I1:$dst),
@@ -1474,13 +1457,11 @@ def : Pat<(i16 (bitconvert f16:$op1)),
 def : Pat<(f16 (bitconvert i16:$op1)),
     (COPY_TO_REGCLASS $op1, I16)>;
 
-// Commenting fcopysign pattern for now. 
-// This builds fine but tests using fcopysign still fails.
+// fcopysign - use the sign bit from the sign opnd, and everything else from the other
+def : Pat<(fcopysign f32:$other, f32:$sign),
+          (BSEL32 0x80000000,$other,$sign)>;
+def : Pat<(fcopysign f64:$other, f64:$sign),
+          (BSEL64 0x8000000000000000,$other,$sign)>;
 
-// fcopysign
-//def : Pat<(fcopysign f32:$other, f32:$sign),
-//          (BSEL32f $other, $other, $sign)>;
-//def : Pat<(fcopysign f64:$other, f64:$sign),
-//          (BSEL64f $other, $other, $sign)>;
 // Eventually
 //include "LPUIntrinsics.td"

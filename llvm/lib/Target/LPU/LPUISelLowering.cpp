@@ -228,8 +228,6 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     //setOperationAction(ISD::FREM,  MVT::f64, Legal);
     setOperationAction(ISD::FCOPYSIGN,  MVT::f32, Legal);
     setOperationAction(ISD::FCOPYSIGN,  MVT::f64, Legal);
-    setOperationAction(ISD::FGETSIGN,  MVT::f32, Legal);
-    setOperationAction(ISD::FGETSIGN,  MVT::f64, Legal);
     if (ST.hasF16())
       setOperationAction(ISD::FSQRT, MVT::f16, Legal);
     setOperationAction(ISD::FSQRT, MVT::f32, Legal);
