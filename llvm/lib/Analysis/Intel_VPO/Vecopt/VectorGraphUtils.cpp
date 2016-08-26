@@ -7,7 +7,6 @@
 #define DEBUG_TYPE "vector-graph-utils"
 
 using namespace llvm;
-using namespace llvm::vpo;
 
 // Creation Utilities
 

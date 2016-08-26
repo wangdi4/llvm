@@ -34,8 +34,6 @@ namespace llvm { // LLVM Namespace
 class Loop;
 class SCEV;
 
-namespace vpo { // VPO Vectorizer Namespace
-
 class VGLoop;
 class VGBlock;
 class VGPredicate;
@@ -128,37 +126,35 @@ public:
   /// VectorGraphNode Subclass Kinds
   enum VectorGraphNodeVal { VGLoopNode, VGBlockNode, VGPredicateNode };
 };
-} // End VPO Vectorizer Namspace
 
 /// \brief Traits for iplist<VGNode>
 ///
 /// See ilist_traits<Instruction> in BasicBlock.h for details
 template <>
-struct ilist_traits<vpo::VGNode> : public ilist_default_traits<vpo::VGNode> {
+struct ilist_traits<VGNode> : public ilist_default_traits<VGNode> {
 
-  vpo::VGNode *createSentinel() const {
-    return static_cast<vpo::VGNode *>(&Sentinel);
+  VGNode *createSentinel() const {
+    return static_cast<VGNode *>(&Sentinel);
   }
 
-  static void destroySentinel(vpo::VGNode *) {}
+  static void destroySentinel(VGNode *) {}
 
-  vpo::VGNode *provideInitialHead() const { return createSentinel(); }
-  vpo::VGNode *ensureHead(vpo::VGNode *) const { return createSentinel(); }
-  static void noteHead(vpo::VGNode *, vpo::VGNode *) {}
+  VGNode *provideInitialHead() const { return createSentinel(); }
+  VGNode *ensureHead(VGNode *) const { return createSentinel(); }
+  static void noteHead(VGNode *, VGNode *) {}
 
-  static vpo::VGNode *createNode(const vpo::VGNode &) {
+  static VGNode *createNode(const VGNode &) {
     llvm_unreachable("Vector Grpah Nodes should be explicitly created via "
                      "VectorGraphNodes");
 
     return nullptr;
   }
-  static void deleteNode(vpo::VGNode *) {}
+  static void deleteNode(VGNode *) {}
 
 private:
-  mutable ilist_half_node<vpo::VGNode> Sentinel;
+  mutable ilist_half_node<VGNode> Sentinel;
 };
 
-namespace vpo { // VPO Vectorizer Namespace
 typedef iplist<VGNode> VectorGraphTy;
 
 /// \brief
@@ -449,7 +445,6 @@ public:
     return IncomingPredicates;
   }
 };
-} // End VPO Vectorizer Namespace
 
 template <class GraphT, class GT = GraphTraits<GraphT>>
 class standard_df_iterator
@@ -486,12 +481,12 @@ public:
   }
 };
 
-template <> struct GraphTraits<vpo::VGBlock *> {
-  typedef vpo::VGBlock NodeType;
-  typedef SmallVectorImpl<vpo::VGBlock *>::iterator ChildIteratorType;
-  typedef standard_df_iterator<vpo::VGBlock *> nodes_iterator;
+template <> struct GraphTraits<VGBlock *> {
+  typedef VGBlock NodeType;
+  typedef SmallVectorImpl<VGBlock *>::iterator ChildIteratorType;
+  typedef standard_df_iterator<VGBlock *> nodes_iterator;
 
-  static NodeType *getEntryNode(vpo::VGBlock *N) { return N; }
+  static NodeType *getEntryNode(VGBlock *N) { return N; }
 
   static inline ChildIteratorType child_begin(NodeType *N) {
     return N->succ_begin();
@@ -500,21 +495,21 @@ template <> struct GraphTraits<vpo::VGBlock *> {
     return N->succ_end();
   }
 
-  static nodes_iterator nodes_begin(vpo::VGBlock *N) {
+  static nodes_iterator nodes_begin(VGBlock *N) {
     return nodes_iterator(N, true);
   }
 
-  static nodes_iterator nodes_end(vpo::VGBlock *N) {
+  static nodes_iterator nodes_end(VGBlock *N) {
     return nodes_iterator(N, false);
   }
 };
 
-template <> struct GraphTraits<Inverse<vpo::VGBlock *>> {
-  typedef vpo::VGBlock NodeType;
-  typedef SmallVectorImpl<vpo::VGBlock *>::iterator ChildIteratorType;
-  typedef standard_df_iterator<vpo::VGBlock *> nodes_iterator;
+template <> struct GraphTraits<Inverse<VGBlock *>> {
+  typedef VGBlock NodeType;
+  typedef SmallVectorImpl<VGBlock *>::iterator ChildIteratorType;
+  typedef standard_df_iterator<VGBlock *> nodes_iterator;
 
-  static NodeType *getEntryNode(Inverse<vpo::VGBlock *> G) { return G.Graph; }
+  static NodeType *getEntryNode(Inverse<VGBlock *> G) { return G.Graph; }
 
   static inline ChildIteratorType child_begin(NodeType *N) {
     return N->pred_begin();
@@ -524,21 +519,21 @@ template <> struct GraphTraits<Inverse<vpo::VGBlock *>> {
     return N->pred_end();
   }
 
-  static nodes_iterator nodes_begin(vpo::VGBlock *N) {
+  static nodes_iterator nodes_begin(VGBlock *N) {
     return nodes_iterator(N, true);
   }
 
-  static nodes_iterator nodes_end(vpo::VGBlock *N) {
+  static nodes_iterator nodes_end(VGBlock *N) {
     return nodes_iterator(N, false);
   }
 };
 
-template <> struct GraphTraits<const vpo::VGBlock *> {
-  typedef const vpo::VGBlock NodeType;
-  typedef SmallVectorImpl<vpo::VGBlock *>::const_iterator ChildIteratorType;
-  typedef standard_df_iterator<const vpo::VGBlock *> nodes_iterator;
+template <> struct GraphTraits<const VGBlock *> {
+  typedef const VGBlock NodeType;
+  typedef SmallVectorImpl<VGBlock *>::const_iterator ChildIteratorType;
+  typedef standard_df_iterator<const VGBlock *> nodes_iterator;
 
-  static NodeType *getEntryNode(const vpo::VGBlock *N) { return N; }
+  static NodeType *getEntryNode(const VGBlock *N) { return N; }
 
   static inline ChildIteratorType child_begin(NodeType *N) {
     return N->succ_begin();
@@ -547,21 +542,21 @@ template <> struct GraphTraits<const vpo::VGBlock *> {
     return N->succ_end();
   }
 
-  static nodes_iterator nodes_begin(const vpo::VGBlock *N) {
+  static nodes_iterator nodes_begin(const VGBlock *N) {
     return nodes_iterator(N, true);
   }
 
-  static nodes_iterator nodes_end(const vpo::VGBlock *N) {
+  static nodes_iterator nodes_end(const VGBlock *N) {
     return nodes_iterator(N, false);
   }
 };
 
-template <> struct GraphTraits<Inverse<const vpo::VGBlock *>> {
-  typedef const vpo::VGBlock NodeType;
-  typedef SmallVectorImpl<vpo::VGBlock *>::const_iterator ChildIteratorType;
-  typedef standard_df_iterator<const vpo::VGBlock *> nodes_iterator;
+template <> struct GraphTraits<Inverse<const VGBlock *>> {
+  typedef const VGBlock NodeType;
+  typedef SmallVectorImpl<VGBlock *>::const_iterator ChildIteratorType;
+  typedef standard_df_iterator<const VGBlock *> nodes_iterator;
 
-  static NodeType *getEntryNode(Inverse<const vpo::VGBlock *> G) {
+  static NodeType *getEntryNode(Inverse<const VGBlock *> G) {
     return G.Graph;
   }
 
@@ -573,67 +568,67 @@ template <> struct GraphTraits<Inverse<const vpo::VGBlock *>> {
     return N->pred_end();
   }
 
-  static nodes_iterator nodes_begin(const vpo::VGBlock *N) {
+  static nodes_iterator nodes_begin(const VGBlock *N) {
     return nodes_iterator(N, true);
   }
 
-  static nodes_iterator nodes_end(const vpo::VGBlock *N) {
+  static nodes_iterator nodes_end(const VGBlock *N) {
     return nodes_iterator(N, false);
   }
 };
 
-template <> struct GraphTraits<vpo::VGLoop *>
-  : public GraphTraits<vpo::VGBlock *> {
+template <> struct GraphTraits<VGLoop *>
+  : public GraphTraits<VGBlock *> {
 
-  static NodeType *getEntryNode(vpo::VGLoop *VGL) {
+  static NodeType *getEntryNode(VGLoop *VGL) {
     return VGL->getEntry();
   }
 
-  static nodes_iterator nodes_begin(vpo::VGLoop *VGL) {
+  static nodes_iterator nodes_begin(VGLoop *VGL) {
     return nodes_iterator(getEntryNode(VGL), true);
   }
 
-  static nodes_iterator nodes_end(vpo::VGLoop *VGL) {
+  static nodes_iterator nodes_end(VGLoop *VGL) {
     return nodes_iterator(getEntryNode(VGL), false);
   }
 
-  static unsigned size(vpo::VGLoop *VGL) {
+  static unsigned size(VGLoop *VGL) {
     return VGL->getSize();
   }
 };
 
-template <> struct GraphTraits<Inverse<vpo::VGLoop *> >
-  : public GraphTraits<Inverse<vpo::VGBlock *> > {
+template <> struct GraphTraits<Inverse<VGLoop *> >
+  : public GraphTraits<Inverse<VGBlock *> > {
 
-  static NodeType *getEntryNode(Inverse<vpo::VGLoop *> VGL) {
+  static NodeType *getEntryNode(Inverse<VGLoop *> VGL) {
     return VGL.Graph->getExit();
   }
 };
 
-template <> struct GraphTraits<const vpo::VGLoop *>
-  : public GraphTraits<const vpo::VGBlock *> {
+template <> struct GraphTraits<const VGLoop *>
+  : public GraphTraits<const VGBlock *> {
 
-  static NodeType *getEntryNode(const vpo::VGLoop *VGL) {
+  static NodeType *getEntryNode(const VGLoop *VGL) {
     return VGL->getEntry();
   }
 
-  static nodes_iterator nodes_begin(const vpo::VGLoop *VGL) {
+  static nodes_iterator nodes_begin(const VGLoop *VGL) {
     return nodes_iterator(getEntryNode(VGL), true);
   }
 
-  static nodes_iterator nodes_end(const vpo::VGLoop *VGL) {
+  static nodes_iterator nodes_end(const VGLoop *VGL) {
     return nodes_iterator(getEntryNode(VGL), false);
   }
 
-  static unsigned size(const vpo::VGLoop *VGL) {
+  static unsigned size(const VGLoop *VGL) {
     return VGL->getSize();
   }
 };
 
-template <> struct GraphTraits<Inverse<const vpo::VGLoop *> >
-  : public GraphTraits<Inverse<const vpo::VGBlock *> > {
+template <> struct GraphTraits<Inverse<const VGLoop *> >
+  : public GraphTraits<Inverse<const VGBlock *> > {
 
-  static NodeType *getEntryNode(Inverse<const vpo::VGLoop *> VGL) {
+  static NodeType *getEntryNode(Inverse<const VGLoop *> VGL) {
     return VGL.Graph->getExit();
   }
 };

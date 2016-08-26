@@ -23,8 +23,6 @@
 
 namespace llvm {
 
-namespace vpo {
-
 class VectorGraphInfo;
 class VGLoop;
 class VGBlock;
@@ -65,8 +63,6 @@ private:
   void predicate(VGBlock* Entry);
   //void removeCFG(AVRBlock* Entry);
 };
-
-} // End namespace vpo
 
 } // End namespace llvm
 

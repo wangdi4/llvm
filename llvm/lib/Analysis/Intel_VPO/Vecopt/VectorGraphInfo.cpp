@@ -23,7 +23,6 @@
 #define DEBUG_TYPE "vector-graph-info"
 
 using namespace llvm;
-using namespace llvm::vpo;
 
 INITIALIZE_PASS_BEGIN(VectorGraphInfo, "vec-graph-info", "Vector Graph Info", false, true)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)

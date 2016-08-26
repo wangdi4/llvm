@@ -10,8 +10,6 @@ namespace llvm { // LLVM Namespace
 
 class LoopInfo;
 
-namespace vpo { // VPO Vectorizer Namespace
-
 // Vector Graph Iterator Type
 typedef VectorGraphTy::iterator VGItr;
 
@@ -208,7 +206,6 @@ public:
 
 };
 
-} // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 
 #endif // LLVM_ANAYSIS_VECTOR_GRAPH_UTILS_H

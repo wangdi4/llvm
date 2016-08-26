@@ -24,8 +24,6 @@ namespace llvm { // LLVM Namespace
 
 class LoopInfo;
 
-namespace vpo { // VPO Vectorizer namespace
-
 class VectorGraphInfo : public FunctionPass {
 
 private:
@@ -87,7 +85,6 @@ public:
   bool isVectorGraphEmpty() const { return VectorGraph.empty(); }
 };
 
-} // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 
 #endif // LLVM_ANALYSIS_VECTOR_GRAPH_INFO_H

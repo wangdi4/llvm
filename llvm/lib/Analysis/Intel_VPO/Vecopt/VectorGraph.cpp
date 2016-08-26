@@ -17,7 +17,6 @@
 #define DEBUG_TYPE "vector-graph-node"
 
 using namespace llvm;
-using namespace llvm::vpo;
 
 unsigned VGNode::GlobalNumber(0);
 

@@ -28,11 +28,8 @@
 #define DEBUG_TYPE "vector-graph-predicator"
 
 using namespace llvm;
-using namespace vpo;
 
 namespace llvm {
-
-namespace vpo {
 
 class VGSESERegion {
 
@@ -170,8 +167,6 @@ public:
     Constraints.insert(std::make_pair(VBlock1, VBlock2));
   }
 };
-
-} // End namespace vpo
 
 } // End namespace llvm
 
