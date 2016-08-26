@@ -12,7 +12,7 @@ including liability for infringement of any proprietary rights, relating to
 use of the code. No license, express or implied, by estoppels or otherwise,
 to any intellectual property rights is granted herein.
 
-File Name:  OCLBuiltinParserTest.cpp 
+File Name:  OCLBuiltinParserTest.cpp
 
 Contains tests for OCLBuiltinParser OpenCL builtin parser
 
@@ -31,7 +31,7 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     std::string BIStr;
 ///////////////////////////////////////////////////////////////////////////////////////
     OCLBuiltinParser::ParseOCLBuiltin("_Z12native_rsqrtDv4_f", BIStr, args);
-    
+
     EXPECT_EQ("native_rsqrt", BIStr);
     EXPECT_EQ(1u, args.size());
     EXPECT_EQ(OCLBuiltinParser::VECTOR, args[0].genType);
@@ -44,7 +44,7 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     EXPECT_EQ(3U, args.size());
 
     EXPECT_EQ(OCLBuiltinParser::POINTER, args[0].genType);
-    EXPECT_EQ("__private _image2d_t *", args[0].ptrType.ptrToStr);
+    EXPECT_EQ("_image2d_t *", args[0].ptrType.ptrToStr);
 
     EXPECT_EQ(OCLBuiltinParser::BASIC, args[1].genType);
     EXPECT_EQ(OCLBuiltinParser::UINT,  args[1].basicType);
@@ -170,7 +170,7 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     EXPECT_EQ(1U, args.size());
 
     EXPECT_EQ(OCLBuiltinParser::POINTER, args[0].genType);
-    EXPECT_EQ("__private _image3d_t *", args[0].ptrType.ptrToStr);
+    EXPECT_EQ("_image3d_t *", args[0].ptrType.ptrToStr);
     EXPECT_EQ("_image3d_t", args[0].ptrType.ptrType[0].imgType.imgStr);
 
 }
@@ -187,16 +187,16 @@ TEST(OCLBuiltinParser, BuiltinDetectionNegative)
     EXPECT_FALSE(res);
 
 ///////////////////////////////////////////////////////////////////////////////////////
-    
+
     // unknown U78__vector subtype of arguments
     EXPECT_THROW(OCLBuiltinParser::ParseOCLBuiltin("_Z3mixU78__vector4fS_S_", BIStr, args), Exception::InvalidArgument);
-    // too much length in builtin name 
+    // too much length in builtin name
     EXPECT_THROW(OCLBuiltinParser::ParseOCLBuiltin("_Z20sxsdaa", BIStr, args), Exception::InvalidArgument);
-    // too much length in pointer type name 
+    // too much length in pointer type name
     EXPECT_THROW(OCLBuiltinParser::ParseOCLBuiltin("_Z3sxsP10struct", BIStr, args), Exception::InvalidArgument);
-    // unknown data type 
+    // unknown data type
     EXPECT_THROW(OCLBuiltinParser::ParseOCLBuiltin("_Z3sxsG", BIStr, args), Exception::InvalidArgument);
-    // unknown data type 
+    // unknown data type
     EXPECT_THROW(OCLBuiltinParser::ParseOCLBuiltin("_Z3sxsiG", BIStr, args), Exception::InvalidArgument);
     // array with unknown element type
     EXPECT_THROW(OCLBuiltinParser::ParseOCLBuiltin("_Z3sxsA32_G", BIStr, args), Exception::InvalidArgument);
