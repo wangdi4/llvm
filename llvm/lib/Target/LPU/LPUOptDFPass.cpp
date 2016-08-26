@@ -1098,14 +1098,14 @@ seq_compute_matching_seq_opcode(MachineInstr* compareInst,
   switch (ciOp) {
   case LPU::CMPNE32i:
     if (tOp == LPU::ADD32i) {
-      *indvar_opcode = LPU::SEQSNE32;
+      *indvar_opcode = LPU::SEQNE32;
       return true;
     }
     break;
 
   case LPU::CMPLTS64:
     if (tOp == LPU::ADD64) {
-      *indvar_opcode = LPU::SEQSLTS64;
+      *indvar_opcode = LPU::SEQLTS64;
       return true;
     }
     

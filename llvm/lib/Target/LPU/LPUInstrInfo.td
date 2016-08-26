@@ -1067,8 +1067,9 @@ defm COPY32  : CopyOp<"copy32", I32>;
 defm COPY64  : CopyOp<"copy64", I64>;
 
 multiclass MergeOp<string opStr, RegisterClass RC, ValueType opType,
-                   SDNode immNode, InstrItinClass itin = IIVir> {
-  let Itinerary = itin in {
+                   SDNode immNode,
+                   list<Predicate> preds, InstrItinClass itin> {
+  let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
       (outs RC:$dst),
       (ins I1:$sel, RC:$v0, RC:$v1),
@@ -1087,17 +1088,17 @@ multiclass MergeOp<string opStr, RegisterClass RC, ValueType opType,
       [(set opType:$dst, (select I1:$sel, opType:$v1, (opType immNode:$imm)))]>;
   }
 }
-defm MERGE1   : MergeOp<"merge1",  I1,  i1,  imm>;
-defm MERGE8   : MergeOp<"merge8",  I8,  i8,  imm>;
-defm MERGE16  : MergeOp<"merge16", I16, i16, imm>;
-defm MERGE16f : MergeOp<"merge16", I16, f16, fpimm>;
-defm MERGE32  : MergeOp<"merge32", I32, i32, imm>;
-defm MERGE32f : MergeOp<"merge32", I32, f32, fpimm>;
-defm MERGE64  : MergeOp<"merge64", I64, i64, imm>;
-defm MERGE64f : MergeOp<"merge64", I64, f64, fpimm>;
+defm MERGE1   : MergeOp<"merge1",  I1,  i1,  imm,   [HasI1],  IIVir>;
+defm MERGE8   : MergeOp<"merge8",  I8,  i8,  imm,   [HasI8],  IIVir>;
+defm MERGE16  : MergeOp<"merge16", I16, i16, imm,   [HasI16], IIVir>;
+defm MERGE16f : MergeOp<"merge16", I16, f16, fpimm, [HasI16], IIVir>;
+defm MERGE32  : MergeOp<"merge32", I32, i32, imm,   [HasI32], IIVir>;
+defm MERGE32f : MergeOp<"merge32", I32, f32, fpimm, [HasI32], IIVir>;
+defm MERGE64  : MergeOp<"merge64", I64, i64, imm,   [HasI64], IIVir>;
+defm MERGE64f : MergeOp<"merge64", I64, f64, fpimm, [HasI64], IIVir>;
 
 multiclass SwitchOp<string opStr, RegisterClass RC,
-           InstrItinClass itin = IIVir> {
+           list<Predicate> preds, InstrItinClass itin> {
   let Itinerary = itin in {
     def "" : FMTGEN<
       (outs RC:$dst0, RC:$dst1),
@@ -1106,15 +1107,15 @@ multiclass SwitchOp<string opStr, RegisterClass RC,
       []>;
   }
 }
-defm SWITCH1   : SwitchOp<"switch1",  I1>;
-defm SWITCH8   : SwitchOp<"switch8",  I8>;
-defm SWITCH16  : SwitchOp<"switch16", I16>;
-defm SWITCH32  : SwitchOp<"switch32", I32>;
-defm SWITCH64  : SwitchOp<"switch64", I64>;
+defm SWITCH1   : SwitchOp<"switch1",  I1,  [HasI1],  IIVir>;
+defm SWITCH8   : SwitchOp<"switch8",  I8,  [HasI8],  IIVir>;
+defm SWITCH16  : SwitchOp<"switch16", I16, [HasI16], IIVir>;
+defm SWITCH32  : SwitchOp<"switch32", I32, [HasI32], IIVir>;
+defm SWITCH64  : SwitchOp<"switch64", I64, [HasI64], IIVir>;
 
 multiclass SwitchAnyOp<string opStr, RegisterClass RC,
-           InstrItinClass itin = IIVir> {
-  let Itinerary = itin in {
+           list<Predicate> preds, InstrItinClass itin> {
+  let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
       (outs RC:$dst0, RC:$dst1, I1:$sel),
       (ins RC:$v),
@@ -1122,14 +1123,14 @@ multiclass SwitchAnyOp<string opStr, RegisterClass RC,
       []>;
   }
 }
-defm SWITCHANY1  : SwitchAnyOp<"switchany1",  I1>;
-defm SWITCHANY8  : SwitchAnyOp<"switchany8",  I8>;
-defm SWITCHANY16 : SwitchAnyOp<"switchany16", I16>;
-defm SWITCHANY32 : SwitchAnyOp<"switchany32", I32>;
-defm SWITCHANY64 : SwitchAnyOp<"switchany64", I64>;
+defm SWITCHANY1  : SwitchAnyOp<"switchany1",  I1,  [HasI1],  IIVir>;
+defm SWITCHANY8  : SwitchAnyOp<"switchany8",  I8,  [HasI8],  IIVir>;
+defm SWITCHANY16 : SwitchAnyOp<"switchany16", I16, [HasI16], IIVir>;
+defm SWITCHANY32 : SwitchAnyOp<"switchany32", I32, [HasI32], IIVir>;
+defm SWITCHANY64 : SwitchAnyOp<"switchany64", I64, [HasI64], IIVir>;
 
 multiclass PickOp<string opStr, RegisterClass RC,
-           InstrItinClass itin = IIVir> {
+           list<Predicate> preds, InstrItinClass itin> {
   let Itinerary = itin in {
     def "" : FMTGEN<
       (outs RC:$dst),
@@ -1138,15 +1139,15 @@ multiclass PickOp<string opStr, RegisterClass RC,
       []>;
   }
 }
-defm PICK1   : PickOp<"pick1",  I1>;
-defm PICK8   : PickOp<"pick8",  I8>;
-defm PICK16  : PickOp<"pick16", I16>;
-defm PICK32  : PickOp<"pick32", I32>;
-defm PICK64  : PickOp<"pick64", I64>;
+defm PICK1   : PickOp<"pick1",  I1,  [HasI1],  IIVir>;
+defm PICK8   : PickOp<"pick8",  I8,  [HasI8],  IIVir>;
+defm PICK16  : PickOp<"pick16", I16, [HasI16], IIVir>;
+defm PICK32  : PickOp<"pick32", I32, [HasI32], IIVir>;
+defm PICK64  : PickOp<"pick64", I64, [HasI64], IIVir>;
 
 multiclass PickAnyOp<string opStr, RegisterClass RC,
-           InstrItinClass itin = IIVir> {
-  let Itinerary = itin in {
+           list<Predicate> preds, InstrItinClass itin> {
+  let Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<
       (outs RC:$dst, I1:$sel),
       (ins RC:$v0, RC:$v1),
@@ -1154,11 +1155,11 @@ multiclass PickAnyOp<string opStr, RegisterClass RC,
       []>;
   }
 }
-defm PICKANY1   : PickAnyOp<"pickany1",  I1>;
-defm PICKANY8   : PickAnyOp<"pickany8",  I8>;
-defm PICKANY16  : PickAnyOp<"pickany16", I16>;
-defm PICKANY32  : PickAnyOp<"pickany32", I32>;
-defm PICKANY64  : PickAnyOp<"pickany64", I64>;
+defm PICKANY1  : PickAnyOp<"pickany1",  I1,  [HasI1],  IIVir>;
+defm PICKANY8  : PickAnyOp<"pickany8",  I8,  [HasI8],  IIVir>;
+defm PICKANY16 : PickAnyOp<"pickany16", I16, [HasI16], IIVir>;
+defm PICKANY32 : PickAnyOp<"pickany32", I32, [HasI32], IIVir>;
+defm PICKANY64 : PickAnyOp<"pickany64", I64, [HasI64], IIVir>;
 
 def ANY0 : FMTGEN<
   (outs I64:$dst),
@@ -1178,51 +1179,97 @@ def ONCOUNT0 : FMTGEN<  // TODO: something to reflect state
   "oncount0\t$dst, $cnt, $op2, $op3, $op4, $op5",
   []> { let Itinerary = IIVir; }
 
-def SEQC64 : FMTGEN<  // TODO: something to reflect state
-  (outs I64:$val, I1:$pred, I1:$first, I1:$last),
-  (ins I64:$base, I64:$count, I64:$stride),
-  "seqc64\t$val, $pred, $first, $last, $base, $count, $stride",
-  []> { let Itinerary = IIALU; }
+multiclass SeqCOp<string opStr, RegisterClass RC, ValueType opType,
+           list<Predicate> preds, InstrItinClass itin> {
+  let Predicates = preds, Itinerary = itin in {
+    def "" : FMTGEN<  // TODO: something to reflect state
+      (outs RC:$val, I1:$pred, I1:$first, I1:$last),
+      (ins RC:$base, RC:$count, RC:$stride),
+      !strconcat(opStr, "\t$val, $pred, $first, $last, $base, $count, $stride"),
+      []>;
+  }
+}
 
-def SEQS64 : FMTGEN<  // TODO: something to reflect state
-  (outs I64:$val, I1:$pred, I1:$first, I1:$last),
-  (ins I64:$base, I64:$bound, I64:$stride),
-  "seqs64\t$val, $pred, $first, $last, $base, $bound, $stride",
-  []> { let Itinerary = IIALU; }
+defm SEQC8    : SeqCOp<"seqc8",    I8, i8,   [HasI8],  IIALU>;
+defm SEQC16   : SeqCOp<"seqc16",   I16, i16, [HasI16], IIALU>;
+defm SEQC32   : SeqCOp<"seqc32",   I32, i32, [HasI32], IIALU>;
+defm SEQC64   : SeqCOp<"seqc64",   I64, i64, [HasI64], IIALU>;
 
-def REPEAT64 : FMTGEN<  // TODO: something to reflect state
-  (outs I64:$out),
-  (ins I1:$pred, I64:$in),
-  "repeat64\t$out, $pred, $in",
-  []> { let Itinerary = IIALU; }
+multiclass SeqSOp<string opStr, RegisterClass RC, ValueType opType,
+           list<Predicate> preds, InstrItinClass itin> {
+  let Predicates = preds, Itinerary = itin in {
+    def "" : FMTGEN<  // TODO: something to reflect state
+      (outs RC:$val, I1:$pred, I1:$first, I1:$last),
+      (ins RC:$base, RC:$bound, RC:$stride),
+      !strconcat(opStr, "\t$val, $pred, $first, $last, $base, $bound, $stride"),
+      []>;
+  }
+}
 
-//**************************************************************
-// TBD(jsukha): FIX ME!
-//
-// I added these two sequence opcodes manually because these
-// are the ones I need to get the two test examples I have 
-// working.
-//
-// We eventually want something nicer here. 
-//
-def SEQSNE32 : FMTGEN<  // TODO: something to reflect state
-  (outs I64:$val, I1:$pred, I1:$first, I1:$last),
-  (ins I64:$base, I64:$bound, I64:$stride),
-  "seqs64\t$val, $pred, $first, $last, $base, $bound, $stride",
-  []> { let Itinerary = IIALU; }
+defm SEQLTS8  : SeqSOp<"seqlts8",  I8,  i8,  [HasI8],  IIALU>;
+defm SEQLTS16 : SeqSOp<"seqlts16", I16, i16, [HasI16], IIALU>;
+defm SEQLTS32 : SeqSOp<"seqlts32", I32, i32, [HasI32], IIALU>;
+defm SEQLTS64 : SeqSOp<"seqlts64", I64, i64, [HasI64], IIALU>;
 
-def SEQSLTS64 : FMTGEN<  // TODO: something to reflect state
-  (outs I64:$val, I1:$pred, I1:$first, I1:$last),
-  (ins I64:$base, I64:$bound, I64:$stride),
-  "seqs64\t$val, $pred, $first, $last, $base, $bound, $stride",
-  []> { let Itinerary = IIALU; }
-  
-//  
-//**************************************************************
+defm SEQLTU8  : SeqSOp<"seqltu8",  I8, i8,   [HasI8],  IIALU>;
+defm SEQLTU16 : SeqSOp<"seqltu16", I16, i16, [HasI16], IIALU>;
+defm SEQLTU32 : SeqSOp<"seqltu32", I32, i32, [HasI32], IIALU>;
+defm SEQLTU64 : SeqSOp<"seqltu64", I64, i64, [HasI64], IIALU>;
 
+defm SEQLES8  : SeqSOp<"seqles8",  I8,  i8,  [HasI8],  IIALU>;
+defm SEQLES16 : SeqSOp<"seqles16", I16, i16, [HasI16], IIALU>;
+defm SEQLES32 : SeqSOp<"seqles32", I32, i32, [HasI32], IIALU>;
+defm SEQLES64 : SeqSOp<"seqles64", I64, i64, [HasI64], IIALU>;
 
-multiclass Init<RegisterClass RC, ValueType opType, list<Predicate> preds> {
- let Predicates = preds in {
+defm SEQLEU8  : SeqSOp<"seqleu8",  I8,  i8,  [HasI8],  IIALU>;
+defm SEQLEU16 : SeqSOp<"seqleu16", I16, i16, [HasI16], IIALU>;
+defm SEQLEU32 : SeqSOp<"seqleu32", I32, i32, [HasI32], IIALU>;
+defm SEQLEU64 : SeqSOp<"seqleu64", I64, i64, [HasI64], IIALU>;
+
+defm SEQNE8   : SeqSOp<"seqne8",   I8,  i8,  [HasI8],  IIALU>;
+defm SEQNE16  : SeqSOp<"seqne16",  I16, i16, [HasI16], IIALU>;
+defm SEQNE32  : SeqSOp<"seqne32",  I32, i32, [HasI32], IIALU>;
+defm SEQNE64  : SeqSOp<"seqne64",  I64, i64, [HasI64], IIALU>;
+
+defm SEQGTS8  : SeqSOp<"seqgts8",  I8,  i8,  [HasI8],  IIALU>;
+defm SEQGTS16 : SeqSOp<"seqgts16", I16, i16, [HasI16], IIALU>;
+defm SEQGTS32 : SeqSOp<"seqgts32", I32, i32, [HasI32], IIALU>;
+defm SEQGTS64 : SeqSOp<"seqgts64", I64, i64, [HasI64], IIALU>;
+
+defm SEQGTU8  : SeqSOp<"seqgtu8",  I8,  i8,  [HasI8],  IIALU>;
+defm SEQGTU16 : SeqSOp<"seqgtu16", I16, i16, [HasI16], IIALU>;
+defm SEQGTU32 : SeqSOp<"seqgtu32", I32, i32, [HasI32], IIALU>;
+defm SEQGTU64 : SeqSOp<"seqgtu64", I64, i64, [HasI64], IIALU>;
+
+defm SEQGES8  : SeqSOp<"seqges8",  I8,  i8,  [HasI8],  IIALU>;
+defm SEQGES16 : SeqSOp<"seqges16", I16, i16, [HasI16], IIALU>;
+defm SEQGES32 : SeqSOp<"seqges32", I32, i32, [HasI32], IIALU>;
+defm SEQGES64 : SeqSOp<"seqges64", I64, i64, [HasI64], IIALU>;
+
+defm SEQGEU8  : SeqSOp<"seqgeu8",  I8,  i8,  [HasI8],  IIALU>;
+defm SEQGEU16 : SeqSOp<"seqgeu16", I16, i16, [HasI16], IIALU>;
+defm SEQGEU32 : SeqSOp<"seqgeu32", I32, i32, [HasI32], IIALU>;
+defm SEQGEU64 : SeqSOp<"seqgeu64", I64, i64, [HasI64], IIALU>;
+
+multiclass RepeatOp<string opStr, RegisterClass RC, ValueType opType,
+           list<Predicate> preds, InstrItinClass itin> {
+  let Predicates = preds, Itinerary = itin in {
+    def "" : FMTGEN<  // TODO: something to reflect state
+      (outs I64:$out),
+      (ins I1:$pred, I64:$in),
+      !strconcat(opStr, "\tout, $pred, $in"),
+      []>;
+  }
+}
+
+defm REPEAT8  : SeqSOp<"repeat8",  I8,  i8,  [HasI8],  IIALU>;
+defm REPEAT16 : SeqSOp<"repeat16", I16, i16, [HasI16], IIALU>;
+defm REPEAT32 : SeqSOp<"repeat32", I32, i32, [HasI32], IIALU>;
+defm REPEAT64 : SeqSOp<"repeat64", I64, i64, [HasI64], IIALU>;
+
+multiclass Init<RegisterClass RC, ValueType opType,
+           list<Predicate> preds, InstrItinClass itin> {
+ let Predicates = preds, Itinerary = itin in {
    def "" : PseudoInstLPU<
       (outs RC:$dst),
       (ins Operand<opType>:$imm),
@@ -1231,12 +1278,12 @@ multiclass Init<RegisterClass RC, ValueType opType, list<Predicate> preds> {
   }
 }
 
-defm INIT0  : Init<I1,  i1,  [HasI1]>;
-defm INIT1  : Init<I1,  i1,  [HasI1]>;
-defm INIT8  : Init<I8,  i8,  [HasI8]>;
-defm INIT16 : Init<I16, i16, [HasI16]>;
-defm INIT32 : Init<I32, i32, [HasI32]>;
-defm INIT64 : Init<I64, i64, [HasI64]>;
+defm INIT0  : Init<I1,  i1,  [HasI1],  IIVir>;
+defm INIT1  : Init<I1,  i1,  [HasI1],  IIVir>;
+defm INIT8  : Init<I8,  i8,  [HasI8],  IIVir>;
+defm INIT16 : Init<I16, i16, [HasI16], IIVir>;
+defm INIT32 : Init<I32, i32, [HasI32], IIVir>;
+defm INIT64 : Init<I64, i64, [HasI64], IIVir>;
 
 // Unit - type only
 def UNIT : PseudoInstLPU<
