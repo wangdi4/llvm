@@ -4557,7 +4557,8 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   return std::move(Final);
 }
 
-///  get DV for Backward Edge
+///  Create  DV for Backward Edge
+///  ForwardDV will be changed if it has a leading  (<>)
 ///    Called when both forward and backward edges are needed
 ///           ( *  >  =)  returns  (*  <  =)
 ///           ( =  *  =)  returns  (=  *  =)
@@ -4577,38 +4578,51 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 ///  -----------------------------
 ///  For simplicity we derive from it as  (<= * <)
 
-void DDTest::getDVForBackwardEdge(const DirectionVector &InputDV,
-                                  DirectionVector &OutputDV,
-                                  unsigned MaxLevel) const {
+void DDTest::splitDVForForwardBackwardEdge(DirectionVector &ForwardDV,
+                                           DirectionVector &BackwardDV,
+                                           unsigned MaxLevel) const {
 
-  unsigned StarLevel = 1;
+  unsigned SplitLevel = 1;
 
-  // Scan for leftmost STAR
+  // Scan for leftmost * or <>
+
   for (unsigned II = 1; II <= MaxLevel; ++II) {
-    OutputDV[II - 1] = InputDV[II - 1];
-    assert(InputDV[II - 1] != DVKind::LT && "Unexpected Input DV for reversal");
-    if (InputDV[II - 1] == DVKind::ALL) {
-      StarLevel = II;
+    // for (<> >)
+    // ForwardDV will be changed  as (< >)
+    // BackwardDV will be flipped as (< <)
+    if (ForwardDV[II - 1] == DVKind::NE) {
+      BackwardDV[II - 1] = ForwardDV[II - 1] = DVKind::LT;
+      SplitLevel = II;
+      break;
+    }
+
+    BackwardDV[II - 1] = ForwardDV[II - 1];
+
+    assert(ForwardDV[II - 1] != DVKind::LT &&
+           "Unexpected Input DV for reversal");
+
+    if (ForwardDV[II - 1] == DVKind::ALL) {
+      SplitLevel = II;
       break;
     }
   }
 
-  for (unsigned II = StarLevel + 1; II <= MaxLevel; ++II) {
-    switch (InputDV[II - 1]) {
+  for (unsigned II = SplitLevel + 1; II <= MaxLevel; ++II) {
+    switch (ForwardDV[II - 1]) {
     case DVKind::LT:
-      OutputDV[II - 1] = DVKind::GT;
+      BackwardDV[II - 1] = DVKind::GT;
       break;
     case DVKind::LE:
-      OutputDV[II - 1] = DVKind::GE;
+      BackwardDV[II - 1] = DVKind::GE;
       break;
     case DVKind::GT:
-      OutputDV[II - 1] = DVKind::LT;
+      BackwardDV[II - 1] = DVKind::LT;
       break;
     case DVKind::GE:
-      OutputDV[II - 1] = DVKind::LE;
+      BackwardDV[II - 1] = DVKind::LE;
       break;
     default:
-      OutputDV[II - 1] = InputDV[II - 1];
+      BackwardDV[II - 1] = ForwardDV[II - 1];
       break;
     }
   }
@@ -4673,7 +4687,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   ///  (= = <=  *)  Yes
   ///  (= = <=  =)  no
   ///  (= = <   >)  no
-  ///  See more details in getDVForBackwardEdge
+  ///  See more details in splitDVForForwardBackwardEdge
 
   bool BiDirection = false;
   //  <> Level
@@ -4847,7 +4861,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       ForwardDV[II - 1] = Result->getDirection(II);
     }
     ForwardDV[Levels - 1] = DVKind::EQ;
-    getDVForBackwardEdge(ForwardDV, BackwardDV, Levels);
+    splitDVForForwardBackwardEdge(ForwardDV, BackwardDV, Levels);
     BackwardDV[Levels - 1] = DVKind::LT;
     return true;
   }
@@ -4868,7 +4882,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       // Computed from Src -> Dst (Forward edge)
       ForwardDV[II - 1] = Result->getDirection(II);
     }
-    getDVForBackwardEdge(ForwardDV, BackwardDV, Levels);
+    splitDVForForwardBackwardEdge(ForwardDV, BackwardDV, Levels);
     if (LTGTLevel) {
       // e.g. (= <> < =)
       // Forward  edge DV: (= < < =)
