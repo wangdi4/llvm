@@ -20,22 +20,6 @@ extern void* __attribute__((const)) __get_device_command_manager(void);
 extern void* __attribute__((const)) __get_block_to_kernel_mapper(void);
 extern void* __attribute__((const)) __get_runtime_handle(void);
 
-////////// - externals to get access to ndrange opaque struct
-// setters
-extern void __set_work_dimension(ndrange_t *, size_t);
-extern void __set_global_work_offset(ndrange_t *, size_t index, size_t offset);
-extern void __set_global_work_size(ndrange_t *, size_t index, size_t size);
-extern void __set_local_work_size(ndrange_t *, size_t index, size_t size);
-// getters
-extern size_t __attribute__((const)) __attribute__((always_inline))
-    __get_work_dimension(const ndrange_t *);
-extern size_t __attribute__((const)) __attribute__((always_inline))
-    __get_global_work_offset(const ndrange_t *, size_t index);
-extern size_t __attribute__((const)) __attribute__((always_inline))
-    __get_global_work_size(const ndrange_t *, size_t index);
-extern size_t __attribute__((const)) __attribute__((always_inline))
-    __get_local_work_size(const ndrange_t *, size_t index);
-
 ////////// - enqueue_kernel
 extern int ocl20_enqueue_kernel_events(
     queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t *ndrange,
@@ -97,10 +81,10 @@ ndrange_t __attribute__((const)) __attribute__((overloadable))
     ndrange_1D(size_t global_work_offset, size_t global_work_size,
                size_t local_work_size) {
   ndrange_t T;
-  __set_work_dimension(&T, 1);
-  __set_global_work_offset(&T, /*dimension*/ 0, /*offset*/ global_work_offset);
-  __set_global_work_size(&T, /*dimension*/ 0, /*size*/ global_work_size);
-  __set_local_work_size(&T, /*dimension*/ 0, /*size*/ local_work_size);
+  T.workDimension = 1;
+  T.globalWorkOffset[0] = global_work_offset;
+  T.globalWorkSize[0] = global_work_size;
+  T.localWorkSize[0] = local_work_size;
   return T;
 }
 ndrange_t __attribute__((const)) __attribute__((overloadable))
@@ -133,13 +117,13 @@ ndrange_t __attribute__((const))  __attribute__((overloadable))
     ndrange_2D(const size_t global_work_offset[2], const size_t global_work_size[2],
                const size_t local_work_size[2]) {
   ndrange_t T;
-  __set_work_dimension(&T, 2);
-  __set_global_work_offset(&T, /*index*/ 0, /*offset*/ global_work_offset[0]);
-  __set_global_work_offset(&T, /*index*/ 1, /*offset*/ global_work_offset[1]);
-  __set_global_work_size(&T, /*index*/ 0, /*size*/ global_work_size[0]);
-  __set_global_work_size(&T, /*index*/ 1, /*size*/ global_work_size[1]);
-  __set_local_work_size(&T, /*index*/ 0, /*size*/ local_work_size[0]);
-  __set_local_work_size(&T, /*index*/ 1, /*size*/ local_work_size[1]);
+  T.workDimension = 2;
+  T.globalWorkOffset[0] = global_work_offset[0];
+  T.globalWorkOffset[1] = global_work_offset[1];
+  T.globalWorkSize[0] = global_work_size[0];
+  T.globalWorkSize[1] = global_work_size[1];
+  T.localWorkSize[0] = local_work_size[0];
+  T.localWorkSize[1] = local_work_size[1];
   return T;
 }
 
@@ -160,16 +144,16 @@ ndrange_t __attribute__((const)) __attribute__((overloadable))
     ndrange_3D(const size_t global_work_offset[3], const size_t global_work_size[3],
                const size_t local_work_size[3]) {
   ndrange_t T;
-  __set_work_dimension(&T, 3);
-  __set_global_work_offset(&T, /*index*/ 0, /*offset*/ global_work_offset[0]);
-  __set_global_work_offset(&T, /*index*/ 1, /*offset*/ global_work_offset[1]);
-  __set_global_work_offset(&T, /*index*/ 2, /*offset*/ global_work_offset[2]);
-  __set_global_work_size(&T, /*index*/ 0, /*size*/ global_work_size[0]);
-  __set_global_work_size(&T, /*index*/ 1, /*size*/ global_work_size[1]);
-  __set_global_work_size(&T, /*index*/ 2, /*size*/ global_work_size[2]);
-  __set_local_work_size(&T, /*index*/ 0, /*size*/ local_work_size[0]);
-  __set_local_work_size(&T, /*index*/ 1, /*size*/ local_work_size[1]);
-  __set_local_work_size(&T, /*index*/ 2, /*size*/ local_work_size[2]);
+  T.workDimension = 3;
+  T.globalWorkOffset[0] = global_work_offset[0];
+  T.globalWorkOffset[1] = global_work_offset[1];
+  T.globalWorkOffset[2] = global_work_offset[2];
+  T.globalWorkSize[0] = global_work_size[0];
+  T.globalWorkSize[1] = global_work_size[1];
+  T.globalWorkSize[2] = global_work_size[2];
+  T.localWorkSize[0] = local_work_size[0];
+  T.localWorkSize[1] = local_work_size[1];
+  T.localWorkSize[2] = local_work_size[2];
   return T;
 }
 
@@ -181,8 +165,8 @@ get_kernel_sub_group_count_for_ndrange(const ndrange_t ndrange,
                                         void(^block)(void)) {
   uint maxWGSize = get_kernel_work_group_size(block);
   size_t prod = 1;
-  for (unsigned int i = 0; i < __get_work_dimension(&ndrange); ++i)
-      prod *= __get_local_work_size(&ndrange, i);
+  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
+      prod *= ndrange.localWorkSize[i];
   if (prod > maxWGSize)
       return 0;
   else
@@ -197,8 +181,8 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
                                          void(^block)(local void *, ...)) {
   uint maxWGSize = get_kernel_work_group_size(block);
   size_t prod = 1;
-  for (unsigned int i = 0; i < __get_work_dimension(&ndrange); ++i)
-      prod *= __get_local_work_size(&ndrange, i);
+  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
+      prod *= ndrange.localWorkSize[i];
   if (prod > maxWGSize)
       return 0;
   else
@@ -213,8 +197,8 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
                                             void(^block)(void)) {
   uint maxWGSize = get_kernel_work_group_size(block);
   size_t prod = 1;
-  for (unsigned int i = 0; i < __get_work_dimension(&ndrange); ++i)
-      prod *= __get_local_work_size(&ndrange, i);
+  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
+      prod *= ndrange.localWorkSize[i];
   if (prod > maxWGSize)
       return 0;
   else
@@ -229,8 +213,8 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
                                             void(^block)(local void *, ...)) {
   uint maxWGSize = get_kernel_work_group_size(block);
   size_t prod = 1;
-  for (unsigned int i = 0; i < __get_work_dimension(&ndrange); ++i)
-       prod *= __get_local_work_size(&ndrange, i);
+  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
+       prod *= ndrange.localWorkSize[i];
   if (prod > maxWGSize)
       return 0;
   else
@@ -320,13 +304,24 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
   return ocl20_get_kernel_preferred_wg_size_multiple(block, DCM, B2K);
 }
 
+/// address space overloading for enqueue_kernel and enqueue_marker
+const __global clk_event_t* __attribute__((always_inline)) __attribute__((overloadable))
+    cast_to_global(const __generic clk_event_t* ptr) {
+  return (const __global clk_event_t*)ptr;
+}
+
+__global clk_event_t* __attribute__((always_inline)) __attribute__((overloadable))
+    cast_to_global(__generic clk_event_t* ptr) {
+  return (__global clk_event_t*)ptr;
+}
+
 #define ADDR_SPACE_OVERLOADING(ADDR_SPACE_1ST, ADDR_SPACE_2ND)\
 int __attribute__((always_inline)) __attribute__((overloadable))\
     enqueue_marker(queue_t queue, uint num_events_in_wait_list,\
                    const ADDR_SPACE_1ST clk_event_t *event_wait_list, ADDR_SPACE_2ND clk_event_t* event_ret) {\
   return enqueue_marker(queue, num_events_in_wait_list,\
-                        to_global(event_wait_list),\
-                        to_global(event_ret));\
+                        cast_to_global(event_wait_list),\
+                        cast_to_global(event_ret));\
 }\
 int __attribute__((overloadable)) __attribute__((always_inline))\
     enqueue_kernel(queue_t queue, kernel_enqueue_flags_t flags,\
@@ -334,8 +329,8 @@ int __attribute__((overloadable)) __attribute__((always_inline))\
                    const ADDR_SPACE_1ST clk_event_t *event_wait_list, clk_event_t ADDR_SPACE_2ND *event_ret,\
                    void (^block)(void)) {\
   return enqueue_kernel(queue, flags, ndrange, num_events_in_wait_list,\
-                        to_global(event_wait_list),\
-                        to_global(event_ret), block);\
+                        cast_to_global(event_wait_list),\
+                        cast_to_global(event_ret), block);\
 }
 
 ADDR_SPACE_OVERLOADING(__global, __private)
