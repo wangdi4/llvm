@@ -15,7 +15,6 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VectorGraphInfo.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VectorGraph.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VectorGraphUtils.h"
-#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/CFG.h"
@@ -115,7 +114,7 @@ public:
 
   const VGSESERegion *getRoot() { return Root; }
 
-  void processControlFlow(VGNode* VNode, ScalarEvolution *SE) {
+  void processControlFlow(VGNode *VNode, ScalarEvolution *SE) {
 
     // Check if this VGNode contains a SESE region. If so, create it as a
     // sub-region of the one it is in.
@@ -136,37 +135,40 @@ public:
     // For now, it is assumed we're dealing exclusively with innermost loop
     // vectorization. Mark the SESE region as divergent if the condition of the
     // branch is non-uniform with respect to this loop.
-    Value *Cmp = VBlock->getBranchCondition();
-    const SCEV *CmpSCEV = SE->getSCEV(Cmp);
-    if (!SE->isLoopInvariant(CmpSCEV, ALoop->getLoop())) {
-      RegionStack.top()->setDivergent();
-    }
+    //Value *Cmp = VBlock->getBranchCondition();
+    //const SCEV *CmpSCEV = SE->getSCEV(Cmp);
+    //if (!SE->isLoopInvariant(CmpSCEV, ALoop->getLoop())) {
+    //  RegionStack.top()->setDivergent();
+    //}
+    // TODO: LoopVectorize doesn't know how to deal with uniform regions
+    // We make all regions divergent
+    RegionStack.top()->setDivergent();
   }
 };
 
-class CollectLexicalLinks {
-
-public:
-  
-  typedef std::set<std::pair<VGBlock*, VGBlock*> > ConstraintsTy;
-
-private:
-  
-  ConstraintsTy Constraints;
-
-public:
-
-  CollectLexicalLinks() {}
-  ~CollectLexicalLinks() {}
-
-  const ConstraintsTy& getConstraints() const {
-    return Constraints;
-  }
-
-  void setConstraint(VGBlock* VBlock1, VGBlock* VBlock2) {
-    Constraints.insert(std::make_pair(VBlock1, VBlock2));
-  }
-};
+//class CollectLexicalLinks {
+//
+//public:
+//  
+//  typedef std::set<std::pair<VGBlock*, VGBlock*> > ConstraintsTy;
+//
+//private:
+//  
+//  ConstraintsTy Constraints;
+//
+//public:
+//
+//  CollectLexicalLinks() {}
+//  ~CollectLexicalLinks() {}
+//
+//  const ConstraintsTy& getConstraints() const {
+//    return Constraints;
+//  }
+//
+//  void setConstraint(VGBlock* VBlock1, VGBlock* VBlock2) {
+//    Constraints.insert(std::make_pair(VBlock1, VBlock2));
+//  }
+//};
 
 } // End namespace llvm
 
@@ -191,9 +193,13 @@ static cl::opt<bool>
 
 FunctionPass *llvm::createVectorGraphPredicatorPass() { return new VectorGraphPredicator(); }
 
-VectorGraphPredicator::VectorGraphPredicator() : FunctionPass(ID) {
+VectorGraphPredicator::VectorGraphPredicator()
+    : FunctionPass(ID) {
   llvm::initializeVectorGraphPredicatorPass(*PassRegistry::getPassRegistry());
 }
+
+VectorGraphPredicator::VectorGraphPredicator(ScalarEvolution *SE)
+    : FunctionPass(ID), SE(SE) {}
 
 void VectorGraphPredicator::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
@@ -206,6 +212,8 @@ void VectorGraphPredicator::getAnalysisUsage(AnalysisUsage &AU) const {
 bool VectorGraphPredicator::runOnFunction(Function &F) {
 
   VGI = &getAnalysis<VectorGraphInfo>();
+  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+
   VectorGraphInfo::iterator VGIItr = VGI->begin();
   VectorGraphInfo::iterator VGIEnd = VGI->end();
   for (; VGIItr != VGIEnd; ++VGIItr) {
@@ -213,7 +221,7 @@ bool VectorGraphPredicator::runOnFunction(Function &F) {
       runOnAvr(ALoop);
     }
   }
-errs() << "Entering runOnFuncion for Predicator ...\n";
+//errs() << "Entering runOnFuncion for Predicator ...\n";
 
   return false;
 }
@@ -250,8 +258,6 @@ void VectorGraphPredicator::predicateLoop(VGLoop* ALoop) {
 
   ConstructVGSESERegions CSR(ALoop, DominatorTree, PostDominatorTree);
 
-  ScalarEvolution *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-
   // For now, just iterate over the VGBlocks in the VGLoop. This will later be
   // replaced by visitors.
   for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
@@ -264,157 +270,158 @@ void VectorGraphPredicator::predicateLoop(VGLoop* ALoop) {
         CSR.getRoot()->print(FOS));
 
   // Recursively handle the SESE regions
-  handleVGSESERegion(CSR.getRoot(), ALoop);
+  handleVGSESERegion(CSR.getRoot(), ALoop, DominatorTree);
 }
 
 void VectorGraphPredicator::handleVGSESERegion(const VGSESERegion *Region,
-                                               VGLoop* ALoop) {
+                                               VGLoop *Loop,
+                                               const VGDominatorTree &DomTree) {
 
   DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "Handling "
-        << (Region->isUniform() ? "UNIFORM" : "DIVERGENT")
-        << " SESE region:\n";
+        FOS << "Handling DIVERGENT"
+            << " SESE region:\n";
         Region->getContainingNode()->print(FOS, 1));
+  //      << (Region->isUniform() ? "UNIFORM" : "DIVERGENT")
 
-  if (Region->isUniform()) {
+  //if (Region->isUniform()) {
 
-    // Just handle all subregions recursively
-    for (VGSESERegion* SubRegion : Region->getSubRegions())
-      handleVGSESERegion(SubRegion, ALoop);
-    return;
-  }
+  //  // Just handle all subregions recursively
+  //  for (VGSESERegion* SubRegion : Region->getSubRegions())
+  //    handleVGSESERegion(SubRegion, Loop, DomTree);
+  //  return;
+  //}
 
   // This region is divergent: deconstruct into AVRBlocks (but keep uniform
   // sub-regions intact).
 
-  CollectLexicalLinks CLL;
-
-  for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
-       ++Itr) {
-    VGBlock *VBlock = cast<VGBlock>(Itr);
-    if (VBlock->hasBranchCondition()) {
-      BasicBlock *BB = VBlock->getBasicBlock();
-      TerminatorInst *TermInst = BB->getTerminator();
-errs() << "TerminatorInst: " << *TermInst << "\n";
-      BasicBlock *IfBlock = TermInst->getSuccessor(0);
-      BasicBlock *ElseBlock = TermInst->getSuccessor(1);
-      VGBlock *IfVBlock = ALoop->BlockMap[IfBlock];
-      VGBlock *ElseVBlock = ALoop->BlockMap[ElseBlock];
-      // Successor could be outside of the VGLoop
-      if (!IfBlock || !ElseVBlock) continue;
-      CLL.setConstraint(ElseVBlock, IfVBlock);
-    }
-  }
-
-  DenseMap<VGNode*, VGSESERegion*> DoNotDeconstruct;
+//  CollectLexicalLinks CLL;
+//
+//  for (auto Itr = Loop->child_begin(), End = Loop->child_end(); Itr != End;
+//       ++Itr) {
+//    VGBlock *VBlock = cast<VGBlock>(Itr);
+//    if (VBlock->hasBranchCondition()) {
+//      BasicBlock *BB = VBlock->getBasicBlock();
+//      TerminatorInst *TermInst = BB->getTerminator();
+//errs() << "TerminatorInst: " << *TermInst << "\n";
+//      BasicBlock *IfBlock = TermInst->getSuccessor(0);
+//      BasicBlock *ElseBlock = TermInst->getSuccessor(1);
+//      VGBlock *IfVBlock = Loop->BlockMap[IfBlock];
+//      VGBlock *ElseVBlock = Loop->BlockMap[ElseBlock];
+//      // Successor could be outside of the VGLoop
+//      if (!IfBlock || !ElseVBlock) continue;
+//      CLL.setConstraint(ElseVBlock, IfVBlock);
+//    }
+//  }
+//
+//  DenseMap<VGNode*, VGSESERegion*> DoNotDeconstruct;
 
   // Handle all uniform subregions
-  for (VGSESERegion* SubRegion : Region->getSubRegions())
-    if (SubRegion->isUniform()) {
-      DEBUG(formatted_raw_ostream FOS(dbgs());
-            FOS << "Preserving ";
-	    SubRegion->getContainingNode()->print(FOS, 0);
-	    FOS << "\n");
-      DoNotDeconstruct[SubRegion->getContainingNode()] = SubRegion;
-      handleVGSESERegion(SubRegion, ALoop);
-    }
+  //for (VGSESERegion* SubRegion : Region->getSubRegions())
+  //  if (SubRegion->isUniform()) {
+  //    DEBUG(formatted_raw_ostream FOS(dbgs());
+  //          FOS << "Preserving ";
+  //      SubRegion->getContainingNode()->print(FOS, 0);
+  //      FOS << "\n");
+  //    DoNotDeconstruct[SubRegion->getContainingNode()] = SubRegion;
+  //    handleVGSESERegion(SubRegion, Loop, DomTree);
+  //  }
 
   // Add lexical links scheduling constraints e.g. then before else.
-  for (auto& Pair : CLL.getConstraints()) {
-    VGBlock* FirstBlock = dyn_cast<VGBlock>(Pair.first->getParent());
-    if (!FirstBlock)
-      continue;
-    VGBlock* SecondBlock = dyn_cast<VGBlock>(Pair.second->getParent());
-    if (!SecondBlock)
-      continue;
-    DEBUG(formatted_raw_ostream FOS(dbgs());
-          FOS << "Block " << FirstBlock->getNumber()
-	  << " lexically depends on block "
-	  << SecondBlock->getNumber() << "\n");
-    VectorGraphUtils::addSchedulingConstraint(FirstBlock, SecondBlock);
-  }
+//  for (auto& Pair : CLL.getConstraints()) {
+//    VGBlock* FirstBlock = dyn_cast<VGBlock>(Pair.first->getParent());
+//    if (!FirstBlock)
+//      continue;
+//    VGBlock* SecondBlock = dyn_cast<VGBlock>(Pair.second->getParent());
+//    if (!SecondBlock)
+//      continue;
+//    DEBUG(formatted_raw_ostream FOS(dbgs());
+//          FOS << "Block " << FirstBlock->getNumber()
+//	  << " lexically depends on block "
+//	  << SecondBlock->getNumber() << "\n");
+//    VectorGraphUtils::addSchedulingConstraint(FirstBlock, SecondBlock);
+//  }
 
   VGBlock* EntryBlock = Region->getEntry();
-  VGBlock* ExitBlock = Region->getExit();
-  VGBlock* NextBlockInsertionPos = EntryBlock;
+//  VGBlock* ExitBlock = Region->getExit();
+//  VGBlock* NextBlockInsertionPos = EntryBlock;
 
   // Insert the AVRBlocks into the parent of the region's entry. We use DFS
   // topological sort in order to get valid scheduling that preserves blocks
   // locality to improve the chances of later zero-bypass installations.
-  SmallPtrSet<VGBlock*, 16> ScheduledBlocks;
-  SmallVector<VGBlock*, 16> LinearizedBlocks;
-  std::stack<VGBlock*> BlockStack;
-
-  ScheduledBlocks.insert(EntryBlock); // already scheduled.
-  LinearizedBlocks.push_back(EntryBlock);
-  BlockStack.push(ExitBlock);
-  while (!BlockStack.empty()) {
-
-    // Examine top of stack: push into stack any constrainting block which has
-    // not yet been scheduled. If there are no such blocks, schedule this block.
-    VGBlock* Top = BlockStack.top();
-    DEBUG(formatted_raw_ostream FOS(dbgs());
-          FOS << "Top VGBlock now " << Top->getNumber() << " \n");
-    const SmallPtrSetImpl<VGBlock*>& SchedConstraints
-      = Top->getSchedConstraints();
-    bool CanSchedule = true;
-    for (VGBlock* Dependency : SchedConstraints) {
-      if (!ScheduledBlocks.count(Dependency)) {
-	DEBUG(formatted_raw_ostream FOS(dbgs());
-	      FOS << "Pushing dependency AVRBlock " << Dependency->getNumber()
-	      << "\n");
-        BlockStack.push(Dependency);
-        CanSchedule = false;
-      }
-    }
-    if (!CanSchedule)
-      continue; // at least one scheduling constraint has not been met yet
-
-    BlockStack.pop();
-
-    if (ScheduledBlocks.count(Top))
-      continue;
-
-    DEBUG(formatted_raw_ostream FOS(dbgs());
-          FOS << "Scheduling VGBlock " << Top->getNumber() << " after VGBlock "
-	  << NextBlockInsertionPos->getNumber() << "\n");
-
-    //AVRUtils::insertAfter(AvrItr(NextBlockInsertionPos), Top);
-    NextBlockInsertionPos = Top;
-    ScheduledBlocks.insert(Top);
-    LinearizedBlocks.push_back(Top);
-  }
-
-  DEBUG(formatted_raw_ostream FOS(dbgs());
-        FOS << "Linearized Block Sequence:\n";
-        for (unsigned i = 0; i < LinearizedBlocks.size(); i++)
-          FOS << "Block #: " << LinearizedBlocks[i]->getNumber() << "\n";);
+//  SmallPtrSet<VGBlock*, 16> ScheduledBlocks;
+//  SmallVector<VGBlock*, 16> LinearizedBlocks;
+//  std::stack<VGBlock*> BlockStack;
+//
+//  ScheduledBlocks.insert(EntryBlock); // already scheduled.
+//  LinearizedBlocks.push_back(EntryBlock);
+//  BlockStack.push(ExitBlock);
+//  while (!BlockStack.empty()) {
+//
+//    // Examine top of stack: push into stack any constrainting block which has
+//    // not yet been scheduled. If there are no such blocks, schedule this block.
+//    VGBlock* Top = BlockStack.top();
+//    DEBUG(formatted_raw_ostream FOS(dbgs());
+//          FOS << "Top VGBlock now " << Top->getNumber() << " \n");
+//    const SmallPtrSetImpl<VGBlock*>& SchedConstraints
+//      = Top->getSchedConstraints();
+//    bool CanSchedule = true;
+//    for (VGBlock* Dependency : SchedConstraints) {
+//      if (!ScheduledBlocks.count(Dependency)) {
+//	DEBUG(formatted_raw_ostream FOS(dbgs());
+//	      FOS << "Pushing dependency AVRBlock " << Dependency->getNumber()
+//	      << "\n");
+//        BlockStack.push(Dependency);
+//        CanSchedule = false;
+//      }
+//    }
+//    if (!CanSchedule)
+//      continue; // at least one scheduling constraint has not been met yet
+//
+//    BlockStack.pop();
+//
+//    if (ScheduledBlocks.count(Top))
+//      continue;
+//
+//    DEBUG(formatted_raw_ostream FOS(dbgs());
+//          FOS << "Scheduling VGBlock " << Top->getNumber() << " after VGBlock "
+//	  << NextBlockInsertionPos->getNumber() << "\n");
+//
+//    //AVRUtils::insertAfter(AvrItr(NextBlockInsertionPos), Top);
+//    NextBlockInsertionPos = Top;
+//    ScheduledBlocks.insert(Top);
+//    LinearizedBlocks.push_back(Top);
+//  }
+//
+//  DEBUG(formatted_raw_ostream FOS(dbgs());
+//        FOS << "Linearized Block Sequence:\n";
+//        for (unsigned i = 0; i < LinearizedBlocks.size(); i++)
+//          FOS << "Block #: " << LinearizedBlocks[i]->getNumber() << "\n";);
   
-  predicate(EntryBlock);
+  predicate(EntryBlock, Loop, DomTree);
 
   // Remove the initial VGBlock ordering within the VGLoop and replace with the
   // linearized order of VGBlocks.
-  SmallVector<VGBlock*, 4> ToRemove;
-  for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
-       ++Itr) {
-    VGBlock *VBlock = cast<VGBlock>(Itr);
-    ToRemove.push_back(VBlock);
-  }
-
-  for (unsigned i = 0; i < ToRemove.size(); i++) {
-    VectorGraphUtils::remove(ToRemove[i]);
-  }
-
-  for (unsigned i = 0; i < LinearizedBlocks.size(); i++) {
-    VectorGraphUtils::insertLastChild(ALoop, LinearizedBlocks[i]);
-  }
-
-errs() << "Dumping Linearized VGLoop blocks:\n";
-for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
-     ++Itr) {
-  VGBlock *VBlock = cast<VGBlock>(Itr);
-  VBlock->dump();
-}
+//  SmallVector<VGBlock*, 4> ToRemove;
+//  for (auto Itr = Loop->child_begin(), End = Loop->child_end(); Itr != End;
+//       ++Itr) {
+//    VGBlock *VBlock = cast<VGBlock>(Itr);
+//    ToRemove.push_back(VBlock);
+//  }
+//
+//  for (unsigned i = 0; i < ToRemove.size(); i++) {
+//    VectorGraphUtils::remove(ToRemove[i]);
+//  }
+//
+//  for (unsigned i = 0; i < LinearizedBlocks.size(); i++) {
+//    VectorGraphUtils::insertLastChild(Loop, LinearizedBlocks[i]);
+//  }
+//
+//errs() << "Dumping Linearized VGLoop blocks:\n";
+//for (auto Itr = Loop->child_begin(), End = Loop->child_end(); Itr != End;
+//     ++Itr) {
+//  VGBlock *VBlock = cast<VGBlock>(Itr);
+//  VBlock->dump();
+//}
 
 /*
   DEBUG(formatted_raw_ostream FOS(dbgs());
@@ -429,8 +436,9 @@ for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
 */
 }
 
-void VectorGraphPredicator::predicate(VGBlock* Entry) {
-
+void VectorGraphPredicator::predicate(VGBlock *Entry,
+                                      VGLoop *Loop,
+                                      const VGDominatorTree &DomTree) {
   // Add an empty VGPredicate object to each VGBlock.
   for (auto It = df_iterator<VGBlock*>::begin(Entry),
        End = df_iterator<VGBlock*>::end(Entry); It != End; ++It) {
@@ -441,61 +449,120 @@ void VectorGraphPredicator::predicate(VGBlock* Entry) {
   }
 
   // Propagate all incoming conditions from prececessor blocks to this
-  // block. We still need a way to determine if this block is on the
-  // true/false path to know where to apply negation of conditions.
+  // block.
   for (auto It = df_iterator<VGBlock*>::begin(Entry),
        End = df_iterator<VGBlock*>::end(Entry); It != End; ++It) {
 
-    VGBlock* VBlock = *It;
-    if (VBlock == Entry) continue;
+    VGBlock *VBlock = *It;
+
+    // The loop entry doesn't need predication in supported
+    // innermost loop vectorization scenarios.
+    if (VBlock == Loop->getEntry()) continue;
+
+    // This won't work with the latest changes in the algorithm
+    // TODO: Optimization assuming innermostloop vectorization without
+    // breaks/continues, etc.
+    // if (VBlock->getPredecessors().size() > 1) {
+    //    bool PostDomAllPredecs = true;
+    //    for (P : VBlock->getPredecessors()) {
+    //      if (!PostDomTree.dominates(VBlock, P)) {
+    //         PostDomAllPredecs = false;
+    //         break;
+    //      }
+    //    }
+    //    // Propagate predicate from immediate dominator
+    //    if (PostDomAllPredecs) {
+    //      VGBlock *IDom = DomTree.getImmediateDominator(VBlock);
+    //      VectorGraphUtils::setPredicate(VBlock, IDom->getPredicate()); 
+    //
+    //      DEBUG(formatted_raw_ostream FOS(dbgs());
+    //      FOS << "Propagating predicate from Block " << IDom->getNumber()
+    //          << " to Block " << VBlock->getNumber() << "\n";
+    //    }
+    //
+    //    continue;
+    // }
 
     DEBUG(formatted_raw_ostream FOS(dbgs());
           FOS << "Predicating block " << VBlock->getNumber() << "\n";
           VBlock->dump();
           FOS << "\n");
 
-    for (VGBlock* Predecessor : VBlock->getPredecessors()) {
+    for (VGBlock *Predecessor : VBlock->getPredecessors()) {
 
       // Ordinal tells us whether VBlock lies on the true or false branch taken
       // by the predecessor (0 = true, 1 = false)
       unsigned Ordinal = Predecessor->getSuccessorOrdinal(VBlock);
+      bool CondNeedsNegation = Ordinal == 1;
 
       DEBUG(formatted_raw_ostream FOS(dbgs());
             FOS << "Handling predecessor block " << Predecessor->getNumber()
-	    << " with ordinal " << Ordinal << "\n");
+                << " with ordinal " << Ordinal << "\n");
 
-      SmallVector<Value*, 2> Conditions;
-      Value* PredCondition = Predecessor->getBranchCondition();
-
+      Value *PredCondition = Predecessor->getBranchCondition();
       if (PredCondition) {
         DEBUG(formatted_raw_ostream FOS(dbgs());
               FOS << "Incoming Condition: " << *PredCondition << "\n");
+
+        VectorGraphUtils::addVGPredicateIncoming(
+            VBlock->getPredicate(), Predecessor->getPredicate(), PredCondition,
+            CondNeedsNegation);
+      } else { // Unconditional branch
+        assert(
+            !cast<BranchInst>(Predecessor->getTerminator())->isConditional() &&
+            "Did not expect conditional branches at this point");
+        DEBUG(formatted_raw_ostream FOS(dbgs());
+              FOS << "Unconditional Branch\n");
+
         VectorGraphUtils::addVGPredicateIncoming(VBlock->getPredicate(),
                                                  Predecessor->getPredicate(),
-                                                 PredCondition);
-      }
-
-      Value *Condition = VBlock->getBranchCondition();
-      if (Condition) {
-        errs() << "VBlock Condition (incoming to successor blocks): "
-               << *Condition << "\n";
+                                                 nullptr, CondNeedsNegation);
       }
     }
+
+    // By now, we only can ensure that predicates from VBlocks that dominate the
+    // loop latch will be all ones in supported innermost loop vectorization
+    // scenarios. At least, loop entry, loop latch and loop exit will not hit
+    // here.
+    if (!DomTree.dominates(VBlock, Loop->getLoopLatch())) {
+      DEBUG(formatted_raw_ostream FOS(dbgs());
+            FOS << "Block " << VBlock->getNumber()
+                << " needs predication. Removing isAllOnes flag.\n";
+            VBlock->dump(); FOS << "\n");
+
+      VectorGraphUtils::setAllOnes(VBlock->getPredicate(), false);
+    } 
+
+    //Value *Condition = VBlock->getBranchCondition();
+    //if (Condition) {
+    //  errs() << "VBlock Condition (incoming to successor blocks): "
+    //         << *Condition << "\n";
+    //}
   }
 
   for (auto It = df_iterator<VGBlock*>::begin(Entry),
        End = df_iterator<VGBlock*>::end(Entry); It != End; ++It) {
 
     VGBlock* VBlock = *It;
-    errs() << "Incoming Conditions for block:\n";
-    VBlock->dump();
-    errs() << "\n";
+    //errs() << "Incoming Conditions for block:\n";
+    //VBlock->dump();
+    //errs() << "\n";
     VGPredicate *Pred = VBlock->getPredicate();
-    const SmallVectorImpl<std::pair<VGPredicate*, Value*>> &IncomingPredicates =
-      Pred->getIncoming();
+    const SmallVectorImpl<VGPredicate::IncomingTy> &IncomingPredicates =
+        Pred->getIncoming();
     for (unsigned i = 0; i < IncomingPredicates.size(); i++) {
-      Value *Cond = IncomingPredicates[i].second;
-      errs() << "  Condition: " << *Cond << "\n";
+    //  errs() << "  Condition: ";
+    //  Value *Cond = IncomingPredicates[i].second.first;
+    //  bool CondNeedsNegation = IncomingPredicates[i].second.second;
+
+    //  if (Cond) {
+    //    if (CondNeedsNegation) {
+    //      errs() << "!";
+    //    }
+    //    errs() << *Cond << "\n";
+    //  } else {
+    //    errs() << "-\n";
+    //  }
     }
   }
 }

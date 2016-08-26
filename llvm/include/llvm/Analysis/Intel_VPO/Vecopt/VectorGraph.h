@@ -179,13 +179,13 @@ private:
   ChildNodeTy Children;
 
   /// LoopIVs and strides
-  SmallDenseMap<Instruction *, const SCEV *> LoopIVs;
+  //SmallDenseMap<Instruction *, const SCEV *> LoopIVs;
 
   /// Loop upper bound
-  SCEV *UpperBound;
+  //SCEV *UpperBound;
 
   /// Loop lower bound
-  SCEV *LowerBound;
+  //SCEV *LowerBound;
 
   /// Entry - entry node to the CFG. Typically the first AVR encountered by
   /// iterating the given AVR range for which a CFGInstruction exists, unless
@@ -193,8 +193,8 @@ private:
   /// case this is an empty basic block.
   VGBlock* Entry;
 
-  /// Exit - exit node of the CFG, either a real AVR or, if the CFG happens
-  /// to have multiple exit nodes, an empty basic block.
+  /// Exit - exit node of the CFG. This node is outside the loop and it is not
+  /// a loop children
   VGBlock* Exit;
 
   /// Size - the number of nodes in the CFG.
@@ -213,8 +213,10 @@ public:
   std::map<BasicBlock*, VGBlock*> BlockMap;
 
   void addSuccessors(Loop *Lp, VGBlock*);
-  VGBlock* getOrInsertBlock(Loop *Lp, BasicBlock *BB);
-  void insertLoopExitBlock(Loop *Lp);
+  VGBlock *getOrInsertBlock(Loop *Lp, BasicBlock *BB);
+  //void insertLoopExitBlock(Loop *Lp);
+  void fixLoopExit(Loop *Lp);
+  VGBlock* getBlock(Loop *Lp, BasicBlock *BB);
 
   /// Loop Children Iterators
 
@@ -235,7 +237,6 @@ public:
   LoopNodesRange nodes() { return LoopNodesRange(child_begin(), child_end()); }
 
   /// Children access Methods
-  VGBlock* getLoopLatch() { return LoopLatch; }
 
   /// \brief Returns the first child if it exists, otherwise returns null.
   VGNode *getFirstChild();
@@ -267,9 +268,22 @@ public:
   // For now, since we are working with innermost loops only, we can assume
   // other nodes in the graph are VGBlock*. This will need to be changed to
   // VGNode* once we start dealing with multiple loop levels.
-  VGBlock* getEntry() const { return cast<VGBlock>(getFirstChild()); }
+  // TODO: CHECKME! Maybe I'm wrong here!
+  // The loop exit *is not* a children of the loop. It is outside of the loop.
+  // This means that Entry == getFirstChild but Exit != getLastChild.
+  // In GraphTraits (getEntry() is used), we were visiting the loop exit
+  // because this node is successor of getLastChild().
+  // However, in the inverse GraphTraits (getExit() is used), we were starting
+  // from getLastChild() and the loop exist node was not taken into account.
+  // I don't know if that was the expected behaviour, but Predicator
+  // was not working for some cases.
+  // VGBlock* getEntry() const { return cast<VGBlock>(getFirstChild()); }
+  VGBlock* getEntry() const { return Entry; }
 
-  VGBlock* getExit() const { return cast<VGBlock>(getLastChild()); }
+  //VGBlock* getExit() const { return cast<VGBlock>(getLastChild()); }
+  VGBlock* getExit() const { return Exit; }
+
+  VGBlock* getLoopLatch() { return LoopLatch; }
 
   unsigned int getSize() const { return Size; }
 
@@ -296,8 +310,8 @@ private:
   // Use BBlock handle to access instructions.
   BasicBlock *BBlock;
 
+  // TODO: Condition is never set
   /// Condition - pointer to the instruction  which generates the true/false bit
-  /// for
   /// that selects between (the two) successors.
   Value *Condition;
 
@@ -389,12 +403,23 @@ public:
   /// \brief Answer whether a VGBlock affects the control flow. This is true iff
   /// it is the terminator of a basic block with more than one successor.
   bool hasBranchCondition() const {
+    assert(Successors.size() <= 2 && "Switches are not supported");
+
+    // TODO: Condition is never set. We should set it and use it:
+    // if (Condition != nullptr) return true;
+    // else return false;
+    
     if (Successors.size() < 2)
       return false; // Control flow from BasicBlock is not conditioned.
+
+    // TODO: Condition is never set!
+    //assert(Condition != nullptr && "Condition is null");
     return true;
   }
 
   Value* getBranchCondition() {
+    // TODO: If we set Condition
+    // return Condition;
     if (hasBranchCondition()) {
       TerminatorInst *TermInst = BBlock->getTerminator();
       if (BranchInst *BrInst = dyn_cast<BranchInst>(TermInst)) {
@@ -403,6 +428,10 @@ public:
     }
     return nullptr;
   }
+
+  Value* getTerminator() {
+    return BBlock->getTerminator();
+  }
 };
 
 /// \brief
@@ -410,23 +439,41 @@ class VGPredicate : public VGNode {
 public:
   /// \brief A type representing an incoming value to the AVRPredicate and the
   /// VGNode corresponding to the basic block it originates from.
-  typedef std::pair<VGPredicate *, Value *> IncomingTy;
+
+  // There is no DenseMapInfo for bool type so we have to use an int (or
+  // implement it).
+  // TODO: Use a tuple<VGPredicate *, Value *, int>?
+  typedef std::pair<Value *, int> PredConditionTy;
+  typedef std::pair<VGPredicate *, PredConditionTy> IncomingTy;
 
 private:
   /// \brief Incoming AVR values and their corresponding AVR labels.
   SmallVector<IncomingTy, 2> IncomingPredicates;
 
+  bool isAllOnePredicate;
+
   VGPredicate();
   virtual ~VGPredicate() override {}
 
   ///\brief Adds an incoming AVRPredicate when some condition holds.
-  void addIncoming(VGPredicate *VPredicate, Value *Condition) {
-    IncomingPredicates.push_back(std::make_pair(VPredicate, Condition));
+  void addIncoming(VGPredicate *VPredicate, Value *Condition,
+                   bool CondNeedsNegation) {
+    IncomingPredicates.push_back(std::make_pair(
+        VPredicate, std::make_pair(Condition, CondNeedsNegation)));
+  }
+
+  void setAllOnes(bool isAllOnes) {
+    isAllOnePredicate = isAllOnes;
   }
 
   friend class VectorGraphUtils;
 
 public:
+  /// brief returns whether the predicate is an all-one (always true) predicate
+  bool isAllOnes() const {
+    return isAllOnePredicate;
+  }
+
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VGNode *Node) {
     return (Node->getVGID() == VGNode::VGPredicateNode);
@@ -441,9 +488,7 @@ public:
   void printNodeKind(formatted_raw_ostream &OS) const override;
 
   /// \brief Returns the incoming values of this AVR predicate.
-  const SmallVectorImpl<IncomingTy> &getIncoming() {
-    return IncomingPredicates;
-  }
+  SmallVectorImpl<IncomingTy> &getIncoming() { return IncomingPredicates; }
 };
 
 template <class GraphT, class GT = GraphTraits<GraphT>>

@@ -16,7 +16,7 @@
 #define LLVM_ANALYSIS_VECTOR_GRAPH_INFO_H
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VectorGraph.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/VectorGraphInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Dominators.h"
 
@@ -30,6 +30,11 @@ private:
 
   /// LI - Loop Info for this function.
   const LoopInfo *LI;
+  
+  ScalarEvolution *SE;
+
+  /// LoopMap  
+  SmallDenseMap<Loop *, VGLoop *> LoopMap;
 
 protected:
   /// VectorGraph
@@ -42,7 +47,11 @@ public:
   /// Pass Identification
   static char ID;
 
+  /// Pass constructor
   VectorGraphInfo();
+
+  /// Utility constructor
+  VectorGraphInfo(ScalarEvolution *SE);
 
   bool runOnFunction(Function &F);
   void create();
@@ -52,12 +61,29 @@ public:
   /// \brief Release the memory of AVRList container built by this pass.
   void releaseMemory();
 
+  /// \brief Given a loop \p Lp.
+  bool canConstructVectorGraphForLoop(Loop *Lp);
+
   /// \brief Builds the vector graph for all inner loops identified by 
   /// LoopInfo for the current function.
   void constructVectorGraph();
 
   /// \brief Given a loop \p Lp. 
   void constructVectorGraphForLoop(Loop *Lp);
+
+  /// \brief
+  void predicateVectorGraph();
+
+  /// \brief returns whether basic block \p BB needs predication.
+  bool blockNeedsPredication(Loop *L, BasicBlock *BB);
+
+  /// \brief returns the predicate of basic block \p BB.
+  /// It returns nullptr if the basic block does not have a predicate.
+  VGPredicate *getPredicate(Loop *L, BasicBlock *BB);
+
+  /// \brief returns the incoming predicate that reaches \p Dst from \p Src
+  VGPredicate::IncomingTy &getEdgeIncoming(Loop *L, BasicBlock *Src,
+                                           BasicBlock *Dst);
 
   /// Iterators to iterate over generated vector graph
   typedef VectorGraphTy::iterator iterator;

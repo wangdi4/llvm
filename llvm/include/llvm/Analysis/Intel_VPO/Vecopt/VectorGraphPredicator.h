@@ -20,6 +20,7 @@
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VectorGraph.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 
 namespace llvm {
 
@@ -47,7 +48,10 @@ public:
   /// Pass Identification
   static char ID;
 
+  /// Pass constructor
   VectorGraphPredicator();
+  /// Utility constructor
+  VectorGraphPredicator(ScalarEvolution *SE);
 
   bool runOnFunction(Function &F);
   void getAnalysisUsage(AnalysisUsage &AU) const override;
@@ -57,11 +61,13 @@ public:
 private:
 
   VectorGraphInfo *VGI;
+  ScalarEvolution *SE;
 
   void predicateLoop(VGLoop* ALoop);
-  void handleVGSESERegion(const VGSESERegion *Region, VGLoop* ALoop);
-  void predicate(VGBlock* Entry);
-  //void removeCFG(AVRBlock* Entry);
+  void handleVGSESERegion(const VGSESERegion *Region, VGLoop *ALoop,
+                          const VGDominatorTree &DomTree);
+  void predicate(VGBlock *Entry, VGLoop *Loop, const VGDominatorTree &DomTree);
+  // void removeCFG(AVRBlock* Entry);
 };
 
 } // End namespace llvm

@@ -29,9 +29,11 @@ void VectorGraphUtils::setPredicate(VGNode *Node, VGPredicate* Predicate) {
 }
 
 void VectorGraphUtils::addVGPredicateIncoming(VGPredicate *VPredicate,
-                                               VGPredicate *IncomingPredicate,
-                                               Value *IncomingCondition) {
-  VPredicate->addIncoming(IncomingPredicate, IncomingCondition);
+                                              VGPredicate *IncomingPredicate,
+                                              Value *IncomingCondition,
+                                              bool CondNeedsNegation) {
+  VPredicate->addIncoming(IncomingPredicate, IncomingCondition,
+                          CondNeedsNegation);
 }
 
 void VectorGraphUtils::setBlockCondition(VGBlock* VBlock, Value *C) {
@@ -48,6 +50,10 @@ void VectorGraphUtils::addSchedulingConstraint(VGBlock* Block, VGBlock* Constrai
   assert(Block && "Block is null");
   assert(Constraint && "Constraint is null");
   Block->addSchedulingConstraint(Constraint);
+}
+
+void VectorGraphUtils::setAllOnes(VGPredicate * Predicate, bool isAllOnes) {
+  Predicate->setAllOnes(isAllOnes);
 }
 
 // Insertion Utilities

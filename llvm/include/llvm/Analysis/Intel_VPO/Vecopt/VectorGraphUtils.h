@@ -66,7 +66,8 @@ public:
   /// \brief Add an incoming AVRValue (from AVRLabel) to an AVRPhi.
   static void addVGPredicateIncoming(VGPredicate *APredicate,
                                      VGPredicate *IncomingPredicate,
-                                     Value *IncomingCondition);
+                                     Value *IncomingCondition,
+                                     bool CondNeedsNegation);
 
 
   static void setBlockCondition(VGBlock* ABlock, Value *C);
@@ -74,6 +75,8 @@ public:
   static void addSuccessor(VGBlock* Block, VGBlock* Successor);
 
   static void addSchedulingConstraint(VGBlock* Block, VGBlock* Constraint);
+
+  static void setAllOnes(VGPredicate * Predicate, bool isAllOnes);
 
   // Insertion Utilities
 
