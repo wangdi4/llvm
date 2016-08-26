@@ -223,6 +223,11 @@ public:
                                                    ReductionClause *C,
                                                    int ReductionKind);
 
+  /// \brief Extract operands from a schedule clause
+  static void extractScheduleOpndList(ScheduleClause & Sched,
+                                      IntrinsicInst *Call, 
+                                      WRNScheduleKind Kind);
+
   /// Removal Utilities
 
   /// \brief Destroys the passed in WRegion node.

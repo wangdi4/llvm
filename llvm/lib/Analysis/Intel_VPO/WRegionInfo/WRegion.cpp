@@ -86,7 +86,6 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
-  setSchedule(WRNScheduleStaticEven);
   setCollapse(0);
   setOrdered(false);
   Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);

@@ -241,6 +241,9 @@ protected:
   virtual void setSafelen(int N)             {errorClause(QUAL_OMP_SAFELEN);  }
   virtual int getSafelen()             const {errorClause(QUAL_OMP_SAFELEN);  
                                               return 0;                       }
+  virtual void setSchedule(ScheduleClause S) {errorClause("SCHEDULE");        }
+  virtual ScheduleClause &getSchedule()      {errorClause("SCHEDULE");  
+                                              llvm_unreachable("Bad clause"); }
   virtual void setShared(SharedClause *S)    {errorClause(QUAL_OMP_SHARED);   }
   virtual SharedClause *getShared()    const {errorClause(QUAL_OMP_SHARED);
                                               return nullptr;                 }

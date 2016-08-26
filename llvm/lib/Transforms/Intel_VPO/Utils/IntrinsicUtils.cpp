@@ -71,6 +71,36 @@ StringRef VPOUtils::getDirectiveMetadataString(IntrinsicInst *Call) {
   return DirectiveStr;
 }
 
+StringRef VPOUtils::getScheduleModifierMDString(IntrinsicInst *Call) {
+  assert(isIntelDirectiveOrClause(Call->getIntrinsicID()) &&
+         "Expected a call to an llvm.intel.directive* intrinsic");
+
+  // The llvm intrin reprsenting a schedule clause has 3 arguments:
+  // arg 0: Metadata string "QUAL.OMP.SCHEDULE.<SchduleKind>"
+  // arg 1: Metadata string for schedule modifiers
+  // arg 2: Value for the chunk size
+  //
+  // This util returns the string from arg 1.
+
+  MDString *OperandMDStr = nullptr;
+  Value *Operand = Call->getArgOperand(1);
+  MetadataAsValue *OperandMDVal = dyn_cast<MetadataAsValue>(Operand);
+  Metadata *MD = OperandMDVal->getMetadata();
+
+  if (isa<MDNode>(MD)) {
+    MDNode *OperandNode = cast<MDNode>(MD);
+    Metadata *OperandNodeMD = OperandNode->getOperand(0);
+    OperandMDStr = dyn_cast<MDString>(OperandNodeMD);
+  } else if (isa<MDString>(MD)) {
+    OperandMDStr = cast<MDString>(MD);
+  }
+
+  assert(OperandMDStr && "Expected argument to be a metadata string");
+  StringRef ModifierStr = OperandMDStr->getString();
+  return ModifierStr;
+}
+
+
 bool VPOUtils::stripDirectives(BasicBlock &BB) {
   SmallVector<IntrinsicInst *, 4> IntrinsicsToRemove;
   IntrinsicInst *IntrinCall = nullptr;

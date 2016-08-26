@@ -177,7 +177,7 @@ private:
   EXPR NumThreads;
   WRNDefaultKind Default;
   WRNProcBindKind ProcBind;
-  WRNScheduleKind Schedule;
+  ScheduleClause Schedule;
   int Collapse;
   bool Ordered;
   LoopInfo *LI;
@@ -193,7 +193,7 @@ protected:
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
-  void setSchedule(WRNScheduleKind S) { Schedule = S; }
+  void setSchedule(ScheduleClause S) { Schedule = S; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(bool Flag) { Ordered = Flag; }
   void setLoopInfo(LoopInfo *L) { LI = L; }
@@ -212,7 +212,7 @@ public:
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
-  WRNScheduleKind getSchedule() const { return Schedule; }
+  ScheduleClause & getSchedule() { return Schedule; }
   int getCollapse() const { return Collapse; }
   bool getOrdered() const { return Ordered; }
   LoopInfo *getLoopInfo() const { return LI; }
