@@ -22,19 +22,19 @@ extern void* __attribute__((const)) __get_runtime_handle(void);
 
 ////////// - externals to get access to ndrange opaque struct
 // setters
-extern void __set_work_dimension(ndrange_t *, uint);
-extern void __set_global_work_offset(ndrange_t *, uint index, uint offset);
-extern void __set_global_work_size(ndrange_t *, uint index, uint size);
-extern void __set_local_work_size(ndrange_t *, uint index, uint size);
+extern void __set_work_dimension(ndrange_t *, size_t);
+extern void __set_global_work_offset(ndrange_t *, size_t index, size_t offset);
+extern void __set_global_work_size(ndrange_t *, size_t index, size_t size);
+extern void __set_local_work_size(ndrange_t *, size_t index, size_t size);
 // getters
-extern uint __attribute__((const)) __attribute__((always_inline))
+extern size_t __attribute__((const)) __attribute__((always_inline))
     __get_work_dimension(const ndrange_t *);
-extern uint __attribute__((const)) __attribute__((always_inline))
-    __get_global_work_offset(const ndrange_t *, uint index);
-extern uint __attribute__((const)) __attribute__((always_inline))
-    __get_global_work_size(const ndrange_t *, uint index);
-extern uint __attribute__((const)) __attribute__((always_inline))
-    __get_local_work_size(const ndrange_t *, uint index);
+extern size_t __attribute__((const)) __attribute__((always_inline))
+    __get_global_work_offset(const ndrange_t *, size_t index);
+extern size_t __attribute__((const)) __attribute__((always_inline))
+    __get_global_work_size(const ndrange_t *, size_t index);
+extern size_t __attribute__((const)) __attribute__((always_inline))
+    __get_local_work_size(const ndrange_t *, size_t index);
 
 ////////// - enqueue_kernel
 extern int ocl20_enqueue_kernel_events(
