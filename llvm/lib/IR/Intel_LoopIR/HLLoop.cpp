@@ -876,15 +876,15 @@ bool HLLoop::isSIMD() const {
   while (Iter != FIter) {
     --Iter;
     const HLInst *I = dyn_cast<HLInst>(Iter);
-    if (!I)
-      return false; // Loop, IF, Switch, etc.
-    Intrinsic::ID IntrinID;
-    if (!I->isIntrinCall(IntrinID) ||
-        !vpo::VPOUtils::isIntelDirectiveOrClause(IntrinID))
-      return false; // Expecting just directives and clauses between SIMD
-                    // and Loop.
-    if (I->isSIMDDirective())
+
+    // Loop, IF, Switch, etc.
+    if (!I) {
+      return false;
+    }
+
+    if (I->isSIMDDirective()) {
       return true;
+    }
   }
 
   return false;
