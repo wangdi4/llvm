@@ -64,7 +64,7 @@ RunSXU("lpu-run-sxu", cl::Hidden,
 static cl::opt<int>
 OrderMemops("lpu-order-memops", cl::Hidden,
             cl::desc("LPU Specific: Order memory operations"),
-            cl::init(0));
+            cl::init(1));
 
 
 // The register class we are going to use for all the memory-op
@@ -302,12 +302,19 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     addMemoryOrderingConstraints();
   }
   
+#if 1
+	{
+		errs() << "LPUCvtCFDFPass after memory order" << ":\n";
+		MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
+	}
+#endif
+
 	insertSWITCHForIf();
 	insertSWITCHForRepeat();
   insertSWITCHForLoopExit();
   replacePhiWithPICK();
   handleAllConstantInputs();
-#if 0
+#if 1
 	{
 	  errs() << "LPUCvtCFDFPass before LIC allocation" << ":\n";
 		MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
@@ -1036,6 +1043,12 @@ void LPUCvtCFDFPass::assignLicForDF() {
 			unsigned falseReg = DefMI->getOperand(0).getReg();
 			if (pinedVReg.find(trueReg) != pinedVReg.end() || pinedVReg.find(falseReg) != pinedVReg.end()) {
                 DefMI->clearFlag(MachineInstr::NonSequential);
+				continue;
+			}
+		}	else if (TII.isMOV(DefMI)) {
+			unsigned dstReg = DefMI->getOperand(0).getReg();
+			if (pinedVReg.find(dstReg) != pinedVReg.end()) {
+				DefMI->clearFlag(MachineInstr::NonSequential);
 				continue;
 			}
 		}
