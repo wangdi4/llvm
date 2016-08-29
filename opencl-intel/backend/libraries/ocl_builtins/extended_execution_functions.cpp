@@ -306,7 +306,7 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
 
 /// address space overloading for enqueue_kernel and enqueue_marker
 const __global clk_event_t* __attribute__((always_inline)) __attribute__((overloadable))
-    cast_to_global(const __generic clk_event_t* ptr) {
+    cast_to_global_const(const __generic clk_event_t* ptr) {
   return (const __global clk_event_t*)ptr;
 }
 
@@ -320,7 +320,7 @@ int __attribute__((always_inline)) __attribute__((overloadable))\
     enqueue_marker(queue_t queue, uint num_events_in_wait_list,\
                    const ADDR_SPACE_1ST clk_event_t *event_wait_list, ADDR_SPACE_2ND clk_event_t* event_ret) {\
   return enqueue_marker(queue, num_events_in_wait_list,\
-                        cast_to_global(event_wait_list),\
+                        cast_to_global_const(event_wait_list),\
                         cast_to_global(event_ret));\
 }\
 int __attribute__((overloadable)) __attribute__((always_inline))\
@@ -329,7 +329,7 @@ int __attribute__((overloadable)) __attribute__((always_inline))\
                    const ADDR_SPACE_1ST clk_event_t *event_wait_list, clk_event_t ADDR_SPACE_2ND *event_ret,\
                    void (^block)(void)) {\
   return enqueue_kernel(queue, flags, ndrange, num_events_in_wait_list,\
-                        cast_to_global(event_wait_list),\
+                        cast_to_global_const(event_wait_list),\
                         cast_to_global(event_ret), block);\
 }
 
