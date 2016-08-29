@@ -113,13 +113,12 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     setOperationAction(ISD::ROTR,             VT,    Expand);
     setOperationAction(ISD::BSWAP,            VT,    Expand);
 
-    // Implement these?
     LegalizeAction action = (isTypeSupported && ST.hasBitOp()) ? Legal : Expand;
     setOperationAction(ISD::CTPOP,            VT,    action);
     setOperationAction(ISD::CTTZ,             VT,    action);
-    setOperationAction(ISD::CTTZ_ZERO_UNDEF,  VT,    action);
+    setOperationAction(ISD::CTTZ_ZERO_UNDEF,  VT,    Expand);
     setOperationAction(ISD::CTLZ,             VT,    action);
-    setOperationAction(ISD::CTLZ_ZERO_UNDEF,  VT,    action);
+    setOperationAction(ISD::CTLZ_ZERO_UNDEF,  VT,    Expand);
 
     setOperationAction(ISD::DYNAMIC_STACKALLOC,VT,   Expand);
   }

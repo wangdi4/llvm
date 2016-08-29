@@ -720,6 +720,31 @@ defm COSF64    : UnaryOp<"cosf64",    fcos,  I64, [HasF64,HasMath0], IIMathF64>;
 //defm SINCOSF32 : UnaryOp<"sincosf32", fsincos, I32, [HasF32,HasMath0], IIMathF32>;
 //defm SINCOSF64 : UnaryOp<"sincosf64", fsincos, I64, [HasF64,HasMath0], IIMathF64>;
 
+// BitOps. Note that LLVM's SDNodes expect the output type to match the input
+// type, while in the simulator all output types are 8-bit.
+defm CTPOP8    : UnaryOp<"ctpop8",   ctpop,            I8,  [HasI8,HasBitOp],  IIALU>;
+defm CTPOP16   : UnaryOp<"ctpop16",  ctpop,            I16, [HasI16,HasBitOp], IIALU>;
+defm CTPOP32   : UnaryOp<"ctpop32",  ctpop,            I32, [HasI32,HasBitOp], IIALU>;
+defm CTPOP64   : UnaryOp<"ctpop64",  ctpop,            I64, [HasI64,HasBitOp], IIALU>;
+defm CTLZ8     : UnaryOp<"ctlz8",    ctlz,             I8,  [HasI8,HasBitOp],  IIALU>;
+defm CTLZ16    : UnaryOp<"ctlz16",   ctlz,             I16, [HasI16,HasBitOp], IIALU>;
+defm CTLZ32    : UnaryOp<"ctlz32",   ctlz,             I32, [HasI32,HasBitOp], IIALU>;
+defm CTLZ64    : UnaryOp<"ctlz64",   ctlz,             I64, [HasI64,HasBitOp], IIALU>;
+defm CTTZ8     : UnaryOp<"cttz8",    cttz,             I8,  [HasI8,HasBitOp],  IIALU>;
+defm CTTZ16    : UnaryOp<"cttz16",   cttz,             I16, [HasI16,HasBitOp], IIALU>;
+defm CTTZ32    : UnaryOp<"cttz32",   cttz,             I32, [HasI32,HasBitOp], IIALU>;
+defm CTTZ64    : UnaryOp<"cttz64",   cttz,             I64, [HasI64,HasBitOp], IIALU>;
+
+// Helper fragment to find "parity". Clang's __builtin_parity(x) will result in
+// (ctpop(x)&1) in IR, which will be transformed back to parityN(x) by this
+// pattern fragment.
+def parity : PatFrag<(ops node:$in), (and (ctpop node:$in), 1)>;
+
+defm PARITY8   : UnaryOpP<"parity8",  parity,          I8,  [HasI8,HasBitOp],  IIALU>;
+defm PARITY16  : UnaryOpP<"parity16", parity,          I16, [HasI16,HasBitOp], IIALU>;
+defm PARITY32  : UnaryOpP<"parity32", parity,          I32, [HasI32,HasBitOp], IIALU>;
+defm PARITY64  : UnaryOpP<"parity64", parity,          I64, [HasI64,HasBitOp], IIALU>;
+
 // todo: int<=>float Conversions
 // first type in convert name is result, second is source type
 defm CVTS32F32 : CvtOp<"cvts32f32", fp_to_sint, I32, I32, [HasI32,HasF32], IICvtIF>;
