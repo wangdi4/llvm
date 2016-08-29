@@ -1164,7 +1164,8 @@ def ONCOUNT0 : FMTGEN<  // TODO: something to reflect state
 
 multiclass SeqCOp<string opStr, RegisterClass RC, ValueType opType,
            list<Predicate> preds, InstrItinClass itin> {
-  let Predicates = preds, Itinerary = itin in {
+  // hasSideEffects attempts to capture the internal state and stream output behavior
+  let hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<  // TODO: something to reflect state
       (outs RC:$val, I1:$pred, I1:$first, I1:$last),
       (ins RC:$base, RC:$count, RC:$stride),
@@ -1180,8 +1181,11 @@ defm SEQC64   : SeqCOp<"seqc64",   I64, i64, [HasI64], IIALU>;
 
 multiclass SeqSOp<string opStr, RegisterClass RC, ValueType opType,
            list<Predicate> preds, InstrItinClass itin> {
-  let Predicates = preds, Itinerary = itin in {
-    def "" : FMTGEN<  // TODO: something to reflect state
+  // hasSideEffects attempts to capture the internal state and stream output behavior
+  let hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
+    // TODO: something to reflect state
+    // Unfortunately, 
+    def "" : FMTGEN< // rrr form
       (outs RC:$val, I1:$pred, I1:$first, I1:$last),
       (ins RC:$base, RC:$bound, RC:$stride),
       !strconcat(opStr, "\t$val, $pred, $first, $last, $base, $bound, $stride"),
@@ -1236,7 +1240,8 @@ defm SEQGEU64 : SeqSOp<"seqgeu64", I64, i64, [HasI64], IIALU>;
 
 multiclass RepeatOp<string opStr, RegisterClass RC, ValueType opType,
            list<Predicate> preds, InstrItinClass itin> {
-  let Predicates = preds, Itinerary = itin in {
+  // hasSideEffects attempts to capture the internal state and stream output behavior
+  let hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<  // TODO: something to reflect state
       (outs I64:$out),
       (ins I1:$pred, I64:$in),
@@ -1252,8 +1257,9 @@ defm REPEAT64 : SeqSOp<"repeat64", I64, i64, [HasI64], IIALU>;
 
 multiclass Init<RegisterClass RC, ValueType opType,
            list<Predicate> preds, InstrItinClass itin> {
- let Predicates = preds, Itinerary = itin in {
-   def "" : PseudoInstLPU<
+  // Not clear that "hasSideEffects" is a good description of static initialization...
+  let hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
+    def "" : PseudoInstLPU<
       (outs RC:$dst),
       (ins Operand<opType>:$imm),
       ".curr\t$dst;\t.value $imm;\t.avail 0",
