@@ -1245,15 +1245,15 @@ multiclass RepeatOp<string opStr, RegisterClass RC, ValueType opType,
     def "" : FMTGEN<  // TODO: something to reflect state
       (outs I64:$out),
       (ins I1:$pred, I64:$in),
-      !strconcat(opStr, "\tout, $pred, $in"),
+      !strconcat(opStr, "\t$out, $pred, $in"),
       []>;
   }
 }
 
-defm REPEAT8  : SeqSOp<"repeat8",  I8,  i8,  [HasI8],  IIALU>;
-defm REPEAT16 : SeqSOp<"repeat16", I16, i16, [HasI16], IIALU>;
-defm REPEAT32 : SeqSOp<"repeat32", I32, i32, [HasI32], IIALU>;
-defm REPEAT64 : SeqSOp<"repeat64", I64, i64, [HasI64], IIALU>;
+defm REPEAT8  : RepeatOp<"repeat8",  I8,  i8,  [HasI8],  IIALU>;
+defm REPEAT16 : RepeatOp<"repeat16", I16, i16, [HasI16], IIALU>;
+defm REPEAT32 : RepeatOp<"repeat32", I32, i32, [HasI32], IIALU>;
+defm REPEAT64 : RepeatOp<"repeat64", I64, i64, [HasI64], IIALU>;
 
 multiclass Init<RegisterClass RC, ValueType opType,
            list<Predicate> preds, InstrItinClass itin> {

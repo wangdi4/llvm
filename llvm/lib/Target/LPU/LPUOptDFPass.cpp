@@ -95,6 +95,13 @@ public:
   }
 
 
+  // Return the unique machine instruction that defines or uses a
+  // register, if exactly one exists.  Otherwise, returns NULL.
+  MachineInstr*
+  getSingleDef(unsigned Reg, const MachineRegisterInfo *MRI);
+  MachineInstr*
+  getSingleUse(unsigned Reg, const MachineRegisterInfo *MRI);
+
 
 
   // Do sequence optimizations.
@@ -162,12 +169,6 @@ public:
   seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops);
 
 
-  // Return the unique machine instruction that defines or uses a
-  // register, if exactly one exists.  Otherwise, returns NULL.
-  MachineInstr*
-  getSingleDef(unsigned Reg, const MachineRegisterInfo *MRI);
-  MachineInstr*
-  getSingleUse(unsigned Reg, const MachineRegisterInfo *MRI);
 
 
   // The final check to see if we can transform the loop control
@@ -177,7 +178,10 @@ public:
   // The hard work of the try_transform method. 
   void seq_do_transform_loop(LPUSeqLoopInfo& loop,
                              LPUSeqCandidate& indvarCandidate,
-                             unsigned indvar_opcode);
+                             unsigned indvar_opcode,
+                             int indvarIdx,
+                             int boundIdx);
+
 
   // Tries to compute a matching sequence opcode for the pair of a
   // comparison instruction and the transform instruction.
@@ -190,6 +194,52 @@ public:
                                        unsigned* indvar_opcode);
 
 
+
+  // Add a switch instruction after "prev_inst" in basic block BB,
+  // which stores the last value to the output channel for the
+  // specified sequence candidate (sCandidate).
+  //
+  // Returns NULL if no switch instruction is necessary (because the
+  //  output channel of the candidate is %ign).
+  // Otherwise, returns a pointer to the instruction we created. 
+  MachineInstr*
+  seq_add_output_switch_for_seq_candidate(LPUSeqCandidate& sCandidate,
+                                          unsigned last_reg,
+                                          const LPUInstrInfo &TII,
+                                          MachineBasicBlock& BB,
+                                          MachineInstr* prev_inst);
+
+  // Look up the stride operation that corresponds to a given sequence
+  // candidate.  
+  MachineOperand*
+  seq_lookup_stride_op(LPUSeqLoopInfo& loop,
+                       LPUSeqCandidate& scandidate);
+
+  // Add a repeat instruction for the specified repeat candidate.
+  // Returns the added instruction. 
+  MachineInstr*
+  seq_add_repeat(LPUSeqCandidate& repeat_candidate,
+                 unsigned pred_reg,
+                 const LPUInstrInfo &TII,
+                 MachineBasicBlock& BB,
+                 MachineInstr* prev_inst);
+
+  // Add a stride instruction for the specified stride candidate.
+  // Returns the added instruction. 
+  MachineInstr*
+  seq_add_stride(LPUSeqCandidate& repeat_candidate,
+                 unsigned pred_reg,
+                 MachineOperand* in_stride_op,
+                 const LPUInstrInfo &TII,
+                 MachineBasicBlock& BB,
+                 MachineInstr* prev_inst);
+
+
+  void
+  seq_delete_ins_for_loop(LPUSeqLoopInfo& loop,
+                          MachineBasicBlock& BB,
+                          SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& ins_for_deletion);
+  
 private:
   MachineFunction *thisMF;
 };
@@ -1031,20 +1081,23 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop) {
   bool found_indvar =
     ((loop.cmp0_idx >= 0) &&
      loop.candidates[loop.cmp0_idx].stype == LPUSeqCandidate::SeqType::STRIDE);
+  int indvarIdx = loop.cmp0_idx;
+  int boundIdx = loop.cmp1_idx;
   if (!found_indvar) {
     DEBUG(errs() << "Seq transform failed: invalid induction variable.\n");
     return false;
   }
 
-  LPUSeqCandidate& indvarCandidate = loop.candidates[loop.cmp0_idx];
+
+  LPUSeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
   
   // Found a valid loop bound.
   // This can either be a repeated channel, or an immediate.
   bool found_bound_channel = 
-    ((loop.cmp1_idx >= 0) &&
-     loop.candidates[loop.cmp1_idx].stype == LPUSeqCandidate::SeqType::REPEAT);
+    ((boundIdx >= 0) &&
+     loop.candidates[boundIdx].stype == LPUSeqCandidate::SeqType::REPEAT);
   bool found_bound_imm =
-    ((loop.cmp1_idx == -1) &&
+    ((boundIdx == -1) &&
      loop.header.compareInst->getOperand(2).isImm());
   bool found_bound = found_bound_channel || found_bound_imm;
   
@@ -1067,7 +1120,10 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop) {
 
     seq_do_transform_loop(loop,
                           indvarCandidate,
-                          indvar_opcode);
+                          indvar_opcode,
+                          indvarIdx,
+                          boundIdx);
+                          
     
     return true;
   }
@@ -1118,21 +1174,138 @@ seq_compute_matching_seq_opcode(MachineInstr* compareInst,
 }
 
 
+MachineInstr*
+LPUOptDFPass::
+seq_add_repeat(LPUSeqCandidate& sc,
+               unsigned pred_reg,
+               const LPUInstrInfo &TII,
+               MachineBasicBlock& BB,
+               MachineInstr* prev_inst) {
 
+  assert(sc.stype == LPUSeqCandidate::SeqType::REPEAT);
+
+  // TBD(jsukha): FIX ME! Right now, the compiler is only inserting
+  // REPEAT64 instructions for all repeat candidates, instead of
+  // figuring out the correct size of repeat to insert.
+  // (We need to map pick/switch opcode to repeat opcode).
+  MachineInstr* repinst =
+    BuildMI(BB,
+              prev_inst,
+              sc.pickInst->getDebugLoc(),
+              TII.get(LPU::REPEAT64),
+              sc.top).
+      addReg(pred_reg).
+      addOperand(*sc.get_pick_input_op());
+  repinst->setFlag(MachineInstr::NonSequential);
+  return repinst;
+}
+
+
+
+MachineInstr*
+LPUOptDFPass::
+seq_add_stride(LPUSeqCandidate& sc,
+               unsigned pred_reg,
+               MachineOperand* in_stride_op,
+               const LPUInstrInfo &TII,
+               MachineBasicBlock& BB,
+               MachineInstr* prev_inst) {
+  assert(sc.stype == LPUSeqCandidate::SeqType::STRIDE);
+  return NULL;
+}
+
+
+MachineInstr*
+LPUOptDFPass::
+seq_add_output_switch_for_seq_candidate(LPUSeqCandidate& sCandidate,
+                                        unsigned last_reg,
+                                        const LPUInstrInfo &TII,
+                                        MachineBasicBlock& BB,
+                                        MachineInstr* prev_inst) {
+  MachineInstr* output_switch = NULL;
+  MachineOperand* out_s_op = sCandidate.get_switch_output_op();
+
+  if (!(out_s_op->isReg() &&
+        (out_s_op->getReg() == LPU::IGN))) {
+    assert(sCandidate.bottom > 0);
+
+    output_switch =
+      BuildMI(BB,
+              prev_inst,
+              sCandidate.switchInst->getDebugLoc(),
+              TII.get(sCandidate.switchInst->getOpcode()),
+              LPU::IGN).
+      addReg(out_s_op->getReg(), RegState::Define).
+      addReg(last_reg).
+      addReg(sCandidate.bottom);
+
+    output_switch->setFlag(MachineInstr::NonSequential);
+  }
+  return output_switch;
+}
+
+
+
+MachineOperand*
+LPUOptDFPass::
+seq_lookup_stride_op(LPUSeqLoopInfo& loop,
+                     LPUSeqCandidate& scandidate) {
+  // For stride, first look in the sequence candidate op.
+  //
+  // If this stride op is a LIC (instead of an immediate), we 
+  // look up the input of the matching repeat instead.
+  //
+  // Otherwise, it it should be a literal operand.
+  MachineOperand* in_s_op = scandidate.stride_op;
+  LPUSeqCandidate* stride_repeat = NULL;
+  if (in_s_op->isReg()) {
+    unsigned bottom_s_reg = in_s_op->getReg();
+    if (loop.repeat_channels.find(bottom_s_reg) !=
+        loop.repeat_channels.end()) {
+      unsigned stride_idx = loop.repeat_channels[bottom_s_reg];
+      assert(stride_idx < loop.candidates.size());
+      stride_repeat = &loop.candidates[stride_idx];
+      in_s_op = stride_repeat->get_pick_input_op();
+    }
+    else {
+      // We should have matched the register for this stride op with a
+      // repeat earlier.
+      DEBUG(errs() << "ERROR: can't find repeat channel for stride...\n");
+      return NULL;
+    }
+  }
+  return in_s_op;
+}
+
+void
+LPUOptDFPass::
+seq_delete_ins_for_loop(LPUSeqLoopInfo& loop,
+                        MachineBasicBlock& BB,
+                        SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& insMarkedForDeletion) {
+  
+  DEBUG(errs() << "TBD: delete the following instructions. \n");
+  for (auto it = insMarkedForDeletion.begin();
+       it != insMarkedForDeletion.end();
+       ++it) {
+    MachineInstr* mi = *it;
+    DEBUG(errs() << "    " << *mi);
+  }
+}
 
 
 void
 LPUOptDFPass::
 seq_do_transform_loop(LPUSeqLoopInfo& loop,
-                      LPUSeqCandidate& indvarCandidate, 
-                      unsigned indvar_opcode) {
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+                      LPUSeqCandidate& indvarCandidate,
+                      unsigned indvar_opcode,
+                      int indvarIdx,
+                      int boundIdx) {
+  //  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
   const LPUInstrInfo &TII =
     *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   
-  // TBD(jsukha): Implement me!
-  //
+
   // We need to use the information in "loop" and "indvarCandidate" to
   // replace the loop control with a sequence.  (Step 3 in the
   // description in LPUSequenceOpt.h).
@@ -1141,7 +1314,8 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
   // sequence candidates, and cleanup (Steps 4 and 5).
   DEBUG(errs() << "Sequence transform not implemented yet...\n");
 
-  // First, convert the loop control variable.
+  // 1. First convert the loop control variable.
+  //
   // This step takes the following set of instructions:
   //
   //      <picker>  = INIT1 0
@@ -1152,49 +1326,62 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
   // *    <out_i>, <loopBack_i> = SWITCH[n] <switcher>, <bottom_i>
   // *    <switcher>    = CMP[*] <bottom_i>, <top_b>
   //
-  //      <top_b> = PICK[n] <picker>, <in_b>, <loopBack_b>
-  //      <out_b>, <loopBack_b> = SWITCH[n] <switcher>, <top_b>
-  //
-  //      <top_s> = PICK[n] <picker>, <in_i>, <loopBack_s>
-  //      <out_s>, <loopBack_s> = SWITCH[n] <switcher>, <top_s>
-  //
-  //
   // and replaces it with:
-  //
   //
   //      <picker>  = INIT1 0
   //      <picker>  = MOV1 <switcher>
   //      <bottom_i> = add[n] <top_i> <top_s>
   //
-  // *    seq[*][n] <top_i>, %ign, %ign, <last_i>, 
+  // *    seq[*][n] <top_i>, <pred_i>, %ign, <last_i>, 
   //                <in_i>, <in_b>, <in_s>
   // *    %ign, <out_i> = switch[n] <last_i>, <bottom_i>
   // *    <switcher> = not1 <last_i>
   //
+  //
+  // 2. Next, we process all of the repeats:
+  // 
   //      <top_b> = PICK[n] <picker>, <in_b>, <loopBack_b>
   //      <out_b>, <loopBack_b> = SWITCH[n] <switcher>, <top_b>
   //
-  //      <top_s> = PICK[n] <picker>, <in_i>, <loopBack_s>
-  //      <out_s>, <loopBack_s> = SWITCH[n] <switcher>, <top_s>
+  //    Replace with:
+  //      <top_b> = REPEAT[n] <pred_i>, <in_b>
+  //      %ign, <out_b> = SWITCH[n] <last_i>, <top_b>
   //
+  //    Note that this step should catch the repeat for the loop bound
+  //    or the stride, if these exist.
   //
-  // There is also a variant of this transformation:
-  // If <out_i> == %ign, then we don't need the switch. 
-  // Then, this transformation eliminates one use of <bottom_i>.
+  // 3. Then, we process all of the strides:
   //
-  //  *    seq[*][n] <top_i>, %ign, %ign, <last_i>, 
-  //  *               <in_i>, <in_b>, <in_s>
-  //  *    <switcher> = not1 <last_i>
+  //      <top_b> = PICK[n] <picker>, <in_b>, <loopBack_b>
+  //      <out_b>, <loopBack_b> = SWITCH[n] <switcher>, <bottom_b>
+  //      <bottom_b> = add[n] <top_b> <stride>
   //
-  // If this use was the last use of <bottom_i>, then we should
-  // simplify, (by deleting add[n], and transitively, any instruction
-  // defining a reg where the add[n] was the only use).
+  //    Replace with:
+  //      <top_b> = stride[n] <pred_i> <stride_op>
+  //      <bottom_b> = add[n] <top_b> <stride>
+  //      %ign, <out_b> = SWITCH[n] <last_i>, <bottom_b>
   //
-  // Note that <in_b> or <in_s> might be literals or other channels.
-  // 
+  // For each of the steps 1-3, if <out_b> == %ign, then we don't need
+  // to add the switch.  Then, this transformation eliminates one use
+  // of <bottom_b>.
+
+  // Finally, there is a final cleanup step:
+  //
+  // 4. For each instruction that is marked for deletion in transform
+  //    steps above, convert all the input and output channels into
+  //    "%ign" values.
+  //    For any converted input, if that input was the only use of the
+  //    channel, repeatedly mark the instruction that defined the
+  //    channel for deletion.
+  //
+  // 5. Finally, really delete all the instructions which are marked
+  //    for deletion, by removing them from their basic block.
 
   assert(indvarCandidate.pickInst);
+  assert(loop.candidates[indvarIdx].pickInst == indvarCandidate.pickInst);
   MachineBasicBlock* BB = indvarCandidate.pickInst->getParent();
+
+  SmallVector<MachineInstr*, SEQ_VEC_WIDTH> insMarkedForDeletion;
 
   unsigned top_i = indvarCandidate.top;
   assert(top_i == indvarCandidate.get_pick_top_op()->getReg());
@@ -1209,43 +1396,47 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
   // compare unless it is an immediate, because that channel has a
   // value for every loop iteration.
   MachineOperand* in_b_op;
-  bool bound_is_imm;
-  if (loop.cmp1_idx >= 0) {
-    LPUSeqCandidate& bound_rep = loop.candidates[loop.cmp1_idx];
-    assert(bound_rep.stype == LPUSeqCandidate::SeqType::REPEAT);
-    in_b_op = bound_rep.get_pick_input_op();
-    bound_is_imm = false;
+  // This value is NULL if the bound comes from a literal, or non-null
+  // if we need a repeat.
+  LPUSeqCandidate* bound_repeat = NULL;
+  if (boundIdx >= 0) {
+    bound_repeat = &loop.candidates[boundIdx];
+    assert(bound_repeat->stype == LPUSeqCandidate::SeqType::REPEAT);
+    in_b_op = bound_repeat->get_pick_input_op();
   }
   else {
+    // TBD(jsukha): FIX ME EVENTUALLY!  This code assumes that the
+    // last operand of the compare is the bound. It could be swapped
+    // though, with the compare opcode needing to be reversed.
     in_b_op = &loop.header.compareInst->getOperand(2);
     assert(in_b_op->isImm());
-    bound_is_imm = true;
   }
 
   assert(indvarCandidate.transformInst);
 
-  // For stride, first look in the induction variable candidate op.
-  // If this stride op is a LIC (instead of an immediate), we will
-  // need to look up the input of the matching repeat instead.
-  MachineOperand* in_s_op = indvarCandidate.stride_op;
-  if (in_s_op->isReg()) {
-    unsigned bottom_s_reg = in_s_op->getReg();
-    if (loop.repeat_channels.find(bottom_s_reg) !=
-        loop.repeat_channels.end()) {
-      int stride_idx = loop.repeat_channels[bottom_s_reg];
-      assert((0 <= stride_idx) << (stride_idx < loop.candidates.size()));
-      LPUSeqCandidate& stride_rep = loop.candidates[stride_idx];
-      in_s_op = stride_rep.get_pick_input_op();
-    }
-    else {
-      // We should have matched the register for this stride op with a
-      // repeat earlier.
-      DEBUG(errs() << "ERROR: can't find repeat channel for stride...\n");
-      assert(0);
+  MachineOperand* in_s_op = seq_lookup_stride_op(loop,
+                                                 indvarCandidate);
+  
+  int num_dependent_sequences = 0;
+  for (unsigned idx = 0; idx < loop.candidates.size(); ++idx) {
+    if (idx != (unsigned)indvarIdx) {
+      LPUSeqCandidate::SeqType st = loop.candidates[idx].stype;
+      if ((st != LPUSeqCandidate::SeqType::UNKNOWN) &&
+          (st != LPUSeqCandidate::SeqType::INVALID)) {
+        num_dependent_sequences++;
+      }
     }
   }
+  
+  DEBUG(errs() << "For this loop, dependent sequences = " <<
+        num_dependent_sequences << "\n");
 
+  // We only need to define a predicate register if we have at least
+  // one dependent sequence.
   unsigned pred_reg = LPU::IGN;
+  if (num_dependent_sequences > 0) {
+    pred_reg = LMFI->allocateLIC(SeqPredRC);
+  }
   unsigned first_reg = LPU::IGN;
   unsigned last_reg =  LMFI->allocateLIC(SeqPredRC);
 
@@ -1260,6 +1451,7 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
     addOperand(*in_i_op).
     addOperand(*in_b_op).
     addOperand(*in_s_op);
+  seq_inst->setFlag(MachineInstr::NonSequential);
 
   MachineInstr* switcher_def_inst =
     BuildMI(*BB,
@@ -1268,18 +1460,133 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
             TII.get(LPU::NOT1),
             loop.header.switcherChannel).
     addReg(last_reg);
+  switcher_def_inst->setFlag(MachineInstr::NonSequential);
+
+  // If there is a nontrivial output to the switch in the candidate,
+  // then insert a switch for the last output.
+  //  %ign, <out_i> = switch[n] <last_i>, <bottom_i>
+  MachineInstr* output_switch =
+    seq_add_output_switch_for_seq_candidate(indvarCandidate,
+                                            last_reg,
+                                            TII,
+                                            *BB,
+                                            switcher_def_inst);
+  // For the sequence operator, mark the compare, pick and switch for
+  // deletion.
+  insMarkedForDeletion.push_back(loop.header.compareInst);
+  insMarkedForDeletion.push_back(indvarCandidate.pickInst);
+  insMarkedForDeletion.push_back(indvarCandidate.switchInst);
 
   DEBUG(errs() << "Adding a new sequence instruction "
         << *seq_inst << "\n");
   DEBUG(errs() << "Adding a new switcher def inst "
         << *switcher_def_inst << "\n");
-
-  DEBUG(errs() << "After seq add: how many defs of top "
-        << indvarCandidate.top << "\n");
-  for (auto def_it = MRI->def_instr_begin(indvarCandidate.top);
-       def_it != MRI->def_instr_end();
-       ++def_it) {
-    DEBUG(errs() <<  *def_it << "\n");
+  if (output_switch) {
+    DEBUG(errs() << "Adding a switch output instruction "
+          << *output_switch << "\n");
   }
+
+
+  // Process all the dependent sequences.
+  // The repeat candidates should be first...
+  for (unsigned idx = 0; idx < loop.candidates.size(); ++idx) {
+    // Skip over the loop induction variable.
+    // We don't need to process it twice.
+    if (idx != (unsigned)indvarIdx) {
+      LPUSeqCandidate& scandidate = loop.candidates[idx];
+      switch (scandidate.stype) {
+
+        // Process repeat/stride in the same case.
+        // They look fairly similar...
+      case LPUSeqCandidate::SeqType::REPEAT:
+        {
+          MachineInstr* repinst =
+            seq_add_repeat(scandidate,
+                           pred_reg,
+                           TII,
+                           *BB,
+                           seq_inst);
+          MachineInstr* out_switch =
+            seq_add_output_switch_for_seq_candidate(scandidate, 
+                                                    last_reg,
+                                                    TII,
+                                                    *BB,
+                                                    repinst);
+          DEBUG(errs() << "Adding a repeat/stride: "
+                << *repinst << "\n");
+          if (out_switch) {
+            DEBUG(errs() << "Adding an output switch for the repeat/stride: "
+                  << *out_switch << "\n");
+          }
+          
+          insMarkedForDeletion.push_back(scandidate.pickInst);
+          insMarkedForDeletion.push_back(scandidate.switchInst);
+          assert(!scandidate.transformInst);
+        }
+        break;
+
+      // TBD(jsukha): For now, ignore the stride.
+      //
+      // It should behave similarly to repeat, except that we need to
+      // do some extra transformations.  Something like the following
+      // code.
+      //        
+      // case LPUSeqCandidate::SeqType::STRIDE:
+      //   {
+
+      //     MachineOperand* my_s_op =
+      //       seq_lookup_stride_op(loop,
+      //                            scandidate);
+      //     MachineInstr* stride_inst =
+      //       seq_add_stride(scandidate,
+      //                      pred_reg,
+      //                      my_s_op,
+      //                      TII,
+      //                      *BB,
+      //                      seq_inst);
+      //     MachineInstr* out_switch =
+      //       seq_add_output_switch_for_seq_candidate(scandidate,
+      //                                               last_reg,
+      //                                               TII,
+      //                                               *BB,
+      //                                               stride_inst);
+      //     DEBUG(errs() << "Adding a stride: "
+      //           << *stride_inst << "\n");
+      //     if (out_switch) {
+      //       DEBUG(errs() << "Adding an output switch for the stride: "
+      //             << *out_switch << "\n");
+      //     }
+          
+      //     insMarkedForDeletion.push_back(scandidate.pickInst);
+      //     insMarkedForDeletion.push_back(scandidate.switchInst);
+      //     if (scandidate.transformInst) {
+      //       insMarkedForDeletion.push_back(scandidate.transformInst);
+      //     }
+      //     else {
+      //       // TBD: Deal with strides that have a more complex
+      //       // transform body.
+      //     }
+      //   }
+      //   break;
+
+      default:
+        DEBUG(errs() << "Ignoring sequence candidate in transform: ");
+        seq_debug_print_candidate(scandidate);
+      }
+    }
+  }
+
+  // Cleanup: Delete instructions that are unneeded now.
+  seq_delete_ins_for_loop(loop,
+                          *BB,
+                          insMarkedForDeletion);
+
+  // DEBUG(errs() << "After seq add: how many defs of top "
+  //       << indvarCandidate.top << "\n");
+  // for (auto def_it = MRI->def_instr_begin(indvarCandidate.top);
+  //      def_it != MRI->def_instr_end();
+  //      ++def_it) {
+  //   DEBUG(errs() <<  *def_it << "\n");
+  // }
 }
 
