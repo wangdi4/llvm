@@ -1079,7 +1079,8 @@ void LPUCvtCFDFPass::assignLicForDF() {
           // Note: this avoids magic constants, but requires that the LIC
           // virtual registers be defined at the end of the enum in
           // LPUGenRegisterInfo.inc.
-          if (Reg < LPU::CI0_0 || Reg >= LPU::NUM_TARGET_REGS) {
+          if ((Reg < LPU::CI0_0 || Reg >= LPU::NUM_TARGET_REGS) &&
+					     Reg != LPU::IGN ) {
             allLics = false;
             break;
           }
@@ -1104,6 +1105,9 @@ void LPUCvtCFDFPass::assignLicForDF() {
       if (allLics && !allImmediateUses) {
         MI->setFlag(MachineInstr::NonSequential);
 			}	
+			if (!allLics && TII.isSwitch(MI)) {
+				MI->clearFlag(MachineInstr::NonSequential);
+			}
     }
   }
 }
