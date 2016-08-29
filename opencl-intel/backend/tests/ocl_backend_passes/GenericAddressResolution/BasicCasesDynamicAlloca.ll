@@ -3,25 +3,25 @@
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; CHECK: @test1
-; CHECK-NOT: %call = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* %1)
+; CHECK-NOT: %call = call i8 addrspace(3)* @__to_local(i8 addrspace(4)* %1)
 ; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* %1 to i8 addrspace(3)*
-; CHECK-NOT: %call1 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %4)
+; CHECK-NOT: %call1 = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %4)
 ; CHECK: %ToNamedPtr1 = addrspacecast i8 addrspace(4)* %4 to i8 addrspace(1)*
 ; CHECK: ret
 
 ; CHECK: @test2
-; CHECK-NOT: %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %3)
+; CHECK-NOT: %call = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %3)
 ; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* %3 to i8 addrspace(1)*
-; CHECK-NOT: %call2 = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* %5)
+; CHECK-NOT: %call2 = call i8 addrspace(3)* @__to_local(i8 addrspace(4)* %5)
 ; CHECK: %ToNamedPtr1 = addrspacecast i8 addrspace(4)* %5 to i8 addrspace(3)*
 ; CHECK: ret
 
 ; CHECK: @test
-; CHECK-NOT: %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %7)
+; CHECK-NOT: %call = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %7)
 ; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* %7 to i8 addrspace(1)*
-; CHECK-NOT: %call1 = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* %15)
+; CHECK-NOT: %call1 = call i8 addrspace(3)* @__to_local(i8 addrspace(4)* %15)
 ; CHECK: %ToNamedPtr1 = addrspacecast i8 addrspace(4)* %15 to i8 addrspace(3)*
-; CHECK-NOT: %call2 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %21)
+; CHECK-NOT: %call2 = call i8* @__to_private(i8 addrspace(4)* %21)
 ; CHECK: %ToNamedPtr2 = addrspacecast i8 addrspace(4)* %21 to i8*
 ; CHECK-NOT: %call3 = call i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)* %28)
 ; CHECK-NOT: store i32 %call3, i32* %foo, align 4
@@ -41,20 +41,20 @@ entry:
   store i32 addrspace(4)* %p, i32 addrspace(4)** %p.addr, align 4
   %0 = load i32 addrspace(4)*, i32 addrspace(4)** %p.addr, align 4
   %1 = bitcast i32 addrspace(4)* %0 to i8 addrspace(4)*
-  %call = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* %1)
+  %call = call i8 addrspace(3)* @__to_local(i8 addrspace(4)* %1)
   %2 = bitcast i8 addrspace(3)* %call to i32 addrspace(3)*
   store i32 addrspace(3)* %2, i32 addrspace(3)** %a, align 4
   %3 = load i32 addrspace(4)*, i32 addrspace(4)** %p.addr, align 4
   %4 = bitcast i32 addrspace(4)* %3 to i8 addrspace(4)*
-  %call1 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %4)
+  %call1 = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %4)
   %5 = bitcast i8 addrspace(1)* %call1 to i32 addrspace(1)*
   store i32 addrspace(1)* %5, i32 addrspace(1)** %b, align 4
   ret void
 }
 
-declare i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)*)
+declare i8 addrspace(3)* @__to_local(i8 addrspace(4)*)
 
-declare i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)*)
+declare i8 addrspace(1)* @__to_global(i8 addrspace(4)*)
 
 define zeroext i1 @test2(i32 addrspace(4)* %p1, i32 addrspace(4)* %p2) nounwind {
 entry:
@@ -71,7 +71,7 @@ entry:
 if.then:                                          ; preds = %entry
   %2 = load i32 addrspace(4)*, i32 addrspace(4)** %p1.addr, align 4
   %3 = bitcast i32 addrspace(4)* %2 to i8 addrspace(4)*
-  %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %3)
+  %call = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %3)
   %cmp1 = icmp ne i8 addrspace(1)* %call, null
   store i1 %cmp1, i1* %retval
   br label %return
@@ -79,7 +79,7 @@ if.then:                                          ; preds = %entry
 if.end:                                           ; preds = %entry
   %4 = load i32 addrspace(4)*, i32 addrspace(4)** %p2.addr, align 4
   %5 = bitcast i32 addrspace(4)* %4 to i8 addrspace(4)*
-  %call2 = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* %5)
+  %call2 = call i8 addrspace(3)* @__to_local(i8 addrspace(4)* %5)
   %cmp3 = icmp ne i8 addrspace(3)* %call2, null
   store i1 %cmp3, i1* %retval
   br label %return
@@ -121,7 +121,7 @@ entry:
   store i32 addrspace(4)* %5, i32 addrspace(4)** %pGen1, align 4
   %6 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen1, align 4
   %7 = bitcast i32 addrspace(4)* %6 to i8 addrspace(4)*
-  %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %7)
+  %call = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %7)
   %8 = bitcast i8 addrspace(1)* %call to i32 addrspace(1)*
   store i32 addrspace(1)* %8, i32 addrspace(1)** %a, align 4
   %9 = load float, float* %param.addr, align 4
@@ -143,7 +143,7 @@ if.else:                                          ; preds = %entry
 if.end:                                           ; preds = %if.else, %if.then
   %14 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen1, align 4
   %15 = bitcast i32 addrspace(4)* %14 to i8 addrspace(4)*
-  %call1 = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* %15)
+  %call1 = call i8 addrspace(3)* @__to_local(i8 addrspace(4)* %15)
   %16 = bitcast i8 addrspace(3)* %call1 to i32 addrspace(3)*
   store i32 addrspace(3)* %16, i32 addrspace(3)** %b, align 4
   %17 = load i32 addrspace(1)*, i32 addrspace(1)** %pGlobal.addr, align 4
@@ -153,7 +153,7 @@ if.end:                                           ; preds = %if.else, %if.then
   store i32 addrspace(4)* %19, i32 addrspace(4)** %pGen2, align 4
   %20 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen2, align 4
   %21 = bitcast i32 addrspace(4)* %20 to i8 addrspace(4)*
-  %call2 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %21)
+  %call2 = call i8* @__to_private(i8 addrspace(4)* %21)
   %22 = bitcast i8* %call2 to i32*
   store i32* %22, i32** %c, align 4
   %23 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen2, align 4
@@ -180,7 +180,7 @@ if.end:                                           ; preds = %if.else, %if.then
 if.then6:                                         ; preds = %if.end
   %34 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen3, align 4
   %35 = bitcast i32 addrspace(4)* %34 to i8 addrspace(4)*
-  %call7 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %35)
+  %call7 = call i8* @__to_private(i8 addrspace(4)* %35)
   %36 = bitcast i8* %call7 to i32*
   store i32* %36, i32** %d, align 4
   br label %if.end8
@@ -194,7 +194,7 @@ if.end8:                                          ; preds = %if.then6, %if.end
 if.then9:                                         ; preds = %if.end8
   %39 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen1, align 4
   %40 = bitcast i32 addrspace(4)* %39 to i8 addrspace(4)*
-  %call10 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %40)
+  %call10 = call i8* @__to_private(i8 addrspace(4)* %40)
   %41 = bitcast i8* %call10 to i32*
   store i32* %41, i32** %e, align 4
   br label %if.end11
@@ -211,7 +211,7 @@ if.end11:                                         ; preds = %if.then9, %if.end8
   ret void
 }
 
-declare i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)*)
+declare i8* @__to_private(i8 addrspace(4)*)
 
 declare i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)*)
 

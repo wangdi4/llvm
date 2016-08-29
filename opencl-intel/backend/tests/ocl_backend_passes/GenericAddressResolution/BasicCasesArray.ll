@@ -11,7 +11,7 @@
 ; CHECK: %11 = bitcast i32 addrspace(4)* %10 to i32 addrspace(4)*
 ; CHECK: %12 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx12, align 4
 ; CHECK: %13 = bitcast i32 addrspace(4)* %12 to i8 addrspace(4)*
-; CHECK: call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %13)
+; CHECK: call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %13)
 ; CHECK: %18 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx26, align 4
 ; CHECK: %19 = bitcast i32 addrspace(4)* %18 to float addrspace(4)*
 ; CHECK: %add.ptr27 = getelementptr inbounds float, float addrspace(4)* %19, i32 10
@@ -105,7 +105,7 @@ if.end:                                           ; preds = %if.else, %if.then
   %arrayidx12 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
   %11 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx12, align 4
   %12 = bitcast i32 addrspace(4)* %11 to i8 addrspace(4)*
-  %call13 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %12)
+  %call13 = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %12)
   %13 = bitcast i8 addrspace(1)* %call13 to i32 addrspace(1)*
   %tobool14 = icmp ne i32 addrspace(1)* %13, null
   br i1 %tobool14, label %if.then15, label %if.end17
@@ -147,7 +147,7 @@ for.end:                                          ; preds = %for.cond
   ret void
 }
 
-declare i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)*)
+declare i8 addrspace(1)* @__to_global(i8 addrspace(4)*)
 
 declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 

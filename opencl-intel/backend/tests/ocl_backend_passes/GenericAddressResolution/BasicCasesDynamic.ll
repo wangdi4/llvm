@@ -3,23 +3,23 @@
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; CHECK: @test1
-; CHECK-NOT: %call = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* %0)
+; CHECK-NOT: %call = call i8 addrspace(3)* @__to_local(i8 addrspace(4)* %0)
 ; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* %0 to i8 addrspace(3)*
-; CHECK-NOT: %call1 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %2)
+; CHECK-NOT: %call1 = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %2)
 ; CHECK: %ToNamedPtr1 = addrspacecast i8 addrspace(4)* %2 to i8 addrspace(1)*
 ; CHECK: ret
 
 ; CHECK: @test2
-; CHECK-NOT: %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %0)
+; CHECK-NOT: %call = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %0)
 ; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* %0 to i8 addrspace(1)*
 ; CHECK: ret
 
 ; CHECK: @test
-; CHECK-NOT: %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %3)
+; CHECK-NOT: %call = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %3)
 ; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* %3 to i8 addrspace(1)*
-; CHECK-NOT: %call1 = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* %7)
+; CHECK-NOT: %call1 = call i8 addrspace(3)* @__to_local(i8 addrspace(4)* %7)
 ; CHECK: %ToNamedPtr1 = addrspacecast i8 addrspace(4)* %7 to i8 addrspace(3)*
-; CHECK-NOT: %call2 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %10)
+; CHECK-NOT: %call2 = call i8* @__to_private(i8 addrspace(4)* %10)
 ; CHECK: %ToNamedPtr2 = addrspacecast i8 addrspace(4)* %10 to i8*
 ; CHECK-NOT: %call3 = call i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)* %14)
 ; CHECK-NOT: %call9 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr)
@@ -32,22 +32,22 @@
 define void @test1(i32 addrspace(4)* %p) nounwind {
 entry:
   %0 = bitcast i32 addrspace(4)* %p to i8 addrspace(4)*
-  %call = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* %0)
+  %call = call i8 addrspace(3)* @__to_local(i8 addrspace(4)* %0)
   %1 = bitcast i8 addrspace(3)* %call to i32 addrspace(3)*
   %2 = bitcast i32 addrspace(4)* %p to i8 addrspace(4)*
-  %call1 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %2)
+  %call1 = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %2)
   %3 = bitcast i8 addrspace(1)* %call1 to i32 addrspace(1)*
   ret void
 }
 
-declare i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)*)
+declare i8 addrspace(3)* @__to_local(i8 addrspace(4)*)
 
-declare i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)*)
+declare i8 addrspace(1)* @__to_global(i8 addrspace(4)*)
 
 define i32 addrspace(4)* @test2(i32 addrspace(4)* %p1, i32 addrspace(4)* %p2) nounwind {
 entry:
   %0 = bitcast i32 addrspace(4)* %p1 to i8 addrspace(4)*
-  %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %0)
+  %call = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %0)
   %tobool = icmp ne i8 addrspace(1)* %call, null
   br i1 %tobool, label %if.then, label %if.end
 
@@ -70,7 +70,7 @@ entry:
   call void @test1(i32 addrspace(4)* %1)
   %2 = addrspacecast i32 addrspace(1)* %pGlobal to i32 addrspace(4)*
   %3 = bitcast i32 addrspace(4)* %2 to i8 addrspace(4)*
-  %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %3)
+  %call = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %3)
   %4 = bitcast i8 addrspace(1)* %call to i32 addrspace(1)*
   %tobool = fcmp une float %param, 0.000000e+00
   br i1 %tobool, label %if.then, label %if.else
@@ -86,11 +86,11 @@ if.else:                                          ; preds = %entry
 if.end:                                           ; preds = %if.else, %if.then
   %pGen1.0 = phi i32 addrspace(4)* [ %5, %if.then ], [ %6, %if.else ]
   %7 = bitcast i32 addrspace(4)* %pGen1.0 to i8 addrspace(4)*
-  %call1 = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* %7)
+  %call1 = call i8 addrspace(3)* @__to_local(i8 addrspace(4)* %7)
   %8 = bitcast i8 addrspace(3)* %call1 to i32 addrspace(3)*
   %9 = addrspacecast i32 addrspace(1)* %pGlobal to i32 addrspace(4)*
   %10 = bitcast i32 addrspace(4)* %9 to i8 addrspace(4)*
-  %call2 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %10)
+  %call2 = call i8* @__to_private(i8 addrspace(4)* %10)
   %11 = bitcast i8* %call2 to i32*
   %12 = ptrtoint i32 addrspace(4)* %9 to i32
   %13 = inttoptr i32 %12 to i32 addrspace(4)*
@@ -100,14 +100,14 @@ if.end:                                           ; preds = %if.else, %if.then
   %16 = addrspacecast i32 addrspace(3)* %pLocal to i32 addrspace(4)*
   %call4 = call i32 addrspace(4)* @test2(i32 addrspace(4)* %15, i32 addrspace(4)* %16)
   %17 = bitcast i32 addrspace(4)* %call4 to i8 addrspace(4)*
-  %call5 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %17)
+  %call5 = call i8* @__to_private(i8 addrspace(4)* %17)
   %18 = bitcast i8* %call5 to i32*
   %cmp = icmp eq i32 addrspace(4)* %13, %9
   br i1 %cmp, label %if.then6, label %if.end8
 
 if.then6:                                         ; preds = %if.end
   %19 = bitcast i32 addrspace(4)* %9 to i8 addrspace(4)*
-  %call7 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %19)
+  %call7 = call i8* @__to_private(i8 addrspace(4)* %19)
   %20 = bitcast i8* %call7 to i32*
   br label %if.end8
 
@@ -118,7 +118,7 @@ if.end8:                                          ; preds = %if.then6, %if.end
   ret void
 }
 
-declare i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)*)
+declare i8* @__to_private(i8 addrspace(4)*)
 
 declare i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)*)
 

@@ -27,7 +27,7 @@
 ;;     __private int* a = to_private(&(((int)loc1 ? (int*)loc1 : (int*)loc2)[0]));
 ;;}
 
-; CHECK-NOT:   call spir_func i8 addrspace(1)* @_Z9to_globalPKU3AS4v
+; CHECK-NOT:   call spir_func i8 addrspace(1)* @__to_global
 ; CHECK:       %ToNamedPtr = addrspacecast i8 addrspace(4)* {{.*}} to i8 addrspace(1)*
 ; CHECK:       bitcast i8 addrspace(1)* %ToNamedPtr to i32 addrspace(1)*
 ; CHECK:       ret void
@@ -37,7 +37,7 @@
 ; CHECK:       bitcast i8 addrspace(3)* %ToNamedPtr to i32 addrspace(3)*
 ; CHECK:       ret void
 
-; CHECK-NOT:   call spir_func i8* @_Z10to_privatePKU3AS4v
+; CHECK-NOT:   call spir_func i8* @__to_private
 ; CHECK:       %ToNamedPtr = addrspacecast i8 addrspace(4)* {{.*}} to i8*
 ; CHECK:       bitcast i8* %ToNamedPtr to i32*
 ; CHECK:       ret void
@@ -53,33 +53,33 @@ target triple = "spir64-unknown-unknown"
 
 ; Function Attrs: nounwind
 define spir_kernel void @const_bitcast(i32 addrspace(1)* %dst) #0 {
-  %1 = call spir_func i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* addrspacecast (i8 addrspace(3)* bitcast ([1 x i32] addrspace(3)* @const_bitcast.loc to i8 addrspace(3)*) to i8 addrspace(4)*)) #2
+  %1 = call spir_func i8 addrspace(1)* @__to_global(i8 addrspace(4)* addrspacecast (i8 addrspace(3)* bitcast ([1 x i32] addrspace(3)* @const_bitcast.loc to i8 addrspace(3)*) to i8 addrspace(4)*)) #2
   %2 = bitcast i8 addrspace(1)* %1 to i32 addrspace(1)*
   ret void
 }
 
 ; Function Attrs: nounwind readnone
-declare spir_func i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)*) #1
+declare spir_func i8 addrspace(1)* @__to_global(i8 addrspace(4)*) #1
 
 ; Function Attrs: nounwind
 define spir_kernel void @const_gep(i32 addrspace(1)* %dst) #0 {
-  %1 = call spir_func i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* bitcast (i32 addrspace(4)* getelementptr inbounds (i32, i32 addrspace(4)* addrspacecast (i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_gep.loc, i32 0, i32 0) to i32 addrspace(4)*), i64 2) to i8 addrspace(4)*)) #2
+  %1 = call spir_func i8 addrspace(3)* @__to_local(i8 addrspace(4)* bitcast (i32 addrspace(4)* getelementptr inbounds (i32, i32 addrspace(4)* addrspacecast (i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_gep.loc, i32 0, i32 0) to i32 addrspace(4)*), i64 2) to i8 addrspace(4)*)) #2
   %2 = bitcast i8 addrspace(3)* %1 to i32 addrspace(3)*
   ret void
 }
 
 ; Function Attrs: nounwind readnone
-declare spir_func i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)*) #1
+declare spir_func i8 addrspace(3)* @__to_local(i8 addrspace(4)*) #1
 
 ; Function Attrs: nounwind
 define spir_kernel void @const_select(i32 addrspace(1)* %dst) #0 {
-  %1 = call spir_func i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* bitcast (i32 addrspace(4)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(4)* addrspacecast (i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_select.loc1, i32 0, i32 0) to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_select.loc2, i32 0, i32 0) to i32 addrspace(4)*)) to i8 addrspace(4)*)) #2
+  %1 = call spir_func i8* @__to_private(i8 addrspace(4)* bitcast (i32 addrspace(4)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(4)* addrspacecast (i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_select.loc1, i32 0, i32 0) to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(3)* getelementptr inbounds ([5 x i32], [5 x i32] addrspace(3)* @const_select.loc2, i32 0, i32 0) to i32 addrspace(4)*)) to i8 addrspace(4)*)) #2
   %2 = bitcast i8* %1 to i32*
   ret void
 }
 
 ; Function Attrs: nounwind readnone
-declare spir_func i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)*) #1
+declare spir_func i8* @__to_private(i8 addrspace(4)*) #1
 
 attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind readnone "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
