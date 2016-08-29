@@ -1464,10 +1464,14 @@ def : Pat<(f16 (bitconvert i16:$op1)),
     (COPY_TO_REGCLASS $op1, I16)>;
 
 // fcopysign - use the sign bit from the sign opnd, and everything else from the other
+/* 
+  After having finally found a solution, for some reason this causes a tablegen
+  crash when doing builds on Windows...  Disabled for now...
 def : Pat<(fcopysign f32:$other, f32:$sign),
           (BSEL32 0x80000000,$other,$sign)>;
 def : Pat<(fcopysign f64:$other, f64:$sign),
           (BSEL64 0x8000000000000000,$other,$sign)>;
+*/
 
 // Eventually
 //include "LPUIntrinsics.td"
