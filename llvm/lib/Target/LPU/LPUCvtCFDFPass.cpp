@@ -302,19 +302,12 @@ bool LPUCvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     addMemoryOrderingConstraints();
   }
   
-#if 1
-	{
-		errs() << "LPUCvtCFDFPass after memory order" << ":\n";
-		MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
-	}
-#endif
-
 	insertSWITCHForIf();
 	insertSWITCHForRepeat();
   insertSWITCHForLoopExit();
   replacePhiWithPICK();
   handleAllConstantInputs();
-#if 1
+#if 0
 	{
 	  errs() << "LPUCvtCFDFPass before LIC allocation" << ":\n";
 		MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
