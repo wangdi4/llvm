@@ -34,13 +34,37 @@ namespace reflection {
     PRIMITIVE_VAR_ARG,
     PRIMITIVE_STRUCT_FIRST,
     PRIMITIVE_IMAGE_1D_T = PRIMITIVE_STRUCT_FIRST,
+    PRIMITIVE_IMAGE_1D_RO_T,
+    PRIMITIVE_IMAGE_1D_WO_T,
+    PRIMITIVE_IMAGE_1D_RW_T,
     PRIMITIVE_IMAGE_2D_T,
+    PRIMITIVE_IMAGE_2D_RO_T,
+    PRIMITIVE_IMAGE_2D_WO_T,
+    PRIMITIVE_IMAGE_2D_RW_T,
     PRIMITIVE_IMAGE_2D_DEPTH_T,
+    PRIMITIVE_IMAGE_2D_DEPTH_RO_T,
+    PRIMITIVE_IMAGE_2D_DEPTH_WO_T,
+    PRIMITIVE_IMAGE_2D_DEPTH_RW_T,
     PRIMITIVE_IMAGE_3D_T,
+    PRIMITIVE_IMAGE_3D_RO_T,
+    PRIMITIVE_IMAGE_3D_WO_T,
+    PRIMITIVE_IMAGE_3D_RW_T,
     PRIMITIVE_IMAGE_1D_BUFFER_T,
+    PRIMITIVE_IMAGE_1D_BUFFER_RO_T,
+    PRIMITIVE_IMAGE_1D_BUFFER_WO_T,
+    PRIMITIVE_IMAGE_1D_BUFFER_RW_T,
     PRIMITIVE_IMAGE_1D_ARRAY_T,
+    PRIMITIVE_IMAGE_1D_ARRAY_RO_T,
+    PRIMITIVE_IMAGE_1D_ARRAY_WO_T,
+    PRIMITIVE_IMAGE_1D_ARRAY_RW_T,
     PRIMITIVE_IMAGE_2D_ARRAY_T,
+    PRIMITIVE_IMAGE_2D_ARRAY_RO_T,
+    PRIMITIVE_IMAGE_2D_ARRAY_WO_T,
+    PRIMITIVE_IMAGE_2D_ARRAY_RW_T,
     PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T,
+    PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_RO_T,
+    PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_WO_T,
+    PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_RW_T,
     PRIMITIVE_EVENT_T,
     PRIMITIVE_CLK_EVENT_T,
     PRIMITIVE_QUEUE_T,
@@ -340,7 +364,7 @@ namespace reflection {
     }
 
     ///@brief returns the type of parameter "index" of the block.
-    // @param index the sequential number of the queried parameter 
+    // @param index the sequential number of the queried parameter
     ///@return parameter type
     const RefParamType& getParam(unsigned int index) const {
       assert(m_params.size() > index && "index is OOB");
@@ -348,7 +372,7 @@ namespace reflection {
     }
 
     ///@brief set the type of parameter "index" of the block.
-    // @param index the sequential number of the queried parameter 
+    // @param index the sequential number of the queried parameter
     // @param type the parameter type
     void setParam(unsigned int index, RefParamType type) {
       if(index < getNumOfParams()) {

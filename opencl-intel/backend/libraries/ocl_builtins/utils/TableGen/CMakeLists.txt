@@ -39,7 +39,7 @@ add_executable(
 )
 
 add_dependencies(${TARGET_NAME}
-  clang
+  ${CLANG_BIN_PATH}
 )
 
 target_link_libraries(${TARGET_NAME}
