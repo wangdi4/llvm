@@ -1297,6 +1297,15 @@ defm STRIDE16 : StrideOp<"stride16", I16, i16, [HasI16], IIALU>;
 defm STRIDE32 : StrideOp<"stride32", I32, i32, [HasI32], IIALU>;
 defm STRIDE64 : StrideOp<"stride64", I64, i64, [HasI64], IIALU>;
 
+// TBD(jsukha): This info probably needs predicates
+// Also, the input can probably be an I0 channel.
+def ONEND : FMTGEN<  // TODO: something to reflect state
+  (outs I0:$dst),
+  (ins I1:$ctrl, I0:$in),
+  "onend\t$dst, $ctrl, $in",
+  []> { let Itinerary = IIVir; }
+  
+
 multiclass Init<RegisterClass RC, ValueType opType,
            list<Predicate> preds, InstrItinClass itin> {
   // Not clear that "hasSideEffects" is a good description of static initialization...
