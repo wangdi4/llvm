@@ -173,14 +173,16 @@ public:
 
   // The final check to see if we can transform the loop control
   // variable on a loop, and then transform the loop. 
-  bool seq_try_transform_loop(LPUSeqLoopInfo& loop);
-
+  bool seq_try_transform_loop(LPUSeqLoopInfo& loop,
+                              std::set<MachineInstr*>& insSetMarkedForDeletion);
+  
   // The hard work of the try_transform method. 
   void seq_do_transform_loop(LPUSeqLoopInfo& loop,
                              LPUSeqCandidate& indvarCandidate,
                              unsigned indvar_opcode,
                              int indvarIdx,
-                             int boundIdx);
+                             int boundIdx,
+                             std::set<MachineInstr*>& insSetMarkedForDeletion);
 
 
   // Tries to compute a matching sequence opcode for the pair of a
@@ -235,10 +237,23 @@ public:
                  MachineInstr* prev_inst);
 
 
+
+  // Replaces either defs (and or uses) or a particular channel with
+  // %ign.
+  // Returns true if all defs in this instruction are %ign, and at least
+  // one replacement has occurred (either of a use or def) has occurred.
+  bool
+  seq_replace_channel_with_ign(MachineInstr* MI,
+                               unsigned channel_to_replace,
+                               MachineRegisterInfo* MRI,
+                               const TargetRegisterInfo &TRI,
+                               bool replace_uses,
+                               bool replace_defs);
+
   void
-  seq_delete_ins_for_loop(LPUSeqLoopInfo& loop,
-                          MachineBasicBlock& BB,
-                          SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& ins_for_deletion);
+  seq_mark_loop_ins_for_deletion(LPUSeqLoopInfo& loop,
+                                 MachineBasicBlock& BB,
+                                 SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& ins_for_deletion);
   
 private:
   MachineFunction *thisMF;
@@ -699,6 +714,8 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
 
     if (seq_opt_level > 1) {
       // Actually do the transforms.
+
+      std::set<MachineInstr*> insSetMarkedForDeletion;
       // 
       // TBD(jsukha): Fill in the code that does the sequence
       // transformations.
@@ -709,12 +726,27 @@ void LPUOptDFPass::runSequenceOptimizations(int seq_opt_level) {
            it != loops.end();
            ++it) {
         LPUSeqLoopInfo& loop = *it;
-        bool success = seq_try_transform_loop(loop);
+        bool success = seq_try_transform_loop(loop,
+                                              insSetMarkedForDeletion);
         if (success)
           num_transformed++;
       }
       DEBUG(errs() << "Done with seq opt. Transformed "
             <<  num_transformed << " loops\n");
+
+      // Finally delete the instructions we found.
+      int num_deleted = 0;
+      for (auto it = insSetMarkedForDeletion.begin();
+           it != insSetMarkedForDeletion.end();
+           ++it) {
+        num_deleted++;
+        MachineInstr* MI = *it;
+        assert(MI);
+        DEBUG(errs() << "Final deletion: ins = " << *MI << "\n");
+        MI->eraseFromParent();
+      }
+      DEBUG(errs() << "Final deletion: " << num_deleted
+            << " instructions.\n");
     }
   }
   else {
@@ -1073,8 +1105,9 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
 
 bool 
 LPUOptDFPass::
-seq_try_transform_loop(LPUSeqLoopInfo& loop) {
-
+seq_try_transform_loop(LPUSeqLoopInfo& loop,
+                       std::set<MachineInstr*>& insSetMarkedForDeletion) {
+  
   // Found a valid induction variable. 
   // True if induction variable (i.e., first argument in the compare)
   // is a stride candidate.
@@ -1122,7 +1155,8 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop) {
                           indvarCandidate,
                           indvar_opcode,
                           indvarIdx,
-                          boundIdx);
+                          boundIdx,
+                          insSetMarkedForDeletion);
                           
     
     return true;
@@ -1173,6 +1207,51 @@ seq_compute_matching_seq_opcode(MachineInstr* compareInst,
   return false;
 }
 
+
+// Returns true if all defs in this instruction are %ign, and at least
+// one replacement has occurred (either of a use or def) has occurred.
+bool LPUOptDFPass::
+seq_replace_channel_with_ign(MachineInstr* MI,
+                             unsigned channel_to_replace,
+                             MachineRegisterInfo* MRI,
+                             const TargetRegisterInfo &TRI,
+                             bool replace_uses, 
+                             bool replace_defs) {
+  int num_replacements = 0;
+  int num_defs = 0;
+  int num_null_defs = 0;
+  
+  assert(channel_to_replace != LPU::IGN);
+  for (MachineOperand &MO : MI->operands()) {
+    if (MO.isReg()) {
+      unsigned creg = MO.getReg();
+      if (MO.isDef()) {
+        num_defs++;
+        if (replace_defs && (creg == channel_to_replace)) {
+          MO.substPhysReg(LPU::IGN, TRI);
+          num_replacements++;
+          num_null_defs++;
+        }
+        else if (creg == LPU::IGN) {
+          num_null_defs++;
+        }
+      }
+      else if (replace_uses && MO.isUse()) {
+        if (creg == channel_to_replace) {
+          MO.substPhysReg(LPU::IGN, TRI);
+          num_replacements++;
+        }
+      }
+    }
+  }
+
+  // This instruction can be deleted if all its definitions are NULL.
+  //
+  // TBD: Should we care if any replacements happened?
+  // What should we do with an instruction that we are passed in which has
+  // all its def's as %ign to start with? 
+  return ((num_replacements > 0) && (num_null_defs == num_defs));
+}
 
 MachineInstr*
 LPUOptDFPass::
@@ -1277,13 +1356,194 @@ seq_lookup_stride_op(LPUSeqLoopInfo& loop,
   return in_s_op;
 }
 
+
+// Deletes any instructions stored in insMarkedForDeletion.  Also may
+// find new instructions to remove, for any unused channels we may
+// have created, and push them into insMarkedForDeletion.
+//
+// NOTE: insMarkedForDeletion is NOT guaranteed to have unique
+// elements after this call.
+//
+// Two cases for any instruction I in insMarkedForDeletion:
+//
+//   1. For any channel x defined by I, replace all uses of x with
+//      %ign, IF I is the ONLY definition of x.
+// 
+//      In a correct dataflow program, we expect exactly one
+//      definition of x.  However, this specification allows us to add
+//      an extra definition of x, and then delete the old one.
+//
+//   2. For any channel x used by I, if I is the only use of x, then
+//      replace all definitions of x in all defining instructions D.
+//      If a defining instruction D has no other definitions, also
+//      mark D for deletion.
+//
+// 
+// TBD(jsukha): WARNING: It is not clear whether this method can be a
+// general cleanup /deletion method.
+//
+// In theory, in step 1, if we have replaced a use of x with %ign in
+// instruction K, then (depending on the kind of instruction K is),
+// that instruction K may become invalid.  Only some instructions can
+// allow some of their uses to be %ign.  Should we continue to mark
+// "K" for deletion?
+//
+// For example, if we change "add %ci64_0, %ci64_1, %ci64_2" into
+//            "add $ci64_0, %ign, %ci64_2"
+//
+// we have technically changed the meaning of the program.  In the
+//  worst case, this program may no longer be correct (e.g., if we had
+//  an add where the "%ci64_2" is replaced with a literal).
+//
 void
 LPUOptDFPass::
-seq_delete_ins_for_loop(LPUSeqLoopInfo& loop,
-                        MachineBasicBlock& BB,
-                        SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& insMarkedForDeletion) {
+seq_mark_loop_ins_for_deletion(LPUSeqLoopInfo& loop,
+                               MachineBasicBlock& BB,
+                               SmallVector<MachineInstr*, SEQ_VEC_WIDTH>& insMarkedForDeletion) {
+  const TargetMachine &TM = thisMF->getTarget();
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();  
+  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+
+  DEBUG(errs() << "TBD: Initial set of instructions to delete: \n");
+  for (auto it = insMarkedForDeletion.begin();
+       it != insMarkedForDeletion.end();
+       ++it) {
+    MachineInstr* mi = *it;
+    DEBUG(errs() << "    " << *mi);
+  }
+
+
+  SmallVector<MachineInstr*, SEQ_VEC_WIDTH> deleteQ;
+  deleteQ.insert(deleteQ.end(),
+                 insMarkedForDeletion.begin(),
+                 insMarkedForDeletion.end());
+
+  while (deleteQ.size() > 0) {
+    MachineInstr* cMI = deleteQ.back();
+    deleteQ.pop_back();
+
+    DEBUG(errs() << "Deleting: instruction = " << *cMI << "\n");
+    for (MachineOperand& MO : cMI->operands()) {
+
+      DEBUG(errs() << " Deleting: processing operand " << MO << "\n");
+      if (MO.isReg()) {
+        unsigned current_channel = MO.getReg();
+        
+        // Skip any channel that is already IGN.
+        if (current_channel == LPU::IGN) {
+          continue;
+        }
+
+        assert(TargetRegisterInfo::isPhysicalRegister(current_channel));
+
+        if (MO.isUse()) {
+          MachineInstr* single_use =
+            getSingleUse(current_channel, MRI);
+
+          if (single_use) {
+            DEBUG(errs() << "Instr " << *cMI
+                  << " is the only use of " << MO << "\n");
+
+            // Build a list of the defining instructions.
+            SmallVector<MachineInstr*, SEQ_VEC_WIDTH> def_instr;
+            for (auto def_it = MRI->def_instr_begin(current_channel);
+                 def_it != MRI->def_instr_end();
+                 ++def_it) {
+              def_instr.push_back(&(*def_it));
+            }
+
+            // Replace all the def's of this channel with LPU::IGN.
+            // If that instruction has all its def's replaced, then
+            // delete that instruction. 
+            for (auto def_it = def_instr.begin();
+                 def_it != def_instr.end();
+                 ++def_it) {
+              MachineInstr* def_ins = *def_it;
+              assert(def_ins != cMI);
+
+              bool should_delete =
+                seq_replace_channel_with_ign(def_ins,
+                                             current_channel,
+                                             MRI,
+                                             TRI,
+                                             false,
+                                             true);
+
+              if (should_delete) {
+                DEBUG(errs() << " Replaced all defs of " << MO
+                      << ". Marking for deletion: "
+                      << *def_ins << "\n");
+                deleteQ.push_back(def_ins);
+                insMarkedForDeletion.push_back(def_ins);
+
+                // TBD(jsukha): Dump contents for debugging only.
+                // Delete me when we are happy that this method works.
+                //
+                // for (int i = 0; i < deleteQ.size(); ++i) {
+                //   DEBUG(errs() << "DeleteQ " << i << ":"
+                //         << deleteQ[i] << " = "
+                //         << *(deleteQ[i]) << "\n");
+                // }
+                // for (int i = 0; i < insMarkedForDeletion.size(); ++i) {
+                //   DEBUG(errs() << "insMarkedForDeletion " << i << ":"
+                //         << insMarkedForDeletion[i] << " = "
+                //         << *(insMarkedForDeletion[i]) << "\n");
+                // }
+              }
+            }
+          }
+          
+          // Substitute the use in this register.
+          MO.substPhysReg(LPU::IGN, TRI);
+        }
+        else if (MO.isDef()) {
+          MachineInstr* single_def =
+            getSingleDef(current_channel, MRI);
+          
+          if (single_def) {
+            // Walk over all uses of this channel.  These instructions
+            // must be deleted, since we are deleting their only def.
+
+            
+            // Build a list of the using instructions.
+            SmallVector<MachineInstr*, SEQ_VEC_WIDTH> use_instr;
+            for (auto use_it = MRI->use_instr_begin(current_channel);
+                 use_it != MRI->use_instr_end();
+                 ++use_it) {
+              use_instr.push_back(&(*use_it));
+            }
+
+            
+            for (auto use_it = use_instr.begin();
+                 use_it != use_instr.end();
+                 ++use_it) {
+              MachineInstr* use_ins = *use_it;
+              assert(use_ins != cMI);
+
+              seq_replace_channel_with_ign(use_ins,
+                                           current_channel,
+                                           MRI,
+                                           TRI,
+                                           true,
+                                           false);
+              // TBD(jsukha): We are only replacing the use of the
+              // definition with %ign; we are not checking to see if
+              // we should continue to delete the instruction which is
+              // now using the "%ign" value.
+            }
+          } // if (single_def)
+          
+          MO.substPhysReg(LPU::IGN, TRI);
+        }
+        else {
+          DEBUG(errs() << "ERROR: Found reg operand " << MO
+                << " which is neither def nor use...\n");
+        }
+      }
+    }
+  }
   
-  DEBUG(errs() << "TBD: delete the following instructions. \n");
+  DEBUG(errs() << "TBD: Final list of instructions to delete: \n");
   for (auto it = insMarkedForDeletion.begin();
        it != insMarkedForDeletion.end();
        ++it) {
@@ -1299,12 +1559,13 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
                       LPUSeqCandidate& indvarCandidate,
                       unsigned indvar_opcode,
                       int indvarIdx,
-                      int boundIdx) {
+                      int boundIdx,
+                      std::set<MachineInstr*>& insSetMarkedForDeletion) {
+
   //  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   LPUMachineFunctionInfo *LMFI = thisMF->getInfo<LPUMachineFunctionInfo>();
   const LPUInstrInfo &TII =
     *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  
 
   // We need to use the information in "loop" and "indvarCandidate" to
   // replace the loop control with a sequence.  (Step 3 in the
@@ -1421,8 +1682,13 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
   for (unsigned idx = 0; idx < loop.candidates.size(); ++idx) {
     if (idx != (unsigned)indvarIdx) {
       LPUSeqCandidate::SeqType st = loop.candidates[idx].stype;
-      if ((st != LPUSeqCandidate::SeqType::UNKNOWN) &&
-          (st != LPUSeqCandidate::SeqType::INVALID)) {
+      // TBD(jsukha): Eventually, this list should include all the
+      // sequence types.
+      //
+      // For now, however, it should only count the ones that we have
+      // implemented, because these will use the predicate output of
+      // the sequence.
+      if ((st == LPUSeqCandidate::SeqType::REPEAT)) {
         num_dependent_sequences++;
       }
     }
@@ -1576,17 +1842,17 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
     }
   }
 
-  // Cleanup: Delete instructions that are unneeded now.
-  seq_delete_ins_for_loop(loop,
-                          *BB,
-                          insMarkedForDeletion);
+  // Cleanup: mark instructions for deletion.
+  seq_mark_loop_ins_for_deletion(loop,
+                                 *BB,
+                                 insMarkedForDeletion);
 
-  // DEBUG(errs() << "After seq add: how many defs of top "
-  //       << indvarCandidate.top << "\n");
-  // for (auto def_it = MRI->def_instr_begin(indvarCandidate.top);
-  //      def_it != MRI->def_instr_end();
-  //      ++def_it) {
-  //   DEBUG(errs() <<  *def_it << "\n");
-  // }
+  // Add to the global set of instructions we are deleting.
+  // We will delete them all at the end.
+  for (auto it = insMarkedForDeletion.begin();
+       it != insMarkedForDeletion.end();
+       ++it) {
+    insSetMarkedForDeletion.insert(*it);
+  }
 }
 
