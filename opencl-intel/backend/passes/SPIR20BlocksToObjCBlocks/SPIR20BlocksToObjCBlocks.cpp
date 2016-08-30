@@ -221,10 +221,10 @@ namespace intel {
       assert(isa<AllocaInst>(spirContextAlloca) &&
              "alloca for SPIR 2.0 captured context is expected");
       replaceGEPs(spirContextAlloca, objcBlockAlloca);
-      // Fix the invoke which still expects captured data as an agrument
-      // and all GEPs from it.
-      fixBlockInvoke(M, spirBlockInvoke, objcBlockContextTy);
     }
+    // Fix the invoke which still expects captured data as an agrument
+    // and all GEPs from it (even if nothing have been captured).
+    fixBlockInvoke(M, spirBlockInvoke, objcBlockContextTy);
 
     // Ideally next what has to be done is to replace all uses of "opencl.block"
     // opaque type with this new block type but this is tedious and error prone.
