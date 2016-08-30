@@ -14,9 +14,13 @@
 //
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
 #include <cstdio>
 #include <cstring>
-#include <iostream>
+
 #include "common_runtime_tests.h"
 #include "ocl21.h"
 
@@ -40,7 +44,7 @@ class OCL21: public CommonRuntime{};
 //| Pass criteria
 //| -------------
 //|
-//| Verify that valid non-zero program object are returned and build successfull
+//| Verify that valid non-zero program object is returned and build successfull
 //|
 
 TEST_F(OCL21, clCreateProgramWithIL01)
@@ -90,38 +94,42 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem01)
     const size_t nsizes[2] = { 1024, 1024 };
     const size_t bsizes[2] = { nsizes[0] * sizeof(int), nsizes[1] * sizeof(int) };
     void * svmp[2] = { nullptr, nullptr };
-    int * refp[2] = { nullptr, nullptr };
+    std::vector<int> refp[2] = { std::vector<int>(nsizes[0]), std::vector<int>(nsizes[1]) };
+    const size_t repeat = 5;
 
-    refp[0] = new int[nsizes[0]];
-    refp[1] = new int[nsizes[1]];
-
-    ASSERT_FALSE(refp[0] == nullptr) << "new int[] failed";
-    ASSERT_FALSE(refp[1] == nullptr) << "new int[] failed";
-
-    svmp[0] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)nullptr, bsizes[0], 0);
-    svmp[1] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)nullptr, bsizes[1], 0);
+    svmp[0] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)0, bsizes[0], 0);
+    svmp[1] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)0, bsizes[1], 0);
 
     ASSERT_FALSE(svmp[0] == nullptr) << "clSVMAlloc failed";
     ASSERT_FALSE(svmp[1] == nullptr) << "clSVMAlloc failed";
 
-    fillMemory((int *)refp[0], nsizes[0], 0);
-    fillMemory((int *)refp[1], nsizes[1], 0);
+    std::iota(refp[0].begin(), refp[0].end(), 0);
+    std::iota(refp[1].begin(), refp[1].end(), 0);
 
-    fillMemory((int *)svmp[0], nsizes[0], 0);
-    fillMemory((int *)svmp[1], nsizes[1], 0);
+    std::iota((int *)svmp[0], (int *)svmp[0] + nsizes[0], 0);
+    std::iota((int *)svmp[1], (int *)svmp[1] + nsizes[1], 0);
 
-    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 2,
-        (const void **)svmp, (const size_t *)bsizes,
-        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
-    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 2,
-        (const void **)svmp, (const size_t *)bsizes,
-        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
+    for (size_t i = 0; i < repeat; ++i)
+    {
+        std::cout << "Starting migrate both pointers to CPU" << std::endl;
+        enqueueSVMMigrateMem(ocl_descriptor.queues[0], 2,
+            (const void **)svmp, (const size_t *)bsizes,
+            (cl_mem_migration_flags)0, 0, nullptr, nullptr);
 
-    ASSERT_TRUE(memcmp(refp[0], svmp[0], bsizes[0]) == 0) << "svmp[0] corrupted";
-    ASSERT_TRUE(memcmp(refp[1], svmp[1], bsizes[1]) == 0) << "svmp[1] corrupted";
+        ASSERT_TRUE(memcmp(&refp[0].front(), svmp[0], bsizes[0]) == 0) << "svmp[0] corrupted after " << i << "-th iteration";
+        ASSERT_TRUE(memcmp(&refp[1].front(), svmp[1], bsizes[1]) == 0) << "svmp[1] corrupted after " << i << "-th iteration";
+    }
 
-    delete[] refp[0];
-    delete[] refp[1];
+    for (size_t i = 0; i < repeat; ++i)
+    {
+        std::cout << "Starting migrate both pointers to GPU" << std::endl;
+        enqueueSVMMigrateMem(ocl_descriptor.queues[1], 2,
+            (const void **)svmp, (const size_t *)bsizes,
+            (cl_mem_migration_flags)0, 0, nullptr, nullptr);
+
+        ASSERT_TRUE(memcmp(&refp[0].front(), svmp[0], bsizes[0]) == 0) << "svmp[0] corrupted after " << i << "-th iteration";
+        ASSERT_TRUE(memcmp(&refp[1].front(), svmp[1], bsizes[1]) == 0) << "svmp[1] corrupted after " << i << "-th iteration";
+    }
 
     clSVMFree(ocl_descriptor.context, svmp[0]);
     clSVMFree(ocl_descriptor.context, svmp[1]);
@@ -154,50 +162,40 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
     const size_t bsizes[2] = { nsizes[0] * sizeof(int), nsizes[1] * sizeof(int) };
     const size_t hbsizes[2] = { bsizes[0] / 2, bsizes[1] / 2 };
     void * svmp[2] = { nullptr, nullptr };
-    int * refp[2] = { nullptr, nullptr };
+    std::vector<int> refp[2] = { std::vector<int>(nsizes[0]), std::vector<int>(nsizes[1]) };
 
-    refp[0] = new int[nsizes[0]];
-    refp[1] = new int[nsizes[1]];
-
-    ASSERT_FALSE(refp[0] == nullptr) << "new int[] failed";
-    ASSERT_FALSE(refp[1] == nullptr) << "new int[] failed";
-
-    svmp[0] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)nullptr, bsizes[0], 0);
-    svmp[1] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)nullptr, bsizes[1], 0);
+    svmp[0] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)0, bsizes[0], 0);
+    svmp[1] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)0, bsizes[1], 0);
 
     ASSERT_FALSE(svmp[0] == nullptr) << "clSVMAlloc failed";
     ASSERT_FALSE(svmp[1] == nullptr) << "clSVMAlloc failed";
 
-    fillMemory((int *)refp[0], nsizes[0], 0);
-    fillMemory((int *)refp[1], nsizes[1], 0);
+    std::iota(refp[0].begin(), refp[0].end(), 0);
+    std::iota(refp[1].begin(), refp[1].end(), 0);
 
-    fillMemory((int *)svmp[0], nsizes[0], 0);
-    fillMemory((int *)svmp[1], nsizes[1], 0);
+    std::iota((int *)svmp[0], (int *)svmp[0] + nsizes[0], 0);
+    std::iota((int *)svmp[1], (int *)svmp[1] + nsizes[1], 0);
 
     std::cout << "Starting migrate first half of svmp[0] to CPU..." << std::endl;
     enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
         (const void **)&(svmp[0]), (const size_t *)&(hbsizes[0]),
-        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
-    std::cout << "Starting migrate second half of svmp[0] to CPU..." << std::endl;
-    size_t little_size = 1;
-    enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
-        (const void **)((char *)&(svmp[0]) + 1), (const size_t *)&(little_size),
-        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
+        (cl_mem_migration_flags)0, 0, nullptr, nullptr);
+    std::cout << "Starting migrate second half of svmp[0] to GPU..." << std::endl;
+    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
+        (const void **)(((char *)svmp[0]) + hbsizes[0]), (const size_t *)&(hbsizes[0]),
+        (cl_mem_migration_flags)0, 0, nullptr, nullptr);
 
     std::cout << "Starting migrate first half of svmp[1] to GPU..." << std::endl;
-    enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
-        (const void **)&(svmp[1]), (const size_t *)&(hbsizes[1]),
-        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
-    std::cout << "Starting migrate second half of svmp[1] to GPU..." << std::endl;
     enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
-        (const void **)((char *)&(svmp[1]) + 1), (const size_t *)&(little_size),
-        (cl_mem_migration_flags)nullptr, 0, nullptr, nullptr);
+        (const void **)&(svmp[1]), (const size_t *)&(hbsizes[1]),
+        (cl_mem_migration_flags)0, 0, nullptr, nullptr);
+    std::cout << "Starting migrate second half of svmp[1] to CPU..." << std::endl;
+    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
+        (const void **)(((char *)svmp[1]) + 1), (const size_t *)&(hbsizes[1]),
+        (cl_mem_migration_flags)0, 0, nullptr, nullptr);
 
-    ASSERT_TRUE(memcmp(refp[0], svmp[0], bsizes[0]) == 0) << "svmp[0] corrupted";
-    ASSERT_TRUE(memcmp(refp[1], svmp[1], bsizes[1]) == 0) << "svmp[1] corrupted";
-
-    delete[] refp[0];
-    delete[] refp[1];
+    ASSERT_TRUE(memcmp(&refp[0].front(), svmp[0], bsizes[0]) == 0) << "svmp[0] corrupted";
+    ASSERT_TRUE(memcmp(&refp[1].front(), svmp[1], bsizes[1]) == 0) << "svmp[1] corrupted";
 
     clSVMFree(ocl_descriptor.context, svmp[0]);
     clSVMFree(ocl_descriptor.context, svmp[1]);
@@ -225,29 +223,95 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
 TEST_F(OCL21, clCloneKernel01)
 {
     // create OpenCL queues, program and context
-    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "copy_kernels.cl"));
 
-    cl_kernel kernels[10] = { (cl_kernel)nullptr };
-    cl_kernel copied[10] = { (cl_kernel)nullptr };
-    for(int i=0; i<10; ++i)
+    // some staff for kernel execution
+    const cl_int size = 1024;
+    std::vector<cl_int> data(size);
+    std::vector<cl_int> result(data);
+
+    std::iota(data.begin(), data.end(), 0);
+
+    size_t global_work_size[3] = { 1024, 1, 1 };
+    size_t local_work_size[3] = { 32, 1, 1 };
+
+    cl_mem input_buffer = nullptr;
+    cl_mem output_buffer = nullptr;
+
+    createBuffer(&input_buffer, ocl_descriptor.context, CL_MEM_READ_ONLY, size, nullptr);
+    createBuffer(&output_buffer, ocl_descriptor.context, CL_MEM_WRITE_ONLY, size, nullptr);
+
+    // some staff to check copy of the kernel
+    cl_uint original_reference_count = 0;
+    cl_uint copied_reference_count = 0;
+
+    cl_uint original_num_args = 0;
+    cl_uint copied_num_args = 0;
+
+    cl_context copied_context = 0;
+    cl_program copied_program = 0;
+
+    cl_kernel kernel = (cl_kernel)nullptr;
+    cl_kernel copied = (cl_kernel)nullptr;
+
+    // create original kernel
+    ASSERT_NO_FATAL_FAILURE(createKernel(&kernel, ocl_descriptor.program, "copy_int"));
+
+    setKernelArg(kernel, 0, sizeof(cl_mem), &input_buffer);
+    setKernelArg(kernel, 1, sizeof(cl_mem), &output_buffer);
+
+    // save info about original kernel
+    getKernelInfo(kernel, CL_KERNEL_REFERENCE_COUNT, sizeof(cl_uint),
+        &original_reference_count, nullptr);
+    getKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint),
+        &original_num_args, nullptr);
+
+    // execute original kernel and check results
+    enqueueWriteBuffer(ocl_descriptor.queues[0], input_buffer, CL_TRUE, 0, size,
+        &data.front(), 0, nullptr, nullptr);
+
+    enqueueNDRangeKernel(ocl_descriptor.queues[0], kernel, 3, nullptr,
+        global_work_size, local_work_size, 0, nullptr, nullptr);
+
+    enqueueReadBuffer(ocl_descriptor.queues[0], output_buffer, CL_TRUE, 0, size,
+        &data.front(), 0, nullptr, nullptr);
+
+    for (size_t i = 0; i < size; ++i)
     {
-        std::stringstream ss;
-        ss << "kernel_" << i;
-        // create kernels
-        kernels[i] = 0;
-        ASSERT_NO_FATAL_FAILURE(createKernel(&kernels[i], ocl_descriptor.program, ss.str().c_str()));
+        ASSERT_EQ(data[i], result[i]) << i << "-th element of result buffer is wrong";
     }
 
-    for(int i=0; i<10; ++i)
+    result.assign(size, 0);
+
+    // copy original kernel
+    ASSERT_NO_FATAL_FAILURE(cloneKernel(&copied, kernel));
+
+    // check info about copied kernel
+    getKernelInfo(copied, CL_KERNEL_REFERENCE_COUNT, sizeof(cl_uint),
+        &copied_reference_count, nullptr);
+    ASSERT_EQ(original_reference_count, copied_reference_count);
+    getKernelInfo(copied, CL_KERNEL_NUM_ARGS, sizeof(cl_uint),
+        &copied_num_args, nullptr);
+    ASSERT_EQ(original_num_args, copied_num_args);
+
+    // execute copied kernel and check results
+    enqueueNDRangeKernel(ocl_descriptor.queues[0], copied, 3, nullptr,
+        global_work_size, local_work_size, 0, nullptr, nullptr);
+
+    enqueueReadBuffer(ocl_descriptor.queues[0], output_buffer, CL_TRUE, 0, size,
+        &data.front(), 0, nullptr, nullptr);
+
+    for (size_t i = 0; i < size; ++i)
     {
-        ASSERT_NO_FATAL_FAILURE(cloneKernel(&copied[i], kernels[i]));
+        ASSERT_EQ(data[i], result[i]) << i << "-th element of result buffer is wrong";
     }
 
-    for(int i=0; i<10; ++i)
-    {
-        clReleaseKernel(kernels[i]);
-        clReleaseKernel(copied[i]);
-    }
+    // testing done, release resources
+    clReleaseMemObject(input_buffer);
+    clReleaseMemObject(output_buffer);
+
+    clReleaseKernel(kernel);
+    clReleaseKernel(copied);
 }
 
 //| TEST: OCL21.clGetKernelSubGroupInfo01

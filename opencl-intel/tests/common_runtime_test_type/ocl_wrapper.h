@@ -304,6 +304,10 @@ void cloneKernel(cl_kernel* new_kernel, cl_kernel source_kernel);
 // createKernelsInProgram - calls and validates clCreateKernelsInProgram
 void createKernelsInProgram(cl_program program, cl_uint num_kernels, cl_kernel *kernels, cl_uint *num_kernels_ret);
 
+// getKernelInfo - calls and validates clGetKernelInfo
+void getKernelInfo(cl_kernel kernel, cl_kernel_info param_name, size_t param_value_size,
+    void *param_value, size_t *param_value_size_ret);
+
 // setKernelArg - calls and validates clSetKernelArg
 void setKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void *arg_value);
 
