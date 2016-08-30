@@ -27,3 +27,21 @@ void fillMemory(T* ptr, size_t n, T base)
         ptr[i] = cur = getNextValue(cur);
    }
 }
+
+template<typename T>
+class IncrementingSequence
+{
+    public:
+        IncrementingSequence(T start) : value(start)
+        {}
+
+        IncrementingSequence() : IncrementingSequence((T)0)
+        {}
+
+        T operator() ()
+        {
+            return value++;
+        }
+    protected:
+        T value;
+};
