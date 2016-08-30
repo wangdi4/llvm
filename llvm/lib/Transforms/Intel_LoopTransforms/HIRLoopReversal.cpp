@@ -103,24 +103,21 @@ class MarkedCECollector final : public HLNodeVisitorBase {
 private:
   SmallVectorImpl<MarkedCanonExpr> &CEVAP; // Vector of Collected MarkedCE
   unsigned LoopLevel = 0;                  // Current Loop Level
-  bool AbortCollector = false; // Abort, if there is any non-linear DDRef on a
-                               // CE with an IV matching on loop level.
 
 public:
   explicit MarkedCECollector(SmallVectorImpl<MarkedCanonExpr>
                                  &InitMCER, // Vector of MarkedCanonExpr (MCE)
                              unsigned InitLevel)
-      : CEVAP(InitMCER), LoopLevel(InitLevel), AbortCollector(false) {
+      : CEVAP(InitMCER), LoopLevel(InitLevel) {
     assert(LoopLevel <= MaxLoopNestLevel);
   }
 
   /// \brief Do not allow default constructor
   MarkedCECollector() = delete;
 
-  // Getter: any prematurely abort?
-  bool getCollectionAborted(void) const { return AbortCollector; }
-
   void visit(HLDDNode *Node) {
+    // DEBUG(dbgs() << "Collecting on Node: "; Node->dump(););
+
     for (auto I = Node->op_ddref_begin(), E = Node->op_ddref_end(); I != E;
          ++I) {
       checkAndCollectMCE(*I);
@@ -136,43 +133,35 @@ public:
   }
   void postVisit(HLNode *Node) {}
 
-  // Early BailOut: once AbortCollector is true
-  bool isDone() const override { return AbortCollector; }
-
-  // ----------------------------------------------------
-  // |     | HasIV   |  HasNonLinear | Collect Decision |
-  // ----------------------------------------------------
-  // |Base |   NA    |  Y/N          |    N             |
-  // ----------------------------------------------------
-  // |Subs |   Y     |  N            |    Y             |
-  // ----------------------------------------------------
-  //
+  // -------------------------------------
+  // |     | HasIV   |  Collect Decision |
+  // -------------------------------------
+  // |Base |   N/A   |     N             |
+  // -------------------------------------
+  // |Subs |   Y     |     Y             |
+  // -------------------------------------
   // Note:
-  // bool CollectDecision = HasIV && !HasNonLinear;
-  //
-  // Since the BaseCE CAN'T have any IV (with matching loop level), we don't
-  // bother to collect from the base.
-  //
   // We only collect the CE from the Subs section if it hasIV(LoopLevel)
-  // AND is !NonLinear.
   //
-  // Collection aborts if hasIV is true and AND NonLinear is also true at any
-  // moment in the collection process.
   void checkAndCollectMCE(const RegDDRef *RegDD) {
     // 0.Setup
     assert(RegDD && "RegDDRef* can't be a nullptr\n");
-    unsigned Dimension = 1; // Dimension begins from 1, in sync with iterator I
+    unsigned Dimension = 1; // Dimension needs to be in sync with iterator I
+    bool IsMemRef = RegDD->isMemRef();
+    bool IsWrite = RegDD->isLval();
 
     // Debug Printer
     // formatted_raw_ostream FOS(dbgs());
 
     // 1. Check the Subs part only (refer to the table and analysis above)
-    for (auto I = RegDD->canon_begin(), E = RegDD->canon_end(); I != E; ++I) {
-      bool HasIV = false, HasNonLinear = false;
+    for (auto I = RegDD->canon_begin(), E = RegDD->canon_end(); I != E;
+         ++I, ++Dimension // Dimension is in sync with I
+         ) {
+      bool HasIV = false;
       CanonExpr *CE = (*I);
       assert(CE && "checkAndCollectMCE(.) -- CanonExpr* can't be nullptr\n");
 
-      // See what we are checking:
+      // Examine current CE
       // DEBUG(FOS << "Checking: "; CE->print(FOS); FOS << "\n";);
 
       // 2. Check if the current CE has an IV on the matching loop level
@@ -180,28 +169,10 @@ public:
         HasIV = true;
       }
 
-      // 3. Check if the current CE is NonLinear
-      if (CE->isNonLinear()) {
-        HasNonLinear = true;
-      }
-
-      // 4. Decide whether to collect the current CE
-      //    also decide on collection abortion.
-      // Abort collection if HasIV AND HasNonLinear are BOTH true
-      AbortCollector = HasIV && HasNonLinear;
-      if (AbortCollector) {
-        return;
-      }
-
-      bool CollectCE = HasIV && !HasNonLinear;
-
-      // 5. Collect if suitable
-      if (CollectCE) {
+      // 3. Collect if suitable
+      if (HasIV) {
         // See what we are collecting
         // DEBUG(FOS << "Collect: "; CE->print(FOS); FOS << "\n";);
-
-        bool IsMemRef = RegDD->isMemRef();
-        bool IsWrite = RegDD->isLval();
 
         // This CAN'T be moved out of loop, because the Stride's value depends
         // on Dimension, and Dimension adjusts per iteration.
@@ -214,10 +185,7 @@ public:
         CEVAP.push_back(MarkedCanonExpr(CE, IsWrite, IsMemRef, Stride,
                                         const_cast<RegDDRef *>(RegDD)));
       }
-      // end_if: CollectCE
-
-      // 6. update Dimension to match I
-      Dimension++;
+      // end_if: HasIV
     }
     // end_for: I
 
@@ -396,16 +364,10 @@ bool HIRLoopReversal::doLoopCollection(HLLoop *Lp) {
   MarkedCECollector MCEC(CEAV, LoopLevel);
   HLNodeUtils::visitRange(MCEC, Lp->getFirstChild(), Lp->getLastChild());
 
-  // 2.Check if Collection aborts prematurely
-  bool CollectionAborted = MCEC.getCollectionAborted();
-  if (CollectionAborted) {
-    return false;
-  }
-
-  // Debug: see all MCEs we have collected
+  // Examine all MCEs we have collected
   // DEBUG(::dump(CEAV, StringRef("All Collected MCEs:")););
 
-  // 3.Collection Good if not aborted
+  // 2.Collection is Good
   return true;
 }
 
