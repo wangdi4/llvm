@@ -76,7 +76,7 @@ namespace {
       AU.addRequired<TargetLibraryInfoWrapperPass>();
       AU.addRequired<AndersensAAWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();
-      AU.addPreserved<WholeProgramAnalysis>();
+      AU.addPreserved<WholeProgramWrapperPass>();
     }
 
 private:

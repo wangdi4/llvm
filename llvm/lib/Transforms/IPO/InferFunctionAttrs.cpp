@@ -976,7 +976,7 @@ struct InferFunctionAttrsLegacyPass : public ModulePass {
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramAnalysis>();               // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>();               // INTEL
     AU.addRequired<TargetLibraryInfoWrapperPass>();
   }
 

@@ -401,7 +401,7 @@ void initializeFuncletLayoutPass(PassRegistry &);
 void initializeLoopLoadEliminationPass(PassRegistry&);
 void initializeFunctionImportPassPass(PassRegistry &);
 void initializeLoopVersioningPassPass(PassRegistry &);
-void initializeWholeProgramAnalysisPass(PassRegistry&); // INTEL
+void initializeWholeProgramWrapperPassPass(PassRegistry&); // INTEL
 void initializeWholeProgramDevirtPass(PassRegistry &);
 }
 

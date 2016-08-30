@@ -102,7 +102,7 @@ struct ForceFunctionAttrsLegacyPass : public ModulePass {
 
 #if INTEL_CUSTOMIZATION
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramAnalysis>();
+    AU.addPreserved<WholeProgramWrapperPass>();
   }
 #endif // INTEL_CUSTOMIZATION
 

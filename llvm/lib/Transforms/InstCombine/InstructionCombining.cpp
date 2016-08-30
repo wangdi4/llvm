@@ -3120,7 +3120,7 @@ void InstructionCombiningPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<BasicAAWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
   AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
-  AU.addPreserved<WholeProgramAnalysis>();    // INTEL
+  AU.addPreserved<WholeProgramWrapperPass>();    // INTEL
 }
 
 bool InstructionCombiningPass::runOnFunction(Function &F) {

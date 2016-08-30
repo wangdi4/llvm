@@ -47,7 +47,7 @@ namespace {
       AU.addPreserved<UnifyFunctionExitNodes>();
       AU.addPreservedID(LowerSwitchID);
       AU.addPreservedID(LowerInvokePassID);
-      AU.addPreserved<WholeProgramAnalysis>();               // INTEL
+      AU.addPreserved<WholeProgramWrapperPass>();               // INTEL
     }
   };
 }  // end of anonymous namespace

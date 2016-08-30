@@ -1656,7 +1656,7 @@ namespace {
   struct IPSCCP : public ModulePass {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<TargetLibraryInfoWrapperPass>();
-      AU.addPreserved<WholeProgramAnalysis>();               // INTEL
+      AU.addPreserved<WholeProgramWrapperPass>();               // INTEL
     }
     static char ID;
     IPSCCP() : ModulePass(ID) {

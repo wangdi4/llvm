@@ -20,25 +20,8 @@
 
 namespace llvm {
 
-struct WholeProgramAnalysis : public ModulePass {
-  static char ID;
-
-  WholeProgramAnalysis();
-
-  bool runOnModule(Module &M) override;
-  bool doFinalization(Module &M) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  bool isWholeProgramSafe();
-  bool isWholeProgramSeen();
-  void wholeProgramAllExternsAreIntrins(Module &M,
-                                        const TargetLibraryInfo &TLI);
-  bool resolveAllLibFunctions(Module &M, const TargetLibraryInfo &TLI);
-  bool resolveCallsInRoutine(const TargetLibraryInfo &TLI,
-                             llvm::Function*, int*);
-  void makeAllLocalToCompilationUnit(Module &M, CallGraph *CG);
-  bool makeInternalize(GlobalValue &GV, const StringSet<> &AlwaysPreserved);
-
+// It handles actual analysis and results of whole program analysis.
+class WholeProgramInfo {
 private:
   // Set to true if all symbols have been resolved and not creating
   // shared library.
@@ -46,9 +29,57 @@ private:
 
   // Set to true if all symbols have been resolved.
   bool WholeProgramSeen;
+
+public:
+  WholeProgramInfo();
+  //WholeProgramInfo(WholeProgramInfo &&Arg);
+  ~WholeProgramInfo();
+
+  static WholeProgramInfo analyzeModule(Module &M,
+                                        const TargetLibraryInfo &TLI,
+                                        CallGraph *CG);
+
+  bool isWholeProgramSafe();
+  bool isWholeProgramSeen();
+
+  void wholeProgramAllExternsAreIntrins(Module &M,
+                                        const TargetLibraryInfo &TLI);
+  bool resolveAllLibFunctions(Module &M, const TargetLibraryInfo &TLI);
+  bool resolveCallsInRoutine(const TargetLibraryInfo &TLI,
+                             llvm::Function*, int*);
+  void makeAllLocalToCompilationUnit(Module &M, CallGraph *CG);
+  bool makeInternalize(GlobalValue &GV, const StringSet<> &AlwaysPreserved);
 };
 
-ModulePass *createWholeProgramAnalysisPass();
+// Analysis pass providing a never-invalidated whole program analysis result.
+class WholeProgramAnalysis : public AnalysisInfoMixin<WholeProgramAnalysis> {
+  friend AnalysisInfoMixin<WholeProgramAnalysis>;
+  static char PassID;
+
+public:
+  typedef WholeProgramInfo Result;
+
+  WholeProgramInfo run(Module &M, AnalysisManager<Module> &AM);
+};
+
+// Legacy wrapper pass to provide the WholeProgramInfo object.
+class WholeProgramWrapperPass : public ModulePass {
+  std::unique_ptr<WholeProgramInfo> Result;
+
+public:
+  static char ID;
+
+  WholeProgramWrapperPass();
+
+  WholeProgramInfo &getResult() { return *Result; }
+  const WholeProgramInfo &getResult() const { return *Result; }
+
+  bool runOnModule(Module &M) override;
+  bool doFinalization(Module &M) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+};
+
+ModulePass *createWholeProgramWrapperPassPass();
 
 }
 

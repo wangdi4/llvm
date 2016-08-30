@@ -56,7 +56,7 @@ static cl::opt<uint64_t> InlineAggressiveInstLimit("inline-agg-inst-limit",
 
 INITIALIZE_PASS_BEGIN(InlineAggressiveAnalysis, "inlineaggressiveanalysis",
                 "inline aggressive analysis", false, false)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramAnalysis)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(InlineAggressiveAnalysis, "inlineaggressiveanalysis",
                 "inline aggressive analysis", false, false)
 
@@ -464,8 +464,8 @@ bool InlineAggressiveAnalysis::runOnModule(Module &M) {
 
   AggInlCalls.clear();
 
-  auto *WPA = getAnalysisIfAvailable<WholeProgramAnalysis>();
-  if (!WPA || !WPA->isWholeProgramSafe()) {
+  auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();
+  if (!WPA || !WPA->getResult().isWholeProgramSafe()) {
     if (InlineAggressiveTrace) {
       errs() << " Skipped AggInl ... Whole Program NOT safe \n";
     }
@@ -603,5 +603,5 @@ bool InlineAggressiveAnalysis::runOnModule(Module &M) {
 //
 void InlineAggressiveAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addUsedIfAvailable<WholeProgramAnalysis>();
+  AU.addUsedIfAvailable<WholeProgramWrapperPass>();
 }

@@ -1080,8 +1080,8 @@ struct PostOrderFunctionAttrsLegacyPass : public CallGraphSCCPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addPreserved<WholeProgramAnalysis>();               // INTEL
-    AU.addUsedIfAvailable<WholeProgramAnalysis>();         // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>();               // INTEL
+    AU.addUsedIfAvailable<WholeProgramWrapperPass>();         // INTEL
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     getAAResultsAnalysisUsage(AU);
@@ -1138,8 +1138,8 @@ bool PostOrderFunctionAttrsLegacyPass::runOnSCC(CallGraphSCC &SCC) {
   // Treat “main” as non-recursive function if there are no uses
   // when whole-program-safe is true.
   if (F->getName() == "main" && F->use_empty()) {
-    auto *WPA = getAnalysisIfAvailable<WholeProgramAnalysis>(); 
-    if (WPA && WPA->isWholeProgramSafe()) {
+    auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>(); 
+    if (WPA && WPA->getResult().isWholeProgramSafe()) {
       Changed |= setDoesNotRecurse(*F);
     }
   }
@@ -1184,7 +1184,7 @@ struct ReversePostOrderFunctionAttrs : public ModulePass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addPreserved<WholeProgramAnalysis>(); // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
     AU.addRequired<CallGraphWrapperPass>();
   }
 };

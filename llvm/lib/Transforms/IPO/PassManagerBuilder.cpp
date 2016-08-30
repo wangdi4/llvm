@@ -852,7 +852,7 @@ void PassManagerBuilder::addEarlyLTOOptimizationPasses(
 #if INTEL_CUSTOMIZATION
   // Whole Program Analysis
   if (EnableWPA)
-    PM.add(createWholeProgramAnalysisPass());
+    PM.add(createWholeProgramWrapperPassPass());
 #endif // INTEL_CUSTOMIZATION
 }
 

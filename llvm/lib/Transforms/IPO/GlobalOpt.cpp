@@ -72,7 +72,7 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<TargetLibraryInfoWrapperPass>();
       AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addPreserved<WholeProgramAnalysis>();                 // INTEL
+      AU.addPreserved<WholeProgramWrapperPass>();                 // INTEL
     }
     static char ID; // Pass identification, replacement for typeid
     GlobalOpt() : ModulePass(ID) {

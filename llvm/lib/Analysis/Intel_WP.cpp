@@ -40,31 +40,49 @@ static cl::opt<bool> WholeProgramAssert("whole-program-assert",
 #define DEBUG_TYPE  "wholeprogramanalysis"
 
 
-INITIALIZE_PASS_BEGIN(WholeProgramAnalysis, "wholeprogramanalysis",
+INITIALIZE_PASS_BEGIN(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(WholeProgramAnalysis, "wholeprogramanalysis",
+INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 
-char WholeProgramAnalysis::ID = 0;
+char WholeProgramWrapperPass::ID = 0;
 
-ModulePass *llvm::createWholeProgramAnalysisPass() {
-  return new WholeProgramAnalysis();
+ModulePass *llvm::createWholeProgramWrapperPassPass() {
+  return new WholeProgramWrapperPass();
 }
 
-WholeProgramAnalysis::WholeProgramAnalysis() : ModulePass(ID),
-          WholeProgramSafe(false), WholeProgramSeen(false)  {
-  initializeWholeProgramAnalysisPass(*PassRegistry::getPassRegistry());
+WholeProgramWrapperPass::WholeProgramWrapperPass() : ModulePass(ID) {
+  initializeWholeProgramWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 
-bool WholeProgramAnalysis::doFinalization(Module &M) {
+bool WholeProgramWrapperPass::doFinalization(Module &M) {
+  Result.reset();
   return false;
 }
+
+bool WholeProgramWrapperPass::runOnModule(Module &M) {
+  CallGraphWrapperPass *CGPass =
+      getAnalysisIfAvailable<CallGraphWrapperPass>();
+  CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
+  Result.reset(new WholeProgramInfo(
+                WholeProgramInfo::analyzeModule(
+      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(), CG)));
+  return false;
+}
+
+WholeProgramInfo::WholeProgramInfo() {
+  WholeProgramSafe = false;
+  WholeProgramSeen = false;
+}
+
+WholeProgramInfo::~WholeProgramInfo() {}
+
 
 // This routine sets linkage of "GV" to Internal except when GV is in
 // "AlwaysPreserved".
 //
-bool WholeProgramAnalysis::makeInternalize(GlobalValue &GV, 
+bool WholeProgramInfo::makeInternalize(GlobalValue &GV, 
                                 const StringSet<> &AlwaysPreserved) {
 
   if (GV.hasLocalLinkage())
@@ -84,7 +102,7 @@ bool WholeProgramAnalysis::makeInternalize(GlobalValue &GV,
 // This routine is called when WholeProgramAssume is true. It sets
 // linkage of all globals to Internal if possible. 
 //
-void WholeProgramAnalysis::makeAllLocalToCompilationUnit(Module &M,
+void WholeProgramInfo::makeAllLocalToCompilationUnit(Module &M,
                                                          CallGraph *CG) {
 
   // Set of symbols private to the compiler that this pass should not touch.
@@ -135,30 +153,28 @@ void WholeProgramAnalysis::makeAllLocalToCompilationUnit(Module &M,
   }
 }
 
-bool WholeProgramAnalysis::runOnModule(Module &M) {
-  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+WholeProgramInfo
+WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
+                                CallGraph *CG) {
 
-  wholeProgramAllExternsAreIntrins(M, TLI);
+  WholeProgramInfo Result; 
+  Result.wholeProgramAllExternsAreIntrins(M, TLI);
 
   if (AssumeWholeProgram) {
-    CallGraphWrapperPass *CGPass =
-        getAnalysisIfAvailable<CallGraphWrapperPass>();
-    CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
-
     if (WholeProgramTrace)
       errs() << "whole-progran-assume is enabled ... \n";
 
-    WholeProgramSeen = true;
-    makeAllLocalToCompilationUnit(M, CG);
+    Result.WholeProgramSeen = true;
+    Result.makeAllLocalToCompilationUnit(M, CG);
   }
    
-  return false;
+  return Result;
 }
 
 // This analysis depends on TargetLibraryInfo. Analysis info is not
 // modified by any other pass.
 //
-void WholeProgramAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
+void WholeProgramWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
@@ -167,7 +183,7 @@ void WholeProgramAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 // "TLI" info. Otherwise, it returns false and sets "unresolved_funcs_count"
 // to number of unresolved calls in "F". 
 //
-bool WholeProgramAnalysis::resolveCallsInRoutine(
+bool WholeProgramInfo::resolveCallsInRoutine(
                  const TargetLibraryInfo &TLI, Function *F, 
                  int *unresolved_funcs_count) {
 
@@ -223,7 +239,7 @@ bool WholeProgramAnalysis::resolveCallsInRoutine(
   return resolved;
 }
 
-bool WholeProgramAnalysis::resolveAllLibFunctions(Module &M,
+bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
                                        const TargetLibraryInfo &TLI) {
   bool all_resolved = true;
   bool main_def_seen_in_ir = false;
@@ -288,7 +304,7 @@ bool WholeProgramAnalysis::resolveAllLibFunctions(Module &M,
 
 // Detect whole program using intrinsic table.
 //
-void WholeProgramAnalysis::wholeProgramAllExternsAreIntrins(Module &M,
+void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
                                             const TargetLibraryInfo &TLI) {
     if (WholeProgramTrace)
       errs() << "\nWHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS\n\n";
@@ -320,12 +336,23 @@ void WholeProgramAnalysis::wholeProgramAllExternsAreIntrins(Module &M,
 // WholeProgramSafe is set to true only if all symbols have been resolved
 // and building executable (i.e not building shared library).
 //
-bool WholeProgramAnalysis::isWholeProgramSafe(void) {
+bool WholeProgramInfo::isWholeProgramSafe(void) {
   return WholeProgramSafe || AssumeWholeProgram;
 }
 
 // This returns true if AssumeWholeProgram or WholeProgramSeen is true.
 // WholeProgramSeen is set to true if all symbols have been resolved.
-bool WholeProgramAnalysis::isWholeProgramSeen(void) {
+bool WholeProgramInfo::isWholeProgramSeen(void) {
   return WholeProgramSeen || AssumeWholeProgram;
 }
+
+char WholeProgramAnalysis::PassID;
+
+WholeProgramInfo WholeProgramAnalysis::run(Module &M,
+                                AnalysisManager<Module> &AM) {
+  return WholeProgramInfo::analyzeModule(M,
+                                      AM.getResult<TargetLibraryAnalysis>(M),
+                                  AM.getCachedResult<CallGraphAnalysis>(M));
+}
+
+
