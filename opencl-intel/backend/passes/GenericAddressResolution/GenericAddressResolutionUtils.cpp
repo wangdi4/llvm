@@ -27,9 +27,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
   /// @brief Names of Address Space Qualifier OpenCL BI functions
   static const char *addrQualifierFunctions[] = {
-                      "to_global",
-                      "to_local",
-                      "to_private",
+                      "__to_global",
+                      "__to_local",
+                      "__to_private",
                       "get_fence"
   };
 

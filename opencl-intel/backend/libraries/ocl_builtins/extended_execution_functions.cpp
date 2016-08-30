@@ -304,13 +304,24 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
   return ocl20_get_kernel_preferred_wg_size_multiple(block, DCM, B2K);
 }
 
+/// address space overloading for enqueue_kernel and enqueue_marker
+const __global clk_event_t* __attribute__((always_inline)) __attribute__((overloadable))
+    cast_to_global_const(const __generic clk_event_t* ptr) {
+  return (const __global clk_event_t*)ptr;
+}
+
+__global clk_event_t* __attribute__((always_inline)) __attribute__((overloadable))
+    cast_to_global(__generic clk_event_t* ptr) {
+  return (__global clk_event_t*)ptr;
+}
+
 #define ADDR_SPACE_OVERLOADING(ADDR_SPACE_1ST, ADDR_SPACE_2ND)\
 int __attribute__((always_inline)) __attribute__((overloadable))\
     enqueue_marker(queue_t queue, uint num_events_in_wait_list,\
                    const ADDR_SPACE_1ST clk_event_t *event_wait_list, ADDR_SPACE_2ND clk_event_t* event_ret) {\
   return enqueue_marker(queue, num_events_in_wait_list,\
-                        to_global(event_wait_list),\
-                        to_global(event_ret));\
+                        cast_to_global_const(event_wait_list),\
+                        cast_to_global(event_ret));\
 }\
 int __attribute__((overloadable)) __attribute__((always_inline))\
     enqueue_kernel(queue_t queue, kernel_enqueue_flags_t flags,\
@@ -318,8 +329,8 @@ int __attribute__((overloadable)) __attribute__((always_inline))\
                    const ADDR_SPACE_1ST clk_event_t *event_wait_list, clk_event_t ADDR_SPACE_2ND *event_ret,\
                    void (^block)(void)) {\
   return enqueue_kernel(queue, flags, ndrange, num_events_in_wait_list,\
-                        to_global(event_wait_list),\
-                        to_global(event_ret), block);\
+                        cast_to_global_const(event_wait_list),\
+                        cast_to_global(event_ret), block);\
 }
 
 ADDR_SPACE_OVERLOADING(__global, __private)

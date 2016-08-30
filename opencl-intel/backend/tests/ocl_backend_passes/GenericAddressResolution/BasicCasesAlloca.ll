@@ -23,7 +23,7 @@
 ; CHECK: store i32 addrspace(4)* %call1, i32 addrspace(4)** %pGen5, align 4
 ; CHECK: %40 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen3, align 4
 ; CHECK: %41 = bitcast i32 addrspace(4)* %40 to i8 addrspace(4)*
-; CHECK: %call7 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %41)
+; CHECK: %call7 = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %41)
 ; CHECK: %54 = load float addrspace(4)*, float addrspace(4)** %pGen4, align 4
 ; CHECK: %add.ptr = getelementptr inbounds float, float addrspace(4)* %54, i32 10
 ; CHECK: %call16 = call float @_Z5fractfPU3AS4f(float %53, float addrspace(4)* %add.ptr)
@@ -195,7 +195,7 @@ if.end:                                           ; preds = %if.else, %if.then
   store i32 addrspace(4)* %34, i32 addrspace(4)** %pGen3, align 4
   %35 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen3, align 4
   %36 = bitcast i32 addrspace(4)* %35 to i8 addrspace(4)*
-  %call7 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %36)
+  %call7 = call i8 addrspace(1)* @__to_global(i8 addrspace(4)* %36)
   %37 = bitcast i8 addrspace(1)* %call7 to i32 addrspace(1)*
   store i32 addrspace(1)* %37, i32 addrspace(1)** %b2, align 4
   %38 = load i32 addrspace(1)*, i32 addrspace(1)** %b2, align 4
@@ -235,7 +235,7 @@ if.end15:                                         ; preds = %if.then12, %if.end1
   ret void
 }
 
-declare i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)*)
+declare i8 addrspace(1)* @__to_global(i8 addrspace(4)*)
 
 declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 
