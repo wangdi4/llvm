@@ -106,8 +106,8 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem01)
     std::iota(refp[0].begin(), refp[0].end(), 0);
     std::iota(refp[1].begin(), refp[1].end(), 0);
 
-    std::iota((int *)svmp[0], (int *)svmp[0] + nsizes[0], 0);
-    std::iota((int *)svmp[1], (int *)svmp[1] + nsizes[1], 0);
+    std::generate((int *)svmp[0], (int *)svmp[0] + nsizes[0], IncrementingSequence<int>());
+    std::generate((int *)svmp[1], (int *)svmp[1] + nsizes[1], IncrementingSequence<int>());
 
     for (size_t i = 0; i < repeat; ++i)
     {
@@ -170,11 +170,11 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
     ASSERT_FALSE(svmp[0] == nullptr) << "clSVMAlloc failed";
     ASSERT_FALSE(svmp[1] == nullptr) << "clSVMAlloc failed";
 
-    std::iota(refp[0].begin(), refp[0].end(), 0);
-    std::iota(refp[1].begin(), refp[1].end(), 0);
+    std::generate(refp[0].begin(), refp[0].end(), IncrementingSequence<int>());
+    std::generate(refp[1].begin(), refp[1].end(), IncrementingSequence<int>());
 
-    std::iota((int *)svmp[0], (int *)svmp[0] + nsizes[0], 0);
-    std::iota((int *)svmp[1], (int *)svmp[1] + nsizes[1], 0);
+    std::generate((int *)svmp[0], (int *)svmp[0] + nsizes[0], IncrementingSequence<int>());
+    std::generate((int *)svmp[1], (int *)svmp[1] + nsizes[1], IncrementingSequence<int>());
 
     std::cout << "Starting migrate first half of svmp[0] to CPU..." << std::endl;
     enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
@@ -223,6 +223,55 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
 TEST_F(OCL21, clCloneKernel01)
 {
     // create OpenCL queues, program and context
+    ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
+
+    const size_t count = 10;
+
+    cl_kernel kernels[count] = { (cl_kernel)nullptr };
+    cl_kernel copied[count] = { (cl_kernel)nullptr };
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        std::stringstream ss;
+        ss << "kernel_" << i;
+        // create kernels
+        ASSERT_NO_FATAL_FAILURE(createKernel(&kernels[i], ocl_descriptor.program, ss.str().c_str()));
+    }
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        ASSERT_NO_FATAL_FAILURE(cloneKernel(&copied[i], kernels[i]));
+    }
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        clReleaseKernel(kernels[i]);
+        clReleaseKernel(copied[i]);
+    }
+}
+
+//| TEST: OCL21.clCloneKernel02
+//|
+//| Purpose
+//| -------
+//|
+//| Verify the ability to clone kernel objects for all kernel functions in a shared program
+//|
+//| Method
+//| ------
+//|
+//| 1. Build program with source of 10 kernels on both CPU and GPU
+//| 2. Create 10 kernels for that program (will create for both CPU and GPU)
+//| 3. Clone all kernels
+//|
+//| Pass criteria
+//| -------------
+//|
+//| Verify that valid non-zero kernel objects are returned
+//|
+TEST_F(OCL21, clCloneKernel02)
+{
+    // create OpenCL queues, program and context
     ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "copy_kernels.cl"));
 
     // some staff for kernel execution
@@ -230,7 +279,7 @@ TEST_F(OCL21, clCloneKernel01)
     std::vector<cl_int> data(size);
     std::vector<cl_int> result(data);
 
-    std::iota(data.begin(), data.end(), 0);
+    std::generate(data.begin(), data.end(), IncrementingSequence<cl_int>());
 
     size_t global_work_size[3] = { 1024, 1, 1 };
     size_t local_work_size[3] = { 32, 1, 1 };
