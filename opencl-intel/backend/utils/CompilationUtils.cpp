@@ -420,20 +420,20 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
               const StringRef structName = ST->getName().substr(oclOpaquePrefLen);
               // Get opencl opaque type.
               // It is safe to use startswith while there are no names which aren't prefix of another name.
-              if(structName.startswith("image1d_"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
-              else if (structName.startswith("image1d_array_"))
+              if (structName.startswith("image1d_array_"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_1D_ARR;
               else if (structName.startswith("image1d_buffer_"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_1D_BUF;
-              else if (structName.startswith("image2d_"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
-              else if (structName.startswith("image2d_array_"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR;
+              else if(structName.startswith("image1d_"))
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
               else if (structName.startswith("image2d_depth_"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D_DEPTH;
               else if (structName.startswith("image2d_array_depth_"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH;
+              else if (structName.startswith("image2d_array_"))
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR;
+              else if (structName.startswith("image2d_"))
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
               else if (structName.startswith("image3d_"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
               else if (structName.startswith("pipe_t"))
