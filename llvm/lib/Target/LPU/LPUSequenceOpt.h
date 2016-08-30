@@ -309,6 +309,10 @@ namespace llvm {
       return &pickInst->getOperand(2);
     }
 
+    inline MachineOperand* get_switch_bottom_op() const {
+      return &switchInst->getOperand(3);
+    }
+
     inline MachineOperand* get_switch_output_op() const {
       return &switchInst->getOperand(0);
     }

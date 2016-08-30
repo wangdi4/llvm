@@ -63,6 +63,33 @@ RunSequenceOpt("lpu-seq-opt", cl::Hidden,
                cl::desc("LPU Specific: Enable sequence optimizations"),
                cl::init(1));
 
+
+
+// Test flag, for breaking all memory dependencies for loops that are
+// controlled by a sequence.
+//
+//   0: Disabled 
+//   1: Break memory dependencies for any sequence loop if we can find a
+//      reasonable subgraph walking back from the switch to the pick.
+//      (TBD(jsukha): I think this graph walk is conservative, and
+//       guaranteed not to misidentify the memory dependency graph,
+//       but I'm not 100% sure.)
+// 
+//   2. Break memory dependencies whenever we find a sequence.  This
+//      setting is likely to be incorrect for arbitrary programs, but
+//      may be true for many small parallel kernels we are trying to
+//      compile.
+//
+// Note that this optimization has no effect unless lpu-opt-df-pass is
+// also set > 0.
+//
+// WARNING: Setting this flag may result in incorrect code being
+// generated.  Use with extreme caution.
+static cl::opt<int>
+SeqBreakMemdep("lpu-seq-break-memdep", cl::Hidden,
+               cl::desc("LPU Specific: Break memory dependencies for sequenced loops"),
+               cl::init(0));
+
 // Flag to specify the maximum number of sequence candidates we will
 // identify in a given loop.
 // TBD(jsukha): We may not care about this limit in the long run?
@@ -164,6 +191,12 @@ public:
   seq_classify_stride(LPUSeqCandidate& x,
                       const DenseMap<unsigned, int>& repeat_channels);
 
+
+  // Check whether this candidate sequence represents a memory dependency
+  // chain. 
+  LPUSeqCandidate::SeqType
+  seq_classify_memdep_graph(LPUSeqCandidate& x);
+
   // Classify all the candidate sequences in the loops we found.
   void
   seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops);
@@ -243,6 +276,16 @@ public:
                  const LPUInstrInfo &TII,
                  MachineBasicBlock& BB,
                  MachineInstr* prev_inst);
+
+
+  // Add a repeat/onend pair fora memory dependency chain.
+  // Returns the onend instruction.
+  MachineInstr*
+  seq_add_parloop_memdep(LPUSeqCandidate& memdepCandidate,
+                         unsigned pred_reg,
+                         const LPUInstrInfo &TII,
+                         MachineBasicBlock& BB,
+                         MachineInstr* prev_inst);
 
 
   // Replaces either defs (and or uses) or a particular channel with
@@ -348,7 +391,6 @@ seq_debug_print_candidate(LPUSeqCandidate& x) {
   case LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP:
     DEBUG(errs() << "PARLOOP_MEM_DEP: top = " << x.top
           << ", bottom = " << x.bottom << "\n");
-    DEBUG(errs() << "stride op = " << *x.stride_op << "\n");
     break;
   case LPUSeqCandidate::SeqType::INVALID:
     DEBUG(errs() << "INVALID sequence type \n");
@@ -948,6 +990,167 @@ seq_classify_stride(LPUSeqCandidate& x,
 }
 
 
+
+LPUSeqCandidate::SeqType
+LPUOptDFPass::
+seq_classify_memdep_graph(LPUSeqCandidate& x) {
+  assert(x.pickInst && x.switchInst);
+  MachineOperand& bottom_op = x.switchInst->getOperand(3);
+  MachineOperand& top_op = x.pickInst->getOperand(0);
+
+
+  if ((x.pickInst->getOpcode() == LPU::PICK1) &&
+      (x.switchInst->getOpcode() == LPU::SWITCH1) &&
+      bottom_op.isReg() &&
+      top_op.isReg()) {
+
+    unsigned source_reg = bottom_op.getReg();
+    unsigned sink_reg = top_op.getReg();
+
+    // If the knob setting is 2, just ASSUME we have a memory
+    // dependency here, instead of trying to walk the graph to verify
+    // we have one.  What could possibly go wrong here?
+    if (SeqBreakMemdep >= 2) {
+      DEBUG(errs() << "ASSUMED we have a memdep candidate.\n");
+      DEBUG(errs() << "The flag was set.. it is not my fault if it doesn't work!\n");
+      x.stype = LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP;
+      x.transformInst = NULL;
+      x.top = sink_reg;
+      x.bottom = source_reg;
+      return x.stype;
+    }
+
+    // Otherwise, we are going to attempt to verify that we have a
+    // dependency chain of memory operations via a BFS, which tries to
+    // walk back from the switch to the pick.
+    //
+    // We are walking back through the def/use through MOV1, MERGE1,
+    // PICK1, SWITCH1, and any OLD* or OST* instructions.
+    
+    MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+    const LPUInstrInfo &TII =
+    *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+    
+    const int MAX_LEVELS = 10000;
+    int num_levels = 0;
+
+    // Two frontiers for the BFS.
+    std::set<MachineInstr*> b0;
+    std::set<MachineInstr*> b1;
+
+    MachineInstr* first_inst = getSingleDef(source_reg, MRI);
+    if (first_inst) {
+      b0.insert(first_inst);
+    }
+    // Pointers to the frontier vectors.
+    std::set<MachineInstr*>* p_current = &b0;
+    std::set<MachineInstr*>* p_next = &b1;
+
+    while ((p_current->size() > 0) &&
+           (num_levels < MAX_LEVELS)) {
+      for (std::set<MachineInstr*>::iterator it = p_current->begin();
+           it != p_current->end();
+           ++it) {
+        MachineInstr* MI = *it;
+        
+        DEBUG(errs() << " MemGraph processing: current ins = "
+              <<  *MI << "\n");
+        
+        if (MI == x.pickInst) {
+          if ((p_current->size() == 1) &&
+              (p_next->size() == 0)) {
+            DEBUG(errs() << "Found memdep candidate\n");
+            x.stype = LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP;
+            x.transformInst = NULL;
+            x.top = sink_reg;
+            x.bottom = source_reg;
+            return x.stype;
+          }
+          else {
+            // Ignore this pick for now.  The pick can be reached from
+            // multiple paths, and we want each one of them to end up
+            // here.
+            DEBUG(errs() << "Reached pick, but frontier not empty yet. Maybe other paths\n");
+          }
+        }
+        else {
+          // Walk backwards from the current instruction, and look for
+          unsigned current_op = MI->getOpcode();
+          MachineOperand* nextOp[2];
+          nextOp[0] = NULL;
+          nextOp[1] = NULL;
+          int num_ops = 0;
+          
+          // Handle 3 different types of instructions.  Look up the
+          // previous op in the chain.
+          if (current_op == LPU::MOV1) {
+            assert(MI->getNumOperands() == 2);
+            nextOp[0] = &MI->getOperand(1);
+            num_ops = 1;
+          }
+          else if (current_op == LPU::MERGE1) {
+            assert(MI->getNumOperands() == 3);
+            nextOp[0] = &MI->getOperand(1);
+            nextOp[1] = &MI->getOperand(2);
+            num_ops = 2;
+          }
+          else if (current_op == LPU::PICK1) {
+            assert(MI->getNumOperands() == 4);
+            nextOp[0] = &MI->getOperand(2);
+            nextOp[1] = &MI->getOperand(3);
+            num_ops = 2;
+          }
+          else if (current_op == LPU::SWITCH1) {
+            assert(MI->getNumOperands() == 4);
+            nextOp[0] = &MI->getOperand(3);
+            num_ops = 1;
+          }
+          else if (TII.isOrderedLoad(MI) ||
+                   TII.isOrderedStore(MI)) {
+            int num_operands = MI->getNumOperands();
+            nextOp[0] = &MI->getOperand(num_operands-1);
+            num_ops = 1;
+          }
+
+          if (num_ops > 0) {
+            for (int i = 0; i < num_ops; ++i) {
+              if (nextOp[i]->isReg()) {
+                unsigned next_reg = nextOp[i]->getReg();
+                if ((next_reg != LPU::IGN) &&
+                    TargetRegisterInfo::isPhysicalRegister(next_reg)) {
+                  MachineInstr* def_inst = getSingleDef(next_reg, MRI);
+                  if (def_inst) {
+                    p_next->insert(def_inst);
+                    continue;
+                  }
+                }
+              }
+              DEBUG(errs() << "Unknown op folloing chain, in "
+                    << *MI << ". Can't match\n");
+              return LPUSeqCandidate::SeqType::UNKNOWN;
+            }
+          }
+          else {
+            DEBUG(errs() << "Could not follow chain of memory ops."
+                  << *MI << ".  Can't match\n");
+            return LPUSeqCandidate::SeqType::UNKNOWN;
+          }
+        }
+      }
+      num_levels++;
+
+      p_current->clear();
+      // Swap current and next, for next level in BFS.
+      std::swap(p_current, p_next);
+    }
+
+    DEBUG(errs() << "Falling through. stopping chain after "
+          << num_levels << " levels of searching...\n");
+  }
+  return LPUSeqCandidate::SeqType::UNKNOWN;
+}
+
+
 // Look for a match between bottom and the cmp0/cmp1 channels.
 // If we find a match, save the result in the current loop.
 //
@@ -1083,11 +1286,20 @@ seq_classify_candidates(SmallVector<LPUSeqLoopInfo, SEQ_VEC_WIDTH>* loops) {
         stype = seq_classify_stride(x,
                                     current_loop.repeat_channels);
 
+
+        // Try to classify memory dependency candidates, if the knob
+        // is set.
+        if (SeqBreakMemdep > 0) {
+          if (stype == LPUSeqCandidate::SeqType::UNKNOWN) {
+            stype = seq_classify_memdep_graph(x);
+          }
+        }
+
         // For the second pass, classified takes on the role of
         // "remaining", and current_loop will just take in the
         // remaining candidates.
         if (stype == LPUSeqCandidate::SeqType::UNKNOWN) {
-          // Mark the remaining candidates as invalid.
+            // Mark the remaining candidates as invalid.
           x.stype = LPUSeqCandidate::SeqType::INVALID;
           classified.push_back(x);
         }
@@ -1304,6 +1516,42 @@ seq_replace_channel_with_ign(MachineInstr* MI,
   // What should we do with an instruction that we are passed in which has
   // all its def's as %ign to start with? 
   return ((num_replacements > 0) && (num_null_defs == num_defs));
+}
+
+
+MachineInstr*
+LPUOptDFPass::
+seq_add_parloop_memdep(LPUSeqCandidate& sc,
+                       unsigned pred_reg,
+                       const LPUInstrInfo &TII,
+                       MachineBasicBlock& BB,
+                       MachineInstr* prev_inst) {
+  assert(sc.stype == LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP);
+  MachineInstr* repinst =
+    BuildMI(BB,
+            prev_inst,
+            sc.pickInst->getDebugLoc(),
+            TII.get(LPU::REPEAT8),  // TBD: We technically want repeat1?
+            sc.top).
+    addReg(pred_reg).
+    addOperand(*sc.get_pick_input_op());
+  repinst->setFlag(MachineInstr::NonSequential);
+
+
+  MachineOperand* out_s_op = sc.get_switch_output_op();
+  assert(out_s_op->isReg());
+  
+  MachineInstr* onend_inst =
+    BuildMI(BB,
+            repinst,
+            sc.switchInst->getDebugLoc(),
+            TII.get(LPU::ONEND),
+            out_s_op->getReg()).
+    addReg(pred_reg).
+    addReg(sc.bottom);
+  onend_inst->setFlag(MachineInstr::NonSequential);
+
+  return onend_inst;
 }
 
 MachineInstr*
@@ -1754,7 +2002,8 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
       // implemented, because these will use the predicate output of
       // the sequence.
       if ((st == LPUSeqCandidate::SeqType::REPEAT) ||
-          (st == LPUSeqCandidate::SeqType::STRIDE)) {
+          (st == LPUSeqCandidate::SeqType::STRIDE) ||
+          (st == LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP)) {
         num_dependent_sequences++;
       }
     }
@@ -1902,6 +2151,23 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
           insMarkedForDeletion.push_back(scandidate.transformInst);
         }
         break;
+
+      case LPUSeqCandidate::SeqType::PARLOOP_MEM_DEP:
+        {
+          MachineInstr* onend_inst =
+            seq_add_parloop_memdep(scandidate,
+                                   pred_reg,
+                                   TII,
+                                   *BB,
+                                   seq_inst);
+          DEBUG(errs() << "Adding a parloop mem dep repeat-onend: "
+                << *onend_inst << "\n");
+          insMarkedForDeletion.push_back(scandidate.pickInst);
+          insMarkedForDeletion.push_back(scandidate.switchInst);
+          assert(!scandidate.transformInst);
+        }
+        break;
+        
 
       default:
         DEBUG(errs() << "Ignoring sequence candidate in transform: ");
