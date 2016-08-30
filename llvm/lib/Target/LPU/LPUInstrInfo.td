@@ -1269,7 +1269,7 @@ multiclass RepeatOp<string opStr, RegisterClass RC, ValueType opType,
   let hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
     def "" : FMTGEN<  // TODO: something to reflect state
       (outs I64:$out),
-      (ins I1:$pred, I64:$in),
+      (ins I1:$pred, RC:$in),
       !strconcat(opStr, "\t$out, $pred, $in"),
       []>;
   }
@@ -1279,6 +1279,23 @@ defm REPEAT8  : RepeatOp<"repeat8",  I8,  i8,  [HasI8],  IIALU>;
 defm REPEAT16 : RepeatOp<"repeat16", I16, i16, [HasI16], IIALU>;
 defm REPEAT32 : RepeatOp<"repeat32", I32, i32, [HasI32], IIALU>;
 defm REPEAT64 : RepeatOp<"repeat64", I64, i64, [HasI64], IIALU>;
+
+multiclass StrideOp<string opStr, RegisterClass RC, ValueType opType,
+           list<Predicate> preds, InstrItinClass itin> {
+  // hasSideEffects attempts to capture the internal state and stream output behavior
+  let hasSideEffects = 1, Predicates = preds, Itinerary = itin in {
+    def "" : FMTGEN<  // TODO: something to reflect state
+      (outs I64:$out),
+      (ins I1:$pred, RC:$base, RC:$stride),
+      !strconcat(opStr, "\t$out, $pred, $base, $stride"),
+      []>;
+  }
+}
+
+defm STRIDE8  : StrideOp<"stride8",  I8,  i8,  [HasI8],  IIALU>;
+defm STRIDE16 : StrideOp<"stride16", I16, i16, [HasI16], IIALU>;
+defm STRIDE32 : StrideOp<"stride32", I32, i32, [HasI32], IIALU>;
+defm STRIDE64 : StrideOp<"stride64", I64, i64, [HasI64], IIALU>;
 
 multiclass Init<RegisterClass RC, ValueType opType,
            list<Predicate> preds, InstrItinClass itin> {
