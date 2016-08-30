@@ -587,6 +587,16 @@ void cloneKernel(cl_kernel* new_kernel, cl_kernel source_kernel)
     ASSERT_NE((cl_kernel)0, *new_kernel) << "clCloneKernel returned 0 as kernel value";
 }
 
+// getKernelInfo - calls and validates clGetKernelInfo
+void getKernelInfo(cl_kernel kernel, cl_kernel_info param_name, size_t param_value_size,
+    void *param_value, size_t *param_value_size_ret)
+{
+    cl_int errcode_ret = CL_SUCCESS;
+    errcode_ret = clGetKernelInfo(kernel, param_name, param_value_size,
+        param_value, param_value_size_ret);
+    ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clGetKernelInfo failed";
+}
+
 // createKernelsInProgram - calls and validates clCreateKernelsInProgram
 void createKernelsInProgram(cl_program program, cl_uint num_kernels, cl_kernel *kernels, cl_uint *num_kernels_ret)
 {
