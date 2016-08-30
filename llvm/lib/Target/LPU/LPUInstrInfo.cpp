@@ -399,6 +399,14 @@ bool LPUInstrInfo::isStore(MachineInstr *MI) const {
 	return MI->getOpcode() >= LPU::ST1 && MI->getOpcode() <= LPU::ST8i;
 }
 
+bool LPUInstrInfo::isOrderedLoad(MachineInstr *MI) const {
+  return ((MI->getOpcode() >= LPU::OLD1) && (MI->getOpcode() <= LPU::OLD8X));
+}
+
+bool LPUInstrInfo::isOrderedStore(MachineInstr *MI) const {
+  return ((MI->getOpcode() >= LPU::OST1) && (MI->getOpcode() <= LPU::OST8i));
+}
+
 bool LPUInstrInfo::isMul(MachineInstr *MI) const {
 	return MI->getOpcode() >= LPU::MUL16 && MI->getOpcode() <= LPU::MULF64i;
 }

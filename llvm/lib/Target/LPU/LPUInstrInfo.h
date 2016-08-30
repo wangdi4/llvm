@@ -147,6 +147,8 @@ public:
   bool isInit(MachineInstr *) const;
   bool isLoad(MachineInstr *) const;
   bool isStore(MachineInstr *) const;
+  bool isOrderedLoad(MachineInstr *) const;
+  bool isOrderedStore(MachineInstr *) const;
   bool isAdd(MachineInstr *) const;
   bool isSub(MachineInstr *) const;
   bool isMul(MachineInstr *) const;
