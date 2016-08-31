@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
@@ -71,13 +72,12 @@ WRegionNode *WRegionUtils::createWRegion(
 
 /// \brief Similar to createWRegion, but for HIR vectorizer support
 WRegionNode *WRegionUtils::createWRegionHIR(
-  StringRef        DirString,
+  int              DirID,
   loopopt::HLNode *EntryHLNode,
   unsigned         NestingLevel
 )
 {
   WRegionNode *W = nullptr;
-  int DirID = VPOUtils::getDirectiveID(DirString);
 
   switch(DirID) {
     // TODO: complete the list for all WRegionNodeKinds needed
@@ -92,38 +92,57 @@ WRegionNode *WRegionUtils::createWRegionHIR(
 }
 
 /// \brief Update WRGraph from processing HIR representation
-WRegionNode *WRegionUtils::updateWRGraphFromHIR (
+void WRegionUtils::updateWRGraphFromHIR (
   IntrinsicInst   *Call,
   Intrinsic::ID   IntrinId,
   WRContainerTy   *WRGraph,
-  WRegionNode     *CurrentWRN,
+  WRStack<WRegionNode*> &S, 
   loopopt::HLNode *H
 )
 {
   WRegionNode *W = nullptr;
   StringRef DirOrClauseStr = VPOUtils::getDirectiveMetadataString(Call);
 
-  // If there isn't a pending WRN currently, then only need to check
-  // for directives that begin a construct 
-  if (!CurrentWRN) {
-    if (IntrinId == Intrinsic::intel_directive) {
-      // If the intrinsic represents a BEGIN directive for a construct 
-      // needed by the vectorizer (eg: DIR.OMP.LOOP.SIMD), then
-      // createWRegionHIR creates a WRN for it and returns its pointer.
-      // Otherwise, the W returned is a nullptr.
-      // Nesting level is 0 because the WRGraph is flat at this point.
-      W = WRegionUtils::createWRegionHIR(DirOrClauseStr, H, 0);
-      if (W) {
-        // Current HIR doesn't have end directives, so we're not supporting 
-        // hierarchically nested WRNs yet. Therefore, there is no need to 
-        // use a stack as in WRegionCollection::doPreOrderDomTreeVisit().
-        // The resulting WRGraph is just a flat list of WRNs currently.
+  if (IntrinId == Intrinsic::intel_directive) {
+    int DirID = VPOUtils::getDirectiveID(DirOrClauseStr);
+    // If the intrinsic represents a BEGIN directive for a construct 
+    // needed by the vectorizer (eg: DIR.OMP.SIMD), then
+    // createWRegionHIR creates a WRN for it and returns its pointer.
+    // Otherwise, the W returned is a nullptr.
+    W = WRegionUtils::createWRegionHIR(DirID, H, S.size());
+    if (W) {
+      // DEBUG(dbgs() << "\n Starting New WRegion from HIR{\n");
+      if (S.empty()) {
         WRGraph->push_back(W);
       }
+      else {
+        WRegionNode *Parent = S.top();
+        if (!Parent->hasChildren()) {
+          WRContainerTy::iterator WI(W);
+          WRegionUtils::insertFirstChild(Parent, WI);
+        } else {
+          WRegionNode *C = Parent->getLastChild();
+          WRContainerTy::iterator WI(C);
+          WRegionUtils::insertAfter(WI, W);
+        }
+      }
+      S.push(W);
     }
-  }
-  else {//there's a pending WRN currently; process its clauses, if any
-    W = CurrentWRN;
+    else if (VPOUtils::isEndDirective(DirID)) {
+      // DEBUG(dbgs() << "\n} Ending WRegion.\n");
+      if (!S.empty()) {
+        W = S.top();
+        if(WRNVecLoopNode *V = dyn_cast<WRNVecLoopNode>(W)) {
+          V->setExitHLNode(H);
+          S.pop();
+        }
+        else {
+          llvm_unreachable("VPO: Expected a WRNVecLoopNode");
+        }
+      }
+    }
+  } else { //process clauses
+    W = S.top();
     int ClauseID = VPOUtils::getClauseID(DirOrClauseStr);
     if (IntrinId == Intrinsic::intel_directive_qual) {
       // Handle clause with no arguments
@@ -145,7 +164,6 @@ WRegionNode *WRegionUtils::updateWRGraphFromHIR (
       W->handleQualOpndList(ClauseID, Call);
     }
   }
-  return W;
 }
 
 
@@ -155,8 +173,8 @@ WRegionNode *WRegionUtils::updateWRGraphFromHIR (
 /// only by WRegionUtils::buildWRGraphFromHIR(). 
 struct HIRVisitor final : public HLNodeVisitorBase {
   WRContainerTy *WRGraph;
-  WRegionNode   *CurrentWRN;
-  HIRVisitor() : WRGraph(new WRContainerTy), CurrentWRN(nullptr){}
+  WRStack<WRegionNode*> S; 
+  HIRVisitor() : WRGraph(new WRContainerTy){}
 
   WRContainerTy *getWRGraph() const { return WRGraph; }
   void visit(loopopt::HLNode *Node);
@@ -177,20 +195,20 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
         //                                intel_directive_qual_opnd, 
         //                                intel_directive_qual_opndlist 
         // Process them and create or update WRN accordingly
-        CurrentWRN = WRegionUtils::updateWRGraphFromHIR(
-                              Call, IntrinId, WRGraph, CurrentWRN, Node);
+        WRegionUtils::updateWRGraphFromHIR(
+                              Call, IntrinId, WRGraph, S, Node);
       }
     }
   }
-  else if (CurrentWRN) {
-    if (HLLoop *L = dyn_cast<HLLoop>(Node)) {
-      WRNVecLoopNode *VLN = dyn_cast<WRNVecLoopNode>(CurrentWRN);
-      assert(VLN && "Pending HIR-based WRN must be a WRNVecLoopNode");
-      VLN->setExitHLNode(Node); // temporary until HIR shows the end directives
-      VLN->setHLLoop(L);
-      // The WRN is complete; close it by setting W to null
-      CurrentWRN=nullptr; // will be a stack pop when nested WRN 
-                          // is supported in HIR
+  else if (HLLoop *L = dyn_cast<HLLoop>(Node)) {
+    // Found a loop L; check if there's a pending WRNVecLoopNode
+    // that still has empty getHLLoop() and needs updating
+    if (!S.empty()) {
+      WRegionNode *W = S.top();
+      WRNVecLoopNode *VLN = dyn_cast<WRNVecLoopNode>(W);
+      if (VLN && !(VLN->getHLLoop())) {
+        VLN->setHLLoop(L);
+      }
     }
   } 
 }

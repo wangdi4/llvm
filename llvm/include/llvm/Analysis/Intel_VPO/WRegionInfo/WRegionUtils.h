@@ -21,6 +21,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 
 namespace llvm {
@@ -190,7 +191,7 @@ public:
                                     LoopInfo *LI, unsigned NestingLevel);
 
   /// \brief Similar to createWRegion, but for HIR vectorizer support
-  static WRegionNode *createWRegionHIR(StringRef DirString,
+  static WRegionNode *createWRegionHIR(int DirID,
                                        loopopt::HLNode *EntryHLNode,
                                        unsigned NestingLevel);
 
@@ -199,18 +200,13 @@ public:
   ///   Call: the call instruction with the intrinsic
   ///   IntrinId: the intrinsic id (eg intel_directive/_qual, etc.)
   ///   WRGraph: points to the WRN graph being built
-  ///   CurrentWRN: points to the current pending WRN node. If not null, and
-  ///               if the intrinsic is for a clause, then the CurrentWRN is
-  ///               updated with the clause info
+  ///   S: stack of pending WRN nodes
   ///   H: The HLNode containing the intrinsic call
-  ///
-  /// If it creates a WRN, then it returns a pointer to it. Otherwise,
-  /// it just returns CurrentWRN.
-  static WRegionNode *updateWRGraphFromHIR(IntrinsicInst *Call,
-                                           Intrinsic::ID IntrinId,
-                                           WRContainerTy *WRGraph,
-                                           WRegionNode *CurrentWRN,
-                                           loopopt::HLNode *H);
+  static void updateWRGraphFromHIR(IntrinsicInst *Call,
+                                   Intrinsic::ID IntrinId,
+                                   WRContainerTy *WRGraph,
+                                   WRStack<WRegionNode*> &S,
+                                   loopopt::HLNode *H);
 
   /// \brief Driver routine to build WRGraph based on HIR representation
   static WRContainerTy *buildWRGraphFromHIR();

@@ -247,6 +247,8 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
     getEntryHLNode()->print(OS, 1);
     OS << "\n" << Indent << "HLLoop:\n";
     getHLLoop()->print(OS, 1);
+    OS << "\n" << Indent << "ExitHLNode:\n";
+    getExitHLNode()->print(OS, 1);
   } else {
     OS << "\n" << Indent << "EntryBB:" << *getEntryBBlock();
     OS << "\n" << Indent << "ExitBB:" << *getExitBBlock();
