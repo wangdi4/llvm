@@ -2180,7 +2180,12 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
           
           insMarkedForDeletion.push_back(scandidate.pickInst);
           insMarkedForDeletion.push_back(scandidate.switchInst);
-          insMarkedForDeletion.push_back(scandidate.transformInst);
+          // We should NOT mark scandidate.transformInst for deletion
+          // here.  In cases where the channel at the bottom of the
+          // loop is also used, we still need the add instruction.
+          // Moreover, marking the switch for deletion is sufficient
+          // to get rid of the add, if that switch is the only use of
+          // the add's output.
         }
         break;
 
