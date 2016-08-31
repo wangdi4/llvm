@@ -522,7 +522,7 @@ _mm_loadl_pd(__m128d a, double const *dp)
     double u;
   } __attribute__((__packed__, __may_alias__));
   double u = ((struct __mm_loadl_pd_struct*)dp)->u;
-  return (__m128d){ u, a[1] }; 
+  return (__m128d){ u, a[1] };
 }
 
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
@@ -1204,7 +1204,7 @@ static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_storel_epi64(__m128i *p, __m128i a)
 {
   struct __mm_storel_epi64_struct {
-    long long u;
+    long u;
   } __attribute__((__packed__, __may_alias__));
   ((struct __mm_storel_epi64_struct*)p)->u = a[0];
 }
