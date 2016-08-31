@@ -131,6 +131,12 @@ public:
   /// \brief set Avr nodes's predicate.
   static void setPredicate(AVR *Avr, AVRPredicate* Predicate);
 
+  /// \brief set Avr node's parent.
+  static void setParent(AVR *Avr, AVR* Parent);
+
+  /// \brief Sets the decomposed sub-expression tree for this value.
+  static void setDecompTree(AVRValue *AVal, AVR *DecompTree);
+
   /// \brief Add an incoming AVRValue (from AVRLabel) to an AVRPhi.
   static void addAVRPredicateIncoming(AVRPredicate *APredicate,
                                       AVRPredicate *IncomingPredicate,

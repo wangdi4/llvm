@@ -164,7 +164,10 @@ protected:
 
 public:
   /// \brief Returns the data type of this expression
-  Type *getType() const { assert (ExprType && "Data type not set"); return ExprType; }
+  Type *getType() const {
+    assert(ExprType && "Data type not set");
+    return ExprType;
+  }
 
   /// \brief Clone method for AVRExpression.
   AVRExpression *clone() const override;
@@ -268,7 +271,10 @@ private:
  
   /// \p ConstVal - The constant value this value refers to.
   const Constant *ConstVal = nullptr;
- 
+
+  /// Decomposed sub-expression tree for this value.
+  AVR *DecompTree = nullptr;
+
 protected:
   /// Set the data type of this Value.
   void setType(Type *DataType) { ValType = DataType; } 
@@ -286,6 +292,9 @@ protected:
 
   // \brief Set the constant value for this AVRValue 
   void setConstant(const Constant *Const) { ConstVal = Const; }
+
+  // \brief Sets the decomposed sub-expression tree for this AVRValue. 
+  void setDecompTree(AVR *Tree) { DecompTree = Tree; }
 
   /// \brief Destructor for this object.
   virtual ~AVRValue() override {}
@@ -319,6 +328,13 @@ public:
 
   /// \brief Returns the constant value for this AVR value
   virtual const Constant* getConstant() const { return ConstVal; }
+
+  /// \brief Returns true if this AVRValue has been decomposed into a
+  /// sub-expression tree.
+  bool hasDecompTree() const { return DecompTree != nullptr; }
+
+  /// \brief Returns the decomposed sub-expression tree for this AVRValue.
+  AVR *getDecompTree() const { return DecompTree; }
 };
 
 //----------AVR Label Node----------//

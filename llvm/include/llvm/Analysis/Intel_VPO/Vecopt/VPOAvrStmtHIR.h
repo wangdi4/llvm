@@ -99,6 +99,9 @@ protected:
   /// \brief Constructs an AND AVRExpressionHIR of two given HIR expressions.
   AVRExpressionHIR(AVRExpressionHIR* LHS, AVRExpressionHIR* RHS);
 
+  /// \brief Constructs a binary AVRExpressionHIR from two given AVRs.
+  AVRExpressionHIR(AVR *LHS, AVR *RHS, Type *Ty, unsigned Opcode);
+
   /// \brief Destructor for this object.
   virtual ~AVRExpressionHIR() override {}
 
@@ -127,9 +130,28 @@ public:
 /// See AVRValue class for more information.
 class AVRValueHIR : public AVRValue {
 
+protected:
+  /// Information at AVR level for an AVRValueHIR that represents an IV 
+  struct IVValueInfo {
+    CanonExpr *CE;
+    unsigned Index;
+
+    IVValueInfo(CanonExpr *CanonE, unsigned Idx) : CE(CanonE), Index(Idx) {}
+  };
+
 private:
-  /// Val - The HIR RegDDref for this AVR Value
-  RegDDRef *Val;
+  // The "value" of an AVRValueHIR can be a RegDDReg, a BlobDDRef, an
+  // IVValueInfo representing an IV or a Constant. This is a temporal
+  // implementation for prototyping.
+  // We may want to have several types of AVRValueHIR (1 for RegDDRefs, 1 for
+  // BlobDDRefs, 1 for IVs, 1 for Constants (this one at AVRValue level))
+  // or just deal with this implementation where some fields can be nullptrs.
+
+  /// Val - The HIR RegDDRef/BlobDDRef for this AVR Value
+  DDRef *Val;
+
+  /// IVVal - The IV information for this AVR Value
+  IVValueInfo *IVVal = nullptr;
 
   /// HLNode - Underlying HLNode which produced this value.
   HLNode *HNode;
@@ -139,8 +161,20 @@ protected:
   ///  specified by DDRef.
   AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent);
 
+  /// \brief Constructs an AVRValueHIR node for a BlobDDRef
+  AVRValueHIR(IVValueInfo *IVV, Type *Ty, AVR *Parent);
+
+  /// \brief Constructs an AVRValueHIR node for a BlobDDRef
+  AVRValueHIR(BlobDDRef *DDRef, AVR *Parent);
+
+  /// \brief Constructs an AVRValueHIR node for a Constant
+  AVRValueHIR(Constant *Const, AVR *Parent);
+
   /// \brief Destructor for this object.
-  virtual ~AVRValueHIR() {}
+  virtual ~AVRValueHIR() {
+    if (IVVal != nullptr)
+      delete (IVVal);
+  }
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtilsHIR;
@@ -161,8 +195,17 @@ public:
   /// \brief Returns »the value name of this node.
   virtual std::string getAvrValueName() const override;
 
+  /// \brief Returns whether the AVRValueHIR represents a DDRef.
+  bool isDDRefValue() { return Val != nullptr && IVVal == nullptr; }
+
   /// \brief Returns the RegDDRef associated with this node.
-  RegDDRef *getValue() { return Val; }
+  DDRef *getValue() { return Val; }
+
+  /// \brief Returns whether the AVRValueHIR represents an IV.
+  bool isIVValue() { return IVVal != nullptr; }
+
+  /// \brief Returns the IV info associated with this node.
+  IVValueInfo *getIVValue() { return IVVal; }
 
   /// \brief Returns the HLNode associated with this node.
   HLNode *getNode() { return HNode; }

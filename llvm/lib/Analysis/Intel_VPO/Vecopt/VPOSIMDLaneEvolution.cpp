@@ -126,18 +126,18 @@ public:
 
 void DDRef2AVR::visit(AVRValueHIR* AValueHIR) {
 
-  RegDDRef * RDDF = AValueHIR->getValue();
+  // FIXME: AVRValueHIR may not be a RegDDRef
+  if (RegDDRef *RDDF = dyn_cast<RegDDRef>(AValueHIR->getValue())) {
+    if (AvrDefUseHIR::isDef(AValueHIR)) {
 
-  if (AvrDefUseHIR::isDef(AValueHIR)) {
+      // This value is a Def - map its underlying RefDDRef to it.
+      Map[RDDF] = AValueHIR;
+    } else {
 
-    // This value is a Def - map its underlying RefDDRef to it.
-    Map[RDDF] = AValueHIR;
-  }
-  else {
-
-    // This value is a Use - map all its underlying RegDDRef's blobs to it.
-    for (auto I = RDDF->blob_cbegin(), E = RDDF->blob_cend(); I != E; ++I)
-      Map[*I] = AValueHIR;
+      // This value is a Use - map all its underlying RegDDRef's blobs to it.
+      for (auto I = RDDF->blob_cbegin(), E = RDDF->blob_cend(); I != E; ++I)
+        Map[*I] = AValueHIR;
+    }
   }
 }
 
@@ -219,7 +219,8 @@ void SIMDLaneEvolutionAnalysisBase::runOnAvr(AvrItr B, AvrItr E,
 
   SLEVConstructor Constructor(*this);
   AVRVisitor<SLEVConstructor> AVisitor(Constructor);
-  AVisitor.forwardVisit(Begin, End, true, true);
+  AVisitor.forwardVisit(Begin, End, true, true,
+                        false /*RecursiveInsideValues*/);
 
   // Add any reaching SLEVs that were not present during construction due to
   // visit order.
@@ -1108,7 +1109,8 @@ public:
     SLEVPropagator Propagator;
     AVRVisitor<SLEVPropagator> AVisitor(Propagator);
     assert(AAssign->hasLHS() && "Assign without an LHS");
-    AVisitor.visit(AAssign->getLHS(), true, false, true);
+    AVisitor.visit(AAssign->getLHS(), true, false,
+                   false /*RecurseInsideValues*/, true);
   }
   void visit(AVRExpression* AExpr) {
     // This is LHS - take its parent's SLEV.
@@ -1138,7 +1140,7 @@ void SIMDLaneEvolutionAnalysisUtilBase::runOnAvr(AvrItr Begin, AvrItr End) {
   // Propagate the immediate results to the rest of the nodes.
   SLEVPropagator Propagator;
   AVRVisitor<SLEVPropagator> AVisitor(Propagator);
-  AVisitor.forwardVisit(Begin, End, true, true);
+  AVisitor.forwardVisit(Begin, End, true, true, false /*RecurseInsideValues*/);
 }
 
 bool SIMDLaneEvolution::runOnFunction(Function &F) {
@@ -1341,38 +1343,42 @@ SLEVInstruction* SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR* AValue
   }
 
   DDRef* DDR = nullptr;
-  RegDDRef* RDDF = AValueHIR->getValue();
-  if (RDDF->isSelfBlob()) {
 
-    DDR = RDDF;
-  }
-  else {
+  // FIXME: AVRValueHIR may not be a RegDDRef
+  if (RegDDRef *RDDF = dyn_cast<RegDDRef>(AValueHIR->getValue())) {
+    if (RDDF->isSelfBlob()) {
 
-    for (RegDDRef::const_blob_iterator It = RDDF->blob_cbegin(),
-           E = RDDF->blob_cend(); It != E; ++It) {
+      DDR = RDDF;
+    } else {
 
-      if ((*It)->getBlobIndex() == BlobIndex) {
-        DDR = *It;
-        break;
+      for (RegDDRef::const_blob_iterator It = RDDF->blob_cbegin(),
+                                         E = RDDF->blob_cend();
+           It != E; ++It) {
+
+        if ((*It)->getBlobIndex() == BlobIndex) {
+          DDR = *It;
+          break;
+        }
       }
     }
-  }
-  assert(DDR && "Blob has no BlobDDRef");
-  const AvrSetTy& ReachingDefs = getDefUse()->getReachingDefs(AValueHIR, DDR);
-  if (ReachingDefs.empty()) {
+    assert(DDR && "Blob has no BlobDDRef");
+    const AvrSetTy &ReachingDefs = getDefUse()->getReachingDefs(AValueHIR, DDR);
+    if (ReachingDefs.empty()) {
 
-    // No reaching Defs means this symbase is defined outside the WRN, which
-    // means it is UNIFORM within the WRN.
-    return createPredefinedSLEV(UNIFORM);
-  }
-  else {
+      // No reaching Defs means this symbase is defined outside the WRN, which
+      // means it is UNIFORM within the WRN.
+      return createPredefinedSLEV(UNIFORM);
+    } else {
 
-    // At least one Def exists.
-    SLEVUse* SU = new SLEVUse();
-    for (AVR* ReachingDef : ReachingDefs)
-      addReaching(SU, ReachingDef, DDR);
-    return SU;
+      // At least one Def exists.
+      SLEVUse *SU = new SLEVUse();
+      for (AVR *ReachingDef : ReachingDefs)
+        addReaching(SU, ReachingDef, DDR);
+      return SU;
+    }
   }
+  
+  return nullptr;
 }
 
 SLEVInstruction* SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR* AValueHIR,
@@ -1468,47 +1474,51 @@ SLEVInstruction* SIMDLaneEvolutionAnalysisHIR::constructSLEV(AVRValueHIR* AValue
 }
 
 void SIMDLaneEvolutionAnalysisHIR::construct(AVRValueHIR* AValueHIR) {
+  
+  // FIXME: AVRValueHIR may not be a RegDDRef
+  if (RegDDRef *RDDF = dyn_cast<RegDDRef>(AValueHIR->getValue())) {
+    unsigned VectorizedDim = 1; // TODO - current: outermost
 
-  RegDDRef * RDDF = AValueHIR->getValue();
-  unsigned VectorizedDim = 1; // TODO - current: outermost
+    if (DefUseHIR->isDef(AValueHIR)) {
 
-  if (DefUseHIR->isDef(AValueHIR)) {
-
-    // AVRValueHIRs are (ironically) not Defs if their RegDDRef is an HIR Def
-    // (i.e. if they are scalar lvalues). The actual Def is the RHS
-    // AVRExpression. We therefore do not construct a SLEV for them - the SLEV
-    // of the RHS will be propagated to them later.
-    return;
-  }
-
-  // This AVR-VALUE-HIR is a computation, and as such is a Def and a Use and
-  // should have a SLEV tracking its computation.
-
-  if (RDDF->isTerminalRef()) {
-
-    CanonExpr* CE = RDDF->getSingleCanonExpr();
-    setSLEV(AValueHIR, constructSLEV(AValueHIR, *CE, VectorizedDim));
-  }
-  else {
-
-    // This is a memory access (either a[i] or *p) - we construct a SLEV for
-    // the address it represents (the memory operation itself is represented
-    // explicitly in AVR (e.g. EXPR(load (VALUE(RegDDRef)))).
-
-    CanonExpr *BaseCE = RDDF->getBaseCE();
-    assert(BaseCE && "Expected memref to have a base");
-
-    SLEVInstruction* BaseSLEV = constructSLEV(AValueHIR, *BaseCE, VectorizedDim);
-    unsigned BaseSize = 100; // TODO
-    SLEVAddress* AddressSlev = new SLEVAddress(BaseSLEV, BaseSize);
-    for (auto It = RDDF->canon_rbegin(), E = RDDF->canon_rend(); It != E; ++It) {
-      CanonExpr* DimCE = *It;
-      SLEVInstruction* IndexSLEV = constructSLEV(AValueHIR, *DimCE, VectorizedDim);
-      unsigned IndexSize = 100; // TODO
-      AddressSlev->addIndex(IndexSLEV, IndexSize);
+      // AVRValueHIRs are (ironically) not Defs if their RegDDRef is an HIR Def
+      // (i.e. if they are scalar lvalues). The actual Def is the RHS
+      // AVRExpression. We therefore do not construct a SLEV for them - the SLEV
+      // of the RHS will be propagated to them later.
+      return;
     }
 
-    setSLEV(AValueHIR, AddressSlev);
+    // This AVR-VALUE-HIR is a computation, and as such is a Def and a Use and
+    // should have a SLEV tracking its computation.
+
+    if (RDDF->isTerminalRef()) {
+
+      CanonExpr *CE = RDDF->getSingleCanonExpr();
+      setSLEV(AValueHIR, constructSLEV(AValueHIR, *CE, VectorizedDim));
+    } else {
+
+      // This is a memory access (either a[i] or *p) - we construct a SLEV for
+      // the address it represents (the memory operation itself is represented
+      // explicitly in AVR (e.g. EXPR(load (VALUE(RegDDRef)))).
+
+      CanonExpr *BaseCE = RDDF->getBaseCE();
+      assert(BaseCE && "Expected memref to have a base");
+
+      SLEVInstruction *BaseSLEV =
+          constructSLEV(AValueHIR, *BaseCE, VectorizedDim);
+      unsigned BaseSize = 100; // TODO
+      SLEVAddress *AddressSlev = new SLEVAddress(BaseSLEV, BaseSize);
+      for (auto It = RDDF->canon_rbegin(), E = RDDF->canon_rend(); It != E;
+           ++It) {
+        CanonExpr *DimCE = *It;
+        SLEVInstruction *IndexSLEV =
+            constructSLEV(AValueHIR, *DimCE, VectorizedDim);
+        unsigned IndexSize = 100; // TODO
+        AddressSlev->addIndex(IndexSLEV, IndexSize);
+      }
+
+      setSLEV(AValueHIR, AddressSlev);
+    }
   }
 }
 

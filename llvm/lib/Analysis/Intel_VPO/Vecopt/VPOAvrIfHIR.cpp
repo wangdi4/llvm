@@ -36,6 +36,7 @@ void AVRIfHIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ")";
+  case PrintAvrDecomp:
   case PrintAvrType:
   case PrintDataType:
     printSLEV(OS);

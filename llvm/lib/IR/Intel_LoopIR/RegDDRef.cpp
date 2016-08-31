@@ -610,6 +610,22 @@ void RegDDRef::addBlobDDRef(unsigned Index, unsigned Level) {
   addBlobDDRef(BRef);
 }
 
+BlobDDRef *RegDDRef::getBlobDDRef(unsigned Index) {
+
+  // Find the blob DDRef with the input Index
+  for (auto BDDR : BlobDDRefs) {
+    if (BDDR->getBlobIndex() == Index) {
+      return BDDR;
+    }
+  }
+
+  return nullptr;
+}
+
+const BlobDDRef *RegDDRef::getBlobDDRef(unsigned Index) const {
+  return const_cast<RegDDRef *>(this)->getBlobDDRef(Index);
+}
+
 RegDDRef::blob_iterator
 RegDDRef::getNonConstBlobIterator(const_blob_iterator CBlobI) {
   blob_iterator BlobI(blob_begin());

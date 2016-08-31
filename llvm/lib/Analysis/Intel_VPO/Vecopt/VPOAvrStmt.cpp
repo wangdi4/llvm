@@ -38,6 +38,7 @@ void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -126,6 +127,7 @@ void AVRExpression::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ")";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType: {
@@ -224,6 +226,7 @@ void AVRValue::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ")";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -279,6 +282,7 @@ void AVRPhi::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -434,6 +438,7 @@ void AVRWrn::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
   case PrintDataType:
   case PrintBase:
@@ -480,6 +485,7 @@ void AVRNOP::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ")";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -516,6 +522,7 @@ void AVRUnreachable::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ")";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -554,6 +561,7 @@ void AVRBlock::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
   case PrintDataType:
   case PrintBase:
@@ -606,6 +614,7 @@ void AVRPredicate::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
       OS << getAvrTypeName() << " {";
   case PrintDataType:

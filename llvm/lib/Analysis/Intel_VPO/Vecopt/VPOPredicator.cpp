@@ -355,7 +355,7 @@ void VPOPredicator::runOnAvr(AVRLoop* ALoop) {
   // Predicate each (now uniform) loop
   OrderLoops OrderedLoops;
   AVRVisitor<OrderLoops> LoopVisitor(OrderedLoops);
-  LoopVisitor.visit(ALoop, true, true, true);
+  LoopVisitor.visit(ALoop, true, true, false /*RecursiveInsideValues*/, true);
 
   for (AVRLoop* ALoop : OrderedLoops.Loops)
     predicateLoop(ALoop);
@@ -392,7 +392,8 @@ void VPOPredicator::predicateLoop(AVRLoop* ALoop) {
 
   ConstructSESERegions CSR(ALoop, CFG, DominatorTree, PostDominatorTree);
   AVRVisitor<ConstructSESERegions> SESERegionsVisitor(CSR);
-  SESERegionsVisitor.visit(ALoop, true, true, true);
+  SESERegionsVisitor.visit(ALoop, true, true, false /*RecursiveInsideValues*/,
+                           true);
 
   DEBUG(formatted_raw_ostream FOS(dbgs());
         FOS << "SESE regions:\n";
@@ -424,7 +425,8 @@ void VPOPredicator::handleSESERegion(const SESERegion *Region, AvrCFGBase* CFG) 
   // Collect lexical links scheduling constraints.
   CollectLexicalLinks CLL;
   AVRVisitor<CollectLexicalLinks> CollectLexicalLinksVisitor(CLL);
-  CollectLexicalLinksVisitor.visit(Region->getContainingNode(), true, true, true);
+  CollectLexicalLinksVisitor.visit(Region->getContainingNode(), true, true,
+                                   false /*RecursiveInsideValues*/, true);
 
   DenseMap<AVR*, SESERegion*> DoNotDeconstruct;
 

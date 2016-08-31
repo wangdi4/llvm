@@ -159,40 +159,46 @@ public:
   /// \brief Contains the core logic to visit nodes and recurse further.
   /// Returns true to indicate that early termination has occurred.
   /// Recursive parameter denotes if we want to visit inside the AvrNodes
-  /// such as AVRIf and AVRLoops. RecursiveInsideLoops parameter denotes
-  /// whether we want to visit inside the loops or not and this parameter
-  /// is only useful if Recursive parameter is true.
-  bool visit(AVR *Node, bool Recursive, bool RecurseInsideLoops, bool Forward);
+  /// such as AVRIf and AVRLoops. RecurseInsideLoops parameter denotes
+  /// whether we want to visit inside the loops or not.
+  /// RecurseInsideValues parameter denotes whether we want to visit
+  /// inside the AVRValues that have been decomposed into sub-expressions.
+  /// RecurseInsideLoops and RecurseInsideValues are only useful if
+  /// Recursive parameter is true.
+
+  bool visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
+             bool RecurseInsideValues, bool Forward);
 
   /// \brief Visits AVRs in the forward direction in the range [begin, end).
   /// Returns true to indicate that early termination has occurred.
   bool forwardVisit(AvrItr Begin, AvrItr End, bool Recursive,
-                    bool RecurseInsideLoops);
+                    bool RecurseInsideLoops, bool RecurseInsideValues);
 
   /// \brief Visits AVRs in the backward direction in the range [begin, end).
   /// Returns true to indicate that early termination has occurred.
-  /// RecursiveInsideLoops parameter denotes whether we want to visit inside the
+  /// RecurseInsideLoops parameter denotes whether we want to visit inside the
   /// loops or not and this parameter
   /// is only useful if Recursive parameter is true.
   bool backwardVisit(AvrItr Begin, AvrItr End, bool Recursive,
-                     bool RecurseInsideLoops);
+                     bool RecurseInsideLoops, bool RecurseInsideValues);
 
   /// \brief Visits all AVRs in the abstract layer in forward direction.
-  void forwardVisitAll(AVRGenerateBase *AG);
+  void forwardVisitAll(AVRGenerateBase *AG, bool RecurseInsideValues = false);
 
   /// \brief Visits all AVRs in the abstract layer in backward direction.
-  void backwardVisitAll(AVRGenerateBase *AG);
+  void backwardVisitAll(AVRGenerateBase *AG, bool RecurseInsideValues = false);
 };
 
 template <typename AV>
 bool AVRVisitor<AV>::forwardVisit(AvrItr Begin, AvrItr End, bool Recursive,
-                                  bool RecurseInsideLoops) {
+                                  bool RecurseInsideLoops,
+                                  bool RecurseInsideValues) {
 
   for (auto Itr = Begin, Next = Itr, AvrEnd = End; Itr != AvrEnd; Itr = Next) {
 
     ++Next;
 
-    if (visit(&*Itr, Recursive, RecurseInsideLoops, true))
+    if (visit(&*Itr, Recursive, RecurseInsideLoops, RecurseInsideValues, true))
       return true;
   }
 
@@ -201,7 +207,8 @@ bool AVRVisitor<AV>::forwardVisit(AvrItr Begin, AvrItr End, bool Recursive,
 
 template <typename AV>
 bool AVRVisitor<AV>::backwardVisit(AvrItr Begin, AvrItr End, bool Recursive,
-                                   bool RecurseInsideLoops) {
+                                   bool RecurseInsideLoops,
+                                   bool RecurseInsideValues) {
 
   AVRContainerTy::reverse_iterator RI(End), RE(Begin);
 
@@ -210,7 +217,8 @@ bool AVRVisitor<AV>::backwardVisit(AvrItr Begin, AvrItr End, bool Recursive,
 
     ++RNext;
 
-    if (visit(&(*(RI)), Recursive, RecurseInsideLoops, false))
+    if (visit(&(*(RI)), Recursive, RecurseInsideLoops, RecurseInsideValues,
+              false))
       return true;
   }
 
@@ -218,18 +226,22 @@ bool AVRVisitor<AV>::backwardVisit(AvrItr Begin, AvrItr End, bool Recursive,
 }
 
 template <typename AV>
-void AVRVisitor<AV>::forwardVisitAll(AVRGenerateBase *AG) {
-  forwardVisit(AG->begin(), AG->end(), true, true);
+void AVRVisitor<AV>::forwardVisitAll(AVRGenerateBase *AG,
+                                     bool RecurseInsideValues) {
+  forwardVisit(AG->begin(), AG->end(), true /*Recursive*/,
+               true /*RecurseInsideLoops*/, RecurseInsideValues);
 }
 
 template <typename AV>
-void AVRVisitor<AV>::backwardVisitAll(AVRGenerateBase *AG) {
-  backwardVisit(AG->begin(), AG->end(), true, true);
+void AVRVisitor<AV>::backwardVisitAll(AVRGenerateBase *AG,
+                                      bool RecurseInsideValues) {
+  backwardVisit(AG->begin(), AG->end(), true /*Recursive*/,
+                true /*RecurseInsideLoops*/, RecurseInsideValues);
 }
 
 template <typename AV>
 bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
-                           bool Forward) {
+                           bool RecurseInsideValues, bool Forward) {
 
   bool Ret = false;
 
@@ -238,10 +250,11 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     callVisit<AVRFunction>(AFunc);
     if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
 
-      Ret = Forward ? forwardVisit(AFunc->child_begin(), AFunc->child_end(),
-                                   RecurseInsideLoops, true)
-                    : backwardVisit(AFunc->child_begin(), AFunc->child_end(),
-                                    RecurseInsideLoops, true);
+      Ret = Forward
+                ? forwardVisit(AFunc->child_begin(), AFunc->child_end(),
+                               RecurseInsideLoops, true, RecurseInsideValues)
+                : backwardVisit(AFunc->child_begin(), AFunc->child_end(),
+                                RecurseInsideLoops, true, RecurseInsideValues);
 
       if (Ret)
         return true;
@@ -253,24 +266,27 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     callVisit<AVRLoopIR, AVRLoopHIR, AVRLoop>(ALoop);
     if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
 
-      Ret = Forward ? forwardVisit(ALoop->pre_begin(), ALoop->pre_end(),
-                                   RecurseInsideLoops, true)
-                    : backwardVisit(ALoop->post_begin(), ALoop->post_end(),
-                                    RecurseInsideLoops, true);
+      Ret = Forward
+                ? forwardVisit(ALoop->pre_begin(), ALoop->pre_end(),
+                               RecurseInsideLoops, true, RecurseInsideValues)
+                : backwardVisit(ALoop->post_begin(), ALoop->post_end(),
+                                RecurseInsideLoops, true, RecurseInsideValues);
       if (Ret)
         return true;
 
-      Ret = Forward ? forwardVisit(ALoop->child_begin(), ALoop->child_end(),
-                                   RecurseInsideLoops, true)
-                    : backwardVisit(ALoop->child_begin(), ALoop->child_end(),
-                                    RecurseInsideLoops, true);
+      Ret = Forward
+                ? forwardVisit(ALoop->child_begin(), ALoop->child_end(),
+                               RecurseInsideLoops, true, RecurseInsideValues)
+                : backwardVisit(ALoop->child_begin(), ALoop->child_end(),
+                                RecurseInsideLoops, true, RecurseInsideValues);
       if (Ret)
         return true;
 
-      Ret = Forward ? forwardVisit(ALoop->post_begin(), ALoop->post_end(),
-                                   RecurseInsideLoops, true)
-                    : backwardVisit(ALoop->pre_begin(), ALoop->pre_end(),
-                                    RecurseInsideLoops, true);
+      Ret = Forward
+                ? forwardVisit(ALoop->post_begin(), ALoop->post_end(),
+                               RecurseInsideLoops, true, RecurseInsideValues)
+                : backwardVisit(ALoop->pre_begin(), ALoop->pre_end(),
+                                RecurseInsideLoops, true, RecurseInsideValues);
       if (Ret)
         return true;
 
@@ -281,10 +297,11 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     callVisit<AVRWrn>(AWrn);
     if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
 
-      Ret = Forward ? forwardVisit(AWrn->child_begin(), AWrn->child_end(),
-                                   RecurseInsideLoops, true)
-                    : backwardVisit(AWrn->child_begin(), AWrn->child_end(),
-                                    RecurseInsideLoops, true);
+      Ret = Forward
+                ? forwardVisit(AWrn->child_begin(), AWrn->child_end(),
+                               RecurseInsideLoops, true, RecurseInsideValues)
+                : backwardVisit(AWrn->child_begin(), AWrn->child_end(),
+                                RecurseInsideLoops, true, RecurseInsideValues);
 
       if (Ret)
         return true;
@@ -295,34 +312,38 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     callVisit<AVRIfIR, AVRIfHIR, AVRIf>(AIf);
 
     if (isa<AVRIfHIR>(AIf) && // TODO: UNIFY BEHAVIOR WITH IR
-        Forward &&
-        Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
-      if (visit(AIf->getCondition(), Recursive, RecurseInsideLoops, Forward))
+        Forward && Recursive && !Visitor.skipRecursion(Node) &&
+        !Visitor.isDone()) {
+      if (visit(AIf->getCondition(), Recursive, RecurseInsideLoops,
+                RecurseInsideValues, Forward))
         return true;
     }
 
     if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
-      Ret = Forward ? forwardVisit(AIf->then_begin(), AIf->then_end(),
-                                   RecurseInsideLoops, true)
-                    : backwardVisit(AIf->else_begin(), AIf->else_end(),
-                                    RecurseInsideLoops, true);
+      Ret = Forward
+                ? forwardVisit(AIf->then_begin(), AIf->then_end(),
+                               RecurseInsideLoops, true, RecurseInsideValues)
+                : backwardVisit(AIf->else_begin(), AIf->else_end(),
+                                RecurseInsideLoops, true, RecurseInsideValues);
 
       if (Ret)
         return true;
 
-      Ret = Forward ? forwardVisit(AIf->else_begin(), AIf->else_end(),
-                                   RecurseInsideLoops, true)
-                    : backwardVisit(AIf->then_begin(), AIf->then_end(),
-                                    RecurseInsideLoops, true);
+      Ret = Forward
+                ? forwardVisit(AIf->else_begin(), AIf->else_end(),
+                               RecurseInsideLoops, true, RecurseInsideValues)
+                : backwardVisit(AIf->then_begin(), AIf->then_end(),
+                                RecurseInsideLoops, true, RecurseInsideValues);
 
       if (Ret) {
         return true;
       }
 
       if (isa<AVRIfHIR>(AIf) && // TODO: UNIFY BEHAVIOR WITH IR
-          !Forward &&
-          Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
-        if (visit(AIf->getCondition(), Recursive, RecurseInsideLoops, Forward))
+          !Forward && Recursive && !Visitor.skipRecursion(Node) &&
+          !Visitor.isDone()) {
+        if (visit(AIf->getCondition(), Recursive, RecurseInsideLoops,
+                  RecurseInsideValues, Forward))
           return true;
       }
 
@@ -333,7 +354,8 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
 
     if (Forward && Recursive && !Visitor.skipRecursion(Node) &&
         !Visitor.isDone()) {
-      if (visit(ASwitch->getCondition(), Recursive, RecurseInsideLoops, Forward))
+      if (visit(ASwitch->getCondition(), Recursive, RecurseInsideLoops,
+                RecurseInsideValues, Forward))
         return true;
     }
 
@@ -344,26 +366,26 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
              ++Itr) {
           if (forwardVisit(ASwitch->case_child_begin(Itr),
                            ASwitch->case_child_end(Itr), RecurseInsideLoops,
-                           true)) {
+                           true, RecurseInsideValues)) {
             return true;
           }
         }
         if (forwardVisit(ASwitch->default_case_child_begin(),
                          ASwitch->default_case_child_end(), RecurseInsideLoops,
-                         true)) {
+                         true, RecurseInsideValues)) {
           return true;
         }
       } else {
         if (backwardVisit(ASwitch->default_case_child_begin(),
                           ASwitch->default_case_child_end(), RecurseInsideLoops,
-                          true)) {
+                          true, RecurseInsideValues)) {
           return true;
         }
         for (unsigned Itr = ASwitch->getNumCases(), End = 1; Itr >= End;
              --Itr) {
           if (backwardVisit(ASwitch->case_child_begin(Itr),
                             ASwitch->case_child_end(Itr), RecurseInsideLoops,
-                            true)) {
+                            true, RecurseInsideValues)) {
             return true;
           }
         }
@@ -372,7 +394,8 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
 
     if (!Forward && Recursive && !Visitor.skipRecursion(Node) &&
         !Visitor.isDone()) {
-      if (visit(ASwitch->getCondition(), Recursive, RecurseInsideLoops, Forward))
+      if (visit(ASwitch->getCondition(), Recursive, RecurseInsideLoops,
+                RecurseInsideValues, Forward))
         return true;
     }
 
@@ -382,10 +405,11 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     callVisit<AVRBlock>(ABlock);
     if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
 
-      Ret = Forward ? forwardVisit(ABlock->child_begin(), ABlock->child_end(),
-                                   RecurseInsideLoops, true)
-                    : backwardVisit(ABlock->child_begin(), ABlock->child_end(),
-                                    RecurseInsideLoops, true);
+      Ret = Forward
+                ? forwardVisit(ABlock->child_begin(), ABlock->child_end(),
+                               RecurseInsideLoops, true, RecurseInsideValues)
+                : backwardVisit(ABlock->child_begin(), ABlock->child_end(),
+                                RecurseInsideLoops, true, RecurseInsideValues);
 
       if (Ret)
         return true;
@@ -401,24 +425,25 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     if (!Recursive || Visitor.skipRecursion(Node))
       return false;
 
-    auto& IncomingPredicates = APredicate->getIncoming();
+    auto &IncomingPredicates = APredicate->getIncoming();
     unsigned NumIncoming = IncomingPredicates.size();
     for (unsigned IncomingIt = 1; IncomingIt <= NumIncoming; ++IncomingIt) {
       unsigned IncomingIndex =
-        Forward ? IncomingIt - 1 : NumIncoming - IncomingIt;
-      auto& Pair = IncomingPredicates[IncomingIndex];
+          Forward ? IncomingIt - 1 : NumIncoming - IncomingIt;
+      auto &Pair = IncomingPredicates[IncomingIndex];
       if (Forward) {
-        if (visit(Pair.first, Recursive, RecurseInsideLoops, Forward))
+        if (visit(Pair.first, Recursive, RecurseInsideLoops,
+                  RecurseInsideValues, Forward))
           return true;
-        if (Pair.second &&
-            visit(Pair.second, Recursive, RecurseInsideLoops, Forward))
+        if (Pair.second && visit(Pair.second, Recursive, RecurseInsideLoops,
+                                 RecurseInsideValues, Forward))
           return true;
-      }
-      else {
-        if (Pair.second &&
-            visit(Pair.second, Recursive, RecurseInsideLoops, Forward))
+      } else {
+        if (Pair.second && visit(Pair.second, Recursive, RecurseInsideLoops,
+                                 RecurseInsideValues, Forward))
           return true;
-        if (visit(Pair.first, Recursive, RecurseInsideLoops, Forward))
+        if (visit(Pair.first, Recursive, RecurseInsideLoops,
+                  RecurseInsideValues, Forward))
           return true;
       }
     }
@@ -437,13 +462,15 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     AVR *Second = Forward ? AAssign->getLHS() : AAssign->getRHS();
 
     if (First != nullptr)
-      Ret = visit(First, Recursive, RecurseInsideLoops, Forward);
+      Ret = visit(First, Recursive, RecurseInsideLoops, RecurseInsideValues,
+                  Forward);
 
     if (Ret)
       return true;
 
     if (Second != nullptr)
-      Ret = visit(Second, Recursive, RecurseInsideLoops, Forward);
+      Ret = visit(Second, Recursive, RecurseInsideLoops, RecurseInsideValues,
+                  Forward);
 
     if (Ret)
       return true;
@@ -462,7 +489,8 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     for (unsigned OpIt = 1; OpIt <= NumOperands; ++OpIt) {
       unsigned OpIndex = Forward ? OpIt - 1 : NumOperands - OpIt;
       AVR *Operand = AExpr->getOperand(OpIndex);
-      Ret = visit(Operand, Recursive, RecurseInsideLoops, Forward);
+      Ret = visit(Operand, Recursive, RecurseInsideLoops, RecurseInsideValues,
+                  Forward);
       if (Ret)
         return true;
     }
@@ -470,6 +498,19 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     callPostVisit<AVRExpressionIR, AVRExpressionHIR, AVRExpression>(AExpr);
   } else if (AVRValue *AValue = dyn_cast<AVRValue>(Node)) {
     callVisit<AVRValueIR, AVRValueHIR, AVRValue>(AValue);
+
+    if (Visitor.isDone())
+      return true;
+
+    if (!Recursive || Visitor.skipRecursion(Node))
+      return false;
+
+    // Visit sub-tree decomposition
+    if (RecurseInsideValues && AValue->hasDecompTree())
+      visit(AValue->getDecompTree(), Recursive, RecurseInsideLoops,
+            RecurseInsideValues, Forward);
+
+    callPostVisit<AVRValueIR, AVRValueHIR, AVRValue>(AValue);
   } else if (AVRLabel *ALabel = dyn_cast<AVRLabel>(Node)) {
     callVisit<AVRLabelIR, AVRLabelHIR, AVRLabel>(ALabel);
   } else if (AVRPhi *APhi = dyn_cast<AVRPhi>(Node)) {
@@ -481,13 +522,14 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     if (!Recursive || Visitor.skipRecursion(Node))
       return false;
 
-    auto& IncomingValues = APhi->getIncomingValues();
+    auto &IncomingValues = APhi->getIncomingValues();
     unsigned NumIncoming = IncomingValues.size();
     for (unsigned IncomingIt = 1; IncomingIt <= NumIncoming; ++IncomingIt) {
       unsigned IncomingIndex =
-        Forward ? IncomingIt - 1 : NumIncoming - IncomingIt;
-      AVR* Incoming = IncomingValues[IncomingIndex].first;
-      Ret = visit(Incoming, Recursive, RecurseInsideLoops, Forward);
+          Forward ? IncomingIt - 1 : NumIncoming - IncomingIt;
+      AVR *Incoming = IncomingValues[IncomingIndex].first;
+      Ret = visit(Incoming, Recursive, RecurseInsideLoops, RecurseInsideValues,
+                  Forward);
       if (Ret) {
         return true;
       }

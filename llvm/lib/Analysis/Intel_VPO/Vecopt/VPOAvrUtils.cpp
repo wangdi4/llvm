@@ -91,6 +91,14 @@ void AVRUtils::setPredicate(AVR *Avr, AVRPredicate* Predicate) {
   Avr->setPredicate(Predicate);
 }
 
+void AVRUtils::setParent(AVR *Avr, AVR* Parent) {
+  Avr->setParent(Parent);
+}
+
+void AVRUtils::setDecompTree(AVRValue *AVal, AVR *DecompTree) {
+  AVal->setDecompTree(DecompTree);
+}
+
 /// \brief Add an incoming AVRValue (from AVRLabel) to an AVRPhi.
 void AVRUtils::addAVRPredicateIncoming(AVRPredicate *APredicate,
                                        AVRPredicate *IncomingPredicate,

@@ -62,15 +62,15 @@ void IR2AVRVisitor::print(raw_ostream &OS) const {
 }
 
 void IR2AVRVisitor::visit(AVRValueHIR *AValueHIR) {
+  // FIXME: AVRValueHIR may not be a RegDDRef
+  if (RegDDRef *RDDF = dyn_cast<RegDDRef>(AValueHIR->getValue())) {
+    // Register this value as the AVR holding this DDRef.
+    DDRef2AVR[RDDF] = AValueHIR;
 
-  RegDDRef *RDDF = AValueHIR->getValue();
-
-  // Register this value as the AVR holding this DDRef.
-  DDRef2AVR[RDDF] = AValueHIR;
-
-  // Register this value as the AVR holding any blob used by its RegDDRef.
-  for (auto I = RDDF->blob_cbegin(), E = RDDF->blob_cend(); I != E; ++I)
-    DDRef2AVR[*I] = AValueHIR;
+    // Register this value as the AVR holding any blob used by its RegDDRef.
+    for (auto I = RDDF->blob_cbegin(), E = RDDF->blob_cend(); I != E; ++I)
+      DDRef2AVR[*I] = AValueHIR;
+  }
 }
 
 void IR2AVRVisitor::visit(AVRValueIR *AValueIR) {
@@ -340,11 +340,13 @@ bool AvrDefUse::runOnFunction(Function &F) {
 
   // Collect inverse-mapping from IR to AVR.
   AVRVisitor<IR2AVRVisitor> IRVisitor(IR2AVR);
-  IRVisitor.forwardVisit(AV->begin(), AV->end(), true, true);
+  IRVisitor.forwardVisit(AV->begin(), AV->end(), true, true,
+                         false /*RecurseInsideValues*/);
 
   // Walk down the AVR tree and gather DU information.
   AVRVisitor<AvrDefUse> DUVisitor(*this);
-  DUVisitor.forwardVisit(AV->begin(), AV->end(), true, true);
+  DUVisitor.forwardVisit(AV->begin(), AV->end(), true, true,
+                         false /*RecurseInsideValues*/);
 
   AV = nullptr;
   return false;
@@ -388,36 +390,38 @@ void AvrDefUseHIR::visit(AVRValueHIR *AValueHIR) {
 
   AVR *RHS = getActualDef(AValueHIR);
   AvrUsedVarsMapTy &UVs = DefUses[RHS]; // Initialize to no uses.
-  RegDDRef *RDDF = AValueHIR->getValue();
+  // FIXME: AVRValueHIR may not be a RegDDRef
+  if (RegDDRef *RDDF = dyn_cast<RegDDRef>(AValueHIR->getValue())) {
 
-  for (auto II = DDG.outgoing_edges_begin(RDDF),
-            EE = DDG.outgoing_edges_end(RDDF);
-       II != EE; ++II) {
-    const DDEdge *Edge = *II;
-    // Skip non-FLOW dependencies.
-    if (!Edge->isFLOWdep())
-      continue;
+    for (auto II = DDG.outgoing_edges_begin(RDDF),
+              EE = DDG.outgoing_edges_end(RDDF);
+         II != EE; ++II) {
+      const DDEdge *Edge = *II;
+      // Skip non-FLOW dependencies.
+      if (!Edge->isFLOWdep())
+        continue;
 
-    DDRef *DDRef = Edge->getSink();
-    RegDDRef *SelfBlob = dyn_cast<RegDDRef>(DDRef);
+      DDRef *DDRef = Edge->getSink();
+      RegDDRef *SelfBlob = dyn_cast<RegDDRef>(DDRef);
 
-    // Skip dependencies to DDRefs that are neither blobs or self-blobs.
-    if (!(isa<BlobDDRef>(DDRef) || (SelfBlob && SelfBlob->isSelfBlob())))
-      continue;
+      // Skip dependencies to DDRefs that are neither blobs or self-blobs.
+      if (!(isa<BlobDDRef>(DDRef) || (SelfBlob && SelfBlob->isSelfBlob())))
+        continue;
 
-    // Skip dependencies outside TopLevelLoop
-    auto HLoop = TopLevelLoop->getLoop();
-    if (!HLNodeUtils::contains(HLoop, DDRef->getHLDDNode()))
-      continue;
+      // Skip dependencies outside TopLevelLoop
+      auto HLoop = TopLevelLoop->getLoop();
+      if (!HLNodeUtils::contains(HLoop, DDRef->getHLDDNode()))
+        continue;
 
-    // Skip dependencies to DDRefs whose using AVR is a Def.
-    AVR *UsingAVR = IR2AVR.getAVR(DDRef);
-    AVRValueHIR *UsingAVRValue = dyn_cast<AVRValueHIR>(UsingAVR);
-    if (UsingAVRValue && isDef(UsingAVRValue))
-      continue;
+      // Skip dependencies to DDRefs whose using AVR is a Def.
+      AVR *UsingAVR = IR2AVR.getAVR(DDRef);
+      AVRValueHIR *UsingAVRValue = dyn_cast<AVRValueHIR>(UsingAVR);
+      if (UsingAVRValue && isDef(UsingAVRValue))
+        continue;
 
-    UVs[UsingAVR].insert(DDRef);               // Register Use.
-    ReachingDefs[UsingAVR][DDRef].insert(RHS); // Register Reaching Def.
+      UVs[UsingAVR].insert(DDRef);               // Register Use.
+      ReachingDefs[UsingAVR][DDRef].insert(RHS); // Register Reaching Def.
+    }
   }
 }
 
@@ -465,11 +469,13 @@ bool AvrDefUseHIR::runOnFunction(Function &F) {
 
   // Collect inverse-mapping from IR to AVR.
   AVRVisitor<IR2AVRVisitor> IRVisitor(IR2AVR);
-  IRVisitor.forwardVisit(AV.begin(), AV.end(), true, true);
+  IRVisitor.forwardVisit(AV.begin(), AV.end(), true, true,
+                         false /*RecurseInsideValues*/);
 
   // Walk down the AVR tree and gather DU information.
   AVRVisitor<AvrDefUseHIR> DUVisitor(*this);
-  DUVisitor.forwardVisit(AV.begin(), AV.end(), true, true);
+  DUVisitor.forwardVisit(AV.begin(), AV.end(), true, true,
+                         false /*RecurseInsideValues*/);
 
   return false;
 }

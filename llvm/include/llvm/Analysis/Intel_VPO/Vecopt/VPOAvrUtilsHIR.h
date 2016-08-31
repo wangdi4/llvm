@@ -67,17 +67,31 @@ public:
   static AVRExpressionHIR *createAVRExpressionHIR(AVRExpressionHIR* LHS,
                                                   AVRExpressionHIR* RHS);
 
+  /// \brief Returns a new AVRExpressionHIR node.
+  static AVRExpressionHIR *createAVRExpressionHIR(AVR *LHS, AVR *RHS, Type *Ty,
+                                                  unsigned Opcode);
+
   /// \brief Returns a new AVRValueHIR node.
   static AVRValueHIR *createAVRValueHIR(RegDDRef *DDRef,
                                         HLNode *HNode,
                                         AVR *Parent);
+
+  /// \brief Returns a new AVRValueHIR node.
+  static AVRValueHIR *createAVRValueHIR(BlobDDRef *DDRef,
+                                        AVR *Parent);
+
+  /// \brief Returns a new AVRValueHIR node.
+  static AVRValueHIR *createAVRValueHIR(CanonExpr *CE, unsigned IVIndex,
+                                        Type *Ty, AVR *Parent);
+
+  /// \brief Returns a new constant AVRValueHIR node.
+  static AVRValueHIR *createAVRValueHIR(Constant *Const, AVR *Parent);
 
   /// \brief Returns a new AVRSwitchHIR node.
   static AVRSwitchHIR *createAVRSwitchHIR(HLSwitch *HSwitch);
 
   /// \brief Returns a new AVRUnreachableHIR node.
   static AVRUnreachableHIR *createAVRUnreachableHIR(HLNode *Node);
-
 };
 
 } // End VPO Vectorizer Namespace

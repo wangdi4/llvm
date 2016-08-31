@@ -4,7 +4,7 @@
 
 ;CHECK: WRN
 ;CHECK: LOOP
-;CHECK: %rem = i1 srem 3
+;CHECK: %rem = i1 srem i64 3
 
 ;CHECK-NEXT: if (%rem == 0)
 ;CHECK: {al:4}(%arr)[i1] = store i1

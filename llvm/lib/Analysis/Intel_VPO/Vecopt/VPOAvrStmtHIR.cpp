@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmtHIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtils.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsHIR.h"
 
 using namespace llvm;
@@ -148,6 +149,33 @@ AVRExpressionHIR::AVRExpressionHIR(AVRExpressionHIR* LHS,
   this->Operands.push_back(RHS);
 }
 
+// If we are not going to need IR specific information,
+// Should we move this functionality to AVRExpression?
+// AVRPredicator is doing something similar
+// TODO: set type
+AVRExpressionHIR::AVRExpressionHIR(AVR* LHS,
+                                   AVR* RHS,
+                                   Type *Ty,
+                                   unsigned Opcode)
+  : AVRExpression(AVR::AVRExpressionHIRNode, nullptr) {
+
+  HIRNode = nullptr; // no underlying HLInst.
+  this->Predicate = CmpInst::Predicate::BAD_ICMP_PREDICATE;
+  this->setType(Ty);
+  // Why do we need Opcode and Operation?
+  this->Opcode = Opcode;
+  this->Operation = this->Opcode;
+
+  // TODO
+  IsLHSExpr = false;
+
+  AVRUtils::setParent(LHS, this);
+  AVRUtils::setParent(RHS, this);
+
+  this->Operands.push_back(LHS);
+  this->Operands.push_back(RHS);
+}
+
 AVRExpressionHIR *AVRExpressionHIR::clone() const {
   return nullptr;
 }
@@ -205,33 +233,73 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent)
   }
 }
 
+//TODO
+AVRValueHIR::AVRValueHIR(BlobDDRef *DDRef, AVR *Parent)
+    : AVRValue(AVR::AVRValueHIRNode, DDRef->getDestType()), Val(DDRef),
+      HNode(nullptr) {
+  setParent(Parent);
+}
+
+AVRValueHIR::AVRValueHIR(IVValueInfo *IVV, Type *Ty, AVR *Parent)
+    : AVRValue(AVR::AVRValueHIRNode, Ty), Val(nullptr), IVVal(IVV),
+      HNode(nullptr) {
+  setParent(Parent);
+}
+
+//TODO
+AVRValueHIR::AVRValueHIR(Constant *Const, AVR *Parent)
+    : AVRValue(Const), Val(nullptr), HNode(nullptr) {
+  setParent(Parent);
+}
+
 AVRValueHIR *AVRValueHIR::clone() const {
   return nullptr;
 }
 
 void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
                         VerbosityLevel VLevel) const {
+  const Constant *Const = getConstant();
 
   // Print AVR Value Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "("  << getNumber() << ")";
-    case PrintAvrType:
+  case PrintNumber:
+    OS << "(" << getNumber() << ")";
+  case PrintAvrDecomp: {
+    AVR *DecTree = getDecompTree();
+    if (DecTree != nullptr) {
+      DecTree->print(OS, Depth, VLevel);
+      break;
+    }
+  }
+  case PrintAvrType:
       OS << getAvrTypeName() << "{";
-    case PrintDataType: {
+  case PrintDataType: {
+    if (Const == nullptr) {
       Type *ValType = getType();
       printSLEV(OS);
       OS << *ValType << " ";
     }
-    case PrintBase:
-      Val->print(OS,false);
-      break;
+  }
+  case PrintBase: {
+    // If there is constant information, we print it and
+    // ignore Val as it can be a nullptr
+    if (Const != nullptr) {
+      Const->print(OS, false);
+    } else if (Val != nullptr) {
+      Val->print(OS, false);
+    } else { // IV Value
+      assert(IVVal != nullptr && "IVValue is null");
+      OS << "i" << IVVal->Index;
+    }
+
+    break;
+  }
   default:
     llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   // Close up open braces
-  if (VLevel >= PrintAvrType)
+  if (VLevel >= PrintAvrDecomp)
     OS << "}";
 }
 

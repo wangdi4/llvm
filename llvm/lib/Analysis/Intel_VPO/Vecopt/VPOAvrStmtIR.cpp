@@ -145,6 +145,7 @@ void AVRValueIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ")";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType: {
@@ -182,6 +183,7 @@ void AVRLabelIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -229,6 +231,7 @@ void AVRPhiIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -286,6 +289,7 @@ void AVRCallIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -359,6 +363,7 @@ void AVRBranchIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -416,6 +421,7 @@ void AVRBackEdgeIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -468,6 +474,7 @@ void AVREntryIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -522,6 +529,7 @@ void AVRReturnIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -584,6 +592,7 @@ void AVRSelectIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
@@ -645,6 +654,7 @@ void AVRCompareIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
+  case PrintAvrDecomp:
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
   case PrintDataType:
