@@ -163,6 +163,7 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
     const size_t hbsizes[2] = { bsizes[0] / 2, bsizes[1] / 2 };
     void * svmp[2] = { nullptr, nullptr };
     std::vector<int> refp[2] = { std::vector<int>(nsizes[0]), std::vector<int>(nsizes[1]) };
+    void * second_half = nullptr;
 
     svmp[0] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)0, bsizes[0], 0);
     svmp[1] = clSVMAlloc(ocl_descriptor.context, (cl_mem_flags)0, bsizes[1], 0);
@@ -181,8 +182,9 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
         (const void **)&(svmp[0]), (const size_t *)&(hbsizes[0]),
         (cl_mem_migration_flags)0, 0, nullptr, nullptr);
     std::cout << "Starting migrate second half of svmp[0] to GPU..." << std::endl;
+    second_half = ((char *)svmp[0]) + hbsizes[0];
     enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
-        (const void **)(((char *)svmp[0]) + hbsizes[0]), (const size_t *)&(hbsizes[0]),
+        (const void **)&second_half, (const size_t *)&(hbsizes[0]),
         (cl_mem_migration_flags)0, 0, nullptr, nullptr);
 
     std::cout << "Starting migrate first half of svmp[1] to GPU..." << std::endl;
@@ -190,8 +192,9 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem02)
         (const void **)&(svmp[1]), (const size_t *)&(hbsizes[1]),
         (cl_mem_migration_flags)0, 0, nullptr, nullptr);
     std::cout << "Starting migrate second half of svmp[1] to CPU..." << std::endl;
-    enqueueSVMMigrateMem(ocl_descriptor.queues[1], 1,
-        (const void **)(((char *)svmp[1]) + 1), (const size_t *)&(hbsizes[1]),
+    second_half = ((char *)svmp[1]) + hbsizes[1];
+    enqueueSVMMigrateMem(ocl_descriptor.queues[0], 1,
+        (const void **)&second_half, (const size_t *)&(hbsizes[1]),
         (cl_mem_migration_flags)0, 0, nullptr, nullptr);
 
     ASSERT_TRUE(memcmp(&refp[0].front(), svmp[0], bsizes[0]) == 0) << "svmp[0] corrupted";

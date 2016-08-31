@@ -915,7 +915,7 @@ void setUpContextProgramQueuesFromILSource(OpenCLDescriptor& ocl_descriptor, con
     // create queues
     for(int i = 0; i < 2; ++i)
     {
-        // create queue
+        // create in-order command queue
         ASSERT_NO_FATAL_FAILURE(createCommandQueue(&ocl_descriptor.queues[i], ocl_descriptor.context, ocl_descriptor.devices[i], 0));
     }
 }
