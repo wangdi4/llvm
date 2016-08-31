@@ -215,6 +215,7 @@ public:
                              unsigned indvar_opcode,
                              int indvarIdx,
                              int boundIdx,
+                             int boundOpIdx,
                              std::set<MachineInstr*>& insSetMarkedForDeletion);
 
 
@@ -225,7 +226,8 @@ public:
   // then *indvar_opcode is the opcode of the new sequence instruction
   // that we will use.
   bool seq_compute_matching_seq_opcode(unsigned compare_opcode,
-                                       unsigned transform_opcode, 
+                                       unsigned transform_opcode,
+                                       bool invert_compare, 
                                        unsigned* indvar_opcode);
 
 
@@ -1341,16 +1343,40 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
   // Found a valid induction variable. 
   // True if induction variable (i.e., first argument in the compare)
   // is a stride candidate.
-  bool found_indvar =
-    ((loop.cmp0_idx >= 0) &&
-     loop.candidates[loop.cmp0_idx].stype == LPUSeqCandidate::SeqType::STRIDE);
-  int indvarIdx = loop.cmp0_idx;
-  int boundIdx = loop.cmp1_idx;
+  bool found_indvar;
+  // Index in the loop.candidates vector that identifies a sequence
+  // candidate.
+  int indvarIdx;
+  int boundIdx;
+  // Operand index in the comparison instruction for the bound. 
+  int boundOpIdx;
+  bool invert_compare;
+
+  // Two cases.  Look for the strie (induction variable) in either
+  // cmp0 or cmp1.
+  if ((loop.cmp0_idx >= 0) &&
+      loop.candidates[loop.cmp0_idx].stype == LPUSeqCandidate::SeqType::STRIDE) {
+    found_indvar = true;
+    indvarIdx = loop.cmp0_idx;
+    boundIdx = loop.cmp1_idx;
+    
+    // Operand index in the comparison instruction for the bound.
+    boundOpIdx = 2;
+    invert_compare = false;
+  }
+  else if ((loop.cmp1_idx >= 0) &&
+           loop.candidates[loop.cmp1_idx].stype == LPUSeqCandidate::SeqType::STRIDE) {
+    found_indvar = true;
+    indvarIdx = loop.cmp1_idx;
+    boundIdx = loop.cmp0_idx;
+    boundOpIdx = 1;
+    invert_compare = true;
+  }
+
   if (!found_indvar) {
     DEBUG(errs() << "Seq transform failed: invalid induction variable.\n");
     return false;
   }
-
 
   LPUSeqCandidate& indvarCandidate = loop.candidates[indvarIdx];
   
@@ -1361,7 +1387,7 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
      loop.candidates[boundIdx].stype == LPUSeqCandidate::SeqType::REPEAT);
   bool found_bound_imm =
     ((boundIdx == -1) &&
-     loop.header.compareInst->getOperand(2).isImm());
+     loop.header.compareInst->getOperand(boundOpIdx).isImm());
   bool found_bound = found_bound_channel || found_bound_imm;
   
   if (!found_bound) {
@@ -1380,7 +1406,8 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
   unsigned transform_opcode = indvarCandidate.transformInst->getOpcode();
 
   if (seq_compute_matching_seq_opcode(compare_opcode,
-                                      transform_opcode, 
+                                      transform_opcode,
+                                      invert_compare, 
                                       &indvar_opcode)) {
     DEBUG(errs() << "Can do sequence transform of induction variable!\n");
 
@@ -1389,8 +1416,8 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
                           indvar_opcode,
                           indvarIdx,
                           boundIdx,
+                          boundOpIdx, 
                           insSetMarkedForDeletion);
-                          
     
     return true;
   }
@@ -1413,21 +1440,28 @@ seq_try_transform_loop(LPUSeqLoopInfo& loop,
 bool
 LPUOptDFPass::
 seq_compute_matching_seq_opcode(unsigned ciOp,
-                                unsigned tOp, 
+                                unsigned tOp,
+                                bool invert_compare,
                                 unsigned* indvar_opcode) {
   switch (ciOp) {
+  case LPU::CMPNE32:
   case LPU::CMPNE32i:
     if ((tOp == LPU::ADD32i) ||
         (tOp == LPU::ADD32)) {
+      // inversion of NE is the same.
       *indvar_opcode = LPU::SEQNE32;
       return true;
     }
     break;
 
   case LPU::CMPLTS64:
+  case LPU::CMPLTS64i:
     if ((tOp == LPU::ADD64i) ||
         (tOp == LPU::ADD64)) {
-      *indvar_opcode = LPU::SEQLTS64;
+      if (invert_compare)
+        *indvar_opcode = LPU::SEQGES64;
+      else
+        *indvar_opcode = LPU::SEQLTS64;
       return true;
     }
     
@@ -1873,6 +1907,7 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
                       unsigned indvar_opcode,
                       int indvarIdx,
                       int boundIdx,
+                      int boundOpIdx,
                       std::set<MachineInstr*>& insSetMarkedForDeletion) {
 
   //  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
@@ -1979,10 +2014,7 @@ seq_do_transform_loop(LPUSeqLoopInfo& loop,
     in_b_op = bound_repeat->get_pick_input_op();
   }
   else {
-    // TBD(jsukha): FIX ME EVENTUALLY!  This code assumes that the
-    // last operand of the compare is the bound. It could be swapped
-    // though, with the compare opcode needing to be reversed.
-    in_b_op = &loop.header.compareInst->getOperand(2);
+    in_b_op = &loop.header.compareInst->getOperand(boundOpIdx);
     assert(in_b_op->isImm());
   }
 
