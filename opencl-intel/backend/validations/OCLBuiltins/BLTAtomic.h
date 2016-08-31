@@ -18,9 +18,10 @@ File Name:  BLTAtomic.h
 #ifndef BLT_ATOMIC_H
 #define BLT_ATOMIC_H
 
-#include <vector>
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+
 #include "Helpers.h"
 #include "RefALU.h"
 
@@ -29,7 +30,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_atomic_add(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -46,7 +47,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_atomic_sub(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -63,7 +64,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_atomic_xchg(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -80,7 +81,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_atomic_inc(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -96,7 +97,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_atomic_dec(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -112,7 +113,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_atomic_cmpxchg(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -130,7 +131,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_atomic_min(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -147,7 +148,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_atomic_max(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -164,7 +165,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_atomic_and(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -181,7 +182,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_atomic_or(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -198,7 +199,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_atomic_xor(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];

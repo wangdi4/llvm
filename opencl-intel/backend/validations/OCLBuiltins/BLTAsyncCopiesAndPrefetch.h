@@ -18,20 +18,21 @@ File Name:  BLTAsyncCopiesAndPrefetch.h
 #ifndef BLT_ASYNC_COPIES_AND_PREFETCH_H
 #define BLT_ASYNC_COPIES_AND_PREFETCH_H
 
-#include <vector>
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+
 #include "Helpers.h"
 #include <RefALU.h>
 
 namespace Validation {
 namespace OCLBuiltins {
 
-llvm::GenericValue lle_X_prefetch(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args);
-llvm::GenericValue lle_X_wait_group_events(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args);
+llvm::GenericValue lle_X_prefetch(llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args);
+llvm::GenericValue lle_X_wait_group_events(llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args);
 
 template <typename T, int n>
-llvm::GenericValue lle_X_async_work_group_copy(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
+llvm::GenericValue lle_X_async_work_group_copy(llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue R;
     llvm::GenericValue arg0 = Args[0];
@@ -51,7 +52,7 @@ llvm::GenericValue lle_X_async_work_group_copy(llvm::FunctionType *FT, const std
 }
 
 template <typename T, int n>
-llvm::GenericValue lle_X_async_work_group_strided_copy_l2g(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
+llvm::GenericValue lle_X_async_work_group_strided_copy_l2g(llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue R;
     llvm::GenericValue arg0 = Args[0];
@@ -76,7 +77,7 @@ llvm::GenericValue lle_X_async_work_group_strided_copy_l2g(llvm::FunctionType *F
 }
 
 template <typename T, int n>
-llvm::GenericValue lle_X_async_work_group_strided_copy_g2l(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
+llvm::GenericValue lle_X_async_work_group_strided_copy_g2l(llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue R;
     llvm::GenericValue arg0 = Args[0];

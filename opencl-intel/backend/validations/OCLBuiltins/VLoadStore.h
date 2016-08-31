@@ -18,9 +18,10 @@ File Name:  VLoadStore.h
 #ifndef V_LOAD_STORE_H
 #define V_LOAD_STORE_H
 
-#include <vector>
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+
 #include "Conformance/reference_convert.h"
 #include "Helpers.h"
 #include "dxfloat.h"
@@ -31,7 +32,7 @@ namespace OCLBuiltins {
     // template parameter T could be int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t, uint64_t
     template<typename T, int n>
     llvm::GenericValue lle_X_vload(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -50,7 +51,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n>
     llvm::GenericValue lle_X_vstore(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue arg0=Args[0];
         llvm::GenericValue arg1=Args[1];
@@ -70,7 +71,7 @@ namespace OCLBuiltins {
 
     template<int n, bool aligned>
     llvm::GenericValue lle_X_vload_half(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -89,7 +90,7 @@ namespace OCLBuiltins {
 
     template<> llvm::GenericValue lle_X_vload_half<3, true>(
         llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args);
+        llvm::ArrayRef<llvm::GenericValue> Args);
 
     // Wrapper to provide single interface to two conversion functions: double2half and float2half
     template<typename T>
@@ -103,7 +104,7 @@ namespace OCLBuiltins {
 
     template<typename T, int n, bool aligned>
     llvm::GenericValue lle_X_vstore_half(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue arg0 = Args[0];
         llvm::GenericValue arg1 = Args[1];
@@ -121,11 +122,11 @@ namespace OCLBuiltins {
 
     template<> llvm::GenericValue lle_X_vstore_half<float, 3, true>(
         llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args);
+        llvm::ArrayRef<llvm::GenericValue> Args);
 
     template<> llvm::GenericValue lle_X_vstore_half<double, 3, true>(
         llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args);
+        llvm::ArrayRef<llvm::GenericValue> Args);
 
 } // namespace OCLBuiltins
 } // namespace Validation

@@ -18,9 +18,10 @@ File Name:  BLTRelational.h
 #ifndef BLT_RELATIONAL_H
 #define BLT_RELATIONAL_H
 
-#include <vector>
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+
 #include "Helpers.h"
 #include "RefALU.h"
 
@@ -29,7 +30,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_isinf(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -38,7 +39,7 @@ namespace OCLBuiltins {
     }
     template<typename T, int32_t n>
     llvm::GenericValue lle_X_isinf(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -52,7 +53,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_isnormal(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -61,7 +62,7 @@ namespace OCLBuiltins {
     }
     template<typename T, int32_t n>
     llvm::GenericValue lle_X_isnormal(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -75,7 +76,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_isnan(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -84,7 +85,7 @@ namespace OCLBuiltins {
     }
     template<typename T, int32_t n>
     llvm::GenericValue lle_X_isnan(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -98,7 +99,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_islessgreater(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -108,7 +109,7 @@ namespace OCLBuiltins {
     }
     template<typename T, int32_t n>
     llvm::GenericValue lle_X_islessgreater(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -123,7 +124,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_isunordered(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -133,7 +134,7 @@ namespace OCLBuiltins {
     }
     template<typename T, int32_t n>
     llvm::GenericValue lle_X_isunordered(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -148,7 +149,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_isordered(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -158,7 +159,7 @@ namespace OCLBuiltins {
     }
     template<typename T, int32_t n>
     llvm::GenericValue lle_X_isordered(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -173,7 +174,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_isfinite(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -182,7 +183,7 @@ namespace OCLBuiltins {
     }
     template<typename T, int32_t n>
     llvm::GenericValue lle_X_isfinite(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -196,7 +197,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_signbit(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -205,7 +206,7 @@ namespace OCLBuiltins {
     }
     template<typename T, int32_t n>
     llvm::GenericValue lle_X_signbit(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -219,7 +220,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_any(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -231,7 +232,7 @@ namespace OCLBuiltins {
     }
     template<typename T, int32_t n>
     llvm::GenericValue lle_X_any(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         typedef typename signedT<T>::type sT;
         llvm::GenericValue R;
@@ -251,7 +252,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_all(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         typedef typename signedT<T>::type sT;
         llvm::GenericValue R;
@@ -265,7 +266,7 @@ namespace OCLBuiltins {
     }
     template<typename T, int32_t n>
     llvm::GenericValue lle_X_all(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         typedef typename signedT<T>::type sT;
         llvm::GenericValue R;
@@ -294,7 +295,7 @@ namespace OCLBuiltins {
 
     template<typename T>
     llvm::GenericValue lle_X_bitselect(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -306,7 +307,7 @@ namespace OCLBuiltins {
     }
     template<typename T, int32_t n>
     llvm::GenericValue lle_X_bitselect(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
@@ -332,7 +333,7 @@ namespace OCLBuiltins {
     }
     template<typename T, typename C>
     llvm::GenericValue lle_X_select(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];
@@ -346,7 +347,7 @@ namespace OCLBuiltins {
     }
     template<typename T, typename C, int32_t n>
     llvm::GenericValue lle_X_select(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         typedef typename signedT<C>::type sC;
         llvm::GenericValue R;

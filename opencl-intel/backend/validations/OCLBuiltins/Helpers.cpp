@@ -184,14 +184,14 @@ namespace OCLBuiltins {
     template<> llvm::OCLBuiltinParser::BasicArgType getBasicType<bool>(){return llvm::OCLBuiltinParser::BOOL;}
 
 
-    llvm::GenericValue UnimplementedBuiltin(llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args)
+    llvm::GenericValue UnimplementedBuiltin(llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args)
     {
         throw Exception::NotImplemented("Some OCL built-in function.");
     }
 
 
     llvm::GenericValue lle_X_memcpy(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue arg0 = Args[0];
         llvm::GenericValue arg1 = Args[1];

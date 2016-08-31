@@ -132,7 +132,7 @@ namespace Validation {
 namespace OCLBuiltins {
     template<>
     llvm::GenericValue lle_X_atomic_xchg<float>(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];

@@ -71,7 +71,7 @@ WorkItemInterfaceSetter * WorkItemInterfaceSetter::m_pInst = NULL;
 const uint32_t SizeTInBits = sizeof(size_t) * 8;
 
 GenericValue lle_X_get_work_dim(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
 
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   uint32_t work_dim = pI->GetWorkDim();
@@ -82,7 +82,7 @@ GenericValue lle_X_get_work_dim(FunctionType *FT,
 }
 
 GenericValue lle_X_get_global_size(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
@@ -96,7 +96,7 @@ GenericValue lle_X_get_global_size(FunctionType *FT,
 }
 
 GenericValue lle_X_get_global_id(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
 
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
@@ -112,7 +112,7 @@ GenericValue lle_X_get_global_id(FunctionType *FT,
 }
 
 GenericValue lle_X_get_local_size(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
@@ -127,7 +127,7 @@ GenericValue lle_X_get_local_size(FunctionType *FT,
 }
 
 GenericValue lle_X_get_local_id(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
@@ -142,7 +142,7 @@ GenericValue lle_X_get_local_id(FunctionType *FT,
 }
 
 GenericValue lle_X_get_num_groups(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
@@ -157,7 +157,7 @@ GenericValue lle_X_get_num_groups(FunctionType *FT,
 }
 
 GenericValue lle_X_get_group_id(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
@@ -172,7 +172,7 @@ GenericValue lle_X_get_group_id(FunctionType *FT,
 }
 
 GenericValue lle_X_get_global_offset(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();
@@ -187,7 +187,7 @@ GenericValue lle_X_get_global_offset(FunctionType *FT,
 }
 
 llvm::GenericValue lle_X_get_global_linear_id(llvm::FunctionType *FT,
-                         const std::vector<llvm::GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
 
@@ -198,7 +198,7 @@ llvm::GenericValue lle_X_get_global_linear_id(llvm::FunctionType *FT,
 }
 
 llvm::GenericValue lle_X_get_local_linear_id(llvm::FunctionType *FT,
-                         const std::vector<llvm::GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
 
@@ -209,7 +209,7 @@ llvm::GenericValue lle_X_get_local_linear_id(llvm::FunctionType *FT,
 }
 
 llvm::GenericValue lle_X_get_enqueued_local_size(llvm::FunctionType *FT,
-                         const std::vector<llvm::GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
   uint32_t work_dim = pI->GetWorkDim();

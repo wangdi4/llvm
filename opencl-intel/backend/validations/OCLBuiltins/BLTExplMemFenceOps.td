@@ -52,19 +52,19 @@ namespace Validation {
 namespace OCLBuiltins {
 
 GenericValue lle_X_mem_fence(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   GenericValue gv;
   return gv;
 }
 
 GenericValue lle_X_read_mem_fence(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   GenericValue gv;
   return gv;
 }
 
 GenericValue lle_X_write_mem_fence(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   GenericValue gv;
   return gv;
 }
