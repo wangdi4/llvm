@@ -103,8 +103,8 @@ TEST_F(OCL21, clEnqueueSVMMigrateMem01)
     ASSERT_FALSE(svmp[0] == nullptr) << "clSVMAlloc failed";
     ASSERT_FALSE(svmp[1] == nullptr) << "clSVMAlloc failed";
 
-    std::iota(refp[0].begin(), refp[0].end(), 0);
-    std::iota(refp[1].begin(), refp[1].end(), 0);
+    std::generate(refp[0].begin(), refp[0].end(), IncrementingSequence<int>());
+    std::generate(refp[1].begin(), refp[1].end(), IncrementingSequence<int>());
 
     std::generate((int *)svmp[0], (int *)svmp[0] + nsizes[0], IncrementingSequence<int>());
     std::generate((int *)svmp[1], (int *)svmp[1] + nsizes[1], IncrementingSequence<int>());
