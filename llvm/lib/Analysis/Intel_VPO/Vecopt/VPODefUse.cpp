@@ -389,6 +389,14 @@ void AvrDefUseHIR::visit(AVRValueHIR *AValueHIR) {
   AVR *RHS = getActualDef(AValueHIR);
   AvrUsedVarsMapTy &UVs = DefUses[RHS]; // Initialize to no uses.
   RegDDRef *RDDF = AValueHIR->getValue();
+  auto HLoop = TopLevelLoop->getLoop();
+
+  // If the def is outside the loop, all uses of the def in the loop can
+  // be treated as uniform. We want to avoid problems for cases where
+  // we do not find the use AVR(such as in loop bounds for which we do
+  // not build AVR nodes).
+  if (!HLNodeUtils::contains(HLoop, RDDF->getHLDDNode()))
+    return;
 
   for (auto II = DDG.outgoing_edges_begin(RDDF),
             EE = DDG.outgoing_edges_end(RDDF);
@@ -406,7 +414,6 @@ void AvrDefUseHIR::visit(AVRValueHIR *AValueHIR) {
       continue;
 
     // Skip dependencies outside TopLevelLoop
-    auto HLoop = TopLevelLoop->getLoop();
     if (!HLNodeUtils::contains(HLoop, DDRef->getHLDDNode()))
       continue;
 
