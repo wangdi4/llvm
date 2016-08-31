@@ -94,6 +94,7 @@ using namespace llvm;
 
 #define DEBUG_TYPE "mldst-motion"
 
+namespace {
 //===----------------------------------------------------------------------===//
 //                         MergedLoadStoreMotion Pass
 //===----------------------------------------------------------------------===//
@@ -136,6 +137,7 @@ private:
   bool sinkStore(BasicBlock *BB, StoreInst *SinkCand, StoreInst *ElseInst);
   bool mergeStores(BasicBlock *BB);
 };
+} // end anonymous namespace
 
 ///
 /// \brief Remove instruction from parent and update memory dependence analysis.
@@ -562,7 +564,6 @@ public:
   }
 
 private:
-  // This transformation requires dominator postdominator info
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<AAResultsWrapperPass>();

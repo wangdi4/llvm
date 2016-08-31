@@ -1877,6 +1877,53 @@ void CodeGenFunction::EmitOMPDistributeParallelForDirective(
       });
 }
 
+void CodeGenFunction::EmitOMPDistributeParallelForSimdDirective(
+    const OMPDistributeParallelForSimdDirective &S) {
+  OMPLexicalScope Scope(*this, S, /*AsInlined=*/true);
+  CGM.getOpenMPRuntime().emitInlinedDirective(
+      *this, OMPD_distribute_parallel_for_simd,
+      [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+        OMPLoopScope PreInitScope(CGF, S);
+        CGF.EmitStmt(
+            cast<CapturedStmt>(S.getAssociatedStmt())->getCapturedStmt());
+      });
+}
+
+void CodeGenFunction::EmitOMPDistributeSimdDirective(
+    const OMPDistributeSimdDirective &S) {
+  OMPLexicalScope Scope(*this, S, /*AsInlined=*/true);
+  CGM.getOpenMPRuntime().emitInlinedDirective(
+      *this, OMPD_distribute_simd,
+      [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+        OMPLoopScope PreInitScope(CGF, S);
+        CGF.EmitStmt(
+            cast<CapturedStmt>(S.getAssociatedStmt())->getCapturedStmt());
+      });
+}
+
+void CodeGenFunction::EmitOMPTargetParallelForSimdDirective(
+    const OMPTargetParallelForSimdDirective &S) {
+  OMPLexicalScope Scope(*this, S, /*AsInlined=*/true);
+  CGM.getOpenMPRuntime().emitInlinedDirective(
+      *this, OMPD_target_parallel_for_simd,
+      [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+        OMPLoopScope PreInitScope(CGF, S);
+        CGF.EmitStmt(
+            cast<CapturedStmt>(S.getAssociatedStmt())->getCapturedStmt());
+      });
+}
+
+void CodeGenFunction::EmitOMPTargetSimdDirective(
+    const OMPTargetSimdDirective &S) {
+  OMPLexicalScope Scope(*this, S, /*AsInlined=*/true);
+  CGM.getOpenMPRuntime().emitInlinedDirective(
+      *this, OMPD_target_simd, [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+        OMPLoopScope PreInitScope(CGF, S);
+        CGF.EmitStmt(
+            cast<CapturedStmt>(S.getAssociatedStmt())->getCapturedStmt());
+      });
+}
+
 /// \brief Emit a helper variable and return corresponding lvalue.
 static LValue EmitOMPHelperVar(CodeGenFunction &CGF,
                                const DeclRefExpr *Helper) {
@@ -2389,10 +2436,8 @@ void CodeGenFunction::EmitOMPTaskBasedDirective(const OMPExecutableDirective &S,
   }
   // Check if the task has 'priority' clause.
   if (const auto *Clause = S.getSingleClause<OMPPriorityClause>()) {
-    // Runtime currently does not support codegen for priority clause argument.
-    // TODO: Add codegen for priority clause arg when runtime lib support it.
     auto *Prio = Clause->getPriority();
-    Data.Priority.setInt(Prio);
+    Data.Priority.setInt(/*IntVal=*/true);
     Data.Priority.setPointer(EmitScalarConversion(
         EmitScalarExpr(Prio), Prio->getType(),
         getContext().getIntTypeForBitwidth(/*DestWidth=*/32, /*Signed=*/1),
@@ -3162,6 +3207,8 @@ static void EmitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_uniform:
   case OMPC_to:
   case OMPC_from:
+  case OMPC_use_device_ptr:
+  case OMPC_is_device_ptr:
     llvm_unreachable("Clause is not allowed in 'omp atomic'.");
   }
 }

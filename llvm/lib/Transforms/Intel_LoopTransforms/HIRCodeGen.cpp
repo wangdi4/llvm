@@ -236,7 +236,38 @@ private:
     // \brief Applies cast to Val according to CE's dest type, if applicable.
     Value *castToDestType(CanonExpr *CE, Value *Val);
 
-    Function *F;
+    // \brief Creates a stack allocation of size with name at entry of
+    // current func. used for allocs that we expect to regisiterize
+    AllocaInst *CreateEntryBlockAlloca(const std::string &VarName, Type *Ty,
+                                       Value *size = 0) {
+      IRBuilder<> TmpB(&F->getEntryBlock(), F->getEntryBlock().begin());
+      return TmpB.CreateAlloca(Ty, size, VarName.c_str());
+    }
+
+    // HIRCG's considers iv names is iN.ty where N is nesting level and
+    // ty is type
+    std::string getIVName(int NestingLevel, Type *Ty) {
+      return "i" + std::to_string(NestingLevel) + ".i" +
+             std::to_string(Ty->getPrimitiveSizeInBits());
+    }
+
+    std::string getIVName(HLLoop *L) {
+      return getIVName(L->getNestingLevel(), L->getIVType());
+    }
+
+    // Temps are named in format of tN where N is the symbase
+    std::string getTempName(unsigned Symbase) {
+      return "t" + std::to_string(Symbase);
+    }
+
+    std::string getTempName(RegDDRef *Ref) {
+      assert(!Ref->hasGEPInfo() && "Non scalar ref accessed as scalar");
+      return getTempName(Ref->getSymbase());
+    }
+
+    // gets an allocation for name of type T, creating a new allocation
+    // if necessary. Allocation is a alloca at function entry
+    AllocaInst *getNamedValue(const Twine &Name, Type *T);
 
     // Handles special casing for SCEVUnknowns possibly representing blobs
     // within HIR framework
@@ -298,6 +329,8 @@ private:
       Value *expand(const SCEV *S) override { return visit(S); }
     };
 
+    Function *F;
+
     HIRSCEVExpander *Expander;
     // Dont need custom insertion funcs...yet
     IRBuilder<> *Builder;
@@ -325,39 +358,6 @@ private:
     // still be considered part of region, as it contains values from incoming
     // LLVM IR for that HLRegion.
     SmallDenseMap<HLRegion *, BasicBlock *, 16> RegionEntrySplitBlock;
-
-    // \brief Creates a stack allocation of size with name at entry of
-    // current func. used for allocs that we expect to regisiterize
-    AllocaInst *CreateEntryBlockAlloca(const std::string &VarName, Type *Ty,
-                                       Value *size = 0) {
-      IRBuilder<> TmpB(&F->getEntryBlock(), F->getEntryBlock().begin());
-      return TmpB.CreateAlloca(Ty, size, VarName.c_str());
-    }
-
-    // HIRCG's considers iv names is iN.ty where N is nesting level and
-    // ty is type
-    std::string getIVName(int NestingLevel, Type *Ty) {
-      return "i" + std::to_string(NestingLevel) + ".i" +
-             std::to_string(Ty->getPrimitiveSizeInBits());
-    }
-
-    std::string getIVName(HLLoop *L) {
-      return getIVName(L->getNestingLevel(), L->getIVType());
-    }
-
-    // Temps are named in format of tN where N is the symbase
-    std::string getTempName(unsigned Symbase) {
-      return "t" + std::to_string(Symbase);
-    }
-
-    std::string getTempName(RegDDRef *Ref) {
-      assert(!Ref->hasGEPInfo() && "Non scalar ref accessed as scalar");
-      return getTempName(Ref->getSymbase());
-    }
-
-    // gets an allocation for name of type T, creating a new allocation
-    // if necessary. Allocation is a alloca at function entry
-    AllocaInst *getNamedValue(const Twine &Name, Type *T);
   };
 
   // Performs the necessary HIR Level transformations before visiting
@@ -558,6 +558,15 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
 
   if (CE->isNull()) {
     return ConstantPointerNull::get(cast<PointerType>(CE->getSrcType()));
+  }
+
+  if (CE->isNullVector()) {
+    auto SrcType = CE->getSrcType();
+    auto PtrType = cast<PointerType>(SrcType->getScalarType());
+
+    auto NullVal = ConstantPointerNull::get(PtrType);
+    return Builder->CreateVectorSplat(SrcType->getVectorNumElements(),
+                                      NullVal);
   }
 
   BlobSum = sumBlobs(CE);
@@ -888,12 +897,15 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
 
   // current insertion point is at end of region, add jump to successor
   // and we are done
-  // TODO can there be no successor?
-  if (!RegionSuccessor)
-    llvm_unreachable("no successor block to region");
+  if (RegionSuccessor) {
+    Value *Terminator = Builder->CreateBr(RegionSuccessor);
+    RegionTerminators[R] = cast<Instruction>(Terminator);
+  } else {
+    assert(R->exitsFunction() && "no successor block to region!");
+    assert((R->live_out_begin() == R->live_out_end()) &&
+           "Unsupported liveout for multiexit region!");
+  }
 
-  Value *Terminator = Builder->CreateBr(RegionSuccessor);
-  RegionTerminators[R] = cast<Instruction>(Terminator);
   // DEBUG(F->dump());
   // Remove null value used for indexing
   CurIVValues.pop_back();
@@ -1037,7 +1049,11 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *Lp) {
   BasicBlock *AfterBB = BasicBlock::Create(F->getContext(), "after" + LName, F);
 
   // latch
-  Builder->CreateCondBr(EndCond, LoopBB, AfterBB);
+  BranchInst *Br = Builder->CreateCondBr(EndCond, LoopBB, AfterBB);
+
+  if (MDNode *MD = Lp->getLoopMetadata()) {
+    Br->setMetadata(LLVMContext::MD_loop, MD);
+  }
 
   // new code goes after loop
   Builder->SetInsertPoint(AfterBB);
@@ -1068,28 +1084,29 @@ Value *HIRCodeGen::CGVisitor::visitLabel(HLLabel *L) {
   return nullptr;
 }
 
-Value *HIRCodeGen::CGVisitor::visitGoto(HLGoto *G) {
+Value *HIRCodeGen::CGVisitor::visitGoto(HLGoto *Goto) {
   // get basic block for G's target
-  BasicBlock *TargetBBlock = G->getTargetBBlock();
+  BasicBlock *TargetBBlock = Goto->getTargetBBlock();
 
   if (TargetBBlock) {
-    llvm_unreachable("untested cg for external hlgoto");
-    HLRegion *R = G->getParentRegion();
-    if (R->live_out_begin() != R->live_out_end())
+    HLRegion *R = Goto->getParentRegion();
+    if ((Goto != R->getLastChild()) &&
+        (R->live_out_begin() != R->live_out_end())) {
       llvm_unreachable("Unsupported liveout for multiexit region");
+    }
   }
 
   // if bblock is null, it must be internal.
   if (!TargetBBlock)
-    TargetBBlock = getBBlockForLabel(G->getTargetLabel());
+    TargetBBlock = getBBlockForLabel(Goto->getTargetLabel());
 
   assert(TargetBBlock && "No bblock target for goto");
   // create a br to target, ending this block
   Builder->CreateBr(TargetBBlock);
 
   BasicBlock *ContBB = BasicBlock::Create(
-      F->getContext(), "hir.goto." + std::to_string(G->getNumber()) + ".cont",
-      F);
+      F->getContext(),
+      "hir.goto." + std::to_string(Goto->getNumber()) + ".cont", F);
 
   // set insertion point there, but nodes visited are dead code,
   // until a label is reached.
@@ -1294,9 +1311,14 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
 
   } else if (isa<ExtractElementInst>(Inst)) {
     StoreVal = Builder->CreateExtractElement(Ops[1], Ops[2], Inst->getName());
+
   } else if (isa<ShuffleVectorInst>(Inst)) {
     StoreVal =
         Builder->CreateShuffleVector(Ops[1], Ops[2], Ops[3], Inst->getName());
+
+  } else if (isa<ReturnInst>(Inst)) {
+    StoreVal =
+        !Ops.empty() ? Builder->CreateRet(Ops[0]) : Builder->CreateRetVoid();
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }

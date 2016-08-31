@@ -92,8 +92,8 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   /// The TargetTransformInfo available for this compilation.
   const TargetTransformInfo &TTI;
 
-  /// The cache of @llvm.assume intrinsics.
-  AssumptionCacheTracker *ACT;
+  /// Getter for the cache of @llvm.assume intrinsics.
+  std::function<AssumptionCache &(Function &)> &GetAssumptionCache;
 
   /// Profile summary information.
   ProfileSummaryInfo *PSI;
@@ -220,20 +220,21 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   bool visitUnreachableInst(UnreachableInst &I);
 
 public:
-  CallAnalyzer(const TargetTransformInfo &TTI, AssumptionCacheTracker *ACT,
+  CallAnalyzer(const TargetTransformInfo &TTI,
+               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
                ProfileSummaryInfo *PSI, Function &Callee, int Threshold,
                CallSite CSArg)
-      : TTI(TTI), ACT(ACT), PSI(PSI), F(Callee), CandidateCS(CSArg),
-        Threshold(Threshold), Cost(0), IsCallerRecursive(false),
-        IsRecursiveCall(false), ExposesReturnsTwice(false),
-        HasDynamicAlloca(false), ContainsNoDuplicateCall(false),
-        HasReturn(false), HasIndirectBr(false), HasFrameEscape(false),
-        AllocatedSize(0), NumInstructions(0), NumVectorInstructions(0),
-        FiftyPercentVectorBonus(0), TenPercentVectorBonus(0), VectorBonus(0),
-        NumConstantArgs(0), NumConstantOffsetPtrArgs(0), NumAllocaArgs(0),
-        NumConstantPtrCmps(0), NumConstantPtrDiffs(0),
-        NumInstructionsSimplified(0), SROACostSavings(0),
-        SROACostSavingsLost(0) {}
+      : TTI(TTI), GetAssumptionCache(GetAssumptionCache), PSI(PSI), F(Callee),
+        CandidateCS(CSArg), Threshold(Threshold), Cost(0),
+        IsCallerRecursive(false), IsRecursiveCall(false),
+        ExposesReturnsTwice(false), HasDynamicAlloca(false),
+        ContainsNoDuplicateCall(false), HasReturn(false), HasIndirectBr(false),
+        HasFrameEscape(false), AllocatedSize(0), NumInstructions(0),
+        NumVectorInstructions(0), FiftyPercentVectorBonus(0),
+        TenPercentVectorBonus(0), VectorBonus(0), NumConstantArgs(0),
+        NumConstantOffsetPtrArgs(0), NumAllocaArgs(0), NumConstantPtrCmps(0),
+        NumConstantPtrDiffs(0), NumInstructionsSimplified(0),
+        SROACostSavings(0), SROACostSavingsLost(0) {}
 
   bool analyzeCall(CallSite CS, InlineReason* Reason); // INTEL 
 
@@ -650,11 +651,18 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee) {
       Threshold = OptSizeThreshold;
   }
 
+  bool HotCallsite = false;
+  uint64_t TotalWeight;
+  if (CS.getInstruction()->extractProfTotalWeight(TotalWeight) &&
+      PSI->isHotCount(TotalWeight))
+    HotCallsite = true;
+
   // Listen to the inlinehint attribute or profile based hotness information
   // when it would increase the threshold and the caller does not need to
   // minimize its size.
   bool InlineHint = Callee.hasFnAttribute(Attribute::InlineHint) ||
-                    PSI->isHotFunction(&Callee);
+                    PSI->isHotFunction(&Callee) ||
+                    HotCallsite;
   if (InlineHint && HintThreshold > Threshold && !Caller->optForMinSize())
     Threshold = HintThreshold;
 
@@ -967,8 +975,8 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   // during devirtualization and so we want to give it a hefty bonus for
   // inlining, but cap that bonus in the event that inlining wouldn't pan
   // out. Pretend to inline the function, with a custom threshold.
-  CallAnalyzer CA(TTI, ACT, PSI, *F, InlineConstants::IndirectCallThreshold,
-                  CS);
+  CallAnalyzer CA(TTI, GetAssumptionCache, PSI, *F,
+                  InlineConstants::IndirectCallThreshold, CS);
   if (CA.analyzeCall(CS, nullptr)) { // INTEL 
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
@@ -1486,8 +1494,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   // the ephemeral values multiple times (and they're completely determined by
   // the callee, so this is purely duplicate work).
   SmallPtrSet<const Value *, 32> EphValues;
-  CodeMetrics::collectEphemeralValues(&F, &ACT->getAssumptionCache(F),
-                                      EphValues);
+  CodeMetrics::collectEphemeralValues(&F, &GetAssumptionCache(F), EphValues);
 
   // The worklist of live basic blocks in the callee *after* inlining. We avoid
   // adding basic blocks of the callee which can be proven to be dead for this
@@ -1673,12 +1680,12 @@ static bool functionsHaveCompatibleAttributes(Function *Caller,
          AttributeFuncs::areInlineCompatible(*Caller, *Callee);
 }
 
-InlineCost llvm::getInlineCost(CallSite CS, int DefaultThreshold,
-                               TargetTransformInfo &CalleeTTI,
-                               AssumptionCacheTracker *ACT,
-                               ProfileSummaryInfo *PSI) {
+InlineCost llvm::getInlineCost(
+    CallSite CS, int DefaultThreshold, TargetTransformInfo &CalleeTTI,
+    std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+    ProfileSummaryInfo *PSI) {
   return getInlineCost(CS, CS.getCalledFunction(), DefaultThreshold, CalleeTTI,
-                       ACT, PSI);
+                       GetAssumptionCache, PSI);
 }
 
 int llvm::computeThresholdFromOptLevels(unsigned OptLevel,
@@ -1704,11 +1711,11 @@ int llvm::getColdThreshold() { return ColdThreshold; }
 
 #endif // INTEL_CUSTOMIZATION
 
-InlineCost llvm::getInlineCost(CallSite CS, Function *Callee,
-                               int DefaultThreshold,
-                               TargetTransformInfo &CalleeTTI,
-                               AssumptionCacheTracker *ACT,
-                               ProfileSummaryInfo *PSI) {
+InlineCost llvm::getInlineCost(
+    CallSite CS, Function *Callee, int DefaultThreshold,
+    TargetTransformInfo &CalleeTTI,
+    std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+    ProfileSummaryInfo *PSI) {
 
   // Cannot inline indirect calls.
   if (!Callee)
@@ -1757,7 +1764,7 @@ InlineCost llvm::getInlineCost(CallSite CS, Function *Callee,
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
                      << "...\n");
 
-  CallAnalyzer CA(CalleeTTI, ACT, PSI, *Callee, DefaultThreshold, CS);
+  CallAnalyzer CA(CalleeTTI, GetAssumptionCache, PSI, *Callee, DefaultThreshold, CS);
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   bool ShouldInline = CA.analyzeCall(CS, &Reason);

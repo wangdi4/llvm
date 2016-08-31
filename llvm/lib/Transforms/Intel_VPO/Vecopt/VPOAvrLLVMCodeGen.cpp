@@ -309,23 +309,23 @@ bool AVRCodeGen::loopIsHandled() {
 
   ConstantInt *StrideValue;
 
+  Loop *L;
+  L = LI->getLoopFor(PhiInst->getParent());
+  if (!L) {
+    // Phi is not under a loop
+    return false;
+  }
+
   // Only handle constant integer stride of 1 for now
   InductionDescriptor ID;
-  if (!InductionDescriptor::isInductionPHI(const_cast<PHINode *>(PhiInst), SE,
-                                           ID) ||
+  if (!InductionDescriptor::isInductionPHI(const_cast<PHINode *>(PhiInst), L,
+                                           SE, ID) ||
       !(StrideValue = ID.getConstIntStepValue()) ||
       !StrideValue->equalsInt(1)) {
     return false;
   }
 
-  Loop *L;
   Value *StartValue;
-
-  L = LI->getLoopFor(PhiInst->getParent());
-  if (!L) {
-    return false;
-  }
-
   for (unsigned i = 0; i != NumPhiValues; ++i) {
     if (!(L->contains(PhiInst->getIncomingBlock(i)))) {
       // Starting loop induction value

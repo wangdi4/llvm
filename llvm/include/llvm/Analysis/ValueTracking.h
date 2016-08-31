@@ -309,8 +309,7 @@ template <typename T> class ArrayRef;
   /// for such instructions, moving them may change the resulting value.
   bool isSafeToSpeculativelyExecute(const Value *V,
                                     const Instruction *CtxI = nullptr,
-                                    const DominatorTree *DT = nullptr,
-                                    const TargetLibraryInfo *TLI = nullptr);
+                                    const DominatorTree *DT = nullptr);
 
   /// Returns true if the result or effects of the given instructions \p I
   /// depend on or influence global memory.
@@ -325,7 +324,7 @@ template <typename T> class ArrayRef;
   /// Return true if this pointer couldn't possibly be null by its definition.
   /// This returns true for allocas, non-extern-weak globals, and byval
   /// arguments.
-  bool isKnownNonNull(const Value *V, const TargetLibraryInfo *TLI = nullptr);
+  bool isKnownNonNull(const Value *V);
 
   /// Return true if this pointer couldn't possibly be null. If the context
   /// instruction is specified, perform context-sensitive analysis and return
@@ -333,8 +332,7 @@ template <typename T> class ArrayRef;
   /// instruction.
   bool isKnownNonNullAt(const Value *V,
                         const Instruction *CtxI = nullptr,
-                        const DominatorTree *DT  = nullptr,
-                        const TargetLibraryInfo *TLI = nullptr);
+                        const DominatorTree *DT  = nullptr);
 
   /// Return true if it is valid to use the assumptions provided by an
   /// assume intrinsic, I, at the point in the control-flow identified by the

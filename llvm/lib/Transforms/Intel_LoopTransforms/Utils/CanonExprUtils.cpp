@@ -264,8 +264,16 @@ bool CanonExprUtils::canMergeConstants(const CanonExpr *CE1,
 
 void CanonExprUtils::updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
                                          bool RelaxedMode, bool *CreatedAuxCE) {
+  // Sanity
+  assert((CE1 && CE2 && CreatedAuxCE) && "Not expecting any nullptr\n");
 
+  // Skip if RelaxedMode is false
   if (!RelaxedMode) {
+    return;
+  }
+
+  // Skip if CE1 and CE2's types match
+  if (isTypeEqual(CE1, *CE2, true)) {
     return;
   }
 
@@ -273,8 +281,9 @@ void CanonExprUtils::updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
   bool IsCE1Const = CE1->isIntConstant(&Val1);
   bool IsCE2Const = (*CE2)->isIntConstant(&Val2);
 
-  // Check if either is constant
+  // Check if either is a constant
   if (!IsCE1Const && !IsCE2Const) {
+    llvm_unreachable("Expect at least 1 constant between CE1 and CE2\n");
     return;
   }
 

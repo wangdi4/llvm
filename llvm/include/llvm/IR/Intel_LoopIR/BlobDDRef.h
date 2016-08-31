@@ -44,12 +44,16 @@ protected:
 
   friend class RegDDRef;
   friend class DDRefUtils;
+  friend class DDUtils;
 
   /// \brief Sets the HLDDNode of BlobDDRef.
   void setHLDDNode(HLDDNode *HNode) override;
 
   /// \brief Sets the parent DDRef of BlobDDRef.
   void setParentDDRef(RegDDRef *Ref) { ParentDDRef = Ref; }
+
+  /// Returns modifiable canonical form associated with the blob.
+  CanonExpr *getMutableCanonExpr() { return CE; }
 
   /// Restrict access to base class's public member. Blob DDRef can be modified
   /// to represent a different blob using the interface replaceBlob(). The

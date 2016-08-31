@@ -133,17 +133,17 @@ void HIRDDAnalysis::markNonLoopRegionModified(const HLRegion *Region) {
 }
 
 DDGraph HIRDDAnalysis::getGraphImpl(const HLNode *Node, bool InputEdgesReq) {
+  auto State = ValidationMap[Node];
+
   // conservatively assume input edges are always invalid
-  GraphState State;
-  if (ForceDDA || InputEdgesReq ||
-      (State = ValidationMap[Node]) != GraphState::Valid) {
+  if (ForceDDA || InputEdgesReq || State == GraphState::Invalid) {
 
     // Clean whole graph if a graph is requested for invalid Node.
-    if (State == GraphState::Invalid) {
-      FunctionDDGraph.clear();
-      ValidationMap.clear();
-    }
+    FunctionDDGraph.clear();
+    ValidationMap.clear();
 
+    buildGraph(Node, InputEdgesReq);
+  } else if (State != GraphState::Valid) {
     buildGraph(Node, InputEdgesReq);
   }
   return DDGraph(Node, &FunctionDDGraph);
@@ -262,7 +262,7 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
   assert((isa<HLRegion>(Node) || isa<HLLoop>(Node)) &&
          "Node should be HLLoop or HLRegion");
 
-  DEBUG(dbgs() << "rebuildGraph() for:\n");
+  DEBUG(dbgs() << "buildGraph() for:\n");
   DEBUG(Node->dump());
 
   NonConstantRefGatherer::MapTy RefMap;
@@ -281,10 +281,7 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
        SymVecPair != Last; ++SymVecPair) {
     auto &RefVec = SymVecPair->second;
-    if (RefVec.size() < 2) {
-      continue;
-    }
-
+    
     for (auto Ref1I = RefVec.begin(), E = RefVec.end(); Ref1I != E; ++Ref1I) {
       DDRef *Ref1 = *Ref1I;
 

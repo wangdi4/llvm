@@ -167,7 +167,7 @@ private:
   bool isProfitable(const HLLoop *Loop, int64_t TotalTripCnt) const;
 
   /// \brief Performs the complete unrolling transformation.
-  static void transformLoop(HLLoop *&Loop, HLLoop *OuterLoop,
+  static void transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
                             SmallVectorImpl<int64_t> &TripValues);
 
   /// \brief Main routine to drive the complete unrolling transformation.
@@ -384,10 +384,6 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
 }
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLLoop *Lp) {
-  // Visit preheade/postexit.
-  HLNodeUtils::visitRange(*this, Lp->pre_begin(), Lp->pre_end());
-  HLNodeUtils::visitRange(*this, Lp->post_begin(), Lp->post_end());
-
   // Analyze child loop.
   ProfitabilityAnalyzer PA(HCU, Lp, OuterLoop);
   PA.analyze();
@@ -749,12 +745,10 @@ int64_t HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
   int64_t UpperVal = 0;
 
-  // TODO: Fix parser to always make constant bounds positive.
   if (UpperCE->isIntConstant(&UpperVal)) {
-    assert(UpperVal >= 0 && "Negative loop upper found!");
     int64_t TripCnt = UpperVal + 1;
 
-    if (TripCnt > CompleteUnrollTripThreshold) {
+    if ((TripCnt < 0) || (TripCnt > CompleteUnrollTripThreshold)) {
       return -1;
     }
 
@@ -802,14 +796,16 @@ int64_t HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
   // If we reached here, we should be able to compute the min/max trip count of
   // this loop.
-  bool HasMin = HLNodeUtils::getMinValue(UpperCE, Loop, &MinUpper);
+  bool HasMin = HLNodeUtils::getExactMinValue(UpperCE, Loop, MinUpper);
+  (void)HasMin;
   assert(HasMin && "Could not compute min value of upper!");
 
   // MinUpper can evaluate to a negative value. For purposes of calculating
   // average trip count for profitability analysis, we take the absolute value.
   MinUpper = (MinUpper > 0) ? MinUpper : -MinUpper;
 
-  bool HasMax = HLNodeUtils::getMaxValue(UpperCE, Loop, &MaxUpper);
+  bool HasMax = HLNodeUtils::getExactMaxValue(UpperCE, Loop, MaxUpper);
+  (void)HasMax;
   assert(HasMax && "Could not compute max value of upper!");
 
   // Loop never executes.
@@ -898,8 +894,8 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop,
   }
 
   // Ignore loops which have switch or function calls for unrolling.
-  if (HLNodeUtils::hasSwitchOrCall(Loop->getFirstChild(), Loop->getLastChild(),
-                                   false)) {
+  if (HLNodeUtils::hasSwitchOrCall<false>(Loop->getFirstChild(),
+                                          Loop->getLastChild())) {
     return false;
   }
 
@@ -918,6 +914,10 @@ void HIRCompleteUnroll::transformLoops() {
 
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
+    // Generate code for the parent region and invalidate parent
+    Loop->getParentRegion()->setGenCode();
+    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
+
     transformLoop(Loop, Loop, TripValues);
   }
 }
@@ -945,7 +945,7 @@ int64_t computeUB(HLLoop *Loop, HLLoop *OuterLoop,
 }
 
 // Complete Unroll the given Loop, using provided LD as helper data
-void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, HLLoop *OuterLoop,
+void HIRCompleteUnroll::transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
                                       SmallVectorImpl<int64_t> &TripValues) {
 
   // Guard against the scanning phase setting it appropriately.
@@ -960,26 +960,21 @@ void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, HLLoop *OuterLoop,
   int64_t UB = computeUB(Loop, OuterLoop, TripValues);
   int64_t Step = Loop->getStrideCanonExpr()->getConstant();
 
-  // Extract Preheader and postexit if there is atleast one trip.
-  // Since, we work on normalized loops, checking UB+1 is sufficient.
-  // TODO: Extend it for unnormalized loops.
-  if ((UB + 1) > 0) {
-    // Store the node pointers.
-    HLNode *PreStart = Loop->getFirstPreheaderNode();
-    HLNode *PreEnd = Loop->getLastPreheaderNode();
-    HLNode *PostStart = Loop->getFirstPostexitNode();
-    HLNode *PostEnd = Loop->getLastPostexitNode();
-
-    // Ztt is not needed since it has ateast one trip.
-    Loop->removeZtt();
-    Loop->extractPreheaderAndPostexit();
-    if (PreStart) {
-      HLNodeUtils::visitRange(CEVisit, PreStart, PreEnd);
-    }
-    if (PostStart) {
-      HLNodeUtils::visitRange(CEVisit, PostStart, PostEnd);
-    }
+  // At this point loop preheader has been visited already but postexit is not,
+  // so we need to handle postexit explicitly.
+  if (UB < 0) {
+    Loop->removePostexit();
+    HLNodeUtils::remove(Loop);
+    return;
   }
+
+  if (Loop != OuterLoop) {
+    HLNodeUtils::visitRange(CEVisit, Loop->post_begin(), Loop->post_end());
+  }
+
+  // Ztt is not needed since it has ateast one trip.
+  Loop->removeZtt();
+  Loop->extractPreheaderAndPostexit();
 
   // Iterate over Loop Child for unrolling with trip value incremented
   // each time. Thus, loop body will be expanded by no. of stmts x TripCount.
@@ -1005,18 +1000,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, HLLoop *OuterLoop,
     TripValues.pop_back();
   }
 
-  // DEBUG(dbgs() << " \n After transformation \n");
-  // DEBUG(Loop->getParentRegion()->dump());
-
-  assert(Loop->getParentRegion() && " Loop does not have a parent region.");
-  Loop->getParentRegion()->setGenCode();
-
-  // Invalidate all analysis for the loop.
-  HIRInvalidationUtils::invalidateBody(Loop);
-
-  // Delete the original loop.
-  HLNodeUtils::erase(Loop);
-  Loop = nullptr;
+  HLNodeUtils::remove(Loop);
 }
 
 void HIRCompleteUnroll::releaseMemory() { CandidateLoops.clear(); }

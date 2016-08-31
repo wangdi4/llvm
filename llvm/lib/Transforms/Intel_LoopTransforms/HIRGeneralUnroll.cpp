@@ -83,6 +83,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRLoopTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "hir-general-unroll"
@@ -240,25 +241,6 @@ private:
   /// \brief Performs the actual unrolling.
   void processUnrollLoop(HLLoop *OrigLoop, HLLoop *UnrollLoop,
                          unsigned UnrollFactor);
-
-  /// \brief Processes the remainder loop and determines if it necessary.
-  void processRemainderLoop(HLLoop *OrigLoop, unsigned UnrollFactor,
-                            int64_t NewBound, const RegDDRef *NewRef);
-
-  /// \brief Updates bound DDRef by setting the correct defined at level and
-  /// adding a blob DDref for the newly created temp.
-  void updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
-                        unsigned DefLevel);
-
-  /// \brief Creates the unrolled loop.
-  HLLoop *createUnrollLoop(HLLoop *OrigLoop, unsigned UnrollFactor,
-                           int64_t NewBound, const RegDDRef *NewRef);
-
-  /// \brief Creates new bounds for unrolled loops.
-  // NewUBInt is used for constant trip loops and NewUBRef is used for
-  // non-constant trip loops. Returns true if remainder loop is needed.
-  bool createNewBound(HLLoop *OrigLoop, unsigned UnrollFactor,
-                      int64_t *NewConstBound, RegDDRef **NewRef);
 };
 }
 
@@ -390,9 +372,10 @@ bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
-  int64_t TripCount;
+  uint64_t TripCount;
 
-  if (Loop->isConstTripLoop(&TripCount) &&
+  if ((Loop->isConstTripLoop(&TripCount) ||
+       (TripCount = Loop->getMaxTripCountEstimate())) &&
       (TripCount < MinTripCountThreshold)) {
     return false;
   }
@@ -424,145 +407,23 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, unsigned UnrollFactor) {
   DEBUG(dbgs() << "\t GeneralUnroll Loop: ");
   DEBUG(OrigLoop->dump());
 
-  // Extract Ztt and add it outside the loop.
-  OrigLoop->extractZtt();
+  bool NeedRemainderLoop = false;
 
-  // Create UB instruction before the loop 't = (Orig UB)/(UnrollFactor)' for
-  // non-constant trip loops. For const trip loops calculate the bound.
-  RegDDRef *NewRef = nullptr;
-  int64_t NewConstBound = 0;
-  bool NeedRemainderLoop =
-      createNewBound(OrigLoop, UnrollFactor, &NewConstBound, &NewRef);
-
-  // Create the unrolled main loop.
-  HLLoop *UnrollLoop =
-      createUnrollLoop(OrigLoop, UnrollFactor, NewConstBound, NewRef);
+  // Create the unrolled main loop and setup remainder loop.
+  HLLoop *UnrollLoop = 
+    HIRLoopTransformUtils::setupMainAndRemainderLoops(OrigLoop, UnrollFactor,
+                                                      NeedRemainderLoop);
 
   processUnrollLoop(OrigLoop, UnrollLoop, UnrollFactor);
 
-  // Update the OrigLoop to remainder loop.
-  if (NeedRemainderLoop) {
-    processRemainderLoop(OrigLoop, UnrollFactor, NewConstBound, NewRef);
-  } else {
-    HLNodeUtils::erase(OrigLoop);
-  }
-
-  // Mark parent loop as modified, if it exists.
-  if (auto ParentLoop = UnrollLoop->getParentLoop()) {
-    HIRInvalidationUtils::invalidateBody(ParentLoop);
-  } else if (!NewConstBound) {
-    // Mark region as modified as we have inserted a new instruction.
-    HIRInvalidationUtils::invalidateNonLoopRegion(
-        UnrollLoop->getParentRegion());
+  // If a remainder loop is not needed get rid of the OrigLoop at this point.
+  if (!NeedRemainderLoop) {
+    HLNodeUtils::remove(OrigLoop);
   }
 
   DEBUG(dbgs() << "\n\t Transformed GeneralUnroll Loops No:"
                << LoopsGenUnrolled);
   DEBUG(UnrollLoop->dump());
-}
-
-bool HIRGeneralUnroll::createNewBound(HLLoop *OrigLoop, unsigned UnrollFactor,
-                                      int64_t *NewConstBound,
-                                      RegDDRef **NewRef) {
-
-  int64_t TripCount;
-
-  if (OrigLoop->isConstTripLoop(&TripCount)) {
-    assert((TripCount > 0) && " TripCount cannot be zero or less.");
-
-    int64_t NewTripCount = TripCount / UnrollFactor;
-    *NewConstBound = NewTripCount - 1;
-
-    // Return true if UnrollFactor does not evenly divide TripCount.
-    return ((NewTripCount * UnrollFactor) != TripCount);
-  }
-
-  // Process for non-const trip loop.
-  RegDDRef *Ref = OrigLoop->getTripCountDDRef();
-  // New instruction should only be created for non-constant trip loops.
-  assert(!Ref->isIntConstant() && " Creating a new instruction for constant"
-                                  "trip loops should not occur.");
-
-  // This will create a new instruction for calculating ub of unrolled loop
-  // and lb of remainder loop. The new instruction is t = (N/8) where 'N' is
-  // the trip count of the original loop.
-  HLInst *TempInst = nullptr;
-  CanonExpr *TripCE = Ref->getSingleCanonExpr();
-  if (TripCE->isSignedDiv() && (TripCE->getDenominator() != 1)) {
-    // Create DDRef for Unroll Factor.
-    RegDDRef *UFDD =
-        DDRefUtils::createConstDDRef(Ref->getDestType(), UnrollFactor);
-    TempInst = HLNodeUtils::createUDiv(Ref, UFDD, "tgu");
-  } else {
-    SmallVector<const RegDDRef *, 3> AuxRefs = {OrigLoop->getStrideDDRef(),
-                                                OrigLoop->getLowerDDRef(),
-                                                OrigLoop->getUpperDDRef()};
-
-    // Use the same canon expr to generate the division.
-    TripCE->divide(UnrollFactor, true);
-
-    Ref->setSymbase(DDRefUtils::getNewSymbase());
-
-    Ref->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel() - 1);
-
-    TempInst = HLNodeUtils::createCopyInst(Ref, "tgu");
-  }
-  HLNodeUtils::insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
-  *NewRef = TempInst->getLvalDDRef();
-
-  return true;
-}
-
-void HIRGeneralUnroll::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
-                                        unsigned DefLevel) {
-  // Overwrite symbase to a newly created one to avoid unnecessary DD edges.
-  BoundRef->setSymbase(DDRefUtils::getNewSymbase());
-
-  // Add blob DDRef for the temp in UB.
-  BoundRef->addBlobDDRef(BlobIndex, DefLevel);
-  BoundRef->updateDefLevel();
-}
-
-HLLoop *HIRGeneralUnroll::createUnrollLoop(HLLoop *OrigLoop,
-                                           unsigned UnrollFactor,
-                                           int64_t NewBound,
-                                           const RegDDRef *NewRef) {
-
-  // TODO: Not sure if we need to add Ztt?
-  // Currently the clone utility handles it.
-  HLLoop *NewLoop = OrigLoop->cloneEmptyLoop();
-  NewLoop->setNumExits((OrigLoop->getNumExits() - 1) * UnrollFactor + 1);
-
-  HLNodeUtils::insertBefore(OrigLoop, NewLoop);
-
-  // Update the loop upper bound.
-  if (NewBound != 0) {
-    NewLoop->getUpperCanonExpr()->setConstant(NewBound);
-  } else {
-
-    // Create 't-1' as new UB.
-    assert(NewRef && " New Ref is null.");
-    RegDDRef *NewUBRef = NewRef->clone();
-
-    // Subtract 1.
-    NewUBRef->getSingleCanonExpr()->addConstant(-1);
-
-    NewLoop->setUpperDDRef(NewUBRef);
-
-    // Sets defined at level of bound ref to (nesting level - 1) as the UB temp
-    // is defined just before the loop.
-    updateBoundDDRef(NewUBRef, NewRef->getSelfBlobIndex(),
-                     OrigLoop->getNestingLevel() - 1);
-
-    // Generate the Ztt.
-    NewLoop->createZtt(false);
-  }
-
-  // Set the code gen for modified region
-  assert(NewLoop->getParentRegion() && " Loop does not have a parent region.");
-  NewLoop->getParentRegion()->setGenCode();
-
-  return NewLoop;
 }
 
 void HIRGeneralUnroll::processUnrollLoop(HLLoop *OrigLoop, HLLoop *UnrollLoop,
@@ -590,36 +451,4 @@ void HIRGeneralUnroll::processUnrollLoop(HLLoop *OrigLoop, HLLoop *UnrollLoop,
                              UnrollCnt);
     HLNodeUtils::visitRange(CEVisit, CurFirstChild, CurLastChild);
   }
-}
-
-void HIRGeneralUnroll::processRemainderLoop(HLLoop *OrigLoop,
-                                            unsigned UnrollFactor,
-                                            int64_t NewBound,
-                                            const RegDDRef *NewRef) {
-  // Mark Loop bounds as modified.
-  HIRInvalidationUtils::invalidateBounds(OrigLoop);
-
-  // Modify the LB of original loop.
-  if (NewBound) {
-    // OrigLoop is a const-trip loop.
-    RegDDRef *OrigLBRef = OrigLoop->getLowerDDRef();
-    CanonExpr *LBCE = OrigLBRef->getSingleCanonExpr();
-    LBCE->setConstant((NewBound + 1) * UnrollFactor);
-  } else {
-
-    // Non-constant trip loop, lb = (UnrollFactor)*t.
-    RegDDRef *NewLBRef = NewRef->clone();
-    NewLBRef->getSingleCanonExpr()->multiplyByConstant(UnrollFactor);
-
-    OrigLoop->setLowerDDRef(NewLBRef);
-    // Sets the defined at level of new LB to (nesting level - 1) as the LB temp
-    // is defined just before the loop.
-    updateBoundDDRef(NewLBRef, NewRef->getSelfBlobIndex(),
-                     OrigLoop->getNestingLevel() - 1);
-
-    OrigLoop->createZtt(false);
-  }
-
-  DEBUG(dbgs() << "\n Remainder Loop \n");
-  DEBUG(OrigLoop->dump());
 }

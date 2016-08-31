@@ -27,6 +27,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParVecAnalysis.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/IR/Intel_LoopIR/Diag.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
@@ -56,11 +57,14 @@ private:
   DenseMap<HLLoop *, ParVecInfo *> &InfoMap;
   /// DDA - Data dependency analysis handle.
   HIRDDAnalysis *DDA;
+  /// SRA - Safe reduction analysis handle
+  HIRSafeReductionAnalysis *SRA;
 
 public:
   ParVecVisitor(ParVecInfo::AnalysisMode Mode, HIRDDAnalysis *DDA,
+                HIRSafeReductionAnalysis *SRA,
                 DenseMap<HLLoop *, ParVecInfo *> &InfoMap)
-      : Mode(Mode), InfoMap(InfoMap), DDA(DDA) {}
+      : Mode(Mode), InfoMap(InfoMap), DDA(DDA), SRA(SRA) {}
   /// \brief Determine parallelizability/vectorizability of the loop
   void postVisit(HLLoop *Loop);
   /// \brief Report instructions that are not suitable for auto-parallelization
@@ -81,6 +85,10 @@ public:
 class DDWalk final : public HLNodeVisitorBase {
   /// DDA - Data dependence analysis
   HIRDDAnalysis &DDA;
+
+  /// SRA - Safe reduction analysis
+  HIRSafeReductionAnalysis &SRA;
+
   /// DDG - Data dependency graph.
   DDGraph DDG;
   /// CandidateLoop - current candidate loop.
@@ -94,10 +102,17 @@ class DDWalk final : public HLNodeVisitorBase {
   /// terminals.
   bool isSimplePrivateTerminal(const RegDDRef *SrcRef, const RegDDRef *SinkRef);
 
+  /// \brief Analyze whether the src/sink flow dependence can be ignored
+  /// due to safe reduction.
+  bool isSafeReductionFlowDep(const RegDDRef *SrcRef, const RegDDRef *SinkRef);
+
 public:
-  DDWalk(HIRDDAnalysis &DDA, HLLoop *CandidateLoop, ParVecInfo *Info)
-      : DDA(DDA), DDG(DDA.getGraph(CandidateLoop, false)),
-        CandidateLoop(CandidateLoop), Info(Info) {}
+  DDWalk(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
+         HLLoop *CandidateLoop, ParVecInfo *Info)
+      : DDA(DDA), SRA(SRA), DDG(DDA.getGraph(CandidateLoop, false)),
+        CandidateLoop(CandidateLoop), Info(Info) {
+    SRA.computeSafeReductionChains(CandidateLoop);
+  }
   /// \brief Visit all outgoing DDEdges for the given node.
   void visit(HLDDNode *Node);
 
@@ -157,12 +172,13 @@ char HIRParVecAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRParVecAnalysis, "hir-parvec-analysis",
                       "HIR Parallel/Vector Candidate Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_END(HIRParVecAnalysis, "hir-parvec-analysis",
                     "HIR Parallel/Vector Candidate Analysis", false, true)
 
 void ParVecVisitor::postVisit(HLLoop *Loop) {
   // Analyze parallelizability/vectorizability if not cached.
-  ParVecInfo::get(Mode, InfoMap, DDA, Loop);
+  ParVecInfo::get(Mode, InfoMap, DDA, SRA, Loop);
 }
 
 void ParVecVisitor::visit(HLInst *Node) {
@@ -182,6 +198,7 @@ void ParVecVisitor::visit(HLInst *Node) {
 void HIRParVecAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<HIRDDAnalysis>();
+  AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
 }
 
 bool HIRParVecAnalysis::runOnFunction(Function &F) {
@@ -191,6 +208,7 @@ bool HIRParVecAnalysis::runOnFunction(Function &F) {
 
   Enabled = true;
   DDA = &getAnalysis<HIRDDAnalysis>();
+  SRA = &getAnalysis<HIRSafeReductionAnalysis>();
 
   // ParVecAnalysis runs in on-demand mode. runOnFunction is almost no-op.
   // In the debug mode, run actual analysis in ParallelVector mode, print
@@ -208,7 +226,7 @@ const ParVecInfo *HIRParVecAnalysis::getInfo(ParVecInfo::AnalysisMode Mode,
   if (!Enabled) {
     return nullptr;
   }
-  auto Info = ParVecInfo::get(Mode, InfoMap, DDA, Loop);
+  auto Info = ParVecInfo::get(Mode, InfoMap, DDA, SRA, Loop);
   return Info;
 }
 
@@ -216,7 +234,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode) {
   if (!Enabled) {
     return;
   }
-  ParVecVisitor Vis(Mode, DDA, InfoMap);
+  ParVecVisitor Vis(Mode, DDA, SRA, InfoMap);
   HLNodeUtils::visitAllInnerToOuter(Vis);
 }
 
@@ -225,7 +243,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
   if (!Enabled) {
     return;
   }
-  ParVecVisitor Vis(Mode, DDA, InfoMap);
+  ParVecVisitor Vis(Mode, DDA, SRA, InfoMap);
   HLNodeUtils::visitInnerToOuter(Vis, Region);
 }
 
@@ -233,7 +251,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
   if (!Enabled) {
     return;
   }
-  ParVecVisitor Vis(Mode, DDA, InfoMap);
+  ParVecVisitor Vis(Mode, DDA, SRA, InfoMap);
   HLNodeUtils::visitInnerToOuter(Vis, Loop);
 }
 
@@ -297,6 +315,22 @@ bool DDWalk::isSimplePrivateTerminal(const RegDDRef *SrcRef,
   return false;
 }
 
+bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
+                                    const RegDDRef *SinkRef) {
+  if (!SrcRef || !SinkRef) {
+    return false;
+  }
+
+  HLNode *WriteNode = SrcRef->getHLDDNode();
+  auto Inst = dyn_cast<HLInst>(WriteNode);
+
+  if (!Inst) {
+    return false;
+  }
+
+  return SRA.isSafeReduction(Inst);
+}
+
 void DDWalk::analyze(const DDEdge *Edge) {
   DEBUG(Edge->dump());
 
@@ -328,6 +362,13 @@ void DDWalk::analyze(const DDEdge *Edge) {
     return;
   }
 
+  if (Edge->isFLOWdep() &&
+      isSafeReductionFlowDep(dyn_cast<RegDDRef>(Edge->getSrc()),
+                             dyn_cast<RegDDRef>(DDref))) {
+    DEBUG(dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
+    return;
+  }
+
   // Is this really useful if refineDV() doesn't recompute?
   if (Edge->isRefinableDepAtLevel(NestLevel)) {
     DirectionVector DV;
@@ -351,13 +392,14 @@ void DDWalk::visit(HLDDNode *Node) {
   // For all DDREFs
   for (auto Itr = Node->ddref_begin(), End = Node->ddref_end(); Itr != End;
        ++Itr) {
-    if ((*Itr)->isConstant()) {
-      continue;
-    }
+    auto Ref = *Itr;
+    auto II = DDG.outgoing_edges_begin(Ref), EE = DDG.outgoing_edges_end(Ref);
+
+    assert((Ref->isLval() || !Ref->isConstant() || II == EE) &&
+           "Constant DDREF is not expected to have any DD edges");
+
     // For all outgoing edges.
-    for (auto II = DDG.outgoing_edges_begin(*Itr),
-              EE = DDG.outgoing_edges_end(*Itr);
-         II != EE; ++II) {
+    for (; II != EE; ++II) {
       const DDEdge *Edge = *II;
       analyze(Edge);
     }
@@ -382,7 +424,8 @@ void ParVecInfo::emitDiag() {
   print(errs(), false);
 }
 
-void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA) {
+void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA,
+                         HIRSafeReductionAnalysis *SRA) {
   // DD Analysis is expensive. Be sure to run structural analysis first,
   // i.e., before coming here.
   if (isVectorMode() && Loop->isSIMD()) {
@@ -402,8 +445,8 @@ void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA) {
   }
   if (!isDone()) {
     cleanEdges();
-    DDWalk DDW(*DDA, Loop, this);  // Legality checker.
-    HLNodeUtils::visit(DDW, Loop); // This can change isDone() status.
+    DDWalk DDW(*DDA, *SRA, Loop, this); // Legality checker.
+    HLNodeUtils::visit(DDW, Loop);      // This can change isDone() status.
   }
   if (isDone()) {
     // Necessary analysis is all complete.

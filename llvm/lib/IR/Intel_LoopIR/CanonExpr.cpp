@@ -363,11 +363,27 @@ bool CanonExpr::isFPVectorConstant(Constant **Val) const {
   return isConstantVectorImpl(Val);
 }
 
-bool CanonExpr::isNull() const {
-  bool Ret = (getSrcType()->isPointerTy() && isConstInternal());
+bool CanonExpr::isNullImpl() const {
+  bool Ret = isConstInternal();
   assert((!Ret || !getConstant()) && "Invalid pointer type canon expr!");
 
   return Ret;
+}
+
+bool CanonExpr::isNull() const {
+  if (!getSrcType()->isPointerTy()) {
+    return false;
+  }
+
+  return isNullImpl();
+}
+
+bool CanonExpr::isNullVector() const {
+  if (!getSrcType()->isVectorTy() || !getSrcType()->isPtrOrPtrVectorTy()) {
+    return false;
+  }
+
+  return isNullImpl();
 }
 
 unsigned CanonExpr::numIVImpl(bool CheckIVPresence,
@@ -905,6 +921,7 @@ void CanonExpr::collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices,
 }
 
 int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
+
   if (CurrentGCD == -1) {
     CurrentGCD = llabs(Num);
   } else {
@@ -915,18 +932,18 @@ int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
 }
 
 void CanonExpr::simplify() {
-  int64_t Denom = 0, C0 = 0, NumeratorGCD = -1, CommonGCD = 0;
+  int64_t Denom = 0, NumeratorGCD = -1, CommonGCD = 0;
 
   // Nothing to simplify...
   if ((Denom = getDenominator()) == 1) {
     return;
   }
 
+  int64_t C0 = getConstant();
+
   // Cannot simplify any further.
-  if ((C0 = getConstant()) == 1) {
+  if ((C0 == 1) || (C0 == -1)) {
     return;
-  } else if (C0) {
-    NumeratorGCD = simplifyGCDHelper(NumeratorGCD, C0);
   }
 
   // Calculate gcd of all the iv and blob coefficients.
@@ -936,8 +953,19 @@ void CanonExpr::simplify() {
     }
     NumeratorGCD = simplifyGCDHelper(NumeratorGCD, I->Coeff);
   }
+
   for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
     NumeratorGCD = simplifyGCDHelper(NumeratorGCD, I->Coeff);
+  }
+
+  // Dealing with constant negative numerator during unsigned division is
+  // complicated so we avoid simplification.
+  if ((NumeratorGCD == -1) && (C0 < 0) && isUnsignedDiv()) {
+    return;
+  }
+
+  if (C0) {
+    NumeratorGCD = simplifyGCDHelper(NumeratorGCD, C0);
   }
 
   CommonGCD = simplifyGCDHelper(NumeratorGCD, Denom);
@@ -1188,16 +1216,22 @@ bool CanonExpr::convertTruncStandAloneBlob(Type *Ty) {
   return castStandAloneBlob(Ty, false);
 }
 
-bool CanonExpr::verifyNestingLevel(unsigned NestingLevel) const {
-  assert((!isLinearAtLevel() ||
-          (getDefinedAtLevel() < NestingLevel || isProperLinear())) &&
-         "CE is undefined at the attached level or should be non-linear.");
-
+bool CanonExpr::verifyIVs(unsigned NestingLevel) const {
   // Verify that there are no undefined IVs.
   for (auto I = iv_begin(), E = iv_end(); I != E; ++I) {
     assert((!(getLevel(I) > NestingLevel) || !hasIVConstCoeff(I)) &&
            "The RegDDRef with IV is attached outside of the loop");
   }
+
+  return true;
+}
+
+bool CanonExpr::verifyNestingLevel(unsigned NestingLevel) const {
+  assert((!isLinearAtLevel() ||
+          (getDefinedAtLevel() < NestingLevel || isProperLinear())) &&
+         "CE is undefined at the attached level or should be non-linear.");
+
+  verifyIVs(NestingLevel);
 
   return true;
 }
@@ -1223,6 +1257,7 @@ void CanonExpr::verify(unsigned NestingLevel) const {
   for (auto I = BlobCoeffs.begin(), E = BlobCoeffs.end(); I != E; ++I) {
     BlobTy B = BlobUtils::getBlob(I->Index);
     (void)B;
+
     auto BScalTy = B->getType()->getScalarType();
     (void)BScalTy;
 

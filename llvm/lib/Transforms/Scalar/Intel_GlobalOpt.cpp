@@ -18,6 +18,7 @@
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -30,6 +31,26 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "nonltoglobalopt"
+
+static cl::opt<unsigned>
+    PhiBBsThreshold("phi-bb-threshold", cl::Hidden, cl::init(3),
+                    cl::desc("Control the number of the BBs having more than "
+                             "two incoming edges (default = 3)"));
+static cl::opt<double>
+    CodeSizeRatioThreshold("cs-size-ratio-threshold", cl::Hidden, cl::init(0.1),
+                    cl::desc("Control the ratio of code size (default = 0.1)"));
+
+static cl::opt<unsigned>
+    NumVarsThreshold("num-vars-threshold", cl::Hidden, cl::init(5),
+                    cl::desc("Control the number of static vars "
+                    "converted (default = 5)"));
+
+static cl::opt<unsigned>
+    NumInsnsThreshold("num-insns-threshold", cl::Hidden, cl::init(50),
+                    cl::desc("Control the number of instruction in "
+                    "complex BB (default = 50)"));
+
+STATISTIC(NumConverted, "Number of static variable converted");
 
 namespace {
 struct NonLTOGlobalOpt : public FunctionPass {
@@ -205,15 +226,70 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
   bool Changed = false;
   Module *M = F.getParent();
 
+
+  // The intel-GlobalOpt should abort if the ReturnsTwice functions such as
+  // setjmp are present.
+  if (F.callsFunctionThatReturnsTwice())
+    return Changed;
+
+  unsigned NumBBsHasMoreThanTwoIncomingEdges, 
+           NumBBsHasTwoIncomingEdges, NumInsns;
+
+  NumBBsHasMoreThanTwoIncomingEdges = 0;
+  NumBBsHasTwoIncomingEdges = 0;
+  NumInsns = 0;
+  bool BBHasTwoIncomingEdges;
+
   for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B) {
+    BBHasTwoIncomingEdges = false;
+    if (std::distance(pred_begin(&*B), pred_end(&*B)) > 2)
+      NumBBsHasMoreThanTwoIncomingEdges++;
+    else if (std::distance(pred_begin(&*B), pred_end(&*B)) == 2) {
+      NumBBsHasTwoIncomingEdges++;
+      BBHasTwoIncomingEdges = true;
+    }
     for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I) {
       if (dyn_cast<FenceInst>(I))
         return Changed;
+      if (BBHasTwoIncomingEdges)
+        NumInsns++;
     }
   }
 
+  // The transformation of global variable to local variable may increase the
+  // register pressure and thus cause performance regression in the case of
+  // complex control flows. The code here is to inhibit the transformation under
+  // this situation. This workaround should be removed after the register
+  // allocation issue is fixed.
+ 
+  bool PossibleBailOut = false;
+  if (NumBBsHasMoreThanTwoIncomingEdges > PhiBBsThreshold ||
+      (NumBBsHasMoreThanTwoIncomingEdges == PhiBBsThreshold &&
+      NumInsns<=NumInsnsThreshold))
+    return Changed;
+  else if (NumInsns > 0 &&
+      (double)NumBBsHasTwoIncomingEdges/(double)NumInsns > 
+      CodeSizeRatioThreshold)
+    PossibleBailOut = true;
+
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
+  unsigned NumToBeTransformed=0;
+  if (PossibleBailOut) {
+    for (Module::global_iterator GVI = M->global_begin(), E = M->global_end();
+         GVI != E;) {
+      GlobalVariable *GV = &*(GVI++);
+      if (AA->escapes(GV))
+        continue;
+      NumToBeTransformed++;
+    }
+    if (NumToBeTransformed < NumVarsThreshold || NumBBsHasMoreThanTwoIncomingEdges < PhiBBsThreshold) 
+      NumToBeTransformed = NumVarsThreshold/2;
+    else
+      NumToBeTransformed = NumVarsThreshold;
+  }
+
   for (Module::global_iterator GVI = M->global_begin(), E = M->global_end();
        GVI != E;) {
     GlobalVariable *GV = &*(GVI++);
@@ -232,7 +308,13 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
     if (GV->isConstant() || !GV->hasInitializer())
       continue;
 
+    if (PossibleBailOut == true &&
+        NumConverted >= NumToBeTransformed) 
+        return Changed;
+    
     Changed |= processInternalGlobal(GV, GS, DT);
+    NumConverted++;
+    
   }
   return Changed;
 }

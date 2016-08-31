@@ -298,6 +298,14 @@ public:
     addFnAttr(Attribute::ReadOnly);
   }
 
+  /// @brief Determine if the function does not access or only writes memory.
+  bool doesNotReadMemory() const {
+    return doesNotAccessMemory() || hasFnAttribute(Attribute::WriteOnly);
+  }
+  void setDoesNotReadMemory() {
+    addFnAttr(Attribute::WriteOnly);
+  }
+
   /// @brief Determine if the call can access memmory only using pointers based
   /// on its arguments.
   bool onlyAccessesArgMemory() const {
@@ -423,7 +431,7 @@ public:
   }
 
   /// Optimize this function for minimum size (-Oz).
-  bool optForMinSize() const { return hasFnAttribute(Attribute::MinSize); };
+  bool optForMinSize() const { return hasFnAttribute(Attribute::MinSize); }
 
   /// Optimize this function for size (-Os) or minimum size (-Oz).
   bool optForSize() const {

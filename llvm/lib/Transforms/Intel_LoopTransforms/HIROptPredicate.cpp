@@ -518,8 +518,7 @@ void HIROptPredicate::insertElseChildren(HLLoop *NewElseLoop, unsigned IfPos,
 
   // Remove the If as it is no longer necessary in the else loop.
   // The If was already hoisted out in the Then loop.
-  HLNodeUtils::erase(NewIf);
-  NewIf = nullptr;
+  HLNodeUtils::remove(NewIf);
 }
 
 void HIROptPredicate::updateIfRef(HLIf *If) {

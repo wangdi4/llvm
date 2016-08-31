@@ -29,6 +29,7 @@
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 
 #define DEBUG_TYPE "VPOIntrinsicUtils"
+#define IGNORE_FEATURE_OUTLINING_STRING "ignore_for_intel_feature_outlining"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -104,6 +105,11 @@ bool VPOUtils::stripDirectives(Function &F) {
   return changed;
 }
 
+void VPOUtils::addNoFeatureOutline(CallInst *Call) {
+  Call->setMetadata(IGNORE_FEATURE_OUTLINING_STRING,
+                    MDNode::get(Call->getContext(), {}));
+}
+
 CallInst *VPOUtils::createMaskedGatherCall(Module *M,
                                            Value *VecPtr,
                                            IRBuilder<> *Builder,
@@ -152,6 +158,7 @@ CallInst *VPOUtils::createMaskedGatherCall(Module *M,
   Arguments.push_back(PassThru);
 
   NewCallInst = Builder->CreateCall(Intrinsic, Arguments);
+  addNoFeatureOutline(NewCallInst);
 
   return NewCallInst;
 }
@@ -199,6 +206,7 @@ CallInst *VPOUtils::createMaskedScatterCall(Module *M,
   Arguments.push_back(Mask);
 
   NewCallInst = Builder->CreateCall(Intrinsic, Arguments);
+  addNoFeatureOutline(NewCallInst);
 
   return NewCallInst;
 }
