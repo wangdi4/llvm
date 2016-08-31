@@ -297,7 +297,7 @@ void createProgramWithSource(cl_program* program, cl_context context,	cl_uint co
 		ASSERT_TRUE(false) << "Null argument provided";
 	}
 	cl_int errcode_ret = CL_SUCCESS;
-	
+
 	*program = clCreateProgramWithSource (context, 1, programSource, NULL, &errcode_ret);
 
 	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateProgramWithSource failed";
@@ -308,15 +308,16 @@ void createProgramWithSource(cl_program* program, cl_context context,	cl_uint co
 // uses programSource which is actual kernel source
 void createProgramWithIL(cl_program* program, cl_context context, const char *programSource, size_t length)
 {
-	if(NULL ==program || NULL ==programSource){
-		ASSERT_TRUE(false) << "Null argument provided";
-	}
-	cl_int errcode_ret = CL_SUCCESS;
+    if (nullptr == program || nullptr == programSource)
+    {
+        ASSERT_TRUE(false) << "Null argument provided";
+    }
+    cl_int errcode_ret = CL_SUCCESS;
 
-	*program = clCreateProgramWithIL (context, programSource, length, &errcode_ret);
+    *program = clCreateProgramWithIL(context, programSource, length, &errcode_ret);
 
-	ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateProgramWithIL failed";
-	ASSERT_NE((cl_program)0, *program) << "clCreateProgramWithIL returned 0 as program value";
+    ASSERT_EQ(CL_SUCCESS, errcode_ret) << "clCreateProgramWithIL failed";
+    ASSERT_NE((cl_program)0, *program) << "clCreateProgramWithIL returned 0 as program value";
 }
 
 // createProgramWithSourceFromKernelName - calls and validates clCreateProgramWithSource
@@ -337,21 +338,22 @@ void createProgramWithSourceFromKernelName(cl_program* program, cl_context conte
 
 // buildProgram - calls and validates clBuildProgram
 void buildProgram (cl_program* program, cl_uint num_devices, const cl_device_id *device_list, const char *options,
-	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), void *user_data)
+    void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), void *user_data)
 {
-	if(NULL==program || NULL==device_list){
-		ASSERT_TRUE(false) << "Null argument provided";
-	}
-	cl_int errcode_ret = clBuildProgram (*program, num_devices, device_list, options, pfn_notify, user_data);
-	if(NULL!=device_list)
-	{
-		if(CL_SUCCESS != errcode_ret)
-		{
-			cl_int logStatus;
+    if (nullptr == program || nullptr == device_list)
+    {
+        ASSERT_TRUE(false) << "Null argument provided";
+    }
+    cl_int errcode_ret = clBuildProgram (*program, num_devices, device_list, options, pfn_notify, user_data);
+    if(nullptr != device_list)
+    {
+        if (CL_SUCCESS != errcode_ret)
+        {
+            cl_int logStatus;
             cl_build_status build_status;
             // check which device failed in build
             cl_uint chosen_device;
-            bool chosen = false;
+            bool found_device_with_fail = false;
             for (chosen_device = 0; chosen_device < num_devices; chosen_device++)
             {
                 logStatus = clGetProgramBuildInfo(*program, device_list[chosen_device], CL_PROGRAM_BUILD_STATUS, sizeof(build_status), &build_status, NULL);
@@ -360,8 +362,8 @@ void buildProgram (cl_program* program, cl_uint num_devices, const cl_device_id 
                 if (build_status != CL_BUILD_SUCCESS)
                 {
                     // found a failing device
-                    chosen = true;
-                    //	prints build fail log
+                    found_device_with_fail = true;
+                    // prints build fail log
                     char * buildLog = NULL;
                     size_t buildLogSize = 0;
                     logStatus = clGetProgramBuildInfo(*program, device_list[chosen_device], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, &buildLogSize);
@@ -378,10 +380,10 @@ void buildProgram (cl_program* program, cl_uint num_devices, const cl_device_id 
                     free(buildLog);
                 }
             }
-            ASSERT_TRUE(chosen)  << "All devices reported build success while clBuildProgram reported failure";
-		}
-	}
-	ASSERT_EQ(CL_SUCCESS, errcode_ret)  << "clBuildProgram failed";
+            ASSERT_TRUE(found_device_with_fail)  << "All devices reported build success while clBuildProgram reported failure";
+        }
+    }
+    ASSERT_EQ(CL_SUCCESS, errcode_ret)  << "clBuildProgram failed";
 }
 
 // getProgramInfo - calls and validates clGetProgramInfo
@@ -400,6 +402,7 @@ void getProgramBuildInfo(cl_program program, cl_device_id device, cl_program_bui
 	ASSERT_EQ(CL_SUCCESS, errcode_ret)  << "clGetProgramBuildInfo failed";
 }
 
+// getKernelSubGroupInfo - calls and validates clGetKernelSubGroupInfo
 void getKernelSubGroupInfo(cl_kernel kernel, cl_device_id device, cl_kernel_sub_group_info param_name,
     size_t input_value_size, const void *input_value, size_t param_value_size,
     void *param_value, size_t *param_value_size_ret)
@@ -430,25 +433,26 @@ void createAndBuildProgramWithSource(const char* sFileName, cl_program* program,
 	}
 }
 
-// createAndBuildProgramWithSourceIL - calls and validates clCreateBuffer clCreateProgramWithIL and clBuildProgram using kernel file name
+// createAndBuildProgramWithSourceIL - calls and validates clCreateProgramWithIL and clBuildProgram using kernel file name
 void createAndBuildProgramWithSourceIL(const char* sFileName, cl_program* program, cl_context context,
-	cl_uint num_devices, const cl_device_id *device_list, const char *options,
-	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),  void *user_data)
+    cl_uint num_devices, const cl_device_id *device_list, const char *options,
+    void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),  void *user_data)
 {
-	if(NULL==sFileName || NULL==program || NULL==device_list){
-		ASSERT_TRUE(false) << "Null argument provided";
-	}
-	cl_int errcode_ret = CL_SUCCESS;
-	const char* kernelSource = NULL;
-	// read kernels file
-	ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, sFileName));
-	ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithILSource(kernelSource, sizeof(kernelSource) / sizeof(char), program, context,
+    if (nullptr == sFileName || nullptr == program || nullptr == device_list)
+    {
+        ASSERT_TRUE(false) << "Null argument provided";
+    }
+    cl_int errcode_ret = CL_SUCCESS;
+    const char* kernelSource = NULL;
+    // read kernels file
+    ASSERT_NO_FATAL_FAILURE(fileToBuffer(&kernelSource, sFileName));
+    ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithILSource(kernelSource, sizeof(kernelSource) / sizeof(char), program, context,
         num_devices, device_list, options, pfn_notify, user_data));
-	if(NULL!=kernelSource)
-	{
-		delete[] kernelSource;
-		kernelSource = NULL;
-	}
+    if (nullptr != kernelSource)
+    {
+        delete[] kernelSource;
+        kernelSource = NULL;
+    }
 }
 
 // createAndBuildProgramWithStringSource - calls and validates clCreateBuffer clCreateProgramWithSource and clBuildProgram using kernel source
@@ -469,14 +473,14 @@ void *user_data)
 void createAndBuildProgramWithILSource(const char* kernelSource, size_t length,
     cl_program* program, cl_context context, cl_uint num_devices,
     const cl_device_id *device_list, const char *options,
-	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
-void *user_data)
+    void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
+    void *user_data)
 {
-	// create program
-	ASSERT_NO_FATAL_FAILURE(createProgramWithIL(program, context, kernelSource, length));
+    // create program
+    ASSERT_NO_FATAL_FAILURE(createProgramWithIL(program, context, kernelSource, length));
 
-	// build program
-	ASSERT_NO_FATAL_FAILURE( buildProgram (program, num_devices, device_list, options, pfn_notify, user_data));
+    // build program
+    ASSERT_NO_FATAL_FAILURE(buildProgram(program, num_devices, device_list, options, pfn_notify, user_data));
 }
 
 // compileProgram - calls and validates clCompileProgram
@@ -575,10 +579,11 @@ void createKernel(cl_kernel* kernel , cl_program program, const char *kernel_nam
 	ASSERT_NE((cl_kernel)0, *kernel) << "clCreateKernel returned 0 as kernel value";
 }
 
-// cloneKernel - calls and validates clCloneKernel
+// cloneKernel - calls and validates clCloneKernel
 void cloneKernel(cl_kernel* new_kernel, cl_kernel source_kernel)
 {
-    if(NULL==new_kernel){
+    if (nullptr == new_kernel)
+    {
         ASSERT_TRUE(false) << "Null argument provided";
     }
     cl_int errcode_ret = CL_SUCCESS;
@@ -808,7 +813,7 @@ void enqueueMarker(cl_command_queue command_queue, cl_event *end_event)
 	ASSERT_EQ(CL_SUCCESS, clEnqueueMarker(command_queue, end_event)) << "clEnqueueMarker failed";
 }
 
-//	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
+// setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
 void setUpContextProgramQueues(OpenCLDescriptor& ocl_descriptor, const char* kernelFileName)
 {
 	if(NULL==kernelFileName){
@@ -833,7 +838,7 @@ void setUpContextProgramQueues(OpenCLDescriptor& ocl_descriptor, const char* ker
 	}
 }
 
-//	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU OR GPU on a single platform
+// setUpContextProgramQueuesForSingleDevice - creates and validate shared context, program and separate queues for CPU OR GPU on a single platform
 void setUpContextProgramQueuesForSingelDevice(OpenCLDescriptor& ocl_descriptor, const char* kernelFileName,cl_device_type device_type)
 {
 	// creates context programs and queues
@@ -851,7 +856,7 @@ void setUpContextProgramQueuesForSingelDevice(OpenCLDescriptor& ocl_descriptor, 
 	}
 
 }
-//	setUpSingleContextProgramQueue - creates and validate a context, program and queue device of type device_type
+// setUpSingleContextProgramQueue - creates and validate a context, program and queue device of type device_type
 void setUpSingleContextProgramQueue(const char* kernelFileName, cl_context* context, cl_program* program, 
 									 cl_command_queue* queues, cl_device_type device_type)
 {
@@ -871,7 +876,7 @@ void setUpSingleContextProgramQueue(const char* kernelFileName, cl_context* cont
 	ASSERT_NO_FATAL_FAILURE(createCommandQueue(&queues[0], *context, devices[0], 0));
 }
 
-//	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
+// setUpContextProgramQueuesFromStringSource - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
 void setUpContextProgramQueuesFromStringSource(OpenCLDescriptor& ocl_descriptor, const char* kernelSource)
 {
 	// get pltfrom and device ids
@@ -893,26 +898,26 @@ void setUpContextProgramQueuesFromStringSource(OpenCLDescriptor& ocl_descriptor,
 	}
 }
 
-//	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
+// setUpContextProgramQueuesFromILSource - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
 void setUpContextProgramQueuesFromILSource(OpenCLDescriptor& ocl_descriptor, const char* kernelSource)
 {
-	// get pltfrom and device ids
-	ASSERT_NO_FATAL_FAILURE(getCPUGPUDevicesIfNotCreated(ocl_descriptor));
-	// cpu is at index 0, gpu is at index 1
+    // get platfrom and device ids
+    ASSERT_NO_FATAL_FAILURE(getCPUGPUDevicesIfNotCreated(ocl_descriptor));
+    // cpu is at index 0, gpu is at index 1
 
-	// create context
-	cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)ocl_descriptor.platforms[0], 0};
-	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 2, ocl_descriptor.devices, NULL, NULL));
+    // create context
+    cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)ocl_descriptor.platforms[0], 0};
+    ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 2, ocl_descriptor.devices, nullptr, nullptr));
 
-	//	create and build program
-	ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSourceIL(kernelSource, &ocl_descriptor.program, ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
+    // create and build program
+    ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSourceIL(kernelSource, &ocl_descriptor.program, ocl_descriptor.context, 2, ocl_descriptor.devices, nullptr, nullptr, nullptr));
 
-	// create queues
-	for(int i=0; i<2; ++i)
-	{
-		// create queue
-		ASSERT_NO_FATAL_FAILURE(createCommandQueue(&ocl_descriptor.queues[i], ocl_descriptor.context, ocl_descriptor.devices[i], 0));
-	}
+    // create queues
+    for(int i = 0; i < 2; ++i)
+    {
+        // create queue
+        ASSERT_NO_FATAL_FAILURE(createCommandQueue(&ocl_descriptor.queues[i], ocl_descriptor.context, ocl_descriptor.devices[i], 0));
+    }
 }
 
 // setMemObjectDestructorCallback - calls and validates clSetMemObjectDestructorCallback

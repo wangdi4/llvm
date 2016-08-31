@@ -275,8 +275,9 @@ void createAndBuildProgramWithSource(const char* sFileName, cl_program* program,
 
 // createAndBuildProgramWithSourceIL - calls and validates clCreateProgramWithIL and clBuildProgram using kernel file name
 void createAndBuildProgramWithSourceIL(const char* sFileName, cl_program* program, cl_context context,
-	cl_uint num_devices, const cl_device_id *device_list, const char *options, void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
-	void *user_data);
+    cl_uint num_devices, const cl_device_id *device_list, const char *options,
+    void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
+    void *user_data);
 
 // createAndBuildProgramWithStringSource - calls and validates clCreateBuffer clCreateProgramWithSource and clBuildProgram using kernel source
 void createAndBuildProgramWithStringSource(const char* kernelSource, cl_program* program, cl_context context,
@@ -284,11 +285,11 @@ void createAndBuildProgramWithStringSource(const char* kernelSource, cl_program*
 	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), 
 	void *user_data);
 
-// createAndBuildProgramWithILSource - calls and validates clCreateBuffer clCreateProgramWithIL and clBuildProgram using kernel source
+// createAndBuildProgramWithILSource - calls and validates clCreateProgramWithIL and clBuildProgram using kernel source
 void createAndBuildProgramWithILSource(const char* kernelSource, size_t length,
     cl_program* program, cl_context context, cl_uint num_devices,
     const cl_device_id *device_list, const char *options,
-	void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
+    void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
     void *user_data);
 
 //createProgramWithBinary - calls and validates clCreateProgramWithBinary
@@ -339,6 +340,7 @@ void waitForEvents(cl_uint num_events, const cl_event *event_list);
 void enqueueSVMMigrateMem(cl_command_queue command_queue, cl_uint num_svm_pointers, const void **svm_pointers,
     const size_t *sizes, cl_mem_migration_flags flags, cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list, cl_event *event);
+
 // enqueueMapBuffer - calls and validates clEnqueueMapBuffer
 template<typename T>
 void enqueueMapBuffer(T** arrayToMap, cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_map, 
@@ -451,13 +453,13 @@ void setUpSingleContextProgramQueue(const char* kernelFileName, cl_context* cont
 //	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
 void setUpContextProgramQueues(OpenCLDescriptor& ocl_descriptor, const char* kernelFileName);
 
-//	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU OR GPU on a single platform
+// setUpContextProgramQueuesForSingleDevice - creates and validate shared context, program and separate queues for CPU OR GPU on a single platform
 void setUpContextProgramQueuesForSingelDevice(OpenCLDescriptor& ocl_descriptor, const char* kernelFileName,cl_device_type device_type);
 
-//	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
+// setUpContextProgramQueuesFromStringSource - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
 void setUpContextProgramQueuesFromStringSource(OpenCLDescriptor& ocl_descriptor, const char* kernelSource);
 
-//	setUpContextProgramQueues - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
+// setUpContextProgramQueuesFromILSource - creates and validate shared context, program and separate queues for CPU and GPU on a single platform
 void setUpContextProgramQueuesFromILSource(OpenCLDescriptor& ocl_descriptor, const char* kernelSource);
 
 //	executeSetAndExecuteKernels - for both CPU and GPU devices creates and sets kernels with arguments
