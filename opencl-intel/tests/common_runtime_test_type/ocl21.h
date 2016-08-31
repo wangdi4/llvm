@@ -35,7 +35,7 @@ class IncrementingSequence
         IncrementingSequence(T start) : value(start)
         {}
 
-        IncrementingSequence() : IncrementingSequence((T)0)
+        IncrementingSequence() : value((T)0)
         {}
 
         T operator() ()
