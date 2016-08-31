@@ -3540,7 +3540,7 @@ ExprResult Sema::ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
                     .get())
                 .get());
         Stmt *IfStmt =
-            ActOnIfStmt(SourceLocation(), /*IsConstexpr=*/false,
+            ActOnIfStmt(SourceLocation(), /*IsConstexpr=*/false, nullptr,
                         ActOnCondition(S, SourceLocation(), Cond.get(),
                                        ConditionKind::Boolean),
                         new (Context) BreakStmt(SourceLocation()),

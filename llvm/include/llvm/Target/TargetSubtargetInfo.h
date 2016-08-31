@@ -27,6 +27,7 @@ class CallLowering;
 class DataLayout;
 class MachineFunction;
 class MachineInstr;
+class MachineLegalizer;
 class RegisterBankInfo;
 class SDep;
 class SUnit;
@@ -94,6 +95,10 @@ public:
     return nullptr;
   }
 
+  virtual const MachineLegalizer *getMachineLegalizer() const {
+    return nullptr;
+  }
+
   /// getRegisterInfo - If register information is available, return it.  If
   /// not, return null.
   ///
@@ -153,7 +158,6 @@ public:
   /// scheduling heuristics (no custom MachineSchedStrategy) to make
   /// changes to the generic scheduling policy.
   virtual void overrideSchedPolicy(MachineSchedPolicy &Policy,
-                                   MachineInstr *begin, MachineInstr *end,
                                    unsigned NumRegionInstrs) const {}
 
   // \brief Perform target specific adjustments to the latency of a schedule

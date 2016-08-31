@@ -106,7 +106,6 @@
 # DSO-NEXT:      Index: 3
 # DSO-NEXT:      Hash: 98456416
 # DSO-NEXT:      Name: LIBSAMPLE_2.0
-# DSO-NEXT:      Predecessor: LIBSAMPLE_1.0
 # DSO-NEXT:    }
 # DSO-NEXT:  }
 
@@ -198,10 +197,6 @@
 # EXE-NEXT:      }
 # EXE-NEXT:    }
 # EXE-NEXT:  }
-
-# RUN: not ld.lld -shared %t1 -o %terr.so 2>&1 | \
-# RUN:   FileCheck -check-prefix=ERR1 %s
-# ERR1: symbol b@@LIBSAMPLE_2.0 has undefined version LIBSAMPLE_2.0
 
 .globl _start
 _start:

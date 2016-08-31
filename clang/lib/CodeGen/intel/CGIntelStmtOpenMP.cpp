@@ -528,6 +528,8 @@ class OpenMPCodeOutliner {
   void emitOMPDefaultmapClause(const OMPDefaultmapClause *) {}
   void emitOMPToClause(const OMPToClause *) {}
   void emitOMPFromClause(const OMPFromClause *) {}
+  void emitOMPUseDevicePtrClause(const OMPUseDevicePtrClause *) {}
+  void emitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *) {}
 
 public:
   OpenMPCodeOutliner(CodeGenFunction &CGF)
@@ -825,6 +827,10 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_target_exit_data:
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
+  case OMPD_target_update:
+  case OMPD_distribute_parallel_for:
+  case OMPD_distribute_parallel_for_simd:
+  case OMPD_distribute_simd:
     break;
   case OMPD_declare_target:
   case OMPD_end_declare_target:
