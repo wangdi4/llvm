@@ -26,9 +26,10 @@ This parser cannot be used for parsing OpenCL builtin names produced by Apple cl
 #ifndef OCL_BUILTIN_PARSER_H
 #define OCL_BUILTIN_PARSER_H
 
-#include <vector>
-#include <string>
+#include <llvm/ADT/ArrayRef.h>
 #include "llvm/Support/DataTypes.h"
+
+#include <string>
 
 namespace llvm {
 

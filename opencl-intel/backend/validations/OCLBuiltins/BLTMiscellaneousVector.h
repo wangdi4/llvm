@@ -18,9 +18,10 @@ File Name:  BLTMiscellaneousVector.h
 #ifndef BLT_MISCELLANEOUSVECTOR_H
 #define BLT_MISCELLANEOUSVECTOR_H
 
-#include <vector>
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+
 #include "Helpers.h"
 #include "RefALU.h"
 #include "Utils.h"
@@ -30,7 +31,7 @@ namespace OCLBuiltins {
 
     template<typename T1, typename T2, int n>
     llvm::GenericValue lle_X_shuffle(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;        
         llvm::GenericValue arg0 = Args[0];
@@ -54,7 +55,7 @@ namespace OCLBuiltins {
 
     template<typename T1, typename T2, int n>
     llvm::GenericValue lle_X_shuffle2(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args)
+        llvm::ArrayRef<llvm::GenericValue> Args)
     {
         llvm::GenericValue R;
         llvm::GenericValue arg0 = Args[0];

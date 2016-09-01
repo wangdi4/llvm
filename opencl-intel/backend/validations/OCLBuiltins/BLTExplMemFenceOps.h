@@ -18,22 +18,24 @@ File Name:  BLTExplMemFenceOps.h
 #ifndef BLT_EXPL_MEM_FENCE_H
 #define BLT_EXPL_MEM_FENCE_H
 
-#include <map>
-#include <string>
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+
+#include <map>
+#include <string>
 
 namespace Validation {
 namespace OCLBuiltins {
 
 llvm::GenericValue lle_X_mem_fence_impl(llvm::FunctionType *FT,
-                         const std::vector<llvm::GenericValue> &Args);
+                         llvm::ArrayRef<llvm::GenericValue> Args);
 
 llvm::GenericValue lle_X_read_mem_fence_impl(llvm::FunctionType *FT,
-                         const std::vector<llvm::GenericValue> &Args);
+                         llvm::ArrayRef<llvm::GenericValue> Args);
 
 llvm::GenericValue lle_X_write_mem_fence_impl(llvm::FunctionType *FT,
-                         const std::vector<llvm::GenericValue> &Args);
+                         llvm::ArrayRef<llvm::GenericValue> Args);
 
 
 } // namespace OCLBuiltins

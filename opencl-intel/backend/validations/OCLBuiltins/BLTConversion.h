@@ -18,9 +18,10 @@ File Name:  BLTConversion.h
 #ifndef BLT_CONVERSION_H
 #define BLT_CONVERSION_H
 
-#include <vector>
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+
 #include "Helpers.h"
 #include "RefALU.h"
 
@@ -420,7 +421,7 @@ namespace OCLBuiltins {
 
         template<typename TDst, typename TSrc, int n, bool saturate, int RMode>
         llvm::GenericValue lle_X_convert(llvm::FunctionType *FT,
-            const std::vector<llvm::GenericValue> &Args)
+            llvm::ArrayRef<llvm::GenericValue> Args)
         {
             IsScalarType<TDst> _x; UNUSED_ARGUMENT(_x);
             IsScalarType<TSrc> _y; UNUSED_ARGUMENT(_y);

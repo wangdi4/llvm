@@ -18,9 +18,10 @@ File Name:  BLTImages.h
 #ifndef BLT_IMAGES_H
 #define BLT_IMAGES_H
 
-#include <vector>
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+
 #include "llvm/Support/Debug.h"
 #include "Helpers.h"
 #include "RefALU.h"
@@ -116,7 +117,7 @@ cl_channel_type ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type& va
 
     template<typename T>
     llvm::GenericValue lle_X_read_image( llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args )
+        llvm::ArrayRef<llvm::GenericValue> Args )
     {
         const cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
 
@@ -138,7 +139,7 @@ cl_channel_type ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type& va
 
     template<typename T>
     llvm::GenericValue lle_X_read_image_samplerless( llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args )
+        llvm::ArrayRef<llvm::GenericValue> Args )
     {
         const cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
 
@@ -166,7 +167,7 @@ cl_channel_type ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type& va
 
     template<typename T>
     llvm::GenericValue lle_X_write_image( llvm::FunctionType *FT, 
-                                     const std::vector<llvm::GenericValue> &Args )
+                                     llvm::ArrayRef<llvm::GenericValue> Args )
     {
         GenericValue gv;
         cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
@@ -198,28 +199,28 @@ cl_channel_type ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type& va
     }
         
     llvm::GenericValue lle_X_get_image_dim2(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args);
+        llvm::ArrayRef<llvm::GenericValue> Args);
         
     llvm::GenericValue lle_X_get_image_width(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args);
+        llvm::ArrayRef<llvm::GenericValue> Args);
     
     llvm::GenericValue lle_X_get_image_height(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args);
+        llvm::ArrayRef<llvm::GenericValue> Args);
 
     llvm::GenericValue lle_X_get_image_depth(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args);
+        llvm::ArrayRef<llvm::GenericValue> Args);
 
     llvm::GenericValue lle_X_get_image_dim3(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args);
+        llvm::ArrayRef<llvm::GenericValue> Args);
 
     llvm::GenericValue lle_X_get_image_channel_data_type(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args);
+        llvm::ArrayRef<llvm::GenericValue> Args);
 
     llvm::GenericValue lle_X_get_image_channel_order(llvm::FunctionType *FT,
-        const std::vector<llvm::GenericValue> &Args);
+        llvm::ArrayRef<llvm::GenericValue> Args);
 
     llvm::GenericValue lle_X_get_image_array_size(FunctionType *FT,
-        const std::vector<GenericValue> &Args);
+        llvm::ArrayRef<llvm::GenericValue> Args);
 
     /// @brief convert from Intel OpenCL enums with CLK_ prefix to CL_ prefix
     cl_channel_order ConvertChannelOrderFromIntelOCLToCL(const cl_channel_order& val );

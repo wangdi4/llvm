@@ -18,9 +18,10 @@ File Name:  BLTCommon.h
 #ifndef BLT_COMMON_H
 #define BLT_COMMON_H
 
-#include <vector>
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+
 #include "Helpers.h"
 #include <RefALU.h>
 
@@ -29,7 +30,7 @@ namespace OCLBuiltins {
 
 template<typename T, int n, int s>
 llvm::GenericValue lle_X_max(llvm::FunctionType *FT,
-                       const std::vector<llvm::GenericValue> &Args)
+                       llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue R;
     R.AggregateVal.resize(n);
@@ -44,7 +45,7 @@ llvm::GenericValue lle_X_max(llvm::FunctionType *FT,
 
 template<typename T, int n, int s>
 llvm::GenericValue lle_X_min(llvm::FunctionType *FT,
-                       const std::vector<llvm::GenericValue> &Args)
+                       llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue R;
     R.AggregateVal.resize(n);
@@ -59,7 +60,7 @@ llvm::GenericValue lle_X_min(llvm::FunctionType *FT,
 
 template<typename T, int n, int s>
 llvm::GenericValue lle_X_mix(llvm::FunctionType *FT,
-                             const std::vector<llvm::GenericValue> &Args)
+                             llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue R;
     R.AggregateVal.resize(n);
@@ -75,7 +76,7 @@ llvm::GenericValue lle_X_mix(llvm::FunctionType *FT,
 
 template<typename T, int s, int n>
 llvm::GenericValue lle_X_step(llvm::FunctionType *FT,
-                             const std::vector<llvm::GenericValue> &Args)
+                             llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue R;
     R.AggregateVal.resize(n);
@@ -90,7 +91,7 @@ llvm::GenericValue lle_X_step(llvm::FunctionType *FT,
 
 template<typename T, int s, int n>
 llvm::GenericValue lle_X_smoothstep(llvm::FunctionType *FT,
-                             const std::vector<llvm::GenericValue> &Args)
+                             llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue R;
     R.AggregateVal.resize(n);
@@ -106,7 +107,7 @@ llvm::GenericValue lle_X_smoothstep(llvm::FunctionType *FT,
 
 template<typename T, int n, int s>
 llvm::GenericValue lle_X_clamp(llvm::FunctionType *FT,
-                             const std::vector<llvm::GenericValue> &Args)
+                             llvm::ArrayRef<llvm::GenericValue> Args)
 {
     llvm::GenericValue R;
     R.AggregateVal.resize(n);

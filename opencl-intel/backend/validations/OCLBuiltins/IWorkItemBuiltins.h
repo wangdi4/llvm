@@ -18,8 +18,8 @@ File Name:  IWorkItemBuiltins.h
 #ifndef I_WORK_ITEM_BUILTINS
 #define I_WORK_ITEM_BUILTINS
 
-#include <cassert>
 #include <llvm/IR/DerivedTypes.h>
+#include <cassert>
 
 namespace Validation {
 namespace OCLBuiltins {

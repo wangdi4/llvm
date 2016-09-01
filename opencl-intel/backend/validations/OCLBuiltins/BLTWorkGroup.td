@@ -85,7 +85,7 @@ namespace Validation {
 namespace OCLBuiltins {
 
 GenericValue lle_X_work_group_all(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   GenericValue gv;
 
@@ -96,7 +96,7 @@ GenericValue lle_X_work_group_all(FunctionType *FT,
 }
 
 GenericValue lle_X_work_group_all_pre_exec(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   llvm::GenericValue initializer;
   initializer.IntVal = APInt(32, 1, true);
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
@@ -110,7 +110,7 @@ GenericValue lle_X_work_group_all_pre_exec(FunctionType *FT,
 }
 
 GenericValue lle_X_work_group_any(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   GenericValue gv;
 
@@ -121,7 +121,7 @@ GenericValue lle_X_work_group_any(FunctionType *FT,
 }
 
 GenericValue lle_X_work_group_any_pre_exec(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   llvm::GenericValue initializer;
   initializer.IntVal = APInt(32, 1, true);
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
@@ -135,7 +135,7 @@ GenericValue lle_X_work_group_any_pre_exec(FunctionType *FT,
 }
 
 GenericValue lle_X_work_group_broadcast_1D_pre_exec(FunctionType *FT,
-    const std::vector<GenericValue> &Args) {
+    llvm::ArrayRef<llvm::GenericValue> Args) {
         IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
         IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
         llvm::GenericValue initializer;
@@ -154,7 +154,7 @@ GenericValue lle_X_work_group_broadcast_1D_pre_exec(FunctionType *FT,
 }
 
 GenericValue lle_X_work_group_broadcast_2D_pre_exec(FunctionType *FT,
-    const std::vector<GenericValue> &Args) {
+    llvm::ArrayRef<llvm::GenericValue> Args) {
         IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
         IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
         llvm::GenericValue initializer;
@@ -176,7 +176,7 @@ GenericValue lle_X_work_group_broadcast_2D_pre_exec(FunctionType *FT,
 }
 
 GenericValue lle_X_work_group_broadcast_3D_pre_exec(FunctionType *FT,
-    const std::vector<GenericValue> &Args) {
+    llvm::ArrayRef<llvm::GenericValue> Args) {
         IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
         IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
         llvm::GenericValue initializer;
@@ -200,7 +200,7 @@ GenericValue lle_X_work_group_broadcast_3D_pre_exec(FunctionType *FT,
 }
 
 GenericValue lle_X_work_group_broadcast(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   GenericValue gv = pG->GetValueForBroadcastBuiltin();
 
@@ -210,7 +210,7 @@ GenericValue lle_X_work_group_broadcast(FunctionType *FT,
 
 template<typename T>
 GenericValue lle_X_work_group_reduce_add_pre_exec(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   llvm::GenericValue initializer;
   initializer = initWithZero<T>();
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
@@ -224,7 +224,7 @@ GenericValue lle_X_work_group_reduce_add_pre_exec(FunctionType *FT,
 
 template<typename T>
 GenericValue lle_X_work_group_reduce_add(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   GenericValue gv = pG->GetValueForReduceBuiltin();
 
@@ -234,7 +234,7 @@ GenericValue lle_X_work_group_reduce_add(FunctionType *FT,
 
 template<typename T>
 GenericValue lle_X_work_group_reduce_min_pre_exec(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   llvm::GenericValue initializer;
   initializer = initWithMax<T>();
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
@@ -250,7 +250,7 @@ GenericValue lle_X_work_group_reduce_min_pre_exec(FunctionType *FT,
 
 template<typename T>
 GenericValue lle_X_work_group_reduce_min(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   GenericValue gv = pG->GetValueForReduceBuiltin();
 
@@ -260,7 +260,7 @@ GenericValue lle_X_work_group_reduce_min(FunctionType *FT,
 
 template<typename T>
 GenericValue lle_X_work_group_reduce_max_pre_exec(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   llvm::GenericValue initializer;
   initializer = initWithMin<T>();
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
@@ -276,7 +276,7 @@ GenericValue lle_X_work_group_reduce_max_pre_exec(FunctionType *FT,
 
 template<typename T>
 GenericValue lle_X_work_group_reduce_max(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   GenericValue gv = pG->GetValueForReduceBuiltin();
 
@@ -287,7 +287,7 @@ GenericValue lle_X_work_group_reduce_max(FunctionType *FT,
 //common function for all prefixsum built-ins
 template<typename T>
 GenericValue lle_X_work_group_prefixsum_pre_exec_impl(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   //collect data in a special way
   //execute operation in post method
   uint64_t idx0, idx1, idx2;//indexes if current WI
@@ -323,7 +323,7 @@ GenericValue lle_X_work_group_prefixsum_pre_exec_impl(FunctionType *FT,
 
 template<typename T, bool isExlusive>
 GenericValue lle_X_work_group_prefixsum_max_impl(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv = initWithMin<T>();
@@ -361,7 +361,7 @@ GenericValue lle_X_work_group_prefixsum_max_impl(FunctionType *FT,
 
 template<typename T, bool isExclusive>
 GenericValue lle_X_work_group_prefixsum_add_impl(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv = initWithZero<T>();
@@ -399,7 +399,7 @@ GenericValue lle_X_work_group_prefixsum_add_impl(FunctionType *FT,
 
 template<typename T, bool isExclusive>
 GenericValue lle_X_work_group_prefixsum_min_impl(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv = initWithMax<T>();
@@ -437,76 +437,76 @@ GenericValue lle_X_work_group_prefixsum_min_impl(FunctionType *FT,
 
 template<typename T, bool isExclusive>
 GenericValue lle_X_work_group_prefixsum_inclusive_min(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_prefixsum_min_impl<T, isExclusive>(FT, Args);
 }
 template<typename T, bool isExclusive>
 GenericValue lle_X_work_group_prefixsum_inclusive_max(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_prefixsum_max_impl<T, isExclusive>(FT, Args);
 }
 template<typename T, bool isExclusive>
 GenericValue lle_X_work_group_prefixsum_inclusive_add(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_prefixsum_add_impl<T, isExclusive>(FT, Args);
 }
 template<typename T, bool isExclusive>
 GenericValue lle_X_work_group_prefixsum_exclusive_min(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_prefixsum_min_impl<T, isExclusive>(FT, Args);
 }
 template<typename T, bool isExclusive>
 GenericValue lle_X_work_group_prefixsum_exclusive_max(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_prefixsum_max_impl<T, isExclusive>(FT, Args);
 }
 template<typename T, bool isExclusive>
 GenericValue lle_X_work_group_prefixsum_exclusive_add(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_prefixsum_add_impl<T, isExclusive>(FT, Args);
 }
 
 template<typename T>
 GenericValue lle_X_work_group_prefixsum_inclusive_min_pre_exec(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_prefixsum_pre_exec_impl<T>(FT, Args);
 }
 template<typename T>
 GenericValue lle_X_work_group_prefixsum_inclusive_max_pre_exec(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_prefixsum_pre_exec_impl<T>(FT, Args);
 }
 template<typename T>
 GenericValue lle_X_work_group_prefixsum_inclusive_add_pre_exec(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_prefixsum_pre_exec_impl<T>(FT, Args);
 }
 template<typename T>
 GenericValue lle_X_work_group_prefixsum_exclusive_min_pre_exec(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_prefixsum_pre_exec_impl<T>(FT, Args);
 }
 template<typename T>
 GenericValue lle_X_work_group_prefixsum_exclusive_max_pre_exec(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_prefixsum_pre_exec_impl<T>(FT, Args);
 }
 template<typename T>
 GenericValue lle_X_work_group_prefixsum_exclusive_add_pre_exec(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_prefixsum_pre_exec_impl<T>(FT, Args);
 }
 
 GenericValue lle_X_work_group_broadcast_1D(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_broadcast(FT, Args);
 }
 GenericValue lle_X_work_group_broadcast_2D(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_broadcast(FT, Args);
 }
 GenericValue lle_X_work_group_broadcast_3D(FunctionType *FT,
-                         const std::vector<GenericValue> &Args) {
+                         llvm::ArrayRef<llvm::GenericValue> Args) {
   return lle_X_work_group_broadcast(FT, Args);
 }
 
