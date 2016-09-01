@@ -72,6 +72,7 @@ def IICvtFI   : InstrItinClass;
 def IICvtFF   : InstrItinClass;
 def IILD      : InstrItinClass;
 def IIST      : InstrItinClass;
+def IIATM     : InstrItinClass;
 def IISeq     : InstrItinClass;
 def IICtl     : InstrItinClass;
 
@@ -123,6 +124,7 @@ ProcessorItineraries<
   InstrItinData<IICvtFF   , [InstrStage<1, [FMA]>]>,
   InstrItinData<IILD      , [InstrStage<12,[MEM]>]>,
   InstrItinData<IIST      , [InstrStage<4, [MEM]>]>,
+  InstrItinData<IIATM     , [InstrStage<12,[MEM]>]>,
   InstrItinData<IISeq     , [InstrStage<1, [ALU]>]>,
   InstrItinData<IICtl     , [InstrStage<1, [SXU]>]>
 
