@@ -1952,7 +1952,7 @@ void __attribute__((overloadable)) write_imagei (__read_write image1d_array_t im
     write_imagei(__builtin_astype(image, __write_only image1d_array_t), coord, color);
 }
 
-void __attribute__((overloadable)) write_imageui (__read_only image1d_array_t image, int2 coord, uint4 color)
+void __attribute__((overloadable)) write_imageui (__write_only image1d_array_t image, int2 coord, uint4 color)
 {
     __private void* pixel = extract_pixel(image, coord);
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
@@ -1962,7 +1962,7 @@ void __attribute__((overloadable)) write_imageui (__read_only image1d_array_t im
 
 void __attribute__((overloadable)) write_imageui (__read_write image1d_array_t image, int2 coord, uint4 color)
 {
-    write_imageui(__builtin_astype(image, __read_only image1d_array_t), coord, color);
+    write_imageui(__builtin_astype(image, __write_only image1d_array_t), coord, color);
 }
 
 void __attribute__((overloadable)) write_imagef(__write_only image3d_t image, int4 coord, float4 color)
