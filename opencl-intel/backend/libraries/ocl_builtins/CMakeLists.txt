@@ -223,10 +223,17 @@ set (CLANG_OCL_12_COMPILER_FLAGS
   -cl-std=CL1.2 -D __OPENCL_C_VERSION__=120
   )
 
+# -ffp-contract=off is added to avoid the following bug:
+# Assume that user disabled fp contractions, so there is no
+# opencl.enable.FP_CONTRACT named metadata in the program. When we link user's
+# program with the run-time library all metadata are merged together, so if we
+# build run-time library with default 'fp-contract' option value, clang will
+# add opencl.enable.FP_CONTRACT metadata and they will eventually appear in the
+# user's program.
 set (CLANG_CL_COMMON_COMPILER_FLAGS
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h
-  -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign
+  -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=off
   )
 
 set (CLANG_C_COMPILER_PARAMS
