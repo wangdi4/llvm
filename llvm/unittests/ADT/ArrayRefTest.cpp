@@ -134,7 +134,9 @@ static void ArgTest12(ArrayRef<int> A) {
 }
 
 TEST(ArrayRefTest, InitializerList) {
-  ArrayRef<int> A = { 0, 1, 2, 3, 4 };
+  static const int TheNumbers[] = { 0, 1, 2, 3, 4 }; // INTEL
+  ArrayRef<int> A(TheNumbers);                       // INTEL
+
   for (int i = 0; i < 5; ++i)
     EXPECT_EQ(i, A[i]);
 

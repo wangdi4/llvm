@@ -39,6 +39,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Vectorize.h"
 
 using namespace llvm;
 
@@ -58,6 +59,13 @@ static cl::opt<bool> EnableR600IfConvert(
   cl::desc("Use if conversion pass"),
   cl::ReallyHidden,
   cl::init(true));
+
+// Option to disable vectorizer for tests.
+static cl::opt<bool> EnableLoadStoreVectorizer(
+  "amdgpu-load-store-vectorizer",
+  cl::desc("Enable load store vectorizer"),
+  cl::init(false),
+  cl::Hidden);
 
 extern "C" void LLVMInitializeAMDGPUTarget() {
   // Register the target
@@ -126,9 +134,9 @@ static StringRef getGPUOrDefault(const Triple &TT, StringRef GPU) {
 }
 
 static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
-  if (!RM.hasValue())
-    return Reloc::PIC_;
-  return *RM;
+  // The AMDGPU toolchain only supports generating shared objects, so we
+  // must always use PIC.
+  return Reloc::PIC_;
 }
 
 AMDGPUTargetMachine::AMDGPUTargetMachine(const Target &T, const Triple &TT,
@@ -267,6 +275,7 @@ public:
   void addEarlyCSEOrGVNPass();
   void addStraightLineScalarOptimizationPasses();
   void addIRPasses() override;
+  void addCodeGenPrepare() override;
   bool addPreISel() override;
   bool addInstSelector() override;
   bool addGCPasses() override;
@@ -300,11 +309,13 @@ public:
   ScheduleDAGInstrs *
   createMachineScheduler(MachineSchedContext *C) const override;
 
+  void addIRPasses() override;
   bool addPreISel() override;
   void addMachineSSAOptimization() override;
   bool addInstSelector() override;
 #ifdef LLVM_BUILD_GLOBAL_ISEL
   bool addIRTranslator() override;
+  bool addLegalizeMachineIR() override;
   bool addRegBankSelect() override;
 #endif
   void addFastRegAlloc(FunctionPass *RegAllocPass) override;
@@ -392,6 +403,13 @@ void AMDGPUPassConfig::addIRPasses() {
     addEarlyCSEOrGVNPass();
 }
 
+void AMDGPUPassConfig::addCodeGenPrepare() {
+  TargetPassConfig::addCodeGenPrepare();
+
+  if (EnableLoadStoreVectorizer)
+    addPass(createLoadStoreVectorizerPass());
+}
+
 bool AMDGPUPassConfig::addPreISel() {
   addPass(createFlattenCFGPass());
   return false;
@@ -416,7 +434,6 @@ bool R600PassConfig::addPreISel() {
 
   if (EnableR600StructurizeCFG)
     addPass(createStructurizeCFGPass());
-  addPass(createR600TextureIntrinsicsReplacer());
   return false;
 }
 
@@ -484,6 +501,13 @@ void GCNPassConfig::addMachineSSAOptimization() {
   addPass(&DeadMachineInstructionElimID);
 }
 
+void GCNPassConfig::addIRPasses() {
+  // TODO: May want to move later or split into an early and late one.
+  addPass(createAMDGPUCodeGenPreparePass(&getGCNTargetMachine()));
+
+  AMDGPUPassConfig::addIRPasses();
+}
+
 bool GCNPassConfig::addInstSelector() {
   AMDGPUPassConfig::addInstSelector();
   addPass(createSILowerI1CopiesPass());
@@ -494,6 +518,10 @@ bool GCNPassConfig::addInstSelector() {
 #ifdef LLVM_BUILD_GLOBAL_ISEL
 bool GCNPassConfig::addIRTranslator() {
   addPass(new IRTranslator());
+  return false;
+}
+
+bool GCNPassConfig::addLegalizeMachineIR() {
   return false;
 }
 

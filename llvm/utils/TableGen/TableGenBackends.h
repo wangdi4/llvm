@@ -82,6 +82,7 @@ void EmitAttributes(RecordKeeper &RK, raw_ostream &OS);
 void EmitDirectives(RecordKeeper &RK, raw_ostream &OS);   // INTEL
 void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS); // INTEL
 void EmitMAPatterns(RecordKeeper &RK, raw_ostream &OS);   // INTEL
+void EmitSearchableTables(RecordKeeper &RK, raw_ostream &OS);
 
 } // End llvm namespace
 
